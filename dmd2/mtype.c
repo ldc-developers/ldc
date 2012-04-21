@@ -5404,12 +5404,17 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
         }
         if (FuncLiteralDeclaration *literal = funcdecl->isFuncLiteralDeclaration()) {
             // Never merge types of function literals of different kind
-            if (literal->tok == TOKreserved)
-                buf->writeByte('L');
-            else if (literal->tok == TOKfunction)
-                buf->writeByte('F');
-            else if (literal->tok == TOKdelegate)
+            if (literal->tok == TOKdelegate) {
                 buf->writeByte('D');
+            } else if (literal->tok == TOKfunction) {
+                buf->writeByte('F');
+            } else if (literal->tok == TOKreserved) {
+                static int counter = 0;
+                buf->writeByte('L');
+                // And never merge types of lambdas, because we don't know whether
+                // they need a nested context argument or not.
+                buf->printf("%i", counter++);
+            }
         }
         /* BUG This causes problems with delegate types
            On the other hand, the llvm type for nested functions *is* different

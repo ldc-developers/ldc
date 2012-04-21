@@ -891,7 +891,7 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
                 Type *pt = p->type;
                 if (tf->varargs == 2 && i + 1 == nparams && pt->nextOf())
                     pt = pt->nextOf();
-                arg = arg->inferType(pt);
+                arg = arg->inferType(pt, 2);
                 arguments->tdata()[i] = arg;
             }
 
@@ -10464,7 +10464,7 @@ Ltupleassign:
         }
     }
 
-    e2 = e2->inferType(t1);
+    e2 = e2->inferType(t1, 2);
     if (!e2->rvalue())
         return new ErrorExp();
 
