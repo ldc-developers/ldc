@@ -928,8 +928,8 @@ struct FuncAliasDeclaration : FuncDeclaration
     const char *kind();
 #if IN_DMD
     Symbol *toSymbol();
-    char *mangle() { return toAliasFunc()->mangle(); }
 #endif
+    char *mangle() { return toAliasFunc()->mangle(); }
 
     FuncDeclaration *toAliasFunc();
 };
