@@ -3859,7 +3859,11 @@ Statement *ReturnStatement::semantic(Scope *sc)
                         //printf("m1 = %d, m2 = %d\n", m1, m2);
 
                         if (m1 && m2)
+                    #if IN_LLVM
+                            exp = exp->implicitCastTo(sc, tret);
+                    #else
                             ;
+                    #endif
                         else if (!m1 && m2)
                             tf->next = exp->type;
                         else if (m1 && !m2)
