@@ -49,7 +49,7 @@ Dsymbols *AttribDeclaration::include(Scope *sc, ScopeDsymbol *sd)
 
 int AttribDeclaration::apply(Dsymbol_apply_ft_t fp, void *param)
 {
-    Dsymbols *d = include(NULL, NULL);
+    Dsymbols *d = include(scope, NULL);
 
     if (d)
     {
@@ -1237,9 +1237,9 @@ void ConditionalDeclaration::emitComment(Scope *sc)
 
 Dsymbols *ConditionalDeclaration::include(Scope *sc, ScopeDsymbol *sd)
 {
-    //printf("ConditionalDeclaration::include()\n");
+    //printf("ConditionalDeclaration::include(sc = %p) scope = %p\n", sc, scope);
     assert(condition);
-    return condition->include(sc, sd) ? decl : elsedecl;
+    return condition->include(scope ? scope : sc, sd) ? decl : elsedecl;
 }
 
 void ConditionalDeclaration::setScope(Scope *sc)
@@ -1399,6 +1399,9 @@ void StaticIfDeclaration::importAll(Scope *sc)
 void StaticIfDeclaration::setScope(Scope *sc)
 {
     // do not evaluate condition before semantic pass
+
+    // But do set the scope, in case we need it for forward referencing
+    Dsymbol::setScope(sc);
 }
 
 void StaticIfDeclaration::semantic(Scope *sc)
@@ -1429,6 +1432,8 @@ const char *StaticIfDeclaration::kind()
 
 
 /***************************** CompileDeclaration *****************************/
+
+// These are mixin declarations, like mixin("int x");
 
 CompileDeclaration::CompileDeclaration(Loc loc, Expression *exp)
     : AttribDeclaration(NULL)
@@ -1503,3 +1508,10 @@ void CompileDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writestring(");");
     buf->writenl();
 }
+
+const char *CompileDeclaration::kind()
+{
+    return "mixin";
+}
+
+
