@@ -239,7 +239,9 @@ DValue* VarExp::toElem(IRState* p)
     {
         Logger::println("FuncDeclaration");
         LLValue* func = 0;
+#if DMDV2
         fdecl = fdecl->toAliasFunc();
+#endif
         if (fdecl->llvmInternal == LLVMinline_asm) {
             error("special ldc inline asm is not a normal function");
             fatal();
@@ -3007,6 +3009,7 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     Type* aatype = basetype;
     Type* vtype = aatype->nextOf();
 
+#if DMDV2
     if (!keys->dim)
         goto LruntimeInit;
 
@@ -3018,7 +3021,6 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
         aatype = aatype->semantic(loc, NULL);
     }
 
-#if DMDV2
     {
         std::vector<LLConstant*> keysInits, valuesInits;
         for (size_t i = 0, n = keys->dim; i < n; ++i)

@@ -13,6 +13,7 @@
 #include "llvm/Transforms/IPO.h"
 
 #include "mars.h"       // error()
+#include "root.h"
 #include <cstring>      // strcmp();
 
 using namespace llvm;
