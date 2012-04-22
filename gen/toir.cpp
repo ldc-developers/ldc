@@ -151,9 +151,14 @@ DValue* VarExp::toElem(IRState* p)
         else if (vd->ident == Id::dollar)
         {
             Logger::println("Id::dollar");
+            LLValue* val = 0;
+            if (vd->ir.isSet() && (val = vd->ir.getIrValue())) {
+                // It must be length of a range
+                return new DVarValue(type, vd, val);
+            }
             assert(!p->arrays.empty());
-            LLValue* tmp = DtoArrayLen(p->arrays.back());
-            return new DImValue(type, tmp);
+            val = DtoArrayLen(p->arrays.back());
+            return new DImValue(type, val);
         }
         // classinfo
         else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
