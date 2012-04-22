@@ -143,7 +143,7 @@ struct Statement : Object
     virtual CompoundStatement *isCompoundStatement() { return NULL; }
     virtual ReturnStatement *isReturnStatement() { return NULL; }
     virtual IfStatement *isIfStatement() { return NULL; }
-    virtual CaseStatement* isCaseStatement() { return NULL; }
+    virtual CaseStatement *isCaseStatement() { return NULL; }
     virtual DefaultStatement *isDefaultStatement() { return NULL; }
     virtual LabelStatement* isLabelStatement() { return NULL; }
 
@@ -883,6 +883,9 @@ struct LabelStatement : Statement
 struct LabelDsymbol : Dsymbol
 {
     LabelStatement *statement;
+#if IN_GCC
+    unsigned asmLabelNum;       // GCC-specific
+#endif
 
     LabelDsymbol(Identifier *ident);
     LabelDsymbol *isLabel();

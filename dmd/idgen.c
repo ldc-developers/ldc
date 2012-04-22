@@ -4,6 +4,7 @@
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
+// http://www.dsource.org/projects/dmd/browser/branches/dmd-1.x/src/idgen.c
 // License for redistribution is by either the Artistic License
 // in artistic.txt, or the GNU General Public License in gnu.txt.
 // See the included readme.txt for details.
@@ -92,6 +93,7 @@ Msgtable msgtable[] =
     { "_arguments" },
     { "_argptr" },
     { "_match" },
+    { "m_align" },
 
     { "LINE", "__LINE__" },
     { "FILE", "__FILE__" },

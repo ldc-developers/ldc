@@ -13,14 +13,11 @@
 #include <stdio.h>
 #include <assert.h>
 
-#if !IN_LLVM
-#endif
 #include "root.h"
 #include "aav.h"
 #include "rmem.h"
 #include "stringtable.h"
-#include "mars.h"
-#include "identifier.h"
+
 #include "mtype.h"
 #include "template.h"
 #include "init.h"
@@ -30,6 +27,9 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "dsymbol.h"
+#include "mars.h"
+#include "dsymbol.h"
+#include "identifier.h"
 #include "hdrgen.h"
 
 #if WINDOWS_SEH
@@ -235,7 +235,7 @@ int match(Object *o1, Object *o2, TemplateDeclaration *tempdecl, Scope *sc)
     {
         if (!s2 || !s1->equals(s2) || s1->parent != s2->parent)
             goto Lnomatch;
-        }
+    }
     else if (u1)
     {
         if (!u2)
@@ -1555,7 +1555,7 @@ void TemplateDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
         buf->writestring("foo ");
 #endif
     if (hgs->ddoc)
-    buf->writestring(kind());
+        buf->writestring(kind());
     else
         buf->writestring("template");
     buf->writeByte(' ');
@@ -1822,7 +1822,7 @@ MATCH TypeSArray::deduceType(Scope *sc, Type *tparam, TemplateParameters *parame
             TypeSArray *tp = (TypeSArray *)tparam;
             if (tp->dim->op == TOKvar &&
                 ((VarExp *)tp->dim)->var->storage_class & STCtemplateparameter)
-                {
+            {
                 id = ((VarExp *)tp->dim)->var->ident;
             }
             else if (dim->toInteger() != tp->dim->toInteger())
@@ -1833,7 +1833,7 @@ MATCH TypeSArray::deduceType(Scope *sc, Type *tparam, TemplateParameters *parame
             TypeAArray *tp = (TypeAArray *)tparam;
             if (tp->index->ty == Tident &&
                 ((TypeIdentifier *)tp->index)->idents.dim == 0)
-                    {
+            {
                 id = ((TypeIdentifier *)tp->index)->ident;
             }
         }
@@ -1842,28 +1842,28 @@ MATCH TypeSArray::deduceType(Scope *sc, Type *tparam, TemplateParameters *parame
             // This code matches code in TypeInstance::deduceType()
             int i = templateIdentifierLookup(id, parameters);
             if (i == -1)
-                                goto Lnomatch;
+                goto Lnomatch;
             TemplateParameter *tprm = parameters->tdata()[i];
             TemplateValueParameter *tvp = tprm->isTemplateValueParameter();
             if (!tvp)
                 goto Lnomatch;
             Expression *e = (Expression *)dedtypes->tdata()[i];
             if (e)
-                            {
+            {
                 if (!dim->equals(e))
-                                    goto Lnomatch;
-                            }
-                            else
+                    goto Lnomatch;
+            }
+            else
             {
                 Type *vt = tvp->valType->semantic(0, sc);
                 MATCH m = (MATCH)dim->implicitConvTo(vt);
                 if (!m)
                     goto Lnomatch;
                 dedtypes->tdata()[i] = dim;
-                            }
-                            return next->deduceType(sc, tparam->nextOf(), parameters, dedtypes);
-                        }
-                    }
+            }
+            return next->deduceType(sc, tparam->nextOf(), parameters, dedtypes);
+        }
+    }
     return Type::deduceType(sc, tparam, parameters, dedtypes);
 
   Lnomatch:
@@ -3655,7 +3655,7 @@ void TemplateInstance::semantic(Scope *sc)
             if (m->semanticRun >= 3)
             {
                 dosemantic3 = 1;
-        }
+            }
         }
         for (size_t i = 0; 1; i++)
         {
@@ -3866,10 +3866,10 @@ void TemplateInstance::semantic(Scope *sc)
                 assert(target_symbol_list->tdata()[target_symbol_list_idx] == this);
                 target_symbol_list->remove(target_symbol_list_idx);
             }
-                semanticRun = 0;
-                inst = NULL;
-            }
+            semanticRun = 0;
+            inst = NULL;
         }
+    }
 
 #if LOG
     printf("-TemplateInstance::semantic('%s', this=%p)\n", toChars(), this);
@@ -4302,9 +4302,9 @@ int TemplateInstance::hasNestedArgs(Objects *args)
                 (ad && ad->isnested) ||
                 (d && !d->isDataseg() &&
 #if DMDV2
-                !(d->storage_class & STCmanifest) &&
+                 !(d->storage_class & STCmanifest) &&
 #endif
-                (!d->isFuncDeclaration() || d->isFuncDeclaration()->isNested()) &&
+                 (!d->isFuncDeclaration() || d->isFuncDeclaration()->isNested()) &&
                  !isTemplateMixin()
                 ))
             {
@@ -4691,7 +4691,7 @@ void TemplateInstance::toObjFile(int multiobj)
         if (multiobj)
             // Append to list of object files to be written later
             //obj_append(this);
-        assert(0 && "multiobj");
+            assert(0 && "multiobj");
         else
         {
             for (size_t i = 0; i < members->dim; i++)

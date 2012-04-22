@@ -272,6 +272,11 @@ struct Param
     const char* llvmArch;
     const char *targetTriple;
     const char *dataLayout;
+
+    // Codegen cl options
+    bool singleObj;
+    bool disableRedZone;
+    bool noVerify;
 #endif
 };
 

@@ -269,9 +269,9 @@ void ExpStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     }
     else
     {
-    buf->writeByte(';');
-    if (!hgs->FLinit.init)
-        buf->writenl();
+        buf->writeByte(';');
+        if (!hgs->FLinit.init)
+            buf->writenl();
     }
 }
 
@@ -1727,9 +1727,9 @@ Statement *ForeachStatement::semantic(Scope *sc)
             Expression *ec;
             Expression *e;
             Parameter *a;
-        TypeDelegate* dgty;
-        TypeDelegate* dgty2;
-        TypeDelegate* fldeTy;
+            TypeDelegate* dgty;
+            TypeDelegate* dgty2;
+            TypeDelegate* fldeTy;
 
             Type *tret = func->type->nextOf();
 
@@ -1838,10 +1838,10 @@ Statement *ForeachStatement::semantic(Scope *sc)
                 FuncDeclaration *fdapply;
                 if (dim == 2) {
                     fdapply = aaApply2_fd;
-            fldeTy = aaApply2_dg;
+                    fldeTy = aaApply2_dg;
                 } else {
                     fdapply = aaApply_fd;
-            fldeTy = aaApply_dg;
+                    fldeTy = aaApply_dg;
                 }
                 ec = new VarExp(0, fdapply);
                 Expressions *exps = new Expressions();
@@ -2937,7 +2937,6 @@ Statement *CaseStatement::semantic(Scope *sc)
 {   SwitchStatement *sw = sc->sw;
 
     //printf("CaseStatement::semantic() %s\n", toChars());
-
     exp = exp->semantic(sc);
     if (sw)
     {
@@ -3126,7 +3125,6 @@ Statement *DefaultStatement::syntaxCopy()
 Statement *DefaultStatement::semantic(Scope *sc)
 {
     //printf("DefaultStatement::semantic()\n");
-
     if (sc->sw)
     {
         if (sc->sw->sdefault)
@@ -4098,7 +4096,7 @@ int TryCatchStatement::blockExit(bool mustNotThrow)
         if (id == Id::Object)
         {
             result &= ~BEthrow;
-    }
+        }
     }
     if (mustNotThrow && (result & BEthrow))
     {
@@ -4635,6 +4633,9 @@ LabelDsymbol::LabelDsymbol(Identifier *ident)
         : Dsymbol(ident)
 {
     statement = NULL;
+#if IN_GCC
+    asmLabelNum = 0;
+#endif
 }
 
 LabelDsymbol *LabelDsymbol::isLabel()           // is this a LabelDsymbol()?

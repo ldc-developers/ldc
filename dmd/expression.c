@@ -16,6 +16,7 @@
 #if _MSC_VER
 #include <complex>
 #else
+#include <complex>
 #endif
 
 #if _WIN32 && __DMC__
@@ -125,8 +126,8 @@ Expression *getRightThis(Loc loc, Scope *sc, AggregateDeclaration *ad,
                         //printf("rewriting e1 to %s's this\n", f->toChars());
                         n++;
 
-            // LDC seems dmd misses it sometimes here :/
-            f->vthis->nestedref = 1;
+                        // LDC seems dmd misses it sometimes here :/
+                        f->vthis->nestedref = 1;
 
                         e1 = new VarExp(loc, f->vthis);
                     }
@@ -780,7 +781,7 @@ void functionParameters(Loc loc, Scope *sc, TypeFunction *tf, Expressions *argum
         {
 
             // If not D linkage, do promotions
-        // LDC: don't do promotions on intrinsics
+            // LDC: don't do promotions on intrinsics
             if (tf->linkage != LINKd && tf->linkage != LINKintrinsic)
             {
                 // Promote bytes, words, etc., to ints
@@ -1357,7 +1358,8 @@ Expressions *Expression::arraySyntaxCopy(Expressions *exps)
         for (size_t i = 0; i < a->dim; i++)
         {   Expression *e = (Expression *)exps->data[i];
 
-            e = e->syntaxCopy();
+            if (e)
+                e = e->syntaxCopy();
             a->data[i] = e;
         }
     }
@@ -3189,7 +3191,7 @@ void ArrayLiteralExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 void ArrayLiteralExp::toMangleBuffer(OutBuffer *buf)
 {
     size_t dim = elements ? elements->dim : 0;
-    buf->printf("A%zu", dim);
+    buf->printf("A%u", dim);
     for (size_t i = 0; i < dim; i++)
     {   Expression *e = elements->tdata()[i];
         e->toMangleBuffer(buf);
@@ -3291,7 +3293,7 @@ void AssocArrayLiteralExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 void AssocArrayLiteralExp::toMangleBuffer(OutBuffer *buf)
 {
     size_t dim = keys->dim;
-    buf->printf("A%zu", dim);
+    buf->printf("A%u", dim);
     for (size_t i = 0; i < dim; i++)
     {   Expression *key = (Expression *)keys->data[i];
         Expression *value = (Expression *)values->data[i];
@@ -3396,22 +3398,22 @@ Expression *StructLiteralExp::semantic(Scope *sc)
             {   if (v->init->isVoidInitializer())
                     e = NULL;
                 else
-            {   e = v->init->toExpression();
-                if (!e)
-                {   error("cannot make expression out of initializer for %s", v->toChars());
+                {   e = v->init->toExpression();
+                    if (!e)
+                    {   error("cannot make expression out of initializer for %s", v->toChars());
                         return new ErrorExp();
-                }
-                else if (v->scope)
+                    }
+                    else if (v->scope)
                     {   // Do deferred semantic analysis
-                    Initializer *i2 = v->init->syntaxCopy();
+                        Initializer *i2 = v->init->syntaxCopy();
                         i2 = i2->semantic(v->scope, v->type, WANTinterpret);
-                    e = i2->toExpression();
+                        e = i2->toExpression();
                         // remove v->scope (see bug 3426)
                         // but not if gagged, for we might be called again.
                         if (!global.gag)
-                    v->scope = NULL;
+                            v->scope = NULL;
+                    }
                 }
-            }
             }
             else
                 e = v->type->defaultInitLiteral(loc);
@@ -3545,7 +3547,7 @@ void StructLiteralExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 void StructLiteralExp::toMangleBuffer(OutBuffer *buf)
 {
     size_t dim = elements ? elements->dim : 0;
-    buf->printf("S%zu", dim);
+    buf->printf("S%u", dim);
     for (size_t i = 0; i < dim; i++)
     {   Expression *e = (Expression *)elements->data[i];
         if (e)
@@ -5047,6 +5049,17 @@ Expression *IsExp::semantic(Scope *sc)
                     goto Lno;
                 break;
 
+            case TOKargTypes:
+                /* Generate a type tuple of the equivalent types used to determine if a
+                 * function argument of this type can be passed in registers.
+                 * The results of this are highly platform dependent, and intended
+                 * primarly for use in implementing va_arg().
+                 */
+                tded = targ->toArgTypes();
+                if (!tded)
+                    goto Lno;           // not valid for a parameter
+                break;
+
             default:
                 assert(0);
         }
@@ -5744,7 +5757,7 @@ Expression *DotIdExp::semantic(Scope *sc)
     else
     {
         if (e1->op != TOKtype)
-        e1 = resolveProperties(sc, e1);
+            e1 = resolveProperties(sc, e1);
         eleft = NULL;
         eright = e1;
     }
@@ -6240,7 +6253,7 @@ L1:
         }
         else
 #endif
-        ti->semantic(sc);
+            ti->semantic(sc);
         if (!ti->inst)                  // if template failed to expand
             return new ErrorExp();
         Dsymbol *s = ti->inst->toAlias();
@@ -6450,7 +6463,7 @@ Expression *DelegateExp::semantic(Scope *sc)
     {
         m = sc->module;
         e1 = e1->semantic(sc);
-    // LDC we need a copy as we store the LLVM tpye in TypeFunction, and delegate/members have different types for 'this'
+        // LDC we need a copy as we store the LLVM tpye in TypeFunction, and delegate/members have different types for 'this'
         type = new TypeDelegate(func->type->syntaxCopy());
         type = type->semantic(loc, sc);
         AggregateDeclaration *ad = func->toParent()->isAggregateDeclaration();
@@ -7314,14 +7327,14 @@ Expression *AddrExp::semantic(Scope *sc)
         {
             VarExp *dve = (VarExp *)e1;
             FuncDeclaration *f = dve->var->isFuncDeclaration();
-        VarDeclaration *v = dve->var->isVarDeclaration();
+            VarDeclaration *v = dve->var->isVarDeclaration();
 
-        // LDC
-        if (f && f->isIntrinsic())
-        {
-            error("cannot take the address of intrinsic function %s", e1->toChars());
-            return this;
-        }
+            // LDC
+            if (f && f->isIntrinsic())
+            {
+                error("cannot take the address of intrinsic function %s", e1->toChars());
+                return this;
+            }
 
             if (f && f->isNested())
             {
@@ -9631,7 +9644,7 @@ Expression *MulExp::semantic(Scope *sc)
             if (t2->isimaginary())
             {   Expression *e;
 
-                switch (t1->ty)
+                switch (t1->toBasetype()->ty)
                 {
                     case Timaginary32:  type = Type::tfloat32;  break;
                     case Timaginary64:  type = Type::tfloat64;  break;
@@ -9705,7 +9718,7 @@ Expression *DivExp::semantic(Scope *sc)
         {
             if (t2->isimaginary())
             {
-                switch (t1->ty)
+                switch (t1->toBasetype()->ty)
                 {
                     case Timaginary32:  type = Type::tfloat32;  break;
                     case Timaginary64:  type = Type::tfloat64;  break;
@@ -9779,7 +9792,7 @@ Expression *ShlExp::semantic(Scope *sc)
 #if !IN_LLVM
         e2 = e2->castTo(sc, Type::tshiftcnt);
 #else
-    e2 = e2->castTo(sc, e1->type);
+        e2 = e2->castTo(sc, e1->type);
 #endif
         type = e1->type;
     }

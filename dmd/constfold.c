@@ -75,7 +75,7 @@ int ComplexExp::isConst()
 
 int NullExp::isConst()
 {
-    return 1;
+    return 0;
 }
 
 int SymOffExp::isConst()
@@ -1455,7 +1455,7 @@ Expression *Cat(Type *type, Expression *e1, Expression *e2)
             if (t->ty == tn->ty)
                 memcpy((unsigned char *)s, &v, sz);
             else
-            utf_encode(sz, s, v);
+                utf_encode(sz, s, v);
 
             // Add terminating 0
             memset((unsigned char *)s + len * sz, 0, sz);
@@ -1579,7 +1579,7 @@ Expression *Cat(Type *type, Expression *e1, Expression *e2)
         if (homoConcat)
              memcpy((unsigned char *)s + (sz * es1->len), &v, sz);
         else
-        utf_encode(sz, (unsigned char *)s + (sz * es1->len), v);
+             utf_encode(sz, (unsigned char *)s + (sz * es1->len), v);
 
         // Add terminating 0
         memset((unsigned char *)s + len * sz, 0, sz);

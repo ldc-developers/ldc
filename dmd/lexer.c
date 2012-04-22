@@ -302,10 +302,10 @@ Lexer::Lexer(Module *mod,
 
 void Lexer::error(const char *format, ...)
 {
-        va_list ap;
-        va_start(ap, format);
+    va_list ap;
+    va_start(ap, format);
     verror(loc, format, ap);
-        va_end(ap);
+    va_end(ap);
 }
 
 void Lexer::error(Loc loc, const char *format, ...)
@@ -3027,6 +3027,7 @@ static Keyword keywords[] =
     //{ "manifest",     TOKmanifest     },
 
     // Added after 1.0
+    {   "__argTypes",   TOKargTypes     },
     {   "ref",          TOKref          },
     {   "macro",        TOKmacro        },
 #if DMDV2

@@ -50,12 +50,11 @@ struct Parameter;
 #if IN_GCC
 union tree_node; typedef union tree_node TYPE;
 typedef TYPE type;
-#endif
-
-#if IN_DMD
+#else
 typedef struct TYPE type;
-struct Symbol;
 #endif
+struct Symbol;
+struct TypeTuple;
 
 enum TY
 {
@@ -270,6 +269,7 @@ struct Type : Object
     virtual Type *reliesOnTident();
     virtual Expression *toExpression();
     virtual int hasPointers();
+    virtual TypeTuple *toArgTypes();
     Type *next;
     Type *nextOf() { return next; }
 
@@ -359,6 +359,7 @@ struct TypeBasic : Type
     Expression *defaultInit(Loc loc);
     int isZeroInit(Loc loc);
     int builtinTypeInfo();
+    TypeTuple *toArgTypes();
 
     // For eliminating dynamic_cast
     TypeBasic *isTypeBasic();
@@ -398,6 +399,7 @@ struct TypeSArray : TypeArray
     TypeInfoDeclaration *getTypeInfoDeclaration();
     Expression *toExpression();
     int hasPointers();
+    TypeTuple *toArgTypes();
 
 #if IN_DMD
     type *toCtype();
@@ -424,6 +426,7 @@ struct TypeDArray : TypeArray
     int builtinTypeInfo();
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
+    TypeTuple *toArgTypes();
 
 #if IN_DMD
     type *toCtype();
@@ -449,6 +452,7 @@ struct TypeAArray : TypeArray
     int checkBoolean();
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
+    TypeTuple *toArgTypes();
 
 #if IN_DMD
     // Back end
@@ -473,6 +477,7 @@ struct TypePointer : Type
     int isZeroInit(Loc loc);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
+    TypeTuple *toArgTypes();
 
 #if IN_DMD
     type *toCtype();
@@ -500,7 +505,11 @@ struct TypeFunction : Type
 {
     Parameters *parameters;     // function parameters
     int varargs;        // 1: T t, ...) style for variable number of arguments
+                        //    if extern (C) then this is C style va_args
+                        //    if extern (D) then D style va_args
                         // 2: T t ...) style for variable number of arguments
+                        //    where the args are stored in a local, and a
+                        //    dynamic array is passed to the function
     enum LINK linkage;  // calling convention
 
     int inuse;
@@ -549,6 +558,7 @@ struct TypeDelegate : Type
     TypeInfoDeclaration *getTypeInfoDeclaration();
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident);
     int hasPointers();
+    TypeTuple *toArgTypes();
 
 #if IN_DMD
     type *toCtype();
@@ -642,6 +652,7 @@ struct TypeStruct : Type
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
+    TypeTuple *toArgTypes();
 #if CPP_MANGLE
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
 #endif
@@ -661,10 +672,10 @@ struct TypeEnum : Type
     EnumDeclaration *sym;
 
     TypeEnum(EnumDeclaration *sym);
+    Type *syntaxCopy();
     d_uns64 size(Loc loc);
     unsigned alignsize();
     char *toChars();
-    Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
     void toDecoBuffer(OutBuffer *buf, bool mangle);
@@ -682,6 +693,10 @@ struct TypeEnum : Type
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
+    TypeTuple *toArgTypes();
+#if CPP_MANGLE
+    void toCppMangle(OutBuffer *buf, CppMangleState *cms);
+#endif
 
 #if IN_DMD
     type *toCtype();
@@ -722,6 +737,7 @@ struct TypeTypedef : Type
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
+    TypeTuple *toArgTypes();
 
 #if IN_DMD
     type *toCtype();
@@ -752,6 +768,7 @@ struct TypeClass : Type
     int checkBoolean();
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
+    TypeTuple *toArgTypes();
     int builtinTypeInfo();
 #if DMDV2
     Type *toHeadMutable();
@@ -774,6 +791,9 @@ struct TypeTuple : Type
 
     TypeTuple(Parameters *arguments);
     TypeTuple(Expressions *exps);
+    TypeTuple();
+    TypeTuple(Type *t1);
+    TypeTuple(Type *t1, Type *t2);
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     int equals(Object *o);

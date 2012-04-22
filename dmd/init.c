@@ -484,7 +484,7 @@ Initializer *ArrayInitializer::semantic(Scope *sc, Type *t, int needInterpret)
     }
 
     if ((unsigned long) dim * t->nextOf()->size() >= amax)
-    {   error(loc, "array dimension %u exceeds max of %ju", dim, amax / t->nextOf()->size());
+    {   error(loc, "array dimension %u exceeds max of %u", dim, amax / t->nextOf()->size());
         goto Lerr;
     }
     return this;
@@ -540,6 +540,7 @@ Expression *ArrayInitializer::toExpression()
 
     elements = new Expressions();
     elements->setDim(edim);
+    elements->zero();
     for (size_t i = 0, j = 0; i < value.dim; i++, j++)
     {
         if (index[i])

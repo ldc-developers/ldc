@@ -52,7 +52,6 @@ enum TOK;
 #if IN_DMD
 // Back end
 struct IRState;
-
 struct dt_t;
 struct elem;
 struct Symbol;          // back end symbol
@@ -470,6 +469,9 @@ struct ArrayLiteralExp : Expression
     int apply(apply_fp_t fp, void *param);
     Expression *semantic(Scope *sc);
     int isBool(int result);
+#if IN_DMD
+    elem *toElem(IRState *irs);
+#endif
     int checkSideEffect(int flag);
     StringExp *toString();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -478,14 +480,14 @@ struct ArrayLiteralExp : Expression
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
+#if IN_DMD
+    dt_t **toDt(dt_t **pdt);
+#endif
 
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
 
-#if IN_DMD
-    elem *toElem(IRState *irs);
-    dt_t **toDt(dt_t **pdt);
-#elif IN_LLVM
+#if IN_LLVM
     DValue* toElem(IRState* irs);
     llvm::Constant *toConstElem(IRState *irs);
 #endif
@@ -525,7 +527,7 @@ struct AssocArrayLiteralExp : Expression
 
 struct StructLiteralExp : Expression
 {
-    StructDeclaration *sd;              // which aggregate this is for
+    StructDeclaration *sd;      // which aggregate this is for
     Expressions *elements;      // parallels sd->fields[] with
                                 // NULL entries for fields to skip
     Type *stype;                // final type of result (can be different from sd's type)
@@ -544,21 +546,24 @@ struct StructLiteralExp : Expression
     Expression *semantic(Scope *sc);
     Expression *getField(Type *type, unsigned offset);
     int getFieldIndex(Type *type, unsigned offset);
+#if IN_DMD
+    elem *toElem(IRState *irs);
+#endif
     int checkSideEffect(int flag);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toMangleBuffer(OutBuffer *buf);
     Expression *optimize(int result);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
+#if IN_DMD
+    dt_t **toDt(dt_t **pdt);
+#endif
     Expression *toLvalue(Scope *sc, Expression *e);
 
     int inlineCost3(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
 
-#if IN_DMD
-    elem *toElem(IRState *irs);
-    dt_t **toDt(dt_t **pdt);
-#elif IN_LLVM
+#if IN_LLVM
     DValue* toElem(IRState* irs);
     llvm::Constant *toConstElem(IRState *irs);
     llvm::StructType *constType;
