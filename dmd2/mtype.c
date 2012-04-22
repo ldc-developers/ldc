@@ -6066,6 +6066,19 @@ int TypeFunction::callMatch(Expression *ethis, Expressions *args, int flag)
                                 new IntegerExp(0, ((StringExp *)arg)->len,
                                 Type::tindex));
                 }
+                else if (arg->op == TOKstructliteral)
+                    match = MATCHconvert;
+                else if (arg->op == TOKcall)
+                {
+                    CallExp *ce = (CallExp *)arg;
+                    if (ce->e1->op == TOKdotvar &&
+                        ((DotVarExp *)ce->e1)->var->isCtorDeclaration())
+                    {
+                        match = MATCHconvert;
+                    }
+                    else
+                        goto Nomatch;
+                }
                 else
                     goto Nomatch;
             }
@@ -7933,7 +7946,15 @@ Expression *TypeStruct::dotExp(Scope *sc, Expression *e, Identifier *ident)
 L1:
     if (!s)
     {
-        return noMember(sc, e, ident);
+        if (sym->scope)                 // it's a fwd ref, maybe we can resolve it
+        {
+            sym->semantic(NULL);
+            s = sym->search(e->loc, ident, 0);
+            if (!s)
+                return noMember(sc, e, ident);
+        }
+        else
+            return noMember(sc, e, ident);
     }
     if (!s->isFuncDeclaration())        // because of overloading
         s->checkDeprecated(e->loc, sc);

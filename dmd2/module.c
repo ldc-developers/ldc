@@ -1000,6 +1000,8 @@ void Module::semantic2(Scope* unused_sc)
         return;
     }
     //printf("Module::semantic2('%s'): parent = %p\n", toChars(), parent);
+    if (semanticRun == 0)       // semantic() not completed yet - could be recursive call
+        return;
     if (semanticstarted >= 2)
         return;
     assert(semanticstarted == 1);

@@ -465,7 +465,7 @@ void StructDeclaration::semantic(Scope *sc)
          */
         //if (s->isEnumDeclaration() || (s->isAggregateDeclaration() && s->ident))
         {
-            //printf("setScope %s %s\n", s->kind(), s->toChars());
+            //printf("struct: setScope %s %s\n", s->kind(), s->toChars());
             s->setScope(sc2);
         }
     }
@@ -487,7 +487,9 @@ void StructDeclaration::semantic(Scope *sc)
         // Ungag errors when not speculative
         unsigned oldgag = global.gag;
         if (global.isSpeculativeGagging() && !isSpeculative())
+        {
             global.gag = 0;
+        }
         s->semantic(sc2);
         global.gag = oldgag;
     }

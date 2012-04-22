@@ -21,6 +21,7 @@
 #include "scope.h"
 #include "mtype.h"
 #include "hdrgen.h"
+#include "template.h"
 
 /********************************** Initializer *******************************/
 
@@ -160,8 +161,18 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t, int needInterpret)
         if (ad->ctor)
             error(loc, "%s %s has constructors, cannot use { initializers }, use %s( initializers ) instead",
                 ad->kind(), ad->toChars(), ad->toChars());
-        size_t nfields = ad->fields.dim;
-        if (((StructDeclaration *)ad)->isnested) nfields--;
+        StructDeclaration *sd = ad->isStructDeclaration();
+        assert(sd);
+        sd->size(loc);
+        if (sd->sizeok != SIZEOKdone)
+        {
+            error(loc, "struct %s is forward referenced", sd->toChars());
+            errors = 1;
+            goto Lerror;
+        }
+        size_t nfields = sd->fields.dim;
+        if (sd->isnested)
+            nfields--;
         for (size_t i = 0; i < field.dim; i++)
         {
             Identifier *id = field[i];
@@ -244,6 +255,7 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t, int needInterpret)
         error(loc, "a struct is not a valid initializer for a %s", t->toChars());
         errors = 1;
     }
+Lerror:
     if (errors)
     {
         field.setDim(0);
@@ -264,12 +276,11 @@ Expression *StructInitializer::toExpression()
 
     //printf("StructInitializer::toExpression() %s\n", toChars());
     if (!ad)                            // if fwd referenced
-    {
         return NULL;
-    }
     StructDeclaration *sd = ad->isStructDeclaration();
     if (!sd)
         return NULL;
+
     Expressions *elements = new Expressions();
     size_t nfields = ad->fields.dim;
 #if DMDV2
@@ -870,6 +881,15 @@ Type *ExpInitializer::inferType(Scope *sc)
     //printf("ExpInitializer::inferType() %s\n", toChars());
     exp = exp->semantic(sc);
     exp = resolveProperties(sc, exp);
+    if (exp->op == TOKimport)
+    {   ScopeExp *se = (ScopeExp *)exp;
+        TemplateInstance *ti = se->sds->isTemplateInstance();
+        if (ti && ti->semanticRun == PASSsemantic && !ti->aliasdecl)
+            se->error("cannot infer type from %s %s, possible circular dependency", se->sds->kind(), se->toChars());
+        else
+            se->error("cannot infer type from %s %s", se->sds->kind(), se->toChars());
+        return Type::terror;
+    }
 
     // Give error for overloaded function addresses
     if (exp->op == TOKsymoff)
