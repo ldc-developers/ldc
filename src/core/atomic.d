@@ -195,17 +195,22 @@ else version( LDC )
     }
 
     bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis )
-        if( !is(T == class) && !is(T U : U*) &&  __traits( compiles, mixin( "*here = writeThis" ) ) )
+        if( !is(T == class) && !is(T U : U*) && __traits( compiles, { *here = writeThis; } ) )
     {
         return casImpl(here, ifThis, writeThis);
     }
 
     bool cas(T,V1,V2)( shared(T)* here, const shared(V1) ifThis, shared(V2) writeThis )
-        if( is(T == class) || is(T U : U*) && __traits( compiles, mixin( "*here = writeThis" ) ) )
+        if( is(T == class) && __traits( compiles, { *here = writeThis; } ) )
     {
         return casImpl(here, ifThis, writeThis);
     }
 
+    bool cas(T,V1,V2)( shared(T)* here, const shared(V1)* ifThis, shared(V2)* writeThis )
+        if( is(T U : U*) && __traits( compiles, { *here = writeThis; } ) )
+    {
+        return casImpl(here, ifThis, writeThis);
+    }
 
     private bool casImpl(T,V1,V2)( shared(T)* here, V1 ifThis, V2 writeThis )
     {
