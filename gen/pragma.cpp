@@ -379,6 +379,6 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         break;
 
     default:
-        warning("the LDC specific pragma '%s' is not yet implemented, ignoring", ident->toChars());
+        warning(Loc(), "the LDC specific pragma '%s' is not yet implemented, ignoring", ident->toChars());
     }
 }

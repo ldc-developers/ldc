@@ -541,6 +541,11 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     // key typeinfo
     b.push_typeinfo(tc->index);
 
+#if DMDV2
+    // impl typeinfo
+    b.push_typeinfo(tc->getImpl()->type);
+#endif
+
     // finish
     b.finalize(ir.irGlobal);
 }

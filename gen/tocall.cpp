@@ -72,7 +72,7 @@ DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg)
         llt = getPtrToType(llt);
     // issue a warning for broken va_arg instruction.
     if (global.params.cpu != ARCHx86)
-        warning("%s: va_arg for C variadic functions is probably broken for anything but x86", loc.toChars());
+        warning(Loc(), "%s: va_arg for C variadic functions is probably broken for anything but x86", loc.toChars());
     // done
     return new DImValue(type, gIR->ir->CreateVAArg(expelem->getLVal(), llt, "tmp"));
 }

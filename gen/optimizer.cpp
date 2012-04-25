@@ -12,7 +12,8 @@
 #include "llvm/Support/PassNameParser.h"
 #include "llvm/Transforms/IPO.h"
 
-#include "root.h"       // error()
+#include "mars.h"       // error()
+#include "root.h"
 #include <cstring>      // strcmp();
 
 using namespace llvm;

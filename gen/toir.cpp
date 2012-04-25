@@ -151,9 +151,14 @@ DValue* VarExp::toElem(IRState* p)
         else if (vd->ident == Id::dollar)
         {
             Logger::println("Id::dollar");
+            LLValue* val = 0;
+            if (vd->ir.isSet() && (val = vd->ir.getIrValue())) {
+                // It must be length of a range
+                return new DVarValue(type, vd, val);
+            }
             assert(!p->arrays.empty());
-            LLValue* tmp = DtoArrayLen(p->arrays.back());
-            return new DImValue(type, tmp);
+            val = DtoArrayLen(p->arrays.back());
+            return new DImValue(type, val);
         }
         // classinfo
         else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
@@ -234,6 +239,9 @@ DValue* VarExp::toElem(IRState* p)
     {
         Logger::println("FuncDeclaration");
         LLValue* func = 0;
+#if DMDV2
+        fdecl = fdecl->toAliasFunc();
+#endif
         if (fdecl->llvmInternal == LLVMinline_asm) {
             error("special ldc inline asm is not a normal function");
             fatal();
@@ -2576,30 +2584,28 @@ DValue* CatAssignExp::toElem(IRState* p)
     DValue* l = e1->toElem(p);
 
     Type* e1type = e1->type->toBasetype();
+    assert(e1type->ty == Tarray);
     Type* elemtype = e1type->nextOf()->toBasetype();
     Type* e2type = e2->type->toBasetype();
 
-    if (e2type == elemtype) {
-        DtoCatAssignElement(loc, e1type, l, e2);
+    if (e1type->ty == Tarray && e2type->ty == Tdchar &&
+        (elemtype->ty == Tchar || elemtype->ty == Twchar))
+    {
+        if (elemtype->ty == Tchar)
+            // append dchar to char[]
+            DtoAppendDCharToString(l, e2);
+        else /*if (elemtype->ty == Twchar)*/
+            // append dchar to wchar[]
+            DtoAppendDCharToUnicodeString(l, e2);
     }
-    else if (e1type == e2type) {
+    else if (e1type->equals(e2type)) {
+        // apeend array
         DSliceValue* slice = DtoCatAssignArray(l,e2);
         DtoAssign(loc, l, slice);
     }
-    else if (elemtype->ty == Tchar) {
-        if (e2type->ty == Tdchar)
-            DtoAppendDCharToString(l, e2);
-        else
-            assert(0 && "cannot append the element to a string");
-    }
-    else if (elemtype->ty == Twchar) {
-        if (e2type->ty == Tdchar)
-            DtoAppendDCharToUnicodeString(l, e2);
-        else
-            assert(0 && "cannot append the element to an unicode string");
-    }
     else {
-        assert(0 && "only one element at a time right now");
+        // append element
+        DtoCatAssignElement(loc, e1type, l, e2);
     }
 
     return l;
@@ -2986,28 +2992,42 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     assert(values);
     assert(keys->dim == values->dim);
 
-    Type* aatype = type->toBasetype();
+    Type* basetype = type->toBasetype();
+    Type* aatype = basetype;
     Type* vtype = aatype->nextOf();
 
 #if DMDV2
-    std::vector<LLConstant*> keysInits, valuesInits;
-    for (size_t i = 0, n = keys->dim; i < n; ++i)
-    {
-        Expression* ekey = (Expression*)keys->data[i];
-        Expression* eval = (Expression*)values->data[i];
-        Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
-        unsigned errors = global.startGagging();
-        LLConstant *ekeyConst = ekey->toConstElem(p);
-        LLConstant *evalConst = eval->toConstElem(p);
-        if (global.endGagging(errors))
-            goto LruntimeInit;
-        assert(ekeyConst && evalConst);
-        keysInits.push_back(ekeyConst);
-        valuesInits.push_back(evalConst);
+    if (!keys->dim)
+        goto LruntimeInit;
+
+    if (aatype->ty != Taarray) {
+        // It's the AssociativeArray type.
+        // Turn it back into a TypeAArray
+        vtype = values->tdata()[0]->type;
+        aatype = new TypeAArray(vtype, keys->tdata()[0]->type);
+        aatype = aatype->semantic(loc, NULL);
     }
 
     {
+        std::vector<LLConstant*> keysInits, valuesInits;
+        for (size_t i = 0, n = keys->dim; i < n; ++i)
+        {
+            Expression* ekey = keys->tdata()[i];
+            Expression* eval = values->tdata()[i];
+            Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
+            unsigned errors = global.startGagging();
+            LLConstant *ekeyConst = ekey->toConstElem(p);
+            LLConstant *evalConst = eval->toConstElem(p);
+            if (global.endGagging(errors))
+                goto LruntimeInit;
+            assert(ekeyConst && evalConst);
+            keysInits.push_back(ekeyConst);
+            valuesInits.push_back(evalConst);
+        }
+
+        assert(aatype->ty == Taarray);
         Type* indexType = ((TypeAArray*)aatype)->index;
+        assert(indexType && vtype);
 
         llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assocarrayliteralTX");
         LLFunctionType* funcTy = func->getFunctionType();
@@ -3030,14 +3050,20 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
         LLValue* valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 
         LLValue* aa = gIR->CreateCallOrInvoke3(func, aaTypeInfo, keysArray, valuesArray, "aa").getInstruction();
-        return new DImValue(type, aa);
+        if (basetype->ty != Taarray) {
+            LLValue *tmp = DtoAlloca(type, "aaliteral");
+            DtoStore(aa, DtoGEPi(tmp, 0, 0));
+            return new DVarValue(type, tmp);
+        } else {
+            return new DImValue(type, aa);
+        }
     }
 
 LruntimeInit:
 #endif
 
     // it should be possible to avoid the temporary in some cases
-    LLValue* tmp = DtoAlloca(type,"aaliteral");
+    LLValue* tmp = DtoAlloca(type, "aaliteral");
     DValue* aa = new DVarValue(type, tmp);
     DtoStore(LLConstant::getNullValue(DtoType(type)), tmp);
 

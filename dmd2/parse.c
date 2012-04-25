@@ -130,7 +130,7 @@ Dsymbols *Parser::parseModule()
 
     decldefs = parseDeclDefs(0);
     if (token.value != TOKeof)
-    {   error("unrecognized declaration");
+    {   error(loc, "unrecognized declaration");
         goto Lerr;
     }
     return decldefs;
@@ -1380,8 +1380,15 @@ Parameters *Parser::parseParameters(int *pvarargs, TemplateParameters **tpl)
                         error("scope cannot be ref or out");
 
                     Token *t;
+#if 0
                     if (tpl && !stc && token.value == TOKidentifier &&
                         (t = peek(&token), (t->value == TOKcomma || t->value == TOKrparen)))
+#else
+                    if (tpl && token.value == TOKidentifier &&
+                        (t = peek(&token), (t->value == TOKcomma ||
+                                            t->value == TOKrparen ||
+                                            t->value == TOKdotdotdot)))
+#endif
                     {   Identifier *id = Lexer::uniqueId("__T");
                         at = new TypeIdentifier(loc, id);
                         if (!*tpl)
@@ -3564,6 +3571,9 @@ Statement *Parser::parseStatement(int flags)
             goto Ldeclaration;
 
         case BASIC_TYPES:
+            // bug 7773: int.max is always a part of expression
+            if (peekNext() == TOKdot)
+                goto Lexp;
         case TOKtypedef:
         case TOKalias:
         case TOKconst:
@@ -5475,15 +5485,18 @@ Expression *Parser::parsePrimaryExp()
         }
 
         case TOKlparen:
-        {   enum TOK past = peekPastParen(&token)->value;
-
-            if (past == TOKgoesto)
-            {   // (arguments) => expression
-                goto case_delegate;
-            }
-            else if (past == TOKlcurly)
-            {   // (arguments) { statements... }
-                goto case_delegate;
+        {   Token *tk = peekPastParen(&token);
+            if (skipAttributes(tk, &tk))
+            {
+                enum TOK past = tk->value;
+                if (past == TOKgoesto)
+                {   // (arguments) => expression
+                    goto case_delegate;
+                }
+                else if (past == TOKlcurly)
+                {   // (arguments) { statements... }
+                    goto case_delegate;
+                }
             }
             // ( expression )
             nextToken();
@@ -6592,6 +6605,7 @@ void initPrecedence()
     precedence[TOKtraits] = PREC_primary;
     precedence[TOKdefault] = PREC_primary;
     precedence[TOKoverloadset] = PREC_primary;
+    precedence[TOKvoid] = PREC_primary;
 #endif
 
     // post

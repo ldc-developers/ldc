@@ -1,5 +1,5 @@
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -190,6 +190,11 @@ void FuncDeclaration::semantic(Scope *sc)
         semanticRun = PASSsemantic;
     }
 
+    if (scope)
+    {   sc = scope;
+        scope = NULL;
+    }
+
     unsigned dprogress_save = Module::dprogress;
 
     foverrides.setDim(0);       // reset in case semantic() is being retried for this function
@@ -341,13 +346,6 @@ void FuncDeclaration::semantic(Scope *sc)
     }
 #endif
 
-#ifdef IN_GCC
-    {
-        AggregateDeclaration *ad = parent->isAggregateDeclaration();
-        if (ad)
-            ad->methods.push(this);
-    }
-#endif
     sd = parent->isStructDeclaration();
     if (sd)
     {
@@ -468,6 +466,9 @@ void FuncDeclaration::semantic(Scope *sc)
             //printf("\tnot virtual\n");
             goto Ldone;
         }
+        // Suppress further errors if the return type is an error
+        if (type->nextOf() == Type::terror)
+            goto Ldone;
 
         /* Find index of existing function in base class's vtbl[] to override
          * (the index will be the same as in cd's current vtbl[])
@@ -479,6 +480,7 @@ void FuncDeclaration::semantic(Scope *sc)
         switch (vi)
         {
             case -1:
+        Lintro:
                 /* Didn't find one, so
                  * This is an 'introducing' function which gets a new
                  * slot in the vtbl[].
@@ -515,7 +517,7 @@ void FuncDeclaration::semantic(Scope *sc)
                 break;
 
             case -2:    // can't determine because of fwd refs
-                cd->sizeok = 2; // can't finish due to forward reference
+                cd->sizeok = SIZEOKfwd; // can't finish due to forward reference
                 Module::dprogress = dprogress_save;
                 return;
 
@@ -534,9 +536,12 @@ void FuncDeclaration::semantic(Scope *sc)
                 FuncDeclaration *fdc = ((Dsymbol *)cd->vtbl.data[vi])->isFuncDeclaration();
                 if (fdc->toParent() == parent)
                 {
+                    // fdc overrides fdv exactly, then this introduces new function.
+                    if (fdc->type->mod == fdv->type->mod && this->type->mod != fdv->type->mod)
+                        goto Lintro;
+
                     // If both are mixins, then error.
                     // If either is not, the one that is not overrides the other.
-
                     if (this->parent->isClassDeclaration() && fdc->parent->isClassDeclaration())
                         error("multiple overrides of same function");
 
@@ -600,7 +605,7 @@ void FuncDeclaration::semantic(Scope *sc)
                     break;
 
                 case -2:
-                    cd->sizeok = 2;     // can't finish due to forward reference
+                    cd->sizeok = SIZEOKfwd;     // can't finish due to forward reference
                     Module::dprogress = dprogress_save;
                     return;
 
@@ -636,7 +641,7 @@ void FuncDeclaration::semantic(Scope *sc)
                         {
                             // any error in isBaseOf() is a forward reference error, so we bail out
                             global.errors = errors;
-                            cd->sizeok = 2;    // can't finish due to forward reference
+                            cd->sizeok = SIZEOKfwd;    // can't finish due to forward reference
                             Module::dprogress = dprogress_save;
                             return;
                         }
@@ -647,9 +652,14 @@ void FuncDeclaration::semantic(Scope *sc)
                     }
                     if (ti)
                     {
-                        if (tintro && !tintro->equals(ti))
+                        if (tintro)
                         {
-                            error("incompatible covariant types %s and %s", tintro->toChars(), ti->toChars());
+                            if (!tintro->nextOf()->equals(ti->nextOf()) &&
+                                !tintro->nextOf()->isBaseOf(ti->nextOf(), NULL) &&
+                                !ti->nextOf()->isBaseOf(tintro->nextOf(), NULL))
+                            {
+                                error("incompatible covariant types %s and %s", tintro->toChars(), ti->toChars());
+                            }
                         }
                         tintro = ti;
                     }
@@ -660,7 +670,11 @@ void FuncDeclaration::semantic(Scope *sc)
 
         if (!doesoverride && isOverride())
         {
-            error("does not override any function");
+            Dsymbol *s = cd->search_correct(ident);
+            if (s)
+                error("does not override any function, did you mean '%s'", s->toPrettyChars());
+            else
+                error("does not override any function");
         }
 
     L2: ;
@@ -879,7 +893,7 @@ void FuncDeclaration::semantic3(Scope *sc)
         //printf("FuncDeclaration::semantic3(%s '%s', sc = %p)\n", kind(), toChars(), sc);
         assert(0);
     }
-    //printf("FuncDeclaration::semantic3('%s.%s', sc = %p, loc = %s)\n", parent->toChars(), toChars(), sc, loc.toChars());
+    //printf("FuncDeclaration::semantic3('%s.%s', %p, sc = %p, loc = %s)\n", parent->toChars(), toChars(), this, sc, loc.toChars());
     //fflush(stdout);
     //printf("storage class = x%x %x\n", sc->stc, storage_class);
     //{ static int x; if (++x == 2) *(char*)0=0; }
@@ -978,6 +992,9 @@ void FuncDeclaration::semantic3(Scope *sc)
             }
             else
                 assert(!isNested() || sc->intypeof);    // can't be both member and nested
+#if IN_GCC
+            ad->methods.push(this);
+#endif
         }
         vthis = declareThis(sc2, ad);
 
@@ -989,7 +1006,7 @@ void FuncDeclaration::semantic3(Scope *sc)
 #else
             Type *t;
 
-#if !IN_LLVM
+#if !IN_GCC && !IN_LLVM
             if (global.params.is64bit)
             {   // Declare save area for varargs registers
                 Type *t = new TypeIdentifier(loc, Id::va_argsave_t);
@@ -1327,7 +1344,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                 }
             }
 
-            if (inferRetType || f->retStyle() != RETstack)
+            if (!inferRetType && f->retStyle() != RETstack)
                 nrvo_can = 0;
 
             fbody = fbody->semantic(sc2);
@@ -1915,11 +1932,13 @@ int FuncDeclaration::equals(Object *o)
     Dsymbol *s = isDsymbol(o);
     if (s)
     {
-        FuncDeclaration *fd = s->isFuncDeclaration();
-        if (fd)
+        FuncDeclaration *fd1 = this->toAliasFunc();
+        FuncDeclaration *fd2 = s->isFuncDeclaration();
+        if (fd2)
         {
-            return toParent()->equals(fd->toParent()) &&
-                ident->equals(fd->ident) && type->equals(fd->type);
+            fd2 = fd2->toAliasFunc();
+            return fd1->toParent()->equals(fd2->toParent()) &&
+                fd1->ident->equals(fd2->ident) && fd1->type->equals(fd2->type);
         }
     }
     return FALSE;
@@ -2137,6 +2156,8 @@ int FuncDeclaration::overrides(FuncDeclaration *fd)
 int FuncDeclaration::findVtblIndex(Dsymbols *vtbl, int dim)
 {
     FuncDeclaration *mismatch = NULL;
+    StorageClass mismatchstc = 0;
+    int mismatchvi = -1;
     int bestvi = -1;
     for (int vi = 0; vi < dim; vi++)
     {
@@ -2146,7 +2167,8 @@ int FuncDeclaration::findVtblIndex(Dsymbols *vtbl, int dim)
             if (type->equals(fdv->type))        // if exact match
                 return vi;                      // no need to look further
 
-            int cov = type->covariant(fdv->type);
+            StorageClass stc = 0;
+            int cov = type->covariant(fdv->type, &stc);
             //printf("\tbaseclass cov = %d\n", cov);
             switch (cov)
             {
@@ -2158,6 +2180,8 @@ int FuncDeclaration::findVtblIndex(Dsymbols *vtbl, int dim)
                     break;              // keep looking for an exact match
 
                 case 2:
+                    mismatchvi = vi;
+                    mismatchstc = stc;
                     mismatch = fdv;     // overrides, but is not covariant
                     break;              // keep looking for an exact match
 
@@ -2174,8 +2198,15 @@ int FuncDeclaration::findVtblIndex(Dsymbols *vtbl, int dim)
         //type->print();
         //mismatch->type->print();
         //printf("%s %s\n", type->deco, mismatch->type->deco);
-        error("of type %s overrides but is not covariant with %s of type %s",
-            type->toChars(), mismatch->toPrettyChars(), mismatch->type->toChars());
+        //printf("stc = %llx\n", mismatchstc);
+        if (mismatchstc)
+        {   // Fix it by modifying the type to add the storage classes
+            type = type->addStorageClass(mismatchstc);
+            bestvi = mismatchvi;
+        }
+        else
+            error("of type %s overrides but is not covariant with %s of type %s",
+                type->toChars(), mismatch->toPrettyChars(), mismatch->type->toChars());
     }
     return bestvi;
 }
@@ -2262,8 +2293,21 @@ int overloadApply(FuncDeclaration *fstart,
 
         if (fa)
         {
-            if (overloadApply(fa->funcalias, fp, param))
-                return 1;
+            if (fa->hasOverloads)
+            {
+                if (overloadApply(fa->funcalias, fp, param))
+                    return 1;
+            }
+            else
+            {
+                f = fa->toAliasFunc();
+                if (!f)
+                {   d->error("is aliased to a function");
+                    break;
+                }
+                if ((*fp)(param, f))
+                    return 1;
+            }
             next = fa->overnext;
         }
         else
@@ -2611,7 +2655,7 @@ MATCH FuncDeclaration::leastAsSpecialized(FuncDeclaration *g)
             e->type = p->type;
         }
         else
-            e = p->type->defaultInit();
+            e = p->type->defaultInitLiteral(0);
         args.tdata()[u] = e;
     }
 
@@ -2856,6 +2900,9 @@ int FuncDeclaration::isImportedSymbol()
 
 int FuncDeclaration::isVirtual()
 {
+    if (toAliasFunc() != this)
+        return toAliasFunc()->isVirtual();
+
     Dsymbol *p = toParent();
 #if 0
     printf("FuncDeclaration::isVirtual(%s)\n", toChars());
@@ -2876,6 +2923,9 @@ int FuncDeclaration::isVirtual()
 
 int FuncDeclaration::isVirtualMethod()
 {
+    if (toAliasFunc() != this)
+        return toAliasFunc()->isVirtualMethod();
+
     //printf("FuncDeclaration::isVirtualMethod() %s\n", toChars());
     if (!isVirtual())
         return 0;
@@ -2889,6 +2939,9 @@ int FuncDeclaration::isVirtualMethod()
 
 int FuncDeclaration::isFinal()
 {
+    if (toAliasFunc() != this)
+        return toAliasFunc()->isFinal();
+
     ClassDeclaration *cd;
 #if 0
     printf("FuncDeclaration::isFinal(%s), %x\n", toChars(), Declaration::isFinal());
@@ -2923,6 +2976,11 @@ int FuncDeclaration::isCodeseg()
 int FuncDeclaration::isOverloadable()
 {
     return 1;                   // functions can be overloaded
+}
+
+int FuncDeclaration::hasOverloads()
+{
+    return overnext != NULL;
 }
 
 enum PURE FuncDeclaration::isPure()
@@ -2982,6 +3040,14 @@ int FuncDeclaration::isSafe()
     return ((TypeFunction *)type)->trust == TRUSTsafe;
 }
 
+bool FuncDeclaration::isSafeBypassingInference()
+{
+    if (flags & FUNCFLAGsafetyInprocess)
+        return false;
+    else
+        return isSafe();
+}
+
 int FuncDeclaration::isTrusted()
 {
     assert(type->ty == Tfunction);
@@ -3012,21 +3078,16 @@ bool FuncDeclaration::setUnsafe()
 
 int FuncDeclaration::isNested()
 {
-    //if (!toParent())
-        //printf("FuncDeclaration::isNested('%s') parent=%p\n", toChars(), parent);
-    //printf("\ttoParent2() = '%s'\n", toParent2()->toChars());
-    return ((storage_class & STCstatic) == 0) && toParent2() &&
-           (toParent2()->isFuncDeclaration() != NULL);
+    FuncDeclaration *f = toAliasFunc();
+    //printf("\ttoParent2() = '%s'\n", f->toParent2()->toChars());
+    return ((f->storage_class & STCstatic) == 0) &&
+           (f->toParent2()->isFuncDeclaration() != NULL);
 }
 
 int FuncDeclaration::needThis()
 {
     //printf("FuncDeclaration::needThis() '%s'\n", toChars());
-    int i = isThis() != NULL;
-    //printf("\t%d\n", i);
-    if (!i && isFuncAliasDeclaration())
-        i = ((FuncAliasDeclaration *)this)->funcalias->needThis();
-    return i;
+    return toAliasFunc()->isThis() != NULL;
 }
 
 int FuncDeclaration::addPreInvariant()
@@ -3272,7 +3333,7 @@ Parameters *FuncDeclaration::getParameters(int *pvarargs)
 
 // Used as a way to import a set of functions from another scope into this one.
 
-FuncAliasDeclaration::FuncAliasDeclaration(FuncDeclaration *funcalias)
+FuncAliasDeclaration::FuncAliasDeclaration(FuncDeclaration *funcalias, int hasOverloads)
     : FuncDeclaration(funcalias->loc, funcalias->endloc, funcalias->ident,
         funcalias->storage_class, funcalias->type)
 {
@@ -3281,11 +3342,28 @@ FuncAliasDeclaration::FuncAliasDeclaration(FuncDeclaration *funcalias)
 #if IN_LLVM
     importprot = PROTundefined;
 #endif
+
+    this->hasOverloads = hasOverloads;
+    if (hasOverloads)
+    {
+        if (FuncAliasDeclaration *fad = funcalias->isFuncAliasDeclaration())
+            this->hasOverloads = fad->hasOverloads;
+    }
+    else
+    {   // for internal use
+        assert(!funcalias->isFuncAliasDeclaration());
+        this->hasOverloads = 0;
+    }
 }
 
 const char *FuncAliasDeclaration::kind()
 {
     return "function alias";
+}
+
+FuncDeclaration *FuncAliasDeclaration::toAliasFunc()
+{
+    return funcalias->toAliasFunc();
 }
 
 
@@ -3379,6 +3457,11 @@ void CtorDeclaration::semantic(Scope *sc)
     //printf("CtorDeclaration::semantic() %s\n", toChars());
     TypeFunction *tf = (TypeFunction *)type;
     assert(tf && tf->ty == Tfunction);
+
+    if (scope)
+    {   sc = scope;
+        scope = NULL;
+    }
 
     sc = sc->push();
     sc->stc &= ~STCstatic;              // not a static constructor
@@ -3499,6 +3582,10 @@ void PostBlitDeclaration::semantic(Scope *sc)
     //printf("PostBlitDeclaration::semantic() %s\n", toChars());
     //printf("ident: %s, %s, %p, %p\n", ident->toChars(), Id::dtor->toChars(), ident, Id::dtor);
     //printf("stc = x%llx\n", sc->stc);
+    if (scope)
+    {   sc = scope;
+        scope = NULL;
+    }
     parent = sc->parent;
     Dsymbol *parent = toParent();
     StructDeclaration *ad = parent->isStructDeclaration();
@@ -3572,6 +3659,10 @@ void DtorDeclaration::semantic(Scope *sc)
 {
     //printf("DtorDeclaration::semantic() %s\n", toChars());
     //printf("ident: %s, %s, %p, %p\n", ident->toChars(), Id::dtor->toChars(), ident, Id::dtor);
+    if (scope)
+    {   sc = scope;
+        scope = NULL;
+    }
     parent = sc->parent;
     Dsymbol *parent = toParent();
     AggregateDeclaration *ad = parent->isAggregateDeclaration();
@@ -3664,6 +3755,11 @@ void StaticCtorDeclaration::semantic(Scope *sc)
 {
     //printf("StaticCtorDeclaration::semantic()\n");
 
+    if (scope)
+    {   sc = scope;
+        scope = NULL;
+    }
+
     if (!type)
         type = new TypeFunction(NULL, Type::tvoid, FALSE, LINKd);
 
@@ -3737,7 +3833,7 @@ int StaticCtorDeclaration::addPostInvariant()
 
 void StaticCtorDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
-    if (hgs->hdrgen)
+    if (hgs->hdrgen && !hgs->tpltMember)
     {   buf->writestring("static this();");
         buf->writenl();
         return;
@@ -3792,6 +3888,11 @@ Dsymbol *StaticDtorDeclaration::syntaxCopy(Dsymbol *s)
 
 void StaticDtorDeclaration::semantic(Scope *sc)
 {
+    if (scope)
+    {   sc = scope;
+        scope = NULL;
+    }
+
     ClassDeclaration *cd = sc->scopesym->isClassDeclaration();
 
     if (!type)
@@ -3919,6 +4020,10 @@ Dsymbol *InvariantDeclaration::syntaxCopy(Dsymbol *s)
 
 void InvariantDeclaration::semantic(Scope *sc)
 {
+    if (scope)
+    {   sc = scope;
+        scope = NULL;
+    }
     parent = sc->parent;
     Dsymbol *parent = toParent();
     AggregateDeclaration *ad = parent->isAggregateDeclaration();
@@ -3999,6 +4104,10 @@ Dsymbol *UnitTestDeclaration::syntaxCopy(Dsymbol *s)
 
 void UnitTestDeclaration::semantic(Scope *sc)
 {
+    if (scope)
+    {   sc = scope;
+        scope = NULL;
+    }
 #if IN_LLVM
     if (global.params.useUnitTests && sc->module->isRoot)
 #else
@@ -4086,6 +4195,11 @@ void NewDeclaration::semantic(Scope *sc)
 {
     //printf("NewDeclaration::semantic()\n");
 
+    if (scope)
+    {   sc = scope;
+        scope = NULL;
+    }
+
     parent = sc->parent;
     Dsymbol *parent = toParent();
     ClassDeclaration *cd = parent->isClassDeclaration();
@@ -4169,6 +4283,11 @@ Dsymbol *DeleteDeclaration::syntaxCopy(Dsymbol *s)
 void DeleteDeclaration::semantic(Scope *sc)
 {
     //printf("DeleteDeclaration::semantic()\n");
+
+    if (scope)
+    {   sc = scope;
+        scope = NULL;
+    }
 
     parent = sc->parent;
     Dsymbol *parent = toParent();
