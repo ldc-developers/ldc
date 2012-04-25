@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -97,7 +97,9 @@ int arrayExpressionCanThrow(Expressions *exps, bool mustNotThrow);
 TemplateDeclaration *getFuncTemplateDecl(Dsymbol *s);
 void valueNoDtor(Expression *e);
 void modifyFieldVar(Loc loc, Scope *sc, VarDeclaration *var, Expression *e1);
-
+#if DMDV2
+Expression *resolveAliasThis(Scope *sc, Expression *e);
+#endif
 
 /* Interpreter: what form of return value expression is required?
  */
@@ -151,6 +153,7 @@ struct Expression : Object
     virtual MATCH implicitConvTo(Type *t);
     virtual IntRange getIntRange();
     virtual Expression *castTo(Scope *sc, Type *t);
+    virtual Expression *inferType(Type *t, int flag = 0, TemplateParameters *tparams = NULL);
     virtual void checkEscape();
     virtual void checkEscapeRef();
     virtual Expression *resolveLoc(Loc loc, Scope *sc);
@@ -503,6 +506,7 @@ struct ArrayLiteralExp : Expression
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
+    Expression *inferType(Type *t, int flag = 0, TemplateParameters *tparams = NULL);
 
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
@@ -537,6 +541,7 @@ struct AssocArrayLiteralExp : Expression
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
+    Expression *inferType(Type *t, int flag = 0, TemplateParameters *tparams = NULL);
 
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
@@ -555,6 +560,7 @@ struct StructLiteralExp : Expression
     Type *stype;                // final type of result (can be different from sd's type)
 
 #if IN_DMD
+    Symbol *sinit;              // if this is a defaultInitLiteral, this symbol contains the default initializer
     Symbol *sym;                // back end symbol to initialize with literal
 #endif
     size_t soffset;             // offset from start of s
@@ -572,8 +578,6 @@ struct StructLiteralExp : Expression
     void toMangleBuffer(OutBuffer *buf);
     Expression *optimize(int result);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
-    int isLvalue();
-    Expression *toLvalue(Scope *sc, Expression *e);
     MATCH implicitConvTo(Type *t);
 
     int inlineCost3(InlineCostState *ics);
@@ -789,18 +793,17 @@ struct FuncExp : Expression
     FuncLiteralDeclaration *fd;
     TemplateDeclaration *td;
     enum TOK tok;
-    Type *tded;
-    Scope *scope;
+    Type *treq;
 
     FuncExp(Loc loc, FuncLiteralDeclaration *fd, TemplateDeclaration *td = NULL);
     Expression *syntaxCopy();
     Expression *semantic(Scope *sc);
     Expression *semantic(Scope *sc, Expressions *arguments);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
+    Expression *implicitCastTo(Scope *sc, Type *t);
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
-    Expression *inferType(Scope *sc, Type *t);
-    void setType(Type *t);
+    Expression *inferType(Type *t, int flag = 0, TemplateParameters *tparams = NULL);
     char *toChars();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 #if IN_DMD
@@ -932,8 +935,7 @@ struct BinExp : Expression
     int apply(apply_fp_t fp, void *param);
     Expression *semantic(Scope *sc);
     Expression *semanticp(Scope *sc);
-    void checkComplexMulAssign();
-    void checkComplexAddAssign();
+    Expression *checkComplexOpAssign(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Expression *scaleFactor(Scope *sc);
     Expression *typeCombine(Scope *sc);
@@ -941,6 +943,7 @@ struct BinExp : Expression
     int isunsigned();
     Expression *incompatibleTypes();
     void dump(int indent);
+
     Expression *interpretCommon(InterState *istate, CtfeGoal goal,
         Expression *(*fp)(Type *, Expression *, Expression *));
     Expression *interpretCommon2(InterState *istate, CtfeGoal goal,
@@ -967,8 +970,7 @@ struct BinAssignExp : BinExp
     {
     }
 
-    Expression *commonSemanticAssign(Scope *sc);
-    Expression *commonSemanticAssignIntegral(Scope *sc);
+    Expression *semantic(Scope *sc);
 
     Expression *op_overload(Scope *sc);
 
@@ -1067,6 +1069,7 @@ struct DotTemplateInstanceExp : UnaExp
     Expression *syntaxCopy();
     TemplateDeclaration *getTempdecl(Scope *sc);
     Expression *semantic(Scope *sc);
+    Expression *semantic(Scope *sc, int flag);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void dump(int indent);
 };
@@ -1460,6 +1463,7 @@ struct IndexExp : BinExp
     int modifiable;
 
     IndexExp(Loc loc, Expression *e1, Expression *e2);
+    Expression *syntaxCopy();
     Expression *semantic(Scope *sc);
     int isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
@@ -1542,7 +1546,7 @@ struct ConstructExp : AssignExp
 struct op##AssignExp : BinAssignExp                             \
 {                                                               \
     op##AssignExp(Loc loc, Expression *e1, Expression *e2);     \
-    Expression *semantic(Scope *sc);                            \
+    S(Expression *semantic(Scope *sc);)                          \
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);                  \
     X(void buildArrayIdent(OutBuffer *buf, Expressions *arguments);) \
     X(Expression *buildArrayLoop(Parameters *fparams);)         \
@@ -1553,6 +1557,7 @@ struct op##AssignExp : BinAssignExp                             \
 };
 
 #define X(a) a
+#define S(a)
 ASSIGNEXP(Add)
 ASSIGNEXP(Min)
 ASSIGNEXP(Mul)
@@ -1561,17 +1566,28 @@ ASSIGNEXP(Mod)
 ASSIGNEXP(And)
 ASSIGNEXP(Or)
 ASSIGNEXP(Xor)
+#undef S
+
 #if DMDV2
+#define S(a) a
 ASSIGNEXP(Pow)
+#undef S
 #endif
+
+#undef S
 #undef X
 
 #define X(a)
 
+#define S(a)
 ASSIGNEXP(Shl)
 ASSIGNEXP(Shr)
 ASSIGNEXP(Ushr)
+#undef S
+
+#define S(a) a
 ASSIGNEXP(Cat)
+#undef S
 
 #undef X
 #undef ASSIGNEXP
@@ -1991,7 +2007,7 @@ struct EqualExp : BinExp
 #endif
 };
 
-// === and !===
+// is and !is
 
 struct IdentityExp : BinExp
 {
@@ -2030,6 +2046,7 @@ struct CondExp : BinExp
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
+    Expression *inferType(Type *t, int flag = 0, TemplateParameters *tparams = NULL);
 
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);

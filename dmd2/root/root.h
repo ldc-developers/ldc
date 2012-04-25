@@ -23,6 +23,7 @@
 
 typedef size_t hash_t;
 
+#include "longdouble.h"
 #include "dchar.h"
 
 char *wchar2ascii(wchar_t *);
@@ -32,9 +33,6 @@ int wcharIsAscii(wchar_t *, unsigned len);
 
 int bstrcmp(unsigned char *s1, unsigned char *s2);
 char *bstr2str(unsigned char *b);
-void error(const char *format, ...);
-void error(const wchar_t *format, ...);
-void warning(const char *format, ...);
 
 #ifndef TYPEDEFS
 #define TYPEDEFS
@@ -43,7 +41,7 @@ void warning(const char *format, ...);
 #include <float.h>  // for _isnan
 #include <malloc.h> // for alloca
 // According to VC 8.0 docs, long double is the same as double
-#define strtold strtod
+longdouble strtold(const char *p,char **endp);
 #define strtof  strtod
 #define isnan   _isnan
 

@@ -1,5 +1,6 @@
 #include "gen/cl_helpers.h"
 
+#include "mars.h"
 #include "root.h"
 #include "rmem.h"
 

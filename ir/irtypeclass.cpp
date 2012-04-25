@@ -306,7 +306,15 @@ std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, Array* vtbl_arr
 
         IF_LOG Logger::println("Adding type of %s", fd->toPrettyChars());
 
+        if (fd->type->nextOf() == NULL) {
+            // Return type of the virtual function has not been inferred.
+            // FIXME: is it a frontend bug?
+            types.push_back(getVoidPtrType());
+            continue;
+        }
+
         types.push_back(DtoType(fd->type->pointerTo()));
+
     }
 
     return types;

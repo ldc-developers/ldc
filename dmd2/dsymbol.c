@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -50,6 +50,7 @@ Dsymbol::Dsymbol()
     this->loc = 0;
     this->comment = NULL;
     this->scope = NULL;
+    this->errors = false;
 
 #if IN_LLVM
     this->llvmInternal = LLVMnone;
@@ -70,6 +71,7 @@ Dsymbol::Dsymbol(Identifier *ident)
     this->loc = 0;
     this->comment = NULL;
     this->scope = NULL;
+    this->errors = false;
 
 #if IN_LLVM
     this->llvmInternal = LLVMnone;
@@ -147,12 +149,15 @@ int Dsymbol::oneMembers(Dsymbols *members, Dsymbol **ps, Identifier *ident)
                     if (!(*ps)->ident || !(*ps)->ident->equals(ident))
                         continue;
                 }
-                if (s)                  // more than one symbol
+                if (!s)
+                    s = *ps;
+                else if (s->isOverloadable() && (*ps)->isOverloadable())
+                    ;   // keep head of overload set
+                else                    // more than one symbol
                 {   *ps = NULL;
                     //printf("\tfalse 2\n");
                     return FALSE;
                 }
-                s = *ps;
             }
         }
     }
@@ -175,6 +180,10 @@ bool Dsymbol::hasStaticCtorOrDtor()
 {
     //printf("Dsymbol::hasStaticCtorOrDtor() %s\n", toChars());
     return FALSE;
+}
+
+void Dsymbol::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion)
+{
 }
 
 char *Dsymbol::toChars()
@@ -291,6 +300,23 @@ TemplateInstance *Dsymbol::inTemplateInstance()
     return NULL;
 }
 
+// Check if this function is a member of a template which has only been
+// instantiated speculatively, eg from inside is(typeof()).
+// Return the speculative template instance it is part of,
+// or NULL if not speculative.
+TemplateInstance *Dsymbol::isSpeculative()
+{
+    Dsymbol * par = parent;
+    while (par)
+    {
+        TemplateInstance *ti = par->isTemplateInstance();
+        if (ti && ti->speculative)
+            return ti;
+        par = par->toParent();
+    }
+    return NULL;
+}
+
 int Dsymbol::isAnonymous()
 {
     return ident ? 0 : 1;
@@ -303,7 +329,7 @@ int Dsymbol::isAnonymous()
 
 void Dsymbol::setScope(Scope *sc)
 {
-    //printf("Dsymbol::setScope() %p %s\n", this, toChars());
+    //printf("Dsymbol::setScope() %p %s, %p stc = %llx\n", this, toChars(), sc, sc->stc);
     if (!sc->nofree)
         sc->setNoFree();                // may need it even after semantic() finishes
     scope = sc;
@@ -375,11 +401,21 @@ Dsymbol *Dsymbol::search(Loc loc, Identifier *ident, int flags)
 
 void *symbol_search_fp(void *arg, const char *seed)
 {
+    /* If not in the lexer's string table, it certainly isn't in the symbol table.
+     * Doing this first is a lot faster.
+     */
+    size_t len = strlen(seed);
+    if (!len)
+        return NULL;
+    StringValue *sv = Lexer::stringtable.lookup(seed, len);
+    if (!sv)
+        return NULL;
+    Identifier *id = (Identifier *)sv->ptrvalue;
+    assert(id);
+
     Dsymbol *s = (Dsymbol *)arg;
-    Identifier id(seed, 0);
     Module::clearCache();
-    s = s->search(0, &id, 4|2);
-    return s;
+    return s->search(0, id, 4|2);
 }
 
 Dsymbol *Dsymbol::search_correct(Identifier *ident)
@@ -417,8 +453,14 @@ Dsymbol *Dsymbol::searchX(Loc loc, Scope *sc, Identifier *id)
             id = ti->name;
             sm = s->search(loc, id, 0);
             if (!sm)
-            {   error("template identifier %s is not a member of %s %s",
-                    id->toChars(), s->kind(), s->toChars());
+            {
+                sm = s->search_correct(id);
+                if (sm)
+                    error("template identifier '%s' is not a member of '%s %s', did you mean '%s %s'?",
+                          id->toChars(), s->kind(), s->toChars(), sm->kind(), sm->toChars());
+                else
+                    error("template identifier '%s' is not a member of '%s %s'",
+                          id->toChars(), s->kind(), s->toChars());
                 return NULL;
             }
             sm = sm->toAlias();
@@ -507,6 +549,11 @@ int Dsymbol::isOverloadable()
 {
     return 0;
 }
+
+int Dsymbol::hasOverloads()
+{
+    return 0;
+}
 #endif
 
 LabelDsymbol *Dsymbol::isLabel()                // is this a LabelDsymbol()?
@@ -530,6 +577,11 @@ Type *Dsymbol::getType()
 int Dsymbol::needThis()
 {
     return FALSE;
+}
+
+int Dsymbol::apply(Dsymbol_apply_ft_t fp, void *param)
+{
+    return (*fp)(this, param);
 }
 
 int Dsymbol::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
@@ -1058,7 +1110,7 @@ static int dimDg(void *ctx, size_t n, Dsymbol *)
 size_t ScopeDsymbol::dim(Dsymbols *members)
 {
     size_t n = 0;
-    foreach(members, &dimDg, &n);
+    foreach(NULL, members, &dimDg, &n);
     return n;
 }
 #endif
@@ -1091,7 +1143,7 @@ static int getNthSymbolDg(void *ctx, size_t n, Dsymbol *sym)
 Dsymbol *ScopeDsymbol::getNth(Dsymbols *members, size_t nth, size_t *pn)
 {
     GetNthSymbolCtx ctx = { nth, NULL };
-    int res = foreach(members, &getNthSymbolDg, &ctx);
+    int res = foreach(NULL, members, &getNthSymbolDg, &ctx);
     return res ? ctx.sym : NULL;
 }
 #endif
@@ -1106,7 +1158,7 @@ Dsymbol *ScopeDsymbol::getNth(Dsymbols *members, size_t nth, size_t *pn)
  */
 
 #if DMDV2
-int ScopeDsymbol::foreach(Dsymbols *members, ScopeDsymbol::ForeachDg dg, void *ctx, size_t *pn)
+int ScopeDsymbol::foreach(Scope *sc, Dsymbols *members, ScopeDsymbol::ForeachDg dg, void *ctx, size_t *pn)
 {
     assert(dg);
     if (!members)
@@ -1118,9 +1170,9 @@ int ScopeDsymbol::foreach(Dsymbols *members, ScopeDsymbol::ForeachDg dg, void *c
     {   Dsymbol *s = (*members)[i];
 
         if (AttribDeclaration *a = s->isAttribDeclaration())
-            result = foreach(a->decl, dg, ctx, &n);
+            result = foreach(sc, a->include(sc, NULL), dg, ctx, &n);
         else if (TemplateMixin *tm = s->isTemplateMixin())
-            result = foreach(tm->members, dg, ctx, &n);
+            result = foreach(sc, tm->members, dg, ctx, &n);
         else if (s->isTemplateInstance())
             ;
         else

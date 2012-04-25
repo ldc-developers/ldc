@@ -747,6 +747,15 @@ DValue* DtoCastNull(Loc& loc, DValue* val, Type* to)
         LLValue *rval = DtoBitCast(val->getRVal(), tolltype);
         return new DImValue(to, rval);
     }
+    if (totype->ty == Tarray)
+    {
+        if (Logger::enabled())
+            Logger::cout() << "cast null to array: " << *tolltype << '\n';
+        LLValue *rval = val->getRVal();
+        rval = DtoBitCast(rval, DtoType(to->nextOf()->pointerTo()));
+        rval = DtoAggrPair(DtoConstSize_t(0), rval, "null_array");
+        return new DImValue(to, rval);
+    }
     else
     {
         error(loc, "invalid cast from null to '%s'", to->toChars());

@@ -678,7 +678,6 @@ void TryFinallyStatement::toIR(IRState* p)
     pad.addFinally(finalbody);
     pad.push(landingpadbb);
     gIR->func()->gen->targetScopes.push_back(IRTargetScope(this,new EnclosingTryFinally(this,gIR->func()->gen->landingPad),NULL,NULL));
-    gIR->func()->gen->landingPad = pad.get();
 
     //
     // do the try block
@@ -695,7 +694,6 @@ void TryFinallyStatement::toIR(IRState* p)
         llvm::BranchInst::Create(finallybb, p->scopebb());
 
     pad.pop();
-    gIR->func()->gen->landingPad = pad.get();
     gIR->func()->gen->targetScopes.pop_back();
 
     //
@@ -739,7 +737,7 @@ void TryCatchStatement::toIR(IRState* p)
     llvm::BranchInst::Create(trybb, p->scopebb());
 
     //
-    // do catches and the landing pad
+    // set up the landing pad
     //
     assert(catches);
     gIR->scope() = IRScope(landingpadbb, endbb);
@@ -752,7 +750,6 @@ void TryCatchStatement::toIR(IRState* p)
     }
 
     pad.push(landingpadbb);
-    gIR->func()->gen->landingPad = pad.get();
 
     //
     // do the try block
@@ -768,7 +765,6 @@ void TryCatchStatement::toIR(IRState* p)
         llvm::BranchInst::Create(endbb, p->scopebb());
 
     pad.pop();
-    gIR->func()->gen->landingPad = pad.get();
 
     // rewrite the scope
     p->scope() = IRScope(endbb,oldend);
