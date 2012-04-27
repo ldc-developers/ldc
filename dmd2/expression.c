@@ -1176,8 +1176,8 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
         {
 
             // If not D linkage, do promotions
-        // LDC: don't do promotions on intrinsics
-	    if (tf->linkage != LINKd && tf->linkage != LINKintrinsic)
+            // LDC: don't do promotions on intrinsics
+            if (tf->linkage != LINKd && tf->linkage != LINKintrinsic)
             {
                 // Promote bytes, words, etc., to ints
                 arg = arg->integralPromotions(sc);
@@ -1460,7 +1460,7 @@ void Expression::warning(const char *format, ...)
     {
         va_list ap;
         va_start(ap, format);
-	::vwarning(loc, format, ap);
+        ::vwarning(loc, format, ap);
         va_end( ap );
     }
 }
@@ -2183,8 +2183,8 @@ void IntegerExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
             case Tdchar:        // BUG: need to cast(dchar)
                 if ((uinteger_t)v > 0xFF)
                 {
-		     buf->printf("'\\U%08x'", (unsigned)v);
-                     break;
+                    buf->printf("'\\U%08x'", (unsigned)v);
+                    break;
                 }
             case Tchar:
             {
@@ -2387,12 +2387,12 @@ int RealEquals(real_t x1, real_t x2)
     return (__inline_isnan(x1) && __inline_isnan(x2)) ||
 #else
     return // special case nans
-	   (isnan(x1) && isnan(x2)) ||
+          (isnan(x1) && isnan(x2)) ||
 #endif
-	   // and zero, in order to distinguish +0 from -0
-	   (x1 == 0 && x2 == 0 && 1./x1 == 1./x2) ||
-	   // otherwise just compare
-	   (x1 != 0. && x1 == x2);
+          // and zero, in order to distinguish +0 from -0
+          (x1 == 0 && x2 == 0 && 1./x1 == 1./x2) ||
+          // otherwise just compare
+          (x1 != 0. && x1 == x2);
 }
 
 int RealExp::equals(Object *o)
@@ -2445,9 +2445,29 @@ void floatToBuffer(OutBuffer *buf, Type *type, real_t value)
 #else
     real_t r = strtold(buffer, NULL);
 #endif
+#if IN_LLVM
+    if (r == value)                     // if exact duplication
+        buf->writestring(buffer);
+    else
+    {
+#ifdef __HAIKU__       // broken printf workaround
+        char buffer2[25];
+        char *ptr = (char *)&value;
+        for(int i = 0; i < sizeof(value); i++)
+            snprintf(buffer2, sizeof(char), "%x", ptr[i]);
+
+        buf->writestring(buffer2);
+#else
+        buf->printf("%La", value);     // ensure exact duplication
+#endif
+    }
+#else // if IN_DMD
     if (r != value)                     // if exact duplication
         ld_sprint(buffer, 'a', value);
     buf->writestring(buffer);
+#endif
+
+
 
     if (type)
     {
@@ -3961,7 +3981,7 @@ StructLiteralExp::StructLiteralExp(Loc loc, StructDeclaration *sd, Expressions *
     this->ownedByCtfe = false;
 #if IN_LLVM
     constType = NULL;
-#endif    
+#endif
     //printf("StructLiteralExp::StructLiteralExp(%s)\n", toChars());
 }
 
@@ -11509,8 +11529,8 @@ Expression *ShlExp::semantic(Scope *sc)
             e2->type->toBasetype()->ty == Tvector)
             return incompatibleTypes();
         e1 = e1->integralPromotions(sc);
-	//e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LDC
+        //e2 = e2->castTo(sc, Type::tshiftcnt);
+        e2 = e2->castTo(sc, e1->type); // LDC
         type = e1->type;
     }
     return this;
@@ -11537,8 +11557,8 @@ Expression *ShrExp::semantic(Scope *sc)
             e2->type->toBasetype()->ty == Tvector)
             return incompatibleTypes();
         e1 = e1->integralPromotions(sc);
-	//e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LDC
+        //e2 = e2->castTo(sc, Type::tshiftcnt);
+        e2 = e2->castTo(sc, e1->type); // LDC
         type = e1->type;
     }
     return this;
@@ -11565,8 +11585,8 @@ Expression *UshrExp::semantic(Scope *sc)
             e2->type->toBasetype()->ty == Tvector)
             return incompatibleTypes();
         e1 = e1->integralPromotions(sc);
-	//e2 = e2->castTo(sc, Type::tshiftcnt);
-    e2 = e2->castTo(sc, e1->type); // LDC
+        //e2 = e2->castTo(sc, Type::tshiftcnt);
+        e2 = e2->castTo(sc, e1->type); // LDC
         type = e1->type;
     }
     return this;
