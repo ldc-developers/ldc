@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -128,6 +128,8 @@ enum PASS
     PASSobj,            // toObjFile() run
 };
 
+typedef int (*Dsymbol_apply_ft_t)(Dsymbol *, void *);
+
 struct Dsymbol : Object
 {
     Identifier *ident;
@@ -140,6 +142,7 @@ struct Dsymbol : Object
     unsigned char *comment;     // documentation comment for this Dsymbol
     Loc loc;                    // where defined
     Scope *scope;               // !=NULL means context to use for semantic()
+    bool errors;                // this symbol failed to pass semantic()
 
     Dsymbol();
     Dsymbol(Identifier *);
@@ -157,6 +160,7 @@ struct Dsymbol : Object
     Dsymbol *toParent();
     Dsymbol *toParent2();
     TemplateInstance *inTemplateInstance();
+    TemplateInstance *isSpeculative();
 
     int dyncast() { return DYNCAST_DSYMBOL; }   // kludge for template.isSymbol()
 
@@ -165,6 +169,7 @@ struct Dsymbol : Object
     virtual const char *toPrettyChars();
     virtual const char *kind();
     virtual Dsymbol *toAlias();                 // resolve real symbol
+    virtual int apply(Dsymbol_apply_ft_t fp, void *param);
     virtual int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
     virtual void setScope(Scope *sc);
     virtual void importAll(Scope *sc);
@@ -193,6 +198,7 @@ struct Dsymbol : Object
 #if DMDV2
     virtual int isOverloadable();
 #endif
+    virtual int hasOverloads();
     virtual LabelDsymbol *isLabel();            // is this a LabelDsymbol?
     virtual AggregateDeclaration *isMember();   // is this symbol a member of an AggregateDeclaration?
     virtual Type *getType();                    // is this a type?
@@ -202,6 +208,7 @@ struct Dsymbol : Object
     virtual Dsymbol *syntaxCopy(Dsymbol *s);    // copy only syntax trees
     virtual int oneMember(Dsymbol **ps);
     static int oneMembers(Dsymbols *members, Dsymbol **ps);
+    virtual void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     virtual int hasPointers();
     virtual bool hasStaticCtorOrDtor();
     virtual void addLocalClass(ClassDeclarations *) { }

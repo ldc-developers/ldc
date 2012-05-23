@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -51,6 +51,13 @@ namespace llvm
 }
 #endif
 
+enum Sizeok
+{
+    SIZEOKnone,         // size of aggregate is not computed yet
+    SIZEOKdone,         // size of aggregate is set correctly
+    SIZEOKfwd,          // error in computing size of aggregate
+};
+
 struct AggregateDeclaration : ScopeDsymbol
 {
     Type *type;
@@ -62,10 +69,7 @@ struct AggregateDeclaration : ScopeDsymbol
     unsigned structalign;       // struct member alignment in effect
     int hasUnions;              // set if aggregate has overlapping fields
     VarDeclarations fields;     // VarDeclaration fields
-    unsigned sizeok;            // set when structsize contains valid data
-                                // 0: no size
-                                // 1: size is correct
-                                // 2: cannot determine size; fwd referenced
+    enum Sizeok sizeok;         // set when structsize contains valid data
     int isdeprecated;           // !=0 if deprecated
 
 #if DMDV2
@@ -89,7 +93,8 @@ struct AggregateDeclaration : ScopeDsymbol
     FuncDeclaration *dtor;      // aggregate destructor
 
 #ifdef IN_GCC
-    Array methods;              // flat list of all methods for debug information
+    Expressions *attributes;    // GCC decl/type attributes
+    FuncDeclarations methods;   // flat list of all methods for debug information
 #endif
 
     AggregateDeclaration(Loc loc, Identifier *id);
@@ -98,8 +103,10 @@ struct AggregateDeclaration : ScopeDsymbol
     void inlineScan();
     unsigned size(Loc loc);
     static void alignmember(unsigned salign, unsigned size, unsigned *poffset);
+    static unsigned placeField(unsigned *nextoffset,
+        unsigned memsize, unsigned memalignsize, unsigned memalign,
+        unsigned *paggsize, unsigned *paggalignsize, bool isunion);
     Type *getType();
-    void addField(Scope *sc, VarDeclaration *v);
     int firstFieldInUnion(int indx); // first field in union that includes indx
     int numFieldsInUnion(int firstIndex); // #fields in union starting at index
     int isDeprecated();         // is aggregate deprecated?
@@ -163,14 +170,19 @@ struct StructDeclaration : AggregateDeclaration
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     char *mangle();
     const char *kind();
+    void finalizeSize(Scope *sc);
 #if DMDV1
     Expression *cloneMembers();
 #endif
 #if DMDV2
     int needOpAssign();
+    int needOpEquals();
     FuncDeclaration *buildOpAssign(Scope *sc);
+    FuncDeclaration *buildOpEquals(Scope *sc);
     FuncDeclaration *buildPostBlit(Scope *sc);
     FuncDeclaration *buildCpCtor(Scope *sc);
+
+    FuncDeclaration *buildXopEquals(Scope *sc);
 #endif
     void toDocBuffer(OutBuffer *buf);
 
@@ -222,7 +234,8 @@ struct BaseClass
 };
 
 #if DMDV2
-#define CLASSINFO_SIZE  (0x3C+16+4)     // value of ClassInfo.size
+#define CLASSINFO_SIZE_64  0x98         // value of ClassInfo.size
+#define CLASSINFO_SIZE  (0x3C+12+4)     // value of ClassInfo.size
 #else
 #define CLASSINFO_SIZE  (0x3C+12+4)     // value of ClassInfo.size
 #define CLASSINFO_SIZE_64  (0x98)       // value of ClassInfo.size

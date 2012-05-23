@@ -312,6 +312,8 @@ struct Lexer
 
     static int isValidIdentifier(char *p);
     static unsigned char *combineComments(unsigned char *c1, unsigned char *c2);
+
+    Loc tokenLoc();
 };
 
 #endif /* DMD_LEXER_H */
