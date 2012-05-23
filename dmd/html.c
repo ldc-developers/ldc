@@ -104,15 +104,15 @@ void Html::error(const char *format, ...)
 {
     if (!global.gag)
     {
-        printf("%s(%d) : HTML Error: ", sourcename, linnum);
+        fprintf(stderr, "%s(%d) : HTML Error: ", sourcename, linnum);
 
         va_list ap;
         va_start(ap, format);
-        vprintf(format, ap);
+        vfprintf(stderr, format, ap);
         va_end(ap);
 
-        printf("\n");
-        fflush(stdout);
+        fprintf(stderr, "\n");
+        fflush(stderr);
     }
 
     global.errors++;

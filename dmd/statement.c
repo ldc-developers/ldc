@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -1441,7 +1441,13 @@ Statement *ForeachStatement::semantic(Scope *sc)
                     s =((ScopeExp *)e)->sds;
 
                 if (s)
+                {
                     var = new AliasDeclaration(loc, arg->ident, s);
+                }
+                else if (e->op == TOKtype)
+                {
+                    var = new AliasDeclaration(loc, arg->ident, e->type);
+                }
                 else
                 {
                     arg->type = e->type;
@@ -3783,6 +3789,8 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
     {
         exp = exp->semantic(sc);
         exp = resolveProperties(sc, exp);
+        if (exp->op == TOKerror)
+            goto Lbody;
         ClassDeclaration *cd = exp->type->isClassHandle();
         if (!cd)
             error("can only synchronize on class objects, not '%s'", exp->type->toChars());
@@ -3797,6 +3805,7 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
             exp = exp->semantic(sc);
         }
 
+#if 1
         /* Rewrite as:
          *  auto tmp = exp;
          *  _d_monitorenter(tmp);
@@ -3827,7 +3836,9 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
 
         s = new CompoundStatement(loc, cs);
         return s->semantic(sc);
+#endif
     }
+#if 1
     else
     {   /* Generate our own critical section, then rewrite as:
          *  __gshared byte[CriticalSection.sizeof] critsec;
@@ -3869,6 +3880,11 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
         s = new CompoundStatement(loc, cs);
         return s->semantic(sc);
     }
+#endif
+Lbody:
+    if (body)
+        body = body->semantic(sc);
+    return this;
 }
 
 int SynchronizedStatement::hasBreak()
@@ -4141,7 +4157,9 @@ Catch *Catch::syntaxCopy()
 }
 
 void Catch::semantic(Scope *sc)
-{   ScopeDsymbol *sym;
+{
+    if (type && type->deco)
+        return;
 
     //printf("Catch::semantic(%s)\n", ident->toChars());
 
@@ -4158,7 +4176,7 @@ void Catch::semantic(Scope *sc)
     }
 #endif
 
-    sym = new ScopeDsymbol();
+    ScopeDsymbol *sym = new ScopeDsymbol();
     sym->parent = sc->scopesym;
     sc = sc->push(sym);
 

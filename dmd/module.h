@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -134,10 +134,11 @@ struct Module : Package
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toJsonBuffer(OutBuffer *buf);
     const char *kind();
-    void read(Loc loc); // read file
+    bool read(Loc loc); // read file, returns 'true' if succeed, 'false' otherwise.
 #if IN_LLVM
     void parse(bool gen_docs = false);       // syntactic parse
 #elif IN_GCC
+    void setDocfile();  // set docfile member
     void parse(bool dump_source = false);       // syntactic parse
 #else
     void parse();       // syntactic parse
