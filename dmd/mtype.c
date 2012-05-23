@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -1451,7 +1451,7 @@ Expression *TypeBasic::dotExp(Scope *sc, Expression *e, Identifier *ident)
             case Timaginary64:  t = tfloat64;           goto L2;
             case Timaginary80:  t = tfloat80;           goto L2;
             L2:
-                e = new RealExp(0, 0.0, t);
+                e = new RealExp(e->loc, 0.0, t);
                 break;
 
             default:
@@ -1481,7 +1481,7 @@ Expression *TypeBasic::dotExp(Scope *sc, Expression *e, Identifier *ident)
             case Tfloat32:
             case Tfloat64:
             case Tfloat80:
-                e = new RealExp(0, 0.0, this);
+                e = new RealExp(e->loc, 0.0, this);
                 break;
 
             default:
@@ -2645,6 +2645,22 @@ int TypeAArray::checkBoolean()
     return TRUE;
 }
 
+Expression *TypeAArray::toExpression()
+{
+    Expression *e = next->toExpression();
+    if (e)
+    {
+        Expression *ei = index->toExpression();
+        if (ei)
+        {
+            Expressions *arguments = new Expressions();
+            arguments->push(ei);
+            return new ArrayExp(0, e, arguments);
+        }
+    }
+    return NULL;
+}
+
 int TypeAArray::hasPointers()
 {
     return TRUE;
@@ -3184,13 +3200,25 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
                 error(loc, "cannot have parameter of type %s", fparam->type->toChars());
 
             if (fparam->defaultArg)
-            {
-                fparam->defaultArg = fparam->defaultArg->semantic(argsc);
-                fparam->defaultArg = resolveProperties(argsc, fparam->defaultArg);
-                fparam->defaultArg = fparam->defaultArg->implicitCastTo(argsc, fparam->type);
+            {   Expression *e = fparam->defaultArg;
+                e = e->semantic(argsc);
+                e = resolveProperties(argsc, e);
+                if (e->op == TOKfunction)               // see Bugzilla 4820
+                {   FuncExp *fe = (FuncExp *)e;
+                    if (fe->fd)
+                    {   // Replace function literal with a function symbol,
+                        // since default arg expression must be copied when used
+                        // and copying the literal itself is wrong.
+                        e = new VarExp(e->loc, fe->fd);
+                        e = new AddrExp(e->loc, e);
+                        e = e->semantic(argsc);
+                    }
+                }
+                e = e->implicitCastTo(argsc, fparam->type);
+                fparam->defaultArg = e;
             }
 
-            /* If arg turns out to be a tuple, the number of parameters may
+            /* If fparam after semantic() turns out to be a tuple, the number of parameters may
              * change.
              */
             if (t->ty == Ttuple)
@@ -3650,7 +3678,19 @@ void TypeQualified::resolveHelper(Loc loc, Scope *sc,
                 else
                 {
                   Lerror:
-                    error(loc, "identifier '%s' of '%s' is not defined", id->toChars(), toChars());
+                    if (id->dyncast() == DYNCAST_DSYMBOL)
+                    {   // searchX already handles errors for template instances
+                        assert(global.errors);
+                    }
+                    else
+                    {
+                        sm = s->search_correct(id);
+                        if (sm)
+                            error(loc, "identifier '%s' of '%s' is not defined, did you mean '%s %s'?",
+                                  id->toChars(), toChars(), sm->kind(), sm->toChars());
+                        else
+                            error(loc, "identifier '%s' of '%s' is not defined", id->toChars(), toChars());
+                    }
                     *pe = new ErrorExp();
                 }
                 return;
@@ -4131,14 +4171,19 @@ Type *TypeTypeof::semantic(Loc loc, Scope *sc)
     else
 #endif
     {
-        sc->intypeof++;
-        exp = exp->semantic(sc);
+        Scope *sc2 = sc->push();
+        sc2->intypeof++;
+        unsigned oldspecgag = global.speculativeGag;
+        if (global.gag)
+            global.speculativeGag = global.gag;
+        exp = exp->semantic(sc2);
+        global.speculativeGag = oldspecgag;
 #if DMDV2
         if (exp->type && exp->type->ty == Tfunction &&
             ((TypeFunction *)exp->type)->isproperty)
-            exp = resolveProperties(sc, exp);
+            exp = resolveProperties(sc2, exp);
 #endif
-        sc->intypeof--;
+        sc2->pop();
         if (exp->op == TOKtype)
         {
             error(loc, "argument %s to typeof is not an expression", exp->toChars());
@@ -4959,8 +5004,8 @@ Expression *TypeStruct::defaultInitLiteral(Loc loc)
                 e = vd->init->toExpression();
         }
         else
-            e = vd->type->defaultInitLiteral();
-        structelems->tdata()[j] = e;
+            e = vd->type->defaultInitLiteral(loc);
+        (*structelems)[j] = e;
     }
     StructLiteralExp *structinit = new StructLiteralExp(loc, (StructDeclaration *)sym, structelems);
     // Why doesn't the StructLiteralExp constructor do this, when

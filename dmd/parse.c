@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -129,7 +129,7 @@ Dsymbols *Parser::parseModule()
 
     decldefs = parseDeclDefs(0);
     if (token.value != TOKeof)
-    {   error("unrecognized declaration");
+    {   error(loc, "unrecognized declaration");
         goto Lerr;
     }
     return decldefs;
@@ -5565,6 +5565,7 @@ void initPrecedence()
     precedence[TOKtraits] = PREC_primary;
     precedence[TOKdefault] = PREC_primary;
     precedence[TOKoverloadset] = PREC_primary;
+    precedence[TOKvoid] = PREC_primary;
 #endif
 
     // post

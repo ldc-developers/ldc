@@ -31,6 +31,7 @@
 
 typedef size_t hash_t;
 
+#include "longdouble.h"
 #include "dchar.h"
 
 char *wchar2ascii(wchar_t *);
@@ -41,7 +42,9 @@ int wcharIsAscii(wchar_t *, unsigned len);
 int bstrcmp(unsigned char *s1, unsigned char *s2);
 char *bstr2str(unsigned char *b);
 void error(const char *format, ...) IS_PRINTF(1);
-void error(const wchar_t *format, ...);
+#if M_UNICODE
+void error(const dchar *format, ...);
+#endif
 void warning(const char *format, ...) IS_PRINTF(1);
 
 #ifndef TYPEDEFS
@@ -51,7 +54,7 @@ void warning(const char *format, ...) IS_PRINTF(1);
 #include <float.h>  // for _isnan
 #include <malloc.h> // for alloca
 // According to VC 8.0 docs, long double is the same as double
-#define strtold strtod
+longdouble strtold(const char *p,char **endp);
 #define strtof  strtod
 #define isnan   _isnan
 

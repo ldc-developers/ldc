@@ -1,5 +1,5 @@
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -306,7 +306,7 @@ void FuncDeclaration::semantic(Scope *sc)
         (pd = toParent2()) != NULL &&
         (id = pd->isInterfaceDeclaration()) != NULL)
     {
-        error("template member function not allowed in interface %s", id->toChars());
+        error("template member functions are not allowed in interface %s", id->toChars());
     }
 
     cd = parent->isClassDeclaration();
@@ -362,6 +362,9 @@ void FuncDeclaration::semantic(Scope *sc)
             //printf("\tnot virtual\n");
             goto Ldone;
         }
+        // Suppress further errors if the return type is an error
+        if (type->nextOf() == Type::terror)
+            goto Ldone;
 
         /* Find index of existing function in base class's vtbl[] to override
          * (the index will be the same as in cd's current vtbl[])
@@ -407,7 +410,7 @@ void FuncDeclaration::semantic(Scope *sc)
                 break;
 
             case -2:    // can't determine because of fwd refs
-                cd->sizeok = 2; // can't finish due to forward reference
+                cd->sizeok = SIZEOKfwd; // can't finish due to forward reference
                 Module::dprogress = dprogress_save;
                 return;
 
@@ -488,17 +491,25 @@ void FuncDeclaration::semantic(Scope *sc)
                     break;
 
                 case -2:
-                    cd->sizeok = 2;     // can't finish due to forward reference
+                    cd->sizeok = SIZEOKfwd;     // can't finish due to forward reference
                     Module::dprogress = dprogress_save;
                     return;
 
                 default:
-                {   FuncDeclaration *fdv = (FuncDeclaration *)b->base->vtbl.data[vi];
+                {   FuncDeclaration *fdv = (FuncDeclaration *)b->base->vtbl.tdata()[vi];
                     Type *ti = NULL;
 
                     /* Remember which functions this overrides
                      */
                     foverrides.push(fdv);
+
+#if DMDV2
+                    /* Should we really require 'override' when implementing
+                     * an interface function?
+                     */
+                    //if (!isOverride())
+                        //warning(loc, "overrides base class function %s, but is not marked with 'override'", fdv->toPrettyChars());
+#endif
 
                     if (fdv->tintro)
                         ti = fdv->tintro;
@@ -513,7 +524,7 @@ void FuncDeclaration::semantic(Scope *sc)
                         if (global.endGagging(errors))
                         {
                             // any error in isBaseOf() is a forward reference error, so we bail out
-                            cd->sizeok = 2;    // can't finish due to forward reference
+                            cd->sizeok = SIZEOKfwd;    // can't finish due to forward reference
                             Module::dprogress = dprogress_save;
                             return;
                         }
@@ -524,9 +535,14 @@ void FuncDeclaration::semantic(Scope *sc)
                     }
                     if (ti)
                     {
-                        if (tintro && !tintro->equals(ti))
+                        if (tintro)
+                        {
+                            if (!tintro->nextOf()->equals(ti->nextOf()) &&
+                                !tintro->nextOf()->isBaseOf(ti->nextOf(), NULL) &&
+                                !ti->nextOf()->isBaseOf(tintro->nextOf(), NULL))
                         {
                             error("incompatible covariant types %s and %s", tintro->toChars(), ti->toChars());
+                        }
                         }
                         tintro = ti;
                     }
@@ -601,7 +617,7 @@ void FuncDeclaration::semantic(Scope *sc)
         if (f->varargs)
         {
         Lmainerr:
-            error("parameters must be main() or main(char[][] args)");
+            error("parameters must be main() or main(string[] args)");
         }
     }
 
@@ -2508,6 +2524,10 @@ int FuncDeclaration::isCodeseg()
     return TRUE;                // functions are always in the code segment
 }
 
+int FuncDeclaration::hasOverloads()
+{
+    return overnext != NULL;
+}
 // Determine if function needs
 // a static frame pointer to its lexically enclosing function
 
@@ -3175,7 +3195,7 @@ int StaticCtorDeclaration::addPostInvariant()
 
 void StaticCtorDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
-    if (hgs->hdrgen)
+    if (hgs->hdrgen && !hgs->tpltMember)
     {   buf->writestring("static this();");
         buf->writenl();
         return;

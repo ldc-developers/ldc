@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2009 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -79,7 +79,16 @@ void Import::load(Scope *sc)
 
     // See if existing module
     DsymbolTable *dst = Package::resolve(packages, NULL, &pkg);
-
+#if TARGET_NET  //dot net needs modules and packages with same name
+#else
+    if (pkg && pkg->isModule())
+    {
+        ::error(loc, "can only import from a module, not from a member of module %s. Did you mean `import %s : %s`?",
+             pkg->toChars(), pkg->toPrettyChars(), id->toChars());
+        mod = pkg->isModule(); // Error recovery - treat as import of that module
+        return;
+    }
+#endif
     Dsymbol *s = dst->lookup(id);
     if (s)
     {
@@ -89,7 +98,8 @@ void Import::load(Scope *sc)
         if (s->isModule())
             mod = (Module *)s;
         else
-            error("package and module have the same name");
+            ::error(loc, "can only import from a module, not from package %s.%s",
+                pkg->toPrettyChars(), id->toChars());
 #endif
     }
 
@@ -97,10 +107,13 @@ void Import::load(Scope *sc)
     {
         // Load module
         mod = Module::load(loc, packages, id);
+        if (mod)
+        {
         dst->insert(id, mod);           // id may be different from mod->ident,
                                         // if so then insert alias
         if (!mod->importedFrom)
             mod->importedFrom = sc ? sc->module->importedFrom : Module::rootModule;
+    }
     }
     if (!pkg)
         pkg = mod;
@@ -151,7 +164,8 @@ void Import::semantic(Scope *sc)
     // Load if not already done so
     if (!mod)
     {   load(sc);
-        mod->importAll(0);
+        if (mod)
+            mod->importAll(0);
     }
 
     if (mod)
@@ -200,7 +214,9 @@ void Import::semantic(Scope *sc)
     }
     //printf("-Import::semantic('%s'), pkg = %p\n", toChars(), pkg);
 
-    if (global.params.moduleDeps != NULL)
+    if (global.params.moduleDeps != NULL &&
+        // object self-imports itself, so skip that (Bugzilla 7547)
+        !(id == Id::object && sc->module->ident == Id::object))
     {
         /* The grammar of the file is:
          *      ImportDeclaration
