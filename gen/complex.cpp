@@ -44,7 +44,7 @@ LLType* DtoComplexBaseType(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLConstant* DtoConstComplex(Type* _ty, long double re, long double im)
+LLConstant* DtoConstComplex(Type* _ty, longdouble re, longdouble im)
 {
     TY ty = _ty->toBasetype()->ty;
 

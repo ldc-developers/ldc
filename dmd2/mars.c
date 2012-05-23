@@ -37,13 +37,14 @@
 #if !IN_LLVM
 #include "lib.h"
 #include "json.h"
+#endif
 
 #if WINDOWS_SEH
 #include <windows.h>
 long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep);
 #endif
 
-
+#if !IN_LLVM
 int response_expand(int *pargc, char ***pargv);
 void browse(const char *url);
 void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
@@ -1617,3 +1618,19 @@ Ldone:
     *pargc = argc;
     *pargv = argv->tdata();
 }
+
+#if WINDOWS_SEH
+
+long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep)
+{
+    //printf("%x\n", ep->ExceptionRecord->ExceptionCode);
+    if (ep->ExceptionRecord->ExceptionCode == STATUS_STACK_OVERFLOW)
+    {
+#if 1 //ndef DEBUG
+        return EXCEPTION_EXECUTE_HANDLER;
+#endif
+    }
+    return EXCEPTION_CONTINUE_SEARCH;
+}
+
+#endif

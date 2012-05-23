@@ -4,7 +4,7 @@
 llvm::StructType* DtoComplexType(Type* t);
 LLType* DtoComplexBaseType(Type* t);
 
-LLConstant* DtoConstComplex(Type* t, long double re, long double im);
+LLConstant* DtoConstComplex(Type* t, longdouble re, longdouble im);
 
 LLConstant* DtoComplexShuffleMask(unsigned a, unsigned b);
 
