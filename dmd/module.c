@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -387,7 +387,9 @@ Module *Module::load(Loc loc, Identifiers *packages, Identifier *ident)
         printf("%s\t(%s)\n", ident->toChars(), m->srcfile->toChars());
     }
 
-    m->read(loc);
+    if (!m->read(loc))
+        return NULL;
+
     m->parse();
 
 #ifdef IN_GCC
@@ -397,7 +399,7 @@ Module *Module::load(Loc loc, Identifiers *packages, Identifier *ident)
     return m;
 }
 
-void Module::read(Loc loc)
+bool Module::read(Loc loc)
 {
     //printf("Module::read('%s') file '%s'\n", toChars(), srcfile->toChars());
     if (srcfile->read())
@@ -415,9 +417,11 @@ void Module::read(Loc loc)
             }
             else
                 fprintf(stdmsg, "Specify path to file '%s' with -I switch\n", srcfile->toChars());
+            fatal();
         }
-        fatal();
+        return false;
     }
+    return true;
 }
 
 inline unsigned readwordLE(unsigned short *p)
@@ -684,7 +688,15 @@ void Module::parse()
 
     if (md)
     {   this->ident = md->id;
-        dst = Package::resolve(md->packages, &this->parent, NULL);
+        this->safe = md->safe;
+        Package *ppack = NULL;
+        dst = Package::resolve(md->packages, &this->parent, &ppack);
+        if (ppack && ppack->isModule())
+        {
+            error(loc, "package name '%s' in file %s conflicts with usage as a module name in file %s",
+                ppack->toChars(), srcname, ppack->isModule()->srcfile->toChars());
+            dst = modules;
+        }
     }
     else
     {
@@ -709,7 +721,7 @@ void Module::parse()
         {
             Package *pkg = prev->isPackage();
             assert(pkg);
-            error(loc, "from file %s conflicts with package name %s",
+            error(pkg->loc, "from file %s conflicts with package name %s",
                 srcname, pkg->toChars());
         }
     }
@@ -1216,19 +1228,24 @@ DsymbolTable *Package::resolve(Identifiers *packages, Dsymbol **pparent, Package
             else
             {
                 assert(p->isPackage());
-#if TARGET_NET  //dot net needs modules and packages with same name
-#else
-                if (p->isModule())
-                {   p->error("module and package have the same name");
-                    fatal();
-                    break;
-                }
-#endif
+                // It might already be a module, not a package, but that needs
+                // to be checked at a higher level, where a nice error message
+                // can be generated.
+                // dot net needs modules and packages with same name
             }
             parent = p;
             dst = ((Package *)p)->symtab;
             if (ppkg && !*ppkg)
                 *ppkg = (Package *)p;
+#if TARGET_NET
+#else
+            if (p->isModule())
+            {   // Return the module so that a nice error message can be generated
+                if (ppkg)
+                    *ppkg = (Package *)p;
+                break;
+            }
+#endif
         }
         if (pparent)
         {

@@ -55,7 +55,7 @@ LLConstantInt* DtoConstSize_t(uint64_t);
 LLConstantInt* DtoConstUint(unsigned i);
 LLConstantInt* DtoConstInt(int i);
 LLConstantInt* DtoConstUbyte(unsigned char i);
-LLConstant* DtoConstFP(Type* t, long double value);
+LLConstant* DtoConstFP(Type* t, longdouble value);
 
 LLConstant* DtoConstString(const char*);
 LLConstant* DtoConstStringPtr(const char* str, const char* section = 0);

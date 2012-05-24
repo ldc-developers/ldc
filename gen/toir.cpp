@@ -412,11 +412,11 @@ DValue* ComplexExp::toElem(IRState* p)
     if (c->isNullValue()) {
         Type* t = type->toBasetype();
         if (t->ty == Tcomplex32)
-            c = DtoConstFP(Type::tfloat32, 0);
+            c = DtoConstFP(Type::tfloat32, ldouble(0));
         else if (t->ty == Tcomplex64)
-            c = DtoConstFP(Type::tfloat64, 0);
+            c = DtoConstFP(Type::tfloat64, ldouble(0));
         else if (t->ty == Tcomplex80)
-            c = DtoConstFP(Type::tfloat80, 0);
+            c = DtoConstFP(Type::tfloat80, ldouble(0));
         else
             assert(0);
         res = DtoAggrPair(DtoType(type), c, c);
@@ -1866,7 +1866,7 @@ DValue* PostExp::toElem(IRState* p)
     else if (e1type->isfloating())
     {
         assert(e2type->isfloating());
-        LLValue* one = DtoConstFP(e1type, 1.0);
+        LLValue* one = DtoConstFP(e1type, ldouble(1.0));
         if (op == TOKplusplus) {
             post = llvm::BinaryOperator::CreateFAdd(val,one,"tmp",p->scopebb());
         }

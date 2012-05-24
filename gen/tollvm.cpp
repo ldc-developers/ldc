@@ -578,7 +578,7 @@ llvm::ConstantInt* DtoConstUbyte(unsigned char i)
     return LLConstantInt::get(LLType::getInt8Ty(gIR->context()), i, false);
 }
 
-LLConstant* DtoConstFP(Type* t, long double value)
+LLConstant* DtoConstFP(Type* t, longdouble value)
 {
     LLType* llty = DtoType(t);
     assert(llty->isFloatingPointTy());

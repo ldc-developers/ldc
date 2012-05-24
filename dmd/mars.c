@@ -72,7 +72,7 @@ Global::Global()
 
     copyright = "Copyright (c) 1999-2012 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
-    version = "v1.073";
+    version = "v1.074";
     ldc_version = "LDC trunk";
     llvm_version = "LLVM 3.1svn";
     global.structalign = 8;
@@ -100,6 +100,11 @@ bool Global::endGagging(unsigned oldGagged)
     errors -= (gaggedErrors - oldGagged);
     gaggedErrors = oldGagged;
     return anyErrs;
+}
+
+bool Global::isSpeculativeGagging()
+{
+    return gag && gag == speculativeGag;
 }
 
 

@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -53,10 +53,10 @@ Initializers *Initializer::arraySyntaxCopy(Initializers *ai)
         a = new Initializers();
         a->setDim(ai->dim);
         for (size_t i = 0; i < a->dim; i++)
-        {   Initializer *e = (Initializer *)ai->data[i];
+        {   Initializer *e = (*ai)[i];
 
             e = e->syntaxCopy();
-            a->data[i] = e;
+            (*a)[i] = e;
         }
     }
     return a;
@@ -128,11 +128,11 @@ Initializer *StructInitializer::syntaxCopy()
     ai->value.setDim(value.dim);
     for (size_t i = 0; i < field.dim; i++)
     {
-        ai->field.data[i] = field.data[i];
+        ai->field[i] = field[i];
 
-        Initializer *init = (Initializer *)value.data[i];
+        Initializer *init = value[i];
         init = init->syntaxCopy();
-        ai->value.data[i] = init;
+        ai->value[i] = init;
     }
     return ai;
 }
@@ -189,7 +189,12 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t, int needInterpret)
                 s = ad->search(loc, id, 0);
                 if (!s)
                 {
-                    error(loc, "'%s' is not a member of '%s'", id->toChars(), t->toChars());
+                    s = ad->search_correct(id);
+                    if (s)
+                        error(loc, "'%s' is not a member of '%s', did you mean '%s %s'?",
+                              id->toChars(), t->toChars(), s->kind(), s->toChars());
+                    else
+                        error(loc, "'%s' is not a member of '%s'", id->toChars(), t->toChars());
                     errors = 1;
                     continue;
                 }
@@ -212,8 +217,8 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t, int needInterpret)
             if (s && (v = s->isVarDeclaration()) != NULL)
             {
                 val = val->semantic(sc, v->type, needInterpret);
-                value.data[i] = (void *)val;
-                vars.data[i] = (void *)v;
+                value[i] = val;
+                vars[i] = v;
             }
             else
             {   error(loc, "%s is not a field of %s", id ? id->toChars() : s->toChars(), ad->toChars());
@@ -273,7 +278,7 @@ Expression *StructInitializer::toExpression()
     elements->setDim(nfields);
     for (size_t i = 0; i < elements->dim; i++)
     {
-        elements->data[i] = NULL;
+        (*elements)[i] = NULL;
     }
     unsigned fieldi = 0;
     for (size_t i = 0; i < value.dim; i++)
@@ -305,37 +310,37 @@ Expression *StructInitializer::toExpression()
         {   error(loc, "too many initializers for '%s'", ad->toChars());
             goto Lno;
         }
-        Initializer *iz = (Initializer *)value.data[i];
+        Initializer *iz = value[i];
         if (!iz)
             goto Lno;
         Expression *ex = iz->toExpression();
         if (!ex)
             goto Lno;
-        if (elements->data[fieldi])
+        if ((*elements)[fieldi])
         {   error(loc, "duplicate initializer for field '%s'",
-                ((Dsymbol *)ad->fields.data[fieldi])->toChars());
+                ad->fields[fieldi]->toChars());
             goto Lno;
         }
-        elements->data[fieldi] = ex;
+        (*elements)[fieldi] = ex;
         ++fieldi;
     }
     // Now, fill in any missing elements with default initializers.
     // We also need to validate any anonymous unions
     for (size_t i = 0; i < elements->dim; )
     {
-        VarDeclaration * vd = ((Dsymbol *)ad->fields.data[i])->isVarDeclaration();
+        VarDeclaration * vd = ad->fields[i]->isVarDeclaration();
         int unionSize = ad->numFieldsInUnion(i);
         if (unionSize == 1)
         {   // Not a union -- default initialize if missing
-            if (!elements->data[i])
-                elements->data[i] = vd->type->defaultInit();
+            if (!(*elements)[i])
+                (*elements)[i] = vd->type->defaultInit();
         }
         else
         {   // anonymous union -- check for errors
             int found = -1; // index of the first field with an initializer
-            for (int j = i; j < i + unionSize; ++j)
+            for (size_t j = i; j < i + unionSize; ++j)
             {
-                if (!elements->data[j])
+                if (!(*elements)[j])
                     continue;
                 if (found >= 0)
                 {
@@ -375,13 +380,13 @@ void StructInitializer::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     {
         if (i > 0)
             buf->writebyte(',');
-        Identifier *id = (Identifier *)field.data[i];
+        Identifier *id = field[i];
         if (id)
         {
             buf->writestring(id->toChars());
             buf->writebyte(':');
         }
-        Initializer *iz = (Initializer *)value.data[i];
+        Initializer *iz = value[i];
         if (iz)
             iz->toCBuffer(buf, hgs);
     }
@@ -408,14 +413,14 @@ Initializer *ArrayInitializer::syntaxCopy()
     ai->index.setDim(index.dim);
     ai->value.setDim(value.dim);
     for (size_t i = 0; i < ai->value.dim; i++)
-    {   Expression *e = (Expression *)index.data[i];
+    {   Expression *e = index[i];
         if (e)
             e = e->syntaxCopy();
-        ai->index.data[i] = e;
+        ai->index[i] = e;
 
-        Initializer *init = (Initializer *)value.data[i];
+        Initializer *init = value[i];
         init = init->syntaxCopy();
-        ai->value.data[i] = init;
+        ai->value[i] = init;
     }
     return ai;
 }
@@ -532,7 +537,7 @@ Expression *ArrayInitializer::toExpression()
         for (size_t i = 0, j = 0; i < value.dim; i++, j++)
         {
             if (index[i])
-                j = (index[i])->toInteger();
+                j = index[i]->toInteger();
             if (j >= edim)
                 edim = j + 1;
         }
@@ -584,6 +589,7 @@ Lno:
     return new ErrorExp();
 }
 
+
 /********************************
  * If possible, convert array initializer to associative array initializer.
  */
@@ -601,18 +607,18 @@ Initializer *ArrayInitializer::toAssocArrayInitializer()
 
     for (size_t i = 0; i < value.dim; i++)
     {
-        e = index.tdata()[i];
+        e = index[i];
         if (!e)
             goto Lno;
-        keys->tdata()[i] = e;
+        (*keys)[i] = e;
 
-        Initializer *iz = value.tdata()[i];
+        Initializer *iz = value[i];
         if (!iz)
             goto Lno;
         e = iz->toExpression();
         if (!e)
             goto Lno;
-        values->tdata()[i] = e;
+        (*values)[i] = e;
     }
     e = new AssocArrayLiteralExp(loc, keys, values);
     return new ExpInitializer(loc, e);
@@ -668,13 +674,13 @@ void ArrayInitializer::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     {
         if (i > 0)
             buf->writebyte(',');
-        Expression *ex = index.tdata()[i];
+        Expression *ex = index[i];
         if (ex)
         {
             ex->toCBuffer(buf, hgs);
             buf->writebyte(':');
         }
-        Initializer *iz = value.tdata()[i];
+        Initializer *iz = value[i];
         if (iz)
             iz->toCBuffer(buf, hgs);
     }
@@ -707,7 +713,7 @@ Initializer *ExpInitializer::semantic(Scope *sc, Type *t, int needInterpret)
         return this; // Failed, suppress duplicate error messages
 
     if (exp->op == TOKtype)
-        error("initializer must be an expression, not '%s'", exp->toChars());
+        exp->error("initializer must be an expression, not '%s'", exp->toChars());
     Type *tb = t->toBasetype();
 
     /* Look for case of initializing a static array with a too-short
@@ -767,7 +773,7 @@ Type *ExpInitializer::inferType(Scope *sc)
     // Give error for overloaded function addresses
     if (exp->op == TOKdelegate)
     {   DelegateExp *se = (DelegateExp *)exp;
-        if (
+        if (se->hasOverloads &&
             se->func->isFuncDeclaration() &&
             !se->func->isFuncDeclaration()->isUnique())
             exp->error("cannot infer type from overloaded function symbol %s", exp->toChars());
