@@ -224,10 +224,13 @@ set(LDC_SOURCE_FILES
     ${GEN_SRC}
     ${IR_SRC}
 )
-set_source_files_properties(
-    ${LDC_SOURCE_FILES}    PROPERTIES
-    LANGUAGE CXX
-)
+
+# DMD source files have a .c extension, but are actually C++ code.
+foreach(file ${LDC_SOURCE_FILES})
+    if(file MATCHES ".*\\.c$")
+        set_source_files_properties(${file} PROPERTIES LANGUAGE CXX)
+    endif()
+endforeach()
 
 #
 # Includes, defines.
