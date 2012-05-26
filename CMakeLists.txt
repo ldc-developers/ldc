@@ -224,10 +224,13 @@ set(LDC_SOURCE_FILES
     ${GEN_SRC}
     ${IR_SRC}
 )
-set_source_files_properties(
-    ${LDC_SOURCE_FILES}    PROPERTIES
-    LANGUAGE CXX
-)
+
+# DMD source files have a .c extension, but are actually C++ code.
+foreach(file ${LDC_SOURCE_FILES})
+    if(file MATCHES ".*\\.c$")
+        set_source_files_properties(${file} PROPERTIES LANGUAGE CXX)
+    endif()
+endforeach()
 
 #
 # Includes, defines.
@@ -321,11 +324,16 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 
 add_subdirectory(runtime)
 
-install(TARGETS     ${LDC_EXE}                                                  DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-install(TARGETS     ${LDC_LIB}                                                  DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
-install(PROGRAMS    ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE}                       DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
-install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf           DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
-install(FILES       ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.rebuild.conf   DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.rebuild.conf)
+install(TARGETS ${LDC_EXE} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+if(${BUILD_SHARED})
+    # For now, only install libldc if explicitely building the shared library.
+    # While it might theoretically be possible to use LDC as a static library
+    # as well, for the time being this just bloats the normal packages.
+    install(TARGETS ${LDC_LIB} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
+endif()
+install(PROGRAMS ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
+install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.rebuild.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.rebuild.conf)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     install(DIRECTORY bash_completion.d DESTINATION ${CONF_INST_DIR})
