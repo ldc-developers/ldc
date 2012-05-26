@@ -5497,7 +5497,11 @@ Expression *BinAssignExp::semantic(Scope *sc)
     typeCombine(sc);
     e1->checkIntegral();
     e2 = e2->checkIntegral();
+#if !IN_LLVM
     e2 = e2->castTo(sc, Type::tshiftcnt);
+#else
+    e2 = e2->castTo(sc, e1->type);
+#endif
     return this;
 }
 
