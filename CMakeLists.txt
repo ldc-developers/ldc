@@ -27,19 +27,20 @@ find_package(LLVM 3.0 EXACT REQUIRED
 include(FindPkgConfig)
 if(PKG_CONFIG_FOUND)
     pkg_search_module(LIBCONFIGPP libconfig++)
-    if(NOT LIBCONFIGPP_FOUND)
-        set(LIBCONFIG_CXXFLAGS "" CACHE STRING "libconfig++ compiler flags")
-        set(LIBCONFIG_LDFLAGS "" CACHE STRING "libconfig++ linker flags")
-    else(NOT LIBCONFIGPP_FOUND)
+    if(LIBCONFIGPP_FOUND)
         set(LIBCONFIG_CXXFLAGS ${LIBCONFIGPP_CFLAGS} CACHE STRING "libconfig++ compiler flags")
         set(LIBCONFIG_LDFLAGS ${LIBCONFIGPP_LDFLAGS} CACHE STRING "libconfig++ linker flags")
-    endif(NOT LIBCONFIGPP_FOUND)
+    endif()
+else()
+    message(WARNING "pkg-config not found. libconfig++ options cannot be detected, you might need to set them manually.")
 endif()
 
 # libconfig++ is actually a required dependency, but has never been defined as
 # one – maybe there was a problem with the auto detection once.
 if (NOT LIBCONFIGPP_FOUND)
-  message(WARNING "libconfig++ not found. If compilation fails but the library is installed, consider manually setting the LIBCONFIG_CXXFLAGS and LIBCONFIG_LDFLAGS CMake variables.")
+    set(LIBCONFIG_CXXFLAGS "" CACHE STRING "libconfig++ compiler flags")
+    set(LIBCONFIG_LDFLAGS "" CACHE STRING "libconfig++ linker flags")
+    message(WARNING "libconfig++ not found. If compilation fails but the library is installed, consider manually setting the LIBCONFIG_CXXFLAGS and LIBCONFIG_LDFLAGS CMake variables.")
 endif()
 
 #
