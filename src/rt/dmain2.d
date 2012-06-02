@@ -98,7 +98,10 @@ version (OSX)
     // The bottom of the stack
     extern (C) __gshared void* __osx_stack_end = cast(void*)0xC0000000;
 
+    version (DigitalMars)
+    {
     extern (C) extern (C) void _d_osx_image_init2();
+    }
 }
 
 /***********************************
@@ -349,7 +352,10 @@ extern (C) int main(int argc, char** argv)
          */
         __osx_stack_end = cast(void*)&argv;
 
+        version (DigitalMars)
+        {
         _d_osx_image_init2();
+        }
     }
 
     version (FreeBSD) version (D_InlineAsm_X86)
