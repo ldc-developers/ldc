@@ -1466,15 +1466,12 @@ DValue* ThisExp::toElem(IRState* p)
     if (VarDeclaration* vd = var->isVarDeclaration()) {
         LLValue* v;
         Dsymbol* vdparent = vd->toParent2();
-#if DMDV2
         Identifier *ident = p->func()->decl->ident;
         if (ident == Id::ensure || ident == Id::require) {
             Logger::println("contract this exp");
             v = p->func()->nestArg;
             v = DtoBitCast(v, DtoType(type)->getPointerTo());
-        } else
-#endif
-        if (vdparent != p->func()->decl) {
+        } else if (vdparent != p->func()->decl) {
             Logger::println("nested this exp");
 #if STRUCTTHISREF
             return DtoNestedVariable(loc, type, vd, type->ty == Tstruct);

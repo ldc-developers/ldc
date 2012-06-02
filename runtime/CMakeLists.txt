@@ -180,14 +180,22 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
     list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
 
     list(FIND GENERATE_DI "${INPUT_D}" INDEX)
-    if (INDEX EQUAL -1)
+    if(INDEX EQUAL -1)
         set(DI_CMD "")
-    else (INDEX EQUAL -1)
+    else()
         string(REGEX REPLACE "src/ldc" "src/core" output ${output})
         string(REGEX REPLACE "^src/" "" di_output ${output})
-        set(DI_CMD -Hf=${CMAKE_BINARY_DIR}/import/${di_output}.di)
+
+        # If a hand-written .di file exists along the source in src/, just copy
+        # it instead of running it through the compiler.
+        if(EXISTS "${INPUT_D}i")
+            configure_file("${INPUT_D}i" ${CMAKE_BINARY_DIR}/import/${di_output}.di COPYONLY)
+        else()
+            set(DI_CMD -Hf=${CMAKE_BINARY_DIR}/import/${di_output}.di)
+        endif()
+
         list(REMOVE_AT GENERATE_DI ${INDEX})
-    endif (INDEX EQUAL -1)
+    endif()
 
     # Compile
     add_custom_command(
