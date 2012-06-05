@@ -97,9 +97,9 @@ struct X86TargetABI : TargetABI
             return false;
 #endif
         Type* rt = tf->next->toBasetype();
-        // D only returns structs on the stack
+        // D only returns structs and static arrays on the stack
         if (tf->linkage == LINKd)
-            return (rt->ty == Tstruct);
+            return (rt->ty == Tstruct || rt->ty == Tsarray);
         // other ABI's follow C, which is cdouble and creal returned on the stack
         // as well as structs
         else
@@ -236,7 +236,9 @@ struct UnknownTargetABI : TargetABI
         if (tf->isref)
             return false;
 #endif
-        return (tf->next->toBasetype()->ty == Tstruct);
+        Type* rt = tf->next->toBasetype();
+        // Return structs and static arrays on the stack
+        return (rt->ty == Tstruct || rt->ty == Tsarray);
     }
 
     bool passByVal(Type* t)
