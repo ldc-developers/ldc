@@ -108,7 +108,7 @@ struct X86TargetABI : TargetABI
 
     bool passByVal(Type* t)
     {
-        return t->toBasetype()->ty == Tstruct;
+        return t->toBasetype()->ty == Tstruct || t->toBasetype()->ty == Tsarray;
     }
 
     void rewriteFunctionType(TypeFunction* tf)

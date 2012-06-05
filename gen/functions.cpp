@@ -162,6 +162,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         else if (abi->passByVal(byref ? argtype->pointerTo() : argtype))
         {
             if (!byref) a |= llvm::Attribute::ByVal;
+            // set byref, because byval requires a pointed LLVM type
             byref = true;
         }
         // sext/zext

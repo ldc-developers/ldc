@@ -20,7 +20,7 @@ struct IrFuncTyArg : IrBase
 {
     /** This is the original D type as the frontend knows it
      *  May NOT be rewritten!!! */
-    Type* type;
+    Type* const type;
 
     /// This is the final LLVM Type used for the parameter/return value type
     llvm::Type* ltype;
@@ -92,7 +92,7 @@ struct IrFuncTy : IrBase
     {}
 
 #if defined(_MSC_VER)
-    // Copy constructor and operator= seems to be requreid for MSC
+    // Copy constructor and operator= seems to be required for MSC
 
     IrFuncTy(const IrFuncTy& rhs)
     :   ret(rhs.ret),
