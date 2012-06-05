@@ -30,7 +30,9 @@ set(D_FLAGS -g -w -d CACHE STRING "runtime build flags, separated by ;")
 if(BUILD_SHARED_LIBS)
     list(APPEND D_FLAGS -relocation-model=pic)
     if(APPLE)
-      list(APPEND LD_FLAGS -Wl,-undefined,dynamic_lookup)
+         # We need to explicitly specify that __Dmain should be resolved at
+         # runtime with the default OS X tool chain.
+         list(APPEND LD_FLAGS -Wl,-U,__Dmain)
     endif()
     set(D_LIBRARY_TYPE SHARED)
 else(BUILD_SHARED_LIBS)
