@@ -371,8 +371,10 @@ extern Global global;
  */
 #define WINDOWS_SEH     (_WIN32 && __DMC__)
 
+#include "longdouble.h"
 
 #ifdef __DMC__
+ #include  <complex.h>
  typedef _Complex long double complex_t;
 #else
  #ifndef IN_GCC
@@ -403,7 +405,7 @@ typedef uint64_t                d_uns64;
 
 typedef float                   d_float32;
 typedef double                  d_float64;
-typedef long double             d_float80;
+typedef longdouble              d_float80;
 
 typedef d_uns8                  d_char;
 typedef d_uns16                 d_wchar;
@@ -412,7 +414,7 @@ typedef d_uns32                 d_dchar;
 #ifdef IN_GCC
 #include "d-gcc-real.h"
 #else
-typedef long double real_t;
+typedef longdouble real_t;
 #endif
 
 // Modify OutBuffer::writewchar to write the correct size of wchar
