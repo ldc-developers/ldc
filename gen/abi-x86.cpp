@@ -152,6 +152,7 @@ struct X86TargetABI : TargetABI
                     // rewrite the struct into an integer to make inreg work
                     if (lastTy->ty == Tstruct || lastTy->ty == Tsarray)
                     {
+                        Logger::println("Putting struct/sarray in register");
                         last->rewrite = &compositeToInt;
                         last->ltype = compositeToInt.type(last->type, last->ltype);
                         last->byref = false;
