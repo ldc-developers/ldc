@@ -603,7 +603,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
                     arg.ltype = DtoType(arg.type);
                     arg.byref = false;
                     // erase previous attributes
-                    arg.attrs = 0;
+                    arg.attrs = llvm::Attribute::None;
                 }
                 arg.attrs |= llvm::Attribute::InReg;
                 --regcount;
