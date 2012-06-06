@@ -15,7 +15,7 @@ else()
 endif()
 
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   58)
+set(DMDFE_PATCH_VERSION   59)
 set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
 
 set(MULTILIB              OFF                                                           CACHE BOOL    "Build both 64-bit and 32-bit libraries")
@@ -29,6 +29,11 @@ set(D_FLAGS -g -w -d CACHE STRING "runtime build flags, separated by ;")
 
 if(BUILD_SHARED_LIBS)
     list(APPEND D_FLAGS -relocation-model=pic)
+    if(APPLE)
+         # We need to explicitly specify that __Dmain should be resolved at
+         # runtime with the default OS X tool chain.
+         list(APPEND LD_FLAGS -Wl,-U,__Dmain)
+    endif()
     set(D_LIBRARY_TYPE SHARED)
 else(BUILD_SHARED_LIBS)
     set(D_LIBRARY_TYPE STATIC)
@@ -352,10 +357,10 @@ endmacro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
 if(PHOBOS2_DIR)
     add_custom_target(phobos2)
 endif(PHOBOS2_DIR)
-build_runtime("" "" "" "" "${LIB_SUFFIX}")
+build_runtime("" "" "${LD_FLAGS}" "" "${LIB_SUFFIX}")
 set(GENERATE_DI "")
 if(MULTILIB)
-    build_runtime("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX}" "" "${MULTILIB_SUFFIX}")
+    build_runtime("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "" "${MULTILIB_SUFFIX}")
 endif(MULTILIB)
 
 #

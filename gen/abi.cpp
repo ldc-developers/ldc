@@ -108,7 +108,7 @@ struct X86TargetABI : TargetABI
 
     bool passByVal(Type* t)
     {
-        return t->toBasetype()->ty == Tstruct;
+        return t->toBasetype()->ty == Tstruct || t->toBasetype()->ty == Tsarray;
     }
 
     void rewriteFunctionType(TypeFunction* tf)
@@ -176,6 +176,12 @@ struct X86TargetABI : TargetABI
                         last->byref = false;
                         // erase previous attributes
                         last->attrs = llvm::Attribute::None;
+                    }
+                    else if (lastTy->ty == Tsarray)
+                    {
+                        last->ltype = DtoType(last->type);
+                        last->byref = false;
+                        last->attrs &= ~llvm::Attribute::ByVal;
                     }
                     last->attrs |= llvm::Attribute::InReg;
                 }

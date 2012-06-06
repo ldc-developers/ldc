@@ -428,7 +428,8 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
 bool X86_64TargetABI::passByVal(Type* t) {
     t = t->toBasetype();
     if (linkage() == LINKd) {
-        return t->toBasetype()->ty == Tstruct;
+        // static arrays are also passed byval
+        return t->ty == Tstruct || t->ty == Tsarray;
     } else {
         // This implements the C calling convention for x86-64.
         // It might not be correct for other calling conventions.
@@ -598,6 +599,11 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
                 else
                 {
                     Logger::println("Putting static array in register");
+                    // need to make sure type is not pointer
+                    arg.ltype = DtoType(arg.type);
+                    arg.byref = false;
+                    // erase previous attributes
+                    arg.attrs = 0;
                 }
                 arg.attrs |= llvm::Attribute::InReg;
                 --regcount;
