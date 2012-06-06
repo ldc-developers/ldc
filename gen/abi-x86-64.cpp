@@ -348,7 +348,7 @@ struct RegCount {
 struct X86_64TargetABI : TargetABI {
     X86_64_C_struct_rewrite struct_rewrite;
     X87_complex_swap swapComplex;
-    X86_struct_to_register structToReg;
+    CompositeToInt compositeToInt;
 
     void newFunctionType(TypeFunction* tf) {
         funcTypeStack.push_back(FuncTypeData(tf->linkage));
@@ -587,25 +587,11 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             else if ((ty->ty == Tstruct || ty->ty == Tsarray) &&
                      (sz == 1 || sz == 2 || sz == 4 || sz == 8))
             {
-                if (ty->ty == Tstruct)
-                {
-                    Logger::println("Putting struct in register");
-                    arg.rewrite = &structToReg;
-                    arg.ltype = structToReg.type(arg.type, arg.ltype);
-                    arg.byref = false;
-                    // erase previous attributes
-                    arg.attrs = 0;
-                }
-                else
-                {
-                    Logger::println("Putting static array in register");
-                    // need to make sure type is not pointer
-                    arg.ltype = DtoType(arg.type);
-                    arg.byref = false;
-                    // erase previous attributes
-                    arg.attrs = 0;
-                }
-                arg.attrs |= llvm::Attribute::InReg;
+                Logger::println("Putting struct/sarray in register");
+                arg.rewrite = &compositeToInt;
+                arg.ltype = compositeToInt.type(arg.type, arg.ltype);
+                arg.byref = false;
+                arg.attrs = llvm::Attribute::InReg;
                 --regcount;
             }
         }

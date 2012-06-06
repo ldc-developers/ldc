@@ -69,7 +69,7 @@ struct X86TargetABI : TargetABI
 {
     X87_complex_swap swapComplex;
     X86_cfloat_rewrite cfloatToInt;
-    X86_struct_to_register structToReg;
+    CompositeToInt compositeToInt;
 
     bool returnInArg(TypeFunction* tf)
     {
@@ -150,19 +150,13 @@ struct X86TargetABI : TargetABI
                 else if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) // right?
                 {
                     // rewrite the struct into an integer to make inreg work
-                    if (lastTy->ty == Tstruct)
+                    if (lastTy->ty == Tstruct || lastTy->ty == Tsarray)
                     {
-                        last->rewrite = &structToReg;
-                        last->ltype = structToReg.type(last->type, last->ltype);
+                        last->rewrite = &compositeToInt;
+                        last->ltype = compositeToInt.type(last->type, last->ltype);
                         last->byref = false;
                         // erase previous attributes
-                        last->attrs = 0;
-                    }
-                    else if (lastTy->ty == Tsarray)
-                    {
-                        last->ltype = DtoType(last->type);
-                        last->byref = false;
-                        last->attrs &= ~llvm::Attribute::ByVal;
+                        last->attrs = llvm::Attribute::None;
                     }
                     last->attrs |= llvm::Attribute::InReg;
                 }
