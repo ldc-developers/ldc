@@ -185,9 +185,8 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
     list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
 
     list(FIND GENERATE_DI "${INPUT_D}" INDEX)
-    if(INDEX EQUAL -1)
-        set(DI_CMD "")
-    else()
+    set(DI_CMD "")
+    if(NOT INDEX EQUAL -1)
         string(REGEX REPLACE "src/ldc" "src/core" output ${output})
         string(REGEX REPLACE "^src/" "" di_output ${output})
 
