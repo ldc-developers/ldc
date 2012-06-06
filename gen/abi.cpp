@@ -177,6 +177,12 @@ struct X86TargetABI : TargetABI
                         // erase previous attributes
                         last->attrs = 0;
                     }
+                    else if (lastTy->ty == Tsarray)
+                    {
+                        last->ltype = DtoType(last->type);
+                        last->byref = false;
+                        last->attrs &= ~llvm::Attribute::ByVal;
+                    }
                     last->attrs |= llvm::Attribute::InReg;
                 }
             }
