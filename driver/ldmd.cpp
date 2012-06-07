@@ -26,6 +26,9 @@
 // intentionally specified multiple times to get a certain effect (e.g. pass,
 // linker options).
 //
+// Just as with the old LDMD script, arguments can be passed through unmodified
+// to LDC by using -Csomearg.
+//
 // If maintaining this wrapper is deemed too messy at some point, an alternative
 // would be to either extend the LLVM command line library to support the DMD
 // semantics (unlikely to happen), or to abandon it altogether (except for
@@ -662,6 +665,10 @@ Params parseArgs(int originalArgc, char** originalArgv, ls::Path ldcPath)
                     result.run = false;
                     goto Lnoarg;
                 }
+            }
+            else if (p[1] == 'C')
+            {
+                result.unknownSwitches.push_back(concat("-", p + 2));
             }
             else
             {
