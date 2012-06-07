@@ -20,6 +20,12 @@
 // practice in makefiles written for DMD, as DFLAGS is also a natural name for
 // handling flags there.
 //
+// In order to maintain backwards compatibility with earlier versions of LDMD,
+// unknown switches are passed through verbatim to LDC. Finding a better
+// solution for this is tricky, as some of the LLVM arguments can be
+// intentionally specified multiple times to get a certain effect (e.g. pass,
+// linker options).
+//
 // If maintaining this wrapper is deemed too messy at some point, an alternative
 // would be to either extend the LLVM command line library to support the DMD
 // semantics (unlikely to happen), or to abandon it altogether (except for
@@ -116,8 +122,10 @@ int execute(ls::Path exePath, const char** args)
  */
 void printUsage(const char* argv0, ls::Path ldcPath)
 {
+    // Print version information by actually invoking ldc -version.
     const char* args[] = { ldcPath.c_str(), "-version", NULL };
     execute(ldcPath, args);
+
     printf("\n\
 Usage:\n\
   %s files.d ... { -switch }\n\
@@ -348,6 +356,8 @@ struct Params
     bool hiddenDebugR;
     bool hiddenDebugX;
     bool hiddenDebugY;
+
+    std::vector<char*> unknownSwitches;
 
     bool run;
     std::vector<char*> files;
@@ -656,7 +666,7 @@ Params parseArgs(int originalArgc, char** originalArgv, ls::Path ldcPath)
             else
             {
              Lerror:
-                error("unrecognized switch '%s'", argv[i]);
+                result.unknownSwitches.push_back(argv[i]);
                 continue;
 
              Lnoarg:
@@ -753,6 +763,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.hiddenDebugR) r.push_back("-hidden-debug-r");
     if (p.hiddenDebugX) r.push_back("-hidden-debug-x");
     if (p.hiddenDebugY) r.push_back("-hidden-debug-y");
+    r.insert(r.end(), p.unknownSwitches.begin(), p.unknownSwitches.end());
     if (p.run) r.push_back("-run");
     r.insert(r.end(), p.files.begin(), p.files.end());
     r.insert(r.end(), p.runArgs.begin(), p.runArgs.end());
