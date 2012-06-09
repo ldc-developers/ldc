@@ -83,6 +83,8 @@ void printVersion() {
     global.ldc_version, global.version, global.llvm_version, global.copyright, global.written);
     printf("D Language Documentation: http://d-programming-language.org/index.html\n"
            "LDC Homepage: https://github.com/ldc-developers/ldc\n");
+
+    exit(EXIT_SUCCESS);
 }
 
 // Helper function to handle -d-debug=* and -d-version=*
