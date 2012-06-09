@@ -593,6 +593,10 @@ LDC_TARGETS
         VersionCondition::addPredefinedGlobalIdent("D_LP64");
     }
 
+    if (mRelocModel == llvm::Reloc::PIC_) {
+        VersionCondition::addPredefinedGlobalIdent("D_PIC");
+    }
+
     // parse the OS out of the target triple
     // see http://gcc.gnu.org/install/specific.html for details
     // also llvm's different SubTargets have useful information
