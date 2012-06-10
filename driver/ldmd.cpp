@@ -55,6 +55,10 @@
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/raw_ostream.h"
 
+#ifdef HAVE_SC_ARG_MAX
+# include <unistd.h>
+#endif
+
 namespace ls = llvm::sys;
 
 // We reuse DMD's response file parsing routine for maximum compatibilty - it
@@ -114,7 +118,7 @@ int execute(ls::Path exePath, const char** args)
 {
     std::string errorMsg;
     int rc = ls::Program::ExecuteAndWait(exePath, args, NULL, NULL,
-        NULL, NULL, &errorMsg);
+        0, 0, &errorMsg);
     if (!errorMsg.empty())
     {
         error("Could not execute %s: %s", exePath.c_str(), errorMsg.c_str());
@@ -784,13 +788,15 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
  */
 size_t maxCommandLineLen()
 {
-#ifdef WINDOWS
-    // http://blogs.msdn.com/b/oldnewthing/archive/2003/12/10/56028.aspx
-    return 32767;
-#else
+#if defined(HAVE_SC_ARG_MAX)
     // http://www.in-ulm.de/~mascheck/various/argmax – the factor 2 is just
     // a wild guess to account for the enviroment.
     return sysconf(_SC_ARG_MAX) / 2;
+#elif defined(_WIN32)
+    // http://blogs.msdn.com/b/oldnewthing/archive/2003/12/10/56028.aspx
+    return 32767;
+#else
+# error "Do not know how to determine maximum command line length."
 #endif
 }
 

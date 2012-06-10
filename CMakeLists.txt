@@ -331,6 +331,12 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 #
 # LDMD
 #
+include(CheckSymbolExists)
+CHECK_SYMBOL_EXISTS(_SC_ARG_MAX "unistd.h" HAVE_SC_ARG_MAX)
+if (HAVE_SC_ARG_MAX)
+   add_definitions(-DHAVE_SC_ARG_MAX)
+endif()
+
 set_source_files_properties(dmd2/root/response.c dmd2/root/man.c PROPERTIES LANGUAGE CXX)
 add_executable(${LDMD_EXE} dmd2/root/response.c dmd2/root/man.c driver/ldmd.cpp)
 set_target_properties(${LDMD_EXE} PROPERTIES
@@ -339,7 +345,11 @@ set_target_properties(${LDMD_EXE} PROPERTIES
     OUTPUT_NAME "${LDMD_EXE_NAME}"
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
 )
-target_link_libraries(${LDMD_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES}")
+# Same as above, LLVM_LDFLAGS should really be in LINK_FLAGS, but the LLVM libs
+# use symbols from libdl, ..., so LLVM_LDFLAGS must come _after_ them in the
+# command line. Maybe this could be improved using library groups, at least with
+# GNU ld.
+target_link_libraries(${LDMD_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS}")
 
 #
 # Install target.
