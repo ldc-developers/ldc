@@ -345,7 +345,11 @@ set_target_properties(${LDMD_EXE} PROPERTIES
     OUTPUT_NAME "${LDMD_EXE_NAME}"
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
 )
-target_link_libraries(${LDMD_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES}")
+# Same as above, LLVM_LDFLAGS should really be in LINK_FLAGS, but the LLVM libs
+# use symbols from libdl, ..., so LLVM_LDFLAGS must come _after_ them in the
+# command line. Maybe this could be improved using library groups, at least with
+# GNU ld.
+target_link_libraries(${LDMD_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS}")
 
 #
 # Install target.
