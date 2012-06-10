@@ -44,6 +44,7 @@
 
 #include <cassert>
 #include <cerrno>
+#include <climits>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
