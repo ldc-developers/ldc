@@ -114,7 +114,7 @@ int execute(ls::Path exePath, const char** args)
 {
     std::string errorMsg;
     int rc = ls::Program::ExecuteAndWait(exePath, args, NULL, NULL,
-        NULL, NULL, &errorMsg);
+        0, 0, &errorMsg);
     if (!errorMsg.empty())
     {
         error("Could not execute %s: %s", exePath.c_str(), errorMsg.c_str());
