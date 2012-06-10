@@ -83,6 +83,8 @@ void printVersion() {
     global.ldc_version, global.version, global.llvm_version, global.copyright, global.written);
     printf("D Language Documentation: http://d-programming-language.org/index.html\n"
            "LDC Homepage: https://github.com/ldc-developers/ldc\n");
+
+    exit(EXIT_SUCCESS);
 }
 
 // Helper function to handle -d-debug=* and -d-version=*
@@ -601,6 +603,10 @@ LDC_TARGETS
         VersionCondition::addPredefinedGlobalIdent("LLVM64");
         // FIXME: is this always correct?
         VersionCondition::addPredefinedGlobalIdent("D_LP64");
+    }
+
+    if (mRelocModel == llvm::Reloc::PIC_) {
+        VersionCondition::addPredefinedGlobalIdent("D_PIC");
     }
 
     // parse the OS out of the target triple
