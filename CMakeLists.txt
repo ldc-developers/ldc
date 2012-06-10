@@ -331,6 +331,12 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 #
 # LDMD
 #
+include(CheckSymbolExists)
+CHECK_SYMBOL_EXISTS(_SC_ARG_MAX "unistd.h" HAVE_SC_ARG_MAX)
+if (HAVE_SC_ARG_MAX)
+   add_definitions(-DHAVE_SC_ARG_MAX)
+endif()
+
 set_source_files_properties(dmd2/root/response.c dmd2/root/man.c PROPERTIES LANGUAGE CXX)
 add_executable(${LDMD_EXE} dmd2/root/response.c dmd2/root/man.c driver/ldmd.cpp)
 set_target_properties(${LDMD_EXE} PROPERTIES
