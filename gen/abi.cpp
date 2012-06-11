@@ -36,7 +36,9 @@ struct UnknownTargetABI : TargetABI
         if (tf->isref)
             return false;
 #endif
-        return (tf->next->toBasetype()->ty == Tstruct);
+        Type* rt = tf->next->toBasetype();
+        // Return structs and static arrays on the stack
+        return (rt->ty == Tstruct || rt->ty == Tsarray);
     }
 
     bool passByVal(Type* t)
