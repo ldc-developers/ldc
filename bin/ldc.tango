@@ -1,4 +1,0 @@
-
-[Environment]
-
-DFLAGS=-I%@P%/../tango -E%@P%/../lib -L-L=%@P%/../lib

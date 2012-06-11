@@ -55,41 +55,45 @@ struct X87_complex_swap : ABIRewrite
 
 //////////////////////////////////////////////////////////////////////////////
 
-// FIXME: try into eliminating the alloca or if at least check
-// if it gets optimized away
-
-// convert byval struct
-// when
-struct X86_struct_to_register : ABIRewrite
+/**
+ * Rewrites a composite type parameter to an integer of the same size.
+ *
+ * This is needed in order to be able to use LLVM's inreg attribute to put
+ * struct and static array parameters into registers, because the attribute has
+ * slightly different semantics. For example, LLVM would store a [4 x i8] inreg
+ * in four registers (zero-extended), instead of a single 32bit one.
+ *
+ * The LLVM value in dv is expected to be a pointer to the parameter, as
+ * generated when lowering struct/static array paramters to LLVM byval.
+ */
+struct CompositeToInt : ABIRewrite
 {
-    // int -> struct
     LLValue* get(Type* dty, DValue* dv)
     {
-        Logger::println("rewriting int -> struct");
-        LLValue* mem = DtoAlloca(dty, ".int_to_struct");
+        Logger::println("rewriting integer -> %s", dty->toChars());
+        LLValue* mem = DtoAlloca(dty, ".int_to_composite");
         LLValue* v = dv->getRVal();
         DtoStore(v, DtoBitCast(mem, getPtrToType(v->getType())));
         return DtoLoad(mem);
     }
-    // int -> struct (with dst lvalue given)
+
     void getL(Type* dty, DValue* dv, llvm::Value* lval)
     {
-        Logger::println("rewriting int -> struct");
+        Logger::println("rewriting integer -> %s", dty->toChars());
         LLValue* v = dv->getRVal();
         DtoStore(v, DtoBitCast(lval, getPtrToType(v->getType())));
     }
-    // struct -> int
+
     LLValue* put(Type* dty, DValue* dv)
     {
-        Logger::println("rewriting struct -> int");
-        assert(dv->isLVal());
-        LLValue* mem = dv->getLVal();
-        LLType* t = LLIntegerType::get(gIR->context(), dty->size()*8);
-        return DtoLoad(DtoBitCast(mem, getPtrToType(t)));
+        Logger::println("rewriting %s -> integer", dty->toChars());
+        LLType* t = LLIntegerType::get(gIR->context(), dty->size() * 8);
+        return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
     }
+
     LLType* type(Type* t, LLType*)
     {
-        size_t sz = t->size()*8;
+        size_t sz = t->size() * 8;
         return LLIntegerType::get(gIR->context(), sz);
     }
 };

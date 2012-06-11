@@ -153,8 +153,8 @@ endif(NOT LDC_LOC)
 #
 
 if(MULTILIB)
-    set(MUTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
-    set(MUTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",")
+    set(MULTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",")
+    set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",")
 endif(MULTILIB)
 
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
@@ -185,9 +185,8 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
     list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
 
     list(FIND GENERATE_DI "${INPUT_D}" INDEX)
-    if(INDEX EQUAL -1)
-        set(DI_CMD "")
-    else()
+    set(DI_CMD "")
+    if(NOT INDEX EQUAL -1)
         string(REGEX REPLACE "src/ldc" "src/core" output ${output})
         string(REGEX REPLACE "^src/" "" di_output ${output})
 

@@ -57,10 +57,10 @@ if (NOT DEFINED SYSCONF_INSTALL_DIR)
     endif(CMAKE_INSTALL_PREFIX STREQUAL "/usr")
 endif (NOT DEFINED SYSCONF_INSTALL_DIR)
 
-set(D_VERSION               2                                           CACHE STRING "D language version")
-set(PROGRAM_PREFIX          ""                                          CACHE STRING "prepended to ldc binary name")
-set(PROGRAM_SUFFIX          ""                                          CACHE STRING "appended to ldc binary name")
-set(CONF_INST_DIR           ${SYSCONF_INSTALL_DIR}                      CACHE PATH   "Set ldc.conf directory for installation")
+set(D_VERSION 2 CACHE STRING "D language version")
+set(PROGRAM_PREFIX "" CACHE STRING "Prepended to ldc/ldmd binary names")
+set(PROGRAM_SUFFIX "" CACHE STRING "Appended to ldc/ldmd binary names")
+set(CONF_INST_DIR ${SYSCONF_INSTALL_DIR} CACHE PATH "Directory ldc.conf is installed to")
 
 # The following flags are currently not well tested, expect the build to fail.
 option(USE_BOEHM_GC "use the Boehm garbage collector internally")
@@ -83,6 +83,9 @@ elseif(D_VERSION EQUAL 2)
 else(D_VERSION EQUAL 1)
     message(FATAL_ERROR "unsupported D version")
 endif(D_VERSION EQUAL 1)
+
+set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
+set(LDMD_EXE_NAME ${PROGRAM_PREFIX}${LDMD_EXE}${PROGRAM_SUFFIX})
 
 file(MAKE_DIRECTORY
     ${PROJECT_BINARY_DIR}
@@ -205,7 +208,17 @@ set_source_files_properties(
 file(GLOB_RECURSE FE_SRC ${DMDFE_PATH}/*.c ${DMDFE_PATH}/*.h)
 file(GLOB_RECURSE GEN_SRC gen/*.cpp gen/*.h)
 file(GLOB IR_SRC ir/*.cpp ir/*.h)
-file(GLOB_RECURSE DRV_SRC driver/*.cpp driver/*.h)
+set(DRV_SRC
+    driver/cl_options.cpp
+    driver/configfile.cpp
+    driver/linker.h
+    driver/toobj.cpp
+    driver/cl_options.h
+    driver/configfile.h
+    driver/linker.cpp
+    driver/main.cpp
+    driver/toobj.h
+)
 # exclude idgen and impcnvgen and generated sources, just in case
 list(REMOVE_ITEM FE_SRC
     ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/idgen.c
@@ -279,7 +292,6 @@ endif(BUILD_SHARED)
 
 set(LDC_LIB LDCShared)
 add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_SOURCE_FILES})
-# Build ldc
 set_target_properties(
     ${LDC_LIB} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
@@ -303,11 +315,8 @@ if(USE_BOEHM_GC)
     target_link_libraries(${LDC_LIB} ${PROJECT_SOURCE_DIR}/libgc.a)
 endif(USE_BOEHM_GC)
 
-# Path where ldc executable will be put
+
 add_executable(${LDC_EXE} ${DRV_SRC})
-# Name of ldc executable
-set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
-# Build ldc
 set_target_properties(
     ${LDC_EXE} PROPERTIES
     OUTPUT_NAME ${LDC_EXE_NAME}
@@ -316,8 +325,31 @@ set_target_properties(
 )
 target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG_LDFLAGS} config++)
 
-
+# For use by the druntime/Phobos build system.
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
+
+#
+# LDMD
+#
+include(CheckSymbolExists)
+CHECK_SYMBOL_EXISTS(_SC_ARG_MAX "unistd.h" HAVE_SC_ARG_MAX)
+if (HAVE_SC_ARG_MAX)
+   add_definitions(-DHAVE_SC_ARG_MAX)
+endif()
+
+set_source_files_properties(dmd2/root/response.c dmd2/root/man.c PROPERTIES LANGUAGE CXX)
+add_executable(${LDMD_EXE} dmd2/root/response.c dmd2/root/man.c driver/ldmd.cpp)
+set_target_properties(${LDMD_EXE} PROPERTIES
+    COMPILE_DEFINITIONS LDC_EXE_NAME="${LDC_EXE_NAME}"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS}"
+    OUTPUT_NAME "${LDMD_EXE_NAME}"
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+)
+# Same as above, LLVM_LDFLAGS should really be in LINK_FLAGS, but the LLVM libs
+# use symbols from libdl, ..., so LLVM_LDFLAGS must come _after_ them in the
+# command line. Maybe this could be improved using library groups, at least with
+# GNU ld.
+target_link_libraries(${LDMD_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS}")
 
 #
 # Install target.
@@ -325,14 +357,13 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 
 add_subdirectory(runtime)
 
-install(TARGETS ${LDC_EXE} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
+install(TARGETS ${LDC_EXE} ${LDMD_EXE} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 if(${BUILD_SHARED})
     # For now, only install libldc if explicitely building the shared library.
     # While it might theoretically be possible to use LDC as a static library
     # as well, for the time being this just bloats the normal packages.
     install(TARGETS ${LDC_LIB} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
-install(PROGRAMS ${PROJECT_SOURCE_DIR}/bin/${LDMD_EXE} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
 install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.rebuild.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.rebuild.conf)
 
