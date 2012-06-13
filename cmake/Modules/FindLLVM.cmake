@@ -26,8 +26,24 @@ find_program(LLVM_CONFIG llvm-config ${LLVM_ROOT_DIR}/bin
     DOC "Path to llvm-config tool.")
 
 if (NOT LLVM_CONFIG)
-    if (NOT FIND_LLVM_QUIETLY)
-        message(WARNING "Could not find llvm-config. Consider manually setting LLVM_ROOT_DIR.")
+    if (WIN32)
+        # A bit of a sanity check:
+        if( NOT EXISTS ${LLVM_ROOT_DIR}/include/llvm )
+            message(FATAL_ERROR "LLVM_ROOT_DIR (${LLVM_ROOT_DIR}) is not a valid LLVM install")
+        endif()
+        # We incorporate the CMake features provided by LLVM:
+        set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${LLVM_ROOT_DIR}/share/llvm/cmake")
+        include(LLVMConfig)
+        # Set properties
+        set(LLVM_HOST_TARGET ${TARGET_TRIPLE})
+        set(LLVM_VERSION_STRING ${LLVM_PACKAGE_VERSION})
+        set(LLVM_CXXFLAGS ${LLVM_DEFINITIONS})
+        set(LLVM_LDFLAGS "")
+        llvm_map_components_to_libraries(LLVM_LIBRARIES ${LLVM_FIND_COMPONENTS})
+    else()
+        if (NOT FIND_LLVM_QUIETLY)
+            message(WARNING "Could not find llvm-config. Consider manually setting LLVM_ROOT_DIR.")
+        endif()
     endif()
 else()
     macro(llvm_set var flag)

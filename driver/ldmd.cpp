@@ -50,6 +50,9 @@
 #include <cstdlib>
 #include <numeric>
 #include <vector>
+#if defined(_MSC_VER)
+#include <stdarg.h>
+#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SystemUtils.h"
@@ -57,6 +60,10 @@
 
 #ifdef HAVE_SC_ARG_MAX
 # include <unistd.h>
+#endif
+
+#if defined(_MSC_VER)
+#define snprintf _snprintf
 #endif
 
 namespace ls = llvm::sys;
