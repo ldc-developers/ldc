@@ -50,9 +50,6 @@
 #include <cstdlib>
 #include <numeric>
 #include <vector>
-#if defined(_MSC_VER)
-#include <stdarg.h>
-#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SystemUtils.h"
@@ -60,10 +57,6 @@
 
 #ifdef HAVE_SC_ARG_MAX
 # include <unistd.h>
-#endif
-
-#if defined(_MSC_VER)
-#define snprintf _snprintf
 #endif
 
 namespace ls = llvm::sys;
@@ -114,7 +107,11 @@ char* concat(const char* a, const char* b)
 char* concat(const char* a, int b)
 {
     char bStr[14];
+#if defined(_MSC_VER)
+    _snprintf_s(bStr, _countof(bStr), sizeof(bStr), "%d", b);
+#else
     snprintf(bStr, sizeof(bStr), "%d", b);
+#endif
     return concat(a, bStr);
 }
 
