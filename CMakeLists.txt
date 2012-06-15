@@ -93,6 +93,10 @@ file(MAKE_DIRECTORY
     ${PROJECT_BINARY_DIR}/gen
 )
 
+if(MSVC)
+    ENABLE_LANGUAGE(ASM_MASM)
+endif(MSVC)
+
 #
 # Run idgen and impcnvgen.
 #
@@ -226,6 +230,17 @@ list(REMOVE_ITEM FE_SRC
     ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
     ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
+# Add/remove files for MSVC
+if(MSVC)
+    list(REMOVE_ITEM FE_SRC
+        ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/gnuc.c
+        ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/gnuc.h
+    )
+    list(APPEND FE_SRC
+        ${PROJECT_SOURCE_DIR}/vcbuild/strtold.c
+        ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
+    )
+endif(MSVC)
 # disable dmd gc
 list(REMOVE_ITEM FE_SRC ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/dmgcmem.c)
 set(LDC_SOURCE_FILES
@@ -254,6 +269,10 @@ include_directories(
     ${PROJECT_SOURCE_DIR}
     ${LLVM_INCLUDE_DIRS}
 )
+
+if(MSVC)
+    include_directories(${PROJECT_SOURCE_DIR}/vcbuild)
+endif()
 
 add_definitions(
     -DIN_LLVM
