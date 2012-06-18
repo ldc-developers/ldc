@@ -2,11 +2,8 @@
 #
 # This module defines
 # LIBCONFIG++_INCLUDE_DIR, where to find libconfig++ include files, etc.
-# LIBCONFIG++_LIBRARy, the library to link against to use libconfig++.
+# LIBCONFIG++_LIBRARY, the library to link against to use libconfig++.
 # LIBCONFIG++_FOUND, If false, do not try to use libconfig++.
-
-# also defined, but not for general use are
-# LIBCONFIG++_LIBRARY, where to find the libconfig++ library.
 
 set(LIBCONFIG++_FOUND TRUE)
 
