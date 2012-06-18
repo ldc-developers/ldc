@@ -238,7 +238,16 @@ if(MSVC)
     )
     list(APPEND FE_SRC
         ${PROJECT_SOURCE_DIR}/vcbuild/strtold.c
-        ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
+# See below why this don't work
+#        ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
+    )
+    # MASM support does not work yet!
+    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
+                       COMMAND ${CMAKE_ASM_MASM_COMPILER} /c /Fo${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
+                       DEPENDS ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
+                       COMMENT "generate ldfpu.obj")
+    list(APPEND FE_SRC
+        ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
     )
 endif(MSVC)
 # disable dmd gc
@@ -296,6 +305,12 @@ if(USE_METADATA)
     add_definitions(-DUSE_METADATA)
 endif(USE_METADATA)
 
+if(MSVC)
+    set(EXTRA_CXXFLAGS /W0)
+else()
+    set(EXTRA_CXXFLAGS "-Wno-deprecated -Wno-write-strings -fexceptions")
+endif()
+
 #
 # Set up the main ldc/ldc2 target.
 #
@@ -315,7 +330,7 @@ set_target_properties(
     ARCHIVE_OUTPUT_NAME ldc
     LIBRARY_OUTPUT_NAME ldc
     RUNTIME_OUTPUT_NAME ldc
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} ${EXTRA_CXXFLAGS}"
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
@@ -336,7 +351,7 @@ set_target_properties(
     ${LDC_EXE} PROPERTIES
     OUTPUT_NAME ${LDC_EXE_NAME}
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} -Wno-deprecated -Wno-write-strings -fexceptions"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} ${EXTRA_CXXFLAGS}"
 )
 target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG_LDFLAGS} config++)
 
