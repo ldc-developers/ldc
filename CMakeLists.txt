@@ -23,25 +23,7 @@ find_package(LLVM 3.1 EXACT REQUIRED
 #
 # Locate libconfig++.
 #
-
-include(FindPkgConfig)
-if(PKG_CONFIG_FOUND)
-    pkg_search_module(LIBCONFIGPP libconfig++)
-    if(LIBCONFIGPP_FOUND)
-        set(LIBCONFIG_CXXFLAGS ${LIBCONFIGPP_CFLAGS} CACHE STRING "libconfig++ compiler flags")
-        set(LIBCONFIG_LDFLAGS ${LIBCONFIGPP_LDFLAGS} CACHE STRING "libconfig++ linker flags")
-    endif()
-else()
-    message(WARNING "pkg-config not found. libconfig++ options cannot be detected, you might need to set them manually.")
-endif()
-
-# libconfig++ is actually a required dependency, but has never been defined as
-# one – maybe there was a problem with the auto detection once.
-if (NOT LIBCONFIGPP_FOUND)
-    set(LIBCONFIG_CXXFLAGS "" CACHE STRING "libconfig++ compiler flags")
-    set(LIBCONFIG_LDFLAGS "" CACHE STRING "libconfig++ linker flags")
-    message(WARNING "libconfig++ not found. If compilation fails but the library is installed, consider manually setting the LIBCONFIG_CXXFLAGS and LIBCONFIG_LDFLAGS CMake variables.")
-endif()
+find_package(LibConfig++ REQUIRED)
 
 #
 # Main configuration.
@@ -277,6 +259,7 @@ include_directories(
     ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     ${PROJECT_SOURCE_DIR}
     ${LLVM_INCLUDE_DIRS}
+    ${LIBCONFIG++_INCLUDE_DIR}
 )
 
 if(MSVC)
@@ -330,7 +313,7 @@ set_target_properties(
     ARCHIVE_OUTPUT_NAME ldc
     LIBRARY_OUTPUT_NAME ldc
     RUNTIME_OUTPUT_NAME ldc
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} ${EXTRA_CXXFLAGS}"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
@@ -351,9 +334,9 @@ set_target_properties(
     ${LDC_EXE} PROPERTIES
     OUTPUT_NAME ${LDC_EXE_NAME}
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} ${EXTRA_CXXFLAGS}"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
 )
-target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG_LDFLAGS} config++)
+target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY})
 
 # For use by the druntime/Phobos build system.
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
