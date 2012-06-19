@@ -313,7 +313,7 @@ set_target_properties(
     ARCHIVE_OUTPUT_NAME ldc
     LIBRARY_OUTPUT_NAME ldc
     RUNTIME_OUTPUT_NAME ldc
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} ${EXTRA_CXXFLAGS}"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
@@ -334,9 +334,9 @@ set_target_properties(
     ${LDC_EXE} PROPERTIES
     OUTPUT_NAME ${LDC_EXE_NAME}
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LIBCONFIG_CXXFLAGS} ${EXTRA_CXXFLAGS}"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
 )
-target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG_LDFLAGS} ${LIBCONFIG++_LIBRARY})
+target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY})
 
 # For use by the druntime/Phobos build system.
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
