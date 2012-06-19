@@ -5,6 +5,7 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "init.h"
+#include "id.h"
 #include "module.h"
 
 #include "gen/tollvm.h"
@@ -310,11 +311,18 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         assert(0 && "not global/function");
     }
 
-    // The following breaks for nested naked functions and other declarations, so check for that.
+    // The following breaks for nested naked functions and the implicitly
+    // generated __require/__ensure functions for in/out contracts. The reason
+    // for the latter is that contract functions, despite being nested, can be
+    // referenced from other D modules e.g. in the case of contracts on
+    // interface methods (where __require/__ensure are emitted to the module
+    // where the interface is declared, but an actual interface implementation
+    // can be in a completely different place).
     bool skipNestedCheck = !mustDefineSymbol(sym);
     if (!skipNestedCheck)
         if (FuncDeclaration* fd = sym->isFuncDeclaration())
-            skipNestedCheck = (fd->naked != 0);
+            skipNestedCheck = (fd->naked != 0) ||
+                (fd->ident == Id::require) || (fd->ident == Id::ensure);
 
     // Any symbol nested in a function that cannot be inlined can't be
     // referenced directly from outside that function, so we can give
