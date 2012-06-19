@@ -17,5 +17,5 @@ endif (LIBCONFIG++_INCLUDE_DIR AND LIBCONFIG++_LIBRARY)
 
 # Use the default CMake facilities for handling QUIET/REQUIRED.
 include(FindPackageHandleStandardArgs)
-find_package_handle_standard_args(LLVM
+find_package_handle_standard_args(LIBCONFIG++
     REQUIRED_VARS LIBCONFIG++_INCLUDE_DIR LIBCONFIG++_LIBRARY)
