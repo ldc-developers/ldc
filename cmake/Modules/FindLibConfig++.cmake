@@ -5,7 +5,7 @@
 # LIBCONFIG++_LIBRARY, the library to link against to use libconfig++.
 # LIBCONFIG++_FOUND, If false, do not try to use libconfig++.
 
-set(LIBCONFIG++_FOUND TRUE)
+set(LIBCONFIG++_FOUND FALSE)
 
 find_path(LIBCONFIG++_INCLUDE_DIR libconfig.h++)
 
