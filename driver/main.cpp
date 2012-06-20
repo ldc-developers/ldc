@@ -609,7 +609,8 @@ LDC_TARGETS
         global.params.os = OSWindows;
         VersionCondition::addPredefinedGlobalIdent("Windows");
         VersionCondition::addPredefinedGlobalIdent("Win32");
-        VersionCondition::addPredefinedGlobalIdent("mingw32");
+        VersionCondition::addPredefinedGlobalIdent("mingw32"); // backwards compatibility
+        VersionCondition::addPredefinedGlobalIdent("MinGW32");
         VersionCondition::addPredefinedGlobalIdent("MinGW");
     }
     // FIXME: cygwin
