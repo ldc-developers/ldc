@@ -94,7 +94,7 @@ set_target_properties(
     idgen impcnvgen PROPERTIES
     LINKER_LANGUAGE CXX
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
-    COMPILE_FLAGS ${LLVM_CXXFLAGS}
+    COMPILE_FLAGS "${LLVM_CXXFLAGS}"
 )
 get_target_property(IDGEN_LOC idgen LOCATION)
 get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
@@ -317,7 +317,7 @@ set_target_properties(
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_LIB} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES}")
+target_link_libraries(${LDC_LIB} ${LLVM_LDFLAGS} ${LLVM_LIBRARIES})
 if(WIN32)
     target_link_libraries(${LDC_LIB} imagehlp psapi)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
