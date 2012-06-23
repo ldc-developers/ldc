@@ -417,8 +417,8 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
             unsigned depth = -1;
             if (!fd->isStatic()) {
                 if (FuncDeclaration* parfd = getParentFunc(fd, true)) {
-                    // Make sure parfd->ir.irFunc has already been set.
-                    DtoDeclareFunction(parfd);
+                    // Make sure the parent has already been analyzed.
+                    DtoCreateNestedContextType(parfd);
 
                     innerFrameType = parfd->ir.irFunc->frameType;
                     if (innerFrameType)
