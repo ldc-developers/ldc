@@ -270,11 +270,29 @@ else version( LDC )
             assert(0);
     }
 
+    template _passAsSizeT(T)
+    {
+        // LLVM currently does not support atomic load/store for pointers, thus
+        // we have to manually cast them to size_t.
+        static if (is(T P == U*, U)) // pointer
+        {
+            enum _passAsSizeT = true;
+        }
+        else static if (is(T == interface) || is (T == class))
+        {
+            enum _passAsSizeT = true;
+        }
+        else
+        {
+            enum _passAsSizeT = false;
+        }
+    }
+
     HeadUnshared!(T) atomicLoad(msync ms = msync.seq, T)( ref const shared T val )
         if(!__traits(isFloating, T))
     {
         enum ordering = getOrdering(ms == msync.acq ? msync.seq : ms);
-        static if (is(T P == U*, U)) // pointer
+        static if (_passAsSizeT!T)
         {
             return cast(HeadUnshared!(T))llvm_atomic_load!(size_t)(cast(size_t*)&val, ordering);
         }
@@ -315,7 +333,7 @@ else version( LDC )
         if(!__traits(isFloating, T) && __traits(compiles, mixin("val = newval")))
     {
         enum ordering = getOrdering(ms == msync.rel ? msync.seq : ms);
-        static if (is(T P == U*, U)) // pointer
+        static if (_passAsSizeT!T)
         {
             llvm_atomic_store!(size_t)(cast(size_t)newval, cast(size_t*)&val, ordering);
         }
