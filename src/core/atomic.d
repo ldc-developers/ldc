@@ -294,15 +294,15 @@ else version( LDC )
         enum ordering = getOrdering(ms == msync.acq ? msync.seq : ms);
         static if (_passAsSizeT!T)
         {
-            return cast(HeadUnshared!(T))llvm_atomic_load!(size_t)(cast(size_t*)&val, ordering);
+            return cast(HeadUnshared!(T))llvm_atomic_load!(size_t)(cast(shared(size_t)*)&val, ordering);
         }
         else static if (T.sizeof == bool.sizeof)
         {
-            return cast(HeadUnshared!(T))llvm_atomic_load!(ubyte)(cast(ubyte*)&val, ordering);
+            return cast(HeadUnshared!(T))llvm_atomic_load!(ubyte)(cast(shared(ubyte)*)&val, ordering);
         }
         else
         {
-            return cast(HeadUnshared!(T))llvm_atomic_load!(T)(cast(T*)&val, ordering);
+            return cast(HeadUnshared!(T))llvm_atomic_load!(T)(&val, ordering);
         }
     }
 
@@ -335,15 +335,15 @@ else version( LDC )
         enum ordering = getOrdering(ms == msync.rel ? msync.seq : ms);
         static if (_passAsSizeT!T)
         {
-            llvm_atomic_store!(size_t)(cast(size_t)newval, cast(size_t*)&val, ordering);
+            llvm_atomic_store!(size_t)(cast(size_t)newval, cast(shared(size_t)*)&val, ordering);
         }
         else static if (T.sizeof == bool.sizeof)
         {
-            llvm_atomic_store!(ubyte)(newval, cast(ubyte*)&val, ordering);
+            llvm_atomic_store!(ubyte)(newval, cast(shared(ubyte)*)&val, ordering);
         }
         else
         {
-            llvm_atomic_store!(T)(cast(T)newval, cast(T*)&val, ordering);
+            llvm_atomic_store!(T)(cast(T)newval, &val, ordering);
         }
     }
 }
