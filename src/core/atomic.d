@@ -244,7 +244,7 @@ else version( LDC )
         {
             res = llvm_atomic_cmp_swap!(T)(here, cast(T)ifThis, cast(T)writeThis);
         }
-        return res == ifThis;
+        return res is cast(T)ifThis;
     }
 
 
