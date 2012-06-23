@@ -294,7 +294,7 @@ else version( LDC )
         enum ordering = getOrdering(ms == msync.acq ? msync.seq : ms);
         static if (_passAsSizeT!T)
         {
-            return cast(HeadUnshared!(T))llvm_atomic_load!(size_t)(cast(shared(size_t)*)&val, ordering);
+            return cast(HeadUnshared!(T))cast(void*)llvm_atomic_load!(size_t)(cast(shared(size_t)*)&val, ordering);
         }
         else static if (T.sizeof == bool.sizeof)
         {
