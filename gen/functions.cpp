@@ -725,13 +725,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
         fd->vthis->ir.irParam->isVthis = true;
 
         DtoDwarfLocalVariable(thismem, fd->vthis);
-
-    #if DMDV1
-        if (fd->vthis->nestedref)
-        {
-            fd->nestedVars.insert(fd->vthis);
-        }
-    #endif
     }
 
     // give the 'nestArg' storage
@@ -790,11 +783,17 @@ void DtoDefineFunction(FuncDeclaration* fd)
         }
     }
 
-// need result variable? (nested)
+
 #if DMDV1
+    // need result variable? (nested)
     if (fd->vresult && fd->vresult->nestedref) {
         Logger::println("nested vresult value: %s", fd->vresult->toChars());
         fd->nestedVars.insert(fd->vresult);
+    }
+
+    if (fd->vthis && fd->vthis->nestedref && !fd->nestedVars.empty()) {
+        Logger::println("nested vthis value: %s", fd->vthis->toChars());
+        fd->nestedVars.insert(fd->vthis);
     }
 #endif
 
