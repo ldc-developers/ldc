@@ -134,11 +134,22 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
         LLValue* val = irfunc->thisArg;
         if (cd->isClassDeclaration())
             val = DtoLoad(val);
+        ctx = DtoLoad(DtoGEPi(val, 0, cd->vthis->ir.irField->index, ".vthis"));
     #else
         ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();
         LLValue* val = DtoLoad(irfunc->thisArg);
+        ctx = DtoGEPi(val, 0, cd->vthis->ir.irField->index, ".vthis");
+
+        if (!irfunc->frameType && vd->isThisDeclaration())
+        {
+            // If the only "nested" variable is the outer this pointer, we don't
+            // emit a normal context, but just store the this pointer - see
+            // GitHub #127.
+            return new DVarValue(astype, vd, ctx);
+        }
+
+        ctx = DtoLoad(ctx);
     #endif
-        ctx = DtoLoad(DtoGEPi(val, 0,cd->vthis->ir.irField->index, ".vthis"));
     }
     else if (irfunc->nestedVar) {
         ctx = irfunc->nestedVar;
@@ -311,12 +322,14 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
 #if DMDV2
         AggregateDeclaration* ad = irfunc->decl->isMember2();
         val = ad->isClassDeclaration() ? DtoLoad(irfunc->thisArg) : irfunc->thisArg;
+        if (!ad || !ad->vthis)
+            return llvm::UndefValue::get(getVoidPtrType());
 #else
         ClassDeclaration* ad = irfunc->decl->isMember2()->isClassDeclaration();
         val = DtoLoad(irfunc->thisArg);
-#endif
         if (!ad || !ad->vthis)
-            return llvm::UndefValue::get(getVoidPtrType());
+            return val;
+#endif
         val = DtoLoad(DtoGEPi(val, 0,ad->vthis->ir.irField->index, ".vthis"));
     }
     else
