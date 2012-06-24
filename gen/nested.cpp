@@ -386,9 +386,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
     Logger::println("DtoCreateNestedContextType for %s", fd->toChars());
     LOG_SCOPE
 
-#if DMDV2
     DtoDeclareFunction(fd);
-#endif
 
     if (fd->ir.irFunc->nestedContextCreated)
         return;
