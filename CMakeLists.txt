@@ -131,11 +131,11 @@ set(DEFAULT_TARGET ${LLVM_HOST_TARGET} CACHE STRING "default target")
 add_definitions(-DDEFAULT_TARGET_TRIPLE="${DEFAULT_TARGET}")
 
 # Generate the alternate target triple (x86 on x86_64 and vice versa.)
-execute_process(
-    COMMAND /bin/sh ${PROJECT_SOURCE_DIR}/find-alt-triple.sh ${LLVM_HOST_TARGET}
-    OUTPUT_VARIABLE HOST_ALT_TARGET
-    OUTPUT_STRIP_TRAILING_WHITESPACE
-)
+if(LLVM_HOST_TARGET MATCHES "i[3-9]86-")
+    string(REGEX REPLACE "^i[3-9]86-(.*)" "x86_64-\\1" HOST_ALT_TARGET ${LLVM_HOST_TARGET})
+elseif(LLVM_HOST_TARGET MATCHES "^x86_64-.*")
+    string(REGEX REPLACE "^x86_64-(.*)" "i686-\\1" HOST_ALT_TARGET ${LLVM_HOST_TARGET})
+endif()
 set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
 add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE="${DEFAULT_ALT_TARGET}")
 
