@@ -14,6 +14,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "gen/runtime.h"
 #include "gen/metadata.h"
 
 #define DEBUG_TYPE "dgc2stack"
@@ -53,7 +54,7 @@ namespace {
         CallGraph* CG;
         CallGraphNode* CGNode;
 
-        const Type* getTypeFor(Value* typeinfo) const;
+        Type* getTypeFor(Value* typeinfo) const;
     };
 }
 
@@ -66,10 +67,11 @@ void EmitMemSet(IRBuilder<>& B, Value* Dst, Value* Val, Value* Len,
     Dst = B.CreateBitCast(Dst, PointerType::getUnqual(B.getInt8Ty()));
 
     Module *M = B.GetInsertBlock()->getParent()->getParent();
-    const Type* intTy = Len->getType();
-    const Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
-    const Type *Tys[2] ={VoidPtrTy, intTy};
-    Function *MemSet = Intrinsic::getDeclaration(M, Intrinsic::memset, Tys, 2);
+    Type* intTy = Len->getType();
+    Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
+    Type *Tys[2] = {VoidPtrTy, intTy};
+    Function *MemSet = Intrinsic::getDeclaration(M, Intrinsic::memset,
+        llvm::makeArrayRef(Tys, 2));
     Value *Align = ConstantInt::get(B.getInt32Ty(), 1);
 
     CallSite CS = B.CreateCall5(MemSet, Dst, Val, Len, Align, B.getFalse());
@@ -90,7 +92,7 @@ static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len,
 namespace {
     class FunctionInfo {
     protected:
-        const Type* Ty;
+        Type* Ty;
 
     public:
         unsigned TypeInfoArgNr;
@@ -145,7 +147,11 @@ namespace {
                 // the conversion is safe.
                 APInt Mask = APInt::getHighBitsSet(bits, bits - 32);
                 APInt KnownZero(bits, 0), KnownOne(bits, 0);
+#if LDC_LLVM_VER >= 301
+                ComputeMaskedBits(arrSize, KnownZero, KnownOne, &A.TD);
+#else
                 ComputeMaskedBits(arrSize, Mask, KnownZero, KnownOne, &A.TD);
+#endif
                 if ((KnownZero & Mask) != Mask)
                     return false;
             }
@@ -213,17 +219,17 @@ namespace {
             if (!meta)
                 return false;
 
-            MDNode* node = static_cast<MDNode*>(meta->getElement(0));
-            if (!node || MD_GetNumElements(node) != CD_NumFields)
+            MDNode* node = static_cast<MDNode*>(meta->getOperand(0));
+            if (!node || node->getNumOperands() != CD_NumFields)
                 return false;
 
             // Inserting destructor calls is not implemented yet, so classes
             // with destructors are ignored for now.
-            Constant* hasDestructor = dyn_cast<Constant>(MD_GetElement(node, CD_Finalize));
+            Constant* hasDestructor = dyn_cast<Constant>(node->getOperand(CD_Finalize));
             // We can't stack-allocate if the class has a custom deallocator
             // (Custom allocators don't get turned into this runtime call, so
             // those can be ignored)
-            Constant* hasCustomDelete = dyn_cast<Constant>(MD_GetElement(node, CD_CustomDelete));
+            Constant* hasCustomDelete = dyn_cast<Constant>(node->getOperand(CD_CustomDelete));
             if (hasDestructor == NULL || hasCustomDelete == NULL)
                 return false;
 
@@ -231,7 +237,7 @@ namespace {
                     != ConstantInt::getFalse(A.M.getContext()))
                 return false;
 
-            Ty = MD_GetElement(node, CD_BodyType)->getType();
+            Ty =node->getOperand(CD_BodyType)->getType();
             return true;
         }
 
@@ -289,7 +295,7 @@ FunctionPass *createGarbageCollect2Stack() {
 }
 
 GarbageCollect2Stack::GarbageCollect2Stack()
-: FunctionPass(&ID),
+: FunctionPass(ID),
   AllocMemoryT(0, true),
   NewArrayVT(0, true, false, 1),
   NewArrayT(0, true, true, 1)
@@ -340,7 +346,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
         for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ) {
             // Ignore non-calls.
             Instruction* Inst = I++;
-            CallSite CS = CallSite::get(Inst);
+            CallSite CS(Inst);
             if (!CS.getInstruction())
                 continue;
 
@@ -393,7 +399,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
     return Changed;
 }
 
-const Type* Analysis::getTypeFor(Value* typeinfo) const {
+Type* Analysis::getTypeFor(Value* typeinfo) const {
     GlobalVariable* ti_global = dyn_cast<GlobalVariable>(typeinfo->stripPointerCasts());
     if (!ti_global)
         return NULL;
@@ -405,17 +411,17 @@ const Type* Analysis::getTypeFor(Value* typeinfo) const {
     if (!meta)
         return NULL;
 
-    MDNode* node = static_cast<MDNode*>(meta->getElement(0));
+    MDNode* node = static_cast<MDNode*>(meta->getOperand(0));
     if (!node)
         return NULL;
 
-    if (MD_GetNumElements(node) != TD_NumFields)
+    if (node->getNumOperands() != TD_NumFields)
         return NULL;
-    if (TD_Confirm >= 0 && (!MD_GetElement(node, TD_Confirm) ||
-            MD_GetElement(node, TD_Confirm)->stripPointerCasts() != ti_global))
+    if (TD_Confirm >= 0 && (!node->getOperand(TD_Confirm) ||
+           node->getOperand(TD_Confirm)->stripPointerCasts() != ti_global))
         return NULL;
 
-    return MD_GetElement(node, TD_Type)->getType();
+    return node->getOperand(TD_Type)->getType();
 }
 
 /// Returns whether Def is used by any instruction that is reachable from Alloc
@@ -584,7 +590,7 @@ bool isSafeToStackAllocate(Instruction* Alloc, DominatorTree& DT) {
     switch (I->getOpcode()) {
     case Instruction::Call:
     case Instruction::Invoke: {
-      CallSite CS = CallSite::get(I);
+      CallSite CS(I);
       // Not captured if the callee is readonly, doesn't return a copy through
       // its return value and doesn't unwind (a readonly function can leak bits
       // by throwing an exception or not depending on the input value).
@@ -608,9 +614,6 @@ bool isSafeToStackAllocate(Instruction* Alloc, DominatorTree& DT) {
       // captured.
       break;
     }
-    case Instruction::Free:
-      // Freeing a pointer does not cause it to be captured.
-      break;
     case Instruction::Load:
       // Loading from a pointer does not cause it to be captured.
       break;

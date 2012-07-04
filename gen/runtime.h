@@ -14,6 +14,13 @@
 #ifndef LDC_GEN_RUNTIME_H_
 #define LDC_GEN_RUNTIME_H_
 
+namespace llvm
+{
+    class Function;
+    class GlobalVariable;
+    class Module;
+}
+
 // D runtime support helpers
 
 bool LLVM_D_InitRuntime();

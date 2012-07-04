@@ -349,10 +349,10 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
             if (TD_Confirm >= 0)
                 mdVals[TD_Confirm] = llvm::cast<MDNodeField>(irg->value);
             mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
-            // Construct the metadata
-            llvm::MetadataBase* metadata = llvm::MDNode::get(gIR->context(), mdVals, TD_NumFields);
-            // Insert it into the module
-            llvm::NamedMDNode::Create(gIR->context(), metaname, &metadata, 1, gIR->module);
+            // Construct the metadata and insert it into the module.
+            llvm::NamedMDNode* node = gIR->module->getOrInsertNamedMetadata(metaname);
+            node->addOperand(llvm::MDNode::get(gIR->context(),
+                llvm::makeArrayRef(mdVals, TD_NumFields)));
         }
     }
 #endif // USE_METADATA
