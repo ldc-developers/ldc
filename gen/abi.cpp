@@ -36,7 +36,12 @@ struct UnknownTargetABI : TargetABI
         if (tf->isref)
             return false;
 #endif
-        return (tf->next->toBasetype()->ty == Tstruct);
+        // Return structs and static arrays on the stack. The latter is needed
+        // because otherwise LLVM tries to actually return the array in a number
+        // of physical registers, which leads, depending on the target, to
+        // either horrendous codegen or backend crashes.
+        Type* rt = tf->next->toBasetype();
+        return (rt->ty == Tstruct || rt->ty == Tsarray);
     }
 
     bool passByVal(Type* t)
