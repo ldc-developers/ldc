@@ -558,6 +558,12 @@ else version( Posix )
                         movq r15[RBP], R15        ;
                     }
                 }
+                else version (ARM)
+                {
+                    import ldc.llvmasm;
+
+                    __asm("push {r0-r14}", "");
+                }
                 else
                 {
                     static assert( false, "Architecture not supported." );
