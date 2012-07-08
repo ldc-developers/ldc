@@ -224,23 +224,33 @@ extern (C)
     }
 }
 
-extern (C) void _d_hidden_func()
+version (LDC)
 {
-    Object o;
-    version(D_InlineAsm_X86)
-        asm
-        {
-            mov o, EAX;
-        }
-    else version(D_InlineAsm_X86_64)
-        asm
-        {
-            mov o, RDI;
-        }
-    else
-        static assert(0, "unknown os");
+    extern (C) void _d_hidden_func(Object o)
+    {
+        onHiddenFuncError(o);
+    }
+}
+else
+{
+    extern (C) void _d_hidden_func()
+    {
+        Object o;
+        version(D_InlineAsm_X86)
+            asm
+            {
+                mov o, EAX;
+            }
+        else version(D_InlineAsm_X86_64)
+            asm
+            {
+                mov o, RDI;
+            }
+        else
+            static assert(0, "unknown os");
 
-    onHiddenFuncError(o);
+        onHiddenFuncError(o);
+    }
 }
 
 shared bool _d_isHalting = false;
