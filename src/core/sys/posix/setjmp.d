@@ -61,6 +61,20 @@ version( linux )
     {
         alias int[3] __jmp_buf;
     }
+    else version (ARM)
+    {
+        alias int[64] __jmp_buf;
+    }
+    else version (PPC)
+    {
+        alias int[64 + 12 * 4] __jmp_buf;
+    }
+    else version (PPC64)
+    {
+        alias long[64] __jmp_buf;
+    }
+    else
+        static assert(false, "Unsupported architecture.");
 
     struct __jmp_buf_tag
     {
