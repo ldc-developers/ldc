@@ -26,6 +26,11 @@ version(X86_64) {
     version(solaris) version=X86_UNWIND;
     version(freebsd) version=X86_UNWIND;
 }
+version (ARM) {
+    // FIXME: Almost certainly wrong.
+    version (linux) version = X86_UNWIND;
+    version (freebsd) version = X86_UNWIND;
+}
 
 //version = HP_LIBUNWIND;
 
