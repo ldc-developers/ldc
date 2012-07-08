@@ -144,16 +144,6 @@ else version( LDC )
 
     HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod )
         if( __traits( compiles, mixin( "val" ~ op ~ "mod" ) ) )
-    in
-    {
-        // NOTE: 32 bit x86 systems support 8 byte CAS, which only requires
-        //       4 byte alignment, so use size_t as the align type here.
-        static if( T.sizeof > size_t.sizeof )
-            assert( atomicValueIsProperlyAligned!(size_t)( cast(size_t) &val ) );
-        else
-            assert( atomicValueIsProperlyAligned!(T)( cast(size_t) &val ) );
-    }
-    body
     {
         // binary operators
         //
