@@ -568,6 +568,7 @@ LDC_TARGETS
         global.params.cpu = ARCHarm;
     }
     else if (strcmp(global.params.llvmArch,"thumb")==0) {
+        VersionCondition::addPredefinedGlobalIdent("ARM");
         VersionCondition::addPredefinedGlobalIdent("Thumb");
         global.params.isLE = true;
         global.params.is64bit = false;
