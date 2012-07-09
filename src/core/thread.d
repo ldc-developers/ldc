@@ -562,7 +562,7 @@ else version( Posix )
                 {
                     import ldc.llvmasm;
 
-                    __asm("push {r0-r14}", "");
+                    __asm("push {r0-r12}", "");
                 }
                 else
                 {
@@ -653,7 +653,7 @@ else version( Posix )
             {
                 import ldc.llvmasm;
 
-                __asm("pop {r0-r14}", "");
+                __asm("pop {r0-r12}", "");
             }
             else version( D_InlineAsm_X86 )
             {
