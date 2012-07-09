@@ -2720,6 +2720,12 @@ struct Gcx
         {
             // nothing to do
         }
+        else version (ARM)
+        {
+            import ldc.llvmasm;
+
+            __asm("pop {r0-r14}", "");
+        }
         else version (D_InlineAsm_X86)
         {
             asm
