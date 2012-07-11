@@ -13,6 +13,10 @@
  */
 module rt.cmath2;
 
+// Calls to these routines are emitted by the DMD backend, but LDC rather
+// directly emits equivalent LLVM IR.
+version (LDC) {} else {
+
 private import core.stdc.math;
 
 extern (C):
@@ -236,4 +240,6 @@ void _Ccmp()
     }
   else
         static assert(0);
+}
+
 }
