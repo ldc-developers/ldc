@@ -226,6 +226,11 @@ extern (C)
 
 version (LDC)
 {
+    // References to this are emitted into the vtbl for hidden functions. As
+    // such, we need to match the calling convention for member method calls.
+    // The below should be a reasonable guess for virtually all architectures,
+    // given how we are lowering the this paramters to just normal (IR-level)
+    // parameters.
     extern (C) void _d_hidden_func(Object o)
     {
         onHiddenFuncError(o);
