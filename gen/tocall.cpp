@@ -392,24 +392,26 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // then comes a context argument...
     if(thiscall || delegatecall || nestedcall)
     {
-#if DMDV2
-        if (dfnval && (dfnval->func->ident == Id::ensure || dfnval->func->ident == Id::require)) {
+        if (dfnval && (dfnval->func->ident == Id::ensure ||
+            dfnval->func->ident == Id::require))
+        {
+            // ... which can be the this "context" argument for a contract
+            // invocation (we do not generate a full nested context struct for
+            // these)
             LLValue* thisarg = DtoBitCast(DtoLoad(gIR->func()->thisArg), getVoidPtrType());
             ++argiter;
             args.push_back(thisarg);
         }
-        else
-#endif
-        // ... which can be a 'this' argument
-        if (thiscall && dfnval && dfnval->vthis)
-        {
+        else if (thiscall && dfnval && dfnval->vthis)
+        {   
+            // ... or a normal 'this' argument
             LLValue* thisarg = DtoBitCast(dfnval->vthis, *argiter);
             ++argiter;
             args.push_back(thisarg);
         }
-        // ... or a delegate context arg
         else if (delegatecall)
         {
+            // ... or a delegate context arg
             LLValue* ctxarg;
             if (fnval->isLVal())
             {
@@ -423,9 +425,9 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             ++argiter;
             args.push_back(ctxarg);
         }
-        // ... or a nested function context arg
         else if (nestedcall)
         {
+            /// ... or a nested function context arg
             if (dfnval) {
                 LLValue* contextptr = DtoNestedContext(loc, dfnval->func);
                 contextptr = DtoBitCast(contextptr, getVoidPtrType());
