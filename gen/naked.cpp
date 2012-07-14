@@ -162,11 +162,10 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         {
             std::string def = "def";
             std::string endef = "endef";
-            asmstr << "\t." << def << "\t_" << mangle << ";";
+            asmstr << "\t." << def << "\t" << mangle << ";";
             // hard code these two numbers for now since gas ignores .scl and llvm
             // is defaulting to .type 32 for everything I have seen
             asmstr << "\t.scl 2; .type 32;\t" << "." << endef << std::endl;
-            asmstr << "_";
         } else
         {
             asmstr << "\t." << linkage << "\t" << mangle << std::endl;
