@@ -85,13 +85,28 @@ version( solaris ) {
 
 extern (C) void* rt_stackBottom()
 {
-    version( Win32 )
+    version( Windows )
     {
         void* bottom;
-        asm
+        version( D_InlineAsm_X86 )
         {
-            mov EAX, FS:4;
-            mov bottom, EAX;
+            asm
+            {
+                mov EAX,FS:4;
+                mov bottom, EAX;
+            }
+        }
+        else version( D_InlineAsm_X86_64 )
+        {
+            asm
+            {
+                mov RAX,GS:8;
+                mov bottom, RAX;
+            }
+        }
+        else
+        {
+            static assert( false, "Platform not supported." );
         }
         return bottom;
     }
