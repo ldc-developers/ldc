@@ -87,28 +87,30 @@ extern (C) void* rt_stackBottom()
 {
     version( Windows )
     {
-        void* bottom;
         version( D_InlineAsm_X86 )
         {
             asm
             {
+                naked;
+
                 mov EAX,FS:4;
-                mov bottom, EAX;
+                ret;
             }
         }
         else version( D_InlineAsm_X86_64 )
         {
             asm
             {
+                naked;
+
                 mov RAX,GS:8;
-                mov bottom, RAX;
+                ret;
             }
         }
         else
         {
             static assert( false, "Platform not supported." );
         }
-        return bottom;
     }
     else version( linux )
     {
