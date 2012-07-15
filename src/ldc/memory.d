@@ -187,7 +187,7 @@ extern (C) void* rt_stackTop()
 
 private
 {
-    version( Win32 )
+    version( Windows )
     {
         extern (C)
         {
@@ -263,7 +263,7 @@ void initStaticDataGC()
         return p - (cast(size_t) p & (S-1));
     }
 
-    version( Win32 )
+    version( Windows )
     {
         dataStart = adjust_up( &Data_Start );
         dataEnd   = adjust_down( &Data_End );
