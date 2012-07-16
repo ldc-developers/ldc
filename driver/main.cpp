@@ -11,6 +11,7 @@
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/Host.h"
 #include "llvm/MC/SubtargetFeature.h"
 
 #include <stdio.h>
@@ -83,7 +84,13 @@ void printVersion() {
     global.ldc_version, global.version, global.llvm_version, global.copyright, global.written);
     printf("D Language Documentation: http://d-programming-language.org/index.html\n"
            "LDC Homepage: https://github.com/ldc-developers/ldc\n");
-
+    printf("\n");
+    printf("  Default target: %s\n", llvm::sys::getDefaultTargetTriple().c_str());
+    std::string CPU = llvm::sys::getHostCPUName();
+    if (CPU == "generic") CPU = "(unknown)";
+    printf("  Host CPU: %s\n", CPU.c_str());
+    printf("\n");
+    llvm::TargetRegistry::printRegisteredTargetsForVersion();
     exit(EXIT_SUCCESS);
 }
 
@@ -209,6 +216,17 @@ int main(int argc, char** argv)
         printf("final_args[%zu] = %s\n", i, final_args[i]);
     }
 #endif
+
+    // Initialize LLVM.
+    // Initialize targets first, so that --version shows registered targets.
+#define LLVM_TARGET(A) \
+    LLVMInitialize##A##TargetInfo(); \
+    LLVMInitialize##A##Target(); \
+    LLVMInitialize##A##AsmPrinter(); \
+    LLVMInitialize##A##AsmParser(); \
+    LLVMInitialize##A##TargetMC();
+LDC_TARGETS
+#undef LLVM_TARGET
 
     // Handle fixed-up arguments!
     cl::SetVersionPrinter(&printVersion);
@@ -457,22 +475,6 @@ int main(int argc, char** argv)
     std::string triple = global.params.targetTriple;
 
     // Allocate target machine.
-
-    // first initialize llvm
-#if 0
-    llvm::InitializeNativeTarget();
-    llvm::InitializeNativeTargetAsmParser();
-    llvm::InitializeNativeTargetAsmPrinter();
-#endif
-#define LLVM_TARGET(A) \
-    LLVMInitialize##A##TargetInfo(); \
-    LLVMInitialize##A##Target(); \
-    LLVMInitialize##A##AsmPrinter(); \
-    LLVMInitialize##A##AsmParser(); \
-    LLVMInitialize##A##TargetMC();
-LDC_TARGETS
-#undef LLVM_TARGET
-
     const llvm::Target *theTarget = NULL;
     // Check whether the user has explicitly specified an architecture to compile for.
     if (mArch.empty())
