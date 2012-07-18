@@ -98,6 +98,7 @@ file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
 if(PHOBOS2_DIR)
     file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
+    file(GLOB PHOBOS2_D_NET ${PHOBOS2_DIR}/std/net/*.d)
     file(GLOB_RECURSE PHOBOS2_D_INTERNAL ${PHOBOS2_DIR}/std/internal/*.d)
     file(GLOB PHOBOS2_D_C ${PHOBOS2_DIR}/std/c/*.d)
     file(GLOB PHOBOS2_ETC ${PHOBOS2_DIR}/etc/c/*.d)
@@ -120,6 +121,7 @@ if(PHOBOS2_DIR)
         file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)
     endif(WIN32)
     list(APPEND PHOBOS2_D
+            ${PHOBOS2_D_NET}
             ${PHOBOS2_D_INTERNAL}
             ${PHOBOS2_D_WIN}
             ${PHOBOS2_D_C}
