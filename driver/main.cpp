@@ -487,7 +487,7 @@ LDC_TARGETS
         theTarget = llvm::TargetRegistry::lookupTarget(triple, Err);
         if (theTarget == 0)
         {
-            error("failed to auto-select target: %s, please use the -march option", Err.c_str());
+            error("%s Please use the -march option.", Err.c_str());
             fatal();
         }
     }
