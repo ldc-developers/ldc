@@ -85,7 +85,7 @@ void printVersion() {
     printf("D Language Documentation: http://d-programming-language.org/index.html\n"
            "LDC Homepage: https://github.com/ldc-developers/ldc\n");
     printf("\n");
-    printf("  Default target: %s\n", llvm::sys::getDefaultTargetTriple().c_str());
+    printf("  Default target: %s\n", DEFAULT_TARGET_TRIPLE);
     std::string CPU = llvm::sys::getHostCPUName();
     if (CPU == "generic") CPU = "(unknown)";
     printf("  Host CPU: %s\n", CPU.c_str());
