@@ -524,7 +524,7 @@ LDC_TARGETS
     //std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(triple, FeaturesStr));
     //assert(target.get() && "Could not allocate target machine!");
     //gTargetMachine = target.get();
-    
+
     llvm::TargetMachine * target = theTarget->createTargetMachine(
         llvm::StringRef(triple),
         llvm::StringRef(mCPU),
