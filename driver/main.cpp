@@ -473,7 +473,7 @@ LDC_TARGETS
     }
     else
     {
-        global.params.targetTriple = mTargetTriple.c_str();
+        global.params.targetTriple = llvm::Triple::normalize(mTargetTriple).c_str();
     }
 
     std::string triple = global.params.targetTriple;
@@ -618,8 +618,17 @@ LDC_TARGETS
     size_t npos = std::string::npos;
 
     // windows
-    // FIXME: win64
-    if (triple.find("windows") != npos || triple.find("win32") != npos || triple.find("mingw") != npos)
+    if (triple.find("win32") != npos)
+    {
+        global.params.os = OSWindows;
+        VersionCondition::addPredefinedGlobalIdent("Windows");
+        VersionCondition::addPredefinedGlobalIdent("Win32");
+        if (global.params.is64bit) {
+            VersionCondition::addPredefinedGlobalIdent("Win64");
+        }
+    }
+    // FIXME: mingw
+    else if (triple.find("mingw") != npos)
     {
         global.params.os = OSWindows;
         VersionCondition::addPredefinedGlobalIdent("Windows");
