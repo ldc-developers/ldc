@@ -97,6 +97,11 @@ list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
 file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
 if(PHOBOS2_DIR)
+    #
+    # Locate curl.
+    #
+    find_package(curl REQUIRED)
+
     file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
     file(GLOB PHOBOS2_D_NET ${PHOBOS2_DIR}/std/net/*.d)
     file(GLOB_RECURSE PHOBOS2_D_INTERNAL ${PHOBOS2_DIR}/std/internal/*.d)
@@ -346,6 +351,8 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
             COMPILE_FLAGS               "${c_flags}"
             LINK_FLAGS                  "${ld_flags}"
         )
+        # Phobos now uses curl
+        target_link_libraries(phobos-ldc${target_suffix} "curl")
         install(TARGETS phobos-ldc${target_suffix} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
         add_dependencies(phobos2 DEPENDS phobos-ldc${target_suffix})
     endif(PHOBOS2_DIR)
