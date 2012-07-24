@@ -100,7 +100,7 @@ if(PHOBOS2_DIR)
     #
     # Locate curl.
     #
-    find_package(curl REQUIRED)
+    find_package(CURL REQUIRED)
 
     file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
     file(GLOB PHOBOS2_D_NET ${PHOBOS2_DIR}/std/net/*.d)
