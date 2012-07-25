@@ -49,41 +49,48 @@ if (NOT LLVM_CONFIG)
         endif()
     endif()
 else()
-    # llvm-config is written in Perl, thus we need to locate it first.
-    if(LLVM_FIND_QUIETLY)
-      set(_quiet_arg QUIET)
-    endif()
-    find_package(Perl ${_quiet_arg})
-
-    if(NOT PERL_FOUND)
-        if (NOT FIND_LLVM_QUIETLY)
-            message(WARNING "Need Perl to execute llvm-config.")
+    macro(llvm_set var flag)
+   	if(LLVM_FIND_QUIETLY)
+            set(_quiet_arg ERROR_QUIET)
         endif()
-    else()
-        macro(llvm_set var flag)
-            if(LLVM_FIND_QUIETLY)
-              set(_quiet_arg ERROR_QUIET)
-            endif()
-            execute_process(
-                COMMAND ${PERL_EXECUTABLE} ${LLVM_CONFIG} --${flag} ${LLVM_FIND_COMPONENTS}
-                OUTPUT_VARIABLE LLVM_${var}
-                OUTPUT_STRIP_TRAILING_WHITESPACE ${_quiet_arg}
-            )
-        endmacro()
+        execute_process(
+            COMMAND ${LLVM_CONFIG} --${flag}
+            OUTPUT_VARIABLE LLVM_${var}
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+	    ${_quiet_arg}
+        )
+    endmacro()
+    macro(llvm_set_libs var flag prefix)
+   	if(LLVM_FIND_QUIETLY)
+            set(_quiet_arg ERROR_QUIET)
+        endif()
+        execute_process(
+            COMMAND ${LLVM_CONFIG} --${flag} ${LLVM_FIND_COMPONENTS}
+            OUTPUT_VARIABLE tmplibs
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+	    ${_quiet_arg}
+        )
+        string(REGEX MATCHALL "${prefix}[^ ]+" LLVM_${var} ${tmplibs})
+    endmacro()
 
-        llvm_set(CXXFLAGS cxxflags)
-        llvm_set(HOST_TARGET host-target)
-        llvm_set(INCLUDE_DIRS includedir)
-        llvm_set(LDFLAGS ldflags)
-        llvm_set(LIBRARIES libfiles)
-        llvm_set(LIBRARY_DIRS libdir)
-        llvm_set(ROOT_DIR prefix)
-        llvm_set(VERSION_STRING version)
+    llvm_set(VERSION_STRING version)
+    if(${LLVM_VERSION_STRING} MATCHES "3.0[A-Za-z]*")
+        # Version 3.0 does not support component all-targets
+        llvm_set(TARGETS_BUILT targets-built)
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "all-targets" index)
+        list(APPEND LLVM_FIND_COMPONENTS ${LLVM_TARGETS_BUILT})
     endif()
+    llvm_set(CXXFLAGS cxxflags)
+    llvm_set(HOST_TARGET host-target)
+    llvm_set(INCLUDE_DIRS includedir)
+    llvm_set(LDFLAGS ldflags)
+    llvm_set(LIBRARY_DIRS libdir)
+    llvm_set_libs(LIBRARIES libfiles "${LLVM_LIBRARY_DIRS}/")
+    llvm_set(ROOT_DIR prefix)
 endif()
 
 string(REGEX REPLACE "([0-9]+).*" "\\1" LLVM_VERSION_MAJOR "${LLVM_VERSION_STRING}" )
-string(REGEX REPLACE "[0-9]+\\.([0-9]+).*" "\\1" LLVM_VERSION_MINOR "${LLVM_VERSION_STRING}" )
+string(REGEX REPLACE "[0-9]+\\.([0-9]+).*[A-Za-z]*" "\\1" LLVM_VERSION_MINOR "${LLVM_VERSION_STRING}" )
 
 # Use the default CMake facilities for handling QUIET/REQUIRED.
 include(FindPackageHandleStandardArgs)
