@@ -7,18 +7,11 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 # Locate LLVM.
 #
 
-# This would actually better be named named EXTRA_LLVM_TARGETS, as it allows
-# additional targets (beside the native one) to be specified. It affects the
-# LLVM libraries linked and is converted to a preprocessor define used in
-# gen/main.cpp.
-set(EXTRA_LLVM_MODULES "" CACHE STRING
-    "Extra LLVM targets to link in (see llvm-config --targets-built)")
-separate_arguments(EXTRA_LLVM_MODULES)
-
 # We need to find exactly the right LLVM version, our code usually does not
 # work across LLVM »minor« releases.
 find_package(LLVM 3.0 EXACT REQUIRED
-    bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES})
+    all-targets bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES})
+math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 
 #
 # Locate libconfig++.
@@ -94,7 +87,7 @@ set_target_properties(
     idgen impcnvgen PROPERTIES
     LINKER_LANGUAGE CXX
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
-    COMPILE_FLAGS ${LLVM_CXXFLAGS}
+    COMPILE_FLAGS "${LLVM_CXXFLAGS}"
 )
 get_target_property(IDGEN_LOC idgen LOCATION)
 get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
@@ -121,68 +114,6 @@ set(LDC_GENERATED
     ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
     ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
     ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
-)
-
-#
-# Set up target defines.
-#
-
-set(DEFAULT_TARGET ${LLVM_HOST_TARGET} CACHE STRING "default target")
-add_definitions(-DDEFAULT_TARGET_TRIPLE="${DEFAULT_TARGET}")
-
-# Generate the alternate target triple (x86 on x86_64 and vice versa.)
-if(LLVM_HOST_TARGET MATCHES "i[3-9]86-")
-    string(REGEX REPLACE "^i[3-9]86-(.*)" "x86_64-\\1" HOST_ALT_TARGET ${LLVM_HOST_TARGET})
-elseif(LLVM_HOST_TARGET MATCHES "^x86_64-.*")
-    string(REGEX REPLACE "^x86_64-(.*)" "i686-\\1" HOST_ALT_TARGET ${LLVM_HOST_TARGET})
-endif()
-set(DEFAULT_ALT_TARGET ${HOST_ALT_TARGET} CACHE STRING "default alt target")
-add_definitions(-DDEFAULT_ALT_TARGET_TRIPLE="${DEFAULT_ALT_TARGET}")
-
-#
-# Detect host architecture.
-# The code borrowed from llvm's config-x.cmake.
-#
-# This is only needed to initialize the llvm native target which is
-# exactly the purpose of llvm::InitializeNativeTarget* functions.
-# Unfortunately, there is a bug in llvm's cmake script that prevents
-# the asm parser from being initialized when the functions are used.
-# So we have to do the dirty work ourselves.
-string(REGEX MATCH "^[^-]*" HOST_ARCH ${LLVM_HOST_TARGET})
-if(HOST_ARCH MATCHES "i[2-6]86")
-  set(HOST_ARCH X86)
-elseif(HOST_ARCH STREQUAL "x86")
-  set(HOST_ARCH X86)
-elseif(HOST_ARCH STREQUAL "amd64")
-  set(HOST_ARCH X86)
-elseif(HOST_ARCH STREQUAL "x86_64")
-  set(HOST_ARCH X86)
-elseif(HOST_ARCH MATCHES "sparc")
-  set(HOST_ARCH Sparc)
-elseif(HOST_ARCH MATCHES "powerpc")
-  set(HOST_ARCH PowerPC)
-elseif(HOST_ARCH MATCHES "alpha")
-  set(HOST_ARCH Alpha)
-elseif(HOST_ARCH MATCHES "arm")
-  set(HOST_ARCH ARM)
-elseif(HOST_ARCH MATCHES "mips")
-  set(HOST_ARCH Mips)
-elseif(HOST_ARCH MATCHES "xcore")
-  set(HOST_ARCH XCore)
-elseif(HOST_ARCH MATCHES "msp430")
-  set(HOST_ARCH MSP430)
-else(HOST_ARCH MATCHES "i[2-6]86")
-  message(FATAL_ERROR "Unknown architecture ${HOST_ARCH}")
-endif(HOST_ARCH MATCHES "i[2-6]86")
-
-# Pass the list of LLVM targets as preprocessor constants.
-foreach(TARGET ${HOST_ARCH} ${EXTRA_LLVM_MODULES})
-    set(LLVM_MODULES_DEFINE "${LLVM_MODULES_DEFINE} LLVM_TARGET(${TARGET})")
-endforeach(TARGET)
-
-set_source_files_properties(
-    ${PROJECT_SOURCE_DIR}/driver/main.cpp PROPERTIES
-    COMPILE_DEFINITIONS LDC_TARGETS=${LLVM_MODULES_DEFINE}
 )
 
 #
@@ -270,6 +201,8 @@ add_definitions(
     -DIN_LLVM
     -DOPAQUE_VTBLS
     -DLDC_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"
+    -DLDC_LLVM_VER=${LDC_LLVM_VER}
+    -DLDC_LLVM_VERSION_STRING="${LLVM_VERSION_STRING}"
 )
 
 if(UNIX)
@@ -317,7 +250,7 @@ set_target_properties(
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_LIB} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES}")
+target_link_libraries(${LDC_LIB} "${LLVM_LDFLAGS}" ${LLVM_LIBRARIES})
 if(WIN32)
     target_link_libraries(${LDC_LIB} imagehlp psapi)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -362,7 +295,7 @@ set_target_properties(${LDMD_EXE} PROPERTIES
 # use symbols from libdl, ..., so LLVM_LDFLAGS must come _after_ them in the
 # command line. Maybe this could be improved using library groups, at least with
 # GNU ld.
-target_link_libraries(${LDMD_EXE} "${LLVM_LDFLAGS} ${LLVM_LIBRARIES} ${LLVM_LDFLAGS}")
+target_link_libraries(${LDMD_EXE} "${LLVM_LDFLAGS}" ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
 
 #
 # Install target.

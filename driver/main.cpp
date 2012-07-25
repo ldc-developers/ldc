@@ -3,6 +3,7 @@
 // some things are taken from llvm's llc tool
 // which uses the llvm license
 
+#include "gen/llvmcompat.h"
 #include "gen/llvm.h"
 #include "llvm/LinkAllVMCore.h"
 #include "llvm/Linker.h"
@@ -85,7 +86,7 @@ void printVersion() {
     printf("D Language Documentation: http://d-programming-language.org/index.html\n"
            "LDC Homepage: https://github.com/ldc-developers/ldc\n");
     printf("\n");
-    printf("  Default target: %s\n", DEFAULT_TARGET_TRIPLE);
+    printf("  Default target: %s\n", llvm::sys::getDefaultTargetTriple().c_str());
     std::string CPU = llvm::sys::getHostCPUName();
     if (CPU == "generic") CPU = "(unknown)";
     printf("  Host CPU: %s\n", CPU.c_str());
@@ -219,14 +220,11 @@ int main(int argc, char** argv)
 
     // Initialize LLVM.
     // Initialize targets first, so that --version shows registered targets.
-#define LLVM_TARGET(A) \
-    LLVMInitialize##A##TargetInfo(); \
-    LLVMInitialize##A##Target(); \
-    LLVMInitialize##A##AsmPrinter(); \
-    LLVMInitialize##A##AsmParser(); \
-    LLVMInitialize##A##TargetMC();
-LDC_TARGETS
-#undef LLVM_TARGET
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllTargetMCs();
+    llvm::InitializeAllAsmPrinters();
+    llvm::InitializeAllAsmParsers();
 
     // Handle fixed-up arguments!
     cl::SetVersionPrinter(&printVersion);
@@ -451,10 +449,22 @@ LDC_TARGETS
         fatal();
 
     // override triple if needed
-    const char* defaultTriple = DEFAULT_TARGET_TRIPLE;
-    if ((sizeof(void*) == 4 && m64bits) || (sizeof(void*) == 8 && m32bits))
+    std::string defaultTriple = llvm::sys::getDefaultTargetTriple();
+    if (sizeof(void*) == 4 && m64bits)
     {
-        defaultTriple = DEFAULT_ALT_TARGET_TRIPLE;
+#if LDC_LLVM_VER >= 301
+        defaultTriple = llvm::Triple(defaultTriple).get64BitArchVariant().str();
+#else
+        defaultTriple = llvm::Triple__get64BitArchVariant(defaultTriple).str();
+#endif
+    }
+    else if (sizeof(void*) == 8 && m32bits)
+    {
+#if LDC_LLVM_VER >= 301
+        defaultTriple = llvm::Triple(defaultTriple).get32BitArchVariant().str();
+#else
+        defaultTriple = llvm::Triple__get32BitArchVariant(defaultTriple).str();
+#endif
     }
 
     // did the user override the target triple?
@@ -465,7 +475,7 @@ LDC_TARGETS
             error("you must specify a target triple as well with -mtriple when using the -march option");
             fatal();
         }
-        global.params.targetTriple = defaultTriple;
+        global.params.targetTriple = defaultTriple.c_str();
     }
     else
     {
@@ -603,79 +613,61 @@ LDC_TARGETS
     // parse the OS out of the target triple
     // see http://gcc.gnu.org/install/specific.html for details
     // also llvm's different SubTargets have useful information
-    size_t npos = std::string::npos;
-
-    // windows
-    if (triple.find("win32") != npos)
+    switch (llvm::Triple(triple).getOS())
     {
-        global.params.os = OSWindows;
-        VersionCondition::addPredefinedGlobalIdent("Windows");
-        VersionCondition::addPredefinedGlobalIdent("Win32");
-        if (global.params.is64bit) {
-            VersionCondition::addPredefinedGlobalIdent("Win64");
-        }
-    }
-    // FIXME: mingw
-    else if (triple.find("mingw") != npos)
-    {
-        global.params.os = OSWindows;
-        VersionCondition::addPredefinedGlobalIdent("Windows");
-        VersionCondition::addPredefinedGlobalIdent("Win32");
-        VersionCondition::addPredefinedGlobalIdent("mingw32");
-        VersionCondition::addPredefinedGlobalIdent("MinGW");
-        if (global.params.is64bit) {
-            VersionCondition::addPredefinedGlobalIdent("Win64");
-        }
-    }
-    // FIXME: cygwin
-    else if (triple.find("cygwin") != npos)
-    {
-        error("CygWin is not yet supported");
-        fatal();
-    }
-    // linux
-    else if (triple.find("linux") != npos)
-    {
-        global.params.os = OSLinux;
-        VersionCondition::addPredefinedGlobalIdent("linux");
-        VersionCondition::addPredefinedGlobalIdent("Posix");
-    }
-    // haiku
-    else if (triple.find("haiku") != npos)
-    {
-        global.params.os = OSHaiku;
-        VersionCondition::addPredefinedGlobalIdent("Haiku");
-        VersionCondition::addPredefinedGlobalIdent("Posix");
-    }
-    // darwin
-    else if (triple.find("-darwin") != npos)
-    {
-        global.params.os = OSMacOSX;
-        VersionCondition::addPredefinedGlobalIdent("OSX");
-        VersionCondition::addPredefinedGlobalIdent("darwin");
-        VersionCondition::addPredefinedGlobalIdent("Posix");
-    }
-    // freebsd
-    else if (triple.find("-freebsd") != npos)
-    {
-        global.params.os = OSFreeBSD;
-        VersionCondition::addPredefinedGlobalIdent("freebsd");
-        VersionCondition::addPredefinedGlobalIdent("FreeBSD");
-        VersionCondition::addPredefinedGlobalIdent("Posix");
-    }
-    // solaris
-    else if (triple.find("-solaris") != npos)
-    {
-        global.params.os = OSSolaris;
-        VersionCondition::addPredefinedGlobalIdent("solaris");
-        VersionCondition::addPredefinedGlobalIdent("Solaris");
-        VersionCondition::addPredefinedGlobalIdent("Posix");
-    }
-    // unsupported
-    else
-    {
-        error("target '%s' is not yet supported", global.params.targetTriple);
-        fatal();
+        case llvm::Triple::Win32:
+            global.params.os = OSWindows;
+            VersionCondition::addPredefinedGlobalIdent("Windows");
+            VersionCondition::addPredefinedGlobalIdent("Win32");
+            if (global.params.is64bit) {
+                VersionCondition::addPredefinedGlobalIdent("Win64");
+            }
+            break;
+        case llvm::Triple::MinGW32:
+            global.params.os = OSWindows;
+            VersionCondition::addPredefinedGlobalIdent("Windows");
+            VersionCondition::addPredefinedGlobalIdent("Win32");
+            VersionCondition::addPredefinedGlobalIdent("mingw32");
+            VersionCondition::addPredefinedGlobalIdent("MinGW");
+            if (global.params.is64bit) {
+                VersionCondition::addPredefinedGlobalIdent("Win64");
+            }
+            break;
+        case llvm::Triple::Cygwin:
+            error("CygWin is not yet supported");
+            fatal();
+            break;
+        case llvm::Triple::Linux:
+            global.params.os = OSLinux;
+            VersionCondition::addPredefinedGlobalIdent("linux");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::Haiku:
+            global.params.os = OSHaiku;
+            VersionCondition::addPredefinedGlobalIdent("Haiku");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::Darwin:
+            global.params.os = OSMacOSX;
+            VersionCondition::addPredefinedGlobalIdent("OSX");
+            VersionCondition::addPredefinedGlobalIdent("darwin");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::FreeBSD:
+            global.params.os = OSFreeBSD;
+            VersionCondition::addPredefinedGlobalIdent("freebsd");
+            VersionCondition::addPredefinedGlobalIdent("FreeBSD");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::Solaris:
+            global.params.os = OSSolaris;
+            VersionCondition::addPredefinedGlobalIdent("solaris");
+            VersionCondition::addPredefinedGlobalIdent("Solaris");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        default:
+            error("target '%s' is not yet supported", global.params.targetTriple);
+            fatal();
     }
 
     if (global.params.os == OSWindows) {
