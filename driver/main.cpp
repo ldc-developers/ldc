@@ -228,7 +228,7 @@ int main(int argc, char** argv)
 
     // Handle fixed-up arguments!
     cl::SetVersionPrinter(&printVersion);
-    cl::ParseCommandLineOptions(final_args.size(), (char**)&final_args[0], "LLVM-based D Compiler\n", true);
+    cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(&final_args[0]), "LLVM-based D Compiler\n", true);
 
     // Print config file path if -v was passed
     if (global.params.verbose) {
