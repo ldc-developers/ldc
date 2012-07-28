@@ -9,7 +9,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 # We need to find exactly the right LLVM version, our code usually does not
 # work across LLVM »minor« releases.
-find_package(LLVM 3.0 EXACT REQUIRED
+find_package(LLVM 3.0 REQUIRED
     all-targets bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 
@@ -152,16 +152,20 @@ if(MSVC)
     list(APPEND FE_SRC
         ${PROJECT_SOURCE_DIR}/vcbuild/strtold.c
 # See below why this don't work
+#        if(CMAKE_CL_64)
 #        ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
+#        endif(CMAKE_CL_64)
     )
-    # MASM support does not work yet!
-    add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
-                       COMMAND ${CMAKE_ASM_MASM_COMPILER} /c /Fo${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
-                       DEPENDS ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
-                       COMMENT "generate ldfpu.obj")
-    list(APPEND FE_SRC
-        ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
+    if(CMAKE_CL_64)
+        # MASM support does not work yet!
+        add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
+                           COMMAND ${CMAKE_ASM_MASM_COMPILER} /c /Fo${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
+                           DEPENDS ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
+                           COMMENT "generate ldfpu.obj")
+        list(APPEND FE_SRC
+            ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
     )
+    endif()
 endif(MSVC)
 # disable dmd gc
 list(REMOVE_ITEM FE_SRC ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/dmgcmem.c)

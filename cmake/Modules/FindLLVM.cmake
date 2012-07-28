@@ -39,6 +39,9 @@ if (NOT LLVM_CONFIG)
         set(LLVM_VERSION_STRING ${LLVM_PACKAGE_VERSION})
         set(LLVM_CXXFLAGS ${LLVM_DEFINITIONS})
         set(LLVM_LDFLAGS "")
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "all-targets" index)
+        list(APPEND LLVM_FIND_COMPONENTS ${LLVM_TARGETS_TO_BUILD})
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "backend" index)
         llvm_map_components_to_libraries(tmplibs ${LLVM_FIND_COMPONENTS})
         foreach(lib ${tmplibs})
             list(APPEND LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/${CMAKE_STATIC_LIBRARY_PREFIX}${lib}${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -50,25 +53,25 @@ if (NOT LLVM_CONFIG)
     endif()
 else()
     macro(llvm_set var flag)
-   	if(LLVM_FIND_QUIETLY)
+       if(LLVM_FIND_QUIETLY)
             set(_quiet_arg ERROR_QUIET)
         endif()
         execute_process(
             COMMAND ${LLVM_CONFIG} --${flag}
             OUTPUT_VARIABLE LLVM_${var}
             OUTPUT_STRIP_TRAILING_WHITESPACE
-	    ${_quiet_arg}
+            ${_quiet_arg}
         )
     endmacro()
     macro(llvm_set_libs var flag prefix)
-   	if(LLVM_FIND_QUIETLY)
+       if(LLVM_FIND_QUIETLY)
             set(_quiet_arg ERROR_QUIET)
         endif()
         execute_process(
             COMMAND ${LLVM_CONFIG} --${flag} ${LLVM_FIND_COMPONENTS}
             OUTPUT_VARIABLE tmplibs
             OUTPUT_STRIP_TRAILING_WHITESPACE
-	    ${_quiet_arg}
+            ${_quiet_arg}
         )
         string(REGEX MATCHALL "${prefix}[^ ]+" LLVM_${var} ${tmplibs})
     endmacro()
@@ -76,9 +79,12 @@ else()
     llvm_set(VERSION_STRING version)
     if(${LLVM_VERSION_STRING} MATCHES "3.0[A-Za-z]*")
         # Version 3.0 does not support component all-targets
-        llvm_set(TARGETS_BUILT targets-built)
+        llvm_set(TARGETS_TO_BUILD targets-built)
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "all-targets" index)
-        list(APPEND LLVM_FIND_COMPONENTS ${LLVM_TARGETS_BUILT})
+        list(APPEND LLVM_FIND_COMPONENTS ${LLVM_TARGETS_TO_BUILD})
+    else()
+        # Version 3.1+ does not supoort component backend
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "backend" index)
     endif()
     llvm_set(CXXFLAGS cxxflags)
     llvm_set(HOST_TARGET host-target)
