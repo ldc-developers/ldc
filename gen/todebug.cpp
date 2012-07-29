@@ -2,7 +2,11 @@
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/FileSystem.h"
+#if LDC_LLVM_VER == 300
 #include "llvm/Support/PathV2.h"
+#else
+#include "llvm/Support/Path.h"
+#endif
 
 #include "declaration.h"
 #include "module.h"
@@ -480,6 +484,9 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
         dwarfTypeDescription(retType, NULL), // type
         fd->protection == PROTprivate, // is local to unit
         gIR->dmodule == getDefinedModule(fd), // isdefinition
+#if LDC_LLVM_VER >= 301
+        fd->loc.linnum, // FIXME: scope line
+#endif
         0, // Flags
         false, // isOptimized
         fd->ir.irFunc->func
@@ -508,6 +515,9 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
         llvm::DIType(NULL), // return type. TODO: fill it up
         true, // is local to unit
         true // isdefinition
+#if LDC_LLVM_VER >= 301
+        , 0 // FIXME: scope line
+#endif
     );
 }
 

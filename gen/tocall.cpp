@@ -277,7 +277,11 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     llvm::AttributeWithIndex Attr;
     // specify arguments
     args.push_back(DtoLoad(typeinfoarrayparam));
+#if LDC_LLVM_VER == 300
     if (unsigned atts = tf->fty.arg_arguments->attrs) {
+#else
+    if (llvm::Attributes atts = tf->fty.arg_arguments->attrs) {
+#endif
         Attr.Index = argidx;
         Attr.Attrs = atts;
         attrs.push_back(Attr);
@@ -285,7 +289,11 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     ++argidx;
 
     args.push_back(gIR->ir->CreateBitCast(mem, getPtrToType(LLType::getInt8Ty(gIR->context())), "tmp"));
+#if LDC_LLVM_VER == 300
     if (unsigned atts = tf->fty.arg_argptr->attrs) {
+#else
+    if (llvm::Attributes atts = tf->fty.arg_argptr->attrs) {
+#endif
         Attr.Index = argidx;
         Attr.Attrs = atts;
         attrs.push_back(Attr);
@@ -498,7 +506,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
         size_t n = Parameter::dim(tf->parameters);
 
+#if LDC_LLVM_VER == 300
         LLSmallVector<unsigned, 10> attrptr(n, 0);
+#else
+        LLSmallVector<llvm::Attributes, 10> attrptr(n, llvm::Attribute::None);
+#endif
 
         std::vector<DValue*> argvals;
         if (dfnval && dfnval->func->isArrayOp) {
