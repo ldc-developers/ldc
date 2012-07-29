@@ -34,7 +34,11 @@ bool DtoIsPassedByRef(Type* type)
     return (t == Tstruct || t == Tsarray);
 }
 
+#if LDC_LLVM_VER == 300
 unsigned DtoShouldExtend(Type* type)
+#else
+llvm::Attributes DtoShouldExtend(Type* type)
+#endif
 {
     type = type->toBasetype();
     if (type->isintegral())
@@ -479,7 +483,7 @@ void DtoMemSet(LLValue* dst, LLValue* val, LLValue* nbytes)
     LLType *Tys[2] ={VoidPtrTy, intTy};
     llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
                 llvm::Intrinsic::memset, llvm::makeArrayRef(Tys, 2));
-    
+
     gIR->ir->CreateCall5(fn, dst, val, nbytes, DtoConstUint(1), DtoConstBool(false), "");
 }
 
@@ -502,7 +506,7 @@ void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes, unsigned align)
     LLType *Tys[3] ={VoidPtrTy, VoidPtrTy, intTy};
     llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
         llvm::Intrinsic::memcpy, llvm::makeArrayRef(Tys, 3));
-    
+
     gIR->ir->CreateCall5(fn, dst, src, nbytes, DtoConstUint(align), DtoConstBool(false), "");
 }
 
@@ -605,12 +609,27 @@ LLConstant* DtoConstFP(Type* t, longdouble value)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+#if LDC_LLVM_VER >= 301
+static inline LLConstant* toConstString(llvm::LLVMContext& ctx, const llvm::StringRef& str)
+{
+    LLSmallVector<uint8_t, 64> vals;
+    vals.append(str.begin(), str.end());
+    vals.push_back(0);
+    return llvm::ConstantDataArray::get(ctx, vals);
+}
+#endif
+
 LLConstant* DtoConstString(const char* str)
 {
+#if LDC_LLVM_VER == 300
     llvm::StringRef s(str?str:"");
     LLConstant* init = LLConstantArray::get(gIR->context(), s, true);
+#else
+    llvm::StringRef s(str ? str : "");
+    LLConstant* init = toConstString(gIR->context(), s);
+#endif
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
-        *gIR->module, init->getType(), true,llvm::GlobalValue::InternalLinkage, init, ".str");
+        *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     return DtoConstSlice(
         DtoConstSize_t(s.size()),
@@ -620,10 +639,15 @@ LLConstant* DtoConstString(const char* str)
 }
 LLConstant* DtoConstStringPtr(const char* str, const char* section)
 {
+#if LDC_LLVM_VER == 300
     llvm::StringRef s(str);
     LLConstant* init = LLConstantArray::get(gIR->context(), s, true);
+#else
+    llvm::StringRef s(str);
+    LLConstant* init = toConstString(gIR->context(), s);
+#endif
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
-        *gIR->module, init->getType(), true,llvm::GlobalValue::InternalLinkage, init, ".str");
+        *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
     if (section) gvar->setSection(section);
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
     return llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
