@@ -159,8 +159,16 @@ void VarDeclaration::codegen(Ir* p)
         LLType *_type = DtoConstInitializerType(type, init);
 
         // create the global variable
+#if LDC_LLVM_VER >= 302
+        // FIXME: clang uses a command line option for the thread model
+        LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, _type, _isconst,
+                                                      DtoLinkage(this), NULL, _name, 0, 
+                                                      isThreadlocal() ? LLGlobalVariable::GeneralDynamicTLSModel
+                                                                      : LLGlobalVariable::NotThreadLocal);
+#else
         LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, _type, _isconst,
                                                       DtoLinkage(this), NULL, _name, 0, isThreadlocal());
+#endif
         this->ir.irGlobal->value = gvar;
 
         // set the alignment

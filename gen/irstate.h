@@ -13,7 +13,11 @@
 #include "ir/irstruct.h"
 #include "ir/irvar.h"
 
+#if LDC_LLVM_VER >= 302
+#include "llvm/DIBuilder.h"
+#else
 #include "llvm/Analysis/DIBuilder.h"
+#endif
 #include "llvm/Support/CallSite.h"
 
 namespace llvm {

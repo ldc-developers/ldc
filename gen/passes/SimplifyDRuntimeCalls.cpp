@@ -21,7 +21,11 @@
 #include "llvm/Function.h"
 #include "llvm/Pass.h"
 #include "llvm/Intrinsics.h"
+#if LDC_LLVM_VER >= 302
+#include "llvm/IRBuilder.h"
+#else
 #include "llvm/Support/IRBuilder.h"
+#endif
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Target/TargetData.h"
