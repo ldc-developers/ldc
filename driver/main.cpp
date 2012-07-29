@@ -237,6 +237,8 @@ int main(int argc, char** argv)
             printf("config    %s\n", path.c_str());
     }
 
+    bool skipModules = mCPU == "help" ||(!mAttrs.empty() && mAttrs.front() == "help");
+
     // Negated options
     global.params.link = !compileOnly;
     global.params.obj = !dontWriteObj;
@@ -315,7 +317,7 @@ int main(int argc, char** argv)
     {
         fatal();
     }
-    if (files.dim == 0)
+    if (files.dim == 0 && !skipModules)
     {
         cl::PrintHelpMessage();
         return EXIT_FAILURE;
