@@ -34,11 +34,7 @@ bool DtoIsPassedByRef(Type* type)
     return (t == Tstruct || t == Tsarray);
 }
 
-#if LDC_LLVM_VER == 300
-unsigned DtoShouldExtend(Type* type)
-#else
 llvm::Attributes DtoShouldExtend(Type* type)
-#endif
 {
     type = type->toBasetype();
     if (type->isintegral())

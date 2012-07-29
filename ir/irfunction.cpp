@@ -13,11 +13,7 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#if LDC_LLVM_VER == 300
-IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, unsigned a) : type(t)
-#else
 IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, llvm::Attributes a) : type(t)
-#endif
 {
     ltype = t != Type::tvoid && bref ? DtoType(t->pointerTo()) : DtoType(t);
     attrs = a;

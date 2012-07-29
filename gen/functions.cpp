@@ -57,11 +57,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
     else
     {
         Type* rt = f->next;
-#if LDC_LLVM_VER == 300
-        unsigned a = 0;
-#else
         llvm::Attributes a = None;
-#endif
+
         // sret return
         if (abi->returnInArg(f))
         {
@@ -77,13 +74,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
             if (f->isref)
                 t = t->pointerTo();
 #endif
-#if LDC_LLVM_VER == 300
-            if (unsigned se = DtoShouldExtend(t))
-                a = se;
-#else
             if (llvm::Attributes atts = DtoShouldExtend(t))
                 a = atts;
-#endif
         }
 #if DMDV2
         fty.ret = new IrFuncTyArg(rt, f->isref, a);
@@ -157,11 +149,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
 #endif
 
         Type* argtype = arg->type;
-#if LDC_LLVM_VER == 300
-        unsigned a = 0;
-#else
         llvm::Attributes a = None;
-#endif
 
         // handle lazy args
         if (arg->storageClass & STClazy)
@@ -424,11 +412,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
 
     // set attrs on the rest of the arguments
     size_t n = Parameter::dim(f->parameters);
-#if LDC_LLVM_VER == 300
-    LLSmallVector<unsigned, 8> attrptr(n, 0);
-#else
     LLSmallVector<llvm::Attributes, 8> attrptr(n, None);
-#endif
 
     for (size_t k = 0; k < n; ++k)
     {

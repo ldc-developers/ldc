@@ -2,11 +2,7 @@
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/FileSystem.h"
-#if LDC_LLVM_VER == 300
-#include "llvm/Support/PathV2.h"
-#else
 #include "llvm/Support/Path.h"
-#endif
 
 #include "declaration.h"
 #include "module.h"
