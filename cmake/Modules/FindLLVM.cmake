@@ -81,6 +81,7 @@ else()
     if(${LLVM_VERSION_STRING} MATCHES "3.0[A-Za-z]*")
         # Version 3.0 does not support component all-targets
         llvm_set(TARGETS_TO_BUILD targets-built)
+        string(REGEX MATCHALL "[^ ]+" LLVM_TARGETS_TO_BUILD ${LLVM_TARGETS_TO_BUILD})
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "all-targets" index)
         list(APPEND LLVM_FIND_COMPONENTS ${LLVM_TARGETS_TO_BUILD})
     else()
