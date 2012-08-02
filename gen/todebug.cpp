@@ -46,7 +46,7 @@ static llvm::DIDescriptor getCurrentScope()
 {
     IrFunction *fn = gIR->func();
     if (fn->diLexicalBlocks.empty()) {
-        assert((llvm::MDNode*)fn->diSubprogram != 0);
+        assert(static_cast<llvm::MDNode*>(fn->diSubprogram) != 0);
         return fn->diSubprogram;
     }
     return fn->diLexicalBlocks.top();
@@ -197,12 +197,12 @@ static llvm::DIType dwarfCompositeType(Type* type)
     AggregateDeclaration* sd;
     if (t->ty == Tstruct)
     {
-        TypeStruct* ts = (TypeStruct*)t;
+        TypeStruct* ts = static_cast<TypeStruct*>(t);
         sd = ts->sym;
     }
     else
     {
-        TypeClass* tc = (TypeClass*)t;
+        TypeClass* tc = static_cast<TypeClass*>(t);
         sd = tc->sym;
     }
     assert(sd);
@@ -217,7 +217,7 @@ static llvm::DIType dwarfCompositeType(Type* type)
 
     IrStruct* ir = sd->ir.irStruct;
     assert(ir);
-    if ((llvm::MDNode*)ir->diCompositeType != 0)
+    if (static_cast<llvm::MDNode*>(ir->diCompositeType) != 0)
         return ir->diCompositeType;
 
     name = sd->toChars();
@@ -384,7 +384,7 @@ void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd, llvm::ArrayRef<LLVal
 
     // get type description
     llvm::DIType TD = dwarfTypeDescription(vd->type, NULL);
-    if ((llvm::MDNode*)TD == 0)
+    if (static_cast<llvm::MDNode*>(TD) == 0)
         return; // unsupported
 
     // get variable description
@@ -468,7 +468,7 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
     LOG_SCOPE;
 
     llvm::DIFile file = DtoDwarfFile(fd->loc);
-    Type *retType = ((TypeFunction*)fd->type)->next;
+    Type *retType = static_cast<TypeFunction*>(fd->type)->next;
 
     // FIXME: duplicates ?
     return gIR->dibuilder.createFunction(
@@ -541,7 +541,7 @@ void DtoDwarfFuncStart(FuncDeclaration* fd)
     Logger::println("D to dwarf funcstart");
     LOG_SCOPE;
 
-    assert((llvm::MDNode*)fd->ir.irFunc->diSubprogram != 0);
+    assert(static_cast<llvm::MDNode*>(fd->ir.irFunc->diSubprogram) != 0);
     DtoDwarfStopPoint(fd->loc.linnum);
 }
 
@@ -555,7 +555,7 @@ void DtoDwarfFuncEnd(FuncDeclaration* fd)
     Logger::println("D to dwarf funcend");
     LOG_SCOPE;
 
-    assert((llvm::MDNode*)fd->ir.irFunc->diSubprogram != 0);
+    assert(static_cast<llvm::MDNode*>(fd->ir.irFunc->diSubprogram) != 0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////

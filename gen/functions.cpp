@@ -35,7 +35,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
 
     // sanity check
     assert(type->ty == Tfunction);
-    TypeFunction* f = (TypeFunction*)type;
+    TypeFunction* f = static_cast<TypeFunction*>(type);
 
     TargetABI* abi = (f->linkage == LINKintrinsic ? TargetABI::getIntrinsic() : gABI);
     // Tell the ABI we're resolving a new function type
@@ -219,7 +219,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
 
 static llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 {
-    TypeFunction* f = (TypeFunction*)fdecl->type;
+    TypeFunction* f = static_cast<TypeFunction*>(fdecl->type);
     LLFunctionType* fty = 0;
 
     // create new ir funcTy
@@ -317,7 +317,7 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
     Type *type = fdecl->type;
     // If errors occurred compiling it, such as bugzilla 6118
     if (type && type->ty == Tfunction) {
-        Type *next = ((TypeFunction *)type)->next;
+        Type *next = static_cast<TypeFunction *>(type)->next;
         if (!next || next->ty == Terror)
             return;
     }
@@ -349,12 +349,12 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
             fdecl->llvmInternal = LLVMintrinsic;
             DtoOverloadedIntrinsicName(tinst, tempdecl, fdecl->intrinsicName);
             fdecl->linkage = LINKintrinsic;
-            ((TypeFunction*)fdecl->type)->linkage = LINKintrinsic;
+            static_cast<TypeFunction*>(fdecl->type)->linkage = LINKintrinsic;
         }
         else if (tempdecl->llvmInternal == LLVMinline_asm)
         {
             Logger::println("magic inline asm found");
-            TypeFunction* tf = (TypeFunction*)fdecl->type;
+            TypeFunction* tf = static_cast<TypeFunction*>(fdecl->type);
             if (tf->varargs != 1 || (fdecl->parameters && fdecl->parameters->dim != 0))
             {
                 error("invalid __asm declaration, must be a D style variadic with no explicit parameters");
@@ -469,7 +469,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     // get TypeFunction*
     Type* t = fdecl->type->toBasetype();
-    TypeFunction* f = (TypeFunction*)t;
+    TypeFunction* f = static_cast<TypeFunction*>(t);
 
     bool declareOnly = !mustDefineSymbol(fdecl);
 
@@ -600,7 +600,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             if (fdecl->parameters && fdecl->parameters->dim > k)
             {
                 int paramIndex = f->fty.reverseParams ? fdecl->parameters->dim-k-1 : k;
-                Dsymbol* argsym = (Dsymbol*)fdecl->parameters->data[paramIndex];
+                Dsymbol* argsym = static_cast<Dsymbol*>(fdecl->parameters->data[paramIndex]);
 
                 VarDeclaration* argvd = argsym->isVarDeclaration();
                 assert(argvd);
@@ -659,7 +659,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     fd->ir.irFunc->diSubprogram = DtoDwarfSubProgram(fd);
 
     Type* t = fd->type->toBasetype();
-    TypeFunction* f = (TypeFunction*)t;
+    TypeFunction* f = static_cast<TypeFunction*>(t);
     // assert(f->irtype);
 
     llvm::Function* func = fd->ir.irFunc->func;
@@ -749,7 +749,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         assert(n == fd->parameters->dim);
         for (int i=0; i < n; ++i)
         {
-            Dsymbol* argsym = (Dsymbol*)fd->parameters->data[i];
+            Dsymbol* argsym = static_cast<Dsymbol*>(fd->parameters->data[i]);
             VarDeclaration* vd = argsym->isVarDeclaration();
             assert(vd);
 
@@ -904,7 +904,7 @@ llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl)
         ClassDeclaration* base = cd->baseClass;
         if (!base)
             break;
-        FuncDeclaration* f2 = base->findFunc(fdecl->ident, (TypeFunction*)fdecl->type);
+        FuncDeclaration* f2 = base->findFunc(fdecl->ident, static_cast<TypeFunction*>(fdecl->type));
         if (f2) {
             f = f2;
             cd = base;

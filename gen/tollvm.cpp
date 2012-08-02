@@ -119,12 +119,12 @@ LLType* DtoType(Type* t)
 
     // aggregates
     case Tstruct:    {
-        TypeStruct* ts = (TypeStruct*)t;
+        TypeStruct* ts = static_cast<TypeStruct*>(t);
         t->irtype = new IrTypeStruct(ts->sym);
         return t->irtype->buildType();
     }
     case Tclass:    {
-        TypeClass* tc = (TypeClass*)t;
+        TypeClass* tc = static_cast<TypeClass*>(t);
         t->irtype = new IrTypeClass(tc->sym);
         return t->irtype->buildType();
     }
@@ -173,7 +173,7 @@ LLType* DtoType(Type* t)
 
     case Ttuple:
     {
-        TypeTuple* ttupl = (TypeTuple*)t;
+        TypeTuple* ttupl = static_cast<TypeTuple*>(t);
         return DtoStructTypeFromArguments(ttupl->arguments);
     }
 */
@@ -196,7 +196,7 @@ LLType* DtoStructTypeFromArguments(Arguments* arguments)
     std::vector<LLType*> types;
     for (size_t i = 0; i < arguments->dim; i++)
     {
-        Argument *arg = (Argument *)arguments->data[i];
+        Argument *arg = static_cast<Argument *>(arguments->data[i]);
         assert(arg && arg->type);
 
         types.push_back(DtoType(arg->type));
@@ -267,7 +267,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         if (mustDefineSymbol(fdecl))
             Logger::println("Function %savailable externally: %s", (fdecl->availableExternally ? "" : "not "), fdecl->toChars());
         assert(fdecl->type->ty == Tfunction);
-        TypeFunction* ft = (TypeFunction*)fdecl->type;
+        TypeFunction* ft = static_cast<TypeFunction*>(fdecl->type);
 
         // intrinsics are always external
         if (fdecl->llvmInternal == LLVMintrinsic)
@@ -595,8 +595,8 @@ LLConstant* DtoConstFP(Type* t, longdouble value)
         return LLConstantFP::get(llty, value);
     else if(llty == LLType::getX86_FP80Ty(gIR->context())) {
         uint64_t bits[] = {0, 0};
-        bits[0] = *(uint64_t*)&value;
-        bits[1] = *(uint16_t*)((uint64_t*)&value + 1);
+        bits[0] = *reinterpret_cast<uint64_t*>(&value);
+        bits[1] = *reinterpret_cast<uint16_t*>(reinterpret_cast<uint64_t*>(&value + 1));
         return LLConstantFP::get(gIR->context(), APFloat(APInt(80, 2, bits)));
     } else {
         assert(0 && "Unknown floating point type encountered");

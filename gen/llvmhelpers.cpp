@@ -397,7 +397,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
             // FIXME: use 'rhs' for something !?!
             DtoAggrZeroInit(lhs->getLVal());
 #if DMDV2
-            TypeStruct *ts = (TypeStruct*) lhs->getType();
+            TypeStruct *ts = static_cast<TypeStruct*>(lhs->getType());
             if (ts->sym->isNested() && ts->sym->vthis)
                 DtoResolveNestedContext(loc, ts->sym, lhs->getLVal());
 #endif
@@ -770,7 +770,7 @@ DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
     Type* totype = to->toBasetype();
     LLType* tolltype = DtoType(to);
     LLValue *vector = val->getRVal();
-    TypeVector *type = (TypeVector *)val->getType()->toBasetype();
+    TypeVector *type = static_cast<TypeVector *>(val->getType()->toBasetype());
 
     if (totype->ty == Tsarray)
     {
@@ -778,7 +778,7 @@ DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
             Logger::cout() << "src: " << *vector << "to type: " << *tolltype << '\n';
         LLValue *array = DtoAlloca(to);
 
-        TypeSArray *st = (TypeSArray*)totype;
+        TypeSArray *st = static_cast<TypeSArray*>(totype);
 
         for (int i = 0, n = st->dim->toInteger(); i < n; ++i) {
             LLValue *lelem = DtoExtractElement(vector, i);
@@ -804,9 +804,9 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
 
 #if DMDV2
     if (fromtype->ty == Taarray)
-        fromtype = ((TypeAArray*)fromtype)->getImpl()->type;
+        fromtype = static_cast<TypeAArray*>(fromtype)->getImpl()->type;
     if (totype->ty == Taarray)
-        totype = ((TypeAArray*)totype)->getImpl()->type;
+        totype = static_cast<TypeAArray*>(totype)->getImpl()->type;
 #endif
 
     if (fromtype->equals(totype))
@@ -1105,10 +1105,10 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
                     !!(ei = vd->init->isExpInitializer()))
                 {
                     if (ei->exp->op == TOKconstruct) {
-                        AssignExp *ae = (AssignExp*)ei->exp;
+                        AssignExp *ae = static_cast<AssignExp*>(ei->exp);
                         if (ae->e2->op == TOKcall) {
-                            CallExp *ce = (CallExp *)ae->e2;
-                            TypeFunction *tf = (TypeFunction *)ce->e1->type->toBasetype();
+                            CallExp *ce = static_cast<CallExp *>(ae->e2);
+                            TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
                             if (tf->ty == Tfunction && tf->fty.arg_sret) {
                                 vd->ir.irLocal->value = ce->toElem(gIR)->getLVal();
                                 goto Lexit;
@@ -1200,7 +1200,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         if (d)
             for (unsigned i=0; i < d->dim; ++i)
             {
-                DtoDeclarationExp((Dsymbol*)d->data[i]);
+                DtoDeclarationExp(static_cast<Dsymbol*>(d->data[i]));
             }
     }
     // mixin declaration
@@ -1209,7 +1209,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         Logger::println("TemplateMixin");
         for (unsigned i=0; i < m->members->dim; ++i)
         {
-            Dsymbol* mdsym = (Dsymbol*)m->members->data[i];
+            Dsymbol* mdsym = static_cast<Dsymbol*>(m->members->data[i]);
             DtoDeclarationExp(mdsym);
         }
     }
@@ -1225,7 +1225,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         assert(tupled->objects);
         for (unsigned i=0; i < tupled->objects->dim; ++i)
         {
-            DsymbolExp* exp = (DsymbolExp*)tupled->objects->data[i];
+            DsymbolExp* exp = static_cast<DsymbolExp*>(tupled->objects->data[i]);
             DtoDeclarationExp(exp->s);
         }
     }
@@ -1318,7 +1318,7 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
 LLType* DtoConstInitializerType(Type* type, Initializer* init)
 {
     if (type->ty == Ttypedef) {
-        TypeTypedef *td = (TypeTypedef*)type;
+        TypeTypedef *td = static_cast<TypeTypedef*>(type);
         if (td->sym->init)
             return DtoConstInitializerType(td->sym->basetype, td->sym->init);
     }
@@ -1328,7 +1328,7 @@ LLType* DtoConstInitializerType(Type* type, Initializer* init)
     {
         if (!init)
         {
-            TypeSArray *tsa = (TypeSArray*)type;
+            TypeSArray *tsa = static_cast<TypeSArray*>(type);
             LLType *llnext = DtoConstInitializerType(type->nextOf(), init);
             return LLArrayType::get(llnext, tsa->dim->toUInteger());
         }
@@ -1342,19 +1342,19 @@ LLType* DtoConstInitializerType(Type* type, Initializer* init)
         if (!init)
         {
         LdefaultInit:
-            TypeStruct *ts = (TypeStruct*)type;
+            TypeStruct *ts = static_cast<TypeStruct*>(type);
             DtoResolveStruct(ts->sym);
             return ts->sym->ir.irStruct->getDefaultInit()->getType();
         }
         else if (ExpInitializer* ex = init->isExpInitializer())
         {
             if (ex->exp->op == TOKstructliteral) {
-                StructLiteralExp* le = (StructLiteralExp*)ex->exp;
+                StructLiteralExp* le = static_cast<StructLiteralExp*>(ex->exp);
                 if (!le->constType)
                     le->constType = LLStructType::create(gIR->context(), std::string(type->toChars()) + "_init");
                 return le->constType;
             } else if (ex->exp->op == TOKvar) {
-                if (((VarExp*)ex->exp)->var->isStaticStructInitDeclaration())
+                if (static_cast<VarExp*>(ex->exp)->var->isStaticStructInitDeclaration())
                     goto LdefaultInit;
             }
         }
@@ -1458,7 +1458,7 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
         if (t->equals(expbase))
             break;
         assert(t->ty == Tsarray);
-        TypeSArray* tsa = (TypeSArray*)t;
+        TypeSArray* tsa = static_cast<TypeSArray*>(t);
         dims.push_back(tsa->dim->toInteger());
         assert(t->nextOf());
         t = t->nextOf()->toBasetype();
@@ -1561,7 +1561,7 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
 
     // for now use the size in bits of the first template param in the instance
     assert(ti->tdtypes.dim == 1);
-    Type* T = (Type*)ti->tdtypes.data[0];
+    Type* T = static_cast<Type*>(ti->tdtypes.data[0]);
 
     char prefix = T->isreal() ? 'f' : T->isintegral() ? 'i' : 0;
     if (!prefix) {
@@ -1570,7 +1570,7 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
     }
 
     char tmp[21]; // probably excessive, but covers a uint64_t
-    sprintf(tmp, "%lu", (unsigned long) gTargetData->getTypeSizeInBits(DtoType(T)));
+    sprintf(tmp, "%lu", static_cast<unsigned long>(gTargetData->getTypeSizeInBits(DtoType(T))));
 
     // replace # in name with bitsize
     name = td->intrinsicName;
@@ -1689,7 +1689,7 @@ bool hasUnalignedFields(Type* t)
     } else if (t->ty != Tstruct)
         return false;
 
-    TypeStruct* ts = (TypeStruct*)t;
+    TypeStruct* ts = static_cast<TypeStruct*>(t);
     if (ts->unaligned)
         return (ts->unaligned == 2);
 
@@ -1699,7 +1699,7 @@ bool hasUnalignedFields(Type* t)
     ts->unaligned = 2;
     for (unsigned i = 0; i < sym->fields.dim; i++)
     {
-        VarDeclaration* f = (VarDeclaration*)sym->fields.data[i];
+        VarDeclaration* f = static_cast<VarDeclaration*>(sym->fields.data[i]);
         unsigned a = f->type->alignsize() - 1;
         if (((f->offset + a) & ~a) != f->offset)
             return true;
@@ -1799,7 +1799,7 @@ Type * stripModifiers( Type * type )
         if (!t)
         {
             unsigned sz = type->sizeTy[type->ty];
-            t = (Type *)malloc(sz);
+            t = static_cast<Type *>(malloc(sz));
             memcpy(t, type, sz);
             t->mod = 0;
             t->deco = NULL;
@@ -1897,7 +1897,7 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val)
     Type *tb = exp->type->toBasetype();
     if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar || exp->op == TOKthis) &&
         tb->ty == Tstruct)
-    {   StructDeclaration *sd = ((TypeStruct *)tb)->sym;
+    {   StructDeclaration *sd = static_cast<TypeStruct *>(tb)->sym;
         if (sd->postblit)
         {
             FuncDeclaration *fd = sd->postblit;

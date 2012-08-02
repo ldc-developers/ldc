@@ -72,7 +72,7 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
         break;
 
     case Tclass:
-        if (((TypeClass *)t)->sym->isInterfaceDeclaration())
+        if (static_cast<TypeClass *>(t)->sym->isInterfaceDeclaration())
         break;
         goto Linternal;
 
@@ -403,7 +403,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     RTTIBuilder b(Type::typeinfotypedef);
 
     assert(tinfo->ty == Ttypedef);
-    TypeTypedef *tc = (TypeTypedef *)tinfo;
+    TypeTypedef *tc = static_cast<TypeTypedef *>(tinfo);
     TypedefDeclaration *sd = tc->sym;
 
     // TypeInfo base
@@ -441,7 +441,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     RTTIBuilder b(Type::typeinfoenum);
 
     assert(tinfo->ty == Tenum);
-    TypeEnum *tc = (TypeEnum *)tinfo;
+    TypeEnum *tc = static_cast<TypeEnum *>(tinfo);
     EnumDeclaration *sd = tc->sym;
 
     // TypeInfo base
@@ -509,7 +509,7 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     LOG_SCOPE;
 
     assert(tinfo->ty == Tsarray);
-    TypeSArray *tc = (TypeSArray *)tinfo;
+    TypeSArray *tc = static_cast<TypeSArray *>(tinfo);
 
     RTTIBuilder b(Type::typeinfostaticarray);
 
@@ -517,7 +517,7 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     b.push_typeinfo(tc->nextOf());
 
     // length
-    b.push(DtoConstSize_t((size_t)tc->dim->toUInteger()));
+    b.push(DtoConstSize_t(static_cast<size_t>(tc->dim->toUInteger())));
 
     // finish
     b.finalize(ir.irGlobal);
@@ -531,7 +531,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     LOG_SCOPE;
 
     assert(tinfo->ty == Taarray);
-    TypeAArray *tc = (TypeAArray *)tinfo;
+    TypeAArray *tc = static_cast<TypeAArray *>(tinfo);
 
     RTTIBuilder b(Type::typeinfoassociativearray);
 
@@ -609,7 +609,7 @@ void TypeInfoStructDeclaration::llvmDefine()
 
     // make sure struct is resolved
     assert(tinfo->ty == Tstruct);
-    TypeStruct *tc = (TypeStruct *)tinfo;
+    TypeStruct *tc = static_cast<TypeStruct *>(tinfo);
     StructDeclaration *sd = tc->sym;
 
     // can't emit typeinfo for forward declarations
@@ -644,7 +644,7 @@ void TypeInfoStructDeclaration::llvmDefine()
 #if DMDV2
         tftohash ->mod = MODconst;
 #endif
-        tftohash = (TypeFunction *)tftohash->semantic(0, &sc);
+        tftohash = static_cast<TypeFunction *>(tftohash->semantic(0, &sc));
 
 #if DMDV2
         Type *retType = Type::tchar->invariantOf()->arrayOf();
@@ -652,7 +652,7 @@ void TypeInfoStructDeclaration::llvmDefine()
         Type *retType = Type::tchar->arrayOf();
 #endif
         tftostring = new TypeFunction(NULL, retType, 0, LINKd);
-        tftostring = (TypeFunction *)tftostring->semantic(0, &sc);
+        tftostring = static_cast<TypeFunction *>(tftostring->semantic(0, &sc));
     }
 
     // this one takes a parameter, so we need to build a new one each time
@@ -673,7 +673,7 @@ void TypeInfoStructDeclaration::llvmDefine()
 #if DMDV2
         tfcmpptr->mod = MODconst;
 #endif
-        tfcmpptr = (TypeFunction *)tfcmpptr->semantic(0, &sc);
+        tfcmpptr = static_cast<TypeFunction *>(tfcmpptr->semantic(0, &sc));
     }
 
     // well use this module for all overload lookups
@@ -733,7 +733,7 @@ void TypeInfoStructDeclaration::llvmDefine()
         {
             if (i < tup->arguments->dim)
             {
-                Type *targ = ((Parameter *)tup->arguments->data[i])->type;
+                Type *targ = static_cast<Parameter *>(tup->arguments->data[i])->type;
                 targ = targ->merge();
                 b.push_typeinfo(targ);
             }
@@ -757,7 +757,7 @@ void TypeInfoClassDeclaration::codegen(Ir*i)
     IrGlobal* irg = new IrGlobal(this);
     ir.irGlobal = irg;
     assert(tinfo->ty == Tclass);
-    TypeClass *tc = (TypeClass *)tinfo;
+    TypeClass *tc = static_cast<TypeClass *>(tinfo);
     tc->sym->codegen(Type::sir); // make sure class is resolved
     irg->value = tc->sym->ir.irStruct->getClassInfoSymbol();
 }
@@ -773,7 +773,7 @@ void TypeInfoClassDeclaration::llvmDefine()
 
     // make sure class is resolved
     assert(tinfo->ty == Tclass);
-    TypeClass *tc = (TypeClass *)tinfo;
+    TypeClass *tc = static_cast<TypeClass *>(tinfo);
     tc->sym->codegen(Type::sir);
 
     RTTIBuilder b(Type::typeinfoclass);
@@ -794,7 +794,7 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
 
     // make sure interface is resolved
     assert(tinfo->ty == Tclass);
-    TypeClass *tc = (TypeClass *)tinfo;
+    TypeClass *tc = static_cast<TypeClass *>(tinfo);
     tc->sym->codegen(Type::sir);
 
     RTTIBuilder b(Type::typeinfointerface);
@@ -815,7 +815,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
 
     // create elements array
     assert(tinfo->ty == Ttuple);
-    TypeTuple *tu = (TypeTuple *)tinfo;
+    TypeTuple *tu = static_cast<TypeTuple *>(tinfo);
 
     size_t dim = tu->arguments->dim;
     std::vector<LLConstant*> arrInits;
@@ -825,7 +825,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
 
     for (size_t i = 0; i < dim; i++)
     {
-        Parameter *arg = (Parameter *)tu->arguments->data[i];
+        Parameter *arg = static_cast<Parameter *>(tu->arguments->data[i]);
         arrInits.push_back(DtoTypeInfoOf(arg->type, true));
     }
 
@@ -910,7 +910,7 @@ void TypeInfoVectorDeclaration::llvmDefine()
     LOG_SCOPE;
 
     assert(tinfo->ty == Tvector);
-    TypeVector *tv = (TypeVector *)tinfo;
+    TypeVector *tv = static_cast<TypeVector *>(tinfo);
 
     RTTIBuilder b(Type::typeinfovector);
     // TypeInfo base

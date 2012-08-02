@@ -85,7 +85,7 @@ void TupleDeclaration::codegen(Ir* p)
 
     for (int i=0; i < n; ++i)
     {
-        DsymbolExp* exp = (DsymbolExp*)objects->data[i];
+        DsymbolExp* exp = static_cast<DsymbolExp*>(objects->data[i]);
         assert(exp->op == TOKdsymbol);
         exp->s->codegen(p);
     }
@@ -262,7 +262,7 @@ void TemplateInstance::codegen(Ir* p)
     {
         for (unsigned i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = (Dsymbol *)members->data[i];
+            Dsymbol *s = static_cast<Dsymbol *>(members->data[i]);
             s->codegen(p);
         }
     }
@@ -276,7 +276,7 @@ void TemplateMixin::codegen(Ir* p)
     {
         for (unsigned i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = (Dsymbol *)members->data[i];
+            Dsymbol *s = static_cast<Dsymbol *>(members->data[i]);
             if (s->isVarDeclaration())
                 continue;
             s->codegen(p);
@@ -293,7 +293,7 @@ void AttribDeclaration::codegen(Ir* p)
     if (d)
     {
         for (unsigned i = 0; i < d->dim; i++)
-        {   Dsymbol *s = (Dsymbol *)d->data[i];
+        {   Dsymbol *s = static_cast<Dsymbol *>(d->data[i]);
             s->codegen(p);
         }
     }
@@ -309,12 +309,12 @@ void PragmaDeclaration::codegen(Ir* p)
     {
         assert(args && args->dim == 1);
 
-        Expression *e = (Expression *)args->data[0];
+        Expression *e = static_cast<Expression *>(args->data[0]);
 
         assert(e->op == TOKstring);
 
-        StringExp *se = (StringExp *)e;
-        char *name = (char *)mem.malloc(se->len + 1);
+        StringExp *se = static_cast<StringExp *>(e);
+        char *name = static_cast<char *>(mem.malloc(se->len + 1));
         memcpy(name, se->string, se->len);
         name[se->len] = 0;
         obj_includelib(name);

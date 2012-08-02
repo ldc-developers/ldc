@@ -38,7 +38,7 @@ void CompoundStatement::toIR(IRState* p)
 
     for (unsigned i=0; i<statements->dim; i++)
     {
-        Statement* s = (Statement*)statements->data[i];
+        Statement* s = static_cast<Statement*>(statements->data[i]);
         if (s) {
             s->toIR(p);
         }
@@ -191,7 +191,7 @@ void ExpStatement::toIR(IRState* p)
         elem* e;
         // a cast(void) around the expression is allowed, but doesn't require any code
         if(exp->op == TOKcast && exp->type == Type::tvoid) {
-            CastExp* cexp = (CastExp*)exp;
+            CastExp* cexp = static_cast<CastExp*>(exp);
             e = cexp->e1->toElemDtor(p);
         }
         else
@@ -745,7 +745,7 @@ void TryCatchStatement::toIR(IRState* p)
     IRLandingPad& pad = gIR->func()->gen->landingPadInfo;
     for (unsigned i = 0; i < catches->dim; i++)
     {
-        Catch *c = (Catch *)catches->data[i];
+        Catch *c = static_cast<Catch *>(catches->data[i]);
         pad.addCatch(c, endbb);
     }
 
@@ -812,7 +812,7 @@ struct Case : Object
     }
 
     int compare(Object *obj) {
-        Case* c2 = (Case*)obj;
+        Case* c2 = static_cast<Case*>(obj);
         return str->compare(c2->str);
     }
 };
@@ -868,7 +868,7 @@ void SwitchStatement::toIR(IRState* p)
     // clear data from previous passes... :/
     for (unsigned i=0; i<cases->dim; ++i)
     {
-        CaseStatement* cs = (CaseStatement*)cases->data[i];
+        CaseStatement* cs = static_cast<CaseStatement*>(cases->data[i]);
         cs->bodyBB = NULL;
         cs->llvmIdx = NULL;
     }
@@ -879,10 +879,10 @@ void SwitchStatement::toIR(IRState* p)
     bool useSwitchInst = true;
     for (unsigned i=0; i<cases->dim; ++i)
     {
-        CaseStatement* cs = (CaseStatement*)cases->data[i];
+        CaseStatement* cs = static_cast<CaseStatement*>(cases->data[i]);
         VarDeclaration* vd = 0;
         if (cs->exp->op == TOKvar)
-            vd = ((VarExp*)cs->exp)->var->isVarDeclaration();
+            vd = static_cast<VarExp*>(cs->exp)->var->isVarDeclaration();
         if (vd && (!vd->init || !vd->isConst())) {
             cs->llvmIdx = cs->exp->toElemDtor(p)->getRVal();
             useSwitchInst = false;
@@ -926,10 +926,10 @@ void SwitchStatement::toIR(IRState* p)
             caseArray.reserve(cases->dim);
             for (unsigned i=0; i<cases->dim; ++i)
             {
-                CaseStatement* cs = (CaseStatement*)cases->data[i];
+                CaseStatement* cs = static_cast<CaseStatement*>(cases->data[i]);
 
                 assert(cs->exp->op == TOKstring);
-                caseArray.push(new Case((StringExp*)cs->exp, i));
+                caseArray.push(new Case(static_cast<StringExp*>(cs->exp), i));
             }
             // first sort it
             caseArray.sort();
@@ -937,8 +937,8 @@ void SwitchStatement::toIR(IRState* p)
             std::vector<LLConstant*> inits(caseArray.dim);
             for (size_t i=0; i<caseArray.dim; ++i)
             {
-                Case* c = (Case*)caseArray.data[i];
-                CaseStatement* cs = (CaseStatement*)cases->data[c->index];
+                Case* c = static_cast<Case*>(caseArray.data[i]);
+                CaseStatement* cs = static_cast<CaseStatement*>(cases->data[c->index]);
                 cs->llvmIdx = DtoConstUint(i);
                 inits[i] = c->str->toConstElem(p);
             }
@@ -978,7 +978,7 @@ void SwitchStatement::toIR(IRState* p)
         llvm::SwitchInst* si = llvm::SwitchInst::Create(condVal, defbb ? defbb : endbb, cases->dim, p->scopebb());
         for (unsigned i=0; i<cases->dim; ++i)
         {
-            CaseStatement* cs = (CaseStatement*)cases->data[i];
+            CaseStatement* cs = static_cast<CaseStatement*>(cases->data[i]);
             si->addCase(isaConstantInt(cs->llvmIdx), cs->bodyBB);
         }
     }
@@ -993,7 +993,7 @@ void SwitchStatement::toIR(IRState* p)
         p->scope() = IRScope(nextbb, endbb);
         for (unsigned i=0; i<cases->dim; ++i)
         {
-            CaseStatement* cs = (CaseStatement*)cases->data[i];
+            CaseStatement* cs = static_cast<CaseStatement*>(cases->data[i]);
 
             LLValue* cmp = p->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, cs->llvmIdx, condVal, "checkcase");
             nextbb = llvm::BasicBlock::Create(gIR->context(), "checkcase", p->topfunc(), oldend);
@@ -1157,7 +1157,7 @@ void ForeachStatement::toIR(IRState* p)
     assert(aggr != 0);
     assert(func != 0);
 
-    //Argument* arg = (Argument*)arguments->data[0];
+    //Argument* arg = static_cast<Argument*>(arguments->data[0]);
     //Logger::println("Argument is %s", arg->toChars());
 
     Logger::println("aggr = %s", aggr->toChars());
@@ -1698,7 +1698,7 @@ AsmBlockStatement* CompoundStatement::endsWithAsm()
     if (statements && statements->dim)
     {
         unsigned last = statements->dim - 1;
-        Statement* s = (Statement*)statements->data[last];
+        Statement* s = static_cast<Statement*>(statements->data[last]);
         if (s) return s->endsWithAsm();
     }
     return NULL;

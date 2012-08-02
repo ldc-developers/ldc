@@ -259,7 +259,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
 
     // process module members
     for (unsigned k=0; k < members->dim; k++) {
-        Dsymbol* dsym = (Dsymbol*)(members->data[k]);
+        Dsymbol* dsym = static_cast<Dsymbol*>(members->data[k]);
         assert(dsym);
         dsym->codegen(sir);
     }
@@ -377,7 +377,7 @@ void Module::genmoduleinfo()
     llvm::ArrayType* importedModulesTy = 0;
     for (size_t i = 0; i < aimports.dim; i++)
     {
-        Module *m = (Module *)aimports.data[i];
+        Module *m = static_cast<Module *>(aimports.data[i]);
         if (!m->needModuleInfo() || m == this)
             continue;
 
@@ -405,7 +405,7 @@ void Module::genmoduleinfo()
     {
         Dsymbol *member;
 
-        member = (Dsymbol *)members->data[i];
+        member = static_cast<Dsymbol *>(members->data[i]);
         //printf("\tmember '%s'\n", member->toChars());
         member->addLocalClass(&aclasses);
     }
@@ -413,7 +413,7 @@ void Module::genmoduleinfo()
     std::vector<LLConstant*> classInits;
     for (size_t i = 0; i < aclasses.dim; i++)
     {
-        ClassDeclaration* cd = (ClassDeclaration*)aclasses.data[i];
+        ClassDeclaration* cd = static_cast<ClassDeclaration*>(aclasses.data[i]);
         cd->codegen(Type::sir);
 
         if (cd->isInterfaceDeclaration())

@@ -528,7 +528,7 @@ void AsmBlockStatement::toIR(IRState* p)
     // do asm statements
     for (unsigned i=0; i<statements->dim; i++)
     {
-        Statement* s = (Statement*)statements->data[i];
+        Statement* s = static_cast<Statement*>(statements->data[i]);
         if (s) {
             s->toIR(p);
         }
@@ -800,7 +800,7 @@ Statement *AsmBlockStatement::syntaxCopy()
     a->setDim(statements->dim);
     for (size_t i = 0; i < statements->dim; i++)
     {
-        Statement *s = (Statement *)statements->data[i];
+        Statement *s = static_cast<Statement *>(statements->data[i]);
         if (s)
             s = s->syntaxCopy();
         a->data[i] = s;
@@ -842,7 +842,7 @@ void AsmBlockStatement::toNakedIR(IRState *p)
     // do asm statements
     for (unsigned i=0; i<statements->dim; i++)
     {
-        Statement* s = (Statement*)statements->data[i];
+        Statement* s = static_cast<Statement*>(statements->data[i]);
         if (s) s->toNakedIR(p);
     }
 }

@@ -31,7 +31,7 @@ void CompoundStatement::toNakedIR(IRState *p)
     if (statements)
     for (unsigned i = 0; i < statements->dim; i++)
     {
-        Statement* s = (Statement*)statements->data[i];
+        Statement* s = static_cast<Statement*>(statements->data[i]);
         if (s) s->toNakedIR(p);
     }
 }
@@ -50,7 +50,7 @@ void ExpStatement::toNakedIR(IRState *p)
         return;
     }
 
-    DeclarationExp* d = (DeclarationExp*)exp;
+    DeclarationExp* d = static_cast<DeclarationExp*>(exp);
     VarDeclaration* vd = d->declaration->isVarDeclaration();
     FuncDeclaration* fd = d->declaration->isFuncDeclaration();
     EnumDeclaration* ed = d->declaration->isEnumDeclaration();
@@ -362,26 +362,26 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
     assert(arguments->dim >= 2 && "invalid __asm call");
 
     // get code param
-    Expression* e = (Expression*)arguments->data[0];
+    Expression* e = static_cast<Expression*>(arguments->data[0]);
     Logger::println("code exp: %s", e->toChars());
-    StringExp* se = (StringExp*)e;
+    StringExp* se = static_cast<StringExp*>(e);
     if (e->op != TOKstring || se->sz != 1)
     {
         e->error("__asm code argument is not a char[] string literal");
         fatal();
     }
-    std::string code((char*)se->string, se->len);
+    std::string code(static_cast<char*>(se->string), se->len);
 
     // get constraints param
-    e = (Expression*)arguments->data[1];
+    e = static_cast<Expression*>(arguments->data[1]);
     Logger::println("constraint exp: %s", e->toChars());
-    se = (StringExp*)e;
+    se = static_cast<StringExp*>(e);
     if (e->op != TOKstring || se->sz != 1)
     {
         e->error("__asm constraints argument is not a char[] string literal");
         fatal();
     }
-    std::string constraints((char*)se->string, se->len);
+    std::string constraints(static_cast<char*>(se->string), se->len);
 
     // build runtime arguments
     size_t n = arguments->dim;
@@ -393,7 +393,7 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
 
     for (size_t i = 2; i < n; i++)
     {
-        e = (Expression*)arguments->data[i];
+        e = static_cast<Expression*>(arguments->data[i]);
         args.push_back(e->toElem(gIR)->getRVal());
         argtypes.push_back(args.back()->getType());
     }
@@ -415,7 +415,7 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
         // make a copy
         llvm::Value* mem = DtoAlloca(type, ".__asm_tuple_ret");
 
-        TypeStruct* ts = (TypeStruct*)type;
+        TypeStruct* ts = static_cast<TypeStruct*>(type);
         size_t n = ts->sym->fields.dim;
         for (size_t i = 0; i < n; i++)
         {

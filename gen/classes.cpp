@@ -272,11 +272,11 @@ DValue* DtoCastClass(DValue* val, Type* _to)
 
     // must be class/interface
     assert(to->ty == Tclass);
-    TypeClass* tc = (TypeClass*)to;
+    TypeClass* tc = static_cast<TypeClass*>(to);
 
     // from type
     Type* from = val->getType()->toBasetype();
-    TypeClass* fc = (TypeClass*)from;
+    TypeClass* fc = static_cast<TypeClass*>(from);
 
     // x -> interface
     if (InterfaceDeclaration* it = tc->sym->isInterfaceDeclaration()) {
@@ -372,7 +372,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     assert(funcTy->getParamType(0) == obj->getType());
 
     // ClassInfo c
-    TypeClass* to = (TypeClass*)_to->toBasetype();
+    TypeClass* to = static_cast<TypeClass*>(_to->toBasetype());
     to->sym->codegen(Type::sir);
 
     LLValue* cinfo = to->sym->ir.irStruct->getClassInfoSymbol();
@@ -436,7 +436,7 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     ptr = DtoBitCast(ptr, funcTy->getParamType(0));
 
     // ClassInfo c
-    TypeClass* to = (TypeClass*)_to->toBasetype();
+    TypeClass* to = static_cast<TypeClass*>(_to->toBasetype());
     to->sym->codegen(Type::sir);
     LLValue* cinfo = to->sym->ir.irStruct->getClassInfoSymbol();
     // unfortunately this is needed as the implementation of object differs somehow from the declaration
@@ -638,7 +638,7 @@ static unsigned build_classinfo_flags(ClassDeclaration* cd)
             continue;
         for (size_t i = 0; i < cd2->members->dim; i++)
         {
-            Dsymbol *sm = (Dsymbol *)cd2->members->data[i];
+            Dsymbol *sm = static_cast<Dsymbol *>(cd2->members->data[i]);
             if (sm->isVarDeclaration() && !sm->isVarDeclaration()->isDataseg()) // is this enough?
                 hasOffTi = true;
             //printf("sm = %s %s\n", sm->kind(), sm->toChars());
@@ -685,7 +685,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     LOG_SCOPE;
 
     assert(cd->type->ty == Tclass);
-    TypeClass* cdty = (TypeClass*)cd->type;
+    TypeClass* cdty = static_cast<TypeClass*>(cd->type);
 
     IrStruct* ir = cd->ir.irStruct;
     assert(ir);
@@ -757,7 +757,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
         b.push(build_class_dtor(cd));
 
     // invariant
-    VarDeclaration* invVar = (VarDeclaration*)cinfo->fields.data[6];
+    VarDeclaration* invVar = static_cast<VarDeclaration*>(cinfo->fields.data[6]);
     b.push_funcptr(cd->inv, invVar->type);
 
     // uint flags
@@ -770,7 +770,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     b.push_funcptr(cd->aggDelete, Type::tvoid->pointerTo());
 
     // offset typeinfo
-    VarDeclaration* offTiVar = (VarDeclaration*)cinfo->fields.data[9];
+    VarDeclaration* offTiVar = static_cast<VarDeclaration*>(cinfo->fields.data[9]);
 
 #if GENERATE_OFFTI
 
@@ -786,13 +786,13 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 #endif // GENERATE_OFFTI
 
     // default constructor
-    VarDeclaration* defConstructorVar = (VarDeclaration*)cinfo->fields.data[10];
+    VarDeclaration* defConstructorVar = static_cast<VarDeclaration*>(cinfo->fields.data[10]);
     b.push_funcptr(cd->defaultCtor, defConstructorVar->type);
 
 #if DMDV2
 
     // xgetMembers
-    VarDeclaration* xgetVar = (VarDeclaration*)cinfo->fields.data[11];
+    VarDeclaration* xgetVar = static_cast<VarDeclaration*>(cinfo->fields.data[11]);
     b.push_funcptr(cd->findGetMembers(), xgetVar->type);
 
 #else

@@ -13,7 +13,7 @@ void warnInvalidPrintfCall(Loc loc, Expression* arguments, size_t nargs)
     if (arg->op != TOKstring)
         return; // assume valid
 
-    StringExp* strexp = (StringExp*)arg;
+    StringExp* strexp = static_cast<StringExp*>(arg);
 
     // not wchar or dhar
     if (strexp->sz != 1)
@@ -24,7 +24,7 @@ void warnInvalidPrintfCall(Loc loc, Expression* arguments, size_t nargs)
 
 #if 0
     // check the format string
-    const char* str = (char*)strexp->string;
+    const char* str = static_cast<char*>(strexp->string);
     for (size_t i = 0; i < strexp->len; ++i)
     {
         // TODO

@@ -18,7 +18,7 @@ RTTIBuilder::RTTIBuilder(AggregateDeclaration* base_class)
     base_class->codegen(Type::sir);
 
     base = base_class;
-    basetype = (TypeClass*)base->type;
+    basetype = static_cast<TypeClass*>(base->type);
 
     baseir = base->ir.irStruct;
     assert(baseir && "no IrStruct for TypeInfo base class");

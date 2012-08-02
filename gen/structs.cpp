@@ -355,13 +355,13 @@ LLType* DtoUnpaddedStructType(Type* dty) {
     if (it != cache->end())
         return it->second;
 
-    TypeStruct* sty = (TypeStruct*) dty;
+    TypeStruct* sty = static_cast<TypeStruct*>(dty);
     Array& fields = sty->sym->fields;
 
     std::vector<LLType*> types;
 
     for (unsigned i = 0; i < fields.dim; i++) {
-        VarDeclaration* vd = (VarDeclaration*) fields.data[i];
+        VarDeclaration* vd = static_cast<VarDeclaration*>(fields.data[i]);
         LLType* fty;
         if (vd->type->ty == Tstruct) {
             // Nested structs are the only members that can contain padding
@@ -382,13 +382,13 @@ LLType* DtoUnpaddedStructType(Type* dty) {
 ///       first-class struct value.
 LLValue* DtoUnpaddedStruct(Type* dty, LLValue* v) {
     assert(dty->ty == Tstruct);
-    TypeStruct* sty = (TypeStruct*) dty;
+    TypeStruct* sty = static_cast<TypeStruct*>(dty);
     Array& fields = sty->sym->fields;
     
     LLValue* newval = llvm::UndefValue::get(DtoUnpaddedStructType(dty));
     
     for (unsigned i = 0; i < fields.dim; i++) {
-        VarDeclaration* vd = (VarDeclaration*) fields.data[i];
+        VarDeclaration* vd = static_cast<VarDeclaration*>(fields.data[i]);
         LLValue* fieldptr = DtoIndexStruct(v, sty->sym, vd);
         LLValue* fieldval;
         if (vd->type->ty == Tstruct) {
@@ -405,11 +405,11 @@ LLValue* DtoUnpaddedStruct(Type* dty, LLValue* v) {
 /// Undo the transformation performed by DtoUnpaddedStruct, writing to lval.
 void DtoPaddedStruct(Type* dty, LLValue* v, LLValue* lval) {
     assert(dty->ty == Tstruct);
-    TypeStruct* sty = (TypeStruct*) dty;
+    TypeStruct* sty = static_cast<TypeStruct*>(dty);
     Array& fields = sty->sym->fields;
     
     for (unsigned i = 0; i < fields.dim; i++) {
-        VarDeclaration* vd = (VarDeclaration*) fields.data[i];
+        VarDeclaration* vd = static_cast<VarDeclaration*>(fields.data[i]);
         LLValue* fieldptr = DtoIndexStruct(lval, sty->sym, vd);
         LLValue* fieldval = DtoExtractValue(v, i);
         if (vd->type->ty == Tstruct) {

@@ -21,13 +21,13 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
     Type* type = fnval->getType()->toBasetype();
     if (type->ty == Tfunction)
     {
-         return (TypeFunction*)type;
+         return static_cast<TypeFunction*>(type);
     }
     else if (type->ty == Tdelegate)
     {
         Type* next = type->nextOf();
         assert(next->ty == Tfunction);
-        return (TypeFunction*)next;
+        return static_cast<TypeFunction*>(next);
     }
 
     assert(0 && "cant get TypeFunction* from non lazy/function/delegate");
@@ -200,7 +200,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     // build struct with argument types (non variadic args)
     for (int i=begin; i<n_arguments; i++)
     {
-        Expression* argexp = (Expression*)arguments->data[i];
+        Expression* argexp = static_cast<Expression*>(arguments->data[i]);
         assert(argexp->type->ty != Ttuple);
         vtypes.push_back(DtoType(argexp->type));
         size_t sz = getTypePaddedSize(vtypes.back());
@@ -237,7 +237,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     // store arguments in the struct
     for (int i=begin,k=0; i<n_arguments; i++,k++)
     {
-        Expression* argexp = (Expression*)arguments->data[i];
+        Expression* argexp = static_cast<Expression*>(arguments->data[i]);
         if (global.params.llvmAnnotate)
             DtoAnnotation(argexp->toChars());
         LLValue* argdst = DtoGEPi(mem,0,k);
@@ -257,7 +257,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     std::vector<LLConstant*> vtypeinfos;
     for (int i=begin,k=0; i<n_arguments; i++,k++)
     {
-        Expression* argexp = (Expression*)arguments->data[i];
+        Expression* argexp = static_cast<Expression*>(arguments->data[i]);
         vtypeinfos.push_back(DtoTypeInfoOf(argexp->type));
     }
 
@@ -295,7 +295,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     for (int i=0; i<begin; i++)
     {
         Parameter* fnarg = Parameter::getNth(tf->parameters, i);
-        DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
+        DValue* argval = DtoArgument(fnarg, static_cast<Expression*>(arguments->data[i]));
         args.push_back(fixArgument(argval, tf, callableTy->getParamType(argidx++), i));
 
         if (tf->fty.args[i]->attrs)
@@ -465,7 +465,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     {
         for (int i=0; i<n_arguments; i++)
         {
-            Expression* exp = (Expression*)arguments->data[i];
+            Expression* exp = static_cast<Expression*>(arguments->data[i]);
             DValue* expelem = exp->toElem(gIR);
             // cast to va_list*
             LLValue* val = DtoBitCast(expelem->getLVal(), getVoidPtrType());
@@ -486,7 +486,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     {
         Logger::println("doing normal arguments");
         if (Logger::enabled()) {
-            Logger::println("Arguments so far: (%d)", (int)args.size());
+            Logger::println("Arguments so far: (%d)", static_cast<int>(args.size()));
             Logger::indent();
             for (size_t i = 0; i < args.size(); i++) {
                 Logger::cout() << *args[i] << '\n';
@@ -504,14 +504,14 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             for (int i=n-1; i>=0; --i) {
                 Parameter* fnarg = Parameter::getNth(tf->parameters, i);
                 assert(fnarg);
-                DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
+                DValue* argval = DtoArgument(fnarg, static_cast<Expression*>(arguments->data[i]));
                 argvals.insert(argvals.begin(), argval);
             }
         } else {
             for (int i=0; i<n; ++i) {
                 Parameter* fnarg = Parameter::getNth(tf->parameters, i);
                 assert(fnarg);
-                DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
+                DValue* argval = DtoArgument(fnarg, static_cast<Expression*>(arguments->data[i]));
                 argvals.push_back(argval);
             }
         }
@@ -554,7 +554,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             for (int i=n; i<n_arguments; i++)
             {
                 Parameter* fnarg = Parameter::getNth(tf->parameters, i);
-                DValue* argval = DtoArgument(fnarg, (Expression*)arguments->data[i]);
+                DValue* argval = DtoArgument(fnarg, static_cast<Expression*>(arguments->data[i]));
                 LLValue* arg = argval->getRVal();
 
                 // FIXME: do we need any param attrs here ?
@@ -669,7 +669,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     {
         LLFunction* llfunc = llvm::dyn_cast<LLFunction>(dfnval->val);
         if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
-            attrlist = llvm::Intrinsic::getAttributes((llvm::Intrinsic::ID)llfunc->getIntrinsicID());
+            attrlist = llvm::Intrinsic::getAttributes(static_cast<llvm::Intrinsic::ID>(llfunc->getIntrinsicID()));
         else
             call.setCallingConv(callconv);
     }

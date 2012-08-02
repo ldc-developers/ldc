@@ -13,9 +13,9 @@ static bool parseStringExp(Expression* e, std::string& res)
     StringExp *s = NULL;
 
     e = e->optimize(WANTvalue);
-    if (e->op == TOKstring && (s = (StringExp *)e))
+    if (e->op == TOKstring && (s = static_cast<StringExp *>(e)))
     {
-        char* str = (char*)s->string;
+        char* str = static_cast<char*>(s->string);
         res = str;
         return true;
     }
@@ -42,7 +42,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
             { "bitop.bts", LLVMbitop_bts },
         };
 
-        Expression* expr = (Expression *)args->data[0];
+        Expression* expr = static_cast<Expression *>(args->data[0]);
         expr = expr->semantic(sc);
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
@@ -197,7 +197,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     // pragma(atomic_rmw, "string") { templdecl(s) }
     else if (ident == Id::atomic_rmw)
     {
-        Expression* expr = (Expression *)args->data[0];
+        Expression* expr = static_cast<Expression *>(args->data[0]);
         expr = expr->semantic(sc);
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
@@ -210,7 +210,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     // pragma(ldc, "string") { templdecl(s) }
     else if (ident == Id::ldc)
     {
-        Expression* expr = (Expression *)args->data[0];
+        Expression* expr = static_cast<Expression *>(args->data[0]);
         expr = expr->semantic(sc);
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
@@ -264,7 +264,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
             fd->llvmInternal = llvm_internal;
             fd->intrinsicName = arg1str;
             fd->linkage = LINKintrinsic;
-            ((TypeFunction*)fd->type)->linkage = LINKintrinsic;
+            static_cast<TypeFunction*>(fd->type)->linkage = LINKintrinsic;
         }
         else if (TemplateDeclaration* td = s->isTemplateDeclaration())
         {

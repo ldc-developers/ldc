@@ -81,7 +81,7 @@ LLArrayType* DtoStaticArrayType(Type* t)
 {
     t = t->toBasetype();
     assert(t->ty == Tsarray);
-    TypeSArray* tsa = (TypeSArray*)t;
+    TypeSArray* tsa = static_cast<TypeSArray*>(t);
     Type* tnext = tsa->nextOf();
 
     LLType* elemty = DtoType(tnext);
@@ -196,7 +196,7 @@ bool arrayNeedsPostblit(Type *t)
 {
     t = DtoArrayElementType(t);
     if (t->ty == Tstruct)
-        return ((TypeStruct *)t)->sym->postblit != 0;
+        return static_cast<TypeStruct *>(t)->sym->postblit != 0;
     return false;
 }
 
@@ -270,8 +270,8 @@ LLType* DtoConstArrayInitializerType(ArrayInitializer* arrinit)
     if (arrty->ty != Tsarray)
         return DtoType(arrinit->type);
 
-    TypeSArray* tsa = (TypeSArray*)arrty;
-    size_t arrlen = (size_t)tsa->dim->toInteger();
+    TypeSArray* tsa = static_cast<TypeSArray*>(arrty);
+    size_t arrlen = static_cast<size_t>(tsa->dim->toInteger());
 
     // get elem type
     Type* elemty = arrty->nextOf();
@@ -295,7 +295,7 @@ LLType* DtoConstArrayInitializerType(ArrayInitializer* arrinit)
     for (size_t i = 0; i < arrinit->index.dim; i++)
     {
         // get index
-        Expression* idx = (Expression*)arrinit->index.data[i];
+        Expression* idx = static_cast<Expression*>(arrinit->index.data[i]);
 
         // idx can be null, then it's just the next element
         if (idx)
@@ -303,7 +303,7 @@ LLType* DtoConstArrayInitializerType(ArrayInitializer* arrinit)
         assert(j < arrlen);
 
         // get value
-        Initializer* val = (Initializer*)arrinit->value.data[i];
+        Initializer* val = static_cast<Initializer*>(arrinit->value.data[i]);
         assert(val);
 
         LLType* c = DtoConstInitializerType(elemty, val);
@@ -355,8 +355,8 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     // initialized elements in the value/index lists
     if (arrty->ty == Tsarray)
     {
-        TypeSArray* tsa = (TypeSArray*)arrty;
-        arrlen = (size_t)tsa->dim->toInteger();
+        TypeSArray* tsa = static_cast<TypeSArray*>(arrty);
+        arrlen = static_cast<size_t>(tsa->dim->toInteger());
     }
 
     // make sure the number of initializers is sane
@@ -381,7 +381,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     for (size_t i = 0; i < arrinit->index.dim; i++)
     {
         // get index
-        Expression* idx = (Expression*)arrinit->index.data[i];
+        Expression* idx = static_cast<Expression*>(arrinit->index.data[i]);
 
         // idx can be null, then it's just the next element
         if (idx)
@@ -389,7 +389,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
         assert(j < arrlen);
 
         // get value
-        Initializer* val = (Initializer*)arrinit->value.data[i];
+        Initializer* val = static_cast<Initializer*>(arrinit->value.data[i]);
         assert(val);
 
         // error check from dmd
@@ -540,7 +540,7 @@ static bool isInitialized(Type* et) {
     // If it's a typedef with "= void" initializer then don't initialize.
     if (et->ty == Ttypedef) {
         Logger::println("Typedef: %s", et->toChars());
-        TypedefDeclaration* tdd = ((TypeTypedef*)et)->sym;
+        TypedefDeclaration* tdd = static_cast<TypeTypedef*>(et)->sym;
         if (tdd && tdd->init && tdd->init->isVoidInitializer())
             return false;
     }
@@ -863,11 +863,11 @@ DSliceValue* DtoCatArrays(Type* arrayType, Expression* exp1, Expression* exp2)
         fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arraycatnT");
 
         args.push_back(DtoSlicePtr(exp2->toElem(gIR)));
-        CatExp *ce = (CatExp*)exp1;
+        CatExp *ce = static_cast<CatExp*>(exp1);
         do
         {
             args.push_back(DtoSlicePtr(ce->e2->toElem(gIR)));
-            ce = (CatExp *)ce->e1;
+            ce = static_cast<CatExp *>(ce->e1);
 
         } while (ce->op == TOKcat);
         args.push_back(DtoSlicePtr(ce->toElem(gIR)));
@@ -1234,7 +1234,7 @@ LLValue* DtoArrayLen(DValue* v)
         assert(!v->isSlice());
         assert(!v->isNull());
         assert(v->type->toBasetype()->ty == Tsarray);
-        TypeSArray *sarray = (TypeSArray*)v->type->toBasetype();
+        TypeSArray *sarray = static_cast<TypeSArray*>(v->type->toBasetype());
         return DtoConstSize_t(sarray->dim->toUInteger());
     }
     assert(0 && "unsupported array for len");
@@ -1317,7 +1317,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
                 fatal();
             }
 
-            uinteger_t len = ((TypeSArray*)fromtype)->dim->toUInteger();
+            uinteger_t len = static_cast<TypeSArray*>(fromtype)->dim->toUInteger();
             rval2 = LLConstantInt::get(DtoSize_t(), len, false);
             if (fromtype->nextOf()->size() != totype->nextOf()->size())
                 rval2 = DtoArrayCastLength(rval2, ety, ptrty->getContainedType(0));
@@ -1337,7 +1337,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
         if (Logger::enabled())
             Logger::cout() << "to sarray" << '\n';
 
-        size_t tosize = ((TypeSArray*)totype)->dim->toInteger();
+        size_t tosize = static_cast<TypeSArray*>(totype)->dim->toInteger();
 
         if (fromtype->ty == Tsarray) {
             LLValue* uval = u->getRVal();

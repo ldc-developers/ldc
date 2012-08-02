@@ -411,7 +411,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
         size_t nnest = fd->closureVars.dim;
         for (size_t i = 0; i < nnest; ++i)
         {
-            VarDeclaration* vd = (VarDeclaration*)fd->closureVars.data[i];
+            VarDeclaration* vd = static_cast<VarDeclaration*>(fd->closureVars.data[i]);
             fd->nestedVars.insert(vd);
         }
     }

@@ -20,7 +20,7 @@ static LLValue* to_keyti(DValue* aa)
 {
     // keyti param
     assert(aa->type->toBasetype()->ty == Taarray);
-    TypeAArray * aatype = (TypeAArray*)aa->type->toBasetype();
+    TypeAArray * aatype = static_cast<TypeAArray*>(aa->type->toBasetype());
     return DtoTypeInfoOf(aatype->index, false);
 }
 #else

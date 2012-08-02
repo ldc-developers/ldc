@@ -258,7 +258,7 @@ DValue* VarExp::toElem(IRState* p)
         Type* sdecltype = sdecl->type->toBasetype();
         Logger::print("Sym: type=%s\n", sdecltype->toChars());
         assert(sdecltype->ty == Tstruct);
-        TypeStruct* ts = (TypeStruct*)sdecltype;
+        TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
         assert(ts->sym);
         ts->sym->codegen(Type::sir);
 
@@ -287,7 +287,7 @@ LLConstant* VarExp::toConstElem(IRState* p)
         Type* sdecltype = sdecl->type->toBasetype();
         Logger::print("Sym: type=%s\n", sdecltype->toChars());
         assert(sdecltype->ty == Tstruct);
-        TypeStruct* ts = (TypeStruct*)sdecltype;
+        TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
         ts->sym->codegen(Type::sir);
 
         return ts->sym->ir.irStruct->getDefaultInit();
@@ -471,12 +471,12 @@ DValue* StringExp::toElem(IRState* p)
     LLConstant* _init;
 #if LDC_LLVM_VER == 300
     if (cty->size() == 1) {
-        uint8_t* str = (uint8_t*)string;
+        uint8_t* str = static_cast<uint8_t*>(string);
         llvm::StringRef cont((char*)str, len);
         _init = LLConstantArray::get(p->context(), cont, true);
     }
     else if (cty->size() == 2) {
-        uint16_t* str = (uint16_t*)string;
+        uint16_t* str = static_cast<uint16_t*>(string);
         std::vector<LLConstant*> vals;
         vals.reserve(len+1);
         for(size_t i=0; i<len; ++i) {
@@ -486,7 +486,7 @@ DValue* StringExp::toElem(IRState* p)
         _init = LLConstantArray::get(at,vals);
     }
     else if (cty->size() == 4) {
-        uint32_t* str = (uint32_t*)string;
+        uint32_t* str = static_cast<uint32_t*>(string);
         std::vector<LLConstant*> vals;
         vals.reserve(len+1);
         for(size_t i=0; i<len; ++i) {
@@ -559,12 +559,12 @@ LLConstant* StringExp::toConstElem(IRState* p)
     LLConstant* _init;
 #if LDC_LLVM_VER == 300
     if (cty->size() == 1) {
-        uint8_t* str = (uint8_t*)string;
+        uint8_t* str = static_cast<uint8_t*>(string);
         llvm::StringRef cont((char*)str, len);
         _init = LLConstantArray::get(p->context(), cont, nullterm);
     }
     else if (cty->size() == 2) {
-        uint16_t* str = (uint16_t*)string;
+        uint16_t* str = static_cast<uint16_t*>(string);
         std::vector<LLConstant*> vals;
         vals.reserve(len+1);
         for(size_t i=0; i<len; ++i) {
@@ -575,7 +575,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
         _init = LLConstantArray::get(at,vals);
     }
     else if (cty->size() == 4) {
-        uint32_t* str = (uint32_t*)string;
+        uint32_t* str = static_cast<uint32_t*>(string);
         std::vector<LLConstant*> vals;
         vals.reserve(len+1);
         for(size_t i=0; i<len; ++i) {
@@ -638,7 +638,7 @@ DValue* AssignExp::toElem(IRState* p)
     if (e1->op == TOKarraylength)
     {
         Logger::println("performing array.length assignment");
-        ArrayLengthExp *ale = (ArrayLengthExp *)e1;
+        ArrayLengthExp *ale = static_cast<ArrayLengthExp *>(e1);
         DValue* arr = ale->e1->toElem(p);
         DVarValue arrval(ale->e1->type, arr->getLVal());
         DValue* newlen = e2->toElem(p);
@@ -669,7 +669,7 @@ static Expression* findLvalue(IRState* irs, Expression* exp)
 
     // skip past any casts
     while(e->op == TOKcast)
-        e = ((CastExp*)e)->e1;
+        e = static_cast<CastExp*>(e)->e1;
 
     // cache lvalue and return
     e->cacheLvalue(irs);
@@ -688,7 +688,7 @@ DValue* X##AssignExp::toElem(IRState* p) \
     /* Now that we are done with the expression, clear the cached lvalue. */ \
     Expression* e = e1; \
     while(e->op == TOKcast) \
-        e = ((CastExp*)e)->e1; \
+        e = static_cast<CastExp*>(e)->e1; \
     e->cachedLvalue = NULL; \
     /* Assign the (casted) value and return it. */ \
     DValue* stval = DtoCast(loc, res, dst->getType()); \
@@ -919,7 +919,7 @@ DValue* CallExp::toElem(IRState* p)
     // handle magic inline asm
     if (e1->op == TOKvar)
     {
-        VarExp* ve = (VarExp*)e1;
+        VarExp* ve = static_cast<VarExp*>(e1);
         if (FuncDeclaration* fd = ve->var->isFuncDeclaration())
         {
             if (fd->llvmInternal == LLVMinline_asm)
@@ -945,7 +945,7 @@ DValue* CallExp::toElem(IRState* p)
         {
             if (fndecl->linkage == LINKc && strcmp(fndecl->ident->string, "printf") == 0)
             {
-                warnInvalidPrintfCall(loc, (Expression*)arguments->data[0], arguments->dim);
+                warnInvalidPrintfCall(loc, static_cast<Expression*>(arguments->data[0]), arguments->dim);
             }
         }
 
@@ -956,7 +956,7 @@ DValue* CallExp::toElem(IRState* p)
                 return NULL;
             }
             // llvm doesn't need the second param hence the override
-            Expression* exp = (Expression*)arguments->data[0];
+            Expression* exp = static_cast<Expression*>(arguments->data[0]);
             LLValue* arg = exp->toElem(p)->getLVal();
 #if DMDV2
             if (LLValue *argptr = gIR->func()->_argptr) {
@@ -980,8 +980,8 @@ DValue* CallExp::toElem(IRState* p)
                 error("va_copy instruction expects 2 arguments");
                 return NULL;
             }
-            Expression* exp1 = (Expression*)arguments->data[0];
-            Expression* exp2 = (Expression*)arguments->data[1];
+            Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
+            Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
             LLValue* arg1 = exp1->toElem(p)->getLVal();
             LLValue* arg2 = exp2->toElem(p)->getLVal();
 
@@ -998,7 +998,7 @@ DValue* CallExp::toElem(IRState* p)
                 error("va_arg instruction expects 1 arguments");
                 return NULL;
             }
-            return DtoVaArg(loc, type, (Expression*)arguments->data[0]);
+            return DtoVaArg(loc, type, static_cast<Expression*>(arguments->data[0]));
         }
         // C alloca
         else if (fndecl->llvmInternal == LLVMalloca) {
@@ -1006,7 +1006,7 @@ DValue* CallExp::toElem(IRState* p)
                 error("alloca expects 1 arguments");
                 return NULL;
             }
-            Expression* exp = (Expression*)arguments->data[0];
+            Expression* exp = static_cast<Expression*>(arguments->data[0]);
             DValue* expv = exp->toElem(p);
             if (expv->getType()->toBasetype()->ty != Tint32)
                 expv = DtoCast(loc, expv, Type::tint32);
@@ -1017,7 +1017,7 @@ DValue* CallExp::toElem(IRState* p)
                 error("fence instruction expects 1 arguments");
                 return NULL;
             }
-            gIR->ir->CreateFence(llvm::AtomicOrdering(((Expression*)arguments->data[0])->toInteger()));
+            gIR->ir->CreateFence(llvm::AtomicOrdering(static_cast<Expression*>(arguments->data[0])->toInteger()));
             return NULL;
         // atomic store instruction
         } else if (fndecl->llvmInternal == LLVMatomic_store) {
@@ -1025,9 +1025,9 @@ DValue* CallExp::toElem(IRState* p)
                 error("atomic store instruction expects 3 arguments");
                 return NULL;
             }
-            Expression* exp1 = (Expression*)arguments->data[0];
-            Expression* exp2 = (Expression*)arguments->data[1];
-            int atomicOrdering = ((Expression*)arguments->data[2])->toInteger();
+            Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
+            Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
+            int atomicOrdering = static_cast<Expression*>(arguments->data[2])->toInteger();
             LLValue* val = exp1->toElem(p)->getRVal();
             LLValue* ptr = exp2->toElem(p)->getRVal();
             llvm::StoreInst* ret = gIR->ir->CreateStore(val, ptr, "tmp");
@@ -1040,8 +1040,8 @@ DValue* CallExp::toElem(IRState* p)
                 error("atomic load instruction expects 2 arguments");
                 return NULL;
             }
-            Expression* exp = (Expression*)arguments->data[0];
-            int atomicOrdering = ((Expression*)arguments->data[1])->toInteger();
+            Expression* exp = static_cast<Expression*>(arguments->data[0]);
+            int atomicOrdering = static_cast<Expression*>(arguments->data[1])->toInteger();
             LLValue* ptr = exp->toElem(p)->getRVal();
             Type* retType = exp->type->nextOf();
             llvm::LoadInst* val = gIR->ir->CreateLoad(ptr, "tmp");
@@ -1054,10 +1054,10 @@ DValue* CallExp::toElem(IRState* p)
                 error("cmpxchg instruction expects 4 arguments");
                 return NULL;
             }
-            Expression* exp1 = (Expression*)arguments->data[0];
-            Expression* exp2 = (Expression*)arguments->data[1];
-            Expression* exp3 = (Expression*)arguments->data[2];
-            int atomicOrdering = ((Expression*)arguments->data[3])->toInteger();
+            Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
+            Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
+            Expression* exp3 = static_cast<Expression*>(arguments->data[2]);
+            int atomicOrdering = static_cast<Expression*>(arguments->data[3])->toInteger();
             LLValue* ptr = exp1->toElem(p)->getRVal();
             LLValue* cmp = exp2->toElem(p)->getRVal();
             LLValue* val = exp3->toElem(p)->getRVal();
@@ -1095,9 +1095,9 @@ DValue* CallExp::toElem(IRState* p)
                     break;
             }
 
-            Expression* exp1 = (Expression*)arguments->data[0];
-            Expression* exp2 = (Expression*)arguments->data[1];
-            int atomicOrdering = ((Expression*)arguments->data[2])->toInteger();
+            Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
+            Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
+            int atomicOrdering = static_cast<Expression*>(arguments->data[2])->toInteger();
             LLValue* ptr = exp1->toElem(p)->getRVal();
             LLValue* val = exp2->toElem(p)->getRVal();
             LLValue* ret = gIR->ir->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp(op), ptr, val,
@@ -1114,8 +1114,8 @@ DValue* CallExp::toElem(IRState* p)
                 return NULL;
             }
 
-            Expression* exp1 = (Expression*)arguments->data[0];
-            Expression* exp2 = (Expression*)arguments->data[1];
+            Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
+            Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
             LLValue* ptr = exp1->toElem(p)->getRVal();
             LLValue* bitnum = exp2->toElem(p)->getRVal();
 
@@ -1197,7 +1197,7 @@ LLConstant* CastExp::toConstElem(IRState* p)
     // string literal to dyn array:
     // reinterpret the string data as an array, calculate the length
     if (e1->op == TOKstring && tb->ty == Tarray) {
-/*        StringExp *strexp = (StringExp*)e1;
+/*        StringExp *strexp = static_cast<StringExp*>(e1);
         size_t datalen = strexp->sz * strexp->len;
         Type* eltype = tb->nextOf()->toBasetype();
         if (datalen % eltype->size() != 0) {
@@ -1214,7 +1214,7 @@ LLConstant* CastExp::toConstElem(IRState* p)
     }
     // global variable to pointer
     else if (tb->ty == Tpointer && e1->op == TOKvar) {
-        VarDeclaration *vd = ((VarExp*)e1)->var->isVarDeclaration();
+        VarDeclaration *vd = static_cast<VarExp*>(e1)->var->isVarDeclaration();
         assert(vd);
         vd->codegen(Type::sir);
         LLConstant *value = vd->ir.irGlobal ? isaConstant(vd->ir.irGlobal->value) : 0;
@@ -1302,7 +1302,7 @@ LLConstant* AddrExp::toConstElem(IRState* p)
     // address of global variable
     if (e1->op == TOKvar)
     {
-        VarExp* vexp = (VarExp*)e1;
+        VarExp* vexp = static_cast<VarExp*>(e1);
 
         // make sure 'this' isn't needed
         if (vexp->var->needThis())
@@ -1336,11 +1336,11 @@ LLConstant* AddrExp::toConstElem(IRState* p)
     // address of indexExp
     else if (e1->op == TOKindex)
     {
-        IndexExp* iexp = (IndexExp*)e1;
+        IndexExp* iexp = static_cast<IndexExp*>(e1);
 
         // indexee must be global static array var
         assert(iexp->e1->op == TOKvar);
-        VarExp* vexp = (VarExp*)iexp->e1;
+        VarExp* vexp = static_cast<VarExp*>(iexp->e1);
         VarDeclaration* vd = vexp->var->isVarDeclaration();
         assert(vd);
         assert(vd->type->toBasetype()->ty == Tsarray);
@@ -1446,17 +1446,17 @@ DValue* DotVarExp::toElem(IRState* p)
         // indexing struct pointer
         if (e1type->ty == Tpointer) {
             assert(e1type->nextOf()->ty == Tstruct);
-            TypeStruct* ts = (TypeStruct*)e1type->nextOf();
+            TypeStruct* ts = static_cast<TypeStruct*>(e1type->nextOf());
             arrptr = DtoIndexStruct(l->getRVal(), ts->sym, vd);
         }
         // indexing normal struct
         else if (e1type->ty == Tstruct) {
-            TypeStruct* ts = (TypeStruct*)e1type;
+            TypeStruct* ts = static_cast<TypeStruct*>(e1type);
             arrptr = DtoIndexStruct(l->getRVal(), ts->sym, vd);
         }
         // indexing class
         else if (e1type->ty == Tclass) {
-            TypeClass* tc = (TypeClass*)e1type;
+            TypeClass* tc = static_cast<TypeClass*>(e1type);
             arrptr = DtoIndexClass(l->getRVal(), tc->sym, vd);
         }
         else
@@ -1472,7 +1472,7 @@ DValue* DotVarExp::toElem(IRState* p)
         LLValue* funcval;
         LLValue* vthis2 = 0;
         if (e1type->ty == Tclass) {
-            TypeClass* tc = (TypeClass*)e1type;
+            TypeClass* tc = static_cast<TypeClass*>(e1type);
             if (tc->sym->isInterfaceDeclaration() && !fdecl->isFinal())
                 vthis2 = DtoCastInterfaceToObject(l, NULL)->getRVal();
         }
@@ -1491,7 +1491,7 @@ DValue* DotVarExp::toElem(IRState* p)
             if (e->op == TOKsuper || e->op == TOKdottype)
                 vtbllookup = false;
             else if (e->op == TOKcast)
-                e = ((CastExp*)e)->e1;
+                e = static_cast<CastExp*>(e)->e1;
             else
                 break;
         }
@@ -1675,7 +1675,7 @@ DValue* SliceExp::toElem(IRState* p)
         // (namely default initialization, int[16][16] arr; -> int[256] arr = 0;)
         if (etype->ty == Tsarray)
         {
-            TypeSArray* tsa = (TypeSArray*)etype;
+            TypeSArray* tsa = static_cast<TypeSArray*>(etype);
             elen = DtoConstSize_t(tsa->dim->toUInteger());
 
             // in this case, we also need to make sure the pointer is cast to the innermost element type
@@ -1919,8 +1919,8 @@ DValue* PostExp::toElem(IRState* p)
     else if (e1type->ty == Tpointer)
     {
         assert(e2->op == TOKint64);
-        LLConstant* minusone = LLConstantInt::get(DtoSize_t(),(uint64_t)-1,true);
-        LLConstant* plusone = LLConstantInt::get(DtoSize_t(),(uint64_t)1,false);
+        LLConstant* minusone = LLConstantInt::get(DtoSize_t(),static_cast<uint64_t>(-1),true);
+        LLConstant* plusone = LLConstantInt::get(DtoSize_t(),static_cast<uint64_t>(1),false);
         LLConstant* whichone = (op == TOKplusplus) ? plusone : minusone;
         post = llvm::GetElementPtrInst::Create(val, whichone, "tmp", p->scopebb());
     }
@@ -1956,7 +1956,7 @@ DValue* NewExp::toElem(IRState* p)
     // new class
     if (ntype->ty == Tclass) {
         Logger::println("new class");
-        return DtoNewClass(loc, (TypeClass*)ntype, this);
+        return DtoNewClass(loc, static_cast<TypeClass*>(ntype), this);
     }
     // new dynamic array
     else if (ntype->ty == Tarray)
@@ -1967,7 +1967,7 @@ DValue* NewExp::toElem(IRState* p)
         assert(arguments->dim >= 1);
         if (arguments->dim == 1)
         {
-            DValue* sz = ((Expression*)arguments->data[0])->toElem(p);
+            DValue* sz = static_cast<Expression*>(arguments->data[0])->toElem(p);
             // allocate & init
             return DtoNewDynArray(loc, newtype, sz, true);
         }
@@ -1976,7 +1976,7 @@ DValue* NewExp::toElem(IRState* p)
             size_t ndims = arguments->dim;
             std::vector<DValue*> dims(ndims);
             for (size_t i=0; i<ndims; ++i)
-                dims[i] = ((Expression*)arguments->data[i])->toElem(p);
+                dims[i] = static_cast<Expression*>(arguments->data[i])->toElem(p);
             return DtoNewMulDimDynArray(loc, newtype, &dims[0], ndims, true);
         }
     }
@@ -2006,7 +2006,7 @@ DValue* NewExp::toElem(IRState* p)
             mem = DtoNew(newtype);
         }
         // init
-        TypeStruct* ts = (TypeStruct*)ntype;
+        TypeStruct* ts = static_cast<TypeStruct*>(ntype);
         if (ts->isZeroInit(ts->sym->loc)) {
             DtoAggrZeroInit(mem);
         }
@@ -2077,7 +2077,7 @@ DValue* DeleteExp::toElem(IRState* p)
     else if (et->ty == Tclass)
     {
         bool onstack = false;
-        TypeClass* tc = (TypeClass*)et;
+        TypeClass* tc = static_cast<TypeClass*>(et);
         if (tc->sym->isInterfaceDeclaration())
         {
 #if DMDV2
@@ -2146,7 +2146,7 @@ DValue* AssertExp::toElem(IRState* p)
     Type* condty;
 
     // special case for dmd generated assert(this); when not in -release mode
-    if (e1->op == TOKthis && ((ThisExp*)e1)->var == NULL)
+    if (e1->op == TOKthis && static_cast<ThisExp*>(e1)->var == NULL)
     {
         LLValue* thisarg = p->func()->thisArg;
         assert(thisarg && "null thisarg, but we're in assert(this) exp;");
@@ -2184,7 +2184,7 @@ DValue* AssertExp::toElem(IRState* p)
     if(
         global.params.useInvariants &&
         condty->ty == Tclass &&
-        !((TypeClass*)condty)->sym->isInterfaceDeclaration())
+        !(static_cast<TypeClass*>(condty)->sym->isInterfaceDeclaration()))
     {
         Logger::println("calling class invariant");
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_invariant");
@@ -2195,10 +2195,10 @@ DValue* AssertExp::toElem(IRState* p)
     else if(
         global.params.useInvariants &&
         condty->ty == Tpointer && condty->nextOf()->ty == Tstruct &&
-        (invdecl = ((TypeStruct*)condty->nextOf())->sym->inv) != NULL)
+        (invdecl = static_cast<TypeStruct*>(condty->nextOf())->sym->inv) != NULL)
     {
         Logger::print("calling struct invariant");
-        ((TypeStruct*)condty->nextOf())->sym->codegen(Type::sir);
+        static_cast<TypeStruct*>(condty->nextOf())->sym->codegen(Type::sir);
         DFuncValue invfunc(invdecl, invdecl->ir.irFunc->func, cond->getRVal());
         DtoCallFunction(loc, NULL, &invfunc, NULL);
     }
@@ -2580,7 +2580,7 @@ DValue* ComExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
 
     LLValue* value = u->getRVal();
-    LLValue* minusone = LLConstantInt::get(value->getType(), (uint64_t)-1, true);
+    LLValue* minusone = LLConstantInt::get(value->getType(), static_cast<uint64_t>(-1), true);
     value = llvm::BinaryOperator::Create(llvm::Instruction::Xor, value, minusone, "tmp", p->scopebb());
 
     return new DImValue(type, value);
@@ -2798,7 +2798,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
     // store elements
     for (size_t i=0; i<len; ++i)
     {
-        Expression* expr = (Expression*)elements->data[i];
+        Expression* expr = static_cast<Expression*>(elements->data[i]);
         LLValue* elemAddr;
         if(dyn)
             elemAddr = DtoGEPi1(dstMem, i, "tmp", p->scopebb());
@@ -2840,7 +2840,7 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     std::vector<LLConstant*> vals(elements->dim, NULL);
     for (unsigned i=0; i<elements->dim; ++i)
     {
-        Expression* expr = (Expression*)elements->data[i];
+        Expression* expr = static_cast<Expression*>(elements->data[i]);
         vals[i] = expr->toConstElem(p);
     }
 
@@ -2958,7 +2958,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         if (tb->ty == Tstruct)
         {
             // Call postBlit()
-            StructDeclaration *sd = ((TypeStruct *)tb)->sym;
+            StructDeclaration *sd = static_cast<TypeStruct *>(tb)->sym;
             if (sd->postblit)
             {
                 FuncDeclaration *fd = sd->postblit;
@@ -3087,7 +3087,7 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
         }
 
         assert(aatype->ty == Taarray);
-        Type* indexType = ((TypeAArray*)aatype)->index;
+        Type* indexType = static_cast<TypeAArray*>(aatype)->index;
         assert(indexType && vtype);
 
         llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assocarrayliteralTX");
@@ -3131,8 +3131,8 @@ LruntimeInit:
     const size_t n = keys->dim;
     for (size_t i=0; i<n; ++i)
     {
-        Expression* ekey = (Expression*)keys->data[i];
-        Expression* eval = (Expression*)values->data[i];
+        Expression* ekey = static_cast<Expression*>(keys->data[i]);
+        Expression* eval = static_cast<Expression*>(values->data[i]);
 
         Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
 
@@ -3194,13 +3194,13 @@ DValue* TupleExp::toElem(IRState *p)
     std::vector<LLType*> types(exps->dim, NULL);
     for (size_t i = 0; i < exps->dim; i++)
     {
-        Expression *el = (Expression *)exps->data[i];
+        Expression *el = static_cast<Expression *>(exps->data[i]);
         types[i] = DtoTypeNotVoid(el->type);
     }
     LLValue *val = DtoRawAlloca(LLStructType::get(gIR->context(), types),0, "tuple");
     for (size_t i = 0; i < exps->dim; i++)
     {
-        Expression *el = (Expression *)exps->data[i];
+        Expression *el = static_cast<Expression *>(exps->data[i]);
         DValue* ep = el->toElem(p);
         LLValue *gep = DtoGEPi(val,0,i);
         if (el->type->ty == Tstruct)
@@ -3221,7 +3221,7 @@ DValue* VectorExp::toElem(IRState* p)
 {
     Logger::print("VectorExp::toElem() %s\n", toChars());
 
-    TypeVector *type = (TypeVector*)to->toBasetype();
+    TypeVector *type = static_cast<TypeVector*>(to->toBasetype());
     assert(type->ty == Tvector);
 
     DValue  *val = e1->toElem(p);
@@ -3269,7 +3269,7 @@ CONSTSTUB(AssocArrayLiteralExp);
 void obj_includelib(const char* lib)
 {
     size_t n = strlen(lib)+3;
-    char *arg = (char *)mem.malloc(n);
+    char *arg = static_cast<char *>(mem.malloc(n));
     strcpy(arg, "-l");
     strncat(arg, lib, n);
     global.params.linkswitches->push(arg);
