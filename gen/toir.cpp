@@ -439,7 +439,6 @@ LLConstant* ComplexExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#if LDC_LLVM_VER >= 301
 template <typename T>
 static inline LLConstant* toConstantArray(LLType* ct, LLArrayType* at, T* str, size_t len, bool nullterm = true)
 {
@@ -452,7 +451,6 @@ static inline LLConstant* toConstantArray(LLType* ct, LLArrayType* at, T* str, s
         vals.push_back(LLConstantInt::get(ct, 0, false));
     return LLConstantArray::get(at, vals);
 }
-#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -469,35 +467,6 @@ DValue* StringExp::toElem(IRState* p)
     LLArrayType* at = LLArrayType::get(ct,len+1);
 
     LLConstant* _init;
-#if LDC_LLVM_VER == 300
-    if (cty->size() == 1) {
-        uint8_t* str = static_cast<uint8_t*>(string);
-        llvm::StringRef cont((char*)str, len);
-        _init = LLConstantArray::get(p->context(), cont, true);
-    }
-    else if (cty->size() == 2) {
-        uint16_t* str = static_cast<uint16_t*>(string);
-        std::vector<LLConstant*> vals;
-        vals.reserve(len+1);
-        for(size_t i=0; i<len; ++i) {
-            vals.push_back(LLConstantInt::get(ct, str[i], false));;
-        }
-        vals.push_back(LLConstantInt::get(ct, 0, false));
-        _init = LLConstantArray::get(at,vals);
-    }
-    else if (cty->size() == 4) {
-        uint32_t* str = static_cast<uint32_t*>(string);
-        std::vector<LLConstant*> vals;
-        vals.reserve(len+1);
-        for(size_t i=0; i<len; ++i) {
-            vals.push_back(LLConstantInt::get(ct, str[i], false));;
-        }
-        vals.push_back(LLConstantInt::get(ct, 0, false));
-        _init = LLConstantArray::get(at,vals);
-    }
-    else
-    assert(0);
-#else
     switch (cty->size())
     {
     default:
@@ -512,7 +481,6 @@ DValue* StringExp::toElem(IRState* p)
         _init = toConstantArray(ct, at, static_cast<uint32_t *>(string), len);
         break;
     }
-#endif
 
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
     if (Logger::enabled())
@@ -557,37 +525,6 @@ LLConstant* StringExp::toConstElem(IRState* p)
     LLArrayType* at = LLArrayType::get(ct,endlen);
 
     LLConstant* _init;
-#if LDC_LLVM_VER == 300
-    if (cty->size() == 1) {
-        uint8_t* str = static_cast<uint8_t*>(string);
-        llvm::StringRef cont((char*)str, len);
-        _init = LLConstantArray::get(p->context(), cont, nullterm);
-    }
-    else if (cty->size() == 2) {
-        uint16_t* str = static_cast<uint16_t*>(string);
-        std::vector<LLConstant*> vals;
-        vals.reserve(len+1);
-        for(size_t i=0; i<len; ++i) {
-            vals.push_back(LLConstantInt::get(ct, str[i], false));;
-        }
-        if (nullterm)
-            vals.push_back(LLConstantInt::get(ct, 0, false));
-        _init = LLConstantArray::get(at,vals);
-    }
-    else if (cty->size() == 4) {
-        uint32_t* str = static_cast<uint32_t*>(string);
-        std::vector<LLConstant*> vals;
-        vals.reserve(len+1);
-        for(size_t i=0; i<len; ++i) {
-            vals.push_back(LLConstantInt::get(ct, str[i], false));;
-        }
-        if (nullterm)
-            vals.push_back(LLConstantInt::get(ct, 0, false));
-        _init = LLConstantArray::get(at,vals);
-    }
-    else
-    assert(0);
-#else
     switch (cty->size())
     {
     default:
@@ -602,7 +539,6 @@ LLConstant* StringExp::toConstElem(IRState* p)
         _init = toConstantArray(ct, at, static_cast<uint32_t *>(string), len, nullterm);
         break;
     }
-#endif
 
     if (t->ty == Tsarray)
     {
