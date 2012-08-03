@@ -695,6 +695,13 @@ int main(int argc, char** argv)
             fatal();
     }
 
+    // Expose LLVM version to runtime
+#define STR(x) #x
+#define XSTR(x) STR(x)
+    VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_"XSTR(LDC_LLVM_VER));
+#undef XSTR
+#undef STR
+
     if (global.params.os == OSWindows) {
         global.dll_ext = "dll";
         global.lib_ext = "lib";
