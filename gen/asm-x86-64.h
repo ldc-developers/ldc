@@ -2231,7 +2231,7 @@ namespace AsmParserx8664
                             Logger::cout() << "segmentPrefix: " << operand->segmentPrefix << '\n';
                             Logger::cout() << "constDisplacement: " << operand->constDisplacement << '\n';
                             for (unsigned i = 0; i < operand->symbolDisplacement.dim; i++) {
-                                Expression* expr = (Expression*) operand->symbolDisplacement.data[i];
+                                Expression* expr = static_cast<Expression*>(operand->symbolDisplacement.data[i]);
                                 Logger::cout() << "symbolDisplacement[" << i << "] = " << expr->toChars() << '\n';
                             }
                         }
@@ -3104,7 +3104,7 @@ namespace AsmParserx8664
             /*
                 machine_mode mode;
 
-                insnTemplate->writestring((char*) directives[op - Op_db]);
+                insnTemplate->writestring(static_cast<char*>(directives[op - Op_db]));
                 insnTemplate->writebyte(' ');
 
                 do {
