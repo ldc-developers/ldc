@@ -348,8 +348,8 @@ int main(int argc, char** argv)
         {
             for (unsigned i = 0; i < libs->dim; i++)
             {
-                char* lib = (char *)libs->data[i];
-                char *arg = (char *)mem.malloc(strlen(lib) + 3);
+                char* lib = static_cast<char *>(libs->data[i]);
+                char *arg = static_cast<char *>(mem.malloc(strlen(lib) + 3));
                 strcpy(arg, "-l");
                 strcpy(arg+2, lib);
                 global.params.linkswitches->push(arg);
@@ -400,7 +400,7 @@ int main(int argc, char** argv)
             // append dot, so forceExt won't change existing name even if it contains dots
             size_t len = strlen(global.params.objname);
             size_t extlen = strlen(".");
-            char* s = (char *)mem.malloc(len + 1 + extlen + 1);
+            char* s = static_cast<char *>(mem.malloc(len + 1 + extlen + 1));
             memcpy(s, global.params.objname, len);
             s[len] = '.';
             s[len+1+extlen] = 0;
@@ -735,7 +735,7 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < global.params.imppath->dim; i++)
         {
-            char *path = (char *)global.params.imppath->data[i];
+            char *path = static_cast<char *>(global.params.imppath->data[i]);
             Strings *a = FileName::splitPath(path);
 
             if (a)
@@ -752,7 +752,7 @@ int main(int argc, char** argv)
     {
         for (unsigned i = 0; i < global.params.fileImppath->dim; i++)
         {
-            char *path = (char *)global.params.fileImppath->data[i];
+            char *path = static_cast<char *>(global.params.fileImppath->data[i]);
             Strings *a = FileName::splitPath(path);
 
             if (a)
@@ -772,7 +772,7 @@ int main(int argc, char** argv)
         char *ext;
         char *name;
 
-        p = (char *) files.data[i];
+        p = static_cast<char *>(files.data[i]);
 
         p = FileName::name(p);      // strip path
         ext = FileName::ext(p);
@@ -786,7 +786,7 @@ int main(int argc, char** argv)
             stricmp(ext, global.bc_ext) == 0)
 #endif
             {
-                global.params.objfiles->push((char *)files.data[i]);
+                global.params.objfiles->push(static_cast<char *>(files.data[i]));
                 continue;
             }
 
@@ -798,39 +798,39 @@ int main(int argc, char** argv)
             if (stricmp(ext, "lib") == 0)
 #endif
             {
-                global.params.libfiles->push((char *)files.data[i]);
+                global.params.libfiles->push(static_cast<char *>(files.data[i]));
                 continue;
             }
 
             if (strcmp(ext, global.ddoc_ext) == 0)
             {
-                global.params.ddocfiles->push((char *)files.data[i]);
+                global.params.ddocfiles->push(static_cast<char *>(files.data[i]));
                 continue;
             }
 
             if (FileName::equals(ext, global.json_ext))
             {
                 global.params.doXGeneration = 1;
-                global.params.xfilename = (char *)files.data[i];
+                global.params.xfilename = static_cast<char *>(files.data[i]);
                 continue;
             }
 
 #if !POSIX
             if (stricmp(ext, "res") == 0)
             {
-                global.params.resfile = (char *)files.data[i];
+                global.params.resfile = static_cast<char *>(files.data[i]);
                 continue;
             }
 
             if (stricmp(ext, "def") == 0)
             {
-                global.params.deffile = (char *)files.data[i];
+                global.params.deffile = static_cast<char *>(files.data[i]);
                 continue;
             }
 
             if (stricmp(ext, "exe") == 0)
             {
-                global.params.exefile = (char *)files.data[i];
+                global.params.exefile = static_cast<char *>(files.data[i]);
                 continue;
             }
 #endif
@@ -843,7 +843,7 @@ int main(int argc, char** argv)
             {
                 ext--;          // skip onto '.'
                 assert(*ext == '.');
-                name = (char *)mem.malloc((ext - p) + 1);
+                name = static_cast<char *>(mem.malloc((ext - p) + 1));
                 memcpy(name, p, ext - p);
                 name[ext - p] = 0;      // strip extension
 
@@ -852,7 +852,7 @@ int main(int argc, char** argv)
                     strcmp(name, ".") == 0)
                 {
             Linvalid:
-                    error("invalid file name '%s'", (char *)files.data[i]);
+                    error("invalid file name '%s'", static_cast<char *>(files.data[i]));
                     fatal();
                 }
             }
@@ -868,7 +868,7 @@ int main(int argc, char** argv)
         }
 
         id = Lexer::idPool(name);
-        m = new Module((char *) files.data[i], id, global.params.doDocComments, global.params.doHdrGeneration);
+        m = new Module(static_cast<char *>(files.data[i]), id, global.params.doDocComments, global.params.doHdrGeneration);
         m->isRoot = true;
         modules.push(m);
     }
@@ -876,7 +876,7 @@ int main(int argc, char** argv)
     // Read files, parse them
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = (Module *)modules.data[i];
+        m = static_cast<Module *>(modules.data[i]);
         if (global.params.verbose)
             printf("parse     %s\n", m->toChars());
         if (!Module::rootModule)
@@ -907,7 +907,7 @@ int main(int argc, char** argv)
          */
         for (unsigned i = 0; i < modules.dim; i++)
         {
-            m = (Module *)modules.data[i];
+            m = static_cast<Module *>(modules.data[i]);
             if (global.params.verbose)
                 printf("import    %s\n", m->toChars());
             m->genhdrfile();
@@ -919,7 +919,7 @@ int main(int argc, char** argv)
     // load all unconditional imports for better symbol resolving
     for (unsigned i = 0; i < modules.dim; i++)
     {
-       m = (Module *)modules.data[i];
+       m = static_cast<Module *>(modules.data[i]);
        if (global.params.verbose)
            printf("importall %s\n", m->toChars());
        m->importAll(0);
@@ -930,7 +930,7 @@ int main(int argc, char** argv)
     // Do semantic analysis
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = (Module *)modules.data[i];
+        m = static_cast<Module *>(modules.data[i]);
         if (global.params.verbose)
             printf("semantic  %s\n", m->toChars());
         m->semantic();
@@ -944,7 +944,7 @@ int main(int argc, char** argv)
     // Do pass 2 semantic analysis
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = (Module *)modules.data[i];
+        m = static_cast<Module *>(modules.data[i]);
         if (global.params.verbose)
             printf("semantic2 %s\n", m->toChars());
         m->semantic2();
@@ -955,7 +955,7 @@ int main(int argc, char** argv)
     // Do pass 3 semantic analysis
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = (Module *)modules.data[i];
+        m = static_cast<Module *>(modules.data[i]);
         if (global.params.verbose)
             printf("semantic3 %s\n", m->toChars());
         m->semantic3();
@@ -985,7 +985,7 @@ int main(int argc, char** argv)
             // since otherwise functions in them cannot be inlined
             for (unsigned i = 0; i < Module::amodules.dim; i++)
             {
-                m = (Module *)Module::amodules.data[i];
+                m = static_cast<Module *>(Module::amodules.data[i]);
                 if (global.params.verbose)
                     printf("semantic3 %s\n", m->toChars());
                 m->semantic2();
@@ -998,7 +998,7 @@ int main(int argc, char** argv)
 #if !IN_LLVM
         for (int i = 0; i < modules.dim; i++)
         {
-            m = (Module *)modules.data[i];
+            m = static_cast<Module *>(modules.data[i]);
             if (global.params.verbose)
                 printf("inline scan %s\n", m->toChars());
             m->inlineScan();
@@ -1015,7 +1015,7 @@ int main(int argc, char** argv)
 
         File deps(global.params.moduleDepsFile);
         OutBuffer* ob = global.params.moduleDeps;
-        deps.setbuffer((void*)ob->data, ob->offset);
+        deps.setbuffer(static_cast<void*>(ob->data), ob->offset);
         deps.write();
     }
 
@@ -1026,7 +1026,7 @@ int main(int argc, char** argv)
     // Generate output files
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = (Module *)modules.data[i];
+        m = static_cast<Module *>(modules.data[i]);
         if (global.params.verbose)
             printf("code      %s\n", m->toChars());
         if (global.params.obj)
@@ -1054,7 +1054,7 @@ int main(int argc, char** argv)
     // internal linking for singleobj
     if (singleObj && llvmModules.size() > 0)
     {
-        Module* m = (Module*)modules.data[0];
+        Module* m = static_cast<Module*>(modules.data[0]);
         char* name = m->toChars();
         char* filename = m->objfile->name->str;
 
@@ -1105,7 +1105,7 @@ int main(int argc, char** argv)
                  */
                 for (unsigned i = 0; i < modules.dim; i++)
                 {
-                    m = (Module *)modules.data[i];
+                    m = static_cast<Module *>(modules.data[i]);
                     m->deleteObjFile();
                 }
                 deleteExecutable();

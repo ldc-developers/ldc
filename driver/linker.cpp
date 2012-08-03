@@ -153,7 +153,7 @@ int linkExecutable(const char* argv0)
     // additional linker switches
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
     {
-        char *p = (char *)global.params.linkswitches->data[i];
+        char *p = static_cast<char *>(global.params.linkswitches->data[i]);
         args.push_back(p);
     }
 
@@ -164,7 +164,7 @@ int linkExecutable(const char* argv0)
     // user libs
     for (unsigned i = 0; i < global.params.libfiles->dim; i++)
     {
-        char *p = (char *)global.params.libfiles->data[i];
+        char *p = static_cast<char *>(global.params.libfiles->data[i]);
         args.push_back(p);
     }
 
@@ -188,7 +188,7 @@ int linkExecutable(const char* argv0)
     // object files
     for (unsigned i = 0; i < global.params.objfiles->dim; i++)
     {
-        char *p = (char *)global.params.objfiles->data[i];
+        char *p = static_cast<char *>(global.params.objfiles->data[i]);
         args.push_back(p);
     }
 
@@ -240,7 +240,7 @@ int linkObjToBinary(bool sharedLib)
     // object files
     for (unsigned i = 0; i < global.params.objfiles->dim; i++)
     {
-        char *p = (char *)global.params.objfiles->data[i];
+        char *p = static_cast<char *>(global.params.objfiles->data[i]);
         args.push_back(p);
     }
 
@@ -260,7 +260,7 @@ int linkObjToBinary(bool sharedLib)
         if (Module::rootModule)
             output = Module::rootModule->toChars();
         else if (global.params.objfiles->dim)
-            output = FileName::removeExt((char*)global.params.objfiles->data[0]);
+            output = FileName::removeExt(static_cast<char*>(global.params.objfiles->data[0]));
         else
             output = "a.out";
 
@@ -303,7 +303,7 @@ int linkObjToBinary(bool sharedLib)
     // additional linker switches
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
     {
-        char *p = (char *)global.params.linkswitches->data[i];
+        char *p = static_cast<char *>(global.params.linkswitches->data[i]);
         args.push_back("-Xlinker");
         args.push_back(p);
     }
@@ -311,7 +311,7 @@ int linkObjToBinary(bool sharedLib)
     // user libs
     for (unsigned i = 0; i < global.params.libfiles->dim; i++)
     {
-        char *p = (char *)global.params.libfiles->data[i];
+        char *p = static_cast<char *>(global.params.libfiles->data[i]);
         args.push_back(p);
     }
 
@@ -426,7 +426,7 @@ void createStaticLibrary()
         if (Module::rootModule)
             libName = Module::rootModule->toChars();
         else if (global.params.objfiles->dim)
-            libName = FileName::removeExt((char*)global.params.objfiles->data[0]);
+            libName = FileName::removeExt(static_cast<char*>(global.params.objfiles->data[0]));
         else
             libName = "a.out";
     }
@@ -443,7 +443,7 @@ void createStaticLibrary()
     // object files
     for (unsigned i = 0; i < global.params.objfiles->dim; i++)
     {
-        char *p = (char *)global.params.objfiles->data[i];
+        char *p = static_cast<char *>(global.params.objfiles->data[i]);
         args.push_back(p);
     }
 
