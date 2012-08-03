@@ -22,7 +22,7 @@ extern bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v
 IrTypeClass::IrTypeClass(ClassDeclaration* cd)
 :   IrTypeAggr(cd),
     cd(cd),
-    tc((TypeClass*)cd->type)
+    tc(static_cast<TypeClass*>(cd->type))
 {
     std::string vtbl_name(cd->toPrettyChars());
     vtbl_name.append(".__vtbl");
@@ -161,7 +161,7 @@ void IrTypeClass::addBaseClassData(
         offset = vd->offset + vd->type->size();
 
         // create ir field
-        vd->aggrIndex = (unsigned)field_index;
+        vd->aggrIndex = static_cast<unsigned>(field_index);
         ++field_index;
     }
 

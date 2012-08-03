@@ -129,7 +129,7 @@ IrFunction::IrFunction(FuncDeclaration* fd)
 
     Type* t = fd->type->toBasetype();
     assert(t->ty == Tfunction);
-    type = (TypeFunction*)t;
+    type = static_cast<TypeFunction*>(t);
     func = NULL;
     allocapoint = NULL;
 

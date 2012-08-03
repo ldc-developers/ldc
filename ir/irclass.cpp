@@ -154,7 +154,7 @@ LLConstant * IrStruct::getVtblInit()
     size_t n = cd->vtbl.dim;
     for (size_t i = 1; i < n; i++)
     {
-        Dsymbol* dsym = (Dsymbol*)cd->vtbl.data[i];
+        Dsymbol* dsym = static_cast<Dsymbol*>(cd->vtbl.data[i]);
         assert(dsym && "null vtbl member");
 
         FuncDeclaration* fd = dsym->isFuncDeclaration();
@@ -178,14 +178,14 @@ LLConstant * IrStruct::getVtblInit()
                 for (size_t j = 1; j < n; j++)
                 {   if (j == i)
                         continue;
-                    FuncDeclaration *fd2 = ((Dsymbol *)cd->vtbl.data[j])->isFuncDeclaration();
+                    FuncDeclaration *fd2 = static_cast<Dsymbol *>(cd->vtbl.data[j])->isFuncDeclaration();
                     if (!fd2->ident->equals(fd->ident))
                         continue;
                     if (fd->leastAsSpecialized(fd2) || fd2->leastAsSpecialized(fd))
                     {
                         if (global.params.warnings)
                         {
-                            TypeFunction *tf = (TypeFunction *)fd->type;
+                            TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
                             if (tf->ty == Tfunction)
                                 error("%s%s is hidden by %s\n", fd->toPrettyChars(), Parameter::argsTypesToChars(tf->parameters, tf->varargs), toChars());
                             else
@@ -385,7 +385,7 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
     size_t n = vtbl_array.dim;
     for (size_t i = 1; i < n; i++)
     {
-        Dsymbol* dsym = (Dsymbol*)vtbl_array.data[i];
+        Dsymbol* dsym = static_cast<Dsymbol*>(vtbl_array.data[i]);
         if (dsym == NULL)
         {
             // FIXME

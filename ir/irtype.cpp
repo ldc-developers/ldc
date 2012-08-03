@@ -188,8 +188,8 @@ llvm::Type * IrTypeSArray::buildType()
 llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
 {
     assert(t->ty == Tsarray && "not static array type");
-    TypeSArray* tsa = (TypeSArray*)t;
-    dim = (uint64_t)tsa->dim->toUInteger();
+    TypeSArray* tsa = static_cast<TypeSArray*>(t);
+    dim = static_cast<uint64_t>(tsa->dim->toUInteger());
     LLType* elemType = DtoType(t->nextOf());
     if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
         elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
@@ -256,10 +256,10 @@ llvm::Type* IrTypeVector::buildType()
 llvm::Type* IrTypeVector::vector2llvm(Type* dt)
 {
     assert(dt->ty == Tvector && "not vector type");
-    TypeVector* tv = (TypeVector*)dt;
+    TypeVector* tv = static_cast<TypeVector*>(dt);
     assert(tv->basetype->ty == Tsarray);
-    TypeSArray* tsa = (TypeSArray*)tv->basetype;
-    dim = (uint64_t)tsa->dim->toUInteger();
+    TypeSArray* tsa = static_cast<TypeSArray*>(tv->basetype);
+    dim = static_cast<uint64_t>(tsa->dim->toUInteger());
     LLType* elemType = DtoType(tsa->next);
     if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
         elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());

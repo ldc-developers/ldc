@@ -21,7 +21,7 @@ llvm::Type * IrTypeFunction::buildType()
 llvm::Type* IrTypeFunction::func2llvm(Type* dt)
 {
     llvm::Type* T;
-    TypeFunction* tf = (TypeFunction*)dt;
+    TypeFunction* tf = static_cast<TypeFunction*>(dt);
     if (tf->funcdecl)
         T = DtoFunctionType(tf->funcdecl);
     else

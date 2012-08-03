@@ -64,7 +64,7 @@ bool IrDsymbol::isSet()
 IrVar* IrDsymbol::getIrVar()
 {
     assert(irGlobal || irLocal || irField);
-    return irGlobal ? (IrVar*)irGlobal : irLocal ? (IrVar*)irLocal : (IrVar*)irField;
+    return irGlobal ? static_cast<IrVar*>(irGlobal) : irLocal ? static_cast<IrVar*>(irLocal) : static_cast<IrVar*>(irField);
 }
 
 llvm::Value*& IrDsymbol::getIrValue() { return getIrVar()->value; }

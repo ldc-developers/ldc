@@ -251,8 +251,8 @@ LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
     n = si->vars.dim;
     for (size_t i = 0; i < n; i++)
     {
-        VarDeclaration* vd = (VarDeclaration*)si->vars.data[i];
-        Initializer* ini = (Initializer*)si->value.data[i];
+        VarDeclaration* vd = static_cast<VarDeclaration*>(si->vars.data[i]);
+        Initializer* ini = static_cast<Initializer*>(si->value.data[i]);
         Loc loc = ini ? ini->loc : si->loc;
 
         size_t idx = datamap[i];
@@ -297,7 +297,7 @@ LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
         if (vd)
             continue;
 
-        vd = (VarDeclaration*)aggrdecl->fields.data[i];
+        vd = static_cast<VarDeclaration*>(aggrdecl->fields.data[i]);
 
         unsigned vd_begin = vd->offset;
         unsigned vd_end = vd_begin + vd->type->size();

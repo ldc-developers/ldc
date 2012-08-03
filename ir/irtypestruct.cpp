@@ -29,7 +29,7 @@ IrTypeAggr::IrTypeAggr(AggregateDeclaration * ad)
 IrTypeStruct::IrTypeStruct(StructDeclaration * sd)
 :   IrTypeAggr(sd),
     sd(sd),
-    ts((TypeStruct*)sd->type)
+    ts(static_cast<TypeStruct*>(sd->type))
 {
 }
 
