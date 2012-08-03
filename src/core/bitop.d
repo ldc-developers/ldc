@@ -42,10 +42,21 @@ else version( D_InlineAsm_X86 )
 version (LDC)
 {
     // KLUDGE: Need to adapt the return type.
-    private pure pragma(intrinsic, "llvm.cttz.i#") T cttz(T)(T v);
-    pure int bsf(size_t v)
+    version (LDC_LLVM_300) 
     {
-        return cast(int)cttz(v);
+        private pure pragma(intrinsic, "llvm.cttz.i#") T cttz(T)(T v);
+        pure int bsf(size_t v)
+        {
+            return cast(int)cttz(v);
+        }
+    }
+    else
+    {
+        private pure pragma(intrinsic, "llvm.cttz.i#") T cttz(T)(T v, bool isZerodefined);
+        pure int bsf(size_t v)
+        {
+            return cast(int)cttz(v, false);
+        }
     }
 }
 else
@@ -78,10 +89,21 @@ unittest
  */
 version (LDC)
 {
-    private pure pragma(intrinsic, "llvm.ctlz.i#") T ctlz(T)(T v);
-    pure int bsr(size_t v)
+    version (LDC_LLVM_300)
     {
-        return cast(int)(size_t.sizeof * 8 - 1 - ctlz(v));
+        private pure pragma(intrinsic, "llvm.ctlz.i#") T ctlz(T)(T v);
+        pure int bsr(size_t v)
+        {
+            return cast(int)(size_t.sizeof * 8 - 1 - ctlz(v));
+        }
+    }
+    else
+    {
+        private pure pragma(intrinsic, "llvm.ctlz.i#") T ctlz(T)(T v, bool isZeroDefined);
+        pure int bsr(size_t v)
+        {
+            return cast(int)(size_t.sizeof * 8 - 1 - ctlz(v, false));
+        }
     }
 }
 else
