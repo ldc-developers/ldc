@@ -106,6 +106,17 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
         return LLVMalloca;
     }
 
+    // pragma(shufflevector) { funcdecl(s) }
+    else if (ident == Id::Shufflevector)
+    {
+        if (args && args->dim > 0)
+        {
+             error("takes no parameters");
+             fatal();
+        }
+        return LLVMshufflevector;
+    }
+
     // pragma(va_start) { templdecl(s) }
     else if (ident == Id::vastart)
     {
@@ -352,6 +363,18 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         else
         {
             error("the '%s' pragma must only be used on function declarations of type 'void* function(uint nbytes)'", ident->toChars());
+            fatal();
+        }
+        break;
+
+    case LLVMshufflevector:
+        if (FuncDeclaration* fd = s->isFuncDeclaration())
+        {
+            fd->llvmInternal = llvm_internal;
+        }
+        else
+        {
+            error("the '%s' pragma must only be used on function declarations.", ident->toChars());
             fatal();
         }
         break;
