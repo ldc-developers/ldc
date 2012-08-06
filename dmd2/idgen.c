@@ -272,6 +272,7 @@ Msgtable msgtable[] =
     { "no_typeinfo" },
     { "no_moduleinfo" },
     { "Alloca", "alloca" },
+    { "Shufflevector", "shufflevector" },
     { "vastart", "va_start" },
     { "vacopy", "va_copy" },
     { "vaend", "va_end" },

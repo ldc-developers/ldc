@@ -947,8 +947,28 @@ DValue* CallExp::toElem(IRState* p)
             if (expv->getType()->toBasetype()->ty != Tint32)
                 expv = DtoCast(loc, expv, Type::tint32);
             return new DImValue(type, p->ir->CreateAlloca(LLType::getInt8Ty(gIR->context()), expv->getRVal(), ".alloca"));
+        } 
+        // shufflevector
+        else if (fndecl->llvmInternal == LLVMshufflevector) {
+            llvm::SmallVector<llvm::Constant*, 32> mask;
+            for(int i = 2, n = arguments->dim; i < n; i++){
+                Expression* exp = static_cast<Expression*>(arguments->data[i]);
+                if(exp->op != TOKint64){
+                    error("Function %s was declared with pragma shufflevector. Because of that all of its arguments except the first two must be integer literals.", f->toChars());
+                    fatal();
+                }
+                IntegerExp* iexp = static_cast<IntegerExp*>(arguments->data[i]);
+                mask.push_back(iexp->toConstElem(p));
+            } 
+            LLValue* maskVal = llvm::ConstantVector::get(mask);
+            Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
+            Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
+            LLValue* v1 = exp1->toElem(p)->getRVal();
+            LLValue* v2 = exp2->toElem(p)->getRVal();
+            return new DImValue(type, p->ir->CreateShuffleVector(v1, v2, maskVal));
+        } 
         // fence instruction
-        } else if (fndecl->llvmInternal == LLVMfence) {
+        else if (fndecl->llvmInternal == LLVMfence) {
             if (arguments->dim != 1) {
                 error("fence instruction expects 1 arguments");
                 return NULL;
