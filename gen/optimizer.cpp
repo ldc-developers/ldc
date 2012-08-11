@@ -107,6 +107,10 @@ static void addPassesForOptLevel(PassManager& pm) {
     // -O1
     if (optimizeLevel >= 1)
     {
+        // Add alias analysis passes.
+        // This is at least required for FunctionAttrs pass.
+        addPass(pm, createTypeBasedAliasAnalysisPass());
+        addPass(pm, createBasicAliasAnalysisPass());
         //addPass(pm, createStripDeadPrototypesPass());
         addPass(pm, createGlobalDCEPass());
         addPass(pm, createPromoteMemoryToRegisterPass());
@@ -127,9 +131,7 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createCFGSimplificationPass());
         addPass(pm, createPruneEHPass());
         
-        // FIXME: Adding this pass crashes LLVM 2.9 in
-        // PMTopLevelManager::schedulePass(), commented out for a quick fix.
-        // addPass(pm, createFunctionAttrsPass());
+        addPass(pm, createFunctionAttrsPass());
 
         addPass(pm, createTailCallEliminationPass());
         addPass(pm, createCFGSimplificationPass());
