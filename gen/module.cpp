@@ -29,6 +29,7 @@
 #include "gen/structs.h"
 #include "gen/todebug.h"
 #include "gen/tollvm.h"
+#include "gen/optimizer.h"
 
 #include "ir/irvar.h"
 #include "ir/irmodule.h"
@@ -289,19 +290,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     genmoduleinfo();
 
     // verify the llvm
-    if (!global.params.noVerify) {
-        std::string verifyErr;
-        Logger::println("Verifying module...");
-        LOG_SCOPE;
-        if (llvm::verifyModule(*ir.module,llvm::ReturnStatusAction,&verifyErr))
-        {
-            error("%s", verifyErr.c_str());
-            fatal();
-        }
-        else {
-            Logger::println("Verification passed!");
-        }
-    }
+    verifyModule(*ir.module);
 
     gIR = NULL;
 

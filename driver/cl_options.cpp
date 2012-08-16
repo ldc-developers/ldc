@@ -375,10 +375,6 @@ static cl::opt<MultiSetter, true, cl::parser<bool> > release("release",
     cl::location(ReleaseSetter),
     cl::ValueDisallowed);
 
-cl::opt<bool, true> noVerify("noverify",
-    llvm::cl::desc("Do not run the validation pass before writing bitcode"),
-    cl::location(global.params.noVerify));
-
 cl::opt<bool, true> singleObj("singleobj",
     cl::desc("Create only a single output object file"),
     cl::location(global.params.singleObj));

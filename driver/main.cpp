@@ -325,8 +325,6 @@ int main(int argc, char** argv)
 
 #if LDC_LLVM_VER >= 301
     llvm::TargetOptions targetOptions;
-    // FIXME: Options here are { None, Less, Default, Aggressive } as defined http://llvm.org/docs/doxygen/html/namespacellvm_1_1CodeGenOpt.html
-    llvm::CodeGenOpt::Level codeGenOptLevel = llvm::CodeGenOpt::None; // I am setting this to None for the moment as I dont know how this changes generation
 #endif
 
     Array* libs;
@@ -554,7 +552,7 @@ int main(int argc, char** argv)
         targetOptions,
         mRelocModel,
         mCodeModel,
-        codeGenOptLevel
+        codeGenOptLevel()
     );
 #endif
 

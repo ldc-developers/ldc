@@ -1,5 +1,6 @@
 #include "gen/optimizer.h"
 #include "gen/cl_helpers.h"
+#include "gen/logger.h"
 
 #include "gen/passes/Passes.h"
 
@@ -38,6 +39,11 @@ static cl::opt<unsigned char> optimizeLevel(
         clEnumValN(5, "O5", "Link-time optimization"), //  not implemented?
         clEnumValEnd),
     cl::init(0));
+
+static cl::opt<bool>
+noVerify("disable-verify",
+    cl::desc("Do not verify result module"),
+    cl::Hidden);
 
 static cl::opt<bool>
 verifyEach("verify-each",
@@ -95,6 +101,22 @@ bool optimize() {
     return optimizeLevel || doInline() || !passList.empty();
 }
 
+llvm::CodeGenOpt::Level codeGenOptLevel() {
+#if LDC_LLVM_VER < 302
+    const int opt = optLevel();
+    // Use same appoach as clang (see lib/CodeGen/BackendUtil.cpp)
+    llvm::CodeGenOpt::Level codeGenOptLevel = llvm::CodeGenOpt::Default;
+    // Debug info doesn't work properly with CodeGenOpt <> None
+    if (global.params.symdebug || !opt) codeGenOptLevel = llvm::CodeGenOpt::None;
+    else if (opt >= 3) codeGenOptLevel = llvm::CodeGenOpt::Aggressive;
+#else
+    // There's a bug in llvm:LiveInterval::createDeadDef()
+    // which prevents use of other values.
+    // Happens only with 3.2 trunk.
+    return llvm::CodeGenOpt::None;
+#endif
+}
+
 static void addPass(PassManager& pm, Pass* pass) {
     pm.add(pass);
 
@@ -130,7 +152,7 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createInstructionCombiningPass());
         addPass(pm, createCFGSimplificationPass());
         addPass(pm, createPruneEHPass());
-        
+
         addPass(pm, createFunctionAttrsPass());
 
         addPass(pm, createTailCallEliminationPass());
@@ -260,5 +282,25 @@ bool ldc_optimize_module(llvm::Module* m)
         addPassesForOptLevel(pm);
 
     pm.run(*m);
+
+    verifyModule(m);
+
     return true;
+}
+
+// Verifies the module.
+void verifyModule(llvm::Module* m) {
+    if (!noVerify) {
+        std::string verifyErr;
+        Logger::println("Verifying module...");
+        LOG_SCOPE;
+        if (llvm::verifyModule(*m, llvm::ReturnStatusAction, &verifyErr))
+        {
+            error("%s", verifyErr.c_str());
+            fatal();
+        }
+        else {
+            Logger::println("Verification passed!");
+        }
+    }
 }

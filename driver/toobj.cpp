@@ -33,22 +33,7 @@ void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostrea
 void writeModule(llvm::Module* m, std::string filename)
 {
     // run optimizer
-    bool reverify = ldc_optimize_module(m);
-
-    // verify the llvm
-    if (!global.params.noVerify && reverify) {
-        std::string verifyErr;
-        Logger::println("Verifying module... again...");
-        LOG_SCOPE;
-        if (llvm::verifyModule(*m,llvm::ReturnStatusAction,&verifyErr))
-        {
-            error("%s", verifyErr.c_str());
-            fatal();
-        }
-        else {
-            Logger::println("Verification passed!");
-        }
-    }
+    ldc_optimize_module(m);
 
     // eventually do our own path stuff, dmd's is a bit strange.
     typedef llvm::sys::Path LLPath;
@@ -141,16 +126,8 @@ void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostrea
     else
         Passes.add(new TargetData(&m));
 
-    // Last argument is enum CodeGenOpt::Level OptLevel
-    // debug info doesn't work properly with OptLevel != None!
-    CodeGenOpt::Level LastArg = CodeGenOpt::Default;
-    if (global.params.symdebug || !optimize())
-        LastArg = CodeGenOpt::None;
-    else if (optLevel() >= 3)
-        LastArg = CodeGenOpt::Aggressive;
-
     llvm::formatted_raw_ostream fout(out);
-    if (Target.addPassesToEmitFile(Passes, fout, fileType, LastArg))
+    if (Target.addPassesToEmitFile(Passes, fout, fileType, codeGenOptLevel()))
         assert(0 && "no support for asm output");
 
     Passes.doInitialization();
