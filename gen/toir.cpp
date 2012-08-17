@@ -954,7 +954,7 @@ DValue* CallExp::toElem(IRState* p)
             for(int i = 2, n = arguments->dim; i < n; i++){
                 Expression* exp = static_cast<Expression*>(arguments->data[i]);
                 if(exp->op != TOKint64){
-                    error("Function %s was declared with pragma shufflevector. Because of that all of its arguments except the first two must be integer literals.", f->toChars());
+                    error("Function %s was declared with pragma shufflevector. Because of that all of its arguments except the first two must be integer literals.", fndecl->toChars());
                     fatal();
                 }
                 IntegerExp* iexp = static_cast<IntegerExp*>(arguments->data[i]);
