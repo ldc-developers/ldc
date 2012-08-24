@@ -57,6 +57,9 @@
 //#include "gen/tollvm.h"
 Ir* Type::sir = NULL;
 unsigned GetTypeAlignment(Ir* ir, Type* t);
+unsigned GetPointerSize(Ir* ir);
+unsigned GetTypeStoreSize(Ir* ir, Type* t);
+unsigned GetTypeAllocSize(Ir* ir, Type* t);
 #endif
 
 FuncDeclaration *hasThis(Scope *sc);
@@ -141,11 +144,10 @@ StringTable Type::deco_stringtable;
 #endif
 
 
-Type::Type(TY ty/*, Type *next*/)
+Type::Type(TY ty)
 {
     this->ty = ty;
     this->mod = 0;
-    //this->next = next;
     this->deco = NULL;
 #if DMDV2
     this->cto = NULL;
@@ -309,15 +311,18 @@ void Type::init()
     tvoidptr = tvoid->pointerTo();
     tstring = tchar->invariantOf()->arrayOf();
 
-    // LDC
-    sir = _sir;
-
-    // set size_t / ptrdiff_t types and pointer size
+#if IN_DMD
     if (global.params.is64bit)
     {
+        PTRSIZE = 8;
+        if (global.params.isLinux || global.params.isFreeBSD || global.params.isSolaris)
+        {
+            REALSIZE = 16;
+            REALPAD = 6;
+            REALALIGNSIZE = 16;
+        }
         Tsize_t = Tuns64;
         Tptrdiff_t = Tint64;
-    PTRSIZE = 8;
     }
     else
     {
@@ -334,25 +339,27 @@ void Type::init()
 #endif
         Tsize_t = Tuns32;
         Tptrdiff_t = Tint32;
-    PTRSIZE = 4;
     }
+#endif
 
-    // set real size and padding
-    if (global.params.cpu == ARCHx86)
+#if IN_LLVM
+    sir = _sir;
+
+    if (global.params.is64bit)
     {
-    REALSIZE = 12;
-    REALPAD = 2;
-    }
-    else if (global.params.cpu == ARCHx86_64)
-    {
-    REALSIZE = 16;
-    REALPAD = 6;
+        Tsize_t = Tuns64;
+        Tptrdiff_t = Tint64;
     }
     else
     {
-    REALSIZE = 8;
-    REALPAD = 0;
+        Tsize_t = Tuns32;
+        Tptrdiff_t = Tint32;
     }
+    PTRSIZE = GetPointerSize(sir);
+    REALSIZE = GetTypeAllocSize(sir, Type::basic[Tfloat80]);
+    REALPAD = REALSIZE - GetTypeStoreSize(sir, Type::basic[Tfloat80]);
+    REALALIGNSIZE = GetTypeAlignment(sir, Type::basic[Tfloat80]);
+#endif
 }
 
 d_uns64 Type::size()

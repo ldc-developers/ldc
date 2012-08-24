@@ -13,6 +13,21 @@ unsigned GetTypeAlignment(Ir* ir, Type* t)
     return gTargetData->getABITypeAlignment(DtoType(t));
 }
 
+unsigned GetPointerSize(Ir* ir)
+{
+    return gTargetData->getPointerSize();
+}
+
+unsigned GetTypeStoreSize(Ir* ir, Type* t)
+{
+    return gTargetData->getTypeStoreSize(DtoType(t));
+}
+
+unsigned GetTypeAllocSize(Ir* ir, Type* t)
+{
+    return gTargetData->getTypeAllocSize(DtoType(t));
+}
+
 Ir::Ir()
 : irs(NULL)
 {
