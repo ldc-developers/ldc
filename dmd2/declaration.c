@@ -1040,7 +1040,7 @@ Lnomatch:
                 v->storage_class |= arg->storageClass;
             //printf("declaring field %s of type %s\n", v->toChars(), v->type->toChars());
             v->semantic(sc);
-            
+
 #if !IN_LLVM
 // removed for LDC since TupleDeclaration::toObj already creates the fields;
 // adding them to the scope again leads to duplicates

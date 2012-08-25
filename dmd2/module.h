@@ -76,7 +76,7 @@ struct Module : Package
     File *hdrfile;      // 'header' file
     File *symfile;      // output symbol file
     File *docfile;      // output documentation file
-    
+
     unsigned errors;    // if any errors in file
     unsigned numlines;  // number of lines in source file
     int isHtml;         // if it is an HTML file
@@ -123,9 +123,9 @@ struct Module : Package
 
     size_t nameoffset;          // offset of module name from start of ModuleInfo
     size_t namelen;             // length of module name in characters
-    
-    int doDocComment;		// enable generating doc comments for this module
-    int doHdrGen;		// enable generating header file for this module
+
+    int doDocComment;          // enable generating doc comments for this module
+    int doHdrGen;              // enable generating header file for this module
 
     Module(char *arg, Identifier *ident, int doDocComment, int doHdrGen);
     ~Module();

@@ -492,7 +492,7 @@ void FuncDeclaration::semantic(Scope *sc)
                     if (s)
                     {
                         FuncDeclaration *f = s->isFuncDeclaration();
-			f = f->overloadExactMatch(type, getModule());
+                        f = f->overloadExactMatch(type, getModule());
                         if (f && f->isFinal() && f->prot() != PROTprivate)
                             error("cannot override final function %s", f->toPrettyChars());
                     }
@@ -1071,7 +1071,7 @@ void FuncDeclaration::semantic3(Scope *sc)
         if (f->parameters)
         {
             for (size_t i = 0; i < Parameter::dim(f->parameters); i++)
-            {	Parameter *arg = (Parameter *)Parameter::getNth(f->parameters, i);
+            {   Parameter *arg = (Parameter *)Parameter::getNth(f->parameters, i);
                 Type* nw = arg->type->semantic(0, sc);
                 if (arg->type != nw) {
                     arg->type = nw;
@@ -1633,8 +1633,8 @@ void FuncDeclaration::semantic3(Scope *sc)
                 }
                 else
                 {   // Call invariant virtually
-		    ThisExp* tv = new ThisExp(0);
-		    tv->type = vthis->type;
+                    ThisExp* tv = new ThisExp(0);
+                    tv->type = vthis->type;
                     tv->var = vthis;
                     Expression *v = tv;
 
@@ -1648,7 +1648,7 @@ void FuncDeclaration::semantic3(Scope *sc)
                     se->type = Type::tchar->arrayOf();
 #endif
                     e = new AssertExp(loc, v, se);
-		}
+                }
                 if (ee)
                 {
                     ExpStatement *s = new ExpStatement(0, ee);
@@ -1695,45 +1695,6 @@ void FuncDeclaration::semantic3(Scope *sc)
             }
 
             fbody = new CompoundStatement(0, a);
-
-#if 0 // This seems to have been added in with dmd 2.032, see below
-	    // wrap body of synchronized functions in a synchronized statement
-	    if (isSynchronized())
-	    {
-		ClassDeclaration *cd = parent->isClassDeclaration();
-		if (!cd)
-		    error("synchronized function %s must be a member of a class", toChars());
-		    
-		Expression *sync;
-		if (isStatic())
-		{
-		    // static member functions synchronize on classinfo 
-		    sync = cd->type->dotExp(sc2, new TypeExp(loc, cd->type), Id::classinfo);
-		}
-		else
-		{
-		    // non-static member functions synchronize on this
-		    sync = new VarExp(loc, vthis);
-		}
-                
-		// we do not want to rerun semantics on the whole function, so we
-		// manually adjust all labels in the function that currently don't
-		// have an enclosingScopeExit to use the new SynchronizedStatement
-		SynchronizedStatement* s = new SynchronizedStatement(loc, sync, NULL);
-		s->semantic(sc2);
-		s->body = fbody;
-		
-		// LDC
-		LabelMap::iterator it, end = labmap.end();
-		for (it = labmap.begin(); it != end; ++it)
-		    if (it->second->enclosingScopeExit == NULL)
-			it->second->enclosingScopeExit = s;
-		
-		a = new Statements;
-		a->push(s);
-		fbody = new CompoundStatement(0, a);
-	    }
-#endif
 #if DMDV2
             /* Append destructor calls for parameters as finally blocks.
              */
@@ -2503,7 +2464,7 @@ int fp2(void *param, FuncDeclaration *f)
 
 
 void overloadResolveX(Match *m, FuncDeclaration *fstart,
-	Expression *ethis, Expressions *arguments, Module* from)
+        Expression *ethis, Expressions *arguments, Module* from)
 {
     Param2 p;
     p.m = m;

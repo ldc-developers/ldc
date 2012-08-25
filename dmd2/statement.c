@@ -2244,23 +2244,23 @@ Lagain:
                 const char *r = (op == TOKforeach_reverse) ? "R" : "";
                 int j = sprintf(fdname, "_aApply%s%.*s%llu", r, 2, fntab[flag], (ulonglong)dim);
                 assert(j < sizeof(fdname));
-		//LDC: Build arguments.
-		Parameters* args = new Parameters;
-		args->push(new Parameter(STCin, tn->arrayOf(), NULL, NULL));
-		if (dim == 2) {
+                //LDC: Build arguments.
+                Parameters* args = new Parameters;
+                args->push(new Parameter(STCin, tn->arrayOf(), NULL, NULL));
+                if (dim == 2) {
                     Parameters* dgargs = new Parameters;
                     dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
                     dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
                     dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tint32, 0, LINKd));
                     args->push(new Parameter(STCin, dgty, NULL, NULL));
                     fdapply = FuncDeclaration::genCfunc(args, Type::tint32, fdname);
-		} else {
+                } else {
                     Parameters* dgargs = new Parameters;
                     dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
                     dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tint32, 0, LINKd));
                     args->push(new Parameter(STCin, dgty, NULL, NULL));
                     fdapply = FuncDeclaration::genCfunc(args, Type::tint32, fdname);
-		}
+                }
 
                 ec = new VarExp(0, fdapply);
                 Expressions *exps = new Expressions();
@@ -3371,11 +3371,11 @@ Statement *CaseStatement::semantic(Scope *sc)
     if (sw)
     {
 #if IN_LLVM
-	enclosingScopeExit = sc->enclosingScopeExit;
-	if (enclosingScopeExit != sw->enclosingScopeExit)
-	{
-	    error("case must be inside the same try, synchronized or volatile level as switch");
-	}
+        enclosingScopeExit = sc->enclosingScopeExit;
+        if (enclosingScopeExit != sw->enclosingScopeExit)
+        {
+            error("case must be inside the same try, synchronized or volatile level as switch");
+        }
 #endif
         exp = exp->implicitCastTo(sc, sw->condition->type);
         exp = exp->optimize(WANTvalue);
@@ -3695,7 +3695,7 @@ Statement *GotoCaseStatement::semantic(Scope *sc)
         error("goto case not in switch statement");
     else
     {
-	sw = sc->sw;
+        sw = sc->sw;
         sc->sw->gotoCases.push(this);
         if (exp)
         {
@@ -4170,10 +4170,10 @@ Statement *BreakStatement::semantic(Scope *sc)
 
                 if (!s->hasBreak())
                     error("label '%s' has no break", ident->toChars());
-		if (ls->enclosingFinally != sc->enclosingFinally)
+                if (ls->enclosingFinally != sc->enclosingFinally)
                     error("cannot break out of finally block");
-		
-		this->target = ls;
+
+                this->target = ls;
                 return this;
             }
         }
@@ -4273,10 +4273,10 @@ Statement *ContinueStatement::semantic(Scope *sc)
 
                 if (!s->hasContinue())
                     error("label '%s' has no continue", ident->toChars());
-		if (ls->enclosingFinally != sc->enclosingFinally)
+                if (ls->enclosingFinally != sc->enclosingFinally)
                     error("cannot continue out of finally block");
-		
-		this->target = ls;
+
+                this->target = ls;
                 return this;
             }
         }
@@ -4412,7 +4412,7 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
          *  try { body } finally { _d_criticalexit(critsec.ptr); }
          */
         Identifier *id = Lexer::uniqueId("__critsec");
-	Type *t = new TypeSArray(Type::tint8, new IntegerExp(PTRSIZE + os_critsecsize()));
+        Type *t = new TypeSArray(Type::tint8, new IntegerExp(PTRSIZE + os_critsecsize()));
         VarDeclaration *tmp = new VarDeclaration(loc, t, id, NULL);
         tmp->storage_class |= STCgshared | STCstatic;
 
@@ -4454,10 +4454,10 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
 Lbody:
     if (body)
     {
-	Statement* oldScopeExit = sc->enclosingScopeExit;
-	sc->enclosingScopeExit = this;
+        Statement* oldScopeExit = sc->enclosingScopeExit;
+        sc->enclosingScopeExit = this;
         body = body->semantic(sc);
-	sc->enclosingScopeExit = oldScopeExit;
+        sc->enclosingScopeExit = oldScopeExit;
     }
     return this;
 }
@@ -5051,10 +5051,10 @@ Statement *VolatileStatement::semantic(Scope *sc)
 {
     if (statement)
     {
-	Statement* oldScopeExit = sc->enclosingScopeExit;
-	sc->enclosingScopeExit = this;
+    Statement* oldScopeExit = sc->enclosingScopeExit;
+    sc->enclosingScopeExit = this;
         statement = statement->semantic(sc);
-	sc->enclosingScopeExit = oldScopeExit;
+    sc->enclosingScopeExit = oldScopeExit;
     }
     return this;
 }

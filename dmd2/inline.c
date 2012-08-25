@@ -262,7 +262,7 @@ int StructLiteralExp::inlineCost3(InlineCostState *ics)
 int FuncExp::inlineCost3(InlineCostState *ics)
 {
     //printf("FuncExp::inlineCost3()\n");
-    
+
     // This breaks on LDC too, since nested functions have internal linkage
     // and thus can't be referenced from other objects.
     // Right now, this makes the function be output to the .obj file twice.

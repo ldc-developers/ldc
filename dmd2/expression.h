@@ -719,7 +719,7 @@ struct SymbolExp : Expression
 struct SymOffExp : SymbolExp
 {
     unsigned offset;
-    Module* m;	// starting point for overload resolution
+    Module* m;    // starting point for overload resolution
 
     SymOffExp(Loc loc, Declaration *var, unsigned offset, int hasOverloads = 0);
     Expression *semantic(Scope *sc);
@@ -1077,7 +1077,7 @@ struct DotTemplateInstanceExp : UnaExp
 struct DelegateExp : UnaExp
 {
     FuncDeclaration *func;
-    Module* m;	// starting point for overload resolution
+    Module* m;    // starting point for overload resolution
     int hasOverloads;
 
     DelegateExp(Loc loc, Expression *e, FuncDeclaration *func, int hasOverloads = 0);
@@ -1152,7 +1152,7 @@ struct CallExp : UnaExp
 
 struct AddrExp : UnaExp
 {
-    Module* m;	// starting point for overload resolution
+    Module* m;    // starting point for overload resolution
 
     AddrExp(Loc loc, Expression *e);
     Expression *semantic(Scope *sc);
@@ -1392,7 +1392,7 @@ struct ArrayLengthExp : UnaExp
 #endif
 
     static Expression *rewriteOpAssign(BinExp *exp);
-    
+
 #if IN_LLVM
     DValue* toElem(IRState* irs);
 #endif
@@ -1553,7 +1553,7 @@ struct op##AssignExp : BinAssignExp                             \
                                                                 \
     Identifier *opId();    /* For operator overloading */       \
                                                                 \
-    ASSIGNEXP_TOELEM					\
+    ASSIGNEXP_TOELEM                                            \
 };
 
 #define X(a) a

@@ -961,7 +961,7 @@ struct AsmStatement : Statement
     //Statement *inlineScan(InlineScanState *iss);
 
     void toIR(IRState *irs);
-    
+
  #if IN_LLVM
     // non-zero if this is a branch, contains the target labels identifier
     Identifier* isBranchToLabel;

@@ -2260,7 +2260,7 @@ Identifier *Type::getTypeInfoIdent(int internal)
 // LDC
 // it is not clear where the underscore that's stripped here is added back in
 //    if (global.params.isWindows)
-//	name++;			// C mangling will add it back in
+//        name++;            // C mangling will add it back in
     //printf("name = %s\n", name);
     id = Lexer::idPool(name);
     return id;
@@ -4060,7 +4060,7 @@ void TypeSArray::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
          * level, since for T[4][3], any const should apply to the T,
          * not the [4].
          */
-	next->toDecoBuffer(buf,  (flag & 0x100) ? flag : mod, mangle);
+        next->toDecoBuffer(buf,  (flag & 0x100) ? flag : mod, mangle);
 }
 
 void TypeSArray::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
@@ -4334,7 +4334,7 @@ void TypeDArray::toDecoBuffer(OutBuffer *buf, int flag, bool mangle)
 {
     Type::toDecoBuffer(buf, flag, mangle);
     if (next)
-	next->toDecoBuffer(buf, (flag & 0x100) ? 0 : mod, mangle);
+        next->toDecoBuffer(buf, (flag & 0x100) ? 0 : mod, mangle);
 }
 
 void TypeDArray::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
@@ -4677,19 +4677,19 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         Expression *ec;
         Expressions *arguments;
 
-	//LDC: Build arguments.
-	static FuncDeclaration *aaLen_fd = NULL;
-	if(!aaLen_fd) {
-	    Arguments* args = new Arguments;
-	    args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
-	    aaLen_fd = FuncDeclaration::genCfunc(args, Type::tsize_t, Id::aaLen);
-	}
+        //LDC: Build arguments.
+        static FuncDeclaration *aaLen_fd = NULL;
+        if(!aaLen_fd) {
+            Arguments* args = new Arguments;
+            args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
+            aaLen_fd = FuncDeclaration::genCfunc(args, Type::tsize_t, Id::aaLen);
+        }
 
-	ec = new VarExp(0, aaLen_fd);
+        ec = new VarExp(0, aaLen_fd);
         arguments = new Expressions();
         arguments->push(e);
         e = new CallExp(e->loc, ec, arguments);
-	e->type = aaLen_fd->type->nextOf();
+        e->type = aaLen_fd->type->nextOf();
     }
     else
     if (ident == Id::keys)
@@ -4699,16 +4699,16 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         int size = index->size(e->loc);
 
         assert(size);
-	//LDC: Build arguments.
-	static FuncDeclaration *aaKeys_fd = NULL;
-	if(!aaKeys_fd) {
-	    Arguments* args = new Arguments;
-	    args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
-	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
-	    aaKeys_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::aaKeys);
-	}
+        //LDC: Build arguments.
+        static FuncDeclaration *aaKeys_fd = NULL;
+        if(!aaKeys_fd) {
+            Arguments* args = new Arguments;
+            args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
+            args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+            aaKeys_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::aaKeys);
+        }
 
-	ec = new VarExp(0, aaKeys_fd);
+        ec = new VarExp(0, aaKeys_fd);
         arguments = new Expressions();
         arguments->push(e);
         arguments->push(new IntegerExp(0, size, Type::tsize_t));
@@ -4720,17 +4720,17 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         Expression *ec;
         Expressions *arguments;
 
-	//LDC: Build arguments.
-	static FuncDeclaration *aaValues_fd = NULL;
-	if(!aaValues_fd) {
-	    Arguments* args = new Arguments;
-	    args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
-	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
-	    args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
-	    aaValues_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::aaValues);
-	}
+        //LDC: Build arguments.
+        static FuncDeclaration *aaValues_fd = NULL;
+        if(!aaValues_fd) {
+            Arguments* args = new Arguments;
+            args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
+            args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+            args->push(new Argument(STCin, Type::tsize_t, NULL, NULL));
+            aaValues_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::aaValues);
+        }
 
-	ec = new VarExp(0, aaValues_fd);
+        ec = new VarExp(0, aaValues_fd);
         arguments = new Expressions();
         arguments->push(e);
         size_t keysize = index->size(e->loc);
@@ -4745,19 +4745,19 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         Expression *ec;
         Expressions *arguments;
 
-	//LDC: Build arguments.
-	static FuncDeclaration *aaRehash_fd = NULL;
-	if(!aaRehash_fd) {
-	    Arguments* args = new Arguments;
-	    args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
-	    args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
-	    aaRehash_fd = FuncDeclaration::genCfunc(args, Type::tvoidptr, Id::aaRehash);
-	}
+        //LDC: Build arguments.
+        static FuncDeclaration *aaRehash_fd = NULL;
+        if(!aaRehash_fd) {
+            Arguments* args = new Arguments;
+            args->push(new Argument(STCin, Type::tvoid->pointerTo(), NULL, NULL));
+            args->push(new Argument(STCin, Type::typeinfo->type, NULL, NULL));
+            aaRehash_fd = FuncDeclaration::genCfunc(args, Type::tvoidptr, Id::aaRehash);
+        }
 
-	ec = new VarExp(0, aaRehash_fd);
+        ec = new VarExp(0, aaRehash_fd);
         arguments = new Expressions();
         arguments->push(e->addressOf(sc));
-	arguments->push(index->getInternalTypeInfo(sc)); // LDC doesn't support getInternalTypeInfo, see above
+        arguments->push(index->getInternalTypeInfo(sc)); // LDC doesn't support getInternalTypeInfo, see above
         e = new CallExp(e->loc, ec, arguments);
         e->type = this;
     }
@@ -8464,44 +8464,44 @@ L1:
                 e->type = t;    // do this so we don't get redundant dereference
             }
             else
-	    {
-        /* For class objects, the classinfo reference is the first
-         * entry in the vtbl[]
-         */
+            {
+                /* For class objects, the classinfo reference is the first
+                 * entry in the vtbl[]
+                 */
 #if IN_LLVM
 
-        Type* ct;
-        if (sym->isInterfaceDeclaration()) {
-            ct = t->pointerTo()->pointerTo()->pointerTo();
-        }
-        else {
-            ct = t->pointerTo()->pointerTo();
-        }
+                Type* ct;
+                if (sym->isInterfaceDeclaration()) {
+                    ct = t->pointerTo()->pointerTo()->pointerTo();
+                }
+                else {
+                    ct = t->pointerTo()->pointerTo();
+                }
 
-        e = e->castTo(sc, ct);
-        e = new PtrExp(e->loc, e);
-        e->type = ct->nextOf();
-        e = new PtrExp(e->loc, e);
-        e->type = ct->nextOf()->nextOf();
+                e = e->castTo(sc, ct);
+                e = new PtrExp(e->loc, e);
+                e->type = ct->nextOf();
+                e = new PtrExp(e->loc, e);
+                e->type = ct->nextOf()->nextOf();
 
-        if (sym->isInterfaceDeclaration())
-        {
-            if (sym->isCOMinterface())
-            {   /* COM interface vtbl[]s are different in that the
-             * first entry is always pointer to QueryInterface().
-             * We can't get a .classinfo for it.
-             */
-            error(e->loc, "no .classinfo for COM interface objects");
+                if (sym->isInterfaceDeclaration())
+                {
+                    if (sym->isCOMinterface())
+                    {   /* COM interface vtbl[]s are different in that the
+                         * first entry is always pointer to QueryInterface().
+                         * We can't get a .classinfo for it.
+                         */
+                        error(e->loc, "no .classinfo for COM interface objects");
+                    }
+                    /* For an interface, the first entry in the vtbl[]
+                     * is actually a pointer to an instance of struct Interface.
+                     * The first member of Interface is the .classinfo,
+                     * so add an extra pointer indirection.
+                     */
+                    e = new PtrExp(e->loc, e);
+                    e->type = ct->nextOf()->nextOf()->nextOf();
+                }
             }
-            /* For an interface, the first entry in the vtbl[]
-             * is actually a pointer to an instance of struct Interface.
-             * The first member of Interface is the .classinfo,
-             * so add an extra pointer indirection.
-             */
-            e = new PtrExp(e->loc, e);
-            e->type = ct->nextOf()->nextOf()->nextOf();
-        }
-        }
 
 #else
 
@@ -8527,7 +8527,7 @@ L1:
                     e->type = t->pointerTo();
                 }
                 e = new PtrExp(e->loc, e, t);
-        }
+            }
 
 #endif // !LDC
 
