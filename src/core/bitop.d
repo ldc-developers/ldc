@@ -140,7 +140,7 @@ version (LDC)
 }
 else
 {
-    int btc(size_t* p, size_t bitnum);
+    int btc(size_t* p, size_t bitnum) pure;
 }
 
 
@@ -154,7 +154,7 @@ version (LDC)
 }
 else
 {
-    int btr(size_t* p, size_t bitnum);
+    int btr(size_t* p, size_t bitnum) pure;
 }
 
 
@@ -214,7 +214,7 @@ version (LDC)
 }
 else
 {
-    int bts(size_t* p, size_t bitnum);
+    int bts(size_t* p, size_t bitnum) pure;
 }
 
 unittest

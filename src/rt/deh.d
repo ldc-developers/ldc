@@ -8,12 +8,21 @@
 
 /*          Copyright Digital Mars 1999 - 2010.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module rt.deh;
 import core.sys.windows.windows;
 //import core.stdc.stdio;
+
+version (D_InlineAsm_X86)
+{
+    version = AsmX86;
+}
+else version (D_InlineAsm_X86_64)
+{
+    version = AsmX86;
+}
 
 enum EXCEPTION_DISPOSITION {
     ExceptionContinueExecution,
@@ -590,11 +599,10 @@ int _d_exception_filter(EXCEPTION_POINTERS *eptrs,
 /***********************************
  * Throw a D object.
  */
-extern(C)
-void _d_throwc(Object h)
+
+private void throwImpl(Object h)
 {
     // @@@ TODO @@@ Signature should change: h will always be a Throwable.
-
     //printf("_d_throw(h = %p, &h = %p)\n", h, &h);
     //printf("\tvptr = %p\n", *(void **)h);
     _d_createTrace(h);
@@ -602,6 +610,31 @@ void _d_throwc(Object h)
     RaiseException(STATUS_DIGITAL_MARS_D_EXCEPTION,
                    EXCEPTION_NONCONTINUABLE,
                    1, cast(void *)&h);
+}
+
+extern(C) void _d_throwc(Object h)
+{
+    // set up a stack frame for trace unwinding
+    version (AsmX86)
+    {
+        asm
+        {
+            naked;
+            enter 0, 0;
+        }
+        version (D_InlineAsm_X86)
+            asm { mov EAX, [EBP+8]; }
+        asm
+        {
+            call throwImpl;
+            leave;
+            ret;
+        }
+    }
+    else
+    {
+        throwImpl(h);
+    }
 }
 
 /***********************************

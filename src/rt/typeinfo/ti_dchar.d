@@ -8,7 +8,7 @@
 
 /*          Copyright Digital Mars 2004 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module rt.typeinfo.ti_dchar;
@@ -39,7 +39,7 @@ class TypeInfo_w : TypeInfo
         return *cast(dchar *)p1 - *cast(dchar *)p2;
     }
 
-    @property override size_t tsize() nothrow pure
+    override @property size_t tsize() nothrow pure
     {
         return dchar.sizeof;
     }
@@ -53,8 +53,9 @@ class TypeInfo_w : TypeInfo
         *cast(dchar *)p2 = t;
     }
 
-    override void[] init() nothrow pure
-    {   static immutable dchar c;
+    override const(void)[] init() nothrow pure
+    {
+        static immutable dchar c;
 
         return (cast(dchar *)&c)[0 .. 1];
     }

@@ -5,7 +5,7 @@
  * Copyright: Copyright Digital Mars 2000 - 2012.
  * License: Distributed under the
  *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0).
- *    (See accompanying file LICENSE_1_0.txt)
+ *    (See accompanying file LICENSE)
  * Authors:   Walter Bright, Sean Kelly
  * Source: $(DRUNTIMESRC src/rt/_minfo.d)
  */
@@ -51,18 +51,56 @@ enum
     MInew        = 0x80000000        // it's the "new" layout
 }
 
-// Windows: this gets initialized by minit.asm
-// Posix: this gets initialized in rt_moduleCtor()
-extern (C) __gshared ModuleInfo*[] _moduleinfo_array;
-extern(C) void _minit();
-
-struct SortedCtors
+struct ModuleGroup
 {
-    void alloc(size_t n)
+    this(ModuleInfo*[] modules)
+    {
+        _modules = modules;
+    }
+
+    @property inout(ModuleInfo*)[] modules() inout
+    {
+        return _modules;
+    }
+
+    void sortCtors()
     {
         // don't bother to initialize, as they are getting overwritten anyhow
+        immutable n = _modules.length;
         _ctors = (cast(ModuleInfo**).malloc(n * size_t.sizeof))[0 .. n];
         _tlsctors = (cast(ModuleInfo**).malloc(n * size_t.sizeof))[0 .. n];
+        .sortCtors(this);
+    }
+
+    void runCtors()
+    {
+        // run independent ctors
+        runModuleFuncs!(m => m.ictor)(_modules);
+        // sorted module ctors
+        runModuleFuncs!(m => m.ctor)(_ctors);
+        // flag all modules as initialized
+        foreach (m; _modules)
+            m.flags = m.flags | MIctordone;
+    }
+
+    void runTlsCtors()
+    {
+        runModuleFuncs!(m => m.tlsctor)(_tlsctors);
+    }
+
+    void runTlsDtors()
+    {
+        runModuleFuncsRev!(m => m.tlsdtor)(_tlsctors);
+    }
+
+    void runDtors()
+    {
+        runModuleFuncsRev!(m => m.dtor)(_ctors);
+        // clean all initialized flags
+        foreach (m; _modules)
+            m.flags = m.flags & ~MIctordone;
+
+        free();
     }
 
     void free()
@@ -71,13 +109,28 @@ struct SortedCtors
         _ctors = null;
         .free(_tlsctors.ptr);
         _tlsctors = null;
+        _modules = null;
     }
 
-    ModuleInfo*[] _ctors;
+private:
+    ModuleInfo*[]  _modules;
+    ModuleInfo*[]    _ctors;
     ModuleInfo*[] _tlsctors;
 }
 
-__gshared SortedCtors _sortedCtors;
+version (Windows)
+{
+    // Windows: this gets initialized by minit.asm
+    // Posix: this gets initialized in _moduleCtor()
+    extern(C) __gshared ModuleInfo*[] _moduleinfo_array;
+    extern(C) void _minit();
+}
+version (OSX)
+{
+    extern (C) __gshared ModuleInfo*[] _moduleinfo_array;
+}
+
+__gshared ModuleGroup _moduleGroup;
 
 /********************************************
  * Iterate over all module infos.
@@ -87,7 +140,7 @@ int moduleinfos_apply(scope int delegate(ref ModuleInfo*) dg)
 {
     int ret = 0;
 
-    foreach (m; _moduleinfo_array)
+    foreach (m; _moduleGroup._modules)
     {
         // TODO: Should null ModuleInfo be allowed?
         if (m !is null)
@@ -106,55 +159,34 @@ int moduleinfos_apply(scope int delegate(ref ModuleInfo*) dg)
 
 extern (C) void rt_moduleCtor()
 {
-    _moduleinfo_array = getModuleInfos();
-    _sortedCtors = sortCtors(_moduleinfo_array);
-
-    // run independent ctors
-    runModuleFuncs!((a) { return a.ictor; })(_moduleinfo_array);
-    // sorted module ctors
-    runModuleFuncs!((a) { return a.ctor; })(_sortedCtors._ctors);
-    // flag all modules as initialized
-    foreach (m; _moduleinfo_array)
-        m.flags = m.flags | MIctordone;
+    _moduleGroup = ModuleGroup(getModuleInfos());
+    _moduleGroup.sortCtors();
+    _moduleGroup.runCtors();
 }
 
 extern (C) void rt_moduleTlsCtor()
 {
-    runModuleFuncs!((a) { return a.tlsctor; })(_sortedCtors._tlsctors);
+    _moduleGroup.runTlsCtors();
 }
 
 extern (C) void rt_moduleTlsDtor()
 {
-    runModuleFuncsRev!((a) { return a.tlsdtor; })(_sortedCtors._tlsctors);
+    _moduleGroup.runTlsDtors();
 }
 
 extern (C) void rt_moduleDtor()
 {
-    runModuleFuncsRev!((a) { return a.dtor; })(_sortedCtors._ctors);
-
-    // clean all initialized flags
-    foreach (m; _moduleinfo_array)
-        m.flags = m.flags & ~MIctordone;
-
-    _sortedCtors.free();
+    _moduleGroup.runDtors();
     version (Posix)
-        .free(_moduleinfo_array.ptr);
-    _moduleinfo_array = null;
+        .free(_moduleGroup._modules.ptr);
+    _moduleGroup.free();
 }
 
 /********************************************
  * Access compiler generated list of modules.
  */
 
-version (none)
-{
-    extern (C)
-    {
-        extern __gshared void* _minfo_beg;
-        extern __gshared void* _minfo_end;
-    }
-}
-else version (useModuleRef)
+version (useModuleRef)
 {
     // This linked list is created by a compiler generated function inserted
     // into the .ctor list by the compiler.
@@ -193,10 +225,8 @@ body
     }
     else version (OSX)
     {
-        // set by src.rt.memory_osx.onAddImage()
-        result = _moduleinfo_array;
-
-        // But we need to throw out any null pointers
+        // _moduleinfo_array is set by src.rt.memory_osx.onAddImage()
+        // but we need to throw out any null pointers
         auto p = _moduleinfo_array.ptr;
         auto pend = _moduleinfo_array.ptr + _moduleinfo_array.length;
 
@@ -208,31 +238,6 @@ body
         result = (cast(ModuleInfo**).malloc(cnt * size_t.sizeof))[0 .. cnt];
 
         p = _moduleinfo_array.ptr;
-        cnt = 0;
-        for (; p < pend; ++p)
-            if (*p !is null) result[cnt++] = *p;
-    }
-    else version (none)
-    {
-        //printf("getModuleInfos()\n");
-        /* The ModuleInfo references are stored in the special segment
-         * __minfodata, which is bracketed by the segments __minfo_beg
-         * and __minfo_end. The variables _minfo_beg and _minfo_end
-         * are of zero size and are in the two bracketing segments,
-         * respectively.
-         */
-
-        auto p = cast(ModuleInfo**)&_minfo_beg;
-        auto pend = cast(ModuleInfo**)&_minfo_end;
-
-        // Throw out null pointers
-        size_t cnt;
-        for (; p < pend; ++p)
-            if (*p !is null) ++cnt;
-
-        result = (cast(ModuleInfo**).malloc(cnt * size_t.sizeof))[0 .. cnt];
-
-        p = cast(ModuleInfo**)&_minfo_beg;
         cnt = 0;
         for (; p < pend; ++p)
             if (*p !is null) result[cnt++] = *p;
@@ -273,29 +278,35 @@ void runModuleFuncsRev(alias getfp)(ModuleInfo*[] modules)
  * constructors.
  */
 
-SortedCtors sortCtors(ModuleInfo*[] modules)
+void sortCtors(ref ModuleGroup mgroup)
+in
+{
+    assert(mgroup._modules.length == mgroup._ctors.length);
+    assert(mgroup._modules.length == mgroup._tlsctors.length);
+}
+body
 {
     enum AllocaLimit = 100 * 1024; // 100KB
 
-    immutable size = modules.length * StackRec.sizeof;
+    immutable len = mgroup._modules.length;
+    immutable size = len * StackRec.sizeof;
 
-    if (!size)
+    if (!len)
     {
-        return SortedCtors.init;
+        return;
     }
     else if (size <= AllocaLimit)
     {
         auto p = cast(ubyte*).alloca(size);
         p[0 .. size] = 0;
-        return sortCtorsImpl(modules, (cast(StackRec*)p)[0 .. modules.length]);
+        sortCtorsImpl(mgroup, (cast(StackRec*)p)[0 .. len]);
     }
     else
     {
         auto p = cast(ubyte*).malloc(size);
         p[0 .. size] = 0;
-        auto result = sortCtorsImpl(modules, (cast(StackRec*)p)[0 .. modules.length]);
+        sortCtorsImpl(mgroup, (cast(StackRec*)p)[0 .. len]);
         .free(p);
-        return result;
     }
 }
 
@@ -346,21 +357,18 @@ void onCycleError(StackRec[] stack)
     throw new Exception("Aborting!");
 }
 
-private SortedCtors sortCtorsImpl(ModuleInfo*[] modules, StackRec[] stack)
+private void sortCtorsImpl(ref ModuleGroup mgroup, StackRec[] stack)
 {
-    SortedCtors result;
-    result.alloc(modules.length);
-
     size_t stackidx;
     bool tlsPass;
 
  Lagain:
 
     const mask = tlsPass ? (MItlsctor | MItlsdtor) : (MIctor | MIdtor);
-    auto ctors = tlsPass ? result._tlsctors : result._ctors;
+    auto ctors = tlsPass ? mgroup._tlsctors : mgroup._ctors;
     size_t cidx;
 
-    ModuleInfo*[] mods = modules;
+    ModuleInfo*[] mods = mgroup._modules;
     size_t idx;
     while (true)
     {
@@ -424,7 +432,7 @@ private SortedCtors sortCtorsImpl(ModuleInfo*[] modules, StackRec[] stack)
                     /* Internal runtime error, dependency on an uninitialized
                      * module outside of the current module group.
                      */
-                    (stackidx < modules.length) || assert(0);
+                    (stackidx < mgroup._modules.length) || assert(0);
 
                     // recurse
                     stack[stackidx++] = StackRec(mods, idx);
@@ -449,13 +457,11 @@ private SortedCtors sortCtorsImpl(ModuleInfo*[] modules, StackRec[] stack)
             break;
     }
     // store final number
-    tlsPass ? result._tlsctors : result._ctors = ctors[0 .. cidx];
+    tlsPass ? mgroup._tlsctors : mgroup._ctors = ctors[0 .. cidx];
 
     // clean flags
-    for (size_t i = 0; i < modules.length; ++i)
-    {   auto m = modules[i];
+    foreach(m; mgroup._modules)
         m.flags = m.flags & ~(MIctorstart | MIctordone);
-    }
 
     // rerun for TLS constructors
     if (!tlsPass)
@@ -463,8 +469,6 @@ private SortedCtors sortCtorsImpl(ModuleInfo*[] modules, StackRec[] stack)
         tlsPass = true;
         goto Lagain;
     }
-
-    return result;
 }
 
 version (unittest)
@@ -519,12 +523,12 @@ unittest
 
     void checkExp(ModuleInfo*[] dtors=null, ModuleInfo*[] tlsdtors=null)
     {
-        auto ptrs = [&m0, &m1, &m2];
-        auto sorted = sortCtors(ptrs);
-        foreach (m; ptrs)
+        auto mgroup = ModuleGroup([&m0, &m1, &m2]);
+        mgroup.sortCtors();
+        foreach (m; mgroup._modules)
             assert(!(m.flags & (MIctorstart | MIctordone)));
-        assert(sorted._ctors    == dtors);
-        assert(sorted._tlsctors == tlsdtors);
+        assert(mgroup._ctors    == dtors);
+        assert(mgroup._tlsctors == tlsdtors);
     }
 
     // no ctors

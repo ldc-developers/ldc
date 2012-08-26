@@ -8,7 +8,7 @@
 
 /*          Copyright Digital Mars 2000 - 2010.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module rt.aaA;
@@ -18,6 +18,7 @@ private
     import core.stdc.stdarg;
     import core.stdc.string;
     import core.stdc.stdio;
+    import core.memory;
 
     enum BlkAttr : uint
     {
@@ -502,7 +503,7 @@ body
             if (aa.b.ptr == aa.binit.ptr)
                 aa.binit[] = null;
             else
-                delete aa.b;
+                GC.free(aa.b.ptr);
 
             newb.nodes = aa.nodes;
             newb.keyti = aa.keyti;

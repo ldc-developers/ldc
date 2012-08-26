@@ -29,6 +29,8 @@ module rt.qsort;
 
 import core.stdc.stdlib;
 
+
+
 private const int _maxspan = 7; // subarrays of _maxspan or fewer elements
                                 // will be sorted by a simple insertion sort
 

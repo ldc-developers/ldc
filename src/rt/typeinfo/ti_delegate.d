@@ -8,7 +8,7 @@
 
 /*          Copyright Digital Mars 2004 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module rt.typeinfo.ti_delegate;
@@ -36,7 +36,7 @@ class TypeInfo_D : TypeInfo
         return *cast(dg *)p1 == *cast(dg *)p2;
     }
 
-    @property override size_t tsize() nothrow pure
+    override @property size_t tsize() nothrow pure
     {
         return dg.sizeof;
     }
@@ -50,7 +50,7 @@ class TypeInfo_D : TypeInfo
         *cast(dg *)p2 = t;
     }
 
-    @property override uint flags() nothrow pure
+    override @property uint flags() nothrow pure
     {
         return 1;
     }

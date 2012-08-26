@@ -8,22 +8,27 @@
 
 /*          Copyright Digital Mars 2004 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module rt.typeinfo.ti_AC;
 
 // Object[]
 
-class TypeInfo_AC : TypeInfo
+class TypeInfo_AC : TypeInfo_Array
 {
+    override string toString() const { return TypeInfo.toString(); }
+
+    override equals_t opEquals(Object o) { return TypeInfo.opEquals(o); }
+
     @trusted:
     const:
     //pure:
     //nothrow:
 
     override hash_t getHash(in void* p)
-    {   Object[] s = *cast(Object[]*)p;
+    {
+        Object[] s = *cast(Object[]*)p;
         hash_t hash = 0;
 
         foreach (Object o; s)
@@ -42,7 +47,8 @@ class TypeInfo_AC : TypeInfo
         if (s1.length == s2.length)
         {
             for (size_t u = 0; u < s1.length; u++)
-            {   Object o1 = s1[u];
+            {
+                Object o1 = s1[u];
                 Object o2 = s2[u];
 
                 // Do not pass null's to Object.opEquals()
@@ -64,7 +70,8 @@ class TypeInfo_AC : TypeInfo
         if (c == 0)
         {
             for (size_t u = 0; u < s1.length; u++)
-            {   Object o1 = s1[u];
+            {
+                Object o1 = s1[u];
                 Object o2 = s2[u];
 
                 if (o1 is o2)
@@ -89,30 +96,8 @@ class TypeInfo_AC : TypeInfo
         return c < 0 ? -1 : c > 0 ? 1 : 0;
     }
 
-    @property override size_t tsize() nothrow pure
-    {
-        return (Object[]).sizeof;
-    }
-
-    @property override uint flags() nothrow pure
-    {
-        return 1;
-    }
-
-    @property override TypeInfo next() nothrow pure
+    override @property const(TypeInfo) next() nothrow pure
     {
         return typeid(Object);
-    }
-
-    @property override size_t talign() nothrow pure
-    {
-        return (Object[]).alignof;
-    }
-
-    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
-    {
-        //arg1 = typeid(size_t);
-        //arg2 = typeid(void*);
-        return 0;
     }
 }

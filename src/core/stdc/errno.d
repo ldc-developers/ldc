@@ -9,19 +9,21 @@
 
 /*          Copyright Sean Kelly 2005 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module core.stdc.errno;
 
-extern (C) int getErrno();      // for internal use
-extern (C) int setErrno(int);   // for internal use
+@trusted: // Only manipulates errno.
+nothrow:
 
 @property int errno() { return getErrno(); }
 @property int errno(int n) { return setErrno(n); }
 
 extern (C):
-nothrow:
+
+private extern (C) int getErrno();      // for internal use
+private extern (C) int setErrno(int);   // for internal use
 
 version( Windows )
 {

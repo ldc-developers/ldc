@@ -8,7 +8,7 @@
 
 /*          Copyright Digital Mars 2004 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module rt.typeinfo.ti_double;
@@ -34,7 +34,8 @@ class TypeInfo_d : TypeInfo
         if (d1 !<>= d2)         // if either are NaN
         {
             if (d1 !<>= d1)
-            {   if (d2 !<>= d2)
+            {
+                if (d2 !<>= d2)
                     return 0;
                 return -1;
             }
@@ -62,7 +63,7 @@ class TypeInfo_d : TypeInfo
         return _compare(*cast(double *)p1, *cast(double *)p2);
     }
 
-    @property override size_t tsize() nothrow pure
+    override @property size_t tsize() nothrow pure
     {
         return double.sizeof;
     }
@@ -76,13 +77,14 @@ class TypeInfo_d : TypeInfo
         *cast(double *)p2 = t;
     }
 
-    override void[] init() nothrow pure
-    {   static immutable double r;
+    override const(void)[] init() nothrow pure
+    {
+        static immutable double r;
 
         return (cast(double *)&r)[0 .. 1];
     }
 
-    @property override size_t talign() nothrow pure
+    override @property size_t talign() nothrow pure
     {
         return double.alignof;
     }

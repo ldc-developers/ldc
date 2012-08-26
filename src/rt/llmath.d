@@ -8,7 +8,7 @@
 
 /*          Copyright Digital Mars 1993 - 2011.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module rt.llmath;
@@ -30,6 +30,21 @@ extern (C):
  *      [EDX,EAX] = [EDX,EAX] / [ECX,EBX]
  *      [ECX,EBX] = [EDX,EAX] % [ECX,EBX]
  */
+
+void __ULDIV2__()
+{
+  version (D_InlineAsm_X86)
+    asm
+    {
+        naked                   ;
+        mov     EBX,4[ESP]      ;
+        jmp     __ULDIV__       ;
+    }
+  else version (D_InlineAsm_X86_64)
+        assert(0);
+  else
+        static assert(0);
+}
 
 void __ULDIV__()
 {
@@ -209,6 +224,21 @@ quo1:       // Quotient is 1
  *      [ECX,EBX] = [EDX,EAX] % [ECX,EBX]
  *      ESI,EDI destroyed
  */
+
+void __LDIV2__()
+{
+  version (D_InlineAsm_X86)
+    asm
+    {
+        naked                   ;
+        mov     EBX,4[ESP]      ;
+        jmp     __LDIV__        ;
+    }
+  else version (D_InlineAsm_X86_64)
+        assert(0);
+  else
+        static assert(0);
+}
 
 void __LDIV__()
 {

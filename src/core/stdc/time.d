@@ -9,7 +9,7 @@
 
 /*          Copyright Sean Kelly 2005 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module core.stdc.time;
@@ -18,7 +18,7 @@ private import core.stdc.config;
 private import core.stdc.stddef; // for size_t
 
 extern (C):
-
+@trusted: // There are only a few functions here that use unsafe C strings.
 nothrow:
 
 version( Windows )
@@ -82,15 +82,15 @@ char*   asctime(in tm* timeptr);
 char*   ctime(in time_t* timer);
 tm*     gmtime(in time_t* timer);
 tm*     localtime(in time_t* timer);
-size_t  strftime(char* s, size_t maxsize, in char* format, in tm* timeptr);
+@system size_t  strftime(char* s, size_t maxsize, in char* format, in tm* timeptr);
 
 version( Windows )
 {
     void  tzset();                           // non-standard
     void  _tzset();                          // non-standard
-    char* _strdate(char* s);                 // non-standard
-    char* _strtime(char* s);                 // non-standard
-    
+    @system char* _strdate(char* s);                 // non-standard
+    @system char* _strtime(char* s);                 // non-standard
+
     extern __gshared const(char)*[2] tzname; // non-standard
 }
 else version( OSX )

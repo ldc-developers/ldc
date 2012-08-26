@@ -3,13 +3,13 @@
  *
  * Copyright: Copyright Sean Kelly 2005 - 2009.
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Authors:   Sean Kelly, Walter Bright
+ * Authors:   Sean Kelly, Walter Bright, Alex Rønne Petersen
  * Source:    $(DRUNTIMESRC core/_thread.d)
  */
 
 /*          Copyright Sean Kelly 2005 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  * Source: $(LINK http://www.dsource.org/projects/druntime/browser/trunk/src/core/thread.d)
  */
@@ -148,9 +148,6 @@ class Thread
     this( void delegate() dg, size_t sz = 0 );
 
 
-    /**
-     * Cleans up any remaining resources used by this object.
-     */
     ~this();
 
 
@@ -318,8 +315,8 @@ class Thread
 
 
     /**
-     * $(RED Scheduled for deprecation in January 2012. Please use the version
-     *       which takes a $(D Duration) instead.)
+     * $(RED Deprecated. It will be removed in December 2012. Please use the
+     *       version which takes a $(D Duration) instead.)
      *
      * Suspends the calling thread for at least the supplied period.  This may
      * result in multiple OS calls if period is greater than the maximum sleep
@@ -340,7 +337,7 @@ class Thread
      *
      * ------------------------------------------------------------------------
      */
-    static void sleep( long period );
+    deprecated static void sleep( long period );
 
 
     /**
@@ -359,7 +356,8 @@ class Thread
      *
      * Returns:
      *  The thread object representing the calling thread.  The result of
-     *  deleting this object is undefined.
+     *  deleting this object is undefined.  If the current thread is not
+     *  attached to the runtime, a null reference is returned.
      */
     static Thread getThis();
 
@@ -393,19 +391,14 @@ class Thread
     ///////////////////////////////////////////////////////////////////////////
 
 
-    /**
-     * This initializer is used to set thread constants.  All functional
-     * initialization occurs within thread_init().
-     */
+    // This initializer is used to set thread constants.  All functional
+    // initialization occurs within thread_init().
     shared static this();
 
 
     ///////////////////////////////////////////////////////////////////////////
     // Stuff That Should Go Away
     ///////////////////////////////////////////////////////////////////////////
-
-
-    deprecated alias thread_findByAddr findThread;
 
 
 private:
@@ -467,7 +460,7 @@ extern (C) bool thread_isMainThread();
 
 /**
  * Registers the calling thread for use with the D Runtime.  If this routine
- * is called for a thread which is already registered, the result is undefined.
+ * is called for a thread which is already registered, no action is performed.
  */
 extern (C) Thread thread_attachThis();
 
@@ -489,21 +482,12 @@ version( Windows )
 
     /// ditto
     extern (C) Thread thread_attachByAddrB( Thread.ThreadAddr addr, void* bstack );
-
-    /// This should be handled automatically by thread_attach.
-    deprecated extern (C) void thread_setNeedLock( bool need ) nothrow;
-
-    /// Renamed to be more consistent with other extern (C) routines.
-    deprecated alias thread_attachByAddr thread_attach;
-
-    /// ditto
-    deprecated alias thread_detachByAddr thread_detach;
 }
 
 
 /**
  * Deregisters the calling thread from use with the runtime.  If this routine
- * is called for a thread which is not registered, the result is undefined.
+ * is called for a thread which is not registered, no action is performed.
  */
 extern (C) void thread_detachThis();
 
@@ -524,6 +508,19 @@ static Thread thread_findByAddr( Thread.ThreadAddr addr );
 
 
 /**
+ * Sets the current thread to a specific reference. Only to be used
+ * when dealing with externally-created threads (in e.g. C code).
+ * The primary use of this function is when Thread.getThis() must
+ * return a sensible value in, for example, TLS destructors. In
+ * other words, don't touch this unless you know what you're doing.
+ *
+ * Params:
+ *  t = A reference to the current thread. May be null.
+ */
+extern (C) void thread_setThis(Thread t);
+
+
+/**
  * Joins all non-daemon threads that are currently running.  This is done by
  * performing successive scans through the thread list until a scan consists
  * of only daemon threads.
@@ -531,22 +528,8 @@ static Thread thread_findByAddr( Thread.ThreadAddr addr );
 extern (C) void thread_joinAll();
 
 
-/**
- * Performs intermediate shutdown of the thread module.
- */
+// Performs intermediate shutdown of the thread module.
 shared static ~this();
-
-
-/**
- * This function is used to determine whether the the process is
- * multi-threaded.  Optimizations may only be performed on this
- * value if the programmer can guarantee that no path from the
- * enclosed code will start a thread.
- *
- * Returns:
- *  True if Thread.start() has been called in this process.
- */
-extern (C) bool thread_needLock() nothrow;
 
 
 /**
@@ -575,14 +558,17 @@ extern (C) void thread_suspendAll();
 extern (C) void thread_resumeAll();
 
 
+/**
+ * Indicates the kind of scan being performed by $(D thread_scanAllType).
+ */
 enum ScanType
 {
-    stack,
-    tls,
+    stack, /// The stack and/or registers are being scanned.
+    tls, /// TLS data is being scanned.
 }
 
-alias void delegate(void*, void*) ScanAllThreadsFn;
-alias void delegate(ScanType, void*, void*) ScanAllThreadsTypeFn;
+alias void delegate(void*, void*) ScanAllThreadsFn; /// The scanning function.
+alias void delegate(ScanType, void*, void*) ScanAllThreadsTypeFn; /// ditto
 
 /**
  * The main entry point for garbage collection.  The supplied delegate
@@ -590,12 +576,11 @@ alias void delegate(ScanType, void*, void*) ScanAllThreadsTypeFn;
  *
  * Params:
  *  scan        = The scanner function.  It should scan from p1 through p2 - 1.
- *  curStackTop = An optional pointer to the top of the calling thread's stack.
  *
  * In:
  *  This routine must be preceded by a call to thread_suspendAll.
  */
-extern (C) void thread_scanAllType( scope ScanAllThreadsTypeFn scan, void* curStackTop = null );
+extern (C) void thread_scanAllType( scope ScanAllThreadsTypeFn scan );
 
 
 /**
@@ -604,18 +589,66 @@ extern (C) void thread_scanAllType( scope ScanAllThreadsTypeFn scan, void* curSt
  *
  * Params:
  *  scan        = The scanner function.  It should scan from p1 through p2 - 1.
- *  curStackTop = An optional pointer to the top of the calling thread's stack.
  *
  * In:
  *  This routine must be preceded by a call to thread_suspendAll.
  */
-extern (C) void thread_scanAll( scope ScanAllThreadsFn scan, void* curStackTop = null );
+extern (C) void thread_scanAll( scope ScanAllThreadsFn scan );
 
+
+/*
+ * Signals that the code following this call is a critical region. Any code in
+ * this region must finish running before the calling thread can be suspended
+ * by a call to thread_suspendAll. If the world is stopped while the calling
+ * thread is in a critical region, it will be continually suspended and resumed
+ * until it is outside a critical region.
+ *
+ * This function is, in particular, meant to help maintain garbage collector
+ * invariants when a lock is not used.
+ *
+ * A critical region is exited with thread_exitCriticalRegion.
+ *
+ * $(RED Warning):
+ * Using critical regions is extremely error-prone. For instance, using a lock
+ * inside a critical region will most likely result in an application deadlocking
+ * because the stop-the-world routine will attempt to suspend and resume the thread
+ * forever, to no avail.
+ *
+ * The term and concept of a 'critical region' comes from
+ * $(LINK2 https://github.com/mono/mono/blob/521f4a198e442573c400835ef19bbb36b60b0ebb/mono/metadata/sgen-gc.h#L925 Mono's SGen garbage collector).
+ *
+ * In:
+ *  The calling thread must be attached to the runtime.
+ */
+extern (C) void thread_enterCriticalRegion();
+
+
+/*
+ * Signals that the calling thread is no longer in a critical region. Following
+ * a call to this function, the thread can once again be suspended.
+ *
+ * In:
+ *  The calling thread must be attached to the runtime.
+ */
+extern (C) void thread_exitCriticalRegion();
+
+
+/*
+ * Returns true if the current thread is in a critical region; otherwise, false.
+ *
+ * In:
+ *  The calling thread must be attached to the runtime.
+ */
+extern (C) bool thread_inCriticalRegion();
+
+/**
+ * Indicates whether an address has been marked by the GC.
+ */
 enum IsMarked : int
 {
-         no,
-        yes,
-    unknown, // memory is not managed by GC
+         no, /// Address is not marked.
+        yes, /// Address is marked.
+    unknown, /// Address is not managed by the GC.
 }
 
 alias IsMarked delegate( void* addr ) IsMarkedDg;
@@ -627,7 +660,7 @@ alias IsMarked delegate( void* addr ) IsMarkedDg;
  * means the array append cache.
  *
  * Params:
- *  hasMarks = The probe function. It should return true for pointers into marked memory blocks.
+ *  isMarked = The function used to check if $(D addr) is marked.
  *
  * In:
  *  This routine must be called just prior to resuming all threads.
@@ -636,7 +669,27 @@ extern(C) void thread_processGCMarks( scope IsMarkedDg isMarked );
 
 
 /**
+ * Returns the stack top of the currently active stack within the calling
+ * thread.
  *
+ * In:
+ *  The calling thread must be attached to the runtime.
+ *
+ * Returns:
+ *  The address of the stack top.
+ */
+extern (C) void* thread_stackTop();
+
+
+/**
+ * Returns the stack bottom of the currently active stack within the calling
+ * thread.
+ *
+ * In:
+ *  The calling thread must be attached to the runtime.
+ *
+ * Returns:
+ *  The address of the stack bottom.
  */
 extern (C) void* thread_stackBottom();
 
@@ -819,7 +872,7 @@ class Fiber
      * D function.
      *
      * Params:
-     *  fn = The thread function.
+     *  fn = The fiber function.
      *  sz = The stack size for this fiber.
      *
      * In:
@@ -833,7 +886,7 @@ class Fiber
      * D function.
      *
      * Params:
-     *  dg = The thread function.
+     *  dg = The fiber function.
      *  sz = The stack size for this fiber.
      *
      * In:
@@ -842,9 +895,6 @@ class Fiber
     this( void delegate() dg, size_t sz = PAGESIZE*4 );
 
 
-    /**
-     * Cleans up any remaining resources used by this object.
-     */
     ~this();
 
 
@@ -882,11 +932,20 @@ class Fiber
      * classes, for example, may not be cleaned up properly if a fiber is reset
      * before it has terminated.
      *
+     * Params:
+     *  fn = The fiber function.
+     *  dg = The fiber function.
+     *
      * In:
      *  This fiber must be in state TERM.
      */
     final void reset();
 
+    /// ditto
+    final void reset( void function() fn );
+
+    /// ditto
+    final void reset( void delegate() dg );
 
     ///////////////////////////////////////////////////////////////////////////
     // General Properties

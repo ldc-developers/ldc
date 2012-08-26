@@ -24,6 +24,7 @@ private
     }
     import core.bitop;
     import core.stdc.stdio;
+    import core.memory;
     import rt.util.utf;
 
     struct BitArray
@@ -104,12 +105,13 @@ extern (C) void dmd_coverSetMerge( bool flag )
  *  valid    = ???
  *  data     = ???
  */
-extern (C) void _d_cover_register( string filename, BitArray valid, uint[] data )
+extern (C) void _d_cover_register( string filename, size_t[] valid, uint[] data )
 {
     Cover c;
 
     c.filename  = filename;
-    c.valid     = valid;
+    c.valid.ptr = valid.ptr;
+    c.valid.len = valid.length;
     c.data      = data;
     gdata      ~= c;
 }
@@ -117,6 +119,8 @@ extern (C) void _d_cover_register( string filename, BitArray valid, uint[] data 
 
 shared static ~this()
 {
+    if (!gdata.length) return;
+
     const NUMLINES = 16384 - 1;
     const NUMCHARS = 16384 * 16 - 1;
 
@@ -326,7 +330,7 @@ bool readFile( string name, ref char[] buf )
                                        FILE_ATTRIBUTE_NORMAL | FILE_FLAG_SEQUENTIAL_SCAN,
                                        cast(HANDLE) null );
 
-        delete wnamez;
+        GC.free(cast(void*)wnamez);
         if( file == INVALID_HANDLE_VALUE )
             return false;
         scope( exit ) CloseHandle( file );
@@ -354,7 +358,7 @@ bool readFile( string name, ref char[] buf )
                         namez[$ - 1] = 0;
         int     file = open( namez.ptr, O_RDONLY );
 
-        delete namez;
+        GC.free(namez.ptr);
         if( file == -1 )
             return false;
         scope( exit ) close( file );

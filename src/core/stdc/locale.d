@@ -9,13 +9,13 @@
 
 /*          Copyright Sean Kelly 2005 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module core.stdc.locale;
 
 extern (C):
-
+@trusted: // Only setlocale operates on C strings.
 nothrow:
 
 struct lconv
@@ -59,5 +59,5 @@ enum LC_TELEPHONE      = 10; // non-standard
 enum LC_MEASUREMENT    = 11; // non-standard
 enum LC_IDENTIFICATION = 12; // non-standard
 
-char*  setlocale(int category, in char* locale);
+@system char*  setlocale(int category, in char* locale);
 lconv* localeconv();

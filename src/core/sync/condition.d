@@ -10,7 +10,7 @@
 
 /*          Copyright Sean Kelly 2005 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module core.sync.condition;
@@ -48,7 +48,7 @@ else
 
 
 /**
- * This class represents a condition variable as concieved by C.A.R. Hoare.  As
+ * This class represents a condition variable as conceived by C.A.R. Hoare.  As
  * per Mesa type monitors however, "signal" has been replaced with "notify" to
  * indicate that control is not transferred to the waiter when a notification
  * is sent.
@@ -58,7 +58,6 @@ class Condition
     ////////////////////////////////////////////////////////////////////////////
     // Initialization
     ////////////////////////////////////////////////////////////////////////////
-
 
     /**
      * Initializes a condition object which is associated with the supplied
@@ -89,8 +88,7 @@ class Condition
         }
         else version( Posix )
         {
-            m_mutexAddr = m.handleAddr();
-
+            m_assocMutex = m;
             int rc = pthread_cond_init( &m_hndl, null );
             if( rc )
                 throw new SyncException( "Unable to initialize condition" );
@@ -117,6 +115,23 @@ class Condition
 
 
     ////////////////////////////////////////////////////////////////////////////
+    // General Properties
+    ////////////////////////////////////////////////////////////////////////////
+
+
+    /**
+     * Gets the mutex associated with this condition.
+     *
+     * Returns:
+     *  The mutex associated with this condition.
+     */
+    @property Mutex mutex()
+    {
+        return m_assocMutex;
+    }
+
+
+    ////////////////////////////////////////////////////////////////////////////
     // General Actions
     ////////////////////////////////////////////////////////////////////////////
 
@@ -135,7 +150,7 @@ class Condition
         }
         else version( Posix )
         {
-            int rc = pthread_cond_wait( &m_hndl, m_mutexAddr );
+            int rc = pthread_cond_wait( &m_hndl, m_assocMutex.handleAddr() );
             if( rc )
                 throw new SyncException( "Unable to wait for condition" );
         }
@@ -183,7 +198,9 @@ class Condition
             timespec t = void;
             mktspec( t, val );
 
-            int rc = pthread_cond_timedwait( &m_hndl, m_mutexAddr, &t );
+            int rc = pthread_cond_timedwait( &m_hndl,
+                                             m_assocMutex.handleAddr(),
+                                             &t );
             if( !rc )
                 return true;
             if( rc == ETIMEDOUT )
@@ -194,16 +211,16 @@ class Condition
 
 
     /**
-     * $(RED Scheduled for deprecation in January 2012. Please use the version
-     *       which takes a $(D Duration) instead.)
+     * $(RED Deprecated. It will be removed in December 2012. Please use the
+     *       version which takes a $(D Duration) instead.)
      *
      * Suspends the calling thread until a notification occurs or until the
      * supplied time period has elapsed.
      *
      * Params:
      *  period = The time to wait, in 100 nanosecond intervals.  This value may
-     *           be adjusted to equal to the maximum wait period supported by
-     *           the target platform if it is too large.
+     *           be adjusted to equal the maximum wait period supported by the
+     *           target platform if it is too large.
      *
      * In:
      *  period must be non-negative.
@@ -214,7 +231,7 @@ class Condition
      * Returns:
      *  true if notified before the timeout and false if not.
      */
-    bool wait( long period )
+    deprecated bool wait( long period )
     in
     {
         assert( period >= 0 );
@@ -433,8 +450,8 @@ private:
     }
     else version( Posix )
     {
+        Mutex               m_assocMutex;
         pthread_cond_t      m_hndl;
-        pthread_mutex_t*    m_mutexAddr;
     }
 }
 
@@ -577,7 +594,9 @@ version( unittest )
             synchronized( mutex )
             {
                 waiting    = true;
-                alertedOne = condReady.wait( dur!"seconds"(1) );
+                // we never want to miss the notification (30s)
+                alertedOne = condReady.wait( dur!"seconds"(30) );
+                // but we don't want to wait long for the timeout (1s)
                 alertedTwo = condReady.wait( dur!"seconds"(1) );
             }
         }
@@ -598,7 +617,9 @@ version( unittest )
             Thread.yield();
         }
         thread.join();
-        assert( waiting && alertedOne && !alertedTwo );
+        assert( waiting );
+        assert( alertedOne );
+        assert( !alertedTwo );
     }
 
 

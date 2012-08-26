@@ -3,13 +3,13 @@
  *
  * Copyright: Copyright Sean Kelly 2005 - 2009.
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Authors:   Sean Kelly, Walter Bright
+ * Authors:   Sean Kelly, Walter Bright, Alex Rønne Petersen
  * Source:    $(DRUNTIMESRC core/_thread.d)
  */
 
 /*          Copyright Sean Kelly 2005 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  * Source: $(LINK http://www.dsource.org/projects/druntime/browser/trunk/src/core/thread.d)
  */
@@ -83,6 +83,7 @@ class FiberException : Exception
 private
 {
     import core.sync.mutex;
+    import core.atomic;
 
     //
     // from core.memory
@@ -99,23 +100,8 @@ private
     //
     // exposed by compiler runtime
     //
-    extern (C) void* rt_stackBottom();
-    extern (C) void* rt_stackTop();
     extern (C) void  rt_moduleTlsCtor();
     extern (C) void  rt_moduleTlsDtor();
-
-
-    void* getStackBottom()
-    {
-        return rt_stackBottom();
-    }
-
-
-    void* getStackTop()
-    {
-        return rt_stackTop();
-    }
-
 
     alias void delegate() gc_atom;
     extern (C) void function(scope gc_atom) gc_atomic;
@@ -145,6 +131,7 @@ version( Windows )
         import core.sys.windows.threadaux;   // for OpenThreadHandle
 
         const DWORD TLS_OUT_OF_INDEXES  = 0xFFFFFFFF;
+        const CREATE_SUSPENDED = 0x00000004;
 
         extern (Windows) alias uint function(void*) btex_fptr;
         extern (C) uintptr_t _beginthreadex(void*, uint, btex_fptr, void*, uint, uint*);
@@ -293,17 +280,6 @@ else version( Posix )
                     __gshared void[][2] _tls_data_array;
                 }
             }
-            else version(none)
-            {
-                extern (C)
-                {
-                    extern __gshared
-                    {
-                        void* _tls_beg;
-                        void* _tls_end;
-                    }
-                }
-            }
             else version( FreeBSD )
             {
                 extern (C)
@@ -334,40 +310,7 @@ else version( Posix )
             assert( obj );
 
             assert( obj.m_curr is &obj.m_main );
-            // NOTE: For some reason this does not always work for threads.
-            //obj.m_main.bstack = getStackBottom();
-            version( D_InlineAsm_X86 )
-            {
-                static void* getBasePtr()
-                {
-                    asm
-                    {
-                        naked;
-                        mov EAX, EBP;
-                        ret;
-                    }
-                }
-
-                obj.m_main.bstack = getBasePtr();
-            }
-            else version( D_InlineAsm_X86_64 )
-            {
-                static void* getBasePtr()
-                {
-                    asm
-                    {
-                        naked;
-                        mov RAX, RBP;
-                        ret;
-                    }
-                }
-
-                obj.m_main.bstack = getBasePtr();
-            }
-            else version( StackGrowsDown )
-                obj.m_main.bstack = &obj + 1;
-            else
-                obj.m_main.bstack = &obj;
+            obj.m_main.bstack = getStackBottom();
             obj.m_main.tstack = obj.m_main.bstack;
 
             static if( osxManualTls )
@@ -382,18 +325,6 @@ else version( Posix )
                 obj.m_tls = p[0 .. sz2];
                 memcpy( p, _tls_data_array[0].ptr, _tls_data_array[0].length );
                 memcpy( p + sz0, _tls_data_array[1].ptr, _tls_data_array[1].length );
-                scope (exit) { free( p ); obj.m_tls = null; }
-            }
-            else version (none)
-            {
-                // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
-                //       data output by the compiler is bracketed by _tls_beg and
-                //       _tls_end, so make a copy of it for each thread.
-                const sz = cast(void*) &_tls_end - cast(void*) &_tls_beg;
-                auto p = malloc( sz );
-                assert( p );
-                obj.m_tls = p[0 .. sz];
-                memcpy( p, &_tls_beg, sz );
                 scope (exit) { free( p ); obj.m_tls = null; }
             }
             else
@@ -417,7 +348,7 @@ else version( Posix )
             Thread.add( &obj.m_main );
             obj.m_tlsgcdata = rt.tlsgc.init();
 
-            static extern (C) void thread_cleanupHandler( void* arg )
+            static extern (C) void thread_cleanupHandler( void* arg ) nothrow
             {
                 Thread  obj = cast(Thread) arg;
                 assert( obj );
@@ -519,99 +450,11 @@ else version( Posix )
         }
         body
         {
-            version( LDC)
+            void op(void* sp)
             {
-                version(X86)
-                {
-                    uint eax,ecx,edx,ebx,ebp,esi,edi;
-                    asm
-                    {
-                        mov eax[EBP], EAX      ;
-                        mov ecx[EBP], ECX      ;
-                        mov edx[EBP], EDX      ;
-                        mov ebx[EBP], EBX      ;
-                        mov ebp[EBP], EBP      ;
-                        mov esi[EBP], ESI      ;
-                        mov edi[EBP], EDI      ;
-                    }
-                }
-                else version (X86_64)
-                {
-                    ulong rax,rbx,rcx,rdx,rbp,rsi,rdi,rsp,r8,r9,r10,r11,r12,r13,r14,r15;
-                    asm
-                    {
-                        movq rax[RBP], RAX        ;
-                        movq rbx[RBP], RBX        ;
-                        movq rcx[RBP], RCX        ;
-                        movq rdx[RBP], RDX        ;
-                        movq rbp[RBP], RBP        ;
-                        movq rsi[RBP], RSI        ;
-                        movq rdi[RBP], RDI        ;
-                        movq rsp[RBP], RSP        ;
-                        movq r8 [RBP], R8         ;
-                        movq r9 [RBP], R9         ;
-                        movq r10[RBP], R10        ;
-                        movq r11[RBP], R11        ;
-                        movq r12[RBP], R12        ;
-                        movq r13[RBP], R13        ;
-                        movq r14[RBP], R14        ;
-                        movq r15[RBP], R15        ;
-                    }
-                }
-                else version (ARM)
-                {
-                    import ldc.llvmasm;
-
-                    __asm("push {r0-r12}", "");
-                }
-                else
-                {
-                    static assert( false, "Architecture not supported." );
-                }
-            }
-            else version( D_InlineAsm_X86 )
-            {
-                asm
-                {
-                    pushad;
-                }
-            }
-            else version ( D_InlineAsm_X86_64 )
-            {
-                asm
-                {
-                    // Not sure what goes here, pushad is invalid in 64 bit code
-                    push RAX ;
-                    push RBX ;
-                    push RCX ;
-                    push RDX ;
-                    push RSI ;
-                    push RDI ;
-                    push RBP ;
-                    push R8  ;
-                    push R9  ;
-                    push R10 ;
-                    push R11 ;
-                    push R12 ;
-                    push R13 ;
-                    push R14 ;
-                    push R15 ;
-                    push RAX ;   // 16 byte align the stack
-                }
-            }
-            else version( GNU )
-            {
-                __builtin_unwind_init();
-            }
-            else
-            {
-                static assert( false, "Architecture not supported." );
-            }
-
-            // NOTE: Since registers are being pushed and popped from the
-            //       stack, any other stack data used by this function should
-            //       be gone before the stack cleanup code is called below.
-            {
+                // NOTE: Since registers are being pushed and popped from the
+                //       stack, any other stack data used by this function should
+                //       be gone before the stack cleanup code is called below.
                 Thread  obj = Thread.getThis();
 
                 // NOTE: The thread reference returned by getThis is set within
@@ -645,54 +488,7 @@ else version( Posix )
                 }
             }
 
-            version( LDC)
-            {
-                // nothing to pop
-            }
-            else version (ARM)
-            {
-                import ldc.llvmasm;
-
-                __asm("pop {r0-r12}", "");
-            }
-            else version( D_InlineAsm_X86 )
-            {
-                asm
-                {
-                    popad;
-                }
-            }
-            else version ( D_InlineAsm_X86_64 )
-            {
-                asm
-                {
-                    // Not sure what goes here, popad is invalid in 64 bit code
-                    pop RAX ;   // 16 byte align the stack
-                    pop R15 ;
-                    pop R14 ;
-                    pop R13 ;
-                    pop R12 ;
-                    pop R11 ;
-                    pop R10 ;
-                    pop R9  ;
-                    pop R8  ;
-                    pop RBP ;
-                    pop RDI ;
-                    pop RSI ;
-                    pop RDX ;
-                    pop RCX ;
-                    pop RBX ;
-                    pop RAX ;
-                }
-            }
-            else version( GNU )
-            {
-                // registers will be popped automatically
-            }
-            else
-            {
-                static assert( false, "Architecture not supported." );
-            }
+            callWithStackShell(&op);
         }
 
 
@@ -894,6 +690,23 @@ class Thread
                 throw new ThreadException( "Error setting thread joinable" );
         }
 
+        version( Windows )
+        {
+            // NOTE: If a thread is just executing DllMain() 
+            //       while another thread is started here, it holds an OS internal
+            //       lock that serializes DllMain with CreateThread. As the code
+            //       might request a synchronization on slock (e.g. in thread_findByAddr()),
+            //       we cannot hold that lock while creating the thread without
+            //       creating a deadlock
+            //
+            // Solution: Create the thread in suspended state and then
+            //       add and resume it with slock acquired
+            assert(m_sz <= uint.max, "m_sz must be less than or equal to uint.max");
+            m_hndl = cast(HANDLE) _beginthreadex( null, m_sz, &thread_entryPoint, cast(void*) this, CREATE_SUSPENDED, &m_addr );
+            if( cast(size_t) m_hndl == 0 )
+                throw new ThreadException( "Error creating thread" );
+        }
+
         // NOTE: The starting thread must be added to the global thread list
         //       here rather than within thread_entryPoint to prevent a race
         //       with the main thread, which could finish and terminat the
@@ -904,10 +717,8 @@ class Thread
         {
             version( Windows )
             {
-                assert(m_sz <= uint.max, "m_sz must be less than or equal to uint.max");
-                m_hndl = cast(HANDLE) _beginthreadex( null, cast(uint) m_sz, &thread_entryPoint, cast(void*) this, 0, &m_addr );
-                if( cast(size_t) m_hndl == 0 )
-                    throw new ThreadException( "Error creating thread" );
+                if( ResumeThread( m_hndl ) == -1 )
+                    throw new ThreadException( "Error resuming thread" );
             }
             else version( Posix )
             {
@@ -926,14 +737,17 @@ class Thread
                 if( m_tmach == m_tmach.init )
                     throw new ThreadException( "Error creating thread" );
             }
-            // NOTE: DllMain(THREAD_ATTACH) may be called before this call
-            //       exits, and this in turn calls thread_findByAddr, which
-            //       would expect this thread to be in the global list if it
-            //       is a D-created thread.  However, since thread_findByAddr
-            //       acquires Thread.slock before searching the list, it is
-            //       safe to add this thread after _beginthreadex instead
-            //       of before.  This also saves us from having to use a
-            //       scope statement to remove the thread on error.
+
+            // NOTE: when creating threads from inside a DLL, DllMain(THREAD_ATTACH)
+            //       might be called before ResumeThread returns, but the dll
+            //       helper functions need to know whether the thread is created
+            //       from the runtime itself or from another DLL or the application
+            //       to just attach to it
+            //       as a consequence, the new Thread object is added before actual
+            //       creation of the thread. There should be no problem with the GC
+            //       calling thread_suspendAll, because of the slock synchronization
+            //
+            // VERIFY: does this actually also apply to other platforms?
             add( this );
         }
     }
@@ -962,9 +776,9 @@ class Thread
             if( WaitForSingleObject( m_hndl, INFINITE ) != WAIT_OBJECT_0 )
                 throw new ThreadException( "Unable to join thread" );
             // NOTE: m_addr must be cleared before m_hndl is closed to avoid
-            //       a race condition with isRunning.  The operation is labeled
-            //       volatile to prevent compiler reordering.
-            volatile m_addr = m_addr.init;
+            //       a race condition with isRunning. The operation is done
+            //       with atomicStore to prevent compiler reordering.
+            atomicStore!(msync.raw)(*cast(shared)&m_addr, m_addr.init);
             CloseHandle( m_hndl );
             m_hndl = m_hndl.init;
         }
@@ -976,7 +790,7 @@ class Thread
             //       which is normally called by the dtor.  Setting m_addr
             //       to zero ensures that pthread_detach will not be called
             //       on object destruction.
-            volatile m_addr = m_addr.init;
+            m_addr = m_addr.init;
         }
         if( m_unhandled )
         {
@@ -1238,7 +1052,7 @@ class Thread
             {
                 if( !nanosleep( &tin, &tout ) )
                     return;
-                if( getErrno() != EINTR )
+                if( errno != EINTR )
                     throw new ThreadException( "Unable to sleep for the specified duration" );
                 tin = tout;
             }
@@ -1247,8 +1061,8 @@ class Thread
 
 
     /**
-     * $(RED Scheduled for deprecation in January 2012. Please use the version
-     *       which takes a $(D Duration) instead.)
+     * $(RED Deprecated. It will be removed in December 2012. Please use the
+     *       version which takes a $(D Duration) instead.)
      *
      * Suspends the calling thread for at least the supplied period.  This may
      * result in multiple OS calls if period is greater than the maximum sleep
@@ -1269,7 +1083,7 @@ class Thread
      *
      * ------------------------------------------------------------------------
      */
-    static void sleep( long period )
+    deprecated static void sleep( long period )
     in
     {
         assert( period >= 0 );
@@ -1286,16 +1100,9 @@ class Thread
     static void yield()
     {
         version( Windows )
-        {
-            // NOTE: Sleep(1) is necessary because Sleep(0) does not give
-            //       lower priority threads any timeslice, so looping on
-            //       Sleep(0) could be resource-intensive in some cases.
-            Sleep( 1 );
-        }
+            SwitchToThread();
         else version( Posix )
-        {
             sched_yield();
-        }
     }
 
 
@@ -1309,7 +1116,8 @@ class Thread
      *
      * Returns:
      *  The thread object representing the calling thread.  The result of
-     *  deleting this object is undefined.
+     *  deleting this object is undefined.  If the current thread is not
+     *  attached to the runtime, a null reference is returned.
      */
     static Thread getThis()
     {
@@ -1433,9 +1241,6 @@ class Thread
     ///////////////////////////////////////////////////////////////////////////
 
 
-    deprecated alias thread_findByAddr findThread;
-
-
 private:
     //
     // Initializes a thread object which has no associated executable function.
@@ -1460,18 +1265,6 @@ private:
             m_tls = p[0 .. sz2];
             memcpy( p, _tls_data_array[0].ptr, _tls_data_array[0].length );
             memcpy( p + sz0, _tls_data_array[1].ptr, _tls_data_array[1].length );
-            // The free must happen at program end, if anywhere.
-        }
-        else version (none)
-        {
-            // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
-            //       data output by the compiler is bracketed by _tls_beg and
-            //       _tls_end, so make a copy of it for each thread.
-            const sz = cast(void*) &_tls_end - cast(void*) &_tls_beg;
-            auto p = malloc( sz );
-            assert( p );
-            m_tls = p[0 .. sz];
-            memcpy( p, &_tls_beg, sz );
             // The free must happen at program end, if anywhere.
         }
         else
@@ -1567,6 +1360,7 @@ private:
         bool            m_isRunning;
     }
     bool                m_isDaemon;
+    bool                m_isInCriticalRegion;
     Throwable           m_unhandled;
 
 
@@ -1958,6 +1752,41 @@ else
         static assert(0, "Platform not supported.");
 }
 
+
+unittest
+{
+    int x = 0;
+
+    auto t = new Thread(
+    {
+        x++;
+    });
+    t.start(); t.join();
+    assert( x == 1 );
+}
+
+
+unittest
+{
+    enum MSG = "Test message.";
+    string caughtMsg;
+
+    try
+    {
+        auto t = new Thread(
+        {
+            throw new Exception( MSG );
+        });
+        t.start(); t.join();
+        assert( false, "Expected rethrown exception." );
+    }
+    catch( Throwable t )
+    {
+        assert( t.msg == MSG );
+    }
+}
+
+
 ///////////////////////////////////////////////////////////////////////////////
 // GC Support Routines
 ///////////////////////////////////////////////////////////////////////////////
@@ -2049,11 +1878,14 @@ extern (C) bool thread_isMainThread()
 
 /**
  * Registers the calling thread for use with the D Runtime.  If this routine
- * is called for a thread which is already registered, the result is undefined.
+ * is called for a thread which is already registered, no action is performed.
  */
 extern (C) Thread thread_attachThis()
 {
     gc_disable(); scope(exit) gc_enable();
+
+    if (auto t = Thread.getThis())
+        return t;
 
     Thread          thisThread  = new Thread();
     Thread.Context* thisContext = &thisThread.m_main;
@@ -2099,17 +1931,6 @@ extern (C) Thread thread_attachThis()
         memcpy( p + sz0, _tls_data_array[1].ptr, _tls_data_array[1].length );
         // used gc_malloc so no need to free
     }
-    else version (none)
-    {
-        // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
-        //       data output by the compiler is bracketed by _tls_beg and
-        //       _tls_end, so make a copy of it for each thread.
-        const sz = cast(void*) &_tls_end - cast(void*) &_tls_beg;
-        auto p = gc_malloc(sz);
-        thisThread.m_tls = p[0 .. sz];
-        memcpy( p, &_tls_beg, sz );
-        // used gc_malloc so no need to free
-    }
     else
     {
         auto pstart = cast(void*) &_tlsstart;
@@ -2150,100 +1971,48 @@ version( Windows )
     {
         gc_disable(); scope(exit) gc_enable();
 
+        if (auto t = thread_findByAddr(addr))
+            return t;
+
         Thread          thisThread  = new Thread();
         Thread.Context* thisContext = &thisThread.m_main;
         assert( thisContext == thisThread.m_curr );
 
-        version( Windows )
-        {
-            thisThread.m_addr  = addr;
-            thisContext.bstack = bstack;
-            thisContext.tstack = thisContext.bstack;
+        thisThread.m_addr  = addr;
+        thisContext.bstack = bstack;
+        thisContext.tstack = thisContext.bstack;
 
-            if( addr == GetCurrentThreadId() )
-            {
-                thisThread.m_hndl = GetCurrentThreadHandle();
-            }
-            else
-            {
-                thisThread.m_hndl = OpenThreadHandle( addr );
-            }
-        }
-        else version( Posix )
+        if( addr == GetCurrentThreadId() )
         {
-            thisThread.m_addr  = addr;
-            thisContext.bstack = bstack;
-            thisContext.tstack = thisContext.bstack;
-
-            thisThread.m_isRunning = true;
-        }
-        thisThread.m_isDaemon = true;
-
-        version( OSX )
-        {
-            thisThread.m_tmach = pthread_mach_thread_np( thisThread.m_addr );
-            assert( thisThread.m_tmach != thisThread.m_tmach.init );
-        }
-
-        version (OSX)
-        {
-            // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
-            //       data output by the compiler is bracketed by _tls_data_array[2],
-            //       so make a copy of it for each thread.
-            const sz0 = (_tls_data_array[0].length + 15) & ~cast(size_t)15;
-            const sz2 = sz0 + _tls_data_array[1].length;
-            auto p = gc_malloc( sz2 );
-            assert( p );
-            obj.m_tls = p[0 .. sz2];
-            memcpy( p, _tls_data_array[0].ptr, _tls_data_array[0].length );
-            memcpy( p + sz0, _tls_data_array[1].ptr, _tls_data_array[1].length );
-            // used gc_malloc so no need to free
-
-            if( t.m_addr == pthread_self() )
-                Thread.setThis( thisThread );
-        }
-        else version (none)
-        {
-            // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
-            //       data output by the compiler is bracketed by _tls_beg and
-            //       _tls_end, so make a copy of it for each thread.
-            const sz = cast(void*) &_tls_end - cast(void*) &_tls_beg;
-            auto p = gc_malloc(sz);
-            assert( p );
-            obj.m_tls = p[0 .. sz];
-            memcpy( p, &_tls_beg, sz );
-            // used gc_malloc so no need to free
-
-           if( t.m_addr == pthread_self() )
-                Thread.setThis( thisThread );
-        }
-        else version( Windows )
-        {
-            if( addr == GetCurrentThreadId() )
-            {
-                auto pstart = cast(void*) &_tlsstart;
-                auto pend   = cast(void*) &_tlsend;
-                thisThread.m_tls = pstart[0 .. pend - pstart];
-                Thread.setThis( thisThread );
-            }
-            else
-            {
-                // TODO: This seems wrong.  If we're binding threads from
-                //       a DLL, will they always have space reserved for
-                //       the TLS chunk we expect?  I don't know Windows
-                //       well enough to say.
-                auto pstart = cast(void*) &_tlsstart;
-                auto pend   = cast(void*) &_tlsend;
-                auto pos    = GetTlsDataAddress( thisThread.m_hndl );
-                if( pos ) // on x64, threads without TLS happen to exist
-                    thisThread.m_tls = pos[0 .. pend - pstart];
-                else
-                    thisThread.m_tls = [];
-            }
+            thisThread.m_hndl = GetCurrentThreadHandle();
         }
         else
         {
-            static assert( false, "Platform not supported." );
+            thisThread.m_hndl = OpenThreadHandle( addr );
+        }
+
+        thisThread.m_isDaemon = true;
+
+        if( addr == GetCurrentThreadId() )
+        {
+            auto pstart = cast(void*) &_tlsstart;
+            auto pend   = cast(void*) &_tlsend;
+            thisThread.m_tls = pstart[0 .. pend - pstart];
+            Thread.setThis( thisThread );
+        }
+        else
+        {
+            // TODO: This seems wrong.  If we're binding threads from
+            //       a DLL, will they always have space reserved for
+            //       the TLS chunk we expect?  I don't know Windows
+            //       well enough to say.
+            auto pstart = cast(void*) &_tlsstart;
+            auto pend   = cast(void*) &_tlsend;
+            auto pos    = GetTlsDataAddress( thisThread.m_hndl );
+            if( pos ) // on x64, threads without TLS happen to exist
+                thisThread.m_tls = pos[0 .. pend - pstart];
+            else
+                thisThread.m_tls = [];
         }
 
         Thread.add( thisThread );
@@ -2253,22 +2022,6 @@ version( Windows )
         thisThread.m_tlsgcdata = rt.tlsgc.init();
         return thisThread;
     }
-
-
-    /// This should be handled automatically by thread_attach.
-    deprecated extern (C) void thread_setNeedLock( bool need ) nothrow
-    {
-        if( need )
-            multiThreadedFlag = true;
-    }
-
-
-    /// Renamed to be more consistent with other extern (C) routines.
-    deprecated alias thread_attachByAddr thread_attach;
-
-
-    /// ditto
-    deprecated alias thread_detachByAddr thread_detach;
 }
 
 
@@ -2278,7 +2031,8 @@ version( Windows )
  */
 extern (C) void thread_detachThis()
 {
-    Thread.remove( Thread.getThis() );
+    if (auto t = Thread.getThis())
+        Thread.remove(t);
 }
 
 
@@ -2309,6 +2063,22 @@ static Thread thread_findByAddr( Thread.ThreadAddr addr )
         }
     }
     return null;
+}
+
+
+/**
+ * Sets the current thread to a specific reference. Only to be used
+ * when dealing with externally-created threads (in e.g. C code).
+ * The primary use of this function is when Thread.getThis() must
+ * return a sensible value in, for example, TLS destructors. In
+ * other words, don't touch this unless you know what you're doing.
+ *
+ * Params:
+ *  t = A reference to the current thread. May be null.
+ */
+extern (C) void thread_setThis(Thread t)
+{
+    Thread.setThis(t);
 }
 
 
@@ -2365,24 +2135,299 @@ shared static ~this()
 private __gshared bool multiThreadedFlag = false;
 
 
-/**
- * This function is used to determine whether the the process is
- * multi-threaded.  Optimizations may only be performed on this
- * value if the programmer can guarantee that no path from the
- * enclosed code will start a thread.
- *
- * Returns:
- *  True if Thread.start() has been called in this process.
- */
-extern (C) bool thread_needLock() nothrow
+// Calls the given delegate, passing the current thread's stack pointer to it.
+private void callWithStackShell(scope void delegate(void* sp) fn)
+in
 {
-    return multiThreadedFlag;
+    assert(fn);
+}
+body
+{
+    // The purpose of the 'shell' is to ensure all the registers
+    // get put on the stack so they'll be scanned
+    void *sp;
+
+    version (GNU)
+    {
+        __builtin_unwind_init();
+        sp = & sp;
+    }
+    else version (D_InlineAsm_X86)
+    {
+        asm
+        {
+            pushad              ;
+            mov sp[EBP],ESP     ;
+        }
+    }
+    else version (D_InlineAsm_X86_64)
+    {
+        asm
+        {
+            push RAX ;
+            push RBX ;
+            push RCX ;
+            push RDX ;
+            push RSI ;
+            push RDI ;
+            push RBP ;
+            push R8  ;
+            push R9  ;
+            push R10  ;
+            push R11  ;
+            push R12  ;
+            push R13  ;
+            push R14  ;
+            push R15  ;
+            push RAX ;   // 16 byte align the stack
+            mov sp[RBP],RSP     ;
+        }
+    }
+    else version (ARM)
+    {
+        version (LDC)
+        {
+            import ldc.llvmasm;
+            __asm("push {r0-r12}", "r");
+            __asm("mov $0, sp", "=*m,r", &sp);
+        }
+        else
+        {
+            static assert(false, "Architecture not supported.");
+        }
+    }
+    else
+    {
+        static assert(false, "Architecture not supported.");
+    }
+
+    fn(sp);
+
+    version (GNU)
+    {
+        // registers will be popped automatically
+    }
+    else version (D_InlineAsm_X86)
+    {
+        asm
+        {
+            popad;
+        }
+    }
+    else version (D_InlineAsm_X86_64)
+    {
+        asm
+        {
+            pop RAX ;   // 16 byte align the stack
+            pop R15  ;
+            pop R14  ;
+            pop R13  ;
+            pop R12  ;
+            pop R11  ;
+            pop R10  ;
+            pop R9  ;
+            pop R8  ;
+            pop RBP ;
+            pop RDI ;
+            pop RSI ;
+            pop RDX ;
+            pop RCX ;
+            pop RBX ;
+            pop RAX ;
+        }
+    }
+    else version (ARM)
+    {
+        version (LDC)
+        {
+            import ldc.llvmasm;
+            __asm("pop {r0-r12}", "=r");
+        }
+        else
+        {
+            static assert(false, "Architecture not supported.");
+        }
+    }
+    else
+    {
+        static assert(false, "Architecture not supported.");
+    }
 }
 
 
 // Used for suspendAll/resumeAll below.
 private __gshared uint suspendDepth = 0;
 
+/**
+ * Suspend the specified thread and load stack and register information for
+ * use by thread_scanAll.  If the supplied thread is the calling thread,
+ * stack and register information will be loaded but the thread will not
+ * be suspended.  If the suspend operation fails and the thread is not
+ * running then it will be removed from the global thread list, otherwise
+ * an exception will be thrown.
+ *
+ * Params:
+ *  t = The thread to suspend.
+ *
+ * Throws:
+ *  ThreadException if the suspend operation fails for a running thread.
+ */
+private void suspend( Thread t )
+{
+    version( Windows )
+    {
+        if( t.m_addr != GetCurrentThreadId() && SuspendThread( t.m_hndl ) == 0xFFFFFFFF )
+        {
+            if( !t.isRunning )
+            {
+                Thread.remove( t );
+                return;
+            }
+            throw new ThreadException( "Unable to suspend thread" );
+        }
+
+        CONTEXT context = void;
+        context.ContextFlags = CONTEXT_INTEGER | CONTEXT_CONTROL;
+
+        if( !GetThreadContext( t.m_hndl, &context ) )
+            throw new ThreadException( "Unable to load thread context" );
+        version( X86 )
+        {
+            if( !t.m_lock )
+                t.m_curr.tstack = cast(void*) context.Esp;
+            // eax,ebx,ecx,edx,edi,esi,ebp,esp
+            t.m_reg[0] = context.Eax;
+            t.m_reg[1] = context.Ebx;
+            t.m_reg[2] = context.Ecx;
+            t.m_reg[3] = context.Edx;
+            t.m_reg[4] = context.Edi;
+            t.m_reg[5] = context.Esi;
+            t.m_reg[6] = context.Ebp;
+            t.m_reg[7] = context.Esp;
+        }
+        else version( X86_64 )
+        {
+            if( !t.m_lock )
+                t.m_curr.tstack = cast(void*) context.Rsp;            
+            // rax,rbx,rcx,rdx,rdi,rsi,rbp,rsp
+            t.m_reg[0] = context.Rax;
+            t.m_reg[1] = context.Rbx;
+            t.m_reg[2] = context.Rcx;
+            t.m_reg[3] = context.Rdx;
+            t.m_reg[4] = context.Rdi;
+            t.m_reg[5] = context.Rsi;
+            t.m_reg[6] = context.Rbp;
+            t.m_reg[7] = context.Rsp;
+            // r8,r9,r10,r11,r12,r13,r14,r15
+            t.m_reg[8]  = context.R8;
+            t.m_reg[9]  = context.R9;
+            t.m_reg[10] = context.R10;
+            t.m_reg[11] = context.R11;
+            t.m_reg[12] = context.R12;
+            t.m_reg[13] = context.R13;
+            t.m_reg[14] = context.R14;
+            t.m_reg[15] = context.R15;                    
+        }
+        else
+        {
+            static assert(false, "Architecture not supported." );
+        }
+    }
+    else version( OSX )
+    {
+        if( t.m_addr != pthread_self() && thread_suspend( t.m_tmach ) != KERN_SUCCESS )
+        {
+            if( !t.isRunning )
+            {
+                Thread.remove( t );
+                return;
+            }
+            throw new ThreadException( "Unable to suspend thread" );
+        }
+
+        version( X86 )
+        {
+            x86_thread_state32_t    state = void;
+            mach_msg_type_number_t  count = x86_THREAD_STATE32_COUNT;
+
+            if( thread_get_state( t.m_tmach, x86_THREAD_STATE32, &state, &count ) != KERN_SUCCESS )
+                throw new ThreadException( "Unable to load thread state" );
+            if( !t.m_lock )
+                t.m_curr.tstack = cast(void*) state.esp;
+            // eax,ebx,ecx,edx,edi,esi,ebp,esp
+            t.m_reg[0] = state.eax;
+            t.m_reg[1] = state.ebx;
+            t.m_reg[2] = state.ecx;
+            t.m_reg[3] = state.edx;
+            t.m_reg[4] = state.edi;
+            t.m_reg[5] = state.esi;
+            t.m_reg[6] = state.ebp;
+            t.m_reg[7] = state.esp;
+        }
+        else version( X86_64 )
+        {
+            x86_thread_state64_t    state = void;
+            mach_msg_type_number_t  count = x86_THREAD_STATE64_COUNT;
+
+            if( thread_get_state( t.m_tmach, x86_THREAD_STATE64, &state, &count ) != KERN_SUCCESS )
+                throw new ThreadException( "Unable to load thread state" );
+            if( !t.m_lock )
+                t.m_curr.tstack = cast(void*) state.rsp;
+            // rax,rbx,rcx,rdx,rdi,rsi,rbp,rsp
+            t.m_reg[0] = state.rax;
+            t.m_reg[1] = state.rbx;
+            t.m_reg[2] = state.rcx;
+            t.m_reg[3] = state.rdx;
+            t.m_reg[4] = state.rdi;
+            t.m_reg[5] = state.rsi;
+            t.m_reg[6] = state.rbp;
+            t.m_reg[7] = state.rsp;
+            // r8,r9,r10,r11,r12,r13,r14,r15
+            t.m_reg[8]  = state.r8;
+            t.m_reg[9]  = state.r9;
+            t.m_reg[10] = state.r10;
+            t.m_reg[11] = state.r11;
+            t.m_reg[12] = state.r12;
+            t.m_reg[13] = state.r13;
+            t.m_reg[14] = state.r14;
+            t.m_reg[15] = state.r15;
+        }
+        else
+        {
+            static assert(false, "Architecture not supported." );
+        }
+    }
+    else version( Posix )
+    {
+        if( t.m_addr != pthread_self() )
+        {
+            if( pthread_kill( t.m_addr, SIGUSR1 ) != 0 )
+            {
+                if( !t.isRunning )
+                {
+                    Thread.remove( t );
+                    return;
+                }
+                throw new ThreadException( "Unable to suspend thread" );
+            }
+            // NOTE: It's really not ideal to wait for each thread to
+            //       signal individually -- rather, it would be better to
+            //       suspend them all and wait once at the end.  However,
+            //       semaphores don't really work this way, and the obvious
+            //       alternative (looping on an atomic suspend count)
+            //       requires either the atomic module (which only works on
+            //       x86) or other specialized functionality.  It would
+            //       also be possible to simply loop on sem_wait at the
+            //       end, but I'm not convinced that this would be much
+            //       faster than the current approach.
+            sem_wait( &suspendCount );
+        }
+        else if( !t.m_lock )
+        {
+            t.m_curr.tstack = getStackTop();
+        }
+    }
+}
 
 /**
  * Suspend all threads but the calling thread for "stop the world" garbage
@@ -2395,156 +2440,6 @@ private __gshared uint suspendDepth = 0;
  */
 extern (C) void thread_suspendAll()
 {
-    /**
-     * Suspend the specified thread and load stack and register information for
-     * use by thread_scanAll.  If the supplied thread is the calling thread,
-     * stack and register information will be loaded but the thread will not
-     * be suspended.  If the suspend operation fails and the thread is not
-     * running then it will be removed from the global thread list, otherwise
-     * an exception will be thrown.
-     *
-     * Params:
-     *  t = The thread to suspend.
-     *
-     * Throws:
-     *  ThreadException if the suspend operation fails for a running thread.
-     */
-    void suspend( Thread t )
-    {
-        version( Windows )
-        {
-            if( t.m_addr != GetCurrentThreadId() && SuspendThread( t.m_hndl ) == 0xFFFFFFFF )
-            {
-                if( !t.isRunning )
-                {
-                    Thread.remove( t );
-                    return;
-                }
-                throw new ThreadException( "Unable to suspend thread" );
-            }
-
-            CONTEXT context = void;
-            context.ContextFlags = CONTEXT_INTEGER | CONTEXT_CONTROL;
-
-            if( !GetThreadContext( t.m_hndl, &context ) )
-                throw new ThreadException( "Unable to load thread context" );
-
-            version( X86 )
-            {
-                if( !t.m_lock )
-                    t.m_curr.tstack = cast(void*) context.Esp;
-                // eax,ebx,ecx,edx,edi,esi,ebp,esp
-                t.m_reg[0] = context.Eax;
-                t.m_reg[1] = context.Ebx;
-                t.m_reg[2] = context.Ecx;
-                t.m_reg[3] = context.Edx;
-                t.m_reg[4] = context.Edi;
-                t.m_reg[5] = context.Esi;
-                t.m_reg[6] = context.Ebp;
-                t.m_reg[7] = context.Esp;
-            }
-            else
-            {
-                static assert(false, "Architecture not supported." );
-            }
-        }
-        else version( OSX )
-        {
-            if( t.m_addr != pthread_self() && thread_suspend( t.m_tmach ) != KERN_SUCCESS )
-            {
-                if( !t.isRunning )
-                {
-                    Thread.remove( t );
-                    return;
-                }
-                throw new ThreadException( "Unable to suspend thread" );
-            }
-
-            version( X86 )
-            {
-                x86_thread_state32_t    state = void;
-                mach_msg_type_number_t  count = x86_THREAD_STATE32_COUNT;
-
-                if( thread_get_state( t.m_tmach, x86_THREAD_STATE32, &state, &count ) != KERN_SUCCESS )
-                    throw new ThreadException( "Unable to load thread state" );
-                if( !t.m_lock )
-                    t.m_curr.tstack = cast(void*) state.esp;
-                // eax,ebx,ecx,edx,edi,esi,ebp,esp
-                t.m_reg[0] = state.eax;
-                t.m_reg[1] = state.ebx;
-                t.m_reg[2] = state.ecx;
-                t.m_reg[3] = state.edx;
-                t.m_reg[4] = state.edi;
-                t.m_reg[5] = state.esi;
-                t.m_reg[6] = state.ebp;
-                t.m_reg[7] = state.esp;
-            }
-            else version( X86_64 )
-            {
-                x86_thread_state64_t    state = void;
-                mach_msg_type_number_t  count = x86_THREAD_STATE64_COUNT;
-
-                if( thread_get_state( t.m_tmach, x86_THREAD_STATE64, &state, &count ) != KERN_SUCCESS )
-                    throw new ThreadException( "Unable to load thread state" );
-                if( !t.m_lock )
-                    t.m_curr.tstack = cast(void*) state.rsp;
-                // rax,rbx,rcx,rdx,rdi,rsi,rbp,rsp
-                t.m_reg[0] = state.rax;
-                t.m_reg[1] = state.rbx;
-                t.m_reg[2] = state.rcx;
-                t.m_reg[3] = state.rdx;
-                t.m_reg[4] = state.rdi;
-                t.m_reg[5] = state.rsi;
-                t.m_reg[6] = state.rbp;
-                t.m_reg[7] = state.rsp;
-                // r8,r9,r10,r11,r12,r13,r14,r15
-                t.m_reg[8]  = state.r8;
-                t.m_reg[9]  = state.r9;
-                t.m_reg[10] = state.r10;
-                t.m_reg[11] = state.r11;
-                t.m_reg[12] = state.r12;
-                t.m_reg[13] = state.r13;
-                t.m_reg[14] = state.r14;
-                t.m_reg[15] = state.r15;
-            }
-            else
-            {
-                static assert(false, "Architecture not supported." );
-            }
-        }
-        else version( Posix )
-        {
-            if( t.m_addr != pthread_self() )
-            {
-                if( pthread_kill( t.m_addr, SIGUSR1 ) != 0 )
-                {
-                    if( !t.isRunning )
-                    {
-                        Thread.remove( t );
-                        return;
-                    }
-                    throw new ThreadException( "Unable to suspend thread" );
-                }
-                // NOTE: It's really not ideal to wait for each thread to
-                //       signal individually -- rather, it would be better to
-                //       suspend them all and wait once at the end.  However,
-                //       semaphores don't really work this way, and the obvious
-                //       alternative (looping on an atomic suspend count)
-                //       requires either the atomic module (which only works on
-                //       x86) or other specialized functionality.  It would
-                //       also be possible to simply loop on sem_wait at the
-                //       end, but I'm not convinced that this would be much
-                //       faster than the current approach.
-                sem_wait( &suspendCount );
-            }
-            else if( !t.m_lock )
-            {
-                t.m_curr.tstack = getStackTop();
-            }
-        }
-    }
-
-
     // NOTE: We've got an odd chicken & egg problem here, because while the GC
     //       is required to call thread_init before calling any other thread
     //       routines, thread_init may allocate memory which could in turn
@@ -2562,6 +2457,7 @@ extern (C) void thread_suspendAll()
     {
         if( ++suspendDepth == 1 )
             suspend( Thread.getThis() );
+
         return;
     }
 
@@ -2571,7 +2467,7 @@ extern (C) void thread_suspendAll()
             return;
 
         // NOTE: I'd really prefer not to check isRunning within this loop but
-        //       not doing so could be problematic if threads are termianted
+        //       not doing so could be problematic if threads are terminated
         //       abnormally and a new thread is created with the same thread
         //       address before the next GC run.  This situation might cause
         //       the same thread to be suspended twice, which would likely
@@ -2585,6 +2481,48 @@ extern (C) void thread_suspendAll()
                 Thread.remove( t );
         }
 
+        // The world is stopped. We now make sure that all threads are outside
+        // critical regions by continually suspending and resuming them until all
+        // of them are safe. This is extremely error-prone; if some thread enters
+        // a critical region and never exits it (e.g. it waits for a mutex forever),
+        // then we'll pretty much 'deadlock' here. Not much we can do about that,
+        // and it indicates incorrect use of the critical region API anyway.
+        for (;;)
+        {
+            uint unsafeCount;
+
+            for (auto t = Thread.sm_tbeg; t; t = t.next)
+            {
+                // NOTE: We don't need to check whether the thread has died here,
+                //       since it's checked in the loops above and below.
+                if (atomicLoad(*cast(shared)&t.m_isInCriticalRegion))
+                {
+                    unsafeCount += 10;
+                    resume(t);
+                }
+            }
+
+            // If all threads are safe (i.e. unsafeCount == 0), no threads were in
+            // critical regions in the first place, and we can just break. Otherwise,
+            // we sleep for a bit to give the threads a chance to get to safe points.
+            if (unsafeCount)
+                Thread.sleep(dur!"usecs"(unsafeCount)); // This heuristic could probably use some tuning.
+            else
+                break;
+
+            // Some thread was not in a safe region, so we suspend the world again to
+            // re-do this loop to check whether we're safe now.
+            for (auto t = Thread.sm_tbeg; t; t = t.next)
+            {
+                // The thread could have died in the meantime. Also see the note in
+                // the topmost loop that initially suspends the world.
+                if (t.isRunning)
+                    suspend(t);
+                else
+                    Thread.remove(t);
+            }
+        }
+
         version( Posix )
         {
             // wait on semaphore -- see note in suspend for
@@ -2593,6 +2531,74 @@ extern (C) void thread_suspendAll()
     }
 }
 
+/**
+ * Resume the specified thread and unload stack and register information.
+ * If the supplied thread is the calling thread, stack and register
+ * information will be unloaded but the thread will not be resumed.  If
+ * the resume operation fails and the thread is not running then it will
+ * be removed from the global thread list, otherwise an exception will be
+ * thrown.
+ *
+ * Params:
+ *  t = The thread to resume.
+ *
+ * Throws:
+ *  ThreadException if the resume fails for a running thread.
+ */
+private void resume( Thread t )
+{
+    version( Windows )
+    {
+        if( t.m_addr != GetCurrentThreadId() && ResumeThread( t.m_hndl ) == 0xFFFFFFFF )
+        {
+            if( !t.isRunning )
+            {
+                Thread.remove( t );
+                return;
+            }
+            throw new ThreadException( "Unable to resume thread" );
+        }
+
+        if( !t.m_lock )
+            t.m_curr.tstack = t.m_curr.bstack;
+        t.m_reg[0 .. $] = 0;
+    }
+    else version( OSX )
+    {
+        if( t.m_addr != pthread_self() && thread_resume( t.m_tmach ) != KERN_SUCCESS )
+        {
+            if( !t.isRunning )
+            {
+                Thread.remove( t );
+                return;
+            }
+            throw new ThreadException( "Unable to resume thread" );
+        }
+
+        if( !t.m_lock )
+            t.m_curr.tstack = t.m_curr.bstack;
+        t.m_reg[0 .. $] = 0;
+    }
+    else version( Posix )
+    {
+        if( t.m_addr != pthread_self() )
+        {
+            if( pthread_kill( t.m_addr, SIGUSR2 ) != 0 )
+            {
+                if( !t.isRunning )
+                {
+                    Thread.remove( t );
+                    return;
+                }
+                throw new ThreadException( "Unable to resume thread" );
+            }
+        }
+        else if( !t.m_lock )
+        {
+            t.m_curr.tstack = t.m_curr.bstack;
+        }
+    }
+}
 
 /**
  * Resume all threads but the calling thread for "stop the world" garbage
@@ -2612,76 +2618,6 @@ in
 }
 body
 {
-    /**
-     * Resume the specified thread and unload stack and register information.
-     * If the supplied thread is the calling thread, stack and register
-     * information will be unloaded but the thread will not be resumed.  If
-     * the resume operation fails and the thread is not running then it will
-     * be removed from the global thread list, otherwise an exception will be
-     * thrown.
-     *
-     * Params:
-     *  t = The thread to resume.
-     *
-     * Throws:
-     *  ThreadException if the resume fails for a running thread.
-     */
-    void resume( Thread t )
-    {
-        version( Windows )
-        {
-            if( t.m_addr != GetCurrentThreadId() && ResumeThread( t.m_hndl ) == 0xFFFFFFFF )
-            {
-                if( !t.isRunning )
-                {
-                    Thread.remove( t );
-                    return;
-                }
-                throw new ThreadException( "Unable to resume thread" );
-            }
-
-            if( !t.m_lock )
-                t.m_curr.tstack = t.m_curr.bstack;
-            t.m_reg[0 .. $] = 0;
-        }
-        else version( OSX )
-        {
-            if( t.m_addr != pthread_self() && thread_resume( t.m_tmach ) != KERN_SUCCESS )
-            {
-                if( !t.isRunning )
-                {
-                    Thread.remove( t );
-                    return;
-                }
-                throw new ThreadException( "Unable to resume thread" );
-            }
-
-            if( !t.m_lock )
-                t.m_curr.tstack = t.m_curr.bstack;
-            t.m_reg[0 .. $] = 0;
-        }
-        else version( Posix )
-        {
-            if( t.m_addr != pthread_self() )
-            {
-                if( pthread_kill( t.m_addr, SIGUSR2 ) != 0 )
-                {
-                    if( !t.isRunning )
-                    {
-                        Thread.remove( t );
-                        return;
-                    }
-                    throw new ThreadException( "Unable to resume thread" );
-                }
-            }
-            else if( !t.m_lock )
-            {
-                t.m_curr.tstack = t.m_curr.bstack;
-            }
-        }
-    }
-
-
     // NOTE: See thread_suspendAll for the logic behind this.
     if( !multiThreadedFlag && Thread.sm_tbeg )
     {
@@ -2697,6 +2633,8 @@ body
 
         for( Thread t = Thread.sm_tbeg; t; t = t.next )
         {
+            // NOTE: We do not need to care about critical regions at all
+            //       here. thread_suspendAll takes care of everything.
             resume( t );
         }
     }
@@ -2711,28 +2649,23 @@ enum ScanType
 alias void delegate(void*, void*) ScanAllThreadsFn;
 alias void delegate(ScanType, void*, void*) ScanAllThreadsTypeFn;
 
-/**
- * The main entry point for garbage collection.  The supplied delegate
- * will be passed ranges representing both stack and register values.
- *
- * Params:
- *  scan        = The scanner function.  It should scan from p1 through p2 - 1.
- *  curStackTop = An optional pointer to the top of the calling thread's stack.
- *
- * In:
- *  This routine must be preceded by a call to thread_suspendAll.
- */
-extern (C) void thread_scanAllType( scope ScanAllThreadsTypeFn scan, void* curStackTop = null )
+extern (C) void thread_scanAllType( scope ScanAllThreadsTypeFn scan )
 in
 {
     assert( suspendDepth > 0 );
 }
 body
 {
+    callWithStackShell(sp => scanAllTypeImpl(scan, sp));
+}
+
+
+private void scanAllTypeImpl( scope ScanAllThreadsTypeFn scan, void* curStackTop )
+{
     Thread  thisThread  = null;
     void*   oldStackTop = null;
 
-    if( curStackTop && Thread.sm_tbeg )
+    if( Thread.sm_tbeg )
     {
         thisThread  = Thread.getThis();
         if( !thisThread.m_lock )
@@ -2744,7 +2677,7 @@ body
 
     scope( exit )
     {
-        if( curStackTop && Thread.sm_tbeg )
+        if( Thread.sm_tbeg )
         {
             if( !thisThread.m_lock )
             {
@@ -2783,35 +2716,120 @@ body
             scan( ScanType.stack, t.m_reg.ptr, t.m_reg.ptr + t.m_reg.length );
         }
 
-        scope dg = (void* p1, void* p2) => scan(ScanType.tls, p1, p2);
-        rt.tlsgc.scan(t.m_tlsgcdata, dg);
+        rt.tlsgc.scan(t.m_tlsgcdata, (p1, p2) => scan(ScanType.tls, p1, p2));
     }
 }
 
-/**
- * The main entry point for garbage collection.  The supplied delegate
- * will be passed ranges representing both stack and register values.
- *
- * Params:
- *  scan        = The scanner function.  It should scan from p1 through p2 - 1.
- *  curStackTop = An optional pointer to the top of the calling thread's stack.
- *
- * In:
- *  This routine must be preceded by a call to thread_suspendAll.
- */
-extern (C) void thread_scanAll( scope ScanAllThreadsFn scan, void* curStackTop = null )
+
+extern (C) void thread_scanAll( scope ScanAllThreadsFn scan )
+{
+    thread_scanAllType((type, p1, p2) => scan(p1, p2));
+}
+
+extern (C) void thread_enterCriticalRegion()
 in
 {
-    assert( suspendDepth > 0 );
+    assert(Thread.getThis());
 }
 body
 {
-    void op( ScanType type, void* p1, void* p2 )
+    atomicStore(*cast(shared)&Thread.getThis().m_isInCriticalRegion, true);
+}
+
+extern (C) void thread_exitCriticalRegion()
+in
+{
+    assert(Thread.getThis());
+}
+body
+{
+    atomicStore(*cast(shared)&Thread.getThis().m_isInCriticalRegion, false);
+}
+
+extern (C) bool thread_inCriticalRegion()
+in
+{
+    assert(Thread.getThis());
+}
+body
+{
+    return atomicLoad(*cast(shared)&Thread.getThis().m_isInCriticalRegion);
+}
+
+unittest
+{
+    assert(!thread_inCriticalRegion());
+
     {
-        scan(p1, p2);
+        thread_enterCriticalRegion();
+
+        scope (exit)
+            thread_exitCriticalRegion();
+
+        assert(thread_inCriticalRegion());
     }
 
-    thread_scanAllType(&op, curStackTop);
+    assert(!thread_inCriticalRegion());
+}
+
+unittest
+{
+    // NOTE: This entire test is based on the assumption that no
+    //       memory is allocated after the child thread is
+    //       started. If an allocation happens, a collection could
+    //       trigger, which would cause the synchronization below
+    //       to cause a deadlock.
+    // NOTE: DO NOT USE LOCKS IN CRITICAL REGIONS IN NORMAL CODE.
+
+    import core.sync.condition;
+
+    bool critical;
+    auto cond1 = new Condition(new Mutex());
+
+    bool stop;
+    auto cond2 = new Condition(new Mutex());
+
+    auto thr = new Thread(delegate void()
+    {
+        thread_enterCriticalRegion();
+
+        assert(thread_inCriticalRegion());
+        assert(atomicLoad(*cast(shared)&Thread.getThis().m_isInCriticalRegion));
+
+        synchronized (cond1.mutex)
+        {
+            critical = true;
+            cond1.notify();
+        }
+
+        synchronized (cond2.mutex)
+            while (!stop)
+                cond2.wait();
+
+        assert(thread_inCriticalRegion());
+        assert(atomicLoad(*cast(shared)&Thread.getThis().m_isInCriticalRegion));
+
+        thread_exitCriticalRegion();
+
+        assert(!thread_inCriticalRegion());
+        assert(!atomicLoad(*cast(shared)&Thread.getThis().m_isInCriticalRegion));
+    });
+
+    thr.start();
+
+    synchronized (cond1.mutex)
+        while (!critical)
+            cond1.wait();
+
+    assert(atomicLoad(*cast(shared)&thr.m_isInCriticalRegion));
+
+    synchronized (cond2.mutex)
+    {
+        stop = true;
+        cond2.notify();
+    }
+
+    thr.join();
 }
 
 /**
@@ -2839,15 +2857,90 @@ extern(C) void thread_processGCMarks(scope rt.tlsgc.IsMarkedDg dg)
 }
 
 
-/**
- *
- */
-extern (C) void* thread_stackBottom()
+extern (C)
 {
-    if( auto t = Thread.getThis() )
-        return t.topContext().bstack;
-    return rt_stackBottom();
+    version (linux) int pthread_getattr_np(pthread_t thread, pthread_attr_t* attr);
+    version (FreeBSD) int pthread_attr_get_np(pthread_t thread, pthread_attr_t* attr);
 }
+
+
+private void* getStackTop()
+{
+    version (D_InlineAsm_X86)
+        asm { naked; mov EAX, ESP; ret; }
+    else version (D_InlineAsm_X86_64)
+        asm { naked; mov RAX, RSP; ret; }
+    else version (GNU)
+        return __builtin_frame_address(0);
+    else
+        static assert(false, "Architecture not supported.");
+}
+
+
+private void* getStackBottom()
+{
+    version (Windows)
+    {
+        version (D_InlineAsm_X86)
+            asm { naked; mov EAX, FS:4; ret; }
+        else version(D_InlineAsm_X86_64)
+            asm { naked; mov RAX, GS:4; ret; }
+        else
+            static assert(false, "Architecture not supported.");
+    }
+    else version (OSX)
+    {
+        import core.sys.osx.pthread;
+        return pthread_get_stackaddr_np(pthread_self());
+    }
+    else version (linux)
+    {
+        pthread_attr_t attr;
+        void* addr; size_t size;
+
+        pthread_getattr_np(pthread_self(), &attr);
+        pthread_attr_getstack(&attr, &addr, &size);
+        pthread_attr_destroy(&attr);
+        return addr + size;
+    }
+    else version (FreeBSD)
+    {
+        pthread_attr_t attr;
+        void* addr; size_t size;
+
+        pthread_attr_init(&attr);
+        pthread_attr_get_np(pthread_self(), &attr);
+        pthread_attr_getstack(&attr, &addr, &size);
+        pthread_attr_destroy(&attr);
+        return addr + size;
+    }
+    else
+        static assert(false, "Platform not supported.");
+}
+
+
+extern (C) void* thread_stackTop()
+in
+{
+    // Not strictly required, but it gives us more flexibility.
+    assert(Thread.getThis());
+}
+body
+{
+    return getStackTop();
+}
+
+
+extern (C) void* thread_stackBottom()
+in
+{
+    assert(Thread.getThis());
+}
+body
+{
+    return Thread.getThis().topContext().bstack;
+}
+
 
 ///////////////////////////////////////////////////////////////////////////////
 // Thread Group
@@ -3055,7 +3148,6 @@ private
     version( Posix )
     {
         import core.sys.posix.unistd;   // for sysconf
-        import core.sys.posix.sys.mman; // for mmap
 
         version( AsmX86_Windows )    {} else
         version( AsmX86_Posix )      {} else
@@ -3116,7 +3208,7 @@ private
         assert( obj );
 
         assert( Thread.getThis().m_curr is obj.m_ctxt );
-        volatile Thread.getThis().m_lock = false;
+        atomicStore!(msync.raw)(*cast(shared)&Thread.getThis().m_lock, false);
         obj.m_ctxt.tstack = obj.m_ctxt.bstack;
         obj.m_state = Fiber.State.EXEC;
 
@@ -3373,7 +3465,7 @@ class Fiber
      * D function.
      *
      * Params:
-     *  fn = The thread function.
+     *  fn = The fiber function.
      *  sz = The stack size for this fiber.
      *
      * In:
@@ -3386,11 +3478,8 @@ class Fiber
     }
     body
     {
-        m_fn    = fn;
-        m_call  = Call.FN;
-        m_state = State.HOLD;
         allocStack( sz );
-        initStack();
+        reset( fn );
     }
 
 
@@ -3399,7 +3488,7 @@ class Fiber
      * D function.
      *
      * Params:
-     *  dg = The thread function.
+     *  dg = The fiber function.
      *  sz = The stack size for this fiber.
      *
      * In:
@@ -3412,11 +3501,8 @@ class Fiber
     }
     body
     {
-        m_dg    = dg;
-        m_call  = Call.DG;
-        m_state = State.HOLD;
         allocStack( sz );
-        initStack();
+        reset( dg );
     }
 
 
@@ -3514,13 +3600,17 @@ class Fiber
      * classes, for example, may not be cleaned up properly if a fiber is reset
      * before it has terminated.
      *
+     * Params:
+     *  fn = The fiber function.
+     *  dg = The fiber function.
+     *
      * In:
      *  This fiber must be in state TERM.
      */
     final void reset()
     in
     {
-        assert( m_state == State.TERM );
+        assert( m_state == State.TERM || m_state == State.HOLD );
         assert( m_ctxt.tstack == m_ctxt.bstack );
     }
     body
@@ -3530,6 +3620,21 @@ class Fiber
         m_unhandled = null;
     }
 
+    /// ditto
+    final void reset( void function() fn )
+    {
+        reset();
+        m_fn    = fn;
+        m_call  = Call.FN;
+    }
+
+    /// ditto
+    final void reset( void delegate() dg )
+    {
+        reset();
+        m_dg    = dg;
+        m_call  = Call.DG;
+    }
 
     ///////////////////////////////////////////////////////////////////////////
     // General Properties
@@ -3789,7 +3894,10 @@ private:
             m_size = sz;
         }
         else
-        {   static if( __traits( compiles, mmap ) )
+        {
+            import core.sys.posix.sys.mman; // mmap
+
+            static if( __traits( compiles, mmap ) )
             {
                 m_pmem = mmap( null,
                                sz,
@@ -3848,6 +3956,8 @@ private:
         // NOTE: m_ctxt is guaranteed to be alive because it is held in the
         //       global context list.
         Thread.remove( m_ctxt );
+
+        import core.sys.posix.sys.mman; // munmap
 
         static if( __traits( compiles, VirtualAlloc ) )
         {
@@ -4123,7 +4233,7 @@ private:
         //       that it points to exactly the correct stack location so the
         //       successive pop operations will succeed.
         *oldp = getStackTop();
-        volatile tobj.m_lock = true;
+        atomicStore!(msync.raw)(*cast(shared)&tobj.m_lock, true);
         tobj.pushContext( m_ctxt );
 
         fiber_switchContext( oldp, newp );
@@ -4131,7 +4241,7 @@ private:
         // NOTE: As above, these operations must be performed in a strict order
         //       to prevent Bad Things from happening.
         tobj.popContext();
-        volatile tobj.m_lock = false;
+        atomicStore!(msync.raw)(*cast(shared)&tobj.m_lock, false);
         tobj.m_curr.tstack = tobj.m_curr.bstack;
     }
 
@@ -4157,7 +4267,7 @@ private:
         //       that it points to exactly the correct stack location so the
         //       successive pop operations will succeed.
         *oldp = getStackTop();
-        volatile tobj.m_lock = true;
+        atomicStore!(msync.raw)(*cast(shared)&tobj.m_lock, true);
 
         fiber_switchContext( oldp, newp );
 
@@ -4167,7 +4277,7 @@ private:
         //       executing here may be different from the one above, so get the
         //       current thread handle before unlocking, etc.
         tobj = Thread.getThis();
-        volatile tobj.m_lock = false;
+        atomicStore!(msync.raw)(*cast(shared)&tobj.m_lock, false);
         tobj.m_curr.tstack = tobj.m_curr.bstack;
     }
 }
@@ -4201,8 +4311,6 @@ else
 
 version( unittest )
 {
-    import core.atomic;
-
     class TestFiber : Fiber
     {
         this()
@@ -4248,11 +4356,13 @@ version( unittest )
     }
 }
 
+
 // Single thread running separate fibers
 unittest
 {
     runTen();
 }
+
 
 // Multiple threads running separate fibers
 unittest
@@ -4264,6 +4374,7 @@ unittest
     }
     group.joinAll();
 }
+
 
 // Multiple threads running shared fibers
 unittest
@@ -4313,6 +4424,7 @@ unittest
     }
 }
 
+
 // Test exception handling inside fibers.
 unittest
 {
@@ -4330,6 +4442,78 @@ unittest
     })).call();
     assert(caughtMsg == MSG);
 }
+
+
+unittest
+{
+    int x = 0;
+
+    (new Fiber({
+        x++;
+    })).call();
+    assert( x == 1 );
+}
+
+
+unittest
+{
+    enum MSG = "Test message.";
+
+    try
+    {
+        (new Fiber({
+            throw new Exception( MSG );
+        })).call();
+        assert( false, "Expected rethrown exception." );
+    }
+    catch( Throwable t )
+    {
+        assert( t.msg == MSG );
+    }
+}
+
+
+// Test Fiber resetting
+unittest
+{
+    static string method;
+
+    static void foo()
+    {
+        method = "foo";
+    }
+
+    void bar()
+    {
+        method = "bar";
+    }
+
+    static void expect(Fiber fib, string s)
+    {
+        assert(fib.state == Fiber.State.HOLD);
+        fib.call();
+        assert(fib.state == Fiber.State.TERM);
+        assert(method == s); method = null;
+    }
+    auto fib = new Fiber(&foo);
+    expect(fib, "foo");
+
+    fib.reset();
+    expect(fib, "foo");
+
+    fib.reset(&foo);
+    expect(fib, "foo");
+
+    fib.reset(&bar);
+    expect(fib, "bar");
+
+    fib.reset(function void(){method = "function";});
+    expect(fib, "function");
+
+    fib.reset(delegate void(){method = "delegate";});
+    expect(fib, "delegate");
+}
+
 
 version( AsmX86_64_Posix )
 {
@@ -4365,14 +4549,16 @@ static if( osxManualTls )
         //       compiler.  If it isn't, something is disastrously wrong.
         auto obj = Thread.getThis();
 
-        if (p >= _tls_data_array[0].ptr && p < &_tls_data_array[0][length])
+        immutable off0 = cast(size_t)(p - _tls_data_array[0].ptr);
+        if (off0 < _tls_data_array[0].length)
         {
-            return obj.m_tls.ptr + (p - _tls_data_array[0].ptr);
+            return obj.m_tls.ptr + off0;
         }
-        else if (p >= _tls_data_array[1].ptr && p < &_tls_data_array[1][length])
+        immutable off1 = cast(size_t)(p - _tls_data_array[1].ptr);
+        if (off1 < _tls_data_array[1].length)
         {
             size_t sz = (_tls_data_array[0].length + 15) & ~cast(size_t)15;
-            return obj.m_tls.ptr + sz + (p - _tls_data_array[1].ptr);
+            return obj.m_tls.ptr + sz + off1;
         }
         else
             assert(0);

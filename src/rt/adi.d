@@ -20,6 +20,7 @@ private
     debug(adi) import core.stdc.stdio;
     import core.stdc.string;
     import core.stdc.stdlib;
+    import core.memory;
     import rt.util.utf;
 
     enum BlkAttr : uint
@@ -317,7 +318,7 @@ extern (C) char[] _adSortChar(char[] a)
             a[i .. i + t.length] = t[];
             i += t.length;
         }
-        delete da;
+        GC.free(da.ptr);
     }
     return a;
 }
@@ -339,7 +340,7 @@ extern (C) wchar[] _adSortWchar(wchar[] a)
             a[i .. i + t.length] = t[];
             i += t.length;
         }
-        delete da;
+        GC.free(da.ptr);
     }
     return a;
 }
@@ -456,18 +457,7 @@ unittest
 
 extern (C) int _adCmpChar(void[] a1, void[] a2)
 {
-  version (LDC)
-  {
-    debug(adi) printf("adCmpChar()\n");
-    auto len = a1.length;
-    if (a2.length < len)
-        len = a2.length;
-    auto c = memcmp(cast(char *)a1.ptr, cast(char *)a2.ptr, len);
-    if (!c)
-        c = cast(int)a1.length - cast(int)a2.length;
-    return c;
-  }
-  else version (X86)
+  version (D_InlineAsm_X86)
   {
     asm
     {   naked                   ;

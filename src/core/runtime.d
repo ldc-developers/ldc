@@ -9,7 +9,7 @@
 
 /*          Copyright Sean Kelly 2005 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module core.runtime;
@@ -17,8 +17,6 @@ module core.runtime;
 
 private
 {
-    extern (C) bool rt_isHalting();
-
     alias bool function() ModuleUnitTester;
     alias bool function(Object) CollectHandler;
     alias Throwable.TraceInfo function( void* ptr ) TraceHandler;
@@ -133,20 +131,6 @@ struct Runtime
     static bool terminate( ExceptionHandler dg = null )
     {
         return rt_term( dg );
-    }
-
-
-    /**
-     * Returns true if the runtime is halting.  Under normal circumstances,
-     * this will be set between the time that normal application code has
-     * exited and before module dtors are called.
-     *
-     * Returns:
-     *  true if the runtime is halting.
-     */
-    deprecated static @property bool isHalting()
-    {
-        return rt_isHalting();
     }
 
 
@@ -309,8 +293,8 @@ extern (C) bool runModuleUnitTests()
             void*[MAXFRAMES]  callstack;
             int               numframes;
 
-            numframes = backtrace( callstack, MAXFRAMES );
-            backtrace_symbols_fd( callstack, numframes, 2 );
+            numframes = backtrace( callstack.ptr, MAXFRAMES );
+            backtrace_symbols_fd( callstack.ptr, numframes, 2 );
         }
 
         sigaction_t action = void;
@@ -420,7 +404,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                         auto stackPtr = stackTop;
 
                         for( numframes = 0; stackTop <= stackPtr &&
-                                            stackPtr < stackBottom && 
+                                            stackPtr < stackBottom &&
                                             numframes < MAXFRAMES; )
                         {
                             callstack[numframes++] = *(stackPtr + 1);
@@ -428,7 +412,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                         }
                     }
                 }
-                framelist = backtrace_symbols( callstack, numframes );
+                framelist = backtrace_symbols( callstack.ptr, numframes );
             }
 
             ~this()
@@ -436,15 +420,15 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                 free( framelist );
             }
 
-            override int opApply( scope int delegate(ref char[]) dg )
+            override int opApply( scope int delegate(ref const(char[])) dg ) const
             {
-                return opApply( (ref size_t, ref char[] buf)
+                return opApply( (ref size_t, ref const(char[]) buf)
                                 {
                                     return dg( buf );
                                 } );
             }
 
-            override int opApply( scope int delegate(ref size_t, ref char[]) dg )
+            override int opApply( scope int delegate(ref size_t, ref const(char[])) dg ) const
             {
                 version( Posix )
                 {
@@ -467,9 +451,10 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
 
                 for( int i = FIRSTFRAME; i < numframes; ++i )
                 {
+                    char[4096] fixbuf;
                     auto buf = framelist[i][0 .. strlen(framelist[i])];
                     auto pos = cast(size_t)(i - FIRSTFRAME);
-                    buf = fixline( buf );
+                    buf = fixline( buf, fixbuf );
                     ret = dg( pos, buf );
                     if( ret )
                         break;
@@ -477,7 +462,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                 return ret;
             }
 
-            override string toString()
+            override string toString() const
             {
                 string buf;
                 foreach( i, line; this )
@@ -490,8 +475,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
             char**  framelist;
 
         private:
-            char[4096] fixbuf;
-            char[] fixline( char[] buf )
+            const(char)[] fixline( const(char)[] buf, ref char[4096] fixbuf ) const
             {
                 version( OSX )
                 {

@@ -4,7 +4,7 @@
  * Copyright: Copyright Digital Mars 1995 - 2011.
  * License: Distributed under the
  *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0).
- *    (See accompanying file LICENSE_1_0.txt)
+ *    (See accompanying file LICENSE)
  * Authors:   Walter Bright, Sean Kelly
  * Source: $(DRUNTIMESRC src/rt/_trace.d)
  */
@@ -224,12 +224,7 @@ static void trace_place(Symbol *s, uint count)
 }
 
 /////////////////////////////////////
-// Initialize and terminate.
-
-shared static this()
-{
-    trace_init();
-}
+// Terminate.
 
 shared static ~this()
 {
@@ -849,10 +844,12 @@ void _trace_pro_n()
                 inc     RCX                     ;
                 add     9*8+8*16[RSP],RAX       ;
                 dec     RAX                     ;
-                push    RCX                     ;
-                push    RAX                     ;
+//                push    RCX                     ;
+//                push    RAX                     ;
+                mov     RDI,RAX                 ;
+                mov     RSI,RCX                 ;
                 call    trace_pro               ;
-                add     RSP,16                  ;
+//                add     RSP,16                  ;
 
                 movdqu  XMM0, 0*16[RSP]         ;
                 movdqu  XMM1, 1*16[RSP]         ;
@@ -948,10 +945,12 @@ void _trace_pro_n()
                 inc     RCX                     ;
                 add     9*8+8*16[RSP],RAX       ;
                 dec     RAX                     ;
-                push    RCX                     ;
-                push    RAX                     ;
+//                push    RCX                     ;
+//                push    RAX                     ;
+                mov     RDI,RAX                 ;
+                mov     RSI,RCX                 ;
                 call    trace_pro               ;
-                add     RSP,16                  ;
+//                add     RSP,16                  ;
 
                 movdqu  XMM0, 0*16[RSP]         ;
                 movdqu  XMM1, 1*16[RSP]         ;

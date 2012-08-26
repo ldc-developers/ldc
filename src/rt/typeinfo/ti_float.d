@@ -8,7 +8,7 @@
 
 /*          Copyright Digital Mars 2004 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module rt.typeinfo.ti_float;
@@ -32,7 +32,8 @@ class TypeInfo_f : TypeInfo
         if (d1 !<>= d2)         // if either are NaN
         {
             if (d1 !<>= d1)
-            {   if (d2 !<>= d2)
+            {
+                if (d2 !<>= d2)
                     return 0;
                 return -1;
             }
@@ -60,7 +61,7 @@ class TypeInfo_f : TypeInfo
         return _compare(*cast(float *)p1, *cast(float *)p2);
     }
 
-    @property override size_t tsize() nothrow pure
+    override @property size_t tsize() nothrow pure
     {
         return float.sizeof;
     }
@@ -74,8 +75,9 @@ class TypeInfo_f : TypeInfo
         *cast(float *)p2 = t;
     }
 
-    override void[] init() nothrow pure
-    {   static immutable float r;
+    override const(void)[] init() nothrow pure
+    {
+        static immutable float r;
 
         return (cast(float *)&r)[0 .. 1];
     }

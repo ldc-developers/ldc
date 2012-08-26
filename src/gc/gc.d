@@ -8,7 +8,7 @@
 
 /*          Copyright Digital Mars 2005 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module gc.gc;
@@ -131,6 +131,9 @@ extern (C) void gc_term()
     _gc.fullCollectNoStack(); // not really a 'collect all' -- still scans
                               // static data area, roots, and ranges.
     _gc.Dtor();
+
+    free(cast(void*)_gc);
+    _gc = null;
 }
 
 extern (C) void gc_enable()

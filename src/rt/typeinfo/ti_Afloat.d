@@ -8,7 +8,7 @@
 
 /*          Copyright Digital Mars 2004 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module rt.typeinfo.ti_Afloat;
@@ -18,8 +18,10 @@ private import rt.util.hash;
 
 // float[]
 
-class TypeInfo_Af : TypeInfo
+class TypeInfo_Af : TypeInfo_Array
 {
+    override equals_t opEquals(Object o) { return TypeInfo.opEquals(o); }
+
     @trusted:
     const:
     pure:
@@ -28,7 +30,8 @@ class TypeInfo_Af : TypeInfo
     override string toString() const pure nothrow @safe { return "float[]"; }
 
     override hash_t getHash(in void* p)
-    {   float[] s = *cast(float[]*)p;
+    {
+        float[] s = *cast(float[]*)p;
         return hashOf(s.ptr, s.length * float.sizeof);
     }
 
@@ -69,31 +72,9 @@ class TypeInfo_Af : TypeInfo
         return 0;
     }
 
-    @property override size_t tsize() nothrow pure
-    {
-        return (float[]).sizeof;
-    }
-
-    @property override uint flags() nothrow pure
-    {
-        return 1;
-    }
-
-    @property override TypeInfo next() nothrow pure
+    override @property const(TypeInfo) next() nothrow pure
     {
         return typeid(float);
-    }
-
-    @property override size_t talign() nothrow pure
-    {
-        return (float[]).alignof;
-    }
-
-    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
-    {
-        //arg1 = typeid(size_t);
-        //arg2 = typeid(void*);
-        return 0;
     }
 }
 
@@ -108,7 +89,7 @@ class TypeInfo_Ao : TypeInfo_Af
 
     override string toString() const pure nothrow @safe { return "ifloat[]"; }
 
-    @property override TypeInfo next() nothrow pure
+    override @property const(TypeInfo) next() nothrow pure
     {
         return typeid(ifloat);
     }

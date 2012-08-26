@@ -22,7 +22,7 @@
 
 /*          Copyright Digital Mars 2003 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module rt.util.utf;
@@ -882,21 +882,21 @@ unittest
     assert(w == "hel\u1234o");
 
 
-    c = "he\U0010AAAAllo";
+    c = "he\U000BAAAAllo";
     w = toUTF16(c);
     //foreach (wchar c; w) printf("c = x%x\n", c);
-    //foreach (wchar c; cast(wstring)"he\U0010AAAAllo") printf("c = x%x\n", c);
-    assert(w == "he\U0010AAAAllo");
+    //foreach (wchar c; cast(wstring)"he\U000BAAAAllo") printf("c = x%x\n", c);
+    assert(w == "he\U000BAAAAllo");
     d = toUTF32(c);
-    assert(d == "he\U0010AAAAllo");
+    assert(d == "he\U000BAAAAllo");
 
     c = toUTF8(w);
-    assert(c == "he\U0010AAAAllo");
+    assert(c == "he\U000BAAAAllo");
     d = toUTF32(w);
-    assert(d == "he\U0010AAAAllo");
+    assert(d == "he\U000BAAAAllo");
 
     c = toUTF8(d);
-    assert(c == "he\U0010AAAAllo");
+    assert(c == "he\U000BAAAAllo");
     w = toUTF16(d);
-    assert(w == "he\U0010AAAAllo");
+    assert(w == "he\U000BAAAAllo");
 }

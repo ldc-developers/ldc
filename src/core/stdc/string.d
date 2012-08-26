@@ -9,7 +9,7 @@
 
 /*          Copyright Sean Kelly 2005 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module core.stdc.string;
@@ -17,10 +17,8 @@ module core.stdc.string;
 private import core.stdc.stddef; // for size_t
 
 extern (C):
-
-nothrow:
-
 @system:
+nothrow:
 
 pure void* memchr(in void* s, int c, size_t n);
 pure int   memcmp(in void* s1, in void* s2, size_t n);

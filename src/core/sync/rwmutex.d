@@ -10,7 +10,7 @@
 
 /*          Copyright Sean Kelly 2005 - 2009.
  * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
+ *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module core.sync.rwmutex;
@@ -19,6 +19,7 @@ module core.sync.rwmutex;
 public import core.sync.exception;
 private import core.sync.condition;
 private import core.sync.mutex;
+private import core.memory;
 
 version( Win32 )
 {
@@ -94,17 +95,17 @@ class ReadWriteMutex
         m_commonMutex = new Mutex;
         if( !m_commonMutex )
             throw new SyncException( "Unable to initialize mutex" );
-        scope(failure) delete m_commonMutex;
+        scope(failure) { destroy(m_commonMutex); GC.free(cast(void*)m_commonMutex); }
 
         m_readerQueue = new Condition( m_commonMutex );
         if( !m_readerQueue )
             throw new SyncException( "Unable to initialize mutex" );
-        scope(failure) delete m_readerQueue;
+        scope(failure) { destroy(m_readerQueue); GC.free(cast(void*)m_readerQueue); }
 
         m_writerQueue = new Condition( m_commonMutex );
         if( !m_writerQueue )
             throw new SyncException( "Unable to initialize mutex" );
-        scope(failure) delete m_writerQueue;
+        scope(failure) { destroy(m_writerQueue); GC.free(cast(void*)m_writerQueue); }
 
         m_policy = policy;
         m_reader = new Reader;
@@ -118,12 +119,12 @@ class ReadWriteMutex
 
 
     /**
-     * Gets the policy for the associated mutex.
+     * Gets the policy used by this mutex.
      *
      * Returns:
      *  The policy used by this mutex.
      */
-    Policy policy()
+    @property Policy policy()
     {
         return m_policy;
     }
@@ -140,7 +141,7 @@ class ReadWriteMutex
      * Returns:
      *  A reader sub-mutex.
      */
-    Reader reader()
+    @property Reader reader()
     {
         return m_reader;
     }
@@ -152,7 +153,7 @@ class ReadWriteMutex
      * Returns:
      *  A writer sub-mutex.
      */
-    Writer writer()
+    @property Writer writer()
     {
         return m_writer;
     }
@@ -190,7 +191,7 @@ class ReadWriteMutex
                 ++m_numQueuedReaders;
                 scope(exit) --m_numQueuedReaders;
 
-                while( shouldQueueReader() )
+                while( shouldQueueReader )
                     m_readerQueue.wait();
                 ++m_numActiveReaders;
             }
@@ -225,7 +226,7 @@ class ReadWriteMutex
         {
             synchronized( m_commonMutex )
             {
-                if( shouldQueueReader() )
+                if( shouldQueueReader )
                     return false;
                 ++m_numActiveReaders;
                 return true;
@@ -234,7 +235,7 @@ class ReadWriteMutex
 
 
     private:
-        bool shouldQueueReader()
+        @property bool shouldQueueReader()
         {
             if( m_numActiveWriters > 0 )
                 return true;
@@ -293,7 +294,7 @@ class ReadWriteMutex
                 ++m_numQueuedWriters;
                 scope(exit) --m_numQueuedWriters;
 
-                while( shouldQueueWriter() )
+                while( shouldQueueWriter )
                     m_writerQueue.wait();
                 ++m_numActiveWriters;
             }
@@ -341,7 +342,7 @@ class ReadWriteMutex
         {
             synchronized( m_commonMutex )
             {
-                if( shouldQueueWriter() )
+                if( shouldQueueWriter )
                     return false;
                 ++m_numActiveWriters;
                 return true;
@@ -350,7 +351,7 @@ class ReadWriteMutex
 
 
     private:
-        bool shouldQueueWriter()
+        @property bool shouldQueueWriter()
         {
             if( m_numActiveWriters > 0 ||
                 m_numActiveReaders > 0 )
