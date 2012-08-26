@@ -122,18 +122,23 @@ set(LDC_GENERATED
 
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
-file(GLOB_RECURSE FE_SRC ${DMDFE_PATH}/*.c ${DMDFE_PATH}/*.h)
-file(GLOB_RECURSE GEN_SRC gen/*.cpp gen/*.h)
-file(GLOB IR_SRC ir/*.cpp ir/*.h)
+file(GLOB_RECURSE FE_SRC ${DMDFE_PATH}/*.c)
+file(GLOB_RECURSE FE_HDR ${DMDFE_PATH}/*.h)
+file(GLOB_RECURSE GEN_SRC gen/*.cpp)
+file(GLOB_RECURSE GEN_HDR gen/*.h)
+file(GLOB IR_SRC ir/*.cpp)
+file(GLOB IR_HDR ir/*.h)
 set(DRV_SRC
     driver/cl_options.cpp
     driver/configfile.cpp
-    driver/linker.h
     driver/toobj.cpp
-    driver/cl_options.h
-    driver/configfile.h
     driver/linker.cpp
     driver/main.cpp
+)
+set(DRV_HDR
+    driver/linker.h
+    driver/cl_options.h
+    driver/configfile.h
     driver/toobj.h
 )
 # exclude idgen and impcnvgen and generated sources, just in case
@@ -147,6 +152,8 @@ list(REMOVE_ITEM FE_SRC
 if(MSVC)
     list(REMOVE_ITEM FE_SRC
         ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/gnuc.c
+    )
+    list(REMOVE_ITEM FE_HDR
         ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/gnuc.h
     )
     list(APPEND FE_SRC
@@ -172,8 +179,11 @@ list(REMOVE_ITEM FE_SRC ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/dmgcmem.c)
 set(LDC_SOURCE_FILES
     ${LDC_GENERATED}
     ${FE_SRC}
+    ${FE_HDR}
     ${GEN_SRC}
+    ${GEN_HDR}
     ${IR_SRC}
+    ${IR_HDR}
 )
 
 # DMD source files have a .c extension, but are actually C++ code.
@@ -182,6 +192,14 @@ foreach(file ${LDC_SOURCE_FILES})
         set_source_files_properties(${file} PROPERTIES LANGUAGE CXX)
     endif()
 endforeach()
+
+source_group("Source Files\\${DMDFE_PATH}" FILES ${FE_SRC})
+source_group("Header Files\\${DMDFE_PATH}" FILES ${FE_HDR})
+source_group("Source Files\\gen" FILES ${GEN_SRC})
+source_group("Header Files\\gen" FILES ${GEN_HDR})
+source_group("Source Files\\ir" FILES ${IR_SRC})
+source_group("Header Files\\ir" FILES ${IR_HDR})
+source_group("Generated Files" REGULAR_EXPRESSION "(id\\.[ch]|impcnvtab\\.c)$")
 
 #
 # Includes, defines.
@@ -266,7 +284,7 @@ if(USE_BOEHM_GC)
 endif(USE_BOEHM_GC)
 
 
-add_executable(${LDC_EXE} ${DRV_SRC})
+add_executable(${LDC_EXE} ${DRV_SRC} ${DRV_HDR})
 set_target_properties(
     ${LDC_EXE} PROPERTIES
     OUTPUT_NAME ${LDC_EXE_NAME}
