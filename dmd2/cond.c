@@ -10,6 +10,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>                     // strcmp()
 
 #include "id.h"
 #include "init.h"
@@ -266,7 +267,14 @@ int StaticIfCondition::include(Scope *sc, ScopeDsymbol *s)
         sc->flags |= SCOPEstaticif;
         Expression *e = exp->semantic(sc);
         sc->pop();
-        e = e->optimize(WANTvalue | WANTinterpret);
+        if (!e->type->checkBoolean())
+        {
+            if (e->type->toBasetype() != Type::terror)
+                exp->error("expression %s of type %s does not have a boolean value", exp->toChars(), e->type->toChars());
+            inc = 0;
+            return 0;
+        }
+        e = e->ctfeInterpret();
         --nest;
         if (e->op == TOKerror)
         {   exp = e;

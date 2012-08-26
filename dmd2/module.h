@@ -79,7 +79,6 @@ struct Module : Package
     
     unsigned errors;    // if any errors in file
     unsigned numlines;  // number of lines in source file
-    int isHtml;         // if it is an HTML file
     int isDocFile;      // if it is a documentation input file, not D source
     int needmoduleinfo;
 #ifdef IN_GCC
@@ -141,8 +140,6 @@ struct Module : Package
     bool read(Loc loc); // read file, returns 'true' if succeed, 'false' otherwise.
 #if IN_LLVM
     void parse(bool gen_docs = false);       // syntactic parse
-#elif IN_GCC
-    void parse(bool dump_source = false);       // syntactic parse
 #else
     void parse();       // syntactic parse
 #endif

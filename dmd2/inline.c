@@ -1,5 +1,5 @@
 
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -14,6 +14,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>                     // memset()
 
 #include "id.h"
 #include "init.h"
@@ -618,11 +619,11 @@ Expressions *arrayExpressiondoInline(Expressions *a, InlineDoState *ids)
         newa->setDim(a->dim);
 
         for (size_t i = 0; i < a->dim; i++)
-        {   Expression *e = a->tdata()[i];
+        {   Expression *e = (*a)[i];
 
             if (e)
                 e = e->doInline(ids);
-            newa->tdata()[i] = e;
+            (*newa)[i] = e;
         }
     }
     return newa;
@@ -639,11 +640,11 @@ Expression *SymOffExp::doInline(InlineDoState *ids)
     //printf("SymOffExp::doInline(%s)\n", toChars());
     for (size_t i = 0; i < ids->from.dim; i++)
     {
-        if (var == ids->from.tdata()[i])
+        if (var == ids->from[i])
         {
             SymOffExp *se = (SymOffExp *)copy();
 
-            se->var = (Declaration *)ids->to.tdata()[i];
+            se->var = (Declaration *)ids->to[i];
             return se;
         }
     }
@@ -655,11 +656,11 @@ Expression *VarExp::doInline(InlineDoState *ids)
     //printf("VarExp::doInline(%s)\n", toChars());
     for (size_t i = 0; i < ids->from.dim; i++)
     {
-        if (var == ids->from.tdata()[i])
+        if (var == ids->from[i])
         {
             VarExp *ve = (VarExp *)copy();
 
-            ve->var = (Declaration *)ids->to.tdata()[i];
+            ve->var = (Declaration *)ids->to[i];
             return ve;
         }
     }
@@ -709,7 +710,7 @@ Expression *DeclarationExp::doInline(InlineDoState *ids)
         if (td)
         {
             for (size_t i = 0; i < td->objects->dim; i++)
-            {   DsymbolExp *se = td->objects->tdata()[i];
+            {   DsymbolExp *se = (*td->objects)[i];
                 assert(se->op == TOKdsymbol);
                 se->s;
             }
@@ -1098,8 +1099,8 @@ Statement *SwitchStatement::inlineScan(InlineScanState *iss)
         for (size_t i = 0; i < cases->dim; i++)
         {   CaseStatement *s;
 
-            s =  cases->tdata()[i];
-            cases->tdata()[i] = (CaseStatement *)s->inlineScan(iss);
+            s =  (*cases)[i];
+            (*cases)[i] = (CaseStatement *)s->inlineScan(iss);
         }
     }
     return this;
@@ -1130,6 +1131,65 @@ Statement *ReturnStatement::inlineScan(InlineScanState *iss)
     if (exp)
     {
         exp = exp->inlineScan(iss);
+
+        FuncDeclaration *func = iss->fd;
+        TypeFunction *tf = (TypeFunction *)(func->type);
+
+        /* Postblit call on return statement is processed in glue layer
+         * (Because NRVO may eliminate the copy), but inlining may remove
+         * ReturnStatement itself. To keep semantics we should insert
+         * temporary variable for postblit call.
+         * This is mostly the same as ReturnStatement::toIR.
+         */
+        enum RET retmethod = tf->retStyle();
+        if (retmethod == RETstack)
+        {
+            if (func->nrvo_can && func->nrvo_var)
+                ;
+            else
+            {
+                Type *tb = exp->type->toBasetype();
+                if (exp->isLvalue() && tb->ty == Tstruct)
+                {   StructDeclaration *sd = ((TypeStruct *)tb)->sym;
+                    if (sd->postblit)
+                    {   FuncDeclaration *fd = sd->postblit;
+                        if (fd->storage_class & STCdisable)
+                        {
+                            fd->toParent()->error(loc, "is not copyable because it is annotated with @disable");
+                        }
+
+                        /* Rewirte exp as:
+                         *     (__inlinectmp = exp), __inlinectmp.__postblit(), __inlinectmp
+                         * And, __inlinectmp is marked as rvalue (See STCtemp comment)
+                         */
+                        ExpInitializer *ei = new ExpInitializer(loc, exp);
+
+                        Identifier* tmp = Identifier::generateId("__inlinectmp");
+                        VarDeclaration *v = new VarDeclaration(loc, exp->type, tmp, ei);
+                        v->storage_class = STCtemp;
+                        v->linkage = LINKd;
+                        v->parent = func;
+
+                        VarExp *ve = new VarExp(loc, v);
+                        ve->type = exp->type;
+
+                        ei->exp = new ConstructExp(loc, ve, exp);
+                        ei->exp->type = exp->type;
+
+                        DeclarationExp *de = new DeclarationExp(0, v);
+                        de->type = Type::tvoid;
+
+                        Expression *e = new DotVarExp(ve->loc, ve, sd->postblit, 0);
+                        e->type = sd->postblit->type;
+                        e = new CallExp(ve->loc, e);
+                        e->type = Type::tvoid;
+
+                        exp = Expression::combine(de, e);
+                        exp = Expression::combine(exp, ve);
+                    }
+                }
+            }
+        }
     }
     return this;
 }
@@ -1162,7 +1222,7 @@ Statement *TryCatchStatement::inlineScan(InlineScanState *iss)
     if (catches)
     {
         for (size_t i = 0; i < catches->dim; i++)
-        {   Catch *c = catches->tdata()[i];
+        {   Catch *c = (*catches)[i];
 
             if (c->handler)
                 c->handler = c->handler->inlineScan(iss);
@@ -1212,12 +1272,12 @@ void arrayInlineScan(InlineScanState *iss, Expressions *arguments)
     if (arguments)
     {
         for (size_t i = 0; i < arguments->dim; i++)
-        {   Expression *e = arguments->tdata()[i];
+        {   Expression *e = (*arguments)[i];
 
             if (e)
             {
                 e = e->inlineScan(iss);
-                arguments->tdata()[i] = e;
+                (*arguments)[i] = e;
             }
         }
     }
@@ -1237,7 +1297,7 @@ void scanVar(Dsymbol *s, InlineScanState *iss)
         if (td)
         {
             for (size_t i = 0; i < td->objects->dim; i++)
-            {   DsymbolExp *se = (DsymbolExp *)td->objects->tdata()[i];
+            {   DsymbolExp *se = (DsymbolExp *)(*td->objects)[i];
                 assert(se->op == TOKdsymbol);
                 scanVar(se->s, iss);
             }
@@ -1546,7 +1606,7 @@ int FuncDeclaration::canInline(int hasthis, int hdrscan, int statementsToo)
     {
         for (size_t i = 0; i < parameters->dim; i++)
         {
-            VarDeclaration *v = parameters->tdata()[i];
+            VarDeclaration *v = (*parameters)[i];
             if (v->type->toBasetype()->ty == Tsarray)
                 goto Lno;
         }
@@ -1701,9 +1761,9 @@ Expression *FuncDeclaration::expandInline(InlineScanState *iss, Expression *ethi
 
         for (size_t i = 0; i < arguments->dim; i++)
         {
-            VarDeclaration *vfrom = parameters->tdata()[i];
+            VarDeclaration *vfrom = (*parameters)[i];
             VarDeclaration *vto;
-            Expression *arg = arguments->tdata()[i];
+            Expression *arg = (*arguments)[i];
             ExpInitializer *ei;
             VarExp *ve;
 
@@ -1778,7 +1838,7 @@ Expression *FuncDeclaration::expandInline(InlineScanState *iss, Expression *ethi
 
         Identifier* tmp = Identifier::generateId("__inlineretval");
         VarDeclaration* vd = new VarDeclaration(loc, tf->next, tmp, ei);
-        vd->storage_class = tf->isref ? STCref : 0;
+        vd->storage_class = (tf->isref ? STCref : 0) | STCtemp;
         vd->linkage = tf->linkage;
         vd->parent = iss->fd;
 

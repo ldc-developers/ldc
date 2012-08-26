@@ -624,7 +624,7 @@ void Dsymbol::error(const char *format, ...)
     }
     va_list ap;
     va_start(ap, format);
-    verror(loc, format, ap);
+    verror(loc, format, ap, kind(), toPrettyChars());
     va_end(ap);
 }
 
@@ -632,39 +632,8 @@ void Dsymbol::error(Loc loc, const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    verror(loc, format, ap);
+    verror(loc, format, ap, kind(), toPrettyChars());
     va_end(ap);
-}
-
-void Dsymbol::verror(Loc loc, const char *format, va_list ap)
-{
-    if (!global.gag)
-    {
-        char *p = loc.toChars();
-        if (!*p)
-            p = locToChars();
-
-        if (*p)
-            fprintf(stdmsg, "%s: ", p);
-        mem.free(p);
-
-        fprintf(stdmsg, "Error: ");
-        fprintf(stdmsg, "%s %s ", kind(), toPrettyChars());
-
-        vfprintf(stdmsg, format, ap);
-
-        fprintf(stdmsg, "\n");
-        fflush(stdmsg);
-halt();
-    }
-    else
-    {
-        global.gaggedErrors++;
-    }
-
-    global.errors++;
-
-    //fatal();
 }
 
 void Dsymbol::checkDeprecated(Loc loc, Scope *sc)
@@ -903,7 +872,8 @@ Dsymbol *ScopeDsymbol::search(Loc loc, Identifier *ident, int flags)
                 s = s2;
             else if (s2 && s != s2)
             {
-                if (s->toAlias() == s2->toAlias())
+                if (s->toAlias() == s2->toAlias() ||
+                    s->getType() == s2->getType() && s->getType())
                 {
                     /* After following aliases, we found the same
                      * symbol, so it's not an ambiguity.  But if one
@@ -1175,6 +1145,8 @@ int ScopeDsymbol::foreach(Scope *sc, Dsymbols *members, ScopeDsymbol::ForeachDg 
             result = foreach(sc, tm->members, dg, ctx, &n);
         else if (s->isTemplateInstance())
             ;
+        else if (s->isUnitTestDeclaration())
+            ;
         else
             result = dg(ctx, n++, s);
 
@@ -1423,6 +1395,7 @@ Dsymbol *ArrayScopeSymbol::search(Loc loc, Identifier *ident, int flags)
                 VoidInitializer *e = new VoidInitializer(0);
                 e->type = Type::tsize_t;
                 v->init = e;
+                v->storage_class |= STCctfe; // it's never a true static variable
             }
             *pvar = v;
         }
