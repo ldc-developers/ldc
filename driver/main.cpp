@@ -477,6 +477,8 @@ int main(int argc, char** argv)
 #endif
     }
 
+    std::string triple;
+
     // did the user override the target triple?
     if (mTargetTriple.empty())
     {
@@ -485,14 +487,14 @@ int main(int argc, char** argv)
             error("you must specify a target triple as well with -mtriple when using the -march option");
             fatal();
         }
-        global.params.targetTriple = defaultTriple.c_str();
+        triple = defaultTriple;
     }
     else
     {
-        global.params.targetTriple = llvm::Triple::normalize(mTargetTriple).c_str();
+        triple = llvm::Triple::normalize(mTargetTriple);
     }
 
-    std::string triple = global.params.targetTriple;
+    global.params.targetTriple = triple.c_str();
 
     // Allocate target machine.
     const llvm::Target *theTarget = NULL;
