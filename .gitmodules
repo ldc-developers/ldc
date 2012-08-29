@@ -4,3 +4,6 @@
 [submodule "phobos"]
 	path = runtime/phobos
 	url = git://github.com/ldc-developers/phobos.git
+[submodule "tests/d2/dmd-testsuite"]
+	path = tests/d2/dmd-testsuite
+	url = git://github.com/ldc-developers/dmd-testsuite.git
