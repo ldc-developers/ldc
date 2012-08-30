@@ -5443,7 +5443,7 @@ int AsmStatement::comeFrom()
 int AsmStatement::blockExit(bool mustNotThrow)
 {
     if (mustNotThrow)
-        error("asm statements are assumed to throw", toChars());
+        error("asm statements are assumed to throw");
     // Assume the worst
     return BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt;
 }

@@ -2325,7 +2325,7 @@ namespace AsmParserx8664
                                 */
                                 if ( isDollar ( e ) )
                                 {
-                                    error ( "dollar labels are not supported", stmt->loc.toChars() );
+                                    stmt->error("dollar labels are not supported");
                                     asmcode->dollarLabel = 1;
                                 }
                                 else if ( e->op == TOKdsymbol )
