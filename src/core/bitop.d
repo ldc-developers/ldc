@@ -22,6 +22,10 @@ version( D_InlineAsm_X86_64 )
     version = AsmX86;
 else version( D_InlineAsm_X86 )
     version = AsmX86;
+
+@safe
+{
+
 /**
  * Scans the bits in v starting with bit 0, looking
  * for the first set bit.
@@ -276,6 +280,7 @@ else
     pure uint bswap(uint v);
 }
 
+} // @safe
 
 /**
  * Reads I/O port at port_address.
@@ -372,6 +377,8 @@ else
     uint outpl(uint port_address, uint value);
 }
 
+@safe
+{
 
 /**
  *  Calculates the number of set bits in a 32-bit integer.
@@ -434,7 +441,7 @@ unittest
 /**
  * Reverses the order of bits in a 32-bit integer.
  */
-pure uint bitswap( uint x )
+@trusted pure uint bitswap( uint x )
 {
     version (AsmX86)
     {
@@ -491,3 +498,5 @@ unittest
     foreach(i; 0 .. 32)
         assert(bitswap(1 << i) == 1 << 32 - i - 1);
 }
+
+} // @safe
