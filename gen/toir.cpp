@@ -3116,10 +3116,9 @@ LruntimeInit:
 
 DValue* GEPExp::toElem(IRState* p)
 {
-    // this should be good enough for now!
-    DValue* val = e1->toElem(p);
-    assert(val->isLVal());
-    LLValue* v = DtoGEPi(val->getLVal(), 0, index);
+    // (&a.foo).funcptr is a case where e1->toElem is genuinely not an l-value.
+    LLValue* val = makeLValue(loc, e1->toElem(p));
+    LLValue* v = DtoGEPi(val, 0, index);
     return new DVarValue(type, DtoBitCast(v, getPtrToType(DtoType(type))));
 }
 
