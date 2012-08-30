@@ -1425,25 +1425,32 @@ DValue* DotVarExp::toElem(IRState* p)
     {
         DtoResolveDsymbol(fdecl);
 
-        LLValue* funcval;
-        LLValue* vthis2 = 0;
-        if (e1type->ty == Tclass) {
+        // This is a bit more convoluted than it would need to be, because it
+        // has to take templated interface methods into account, for which
+        // isFinal is not necessarily true.
+        const bool nonFinal = !fdecl->isFinal() &&
+            (fdecl->isAbstract() || fdecl->isVirtual());
+
+        // If we are calling a non-final interface function, we need to get
+        // the pointer to the underlying object instead of passing the
+        // interface pointer directly.
+        LLValue* passedThis = 0;
+        if (e1type->ty == Tclass)
+        {
             TypeClass* tc = static_cast<TypeClass*>(e1type);
-            if (tc->sym->isInterfaceDeclaration() && !fdecl->isFinal())
-                vthis2 = DtoCastInterfaceToObject(l, NULL)->getRVal();
+            if (tc->sym->isInterfaceDeclaration() && nonFinal)
+                passedThis = DtoCastInterfaceToObject(l, NULL)->getRVal();
         }
         LLValue* vthis = l->getRVal();
-        if (!vthis2) vthis2 = vthis;
+        if (!passedThis) passedThis = vthis;
 
-        //
-        // decide whether this function needs to be looked up in the vtable
-        //
-        bool vtbllookup = !fdecl->isFinal() && (fdecl->isAbstract() || fdecl->isVirtual());
-
-        // even virtual functions are looked up directly if super or DotTypeExp
-        // are used, thus we need to walk through the this expression and check
+        // Decide whether this function needs to be looked up in the vtable.
+        // Even virtual functions are looked up directly if super or DotTypeExp
+        // are used, thus we need to walk through the this expression and check.
+        bool vtbllookup = nonFinal;
         Expression* e = e1;
-        while (e && vtbllookup) {
+        while (e && vtbllookup)
+        {
             if (e->op == TOKsuper || e->op == TOKdottype)
                 vtbllookup = false;
             else if (e->op == TOKcast)
@@ -1452,20 +1459,21 @@ DValue* DotVarExp::toElem(IRState* p)
                 break;
         }
 
-        //
-        // look up function
-        //
-        if (!vtbllookup) {
+        // Get the actual function value to call.
+        LLValue* funcval = 0;
+        if (vtbllookup)
+        {
+            DImValue thisVal(e1type, vthis);
+            funcval = DtoVirtualFunctionPointer(&thisVal, fdecl, toChars());
+        }
+        else
+        {
             fdecl->codegen(Type::sir);
             funcval = fdecl->ir.irFunc->func;
-            assert(funcval);
         }
-        else {
-            DImValue vthis3(e1type, vthis);
-            funcval = DtoVirtualFunctionPointer(&vthis3, fdecl, toChars());
-        }
+        assert(funcval);
 
-        return new DFuncValue(fdecl, funcval, vthis2);
+        return new DFuncValue(fdecl, funcval, passedThis);
     }
     else {
         printf("unsupported dotvarexp: %s\n", var->toChars());
