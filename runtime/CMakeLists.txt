@@ -15,7 +15,7 @@ else()
 endif()
 
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   59)
+set(DMDFE_PATCH_VERSION   60)
 set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
 
 set(MULTILIB              OFF                                                           CACHE BOOL    "Build both 64-bit and 32-bit libraries")
