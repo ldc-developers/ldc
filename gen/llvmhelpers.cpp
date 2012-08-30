@@ -1509,7 +1509,8 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
         }
         else
         {
-            error("cannot yet convert default initializer %s of type %s to %s", exp->toChars(), exp->type->toChars(), type->toChars());
+            error(loc, "LDC internal error: cannot yet convert default initializer %s of type %s to %s",
+                exp->toChars(), exp->type->toChars(), type->toChars());
             fatal();
         }
         assert(0);
