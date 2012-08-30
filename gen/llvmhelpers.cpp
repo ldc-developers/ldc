@@ -1501,6 +1501,12 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
             Logger::println("type is a static array, building constant array initializer to single value");
             return expand_to_sarray(base, exp);
         }
+        else if (base->ty == Tvector)
+        {
+            LLConstant* val = exp->toConstElem(gIR);
+            TypeVector* tv = (TypeVector*)base;
+            return llvm::ConstantVector::getSplat(tv->size(loc), val);
+        }
         else
         {
             error("cannot yet convert default initializer %s of type %s to %s", exp->toChars(), exp->type->toChars(), type->toChars());
