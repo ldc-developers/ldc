@@ -29,6 +29,7 @@ struct RTTIBuilder
     void push_null_void_array();
     void push_uint(unsigned u);
     void push_size(uint64_t s);
+    void push_size_as_vp(uint64_t s);
     void push_string(const char* str);
     void push_typeinfo(Type* t);
     void push_classinfo(ClassDeclaration* cd);
