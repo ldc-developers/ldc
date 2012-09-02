@@ -83,6 +83,13 @@ int linkObjToBinary(bool sharedLib)
         args.push_back(p);
     }
 
+    // user libs
+    for (unsigned i = 0; i < global.params.libfiles->dim; i++)
+    {
+        char *p = static_cast<char *>(global.params.libfiles->data[i]);
+        args.push_back(p);
+    }
+
     // output filename
     std::string output;
     if (!sharedLib && global.params.exefile)
@@ -144,13 +151,6 @@ int linkObjToBinary(bool sharedLib)
     {
         char *p = static_cast<char *>(global.params.linkswitches->data[i]);
         args.push_back("-Xlinker");
-        args.push_back(p);
-    }
-
-    // user libs
-    for (unsigned i = 0; i < global.params.libfiles->dim; i++)
-    {
-        char *p = static_cast<char *>(global.params.libfiles->data[i]);
         args.push_back(p);
     }
 
