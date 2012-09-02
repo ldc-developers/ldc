@@ -266,7 +266,7 @@ char *TemplateMixin::mangle()
 	    p += 2;
 	buf.writestring(p);
     }
-    buf.printf("%zu%s", strlen(id), id);
+    buf.printf("%llu%s", (ulonglong)strlen(id), id);
     id = buf.toChars();
     buf.data = NULL;
     //printf("TemplateMixin::mangle() %s = %s\n", toChars(), id);
