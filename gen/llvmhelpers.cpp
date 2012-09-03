@@ -1029,10 +1029,10 @@ void DtoVarDeclaration(VarDeclaration* vd)
 #endif
     {
         Logger::println("has nestedref set (referenced by nested function/delegate)");
-        assert(vd->ir.irLocal);
-        DtoNestedInit(vd);
+        assert(vd->ir.irLocal && "irLocal is expected to be already set by DtoCreateNestedContext");
     }
-    else if(vd->ir.irLocal)
+
+    if(vd->ir.irLocal)
     {
         // Nothing to do if it has already been allocated.
     }
@@ -1265,8 +1265,6 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
         }
         else
             assert(!addr || addr == var->ir.irLocal->value);
-
-        DtoNestedInit(var);
     }
     // normal local variable
     else
