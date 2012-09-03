@@ -31,7 +31,6 @@ IrGlobal::IrGlobal(VarDeclaration* v): IrVar(v)
 IrLocal::IrLocal(VarDeclaration* v) : IrVar(v)
 {
     nestedIndex = -1;
-    byref = false;
 }
 
 //////////////////////////////////////////////////////////////////////////////

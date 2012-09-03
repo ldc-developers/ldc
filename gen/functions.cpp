@@ -815,8 +815,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     {
         DtoNestedInit(fd->vresult);
     } else if (fd->vresult) {
-        fd->vresult->ir.irLocal = new IrLocal(fd->vresult);
-        fd->vresult->ir.irLocal->value = DtoAlloca(fd->vresult->type, fd->vresult->toChars());
+        DtoVarDeclaration(fd->vresult);
     }
 
     // copy _argptr and _arguments to a memory location

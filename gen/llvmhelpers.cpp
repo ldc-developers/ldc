@@ -1013,6 +1013,110 @@ void DtoConstInitGlobal(VarDeclaration* vd)
 /*////////////////////////////////////////////////////////////////////////////////////////
 //      DECLARATION EXP HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
+
+// TODO: Merge with DtoRawVarDeclaration!
+void DtoVarDeclaration(VarDeclaration* vd)
+{
+    assert(!vd->isDataseg() && "Statics/globals are handled in DtoDeclarationExp.");
+    assert(!vd->aliassym && "Aliases are handled in DtoDeclarationExp.");
+
+    Logger::println("vdtype = %s", vd->type->toChars());
+
+#if DMDV2
+    if (vd->nestedrefs.dim)
+#else
+    if (vd->nestedref)
+#endif
+    {
+        Logger::println("has nestedref set (referenced by nested function/delegate)");
+        assert(vd->ir.irLocal);
+        DtoNestedInit(vd);
+    }
+    else if(vd->ir.irLocal)
+    {
+        // Nothing to do if it has already been allocated.
+    }
+#if DMDV2
+    /* Named Return Value Optimization (NRVO):
+        T f(){
+            T ret;        // &ret == hidden pointer
+            ret = ...
+            return ret;    // NRVO.
+        }
+    */
+    else if (gIR->func()->retArg && gIR->func()->decl->nrvo_can && gIR->func()->decl->nrvo_var == vd) {
+        assert(!isSpecialRefVar(vd) && "Can this happen?");
+        vd->ir.irLocal = new IrLocal(vd);
+        vd->ir.irLocal->value = gIR->func()->retArg;
+    }
+#endif
+    // normal stack variable, allocate storage on the stack if it has not already been done
+    else {
+        vd->ir.irLocal = new IrLocal(vd);
+
+#if DMDV2
+        /* NRVO again:
+            T t = f();    // t's memory address is taken hidden pointer
+        */
+        ExpInitializer *ei = 0;
+        if (vd->type->toBasetype()->ty == Tstruct && vd->init &&
+            !!(ei = vd->init->isExpInitializer()))
+        {
+            if (ei->exp->op == TOKconstruct) {
+                AssignExp *ae = static_cast<AssignExp*>(ei->exp);
+                if (ae->e2->op == TOKcall) {
+                    CallExp *ce = static_cast<CallExp *>(ae->e2);
+                    TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
+                    if (tf->ty == Tfunction && tf->fty.arg_sret) {
+                        LLValue* const val = ce->toElem(gIR)->getLVal();
+                        if (isSpecialRefVar(vd))
+                        {
+                            vd->ir.irLocal->value = DtoAlloca(
+                                vd->type->pointerTo(), vd->toChars());
+                            DtoStore(val, vd->ir.irLocal->value);
+                        }
+                        else
+                        {
+                            vd->ir.irLocal->value = val;
+                        }
+                        goto Lexit;
+                    }
+                }
+            }
+        }
+#endif
+
+        Type* type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
+        LLType* lltype = DtoType(type);
+
+        llvm::Value* allocainst;
+        if(gTargetData->getTypeSizeInBits(lltype) == 0)
+            allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
+        else
+            allocainst = DtoAlloca(type, vd->toChars());
+
+        vd->ir.irLocal->value = allocainst;
+
+        DtoDwarfLocalVariable(allocainst, vd);
+    }
+
+    if (Logger::enabled())
+        Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
+
+    DtoInitializer(vd->ir.irLocal->value, vd->init); // TODO: Remove altogether?
+
+#if DMDV2
+Lexit:
+    /* Mark the point of construction of a variable that needs to be destructed.
+     */
+    if (vd->edtor && !vd->noscope)
+    {
+        // Put vd on list of things needing destruction
+        gIR->varsInScope().push_back(vd);
+    }
+#endif
+}
+
 DValue* DtoDeclarationExp(Dsymbol* declaration)
 {
     Logger::print("DtoDeclarationExp: %s\n", declaration->toChars());
@@ -1036,123 +1140,8 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         }
         else
         {
-            if (global.params.llvmAnnotate)
-                DtoAnnotation(declaration->toChars());
-
-            Logger::println("vdtype = %s", vd->type->toChars());
-
-            // ref vardecls are generated when DMD lowers foreach to a for statement,
-            // and this is a hack to support them for this case only
-            if(vd->isRef())
-            {
-                if (!vd->ir.irLocal)
-                    vd->ir.irLocal = new IrLocal(vd);
-
-                ExpInitializer* ex = vd->init->isExpInitializer();
-                assert(ex && "ref vars must have expression initializer");
-                assert(ex->exp);
-                AssignExp* as = ex->exp->isAssignExp();
-                assert(as && "ref vars must be initialized by an assign exp");
-                DValue *val = as->e2->toElem(gIR);
-                if (val->isLVal())
-                {
-                    vd->ir.irLocal->value = val->getLVal();
-                }
-                else
-                {
-                    LLValue *newVal = DtoAlloca(val->type);
-                    DtoStore(val->getRVal(), newVal);
-                    vd->ir.irLocal->value = newVal;
-                }
-            }
-
-            // referenced by nested delegate?
-        #if DMDV2
-            if (vd->nestedrefs.dim) {
-        #else
-            if (vd->nestedref) {
-        #endif
-                Logger::println("has nestedref set");
-                assert(vd->ir.irLocal);
-                DtoNestedInit(vd);
-            // is it already allocated?
-            } else if(vd->ir.irLocal) {
-                // nothing to do...
-            }
-#if DMDV2
-            /* Named Return Value Optimization (NRVO):
-                T f(){
-                    T ret;        // &ret == hidden pointer
-                    ret = ...
-                    return ret;    // NRVO.
-                }
-            */
-            else if (gIR->func()->retArg && gIR->func()->decl->nrvo_can && gIR->func()->decl->nrvo_var == vd) {
-                vd->ir.irLocal = new IrLocal(vd);
-                vd->ir.irLocal->value = gIR->func()->retArg;
-            }
-#endif
-            // normal stack variable, allocate storage on the stack if it has not already been done
-            else if(!vd->isRef()) {
-                vd->ir.irLocal = new IrLocal(vd);
-
-#if DMDV2
-                /* NRVO again:
-                    T t = f();    // t's memory address is taken hidden pointer
-                */
-                ExpInitializer *ei = 0;
-                if (vd->type->toBasetype()->ty == Tstruct && vd->init &&
-                    !!(ei = vd->init->isExpInitializer()))
-                {
-                    if (ei->exp->op == TOKconstruct) {
-                        AssignExp *ae = static_cast<AssignExp*>(ei->exp);
-                        if (ae->e2->op == TOKcall) {
-                            CallExp *ce = static_cast<CallExp *>(ae->e2);
-                            TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
-                            if (tf->ty == Tfunction && tf->fty.arg_sret) {
-                                vd->ir.irLocal->value = ce->toElem(gIR)->getLVal();
-                                goto Lexit;
-                            }
-                        }
-                    }
-                }
-#endif
-
-                LLType* lltype = DtoType(vd->type);
-
-                llvm::Value* allocainst;
-                if(gTargetData->getTypeSizeInBits(lltype) == 0)
-                    allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
-                else
-                    allocainst = DtoAlloca(vd->type, vd->toChars());
-
-                //allocainst->setAlignment(vd->type->alignsize()); // TODO
-                vd->ir.irLocal->value = allocainst;
-
-                DtoDwarfLocalVariable(allocainst, vd);
-            }
-            else
-            {
-                assert(vd->ir.irLocal->value);
-            }
-
-            if (Logger::enabled())
-                Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
-            if (!vd->isRef())
-                DtoInitializer(vd->ir.irLocal->value, vd->init); // TODO: Remove altogether?
-
-#if DMDV2
-        Lexit:
-            /* Mark the point of construction of a variable that needs to be destructed.
-             */
-            if (vd->edtor && !vd->noscope)
-            {
-                // Put vd on list of things needing destruction
-                gIR->varsInScope().push_back(vd);
-            }
-#endif
+            DtoVarDeclaration(vd);
         }
-
         return new DVarValue(vd->type, vd, vd->ir.getIrValue());
     }
     // struct declaration
@@ -1918,6 +1907,13 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val)
     }
 }
 #endif
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+bool isSpecialRefVar(VarDeclaration* vd)
+{
+    return (vd->storage_class & STCref) && (vd->storage_class & STCforeach);
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

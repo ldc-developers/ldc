@@ -98,6 +98,7 @@ void DtoResolveDsymbol(Dsymbol* dsym);
 void DtoConstInitGlobal(VarDeclaration* vd);
 
 // declaration inside a declarationexp
+void DtoVarDeclaration(VarDeclaration* var);
 DValue* DtoDeclarationExp(Dsymbol* declaration);
 LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr = 0);
 
@@ -157,6 +158,14 @@ LLValue* makeLValue(Loc& loc, DValue* value);
 #if DMDV2
 void callPostblit(Loc &loc, Expression *exp, LLValue *val);
 #endif
+
+/// Returns whether the given variable is a DMD-internal "ref variable".
+///
+/// D doesn't have reference variables (the ref keyword is only usable in
+/// function signatures and foreach headers), but the DMD frontend internally
+/// creates them in cases like lowering a ref foreach to a for loop or the
+/// implicit __result variable for ref-return functions with out contracts.
+bool isSpecialRefVar(VarDeclaration* vd);
 
 ////////////////////////////////////////////
 // gen/tocall.cpp stuff below

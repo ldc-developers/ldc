@@ -211,7 +211,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
         val = DtoGEPi(val, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
         Logger::cout() << "Addr: " << *val << '\n';
         Logger::cout() << "of type: " << *val->getType() << '\n';
-        if (vd->ir.irLocal->byref || byref) {
+        if (byref || (vd->isParameter() && vd->ir.irParam->arg->byref)) {
             val = DtoAlignedLoad(val);
             //dwarfOpDeref(dwarfAddr);
             Logger::cout() << "Was byref, now: " << *val << '\n';
@@ -251,27 +251,7 @@ void DtoNestedInit(VarDeclaration* vd)
         DtoAlignedStore(val, gep);
     }
     else if (nestedCtx == NCHybrid) {
-        assert(vd->ir.irLocal->value && "Nested variable without storage?");
-
-        if (!vd->isParameter() && (vd->isRef() || vd->isOut())) {
-            unsigned vardepth = vd->ir.irLocal->nestedDepth;
-
-            LLValue* val = NULL;
-            // Retrieve frame pointer
-            if (vardepth == irfunc->depth) {
-                val = nestedVar;
-            } else {
-                FuncDeclaration *parentfunc = getParentFunc(vd, true);
-                assert(parentfunc && "No parent function for nested variable?");
-
-                val = DtoGEPi(nestedVar, 0, vardepth);
-                val = DtoAlignedLoad(val, (std::string(".frame.") + parentfunc->toChars()).c_str());
-            }
-            val = DtoGEPi(val, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
-            storeVariable(vd, val);
-        } else {
-            // Already initialized in DtoCreateNestedContext
-        }
+        // Already initialized in DtoCreateNestedContext.
     }
     else {
         assert(0 && "Not implemented yet");
@@ -492,18 +472,13 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
                             type = type->getContainedType(0);
                         else
                             type = DtoType(vd->type);
-                        vd->ir.irParam->byref = false;
                     } else {
-                        vd->ir.irParam->byref = true;
                     }
                     types.push_back(type);
-                } else if (vd->isRef() || vd->isOut()) {
-                    // Foreach variables can also be by reference, for instance.
+                } else if (isSpecialRefVar(vd)) {
                     types.push_back(DtoType(vd->type->pointerTo()));
-                    vd->ir.irLocal->byref = true;
                 } else {
                     types.push_back(DtoType(vd->type));
-                    vd->ir.irLocal->byref = false;
                 }
                 if (Logger::enabled()) {
                     Logger::println("Nested var: %s", vd->toChars());
@@ -692,36 +667,26 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                 if (vd->isParameter()) {
                     Logger::println("nested param: %s", vd->toChars());
                     LOG_SCOPE
-                    LLValue* value = vd->ir.irLocal->value;
-                    if (llvm::isa<llvm::AllocaInst>(llvm::GetUnderlyingObject(value))) {
+                    IrParameter* parm = vd->ir.irParam;
+
+                    if (parm->arg->byref)
+                    {
+                        storeVariable(vd, gep);
+                    }
+                    else
+                    {
                         Logger::println("Copying to nested frame");
                         // The parameter value is an alloca'd stack slot.
                         // Copy to the nesting frame and leave the alloca for
                         // the optimizers to clean up.
-                        assert(!vd->ir.irLocal->byref);
-                        DtoStore(DtoLoad(value), gep);
-                        gep->takeName(value);
-                        vd->ir.irLocal->value = gep;
-                    } else {
-                        Logger::println("Adding pointer to nested frame");
-                        // The parameter value is something else, such as a
-                        // passed-in pointer (for 'ref' or 'out' parameters) or
-                        // a pointer arg with byval attribute.
-                        // Store the address into the frame.
-                        assert(vd->ir.irLocal->byref);
-                        storeVariable(vd, gep);
+                        DtoStore(DtoLoad(parm->value), gep);
+                        gep->takeName(parm->value);
+                        parm->value = gep;
                     }
-                } else if (vd->isRef() || vd->isOut()) {
-                    // This slot is initialized in DtoNestedInit, to handle things like byref foreach variables
-                    // which move around in memory.
-                    assert(vd->ir.irLocal->byref);
                 } else {
                     Logger::println("nested var:   %s", vd->toChars());
-                    if (vd->ir.irLocal->value)
-                        Logger::cout() << "Pre-existing value: " << *vd->ir.irLocal->value << '\n';
                     assert(!vd->ir.irLocal->value);
                     vd->ir.irLocal->value = gep;
-                    assert(!vd->ir.irLocal->byref);
                 }
 
                 if (global.params.symdebug) {

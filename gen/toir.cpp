@@ -583,6 +583,30 @@ DValue* AssignExp::toElem(IRState* p)
         return newlen;
     }
 
+    // Can't just override ConstructExp::toElem because not all TOKconstruct
+    // operations are actually instances of ConstructExp... Long live the DMD
+    // coding style!
+    if (op == TOKconstruct)
+    {
+        if (e1->op == TOKvar)
+        {
+            VarExp* ve = (VarExp*)e1;
+            if (ve->var->storage_class & STCref)
+            {
+                // Note that the variable value is accessed directly (instead
+                // of via getLValue(), which would perform a load from the
+                // uninitialized location), and that rhs is stored as an l-value!
+
+                IrLocal* const local = ve->var->ir.irLocal;
+                assert(local && "ref var must be local and already initialized");
+
+                DValue* rhs = e2->toElem(p);
+                DtoStore(rhs->getLVal(), local->value);
+                return rhs;
+            }
+        }
+    }
+
     Logger::println("performing normal assignment");
 
     DValue* l = e1->toElem(p);
