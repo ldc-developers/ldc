@@ -1658,45 +1658,6 @@ void FuncDeclaration::semantic3(Scope *sc)
             }
 
             fbody = new CompoundStatement(0, a);
-
-#if 0 // This seems to have been added in with dmd 2.032, see below
-	    // wrap body of synchronized functions in a synchronized statement
-	    if (isSynchronized())
-	    {
-		ClassDeclaration *cd = parent->isClassDeclaration();
-		if (!cd)
-		    error("synchronized function %s must be a member of a class", toChars());
-		    
-		Expression *sync;
-		if (isStatic())
-		{
-		    // static member functions synchronize on classinfo 
-		    sync = cd->type->dotExp(sc2, new TypeExp(loc, cd->type), Id::classinfo);
-		}
-		else
-		{
-		    // non-static member functions synchronize on this
-		    sync = new VarExp(loc, vthis);
-		}
-                
-		// we do not want to rerun semantics on the whole function, so we
-		// manually adjust all labels in the function that currently don't
-		// have an enclosingScopeExit to use the new SynchronizedStatement
-		SynchronizedStatement* s = new SynchronizedStatement(loc, sync, NULL);
-		s->semantic(sc2);
-		s->body = fbody;
-		
-		// LDC
-		LabelMap::iterator it, end = labmap.end();
-		for (it = labmap.begin(); it != end; ++it)
-		    if (it->second->enclosingScopeExit == NULL)
-			it->second->enclosingScopeExit = s;
-		
-		a = new Statements;
-		a->push(s);
-		fbody = new CompoundStatement(0, a);
-	    }
-#endif
 #if DMDV2
             /* Append destructor calls for parameters as finally blocks.
              */
