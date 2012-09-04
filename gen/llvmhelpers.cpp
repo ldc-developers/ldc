@@ -1889,7 +1889,7 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val)
 {
 
     Type *tb = exp->type->toBasetype();
-    if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar || exp->op == TOKthis) &&
+    if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar || exp->op == TOKthis || exp->op == TOKindex) &&
         tb->ty == Tstruct)
     {   StructDeclaration *sd = static_cast<TypeStruct *>(tb)->sym;
         if (sd->postblit)
