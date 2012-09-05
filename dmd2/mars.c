@@ -72,9 +72,7 @@ Global::Global()
     bc_ext  = "bc";
     s_ext   = "s";
     obj_ext = "o";
-#if _WIN32
     obj_ext_alt = "obj";
-#endif
 #else
 #if TARGET_WINDOS
     obj_ext  = "obj";

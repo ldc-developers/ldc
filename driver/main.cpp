@@ -391,17 +391,16 @@ int main(int argc, char** argv)
         } else if (strcmp(ext, global.s_ext) == 0) {
             global.params.output_s = OUTPUTFLAGset;
             autofound = true;
-        } else if (strcmp(ext, global.obj_ext) == 0) {
+        } else if (strcmp(ext, global.obj_ext) == 0 || strcmp(ext, global.obj_ext_alt) == 0) {
             global.params.output_o = OUTPUTFLAGset;
             autofound = true;
         } else {
             // append dot, so forceExt won't change existing name even if it contains dots
             size_t len = strlen(global.params.objname);
-            size_t extlen = strlen(".");
-            char* s = static_cast<char *>(mem.malloc(len + 1 + extlen + 1));
+            char* s = static_cast<char *>(mem.malloc(len + 1 + 1));
             memcpy(s, global.params.objname, len);
             s[len] = '.';
-            s[len+1+extlen] = 0;
+            s[len+1] = 0;
             global.params.objname = s;
 
         }
