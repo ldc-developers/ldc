@@ -303,7 +303,7 @@ version( GC_Use_Data_Proc_Maps )
 {
 version(solaris)
 {
-    typedef long offset_t;
+    alias long offset_t;
     enum : uint { PRMAPSZ = 64, MA_WRITE = 0x02 }
     extern(C)
     {
