@@ -18,7 +18,7 @@
 
 void Statement::toNakedIR(IRState *p)
 {
-    error("not allowed in naked function");
+    error("statement not allowed in naked function");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -178,6 +178,11 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
     // emit body
     fd->fbody->toNakedIR(gIR);
+
+    // We could have generated new errors in toNakedIR(), but we are in codegen
+    // already so we have to abort here.
+    if (global.errors)
+        fatal();
 
     // emit size after body
     // llvm does this on linux, but not on osx or Win
