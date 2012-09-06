@@ -217,9 +217,16 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     assert(!global.errors);
 
     // name the module
+#if 1
+    // Temporary workaround for http://llvm.org/bugs/show_bug.cgi?id=11479 –
+    // just use the source file name, as it is unlikely to collide with a
+    // symbol name used somewhere in the module.
+    llvm::StringRef mname(srcfile->toChars());
+#else
     llvm::StringRef mname(toChars());
     if (md != 0)
         mname = md->toChars();
+#endif
 
     // create a new ir state
     // TODO look at making the instance static and moving most functionality into IrModule where it belongs
