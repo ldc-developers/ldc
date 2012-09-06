@@ -3128,7 +3128,7 @@ struct Pool
     }
 
 
-    void Dtor()
+    private void Dtor()
     {
         if (baseAddr)
         {
