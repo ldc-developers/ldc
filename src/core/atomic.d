@@ -343,6 +343,11 @@ else version( LDC )
             llvm_atomic_store!(T)(cast(T)newval, &val, ordering);
         }
     }
+
+    void atomicFence() nothrow
+    {
+        llvm_memory_fence();
+    }
 }
 else version( AsmX86_32 )
 {
