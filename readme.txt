@@ -7,6 +7,7 @@ For build instructions see the wiki:
 
 https://github.com/ldc-developers/ldc/wiki
 
-For more information, visit the LDC website:
+For more information, visit the LDC website (note that the site relates to
+an old version of LDC, so some of the information there is outdated):
 
 http://www.dsource.org/projects/ldc
