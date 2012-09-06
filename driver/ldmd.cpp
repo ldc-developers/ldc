@@ -775,7 +775,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     pushSwitches("-d-version=", p.versionIdentifiers, r);
     pushSwitches("-L=", p.linkerSwitches, r);
     if (p.defaultLibName) r.push_back(concat("-defaultlib=", p.defaultLibName));
-    if (p.debugLibName) r.push_back(concat("-deps=", p.moduleDepsFile));
+    if (p.debugLibName) r.push_back(concat("-debuglib=", p.debugLibName));
     if (p.hiddenDebugB) r.push_back("-hidden-debug-b");
     if (p.hiddenDebugC) r.push_back("-hidden-debug-c");
     if (p.hiddenDebugF) r.push_back("-hidden-debug-f");
