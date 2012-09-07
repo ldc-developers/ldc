@@ -77,7 +77,6 @@ list(REMOVE_ITEM DCRT_D
     ${RUNTIME_DC_DIR}/deh2.d
     ${RUNTIME_DC_DIR}/llmath.d
     ${RUNTIME_DC_DIR}/memory_osx.d
-    ${RUNTIME_DC_DIR}/monitor_.d
     ${RUNTIME_DC_DIR}/qsort2.d
     ${RUNTIME_DC_DIR}/trace.d
 )
