@@ -189,14 +189,30 @@ private
 {
     version( Windows )
     {
-        extern (C)
+        version( Win64 )
         {
-            extern __gshared int _data_start__;
-            extern __gshared int _bss_end__;
-        }
+            extern (C)
+            {
+                extern __gshared void* _data_start__;
+                extern __gshared void* _data_end__;
+                extern __gshared void* _bss_start__;
+                extern __gshared void* _bss_end__;
+            }
 
-        alias _data_start__ Data_Start;
-        alias _bss_end__    Data_End;
+            alias _data_start__ Data_Start;
+            alias _data_end__   Data_End;
+        }
+        else
+        {
+            extern (C)
+            {
+                extern __gshared int _data_start__;
+                extern __gshared int _bss_end__;
+            }
+
+            alias _data_start__ Data_Start;
+            alias _bss_end__    Data_End;
+        }
     }
     else version( linux )
     {
@@ -244,6 +260,10 @@ private
     }
 
     void* dataStart,  dataEnd;
+    version( Win64 )
+    {
+        void* bssStart,  bssEnd;
+    }
 }
 
 
@@ -263,7 +283,21 @@ void initStaticDataGC()
         return p - (cast(size_t) p & (S-1));
     }
 
-    version( Windows )
+    version( Win64 )
+    {
+        if(_bss_start__ != null)
+        {
+            bssStart = adjust_up( _bss_start__ );
+            bssEnd   = adjust_down( _bss_end__ );
+        }
+        else
+        {
+            bssStart = bssEnd = null;
+        }
+        dataStart = adjust_up( Data_Start );
+        dataEnd   = adjust_down( Data_End );
+    }
+    else version( Windows )
     {
         dataStart = adjust_up( &Data_Start );
         dataEnd   = adjust_down( &Data_End );
@@ -297,6 +331,11 @@ void initStaticDataGC()
         parseDataProcMaps();
     }
     gc_addRange(dataStart, dataEnd - dataStart);
+    version( Win64 )
+    {
+        if (bssStart != null)
+            gc_addRange(bssStart, bssEnd - bssStart);
+    }
 }
 
 version( GC_Use_Data_Proc_Maps )
