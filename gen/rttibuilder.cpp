@@ -121,6 +121,11 @@ void RTTIBuilder::push_size(uint64_t s)
     inits.push_back(DtoConstSize_t(s));
 }
 
+void RTTIBuilder::push_size_as_vp(uint64_t s)
+{
+    inits.push_back(llvm::ConstantExpr::getIntToPtr(DtoConstSize_t(s), getVoidPtrType()));
+}
+
 void RTTIBuilder::push_funcptr(FuncDeclaration* fd, Type* castto)
 {
     if (fd)

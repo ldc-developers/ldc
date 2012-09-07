@@ -583,10 +583,48 @@ DValue* AssignExp::toElem(IRState* p)
         return newlen;
     }
 
-    Logger::println("performing normal assignment");
+    // Can't just override ConstructExp::toElem because not all TOKconstruct
+    // operations are actually instances of ConstructExp... Long live the DMD
+    // coding style!
+    if (op == TOKconstruct)
+    {
+        if (e1->op == TOKvar)
+        {
+            VarExp* ve = (VarExp*)e1;
+            if (ve->var->storage_class & STCref)
+            {
+                // Note that the variable value is accessed directly (instead
+                // of via getLValue(), which would perform a load from the
+                // uninitialized location), and that rhs is stored as an l-value!
+
+                IrLocal* const local = ve->var->ir.irLocal;
+                assert(local && "ref var must be local and already initialized");
+
+                DValue* rhs = e2->toElem(p);
+                DtoStore(rhs->getLVal(), local->value);
+                return rhs;
+            }
+        }
+    }
 
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
+
+    if (e1->type->toBasetype()->ty == Tstruct && e2->op == TOKint64)
+    {
+        Logger::println("performing aggregate zero initialization");
+        assert(e2->toInteger() == 0);
+        DtoAggrZeroInit(l->getLVal());
+#if DMDV2
+        TypeStruct *ts = static_cast<TypeStruct*>(e1->type);
+        if (ts->sym->isNested() && ts->sym->vthis)
+            DtoResolveNestedContext(loc, ts->sym, l->getLVal());
+#endif
+        // Return value should be irrelevant.
+        return r;
+    }
+
+    Logger::println("performing normal assignment");
     DtoAssign(loc, l, r, op);
 
     if (l->isSlice())
@@ -1425,25 +1463,32 @@ DValue* DotVarExp::toElem(IRState* p)
     {
         DtoResolveDsymbol(fdecl);
 
-        LLValue* funcval;
-        LLValue* vthis2 = 0;
-        if (e1type->ty == Tclass) {
+        // This is a bit more convoluted than it would need to be, because it
+        // has to take templated interface methods into account, for which
+        // isFinal is not necessarily true.
+        const bool nonFinal = !fdecl->isFinal() &&
+            (fdecl->isAbstract() || fdecl->isVirtual());
+
+        // If we are calling a non-final interface function, we need to get
+        // the pointer to the underlying object instead of passing the
+        // interface pointer directly.
+        LLValue* passedThis = 0;
+        if (e1type->ty == Tclass)
+        {
             TypeClass* tc = static_cast<TypeClass*>(e1type);
-            if (tc->sym->isInterfaceDeclaration() && !fdecl->isFinal())
-                vthis2 = DtoCastInterfaceToObject(l, NULL)->getRVal();
+            if (tc->sym->isInterfaceDeclaration() && nonFinal)
+                passedThis = DtoCastInterfaceToObject(l, NULL)->getRVal();
         }
         LLValue* vthis = l->getRVal();
-        if (!vthis2) vthis2 = vthis;
+        if (!passedThis) passedThis = vthis;
 
-        //
-        // decide whether this function needs to be looked up in the vtable
-        //
-        bool vtbllookup = !fdecl->isFinal() && (fdecl->isAbstract() || fdecl->isVirtual());
-
-        // even virtual functions are looked up directly if super or DotTypeExp
-        // are used, thus we need to walk through the this expression and check
+        // Decide whether this function needs to be looked up in the vtable.
+        // Even virtual functions are looked up directly if super or DotTypeExp
+        // are used, thus we need to walk through the this expression and check.
+        bool vtbllookup = nonFinal;
         Expression* e = e1;
-        while (e && vtbllookup) {
+        while (e && vtbllookup)
+        {
             if (e->op == TOKsuper || e->op == TOKdottype)
                 vtbllookup = false;
             else if (e->op == TOKcast)
@@ -1452,20 +1497,21 @@ DValue* DotVarExp::toElem(IRState* p)
                 break;
         }
 
-        //
-        // look up function
-        //
-        if (!vtbllookup) {
+        // Get the actual function value to call.
+        LLValue* funcval = 0;
+        if (vtbllookup)
+        {
+            DImValue thisVal(e1type, vthis);
+            funcval = DtoVirtualFunctionPointer(&thisVal, fdecl, toChars());
+        }
+        else
+        {
             fdecl->codegen(Type::sir);
             funcval = fdecl->ir.irFunc->func;
-            assert(funcval);
         }
-        else {
-            DImValue vthis3(e1type, vthis);
-            funcval = DtoVirtualFunctionPointer(&vthis3, fdecl, toChars());
-        }
+        assert(funcval);
 
-        return new DFuncValue(fdecl, funcval, vthis2);
+        return new DFuncValue(fdecl, funcval, passedThis);
     }
     else {
         printf("unsupported dotvarexp: %s\n", var->toChars());
@@ -3108,10 +3154,9 @@ LruntimeInit:
 
 DValue* GEPExp::toElem(IRState* p)
 {
-    // this should be good enough for now!
-    DValue* val = e1->toElem(p);
-    assert(val->isLVal());
-    LLValue* v = DtoGEPi(val->getLVal(), 0, index);
+    // (&a.foo).funcptr is a case where e1->toElem is genuinely not an l-value.
+    LLValue* val = makeLValue(loc, e1->toElem(p));
+    LLValue* v = DtoGEPi(val, 0, index);
     return new DVarValue(type, DtoBitCast(v, getPtrToType(DtoType(type))));
 }
 

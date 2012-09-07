@@ -37,10 +37,10 @@ struct AttribDeclaration : Dsymbol
     int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
     void setScopeNewSc(Scope *sc,
         StorageClass newstc, enum LINK linkage, enum PROT protection, int explictProtection,
-        unsigned structalign);
+        structalign_t structalign);
     void semanticNewSc(Scope *sc,
         StorageClass newstc, enum LINK linkage, enum PROT protection, int explictProtection,
-        unsigned structalign);
+        structalign_t structalign);
     void semantic(Scope *sc);
     void semantic2(Scope *sc);
     void semantic3(Scope *sc);
@@ -122,7 +122,7 @@ struct AlignDeclaration : AttribDeclaration
 struct AnonDeclaration : AttribDeclaration
 {
     bool isunion;
-    unsigned alignment;
+    structalign_t alignment;
     int sem;                    // 1 if successful semantic()
 
     AnonDeclaration(Loc loc, int isunion, Dsymbols *decl);
@@ -178,6 +178,7 @@ struct StaticIfDeclaration : ConditionalDeclaration
 
     StaticIfDeclaration(Condition *condition, Dsymbols *decl, Dsymbols *elsedecl);
     Dsymbol *syntaxCopy(Dsymbol *s);
+    Dsymbols *include(Scope *sc, ScopeDsymbol *s);
     int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
     void semantic(Scope *sc);
     void importAll(Scope *sc);

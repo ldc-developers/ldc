@@ -710,9 +710,6 @@ void TypeInfoStructDeclaration::llvmDefine()
     assert((!global.params.is64bit && tscd->fields.dim == 11) ||
            (global.params.is64bit && tscd->fields.dim == 13));
 
-    // const(MemberInfo[]) function(in char[]) xgetMembers;
-    b.push_funcptr(sd->findGetMembers());
-
     //void function(void*)                    xdtor;
     b.push_funcptr(sd->dtor);
 
@@ -727,6 +724,8 @@ void TypeInfoStructDeclaration::llvmDefine()
 
     if (global.params.is64bit)
     {
+        // TypeInfo m_arg1;
+        // TypeInfo m_arg2;
         TypeTuple *tup = tc->toArgTypes();
         assert(tup->arguments->dim <= 2);
         for (unsigned i = 0; i < 2; i++)
@@ -741,6 +740,16 @@ void TypeInfoStructDeclaration::llvmDefine()
                 b.push_null(Type::typeinfo->type);
         }
     }
+
+    // immutable(void)* m_RTInfo;
+    // The cases where getRTInfo is null are not quite here, but the code is
+    // modelled after what DMD does.
+    if (sd->getRTInfo)
+        b.push(sd->getRTInfo->toConstElem(gIR));
+    else if (!tc->hasPointers())
+        b.push_size_as_vp(0);       // no pointers
+    else
+        b.push_size_as_vp(1);       // has pointers
 
 #endif
 

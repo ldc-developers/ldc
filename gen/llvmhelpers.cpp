@@ -393,19 +393,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
     Type* t2 = rhs->getType()->toBasetype();
 
     if (t->ty == Tstruct) {
-        if (!stripModifiers(t)->equals(stripModifiers(t2))) {
-            // FIXME: use 'rhs' for something !?!
-            DtoAggrZeroInit(lhs->getLVal());
-#if DMDV2
-            TypeStruct *ts = static_cast<TypeStruct*>(lhs->getType());
-            if (ts->sym->isNested() && ts->sym->vthis)
-                DtoResolveNestedContext(loc, ts->sym, lhs->getLVal());
-#endif
-        }
-        else {
-            DtoAggrCopy(lhs->getLVal(), rhs->getRVal());
-        }
-
+        DtoAggrCopy(lhs->getLVal(), rhs->getRVal());
     }
     else if (t->ty == Tarray) {
         // lhs is slice
@@ -1013,6 +1001,110 @@ void DtoConstInitGlobal(VarDeclaration* vd)
 /*////////////////////////////////////////////////////////////////////////////////////////
 //      DECLARATION EXP HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
+
+// TODO: Merge with DtoRawVarDeclaration!
+void DtoVarDeclaration(VarDeclaration* vd)
+{
+    assert(!vd->isDataseg() && "Statics/globals are handled in DtoDeclarationExp.");
+    assert(!vd->aliassym && "Aliases are handled in DtoDeclarationExp.");
+
+    Logger::println("vdtype = %s", vd->type->toChars());
+
+#if DMDV2
+    if (vd->nestedrefs.dim)
+#else
+    if (vd->nestedref)
+#endif
+    {
+        Logger::println("has nestedref set (referenced by nested function/delegate)");
+        assert(vd->ir.irLocal && "irLocal is expected to be already set by DtoCreateNestedContext");
+    }
+
+    if(vd->ir.irLocal)
+    {
+        // Nothing to do if it has already been allocated.
+    }
+#if DMDV2
+    /* Named Return Value Optimization (NRVO):
+        T f(){
+            T ret;        // &ret == hidden pointer
+            ret = ...
+            return ret;    // NRVO.
+        }
+    */
+    else if (gIR->func()->retArg && gIR->func()->decl->nrvo_can && gIR->func()->decl->nrvo_var == vd) {
+        assert(!isSpecialRefVar(vd) && "Can this happen?");
+        vd->ir.irLocal = new IrLocal(vd);
+        vd->ir.irLocal->value = gIR->func()->retArg;
+    }
+#endif
+    // normal stack variable, allocate storage on the stack if it has not already been done
+    else {
+        vd->ir.irLocal = new IrLocal(vd);
+
+#if DMDV2
+        /* NRVO again:
+            T t = f();    // t's memory address is taken hidden pointer
+        */
+        ExpInitializer *ei = 0;
+        if (vd->type->toBasetype()->ty == Tstruct && vd->init &&
+            !!(ei = vd->init->isExpInitializer()))
+        {
+            if (ei->exp->op == TOKconstruct) {
+                AssignExp *ae = static_cast<AssignExp*>(ei->exp);
+                if (ae->e2->op == TOKcall) {
+                    CallExp *ce = static_cast<CallExp *>(ae->e2);
+                    TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
+                    if (tf->ty == Tfunction && tf->fty.arg_sret) {
+                        LLValue* const val = ce->toElem(gIR)->getLVal();
+                        if (isSpecialRefVar(vd))
+                        {
+                            vd->ir.irLocal->value = DtoAlloca(
+                                vd->type->pointerTo(), vd->toChars());
+                            DtoStore(val, vd->ir.irLocal->value);
+                        }
+                        else
+                        {
+                            vd->ir.irLocal->value = val;
+                        }
+                        goto Lexit;
+                    }
+                }
+            }
+        }
+#endif
+
+        Type* type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
+        LLType* lltype = DtoType(type);
+
+        llvm::Value* allocainst;
+        if(gTargetData->getTypeSizeInBits(lltype) == 0)
+            allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
+        else
+            allocainst = DtoAlloca(type, vd->toChars());
+
+        vd->ir.irLocal->value = allocainst;
+
+        DtoDwarfLocalVariable(allocainst, vd);
+    }
+
+    if (Logger::enabled())
+        Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
+
+    DtoInitializer(vd->ir.irLocal->value, vd->init); // TODO: Remove altogether?
+
+#if DMDV2
+Lexit:
+    /* Mark the point of construction of a variable that needs to be destructed.
+     */
+    if (vd->edtor && !vd->noscope)
+    {
+        // Put vd on list of things needing destruction
+        gIR->varsInScope().push_back(vd);
+    }
+#endif
+}
+
 DValue* DtoDeclarationExp(Dsymbol* declaration)
 {
     Logger::print("DtoDeclarationExp: %s\n", declaration->toChars());
@@ -1036,123 +1128,8 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         }
         else
         {
-            if (global.params.llvmAnnotate)
-                DtoAnnotation(declaration->toChars());
-
-            Logger::println("vdtype = %s", vd->type->toChars());
-
-            // ref vardecls are generated when DMD lowers foreach to a for statement,
-            // and this is a hack to support them for this case only
-            if(vd->isRef())
-            {
-                if (!vd->ir.irLocal)
-                    vd->ir.irLocal = new IrLocal(vd);
-
-                ExpInitializer* ex = vd->init->isExpInitializer();
-                assert(ex && "ref vars must have expression initializer");
-                assert(ex->exp);
-                AssignExp* as = ex->exp->isAssignExp();
-                assert(as && "ref vars must be initialized by an assign exp");
-                DValue *val = as->e2->toElem(gIR);
-                if (val->isLVal())
-                {
-                    vd->ir.irLocal->value = val->getLVal();
-                }
-                else
-                {
-                    LLValue *newVal = DtoAlloca(val->type);
-                    DtoStore(val->getRVal(), newVal);
-                    vd->ir.irLocal->value = newVal;
-                }
-            }
-
-            // referenced by nested delegate?
-        #if DMDV2
-            if (vd->nestedrefs.dim) {
-        #else
-            if (vd->nestedref) {
-        #endif
-                Logger::println("has nestedref set");
-                assert(vd->ir.irLocal);
-                DtoNestedInit(vd);
-            // is it already allocated?
-            } else if(vd->ir.irLocal) {
-                // nothing to do...
-            }
-#if DMDV2
-            /* Named Return Value Optimization (NRVO):
-                T f(){
-                    T ret;        // &ret == hidden pointer
-                    ret = ...
-                    return ret;    // NRVO.
-                }
-            */
-            else if (gIR->func()->retArg && gIR->func()->decl->nrvo_can && gIR->func()->decl->nrvo_var == vd) {
-                vd->ir.irLocal = new IrLocal(vd);
-                vd->ir.irLocal->value = gIR->func()->retArg;
-            }
-#endif
-            // normal stack variable, allocate storage on the stack if it has not already been done
-            else if(!vd->isRef()) {
-                vd->ir.irLocal = new IrLocal(vd);
-
-#if DMDV2
-                /* NRVO again:
-                    T t = f();    // t's memory address is taken hidden pointer
-                */
-                ExpInitializer *ei = 0;
-                if (vd->type->toBasetype()->ty == Tstruct && vd->init &&
-                    !!(ei = vd->init->isExpInitializer()))
-                {
-                    if (ei->exp->op == TOKconstruct) {
-                        AssignExp *ae = static_cast<AssignExp*>(ei->exp);
-                        if (ae->e2->op == TOKcall) {
-                            CallExp *ce = static_cast<CallExp *>(ae->e2);
-                            TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
-                            if (tf->ty == Tfunction && tf->fty.arg_sret) {
-                                vd->ir.irLocal->value = ce->toElem(gIR)->getLVal();
-                                goto Lexit;
-                            }
-                        }
-                    }
-                }
-#endif
-
-                LLType* lltype = DtoType(vd->type);
-
-                llvm::Value* allocainst;
-                if(gTargetData->getTypeSizeInBits(lltype) == 0)
-                    allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
-                else
-                    allocainst = DtoAlloca(vd->type, vd->toChars());
-
-                //allocainst->setAlignment(vd->type->alignsize()); // TODO
-                vd->ir.irLocal->value = allocainst;
-
-                DtoDwarfLocalVariable(allocainst, vd);
-            }
-            else
-            {
-                assert(vd->ir.irLocal->value);
-            }
-
-            if (Logger::enabled())
-                Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
-            if (!vd->isRef())
-                DtoInitializer(vd->ir.irLocal->value, vd->init); // TODO: Remove altogether?
-
-#if DMDV2
-        Lexit:
-            /* Mark the point of construction of a variable that needs to be destructed.
-             */
-            if (vd->edtor && !vd->noscope)
-            {
-                // Put vd on list of things needing destruction
-                gIR->varsInScope().push_back(vd);
-            }
-#endif
+            DtoVarDeclaration(vd);
         }
-
         return new DVarValue(vd->type, vd, vd->ir.getIrValue());
     }
     // struct declaration
@@ -1276,8 +1253,6 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
         }
         else
             assert(!addr || addr == var->ir.irLocal->value);
-
-        DtoNestedInit(var);
     }
     // normal local variable
     else
@@ -1461,7 +1436,7 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
         TypeSArray* tsa = static_cast<TypeSArray*>(t);
         dims.push_back(tsa->dim->toInteger());
         assert(t->nextOf());
-        t = t->nextOf()->toBasetype();
+        t = stripModifiers(t->nextOf()->toBasetype());
     }
 
     size_t i = dims.size();
@@ -1482,8 +1457,8 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
 LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
 {
 #if DMDV2
-    Type* expbase = exp->type->toBasetype()->mutableOf()->merge();
-    Type* base = type->toBasetype()->mutableOf()->merge();
+    Type* expbase = stripModifiers(exp->type->toBasetype())->merge();
+    Type* base = stripModifiers(type->toBasetype())->merge();
 #else
     Type* expbase = exp->type->toBasetype();
     Type* base = type->toBasetype();
@@ -1501,9 +1476,18 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
             Logger::println("type is a static array, building constant array initializer to single value");
             return expand_to_sarray(base, exp);
         }
+#if DMDV2
+        else if (base->ty == Tvector)
+        {
+            LLConstant* val = exp->toConstElem(gIR);
+            TypeVector* tv = (TypeVector*)base;
+            return llvm::ConstantVector::getSplat(tv->size(loc), val);
+        }
+#endif
         else
         {
-            error("cannot yet convert default initializer %s of type %s to %s", exp->toChars(), exp->type->toChars(), type->toChars());
+            error(loc, "LDC internal error: cannot yet convert default initializer %s of type %s to %s",
+                exp->toChars(), exp->type->toChars(), type->toChars());
             fatal();
         }
         assert(0);
@@ -1769,85 +1753,7 @@ Type * stripModifiers( Type * type )
 #if DMDV2
     if (type->ty == Tfunction)
         return type;
-    Type *t = type;
-    while (t->mod)
-    {
-        switch (t->mod)
-        {
-            case MODconst:
-                t = type->cto;
-                break;
-            case MODshared:
-                t = type->sto;
-                break;
-            case MODimmutable:
-                t = type->ito;
-                break;
-            case MODshared | MODconst:
-                t = type->scto;
-                break;
-            case MODwild:
-                t = type->wto;
-                break;
-            case MODshared | MODwild:
-                t = type->swto;
-                break;
-            default:
-                assert(0 && "Unhandled type modifier");
-        }
-
-        if (!t)
-        {
-            unsigned sz = type->sizeTy[type->ty];
-            t = static_cast<Type *>(malloc(sz));
-            memcpy(t, type, sz);
-            t->mod = 0;
-            t->deco = NULL;
-            t->arrayof = NULL;
-            t->pto = NULL;
-            t->rto = NULL;
-            t->cto = NULL;
-            t->ito = NULL;
-            t->sto = NULL;
-            t->scto = NULL;
-            t->wto = NULL;
-            t->swto = NULL;
-            t->vtinfo = NULL;
-            t = t->merge();
-
-            t->fixTo(type);
-            switch (type->mod)
-            {
-                case MODconst:
-                    t->cto = type;
-                    break;
-
-                case MODimmutable:
-                    t->ito = type;
-                    break;
-
-                case MODshared:
-                    t->sto = type;
-                    break;
-
-                case MODshared | MODconst:
-                    t->scto = type;
-                    break;
-
-                case MODwild:
-                    t->wto = type;
-                    break;
-
-                case MODshared | MODwild:
-                    t->swto = type;
-                    break;
-
-                default:
-                    assert(0);
-            }
-        }
-    }
-    return t;
+    return type->castMod(0);
 #else
     return type;
 #endif
@@ -1895,7 +1801,7 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val)
 {
 
     Type *tb = exp->type->toBasetype();
-    if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar || exp->op == TOKthis) &&
+    if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar || exp->op == TOKthis || exp->op == TOKindex) &&
         tb->ty == Tstruct)
     {   StructDeclaration *sd = static_cast<TypeStruct *>(tb)->sym;
         if (sd->postblit)
@@ -1911,6 +1817,13 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val)
     }
 }
 #endif
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+bool isSpecialRefVar(VarDeclaration* vd)
+{
+    return (vd->storage_class & STCref) && (vd->storage_class & STCforeach);
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

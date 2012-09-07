@@ -20,6 +20,10 @@
 #include "aggregate.h"
 #include "scope.h"
 
+#if IN_LLVM
+#include "init.h"
+#endif
+
 /********************************************
  * Convert from expression to delegate that returns the expression,
  * i.e. convert:
@@ -110,6 +114,36 @@ int lambdaCheckForNestedRef(Expression *e, void *param)
      */
     switch (e->op)
     {
+#if IN_LLVM
+        // We also need to consider the initializers of VarDeclarations in
+        // DeclarationExps, such as generated for postblit invocation for
+        // function parameters.
+        //
+        // Without this check, e.g. the nested reference to a in the delegate
+        // create for the lazy argument is not picked up in the following case:
+        // ---
+        // struct HasPostblit { this(this) {} }
+        // struct Foo { HasPostblit _data; }
+        // void receiver(Foo) {}
+        // void lazyFunc(E)(lazy E e) { e(); }
+        // void test() { Foo a; lazyFunc(receiver(a)); }
+        // ---
+        case TOKdeclaration:
+        {   DeclarationExp *de = (DeclarationExp *)e;
+            if (VarDeclaration *vd = de->declaration->isVarDeclaration())
+            {
+                if (vd->init)
+                {
+                    if (ExpInitializer* ei = vd->init->isExpInitializer())
+                    {
+                        ei->exp->apply(&lambdaCheckForNestedRef, sc);
+                    }
+                    // TODO: Other classes of initializers?
+                }
+            }
+            break;
+        }
+#endif
         case TOKsymoff:
         {   SymOffExp *se = (SymOffExp *)e;
             VarDeclaration *v = se->var->isVarDeclaration();

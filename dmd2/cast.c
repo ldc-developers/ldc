@@ -1,5 +1,5 @@
 
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -9,6 +9,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>                     // mem{set|cpy}()
 
 #include "rmem.h"
 
@@ -36,9 +37,10 @@ Expression *Expression::implicitCastTo(Scope *sc, Type *t)
 
     MATCH match = implicitConvTo(t);
     if (match)
-    {   TY tyfrom = type->toBasetype()->ty;
-        TY tyto = t->toBasetype()->ty;
+    {
 #if DMDV1
+        TY tyfrom = type->toBasetype()->ty;
+        TY tyto = t->toBasetype()->ty;
         if (global.params.warnings &&
             Type::impcnvWarn[tyfrom][tyto] &&
             op != TOKint64)
@@ -138,7 +140,7 @@ Expression *ErrorExp::implicitCastTo(Scope *sc, Type *t)
 Expression *FuncExp::implicitCastTo(Scope *sc, Type *t)
 {
     //printf("FuncExp::implicitCastTo type = %p %s, t = %s\n", type, type ? type->toChars() : NULL, t->toChars());
-    return inferType(t);
+    return inferType(t)->Expression::implicitCastTo(sc, t);
 }
 
 /*******************************************
@@ -215,6 +217,7 @@ MATCH IntegerExp::implicitConvTo(Type *t)
 
     TY ty = type->toBasetype()->ty;
     TY toty = t->toBasetype()->ty;
+    TY oldty = ty;
 
     if (m == MATCHnomatch && t->ty == Tenum)
         goto Lno;
@@ -282,6 +285,8 @@ MATCH IntegerExp::implicitConvTo(Type *t)
             goto Lyes;
 
         case Tchar:
+            if ((oldty == Twchar || oldty == Tdchar) && value > 0x7F)
+                goto Lno;
         case Tuns8:
             //printf("value = %llu %llu\n", (dinteger_t)(unsigned char)value, value);
             if ((unsigned char)value != value)
@@ -293,6 +298,9 @@ MATCH IntegerExp::implicitConvTo(Type *t)
                 goto Lno;
             goto Lyes;
 
+        case Twchar:
+            if (oldty == Tdchar && value > 0xD7FF && value < 0xE000)
+                goto Lno;
         case Tuns16:
             if ((unsigned short)value != value)
                 goto Lno;
@@ -316,11 +324,6 @@ MATCH IntegerExp::implicitConvTo(Type *t)
 
         case Tdchar:
             if (value > 0x10FFFFUL)
-                goto Lno;
-            goto Lyes;
-
-        case Twchar:
-            if ((unsigned short)value != value)
                 goto Lno;
             goto Lyes;
 
@@ -540,19 +543,28 @@ MATCH ArrayLiteralExp::implicitConvTo(Type *t)
     if ((tb->ty == Tarray || tb->ty == Tsarray) &&
         (typeb->ty == Tarray || typeb->ty == Tsarray))
     {
+        Type *typen = typeb->nextOf()->toBasetype();
+
         if (tb->ty == Tsarray)
         {   TypeSArray *tsa = (TypeSArray *)tb;
             if (elements->dim != tsa->dim->toInteger())
                 result = MATCHnomatch;
         }
 
-        for (size_t i = 0; i < elements->dim; i++)
-        {   Expression *e = (*elements)[i];
-            MATCH m = (MATCH)e->implicitConvTo(tb->nextOf());
-            if (m < result)
-                result = m;                     // remember worst match
-            if (result == MATCHnomatch)
-                break;                          // no need to check for worse
+        Type *telement = tb->nextOf();
+        if (!elements->dim)
+        {   if (typen->ty != Tvoid)
+                result = typen->implicitConvTo(telement);
+        }
+        else
+        {   for (size_t i = 0; i < elements->dim; i++)
+            {   Expression *e = (*elements)[i];
+                if (result == MATCHnomatch)
+                    break;                          // no need to check for worse
+                MATCH m = (MATCH)e->implicitConvTo(telement);
+                if (m < result)
+                    result = m;                     // remember worst match
+            }
         }
 
         if (!result)
@@ -560,25 +572,46 @@ MATCH ArrayLiteralExp::implicitConvTo(Type *t)
 
         return result;
     }
+    else if (tb->ty == Tvector &&
+        (typeb->ty == Tarray || typeb->ty == Tsarray))
+    {
+        // Convert array literal to vector type
+        TypeVector *tv = (TypeVector *)tb;
+        TypeSArray *tbase = (TypeSArray *)tv->basetype;
+        assert(tbase->ty == Tsarray);
+        if (elements->dim != tbase->dim->toInteger())
+            return MATCHnomatch;
+
+        Type *telement = tv->elementType();
+        for (size_t i = 0; i < elements->dim; i++)
+        {   Expression *e = (*elements)[i];
+            MATCH m = (MATCH)e->implicitConvTo(telement);
+            if (m < result)
+                result = m;                     // remember worst match
+            if (result == MATCHnomatch)
+                break;                          // no need to check for worse
+        }
+        return result;
+    }
     else
         return Expression::implicitConvTo(t);
 }
 
 MATCH AssocArrayLiteralExp::implicitConvTo(Type *t)
-{   MATCH result = MATCHexact;
-
+{
     Type *typeb = type->toBasetype();
     Type *tb = t->toBasetype();
     if (tb->ty == Taarray && typeb->ty == Taarray)
     {
+        MATCH result = MATCHexact;
         for (size_t i = 0; i < keys->dim; i++)
-        {   Expression *e = keys->tdata()[i];
+        {   Expression *e = (*keys)[i];
             MATCH m = (MATCH)e->implicitConvTo(((TypeAArray *)tb)->index);
             if (m < result)
                 result = m;                     // remember worst match
             if (result == MATCHnomatch)
                 break;                          // no need to check for worse
-            e = values->tdata()[i];
+            e = (*values)[i];
             m = (MATCH)e->implicitConvTo(tb->nextOf());
             if (m < result)
                 result = m;                     // remember worst match
@@ -905,6 +938,9 @@ Expression *Expression::castTo(Scope *sc, Type *t)
             }
             else if (tb->ty == Tvector && typeb->ty != Tvector)
             {
+                //printf("test1 e = %s, e->type = %s, tb = %s\n", e->toChars(), e->type->toChars(), tb->toChars());
+                TypeVector *tv = (TypeVector *)tb;
+                e = new CastExp(loc, e, tv->elementType());
                 e = new VectorExp(loc, e, tb);
                 e = e->semantic(sc);
                 return e;
@@ -1372,9 +1408,9 @@ Expression *TupleExp::castTo(Scope *sc, Type *t)
 {   TupleExp *e = (TupleExp *)copy();
     e->exps = (Expressions *)exps->copy();
     for (size_t i = 0; i < e->exps->dim; i++)
-    {   Expression *ex = e->exps->tdata()[i];
+    {   Expression *ex = (*e->exps)[i];
         ex = ex->castTo(sc, t);
-        e->exps->tdata()[i] = ex;
+        (*e->exps)[i] = ex;
     }
     return e;
 }
@@ -1420,6 +1456,28 @@ Expression *ArrayLiteralExp::castTo(Scope *sc, Type *t)
             e->type = tp;
         }
     }
+    else if (tb->ty == Tvector &&
+        (typeb->ty == Tarray || typeb->ty == Tsarray))
+    {
+        // Convert array literal to vector type
+        TypeVector *tv = (TypeVector *)tb;
+        TypeSArray *tbase = (TypeSArray *)tv->basetype;
+        assert(tbase->ty == Tsarray);
+        if (elements->dim != tbase->dim->toInteger())
+            goto L1;
+
+        e = (ArrayLiteralExp *)copy();
+        e->elements = (Expressions *)elements->copy();
+        Type *telement = tv->elementType();
+        for (size_t i = 0; i < elements->dim; i++)
+        {   Expression *ex = (*elements)[i];
+            ex = ex->castTo(sc, telement);
+            (*e->elements)[i] = ex;
+        }
+        Expression *ev = new VectorExp(loc, e, tb);
+        ev = ev->semantic(sc);
+        return ev;
+    }
 L1:
     return e->Expression::castTo(sc, t);
 }
@@ -1439,13 +1497,13 @@ Expression *AssocArrayLiteralExp::castTo(Scope *sc, Type *t)
         e->values = (Expressions *)values->copy();
         assert(keys->dim == values->dim);
         for (size_t i = 0; i < keys->dim; i++)
-        {   Expression *ex = values->tdata()[i];
+        {   Expression *ex = (*values)[i];
             ex = ex->castTo(sc, tb->nextOf());
-            e->values->tdata()[i] = ex;
+            (*e->values)[i] = ex;
 
-            ex = keys->tdata()[i];
+            ex = (*keys)[i];
             ex = ex->castTo(sc, ((TypeAArray *)tb)->index);
-            e->keys->tdata()[i] = ex;
+            (*e->keys)[i] = ex;
         }
         e->type = t;
         return e;
@@ -1688,7 +1746,7 @@ Expression *FuncExp::inferType(Type *to, int flag, TemplateParameters *tparams)
     {
         if (to->ty == Tdelegate ||
             to->ty == Tpointer && to->nextOf()->ty == Tfunction)
-        {   treq = to;
+        {   fd->treq = to;
         }
         return this;
     }
@@ -1714,6 +1772,8 @@ Expression *FuncExp::inferType(Type *to, int flag, TemplateParameters *tparams)
         {
             TypeFunction *tfv = (TypeFunction *)t;
             TypeFunction *tfl = (TypeFunction *)fd->type;
+            //printf("\ttfv = %s\n", tfv->toChars());
+            //printf("\ttfl = %s\n", tfl->toChars());
             size_t dim = Parameter::dim(tfl->parameters);
 
             if (Parameter::dim(tfv->parameters) == dim &&
@@ -1740,6 +1800,13 @@ Expression *FuncExp::inferType(Type *to, int flag, TemplateParameters *tparams)
                     }
                 }
 
+                // Set target of return type inference
+                assert(td->onemember);
+                FuncLiteralDeclaration *fld = td->onemember->isFuncLiteralDeclaration();
+                assert(fld);
+                if (!fld->type->nextOf() && tfv->next)
+                    fld->treq = tfv;
+
                 TemplateInstance *ti = new TemplateInstance(loc, td, tiargs);
                 e = (new ScopeExp(loc, ti))->semantic(td->scope);
                 if (e->op == TOKfunction)
@@ -1759,14 +1826,12 @@ Expression *FuncExp::inferType(Type *to, int flag, TemplateParameters *tparams)
             to->ty == Tdelegate)
         {
             Type *typen = type->nextOf();
-            assert(typen->deco);
-            //if (typen->covariant(to->nextOf()) == 1)
+            if (typen->deco)
             {
                 FuncExp *fe = (FuncExp *)copy();
                 fe->tok = TOKdelegate;
                 fe->type = (new TypeDelegate(typen))->merge();
                 e = fe;
-                //e = fe->Expression::implicitCastTo(sc, to);
             }
         }
         else
@@ -1879,7 +1944,7 @@ bool isVoidArrayLiteral(Expression *e, Type *other)
     while (e->op == TOKarrayliteral && e->type->ty == Tarray
         && (((ArrayLiteralExp *)e)->elements->dim == 1))
     {
-        e = ((ArrayLiteralExp *)e)->elements->tdata()[0];
+        e = (*((ArrayLiteralExp *)e)->elements)[0];
         if (other->ty == Tsarray || other->ty == Tarray)
             other = other->nextOf();
         else
@@ -1910,6 +1975,7 @@ int typeMerge(Scope *sc, Expression *e, Type **pt, Expression **pe1, Expression 
     //printf("typeMerge() %s op %s\n", (*pe1)->toChars(), (*pe2)->toChars());
     //e->dump(0);
 
+    MATCH m;
     Expression *e1 = *pe1;
     Expression *e2 = *pe2;
 
@@ -2110,10 +2176,20 @@ Lagain:
          */
         goto Lx2;
     }
-    else if ((t1->ty == Tsarray || t1->ty == Tarray) && t1->implicitConvTo(t2))
+    else if ((t1->ty == Tsarray || t1->ty == Tarray) &&
+             (m = t1->implicitConvTo(t2)) != MATCHnomatch)
     {
         if (t1->ty == Tsarray && e2->op == TOKarrayliteral)
             goto Lt1;
+        if (m == MATCHconst &&
+            (e->op == TOKaddass || e->op == TOKminass || e->op == TOKmulass ||
+             e->op == TOKdivass || e->op == TOKmodass || e->op == TOKpowass ||
+             e->op == TOKandass || e->op == TOKorass  || e->op == TOKxorass)
+           )
+        {   // Don't make the lvalue const
+            t = t2;
+            goto Lret;
+        }
         goto Lt2;
     }
     else if ((t2->ty == Tsarray || t2->ty == Tarray) && t2->implicitConvTo(t1))

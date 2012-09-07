@@ -13,9 +13,6 @@
 /// Creates the context value for a nested function.
 void DtoCreateNestedContext(FuncDeclaration* fd);
 
-/// Allocate space for variable accessed from nested function.
-void DtoNestedInit(VarDeclaration* vd);
-
 /// Resolves the nested context for classes and structs with arbitrary nesting.
 #if DMDV2
 void DtoResolveNestedContext(Loc loc, AggregateDeclaration *decl, LLValue *value);

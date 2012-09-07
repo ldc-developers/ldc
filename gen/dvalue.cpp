@@ -16,6 +16,8 @@ DVarValue::DVarValue(Type* t, VarDeclaration* vd, LLValue* llvmValue)
 : DValue(t), var(vd), val(llvmValue)
 {
     assert(isaPointer(llvmValue));
+    assert(!isSpecialRefVar(vd) ||
+        isaPointer(isaPointer(llvmValue)->getElementType()));
 }
 
 DVarValue::DVarValue(Type* t, LLValue* llvmValue)
@@ -27,6 +29,8 @@ DVarValue::DVarValue(Type* t, LLValue* llvmValue)
 LLValue* DVarValue::getLVal()
 {
     assert(val);
+    if (var && isSpecialRefVar(var))
+        return DtoLoad(val);
     return val;
 }
 
@@ -34,9 +38,14 @@ LLValue* DVarValue::getRVal()
 {
     assert(val);
     Type* bt = type->toBasetype();
+
+    LLValue* tmp = val;
+    if (var && isSpecialRefVar(var))
+        tmp = DtoLoad(tmp);
+
     if (DtoIsPassedByRef(bt))
-        return val;
-    return DtoLoad(val);
+        return tmp;
+    return DtoLoad(tmp);
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////

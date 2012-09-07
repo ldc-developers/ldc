@@ -187,7 +187,7 @@ int AsmStatement::blockExit(bool mustNotThrow)
     //printf("AsmStatement::blockExit(%p)\n", this);
 #if DMDV2
     if (mustNotThrow)
-        error("asm statements are assumed to throw", toChars());
+        error("asm statements are assumed to throw");
 #endif
     // Assume the worst
     return BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt;

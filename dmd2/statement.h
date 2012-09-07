@@ -79,7 +79,7 @@ struct DValue;
 typedef DValue elem;
 #endif
 
-#if IN_GCC
+#ifdef IN_GCC
 union tree_node; typedef union tree_node block;
 //union tree_node; typedef union tree_node elem;
 #else
@@ -595,7 +595,7 @@ struct CaseRangeStatement : Statement
 struct DefaultStatement : Statement
 {
     Statement *statement;
-#if IN_GCC
+#ifdef IN_GCC
     block *cblock;      // back end: label for the block
 #endif
 
@@ -664,6 +664,7 @@ struct SwitchErrorStatement : Statement
 struct ReturnStatement : Statement
 {
     Expression *exp;
+    int implicit0;
 
     ReturnStatement(Loc loc, Expression *exp);
     Statement *syntaxCopy();
@@ -930,9 +931,6 @@ struct LabelStatement : Statement
 struct LabelDsymbol : Dsymbol
 {
     LabelStatement *statement;
-#if IN_GCC
-    unsigned asmLabelNum;       // GCC-specific
-#endif
 
     LabelDsymbol(Identifier *ident);
     LabelDsymbol *isLabel();

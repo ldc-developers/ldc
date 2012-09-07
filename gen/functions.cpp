@@ -807,16 +807,15 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     DtoCreateNestedContext(fd);
 
+    if (fd->vresult && !
 #if DMDV2
-    if (fd->vresult && fd->vresult->nestedrefs.dim) // FIXME: not sure here :/
+        fd->vresult->nestedrefs.dim // FIXME: not sure here :/
 #else
-    if (fd->vresult && fd->vresult->nestedref)
+        fd->vresult->nestedref
 #endif
+    )
     {
-        DtoNestedInit(fd->vresult);
-    } else if (fd->vresult) {
-        fd->vresult->ir.irLocal = new IrLocal(fd->vresult);
-        fd->vresult->ir.irLocal->value = DtoAlloca(fd->vresult->type, fd->vresult->toChars());
+        DtoVarDeclaration(fd->vresult);
     }
 
     // copy _argptr and _arguments to a memory location

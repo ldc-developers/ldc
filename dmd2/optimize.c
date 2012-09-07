@@ -153,7 +153,6 @@ Expression *fromConstInitializer(int result, Expression *e1)
     if (e1->op == TOKvar)
     {   VarExp *ve = (VarExp *)e1;
         VarDeclaration *v = ve->var->isVarDeclaration();
-        int fwdref = (v && !v->originalType && v->scope);
         e = expandVar(result, v);
         if (e)
         {
@@ -202,10 +201,10 @@ Expression *VarExp::optimize(int result)
 Expression *TupleExp::optimize(int result)
 {
     for (size_t i = 0; i < exps->dim; i++)
-    {   Expression *e = exps->tdata()[i];
+    {   Expression *e = (*exps)[i];
 
         e = e->optimize(WANTvalue | (result & WANTinterpret));
-        exps->tdata()[i] = e;
+        (*exps)[i] = e;
     }
     return this;
 }
@@ -215,10 +214,10 @@ Expression *ArrayLiteralExp::optimize(int result)
     if (elements)
     {
         for (size_t i = 0; i < elements->dim; i++)
-        {   Expression *e = elements->tdata()[i];
+        {   Expression *e = (*elements)[i];
 
             e = e->optimize(WANTvalue | (result & (WANTinterpret | WANTexpand)));
-            elements->tdata()[i] = e;
+            (*elements)[i] = e;
         }
     }
     return this;
@@ -228,14 +227,14 @@ Expression *AssocArrayLiteralExp::optimize(int result)
 {
     assert(keys->dim == values->dim);
     for (size_t i = 0; i < keys->dim; i++)
-    {   Expression *e = keys->tdata()[i];
+    {   Expression *e = (*keys)[i];
 
         e = e->optimize(WANTvalue | (result & (WANTinterpret | WANTexpand)));
-        keys->tdata()[i] = e;
+        (*keys)[i] = e;
 
-        e = values->tdata()[i];
+        e = (*values)[i];
         e = e->optimize(WANTvalue | (result & (WANTinterpret | WANTexpand)));
-        values->tdata()[i] = e;
+        (*values)[i] = e;
     }
     return this;
 }
@@ -245,11 +244,11 @@ Expression *StructLiteralExp::optimize(int result)
     if (elements)
     {
         for (size_t i = 0; i < elements->dim; i++)
-        {   Expression *e = elements->tdata()[i];
+        {   Expression *e = (*elements)[i];
             if (!e)
                 continue;
             e = e->optimize(WANTvalue | (result & (WANTinterpret | WANTexpand)));
-            elements->tdata()[i] = e;
+            (*elements)[i] = e;
         }
     }
     return this;
@@ -495,20 +494,20 @@ Expression *NewExp::optimize(int result)
     if (newargs)
     {
         for (size_t i = 0; i < newargs->dim; i++)
-        {   Expression *e = newargs->tdata()[i];
+        {   Expression *e = (*newargs)[i];
 
             e = e->optimize(WANTvalue);
-            newargs->tdata()[i] = e;
+            (*newargs)[i] = e;
         }
     }
 
     if (arguments)
     {
         for (size_t i = 0; i < arguments->dim; i++)
-        {   Expression *e = arguments->tdata()[i];
+        {   Expression *e = (*arguments)[i];
 
             e = e->optimize(WANTvalue);
-            arguments->tdata()[i] = e;
+            (*arguments)[i] = e;
         }
     }
     if (result & WANTinterpret)
@@ -527,10 +526,10 @@ Expression *CallExp::optimize(int result)
     if (arguments)
     {
         for (size_t i = 0; i < arguments->dim; i++)
-        {   Expression *e = arguments->tdata()[i];
+        {   Expression *e = (*arguments)[i];
 
             e = e->optimize(WANTvalue);
-            arguments->tdata()[i] = e;
+            (*arguments)[i] = e;
         }
     }
 

@@ -28,8 +28,8 @@ struct IrLocal : IrVar
 {
     IrLocal(VarDeclaration* v);
 
-    bool byref;         // Not used for -nested-ctx=array
-    int nestedDepth;    // ditto
+    // Used for hybrid nested context creation.
+    int nestedDepth;
     int nestedIndex;
 };
 

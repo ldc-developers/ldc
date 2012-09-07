@@ -37,7 +37,6 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     scope = 0;
     structsize = 0;             // size of struct
     alignsize = 0;              // size of struct for alignment purposes
-    structalign = 0;            // struct member alignment in effect
     hasUnions = 0;
     sizeok = SIZEOKnone;        // size not determined yet
     deferred = NULL;
@@ -60,6 +59,7 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     noDefaultCtor = FALSE;
 #endif
     dtor = NULL;
+    getRTInfo = NULL;
 
 #if IN_LLVM
     availableExternally = true; // assume this unless proven otherwise
@@ -83,7 +83,7 @@ void AggregateDeclaration::semantic2(Scope *sc)
         sc = sc->push(this);
         for (size_t i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = members->tdata()[i];
+            Dsymbol *s = (*members)[i];
             s->semantic2(sc);
         }
         sc->pop();
@@ -103,10 +103,25 @@ void AggregateDeclaration::semantic3(Scope *sc)
         sc = sc->push(this);
         for (size_t i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = members->tdata()[i];
+            Dsymbol *s = (*members)[i];
             s->semantic3(sc);
         }
         sc->pop();
+
+        if (!getRTInfo)
+        {   // Evaluate: gcinfo!type
+            Objects *tiargs = new Objects();
+            tiargs->push(type);
+            TemplateInstance *ti = new TemplateInstance(loc, Type::rtinfo, tiargs);
+            ti->semantic(sc);
+            ti->semantic2(sc);
+            ti->semantic3(sc);
+            Dsymbol *s = ti->toAlias();
+            Expression *e = new DsymbolExp(0, s, 0);
+            e = e->semantic(ti->tempdecl->scope);
+            e = e->ctfeInterpret();
+            getRTInfo = e;
+        }
     }
 }
 
@@ -117,7 +132,7 @@ void AggregateDeclaration::inlineScan()
     {
         for (size_t i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = members->tdata()[i];
+            Dsymbol *s = (*members)[i];
             //printf("inline scan aggregate symbol '%s'\n", s->toChars());
             s->inlineScan();
         }
@@ -127,6 +142,8 @@ void AggregateDeclaration::inlineScan()
 unsigned AggregateDeclaration::size(Loc loc)
 {
     //printf("AggregateDeclaration::size() %s, scope = %p\n", toChars(), scope);
+    if (loc.linnum == 0)
+        loc = this->loc;
     if (!members)
         error(loc, "unknown size");
     if (sizeok != SIZEOKdone && scope)
@@ -196,20 +213,33 @@ int AggregateDeclaration::isExport()
  */
 
 void AggregateDeclaration::alignmember(
-        unsigned salign,        // struct alignment that is in effect
-        unsigned size,          // alignment requirement of field
+        structalign_t alignment,   // struct alignment that is in effect
+        unsigned size,             // alignment requirement of field
         unsigned *poffset)
 {
-    //printf("salign = %d, size = %d, offset = %d\n",salign,size,offset);
-    if (salign > 1)
+    //printf("alignment = %d, size = %d, offset = %d\n",alignment,size,offset);
+    switch (alignment)
     {
-        assert(size != 3);
-        unsigned sa = size;
-        if (sa == 0 || salign < sa)
-            sa = salign;
-        *poffset = (*poffset + sa - 1) & ~(sa - 1);
+        case 1:
+            // No alignment
+            break;
+
+        case STRUCTALIGN_DEFAULT:
+        {   /* Must match what the corresponding C compiler's default
+             * alignment behavior is.
+             */
+            assert(size != 3);
+            unsigned sa = (size == 0 || 8 < size) ? 8 : size;
+            *poffset = (*poffset + sa - 1) & ~(sa - 1);
+            break;
+        }
+
+        default:
+            // Align on alignment boundary, which must be a positive power of 2
+            assert(alignment > 0 && !(alignment & (alignment - 1)));
+            *poffset = (*poffset + alignment - 1) & ~(alignment - 1);
+            break;
     }
-    //printf("result = %d\n",offset);
 }
 
 /****************************************
@@ -221,25 +251,36 @@ unsigned AggregateDeclaration::placeField(
         unsigned *nextoffset,   // next location in aggregate
         unsigned memsize,       // size of member
         unsigned memalignsize,  // size of member for alignment purposes
-        unsigned memalign,      // alignment in effect for this member
+        structalign_t alignment, // alignment in effect for this member
         unsigned *paggsize,     // size of aggregate (updated)
         unsigned *paggalignsize, // size of aggregate for alignment purposes (updated)
         bool isunion            // the aggregate is a union
         )
 {
     unsigned ofs = *nextoffset;
-    alignmember(memalign, memalignsize, &ofs);
+    alignmember(alignment, memalignsize, &ofs);
     unsigned memoffset = ofs;
     ofs += memsize;
     if (ofs > *paggsize)
         *paggsize = ofs;
     if (!isunion)
         *nextoffset = ofs;
-    if (global.params.is64bit && memalign == 8 && memalignsize == 16)
-        /* Not sure how to handle this */
-        ;
-    else if (memalign < memalignsize)
-        memalignsize = memalign;
+
+    if (alignment == STRUCTALIGN_DEFAULT)
+    {
+        if (global.params.is64bit && memalignsize == 16)
+            ;
+        else if (8 < memalignsize)
+            memalignsize = 8;
+        else if (alignment < memalignsize)
+            memalignsize = alignment;
+    }
+    else
+    {
+        if (memalignsize < alignment)
+            memalignsize = alignment;
+    }
+
     if (*paggalignsize < memalignsize)
         *paggalignsize = memalignsize;
 
@@ -265,13 +306,13 @@ int AggregateDeclaration::firstFieldInUnion(int indx)
 {
     if (isUnionDeclaration())
         return 0;
-    VarDeclaration * vd = fields.tdata()[indx];
+    VarDeclaration * vd = fields[indx];
     int firstNonZero = indx; // first index in the union with non-zero size
     for (; ;)
     {
         if (indx == 0)
             return firstNonZero;
-        VarDeclaration * v = fields.tdata()[indx - 1];
+        VarDeclaration * v = fields[indx - 1];
         if (v->offset != vd->offset)
             return firstNonZero;
         --indx;
@@ -290,7 +331,7 @@ int AggregateDeclaration::firstFieldInUnion(int indx)
  */
 int AggregateDeclaration::numFieldsInUnion(int firstIndex)
 {
-    VarDeclaration * vd = fields.tdata()[firstIndex];
+    VarDeclaration * vd = fields[firstIndex];
     /* If it is a zero-length field, AND we can't find an earlier non-zero
      * sized field with the same offset, we assume it's not part of a union.
      */
@@ -300,7 +341,7 @@ int AggregateDeclaration::numFieldsInUnion(int firstIndex)
     int count = 1;
     for (size_t i = firstIndex+1; i < fields.dim; ++i)
     {
-        VarDeclaration * v = fields.tdata()[i];
+        VarDeclaration * v = fields[i];
         // If offsets are different, they are not in the same union
         if (v->offset != vd->offset)
             break;
@@ -322,7 +363,10 @@ StructDeclaration::StructDeclaration(Loc loc, Identifier *id)
     postblit = NULL;
 
     xeq = NULL;
+    alignment = 0;
 #endif
+    arg1type = NULL;
+    arg2type = NULL;
 
     // For forward references
     type = new TypeStruct(this);
@@ -389,8 +433,8 @@ void StructDeclaration::semantic(Scope *sc)
 #else
     handle = type->pointerTo();
 #endif
-    structalign = sc->structalign;
     protection = sc->protection;
+    alignment = sc->structalign;
     storage_class |= sc->stc;
     if (sc->stc & STCdeprecated)
         isdeprecated = true;
@@ -403,7 +447,7 @@ void StructDeclaration::semantic(Scope *sc)
         int hasfunctions = 0;
         for (size_t i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = members->tdata()[i];
+            Dsymbol *s = (*members)[i];
             //printf("adding member '%s' to '%s'\n", s->toChars(), this->toChars());
             s->addMember(sc, this, 1);
             if (s->isFuncDeclaration())
@@ -452,6 +496,7 @@ void StructDeclaration::semantic(Scope *sc)
         sc2->inunion = 1;
     sc2->protection = PROTpublic;
     sc2->explicitProtection = 0;
+    sc2->structalign = STRUCTALIGN_DEFAULT;
 
     size_t members_dim = members->dim;
 
@@ -507,7 +552,7 @@ void StructDeclaration::semantic(Scope *sc)
         fields.setDim(0);
         structsize = 0;
         alignsize = 0;
-        structalign = 0;
+//        structalign = 0;
 
         scope = scx ? scx : new Scope(*sc);
         scope->setNoFree();
@@ -631,6 +676,15 @@ void StructDeclaration::semantic(Scope *sc)
     aggNew =       (NewDeclaration *)search(0, Id::classNew,       0);
     aggDelete = (DeleteDeclaration *)search(0, Id::classDelete,    0);
 
+    TypeTuple *tup = type->toArgTypes();
+    size_t dim = tup->arguments->dim;
+    if (dim >= 1)
+    {   assert(dim <= 2);
+        arg1type = (*tup->arguments)[0]->type;
+        if (dim == 2)
+            arg2type = (*tup->arguments)[1]->type;
+    }
+
     if (sc->func)
     {
         semantic2(sc);
@@ -667,6 +721,7 @@ Dsymbol *StructDeclaration::search(Loc loc, Identifier *ident, int flags)
 
 void StructDeclaration::finalizeSize(Scope *sc)
 {
+    //printf("StructDeclaration::finalizeSize() %s\n", toChars());
     if (sizeok != SIZEOKnone)
         return;
 
@@ -690,9 +745,54 @@ void StructDeclaration::finalizeSize(Scope *sc)
     // Round struct size up to next alignsize boundary.
     // This will ensure that arrays of structs will get their internals
     // aligned properly.
-    structsize = (structsize + alignsize - 1) & ~(alignsize - 1);
+    if (alignment == STRUCTALIGN_DEFAULT)
+        structsize = (structsize + alignsize - 1) & ~(alignsize - 1);
+    else
+        structsize = (structsize + alignment - 1) & ~(alignment - 1);
 
     sizeok = SIZEOKdone;
+}
+
+/***************************************
+ * Return true if struct is POD (Plain Old Data).
+ * This is defined as:
+ *      not nested
+ *      no postblits, constructors, destructors, or assignment operators
+ *      no fields with with any of those
+ * The idea being these are compatible with C structs.
+ *
+ * Note that D struct constructors can mean POD, since there is always default
+ * construction with no ctor, but that interferes with OPstrpar which wants it
+ * on the stack in memory, not in registers.
+ */
+bool StructDeclaration::isPOD()
+{
+    if (isnested || cpctor || postblit || ctor || dtor)
+        return false;
+
+    /* Recursively check any fields have a constructor.
+     * We should cache the results of this.
+     */
+    for (size_t i = 0; i < fields.dim; i++)
+    {
+        Dsymbol *s = fields[i];
+        VarDeclaration *v = s->isVarDeclaration();
+        assert(v && v->storage_class & STCfield);
+        if (v->storage_class & STCref)
+            continue;
+        Type *tv = v->type->toBasetype();
+        while (tv->ty == Tsarray)
+        {   TypeSArray *ta = (TypeSArray *)tv;
+            tv = tv->nextOf()->toBasetype();
+        }
+        if (tv->ty == Tstruct)
+        {   TypeStruct *ts = (TypeStruct *)tv;
+            StructDeclaration *sd = ts->sym;
+            if (!sd->isPOD())
+                return false;
+        }
+    }
+    return true;
 }
 
 void StructDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
@@ -711,7 +811,7 @@ void StructDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writenl();
     for (size_t i = 0; i < members->dim; i++)
     {
-        Dsymbol *s = members->tdata()[i];
+        Dsymbol *s = (*members)[i];
 
         buf->writestring("    ");
         s->toCBuffer(buf, hgs);

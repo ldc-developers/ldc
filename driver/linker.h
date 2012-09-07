@@ -19,13 +19,6 @@ namespace llvm
 void linkModules(llvm::Module* dst, const std::vector<llvm::Module*>& MV);
 
 /**
- * Link an executable.
- * @param argv0 the argv[0] value as passed to main
- * @return 0 on success.
- */
-int linkExecutable(const char* argv0);
-
-/**
  * Link an executable only from object files.
  * @param argv0 the argv[0] value as passed to main
  * @return 0 on success.
@@ -38,12 +31,12 @@ int linkObjToBinary(bool sharedLib);
 void createStaticLibrary();
 
 /**
- * Delete the executable that was previously linked with linkExecutable.
+ * Delete the executable that was previously linked with linkObjToBinary.
  */
 void deleteExecutable();
 
 /**
- * Runs the executable that was previously linked with linkExecutable.
+ * Runs the executable that was previously linked with linkObjToBinary.
  * @return the return status of the executable.
  */
 int runExecutable();

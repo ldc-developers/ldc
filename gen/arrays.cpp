@@ -208,7 +208,10 @@ void DtoArrayAssign(DValue *array, DValue *value, int op)
 
     assert(value && array);
     assert(op != TOKblit);
-    Type *t = value->type->toBasetype();
+
+    // Use array->type instead of value->type so as to not accidentally pick
+    // up a superfluous const layer (TypeInfo_Const doesn't pass on postblit()).
+    Type *t = array->type->toBasetype();
     assert(t->nextOf());
     Type *elemType = t->nextOf()->toBasetype();
 

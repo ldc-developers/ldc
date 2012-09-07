@@ -676,7 +676,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 //         OffsetTypeInfo[] offTi;
 //         void *defaultConstructor;
 //         version(D_Version2)
-//              const(MemberInfo[]) function(string) xgetMembers;
+//              immutable(void)* m_RTInfo;
 //         else
 //              TypeInfo typeinfo; // since dmd 1.045
 //        }
@@ -761,10 +761,12 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     b.push_funcptr(cd->inv, invVar->type);
 
     // uint flags
+    unsigned flags;
     if (cd->isInterfaceDeclaration())
-        b.push_uint(4 | cd->isCOMinterface() | 32);
+        flags = 4 | cd->isCOMinterface() | 32;
     else
-        b.push_uint(build_classinfo_flags(cd));
+        flags = build_classinfo_flags(cd);
+    b.push_uint(flags);
 
     // deallocator
     b.push_funcptr(cd->aggDelete, Type::tvoid->pointerTo());
@@ -790,16 +792,18 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     b.push_funcptr(cd->defaultCtor, defConstructorVar->type);
 
 #if DMDV2
-
-    // xgetMembers
-    VarDeclaration* xgetVar = static_cast<VarDeclaration*>(cinfo->fields.data[11]);
-    b.push_funcptr(cd->findGetMembers(), xgetVar->type);
-
+    // immutable(void)* m_RTInfo;
+    // The cases where getRTInfo is null are not quite here, but the code is
+    // modelled after what DMD does.
+    if (cd->getRTInfo)
+        b.push(cd->getRTInfo->toConstElem(gIR));
+    else if (flags & 2)
+        b.push_size_as_vp(0);       // no pointers
+    else
+        b.push_size_as_vp(1);       // has pointers
 #else
-
     // typeinfo - since 1.045
     b.push_typeinfo(cd->type);
-
 #endif
 
     /*size_t n = inits.size();
