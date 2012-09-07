@@ -86,9 +86,9 @@ private
 
 /* =============================== Win32 ============================ */
 
-version( Windows )
+version( Windows ) version( LDC )
 {
-    /+
+
     static __gshared CRITICAL_SECTION _monitor_critsec;
 
     extern (C) void _STI_monitor_staticctor()
@@ -166,7 +166,6 @@ version( Windows )
         LeaveCriticalSection(&getMonitor(h).mon);
         debug(PRINTF) printf("-_d_monitor_release(%p)\n", h);
     }
-    +/
 }
 
 /* =============================== linux ============================ */
