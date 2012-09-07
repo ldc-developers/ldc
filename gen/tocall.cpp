@@ -652,7 +652,39 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
                 break;
 
             default:
-                assert(0 && "unhandled repainting of return value");
+                // Unfortunately, DMD has quirks resp. bugs with regard to name
+                // mangling: For voldemort-type functions which return a nested
+                // struct, the mangled name of the return type changes during
+                // semantic analysis.
+                //
+                // (When the function deco is first computed as part of
+                // determining the return type deco, its return type part is
+                // left off to avoid cycles. If mangle/toDecoBuffer is then
+                // called again for the type, it will pick up the previous
+                // result and return the full deco string for the nested struct
+                // type, consisting of both the full mangled function name, and
+                // the struct identifier.)
+                //
+                // Thus, the type merging in stripModifiers does not work
+                // reliably, and the equality check above can fail even if the
+                // types only differ in a qualifier.
+                //
+                // Because a proper fix for this in the frontend is hard, we
+                // just carry on and hope that the frontend didn't mess up,
+                // i.e. that the LLVM types really match up.
+                //
+                // An example situation where this case occurs is:
+                // ---
+                // auto iota() {
+                //     static struct Result {
+                //         this(int) {}
+                //         inout(Result) test() inout { return cast(inout)Result(0); }
+                //     }
+                //     return Result.init;
+                // }
+                // void main() { auto r = iota(); }
+                // ---
+                break;
             }
             if (Logger::enabled())
                 Logger::cout() << "final return value: " << *retllval << '\n';

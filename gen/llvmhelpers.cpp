@@ -393,19 +393,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
     Type* t2 = rhs->getType()->toBasetype();
 
     if (t->ty == Tstruct) {
-        if (!stripModifiers(t)->equals(stripModifiers(t2))) {
-            // FIXME: use 'rhs' for something !?!
-            DtoAggrZeroInit(lhs->getLVal());
-#if DMDV2
-            TypeStruct *ts = static_cast<TypeStruct*>(lhs->getType());
-            if (ts->sym->isNested() && ts->sym->vthis)
-                DtoResolveNestedContext(loc, ts->sym, lhs->getLVal());
-#endif
-        }
-        else {
-            DtoAggrCopy(lhs->getLVal(), rhs->getRVal());
-        }
-
+        DtoAggrCopy(lhs->getLVal(), rhs->getRVal());
     }
     else if (t->ty == Tarray) {
         // lhs is slice

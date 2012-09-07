@@ -607,10 +607,24 @@ DValue* AssignExp::toElem(IRState* p)
         }
     }
 
-    Logger::println("performing normal assignment");
-
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
+
+    if (e1->type->toBasetype()->ty == Tstruct && e2->op == TOKint64)
+    {
+        Logger::println("performing aggregate zero initialization");
+        assert(e2->toInteger() == 0);
+        DtoAggrZeroInit(l->getLVal());
+#if DMDV2
+        TypeStruct *ts = static_cast<TypeStruct*>(e1->type);
+        if (ts->sym->isNested() && ts->sym->vthis)
+            DtoResolveNestedContext(loc, ts->sym, l->getLVal());
+#endif
+        // Return value should be irrelevant.
+        return r;
+    }
+
+    Logger::println("performing normal assignment");
     DtoAssign(loc, l, r, op);
 
     if (l->isSlice())
