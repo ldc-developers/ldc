@@ -77,6 +77,7 @@ list(REMOVE_ITEM DCRT_D
     ${RUNTIME_DC_DIR}/deh2.d
     ${RUNTIME_DC_DIR}/llmath.d
     ${RUNTIME_DC_DIR}/memory_osx.d
+    ${RUNTIME_DC_DIR}/monitor_.d
     ${RUNTIME_DC_DIR}/qsort2.d
     ${RUNTIME_DC_DIR}/trace.d
 )
@@ -88,8 +89,11 @@ if(UNIX)
         file(GLOB_RECURSE CORE_D_SYS_OSX ${RUNTIME_DIR}/src/core/sys/osx/*.d)
         list(APPEND CORE_D_SYS ${CORE_D_SYS_OSX})
     endif()
+    list(REMOVE_ITEM LDC_D ${RUNTIME_DIR}/src/ldc/eh2.d)
+    list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/msvc.c)
 elseif(WIN32)
     file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
+    list(REMOVE_ITEM LDC_D ${RUNTIME_DIR}/src/ldc/eh.d)
 endif()
 list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC} )
 list(APPEND GENERATE_DI ${CORE_D})
@@ -190,7 +194,9 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
     set(OUTPUT_O ${PROJECT_BINARY_DIR}/${output}${SUFFIX}${CMAKE_C_OUTPUT_EXTENSION})
     set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${output}${SUFFIX}.bc)
     list(APPEND ${OUTLIST_O} ${OUTPUT_O})
-    list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
+    if(BUILD_BC_LIBS)
+        list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
+    endif()
 
     list(FIND GENERATE_DI "${INPUT_D}" INDEX)
     set(DI_CMD "")
@@ -210,11 +216,17 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
     endif()
 
     # Compile
+    if(BUILD_BC_LIBS)
+        set(OUTPUT ${OUTPUT_O} ${OUTPUT_BC})
+        set(DC_FLAGS "--output-o --output-bc")
+    else()
+        set(OUTPUT ${OUTPUT_O})
+        set(DC_FLAGS "--output-o")
+    endif()
     add_custom_command(
         OUTPUT
-            ${OUTPUT_O}
-            ${OUTPUT_BC}
-        COMMAND ${LDC_LOC} --output-o --output-bc -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${DI_CMD} ${D_FLAGS} ${MOREFLAGS}
+            ${OUTPUT}
+        COMMAND ${LDC_LOC} ${DC_FLAGS} -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${DI_CMD} ${D_FLAGS} ${MOREFLAGS}
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${LDC_LOC}
             ${INPUT_D}
