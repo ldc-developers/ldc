@@ -1,21 +1,29 @@
 #include "gen/optimizer.h"
 #include "gen/cl_helpers.h"
+#include "gen/irstate.h"
 #include "gen/logger.h"
 
 #include "gen/passes/Passes.h"
 
 #include "llvm/PassManager.h"
 #include "llvm/LinkAllPasses.h"
-#include "llvm/Analysis/LoopPass.h"
+#include "llvm/Module.h"
+#include "llvm/ADT/OwningPtr.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/Verifier.h"
-#include "llvm/Target/TargetData.h"
+#include "llvm/Target/TargetLibraryInfo.h"
+#include "llvm/Target/TargetMachine.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/PassNameParser.h"
 #include "llvm/Transforms/IPO.h"
+#include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
 #include "mars.h"       // error()
-#include "root.h"
-#include <cstring>      // strcmp();
+
+#if _MSC_VER >= 1700
+#include <algorithm>
+#include <functional>
+#endif
 
 using namespace llvm;
 
@@ -26,17 +34,17 @@ static cl::list<const PassInfo*, bool, PassNameParser>
         cl::Hidden      // to clean up --help output
     );
 
-static cl::opt<unsigned char> optimizeLevel(
+static cl::opt<signed char> optimizeLevel(
     cl::desc("Setting the optimization level:"),
     cl::ZeroOrMore,
     cl::values(
-        clEnumValN(2, "O",  "Equivalent to -O2"),
-        clEnumValN(0, "O0", "No optimizations (default)"),
-        clEnumValN(1, "O1", "Simple optimizations"),
-        clEnumValN(2, "O2", "Good optimizations"),
-        clEnumValN(3, "O3", "Aggressive optimizations"),
-        clEnumValN(4, "O4", "Link-time optimization"), //  not implemented?
-        clEnumValN(5, "O5", "Link-time optimization"), //  not implemented?
+        clEnumValN( 2, "O",  "Equivalent to -O2"),
+        clEnumValN( 0, "O0", "No optimizations (default)"),
+        clEnumValN( 1, "O1", "Simple optimizations"),
+        clEnumValN( 2, "O2", "Good optimizations"),
+        clEnumValN( 3, "O3", "Aggressive optimizations"),
+        clEnumValN(-1, "Os", "Like -O2 with extra optimizations for size"),
+        clEnumValN(-2, "Oz", "Like -Os but reduces code size further"),
         clEnumValEnd),
     cl::init(0));
 
@@ -66,45 +74,37 @@ disableGCToStack("disable-gc2stack",
     cl::desc("Disable promotion of GC allocations to stack memory in -O<N>"),
     cl::ZeroOrMore);
 
-static cl::opt<opts::BoolOrDefaultAdapter, false, opts::FlagParser>
-enableInlining("inlining",
-    cl::desc("(*) Enable function inlining in -O<N>"),
-    cl::ZeroOrMore);
-
-#if LDC_LLVM_VER >= 301
 static cl::opt<bool>
-runVectorization("vectorize", cl::desc("Run vectorization passes"));
+disableInlining("disable-inlining", cl::desc("Do not run the inliner pass"));
 
 static cl::opt<bool>
-useGVNAfterVectorization("use-gvn-after-vectorization",
-    cl::init(false), cl::Hidden,
-    cl::desc("Run GVN instead of Early CSE after vectorization passes"));
-#endif
+unitAtATime("unit-at-a-time",
+            cl::desc("Enable IPO"),
+            cl::init(true));
+
+static cl::opt<bool>
+stripDebug("strip-debug",
+           cl::desc("Strip debugger symbol info from translation unit"));
 
 // Determine whether or not to run the inliner as part of the default list of
 // optimization passes.
 // If not explicitly specified, treat as false for -O0-2, and true for -O3.
 bool doInline() {
-    return enableInlining == cl::BOU_TRUE
-        || (enableInlining == cl::BOU_UNSET && optimizeLevel >= 3);
+    return !disableInlining && optLevel() > 1;
 }
 
 // Determine whether the inliner will be run.
 bool willInline() {
-    if (doInline())
-        return true;
-    // It may also have been specified explicitly on the command line as an explicit pass
-    typedef cl::list<const PassInfo*, bool, PassNameParser> PL;
-    for (PL::iterator I = passList.begin(), E = passList.end(); I != E; ++I) {
-        if (!std::strcmp((*I)->getPassArgument(), "inline"))
-            return true;
-    }
-    return false;
+    return !disableInlining && optLevel() > 1;
 }
 
 // Some extra accessors for the linker: (llvm-ld version only, currently unused?)
-int optLevel() {
-    return optimizeLevel;
+unsigned optLevel() {
+    return optimizeLevel >= 0 ? optimizeLevel : 2;
+}
+
+unsigned sizeLevel() {
+    return optimizeLevel < 0 ? -optimizeLevel : 0;
 }
 
 bool optimize() {
@@ -127,138 +127,73 @@ llvm::CodeGenOpt::Level codeGenOptLevel() {
 #endif
 }
 
-static void addPass(PassManager& pm, Pass* pass) {
+static inline void addPass(PassManagerBase& pm, Pass* pass) {
     pm.add(pass);
 
     if (verifyEach) pm.add(createVerifierPass());
 }
 
-// this function inserts some or all of the std-compile-opts passes depending on the
-// optimization level given.
-static void addPassesForOptLevel(PassManager& pm) {
-    // -O1
-    if (optimizeLevel >= 1)
-    {
-        // Add alias analysis passes.
-        // This is at least required for FunctionAttrs pass.
-        addPass(pm, createTypeBasedAliasAnalysisPass());
-        addPass(pm, createBasicAliasAnalysisPass());
-        //addPass(pm, createStripDeadPrototypesPass());
-        addPass(pm, createGlobalDCEPass());
-        addPass(pm, createPromoteMemoryToRegisterPass());
-        addPass(pm, createCFGSimplificationPass());
-        if (optimizeLevel == 1)
-            addPass(pm, createPromoteMemoryToRegisterPass());
-        else
-            addPass(pm, createScalarReplAggregatesPass());
-        addPass(pm, createGlobalOptimizerPass());
-    }
+static void addStripExternalsPass(const PassManagerBuilder &builder, PassManagerBase &pm) {
+    if (builder.OptLevel >= 1)
+        addPass(pm, createStripExternalsPass());
+}
 
-    // -O2
-    if (optimizeLevel >= 2)
-    {
-        addPass(pm, createIPConstantPropagationPass());
-        addPass(pm, createDeadArgEliminationPass());
-        addPass(pm, createInstructionCombiningPass());
-        addPass(pm, createCFGSimplificationPass());
-        addPass(pm, createPruneEHPass());
-
-        addPass(pm, createFunctionAttrsPass());
-
-        addPass(pm, createTailCallEliminationPass());
-        addPass(pm, createCFGSimplificationPass());
-        addPass(pm, createGVNPass());
-    }
-
-    // -inline
-    if (doInline()) {
-        addPass(pm, createFunctionInliningPass());
-
-        if (optimizeLevel >= 2) {
-            // Run some optimizations to clean up after inlining.
-            addPass(pm, createScalarReplAggregatesPass());
-            addPass(pm, createInstructionCombiningPass());
-            // -instcombine + gvn == devirtualization :)
-            addPass(pm, createGVNPass());
-
-            // Inline again, to catch things like now nonvirtual
-            // function calls, foreach delegates passed to inlined
-            // opApply's, etc. where the actual function being called
-            // wasn't known during the first inliner pass.
-            addPass(pm, createFunctionInliningPass());
-        }
-    }
-
-    if (optimizeLevel >= 2) {
-        if (!disableLangSpecificPasses) {
-            if (!disableSimplifyRuntimeCalls)
-                addPass(pm, createSimplifyDRuntimeCalls());
+static void addSimplifyDRuntimeCallsPass(const PassManagerBuilder &builder, PassManagerBase &pm) {
+    if (builder.OptLevel >= 2 && builder.SizeLevel == 0)
+        addPass(pm, createSimplifyDRuntimeCalls());
+}
 
 #if USE_METADATA
-            if (!disableGCToStack)
-                addPass(pm, createGarbageCollect2Stack());
-#endif // USE_METADATA
-        }
-        // Run some clean-up passes
-        addPass(pm, createInstructionCombiningPass());
-        addPass(pm, createScalarReplAggregatesPass());
-        addPass(pm, createCFGSimplificationPass());
-        addPass(pm, createInstructionCombiningPass());
-    }
-
-    // -O3
-    if (optimizeLevel >= 3)
-    {
-        addPass(pm, createArgumentPromotionPass());
-        addPass(pm, createSimplifyLibCallsPass());
-        addPass(pm, createInstructionCombiningPass());
-        addPass(pm, createJumpThreadingPass());
-        addPass(pm, createCFGSimplificationPass());
-        addPass(pm, createScalarReplAggregatesPass());
-        addPass(pm, createInstructionCombiningPass());
-        addPass(pm, createConstantPropagationPass());
-
-        addPass(pm, createReassociatePass());
-        addPass(pm, createLoopRotatePass());
-        addPass(pm, createLICMPass());
-        addPass(pm, createLoopUnswitchPass());
-        addPass(pm, createInstructionCombiningPass());
-        addPass(pm, createIndVarSimplifyPass());
-        addPass(pm, createLoopDeletionPass());
-        addPass(pm, createLoopUnrollPass());
-        addPass(pm, createInstructionCombiningPass());
-        addPass(pm, createGVNPass());
-        addPass(pm, createMemCpyOptPass());
-        addPass(pm, createSCCPPass());
-
-        addPass(pm, createInstructionCombiningPass());
-        addPass(pm, createConstantPropagationPass());
-
-        addPass(pm, createDeadStoreEliminationPass());
-        addPass(pm, createAggressiveDCEPass());
-        addPass(pm, createCFGSimplificationPass());
-        addPass(pm, createConstantMergePass());
-    }
-
-#if LDC_LLVM_VER >= 301
-    // -vectorize
-    if (runVectorization)
-    {
-        addPass(pm, createBBVectorizePass());
-        addPass(pm, createInstructionCombiningPass());
-        if (optimizeLevel > 1 && useGVNAfterVectorization)
-            addPass(pm, createGVNPass());                   // Remove redundancies
-        else
-            addPass(pm, createEarlyCSEPass());              // Catch trivial redundancies
-    }
+static void addGarbageCollect2StackPass(const PassManagerBuilder &builder, PassManagerBase &pm) {
+    if (builder.OptLevel >= 2 && builder.SizeLevel == 0)
+        addPass(pm, createGarbageCollect2Stack());
+}
 #endif
 
-    if (optimizeLevel >= 1) {
-        addPass(pm, createStripExternalsPass());
-        addPass(pm, createGlobalDCEPass());
-    }
+/// AddOptimizationPasses - This routine adds optimization passes
+/// based on selected optimization level, OptLevel. This routine
+/// duplicates llvm-gcc behaviour.
+///
+/// OptLevel - Optimization Level
+static void addOptimizationPasses(PassManagerBase &mpm,FunctionPassManager &fpm,
+                                    unsigned optLevel, unsigned sizeLevel) {
+    fpm.add(createVerifierPass());                  // Verify that input is correct
 
-    // level -O4 and -O5 are linktime optimizations
+    PassManagerBuilder builder;
+    builder.OptLevel = optLevel;
+    builder.SizeLevel = sizeLevel;
+
+    if (disableInlining) {
+        // No inlining pass
+    } else if (optLevel > 1) {
+        unsigned threshold = 225;
+        if (sizeLevel == 1)      // -Os
+            threshold = 75;
+        else if (sizeLevel == 2) // -Oz
+            threshold = 25;
+        if (optLevel > 2)
+            threshold = 275;
+        builder.Inliner = createFunctionInliningPass(threshold);
+    } else {
+        builder.Inliner = createAlwaysInlinerPass();
+    }
+    builder.DisableUnitAtATime = !unitAtATime;
+    builder.DisableUnrollLoops = optLevel == 0;
+    builder.DisableSimplifyLibCalls = disableSimplifyRuntimeCalls;
+    /* builder.Vectorize is set in ctor from command line switch */
+
+    if (!disableLangSpecificPasses) {
+        if (!disableSimplifyRuntimeCalls)
+            builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd, addSimplifyDRuntimeCallsPass);
+
+#if USE_METADATA
+        Builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd, addGarbageCollect2StackPass);
+#endif // USE_METADATA
+    }
+    builder.addExtension(PassManagerBuilder::EP_OptimizerLast, addStripExternalsPass);
+
+    builder.populateFunctionPassManager(fpm);
+    builder.populateModulePassManager(mpm);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -266,48 +201,88 @@ static void addPassesForOptLevel(PassManager& pm) {
 // Returns true if any optimization passes were invoked.
 bool ldc_optimize_module(llvm::Module* m)
 {
+    // Early exit if no optimization requested
     if (!optimize())
         return false;
 
+    // Create a PassManager to hold and optimize the collection of passes we are
+    // about to build.
     PassManager pm;
 
-    if (verifyEach) pm.add(createVerifierPass());
+    // Add an appropriate TargetLibraryInfo pass for the module's triple.
+    TargetLibraryInfo *tli = new TargetLibraryInfo(Triple(m->getTargetTriple()));
 
-    addPass(pm, new TargetData(m));
+    // The -disable-simplify-libcalls flag actually disables all builtin optzns.
+    if (disableSimplifyRuntimeCalls)
+        tli->disableAllFunctions();
+    pm.add(tli);
 
-    bool optimize = optimizeLevel != 0 || doInline();
+    // Add an appropriate TargetData instance for this module.
+    if (gTargetData)
+        pm.add(new TargetData(*gTargetData));
 
-    unsigned optPos = optimizeLevel != 0
-                    ? optimizeLevel.getPosition()
-                    : enableInlining.getPosition();
+    OwningPtr<FunctionPassManager> fpm;
+    if (optimize()) {
+        fpm.reset(new FunctionPassManager(m));
+        if (gTargetData)
+            fpm->add(new TargetData(*gTargetData));
+    }
 
-    for (size_t i = 0; i < passList.size(); i++) {
-        // insert -O<N> / -enable-inlining in right position
-        if (optimize && optPos < passList.getPosition(i)) {
-            addPassesForOptLevel(pm);
-            optimize = false;
+    // If the -strip-debug command line option was specified, add it.  If
+    if (stripDebug)
+        addPass(pm, createStripSymbolsPass(true));
+
+    bool doOptimize = true;
+    // Create a new optimization pass for each one specified on the command line
+    for (unsigned i = 0; i < passList.size(); ++i) {
+        if (optimizeLevel && optimizeLevel.getPosition() < passList.getPosition(i)) {
+            addOptimizationPasses(pm, *fpm, optLevel(), sizeLevel());
+            doOptimize = false;
         }
 
-        const PassInfo* pass = passList[i];
-        if (PassInfo::NormalCtor_t ctor = pass->getNormalCtor()) {
-            addPass(pm, ctor());
-        } else {
-            const char* arg = pass->getPassArgument(); // may return null
+        const PassInfo *passInf = passList[i];
+        Pass *pass = 0;
+        if (passInf->getNormalCtor())
+            pass = passInf->getNormalCtor()();
+        else {
+            const char* arg = passInf->getPassArgument(); // may return null
             if (arg)
                 error("Can't create pass '-%s' (%s)", arg, pass->getPassName());
             else
                 error("Can't create pass (%s)", pass->getPassName());
-            assert(0);  // Should be unreachable; root.h:error() calls exit()
+            llvm_unreachable("pass creation failed");
+        }
+        if (pass) {
+            addPass(pm, pass);
         }
     }
-    // insert -O<N> / -enable-inlining if specified at the end,
-    if (optimize)
-        addPassesForOptLevel(pm);
 
+    if (doOptimize)
+        addOptimizationPasses(pm, *fpm, optLevel(), sizeLevel());
+
+    if (optimize()) {
+        fpm->doInitialization();
+#if _MSC_VER >= 1700
+        // With a recent C++ Standard Library this is the way to go
+        for_each(m->begin(), m->end(), bind(&FunctionPassManager::run, &(*fpm), std::placeholders::_1));
+#else
+        for (llvm::Module::iterator F = m->begin(), E = m->end(); F != E; ++F)
+            fpm->run(*F);
+#endif
+        fpm->doFinalization();
+    }
+
+    // Check that the module is well formed on completion of optimization
+    if (!noVerify && !verifyEach)
+        pm.add(createVerifierPass());
+
+    // Now that we have all of the passes ready, run them.
     pm.run(*m);
 
+    // Verify module again.
     verifyModule(m);
 
+    // Report that we run some passes.
     return true;
 }
 

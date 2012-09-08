@@ -17,7 +17,7 @@ bool doInline();
 // Determines whether the inliner will be run at all.
 bool willInline();
 
-int optLevel();
+unsigned optLevel();
 
 bool optimize();
 
