@@ -917,12 +917,35 @@ LLStructType* DtoMutexType()
     if (gIR->mutexType)
         return gIR->mutexType;
 
-    // win32
+    // The structures defined here must be the same as in druntime/src/rt/critical.c
+
+    // Windows
     if (global.params.os == OSWindows)
     {
-        // CRITICAL_SECTION.sizeof == 68
-        std::vector<LLType*> types(17, LLType::getInt32Ty(gIR->context()));
-        return LLStructType::get(gIR->context(), types);
+        llvm::Type *VoidPtrTy = llvm::Type::getInt8PtrTy(gIR->context());
+        llvm::Type *Int32Ty = llvm::Type::getInt32Ty(gIR->context());
+
+        // Build RTL_CRITICAL_SECTION; size is 24 (32bit) or 40 (64bit)
+        std::vector<LLType*> rtl_types;
+        rtl_types.push_back(VoidPtrTy); // Pointer to DebugInfo
+        rtl_types.push_back(Int32Ty);   // LockCount
+        rtl_types.push_back(Int32Ty);   // RecursionCount
+        rtl_types.push_back(VoidPtrTy); // Handle of OwningThread
+        rtl_types.push_back(VoidPtrTy); // Handle of LockSemaphore
+        rtl_types.push_back(VoidPtrTy); // SpinCount
+        LLStructType* rtl = LLStructType::create(gIR->context(), rtl_types, "RTL_CRITICAL_SECTION");
+
+        // Build D_CRITICAL_SECTION; size is 28 (32bit) or 48 (64bit)
+        LLStructType* mutex = LLStructType::create(gIR->context(), "D_CRITICAL_SECTION");
+        std::vector<LLType*> types;
+        types.push_back(getPtrToType(mutex));
+        types.push_back(rtl);
+        mutex->setBody(types);
+
+        // Cache type
+        gIR->mutexType = mutex;
+
+        return mutex;
     }
 
     // FreeBSD
@@ -952,6 +975,8 @@ LLStructType* DtoMutexType()
     types.push_back(getPtrToType(mutex));
     types.push_back(pmutex);
     mutex->setBody(types);
+
+    // Cache type
     gIR->mutexType = mutex;
 
     return pmutex;

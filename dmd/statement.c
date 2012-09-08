@@ -44,11 +44,11 @@
 int os_critsecsize()
 {
 #if defined(_MSC_VER)
-    // TODO Check size
-    return 68;
+    // Return sizeof(RTL_CRITICAL_SECTION)
+    return global.params.is64bit ? 40 : 24;
 #else
     if (global.params.os == OSWindows)
-        return 68;
+        return global.params.is64bit ? 40 : 24;
     else if (global.params.os == OSFreeBSD)
         return sizeof(size_t);
     else
