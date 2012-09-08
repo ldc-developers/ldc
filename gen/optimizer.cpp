@@ -71,6 +71,16 @@ enableInlining("inlining",
     cl::desc("(*) Enable function inlining in -O<N>"),
     cl::ZeroOrMore);
 
+#if LDC_LLVM_VER >= 301
+static cl::opt<bool>
+runVectorization("vectorize", cl::desc("Run vectorization passes"));
+
+static cl::opt<bool>
+useGVNAfterVectorization("use-gvn-after-vectorization",
+    cl::init(false), cl::Hidden,
+    cl::desc("Run GVN instead of Early CSE after vectorization passes"));
+#endif
+
 // Determine whether or not to run the inliner as part of the default list of
 // optimization passes.
 // If not explicitly specified, treat as false for -O0-2, and true for -O3.
@@ -229,6 +239,19 @@ static void addPassesForOptLevel(PassManager& pm) {
         addPass(pm, createCFGSimplificationPass());
         addPass(pm, createConstantMergePass());
     }
+
+#if LDC_LLVM_VER >= 301
+    // -vectorize
+    if (runVectorization)
+    {
+        addPass(pm, createBBVectorizePass());
+        addPass(pm, createInstructionCombiningPass());
+        if (optimizeLevel > 1 && useGVNAfterVectorization)
+            addPass(pm, createGVNPass());                   // Remove redundancies
+        else
+            addPass(pm, createEarlyCSEPass());              // Catch trivial redundancies
+    }
+#endif
 
     if (optimizeLevel >= 1) {
         addPass(pm, createStripExternalsPass());
