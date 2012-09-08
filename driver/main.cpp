@@ -566,10 +566,6 @@ int main(int argc, char** argv)
 
     gTargetData = target->getTargetData();
 
-    // get final data layout
-    std::string datalayout = gTargetData->getStringRepresentation();
-    global.params.dataLayout = datalayout.c_str();
-
     global.params.llvmArch = theTarget->getName();
 
     if (strcmp(global.params.llvmArch,"x86")==0) {

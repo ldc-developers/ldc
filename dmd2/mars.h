@@ -273,7 +273,6 @@ struct Param
     // target stuff
     const char* llvmArch;
     const char *targetTriple;
-    const char *dataLayout;
 
     // Codegen cl options
     bool singleObj;

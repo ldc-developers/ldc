@@ -2,6 +2,7 @@
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Module.h"
 #include "llvm/LinkAllPasses.h"
+#include "llvm/Target/TargetData.h"
 
 #include "mars.h"
 #include "module.h"
@@ -21,6 +22,7 @@
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/functions.h"
+#include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/programs.h"
@@ -243,9 +245,9 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     ir.module->setTargetTriple(global.params.targetTriple);
 
     // set final data layout
-    ir.module->setDataLayout(global.params.dataLayout);
+    ir.module->setDataLayout(gTargetData->getStringRepresentation());
     if (Logger::enabled())
-        Logger::cout() << "Final data layout: " << global.params.dataLayout << '\n';
+        Logger::cout() << "Final data layout: " << ir.module->getDataLayout() << '\n';
 
     // allocate the target abi
     gABI = TargetABI::getTarget();
