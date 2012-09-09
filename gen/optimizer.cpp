@@ -20,11 +20,6 @@
 
 #include "mars.h"       // error()
 
-#if _MSC_VER >= 1700
-#include <algorithm>
-#include <functional>
-#endif
-
 using namespace llvm;
 
 // Allow the user to specify specific optimizations to run.
@@ -43,6 +38,8 @@ static cl::opt<signed char> optimizeLevel(
         clEnumValN( 1, "O1", "Simple optimizations"),
         clEnumValN( 2, "O2", "Good optimizations"),
         clEnumValN( 3, "O3", "Aggressive optimizations"),
+        clEnumValN( 4, "O4", "Link-time optimization"), //  not implemented?
+        clEnumValN( 5, "O5", "Link-time optimization"), //  not implemented?
         clEnumValN(-1, "Os", "Like -O2 with extra optimizations for size"),
         clEnumValN(-2, "Oz", "Like -Os but reduces code size further"),
         clEnumValEnd),
@@ -100,7 +97,8 @@ bool willInline() {
 
 // Some extra accessors for the linker: (llvm-ld version only, currently unused?)
 unsigned optLevel() {
-    return optimizeLevel >= 0 ? optimizeLevel : 2;
+    // Level 4,5 are not implement
+    return optimizeLevel >= 0 ? (optimizeLevel > 3 ? 3 : optimizeLevel) : 2;
 }
 
 unsigned sizeLevel() {
@@ -262,13 +260,10 @@ bool ldc_optimize_module(llvm::Module* m)
 
     if (optimize()) {
         fpm->doInitialization();
-#if _MSC_VER >= 1700
         // With a recent C++ Standard Library this is the way to go
-        for_each(m->begin(), m->end(), bind(&FunctionPassManager::run, &(*fpm), std::placeholders::_1));
-#else
+        //for_each(m->begin(), m->end(), bind(&FunctionPassManager::run, &(*fpm), std::placeholders::_1));
         for (llvm::Module::iterator F = m->begin(), E = m->end(); F != E; ++F)
             fpm->run(*F);
-#endif
         fpm->doFinalization();
     }
 
