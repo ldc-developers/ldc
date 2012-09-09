@@ -1481,7 +1481,12 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
         {
             LLConstant* val = exp->toConstElem(gIR);
             TypeVector* tv = (TypeVector*)base;
+#if LDC_LLVM_VER == 300
+            std::vector<LLConstant*> Elts(tv->size(loc), val);
+            return llvm::ConstantVector::get(Elts);
+#else
             return llvm::ConstantVector::getSplat(tv->size(loc), val);
+#endif
         }
 #endif
         else
