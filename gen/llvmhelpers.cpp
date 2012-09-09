@@ -10,6 +10,9 @@
 
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Target/TargetMachine.h"
+#if LDC_LLVM_VER >= 301
+#include "llvm/Transforms/Utils/ModuleUtils.h"
+#endif
 
 #include "gen/tollvm.h"
 #include "gen/irstate.h"
@@ -24,6 +27,7 @@
 #include "gen/todebug.h"
 #include "gen/nested.h"
 #include "ir/irmodule.h"
+#include "gen/llvmcompat.h"
 
 #include <stack>
 
@@ -1836,4 +1840,16 @@ void printLabelName(std::ostream& target, const char* func_mangle, const char* l
 {
     target << gTargetMachine->getMCAsmInfo()->getPrivateGlobalPrefix() <<
         func_mangle << "_" << label_name;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+// CTOR and DTOR
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function* func, const uint32_t priority, const bool isCtor)
+{
+    if (isCtor)
+        llvm::appendToGlobalCtors(*gIR->module, func, priority);
+    else
+        llvm::appendToGlobalDtors(*gIR->module, func, priority);
 }

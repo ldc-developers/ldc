@@ -196,4 +196,6 @@ Type* stripModifiers(Type* type);
 
 void printLabelName(std::ostream& target, const char* func_mangle, const char* label_name);
 
+void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function* func, const uint32_t priority, const bool isCtor);
+
 #endif

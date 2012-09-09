@@ -645,23 +645,5 @@ void Module::genmoduleinfo()
     // build the modulereference and ctor for registering it
     LLFunction* mictor = build_module_reference_and_ctor(moduleInfoSymbol());
 
-    // register this ctor in the magic llvm.global_ctors appending array
-    LLFunctionType* magicfty = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false);
-    std::vector<LLType*> magictypes;
-    magictypes.push_back(LLType::getInt32Ty(gIR->context()));
-    magictypes.push_back(getPtrToType(magicfty));
-    LLStructType* magicsty = LLStructType::get(gIR->context(), magictypes);
-
-    // make the constant element
-    std::vector<LLConstant*> magicconstants;
-    magicconstants.push_back(DtoConstUint(65535));
-    magicconstants.push_back(mictor);
-    LLConstant* magicinit = LLConstantStruct::get(magicsty, magicconstants);
-
-    // declare the appending array
-    llvm::ArrayType* appendArrTy = llvm::ArrayType::get(magicsty, 1);
-    std::vector<LLConstant*> appendInits(1, magicinit);
-    LLConstant* appendInit = LLConstantArray::get(appendArrTy, appendInits);
-    std::string appendName("llvm.global_ctors");
-    new llvm::GlobalVariable(*gIR->module, appendArrTy, true, llvm::GlobalValue::AppendingLinkage, appendInit, appendName);
+    AppendFunctionToLLVMGlobalCtorsDtors(mictor, 65535, true);
 }
