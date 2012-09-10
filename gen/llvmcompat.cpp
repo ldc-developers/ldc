@@ -1,10 +1,15 @@
+
 #include "gen/llvmcompat.h"
 #include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Function.h"
 #include "llvm/Module.h"
+#if LDC_LLVM_VER >= 302
+#include "llvm/IRBuilder.h"
+#else
 #include "llvm/Support/IRBuilder.h"
+#endif
 #include <string>
 
 #if LDC_LLVM_VER == 300
