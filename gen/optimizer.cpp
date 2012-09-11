@@ -119,6 +119,7 @@ llvm::CodeGenOpt::Level codeGenOptLevel() {
     // Debug info doesn't work properly with CodeGenOpt <> None
     if (global.params.symdebug || !opt) codeGenOptLevel = llvm::CodeGenOpt::None;
     else if (opt >= 3) codeGenOptLevel = llvm::CodeGenOpt::Aggressive;
+    return codeGenOptLevel;
 #else
     // There's a bug in llvm:LiveInterval::createDeadDef()
     // which prevents use of other values.
