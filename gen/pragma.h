@@ -25,6 +25,8 @@ enum Pragma
     LLVMnone, // Not an LDC pragma.
     LLVMignore, // Pragma has already been processed in DtoGetPragma, ignore.
     LLVMintrinsic,
+    LLVMglobal_crt_ctor,
+    LLVMglobal_crt_dtor,
     LLVMno_typeinfo,
     LLVMno_moduleinfo,
     LLVMalloca,

@@ -907,6 +907,7 @@ struct FuncDeclaration : Declaration
     std::set<VarDeclaration*> nestedVars;
 
     std::string intrinsicName;
+    uint32_t priority;
 
     bool isIntrinsic();
     bool isVaIntrinsic();
