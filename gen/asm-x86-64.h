@@ -354,6 +354,7 @@ namespace AsmParserx8664
         Op_scasX,
         Op_stos,
         Op_stosX,
+        Op_xgetbv,
         Op_xlat,
         N_AsmOpInfo,
         Op_Align,
@@ -605,6 +606,7 @@ namespace AsmParserx8664
         /* Op_scasX     */  {   0,   0,   0,     0, Clb_DI|Clb_Flags },
         /* Op_stos      */  {   mem, 0,   0,     1, Clb_DI },
         /* Op_stosX     */  {   0,   0,   0,     0, Clb_DI },
+        /* Op_xgetbv    */  {   0,   0,   0,     0, Clb_SizeRDXRAX },
         /* Op_xlat      */  {   mem, 0,   0,     0, Clb_SizeAX }
 
         /// * Op_arpl      */  { D|mr,  reg }, // 16 only -> DstSrc
@@ -1256,6 +1258,7 @@ namespace AsmParserx8664
         { "wrmsr",  Op_0 },
         { "xadd",   Op_UpdUpdF },
         { "xchg",   Op_UpdUpd },
+        { "xgetbv", Op_xgetbv },
         { "xlat",   Op_xlat },
         { "xlatb",  Op_0_AX },
         { "xor",    Op_DstSrcF },
