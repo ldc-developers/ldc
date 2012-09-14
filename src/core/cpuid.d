@@ -599,17 +599,15 @@ void cpuidX86()
     features = d;
     miscfeatures = c;
 
-    version (LDC) {} else { // FIXME: xgetbv opcode is unsupported
-        if (miscfeatures & OSXSAVE_BIT)
-        {
-            asm {
-                mov ECX, 0;
-                xgetbv;
-                mov d, EDX;
-                mov a, EAX;
-            }
-            xfeatures = cast(ulong)d << 32 | a;
+    if (miscfeatures & OSXSAVE_BIT)
+    {
+        asm {
+            mov ECX, 0;
+            xgetbv;
+            mov d, EDX;
+            mov a, EAX;
         }
+        xfeatures = cast(ulong)d << 32 | a;
     }
     amdfeatures = 0;
     amdmiscfeatures = 0;
