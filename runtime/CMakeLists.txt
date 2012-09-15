@@ -218,10 +218,10 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
     # Compile
     if(BUILD_BC_LIBS)
         set(OUTPUT ${OUTPUT_O} ${OUTPUT_BC})
-        set(DC_FLAGS "--output-o --output-bc")
+        set(DC_FLAGS --output-o --output-bc)
     else()
         set(OUTPUT ${OUTPUT_O})
-        set(DC_FLAGS "--output-o")
+        set(DC_FLAGS --output-o)
     endif()
     add_custom_command(
         OUTPUT
