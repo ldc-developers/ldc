@@ -26,6 +26,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
 {
     Identifier *ident = decl->ident;
     Expressions *args = decl->args;
+    Expression *expr = (args && args->dim > 0) ? (*args)[0]->semantic(sc) : 0;
 
     // pragma(intrinsic, "string") { funcdecl(s) }
     if (ident == Id::intrinsic)
@@ -42,8 +43,6 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
             { "bitop.bts", LLVMbitop_bts },
         };
 
-        Expression* expr = static_cast<Expression *>(args->data[0]);
-        expr = expr->semantic(sc);
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
              error("requires exactly 1 string literal parameter");
@@ -208,8 +207,6 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     // pragma(atomic_rmw, "string") { templdecl(s) }
     else if (ident == Id::atomic_rmw)
     {
-        Expression* expr = static_cast<Expression *>(args->data[0]);
-        expr = expr->semantic(sc);
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
              error("requires exactly 1 string literal parameter");
@@ -221,8 +218,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     // pragma(ldc, "string") { templdecl(s) }
     else if (ident == Id::ldc)
     {
-        Expression* expr = static_cast<Expression *>(args->data[0]);
-        expr = expr->semantic(sc);
+        Expression* expr;
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
              error("requires exactly 1 string literal parameter");
