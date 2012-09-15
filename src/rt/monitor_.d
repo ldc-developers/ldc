@@ -88,7 +88,6 @@ private
 
 version( Windows ) version( LDC )
 {
-
     static __gshared CRITICAL_SECTION _monitor_critsec;
 
     extern (C) void _STI_monitor_staticctor()
