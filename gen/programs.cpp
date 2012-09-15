@@ -18,6 +18,16 @@ static cl::opt<std::string> ar("ar",
     cl::Hidden,
     cl::ZeroOrMore);
 
+static cl::opt<std::string> link("ms-link",
+    cl::desc("LINK to use for linking on Windows"),
+    cl::Hidden,
+    cl::ZeroOrMore);
+
+static cl::opt<std::string> lib("ms-lib",
+    cl::desc("Library Manager to use on Windows"),
+    cl::Hidden,
+    cl::ZeroOrMore);
+
 sys::Path getProgram(const char *name, const cl::opt<std::string> &opt, const char *envVar = 0)
 {
     const char *prog = NULL;
@@ -51,4 +61,14 @@ sys::Path getGcc()
 sys::Path getArchiver()
 {
     return getProgram("ar", ar);
+}
+
+sys::Path getLink()
+{
+    return getProgram("link.exe", link);
+}
+
+sys::Path getLib()
+{
+    return getProgram("lib.exe", lib);
 }

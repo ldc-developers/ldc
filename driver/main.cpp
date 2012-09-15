@@ -780,10 +780,11 @@ int main(int argc, char** argv)
         {
 #if POSIX
             if (strcmp(ext, global.obj_ext) == 0 ||
-            strcmp(ext, global.bc_ext) == 0)
+                strcmp(ext, global.bc_ext) == 0)
 #else
             if (stricmp(ext, global.obj_ext) == 0 ||
-            stricmp(ext, global.bc_ext) == 0)
+                stricmp(ext, global.obj_ext_alt) == 0 ||
+                stricmp(ext, global.bc_ext) == 0)
 #endif
             {
                 global.params.objfiles->push(static_cast<char *>(files.data[i]));

@@ -1,5 +1,6 @@
 #include "gen/llvm.h"
 #include "llvm/Linker.h"
+#include "llvm/ADT/Triple.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #if _WIN32
@@ -238,20 +239,27 @@ void createStaticLibrary()
 {
     Logger::println("*** Creating static library ***");
 
+    const bool isTargetWindows = llvm::Triple(global.params.targetTriple).isOSWindows();
+
     // error string
     std::string errstr;
 
     // find archiver
-    llvm::sys::Path ar = getArchiver();
+    llvm::sys::Path tool = isTargetWindows ? getLib() : getArchiver();
 
     // build arguments
     std::vector<const char*> args;
 
     // first the program name ??
-    args.push_back(ar.c_str());
+    args.push_back(tool.c_str());
 
     // ask ar to create a new library
-    args.push_back("rcs");
+    if (!isTargetWindows)
+        args.push_back("rcs");
+
+    // ask lib to be quiet
+    if (isTargetWindows)
+        args.push_back("/NOLOGO");
 
     // output filename
     std::string libName;
@@ -272,12 +280,16 @@ void createStaticLibrary()
     std::string libExt = std::string(".") + global.lib_ext;
     if (!endsWith(libName, libExt))
     {
-        if (global.params.os != OSWindows)
+        if (!isTargetWindows)
             libName = "lib" + libName + libExt;
         else
             libName.append(libExt);
     }
-    args.push_back(libName.c_str());
+    std::string outcmd = "/OUT:" + libName;
+    if (isTargetWindows)
+        args.push_back(outcmd.c_str());
+    else
+        args.push_back(libName.c_str());
 
     // object files
     for (unsigned i = 0; i < global.params.objfiles->dim; i++)
@@ -287,7 +299,7 @@ void createStaticLibrary()
     }
 
     // create path to the library
-    llvm::sys::Path libdir(llvm::sys::path::parent_path(libName.c_str()));
+    llvm::sys::Path libdir(llvm::sys::path::parent_path(libName));
     if (!libdir.empty() && !llvm::sys::fs::exists(libdir.str()))
     {
         libdir.createDirectoryOnDisk(true, &errstr);
@@ -312,7 +324,7 @@ void createStaticLibrary()
     args.push_back(NULL);
 
     // try to call archiver
-    if (int status = llvm::sys::Program::ExecuteAndWait(ar, &args[0], NULL, NULL, 0,0, &errstr))
+    if (int status = llvm::sys::Program::ExecuteAndWait(tool, &args[0], NULL, NULL, 0,0, &errstr))
     {
         error("archiver failed:\nstatus: %d", status);
         if (!errstr.empty())
