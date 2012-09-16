@@ -247,7 +247,7 @@ void Module::buildTargetFiles(bool singleObj)
         else if (global.params.output_s)
             objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.s_ext);
         else
-            objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.obj_ext);
+            objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.params.os == OSWindows ? global.obj_ext_alt : global.obj_ext);
     }
     if(doDocComment && !docfile)
         docfile = Module::buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);

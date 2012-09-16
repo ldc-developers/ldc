@@ -66,9 +66,7 @@ Global::Global()
     bc_ext  = "bc";
     s_ext   = "s";
     obj_ext = "o";
-#if _WIN32
     obj_ext_alt = "obj";
-#endif
 
     copyright = "Copyright (c) 1999-2012 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";

@@ -321,12 +321,10 @@ struct Global
     const char *mars_ext;
     const char *sym_ext;
     const char *obj_ext;
-#if _WIN32
-    char *obj_ext_alt;
-#endif
-    char *ll_ext;
-    char *bc_ext;
-    char *s_ext;
+    const char *obj_ext_alt;
+    const char *ll_ext;
+    const char *bc_ext;
+    const char *s_ext;
     const char *lib_ext;
     const char *dll_ext;
     const char *doc_ext;        // for Ddoc generated files
