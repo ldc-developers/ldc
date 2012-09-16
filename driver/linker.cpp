@@ -57,7 +57,7 @@ void linkModules(llvm::Module* dst, const Module_vector& MV)
 
 //////////////////////////////////////////////////////////////////////////////
 
-int ExecuteToolAndWait(llvm::sys::Path tool, std::vector<std::string> args, bool verbose = false)
+static int ExecuteToolAndWait(llvm::sys::Path tool, std::vector<std::string> args, bool verbose = false)
 {
     // Construct real argument list.
     // First entry is the tool itself, last entry must be NULL.
@@ -94,14 +94,28 @@ int ExecuteToolAndWait(llvm::sys::Path tool, std::vector<std::string> args, bool
 
 //////////////////////////////////////////////////////////////////////////////
 
+static void CreateDirectoryOnDisk(llvm::StringRef fileName)
+{
+    llvm::sys::Path dir(llvm::sys::path::parent_path(fileName));
+    if (!dir.empty() && !llvm::sys::fs::exists(dir.str()))
+    {
+        std::string errstr;
+        dir.createDirectoryOnDisk(true, &errstr);
+        if (!errstr.empty())
+        {
+            error("failed to create path to file: %s\n%s", dir.c_str(), errstr.c_str());
+            fatal();
+        }
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 static llvm::sys::Path gExePath;
 
 int linkObjToBinary(bool sharedLib)
 {
     Logger::println("*** Linking executable ***");
-
-    // error string
-    std::string errstr;
 
     // find gcc for linking
     llvm::sys::Path gcc = getGcc();
@@ -168,16 +182,7 @@ int linkObjToBinary(bool sharedLib)
     assert(gExePath.isValid());
 
     // create path to exe
-    llvm::sys::Path exedir(llvm::sys::path::parent_path(gExePath.str()));
-    if (!exedir.empty() && !llvm::sys::fs::exists(exedir.str()))
-    {
-        exedir.createDirectoryOnDisk(true, &errstr);
-        if (!errstr.empty())
-        {
-            error("failed to create path to linking output: %s\n%s", exedir.c_str(), errstr.c_str());
-            fatal();
-        }
-    }
+    CreateDirectoryOnDisk(gExePath.str());
 
     // additional linker switches
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
@@ -248,9 +253,6 @@ void createStaticLibrary()
 
     const bool isTargetWindows = llvm::Triple(global.params.targetTriple).isOSWindows();
 
-    // error string
-    std::string errstr;
-
     // find archiver
     llvm::sys::Path tool = isTargetWindows ? getLib() : getArchiver();
 
@@ -302,16 +304,7 @@ void createStaticLibrary()
     }
 
     // create path to the library
-    llvm::sys::Path libdir(llvm::sys::path::parent_path(libName));
-    if (!libdir.empty() && !llvm::sys::fs::exists(libdir.str()))
-    {
-        libdir.createDirectoryOnDisk(true, &errstr);
-        if (!errstr.empty())
-        {
-            error("failed to create path to linking output: %s\n%s", libdir.c_str(), errstr.c_str());
-            fatal();
-        }
-    }
+    CreateDirectoryOnDisk(libName);
 
     // try to call archiver
     ExecuteToolAndWait(tool, args, !quiet || global.params.verbose);
