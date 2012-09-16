@@ -11,3 +11,17 @@ before_script:
 script:
   - cmake -DD_VERSION=$DVER -DLLVM_CONFIG=/usr/bin/llvm-config-3.0
   - make
+
+notifications:
+  email:
+    recipients:
+      - "ldc-dev@googlegroups.com"
+    on_success: never
+    on_failure: change
+  irc:
+    channels:
+      - "irc.freenode.org#ldc"
+    on_success: always
+    on_failure: always
+    use_notice: false
+    skip_join: true
