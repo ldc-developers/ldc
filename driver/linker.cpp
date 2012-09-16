@@ -113,7 +113,7 @@ static void CreateDirectoryOnDisk(llvm::StringRef fileName)
 
 static llvm::sys::Path gExePath;
 
-int linkObjToBinary(bool sharedLib)
+int linkObjToBinaryGcc(bool sharedLib)
 {
     Logger::println("*** Linking executable ***");
 
@@ -243,6 +243,150 @@ int linkObjToBinary(bool sharedLib)
 
     // try to call linker
     return ExecuteToolAndWait(gcc, args, !quiet || global.params.verbose);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+int linkObjToBinaryWin(bool sharedLib)
+{
+    Logger::println("*** Linking executable ***");
+
+    // find link.exe for linking
+    llvm::sys::Path tool = getLink();
+
+    // build arguments
+    std::vector<std::string> args;
+
+    // be verbose if requested
+    if (!global.params.verbose)
+        args.push_back("/NOLOGO");
+
+    // specify that the image will contain a table of safe exception handlers (32bit only)
+    if (!global.params.is64bit)
+        args.push_back("/SAFESEH");
+
+    // mark executable to be compatible with Windows Data Execution Prevention feature
+    args.push_back("/NXCOMPAT");
+
+    // use address space layout randomization (ASLR) feature
+    args.push_back("/DYNAMICBASE");
+
+    // because of a LLVM bug
+    args.push_back("/LARGEADDRESSAWARE:NO");
+
+    // specify creation of DLL
+    if (sharedLib)
+        args.push_back("/DLL");
+
+    // output filename
+    std::string output;
+    if (!sharedLib && global.params.exefile)
+    {   // explicit
+        output = global.params.exefile;
+    }
+    else if (sharedLib && global.params.objname)
+    {   // explicit
+        output = global.params.objname;
+    }
+    else
+    {   // inferred
+        // try root module name
+        if (Module::rootModule)
+            output = Module::rootModule->toChars();
+        else if (global.params.objfiles->dim)
+            output = FileName::removeExt(static_cast<char*>(global.params.objfiles->data[0]));
+        else
+            output = "a.out";
+
+        if (sharedLib) {
+            std::string libExt = std::string(".") + global.dll_ext;
+            if (!endsWith(output, libExt))
+            {
+                if (global.params.os != OSWindows)
+                    output = "lib" + output + libExt;
+                else
+                    output.append(libExt);
+            }
+        } else if (global.params.os == OSWindows && !endsWith(output, ".exe")) {
+            output.append(".exe");
+        }
+    }
+    args.push_back("/OUT:" + output);
+
+    // object files
+    for (unsigned i = 0; i < global.params.objfiles->dim; i++)
+    {
+        char *p = static_cast<char *>(global.params.objfiles->data[i]);
+        args.push_back(p);
+    }
+
+    // user libs
+    for (unsigned i = 0; i < global.params.libfiles->dim; i++)
+    {
+        char *p = static_cast<char *>(global.params.libfiles->data[i]);
+        args.push_back(p);
+    }
+
+    // set the global gExePath
+    gExePath.set(output);
+    assert(gExePath.isValid());
+
+    // create path to exe
+    CreateDirectoryOnDisk(gExePath.str());
+
+    // additional linker switches
+    for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
+    {
+        static const std::string LIBPATH("-L");
+        static const std::string LIB("-l");
+        std::string str(static_cast<char *>(global.params.linkswitches->data[i]));
+        if (str.length() > 2)
+        {
+            if (std::equal(LIBPATH.begin(), LIBPATH.end(), str.begin()))
+                str = "/LIBPATH:" + str.substr(2);
+            else if (std::equal(LIB.begin(), LIB.end(), str.begin()))
+            {
+                str = str.substr(2) + ".lib";
+            }
+        }
+        args.push_back(str);
+    }
+
+    // default libs
+    // TODO check which libaries are necessary
+    args.push_back("kernel32.lib");
+    args.push_back("user32.lib");
+    args.push_back("gdi32.lib");
+    args.push_back("winspool.lib");
+    args.push_back("shell32.lib"); // required for dmain2.d
+    args.push_back("ole32.lib");
+    args.push_back("oleaut32.lib");
+    args.push_back("uuid.lib");
+    args.push_back("comdlg32.lib");
+    args.push_back("advapi32.lib");
+
+    Logger::println("Linking with: ");
+    std::vector<std::string>::const_iterator I = args.begin(), E = args.end();
+    Stream logstr = Logger::cout();
+    for (; I != E; ++I)
+        if (!(*I).empty())
+            logstr << "'" << *I << "'" << " ";
+    logstr << "\n"; // FIXME where's flush ?
+
+    // try to call linker
+    return ExecuteToolAndWait(tool, args, !quiet || global.params.verbose);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+int linkObjToBinary(bool sharedLib)
+{
+    int status;
+    if (llvm::Triple(global.params.targetTriple).isOSWindows())
+        status = linkObjToBinaryWin(sharedLib);
+    else
+        status = linkObjToBinaryGcc(sharedLib);
+    return status;
 }
 
 //////////////////////////////////////////////////////////////////////////////
