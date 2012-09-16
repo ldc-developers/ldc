@@ -1,0 +1,13 @@
+language: cpp
+install:
+  - sudo apt-get update -qq
+  # The Ubuntu 12.04 repos only have LLVM 3.0, should find a 3.1 PPA.
+  - sudo apt-get install -qq llvm-3.0-dev libconfig++8-dev
+env:
+  - DVER=1
+  - DVER=2
+before_script:
+  - git submodule update --init --recursive
+script:
+  - cmake -DD_VERSION=$DVER -DLLVM_CONFIG=/usr/bin/llvm-config-3.0
+  - make
