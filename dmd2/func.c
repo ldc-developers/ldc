@@ -887,14 +887,14 @@ void FuncDeclaration::semantic3(Scope *sc)
     semanticRun = PASSsemantic3;
     semantic3Errors = 0;
 
-    // LDC
+#if IN_LLVM
     if (!global.params.useAvailableExternally)
         availableExternally = false;
+#endif
 
     if (!type || type->ty != Tfunction)
         return;
     f = (TypeFunction *)(type);
-    size_t nparams = Parameter::dim(f->parameters);
 
 #if 0
     // Check the 'throws' clause
@@ -1042,8 +1042,9 @@ void FuncDeclaration::semantic3(Scope *sc)
         }
 
 #if IN_LLVM
-        // LDC make sure argument type is semanticed.
-        // Turns TypeTuple!(int, int) into two int parameters, for instance.
+        // Make sure semantic analysis has been run on argument types. This is
+        // e.g. needed for TypeTuple!(int, int) to be picked up as two int
+        // parameters by the Parameter functions.
         if (f->parameters)
         {
             for (size_t i = 0; i < Parameter::dim(f->parameters); i++)
@@ -1060,8 +1061,6 @@ void FuncDeclaration::semantic3(Scope *sc)
                     i--;
                 }
             }
-            // update nparams to include expanded tuples
-            nparams = Parameter::dim(f->parameters);
         }
 #endif
 
