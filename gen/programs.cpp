@@ -18,12 +18,12 @@ static cl::opt<std::string> ar("ar",
     cl::Hidden,
     cl::ZeroOrMore);
 
-static cl::opt<std::string> link("ms-link",
+static cl::opt<std::string> mslink("ms-link",
     cl::desc("LINK to use for linking on Windows"),
     cl::Hidden,
     cl::ZeroOrMore);
 
-static cl::opt<std::string> lib("ms-lib",
+static cl::opt<std::string> mslib("ms-lib",
     cl::desc("Library Manager to use on Windows"),
     cl::Hidden,
     cl::ZeroOrMore);
@@ -65,10 +65,10 @@ sys::Path getArchiver()
 
 sys::Path getLink()
 {
-    return getProgram("link.exe", link);
+    return getProgram("link.exe", mslink);
 }
 
 sys::Path getLib()
 {
-    return getProgram("lib.exe", lib);
+    return getProgram("lib.exe", mslib);
 }
