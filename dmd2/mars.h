@@ -486,7 +486,6 @@ void verrorSupplemental(Loc loc, const char *format, va_list);
 void fatal();
 void err_nomem();
 #if IN_LLVM
-void inifile(char *argv0, const char *inifile);
 void error(const char *format, ...)  IS_PRINTF(1);
 #else
 int runLINK();
