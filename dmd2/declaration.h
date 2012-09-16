@@ -740,8 +740,12 @@ struct FuncDeclaration : Declaration
     FuncDeclaration *fdrequire;         // function that does the in contract
     FuncDeclaration *fdensure;          // function that does the out contract
 
+#if IN_LLVM
+    // Argument lists for the __require/__ensure calls. NULL if not a virtual
+    // function with contracts.
     Expressions *fdrequireParams;
     Expressions *fdensureParams;
+#endif
 
     Identifier *outId;                  // identifier for out statement
     VarDeclaration *vresult;            // variable corresponding to outId

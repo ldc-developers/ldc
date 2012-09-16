@@ -145,6 +145,23 @@ Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)
     return f;
 }
 
+#if IN_LLVM
+static Parameters *outToRef(Parameters* params)
+{
+    Parameters *result = Parameter::arraySyntaxCopy(params);
+    size_t dim = Parameter::dim(result);
+    for (size_t i = 0; i < dim; i++)
+    {
+        Parameter *p = Parameter::getNth(result, i);
+        if (p->storageClass & STCout)
+        {
+            p->storageClass &= ~STCout;
+            p->storageClass |= STCref;
+        }
+    }
+    return result;
+}
+#endif
 
 // Do the semantic analysis on the external interface to the function.
 
@@ -774,26 +791,45 @@ void FuncDeclaration::semantic(Scope *sc)
 
     if (isVirtual() && semanticRun != PASSsemanticdone)
     {
-        Parameters *arguments = ((TypeFunction*)type)->parameters;
-        fdrequireParams = new Expressions();
-
         /* Rewrite contracts as nested functions, then call them.
          * Doing it as nested functions means that overriding functions
          * can call them.
          */
         if (frequire)
-        {   /*   in { ... }
+        {
+#if IN_LLVM
+            /* In LDC, we can't rely on the codegen hacks DMD has to be able
+             * to just magically call the contract function parameterless with
+             * the parameters being picked up from the outer stack frame.
+             *
+             * Thus, we actually pass all the function parameters to the
+             * __require call, rewriting out parameters to ref ones because
+             * they have already been zeroed in the outer function.
+             *
+             * Also initialize fdrequireParams here - it will get filled in
+             * in semantic3.
+             */
+            fdrequireParams = new Expressions();
+            Parameters *params = outToRef(((TypeFunction*)type)->parameters);
+            TypeFunction *tf = new TypeFunction(params, Type::tvoid, 0, LINKd);
+#else
+            /*   in { ... }
              * becomes:
              *   void __require() { ... }
              *   __require();
              */
+            TypeFunction *tf = new TypeFunction(NULL, Type::tvoid, 0, LINKd);
+#endif
             Loc loc = frequire->loc;
-            TypeFunction *tf = new TypeFunction(arguments->copy(), Type::tvoid, 0, LINKd);
             FuncDeclaration *fd = new FuncDeclaration(loc, loc,
                 Id::require, STCundefined, tf);
             fd->fbody = frequire;
             Statement *s1 = new ExpStatement(loc, fd);
+#if IN_LLVM
             Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), fdrequireParams);
+#else
+            Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), (Expressions *)NULL);
+#endif
             Statement *s2 = new ExpStatement(loc, e);
             frequire = new CompoundStatement(loc, s1, s2);
             fdrequire = fd;
@@ -802,22 +838,22 @@ void FuncDeclaration::semantic(Scope *sc)
         if (!outId && f->nextOf() && f->nextOf()->toBasetype()->ty != Tvoid)
             outId = Id::result; // provide a default
 
-        fdensureParams = new Expressions();
-        Expression *eresult = NULL;
-        if (outId) {
-            eresult = new IdentifierExp(loc, outId);
-            fdensureParams->push(eresult);
-        }
-
         if (fensure)
-        {   /*   out (result) { ... }
+        {
+#if IN_LLVM
+            /* Same as for in contracts, see above. */
+            fdensureParams = new Expressions();
+            Parameters *arguments = outToRef(((TypeFunction*)type)->parameters);
+#else
+            /*   out (result) { ... }
              * becomes:
              *   tret __ensure(ref tret result) { ... }
              *   __ensure(result);
              */
+            Parameters *arguments = new Parameters();
+#endif
             Loc loc = fensure->loc;
             Parameter *a = NULL;
-            arguments = arguments->copy();
             if (outId)
             {   a = new Parameter(STCref | STCconst, f->nextOf(), outId, NULL);
                 arguments->insert(0, a);
@@ -827,7 +863,16 @@ void FuncDeclaration::semantic(Scope *sc)
                 Id::ensure, STCundefined, tf);
             fd->fbody = fensure;
             Statement *s1 = new ExpStatement(loc, fd);
+#if IN_LLVM
+            if (outId)
+                fdensureParams->push(new IdentifierExp(loc, outId));
             Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), fdensureParams);
+#else
+            Expression *eresult = NULL;
+            if (outId)
+                eresult = new IdentifierExp(loc, outId);
+            Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), eresult);
+#endif
             Statement *s2 = new ExpStatement(loc, e);
             fensure = new CompoundStatement(loc, s1, s2);
             fdensure = fd;
@@ -1121,10 +1166,12 @@ void FuncDeclaration::semantic3(Scope *sc)
                     parameters->push(v);
                 localsymtab->insert(v);
                 v->parent = this;
+#if IN_LLVM
                 if (fdrequireParams)
                     fdrequireParams->push(new VarExp(loc, v));
                 if (fdensureParams)
                     fdensureParams->push(new VarExp(loc, v));
+#endif
             }
         }
 
@@ -1980,6 +2027,11 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf, Expressions *params)
      * If base.in() throws, then derived.in()'s body is executed.
      */
 
+#if IN_LLVM
+    /* In LDC, we can't rely on these codegen hacks - we explicitly pass
+     * parameters on to the contract functions.
+     */
+#else
     /* Implementing this is done by having the overriding function call
      * nested functions (the fdrequire functions) nested inside the overridden
      * function. This requires that the stack layout of the calling function's
@@ -1996,6 +2048,7 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf, Expressions *params)
      *     a stack local, allocate that local immediately following the exception
      *     handler block, so it is always at the same offset from EBP.
      */
+#endif
     for (int i = 0; i < foverrides.dim; i++)
     {
         FuncDeclaration *fdv = foverrides[i];
