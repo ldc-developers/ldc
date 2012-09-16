@@ -308,7 +308,7 @@ struct Param
     bool useAvailableExternally;
 
     // target stuff
-    llvm::Triple *targetTriple;
+    llvm::Triple targetTriple;
 
     // Codegen cl options
     bool singleObj;
