@@ -344,7 +344,7 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
     // unsupported
     else
     {
-        error(loc, "this target (%s) does not implement inline asm falling off the end of the function", global.params.targetTriple);
+        error(loc, "this target (%s) does not implement inline asm falling off the end of the function", global.params.targetTriple.str().c_str());
         fatal();
     }
 

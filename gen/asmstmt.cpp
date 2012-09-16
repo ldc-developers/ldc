@@ -149,7 +149,7 @@ Statement *AsmStatement::semantic(Scope *sc)
     bool err = false;
     if ((global.params.cpu != ARCHx86) && (global.params.cpu != ARCHx86_64))
     {
-        error("inline asm is not supported for the \"%s\" architecture", global.params.llvmArch);
+        error("inline asm is not supported for the \"%s\" architecture", global.params.targetTriple.getArchName().str().c_str());
         err = true;
     }
     if (!global.params.useInlineAsm)

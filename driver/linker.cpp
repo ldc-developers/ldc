@@ -382,7 +382,7 @@ int linkObjToBinaryWin(bool sharedLib)
 int linkObjToBinary(bool sharedLib)
 {
     int status;
-    if (llvm::Triple(global.params.targetTriple).isOSWindows())
+    if (global.params.targetTriple.getOS() == llvm::Triple::Win32)
         status = linkObjToBinaryWin(sharedLib);
     else
         status = linkObjToBinaryGcc(sharedLib);
@@ -395,7 +395,7 @@ void createStaticLibrary()
 {
     Logger::println("*** Creating static library ***");
 
-    const bool isTargetWindows = llvm::Triple(global.params.targetTriple).isOSWindows();
+    const bool isTargetWindows = global.params.targetTriple.getOS() == llvm::Triple::Win32;
 
     // find archiver
     llvm::sys::Path tool = isTargetWindows ? getLib() : getArchiver();

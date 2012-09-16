@@ -498,7 +498,7 @@ int main(int argc, char** argv)
         triple = llvm::Triple::normalize(mTargetTriple);
     }
 
-    global.params.targetTriple = triple.c_str();
+    global.params.targetTriple = llvm::Triple(triple);
 
     // Allocate target machine.
     const llvm::Target *theTarget = NULL;
@@ -566,54 +566,41 @@ int main(int argc, char** argv)
 
     gTargetData = target->getTargetData();
 
-    global.params.llvmArch = theTarget->getName();
+    global.params.isLE = gTargetData->isLittleEndian();
+    // Starting with LLVM 3.1 we could also use global.params.targetTriple.isArch64Bit();
+    global.params.is64bit = gTargetData->getPointerSizeInBits() == 64;
+    global.params.cpu = static_cast<ARCH>(global.params.targetTriple.getArch());
+    global.params.os = static_cast<OS>(global.params.targetTriple.getOS());
 
-    if (strcmp(global.params.llvmArch,"x86")==0) {
-        VersionCondition::addPredefinedGlobalIdent("X86");
-        global.params.isLE = true;
-        global.params.is64bit = false;
-        global.params.cpu = ARCHx86;
-        if (global.params.useInlineAsm) {
-            VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
-        }
-    }
-    else if (strcmp(global.params.llvmArch,"x86-64")==0) {
-        VersionCondition::addPredefinedGlobalIdent("X86_64");
-        global.params.isLE = true;
-        global.params.is64bit = true;
-        global.params.cpu = ARCHx86_64;
-        if (global.params.useInlineAsm) {
-            VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86_64");
-        }
-    }
-    else if (strcmp(global.params.llvmArch,"ppc32")==0) {
-        VersionCondition::addPredefinedGlobalIdent("PPC");
-        global.params.isLE = false;
-        global.params.is64bit = false;
-        global.params.cpu = ARCHppc;
-    }
-    else if (strcmp(global.params.llvmArch,"ppc64")==0) {
-        VersionCondition::addPredefinedGlobalIdent("PPC64");
-        global.params.isLE = false;
-        global.params.is64bit = true;
-        global.params.cpu = ARCHppc_64;
-    }
-    else if (strcmp(global.params.llvmArch,"arm")==0) {
-        VersionCondition::addPredefinedGlobalIdent("ARM");
-        global.params.isLE = true;
-        global.params.is64bit = false;
-        global.params.cpu = ARCHarm;
-    }
-    else if (strcmp(global.params.llvmArch,"thumb")==0) {
-        VersionCondition::addPredefinedGlobalIdent("ARM");
-        VersionCondition::addPredefinedGlobalIdent("Thumb");
-        global.params.isLE = true;
-        global.params.is64bit = false;
-        global.params.cpu = ARCHthumb;
-    }
-    else {
-        error("invalid cpu architecture specified: %s", global.params.llvmArch);
-        fatal();
+    switch (global.params.targetTriple.getArch())
+    {
+        case llvm::Triple::x86:
+            VersionCondition::addPredefinedGlobalIdent("X86");
+            if (global.params.useInlineAsm) {
+                VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
+            }
+            break;
+        case llvm::Triple::x86_64:
+            VersionCondition::addPredefinedGlobalIdent("X86_64");
+            if (global.params.useInlineAsm) {
+                VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86_64");
+            }
+            break;
+        case llvm::Triple::ppc:
+            VersionCondition::addPredefinedGlobalIdent("PPC");
+            break;
+        case llvm::Triple::ppc64:
+            VersionCondition::addPredefinedGlobalIdent("PPC64");
+            break;
+        case llvm::Triple::arm:
+            VersionCondition::addPredefinedGlobalIdent("ARM");
+        case llvm::Triple::thumb:
+            VersionCondition::addPredefinedGlobalIdent("ARM");
+            VersionCondition::addPredefinedGlobalIdent("Thumb");
+            break;
+        default:
+            error("invalid cpu architecture specified: %s", global.params.targetTriple.getArchName().str().c_str());
+            fatal();
     }
 
     // endianness
@@ -638,10 +625,9 @@ int main(int argc, char** argv)
     // parse the OS out of the target triple
     // see http://gcc.gnu.org/install/specific.html for details
     // also llvm's different SubTargets have useful information
-    switch (llvm::Triple(triple).getOS())
+    switch (global.params.targetTriple.getOS())
     {
         case llvm::Triple::Win32:
-            global.params.os = OSWindows;
             VersionCondition::addPredefinedGlobalIdent("Windows");
             VersionCondition::addPredefinedGlobalIdent("Win32");
             if (global.params.is64bit) {
@@ -649,7 +635,7 @@ int main(int argc, char** argv)
             }
             break;
         case llvm::Triple::MinGW32:
-            global.params.os = OSWindows;
+            global.params.os = OSWindows; // FIXME: Check source for uses of MinGW32
             VersionCondition::addPredefinedGlobalIdent("Windows");
             VersionCondition::addPredefinedGlobalIdent("Win32");
             VersionCondition::addPredefinedGlobalIdent("mingw32");
@@ -663,35 +649,31 @@ int main(int argc, char** argv)
             fatal();
             break;
         case llvm::Triple::Linux:
-            global.params.os = OSLinux;
             VersionCondition::addPredefinedGlobalIdent("linux");
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         case llvm::Triple::Haiku:
-            global.params.os = OSHaiku;
             VersionCondition::addPredefinedGlobalIdent("Haiku");
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         case llvm::Triple::Darwin:
-            global.params.os = OSMacOSX;
+            global.params.os = OSMacOSX; // FIXME: Do we need to distinguish between Darwin and MacOSX?
             VersionCondition::addPredefinedGlobalIdent("OSX");
             VersionCondition::addPredefinedGlobalIdent("darwin");
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         case llvm::Triple::FreeBSD:
-            global.params.os = OSFreeBSD;
             VersionCondition::addPredefinedGlobalIdent("freebsd");
             VersionCondition::addPredefinedGlobalIdent("FreeBSD");
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         case llvm::Triple::Solaris:
-            global.params.os = OSSolaris;
             VersionCondition::addPredefinedGlobalIdent("solaris");
             VersionCondition::addPredefinedGlobalIdent("Solaris");
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         default:
-            error("target '%s' is not yet supported", global.params.targetTriple);
+            error("target '%s' is not yet supported", global.params.targetTriple.str().c_str());
             fatal();
     }
 

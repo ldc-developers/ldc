@@ -71,6 +71,10 @@ the target object file format:
 #include <stddef.h>
 #include <stdarg.h>
 
+#if IN_LLVM
+#include "llvm/ADT/Triple.h"
+#endif
+
 #ifdef __DMC__
 #ifdef DEBUG
 #undef assert
@@ -145,14 +149,15 @@ typedef ArrayBase<char> Strings;
 #if IN_LLVM
 enum ARCH
 {
-    ARCHinvalid,
-    ARCHx86,
-    ARCHx86_64,
-    ARCHppc,
-    ARCHppc_64,
-    ARCHarm,
-    ARCHthumb
+    ARCHinvalid = llvm::Triple::UnknownArch,
+    ARCHx86 = llvm::Triple::x86,
+    ARCHx86_64 = llvm::Triple::x86_64,
+    ARCHppc = llvm::Triple::ppc,
+    ARCHppc_64 = llvm::Triple::ppc64,
+    ARCHarm = llvm::Triple::arm,
+    ARCHthumb = llvm::Triple::thumb,
 };
+
 enum OUTPUTFLAG
 {
     OUTPUTFLAGno,
@@ -162,13 +167,13 @@ enum OUTPUTFLAG
 
 enum OS
 {
-    OSinvalid,
-    OSLinux,
-    OSHaiku,
-    OSWindows,
-    OSMacOSX,
-    OSFreeBSD,
-    OSSolaris,
+    OSinvalid = llvm::Triple::UnknownOS,
+    OSLinux = llvm::Triple::Linux,
+    OSHaiku = llvm::Triple::Haiku,
+    OSWindows = llvm::Triple::Win32,
+    OSMacOSX = llvm::Triple::MacOSX,
+    OSFreeBSD = llvm::Triple::FreeBSD,
+    OSSolaris = llvm::Triple::Solaris,
 };
 
 typedef unsigned char ubyte;
@@ -271,8 +276,7 @@ struct Param
     bool useAvailableExternally;
 
     // target stuff
-    const char* llvmArch;
-    const char *targetTriple;
+    llvm::Triple targetTriple;
 
     // Codegen cl options
     bool singleObj;

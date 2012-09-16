@@ -242,7 +242,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     sir->setState(&ir);
 
     // set target triple
-    ir.module->setTargetTriple(global.params.targetTriple);
+    ir.module->setTargetTriple(global.params.targetTriple.str());
 
     // set final data layout
     ir.module->setDataLayout(gTargetData->getStringRepresentation());
