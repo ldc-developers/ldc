@@ -57,6 +57,43 @@ void linkModules(llvm::Module* dst, const Module_vector& MV)
 
 //////////////////////////////////////////////////////////////////////////////
 
+int ExecuteToolAndWait(llvm::sys::Path tool, std::vector<std::string> args, bool verbose = false)
+{
+    // Construct real argument list.
+    // First entry is the tool itself, last entry must be NULL.
+    std::vector<const char *> realargs;
+    realargs.reserve(args.size() + 2);
+    realargs.push_back(tool.c_str());
+    for (std::vector<std::string>::const_iterator it = args.begin(); it != args.end(); ++it)
+    {
+        realargs.push_back((*it).c_str());
+    }
+    realargs.push_back(NULL);
+
+    // Print command line if requested
+    if (verbose)
+    {
+        // Print it
+        for (int i = 0; i < realargs.size()-1; i++)
+            printf("%s ", realargs[i]);
+        printf("\n");
+        fflush(stdout);
+    }
+
+    // Execute tool.
+    std::string errstr;
+    if (int status = llvm::sys::Program::ExecuteAndWait(tool, &realargs[0], NULL, NULL, 0, 0, &errstr))
+    {
+        error("tool failed:\nstatus: %d", status);
+        if (!errstr.empty())
+            error("message: %s", errstr.c_str());
+        return status;
+    }
+    return 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 static llvm::sys::Path gExePath;
 
 int linkObjToBinary(bool sharedLib)
@@ -68,14 +105,9 @@ int linkObjToBinary(bool sharedLib)
 
     // find gcc for linking
     llvm::sys::Path gcc = getGcc();
-    // get a string version for argv[0]
-    const char* gccStr = gcc.c_str();
 
     // build arguments
-    std::vector<const char*> args;
-
-    // first the program name ??
-    args.push_back(gccStr);
+    std::vector<std::string> args;
 
     // object files
     for (unsigned i = 0; i < global.params.objfiles->dim; i++)
@@ -129,7 +161,7 @@ int linkObjToBinary(bool sharedLib)
         args.push_back("-shared");
 
     args.push_back("-o");
-    args.push_back(output.c_str());
+    args.push_back(output);
 
     // set the global gExePath
     gExePath.set(output);
@@ -189,48 +221,23 @@ int linkObjToBinary(bool sharedLib)
         // Assume 32-bit?
         args.push_back("-m32");
 
-    OutBuffer buf;
     if (opts::createSharedLib && addSoname) {
         std::string soname = opts::soname;
         if (!soname.empty()) {
-            buf.writestring("-Wl,-soname,");
-            buf.writestring(soname.c_str());
-            args.push_back(buf.toChars());
+            args.push_back("-Wl,-soname," + soname);
         }
     }
 
-    // print link command?
-    if (!quiet || global.params.verbose)
-    {
-        // Print it
-        for (int i = 0; i < args.size(); i++)
-            printf("%s ", args[i]);
-        printf("\n");
-        fflush(stdout);
-    }
-
     Logger::println("Linking with: ");
-    std::vector<const char*>::const_iterator I = args.begin(), E = args.end();
+    std::vector<std::string>::const_iterator I = args.begin(), E = args.end();
     Stream logstr = Logger::cout();
     for (; I != E; ++I)
-        if (*I)
+        if (!(*I).empty())
             logstr << "'" << *I << "'" << " ";
     logstr << "\n"; // FIXME where's flush ?
 
-
-    // terminate args list
-    args.push_back(NULL);
-
     // try to call linker
-    if (int status = llvm::sys::Program::ExecuteAndWait(gcc, &args[0], NULL, NULL, 0,0, &errstr))
-    {
-        error("linking failed:\nstatus: %d", status);
-        if (!errstr.empty())
-            error("message: %s", errstr.c_str());
-        return status;
-    }
-
-    return 0;
+    return ExecuteToolAndWait(gcc, args, !quiet || global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -248,10 +255,7 @@ void createStaticLibrary()
     llvm::sys::Path tool = isTargetWindows ? getLib() : getArchiver();
 
     // build arguments
-    std::vector<const char*> args;
-
-    // first the program name ??
-    args.push_back(tool.c_str());
+    std::vector<std::string> args;
 
     // ask ar to create a new library
     if (!isTargetWindows)
@@ -285,11 +289,10 @@ void createStaticLibrary()
         else
             libName.append(libExt);
     }
-    std::string outcmd = "/OUT:" + libName;
     if (isTargetWindows)
-        args.push_back(outcmd.c_str());
+        args.push_back("/OUT:" + libName);
     else
-        args.push_back(libName.c_str());
+        args.push_back(libName);
 
     // object files
     for (unsigned i = 0; i < global.params.objfiles->dim; i++)
@@ -310,26 +313,8 @@ void createStaticLibrary()
         }
     }
 
-    // print the command?
-    if (!quiet || global.params.verbose)
-    {
-        // Print it
-        for (int i = 0; i < args.size(); i++)
-            printf("%s ", args[i]);
-        printf("\n");
-        fflush(stdout);
-    }
-
-    // terminate args list
-    args.push_back(NULL);
-
     // try to call archiver
-    if (int status = llvm::sys::Program::ExecuteAndWait(tool, &args[0], NULL, NULL, 0,0, &errstr))
-    {
-        error("archiver failed:\nstatus: %d", status);
-        if (!errstr.empty())
-            error("message: %s", errstr.c_str());
-    }
+    ExecuteToolAndWait(tool, args, !quiet || global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -352,21 +337,8 @@ int runExecutable()
     assert(!gExePath.isEmpty());
     assert(gExePath.isValid());
 
-    // build arguments
-    std::vector<const char*> args;
-    // args[0] should be the name of the executable
-    args.push_back(gExePath.c_str());
-    // Skip first argument to -run; it's a D source file.
-    for (size_t i = 1, length = opts::runargs.size(); i < length; i++)
-    {
-        args.push_back(opts::runargs[i].c_str());
-    }
-    // terminate args list
-    args.push_back(NULL);
-
-    // try to call linker!!!
-    std::string errstr;
-    int status = llvm::sys::Program::ExecuteAndWait(gExePath, &args[0], NULL, NULL, 0,0, &errstr);
+    // Run executable
+    int status = ExecuteToolAndWait(gExePath, opts::runargs, !quiet || global.params.verbose);
     if (status < 0)
     {
 #if defined(_MSC_VER)
@@ -375,14 +347,6 @@ int runExecutable()
         error("program received signal %d (%s)", -status, strsignal(-status));
 #endif
         return -status;
-    }
-
-    if (!errstr.empty())
-    {
-        error("failed to execute program");
-        if (!errstr.empty())
-            error("error message: %s", errstr.c_str());
-        fatal();
     }
     return status;
 }
