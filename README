@@ -1,0 +1,58 @@
+LDC – the LLVM D Compiler
+=========================
+
+The LDC project aims to provide a portable D programming language
+compiler with modern optimization and code generation capabilities.
+
+The compiler uses the official DMD frontends to support both D1 and D2,
+and relies on the LLVM Core libraries for code generation.
+
+LDC is fully Open Source; the parts of the code not taken/adapted from
+other projects are BSD-licensed (see the LICENSE file for details).
+
+Please consult the project website for further information:
+http://ldc-developers.github.com
+
+
+Installation
+------------
+
+In-depth material on building and installing LDC and the standard
+libraries, including experimental instructions for running LDC on
+Windows, is available on the project wiki, at
+https://github.com/ldc-developers/ldc/wiki/Installation.
+
+For the impatient, a quick guide for building on *nix systems:
+
+ 1) Make sure your system has the necessary prerequisites:
+  - a working C++ build environment,
+  - CMake,
+  - LLVM 3.0+ (3.1 preferred),
+  - libconfig++ (http://hyperrealm.com/libconfig/libconfig.html).
+
+ 2) Check out the library submodules, if you have not already:
+  $ cd ldc
+  $ git submodule update --init
+
+ 3) Build and install LDC:
+  $ mkdir build && cd build  # Out-of-source builds are recommended.
+  $ cmake ..  # Use -DD_VERSION=1 to build the D1 compiler.
+  $ make
+  $ make install # Or run LDC directly from the bin/ directory.
+
+In case the above steps do not work, please first visit the extended
+documentation under the aforementioned URL.
+
+Some Linux distributions are also packaging a recent version of LDC,
+so building it manually might not be necessary.
+
+
+Contact
+-------
+
+The best way to get in touch with the developers is either via the
+mailing list at ldc-dev@googlegroups.com, or the #ldc IRC channel on
+FreeNode. We can usually be found on the main (Digital Mars) language
+newsgroups (http://forum.dlang.org) as well.
+
+Feedback of any kind is very much appreciated!
