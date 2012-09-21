@@ -390,7 +390,7 @@ void DtoLeaveMonitor(LLValue* v)
 
 void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
 {
-    Logger::println("DtoAssign(...);\n");
+    Logger::println("DtoAssign()");
     LOG_SCOPE;
 
     Type* t = lhs->getType()->toBasetype();
@@ -465,8 +465,10 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
     else if (t->ty == Tdelegate) {
         LLValue* l = lhs->getLVal();
         LLValue* r = rhs->getRVal();
-        if (Logger::enabled())
-            Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
+        if (Logger::enabled()) {
+            Logger::cout() << "lhs: " << *l << '\n';
+            Logger::cout() << "rhs: " << *r << '\n';
+        }
         DtoStore(r, l);
     }
     else if (t->ty == Tclass) {
@@ -489,13 +491,19 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
     else {
         LLValue* l = lhs->getLVal();
         LLValue* r = rhs->getRVal();
-        if (Logger::enabled())
-            Logger::cout() << "assign\nlhs: " << *l << "rhs: " << *r << '\n';
+        if (Logger::enabled()) {
+            Logger::cout() << "lhs: " << *l << '\n';
+            Logger::cout() << "rhs: " << *r << '\n';
+        }
         LLType* lit = l->getType()->getContainedType(0);
         if (r->getType() != lit) {
             r = DtoCast(loc, rhs, lhs->getType())->getRVal();
-            if (Logger::enabled())
-                Logger::cout() << "really assign\nlhs: " << *l << "rhs: " << *r << '\n';
+            if (Logger::enabled()) {
+                Logger::println("Type mismatch, really assigning:");
+                LOG_SCOPE
+                Logger::cout() << "lhs: " << *l << '\n';
+                Logger::cout() << "rhs: " << *r << '\n';
+            }
 #if 1
             if(r->getType() != lit) // It's wierd but it happens. TODO: try to remove this hack
                 r = DtoBitCast(r, lit);

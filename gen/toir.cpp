@@ -593,6 +593,7 @@ DValue* AssignExp::toElem(IRState* p)
             VarExp* ve = (VarExp*)e1;
             if (ve->var->storage_class & STCref)
             {
+                Logger::println("performing ref variable initialization");
                 // Note that the variable value is accessed directly (instead
                 // of via getLValue(), which would perform a load from the
                 // uninitialized location), and that rhs is stored as an l-value!
@@ -3221,6 +3222,7 @@ DValue* TupleExp::toElem(IRState *p)
 DValue* VectorExp::toElem(IRState* p)
 {
     Logger::print("VectorExp::toElem() %s\n", toChars());
+    LOG_SCOPE;
 
     TypeVector *type = static_cast<TypeVector*>(to->toBasetype());
     assert(type->ty == Tvector);
