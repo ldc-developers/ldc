@@ -2685,7 +2685,7 @@ DValue* FuncExp::toElem(IRState* p)
     assert(fd);
 
     if (fd->isNested()) Logger::println("nested");
-    Logger::println("kind = %s\n", fd->kind());
+    Logger::println("kind = %s", fd->kind());
 
     fd->codegen(Type::sir);
     assert(fd->ir.irFunc->func);
