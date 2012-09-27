@@ -1714,8 +1714,7 @@ DValue* CmpExp::toElem(IRState* p)
     {
         llvm::ICmpInst::Predicate cmpop;
         bool skip = false;
-        // pointers don't report as being unsigned
-        bool uns = (t->isunsigned() || t->ty == Tpointer);
+        bool uns = isLLVMUnsigned(t);
         switch(op)
         {
         case TOKlt:
@@ -2351,7 +2350,7 @@ DValue* ShrExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
     DValue* v = e2->toElem(p);
     LLValue* x;
-    if (e1->type->isunsigned())
+    if (isLLVMUnsigned(e1->type))
         x = p->ir->CreateLShr(u->getRVal(), v->getRVal(), "tmp");
     else
         x = p->ir->CreateAShr(u->getRVal(), v->getRVal(), "tmp");

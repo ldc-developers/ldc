@@ -1317,7 +1317,7 @@ void ForeachRangeStatement::toIR(IRState* p)
     lower = DtoLoad(keyval);
     assert(lower->getType() == upper->getType());
     llvm::ICmpInst::Predicate cmpop;
-    if (key->type->isunsigned())
+    if (isLLVMUnsigned(key->type))
     {
         cmpop = (op == TOKforeach)
         ? llvm::ICmpInst::ICMP_ULT

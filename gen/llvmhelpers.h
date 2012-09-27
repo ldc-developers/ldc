@@ -167,6 +167,10 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val);
 /// implicit __result variable for ref-return functions with out contracts.
 bool isSpecialRefVar(VarDeclaration* vd);
 
+/// Returns whether the type is unsigned in LLVM terms, which also includes
+/// pointers.
+bool isLLVMUnsigned(Type* t);
+
 ////////////////////////////////////////////
 // gen/tocall.cpp stuff below
 ////////////////////////////////////////////
