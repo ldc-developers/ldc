@@ -65,6 +65,8 @@ DValue *Expression::toElemDtor(IRState *irs)
 {
 #if DMDV2
     Logger::println("Expression::toElemDtor(): %s", toChars());
+    LOG_SCOPE
+
     size_t starti = irs->varsInScope().size();
     DValue *val = toElem(irs);
     size_t endi = irs->varsInScope().size();
