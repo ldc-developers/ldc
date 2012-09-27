@@ -838,11 +838,20 @@ void FuncDeclaration::semantic(Scope *sc)
         if (!outId && f->nextOf() && f->nextOf()->toBasetype()->ty != Tvoid)
             outId = Id::result; // provide a default
 
+#if IN_LLVM
+        /* We need to initialize fdensureParams here and not in the block below
+         * to have the parameter available when calling a base class ensure(),
+         * even if this functions doesn't have an out contract.
+         */
+        fdensureParams = new Expressions();
+        if (outId)
+            fdensureParams->push(new IdentifierExp(loc, outId));
+#endif
+
         if (fensure)
         {
 #if IN_LLVM
             /* Same as for in contracts, see above. */
-            fdensureParams = new Expressions();
             Parameters *arguments = outToRef(((TypeFunction*)type)->parameters);
 #else
             /*   out (result) { ... }
@@ -864,8 +873,6 @@ void FuncDeclaration::semantic(Scope *sc)
             fd->fbody = fensure;
             Statement *s1 = new ExpStatement(loc, fd);
 #if IN_LLVM
-            if (outId)
-                fdensureParams->push(new IdentifierExp(loc, outId));
             Expression *e = new CallExp(loc, new VarExp(loc, fd, 0), fdensureParams);
 #else
             Expression *eresult = NULL;
