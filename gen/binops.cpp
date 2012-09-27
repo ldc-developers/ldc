@@ -74,7 +74,7 @@ DValue* DtoBinDiv(Type* targettype, DValue* lhs, DValue* rhs)
     LLValue* res;
     if (t->isfloating())
         res = gIR->ir->CreateFDiv(l, r, "tmp");
-    else if (!t->isunsigned())
+    else if (!isLLVMUnsigned(t))
         res = gIR->ir->CreateSDiv(l, r, "tmp");
     else
         res = gIR->ir->CreateUDiv(l, r, "tmp");
@@ -92,7 +92,7 @@ DValue* DtoBinRem(Type* targettype, DValue* lhs, DValue* rhs)
     LLValue* res;
     if (t->isfloating())
         res = gIR->ir->CreateFRem(l, r, "tmp");
-    else if (!t->isunsigned())
+    else if (!isLLVMUnsigned(t))
         res = gIR->ir->CreateSRem(l, r, "tmp");
     else
         res = gIR->ir->CreateURem(l, r, "tmp");

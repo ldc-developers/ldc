@@ -593,7 +593,7 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
         if (fromsz < tosz || from->ty == Tbool) {
             if (Logger::enabled())
                 Logger::cout() << "cast to: " << *tolltype << '\n';
-            if (from->isunsigned() || from->ty == Tbool) {
+            if (isLLVMUnsigned(from) || from->ty == Tbool) {
                 rval = new llvm::ZExtInst(rval, tolltype, "tmp", gIR->scopebb());
             } else {
                 rval = new llvm::SExtInst(rval, tolltype, "tmp", gIR->scopebb());
@@ -1840,6 +1840,13 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val)
 bool isSpecialRefVar(VarDeclaration* vd)
 {
     return (vd->storage_class & STCref) && (vd->storage_class & STCforeach);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+bool isLLVMUnsigned(Type* t)
+{
+    return t->isunsigned() || t->ty == Tpointer;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

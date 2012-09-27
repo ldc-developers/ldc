@@ -65,6 +65,8 @@ DValue *Expression::toElemDtor(IRState *irs)
 {
 #if DMDV2
     Logger::println("Expression::toElemDtor(): %s", toChars());
+    LOG_SCOPE
+
     size_t starti = irs->varsInScope().size();
     DValue *val = toElem(irs);
     size_t endi = irs->varsInScope().size();
@@ -1712,8 +1714,7 @@ DValue* CmpExp::toElem(IRState* p)
     {
         llvm::ICmpInst::Predicate cmpop;
         bool skip = false;
-        // pointers don't report as being unsigned
-        bool uns = (t->isunsigned() || t->ty == Tpointer);
+        bool uns = isLLVMUnsigned(t);
         switch(op)
         {
         case TOKlt:
@@ -2349,7 +2350,7 @@ DValue* ShrExp::toElem(IRState* p)
     DValue* u = e1->toElem(p);
     DValue* v = e2->toElem(p);
     LLValue* x;
-    if (e1->type->isunsigned())
+    if (isLLVMUnsigned(e1->type))
         x = p->ir->CreateLShr(u->getRVal(), v->getRVal(), "tmp");
     else
         x = p->ir->CreateAShr(u->getRVal(), v->getRVal(), "tmp");
@@ -2685,7 +2686,7 @@ DValue* FuncExp::toElem(IRState* p)
     assert(fd);
 
     if (fd->isNested()) Logger::println("nested");
-    Logger::println("kind = %s\n", fd->kind());
+    Logger::println("kind = %s", fd->kind());
 
     fd->codegen(Type::sir);
     assert(fd->ir.irFunc->func);
@@ -3227,14 +3228,28 @@ DValue* VectorExp::toElem(IRState* p)
     TypeVector *type = static_cast<TypeVector*>(to->toBasetype());
     assert(type->ty == Tvector);
 
-    DValue  *val = e1->toElem(p);
-    val = DtoCast(loc, val, type->elementType());
-    LLValue *rval = val->getRVal();
+    // Array literals are assigned element-wise, other expressions are cast and
+    // splat across the vector elements. This is what DMD does.
+    DValue *val = e1->toElem(p);
+    LLValue *llval;
+    if (e1->op == TOKarrayliteral) {
+        Logger::println("array literal expression");
+        llval = DtoArrayPtr(val);
+    } else {
+        Logger::println("normal (splat) expression");
+        llval = DtoCast(loc, val, type->elementType())->getRVal();
+    }
+
     LLValue *vector = DtoAlloca(to);
 
     for (int i = 0; i < dim; ++i) {
-        LLValue *elem = DtoGEPi(vector, 0, i);
-        DtoStore(rval, elem);
+        LLValue *source;
+        if (e1->op == TOKarrayliteral) {
+            source = DtoLoad(DtoGEPi1(llval, i));
+        } else {
+            source = llval;
+        }
+        DtoStore(source, DtoGEPi(vector, 0, i));
     }
 
     return new DVarValue(to, vector);

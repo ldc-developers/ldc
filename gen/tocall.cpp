@@ -25,7 +25,20 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
     }
     else if (type->ty == Tdelegate)
     {
-        Type* next = type->nextOf();
+        // FIXME: There is really no reason why the function type should be
+        // unmerged at this stage, but the frontend still seems to produce such
+        // cases; for example for the uint(uint) next type of the return type of
+        // (&zero)(), leading to a crash in DtoCallFunction:
+        // ---
+        // void test8198() {
+        //   uint delegate(uint) zero() { return null; }
+        //   auto a = (&zero)()(0);
+        // }
+        // ---
+        // Calling merge() here works around the symptoms, but does not fix the
+        // root cause.
+
+        Type* next = type->nextOf()->merge();
         assert(next->ty == Tfunction);
         return static_cast<TypeFunction*>(next);
     }

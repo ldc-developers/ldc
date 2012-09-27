@@ -597,8 +597,6 @@ struct TypePointer : TypeNext
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
     int isscalar();
-    // LDC: pointers are unsigned
-    int isunsigned() { return TRUE; };
     Expression *defaultInit(Loc loc);
     int isZeroInit(Loc loc);
     TypeInfoDeclaration *getTypeInfoDeclaration();
