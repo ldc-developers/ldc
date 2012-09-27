@@ -116,14 +116,11 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
                 lidx++;
             }
         }
-        else if (f->linkage == LINKc)
-        {
-            fty.c_vararg = true;
-        }
         else
         {
-            type->error(0, "invalid linkage for variadic function");
-            fatal();
+            // Default to C-style varargs for non-extern(D) variadic functions.
+            // This seems to be what DMD does.
+            fty.c_vararg = true;
         }
     }
 
