@@ -3228,14 +3228,28 @@ DValue* VectorExp::toElem(IRState* p)
     TypeVector *type = static_cast<TypeVector*>(to->toBasetype());
     assert(type->ty == Tvector);
 
-    DValue  *val = e1->toElem(p);
-    val = DtoCast(loc, val, type->elementType());
-    LLValue *rval = val->getRVal();
+    // Array literals are assigned element-wise, other expressions are cast and
+    // splat across the vector elements. This is what DMD does.
+    DValue *val = e1->toElem(p);
+    LLValue *llval;
+    if (e1->op == TOKarrayliteral) {
+        Logger::println("array literal expression");
+        llval = DtoArrayPtr(val);
+    } else {
+        Logger::println("normal (splat) expression");
+        llval = DtoCast(loc, val, type->elementType())->getRVal();
+    }
+
     LLValue *vector = DtoAlloca(to);
 
     for (int i = 0; i < dim; ++i) {
-        LLValue *elem = DtoGEPi(vector, 0, i);
-        DtoStore(rval, elem);
+        LLValue *source;
+        if (e1->op == TOKarrayliteral) {
+            source = DtoLoad(DtoGEPi1(llval, i));
+        } else {
+            source = llval;
+        }
+        DtoStore(source, DtoGEPi(vector, 0, i));
     }
 
     return new DVarValue(to, vector);
