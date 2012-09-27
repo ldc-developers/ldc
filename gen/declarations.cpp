@@ -171,8 +171,11 @@ void VarDeclaration::codegen(Ir* p)
 #endif
         this->ir.irGlobal->value = gvar;
 
-        // set the alignment
-        gvar->setAlignment(this->type->alignsize());
+        // Set the alignment (it is important not to use type->alignsize because
+        // VarDeclarations can have an align() attribute independent of the type
+        // as well).
+        if (alignment != STRUCTALIGN_DEFAULT)
+            gvar->setAlignment(alignment);
 
         if (Logger::enabled())
             Logger::cout() << *gvar << '\n';

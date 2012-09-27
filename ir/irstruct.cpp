@@ -60,8 +60,10 @@ LLGlobalVariable * IrStruct::getInitSymbol()
     init = new llvm::GlobalVariable(
         *gIR->module, init_type, true, _linkage, NULL, initname);
 
-    // set alignment
-    init->setAlignment(type->alignsize());
+    // set alignment (use of StructDeclaration::alignment analogous to DMD)
+    StructDeclaration *sd = aggrdecl->isStructDeclaration();
+    if (sd && sd->alignment != STRUCTALIGN_DEFAULT)
+        init->setAlignment(sd->alignment);
 
     return init;
 }
