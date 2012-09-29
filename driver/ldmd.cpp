@@ -685,11 +685,11 @@ Params parseArgs(int originalArgc, char** originalArgv, ls::Path ldcPath)
             else
             {
              Lerror:
-                result.unknownSwitches.push_back(argv[i]);
+                result.unknownSwitches.push_back(p);
                 continue;
 
              Lnoarg:
-                error("argument expected for switch '%s'", argv[i]);
+                error("argument expected for switch '%s'", p);
                 continue;
             }
         }
