@@ -151,12 +151,20 @@ IrFunction::IrFunction(FuncDeclaration* fd)
 
 void IrFunction::setNeverInline()
 {
+#if LDC_LLVM_VER >= 302
+    assert(!func->getFnAttributes().hasAlwaysInlineAttr() && "function can't be never- and always-inline at the same time");
+#else
     assert(!func->hasFnAttr(llvm::Attribute::AlwaysInline) && "function can't be never- and always-inline at the same time");
+#endif
     func->addFnAttr(llvm::Attribute::NoInline);
 }
 
 void IrFunction::setAlwaysInline()
 {
+#if LDC_LLVM_VER >= 302
+    assert(!func->getFnAttributes().hasNoInlineAttr() && "function can't be never- and always-inline at the same time");
+#else
     assert(!func->hasFnAttr(llvm::Attribute::NoInline) && "function can't be never- and always-inline at the same time");
+#endif
     func->addFnAttr(llvm::Attribute::AlwaysInline);
 }
