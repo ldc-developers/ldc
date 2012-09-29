@@ -11,6 +11,7 @@ before_script:
 script:
   - cmake -DD_VERSION=$DVER -DLLVM_CONFIG=/usr/bin/llvm-config-3.0
   - make
+  - make test || { cat Testing/Temporary/LastTest.log; exit 1; }
 
 notifications:
   email:
