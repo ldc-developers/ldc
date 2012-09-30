@@ -18,10 +18,13 @@ get_property(ldmd_path TARGET ldmd2 PROPERTY LOCATION)
 
 add_test(NAME dmd-testsuite-debug
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite
-    COMMAND make RESULTS_DIR=${CMAKE_BINARY_DIR}/dmd-testsuite-debug DMD=${ldmd_path} DFLAGS="-gc" MODEL=${DMD_TEST_MODEL} quick
+    COMMAND make RESULTS_DIR=${CMAKE_BINARY_DIR}/dmd-testsuite-debug DMD=${ldmd_path} DFLAGS=-gc MODEL=${DMD_TEST_MODEL} quick
 )
 
+# Would like to specify the "-release" flag here, but some of the tests (e.g.
+# 'testdstress') depend on contracts and invariants being active. Need a solution
+# integrated with d_do_test.
 add_test(NAME dmd-testsuite-release
     WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite
-    COMMAND make RESULTS_DIR=${CMAKE_BINARY_DIR}/dmd-testsuite-release DMD=${ldmd_path} DFLAGS=-O3\ -release MODEL=${DMD_TEST_MODEL} quick
+    COMMAND make RESULTS_DIR=${CMAKE_BINARY_DIR}/dmd-testsuite-release DMD=${ldmd_path} DFLAGS=-O3 MODEL=${DMD_TEST_MODEL} quick
 )
