@@ -10,7 +10,7 @@ env:
 script:
   - cmake -DD_VERSION=$DVER -DLLVM_CONFIG=/usr/bin/llvm-config-$LLVM_VERSION
   - make
-  - make test || { cat Testing/Temporary/LastTest.log; exit 1; }
+  - ctest --output-on-failure
 
 notifications:
   email:
