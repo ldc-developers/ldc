@@ -1036,7 +1036,19 @@ int main(int argc, char** argv)
     {
         Module* m = static_cast<Module*>(modules.data[0]);
         char* name = m->toChars();
-        char* filename = m->objfile->name->str;
+
+        char* oname;
+        char* filename;
+        if ((oname = global.params.exefile) || (oname = global.params.objname))
+        {
+            filename = FileName::forceExt(oname, global.obj_ext)->toChars();
+            if (global.params.objdir)
+            {
+                filename = FileName::combine(global.params.objdir, FileName::name(filename));
+            }
+        }
+        else
+            filename = m->objfile->name->str;
 
         llvm::Linker linker(name, name, context);
 
