@@ -398,3 +398,37 @@ if(PHOBOS2_DIR)
 endif(PHOBOS2_DIR)
 install(FILES         ${RUNTIME_DIR}/src/object.di                  DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 install(DIRECTORY     ${RUNTIME_DIR}/import/ldc                        DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
+
+
+#
+# Test targets.
+#
+function(add_tests module_files)
+    foreach(file ${module_files})
+        string(REPLACE ${PROJECT_SOURCE_DIR}/ "" stripped ${file})
+        string(REPLACE ".d" "" stripped ${stripped})
+        string(REPLACE "/" "_" testroot ${stripped})
+
+        function(testcase name flags)
+            # -singleobj to avoid output file clashes when test are run in parallel.
+            add_test(NAME ${testroot}_${name}_build
+                COMMAND ${LDC_LOC}
+                    -of${PROJECT_BINARY_DIR}/${testroot}_${name}
+                    -unittest -d -w -singleobj ${flags}
+                    ${file} ${PROJECT_SOURCE_DIR}/emptymain.d
+            )
+            add_test(NAME ${testroot}_${name}_run COMMAND ${PROJECT_BINARY_DIR}/${testroot}_${name})
+            set_tests_properties(${testroot}_${name}_run PROPERTIES DEPENDS ${testroot}_${name}_build)
+        endfunction()
+
+        testcase(debug -g -debug)
+        testcase(release -O -release)
+    endforeach()
+endfunction()
+
+add_tests("${CORE_D}")
+add_tests("${DCRT_D}")
+add_tests("${GC_D}")
+if(PHOBOS2_DIR)
+    add_tests("${PHOBOS2_D}")
+endif()

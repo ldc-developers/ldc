@@ -320,10 +320,17 @@ set_target_properties(${LDMD_EXE} PROPERTIES
 target_link_libraries(${LDMD_EXE} "${LLVM_LDFLAGS}" ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
 
 #
+# Test and runtime targets. Note that enable_testing() is order-sensitive!
+#
+enable_testing()
+add_subdirectory(runtime)
+if(D_VERSION EQUAL 2)
+    add_subdirectory(tests/d2)
+endif()
+
+#
 # Install target.
 #
-
-add_subdirectory(runtime)
 
 install(TARGETS ${LDC_EXE} ${LDMD_EXE} DESTINATION ${CMAKE_INSTALL_PREFIX}/bin)
 if(${BUILD_SHARED})
@@ -338,12 +345,3 @@ install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.rebuild.conf DESTINAT
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     install(DIRECTORY bash_completion.d DESTINATION ${CONF_INST_DIR})
 endif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-
-
-#
-# Test targets.
-#
-enable_testing()
-if(D_VERSION EQUAL 2)
-    add_subdirectory(tests/d2)
-endif()
