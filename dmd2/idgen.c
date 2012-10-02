@@ -275,6 +275,7 @@ Msgtable msgtable[] =
     { "Alloca", "alloca" },
     { "Shufflevector", "shufflevector" },
     { "Extractelement", "extractelement" },
+    { "Insertelement", "insertelement" },
     { "vastart", "va_start" },
     { "vacopy", "va_copy" },
     { "vaend", "va_end" },

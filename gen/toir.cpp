@@ -1015,10 +1015,24 @@ DValue* CallExp::toElem(IRState* p)
                 error("Function %s was declared with pragma extractelement. Because of that its second argument must be an integer literal.", fndecl->toChars());
                 fatal();
             }
-            LLConstant* idx = static_cast<IntegerExp*>(arguments->data[1])->toConstElem(p);
+            LLValue* idx = exp2->toElem(p)->getRVal();
             Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
             LLValue* vec = exp1->toElem(p)->getRVal();
             return new DImValue(type, p->ir->CreateExtractElement(vec, idx));
+        }
+        // insertelement
+        else if(fndecl->llvmInternal == LLVMinsertelement) {
+            Expression* exp3 = static_cast<Expression*>(arguments->data[2]);
+            if(exp3->op != TOKint64){
+                error("Function %s was declared with pragma extractelement. Because of that its second argument must be an integer literal.", fndecl->toChars());
+                fatal();
+            }
+            LLValue* idx = exp3->toElem(p)->getRVal();
+            Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
+            LLValue* vec = exp1->toElem(p)->getRVal();
+            Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
+            LLValue* scal = exp2->toElem(p)->getRVal();
+            return new DImValue(type, p->ir->CreateInsertElement(vec, scal, idx));
         }
         // fence instruction
         else if (fndecl->llvmInternal == LLVMfence) {
