@@ -1007,7 +1007,19 @@ DValue* CallExp::toElem(IRState* p)
             LLValue* v1 = exp1->toElem(p)->getRVal();
             LLValue* v2 = exp2->toElem(p)->getRVal();
             return new DImValue(type, p->ir->CreateShuffleVector(v1, v2, maskVal));
-        } 
+        }
+        // extractelement
+        else if(fndecl->llvmInternal == LLVMextractelement) {
+            Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
+            if(exp2->op != TOKint64){
+                error("Function %s was declared with pragma extractelement. Because of that its second argument must be an integer literal.", fndecl->toChars());
+                fatal();
+            }
+            LLConstant* idx = static_cast<IntegerExp*>(arguments->data[1])->toConstElem(p);
+            Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
+            LLValue* vec = exp1->toElem(p)->getRVal();
+            return new DImValue(type, p->ir->CreateExtractElement(vec, idx));
+        }
         // fence instruction
         else if (fndecl->llvmInternal == LLVMfence) {
             if (arguments->dim != 1) {

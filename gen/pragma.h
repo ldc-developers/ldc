@@ -15,6 +15,7 @@ enum Pragma
     LLVMno_moduleinfo,
     LLVMalloca,
     LLVMshufflevector,
+    LLVMextractelement,
     LLVMva_start,
     LLVMva_copy,
     LLVMva_end,
