@@ -3254,28 +3254,27 @@ DValue* VectorExp::toElem(IRState* p)
     TypeVector *type = static_cast<TypeVector*>(to->toBasetype());
     assert(type->ty == Tvector);
 
-    // Array literals are assigned element-wise, other expressions are cast and
-    // splat across the vector elements. This is what DMD does.
-    DValue *val = e1->toElem(p);
-    LLValue *llval;
-    if (e1->op == TOKarrayliteral) {
-        Logger::println("array literal expression");
-        llval = DtoArrayPtr(val);
-    } else {
-        Logger::println("normal (splat) expression");
-        llval = DtoCast(loc, val, type->elementType())->getRVal();
-    }
-
     LLValue *vector = DtoAlloca(to);
 
-    for (int i = 0; i < dim; ++i) {
-        LLValue *source;
-        if (e1->op == TOKarrayliteral) {
-            source = DtoLoad(DtoGEPi1(llval, i));
-        } else {
-            source = llval;
+    // Array literals are assigned element-wise, other expressions are cast and
+    // splat across the vector elements. This is what DMD does.
+    if (e1->op == TOKarrayliteral) {
+        Logger::println("array literal expression");
+        ArrayLiteralExp *e = static_cast<ArrayLiteralExp*>(e1);
+        assert(e->elements->dim == dim && "Array literal vector initializer "
+            "length mismatch, should have been handled in frontend.");
+        for (int i = 0; i < dim; ++i) {
+            DValue *val = ((*e->elements)[i])->toElem(p);
+            LLValue *llval = DtoCast(loc, val, type->elementType())->getRVal();
+            DtoStore(llval, DtoGEPi(vector, 0, i));
         }
-        DtoStore(source, DtoGEPi(vector, 0, i));
+    } else {
+        Logger::println("normal (splat) expression");
+        DValue *val = e1->toElem(p);
+        LLValue* llval = DtoCast(loc, val, type->elementType())->getRVal();
+        for (int i = 0; i < dim; ++i) {
+            DtoStore(llval, DtoGEPi(vector, 0, i));
+        }
     }
 
     return new DVarValue(to, vector);
