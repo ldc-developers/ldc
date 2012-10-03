@@ -732,6 +732,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.allowDeprecated) r.push_back("-d");
     if (p.compileOnly) r.push_back("-c");
     if (p.coverage) warning("Coverage report generation not yet supported by LDC.");
+    if (p.emitSharedLib) r.push_back("-shared");
     if (p.pic) r.push_back("-relocation-model=pic");
     if (p.emitMap) warning("Map file generation not yet supported by LDC.");
     if (!p.multiObj) r.push_back("--singleobj");
@@ -764,6 +765,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.emitStaticLib) r.push_back("-lib");
     if (p.noFloat) warning("-nofloat is ignored by LDC.");
     if (p.quiet) r.push_back("-quiet"); // Undocumented.
+    if (p.release) r.push_back("-release"); // Also disables boundscheck.
     if (p.noBoundsChecks) r.push_back("-disable-boundscheck");
     if (p.emitUnitTests) r.push_back("-unittest");
     pushSwitches("-I=", p.modulePaths, r);
