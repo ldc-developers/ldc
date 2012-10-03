@@ -45,6 +45,8 @@
 
 #include "llvm/Support/ManagedStatic.h"
 
+#include "llvm/Support/raw_ostream.h"
+
 llvm::cl::opt<bool> checkPrintf("check-printf-calls",
     llvm::cl::desc("Validate printf call format strings against arguments"),
     llvm::cl::ZeroOrMore);
@@ -994,8 +996,8 @@ DValue* CallExp::toElem(IRState* p)
             llvm::SmallVector<llvm::Constant*, 32> mask;
             for(int i = 2, n = arguments->dim; i < n; i++){
                 Expression* exp = static_cast<Expression*>(arguments->data[i]);
-                if(exp->op != TOKint64){
-                    error("Function %s was declared with pragma shufflevector. Because of that all of its arguments except the first two must be integer literals.", fndecl->toChars());
+                if(exp->op != TOKint64 || exp->type->ty != Tint32){
+                    error("Function %s was declared with pragma shufflevector. Because of that all of its arguments except for the first two must be int literals.", fndecl->toChars());
                     fatal();
                 }
                 IntegerExp* iexp = static_cast<IntegerExp*>(arguments->data[i]);
@@ -1011,8 +1013,8 @@ DValue* CallExp::toElem(IRState* p)
         // extractelement
         else if(fndecl->llvmInternal == LLVMextractelement) {
             Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
-            if(exp2->op != TOKint64){
-                error("Function %s was declared with pragma extractelement. Because of that its second argument must be an integer literal.", fndecl->toChars());
+            if(exp2->op != TOKint64 || exp2->type->ty != Tint32){
+                error("Function %s was declared with pragma extractelement. Because of that its second argument must be an int literal.", fndecl->toChars());
                 fatal();
             }
             LLValue* idx = exp2->toElem(p)->getRVal();
@@ -1023,8 +1025,8 @@ DValue* CallExp::toElem(IRState* p)
         // insertelement
         else if(fndecl->llvmInternal == LLVMinsertelement) {
             Expression* exp3 = static_cast<Expression*>(arguments->data[2]);
-            if(exp3->op != TOKint64){
-                error("Function %s was declared with pragma extractelement. Because of that its second argument must be an integer literal.", fndecl->toChars());
+            if(exp3->op != TOKint64 || exp3->type->ty != Tint32){
+                error("Function %s was declared with pragma insertelement. Because of that its third argument must be an int literal.", fndecl->toChars());
                 fatal();
             }
             LLValue* idx = exp3->toElem(p)->getRVal();
