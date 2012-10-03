@@ -45,8 +45,6 @@
 
 #include "llvm/Support/ManagedStatic.h"
 
-#include "llvm/Support/raw_ostream.h"
-
 llvm::cl::opt<bool> checkPrintf("check-printf-calls",
     llvm::cl::desc("Validate printf call format strings against arguments"),
     llvm::cl::ZeroOrMore);

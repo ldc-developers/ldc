@@ -116,26 +116,15 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
         return LLVMshufflevector;
     }
 
-    // pragma(extractelement) { funcdecl(s) }
-    else if (ident == Id::Extractelement)
+    // pragma(extractelement or insertelement) { funcdecl(s) }
+    else if (ident == Id::Extractelement || ident == Id::Insertelement)
     {
         if (args && args->dim > 0)
         {
              error("takes no parameters");
              fatal();
         }
-        return LLVMextractelement;
-    }
-
-    // pragma(insertelement) { funcdecl(s) }
-    else if (ident == Id::Insertelement)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        return LLVMinsertelement;
+        return ident == Id::Extractelement ? LLVMextractelement : LLVMinsertelement;
     }
 
     // pragma(va_start) { templdecl(s) }
@@ -398,17 +387,6 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         break;
 
     case LLVMextractelement:
-        if (FuncDeclaration* fd = s->isFuncDeclaration())
-        {
-            fd->llvmInternal = llvm_internal;
-        }
-        else
-        {
-            error("the '%s' pragma must only be used on function declarations.", ident->toChars());
-            fatal();
-        }
-        break;
-
     case LLVMinsertelement:
         if (FuncDeclaration* fd = s->isFuncDeclaration())
         {
