@@ -217,12 +217,16 @@ else version( LDC )
             static if(T.sizeof == int.sizeof)
             {
                 static assert(is(T : float));
-                res = cast(T)llvm_atomic_cmp_swap!(int)(cast(shared int*)here, *cast(int*)&ifThis, *cast(int*)&writeThis);
+                int rawRes = llvm_atomic_cmp_swap!int(
+                    cast(shared int*)here, *cast(int*)&ifThis, *cast(int*)&writeThis);
+                res = *(cast(T*)&rawRes);
             }
             else static if(T.sizeof == long.sizeof)
             {
                 static assert(is(T : double));
-                res = cast(T)llvm_atomic_cmp_swap!(long)(cast(shared long*)here, *cast(long*)&ifThis, *cast(long*)&writeThis);
+                long rawRes = cast(T)llvm_atomic_cmp_swap!long(
+                    cast(shared long*)here, *cast(long*)&ifThis, *cast(long*)&writeThis);
+                res = *(cast(T*)&rawRes);
             }
             else
             {
@@ -231,7 +235,8 @@ else version( LDC )
         }
         else static if (is(T P == U*, U))
         {
-            res = cast(T)llvm_atomic_cmp_swap!(size_t)(cast(shared size_t*)here, cast(size_t)ifThis, cast(size_t)writeThis);
+            res = cast(T)llvm_atomic_cmp_swap!(size_t)(
+                cast(shared size_t*)here, cast(size_t)ifThis, cast(size_t)writeThis);
         }
         else static if (T.sizeof == bool.sizeof)
         {
