@@ -811,7 +811,7 @@ DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
     }
     else if (totype->ty == Tvector && to->size() == val->getType()->size())
     {
-        return new DImValue(to, val->getRVal());
+        return new DImValue(to, DtoBitCast(val->getRVal(), tolltype));
     }
     else
     {
