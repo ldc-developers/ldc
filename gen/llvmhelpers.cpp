@@ -809,6 +809,10 @@ DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
             return new DImValue(to, array);
         }
     }
+    else if (totype->ty == Tvector && to->size() == val->getType()->size())
+    {
+        return new DImValue(to, val->getRVal());
+    }
     else
     {
         error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
