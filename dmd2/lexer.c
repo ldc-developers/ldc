@@ -119,7 +119,7 @@ const char *Token::toChars()
         case TOKcharv:
         case TOKwcharv:
         case TOKdcharv:
-#ifdef defined(IN_GCC) || defined(IN_LLVM)
+#if defined(IN_GCC) || defined(IN_LLVM)
             sprintf(buffer,"%uU",(d_uns32)uns64value);
 #else
             sprintf(buffer,"%uU",uns32value);
