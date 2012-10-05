@@ -769,25 +769,45 @@ DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
     assert(val->getType()->toBasetype()->ty == Tvector);
     Type* totype = to->toBasetype();
     LLType* tolltype = DtoType(to);
-    LLValue *vector = val->getRVal();
     TypeVector *type = static_cast<TypeVector *>(val->getType()->toBasetype());
 
     if (totype->ty == Tsarray)
     {
-        if (Logger::enabled())
-            Logger::cout() << "src: " << *vector << "to type: " << *tolltype << '\n';
-        LLValue *array = DtoAlloca(to);
-
-        TypeSArray *st = static_cast<TypeSArray*>(totype);
-
-        for (int i = 0, n = st->dim->toInteger(); i < n; ++i) {
-            LLValue *lelem = DtoExtractElement(vector, i);
-            DImValue elem(type->elementType(), lelem);
-            lelem = DtoCast(loc, &elem, to->nextOf())->getRVal();
-            DtoStore(lelem, DtoGEPi(array, 0, i));
+        // If possible, we need to cast only the address of the vector without
+        // creating a copy, because, besides the fact that this seem to be the
+        // language semantics, DMD rewrites e.g. float4.array to
+        // cast(float[4])array.
+        if (val->isLVal())
+        {
+            LLValue* vector = val->getLVal();
+            if (Logger::enabled())
+            {
+                Logger::cout() << "src: " << *vector << "to type: " <<
+                    *tolltype << " (casting address)\n";
+            }
+            return new DVarValue(to, DtoBitCast(vector, getPtrToType(tolltype)));
         }
+        else
+        {
+            LLValue* vector = val->getRVal();
+            if (Logger::enabled())
+            {
+                Logger::cout() << "src: " << *vector << "to type: " <<
+                    *tolltype << " (creating temporary)\n";
+            }
+            LLValue *array = DtoAlloca(to);
 
-        return new DImValue(to, array);
+            TypeSArray *st = static_cast<TypeSArray*>(totype);
+
+            for (int i = 0, n = st->dim->toInteger(); i < n; ++i) {
+                LLValue *lelem = DtoExtractElement(vector, i);
+                DImValue elem(type->elementType(), lelem);
+                lelem = DtoCast(loc, &elem, to->nextOf())->getRVal();
+                DtoStore(lelem, DtoGEPi(array, 0, i));
+            }
+
+            return new DImValue(to, array);
+        }
     }
     else
     {
