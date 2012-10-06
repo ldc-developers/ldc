@@ -26,12 +26,10 @@
 
 void DtoResolveStruct(StructDeclaration* sd)
 {
-    // don't do anything if already been here
+    // Make sure to resolve each struct type exactly once.
     if (sd->ir.resolved) return;
-    // make sure above works :P
     sd->ir.resolved = true;
 
-    // log what we're doing
     Logger::println("Resolving struct type: %s (%s)", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
@@ -46,21 +44,17 @@ void DtoResolveStruct(StructDeclaration* sd)
     IrStruct* irstruct = new IrStruct(sd);
     sd->ir.irStruct = irstruct;
 
-    // make sure all fields really get their ir field
-    ArrayIter<VarDeclaration> it(sd->fields);
-    for (; !it.done(); it.next())
+    // Set up our field metadata.
+    for (ArrayIter<VarDeclaration> it(sd->fields); !it.done(); it.next())
     {
         VarDeclaration* vd = it.get();
-        if (vd->ir.irField == NULL) {
-            new IrField(vd);
-        } else {
-            IF_LOG Logger::println("struct field already exists!!!");
-        }
+        assert(!vd->ir.irField);
+        (void)new IrField(vd);
     }
 
     // perform definition
-    bool needs_def = mustDefineSymbol(sd);
-    if (needs_def)
+    bool emitGlobalData = mustDefineSymbol(sd);
+    if (emitGlobalData)
     {
         // emit the initZ symbol
         LLGlobalVariable* initZ = irstruct->getInitSymbol();
@@ -72,17 +66,13 @@ void DtoResolveStruct(StructDeclaration* sd)
     // emit members
     if (sd->members)
     {
-        ArrayIter<Dsymbol> it(*sd->members);
-        while (!it.done())
+        for (ArrayIter<Dsymbol> it(sd->members); !it.done(); it.next())
         {
-            Dsymbol* member = it.get();
-            if (member)
-                member->codegen(Type::sir);
-            it.next();
+            it.get()->codegen(Type::sir);
         }
     }
 
-    if (needs_def)
+    if (emitGlobalData)
     {
         // emit typeinfo
         DtoTypeInfoOf(sd->type);

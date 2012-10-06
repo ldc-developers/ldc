@@ -3,7 +3,11 @@
 
 struct StructInitializer;
 
-/// Generate code for the struct.
+/**
+ * Sets up codegen metadata and emits global data (.init, etc.), if needed.
+ *
+ * Has no effect on already resolved struct declarations.
+ */
 void DtoResolveStruct(StructDeclaration* sd);
 
 /// Build constant struct initializer.
