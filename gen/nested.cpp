@@ -235,7 +235,10 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
     }
     else
     {
-        return llvm::UndefValue::get(getVoidPtrType());
+        // Use null instead of e.g. LLVM's undef to not break bitwise
+        // comparison for instances of nested struct types which don't have any
+        // nested references.
+        return llvm::ConstantPointerNull::get(getVoidPtrType());
     }
 
     struct FuncDeclaration* fd = 0;

@@ -2951,6 +2951,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         offset = vd->offset + vd->type->size();
 
         IF_LOG Logger::println("initializing field: %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
+        LOG_SCOPE
 
         // get initializer
         Expression* expr = (it.index < nexprs) ? exprs[it.index] : NULL;
@@ -2965,6 +2966,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
 #if DMDV2
         else if (vd == sd->vthis) {
             IF_LOG Logger::println("initializing vthis");
+            LOG_SCOPE
             val = new DImValue(vd->type, DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
         }
 #endif
@@ -2973,6 +2975,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
             if (vd->init && vd->init->isVoidInitializer())
                 continue;
             IF_LOG Logger::println("using default initializer");
+            LOG_SCOPE
             cv.c = get_default_initializer(vd, NULL);
             val = &cv;
         }
