@@ -629,20 +629,14 @@ int main(int argc, char** argv)
     {
         case llvm::Triple::Win32:
             VersionCondition::addPredefinedGlobalIdent("Windows");
-            VersionCondition::addPredefinedGlobalIdent("Win32");
-            if (global.params.is64bit) {
-                VersionCondition::addPredefinedGlobalIdent("Win64");
-            }
+            VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
             break;
         case llvm::Triple::MinGW32:
             global.params.os = OSWindows; // FIXME: Check source for uses of MinGW32
             VersionCondition::addPredefinedGlobalIdent("Windows");
-            VersionCondition::addPredefinedGlobalIdent("Win32");
+            VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
             VersionCondition::addPredefinedGlobalIdent("mingw32");
             VersionCondition::addPredefinedGlobalIdent("MinGW");
-            if (global.params.is64bit) {
-                VersionCondition::addPredefinedGlobalIdent("Win64");
-            }
             break;
         case llvm::Triple::Cygwin:
             error("CygWin is not yet supported");
