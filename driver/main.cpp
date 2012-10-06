@@ -1035,7 +1035,6 @@ int main(int argc, char** argv)
     if (singleObj && llvmModules.size() > 0)
     {
         Module* m = static_cast<Module*>(modules.data[0]);
-        char* name = m->toChars();
 
         char* oname;
         char* filename;
@@ -1050,7 +1049,13 @@ int main(int argc, char** argv)
         else
             filename = m->objfile->name->str;
 
-        llvm::Linker linker(name, name, context);
+#if 1
+        // Temporary workaround for http://llvm.org/bugs/show_bug.cgi?id=11479.
+        char* moduleName = filename;
+#else
+        char* moduleName = m->toChars();
+#endif
+        llvm::Linker linker("ldc", moduleName, context);
 
         std::string errormsg;
         for (int i = 0; i < llvmModules.size(); i++)
