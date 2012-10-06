@@ -223,7 +223,7 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
 #if DMDV2
         AggregateDeclaration* ad = irfunc->decl->isMember2();
         val = ad->isClassDeclaration() ? DtoLoad(irfunc->thisArg) : irfunc->thisArg;
-        if (!ad || !ad->vthis)
+        if (!ad->vthis)
             return llvm::UndefValue::get(getVoidPtrType());
 #else
         ClassDeclaration* ad = irfunc->decl->isMember2()->isClassDeclaration();
@@ -231,7 +231,7 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
         if (!ad || !ad->vthis)
             return val;
 #endif
-        val = DtoLoad(DtoGEPi(val, 0,ad->vthis->ir.irField->index, ".vthis"));
+        val = DtoLoad(DtoGEPi(val, 0, ad->vthis->ir.irField->index, ".vthis"));
     }
     else
     {
