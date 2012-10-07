@@ -145,9 +145,11 @@ Usage:\n\
 \n\
   files.d        D source files\n\
   @cmdfile       read arguments from cmdfile\n\
-  -c             do not link\n\
-  -cov           do code coverage analysis\n\
-  -D             generate documentation\n\
+  -c             do not link\n"
+#if 0
+  "-cov           do code coverage analysis\n"
+#endif
+  "-D             generate documentation\n\
   -Dddocdir      write documentation file to docdir directory\n\
   -Dffilename    write documentation file to filename\n\
   -d             allow deprecated features\n\
@@ -173,8 +175,10 @@ Usage:\n\
   -lib           generate library rather than object files\n\
   -m32           generate 32 bit code\n\
   -m64           generate 64 bit code\n\
-  -man           open web browser on manual page\n\
-  -map           generate linker .map file\n"
+  -man           open web browser on manual page\n"
+#if 0
+  "-map           generate linker .map file\n"
+#endif
 #if DMDV2
 "  -noboundscheck turns off array bounds checking for all functions\n"
 #endif
@@ -183,9 +187,11 @@ Usage:\n\
   -o-            do not write object file\n\
   -odobjdir      write object & library files to directory objdir\n\
   -offilename    name output file to filename\n\
-  -op            do not strip paths from source file\n\
-  -profile       profile runtime performance of generated code\n\
-  -property      enforce property syntax\n\
+  -op            do not strip paths from source file\n"
+#if 0
+  "-profile       profile runtime performance of generated code\n"
+#endif
+  "-property      enforce property syntax\n\
   -quiet         suppress unnecessary messages\n\
   -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
@@ -194,7 +200,7 @@ Usage:\n\
   -v             verbose\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n"
-#if DMDV2
+#if 0
 "  -vtls          list all variables going into thread local storage\n"
 #endif
 "  -w             enable warnings\n\
