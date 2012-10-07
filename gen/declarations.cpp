@@ -23,14 +23,14 @@
 
 void Dsymbol::codegen(Ir*)
 {
-    Logger::println("Ignoring Dsymbol::toObjFile for %s", toChars());
+    Logger::println("Ignoring Dsymbol::codegen for %s", toChars());
 }
 
 /* ================================================================== */
 
 void Declaration::codegen(Ir*)
 {
-    Logger::println("Ignoring Declaration::toObjFile for %s", toChars());
+    Logger::println("Ignoring Declaration::codegen for %s", toChars());
 }
 
 /* ================================================================== */
@@ -76,7 +76,7 @@ void ClassDeclaration::codegen(Ir*)
 
 void TupleDeclaration::codegen(Ir* p)
 {
-    Logger::println("TupleDeclaration::toObjFile(): %s", toChars());
+    Logger::println("TupleDeclaration::codegen(): %s", toChars());
 
     assert(isexp);
     assert(objects);
@@ -97,7 +97,7 @@ void TupleDeclaration::codegen(Ir* p)
 
 void VarDeclaration::codegen(Ir* p)
 {
-    Logger::print("VarDeclaration::toObjFile(): %s | %s\n", toChars(), type->toChars());
+    Logger::print("VarDeclaration::codegen(): %s | %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     if (type->ty == Terror)
@@ -215,7 +215,7 @@ void VarDeclaration::codegen(Ir* p)
 
 void TypedefDeclaration::codegen(Ir*)
 {
-    Logger::print("TypedefDeclaration::toObjFile: %s\n", toChars());
+    Logger::print("TypedefDeclaration::codegen: %s\n", toChars());
     LOG_SCOPE;
 
     if (type->ty == Terror)
@@ -231,7 +231,7 @@ void TypedefDeclaration::codegen(Ir*)
 
 void EnumDeclaration::codegen(Ir*)
 {
-    Logger::println("Ignoring EnumDeclaration::toObjFile for %s", toChars());
+    Logger::println("Ignoring EnumDeclaration::codegen for %s", toChars());
 
     if (type->ty == Terror)
     {   error("had semantic errors when compiling");
@@ -255,7 +255,7 @@ void FuncDeclaration::codegen(Ir* p)
 void TemplateInstance::codegen(Ir* p)
 {
 #if LOG
-    printf("TemplateInstance::toObjFile('%s', this = %p)\n", toChars(), this);
+    printf("TemplateInstance::codegen('%s', this = %p)\n", toChars(), this);
 #endif
 #if DMDV2
     if (ignore)
