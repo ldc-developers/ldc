@@ -96,6 +96,11 @@ void printVersion() {
     if (CPU == "generic") CPU = "(unknown)";
     printf("  Host CPU: %s\n", CPU.c_str());
     printf("\n");
+
+    // Without explicitly flushing here, only the target list is visible when
+    // redirecting stdout to a file.
+    fflush(stdout);
+
     llvm::TargetRegistry::printRegisteredTargetsForVersion();
     exit(EXIT_SUCCESS);
 }
