@@ -660,6 +660,7 @@ void cpuidX86()
             mov d, EDX;
             mov a, EAX;
         }
+        xfeatures = cast(ulong)d << 32 | a;
     }
     amdfeatures = 0;
     amdmiscfeatures = 0;
