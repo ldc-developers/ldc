@@ -193,6 +193,14 @@ void DtoResolveNestedContext(Loc loc, ClassDeclaration *decl, LLValue *value)
 
     // store into right location
     if (!llvm::dyn_cast<llvm::UndefValue>(nest)) {
+        // Need to make sure the declaration has already been resolved, because
+        // when multiple source files are specified on the command line, the
+        // frontend sometimes adds "nested" (i.e. a template in module B
+        // instantiated from module A with a type from module A instantiates
+        // another template from module B) into the wrong module, messing up
+        // our codegen order.
+        DtoResolveDsymbol(decl);
+
         size_t idx = decl->vthis->ir.irField->index;
         LLValue* gep = DtoGEPi(value,0,idx,".vthis");
         DtoStore(DtoBitCast(nest, gep->getType()->getContainedType(0)), gep);

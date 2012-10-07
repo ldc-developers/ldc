@@ -324,18 +324,28 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         assert(0 && "not global/function");
     }
 
-    // The following breaks for nested naked functions and the implicitly
-    // generated __require/__ensure functions for in/out contracts. The reason
+    // If the function needs to be defined in the current module, check if it
+    // is a nested function and we can declare it as internal.
+    bool canInternalize = mustDefine;
+
+    // Nested naked functions and the implicitly generated __require/__ensure
+    // functions for in/out contracts cannot be internalized. The reason
     // for the latter is that contract functions, despite being nested, can be
     // referenced from other D modules e.g. in the case of contracts on
     // interface methods (where __require/__ensure are emitted to the module
     // where the interface is declared, but an actual interface implementation
     // can be in a completely different place).
-    bool skipNestedCheck = !mustDefine;
-    if (!skipNestedCheck)
+    if (canInternalize)
+    {
         if (FuncDeclaration* fd = sym->isFuncDeclaration())
-            skipNestedCheck = (fd->naked != 0) ||
-                (fd->ident == Id::require) || (fd->ident == Id::ensure);
+        {
+            if ((fd->naked != 0) ||
+                (fd->ident == Id::require) || (fd->ident == Id::ensure))
+            {
+                canInternalize = false;
+            }
+        }
+    }
 
     // Any symbol nested in a function that cannot be inlined can't be
     // referenced directly from outside that function, so we can give
@@ -350,11 +360,26 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
     // ---
     // if instances get emitted in multiple object files because they'd use
     // different instances of 'i'.
-    if (!skipNestedCheck) {
-        for (Dsymbol* parent = sym->parent; parent ; parent = parent->parent) {
+    // TODO: Check if we are giving away too much inlining potential due to
+    // canInline being overly conservative here.
+    if (canInternalize)
+    {
+        for (Dsymbol* parent = sym->parent; parent ; parent = parent->parent)
+        {
             FuncDeclaration *fd = parent->isFuncDeclaration();
             if (fd && !fd->canInline(fd->needThis()))
-                return llvm::GlobalValue::InternalLinkage;
+            {
+                // We also cannot internalize nested functions which are
+                // leaked to the outside via a templated return type, because
+                // that type will also be codegen'd in any caller modules (see
+                // GitHub issue #131).
+                // Since we can't easily determine if this is really the case
+                // here, just don't internalize it if the parent returns a
+                // template at all, to be safe.
+                TypeFunction* tf = static_cast<TypeFunction*>(fd->type);
+                if (!DtoIsTemplateInstance(tf->next->toDsymbol(fd->scope)))
+                    return llvm::GlobalValue::InternalLinkage;
+            }
         }
     }
 
