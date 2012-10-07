@@ -146,19 +146,26 @@ Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)
 }
 
 #if IN_LLVM
+static int outToRefDg(void *ctx, size_t n, Parameter *p, int flags)
+{
+    if (p->storageClass & STCout)
+    {
+        // Cannot just use syntaxCopy() here, because it would cause the
+        // parameter type to be semantic()ed again, in the wrong scope. So,
+        // just copy the outer layer to modify the storage class.
+        void *cpy = malloc(sizeof(Parameter));
+        memcpy(cpy, (void *)p, sizeof(Parameter));
+        p = (Parameter *)cpy;
+        p->storageClass &= ~STCout;
+        p->storageClass |= STCref;
+    }
+    ((Parameters *)ctx)->push(p);
+    return 0;
+}
 static Parameters *outToRef(Parameters* params)
 {
-    Parameters *result = Parameter::arraySyntaxCopy(params);
-    size_t dim = Parameter::dim(result);
-    for (size_t i = 0; i < dim; i++)
-    {
-        Parameter *p = Parameter::getNth(result, i);
-        if (p->storageClass & STCout)
-        {
-            p->storageClass &= ~STCout;
-            p->storageClass |= STCref;
-        }
-    }
+    Parameters *result = new Parameters();
+    Parameter::foreach(params, &outToRefDg, result);
     return result;
 }
 #endif
@@ -811,7 +818,7 @@ void FuncDeclaration::semantic(Scope *sc)
              */
             fdrequireParams = new Expressions();
             Parameters *params = outToRef(((TypeFunction*)type)->parameters);
-            TypeFunction *tf = new TypeFunction(params, Type::tvoid, 0, LINKd);
+            Type *tf = new TypeFunction(params, Type::tvoid, 0, LINKd);
 #else
             /*   in { ... }
              * becomes:
