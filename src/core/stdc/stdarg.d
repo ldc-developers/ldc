@@ -419,7 +419,6 @@ else version (Windows) // Win64
 
     /************
      * Retrieve and return the next value that is type T.
-     * Should use the other va_arg instead, as this won't work for 64 bit code.
      */
     T va_arg(T)(ref va_list ap)
     {
@@ -474,7 +473,7 @@ else version (Windows) // Win64
 }
 else version ( X86_64 )
 {
-    struct __va_argsave_t
+    align(16) struct __va_argsave_t
     {
         size_t[6] regs;   // RDI,RSI,RDX,RCX,R8,R9
         real[8] fpregs;   // XMM0..XMM7
