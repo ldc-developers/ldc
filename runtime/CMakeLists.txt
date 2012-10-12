@@ -347,18 +347,35 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
             message(SEND_ERROR "llvm-ar not found")
         endif(NOT LLVM_AR_EXE)
 
-        add_custom_command(
-            OUTPUT bclibs
-            COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_CC}-bc.a ${CORE_BC}
-            COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}-bc.a ${GC_BC}
-            COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}-bc.a ${DCRT_BC}
-            WORKING_DIRECTORY ${output_path}
-            DEPENDS
-                ${CORE_BC}
-                ${GC_BC}
-                ${DCRT_BC}
-                ${LDC_IMPORTS}
-        )
+        if(BUILD_SINGLE_LIB)
+            add_custom_command(
+                OUTPUT bclibs
+                COMMAND ${LLVM_AR_EXE} rs libdruntime-ldc-bc.a ${CORE_BC} ${GC_BC} ${DCRT_BC}
+                COMMAND ${LLVM_AR_EXE} rs libphobos-ldc-bc.a ${PHOBOS2_BC}
+                WORKING_DIRECTORY ${output_path}
+                DEPENDS
+                    ${CORE_BC}
+                    ${GC_BC}
+                    ${DCRT_BC}
+                    ${LDC_IMPORTS}
+                    ${PHOBOS2_BC}
+            )
+        else(BUILD_SINGLE_LIB)
+            add_custom_command(
+                OUTPUT bclibs
+                COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_CC}-bc.a ${CORE_BC}
+                COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}-bc.a ${GC_BC}
+                COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}-bc.a ${DCRT_BC}
+                COMMAND ${LLVM_AR_EXE} rs libphobos-ldc-bc.a ${PHOBOS2_BC}
+                WORKING_DIRECTORY ${output_path}
+                DEPENDS
+                    ${CORE_BC}
+                    ${GC_BC}
+                    ${DCRT_BC}
+                    ${LDC_IMPORTS}
+                    ${PHOBOS2_BC}
+            )
+        endif(BUILD_SINGLE_LIB)
         set(BCLIBS bclibs)
     endif(BUILD_BC_LIBS)
 
