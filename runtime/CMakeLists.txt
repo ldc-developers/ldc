@@ -291,34 +291,6 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
         endif(BUILD_SINGLE_LIB)
     endif()
 
-    if(BUILD_BC_LIBS)
-        find_program(LLVM_AR_EXE llvm-ar ${LLVM_INSTDIR}/bin DOC "path to llvm-ar tool")
-        if(NOT LLVM_AR_EXE)
-            message(SEND_ERROR "llvm-ar not found")
-        endif(NOT LLVM_AR_EXE)
-
-        add_library(${RUNTIME_CC}-c ${CORE_C})
-        add_library(${RUNTIME_DC}-c ${DCRT_C})
-        list(APPEND LIBS
-            ${RUNTIME_CC}-c
-            ${RUNTIME_DC}-c
-        )
-        add_custom_command(
-            OUTPUT bclibs
-            COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_CC}-bc.a ${CORE_BC}
-            COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}-bc.a ${GC_BC}
-            # cannot parse genobj.bc if built with -g
-            # COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}-bc.a ${DCRT_BC}
-            WORKING_DIRECTORY ${output_path}
-            DEPENDS
-                ${CORE_BC}
-                ${GC_BC}
-                ${DCRT_BC}
-                ${LDC_IMPORTS}
-        )
-        set(BCLIBS bclibs)
-    endif(BUILD_BC_LIBS)
-
     set_target_properties(
         ${LIBS} PROPERTIES
         VERSION                     ${DMDFE_VERSION}
@@ -331,9 +303,6 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
         LINK_FLAGS                  "${ld_flags}"
     )
     install(TARGETS ${LIBS} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
-
-    # BCLIBS is empty if BUILD_BC_LIBS is not selected
-    add_custom_target(runtime${target_suffix} DEPENDS ${LIBS} ${BCLIBS})
 
     if(PHOBOS2_DIR)
         set(PHOBOS2_O "")
@@ -371,6 +340,30 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
         install(TARGETS phobos-ldc${target_suffix} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
         add_dependencies(phobos2 DEPENDS phobos-ldc${target_suffix})
     endif(PHOBOS2_DIR)
+
+    if(BUILD_BC_LIBS)
+        find_program(LLVM_AR_EXE llvm-ar ${LLVM_INSTDIR}/bin DOC "path to llvm-ar tool")
+        if(NOT LLVM_AR_EXE)
+            message(SEND_ERROR "llvm-ar not found")
+        endif(NOT LLVM_AR_EXE)
+
+        add_custom_command(
+            OUTPUT bclibs
+            COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_CC}-bc.a ${CORE_BC}
+            COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}-bc.a ${GC_BC}
+            COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}-bc.a ${DCRT_BC}
+            WORKING_DIRECTORY ${output_path}
+            DEPENDS
+                ${CORE_BC}
+                ${GC_BC}
+                ${DCRT_BC}
+                ${LDC_IMPORTS}
+        )
+        set(BCLIBS bclibs)
+    endif(BUILD_BC_LIBS)
+
+    # BCLIBS is empty if BUILD_BC_LIBS is not selected
+    add_custom_target(runtime${target_suffix} DEPENDS ${LIBS} ${BCLIBS})
 endmacro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
 
 #
