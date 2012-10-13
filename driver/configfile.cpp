@@ -141,7 +141,7 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
             int len = arr.getLength();
             for (int i=0; i<len; i++)
             {
-                std::string v = arr[i];
+                std::string v = arr[i].operator std::string();
 
                 // replace binpathkey with binpath
                 size_t p;
