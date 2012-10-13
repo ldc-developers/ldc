@@ -19,7 +19,9 @@
 #include "gen/irstate.h"
 #include "ir/irtype.h"
 
+#if LDC_LLVM_VER < 302
 using namespace llvm::Attribute;
+#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -217,6 +219,40 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
 
     // Construct some attribute lists used below (possibly multiple times)
+#if LDC_LLVM_VER >= 302
+    llvm::AttrListPtr
+        NoAttrs,
+        Attr_NoAlias
+        = NoAttrs.addAttr(0, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoAlias))),
+        Attr_NoUnwind
+            = NoAttrs.addAttr(~0U, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoUnwind))),
+        Attr_ReadOnly
+            = NoAttrs.addAttr(~0U, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::ReadOnly))),
+        Attr_ReadOnly_NoUnwind
+            = Attr_ReadOnly.addAttr(~0U, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoUnwind))),
+        Attr_ReadOnly_1_NoCapture
+            = Attr_ReadOnly.addAttr(1, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoCapture))),
+        Attr_ReadOnly_1_3_NoCapture
+            = Attr_ReadOnly_1_NoCapture.addAttr(3, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoCapture))),
+        Attr_ReadOnly_1_4_NoCapture
+            = Attr_ReadOnly_1_NoCapture.addAttr(4, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoCapture))),
+        Attr_ReadOnly_NoUnwind_1_NoCapture
+            = Attr_ReadOnly_1_NoCapture.addAttr(~0U, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoUnwind))),
+        Attr_ReadNone
+            = NoAttrs.addAttr(~0U, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::ReadNone))),
+        Attr_1_NoCapture
+            = NoAttrs.addAttr(1, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoCapture))),
+        Attr_NoAlias_1_NoCapture
+            = Attr_1_NoCapture.addAttr(0, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoAlias))),
+        Attr_NoAlias_3_NoCapture
+            = Attr_NoAlias.addAttr(3, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoCapture))),
+        Attr_1_2_NoCapture
+            = Attr_1_NoCapture.addAttr(2, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoCapture))),
+        Attr_1_3_NoCapture
+            = Attr_1_NoCapture.addAttr(3, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoCapture))),
+        Attr_1_4_NoCapture
+            = Attr_1_NoCapture.addAttr(4, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoCapture)));
+#else
     llvm::AttrListPtr
         NoAttrs,
         Attr_NoAlias
@@ -249,6 +285,7 @@ static void LLVM_D_BuildRuntimeModule()
             = Attr_1_NoCapture.addAttr(3, NoCapture),
         Attr_1_4_NoCapture
             = Attr_1_NoCapture.addAttr(4, NoCapture);
+#endif
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////

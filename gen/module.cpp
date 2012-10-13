@@ -2,7 +2,11 @@
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Module.h"
 #include "llvm/LinkAllPasses.h"
+#if LDC_LLVM_VER >= 302
+#include "llvm/DataLayout.h"
+#else
 #include "llvm/Target/TargetData.h"
+#endif
 
 #include "mars.h"
 #include "module.h"
@@ -245,7 +249,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     ir.module->setTargetTriple(global.params.targetTriple.str());
 
     // set final data layout
-    ir.module->setDataLayout(gTargetData->getStringRepresentation());
+    ir.module->setDataLayout(gDataLayout->getStringRepresentation());
     if (Logger::enabled())
         Logger::cout() << "Final data layout: " << ir.module->getDataLayout() << '\n';
 

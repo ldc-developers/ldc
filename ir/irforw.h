@@ -33,7 +33,11 @@ namespace llvm
     class Constant;
     class ConstantStruct;
     class ConstantArray;
+#if LDC_LLVM_VER >= 302
+    class DataLayout;
+#else
     class TargetData;
+#endif
     class Type;
     class StructType;
     class ArrayType;

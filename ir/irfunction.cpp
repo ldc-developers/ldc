@@ -21,9 +21,15 @@ IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, llvm::Attributes a) : type(t)
     rewrite = NULL;
 }
 
+#if LDC_LLVM_VER >= 302
+bool IrFuncTyArg::isInReg() const { return attrs.hasAttribute(llvm::Attributes::InReg); }
+bool IrFuncTyArg::isSRet() const  { return attrs.hasAttribute(llvm::Attributes::StructRet); }
+bool IrFuncTyArg::isByVal() const { return attrs.hasAttribute(llvm::Attributes::ByVal); }
+#else
 bool IrFuncTyArg::isInReg() const { return (attrs & llvm::Attribute::InReg) != 0; }
 bool IrFuncTyArg::isSRet() const  { return (attrs & llvm::Attribute::StructRet) != 0; }
 bool IrFuncTyArg::isByVal() const { return (attrs & llvm::Attribute::ByVal) != 0; }
+#endif
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
@@ -152,19 +158,21 @@ IrFunction::IrFunction(FuncDeclaration* fd)
 void IrFunction::setNeverInline()
 {
 #if LDC_LLVM_VER >= 302
-    assert(!func->getFnAttributes().hasAlwaysInlineAttr() && "function can't be never- and always-inline at the same time");
+    assert(!func->getFnAttributes().hasAttribute(llvm::Attributes::AlwaysInline) && "function can't be never- and always-inline at the same time");
+    func->addFnAttr(llvm::Attributes::NoInline);
 #else
     assert(!func->hasFnAttr(llvm::Attribute::AlwaysInline) && "function can't be never- and always-inline at the same time");
-#endif
     func->addFnAttr(llvm::Attribute::NoInline);
+#endif
 }
 
 void IrFunction::setAlwaysInline()
 {
 #if LDC_LLVM_VER >= 302
-    assert(!func->getFnAttributes().hasNoInlineAttr() && "function can't be never- and always-inline at the same time");
+    assert(!func->getFnAttributes().hasAttribute(llvm::Attributes::NoInline) && "function can't be never- and always-inline at the same time");
+    func->addFnAttr(llvm::Attributes::AlwaysInline);
 #else
     assert(!func->hasFnAttr(llvm::Attribute::NoInline) && "function can't be never- and always-inline at the same time");
-#endif
     func->addFnAttr(llvm::Attribute::AlwaysInline);
+#endif
 }

@@ -238,7 +238,11 @@ int main(int argc, char** argv)
 
     // Handle fixed-up arguments!
     cl::SetVersionPrinter(&printVersion);
+#if LDC_LLVM_VER >= 302
+    cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(&final_args[0]), "LLVM-based D Compiler\n");
+#else
     cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(&final_args[0]), "LLVM-based D Compiler\n", true);
+#endif
 
     // Print config file path if -v was passed
     if (global.params.verbose) {
@@ -569,11 +573,15 @@ int main(int argc, char** argv)
 
     gTargetMachine = target;
 
-    gTargetData = target->getTargetData();
+#if LDC_LLVM_VER >= 302
+    gDataLayout = target->getDataLayout();
+#else
+    gDataLayout = target->getTargetData();
+#endif
 
-    global.params.isLE = gTargetData->isLittleEndian();
+    global.params.isLE = gDataLayout->isLittleEndian();
     // Starting with LLVM 3.1 we could also use global.params.targetTriple.isArch64Bit();
-    global.params.is64bit = gTargetData->getPointerSizeInBits() == 64;
+    global.params.is64bit = gDataLayout->getPointerSizeInBits() == 64;
     global.params.cpu = static_cast<ARCH>(global.params.targetTriple.getArch());
     global.params.os = static_cast<OS>(global.params.targetTriple.getOS());
 

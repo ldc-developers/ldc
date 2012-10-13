@@ -1,4 +1,8 @@
+#if LDC_LLVM_VER >= 302
+#include "llvm/DataLayout.h"
+#else
 #include "llvm/Target/TargetData.h"
+#endif
 
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
@@ -10,22 +14,22 @@
 
 unsigned GetTypeAlignment(Ir* ir, Type* t)
 {
-    return gTargetData->getABITypeAlignment(DtoType(t));
+    return gDataLayout->getABITypeAlignment(DtoType(t));
 }
 
 unsigned GetPointerSize(Ir* ir)
 {
-    return gTargetData->getPointerSize();
+    return gDataLayout->getPointerSize();
 }
 
 unsigned GetTypeStoreSize(Ir* ir, Type* t)
 {
-    return gTargetData->getTypeStoreSize(DtoType(t));
+    return gDataLayout->getTypeStoreSize(DtoType(t));
 }
 
 unsigned GetTypeAllocSize(Ir* ir, Type* t)
 {
-    return gTargetData->getTypeAllocSize(DtoType(t));
+    return gDataLayout->getTypeAllocSize(DtoType(t));
 }
 
 Ir::Ir()

@@ -2,7 +2,11 @@
 #include "gen/cl_helpers.h"
 
 #include "llvm/Target/TargetMachine.h"
+#if LDC_LLVM_VER >= 302
+#include "llvm/DataLayout.h"
+#else
 #include "llvm/Target/TargetData.h"
+#endif
 
 #include "gen/logger.h"
 

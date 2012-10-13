@@ -121,10 +121,17 @@ void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostrea
     // Build up all of the passes that we want to do to the module.
     FunctionPassManager Passes(&m);
 
+#if LDC_LLVM_VER >= 302
+    if (const DataLayout *DL = Target.getDataLayout())
+        Passes.add(new DataLayout(*DL));
+    else
+        Passes.add(new DataLayout(&m));
+#else
     if (const TargetData *TD = Target.getTargetData())
         Passes.add(new TargetData(*TD));
     else
         Passes.add(new TargetData(&m));
+#endif
 
     llvm::formatted_raw_ostream fout(out);
     if (Target.addPassesToEmitFile(Passes, fout, fileType, codeGenOptLevel()))

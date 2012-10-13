@@ -8,7 +8,11 @@
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Analysis/LoopPass.h"
 #include "llvm/Analysis/Verifier.h"
+#if LDC_LLVM_VER >= 302
+#include "llvm/DataLayout.h"
+#else
 #include "llvm/Target/TargetData.h"
+#endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/PassNameParser.h"
 #include "llvm/Transforms/IPO.h"
@@ -274,7 +278,11 @@ bool ldc_optimize_module(llvm::Module* m)
 
     if (verifyEach) pm.add(createVerifierPass());
 
+#if LDC_LLVM_VER >= 302
+    addPass(pm, new DataLayout(m));
+#else
     addPass(pm, new TargetData(m));
+#endif
 
     bool optimize = optimizeLevel != 0 || doInline();
 

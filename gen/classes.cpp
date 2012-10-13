@@ -558,7 +558,7 @@ static LLConstant* build_offti_entry(ClassDeclaration* cd, VarDeclaration* vd)
     //
     assert(vd->ir.irField);
     // grab the offset from llvm and the formal class type
-    size_t offset = gTargetData->getStructLayout(isaStruct(cd->type->ir.type->get()))->getElementOffset(vd->ir.irField->index);
+    size_t offset = gDataLayout->getStructLayout(isaStruct(cd->type->ir.type->get()))->getElementOffset(vd->ir.irField->index);
     // offset nested struct/union fields
     offset += vd->ir.irField->unionOffset;
 

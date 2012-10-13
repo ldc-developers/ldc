@@ -43,14 +43,26 @@ llvm::Attributes DtoShouldExtend(Type* type)
         {
         case Tint8:
         case Tint16:
+#if LDC_LLVM_VER >= 302
+            return llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::SExt));
+#else
             return llvm::Attribute::SExt;
+#endif
 
         case Tuns8:
         case Tuns16:
+#if LDC_LLVM_VER >= 302
+            return llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::ZExt));
+#else
             return llvm::Attribute::ZExt;
+#endif
         }
     }
+#if LDC_LLVM_VER >= 302
+    return llvm::Attributes();
+#else
     return llvm::Attribute::None;
+#endif
 }
 
 LLType* DtoType(Type* t)
@@ -864,34 +876,34 @@ LLConstant* getNullValue(LLType* t)
 
 size_t getTypeBitSize(LLType* t)
 {
-    return gTargetData->getTypeSizeInBits(t);
+    return gDataLayout->getTypeSizeInBits(t);
 }
 
 size_t getTypeStoreSize(LLType* t)
 {
-    return gTargetData->getTypeStoreSize(t);
+    return gDataLayout->getTypeStoreSize(t);
 }
 
 size_t getTypePaddedSize(LLType* t)
 {
-    size_t sz = gTargetData->getTypeAllocSize(t);
+    size_t sz = gDataLayout->getTypeAllocSize(t);
     //Logger::cout() << "abi type size of: " << *t << " == " << sz << '\n';
     return sz;
 }
 
 size_t getTypeAllocSize(LLType* t)
 {
-    return gTargetData->getTypeAllocSize(t);
+    return gDataLayout->getTypeAllocSize(t);
 }
 
 unsigned char getABITypeAlign(LLType* t)
 {
-    return gTargetData->getABITypeAlignment(t);
+    return gDataLayout->getABITypeAlignment(t);
 }
 
 unsigned char getPrefTypeAlign(LLType* t)
 {
-    return gTargetData->getPrefTypeAlignment(t);
+    return gDataLayout->getPrefTypeAlignment(t);
 }
 
 LLType* getBiggestType(LLType** begin, size_t n)

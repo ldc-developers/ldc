@@ -51,7 +51,11 @@ struct IrFuncTyArg : IrBase
      *  @param byref Initial value for the 'byref' field. If true the initial
      *               LLVM Type will be of DtoType(type->pointerTo()), instead
      *               of just DtoType(type) */
+#if LDC_LLVM_VER >= 302
+    IrFuncTyArg(Type* t, bool byref, llvm::Attributes a = llvm::Attributes());
+#else
     IrFuncTyArg(Type* t, bool byref, llvm::Attributes a = llvm::Attribute::None);
+#endif
 };
 
 // represents a function type

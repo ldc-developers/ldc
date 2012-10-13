@@ -28,7 +28,11 @@
 #endif
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"
+#if LDC_LLVM_VER >= 302
+#include "llvm/DataLayout.h"
+#else
 #include "llvm/Target/TargetData.h"
+#endif
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Compiler.h"
@@ -52,7 +56,11 @@ namespace {
     protected:
         Function *Caller;
         bool* Changed;
+#if LDC_LLVM_VER >= 302
+        const DataLayout *TD;
+#else
         const TargetData *TD;
+#endif
         AliasAnalysis *AA;
         LLVMContext *Context;
 
@@ -74,8 +82,13 @@ namespace {
         /// delete CI.
         virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B)=0;
 
+#if LDC_LLVM_VER >= 302
+        Value *OptimizeCall(CallInst *CI, bool& Changed, const DataLayout &TD,
+                AliasAnalysis& AA, IRBuilder<> &B) {
+#else
         Value *OptimizeCall(CallInst *CI, bool& Changed, const TargetData &TD,
                 AliasAnalysis& AA, IRBuilder<> &B) {
+#endif
             Caller = CI->getParent()->getParent();
             this->Changed = &Changed;
             this->TD = &TD;
@@ -101,7 +114,7 @@ Value *LibCallOptimization::EmitMemCpy(Value *Dst, Value *Src, Value *Len,
   Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
   Type *Tys[3] ={VoidPtrTy, VoidPtrTy, intTy};
   Value *MemCpy = Intrinsic::getDeclaration(M, Intrinsic::memcpy, llvm::makeArrayRef(Tys, 3));
-  
+
   return B.CreateCall5(MemCpy, CastToCStr(Dst, B), CastToCStr(Src, B), Len,
                        ConstantInt::get(B.getInt32Ty(), Align), B.getFalse());
 }
@@ -296,10 +309,18 @@ namespace {
         void InitOptimizations();
         bool runOnFunction(Function &F);
 
+#if LDC_LLVM_VER >= 302
+        bool runOnce(Function &F, const DataLayout& DL, AliasAnalysis& AA);
+#else
         bool runOnce(Function &F, const TargetData& TD, AliasAnalysis& AA);
+#endif
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+#if LDC_LLVM_VER >= 302
+          AU.addRequired<DataLayout>();
+#else
           AU.addRequired<TargetData>();
+#endif
           AU.addRequired<AliasAnalysis>();
         }
     };
@@ -349,7 +370,11 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     if (Optimizations.empty())
         InitOptimizations();
 
+#if LDC_LLVM_VER >= 302
+    const DataLayout &TD = getAnalysis<DataLayout>();
+#else
     const TargetData &TD = getAnalysis<TargetData>();
+#endif
     AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
 
     // Iterate to catch opportunities opened up by other optimizations,
@@ -367,7 +392,11 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     return EverChanged;
 }
 
+#if LDC_LLVM_VER >= 302
+bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout& TD, AliasAnalysis& AA) {
+#else
 bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD, AliasAnalysis& AA) {
+#endif
     IRBuilder<> Builder(F.getContext());
 
     bool Changed = false;

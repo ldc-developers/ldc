@@ -397,8 +397,13 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         // add attrs for hidden ptr
         Attr.Index = 1;
         Attr.Attrs = tf->fty.arg_sret->attrs;
+#if LDC_LLVM_VER >= 302
+        assert((Attr.Attrs.hasAttribute(llvm::Attributes::StructRet) || Attr.Attrs.hasAttribute(llvm::Attributes::InReg))
+            && "Sret arg not sret or inreg?");
+#else
         assert((Attr.Attrs & (llvm::Attribute::StructRet | llvm::Attribute::InReg))
             && "Sret arg not sret or inreg?");
+#endif
         attrs.push_back(Attr);
     }
 
@@ -510,7 +515,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         }
 
         size_t n = Parameter::dim(tf->parameters);
+#if LDC_LLVM_VER >= 302
+        LLSmallVector<llvm::Attributes, 10> attrptr(n, llvm::Attributes());
+#else
         LLSmallVector<llvm::Attributes, 10> attrptr(n, llvm::Attribute::None);
+#endif
         std::vector<DValue*> argvals;
         if (dfnval && dfnval->func->isArrayOp) {
             // slightly different approach for array operators

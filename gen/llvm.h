@@ -12,12 +12,12 @@
 #include "llvm/Value.h"
 #include "llvm/Attributes.h"
 
-#include "llvm/Target/TargetData.h"
-
 #if LDC_LLVM_VER >= 302
+#include "llvm/DataLayout.h"
 #include "llvm/DebugInfo.h"
 #include "llvm/IRBuilder.h"
 #else
+#include "llvm/Target/TargetData.h"
 #include "llvm/Analysis/DebugInfo.h"
 #include "llvm/Support/IRBuilder.h"
 #endif

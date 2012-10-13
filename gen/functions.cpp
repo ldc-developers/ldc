@@ -25,7 +25,9 @@
 #include "gen/nested.h"
 #include "gen/pragma.h"
 
+#if LDC_LLVM_VER < 302
 using namespace llvm::Attribute;
+#endif
 
 llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, bool ismain)
 {
@@ -57,12 +59,22 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
     else
     {
         Type* rt = f->next;
+#if LDC_LLVM_VER >= 302
+        llvm::Attributes a;
+#else
         llvm::Attributes a = None;
+#endif
 
         // sret return
         if (abi->returnInArg(f))
         {
+#if LDC_LLVM_VER >= 302
+            fty.arg_sret = new IrFuncTyArg(rt, true, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::StructRet)
+                                                                                                      .addAttribute(llvm::Attributes::NoAlias)
+                                                                                                      .addAttribute(llvm::Attributes::NoCapture)));
+#else
             fty.arg_sret = new IrFuncTyArg(rt, true, StructRet | NoAlias | NoCapture);
+#endif
             rt = Type::tvoid;
             lidx++;
         }
@@ -112,7 +124,13 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
                 fty.arg_arguments = new IrFuncTyArg(Type::typeinfo->type->arrayOf(), false);
                 lidx++;
                 // _argptr
+#if LDC_LLVM_VER >= 302
+                fty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
+                                                 llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoAlias)
+                                                                                                  .addAttribute(llvm::Attributes::NoCapture)));
+#else
                 fty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false, NoAlias | NoCapture);
+#endif
                 lidx++;
             }
         }
@@ -146,7 +164,11 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
 #endif
 
         Type* argtype = arg->type;
+#if LDC_LLVM_VER >= 302
+        llvm::Attributes a;
+#else
         llvm::Attributes a = None;
+#endif
 
         // handle lazy args
         if (arg->storageClass & STClazy)
@@ -159,7 +181,11 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         // byval
         else if (abi->passByVal(byref ? argtype->pointerTo() : argtype))
         {
+#if LDC_LLVM_VER >= 302
+            if (!byref) a = llvm::Attributes::get(llvm::Attributes::Builder(a).addAttribute(llvm::Attributes::ByVal));
+#else
             if (!byref) a |= llvm::Attribute::ByVal;
+#endif
             // set byref, because byval requires a pointed LLVM type
             byref = true;
         }
@@ -409,7 +435,11 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
 
     // set attrs on the rest of the arguments
     size_t n = Parameter::dim(f->parameters);
+#if LDC_LLVM_VER >= 302
+    LLSmallVector<llvm::Attributes, 8> attrptr(n, llvm::Attributes());
+#else
     LLSmallVector<llvm::Attributes, 8> attrptr(n, None);
+#endif
 
     for (size_t k = 0; k < n; ++k)
     {
@@ -513,7 +543,11 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     if (!fdecl->isIntrinsic()) {
         set_param_attrs(f, func, fdecl);
         if (global.params.disableRedZone) {
+#if LDC_LLVM_VER >= 302
+            func->addFnAttr(llvm::Attributes::NoRedZone);
+#else
             func->addFnAttr(NoRedZone);
+#endif
         }
     }
 

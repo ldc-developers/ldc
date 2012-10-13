@@ -60,7 +60,7 @@ void dwarfOpOffset(T &addr, LLStructType *type, int index)
     if (!global.params.symdebug)
         return;
 
-    uint64_t offset = gTargetData->getStructLayout(type)->getElementOffset(index);
+    uint64_t offset = gDataLayout->getStructLayout(type)->getElementOffset(index);
     LLType *int64Ty = LLType::getInt64Ty(gIR->context());
     addr.push_back(LLConstantInt::get(int64Ty, llvm::DIBuilder::OpPlus));
     addr.push_back(LLConstantInt::get(int64Ty, offset));

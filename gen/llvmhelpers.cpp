@@ -1114,7 +1114,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
         LLType* lltype = DtoType(type);
 
         llvm::Value* allocainst;
-        if(gTargetData->getTypeSizeInBits(lltype) == 0)
+        if(gDataLayout->getTypeSizeInBits(lltype) == 0)
             allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
         else
             allocainst = DtoAlloca(type, vd->toChars());
@@ -1595,7 +1595,7 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
     }
 
     char tmp[21]; // probably excessive, but covers a uint64_t
-    sprintf(tmp, "%lu", static_cast<unsigned long>(gTargetData->getTypeSizeInBits(DtoType(T))));
+    sprintf(tmp, "%lu", static_cast<unsigned long>(gDataLayout->getTypeSizeInBits(DtoType(T))));
 
     // replace # in name with bitsize
     name = td->intrinsicName;
@@ -1770,7 +1770,7 @@ size_t realignOffset(size_t offset, Type* type)
     }
 
     // then we check against the llvm alignment
-    size_t alignsize2 = gTargetData->getABITypeAlignment(T);
+    size_t alignsize2 = gDataLayout->getABITypeAlignment(T);
 
     // if it differs we need to insert manual padding as well
     if (alignsize != alignsize2)

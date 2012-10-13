@@ -31,7 +31,11 @@ struct TargetABI;
 
 extern IRState* gIR;
 extern llvm::TargetMachine* gTargetMachine;
-extern const llvm::TargetData* gTargetData;
+#if LDC_LLVM_VER >= 302
+extern const llvm::DataLayout* gDataLayout;
+#else
+extern const llvm::TargetData* gDataLayout;
+#endif
 extern TargetABI* gABI;
 
 struct TypeFunction;
