@@ -5111,6 +5111,9 @@ Statement *ThrowStatement::semantic(Scope *sc)
 
 int ThrowStatement::blockExit(bool mustNotThrow)
 {
+#if IN_LLVM
+    // Back-port of DMD commit d77b7c2b to allow usering Phobos from Git master
+    // for its many Win64 fixes. To be dropped during the 2.061 merge.
     if (mustNotThrow)
     {
         ClassDeclaration *cd = exp->type->toBasetype()->isClassHandle();
@@ -5123,6 +5126,11 @@ int ThrowStatement::blockExit(bool mustNotThrow)
             error("%s is thrown but not caught", exp->type->toChars());
     }
     return BEthrow;
+#else
+    if (mustNotThrow)
+        error("%s is thrown but not caught", exp->type->toChars());
+    return BEthrow;  // obviously
+#endif
 }
 
 
