@@ -61,6 +61,19 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
 
     // system configuration
 
+    // try in etc relative to the executable: exe\..\etc
+    // do not use .. in path because of security risks
+    p = sys::Path::GetMainExecutable(argv0, mainAddr);
+    p.eraseComponent();
+    p.eraseComponent();
+    if (!p.isEmpty())
+    {
+        p.appendComponent("etc");
+        p.appendComponent(filename);
+        if (sys::fs::exists(p.str()))
+            return true;
+    }
+
 #if _WIN32
     // try the install-prefix
     p = sys::Path(LDC_INSTALL_PREFIX);
