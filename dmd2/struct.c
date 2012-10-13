@@ -436,6 +436,17 @@ void StructDeclaration::semantic(Scope *sc)
     protection = sc->protection;
     alignment = sc->structalign;
     storage_class |= sc->stc;
+#if IN_LLVM
+    // DMD allows nested unions with functions that access the outer scope, but
+    // generates invalid code for them (the context pointer is stored at the
+    // same offset as all the union fields, just as if it was a regular member).
+    // LDC would assert on this instead due to a type mismatch when trying to
+    // store the context pointer. This change mitigates the wrong-code/crash
+    // bug – see "[dmd-internals] Nested Unions?" for a discussion on whether
+    // this should be legal or not.
+    if (isUnionDeclaration())
+        storage_class |= STCstatic;
+#endif
     if (sc->stc & STCdeprecated)
         isdeprecated = true;
     assert(!isAnonymous());
