@@ -265,6 +265,12 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     endforeach(f)
 
     if(EXISTS ${RUNTIME_DIR})
+        set(GCCBUILTINS "${PROJECT_BINARY_DIR}/gccbuiltins_x86.di") 
+        add_custom_command(
+            OUTPUT ${GCCBUILTINS} 
+            COMMAND ${PROJECT_PARENT_DIR}/bin/gen_gccbuiltins ${GCCBUILTINS} "x86"
+            DEPENDS ${PROJECT_PARENT_DIR}/bin/gen_gccbuiltins 
+        )
         if(BUILD_SINGLE_LIB)
             add_library(${RUNTIME_AIO}${target_suffix}
                         ${D_LIBRARY_TYPE}
@@ -273,11 +279,12 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
                         ${GC_O}
                         ${DCRT_O}
                         ${DCRT_C}
+                        ${GCCBUILTINS}
             )
             set(LIBS ${RUNTIME_AIO}${target_suffix})
             set_target_properties(${RUNTIME_AIO}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_AIO}${lib_suffix})
         else(BUILD_SINGLE_LIB)
-            add_library(${RUNTIME_CC}${target_suffix} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C})
+            add_library(${RUNTIME_CC}${target_suffix} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C} ${GCCBUILTINS})
             add_library(${RUNTIME_GC}${target_suffix} ${D_LIBRARY_TYPE} ${GC_O})
             add_library(${RUNTIME_DC}${target_suffix} ${D_LIBRARY_TYPE} ${DCRT_O} ${DCRT_C})
             set_target_properties(${RUNTIME_CC}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_CC}${lib_suffix})
@@ -396,8 +403,9 @@ if(PHOBOS2_DIR)
     install(DIRECTORY ${PHOBOS2_DIR}/etc                               DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
     install(FILES     ${PHOBOS2_DIR}/crc32.d                           DESTINATION ${INCLUDE_INSTALL_DIR})
 endif(PHOBOS2_DIR)
-install(FILES         ${RUNTIME_DIR}/src/object.di                  DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
+install(FILES         ${RUNTIME_DIR}/src/object.di                     DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 install(DIRECTORY     ${RUNTIME_DIR}/import/ldc                        DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
+install(FILES         ${GCCBUILTINS}                                   DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 
 
 #
