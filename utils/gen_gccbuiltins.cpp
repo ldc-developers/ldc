@@ -114,7 +114,7 @@ struct ActionImpl : TableGenAction
 
     bool operator()(raw_ostream& os, RecordKeeper& records)
     {
-        os << "module llvm.gccbuiltins_";
+        os << "module ldc.gccbuiltins_";
         os << arch; 
         os << "; \n\nimport core.simd;\n\n";
 
@@ -156,4 +156,3 @@ int main(int argc, char** argv)
     ActionImpl act(argv[2]);
     return TableGenMain(argv[0], act); 
 }
-
