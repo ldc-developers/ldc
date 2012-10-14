@@ -69,11 +69,25 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         if (abi->returnInArg(f))
         {
 #if LDC_LLVM_VER >= 302
-            fty.arg_sret = new IrFuncTyArg(rt, true, llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::StructRet)
-                                                                                                      .addAttribute(llvm::Attributes::NoAlias)
-                                                                                                      .addAttribute(llvm::Attributes::NoCapture)));
+            fty.arg_sret = new IrFuncTyArg(rt, true, llvm::Attributes::get(
+                llvm::Attributes::Builder().addAttribute(llvm::Attributes::StructRet)
+                .addAttribute(llvm::Attributes::NoAlias)
+            #if !STRUCTTHISREF
+                // In D2 where 'this' in structs is a reference, nocapture
+                // might not actually be applicable, even if it probably still
+                // is for all sane code from a high-level semantic standpoint.
+                // Specifying nocapture on a parameter but then passing it as a
+                // non-nocapture argument in a function call can lead to
+                // _silent_ miscompilations (especially in the GVN pass).
+                .addAttribute(llvm::Attributes::NoCapture)
+            #endif
+            ));
 #else
-            fty.arg_sret = new IrFuncTyArg(rt, true, StructRet | NoAlias | NoCapture);
+            fty.arg_sret = new IrFuncTyArg(rt, true, StructRet | NoAlias
+            #if !STRUCTTHISREF
+                | NoCapture
+            #endif
+            );
 #endif
             rt = Type::tvoid;
             lidx++;
