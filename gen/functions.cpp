@@ -100,8 +100,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
             if (f->isref)
                 t = t->pointerTo();
 #endif
-            if (llvm::Attributes atts = DtoShouldExtend(t))
-                a = atts;
+            a = DtoShouldExtend(t);
         }
 #if DMDV2
         fty.ret = new IrFuncTyArg(rt, f->isref, a);
@@ -206,7 +205,11 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         // sext/zext
         else if (!byref)
         {
+#if LDC_LLVM_VER >= 302
+            a = llvm::Attributes::get(llvm::Attributes::Builder(a).addAttributes(DtoShouldExtend(argtype)));
+#else
             a |= DtoShouldExtend(argtype);
+#endif
         }
 
         fty.args.push_back(new IrFuncTyArg(argtype, byref, a));
@@ -430,7 +433,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     // handle implicit args
     #define ADD_PA(X) \
     if (f->fty.X) { \
-        if (f->fty.X->attrs) { \
+        if (HAS_ATTRIBUTES(f->fty.X->attrs)) { \
             PAWI.Index = idx; \
             PAWI.Attrs = f->fty.X->attrs; \
             attrs.push_back(PAWI); \
@@ -472,7 +475,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     // build rest of attrs list
     for (int i = 0; i < n; i++)
     {
-        if (attrptr[i])
+        if (HAS_ATTRIBUTES(attrptr[i]))
         {
             PAWI.Index = idx+i;
             PAWI.Attrs = attrptr[i];

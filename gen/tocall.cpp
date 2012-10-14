@@ -290,17 +290,17 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     llvm::AttributeWithIndex Attr;
     // specify arguments
     args.push_back(DtoLoad(typeinfoarrayparam));
-    if (llvm::Attributes atts = tf->fty.arg_arguments->attrs) {
+    if (HAS_ATTRIBUTES(tf->fty.arg_arguments->attrs)) {
         Attr.Index = argidx;
-        Attr.Attrs = atts;
+        Attr.Attrs = tf->fty.arg_arguments->attrs;
         attrs.push_back(Attr);
     }
     ++argidx;
 
     args.push_back(gIR->ir->CreateBitCast(mem, getPtrToType(LLType::getInt8Ty(gIR->context())), "tmp"));
-    if (llvm::Attributes atts = tf->fty.arg_argptr->attrs) {
+    if (HAS_ATTRIBUTES(tf->fty.arg_argptr->attrs)) {
         Attr.Index = argidx;
-        Attr.Attrs = atts;
+        Attr.Attrs = tf->fty.arg_argptr->attrs;
         attrs.push_back(Attr);
     }
 
@@ -311,7 +311,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
         DValue* argval = DtoArgument(fnarg, static_cast<Expression*>(arguments->data[i]));
         args.push_back(fixArgument(argval, tf, callableTy->getParamType(argidx++), i));
 
-        if (tf->fty.args[i]->attrs)
+        if (HAS_ATTRIBUTES(tf->fty.args[i]->attrs))
         {
             llvm::AttributeWithIndex Attr;
             Attr.Index = argidx;
@@ -376,7 +376,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     llvm::AttributeWithIndex Attr;
 
     // return attrs
-    if (tf->fty.ret->attrs)
+    if (HAS_ATTRIBUTES(tf->fty.ret->attrs))
     {
         Attr.Index = 0;
         Attr.Attrs = tf->fty.ret->attrs;
@@ -462,13 +462,13 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         }
 
         // add attributes for context argument
-        if (tf->fty.arg_this && tf->fty.arg_this->attrs)
+        if (tf->fty.arg_this && HAS_ATTRIBUTES(tf->fty.arg_this->attrs))
         {
             Attr.Index = retinptr ? 2 : 1;
             Attr.Attrs = tf->fty.arg_this->attrs;
             attrs.push_back(Attr);
         }
-        else if (tf->fty.arg_nest && tf->fty.arg_nest->attrs)
+        else if (tf->fty.arg_nest && HAS_ATTRIBUTES(tf->fty.arg_nest->attrs))
         {
             Attr.Index = retinptr ? 2 : 1;
             Attr.Attrs = tf->fty.arg_nest->attrs;
@@ -562,7 +562,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         // add attributes
         for (int i = 0; i < n; i++)
         {
-            if (attrptr[i])
+            if (HAS_ATTRIBUTES(attrptr[i]))
             {
                 Attr.Index = beg + i + 1;
                 Attr.Attrs = attrptr[i];

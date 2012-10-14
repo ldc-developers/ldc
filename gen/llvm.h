@@ -22,6 +22,8 @@
 #include "llvm/Support/IRBuilder.h"
 #endif
 
+#include "gen/llvmcompat.h"
+
 #include "llvm/Support/CallSite.h"
 
 using llvm::IRBuilder;

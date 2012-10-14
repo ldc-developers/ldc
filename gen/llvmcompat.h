@@ -30,4 +30,10 @@ namespace llvm {
 }
 #endif
 
+#if LDC_LLVM_VER >= 302
+#define HAS_ATTRIBUTES(x) (x).hasAttributes()
+#else
+#define HAS_ATTRIBUTES(x) (x)
+#endif
+
 #endif
