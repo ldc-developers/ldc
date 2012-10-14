@@ -265,7 +265,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     endforeach(f)
 
     if(EXISTS ${RUNTIME_DIR})
-        set(GCCBUILTINS "${PROJECT_BINARY_DIR}/gccbuiltins_x86.di") 
+        set(GCCBUILTINS "${PROJECT_BINARY_DIR}/gccbuiltins_x86.di")
         add_custom_command(
             OUTPUT ${GCCBUILTINS}
             COMMAND ${PROJECT_BINARY_DIR}/../bin/gen_gccbuiltins ${GCCBUILTINS} "x86"

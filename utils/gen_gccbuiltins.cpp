@@ -20,14 +20,14 @@ using namespace llvm;
 string dtype(Record* rec)
 {
     Init* typeInit = rec->getValueInit("VT");
-    if(!typeInit) 
+    if(!typeInit)
         return "";
 
     string type = typeInit->getAsString();
 
     if(type == "iPTR")
         return "void*";
-    
+
     string vec = "";
 
     if(type[0] == 'v')
@@ -35,7 +35,7 @@ string dtype(Record* rec)
         size_t i = 1;
         while(i != type.size() && type[i] <= '9' && type[i] >= '0')
             i++;
-        
+
         vec = type.substr(1, i - 1);
         type = type.substr(i);
     }
@@ -59,7 +59,7 @@ string dtype(Record* rec)
 void processRecord(raw_ostream& os, Record& rec, string arch)
 {
     if(!rec.getValue("GCCBuiltinName"))
-        return; 
+        return;
 
     string builtinName = rec.getValueAsString("GCCBuiltinName");
     string name =  rec.getName();
@@ -71,14 +71,14 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     replace(name.begin(), name.end(), '_', '.');
     name = string("llvm.") + name;
 
-    ListInit* paramsList = rec.getValueAsListInit("ParamTypes"); 
+    ListInit* paramsList = rec.getValueAsListInit("ParamTypes");
     vector<string> params;
     for(int i = 0; i < paramsList->getSize(); i++)
     {
         string t = dtype(paramsList->getElementAsRecord(i));
-        if(t == "") 
-            return; 
-        
+        if(t == "")
+            return;
+
         params.push_back(t);
     }
 
@@ -93,21 +93,21 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
             return;
     }
     else
-        return; 
+        return;
 
     os << "pragma(intrinsic, \"" + name + "\")\n    ";
     os << ret + " " + builtinName + "(";
-   
+
     if(params.size())
         os << params[0];
- 
+
     for(int i = 1; i < params.size(); i++)
         os << ", " << params[i];
 
     os << ");\n\n";
 }
 
-struct ActionImpl : TableGenAction 
+struct ActionImpl : TableGenAction
 {
     string arch;
     ActionImpl(string arch_): arch(arch_) {}
@@ -115,18 +115,18 @@ struct ActionImpl : TableGenAction
     bool operator()(raw_ostream& os, RecordKeeper& records)
     {
         os << "module ldc.gccbuiltins_";
-        os << arch; 
+        os << arch;
         os << "; \n\nimport core.simd;\n\n";
 
         map<string, Record*> defs = records.getDefs();
-        
+
         for(
-            map<string, Record* >::iterator it = defs.begin(); 
-            it != defs.end(); 
+            map<string, Record* >::iterator it = defs.begin();
+            it != defs.end();
             it++)
         {
             processRecord(os, *(*it).second, arch);
-        } 
+        }
 
         return false;
     }
@@ -144,7 +144,7 @@ int main(int argc, char** argv)
     file.appendComponent("llvm");
     file.appendComponent("Intrinsics.td");
 
-    string iStr = string("-I=") + string(LLVM_INCLUDEDIR); 
+    string iStr = string("-I=") + string(LLVM_INCLUDEDIR);
     string oStr = string("-o=") + argv[1];
 
     vector<char*> args2(argv, argv + 1);
@@ -154,5 +154,5 @@ int main(int argc, char** argv)
 
     cl::ParseCommandLineOptions(args2.size(), &args2[0]);
     ActionImpl act(argv[2]);
-    return TableGenMain(argv[0], act); 
+    return TableGenMain(argv[0], act);
 }
