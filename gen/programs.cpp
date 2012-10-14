@@ -30,24 +30,21 @@ static cl::opt<std::string> mslib("ms-lib",
 
 sys::Path getProgram(const char *name, const cl::opt<std::string> &opt, const char *envVar = 0)
 {
+    sys::Path path;
     const char *prog = NULL;
 
-    if (opt.getNumOccurrences() > 0 && opt.length() > 0)
-        prog = gcc.c_str();
+    if (opt.getNumOccurrences() > 0 && opt.length() > 0 && (prog = opt.c_str()))
+        path = sys::Program::FindProgramByName(prog);
 
-    if (!prog && envVar)
-        prog = getenv(envVar);
-    if (!prog)
-        prog = name;
+    if (path.empty() && envVar && (prog = getenv(envVar)))
+        path = sys::Program::FindProgramByName(prog);
 
-    sys::Path path = sys::Program::FindProgramByName(prog);
-    if (path.empty() && !prog) {
-        if (prog) {
-            path.set(prog);
-        } else {
-            error("failed to locate %s", name);
-            fatal();
-        }
+    if (path.empty())
+        path = sys::Program::FindProgramByName(name);
+
+    if (path.empty()) {
+        error("failed to locate %s", name);
+        fatal();
     }
 
     return path;

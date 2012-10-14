@@ -84,7 +84,7 @@ static int ExecuteToolAndWait(llvm::sys::Path tool, std::vector<std::string> arg
     std::string errstr;
     if (int status = llvm::sys::Program::ExecuteAndWait(tool, &realargs[0], NULL, NULL, 0, 0, &errstr))
     {
-        error("tool failed:\nstatus: %d", status);
+        error("%s failed with status: %d", tool.c_str(), status);
         if (!errstr.empty())
             error("message: %s", errstr.c_str());
         return status;
