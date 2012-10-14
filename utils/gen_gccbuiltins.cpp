@@ -8,7 +8,9 @@
 
 #include <llvm/Config/llvm-config.h>
 #include <llvm/TableGen/Main.h>
+#if LDC_LLVM_VER < 302
 #include <llvm/TableGen/TableGenAction.h>
+#endif
 #include <llvm/TableGen/Record.h>
 #include <llvm/Support/CommandLine.h>
 #include <llvm/Support/PathV1.h>
@@ -107,30 +109,36 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     os << ");\n\n";
 }
 
+std::string arch;
+
+bool emit(raw_ostream& os, RecordKeeper& records)
+{
+    os << "module ldc.gccbuiltins_";
+    os << arch;
+    os << "; \n\nimport core.simd;\n\n";
+
+    map<string, Record*> defs = records.getDefs();
+
+    for(
+        map<string, Record* >::iterator it = defs.begin();
+        it != defs.end();
+        it++)
+    {
+        processRecord(os, *(*it).second, arch);
+    }
+
+    return false;
+}
+
+#if LDC_LLVM_VER < 302
 struct ActionImpl : TableGenAction
 {
-    string arch;
-    ActionImpl(string arch_): arch(arch_) {}
-
     bool operator()(raw_ostream& os, RecordKeeper& records)
     {
-        os << "module ldc.gccbuiltins_";
-        os << arch;
-        os << "; \n\nimport core.simd;\n\n";
-
-        map<string, Record*> defs = records.getDefs();
-
-        for(
-            map<string, Record* >::iterator it = defs.begin();
-            it != defs.end();
-            it++)
-        {
-            processRecord(os, *(*it).second, arch);
-        }
-
-        return false;
+        return emit(os, records);
     }
 };
+#endif
 
 int main(int argc, char** argv)
 {
@@ -153,6 +161,11 @@ int main(int argc, char** argv)
     args2.push_back(const_cast<char*>(oStr.c_str()));
 
     cl::ParseCommandLineOptions(args2.size(), &args2[0]);
-    ActionImpl act(argv[2]);
+    arch = argv[2];
+#if LDC_LLVM_VER >= 302
+    return TableGenMain(argv[0], emit);
+#else
+    ActionImpl act;
     return TableGenMain(argv[0], act);
+#endif
 }
