@@ -268,8 +268,8 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
         set(GCCBUILTINS "${PROJECT_BINARY_DIR}/gccbuiltins_x86.di")
         add_custom_command(
             OUTPUT ${GCCBUILTINS}
-            COMMAND ${PROJECT_BINARY_DIR}/../bin/gen_gccbuiltins ${GCCBUILTINS} "x86"
-            DEPENDS ${PROJECT_BINARY_DIR}/../bin/gen_gccbuiltins
+            COMMAND ${GEN_GCCBUILTINS_LOC} ${GCCBUILTINS} "x86"
+            DEPENDS ${GEN_GCCBUILTINS_LOC}
         )
         if(BUILD_SINGLE_LIB)
             add_library(${RUNTIME_AIO}${target_suffix}

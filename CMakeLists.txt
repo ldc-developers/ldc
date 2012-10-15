@@ -303,6 +303,7 @@ target_link_libraries(gen_gccbuiltins "-lLLVMTableGen -lLLVMSupport -ldl ${LLVM_
 
 # For use by the druntime/Phobos build system.
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
+get_target_property(GEN_GCCBUILTINS_LOC gen_gccbuiltins LOCATION)
 
 #
 # LDMD
