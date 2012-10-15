@@ -69,7 +69,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         if (abi->returnInArg(f))
         {
 #if LDC_LLVM_VER >= 302
-            fty.arg_sret = new IrFuncTyArg(rt, true, llvm::Attributes::get(
+            fty.arg_sret = new IrFuncTyArg(rt, true, llvm::Attributes::get(gIR->context(),
                 llvm::Attributes::Builder().addAttribute(llvm::Attributes::StructRet)
                 .addAttribute(llvm::Attributes::NoAlias)
             #if !STRUCTTHISREF
@@ -139,8 +139,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
                 // _argptr
 #if LDC_LLVM_VER >= 302
                 fty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
-                                                 llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoAlias)
-                                                                                                  .addAttribute(llvm::Attributes::NoCapture)));
+                                                 llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder().addAttribute(llvm::Attributes::NoAlias)
+                                                                                                                  .addAttribute(llvm::Attributes::NoCapture)));
 #else
                 fty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false, NoAlias | NoCapture);
 #endif
@@ -195,7 +195,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         else if (abi->passByVal(byref ? argtype->pointerTo() : argtype))
         {
 #if LDC_LLVM_VER >= 302
-            if (!byref) a = llvm::Attributes::get(llvm::Attributes::Builder(a).addAttribute(llvm::Attributes::ByVal));
+            if (!byref) a = llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder(a).addAttribute(llvm::Attributes::ByVal));
 #else
             if (!byref) a |= llvm::Attribute::ByVal;
 #endif
@@ -206,7 +206,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         else if (!byref)
         {
 #if LDC_LLVM_VER >= 302
-            a = llvm::Attributes::get(llvm::Attributes::Builder(a).addAttributes(DtoShouldExtend(argtype)));
+            a = llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder(a).addAttributes(DtoShouldExtend(argtype)));
 #else
             a |= DtoShouldExtend(argtype);
 #endif

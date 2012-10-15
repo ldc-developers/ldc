@@ -723,7 +723,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     {
         LLFunction* llfunc = llvm::dyn_cast<LLFunction>(dfnval->val);
         if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
+#if LDC_LLVM_VER >= 302
+            attrlist = llvm::Intrinsic::getAttributes(gIR->context(), static_cast<llvm::Intrinsic::ID>(llfunc->getIntrinsicID()));
+#else
             attrlist = llvm::Intrinsic::getAttributes(static_cast<llvm::Intrinsic::ID>(llfunc->getIntrinsicID()));
+#endif
         else
             call.setCallingConv(callconv);
     }

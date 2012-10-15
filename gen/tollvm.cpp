@@ -44,7 +44,7 @@ llvm::Attributes DtoShouldExtend(Type* type)
         case Tint8:
         case Tint16:
 #if LDC_LLVM_VER >= 302
-            return llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::SExt));
+            return llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder().addAttribute(llvm::Attributes::SExt));
 #else
             return llvm::Attribute::SExt;
 #endif
@@ -52,7 +52,7 @@ llvm::Attributes DtoShouldExtend(Type* type)
         case Tuns8:
         case Tuns16:
 #if LDC_LLVM_VER >= 302
-            return llvm::Attributes::get(llvm::Attributes::Builder().addAttribute(llvm::Attributes::ZExt));
+            return llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder().addAttribute(llvm::Attributes::ZExt));
 #else
             return llvm::Attribute::ZExt;
 #endif
