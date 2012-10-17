@@ -98,6 +98,10 @@ namespace {
         unsigned TypeInfoArgNr;
         bool SafeToDelete;
 
+        /// Whether the allocated memory is returned as a D array instead of
+        /// just a plain pointer.
+        bool ReturnsArray;
+
         // Analyze the current call, filling in some fields. Returns true if
         // this is an allocation we can stack-allocate.
         virtual bool analyze(CallSite CS, const Analysis& A) {
@@ -108,15 +112,17 @@ namespace {
 
         // Returns the alloca to replace this call.
         // It will always be inserted before the call.
-        virtual AllocaInst* promote(CallSite CS, IRBuilder<>& B, const Analysis& A) {
+        virtual Value* promote(CallSite CS, IRBuilder<>& B, const Analysis& A) {
             NumGcToStack++;
 
             Instruction* Begin = CS.getCaller()->getEntryBlock().begin();
             return new AllocaInst(Ty, ".nongc_mem", Begin); // FIXME: align?
         }
 
-        FunctionInfo(unsigned typeInfoArgNr, bool safeToDelete)
-        : TypeInfoArgNr(typeInfoArgNr), SafeToDelete(safeToDelete) {}
+        FunctionInfo(unsigned typeInfoArgNr, bool safeToDelete, bool returnsArray)
+        : TypeInfoArgNr(typeInfoArgNr),
+          SafeToDelete(safeToDelete),
+          ReturnsArray(returnsArray) {}
     };
 
     class ArrayFI : public FunctionInfo {
@@ -125,9 +131,9 @@ namespace {
         bool Initialized;
 
     public:
-        ArrayFI(unsigned tiArgNr, bool safeToDelete, bool initialized,
-                unsigned arrSizeArgNr)
-        : FunctionInfo(tiArgNr, safeToDelete),
+        ArrayFI(unsigned tiArgNr, bool safeToDelete, bool returnsArray,
+                bool initialized, unsigned arrSizeArgNr)
+        : FunctionInfo(tiArgNr, safeToDelete, returnsArray),
           ArrSizeArgNr(arrSizeArgNr),
           Initialized(initialized)
         {}
@@ -165,7 +171,7 @@ namespace {
             return true;
         }
 
-        virtual AllocaInst* promote(CallSite CS, IRBuilder<>& B, const Analysis& A) {
+        virtual Value* promote(CallSite CS, IRBuilder<>& B, const Analysis& A) {
             IRBuilder<> Builder = B;
             // If the allocation is of constant size it's best to put it in the
             // entry block, so do so if we're not already there.
@@ -193,6 +199,15 @@ namespace {
                 // allocation site.
                 Value* Size = B.CreateMul(TypeSize, arrSize);
                 EmitMemZero(B, alloca, Size, A);
+            }
+
+            if (ReturnsArray) {
+                Value* arrStruct = llvm::UndefValue::get(CS.getType());
+                arrStruct = Builder.CreateInsertValue(arrStruct, arrSize, 0);
+                Value* memPtr = Builder.CreateBitCast(alloca,
+                    PointerType::getUnqual(B.getInt8Ty()));
+                arrStruct = Builder.CreateInsertValue(arrStruct, memPtr, 1);
+                return arrStruct;
             }
 
             return alloca;
@@ -243,7 +258,7 @@ namespace {
 
         // The default promote() should be fine.
 
-        AllocClassFI() : FunctionInfo(~0u, true) {}
+        AllocClassFI() : FunctionInfo(~0u, true, false) {}
     };
 }
 
@@ -296,9 +311,14 @@ FunctionPass *createGarbageCollect2Stack() {
 
 GarbageCollect2Stack::GarbageCollect2Stack()
 : FunctionPass(ID),
-  AllocMemoryT(0, true),
-  NewArrayVT(0, true, false, 1),
-  NewArrayT(0, true, true, 1)
+  AllocMemoryT(0, true, false),
+  NewArrayVT(0, true, false, false, 1),
+#ifdef DMDV1
+  // _d_newarrayT returns just the void* ptr in the LDC D1 runtime.
+  NewArrayT(0, true, false, true, 1)
+#else
+  NewArrayT(0, true, true, true, 1)
+#endif
 {
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
     KnownFunctions["_d_newarrayvT"] = &NewArrayVT;
@@ -323,7 +343,8 @@ static void RemoveCall(CallSite CS, const Analysis& A) {
     CS.getInstruction()->eraseFromParent();
 }
 
-static bool isSafeToStackAllocate(Instruction* Alloc, DominatorTree& DT);
+static bool isSafeToStackAllocateArray(Instruction* Alloc, DominatorTree& DT);
+static bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT);
 
 /// runOnFunction - Top level algorithm.
 ///
@@ -361,9 +382,6 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
                 KnownFunctions.find(Callee->getName());
             if (OMI == KnownFunctions.end()) continue;
 
-            assert(isa<PointerType>(Inst->getType())
-                && "GC function doesn't return a pointer?");
-
             FunctionInfo* info = OMI->getValue();
 
             if (Inst->use_empty() && info->SafeToDelete) {
@@ -375,8 +393,14 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 
             DEBUG(errs() << "GarbageCollect2Stack inspecting: " << *Inst);
 
-            if (!info->analyze(CS, A) || !isSafeToStackAllocate(Inst, DT))
+            if (!info->analyze(CS, A))
                 continue;
+
+            if (info->ReturnsArray) {
+                if (!isSafeToStackAllocateArray(Inst, DT)) continue;
+            } else {
+                if (!isSafeToStackAllocate(Inst, Inst, DT)) continue;
+            }
 
             // Let's alloca this!
             Changed = true;
@@ -555,6 +579,45 @@ static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, Dominato
     return false;
 }
 
+bool isSafeToStackAllocateArray(Instruction* Alloc, DominatorTree& DT) {
+    assert(Alloc->getType()->isStructTy() && "Allocated array is not a struct?");
+    Value* V = Alloc;
+
+    for (Value::use_iterator UI = V->use_begin(), UE = V->use_end();
+         UI != UE; ++UI) {
+        Use &U = UI.getUse();
+        Instruction *User = cast<Instruction>(*UI);
+
+        switch (User->getOpcode()) {
+        case Instruction::ExtractValue: {
+            ExtractValueInst *EVI = cast<ExtractValueInst>(User);
+
+            assert(EVI->getAggregateOperand() == V);
+            assert(EVI->getNumIndices() == 1);
+
+            unsigned idx = EVI->getIndices()[0];
+            if (idx == 0) {
+                // This extract the length argument, irrelevant for our analysis.
+                assert(EVI->getType()->isIntegerTy() && "First array field not length?");
+            } else {
+                assert(idx == 1 && "Invalid array struct access.");
+                if (!isSafeToStackAllocate(Alloc, EVI, DT))
+                    return false;
+            }
+            break;
+        }
+        default:
+            // We are super conservative here, the only thing we want to be able to
+            // handle at this point is extracting len/ptr. More extensive analysis
+            // could be added later.
+            return false;
+        }
+    }
+
+    // All uses examined - memory not captured.
+    return true;
+}
+
 
 /// isSafeToStackAllocate - Return true if the GC call passed in is safe to turn
 /// into a stack allocation. This requires that the return value does not
@@ -568,9 +631,8 @@ static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, Dominato
 ///
 /// Based on LLVM's PointerMayBeCaptured(), which only does escape analysis but
 /// doesn't care about loops.
-bool isSafeToStackAllocate(Instruction* Alloc, DominatorTree& DT) {
-  assert(isa<PointerType>(Alloc->getType()) && "Allocation is not a pointer?");
-  Value* V = Alloc;
+bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT) {
+  assert(isa<PointerType>(V->getType()) && "Allocated value is not a pointer?");
 
   SmallVector<Use*, 16> Worklist;
   SmallSet<Use*, 16> Visited;
