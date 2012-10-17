@@ -3,6 +3,10 @@ cmake_minimum_required(VERSION 2.6)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
+if(MSVC)
+    set(LIBCONFIG_DLL OFF CACHE BOOL "Use libconfig++ DLL instead of static library")
+endif(MSVC)
+
 #
 # Locate LLVM.
 #
@@ -217,6 +221,9 @@ include_directories(
 
 if(MSVC)
     include_directories(${PROJECT_SOURCE_DIR}/vcbuild)
+    if(NOT LIBCONFIG_DLL)
+        add_definitions(-DLIBCONFIGXX_STATIC -DLIBCONFIG_STATIC)
+    endif()
 endif()
 
 add_definitions(
