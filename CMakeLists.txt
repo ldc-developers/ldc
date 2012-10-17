@@ -14,7 +14,7 @@ endif(MSVC)
 # We need to find exactly the right LLVM version, our code usually does not
 # work across LLVM »minor« releases.
 find_package(LLVM 3.0 REQUIRED
-    all-targets bitwriter linker ipo instrumentation backend ${EXTRA_LLVM_MODULES})
+    all-targets bitwriter linker ipo instrumentation backend support tablegen ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 
 #
@@ -306,7 +306,10 @@ set_target_properties(
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
     COMPILE_FLAGS "${LLVM_CXXFLAGS}"
 )
-target_link_libraries(gen_gccbuiltins "-lLLVMTableGen -lLLVMSupport -ldl ${LLVM_LDFLAGS}" ${LLVM_LIBRARIES})
+target_link_libraries(gen_gccbuiltins "${LLVM_LDFLAGS}" ${LLVM_LIBRARIES})
+if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    target_link_libraries(${LDC_LIB} dl)
+endif()
 
 # For use by the druntime/Phobos build system.
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
