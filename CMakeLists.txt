@@ -308,7 +308,7 @@ set_target_properties(
 )
 target_link_libraries(gen_gccbuiltins "${LLVM_LDFLAGS}" ${LLVM_LIBRARIES})
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    target_link_libraries(${LDC_LIB} dl)
+    target_link_libraries(gen_gccbuiltins dl)
 endif()
 
 # For use by the druntime/Phobos build system.
