@@ -300,19 +300,28 @@ set_target_properties(
 )
 target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY})
 
+# For use by the druntime/Phobos build system.
+get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
+
+#
+# Intrinsics module generation tools.
+#
 add_executable(gen_gccbuiltins utils/gen_gccbuiltins.cpp)
+
+# Prior to LLVM 3.2, TableGen still uses RTTI, contrary to the rest of LLVM.
+# Thus, we have to remove the -fno-rtti flag from the llvm-config output.
+string(REPLACE "-fno-rtti " "" TABLEGEN_CXXFLAGS ${LLVM_CXXFLAGS})
+
 set_target_properties(
     gen_gccbuiltins PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    COMPILE_FLAGS "${LLVM_CXXFLAGS}"
+    COMPILE_FLAGS ${TABLEGEN_CXXFLAGS}
 )
 target_link_libraries(gen_gccbuiltins "${LLVM_LDFLAGS}" ${LLVM_LIBRARIES})
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
 
-# For use by the druntime/Phobos build system.
-get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 get_target_property(GEN_GCCBUILTINS_LOC gen_gccbuiltins LOCATION)
 
 #
