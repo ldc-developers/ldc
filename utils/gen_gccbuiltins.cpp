@@ -6,7 +6,6 @@
 #include <string.h>
 #include <assert.h>
 
-#include <llvm/Config/llvm-config.h>
 #include <llvm/TableGen/Main.h>
 #if LDC_LLVM_VER < 302
 #include <llvm/TableGen/TableGenAction.h>
@@ -148,11 +147,11 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    sys::Path file(LLVM_INCLUDEDIR);
+    sys::Path file(LLVM_INTRINSIC_TD_PATH);
     file.appendComponent("llvm");
     file.appendComponent("Intrinsics.td");
 
-    string iStr = string("-I=") + string(LLVM_INCLUDEDIR);
+    string iStr = string("-I=") + string(LLVM_INTRINSIC_TD_PATH);
     string oStr = string("-o=") + argv[1];
 
     vector<char*> args2(argv, argv + 1);

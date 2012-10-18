@@ -306,6 +306,16 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 #
 # Intrinsics module generation tools.
 #
+
+# The LLVM_INCLUDE_DIR definition is not always set, e.g. on Windows.
+find_path(LLVM_INTRINSIC_TD_PATH "llvm/Intrinsics.td" PATHS ${LLVM_INCLUDE_DIRS} NO_DEFAULT_PATH)
+if (${LLVM_INTRINSIC_TD_PATH} STREQUAL "LLVM_INTRINSIC_TD_PATH-NOTFOUND")
+    message(SEND_ERROR "File llvm/Intrinsics.td not found")
+else()
+    message(STATUS "Using path for llvm/Intrinsics.td: ${LLVM_INTRINSIC_TD_PATH}")
+endif()
+add_definitions(-DLLVM_INTRINSIC_TD_PATH="${LLVM_INTRINSIC_TD_PATH}")
+
 add_executable(gen_gccbuiltins utils/gen_gccbuiltins.cpp)
 
 # Prior to LLVM 3.2, TableGen still uses RTTI, contrary to the rest of LLVM.
