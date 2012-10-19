@@ -299,6 +299,10 @@ set_target_properties(
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
 )
 target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY})
+if(MSVC)
+    # Add a post build event in Visual Studio to copy the config file into Debug/Release folder
+    add_custom_command(TARGET ${LDC_EXE} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf $<TARGET_FILE_DIR:${LDC_EXE}> COMMENT "Copy config file ${LDC_EXE}.conf")
+endif(MSVC)
 
 # For use by the druntime/Phobos build system.
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
