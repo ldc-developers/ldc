@@ -527,7 +527,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
         {
             Logger::println("Putting 'this' in register");
 #if LDC_LLVM_VER >= 302
-            fty.arg_this->attrs = llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder().addAttribute(llvm::Attributes::InReg));
+            fty.arg_this->attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::InReg));
 #else
             fty.arg_this->attrs = llvm::Attribute::InReg;
 #endif
@@ -537,7 +537,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
         {
             Logger::println("Putting context ptr in register");
 #if LDC_LLVM_VER >= 302
-            fty.arg_nest->attrs = llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder().addAttribute(llvm::Attributes::InReg));
+            fty.arg_nest->attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::InReg));
 #else
             fty.arg_nest->attrs = llvm::Attribute::InReg;
 #endif
@@ -549,8 +549,8 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             // sret and inreg are incompatible, but the ABI requires the
             // sret parameter to be in RDI in this situation...
 #if LDC_LLVM_VER >= 302
-            sret->attrs = llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder(sret->attrs).addAttribute(llvm::Attributes::InReg)
-                                                                                                      .removeAttribute(llvm::Attributes::StructRet));
+            sret->attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder(sret->attrs).addAttribute(llvm::Attributes::InReg)
+                                                                                              .removeAttribute(llvm::Attributes::StructRet));
 #else
             sret->attrs = (sret->attrs | llvm::Attribute::InReg)
                             & ~llvm::Attribute::StructRet;
@@ -572,7 +572,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
                if (xmmcount > 0) {
                    Logger::println("Putting float parameter in register");
 #if LDC_LLVM_VER >= 302
-                   arg.attrs = llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder(arg.attrs).addAttribute(llvm::Attributes::InReg));
+                   arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder(arg.attrs).addAttribute(llvm::Attributes::InReg));
 #else
                    arg.attrs |= llvm::Attribute::InReg;
 #endif
@@ -587,7 +587,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             {
                 Logger::println("Putting byref parameter in register");
 #if LDC_LLVM_VER >= 302
-                arg.attrs = llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder(arg.attrs).addAttribute(llvm::Attributes::InReg));
+                arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder(arg.attrs).addAttribute(llvm::Attributes::InReg));
 #else
                 arg.attrs |= llvm::Attribute::InReg;
 #endif
@@ -597,7 +597,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             {
                 Logger::println("Putting pointer parameter in register");
 #if LDC_LLVM_VER >= 302
-                arg.attrs = llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder(arg.attrs).addAttribute(llvm::Attributes::InReg));
+                arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder(arg.attrs).addAttribute(llvm::Attributes::InReg));
 #else
                 arg.attrs |= llvm::Attribute::InReg;
 #endif
@@ -607,7 +607,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
             {
                 Logger::println("Putting integral parameter in register");
 #if LDC_LLVM_VER >= 302
-                arg.attrs = llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder(arg.attrs).addAttribute(llvm::Attributes::InReg));
+                arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder(arg.attrs).addAttribute(llvm::Attributes::InReg));
 #else
                 arg.attrs |= llvm::Attribute::InReg;
 #endif
@@ -621,7 +621,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
                 arg.ltype = compositeToInt.type(arg.type, arg.ltype);
                 arg.byref = false;
 #if LDC_LLVM_VER >= 302
-                arg.attrs = llvm::Attributes::get(gIR->context(), llvm::Attributes::Builder().addAttribute(llvm::Attributes::InReg));
+                arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::InReg));
 #else
                 arg.attrs = llvm::Attribute::InReg;
 #endif
