@@ -392,11 +392,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
                 bool refout = vd->storage_class & (STCref | STCout);
                 bool lazy = vd->storage_class & STClazy;
                 bool byref = irparam->arg->byref;
-#if STRUCTTHISREF
                 bool isVthisPtr = irparam->isVthis && !byref;
-#else
-                bool isVthisPtr = irparam->isVthis;
-#endif
                 if ((!refout && (!byref || lazy)) || isVthisPtr) {
                     // This will be copied to the nesting frame.
                     if (lazy)
