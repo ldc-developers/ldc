@@ -19,7 +19,7 @@ unsigned GetTypeAlignment(Ir* ir, Type* t)
 
 unsigned GetPointerSize(Ir* ir)
 {
-    return gDataLayout->getPointerSize();
+    return gDataLayout->getPointerSize(ADDRESS_SPACE);
 }
 
 unsigned GetTypeStoreSize(Ir* ir, Type* t)

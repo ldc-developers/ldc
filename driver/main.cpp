@@ -581,7 +581,7 @@ int main(int argc, char** argv)
 
     global.params.isLE = gDataLayout->isLittleEndian();
     // Starting with LLVM 3.1 we could also use global.params.targetTriple.isArch64Bit();
-    global.params.is64bit = gDataLayout->getPointerSizeInBits() == 64;
+    global.params.is64bit = gDataLayout->getPointerSizeInBits(ADDRESS_SPACE) == 64;
     global.params.cpu = static_cast<ARCH>(global.params.targetTriple.getArch());
     global.params.os = static_cast<OS>(global.params.targetTriple.getOS());
 
