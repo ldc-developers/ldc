@@ -1562,11 +1562,16 @@ DValue* ThisExp::toElem(IRState* p)
         LLValue* v;
         Dsymbol* vdparent = vd->toParent2();
         Identifier *ident = p->func()->decl->ident;
+#if DMDV2
+        // In D1, contracts are treated as normal nested methods, 'this' is
+        // just passed in the context struct along with any used parameters.
         if (ident == Id::ensure || ident == Id::require) {
             Logger::println("contract this exp");
             v = p->func()->nestArg;
             v = DtoBitCast(v, DtoType(type)->getPointerTo());
-        } else if (vdparent != p->func()->decl) {
+        } else
+#endif
+        if (vdparent != p->func()->decl) {
             Logger::println("nested this exp");
 #if STRUCTTHISREF
             return DtoNestedVariable(loc, type, vd, type->ty == Tstruct);
