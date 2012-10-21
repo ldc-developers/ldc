@@ -343,8 +343,12 @@ static void RemoveCall(CallSite CS, const Analysis& A) {
     CS.getInstruction()->eraseFromParent();
 }
 
-static bool isSafeToStackAllocateArray(Instruction* Alloc, DominatorTree& DT);
-static bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT);
+static bool isSafeToStackAllocateArray(Instruction* Alloc, DominatorTree& DT,
+    SmallVector<CallInst*, 4>& RemoveTailCallInsts
+);
+static bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
+    SmallVector<CallInst*, 4>& RemoveTailCallInsts
+);
 
 /// runOnFunction - Top level algorithm.
 ///
@@ -396,14 +400,22 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             if (!info->analyze(CS, A))
                 continue;
 
+            SmallVector<CallInst*, 4> RemoveTailCallInsts;
             if (info->ReturnsArray) {
-                if (!isSafeToStackAllocateArray(Inst, DT)) continue;
+                if (!isSafeToStackAllocateArray(Inst, DT, RemoveTailCallInsts)) continue;
             } else {
-                if (!isSafeToStackAllocate(Inst, Inst, DT)) continue;
+                if (!isSafeToStackAllocate(Inst, Inst, DT, RemoveTailCallInsts)) continue;
             }
 
             // Let's alloca this!
             Changed = true;
+
+            // First demote tail calls which use the value so there IR is never
+            // in an invalid state.
+            SmallVector<CallInst*, 4>::iterator it, end = RemoveTailCallInsts.end();
+            for (it = RemoveTailCallInsts.begin(); it != end; ++it) {
+                (*it)->setTailCall(false);
+            }
 
             IRBuilder<> Builder(BB, Inst);
             Value* newVal = info->promote(CS, Builder, A);
@@ -579,7 +591,14 @@ static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, Dominato
     return false;
 }
 
-bool isSafeToStackAllocateArray(Instruction* Alloc, DominatorTree& DT) {
+/// Returns true if the GC call passed in is safe to turn into a stack
+/// allocation.
+///
+/// This handles GC calls returning a D array instead of a raw pointer,
+/// see isSafeToStackAllocate() for details.
+bool isSafeToStackAllocateArray(Instruction* Alloc, DominatorTree& DT,
+    SmallVector<CallInst*, 4>& RemoveTailCallInsts
+) {
     assert(Alloc->getType()->isStructTy() && "Allocated array is not a struct?");
     Value* V = Alloc;
 
@@ -601,7 +620,7 @@ bool isSafeToStackAllocateArray(Instruction* Alloc, DominatorTree& DT) {
                 assert(EVI->getType()->isIntegerTy() && "First array field not length?");
             } else {
                 assert(idx == 1 && "Invalid array struct access.");
-                if (!isSafeToStackAllocate(Alloc, EVI, DT))
+                if (!isSafeToStackAllocate(Alloc, EVI, DT, RemoveTailCallInsts))
                     return false;
             }
             break;
@@ -619,11 +638,11 @@ bool isSafeToStackAllocateArray(Instruction* Alloc, DominatorTree& DT) {
 }
 
 
-/// isSafeToStackAllocate - Return true if the GC call passed in is safe to turn
+/// Returns true if the GC call passed in is safe to turn
 /// into a stack allocation. This requires that the return value does not
 /// escape from the function and no derived pointers are live at the call site
 /// (i.e. if it's in a loop then the function can't use any pointer returned
-/// from an earlier call after a new call has been made)
+/// from an earlier call after a new call has been made).
 ///
 /// This is currently conservative where loops are involved: it can handle
 /// simple loops, but returns false if any derived pointer is used in a
@@ -631,7 +650,18 @@ bool isSafeToStackAllocateArray(Instruction* Alloc, DominatorTree& DT) {
 ///
 /// Based on LLVM's PointerMayBeCaptured(), which only does escape analysis but
 /// doesn't care about loops.
-bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT) {
+///
+/// Alloc is the actual call to the runtime function, and V is the pointer to
+/// the memory it returns (which might not be equal to Alloc in case of
+/// functions returning D arrays).
+///
+/// If the value is used in a call instruction with the tail attribute set,
+/// the attribute has to be removed before promoting the memory to the
+/// stack. The affected instructions are added to RemoveTailCallInsts. If
+/// the function returns false, these entries are meaningless.
+bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
+    SmallVector<CallInst*, 4>& RemoveTailCallInsts
+) {
   assert(isa<PointerType>(V->getType()) && "Allocated value is not a pointer?");
 
   SmallVector<Use*, 16> Worklist;
@@ -669,9 +699,19 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT) {
       // (think of self-referential objects).
       CallSite::arg_iterator B = CS.arg_begin(), E = CS.arg_end();
       for (CallSite::arg_iterator A = B; A != E; ++A)
-        if (A->get() == V && !CS.paramHasAttr(A - B + 1, Attribute::NoCapture))
-          // The parameter is not marked 'nocapture' - captured.
-          return false;
+        if (A->get() == V) {
+          if (!CS.paramHasAttr(A - B + 1, Attribute::NoCapture)) {
+            // The parameter is not marked 'nocapture' - captured.
+            return false;
+          }
+
+          if (CS.isCall()) {
+            CallInst* CI = cast<CallInst>(I);
+            if (CI->isTailCall()) {
+              RemoveTailCallInsts.push_back(CI);
+            }
+          }
+        }
       // Only passed via 'nocapture' arguments, or is the called function - not
       // captured.
       break;
