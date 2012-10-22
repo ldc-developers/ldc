@@ -620,10 +620,6 @@ int main(int argc, char** argv)
             VersionCondition::addPredefinedGlobalIdent("ARM_Soft");
             VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
             break;
-        case llvm::Triple::alpha:
-            // FIXME: Detect soft float (Alpha_SoftFP/Alpha_HardFP).
-            VersionCondition::addPredefinedGlobalIdent("Alpha");
-            break;
         case llvm::Triple::mips:
         case llvm::Triple::mipsel:
             // FIXME: Detect 64-bit MIPS (MIPS64).
@@ -637,11 +633,6 @@ int main(int argc, char** argv)
             break;
         case llvm::Triple::sparcv9:
             VersionCondition::addPredefinedGlobalIdent("SPARC64");
-            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
-            break;
-        case llvm::Triple::systemz:
-            // FIXME: Detect S390 (S390) too.
-            VersionCondition::addPredefinedGlobalIdent("S390X");
             VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
         default:
