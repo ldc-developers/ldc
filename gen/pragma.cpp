@@ -447,6 +447,25 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
                 error("the '%s' pragma template's member must be a function declaration", ident->toChars());
                 fatal();
             }
+            
+            TemplateParameters& params = *td->parameters;
+            bool valid_params = 
+                params.dim == 3 && params[1]->isTemplateTypeParameter() && 
+                params[2]->isTemplateTupleParameter();
+
+            if(valid_params)
+            {
+                TemplateValueParameter* p0 = params[0]->isTemplateValueParameter();
+                valid_params = valid_params && p0 && p0->valType == Type::tstring;
+            }
+            
+            if(!valid_params)
+            {
+                error("the '%s' pragma template must have exactly three parameters: a string, a type and a type tuple", 
+                    ident->toChars());
+                fatal();
+            }
+
             td->llvmInternal = llvm_internal;
         }
         else
