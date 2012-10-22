@@ -622,10 +622,16 @@ int main(int argc, char** argv)
             break;
         case llvm::Triple::mips:
         case llvm::Triple::mipsel:
-            // FIXME: Detect 64-bit MIPS (MIPS64).
-            // FIXME: Detect O32/N32/N64 variants (MIPS[64]_{O32,N32,N64}[_SoftFP,_HardFP]).
+            // FIXME: Detect O32/N32 variants (MIPS_{O32,N32}[_SoftFP,_HardFP]).
             VersionCondition::addPredefinedGlobalIdent("MIPS");
             break;
+#if LDC_LLVM_VER >= 301
+        case llvm::Triple::mips64:
+        case llvm::Triple::mips64el:
+            // FIXME: Detect N64 variants (MIPS64_N64[_SoftFP,_HardFP]).
+            VersionCondition::addPredefinedGlobalIdent("MIPS");
+            break;
+#endif
         case llvm::Triple::sparc:
             // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
             // FIXME: Detect soft float (SPARC_SoftFP/SPARC_HardFP).
