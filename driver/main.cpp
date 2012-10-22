@@ -186,7 +186,7 @@ int main(int argc, char** argv)
     global.params.moduleDepsFile = NULL;
 
     // Set predefined version identifiers
-    VersionCondition::addPredefinedGlobalIdent("LLVM");
+    VersionCondition::addPredefinedGlobalIdent("LLVM"); // For backwards compatibility.
     VersionCondition::addPredefinedGlobalIdent("LDC");
     VersionCondition::addPredefinedGlobalIdent("all");
 #if DMDV2
@@ -592,24 +592,54 @@ int main(int argc, char** argv)
             if (global.params.useInlineAsm) {
                 VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
             }
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
         case llvm::Triple::x86_64:
             VersionCondition::addPredefinedGlobalIdent("X86_64");
             if (global.params.useInlineAsm) {
                 VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86_64");
             }
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
         case llvm::Triple::ppc:
+            // FIXME: Detect soft float (PPC_SoftFP/PPC_HardFP).
             VersionCondition::addPredefinedGlobalIdent("PPC");
             break;
         case llvm::Triple::ppc64:
             VersionCondition::addPredefinedGlobalIdent("PPC64");
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
         case llvm::Triple::arm:
+            // FIXME: Detect various FP ABIs (ARM_Soft, ARM_SoftFP, ARM_HardFP).
             VersionCondition::addPredefinedGlobalIdent("ARM");
+            break;
         case llvm::Triple::thumb:
             VersionCondition::addPredefinedGlobalIdent("ARM");
-            VersionCondition::addPredefinedGlobalIdent("Thumb");
+            VersionCondition::addPredefinedGlobalIdent("Thumb"); // For backwards compatibility.
+            VersionCondition::addPredefinedGlobalIdent("ARM_Thumb");
+            VersionCondition::addPredefinedGlobalIdent("ARM_Soft");
+            VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
+            break;
+        case llvm::Triple::mips:
+        case llvm::Triple::mipsel:
+            // FIXME: Detect O32/N32 variants (MIPS_{O32,N32}[_SoftFP,_HardFP]).
+            VersionCondition::addPredefinedGlobalIdent("MIPS");
+            break;
+#if LDC_LLVM_VER >= 301
+        case llvm::Triple::mips64:
+        case llvm::Triple::mips64el:
+            // FIXME: Detect N64 variants (MIPS64_N64[_SoftFP,_HardFP]).
+            VersionCondition::addPredefinedGlobalIdent("MIPS");
+            break;
+#endif
+        case llvm::Triple::sparc:
+            // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
+            // FIXME: Detect soft float (SPARC_SoftFP/SPARC_HardFP).
+            VersionCondition::addPredefinedGlobalIdent("SPARC");
+            break;
+        case llvm::Triple::sparcv9:
+            VersionCondition::addPredefinedGlobalIdent("SPARC64");
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
         default:
             error("invalid cpu architecture specified: %s", global.params.targetTriple.getArchName().str().c_str());
@@ -626,8 +656,7 @@ int main(int argc, char** argv)
 
     // a generic 64bit version
     if (global.params.is64bit) {
-        VersionCondition::addPredefinedGlobalIdent("LLVM64");
-        // FIXME: is this always correct?
+        VersionCondition::addPredefinedGlobalIdent("LLVM64"); // For backwards compatibility.
         VersionCondition::addPredefinedGlobalIdent("D_LP64");
     }
 
@@ -648,12 +677,13 @@ int main(int argc, char** argv)
             global.params.os = OSWindows; // FIXME: Check source for uses of MinGW32
             VersionCondition::addPredefinedGlobalIdent("Windows");
             VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
-            VersionCondition::addPredefinedGlobalIdent("mingw32");
+            VersionCondition::addPredefinedGlobalIdent("mingw32"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("MinGW");
             break;
         case llvm::Triple::Cygwin:
-            error("CygWin is not yet supported");
+            error("Cygwin is not yet supported");
             fatal();
+            VersionCondition::addPredefinedGlobalIdent("Cygwin");
             break;
         case llvm::Triple::Linux:
             VersionCondition::addPredefinedGlobalIdent("linux");
@@ -664,19 +694,31 @@ int main(int argc, char** argv)
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         case llvm::Triple::Darwin:
-            global.params.os = OSMacOSX; // FIXME: Do we need to distinguish between Darwin and MacOSX?
+            global.params.os = OSMacOSX;
             VersionCondition::addPredefinedGlobalIdent("OSX");
-            VersionCondition::addPredefinedGlobalIdent("darwin");
+            VersionCondition::addPredefinedGlobalIdent("darwin"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         case llvm::Triple::FreeBSD:
-            VersionCondition::addPredefinedGlobalIdent("freebsd");
+            VersionCondition::addPredefinedGlobalIdent("freebsd"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("FreeBSD");
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         case llvm::Triple::Solaris:
-            VersionCondition::addPredefinedGlobalIdent("solaris");
+            VersionCondition::addPredefinedGlobalIdent("solaris"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("Solaris");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::DragonFly:
+            VersionCondition::addPredefinedGlobalIdent("DragonFlyBSD");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::NetBSD:
+            VersionCondition::addPredefinedGlobalIdent("NetBSD");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::OpenBSD:
+            VersionCondition::addPredefinedGlobalIdent("OpenBSD");
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         default:
@@ -707,6 +749,12 @@ int main(int argc, char** argv)
     // unittests?
     if (global.params.useUnitTests)
         VersionCondition::addPredefinedGlobalIdent("unittest");
+
+    if (global.params.useAssert)
+        VersionCondition::addPredefinedGlobalIdent("assert");
+
+    if (!global.params.useArrayBounds)
+        VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
 #endif
 
     // Initialization
