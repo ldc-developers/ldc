@@ -307,7 +307,10 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
         stream << ", ";
     }
 
-    stream << ")\n{\n" << code << "\n}";
+    if(ret->ty == Tvoid)
+        code.append("\nret void"); 
+    
+    stream << ")\n{\n" << code <<  "\n}";
     
     llvm::SMDiagnostic err;
     llvm::ParseAssemblyString(stream.str().c_str(), gIR->module, err, gIR->context());
