@@ -257,6 +257,64 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+#include <llvm/Support/raw_ostream.h>
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Assembly/Parser.h"
+
+LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl, const char* mangled_name)
+{
+
+    TemplateInstance* tinst = fdecl->parent->isTemplateInstance();
+    assert(tinst);
+
+    Objects& objs = tinst->tdtypes;
+    assert(objs.dim == 3); 
+
+    Expression* a0 = isExpression(objs[0]);
+    assert(a0);
+    StringExp* strexp = a0->toString();
+    assert(strexp);
+    assert(strexp->sz == 1);
+
+    std::string code(static_cast<char*>(strexp->string), strexp->len); 
+    Logger::println("asdf %s", code.c_str());
+
+    Type* ret = isType(objs[1]);
+    assert(ret);
+   
+    Tuple* a2 = isTuple(objs[2]);
+    assert(a2);
+    Objects& arg_types = a2->objects;
+ 
+    std::string retstr;
+    llvm::raw_string_ostream stream(retstr);
+    stream << "define " << *DtoType(ret) << " @" << mangled_name << "(";
+
+    for(size_t i = 0; ;)
+    {
+        Type* ty = isType(arg_types[i]);
+        assert(ty);
+        stream << *DtoType(ty);
+        
+        i++;
+        if(i >= arg_types.dim)
+            break;
+    
+        stream << ", ";
+    }
+
+    stream << ")\n{\n" << code << "\n}";
+    
+    llvm::SMDiagnostic err;
+    llvm::ParseAssemblyString(stream.str().c_str(), gIR->module, err, gIR->context());
+ 
+    LLFunction* fun = gIR->module->getFunction(mangled_name);
+    fun->setLinkage(DtoLinkage(fdecl));
+    return fun;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 static llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 {
     TypeFunction* f = static_cast<TypeFunction*>(fdecl->type);
@@ -407,6 +465,14 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
             fdecl->ir.defined = true;
             return; // this gets mapped to a special inline asm call, no point in going on.
         }
+        else if (tempdecl->llvmInternal == LLVMinline_ir)
+        {
+            fdecl->llvmInternal = LLVMinline_ir;
+            fdecl->linkage = LINKc;
+            Type* type = fdecl->type;
+            assert(type->ty == Tfunction);
+            static_cast<TypeFunction*>(type)->linkage = LINKc;
+        }
     }
 
     DtoType(fdecl->type);
@@ -539,11 +605,14 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     LLFunctionType* functype = DtoFunctionType(fdecl);
     LLFunction* func = vafunc ? vafunc : gIR->module->getFunction(mangled_name);
     if (!func) {
-        func = LLFunction::Create(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
+        if(fdecl->llvmInternal == LLVMinline_ir && !declareOnly)
+            func = DtoInlineIRFunction(fdecl, mangled_name); 
+        else
+            func = LLFunction::Create(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
     } else if (func->getFunctionType() != functype) {
         error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", fdecl->mangle());
     }
-
+    
     if (Logger::enabled())
         Logger::cout() << "func = " << *func << std::endl;
 
@@ -555,7 +624,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         func->setCallingConv(DtoCallingConv(fdecl->loc, f->linkage));
     else // fall back to C, it should be the right thing to do
         func->setCallingConv(llvm::CallingConv::C);
-
+    
     // parameter attributes
     if (!fdecl->isIntrinsic()) {
         set_param_attrs(f, func, fdecl);
@@ -564,6 +633,13 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             func->addFnAttr(llvm::Attributes::NoRedZone);
 #else
             func->addFnAttr(NoRedZone);
+#endif
+        }
+        if(fdecl->llvmInternal == LLVMinline_ir){
+#if LDC_LLVM_VER >= 302
+            func->addFnAttr(llvm::Attributes::AlwaysInline);
+#else
+            func->addFnAttr(AlwaysInline);
 #endif
         }
     }

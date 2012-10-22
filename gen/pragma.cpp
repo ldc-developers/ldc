@@ -257,6 +257,17 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
         return LLVMinline_asm;
     }
 
+    // pragma(llvm_inline_ir) { templdecl(s) }
+    else if (ident == Id::llvm_inline_ir)
+    {
+        if (args && args->dim > 0)
+        {
+             error("takes no parameters");
+             fatal();
+        }
+        return LLVMinline_ir;
+    }
+
     return LLVMnone;
 }
 
@@ -410,6 +421,30 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
             else if (!td->onemember)
             {
                 error("the '%s' pragma template must have exactly one member", ident->toChars());
+                fatal();
+            }
+            td->llvmInternal = llvm_internal;
+        }
+        else
+        {
+            error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+            fatal();
+        }
+        break;
+
+    case LLVMinline_ir:
+        if (TemplateDeclaration* td = s->isTemplateDeclaration())
+        {
+            Dsymbol* member = td->onemember;
+            if (!member)
+            {
+                error("the '%s' pragma template must have exactly one member", ident->toChars());
+                fatal();
+            }
+            FuncDeclaration* fun = member->isFuncDeclaration();
+            if (!fun)
+            {
+                error("the '%s' pragma template's member must be a function declaration", ident->toChars());
                 fatal();
             }
             td->llvmInternal = llvm_internal;

@@ -1019,6 +1019,7 @@ int main(int argc, char** argv)
     if (!global.params.symdebug && willInline())
     {
         global.params.useAvailableExternally = true;
+        Logger::println("asdf useAvailableExternally");
         Logger::println("Running some extra semantic3's for inlining purposes");
 #endif
         {
