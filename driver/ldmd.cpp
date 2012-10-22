@@ -198,6 +198,7 @@ Usage:\n\
   -shared        generate shared library\n\
   -unittest      compile in unit tests\n\
   -v             verbose\n\
+  -vdmd          Print commands executed by this wrapper script\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n"
 #if 0
@@ -333,6 +334,7 @@ struct Params
     Model::Type targetModel;
     bool profile;
     bool verbose;
+    bool vdmd;
     bool logTlsUse;
     Warnings::Type warnings;
     bool optimize;
@@ -440,6 +442,8 @@ Params parseArgs(int originalArgc, char** originalArgv, ls::Path ldcPath)
                 result.profile = true;
             else if (strcmp(p + 1, "v") == 0)
                 result.verbose = true;
+            else if (strcmp(p + 1, "vdmd") == 0)
+                result.vdmd = true;
 #if DMDV2
             else if (strcmp(p + 1, "vtls") == 0)
                 result.logTlsUse = true;
@@ -794,6 +798,12 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.run) r.push_back("-run");
     r.insert(r.end(), p.files.begin(), p.files.end());
     r.insert(r.end(), p.runArgs.begin(), p.runArgs.end());
+    if (p.vdmd)
+    {
+        for( int i=0; i < r.size(); ++i )
+            printf( " %s", r[i] );
+        puts( "" ); //new line
+    }
 }
 
 /**
