@@ -721,6 +721,12 @@ int main(int argc, char** argv)
             VersionCondition::addPredefinedGlobalIdent("OpenBSD");
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
+#if LDC_LLVM_VER >= 302
+        case llvm::Triple::AIX:
+            VersionCondition::addPredefinedGlobalIdent("AIX");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+#endif
         default:
             error("target '%s' is not yet supported", global.params.targetTriple.str().c_str());
             fatal();
