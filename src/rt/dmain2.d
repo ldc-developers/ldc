@@ -351,6 +351,19 @@ extern (C) bool rt_term(ExceptionHandler dg = null)
     return false;
 }
 
+struct CArgs
+{
+    int argc;
+    char** argv;
+}
+
+__gshared CArgs _cArgs;
+
+extern (C) CArgs rt_cArgs()
+{
+    return _cArgs;
+}
+
 /***********************************
  * The D main() function supplied by the user's program
  */
@@ -372,6 +385,8 @@ version (Solaris) extern (C) int _main(int argc, char** argv)
 
 extern (C) int main(int argc, char** argv)
 {
+    _cArgs.argc = argc;
+    _cArgs.argv = argv;
     char[][] args;
     int result;
 
