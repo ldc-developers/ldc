@@ -57,6 +57,17 @@ string dtype(Record* rec)
         return "";
 }
 
+string attributes(ListInit* propertyList)
+{
+    string prop = propertyList->getSize() ? 
+        propertyList->getElementAsRecord(0)->getName() : "";
+
+    return
+        prop == "IntrNoMem" ? "nothrow pure @safe" :
+        prop == "IntrReadArgMem" ? "nothrow pure" :
+        prop == "IntrReadWriteArgMem" ? "nothrow pure" : "nothrow";
+}
+
 void processRecord(raw_ostream& os, Record& rec, string arch)
 {
     if(!rec.getValue("GCCBuiltinName"))
@@ -105,7 +116,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     for(int i = 1; i < params.size(); i++)
         os << ", " << params[i];
 
-    os << ");\n\n";
+    os << ")" + attributes(rec.getValueAsListInit("Properties")) + ";\n\n";
 }
 
 std::string arch;
