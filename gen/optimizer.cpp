@@ -62,22 +62,22 @@ verifyEach("verify-each",
 
 static cl::opt<bool>
 disableLangSpecificPasses("disable-d-passes",
-    cl::desc("Disable D-specific passes in -O<N>"),
+    cl::desc("Disable all D-specific passes"),
     cl::ZeroOrMore);
 
 static cl::opt<bool>
 disableSimplifyRuntimeCalls("disable-simplify-drtcalls",
-    cl::desc("Disable simplification of runtime calls in -O<N>"),
+    cl::desc("Disable simplification of druntime calls"),
     cl::ZeroOrMore);
 
 static cl::opt<bool>
 disableGCToStack("disable-gc2stack",
-    cl::desc("Disable promotion of GC allocations to stack memory in -O<N>"),
+    cl::desc("Disable promotion of GC allocations to stack memory"),
     cl::ZeroOrMore);
 
 static cl::opt<opts::BoolOrDefaultAdapter, false, opts::FlagParser>
 enableInlining("inlining",
-    cl::desc("(*) Enable function inlining in -O<N>"),
+    cl::desc("Enable function inlining (default in -O2 and higher)"),
     cl::ZeroOrMore);
 
 static cl::opt<bool>
