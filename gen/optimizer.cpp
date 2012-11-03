@@ -56,7 +56,7 @@ noVerify("disable-verify",
 
 static cl::opt<bool>
 verifyEach("verify-each",
-    cl::desc("Run verifier after each optimization pass"),
+    cl::desc("Run verifier after D-specific and explicitly specified optimization passes"),
     cl::Hidden,
     cl::ZeroOrMore);
 
@@ -236,7 +236,7 @@ bool ldc_optimize_module(llvm::Module* m)
     // If the -strip-debug command line option was specified, add it before
     // anything else.
     if (stripDebug)
-        addPass(mpm, createStripSymbolsPass(true));
+        mpm.add(createStripSymbolsPass(true));
 
     bool defaultsAdded = false;
     // Create a new optimization pass for each one specified on the command line
