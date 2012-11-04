@@ -101,7 +101,7 @@ static unsigned sizeLevel() {
 // Determines whether or not to run the normal, full inlining pass.
 bool willInline() {
     return enableInlining == cl::BOU_TRUE ||
-        (enableInlining != cl::BOU_UNSET && optLevel() > 1);
+        (enableInlining == cl::BOU_UNSET && optLevel() > 1);
 }
 
 llvm::CodeGenOpt::Level codeGenOptLevel() {
