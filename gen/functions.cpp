@@ -316,7 +316,11 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
     llvm::ParseAssemblyString(stream.str().c_str(), gIR->module, err, gIR->context());
     std::string errstr = err.getMessage();
     if(errstr != "")
-        error(tinst->loc, "can't parse inline LLVM IR: %s", errstr.c_str());
+        error(tinst->loc, 
+            "can't parse inline LLVM IR:\n%s\n%s\n%s\nThe input string was: \n%s", 
+            err.getLineContents().c_str(), 
+            (std::string(err.getColumnNo(), ' ') + '^').c_str(), 
+            errstr.c_str(), stream.str().c_str());
  
     LLFunction* fun = gIR->module->getFunction(mangled_name);
     fun->setLinkage(DtoLinkage(fdecl));
@@ -622,7 +626,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     } else if (func->getFunctionType() != functype) {
         error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", fdecl->mangle());
     }
-    
+
     if (Logger::enabled())
         Logger::cout() << "func = " << *func << std::endl;
 
@@ -634,7 +638,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         func->setCallingConv(DtoCallingConv(fdecl->loc, f->linkage));
     else // fall back to C, it should be the right thing to do
         func->setCallingConv(llvm::CallingConv::C);
-    
+
     // parameter attributes
     if (!fdecl->isIntrinsic()) {
         set_param_attrs(f, func, fdecl);
