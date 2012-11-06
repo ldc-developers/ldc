@@ -128,8 +128,10 @@ static inline void addPass(PassManagerBase& pm, Pass* pass) {
 }
 
 static void addStripExternalsPass(const PassManagerBuilder &builder, PassManagerBase &pm) {
-    if (builder.OptLevel >= 1)
+    if (builder.OptLevel >= 1) {
         addPass(pm, createStripExternalsPass());
+        addPass(pm, createGlobalDCEPass());
+    }
 }
 
 static void addSimplifyDRuntimeCallsPass(const PassManagerBuilder &builder, PassManagerBase &pm) {
