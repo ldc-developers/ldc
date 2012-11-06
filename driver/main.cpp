@@ -1015,8 +1015,24 @@ int main(int argc, char** argv)
          */
         if (!global.params.useArrayBounds && !global.params.useAssert)
 #else
-    // This doesn't play nice with debug info at the moment
-    if (!global.params.symdebug && willInline())
+    // This doesn't play nice with debug info at the moment.
+    //
+    // Also, don't run the additional semantic3 passes when building unit tests.
+    // This is basically a huge hack around the fact that linking against a
+    // library is supposed to require the same compiler flags as when it was
+    // built, but -unittest is usually not thought to behave like this from a
+    // user perspective.
+    //
+    // Thus, if a library contained some functions in version(unittest), for
+    // example the tests in std.concurrency, and we ended up inline-scannin
+    // these functions while doing an -unittest build of a client application,
+    // we could end up referencing functions that we think are
+    // availableExternally, but have never been touched when the library was built.
+    //
+    // Alternatively, we could also amend the availableExternally detection
+    // logic (e.g. just codegen everything on -unittest builds), but the extra
+    // inlining is unlikely to be important for test builds anyway.
+    if (!global.params.symdebug && willInline() && !global.params.useUnitTests)
     {
         global.params.useAvailableExternally = true;
         Logger::println("Running some extra semantic3's for inlining purposes");
