@@ -159,10 +159,7 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
     builder.OptLevel = optLevel;
     builder.SizeLevel = sizeLevel;
 
-    if (enableInlining == cl::BOU_FALSE) {
-        // If -disable-inlining has been explictly specified, don't perform
-        // any inlining at all.
-    } else if (willInline()) {
+    if (willInline()) {
         unsigned threshold = 225;
         if (sizeLevel == 1)      // -Os
             threshold = 75;
