@@ -198,6 +198,7 @@ Usage:\n\
   -shared        generate shared library\n\
   -unittest      compile in unit tests\n\
   -v             verbose\n\
+  -vdmd          print the command used to invoke the underlying compiler\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n"
 #if 0
@@ -333,6 +334,7 @@ struct Params
     Model::Type targetModel;
     bool profile;
     bool verbose;
+    bool vdmd;
     bool logTlsUse;
     Warnings::Type warnings;
     bool optimize;
@@ -440,6 +442,8 @@ Params parseArgs(int originalArgc, char** originalArgv, ls::Path ldcPath)
                 result.profile = true;
             else if (strcmp(p + 1, "v") == 0)
                 result.verbose = true;
+            else if (strcmp(p + 1, "vdmd") == 0)
+                result.vdmd = true;
 #if DMDV2
             else if (strcmp(p + 1, "vtls") == 0)
                 result.logTlsUse = true;
@@ -848,7 +852,17 @@ int main(int argc, char *argv[])
     // We need to manually set up argv[0] and the terminating NULL.
     std::vector<const char*> args;
     args.push_back(ldcPath.c_str());
-    buildCommandLine(args, parseArgs(argc, argv, ldcPath));
+
+    Params p = parseArgs(argc, argv, ldcPath);
+    buildCommandLine(args, p);
+    if (p.vdmd)
+    {
+        printf(" -- Invoking:");
+        for (size_t i = 0; i < args.size(); ++i)
+            printf(" %s", args[i]);
+        puts("");
+    }
+
     args.push_back(NULL);
 
     // Check if we need to write out a response file.
