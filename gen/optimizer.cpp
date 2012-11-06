@@ -66,8 +66,13 @@ disableLangSpecificPasses("disable-d-passes",
     cl::ZeroOrMore);
 
 static cl::opt<bool>
-disableSimplifyRuntimeCalls("disable-simplify-drtcalls",
+disableSimplifyDruntimeCalls("disable-simplify-drtcalls",
     cl::desc("Disable simplification of druntime calls"),
+    cl::ZeroOrMore);
+
+static cl::opt<bool>
+disableSimplifyLibCalls("disable-simplify-libcalls",
+    cl::desc("Disable simplification of well-known C runtime calls"),
     cl::ZeroOrMore);
 
 static cl::opt<bool>
@@ -173,12 +178,13 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
     } else {
         builder.Inliner = createAlwaysInlinerPass();
     }
+    builder.DisableSimplifyLibCalls = disableSimplifyLibCalls;
     builder.DisableUnitAtATime = !unitAtATime;
     builder.DisableUnrollLoops = optLevel == 0;
     /* builder.Vectorize is set in ctor from command line switch */
 
     if (!disableLangSpecificPasses) {
-        if (!disableSimplifyRuntimeCalls)
+        if (!disableSimplifyDruntimeCalls)
             builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd, addSimplifyDRuntimeCallsPass);
 
 #if USE_METADATA
@@ -213,7 +219,7 @@ bool ldc_optimize_module(llvm::Module* m)
     TargetLibraryInfo *tli = new TargetLibraryInfo(Triple(m->getTargetTriple()));
 
     // The -disable-simplify-libcalls flag actually disables all builtin optzns.
-    if (disableSimplifyRuntimeCalls)
+    if (disableSimplifyLibCalls)
         tli->disableAllFunctions();
     mpm.add(tli);
 
