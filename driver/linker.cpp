@@ -217,6 +217,10 @@ int linkObjToBinaryGcc(bool sharedLib)
     case OSWindows:
         // FIXME: I'd assume kernel32 etc
         break;
+
+    default:
+        // OS not yet handled, will probably lead to linker errors.
+        break;
     }
 
     //FIXME: enforce 64 bit
