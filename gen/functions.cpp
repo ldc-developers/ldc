@@ -426,7 +426,6 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
     LLSmallVector<llvm::AttributeWithIndex, 9> attrs;
-    llvm::AttributeWithIndex PAWI;
 
     int idx = 0;
 
@@ -434,9 +433,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     #define ADD_PA(X) \
     if (f->fty.X) { \
         if (HAS_ATTRIBUTES(f->fty.X->attrs)) { \
-            PAWI.Index = idx; \
-            PAWI.Attrs = f->fty.X->attrs; \
-            attrs.push_back(PAWI); \
+            attrs.push_back(llvm::AttributeWithIndex::get(idx, f->fty.X->attrs)); \
         } \
         idx++; \
     }
@@ -477,9 +474,29 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     {
         if (HAS_ATTRIBUTES(attrptr[i]))
         {
-            PAWI.Index = idx+i;
-            PAWI.Attrs = attrptr[i];
-            attrs.push_back(PAWI);
+            attrs.push_back(llvm::AttributeWithIndex::get(idx + i, attrptr[i]));
+        }
+    }
+
+    // Merge in any old attributes (attributes for the function itself are
+    // also stored in a list slot).
+    const size_t newSize = attrs.size();
+    llvm::AttrListPtr oldAttrs = func->getAttributes();
+    for (size_t i = 0; i < oldAttrs.getNumSlots(); ++i) {
+        llvm::AttributeWithIndex curr = oldAttrs.getSlot(i);
+
+        bool found = false;
+        for (size_t j = 0; j < newSize; ++j) {
+            if (attrs[j].Index == curr.Index) {
+                // TODO: LLVM 3.2.
+                attrs[j].Attrs |= curr.Attrs;
+                found = true;
+                break;
+            }
+        }
+
+        if (!found) {
+            attrs.push_back(curr);
         }
     }
 
