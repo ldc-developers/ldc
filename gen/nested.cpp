@@ -134,7 +134,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
 
     LLValue* val = DtoBitCast(ctx, LLPointerType::getUnqual(irfunc->frameType));
     Logger::cout() << "Context: " << *val << '\n';
-    Logger::cout() << "of type: " << *val->getType() << '\n';
+    Logger::cout() << "of type: " << *irfunc->frameType << '\n';
 
     unsigned vardepth = vd->ir.irLocal->nestedDepth;
     unsigned funcdepth = irfunc->depth;
@@ -161,9 +161,13 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
         Logger::cout() << "Frame: " << *val << '\n';
     }
 
+    int idx = vd->ir.irLocal->nestedIndex;
+    assert(idx != -1 && "Nested context not yet resolved for variable.");
+
     if (dwarfValue && global.params.symdebug)
-        dwarfOpOffset(dwarfAddr, val, vd->ir.irLocal->nestedIndex);
-    val = DtoGEPi(val, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
+        dwarfOpOffset(dwarfAddr, val, idx);
+
+    val = DtoGEPi(val, 0, idx, vd->toChars());
     Logger::cout() << "Addr: " << *val << '\n';
     Logger::cout() << "of type: " << *val->getType() << '\n';
     if (byref || (vd->isParameter() && vd->ir.irParam->arg->byref)) {
@@ -365,7 +369,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
             types.push_back(LLPointerType::getUnqual(innerFrameType));
         }
 
-        if (Logger::enabled()) {
+        if (Logger::enabled() && depth != 0) {
             Logger::println("Frame types: ");
             LOG_SCOPE;
             for (TypeVec::iterator i = types.begin(); i != types.end(); ++i)
@@ -408,8 +412,8 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
                 types.push_back(DtoType(vd->type));
             }
             if (Logger::enabled()) {
-                Logger::println("Nested var: %s", vd->toChars());
-                Logger::cout() << "of type: " << *types.back() << '\n';
+                Logger::print("Nested var '%s' of type", vd->toChars());
+                Logger::cout() << *types.back() << '\n';
             }
         }
 
