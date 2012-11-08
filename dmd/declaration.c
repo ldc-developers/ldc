@@ -1533,25 +1533,33 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
         // The current function
         FuncDeclaration *fdthis = sc->parent->isFuncDeclaration();
 
-        if (fdv && fdthis && fdv != fdthis && fdthis->ident != Id::ensure)
+        if (fdv && fdthis && fdv != fdthis)
         {
-            /* __ensure is always called directly,
-             * so it never becomes closure.
-             */
-
-            if (loc.filename)
-                fdthis->getLevel(loc, fdv);
             nestedref = 1;
-            fdv->nestedFrameRef = 1;
+#if !IN_LLVM
+            // In LDC (D1), __ensure is actually just treated like a normal
+            // nested function, we don't use the magic stack layout hack like
+            // DMD (see DMD Bugzilla 7932 for why this was added).
+            if (fdthis->ident != Id::ensure)
+#endif
+            {
+                /* __ensure is always called directly,
+                 * so it never becomes closure.
+                 */
+
+                if (loc.filename)
+                    fdthis->getLevel(loc, fdv);
+                fdv->nestedFrameRef = 1;
 #if IN_LLVM
 #if DMDV1
-            fdv->nestedVars.insert(this);
+                fdv->nestedVars.insert(this);
 #endif
 #endif
-            //printf("var %s in function %s is nested ref\n", toChars(), fdv->toChars());
-            // __dollar creates problems because it isn't a real variable Bugzilla 3326
-            if (ident == Id::dollar)
-                ::error(loc, "cannnot use $ inside a function literal");
+                //printf("var %s in function %s is nested ref\n", toChars(), fdv->toChars());
+                // __dollar creates problems because it isn't a real variable Bugzilla 3326
+                if (ident == Id::dollar)
+                    ::error(loc, "cannnot use $ inside a function literal");
+            }
         }
     }
 }
