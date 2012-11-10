@@ -2991,6 +2991,17 @@ DValue* StructLiteralExp::toElem(IRState* p)
         // store the initializer there
         DtoAssign(loc, &field, val, TOKconstruct);
 
+        // Also zero out padding bytes counted as being part of the type in DMD
+        // but not in LLVM; e.g. real/x86_fp80.
+        int implicitPadding =
+            vd->type->size() - gDataLayout->getTypeStoreSize(DtoType(vd->type));
+        assert(implicitPadding >= 0);
+        if (implicitPadding > 0)
+        {
+            Logger::println("zeroing %d padding bytes", implicitPadding);
+            voidptr = write_zeroes(voidptr, offset - implicitPadding, offset);
+        }
+
 #if DMDV2
         Type *tb = vd->type->toBasetype();
         if (tb->ty == Tstruct)
