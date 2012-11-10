@@ -2935,6 +2935,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
     size_t nexprs = elements->dim;
     Expression** exprs = (Expression**)elements->data;
 
+    // might be reset to an actual i8* value so only a single bitcast is emitted.
     LLValue* voidptr = mem;
     unsigned offset = 0;
 
@@ -3022,7 +3023,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
     }
     // initialize trailing padding
     if (sd->structsize != offset)
-        write_zeroes(voidptr, offset, sd->structsize);
+        voidptr = write_zeroes(voidptr, offset, sd->structsize);
 
     // return as a var
     return new DVarValue(type, mem);
