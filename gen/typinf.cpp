@@ -911,8 +911,6 @@ void TypeInfoWildDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-#if DMDV2
-
 void TypeInfoVectorDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoVectorDeclaration::llvmDefine() %s", toChars());
@@ -927,7 +925,5 @@ void TypeInfoVectorDeclaration::llvmDefine()
     // finish
     b.finalize(ir.irGlobal);
 }
-
-#endif
 
 #endif
