@@ -116,6 +116,8 @@ class TypeInfo
     equals_t      equals(void *p1, void *p2);
     /// compares the types of this TypeInfo stored at p1 and p2
     int      compare(void *p1, void *p2);
+     /// Return alignment of type
+    size_t   talign() { return tsize(); }
     /// returns the size of a type with the current TypeInfo
     size_t   tsize();
     /// swaps the two types stored at p1 and p2
@@ -128,6 +130,11 @@ class TypeInfo
     PointerMap pointermap();
     /// offsets of the various elements
     OffsetTypeInfo[] offTi();
+
+    /** Return internal info on arguments fitting into 8byte.
+       * See X86-64 ABI 3.2.3
+     */
+    version (X86_64) int argTypes(out TypeInfo arg1, out TypeInfo arg2);
 }
 
 class TypeInfo_Typedef : TypeInfo
