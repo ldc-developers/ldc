@@ -629,7 +629,7 @@ int main(int argc, char** argv)
         case llvm::Triple::mips64:
         case llvm::Triple::mips64el:
             // FIXME: Detect N64 variants (MIPS64_N64[_SoftFP,_HardFP]).
-            VersionCondition::addPredefinedGlobalIdent("MIPS");
+            VersionCondition::addPredefinedGlobalIdent("MIPS64");
             break;
 #endif
         case llvm::Triple::sparc:
