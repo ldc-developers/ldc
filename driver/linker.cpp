@@ -188,7 +188,11 @@ int linkObjToBinaryGcc(bool sharedLib)
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
     {
         char *p = static_cast<char *>(global.params.linkswitches->data[i]);
-        args.push_back("-Xlinker");
+        // Don't push -l and -L switches using -Xlinker, but pass them directly
+        // to GCC. This makes sure user-defined paths take precedence over
+        // GCC's builtin LIBRARY_PATHs.
+        if (!p[0] || !(p[0] == '-' && (p[1] == 'l' || p[1] == 'L')))
+            args.push_back("-Xlinker");
         args.push_back(p);
     }
 
