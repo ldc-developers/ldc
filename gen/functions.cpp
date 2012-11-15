@@ -257,6 +257,83 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+#include <llvm/Support/raw_ostream.h>
+#include "llvm/Support/SourceMgr.h"
+#include "llvm/Assembly/Parser.h"
+
+LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
+{
+    const char* mangled_name = fdecl->mangle();
+    TemplateInstance* tinst = fdecl->parent->isTemplateInstance();
+    assert(tinst);
+
+    Objects& objs = tinst->tdtypes;
+    assert(objs.dim == 3); 
+
+    Expression* a0 = isExpression(objs[0]);
+    assert(a0);
+    StringExp* strexp = a0->toString();
+    assert(strexp);
+    assert(strexp->sz == 1);
+    std::string code(static_cast<char*>(strexp->string), strexp->len); 
+
+    Type* ret = isType(objs[1]);
+    assert(ret);
+   
+    Tuple* a2 = isTuple(objs[2]);
+    assert(a2);
+    Objects& arg_types = a2->objects;
+ 
+    std::string str;
+    llvm::raw_string_ostream stream(str);
+    stream << "define " << *DtoType(ret) << " @" << mangled_name << "(";
+
+    for(size_t i = 0; ;)
+    {
+        Type* ty = isType(arg_types[i]);
+        //assert(ty);
+        if(!ty)
+        {
+            error(tinst->loc, 
+                "All parameters of a template defined with pragma llvm_inline_ir, except for the first one, should be types");
+            fatal();
+        }
+        stream << *DtoType(ty);
+        
+        i++;
+        if(i >= arg_types.dim)
+            break;
+    
+        stream << ", ";
+    }
+
+    if(ret->ty == Tvoid)
+        code.append("\nret void"); 
+    
+    stream << ")\n{\n" << code <<  "\n}";
+    
+    llvm::SMDiagnostic err;
+    llvm::ParseAssemblyString(stream.str().c_str(), gIR->module, err, gIR->context());
+    std::string errstr = err.getMessage();
+    if(errstr != "")
+        error(tinst->loc, 
+            "can't parse inline LLVM IR:\n%s\n%s\n%s\nThe input string was: \n%s", 
+            err.getLineContents().c_str(), 
+            (std::string(err.getColumnNo(), ' ') + '^').c_str(), 
+            errstr.c_str(), stream.str().c_str());
+ 
+    LLFunction* fun = gIR->module->getFunction(mangled_name);
+    fun->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
+#if LDC_LLVM_VER >= 302
+    fun->addFnAttr(llvm::Attributes::AlwaysInline);
+#else
+    fun->addFnAttr(AlwaysInline);
+#endif
+    return fun;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 static llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 {
     TypeFunction* f = static_cast<TypeFunction*>(fdecl->type);
@@ -407,6 +484,15 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
             fdecl->ir.defined = true;
             return; // this gets mapped to a special inline asm call, no point in going on.
         }
+        else if (tempdecl->llvmInternal == LLVMinline_ir)
+        {
+            fdecl->llvmInternal = LLVMinline_ir;
+            fdecl->linkage = LINKc;
+            fdecl->ir.defined = true;
+            Type* type = fdecl->type;
+            assert(type->ty == Tfunction);
+            static_cast<TypeFunction*>(type)->linkage = LINKc;
+        }
     }
 
     DtoType(fdecl->type);
@@ -488,8 +574,13 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
         bool found = false;
         for (size_t j = 0; j < newSize; ++j) {
             if (attrs[j].Index == curr.Index) {
-                // TODO: LLVM 3.2.
+#if LDC_LLVM_VER >= 302
+                attrs[j].Attrs = llvm::Attributes::get(
+                    gIR->context(), 
+                    llvm::AttrBuilder(attrs[j].Attrs).addAttributes(curr.Attrs));
+#else
                 attrs[j].Attrs |= curr.Attrs;
+#endif
                 found = true;
                 break;
             }
@@ -556,7 +647,10 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     LLFunctionType* functype = DtoFunctionType(fdecl);
     LLFunction* func = vafunc ? vafunc : gIR->module->getFunction(mangled_name);
     if (!func) {
-        func = LLFunction::Create(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
+        if(fdecl->llvmInternal == LLVMinline_ir)
+            func = DtoInlineIRFunction(fdecl); 
+        else
+            func = LLFunction::Create(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
     } else if (func->getFunctionType() != functype) {
         error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", fdecl->mangle());
     }
