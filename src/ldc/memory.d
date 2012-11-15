@@ -219,11 +219,11 @@ private
         extern (C)
         {
             extern __gshared int __data_start;
-            extern __gshared int _end;
+            extern __gshared int end;
         }
 
         alias __data_start  Data_Start;
-        alias _end          Data_End;
+        alias end          Data_End;
     }
     else version( freebsd )
     {
