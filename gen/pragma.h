@@ -22,6 +22,7 @@ enum Pragma
     LLVMva_end,
     LLVMva_arg,
     LLVMinline_asm,
+    LLVMinline_ir,
     LLVMfence,
     LLVMatomic_store,
     LLVMatomic_load,

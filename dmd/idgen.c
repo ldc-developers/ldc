@@ -239,6 +239,7 @@ Msgtable msgtable[] =
     { "ldc" },
     { "allow_inline" },
     { "llvm_inline_asm" },
+    { "llvm_inline_ir" },
     { "fence" },
     { "atomic_load" },
     { "atomic_store" },

@@ -257,6 +257,17 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
         return LLVMinline_asm;
     }
 
+    // pragma(llvm_inline_ir) { templdecl(s) }
+    else if (ident == Id::llvm_inline_ir)
+    {
+        if (args && args->dim > 0)
+        {
+             error("takes no parameters");
+             fatal();
+        }
+        return LLVMinline_ir;
+    }
+
     return LLVMnone;
 }
 
@@ -412,6 +423,49 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
                 error("the '%s' pragma template must have exactly one member", ident->toChars());
                 fatal();
             }
+            td->llvmInternal = llvm_internal;
+        }
+        else
+        {
+            error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+            fatal();
+        }
+        break;
+
+    case LLVMinline_ir:
+        if (TemplateDeclaration* td = s->isTemplateDeclaration())
+        {
+            Dsymbol* member = td->onemember;
+            if (!member)
+            {
+                error("the '%s' pragma template must have exactly one member", ident->toChars());
+                fatal();
+            }
+            FuncDeclaration* fun = member->isFuncDeclaration();
+            if (!fun)
+            {
+                error("the '%s' pragma template's member must be a function declaration", ident->toChars());
+                fatal();
+            }
+            
+            TemplateParameters& params = *td->parameters;
+            bool valid_params = 
+                params.dim == 3 && params[1]->isTemplateTypeParameter() && 
+                params[2]->isTemplateTupleParameter();
+
+            if(valid_params)
+            {
+                TemplateValueParameter* p0 = params[0]->isTemplateValueParameter();
+                valid_params = valid_params && p0 && p0->valType == Type::tstring;
+            }
+            
+            if(!valid_params)
+            {
+                error("the '%s' pragma template must have exactly three parameters: a string, a type and a type tuple", 
+                    ident->toChars());
+                fatal();
+            }
+
             td->llvmInternal = llvm_internal;
         }
         else
