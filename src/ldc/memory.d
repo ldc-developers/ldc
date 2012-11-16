@@ -218,18 +218,12 @@ private
     {
         extern (C)
         {
-            extern __gshared int _data;
             extern __gshared int __data_start;
-            extern __gshared int _end;
-            extern __gshared int _data_start__;
-            extern __gshared int _data_end__;
-            extern __gshared int _bss_start__;
-            extern __gshared int _bss_end__;
-            extern __gshared int __fini_array_end;
+            extern __gshared int end;
         }
 
         alias __data_start  Data_Start;
-        alias _end          Data_End;
+        alias end          Data_End;
     }
     else version( freebsd )
     {
