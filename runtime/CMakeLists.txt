@@ -85,21 +85,24 @@ list(REMOVE_ITEM DCRT_D
 )
 file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
 list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/dylib_fixes.c)
+file(GLOB_RECURSE CORE_D_UNIX ${RUNTIME_DIR}/src/core/sys/posix/*.d)
+file(GLOB_RECURSE CORE_D_OSX ${RUNTIME_DIR}/src/core/sys/osx/*.d)
+file(GLOB_RECURSE CORE_D_WIN ${RUNTIME_DIR}/src/core/sys/windows/*.d)
+set(CORE_D_SYS)
 if(UNIX)
-    file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/posix/*.d)
+    list(APPEND CORE_D_SYS ${CORE_D_UNIX})
     if(APPLE)
-        file(GLOB_RECURSE CORE_D_SYS_OSX ${RUNTIME_DIR}/src/core/sys/osx/*.d)
-        list(APPEND CORE_D_SYS ${CORE_D_SYS_OSX})
+        list(APPEND CORE_D_SYS ${CORE_D_OSX})
     endif()
     list(REMOVE_ITEM LDC_D ${RUNTIME_DIR}/src/ldc/eh2.d)
     list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/msvc.c)
 elseif(WIN32)
-    file(GLOB_RECURSE CORE_D_SYS ${RUNTIME_DIR}/src/core/sys/windows/*.d)
+    list(APPEND CORE_D_SYS ${CORE_D_WIN})
     list(REMOVE_ITEM LDC_D ${RUNTIME_DIR}/src/ldc/eh.d)
     list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/monitor.c)
 endif()
-list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC} )
-list(APPEND GENERATE_DI ${CORE_D})
+list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
+set(CORE_D_HEADERS ${CORE_D} ${CORE_D_UNIX} ${CORE_D_OSX} ${CORE_D_WIN})
 list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
 file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
@@ -201,23 +204,6 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
         list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
     endif()
 
-    list(FIND GENERATE_DI "${INPUT_D}" INDEX)
-    set(DI_CMD "")
-    if(NOT INDEX EQUAL -1)
-        string(REGEX REPLACE "src/ldc" "src/core" output ${output})
-        string(REGEX REPLACE "^src/" "" di_output ${output})
-
-        # If a hand-written .di file exists along the source in src/, just copy
-        # it instead of running it through the compiler.
-        if(EXISTS "${INPUT_D}i")
-            configure_file("${INPUT_D}i" ${CMAKE_BINARY_DIR}/import/${di_output}.di COPYONLY)
-        else()
-            set(DI_CMD -Hf=${CMAKE_BINARY_DIR}/import/${di_output}.di)
-        endif()
-
-        list(REMOVE_AT GENERATE_DI ${INDEX})
-    endif()
-
     # Compile
     if(BUILD_BC_LIBS)
         set(OUTPUT ${OUTPUT_O} ${OUTPUT_BC})
@@ -229,7 +215,7 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
     add_custom_command(
         OUTPUT
             ${OUTPUT}
-        COMMAND ${LDC_LOC} ${DC_FLAGS} -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${DI_CMD} ${D_FLAGS} ${MOREFLAGS}
+        COMMAND ${LDC_LOC} ${DC_FLAGS} -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${LDC_LOC}
             ${INPUT_D}
@@ -237,6 +223,29 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
             ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
     )
 endmacro(dc)
+
+macro(dc_header INPUT_D header_varname)
+    file(RELATIVE_PATH output ${RUNTIME_DIR} ${INPUT_D})
+
+    string(REGEX REPLACE "src/ldc" "src/core" output ${output})
+    string(REGEX REPLACE "^src/" "" di_output ${output})
+
+    # If a hand-written .di file exists along the source in src/, just copy
+    # it instead of running it through the compiler.
+    if(NOT EXISTS "${INPUT_D}i")
+        set(out ${CMAKE_BINARY_DIR}/import/${di_output}i)
+        list(APPEND ${header_varname} ${out})
+        add_custom_command(
+            OUTPUT ${out}
+            COMMAND ${LDC_LOC} ${DC_FLAGS} -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${INPUT_D} -Hf=${out} -o- ${D_FLAGS} ${MOREFLAGS}
+            WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
+            DEPENDS ${LDC_LOC}
+                ${INPUT_D}
+                ${LDC_IMPORTS}
+                ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
+        )
+    endif()
+endmacro(dc_header) 
 
 macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     set(output_path ${CMAKE_BINARY_DIR}/lib${path_suffix})
@@ -253,6 +262,11 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     set(CORE_BC "")
     foreach(f ${CORE_D})
         dc(${f} CORE_O CORE_BC "${d_flags};-disable-invariants" "" "${target_suffix}")
+    endforeach(f)
+
+    set(headers)
+    foreach(f ${CORE_D_HEADERS})
+        dc_header(${f} headers)
     endforeach(f)
 
     set(GC_O "")
@@ -390,7 +404,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     endif(BUILD_BC_LIBS)
 
     # BCLIBS is empty if BUILD_BC_LIBS is not selected
-    add_custom_target(runtime${target_suffix} DEPENDS ${LIBS} ${BCLIBS})
+    add_custom_target(runtime${target_suffix} DEPENDS ${LIBS} ${BCLIBS} ${headers})
 endmacro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
 
 #
@@ -410,7 +424,6 @@ else()
     set(RT_CFLAGS "")
 endif()
 build_runtime("" "${RT_CLAGS}" "${LD_FLAGS}" "" "${LIB_SUFFIX}")
-set(GENERATE_DI "")
 if(MULTILIB)
     build_runtime("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "" "${MULTILIB_SUFFIX}")
 endif(MULTILIB)
@@ -426,7 +439,8 @@ if(PHOBOS2_DIR)
     install(FILES     ${PHOBOS2_DIR}/crc32.d                           DESTINATION ${INCLUDE_INSTALL_DIR})
 endif(PHOBOS2_DIR)
 install(FILES         ${RUNTIME_DIR}/src/object.di                     DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
-install(DIRECTORY     ${RUNTIME_DIR}/import/ldc                        DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
+install(DIRECTORY     ${RUNTIME_DIR}/src/ldc                           DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
+install(DIRECTORY     ${RUNTIME_DIR}/src/core                          DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
 install(FILES         ${GCCBUILTINS}                                   DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 
 
