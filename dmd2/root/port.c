@@ -379,7 +379,11 @@ PortInitializer::PortInitializer()
 int Port::isNan(double r)
 {
 #if __APPLE__
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 1080
+    return __inline_isnand(r);
+#else
     return __inline_isnan(r);
+#endif
 #elif defined __HAIKU__ || __OpenBSD__
     return isnan(r);
 #else
@@ -391,7 +395,11 @@ int Port::isNan(double r)
 int Port::isNan(longdouble r)
 {
 #if __APPLE__
+#if __MAC_OS_X_VERSION_MAX_ALLOWED >= 1080
+    return __inline_isnanl(r);
+#else
     return __inline_isnan(r);
+#endif
 #elif defined __HAIKU__ || __OpenBSD__
     return isnan(r);
 #else

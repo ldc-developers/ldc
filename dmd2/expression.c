@@ -24,21 +24,9 @@
 extern "C" char * __cdecl __locale_decpoint;
 #endif
 
-#if __MINGW32__
-#ifndef isnan
-#define isnan _isnan
-#endif
-#endif
-
-#ifdef __APPLE__
-#ifndef isnan
-int isnan(double);
-#endif
-#endif
-
 #include "rmem.h"
-#if IN_DMD
 #include "port.h"
+#if IN_DMD
 #include "root.h"
 #endif
 
@@ -2416,13 +2404,7 @@ complex_t RealExp::toComplex()
 
 int RealEquals(real_t x1, real_t x2)
 {
-//    return (Port::isNan(x1) && Port::isNan(x2)) ||
-#if __APPLE__
-    return (__inline_isnan(x1) && __inline_isnan(x2)) ||
-#else
-    return // special case nans
-          (isnan(x1) && isnan(x2)) ||
-#endif
+    return (Port::isNan(x1) && Port::isNan(x2)) ||
           // and zero, in order to distinguish +0 from -0
           (x1 == 0 && x2 == 0 && 1./x1 == 1./x2) ||
           // otherwise just compare
