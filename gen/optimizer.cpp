@@ -1,6 +1,5 @@
 #include "gen/optimizer.h"
 #include "gen/cl_helpers.h"
-#include "gen/irstate.h"
 #include "gen/logger.h"
 
 #include "gen/passes/Passes.h"
