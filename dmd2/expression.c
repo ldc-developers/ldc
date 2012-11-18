@@ -2528,12 +2528,7 @@ void realToMangleBuffer(OutBuffer *buf, real_t value)
      * 0X1.9P+2                 => 19P2
      */
 
-//    if (Port::isNan(value))
-#if __APPLE__
-    if (__inline_isnan(value))
-#else
-    if (isnan(value))
-#endif
+    if (Port::isNan(value))
         buf->writestring("NAN");        // no -NAN bugs
     else
     {
