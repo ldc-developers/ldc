@@ -515,7 +515,11 @@ __attribute__((noreturn))
 void fatal();
 
 void err_nomem();
+#if IN_LLVM
+void error(const char *format, ...) IS_PRINTF(1);
+#else
 void inifile(char *argv0, const char *inifile);
+#endif
 void halt();
 
 const char *importHint(const char *s);
