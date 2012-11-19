@@ -344,7 +344,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
             ${DCRT_O}
             ${DCRT_C}
         )
-        add_dependencies(phobos-ldc${target_suffix} runtime)
+        add_dependencies(phobos-ldc${target_suffix} runtime${target_suffix})
         set_target_properties(
             phobos-ldc${target_suffix} PROPERTIES
             VERSION                     ${DMDFE_VERSION}
