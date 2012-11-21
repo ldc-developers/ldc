@@ -263,7 +263,6 @@ private
 
 void initStaticDataGC()
 {
-
     static const int S = (void*).sizeof;
 
     // Can't assume the input addresses are word-aligned
@@ -330,7 +329,34 @@ void initStaticDataGC()
         if (bssStart != null)
             gc_addRange(bssStart, bssEnd - bssStart);
     }
+    version (OSX)
+    {
+        auto tls = getCurrentTLSRange();
+        gc_addRange(tls.ptr, tls.length);
+    }
 }
+
+version (OSX)
+{
+    extern(C) void _d_dyld_getTLSRange(void*, void**, size_t*);
+    private ubyte dummyTlsSymbol;
+
+    /**
+     * Returns the memory area in which D TLS variables are stored for
+     * the current thread.
+     *
+     * Note that this does not handle shared libraries yet.
+     */
+    void[] getCurrentTLSRange()
+    {
+        void* start = null;
+        size_t size = 0;
+        _d_dyld_getTLSRange(&dummyTlsSymbol, &start, &size);
+        assert(start && size, "Could not determine TLS range.");
+        return start[0 .. size];
+    }
+}
+
 
 version( GC_Use_Data_Proc_Maps )
 {
