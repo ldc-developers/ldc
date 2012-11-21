@@ -233,10 +233,13 @@ else version( LDC )
                 static assert(0, "Cannot atomically store 80-bit reals.");
             }
         }
-        else static if (is(T P == U*, U))
+        else static if (is(T P == U*, U) || is(T == class) || is(T == interface))
         {
-            res = cast(T)llvm_atomic_cmp_swap!(size_t)(
-                cast(shared size_t*)here, cast(size_t)ifThis, cast(size_t)writeThis);
+            res = cast(T)cast(void*)llvm_atomic_cmp_swap!(size_t)(
+                cast(shared size_t*)cast(void**)here,
+                cast(size_t)cast(void*)ifThis,
+                cast(size_t)cast(void*)writeThis
+            );
         }
         else static if (T.sizeof == bool.sizeof)
         {
