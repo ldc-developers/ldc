@@ -529,26 +529,25 @@ version (GC_Use_Data_Dyld)
 {
     private
     {
-        const char* SEG_DATA = "__DATA".ptr;
-        const char* SECT_DATA = "__data".ptr;
-        const char* SECT_BSS = "__bss".ptr;
-        const char* SECT_COMMON = "__common".ptr;
-
-        struct SegmentSection
-        {
-            const char* segment;
-            const char* section;
-        }
-
         import core.sys.osx.mach.dyld;
         import core.sys.osx.mach.getsect;
         import core.sys.osx.mach.loader;
 
-        const SegmentSection[3] GC_dyld_sections = [SegmentSection(SEG_DATA, SECT_DATA), SegmentSection(SEG_DATA, SECT_BSS), SegmentSection(SEG_DATA, SECT_COMMON)];
+        struct Section
+        {
+            immutable(char)* segment;
+            immutable(char)* section;
+        }
+
+        immutable Section[3] dataSections = [
+            Section(SEG_DATA, SECT_DATA),
+            Section(SEG_DATA, SECT_BSS),
+            Section(SEG_DATA, SECT_COMMON)
+        ];
 
         extern(C) void foreachSection(alias fun)(in mach_header* hdr, ptrdiff_t slide)
         {
-            foreach (s ; GC_dyld_sections)
+            foreach (s; dataSections)
             {
                 // Should probably be decided at runtime by actual image bitness
                 // (mach_header.magic) rather than at build-time?
