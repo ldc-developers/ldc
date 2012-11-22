@@ -101,14 +101,6 @@ private
 
     alias void delegate() gc_atom;
     extern (C) void function(scope gc_atom) gc_atomic;
-
-    version( LDC ) {
-      enum osxManualTls = false;
-    } else version( OSX ) {
-      enum osxManualTls = true;
-    } else {
-      enum osxManualTls = false;
-    }
 }
 
 
@@ -306,6 +298,9 @@ else version( Posix )
                 alias _tlsstart _tlsend;
             }
         }
+        else version (LDC)
+        {
+        }
         else
         {
             __gshared int   _tlsstart;
@@ -325,7 +320,20 @@ else version( Posix )
             obj.m_main.bstack = getStackBottom();
             obj.m_main.tstack = obj.m_main.bstack;
 
-            static if( osxManualTls )
+            version (LDC)
+            {
+                version (OSX)
+                {
+                    import ldc.memory;
+                    obj.m_tls = getCurrentTLSRange();
+                }
+                else
+                {
+                    // Nothing to do here for Linux – glibc allocates the TLS
+                    // data at the start of the stack area, so we scan it anyway.
+                }
+            }
+            else version(OSX)
             {
                 // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
                 //       data output by the compiler is bracketed by _tls_data_array[2],
@@ -1263,7 +1271,8 @@ private:
         m_call = Call.NO;
         m_curr = &m_main;
 
-        static if( osxManualTls )
+        version (LDC) {} else
+        version (OSX)
         {
             //printf("test2 %p %p\n", _tls_data_array[0].ptr, &_tls_data_array[1][length]);
             //printf("test2 %p %p\n", &_tls_beg, &_tls_end);
@@ -1929,7 +1938,8 @@ extern (C) Thread thread_attachThis()
         assert( thisThread.m_tmach != thisThread.m_tmach.init );
     }
 
-    static if( osxManualTls )
+    version (LDC) {} else
+    version (OSX)
     {
         //printf("test3 %p %p\n", _tls_data_array[0].ptr, &_tls_data_array[1][length]);
         //printf("test3 %p %p\n", &_tls_beg, &_tls_end);
@@ -4565,7 +4575,9 @@ version( AsmX86_64_Posix )
     }
 }
 
-static if( osxManualTls )
+
+version (LDC) {} else
+version( OSX )
 {
     // NOTE: The Mach-O object file format does not allow for thread local
     //       storage declarations. So instead we roll our own by putting tls
