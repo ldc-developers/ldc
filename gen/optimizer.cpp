@@ -109,7 +109,6 @@ bool willInline() {
 }
 
 llvm::CodeGenOpt::Level codeGenOptLevel() {
-#if LDC_LLVM_VER < 302
     const int opt = optLevel();
     // Use same appoach as clang (see lib/CodeGen/BackendUtil.cpp)
     llvm::CodeGenOpt::Level codeGenOptLevel = llvm::CodeGenOpt::Default;
@@ -117,12 +116,6 @@ llvm::CodeGenOpt::Level codeGenOptLevel() {
     if (global.params.symdebug || !opt) codeGenOptLevel = llvm::CodeGenOpt::None;
     else if (opt >= 3) codeGenOptLevel = llvm::CodeGenOpt::Aggressive;
     return codeGenOptLevel;
-#else
-    // There's a bug in llvm:LiveInterval::createDeadDef()
-    // which prevents use of other values.
-    // Happens only with 3.2 trunk.
-    return llvm::CodeGenOpt::None;
-#endif
 }
 
 static inline void addPass(PassManagerBase& pm, Pass* pass) {
