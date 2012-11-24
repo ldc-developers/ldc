@@ -745,7 +745,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.emitSharedLib) r.push_back("-shared");
     if (p.pic) r.push_back("-relocation-model=pic");
     if (p.emitMap) warning("Map file generation not yet supported by LDC.");
-    if (!p.multiObj) r.push_back("--singleobj");
+    if (!p.multiObj) r.push_back("-singleobj");
     if (p.debugInfo == Debug::normal) r.push_back("-g");
     else if (p.debugInfo == Debug::pretendC) r.push_back("-gc");
     if (p.alwaysStackFrame) r.push_back("-disable-fp-elim");
