@@ -591,10 +591,9 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
         }
     }
 
-#if LDC_LLVM_VER >= 303
-	llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(gIR->context(), llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
-#elif LDC_LLVM_VER == 302
-    llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
+#if LDC_LLVM_VER >= 302
+	llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(gIR->context(),
+        llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
 #else
     llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(attrs.begin(), attrs.end());
 #endif
