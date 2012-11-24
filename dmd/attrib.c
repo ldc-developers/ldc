@@ -11,6 +11,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>                     // memcpy()
 
 #include "rmem.h"
 
@@ -34,7 +35,7 @@
 #endif
 
 
-extern void obj_includelib(const char *name);
+extern bool obj_includelib(const char *name);
 
 #if IN_DMD
 void obj_startaddress(Symbol *s);
@@ -90,7 +91,7 @@ int AttribDeclaration::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
 
 void AttribDeclaration::setScopeNewSc(Scope *sc,
         StorageClass stc, enum LINK linkage, enum PROT protection, int explicitProtection,
-        unsigned structalign)
+        structalign_t structalign)
 {
     if (decl)
     {
@@ -125,7 +126,7 @@ void AttribDeclaration::setScopeNewSc(Scope *sc,
 
 void AttribDeclaration::semanticNewSc(Scope *sc,
         StorageClass stc, enum LINK linkage, enum PROT protection, int explicitProtection,
-        unsigned structalign)
+        structalign_t structalign)
 {
     if (decl)
     {
@@ -425,6 +426,7 @@ void StorageClassDeclaration::setScope(Scope *sc)
         if (stc & (STCsafe | STCtrusted | STCsystem))
             scstc &= ~(STCsafe | STCtrusted | STCsystem);
         scstc |= stc;
+        //printf("scstc = x%llx\n", scstc);
 
         setScopeNewSc(sc, scstc, sc->linkage, sc->protection, sc->explicitProtection, sc->structalign);
     }
@@ -732,6 +734,9 @@ void AlignDeclaration::semantic(Scope *sc)
 
 void AlignDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
+    if (salign == STRUCTALIGN_DEFAULT)
+        buf->printf("align");
+    else
     buf->printf("align (%d)", salign);
     AttribDeclaration::toCBuffer(buf, hgs);
 }
@@ -924,7 +929,7 @@ void PragmaDeclaration::setScope(Scope *sc)
         {
             Expression *e = (*args)[0];
             e = e->semantic(sc);
-            e = e->optimize(WANTvalue | WANTinterpret);
+            e = e->ctfeInterpret();
             (*args)[0] = e;
             StringExp* se = e->toString();
             if (!se)
@@ -963,7 +968,8 @@ void PragmaDeclaration::semantic(Scope *sc)
                 Expression *e = (*args)[i];
 
                 e = e->semantic(sc);
-                e = e->optimize(WANTvalue | WANTinterpret);
+                if (e->op != TOKerror && e->op != TOKtype)
+                    e = e->ctfeInterpret();
                 StringExp *se = e->toString();
                 if (se)
                 {
@@ -985,7 +991,7 @@ void PragmaDeclaration::semantic(Scope *sc)
             Expression *e = (*args)[0];
 
             e = e->semantic(sc);
-            e = e->optimize(WANTvalue | WANTinterpret);
+            e = e->ctfeInterpret();
             (*args)[0] = e;
             if (e->op == TOKerror)
                 goto Lnodecl;
@@ -1049,7 +1055,7 @@ void PragmaDeclaration::semantic(Scope *sc)
         {
             Expression *e = (*args)[0];
             e = e->semantic(sc);
-            e = e->optimize(WANTvalue | WANTinterpret);
+            e = e->ctfeInterpret();
             (*args)[0] = e;
             Dsymbol *sa = getDsymbol(e);
             if (!sa || !sa->isFuncDeclaration())
@@ -1088,7 +1094,7 @@ void PragmaDeclaration::semantic(Scope *sc)
 
                     Expression *e = (*args)[i];
                     e = e->semantic(sc);
-                    e = e->optimize(WANTvalue | WANTinterpret);
+                    e = e->ctfeInterpret();
                     if (i == 0)
                         printf(" (");
                     else
@@ -1161,21 +1167,19 @@ void PragmaDeclaration::toObjFile(int multiobj)
         char *name = (char *)mem.malloc(se->len + 1);
         memcpy(name, se->string, se->len);
         name[se->len] = 0;
-#if OMFOBJ
-        /* The OMF format allows library names to be inserted
-         * into the object file. The linker will then automatically
+
+        /* Embed the library names into the object file.
+         * The linker will then automatically
          * search that library, too.
          */
-        obj_includelib(name);
-#elif ELFOBJ || MACHOBJ
+        if (!obj_includelib(name))
+        {
         /* The format does not allow embedded library names,
          * so instead append the library name to the list to be passed
          * to the linker.
          */
         global.params.libfiles->push(name);
-#else
-        error("pragma lib not supported");
-#endif
+        }
     }
 #if DMDV2
     else if (ident == Id::startaddress)
@@ -1431,6 +1435,26 @@ void StaticIfDeclaration::importAll(Scope *sc)
 void StaticIfDeclaration::setScope(Scope *sc)
 {
     // do not evaluate condition before semantic pass
+
+    // But do set the scope, in case we need it for forward referencing
+    Dsymbol::setScope(sc);
+
+    // Set the scopes for both the decl and elsedecl, as we don't know yet
+    // which will be selected, and the scope will be the same regardless
+    Dsymbols *d = decl;
+    for (int j = 0; j < 2; j++)
+    {
+        if (d)
+        {
+           for (size_t i = 0; i < d->dim; i++)
+           {
+               Dsymbol *s = (*d)[i];
+
+               s->setScope(sc);
+           }
+        }
+        d = elsedecl;
+    }
 }
 
 void StaticIfDeclaration::semantic(Scope *sc)
@@ -1462,6 +1486,8 @@ const char *StaticIfDeclaration::kind()
 
 /***************************** CompileDeclaration *****************************/
 
+// These are mixin declarations, like mixin("int x");
+
 CompileDeclaration::CompileDeclaration(Loc loc, Expression *exp)
     : AttribDeclaration(NULL)
 {
@@ -1481,7 +1507,7 @@ Dsymbol *CompileDeclaration::syntaxCopy(Dsymbol *s)
 
 int CompileDeclaration::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
 {
-    //printf("CompileDeclaration::addMember(sc = %p, memnum = %d)\n", sc, memnum);
+    //printf("CompileDeclaration::addMember(sc = %p, sd = %p, memnum = %d)\n", sc, sd, memnum);
     this->sd = sd;
     if (memnum == 0)
     {   /* No members yet, so parse the mixin now
@@ -1495,10 +1521,10 @@ int CompileDeclaration::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
 
 void CompileDeclaration::compileIt(Scope *sc)
 {
-    //printf("CompileDeclaration::compileIt(loc = %d)\n", loc.linnum);
+    //printf("CompileDeclaration::compileIt(loc = %d) %s\n", loc.linnum, exp->toChars());
     exp = exp->semantic(sc);
     exp = resolveProperties(sc, exp);
-    exp = exp->optimize(WANTvalue | WANTinterpret);
+    exp = exp->ctfeInterpret();
     StringExp *se = exp->toString();
     if (!se)
     {   exp->error("argument to mixin must be a string, not (%s)", exp->toChars());

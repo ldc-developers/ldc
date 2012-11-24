@@ -13,8 +13,8 @@
 #include <ctype.h>
 #include <assert.h>
 #include <limits.h>
+#include <string.h>
 #if IN_LLVM
-#include <string>
 #include <cstdarg>
 #endif
 
@@ -70,10 +70,10 @@ Global::Global()
 
     copyright = "Copyright (c) 1999-2012 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
-    version = "v1.074";
+    version = "v1.075";
     ldc_version = "LDC trunk";
     llvm_version = "LLVM "LDC_LLVM_VERSION_STRING;
-    global.structalign = 8;
+    global.structalign = STRUCTALIGN_DEFAULT;
 
     // This should only be used as a global, so the other fields are
     // automatically initialized to zero when the program is loaded.
@@ -164,7 +164,7 @@ void errorSupplemental(Loc loc, const char *format, ...)
     va_end( ap );
 }
 
-void verror(Loc loc, const char *format, va_list ap)
+void verror(Loc loc, const char *format, va_list ap, const char *p1, const char *p2)
 {
     if (!global.gag)
     {
@@ -175,9 +175,22 @@ void verror(Loc loc, const char *format, va_list ap)
         mem.free(p);
 
         fprintf(stdmsg, "Error: ");
+        if (p1)
+            fprintf(stdmsg, "%s ", p1);
+        if (p2)
+            fprintf(stdmsg, "%s ", p2);
+#if _MSC_VER
+        // MS doesn't recognize %zu format
+        OutBuffer tmp;
+        tmp.vprintf(format, ap);
+        fprintf(stdmsg, "%s", tmp.toChars());
+#else
         vfprintf(stdmsg, format, ap);
+#endif
         fprintf(stdmsg, "\n");
         fflush(stdmsg);
+        if (global.errors >= 20)        // moderate blizzard of cascading messages
+            fatal();
 //halt();
     }
     else

@@ -388,7 +388,7 @@ Statements *CompileStatement::flatten(Scope *sc)
     //printf("CompileStatement::flatten() %s\n", exp->toChars());
     exp = exp->semantic(sc);
     exp = resolveProperties(sc, exp);
-    exp = exp->optimize(WANTvalue | WANTinterpret);
+    exp = exp->ctfeInterpret();
     if (exp->op == TOKerror)
         return NULL;
     StringExp *se = exp->toString();
@@ -1739,18 +1739,6 @@ Statement *ForeachStatement::semantic(Scope *sc)
 
             Type *tret = func->type->nextOf();
 
-            // Need a variable to hold value from any return statements in body.
-            if (!sc->func->vresult && tret && tret != Type::tvoid)
-            {
-                VarDeclaration *v = new VarDeclaration(loc, tret, Id::result, NULL);
-                v->noscope = 1;
-                v->semantic(sc);
-                if (!sc->insert(v))
-                    assert(0);
-                v->parent = sc->func;
-                sc->func->vresult = v;
-            }
-
             /* Turn body into the function literal:
              *  int delegate(ref T arg) { body }
              */
@@ -2558,7 +2546,8 @@ Statement *PragmaStatement::semantic(Scope *sc)
                 Expression *e = (*args)[i];
 
                 e = e->semantic(sc);
-                e = e->optimize(WANTvalue | WANTinterpret);
+                if (e->op != TOKerror && e->op != TOKtype)
+                    e = e->ctfeInterpret();
                 StringExp *se = e->toString();
                 if (se)
                 {
@@ -2584,7 +2573,7 @@ Statement *PragmaStatement::semantic(Scope *sc)
             Expression *e = (*args)[0];
 
             e = e->semantic(sc);
-            e = e->optimize(WANTvalue | WANTinterpret);
+            e = e->ctfeInterpret();
             (*args)[0] = e;
             StringExp *se = e->toString();
             if (!se)
@@ -2615,7 +2604,7 @@ Statement *PragmaStatement::semantic(Scope *sc)
         {
             Expression *e = (*args)[0];
             e = e->semantic(sc);
-            e = e->optimize(WANTvalue | WANTinterpret);
+            e = e->ctfeInterpret();
             (*args)[0] = e;
             Dsymbol *sa = getDsymbol(e);
             if (!sa || !sa->isFuncDeclaration())
@@ -2954,7 +2943,7 @@ Statement *CaseStatement::semantic(Scope *sc)
         }
 
         exp = exp->implicitCastTo(sc, sw->condition->type);
-        exp = exp->optimize(WANTvalue | WANTinterpret);
+        exp = exp->ctfeInterpret();
         if (exp->op != TOKstring && exp->op != TOKint64 && exp->op != TOKerror)
         {
             error("case must be a string or an integral constant, not %s", exp->toChars());
@@ -3054,11 +3043,11 @@ Statement *CaseRangeStatement::semantic(Scope *sc)
 
     first = first->semantic(sc);
     first = first->implicitCastTo(sc, sw->condition->type);
-    first = first->optimize(WANTvalue | WANTinterpret);
+    first = first->ctfeInterpret();
 
     last = last->semantic(sc);
     last = last->implicitCastTo(sc, sw->condition->type);
-    last = last->optimize(WANTvalue | WANTinterpret);
+    last = last->ctfeInterpret();
 
     if (first->op == TOKerror || last->op == TOKerror)
         return statement ? statement->semantic(sc) : NULL;
@@ -3286,6 +3275,7 @@ ReturnStatement::ReturnStatement(Loc loc, Expression *exp)
     : Statement(loc)
 {
     this->exp = exp;
+    this->implicit0 = 0;
 }
 
 Statement *ReturnStatement::syntaxCopy()
@@ -3303,7 +3293,6 @@ Statement *ReturnStatement::semantic(Scope *sc)
 
     FuncDeclaration *fd = sc->parent->isFuncDeclaration();
     Scope *scx = sc;
-    int implicit0 = 0;
     Expression *eorg = NULL;
 
     if (fd->fes)
@@ -3370,6 +3359,12 @@ Statement *ReturnStatement::semantic(Scope *sc)
         else
             fd->nrvo_can = 0;
 
+#if 0
+        if (fd->returnLabel && tbret && tbret->ty != Tvoid)
+        {
+        }
+        else
+#endif
         if (fd->inferRetType)
         {
             Type *tfret = fd->type->nextOf();
@@ -3455,10 +3450,11 @@ Statement *ReturnStatement::semantic(Scope *sc)
             // Construct: return vresult;
             if (!fd->vresult)
             {   // Declare vresult
+                Scope *sco = fd->scout ? fd->scout : scx;
                 VarDeclaration *v = new VarDeclaration(loc, tret, Id::result, NULL);
                 v->noscope = 1;
-                v->semantic(scx);
-                if (!scx->insert(v))
+                v->semantic(sco);
+                if (!sco->insert(v))
                     assert(0);
                 v->parent = fd;
                 fd->vresult = v;
@@ -3481,7 +3477,7 @@ Statement *ReturnStatement::semantic(Scope *sc)
     {
         if (fd->returnLabel && tbret->ty != Tvoid)
         {
-            assert(fd->vresult);
+            fd->buildResultVar();
             VarExp *v = new VarExp(0, fd->vresult);
 
             assert(eorg);
@@ -3798,9 +3794,16 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
         {   /* Cast the interface to an object, as the object has the monitor,
              * not the interface.
              */
-            Type *t = new TypeIdentifier(0, Id::Object);
+            if (!ClassDeclaration::object)
+            {
+                error("missing or corrupt object.d");
+                fatal();
+            }
 
-            t = t->semantic(0, sc);
+            Type *t = ClassDeclaration::object->type;
+            t = t->semantic(0, sc)->toBasetype();
+            assert(t->ty == Tclass);
+
             exp = new CastExp(loc, exp, t);
             exp = exp->semantic(sc);
         }

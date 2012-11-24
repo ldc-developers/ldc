@@ -98,8 +98,18 @@ void Import::load(Scope *sc)
         if (s->isModule())
             mod = (Module *)s;
         else
+        {
+            if (pkg)
+            {
             ::error(loc, "can only import from a module, not from package %s.%s",
                 pkg->toPrettyChars(), id->toChars());
+            }
+            else
+            {
+                ::error(loc, "can only import from a module, not from package %s",
+                    id->toChars());
+            }
+        }
 #endif
     }
 
@@ -374,26 +384,24 @@ void Import::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
         }
     }
     buf->printf("%s", id->toChars());
-    if (names.dim > 0) {
-        buf->writebyte(':');
+    if (names.dim)
+    {
+        buf->writestring(" : ");
         for (size_t i = 0; i < names.dim; i++)
         {
-            if (i > 0) {
-                    buf->writebyte(',');
-            }
+            Identifier *name = names[i];
+            Identifier *alias = aliases[i];
 
-            Identifier *name = (Identifier *)names.data[i];
-            Identifier *alias = (Identifier *)aliases.data[i];
-
-            if (!alias) {
+            if (alias)
+                buf->printf("%s = %s", alias->toChars(), name->toChars());
+            else
                 buf->printf("%s", name->toChars());
-                alias = name;
-            } else {
-                buf->printf("%s=%s", alias->toChars(), name->toChars());
-            }
+
+            if (i < names.dim - 1)
+                buf->writestring(", ");
         }
     }
-    buf->writebyte(';');
+    buf->printf(";");
     buf->writenl();
 }
 

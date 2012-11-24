@@ -137,10 +137,8 @@ struct Module : Package
     bool read(Loc loc); // read file, returns 'true' if succeed, 'false' otherwise.
 #if IN_LLVM
     void parse(bool gen_docs = false);       // syntactic parse
-#elif IN_GCC
-    void setDocfile();  // set docfile member
-    void parse(bool dump_source = false);       // syntactic parse
 #else
+    void setDocfile();  // set docfile member
     void parse();       // syntactic parse
 #endif
     void importAll(Scope *sc);

@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -304,7 +304,7 @@ void Lexer::error(const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    verror(tokenLoc(), format, ap);
+    ::verror(tokenLoc(), format, ap);
     va_end(ap);
 }
 
@@ -312,32 +312,8 @@ void Lexer::error(Loc loc, const char *format, ...)
 {
     va_list ap;
     va_start(ap, format);
-    verror(loc, format, ap);
+    ::verror(loc, format, ap);
     va_end(ap);
-}
-
-void Lexer::verror(Loc loc, const char *format, va_list ap)
-{
-    if (mod && !global.gag)
-    {
-        char *p = loc.toChars();
-        if (*p)
-            fprintf(stdmsg, "%s: ", p);
-        mem.free(p);
-
-        vfprintf(stdmsg, format, ap);
-
-        fprintf(stdmsg, "\n");
-        fflush(stdmsg);
-
-        if (global.errors >= 20)        // moderate blizzard of cascading messages
-            fatal();
-    }
-    else
-    {
-        global.gaggedErrors++;
-    }
-    global.errors++;
 }
 
 TOK Lexer::nextToken()
@@ -669,7 +645,7 @@ void Lexer::scan(Token *t)
                 StringValue *sv = stringtable.update((char *)t->ptr, p - t->ptr);
                 Identifier *id = (Identifier *) sv->ptrvalue;
                 if (!id)
-                {   id = new Identifier(sv->lstring.string,TOKidentifier);
+                {   id = new Identifier(sv->toDchars(),TOKidentifier);
                     sv->ptrvalue = id;
                 }
                 t->ident = id;
@@ -1202,9 +1178,7 @@ void Lexer::scan(Token *t)
             SINGLE(';', TOKsemicolon)
             SINGLE(':', TOKcolon)
             SINGLE('$', TOKdollar)
-#if DMDV2
             SINGLE('@', TOKat)
-#endif
 #undef SINGLE
 
 #define DOUBLE(c1,tok1,c2,tok2)         \
@@ -2629,8 +2603,9 @@ void Lexer::pragma()
                 {
                     p += 8;
                     filespec = mem.strdup(loc.filename ? loc.filename : mod->ident->toChars());
+                    continue;
                 }
-                continue;
+                goto Lerr;
 
             case '"':
                 if (filespec)
@@ -2913,7 +2888,7 @@ Identifier *Lexer::idPool(const char *s)
     Identifier *id = (Identifier *) sv->ptrvalue;
     if (!id)
     {
-        id = new Identifier(sv->lstring.string, TOKidentifier);
+        id = new Identifier(sv->toDchars(), TOKidentifier);
         sv->ptrvalue = id;
     }
     return id;
@@ -3091,7 +3066,7 @@ void Lexer::initKeywords()
 {
     unsigned nkeywords = sizeof(keywords) / sizeof(keywords[0]);
 
-    stringtable.init(1543);
+    stringtable.init(6151);
 
     if (global.params.Dversion == 1)
         nkeywords -= 2;
@@ -3104,7 +3079,7 @@ void Lexer::initKeywords()
         const char *s = keywords[u].name;
         enum TOK v = keywords[u].value;
         StringValue *sv = stringtable.insert(s, strlen(s));
-        sv->ptrvalue = (void *) new Identifier(sv->lstring.string,v);
+        sv->ptrvalue = (void *) new Identifier(sv->toDchars(),v);
 
         //printf("tochars[%d] = '%s'\n",v, s);
         Token::tochars[v] = s;
@@ -3201,6 +3176,7 @@ void Lexer::initKeywords()
     Token::tochars[TOKpow]              = "^^";
     Token::tochars[TOKpowass]           = "^^=";
     Token::tochars[TOKgoesto]           = "=>";
+    Token::tochars[TOKpound]            = "#";
 #endif
 
      // For debugging

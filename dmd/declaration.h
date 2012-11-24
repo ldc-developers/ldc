@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -283,7 +283,7 @@ struct VarDeclaration : Declaration
 #else
     int nestedref;              // referenced by a lexically nested function
 #endif
-    unsigned short alignment;
+    structalign_t alignment;
     int ctorinit;               // it has been initialized in a ctor
     int onstack;                // 1: it has been allocated on the stack
                                 // 2: on stack, run destructor anyway
@@ -702,6 +702,7 @@ struct FuncDeclaration : Declaration
     Identifier *outId;                  // identifier for out statement
     VarDeclaration *vresult;            // variable corresponding to outId
     LabelDsymbol *returnLabel;          // where the return goes
+    Scope *scout;                       // out contract scope for vresult->semantic
 
     DsymbolTable *localsymtab;          // used to prevent symbols in different
                                         // scopes from having the same name
@@ -779,7 +780,7 @@ struct FuncDeclaration : Declaration
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void bodyToCBuffer(OutBuffer *buf, HdrGenState *hgs);
     int overrides(FuncDeclaration *fd);
-    int findVtblIndex(Array *vtbl, int dim);
+    int findVtblIndex(Dsymbols *vtbl, int dim);
     int overloadInsert(Dsymbol *s);
     FuncDeclaration *overloadExactMatch(Type *t, Module* from);
     FuncDeclaration *overloadResolve(Loc loc, Expression *ethis, Expressions *arguments, Module *from, int flags = 0);
@@ -821,6 +822,7 @@ struct FuncDeclaration : Declaration
     FuncDeclaration *isUnique();
     int needsClosure();
     int hasNestedFrameRefs();
+    void buildResultVar();
     Statement *mergeFrequire(Statement *);
     Statement *mergeFensure(Statement *);
     Parameters *getParameters(int *pvarargs);

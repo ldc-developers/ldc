@@ -1114,12 +1114,12 @@ dump(0);
 /***************************************
  * Return !=0 if expression is an lvalue.
  */
-#if DMDV2
+
 int Expression::isLvalue()
 {
     return 0;
 }
-#endif
+
 
 /*******************************
  * Give error if we're not an lvalue.
@@ -1133,7 +1133,7 @@ Expression *Expression::toLvalue(Scope *sc, Expression *e)
     else if (!loc.filename)
         loc = e->loc;
     error("%s is not an lvalue", e->toChars());
-    return this;
+    return new ErrorExp();
 }
 
 Expression *Expression::modifiableLvalue(Scope *sc, Expression *e)
@@ -1143,10 +1143,13 @@ Expression *Expression::modifiableLvalue(Scope *sc, Expression *e)
     // See if this expression is a modifiable lvalue (i.e. not const)
 #if DMDV2
     if (type && (!type->isMutable() || !type->isAssignable()))
-        error("%s is not mutable", e->toChars());
+    {   error("%s is not mutable", e->toChars());
+        return new ErrorExp();
+    }
 #endif
     return toLvalue(sc, e);
 }
+
 
 /************************************
  * Detect cases where pointers to the stack can 'escape' the
@@ -1916,16 +1919,17 @@ char *ComplexExp::toChars()
 {
     char buffer[sizeof(value) * 3 + 8 + 1];
 
-#ifdef IN_GCC
     char buf1[sizeof(value) * 3 + 8 + 1];
     char buf2[sizeof(value) * 3 + 8 + 1];
+#ifdef IN_GCC
     creall(value).format(buf1, sizeof(buf1));
     cimagl(value).format(buf2, sizeof(buf2));
-    sprintf(buffer, "(%s+%si)", buf1, buf2);
 #else
-    sprintf(buffer, "(%Lg+%Lgi)", creall(value), cimagl(value));
-    assert(strlen(buffer) < sizeof(buffer));
+    ld_sprint(buf1, 'g', creall(value));
+    ld_sprint(buf2, 'g', cimagl(value));
 #endif
+    sprintf(buffer, "(%s+%si)", buf1, buf2);
+    assert(strlen(buffer) < sizeof(buffer));
     return mem.strdup(buffer);
 }
 
@@ -2126,12 +2130,12 @@ void IdentifierExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
         buf->writestring(ident->toChars());
 }
 
-#if DMDV2
+
 int IdentifierExp::isLvalue()
 {
     return 1;
 }
-#endif
+
 
 Expression *IdentifierExp::toLvalue(Scope *sc, Expression *e)
 {
@@ -2180,7 +2184,7 @@ Lagain:
 
     //printf("DsymbolExp:: %p '%s' is a symbol\n", this, toChars());
     //printf("s = '%s', s->kind = '%s'\n", s->toChars(), s->kind());
-    if (type)
+    if (type && !s->needThis())
         return this;
     if (!s->isFuncDeclaration())        // functions are checked after overloading
         checkDeprecated(sc, s);
@@ -2356,6 +2360,24 @@ Lagain:
     TupleDeclaration *tup = s->isTupleDeclaration();
     if (tup)
     {
+        for (size_t i = 0; i < tup->objects->dim; i++)
+        {
+            Dsymbol *sa = getDsymbol((*tup->objects)[i]);
+            if (sa && sa->needThis())
+            {
+                if (hasThis(sc)
+#if DMDV2
+                        && !sa->isFuncDeclaration()
+#endif
+                    )
+                {
+                    // Supply an implicit 'this', as in
+                    //    this.ident
+                    (*tup->objects)[i] = new DotVarExp(loc, new ThisExp(loc), sa->isDeclaration());
+                }
+            }
+        }
+
         e = new TupleExp(loc, tup);
         e = e->semantic(sc);
         return e;
@@ -2368,6 +2390,8 @@ Lagain:
         s = ti->toAlias();
         if (!s->isTemplateInstance())
             goto Lagain;
+        if (ti->errors)
+            return new ErrorExp();
         e = new ScopeExp(loc, ti);
         e = e->semantic(sc);
         return e;
@@ -2395,12 +2419,12 @@ void DsymbolExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writestring(s->toChars());
 }
 
-#if DMDV2
+
 int DsymbolExp::isLvalue()
 {
     return 1;
 }
-#endif
+
 
 Expression *DsymbolExp::toLvalue(Scope *sc, Expression *e)
 {
@@ -2493,12 +2517,12 @@ void ThisExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writestring("this");
 }
 
-#if DMDV2
+
 int ThisExp::isLvalue()
 {
     return 1;
 }
-#endif
+
 
 Expression *ThisExp::toLvalue(Scope *sc, Expression *e)
 {
@@ -2917,12 +2941,15 @@ int StringExp::isBool(int result)
     return result ? TRUE : FALSE;
 }
 
-#if DMDV2
+
 int StringExp::isLvalue()
 {
-    return 1;
+    /* string literal is rvalue in default, but
+     * conversion to reference of static array is only allowed.
+     */
+    return 0;
 }
-#endif
+
 unsigned StringExp::charAt(size_t i)
 {   unsigned value;
 
@@ -3059,6 +3086,7 @@ ArrayLiteralExp::ArrayLiteralExp(Loc loc, Expression *e)
 {
     elements = new Expressions;
     elements->push(e);
+    this->ownedByCtfe = false;
 }
 
 Expression *ArrayLiteralExp::syntaxCopy()
@@ -3121,7 +3149,9 @@ Expression *ArrayLiteralExp::semantic(Scope *sc)
     /* Disallow array literals of type void being used.
      */
     if (elements->dim > 0 && t0->ty == Tvoid)
-        error("%s of type %s has no value", toChars(), type->toChars());
+    {   error("%s of type %s has no value", toChars(), type->toChars());
+        return new ErrorExp();
+    }
 
     return this;
 }
@@ -3145,13 +3175,6 @@ int ArrayLiteralExp::isBool(int result)
     return result ? (dim != 0) : (dim == 0);
 }
 
-#if DMDV2
-int ArrayLiteralExp::canThrow()
-{
-    return 1;   // because it can fail allocating memory
-}
-#endif
-
 StringExp *ArrayLiteralExp::toString()
 {
     TY telem = type->nextOf()->toBasetype()->ty;
@@ -3163,10 +3186,10 @@ StringExp *ArrayLiteralExp::toString()
         if (elements)
             for (int i = 0; i < elements->dim; ++i)
             {
-                Expression *ch = elements->tdata()[i];
+                Expression *ch = (*elements)[i];
                 if (ch->op != TOKint64)
                     return NULL;
-                buf.writedchar(ch->toInteger());
+                buf.writeUTF8(ch->toInteger());
             }
         buf.writebyte(0);
 
@@ -3174,7 +3197,8 @@ StringExp *ArrayLiteralExp::toString()
         if (telem == Twchar) prefix = 'w';
         else if (telem == Tdchar) prefix = 'd';
 
-        StringExp *se = new StringExp(loc, buf.extractData(), buf.size - 1, prefix);
+        const size_t len = buf.offset - 1;
+        StringExp *se = new StringExp(loc, buf.extractData(), len, prefix);
         se->type = type;
         return se;
     }
@@ -3193,7 +3217,7 @@ void ArrayLiteralExp::toMangleBuffer(OutBuffer *buf)
     size_t dim = elements ? elements->dim : 0;
     buf->printf("A%u", dim);
     for (size_t i = 0; i < dim; i++)
-    {   Expression *e = elements->tdata()[i];
+    {   Expression *e = (*elements)[i];
         e->toMangleBuffer(buf);
     }
 }
@@ -3283,8 +3307,8 @@ void AssocArrayLiteralExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
     buf->writeByte('[');
     for (size_t i = 0; i < keys->dim; i++)
-    {   Expression *key = (Expression *)keys->data[i];
-        Expression *value = (Expression *)values->data[i];
+    {   Expression *key = (*keys)[i];
+        Expression *value = (*values)[i];
 
         if (i)
             buf->writeByte(',');
@@ -3300,8 +3324,8 @@ void AssocArrayLiteralExp::toMangleBuffer(OutBuffer *buf)
     size_t dim = keys->dim;
     buf->printf("A%u", dim);
     for (size_t i = 0; i < dim; i++)
-    {   Expression *key = (Expression *)keys->data[i];
-        Expression *value = (Expression *)values->data[i];
+    {   Expression *key = (*keys)[i];
+        Expression *value = (*values)[i];
 
         key->toMangleBuffer(buf);
         value->toMangleBuffer(buf);
@@ -3323,6 +3347,7 @@ StructLiteralExp::StructLiteralExp(Loc loc, StructDeclaration *sd, Expressions *
 #endif
     this->soffset = 0;
     this->fillHoles = 1;
+    this->ownedByCtfe = false;
 #if IN_LLVM
     constType = NULL;
 #endif
@@ -3411,7 +3436,7 @@ Expression *StructLiteralExp::semantic(Scope *sc)
                     else if (v->scope)
                     {   // Do deferred semantic analysis
                         Initializer *i2 = v->init->syntaxCopy();
-                        i2 = i2->semantic(v->scope, v->type, WANTinterpret);
+                        i2 = i2->semantic(v->scope, v->type, INITinterpret);
                         e = i2->toExpression();
                         // remove v->scope (see bug 3426)
                         // but not if gagged, for we might be called again.
@@ -3554,7 +3579,7 @@ void StructLiteralExp::toMangleBuffer(OutBuffer *buf)
     size_t dim = elements ? elements->dim : 0;
     buf->printf("S%u", dim);
     for (size_t i = 0; i < dim; i++)
-    {   Expression *e = (Expression *)elements->data[i];
+    {   Expression *e = (*elements)[i];
         if (e)
             e->toMangleBuffer(buf);
         else
@@ -3641,6 +3666,8 @@ Lagain:
             ti->semantic(sc);
         if (ti->inst)
         {
+            if (ti->inst->errors)
+                return new ErrorExp();
             Dsymbol *s = ti->inst->toAlias();
             sds2 = s->isScopeDsymbol();
             if (!sds2)
@@ -4356,14 +4383,14 @@ void VarExp::checkEscapeRef()
     }
 }
 
-#if DMDV2
+
 int VarExp::isLvalue()
 {
     if (var->storage_class & STClazy)
         return 0;
     return 1;
 }
-#endif
+
 
 Expression *VarExp::toLvalue(Scope *sc, Expression *e)
 {
@@ -5505,6 +5532,11 @@ Expression *BinAssignExp::semantic(Scope *sc)
     return this;
 }
 
+int BinAssignExp::isLvalue()
+{
+    return 1;
+}
+
 /************************************************************/
 
 CompileExp::CompileExp(Loc loc, Expression *e)
@@ -5526,7 +5558,7 @@ Expression *CompileExp::semantic(Scope *sc)
         error("argument to mixin must be a string type, not %s\n", e1->type->toChars());
         return new ErrorExp();
     }
-    e1 = e1->optimize(WANTvalue | WANTinterpret);
+    e1 = e1->ctfeInterpret();
     StringExp *se = e1->toString();
     if (!se)
     {   error("argument to mixin must be a string, not (%s)", e1->toChars());
@@ -5566,7 +5598,7 @@ Expression *FileExp::semantic(Scope *sc)
 #endif
     UnaExp::semantic(sc);
     e1 = resolveProperties(sc, e1);
-    e1 = e1->optimize(WANTvalue | WANTinterpret);
+    e1 = e1->ctfeInterpret();
     if (e1->op != TOKstring)
     {   error("file name argument must be a string, not (%s)", e1->toChars());
         goto Lerror;
@@ -6166,12 +6198,12 @@ Expression *DotVarExp::semantic(Scope *sc)
     return this;
 }
 
-#if DMDV2
+
 int DotVarExp::isLvalue()
 {
     return 1;
 }
-#endif
+
 
 Expression *DotVarExp::toLvalue(Scope *sc, Expression *e)
 {
@@ -7272,17 +7304,23 @@ int CallExp::canThrow()
 }
 #endif
 
-#if DMDV2
 int CallExp::isLvalue()
 {
-//    if (type->toBasetype()->ty == Tstruct)
-//      return 1;
     Type *tb = e1->type->toBasetype();
+    if (tb->ty == Tdelegate || tb->ty == Tpointer)
+        tb = tb->nextOf();
+#if DMDV2
     if (tb->ty == Tfunction && ((TypeFunction *)tb)->isref)
+    {
+        if (e1->op == TOKdotvar)
+            if (((DotVarExp *)e1)->var->isCtorDeclaration())
+                return 0;
         return 1;               // function returns a reference
+    }
+#endif
     return 0;
 }
-#endif
+
 
 Expression *CallExp::toLvalue(Scope *sc, Expression *e)
 {
@@ -7478,12 +7516,12 @@ Expression *PtrExp::semantic(Scope *sc)
     return this;
 }
 
-#if DMDV2
+
 int PtrExp::isLvalue()
 {
     return 1;
 }
-#endif
+
 
 void PtrExp::checkEscapeRef()
 {
@@ -8014,8 +8052,8 @@ Expression *SliceExp::semantic(Scope *sc)
 
     if (t->ty == Ttuple)
     {
-        lwr = lwr->optimize(WANTvalue | WANTinterpret);
-        upr = upr->optimize(WANTvalue | WANTinterpret);
+        lwr = lwr->ctfeInterpret();
+        upr = upr->ctfeInterpret();
         uinteger_t i1 = lwr->toUInteger();
         uinteger_t i2 = upr->toUInteger();
 
@@ -8098,12 +8136,12 @@ void SliceExp::checkEscapeRef()
     e1->checkEscapeRef();
 }
 
-#if DMDV2
+
 int SliceExp::isLvalue()
 {
     return 1;
 }
-#endif
+
 
 Expression *SliceExp::toLvalue(Scope *sc, Expression *e)
 {
@@ -8199,6 +8237,8 @@ Expression *ArrayExp::semantic(Scope *sc)
 #endif
     UnaExp::semantic(sc);
     e1 = resolveProperties(sc, e1);
+    if (e1->op == TOKerror)
+        return e1;
 
     t1 = e1->type->toBasetype();
     if (t1->ty != Tclass && t1->ty != Tstruct)
@@ -8207,13 +8247,13 @@ Expression *ArrayExp::semantic(Scope *sc)
         {   error("only one index allowed to index %s", t1->toChars());
             goto Lerr;
         }
-        e = new IndexExp(loc, e1, (Expression *)arguments->data[0]);
+        e = new IndexExp(loc, e1, (*arguments)[0]);
         return e->semantic(sc);
     }
 
     // Run semantic() on each argument
     for (size_t i = 0; i < arguments->dim; i++)
-    {   e = (Expression *)arguments->data[i];
+    {   e = (*arguments)[i];
 
         e = e->semantic(sc);
         if (!e->type)
@@ -8222,7 +8262,7 @@ Expression *ArrayExp::semantic(Scope *sc)
         }
         else if (e->type == Type::terror)
             goto Lerr;
-        arguments->data[i] = (void *)e;
+        (*arguments)[i] = e;
     }
 
     expandTuples(arguments);
@@ -8239,14 +8279,14 @@ Lerr:
     return new ErrorExp();
 }
 
-#if DMDV2
+
 int ArrayExp::isLvalue()
 {
     if (type && type->toBasetype()->ty == Tvoid)
         return 0;
     return 1;
 }
-#endif
+
 
 Expression *ArrayExp::toLvalue(Scope *sc, Expression *e)
 {
@@ -8328,12 +8368,12 @@ void CommaExp::checkEscapeRef()
     e2->checkEscapeRef();
 }
 
-#if DMDV2
+
 int CommaExp::isLvalue()
 {
     return e2->isLvalue();
 }
-#endif
+
 
 Expression *CommaExp::toLvalue(Scope *sc, Expression *e)
 {
@@ -8510,12 +8550,12 @@ Lerr:
     return new ErrorExp();
 }
 
-#if DMDV2
+
 int IndexExp::isLvalue()
 {
     return 1;
 }
-#endif
+
 
 Expression *IndexExp::toLvalue(Scope *sc, Expression *e)
 {
@@ -10514,12 +10554,12 @@ Expression *CondExp::semantic(Scope *sc)
     return this;
 }
 
-#if DMDV2
+
 int CondExp::isLvalue()
 {
     return e1->isLvalue() && e2->isLvalue();
 }
-#endif
+
 
 Expression *CondExp::toLvalue(Scope *sc, Expression *ex)
 {

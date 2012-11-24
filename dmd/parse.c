@@ -12,6 +12,7 @@
 
 #include <stdio.h>
 #include <assert.h>
+#include <string.h>                     // strlen(),memcpy()
 
 #include "rmem.h"
 #include "lexer.h"
@@ -78,25 +79,6 @@ Dsymbols *Parser::parseModule()
         unsigned char *comment = token.blockComment;
 
         nextToken();
-#if DMDV2
-        if (token.value == TOKlparen)
-        {
-            nextToken();
-            if (token.value != TOKidentifier)
-            {   error("module (system) identifier expected");
-                goto Lerr;
-            }
-            Identifier *id = token.ident;
-
-            if (id == Id::system)
-                safe = TRUE;
-            else
-                error("(safe) expected, not %s", id->toChars());
-            nextToken();
-            check(TOKrparen);
-        }
-#endif
-
         if (token.value != TOKidentifier)
         {   error("Identifier expected following module");
             goto Lerr;
@@ -397,7 +379,11 @@ Dsymbols *Parser::parseDeclDefs(int once)
                 {
                     nextToken();
                     if (token.value == TOKint32v && token.uns64value > 0)
+                    {
+                        if (token.uns64value & (token.uns64value - 1))
+                            error("align(%s) must be a power of 2", token.toChars());
                         n = (unsigned)token.uns64value;
+                    }
                     else
                     {   error("positive integer expected, not %s", token.toChars());
                         n = 1;
@@ -420,7 +406,7 @@ Dsymbols *Parser::parseDeclDefs(int once)
                 nextToken();
                 check(TOKlparen);
                 if (token.value != TOKidentifier)
-                {   error("pragma(identifier expected");
+                {   error("pragma(identifier) expected");
                     goto Lerror;
                 }
                 ident = token.ident;
@@ -2746,7 +2732,15 @@ Initializer *Parser::parseInitializer()
                         if (comma == 1)
                             error("comma expected separating array initializers, not %s", token.toChars());
                         value = parseInitializer();
-                        ia->addInit(NULL, value);
+                        if (token.value == TOKcolon)
+                        {
+                            nextToken();
+                            e = value->toExpression();
+                            value = parseInitializer();
+                        }
+                        else
+                            e = NULL;
+                        ia->addInit(e, value);
                         comma = 1;
                         continue;
 
@@ -3520,7 +3514,7 @@ Statement *Parser::parseStatement(int flags)
                 Loc loc = this->loc;
 
                 nextToken();
-                if (token.value == TOKlcurly)
+                if (token.value == TOKlcurly || token.value != TOKlparen)
                 {
                     t = NULL;
                     id = NULL;

@@ -92,6 +92,7 @@ enum PROT Declaration::prot()
  */
 
 #if DMDV2
+
 void Declaration::checkModify(Loc loc, Scope *sc, Type *t)
 {
     if (sc->incontract && isParameter())
@@ -100,40 +101,10 @@ void Declaration::checkModify(Loc loc, Scope *sc, Type *t)
     if (sc->incontract && isResult())
         error(loc, "cannot modify result '%s' in contract", toChars());
 
-    if (isCtorinit() && !t->isMutable())
+    if (isCtorinit() && !t->isMutable() ||
+        (storage_class & STCnodefaultctor))
     {   // It's only modifiable if inside the right constructor
-        Dsymbol *s = sc->func;
-        while (1)
-        {
-            FuncDeclaration *fd = NULL;
-            if (s)
-                fd = s->isFuncDeclaration();
-            if (fd &&
-                ((fd->isCtorDeclaration() && storage_class & STCfield) ||
-                 (fd->isStaticCtorDeclaration() && !(storage_class & STCfield))) &&
-                fd->toParent2() == toParent()
-               )
-            {
-                VarDeclaration *v = isVarDeclaration();
-                assert(v);
-                v->ctorinit = 1;
-                //printf("setting ctorinit\n");
-            }
-            else
-            {
-                if (s)
-                {   s = s->toParent2();
-                    continue;
-                }
-                else
-                {
-                    const char *p = isStatic() ? "static " : "";
-                    error(loc, "can only initialize %sconst %s inside %sconstructor",
-                        p, toChars(), p);
-                }
-            }
-            break;
-        }
+        modifyFieldVar(loc, sc, isVarDeclaration(), NULL);
     }
     else
     {
@@ -145,6 +116,8 @@ void Declaration::checkModify(Loc loc, Scope *sc, Type *t)
                 p = "const";
             else if (isImmutable())
                 p = "immutable";
+            else if (isWild())
+                p = "inout";
             else if (storage_class & STCmanifest)
                 p = "enum";
             else if (!t->isAssignable())
@@ -205,12 +178,13 @@ Type *TupleDeclaration::getType()
 
         /* We know it's a type tuple, so build the TypeTuple
          */
+        Types *types = (Types *)objects;
         Parameters *args = new Parameters();
         args->setDim(objects->dim);
         OutBuffer buf;
         int hasdeco = 1;
-        for (size_t i = 0; i < objects->dim; i++)
-        {   Type *t = (Type *)objects->data[i];
+        for (size_t i = 0; i < types->dim; i++)
+        {   Type *t = (*types)[i];
 
             //printf("type = %s\n", t->toChars());
 #if 0
@@ -351,7 +325,7 @@ void TypedefDeclaration::semantic2(Scope *sc)
         {
             Initializer *savedinit = init;
             int errors = global.errors;
-            init = init->semantic(sc, basetype, WANTinterpret);
+            init = init->semantic(sc, basetype, INITinterpret);
             if (errors != global.errors)
             {
                 init = savedinit;
@@ -538,6 +512,18 @@ void AliasDeclaration::semantic(Scope *sc)
     else if (t)
     {
         type = t->semantic(loc, sc);
+
+        /* If type is class or struct, convert to symbol.
+         * See bugzilla 6475.
+         */
+        s = type->toDsymbol(sc);
+        if (s
+#if DMDV2
+            && ((s->getType() && type->equals(s->getType())) || s->isEnumMember())
+#endif
+            )
+            goto L2;
+
         //printf("\talias resolved to type %s\n", type->toChars());
     }
     if (overnext)
@@ -658,7 +644,9 @@ Dsymbol *AliasDeclaration::toAlias()
         aliassym = new AliasDeclaration(loc, ident, Type::terror);
         type = Type::terror;
     }
-    else if (!aliassym && scope)
+    else if (aliassym || type->deco)
+        ;   // semantic is already done.
+    else if (scope)
         semantic(scope);
     Dsymbol *s = aliassym ? aliassym->toAlias() : this;
     return s;
@@ -846,9 +834,32 @@ void VarDeclaration::semantic(Scope *sc)
     //printf("storage_class = x%x\n", storage_class);
 
 #if DMDV2
-    if (storage_class & STCgshared && global.params.safe && !sc->module->safe)
+    // Safety checks
+    if (sc->func && !sc->intypeof)
     {
-        error("__gshared not allowed in safe mode; use shared");
+        if (storage_class & STCgshared)
+        {
+            if (sc->func->setUnsafe())
+                error("__gshared not allowed in safe functions; use shared");
+        }
+        if (init && init->isVoidInitializer() && type->hasPointers())
+        {
+            if (sc->func->setUnsafe())
+                error("void initializers for pointers not allowed in safe functions");
+        }
+        if (type->hasPointers() && type->toDsymbol(sc))
+        {
+            Dsymbol *s = type->toDsymbol(sc);
+            if (s)
+    {
+                AggregateDeclaration *ad2 = s->isAggregateDeclaration();
+                if (ad2 && ad2->hasUnions)
+                {
+                    if (sc->func->setUnsafe())
+                        error("unions containing pointers are not allowed in @safe functions");
+                }
+            }
+        }
     }
 #endif
 
@@ -1115,7 +1126,7 @@ void VarDeclaration::semantic(Scope *sc)
                     Expression *e = init->toExpression();
                     if (!e)
                     {
-                        init = init->semantic(sc, type, 0); // Don't need to interpret
+                        init = init->semantic(sc, type, INITnointerpret);
                         e = init->toExpression();
                         if (!e)
                         {   error("is not a static and cannot have static initializer");
@@ -1216,7 +1227,7 @@ void VarDeclaration::semantic(Scope *sc)
             }
             else
             {
-                init = init->semantic(sc, type, WANTinterpret);
+                init = init->semantic(sc, type, INITinterpret);
                 if (fd && isConst() && !isStatic())
                 {   // Make it static
                     storage_class |= STCstatic;
@@ -1246,7 +1257,7 @@ void VarDeclaration::semantic(Scope *sc)
                 }
                 else if (si || ai)
                 {   i2 = init->syntaxCopy();
-                    i2 = i2->semantic(sc, type, WANTinterpret);
+                    i2 = i2->semantic(sc, type, INITinterpret);
                 }
                 inuse--;
                 if (global.endGagging(errors))    // if errors happened
@@ -1261,7 +1272,7 @@ void VarDeclaration::semantic(Scope *sc)
                 else if (ei)
                 {
                     if (isDataseg() || (storage_class & STCmanifest))
-                        e = e->optimize(WANTvalue | WANTinterpret);
+                        e = e->ctfeInterpret();
                     else
                         e = e->optimize(WANTvalue);
                     switch (e->op)
@@ -1349,7 +1360,7 @@ void VarDeclaration::semantic2(Scope *sc)
             printf("type = %p\n", ei->exp->type);
         }
 #endif
-        init = init->semantic(sc, type, WANTinterpret);
+        init = init->semantic(sc, type, INITinterpret);
         inuse--;
     }
 }
@@ -1429,7 +1440,7 @@ void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset,
 
     unsigned memsize      = t->size(loc);            // size of member
     unsigned memalignsize = t->alignsize();          // size of member for alignment purposes
-    unsigned memalign     = t->memalign(alignment);  // alignment boundaries
+    structalign_t memalign = t->memalign(alignment); // alignment boundaries
 
     offset = AggregateDeclaration::placeField(poffset, memsize, memalignsize, memalign,
                 &ad->structsize, &ad->alignsize, isunion);

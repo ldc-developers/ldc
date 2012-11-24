@@ -34,7 +34,7 @@ Initializer *Initializer::syntaxCopy()
     return this;
 }
 
-Initializer *Initializer::semantic(Scope *sc, Type *t, int needInterpret)
+Initializer *Initializer::semantic(Scope *sc, Type *t, NeedInterpret needInterpret)
 {
     return this;
 }
@@ -87,7 +87,7 @@ Initializer *VoidInitializer::syntaxCopy()
 }
 
 
-Initializer *VoidInitializer::semantic(Scope *sc, Type *t, int needInterpret)
+Initializer *VoidInitializer::semantic(Scope *sc, Type *t, NeedInterpret needInterpret)
 {
     //printf("VoidInitializer::semantic(t = %p)\n", t);
     type = t;
@@ -144,7 +144,7 @@ void StructInitializer::addInit(Identifier *field, Initializer *value)
     this->value.push(value);
 }
 
-Initializer *StructInitializer::semantic(Scope *sc, Type *t, int needInterpret)
+Initializer *StructInitializer::semantic(Scope *sc, Type *t, NeedInterpret needInterpret)
 {
     int errors = 0;
 
@@ -333,7 +333,12 @@ Expression *StructInitializer::toExpression()
         if (unionSize == 1)
         {   // Not a union -- default initialize if missing
             if (!(*elements)[i])
-                (*elements)[i] = vd->type->defaultInit();
+            {   // Default initialize
+                if (vd->init)
+                    (*elements)[i] = vd->init->toExpression();
+                else
+                    (*elements)[i] = vd->type->defaultInit();
+            }
         }
         else
         {   // anonymous union -- check for errors
@@ -433,7 +438,7 @@ void ArrayInitializer::addInit(Expression *index, Initializer *value)
     type = NULL;
 }
 
-Initializer *ArrayInitializer::semantic(Scope *sc, Type *t, int needInterpret)
+Initializer *ArrayInitializer::semantic(Scope *sc, Type *t, NeedInterpret needInterpret)
 {   unsigned i;
     unsigned length;
     const unsigned amax = 0x80000000;
@@ -462,14 +467,39 @@ Initializer *ArrayInitializer::semantic(Scope *sc, Type *t, int needInterpret)
         Expression *idx = index[i];
         if (idx)
         {   idx = idx->semantic(sc);
-            idx = idx->optimize(WANTvalue | WANTinterpret);
+            idx = idx->ctfeInterpret();
             index[i] = idx;
             length = idx->toInteger();
         }
 
         Initializer *val = value[i];
+        ExpInitializer *ei = val->isExpInitializer();
+        if (ei && !idx)
+            ei->expandTuples = 1;
         val = val->semantic(sc, t->nextOf(), needInterpret);
-        value[i] = val;
+
+        ei = val->isExpInitializer();
+        // found a tuple, expand it
+        if (ei && ei->exp->op == TOKtuple)
+        {
+            TupleExp *te = (TupleExp *)ei->exp;
+            index.remove(i);
+            value.remove(i);
+
+            for (size_t j = 0; j < te->exps->dim; ++j)
+            {
+                Expression *e = (*te->exps)[j];
+                index.insert(i + j, (Expression *)NULL);
+                value.insert(i + j, new ExpInitializer(e->loc, e));
+            }
+            i--;
+            continue;
+        }
+        else
+        {
+            value[i] = val;
+        }
+
         length++;
         if (length == 0)
         {   error(loc, "array dimension overflow");
@@ -694,6 +724,7 @@ ExpInitializer::ExpInitializer(Loc loc, Expression *exp)
     : Initializer(loc)
 {
     this->exp = exp;
+    this->expandTuples = 0;
 }
 
 Initializer *ExpInitializer::syntaxCopy()
@@ -701,20 +732,29 @@ Initializer *ExpInitializer::syntaxCopy()
     return new ExpInitializer(loc, exp->syntaxCopy());
 }
 
-Initializer *ExpInitializer::semantic(Scope *sc, Type *t, int needInterpret)
+Initializer *ExpInitializer::semantic(Scope *sc, Type *t, NeedInterpret needInterpret)
 {
     //printf("ExpInitializer::semantic(%s), type = %s\n", exp->toChars(), t->toChars());
     exp = exp->semantic(sc);
-    int wantOptimize = needInterpret ? WANTinterpret|WANTvalue : WANTvalue;
+    if (exp->op == TOKerror)
+        return this;
 
     int olderrors = global.errors;
-    exp = exp->optimize(wantOptimize);
+    if (needInterpret)
+        exp = exp->ctfeInterpret();
+    else
+        exp = exp->optimize(WANTvalue);
     if (!global.gag && olderrors != global.errors)
         return this; // Failed, suppress duplicate error messages
 
     if (exp->op == TOKtype)
         exp->error("initializer must be an expression, not '%s'", exp->toChars());
     Type *tb = t->toBasetype();
+
+    if (exp->op == TOKtuple &&
+        expandTuples &&
+        !exp->implicitConvTo(t))
+        return new ExpInitializer(loc, exp);
 
     /* Look for case of initializing a static array with a too-short
      * string literal, such as:
@@ -745,8 +785,13 @@ Initializer *ExpInitializer::semantic(Scope *sc, Type *t, int needInterpret)
     }
 
     exp = exp->implicitCastTo(sc, t);
+    if (exp->op == TOKerror)
+        return this;
 L1:
-    exp = exp->optimize(wantOptimize);
+    if (needInterpret)
+        exp = exp->ctfeInterpret();
+    else
+        exp = exp->optimize(WANTvalue);
     //printf("-ExpInitializer::semantic(): "); exp->print();
     return this;
 }

@@ -494,7 +494,7 @@ Type *Type::merge()
             else
             {
                sv2->ptrvalue = this;
-               deco = (char *)sv2->lstring.string;
+               deco = (char *)sv2->toDchars();
             }
             //printf("new value, deco = '%s' %p\n", t->deco, t->deco);
         }
@@ -776,7 +776,7 @@ Expression *Type::dotExp(Scope *sc, Expression *e, Identifier *ident)
                             e = v->type->defaultInit(loc);
                         }
                     }
-                    e = e->optimize(WANTvalue | WANTinterpret);
+                    e = e->ctfeInterpret();
 //                  if (!e->isConst())
 //                      error(loc, ".init cannot be evaluated at compile time");
                 }
@@ -804,7 +804,7 @@ Expression *Type::dotExp(Scope *sc, Expression *e, Identifier *ident)
     return getProperty(e->loc, ident);
 }
 
-unsigned Type::memalign(unsigned salign)
+structalign_t Type::memalign(structalign_t salign)
 {
     return salign;
 }
@@ -1923,7 +1923,7 @@ void TypeSArray::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol
             sc = sc->push(sym);
 
             dim = dim->semantic(sc);
-            dim = dim->optimize(WANTvalue | WANTinterpret);
+            dim = dim->ctfeInterpret();
             uinteger_t d = dim->toUInteger();
 
             sc = sc->pop();
@@ -1985,7 +1985,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
     {   TupleDeclaration *sd = s->isTupleDeclaration();
 
         dim = semanticLength(sc, sd, dim);
-        dim = dim->optimize(WANTvalue | WANTinterpret);
+        dim = dim->ctfeInterpret();
         uinteger_t d = dim->toUInteger();
 
         if (d >= sd->objects->dim)
@@ -2012,7 +2012,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
         if (errors != global.errors)
             goto Lerror;
 
-        dim = dim->optimize(WANTvalue | WANTinterpret);
+        dim = dim->ctfeInterpret();
         if (sc && sc->parameterSpecialization && dim->op == TOKvar &&
             ((VarExp *)dim)->var->storage_class & STCtemplateparameter)
         {
@@ -2132,7 +2132,7 @@ int TypeSArray::isString()
     return nty == Tchar || nty == Twchar || nty == Tdchar;
 }
 
-unsigned TypeSArray::memalign(unsigned salign)
+structalign_t TypeSArray::memalign(structalign_t salign)
 {
     return next->memalign(salign);
 }
@@ -3036,8 +3036,6 @@ void TypeFunction::toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, Hd
         return;
     }
     inuse++;
-    if (next && (!ident || ident->toHChars2() == ident->toChars()))
-        next->toCBuffer2(buf, hgs, 0);
     if (hgs->ddoc != 1)
     {
         switch (linkage)
@@ -3054,10 +3052,17 @@ void TypeFunction::toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, Hd
             default:
                 assert(0);
         }
+        if (!hgs->hdrgen && p)
+        {
+            buf->writestring("extern (");
+            buf->writestring(p);
+            buf->writestring(") ");
+        }
+    }
+    if (next && (!ident || ident->toHChars2() == ident->toChars()))
+    {    next->toCBuffer2(buf, hgs, 0);
     }
 
-    if (!hgs->hdrgen && p)
-        buf->writestring(p);
     if (ident)
     {   buf->writeByte(' ');
         buf->writestring(ident->toHChars2());
@@ -3077,39 +3082,52 @@ void TypeFunction::toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, Hd
     inuse--;
 }
 
+// kind is inserted before the argument list and will usually be "function" or "delegate".
+void functionToCBuffer2(TypeFunction *t, OutBuffer *buf, HdrGenState *hgs, int mod, const char *kind)
+{
+    if (hgs->ddoc != 1)
+    {
+        const char *p = NULL;
+        switch (t->linkage)
+        {
+            case LINKd:         p = NULL;      break;
+            case LINKc:         p = "C";       break;
+            case LINKwindows:   p = "Windows"; break;
+            case LINKpascal:    p = "Pascal";  break;
+            case LINKcpp:       p = "C++";     break;
+#if IN_LLVM
+            case LINKintrinsic: p = "Intrinsic"; break;
+#endif
+            default:
+                assert(0);
+        }
+        if (!hgs->hdrgen && p)
+        {
+            buf->writestring("extern (");
+            buf->writestring(p);
+            buf->writestring(") ");
+        }
+    }
+    if (t->next)
+    {
+        t->next->toCBuffer2(buf, hgs, 0);
+        buf->writeByte(' ');
+    }
+    buf->writestring(kind);
+    Parameter::argsToCBuffer(buf, hgs, t->parameters, t->varargs);
+}
+
 void TypeFunction::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
 {
-    const char *p = NULL;
-
+    //printf("TypeFunction::toCBuffer2() this = %p, ref = %d\n", this, isref);
     if (inuse)
     {   inuse = 2;              // flag error to caller
         return;
     }
     inuse++;
-    if (next)
-        next->toCBuffer2(buf, hgs, 0);
-    if (hgs->ddoc != 1)
-    {
-        switch (linkage)
-        {
-            case LINKd:         p = NULL;       break;
-            case LINKc:         p = " C";       break;
-            case LINKwindows:   p = " Windows"; break;
-            case LINKpascal:    p = " Pascal";  break;
-            case LINKcpp:       p = " C++";     break;
 
-        // LDC
-        case LINKintrinsic: p = "Intrinsic"; break;
+    functionToCBuffer2(this, buf, hgs, mod, "function");
 
-            default:
-                assert(0);
-        }
-    }
-
-    if (!hgs->hdrgen && p)
-        buf->writestring(p);
-    buf->writestring(" function");
-    Parameter::argsToCBuffer(buf, hgs, parameters, varargs);
     inuse--;
 }
 
@@ -3464,11 +3482,8 @@ void TypeDelegate::toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod)
     {   toCBuffer3(buf, hgs, mod);
         return;
     }
-    TypeFunction *tf = (TypeFunction *)next;
 
-    tf->next->toCBuffer2(buf, hgs, 0);
-    buf->writestring(" delegate");
-    Parameter::argsToCBuffer(buf, hgs, tf->parameters, tf->varargs);
+    functionToCBuffer2((TypeFunction *)next, buf, hgs, mod, "delegate");
 }
 
 Expression *TypeDelegate::defaultInit(Loc loc)
@@ -3496,14 +3511,33 @@ Expression *TypeDelegate::dotExp(Scope *sc, Expression *e, Identifier *ident)
 #endif
     if (ident == Id::ptr)
     {
+#if IN_LLVM
         e = new GEPExp(e->loc, e, ident, 0);
+#endif
         e->type = tvoidptr;
         return e;
     }
     else if (ident == Id::funcptr)
     {
+        if (!e->isLvalue())
+        {
+            Identifier *idtmp = Lexer::uniqueId("__dgtmp");
+            VarDeclaration *tmp = new VarDeclaration(e->loc, this, idtmp, new ExpInitializer(0, e));
+            tmp->storage_class |= STCctfe;
+            e = new DeclarationExp(e->loc, tmp);
+            e = new CommaExp(e->loc, e, new VarExp(e->loc, tmp));
+            e = e->semantic(sc);
+        }
+#if IN_LLVM
         e = new GEPExp(e->loc, e, ident, 1);
+#else
+        e = e->addressOf(sc);
         e->type = tvoidptr;
+        e = new AddExp(e->loc, e, new IntegerExp(PTRSIZE));
+        e->type = tvoidptr;
+        e = new PtrExp(e->loc, e);
+#endif
+        e->type = next->pointerTo();
         return e;
     }
     else
@@ -3534,7 +3568,7 @@ void TypeQualified::syntaxCopyHelper(TypeQualified *t)
     idents.setDim(t->idents.dim);
     for (size_t i = 0; i < idents.dim; i++)
     {
-        Identifier *id = (Identifier *)t->idents.data[i];
+        Identifier *id = t->idents[i];
         if (id->dyncast() == DYNCAST_DSYMBOL)
         {
             TemplateInstance *ti = (TemplateInstance *)id;
@@ -3542,7 +3576,7 @@ void TypeQualified::syntaxCopyHelper(TypeQualified *t)
             ti = (TemplateInstance *)ti->syntaxCopy(NULL);
             id = (Identifier *)ti;
         }
-        idents.data[i] = id;
+        idents[i] = id;
     }
 }
 
@@ -3555,7 +3589,7 @@ void TypeQualified::addIdent(Identifier *ident)
 void TypeQualified::toCBuffer2Helper(OutBuffer *buf, HdrGenState *hgs)
 {
     for (size_t i = 0; i < idents.dim; i++)
-    {   Identifier *id = (Identifier *)idents.data[i];
+    {   Identifier *id = idents[i];
 
         buf->writeByte('.');
 
@@ -4741,7 +4775,12 @@ unsigned TypeStruct::alignsize()
 
     sym->size(0);               // give error for forward references
     sz = sym->alignsize;
-    if (sz > sym->structalign)
+    if (sym->structalign == STRUCTALIGN_DEFAULT)
+    {
+        if (sz > 8)
+            sz = 8;
+    }
+    else if (sz > sym->structalign)
         sz = sym->structalign;
     return sz;
 }
@@ -4965,7 +5004,7 @@ L1:
     return de->semantic(sc);
 }
 
-unsigned TypeStruct::memalign(unsigned salign)
+structalign_t TypeStruct::memalign(structalign_t salign)
 {
     sym->size(0);               // give error for forward references
     return sym->structalign;
@@ -5692,11 +5731,11 @@ Type *TypeSlice::semantic(Loc loc, Scope *sc)
     TypeTuple *tt = (TypeTuple *)tbn;
 
     lwr = semanticLength(sc, tbn, lwr);
-    lwr = lwr->optimize(WANTvalue | WANTinterpret);
+    lwr = lwr->ctfeInterpret();
     uinteger_t i1 = lwr->toUInteger();
 
     upr = semanticLength(sc, tbn, upr);
-    upr = upr->optimize(WANTvalue | WANTinterpret);
+    upr = upr->ctfeInterpret();
     uinteger_t i2 = upr->toUInteger();
 
     if (!(i1 <= i2 && i2 <= tt->arguments->dim))
@@ -5736,11 +5775,11 @@ void TypeSlice::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol 
             sc = sc->push(sym);
 
             lwr = lwr->semantic(sc);
-            lwr = lwr->optimize(WANTvalue | WANTinterpret);
+            lwr = lwr->ctfeInterpret();
             uinteger_t i1 = lwr->toUInteger();
 
             upr = upr->semantic(sc);
-            upr = upr->optimize(WANTvalue | WANTinterpret);
+            upr = upr->ctfeInterpret();
             uinteger_t i2 = upr->toUInteger();
 
             sc = sc->pop();
@@ -5831,27 +5870,8 @@ char *Parameter::argsTypesToChars(Parameters *args, int varargs)
 {
     OutBuffer *buf = new OutBuffer();
 
-    buf->writeByte('(');
-    if (args)
-    {   OutBuffer argbuf;
-        HdrGenState hgs;
-
-        for (size_t i = 0; i < args->dim; i++)
-        {   if (i)
-                buf->writeByte(',');
-            Parameter *arg = args->tdata()[i];
-            argbuf.reset();
-            arg->type->toCBuffer2(&argbuf, &hgs, 0);
-            buf->write(&argbuf);
-        }
-        if (varargs)
-        {
-            if (args->dim && varargs == 1)
-                buf->writeByte(',');
-            buf->writestring("...");
-        }
-    }
-    buf->writeByte(')');
+    HdrGenState hgs;
+    argsToCBuffer(buf, &hgs, args, varargs);
 
     return buf->toChars();
 }

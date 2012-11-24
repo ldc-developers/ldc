@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2010 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -155,6 +155,7 @@ enum TOK
         TOKargTypes,
         TOKref,
         TOKmacro,
+        TOKat,
 #if DMDV2
         TOKtraits,
         TOKoverloadset,
@@ -165,9 +166,11 @@ enum TOK
         TOKline,
         TOKfile,
         TOKshared,
-        TOKat,
         TOKpow,
         TOKpowass,
+        TOKgoesto,
+        TOKvector,
+        TOKpound,
 #endif
 
 // LDC specific
@@ -305,7 +308,6 @@ struct Lexer
     TOK inreal(Token *t);
     void error(const char *format, ...) IS_PRINTF(2);
     void error(Loc loc, const char *format, ...) IS_PRINTF(3);
-    void verror(Loc loc, const char *format, va_list ap);
     void pragma();
     unsigned decodeUTF();
     void getDocComment(Token *t, unsigned lineComment);
