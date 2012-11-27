@@ -223,9 +223,8 @@ Msgtable msgtable[] =
     { "msg" },
 
 #if IN_LLVM
-    // LDC pragma's
+    // LDC pragmas
     { "intrinsic" },
-    { "va_intrinsic" },
     { "no_typeinfo" },
     { "no_moduleinfo" },
     { "Alloca", "alloca" },
