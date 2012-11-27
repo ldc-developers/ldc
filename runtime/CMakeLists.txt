@@ -25,7 +25,9 @@ set(LIB_SUFFIX            ""                                                    
 set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d                             CACHE PATH    "Directory where will be put header files")
 set(BUILD_SHARED_LIBS     OFF                                                           CACHE BOOL    "Build as shared library or as static library")
 set(CMAKE_INSTALL_LIBDIR  ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}                      CACHE PATH    "Directory where lib will be installed")
-set(D_FLAGS -g -w -d CACHE STRING "runtime build flags, separated by ;")
+set(D_FLAGS -w -d CACHE STRING "runtime build flags, separated by ;")
+set(D_FLAGS_DEBUG -g CACHE STRING "runtime build flags (debug libraries), separated by ;")
+set(D_FLAGS_RELEASE -O3;-release CACHE STRING "runtime build flags (release libraries), separated by ;")
 if(MSVC)
     set(LINK_WITH_MSVCRT  OFF                                                           CACHE BOOL    "Link with MSVCRT.LIB instead of LIBCMT.LIB")
 endif()
@@ -218,7 +220,7 @@ macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
     add_custom_command(
         OUTPUT
             ${OUTPUT}
-        COMMAND ${LDC_LOC} ${DC_FLAGS} -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${D_FLAGS} ${MOREFLAGS}
+        COMMAND ${LDC_LOC} ${DC_FLAGS} -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${MOREFLAGS}
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${LDC_LOC}
             ${INPUT_D}
@@ -248,14 +250,17 @@ macro(dc_header INPUT_D header_varname)
                 ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
         )
     endif()
-endmacro(dc_header) 
+endmacro(dc_header)
 
+
+# Builds a copy of druntime/Phobos from the source files gathered above.
 macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     set(output_path ${CMAKE_BINARY_DIR}/lib${path_suffix})
 
+    # "Vanity" suffix for target names.
     set(target_suffix "")
     if(NOT "${lib_suffix}" STREQUAL "")
-        set(target_suffix "_${lib_suffix}")
+        set(target_suffix "${lib_suffix}")
     endif(NOT "${lib_suffix}" STREQUAL "")
     if(NOT "${path_suffix}" STREQUAL "")
         set(target_suffix "${target_suffix}_${path_suffix}")
@@ -265,11 +270,6 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     set(CORE_BC "")
     foreach(f ${CORE_D})
         dc(${f} CORE_O CORE_BC "${d_flags};-disable-invariants" "" "${target_suffix}")
-    endforeach(f)
-
-    set(headers)
-    foreach(f ${CORE_D_HEADERS})
-        dc_header(${f} headers)
     endforeach(f)
 
     set(GC_O "")
@@ -407,8 +407,13 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     endif(BUILD_BC_LIBS)
 
     # BCLIBS is empty if BUILD_BC_LIBS is not selected
-    add_custom_target(runtime${target_suffix} DEPENDS ${LIBS} ${BCLIBS} ${headers})
+    add_custom_target(runtime${target_suffix} DEPENDS ${LIBS} ${BCLIBS})
 endmacro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
+
+macro(build_runtime_variants d_flags c_flags ld_flags path_suffix)
+    build_runtime("${d_flags};${D_FLAGS};${D_FLAGS_RELEASE}" "${c_flags}" "${ld_flags}" "" "${path_suffix}")
+    build_runtime("${d_flags};${D_FLAGS};${D_FLAGS_DEBUG}" "${c_flags}" "${ld_flags}" "-debug" "${path_suffix}")
+endmacro()
 
 #
 # Set up build targets.
@@ -426,10 +431,17 @@ if(MSVC)
 else()
     set(RT_CFLAGS "")
 endif()
-build_runtime("" "${RT_CLAGS}" "${LD_FLAGS}" "" "${LIB_SUFFIX}")
+
+build_runtime_variants("" "${RT_CLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}")
 if(MULTILIB)
-    build_runtime("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "" "${MULTILIB_SUFFIX}")
+    build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}")
 endif(MULTILIB)
+
+set(runtime_headers)
+foreach(f ${CORE_D_HEADERS})
+    dc_header(${f} runtime_headers ${D_FLAGS})
+endforeach()
+add_custom_target(build_headers DEPENDS ${runtime_headers})
 
 #
 # Install target.
