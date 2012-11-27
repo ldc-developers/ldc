@@ -282,6 +282,10 @@ int linkObjToBinaryWin(bool sharedLib)
     // because of a LLVM bug
     args.push_back("/LARGEADDRESSAWARE:NO");
 
+    // output debug information
+    if (global.params.symdebug)
+        args.push_back("/DEBUG");
+
     // specify creation of DLL
     if (sharedLib)
         args.push_back("/DLL");
