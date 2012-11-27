@@ -31,6 +31,13 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     // pragma(intrinsic, "string") { funcdecl(s) }
     if (ident == Id::intrinsic)
     {
+        if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
+        {
+             error("requires exactly 1 string literal parameter");
+             fatal();
+        }
+
+        // Recognize LDC-specific pragmas.
         struct LdcIntrinsic
         {
             std::string name;
@@ -43,25 +50,20 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
             { "bitop.bts", LLVMbitop_bts },
         };
 
-        if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
-        {
-             error("requires exactly 1 string literal parameter");
-             fatal();
-        }
-
-        std::string prefix = "ldc.";
+        static std::string prefix = "ldc.";
         if (arg1str.length() > prefix.length() &&
             std::equal(prefix.begin(), prefix.end(), arg1str.begin()))
         {
+            // Got ldc prefix, binary search through ldcIntrinsic.
             std::string name(arg1str.begin() + prefix.length(), arg1str.end());
-            int i = 0, j = sizeof(ldcIntrinsic) / sizeof(ldcIntrinsic[0]), k, l;
+            size_t i = 0, j = sizeof(ldcIntrinsic) / sizeof(ldcIntrinsic[0]);
             do
             {
-                k = (i + j) / 2;
-                l = name.compare(ldcIntrinsic[k].name);
-                if (!l)
+                size_t k = (i + j) / 2;
+                int cmp = name.compare(ldcIntrinsic[k].name);
+                if (!cmp)
                     return ldcIntrinsic[k].pragma;
-                else if (l < 0)
+                else if (cmp < 0)
                     j = k;
                 else
                     i = k + 1;
@@ -257,7 +259,8 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
 
     if (s->llvmInternal)
     {
-        error("multiple LDC specific pragmas not allowed not affect the same declaration ('%s' at '%s')", s->toChars(), s->loc.toChars());
+        error("multiple LDC specific pragmas not allowed not affect the same "
+            "declaration ('%s' at '%s')", s->toChars(), s->loc.toChars());
         fatal();
     }
 
@@ -293,7 +296,8 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         }
         else
         {
-            error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+            error("the '%s' pragma is only allowed on template declarations",
+                ident->toChars());
             fatal();
         }
         break;
@@ -307,24 +311,28 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         {
             if (td->parameters->dim != 1)
             {
-                error("the '%s' pragma template must have exactly one template parameter", ident->toChars());
+                error("the '%s' pragma template must have exactly one template parameter",
+                    ident->toChars());
                 fatal();
             }
             else if (!td->onemember)
             {
-                error("the '%s' pragma template must have exactly one member", ident->toChars());
+                error("the '%s' pragma template must have exactly one member",
+                    ident->toChars());
                 fatal();
             }
             else if (td->overnext || td->overroot)
             {
-                error("the '%s' pragma template must not be overloaded", ident->toChars());
+                error("the '%s' pragma template must not be overloaded",
+                    ident->toChars());
                 fatal();
             }
             td->llvmInternal = llvm_internal;
         }
         else
         {
-            error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+            error("the '%s' pragma is only allowed on template declarations",
+                ident->toChars());
             fatal();
         }
         break;
@@ -342,7 +350,8 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         }
         else
         {
-            error("the '%s' pragma is only allowed on function declarations", ident->toChars());
+            error("the '%s' pragma is only allowed on function declarations",
+                ident->toChars());
             fatal();
         }
         break;
@@ -358,7 +367,8 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         }
         else
         {
-            error("the '%s' pragma must only be used on function declarations of type 'void* function(uint nbytes)'", ident->toChars());
+            error("the '%s' pragma must only be used on function declarations "
+                "of type 'void* function(uint nbytes)'", ident->toChars());
             fatal();
         }
         break;
@@ -368,19 +378,22 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         {
             if (td->parameters->dim > 1)
             {
-                error("the '%s' pragma template must have exactly zero or one template parameters", ident->toChars());
+                error("the '%s' pragma template must have exactly zero or one "
+                    "template parameters", ident->toChars());
                 fatal();
             }
             else if (!td->onemember)
             {
-                error("the '%s' pragma template must have exactly one member", ident->toChars());
+                error("the '%s' pragma template must have exactly one member",
+                    ident->toChars());
                 fatal();
             }
             td->llvmInternal = llvm_internal;
         }
         else
         {
-            error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+            error("the '%s' pragma is only allowed on template declarations",
+                ident->toChars());
             fatal();
         }
         break;
@@ -391,13 +404,15 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
             Dsymbol* member = td->onemember;
             if (!member)
             {
-                error("the '%s' pragma template must have exactly one member", ident->toChars());
+                error("the '%s' pragma template must have exactly one member",
+                    ident->toChars());
                 fatal();
             }
             FuncDeclaration* fun = member->isFuncDeclaration();
             if (!fun)
             {
-                error("the '%s' pragma template's member must be a function declaration", ident->toChars());
+                error("the '%s' pragma template's member must be a function declaration",
+                    ident->toChars());
                 fatal();
             }
 
@@ -414,8 +429,8 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
 
             if(!valid_params)
             {
-                error("the '%s' pragma template must have exactly three parameters: a string, a type and a type tuple",
-                    ident->toChars());
+                error("the '%s' pragma template must have exactly three parameters: "
+                    "a string, a type and a type tuple", ident->toChars());
                 fatal();
             }
 
@@ -423,12 +438,15 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         }
         else
         {
-            error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+            error("the '%s' pragma is only allowed on template declarations",
+                ident->toChars());
             fatal();
         }
         break;
 
     default:
-        warning(Loc(), "the LDC specific pragma '%s' is not yet implemented, ignoring", ident->toChars());
+        warning(Loc(),
+            "the LDC specific pragma '%s' is not yet implemented, ignoring",
+            ident->toChars());
     }
 }
