@@ -1,33 +1,38 @@
 include(CheckTypeSize)
 check_type_size(void* ptr_size)
 if(${ptr_size} MATCHES "^4$")
-    set(models 32)
+    set(model 32)
 elseif(${ptr_size} MATCHES "^8$")
-    set(models 64)
-endif()
-
-if(MULTILIB AND models EQUAL 64)
-    list(APPEND models 32)
+    set(model 64)
 endif()
 
 get_property(ldmd_path TARGET ldmd2 PROPERTY LOCATION)
 
-foreach(model ${models})
-    # Build test suite in both debug and release modes. The DFLAGS environment
-    # variable read by LDMD is used because the DMD testsuite build system
-    # provides no way to run the test cases with a given set of flags without
-    # trying all combinations of them.
+function(add_testsuite config_name dflags)
+    set(name dmd-testsuite_${config_name})
+    set(outdir ${CMAKE_BINARY_DIR}/${name})
 
-    add_test(NAME dmd-testsuite_debug_${model}
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite
-        COMMAND make RESULTS_DIR=${CMAKE_BINARY_DIR}/dmd-testsuite_debug_${model} DMD=${ldmd_path} DFLAGS=-gc MODEL=${model} quick
-    )
+    add_test(NAME ${name}_clean
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
 
-    # Would like to specify the "-release" flag here, but some of the tests (e.g.
-    # 'testdstress') depend on contracts and invariants being active. Need a solution
-    # integrated with d_do_test.
-    add_test(NAME dmd-testsuite_release_${model}
+    # The DFLAGS environment variable read by LDMD is used because the DMD
+    # testsuite build system provides no way to run the test cases with a
+    # given set of flags without trying all combinations of them.
+    add_test(NAME ${name}}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite
-        COMMAND make RESULTS_DIR=${CMAKE_BINARY_DIR}/dmd-testsuite_release_${model} DMD=${ldmd_path} DFLAGS=-O3 MODEL=${model} quick
+        COMMAND make RESULTS_DIR=${outdir} DMD=${ldmd_path} DFLAGS=${dflags} MODEL=${model} quick
+        DEPENDS ${name}_clean
     )
-endforeach()
+endfunction()
+
+# Would like to specify the "-release" flag for relase builds, but some of the
+# tests (e.g. 'testdstress') depend on contracts and invariants being active.
+# Need a solution integrated with d_do_test.
+add_testsuite(debug -gc)
+add_testsuite(release -O3)
+
+if(MULTILIB AND model EQUAL 64)
+    # Also test in 32 bit mode on x86_64 multilib builds.
+    add_testsuite(debug_32 -gc -m32)
+    add_testsuite(release_32 -O3 -m32)
+endif()
