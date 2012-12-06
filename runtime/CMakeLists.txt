@@ -6,30 +6,32 @@ cmake_minimum_required(VERSION 2.6)
 # Main configuration.
 #
 
+set(DMDFE_MINOR_VERSION   0)
+set(DMDFE_PATCH_VERSION   60)
+set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
+
+set(MULTILIB              OFF                                       CACHE BOOL    "Build both 32/64 bit runtime libraries")
+set(BUILD_BC_LIBS         OFF                                       CACHE BOOL    "Build the runtime as LLVM bitcode libraries")
+set(BUILD_SINGLE_LIB      ON                                        CACHE BOOL    "Build single runtime library (no core/rt/gc split)")
+set(LIB_SUFFIX            ""                                        CACHE STRING  "'64' to install libraries into ${PREFIX}/lib64")
+set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d         CACHE PATH    "Path to install D modules to")
+set(BUILD_SHARED_LIBS     OFF                                       CACHE BOOL    "Whether to build the runtime as a shared library (*UNSUPPORTED*)")
+set(D_FLAGS               -w;-d                                     CACHE STRING  "Runtime build flags, separated by ;")
+set(D_FLAGS_DEBUG         -g                                        CACHE STRING  "Runtime build flags (debug libraries), separated by ;")
+set(D_FLAGS_RELEASE       -O3;-release                              CACHE STRING  "Runtime build flags (release libraries), separated by ;")
+if(MSVC)
+    set(LINK_WITH_MSVCRT  OFF                                       CACHE BOOL    "Link with MSVCRT.LIB instead of LIBCMT.LIB")
+endif()
+
+
+set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
+
 include(CheckTypeSize)
 check_type_size(void*  ptr_size)
 if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
     set(MULTILIB_SUFFIX 32)
 else()
     set(MULTILIB_SUFFIX 64)
-endif()
-
-set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   60)
-set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
-
-set(MULTILIB              OFF                                                           CACHE BOOL    "Build both 64-bit and 32-bit libraries")
-set(BUILD_BC_LIBS         OFF                                                           CACHE BOOL    "Build the runtime as bytecode libraries")
-set(BUILD_SINGLE_LIB      ON                                                            CACHE BOOL    "Build single runtime library")
-set(LIB_SUFFIX            ""                                                            CACHE STRING  "Takes an empty string or 64. Directory where lib will be installed: lib or lib64")
-set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d                             CACHE PATH    "Directory where will be put header files")
-set(BUILD_SHARED_LIBS     OFF                                                           CACHE BOOL    "Build as shared library or as static library")
-set(CMAKE_INSTALL_LIBDIR  ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}                      CACHE PATH    "Directory where lib will be installed")
-set(D_FLAGS -w -d CACHE STRING "runtime build flags, separated by ;")
-set(D_FLAGS_DEBUG -g CACHE STRING "runtime build flags (debug libraries), separated by ;")
-set(D_FLAGS_RELEASE -O3;-release CACHE STRING "runtime build flags (release libraries), separated by ;")
-if(MSVC)
-    set(LINK_WITH_MSVCRT  OFF                                                           CACHE BOOL    "Link with MSVCRT.LIB instead of LIBCMT.LIB")
 endif()
 
 if(BUILD_SHARED_LIBS)
@@ -455,7 +457,7 @@ endforeach()
 add_custom_target(build_headers DEPENDS ${runtime_headers})
 
 #
-# Install target.
+# Install target (libraries are automatically included).
 #
 
 install(DIRECTORY     ${CMAKE_BINARY_DIR}/import/core                  DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
