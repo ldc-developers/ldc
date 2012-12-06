@@ -429,7 +429,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
 
     # BCLIBS is empty if BUILD_BC_LIBS is not selected
     add_custom_target(runtime${target_suffix} DEPENDS ${LIBS} ${BCLIBS})
-endmacro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
+endmacro()
 
 # Builds both a debug and a release copy of druntime/Phobos.
 macro(build_runtime_variants d_flags c_flags ld_flags path_suffix)
@@ -491,7 +491,7 @@ function(add_tests module_files)
         string(REPLACE "/" "_" testroot ${stripped})
 
         function(testcase name flags)
-            # -singleobj to avoid output file clashes when test are run in parallel.
+            # -singleobj to avoid output file clashes when tests are run in parallel.
             add_test(NAME ${testroot}_${name}_build
                 COMMAND ${LDC_LOC}
                     -of${PROJECT_BINARY_DIR}/${testroot}_${name}
@@ -504,6 +504,10 @@ function(add_tests module_files)
 
         testcase(debug -g -debug)
         testcase(release -O -release)
+        if(MULTILIB)
+            testcase(debug_32 -g -debug -m32)
+            testcase(release_32 -O -release -m32)
+        endif()
     endforeach()
 endfunction()
 
