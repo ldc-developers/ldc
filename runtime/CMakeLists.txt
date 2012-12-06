@@ -189,63 +189,66 @@ configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY
 # Macros.
 #
 
-macro(dc INPUT_D OUTLIST_O OUTLIST_BC MOREFLAGS PATH SUFFIX)
-    if ("${PATH}" STREQUAL "")
-        file(RELATIVE_PATH output ${RUNTIME_DIR} ${INPUT_D})
-    else ("${PATH}" STREQUAL "")
-        file(RELATIVE_PATH output ${PATH} ${INPUT_D})
-    endif ("${PATH}" STREQUAL "")
+# Compiles the given D module into an object file, and if enabled, a bitcode
+# file. The ouput is written to a path based on output_dir. The paths of the
+# output files are appended to outlist_o and outlist_bc, respectively.
+macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
+    file(RELATIVE_PATH output ${output_dir} ${input_d})
+
     get_filename_component(name ${output} NAME_WE)
     get_filename_component(path ${output} PATH)
-    if ("${path}" STREQUAL "")
-        set(output ${name})
-    else ("${path}" STREQUAL "")
-        set(output ${path}/${name})
-    endif ("${path}" STREQUAL "")
-    set(OUTPUT_O ${PROJECT_BINARY_DIR}/${output}${SUFFIX}${CMAKE_C_OUTPUT_EXTENSION})
-    set(OUTPUT_BC ${PROJECT_BINARY_DIR}/${output}${SUFFIX}.bc)
-    list(APPEND ${OUTLIST_O} ${OUTPUT_O})
+    if("${path}" STREQUAL "")
+        set(output_root ${name})
+    else()
+        set(output_root ${path}/${name})
+    endif()
+
+    set(output_o ${PROJECT_BINARY_DIR}/${output_root}${output_suffix}${CMAKE_C_OUTPUT_EXTENSION})
+    set(output_bc ${PROJECT_BINARY_DIR}/${output_root}${output_suffix}.bc)
+    list(APPEND ${outlist_o} ${output_o})
     if(BUILD_BC_LIBS)
-        list(APPEND ${OUTLIST_BC} ${OUTPUT_BC})
+        list(APPEND ${outlist_bc} ${output_bc})
     endif()
 
     # Compile
     if(BUILD_BC_LIBS)
-        set(OUTPUT ${OUTPUT_O} ${OUTPUT_BC})
-        set(DC_FLAGS --output-o --output-bc)
+        set(outfiles ${output_o} ${output_bc})
+        set(dc_flags --output-o --output-bc)
     else()
-        set(OUTPUT ${OUTPUT_O})
-        set(DC_FLAGS --output-o)
+        set(outfiles ${output_o})
+        set(dc_flags --output-o)
     endif()
     add_custom_command(
         OUTPUT
-            ${OUTPUT}
-        COMMAND ${LDC_LOC} ${DC_FLAGS} -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${INPUT_D} -of${OUTPUT_O} ${MOREFLAGS}
+            ${outfiles}
+        COMMAND ${LDC_LOC} ${dc_flags} -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${input_d} -of${output_o} ${d_flags}
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${LDC_LOC}
-            ${INPUT_D}
+            ${input_d}
             ${LDC_IMPORTS}
             ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
     )
 endmacro(dc)
 
-macro(dc_header INPUT_D header_varname)
-    file(RELATIVE_PATH output ${RUNTIME_DIR} ${INPUT_D})
+# Builds a .di "header" file for a given D module. The path of the output
+# file is appended to outlist_header.
+macro(dc_header input_d d_flags outlist_header)
+    file(RELATIVE_PATH output ${RUNTIME_DIR} ${input_d})
 
     string(REGEX REPLACE "src/ldc" "src/core" output ${output})
     string(REGEX REPLACE "^src/" "" di_output ${output})
 
     # If a hand-written .di file exists along the source in src/, just copy
     # it instead of running it through the compiler.
-    if(NOT EXISTS "${INPUT_D}i")
+    if(NOT EXISTS "${input_d}i")
         set(out ${CMAKE_BINARY_DIR}/import/${di_output}i)
-        list(APPEND ${header_varname} ${out})
+        list(APPEND ${outlist_header} ${out})
         add_custom_command(
             OUTPUT ${out}
-            COMMAND ${LDC_LOC} ${DC_FLAGS} -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${INPUT_D} -Hf=${out} -o- ${D_FLAGS} ${MOREFLAGS}
+            COMMAND ${LDC_LOC} ${DC_FLAGS} -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${input_d} -Hf=${out} -o- ${d_flags}
             WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
             DEPENDS ${LDC_LOC}
-                ${INPUT_D}
+                ${input_d}
                 ${LDC_IMPORTS}
                 ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
         )
@@ -269,19 +272,21 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     set(CORE_O "")
     set(CORE_BC "")
     foreach(f ${CORE_D})
-        dc(${f} CORE_O CORE_BC "${d_flags};-disable-invariants" "" "${target_suffix}")
+        dc(${f} "${d_flags};-disable-invariants" "${RUNTIME_DIR}"
+            "${target_suffix}" CORE_O CORE_BC)
     endforeach(f)
 
     set(GC_O "")
     set(GC_BC "")
     foreach(f ${GC_D})
-        dc(${f} GC_O GC_BC "${d_flags};-disable-invariants" "" "${target_suffix}")
+        dc(${f} "${d_flags};-disable-invariants" "${RUNTIME_DIR}"
+            "${target_suffix}" GC_O GC_BC)
     endforeach(f)
 
     set(DCRT_O "")
     set(DCRT_BC "")
     foreach(f ${DCRT_D})
-        dc(${f} DCRT_O DCRT_BC "${d_flags}" "" "${target_suffix}")
+        dc(${f} "${d_flags}" "${RUNTIME_DIR}" "${target_suffix}" DCRT_O DCRT_BC)
     endforeach(f)
 
     if(EXISTS ${RUNTIME_DIR})
@@ -303,7 +308,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
             )
             set(LIBS ${RUNTIME_AIO}${target_suffix})
             set_target_properties(${RUNTIME_AIO}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_AIO}${lib_suffix})
-        else(BUILD_SINGLE_LIB)
+        else()
             add_library(${RUNTIME_CC}${target_suffix} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C} ${GCCBUILTINS})
             add_library(${RUNTIME_GC}${target_suffix} ${D_LIBRARY_TYPE} ${GC_O})
             add_library(${RUNTIME_DC}${target_suffix} ${D_LIBRARY_TYPE} ${DCRT_O} ${DCRT_C})
@@ -315,7 +320,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
                 ${RUNTIME_GC}${lib_suffix}
                 ${RUNTIME_DC}${lib_suffix}
             )
-        endif(BUILD_SINGLE_LIB)
+        endif()
     endif()
 
     set_target_properties(
@@ -335,7 +340,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
         set(PHOBOS2_O "")
         set(PHOBOS2_BC "")
         foreach(f ${PHOBOS2_D})
-             dc(${f} PHOBOS2_O PHOBOS2_BC "${d_flags};-I${PHOBOS2_DIR}" ${PHOBOS2_DIR} "${target_suffix}")
+             dc(${f} "${d_flags};-I${PHOBOS2_DIR}" ${PHOBOS2_DIR} "${target_suffix}" PHOBOS2_O PHOBOS2_BC)
         endforeach(f)
 
         add_library(phobos-ldc${target_suffix} ${D_LIBRARY_TYPE}
@@ -410,6 +415,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     add_custom_target(runtime${target_suffix} DEPENDS ${LIBS} ${BCLIBS})
 endmacro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
 
+# Builds both a debug and a release copy of druntime/Phobos.
 macro(build_runtime_variants d_flags c_flags ld_flags path_suffix)
     build_runtime("${d_flags};${D_FLAGS};${D_FLAGS_RELEASE}" "${c_flags}" "${ld_flags}" "" "${path_suffix}")
     build_runtime("${d_flags};${D_FLAGS};${D_FLAGS_DEBUG}" "${c_flags}" "${ld_flags}" "-debug" "${path_suffix}")
@@ -439,7 +445,7 @@ endif(MULTILIB)
 
 set(runtime_headers)
 foreach(f ${CORE_D_HEADERS})
-    dc_header(${f} runtime_headers ${D_FLAGS})
+    dc_header(${f} ${D_FLAGS} runtime_headers)
 endforeach()
 add_custom_target(build_headers DEPENDS ${runtime_headers})
 
