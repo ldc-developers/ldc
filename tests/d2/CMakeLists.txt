@@ -20,7 +20,7 @@ function(add_testsuite config_name dflags)
     # given set of flags without trying all combinations of them.
     add_test(NAME ${name}}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite
-        COMMAND make RESULTS_DIR=${outdir} DMD=${ldmd_path} DFLAGS=${dflags} MODEL=${model} quick
+        COMMAND ${CMAKE_MAKE_PROGRAM} RESULTS_DIR=${outdir} DMD=${ldmd_path} DFLAGS=${dflags} MODEL=${model} quick
         DEPENDS ${name}_clean
     )
 endfunction()
