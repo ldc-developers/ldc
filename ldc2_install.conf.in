@@ -11,6 +11,6 @@ default:
         "-I@INCLUDE_INSTALL_DIR@",
         "-L-L@CMAKE_INSTALL_LIBDIR@", @MULTILIB_ADDITIONAL_INSTALL_PATH@
         "-defaultlib=phobos-ldc",
-        "-debuglib=phobos-ldc"
+        "-debuglib=phobos-ldc-debug"
     ];
 };

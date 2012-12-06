@@ -13,6 +13,6 @@ default:
         "-I@PHOBOS2_DIR@/",
         "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@", @MULTILIB_ADDITIONAL_PATH@
         "-defaultlib=phobos-ldc",
-        "-debuglib=phobos-ldc"
+        "-debuglib=phobos-ldc-debug"
     ];
 };
