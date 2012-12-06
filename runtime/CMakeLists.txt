@@ -289,6 +289,11 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
         dc(${f} "${d_flags}" "${RUNTIME_DIR}" "${target_suffix}" DCRT_O DCRT_BC)
     endforeach(f)
 
+    # Always build zlib and other C parts of the runtime in release mode.
+    set_source_files_properties(${CORE_C} ${DCRT_C} PROPERTIES
+        COMPILE_FLAGS ${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELEASE}
+    )
+
     if(EXISTS ${RUNTIME_DIR})
         set(GCCBUILTINS "${PROJECT_BINARY_DIR}/gccbuiltins_x86.di")
         add_custom_command(
