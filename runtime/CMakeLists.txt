@@ -10,6 +10,15 @@ set(DMDFE_MINOR_VERSION   0)
 set(DMDFE_PATCH_VERSION   60)
 set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
 
+# There seems to be a bug in LLVM prior to 3.2 which causes druntime to be
+# miscompiled in -O3, leading to segfaults during the GC marking phase on
+# 32 bit x86 systems. Err on the safe side and just use -O2 for everything.
+if(${LDC_LLVM_VER} LESS 302)
+    set(D_FLAGS_RELEASE_DEFAULT -O2;-release)
+else()
+    set(D_FLAGS_RELEASE_DEFAULT -O3;-release)
+endif()
+
 set(MULTILIB              OFF                                       CACHE BOOL    "Build both 32/64 bit runtime libraries")
 set(BUILD_BC_LIBS         OFF                                       CACHE BOOL    "Build the runtime as LLVM bitcode libraries")
 set(BUILD_SINGLE_LIB      ON                                        CACHE BOOL    "Build single runtime library (no core/rt/gc split)")
@@ -18,7 +27,7 @@ set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d         CACHE PATH  
 set(BUILD_SHARED_LIBS     OFF                                       CACHE BOOL    "Whether to build the runtime as a shared library (*UNSUPPORTED*)")
 set(D_FLAGS               -w;-d                                     CACHE STRING  "Runtime build flags, separated by ;")
 set(D_FLAGS_DEBUG         -g                                        CACHE STRING  "Runtime build flags (debug libraries), separated by ;")
-set(D_FLAGS_RELEASE       -O3;-release                              CACHE STRING  "Runtime build flags (release libraries), separated by ;")
+set(D_FLAGS_RELEASE       ${D_FLAGS_RELEASE_DEFAULT}                CACHE STRING  "Runtime build flags (release libraries), separated by ;")
 if(MSVC)
     set(LINK_WITH_MSVCRT  OFF                                       CACHE BOOL    "Link with MSVCRT.LIB instead of LIBCMT.LIB")
 endif()
