@@ -51,10 +51,10 @@ if(BUILD_SHARED_LIBS)
          list(APPEND LD_FLAGS -Wl,-U,__Dmain)
     endif()
     set(D_LIBRARY_TYPE SHARED)
-else(BUILD_SHARED_LIBS)
+else()
     set(D_LIBRARY_TYPE STATIC)
     set(CXX_COMPILE_FLAGS " ")
-endif(BUILD_SHARED_LIBS)
+endif()
 
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
 set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "runtime source dir")
@@ -151,7 +151,7 @@ if(PHOBOS2_DIR)
     )
     if(WIN32)
         file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)
-    endif(WIN32)
+    endif()
     list(APPEND PHOBOS2_D
             ${PHOBOS2_D_NET}
             ${PHOBOS2_D_INTERNAL}
@@ -165,22 +165,22 @@ if(PHOBOS2_DIR)
             ${PHOBOS2_DIR}/std/intrinsic.d
     )
     set(CONFIG_NAME ${LDC_EXE}_phobos)
-else(PHOBOS2_DIR)
+else()
     set(CONFIG_NAME ${LDC_EXE})
-endif(PHOBOS2_DIR)
+endif()
 
 # should only be necessary if run independently from ldc cmake project
 if(NOT LDC_LOC)
     if(NOT LDC_EXE)
         set(LDC_EXE ldc2)
-    endif(NOT LDC_EXE)
+    endif()
 
     find_program(LDC_LOC ${LDC_EXE} ${PROJECT_BINARY_DIR}/../bin DOC "path to ldc binary")
     if(NOT LDC_LOC)
         message(SEND_ERROR "ldc not found")
-    endif(NOT LDC_LOC)
+    endif()
     set(LDC_EXE_NAME ${LDC_EXE})
-endif(NOT LDC_LOC)
+endif()
 
 #
 # Create configuration files.
@@ -189,7 +189,7 @@ endif(NOT LDC_LOC)
 if(MULTILIB)
     set(MULTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
     set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
-endif(MULTILIB)
+endif()
 
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
 # Prepare the config files for installation in bin.
@@ -239,7 +239,7 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
             ${LDC_IMPORTS}
             ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
     )
-endmacro(dc)
+endmacro()
 
 # Builds a .di "header" file for a given D module. The path of the output
 # file is appended to outlist_header.
@@ -264,7 +264,7 @@ macro(dc_header input_d d_flags outlist_header)
                 ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
         )
     endif()
-endmacro(dc_header)
+endmacro()
 
 
 # Builds a copy of druntime/Phobos from the source files gathered above.
@@ -275,30 +275,30 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     set(target_suffix "")
     if(NOT "${lib_suffix}" STREQUAL "")
         set(target_suffix "${lib_suffix}")
-    endif(NOT "${lib_suffix}" STREQUAL "")
+    endif()
     if(NOT "${path_suffix}" STREQUAL "")
         set(target_suffix "${target_suffix}_${path_suffix}")
-    endif(NOT "${path_suffix}" STREQUAL "")
+    endif()
 
     set(CORE_O "")
     set(CORE_BC "")
     foreach(f ${CORE_D})
         dc(${f} "${d_flags};-disable-invariants" "${RUNTIME_DIR}"
             "${target_suffix}" CORE_O CORE_BC)
-    endforeach(f)
+    endforeach()
 
     set(GC_O "")
     set(GC_BC "")
     foreach(f ${GC_D})
         dc(${f} "${d_flags};-disable-invariants" "${RUNTIME_DIR}"
             "${target_suffix}" GC_O GC_BC)
-    endforeach(f)
+    endforeach()
 
     set(DCRT_O "")
     set(DCRT_BC "")
     foreach(f ${DCRT_D})
         dc(${f} "${d_flags}" "${RUNTIME_DIR}" "${target_suffix}" DCRT_O DCRT_BC)
-    endforeach(f)
+    endforeach()
 
     # Always build zlib and other C parts of the runtime in release mode.
     set_source_files_properties(${CORE_C} ${DCRT_C} PROPERTIES
@@ -357,7 +357,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
         set(PHOBOS2_BC "")
         foreach(f ${PHOBOS2_D})
              dc(${f} "${d_flags};-I${PHOBOS2_DIR}" ${PHOBOS2_DIR} "${target_suffix}" PHOBOS2_O PHOBOS2_BC)
-        endforeach(f)
+        endforeach()
 
         add_library(phobos-ldc${target_suffix} ${D_LIBRARY_TYPE}
             ${ZLIB_C}
@@ -387,13 +387,13 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
         endif()
         install(TARGETS phobos-ldc${target_suffix} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
         add_dependencies(phobos2 DEPENDS phobos-ldc${target_suffix})
-    endif(PHOBOS2_DIR)
+    endif()
 
     if(BUILD_BC_LIBS)
         find_program(LLVM_AR_EXE llvm-ar ${LLVM_INSTDIR}/bin DOC "path to llvm-ar tool")
         if(NOT LLVM_AR_EXE)
             message(SEND_ERROR "llvm-ar not found")
-        endif(NOT LLVM_AR_EXE)
+        endif()
 
         if(BUILD_SINGLE_LIB)
             add_custom_command(
@@ -408,7 +408,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
                     ${LDC_IMPORTS}
                     ${PHOBOS2_BC}
             )
-        else(BUILD_SINGLE_LIB)
+        else()
             add_custom_command(
                 OUTPUT bclibs
                 COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_CC}-bc.a ${CORE_BC}
@@ -423,9 +423,9 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
                     ${LDC_IMPORTS}
                     ${PHOBOS2_BC}
             )
-        endif(BUILD_SINGLE_LIB)
+        endif()
         set(BCLIBS bclibs)
-    endif(BUILD_BC_LIBS)
+    endif()
 
     # BCLIBS is empty if BUILD_BC_LIBS is not selected
     add_custom_target(runtime${target_suffix} DEPENDS ${LIBS} ${BCLIBS})
@@ -443,7 +443,7 @@ endmacro()
 
 if(PHOBOS2_DIR)
     add_custom_target(phobos2)
-endif(PHOBOS2_DIR)
+endif()
 if(MSVC)
     if (LINK_WITH_MSVCRT)
         set(RT_CFLAGS "/MDd")
@@ -457,7 +457,7 @@ endif()
 build_runtime_variants("" "${RT_CLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}")
 if(MULTILIB)
     build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}")
-endif(MULTILIB)
+endif()
 
 set(runtime_headers)
 foreach(f ${CORE_D_HEADERS})
@@ -474,7 +474,7 @@ if(PHOBOS2_DIR)
     install(DIRECTORY ${PHOBOS2_DIR}/std                               DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
     install(DIRECTORY ${PHOBOS2_DIR}/etc                               DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
     install(FILES     ${PHOBOS2_DIR}/crc32.d                           DESTINATION ${INCLUDE_INSTALL_DIR})
-endif(PHOBOS2_DIR)
+endif()
 install(FILES         ${RUNTIME_DIR}/src/object.di                     DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 install(DIRECTORY     ${RUNTIME_DIR}/src/ldc                           DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
 install(DIRECTORY     ${RUNTIME_DIR}/src/core                          DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")

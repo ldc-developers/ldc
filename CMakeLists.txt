@@ -5,7 +5,7 @@ set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 if(MSVC)
     set(LIBCONFIG_DLL OFF CACHE BOOL "Use libconfig++ DLL instead of static library")
-endif(MSVC)
+endif()
 
 #
 # Locate LLVM.
@@ -26,13 +26,13 @@ find_package(LibConfig++ REQUIRED)
 
 # Generally, we want to install everything into CMAKE_INSTALL_PREFIX, but when
 # it is /usr, put the config files into /etc to meet common practice.
-if (NOT DEFINED SYSCONF_INSTALL_DIR)
+if(NOT DEFINED SYSCONF_INSTALL_DIR)
     if(CMAKE_INSTALL_PREFIX STREQUAL "/usr")
         set(SYSCONF_INSTALL_DIR "/etc")
-    else(CMAKE_INSTALL_PREFIX STREQUAL "/usr")
+    else()
         set(SYSCONF_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/etc")
-    endif(CMAKE_INSTALL_PREFIX STREQUAL "/usr")
-endif (NOT DEFINED SYSCONF_INSTALL_DIR)
+    endif()
+endif()
 
 set(D_VERSION 2 CACHE STRING "D language version")
 set(PROGRAM_PREFIX "" CACHE STRING "Prepended to ldc/ldmd binary names")
@@ -57,9 +57,9 @@ elseif(D_VERSION EQUAL 2)
     set(LDMD_EXE ldmd2)
     set(RUNTIME druntime)
     add_definitions(-DDMDV2)
-else(D_VERSION EQUAL 1)
+else()
     message(FATAL_ERROR "unsupported D version")
-endif(D_VERSION EQUAL 1)
+endif()
 
 set(LDC_EXE_NAME ${PROGRAM_PREFIX}${LDC_EXE}${PROGRAM_SUFFIX})
 set(LDMD_EXE_NAME ${PROGRAM_PREFIX}${LDMD_EXE}${PROGRAM_SUFFIX})
@@ -72,7 +72,7 @@ file(MAKE_DIRECTORY
 
 if(MSVC)
     ENABLE_LANGUAGE(ASM_MASM)
-endif(MSVC)
+endif()
 
 #
 # Run idgen and impcnvgen.
@@ -163,7 +163,7 @@ if(MSVC)
 # See below why this don't work
 #        if(CMAKE_CL_64)
 #        ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
-#        endif(CMAKE_CL_64)
+#        endif()
     )
     if(CMAKE_CL_64)
         # MASM support does not work yet!
@@ -175,7 +175,7 @@ if(MSVC)
             ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
     )
     endif()
-endif(MSVC)
+endif()
 # disable dmd gc
 list(REMOVE_ITEM FE_SRC ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/dmgcmem.c)
 set(LDC_SOURCE_FILES
@@ -234,19 +234,19 @@ add_definitions(
 
 if(UNIX)
     add_definitions(-DPOSIX)
-endif(UNIX)
+endif()
 
 if(USE_BOEHM_GC)
     add_definitions(-DREDIRECT_MALLOC=GC_malloc -DIGNORE_FREE)
-endif(USE_BOEHM_GC)
+endif()
 
 if(GENERATE_OFFTI)
     add_definitions(-DGENERATE_OFFTI)
-endif(GENERATE_OFFTI)
+endif()
 
 if(USE_METADATA)
     add_definitions(-DUSE_METADATA)
-endif(USE_METADATA)
+endif()
 
 if(MSVC)
     set(EXTRA_CXXFLAGS "/W0 /wd4996 /GF /GR- /RTC1")
@@ -259,9 +259,9 @@ endif()
 #
 if(BUILD_SHARED)
     set(LDC_LIB_TYPE SHARED)
-else(BUILD_SHARED)
+else()
     set(LDC_LIB_TYPE STATIC)
-endif(BUILD_SHARED)
+endif()
 
 set(LDC_LIB LDCShared)
 add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_SOURCE_FILES})
@@ -282,11 +282,11 @@ if(WIN32)
     target_link_libraries(${LDC_LIB} imagehlp psapi)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(${LDC_LIB} dl)
-endif(WIN32)
+endif()
 
 if(USE_BOEHM_GC)
     target_link_libraries(${LDC_LIB} ${PROJECT_SOURCE_DIR}/libgc.a)
-endif(USE_BOEHM_GC)
+endif()
 
 
 add_executable(${LDC_EXE} ${DRV_SRC} ${DRV_HDR})
@@ -300,7 +300,7 @@ target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY})
 if(MSVC)
     # Add a post build event in Visual Studio to copy the config file into Debug/Release folder
     add_custom_command(TARGET ${LDC_EXE} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf $<TARGET_FILE_DIR:${LDC_EXE}> COMMENT "Copy config file ${LDC_EXE}.conf")
-endif(MSVC)
+endif()
 
 # For use by the druntime/Phobos build system.
 get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
@@ -384,4 +384,4 @@ install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.rebuild.conf DESTINAT
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     install(DIRECTORY bash_completion.d DESTINATION ${CONF_INST_DIR})
-endif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+endif()
