@@ -281,7 +281,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     # segfaults during the GC marking phase, and other strange crashes. Until
     # a proper workaround is figured out, simply fall back to -O0.
     if(${LDC_LLVM_VER} LESS 302)
-        if ((${MULTILIB_SUFFIX} EQUALS 64) OR ("${rt_flags}" MATCHES "-m32"))
+        if ((${MULTILIB_SUFFIX} EQUAL 64) OR ("${rt_flags}" MATCHES "-m32"))
             string(REGEX REPLACE "-O[1-5]" "-O0" rt_flags "${rt_flags}")
         endif()
     endif()
