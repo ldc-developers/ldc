@@ -231,7 +231,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     else if (ident == Id::ldc)
     {
         pragmaDeprecated(Id::ldc, Id::LDC_verbose);
-        Expression* expr;
+
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
              error("requires exactly 1 string literal parameter");
@@ -246,6 +246,8 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
             error("command '%s' invalid", expr->toChars());
             fatal();
         }
+
+        return LLVMignore;
     }
 
     // pragma(LDC_verbose);
@@ -257,6 +259,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
              fatal();
         }
         sc->module->llvmForceLogging = true;
+        return LLVMignore;
     }
 
     // pragma(llvm_inline_asm) { templdecl(s) }
@@ -287,7 +290,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
 void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
                     Pragma llvm_internal, const std::string &arg1str)
 {
-    if (llvm_internal == LLVMnone)
+    if (llvm_internal == LLVMnone || llvm_internal == LLVMignore)
         return;
 
     if (s->llvmInternal)
