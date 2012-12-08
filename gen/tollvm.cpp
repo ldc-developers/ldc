@@ -75,6 +75,7 @@ LLType* DtoType(Type* t)
     }
 
     IF_LOG Logger::println("Building type: %s", t->toChars());
+    LOG_SCOPE;
 
     assert(t);
     switch (t->ty)

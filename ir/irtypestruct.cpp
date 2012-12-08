@@ -222,7 +222,7 @@ llvm::Type* IrTypeStruct::buildType()
     // set struct body
     isaStruct(type)->setBody(defaultTypes, packed);
 
-    IF_LOG Logger::cout() << "final struct type: " << type << std::endl;
+    IF_LOG Logger::cout() << "final struct type: " << *type << std::endl;
 
     return type;
 }
