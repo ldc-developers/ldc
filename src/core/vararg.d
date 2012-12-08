@@ -32,7 +32,7 @@ version( LDC )
      *  paramn  = The identifier of the rightmost parameter in the function
      *            parameter list.
      */
-    pragma(va_start)
+    pragma(LDC_va_start)
         void va_start(T)(va_list ap, ref T);
 
     /**
@@ -98,7 +98,7 @@ else version( X86 )
      */
     version(LDC)
     {
-        pragma(va_start)
+        pragma(LDC_va_start)
             void va_start(T)(va_list ap, ref T);
     }
     else

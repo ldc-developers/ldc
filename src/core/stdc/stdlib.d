@@ -115,6 +115,6 @@ version( DigitalMars )
 }
 else version( LDC )
 {
-    pragma(alloca)
+    pragma(LDC_alloca)
         void* alloca(size_t size);
 }

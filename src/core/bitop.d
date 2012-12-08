@@ -48,7 +48,7 @@ version (LDC)
     // KLUDGE: Need to adapt the return type.
     version (LDC_LLVM_300) 
     {
-        private pure pragma(intrinsic, "llvm.cttz.i#") T cttz(T)(T v);
+        private pure pragma(LDC_intrinsic, "llvm.cttz.i#") T cttz(T)(T v);
         pure int bsf(size_t v)
         {
             return cast(int)cttz(v);
@@ -56,7 +56,7 @@ version (LDC)
     }
     else
     {
-        private pure pragma(intrinsic, "llvm.cttz.i#") T cttz(T)(T v, bool isZerodefined);
+        private pure pragma(LDC_intrinsic, "llvm.cttz.i#") T cttz(T)(T v, bool isZerodefined);
         pure int bsf(size_t v)
         {
             return cast(int)cttz(v, false);
@@ -95,7 +95,7 @@ version (LDC)
 {
     version (LDC_LLVM_300)
     {
-        private pure pragma(intrinsic, "llvm.ctlz.i#") T ctlz(T)(T v);
+        private pure pragma(LDC_intrinsic, "llvm.ctlz.i#") T ctlz(T)(T v);
         pure int bsr(size_t v)
         {
             return cast(int)(size_t.sizeof * 8 - 1 - ctlz(v));
@@ -103,7 +103,7 @@ version (LDC)
     }
     else
     {
-        private pure pragma(intrinsic, "llvm.ctlz.i#") T ctlz(T)(T v, bool isZeroDefined);
+        private pure pragma(LDC_intrinsic, "llvm.ctlz.i#") T ctlz(T)(T v, bool isZeroDefined);
         pure int bsr(size_t v)
         {
             return cast(int)(size_t.sizeof * 8 - 1 - ctlz(v, false));
@@ -125,7 +125,7 @@ unittest
  */
 version (LDC)
 {
-    pure pragma(intrinsic, "ldc.bitop.bt")
+    pure pragma(LDC_intrinsic, "ldc.bitop.bt")
         int bt(in size_t* p, size_t bitnum);
 }
 else
@@ -139,7 +139,7 @@ else
  */
 version (LDC)
 {
-    pure pragma(intrinsic, "ldc.bitop.btc")
+    pure pragma(LDC_intrinsic, "ldc.bitop.btc")
         int btc(size_t* p, size_t bitnum);
 }
 else
@@ -153,7 +153,7 @@ else
  */
 version (LDC)
 {
-    pure pragma(intrinsic, "ldc.bitop.btr")
+    pure pragma(LDC_intrinsic, "ldc.bitop.btr")
         int btr(size_t* p, size_t bitnum);
 }
 else
@@ -213,7 +213,7 @@ int main()
  */
 version (LDC)
 {
-    pure pragma(intrinsic, "ldc.bitop.bts")
+    pure pragma(LDC_intrinsic, "ldc.bitop.bts")
         int bts(size_t* p, size_t bitnum);
 }
 else
@@ -272,7 +272,7 @@ unittest
  */
 version (LDC)
 {
-    pure pragma(intrinsic, "llvm.bswap.i32")
+    pure pragma(LDC_intrinsic, "llvm.bswap.i32")
         uint bswap(uint v);
 }
 else
@@ -385,7 +385,7 @@ else
  */
 version (LDC)
 {
-    private pure pragma(intrinsic, "llvm.ctpop.i#") T ctpop(T)(T v);
+    private pure pragma(LDC_intrinsic, "llvm.ctpop.i#") T ctpop(T)(T v);
     pure int popcnt(uint x)
     {
         return cast(int) ctpop(x);

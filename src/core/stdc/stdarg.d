@@ -307,7 +307,7 @@ version( X86 )
      */
     version(LDC)
     {
-        pragma(va_start)
+        pragma(LDC_va_start)
             void va_start(T)(va_list ap, ref T);
     }
     else
@@ -370,7 +370,7 @@ else version ( LDC_X86_64 )
 {
     alias __va_list *va_list;
 
-    pragma(va_start)
+    pragma(LDC_va_start)
         void va_start(T)(va_list ap, ref T);
 
     T va_arg(T)(va_list ap)
@@ -391,10 +391,10 @@ else version ( LDC_X86_64 )
         va_arg_x86_64(ap, ti, parmn);
     }
 
-    pragma(va_end)
+    pragma(LDC_va_end)
         void va_end(va_list ap);
 
-    pragma(va_copy)
+    pragma(LDC_va_copy)
         void va_copy(out va_list dest, va_list src);
 }
 else version ( X86_64 )
