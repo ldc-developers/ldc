@@ -13,11 +13,12 @@ script:
   - ctest --output-on-failure
 
 notifications:
-  email:
-    recipients:
-      - "ldc-dev@googlegroups.com"
-    on_success: never
-    on_failure: change
+  # Temporarily disabled due to time limit problems.
+  # email:
+  #   recipients:
+  #     - "ldc-dev@googlegroups.com"
+  #   on_success: never
+  #   on_failure: change
   irc:
     channels:
       - "irc.freenode.org#ldc"
