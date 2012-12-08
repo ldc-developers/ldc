@@ -1,0 +1,6 @@
+/dstress
+/findregressions
+/makewebstatistics
+/*.o
+/testincludes/*.a
+/testincludes/*.o
