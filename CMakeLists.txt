@@ -11,8 +11,6 @@ endif(MSVC)
 # Locate LLVM.
 #
 
-# We need to find exactly the right LLVM version, our code usually does not
-# work across LLVM »minor« releases.
 find_package(LLVM 3.0 REQUIRED
     all-targets bitwriter linker ipo instrumentation backend support tablegen asmparser ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
