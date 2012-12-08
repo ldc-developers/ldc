@@ -504,7 +504,9 @@ function(add_tests module_files)
 
         testcase(debug "-g;-d-debug")
         testcase(release "-O3;-release")
-        if(MULTILIB)
+
+        # On 64 bit multilib builds, run the tests in 32 bit mode as well.
+        if(MULTILIB AND ${MULTILIB_SUFFIX} EQUAL 32)
             testcase(debug_32 "-g;-d-debug;-m32")
             testcase(release_32 "-O3;-release;-m32")
         endif()
