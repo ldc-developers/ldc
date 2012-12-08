@@ -988,51 +988,6 @@ DValue* CallExp::toElem(IRState* p)
             if (expv->getType()->toBasetype()->ty != Tint32)
                 expv = DtoCast(loc, expv, Type::tint32);
             return new DImValue(type, p->ir->CreateAlloca(LLType::getInt8Ty(gIR->context()), expv->getRVal(), ".alloca"));
-        } 
-        // shufflevector
-        else if (fndecl->llvmInternal == LLVMshufflevector) {
-            llvm::SmallVector<llvm::Constant*, 32> mask;
-            for(int i = 2, n = arguments->dim; i < n; i++){
-                Expression* exp = static_cast<Expression*>(arguments->data[i]);
-                if(exp->op != TOKint64 || exp->type->ty != Tint32){
-                    error("Function %s was declared with pragma shufflevector. Because of that all of its arguments except for the first two must be int literals.", fndecl->toChars());
-                    fatal();
-                }
-                IntegerExp* iexp = static_cast<IntegerExp*>(arguments->data[i]);
-                mask.push_back(iexp->toConstElem(p));
-            } 
-            LLValue* maskVal = llvm::ConstantVector::get(mask);
-            Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
-            Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
-            LLValue* v1 = exp1->toElem(p)->getRVal();
-            LLValue* v2 = exp2->toElem(p)->getRVal();
-            return new DImValue(type, p->ir->CreateShuffleVector(v1, v2, maskVal));
-        }
-        // extractelement
-        else if(fndecl->llvmInternal == LLVMextractelement) {
-            Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
-            if(exp2->op != TOKint64 || exp2->type->ty != Tint32){
-                error("Function %s was declared with pragma extractelement. Because of that its second argument must be an int literal.", fndecl->toChars());
-                fatal();
-            }
-            LLValue* idx = exp2->toElem(p)->getRVal();
-            Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
-            LLValue* vec = exp1->toElem(p)->getRVal();
-            return new DImValue(type, p->ir->CreateExtractElement(vec, idx));
-        }
-        // insertelement
-        else if(fndecl->llvmInternal == LLVMinsertelement) {
-            Expression* exp3 = static_cast<Expression*>(arguments->data[2]);
-            if(exp3->op != TOKint64 || exp3->type->ty != Tint32){
-                error("Function %s was declared with pragma insertelement. Because of that its third argument must be an int literal.", fndecl->toChars());
-                fatal();
-            }
-            LLValue* idx = exp3->toElem(p)->getRVal();
-            Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
-            LLValue* vec = exp1->toElem(p)->getRVal();
-            Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
-            LLValue* scal = exp2->toElem(p)->getRVal();
-            return new DImValue(type, p->ir->CreateInsertElement(vec, scal, idx));
         }
         // fence instruction
         else if (fndecl->llvmInternal == LLVMfence) {

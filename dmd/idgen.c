@@ -223,15 +223,30 @@ Msgtable msgtable[] =
     { "msg" },
 
 #if IN_LLVM
-    // LDC pragma's
+    // LDC-specific pragmas.
+    { "LDC_intrinsic" },
+    { "LDC_no_typeinfo" },
+    { "LDC_no_moduleinfo" },
+    { "LDC_alloca" },
+    { "LDC_va_start" },
+    { "LDC_va_copy" },
+    { "LDC_va_end" },
+    { "LDC_va_arg" },
+    { "LDC_verbose" },
+    { "LDC_allow_inline" },
+    { "LDC_inline_asm" },
+    { "LDC_inline_ir" },
+    { "LDC_fence" },
+    { "LDC_atomic_load" },
+    { "LDC_atomic_store" },
+    { "LDC_atomic_cmp_xchg" },
+    { "LDC_atomic_rmw" },
+
+    // Deprecated LDC pragmas lacking the vendor prefix.
     { "intrinsic" },
-    { "va_intrinsic" },
     { "no_typeinfo" },
     { "no_moduleinfo" },
     { "Alloca", "alloca" },
-    { "Shufflevector", "shufflevector" },
-    { "Extractelement", "extractelement" },
-    { "Insertelement", "insertelement" },
     { "vastart", "va_start" },
     { "vacopy", "va_copy" },
     { "vaend", "va_end" },

@@ -9,14 +9,12 @@ struct Scope;
 
 enum Pragma
 {
-    LLVMnone,
+    LLVMnone, // Not an LDC pragma.
+    LLVMignore, // Pragma has already been processed in DtoGetPragma, ignore.
     LLVMintrinsic,
     LLVMno_typeinfo,
     LLVMno_moduleinfo,
     LLVMalloca,
-    LLVMshufflevector,
-    LLVMextractelement,
-    LLVMinsertelement,
     LLVMva_start,
     LLVMva_copy,
     LLVMva_end,

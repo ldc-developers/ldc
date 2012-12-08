@@ -22,6 +22,27 @@ static bool parseStringExp(Expression* e, std::string& res)
     return false;
 }
 
+static void pragmaDeprecated(Identifier* oldIdent, Identifier* newIdent)
+{
+#ifndef DMDV1
+    // Do not print a deprecation warning for D1 – we do not want to
+    // introduce needless breakage at this stage.
+    if (!global.params.useDeprecated)
+        error("non-vendor-prefixed pragma '%s' is deprecated; use '%s' instead");
+#endif
+}
+
+static bool matchPragma(Identifier* needle, Identifier* ident, Identifier* oldIdent)
+{
+    if (needle == ident) return true;
+    if (needle == oldIdent)
+    {
+        pragmaDeprecated(oldIdent, ident);
+        return true;
+    }
+    return false;
+}
+
 Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
 {
     Identifier *ident = decl->ident;
@@ -29,8 +50,15 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     Expression *expr = (args && args->dim > 0) ? (*args)[0]->semantic(sc) : 0;
 
     // pragma(intrinsic, "string") { funcdecl(s) }
-    if (ident == Id::intrinsic)
+    if (matchPragma(ident, Id::LDC_intrinsic, Id::intrinsic))
     {
+        if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
+        {
+             error("requires exactly 1 string literal parameter");
+             fatal();
+        }
+
+        // Recognize LDC-specific pragmas.
         struct LdcIntrinsic
         {
             std::string name;
@@ -43,25 +71,20 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
             { "bitop.bts", LLVMbitop_bts },
         };
 
-        if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
-        {
-             error("requires exactly 1 string literal parameter");
-             fatal();
-        }
-
-        std::string prefix = "ldc.";
+        static std::string prefix = "ldc.";
         if (arg1str.length() > prefix.length() &&
             std::equal(prefix.begin(), prefix.end(), arg1str.begin()))
         {
+            // Got ldc prefix, binary search through ldcIntrinsic.
             std::string name(arg1str.begin() + prefix.length(), arg1str.end());
-            int i = 0, j = sizeof(ldcIntrinsic) / sizeof(ldcIntrinsic[0]), k, l;
+            size_t i = 0, j = sizeof(ldcIntrinsic) / sizeof(ldcIntrinsic[0]);
             do
             {
-                k = (i + j) / 2;
-                l = name.compare(ldcIntrinsic[k].name);
-                if (!l)
+                size_t k = (i + j) / 2;
+                int cmp = name.compare(ldcIntrinsic[k].name);
+                if (!cmp)
                     return ldcIntrinsic[k].pragma;
-                else if (l < 0)
+                else if (cmp < 0)
                     j = k;
                 else
                     i = k + 1;
@@ -73,7 +96,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(notypeinfo) { typedecl(s) }
-    else if (ident == Id::no_typeinfo)
+    else if (matchPragma(ident, Id::LDC_no_typeinfo, Id::no_typeinfo))
     {
         if (args && args->dim > 0)
         {
@@ -84,7 +107,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(nomoduleinfo) ;
-    else if (ident == Id::no_moduleinfo)
+    else if (matchPragma(ident, Id::LDC_no_moduleinfo, Id::no_moduleinfo))
     {
         if (args && args->dim > 0)
         {
@@ -95,7 +118,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(alloca) { funcdecl(s) }
-    else if (ident == Id::Alloca)
+    else if (matchPragma(ident, Id::LDC_alloca, Id::Alloca))
     {
         if (args && args->dim > 0)
         {
@@ -105,30 +128,8 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
         return LLVMalloca;
     }
 
-    // pragma(shufflevector) { funcdecl(s) }
-    else if (ident == Id::Shufflevector)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        return LLVMshufflevector;
-    }
-
-    // pragma(extractelement or insertelement) { funcdecl(s) }
-    else if (ident == Id::Extractelement || ident == Id::Insertelement)
-    {
-        if (args && args->dim > 0)
-        {
-             error("takes no parameters");
-             fatal();
-        }
-        return ident == Id::Extractelement ? LLVMextractelement : LLVMinsertelement;
-    }
-
     // pragma(va_start) { templdecl(s) }
-    else if (ident == Id::vastart)
+    else if (matchPragma(ident, Id::LDC_va_start, Id::vastart))
     {
         if (args && args->dim > 0)
         {
@@ -139,7 +140,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(va_copy) { funcdecl(s) }
-    else if (ident == Id::vacopy)
+    else if (matchPragma(ident, Id::LDC_va_copy, Id::vacopy))
     {
         if (args && args->dim > 0)
         {
@@ -150,7 +151,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(va_end) { funcdecl(s) }
-    else if (ident == Id::vaend)
+    else if (matchPragma(ident, Id::LDC_va_end, Id::vaend))
     {
         if (args && args->dim > 0)
         {
@@ -161,7 +162,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(va_arg) { templdecl(s) }
-    else if (ident == Id::vaarg)
+    else if (matchPragma(ident, Id::LDC_va_arg, Id::vaarg))
     {
         if (args && args->dim > 0)
         {
@@ -172,7 +173,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(fence) { funcdecl(s) }
-    else if (ident == Id::fence)
+    else if (matchPragma(ident, Id::LDC_fence, Id::fence))
     {
         if (args && args->dim > 0)
         {
@@ -183,7 +184,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(atomic_load) { templdecl(s) }
-    else if (ident == Id::atomic_load)
+    else if (matchPragma(ident, Id::LDC_atomic_load, Id::atomic_load))
     {
         if (args && args->dim > 0)
         {
@@ -194,7 +195,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(atomic_store) { templdecl(s) }
-    else if (ident == Id::atomic_store)
+    else if (matchPragma(ident, Id::LDC_atomic_store, Id::atomic_store))
     {
         if (args && args->dim > 0)
         {
@@ -205,7 +206,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(atomic_cmp_xchg) { templdecl(s) }
-    else if (ident == Id::atomic_cmp_xchg)
+    else if (matchPragma(ident, Id::LDC_atomic_cmp_xchg, Id::atomic_cmp_xchg))
     {
         if (args && args->dim > 0)
         {
@@ -216,7 +217,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(atomic_rmw, "string") { templdecl(s) }
-    else if (ident == Id::atomic_rmw)
+    else if (matchPragma(ident, Id::LDC_atomic_rmw, Id::atomic_rmw))
     {
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
@@ -229,7 +230,8 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     // pragma(ldc, "string") { templdecl(s) }
     else if (ident == Id::ldc)
     {
-        Expression* expr;
+        pragmaDeprecated(Id::ldc, Id::LDC_verbose);
+
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
              error("requires exactly 1 string literal parameter");
@@ -244,10 +246,24 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
             error("command '%s' invalid", expr->toChars());
             fatal();
         }
+
+        return LLVMignore;
+    }
+
+    // pragma(LDC_verbose);
+    else if (ident == Id::LDC_verbose)
+    {
+        if (args && args->dim > 0)
+        {
+             error("takes no parameters");
+             fatal();
+        }
+        sc->module->llvmForceLogging = true;
+        return LLVMignore;
     }
 
     // pragma(llvm_inline_asm) { templdecl(s) }
-    else if (ident == Id::llvm_inline_asm)
+    else if (matchPragma(ident, Id::LDC_inline_asm, Id::llvm_inline_asm))
     {
         if (args && args->dim > 0)
         {
@@ -258,7 +274,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(llvm_inline_ir) { templdecl(s) }
-    else if (ident == Id::llvm_inline_ir)
+    else if (matchPragma(ident, Id::LDC_inline_ir, Id::llvm_inline_ir))
     {
         if (args && args->dim > 0)
         {
@@ -274,12 +290,13 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
 void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
                     Pragma llvm_internal, const std::string &arg1str)
 {
-    if (llvm_internal == LLVMnone)
+    if (llvm_internal == LLVMnone || llvm_internal == LLVMignore)
         return;
 
     if (s->llvmInternal)
     {
-        error("multiple LDC specific pragmas not allowed not affect the same declaration ('%s' at '%s')", s->toChars(), s->loc.toChars());
+        error("multiple LDC specific pragmas not allowed not affect the same "
+            "declaration ('%s' at '%s')", s->toChars(), s->loc.toChars());
         fatal();
     }
 
@@ -315,7 +332,8 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         }
         else
         {
-            error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+            error("the '%s' pragma is only allowed on template declarations",
+                ident->toChars());
             fatal();
         }
         break;
@@ -329,24 +347,28 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         {
             if (td->parameters->dim != 1)
             {
-                error("the '%s' pragma template must have exactly one template parameter", ident->toChars());
+                error("the '%s' pragma template must have exactly one template parameter",
+                    ident->toChars());
                 fatal();
             }
             else if (!td->onemember)
             {
-                error("the '%s' pragma template must have exactly one member", ident->toChars());
+                error("the '%s' pragma template must have exactly one member",
+                    ident->toChars());
                 fatal();
             }
             else if (td->overnext || td->overroot)
             {
-                error("the '%s' pragma template must not be overloaded", ident->toChars());
+                error("the '%s' pragma template must not be overloaded",
+                    ident->toChars());
                 fatal();
             }
             td->llvmInternal = llvm_internal;
         }
         else
         {
-            error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+            error("the '%s' pragma is only allowed on template declarations",
+                ident->toChars());
             fatal();
         }
         break;
@@ -364,7 +386,8 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         }
         else
         {
-            error("the '%s' pragma is only allowed on function declarations", ident->toChars());
+            error("the '%s' pragma is only allowed on function declarations",
+                ident->toChars());
             fatal();
         }
         break;
@@ -380,32 +403,8 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         }
         else
         {
-            error("the '%s' pragma must only be used on function declarations of type 'void* function(uint nbytes)'", ident->toChars());
-            fatal();
-        }
-        break;
-
-    case LLVMshufflevector:
-        if (FuncDeclaration* fd = s->isFuncDeclaration())
-        {
-            fd->llvmInternal = llvm_internal;
-        }
-        else
-        {
-            error("the '%s' pragma must only be used on function declarations.", ident->toChars());
-            fatal();
-        }
-        break;
-
-    case LLVMextractelement:
-    case LLVMinsertelement:
-        if (FuncDeclaration* fd = s->isFuncDeclaration())
-        {
-            fd->llvmInternal = llvm_internal;
-        }
-        else
-        {
-            error("the '%s' pragma must only be used on function declarations.", ident->toChars());
+            error("the '%s' pragma must only be used on function declarations "
+                "of type 'void* function(uint nbytes)'", ident->toChars());
             fatal();
         }
         break;
@@ -415,19 +414,22 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         {
             if (td->parameters->dim > 1)
             {
-                error("the '%s' pragma template must have exactly zero or one template parameters", ident->toChars());
+                error("the '%s' pragma template must have exactly zero or one "
+                    "template parameters", ident->toChars());
                 fatal();
             }
             else if (!td->onemember)
             {
-                error("the '%s' pragma template must have exactly one member", ident->toChars());
+                error("the '%s' pragma template must have exactly one member",
+                    ident->toChars());
                 fatal();
             }
             td->llvmInternal = llvm_internal;
         }
         else
         {
-            error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+            error("the '%s' pragma is only allowed on template declarations",
+                ident->toChars());
             fatal();
         }
         break;
@@ -438,19 +440,21 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
             Dsymbol* member = td->onemember;
             if (!member)
             {
-                error("the '%s' pragma template must have exactly one member", ident->toChars());
+                error("the '%s' pragma template must have exactly one member",
+                    ident->toChars());
                 fatal();
             }
             FuncDeclaration* fun = member->isFuncDeclaration();
             if (!fun)
             {
-                error("the '%s' pragma template's member must be a function declaration", ident->toChars());
+                error("the '%s' pragma template's member must be a function declaration",
+                    ident->toChars());
                 fatal();
             }
-            
+
             TemplateParameters& params = *td->parameters;
-            bool valid_params = 
-                params.dim == 3 && params[1]->isTemplateTypeParameter() && 
+            bool valid_params =
+                params.dim == 3 && params[1]->isTemplateTypeParameter() &&
                 params[2]->isTemplateTupleParameter();
 
             if(valid_params)
@@ -458,11 +462,11 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
                 TemplateValueParameter* p0 = params[0]->isTemplateValueParameter();
                 valid_params = valid_params && p0 && p0->valType == Type::tstring;
             }
-            
+
             if(!valid_params)
             {
-                error("the '%s' pragma template must have exactly three parameters: a string, a type and a type tuple", 
-                    ident->toChars());
+                error("the '%s' pragma template must have exactly three parameters: "
+                    "a string, a type and a type tuple", ident->toChars());
                 fatal();
             }
 
@@ -470,12 +474,15 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         }
         else
         {
-            error("the '%s' pragma is only allowed on template declarations", ident->toChars());
+            error("the '%s' pragma is only allowed on template declarations",
+                ident->toChars());
             fatal();
         }
         break;
 
     default:
-        warning(Loc(), "the LDC specific pragma '%s' is not yet implemented, ignoring", ident->toChars());
+        warning(Loc(),
+            "the LDC specific pragma '%s' is not yet implemented, ignoring",
+            ident->toChars());
     }
 }
