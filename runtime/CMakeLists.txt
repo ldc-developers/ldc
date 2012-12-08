@@ -10,15 +10,6 @@ set(DMDFE_MINOR_VERSION   0)
 set(DMDFE_PATCH_VERSION   60)
 set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
 
-# There seems to be a bug in LLVM prior to 3.2 which causes druntime to be
-# miscompiled in -O3, leading to segfaults during the GC marking phase on
-# 32 bit x86 systems. Err on the safe side and just use -O2 for everything.
-if(${LDC_LLVM_VER} LESS 302)
-    set(D_FLAGS_RELEASE_DEFAULT -O2;-release)
-else()
-    set(D_FLAGS_RELEASE_DEFAULT -O3;-release)
-endif()
-
 set(MULTILIB              OFF                                       CACHE BOOL    "Build both 32/64 bit runtime libraries")
 set(BUILD_BC_LIBS         OFF                                       CACHE BOOL    "Build the runtime as LLVM bitcode libraries")
 set(BUILD_SINGLE_LIB      ON                                        CACHE BOOL    "Build single runtime library (no core/rt/gc split)")
@@ -27,7 +18,7 @@ set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d         CACHE PATH  
 set(BUILD_SHARED_LIBS     OFF                                       CACHE BOOL    "Whether to build the runtime as a shared library (*UNSUPPORTED*)")
 set(D_FLAGS               -w;-d                                     CACHE STRING  "Runtime build flags, separated by ;")
 set(D_FLAGS_DEBUG         -g                                        CACHE STRING  "Runtime build flags (debug libraries), separated by ;")
-set(D_FLAGS_RELEASE       ${D_FLAGS_RELEASE_DEFAULT}                CACHE STRING  "Runtime build flags (release libraries), separated by ;")
+set(D_FLAGS_RELEASE       -O3;-release                              CACHE STRING  "Runtime build flags (release libraries), separated by ;")
 if(MSVC)
     set(LINK_WITH_MSVCRT  OFF                                       CACHE BOOL    "Link with MSVCRT.LIB instead of LIBCMT.LIB")
 endif()
@@ -280,18 +271,31 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
         set(target_suffix "${target_suffix}_${path_suffix}")
     endif()
 
+    # Always disable invariants for debug builds of core.* and gc.* (there
+    # are/were some broken invariants around; druntime is always built in
+    # release mode in upstream builds).
+    set(rt_flags "${d_flags};-disable-invariants")
+
+    # There seems to be a bug in LLVM prior to 3.2 which causes druntime to be
+    # miscompiled on 32 bit x86 builds with optimizations enabled, leading to
+    # segfaults during the GC marking phase, and other strange crashes. Until
+    # a proper workaround is figured out, simply fall back to -O0.
+    if(${LDC_LLVM_VER} LESS 302)
+        if ((${MULTILIB_SUFFIX} EQUALS 64) OR ("${rt_flags}" MATCHES "-m32"))
+            string(REGEX REPLACE "-O[1-5]" "-O0" rt_flags "${rt_flags}")
+        endif()
+    endif()
+
     set(CORE_O "")
     set(CORE_BC "")
     foreach(f ${CORE_D})
-        dc(${f} "${d_flags};-disable-invariants" "${RUNTIME_DIR}"
-            "${target_suffix}" CORE_O CORE_BC)
+        dc(${f} "${rt_flags}" "${RUNTIME_DIR}" "${target_suffix}" CORE_O CORE_BC)
     endforeach()
 
     set(GC_O "")
     set(GC_BC "")
     foreach(f ${GC_D})
-        dc(${f} "${d_flags};-disable-invariants" "${RUNTIME_DIR}"
-            "${target_suffix}" GC_O GC_BC)
+        dc(${f} "${rt_flags}" "${RUNTIME_DIR}" "${target_suffix}" GC_O GC_BC)
     endforeach()
 
     set(DCRT_O "")
