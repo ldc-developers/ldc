@@ -255,13 +255,15 @@ else version( LDC )
     }
 
 
-    enum msync
+    enum MemoryOrder
     {
-        raw,    /// not sequenced
-        acq,    /// hoist-load + hoist-store barrier
-        rel,    /// sink-load + sink-store barrier
-        seq,    /// fully sequenced (acq + rel)
+        raw,
+        acq,
+        rel,
+        seq,
     }
+
+    deprecated alias MemoryOrder msync;
 
     private AtomicOrdering getOrdering(msync ms) pure
     {
