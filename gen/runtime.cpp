@@ -220,7 +220,11 @@ static void LLVM_D_BuildRuntimeModule()
 
     // Construct some attribute lists used below (possibly multiple times)
 #if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+    llvm::AttributeSet
+#else
     llvm::AttrListPtr
+#endif
         NoAttrs,
         Attr_NoAlias
         = NoAttrs.addAttr(gIR->context(), 0, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias))),

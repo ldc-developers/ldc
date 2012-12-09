@@ -567,7 +567,11 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     // Merge in any old attributes (attributes for the function itself are
     // also stored in a list slot).
     const size_t newSize = attrs.size();
+#if LDC_LLVM_VER >= 303
+    llvm::AttributeSet oldAttrs = func->getAttributes();
+#else
     llvm::AttrListPtr oldAttrs = func->getAttributes();
+#endif
     for (size_t i = 0; i < oldAttrs.getNumSlots(); ++i) {
         llvm::AttributeWithIndex curr = oldAttrs.getSlot(i);
 
@@ -591,7 +595,10 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
         }
     }
 
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+	llvm::AttributeSet attrlist = llvm::AttributeSet::get(gIR->context(),
+        llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
+#elif LDC_LLVM_VER >= 302
 	llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(gIR->context(),
         llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
 #else

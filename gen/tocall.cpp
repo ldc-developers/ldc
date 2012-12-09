@@ -717,7 +717,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     }
 
     // set calling convention and parameter attributes
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+	llvm::AttributeSet attrlist = llvm::AttributeSet::get(gIR->context(),
+        llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
+#elif LDC_LLVM_VER == 302
 	llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(gIR->context(),
         llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
 #else
