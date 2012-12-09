@@ -27,10 +27,12 @@ endif()
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
 include(CheckTypeSize)
-check_type_size(void*  ptr_size)
+check_type_size(void* ptr_size)
 if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
+    set(HOST_BITNESS 64)
     set(MULTILIB_SUFFIX 32)
 else()
+    set(HOST_BITNESS 32)
     set(MULTILIB_SUFFIX 64)
 endif()
 
@@ -281,7 +283,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
     # segfaults during the GC marking phase, and other strange crashes. Until
     # a proper workaround is figured out, simply fall back to -O0.
     if(${LDC_LLVM_VER} LESS 302)
-        if ((${MULTILIB_SUFFIX} EQUAL 64) OR ("${rt_flags}" MATCHES "-m32"))
+        if ((${HOST_BITNESS} EQUAL 32) OR ("${rt_flags}" MATCHES "-m32"))
             string(REGEX REPLACE "-O[1-5]" "-O0" rt_flags "${rt_flags}")
         endif()
     endif()
@@ -510,7 +512,7 @@ function(add_tests module_files)
         testcase(release "-O3;-release")
 
         # On 64 bit multilib builds, run the tests in 32 bit mode as well.
-        if(MULTILIB AND ${MULTILIB_SUFFIX} EQUAL 32)
+        if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
             testcase(debug_32 "-g;-d-debug;-m32")
             testcase(release_32 "-O3;-release;-m32")
         endif()
