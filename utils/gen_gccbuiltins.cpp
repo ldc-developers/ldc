@@ -107,7 +107,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     else
         return;
 
-    os << "pragma(intrinsic, \"" + name + "\")\n    ";
+    os << "pragma(LDC_intrinsic, \"" + name + "\")\n    ";
     os << ret + " " + builtinName + "(";
 
     if(params.size())
