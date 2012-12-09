@@ -35,14 +35,14 @@ nothrow:
 // value indicating the return address of the current function or one of its
 // callers.
 
-pragma(intrinsic, "llvm.returnaddress")
+pragma(LDC_intrinsic, "llvm.returnaddress")
     void* llvm_returnaddress(uint level);
 
 
 // The 'llvm.frameaddress' intrinsic attempts to return the target-specific
 // frame pointer value for the specified stack frame.
 
-pragma(intrinsic, "llvm.frameaddress")
+pragma(LDC_intrinsic, "llvm.frameaddress")
     void* llvm_frameaddress(uint level);
 
 
@@ -51,7 +51,7 @@ pragma(intrinsic, "llvm.frameaddress")
 // implementing language features like scoped automatic variable sized arrays
 // in C99.
 
-pragma(intrinsic, "llvm.stacksave")
+pragma(LDC_intrinsic, "llvm.stacksave")
     void* llvm_stacksave();
 
 
@@ -60,7 +60,7 @@ pragma(intrinsic, "llvm.stacksave")
 // intrinsic executed. This is useful for implementing language features like
 // scoped automatic variable sized arrays in C99.
 
-pragma(intrinsic, "llvm.stackrestore")
+pragma(LDC_intrinsic, "llvm.stackrestore")
     void llvm_stackrestore(void* ptr);
 
 
@@ -69,7 +69,7 @@ pragma(intrinsic, "llvm.stackrestore")
 // no effect on the behavior of the program but can change its performance
 // characteristics.
 
-pragma(intrinsic, "llvm.prefetch")
+pragma(LDC_intrinsic, "llvm.prefetch")
     void llvm_prefetch(void* ptr, uint rw, uint locality);
 
 
@@ -82,7 +82,7 @@ pragma(intrinsic, "llvm.prefetch")
 // is to be inserted after optimizations to allow correlations of simulation
 // runs.
 
-pragma(intrinsic, "llvm.pcmarker")
+pragma(LDC_intrinsic, "llvm.pcmarker")
     void llvm_pcmarker(uint id);
 
 
@@ -92,7 +92,7 @@ pragma(intrinsic, "llvm.pcmarker")
 // As the backing counters overflow quickly (on the order of 9 seconds on
 // alpha), this should only be used for small timings.
 
-pragma(intrinsic, "llvm.readcyclecounter")
+pragma(LDC_intrinsic, "llvm.readcyclecounter")
     ulong readcyclecounter();
 
 
@@ -110,7 +110,7 @@ pure:
 // Note that, unlike the standard libc function, the llvm.memcpy.* intrinsics do
 // not return a value, and takes an extra alignment argument.
 
-pragma(intrinsic, "llvm.memcpy.p0i8.p0i8.i#")
+pragma(LDC_intrinsic, "llvm.memcpy.p0i8.p0i8.i#")
     void llvm_memcpy(T)(void* dst, void* src, T len, uint alignment, bool volatile_ = false);
 
 
@@ -121,7 +121,7 @@ pragma(intrinsic, "llvm.memcpy.p0i8.p0i8.i#")
 // do not return a value, and takes an extra alignment argument.
 
 
-pragma(intrinsic, "llvm.memmove.p0i8.p0i8.i#")
+pragma(LDC_intrinsic, "llvm.memmove.p0i8.p0i8.i#")
     void llvm_memmove(T)(void* dst, void* src, T len, uint alignment, bool volatile_ = false);
 
 
@@ -130,7 +130,7 @@ pragma(intrinsic, "llvm.memmove.p0i8.p0i8.i#")
 // Note that, unlike the standard libc function, the llvm.memset intrinsic does
 // not return a value, and takes an extra alignment argument.
 
-pragma(intrinsic, "llvm.memset.p0i8.i#")
+pragma(LDC_intrinsic, "llvm.memset.p0i8.i#")
     void llvm_memset(T)(void* dst, ubyte val, T len, uint alignment, bool volatile_ = false);
 
 
@@ -143,19 +143,19 @@ pragma(intrinsic, "llvm.memset.p0i8.i#")
 // worry about errno being set). llvm.sqrt(-0.0) is defined to return -0.0 like
 // IEEE sqrt.
 
-pragma(intrinsic, "llvm.sqrt.f#")
+pragma(LDC_intrinsic, "llvm.sqrt.f#")
     T llvm_sqrt(T)(T val);
 
 
 // The 'llvm.sin.*' intrinsics return the sine of the operand.
 
-pragma(intrinsic, "llvm.sin.f#")
+pragma(LDC_intrinsic, "llvm.sin.f#")
     T llvm_sin(T)(T val);
 
 
 // The 'llvm.cos.*' intrinsics return the cosine of the operand.
 
-pragma(intrinsic, "llvm.cos.f#")
+pragma(LDC_intrinsic, "llvm.cos.f#")
     T llvm_cos(T)(T val);
 
 
@@ -164,44 +164,44 @@ pragma(intrinsic, "llvm.cos.f#")
 // not defined. When a vector of floating point type is used, the second
 // argument remains a scalar integer value.
 
-pragma(intrinsic, "llvm.powi.f#")
+pragma(LDC_intrinsic, "llvm.powi.f#")
     T llvm_powi(T)(T val, int power);
 
 
 // The 'llvm.pow.*' intrinsics return the first operand raised to the specified
 // (positive or negative) power.
 
-pragma(intrinsic, "llvm.pow.f#")
+pragma(LDC_intrinsic, "llvm.pow.f#")
     T llvm_pow(T)(T val, T power);
 
 
 // The 'llvm.exp.*' intrinsics perform the exp function.
 
-pragma(intrinsic, "llvm.exp.f#")
+pragma(LDC_intrinsic, "llvm.exp.f#")
     T llvm_exp(T)(T val);
 
 
 // The 'llvm.log.*' intrinsics perform the log function.
 
-pragma(intrinsic, "llvm.log.f#")
+pragma(LDC_intrinsic, "llvm.log.f#")
     T llvm_log(T)(T val);
 
 
 // The 'llvm.fma.*' intrinsics perform the fused multiply-add operation.
 
-pragma(intrinsic, "llvm.fma.f#")
+pragma(LDC_intrinsic, "llvm.fma.f#")
     T llvm_fma(T)(T vala, T valb, T valc);
 
 
 // The 'llvm.fabs.*' intrinsics return the absolute value of the operand.
 
-pragma(intrinsic, "llvm.fabs.f#")
+pragma(LDC_intrinsic, "llvm.fabs.f#")
     T llvm_fabs(T)(T val);
 
 
 // The 'llvm.floor.*' intrinsics return the floor of the operand.
 
-pragma(intrinsic, "llvm.floor.f#")
+pragma(LDC_intrinsic, "llvm.floor.f#")
     T llvm_floor(T)(T val);
 
 
@@ -209,7 +209,7 @@ pragma(intrinsic, "llvm.floor.f#")
 // that can be fused if the code generator determines that the fused expression
 //  would be legal and efficient.
 
-pragma(intrinsic, "llvm.fmuladd.f#")
+pragma(LDC_intrinsic, "llvm.fmuladd.f#")
     T llvm_fmuladd(T)(T vala, T valb, T valc);
 
 
@@ -222,14 +222,14 @@ pragma(intrinsic, "llvm.fmuladd.f#")
 // useful for performing operations on data that is not in the target's native
 // byte order.
 
-pragma(intrinsic, "llvm.bswap.i#.i#")
+pragma(LDC_intrinsic, "llvm.bswap.i#.i#")
     T llvm_bswap(T)(T val);
 
 
 // The 'llvm.ctpop' family of intrinsics counts the number of bits set in a
 // value.
 
-pragma(intrinsic, "llvm.ctpop.i#")
+pragma(LDC_intrinsic, "llvm.ctpop.i#")
     T llvm_ctpop(T)(T src);
 
 
@@ -238,12 +238,12 @@ pragma(intrinsic, "llvm.ctpop.i#")
 
 version (LDC_LLVM_300)
 {
-    pragma(intrinsic, "llvm.ctlz.i#")
+    pragma(LDC_intrinsic, "llvm.ctlz.i#")
         T llvm_ctlz(T)(T src);
 }
 else
 {
-    pragma(intrinsic, "llvm.ctlz.i#")
+    pragma(LDC_intrinsic, "llvm.ctlz.i#")
         T llvm_ctlz(T)(T src, bool isZerodefined);
 }
 
@@ -253,12 +253,12 @@ else
 
 version (LDC_LLVM_300)
 {
-    pragma(intrinsic, "llvm.cttz.i#")
+    pragma(LDC_intrinsic, "llvm.cttz.i#")
         T llvm_cttz(T)(T src);
 }
 else
 {
-    pragma(intrinsic, "llvm.cttz.i#")
+    pragma(LDC_intrinsic, "llvm.cttz.i#")
         T llvm_cttz(T)(T src, bool isZerodefined);
 }
 
@@ -267,7 +267,7 @@ else
 // from an integer value and returns them in the same bit width as the original
 // value.
 
-pragma(intrinsic, "llvm.part.select.i#")
+pragma(LDC_intrinsic, "llvm.part.select.i#")
     T llvm_part_select(T)(T val, uint loBit, uint hiBit);
 
 
@@ -299,71 +299,71 @@ enum AtomicOrdering {
 alias AtomicOrdering.SequentiallyConsistent DefaultOrdering;
 
 // The 'fence' intrinsic is used to introduce happens-before edges between operations.
-pragma(fence)
+pragma(LDC_fence)
     void llvm_memory_fence(AtomicOrdering ordering = DefaultOrdering);
 
 // This intrinsic loads a value stored in memory at ptr.
-pragma(atomic_load)
+pragma(LDC_atomic_load)
     T llvm_atomic_load(T)(in shared T *ptr, AtomicOrdering ordering = DefaultOrdering);
 
 // This intrinsic stores a value in val in the memory at ptr.
-pragma(atomic_store)
+pragma(LDC_atomic_store)
     void llvm_atomic_store(T)(T val, shared T *ptr, AtomicOrdering ordering = DefaultOrdering);
 
 
 // This loads a value in memory and compares it to a given value. If they are
 // equal, it stores a new value into the memory.
 
-pragma(atomic_cmp_xchg)
+pragma(LDC_atomic_cmp_xchg)
     T llvm_atomic_cmp_swap(T)(shared T* ptr, T cmp, T val, AtomicOrdering ordering = DefaultOrdering);
 
 
 // This intrinsic loads the value stored in memory at ptr and yields the value
 // from memory. It then stores the value in val in the memory at ptr.
 
-pragma(atomic_rmw, "xchg")
+pragma(LDC_atomic_rmw, "xchg")
     T llvm_atomic_swap(T)(shared T* ptr, T val, AtomicOrdering ordering = DefaultOrdering);
 
 // This intrinsic adds delta to the value stored in memory at ptr. It yields
 // the original value at ptr.
 
-pragma(atomic_rmw, "add")
+pragma(LDC_atomic_rmw, "add")
     T llvm_atomic_load_add(T)(in shared T* ptr, T val, AtomicOrdering ordering = DefaultOrdering);
 
 // This intrinsic subtracts delta to the value stored in memory at ptr. It
 // yields the original value at ptr.
 
-pragma(atomic_rmw, "sub")
+pragma(LDC_atomic_rmw, "sub")
     T llvm_atomic_load_sub(T)(in shared T* ptr, T val, AtomicOrdering ordering = DefaultOrdering);
 
 // These intrinsics bitwise the operation (and, nand, or, xor) delta to the
 // value stored in memory at ptr. It yields the original value at ptr.
 
-pragma(atomic_rmw, "and")
+pragma(LDC_atomic_rmw, "and")
     T llvm_atomic_load_and(T)(in shared T* ptr, T val, AtomicOrdering ordering = DefaultOrdering);
 
-pragma(atomic_rmw, "nand")
+pragma(LDC_atomic_rmw, "nand")
     T llvm_atomic_load_nand(T)(in shared T* ptr, T val, AtomicOrdering ordering = DefaultOrdering);
 
-pragma(atomic_rmw, "or")
+pragma(LDC_atomic_rmw, "or")
     T llvm_atomic_load_or(T)(in shared T* ptr, T val, AtomicOrdering ordering = DefaultOrdering);
 
-pragma(atomic_rmw, "xor")
+pragma(LDC_atomic_rmw, "xor")
     T llvm_atomic_load_xor(T)(in shared T* ptr, T val, AtomicOrdering ordering = DefaultOrdering);
 
 // These intrinsics takes the signed or unsigned minimum or maximum of delta
 // and the value stored in memory at ptr. It yields the original value at ptr.
 
-pragma(atomic_rmw, "max")
+pragma(LDC_atomic_rmw, "max")
     T llvm_atomic_load_max(T)(in shared T* ptr, T val, AtomicOrdering ordering = DefaultOrdering);
 
-pragma(atomic_rmw, "min")
+pragma(LDC_atomic_rmw, "min")
     T llvm_atomic_load_min(T)(in shared T* ptr, T val, AtomicOrdering ordering = DefaultOrdering);
 
-pragma(atomic_rmw, "umax")
+pragma(LDC_atomic_rmw, "umax")
     T llvm_atomic_load_umax(T)(in shared T* ptr, T val, AtomicOrdering ordering = DefaultOrdering);
 
-pragma(atomic_rmw, "umin")
+pragma(LDC_atomic_rmw, "umin")
     T llvm_atomic_load_umin(T)(in shared T* ptr, T val, AtomicOrdering ordering = DefaultOrdering);
 
 
@@ -378,23 +378,23 @@ struct OverflowRet(T) {
 }
 
 // Signed and unsigned addition
-pragma(intrinsic, "llvm.sadd.with.overflow.i#")
+pragma(LDC_intrinsic, "llvm.sadd.with.overflow.i#")
     OverflowRet!(T) llvm_sadd_with_overflow(T)(T lhs, T rhs);
 
-pragma(intrinsic, "llvm.uadd.with.overflow.i#")
+pragma(LDC_intrinsic, "llvm.uadd.with.overflow.i#")
     OverflowRet!(T) llvm_uadd_with_overflow(T)(T lhs, T rhs);
 
 
 // Signed and unsigned subtraction
-pragma(intrinsic, "llvm.ssub.with.overflow.i#")
+pragma(LDC_intrinsic, "llvm.ssub.with.overflow.i#")
     OverflowRet!(T) llvm_ssub_with_overflow(T)(T lhs, T rhs);
 
-pragma(intrinsic, "llvm.usub.with.overflow.i#")
+pragma(LDC_intrinsic, "llvm.usub.with.overflow.i#")
     OverflowRet!(T) llvm_usub_with_overflow(T)(T lhs, T rhs);
 
 
 // Signed and unsigned multiplication
-pragma(intrinsic, "llvm.smul.with.overflow.i#")
+pragma(LDC_intrinsic, "llvm.smul.with.overflow.i#")
     OverflowRet!(T) llvm_smul_with_overflow(T)(T lhs, T rhs);
 
 /* Note: LLVM documentations says:
@@ -403,7 +403,7 @@ pragma(intrinsic, "llvm.smul.with.overflow.i#")
  *
  * See: http://llvm.org/docs/LangRef.html#int_umul_overflow
  */
-//pragma(intrinsic, "llvm.umul.with.overflow.i#")
+//pragma(LDC_intrinsic, "llvm.umul.with.overflow.i#")
 //    OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs);
 
 
@@ -416,5 +416,5 @@ pragma(intrinsic, "llvm.smul.with.overflow.i#")
 // target does not have a trap instruction, this intrinsic will be lowered to
 // the call of the abort() function.
 
-pragma(intrinsic, "llvm.trap")
+pragma(LDC_intrinsic, "llvm.trap")
     void llvm_trap();

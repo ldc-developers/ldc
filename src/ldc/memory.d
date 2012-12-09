@@ -65,8 +65,8 @@ private
     {
         extern (C) int sysctlbyname( const(char)*, void*, size_t*, void*, size_t );
     }
-    pragma(intrinsic, "llvm.frameaddress")
-        void* llvm_frameaddress(uint level=0);
+
+    import ldc.intrinsics;
 
     extern (C) void gc_addRange( void* p, size_t sz );
     extern (C) void gc_removeRange( void* p );
@@ -180,7 +180,7 @@ extern (C) void* rt_stackTop()
     }
     else
     {
-        return llvm_frameaddress();
+        return llvm_frameaddress(0);
     }
 }
 

@@ -5,7 +5,7 @@ struct __asmtuple_t(T...)
     T v;
 }
 
-pragma(llvm_inline_asm)
+pragma(LDC_inline_asm)
 {
     void __asm()(const(char)[] asmcode, const(char)[] constraints, ...);
     T __asm(T)(const(char)[] asmcode, const(char)[] constraints, ...);
