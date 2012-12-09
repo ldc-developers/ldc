@@ -306,7 +306,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
 
     # Always build zlib and other C parts of the runtime in release mode.
     set_source_files_properties(${CORE_C} ${DCRT_C} PROPERTIES
-        COMPILE_FLAGS ${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELEASE}
+        COMPILE_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELEASE}"
     )
 
     if(EXISTS ${RUNTIME_DIR})
