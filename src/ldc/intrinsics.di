@@ -204,6 +204,28 @@ pragma(LDC_intrinsic, "llvm.fabs.f#")
 pragma(LDC_intrinsic, "llvm.floor.f#")
     T llvm_floor(T)(T val);
 
+version(LDC_LLVM_VER303)
+{
+// The 'llvm.ceil.*' intrinsics return the ceiling of the operand.
+
+pragma(LDC_intrinsic, "llvm.ceil.f#")
+    T llvm_ceil(T)(T val);
+
+// The 'llvm.trunc.*' intrinsics returns the operand rounded to the nearest integer not larger in magnitude than the operand.
+
+pragma(LDC_intrinsic, "llvm.trunc.f#")
+    T llvm_trunc(T)(T val);
+
+// The 'llvm.rint.*' intrinsics returns the operand rounded to the nearest integer. It may raise an inexact floating-point exception if the operand isn't an integer.
+
+pragma(LDC_intrinsic, "llvm.rint.f#")
+    T llvm_rint(T)(T val);
+
+// The 'llvm.nearbyint.*' intrinsics returns the operand rounded to the nearest integer.
+
+pragma(LDC_intrinsic, "llvm.nearbyint.f#")
+    T llvm_nearbyint(T)(T val);
+}
 
 // The 'llvm.fmuladd.*' intrinsic functions represent multiply-add expressions
 // that can be fused if the code generator determines that the fused expression
