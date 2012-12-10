@@ -204,7 +204,7 @@ pragma(LDC_intrinsic, "llvm.fabs.f#")
 pragma(LDC_intrinsic, "llvm.floor.f#")
     T llvm_floor(T)(T val);
 
-version(LDC_LLVM_VER303)
+version(LDC_LLVM_303)
 {
 // The 'llvm.ceil.*' intrinsics return the ceiling of the operand.
 
