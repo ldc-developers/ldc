@@ -188,6 +188,20 @@ real nearbyintl(real arg)
     return 0.0;
 }
 
+// Returns the integral value (represented as a floating-point number) nearest
+// arg in the direction of the current rounding mode.
+real rintl(real arg)
+{
+    real res;
+    asm
+    {
+        fld arg;
+        frndint;
+        fstp res;
+    }
+    return res;
+}
+
 // Round to the nearest integer value using current rounding direction.
 long llrintl(real arg)
 {
