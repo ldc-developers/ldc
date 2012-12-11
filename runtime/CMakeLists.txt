@@ -402,7 +402,6 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
         endif()
 
         list(APPEND ${outlist_targets} "phobos-ldc${target_suffix}")
-        add_dependencies(phobos2 DEPENDS phobos-ldc${target_suffix})
     endif()
 
     if(BUILD_BC_LIBS)
@@ -471,9 +470,6 @@ endmacro()
 # Set up build targets.
 #
 
-if(PHOBOS2_DIR)
-    add_custom_target(phobos2)
-endif()
 if(MSVC)
     if (LINK_WITH_MSVCRT)
         set(RT_CFLAGS "/MDd")
