@@ -383,7 +383,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
             ${DCRT_O}
             ${DCRT_C}
         )
-        add_dependencies(phobos-ldc${target_suffix} runtime${target_suffix})
+
         set_target_properties(
             phobos-ldc${target_suffix} PROPERTIES
             VERSION                     ${DMDFE_VERSION}
@@ -455,9 +455,6 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
 
         add_custom_target(bitcode-libraries${target_suffix} ALL DEPENDS ${bclibs})
     endif()
-
-    # BCLIBS is empty if BUILD_BC_LIBS is not selected
-    add_custom_target(runtime${target_suffix} DEPENDS ${LIBS} ${BCLIBS})
 endmacro()
 
 # Builds both a debug and a release copy of druntime/Phobos.
