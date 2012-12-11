@@ -414,10 +414,14 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
         endif()
 
         if(BUILD_SINGLE_LIB)
+            set(bclibs
+                ${output_path}/libdruntime-ldc${lib_suffix}-bc.a
+                ${output_path}/libphobos-ldc${lib_suffix}-bc.a
+            )
             add_custom_command(
-                OUTPUT bclibs
-                COMMAND ${LLVM_AR_EXE} rs libdruntime-ldc-bc.a ${CORE_BC} ${GC_BC} ${DCRT_BC}
-                COMMAND ${LLVM_AR_EXE} rs libphobos-ldc-bc.a ${PHOBOS2_BC}
+                OUTPUT ${bclibs}
+                COMMAND ${LLVM_AR_EXE} rs libdruntime-ldc${lib_suffix}-bc.a ${CORE_BC} ${GC_BC} ${DCRT_BC}
+                COMMAND ${LLVM_AR_EXE} rs libphobos-ldc${lib_suffix}-bc.a ${PHOBOS2_BC}
                 WORKING_DIRECTORY ${output_path}
                 DEPENDS
                     ${CORE_BC}
@@ -427,12 +431,18 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
                     ${PHOBOS2_BC}
             )
         else()
+            set(bclibs
+                ${output_path}/lib${RUNTIME_CC}${lib_suffix}-bc.a
+                ${output_path}/lib${RUNTIME_GC}${lib_suffix}-bc.a
+                ${output_path}/lib${RUNTIME_DC}${lib_suffix}-bc.a
+                ${output_path}/libphobos-ldc${lib_suffix}-bc.a
+            )
             add_custom_command(
-                OUTPUT bclibs
-                COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_CC}-bc.a ${CORE_BC}
-                COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}-bc.a ${GC_BC}
-                COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}-bc.a ${DCRT_BC}
-                COMMAND ${LLVM_AR_EXE} rs libphobos-ldc-bc.a ${PHOBOS2_BC}
+                OUTPUT ${bclibs}
+                COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_CC}${lib_suffix}-bc.a ${CORE_BC}
+                COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}${lib_suffix}-bc.a ${GC_BC}
+                COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}${lib_suffix}-bc.a ${DCRT_BC}
+                COMMAND ${LLVM_AR_EXE} rs libphobos-ldc${lib_suffix}-bc.a ${PHOBOS2_BC}
                 WORKING_DIRECTORY ${output_path}
                 DEPENDS
                     ${CORE_BC}
@@ -442,7 +452,8 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
                     ${PHOBOS2_BC}
             )
         endif()
-        set(BCLIBS bclibs)
+
+        add_custom_target(bitcode-libraries${target_suffix} ALL DEPENDS ${bclibs})
     endif()
 
     # BCLIBS is empty if BUILD_BC_LIBS is not selected
