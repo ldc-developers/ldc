@@ -532,7 +532,7 @@ set(runtime_headers)
 foreach(f ${CORE_D_HEADERS})
     dc_header(${f} "${D_FLAGS}" runtime_headers)
 endforeach()
-add_custom_target(build_headers ALL DEPENDS ${runtime_headers})
+add_custom_target(generate-headers ALL DEPENDS ${runtime_headers})
 
 
 #
