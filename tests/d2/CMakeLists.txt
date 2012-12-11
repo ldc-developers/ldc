@@ -19,8 +19,7 @@ function(add_testsuite config_name dflags)
     # testsuite build system provides no way to run the test cases with a
     # given set of flags without trying all combinations of them.
     add_test(NAME ${name}
-        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite
-        COMMAND ${CMAKE_MAKE_PROGRAM} RESULTS_DIR=${outdir} DMD=${ldmd_path} DFLAGS=${dflags} MODEL=${model} quick
+        COMMAND ${CMAKE_MAKE_PROGRAM} -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=${ldmd_path} DFLAGS=${dflags} MODEL=${model} quick
     )
     set_tests_properties(${name} PROPERTIES DEPENDS ${name}_clean)
 endfunction()

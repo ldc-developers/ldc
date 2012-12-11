@@ -110,6 +110,12 @@ string(REGEX REPLACE "[0-9]+\\.([0-9]+).*[A-Za-z]*" "\\1" LLVM_VERSION_MINOR "${
 
 # Use the default CMake facilities for handling QUIET/REQUIRED.
 include(FindPackageHandleStandardArgs)
+
+if(${CMAKE_VERSION} VERSION_LESS "2.8.4")
+  # The VERSION_VAR argument is not supported on pre-2.8.4, work around this.
+  set(VERSION_VAR dummy)
+endif()
+
 find_package_handle_standard_args(LLVM
     REQUIRED_VARS LLVM_ROOT_DIR LLVM_HOST_TARGET
     VERSION_VAR LLVM_VERSION_STRING)
