@@ -405,7 +405,10 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
     endif()
 
     if(BUILD_BC_LIBS)
-        find_program(LLVM_AR_EXE llvm-ar ${LLVM_INSTDIR}/bin DOC "path to llvm-ar tool")
+        find_program(LLVM_AR_EXE llvm-ar
+            HINTS ${LLVM_ROOT_DIR}/bin
+            DOC "path to llvm-ar tool"
+        )
         if(NOT LLVM_AR_EXE)
             message(SEND_ERROR "llvm-ar not found")
         endif()
