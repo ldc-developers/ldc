@@ -39,9 +39,14 @@ endif()
 if(BUILD_SHARED_LIBS)
     list(APPEND D_FLAGS -relocation-model=pic)
     if(APPLE)
-         # We need to explicitly specify that __Dmain should be resolved at
-         # runtime with the default OS X tool chain.
-         list(APPEND LD_FLAGS -Wl,-U,__Dmain)
+        if(BUILD_SINGLE_LIB)
+            # We need to explicitly specify that __Dmain should be resolved at
+            # runtime with the default OS X tool chain.
+            list(APPEND LD_FLAGS -Wl,-U,__Dmain)
+        else()
+            # In split mode ignore missing symbols altogether.
+            list(APPEND LD_FLAGS -Wl,-undefined,dynamic_lookup)
+        endif()
     endif()
     set(D_LIBRARY_TYPE SHARED)
 else()
@@ -179,7 +184,10 @@ endif()
 # Create configuration files.
 #
 
-if(MULTILIB)
+# Add extra paths on Linux and disable linker arch mismatch warnings (like
+# DMD and GDC do). OS X doesn't need extra configuration due to the use of
+# fat binaries. Other Posixen might need to be added here.
+if(MULTILIB AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
     set(MULTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
     set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
 endif()
@@ -260,8 +268,9 @@ macro(dc_header input_d d_flags outlist_header)
 endmacro()
 
 
-# Builds a copy of druntime/Phobos from the source files gathered above.
-macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
+# Builds a copy of druntime/Phobos from the source files gathered above. The
+# names of the added library targets are appended to outlist_targets.
+macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targets)
     set(output_path ${CMAKE_BINARY_DIR}/lib${path_suffix})
 
     # "Vanity" suffix for target names.
@@ -328,7 +337,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
                         ${DCRT_C}
                         ${GCCBUILTINS}
             )
-            set(LIBS ${RUNTIME_AIO}${target_suffix})
+            set(lib_targets ${RUNTIME_AIO}${target_suffix})
             set_target_properties(${RUNTIME_AIO}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_AIO}${lib_suffix})
         else()
             add_library(${RUNTIME_CC}${target_suffix} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C} ${GCCBUILTINS})
@@ -337,16 +346,16 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
             set_target_properties(${RUNTIME_CC}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_CC}${lib_suffix})
             set_target_properties(${RUNTIME_GC}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_GC}${lib_suffix})
             set_target_properties(${RUNTIME_DC}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_DC}${lib_suffix})
-            set(LIBS
-                ${RUNTIME_CC}${lib_suffix}
-                ${RUNTIME_GC}${lib_suffix}
-                ${RUNTIME_DC}${lib_suffix}
+            set(lib_targets
+                ${RUNTIME_CC}${target_suffix}
+                ${RUNTIME_GC}${target_suffix}
+                ${RUNTIME_DC}${target_suffix}
             )
         endif()
     endif()
 
     set_target_properties(
-        ${LIBS} PROPERTIES
+        ${lib_targets} PROPERTIES
         VERSION                     ${DMDFE_VERSION}
         SOVERSION                   ${DMDFE_PATCH_VERSION}
         LINKER_LANGUAGE             C
@@ -356,7 +365,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
         COMPILE_FLAGS               "${c_flags}"
         LINK_FLAGS                  "${ld_flags}"
     )
-    install(TARGETS ${LIBS} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
+    list(APPEND ${outlist_targets} ${lib_targets})
 
     if(PHOBOS2_DIR)
         set(PHOBOS2_O "")
@@ -391,7 +400,8 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
         if(BUILD_SHARED_LIBS)
             target_link_libraries(phobos-ldc${target_suffix} "curl")
         endif()
-        install(TARGETS phobos-ldc${target_suffix} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${path_suffix})
+
+        list(APPEND ${outlist_targets} "phobos-ldc${target_suffix}")
         add_dependencies(phobos2 DEPENDS phobos-ldc${target_suffix})
     endif()
 
@@ -438,9 +448,23 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix)
 endmacro()
 
 # Builds both a debug and a release copy of druntime/Phobos.
-macro(build_runtime_variants d_flags c_flags ld_flags path_suffix)
-    build_runtime("${d_flags};${D_FLAGS};${D_FLAGS_RELEASE}" "${c_flags}" "${ld_flags}" "" "${path_suffix}")
-    build_runtime("${d_flags};${D_FLAGS};${D_FLAGS_DEBUG}" "${c_flags}" "${ld_flags}" "-debug" "${path_suffix}")
+macro(build_runtime_variants d_flags c_flags ld_flags path_suffix outlist_targets)
+    build_runtime(
+        "${d_flags};${D_FLAGS};${D_FLAGS_RELEASE}"
+        "${c_flags}"
+        "${ld_flags}"
+        ""
+        "${path_suffix}"
+        ${outlist_targets}
+    )
+    build_runtime(
+        "${d_flags};${D_FLAGS};${D_FLAGS_DEBUG}"
+        "${c_flags}"
+        "${ld_flags}"
+        "-debug"
+        "${path_suffix}"
+        ${outlist_targets}
+    )
 endmacro()
 
 #
@@ -460,19 +484,63 @@ else()
     set(RT_CFLAGS "")
 endif()
 
-build_runtime_variants("" "${RT_CLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}")
+
+# This is a bit of a mess as we need to join the two libraries together on
+# OS X before installing them. After this has run, LIBS_TO_INSTALL contains
+# a list of library "base names" to install (i.e. without the multilib suffix,
+# if any).
+set(LIBS_TO_INSTALL)
+if(BUILD_SHARED_LIBS)
+    set(OSX_LIBEXT "dylib")
+else()
+    set(OSX_LIBEXT "a")
+endif()
 if(MULTILIB)
-    build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}")
+    if(APPLE)
+        # On OS X, build a "fat" library.
+
+        # Some suffix for the target/file names of the host-native arch so
+        # that they don't collide with the final combined ones.
+        set(hostsuffix "${LIB_SUFFIX}${HOST_BITNESS}")
+
+        set(hosttargets)
+        build_runtime_variants("" "${RT_CLAGS}" "${LD_FLAGS}" "${hostsuffix}" hosttargets)
+
+        set(multitargets)
+        build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" multitargets)
+
+        foreach(targetname ${hosttargets})
+            string(REPLACE "_${hostsuffix}" "" t ${targetname})
+
+            add_custom_command(
+                OUTPUT ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${t}.${OSX_LIBEXT}
+                COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}
+                COMMAND "lipo"
+                ARGS ${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}/lib${t}.${OSX_LIBEXT} ${CMAKE_BINARY_DIR}/lib${hostsuffix}/lib${t}.${OSX_LIBEXT} -create -output ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${t}.${OSX_LIBEXT}
+                DEPENDS ${hosttargets} ${multitargets}
+            )
+
+            add_custom_target(${t} ALL DEPENDS ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${t}.${OSX_LIBEXT})
+            list(APPEND LIBS_TO_INSTALL ${t})
+        endforeach()
+    else()
+        build_runtime_variants("" "${RT_CLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" LIBS_TO_INSTALL)
+        build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" dummy)
+    endif()
+else()
+    build_runtime_variants("" "${RT_CLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" LIBS_TO_INSTALL)
 endif()
 
+# Generate .di files.
 set(runtime_headers)
 foreach(f ${CORE_D_HEADERS})
     dc_header(${f} "${D_FLAGS}" runtime_headers)
 endforeach()
 add_custom_target(build_headers ALL DEPENDS ${runtime_headers})
 
+
 #
-# Install target (libraries are automatically included).
+# Install target.
 #
 
 install(DIRECTORY     ${CMAKE_BINARY_DIR}/import/core                  DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
@@ -485,6 +553,26 @@ install(FILES         ${RUNTIME_DIR}/src/object.di                     DESTINATI
 install(DIRECTORY     ${RUNTIME_DIR}/src/ldc                           DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
 install(DIRECTORY     ${RUNTIME_DIR}/src/core                          DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
 install(FILES         ${GCCBUILTINS}                                   DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
+
+foreach(libname ${LIBS_TO_INSTALL})
+    if(APPLE)
+        install(
+            FILES ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/lib${libname}.${OSX_LIBEXT}
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}
+        )
+    else()
+        install(
+            TARGETS ${libname}
+            DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX}
+        )
+        if(MULTILIB)
+            install(
+                TARGETS ${libname}_${MULTILIB_SUFFIX}
+                DESTINATION ${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}
+            )
+        endif()
+    endif()
+endforeach()
 
 
 #
