@@ -1,4 +1,12 @@
-// Statements: D -> LLVM glue
+//===-- statements.cpp ----------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 
 #include <stdio.h>
 #include <math.h>

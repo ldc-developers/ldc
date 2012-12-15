@@ -1,11 +1,15 @@
-/**
- * Wrapper allowing use of LDC as drop-in replacement for DMD.
- *
- * Copyright (c) 2012 by the LDC Team.
- *
- * Command line parsing code originally
- * Copyright (c) 1999-2012 by Digital Mars.
- */
+//===-- ldmd.cpp - Drop-in DMD replacement wrapper for LDC ----------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license, except for the
+// command line handling code, which originated from DMD. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Wrapper allowing use of LDC as drop-in replacement for DMD.
+//
 // The reason why full command line parsing is required instead of just
 // rewriting the names of a few switches is an annoying impedance mismatch
 // between the way how DMD handles arguments and the LLVM command line library:
@@ -37,6 +41,8 @@
 // Note: This program inherited ugly C-style string handling and memory leaks
 // from DMD, but this should not be a problem due to the short-livedness of
 // the process.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LDC_EXE_NAME
 # error "Please define LDC_EXE_NAME to the name of the LDC executable to use."

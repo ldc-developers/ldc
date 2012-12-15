@@ -1,3 +1,16 @@
+//===-- ir/irdsymbol.h - Codegen state for D symbols ------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Represents the status of a D symbol on its way though the codegen process.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_IR_IRDSYMBOL_H
 #define LDC_IR_IRDSYMBOL_H
 

@@ -1,3 +1,17 @@
+//===-- gen/irstate.h - Global codegen state --------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the global state used and modified when generating the
+// code (i.e. LLVM IR) for a given D module.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_IRSTATE_H
 #define LDC_GEN_IRSTATE_H
 

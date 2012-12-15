@@ -1,3 +1,16 @@
+//===-- gen/arrays.h - D array codegen helpers ------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Helper functions for manipulating D dynamic array (slice) types/values.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LLVMC_GEN_ARRAYS_H
 #define LLVMC_GEN_ARRAYS_H
 

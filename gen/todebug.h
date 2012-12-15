@@ -1,3 +1,16 @@
+//===-- gen/todebug.h - Symbolic debug information generation ---*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Handles generation of symbolic debug information using LLVM's DWARF support.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_TODEBUG_H
 #define LDC_GEN_TODEBUG_H
 

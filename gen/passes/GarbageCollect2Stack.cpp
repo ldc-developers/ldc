@@ -1,11 +1,11 @@
 #if USE_METADATA
 
-//===- GarbageCollect2Stack - Optimize calls to the D garbage collector ---===//
+//===-- GarbageCollect2Stack.cpp - Promote or remove GC allocations -------===//
 //
-//                             The LLVM D Compiler
+//                         LDC – the LLVM D compiler
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
 //
 //===----------------------------------------------------------------------===//
 //

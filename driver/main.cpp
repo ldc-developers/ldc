@@ -1,7 +1,11 @@
-// Pulled out of dmd/mars.c
-
-// some things are taken from llvm's llc tool
-// which uses the llvm license
+//===-- main.cpp --------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include "gen/llvmcompat.h"
 #include "gen/llvm.h"

@@ -1,3 +1,17 @@
+//===-- ir/irtypestruct.h - IrType subclasses for aggregates ----*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Provides the IrType subclasses used to represent D struct types
+// (see irtypeclass.h for the class version).
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef __LDC_IR_IRTYPESTRUCT_H__
 #define __LDC_IR_IRTYPESTRUCT_H__
 

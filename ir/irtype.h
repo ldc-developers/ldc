@@ -1,3 +1,19 @@
+//===-- ir/irtype.h - IrType base and primitive types -----------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// The types derived from IrType are used to attach LLVM type information and
+// other codegen metadata (e.g. for vtbl resolution) to frontend Types. There
+// is an 1:1 correspondence between Type and IrType instances.
+//
+//===----------------------------------------------------------------------===//
+
+
 #ifndef __LDC_IR_IRTYPE_H__
 #define __LDC_IR_IRTYPE_H__
 

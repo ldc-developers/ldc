@@ -1,3 +1,12 @@
+//===-- pragma.cpp --------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "pragma.h"
 #include "attrib.h"
 #include "id.h"

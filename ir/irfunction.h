@@ -1,3 +1,18 @@
+//===-- ir/irfunction.h - Codegen state for D functions ---------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Represents the status of a D function/method/... on its way through the
+// codegen process.
+//
+//===----------------------------------------------------------------------===//
+
+
 #ifndef LDC_IR_IRFUNCTION_H
 #define LDC_IR_IRFUNCTION_H
 

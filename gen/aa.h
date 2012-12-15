@@ -1,3 +1,17 @@
+//===-- gen/aa.h - Associative array codegen helpers ------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Helpers for generating calls to associative array runtime functions.
+//
+//===----------------------------------------------------------------------===//
+
+
 #ifndef LDC_GEN_AA_H
 #define LDC_GEN_AA_H
 

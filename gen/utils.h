@@ -1,3 +1,16 @@
+//===-- gen/utils.h - Utilities for handling frontend types -----*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Some utilities for handling front-end types in a more C++-like fashion.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef __LDC_GEN_UTILS_H__
 #define __LDC_GEN_UTILS_H__
 

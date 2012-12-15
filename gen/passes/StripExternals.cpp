@@ -1,9 +1,9 @@
 //===-- StripExternals.cpp - Strip available_externally symbols -----------===//
 //
-//                             The LLVM D Compiler
+//                         LDC – the LLVM D compiler
 //
-// This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
 //
 //===----------------------------------------------------------------------===//
 //

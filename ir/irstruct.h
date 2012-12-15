@@ -1,3 +1,17 @@
+//===-- ir/irstruct.h - Codegen state for D aggregates ----------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Represents the state of a D aggregate (struct/class) on its way through
+// codegen, also managing the associated init and RTTI symbols.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_IR_IRSTRUCT_H
 #define LDC_IR_IRSTRUCT_H
 

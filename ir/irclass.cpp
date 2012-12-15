@@ -1,3 +1,12 @@
+//===-- irclass.cpp -------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
 

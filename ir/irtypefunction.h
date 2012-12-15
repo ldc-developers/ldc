@@ -1,3 +1,16 @@
+//===-- ir/irtypefunction.h - IrType subclasses for callables ---*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Provides the IrType subclasses used to represent D function/delegate types.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef __LDC_IR_IRTYPEFUNCTION_H__
 #define __LDC_IR_IRTYPEFUNCTION_H__
 

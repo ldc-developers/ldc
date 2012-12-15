@@ -1,3 +1,16 @@
+//===-- gen/metadata.h - LDC-specific LLVM metadata definitions -*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Defines the types of LLVM metadata used for D-specific optimization passes.
+//
+//===----------------------------------------------------------------------===//
+
 #if USE_METADATA
 
 #ifndef LDC_GEN_METADATA_H

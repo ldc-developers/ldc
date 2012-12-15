@@ -1,3 +1,17 @@
+//===-- gen/rttibuilder.h - TypeInfo generation helper ----------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This class is used to build the global TypeInfo/ClassInfo/... constants
+// required for the D runtime type information system.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef __LDC_GEN_RTTIBUILDER_H__
 #define __LDC_GEN_RTTIBUILDER_H__
 

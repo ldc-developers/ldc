@@ -1,3 +1,16 @@
+//===-- gen/abi-generic.h - Generic Target ABI helpers ----------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Contains helpers for handling rewrites common to more than one target ABI.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_ABI_GENERIC
 #define LDC_GEN_ABI_GENERIC
 
