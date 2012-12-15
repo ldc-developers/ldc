@@ -305,7 +305,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
             IrTypeClass* typeclass = stripModifiers(fc)->irtype->isClass();
 
             // find interface impl
-            
+
             size_t i_index = typeclass->getInterfaceIndex(it);
             assert(i_index != ~0 && "requesting interface that is not implemented by this class");
 

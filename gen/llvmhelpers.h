@@ -32,7 +32,7 @@ struct EnclosingTryFinally : EnclosingHandler
     TryFinallyStatement* tf;
     llvm::BasicBlock* landingPad;
     void emitCode(IRState* p);
-    EnclosingTryFinally(TryFinallyStatement* _tf, llvm::BasicBlock* _pad) 
+    EnclosingTryFinally(TryFinallyStatement* _tf, llvm::BasicBlock* _pad)
     : tf(_tf), landingPad(_pad) {}
 };
 struct EnclosingVolatile : EnclosingHandler

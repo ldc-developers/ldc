@@ -158,7 +158,7 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     frameType = NULL;
     depth = -1;
     nestedContextCreated = false;
-    
+
     _arguments = NULL;
     _argptr = NULL;
 }

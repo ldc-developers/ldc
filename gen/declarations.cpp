@@ -171,7 +171,7 @@ void VarDeclaration::codegen(Ir* p)
 #if LDC_LLVM_VER >= 302
         // FIXME: clang uses a command line option for the thread model
         LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, _type, _isconst,
-                                                      DtoLinkage(this), NULL, _name, 0, 
+                                                      DtoLinkage(this), NULL, _name, 0,
                                                       isThreadlocal() ? LLGlobalVariable::GeneralDynamicTLSModel
                                                                       : LLGlobalVariable::NotThreadLocal);
 #else

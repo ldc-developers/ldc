@@ -42,7 +42,7 @@ struct IrStruct : IrBase
     /// Aggregate D type.
     Type* type;
 
-    /// true only for: align(1) struct S { ... } 
+    /// true only for: align(1) struct S { ... }
     bool packed;
 
     /// Composite type debug description.

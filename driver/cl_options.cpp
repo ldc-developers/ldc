@@ -258,7 +258,7 @@ static cl::list<std::string, StringsAdapter> linkerSwitches("L",
 cl::opt<std::string> moduleDepsFile("deps",
     cl::desc("Write module dependencies to filename"),
     cl::value_desc("filename"));
-    
+
 
 cl::opt<std::string> mArch("march",
     cl::desc("Architecture to generate code for:"));

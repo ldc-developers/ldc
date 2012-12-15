@@ -87,7 +87,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     if (lvalue) {
         // valuesize param
         LLValue* valsize = DtoConstSize_t(getTypePaddedSize(DtoType(type)));
-        
+
         ret = gIR->CreateCallOrInvoke4(func, aaval, keyti, valsize, pkey, "aa.index").getInstruction();
     } else {
         ret = gIR->CreateCallOrInvoke3(func, aaval, keyti, pkey, "aa.index").getInstruction();
@@ -275,7 +275,7 @@ LLValue* DtoAAEquals(Loc& loc, TOK op, DValue* l, DValue* r)
 #else
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaEq");
     LLFunctionType* funcTy = func->getFunctionType();
-    
+
     LLValue* aaval = DtoBitCast(l->getRVal(), funcTy->getParamType(0));
     LLValue* abval = DtoBitCast(r->getRVal(), funcTy->getParamType(1));
     LLValue* aaTypeInfo = DtoTypeInfoOf(t);

@@ -852,7 +852,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
     if (fromtype->ty == Tvector) {
         return DtoCastVector(loc, val, to);
     }
-    else 
+    else
 #endif
     if (fromtype->isintegral()) {
         return DtoCastInt(loc, val, to);

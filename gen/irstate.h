@@ -72,7 +72,7 @@ struct IRScope
 
     IRScope();
     IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
-    
+
     const IRScope& operator=(const IRScope& rhs);
 
 #if DMDV2
@@ -89,7 +89,7 @@ struct IRBuilderHelper
 
 struct IRAsmStmt
 {
-    IRAsmStmt() 
+    IRAsmStmt()
     : isBranchToLabel(NULL) {}
 
     std::string code;
@@ -202,7 +202,7 @@ struct IRState
     GatesList sharedGates;
 #endif
     FuncDeclList unitTests;
-    
+
     // all template instances that had members emitted
     // currently only filled for singleobj
     // used to make sure the complete template instance gets emitted in the
