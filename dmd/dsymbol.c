@@ -53,7 +53,6 @@ Dsymbol::Dsymbol()
     this->errors = false;
 #if IN_LLVM
     this->llvmInternal = LLVMnone;
-    this->irsym = NULL;
 #endif
 }
 
@@ -73,7 +72,6 @@ Dsymbol::Dsymbol(Identifier *ident)
     this->errors = false;
 #if IN_LLVM
     this->llvmInternal = LLVMnone;
-    this->irsym = NULL;
 #endif
 }
 
