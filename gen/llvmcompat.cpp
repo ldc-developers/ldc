@@ -1,3 +1,11 @@
+//===-- llvmcompat.cpp ----------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include "gen/llvmcompat.h"
 #include "llvm/Config/llvm-config.h"
@@ -85,7 +93,7 @@ Triple llvm::Triple__get64BitArchVariant(const std::string& triple) {
     return T;
 }
 
-static void appendToGlobalArray(const char *Array, 
+static void appendToGlobalArray(const char *Array,
                                 Module &M, Function *F, int Priority) {
     IRBuilder<> IRB(M.getContext());
     FunctionType *FnTy = FunctionType::get(IRB.getVoidTy(), false);

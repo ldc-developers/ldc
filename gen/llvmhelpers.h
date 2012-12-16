@@ -1,3 +1,18 @@
+//===-- gen/llvmhelpers.h - General LLVM codegen helpers --------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// General codegen helper constructs.
+//
+// TODO: Merge with gen/tollvm.h, then refactor into sensible parts.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_LLVMHELPERS_H
 #define LDC_GEN_LLVMHELPERS_H
 
@@ -17,7 +32,7 @@ struct EnclosingTryFinally : EnclosingHandler
     TryFinallyStatement* tf;
     llvm::BasicBlock* landingPad;
     void emitCode(IRState* p);
-    EnclosingTryFinally(TryFinallyStatement* _tf, llvm::BasicBlock* _pad) 
+    EnclosingTryFinally(TryFinallyStatement* _tf, llvm::BasicBlock* _pad)
     : tf(_tf), landingPad(_pad) {}
 };
 struct EnclosingVolatile : EnclosingHandler

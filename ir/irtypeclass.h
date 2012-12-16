@@ -1,3 +1,16 @@
+//===-- ir/irtypeclass.h - IrType implementation for D classes --*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Provides the IrType subclass used to represent D classes.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef __LDC_IR_IRTYPECLASS_H__
 #define __LDC_IR_IRTYPECLASS_H__
 

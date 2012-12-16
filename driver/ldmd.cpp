@@ -1,11 +1,15 @@
-/**
- * Wrapper allowing use of LDC as drop-in replacement for DMD.
- *
- * Copyright (c) 2012 by the LDC Team.
- *
- * Command line parsing code originally
- * Copyright (c) 1999-2012 by Digital Mars.
- */
+//===-- ldmd.cpp - Drop-in DMD replacement wrapper for LDC ----------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license, except for the
+// command line handling code, which originated from DMD. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Wrapper allowing use of LDC as drop-in replacement for DMD.
+//
 // The reason why full command line parsing is required instead of just
 // rewriting the names of a few switches is an annoying impedance mismatch
 // between the way how DMD handles arguments and the LLVM command line library:
@@ -37,6 +41,8 @@
 // Note: This program inherited ugly C-style string handling and memory leaks
 // from DMD, but this should not be a problem due to the short-livedness of
 // the process.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef LDC_EXE_NAME
 # error "Please define LDC_EXE_NAME to the name of the LDC executable to use."
@@ -147,9 +153,9 @@ Usage:\n\
   @cmdfile       read arguments from cmdfile\n\
   -c             do not link\n"
 #if 0
-  "-cov           do code coverage analysis\n"
+"  -cov           do code coverage analysis\n"
 #endif
-  "-D             generate documentation\n\
+"  -D             generate documentation\n\
   -Dddocdir      write documentation file to docdir directory\n\
   -Dffilename    write documentation file to filename\n\
   -d             allow deprecated features\n\
@@ -177,7 +183,7 @@ Usage:\n\
   -m64           generate 64 bit code\n\
   -man           open web browser on manual page\n"
 #if 0
-  "-map           generate linker .map file\n"
+"  -map           generate linker .map file\n"
 #endif
 #if DMDV2
 "  -noboundscheck turns off array bounds checking for all functions\n"
@@ -189,9 +195,9 @@ Usage:\n\
   -offilename    name output file to filename\n\
   -op            do not strip paths from source file\n"
 #if 0
-  "-profile       profile runtime performance of generated code\n"
+"  -profile       profile runtime performance of generated code\n"
 #endif
-  "-property      enforce property syntax\n\
+"  -property      enforce property syntax\n\
   -quiet         suppress unnecessary messages\n\
   -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\

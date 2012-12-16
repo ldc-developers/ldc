@@ -1,3 +1,16 @@
+//===-- gen/linkage.h - Common linkage types --------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Linkage types used for certain constructs (templates, TypeInfo).
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_LINKAGE_H
 #define LDC_GEN_LINKAGE_H
 

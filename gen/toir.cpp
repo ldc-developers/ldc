@@ -1,10 +1,11 @@
-// Backend stubs
-
-/* DMDFE backend stubs
- * This file contains the implementations of the backend routines.
- * For dmdfe these do nothing but print a message saying the module
- * has been parsed. Substitute your own behaviors for these routimes.
- */
+//===-- toir.cpp ----------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include <stdio.h>
 #include <math.h>

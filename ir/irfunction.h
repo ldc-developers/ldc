@@ -1,3 +1,18 @@
+//===-- ir/irfunction.h - Codegen state for D functions ---------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Represents the status of a D function/method/... on its way through the
+// codegen process.
+//
+//===----------------------------------------------------------------------===//
+
+
 #ifndef LDC_IR_IRFUNCTION_H
 #define LDC_IR_IRFUNCTION_H
 
@@ -18,10 +33,10 @@ struct IRTargetScope
 {
     // generating statement
     Statement* s;
-    
+
     // the try of a TryFinally that encloses the loop
     EnclosingHandler* enclosinghandler;
-    
+
     llvm::BasicBlock* breakTarget;
     llvm::BasicBlock* continueTarget;
 
@@ -69,7 +84,7 @@ struct IrFunction : IrBase
 {
     // constructor
     IrFunction(FuncDeclaration* fd);
-    
+
     // annotations
     void setNeverInline();
     void setAlwaysInline();
@@ -83,21 +98,21 @@ struct IrFunction : IrBase
 
     bool queued;
     bool defined;
-    
+
     llvm::Value* retArg; // return in ptr arg
     llvm::Value* thisArg; // class/struct 'this' arg
     llvm::Value* nestArg; // nested function 'this' arg
-    
+
     llvm::Value* nestedVar; // nested var alloca
     llvm::StructType* frameType; // type of nested context (not for -nested-ctx=array)
     // number of enclosing functions with variables accessed by nested functions
     // (-1 if neither this function nor any enclosing ones access variables from enclosing functions)
     int depth;
     bool nestedContextCreated; // holds whether nested context is created
-    
+
     llvm::Value* _arguments;
     llvm::Value* _argptr;
-    
+
     llvm::DISubprogram diSubprogram;
     std::stack<llvm::DILexicalBlock> diLexicalBlocks;
 };

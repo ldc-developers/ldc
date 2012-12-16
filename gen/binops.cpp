@@ -1,3 +1,12 @@
+//===-- binops.cpp --------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "gen/llvm.h"
 
 #include "declaration.h"
@@ -17,13 +26,13 @@ DValue* DtoBinAdd(DValue* lhs, DValue* rhs)
     LLValue *l, *r;
     l = lhs->getRVal();
     r = rhs->getRVal();
-    
+
     LLValue* res;
     if (t->isfloating())
         res = gIR->ir->CreateFAdd(l, r, "tmp");
     else
         res = gIR->ir->CreateAdd(l, r, "tmp");
-    
+
     return new DImValue( t, res );
 }
 
@@ -35,13 +44,13 @@ DValue* DtoBinSub(DValue* lhs, DValue* rhs)
     LLValue *l, *r;
     l = lhs->getRVal();
     r = rhs->getRVal();
-    
+
     LLValue* res;
     if (t->isfloating())
         res = gIR->ir->CreateFSub(l, r, "tmp");
     else
         res = gIR->ir->CreateSub(l, r, "tmp");
-    
+
     return new DImValue( t, res );
 }
 
@@ -53,7 +62,7 @@ DValue* DtoBinMul(Type* targettype, DValue* lhs, DValue* rhs)
     LLValue *l, *r;
     l = lhs->getRVal();
     r = rhs->getRVal();
-    
+
     LLValue* res;
     if (t->isfloating())
         res = gIR->ir->CreateFMul(l, r, "tmp");
@@ -70,7 +79,7 @@ DValue* DtoBinDiv(Type* targettype, DValue* lhs, DValue* rhs)
     LLValue *l, *r;
     l = lhs->getRVal();
     r = rhs->getRVal();
-    
+
     LLValue* res;
     if (t->isfloating())
         res = gIR->ir->CreateFDiv(l, r, "tmp");
@@ -120,7 +129,7 @@ LLValue* DtoBinNumericEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op)
         Logger::println("floating");
         res = DtoBinFloatsEquals(loc, lhs, rhs, op);
     }
-    
+
     assert(res);
     return res;
 }

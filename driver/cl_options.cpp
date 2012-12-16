@@ -1,3 +1,12 @@
+//===-- cl_options.cpp ----------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "driver/cl_options.h"
 #include "gen/cl_helpers.h"
 
@@ -249,7 +258,7 @@ static cl::list<std::string, StringsAdapter> linkerSwitches("L",
 cl::opt<std::string> moduleDepsFile("deps",
     cl::desc("Write module dependencies to filename"),
     cl::value_desc("filename"));
-    
+
 
 cl::opt<std::string> mArch("march",
     cl::desc("Architecture to generate code for:"));

@@ -1,4 +1,12 @@
-
+//===-- typinf.cpp --------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file mostly consists of code under the BSD-style LDC license, but some
+// parts have been derived from DMD as noted below. See the LICENSE file for
+// details.
+//
+//===----------------------------------------------------------------------===//
 
 // Copyright (c) 1999-2004 by Digital Mars
 // All Rights Reserved

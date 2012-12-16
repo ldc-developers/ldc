@@ -1,3 +1,16 @@
+//===-- driver/configfile.h - LDC config file handling ----------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Handles reading and parsing of an LDC config file (ldc.conf/ldc2.conf).
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_CONF_CONFIGFILE_H
 #define LDC_CONF_CONFIGFILE_H
 

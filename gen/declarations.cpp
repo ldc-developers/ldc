@@ -1,3 +1,12 @@
+//===-- declarations.cpp --------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "gen/llvm.h"
 
 #include "aggregate.h"
@@ -162,7 +171,7 @@ void VarDeclaration::codegen(Ir* p)
 #if LDC_LLVM_VER >= 302
         // FIXME: clang uses a command line option for the thread model
         LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, _type, _isconst,
-                                                      DtoLinkage(this), NULL, _name, 0, 
+                                                      DtoLinkage(this), NULL, _name, 0,
                                                       isThreadlocal() ? LLGlobalVariable::GeneralDynamicTLSModel
                                                                       : LLGlobalVariable::NotThreadLocal);
 #else

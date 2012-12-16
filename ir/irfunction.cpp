@@ -1,3 +1,11 @@
+//===-- irfunction.cpp ----------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
@@ -150,7 +158,7 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     frameType = NULL;
     depth = -1;
     nestedContextCreated = false;
-    
+
     _arguments = NULL;
     _argptr = NULL;
 }

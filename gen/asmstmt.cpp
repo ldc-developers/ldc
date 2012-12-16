@@ -1,5 +1,11 @@
-// Taken from GDC source tree. Original by David Friedman.
-// Released under the Artistic License found in dmd/artistic.txt
+//===-- asmstmt.cpp -------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file originates from work by David Friedman for GDC released under
+// the GPL 2 and Artistic licenses. See the LICENSE file for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include "gen/llvm.h"
 #include "llvm/InlineAsm.h"

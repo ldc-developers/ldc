@@ -1,3 +1,20 @@
+//===-- gen/llvm.h - Common LLVM includes and aliases -----------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Pulls in commonly used LLVM headers and provides shorthands for some LLVM
+// types.
+//
+// TODO: Consider removing this file; the aliases mostly make code more
+// cumbersome to read for people familiar with LLVM anyway.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef GEN_LLVM_H
 #define GEN_LLVM_H
 

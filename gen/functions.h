@@ -1,3 +1,16 @@
+//===-- gen/functions.h - D function codegen --------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Code generation for D function types and bodies.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_FUNCTIONS_H
 #define LDC_GEN_FUNCTIONS_H
 

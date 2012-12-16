@@ -1,3 +1,12 @@
+//===-- ir.cpp ------------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #if LDC_LLVM_VER >= 302
 #include "llvm/DataLayout.h"
 #else

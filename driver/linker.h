@@ -1,3 +1,17 @@
+//===-- driver/linker.h - Linker invocation ---------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Handles locating and executing the system linker for generating
+// libraries/executables.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_LINKER_H
 #define LDC_GEN_LINKER_H
 

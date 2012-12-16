@@ -101,7 +101,7 @@ Global::Global()
     ;
     version = "v2.060";
 #if IN_LLVM
-    ldc_version = "LDC 0.10.0 Beta 1";
+    ldc_version = "0.10.0";
     llvm_version = "LLVM "LDC_LLVM_VERSION_STRING;
 #endif
     global.structalign = STRUCTALIGN_DEFAULT;

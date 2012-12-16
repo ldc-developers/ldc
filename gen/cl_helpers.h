@@ -1,3 +1,17 @@
+//===-- gen/cl_helpers.h - Command line processing helpers ------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Helpers to augment the LLVM command line parsing library with some extra
+// functionality.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_CL_HELPERS_H
 #define LDC_CL_HELPERS_H
 

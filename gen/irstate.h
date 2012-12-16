@@ -1,3 +1,17 @@
+//===-- gen/irstate.h - Global codegen state --------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This file contains the global state used and modified when generating the
+// code (i.e. LLVM IR) for a given D module.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_IRSTATE_H
 #define LDC_GEN_IRSTATE_H
 
@@ -58,7 +72,7 @@ struct IRScope
 
     IRScope();
     IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
-    
+
     const IRScope& operator=(const IRScope& rhs);
 
 #if DMDV2
@@ -75,7 +89,7 @@ struct IRBuilderHelper
 
 struct IRAsmStmt
 {
-    IRAsmStmt() 
+    IRAsmStmt()
     : isBranchToLabel(NULL) {}
 
     std::string code;
@@ -188,7 +202,7 @@ struct IRState
     GatesList sharedGates;
 #endif
     FuncDeclList unitTests;
-    
+
     // all template instances that had members emitted
     // currently only filled for singleobj
     // used to make sure the complete template instance gets emitted in the

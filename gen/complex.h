@@ -1,3 +1,16 @@
+//===-- gen/cl_helpers.h - Complex number code generation -------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Functions for generating code for D complex number operations.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_COMPLEX_H
 #define LDC_GEN_COMPLEX_H
 

@@ -1,3 +1,17 @@
+//===-- ir/irforw.h - Forward declarations used in ir/ code  ----*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Some common forward declarations for use in ir/ headers.
+//
+//===----------------------------------------------------------------------===//
+
+
 #ifndef LDC_IR_IRFORW_H
 #define LDC_IR_IRFORW_H
 
