@@ -577,7 +577,7 @@ void Lexer::scan(Token *t)
                 t->value = TOKstring;
 #if DMDV2
                 if (!global.params.useDeprecated)
-		    error("Escape String literal %.*s is deprecated, use double quoted string literal \"%.*s\" instead", (int)(p - pstart), pstart, (int)(p - pstart), pstart);
+                    error("Escape String literal %.*s is deprecated, use double quoted string literal \"%.*s\" instead", (int)(p - pstart), pstart, (int)(p - pstart), pstart);
 #endif
                 return;
             }
@@ -671,7 +671,7 @@ void Lexer::scan(Token *t)
                     }
                     else if (id == Id::VENDOR)
                     {
-			t->ustring = (unsigned char *)"LDC";
+                        t->ustring = (unsigned char *)"LDC";
                         goto Lstr;
                     }
                     else if (id == Id::TIMESTAMP)
