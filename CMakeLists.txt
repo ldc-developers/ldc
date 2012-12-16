@@ -330,7 +330,7 @@ endif()
 set_target_properties(
     gen_gccbuiltins PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    COMPILE_FLAGS ${TABLEGEN_CXXFLAGS}
+    COMPILE_FLAGS "${TABLEGEN_CXXFLAGS}"
 )
 target_link_libraries(gen_gccbuiltins "${LLVM_LDFLAGS}" ${LLVM_LIBRARIES})
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
