@@ -309,43 +309,6 @@ cl::opt<llvm::CodeModel::Model> mCodeModel("code-model",
         clEnumValN(llvm::CodeModel::Large, "large", "Large code model"),
         clEnumValEnd));
 
-
-// "Hidden debug switches"
-// Are these ever used?
-static cl::opt<bool, true> debuga("hidden-debug--a",
-    cl::desc("Hidden debug option A"),
-    cl::ReallyHidden,
-    cl::location(global.params.debuga));
-static cl::opt<bool, true> debugb("hidden-debug-b",
-    cl::desc("Hidden debug option B"),
-    cl::ReallyHidden,
-    cl::location(global.params.debugb));
-static cl::opt<bool, true> debugc("hidden-debug-c",
-    cl::desc("Hidden debug option C"),
-    cl::ReallyHidden,
-    cl::location(global.params.debugc));
-static cl::opt<bool, true> debugf("hidden-debug-f",
-    cl::desc("Hidden debug option F"),
-    cl::ReallyHidden,
-    cl::location(global.params.debugf));
-static cl::opt<bool, true> debugr("hidden-debug-r",
-    cl::desc("Hidden debug option R"),
-    cl::ReallyHidden,
-    cl::location(global.params.debugr));
-static cl::opt<bool, true> debugw("hidden-debug-w",
-    cl::desc("Hidden debug option W"),
-    cl::ReallyHidden,
-    cl::location(global.params.debugw));
-static cl::opt<bool, true> debugx("hidden-debug-x",
-    cl::desc("Hidden debug option X"),
-    cl::ReallyHidden,
-    cl::location(global.params.debugx));
-static cl::opt<bool, true> debugy("hidden-debug-y",
-    cl::desc("Hidden debug option Y"),
-    cl::ReallyHidden,
-    cl::location(global.params.debugy));
-
-
 static cl::opt<bool, true, FlagParser> asserts("asserts",
     cl::desc("(*) Enable assertions"),
     cl::value_desc("bool"),

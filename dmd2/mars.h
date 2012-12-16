@@ -182,40 +182,62 @@ typedef unsigned char ubyte;
 // Put command line switches in here
 struct Param
 {
-    bool obj;		// write object file
-    bool link;		// perform link
-    bool verbose;	// verbose compile
-    bool vtls;		// identify thread local variables
-    ubyte symdebug;	// insert debug symbolic information
+    bool obj;           // write object file
+    bool link;          // perform link
 #if !IN_LLVM
-    // LDC uses a different mechanism
-    bool optimize;      // run optimizer
-    char optimizeLevel; // optimization level
+    char dll;           // generate shared dynamic library
+    char lib;           // write library file instead of object file(s)
+    char multiobj;      // break one object file into multiple ones
+    char oneobj;        // write one object file instead of multiple ones
+    char trace;         // insert profiling hooks
+    char quiet;         // suppress non-error messages
 #endif
-    ARCH cpu;		// target CPU
-    OS   os;
-    bool alwaysframe;   // always emit standard stack frame
+    bool verbose;       // verbose compile
+    bool vtls;          // identify thread local variables
+    ubyte symdebug;     // insert debug symbolic information
+#if !IN_LLVM
+    char alwaysframe;   // always emit standard stack frame
+    char optimize;      // run optimizer
+#endif
     char map;           // generate linker .map file
-    bool isLE;      // generate little endian code
+    ARCH cpu;           // target CPU
+    bool isLE;          // generate little endian code
     bool is64bit;       // generate 64 bit code
-    bool useDeprecated;	// allow use of deprecated features
-    bool useAssert;	// generate runtime code for assert()'s
-    bool useInvariants;	// generate class invariant checks
-    bool useIn;		// generate precondition checks
-    bool useOut;	// generate postcondition checks
-    bool useArrayBounds; // generate array bounds checks
-    bool useSwitchError; // check for switches without a default
-    bool useUnitTests;	// generate unittest code
-    bool useInline;	// inline expand functions
-    ubyte warnings;	// enable warnings
-    ubyte Dversion;	// D version number
+#if !IN_LLVM
+    char isLinux;       // generate code for linux
+    char isOSX;         // generate code for Mac OSX
+    char isWindows;     // generate code for Windows
+    char isFreeBSD;     // generate code for FreeBSD
+    char isOPenBSD;     // generate code for OpenBSD
+    char isSolaris;     // generate code for Solaris
+#else
+    OS   os;
+#endif
+    bool useDeprecated; // allow use of deprecated features
+    bool useAssert;     // generate runtime code for assert()'s
+    bool useInvariants; // generate class invariant checks
+    bool useIn;         // generate precondition checks
+    bool useOut;        // generate postcondition checks
+    bool useArrayBounds;// generate array bounds checks
+    bool useSwitchError;// check for switches without a default
+    bool useUnitTests;  // generate unittest code
+    bool useInline;     // inline expand functions
+    ubyte warnings;     // 0: enable warnings
+                        // 1: warnings as errors
+                        // 2: informational warnings (no errors)
+#if !IN_LLVM
+    char pic;           // generate position-independent-code for shared libs
+    char cov;           // generate code coverage data
+    char nofloat;       // code should not pull in floating point support
+#endif
+    ubyte Dversion;     // D version number
     bool ignoreUnsupportedPragmas;      // rather than error on them
     bool enforcePropertySyntax;
 
     char *argv0;        // program name
     Strings *imppath;     // array of char*'s of where to look for import modules
     Strings *fileImppath; // array of char*'s of where to look for file import modules
-    char *objdir;	// .obj file output directory
+    char *objdir;       // .obj/.lib file output directory
     char *objname;      // .obj file output name
 
     bool doDocComments; // process embedded documentation comments
@@ -244,6 +266,7 @@ struct Param
     char *moduleDepsFile;       // filename for deps output
     OutBuffer *moduleDeps;      // contents to be written to deps file
 
+#if IN_DMD
     // Hidden debug switches
     bool debuga;
     bool debugb;
@@ -253,8 +276,13 @@ struct Param
     bool debugw;
     bool debugx;
     bool debugy;
+#endif
 
     bool run;           // run resulting executable
+#if !IN_LLVM
+    size_t runargs_length;
+    char** runargs;     // arguments for executable
+#endif
 
     // Linker stuff
     Strings *objfiles;
@@ -484,7 +512,7 @@ typedef uint64_t StorageClass;
 void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
 void error(Loc loc, const char *format, ...) IS_PRINTF(2);
 void errorSupplemental(Loc loc, const char *format, ...);
-void verror(Loc loc, const char *format, va_list, const char *p1 = NULL, const char *p2 = NULL);
+void verror(Loc loc, const char *format, va_list ap, const char *p1 = NULL, const char *p2 = NULL);
 void vwarning(Loc loc, const char *format, va_list);
 void verrorSupplemental(Loc loc, const char *format, va_list);
 void fatal();
