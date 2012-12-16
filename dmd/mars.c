@@ -71,7 +71,7 @@ Global::Global()
     copyright = "Copyright (c) 1999-2012 by Digital Mars and Tomas Lindquist Olsen";
     written = "written by Walter Bright and Tomas Lindquist Olsen";
     version = "v1.075";
-    ldc_version = "LDC trunk";
+    ldc_version = "trunk";
     llvm_version = "LLVM "LDC_LLVM_VERSION_STRING;
     global.structalign = STRUCTALIGN_DEFAULT;
 

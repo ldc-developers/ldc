@@ -90,15 +90,13 @@ static cl::list<std::string, StringsAdapter> debuglibs("debuglib",
     cl::CommaSeparated);
 
 void printVersion() {
-    printf("LLVM D Compiler %s\nbased on DMD %s and %s\n%s\n%s\n",
-    global.ldc_version, global.version, global.llvm_version, global.copyright, global.written);
-    printf("D Language Documentation: http://d-programming-language.org/index.html\n"
-           "LDC Homepage: https://github.com/ldc-developers/ldc\n");
-    printf("\n");
+    printf("LDC - the LLVM D compiler (%s):\n", global.ldc_version);
+    printf("  based on DMD %s and %s\n", global.version, global.llvm_version);
     printf("  Default target: %s\n", llvm::sys::getDefaultTargetTriple().c_str());
     std::string CPU = llvm::sys::getHostCPUName();
     if (CPU == "generic") CPU = "(unknown)";
     printf("  Host CPU: %s\n", CPU.c_str());
+    printf("  http://dlang.org - http://wiki.dlang.org/LDC\n");
     printf("\n");
 
     // Without explicitly flushing here, only the target list is visible when
@@ -242,11 +240,12 @@ int main(int argc, char** argv)
 
     // Handle fixed-up arguments!
     cl::SetVersionPrinter(&printVersion);
-#if LDC_LLVM_VER >= 302
-    cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(&final_args[0]), "LLVM-based D Compiler\n");
-#else
-    cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(&final_args[0]), "LLVM-based D Compiler\n", true);
+    cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(&final_args[0]),
+        "LDC - the LLVM D compiler\n"
+#if LDC_LLVM_VER < 302
+        , true
 #endif
+    );
 
     // Print config file path if -v was passed
     if (global.params.verbose) {
