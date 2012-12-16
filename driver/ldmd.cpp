@@ -153,9 +153,9 @@ Usage:\n\
   @cmdfile       read arguments from cmdfile\n\
   -c             do not link\n"
 #if 0
-  "-cov           do code coverage analysis\n"
+"  -cov           do code coverage analysis\n"
 #endif
-  "-D             generate documentation\n\
+"  -D             generate documentation\n\
   -Dddocdir      write documentation file to docdir directory\n\
   -Dffilename    write documentation file to filename\n\
   -d             allow deprecated features\n\
@@ -183,7 +183,7 @@ Usage:\n\
   -m64           generate 64 bit code\n\
   -man           open web browser on manual page\n"
 #if 0
-  "-map           generate linker .map file\n"
+"  -map           generate linker .map file\n"
 #endif
 #if DMDV2
 "  -noboundscheck turns off array bounds checking for all functions\n"
@@ -195,9 +195,9 @@ Usage:\n\
   -offilename    name output file to filename\n\
   -op            do not strip paths from source file\n"
 #if 0
-  "-profile       profile runtime performance of generated code\n"
+"  -profile       profile runtime performance of generated code\n"
 #endif
-  "-property      enforce property syntax\n\
+"  -property      enforce property syntax\n\
   -quiet         suppress unnecessary messages\n\
   -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
