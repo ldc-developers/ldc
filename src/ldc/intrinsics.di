@@ -93,7 +93,11 @@ pragma(LDC_intrinsic, "llvm.pcmarker")
 /// alpha), this should only be used for small timings.
 
 pragma(LDC_intrinsic, "llvm.readcyclecounter")
-    ulong readcyclecounter();
+    ulong llvm_readcyclecounter();
+
+// Backwards compatibility - but it is doubtful whether somebody actually ever
+// used that intrinsic.
+alias llvm_readcyclecounter readcyclecounter;
 
 
 
