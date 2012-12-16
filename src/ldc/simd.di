@@ -247,12 +247,6 @@ private template cmpMask(Cond cond)
     }
 }
 
-///
-alias cmpMask!(Cond.eq) equalMask;
-///
-alias cmpMask!(Cond.ne) notEqualMask;
-///
-alias cmpMask!(Cond.gt) greaterMask;
 /**
 equalMask, notEqualMask, greaterMask and greaterOrEqualMask perform an
 element-wise comparison between two vectors and return a vector with 
@@ -271,6 +265,8 @@ writeln(c.array);
 assert(c.array == [0, 0, 0xffff_ffff, 0xffff_ffff]);
 ---
 */
-
-alias cmpMask!(Cond.ge) greaterOrEqualMask;
+alias cmpMask!(Cond.eq) equalMask;
+alias cmpMask!(Cond.ne) notEqualMask; /// Ditto
+alias cmpMask!(Cond.gt) greaterMask; /// Ditto
+alias cmpMask!(Cond.ge) greaterOrEqualMask; /// Ditto
 
