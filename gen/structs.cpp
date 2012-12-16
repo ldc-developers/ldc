@@ -1,3 +1,12 @@
+//===-- structs.cpp -------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include <algorithm>
 
 #include "gen/llvm.h"
@@ -178,7 +187,7 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd,
                                                  const std::vector<llvm::Value*>& inits,
                                                  bool isConst)
 {
-    // get arrays 
+    // get arrays
     size_t nvars = sd->fields.dim;
     VarDeclaration** vars = (VarDeclaration**)sd->fields.data;
 
@@ -338,7 +347,7 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd,
 /// Union types will get expanded into a struct, with a type for each member.
 LLType* DtoUnpaddedStructType(Type* dty) {
     assert(dty->ty == Tstruct);
-    
+
     typedef llvm::DenseMap<Type*, llvm::StructType*> CacheT;
     static llvm::ManagedStatic<CacheT> cache;
     CacheT::iterator it = cache->find(dty);
@@ -374,9 +383,9 @@ LLValue* DtoUnpaddedStruct(Type* dty, LLValue* v) {
     assert(dty->ty == Tstruct);
     TypeStruct* sty = static_cast<TypeStruct*>(dty);
     Array& fields = sty->sym->fields;
-    
+
     LLValue* newval = llvm::UndefValue::get(DtoUnpaddedStructType(dty));
-    
+
     for (unsigned i = 0; i < fields.dim; i++) {
         VarDeclaration* vd = static_cast<VarDeclaration*>(fields.data[i]);
         LLValue* fieldptr = DtoIndexStruct(v, sty->sym, vd);
@@ -397,7 +406,7 @@ void DtoPaddedStruct(Type* dty, LLValue* v, LLValue* lval) {
     assert(dty->ty == Tstruct);
     TypeStruct* sty = static_cast<TypeStruct*>(dty);
     Array& fields = sty->sym->fields;
-    
+
     for (unsigned i = 0; i < fields.dim; i++) {
         VarDeclaration* vd = static_cast<VarDeclaration*>(fields.data[i]);
         LLValue* fieldptr = DtoIndexStruct(lval, sty->sym, vd);

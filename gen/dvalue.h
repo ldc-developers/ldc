@@ -1,11 +1,21 @@
+//===-- gen/dvalue.h - D value abstractions ---------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// These classes are used for generating the IR. They encapsulate an LLVM value
+// together with a D type and provide an uniform interface for the most common
+// operations. When more specialize handling is necessary, they hold enough
+// information to do-the-right-thing (TM).
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_DVALUE_H
 #define LDC_GEN_DVALUE_H
-
-/*
-These classes are used for generating the IR. They encapsulate D values and
-provide a common interface to the most common operations. When more specialized
-handling is necessary, they hold enough information to do-the-right-thing (TM)
-*/
 
 #include <cassert>
 #include "root.h"

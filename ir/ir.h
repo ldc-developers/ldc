@@ -1,4 +1,17 @@
-// this head contains stuff used by all the IR
+//===-- ir/ir.h - Base definitions for codegen metadata ---------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Declares the base class for all codegen info classes and the top-level Ir
+// class.
+//
+//===----------------------------------------------------------------------===//
+
 
 #ifndef LDC_IR_IR_H
 #define LDC_IR_IR_H

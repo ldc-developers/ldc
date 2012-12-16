@@ -1,3 +1,12 @@
+//===-- llvmhelpers.cpp ---------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "gen/llvmhelpers.h"
 #include "gen/llvm.h"
 
@@ -843,7 +852,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
     if (fromtype->ty == Tvector) {
         return DtoCastVector(loc, val, to);
     }
-    else 
+    else
 #endif
     if (fromtype->isintegral()) {
         return DtoCastInt(loc, val, to);

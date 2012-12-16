@@ -1,3 +1,17 @@
+//===-- gen/nested.h - Nested context handling ------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Functions for creating nested contexts for nested D types/functions and
+// extracting the values from them.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_NESTED_H
 #define LDC_GEN_NESTED_H
 

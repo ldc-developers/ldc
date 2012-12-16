@@ -1,3 +1,19 @@
+//===-- gen/abi.h - Target ABI description for IR generation ----*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This interface is used by the IR generation code to accomodate any
+// additional transformations necessary for the given target ABI (the direct
+// LLVM IR representation for C structs unfortunately does not always lead to
+// the right ABI, for example on x86_64).
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef __LDC_GEN_ABI_H__
 #define __LDC_GEN_ABI_H__
 

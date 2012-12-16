@@ -10,8 +10,8 @@ and relies on the LLVM Core libraries for code generation.
 LDC is fully Open Source; the parts of the code not taken/adapted from
 other projects are BSD-licensed (see the LICENSE file for details).
 
-Please consult the project website for further information:
-http://ldc-developers.github.com
+Please consult the D wiki for further information:
+http://wiki.dlang.org/LDC
 
 
 Installation
@@ -20,14 +20,14 @@ Installation
 In-depth material on building and installing LDC and the standard
 libraries, including experimental instructions for running LDC on
 Windows, is available on the project wiki, at
-https://github.com/ldc-developers/ldc/wiki/Installation.
+http://wiki.dlang.org/Building_LDC_from_source.
 
 For the impatient, a quick guide for building on *nix systems:
 
  1) Make sure your system has the necessary prerequisites:
   - a working C++ build environment,
   - CMake,
-  - LLVM 3.0+ (3.1 preferred),
+  - LLVM 3.0+ (3.2 preferred),
   - libconfig++ (http://hyperrealm.com/libconfig/libconfig.html).
 
  2) Check out the library submodules, if you have not already:
@@ -51,8 +51,10 @@ Contact
 -------
 
 The best way to get in touch with the developers is either via the
-mailing list at ldc-dev@googlegroups.com, or the #ldc IRC channel on
-FreeNode. We can usually be found on the main (Digital Mars) language
-newsgroups (http://forum.dlang.org) as well.
+digitalmars.D.ldc forum/newsgroup/mailing list (http://forum.dlang.org)
+or the #ldc IRC channel on FreeNode.
+
+For further documentation, contributor information, etc. please see the
+D wiki: http://wiki.dlang.org/LDC
 
 Feedback of any kind is very much appreciated!

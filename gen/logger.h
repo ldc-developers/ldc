@@ -1,3 +1,17 @@
+//===-- gen/logger.h - Codegen debug logging --------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Defines a common interface for logging debug information during code
+// generation.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef _llvmd_gen_logger_h_
 #define _llvmd_gen_logger_h_
 

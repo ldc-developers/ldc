@@ -1,3 +1,18 @@
+//===-- gen/llvmcompat.h - LLVM API compatibilty shims ----------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Provides a central place to handle API changes between supported LLVM
+// versions.
+//
+//===----------------------------------------------------------------------===//
+
+
 #ifdef _MSC_VER
 #pragma once
 #endif

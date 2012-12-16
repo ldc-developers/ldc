@@ -1,3 +1,17 @@
+//===-- gen/optimizer.h - LLVM IR optimization ------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Handles the optimization of the generated LLVM modules according to the
+// specified optimization level.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_OPTIMIZER_H
 #define LDC_GEN_OPTIMIZER_H
 

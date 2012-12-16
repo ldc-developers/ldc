@@ -1,3 +1,16 @@
+//===-- gen/structs.h - D struct codegen ------------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Functions for D struct codegen.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LLVMD_GEN_STRUCTS_H
 #define LLVMD_GEN_STRUCTS_H
 

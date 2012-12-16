@@ -1,3 +1,16 @@
+//===-- gen/pragma.h - LDC-specific pragma handling -------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Code for handling the LDC-specific pragmas.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef PRAGMA_H
 #define PRAGMA_H
 

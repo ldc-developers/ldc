@@ -1,30 +1,37 @@
-/* TargetABI implementation for x86-64.
- * Written for LDC by Frits van Bommel in 2009.
- *
- * extern(C) implements the C calling convention for x86-64, as found in
- * http://www.x86-64.org/documentation/abi-0.99.pdf
- *
- * Note:
- *   Where a discrepancy was found between llvm-gcc and the ABI documentation,
- *   llvm-gcc behavior was used for compatibility (after it was verified that
- *   regular gcc has the same behavior).
- *
- * LLVM gets it right for most types, but complex numbers and structs need some
- * help. To make sure it gets those right we essentially bitcast small structs
- * to a type to which LLVM assigns the appropriate registers, and pass that
- * instead. Structs that are required to be passed in memory are explicitly
- * marked with the ByVal attribute to ensure no part of them ends up in
- * registers when only a subset of the desired registers are available.
- *
- * We don't perform the same transformation for D-specific types that contain
- * multiple parts, such as dynamic arrays and delegates. They're passed as if
- * the parts were passed as separate parameters. This helps make things like
- * printf("%.*s", o.toString()) work as expected; if we didn't do this that
- * wouldn't work if there were 4 other integer/pointer arguments before the
- * toString() call because the string got bumped to memory with one integer
- * register still free. Keeping it untransformed puts the length in a register
- * and the pointer in memory, as printf expects it.
- */
+//===-- abi-x86-64.cpp ----------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// extern(C) implements the C calling convention for x86-64, as found in
+// http://www.x86-64.org/documentation/abi-0.99.pdf
+//
+// Note:
+//   Where a discrepancy was found between llvm-gcc and the ABI documentation,
+//   llvm-gcc behavior was used for compatibility (after it was verified that
+//   regular gcc has the same behavior).
+//
+// LLVM gets it right for most types, but complex numbers and structs need some
+// help. To make sure it gets those right we essentially bitcast small structs
+// to a type to which LLVM assigns the appropriate registers, and pass that
+// instead. Structs that are required to be passed in memory are explicitly
+// marked with the ByVal attribute to ensure no part of them ends up in
+// registers when only a subset of the desired registers are available.
+//
+// We don't perform the same transformation for D-specific types that contain
+// multiple parts, such as dynamic arrays and delegates. They're passed as if
+// the parts were passed as separate parameters. This helps make things like
+// printf("%.*s", o.toString()) work as expected; if we didn't do this that
+// wouldn't work if there were 4 other integer/pointer arguments before the
+// toString() call because the string got bumped to memory with one integer
+// register still free. Keeping it untransformed puts the length in a register
+// and the pointer in memory, as printf expects it.
+//
+//===----------------------------------------------------------------------===//
 
 #include "mtype.h"
 #include "declaration.h"

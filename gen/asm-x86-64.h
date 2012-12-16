@@ -1,5 +1,16 @@
-// Taken from GDC source tree. Original by David Friedman.
-// Released under the Artistic License found in dmd/artistic.txt
+//===-- gen/asm-x86-64.h - x86_64 inline assembler handling -----*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file originates from work by David Friedman for GDC released under
+// the GPL 2 and Artistic licenses. See the LICENSE file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Parses "DMD-style" x86_64 inline assembly blocks and converts them to
+// GDC/LLVM inline assembler syntax.
+//
+//===----------------------------------------------------------------------===//
 
 #include "id.h"
 #if defined(_MSC_VER)

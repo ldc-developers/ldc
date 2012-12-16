@@ -1,9 +1,9 @@
-//===- SimplifyDRuntimeCalls - Optimize calls to the D runtime library ----===//
+//===-- SimplifyDRuntimeCalls.cpp - Optimize druntime calls ---------------===//
 //
-//                             The LLVM D Compiler
+//                         LDC – the LLVM D compiler
 //
 // This file is distributed under the University of Illinois Open Source
-// License. See LICENSE.TXT for details.
+// License. See the LICENSE file for details.
 //
 //===----------------------------------------------------------------------===//
 //

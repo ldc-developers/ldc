@@ -1,3 +1,12 @@
+//===-- classes.cpp -------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "gen/llvm.h"
 
 #include "mtype.h"
@@ -296,7 +305,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
             IrTypeClass* typeclass = stripModifiers(fc)->irtype->isClass();
 
             // find interface impl
-            
+
             size_t i_index = typeclass->getInterfaceIndex(it);
             assert(i_index != ~0 && "requesting interface that is not implemented by this class");
 

@@ -1,3 +1,12 @@
+//===-- complex.cpp -------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "gen/llvm.h"
 
 #include "mtype.h"
@@ -211,7 +220,7 @@ DValue* DtoComplexAdd(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
         res_re = lhs_re;
     else // either rhs_re or no re at all (then use any)
         res_re = rhs_re;
-    
+
     if(lhs_im && rhs_im)
         res_im = gIR->ir->CreateFAdd(lhs_im, rhs_im, "tmp");
     else if(lhs_im)
@@ -241,7 +250,7 @@ DValue* DtoComplexSub(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
         res_re = lhs_re;
     else // either rhs_re or no re at all (then use any)
         res_re = gIR->ir->CreateFNeg(rhs_re, "neg");
-    
+
     if(lhs_im && rhs_im)
         res_im = gIR->ir->CreateFSub(lhs_im, rhs_im, "tmp");
     else if(lhs_im)

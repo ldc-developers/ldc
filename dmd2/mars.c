@@ -101,7 +101,7 @@ Global::Global()
     ;
     version = "v2.060";
 #if IN_LLVM
-    ldc_version = "LDC trunk";
+    ldc_version = "trunk";
     llvm_version = "LLVM "LDC_LLVM_VERSION_STRING;
 #endif
     global.structalign = STRUCTALIGN_DEFAULT;

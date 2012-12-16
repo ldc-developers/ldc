@@ -1,3 +1,18 @@
+//===-- ir/irfuncty.h - Function type codegen metadata ----------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Additional information attached to a function type during codegen. Handles
+// LLVM attributes attached to a function and its parameters, etc.
+//
+//===----------------------------------------------------------------------===//
+
+
 #ifndef LDC_IR_IRFUNCTY_H
 #define LDC_IR_IRFUNCTY_H
 

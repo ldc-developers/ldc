@@ -1,3 +1,16 @@
+//===-- gen/runtime.h - D runtime function handlers -------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Code for handling the compiler support functions from the D runtime library.
+//
+//===----------------------------------------------------------------------===//
+
 #ifndef LDC_GEN_RUNTIME_H_
 #define LDC_GEN_RUNTIME_H_
 

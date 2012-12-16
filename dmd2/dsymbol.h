@@ -99,7 +99,6 @@ struct TYPE;
 
 #if IN_LLVM
 class Ir;
-class IrSymbol;
 namespace llvm
 {
     class Value;
@@ -290,7 +289,6 @@ struct Dsymbol : Object
     int llvmInternal;
 
     IrDsymbol ir;
-    IrSymbol* irsym;
 #endif
 };
 

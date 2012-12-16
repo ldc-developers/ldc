@@ -1,3 +1,18 @@
+//===-- gen_gccbuiltins.cpp - GCC builtin module generator ----------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// This tool reads the GCC builtin definitions from LLVM's Intrinsics.td for
+// a given architecture and accordingly generates a ldc.gccbuiltins_<arch>
+// module for using them from D code.
+//
+//===----------------------------------------------------------------------===//
+
 #include <map>
 #include <string>
 #include <algorithm>
@@ -59,7 +74,7 @@ string dtype(Record* rec)
 
 string attributes(ListInit* propertyList)
 {
-    string prop = propertyList->getSize() ? 
+    string prop = propertyList->getSize() ?
         propertyList->getElementAsRecord(0)->getName() : "";
 
     return
