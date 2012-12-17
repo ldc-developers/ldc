@@ -2092,13 +2092,12 @@ Lagain:
         case Tdelegate:
         Lapply:
         {
+            FuncDeclaration *fdapply;
             Expression *ec;
             Expression *e;
-#if IN_LLVM
-            FuncDeclaration *fdapply;
-            TypeDelegate* dgty;
-            TypeDelegate* fldeTy;
-#endif
+        TypeDelegate* dgty;
+        TypeDelegate* dgty2;
+        TypeDelegate* fldeTy;
 
             if (!checkForArgTypes())
             {   body = body->semanticNoScope(sc);
@@ -2211,13 +2210,6 @@ Lagain:
                 /* Call:
                  *      _aaApply(aggr, keysize, flde)
                  */
-#if !IN_LLVM
-                FuncDeclaration *fdapply;
-                if (dim == 2)
-                    fdapply = FuncDeclaration::genCfunc(Type::tindex, "_aaApply2");
-                else
-                    fdapply = FuncDeclaration::genCfunc(Type::tindex, "_aaApply");
-#else
                 //LDC: Build arguments.
                 static FuncDeclaration *aaApply2_fd = NULL;
                 static TypeDelegate* aaApply2_dg;
@@ -2251,7 +2243,6 @@ Lagain:
                     fdapply = aaApply_fd;
                     fldeTy = aaApply_dg;
                 }
-#endif
                 ec = new VarExp(0, fdapply);
                 Expressions *exps = new Expressions();
                 exps->push(aggr);
@@ -2333,7 +2324,7 @@ Lagain:
         }
                 exps->push(flde);
                 e = new CallExp(loc, ec, exps);
-                e->type = Type::tindex; // don't run semantic() on e
+                e->type = Type::tint32; // don't run semantic() on e
             }
             else if (tab->ty == Tdelegate)
             {
@@ -3104,13 +3095,12 @@ Statement *PragmaStatement::semantic(Scope *sc)
         }
 #endif
     }
-#if IN_LLVM
+
     // LDC
     else if (ident == Id::allow_inline)
     {
         sc->func->allowInlining = true;
     }
-#endif
 #if DMDV2
     else if (ident == Id::startaddress)
     {
@@ -3230,14 +3220,12 @@ SwitchStatement::SwitchStatement(Loc loc, Expression *c, Statement *b, bool isFi
     this->body = b;
     this->isFinal = isFinal;
     sdefault = NULL;
-#if !IN_LLVM
-    tf = NULL;
-#else
-    enclosingScopeExit = NULL;
-#endif
     cases = NULL;
     hasNoDefault = 0;
     hasVars = 0;
+#if IN_LLVM
+    enclosingScopeExit = NULL;
+#endif
 }
 
 Statement *SwitchStatement::syntaxCopy()
@@ -3444,11 +3432,10 @@ CaseStatement::CaseStatement(Loc loc, Expression *exp, Statement *s)
     this->statement = s;
     index = 0;
     cblock = NULL;
-#if IN_LLVM
     bodyBB = NULL;
     llvmIdx = NULL;
+    // LDC
     enclosingScopeExit = NULL;
-#endif
 }
 
 Statement *CaseStatement::syntaxCopy()
@@ -3692,14 +3679,14 @@ Statement *DefaultStatement::semantic(Scope *sc)
         }
         sc->sw->sdefault = this;
 
-#if !IN_LLVM
-        if (sc->sw->tf != sc->tf)
-            error("switch and default are in different finally blocks");
-#else
+#if IN_LLVM
         enclosingScopeExit = sc->sw->enclosingScopeExit;
-#endif
+
         if (sc->sw->isFinal)
+        {
             error("default statement not allowed in final switch statement");
+        }
+#endif
     }
     else
         error("default not in switch statement");
@@ -3769,9 +3756,7 @@ GotoCaseStatement::GotoCaseStatement(Loc loc, Expression *exp)
 {
     cs = NULL;
     this->exp = exp;
-#if IN_LLVM
     sw = NULL;
-#endif
 }
 
 Statement *GotoCaseStatement::syntaxCopy()
@@ -3790,9 +3775,7 @@ Statement *GotoCaseStatement::semantic(Scope *sc)
         error("goto case not in switch statement");
     else
     {
-#if IN_LLVM
         sw = sc->sw;
-#endif
         sc->sw->gotoCases.push(this);
         if (exp)
         {
@@ -3887,11 +3870,7 @@ Statement *ReturnStatement::semantic(Scope *sc)
 
     if (sc->incontract || scx->incontract)
         error("return statements cannot be in contracts");
-#if !IN_LLVM
-    if (sc->tf || scx->tf)
-#else
     if (sc->enclosingFinally || scx->enclosingFinally)
-#endif
         error("return statements cannot be in finally, scope(exit) or scope(success) bodies");
 
     if (fd->isCtorDeclaration())
@@ -4277,16 +4256,10 @@ Statement *BreakStatement::semantic(Scope *sc)
 
                 if (!s->hasBreak())
                     error("label '%s' has no break", ident->toChars());
-#if !IN_LLVM
-                if (ls->tf != sc->tf)
-#else
                 if (ls->enclosingFinally != sc->enclosingFinally)
-#endif
                     error("cannot break out of finally block");
 
-#if IN_LLVM
                 this->target = ls;
-#endif
                 return this;
             }
         }
@@ -4386,16 +4359,10 @@ Statement *ContinueStatement::semantic(Scope *sc)
 
                 if (!s->hasContinue())
                     error("label '%s' has no continue", ident->toChars());
-#if !IN_LLVM
-                if (ls->tf != sc->tf)
-#else
                 if (ls->enclosingFinally != sc->enclosingFinally)
-#endif
                     error("cannot continue out of finally block");
 
-#if IN_LLVM
                 this->target = ls;
-#endif
                 return this;
             }
         }
@@ -4440,9 +4407,8 @@ SynchronizedStatement::SynchronizedStatement(Loc loc, Expression *exp, Statement
     this->exp = exp;
     this->body = body;
     this->esync = NULL;
-#if IN_LLVM
+    // LDC
     this->llsync = NULL;
-#endif
 }
 
 SynchronizedStatement::SynchronizedStatement(Loc loc, elem *esync, Statement *body)
@@ -4451,9 +4417,8 @@ SynchronizedStatement::SynchronizedStatement(Loc loc, elem *esync, Statement *bo
     this->exp = NULL;
     this->body = body;
     this->esync = esync;
-#if IN_LLVM
+    // LDC
     this->llsync = NULL;
-#endif
 }
 
 Statement *SynchronizedStatement::syntaxCopy()
@@ -4540,11 +4505,7 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
          *  try { body } finally { _d_criticalexit(critsec.ptr); }
          */
         Identifier *id = Lexer::uniqueId("__critsec");
-#if !IN_LLVM
-        Type *t = new TypeSArray(Type::tint8, new IntegerExp(PTRSIZE + (global.params.is64bit ? os_critsecsize64() : os_critsecsize32())));
-#else
         Type *t = new TypeSArray(Type::tint8, new IntegerExp(PTRSIZE + os_critsecsize()));
-#endif
         VarDeclaration *tmp = new VarDeclaration(loc, t, id, NULL);
         tmp->storage_class |= STCgshared | STCstatic;
 
@@ -4585,16 +4546,12 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
 #endif
 Lbody:
     if (body)
-#if IN_LLVM
     {
         Statement* oldScopeExit = sc->enclosingScopeExit;
         sc->enclosingScopeExit = this;
-#endif
         body = body->semantic(sc);
-#if IN_LLVM
         sc->enclosingScopeExit = oldScopeExit;
     }
-#endif
     return this;
 }
 
@@ -4884,11 +4841,7 @@ void Catch::semantic(Scope *sc)
     //printf("Catch::semantic(%s)\n", ident->toChars());
 
 #ifndef IN_GCC
-#if !IN_LLVM
-    if (sc->tf)
-#else
     if (sc->enclosingFinally)
-#endif
     {
         /* This is because the _d_local_unwind() gets the stack munged
          * up on this. The workaround is to place any try-catches into
@@ -4977,20 +4930,14 @@ Statement *TryFinallyStatement::syntaxCopy()
 Statement *TryFinallyStatement::semantic(Scope *sc)
 {
     //printf("TryFinallyStatement::semantic()\n");
-#if IN_LLVM
+
     Statement* oldScopeExit = sc->enclosingScopeExit;
     sc->enclosingScopeExit = this;
-#endif
     body = body->semantic(sc);
-#if IN_LLVM
     sc->enclosingScopeExit = oldScopeExit;
-#endif
+
     sc = sc->push();
-#if !IN_LLVM
-    sc->tf = this;
-#else
     sc->enclosingFinally = this;
-#endif
     sc->sbreak = NULL;
     sc->scontinue = NULL;       // no break or continue out of finally block
     finalbody = finalbody->semanticNoScope(sc);
@@ -5213,16 +5160,12 @@ Statement *VolatileStatement::syntaxCopy()
 Statement *VolatileStatement::semantic(Scope *sc)
 {
     if (statement)
-#if IN_LLVM
     {
-        Statement* oldScopeExit = sc->enclosingScopeExit;
-        sc->enclosingScopeExit = this;
-#endif
+    Statement* oldScopeExit = sc->enclosingScopeExit;
+    sc->enclosingScopeExit = this;
         statement = statement->semantic(sc);
-#if IN_LLVM
-        sc->enclosingScopeExit = oldScopeExit;
+    sc->enclosingScopeExit = oldScopeExit;
     }
-#endif
     return this;
 }
 
@@ -5320,12 +5263,8 @@ GotoStatement::GotoStatement(Loc loc, Identifier *ident)
 {
     this->ident = ident;
     this->label = NULL;
-#if !IN_LLVM
-    this->tf = NULL;
-#else
     this->enclosingFinally = NULL;
     this->enclosingScopeExit = NULL;
-#endif
 }
 
 Statement *GotoStatement::syntaxCopy()
@@ -5338,12 +5277,9 @@ Statement *GotoStatement::semantic(Scope *sc)
 {   FuncDeclaration *fd = sc->parent->isFuncDeclaration();
 
     //printf("GotoStatement::semantic()\n");
-#if !IN_LLVM
-    tf = sc->tf;
-#else
     enclosingFinally = sc->enclosingFinally;
     enclosingScopeExit = sc->enclosingScopeExit;
-#endif
+
     label = fd->searchLabel(ident);
     if (!label->statement && sc->fes)
     {
@@ -5361,11 +5297,7 @@ Statement *GotoStatement::semantic(Scope *sc)
         sc->fes->gotos->push(s);         // 'look at this later' list
         return s;
     }
-#if !IN_LLVM
-    if (label->statement && label->statement->tf != sc->tf)
-#else
     if (label->statement && label->statement->enclosingFinally != sc->enclosingFinally)
-#endif
         error("cannot goto in or out of finally block");
     return this;
 }
@@ -5392,17 +5324,11 @@ LabelStatement::LabelStatement(Loc loc, Identifier *ident, Statement *statement)
 {
     this->ident = ident;
     this->statement = statement;
-#if !IN_LLVM
-    this->tf = NULL;
-#else
     this->enclosingFinally = NULL;
     this->enclosingScopeExit = NULL;
-#endif
     this->lblock = NULL;
     this->fwdrefs = NULL;
-#if IN_LLVM
     this->asmLabel = false;
-#endif
 }
 
 Statement *LabelStatement::syntaxCopy()
@@ -5421,12 +5347,10 @@ Statement *LabelStatement::semantic(Scope *sc)
         error("Label '%s' already defined", ls->toChars());
     else
         ls->statement = this;
-#if !IN_LLVM
-    tf = sc->tf;
-#else
+
     enclosingFinally = sc->enclosingFinally;
     enclosingScopeExit = sc->enclosingScopeExit;
-#endif
+
     sc = sc->push();
     sc->scopesym = sc->enclosing->scopesym;
     sc->callSuper |= CSXlabel;
@@ -5435,10 +5359,8 @@ Statement *LabelStatement::semantic(Scope *sc)
         statement = statement->semanticNoScope(sc);
     sc->pop();
 
-#if IN_LLVM
     // LDC put in labmap
     fd->labmap[ident->toChars()] = this;
-#endif
 
     return this;
 }
@@ -5538,7 +5460,7 @@ int AsmStatement::comeFrom()
 int AsmStatement::blockExit(bool mustNotThrow)
 {
     if (mustNotThrow)
-        error("asm statements are assumed to throw", toChars());
+        error("asm statements are assumed to throw");
     // Assume the worst
     return BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt;
 }

@@ -519,9 +519,7 @@ struct SwitchStatement : Statement
     bool isFinal;
 
     DefaultStatement *sdefault;
-#if !IN_LLVM
-    TryFinallyStatement *tf;
-#endif
+
     GotoCaseStatements gotoCases;  // array of unresolved GotoCaseStatement's
     CaseStatements *cases;         // array of CaseStatement's
     int hasNoDefault;           // !=0 if no default statement
@@ -886,12 +884,8 @@ struct GotoStatement : Statement
 {
     Identifier *ident;
     LabelDsymbol *label;
-#if !IN_LLVM
-    TryFinallyStatement *tf;
-#else
     TryFinallyStatement *enclosingFinally;
     Statement* enclosingScopeExit;
-#endif
 
     GotoStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
@@ -907,12 +901,8 @@ struct LabelStatement : Statement
 {
     Identifier *ident;
     Statement *statement;
-#if !IN_LLVM
-    TryFinallyStatement *tf;
-#else
     TryFinallyStatement *enclosingFinally;
     Statement* enclosingScopeExit;
-#endif
     block *lblock;              // back end
 
     Blocks *fwdrefs;            // forward references to this LabelStatement
@@ -998,7 +988,6 @@ struct ImportStatement : Statement
     void toIR(IRState *irs);
 };
 
-#if IN_LLVM
 struct AsmBlockStatement : CompoundStatement
 {
     TryFinallyStatement* enclosingFinally;
@@ -1018,6 +1007,5 @@ struct AsmBlockStatement : CompoundStatement
 
     llvm::Value* abiret;
 };
-#endif
 
 #endif /* DMD_STATEMENT_H */
