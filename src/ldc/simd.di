@@ -8,15 +8,15 @@ nothrow:
 
 private template isFloatingPoint(T)
 {
-    enum isFloatingPoint = 
-        is(T == float) || 
-        is(T == double) || 
+    enum isFloatingPoint =
+        is(T == float) ||
+        is(T == double) ||
         is(T == real);
 }
 
 private template isIntegral(T)
 {
-    enum isIntegral = 
+    enum isIntegral =
         is(T == byte) ||
         is(T == ubyte) ||
         is(T == short) ||
@@ -29,10 +29,10 @@ private template isIntegral(T)
 
 private template isSigned(T)
 {
-    enum isSigned = 
-        is(T == byte) || 
-        is(T == short) || 
-        is(T == int) || 
+    enum isSigned =
+        is(T == byte) ||
+        is(T == short) ||
+        is(T == int) ||
         is(T == long);
 }
 
@@ -77,9 +77,9 @@ private template llvmType(T)
     else static if(is(T == long) || is(T == ulong))
         enum llvmType = "i64";
     else
-        static assert(0, 
+        static assert(0,
             "Can't determine llvm type for D type " ~ T.stringof);
-} 
+}
 
 private template llvmVecType(V)
 {
@@ -99,18 +99,18 @@ private template llvmVecType(V)
 pragma(LDC_inline_ir)
     R inlineIR(string s, R, P...)(P);
 
-/** 
-This template provides access to 
-$(LINK2 http://llvm.org/docs/LangRef.html#i_shufflevector, 
+/**
+This template provides access to
+$(LINK2 http://llvm.org/docs/LangRef.html#i_shufflevector,
 LLVM's shufflevector instruction).
 
-Example: 
+Example:
 ---
 int4 a = [0, 10, 20, 30];
 int4 b = [40, 50, 60, 70];
 int4 c = shufflevector!(int4, 0, 2, 4, 6)(a, b);
 assert(c.array == [0, 20, 40, 60]);
----    
+---
 */
 
 template shufflevector(V, mask...)
@@ -125,13 +125,13 @@ if(is(typeof(llvmVecType!V)) && mask.length == numElements!V)
             enum genMaskIr = ir;
         else
         {
-            enum int mfront = m[0];            
+            enum int mfront = m[0];
 
-            enum genMaskIr = 
+            enum genMaskIr =
                 genMaskIr!(ir ~ ", i32 " ~ mfront.stringof, m[1 .. $]);
         }
     }
-    enum maskIr = genMaskIr!("", mask)[2 .. $]; 
+    enum maskIr = genMaskIr!("", mask)[2 .. $];
     enum ir = `
         %r = shufflevector `~llvmV~` %0, `~llvmV~` %1, <`~n.stringof~` x i32> <`~maskIr~`>
         ret `~llvmV~` %r`;
@@ -139,17 +139,17 @@ if(is(typeof(llvmVecType!V)) && mask.length == numElements!V)
     alias inlineIR!(ir, V, V, V) shufflevector;
 }
 
-/** 
-This template provides access to 
-$(LINK2 http://llvm.org/docs/LangRef.html#i_extractelement, 
+/**
+This template provides access to
+$(LINK2 http://llvm.org/docs/LangRef.html#i_extractelement,
 LLVM's extractelement instruction).
 
-Example: 
+Example:
 ---
 int4 a = [0, 10, 20, 30];
 int k = extractelement!(int4, 2)(a);
 assert(k == 20);
----    
+---
 */
 
 template extractelement(V, int i)
@@ -161,20 +161,20 @@ if(is(typeof(llvmVecType!V)) && i < numElements!V)
         %r = extractelement `~llvmV~` %0, i32 `~i.stringof~`
         ret `~llvmT~` %r`;
 
-    alias inlineIR!(ir, BaseType!V, V) extractelement; 
+    alias inlineIR!(ir, BaseType!V, V) extractelement;
 }
 
-/** 
-This template provides access to 
-$(LINK2 http://llvm.org/docs/LangRef.html#i_insertelement, 
+/**
+This template provides access to
+$(LINK2 http://llvm.org/docs/LangRef.html#i_insertelement,
 LLVM's insertelement instruction).
 
-Example: 
+Example:
 ---
 int4 a = [0, 10, 20, 30];
 int b = insertelement!(int4, 2)(a, 50);
 assert(b.array == [0, 10, 50, 30]);
----    
+---
 */
 
 template insertelement(V, int i)
@@ -186,16 +186,16 @@ if(is(typeof(llvmVecType!V)) && i < numElements!V)
         %r = insertelement `~llvmV~` %0, `~llvmT~` %1, i32 `~i.stringof~`
         ret `~llvmV~` %r`;
 
-    alias inlineIR!(ir, V, V, BaseType!V) insertelement; 
+    alias inlineIR!(ir, V, V, BaseType!V) insertelement;
 }
 /**
 loadUnaligned: Loads a vector from an unaligned pointer.
-Example: 
+Example:
 ---
 int[4] a = [0, 10, 20, 30];
 int4 v = loadUnaligned!int4(a.ptr);
 assert(v.array == a);
---- 
+---
 */
 template loadUnaligned(V)
 if(is(typeof(llvmVecType!V)))
@@ -208,7 +208,7 @@ if(is(typeof(llvmVecType!V)))
         %r = load `~llvmV~`* %p, align 1
         ret `~llvmV~` %r`;
 
-    alias inlineIR!(ir, V, T*) loadUnaligned; 
+    alias inlineIR!(ir, V, T*) loadUnaligned;
 }
 
 private enum Cond{ eq, ne, gt, ge }
@@ -228,14 +228,14 @@ private template cmpMask(Cond cond)
 
         enum llvmV = llvmVecType!V;
         enum llvmR = llvmVecType!R;
-        enum sign = 
-            (cond == Cond.eq || cond == Cond.ne) ? "" : 
+        enum sign =
+            (cond == Cond.eq || cond == Cond.ne) ? "" :
             isSigned!T ? "s" : "u";
-        enum condStr = 
-            cond == Cond.eq ? "eq" : 
-            cond == Cond.ne ? "ne" : 
+        enum condStr =
+            cond == Cond.eq ? "eq" :
+            cond == Cond.ne ? "ne" :
             cond == Cond.ge ? "ge" : "gt";
-        enum op = 
+        enum op =
             isFloatingPoint!T ? "fcmp o"~condStr : "icmp "~sign~condStr;
 
         enum ir = `
@@ -247,19 +247,13 @@ private template cmpMask(Cond cond)
     }
 }
 
-///
-alias cmpMask!(Cond.eq) equalMask;
-///
-alias cmpMask!(Cond.ne) notEqualMask;
-///
-alias cmpMask!(Cond.gt) greaterMask;
 /**
 equalMask, notEqualMask, greaterMask and greaterOrEqualMask perform an
-element-wise comparison between two vectors and return a vector with 
-signed integral elements. The number of elements in the returned vector 
-and their size is the same as in parameter vectors. If the condition in 
-the name of the function holds for elements of the parameter vectors at 
-a given index, all bits of the element of the result at that index are 
+element-wise comparison between two vectors and return a vector with
+signed integral elements. The number of elements in the returned vector
+and their size is the same as in parameter vectors. If the condition in
+the name of the function holds for elements of the parameter vectors at
+a given index, all bits of the element of the result at that index are
 set to 1, otherwise the element of the result is zero.
 
 Example:
@@ -271,6 +265,8 @@ writeln(c.array);
 assert(c.array == [0, 0, 0xffff_ffff, 0xffff_ffff]);
 ---
 */
-
-alias cmpMask!(Cond.ge) greaterOrEqualMask;
+alias cmpMask!(Cond.eq) equalMask;
+alias cmpMask!(Cond.ne) notEqualMask; /// Ditto
+alias cmpMask!(Cond.gt) greaterMask; /// Ditto
+alias cmpMask!(Cond.ge) greaterOrEqualMask; /// Ditto
 
