@@ -23,65 +23,61 @@ extern(C):
  */
 
 // Computes the cosine.
-real cosl(real arg)
+real cosl(real x)
 {
-    real res;
     asm
     {
-        fld arg;
+        fld x;
         fcos;
-        fstp res;
+        fstp x;
     }
-    return res;
+    return x;
 }
 
 // Computes the sine.
-real sinl(real arg)
+real sinl(real x)
 {
-    real res;
     asm
     {
-        fld arg;
+        fld x;
         fsin;
-        fstp res;
+        fstp x;
     }
-    return res;
+    return x;
 }
 
 // Computes the tangent.
-real tanl(real arg)
+real tanl(real x)
 {
-    real res;
     asm
     {
-        fld arg;
+        fld x;
         fptan;
-        fstp res;
+        fstp x;
     }
-    return res;
+    return x;
 }
 
 // Computes the square root.
-real sqrtl(real arg)
+real sqrtl(real x)
 {
-    real res;
     asm
     {
-        fld arg;
+        fld x;
         fsqrt;
-        fstp res;
+        fstp x;
     }
-    return res;
+    return x;
 }
 
 // Round to the nearest integer value.
-long llroundl(real arg)
+long llroundl(real x)
 {
     return 0;
 }
 
 // Returns an unbiased exponent.
-real ilogbl(real arg)
+real ilogbl(real x)
 {
     return 0.0;
 }
@@ -89,53 +85,65 @@ real ilogbl(real arg)
 // Loads exponent of a floating-point number.
 real ldexpl(real arg, int exp)
 {
-    real res;
     asm
     {
         fild exp;
         fld arg;
         fscale;
-        fstp res;
+        fstp arg;
     }
-    return res;
+    return arg;
 }
 
 // Computes the natural logarithm.
-real logl(real arg)
+real logl(real x)
 {
-    real res;
     asm
     {
         fld1;
         fldl2e;
         fdivrp;
-        fld arg;
+        fld x;
         fyl2x;
-        fstp res;
+        fstp x;
     }
-    return res;
+    return x;
 }
 
 // Computes the base 10 logarithm.
-real log10l(real arg)
+real log10l(real x)
 {
-    return 0.0;
+    asm
+    {
+        fldlg2;
+        fld x;
+        fyl2x;
+        fstp x;
+    }
+    return x;
 }
 
 // Computes a natural logarithm.
-real log1pl(real arg)
+real log1pl(real x)
 {
     return 0.0;
 }
 
 // Computes the base 2 logarithm.
-real log2l(real arg)
+real log2l(real x)
 {
-    return 0.0;
+    asm
+    {
+        fld1;
+        fld x;
+        fyl2x;
+        fstp x;
+    }
+    return x;
 }
 
 // Computes the radix-independent exponent.
-real logbl(real arg)
+real logbl(real x)
 {
     return 0.0;
 }
@@ -165,9 +173,15 @@ real cbrtl(real arg)
 }
 
 // Determines the absolute value.
-real fabsl(real arg)
+real fabsl(real x)
 {
-    return 0.0;
+    asm
+    {
+        fld x;
+        fabs;
+        fstp x;
+    }
+    return x;
 }
 
 // Compute the ceiling value.
@@ -177,38 +191,37 @@ real ceill(real arg)
 }
 
 // Return the largest floating-point integer value that is not greater than the parameter.
-real floorl(real arg)
+real floorl(real x)
 {
     return 0.0;
 }
 
 // Round numbers to an integer value in floating-point format.
-real nearbyintl(real arg)
+real nearbyintl(real x)
 {
     return 0.0;
 }
 
 // Returns the integral value (represented as a floating-point number) nearest
 // arg in the direction of the current rounding mode.
-real rintl(real arg)
+real rintl(real x)
 {
-    real res;
     asm
     {
-        fld arg;
+        fld x;
         frndint;
-        fstp res;
+        fstp x;
     }
-    return res;
+    return x;
 }
 
 // Round to the nearest integer value using current rounding direction.
-long llrintl(real arg)
+long llrintl(real x)
 {
     long res;
     asm
     {
-        fld arg;
+        fld x;
         fistp res;
     }
     return res;
@@ -241,5 +254,15 @@ real powl(real x, real y)
 // Computes the exponent using FLT_RADIX=2.
 real scalbnl (real x, int n)
 {
-	return 0.0;
+/*
+    asm
+    {
+        mov [RBP+0x10],ECX; // Use shadow area
+        fild [RBP+0x10];
+        fistp x;
+        fstp x;
+    }
+    return x;
+*/
+    return 0.0;
 }
