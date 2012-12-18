@@ -223,14 +223,14 @@ struct CompoundStatement : Statement
     CompoundStatement(Loc loc, Statements *s);
     CompoundStatement(Loc loc, Statement *s1);
     CompoundStatement(Loc loc, Statement *s1, Statement *s2);
-    virtual Statement *syntaxCopy();
+    Statement *syntaxCopy();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    virtual Statement *semantic(Scope *sc);
+    Statement *semantic(Scope *sc);
     int usesEH();
     int blockExit(bool mustNotThrow);
     int comeFrom();
     int isEmpty();
-    virtual Statements *flatten(Scope *sc);
+    Statements *flatten(Scope *sc);
     ReturnStatement *isReturnStatement();
     Expression *interpret(InterState *istate);
     Statement *last();
@@ -240,14 +240,14 @@ struct CompoundStatement : Statement
     Statement *doInlineStatement(InlineDoState *ids);
     Statement *inlineScan(InlineScanState *iss);
 
-    virtual void toIR(IRState *irs);
+    void toIR(IRState *irs);
+
+    CompoundStatement *isCompoundStatement() { return this; }
 
 #if IN_LLVM
     virtual void toNakedIR(IRState *irs);
     virtual AsmBlockStatement* endsWithAsm();
 #endif
-
-    virtual CompoundStatement *isCompoundStatement() { return this; }
 };
 
 struct CompoundDeclarationStatement : CompoundStatement
