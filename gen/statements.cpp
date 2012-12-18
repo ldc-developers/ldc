@@ -194,8 +194,6 @@ void ExpStatement::toIR(IRState* p)
     DtoDwarfStopPoint(loc.linnum);
 
     if (exp) {
-        if (global.params.llvmAnnotate)
-            DtoAnnotation(exp->toChars());
         elem* e;
         // a cast(void) around the expression is allowed, but doesn't require any code
         if(exp->op == TOKcast && exp->type == Type::tvoid) {

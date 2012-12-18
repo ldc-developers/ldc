@@ -298,7 +298,6 @@ struct Param
     OUTPUTFLAG output_bc;
     OUTPUTFLAG output_s;
     OUTPUTFLAG output_o;
-    bool llvmAnnotate;
     bool useInlineAsm;
     bool verbose_cg;
     bool useAvailableExternally;

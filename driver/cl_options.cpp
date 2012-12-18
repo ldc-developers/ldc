@@ -102,11 +102,6 @@ static cl::opt<ubyte, true> debugInfo(
     cl::location(global.params.symdebug),
     cl::init(0));
 
-
-static cl::opt<bool, true> annotate("annotate",
-    cl::desc("Annotate the bitcode with human readable source code"),
-    cl::location(global.params.llvmAnnotate));
-
 cl::opt<bool> noAsm("noasm",
     cl::desc("Disallow use of inline assembler"));
 

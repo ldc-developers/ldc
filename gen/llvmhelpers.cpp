@@ -1548,24 +1548,6 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoAnnotation(const char* str)
-{
-    std::string s("CODE: ");
-    s.append(str);
-    char* p = &s[0];
-    while (*p)
-    {
-        if (*p == '"')
-            *p = '\'';
-        ++p;
-    }
-    // create a noop with the code as the result name!
-    // FIXME: this is const folded and eliminated immediately ... :/
-    gIR->ir->CreateAnd(DtoConstSize_t(0),DtoConstSize_t(0),s.c_str());
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 LLConstant* DtoTypeInfoOf(Type* type, bool base)
 {
     type = type->merge2(); // needed.. getTypeInfo does the same
