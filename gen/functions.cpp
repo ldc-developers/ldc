@@ -755,7 +755,22 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         if (f->fty.arg_this) {
             iarg->setName(".this_arg");
             fdecl->ir.irFunc->thisArg = iarg;
-            assert(fdecl->ir.irFunc->thisArg);
+
+            VarDeclaration* v = fdecl->vthis;
+            if (v) {
+                // We already build the this argument here if we will need it
+                // later for codegen'ing the function, just as normal
+                // parameters below, because it can be referred to in nested
+                // context types. Will be given storage in DtoDefineFunction.
+                assert(!v->ir.irParam);
+                IrParameter* p = new IrParameter(v);
+                p->isVthis = true;
+                p->value = iarg;
+                p->arg = f->fty.arg_this;
+
+                v->ir.irParam = p;
+            }
+
             ++iarg;
         }
         else if (f->fty.arg_nest) {
@@ -904,11 +919,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
             irfunction->thisArg = thismem;
         }
 
-        assert(!fd->vthis->ir.irParam);
-        fd->vthis->ir.irParam = new IrParameter(fd->vthis);
+        assert(fd->vthis->ir.irParam->value == thisvar);
         fd->vthis->ir.irParam->value = thismem;
-        fd->vthis->ir.irParam->arg = f->fty.arg_this;
-        fd->vthis->ir.irParam->isVthis = true;
 
         DtoDwarfLocalVariable(thismem, fd->vthis);
     }
