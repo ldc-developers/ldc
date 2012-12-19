@@ -13,6 +13,7 @@
 #include "declaration.h"
 #include "dsymbol.h"
 #include "mtype.h"
+#include "template.h"
 
 #include "gen/irstate.h"
 #include "gen/logger.h"
@@ -315,9 +316,26 @@ std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, Array* vtbl_arr
 
         IF_LOG Logger::println("Adding type of %s", fd->toPrettyChars());
 
-        if (fd->type->nextOf() == NULL) {
-            // Return type of the virtual function has not been inferred.
-            // FIXME: is it a frontend bug?
+#if DMDV2
+        // If inferring return type and semantic3 has not been run, do it now.
+        // This pops up in some other places in the frontend as well, however
+        // it is probably a bug that it still occurs that late.
+        if (!fd->type->nextOf() && fd->inferRetType)
+        {
+            Logger::println("Running late semantic3 to infer return type.");
+            TemplateInstance *spec = fd->isSpeculative();
+            int olderrs = global.errors;
+            fd->semantic3(fd->scope);
+            if (spec && global.errors != olderrs)
+                spec->errors = global.errors - olderrs;
+        }
+#endif
+
+        if (!fd->type->nextOf()) {
+            // Return type of the function has not been inferred. This seems to
+            // happen with virtual functions and is probably a frontend bug.
+            IF_LOG Logger::println("Broken function type, semanticRun: %d",
+                fd->semanticRun);
             types.push_back(getVoidPtrType());
             continue;
         }
