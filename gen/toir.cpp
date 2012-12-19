@@ -2029,7 +2029,7 @@ DValue* NewExp::toElem(IRState* p)
             assert(arguments != NULL);
             member->codegen(Type::sir);
             DFuncValue dfn(member, member->ir.irFunc->func, mem);
-            return DtoCallFunction(loc, ts, &dfn, arguments);
+            DtoCallFunction(loc, ts, &dfn, arguments);
         }
 #endif
         return new DImValue(type, mem);
