@@ -267,7 +267,7 @@ endif()
 if(MSVC)
     set(EXTRA_CXXFLAGS "/W0 /wd4996 /GF /GR- /RTC1")
 else()
-    set(EXTRA_CXXFLAGS "-Wno-deprecated -Wno-write-strings -fexceptions")
+    set(EXTRA_CXXFLAGS "-fexceptions")
 endif()
 
 #

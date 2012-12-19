@@ -108,7 +108,7 @@ void printVersion() {
 }
 
 // Helper function to handle -d-debug=* and -d-version=*
-static void processVersions(std::vector<std::string>& list, char* type,
+static void processVersions(std::vector<std::string>& list, const char* type,
         void (*setLevel)(unsigned), void (*addIdent)(const char*)) {
     typedef std::vector<std::string>::iterator It;
 

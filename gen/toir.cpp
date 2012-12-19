@@ -1049,7 +1049,7 @@ DValue* CallExp::toElem(IRState* p)
                 return NULL;
             }
 
-            static char *ops[] = {
+            static const char *ops[] = {
                 "xchg",
                 "add",
                 "sub",
