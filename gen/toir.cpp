@@ -1293,6 +1293,18 @@ LLConstant* AddrExp::toConstElem(IRState* p)
         // global variable
         if (VarDeclaration* vd = vexp->var->isVarDeclaration())
         {
+            if (!vd->isDataseg())
+            {
+                // Not sure if this can be triggered from user code, but it is
+                // needed for the current hacky implementation of
+                // AssocArrayLiteralExp::toElem, which requires on error
+                // gagging to check for constantness of the initializer.
+                error("cannot use address of non-global variable '%s' "
+                    "as constant initializer", vd->toChars());
+                if (!global.gag) fatal();
+                return NULL;
+            }
+
             vd->codegen(Type::sir);
             LLConstant* llc = llvm::dyn_cast<LLConstant>(vd->ir.getIrValue());
             assert(llc);
