@@ -398,23 +398,20 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
             if (vd->isParameter()) {
                 // Parameters will have storage associated with them (to handle byref etc.),
                 // so handle those cases specially by storing a pointer instead of a value.
-                IrParameter * irparam = vd->ir.irParam;
-                LLValue* value = irparam->value;
-                assert(value);
-                LLType* type = value->getType();
-                bool refout = vd->storage_class & (STCref | STCout);
-                bool lazy = vd->storage_class & STClazy;
-                bool byref = irparam->arg->byref;
-                bool isVthisPtr = irparam->isVthis && !byref;
-                if ((!refout && (!byref || lazy)) || isVthisPtr) {
+                const IrParameter* irparam = vd->ir.irParam;
+                const bool refout = vd->storage_class & (STCref | STCout);
+                const bool lazy = vd->storage_class & STClazy;
+                const bool byref = irparam->arg->byref;
+                const bool isVthisPtr = irparam->isVthis && !byref;
+                if (!(refout || (byref && !lazy)) || isVthisPtr) {
                     // This will be copied to the nesting frame.
                     if (lazy)
-                        type = type->getContainedType(0);
+                        types.push_back(irparam->value->getType()->getContainedType(0));
                     else
-                        type = DtoType(vd->type);
+                        types.push_back(DtoType(vd->type));
                 } else {
+                    types.push_back(irparam->value->getType());
                 }
-                types.push_back(type);
             } else if (isSpecialRefVar(vd)) {
                 types.push_back(DtoType(vd->type->pointerTo()));
             } else {
