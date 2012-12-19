@@ -421,8 +421,8 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
                 types.push_back(DtoType(vd->type));
             }
             if (Logger::enabled()) {
-                Logger::print("Nested var '%s' of type", vd->toChars());
-                Logger::cout() << *types.back() << '\n';
+                Logger::cout() << "Nested var '" << vd->toChars() <<
+                    "' of type " << *types.back() << "\n";
             }
         }
 
