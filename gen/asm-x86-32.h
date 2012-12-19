@@ -418,124 +418,123 @@ namespace AsmParserx8632
     static AsmOpInfo asmOpInfo[N_AsmOpInfo] =
     {
         /* Op_Invalid   */  {},
-        /* Op_Adjust    */  { 0,0,0,             0, Clb_EAX /*just AX*/ },
-        /* Op_Dst       */  { D|mr,  0,    0,    1  },
-        /* Op_Upd       */  { U|mr,  0,    0,    1  },
-        /* Op_DstW      */  { D|mr,  0,    0,    Word_Types  },
-        /* Op_DstF      */  { D|mr,  0,    0,    1, Clb_Flags },
-        /* Op_UpdF      */  { U|mr,  0,    0,    1, Clb_Flags },
-        /* Op_DstSrc    */  { D|mr,  mri,  0,/**/1  },
-        /* Op_DstSrcF   */  { D|mr,  mri,  0,/**/1, Clb_Flags },
-        /* Op_UpdSrcF   */  { U|mr,  mri,  0,/**/1, Clb_Flags },
-        /* Op_DstSrcFW  */  { D|mr,  mri,  0,/**/Word_Types, Clb_Flags },
-        /* Op_UpdSrcFW  */  { U|mr,  mri,  0,/**/Word_Types, Clb_Flags },
-        /* Op_DstSrcSSE */  { U|sse, ssem, 0     },  // some may not be update %%
-        /* Op_DstSrcMMX */  { U|mmx, mmxm, 0     },  // some may not be update %%
-        /* Op_DstSrcImmS*/  { U|sse, ssem, N|imm  }, // some may not be update %%
-        /* Op_DstSrcImmM*/  { U|mmx, mmxm, N|imm  }, // some may not be update %%
-        /* Op_UpdSrcShft*/  { U|mr,  reg,  N|shft, 1, Clb_Flags }, // 16/32 only
-        /* Op_DstSrcNT  */  { D|mr,  mr,   0,    0 }, // used for movd .. operands can be rm32,sse,mmx
-        /* Op_UpdSrcNT  */  { U|mr,  mr,   0,    0 }, // used for movd .. operands can be rm32,sse,mmx
-        /* Op_DstMemNT  */  { D|mem, 0,    0     },
-        /* Op_DstRMBNT  */  { D|mr,  0,    0,    Byte_NoType },
-        /* Op_DstRMWNT  */  { D|mr,  0,    0     },
-        /* Op_UpdUpd    */  { U|mr,U|mr,   0,/**/1  },
-        /* Op_UpdUpdF   */  { U|mr,U|mr,   0,/**/1, Clb_Flags },
-        /* Op_Src       */  {   mri, 0,    0,    1  },
-        /* Op_SrcRMWNT  */  {   mr,  0,    0,    0  },
-        /* Op_SrcW      */  {   mri, 0,    0,    Word_Types  },
-        /* Op_SrcImm    */  {   imm },
-        /* Op_Src_DXAXF */  {   mr,  0,    0,    1, Clb_SizeDXAX|Clb_Flags },
-        /* Op_SrcMemNT  */  {   mem, 0,    0     },
-        /* Op_SrcMemNTF */  {   mem, 0,    0,    0, Clb_Flags },
-        /* Op_SrcSrc    */  {   mr,  mri,  0,    1  },
-        /* Op_SrcSrcF   */  {   mr,  mri,  0,    1, Clb_Flags },
-        /* Op_SrcSrcFW  */  {   mr,  mri,  0,    Word_Types, Clb_Flags },
-        /* Op_SrcSrcSSEF*/  {   sse, ssem, 0,    0, Clb_Flags },
-        /* Op_SrcSrcMMX */  {   mmx, mmx,  0, },
-        /* Op_Shift     */  { D|mr,N|shft, 0,/**/1, Clb_Flags },
-        /* Op_Branch    */  {   mri },
-        /* Op_CBranch   */  {   imm },
-        /* Op_0         */  {   0,0,0 },
-        /* Op_0_AX      */  {   0,0,0,           0, Clb_SizeAX },
-        /* Op_0_DXAX    */  {   0,0,0,           0, Clb_SizeDXAX }, // but for cwd/cdq -- how do know the size..
-        /* Op_Loop      */  {   imm, 0,    0,    0, Clb_CX },
-        /* Op_Flags     */  {   0,0,0,           0, Clb_Flags },
-        /* Op_F0_ST     */  {   0,0,0,           0, Clb_ST },
-        /* Op_F0_P      */  {   0,0,0,           0, Clb_ST }, // push, pops, etc. not sure how to inform gcc..
-        /* Op_Fs_P      */  {   mem, 0,    0,    0, Clb_ST }, // "
-        /* Op_Fis       */  {   mem, 0,    0,    FPInt_Types }, // only 16bit and 32bit, DMD defaults to 16bit
-        /* Op_Fis_ST    */  {   mem, 0,    0,    FPInt_Types, Clb_ST }, // "
-        /* Op_Fis_P     */  {   mem, 0,    0,    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
-        /* Op_Fid       */  { D|mem, 0,    0,    FPInt_Types }, // only 16bit and 32bit, DMD defaults to 16bit
-        /* Op_Fid_P     */  { D|mem, 0,    0,    FPInt_Types, Clb_ST, Next_Form, Op_FidR_P }, // push and pop, fild so also 64 bit
-        /* Op_FidR_P    */  { D|mem,rfp,   0,    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
-        /* Op_Ffd       */  { D|mfp, 0,    0,    FP_Types, 0, Next_Form, Op_FfdR }, // only 16bit and 32bit, DMD defaults to 16bit, reg form doesn't need type
-        /* Op_FfdR      */  { D|rfp, 0,    0  },
-        /* Op_Ffd_P     */  { D|mfp, 0,    0,    FP_Types, Clb_ST, Next_Form, Op_FfdR_P }, // pop, fld so also 80 bit, "
-        /* Op_FfdR_P    */  { D|rfp, 0,    0,    0, Clb_ST, Next_Form, Op_FfdRR_P },
-        /* Op_FfdRR_P   */  { D|rfp, rfp,  0,    0, Clb_ST },
-        /* Op_Fd_P      */  { D|mem, 0,    0,    0, Clb_ST }, // "
-        /* Op_FdST      */  { D|rfp, 0,    0  },
-        /* Op_FMath     */  { mfp,   0,    0,    FP_Types, Clb_ST, Next_Form, Op_FMath0  }, // and only single or double prec
-        /* Op_FMath0    */  { 0,     0,    0,    0,  Clb_ST, Next_Form, Op_FMath2  },
-        /* Op_FMath2    */  { D|rfp, rfp,  0,    0,  Clb_ST, Next_Form, Op_FdST0ST1  },
-        /* Op_FdSTiSTi  */  { D|rfp, rfp,  0, },
-        /* Op_FdST0ST1  */  { 0, 0,  0, },
-        /* Op_FPMath    */  { D|rfp, rfp,  0,    0,        Clb_ST, Next_Form, Op_F0_P }, // pops
-        /* Op_FCmp      */  {   mfp, 0,    0,    FP_Types, 0,      Next_Form, Op_FCmp1 }, // DMD defaults to float ptr
-        /* Op_FCmp1     */  {   rfp, 0,    0,    0,        0,      Next_Form, Op_0 },
-        /* Op_FCmpP     */  {   mfp, 0,    0,    FP_Types, 0,      Next_Form, Op_FCmpP1 }, // pops
-        /* Op_FCmpP1    */  {   rfp, 0,    0,    0,        0,      Next_Form, Op_F0_P }, // pops
-        /* Op_FCmpFlg   */  {   rfp, 0,    0,    0,        Clb_Flags },
-        /* Op_FCmpFlgP  */  {   rfp, 0,    0,    0,        Clb_Flags }, // pops
-        /* Op_fld       */  {   mfp, 0,    0,    FP_Types, Clb_ST, Next_Form, Op_fldR },
-        /* Op_fldR      */  {   rfp, 0,    0,    0,        Clb_ST },
-        /* Op_fxch      */  { D|rfp,D|rfp, 0,    0,        Clb_ST, Next_Form, Op_fxch1 }, // not in intel manual?, but DMD allows it (gas won't), second arg must be ST
-        /* Op_fxch1     */  { D|rfp, 0,    0,    0,        Clb_ST, Next_Form, Op_fxch0 },
-        /* Op_fxch0     */  {   0,   0,    0,    0,        Clb_ST }, // Also clobbers ST(1)
-        /* Op_SizedStack*/  {   0,   0,    0,    0,        Clb_SP }, // type suffix special case
-        /* Op_bound     */  {   mr,  mri,  0,    Word_Types  }, // operands *not* reversed for gas
-        /* Op_bswap     */  { D|r32      },
-        /* Op_cmps      */  {   mem, mem, 0,     1, Clb_DI|Clb_SI|Clb_Flags },
-        /* Op_cmpsd     */  {   0,   0,   0,     0, Clb_DI|Clb_SI|Clb_Flags, Next_Form, Op_DstSrcImmS },
-        /* Op_cmpsX     */  {   0,   0,   0,     0, Clb_DI|Clb_SI|Clb_Flags },
-        /* Op_cmpxchg8b */  { D|mem/*64*/,0,0,   0, Clb_SizeDXAX/*32*/|Clb_Flags, Out_Mnemonic, Mn_cmpxchg8b },
-        /* Op_cmpxchg   */  { D|mr,  reg, 0,     1, Clb_SizeAX|Clb_Flags },
-        /* Op_cpuid     */  {   0,0,0 },    // Clobbers eax, ebx, ecx, and edx. Handled specially below.
-        /* Op_enter     */  {   imm, imm }, // operands *not* reversed for gas, %% inform gcc of EBP clobber?,
-        /* Op_fdisi     */  {   0,0,0,           0, 0, Out_Mnemonic, Mn_fdisi },
-        /* Op_feni      */  {   0,0,0,           0, 0, Out_Mnemonic, Mn_feni },
-        /* Op_fsetpm    */  {   0,0,0,           0, 0, Out_Mnemonic, Mn_fsetpm },
-        /* Op_fXstsw    */  { D|mr,  0,   0,     }, // ax is the only allowed register
-        /* Op_imul      */  { D|reg, mr,  imm,   1, Clb_Flags, Next_Form, Op_imul2 }, // 16/32 only
-        /* Op_imul2     */  { D|reg, mri, 0,     1, Clb_Flags, Next_Form, Op_imul1 }, // 16/32 only
-        /* Op_imul1     */  {   mr,  0,   0,     1, Clb_Flags|Clb_SizeDXAX },
-        /* Op_in        */  { D|ax,N|port,0,     1  },
-        /* Op_ins       */  {   mem,N|dx, 0,     1, Clb_DI }, // can't override ES segment for this one
-        /* Op_insX      */  {   0,   0,   0,     0, Clb_DI }, // output segment overrides %% needs work
-        /* Op_iret      */  {   0,0,0,           0, 0, Out_Mnemonic, Mn_iretw },
-        /* Op_iretd     */  {   0,0,0,           0, 0, Out_Mnemonic, Mn_iret },
-        /* Op_lods      */  {   mem, 0,   0,     1, Clb_SI },
-        /* Op_lodsX     */  {   0,   0,   0,     0, Clb_SI },
-        /* Op_movs      */  {   mem, mem, 0,     1, Clb_DI|Clb_SI }, // only src/DS can be overridden
-        /* Op_movsd     */  {   0,   0,   0,     0, Clb_DI|Clb_SI, Next_Form, Op_DstSrcSSE }, // %% gas doesn't accept movsd .. has to movsl
-        /* Op_movsX     */  {   0,   0,   0,     0, Clb_DI|Clb_SI },
-        /* Op_movsx     */  { D|reg, mr,  0,     1 }, // type suffix is special case
-        /* Op_movzx     */  { D|reg, mr,  0,     1 }, // type suffix is special case
-        /* Op_mul       */  { U|ax,  mr,  0,     1, Clb_SizeDXAX|Clb_Flags, Next_Form, Op_Src_DXAXF },
-        /* Op_out       */  { N|port,ax,  0,     1  },
-        /* Op_outs      */  { N|dx,  mem, 0,     1, Clb_SI },
-        /* Op_outsX     */  {   0,   0,   0,     0, Clb_SI },
-        /* Op_push      */  {   mri, 0,    0,    Word_Types, Clb_SP }, // would be Op_SrcW, but DMD defaults to 32-bit for immediate form
-        /* Op_ret       */  {   imm, 0,   0,     0, 0, Next_Form, Op_0  },
-        /* Op_retf      */  {   0,   0,   0,     0, 0, Out_Mnemonic, Mn_lret  },
-        /* Op_scas      */  {   mem, 0,   0,     1, Clb_DI|Clb_Flags },
-        /* Op_scasX     */  {   0,   0,   0,     0, Clb_DI|Clb_Flags },
-        /* Op_stos      */  {   mem, 0,   0,     1, Clb_DI },
-        /* Op_stosX     */  {   0,   0,   0,     0, Clb_DI },
-        /* Op_xgetbv    */  {   0,   0,   0,     0, Clb_SizeDXAX },
-        /* Op_xlat      */  {   mem, 0,   0,     0, Clb_SizeAX }
+        /* Op_Adjust    */  { { 0,0,0 },             0, Clb_EAX /*just AX*/ },
+        /* Op_Dst       */  { { D|mr,  0,    0 },    1  },
+        /* Op_Upd       */  { { U|mr,  0,    0 },    1  },
+        /* Op_DstW      */  { { D|mr,  0,    0 },    Word_Types  },
+        /* Op_DstF      */  { { D|mr,  0,    0 },    1, Clb_Flags },
+        /* Op_UpdF      */  { { U|mr,  0,    0 },    1, Clb_Flags },
+        /* Op_DstSrc    */  { { D|mr,  mri,  0 },/**/1  },
+        /* Op_DstSrcF   */  { { D|mr,  mri,  0 },/**/1, Clb_Flags },
+        /* Op_UpdSrcF   */  { { U|mr,  mri,  0 },/**/1, Clb_Flags },
+        /* Op_DstSrcFW  */  { { D|mr,  mri,  0 },/**/Word_Types, Clb_Flags },
+        /* Op_UpdSrcFW  */  { { U|mr,  mri,  0 },/**/Word_Types, Clb_Flags },
+        /* Op_DstSrcSSE */  { { U|sse, ssem, 0 }     },  // some may not be update %%
+        /* Op_DstSrcMMX */  { { U|mmx, mmxm, 0 }     },  // some may not be update %%
+        /* Op_DstSrcImmS*/  { { U|sse, ssem, N|imm } }, // some may not be update %%
+        /* Op_DstSrcImmM*/  { { U|mmx, mmxm, N|imm } }, // some may not be update %%
+        /* Op_UpdSrcShft*/  { { U|mr,  reg,  N|shft} , 1, Clb_Flags }, // 16/32 only
+        /* Op_DstSrcNT  */  { { D|mr,  mr,   0 },    0 }, // used for movd .. operands can be rm32,sse,mmx
+        /* Op_UpdSrcNT  */  { { U|mr,  mr,   0 },    0 }, // used for movd .. operands can be rm32,sse,mmx
+        /* Op_DstMemNT  */  { { D|mem, 0,    0 }     },
+        /* Op_DstRMBNT  */  { { D|mr,  0,    0 },    Byte_NoType },
+        /* Op_DstRMWNT  */  { { D|mr,  0,    0 }     },
+        /* Op_UpdUpd    */  { { U|mr,U|mr,   0 },/**/1  },
+        /* Op_UpdUpdF   */  { { U|mr,U|mr,   0 },/**/1, Clb_Flags },
+        /* Op_Src       */  { {   mri, 0,    0 },    1  },
+        /* Op_SrcRMWNT  */  { {   mr,  0,    0 },    0  },
+        /* Op_SrcW      */  { {   mri, 0,    0 },    Word_Types  },
+        /* Op_SrcImm    */  { {   imm } },
+        /* Op_Src_DXAXF */  { {   mr,  0,    0 },    1, Clb_SizeDXAX|Clb_Flags },
+        /* Op_SrcMemNT  */  { {   mem, 0,    0 }     },
+        /* Op_SrcMemNTF */  { {   mem, 0,    0 },    0, Clb_Flags },
+        /* Op_SrcSrc    */  { {   mr,  mri,  0 },    1  },
+        /* Op_SrcSrcF   */  { {   mr,  mri,  0 },    1, Clb_Flags },
+        /* Op_SrcSrcFW  */  { {   mr,  mri,  0 },    Word_Types, Clb_Flags },
+        /* Op_SrcSrcSSEF*/  { {   sse, ssem, 0 },    0, Clb_Flags },
+        /* Op_SrcSrcMMX */  { {   mmx, mmx,  0 }, },
+        /* Op_Shift     */  { { D|mr,N|shft, 0 },/**/1, Clb_Flags },
+        /* Op_Branch    */  { {   mri } },
+        /* Op_CBranch   */  { {   imm } },
+        /* Op_0         */  { {   0,0,0 } },
+        /* Op_0_AX      */  { {   0,0,0 },           0, Clb_SizeAX },
+        /* Op_0_DXAX    */  { {   0,0,0 },           0, Clb_SizeDXAX }, // but for cwd/cdq -- how do know the size..
+        /* Op_Loop      */  { {   imm, 0,    0 },    0, Clb_CX },
+        /* Op_Flags     */  { {   0,0,0 },           0, Clb_Flags },
+        /* Op_F0_ST     */  { {   0,0,0 },           0, Clb_ST },
+        /* Op_F0_P      */  { {   0,0,0 },           0, Clb_ST }, // push, pops, etc. not sure how to inform gcc..
+        /* Op_Fs_P      */  { {   mem, 0,    0 },    0, Clb_ST }, // "
+        /* Op_Fis       */  { {   mem, 0,    0 },    FPInt_Types }, // only 16bit and 32bit, DMD defaults to 16bit
+        /* Op_Fis_ST    */  { {   mem, 0,    0 },    FPInt_Types, Clb_ST }, // "
+        /* Op_Fis_P     */  { {   mem, 0,    0 },    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
+        /* Op_Fid       */  { { D|mem, 0,    0 },    FPInt_Types }, // only 16bit and 32bit, DMD defaults to 16bit
+        /* Op_Fid_P     */  { { D|mem, 0,    0 },    FPInt_Types, Clb_ST, Next_Form, Op_FidR_P }, // push and pop, fild so also 64 bit
+        /* Op_FidR_P    */  { { D|mem,rfp,   0 },    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
+        /* Op_Ffd       */  { { D|mfp, 0,    0 },    FP_Types, 0, Next_Form, Op_FfdR }, // only 16bit and 32bit, DMD defaults to 16bit, reg form doesn't need type
+        /* Op_FfdR      */  { { D|rfp, 0,    0 } },
+        /* Op_Ffd_P     */  { { D|mfp, 0,    0 },    FP_Types, Clb_ST, Next_Form, Op_FfdR_P }, // pop, fld so also 80 bit, "
+        /* Op_FfdR_P    */  { { D|rfp, 0,    0 },    0, Clb_ST, Next_Form, Op_FfdRR_P },
+        /* Op_FfdRR_P   */  { { D|rfp, rfp,  0 },    0, Clb_ST },
+        /* Op_FdST      */  { { D|rfp, 0,    0 } },
+        /* Op_FMath     */  { { mfp,   0,    0 },    FP_Types, Clb_ST, Next_Form, Op_FMath0  }, // and only single or double prec
+        /* Op_FMath0    */  { { 0,     0,    0 },    0,  Clb_ST, Next_Form, Op_FMath2  },
+        /* Op_FMath2    */  { { D|rfp, rfp,  0 },    0,  Clb_ST, Next_Form, Op_FdST0ST1  },
+        /* Op_FdSTiSTi  */  { { D|rfp, rfp,  0 }, },
+        /* Op_FdST0ST1  */  { { 0, 0,  0 } },
+        /* Op_FPMath    */  { { D|rfp, rfp,  0 },    0,        Clb_ST, Next_Form, Op_F0_P }, // pops
+        /* Op_FCmp      */  { {   mfp, 0,    0 },    FP_Types, 0,      Next_Form, Op_FCmp1 }, // DMD defaults to float ptr
+        /* Op_FCmp1     */  { {   rfp, 0,    0 },    0,        0,      Next_Form, Op_0 },
+        /* Op_FCmpP     */  { {   mfp, 0,    0 },    FP_Types, 0,      Next_Form, Op_FCmpP1 }, // pops
+        /* Op_FCmpP1    */  { {   rfp, 0,    0 },    0,        0,      Next_Form, Op_F0_P }, // pops
+        /* Op_FCmpFlg   */  { {   rfp, 0,    0 },    0,        Clb_Flags },
+        /* Op_FCmpFlgP  */  { {   rfp, 0,    0 },    0,        Clb_Flags }, // pops
+        /* Op_fld       */  { {   mfp, 0,    0 },    FP_Types, Clb_ST, Next_Form, Op_fldR },
+        /* Op_fldR      */  { {   rfp, 0,    0 },    0,        Clb_ST },
+        /* Op_fxch      */  { { D|rfp,D|rfp, 0 },    0,        Clb_ST, Next_Form, Op_fxch1 }, // not in intel manual?, but DMD allows it (gas won't), second arg must be ST
+        /* Op_fxch1     */  { { D|rfp, 0,    0 },    0,        Clb_ST, Next_Form, Op_fxch0 },
+        /* Op_fxch0     */  { {   0,   0,    0 },    0,        Clb_ST }, // Also clobbers ST(1)
+        /* Op_SizedStack*/  { {   0,   0,    0 },    0,        Clb_SP }, // type suffix special case
+        /* Op_bound     */  { {   mr,  mri,  0 },    Word_Types  }, // operands *not* reversed for gas
+        /* Op_bswap     */  { { D|r32 }     },
+        /* Op_cmps      */  { {   mem, mem, 0 },     1, Clb_DI|Clb_SI|Clb_Flags },
+        /* Op_cmpsd     */  { {   0,   0,   0 },     0, Clb_DI|Clb_SI|Clb_Flags, Next_Form, Op_DstSrcImmS },
+        /* Op_cmpsX     */  { {   0,   0,   0 },     0, Clb_DI|Clb_SI|Clb_Flags },
+        /* Op_cmpxchg8b */  { { D|mem/*64*/,0,0 },   0, Clb_SizeDXAX/*32*/|Clb_Flags, Out_Mnemonic, Mn_cmpxchg8b },
+        /* Op_cmpxchg   */  { { D|mr,  reg, 0 },     1, Clb_SizeAX|Clb_Flags },
+        /* Op_cpuid     */  { {   0,0,0 } },    // Clobbers eax, ebx, ecx, and edx. Handled specially below.
+        /* Op_enter     */  { {   imm, imm } }, // operands *not* reversed for gas, %% inform gcc of EBP clobber?,
+        /* Op_fdisi     */  { {   0,0,0 },           0, 0, Out_Mnemonic, Mn_fdisi },
+        /* Op_feni      */  { {   0,0,0 },           0, 0, Out_Mnemonic, Mn_feni },
+        /* Op_fsetpm    */  { {   0,0,0 },           0, 0, Out_Mnemonic, Mn_fsetpm },
+        /* Op_fXstsw    */  { { D|mr,  0,   0 },     }, // ax is the only allowed register
+        /* Op_imul      */  { { D|reg, mr,  imm },   1, Clb_Flags, Next_Form, Op_imul2 }, // 16/32 only
+        /* Op_imul2     */  { { D|reg, mri, 0 },     1, Clb_Flags, Next_Form, Op_imul1 }, // 16/32 only
+        /* Op_imul1     */  { {   mr,  0,   0 },     1, Clb_Flags|Clb_SizeDXAX },
+        /* Op_in        */  { { D|ax,N|port,0 },     1  },
+        /* Op_ins       */  { {   mem,N|dx, 0 },     1, Clb_DI }, // can't override ES segment for this one
+        /* Op_insX      */  { {   0,   0,   0 },     0, Clb_DI }, // output segment overrides %% needs work
+        /* Op_iret      */  { {   0,0,0 },           0, 0, Out_Mnemonic, Mn_iretw },
+        /* Op_iretd     */  { {   0,0,0 },           0, 0, Out_Mnemonic, Mn_iret },
+        /* Op_lods      */  { {   mem, 0,   0 },     1, Clb_SI },
+        /* Op_lodsX     */  { {   0,   0,   0 },     0, Clb_SI },
+        /* Op_movs      */  { {   mem, mem, 0 },     1, Clb_DI|Clb_SI }, // only src/DS can be overridden
+        /* Op_movsd     */  { {   0,   0,   0 },     0, Clb_DI|Clb_SI, Next_Form, Op_DstSrcSSE }, // %% gas doesn't accept movsd .. has to movsl
+        /* Op_movsX     */  { {   0,   0,   0 },     0, Clb_DI|Clb_SI },
+        /* Op_movsx     */  { { D|reg, mr,  0 },     1 }, // type suffix is special case
+        /* Op_movzx     */  { { D|reg, mr,  0 },     1 }, // type suffix is special case
+        /* Op_mul       */  { { U|ax,  mr,  0 },     1, Clb_SizeDXAX|Clb_Flags, Next_Form, Op_Src_DXAXF },
+        /* Op_out       */  { { N|port,ax,  0 },     1  },
+        /* Op_outs      */  { { N|dx,  mem, 0 },     1, Clb_SI },
+        /* Op_outsX     */  { {   0,   0,   0 },     0, Clb_SI },
+        /* Op_push      */  { {   mri, 0,   0 },    Word_Types, Clb_SP }, // would be Op_SrcW, but DMD defaults to 32-bit for immediate form
+        /* Op_ret       */  { {   imm, 0,   0 },     0, 0, Next_Form, Op_0  },
+        /* Op_retf      */  { {   0,   0,   0 },     0, 0, Out_Mnemonic, Mn_lret  },
+        /* Op_scas      */  { {   mem, 0,   0 },     1, Clb_DI|Clb_Flags },
+        /* Op_scasX     */  { {   0,   0,   0 },     0, Clb_DI|Clb_Flags },
+        /* Op_stos      */  { {   mem, 0,   0 },     1, Clb_DI },
+        /* Op_stosX     */  { {   0,   0,   0 },     0, Clb_DI },
+        /* Op_xgetbv    */  { {   0,   0,   0 },     0, Clb_SizeDXAX },
+        /* Op_xlat      */  { {   mem, 0,   0 },     0, Clb_SizeAX }
 
         /// * Op_arpl      */  { D|mr,  reg }, // 16 only -> DstSrc
         /// * Op_bsX       */  {   rw,  mrw,  0,    1, Clb_Flags },//->srcsrcf
