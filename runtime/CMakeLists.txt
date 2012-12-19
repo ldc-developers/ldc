@@ -384,6 +384,13 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
             ${DCRT_C}
         )
 
+        # This is important as a "serialization point" in the build process so
+        # CMake doesn't invoke the dc()-generated command twice for files linked
+        # both into the druntime and Phobos libraries at the same time, which
+        # lead to corrupted library files. It is unclear whether this is really
+        # a CMake bug or not.
+        add_dependencies(phobos-ldc${target_suffix} ${lib_targets})
+
         set_target_properties(
             phobos-ldc${target_suffix} PROPERTIES
             VERSION                     ${DMDFE_VERSION}
