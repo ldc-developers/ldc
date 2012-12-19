@@ -33,17 +33,17 @@ namespace llvm
 struct ABIRewrite
 {
     /// get a rewritten value back to its original form
-    virtual LLValue* get(Type* dty, DValue* v) = 0;
+    virtual llvm::Value* get(Type* dty, DValue* v) = 0;
 
     /// get a rewritten value back to its original form and store result in provided lvalue
     /// this one is optional and defaults to calling the one above
     virtual void getL(Type* dty, DValue* v, llvm::Value* lval);
 
     /// put out rewritten value
-    virtual LLValue* put(Type* dty, DValue* v) = 0;
+    virtual llvm::Value* put(Type* dty, DValue* v) = 0;
 
     /// should return the transformed type for this rewrite
-    virtual LLType* type(Type* dty, LLType* t) = 0;
+    virtual llvm::Type* type(Type* dty, llvm::Type* t) = 0;
 };
 
 // interface called by codegen
