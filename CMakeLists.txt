@@ -73,6 +73,16 @@ if(MSVC)
     ENABLE_LANGUAGE(ASM_MASM)
 endif()
 
+# Use separate compiler flags for the frontend and for the LDC-specific parts,
+# as enabling warnings on the DMD frontend only leads to a lot of clutter in
+# the output (LLVM_CXXFLAGS sometimes already includes -Wall).
+set(DMD_CXXFLAGS)
+set(LDC_CXXFLAGS)
+if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
+    set(DMD_CXXFLAGS "-w")
+    set(LDC_CXXFLAGS "-Wall")
+endif()
+
 #
 # Run idgen and impcnvgen.
 #
@@ -88,7 +98,7 @@ set_target_properties(
     idgen impcnvgen PROPERTIES
     LINKER_LANGUAGE CXX
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
-    COMPILE_FLAGS "${LLVM_CXXFLAGS}"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${DMD_CXXFLAGS}"
 )
 get_target_property(IDGEN_LOC idgen LOCATION)
 get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
@@ -190,7 +200,14 @@ set(LDC_SOURCE_FILES
 # DMD source files have a .c extension, but are actually C++ code.
 foreach(file ${LDC_SOURCE_FILES})
     if(file MATCHES ".*\\.c$")
-        set_source_files_properties(${file} PROPERTIES LANGUAGE CXX)
+        set_source_files_properties(${file} PROPERTIES
+            LANGUAGE CXX
+            COMPILE_FLAGS "${DMD_CXXFLAGS}"
+        )
+    else()
+        set_source_files_properties(${file} PROPERTIES
+            COMPILE_FLAGS "${LDC_CXXFLAGS}"
+        )
     endif()
 endforeach()
 
@@ -329,7 +346,7 @@ endif()
 set_target_properties(
     gen_gccbuiltins PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    COMPILE_FLAGS "${TABLEGEN_CXXFLAGS}"
+    COMPILE_FLAGS "${TABLEGEN_CXXFLAGS} ${LDC_CXXFLAGS}"
 )
 target_link_libraries(gen_gccbuiltins "${LLVM_LDFLAGS}" ${LLVM_LIBRARIES})
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -347,7 +364,13 @@ if (HAVE_SC_ARG_MAX)
    add_definitions(-DHAVE_SC_ARG_MAX)
 endif()
 
-set_source_files_properties(dmd2/root/response.c dmd2/root/man.c PROPERTIES LANGUAGE CXX)
+set_source_files_properties(dmd2/root/response.c dmd2/root/man.c PROPERTIES
+    LANGUAGE CXX
+    COMPILE_FLAGS "${DMD_CXXFLAGS}"
+)
+set_source_files_properties(driver/ldmd.cpp PROPERTIES
+    COMPILE_FLAGS "${LDC_CXXFLAGS}"
+)
 add_executable(${LDMD_EXE} dmd2/root/response.c dmd2/root/man.c driver/ldmd.cpp)
 set_target_properties(${LDMD_EXE} PROPERTIES
     COMPILE_DEFINITIONS LDC_EXE_NAME="${LDC_EXE_NAME}"
