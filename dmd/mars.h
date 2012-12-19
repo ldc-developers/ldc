@@ -515,7 +515,8 @@ void errorSupplemental(Loc loc, const char *format, ...);
 void verror(Loc loc, const char *format, va_list ap, const char *p1 = NULL, const char *p2 = NULL);
 void vwarning(Loc loc, const char *format, va_list);
 void verrorSupplemental(Loc loc, const char *format, va_list);
-#ifdef __GNUC__
+
+#if defined(__GNUC__) || defined(__clang__)
 __attribute__((noreturn))
 #endif
 void fatal();

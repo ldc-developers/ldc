@@ -1252,7 +1252,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         }
     }
     // template
-    else if (TemplateDeclaration* t = declaration->isTemplateDeclaration())
+    else if (declaration->isTemplateDeclaration())
     {
         Logger::println("TemplateDeclaration");
         // do nothing
@@ -1437,7 +1437,7 @@ DValue* DtoInitializer(LLValue* target, Initializer* init)
         assert(ex->exp);
         return ex->exp->toElem(gIR);
     }
-    else if (ArrayInitializer* ai = init->isArrayInitializer())
+    else if (init->isArrayInitializer())
     {
         // TODO: do nothing ?
     }
@@ -1445,7 +1445,7 @@ DValue* DtoInitializer(LLValue* target, Initializer* init)
     {
         // do nothing
     }
-    else if (StructInitializer *si = init->isStructInitializer()) {
+    else if (init->isStructInitializer()) {
         // TODO: again nothing ?
     }
     else {

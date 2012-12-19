@@ -197,7 +197,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     IRBuilder<> builder(bb);
 
     // debug info
-    llvm::DISubprogram subprog = DtoDwarfSubProgramInternal(fname.c_str(), fname.c_str());
+    DtoDwarfSubProgramInternal(fname.c_str(), fname.c_str());
 
     // get current beginning
     LLValue* curbeg = builder.CreateLoad(mref, "current");

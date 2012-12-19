@@ -420,9 +420,9 @@ namespace AsmParserx8664
     typedef struct
     {
         Opr operands[3];
-        unsigned char
+        unsigned short
     needsType : 3,
-    implicitClobbers : 8,
+    implicitClobbers : 9,
     linkType : 2;
         unsigned link;
 
@@ -3111,11 +3111,12 @@ namespace AsmParserx8664
 
         void doData()
         {
+            // FIXME: data instructions not implemented.
+#if 0
             static const char * directives[] = { ".byte", ".short", ".long", ".long",
                                                  "", "", ""
                                                };
-// FIXME
-            /*
+
                 machine_mode mode;
 
                 insnTemplate->writestring(static_cast<char*>(directives[op - Op_db]));
@@ -3186,7 +3187,8 @@ namespace AsmParserx8664
                     }
                 } while (1);
 
-                setAsmCode();*/
+                setAsmCode();
+#endif
         }
     };
 

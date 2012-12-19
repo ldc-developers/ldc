@@ -96,7 +96,6 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
 
     LLValue *dwarfValue = 0;
     std::vector<LLValue*> dwarfAddr;
-    LLType *int64Ty = LLType::getInt64Ty(gIR->context());
 
     // get the nested context
     LLValue* ctx = 0;

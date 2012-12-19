@@ -732,7 +732,7 @@ void DtoStore(LLValue* src, LLValue* dst)
 {
 //     if (Logger::enabled())
 //         Logger::cout() << "storing " << *src << " into " << *dst << '\n';
-    LLValue* st = gIR->ir->CreateStore(src,dst);
+    gIR->ir->CreateStore(src,dst);
     //st->setVolatile(gIR->func()->inVolatile);
 }
 

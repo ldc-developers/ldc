@@ -178,10 +178,12 @@ Statement *AsmStatement::semantic(Scope *sc)
         return this;
 
     if (!asmparser)
+    {
         if (global.params.cpu == ARCHx86)
             asmparser = new AsmParserx8632::AsmParser;
         else if (global.params.cpu == ARCHx86_64)
             asmparser = new AsmParserx8664::AsmParser;
+    }
 
     asmparser->run(sc, this);
 

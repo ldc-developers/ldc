@@ -2973,11 +2973,11 @@ namespace AsmParserx8632
 
         void doData()
         {
+            // FIXME: data instructions not implemented.
+#if 0
             static const char * directives[] = { ".byte", ".short", ".long", ".long",
                                                  "", "", ""
                                                };
-// FIXME
-            /*
                 machine_mode mode;
 
                 insnTemplate->writestring(static_cast<char*>(directives[op - Op_db]));
@@ -3048,7 +3048,8 @@ namespace AsmParserx8632
                     }
                 } while (1);
 
-                setAsmCode();*/
+                setAsmCode();
+#endif
         }
     };
 

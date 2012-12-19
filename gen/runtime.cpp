@@ -170,14 +170,6 @@ static LLType* rt_dg2()
     return LLStructType::get(gIR->context(), types);
 }
 
-static LLType* rt_complex(LLType* type)
-{
-    llvm::SmallVector<LLType*, 2> types;
-    types.push_back(type);
-    types.push_back(type);
-    return llvm::StructType::get(gIR->context(), types);
-}
-
 static void LLVM_D_BuildRuntimeModule()
 {
     Logger::println("building module");
@@ -187,23 +179,16 @@ static void LLVM_D_BuildRuntimeModule()
     LLType* voidTy = LLType::getVoidTy(gIR->context());
     LLType* boolTy = LLType::getInt1Ty(gIR->context());
     LLType* byteTy = LLType::getInt8Ty(gIR->context());
-    LLType* shortTy = LLType::getInt16Ty(gIR->context());
     LLType* intTy = LLType::getInt32Ty(gIR->context());
     LLType* longTy = LLType::getInt64Ty(gIR->context());
     LLType* sizeTy = DtoSize_t();
 
     Logger::println("building float types");
-    LLType* floatTy = LLType::getFloatTy(gIR->context());
-    LLType* doubleTy = LLType::getDoubleTy(gIR->context());
     LLType* realTy;
     if ((global.params.cpu == ARCHx86) || (global.params.cpu == ARCHx86_64))
         realTy = LLType::getX86_FP80Ty(gIR->context());
     else
         realTy = LLType::getDoubleTy(gIR->context());
-
-    LLType* cfloatTy = rt_complex(floatTy);
-    LLType* cdoubleTy = rt_complex(doubleTy);
-    LLType* crealTy = rt_complex(realTy);
 
     Logger::println("building aggr types");
     LLType* voidPtrTy = rt_ptr(byteTy);
@@ -247,8 +232,6 @@ static void LLVM_D_BuildRuntimeModule()
             = Attr_ReadOnly.addAttr(gIR->context(), 1, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
         Attr_ReadOnly_1_3_NoCapture
             = Attr_ReadOnly_1_NoCapture.addAttr(gIR->context(), 3, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
-        Attr_ReadOnly_1_4_NoCapture
-            = Attr_ReadOnly_1_NoCapture.addAttr(gIR->context(), 4, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
         Attr_ReadOnly_NoUnwind_1_NoCapture
             = Attr_ReadOnly_1_NoCapture.addAttr(gIR->context(), ~0U, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoUnwind))),
         Attr_ReadNone
@@ -257,8 +240,10 @@ static void LLVM_D_BuildRuntimeModule()
             = NoAttrs.addAttr(gIR->context(), 1, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
         Attr_NoAlias_1_NoCapture
             = Attr_1_NoCapture.addAttr(gIR->context(), 0, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias))),
+#if DMDV1
         Attr_NoAlias_3_NoCapture
             = Attr_NoAlias.addAttr(gIR->context(), 3, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
+#endif
         Attr_1_2_NoCapture
             = Attr_1_NoCapture.addAttr(gIR->context(), 2, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
         Attr_1_3_NoCapture
@@ -280,8 +265,6 @@ static void LLVM_D_BuildRuntimeModule()
             = Attr_ReadOnly.addAttr(1, NoCapture),
         Attr_ReadOnly_1_3_NoCapture
             = Attr_ReadOnly_1_NoCapture.addAttr(3, NoCapture),
-        Attr_ReadOnly_1_4_NoCapture
-            = Attr_ReadOnly_1_NoCapture.addAttr(4, NoCapture),
         Attr_ReadOnly_NoUnwind_1_NoCapture
             = Attr_ReadOnly_1_NoCapture.addAttr(~0U, NoUnwind),
         Attr_ReadNone
@@ -290,8 +273,10 @@ static void LLVM_D_BuildRuntimeModule()
             = NoAttrs.addAttr(1, NoCapture),
         Attr_NoAlias_1_NoCapture
             = Attr_1_NoCapture.addAttr(0, NoAlias),
+#if DMDV1
         Attr_NoAlias_3_NoCapture
             = Attr_NoAlias.addAttr(3, NoCapture),
+#endif
         Attr_1_2_NoCapture
             = Attr_1_NoCapture.addAttr(2, NoCapture),
         Attr_1_3_NoCapture

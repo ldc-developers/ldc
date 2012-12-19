@@ -101,12 +101,12 @@ struct IrFuncTy : IrBase
 
     IrFuncTy()
     :   ret(NULL),
-	    args(),
         arg_sret(NULL),
         arg_this(NULL),
         arg_nest(NULL),
         arg_arguments(NULL),
         arg_argptr(NULL),
+        args(),
         c_vararg(false),
         reverseParams(false)
     {}
