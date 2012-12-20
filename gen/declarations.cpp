@@ -182,9 +182,8 @@ void VarDeclaration::codegen(Ir* p)
 
         // Set the alignment (it is important not to use type->alignsize because
         // VarDeclarations can have an align() attribute independent of the type
-        // as well). FIXME: ~0 is really STRUCTALIGN_DEFAULT, change as soon as
-        // 1.075 has been merged.
-        if (alignment != ~0)
+        // as well).
+        if (alignment != STRUCTALIGN_DEFAULT)
             gvar->setAlignment(alignment);
 
         if (Logger::enabled())

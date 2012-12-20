@@ -57,9 +57,9 @@ llvm::Value* IrFuncTy::getRet(Type* dty, DValue* val)
     return val->getRVal();
 }
 
-llvm::Value* IrFuncTy::putParam(Type* dty, int idx, DValue* val)
+llvm::Value* IrFuncTy::putParam(Type* dty, size_t idx, DValue* val)
 {
-    assert(idx >= 0 && idx < args.size() && "invalid putParam");
+    assert(idx < args.size() && "invalid putParam");
     if (args[idx]->rewrite) {
         Logger::println("Rewrite: putParam");
         LOG_SCOPE
@@ -68,9 +68,9 @@ llvm::Value* IrFuncTy::putParam(Type* dty, int idx, DValue* val)
     return val->getRVal();
 }
 
-llvm::Value* IrFuncTy::getParam(Type* dty, int idx, DValue* val)
+llvm::Value* IrFuncTy::getParam(Type* dty, size_t idx, DValue* val)
 {
-    assert(idx >= 0 && idx < args.size() && "invalid getParam");
+    assert(idx < args.size() && "invalid getParam");
     if (args[idx]->rewrite) {
         Logger::println("Rewrite: getParam (get)");
         LOG_SCOPE
@@ -79,9 +79,9 @@ llvm::Value* IrFuncTy::getParam(Type* dty, int idx, DValue* val)
     return val->getRVal();
 }
 
-void IrFuncTy::getParam(Type* dty, int idx, DValue* val, llvm::Value* lval)
+void IrFuncTy::getParam(Type* dty, size_t idx, DValue* val, llvm::Value* lval)
 {
-    assert(idx >= 0 && idx < args.size() && "invalid getParam");
+    assert(idx < args.size() && "invalid getParam");
 
     if (args[idx]->rewrite)
     {

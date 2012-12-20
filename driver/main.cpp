@@ -1138,7 +1138,7 @@ int main(int argc, char** argv)
         llvm::Linker linker("ldc", moduleName, context);
 
         std::string errormsg;
-        for (int i = 0; i < llvmModules.size(); i++)
+        for (size_t i = 0; i < llvmModules.size(); i++)
         {
             if(linker.LinkInModule(llvmModules[i], &errormsg))
                 error("%s", errormsg.c_str());

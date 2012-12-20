@@ -157,9 +157,9 @@ struct IrFuncTy : IrBase
     llvm::Value* putRet(Type* dty, DValue* dval);
     llvm::Value* getRet(Type* dty, DValue* dval);
 
-    llvm::Value* putParam(Type* dty, int idx, DValue* dval);
-    llvm::Value* getParam(Type* dty, int idx, DValue* dval);
-    void getParam(Type* dty, int idx, DValue* dval, llvm::Value* lval);
+    llvm::Value* putParam(Type* dty, size_t idx, DValue* dval);
+    llvm::Value* getParam(Type* dty, size_t idx, DValue* dval);
+    void getParam(Type* dty, size_t idx, DValue* dval, llvm::Value* lval);
 };
 
 #endif

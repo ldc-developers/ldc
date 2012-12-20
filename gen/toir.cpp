@@ -3251,7 +3251,7 @@ DValue* VectorExp::toElem(IRState* p)
         ArrayLiteralExp *e = static_cast<ArrayLiteralExp*>(e1);
         assert(e->elements->dim == dim && "Array literal vector initializer "
             "length mismatch, should have been handled in frontend.");
-        for (int i = 0; i < dim; ++i) {
+        for (unsigned int i = 0; i < dim; ++i) {
             DValue *val = ((*e->elements)[i])->toElem(p);
             LLValue *llval = DtoCast(loc, val, type->elementType())->getRVal();
             DtoStore(llval, DtoGEPi(vector, 0, i));
@@ -3260,7 +3260,7 @@ DValue* VectorExp::toElem(IRState* p)
         Logger::println("normal (splat) expression");
         DValue *val = e1->toElem(p);
         LLValue* llval = DtoCast(loc, val, type->elementType())->getRVal();
-        for (int i = 0; i < dim; ++i) {
+        for (unsigned int i = 0; i < dim; ++i) {
             DtoStore(llval, DtoGEPi(vector, 0, i));
         }
     }

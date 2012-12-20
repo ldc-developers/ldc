@@ -83,7 +83,7 @@ static int ExecuteToolAndWait(llvm::sys::Path tool, std::vector<std::string> arg
     if (verbose)
     {
         // Print it
-        for (int i = 0; i < realargs.size()-1; i++)
+        for (size_t i = 0; i < realargs.size()-1; i++)
             printf("%s ", realargs[i]);
         printf("\n");
         fflush(stdout);

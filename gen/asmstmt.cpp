@@ -319,7 +319,7 @@ assert(0 && "asm fixme Arg_LocalSize");
 // FIXME
 //    if (! irs->func->naked) {
         assert(asmparser);
-        for (int i = 0; i < code->regs.size(); i++) {
+        for (size_t i = 0; i < code->regs.size(); i++) {
             if (code->regs[i]) {
                 clobbers.push_back(asmparser->getRegName(i));
             }

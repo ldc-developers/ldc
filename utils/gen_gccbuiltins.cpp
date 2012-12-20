@@ -100,7 +100,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
 
     ListInit* paramsList = rec.getValueAsListInit("ParamTypes");
     vector<string> params;
-    for(int i = 0; i < paramsList->getSize(); i++)
+    for(unsigned int i = 0; i < paramsList->getSize(); i++)
     {
         string t = dtype(paramsList->getElementAsRecord(i));
         if(t == "")
@@ -128,7 +128,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     if(params.size())
         os << params[0];
 
-    for(int i = 1; i < params.size(); i++)
+    for(size_t i = 1; i < params.size(); i++)
         os << ", " << params[i];
 
     os << ")" + attributes(rec.getValueAsListInit("Properties")) + ";\n\n";

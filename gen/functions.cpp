@@ -565,7 +565,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     }
 
     // build rest of attrs list
-    for (int i = 0; i < n; i++)
+    for (size_t i = 0; i < n; i++)
     {
         if (HAS_ATTRIBUTES(attrptr[i]))
         {
@@ -789,7 +789,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             ++iarg;
         }
 
-        int k = 0;
+        unsigned int k = 0;
 
         for (; iarg != func->arg_end(); ++iarg)
         {
@@ -940,7 +940,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     {
         size_t n = f->fty.args.size();
         assert(n == fd->parameters->dim);
-        for (int i=0; i < n; ++i)
+        for (size_t i=0; i < n; ++i)
         {
             Dsymbol* argsym = static_cast<Dsymbol*>(fd->parameters->data[i]);
             VarDeclaration* vd = argsym->isVarDeclaration();

@@ -682,7 +682,7 @@ Params parseArgs(int originalArgc, char** originalArgv, ls::Path ldcPath)
             else if (strcmp(p + 1, "run") == 0)
             {
                 result.run = true;
-                int runargCount = ((i >= originalArgc) ? argc : originalArgc) - i - 1;
+                int runargCount = (((int)i >= originalArgc) ? argc : originalArgc) - i - 1;
                 if (runargCount)
                 {
                     result.files.push_back(argv[i + 1]);

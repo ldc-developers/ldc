@@ -307,7 +307,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
             // find interface impl
 
             size_t i_index = typeclass->getInterfaceIndex(it);
-            assert(i_index != ~0 && "requesting interface that is not implemented by this class");
+            assert(i_index != ~0UL && "requesting interface that is not implemented by this class");
 
             // offset pointer
             LLValue* v = val->getRVal();

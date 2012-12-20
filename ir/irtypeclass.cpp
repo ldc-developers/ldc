@@ -324,7 +324,7 @@ std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, Array* vtbl_arr
         {
             Logger::println("Running late semantic3 to infer return type.");
             TemplateInstance *spec = fd->isSpeculative();
-            int olderrs = global.errors;
+            unsigned int olderrs = global.errors;
             fd->semantic3(fd->scope);
             if (spec && global.errors != olderrs)
                 spec->errors = global.errors - olderrs;
@@ -360,7 +360,7 @@ size_t IrTypeClass::getInterfaceIndex(ClassDeclaration * inter)
 {
     ClassIndexMap::iterator it = interfaceMap.find(inter);
     if (it == interfaceMap.end())
-        return ~0;
+        return ~0UL;
     return it->second;
 }
 

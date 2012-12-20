@@ -1113,7 +1113,7 @@ void UnrolledLoopStatement::toIR(IRState* p)
     // do statements
     Statement** stmts = (Statement**)statements->data;
 
-    for (int i=0; i<nstmt; i++)
+    for (size_t i=0; i<nstmt; i++)
     {
         Statement* s = stmts[i];
 
