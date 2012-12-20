@@ -21,8 +21,9 @@ IrTypeFunction::IrTypeFunction(Type* dt, LLType* lt)
 {
 }
 
-IrTypeFunction* IrTypeFunction::get(Type* dt)
+IrTypeFunction* IrTypeFunction::get(Type* dt, Type* nestedContextOverride)
 {
+    assert(!dt->irtype);
     assert(dt->ty == Tfunction);
 
     // We can't get cycles here, but we can end up building the type as part of
@@ -32,7 +33,7 @@ IrTypeFunction* IrTypeFunction::get(Type* dt)
     if (tf->funcdecl)
         lt = DtoFunctionType(tf->funcdecl);
     else
-        lt = DtoFunctionType(tf,NULL,NULL);
+        lt = DtoFunctionType(tf, NULL, nestedContextOverride);
 
     if (!dt->irtype)
         dt->irtype = new IrTypeFunction(dt, lt);
@@ -48,16 +49,28 @@ IrTypeDelegate::IrTypeDelegate(Type * dt, LLType* lt)
 
 IrTypeDelegate* IrTypeDelegate::get(Type* dt)
 {
+    assert(!dt->irtype);
     assert(dt->ty == Tdelegate);
 
-    // We can't get cycles here, but we can end up building the type as part of
-    // a class vtbl, ...
-    LLType* func = DtoFunctionType(dt->nextOf(), NULL, Type::tvoid->pointerTo());
+    // We can't get cycles here, but we could end up building the type as part
+    // of a class vtbl, ...
+    if (!dt->nextOf()->irtype)
+    {
+        // Build the underlying function type. Be sure to set irtype here, so
+        // the nested context arg doesn't disappear if DtoType is ever called
+        // on dt->nextOf().
+        IrTypeFunction::get(dt->nextOf(), Type::tvoid->pointerTo());
+    }
     if (!dt->irtype)
     {
+        assert(static_cast<TypeFunction*>(dt->nextOf())->fty.arg_nest &&
+            "Underlying function type should have nested context arg, "
+            "picked up random pre-existing type?"
+        );
+
         llvm::SmallVector<LLType*, 2> types;
         types.push_back(getVoidPtrType());
-        types.push_back(getPtrToType(func));
+        types.push_back(getPtrToType(dt->nextOf()->irtype->getLLType()));
         LLStructType* lt = LLStructType::get(gIR->context(), types);
         dt->irtype = new IrTypeDelegate(dt, lt);
     }

@@ -23,7 +23,7 @@ class IrTypeFunction : public IrType
 {
 public:
     ///
-    static IrTypeFunction* get(Type* dt);
+    static IrTypeFunction* get(Type* dt, Type* nestedContextOverride = 0);
 
     ///
     IrTypeFunction* isFunction()  { return this; }
