@@ -172,10 +172,9 @@ static LLType* rt_dg2()
 
 static void LLVM_D_BuildRuntimeModule()
 {
-    Logger::println("building module");
+    Logger::println("building runtime module");
     M = new llvm::Module("ldc internal runtime", gIR->context());
 
-    Logger::println("building basic types");
     LLType* voidTy = LLType::getVoidTy(gIR->context());
     LLType* boolTy = LLType::getInt1Ty(gIR->context());
     LLType* byteTy = LLType::getInt8Ty(gIR->context());
@@ -183,14 +182,12 @@ static void LLVM_D_BuildRuntimeModule()
     LLType* longTy = LLType::getInt64Ty(gIR->context());
     LLType* sizeTy = DtoSize_t();
 
-    Logger::println("building float types");
     LLType* realTy;
     if ((global.params.cpu == ARCHx86) || (global.params.cpu == ARCHx86_64))
         realTy = LLType::getX86_FP80Ty(gIR->context());
     else
         realTy = LLType::getDoubleTy(gIR->context());
 
-    Logger::println("building aggr types");
     LLType* voidPtrTy = rt_ptr(byteTy);
     LLType* voidArrayTy = rt_array(byteTy);
     LLType* voidArrayPtrTy = getPtrToType(voidArrayTy);
@@ -198,15 +195,11 @@ static void LLVM_D_BuildRuntimeModule()
     LLType* wstringTy = DtoType(Type::twchar->arrayOf());
     LLType* dstringTy = DtoType(Type::tdchar->arrayOf());
 
-    Logger::println("building class types");
     LLType* objectTy = DtoType(ClassDeclaration::object->type);
     LLType* classInfoTy = DtoType(ClassDeclaration::classinfo->type);
     LLType* typeInfoTy = DtoType(Type::typeinfo->type);
 
-    Logger::println("building aa type");
     LLType* aaTy = rt_ptr(LLStructType::get(gIR->context()));
-
-    Logger::println("building functions");
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
