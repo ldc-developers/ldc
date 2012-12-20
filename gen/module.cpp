@@ -50,6 +50,10 @@
 #include "ir/irmodule.h"
 #include "ir/irtype.h"
 
+#if !MODULEINFO_IS_STRUCT
+#include "ir/irtypeclass.h"
+#endif
+
 #if DMDV2
 #define NEW_MODULEINFO_LAYOUT 1
 #endif
@@ -379,8 +383,12 @@ void Module::genmoduleinfo()
     RTTIBuilder b(moduleinfo);
 
     // some types
-    LLType* moduleinfoTy = moduleinfo->type->irtype->getType();
-    LLType* classinfoTy = ClassDeclaration::classinfo->type->irtype->getType();
+#if MODULEINFO_IS_STRUCT
+    LLType* moduleinfoTy = moduleinfo->type->irtype->getLLType();
+#else
+    LLType* moduleinfoTy = moduleinfo->type->irtype->isClass()->getMemoryLLType();
+#endif
+    LLType* classinfoTy = ClassDeclaration::classinfo->type->irtype->getLLType();
 
     // importedModules[]
     std::vector<LLConstant*> importInits;
@@ -438,13 +446,13 @@ void Module::genmoduleinfo()
             continue;
         }
         Logger::println("class: %s", cd->toPrettyChars());
-        LLConstant *c = DtoBitCast(cd->ir.irStruct->getClassInfoSymbol(), getPtrToType(classinfoTy));
+        LLConstant *c = DtoBitCast(cd->ir.irStruct->getClassInfoSymbol(), classinfoTy);
         classInits.push_back(c);
     }
     // has class array?
     if (!classInits.empty())
     {
-        localClassesTy = llvm::ArrayType::get(getPtrToType(classinfoTy), classInits.size());
+        localClassesTy = llvm::ArrayType::get(classinfoTy, classInits.size());
         localClasses = LLConstantArray::get(localClassesTy, classInits);
     }
 

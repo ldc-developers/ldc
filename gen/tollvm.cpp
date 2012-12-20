@@ -79,7 +79,7 @@ LLType* DtoType(Type* t)
 
     if (t->irtype)
     {
-        return t->irtype->get();
+        return t->irtype->getLLType();
     }
 
     IF_LOG Logger::println("Building type: %s", t->toChars());

@@ -279,7 +279,7 @@ llvm::Type* IrTypeClass::buildType()
 
     IF_LOG Logger::cout() << "class type: " << *type << std::endl;
 
-    return get();
+    return getLLType();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -349,9 +349,16 @@ std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, Array* vtbl_arr
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::Type * IrTypeClass::get()
+llvm::Type * IrTypeClass::getLLType()
 {
     return llvm::PointerType::get(type, 0);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::Type * IrTypeClass::getMemoryLLType()
+{
+    return type;
 }
 
 //////////////////////////////////////////////////////////////////////////////

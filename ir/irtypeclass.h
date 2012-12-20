@@ -31,7 +31,11 @@ public:
     llvm::Type* buildType();
 
     ///
-    llvm::Type* get();
+    llvm::Type* getLLType();
+
+    /// Returns the actual storage type, i.e. without the indirection
+    /// for the class reference.
+    llvm::Type* getMemoryLLType();
 
     /// Returns the vtable type for this class.
     llvm::Type* getVtbl()         { return vtbl_type; }

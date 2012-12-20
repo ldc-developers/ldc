@@ -71,11 +71,9 @@ public:
 #endif
 
     ///
-    Type* getD()                        { return dtype; }
+    Type* getDType()                    { return dtype; }
     ///
-    virtual llvm::Type* get()           { return type; }
-    ///
-    llvm::Type* getType()               { return type; }
+    virtual llvm::Type* getLLType()     { return type; }
 
     ///
     virtual llvm::Type* buildType() = 0;
