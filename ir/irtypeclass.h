@@ -22,16 +22,17 @@ class IrTypeClass : public IrTypeAggr
 {
 public:
     ///
-    IrTypeClass(ClassDeclaration* cd);
+    static IrTypeClass* get(ClassDeclaration* cd);
 
     ///
     virtual IrTypeClass* isClass()      { return this; }
 
     ///
-    llvm::Type* buildType();
+    llvm::Type* getLLType();
 
-    ///
-    llvm::Type* get();
+    /// Returns the actual storage type, i.e. without the indirection
+    /// for the class reference.
+    llvm::Type* getMemoryLLType();
 
     /// Returns the vtable type for this class.
     llvm::Type* getVtbl()         { return vtbl_type; }
@@ -49,6 +50,9 @@ public:
     unsigned getNumInterfaceVtbls()     { return num_interface_vtbls; }
 
 protected:
+    ///
+    IrTypeClass(ClassDeclaration* cd);
+
     ///
     ClassDeclaration* cd;
     ///

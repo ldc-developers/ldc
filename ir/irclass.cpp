@@ -78,9 +78,9 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
     IrTypeClass* tc = stripModifiers(cinfo->type)->irtype->isClass();
     assert(tc && "invalid ClassInfo type");
 
-    // classinfos cannot be constants since they're used a locks for synchronized
+    // classinfos cannot be constants since they're used as locks for synchronized
     classInfo = new llvm::GlobalVariable(
-                *gIR->module, tc->getType(), false, _linkage, NULL, initname);
+        *gIR->module, tc->getMemoryLLType(), false, _linkage, NULL, initname);
 
 #if USE_METADATA
     // Generate some metadata on this ClassInfo if it's for a class.

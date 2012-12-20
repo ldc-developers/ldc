@@ -29,9 +29,6 @@ class IrTypeAggr : public IrType
 {
 public:
     ///
-    IrTypeAggr(AggregateDeclaration* ad);
-
-    ///
     IrTypeAggr* isAggr()            { return this; }
 
     ///
@@ -44,6 +41,9 @@ public:
     iterator def_end()          { return default_fields.end(); }
 
 protected:
+    ///
+    IrTypeAggr(AggregateDeclaration* ad);
+
     /// AggregateDeclaration this type represents.
     AggregateDeclaration* aggr;
 
@@ -61,7 +61,7 @@ class IrTypeStruct : public IrTypeAggr
 {
 public:
     ///
-    IrTypeStruct(StructDeclaration* sd);
+    static IrTypeStruct* get(StructDeclaration* sd);
 
     ///
     IrTypeStruct* isStruct()    { return this; }
@@ -70,6 +70,9 @@ public:
     llvm::Type* buildType();
 
 protected:
+    ///
+    IrTypeStruct(StructDeclaration* sd);
+
     /// StructDeclaration this type represents.
     StructDeclaration* sd;
 

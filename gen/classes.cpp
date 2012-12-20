@@ -722,7 +722,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     }
     else
     {
-        LLType* cd_type = stripModifiers(cdty)->irtype->getType();
+        LLType* cd_type = cdty->irtype->isClass()->getMemoryLLType();
         size_t initsz = getTypePaddedSize(cd_type);
         b.push_void_array(initsz, ir->getInitSymbol());
     }
