@@ -178,7 +178,7 @@ namespace {
                 Logger::cout() << "x86-64 ABI: Implicitly handled type: "
                                << ty->toChars() << '\n';
             // arrays, delegates, etc. (pointer-sized fields, <= 16 bytes)
-            assert(offset == 0 || offset == 8
+            assert((offset == 0 || offset == 8)
                     && "must be aligned and doesn't fit otherwise");
             assert(ty->size() % 8 == 0 && "Not a multiple of pointer size?");
 
@@ -484,7 +484,7 @@ bool X86_64TargetABI::passByVal(Type* t) {
                 //       http://llvm.org/bugs/show_bug.cgi?id=3741
                 return true;
             } else {
-                assert(t == Type::tfloat80 || t == Type::timaginary80 || t->ty == Tsarray || t->size() <= 8
+                assert((t == Type::tfloat80 || t == Type::timaginary80 || t->ty == Tsarray || t->size() <= 8)
                     && "What other big types are there?");
                 // In any case, they shouldn't be represented as structs in LLVM:
                 assert(!isaStruct(DtoType(t)));

@@ -182,12 +182,6 @@ static void LLVM_D_BuildRuntimeModule()
     LLType* longTy = LLType::getInt64Ty(gIR->context());
     LLType* sizeTy = DtoSize_t();
 
-    LLType* realTy;
-    if ((global.params.cpu == ARCHx86) || (global.params.cpu == ARCHx86_64))
-        realTy = LLType::getX86_FP80Ty(gIR->context());
-    else
-        realTy = LLType::getDoubleTy(gIR->context());
-
     LLType* voidPtrTy = rt_ptr(byteTy);
     LLType* voidArrayTy = rt_array(byteTy);
     LLType* voidArrayPtrTy = getPtrToType(voidArrayTy);

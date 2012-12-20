@@ -1518,7 +1518,6 @@ namespace AsmParserx8664
         // need clobber information.. use information is good too...
         void doInstruction()
         {
-            bool ok = true;
             unsigned operand_i = 0;
 
             opInfo = & asmOpInfo[op];
@@ -1568,7 +1567,6 @@ namespace AsmParserx8664
                 }
                 else
                 {
-                    ok = false;
                     stmt->error ( "too many operands for instruction" );
                     break;
                 }
@@ -1579,13 +1577,11 @@ namespace AsmParserx8664
                 }
                 else if ( token->value != TOKeof )
                 {
-                    ok = false;
                     stmt->error ( "expected comma after operand" );
                     return;
                 }
             }
 //  if (operand_i < opInfo->minOperands) {
-//      ok = false;
 //      stmt->error("too few operands for instruction");
 //  }
 
