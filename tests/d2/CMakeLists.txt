@@ -1,14 +1,14 @@
 include(CheckTypeSize)
 check_type_size(void* ptr_size)
 if(${ptr_size} MATCHES "^4$")
-    set(model 32)
+    set(host_model 32)
 elseif(${ptr_size} MATCHES "^8$")
-    set(model 64)
+    set(host_model 64)
 endif()
 
 get_property(ldmd_path TARGET ldmd2 PROPERTY LOCATION)
 
-function(add_testsuite config_name dflags)
+function(add_testsuite config_name dflags model)
     set(name dmd-testsuite_${config_name})
     set(outdir ${CMAKE_BINARY_DIR}/${name})
 
@@ -27,11 +27,11 @@ endfunction()
 # Would like to specify the "-release" flag for relase builds, but some of the
 # tests (e.g. 'testdstress') depend on contracts and invariants being active.
 # Need a solution integrated with d_do_test.
-add_testsuite(debug -gc)
-add_testsuite(release -O3)
+add_testsuite(debug -gc ${host_model})
+add_testsuite(release -O3 ${host_model})
 
-if(MULTILIB AND model EQUAL 64)
+if(MULTILIB AND host_model EQUAL 64)
     # Also test in 32 bit mode on x86_64 multilib builds.
-    add_testsuite(debug_32 -gc -m32)
-    add_testsuite(release_32 -O3 -m32)
+    add_testsuite(debug_32 -gc 32)
+    add_testsuite(release_32 -O3 32)
 endif()
