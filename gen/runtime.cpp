@@ -41,7 +41,6 @@ static llvm::cl::opt<bool> noruntime("noruntime",
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 static llvm::Module* M = NULL;
-static bool runtime_failed = false;
 
 static void LLVM_D_BuildRuntimeModule();
 
@@ -77,7 +76,6 @@ llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name
     }
 
     if (!M) {
-        assert(!runtime_failed);
         LLVM_D_InitRuntime();
     }
 
@@ -113,7 +111,6 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
     }
 
     if (!M) {
-        assert(!runtime_failed);
         LLVM_D_InitRuntime();
     }
 
