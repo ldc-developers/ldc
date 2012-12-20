@@ -475,6 +475,7 @@ namespace AsmParserx8632
         /* Op_Ffd_P     */  { { D|mfp, 0,    0 },    FP_Types, Clb_ST, Next_Form, Op_FfdR_P }, // pop, fld so also 80 bit, "
         /* Op_FfdR_P    */  { { D|rfp, 0,    0 },    0, Clb_ST, Next_Form, Op_FfdRR_P },
         /* Op_FfdRR_P   */  { { D|rfp, rfp,  0 },    0, Clb_ST },
+        /* Op_Fd_P      */  { { D|mem, 0,    0 },    0, Clb_ST }, // "
         /* Op_FdST      */  { { D|rfp, 0,    0 } },
         /* Op_FMath     */  { { mfp,   0,    0 },    FP_Types, Clb_ST, Next_Form, Op_FMath0  }, // and only single or double prec
         /* Op_FMath0    */  { { 0,     0,    0 },    0,  Clb_ST, Next_Form, Op_FMath2  },
