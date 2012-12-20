@@ -80,7 +80,11 @@ set(DMD_CXXFLAGS)
 set(LDC_CXXFLAGS)
 if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
     set(DMD_CXXFLAGS "-w")
-    set(LDC_CXXFLAGS "-Wall")
+
+    # -Wunused-parameter triggers for LLVM headers, and
+    # -Wmissing-field-initializer leads to reams of warnings in
+    # gen/asm-*.h
+    set(LDC_CXXFLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers")
 endif()
 
 #
