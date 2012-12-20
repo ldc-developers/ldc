@@ -53,6 +53,7 @@
 
 #include "ir/irvar.h"
 #include "ir/irtype.h"
+#include <ir/irtypeclass.h>
 
 /*******************************************
  * Get a canonicalized form of the TypeInfo for use with the internal
@@ -323,7 +324,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 
     if (!irg->value) {
         if (tid->tinfo->builtinTypeInfo()) // this is a declaration of a builtin __initZ var
-            irg->type = Type::typeinfo->type->irtype->getType();
+            irg->type = Type::typeinfo->type->irtype->isClass()->getMemoryLLType();
         else
             irg->type = LLStructType::create(gIR->context(), tid->toPrettyChars());
         irg->value = new llvm::GlobalVariable(*gIR->module, irg->type, true,
@@ -348,10 +349,10 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
             if (TD_Confirm >= 0)
                 mdVals[TD_Confirm] = llvm::cast<MDNodeField>(irg->value);
             mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
-            // Construct the metadata
-            llvm::MetadataBase* metadata = llvm::MDNode::get(gIR->context(), mdVals, TD_NumFields);
-            // Insert it into the module
-            llvm::NamedMDNode::Create(gIR->context(), metaname, &metadata, 1, gIR->module);
+            // Construct the metadata and insert it into the module.
+            llvm::NamedMDNode* node = gIR->module->getOrInsertNamedMetadata(metaname);
+            node->addOperand(llvm::MDNode::get(gIR->context(),
+                llvm::makeArrayRef(mdVals, TD_NumFields)));
         }
     }
 #endif // USE_METADATA
@@ -638,7 +639,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     // void[] init
     // never emit a null array, even for zero initialized typeinfo
     // the size() method uses this array!
-    size_t init_size = getTypeStoreSize(tc->irtype->getType());
+    size_t init_size = getTypeStoreSize(tc->irtype->getLLType());
     b.push_void_array(init_size, irstruct->getInitSymbol());
 
     // toX functions ground work

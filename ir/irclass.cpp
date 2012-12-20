@@ -9,6 +9,7 @@
 
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
+#include "llvm/ADT/SmallString.h"
 
 #include "aggregate.h"
 #include "declaration.h"
@@ -78,9 +79,9 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
     IrTypeClass* tc = stripModifiers(cinfo->type)->irtype->isClass();
     assert(tc && "invalid ClassInfo type");
 
-    // classinfos cannot be constants since they're used a locks for synchronized
+    // classinfos cannot be constants since they're used as locks for synchronized
     classInfo = new llvm::GlobalVariable(
-                *gIR->module, tc->getType(), false, _linkage, NULL, initname);
+        *gIR->module, tc->getMemoryLLType(), false, _linkage, NULL, initname);
 
 #if USE_METADATA
     // Generate some metadata on this ClassInfo if it's for a class.
@@ -96,11 +97,12 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
         mdVals[CD_BodyType] = llvm::UndefValue::get(bodyType);
         mdVals[CD_Finalize] = LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor);
         mdVals[CD_CustomDelete] = LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasCustomDelete);
-        // Construct the metadata
-        llvm::MetadataBase* metadata = llvm::MDNode::get(gIR->context(), mdVals, CD_NumFields);
-        // Insert it into the module
-        std::string metaname = CD_PREFIX + initname;
-        llvm::NamedMDNode::Create(gIR->context(), metaname, &metadata, 1, gIR->module);
+        // Construct the metadata and insert it into the module.
+        llvm::SmallString<64> name;
+        llvm::NamedMDNode* node = gIR->module->getOrInsertNamedMetadata(
+            llvm::Twine(CD_PREFIX, initname).toStringRef(name));
+        node->addOperand(llvm::MDNode::get(gIR->context(),
+            llvm::makeArrayRef(mdVals, CD_NumFields)));
     }
 #endif // USE_METADATA
 

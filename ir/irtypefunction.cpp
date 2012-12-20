@@ -16,47 +16,64 @@
 
 #include "ir/irtypefunction.h"
 
-IrTypeFunction::IrTypeFunction(Type* dt)
-:   IrType(dt, func2llvm(dt))
+IrTypeFunction::IrTypeFunction(Type* dt, LLType* lt)
+:   IrType(dt, lt)
 {
-    irfty = NULL;
 }
 
-llvm::Type * IrTypeFunction::buildType()
+IrTypeFunction* IrTypeFunction::get(Type* dt, Type* nestedContextOverride)
 {
-    return type;
-}
+    assert(!dt->irtype);
+    assert(dt->ty == Tfunction);
 
-llvm::Type* IrTypeFunction::func2llvm(Type* dt)
-{
-    llvm::Type* T;
+    // We can't get cycles here, but we can end up building the type as part of
+    // a class vtbl, ...
+    llvm::Type* lt;
     TypeFunction* tf = static_cast<TypeFunction*>(dt);
     if (tf->funcdecl)
-        T = DtoFunctionType(tf->funcdecl);
+        lt = DtoFunctionType(tf->funcdecl);
     else
-        T = DtoFunctionType(tf,NULL,NULL);
-    return T;
+        lt = DtoFunctionType(tf, NULL, nestedContextOverride);
+
+    if (!dt->irtype)
+        dt->irtype = new IrTypeFunction(dt, lt);
+    return dt->irtype->isFunction();
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-IrTypeDelegate::IrTypeDelegate(Type * dt)
-:   IrType(dt, delegate2llvm(dt))
+IrTypeDelegate::IrTypeDelegate(Type * dt, LLType* lt)
+:   IrType(dt, lt)
 {
 }
 
-llvm::Type* IrTypeDelegate::buildType()
+IrTypeDelegate* IrTypeDelegate::get(Type* dt)
 {
-    return type;
-}
-
-llvm::Type* IrTypeDelegate::delegate2llvm(Type* dt)
-{
+    assert(!dt->irtype);
     assert(dt->ty == Tdelegate);
-    LLType* func = DtoFunctionType(dt->nextOf(), NULL, Type::tvoid->pointerTo());
-    llvm::SmallVector<LLType*, 2> types;
-    types.push_back(getVoidPtrType());
-    types.push_back(getPtrToType(func));
-    LLStructType* dgtype = LLStructType::get(gIR->context(), types);
-    return dgtype;
+
+    // We can't get cycles here, but we could end up building the type as part
+    // of a class vtbl, ...
+    if (!dt->nextOf()->irtype)
+    {
+        // Build the underlying function type. Be sure to set irtype here, so
+        // the nested context arg doesn't disappear if DtoType is ever called
+        // on dt->nextOf().
+        IrTypeFunction::get(dt->nextOf(), Type::tvoid->pointerTo());
+    }
+    if (!dt->irtype)
+    {
+        assert(static_cast<TypeFunction*>(dt->nextOf())->fty.arg_nest &&
+            "Underlying function type should have nested context arg, "
+            "picked up random pre-existing type?"
+        );
+
+        llvm::SmallVector<LLType*, 2> types;
+        types.push_back(getVoidPtrType());
+        types.push_back(getPtrToType(dt->nextOf()->irtype->getLLType()));
+        LLStructType* lt = LLStructType::get(gIR->context(), types);
+        dt->irtype = new IrTypeDelegate(dt, lt);
+    }
+
+    return dt->irtype->isDelegate();
 }

@@ -42,7 +42,11 @@ set(CONF_INST_DIR ${SYSCONF_INSTALL_DIR} CACHE PATH "Directory ldc.conf is insta
 # The following flags are currently not well tested, expect the build to fail.
 option(USE_BOEHM_GC "use the Boehm garbage collector internally")
 option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
-option(USE_METADATA "use metadata and related custom optimization passes")
+
+# Enabled by default now, will be removed entirely soon if no problems pop up
+# with the added functionality.
+option(USE_METADATA "use metadata and related custom optimization passes" ON)
+
 mark_as_advanced(USE_BOEHM_GC GENERATE_OFFTI USE_METADATA)
 
 if(D_VERSION EQUAL 1)

@@ -20,15 +20,6 @@
 #include "llvm/Metadata.h"
 typedef llvm::Value MDNodeField;
 
-// Use getNumElements() and getElement() to access elements.
-inline unsigned MD_GetNumElements(llvm::MDNode* N) {
-    return N->getNumElements();
-}
-
-inline MDNodeField* MD_GetElement(llvm::MDNode* N, unsigned i) {
-    return N->getElement(i);
-}
-
 #define METADATA_LINKAGE_TYPE  llvm::GlobalValue::WeakODRLinkage
 
 // *** Metadata for TypeInfo instances ***

@@ -190,7 +190,7 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
 
 #if USE_METADATA
         if (!disableGCToStack)
-            Builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd, addGarbageCollect2StackPass);
+            builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd, addGarbageCollect2StackPass);
 #endif // USE_METADATA
     }
 
