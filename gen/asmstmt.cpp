@@ -552,7 +552,7 @@ void AsmBlockStatement::toIR(IRState* p)
 
     // location of the special value determining the goto label
     // will be set if post-asm dispatcher block is needed
-    llvm::AllocaInst* jump_target;
+    llvm::AllocaInst* jump_target = 0;
 
     {
         FuncDeclaration* fd = gIR->func()->decl;
