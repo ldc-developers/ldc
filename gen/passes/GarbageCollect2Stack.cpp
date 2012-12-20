@@ -31,7 +31,11 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/ValueTracking.h"
+#if LDC_LLVM_VER >= 302
+#include "llvm/DataLayout.h"
+#else
 #include "llvm/Target/TargetData.h"
+#endif
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"
@@ -49,7 +53,11 @@ STATISTIC(NumDeleted, "Number of GC calls deleted because the return value was u
 
 namespace {
     struct Analysis {
+#if LDC_LLVM_VER >= 302
+        DataLayout& TD;
+#else
         TargetData& TD;
+#endif
         const Module& M;
         CallGraph* CG;
         CallGraphNode* CGNode;
@@ -291,7 +299,11 @@ namespace {
         bool runOnFunction(Function &F);
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+#if LDC_LLVM_VER >= 302
+          AU.addRequired<DataLayout>();
+#else
           AU.addRequired<TargetData>();
+#endif
           AU.addRequired<DominatorTree>();
 
           AU.addPreserved<CallGraph>();
@@ -355,7 +367,11 @@ static bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& D
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
     DEBUG(errs() << "\nRunning -dgc2stack on function " << F.getName() << '\n');
 
+#if LDC_LLVM_VER >= 302
+    DataLayout& TD = getAnalysis<DataLayout>();
+#else
     TargetData& TD = getAnalysis<TargetData>();
+#endif
     DominatorTree& DT = getAnalysis<DominatorTree>();
     CallGraph* CG = getAnalysisIfAvailable<CallGraph>();
     CallGraphNode* CGNode = CG ? (*CG)[&F] : NULL;
@@ -604,7 +620,6 @@ bool isSafeToStackAllocateArray(Instruction* Alloc, DominatorTree& DT,
 
     for (Value::use_iterator UI = V->use_begin(), UE = V->use_end();
          UI != UE; ++UI) {
-        Use &U = UI.getUse();
         Instruction *User = cast<Instruction>(*UI);
 
         switch (User->getOpcode()) {
@@ -700,7 +715,13 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
       CallSite::arg_iterator B = CS.arg_begin(), E = CS.arg_end();
       for (CallSite::arg_iterator A = B; A != E; ++A)
         if (A->get() == V) {
-          if (!CS.paramHasAttr(A - B + 1, Attribute::NoCapture)) {
+          if (!CS.paramHasAttr(A - B + 1,
+#if LDC_LLVM_VER >= 302
+              Attributes::NoCapture
+#else
+              Attribute::NoCapture
+#endif
+          )) {
             // The parameter is not marked 'nocapture' - captured.
             return false;
           }
