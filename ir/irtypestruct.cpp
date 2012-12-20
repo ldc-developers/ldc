@@ -84,20 +84,23 @@ bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2)
 // this is pretty much the exact same thing we need to do for fields in each
 // base class of a class
 
-llvm::Type* IrTypeStruct::buildType()
+IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
 {
+    IrTypeStruct* t = new IrTypeStruct(sd);
+    sd->type->irtype = t;
+
     IF_LOG Logger::println("Building struct type %s @ %s",
         sd->toPrettyChars(), sd->loc.toChars());
     LOG_SCOPE;
 
     // if it's a forward declaration, all bets are off, stick with the opaque
     if (sd->sizeok != 1)
-        return type;
+        return t;
 
     // mirror the sd->fields array but only fill in contributors
     size_t n = sd->fields.dim;
     LLSmallVector<VarDeclaration*, 16> data(n, NULL);
-    default_fields.reserve(n);
+    t->default_fields.reserve(n);
 
     // first fill in the fields with explicit initializers
     VarDeclarationIter field_it(sd->fields);
@@ -197,7 +200,7 @@ llvm::Type* IrTypeStruct::buildType()
         assert(vd->offset >= offset);
 
         // add to default field list
-        default_fields.push_back(vd);
+        t->default_fields.push_back(vd);
 
         // get next aligned offset for this type
         size_t alignedoffset = offset;
@@ -229,11 +232,11 @@ llvm::Type* IrTypeStruct::buildType()
     }
 
     // set struct body
-    isaStruct(type)->setBody(defaultTypes, packed);
+    isaStruct(t->type)->setBody(defaultTypes, packed);
 
-    IF_LOG Logger::cout() << "final struct type: " << *type << std::endl;
+    IF_LOG Logger::cout() << "final struct type: " << *t->type << std::endl;
 
-    return type;
+    return t;
 }
 
 //////////////////////////////////////////////////////////////////////////////

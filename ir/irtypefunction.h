@@ -23,18 +23,17 @@ class IrTypeFunction : public IrType
 {
 public:
     ///
-    IrTypeFunction(Type* dt);
+    static IrTypeFunction* get(Type* dt);
 
     ///
     IrTypeFunction* isFunction()  { return this; }
 
-    ///
-    llvm::Type* buildType();
-
     IrFuncTy* fty() { return irfty; }
 
 protected:
-    llvm::Type* func2llvm(Type* dt);
+    ///
+    IrTypeFunction(Type* dt, llvm::Type* lt);
+
     ///
     IrFuncTy* irfty;
 };
@@ -44,15 +43,14 @@ class IrTypeDelegate : public IrType
 {
 public:
     ///
-    IrTypeDelegate(Type* dt);
+    static IrTypeDelegate* get(Type* dt);
 
     ///
     IrTypeDelegate* isDelegate()    { return this; }
 
-    ///
-    llvm::Type* buildType();
 protected:
-    llvm::Type* delegate2llvm(Type* dt);
+    ///
+    IrTypeDelegate(Type* dt, llvm::Type* lt);
 };
 
 #endif

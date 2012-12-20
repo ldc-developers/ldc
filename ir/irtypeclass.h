@@ -22,13 +22,10 @@ class IrTypeClass : public IrTypeAggr
 {
 public:
     ///
-    IrTypeClass(ClassDeclaration* cd);
+    static IrTypeClass* get(ClassDeclaration* cd);
 
     ///
     virtual IrTypeClass* isClass()      { return this; }
-
-    ///
-    llvm::Type* buildType();
 
     ///
     llvm::Type* getLLType();
@@ -53,6 +50,9 @@ public:
     unsigned getNumInterfaceVtbls()     { return num_interface_vtbls; }
 
 protected:
+    ///
+    IrTypeClass(ClassDeclaration* cd);
+
     ///
     ClassDeclaration* cd;
     ///

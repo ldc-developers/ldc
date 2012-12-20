@@ -8,8 +8,7 @@
 //===----------------------------------------------------------------------===//
 //
 // The types derived from IrType are used to attach LLVM type information and
-// other codegen metadata (e.g. for vtbl resolution) to frontend Types. There
-// is an 1:1 correspondence between Type and IrType instances.
+// other codegen metadata (e.g. for vtbl resolution) to frontend Types.
 //
 //===----------------------------------------------------------------------===//
 
@@ -40,13 +39,17 @@ class IrTypeVector;
 
 //////////////////////////////////////////////////////////////////////////////
 
-/// Base class for IrTypeS.
+/// Code generation state/metadata for D types. The mapping from IrType to
+/// Type is injective but not surjective.
+///
+/// Derived classes should be created using their static get() methods, which
+/// makes sure that uniqueness is preserved in the face of forward references.
+/// Note that the get() methods expect the IrType of the passed type/symbol to
+/// be not yet set. This could be altered to just return the existing IrType
+/// in order to bring the API entirely in line with the LLVM type get() methods.
 class IrType
 {
 public:
-    ///
-    IrType(Type* dt, llvm::Type* lt);
-
     ///
     virtual IrTypeAggr* isAggr()        { return NULL; }
     ///
@@ -75,10 +78,10 @@ public:
     ///
     virtual llvm::Type* getLLType()     { return type; }
 
-    ///
-    virtual llvm::Type* buildType() = 0;
-
 protected:
+    ///
+    IrType(Type* dt, llvm::Type* lt);
+
     ///
     Type* dtype;
 
@@ -93,19 +96,18 @@ class IrTypeBasic : public IrType
 {
 public:
     ///
-    IrTypeBasic(Type* dt);
+    static IrTypeBasic* get(Type* dt);
 
     ///
     IrTypeBasic* isBasic()          { return this; }
 
-    ///
-    llvm::Type* buildType();
-
 protected:
     ///
-    LLType* getComplexType(llvm::LLVMContext& ctx, LLType* type);
+    IrTypeBasic(Type* dt);
     ///
-    llvm::Type* basic2llvm(Type* t);
+    static LLType* getComplexType(llvm::LLVMContext& ctx, LLType* type);
+    ///
+    static llvm::Type* basic2llvm(Type* t);
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -115,19 +117,14 @@ class IrTypePointer : public IrType
 {
 public:
     ///
-    IrTypePointer(Type* dt);
+    static IrTypePointer* get(Type* dt);
 
     ///
     IrTypePointer* isPointer()      { return this; }
 
-    ///
-    llvm::Type* buildType();
-
 protected:
     ///
-    llvm::Type* pointer2llvm(Type* t);
-    ///
-    llvm::Type* null2llvm(Type* t);
+    IrTypePointer(Type* dt, LLType *lt);
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -137,20 +134,17 @@ class IrTypeSArray : public IrType
 {
 public:
     ///
-    IrTypeSArray(Type* dt);
+    static IrTypeSArray* get(Type* dt);
 
     ///
     IrTypeSArray* isSArray()  { return this; }
 
-    ///
-    llvm::Type* buildType();
-
 protected:
     ///
-    llvm::Type* sarray2llvm(Type* t);
+    IrTypeSArray(Type* dt);
 
-    /// Dimension.
-    uint64_t dim;
+    ///
+    static llvm::Type* sarray2llvm(Type* t);
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -160,17 +154,16 @@ class IrTypeArray : public IrType
 {
 public:
     ///
-    IrTypeArray(Type* dt);
+    static IrTypeArray* get(Type* dt);
 
     ///
     IrTypeArray* isArray()  { return this; }
 
-    ///
-    llvm::Type* buildType();
-
 protected:
     ///
-    llvm::Type* array2llvm(Type* t);
+    IrTypeArray(Type* dt);
+    ///
+    static llvm::Type* array2llvm(Type* t);
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -181,17 +174,16 @@ class IrTypeVector : public IrType
 {
 public:
     ///
-    IrTypeVector(Type* dt);
+    static IrTypeVector* get(Type* dt);
 
     ///
     IrTypeVector* isVector()    { return this; }
 
-    ///
-    llvm::Type* buildType();
 protected:
-    llvm::Type* vector2llvm(Type* dt);
-    /// Dimension.
-    uint64_t dim;
+    ///
+    IrTypeVector(Type* dt);
+
+    static llvm::Type* vector2llvm(Type* dt);
 };
 #endif
 

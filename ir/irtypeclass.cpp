@@ -222,8 +222,11 @@ void IrTypeClass::addBaseClassData(
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::Type* IrTypeClass::buildType()
+IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
 {
+    IrTypeClass* t = new IrTypeClass(cd);
+    cd->type->irtype = t;
+
     IF_LOG Logger::println("Building class type %s @ %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
     IF_LOG Logger::println("Instance size: %u", cd->structsize);
@@ -235,12 +238,12 @@ llvm::Type* IrTypeClass::buildType()
     defaultTypes.reserve(32);
 
     // add vtbl
-    defaultTypes.push_back(llvm::PointerType::get(vtbl_type, 0));
+    defaultTypes.push_back(llvm::PointerType::get(t->vtbl_type, 0));
 
     // interfaces are just a vtable
     if (cd->isInterfaceDeclaration())
     {
-        num_interface_vtbls = cd->vtblInterfaces ? cd->vtblInterfaces->dim : 0;
+        t->num_interface_vtbls = cd->vtblInterfaces ? cd->vtblInterfaces->dim : 0;
     }
     // classes have monitor and fields
     else
@@ -253,7 +256,7 @@ llvm::Type* IrTypeClass::buildType()
         size_t field_index = 2;
 
         // add data members recursively
-        addBaseClassData(defaultTypes, cd, offset, field_index);
+        t->addBaseClassData(defaultTypes, cd, offset, field_index);
 
 #if 1
         // tail padding?
@@ -270,16 +273,16 @@ llvm::Type* IrTypeClass::buildType()
         fatal();
 
     // set struct body
-    isaStruct(type)->setBody(defaultTypes, false);
+    isaStruct(t->type)->setBody(defaultTypes, false);
 
     // VTBL
 
     // set vtbl type body
-    vtbl_type->setBody(buildVtblType(ClassDeclaration::classinfo->type, &cd->vtbl));
+    t->vtbl_type->setBody(t->buildVtblType(ClassDeclaration::classinfo->type, &cd->vtbl));
 
-    IF_LOG Logger::cout() << "class type: " << *type << std::endl;
+    IF_LOG Logger::cout() << "class type: " << *t->type << std::endl;
 
-    return getLLType();
+    return t;
 }
 
 //////////////////////////////////////////////////////////////////////////////

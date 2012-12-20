@@ -13,15 +13,11 @@
 #include "mtype.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
+#include "gen/tollvm.h"
 #include "ir/irtype.h"
 
 // This code uses llvm::getGlobalContext() as these functions are invoked before gIR is set.
 // ... thus it segfaults on gIR==NULL
-
-//////////////////////////////////////////////////////////////////////////////
-
-extern LLType* DtoType(Type* dt);
-extern LLIntegerType* DtoSize_t();
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -31,10 +27,7 @@ IrType::IrType(Type* dt, LLType* lt)
 {
     assert(dt && "null D Type");
     assert(lt && "null LLVM Type");
-#if 0
-    // FIXME: For some reason the assert fails
-    assert(dt->irtype == NULL && "already has IrType");
-#endif
+    assert(!dt->irtype && "already has IrType");
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -48,9 +41,11 @@ IrTypeBasic::IrTypeBasic(Type * dt)
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::Type * IrTypeBasic::buildType()
+IrTypeBasic* IrTypeBasic::get(Type* dt)
 {
-    return type;
+    IrTypeBasic* t = new IrTypeBasic(dt);
+    dt->irtype = t;
+    return t;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -145,35 +140,36 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-IrTypePointer::IrTypePointer(Type * dt)
-: IrType(dt, dt->ty == Tnull ? null2llvm(dt) : pointer2llvm(dt))
+IrTypePointer::IrTypePointer(Type* dt, LLType* lt)
+: IrType(dt, lt)
 {
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::Type * IrTypePointer::buildType()
+IrTypePointer* IrTypePointer::get(Type* dt)
 {
-    return type;
-}
+    assert(!dt->irtype);
+    assert((dt->ty == Tpointer || dt->ty == Tnull) && "not pointer/null type");
 
-//////////////////////////////////////////////////////////////////////////////
-
-llvm::Type * IrTypePointer::pointer2llvm(Type * dt)
-{
-    assert(dt->ty == Tpointer && "not pointer type");
-
-    LLType* elemType = DtoType(dt->nextOf());
-    if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
+    LLType* elemType;
+    if (dt->ty == Tnull)
+    {
         elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
-    return llvm::PointerType::get(elemType, 0);
-}
+    }
+    else
+    {
+        elemType = DtoTypeNotVoid(dt->nextOf());
 
-llvm::Type* IrTypePointer::null2llvm(Type* dt)
-{
-    assert(dt->ty == Tnull && "not null type");
-    LLType* elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
-    return llvm::PointerType::get(elemType, 0);
+        // DtoTypeNotVoid could have already created the same type, e.g. for
+        // dt == Node* in struct Node { Node* n; }.
+        if (dt->irtype)
+            return dt->irtype->isPointer();
+    }
+
+    IrTypePointer* t = new IrTypePointer(dt, llvm::PointerType::get(elemType, 0));
+    dt->irtype = t;
+    return t;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -187,9 +183,11 @@ IrTypeSArray::IrTypeSArray(Type * dt)
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::Type * IrTypeSArray::buildType()
+IrTypeSArray* IrTypeSArray::get(Type* dt)
 {
-    return type;
+    IrTypeSArray* t = new IrTypeSArray(dt);
+    dt->irtype = t;
+    return t;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -198,7 +196,7 @@ llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
 {
     assert(t->ty == Tsarray && "not static array type");
     TypeSArray* tsa = static_cast<TypeSArray*>(t);
-    dim = static_cast<uint64_t>(tsa->dim->toUInteger());
+    uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
     LLType* elemType = DtoType(t->nextOf());
     if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
         elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
@@ -216,9 +214,11 @@ IrTypeArray::IrTypeArray(Type * dt)
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::Type * IrTypeArray::buildType()
+IrTypeArray* IrTypeArray::get(Type* dt)
 {
-    return type;
+    IrTypeArray* t = new IrTypeArray(dt);
+    dt->irtype = t;
+    return t;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -255,9 +255,11 @@ IrTypeVector::IrTypeVector(Type* dt)
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::Type* IrTypeVector::buildType()
+IrTypeVector* IrTypeVector::get(Type* dt)
 {
-    return type;
+    IrTypeVector* t = new IrTypeVector(dt);
+    dt->irtype = t;
+    return t;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -268,7 +270,7 @@ llvm::Type* IrTypeVector::vector2llvm(Type* dt)
     TypeVector* tv = static_cast<TypeVector*>(dt);
     assert(tv->basetype->ty == Tsarray);
     TypeSArray* tsa = static_cast<TypeSArray*>(tv->basetype);
-    dim = static_cast<uint64_t>(tsa->dim->toUInteger());
+    uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
     LLType* elemType = DtoType(tsa->next);
     if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
         elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());

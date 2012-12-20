@@ -113,55 +113,65 @@ LLType* DtoType(Type* t)
     case Twchar:
     case Tdchar:
     {
-        t->irtype = new IrTypeBasic(t);
-        return t->irtype->buildType();
+        return IrTypeBasic::get(t)->getLLType();
     }
 
     // pointers
     case Tnull:
     case Tpointer:
     {
-        t->irtype = new IrTypePointer(t);
-        return t->irtype->buildType();
+        return IrTypePointer::get(t)->getLLType();
     }
 
     // arrays
     case Tarray:
     {
-        t->irtype = new IrTypeArray(t);
-        return t->irtype->buildType();
+        return IrTypeArray::get(t)->getLLType();
     }
 
     case Tsarray:
     {
-        t->irtype = new IrTypeSArray(t);
-        return t->irtype->buildType();
+        return IrTypeSArray::get(t)->getLLType();
     }
 
     // aggregates
-    case Tstruct:    {
+    case Tstruct:
+    {
         TypeStruct* ts = static_cast<TypeStruct*>(t);
-        t->irtype = new IrTypeStruct(ts->sym);
-        return t->irtype->buildType();
+        if (ts->sym->type->irtype)
+        {
+            // This should not happen, but the frontend seems to be buggy. Not
+            // sure if this is the best way to handle the situation, but we
+            // certainly don't want to override ts->sym->type->irtype.
+            IF_LOG Logger::cout() << "Struct with multiple Types detected: " <<
+                ts->toChars() << " (" << ts->sym->locToChars() << ")" << std::endl;
+            return ts->sym->type->irtype->getLLType();
+        }
+        return IrTypeStruct::get(ts->sym)->getLLType();
     }
-    case Tclass:    {
+    case Tclass:
+    {
         TypeClass* tc = static_cast<TypeClass*>(t);
-        t->irtype = new IrTypeClass(tc->sym);
-        return t->irtype->buildType();
+        if (tc->sym->type->irtype)
+        {
+            // See Tstruct case.
+            IF_LOG Logger::cout() << "Class with multiple Types detected: " <<
+                tc->toChars() << " (" << tc->sym->locToChars() << ")" << std::endl;
+            return tc->sym->type->irtype->getLLType();
+        }
+        return IrTypeClass::get(tc->sym)->getLLType();
     }
 
     // functions
     case Tfunction:
     {
-        t->irtype = new IrTypeFunction(t);
-        return t->irtype->buildType();
+        return IrTypeFunction::get(t)->getLLType();
     }
 
     // delegates
     case Tdelegate:
     {
-        t->irtype = new IrTypeDelegate(t);
-        return t->irtype->buildType();
+        return IrTypeDelegate::get(t)->getLLType();
     }
 
     // typedefs
@@ -183,8 +193,7 @@ LLType* DtoType(Type* t)
 #if DMDV2
     case Tvector:
     {
-        t->irtype = new IrTypeVector(t);
-        return t->irtype->buildType();
+        return IrTypeVector::get(t)->getLLType();
     }
 #endif
 
