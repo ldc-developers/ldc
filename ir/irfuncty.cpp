@@ -17,7 +17,11 @@
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
 
+#if LDC_LLVM_VER >= 303
+IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, llvm::Attribute a) : type(t)
+#else
 IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, llvm::Attributes a) : type(t)
+#endif
 {
     ltype = t != Type::tvoid && bref ? DtoType(t->pointerTo()) : DtoType(t);
     attrs = a;
@@ -25,7 +29,11 @@ IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, llvm::Attributes a) : type(t)
     rewrite = NULL;
 }
 
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+bool IrFuncTyArg::isInReg() const { return attrs.hasAttribute(llvm::Attribute::InReg); }
+bool IrFuncTyArg::isSRet() const  { return attrs.hasAttribute(llvm::Attribute::StructRet); }
+bool IrFuncTyArg::isByVal() const { return attrs.hasAttribute(llvm::Attribute::ByVal); }
+#elif LDC_LLVM_VER == 302
 bool IrFuncTyArg::isInReg() const { return attrs.hasAttribute(llvm::Attributes::InReg); }
 bool IrFuncTyArg::isSRet() const  { return attrs.hasAttribute(llvm::Attributes::StructRet); }
 bool IrFuncTyArg::isByVal() const { return attrs.hasAttribute(llvm::Attributes::ByVal); }

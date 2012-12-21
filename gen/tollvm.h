@@ -34,7 +34,11 @@ LLType* DtoTypeNotVoid(Type* t);
 bool DtoIsPassedByRef(Type* type);
 
 // should argument be zero or sign extended
+#if LDC_LLVM_VER >= 303
+llvm::Attribute DtoShouldExtend(Type* type);
+#else
 llvm::Attributes DtoShouldExtend(Type* type);
+#endif
 
 // tuple helper
 // takes a arguments list and makes a struct type out of them

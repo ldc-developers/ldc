@@ -44,7 +44,11 @@ struct IrFuncTyArg : IrBase
 
     /** These are the final LLVM attributes used for the function.
      *  Must be valid for the LLVM Type and byref setting */
+#if LDC_LLVM_VER >= 303
+    llvm::Attribute attrs;
+#else
     llvm::Attributes attrs;
+#endif
 
     /** 'true' if the final LLVM argument is a LLVM reference type.
      *  Must be true when the D Type is a value type, but the final
@@ -67,7 +71,9 @@ struct IrFuncTyArg : IrBase
      *  @param byref Initial value for the 'byref' field. If true the initial
      *               LLVM Type will be of DtoType(type->pointerTo()), instead
      *               of just DtoType(type) */
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+    IrFuncTyArg(Type* t, bool byref, llvm::Attribute a = llvm::Attribute());
+#elif LDC_LLVM_VER == 302
     IrFuncTyArg(Type* t, bool byref, llvm::Attributes a = llvm::Attributes());
 #else
     IrFuncTyArg(Type* t, bool byref, llvm::Attributes a = llvm::Attribute::None);

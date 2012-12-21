@@ -42,7 +42,11 @@ bool DtoIsPassedByRef(Type* type)
     return (t == Tstruct || t == Tsarray);
 }
 
+#if LDC_LLVM_VER >= 303
+llvm::Attribute DtoShouldExtend(Type* type)
+#else
 llvm::Attributes DtoShouldExtend(Type* type)
+#endif
 {
     type = type->toBasetype();
     if (type->isintegral())
@@ -51,7 +55,9 @@ llvm::Attributes DtoShouldExtend(Type* type)
         {
         case Tint8:
         case Tint16:
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+            return llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::SExt));
+#elif LDC_LLVM_VER == 302
             return llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::SExt));
 #else
             return llvm::Attribute::SExt;
@@ -59,14 +65,18 @@ llvm::Attributes DtoShouldExtend(Type* type)
 
         case Tuns8:
         case Tuns16:
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+            return llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::ZExt));
+#elif LDC_LLVM_VER == 302
             return llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::ZExt));
 #else
             return llvm::Attribute::ZExt;
 #endif
         }
     }
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+    return llvm::Attribute();
+#elif LDC_LLVM_VER == 302
     return llvm::Attributes();
 #else
     return llvm::Attribute::None;

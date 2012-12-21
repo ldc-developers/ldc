@@ -68,7 +68,9 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
     else
     {
         Type* rt = f->next;
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+        llvm::Attribute a;
+#elif LDC_LLVM_VER == 302
         llvm::Attributes a;
 #else
         llvm::Attributes a = None;
@@ -78,9 +80,15 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         if (abi->returnInArg(f))
         {
 #if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+            fty.arg_sret = new IrFuncTyArg(rt, true, llvm::Attribute::get(gIR->context(),
+                llvm::AttrBuilder().addAttribute(llvm::Attribute::StructRet)
+                .addAttribute(llvm::Attribute::NoAlias)
+#else
             fty.arg_sret = new IrFuncTyArg(rt, true, llvm::Attributes::get(gIR->context(),
                 llvm::AttrBuilder().addAttribute(llvm::Attributes::StructRet)
                 .addAttribute(llvm::Attributes::NoAlias)
+#endif
             #if !STRUCTTHISREF
                 // In D2 where 'this' in structs is a reference, nocapture
                 // might not actually be applicable, even if it probably still
@@ -146,7 +154,11 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
                 fty.arg_arguments = new IrFuncTyArg(Type::typeinfo->type->arrayOf(), false);
                 lidx++;
                 // _argptr
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+                fty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
+                                                 llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoAlias)
+                                                                                                         .addAttribute(llvm::Attribute::NoCapture)));
+#elif LDC_LLVM_VER == 302
                 fty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
                                                  llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
                                                                                                           .addAttribute(llvm::Attributes::NoCapture)));
@@ -186,7 +198,9 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
 #endif
 
         Type* argtype = arg->type;
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+        llvm::Attribute a;
+#elif LDC_LLVM_VER == 302
         llvm::Attributes a;
 #else
         llvm::Attributes a = None;
@@ -203,7 +217,9 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         // byval
         else if (abi->passByVal(byref ? argtype->pointerTo() : argtype))
         {
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+            if (!byref) a = llvm::Attribute::get(gIR->context(), llvm::AttrBuilder(a).addAttribute(llvm::Attribute::ByVal));
+#elif LDC_LLVM_VER == 302
             if (!byref) a = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder(a).addAttribute(llvm::Attributes::ByVal));
 #else
             if (!byref) a |= llvm::Attribute::ByVal;
@@ -214,7 +230,9 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         // sext/zext
         else if (!byref)
         {
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+            a = llvm::Attribute::get(gIR->context(), llvm::AttrBuilder(a).addAttributes(DtoShouldExtend(argtype)));
+#elif LDC_LLVM_VER == 302
             a = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder(a).addAttributes(DtoShouldExtend(argtype)));
 #else
             a |= DtoShouldExtend(argtype);
@@ -333,7 +351,9 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 
     LLFunction* fun = gIR->module->getFunction(mangled_name);
     fun->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+    fun->addFnAttr(llvm::Attribute::AlwaysInline);
+#elif LDC_LLVM_VER == 302
     fun->addFnAttr(llvm::Attributes::AlwaysInline);
 #else
     fun->addFnAttr(AlwaysInline);
@@ -544,7 +564,9 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
 
     // set attrs on the rest of the arguments
     size_t n = Parameter::dim(f->parameters);
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+    LLSmallVector<llvm::Attribute, 8> attrptr(n, llvm::Attribute());
+#elif LDC_LLVM_VER == 302
     LLSmallVector<llvm::Attributes, 8> attrptr(n, llvm::Attributes());
 #else
     LLSmallVector<llvm::Attributes, 8> attrptr(n, None);
@@ -587,7 +609,11 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
         bool found = false;
         for (size_t j = 0; j < newSize; ++j) {
             if (attrs[j].Index == curr.Index) {
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+                attrs[j].Attrs = llvm::Attribute::get(
+                    gIR->context(),
+                    llvm::AttrBuilder(attrs[j].Attrs).addAttributes(curr.Attrs));
+#elif LDC_LLVM_VER == 302
                 attrs[j].Attrs = llvm::Attributes::get(
                     gIR->context(),
                     llvm::AttrBuilder(attrs[j].Attrs).addAttributes(curr.Attrs));
@@ -688,7 +714,9 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     if (!fdecl->isIntrinsic()) {
         set_param_attrs(f, func, fdecl);
         if (global.params.disableRedZone) {
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+            func->addFnAttr(llvm::Attribute::NoRedZone);
+#elif LDC_LLVM_VER == 302
             func->addFnAttr(llvm::Attributes::NoRedZone);
 #else
             func->addFnAttr(NoRedZone);

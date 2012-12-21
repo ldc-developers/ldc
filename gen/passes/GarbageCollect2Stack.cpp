@@ -27,7 +27,11 @@
 #include "llvm/Intrinsics.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/CommandLine.h"
+#if LDC_LLVM_VER >= 303
+#include "llvm/IRBuilder.h"
+#else
 #include "llvm/Support/IRBuilder.h"
+#endif
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/ValueTracking.h"
@@ -716,7 +720,9 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
       for (CallSite::arg_iterator A = B; A != E; ++A)
         if (A->get() == V) {
           if (!CS.paramHasAttr(A - B + 1,
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+              Attribute::NoCapture
+#elif LDC_LLVM_VER == 302
               Attributes::NoCapture
 #else
               Attribute::NoCapture

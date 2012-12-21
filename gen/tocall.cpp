@@ -404,7 +404,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         // add attrs for hidden ptr
         Attr.Index = 1;
         Attr.Attrs = tf->fty.arg_sret->attrs;
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+        assert((Attr.Attrs.hasAttribute(llvm::Attribute::StructRet) || Attr.Attrs.hasAttribute(llvm::Attribute::InReg))
+            && "Sret arg not sret or inreg?");
+#elif LDC_LLVM_VER == 302
         assert((Attr.Attrs.hasAttribute(llvm::Attributes::StructRet) || Attr.Attrs.hasAttribute(llvm::Attributes::InReg))
             && "Sret arg not sret or inreg?");
 #else
@@ -525,7 +528,9 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         }
 
         size_t n = Parameter::dim(tf->parameters);
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+        LLSmallVector<llvm::Attribute, 10> attrptr(n, llvm::Attribute());
+#elif LDC_LLVM_VER == 302
         LLSmallVector<llvm::Attributes, 10> attrptr(n, llvm::Attributes());
 #else
         LLSmallVector<llvm::Attributes, 10> attrptr(n, llvm::Attribute::None);
