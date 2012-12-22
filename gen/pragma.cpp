@@ -31,6 +31,19 @@ static bool parseStringExp(Expression* e, std::string& res)
     return false;
 }
 
+static bool parseIntExp(Expression* e, dinteger_t& res)
+{
+    IntegerExp *i = NULL;
+
+    e = e->optimize(WANTvalue);
+    if (e->op == TOKint64 && (i = static_cast<IntegerExp *>(e)))
+    {
+        res = i->value;
+        return true;
+    }
+    return false;
+}
+
 static void pragmaDeprecated(Identifier* oldIdent, Identifier* newIdent)
 {
 #ifndef DMDV1
@@ -102,6 +115,31 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
         }
 
         return LLVMintrinsic;
+    }
+
+    // pragma(ctor [, priority]) { funcdecl(s) }
+    else if (ident == Id::LDC_global_crt_ctor || ident == Id::LDC_global_crt_dtor)
+    {
+        dinteger_t priority;
+        if (args)
+        {
+            if (args->dim != 1 || !parseIntExp(expr, priority))
+            {
+                error("requires at most 1 integer literal parameter");
+                fatal();
+            }
+            if (priority > 65535)
+            {
+                error("priority may not be greater then 65535");
+                priority = 65535;
+            }
+        }
+        else
+            priority = 65535;
+        char buf[8];
+        sprintf(buf, "%lu", priority);
+        arg1str = std::string(buf);
+        return ident == Id::LDC_global_crt_ctor ? LLVMglobal_crt_ctor : LLVMglobal_crt_dtor;
     }
 
     // pragma(notypeinfo) { typedecl(s) }
@@ -330,6 +368,36 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         {
             error("only allowed on function declarations");
             fatal();
+        }
+        break;
+    case LLVMglobal_crt_ctor:
+    case LLVMglobal_crt_dtor:
+        if (FuncDeclaration* fd = s->isFuncDeclaration())
+        {
+            assert(fd->type->ty == Tfunction);
+            TypeFunction* type = static_cast<TypeFunction*>(fd->type);
+            Type* retType = type->next;
+            if (retType->ty != Tvoid || type->parameters->dim > 0 || (
+#if DMDV2
+            fd->isAggregateMember()
+#else
+            fd->isThis()
+#endif
+                  && !fd->isStatic())) {
+                error(fd->loc, "the '%s' pragma is only allowed on void functions which take no arguments",
+                      ident->toChars());
+                fd->llvmInternal = LLVMnone;
+                break;
+            }
+
+            fd->llvmInternal = llvm_internal;
+            fd->priority = std::atoi(arg1str.c_str());
+        }
+        else
+        {
+            error(s->loc, "the '%s' pragma is only allowed on function declarations",
+                  ident->toChars());
+            s->llvmInternal = LLVMnone;
         }
         break;
 
