@@ -475,12 +475,11 @@ DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
         LLValue* v = val->getRVal();
         LLValue* impart = gIR->ir->CreateExtractValue(v, 1, ".im_part");
         Type *extractty;
-        if (vty->ty == Tcomplex32) {
-            extractty = Type::timaginary32;
-        } else if (vty->ty == Tcomplex64) {
-            extractty = Type::timaginary64;
-        } else if (vty->ty == Tcomplex80) {
-            extractty = Type::timaginary80;
+        switch (vty->ty) {
+        default: llvm_unreachable("Unexpected floating point type");
+        case Tcomplex32: extractty = Type::timaginary32; break;
+        case Tcomplex64: extractty = Type::timaginary64; break;
+        case Tcomplex80: extractty = Type::timaginary80; break;
         }
         DImValue* im = new DImValue(extractty, impart);
         return DtoCastFloat(loc, im, to);
@@ -493,12 +492,11 @@ DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
         LLValue* v = val->getRVal();
         LLValue* repart = gIR->ir->CreateExtractValue(v, 0, ".re_part");
         Type *extractty;
-        if (vty->ty == Tcomplex32) {
-            extractty = Type::tfloat32;
-        } else if (vty->ty == Tcomplex64) {
-            extractty = Type::tfloat64;
-        } else if (vty->ty == Tcomplex80) {
-            extractty = Type::tfloat80;
+        switch (vty->ty) {
+        default: llvm_unreachable("Unexpected floating point type");
+        case Tcomplex32: extractty = Type::tfloat32; break;
+        case Tcomplex64: extractty = Type::tfloat64; break;
+        case Tcomplex80: extractty = Type::tfloat80; break;
         }
         DImValue* re = new DImValue(extractty, repart);
         return DtoCastFloat(loc, re, to);
