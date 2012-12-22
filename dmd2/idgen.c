@@ -285,6 +285,8 @@ Msgtable msgtable[] =
     { "LDC_atomic_store" },
     { "LDC_atomic_cmp_xchg" },
     { "LDC_atomic_rmw" },
+    { "LDC_global_crt_ctor" },
+    { "LDC_global_crt_dtor" },
 
     // Deprecated LDC pragmas lacking the vendor prefix.
     { "intrinsic" },
