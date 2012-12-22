@@ -1029,7 +1029,7 @@ LLStructType* DtoMutexType()
     // FreeBSD
     else if (global.params.os == OSFreeBSD) {
         // Just a pointer
-        return LLStructType::get(gIR->context(), DtoSize_t(), NULL);
+        return LLStructType::get(gIR->context(), DtoSize_t());
     }
 
     // pthread_fastlock
