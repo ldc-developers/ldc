@@ -48,12 +48,17 @@
 #include "llvm/Support/Debug.h"
 #include "llvm/Support/raw_ostream.h"
 
+#include <algorithm>
+
 using namespace llvm;
 
 STATISTIC(NumGcToStack, "Number of calls promoted to constant-size allocas");
 STATISTIC(NumToDynSize, "Number of calls promoted to dynamically-sized allocas");
 STATISTIC(NumDeleted, "Number of GC calls deleted because the return value was unused");
 
+static cl::opt<unsigned>
+SizeLimit("dgc2stack-size-limit", cl::init(1024), cl::Hidden,
+  cl::desc("Require allocs to be smaller than n bytes to be promoted, 0 to ignore."));
 
 namespace {
     struct Analysis {
@@ -119,7 +124,9 @@ namespace {
         virtual bool analyze(CallSite CS, const Analysis& A) {
             Value* TypeInfo = CS.getArgument(TypeInfoArgNr);
             Ty = A.getTypeFor(TypeInfo);
-            return (Ty != NULL);
+            if (!Ty) return false;
+
+            return A.TD.getTypeAllocSize(Ty) < SizeLimit;
         }
 
         // Returns the alloca to replace this call.
@@ -155,24 +162,7 @@ namespace {
                 return false;
 
             arrSize = CS.getArgument(ArrSizeArgNr);
-            const IntegerType* SizeType =
-                dyn_cast<IntegerType>(arrSize->getType());
-            if (!SizeType)
-                return false;
-            unsigned bits = SizeType->getBitWidth();
-            if (bits > 32) {
-                // The array size of an alloca must be an i32, so make sure
-                // the conversion is safe.
-                APInt Mask = APInt::getHighBitsSet(bits, bits - 32);
-                APInt KnownZero(bits, 0), KnownOne(bits, 0);
-#if LDC_LLVM_VER >= 301
-                ComputeMaskedBits(arrSize, KnownZero, KnownOne, &A.TD);
-#else
-                ComputeMaskedBits(arrSize, Mask, KnownZero, KnownOne, &A.TD);
-#endif
-                if ((KnownZero & Mask) != Mask)
-                    return false;
-            }
+
             // Extract the element type from the array type.
             const StructType* ArrTy = dyn_cast<StructType>(Ty);
             assert(ArrTy && "Dynamic array type not a struct?");
@@ -180,6 +170,40 @@ namespace {
             const PointerType* PtrTy =
                 cast<PointerType>(ArrTy->getElementType(1));
             Ty = PtrTy->getElementType();
+
+            // If the user explicitly disabled the limits, don't even check
+            // whether the element count fits in 32 bits. This could cause
+            // miscompilations for humongous arrays, but as the value "range"
+            // (set bits) inference algorithm is rather limited, this is
+            // useful for experimenting.
+            if (SizeLimit > 0)
+            {
+                uint64_t ElemSize = A.TD.getTypeAllocSize(Ty);
+                unsigned BitsLimit = static_cast<unsigned>(log2(SizeLimit / ElemSize));
+
+                // LLVM's alloca ueses an i32 for the number of elements.
+                BitsLimit = std::min(BitsLimit, 32U);
+
+                const IntegerType* SizeType =
+                    dyn_cast<IntegerType>(arrSize->getType());
+                if (!SizeType)
+                    return false;
+                unsigned Bits = SizeType->getBitWidth();
+
+                if (Bits > BitsLimit) {
+                    APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
+                    Mask.flipAllBits();
+                    APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
+    #if LDC_LLVM_VER >= 301
+                    ComputeMaskedBits(arrSize, KnownZero, KnownOne, &A.TD);
+    #else
+                    ComputeMaskedBits(arrSize, Mask, KnownZero, KnownOne, &A.TD);
+    #endif
+                    if ((KnownZero & Mask) != Mask)
+                        return false;
+                }
+            }
+
             return true;
         }
 
@@ -265,7 +289,7 @@ namespace {
                 return false;
 
             Ty =node->getOperand(CD_BodyType)->getType();
-            return true;
+            return A.TD.getTypeAllocSize(Ty) < SizeLimit;
         }
 
         // The default promote() should be fine.
