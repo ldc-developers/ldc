@@ -46,7 +46,7 @@
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Compiler.h"
 #include "llvm/Support/Debug.h"
-#include "llvm/Support/MathExtra.h"
+#include "llvm/Support/MathExtras.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <algorithm>
@@ -180,7 +180,7 @@ namespace {
             if (SizeLimit > 0)
             {
                 uint64_t ElemSize = A.TD.getTypeAllocSize(Ty);
-                unsigned BitsLimit = Log2_64(SizeLimit / ElemSize));
+                unsigned BitsLimit = Log2_64(SizeLimit / ElemSize);
 
                 // LLVM's alloca ueses an i32 for the number of elements.
                 BitsLimit = std::min(BitsLimit, 32U);
