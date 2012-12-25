@@ -149,9 +149,6 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         }
         asmstr << "_" << mangle << ":" << std::endl;
     }
-    // this works on linux x86 32 and 64 bit
-    // assume it works everywhere else as well for now
-    // this needed a slight modification for Win
     else
     {
         const char* linkage = "globl";
@@ -160,13 +157,13 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         {
             linkage = "weak";
             tmpstr << "section\t.gnu.linkonce.t.";
-            if (!isWin)
+            if (isWin)
             {
-                tmpstr << mangle << ",\"ax\",@progbits";
+                tmpstr << "_" << mangle << ",\"ax\"";
             }
             else
             {
-                tmpstr << "_" << mangle << ",\"ax\"";
+                tmpstr << mangle << ",\"ax\",@progbits";
             }
             section = tmpstr.str();
         }
@@ -175,12 +172,10 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
         if (isWin)
         {
-            std::string def = "def";
-            std::string endef = "endef";
-            asmstr << "\t." << def << "\t" << mangle << ";";
+            asmstr << "\t.def\t" << mangle << ";";
             // hard code these two numbers for now since gas ignores .scl and llvm
             // is defaulting to .type 32 for everything I have seen
-            asmstr << "\t.scl 2; .type 32;\t" << "." << endef << std::endl;
+            asmstr << "\t.scl 2; .type 32;\t.endef" << std::endl;
         }
         else
         {
