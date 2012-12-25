@@ -27,7 +27,7 @@
 #include "llvm/Intrinsics.h"
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/CommandLine.h"
-#if LDC_LLVM_VER >= 303
+#if LDC_LLVM_VER >= 302
 #include "llvm/IRBuilder.h"
 #else
 #include "llvm/Support/IRBuilder.h"
