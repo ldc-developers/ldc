@@ -20,6 +20,7 @@
 #include <vector>
 
 struct Type;
+struct TypeFunction;
 struct IrFuncTyArg;
 struct DValue;
 
