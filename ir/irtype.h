@@ -161,9 +161,7 @@ public:
 
 protected:
     ///
-    IrTypeArray(Type* dt);
-    ///
-    static llvm::Type* array2llvm(Type* t);
+    IrTypeArray(Type* dt, LLType *lt);
 };
 
 //////////////////////////////////////////////////////////////////////////////

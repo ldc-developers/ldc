@@ -207,8 +207,8 @@ llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-IrTypeArray::IrTypeArray(Type * dt)
-: IrType(dt, array2llvm(dt))
+IrTypeArray::IrTypeArray(Type* dt, LLType* lt)
+: IrType(dt, lt)
 {
 }
 
@@ -216,30 +216,23 @@ IrTypeArray::IrTypeArray(Type * dt)
 
 IrTypeArray* IrTypeArray::get(Type* dt)
 {
-    IrTypeArray* t = new IrTypeArray(dt);
-    dt->irtype = t;
-    return t;
-}
+    assert(!dt->irtype);
+    assert(dt->ty == Tarray && "not dynamic array type");
 
-//////////////////////////////////////////////////////////////////////////////
+    LLType* elemType = DtoTypeNotVoid(dt->nextOf());
 
-llvm::Type * IrTypeArray::array2llvm(Type * t)
-{
-    assert(t->ty == Tarray && "not dynamic array type");
+    // Could have already built the type as part of a struct forward reference,
+    // just as for pointers.
+    if (!dt->irtype)
+    {
+        llvm::SmallVector<LLType*, 2> types;
+        types.push_back(DtoSize_t());
+        types.push_back(llvm::PointerType::get(elemType, 0));
+        LLType* at = llvm::StructType::get(llvm::getGlobalContext(), types/*, t->toChars()*/);
+        dt->irtype = new IrTypeArray(dt, at);
+    }
 
-    // get .ptr type
-    LLType* elemType = DtoType(t->nextOf());
-    if (elemType == llvm::Type::getVoidTy(llvm::getGlobalContext()))
-        elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
-    elemType = llvm::PointerType::get(elemType, 0);
-
-    // create struct type
-    llvm::SmallVector<LLType*, 2> types;
-    types.push_back(DtoSize_t());
-    types.push_back(elemType);
-    LLType* at = llvm::StructType::get(llvm::getGlobalContext(), types/*, t->toChars()*/);
-
-    return at;
+    return dt->irtype->isArray();
 }
 
 //////////////////////////////////////////////////////////////////////////////
