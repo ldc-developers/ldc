@@ -1772,6 +1772,50 @@ DValue* CmpExp::toElem(IRState* p)
     {
         eval = LLConstantInt::getFalse(gIR->context());
     }
+    else if (t->ty == Tdelegate)
+    {
+        llvm::ICmpInst::Predicate icmpPred;
+        tokToIcmpPred(op, isLLVMUnsigned(t), &icmpPred, &eval);
+
+        if (!eval)
+        {
+            // First compare the function pointers, then the context ones. This is
+            // what DMD does.
+            llvm::Value* lhs = l->getRVal();
+            llvm::Value* rhs = r->getRVal();
+
+            llvm::BasicBlock* oldend = p->scopeend();
+            llvm::BasicBlock* fptreq = llvm::BasicBlock::Create(
+                gIR->context(), "fptreq", gIR->topfunc(), oldend);
+            llvm::BasicBlock* fptrneq = llvm::BasicBlock::Create(
+                gIR->context(), "fptrneq", gIR->topfunc(), oldend);
+            llvm::BasicBlock* dgcmpend = llvm::BasicBlock::Create(
+                gIR->context(), "dgcmpend", gIR->topfunc(), oldend);
+
+            llvm::Value* lfptr = p->ir->CreateExtractValue(lhs, 1, ".lfptr");
+            llvm::Value* rfptr = p->ir->CreateExtractValue(rhs, 1, ".rfptr");
+
+            llvm::Value* fptreqcmp = p->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,
+                lfptr, rfptr, ".fptreqcmp");
+            llvm::BranchInst::Create(fptreq, fptrneq, fptreqcmp, p->scopebb());
+
+            p->scope() = IRScope(fptreq, fptrneq);
+            llvm::Value* lctx = p->ir->CreateExtractValue(lhs, 0, ".lctx");
+            llvm::Value* rctx = p->ir->CreateExtractValue(rhs, 0, ".rctx");
+            llvm::Value* ctxcmp = p->ir->CreateICmp(icmpPred, lctx, rctx, ".ctxcmp");
+            llvm::BranchInst::Create(dgcmpend,p->scopebb());
+
+            p->scope() = IRScope(fptrneq, dgcmpend);
+            llvm::Value* fptrcmp = p->ir->CreateICmp(icmpPred, lfptr, rfptr, ".fptrcmp");
+            llvm::BranchInst::Create(dgcmpend,p->scopebb());
+
+            p->scope() = IRScope(dgcmpend, oldend);
+            llvm::PHINode* phi = p->ir->CreatePHI(ctxcmp->getType(), 2, ".dgcmp");
+            phi->addIncoming(ctxcmp, fptreq);
+            phi->addIncoming(fptrcmp, fptrneq);
+            eval = phi;
+        }
+    }
     else
     {
         assert(0 && "Unsupported CmpExp type");
