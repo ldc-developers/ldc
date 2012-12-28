@@ -125,7 +125,7 @@ version(HP_LIBUNWIND)
     alias __libunwind_Unwind_GetTextRelBase _Unwind_GetTextRelBase;
     alias __libunwind_Unwind_GetDataRelBase _Unwind_GetDataRelBase;
 }
-else version(X86_UNWIND) 
+else version(X86_UNWIND)
 {
     void _Unwind_Resume(_Unwind_Exception*);
     _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
@@ -194,7 +194,7 @@ private ubyte* get_uleb128(ubyte* addr, ref size_t res)
   }
   // read last
   if(bitsize != 0 && *addr >= 1 << size_t.sizeof*8 - bitsize)
-    fatalerror("Fatal error in EH code: tried to read uleb128 that exceeded size of size_t");
+    fatalerror("tried to read uleb128 that exceeded size of size_t");
   res |= (*addr) << bitsize;
 
   return addr + 1;
@@ -300,7 +300,7 @@ private ubyte* get_encoded_value(ubyte* addr, ref size_t res, ubyte encoding, _U
   }
 
   switch (encoding & 0x70)
-  {    
+  {
     case _DW_EH_Format.DW_EH_PE_absptr:
       break;
     case _DW_EH_Format.DW_EH_PE_pcrel:
@@ -471,7 +471,7 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
    walk action table chain, comparing classinfos using _d_isbaseof
   */
   ubyte* action_walker = action_table + action_offset - 1;
-  
+
   size_t ci_size = get_size_of_encoded_value(classinfo_table_encoding);
 
   ptrdiff_t ti_offset, next_action_offset;
@@ -584,7 +584,7 @@ private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte
   ciEncoding = *data++;
   if (ciEncoding == _DW_EH_Format.DW_EH_PE_omit)
     fatalerror("Language Specific Data does not contain Types Table");
-  
+
   size_t cioffset;
   data = get_uleb128(data, cioffset);
   ci = data + cioffset;
