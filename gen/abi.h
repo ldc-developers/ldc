@@ -52,15 +52,24 @@ struct TargetABI
 {
     /// Returns the ABI for the target we're compiling for
     static TargetABI* getTarget();
+
     /// Returns the ABI for intrinsics
     static TargetABI* getIntrinsic();
 
+    /// Called if a new function type is resolved
     virtual void newFunctionType(TypeFunction* tf) {}
-    virtual bool returnInArg(TypeFunction* tf) = 0;
-    virtual bool passByVal(Type* t) = 0;
-    virtual void doneWithFunctionType() {}
 
+    /// Returns true if the return value is passed in a register
+    virtual bool returnInArg(TypeFunction* tf) = 0;
+
+    /// Returns true if the type is passed by value
+    virtual bool passByVal(Type* t) = 0;
+
+    /// Called to give ABI the chance to rewrite the types
     virtual void rewriteFunctionType(TypeFunction* t) = 0;
+
+    /// Called if resolution of new function type is done
+    virtual void doneWithFunctionType() {}
 };
 
 #endif
