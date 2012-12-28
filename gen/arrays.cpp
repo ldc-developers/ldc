@@ -1122,48 +1122,10 @@ LLValue* DtoArrayEquals(Loc& loc, TOK op, DValue* l, DValue* r)
 LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r)
 {
     LLValue* res = 0;
-
     llvm::ICmpInst::Predicate cmpop;
-    bool skip = false;
+    tokToIcmpPred(op, false, &cmpop, &res);
 
-    switch(op)
-    {
-    case TOKlt:
-    case TOKul:
-        cmpop = llvm::ICmpInst::ICMP_SLT;
-        break;
-    case TOKle:
-    case TOKule:
-        cmpop = llvm::ICmpInst::ICMP_SLE;
-        break;
-    case TOKgt:
-    case TOKug:
-        cmpop = llvm::ICmpInst::ICMP_SGT;
-        break;
-    case TOKge:
-    case TOKuge:
-        cmpop = llvm::ICmpInst::ICMP_SGE;
-        break;
-    case TOKue:
-        cmpop = llvm::ICmpInst::ICMP_EQ;
-        break;
-    case TOKlg:
-        cmpop = llvm::ICmpInst::ICMP_NE;
-        break;
-    case TOKleg:
-        skip = true;
-        res = LLConstantInt::getTrue(gIR->context());
-        break;
-    case TOKunord:
-        skip = true;
-        res = LLConstantInt::getFalse(gIR->context());
-        break;
-
-    default:
-        assert(0);
-    }
-
-    if (!skip)
+    if (!res)
     {
         Type* t = l->getType()->toBasetype()->nextOf()->toBasetype();
         if (t->ty == Tchar)

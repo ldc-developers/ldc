@@ -183,6 +183,14 @@ bool isSpecialRefVar(VarDeclaration* vd);
 /// pointers.
 bool isLLVMUnsigned(Type* t);
 
+/// Converts a DMD comparison operation token into the corresponding LLVM icmp
+/// predicate for the given operand signedness.
+///
+/// For some operations, the result can be a constant. In this case outConst is
+/// set to it, otherwise outPred is set to the predicate to use.
+void tokToIcmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate* outPred,
+    llvm::Value** outConst);
+
 ////////////////////////////////////////////
 // gen/tocall.cpp stuff below
 ////////////////////////////////////////////
