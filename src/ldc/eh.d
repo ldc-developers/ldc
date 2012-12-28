@@ -31,6 +31,9 @@ version (ARM) {
     version (linux) version = X86_UNWIND;
     version (freebsd) version = X86_UNWIND;
 }
+version (PPC64) {
+    version (linux) version = X86_UNWIND;
+}
 
 //version = HP_LIBUNWIND;
 
@@ -193,7 +196,7 @@ private ubyte* get_uleb128(ubyte* addr, ref size_t res)
        fatalerror("tried to read uleb128 that exceeded size of size_t");
   }
   // read last
-  if(bitsize != 0 && *addr >= 1 << size_t.sizeof*8 - bitsize)
+  if(bitsize != 0 && *addr >= 1L << size_t.sizeof*8 - bitsize)
     fatalerror("tried to read uleb128 that exceeded size of size_t");
   res |= (*addr) << bitsize;
 
@@ -214,7 +217,7 @@ private ubyte* get_sleb128(ubyte* addr, ref ptrdiff_t res)
        fatalerror("tried to read sleb128 that exceeded size of size_t");
   }
   // read last
-  if(bitsize != 0 && *addr >= 1 << size_t.sizeof*8 - bitsize)
+  if(bitsize != 0 && *addr >= 1L << size_t.sizeof*8 - bitsize)
     fatalerror("tried to read sleb128 that exceeded size of size_t");
   res |= (*addr) << bitsize;
 
@@ -519,6 +522,9 @@ version (X86_64)
 {
   private int eh_exception_regno = 0;
   private int eh_selector_regno = 1;
+} else version (PPC64) {
+  private int eh_exception_regno = 3;
+  private int eh_selector_regno = 4;
 } else {
   private int eh_exception_regno = 0;
   private int eh_selector_regno = 2;
