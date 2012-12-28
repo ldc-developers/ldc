@@ -1873,8 +1873,6 @@ void printLabelName(std::ostream& target, const char* func_mangle, const char* l
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-// CTOR and DTOR
-//////////////////////////////////////////////////////////////////////////////////////////
 
 void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function* func, const uint32_t priority, const bool isCtor)
 {
@@ -1882,4 +1880,43 @@ void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function* func, const uint32_t p
         llvm::appendToGlobalCtors(*gIR->module, func, priority);
     else
         llvm::appendToGlobalDtors(*gIR->module, func, priority);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void tokToIcmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate* outPred, llvm::Value** outConst)
+{
+    switch(op)
+    {
+    case TOKlt:
+    case TOKul:
+        *outPred = isUnsigned ? llvm::ICmpInst::ICMP_ULT : llvm::ICmpInst::ICMP_SLT;
+        break;
+    case TOKle:
+    case TOKule:
+        *outPred = isUnsigned ? llvm::ICmpInst::ICMP_ULE : llvm::ICmpInst::ICMP_SLE;
+        break;
+    case TOKgt:
+    case TOKug:
+        *outPred = isUnsigned ? llvm::ICmpInst::ICMP_UGT : llvm::ICmpInst::ICMP_SGT;
+        break;
+    case TOKge:
+    case TOKuge:
+        *outPred = isUnsigned ? llvm::ICmpInst::ICMP_UGE : llvm::ICmpInst::ICMP_SGE;
+        break;
+    case TOKue:
+        *outPred = llvm::ICmpInst::ICMP_EQ;
+        break;
+    case TOKlg:
+        *outPred = llvm::ICmpInst::ICMP_NE;
+        break;
+    case TOKleg:
+        *outConst = LLConstantInt::getTrue(gIR->context());
+        break;
+    case TOKunord:
+        *outConst = LLConstantInt::getFalse(gIR->context());
+        break;
+    default:
+        llvm_unreachable("Invalid comparison operation");
+    }
 }
