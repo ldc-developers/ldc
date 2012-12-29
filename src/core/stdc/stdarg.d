@@ -444,6 +444,75 @@ else version ( X86_64 )
         dest = src;
     }
 }
+else version ( PPC64 )
+{
+    version ( LDC )
+    {
+        /*
+         * The rules are described in the 64bit PowerPC ELF ABI Supplement 1.9,
+         * available here:
+         * http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi-1.9.html#PARAM-PASS
+         */
+
+        alias void *va_list;
+
+        pragma(LDC_va_start)
+            void va_start(T)(va_list ap, ref T);
+
+        private pragma(LDC_va_arg)
+            T va_arg_impl(T)(va_list ap);
+
+        T va_arg(T)(ref va_list ap)
+        {
+            return va_arg_impl!T(ap);
+        }
+
+        void va_arg(T)(ref va_list ap, ref T parmn)
+        {
+            parmn = va_arg!T(ap);
+        }
+
+        void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
+        {
+            static if (ti == typeid(char)) *parmn = va_arg!char(ap);
+            else static if (ti == typeid(wchar)) *parmn = va_arg!wchar(ap);
+            else static if (ti == typeid(dchar)) *parmn = va_arg!dchar(ap);
+            else static if (ti == typeid(byte)) *parmn = va_arg!byte(ap);
+            else static if (ti == typeid(ubyte)) *parmn = va_arg!ubyte(ap);
+            else static if (ti == typeid(short)) *parmn = va_arg!short(ap);
+            else static if (ti == typeid(ushort)) *parmn = va_arg!ushort(ap);
+            else static if (ti == typeid(int)) *parmn = va_arg!int(ap);
+            else static if (ti == typeid(uint)) *parmn = va_arg!uint(ap);
+            else static if (ti == typeid(long)) *parmn = va_arg!long(ap);
+            else static if (ti == typeid(ulong)) *parmn = va_arg!ulong(ap);
+            //else static if (ti == typeid(cent)) *parmn = va_arg!cent(ap);
+            //else static if (ti == typeid(ucent)) *parmn = va_arg!ucent(ap);
+            else static if (ti == typeid(float)) *parmn = va_arg!float(ap);
+            else static if (ti == typeid(double)) *parmn = va_arg!double(ap);
+            else static if (ti == typeid(real)) *parmn = va_arg!real(ap);
+            else static if (ti == typeid(ifloat)) *parmn = va_arg!ifloat(ap);
+            else static if (ti == typeid(idouble)) *parmn = va_arg!idouble(ap);
+            else static if (ti == typeid(ireal)) *parmn = va_arg!ireal(ap);
+            else static if (ti == typeid(cfloat)) *parmn = va_arg!cfloat(ap);
+            else static if (ti == typeid(cdouble)) *parmn = va_arg!cdouble(ap);
+            else static if (ti == typeid(creal)) *parmn = va_arg!creal(ap);
+            else {
+                // This should work for all types because only the rules for
+                // non-floating, non-vector types are used.
+                auto tsize = ti.tsize();
+                auto p = tsize < size_t.sizeof ? cast(void*)(cast(void*)ap + (size_t.sizeof - tsize)) : ap;
+                ap = cast(va_list)(cast(void*)ap + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1)));
+                parmn[0..tsize] = p[0..tsize];
+            }
+        }
+
+        pragma(LDC_va_end)
+            void va_end(va_list ap);
+
+        pragma(LDC_va_copy)
+            void va_copy(out va_list dest, va_list src);
+    }
+}
 else
 {
     static assert(false, "Unsupported platform");
