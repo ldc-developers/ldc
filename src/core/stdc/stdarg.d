@@ -474,36 +474,12 @@ else version ( PPC64 )
 
         void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
         {
-            static if (ti == typeid(char)) *parmn = va_arg!char(ap);
-            else static if (ti == typeid(wchar)) *parmn = va_arg!wchar(ap);
-            else static if (ti == typeid(dchar)) *parmn = va_arg!dchar(ap);
-            else static if (ti == typeid(byte)) *parmn = va_arg!byte(ap);
-            else static if (ti == typeid(ubyte)) *parmn = va_arg!ubyte(ap);
-            else static if (ti == typeid(short)) *parmn = va_arg!short(ap);
-            else static if (ti == typeid(ushort)) *parmn = va_arg!ushort(ap);
-            else static if (ti == typeid(int)) *parmn = va_arg!int(ap);
-            else static if (ti == typeid(uint)) *parmn = va_arg!uint(ap);
-            else static if (ti == typeid(long)) *parmn = va_arg!long(ap);
-            else static if (ti == typeid(ulong)) *parmn = va_arg!ulong(ap);
-            //else static if (ti == typeid(cent)) *parmn = va_arg!cent(ap);
-            //else static if (ti == typeid(ucent)) *parmn = va_arg!ucent(ap);
-            else static if (ti == typeid(float)) *parmn = va_arg!float(ap);
-            else static if (ti == typeid(double)) *parmn = va_arg!double(ap);
-            else static if (ti == typeid(real)) *parmn = va_arg!real(ap);
-            else static if (ti == typeid(ifloat)) *parmn = va_arg!ifloat(ap);
-            else static if (ti == typeid(idouble)) *parmn = va_arg!idouble(ap);
-            else static if (ti == typeid(ireal)) *parmn = va_arg!ireal(ap);
-            else static if (ti == typeid(cfloat)) *parmn = va_arg!cfloat(ap);
-            else static if (ti == typeid(cdouble)) *parmn = va_arg!cdouble(ap);
-            else static if (ti == typeid(creal)) *parmn = va_arg!creal(ap);
-            else {
-                // This should work for all types because only the rules for
-                // non-floating, non-vector types are used.
-                auto tsize = ti.tsize();
-                auto p = tsize < size_t.sizeof ? cast(void*)(cast(void*)ap + (size_t.sizeof - tsize)) : ap;
-                ap = cast(va_list)(cast(void*)ap + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1)));
-                parmn[0..tsize] = p[0..tsize];
-            }
+            // This works for all types because only the rules for non-floating,
+            // non-vector types are used.
+            auto tsize = ti.tsize();
+            auto p = tsize < size_t.sizeof ? cast(void*)(cast(void*)ap + (size_t.sizeof - tsize)) : ap;
+            ap = cast(va_list)(cast(void*)ap + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1)));
+            parmn[0..tsize] = p[0..tsize];
         }
 
         pragma(LDC_va_end)
