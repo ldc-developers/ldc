@@ -46,9 +46,10 @@
 #include "gen/tollvm.h"
 #include "gen/optimizer.h"
 
-#include "ir/irvar.h"
+#include "ir/irdsymbol.h"
 #include "ir/irmodule.h"
 #include "ir/irtype.h"
+#include "ir/irvar.h"
 
 #if !MODULEINFO_IS_STRUCT
 #include "ir/irtypeclass.h"
@@ -227,7 +228,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
         Logger::enable();
     }
 
-    Logger::println("Generating module: %s\n", (md ? md->toChars() : toChars()));
+    Logger::println("Generating module: %s", (md ? md->toChars() : toChars()));
     LOG_SCOPE;
 
     if (global.params.verbose_cg)
