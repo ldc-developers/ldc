@@ -676,6 +676,11 @@ LLConstant* DtoConstFP(Type* t, longdouble value)
         bits[0] = *reinterpret_cast<uint64_t*>(&value);
         bits[1] = *reinterpret_cast<uint16_t*>(reinterpret_cast<uint64_t*>(&value) + 1);
         return LLConstantFP::get(gIR->context(), APFloat(APInt(80, 2, bits)));
+    } else if(llty == LLType::getPPC_FP128Ty(gIR->context())) {
+        uint64_t bits[] = {0, 0};
+        bits[0] = *reinterpret_cast<uint64_t*>(&value);
+        bits[1] = *reinterpret_cast<uint16_t*>(reinterpret_cast<uint64_t*>(&value) + 1);
+        return LLConstantFP::get(gIR->context(), APFloat(APInt(128, 2, bits)));
     } else {
         assert(0 && "Unknown floating point type encountered");
     }

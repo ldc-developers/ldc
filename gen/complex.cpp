@@ -40,6 +40,8 @@ LLType* DtoComplexBaseType(Type* t)
     case Tcomplex80:
         if ((global.params.cpu == ARCHx86) || (global.params.cpu == ARCHx86_64))
             return LLType::getX86_FP80Ty(gIR->context());
+        else if (global.params.cpu == ARCHppc || global.params.cpu == ARCHppc_64)
+            return LLType::getPPC_FP128Ty(gIR->context());
         else
             return LLType::getDoubleTy(gIR->context());
     }

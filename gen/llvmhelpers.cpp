@@ -1585,8 +1585,9 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
         fatal(); // or LLVM asserts
     }
 
+    llvm::Type *dtype(DtoType(T));
     char tmp[21]; // probably excessive, but covers a uint64_t
-    sprintf(tmp, "%lu", static_cast<unsigned long>(gDataLayout->getTypeSizeInBits(DtoType(T))));
+    sprintf(tmp, "%lu", static_cast<unsigned long>(gDataLayout->getTypeSizeInBits(dtype)));
 
     // replace # in name with bitsize
     name = td->intrinsicName;
@@ -1595,6 +1596,11 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
     size_t pos;
     while(std::string::npos != (pos = name.find(needle))) {
         if (pos > 0 && name[pos-1] == prefix) {
+            // Check for special PPC128 double
+            if (dtype->isPPC_FP128Ty()) {
+                name.insert(pos-1, "ppc");
+                pos += 3;
+            }
             // Properly prefixed, insert bitwidth.
             name.replace(pos, 1, tmp);
         } else {

@@ -109,6 +109,9 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
         // only x86 has 80bit float
         if (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
             return llvm::Type::getX86_FP80Ty(ctx);
+        // PPC has a special 128bit float
+        else if (global.params.cpu == ARCHppc || global.params.cpu == ARCHppc_64)
+            return llvm::Type::getPPC_FP128Ty(ctx);
         // other platforms use 64bit reals
         else
             return llvm::Type::getDoubleTy(ctx);
@@ -125,7 +128,9 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
     case Tcomplex80:
         t2 = (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
             ? llvm::Type::getX86_FP80Ty(ctx)
-            : llvm::Type::getDoubleTy(ctx);
+            : (global.params.cpu == ARCHppc || global.params.cpu == ARCHppc_64)
+              ? llvm::Type::getPPC_FP128Ty(ctx)
+              : llvm::Type::getDoubleTy(ctx);
         return getComplexType(ctx, t2);
 
     case Tbool:
