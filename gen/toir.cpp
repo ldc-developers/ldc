@@ -413,15 +413,12 @@ DValue* ComplexExp::toElem(IRState* p)
     LLValue* res;
 
     if (c->isNullValue()) {
-        Type* t = type->toBasetype();
-        if (t->ty == Tcomplex32)
-            c = DtoConstFP(Type::tfloat32, ldouble(0));
-        else if (t->ty == Tcomplex64)
-            c = DtoConstFP(Type::tfloat64, ldouble(0));
-        else if (t->ty == Tcomplex80)
-            c = DtoConstFP(Type::tfloat80, ldouble(0));
-        else
-            assert(0);
+        switch (type->toBasetype()->ty) {
+        default: llvm_unreachable("Unexpected complex floating point type");
+        case Tcomplex32: c = DtoConstFP(Type::tfloat32, ldouble(0)); break;
+        case Tcomplex64: c = DtoConstFP(Type::tfloat64, ldouble(0)); break;
+        case Tcomplex80: c = DtoConstFP(Type::tfloat80, ldouble(0)); break;
+        }
         res = DtoAggrPair(DtoType(type), c, c);
     }
     else {
