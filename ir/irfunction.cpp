@@ -73,7 +73,7 @@ IrFunction::IrFunction(FuncDeclaration* fd)
 void IrFunction::setNeverInline()
 {
 #if LDC_LLVM_VER >= 303
-    assert(!func->getFnAttributes().hasAttribute(llvm::Attribute::AlwaysInline) && "function can't be never- and always-inline at the same time");
+    assert(!func->getAttributes().hasAttribute(llvm::AttributeSet::FunctionIndex, llvm::Attribute::AlwaysInline) && "function can't be never- and always-inline at the same time");
     func->addFnAttr(llvm::Attribute::NoInline);
 #elif LDC_LLVM_VER == 302
     assert(!func->getFnAttributes().hasAttribute(llvm::Attributes::AlwaysInline) && "function can't be never- and always-inline at the same time");
@@ -87,7 +87,7 @@ void IrFunction::setNeverInline()
 void IrFunction::setAlwaysInline()
 {
 #if LDC_LLVM_VER >= 303
-    assert(!func->getFnAttributes().hasAttribute(llvm::Attribute::NoInline) && "function can't be never- and always-inline at the same time");
+    assert(!func->getAttributes().hasAttribute(llvm::AttributeSet::FunctionIndex, llvm::Attribute::NoInline) && "function can't be never- and always-inline at the same time");
     func->addFnAttr(llvm::Attribute::AlwaysInline);
 #elif LDC_LLVM_VER == 302
     assert(!func->getFnAttributes().hasAttribute(llvm::Attributes::NoInline) && "function can't be never- and always-inline at the same time");
