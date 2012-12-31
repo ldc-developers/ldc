@@ -967,11 +967,13 @@ TemplateInstance* DtoIsTemplateInstance(Dsymbol* s, bool checkLiteralOwner)
     if (!s) return NULL;
     if (s->isTemplateInstance() && !s->isTemplateMixin())
         return s->isTemplateInstance();
+#if DMDV2
     if (FuncLiteralDeclaration* fld = s->isFuncLiteralDeclaration())
     {
         if (checkLiteralOwner && fld->owningTemplate)
             return fld->owningTemplate;
     }
+#endif
     if (s->parent)
         return DtoIsTemplateInstance(s->parent, checkLiteralOwner);
     return NULL;
