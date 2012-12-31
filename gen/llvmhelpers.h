@@ -103,7 +103,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to);
 DValue* DtoPaintType(Loc& loc, DValue* val, Type* to);
 
 // is template instance check, returns module where instantiated
-TemplateInstance* DtoIsTemplateInstance(Dsymbol* s);
+TemplateInstance* DtoIsTemplateInstance(Dsymbol* s, bool checkLiteralOwner = false);
 
 /// Generate code for the symbol.
 /// Dispatches as appropriate.

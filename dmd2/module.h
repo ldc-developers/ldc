@@ -196,10 +196,7 @@ struct Module : Package
     void genmoduleinfo();
 
 #if IN_LLVM
-    /// Recursively sets the importedFrom field of any non-root modules
-    /// imported by this (including the module itself) to the given module.
-    void updateImportedFrom(Module *newRoot);
-
+    // LDC
     llvm::Module* genLLVMModule(llvm::LLVMContext& context, Ir* sir);
     void buildTargetFiles(bool singleObj);
     File* buildFilePath(const char* forcename, const char* path, const char* ext);

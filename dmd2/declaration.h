@@ -968,6 +968,16 @@ struct FuncLiteralDeclaration : FuncDeclaration
 
     FuncLiteralDeclaration *isFuncLiteralDeclaration() { return this; }
     const char *kind();
+
+#if IN_LLVM
+    // If this is only used as alias parameter to a template instantiation,
+    // keep track of which one, as the function will only be codegen'ed in the
+    // module the template instance is pushed to, which is not always the same
+    // as this->module because of the importedFrom check in
+    // TemplateInstance::semantic and the fact that importedFrom is only set
+    // once for the first module.
+    TemplateInstance *owningTemplate;
+#endif
 };
 
 struct CtorDeclaration : FuncDeclaration

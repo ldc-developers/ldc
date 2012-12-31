@@ -1864,6 +1864,7 @@ void TemplateDeclaration::declareParameter(Scope *sc, TemplateParameter *tp, Obj
             sa = ((FuncExp *)ea)->td;
         else
             sa = ((FuncExp *)ea)->fd;
+
         s = new AliasDeclaration(0, tp->ident, sa);
     }
     else if (ea)
@@ -5700,6 +5701,11 @@ void TemplateInstance::declareParameters(Scope *sc)
 
         //printf("\ttdtypes[%d] = %p\n", i, o);
         tempdecl->declareParameter(sc, tp, o);
+#if IN_LLVM
+        if (Dsymbol *sa = isDsymbol(o))
+            if (FuncLiteralDeclaration *fld = sa->isFuncLiteralDeclaration())
+                fld->owningTemplate = this;
+#endif
     }
 }
 

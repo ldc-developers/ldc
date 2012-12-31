@@ -35,7 +35,7 @@ using namespace llvm::dwarf;
 static Module* getDefinedModule(Dsymbol* s)
 {
     // templates are defined in current module
-    if (DtoIsTemplateInstance(s))
+    if (DtoIsTemplateInstance(s, true))
     {
         return gIR->dmodule;
     }

@@ -962,13 +962,18 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
 //      TEMPLATE HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-TemplateInstance* DtoIsTemplateInstance(Dsymbol* s)
+TemplateInstance* DtoIsTemplateInstance(Dsymbol* s, bool checkLiteralOwner)
 {
     if (!s) return NULL;
     if (s->isTemplateInstance() && !s->isTemplateMixin())
         return s->isTemplateInstance();
-    else if (s->parent)
-        return DtoIsTemplateInstance(s->parent);
+    if (FuncLiteralDeclaration* fld = s->isFuncLiteralDeclaration())
+    {
+        if (checkLiteralOwner && fld->owningTemplate)
+            return fld->owningTemplate;
+    }
+    if (s->parent)
+        return DtoIsTemplateInstance(s->parent, checkLiteralOwner);
     return NULL;
 }
 
@@ -1676,7 +1681,7 @@ bool mustDefineSymbol(Dsymbol* s)
                 return false;
     }
 
-    TemplateInstance* tinst = DtoIsTemplateInstance(s);
+    TemplateInstance* tinst = DtoIsTemplateInstance(s, true);
     if (tinst)
     {
         if (!global.params.singleObj)

@@ -936,28 +936,6 @@ void Module::semantic(Scope* unused_sc)
     }
 #endif
 
-#if IN_LLVM
-    // If this is a root module (i.e. one we generate an object file for),
-    // make sure all template instances created as part of semantic analysis
-    // of this module are actually emitted during codegen for this module, and
-    // not while generating another random module that happened to import a
-    // given module "first" (the frontend usually only sets importedFrom once).
-    // This is especially important for LDC, as we base the decision of whether
-    // to actually emit code for a declaration (mustDefineSymbol) on whether
-    // the module being codegen'ed is the module the symbol was defined in.
-    if (importedFrom == this)
-    {
-        for (size_t i = 0; i < members->dim; i++)
-        {
-            Import *s = (*members)[i]->isImport();
-            if (s)
-            {
-                s->mod->updateImportedFrom(this);
-            }
-        }
-    }
-#endif
-
     // Do semantic() on members that don't depend on others
     for (size_t i = 0; i < members->dim; i++)
     {   Dsymbol *s = (*members)[i];
@@ -1280,26 +1258,6 @@ int Module::selfImports()
     }
     return selfimports - 1;
 }
-
-
-#if IN_LLVM
-void Module::updateImportedFrom(Module *newRoot)
-{
-    // If this is also a root, there is nothing to do.
-    if (importedFrom == this || importedFrom == newRoot)
-        return;
-
-    importedFrom = newRoot;
-    for (size_t i = 0; i < members->dim; i++)
-    {
-        Import *s = (*members)[i]->isImport();
-        if (s)
-        {
-            s->mod->updateImportedFrom(newRoot);
-        }
-    }
-}
-#endif
 
 
 /* =========================== ModuleDeclaration ===================== */
