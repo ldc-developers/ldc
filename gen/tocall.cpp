@@ -688,6 +688,27 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
                 retllval = DtoBitCast(retllval, DtoType(rbase));
                 break;
 
+#if DMDV2
+            case Tstruct:
+                if (nextbase->ty == Taarray && !tf->isref)
+                {
+                    // In the D2 frontend, the associative array type and its
+                    // object.AssociativeArray representation are used
+                    // interchangably in some places. However, AAs are returned
+                    // by value and not in an sret argument, so if the struct
+                    // type will be used, give the return value storage here
+                    // so that we get the right amount of indirections.
+                    LLValue* tmp = DtoAlloca(rbase, ".aalvauetmp");
+                    LLValue* val = DtoInsertValue(
+                        llvm::UndefValue::get(DtoType(rbase)), retllval, 0);
+                    DtoStore(val, tmp);
+                    retllval = tmp;
+                    retinptr = true;
+                    break;
+                }
+                // Fall through.
+#endif
+
             default:
                 // Unfortunately, DMD has quirks resp. bugs with regard to name
                 // mangling: For voldemort-type functions which return a nested
@@ -721,6 +742,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
                 // }
                 // void main() { auto r = iota(); }
                 // ---
+                Logger::println("Unknown return mismatch type, ignoring.");
                 break;
             }
             if (Logger::enabled())
