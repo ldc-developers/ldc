@@ -705,7 +705,14 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     fdecl->ir.irFunc->func = func;
 
     // calling convention
-    if (!vafunc && fdecl->llvmInternal != LLVMintrinsic)
+    if (!vafunc && fdecl->llvmInternal != LLVMintrinsic
+#if DMDV2
+        // DMD treats _Dmain as having C calling convention and this has been
+        // hardcoded into druntime, even if the frontend type has D linkage.
+        // See Bugzilla issue 9028.
+        && !fdecl->isMain()
+#endif
+        )
         func->setCallingConv(DtoCallingConv(fdecl->loc, f->linkage));
     else // fall back to C, it should be the right thing to do
         func->setCallingConv(llvm::CallingConv::C);

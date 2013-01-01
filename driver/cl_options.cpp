@@ -32,11 +32,16 @@ cl::list<std::string> runargs("run",
     cl::Positional,
     cl::PositionalEatsArgs);
 
-
-static cl::opt<bool, true> useDeprecated("d",
-    cl::desc("Allow deprecated language features"),
+static cl::opt<ubyte, true> useDeprecated(
+    cl::desc("Allow deprecated code/language features:"),
     cl::ZeroOrMore,
-    cl::location(global.params.useDeprecated));
+    cl::values(
+        clEnumValN(0, "de", "Do not allow deprecated features"),
+        clEnumValN(1, "d", "Silently allow deprecated features"),
+        clEnumValN(2, "dw", "Warn about the use of deprecated features"),
+        clEnumValEnd),
+    cl::location(global.params.useDeprecated),
+    cl::init(2));
 
 #if DMDV2
 cl::opt<bool, true> enforcePropertySyntax("property",

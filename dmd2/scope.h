@@ -68,7 +68,6 @@ struct Scope
                                 // set in a pass after semantic() on all fields so they can be
                                 // semantic'd in any order.
     int inunion;                // we're processing members of a union
-    int incontract;             // we're inside contract code
     int nofree;                 // set if shouldn't free it
     int noctor;                 // set if constructor calls aren't allowed
     int intypeof;               // in typeof(exp)
@@ -94,6 +93,7 @@ struct Scope
     int explicitProtection;     // set if in an explicit protection attribute
 
     StorageClass stc;           // storage class
+    char *depmsg;               // customized deprecation message
 
     unsigned flags;
 #define SCOPEctor       1       // constructor type
@@ -102,9 +102,15 @@ struct Scope
 #define SCOPEstaticassert 8     // inside static assert
 #define SCOPEdebug      0x10    // inside debug conditional
 
+#define SCOPEinvariant  0x20    // inside invariant code
+#define SCOPErequire    0x40    // inside in contract code
+#define SCOPEensure     0x60    // inside out contract code
+#define SCOPEcontract   0x60    // [mask] we're inside contract code
+
 #ifdef IN_GCC
     Expressions *attributes;    // GCC decl/type attributes
 #endif
+    Expressions *userAttributes;        // user defined attributes
 
     DocComment *lastdc;         // documentation comment for last symbol at this scope
     unsigned lastoffset;        // offset in docbuf of where to insert next dec

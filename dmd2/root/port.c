@@ -1,10 +1,11 @@
 
-// Copyright (c) 1999-2011 by Digital Mars
+// Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
 
 #include "port.h"
+
 #if __DMC__
 #include <math.h>
 #include <float.h>
@@ -12,6 +13,7 @@
 #include <time.h>
 #include <stdlib.h>
 #include <string.h>
+#include <wchar.h>
 
 double Port::nan = NAN;
 double Port::infinity = INFINITY;
@@ -127,6 +129,7 @@ char *Port::strupr(char *s)
 #include <errno.h>
 #include <string.h>
 #include <ctype.h>
+#include <wchar.h>
 #include <stdlib.h>
 #include <limits> // for std::numeric_limits
 
@@ -343,6 +346,7 @@ char *Port::strupr(char *s)
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <wchar.h>
 #include <float.h>
 #include <assert.h>
 
@@ -384,7 +388,7 @@ int Port::isNan(double r)
 #else
     return __inline_isnan(r);
 #endif
-#elif defined __HAIKU__ || __OpenBSD__
+#elif __HAIKU__ || __OpenBSD__
     return isnan(r);
 #else
     #undef isnan
@@ -400,7 +404,7 @@ int Port::isNan(longdouble r)
 #else
     return __inline_isnan(r);
 #endif
-#elif defined __HAIKU__ || __OpenBSD__
+#elif __HAIKU__ || __OpenBSD__
     return isnan(r);
 #else
     #undef isnan
@@ -522,7 +526,7 @@ char *Port::strupr(char *s)
 
 #endif
 
-#if __sun&&__SVR4
+#if __sun
 
 #define __C99FEATURES__ 1       // Needed on Solaris for NaN and more
 #include <math.h>
@@ -532,6 +536,7 @@ char *Port::strupr(char *s)
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
+#include <wchar.h>
 #include <float.h>
 #include <ieeefp.h>
 
@@ -614,6 +619,11 @@ double Port::pow(double x, double y)
     return ::pow(x, y);
 }
 
+longdouble Port::fmodl(longdouble x, longdouble y)
+{
+    return ::fmodl(x, y);
+}
+
 unsigned long long Port::strtoull(const char *p, char **pend, int base)
 {
     return ::strtoull(p, pend, base);
@@ -660,4 +670,3 @@ char *Port::strupr(char *s)
 }
 
 #endif
-

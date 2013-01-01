@@ -55,7 +55,7 @@
 // Support D1 inout
 #define D1INOUT         0
 
-Parser::Parser(Module *module, unsigned char *base, unsigned length, int doDocComment)
+Parser::Parser(Module *module, unsigned char *base, size_t length, int doDocComment)
     : Lexer(module, base, 0, length, doDocComment, 0)
 {
     //printf("Parser::Parser()\n");
@@ -183,13 +183,6 @@ Dsymbols *Parser::parseDeclDefs(int once)
                 break;
             }
 
-            case TOKstruct:
-            case TOKunion:
-            case TOKclass:
-            case TOKinterface:
-                s = parseAggregate();
-                break;
-
             case TOKimport:
                 s = parseImport(decldefs, 0);
                 break;
@@ -233,6 +226,10 @@ Dsymbols *Parser::parseDeclDefs(int once)
             case TOKtypeof:
             case TOKdot:
             case TOKvector:
+            case TOKstruct:
+            case TOKunion:
+            case TOKclass:
+            case TOKinterface:
             Ldeclaration:
                 a = parseDeclarations(STCundefined, NULL);
                 decldefs->append(a);
@@ -245,11 +242,6 @@ Dsymbols *Parser::parseDeclDefs(int once)
                     s = parseCtor();
                 break;
 
-#if 0 // dead end, use this(this){} instead
-            case TOKassign:
-                s = parsePostBlit();
-                break;
-#endif
             case TOKtilde:
                 s = parseDtor();
                 break;
@@ -268,8 +260,7 @@ Dsymbols *Parser::parseDeclDefs(int once)
                 }
                 else
                 {
-                    if (!global.params.useDeprecated)
-                        error("use of 'invariant' rather than 'immutable' is deprecated");
+                    deprecation("use of 'invariant' rather than 'immutable' is deprecated");
                     stc = STCimmutable;
                     goto Lstc;
                 }
@@ -290,6 +281,8 @@ Dsymbols *Parser::parseDeclDefs(int once)
 
             case TOKeof:
             case TOKrcurly:
+                if (once)
+                    error("Declaration expected, not '%s'", token.toChars());
                 return decldefs;
 
             case TOKstatic:
@@ -370,7 +363,6 @@ Dsymbols *Parser::parseDeclDefs(int once)
             case TOKoverride:     stc = STCoverride;     goto Lstc;
             case TOKabstract:     stc = STCabstract;     goto Lstc;
             case TOKsynchronized: stc = STCsynchronized; goto Lstc;
-            case TOKdeprecated:   stc = STCdeprecated;   goto Lstc;
 #if DMDV2
             case TOKnothrow:      stc = STCnothrow;      goto Lstc;
             case TOKpure:         stc = STCpure;         goto Lstc;
@@ -378,7 +370,16 @@ Dsymbols *Parser::parseDeclDefs(int once)
             case TOKtls:          stc = STCtls;          goto Lstc;
             case TOKgshared:      stc = STCgshared;      goto Lstc;
             //case TOKmanifest:   stc = STCmanifest;     goto Lstc;
-            case TOKat:           stc = parseAttribute(); goto Lstc;
+            case TOKat:
+            {
+                Expressions *exps = NULL;
+                stc = parseAttribute(&exps);
+                if (stc)
+                    goto Lstc;                  // it's a predefined attribute
+                a = parseBlock();
+                s = new UserAttributeDeclaration(exps, a);
+                break;
+            }
 #endif
 
             Lstc:
@@ -412,10 +413,15 @@ Dsymbols *Parser::parseDeclDefs(int once)
                             stc = STCwild;
                         else
                         {
-                            if (token.value == TOKinvariant && !global.params.useDeprecated)
-                                error("use of 'invariant' rather than 'immutable' is deprecated");
+                            if (token.value == TOKinvariant)
+                                deprecation("use of 'invariant' rather than 'immutable' is deprecated");
                             stc = STCimmutable;
                         }
+                        goto Lstc;
+                    case TOKdeprecated:
+                        if (peek(&token)->value == TOKlparen)
+                            break;
+                        stc = STCdeprecated;
                         goto Lstc;
                     case TOKfinal:        stc = STCfinal;        goto Lstc;
                     case TOKauto:         stc = STCauto;         goto Lstc;
@@ -423,14 +429,20 @@ Dsymbols *Parser::parseDeclDefs(int once)
                     case TOKoverride:     stc = STCoverride;     goto Lstc;
                     case TOKabstract:     stc = STCabstract;     goto Lstc;
                     case TOKsynchronized: stc = STCsynchronized; goto Lstc;
-                    case TOKdeprecated:   stc = STCdeprecated;   goto Lstc;
                     case TOKnothrow:      stc = STCnothrow;      goto Lstc;
                     case TOKpure:         stc = STCpure;         goto Lstc;
                     case TOKref:          stc = STCref;          goto Lstc;
                     case TOKtls:          stc = STCtls;          goto Lstc;
                     case TOKgshared:      stc = STCgshared;      goto Lstc;
                     //case TOKmanifest:   stc = STCmanifest;     goto Lstc;
-                    case TOKat:           stc = parseAttribute(); goto Lstc;
+                    case TOKat:
+                    {   Expressions *udas = NULL;
+                        stc = parseAttribute(&udas);
+                        if (udas)
+                            // BUG: Should fix this
+                            error("user defined attributes must be first");
+                        goto Lstc;
+                    }
                     default:
                         break;
                 }
@@ -469,6 +481,31 @@ Dsymbols *Parser::parseDeclDefs(int once)
                 s = new StorageClassDeclaration(storageClass, a);
                 break;
 
+            case TOKdeprecated:
+                if (peek(&token)->value != TOKlparen)
+                {
+                    stc = STCdeprecated;
+                    goto Lstc;
+                }
+            {
+                nextToken();
+                check(TOKlparen);
+                Expression *e = parseAssignExp();
+                check(TOKrparen);
+                a = parseBlock();
+                s = new DeprecatedDeclaration(e, a);
+                break;
+            }
+
+            case TOKlbracket:
+            {
+                warning(loc, "use @(attributes) instead of [attributes]");
+                Expressions *exps = parseArguments();
+                a = parseBlock();
+                s = new UserAttributeDeclaration(exps, a);
+                break;
+            }
+
             case TOKextern:
                 if (peek(&token)->value != TOKlparen)
                 {   stc = STCextern;
@@ -499,6 +536,7 @@ Dsymbols *Parser::parseDeclDefs(int once)
                     case TOKexport:
                         error("redundant protection attribute");
                         break;
+                    default: break;
                 }
                 a = parseBlock();
                 s = new ProtDeclaration(prot, a);
@@ -605,10 +643,15 @@ Dsymbols *Parser::parseDeclDefs(int once)
 
             Lcondition:
                 {
-                    Loc lookingForElseSave = lookingForElse;
-                    lookingForElse = loc;
-                    a = parseBlock();
-                    lookingForElse = lookingForElseSave;
+                    if (token.value == TOKcolon)
+                        a = parseBlock();
+                    else
+                    {
+                        Loc lookingForElseSave = lookingForElse;
+                        lookingForElse = loc;
+                        a = parseBlock();
+                        lookingForElse = lookingForElseSave;
+                    }
                 }
                 aelse = NULL;
                 if (token.value == TOKelse)
@@ -666,30 +709,63 @@ void Parser::composeStorageClass(StorageClass stc)
 #endif
 
 /***********************************************
- * Parse storage class, lexer is on '@'
+ * Parse attribute, lexer is on '@'.
+ * Input:
+ *      pudas           array of UDAs to append to
+ * Returns:
+ *      storage class   if a predefined attribute; also scanner remains on identifier.
+ *      0               if not a predefined attribute
+ *      *pudas          set if user defined attribute, scanner is past UDA
+ *      *pudas          NULL if not a user defined attribute
  */
 
 #if DMDV2
-StorageClass Parser::parseAttribute()
+StorageClass Parser::parseAttribute(Expressions **pudas)
 {
     nextToken();
+    Expressions *udas = NULL;
     StorageClass stc = 0;
-    if (token.value != TOKidentifier)
+    if (token.value == TOKidentifier)
     {
-        error("identifier expected after @, not %s", token.toChars());
+        if (token.ident == Id::property)
+            stc = STCproperty;
+        else if (token.ident == Id::safe)
+            stc = STCsafe;
+        else if (token.ident == Id::trusted)
+            stc = STCtrusted;
+        else if (token.ident == Id::system)
+            stc = STCsystem;
+        else if (token.ident == Id::disable)
+            stc = STCdisable;
+        else
+        {   // Allow identifier, template instantiation, or function call
+            Expression *exp = parsePrimaryExp();
+            if (token.value == TOKlparen)
+                exp = new CallExp(loc, exp, parseArguments());
+
+            udas = new Expressions();
+            udas->push(exp);
+        }
     }
-    else if (token.ident == Id::property)
-        stc = STCproperty;
-    else if (token.ident == Id::safe)
-        stc = STCsafe;
-    else if (token.ident == Id::trusted)
-        stc = STCtrusted;
-    else if (token.ident == Id::system)
-        stc = STCsystem;
-    else if (token.ident == Id::disable)
-        stc = STCdisable;
+    else if (token.value == TOKlparen)
+    {   // @( ArgumentList )
+        // Concatenate with existing
+        udas = parseArguments();
+    }
     else
-        error("valid attribute identifiers are @property, @safe, @trusted, @system, @disable not @%s", token.toChars());
+    {
+        error("@identifier or @(ArgumentList) expected, not @%s", token.toChars());
+    }
+
+    if (stc)
+    {
+    }
+    else if (udas)
+    {
+        *pudas = UserAttributeDeclaration::concat(*pudas, udas);
+    }
+    else
+        error("valid attributes are @property, @safe, @trusted, @system, @disable");
     return stc;
 }
 #endif
@@ -708,14 +784,44 @@ StorageClass Parser::parsePostfix()
         {
             case TOKconst:              stc |= STCconst;                break;
             case TOKinvariant:
-                if (!global.params.useDeprecated)
-                    error("use of 'invariant' rather than 'immutable' is deprecated");
+                deprecation("use of 'invariant' rather than 'immutable' is deprecated");
             case TOKimmutable:          stc |= STCimmutable;            break;
             case TOKshared:             stc |= STCshared;               break;
             case TOKwild:               stc |= STCwild;                 break;
             case TOKnothrow:            stc |= STCnothrow;              break;
             case TOKpure:               stc |= STCpure;                 break;
-            case TOKat:                 stc |= parseAttribute();        break;
+            case TOKat:
+            {   Expressions *udas = NULL;
+                stc |= parseAttribute(&udas);
+                if (udas)
+                    // BUG: Should fix this
+                    error("user defined attributes cannot appear as postfixes");
+                break;
+            }
+
+            default: return stc;
+        }
+        composeStorageClass(stc);
+        nextToken();
+    }
+}
+
+StorageClass Parser::parseTypeCtor()
+{
+    StorageClass stc = 0;
+
+    while (1)
+    {
+        if (peek(&token)->value == TOKlparen)
+            return stc;
+        switch (token.value)
+        {
+            case TOKconst:              stc |= STCconst;                break;
+            case TOKinvariant:
+                deprecation("use of 'invariant' rather than 'immutable' is deprecated");
+            case TOKimmutable:          stc |= STCimmutable;            break;
+            case TOKshared:             stc |= STCshared;               break;
+            case TOKwild:               stc |= STCwild;                 break;
 
             default: return stc;
         }
@@ -944,10 +1050,13 @@ Condition *Parser::parseVersionCondition()
 #if DMDV2
         /* Allow:
          *    version (unittest)
-         * even though unittest is a keyword
+         *    version (assert)
+         * even though they are keywords
          */
         else if (token.value == TOKunittest)
             id = Lexer::idPool(Token::toChars(TOKunittest));
+        else if (token.value == TOKassert)
+            id = Lexer::idPool(Token::toChars(TOKassert));
 #endif
         else
             error("identifier or integer expected, not %s", token.toChars());
@@ -1011,7 +1120,7 @@ Dsymbol *Parser::parseCtor()
         nextToken();
         check(TOKrparen);
         StorageClass stc = parsePostfix();
-        PostBlitDeclaration *f = new PostBlitDeclaration(loc, 0, stc);
+        PostBlitDeclaration *f = new PostBlitDeclaration(loc, 0, stc, Id::_postblit);
         parseContracts(f);
         return f;
     }
@@ -1053,26 +1162,6 @@ Dsymbol *Parser::parseCtor()
     tf = tf->addSTC(stc);
 
     CtorDeclaration *f = new CtorDeclaration(loc, 0, stc, tf);
-    parseContracts(f);
-    return f;
-}
-
-/*****************************************
- * Parse a postblit definition:
- *      =this() { body }
- * Current token is '='.
- */
-
-PostBlitDeclaration *Parser::parsePostBlit()
-{
-    Loc loc = this->loc;
-
-    nextToken();
-    check(TOKthis);
-    check(TOKlparen);
-    check(TOKrparen);
-
-    PostBlitDeclaration *f = new PostBlitDeclaration(loc, 0);
     parseContracts(f);
     return f;
 }
@@ -1308,8 +1397,8 @@ Parameters *Parser::parseParameters(int *pvarargs, TemplateParameters **tpl)
                 case TOKimmutable:
                     if (peek(&token)->value == TOKlparen)
                         goto Ldefault;
-                    if (token.value == TOKinvariant && !global.params.useDeprecated)
-                        error("use of 'invariant' rather than 'immutable' is deprecated");
+                    if (token.value == TOKinvariant)
+                        deprecation("use of 'invariant' rather than 'immutable' is deprecated");
                     stc = STCimmutable;
                     goto L2;
 
@@ -1703,21 +1792,14 @@ BaseClasses *Parser::parseBaseClasses()
                 protection = PROTpublic;
                 nextToken();
                 break;
+            default: break;
         }
-        if (prot && !global.params.useDeprecated)
-            error("use of base class protection is deprecated");
-        if (token.value == TOKidentifier)
-        {
-            BaseClass *b = new BaseClass(parseBasicType(), protection);
-            baseclasses->push(b);
-            if (token.value != TOKcomma)
-                break;
-        }
-        else
-        {
-            error("base classes expected instead of %s", token.toChars());
-            return NULL;
-        }
+        if (prot)
+            deprecation("use of base class protection is deprecated");
+        BaseClass *b = new BaseClass(parseBasicType(), protection);
+        baseclasses->push(b);
+        if (token.value != TOKcomma)
+            break;
     }
     return baseclasses;
 }
@@ -2081,11 +2163,7 @@ Objects *Parser::parseTemplateArgumentList2()
             else
             {   // Template argument is an expression
                 Expression *ea = parseAssignExp();
-
-                if (ea->op == TOKfunction && ((FuncExp *)ea)->td)
-                    tiargs->push(((FuncExp *)ea)->td);
-                else
-                    tiargs->push(ea);
+                tiargs->push(ea);
             }
             if (token.value != TOKcomma)
                 break;
@@ -2411,8 +2489,7 @@ Type *Parser::parseBasicType()
             break;
 
         case TOKinvariant:
-            if (!global.params.useDeprecated)
-                error("use of 'invariant' rather than 'immutable' is deprecated");
+            deprecation("use of 'invariant' rather than 'immutable' is deprecated");
         case TOKimmutable:
             // invariant(type)
             nextToken();
@@ -2532,10 +2609,14 @@ Type *Parser::parseBasicType2(Type *t)
                 arguments = parseParameters(&varargs);
 
                 StorageClass stc = parsePostfix();
-                if (stc & (STCconst | STCimmutable | STCshared | STCwild))
-                    error("const/immutable/shared/inout attributes are only valid for non-static member functions");
-
                 TypeFunction *tf = new TypeFunction(arguments, t, varargs, linkage, stc);
+                if (stc & (STCconst | STCimmutable | STCshared | STCwild))
+                {
+                    if (save == TOKfunction)
+                        error("const/immutable/shared/inout attributes are only valid for non-static member functions");
+                    else
+                        tf = (TypeFunction *)tf->addSTC(stc);
+                }
 
                 if (save == TOKdelegate)
                     t = new TypeDelegate(tf);
@@ -2581,10 +2662,7 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
                  * although the D style would be:
                  *  int[]*[3] ident
                  */
-                if (!global.params.useDeprecated)
-                {
-                    error("C-style function pointer and pointer to array syntax is deprecated. Use 'function' to declare function pointers");
-                }
+                deprecation("C-style function pointer and pointer to array syntax is deprecated. Use 'function' to declare function pointers");
                 nextToken();
                 ts = parseDeclarator(t, pident);
                 check(TOKrparen);
@@ -2699,6 +2777,7 @@ Type *Parser::parseDeclarator(Type *t, Identifier **pident, TemplateParameters *
                 *pt = tf;
                 break;
             }
+            default: break;
         }
         break;
     }
@@ -2725,6 +2804,9 @@ Dsymbols *Parser::parseDeclarations(StorageClass storage_class, unsigned char *c
     Dsymbols *a;
     enum TOK tok = TOKreserved;
     enum LINK link = linkage;
+    unsigned structalign = 0;
+    Loc loc = this->loc;
+    Expressions *udas = NULL;
 
     //printf("parseDeclarations() %s\n", token.toChars());
     if (!comment)
@@ -2743,9 +2825,9 @@ Dsymbols *Parser::parseDeclarations(StorageClass storage_class, unsigned char *c
              */
             tok = token.value;
             nextToken();
-            if (token.value == TOKidentifier && peek(&token)->value == TOKthis)
+            if (token.value == TOKidentifier && peekNext() == TOKthis)
             {
-                AliasThis *s = new AliasThis(this->loc, token.ident);
+                AliasThis *s = new AliasThis(loc, token.ident);
                 nextToken();
                 check(TOKthis);
                 check(TOKsemicolon);
@@ -2754,13 +2836,69 @@ Dsymbols *Parser::parseDeclarations(StorageClass storage_class, unsigned char *c
                 addComment(s, comment);
                 return a;
             }
+            /* Look for:
+             *  alias this = identifier;
+             */
+            if (token.value == TOKthis && peekNext() == TOKassign && peekNext2() == TOKidentifier)
+            {
+                check(TOKthis);
+                check(TOKassign);
+                AliasThis *s = new AliasThis(loc, token.ident);
+                nextToken();
+                check(TOKsemicolon);
+                a = new Dsymbols();
+                a->push(s);
+                addComment(s, comment);
+                return a;
+            }
+            /* Look for:
+             *  alias identifier = type;
+             */
+            if (token.value == TOKidentifier && peekNext() == TOKassign)
+            {
+                a = new Dsymbols();
+                while (1)
+                {
+                    ident = token.ident;
+                    nextToken();
+                    check(TOKassign);
+                    t = parseType();
+                    Declaration *v = new AliasDeclaration(loc, ident, t);
+                    a->push(v);
+                    switch (token.value)
+                    {   case TOKsemicolon:
+                            nextToken();
+                            addComment(v, comment);
+                            break;
+                        case TOKcomma:
+                            nextToken();
+                            addComment(v, comment);
+                            if (token.value != TOKidentifier)
+                            {   error("Identifier expected following comma, not %s", token.toChars());
+                                break;
+                            }
+                            else if (peek(&token)->value != TOKassign)
+                            {   error("= expected following identifier");
+                                nextToken();
+                                break;
+                            }
+                            continue;
+                        default:
+                            error("semicolon expected to close %s declaration", Token::toChars(tok));
+                            break;
+                    }
+                    break;
+                }
+                return a;
+            }
+
             break;
         case TOKtypedef:
-            if (!global.params.useDeprecated)
-                error("use of typedef is deprecated; use alias instead");
+            deprecation("use of typedef is deprecated; use alias instead");
             tok = token.value;
             nextToken();
             break;
+        default: break;
     }
 
     storage_class = STCundefined;
@@ -2778,8 +2916,8 @@ Dsymbols *Parser::parseDeclarations(StorageClass storage_class, unsigned char *c
             case TOKimmutable:
                 if (peek(&token)->value == TOKlparen)
                     break;
-                if (token.value == TOKinvariant && !global.params.useDeprecated)
-                    error("use of 'invariant' rather than 'immutable' is deprecated");
+                if (token.value == TOKinvariant)
+                    deprecation("use of 'invariant' rather than 'immutable' is deprecated");
                 stc = STCimmutable;
                 goto L1;
 
@@ -2810,7 +2948,13 @@ Dsymbols *Parser::parseDeclarations(StorageClass storage_class, unsigned char *c
             case TOKtls:        stc = STCtls;            goto L1;
             case TOKgshared:    stc = STCgshared;        goto L1;
             case TOKenum:       stc = STCmanifest;       goto L1;
-            case TOKat:         stc = parseAttribute();  goto L1;
+            case TOKat:
+            {
+                stc = parseAttribute(&udas);
+                if (stc)
+                    goto L1;
+                continue;
+            }
 #endif
             L1:
                 if (storage_class & stc)
@@ -2829,10 +2973,67 @@ Dsymbols *Parser::parseDeclarations(StorageClass storage_class, unsigned char *c
                 link = parseLinkage();
                 continue;
 
+            case TOKalign:
+            {
+                nextToken();
+                if (token.value == TOKlparen)
+                {
+                    nextToken();
+                    if (token.value == TOKint32v && token.uns64value > 0)
+                        structalign = (unsigned)token.uns64value;
+                    else
+                    {   error("positive integer expected, not %s", token.toChars());
+                        structalign = 1;
+                    }
+                    nextToken();
+                    check(TOKrparen);
+                }
+                else
+                    structalign = global.structalign;   // default
+                continue;
+            }
             default:
                 break;
         }
         break;
+    }
+
+    if (token.value == TOKstruct ||
+        token.value == TOKunion ||
+        token.value == TOKclass ||
+        token.value == TOKinterface)
+    {
+        Dsymbol *s = parseAggregate();
+        Dsymbols *a = new Dsymbols();
+        a->push(s);
+
+        if (storage_class)
+        {
+            s = new StorageClassDeclaration(storage_class, a);
+            a = new Dsymbols();
+            a->push(s);
+        }
+        if (structalign != 0)
+        {
+            s = new AlignDeclaration(structalign, a);
+            a = new Dsymbols();
+            a->push(s);
+        }
+        if (udas)
+        {
+            s = new UserAttributeDeclaration(udas, a);
+            a = new Dsymbols();
+            a->push(s);
+        }
+
+        addComment(s, comment);
+        return a;
+    }
+
+    if (udas)
+    {
+        // Need to improve this
+//      error("user defined attributes not allowed for local declarations");
     }
 
     /* Look for auto initializers:
@@ -2842,17 +3043,13 @@ Dsymbols *Parser::parseDeclarations(StorageClass storage_class, unsigned char *c
         token.value == TOKidentifier &&
         peek(&token)->value == TOKassign)
     {
-        return parseAutoDeclarations(storage_class, comment);
-    }
 
-    if (token.value == TOKclass)
-    {
-        AggregateDeclaration *s = (AggregateDeclaration *)parseAggregate();
-        s->storage_class |= storage_class;
-        Dsymbols *a = new Dsymbols();
-        a->push(s);
-        addComment(s, comment);
-        return a;
+        if (udas)
+        {
+            // Need to improve this
+            error("user defined attributes not allowed for auto declarations");
+        }
+        return parseAutoDeclarations(storage_class, comment);
     }
 
     /* Look for return type inference for template functions.
@@ -2887,7 +3084,7 @@ L2:
 
     while (1)
     {
-        Loc loc = this->loc;
+        loc = this->loc;
         TemplateParameters *tpl = NULL;
 
         ident = NULL;
@@ -2912,6 +3109,7 @@ L2:
              * The grammar has already been fixed to preclude them.
              */
 
+            assert(!udas);
             if (token.value == TOKassign)
             {
                 nextToken();
@@ -2919,8 +3117,7 @@ L2:
             }
             if (tok == TOKtypedef)
             {   v = new TypedefDeclaration(loc, ident, t, init);
-                if (!global.params.useDeprecated)
-                    error("use of typedef is deprecated; use alias instead");
+                deprecation("use of typedef is deprecated; use alias instead");
             }
             else
             {   if (init)
@@ -2974,17 +3171,7 @@ L2:
                 constraint = parseConstraint();
             parseContracts(f);
             addComment(f, NULL);
-            Dsymbol *s;
-            if (link == linkage)
-            {
-                s = f;
-            }
-            else
-            {
-                Dsymbols *ax = new Dsymbols();
-                ax->push(f);
-                s = new LinkDeclaration(link, ax);
-            }
+            Dsymbol *s = f;
             /* A template parameter list means it's a function template
              */
             if (tpl)
@@ -2995,6 +3182,18 @@ L2:
                 TemplateDeclaration *tempdecl =
                     new TemplateDeclaration(loc, s->ident, tpl, constraint, decldefs, 0);
                 s = tempdecl;
+            }
+            if (link != linkage)
+            {
+                Dsymbols *ax = new Dsymbols();
+                ax->push(s);
+                s = new LinkDeclaration(link, ax);
+            }
+            if (udas)
+            {
+                Dsymbols *ax = new Dsymbols();
+                ax->push(s);
+                s = new UserAttributeDeclaration(udas, ax);
             }
             addComment(s, comment);
             a->push(s);
@@ -3010,15 +3209,20 @@ L2:
 
             VarDeclaration *v = new VarDeclaration(loc, t, ident, init);
             v->storage_class = storage_class;
-            if (link == linkage)
-                a->push(v);
-            else
+            Dsymbol *s = v;
+            if (link != linkage)
             {
                 Dsymbols *ax = new Dsymbols();
-                ax->push(v);
-                Dsymbol *s = new LinkDeclaration(link, ax);
-                a->push(s);
+                ax->push(s);
+                s = new LinkDeclaration(link, ax);
             }
+            if (udas)
+            {
+                Dsymbols *ax = new Dsymbols();
+                ax->push(s);
+                s = new UserAttributeDeclaration(udas, ax);
+            }
+            a->push(s);
             switch (token.value)
             {   case TOKsemicolon:
                     nextToken();
@@ -3454,7 +3658,6 @@ void Parser::checkDanglingElse(Loc elseloc)
 
 Statement *Parser::parseStatement(int flags)
 {   Statement *s;
-    Token *t;
     Condition *condition;
     Statement *ifbody;
     Statement *elsebody;
@@ -3469,10 +3672,10 @@ Statement *Parser::parseStatement(int flags)
     switch (token.value)
     {
         case TOKidentifier:
-            /* A leading identifier can be a declaration, label, or expression.
+        {   /* A leading identifier can be a declaration, label, or expression.
              * The easiest case to check first is label:
              */
-            t = peek(&token);
+            Token *t = peek(&token);
             if (t->value == TOKcolon)
             {   // It's a label
 
@@ -3484,6 +3687,7 @@ Statement *Parser::parseStatement(int flags)
                 break;
             }
             // fallthrough to TOKdot
+        }
         case TOKdot:
         case TOKtypeof:
         case TOKvector:
@@ -3558,21 +3762,13 @@ Statement *Parser::parseStatement(int flags)
                 condition = parseStaticIfCondition();
                 goto Lcondition;
             }
-            if (t->value == TOKstruct || t->value == TOKunion || t->value == TOKclass)
-            {
-                nextToken();
-                Dsymbols *a = parseBlock();
-                Dsymbol *d = new StorageClassDeclaration(STCstatic, a);
-                s = new ExpStatement(loc, d);
-                if (flags & PSscope)
-                    s = new ScopeStatement(loc, s);
-                break;
-            }
             if (t->value == TOKimport)
             {   nextToken();
                 Dsymbols *imports = new Dsymbols();
                 parseImport(imports, 1);                // static import ...
                 s = new ImportStatement(loc, imports);
+                if (flags & PSscope)
+                    s = new ScopeStatement(loc, s);
                 break;
             }
             goto Ldeclaration;
@@ -3595,7 +3791,9 @@ Statement *Parser::parseStatement(int flags)
         case TOKalias:
         case TOKconst:
         case TOKauto:
+        case TOKabstract:
         case TOKextern:
+        case TOKalign:
         case TOKinvariant:
 #if DMDV2
         case TOKimmutable:
@@ -3608,6 +3806,10 @@ Statement *Parser::parseStatement(int flags)
         case TOKgshared:
         case TOKat:
 #endif
+        case TOKstruct:
+        case TOKunion:
+        case TOKclass:
+        case TOKinterface:
         Ldeclaration:
         {   Dsymbols *a;
 
@@ -3636,17 +3838,6 @@ Statement *Parser::parseStatement(int flags)
             break;
         }
 
-        case TOKstruct:
-        case TOKunion:
-        case TOKclass:
-        case TOKinterface:
-        {   Dsymbol *d;
-
-            d = parseAggregate();
-            s = new ExpStatement(loc, d);
-            break;
-        }
-
         case TOKenum:
         {   /* Determine if this is a manifest constant declaration,
              * or a conventional enum.
@@ -3667,11 +3858,13 @@ Statement *Parser::parseStatement(int flags)
                     goto Ldeclaration;
             }
             s = new ExpStatement(loc, d);
+            if (flags & PSscope)
+                s = new ScopeStatement(loc, s);
             break;
         }
 
         case TOKmixin:
-        {   t = peek(&token);
+        {   Token *t = peek(&token);
             if (t->value == TOKlparen)
             {   // mixin(string)
                 Expression *e = parseAssignExp();
@@ -3689,6 +3882,8 @@ Statement *Parser::parseStatement(int flags)
             }
             Dsymbol *d = parseMixin();
             s = new ExpStatement(loc, d);
+            if (flags & PSscope)
+                s = new ScopeStatement(loc, s);
             break;
         }
 
@@ -3731,9 +3926,7 @@ Statement *Parser::parseStatement(int flags)
             if (!(flags & PSsemi_ok))
             {
                 if (flags & PSsemi)
-                {   if (global.params.warnings)
-                        warning(loc, "use '{ }' for an empty statement, not a ';'");
-                }
+                    warning(loc, "use '{ }' for an empty statement, not a ';'");
                 else
                     error("use '{ }' for an empty statement, not a ';'");
             }
@@ -3756,8 +3949,8 @@ Statement *Parser::parseStatement(int flags)
             check(TOKrparen);
             if (token.value == TOKsemicolon)
                 nextToken();
-            else if (!global.params.useDeprecated)
-                error("do-while statement requires terminating ;");
+            else
+                deprecation("do-while statement without terminating ; is deprecated");
             s = new DoStatement(loc, body, condition);
             break;
         }
@@ -3823,13 +4016,54 @@ Statement *Parser::parseStatement(int flags)
                 Type *at;
 
                 StorageClass storageClass = 0;
-                if (token.value == TOKref
+            Lagain:
+                switch (token.value)
+                {
+                    case TOKref:
 #if D1INOUT
-                        || token.value == TOKinout
+                    case TOKinout:
 #endif
-                   )
-                {   storageClass = STCref;
-                    nextToken();
+                        storageClass |= STCref;
+                        nextToken();
+                        goto Lagain;
+
+                    case TOKconst:
+                        if (peekNext() != TOKlparen)
+                        {
+                            storageClass |= STCconst;
+                            nextToken();
+                            goto Lagain;
+                        }
+                        break;
+                    case TOKinvariant:
+                    case TOKimmutable:
+                        if (peekNext() != TOKlparen)
+                        {
+                            storageClass |= STCimmutable;
+                            if (token.value == TOKinvariant)
+                                deprecation("use of 'invariant' rather than 'immutable' is deprecated");
+                            nextToken();
+                            goto Lagain;
+                        }
+                        break;
+                    case TOKshared:
+                        if (peekNext() != TOKlparen)
+                        {
+                            storageClass |= STCshared;
+                            nextToken();
+                            goto Lagain;
+                        }
+                        break;
+                    case TOKwild:
+                        if (peekNext() != TOKlparen)
+                        {
+                            storageClass |= STCwild;
+                            nextToken();
+                            goto Lagain;
+                        }
+                        break;
+                    default:
+                        break;
                 }
                 if (token.value == TOKidentifier)
                 {
@@ -3925,8 +4159,7 @@ Statement *Parser::parseStatement(int flags)
                     arg = new Parameter(0, NULL, token.ident, NULL);
                     nextToken();
                     nextToken();
-                    if (!global.params.useDeprecated)
-                        error("if (v%s e) is deprecated, use if (auto v = e)", t->toChars());
+                    error("if (v; e) is deprecated, use if (auto v = e)");
                 }
             }
 
@@ -4008,6 +4241,8 @@ Statement *Parser::parseStatement(int flags)
                 checkDanglingElse(elseloc);
             }
             s = new ConditionalStatement(loc, condition, ifbody, elsebody);
+            if (flags & PSscope)
+                s = new ScopeStatement(loc, s);
             break;
 
         case TOKpragma:
@@ -4054,7 +4289,6 @@ Statement *Parser::parseStatement(int flags)
 
         case TOKcase:
         {   Expression *exp;
-            Statements *statements;
             Expressions cases;        // array of Expression's
             Expression *last = NULL;
 
@@ -4082,15 +4316,20 @@ Statement *Parser::parseStatement(int flags)
             }
 #endif
 
-            statements = new Statements();
-            while (token.value != TOKcase &&
-                   token.value != TOKdefault &&
-                   token.value != TOKeof &&
-                   token.value != TOKrcurly)
+            if (flags & PScurlyscope)
             {
-                statements->push(parseStatement(PSsemi | PScurlyscope));
+                Statements *statements = new Statements();
+                while (token.value != TOKcase &&
+                       token.value != TOKdefault &&
+                       token.value != TOKeof &&
+                       token.value != TOKrcurly)
+                {
+                    statements->push(parseStatement(PSsemi | PScurlyscope));
+                }
+                s = new CompoundStatement(loc, statements);
             }
-            s = new CompoundStatement(loc, statements);
+            else
+                s = parseStatement(PSsemi | PScurlyscope);
             s = new ScopeStatement(loc, s);
 
 #if DMDV2
@@ -4113,20 +4352,23 @@ Statement *Parser::parseStatement(int flags)
 
         case TOKdefault:
         {
-            Statements *statements;
-
             nextToken();
             check(TOKcolon);
 
-            statements = new Statements();
-            while (token.value != TOKcase &&
-                   token.value != TOKdefault &&
-                   token.value != TOKeof &&
-                   token.value != TOKrcurly)
+            if (flags & PScurlyscope)
             {
-                statements->push(parseStatement(PSsemi | PScurlyscope));
+                Statements *statements = new Statements();
+                while (token.value != TOKcase &&
+                       token.value != TOKdefault &&
+                       token.value != TOKeof &&
+                       token.value != TOKrcurly)
+                {
+                    statements->push(parseStatement(PSsemi | PScurlyscope));
+                }
+                s = new CompoundStatement(loc, statements);
             }
-            s = new CompoundStatement(loc, statements);
+            else
+                s = parseStatement(PSsemi | PScurlyscope);
             s = new ScopeStatement(loc, s);
             s = new DefaultStatement(loc, s);
             break;
@@ -4212,6 +4454,10 @@ Statement *Parser::parseStatement(int flags)
         case TOKsynchronized:
         {   Expression *exp;
             Statement *body;
+
+            Token *t = peek(&token);
+            if (skipAttributes(t, &t) && t->value == TOKclass)
+                goto Ldeclaration;
 
             nextToken();
             if (token.value == TOKlparen)
@@ -4309,30 +4555,27 @@ Statement *Parser::parseStatement(int flags)
             nextToken();
             s = parseStatement(PSsemi | PScurlyscope);
 #if DMDV2
-            if (!global.params.useDeprecated)
-                error("volatile statements deprecated; use synchronized statements instead");
+            deprecation("volatile statements deprecated; use synchronized statements instead");
 #endif
             s = new VolatileStatement(loc, s);
             break;
 
         case TOKasm:
-        {   Statements *statements;
-            Identifier *label;
-            Loc labelloc;
-            Token *toklist;
-            Token **ptoklist;
-
+        {
             // Parse the asm block into a sequence of AsmStatements,
             // each AsmStatement is one instruction.
             // Separate out labels.
             // Defer parsing of AsmStatements until semantic processing.
 
+            Loc labelloc;
+
             nextToken();
             check(TOKlcurly);
-            toklist = NULL;
-            ptoklist = &toklist;
-            label = NULL;
-            statements = new Statements();
+            Token *toklist = NULL;
+            Token **ptoklist = &toklist;
+            Identifier *label = NULL;
+            Statements *statements = new Statements();
+            size_t nestlevel = 0;
             while (1)
             {
                 switch (token.value)
@@ -4341,7 +4584,7 @@ Statement *Parser::parseStatement(int flags)
                         if (!toklist)
                         {
                             // Look ahead to see if it is a label
-                            t = peek(&token);
+                            Token *t = peek(&token);
                             if (t->value == TOKcolon)
                             {   // It's a label
                                 label = token.ident;
@@ -4353,7 +4596,17 @@ Statement *Parser::parseStatement(int flags)
                         }
                         goto Ldefault;
 
+                    case TOKlcurly:
+                        ++nestlevel;
+                        goto Ldefault;
+
                     case TOKrcurly:
+                        if (nestlevel > 0)
+                        {
+                            --nestlevel;
+                            goto Ldefault;
+                        }
+
                         if (toklist || label)
                         {
                             error("asm statements must end in ';'");
@@ -4361,6 +4614,9 @@ Statement *Parser::parseStatement(int flags)
                         break;
 
                     case TOKsemicolon:
+                        if (nestlevel != 0)
+                            error("mismatched number of curly brackets");
+
                         s = NULL;
                         if (toklist || label)
                         {   // Create AsmStatement from list of tokens we've saved
@@ -4379,7 +4635,7 @@ Statement *Parser::parseStatement(int flags)
                     case TOKeof:
                         /* { */
                         error("matching '}' expected, not end of file");
-                        break;
+                        goto Lerror;
 
                     default:
                     Ldefault:
@@ -4402,8 +4658,14 @@ Statement *Parser::parseStatement(int flags)
         {   Dsymbols *imports = new Dsymbols();
             parseImport(imports, 0);
             s = new ImportStatement(loc, imports);
+            if (flags & PSscope)
+                s = new ScopeStatement(loc, s);
             break;
         }
+
+        case TOKtemplate:
+            error("template definitions aren't allowed inside functions");
+            goto Lerror;
 
         default:
             error("found '%s' instead of statement", token.toChars());
@@ -4465,18 +4727,23 @@ int Parser::isDeclaration(Token *t, int needId, enum TOK endtok, Token **pt)
     int haveId = 0;
 
 #if DMDV2
-    if ((t->value == TOKconst ||
-         t->value == TOKinvariant ||
-         t->value == TOKimmutable ||
-         t->value == TOKwild ||
-         t->value == TOKshared) &&
-        peek(t)->value != TOKlparen)
-    {   /* const type
-         * immutable type
-         * shared type
-         * wild type
-         */
-        t = peek(t);
+    while (1)
+    {
+        if ((t->value == TOKconst ||
+             t->value == TOKinvariant ||
+             t->value == TOKimmutable ||
+             t->value == TOKwild ||
+             t->value == TOKshared) &&
+            peek(t)->value != TOKlparen)
+        {   /* const type
+             * immutable type
+             * shared type
+             * wild type
+             */
+            t = peek(t);
+            continue;
+        }
+        break;
     }
 #endif
 
@@ -4709,7 +4976,9 @@ int Parser::isDeclarator(Token **pt, int *haveId, enum TOK endtok)
                 t = peek(t);
                 if (!isParameters(&t))
                     return FALSE;
+                skipAttributes(t, &t);
                 continue;
+            default: break;
         }
         break;
     }
@@ -4965,74 +5234,6 @@ int Parser::isExpression(Token **pt)
     return TRUE;
 }
 
-/**********************************************
- * Skip over
- *      instance foo.bar(parameters...)
- * Output:
- *      if (pt), *pt is set to the token following the closing )
- * Returns:
- *      1       it's valid instance syntax
- *      0       invalid instance syntax
- */
-
-int Parser::isTemplateInstance(Token *t, Token **pt)
-{
-    t = peek(t);
-    if (t->value != TOKdot)
-    {
-        if (t->value != TOKidentifier)
-            goto Lfalse;
-        t = peek(t);
-    }
-    while (t->value == TOKdot)
-    {
-        t = peek(t);
-        if (t->value != TOKidentifier)
-            goto Lfalse;
-        t = peek(t);
-    }
-    if (t->value != TOKlparen)
-        goto Lfalse;
-
-    // Skip over the template arguments
-    while (1)
-    {
-        while (1)
-        {
-            t = peek(t);
-            switch (t->value)
-            {
-                case TOKlparen:
-                    if (!skipParens(t, &t))
-                        goto Lfalse;
-                    continue;
-                case TOKrparen:
-                    break;
-                case TOKcomma:
-                    break;
-                case TOKeof:
-                case TOKsemicolon:
-                    goto Lfalse;
-                default:
-                    continue;
-            }
-            break;
-        }
-
-        if (t->value != TOKcomma)
-            break;
-    }
-    if (t->value != TOKrparen)
-        goto Lfalse;
-    t = peek(t);
-    if (pt)
-        *pt = t;
-    return 1;
-
-Lfalse:
-    return 0;
-}
-
 /*******************************************
  * Skip parens, brackets.
  * Input:
@@ -5121,7 +5322,59 @@ int Parser::skipAttributes(Token *t, Token **pt)
             case TOKat:
                 t = peek(t);
                 if (t->value == TOKidentifier)
+                {   /* @identifier
+                     * @identifier!arg
+                     * @identifier!(arglist)
+                     * any of the above followed by (arglist)
+                     * @predefined_attribute
+                     */
+                    if (t->ident == Id::property ||
+                        t->ident == Id::safe ||
+                        t->ident == Id::trusted ||
+                        t->ident == Id::system ||
+                        t->ident == Id::disable)
+                        break;
+                    t = peek(t);
+                    if (t->value == TOKnot)
+                    {
+                        t = peek(t);
+                        if (t->value == TOKlparen)
+                        {   // @identifier!(arglist)
+                            if (!skipParens(t, &t))
+                                goto Lerror;
+                            // t is on closing parenthesis
+                            t = peek(t);
+                        }
+                        else
+                        {
+                            // @identifier!arg
+                            // Do low rent skipTemplateArgument
+                            if (t->value == TOKvector)
+                            {   // identifier!__vector(type)
+                                t = peek(t);
+                                if (!skipParens(t, &t))
+                                    goto Lerror;
+                            }
+                            t = peek(t);
+                        }
+                    }
+                    if (t->value == TOKlparen)
+                    {
+                        if (!skipParens(t, &t))
+                            goto Lerror;
+                        // t is on closing parenthesis
+                        t = peek(t);
+                        continue;
+                    }
+                    continue;
+                }
+                if (t->value == TOKlparen)
+                {   // @( ArgumentList )
+                    if (!skipParens(t, &t))
+                        goto Lerror;
+                    // t is on closing parenthesis
                     break;
+                }
                 goto Lerror;
             default:
                 goto Ldone;
@@ -5291,32 +5544,26 @@ Expression *Parser::parsePrimaryExp()
             break;
 
         case TOKstring:
-        {   unsigned char *s;
-            unsigned len;
-            unsigned char postfix;
-
+        {
             // cat adjacent strings
-            s = token.ustring;
-            len = token.len;
-            postfix = token.postfix;
+            unsigned char *s = token.ustring;
+            size_t len = token.len;
+            unsigned char postfix = token.postfix;
             while (1)
             {
                 nextToken();
                 if (token.value == TOKstring)
-                {   unsigned len1;
-                    unsigned len2;
-                    unsigned char *s2;
-
+                {
                     if (token.postfix)
                     {   if (token.postfix != postfix)
                             error("mismatched string literal postfixes '%c' and '%c'", postfix, token.postfix);
                         postfix = token.postfix;
                     }
 
-                    len1 = len;
-                    len2 = token.len;
+                    size_t len1 = len;
+                    size_t len2 = token.len;
                     len = len1 + len2;
-                    s2 = (unsigned char *)mem.malloc((len + 1) * sizeof(unsigned char));
+                    unsigned char *s2 = (unsigned char *)mem.malloc((len + 1) * sizeof(unsigned char));
                     memcpy(s2, s, len1 * sizeof(unsigned char));
                     memcpy(s2 + len1, token.ustring, (len2 + 1) * sizeof(unsigned char));
                     s = s2;
@@ -5435,8 +5682,8 @@ Expression *Parser::parsePrimaryExp()
                          token.value == TOKdelegate ||
                          token.value == TOKreturn))
                     {
-                        if (token.value == TOKinvariant && !global.params.useDeprecated)
-                            error("use of 'invariant' rather than 'immutable' is deprecated");
+                        if (token.value == TOKinvariant)
+                            deprecation("use of 'invariant' rather than 'immutable' is deprecated");
                         tok2 = token.value;
                         nextToken();
                     }
@@ -5868,8 +6115,8 @@ Expression *Parser::parseUnaryExp()
             }
             else if ((token.value == TOKimmutable || token.value == TOKinvariant) && peekNext() == TOKrparen)
             {
-                if (token.value == TOKinvariant && !global.params.useDeprecated)
-                    error("use of 'invariant' rather than 'immutable' is deprecated");
+                if (token.value == TOKinvariant)
+                    deprecation("use of 'invariant' rather than 'immutable' is deprecated");
                 m = MODimmutable;
                 goto Lmod2;
             }
@@ -5918,7 +6165,9 @@ Expression *Parser::parseUnaryExp()
         case TOKinvariant:
         case TOKimmutable:      // immutable(type)(arguments)
         {
+            StorageClass stc = parseTypeCtor();
             Type *t = parseBasicType();
+            t = t->addSTC(stc);
             e = new TypeExp(loc, t);
             if (token.value != TOKlparen)
             {
@@ -6528,8 +6777,10 @@ Expression *Parser::parseNewExp(Expression *thisexp)
         return e;
     }
 
+    StorageClass stc = parseTypeCtor();
     t = parseBasicType();
     t = parseBasicType2(t);
+    t = t->addSTC(stc);
     if (t->ty == Taarray)
     {   TypeAArray *taa = (TypeAArray *)t;
         Type *index = taa->index;
@@ -6737,5 +6988,4 @@ void initPrecedence()
     precedence[TOKcomma] = PREC_expr;
     precedence[TOKdeclaration] = PREC_expr;
 }
-
 

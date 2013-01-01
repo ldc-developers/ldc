@@ -86,7 +86,6 @@ file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
 file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
 list(REMOVE_ITEM DCRT_D
     ${RUNTIME_DC_DIR}/alloca.d
-    ${RUNTIME_DC_DIR}/critical_.d
     ${RUNTIME_DC_DIR}/deh.d
     ${RUNTIME_DC_DIR}/deh2.d
     ${RUNTIME_DC_DIR}/llmath.d
@@ -128,6 +127,7 @@ if(PHOBOS2_DIR)
     endif()
 
     file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
+    file(GLOB PHOBOS2_D_DIGEST ${PHOBOS2_DIR}/std/digest/*.d)
     file(GLOB PHOBOS2_D_NET ${PHOBOS2_DIR}/std/net/*.d)
     file(GLOB_RECURSE PHOBOS2_D_INTERNAL ${PHOBOS2_DIR}/std/internal/*.d)
     file(GLOB PHOBOS2_D_C ${PHOBOS2_DIR}/std/c/*.d)
@@ -151,6 +151,7 @@ if(PHOBOS2_DIR)
         file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)
     endif()
     list(APPEND PHOBOS2_D
+            ${PHOBOS2_D_DIGEST}
             ${PHOBOS2_D_NET}
             ${PHOBOS2_D_INTERNAL}
             ${PHOBOS2_D_WIN}

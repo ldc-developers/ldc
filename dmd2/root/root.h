@@ -15,44 +15,13 @@
 #ifdef DEBUG
 #include <assert.h>
 #endif
+#include "port.h"
 
 #if __DMC__
 #pragma once
 #endif
 
 typedef size_t hash_t;
-
-#include "longdouble.h"
-
-char *wchar2ascii(wchar_t *);
-int wcharIsAscii(wchar_t *);
-char *wchar2ascii(wchar_t *, unsigned len);
-int wcharIsAscii(wchar_t *, unsigned len);
-
-int bstrcmp(unsigned char *s1, unsigned char *s2);
-char *bstr2str(unsigned char *b);
-
-#ifndef TYPEDEFS
-#define TYPEDEFS
-
-#if _MSC_VER
-#include <float.h>  // for _isnan
-#include <malloc.h> // for alloca
-// According to VC 8.0 docs, long double is the same as double
-longdouble strtold(const char *p,char **endp);
-#define strtof  strtod
-#define isnan   _isnan
-
-typedef __int64 longlong;
-typedef unsigned __int64 ulonglong;
-#else
-typedef long long longlong;
-typedef unsigned long long ulonglong;
-#endif
-
-#endif
-
-longlong randomx();
 
 /*
  * Root of our class library.
@@ -107,17 +76,15 @@ struct Object
 
 struct String : Object
 {
-    int ref;                    // != 0 if this is a reference to someone else's string
     char *str;                  // the string itself
 
-    String(char *str, int ref = 1);
-
+    String(char *str);
     ~String();
 
     static hash_t calcHash(const char *str, size_t len);
     static hash_t calcHash(const char *str);
     hash_t hashCode();
-    unsigned len();
+    size_t len();
     int equals(Object *obj);
     int compare(Object *obj);
     char *toChars();
@@ -127,8 +94,7 @@ struct String : Object
 
 struct FileName : String
 {
-    FileName(char *str, int ref);
-    FileName(char *path, char *name);
+    FileName(char *str);
     hash_t hashCode();
     int equals(Object *obj);
     static int equals(const char *name1, const char *name2);
@@ -161,7 +127,7 @@ struct File : Object
 {
     int ref;                    // != 0 if this is a reference to someone else's buffer
     unsigned char *buffer;      // data for our file
-    unsigned len;               // amount of data in buffer[]
+    size_t len;                 // amount of data in buffer[]
     void *touchtime;            // system time to use for file
 
     FileName *name;             // name of our file
@@ -251,7 +217,7 @@ struct File : Object
     /* Set buffer
      */
 
-    void setbuffer(void *buffer, unsigned len)
+    void setbuffer(void *buffer, size_t len)
     {
         this->buffer = (unsigned char *)buffer;
         this->len = len;
@@ -265,18 +231,20 @@ struct File : Object
 struct OutBuffer : Object
 {
     unsigned char *data;
-    unsigned offset;
-    unsigned size;
+    size_t offset;
+    size_t size;
+
+    int doindent, level, linehead;
 
     OutBuffer();
     ~OutBuffer();
     char *extractData();
     void mark();
 
-    void reserve(unsigned nbytes);
-    void setsize(unsigned size);
+    void reserve(size_t nbytes);
+    void setsize(size_t size);
     void reset();
-    void write(const void *data, unsigned nbytes);
+    void write(const void *data, size_t nbytes);
     void writebstring(unsigned char *string);
     void writestring(const char *string);
     void prependstring(const char *string);
@@ -290,26 +258,26 @@ struct OutBuffer : Object
     void write4(unsigned w);
     void write(OutBuffer *buf);
     void write(Object *obj);
-    void fill0(unsigned nbytes);
-    void align(unsigned size);
+    void fill0(size_t nbytes);
+    void align(size_t size);
     void vprintf(const char *format, va_list args);
     void printf(const char *format, ...);
     void bracket(char left, char right);
-    unsigned bracket(unsigned i, const char *left, unsigned j, const char *right);
-    void spread(unsigned offset, unsigned nbytes);
-    unsigned insert(unsigned offset, const void *data, unsigned nbytes);
-    void remove(unsigned offset, unsigned nbytes);
+    size_t bracket(size_t i, const char *left, size_t j, const char *right);
+    void spread(size_t offset, size_t nbytes);
+    size_t insert(size_t offset, const void *data, size_t nbytes);
+    void remove(size_t offset, size_t nbytes);
     char *toChars();
     char *extractString();
 };
 
 struct Array : Object
 {
-    unsigned dim;
+    size_t dim;
     void **data;
 
   private:
-    unsigned allocdim;
+    size_t allocdim;
     #define SMALLARRAYCAP       1
     void *smallarray[SMALLARRAYCAP];    // inline storage for small arrays
 
@@ -320,16 +288,16 @@ struct Array : Object
     void mark();
     char *toChars();
 
-    void reserve(unsigned nentries);
-    void setDim(unsigned newdim);
+    void reserve(size_t nentries);
+    void setDim(size_t newdim);
     void fixDim();
     void push(void *ptr);
     void *pop();
     void shift(void *ptr);
-    void insert(unsigned index, void *ptr);
-    void insert(unsigned index, Array *a);
+    void insert(size_t index, void *ptr);
+    void insert(size_t index, Array *a);
     void append(Array *a);
-    void remove(unsigned i);
+    void remove(size_t i);
     void zero();
     void *tos();
     void sort();
@@ -376,8 +344,24 @@ struct ArrayBase : Array
     {
         return (ArrayBase *)Array::copy();
     }
+
+    typedef int (*ArrayBase_apply_ft_t)(TYPE *, void *);
+    int apply(ArrayBase_apply_ft_t fp, void *param)
+    {
+        for (size_t i = 0; i < dim; i++)
+        {   TYPE *e = (*this)[i];
+
+            if (e)
+            {
+                if (e->apply(fp, param))
+                    return 1;
+            }
+        }
+        return 0;
+    }
 };
 
+// TODO: Remove (only used by disabled GC)
 struct Bits : Object
 {
     unsigned bitdim;

@@ -67,7 +67,7 @@ struct AttribDeclaration : Dsymbol
 #endif
 };
 
-struct StorageClassDeclaration: AttribDeclaration
+struct StorageClassDeclaration : AttribDeclaration
 {
     StorageClass stc;
 
@@ -79,6 +79,16 @@ struct StorageClassDeclaration: AttribDeclaration
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     static void stcToCBuffer(OutBuffer *buf, StorageClass stc);
+};
+
+struct DeprecatedDeclaration : StorageClassDeclaration
+{
+    Expression *msg;
+
+    DeprecatedDeclaration(Expression *msg, Dsymbols *decl);
+    Dsymbol *syntaxCopy(Dsymbol *s);
+    void setScope(Scope *sc);
+    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
 
 struct LinkDeclaration : AttribDeclaration
@@ -200,6 +210,23 @@ struct CompileDeclaration : AttribDeclaration
     int addMember(Scope *sc, ScopeDsymbol *sd, int memnum);
     void compileIt(Scope *sc);
     void semantic(Scope *sc);
+    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+    const char *kind();
+};
+
+/**
+ * User defined attributes look like:
+ *      [ args, ... ]
+ */
+struct UserAttributeDeclaration : AttribDeclaration
+{
+    Expressions *atts;
+
+    UserAttributeDeclaration(Expressions *atts, Dsymbols *decl);
+    Dsymbol *syntaxCopy(Dsymbol *s);
+    void semantic(Scope *sc);
+    void setScope(Scope *sc);
+    static Expressions *concat(Expressions *udas1, Expressions *udas2);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
 };

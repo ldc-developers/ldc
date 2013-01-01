@@ -3115,7 +3115,8 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
 
         llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assocarrayliteralTX");
         LLFunctionType* funcTy = func->getFunctionType();
-        LLValue* aaTypeInfo = DtoTypeInfoOf(stripModifiers(aatype));
+        LLValue* aaTypeInfo = DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype)),
+            DtoType(Type::typeinfoassociativearray->type));
 
         LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
 

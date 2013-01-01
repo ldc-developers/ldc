@@ -24,6 +24,51 @@
 #include "statement.h"
 #include "hdrgen.h"
 
+AggregateDeclaration *isAggregate(Type *t); // from opover.c
+
+void checkFrameAccess(Loc loc, Scope *sc, AggregateDeclaration *ad)
+{
+    if (!ad->isnested)
+        return;
+
+    Dsymbol *s = sc->func;
+    if (s)
+    {
+        Dsymbol *sparent = ad->toParent2();
+        //printf("ad = %p %s [%s], parent:%p\n", ad, ad->toChars(), ad->loc.toChars(), ad->parent);
+        //printf("sparent = %p %s [%s], parent: %s\n", sparent, sparent->toChars(), sparent->loc.toChars(), sparent->parent->toChars());
+
+        while (s)
+        {
+            if (s == sparent)   // hit!
+            {
+                // Is it better moving this check to AggregateDeclaration:semantic?
+                for (size_t i = 0; i < ad->fields.dim; i++)
+                {   VarDeclaration *vd = ad->fields[i]->isVarDeclaration();
+                    if (vd)
+                        if (AggregateDeclaration *ad2 = isAggregate(vd->type))
+                            if (ad2->isStructDeclaration())
+                                checkFrameAccess(loc, sc, ad2);
+                }
+                return;
+            }
+
+            if (FuncDeclaration *fd = s->isFuncDeclaration())
+            {
+                if (!fd->isThis() && !fd->isNested())
+                    break;
+            }
+            if (AggregateDeclaration *ad2 = s->isAggregateDeclaration())
+            {
+                if (ad2->storage_class & STCstatic)
+                    break;
+            }
+            s = s->toParent2();
+        }
+    }
+    error(loc, "cannot access frame pointer of %s", ad->toPrettyChars());
+}
+
 /********************************* Declaration ****************************/
 
 Declaration::Declaration(Identifier *id)
@@ -85,40 +130,26 @@ enum PROT Declaration::prot()
 
 #if DMDV2
 
-void Declaration::checkModify(Loc loc, Scope *sc, Type *t)
+int Declaration::checkModify(Loc loc, Scope *sc, Type *t)
 {
-    if (sc->incontract && isParameter())
+    if ((sc->flags & SCOPEcontract) && isParameter())
         error(loc, "cannot modify parameter '%s' in contract", toChars());
 
-    if (sc->incontract && isResult())
+    if ((sc->flags & SCOPEcontract) && isResult())
         error(loc, "cannot modify result '%s' in contract", toChars());
 
     if (isCtorinit() && !t->isMutable() ||
         (storage_class & STCnodefaultctor))
     {   // It's only modifiable if inside the right constructor
-        modifyFieldVar(loc, sc, isVarDeclaration(), NULL);
+        return modifyFieldVar(loc, sc, isVarDeclaration(), NULL);
     }
     else
     {
         VarDeclaration *v = isVarDeclaration();
-        if (v && v->canassign == 0)
-        {
-            const char *p = NULL;
-            if (isConst())
-                p = "const";
-            else if (isImmutable())
-                p = "immutable";
-            else if (isWild())
-                p = "inout";
-            else if (storage_class & STCmanifest)
-                p = "enum";
-            else if (!t->isAssignable())
-                p = "struct with immutable members";
-            if (p)
-            {   error(loc, "cannot modify %s", p);
-            }
-        }
+        if (v && v->canassign)
+            return TRUE;
     }
+    return FALSE;
 }
 #endif
 
@@ -304,6 +335,7 @@ Dsymbol *TypedefDeclaration::syntaxCopy(Dsymbol *s)
 void TypedefDeclaration::semantic(Scope *sc)
 {
     //printf("TypedefDeclaration::semantic(%s) sem = %d\n", toChars(), sem);
+    userAttributes = sc->userAttributes;
     if (sem == SemanticStart)
     {   sem = SemanticIn;
         parent = sc->parent;
@@ -332,6 +364,7 @@ void TypedefDeclaration::semantic(Scope *sc)
             return;
         }
         storage_class |= sc->stc & STCdeprecated;
+        userAttributes = sc->userAttributes;
     }
     else if (sem == SemanticIn)
     {
@@ -430,6 +463,7 @@ Dsymbol *AliasDeclaration::syntaxCopy(Dsymbol *s)
         sa = new AliasDeclaration(loc, ident, type->syntaxCopy());
     else
         sa = new AliasDeclaration(loc, ident, aliassym->syntaxCopy(NULL));
+    sa->storage_class = storage_class;
 
     // Syntax copy for header file
     if (!htype)     // Don't overwrite original
@@ -470,6 +504,7 @@ void AliasDeclaration::semantic(Scope *sc)
 
     storage_class |= sc->stc & STCdeprecated;
     protection = sc->protection;
+    userAttributes = sc->userAttributes;
 
     // Given:
     //  alias foo.bar.abc def;
@@ -534,7 +569,7 @@ void AliasDeclaration::semantic(Scope *sc)
         //printf("\talias resolved to type %s\n", type->toChars());
     }
     if (overnext)
-        ScopeDsymbol::multiplyDefined(0, this, overnext);
+        ScopeDsymbol::multiplyDefined(0, overnext, this);
     this->inSemantic = 0;
 
     if (global.gag && errors != global.errors)
@@ -563,7 +598,7 @@ void AliasDeclaration::semantic(Scope *sc)
                 fa->importprot = importprot;
 #endif
                 if (!fa->overloadInsert(overnext))
-                    ScopeDsymbol::multiplyDefined(0, f, overnext);
+                    ScopeDsymbol::multiplyDefined(0, overnext, f);
                 overnext = NULL;
                 s = fa;
                 s->parent = sc->parent;
@@ -581,7 +616,7 @@ void AliasDeclaration::semantic(Scope *sc)
             }
         }
         if (overnext)
-            ScopeDsymbol::multiplyDefined(0, this, overnext);
+            ScopeDsymbol::multiplyDefined(0, overnext, this);
         if (s == this)
         {
             assert(global.errors);
@@ -731,7 +766,7 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     aliassym = NULL;
     onstack = 0;
     canassign = 0;
-    ctfeAdrOnStack = (size_t)(-1);
+    ctfeAdrOnStack = -1;
 #if DMDV2
     rundtor = NULL;
     edtor = NULL;
@@ -813,6 +848,8 @@ void VarDeclaration::semantic(Scope *sc)
     if (storage_class & STCextern && init)
         error("extern symbols cannot have initializers");
 
+    userAttributes = sc->userAttributes;
+
     AggregateDeclaration *ad = isThis();
     if (ad)
         storage_class |= ad->storage_class & STC_TYPECTOR;
@@ -858,11 +895,11 @@ void VarDeclaration::semantic(Scope *sc)
          * declarations.
          */
         storage_class &= ~STCauto;
-        originalType = type;
+        originalType = type->syntaxCopy();
     }
     else
     {   if (!originalType)
-            originalType = type;
+            originalType = type->syntaxCopy();
         type = type->semantic(loc, sc);
     }
     //printf(" semantic type = %s\n", type ? type->toChars() : "null");
@@ -1262,7 +1299,27 @@ Lnomatch:
     {
         // Provide a default initializer
         //printf("Providing default initializer for '%s'\n", toChars());
-        if (type->ty == Tstruct &&
+        if (type->needsNested())
+        {
+            Type *tv = type;
+            while (tv->toBasetype()->ty == Tsarray)
+                tv = tv->toBasetype()->nextOf();
+            assert(tv->toBasetype()->ty == Tstruct);
+
+            /* Nested struct requires valid enclosing frame pointer.
+             * In StructLiteralExp::toElem(), it's calculated.
+             */
+
+            checkFrameAccess(loc, sc, ((TypeStruct *)tv->toBasetype())->sym);
+
+            Expression *e = tv->defaultInitLiteral(loc);
+            Expression *e1 = new VarExp(loc, this);
+            e = new ConstructExp(loc, e1, e);
+            e = e->semantic(sc);
+            init = new ExpInitializer(loc, e);
+            goto Ldtor;
+        }
+        else if (type->ty == Tstruct &&
             ((TypeStruct *)type)->sym->zeroInit == 1)
         {   /* If a struct is all zeros, as a special case
              * set it's initializer to the integer 0.
@@ -1275,19 +1332,6 @@ Lnomatch:
             e1 = new VarExp(loc, this);
             e = new ConstructExp(loc, e1, e);
             e->type = e1->type;         // don't type check this, it would fail
-            init = new ExpInitializer(loc, e);
-            goto Ldtor;
-        }
-        else if (type->ty == Tstruct &&
-                 (((TypeStruct *)type)->sym->isnested))
-        {
-            /* Nested struct requires valid enclosing frame pointer.
-             * In StructLiteralExp::toElem(), it's calculated.
-             */
-            Expression *e = type->defaultInitLiteral(loc);
-            Expression *e1 = new VarExp(loc, this);
-            e = new ConstructExp(loc, e1, e);
-            e = e->semantic(sc);
             init = new ExpInitializer(loc, e);
             goto Ldtor;
         }
@@ -1501,7 +1545,7 @@ Lnomatch:
                             ei->exp = new CommaExp(loc, e, ei->exp);
                         }
                         else
-                        /* Look for opCall
+                        /* Look for static opCall
                          * See bugzilla 2702 for more discussion
                          */
                         // Don't cast away invariant or mutability in initializer
@@ -1510,8 +1554,8 @@ Lnomatch:
                              */
                             !(ti->ty == Tstruct && t->toDsymbol(sc) == ti->toDsymbol(sc)))
                         {   // Rewrite as e1.call(arguments)
-                            Expression * eCall = new DotIdExp(loc, e1, Id::call);
-                            ei->exp = new CallExp(loc, eCall, ei->exp);
+                            Expression *e = typeDotIdExp(ei->exp->loc, t, Id::call);
+                            ei->exp = new CallExp(loc, e, ei->exp);
                         }
                     }
                 }
@@ -1528,8 +1572,7 @@ Lnomatch:
             }
         }
         else if (storage_class & (STCconst | STCimmutable | STCmanifest) ||
-                 type->isConst() || type->isImmutable() ||
-                 parent->isAggregateDeclaration())
+                 type->isConst() || type->isImmutable())
         {
             /* Because we may need the results of a const declaration in a
              * subsequent type, such as an array dimension, before semantic2()
@@ -1540,15 +1583,18 @@ Lnomatch:
             if (!global.errors && !inferred)
             {
                 unsigned errors = global.startGagging();
-                Expression *e;
+                Expression *exp;
                 Initializer *i2 = init;
                 inuse++;
                 if (ei)
                 {
-                    e = ei->exp->syntaxCopy();
-                    e = e->semantic(sc);
-                    e = resolveProperties(sc, e);
+                    exp = ei->exp->syntaxCopy();
+                    exp = exp->semantic(sc);
+                    exp = resolveProperties(sc, exp);
 #if DMDV2
+                    Type *tb = type->toBasetype();
+                    Type *ti = exp->type->toBasetype();
+
                     /* The problem is the following code:
                      *  struct CopyTest {
                      *     double x;
@@ -1560,21 +1606,18 @@ Lnomatch:
                      *  static assert(w.x == 55.0);
                      * because the postblit doesn't get run on the initialization of w.
                      */
-
-                    Type *tb2 = e->type->toBasetype();
-                    if (tb2->ty == Tstruct)
-                    {   StructDeclaration *sd = ((TypeStruct *)tb2)->sym;
-                        Type *typeb = type->toBasetype();
+                    if (ti->ty == Tstruct)
+                    {   StructDeclaration *sd = ((TypeStruct *)ti)->sym;
                         /* Look to see if initializer involves a copy constructor
                          * (which implies a postblit)
                          */
                         if (sd->cpctor &&               // there is a copy constructor
-                            typeb->equals(tb2))          // rvalue is the same struct
+                            tb->equals(ti))             // rvalue is the same struct
                         {
                             // The only allowable initializer is a (non-copy) constructor
-                            if (e->op == TOKcall)
+                            if (exp->op == TOKcall)
                             {
-                                CallExp *ce = (CallExp *)e;
+                                CallExp *ce = (CallExp *)exp;
                                 if (ce->e1->op == TOKdotvar)
                                 {
                                     DotVarExp *dve = (DotVarExp *)ce->e1;
@@ -1583,15 +1626,33 @@ Lnomatch:
                                 }
                             }
                             global.gag--;
-                            error("of type struct %s uses this(this), which is not allowed in static initialization", typeb->toChars());
+                            error("of type struct %s uses this(this), which is not allowed in static initialization", tb->toChars());
                             global.gag++;
 
                           LNoCopyConstruction:
                             ;
                         }
                     }
+
+                    // Look for implicit constructor call
+                    if (tb->ty == Tstruct &&
+                        !(ti->ty == Tstruct && tb->toDsymbol(sc) == ti->toDsymbol(sc)) &&
+                        !exp->implicitConvTo(type))
+                    {
+                        StructDeclaration *sd = ((TypeStruct *)tb)->sym;
+                        if (sd->ctor)
+                        {   // Look for constructor first
+                            // Rewrite as e1.ctor(arguments)
+                            Expression *e;
+                            e = new StructLiteralExp(loc, sd, NULL, NULL);
+                            e = new DotIdExp(loc, e, Id::ctor);
+                            e = new CallExp(loc, e, exp);
+                            e = e->semantic(sc);
+                            exp = e->ctfeInterpret();
+                        }
+                    }
 #endif
-                    e = e->implicitCastTo(sc, type);
+                    exp = exp->implicitCastTo(sc, type);
                 }
                 else if (si || ai)
                 {   i2 = init->syntaxCopy();
@@ -1610,10 +1671,10 @@ Lnomatch:
                 else if (ei)
                 {
                     if (isDataseg() || (storage_class & STCmanifest))
-                        e = e->ctfeInterpret();
+                        exp = exp->ctfeInterpret();
                     else
-                        e = e->optimize(WANTvalue);
-                    switch (e->op)
+                        exp = exp->optimize(WANTvalue);
+                    switch (exp->op)
                     {
                         case TOKint64:
                         case TOKfloat64:
@@ -1622,7 +1683,7 @@ Lnomatch:
                         case TOKassocarrayliteral:
                         case TOKstructliteral:
                         case TOKnull:
-                            ei->exp = e;            // no errors, keep result
+                            ei->exp = exp;          // no errors, keep result
                             break;
 
                         default:
@@ -1638,6 +1699,11 @@ Lnomatch:
                 else
                     init = i2;          // no errors, keep result
             }
+        }
+        else if (parent->isAggregateDeclaration())
+        {
+            scope = new Scope(*sc);
+            scope->setNoFree();
         }
         sc = sc->pop();
     }
@@ -1765,6 +1831,25 @@ void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset,
         ad->sizeok = SIZEOKfwd;             // cannot finish; flag as forward referenced
         return;
     }
+#if DMDV2
+    else if (t->ty == Tsarray)
+    {
+        Type *tv = t->toBasetype();
+        while (tv->ty == Tsarray)
+        {
+            tv = tv->nextOf()->toBasetype();
+        }
+        if (tv->ty == Tstruct)
+        {
+            TypeStruct *ts = (TypeStruct *)tv;
+            if (ad == ts->sym)
+            {
+                ad->error("cannot have field %s with same struct type", toChars());
+                return;
+            }
+        }
+    }
+#endif
 
     unsigned memsize      = t->size(loc);            // size of member
     unsigned memalignsize = t->alignsize();          // size of member for alignment purposes

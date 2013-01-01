@@ -120,11 +120,11 @@ enum TOK
         TOKint16, TOKuns16,
         TOKint32, TOKuns32,
         TOKint64, TOKuns64,
+        TOKint128, TOKuns128,
         TOKfloat32, TOKfloat64, TOKfloat80,
         TOKimaginary32, TOKimaginary64, TOKimaginary80,
         TOKcomplex32, TOKcomplex64, TOKcomplex80,
         TOKchar, TOKwchar, TOKdchar, TOKbit, TOKbool,
-        TOKcent, TOKucent,
 
 // 152
         // Aggregates
@@ -191,6 +191,7 @@ enum TOK
         case TOKint16: case TOKuns16:           \
         case TOKint32: case TOKuns32:           \
         case TOKint64: case TOKuns64:           \
+        case TOKint128: case TOKuns128: \
         case TOKfloat32: case TOKfloat64: case TOKfloat80:              \
         case TOKimaginary32: case TOKimaginary64: case TOKimaginary80:  \
         case TOKcomplex32: case TOKcomplex64: case TOKcomplex80:        \
@@ -206,6 +207,8 @@ enum TOK
         case TOKuns32:   t = Type::tuns32; goto LabelX;         \
         case TOKint64:   t = Type::tint64; goto LabelX;         \
         case TOKuns64:   t = Type::tuns64; goto LabelX;         \
+        case TOKint128:  t = Type::tint128; goto LabelX;        \
+        case TOKuns128:  t = Type::tuns128; goto LabelX;        \
         case TOKfloat32: t = Type::tfloat32; goto LabelX;       \
         case TOKfloat64: t = Type::tfloat64; goto LabelX;       \
         case TOKfloat80: t = Type::tfloat80; goto LabelX;       \
@@ -283,7 +286,7 @@ struct Lexer
     int commentToken;           // !=0 means comments are TOKcomment's
 
     Lexer(Module *mod,
-        unsigned char *base, unsigned begoffset, unsigned endoffset,
+        unsigned char *base, size_t begoffset, size_t endoffset,
         int doDocComment, int commentToken);
 
     static void initKeywords();
@@ -310,8 +313,9 @@ struct Lexer
     unsigned wchar(unsigned u);
     TOK number(Token *t);
     TOK inreal(Token *t);
-    void error(const char *format, ...) IS_PRINTF(2);
-    void error(Loc loc, const char *format, ...) IS_PRINTF(3);
+    void error(const char *format, ...);
+    void error(Loc loc, const char *format, ...);
+    void deprecation(const char *format, ...);
     void poundLine();
     unsigned decodeUTF();
     void getDocComment(Token *t, unsigned lineComment);

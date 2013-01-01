@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#if (defined (__SVR4) && defined (__sun))
+#if defined (__sun)
 #include <alloca.h>
 #endif
 
@@ -179,7 +179,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 #endif
 
     if (global.params.objname)
-        objfilename = new FileName(argobj, 0);
+        objfilename = new FileName(argobj);
     else
         objfilename = FileName::forceExt(argobj, global.obj_ext);
 
@@ -281,7 +281,7 @@ void Module::setDocfile()
         argdoc = FileName::combine(global.params.docdir, argdoc);
     }
     if (global.params.docname)
-        docfilename = new FileName(argdoc, 0);
+        docfilename = new FileName(argdoc);
     else
         docfilename = FileName::forceExt(argdoc, global.doc_ext);
 
@@ -309,7 +309,7 @@ void Module::setHdrfile()
         arghdr = FileName::combine(global.params.hdrdir, arghdr);
     }
     if (global.params.hdrname)
-        hdrfilename = new FileName(arghdr, 0);
+        hdrfilename = new FileName(arghdr);
     else
         hdrfilename = FileName::forceExt(arghdr, global.hdr_ext);
 
@@ -515,7 +515,17 @@ bool Module::read(Loc loc)
 {
     //printf("Module::read('%s') file '%s'\n", toChars(), srcfile->toChars());
     if (srcfile->read())
-    {   error(loc, "is in file '%s' which cannot be read", srcfile->toChars());
+    {
+        if (!strcmp(srcfile->toChars(), "object.d"))
+        {
+            ::error(loc, "cannot find source code for runtime library file 'object.d'");
+            errorSupplemental(loc, "dmd might not be correctly installed. Run 'dmd -man' for installation instructions.");
+        }
+        else
+        {
+            error(loc, "is in file '%s' which cannot be read", srcfile->toChars());
+        }
+
         if (!global.gag)
         {   /* Print path
              */
@@ -582,7 +592,7 @@ void Module::parse()
     //printf("Module::parse(srcname = '%s')\n", srcname);
 
     unsigned char *buf = srcfile->buffer;
-    unsigned buflen = srcfile->len;
+    size_t buflen = srcfile->len;
 
     if (buflen >= 2)
     {
@@ -1165,7 +1175,7 @@ void Module::runDeferredSemantic()
     static int nested;
     if (nested)
         return;
-    //if (deferred.dim) printf("+Module::runDeferredSemantic('%s'), len = %d\n", toChars(), deferred.dim);
+    //if (deferred.dim) printf("+Module::runDeferredSemantic(), len = %d\n", deferred.dim);
     nested++;
 
     size_t len;
@@ -1177,6 +1187,7 @@ void Module::runDeferredSemantic()
             break;
 
         Dsymbol **todo;
+        Dsymbol **todoalloc = NULL;
         Dsymbol *tmp;
         if (len == 1)
         {
@@ -1184,8 +1195,9 @@ void Module::runDeferredSemantic()
         }
         else
         {
-            todo = (Dsymbol **)alloca(len * sizeof(Dsymbol *));
+            todo = (Dsymbol **)malloc(len * sizeof(Dsymbol *));
             assert(todo);
+            todoalloc = todo;
         }
         memcpy(todo, deferred.tdata(), len * sizeof(Dsymbol *));
         deferred.setDim(0);
@@ -1198,9 +1210,11 @@ void Module::runDeferredSemantic()
             //printf("deferred: %s, parent = %s\n", s->toChars(), s->parent->toChars());
         }
         //printf("\tdeferred.dim = %d, len = %d, dprogress = %d\n", deferred.dim, len, dprogress);
+        if (todoalloc)
+            free(todoalloc);
     } while (deferred.dim < len || dprogress);  // while making progress
     nested--;
-    //printf("-Module::runDeferredSemantic('%s'), len = %d\n", toChars(), deferred.dim);
+    //printf("-Module::runDeferredSemantic(), len = %d\n", deferred.dim);
 }
 
 /************************************

@@ -39,7 +39,7 @@ Macros defined by the compiler, not the code:
         __APPLE__       Mac OSX
         __FreeBSD__     FreeBSD
         __OpenBSD__     OpenBSD
-        __sun&&__SVR4   Solaris, OpenSolaris (yes, both macros are necessary)
+        __sun           Solaris, OpenSolaris, SunOS, OpenIndiana, etc
 
 For the target systems, there are the target operating system and
 the target object file format:
@@ -203,25 +203,39 @@ struct Param
     ARCH cpu;           // target CPU
     bool isLE;          // generate little endian code
     bool is64bit;       // generate 64 bit code
-#if !IN_LLVM
+#if IN_LLVM
+    OS   os;
+#else
     char isLinux;       // generate code for linux
     char isOSX;         // generate code for Mac OSX
     char isWindows;     // generate code for Windows
     char isFreeBSD;     // generate code for FreeBSD
     char isOPenBSD;     // generate code for OpenBSD
     char isSolaris;     // generate code for Solaris
-#else
-    OS   os;
+    char scheduler;     // which scheduler to use
 #endif
-    bool useDeprecated; // allow use of deprecated features
+    ubyte useDeprecated; // 0: don't allow use of deprecated features
+                        // 1: silently allow use of deprecated features
+                        // 2: warn about the use of deprecated features
     bool useAssert;     // generate runtime code for assert()'s
     bool useInvariants; // generate class invariant checks
     bool useIn;         // generate precondition checks
     bool useOut;        // generate postcondition checks
-    bool useArrayBounds;// generate array bounds checks
-    bool useSwitchError;// check for switches without a default
+#if IN_LLVM
+    bool useArrayBounds;
+#else
+    char useArrayBounds; // 0: no array bounds checks
+                         // 1: array bounds checks for safe functions only
+                         // 2: array bounds checks for all functions
+#endif
+    bool noboundscheck; // no array bounds checking at all
+    bool useSwitchError; // check for switches without a default
     bool useUnitTests;  // generate unittest code
     bool useInline;     // inline expand functions
+#if !IN_LLVM
+    char release;       // build release version
+    char preservePaths; // !=0 means don't strip path from source file
+#endif
     ubyte warnings;     // 0: enable warnings
                         // 1: warnings as errors
                         // 2: informational warnings (no errors)
@@ -230,9 +244,12 @@ struct Param
     char cov;           // generate code coverage data
     char nofloat;       // code should not pull in floating point support
 #endif
-    ubyte Dversion;     // D version number
+    ubyte Dversion;      // D version number
     bool ignoreUnsupportedPragmas;      // rather than error on them
     bool enforcePropertySyntax;
+#if !IN_LLVM
+    char betterC;       // be a "better C" compiler; no dependency on D runtime
+#endif
 
     char *argv0;        // program name
     Strings *imppath;     // array of char*'s of where to look for import modules
@@ -493,6 +510,7 @@ enum DYNCAST
     DYNCAST_TYPE,
     DYNCAST_IDENTIFIER,
     DYNCAST_TUPLE,
+    DYNCAST_PARAMETER,
 };
 
 enum MATCH
@@ -508,12 +526,15 @@ enum MATCH
 typedef uint64_t StorageClass;
 
 
-void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
-void error(Loc loc, const char *format, ...) IS_PRINTF(2);
+void warning(Loc loc, const char *format, ...);
+void deprecation(Loc loc, const char *format, ...);
+void error(Loc loc, const char *format, ...);
 void errorSupplemental(Loc loc, const char *format, ...);
-void verror(Loc loc, const char *format, va_list ap, const char *p1 = NULL, const char *p2 = NULL);
+void verror(Loc loc, const char *format, va_list ap, const char *p1 = NULL, const char *p2 = NULL, const char *header = "Error: ");
 void vwarning(Loc loc, const char *format, va_list);
-void verrorSupplemental(Loc loc, const char *format, va_list);
+void verrorSupplemental(Loc loc, const char *format, va_list ap);
+void verrorPrint(Loc loc, const char *header, const char *format, va_list ap, const char *p1 = NULL, const char *p2 = NULL);
+void vdeprecation(Loc loc, const char *format, va_list ap, const char *p1 = NULL, const char *p2 = NULL);
 
 #if defined(__GNUC__) || defined(__clang__)
 __attribute__((noreturn))
@@ -527,7 +548,7 @@ void error(const char *format, ...)  IS_PRINTF(1);
 int runLINK();
 void deleteExeFile();
 int runProgram();
-const char *inifile(const char *argv0, const char *inifile);
+const char *inifile(const char *argv0, const char *inifile, const char* envsectionname);
 #endif
 void halt();
 #if !IN_LLVM
@@ -543,7 +564,7 @@ void util_progress();
 
 #if !IN_LLVM
 struct Dsymbol;
-struct Library;
+class Library;
 struct File;
 void obj_start(char *srcfile);
 void obj_end(Library *library, File *objfile);

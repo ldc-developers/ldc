@@ -189,6 +189,7 @@ static void LLVM_D_BuildRuntimeModule()
     LLType* objectTy = DtoType(ClassDeclaration::object->type);
     LLType* classInfoTy = DtoType(ClassDeclaration::classinfo->type);
     LLType* typeInfoTy = DtoType(Type::typeinfo->type);
+    LLType* aaTypeInfoTy = DtoType(Type::typeinfoassociativearray->type);
 
     LLType* aaTy = rt_ptr(LLStructType::get(gIR->context()));
 
@@ -1013,7 +1014,7 @@ static void LLVM_D_BuildRuntimeModule()
     {
         llvm::StringRef fname("_d_assocarrayliteralTX");
         std::vector<LLType*> types;
-        types.push_back(typeInfoTy);
+        types.push_back(aaTypeInfoTy);
         types.push_back(voidArrayTy);
         types.push_back(voidArrayTy);
         LLFunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
