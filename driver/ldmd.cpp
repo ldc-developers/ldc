@@ -686,7 +686,8 @@ Params parseArgs(int originalArgc, char** originalArgv, ls::Path ldcPath)
                 if (runargCount)
                 {
                     result.files.push_back(argv[i + 1]);
-                    result.runArgs = std::vector<char*>(argv + i + 2, argv + i + runargCount);
+                    result.runArgs = std::vector<char*>(argv + i + 2, argv + i + runargCount + 1);
+                    i += runargCount;
                 }
                 else
                 {
