@@ -112,7 +112,7 @@ struct AlignDeclaration : AttribDeclaration
 {
     unsigned salign;
 
-    AlignDeclaration(Loc loc, unsigned sa, Dsymbols *decl);
+    AlignDeclaration(unsigned sa, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void setScope(Scope *sc);
     void semantic(Scope *sc);

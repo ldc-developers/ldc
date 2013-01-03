@@ -722,10 +722,9 @@ void ProtDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
 /********************************* AlignDeclaration ****************************/
 
-AlignDeclaration::AlignDeclaration(Loc loc, unsigned sa, Dsymbols *decl)
+AlignDeclaration::AlignDeclaration(unsigned sa, Dsymbols *decl)
         : AttribDeclaration(decl)
 {
-    this->loc = loc;
     salign = sa;
 }
 
@@ -734,7 +733,7 @@ Dsymbol *AlignDeclaration::syntaxCopy(Dsymbol *s)
     AlignDeclaration *ad;
 
     assert(!s);
-    ad = new AlignDeclaration(loc, salign, Dsymbol::arraySyntaxCopy(decl));
+    ad = new AlignDeclaration(salign, Dsymbol::arraySyntaxCopy(decl));
     return ad;
 }
 
@@ -754,8 +753,6 @@ void AlignDeclaration::semantic(Scope *sc)
     {
         semanticNewSc(sc, sc->stc, sc->linkage, sc->protection, sc->explicitProtection, salign);
     }
-    else
-    assert(0 && "what kind of align use triggers this?");
 }
 
 

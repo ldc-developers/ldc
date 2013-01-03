@@ -507,9 +507,6 @@ Dsymbols *Parser::parseDeclDefs(int once)
             case TOKalign:
             {   unsigned n;
 
-        // LDC better align code locations
-        Loc alignloc = loc;
-
                 s = NULL;
                 nextToken();
                 if (token.value == TOKlparen)
@@ -532,7 +529,7 @@ Dsymbols *Parser::parseDeclDefs(int once)
                     n = global.structalign;             // default
 
                 a = parseBlock();
-		s = new AlignDeclaration(alignloc, n, a);
+                s = new AlignDeclaration(n, a);
                 break;
             }
 
