@@ -15,7 +15,11 @@
 
 #include "llvm/PassManager.h"
 #include "llvm/LinkAllPasses.h"
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/Module.h"
+#else
 #include "llvm/Module.h"
+#endif
 #include "llvm/ADT/Triple.h"
 #include "llvm/Analysis/Verifier.h"
 #if LDC_LLVM_VER >= 302

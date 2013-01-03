@@ -18,13 +18,19 @@
 
 #include "Passes.h"
 
-#include "llvm/Function.h"
 #include "llvm/Pass.h"
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IRBuilder.h"
+#else
+#include "llvm/Function.h"
 #include "llvm/Intrinsics.h"
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER == 302
 #include "llvm/IRBuilder.h"
 #else
 #include "llvm/Support/IRBuilder.h"
+#endif
 #endif
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"

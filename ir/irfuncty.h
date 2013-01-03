@@ -18,7 +18,11 @@
 
 #include "ir/ir.h"
 #include "llvm/ADT/SmallVector.h"
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/Attributes.h"
+#else
 #include "llvm/Attributes.h"
+#endif
 
 #include <vector>
 

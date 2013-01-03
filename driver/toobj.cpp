@@ -12,7 +12,11 @@
 
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/Module.h"
+#else
 #include "llvm/Module.h"
+#endif
 #include "llvm/PassManager.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/CommandLine.h"

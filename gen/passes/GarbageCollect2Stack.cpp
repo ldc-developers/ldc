@@ -22,16 +22,23 @@
 #include "Passes.h"
 
 #include "llvm/Pass.h"
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/Intrinsics.h"
+#include "llvm/IR/IRBuilder.h"
+#else
 #include "llvm/Module.h"
 #include "llvm/Constants.h"
 #include "llvm/Intrinsics.h"
-#include "llvm/Support/CallSite.h"
-#include "llvm/Support/CommandLine.h"
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER == 302
 #include "llvm/IRBuilder.h"
 #else
 #include "llvm/Support/IRBuilder.h"
 #endif
+#endif
+#include "llvm/Support/CallSite.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/ValueTracking.h"

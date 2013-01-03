@@ -175,6 +175,9 @@ int main(int argc, char** argv)
 
     sys::Path file(LLVM_INTRINSIC_TD_PATH);
     file.appendComponent("llvm");
+#if LDC_LLVM_VER >= 303
+    file.appendComponent("IR");
+#endif
     file.appendComponent("Intrinsics.td");
 
     string iStr = string("-I=") + string(LLVM_INTRINSIC_TD_PATH);

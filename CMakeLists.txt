@@ -334,11 +334,12 @@ get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 #
 
 # The LLVM_INCLUDE_DIR definition is not always set, e.g. on Windows.
-find_path(LLVM_INTRINSIC_TD_PATH "llvm/Intrinsics.td" PATHS ${LLVM_INCLUDE_DIRS} NO_DEFAULT_PATH)
+find_path(LLVM_INTRINSIC_TD_PATH "Intrinsics.td" PATHS ${LLVM_INCLUDE_DIRS}/llvm ${LLVM_INCLUDE_DIRS}/llvm/IR NO_DEFAULT_PATH)
 if (${LLVM_INTRINSIC_TD_PATH} STREQUAL "LLVM_INTRINSIC_TD_PATH-NOTFOUND")
-    message(SEND_ERROR "File llvm/Intrinsics.td not found")
+    message(SEND_ERROR "File Intrinsics.td not found")
 else()
-    message(STATUS "Using path for llvm/Intrinsics.td: ${LLVM_INTRINSIC_TD_PATH}")
+    string(REGEX REPLACE "/llvm(/IR)?$" "" LLVM_INTRINSIC_TD_PATH ${LLVM_INTRINSIC_TD_PATH})
+    message(STATUS "Using path for Intrinsics.td: ${LLVM_INTRINSIC_TD_PATH}")
 endif()
 add_definitions(-DLLVM_INTRINSIC_TD_PATH="${LLVM_INTRINSIC_TD_PATH}")
 
