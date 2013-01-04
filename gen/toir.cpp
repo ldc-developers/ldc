@@ -597,12 +597,10 @@ DValue* AssignExp::toElem(IRState* p)
                 // Note that the variable value is accessed directly (instead
                 // of via getLValue(), which would perform a load from the
                 // uninitialized location), and that rhs is stored as an l-value!
-
-                IrLocal* const local = ve->var->ir.irLocal;
-                assert(local && "ref var must be local and already initialized");
-
+                DVarValue* lhs = e1->toElem(p)->isVar();
+                assert(lhs);
                 DValue* rhs = e2->toElem(p);
-                DtoStore(rhs->getLVal(), local->value);
+                DtoStore(rhs->getLVal(), lhs->getRefStorage());
                 return rhs;
             }
         }

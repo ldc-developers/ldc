@@ -110,6 +110,10 @@ struct DVarValue : DValue
     virtual llvm::Value* getLVal();
     virtual llvm::Value* getRVal();
 
+    /// Returns the underlying storage for special internal ref variables.
+    /// Illegal to call on any other value.
+    virtual llvm::Value* getRefStorage();
+
     virtual DVarValue* isVar() { return this; }
 };
 
