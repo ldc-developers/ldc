@@ -688,24 +688,13 @@ LLConstant* DtoConstFP(Type* t, longdouble value)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#if LDC_LLVM_VER >= 301
-static inline LLConstant* toConstString(llvm::LLVMContext& ctx, const llvm::StringRef& str)
-{
-    LLSmallVector<uint8_t, 64> vals;
-    vals.append(str.begin(), str.end());
-    vals.push_back(0);
-    return llvm::ConstantDataArray::get(ctx, vals);
-}
-#endif
-
 LLConstant* DtoConstString(const char* str)
 {
+    llvm::StringRef s(str ? str : "");
 #if LDC_LLVM_VER == 300
-    llvm::StringRef s(str?str:"");
     LLConstant* init = LLConstantArray::get(gIR->context(), s, true);
 #else
-    llvm::StringRef s(str ? str : "");
-    LLConstant* init = toConstString(gIR->context(), s);
+    LLConstant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
 #endif
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
@@ -716,14 +705,14 @@ LLConstant* DtoConstString(const char* str)
         Type::tchar->arrayOf()
     );
 }
+
 LLConstant* DtoConstStringPtr(const char* str, const char* section)
 {
+   llvm::StringRef s(str);
 #if LDC_LLVM_VER == 300
-    llvm::StringRef s(str);
     LLConstant* init = LLConstantArray::get(gIR->context(), s, true);
 #else
-    llvm::StringRef s(str);
-    LLConstant* init = toConstString(gIR->context(), s);
+   LLConstant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
 #endif
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
