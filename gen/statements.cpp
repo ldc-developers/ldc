@@ -554,7 +554,7 @@ void BreakStatement::toIR(IRState* p)
         FuncGen::TargetScopeVec::reverse_iterator it = p->func()->gen->targetScopes.rbegin();
         FuncGen::TargetScopeVec::reverse_iterator it_end = p->func()->gen->targetScopes.rend();
         while(it != it_end) {
-            if(it->breakTarget) {
+            if(it->breakTarget && !it->onlyLabeledBreak) {
                 break;
             }
             ++it;
@@ -683,7 +683,15 @@ void TryFinallyStatement::toIR(IRState* p)
     IRLandingPad& pad = gIR->func()->gen->landingPadInfo;
     pad.addFinally(finalbody);
     pad.push(landingpadbb);
-    gIR->func()->gen->targetScopes.push_back(IRTargetScope(this,new EnclosingTryFinally(this,gIR->func()->gen->landingPad),NULL,NULL));
+    gIR->func()->gen->targetScopes.push_back(
+        IRTargetScope(
+            this,
+            new EnclosingTryFinally(this, gIR->func()->gen->landingPad),
+            NULL,
+            endbb,
+            true
+        )
+    );
 
     //
     // do the try block
