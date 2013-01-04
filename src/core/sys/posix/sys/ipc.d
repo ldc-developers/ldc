@@ -17,6 +17,7 @@ module core.sys.posix.sys.ipc;
 private import core.sys.posix.config;
 public import core.sys.posix.sys.types; // for uid_t, gid_t, mode_t, key_t
 
+version (Posix):
 extern (C):
 
 //
@@ -62,9 +63,9 @@ version( linux )
         c_ulong __unused2;
     }
 
-    enum IPC_CREAT      = 01000;
-    enum IPC_EXCL       = 02000;
-    enum IPC_NOWAIT     = 04000;
+    enum IPC_CREAT      = 0x0200; // 01000
+    enum IPC_EXCL       = 0x0400; // 02000
+    enum IPC_NOWAIT     = 0x0800; // 04000
 
     enum key_t IPC_PRIVATE = 0;
 
@@ -102,9 +103,9 @@ else version( FreeBSD )
         key_t   key;
     }
 
-    enum IPC_CREAT      = 01000;
-    enum IPC_EXCL       = 02000;
-    enum IPC_NOWAIT     = 04000;
+    enum IPC_CREAT      = 0x0200; // 01000
+    enum IPC_EXCL       = 0x0400; // 02000
+    enum IPC_NOWAIT     = 0x0800; // 04000
 
     enum key_t IPC_PRIVATE = 0;
 

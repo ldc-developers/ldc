@@ -17,14 +17,18 @@
 module core.bitop;
 
 nothrow:
+@safe:
 
 version( D_InlineAsm_X86_64 )
     version = AsmX86;
 else version( D_InlineAsm_X86 )
     version = AsmX86;
 
-@safe
-{
+version (X86_64)
+    version = AnyX86;
+else version (X86)
+    version = AnyX86;
+
 
 /**
  * Scans the bits in v starting with bit 0, looking
@@ -46,7 +50,7 @@ else version( D_InlineAsm_X86 )
 version (LDC)
 {
     // KLUDGE: Need to adapt the return type.
-    version (LDC_LLVM_300) 
+    version (LDC_LLVM_300)
     {
         private pure pragma(LDC_intrinsic, "llvm.cttz.i#") T cttz(T)(T v);
         pure int bsf(size_t v)
@@ -280,105 +284,100 @@ else
     pure uint bswap(uint v);
 }
 
-} // @safe
 
-/**
- * Reads I/O port at port_address.
- */
-version (LDC)
+version (DigitalMars) version (AnyX86) @system // not pure
 {
+    /**
+     * Reads I/O port at port_address.
+     */
+    ubyte inp(uint port_address);
+
+
+    /**
+     * ditto
+     */
+    ushort inpw(uint port_address);
+
+
+    /**
+     * ditto
+     */
+    uint inpl(uint port_address);
+
+
+    /**
+     * Writes and returns value to I/O port at port_address.
+     */
+    ubyte outp(uint port_address, ubyte value);
+
+
+    /**
+     * ditto
+     */
+    ushort outpw(uint port_address, ushort value);
+
+
+    /**
+     * ditto
+     */
+    uint outpl(uint port_address, uint value);
+}
+version(LDC) @system // not pure
+{
+    /**
+     * Reads I/O port at port_address.
+     */
     uint inp(uint port_address)
     {
         assert(false, "inp not yet implemented for LDC.");
     }
-}
-else
-{
-    ubyte inp(uint port_address);
-}
 
 
-/**
- * ditto
- */
-version (LDC)
-{
+    /**
+     * ditto
+     */
     uint inpw(uint port_address)
     {
         assert(false, "inpw not yet implemented for LDC.");
     }
-}
-else
-{
-    ushort inpw(uint port_address);
-}
 
 
-/**
- * ditto
- */
-version (LDC)
-{
+    /**
+     * ditto
+     */
     uint inpl(uint port_address)
     {
         assert(false, "inpl not yet implemented for LDC.");
     }
-}
-else
-{
-    uint inpl(uint port_address);
-}
 
 
-/**
- * Writes and returns value to I/O port at port_address.
- */
-version (LDC)
-{
+    /**
+     * Writes and returns value to I/O port at port_address.
+     */
     ubyte outp(uint port_address, uint value)
     {
         assert(false, "outp not yet implemented for LDC.");
     }
-}
-else
-{
-    ubyte outp(uint port_address, ubyte value);
-}
 
 
-/**
- * ditto
- */
-version (LDC)
-{
+    /**
+     * ditto
+     */
     ushort outpw(uint port_address, uint value)
     {
         assert(false, "outpw not yet implemented for LDC.");
     }
-}
-else
-{
-    ushort outpw(uint port_address, ushort value);
-}
 
 
-/**
- * ditto
- */
-version (LDC)
-{
+    /**
+     * ditto
+     */
     uint outpl(uint port_address, uint value)
     {
         assert(false, "outpl not yet implemented for LDC.");
     }
 }
-else
-{
-    uint outpl(uint port_address, uint value);
-}
 
-@safe
-{
 
 /**
  *  Calculates the number of set bits in a 32-bit integer.
@@ -445,13 +444,19 @@ unittest
 {
     version (AsmX86)
     {
+        asm { naked; }
+
         version (D_InlineAsm_X86_64)
-        asm { naked; mov EAX, EDI; }
+        {
+            version (Win64)
+                asm { mov EAX, ECX; }
+            else
+                asm { mov EAX, EDI; }
+        }
 
         asm
         {
             // Author: Tiago Gasiba.
-            naked;
             mov EDX, EAX;
             shr EAX, 1;
             and EDX, 0x5555_5555;
@@ -498,5 +503,3 @@ unittest
     foreach(i; 0 .. 32)
         assert(bitswap(1 << i) == 1 << 32 - i - 1);
 }
-
-} // @safe

@@ -26,7 +26,7 @@ public import core.sync.mutex;
 public import core.sync.rwmutex;
 public import core.sync.semaphore;
 
-version(posix)
+version(Posix)
     public import core.sys.posix.sys.select;
 
 void main()
@@ -35,7 +35,7 @@ void main()
     shared(int) i;
     cas( &i, 0, 1 ); // atomic
     auto b = bsf( 0 ); // bitop
-    mmx(); // cpuid
+    mmx; // cpuid
     demangle( "" ); // demangle
     setAssertHandler( null ); // exception
     // SES - disabled because you cannot enable the GC without disabling it.

@@ -1,17 +1,14 @@
 /**
  * D header file for C99.
  *
- * Copyright: Copyright Sean Kelly 2005 - 2009.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * Copyright: Copyright Sean Kelly 2005 - 2012.
+ * License: Distributed under the
+ *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0).
+ *    (See accompanying file LICENSE)
  * Authors:   Sean Kelly
- * Standards: ISO/IEC 9899:1999 (E)
+ * Source:    $(DRUNTIMESRC core/stdc/_math.d)
  */
 
-/*          Copyright Sean Kelly 2005 - 2009.
- * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE or copy at
- *          http://www.boost.org/LICENSE_1_0.txt)
- */
 module core.stdc.math;
 
 private import core.stdc.config;
@@ -105,8 +102,13 @@ version( none )
     int isunordered(real x, real y);
 }
 
-version( DigitalMars ) version( Windows )
-    version = DigitalMarsWin32;
+version( DigitalMars )
+{
+    version( Win32 )
+        version = DigitalMarsWin32;
+    version( Win64 )
+        version = DigitalMarsWin64;     // just to get it to compile for the moment - fix later
+}
 
 version( DigitalMarsWin32 )
 {
@@ -176,6 +178,41 @@ version( DigitalMarsWin32 )
             : (cast(short*)&(x))[4] & 0x8000;
     }
   }
+}
+else version( DigitalMarsWin64 )
+{
+    enum
+    {
+        _FPCLASS_SNAN = 1,
+        _FPCLASS_QNAN = 2,
+        _FPCLASS_NINF = 4,
+        _FPCLASS_NN   = 8,
+        _FPCLASS_ND   = 0x10,
+        _FPCLASS_NZ   = 0x20,
+        _FPCLASS_PZ   = 0x40,
+        _FPCLASS_PD   = 0x80,
+        _FPCLASS_PN   = 0x100,
+        _FPCLASS_PINF = 0x200,
+    }
+
+    float _copysignf(float x, float s);
+    float _chgsignf(float x);
+    int _finitef(float x);
+    int _isnanf(float x);
+    int _fpclassf(float x);
+
+    double _copysign(double x, double s);
+    double _chgsign(double x);
+    int _finite(double x);
+    int _isnan(double x);
+    int _fpclass(double x);
+
+    extern(D)
+    {
+        int isnan(float x)          { return _isnanf(x);   }
+        int isnan(double x)         { return _isnan(x);   }
+        int isnan(real x)           { return _isnan(x);   }
+    }
 }
 else version( linux )
 {

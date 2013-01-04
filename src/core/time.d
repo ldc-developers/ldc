@@ -110,6 +110,17 @@ struct Duration
 public:
 
     /++
+        A $(D Duration) of $(D 0). It's shorter than doing something like
+        $(D dur!"seconds"(0)) and more explicit than $(D Duration.init).
+      +/
+    static @property @safe pure nothrow Duration zero() { return Duration(0); }
+
+    unittest
+    {
+        assert(zero == dur!"seconds"(0));
+    }
+
+    /++
         Compares this $(D Duration) with the given $(D Duration).
 
         Returns:
@@ -1037,17 +1048,17 @@ assert(dur!"nsecs"(-62_127).fracSec == FracSec.from!"nsecs"(-62_100));
 
         Examples:
 --------------------
-assert(dur!"weeks"(12).total!"weeks"() == 12);
-assert(dur!"weeks"(12).total!"days"() == 84);
+assert(dur!"weeks"(12).total!"weeks" == 12);
+assert(dur!"weeks"(12).total!"days" == 84);
 
-assert(dur!"days"(13).total!"weeks"() == 1);
-assert(dur!"days"(13).total!"days"() == 13);
+assert(dur!"days"(13).total!"weeks" == 1);
+assert(dur!"days"(13).total!"days" == 13);
 
-assert(dur!"hours"(49).total!"days"() == 2);
-assert(dur!"hours"(49).total!"hours"() == 49);
+assert(dur!"hours"(49).total!"days" == 2);
+assert(dur!"hours"(49).total!"hours" == 49);
 
-assert(dur!"nsecs"(2007).total!"hnsecs"() == 20);
-assert(dur!"nsecs"(2007).total!"nsecs"() == 2000);
+assert(dur!"nsecs"(2007).total!"hnsecs" == 20);
+assert(dur!"nsecs"(2007).total!"nsecs" == 2000);
 --------------------
       +/
     @property long total(string units)() @safe const pure nothrow
@@ -1198,7 +1209,7 @@ assert(dur!"nsecs"(2007).total!"nsecs"() == 2000);
 
 private:
 
-    /++
+    /+
         Since we have two versions of toString, we have _toStringImpl
         so that they can share implementations.
       +/
@@ -1292,7 +1303,7 @@ private:
     }
 
 
-    /++
+    /+
         Params:
             hnsecs = The total number of hecto-nanoseconds in this $(D Duration).
       +/
@@ -1321,26 +1332,26 @@ private:
     Examples:
 --------------------
 // Generic
-assert(dur!"weeks"(142).total!"weeks"() == 142);
-assert(dur!"days"(142).total!"days"() == 142);
-assert(dur!"hours"(142).total!"hours"() == 142);
-assert(dur!"minutes"(142).total!"minutes"() == 142);
-assert(dur!"seconds"(142).total!"seconds"() == 142);
-assert(dur!"msecs"(142).total!"msecs"() == 142);
-assert(dur!"usecs"(142).total!"usecs"() == 142);
-assert(dur!"hnsecs"(142).total!"hnsecs"() == 142);
-assert(dur!"nsecs"(142).total!"nsecs"() == 100);
+assert(dur!"weeks"(142).total!"weeks" == 142);
+assert(dur!"days"(142).total!"days" == 142);
+assert(dur!"hours"(142).total!"hours" == 142);
+assert(dur!"minutes"(142).total!"minutes" == 142);
+assert(dur!"seconds"(142).total!"seconds" == 142);
+assert(dur!"msecs"(142).total!"msecs" == 142);
+assert(dur!"usecs"(142).total!"usecs" == 142);
+assert(dur!"hnsecs"(142).total!"hnsecs" == 142);
+assert(dur!"nsecs"(142).total!"nsecs" == 100);
 
 // Non-generic
-assert(weeks(142).total!"weeks"() == 142);
-assert(days(142).total!"days"() == 142);
-assert(hours(142).total!"hours"() == 142);
-assert(minutes(142).total!"minutes"() == 142);
-assert(seconds(142).total!"seconds"() == 142);
-assert(msecs(142).total!"msecs"() == 142);
-assert(usecs(142).total!"usecs"() == 142);
-assert(hnsecs(142).total!"hnsecs"() == 142);
-assert(nsecs(142).total!"nsecs"() == 100);
+assert(weeks(142).total!"weeks" == 142);
+assert(days(142).total!"days" == 142);
+assert(hours(142).total!"hours" == 142);
+assert(minutes(142).total!"minutes" == 142);
+assert(seconds(142).total!"seconds" == 142);
+assert(msecs(142).total!"msecs" == 142);
+assert(usecs(142).total!"usecs" == 142);
+assert(hnsecs(142).total!"hnsecs" == 142);
+assert(nsecs(142).total!"nsecs" == 100);
 --------------------
 
     Params:
@@ -1375,41 +1386,41 @@ alias dur!"nsecs"   nsecs;   /// Ditto
 unittest
 {
     // Generic
-    assert(dur!"weeks"(142).total!"weeks"() == 142);
-    assert(dur!"days"(142).total!"days"() == 142);
-    assert(dur!"hours"(142).total!"hours"() == 142);
-    assert(dur!"minutes"(142).total!"minutes"() == 142);
-    assert(dur!"seconds"(142).total!"seconds"() == 142);
-    assert(dur!"msecs"(142).total!"msecs"() == 142);
-    assert(dur!"usecs"(142).total!"usecs"() == 142);
-    assert(dur!"hnsecs"(142).total!"hnsecs"() == 142);
-    assert(dur!"nsecs"(142).total!"nsecs"() == 100);
+    assert(dur!"weeks"(142).total!"weeks" == 142);
+    assert(dur!"days"(142).total!"days" == 142);
+    assert(dur!"hours"(142).total!"hours" == 142);
+    assert(dur!"minutes"(142).total!"minutes" == 142);
+    assert(dur!"seconds"(142).total!"seconds" == 142);
+    assert(dur!"msecs"(142).total!"msecs" == 142);
+    assert(dur!"usecs"(142).total!"usecs" == 142);
+    assert(dur!"hnsecs"(142).total!"hnsecs" == 142);
+    assert(dur!"nsecs"(142).total!"nsecs" == 100);
 
     // Non-generic
-    assert(weeks(142).total!"weeks"() == 142);
-    assert(days(142).total!"days"() == 142);
-    assert(hours(142).total!"hours"() == 142);
-    assert(minutes(142).total!"minutes"() == 142);
-    assert(seconds(142).total!"seconds"() == 142);
-    assert(msecs(142).total!"msecs"() == 142);
-    assert(usecs(142).total!"usecs"() == 142);
-    assert(hnsecs(142).total!"hnsecs"() == 142);
-    assert(nsecs(142).total!"nsecs"() == 100);
+    assert(weeks(142).total!"weeks" == 142);
+    assert(days(142).total!"days" == 142);
+    assert(hours(142).total!"hours" == 142);
+    assert(minutes(142).total!"minutes" == 142);
+    assert(seconds(142).total!"seconds" == 142);
+    assert(msecs(142).total!"msecs" == 142);
+    assert(usecs(142).total!"usecs" == 142);
+    assert(hnsecs(142).total!"hnsecs" == 142);
+    assert(nsecs(142).total!"nsecs" == 100);
 }
 
 unittest
 {
     foreach(D; _TypeTuple!(Duration, const Duration, immutable Duration))
     {
-        assert(dur!"weeks"(7).total!"weeks"() == 7);
-        assert(dur!"days"(7).total!"days"() == 7);
-        assert(dur!"hours"(7).total!"hours"() == 7);
-        assert(dur!"minutes"(7).total!"minutes"() == 7);
-        assert(dur!"seconds"(7).total!"seconds"() == 7);
-        assert(dur!"msecs"(7).total!"msecs"() == 7);
-        assert(dur!"usecs"(7).total!"usecs"() == 7);
-        assert(dur!"hnsecs"(7).total!"hnsecs"() == 7);
-        assert(dur!"nsecs"(7).total!"nsecs"() == 0);
+        assert(dur!"weeks"(7).total!"weeks" == 7);
+        assert(dur!"days"(7).total!"days" == 7);
+        assert(dur!"hours"(7).total!"hours" == 7);
+        assert(dur!"minutes"(7).total!"minutes" == 7);
+        assert(dur!"seconds"(7).total!"seconds" == 7);
+        assert(dur!"msecs"(7).total!"msecs" == 7);
+        assert(dur!"usecs"(7).total!"usecs" == 7);
+        assert(dur!"hnsecs"(7).total!"hnsecs" == 7);
+        assert(dur!"nsecs"(7).total!"nsecs" == 0);
 
         assert(dur!"weeks"(1007) == weeks(1007));
         assert(dur!"days"(1007) == days(1007));
@@ -1448,6 +1459,19 @@ struct TickDuration
         application started.
       +/
     static immutable TickDuration appOrigin;
+
+
+    /++
+        It's the same as $(D TickDuration(0)), but it's provided to be
+        consistent with $(D Duration) and $(D FracSec), which provide $(D zero)
+        properties.
+      +/
+    static @property @safe pure nothrow TickDuration zero() { return TickDuration(0); }
+
+    unittest
+    {
+        assert(zero == TickDuration(0));
+    }
 
 
     @trusted shared static this()
@@ -1546,7 +1570,7 @@ struct TickDuration
             {
                 enum unitsPerSec = convert!("seconds", units)(1);
 
-                return to!("seconds", T) * unitsPerSec;
+                return to!("seconds", T)() * unitsPerSec;
             }
         }
         else
@@ -2304,6 +2328,18 @@ struct FracSec
 public:
 
     /++
+        A $(D FracSec) of $(D 0). It's shorter than doing something like
+        $(D FracSec.from!"msecs"(0)) and more explicit than $(D FracSec.init).
+      +/
+    static @property @safe pure nothrow FracSec zero() { return FracSec(0); }
+
+    unittest
+    {
+        assert(zero == FracSec.from!"msecs"(0));
+    }
+
+
+    /++
         Create a $(D FracSec) from the given units ($(D "msecs"), $(D "usecs"),
         or $(D "hnsecs")).
 
@@ -2322,7 +2358,9 @@ public:
            units == "hnsecs" ||
            units == "nsecs")
     {
-        return FracSec(cast(int)convert!(units, "hnsecs")(value));
+        immutable hnsecs = cast(int)convert!(units, "hnsecs")(value);
+        _enforceValid(hnsecs);
+        return FracSec(hnsecs);
     }
 
     unittest
@@ -2368,10 +2406,7 @@ public:
     FracSec opUnary(string op)() @safe const pure nothrow
         if(op == "-")
     {
-        try
-            return FracSec(-_hnsecs);
-        catch(Exception e)
-            assert(0, "FracSec's constructor threw.");
+        return FracSec(-_hnsecs);
     }
 
     unittest
@@ -2425,7 +2460,6 @@ public:
     @property void msecs(int milliseconds) @safe pure
     {
         immutable hnsecs = cast(int)convert!("msecs", "hnsecs")(milliseconds);
-
         _enforceValid(hnsecs);
         _hnsecs = hnsecs;
     }
@@ -2498,7 +2532,6 @@ public:
     @property void usecs(int microseconds) @safe pure
     {
         immutable hnsecs = cast(int)convert!("usecs", "hnsecs")(microseconds);
-
         _enforceValid(hnsecs);
         _hnsecs = hnsecs;
     }
@@ -2651,7 +2684,6 @@ public:
     @property void nsecs(long nsecs) @safe pure
     {
         immutable hnsecs = cast(int)convert!("nsecs", "hnsecs")(nsecs);
-
         _enforceValid(hnsecs);
         _hnsecs = hnsecs;
     }
@@ -2726,7 +2758,7 @@ public:
 
 private:
 
-    /++
+    /+
         Since we have two versions of $(D toString), we have $(D _toStringImpl)
         so that they can share implementations.
       +/
@@ -2821,7 +2853,7 @@ private:
     }
 
 
-    /++
+    /+
         Returns whether the given number of hnsecs fits within the range of
         $(D FracSec).
 
@@ -2830,13 +2862,12 @@ private:
       +/
     static bool _valid(int hnsecs) @safe pure
     {
-        enum second = convert!("seconds", "hnsecs")(1);
-
+        immutable second = convert!("seconds", "hnsecs")(1);
         return hnsecs > -second && hnsecs < second;
     }
 
 
-    /++
+    /+
         Throws:
             $(D TimeException) if $(D valid(hnsecs)) is $(D false).
       +/
@@ -2847,17 +2878,12 @@ private:
     }
 
 
-    /++
+    /+
         Params:
             hnsecs = The number of hnsecs passed the second.
-
-        Throws:
-            $(D TimeException) if the given hnsecs less than 0 or would result
-            in a $(D FracSec) not within the range (-1 second, 1 second).
       +/
-    @safe pure this(int hnsecs)
+    @safe pure nothrow this(int hnsecs)
     {
-        _enforceValid(hnsecs);
         _hnsecs = hnsecs;
     }
 
@@ -3289,7 +3315,7 @@ version(unittest) void _assertThrown(T : Throwable = Exception, E)
     {
         immutable tail = msg.length == 0 ? "." : ": " ~ msg;
 
-        throw new AssertError("assertThrown() failed: No " ~ E.stringof ~ " was thrown" ~ tail, file, line);
+        throw new AssertError("assertThrown() failed: No " ~ T.stringof ~ " was thrown" ~ tail, file, line);
     }
 }
 

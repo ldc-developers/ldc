@@ -43,6 +43,8 @@ private
 
     version( Windows )
     {
+        version (Win32)
+            pragma(lib, "snn.lib");
         import core.sys.windows.windows;
 
         struct Monitor
@@ -88,7 +90,6 @@ private
 
 version( Windows ) version( LDC )
 {
-
     static __gshared CRITICAL_SECTION _monitor_critsec;
 
     extern (C) void _STI_monitor_staticctor()

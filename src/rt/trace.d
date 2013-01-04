@@ -1,7 +1,7 @@
 /**
  * Contains support code for code profiling.
  *
- * Copyright: Copyright Digital Mars 1995 - 2011.
+ * Copyright: Copyright Digital Mars 1995 - 2012.
  * License: Distributed under the
  *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0).
  *    (See accompanying file LICENSE)
@@ -21,6 +21,9 @@ private
     import core.stdc.stdlib;
     import core.stdc.string;
     import rt.util.string;
+
+    version (Win64)
+        alias core.stdc.stdlib._strtoui64 strtoull;
 }
 
 extern (C):
@@ -513,6 +516,8 @@ static void trace_sympair_add(SymPair** psp, Symbol* s, uint count)
 
 static void trace_pro(char[] id)
 {
+    //printf("trace_pro(ptr = %p, length = %lld)\n", id.ptr, id.length);
+    //printf("trace_pro(id = '%.*s')\n", id.length, id.ptr);
     Stack* n;
     Symbol* s;
     timer_t starttime;
@@ -546,16 +551,22 @@ static void trace_pro(char[] id)
     //  trace_tos.ohd,trace_ohd,t,starttime);
 }
 
+void _c_trace_pro(size_t idlen, char* idptr)
+{
+    char[] id = idptr[0 .. idlen];
+    trace_pro(id);
+}
+
 /////////////////////////////////////////
 //
 
-static void trace_epi()
+void _c_trace_epi()
 {   Stack* n;
     timer_t endtime;
     timer_t t;
     timer_t ohd;
 
-    //printf("trace_epi()\n");
+    //printf("_c_trace_epi()\n");
     if (trace_tos)
     {
         timer_t starttime;
@@ -906,6 +917,51 @@ void _trace_pro_n()
                 ret                             ;
             }
         }
+        else version (Win64)
+        {
+            asm
+            {   naked                           ;
+                push    RAX                     ;
+                push    RCX                     ;
+                push    RDX                     ;
+                push    RSI                     ;
+                push    RDI                     ;
+                push    R8                      ;
+                push    R9                      ;
+                push    R10                     ;
+                push    R11                     ;
+                mov     RCX,9*8[RSP]            ;
+                xor     RAX,RAX                 ;
+                mov     AL,[RCX]                ;
+                cmp     AL,0xFF                 ;
+                jne     L1                      ;
+                cmp     byte ptr 1[RCX],0       ;
+                jne     L1                      ;
+                mov     AX,2[RCX]               ;
+                add     9*8[RSP],3              ;
+                add     RCX,3                   ;
+            L1: inc     RAX                     ;
+                inc     RCX                     ;
+                add     9*8[RSP],RAX            ;
+                dec     RAX                     ;
+                sub     RSP,0x20                ;
+                mov     16[RSP],RCX             ;
+                mov     8[RSP],RAX              ;
+                lea     RCX,8[RSP]              ;
+                call    trace_pro               ;
+                add     RSP,0x20                ;
+                pop     R11                     ;
+                pop     R10                     ;
+                pop     R9                      ;
+                pop     R8                      ;
+                pop     RDI                     ;
+                pop     RSI                     ;
+                pop     RDX                     ;
+                pop     RCX                     ;
+                pop     RAX                     ;
+                ret                             ;
+            }
+        }
         else version (D_InlineAsm_X86_64)
         {
             asm
@@ -995,7 +1051,7 @@ void _trace_epi_n()
                 pushad          ;
                 sub     ESP,12  ;
             }
-            trace_epi();
+            _c_trace_epi();
             asm
             {
                 add     ESP,12  ;
@@ -1020,10 +1076,10 @@ void _trace_epi_n()
                 movdqu  0*16[RSP], XMM0;
                 movdqu  1*16[RSP], XMM1;
                 /* Don't worry about saving ST0/1
-                 * Hope trace_epi() doesn't change them
+                 * Hope _c_trace_epi() doesn't change them
                  */
             }
-            trace_epi();
+            _c_trace_epi();
             asm
             {
                 movdqu  XMM0, 0*16[RSP];
@@ -1053,7 +1109,7 @@ void _trace_epi_n()
                 naked           ;
                 pushad          ;
             }
-            trace_epi();
+            _c_trace_epi();
             asm
             {
                 popad           ;
@@ -1078,10 +1134,10 @@ void _trace_epi_n()
                 movdqu  0*16[RSP], XMM0;
                 movdqu  1*16[RSP], XMM1;
                 /* Don't worry about saving ST0/1
-                 * Hope trace_epi() doesn't change them
+                 * Hope _c_trace_epi() doesn't change them
                  */
             }
-            trace_epi();
+            _c_trace_epi();
             asm
             {
                 movdqu  XMM0, 0*16[RSP];
@@ -1105,7 +1161,7 @@ void _trace_epi_n()
 }
 
 
-version (Win32)
+version (Windows)
 {
     extern (Windows)
     {

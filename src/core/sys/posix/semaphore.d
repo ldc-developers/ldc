@@ -3,7 +3,7 @@
  *
  * Copyright: Copyright Sean Kelly 2005 - 2009.
  * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
- * Authors:   Sean Kelly
+ * Authors:   Sean Kelly, Alex Rønne Petersen
  * Standards: The Open Group Base Specifications Issue 6, IEEE Std 1003.1, 2004 Edition
  */
 
@@ -17,6 +17,7 @@ module core.sys.posix.semaphore;
 private import core.sys.posix.config;
 private import core.sys.posix.time;
 
+version (Posix):
 extern (C):
 
 //
@@ -64,9 +65,36 @@ else version( OSX )
 }
 else version( FreeBSD )
 {
-    alias void* sem_t;
+    // FBSD-9.0 definition
+    struct sem_t
+    {
+        uint _magic;
+        struct _usem
+        {
+            shared uint _has_waiters;
+            shared uint _count;
+            uint _flags;
+        } _usem _kern;
+    }
 
     enum SEM_FAILED = cast(sem_t*) null;
+}
+else version (Solaris)
+{
+    struct sem_t
+    {
+        uint sem_count;
+        ushort sem_type;
+        ushort sem_magic;
+        ulong[3] sem_pad1;
+        ulong[2] sem_pad2;
+    }
+
+    enum SEM_FAILED = cast(sem_t*)-1;
+}
+else
+{
+    static assert(false, "Unsupported platform");
 }
 
 version( Posix )
@@ -100,4 +128,12 @@ else version( OSX )
 else version( FreeBSD )
 {
     int sem_timedwait(sem_t*, in timespec*);
+}
+else version (Solaris)
+{
+    int sem_timedwait(sem_t*, in timespec*);
+}
+else
+{
+    static assert(false, "Unsupported platform");
 }

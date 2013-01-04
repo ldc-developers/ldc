@@ -14,8 +14,9 @@
  */
 module core.sys.windows.windows;
 
-
-extern (Windows) nothrow:
+version (Windows):
+extern (Windows):
+nothrow:
 
     alias uint ULONG;
     alias ULONG *PULONG;
@@ -100,6 +101,7 @@ else // Win32
     alias HANDLE HINSTANCE;
     alias HINSTANCE HMODULE;
     alias HANDLE HWND;
+    alias HANDLE* PHANDLE;
 
     alias HANDLE HGDIOBJ;
     alias HANDLE HACCEL;
@@ -140,7 +142,7 @@ else // Win32
     alias DWORD   *LPCOLORREF;
     alias WORD    ATOM;
 
-version (0)
+version (all)
 {   // Properly prototyped versions
     alias BOOL function(HWND, UINT, WPARAM, LPARAM) DLGPROC;
     alias VOID function(HWND, UINT, UINT_PTR, DWORD) TIMERPROC;
@@ -489,6 +491,7 @@ HANDLE FindFirstFileW(in LPCWSTR lpFileName, WIN32_FIND_DATAW* lpFindFileData);
 BOOL   FindNextFileA(HANDLE hFindFile, WIN32_FIND_DATA* lpFindFileData);
 BOOL   FindNextFileW(HANDLE hFindFile, WIN32_FIND_DATAW* lpFindFileData);
 BOOL   GetExitCodeThread(HANDLE hThread, DWORD *lpExitCode);
+BOOL   GetExitCodeProcess(HANDLE hProcess, DWORD *lpExitCode);
 DWORD  GetLastError();
 DWORD  GetFileAttributesA(in char *lpFileName);
 DWORD  GetFileAttributesW(in wchar *lpFileName);
@@ -1145,38 +1148,36 @@ WORD PRIMARYLANGID(int lgid) { return cast(WORD)(lgid & 0x3ff); }
 WORD SUBLANGID(int lgid)     { return cast(WORD)(lgid >> 10); }
 
 
-struct FLOATING_SAVE_AREA {
-    DWORD   ControlWord;
-    DWORD   StatusWord;
-    DWORD   TagWord;
-    DWORD   ErrorOffset;
-    DWORD   ErrorSelector;
-    DWORD   DataOffset;
-    DWORD   DataSelector;
-    BYTE    RegisterArea[80 ];
-    DWORD   Cr0NpxState;
-}
-
-enum
-{
-    SIZE_OF_80387_REGISTERS =      80,
-//
-// The following flags control the contents of the CONTEXT structure.
-//
-    CONTEXT_i386 =    0x00010000,    // this assumes that i386 and
-    CONTEXT_i486 =    0x00010000,    // i486 have identical context records
-
-    CONTEXT_CONTROL =         (CONTEXT_i386 | 0x00000001), // SS:SP, CS:IP, FLAGS, BP
-    CONTEXT_INTEGER =         (CONTEXT_i386 | 0x00000002), // AX, BX, CX, DX, SI, DI
-    CONTEXT_SEGMENTS =        (CONTEXT_i386 | 0x00000004), // DS, ES, FS, GS
-    CONTEXT_FLOATING_POINT =  (CONTEXT_i386 | 0x00000008), // 387 state
-    CONTEXT_DEBUG_REGISTERS = (CONTEXT_i386 | 0x00000010), // DB 0-3,6,7
-
-    CONTEXT_FULL = (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS),
-}
-
 version (Win64)
 {
+    enum
+    {
+        CONTEXT_AMD64 =  0x100000,
+
+
+        CONTEXT_CONTROL = (CONTEXT_AMD64 | 0x1L),
+        CONTEXT_INTEGER = (CONTEXT_AMD64 | 0x2L),
+        CONTEXT_SEGMENTS = (CONTEXT_AMD64 | 0x4L),
+        CONTEXT_FLOATING_POINT =  (CONTEXT_AMD64 | 0x8L),
+        CONTEXT_DEBUG_REGISTERS = (CONTEXT_AMD64 | 0x10L),
+
+        CONTEXT_FULL = (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_FLOATING_POINT),
+
+        CONTEXT_ALL = (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS | CONTEXT_FLOATING_POINT | CONTEXT_DEBUG_REGISTERS),
+
+        CONTEXT_EXCEPTION_ACTIVE = 0x8000000,
+        CONTEXT_SERVICE_ACTIVE = 0x10000000,
+        CONTEXT_EXCEPTION_REQUEST = 0x40000000,
+        CONTEXT_EXCEPTION_REPORTING = 0x80000000,
+
+
+        // Define initial MxCsr and FpCsr control.
+
+        INITIAL_MXCSR = 0x1f80,            // initial MXCSR value
+        INITIAL_FPCSR = 0x027f,            // initial FPCSR value
+    }
+
+
     // Copied from Public Domain w64 mingw-runtime package's winnt.h.
 
     align(16) struct M128A 
@@ -1284,6 +1285,43 @@ version (Win64)
 }
 else // Win32
 {
+    enum
+    {
+        SIZE_OF_80387_REGISTERS =      80,
+        //
+        // The following flags control the contents of the CONTEXT structure.
+        //
+        CONTEXT_i386 =    0x00010000,    // this assumes that i386 and
+        CONTEXT_i486 =    0x00010000,    // i486 have identical context records
+
+        CONTEXT_CONTROL =         (CONTEXT_i386 | 0x00000001), // SS:SP, CS:IP, FLAGS, BP
+        CONTEXT_INTEGER =         (CONTEXT_i386 | 0x00000002), // AX, BX, CX, DX, SI, DI
+        CONTEXT_SEGMENTS =        (CONTEXT_i386 | 0x00000004), // DS, ES, FS, GS
+        CONTEXT_FLOATING_POINT =  (CONTEXT_i386 | 0x00000008), // 387 state
+        CONTEXT_DEBUG_REGISTERS = (CONTEXT_i386 | 0x00000010), // DB 0-3,6,7
+        CONTEXT_EXTENDED_REGISTERS = (CONTEXT_i386 | 0x00000020L), // cpu specific extensions
+
+        CONTEXT_FULL = (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS),
+
+        CONTEXT_ALL = (CONTEXT_CONTROL | CONTEXT_INTEGER | CONTEXT_SEGMENTS | 
+                       CONTEXT_FLOATING_POINT | CONTEXT_DEBUG_REGISTERS | 
+                       CONTEXT_EXTENDED_REGISTERS),
+
+        MAXIMUM_SUPPORTED_EXTENSION = 512
+    }
+
+    struct FLOATING_SAVE_AREA {
+        DWORD   ControlWord;
+        DWORD   StatusWord;
+        DWORD   TagWord;
+        DWORD   ErrorOffset;
+        DWORD   ErrorSelector;
+        DWORD   DataOffset;
+        DWORD   DataSelector;
+        BYTE    RegisterArea[SIZE_OF_80387_REGISTERS];
+        DWORD   Cr0NpxState;
+    }
+
     struct CONTEXT
     {
         //
@@ -1359,6 +1397,14 @@ else // Win32
         DWORD   EFlags;             // MUST BE SANITIZED
         DWORD   Esp;
         DWORD   SegSs;
+
+        //
+        // This section is specified/returned if the ContextFlags word
+        // contains the flag CONTEXT_EXTENDED_REGISTERS.
+        // The format and contexts are processor specific
+        //
+
+        BYTE    ExtendedRegisters[MAXIMUM_SUPPORTED_EXTENSION];
     }
 }
 
@@ -2426,6 +2472,36 @@ enum : uint
     WS_CHILDWINDOW =      (WS_CHILD),
 }
 
+enum : uint
+{
+    WS_EX_ACCEPTFILES = 0x00000010,
+    WS_EX_APPWINDOW = 0x00040000,
+    WS_EX_CLIENTEDGE = 0x00000200,
+    WS_EX_COMPOSITED = 0x02000000,
+    WS_EX_CONTEXTHELP = 0x00000400,
+    WS_EX_CONTROLPARENT = 0x00010000,
+    WS_EX_DLGMODALFRAME = 0x00000001,
+    WS_EX_LAYERED = 0x00080000,
+    WS_EX_LAYOUTRTL = 0x00400000,
+    WS_EX_LEFT = 0x00000000,
+    WS_EX_LEFTSCROLLBAR = 0x00004000,
+    WS_EX_LTRREADING = 0x00000000,
+    WS_EX_MDICHILD = 0x00000040,
+    WS_EX_NOACTIVATE = 0x08000000,
+    WS_EX_NOINHERITLAYOUT = 0x00100000,
+    WS_EX_NOPARENTNOTIFY = 0x00000004,
+    WS_EX_RIGHT = 0x00001000,
+    WS_EX_RIGHTSCROLLBAR = 0x00000000,
+    WS_EX_RTLREADING = 0x00002000,
+    WS_EX_STATICEDGE = 0x00020000,
+    WS_EX_TOOLWINDOW = 0x00000080,
+    WS_EX_TOPMOST = 0x00000008,
+    WS_EX_TRANSPARENT = 0x00000020,
+    WS_EX_WINDOWEDGE = 0x00000100,
+    WS_EX_OVERLAPPEDWINDOW = (WS_EX_WINDOWEDGE | WS_EX_CLIENTEDGE),
+    WS_EX_PALETTEWINDOW = (WS_EX_WINDOWEDGE | WS_EX_TOOLWINDOW | WS_EX_TOPMOST),
+}
+
 /*
  * Class styles
  */
@@ -2530,7 +2606,8 @@ enum : HWND
     HWND_DESKTOP = cast(HWND)0,
 }
 
-export ATOM RegisterClassA(WNDCLASSA *lpWndClass);
+export ATOM RegisterClassA(in WNDCLASSA *lpWndClass);
+export ATOM RegisterClassExA(in WNDCLASSEXA *lpWndClass);
 
 export HWND CreateWindowExA(
     DWORD dwExStyle,
@@ -3505,6 +3582,91 @@ DWORD TlsAlloc();
 LPVOID TlsGetValue(DWORD);
 BOOL TlsSetValue(DWORD, LPVOID);
 BOOL TlsFree(DWORD);
+
+struct STARTUPINFO
+{
+    DWORD  cb = STARTUPINFO.sizeof;
+    LPSTR  lpReserved;
+    LPSTR  lpDesktop;
+    LPSTR  lpTitle;
+    DWORD  dwX;
+    DWORD  dwY;
+    DWORD  dwXSize;
+    DWORD  dwYSize;
+    DWORD  dwXCountChars;
+    DWORD  dwYCountChars;
+    DWORD  dwFillAttribute;
+    DWORD  dwFlags;
+    WORD   wShowWindow;
+    WORD   cbReserved2;
+    LPBYTE lpReserved2;
+    HANDLE hStdInput;
+    HANDLE hStdOutput;
+    HANDLE hStdError;
+}
+
+struct STARTUPINFO_W
+{
+    DWORD  cb = STARTUPINFO_W.sizeof;
+    LPWSTR lpReserved;
+    LPWSTR lpDesktop;
+    LPWSTR lpTitle;
+    DWORD  dwX;
+    DWORD  dwY;
+    DWORD  dwXSize;
+    DWORD  dwYSize;
+    DWORD  dwXCountChars;
+    DWORD  dwYCountChars;
+    DWORD  dwFillAttribute;
+    DWORD  dwFlags;
+    WORD   wShowWindow;
+    WORD   cbReserved2;
+    LPBYTE lpReserved2;
+    HANDLE hStdInput;
+    HANDLE hStdOutput;
+    HANDLE hStdError;
+}
+
+alias STARTUPINFO *LPSTARTUPINFO;
+alias STARTUPINFO_W *LPSTARTUPINFO_W;
+
+struct PROCESS_INFORMATION
+{
+    HANDLE hProcess;
+    HANDLE hThread;
+    DWORD  dwProcessId;
+    DWORD  dwThreadId;
+}
+
+alias PROCESS_INFORMATION *LPPROCESS_INFORMATION;
+
+export
+{
+    BOOL CreateProcessA(LPCSTR lpApplicationName, LPSTR lpCommandLine,
+        LPSECURITY_ATTRIBUTES lpProcessAttributes,
+        LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles,
+        DWORD dwCreationFlags, LPVOID lpEnvironment, LPCSTR lpCurrentDirectory,
+        LPSTARTUPINFO lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation);
+
+    BOOL CreateProcessW(LPCWSTR lpApplicationName, LPWSTR lpCommandLine,
+        LPSECURITY_ATTRIBUTES lpProcessAttributes,
+        LPSECURITY_ATTRIBUTES lpThreadAttributes, BOOL bInheritHandles,
+        DWORD dwCreationFlags, LPVOID lpEnvironment, LPCWSTR lpCurrentDirectory,
+        LPSTARTUPINFO_W lpStartupInfo, LPPROCESS_INFORMATION lpProcessInformation);
+
+    BOOL CreatePipe(PHANDLE hReadPipe, PHANDLE hWritePipe,
+        LPSECURITY_ATTRIBUTES lpPipeAttributes, DWORD nSize);
+}
+
+enum
+{
+    STARTF_USESTDHANDLES = 0x00000100
+}
+
+enum
+{
+    CREATE_NO_WINDOW = 0x08000000
+}
 
 // shellapi.h
 HINSTANCE ShellExecuteA(HWND hwnd, LPCSTR lpOperation, LPCSTR lpFile, LPCSTR lpParameters, LPCSTR lpDirectory, INT nShowCmd);

@@ -18,6 +18,7 @@ private import core.sys.posix.config;
 public import core.sys.posix.sys.types; // for pid_t, time_t, key_t, size_t
 public import core.sys.posix.sys.ipc;
 
+version (Posix):
 extern (C):
 
 //
@@ -51,8 +52,8 @@ int   shmget(key_t, size_t, int);
 
 version( linux )
 {
-    enum SHM_RDONLY     = 010000;
-    enum SHM_RND        = 020000;
+    enum SHM_RDONLY     = 0x01000; // 010000
+    enum SHM_RND        = 0x02000; // 020000
 
     int   __getpagesize();
     alias __getpagesize SHMLBA;
@@ -83,8 +84,8 @@ version( linux )
 }
 else version( FreeBSD )
 {
-    enum SHM_RDONLY     = 010000;
-    enum SHM_RND        = 020000;
+    enum SHM_RDONLY     = 0x01000; // 010000
+    enum SHM_RND        = 0x02000; // 020000
     enum SHMLBA         = 1 << 12; // PAGE_SIZE = (1<<PAGE_SHIFT)
 
     alias c_ulong   shmatt_t;

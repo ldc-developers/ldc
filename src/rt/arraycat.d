@@ -16,10 +16,11 @@ module rt.arraycat;
 private
 {
     import core.stdc.string;
+    import rt.util.string;
     debug import core.stdc.stdio;
 }
 
-extern (C):
+extern (C) @trusted nothrow:
 
 byte[] _d_arraycopy(size_t size, byte[] from, byte[] to)
 {
@@ -28,7 +29,11 @@ byte[] _d_arraycopy(size_t size, byte[] from, byte[] to)
 
     if (to.length != from.length)
     {
-        throw new Exception("lengths don't match for array copy");
+        char[10] tmp1 = void;
+        char[10] tmp2 = void;
+        string msg = "lengths don't match for array copy, "c;
+        msg ~= tmp1.intToString(to.length) ~ " = " ~ tmp2.intToString(from.length);
+        throw new Error(msg);
     }
     else if (to.ptr + to.length * size <= from.ptr ||
              from.ptr + from.length * size <= to.ptr)
@@ -37,7 +42,7 @@ byte[] _d_arraycopy(size_t size, byte[] from, byte[] to)
     }
     else
     {
-        throw new Exception("overlapping array copy");
+        throw new Error("overlapping array copy");
     }
     return to;
 }

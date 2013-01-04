@@ -25,10 +25,10 @@ version (unittest)
      */
     int cpuid;
     const int CPUID_MAX = 4;
-    bool mmx()      { return cpuid == 1 && core.cpuid.mmx(); }
-    bool sse()      { return cpuid == 2 && core.cpuid.sse(); }
-    bool sse2()     { return cpuid == 3 && core.cpuid.sse2(); }
-    bool amd3dnow() { return cpuid == 4 && core.cpuid.amd3dnow(); }
+    @property bool mmx()      { return cpuid == 1 && core.cpuid.mmx; }
+    @property bool sse()      { return cpuid == 2 && core.cpuid.sse; }
+    @property bool sse2()     { return cpuid == 3 && core.cpuid.sse2; }
+    @property bool amd3dnow() { return cpuid == 4 && core.cpuid.amd3dnow; }
 }
 else
 {
@@ -40,6 +40,7 @@ else
 
 //version = log;
 
+@trusted pure nothrow
 bool disjoint(T)(T[] a, T[] b)
 {
     return (a.ptr + a.length <= b.ptr || b.ptr + b.length <= a.ptr);
@@ -47,7 +48,7 @@ bool disjoint(T)(T[] a, T[] b)
 
 alias int T;
 
-extern (C):
+extern (C) @trusted nothrow:
 
 /* ======================================================================== */
 
@@ -82,7 +83,7 @@ body
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 380% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -145,7 +146,7 @@ body
         }
         else
         // MMX version is 298% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 
@@ -288,7 +289,7 @@ body
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 1710% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -355,7 +356,7 @@ body
         }
         else
         // MMX version is 995% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 
@@ -462,7 +463,7 @@ T[] _arrayExpSliceAddass_i(T[] a, T value)
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 83% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -519,7 +520,7 @@ T[] _arrayExpSliceAddass_i(T[] a, T value)
         }
         else
         // MMX version is 81% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 
@@ -654,7 +655,7 @@ body
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 695% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -715,7 +716,7 @@ body
         }
         else
         // MMX version is 471% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 
@@ -827,7 +828,7 @@ body
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 400% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -890,7 +891,7 @@ body
         }
         else
         // MMX version is 315% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 
@@ -1030,7 +1031,7 @@ body
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 1812% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -1097,7 +1098,7 @@ body
         }
         else
         // MMX version is 1077% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 
@@ -1212,7 +1213,7 @@ body
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 1721% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -1279,7 +1280,7 @@ body
         }
         else
         // MMX version is 1002% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 
@@ -1385,7 +1386,7 @@ T[] _arrayExpSliceMinass_i(T[] a, T value)
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 81% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -1442,7 +1443,7 @@ T[] _arrayExpSliceMinass_i(T[] a, T value)
         }
         else
         // MMX version is 81% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 
@@ -1577,7 +1578,7 @@ body
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 731% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -1638,7 +1639,7 @@ body
         }
         else
         // MMX version is 441% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 
@@ -1751,7 +1752,7 @@ body
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 1380% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -1815,7 +1816,7 @@ body
         else
         {
         // MMX version is 1380% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 
@@ -1934,7 +1935,7 @@ body
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 1407% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -2001,7 +2002,7 @@ body
         }
         else
         // MMX version is 1029% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 
@@ -2110,7 +2111,7 @@ T[] _arrayExpSliceMulass_i(T[] a, T value)
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 400% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -2167,7 +2168,7 @@ T[] _arrayExpSliceMulass_i(T[] a, T value)
         }
         else
         // MMX version is 402% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 
@@ -2279,7 +2280,7 @@ body
     version (D_InlineAsm_X86)
     {
         // SSE2 aligned version is 873% faster
-        if (sse2() && a.length >= 8)
+        if (sse2 && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -2343,7 +2344,7 @@ body
 
         else
         // MMX version is 573% faster
-        if (mmx() && a.length >= 4)
+        if (mmx && a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
 

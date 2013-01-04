@@ -1,6 +1,6 @@
 /**
  * Written in the D programming language.
- * Implementation of exception handling support routines for Posix.
+ * Implementation of exception handling support routines for Posix and Win64.
  *
  * Copyright: Copyright Digital Mars 2000 - 2012.
  * License: Distributed under the
@@ -11,6 +11,20 @@
  */
 
 module rt.deh2;
+
+version (Posix)
+{
+    version = deh2;
+}
+else version (Win64)
+{
+    version = deh2;
+}
+
+// Use deh.d for Win32
+
+version (deh2)
+{
 
 //debug=1;
 debug import core.stdc.stdio : printf;
@@ -130,15 +144,46 @@ FuncTable *__eh_finddata(void *address)
         auto pend   = cast(FuncTable *)&_deh_end;
     }
     debug printf("_deh_beg = %p, _deh_end = %p\n", pstart, pend);
-    for (auto ft = pstart; ft < pend; ft++)
-    {
-      debug printf("\tft = %p, fptr = %p, fsize = x%03x, handlertable = %p\n",
-              ft, ft.fptr, ft.fsize, ft.handlertable);
 
-        if (ft.fptr <= address &&
-            address < cast(void *)(cast(char *)ft.fptr + ft.fsize))
+    for (auto ft = pstart; 1; ft++)
+    {
+     Lagain:
+        if (ft >= pend)
+            break;
+
+        version (Win64)
         {
-          debug printf("\tfound handler table\n");
+            /* The MS Linker has an inexplicable and erratic tendency to insert
+             * 8 zero bytes between sections generated from different .obj
+             * files. This kludge tries to skip over them.
+             */
+            if (ft.fptr == null)
+            {
+                ft = cast(FuncTable *)(cast(void**)ft + 1);
+                goto Lagain;
+            }
+        }
+
+        debug printf("  ft = %p, fptr = %p, handlertable = %p, fsize = x%03x\n",
+              ft, ft.fptr, ft.handlertable, ft.fsize);
+
+        void *fptr = ft.fptr;
+        version (Win64)
+        {
+            /* If linked with /DEBUG, the linker rewrites it so the function pointer points
+             * to a JMP to the actual code. The address will be in the actual code, so we
+             * need to follow the JMP.
+             */
+            if ((cast(ubyte*)fptr)[0] == 0xE9)
+            {   // JMP target = RIP of next instruction + signed 32 bit displacement
+                fptr = fptr + 5 + *cast(int*)(fptr + 1);
+            }
+        }
+
+        if (fptr <= address &&
+            address < cast(void *)(cast(char *)fptr + ft.fsize))
+        {
+            debug printf("\tfound handler table\n");
             return ft;
         }
     }
@@ -230,6 +275,17 @@ extern (C) void _d_throwc(Object *h)
             continue;
         }
         auto funcoffset = cast(size_t)func_table.fptr;
+        version (Win64)
+        {
+            /* If linked with /DEBUG, the linker rewrites it so the function pointer points
+             * to a JMP to the actual code. The address will be in the actual code, so we
+             * need to follow the JMP.
+             */
+            if ((cast(ubyte*)funcoffset)[0] == 0xE9)
+            {   // JMP target = RIP of next instruction + signed 32 bit displacement
+                funcoffset = funcoffset + 5 + *cast(int*)(funcoffset + 1);
+            }
+        }
         auto spoff = handler_table.espoffset;
         auto retoffset = handler_table.retoffset;
 
@@ -249,8 +305,8 @@ extern (C) void _d_throwc(Object *h)
             for (int i = 0; i < dim; i++)
             {
                 auto phi = &handler_table.handler_info.ptr[i];
-                printf("\t[%d]: offset = x%04x, endoffset = x%04x, prev_index = %d, cioffset = x%04x, finally_code = %x\n",
-                        i, phi.offset, phi.endoffset, phi.prev_index, phi.cioffset, phi.finally_code);
+                printf("\t[%d]: offset = x%04x, endoffset = x%04x, prev_index = %d, cioffset = x%04x, finally_offset = %x\n",
+                        i, phi.offset, phi.endoffset, phi.prev_index, phi.cioffset, phi.finally_offset);
             }
         }
 
@@ -269,7 +325,7 @@ extern (C) void _d_throwc(Object *h)
         if (dim)
         {
             auto phi = &handler_table.handler_info.ptr[index+1];
-            debug printf("next finally_code %p\n", phi.finally_code);
+            debug printf("next finally_offset %p\n", phi.finally_offset);
             auto prev = cast(InFlight*) &__inflight;
             auto curr = prev.next;
 
@@ -365,7 +421,7 @@ extern (C) void _d_throwc(Object *h)
                 // Call finally block
                 // Note that it is unnecessary to adjust the ESP, as the finally block
                 // accesses all items on the stack as relative to EBP.
-                debug printf("calling finally_code %p\n", phi.finally_code);
+                debug printf("calling finally_offset %p\n", phi.finally_offset);
 
                 auto     blockaddr = cast(void*)(funcoffset + phi.finally_offset);
                 InFlight inflight;
@@ -442,4 +498,6 @@ extern (C) void _d_throwc(Object *h)
         }
     }
     terminate();
+}
+
 }

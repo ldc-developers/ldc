@@ -65,26 +65,14 @@ static void init_data_seg(void)
 
 typedef int  (__cdecl *_PF)(void);
 
-/* From critical.c */
-extern void _STI_critical_init();
-extern void _STD_critical_term();
-
-/* From monitor.c */
-extern void _STI_monitor_staticctor();
-extern void _STD_monitor_staticdtor();
-
 static int __cdecl ctor(void)
 {
     init_data_seg();
-    _STI_critical_init();
-    _STI_monitor_staticctor();
     return 0;
 }
 
 static int __cdecl dtor(void)
 {
-    _STD_monitor_staticdtor();
-    _STD_critical_term();
     return 0;
 }
 

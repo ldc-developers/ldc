@@ -24,10 +24,10 @@ version (unittest)
      */
     int cpuid;
     const int CPUID_MAX = 1;
-    bool mmx()      { return cpuid == 1 && core.cpuid.mmx(); }
-    bool sse()      { return cpuid == 2 && core.cpuid.sse(); }
-    bool sse2()     { return cpuid == 3 && core.cpuid.sse2(); }
-    bool amd3dnow() { return cpuid == 4 && core.cpuid.amd3dnow(); }
+    @property bool mmx()      { return cpuid == 1 && core.cpuid.mmx; }
+    @property bool sse()      { return cpuid == 2 && core.cpuid.sse; }
+    @property bool sse2()     { return cpuid == 3 && core.cpuid.sse2; }
+    @property bool amd3dnow() { return cpuid == 4 && core.cpuid.amd3dnow; }
 }
 else
 {
@@ -39,6 +39,7 @@ else
 
 //version = log;
 
+@trusted pure nothrow
 bool disjoint(T)(T[] a, T[] b)
 {
     return (a.ptr + a.length <= b.ptr || b.ptr + b.length <= a.ptr);
@@ -46,7 +47,7 @@ bool disjoint(T)(T[] a, T[] b)
 
 alias real T;
 
-extern (C):
+extern (C) @trusted nothrow:
 
 /* ======================================================================== */
 

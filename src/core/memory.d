@@ -1,6 +1,71 @@
 /**
- * The memory module provides an interface to the garbage collector and to
- * any other OS or API-level memory management facilities.
+ * This module provides an interface to the garbage collector used by
+ * applications written in the D programming language. It allows the
+ * garbage collector in the runtime to be swapped without affecting
+ * binary compatibility of applications.
+ *
+ * Using this module is not necessary in typical D code. It is mostly
+ * useful when doing low-level memory management.
+ *
+ * Notes_to_implementors:
+ * $(UL
+ * $(LI On POSIX systems, the signals SIGUSR1 and SIGUSR2 and reserved
+ *   by this module for use in the garbage collector implementation.
+ *   Typically, they will be used to stop and resume other threads
+ *   when performing a collection, but an implementation may choose
+ *   not to use this mechanism (or not stop the world at all, in the
+ *   case of concurrent garbage collectors).)
+ *
+ * $(LI Registers, the stack, and any other memory locations added through
+ *   the $(D GC.$(LREF addRange)) function are always scanned conservatively.
+ *   This means that even if a variable is e.g. of type $(D float),
+ *   it will still be scanned for possible GC pointers. And, if the
+ *   word-interpreted representation of the variable matches a GC-managed
+ *   memory block's address, that memory block is considered live.)
+ *
+ * $(LI Implementations are free to scan the non-root heap in a precise
+ *   manner, so that fields of types like $(D float) will not be considered
+ *   relevant when scanning the heap. Thus, casting a GC pointer to an
+ *   integral type (e.g. $(D size_t)) and storing it in a field of that
+ *   type inside the GC heap may mean that it will not be recognized
+ *   if the memory block was allocated with precise type info or with
+ *   the $(D GC.BlkAttr.$(LREF NO_SCAN)) attribute.)
+ *
+ * $(LI Destructors will always be executed while other threads are
+ *   active; that is, an implementation that stops the world must not
+ *   execute destructors until the world has been resumed.)
+ *
+ * $(LI A destructor of an object must not access object references
+ *   within the object. This means that an implementation is free to
+ *   optimize based on this rule.)
+ *
+ * $(LI An implementation is free to perform heap compaction and copying
+ *   so long as no valid GC pointers are invalidated in the process.
+ *   However, memory allocated with $(D GC.BlkAttr.$(LREF NO_MOVE)) must
+ *   not be moved/copied.)
+ *
+ * $(LI Implementations must support interior pointers. That is, if the
+ *   only reference to a GC-managed memory block points into the
+ *   middle of the block rather than the beginning (for example), the
+ *   GC must consider the memory block live. The exception to this
+ *   rule is when a memory block is allocated with the
+ *   $(D GC.BlkAttr.$(LREF NO_INTERIOR)) attribute; it is the user's
+ *   responsibility to make sure such memory blocks have a proper pointer
+ *   to them when they should be considered live.)
+ *
+ * $(LI It is acceptable for an implementation to store bit flags into
+ *   pointer values and GC-managed memory blocks, so long as such a
+ *   trick is not visible to the application. In practice, this means
+ *   that only a stop-the-world collector can do this.)
+ *
+ * $(LI Implementations are free to assume that GC pointers are only
+ *   stored on word boundaries. Unaligned pointers may be ignored
+ *   entirely.)
+ *
+ * $(LI Implementations are free to run collections at any point. It is,
+ *   however, recommendable to only do so when an allocation attempt
+ *   happens and there is insufficient memory available.)
+ * )
  *
  * Copyright: Copyright Sean Kelly 2005 - 2009.
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
@@ -123,7 +188,7 @@ struct GC
         NONE        = 0b0000_0000, /// No attributes set.
         FINALIZE    = 0b0000_0001, /// Finalize the data in this block on collect.
         NO_SCAN     = 0b0000_0010, /// Do not scan through this block on collect.
-        NO_MOVE     = 0b0000_0100,  /// Do not move this memory block on collect.
+        NO_MOVE     = 0b0000_0100, /// Do not move this memory block on collect.
         APPENDABLE  = 0b0000_1000, /// This block contains the info to allow appending.
 
         /**
@@ -476,12 +541,49 @@ struct GC
 
 
     /**
-     * Adds the memory address referenced by p to an internal list of roots to
-     * be scanned during a collection.  If p is null, no operation is
-     * performed.
+     * Adds an internal root pointing to the GC memory block referenced by p.
+     * As a result, the block referenced by p itself and any blocks accessible
+     * via it will be considered live until the root is removed again.
+     *
+     * If p is null, no operation is performed.
      *
      * Params:
-     *  p = A pointer to a valid memory address or to null.
+     *  p = A pointer into a GC-managed memory block or null.
+     *
+     * Example:
+     * ---
+     * // Typical C-style callback mechanism; the passed function
+     * // is invoked with the user-supplied context pointer at a
+     * // later point.
+     * extern(C) void addCallback(void function(void*), void*);
+     *
+     * // Allocate an object on the GC heap (this would usually be
+     * // some application-specific context data).
+     * auto context = new Object;
+     *
+     * // Make sure that it is not collected even if it is no
+     * // longer referenced from D code (stack, GC heap, …).
+     * GC.addRoot(cast(void*)context);
+     *
+     * // Also ensure that a moving collector does not relocate
+     * // the object.
+     * GC.setAttr(cast(void*)context, GC.BlkAttr.NO_MOVE);
+     *
+     * // Now context can be safely passed to the C library.
+     * addCallback(&myHandler, cast(void*)context);
+     *
+     * extern(C) void myHandler(void* ctx)
+     * {
+     *     // Assuming that the callback is invoked only once, the
+     *     // added root can be removed again now to allow the GC
+     *     // to collect it later.
+     *     GC.removeRoot(ctx);
+     *     GC.clrAttr(ctx, GC.BlkAttr.NO_MOVE);
+     *
+     *     auto context = cast(Object)ctx;
+     *     // Use context here…
+     * }
+     * ---
      */
     static void addRoot( in void* p ) nothrow /* FIXME pure */
     {
@@ -490,27 +592,12 @@ struct GC
 
 
     /**
-     * Adds the memory block referenced by p and of size sz to an internal list
-     * of ranges to be scanned during a collection.  If p is null, no operation
-     * is performed.
+     * Removes the memory block referenced by p from an internal list of roots
+     * to be scanned during a collection.  If p is null or is not a value
+     * previously passed to addRoot() then no operation is performed.
      *
      * Params:
-     *  p  = A pointer to a valid memory address or to null.
-     *  sz = The size in bytes of the block to add.  If sz is zero then the
-     *       no operation will occur.  If p is null then sz must be zero.
-     */
-    static void addRange( in void* p, size_t sz ) nothrow /* FIXME pure */
-    {
-        gc_addRange( p, sz );
-    }
-
-
-    /**
-     * Removes the memory block referenced by p from an internal list of roots
-     * to be scanned during a collection.  If p is null or does not represent
-     * a value previously passed to add(void*) then no operation is performed.
-     *
-     *  p  = A pointer to a valid memory address or to null.
+     *  p = A pointer into a GC-managed memory block or null.
      */
     static void removeRoot( in void* p ) nothrow /* FIXME pure */
     {
@@ -519,9 +606,41 @@ struct GC
 
 
     /**
-     * Removes the memory block referenced by p from an internal list of ranges
-     * to be scanned during a collection.  If p is null or does not represent
-     * a value previously passed to add(void*, size_t) then no operation is
+     * Adds $(D p[0 .. sz]) to the list of memory ranges to be scanned for
+     * pointers during a collection. If p is null, no operation is performed.
+     *
+     * Note that $(D p[0 .. sz]) is treated as an opaque range of memory assumed
+     * to be suitably managed by the caller. In particular, if p points into a
+     * GC-managed memory block, addRange does $(I not) mark this block as live.
+     *
+     * Params:
+     *  p  = A pointer to a valid memory address or to null.
+     *  sz = The size in bytes of the block to add. If sz is zero then the
+     *       no operation will occur. If p is null then sz must be zero.
+     *
+     * Example:
+     * ---
+     * // Allocate a piece of memory on the C heap.
+     * enum size = 1_000;
+     * auto rawMemory = core.stdc.stdlib.malloc(size);
+     *
+     * // Add it as a GC range.
+     * GC.addRange(rawMemory, size);
+     *
+     * // Now, pointers to GC-managed memory stored in
+     * // rawMemory will be recognized on collection.
+     * ---
+     */
+    static void addRange( in void* p, size_t sz ) nothrow /* FIXME pure */
+    {
+        gc_addRange( p, sz );
+    }
+
+
+    /**
+     * Removes the memory range starting at p from an internal list of ranges
+     * to be scanned during a collection. If p is null or does not represent
+     * a value previously passed to addRange() then no operation is
      * performed.
      *
      * Params:

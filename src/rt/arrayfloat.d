@@ -24,10 +24,10 @@ version (unittest)
      */
     int cpuid;
     const int CPUID_MAX = 5;
-    bool mmx()      { return cpuid == 1 && core.cpuid.mmx(); }
-    bool sse()      { return cpuid == 2 && core.cpuid.sse(); }
-    bool sse2()     { return cpuid == 3 && core.cpuid.sse2(); }
-    bool amd3dnow() { return cpuid == 4 && core.cpuid.amd3dnow(); }
+    @property bool mmx()      { return cpuid == 1 && core.cpuid.mmx; }
+    @property bool sse()      { return cpuid == 2 && core.cpuid.sse; }
+    @property bool sse2()     { return cpuid == 3 && core.cpuid.sse2; }
+    @property bool amd3dnow() { return cpuid == 4 && core.cpuid.amd3dnow; }
 }
 else
 {
@@ -39,6 +39,7 @@ else
 
 //version = log;
 
+@trusted pure nothrow
 bool disjoint(T)(T[] a, T[] b)
 {
     return (a.ptr + a.length <= b.ptr || b.ptr + b.length <= a.ptr);
@@ -46,7 +47,7 @@ bool disjoint(T)(T[] a, T[] b)
 
 alias float T;
 
-extern (C):
+extern (C) @trusted nothrow:
 
 /* ======================================================================== */
 /* ======================================================================== */
@@ -66,7 +67,7 @@ private template CodeGenSliceSliceOp(string opD, string opSSE, string op3DNow)
     version (D_InlineAsm_X86)
     {
         // SSE version is 834% faster
-        if (sse() && b.length >= 16)
+        if (sse && b.length >= 16)
         {
             auto n = aptr + (b.length & ~15);
 
@@ -109,7 +110,7 @@ private template CodeGenSliceSliceOp(string opD, string opSSE, string op3DNow)
         }
         else
         // 3DNow! version is only 13% faster
-        if (amd3dnow() && b.length >= 8)
+        if (amd3dnow && b.length >= 8)
         {
             auto n = aptr + (b.length & ~7);
 
@@ -342,7 +343,7 @@ private template CodeGenExpSliceOpAssign(string opD, string opSSE, string op3DNo
 
     version (D_InlineAsm_X86)
     {
-        if (sse() && a.length >= 16)
+        if (sse && a.length >= 16)
         {
             auto aabeg = cast(T*)((cast(uint)aptr + 15) & ~15); // beginning of paragraph-aligned slice of a
             auto aaend = cast(T*)((cast(uint)aend) & ~15);      // end of paragraph-aligned slice of a
@@ -390,7 +391,7 @@ private template CodeGenExpSliceOpAssign(string opD, string opSSE, string op3DNo
         }
         else
         // 3DNow! version is 63% faster
-        if (amd3dnow() && a.length >= 8)
+        if (amd3dnow && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -651,7 +652,7 @@ private template CodeGenSliceExpOp(string opD, string opSSE, string op3DNow)
     version (D_InlineAsm_X86)
     {
         // SSE version is 665% faster
-        if (sse() && a.length >= 16)
+        if (sse && a.length >= 16)
         {
             auto n = aptr + (a.length & ~15);
 
@@ -689,7 +690,7 @@ private template CodeGenSliceExpOp(string opD, string opSSE, string op3DNow)
         }
         else
         // 3DNow! version is 69% faster
-        if (amd3dnow() && a.length >= 8)
+        if (amd3dnow && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -962,7 +963,7 @@ private template CodeGenSliceOpAssign(string opD, string opSSE, string op3DNow)
     version (D_InlineAsm_X86)
     {
         // SSE version is 468% faster
-        if (sse() && a.length >= 16)
+        if (sse && a.length >= 16)
         {
             auto n = aptr + (a.length & ~15);
 
@@ -1002,7 +1003,7 @@ private template CodeGenSliceOpAssign(string opD, string opSSE, string op3DNow)
         }
         else
         // 3DNow! version is 57% faster
-        if (amd3dnow() && a.length >= 8)
+        if (amd3dnow && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
@@ -1236,7 +1237,7 @@ body
     version (D_InlineAsm_X86)
     {
         // SSE version is 690% faster
-        if (sse() && a.length >= 16)
+        if (sse && a.length >= 16)
         {
             auto n = aptr + (a.length & ~15);
 
@@ -1278,7 +1279,7 @@ body
         }
         else
         // 3DNow! version is 67% faster
-        if (amd3dnow() && a.length >= 8)
+        if (amd3dnow && a.length >= 8)
         {
             auto n = aptr + (a.length & ~7);
 
