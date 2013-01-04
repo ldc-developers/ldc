@@ -537,10 +537,5 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                 DtoDwarfLocalVariable(frame, vd, addr);
             }
         }
-    } else if (FuncDeclaration* parFunc = getParentFunc(fd, true)) {
-        // Propagate context arg properties if the context arg is passed on unmodified.
-        DtoDeclareFunction(parFunc);
-        fd->ir.irFunc->frameType = parFunc->ir.irFunc->frameType;
-        fd->ir.irFunc->depth = parFunc->ir.irFunc->depth;
     }
 }
