@@ -317,6 +317,7 @@ int main(int argc, char** argv)
         global.params.run = true;
         if (!runargs.empty()) {
             files.push(mem.strdup(runargs[0].c_str()));
+            runargs.erase(runargs.begin());
         } else {
             global.params.run = false;
             error("Expected at least one argument to '-run'\n");
