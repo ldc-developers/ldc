@@ -623,8 +623,16 @@ DValue* AssignExp::toElem(IRState* p)
         return r;
     }
 
-    Logger::println("performing normal assignment");
-    DtoAssign(loc, l, r, op);
+    bool canSkipPostblit = false;
+    if (!(e2->op == TOKslice && ((UnaExp *)e2)->e1->isLvalue()) &&
+        !(e2->op == TOKcast && ((UnaExp *)e2)->e1->isLvalue()) &&
+        (e2->op == TOKslice || !e2->isLvalue()))
+    {
+        canSkipPostblit = true;
+    }
+
+    Logger::println("performing normal assignment (canSkipPostblit = %d)", canSkipPostblit);
+    DtoAssign(loc, l, r, op, canSkipPostblit);
 
     if (l->isSlice())
         return l;
@@ -2982,6 +2990,9 @@ DValue* StructLiteralExp::toElem(IRState* p)
 
         // store the initializer there
         DtoAssign(loc, &field, val, TOKconstruct);
+
+        if (expr)
+            callPostblit(loc, expr, field.getLVal());
 
         // Also zero out padding bytes counted as being part of the type in DMD
         // but not in LLVM; e.g. real/x86_fp80.
