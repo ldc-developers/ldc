@@ -2689,13 +2689,22 @@ DValue* FuncExp::toElem(IRState* p)
 
     assert(fd);
 
+    if (fd->tok == TOKreserved && type->ty == Tpointer)
+    {
+        // This is a lambda that was inferred to be a function literal instead
+        // of a delegate, so set tok here in order to get correct types/mangling.
+        // Horrible hack, but DMD does the same thing.
+        fd->tok = TOKfunction;
+        fd->vthis = NULL;
+    }
+
     if (fd->isNested()) Logger::println("nested");
     Logger::println("kind = %s", fd->kind());
 
     fd->codegen(Type::sir);
     assert(fd->ir.irFunc->func);
 
-    if(fd->isNested() && !(fd->tok == TOKreserved && type->ty == Tpointer && fd->vthis)) {
+    if (fd->isNested()) {
         LLType* dgty = DtoType(type);
 
         LLValue* cval;
@@ -2745,7 +2754,18 @@ LLConstant* FuncExp::toConstElem(IRState* p)
     LOG_SCOPE;
 
     assert(fd);
-    if (fd->tok != TOKfunction && !(fd->tok == TOKreserved && type->ty == Tpointer && fd->vthis))
+
+    if (fd->tok == TOKreserved && type->ty == Tpointer)
+    {
+        // This is a lambda that was inferred to be a function literal instead
+        // of a delegate, so set tok here in order to get correct types/mangling.
+        // Horrible hack, but DMD does the same thing in FuncExp::toElem and
+        // other random places.
+        fd->tok = TOKfunction;
+        fd->vthis = NULL;
+    }
+
+    if (fd->tok != TOKfunction)
     {
         assert(fd->tok == TOKdelegate || fd->tok == TOKreserved);
         error("delegate literals as constant expressions are not yet allowed");
