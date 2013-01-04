@@ -194,14 +194,20 @@ LLConstant * IrStruct::getVtblInit()
                         continue;
                     if (fd->leastAsSpecialized(fd2) || fd2->leastAsSpecialized(fd))
                     {
-                        if (global.params.warnings)
-                        {
-                            TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
-                            if (tf->ty == Tfunction)
-                                error("%s%s is hidden by %s\n", fd->toPrettyChars(), Parameter::argsTypesToChars(tf->parameters, tf->varargs), toChars());
-                            else
-                                error("%s is hidden by %s\n", fd->toPrettyChars(), toChars());
-                        }
+                        TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
+                        if (tf->ty == Tfunction)
+                            cd->deprecation(
+                                "use of %s%s hidden by %s is deprecated. Use 'alias %s.%s %s;' to introduce base class overload set.",
+                                fd->toPrettyChars(),
+                                Parameter::argsTypesToChars(tf->parameters, tf->varargs),
+                                cd->toChars(),
+                                fd->parent->toChars(),
+                                fd->toChars(),
+                                fd->toChars()
+                           );
+                        else
+                            cd->deprecation("use of %s hidden by %s is deprecated", fd->toPrettyChars(), cd->toChars());
+
                         c = DtoBitCast(LLVM_D_GetRuntimeFunction(gIR->module, "_d_hidden_func"), c->getType());
                         break;
                     }
