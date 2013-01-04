@@ -149,7 +149,7 @@ Dsymbol *FuncDeclaration::syntaxCopy(Dsymbol *s)
 }
 
 #if IN_LLVM
-static int outToRefDg(void *ctx, size_t n, Parameter *p, int flags)
+static int outToRefDg(void *ctx, size_t n, Parameter *p)
 {
     if (p->storageClass & STCout)
     {

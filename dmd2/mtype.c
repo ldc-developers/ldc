@@ -9716,19 +9716,33 @@ void Parameter::argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Parameters *argu
     buf->writeByte(')');
 }
 
-static const int mangleFlag = 0x01;
-
-static int argsToDecoBufferDg(void *ctx, size_t n, Parameter *arg, int flags)
+static int argsToDecoBufferDg(void *ctx, size_t n, Parameter *arg)
 {
-    arg->toDecoBuffer((OutBuffer *)ctx, flags & mangleFlag);
+#if IN_LLVM
+    arg->toDecoBuffer((OutBuffer *)ctx, false);
+#else
+    arg->toDecoBuffer((OutBuffer *)ctx);
+#endif
     return 0;
 }
+
+#if IN_LLVM
+static int argsToDecoBufferDg2(void *ctx, size_t n, Parameter *arg)
+{
+    arg->toDecoBuffer((OutBuffer *)ctx, true);
+    return 0;
+}
+#endif
 
 void Parameter::argsToDecoBuffer(OutBuffer *buf, Parameters *arguments, bool mangle)
 {
     //printf("Parameter::argsToDecoBuffer()\n");
     // Write argument types
-    foreach(arguments, &argsToDecoBufferDg, buf, 0, mangle ? mangleFlag : 0);
+#if IN_LLVM
+    foreach(arguments, mangle ? &argsToDecoBufferDg2 : &argsToDecoBufferDg, buf);
+#else
+    foreach(arguments, &argsToDecoBufferDg, buf);
+#endif
 }
 
 /****************************************
@@ -9736,7 +9750,7 @@ void Parameter::argsToDecoBuffer(OutBuffer *buf, Parameters *arguments, bool man
  * (i.e. it has auto or alias parameters)
  */
 
-static int isTPLDg(void *ctx, size_t n, Parameter *arg, int)
+static int isTPLDg(void *ctx, size_t n, Parameter *arg)
 {
     if (arg->storageClass & (STCalias | STCauto | STCstatic))
         return 1;
@@ -9817,7 +9831,7 @@ void Parameter::toDecoBuffer(OutBuffer *buf, bool mangle)
  * Determine number of arguments, folding in tuples.
  */
 
-static int dimDg(void *ctx, size_t n, Parameter *, int)
+static int dimDg(void *ctx, size_t n, Parameter *)
 {
     ++*(size_t *)ctx;
     return 0;
@@ -9844,7 +9858,7 @@ struct GetNthParamCtx
     Parameter *arg;
 };
 
-static int getNthParamDg(void *ctx, size_t n, Parameter *arg, int)
+static int getNthParamDg(void *ctx, size_t n, Parameter *arg)
 {
     GetNthParamCtx *p = (GetNthParamCtx *)ctx;
     if (n == p->nth)
@@ -9869,7 +9883,7 @@ Parameter *Parameter::getNth(Parameters *args, size_t nth, size_t *pn)
  * calculating dim and calling N times getNth.
  */
 
-int Parameter::foreach(Parameters *args, Parameter::ForeachDg dg, void *ctx, size_t *pn, int flags)
+int Parameter::foreach(Parameters *args, Parameter::ForeachDg dg, void *ctx, size_t *pn)
 {
     assert(dg);
     if (!args)
@@ -9883,10 +9897,10 @@ int Parameter::foreach(Parameters *args, Parameter::ForeachDg dg, void *ctx, siz
 
         if (t->ty == Ttuple)
         {   TypeTuple *tu = (TypeTuple *)t;
-            result = foreach(tu->arguments, dg, ctx, &n, flags);
+            result = foreach(tu->arguments, dg, ctx, &n);
         }
         else
-            result = dg(ctx, n++, arg, flags);
+            result = dg(ctx, n++, arg);
 
         if (result)
             break;

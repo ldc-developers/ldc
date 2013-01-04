@@ -1075,8 +1075,8 @@ struct Parameter : Object
     static size_t dim(Parameters *arguments);
     static Parameter *getNth(Parameters *arguments, size_t nth, size_t *pn = NULL);
 
-    typedef int (*ForeachDg)(void *ctx, size_t paramidx, Parameter *param, int flags);
-    static int foreach(Parameters *args, ForeachDg dg, void *ctx, size_t *pn=NULL, int flags = 0);
+    typedef int (*ForeachDg)(void *ctx, size_t paramidx, Parameter *param);
+    static int foreach(Parameters *args, ForeachDg dg, void *ctx, size_t *pn=NULL);
 };
 
 extern int PTRSIZE;
