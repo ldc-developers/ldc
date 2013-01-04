@@ -1804,7 +1804,6 @@ Expression *CommaExp::castTo(Scope *sc, Type *t)
 /****************************************
  * Set type inference target
  *      flag    1: don't put an error when inference fails
- *              2: ldc specific: allow to infer function literal kind (TOKdelegate or TOKfunction)
  */
 
 Expression *Expression::inferType(Type *t, int flag, TemplateParameters *tparams)
@@ -1965,27 +1964,9 @@ Expression *FuncExp::inferType(Type *to, int flag, TemplateParameters *tparams)
         }
         else
             e = this;
-
-#if IN_LLVM
-        if (flag == 2 && e)
-        {   FuncExp *fe = (FuncExp *)e;
-            if (fe->fd && fe->fd->tok == TOKreserved)
-            {
-                if (fe->type->ty == Tpointer)
-                {
-                    fe->fd->vthis = NULL;
-                    fe->fd->tok = TOKfunction;
-                }
-                else
-                {
-                    fe->fd->tok = TOKdelegate;
-                }
-            }
-        }
-#endif
     }
 L1:
-    if (flag != 1 && !e)
+    if (!flag && !e)
     {   error("cannot infer function literal type from %s", to->toChars());
         e = new ErrorExp();
     }

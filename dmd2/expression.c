@@ -1006,7 +1006,7 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
                 Type *pt = p->type;
                 if (tf->varargs == 2 && i + 1 == nparams && pt->nextOf())
                     pt = pt->nextOf();
-                arg = arg->inferType(pt, 2);
+                arg = arg->inferType(pt);
                 (*arguments)[i] = arg;
             }
 
