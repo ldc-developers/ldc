@@ -110,7 +110,7 @@ void unittests();
                         // 2: Modifying iteratee in body is error without -d switch
 
 // Set if C++ mangling is done by the front end
-#define CPP_MANGLE (DMDV2 && (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS))
+#define CPP_MANGLE (DMDV2 && (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS || IN_LLVM))
 
 /* Other targets are TARGET_LINUX, TARGET_OSX, TARGET_FREEBSD, TARGET_OPENBSD and
  * TARGET_SOLARIS, which are
