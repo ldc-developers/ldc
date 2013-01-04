@@ -244,7 +244,11 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
         AggregateDeclaration* ad = irfunc->decl->isMember2();
         val = ad->isClassDeclaration() ? DtoLoad(irfunc->thisArg) : irfunc->thisArg;
         if (!ad->vthis)
-            return llvm::UndefValue::get(getVoidPtrType());
+        {
+            // This is just a plain 'outer' reference of a class nested in a
+            // function (but without any variables in the nested context).
+            return val;
+        }
 #else
         ClassDeclaration* ad = irfunc->decl->isMember2()->isClassDeclaration();
         val = DtoLoad(irfunc->thisArg);
