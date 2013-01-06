@@ -9,7 +9,11 @@
 
 #include "gen/llvm.h"
 #include "llvm/Support/CFG.h"
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/Intrinsics.h"
+#else
 #include "llvm/Intrinsics.h"
+#endif
 
 #include "mtype.h"
 #include "aggregate.h"

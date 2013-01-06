@@ -47,9 +47,15 @@
 #endif
 
 #if IN_LLVM
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/Type.h"
+#include "llvm/IR/LLVMContext.h"
+#include "llvm/IR/DerivedTypes.h"
+#else
 #include "llvm/Type.h"
 #include "llvm/LLVMContext.h"
 #include "llvm/DerivedTypes.h"
+#endif
 #include "llvm/Support/CommandLine.h"
 #include <map>
 

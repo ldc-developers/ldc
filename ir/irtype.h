@@ -16,7 +16,11 @@
 #ifndef __LDC_IR_IRTYPE_H__
 #define __LDC_IR_IRTYPE_H__
 
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/Type.h"
+#else
 #include "llvm/Type.h"
+#endif
 
 //////////////////////////////////////////////////////////////////////////////
 
