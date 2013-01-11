@@ -4156,8 +4156,8 @@ StructLiteralExp::StructLiteralExp(Loc loc, StructDeclaration *sd, Expressions *
         elements = new Expressions();
     this->elements = elements;
     this->stype = stype;
-#if IN_DMD
     this->sinit = NULL;
+#if IN_DMD
     this->sym = NULL;
 #endif
     this->soffset = 0;

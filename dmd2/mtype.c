@@ -2068,22 +2068,17 @@ Expression *Type::getProperty(Loc loc, Identifier *ident)
     else if (ident == Id::init)
     {
         Type *tb = toBasetype();
-#if IN_LLVM
-        // LDC_FIXME: Port the below change to LDC.
-        if (tb->ty == Tstruct && tb->needsNested())
-        {
-            e = defaultInit(loc);
-        }
-        else
-            e = defaultInitLiteral(loc);
-#else
         e = defaultInitLiteral(loc);
         if (tb->ty == Tstruct && tb->needsNested())
         {
             StructLiteralExp *se = (StructLiteralExp *)e;
+#if IN_LLVM
+            se->sinit = (StaticStructInitDeclaration*)
+                (((VarExp*)defaultInit(loc))->var);
+#else
             se->sinit = se->sd->toInitializer();
-        }
 #endif
+        }
     }
     else if (ident == Id::mangleof)
     {   const char *s;
@@ -8398,7 +8393,12 @@ Expression *TypeStruct::defaultInit(Loc loc)
 #if LOGDEFAULTINIT
     printf("TypeStruct::defaultInit() '%s'\n", toChars());
 #endif
+#if IN_LLVM
     Declaration *d = new StaticStructInitDeclaration(sym->loc, sym);
+#else
+    Symbol *s = sym->toInitializer();
+    Declaration *d = new SymbolDeclaration(sym->loc, s, sym);
+#endif
     assert(d);
     d->type = this;
     return new VarExp(sym->loc, d);

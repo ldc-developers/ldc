@@ -910,14 +910,11 @@ Expression *Equal(enum TOK op, Type *type, Expression *e1, Expression *e2)
                     break;
             }
         }
-#if !IN_LLVM
-        // LDC_FIXME: Implement this.
         if (cmp && es1->type->needsNested())
         {
             if ((es1->sinit != NULL) != (es2->sinit != NULL))
                 cmp = 0;
         }
-#endif
     }
 #if 0 // Should handle this
     else if (e1->op == TOKarrayliteral && e2->op == TOKstring)

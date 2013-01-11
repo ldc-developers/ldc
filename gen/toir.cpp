@@ -2923,6 +2923,21 @@ DValue* StructLiteralExp::toElem(IRState* p)
     Logger::print("StructLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+    if (sinit)
+    {
+        // Copied from VarExp::toElem, need to clean this mess up.
+        Type* sdecltype = sinit->type->toBasetype();
+        Logger::print("Sym: type = %s\n", sdecltype->toChars());
+        assert(sdecltype->ty == Tstruct);
+        TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
+        assert(ts->sym);
+        ts->sym->codegen(Type::sir);
+
+        LLValue* initsym = ts->sym->ir.irStruct->getInitSymbol();
+        initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
+        return new DVarValue(type, initsym);
+    }
+
     // make sure the struct is fully resolved
     sd->codegen(Type::sir);
 
@@ -3019,6 +3034,18 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
 {
     Logger::print("StructLiteralExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
+
+    if (sinit)
+    {
+        // Copied from VarExp::toConstElem, need to clean this mess up.
+        Type* sdecltype = sinit->type->toBasetype();
+        Logger::print("Sym: type=%s\n", sdecltype->toChars());
+        assert(sdecltype->ty == Tstruct);
+        TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
+        ts->sym->codegen(Type::sir);
+
+        return ts->sym->ir.irStruct->getDefaultInit();
+    }
 
     // make sure the struct is resolved
     sd->codegen(Type::sir);

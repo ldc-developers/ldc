@@ -52,6 +52,7 @@ struct Initializer;
 struct StringExp;
 #if IN_LLVM
 struct AssignExp;
+struct StaticStructInitDeclaration;
 #endif
 
 enum TOK;
@@ -606,6 +607,12 @@ struct StructLiteralExp : Expression
     DValue* toElem(IRState* irs);
     llvm::Constant *toConstElem(IRState *irs);
     llvm::StructType *constType;
+
+    /// Set if this is really the result of a struct .init access and should be
+    /// resolved codegen'd as an access to the given StaticStructInitDeclaration.
+    // LDC_FIXME: Figure out whether this, i.e. imitating the DMD behavior, is
+    // really the best way to fix the nested struct constant folding issue.
+    StaticStructInitDeclaration *sinit;
 #endif
 };
 
