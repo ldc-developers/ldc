@@ -349,7 +349,11 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
     if(errstr != "")
         error(tinst->loc,
             "can't parse inline LLVM IR:\n%s\n%s\n%s\nThe input string was: \n%s",
+#if LDC_LLVM_VER >= 303
+            err.getLineContents().str().c_str(),
+#else
             err.getLineContents().c_str(),
+#endif
             (std::string(err.getColumnNo(), ' ') + '^').c_str(),
             errstr.c_str(), stream.str().c_str());
 
