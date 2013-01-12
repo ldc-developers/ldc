@@ -1635,7 +1635,7 @@ bool mustDefineSymbol(Dsymbol* s)
     {
         // we can't (and probably shouldn't?) define functions
         // that weren't semantic3'ed
-        if (fd->semanticRun < 4)
+        if (fd->semanticRun < PASSsemantic3)
             return false;
 
         if (fd->isArrayOp == 1)
@@ -1659,7 +1659,7 @@ bool mustDefineSymbol(Dsymbol* s)
             if (   !fd->isStaticCtorDeclaration()
                 && !fd->isStaticDtorDeclaration()
                 && !fd->isUnitTestDeclaration()
-                && fd->canInline(true))
+                && fd->canInline(true, false, false))
             {
                 return true;
             }
