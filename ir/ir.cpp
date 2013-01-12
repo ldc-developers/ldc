@@ -7,7 +7,9 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/DataLayout.h"
+#elif LDC_LLVM_VER == 302
 #include "llvm/DataLayout.h"
 #else
 #include "llvm/Target/TargetData.h"

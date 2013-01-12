@@ -17,16 +17,17 @@
 #include "llvm/LinkAllPasses.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
+#include "llvm/IR/DataLayout.h"
 #else
 #include "llvm/Module.h"
-#endif
-#include "llvm/ADT/Triple.h"
-#include "llvm/Analysis/Verifier.h"
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER == 302
 #include "llvm/DataLayout.h"
 #else
 #include "llvm/Target/TargetData.h"
 #endif
+#endif
+#include "llvm/ADT/Triple.h"
+#include "llvm/Analysis/Verifier.h"
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Support/CommandLine.h"

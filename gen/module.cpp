@@ -9,12 +9,17 @@
 
 #include "gen/llvm.h"
 #include "llvm/Analysis/Verifier.h"
-#include "llvm/Module.h"
 #include "llvm/LinkAllPasses.h"
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/Module.h"
+#include "llvm/IR/DataLayout.h"
+#else
+#include "llvm/Module.h"
+#if LDC_LLVM_VER == 302
 #include "llvm/DataLayout.h"
 #else
 #include "llvm/Target/TargetData.h"
+#endif
 #endif
 
 #include "mars.h"

@@ -27,14 +27,17 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/DataLayout.h"
 #else
 #include "llvm/Module.h"
 #include "llvm/Constants.h"
 #include "llvm/Intrinsics.h"
 #if LDC_LLVM_VER == 302
 #include "llvm/IRBuilder.h"
+#include "llvm/DataLayout.h"
 #else
 #include "llvm/Support/IRBuilder.h"
+#include "llvm/Target/TargetData.h"
 #endif
 #endif
 #include "llvm/Support/CallSite.h"
@@ -42,11 +45,6 @@
 #include "llvm/Analysis/CallGraph.h"
 #include "llvm/Analysis/Dominators.h"
 #include "llvm/Analysis/ValueTracking.h"
-#if LDC_LLVM_VER >= 302
-#include "llvm/DataLayout.h"
-#else
-#include "llvm/Target/TargetData.h"
-#endif
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
 #include "llvm/ADT/StringMap.h"

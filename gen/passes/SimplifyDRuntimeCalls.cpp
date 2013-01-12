@@ -23,22 +23,20 @@
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
+#include "llvm/IR/DataLayout.h"
 #else
 #include "llvm/Function.h"
 #include "llvm/Intrinsics.h"
 #if LDC_LLVM_VER == 302
 #include "llvm/IRBuilder.h"
+#include "llvm/DataLayout.h"
 #else
 #include "llvm/Support/IRBuilder.h"
+#include "llvm/Target/TargetData.h"
 #endif
 #endif
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"
-#if LDC_LLVM_VER >= 302
-#include "llvm/DataLayout.h"
-#else
-#include "llvm/Target/TargetData.h"
-#endif
 #include "llvm/ADT/StringMap.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Compiler.h"

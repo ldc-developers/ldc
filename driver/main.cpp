@@ -9,9 +9,14 @@
 
 #include "gen/llvmcompat.h"
 #include "gen/llvm.h"
-#include "llvm/LinkAllVMCore.h"
 #include "llvm/Linker.h"
+#if LDC_LLVM_VER >= 303
+#include "llvm/LinkAllIR.h"
+#include "llvm/IR/LLVMContext.h"
+#else
+#include "llvm/LinkAllVMCore.h"
 #include "llvm/LLVMContext.h"
+#endif
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "llvm/Support/TargetSelect.h"

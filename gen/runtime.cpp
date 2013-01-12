@@ -8,8 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvm.h"
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Attributes.h"
+#else
 #include "llvm/Module.h"
 #include "llvm/Attributes.h"
+#endif
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/CommandLine.h"

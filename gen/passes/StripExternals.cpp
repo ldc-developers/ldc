@@ -19,7 +19,11 @@
 
 #include "Passes.h"
 
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/Module.h"
+#else
 #include "llvm/Module.h"
+#endif
 #include "llvm/Pass.h"
 #include "llvm/ADT/Statistic.h"
 #include "llvm/Support/Compiler.h"

@@ -15,7 +15,11 @@
 #ifndef __LDC_GEN_RTTIBUILDER_H__
 #define __LDC_GEN_RTTIBUILDER_H__
 
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/Constant.h"
+#else
 #include "llvm/Constant.h"
+#endif
 #include "llvm/ADT/SmallVector.h"
 
 struct ClassDeclaration;

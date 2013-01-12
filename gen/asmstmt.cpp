@@ -8,7 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvm.h"
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/InlineAsm.h"
+#else
 #include "llvm/InlineAsm.h"
+#endif
 
 //#include "d-gcc-includes.h"
 //#include "total.h"

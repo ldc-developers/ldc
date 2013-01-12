@@ -7,8 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/LLVMContext.h"
+#else
 #include "llvm/DerivedTypes.h"
 #include "llvm/LLVMContext.h"
+#endif
 #include "mars.h"
 #include "mtype.h"
 #include "gen/irstate.h"

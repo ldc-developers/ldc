@@ -19,7 +19,11 @@
 
 #include "llvm/Support/CommandLine.h"
 
+#if LDC_LLVM_VER >= 303
+#include "llvm/IR/GlobalValue.h"
+#else
 #include "llvm/GlobalValue.h"
+#endif
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_os_ostream.h"
 #include "llvm/Assembly/Writer.h"
