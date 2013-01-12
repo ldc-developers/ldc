@@ -56,10 +56,10 @@ version (LDC)
     }
     else
     {
-        private pure pragma(LDC_intrinsic, "llvm.cttz.i#") T cttz(T)(T v, bool isZerodefined);
+        private pure pragma(LDC_intrinsic, "llvm.cttz.i#") T cttz(T)(T v, bool is_zero_undef);
         pure int bsf(size_t v)
         {
-            return cast(int)cttz(v, false);
+            return cast(int)cttz(v, true);
         }
     }
 }
@@ -103,10 +103,10 @@ version (LDC)
     }
     else
     {
-        private pure pragma(LDC_intrinsic, "llvm.ctlz.i#") T ctlz(T)(T v, bool isZeroDefined);
+        private pure pragma(LDC_intrinsic, "llvm.ctlz.i#") T ctlz(T)(T v, bool is_zero_undef);
         pure int bsr(size_t v)
         {
-            return cast(int)(size_t.sizeof * 8 - 1 - ctlz(v, false));
+            return cast(int)(size_t.sizeof * 8 - 1 - ctlz(v, true));
         }
     }
 }
