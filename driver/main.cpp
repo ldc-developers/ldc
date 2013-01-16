@@ -444,8 +444,7 @@ int main(int argc, char** argv)
     if (global.params.link && !createSharedLib)
     {
         global.params.exefile = global.params.objname;
-        if (files.dim > 1)
-            global.params.objname = NULL;
+        global.params.objname = NULL;
     }
     else if (global.params.run)
     {
