@@ -279,6 +279,19 @@ else()
 endif()
 
 #
+# Check endianess.
+# There is no realiable way to delegate the work to the compiler.
+# E.g. gcc up to version 4.6 defines __LITTLE_ENDIAN, but not 4.7
+# 
+include(TestBigEndian)
+test_big_endian(BIGENDIAN)
+if(${BIGENDIAN})
+    add_definitions(-D__BIG_ENDIAN__)
+else()
+    add_definitions(-D__LITTLE_ENDIAN__)
+endif()
+
+#
 # Set up the main ldc/ldc2 target.
 #
 if(BUILD_SHARED)

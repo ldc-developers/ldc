@@ -554,20 +554,46 @@ bool Module::read(Loc loc)
 
 inline unsigned readwordLE(unsigned short *p)
 {
+#if IN_LLVM
+#if __LITTLE_ENDIAN__
+    return *p;
+#else
+    return (((unsigned char *)p)[1] << 8) | ((unsigned char *)p)[0];
+#endif
+#else
 #if LITTLE_ENDIAN
     return *p;
 #else
     return (((unsigned char *)p)[1] << 8) | ((unsigned char *)p)[0];
 #endif
+#endif
 }
 
 inline unsigned readwordBE(unsigned short *p)
 {
+#if IN_LLVM
+#if __BIG_ENDIAN__
+    return *p;
+#else
     return (((unsigned char *)p)[0] << 8) | ((unsigned char *)p)[1];
+#endif
+#else
+    return (((unsigned char *)p)[0] << 8) | ((unsigned char *)p)[1];
+#endif
 }
 
 inline unsigned readlongLE(unsigned *p)
 {
+#if IN_LLVM
+#if __LITTLE_ENDIAN__
+    return *p;
+#else
+    return ((unsigned char *)p)[0] |
+        (((unsigned char *)p)[1] << 8) |
+        (((unsigned char *)p)[2] << 16) |
+        (((unsigned char *)p)[3] << 24);
+#endif
+#else
 #if LITTLE_ENDIAN
     return *p;
 #else
@@ -576,14 +602,26 @@ inline unsigned readlongLE(unsigned *p)
         (((unsigned char *)p)[2] << 16) |
         (((unsigned char *)p)[3] << 24);
 #endif
+#endif
 }
 
 inline unsigned readlongBE(unsigned *p)
 {
+#if IN_LLVM
+#if __BIG_ENDIAN__
+    return *p;
+#else
     return ((unsigned char *)p)[3] |
         (((unsigned char *)p)[2] << 8) |
         (((unsigned char *)p)[1] << 16) |
         (((unsigned char *)p)[0] << 24);
+#endif
+#else
+    return ((unsigned char *)p)[3] |
+        (((unsigned char *)p)[2] << 8) |
+        (((unsigned char *)p)[1] << 16) |
+        (((unsigned char *)p)[0] << 24);
+#endif
 }
 
 #if IN_LLVM

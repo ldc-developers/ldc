@@ -1480,7 +1480,16 @@ Expression *ctfeCat(Type *type, Expression *e1, Expression *e2)
             if (es2e->op != TOKint64)
                 return EXP_CANT_INTERPRET;
             dinteger_t v = es2e->toInteger();
+#if IN_LLVM
+#if __LITTLE_ENDIAN__
             memcpy((unsigned char *)s + i * sz, &v, sz);
+#else
+            memcpy((unsigned char *)s + i * sz,
+                   (unsigned char *)&v + (sizeof(dinteger_t) - sz), sz);
+#endif
+#else
+            memcpy((unsigned char *)s + i * sz, &v, sz);
+#endif
         }
 
         // Add terminating 0
@@ -1510,7 +1519,16 @@ Expression *ctfeCat(Type *type, Expression *e1, Expression *e2)
             if (es2e->op != TOKint64)
                 return EXP_CANT_INTERPRET;
             dinteger_t v = es2e->toInteger();
+#if IN_LLVM
+#if __LITTLE_ENDIAN__
             memcpy((unsigned char *)s + (es1->len + i) * sz, &v, sz);
+#else
+            memcpy((unsigned char *)s + (es1->len + i) * sz,
+                   (unsigned char *) &v + (sizeof(dinteger_t) - sz), sz);
+#endif
+#else
+            memcpy((unsigned char *)s + (es1->len + i) * sz, &v, sz);
+#endif
         }
 
         // Add terminating 0

@@ -1633,7 +1633,16 @@ Expression *Cat(Type *type, Expression *e1, Expression *e2)
             size_t len = (t->ty == tn->ty) ? 1 : utf_codeLength(sz, v);
             s = mem.malloc((len + 1) * sz);
             if (t->ty == tn->ty)
+#if IN_LLVM
+#if __LITTLE_ENDIAN__
                 memcpy((unsigned char *)s, &v, sz);
+#else
+                memcpy((unsigned char *)s,
+                       (unsigned char *)&v + (sizeof(dinteger_t) - sz), sz);
+#endif
+#else
+                memcpy((unsigned char *)s, &v, sz);
+#endif
             else
                 utf_encode(sz, s, v);
 
@@ -1757,7 +1766,16 @@ Expression *Cat(Type *type, Expression *e1, Expression *e2)
         s = mem.malloc((len + 1) * sz);
         memcpy(s, es1->string, es1->len * sz);
         if (homoConcat)
+#if IN_LLVM
+#if __LITTLE_ENDIAN__
              memcpy((unsigned char *)s + (sz * es1->len), &v, sz);
+#else
+             memcpy((unsigned char *)s + (sz * es1->len),
+                    (unsigned char *)&v + (sizeof(dinteger_t) - sz), sz);
+#endif
+#else
+             memcpy((unsigned char *)s + (sz * es1->len), &v, sz);
+#endif
         else
              utf_encode(sz, (unsigned char *)s + (sz * es1->len), v);
 
@@ -1781,7 +1799,16 @@ Expression *Cat(Type *type, Expression *e1, Expression *e2)
         dinteger_t v = e1->toInteger();
 
         s = mem.malloc((len + 1) * sz);
+#if IN_LLVM
+#if __LITTLE_ENDIAN__
         memcpy((unsigned char *)s, &v, sz);
+#else
+        memcpy((unsigned char *)s,
+               (unsigned char *)&v + (sizeof(dinteger_t) - sz), sz);
+#endif
+#else
+        memcpy((unsigned char *)s, &v, sz);
+#endif
         memcpy((unsigned char *)s + sz, es2->string, es2->len * sz);
 
         // Add terminating 0
