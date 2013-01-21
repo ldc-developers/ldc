@@ -35,29 +35,54 @@ hash_t calcHash(const char *str, size_t len)
 
             case 2:
                 hash *= 37;
+#if IN_LLVM
+#if __LITTLE_ENDIAN__
+                hash += *(const uint16_t *)str;
+#else
+                hash += str[0] * 256 + str[1];
+#endif
+#else
 #if LITTLE_ENDIAN
                 hash += *(const uint16_t *)str;
 #else
                 hash += str[0] * 256 + str[1];
 #endif
+#endif
                 return hash;
 
             case 3:
                 hash *= 37;
+#if IN_LLVM
+#if __LITTLE_ENDIAN__
+                hash += (*(const uint16_t *)str << 8) +
+                        ((const uint8_t *)str)[2];
+#else
+                hash += (str[0] * 256 + str[1]) * 256 + str[2];
+#endif
+#else
 #if LITTLE_ENDIAN
                 hash += (*(const uint16_t *)str << 8) +
                         ((const uint8_t *)str)[2];
 #else
                 hash += (str[0] * 256 + str[1]) * 256 + str[2];
 #endif
+#endif
                 return hash;
 
             default:
                 hash *= 37;
+#if IN_LLVM
+#if __LITTLE_ENDIAN__
+                hash += *(const uint32_t *)str;
+#else
+                hash += ((str[0] * 256 + str[1]) * 256 + str[2]) * 256 + str[3];
+#endif
+#else
 #if LITTLE_ENDIAN
                 hash += *(const uint32_t *)str;
 #else
                 hash += ((str[0] * 256 + str[1]) * 256 + str[2]) * 256 + str[3];
+#endif
 #endif
                 str += 4;
                 len -= 4;
