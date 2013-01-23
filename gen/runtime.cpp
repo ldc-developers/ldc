@@ -206,35 +206,35 @@ static void LLVM_D_BuildRuntimeModule()
     llvm::AttributeSet
         NoAttrs,
         Attr_NoAlias
-            = NoAttrs.addAttr(gIR->context(), 0, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoAlias))),
+            = NoAttrs.addAttribute(gIR->context(), 0, llvm::Attribute::NoAlias),
         Attr_NoUnwind
-            = NoAttrs.addAttr(gIR->context(), ~0U, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoUnwind))),
+            = NoAttrs.addAttribute(gIR->context(), ~0U, llvm::Attribute::NoUnwind),
         Attr_ReadOnly
-            = NoAttrs.addAttr(gIR->context(), ~0U, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::ReadOnly))),
+            = NoAttrs.addAttribute(gIR->context(), ~0U, llvm::Attribute::ReadOnly),
         Attr_ReadOnly_NoUnwind
-            = Attr_ReadOnly.addAttr(gIR->context(), ~0U, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoUnwind))),
+            = Attr_ReadOnly.addAttribute(gIR->context(), ~0U, llvm::Attribute::NoUnwind),
         Attr_ReadOnly_1_NoCapture
-            = Attr_ReadOnly.addAttr(gIR->context(), 1, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoCapture))),
+            = Attr_ReadOnly.addAttribute(gIR->context(), 1, llvm::Attribute::NoCapture),
         Attr_ReadOnly_1_3_NoCapture
-            = Attr_ReadOnly_1_NoCapture.addAttr(gIR->context(), 3, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoCapture))),
+            = Attr_ReadOnly_1_NoCapture.addAttribute(gIR->context(), 3, llvm::Attribute::NoCapture),
         Attr_ReadOnly_NoUnwind_1_NoCapture
-            = Attr_ReadOnly_1_NoCapture.addAttr(gIR->context(), ~0U, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoUnwind))),
+            = Attr_ReadOnly_1_NoCapture.addAttribute(gIR->context(), ~0U, llvm::Attribute::NoUnwind),
         Attr_ReadNone
-            = NoAttrs.addAttr(gIR->context(), ~0U, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::ReadNone))),
+            = NoAttrs.addAttribute(gIR->context(), ~0U, llvm::Attribute::ReadNone),
         Attr_1_NoCapture
-            = NoAttrs.addAttr(gIR->context(), 1, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoCapture))),
+            = NoAttrs.addAttribute(gIR->context(), 1, llvm::Attribute::NoCapture),
         Attr_NoAlias_1_NoCapture
-            = Attr_1_NoCapture.addAttr(gIR->context(), 0, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoAlias))),
+            = Attr_1_NoCapture.addAttribute(gIR->context(), 0, llvm::Attribute::NoAlias),
 #if DMDV1
         Attr_NoAlias_3_NoCapture
-            = Attr_NoAlias.addAttr(gIR->context(), 3, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoCapture))),
+            = Attr_NoAlias.addAttribute(gIR->context(), 3, llvm::Attribute::NoCapture),
 #endif
         Attr_1_2_NoCapture
-            = Attr_1_NoCapture.addAttr(gIR->context(), 2, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoCapture))),
+            = Attr_1_NoCapture.addAttribute(gIR->context(), 2, llvm::Attribute::NoCapture),
         Attr_1_3_NoCapture
-            = Attr_1_NoCapture.addAttr(gIR->context(), 3, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoCapture))),
+            = Attr_1_NoCapture.addAttribute(gIR->context(), 3, llvm::Attribute::NoCapture),
         Attr_1_4_NoCapture
-            = Attr_1_NoCapture.addAttr(gIR->context(), 4, llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoCapture)));
+            = Attr_1_NoCapture.addAttribute(gIR->context(), 4, llvm::Attribute::NoCapture);
 #elif LDC_LLVM_VER == 302
     llvm::AttrListPtr
         NoAttrs,
