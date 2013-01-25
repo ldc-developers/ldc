@@ -209,6 +209,21 @@ pragma(LDC_intrinsic, "llvm.floor.f#")
 
 version(LDC_LLVM_303)
 {
+/// The 'llvm.exp2.*' intrinsics perform the exp2 function.
+
+pragma(LDC_intrinsic, "llvm.exp2.f#")
+    T llvm_exp2(T)(T val);
+
+/// The 'llvm.log10.*' intrinsics perform the log10 function.
+
+pragma(LDC_intrinsic, "llvm.log10.f#")
+    T llvm_log10(T)(T val);
+
+/// The 'llvm.log2.*' intrinsics perform the log2 function.
+
+pragma(LDC_intrinsic, "llvm.log2.f#")
+    T llvm_log2(T)(T val);
+
 // The 'llvm.ceil.*' intrinsics return the ceiling of the operand.
 
 pragma(LDC_intrinsic, "llvm.ceil.f#")
