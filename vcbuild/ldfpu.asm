@@ -99,7 +99,7 @@ ld_setull PROC
 	ret
 ld_setull ENDP
 
-; void ld_expl(longdouble* ld, int exp);te
+; void ld_expl(longdouble* ld, int exp);
 ; rcx: ld
 ; edx: exp
 ld_expl PROC
