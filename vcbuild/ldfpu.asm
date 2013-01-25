@@ -31,7 +31,7 @@ twoPow63 dd 0, 80000000h, 03fffh + 63
 ld_read PROC
 	fld tbyte ptr [rcx]
 	push rax
-	fstp qword ptr [esp]
+	fstp qword ptr [rsp]
 	movq xmm0,qword ptr [rsp]
 	pop rax
 	ret
@@ -42,7 +42,7 @@ ld_read ENDP
 ld_readll PROC
 	fld tbyte ptr [rcx]
 	push rax
-	fistp qword ptr [esp]
+	fistp qword ptr [rsp]
 	pop rax
 	ret
 ld_readll ENDP
@@ -55,7 +55,7 @@ ld_readull PROC
 	lea rax,twoPow63
 	fld tbyte ptr [rax]
 	fsubp ST(1),ST(0)  ; move it into signed range
-	fistp qword ptr [esp]
+	fistp qword ptr [rsp]
 	pop rax
 	btc rax,63
 	ret
@@ -78,9 +78,9 @@ ld_set ENDP
 ; rdx: d
 ld_setll PROC
 	push rdx
-	fild qword ptr [esp]
-    fstp tbyte ptr [rcx]
-    pop rax
+	fild qword ptr [rsp]
+	fstp tbyte ptr [rcx]
+	pop rax
 	ret
 ld_setll ENDP
 
@@ -90,12 +90,12 @@ ld_setll ENDP
 ld_setull PROC
 	btc rdx,63
 	push rdx
-	fild qword ptr [esp]
+	fild qword ptr [rsp]
 	lea rax,twoPow63
 	fld tbyte ptr [rax]
 	faddp ST(1),ST(0)
-    fstp tbyte ptr [rcx]
-    pop rax
+	fstp tbyte ptr [rcx]
+	pop rax
 	ret
 ld_setull ENDP
 
@@ -104,12 +104,12 @@ ld_setull ENDP
 ; edx: exp
 ld_expl PROC
 	push rdx
-	fild    dword ptr [esp]
+	fild    dword ptr [rsp]
 	fld     tbyte ptr [rcx]
 	fscale                  ; ST(0) = ST(0) * (2**ST(1))
 	fstp    ST(1)
 	fstp    tbyte ptr [rcx]
-    pop rax
+	pop rax
 	ret
 ld_expl ENDP
 
