@@ -74,8 +74,12 @@ real sin(real x) @safe pure nothrow;       /* intrinsic */
  * greater than long.max, the result is
  * indeterminate.
  */
- version (LDC)
-    long rndtol(real x) @safe pure nothrow { return stdc.llroundl(x); }
+version (LDC)
+{
+    // FIXME: stdc.llroundl not available under Windows
+    version (Windows) long rndtol(real x) @safe pure nothrow { assert(0); }
+    else              long rndtol(real x) @safe pure nothrow { return stdc.llroundl(x); }
+}
 else
 long rndtol(real x) @safe pure nothrow;    /* intrinsic */
 
@@ -101,16 +105,18 @@ extern (C) real rndtonl(real x);
 
 @safe pure nothrow
 {
+  version (LDC)
+  {
+    float  sqrt(float x)  { return llvm_sqrt(x); }
+    double sqrt(double x) { return llvm_sqrt(x); }
+    real   sqrt(real x)   { return llvm_sqrt(x); }
+  }
+  else
+  {
     float sqrt(float x);    /* intrinsic */
     double sqrt(double x);  /* intrinsic */ /// ditto
     real sqrt(real x);      /* intrinsic */ /// ditto
-
-    version (LDC)
-    {
-        float sqrt(float x) { return llvm_sqrt(x); }
-        double sqrt(double x) { return llvm_sqrt(x); }
-        real sqrt(real x) { return llvm_sqrt(x); }
-    }
+  }
 }
 
 /*******************************************
@@ -156,9 +162,7 @@ version (LDC)
     }
 }
 else
-{
 real fabs(real x) @safe pure nothrow;      /* intrinsic */
-}
 
 /**********************************
  * Rounds x to the nearest integer value, using the current rounding
@@ -168,8 +172,17 @@ real fabs(real x) @safe pure nothrow;      /* intrinsic */
  * $(B nearbyint) performs
  * the same operation, but does not set the FE_INEXACT exception.
  */
+version (LDC)
+{
+  version (LDC_LLVM_303)
+    real rint(real x) @safe pure nothrow { return llvm_rint(x); }
+  else version (Windows) // FIXME: stdc.rintl not available under Windows
+    real rint(real x) @safe pure nothrow { assert(0); }
+  else
+    real rint(real x) @safe pure nothrow { return stdc.rintl(x); }
+}
+else
 real rint(real x) @safe pure nothrow;      /* intrinsic */
-version (LDC) real rint(real x) @safe pure nothrow { return stdc.rint(x); }
 
 /***********************************
  * Building block functions, they
