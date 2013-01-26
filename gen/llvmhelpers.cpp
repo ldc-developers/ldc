@@ -1396,7 +1396,10 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     if (!init)
     {
         Logger::println("const default initializer for %s", type->toChars());
-        _init = DtoConstExpInit(loc, type, type->defaultInit());
+        Expression *initExp = type->defaultInit();
+        if (type->ty == Ttypedef)
+            initExp->type = type; // This carries the typedef type into toConstElem.
+        _init = DtoConstExpInit(loc, type, initExp);
     }
     else if (ExpInitializer* ex = init->isExpInitializer())
     {
