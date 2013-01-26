@@ -612,7 +612,15 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     llvm::AttrListPtr oldAttrs = func->getAttributes();
 #endif
     for (size_t i = 0; i < oldAttrs.getNumSlots(); ++i) {
+#if LDC_LLVM_VER >= 303
+        llvm::AttributeWithIndex curr = llvm::AttributeWithIndex::get(oldAttrs.getSlotIndex(i),
+                                                                      llvm::Attribute::get(
+                                                                          gIR->context(),
+                                                                          llvm::AttrBuilder(oldAttrs.getSlotAttributes(i),
+                                                                                            oldAttrs.getSlotIndex(i))));
+#else
         llvm::AttributeWithIndex curr = oldAttrs.getSlot(i);
+#endif
 
         bool found = false;
         for (size_t j = 0; j < newSize; ++j) {
