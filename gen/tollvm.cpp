@@ -1031,9 +1031,9 @@ LLStructType* DtoMutexType()
     // pthread_fastlock
     LLType *types2[] = {
         DtoSize_t(),
-        LLType::getInt32Ty(gIR->context() 
+        LLType::getInt32Ty(gIR->context()) 
     };
-    LLStructType* fastlock = LLStructType::get(gIR->context(), types2);
+    LLStructType* fastlock = LLStructType::get(gIR->context(), types2, false);
 
     // pthread_mutex
     LLType *types1[] = {
@@ -1043,7 +1043,7 @@ LLStructType* DtoMutexType()
         LLType::getInt32Ty(gIR->context()),
         fastlock
     };
-    LLStructType* pmutex = LLStructType::get(gIR->context(), types1);
+    LLStructType* pmutex = LLStructType::get(gIR->context(), types1, false);
 
     // D_CRITICAL_SECTION
     LLStructType* mutex = LLStructType::create(gIR->context(), "D_CRITICAL_SECTION");
@@ -1096,7 +1096,7 @@ LLValue* DtoAggrPair(LLType* type, LLValue* V1, LLValue* V2, const char* name)
 LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name)
 {
     LLType *types[] = {  V1->getType(), V2->getType() };
-    LLType *t = LLStructType::get(gIR->context(), types);
+    LLType *t = LLStructType::get(gIR->context(), types, false);
     return DtoAggrPair(t, V1, V2, name);
 }
 
