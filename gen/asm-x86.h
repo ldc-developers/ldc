@@ -1,4 +1,4 @@
-//===-- gen/asm-x86-32.h - x86 inline assembler handling --------*- C++ -*-===//
+//===-- gen/asm-x86.h - x86/x86_64 inline assembler handling ----*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Parses "DMD-style" x86 inline assembly blocks and converts them to
+// Parses "DMD-style" x86/x86_64 inline assembly blocks and converts them to
 // GDC/LLVM inline assembler syntax.
 //
 //===----------------------------------------------------------------------===//
@@ -17,7 +17,11 @@
 #include <ctype.h>
 #endif
 
+#ifndef ASM_X86_64
 namespace AsmParserx8632
+#else
+namespace AsmParserx8664
+#endif
 {
 
     typedef enum
@@ -35,7 +39,18 @@ namespace AsmParserx8632
         Reg_ST1, Reg_ST2, Reg_ST3, Reg_ST4, Reg_ST5, Reg_ST6, Reg_ST7,
         Reg_MM0, Reg_MM1, Reg_MM2, Reg_MM3, Reg_MM4, Reg_MM5, Reg_MM6, Reg_MM7,
         Reg_XMM0, Reg_XMM1, Reg_XMM2, Reg_XMM3, Reg_XMM4, Reg_XMM5, Reg_XMM6, Reg_XMM7,
-        // xmm8-15?
+
+#ifdef ASM_X86_64
+        Reg_RAX, Reg_RBX, Reg_RCX, Reg_RDX, Reg_RSI, Reg_RDI, Reg_RBP, Reg_RSP,
+        Reg_R8, Reg_R9, Reg_R10, Reg_R11, Reg_R12, Reg_R13, Reg_R14, Reg_R15,
+        Reg_R8B, Reg_R9B, Reg_R10B, Reg_R11B, Reg_R12B, Reg_R13B, Reg_R14B, Reg_R15B,
+        Reg_R8W, Reg_R9W, Reg_R10W, Reg_R11W, Reg_R12W, Reg_R13W, Reg_R14W, Reg_R15W,
+        Reg_R8D, Reg_R9D, Reg_R10D, Reg_R11D, Reg_R12D, Reg_R13D, Reg_R14D, Reg_R15D,
+        Reg_XMM8, Reg_XMM9, Reg_XMM10, Reg_XMM11, Reg_XMM12, Reg_XMM13, Reg_XMM14, Reg_XMM15,
+        Reg_RIP,
+        Reg_SIL, Reg_DIL, Reg_BPL, Reg_SPL,
+#endif
+
         Reg_EFLAGS,
         Reg_CS,
         Reg_DS,
@@ -51,7 +66,18 @@ namespace AsmParserx8632
     } Reg;
 
     static const int N_Regs = /*gp*/ 8 + /*fp*/ 8 + /*mmx*/ 8 + /*sse*/ 8 +
-                                     /*seg*/ 6 + /*16bit*/ 8 + /*8bit*/ 8 + /*sys*/ 4+6+5 + /*flags*/ + 1;
+                                     /*seg*/ 6 + /*16bit*/ 8 + /*8bit*/ 8 + /*sys*/ 4+6+5 + /*flags*/ + 1
+#ifdef ASM_X86_64
+                                     + 8 /*RAX, etc*/
+                                     + 8 /*R8-15*/
+                                     + 4 /*SIL, etc. 8-bit*/
+                                     + 8 /*R8-15B*/
+                                     + 8 /*R8-15W*/
+                                     + 8 /*R8-15D*/
+                                     + 8 /*XMM8-15*/
+                                     + 1 /*RIP*/
+#endif
+                                     ;
 
 #define NULL_TREE ""
 
@@ -64,76 +90,133 @@ namespace AsmParserx8632
         char baseReg; // %% todo: Reg, Reg_XX
     } regInfo[N_Regs] =
     {
-        { "EAX", NULL_TREE, NULL, 4,  Reg_EAX },
-        { "EBX", NULL_TREE, NULL, 4,  Reg_EBX },
-        { "ECX", NULL_TREE, NULL, 4,  Reg_ECX },
-        { "EDX", NULL_TREE, NULL, 4,  Reg_EDX },
-        { "ESI", NULL_TREE, NULL, 4,  Reg_ESI },
-        { "EDI", NULL_TREE, NULL, 4,  Reg_EDI },
-        { "EBP", NULL_TREE, NULL, 4,  Reg_EBP },
-        { "ESP", NULL_TREE, NULL, 4,  Reg_ESP },
-        { "ST", NULL_TREE, NULL,   10, Reg_ST },
-        { "ST(1)", NULL_TREE, NULL,10, Reg_ST1 },
-        { "ST(2)", NULL_TREE, NULL,10, Reg_ST2 },
-        { "ST(3)", NULL_TREE, NULL,10, Reg_ST3 },
-        { "ST(4)", NULL_TREE, NULL,10, Reg_ST4 },
-        { "ST(5)", NULL_TREE, NULL,10, Reg_ST5 },
-        { "ST(6)", NULL_TREE, NULL,10, Reg_ST6 },
-        { "ST(7)", NULL_TREE, NULL,10, Reg_ST7 },
-        { "MM0", NULL_TREE, NULL, 8, Reg_MM0 },
-        { "MM1", NULL_TREE, NULL, 8, Reg_MM1 },
-        { "MM2", NULL_TREE, NULL, 8, Reg_MM2 },
-        { "MM3", NULL_TREE, NULL, 8, Reg_MM3 },
-        { "MM4", NULL_TREE, NULL, 8, Reg_MM4 },
-        { "MM5", NULL_TREE, NULL, 8, Reg_MM5 },
-        { "MM6", NULL_TREE, NULL, 8, Reg_MM6 },
-        { "MM7", NULL_TREE, NULL, 8, Reg_MM7 },
-        { "XMM0", NULL_TREE, NULL, 16, Reg_XMM0 },
-        { "XMM1", NULL_TREE, NULL, 16, Reg_XMM1 },
-        { "XMM2", NULL_TREE, NULL, 16, Reg_XMM2 },
-        { "XMM3", NULL_TREE, NULL, 16, Reg_XMM3 },
-        { "XMM4", NULL_TREE, NULL, 16, Reg_XMM4 },
-        { "XMM5", NULL_TREE, NULL, 16, Reg_XMM5 },
-        { "XMM6", NULL_TREE, NULL, 16, Reg_XMM6 },
-        { "XMM7", NULL_TREE, NULL, 16, Reg_XMM7 },
-        { "FLAGS", NULL_TREE, NULL, 0, Reg_EFLAGS }, // the gcc name is "flags"; not used in assembler input
-        { "CS",  NULL_TREE, NULL, 2, -1 },
-        { "DS",  NULL_TREE, NULL, 2, -1 },
-        { "SS",  NULL_TREE, NULL, 2, -1 },
-        { "ES",  NULL_TREE, NULL, 2, -1 },
-        { "FS",  NULL_TREE, NULL, 2, -1 },
-        { "GS",  NULL_TREE, NULL, 2, -1 },
-        { "AX",  NULL_TREE, NULL, 2,  Reg_EAX },
-        { "BX",  NULL_TREE, NULL, 2,  Reg_EBX },
-        { "CX",  NULL_TREE, NULL, 2,  Reg_ECX },
-        { "DX",  NULL_TREE, NULL, 2,  Reg_EDX },
-        { "SI",  NULL_TREE, NULL, 2,  Reg_ESI },
-        { "DI",  NULL_TREE, NULL, 2,  Reg_EDI },
-        { "BP",  NULL_TREE, NULL, 2,  Reg_EBP },
-        { "SP",  NULL_TREE, NULL, 2,  Reg_ESP },
-        { "AL",  NULL_TREE, NULL, 1,  Reg_EAX },
-        { "AH",  NULL_TREE, NULL, 1,  Reg_EAX },
-        { "BL",  NULL_TREE, NULL, 1,  Reg_EBX },
-        { "BH",  NULL_TREE, NULL, 1,  Reg_EBX },
-        { "CL",  NULL_TREE, NULL, 1,  Reg_ECX },
-        { "CH",  NULL_TREE, NULL, 1,  Reg_ECX },
-        { "DL",  NULL_TREE, NULL, 1,  Reg_EDX },
-        { "DH",  NULL_TREE, NULL, 1,  Reg_EDX },
-        { "CR0", NULL_TREE, NULL, 0, -1 },
-        { "CR2", NULL_TREE, NULL, 0, -1 },
-        { "CR3", NULL_TREE, NULL, 0, -1 },
-        { "CR4", NULL_TREE, NULL, 0, -1 },
-        { "DR0", NULL_TREE, NULL, 0, -1 },
-        { "DR1", NULL_TREE, NULL, 0, -1 },
-        { "DR2", NULL_TREE, NULL, 0, -1 },
-        { "DR3", NULL_TREE, NULL, 0, -1 },
-        { "DR6", NULL_TREE, NULL, 0, -1 },
-        { "DR7", NULL_TREE, NULL, 0, -1 },
-        { "TR3", NULL_TREE, NULL, 0, -1 },
-        { "TR4", NULL_TREE, NULL, 0, -1 },
-        { "TR5", NULL_TREE, NULL, 0, -1 },
-        { "TR6", NULL_TREE, NULL, 0, -1 },
-        { "TR7", NULL_TREE, NULL, 0, -1 }
+        { "EAX",   NULL_TREE, NULL,  4, Reg_EAX },
+        { "EBX",   NULL_TREE, NULL,  4, Reg_EBX },
+        { "ECX",   NULL_TREE, NULL,  4, Reg_ECX },
+        { "EDX",   NULL_TREE, NULL,  4, Reg_EDX },
+        { "ESI",   NULL_TREE, NULL,  4, Reg_ESI },
+        { "EDI",   NULL_TREE, NULL,  4, Reg_EDI },
+        { "EBP",   NULL_TREE, NULL,  4, Reg_EBP },
+        { "ESP",   NULL_TREE, NULL,  4, Reg_ESP },
+        { "ST",    NULL_TREE, NULL, 10, Reg_ST },
+        { "ST(1)", NULL_TREE, NULL, 10, Reg_ST1 },
+        { "ST(2)", NULL_TREE, NULL, 10, Reg_ST2 },
+        { "ST(3)", NULL_TREE, NULL, 10, Reg_ST3 },
+        { "ST(4)", NULL_TREE, NULL, 10, Reg_ST4 },
+        { "ST(5)", NULL_TREE, NULL, 10, Reg_ST5 },
+        { "ST(6)", NULL_TREE, NULL, 10, Reg_ST6 },
+        { "ST(7)", NULL_TREE, NULL, 10, Reg_ST7 },
+        { "MM0",   NULL_TREE, NULL,  8, Reg_MM0 },
+        { "MM1",   NULL_TREE, NULL,  8, Reg_MM1 },
+        { "MM2",   NULL_TREE, NULL,  8, Reg_MM2 },
+        { "MM3",   NULL_TREE, NULL,  8, Reg_MM3 },
+        { "MM4",   NULL_TREE, NULL,  8, Reg_MM4 },
+        { "MM5",   NULL_TREE, NULL,  8, Reg_MM5 },
+        { "MM6",   NULL_TREE, NULL,  8, Reg_MM6 },
+        { "MM7",   NULL_TREE, NULL,  8, Reg_MM7 },
+        { "XMM0",  NULL_TREE, NULL, 16, Reg_XMM0 },
+        { "XMM1",  NULL_TREE, NULL, 16, Reg_XMM1 },
+        { "XMM2",  NULL_TREE, NULL, 16, Reg_XMM2 },
+        { "XMM3",  NULL_TREE, NULL, 16, Reg_XMM3 },
+        { "XMM4",  NULL_TREE, NULL, 16, Reg_XMM4 },
+        { "XMM5",  NULL_TREE, NULL, 16, Reg_XMM5 },
+        { "XMM6",  NULL_TREE, NULL, 16, Reg_XMM6 },
+        { "XMM7",  NULL_TREE, NULL, 16, Reg_XMM7 },
+
+#ifdef ASM_X86_64
+        { "RAX",   NULL_TREE, NULL,  8, Reg_RAX },
+        { "RBX",   NULL_TREE, NULL,  8, Reg_RBX },
+        { "RCX",   NULL_TREE, NULL,  8, Reg_RCX },
+        { "RDX",   NULL_TREE, NULL,  8, Reg_RDX },
+        { "RSI",   NULL_TREE, NULL,  8, Reg_RSI },
+        { "RDI",   NULL_TREE, NULL,  8, Reg_RDI },
+        { "RBP",   NULL_TREE, NULL,  8, Reg_RBP },
+        { "RSP",   NULL_TREE, NULL,  8, Reg_RSP },
+        { "R8",    NULL_TREE, NULL,  8, Reg_R8 },
+        { "R9",    NULL_TREE, NULL,  8, Reg_R9 },
+        { "R10",   NULL_TREE, NULL,  8, Reg_R10 },
+        { "R11",   NULL_TREE, NULL,  8, Reg_R11 },
+        { "R12",   NULL_TREE, NULL,  8, Reg_R12 },
+        { "R13",   NULL_TREE, NULL,  8, Reg_R13 },
+        { "R14",   NULL_TREE, NULL,  8, Reg_R14 },
+        { "R15",   NULL_TREE, NULL,  8, Reg_R15 },
+        { "R8B",   NULL_TREE, NULL,  1, Reg_R8 },
+        { "R9B",   NULL_TREE, NULL,  1, Reg_R9 },
+        { "R10B",  NULL_TREE, NULL,  1, Reg_R10 },
+        { "R11B",  NULL_TREE, NULL,  1, Reg_R11 },
+        { "R12B",  NULL_TREE, NULL,  1, Reg_R12 },
+        { "R13B",  NULL_TREE, NULL,  1, Reg_R13 },
+        { "R14B",  NULL_TREE, NULL,  1, Reg_R14 },
+        { "R15B",  NULL_TREE, NULL,  1, Reg_R15 },
+        { "R8W",   NULL_TREE, NULL,  2, Reg_R8 },
+        { "R9W",   NULL_TREE, NULL,  2, Reg_R9 },
+        { "R10W",  NULL_TREE, NULL,  2, Reg_R10 },
+        { "R11W",  NULL_TREE, NULL,  2, Reg_R11 },
+        { "R12W",  NULL_TREE, NULL,  2, Reg_R12 },
+        { "R13W",  NULL_TREE, NULL,  2, Reg_R13 },
+        { "R14W",  NULL_TREE, NULL,  2, Reg_R14 },
+        { "R15W",  NULL_TREE, NULL,  2, Reg_R15 },
+        { "R8D",   NULL_TREE, NULL,  4, Reg_R8 },
+        { "R9D",   NULL_TREE, NULL,  4, Reg_R9 },
+        { "R10D",  NULL_TREE, NULL,  4, Reg_R10 },
+        { "R11D",  NULL_TREE, NULL,  4, Reg_R11 },
+        { "R12D",  NULL_TREE, NULL,  4, Reg_R12 },
+        { "R13D",  NULL_TREE, NULL,  4, Reg_R13 },
+        { "R14D",  NULL_TREE, NULL,  4, Reg_R14 },
+        { "R15D",  NULL_TREE, NULL,  4, Reg_R15 },
+        { "XMM8",  NULL_TREE, NULL, 16, Reg_XMM8 },
+        { "XMM9",  NULL_TREE, NULL, 16, Reg_XMM9 },
+        { "XMM10", NULL_TREE, NULL, 16, Reg_XMM10 },
+        { "XMM11", NULL_TREE, NULL, 16, Reg_XMM11 },
+        { "XMM12", NULL_TREE, NULL, 16, Reg_XMM12 },
+        { "XMM13", NULL_TREE, NULL, 16, Reg_XMM13 },
+        { "XMM14", NULL_TREE, NULL, 16, Reg_XMM14 },
+        { "XMM15", NULL_TREE, NULL, 16, Reg_XMM15 },
+        { "RIP",   NULL_TREE, NULL,  8, Reg_RIP },
+        { "SIL",   NULL_TREE, NULL,  1, Reg_SIL },
+        { "DIL",   NULL_TREE, NULL,  1, Reg_DIL },
+        { "BPL",   NULL_TREE, NULL,  1, Reg_BPL },
+        { "SPL",   NULL_TREE, NULL,  1, Reg_SPL },
+#endif
+
+        { "FLAGS", NULL_TREE, NULL,  0, Reg_EFLAGS }, // the gcc name is "flags"; not used in assembler input
+        { "CS",    NULL_TREE, NULL,  2, -1 },
+        { "DS",    NULL_TREE, NULL,  2, -1 },
+        { "SS",    NULL_TREE, NULL,  2, -1 },
+        { "ES",    NULL_TREE, NULL,  2, -1 },
+        { "FS",    NULL_TREE, NULL,  2, -1 },
+        { "GS",    NULL_TREE, NULL,  2, -1 },
+        { "AX",    NULL_TREE, NULL,  2, Reg_EAX },
+        { "BX",    NULL_TREE, NULL,  2, Reg_EBX },
+        { "CX",    NULL_TREE, NULL,  2, Reg_ECX },
+        { "DX",    NULL_TREE, NULL,  2, Reg_EDX },
+        { "SI",    NULL_TREE, NULL,  2, Reg_ESI },
+        { "DI",    NULL_TREE, NULL,  2, Reg_EDI },
+        { "BP",    NULL_TREE, NULL,  2, Reg_EBP },
+        { "SP",    NULL_TREE, NULL,  2, Reg_ESP },
+        { "AL",    NULL_TREE, NULL,  1, Reg_EAX },
+        { "AH",    NULL_TREE, NULL,  1, Reg_EAX },
+        { "BL",    NULL_TREE, NULL,  1, Reg_EBX },
+        { "BH",    NULL_TREE, NULL,  1, Reg_EBX },
+        { "CL",    NULL_TREE, NULL,  1, Reg_ECX },
+        { "CH",    NULL_TREE, NULL,  1, Reg_ECX },
+        { "DL",    NULL_TREE, NULL,  1, Reg_EDX },
+        { "DH",    NULL_TREE, NULL,  1, Reg_EDX },
+        { "CR0",   NULL_TREE, NULL,  0, -1 },
+        { "CR2",   NULL_TREE, NULL,  0, -1 },
+        { "CR3",   NULL_TREE, NULL,  0, -1 },
+        { "CR4",   NULL_TREE, NULL,  0, -1 },
+        { "DR0",   NULL_TREE, NULL,  0, -1 },
+        { "DR1",   NULL_TREE, NULL,  0, -1 },
+        { "DR2",   NULL_TREE, NULL,  0, -1 },
+        { "DR3",   NULL_TREE, NULL,  0, -1 },
+        { "DR6",   NULL_TREE, NULL,  0, -1 },
+        { "DR7",   NULL_TREE, NULL,  0, -1 },
+        { "TR3",   NULL_TREE, NULL,  0, -1 },
+        { "TR4",   NULL_TREE, NULL,  0, -1 },
+        { "TR5",   NULL_TREE, NULL,  0, -1 },
+        { "TR6",   NULL_TREE, NULL,  0, -1 },
+        { "TR7",   NULL_TREE, NULL,  0, -1 }
     };
 
     typedef enum
@@ -155,17 +238,22 @@ namespace AsmParserx8632
 
     typedef enum
     {
-        Clb_SizeAX   = 0x01,
-        Clb_SizeDXAX = 0x02,
-        Clb_EAX      = 0x03,
-        Clb_DXAX_Mask = 0x03,
+        Clb_SizeAX     = 0x01,
+        Clb_SizeDXAX   = 0x02,
+        Clb_EAX        = 0x03,
+#ifndef ASM_X86_64
+        Clb_DXAX_Mask  = 0x03,
+#else
+        Clb_DXAX_Mask  = 0x103,
+        Clb_SizeRDXRAX = 0x100,
+#endif
 
-        Clb_Flags    = 0x04,
-        Clb_DI       = 0x08,
-        Clb_SI       = 0x10,
-        Clb_CX       = 0x20,
-        Clb_ST       = 0x40,
-        Clb_SP       = 0x80 // Doesn't actually let GCC know the frame pointer is modified
+        Clb_Flags      = 0x04,
+        Clb_DI         = 0x08,
+        Clb_SI         = 0x10,
+        Clb_CX         = 0x20,
+        Clb_ST         = 0x40,
+        Clb_SP         = 0x80 // Doesn't actually let GCC know the frame pointer is modified
     } ImplicitClober;
 
 // "^ +/..\([A-Za-z_0-9]+\).*" -> "    \1,"
@@ -254,8 +342,11 @@ namespace AsmParserx8632
         Op_cmps,
         Op_cmpsd,
         Op_cmpsX,
-        Op_cmpxchg8b,
         Op_cmpxchg,
+#ifdef ASM_X86_64
+        Op_cmpxchg16b,
+#endif
+        Op_cmpxchg8b,
         Op_cpuid,
         Op_enter,
         Op_fdisi,
@@ -270,6 +361,9 @@ namespace AsmParserx8632
         Op_insX,
         Op_iret,
         Op_iretd,
+#ifdef ASM_X86_64
+        Op_iretq,
+#endif
         Op_lods,
         Op_lodsX,
         Op_movs,
@@ -305,32 +399,32 @@ namespace AsmParserx8632
 
     typedef enum
     {
-        Opr_None = 0,
-        OprC_MRI  = 1,
-        OprC_MR   = 2,
-        OprC_Mem  = 3,
-        OprC_Reg  = 4,
-        OprC_Imm  = 5,
-        OprC_SSE  = 6,
-        OprC_SSE_Mem = 7,
-        OprC_R32  = 8,
-        OprC_RWord = 9,
-        OprC_RFP   = 10,
-        OprC_AbsRel = 11,
+        Opr_None      =  0,
+        OprC_MRI      =  1,
+        OprC_MR       =  2,
+        OprC_Mem      =  3,
+        OprC_Reg      =  4,
+        OprC_Imm      =  5,
+        OprC_SSE      =  6,
+        OprC_SSE_Mem  =  7,
+        OprC_R32      =  8,
+        OprC_RWord    =  9,
+        OprC_RFP      = 10,
+        OprC_AbsRel   = 11,
         OprC_Relative = 12,
-        OprC_Port = 13, // DX or imm
-        OprC_AX = 14, // AL,AX,EAX
-        OprC_DX = 15, // only DX
-        OprC_MMX = 16,
-        OprC_MMX_Mem = 17,
-        OprC_Shift = 18, // imm or CL
+        OprC_Port     = 13, // DX or imm
+        OprC_AX       = 14, // AL,AX,EAX
+        OprC_DX       = 15, // only DX
+        OprC_MMX      = 16,
+        OprC_MMX_Mem  = 17,
+        OprC_Shift    = 18, // imm or CL
 
         Opr_ClassMask = 0x1f,
 
-        Opr_Dest     = 0x20,
-        Opr_Update   = 0x60,
+        Opr_Dest      = 0x20,
+        Opr_Update    = 0x60,
 
-        Opr_NoType = 0x80,
+        Opr_NoType    = 0x80,
     } OprVals;
 
 
@@ -343,15 +437,23 @@ namespace AsmParserx8632
     typedef struct
     {
         Opr operands[3];
+#ifndef ASM_X86_64
         unsigned char
-    needsType : 3,
-    implicitClobbers : 8,
-    linkType : 2;
+            needsType : 3,
+            implicitClobbers : 8,
+            linkType : 2;
+#else
+        unsigned short
+            needsType : 3,
+            implicitClobbers : 9,
+            linkType : 2;
+#endif
         unsigned link;
 
         /*
-        bool takesLabel() {
-        return operands[0] & Opr_Label;
+        bool takesLabel()
+        {
+            return operands[0] & Opr_Label;
         }
         */
 
@@ -375,8 +477,14 @@ namespace AsmParserx8632
         Mn_fsetpm,
         Mn_iretw,
         Mn_iret,
+#ifdef ASM_X86_64
+        Mn_iretq,
+#endif
         Mn_lret,
         Mn_cmpxchg8b,
+#ifdef ASM_X86_64
+        Mn_cmpxchg16b,
+#endif
         N_AltMn
     } Alternate_Mnemonics;
 
@@ -387,8 +495,14 @@ namespace AsmParserx8632
         ".byte 0xdb, 0xe4",
         "iretw",
         "iret",
+#ifdef ASM_X86_64
+        "iretq",
+#endif
         "lret",
-        "cmpxchg8b"
+        "cmpxchg8b",
+#ifdef ASM_X86_64
+        "cmpxchg16b",
+#endif
     };
 
 #define mri  OprC_MRI
@@ -418,10 +532,10 @@ namespace AsmParserx8632
     static AsmOpInfo asmOpInfo[N_AsmOpInfo] =
     {
         /* Op_Invalid   */  {},
-        /* Op_Adjust    */  { { 0,0,0 },             0, Clb_EAX /*just AX*/ },
+        /* Op_Adjust    */  { { 0,     0,    0 },    0, Clb_EAX /*just AX*/ },
         /* Op_Dst       */  { { D|mr,  0,    0 },    1  },
         /* Op_Upd       */  { { U|mr,  0,    0 },    1  },
-        /* Op_DstW      */  { { D|mr,  0,    0 },    Word_Types  },
+        /* Op_DstW      */  { { D|mr,  0,    0 },    Word_Types },
         /* Op_DstF      */  { { D|mr,  0,    0 },    1, Clb_Flags },
         /* Op_UpdF      */  { { U|mr,  0,    0 },    1, Clb_Flags },
         /* Op_DstSrc    */  { { D|mr,  mri,  0 },/**/1  },
@@ -429,13 +543,13 @@ namespace AsmParserx8632
         /* Op_UpdSrcF   */  { { U|mr,  mri,  0 },/**/1, Clb_Flags },
         /* Op_DstSrcFW  */  { { D|mr,  mri,  0 },/**/Word_Types, Clb_Flags },
         /* Op_UpdSrcFW  */  { { U|mr,  mri,  0 },/**/Word_Types, Clb_Flags },
-        /* Op_DstSrcSSE */  { { U|sse, ssem, 0 }     },  // some may not be update %%
-        /* Op_DstSrcMMX */  { { U|mmx, mmxm, 0 }     },  // some may not be update %%
+        /* Op_DstSrcSSE */  { { U|sse, ssem, 0 }     }, // some may not be update %%
+        /* Op_DstSrcMMX */  { { U|mmx, mmxm, 0 }     }, // some may not be update %%
         /* Op_DstSrcImmS*/  { { U|sse, ssem, N|imm } }, // some may not be update %%
         /* Op_DstSrcImmM*/  { { U|mmx, mmxm, N|imm } }, // some may not be update %%
-        /* Op_UpdSrcShft*/  { { U|mr,  reg,  N|shft} , 1, Clb_Flags }, // 16/32 only
-        /* Op_DstSrcNT  */  { { D|mr,  mr,   0 },    0 }, // used for movd .. operands can be rm32,sse,mmx
-        /* Op_UpdSrcNT  */  { { U|mr,  mr,   0 },    0 }, // used for movd .. operands can be rm32,sse,mmx
+        /* Op_UpdSrcShft*/  { { U|mr,  reg,  N|shft},1, Clb_Flags }, // 16/32 only
+        /* Op_DstSrcNT  */  { { D|mr,  mr,   0 },    0  }, // used for movd .. operands can be rm32,sse,mmx
+        /* Op_UpdSrcNT  */  { { U|mr,  mr,   0 },    0  }, // used for movd .. operands can be rm32,sse,mmx
         /* Op_DstMemNT  */  { { D|mem, 0,    0 }     },
         /* Op_DstRMBNT  */  { { D|mr,  0,    0 },    Byte_NoType },
         /* Op_DstRMWNT  */  { { D|mr,  0,    0 }     },
@@ -444,7 +558,7 @@ namespace AsmParserx8632
         /* Op_Src       */  { {   mri, 0,    0 },    1  },
         /* Op_SrcRMWNT  */  { {   mr,  0,    0 },    0  },
         /* Op_SrcW      */  { {   mri, 0,    0 },    Word_Types  },
-        /* Op_SrcImm    */  { {   imm } },
+        /* Op_SrcImm    */  { {   imm, 0,    0 }     },
         /* Op_Src_DXAXF */  { {   mr,  0,    0 },    1, Clb_SizeDXAX|Clb_Flags },
         /* Op_SrcMemNT  */  { {   mem, 0,    0 }     },
         /* Op_SrcMemNTF */  { {   mem, 0,    0 },    0, Clb_Flags },
@@ -452,17 +566,17 @@ namespace AsmParserx8632
         /* Op_SrcSrcF   */  { {   mr,  mri,  0 },    1, Clb_Flags },
         /* Op_SrcSrcFW  */  { {   mr,  mri,  0 },    Word_Types, Clb_Flags },
         /* Op_SrcSrcSSEF*/  { {   sse, ssem, 0 },    0, Clb_Flags },
-        /* Op_SrcSrcMMX */  { {   mmx, mmx,  0 }, },
+        /* Op_SrcSrcMMX */  { {   mmx, mmx,  0 }     },
         /* Op_Shift     */  { { D|mr,N|shft, 0 },/**/1, Clb_Flags },
-        /* Op_Branch    */  { {   mri } },
-        /* Op_CBranch   */  { {   imm } },
-        /* Op_0         */  { {   0,0,0 } },
-        /* Op_0_AX      */  { {   0,0,0 },           0, Clb_SizeAX },
-        /* Op_0_DXAX    */  { {   0,0,0 },           0, Clb_SizeDXAX }, // but for cwd/cdq -- how do know the size..
+        /* Op_Branch    */  { {   mri, 0,    0 }     },
+        /* Op_CBranch   */  { {   imm, 0,    0 }     },
+        /* Op_0         */  { {   0,   0,    0 }     },
+        /* Op_0_AX      */  { {   0,   0,    0 },    0, Clb_SizeAX },
+        /* Op_0_DXAX    */  { {   0,   0,    0 },    0, Clb_SizeDXAX }, // but for cwd/cdq -- how do know the size..
         /* Op_Loop      */  { {   imm, 0,    0 },    0, Clb_CX },
-        /* Op_Flags     */  { {   0,0,0 },           0, Clb_Flags },
-        /* Op_F0_ST     */  { {   0,0,0 },           0, Clb_ST },
-        /* Op_F0_P      */  { {   0,0,0 },           0, Clb_ST }, // push, pops, etc. not sure how to inform gcc..
+        /* Op_Flags     */  { {   0,   0,    0 },    0, Clb_Flags },
+        /* Op_F0_ST     */  { {   0,   0,    0 },    0, Clb_ST },
+        /* Op_F0_P      */  { {   0,   0,    0 },    0, Clb_ST }, // push, pops, etc. not sure how to inform gcc..
         /* Op_Fs_P      */  { {   mem, 0,    0 },    0, Clb_ST }, // "
         /* Op_Fis       */  { {   mem, 0,    0 },    FPInt_Types }, // only 16bit and 32bit, DMD defaults to 16bit
         /* Op_Fis_ST    */  { {   mem, 0,    0 },    FPInt_Types, Clb_ST }, // "
@@ -471,22 +585,22 @@ namespace AsmParserx8632
         /* Op_Fid_P     */  { { D|mem, 0,    0 },    FPInt_Types, Clb_ST, Next_Form, Op_FidR_P }, // push and pop, fild so also 64 bit
         /* Op_FidR_P    */  { { D|mem,rfp,   0 },    FPInt_Types, Clb_ST }, // push and pop, fild so also 64 bit
         /* Op_Ffd       */  { { D|mfp, 0,    0 },    FP_Types, 0, Next_Form, Op_FfdR }, // only 16bit and 32bit, DMD defaults to 16bit, reg form doesn't need type
-        /* Op_FfdR      */  { { D|rfp, 0,    0 } },
+        /* Op_FfdR      */  { { D|rfp, 0,    0 }     },
         /* Op_Ffd_P     */  { { D|mfp, 0,    0 },    FP_Types, Clb_ST, Next_Form, Op_FfdR_P }, // pop, fld so also 80 bit, "
         /* Op_FfdR_P    */  { { D|rfp, 0,    0 },    0, Clb_ST, Next_Form, Op_FfdRR_P },
         /* Op_FfdRR_P   */  { { D|rfp, rfp,  0 },    0, Clb_ST },
         /* Op_Fd_P      */  { { D|mem, 0,    0 },    0, Clb_ST }, // "
-        /* Op_FdST      */  { { D|rfp, 0,    0 } },
-        /* Op_FMath     */  { { mfp,   0,    0 },    FP_Types, Clb_ST, Next_Form, Op_FMath0  }, // and only single or double prec
-        /* Op_FMath0    */  { { 0,     0,    0 },    0,  Clb_ST, Next_Form, Op_FMath2  },
-        /* Op_FMath2    */  { { D|rfp, rfp,  0 },    0,  Clb_ST, Next_Form, Op_FdST0ST1  },
-        /* Op_FdSTiSTi  */  { { D|rfp, rfp,  0 }, },
-        /* Op_FdST0ST1  */  { { 0, 0,  0 } },
-        /* Op_FPMath    */  { { D|rfp, rfp,  0 },    0,        Clb_ST, Next_Form, Op_F0_P }, // pops
-        /* Op_FCmp      */  { {   mfp, 0,    0 },    FP_Types, 0,      Next_Form, Op_FCmp1 }, // DMD defaults to float ptr
-        /* Op_FCmp1     */  { {   rfp, 0,    0 },    0,        0,      Next_Form, Op_0 },
-        /* Op_FCmpP     */  { {   mfp, 0,    0 },    FP_Types, 0,      Next_Form, Op_FCmpP1 }, // pops
-        /* Op_FCmpP1    */  { {   rfp, 0,    0 },    0,        0,      Next_Form, Op_F0_P }, // pops
+        /* Op_FdST      */  { { D|rfp, 0,    0 }     },
+        /* Op_FMath     */  { { mfp,   0,    0 },    FP_Types, Clb_ST, Next_Form, Op_FMath0 }, // and only single or double prec
+        /* Op_FMath0    */  { {   0,   0,    0 },    0,        Clb_ST, Next_Form, Op_FMath2 }, // pops
+        /* Op_FMath2    */  { { D|rfp, rfp,  0 },    0,        Clb_ST, Next_Form, Op_FdST0ST1 }, // and only single or double prec
+        /* Op_FdSTiSTi  */  { { D|rfp, rfp,  0 }     },
+        /* Op_FdST0ST1  */  { {   0,   0,    0 }     },
+        /* Op_FPMath    */  { { D|rfp, rfp,  0 },    0, Clb_ST, Next_Form, Op_F0_P }, // pops
+        /* Op_FCmp      */  { {   mfp, 0,    0 },    FP_Types, 0, Next_Form, Op_FCmp1 }, // DMD defaults to float ptr
+        /* Op_FCmp1     */  { {   rfp, 0,    0 },    0,        0, Next_Form, Op_0 },
+        /* Op_FCmpP     */  { {   mfp, 0,    0 },    FP_Types, 0, Next_Form, Op_FCmpP1 }, // pops
+        /* Op_FCmpP1    */  { {   rfp, 0,    0 },    0,        0, Next_Form, Op_F0_P }, // pops
         /* Op_FCmpFlg   */  { {   rfp, 0,    0 },    0,        Clb_Flags },
         /* Op_FCmpFlgP  */  { {   rfp, 0,    0 },    0,        Clb_Flags }, // pops
         /* Op_fld       */  { {   mfp, 0,    0 },    FP_Types, Clb_ST, Next_Form, Op_fldR },
@@ -496,46 +610,60 @@ namespace AsmParserx8632
         /* Op_fxch0     */  { {   0,   0,    0 },    0,        Clb_ST }, // Also clobbers ST(1)
         /* Op_SizedStack*/  { {   0,   0,    0 },    0,        Clb_SP }, // type suffix special case
         /* Op_bound     */  { {   mr,  mri,  0 },    Word_Types  }, // operands *not* reversed for gas
-        /* Op_bswap     */  { { D|r32 }     },
-        /* Op_cmps      */  { {   mem, mem, 0 },     1, Clb_DI|Clb_SI|Clb_Flags },
-        /* Op_cmpsd     */  { {   0,   0,   0 },     0, Clb_DI|Clb_SI|Clb_Flags, Next_Form, Op_DstSrcImmS },
-        /* Op_cmpsX     */  { {   0,   0,   0 },     0, Clb_DI|Clb_SI|Clb_Flags },
-        /* Op_cmpxchg8b */  { { D|mem/*64*/,0,0 },   0, Clb_SizeDXAX/*32*/|Clb_Flags, Out_Mnemonic, Mn_cmpxchg8b },
-        /* Op_cmpxchg   */  { { D|mr,  reg, 0 },     1, Clb_SizeAX|Clb_Flags },
-        /* Op_cpuid     */  { {   0,0,0 } },    // Clobbers eax, ebx, ecx, and edx. Handled specially below.
-        /* Op_enter     */  { {   imm, imm } }, // operands *not* reversed for gas, %% inform gcc of EBP clobber?,
-        /* Op_fdisi     */  { {   0,0,0 },           0, 0, Out_Mnemonic, Mn_fdisi },
-        /* Op_feni      */  { {   0,0,0 },           0, 0, Out_Mnemonic, Mn_feni },
-        /* Op_fsetpm    */  { {   0,0,0 },           0, 0, Out_Mnemonic, Mn_fsetpm },
-        /* Op_fXstsw    */  { { D|mr,  0,   0 },     }, // ax is the only allowed register
-        /* Op_imul      */  { { D|reg, mr,  imm },   1, Clb_Flags, Next_Form, Op_imul2 }, // 16/32 only
-        /* Op_imul2     */  { { D|reg, mri, 0 },     1, Clb_Flags, Next_Form, Op_imul1 }, // 16/32 only
-        /* Op_imul1     */  { {   mr,  0,   0 },     1, Clb_Flags|Clb_SizeDXAX },
-        /* Op_in        */  { { D|ax,N|port,0 },     1  },
-        /* Op_ins       */  { {   mem,N|dx, 0 },     1, Clb_DI }, // can't override ES segment for this one
-        /* Op_insX      */  { {   0,   0,   0 },     0, Clb_DI }, // output segment overrides %% needs work
-        /* Op_iret      */  { {   0,0,0 },           0, 0, Out_Mnemonic, Mn_iretw },
-        /* Op_iretd     */  { {   0,0,0 },           0, 0, Out_Mnemonic, Mn_iret },
-        /* Op_lods      */  { {   mem, 0,   0 },     1, Clb_SI },
-        /* Op_lodsX     */  { {   0,   0,   0 },     0, Clb_SI },
-        /* Op_movs      */  { {   mem, mem, 0 },     1, Clb_DI|Clb_SI }, // only src/DS can be overridden
-        /* Op_movsd     */  { {   0,   0,   0 },     0, Clb_DI|Clb_SI, Next_Form, Op_DstSrcSSE }, // %% gas doesn't accept movsd .. has to movsl
-        /* Op_movsX     */  { {   0,   0,   0 },     0, Clb_DI|Clb_SI },
-        /* Op_movsx     */  { { D|reg, mr,  0 },     1 }, // type suffix is special case
-        /* Op_movzx     */  { { D|reg, mr,  0 },     1 }, // type suffix is special case
-        /* Op_mul       */  { { U|ax,  mr,  0 },     1, Clb_SizeDXAX|Clb_Flags, Next_Form, Op_Src_DXAXF },
-        /* Op_out       */  { { N|port,ax,  0 },     1  },
-        /* Op_outs      */  { { N|dx,  mem, 0 },     1, Clb_SI },
-        /* Op_outsX     */  { {   0,   0,   0 },     0, Clb_SI },
-        /* Op_push      */  { {   mri, 0,   0 },    Word_Types, Clb_SP }, // would be Op_SrcW, but DMD defaults to 32-bit for immediate form
-        /* Op_ret       */  { {   imm, 0,   0 },     0, 0, Next_Form, Op_0  },
-        /* Op_retf      */  { {   0,   0,   0 },     0, 0, Out_Mnemonic, Mn_lret  },
-        /* Op_scas      */  { {   mem, 0,   0 },     1, Clb_DI|Clb_Flags },
-        /* Op_scasX     */  { {   0,   0,   0 },     0, Clb_DI|Clb_Flags },
-        /* Op_stos      */  { {   mem, 0,   0 },     1, Clb_DI },
-        /* Op_stosX     */  { {   0,   0,   0 },     0, Clb_DI },
-        /* Op_xgetbv    */  { {   0,   0,   0 },     0, Clb_SizeDXAX },
-        /* Op_xlat      */  { {   mem, 0,   0 },     0, Clb_SizeAX }
+        /* Op_bswap     */  { { D|r32, 0,    0 }     },
+        /* Op_cmps      */  { {   mem, mem,  0 },    1, Clb_DI|Clb_SI|Clb_Flags },
+        /* Op_cmpsd     */  { {   0,   0,    0 },    0, Clb_DI|Clb_SI|Clb_Flags, Next_Form, Op_DstSrcImmS },
+        /* Op_cmpsX     */  { {   0,   0,    0 },    0, Clb_DI|Clb_SI|Clb_Flags },
+        /* Op_cmpxchg   */  { { D|mr,  reg,  0 },    1, Clb_SizeAX|Clb_Flags },
+#ifdef ASM_X86_64
+        /* Op_cmpxchg16b */ { { D|mem/*128*/,0, 0 }, 0, Clb_SizeRDXRAX/*64*/|Clb_Flags, Out_Mnemonic, Mn_cmpxchg16b },
+#endif
+        /* Op_cmpxchg8b */  { { D|mem/*64*/, 0, 0 }, 0, Clb_SizeDXAX/*32*/|Clb_Flags, Out_Mnemonic, Mn_cmpxchg8b },
+        /* Op_cpuid     */  { {   0,   0,    0 }     }, // Clobbers eax, ebx, ecx, and edx. Handled specially below.
+        /* Op_enter     */  { {   imm, imm,  0 }     }, // operands *not* reversed for gas, %% inform gcc of EBP clobber?,
+        /* Op_fdisi     */  { {   0,   0,    0 },    0, 0, Out_Mnemonic, Mn_fdisi },
+        /* Op_feni      */  { {   0,   0,    0 },    0, 0, Out_Mnemonic, Mn_feni },
+        /* Op_fsetpm    */  { {   0,   0,    0 },    0, 0, Out_Mnemonic, Mn_fsetpm },
+        /* Op_fXstsw    */  { { D|mr,  0,    0 }     }, // ax is the only allowed register
+        /* Op_imul      */  { { D|reg, mr, imm },    1, Clb_Flags, Next_Form, Op_imul2 }, // 16/32 only
+        /* Op_imul2     */  { { D|reg, mri,  0 },    1, Clb_Flags, Next_Form, Op_imul1 }, // 16/32 only
+        /* Op_imul1     */  { {   mr,  0,    0 },    1, Clb_Flags|Clb_SizeDXAX },
+        /* Op_in        */  { { D|ax,N|port, 0 },    1  },
+        /* Op_ins       */  { {   mem,N|dx,  0 },    1, Clb_DI }, // can't override ES segment for this one
+        /* Op_insX      */  { {   0,   0,    0 },    0, Clb_DI }, // output segment overrides %% needs work
+        /* Op_iret      */  { {   0,   0,    0 },    0, 0, Out_Mnemonic, Mn_iretw },
+        /* Op_iretd     */  { {   0,   0,    0 },    0, 0, Out_Mnemonic, Mn_iret },
+#ifdef ASM_X86_64
+        /* Op_iretq     */  { {   0,   0,    0 },    0, 0, Out_Mnemonic, Mn_iretq },
+#endif
+        /* Op_lods      */  { {   mem, 0,    0 },    1, Clb_SI },
+        /* Op_lodsX     */  { {   0,   0,    0 },    0, Clb_SI },
+        /* Op_movs      */  { {   mem, mem,  0 },    1, Clb_DI|Clb_SI }, // only src/DS can be overridden
+        /* Op_movsd     */  { {   0,   0,    0 },    0, Clb_DI|Clb_SI, Next_Form, Op_DstSrcSSE }, // %% gas doesn't accept movsd .. has to movsl
+        /* Op_movsX     */  { {   0,   0,    0 },    0, Clb_DI|Clb_SI },
+        /* Op_movsx     */  { { D|reg, mr,   0 },    1  }, // type suffix is special case
+        /* Op_movzx     */  { { D|reg, mr,   0 },    1  }, // type suffix is special case
+        /* Op_mul       */  { { U|ax,  mr,   0 },    1, Clb_SizeDXAX|Clb_Flags, Next_Form, Op_Src_DXAXF },
+        /* Op_out       */  { { N|port,ax,   0 },    1  },
+        /* Op_outs      */  { { N|dx,  mem,  0 },    1, Clb_SI },
+        /* Op_outsX     */  { {   0,   0,    0 },    0, Clb_SI },
+#ifndef ASM_X86_64
+        /* Op_push      */  { {   mri, 0,    0 },    Word_Types, Clb_SP }, // would be Op_SrcW, but DMD defaults to 32-bit for immediate form
+#else
+        /* Op_push      */  { {   mri, 0,    0 },    0, Clb_SP }, // would be Op_SrcW, but DMD defaults to 32-bit for immediate form
+#endif
+        /* Op_ret       */  { {   imm, 0,    0 },    0, 0, Next_Form, Op_0  },
+        /* Op_retf      */  { {   0,   0,    0 },    0, 0, Out_Mnemonic, Mn_lret  },
+        /* Op_scas      */  { {   mem, 0,    0 },    1, Clb_DI|Clb_Flags },
+        /* Op_scasX     */  { {   0,   0,    0 },    0, Clb_DI|Clb_Flags },
+        /* Op_stos      */  { {   mem, 0,    0 },    1, Clb_DI },
+        /* Op_stosX     */  { {   0,   0,    0 },    0, Clb_DI },
+#ifndef ASM_X86_64
+        /* Op_xgetbv    */  { {   0,   0,    0 },    0, Clb_SizeDXAX },
+#else
+        /* Op_xgetbv    */  { {   0,   0,    0 },    0, Clb_SizeRDXRAX },
+#endif
+        /* Op_xlat      */  { {   mem, 0,    0 },    0, Clb_SizeAX }
 
         /// * Op_arpl      */  { D|mr,  reg }, // 16 only -> DstSrc
         /// * Op_bsX       */  {   rw,  mrw,  0,    1, Clb_Flags },//->srcsrcf
@@ -572,94 +700,123 @@ namespace AsmParserx8632
         AsmOp   asmOp;
     } AsmOpEnt;
 
-    /* Some opcodes which have data size restrictions, but we don't check
+    /* Some opcodes have data size restrictions, which we don't check
 
        cmov, l<segreg> ?, lea, lsl, shld
 
        todo: push <immediate> is always the 32-bit form, even tho push <mem> is 16-bit
     */
 
+    // WARNING: This table is expected to be SORTED ALPHABETICALLY.
     static AsmOpEnt opData[] =
     {
-        { "aaa",    Op_Adjust },
-        { "aad",    Op_Adjust },
-        { "aam",    Op_Adjust },
-        { "aas",    Op_Adjust },
-        { "adc",    Op_UpdSrcF },
-        { "add",    Op_UpdSrcF },
-        { "addpd",  Op_DstSrcSSE },
-        { "addps",  Op_DstSrcSSE },
-        { "addsd",  Op_DstSrcSSE },
-        { "addss",  Op_DstSrcSSE },
+#ifndef ASM_X86_64
+        { "aaa",     Op_Adjust },
+        { "aad",     Op_Adjust },
+        { "aam",     Op_Adjust },
+        { "aas",     Op_Adjust },
+#endif
+        { "adc",     Op_UpdSrcF },
+        { "add",     Op_UpdSrcF },
+        { "addpd",   Op_DstSrcSSE },
+        { "addps",   Op_DstSrcSSE },
+#ifdef ASM_X86_64
+        { "addq",    Op_DstSrcSSE },
+#endif
+        { "addsd",   Op_DstSrcSSE },
+        { "addss",   Op_DstSrcSSE },
         { "addsubpd", Op_DstSrcSSE },
         { "addsubps", Op_DstSrcSSE },
-        { "align",  Op_Align },
-        { "and",    Op_UpdSrcF },
-        { "andnpd", Op_DstSrcSSE },
-        { "andnps", Op_DstSrcSSE },
-        { "andpd",  Op_DstSrcSSE },
-        { "andps",  Op_DstSrcSSE },
-        { "arpl",   Op_UpdSrcNT },
-        { "bound",  Op_bound },
-        { "bsf",    Op_SrcSrcFW },
-        { "bsr",    Op_SrcSrcFW },
-        { "bswap",  Op_bswap },
-        { "bt",     Op_SrcSrcFW },
-        { "btc",    Op_UpdSrcFW },
-        { "btr",    Op_UpdSrcFW },
-        { "bts",    Op_UpdSrcFW },
-        { "call",   Op_Branch },
-        { "cbw",    Op_0_AX },
-        { "cdq",    Op_0_DXAX },
-        { "clc",    Op_Flags },
-        { "cld",    Op_Flags },
-        { "clflush",Op_SrcMemNT },
-        { "cli",    Op_Flags },
-        { "clts",   Op_0 },
-        { "cmc",    Op_Flags },
-        { "cmova",  Op_DstSrc },
-        { "cmovae", Op_DstSrc },
-        { "cmovb",  Op_DstSrc },
-        { "cmovbe", Op_DstSrc },
-        { "cmovc",  Op_DstSrc },
-        { "cmove",  Op_DstSrc },
-        { "cmovg",  Op_DstSrc },
-        { "cmovge", Op_DstSrc },
-        { "cmovl",  Op_DstSrc },
-        { "cmovle", Op_DstSrc },
-        { "cmovna", Op_DstSrc },
-        { "cmovnae",Op_DstSrc },
-        { "cmovnb", Op_DstSrc },
-        { "cmovnbe",Op_DstSrc },
-        { "cmovnc", Op_DstSrc },
-        { "cmovne", Op_DstSrc },
-        { "cmovng", Op_DstSrc },
-        { "cmovnge",Op_DstSrc },
-        { "cmovnl", Op_DstSrc },
-        { "cmovnle",Op_DstSrc },
-        { "cmovno", Op_DstSrc },
-        { "cmovnp", Op_DstSrc },
-        { "cmovns", Op_DstSrc },
-        { "cmovnz", Op_DstSrc },
-        { "cmovo",  Op_DstSrc },
-        { "cmovp",  Op_DstSrc },
-        { "cmovpe", Op_DstSrc },
-        { "cmovpo", Op_DstSrc },
-        { "cmovs",  Op_DstSrc },
-        { "cmovz",  Op_DstSrc },
-        { "cmp",    Op_SrcSrcF },
-        { "cmppd",  Op_DstSrcImmS },
-        { "cmpps",  Op_DstSrcImmS },
-        { "cmps",   Op_cmps  },
-        { "cmpsb",  Op_cmpsX },
-        { "cmpsd",  Op_cmpsd }, // string cmp, and SSE cmp
-        { "cmpss",  Op_DstSrcImmS },
-        { "cmpsw",  Op_cmpsX },
-        { "cmpxch8b", Op_cmpxchg8b }, // %% DMD opcode typo?
-        { "cmpxchg",  Op_cmpxchg },
-        { "comisd", Op_SrcSrcSSEF },
-        { "comiss", Op_SrcSrcSSEF },
-        { "cpuid",  Op_cpuid },
+#ifndef ASM_X86_64
+        { "align",   Op_Align },
+#endif
+        { "and",     Op_UpdSrcF },
+        { "andnpd",  Op_DstSrcSSE },
+        { "andnps",  Op_DstSrcSSE },
+        { "andpd",   Op_DstSrcSSE },
+        { "andps",   Op_DstSrcSSE },
+#ifndef ASM_X86_64
+        { "arpl",    Op_UpdSrcNT },
+        { "bound",   Op_bound },
+#endif
+        { "bsf",     Op_SrcSrcFW },
+        { "bsr",     Op_SrcSrcFW },
+        { "bswap",   Op_bswap },
+        { "bt",      Op_SrcSrcFW },
+        { "btc",     Op_UpdSrcFW },
+        { "btr",     Op_UpdSrcFW },
+        { "bts",     Op_UpdSrcFW },
+        { "call",    Op_Branch },
+#ifdef ASM_X86_64
+        { "callf",   Op_Branch },
+#endif
+        { "cbw",     Op_0_AX },
+#ifndef ASM_X86_64
+        { "cdq",     Op_0_DXAX },
+#else
+        { "cdqe",    Op_0_DXAX },
+#endif
+        { "clc",     Op_Flags },
+        { "cld",     Op_Flags },
+        { "clflush", Op_SrcMemNT },
+        { "cli",     Op_Flags },
+        { "clts",    Op_0 },
+        { "cmc",     Op_Flags },
+        { "cmova",   Op_DstSrc },
+        { "cmovae",  Op_DstSrc },
+        { "cmovb",   Op_DstSrc },
+        { "cmovbe",  Op_DstSrc },
+        { "cmovc",   Op_DstSrc },
+        { "cmove",   Op_DstSrc },
+        { "cmovg",   Op_DstSrc },
+        { "cmovge",  Op_DstSrc },
+        { "cmovl",   Op_DstSrc },
+        { "cmovle",  Op_DstSrc },
+        { "cmovna",  Op_DstSrc },
+        { "cmovnae", Op_DstSrc },
+        { "cmovnb",  Op_DstSrc },
+        { "cmovnbe", Op_DstSrc },
+        { "cmovnc",  Op_DstSrc },
+        { "cmovne",  Op_DstSrc },
+        { "cmovng",  Op_DstSrc },
+        { "cmovnge", Op_DstSrc },
+        { "cmovnl",  Op_DstSrc },
+        { "cmovnle", Op_DstSrc },
+        { "cmovno",  Op_DstSrc },
+        { "cmovnp",  Op_DstSrc },
+        { "cmovns",  Op_DstSrc },
+        { "cmovnz",  Op_DstSrc },
+        { "cmovo",   Op_DstSrc },
+        { "cmovp",   Op_DstSrc },
+        { "cmovpe",  Op_DstSrc },
+        { "cmovpo",  Op_DstSrc },
+        { "cmovs",   Op_DstSrc },
+        { "cmovz",   Op_DstSrc },
+        { "cmp",     Op_SrcSrcF },
+        { "cmppd",   Op_DstSrcImmS },
+        { "cmpps",   Op_DstSrcImmS },
+#ifdef ASM_X86_64
+        { "cmpq",    Op_DstSrcNT },
+#endif
+        { "cmps",    Op_cmps  },
+        { "cmpsb",   Op_cmpsX },
+        { "cmpsd",   Op_cmpsd }, // string cmp, and SSE cmp
+#ifdef ASM_X86_64
+        { "cmpsq",   Op_cmpsX },
+#endif
+        { "cmpss",   Op_DstSrcImmS },
+        { "cmpsw",   Op_cmpsX },
+        { "cmpxchg",    Op_cmpxchg },
+#ifdef ASM_X86_64
+        { "cmpxchg16b", Op_cmpxchg16b },
+#endif
+        { "cmpxchg8b",  Op_cmpxchg8b },
+        { "comisd",  Op_SrcSrcSSEF },
+        { "comiss",  Op_SrcSrcSSEF },
+        { "cpuid",   Op_cpuid },
+#ifdef ASM_X86_64
+        { "cqo",     Op_0_DXAX },
+#endif
         { "cvtdq2pd", Op_DstSrcSSE },
         { "cvtdq2ps", Op_DstSrcSSE },
         { "cvtpd2dq", Op_DstSrcSSE },
@@ -682,225 +839,252 @@ namespace AsmParserx8632
         { "cvttps2pi", Op_DstSrcSSE },
         { "cvttsd2si", Op_DstSrcSSE },
         { "cvttss2si", Op_DstSrcSSE },
-        { "cwd",  Op_0_DXAX },
-        { "cwde", Op_0_AX },
-        //{ "da", Op_ },// dunno what this is -- takes labels?
-        { "daa",   Op_Adjust },
-        { "das",   Op_Adjust },
-        { "db",    Op_db },
-        { "dd",    Op_dd },
-        { "de",    Op_de },
-        { "dec",   Op_UpdF },
-        { "df",    Op_df },
-        { "di",    Op_di },
-        { "div",   Op_Src_DXAXF },
-        { "divpd", Op_DstSrcSSE },
-        { "divps", Op_DstSrcSSE },
-        { "divsd", Op_DstSrcSSE },
-        { "divss", Op_DstSrcSSE },
-        { "dl",    Op_dl },
-        { "dq",    Op_dl },
-        { "ds",    Op_ds },
-        { "dt",    Op_de },
-        { "dw",    Op_ds },
-        { "emms",  Op_0 }, // clobber all mmx/fp?
-        { "enter", Op_enter },
-        { "even",  Op_Even },
-        { "f2xm1",  Op_F0_ST }, // %% most of these are update...
-        { "fabs",   Op_F0_ST },
-        { "fadd",   Op_FMath },
-        { "faddp",  Op_FPMath },
-        { "fbld",   Op_Fs_P },
-        { "fbstp",  Op_Fd_P },
-        { "fchs",   Op_F0_ST },
-        { "fclex",  Op_0 },
-        { "fcmovb",   Op_FdSTiSTi }, // but only ST(0) can be the destination -- should be FdST0STi
-        { "fcmovbe",  Op_FdSTiSTi },
-        { "fcmove",   Op_FdSTiSTi },
-        { "fcmovnb",  Op_FdSTiSTi },
+        { "cwd",     Op_0_DXAX },
+#ifndef ASM_X86_64
+        { "cwde",    Op_0_AX },
+#else
+        { "cwde",    Op_0_DXAX },
+#endif
+        //{ "da", Op_ }, // dunno what this is -- takes labels?
+#ifndef ASM_X86_64
+        { "daa",     Op_Adjust },
+        { "das",     Op_Adjust },
+#endif
+        { "db",      Op_db },
+        { "dd",      Op_dd },
+        { "de",      Op_de },
+        { "dec",     Op_UpdF },
+        { "df",      Op_df },
+        { "di",      Op_di },
+        { "div",     Op_Src_DXAXF },
+        { "divpd",   Op_DstSrcSSE },
+        { "divps",   Op_DstSrcSSE },
+        { "divsd",   Op_DstSrcSSE },
+        { "divss",   Op_DstSrcSSE },
+        { "dl",      Op_dl },
+        { "dq",      Op_dl },
+        { "ds",      Op_ds },
+        { "dt",      Op_de },
+        { "dw",      Op_ds },
+        { "emms",    Op_0 }, // clobber all mmx/fp?
+        { "enter",   Op_enter },
+        { "even",    Op_Even },
+        { "f2xm1",   Op_F0_ST }, // %% most of these are update...
+        { "fabs",    Op_F0_ST },
+        { "fadd",    Op_FMath },
+        { "faddp",   Op_FPMath },
+        { "fbld",    Op_Fs_P },
+        { "fbstp",   Op_Fd_P },
+        { "fchs",    Op_F0_ST },
+        { "fclex",   Op_0 },
+        { "fcmovb",  Op_FdSTiSTi }, // but only ST(0) can be the destination -- should be FdST0STi
+        { "fcmovbe", Op_FdSTiSTi },
+        { "fcmove",  Op_FdSTiSTi },
+        { "fcmovnb", Op_FdSTiSTi },
         { "fcmovnbe", Op_FdSTiSTi },
-        { "fcmovne",  Op_FdSTiSTi },
-        { "fcmovnu",  Op_FdSTiSTi },
-        { "fcmovu",   Op_FdSTiSTi },
-        { "fcom",   Op_FCmp },
-        { "fcomi",  Op_FCmpFlg  },
-        { "fcomip", Op_FCmpFlgP },
-        { "fcomp",  Op_FCmpP },
-        { "fcompp", Op_F0_P },   // pops twice
-        { "fcos",   Op_F0_ST },
-        { "fdecstp",Op_F0_P },   // changes stack
-        { "fdisi",  Op_fdisi },
-        { "fdiv",   Op_FMath },
-        { "fdivp",  Op_FPMath },
-        { "fdivr",  Op_FMath },
-        { "fdivrp", Op_FPMath },
-        { "feni",   Op_feni },
-        { "ffree",  Op_FdST },
-        { "fiadd",  Op_Fis_ST },
-        { "ficom",  Op_Fis   },
-        { "ficomp", Op_Fis_P },
-        { "fidiv",  Op_Fis_ST },
-        { "fidivr", Op_Fis_ST },
-        { "fild",   Op_Fis_P },
-        { "fimul",  Op_Fis_ST },
-        { "fincstp",Op_F0_P },
-        { "finit",  Op_F0_P },
-        { "fist",   Op_Fid }, // only 16,32bit
-        { "fistp",  Op_Fid_P },
-        { "fisttp", Op_Fid_P },
-        { "fisub",  Op_Fis_ST },
-        { "fisubr", Op_Fis_ST },
-        { "fld",    Op_fld },
-        { "fld1",   Op_F0_P },
-        { "fldcw",  Op_SrcMemNT },
-        { "fldenv", Op_SrcMemNT },
-        { "fldl2e", Op_F0_P },
-        { "fldl2t", Op_F0_P },
-        { "fldlg2", Op_F0_P },
-        { "fldln2", Op_F0_P },
-        { "fldpi",  Op_F0_P },
-        { "fldz",   Op_F0_P },
-        { "fmul",   Op_FMath },
-        { "fmulp",  Op_FPMath },
-        { "fnclex", Op_0 },
-        { "fndisi", Op_fdisi }, // ??
-        { "fneni",  Op_feni }, // ??
-        { "fninit", Op_0 },
-        { "fnop",   Op_0 },
-        { "fnsave", Op_DstMemNT },
-        { "fnstcw", Op_DstMemNT },
-        { "fnstenv",Op_DstMemNT },
-        { "fnstsw", Op_fXstsw },
-        { "fpatan", Op_F0_P }, // pop and modify new ST
-        { "fprem",  Op_F0_ST },
-        { "fprem1", Op_F0_ST },
-        { "fptan",  Op_F0_P }, // modify ST and push 1.0
-        { "frndint",Op_F0_ST },
-        { "frstor", Op_SrcMemNT }, // but clobbers everything
-        { "fsave",  Op_DstMemNT },
-        { "fscale", Op_F0_ST },
-        { "fsetpm", Op_fsetpm },
-        { "fsin",   Op_F0_ST },
-        { "fsincos",Op_F0_P },
-        { "fsqrt",  Op_F0_ST },
-        { "fst",    Op_Ffd },
-        { "fstcw",  Op_DstMemNT },
-        { "fstenv", Op_DstMemNT },
-        { "fstp",   Op_Ffd_P },
-        { "fstsw",  Op_fXstsw },
-        { "fsub",   Op_FMath },
-        { "fsubp",  Op_FPMath },
-        { "fsubr",  Op_FMath },
-        { "fsubrp", Op_FPMath },
-        { "ftst",   Op_0 },
-        { "fucom",  Op_FCmp },
-        { "fucomi", Op_FCmpFlg },
-        { "fucomip",Op_FCmpFlgP },
-        { "fucomp", Op_FCmpP },
-        { "fucompp",Op_F0_P }, // pops twice
-        { "fwait",  Op_0 },
-        { "fxam",   Op_0 },
-        { "fxch",   Op_fxch },
-        { "fxrstor",Op_SrcMemNT },  // clobbers FP,MMX,SSE
-        { "fxsave", Op_DstMemNT },
-        { "fxtract",Op_F0_P }, // pushes
-        { "fyl2x",  Op_F0_P }, // pops
-        { "fyl2xp1",Op_F0_P }, // pops
-        { "haddpd", Op_DstSrcSSE },
-        { "haddps", Op_DstSrcSSE },
-        { "hlt",  Op_0 },
-        { "hsubpd", Op_DstSrcSSE },
-        { "hsubps", Op_DstSrcSSE },
-        { "idiv", Op_Src_DXAXF },
-        { "imul", Op_imul },
-        { "in",   Op_in },
-        { "inc",  Op_UpdF },
-        { "ins",  Op_ins },
-        { "insb", Op_insX },
-        { "insd", Op_insX },
-        { "insw", Op_insX },
-        { "int",  Op_SrcImm },
-        { "into", Op_0 },
-        { "invd", Op_0 },
-        { "invlpg", Op_SrcMemNT },
-        { "iret",  Op_iret },
-        { "iretd", Op_iretd },
-        { "ja",    Op_CBranch },
-        { "jae",   Op_CBranch },
-        { "jb",    Op_CBranch },
-        { "jbe",   Op_CBranch },
-        { "jc",    Op_CBranch },
-        { "jcxz",  Op_CBranch },
-        { "je",    Op_CBranch },
-        { "jecxz", Op_CBranch },
-        { "jg",    Op_CBranch },
-        { "jge",   Op_CBranch },
-        { "jl",    Op_CBranch },
-        { "jle",   Op_CBranch },
-        { "jmp",   Op_Branch },
-        { "jna",   Op_CBranch },
-        { "jnae",  Op_CBranch },
-        { "jnb",   Op_CBranch },
-        { "jnbe",  Op_CBranch },
-        { "jnc",   Op_CBranch },
-        { "jne",   Op_CBranch },
-        { "jng",   Op_CBranch },
-        { "jnge",  Op_CBranch },
-        { "jnl",   Op_CBranch },
-        { "jnle",  Op_CBranch },
-        { "jno",   Op_CBranch },
-        { "jnp",   Op_CBranch },
-        { "jns",   Op_CBranch },
-        { "jnz",   Op_CBranch },
-        { "jo",    Op_CBranch },
-        { "jp",    Op_CBranch },
-        { "jpe",   Op_CBranch },
-        { "jpo",   Op_CBranch },
-        { "js",    Op_CBranch },
-        { "jz",    Op_CBranch },
-        { "lahf",  Op_0_AX },
-        { "lar",   Op_DstSrcFW }, // reg dest only
-        { "lddqu", Op_DstSrcSSE },
+        { "fcmovne", Op_FdSTiSTi },
+        { "fcmovnu", Op_FdSTiSTi },
+        { "fcmovu",  Op_FdSTiSTi },
+        { "fcom",    Op_FCmp },
+        { "fcomi",   Op_FCmpFlg  },
+        { "fcomip",  Op_FCmpFlgP },
+        { "fcomp",   Op_FCmpP },
+        { "fcompp",  Op_F0_P }, // pops twice
+        { "fcos",    Op_F0_ST },
+        { "fdecstp", Op_F0_P }, // changes stack
+        { "fdisi",   Op_fdisi },
+        { "fdiv",    Op_FMath },
+        { "fdivp",   Op_FPMath },
+        { "fdivr",   Op_FMath },
+        { "fdivrp",  Op_FPMath },
+        { "feni",    Op_feni },
+        { "ffree",   Op_FdST },
+        { "fiadd",   Op_Fis_ST },
+        { "ficom",   Op_Fis   },
+        { "ficomp",  Op_Fis_P },
+        { "fidiv",   Op_Fis_ST },
+        { "fidivr",  Op_Fis_ST },
+        { "fild",    Op_Fis_P },
+        { "fimul",   Op_Fis_ST },
+        { "fincstp", Op_F0_P },
+        { "finit",   Op_F0_P },
+        { "fist",    Op_Fid }, // only 16,32bit
+        { "fistp",   Op_Fid_P },
+        { "fisttp",  Op_Fid_P },
+        { "fisub",   Op_Fis_ST },
+        { "fisubr",  Op_Fis_ST },
+        { "fld",     Op_fld },
+        { "fld1",    Op_F0_P },
+        { "fldcw",   Op_SrcMemNT },
+        { "fldenv",  Op_SrcMemNT },
+        { "fldl2e",  Op_F0_P },
+        { "fldl2t",  Op_F0_P },
+        { "fldlg2",  Op_F0_P },
+        { "fldln2",  Op_F0_P },
+        { "fldpi",   Op_F0_P },
+        { "fldz",    Op_F0_P },
+        { "fmul",    Op_FMath },
+        { "fmulp",   Op_FPMath },
+        { "fnclex",  Op_0 },
+        { "fndisi",  Op_fdisi }, // ??
+        { "fneni",   Op_feni }, // ??
+        { "fninit",  Op_0 },
+        { "fnop",    Op_0 },
+        { "fnsave",  Op_DstMemNT },
+        { "fnstcw",  Op_DstMemNT },
+        { "fnstenv", Op_DstMemNT },
+        { "fnstsw",  Op_fXstsw },
+        { "fpatan",  Op_F0_P }, // pop and modify new ST
+        { "fprem",   Op_F0_ST },
+        { "fprem1",  Op_F0_ST },
+        { "fptan",   Op_F0_P }, // modify ST and push 1.0
+        { "frndint", Op_F0_ST },
+        { "frstor",  Op_SrcMemNT }, // but clobbers everything
+        { "fsave",   Op_DstMemNT },
+        { "fscale",  Op_F0_ST },
+        { "fsetpm",  Op_fsetpm },
+        { "fsin",    Op_F0_ST },
+        { "fsincos", Op_F0_P },
+        { "fsqrt",   Op_F0_ST },
+        { "fst",     Op_Ffd },
+        { "fstcw",   Op_DstMemNT },
+        { "fstenv",  Op_DstMemNT },
+        { "fstp",    Op_Ffd_P },
+        { "fstsw",   Op_fXstsw },
+        { "fsub",    Op_FMath },
+        { "fsubp",   Op_FPMath },
+        { "fsubr",   Op_FMath },
+        { "fsubrp",  Op_FPMath },
+        { "ftst",    Op_0 },
+        { "fucom",   Op_FCmp },
+        { "fucomi",  Op_FCmpFlg },
+        { "fucomip", Op_FCmpFlgP },
+        { "fucomp",  Op_FCmpP },
+        { "fucompp", Op_F0_P }, // pops twice
+        { "fwait",   Op_0 },
+        { "fxam",    Op_0 },
+        { "fxch",    Op_fxch },
+        { "fxrstor", Op_SrcMemNT }, // clobbers FP,MMX,SSE
+        { "fxsave",  Op_DstMemNT },
+        { "fxtract", Op_F0_P }, // pushes
+        { "fyl2x",   Op_F0_P }, // pops
+        { "fyl2xp1", Op_F0_P }, // pops
+        { "haddpd",  Op_DstSrcSSE },
+        { "haddps",  Op_DstSrcSSE },
+        { "hlt",     Op_0 },
+        { "hsubpd",  Op_DstSrcSSE },
+        { "hsubps",  Op_DstSrcSSE },
+        { "idiv",    Op_Src_DXAXF },
+        { "imul",    Op_imul },
+        { "in",      Op_in },
+        { "inc",     Op_UpdF },
+        { "ins",     Op_ins },
+        { "insb",    Op_insX },
+        { "insd",    Op_insX },
+        { "insw",    Op_insX },
+        { "int",     Op_SrcImm },
+        { "into",    Op_0 },
+        { "invd",    Op_0 },
+        { "invlpg",  Op_SrcMemNT },
+        { "iret",    Op_iret },
+        { "iretd",   Op_iretd },
+#ifdef ASM_X86_64
+        { "iretq",   Op_iretq },
+#endif
+        { "ja",      Op_CBranch },
+        { "jae",     Op_CBranch },
+        { "jb",      Op_CBranch },
+        { "jbe",     Op_CBranch },
+        { "jc",      Op_CBranch },
+        { "jcxz",    Op_CBranch },
+        { "je",      Op_CBranch },
+        { "jecxz",   Op_CBranch },
+        { "jg",      Op_CBranch },
+        { "jge",     Op_CBranch },
+        { "jl",      Op_CBranch },
+        { "jle",     Op_CBranch },
+        { "jmp",     Op_Branch },
+#ifdef ASM_X86_64
+        { "jmpe",    Op_Branch },
+        { "jmpf",    Op_Branch },
+#endif
+        { "jna",     Op_CBranch },
+        { "jnae",    Op_CBranch },
+        { "jnb",     Op_CBranch },
+        { "jnbe",    Op_CBranch },
+        { "jnc",     Op_CBranch },
+        { "jne",     Op_CBranch },
+        { "jng",     Op_CBranch },
+        { "jnge",    Op_CBranch },
+        { "jnl",     Op_CBranch },
+        { "jnle",    Op_CBranch },
+        { "jno",     Op_CBranch },
+        { "jnp",     Op_CBranch },
+        { "jns",     Op_CBranch },
+        { "jnz",     Op_CBranch },
+        { "jo",      Op_CBranch },
+        { "jp",      Op_CBranch },
+        { "jpe",     Op_CBranch },
+        { "jpo",     Op_CBranch },
+#ifdef ASM_X86_64
+        { "jrcxz",   Op_CBranch },
+#endif
+        { "js",      Op_CBranch },
+        { "jz",      Op_CBranch },
+        { "lahf",    Op_0_AX },
+        { "lar",     Op_DstSrcFW }, // reg dest only
+        { "lddqu",   Op_DstSrcSSE },
         { "ldmxcsr", Op_SrcMemNT },
-        { "lds",   Op_DstSrc },  // reg dest only
-        { "lea",   Op_DstSrc },  // "
-        { "leave", Op_0 },       // EBP,ESP clobbers
-        { "les",   Op_DstSrc },
-        { "lfence",Op_0 },
-        { "lfs",   Op_DstSrc },
-        { "lgdt",  Op_SrcMemNT },
-        { "lgs",   Op_DstSrc },
-        { "lidt",  Op_SrcMemNT },
-        { "lldt",  Op_SrcRMWNT },
-        { "lmsw",  Op_SrcRMWNT },
-        { "lock",  Op_0 },
-        { "lods",  Op_lods },
-        { "lodsb", Op_lodsX },
-        { "lodsd", Op_lodsX },
-        { "lodsw", Op_lodsX },
-        { "loop",  Op_Loop },
-        { "loope", Op_Loop },
-        { "loopne",Op_Loop },
-        { "loopnz",Op_Loop },
-        { "loopz", Op_Loop },
-        { "lsl",   Op_DstSrcFW }, // reg dest only
-        { "lss",   Op_DstSrc },
-        { "ltr",   Op_DstMemNT },
+        { "lds",     Op_DstSrc }, // reg dest only
+        { "lea",     Op_DstSrc }, // "
+#ifdef ASM_X86_64
+        { "leaq",    Op_DstSrcSSE }, // "
+#endif
+        { "leave",   Op_0 }, // EBP,ESP clobbers
+#ifndef ASM_X86_64
+        { "les",     Op_DstSrc },
+#endif
+        { "lfence",  Op_0 },
+        { "lfs",     Op_DstSrc },
+        { "lgdt",    Op_SrcMemNT },
+        { "lgs",     Op_DstSrc },
+        { "lidt",    Op_SrcMemNT },
+        { "lldt",    Op_SrcRMWNT },
+        { "lmsw",    Op_SrcRMWNT },
+        { "lock",    Op_0 },
+        { "lods",    Op_lods },
+        { "lodsb",   Op_lodsX },
+        { "lodsd",   Op_lodsX },
+#ifdef ASM_X86_64
+        { "lodsq",   Op_lodsX },
+#endif
+        { "lodsw",   Op_lodsX },
+        { "loop",    Op_Loop },
+        { "loope",   Op_Loop },
+        { "loopne",  Op_Loop },
+        { "loopnz",  Op_Loop },
+        { "loopz",   Op_Loop },
+        { "lsl",     Op_DstSrcFW }, // reg dest only
+        { "lss",     Op_DstSrc },
+        { "ltr",     Op_DstMemNT },
         { "maskmovdqu", Op_SrcSrcMMX }, // writes to [edi]
         { "maskmovq",   Op_SrcSrcMMX },
-        { "maxpd", Op_DstSrcSSE },
-        { "maxps", Op_DstSrcSSE },
-        { "maxsd", Op_DstSrcSSE },
-        { "maxss", Op_DstSrcSSE },
-        { "mfence",Op_0},
-        { "minpd", Op_DstSrcSSE },
-        { "minps", Op_DstSrcSSE },
-        { "minsd", Op_DstSrcSSE },
-        { "minss", Op_DstSrcSSE },
+        { "maxpd",   Op_DstSrcSSE },
+        { "maxps",   Op_DstSrcSSE },
+        { "maxsd",   Op_DstSrcSSE },
+        { "maxss",   Op_DstSrcSSE },
+        { "mfence",  Op_0},
+        { "minpd",   Op_DstSrcSSE },
+        { "minps",   Op_DstSrcSSE },
+        { "minsd",   Op_DstSrcSSE },
+        { "minss",   Op_DstSrcSSE },
         { "monitor", Op_0 },
-        { "mov",   Op_DstSrc },
+        { "mov",     Op_DstSrc },
         { "movapd",  Op_DstSrcSSE },
         { "movaps",  Op_DstSrcSSE },
+#ifdef ASM_X86_64
+        { "movb",    Op_DstSrcNT  },
+#endif
         { "movd",    Op_DstSrcNT  }, // also mmx and sse
         { "movddup", Op_DstSrcSSE },
         { "movdq2q", Op_DstSrcNT }, // mmx/sse
@@ -909,11 +1093,14 @@ namespace AsmParserx8632
         { "movhlps", Op_DstSrcSSE },
         { "movhpd",  Op_DstSrcSSE },
         { "movhps",  Op_DstSrcSSE },
+#ifdef ASM_X86_64
+        { "movl",    Op_DstSrc },
+#endif
         { "movlhps", Op_DstSrcSSE },
         { "movlpd",  Op_DstSrcSSE },
         { "movlps",  Op_DstSrcSSE },
-        { "movmskpd",Op_DstSrcSSE },
-        { "movmskps",Op_DstSrcSSE },
+        { "movmskpd", Op_DstSrcSSE },
+        { "movmskps", Op_DstSrcSSE },
         { "movntdq", Op_DstSrcNT  }, // limited to sse, but mem dest
         { "movnti",  Op_DstSrcNT  }, // limited to gpr, but mem dest
         { "movntpd", Op_DstSrcNT  }, // limited to sse, but mem dest
@@ -921,229 +1108,305 @@ namespace AsmParserx8632
         { "movntq",  Op_DstSrcNT  }, // limited to mmx, but mem dest
         { "movq",    Op_DstSrcNT  }, // limited to sse and mmx
         { "movq2dq", Op_DstSrcNT  }, // limited to sse <- mmx regs
-        { "movs",  Op_movs },
-        { "movsb", Op_movsX },
-        { "movsd", Op_movsd },
+        { "movs",    Op_movs },
+        { "movsb",   Op_movsX },
+        { "movsd",   Op_movsd },
         { "movshdup", Op_DstSrcSSE },
         { "movsldup", Op_DstSrcSSE },
-        { "movss", Op_DstSrcSSE },
-        { "movsw", Op_movsX },
-        { "movsx", Op_movsx }, // word-only, reg dest
-        { "movupd",Op_DstSrcSSE },
-        { "movups",Op_DstSrcSSE },
-        { "movzx", Op_movzx },
-        { "mul",   Op_mul },
-        { "mulpd", Op_DstSrcSSE },
-        { "mulps", Op_DstSrcSSE },
-        { "mulsd", Op_DstSrcSSE },
-        { "mulss", Op_DstSrcSSE },
-        { "mwait", Op_0 },
-        { "naked", Op_Naked },
-        { "neg",   Op_UpdF },
-        { "nop",   Op_0 },
-        { "not",   Op_Upd },
-        { "or",    Op_UpdSrcF },
-        { "orpd",  Op_DstSrcSSE },
-        { "orps",  Op_DstSrcSSE },
-        { "out",   Op_out },
-        { "outs",  Op_outs },
-        { "outsb", Op_outsX },
-        { "outsd", Op_outsX },
-        { "outsw", Op_outsX },
+#ifdef ASM_X86_64
+        { "movsq",   Op_movsd },
+#endif
+        { "movss",   Op_DstSrcSSE },
+        { "movsw",   Op_movsX },
+        { "movsx",   Op_movsx }, // word-only, reg dest
+#ifdef ASM_X86_64
+        { "movsxd",  Op_movsx },
+#endif
+        { "movupd",  Op_DstSrcSSE },
+        { "movups",  Op_DstSrcSSE },
+#ifdef ASM_X86_64
+        { "movzbl",  Op_DstSrcNT },
+#endif
+        { "movzx",   Op_movzx },
+        { "mul",     Op_mul },
+        { "mulpd",   Op_DstSrcSSE },
+        { "mulps",   Op_DstSrcSSE },
+        { "mulsd",   Op_DstSrcSSE },
+        { "mulss",   Op_DstSrcSSE },
+        { "mwait",   Op_0 },
+        { "naked",   Op_Naked },
+        { "neg",     Op_UpdF },
+        { "nop",     Op_0 },
+        { "not",     Op_Upd },
+        { "or",      Op_UpdSrcF },
+        { "orpd",    Op_DstSrcSSE },
+        { "orps",    Op_DstSrcSSE },
+        { "out",     Op_out },
+        { "outs",    Op_outs },
+        { "outsb",   Op_outsX },
+        { "outsd",   Op_outsX },
+        { "outsw",   Op_outsX },
+#ifdef ASM_X86_64
+        { "pabsb",   Op_DstSrcSSE },
+        { "pabsq",   Op_DstSrcSSE },
+        { "pabsw",   Op_DstSrcSSE },
+#endif
         { "packssdw", Op_DstSrcMMX }, // %% also SSE
         { "packsswb", Op_DstSrcMMX },
         { "packuswb", Op_DstSrcMMX },
-        { "paddb",    Op_DstSrcMMX },
-        { "paddd",    Op_DstSrcMMX },
-        { "paddq",    Op_DstSrcMMX },
-        { "paddsb",   Op_DstSrcMMX },
-        { "paddsw",   Op_DstSrcMMX },
-        { "paddusb",  Op_DstSrcMMX },
-        { "paddusw",  Op_DstSrcMMX },
-        { "paddw",    Op_DstSrcMMX },
-        { "palignr",  Op_DstSrcImmS },
-        { "pand",     Op_DstSrcMMX },
-        { "pandn",    Op_DstSrcMMX },
-        { "pavgb",    Op_DstSrcMMX },
-        { "pavgusb",  Op_DstSrcMMX }, // AMD 3dNow!
-        { "pavgw",    Op_DstSrcMMX },
-        { "pcmpeqb",  Op_DstSrcMMX },
-        { "pcmpeqd",  Op_DstSrcMMX },
-        { "pcmpeqw",  Op_DstSrcMMX },
-        { "pcmpgtb",  Op_DstSrcMMX },
-        { "pcmpgtd",  Op_DstSrcMMX },
-        { "pcmpgtw",  Op_DstSrcMMX },
-        { "pextrw",   Op_DstSrcImmM }, // gpr32 dest
-        { "pf2id",    Op_DstSrcMMX }, // %% AMD 3dNow! opcodes
-        { "pfacc",    Op_DstSrcMMX },
-        { "pfadd",    Op_DstSrcMMX },
-        { "pfcmpeq",  Op_DstSrcMMX },
-        { "pfcmpge",  Op_DstSrcMMX },
-        { "pfcmpgt",  Op_DstSrcMMX },
-        { "pfmax",    Op_DstSrcMMX },
-        { "pfmin",    Op_DstSrcMMX },
-        { "pfmul",    Op_DstSrcMMX },
-        { "pfnacc",   Op_DstSrcMMX }, // 3dNow values are returned in MM0 register,
-        { "pfpnacc",  Op_DstSrcMMX }, // so should be correct to use Op_DstSrcMMX.
-        { "pfrcp",    Op_DstSrcMMX },
+        { "paddb",   Op_DstSrcMMX },
+        { "paddd",   Op_DstSrcMMX },
+        { "paddq",   Op_DstSrcMMX },
+        { "paddsb",  Op_DstSrcMMX },
+        { "paddsw",  Op_DstSrcMMX },
+        { "paddusb", Op_DstSrcMMX },
+        { "paddusw", Op_DstSrcMMX },
+        { "paddw",   Op_DstSrcMMX },
+        { "palignr", Op_DstSrcImmS },
+        { "pand",    Op_DstSrcMMX },
+        { "pandn",   Op_DstSrcMMX },
+#ifdef ASM_X86_64
+        { "pause",   Op_DstSrcMMX },
+#endif
+        { "pavgb",   Op_DstSrcMMX },
+        { "pavgusb", Op_DstSrcMMX }, // AMD 3dNow!
+        { "pavgw",   Op_DstSrcMMX },
+        { "pcmpeqb", Op_DstSrcMMX },
+        { "pcmpeqd", Op_DstSrcMMX },
+        { "pcmpeqw", Op_DstSrcMMX },
+        { "pcmpgtb", Op_DstSrcMMX },
+        { "pcmpgtd", Op_DstSrcMMX },
+        { "pcmpgtw", Op_DstSrcMMX },
+        { "pextrw",  Op_DstSrcImmM }, // gpr32 dest
+        { "pf2id",   Op_DstSrcMMX }, // %% AMD 3dNow! opcodes
+        { "pfacc",   Op_DstSrcMMX },
+        { "pfadd",   Op_DstSrcMMX },
+        { "pfcmpeq", Op_DstSrcMMX },
+        { "pfcmpge", Op_DstSrcMMX },
+        { "pfcmpgt", Op_DstSrcMMX },
+        { "pfmax",   Op_DstSrcMMX },
+        { "pfmin",   Op_DstSrcMMX },
+        { "pfmul",   Op_DstSrcMMX },
+        { "pfnacc",  Op_DstSrcMMX }, // 3dNow values are returned in MM0 register,
+        { "pfpnacc", Op_DstSrcMMX }, // so should be correct to use Op_DstSrcMMX.
+        { "pfrcp",   Op_DstSrcMMX },
         { "pfrcpit1", Op_DstSrcMMX },
         { "pfrcpit2", Op_DstSrcMMX },
         { "pfrsqit1", Op_DstSrcMMX },
-        { "pfrsqrt",  Op_DstSrcMMX },
-        { "pfsub",    Op_DstSrcMMX },
-        { "pfsubr",   Op_DstSrcMMX },
-        { "pi2fd",    Op_DstSrcMMX }, // %%
-        { "pinsrw",   Op_DstSrcImmM }, // gpr32(16), mem16 src, sse too
-        { "pmaddwd",  Op_DstSrcMMX },
-        { "pmaxsw",   Op_DstSrcMMX },
-        { "pmaxub",   Op_DstSrcMMX },
-        { "pminsw",   Op_DstSrcMMX },
-        { "pminub",   Op_DstSrcMMX },
+        { "pfrsqrt", Op_DstSrcMMX },
+        { "pfsub",   Op_DstSrcMMX },
+        { "pfsubr",  Op_DstSrcMMX },
+#ifdef ASM_X86_64
+        { "phaddd",  Op_DstSrcSSE },
+        { "phaddsw", Op_DstSrcSSE },
+        { "phaddw",  Op_DstSrcSSE },
+        { "phsubd",  Op_DstSrcSSE },
+        { "phsubsw", Op_DstSrcSSE },
+        { "phsubw",  Op_DstSrcSSE },
+#endif
+        { "pi2fd",   Op_DstSrcMMX }, // %%
+        { "pinsrw",  Op_DstSrcImmM }, // gpr32(16), mem16 src, sse too
+#ifdef ASM_X86_64
+        { "pmaddubsw", Op_DstSrcSSE },
+#endif
+        { "pmaddwd", Op_DstSrcMMX },
+        { "pmaxsw",  Op_DstSrcMMX },
+        { "pmaxub",  Op_DstSrcMMX },
+        { "pminsw",  Op_DstSrcMMX },
+        { "pminub",  Op_DstSrcMMX },
         { "pmovmskb", Op_DstSrcMMX },
-        { "pmulhrw",  Op_DstSrcMMX }, // AMD 3dNow!
-        { "pmulhuw",  Op_DstSrcMMX },
-        { "pmulhw",   Op_DstSrcMMX },
-        { "pmullw",   Op_DstSrcMMX },
-        { "pmuludq",  Op_DstSrcMMX }, // also sse
-        { "pop",      Op_DstW },
-        { "popa",     Op_SizedStack },  // For intel this is always 16-bit
-        { "popad",    Op_SizedStack },  // GAS doesn't accept 'popad' -- these clobber everything, but supposedly it would be used to preserve clobbered regs
-        { "popf",     Op_0 },  // rewrite the insn with a special case
-        { "popfd",    Op_0 },
-        { "por",      Op_DstSrcMMX },
+#ifdef ASM_X86_64
+        { "pmulhrsw", Op_DstSrcMMX },
+#endif
+        { "pmulhrw", Op_DstSrcMMX }, // AMD 3dNow!
+        { "pmulhuw", Op_DstSrcMMX },
+        { "pmulhw",  Op_DstSrcMMX },
+        { "pmullw",  Op_DstSrcMMX },
+        { "pmuludq", Op_DstSrcMMX }, // also sse
+        { "pop",     Op_DstW },
+#ifndef ASM_X86_64
+        { "popa",    Op_SizedStack }, // For intel this is always 16-bit
+        { "popad",   Op_SizedStack }, // GAS doesn't accept 'popad' -- these clobber everything, but supposedly it would be used to preserve clobbered regs
+#endif
+        { "popf",    Op_0 }, // rewrite the insn with a special case
+#ifndef ASM_X86_64
+        { "popfd",   Op_0 },
+#else
+        { "popfq",   Op_0 }, // Op_SizedStack?
+        { "popq",    Op_push },
+#endif
+        { "por",     Op_DstSrcMMX },
         { "prefetchnta", Op_SrcMemNT },
         { "prefetcht0",  Op_SrcMemNT },
         { "prefetcht1",  Op_SrcMemNT },
         { "prefetcht2",  Op_SrcMemNT },
-        { "psadbw",   Op_DstSrcMMX },
-        { "pshufb",   Op_DstSrcSSE },
-        { "pshufd",   Op_DstSrcImmM },
-        { "pshufhw",  Op_DstSrcImmM },
-        { "pshuflw",  Op_DstSrcImmM },
-        { "pshufw",   Op_DstSrcImmM },
-        { "pslld",    Op_DstSrcMMX }, // immediate operands...
-        { "pslldq",   Op_DstSrcMMX },
-        { "psllq",    Op_DstSrcMMX },
-        { "psllw",    Op_DstSrcMMX },
-        { "psrad",    Op_DstSrcMMX },
-        { "psraw",    Op_DstSrcMMX },
-        { "psrld",    Op_DstSrcMMX },
-        { "psrldq",   Op_DstSrcMMX },
-        { "psrlq",    Op_DstSrcMMX },
-        { "psrlw",    Op_DstSrcMMX },
-        { "psubb",    Op_DstSrcMMX },
-        { "psubd",    Op_DstSrcMMX },
-        { "psubq",    Op_DstSrcMMX },
-        { "psubsb",   Op_DstSrcMMX },
-        { "psubsw",   Op_DstSrcMMX },
-        { "psubusb",  Op_DstSrcMMX },
-        { "psubusw",  Op_DstSrcMMX },
-        { "psubw",    Op_DstSrcMMX },
-        { "pswapd",   Op_DstSrcMMX }, // AMD 3dNow!
-        { "punpckhbw", Op_DstSrcMMX },
-        { "punpckhdq", Op_DstSrcMMX },
-        { "punpckhqdq",Op_DstSrcMMX },
-        { "punpckhwd", Op_DstSrcMMX },
-        { "punpcklbw", Op_DstSrcMMX },
-        { "punpckldq", Op_DstSrcMMX },
-        { "punpcklqdq",Op_DstSrcMMX },
-        { "punpcklwd", Op_DstSrcMMX },
-        { "push",   Op_push },
-        { "pusha",  Op_SizedStack },
-        { "pushad", Op_SizedStack },
-        { "pushf",  Op_0 },
-        { "pushfd", Op_0 },
-        { "pxor",   Op_DstSrcMMX },
-        { "rcl",    Op_Shift }, // limited src operands -- change to shift
-        { "rcpps",  Op_DstSrcSSE },
-        { "rcpss",  Op_DstSrcSSE },
-        { "rcr",    Op_Shift },
-        { "rdmsr",  Op_0_DXAX },
-        { "rdpmc",  Op_0_DXAX },
-        { "rdtsc",  Op_0_DXAX },
-        { "rep",    Op_0 },
-        { "repe",   Op_0 },
-        { "repne",  Op_0 },
-        { "repnz",  Op_0 },
-        { "repz",   Op_0 },
-        { "ret",    Op_ret },
-        { "retf",   Op_retf },
-        { "rol",    Op_Shift },
-        { "ror",    Op_Shift },
-        { "rsm",    Op_0 },
+        { "psadbw",  Op_DstSrcMMX },
+        { "pshufb",  Op_DstSrcSSE },
+#ifndef ASM_X86_64
+        { "pshufd",  Op_DstSrcImmM },
+        { "pshufhw", Op_DstSrcImmM },
+        { "pshuflw", Op_DstSrcImmM },
+        { "pshufw",  Op_DstSrcImmM },
+#else
+        { "pshufd",  Op_DstSrcImmS },
+        { "pshufhw", Op_DstSrcImmS },
+        { "pshuflw", Op_DstSrcImmS },
+        { "pshufw",  Op_DstSrcImmS },
+        { "psignb",  Op_DstSrcSSE },
+        { "psignd",  Op_DstSrcSSE },
+        { "psignw",  Op_DstSrcSSE },
+#endif
+        { "pslld",   Op_DstSrcMMX }, // immediate operands...
+        { "pslldq",  Op_DstSrcMMX },
+        { "psllq",   Op_DstSrcMMX },
+        { "psllw",   Op_DstSrcMMX },
+        { "psrad",   Op_DstSrcMMX },
+        { "psraw",   Op_DstSrcMMX },
+        { "psrld",   Op_DstSrcMMX },
+        { "psrldq",  Op_DstSrcMMX },
+        { "psrlq",   Op_DstSrcMMX },
+        { "psrlw",   Op_DstSrcMMX },
+        { "psubb",   Op_DstSrcMMX },
+        { "psubd",   Op_DstSrcMMX },
+        { "psubq",   Op_DstSrcMMX },
+        { "psubsb",  Op_DstSrcMMX },
+        { "psubsw",  Op_DstSrcMMX },
+        { "psubusb", Op_DstSrcMMX },
+        { "psubusw", Op_DstSrcMMX },
+        { "psubw",   Op_DstSrcMMX },
+        { "pswapd",  Op_DstSrcMMX }, // AMD 3dNow!
+        { "punpckhbw",  Op_DstSrcMMX },
+        { "punpckhdq",  Op_DstSrcMMX },
+        { "punpckhqdq", Op_DstSrcMMX },
+        { "punpckhwd",  Op_DstSrcMMX },
+        { "punpcklbw",  Op_DstSrcMMX },
+        { "punpckldq",  Op_DstSrcMMX },
+        { "punpcklqdq", Op_DstSrcMMX },
+        { "punpcklwd",  Op_DstSrcMMX },
+        { "push",    Op_push },
+#ifndef ASM_X86_64
+        { "pusha",   Op_SizedStack },
+        { "pushad",  Op_SizedStack },
+#endif
+        { "pushf",   Op_0 },
+#ifndef ASM_X86_64
+        { "pushfd",  Op_0 },
+#else
+        { "pushfq",  Op_0 }, // Op_SizedStack?
+        { "pushq",   Op_push },
+#endif
+        { "pxor",    Op_DstSrcMMX },
+        { "rcl",     Op_Shift }, // limited src operands -- change to shift
+        { "rcpps",   Op_DstSrcSSE },
+        { "rcpss",   Op_DstSrcSSE },
+        { "rcr",     Op_Shift },
+        { "rdmsr",   Op_0_DXAX },
+        { "rdpmc",   Op_0_DXAX },
+        { "rdtsc",   Op_0_DXAX },
+        { "rep",     Op_0 },
+        { "repe",    Op_0 },
+        { "repne",   Op_0 },
+        { "repnz",   Op_0 },
+        { "repz",    Op_0 },
+        { "ret",     Op_ret },
+        { "retf",    Op_retf },
+#ifdef ASM_X86_64
+        { "retn",    Op_retf },
+#endif
+        { "rol",     Op_Shift },
+        { "ror",     Op_Shift },
+        { "rsm",     Op_0 },
         { "rsqrtps", Op_DstSrcSSE },
         { "rsqrtss", Op_DstSrcSSE },
-        { "sahf",   Op_Flags },
-        { "sal",    Op_Shift },
-        { "sar",    Op_Shift },
-        { "sbb",    Op_UpdSrcF },
-        { "scas",   Op_scas },
-        { "scasb",  Op_scasX },
-        { "scasd",  Op_scasX },
-        { "scasw",  Op_scasX },
-        { "seta",   Op_DstRMBNT }, // also gpr8
-        { "setae",  Op_DstRMBNT },
-        { "setb",   Op_DstRMBNT },
-        { "setbe",  Op_DstRMBNT },
-        { "setc",   Op_DstRMBNT },
-        { "sete",   Op_DstRMBNT },
-        { "setg",   Op_DstRMBNT },
-        { "setge",  Op_DstRMBNT },
-        { "setl",   Op_DstRMBNT },
-        { "setle",  Op_DstRMBNT },
-        { "setna",  Op_DstRMBNT },
-        { "setnae", Op_DstRMBNT },
-        { "setnb",  Op_DstRMBNT },
-        { "setnbe", Op_DstRMBNT },
-        { "setnc",  Op_DstRMBNT },
-        { "setne",  Op_DstRMBNT },
-        { "setng",  Op_DstRMBNT },
-        { "setnge", Op_DstRMBNT },
-        { "setnl",  Op_DstRMBNT },
-        { "setnle", Op_DstRMBNT },
-        { "setno",  Op_DstRMBNT },
-        { "setnp",  Op_DstRMBNT },
-        { "setns",  Op_DstRMBNT },
-        { "setnz",  Op_DstRMBNT },
-        { "seto",   Op_DstRMBNT },
-        { "setp",   Op_DstRMBNT },
-        { "setpe",  Op_DstRMBNT },
-        { "setpo",  Op_DstRMBNT },
-        { "sets",   Op_DstRMBNT },
-        { "setz",   Op_DstRMBNT },
-        { "sfence", Op_0 },
-        { "sgdt",   Op_DstMemNT },
-        { "shl",    Op_Shift },
-        { "shld",   Op_UpdSrcShft },
-        { "shr",    Op_Shift },
-        { "shrd",   Op_UpdSrcShft },
-        { "shufpd", Op_DstSrcImmS },
-        { "shufps", Op_DstSrcImmS },
-        { "sidt",   Op_DstMemNT },
-        { "sldt",   Op_DstRMWNT },
-        { "smsw",   Op_DstRMWNT },
-        { "sqrtpd", Op_DstSrcSSE },
-        { "sqrtps", Op_DstSrcSSE },
-        { "sqrtsd", Op_DstSrcSSE },
-        { "sqrtss", Op_DstSrcSSE },
-        { "stc",    Op_Flags },
-        { "std",    Op_Flags },
-        { "sti",    Op_Flags },
-        { "stmxcsr",Op_DstMemNT },
-        { "stos",   Op_stos },
-        { "stosb",  Op_stosX },
-        { "stosd",  Op_stosX },
-        { "stosw",  Op_stosX },
-        { "str",    Op_DstMemNT }, // also r16
-        { "sub",    Op_UpdSrcF },
-        { "subpd",  Op_DstSrcSSE },
-        { "subps",  Op_DstSrcSSE },
-        { "subsd",  Op_DstSrcSSE },
-        { "subss",  Op_DstSrcSSE },
+        { "sahf",    Op_Flags },
+        { "sal",     Op_Shift },
+#ifdef ASM_X86_64
+        { "salq",    Op_DstSrcNT },
+#endif
+        { "sar",     Op_Shift },
+        { "sbb",     Op_UpdSrcF },
+        { "scas",    Op_scas },
+        { "scasb",   Op_scasX },
+        { "scasd",   Op_scasX },
+#ifdef ASM_X86_64
+        { "scasq",   Op_scasX },
+#endif
+        { "scasw",   Op_scasX },
+        { "seta",    Op_DstRMBNT }, // also gpr8
+        { "setae",   Op_DstRMBNT },
+        { "setb",    Op_DstRMBNT },
+        { "setbe",   Op_DstRMBNT },
+        { "setc",    Op_DstRMBNT },
+        { "sete",    Op_DstRMBNT },
+        { "setg",    Op_DstRMBNT },
+        { "setge",   Op_DstRMBNT },
+        { "setl",    Op_DstRMBNT },
+        { "setle",   Op_DstRMBNT },
+        { "setna",   Op_DstRMBNT },
+        { "setnae",  Op_DstRMBNT },
+        { "setnb",   Op_DstRMBNT },
+        { "setnbe",  Op_DstRMBNT },
+        { "setnc",   Op_DstRMBNT },
+        { "setne",   Op_DstRMBNT },
+        { "setng",   Op_DstRMBNT },
+        { "setnge",  Op_DstRMBNT },
+        { "setnl",   Op_DstRMBNT },
+        { "setnle",  Op_DstRMBNT },
+        { "setno",   Op_DstRMBNT },
+        { "setnp",   Op_DstRMBNT },
+        { "setns",   Op_DstRMBNT },
+        { "setnz",   Op_DstRMBNT },
+        { "seto",    Op_DstRMBNT },
+        { "setp",    Op_DstRMBNT },
+        { "setpe",   Op_DstRMBNT },
+        { "setpo",   Op_DstRMBNT },
+        { "sets",    Op_DstRMBNT },
+        { "setz",    Op_DstRMBNT },
+        { "sfence",  Op_0 },
+        { "sgdt",    Op_DstMemNT },
+        { "shl",     Op_Shift },
+        { "shld",    Op_UpdSrcShft },
+        { "shr",     Op_Shift },
+        { "shrd",    Op_UpdSrcShft },
+        { "shufpd",  Op_DstSrcImmS },
+        { "shufps",  Op_DstSrcImmS },
+        { "sidt",    Op_DstMemNT },
+        { "sldt",    Op_DstRMWNT },
+        { "smsw",    Op_DstRMWNT },
+        { "sqrtpd",  Op_DstSrcSSE },
+        { "sqrtps",  Op_DstSrcSSE },
+        { "sqrtsd",  Op_DstSrcSSE },
+        { "sqrtss",  Op_DstSrcSSE },
+        { "stc",     Op_Flags },
+        { "std",     Op_Flags },
+        { "sti",     Op_Flags },
+        { "stmxcsr", Op_DstMemNT },
+        { "stos",    Op_stos },
+        { "stosb",   Op_stosX },
+        { "stosd",   Op_stosX },
+#ifdef ASM_X86_64
+        { "stosq",   Op_stosX },
+#endif
+        { "stosw",   Op_stosX },
+        { "str",     Op_DstMemNT }, // also r16
+        { "sub",     Op_UpdSrcF },
+        { "subpd",   Op_DstSrcSSE },
+        { "subps",   Op_DstSrcSSE },
+#ifdef ASM_X86_64
+        { "subq",    Op_DstSrcSSE },
+#endif
+        { "subsd",   Op_DstSrcSSE },
+        { "subss",   Op_DstSrcSSE },
+#ifdef ASM_X86_64
+        { "swapgs",  Op_0 },
+#endif
         { "syscall", Op_0 },
-        { "sysenter",Op_0 },
+        { "sysenter", Op_0 },
         { "sysexit", Op_0 },
         { "sysret",  Op_0 },
+#ifdef ASM_X86_64
+        { "sysretq", Op_0 },
+#endif
         { "test",    Op_SrcSrcF },
         { "ucomisd", Op_SrcSrcSSEF },
         { "ucomiss", Op_SrcSrcSSEF },
@@ -1152,33 +1415,38 @@ namespace AsmParserx8632
         { "unpckhps", Op_DstSrcSSE },
         { "unpcklpd", Op_DstSrcSSE },
         { "unpcklps", Op_DstSrcSSE },
-        { "verr",   Op_SrcMemNTF },
-        { "verw",   Op_SrcMemNTF },
-        { "wait",   Op_0 },
-        { "wbinvd", Op_0 },
-        { "wrmsr",  Op_0 },
-        { "xadd",   Op_UpdUpdF },
-        { "xchg",   Op_UpdUpd },
-        { "xgetbv", Op_xgetbv },
-        { "xlat",   Op_xlat },
-        { "xlatb",  Op_0_AX },
-        { "xor",    Op_DstSrcF },
-        { "xorpd",  Op_DstSrcSSE },
-        { "xorps",  Op_DstSrcSSE },
+        { "verr",    Op_SrcMemNTF },
+        { "verw",    Op_SrcMemNTF },
+#ifndef ASM_X86_64
+        { "wait",    Op_0 },
+#endif
+        { "wbinvd",  Op_0 },
+        { "wrmsr",   Op_0 },
+        { "xadd",    Op_UpdUpdF },
+        { "xchg",    Op_UpdUpd },
+        { "xgetbv",  Op_xgetbv },
+        { "xlat",    Op_xlat },
+        { "xlatb",   Op_0_AX },
+        { "xor",     Op_DstSrcF },
+        { "xorpd",   Op_DstSrcSSE },
+        { "xorps",   Op_DstSrcSSE },
+#ifdef ASM_X86_64
+        { "xorq",    Op_DstSrcNT },
+#endif
     };
 
     typedef enum
     {
-        Default_Ptr = 0,
-        Byte_Ptr = 1,
-        Short_Ptr = 2,
-        Int_Ptr = 4,
-        QWord_Ptr =  8,
-        Float_Ptr = 4,
-        Double_Ptr = 8,
+        Default_Ptr  =  0,
+        Byte_Ptr     =  1,
+        Short_Ptr    =  2,
+        Int_Ptr      =  4,
+        QWord_Ptr    =  8,
+        Float_Ptr    =  4,
+        Double_Ptr   =  8,
         Extended_Ptr = 10,
-        Near_Ptr = 98,
-        Far_Ptr = 99,
+        Near_Ptr     = 98,
+        Far_Ptr      = 99,
         N_PtrTypes
     } PtrType;
 
@@ -1412,15 +1680,19 @@ namespace AsmParserx8632
             opInfo = & asmOpInfo[op];
             memset ( operands, 0, sizeof ( operands ) );
 
-            if ( token->value == TOKeof && (op == Op_FMath0 ))
+            if ( token->value == TOKeof && op == Op_FMath0 )
             {
+#ifndef ASM_X86_64
                 for (operand_i = 0; operand_i < 0; operand_i++)
+#else
+                for (operand_i = 0; operand_i < 1; operand_i++)
+#endif
                 {
                     operand = & operands[operand_i];
                     operand->reg = operand->baseReg = operand->indexReg =
                                                           operand->segmentPrefix = Reg_Invalid;
                     operand->cls = Opr_Reg;
-                    if (operand_i == 0)
+                    if ( operand_i == 0 )
                     {
                         operand->reg = Reg_ST;
                     }
@@ -1439,7 +1711,6 @@ namespace AsmParserx8632
                         if ( formatInstruction ( operand_i, asmcode ) )
                             stmt->asmcode = ( code * ) asmcode;
                     }
-
                 }
                 return;
             }
@@ -1551,7 +1822,11 @@ namespace AsmParserx8632
                         if ( e->type->isunsigned() )
                             insnTemplate << "$" << e->toUInteger();
                         else
+#ifndef ASM_X86_64
                             insnTemplate << "$" << (sinteger_t)e->toInteger();
+#else
+                            insnTemplate << "$" << e->toInteger();
+#endif
                         break;
 
                     case Arg_Pointer:
@@ -1572,7 +1847,8 @@ namespace AsmParserx8632
 
                                 // osx needs an extra underscore
                                 if ( global.params.os == OSMacOSX || global.params.os == OSWindows )
-                                	insnTemplate << "_";
+                                    insnTemplate << "_";
+
                                 // print out the mangle
                                 insnTemplate << vd->mangle();
                                 vd->nakedUse = true;
@@ -1679,8 +1955,16 @@ namespace AsmParserx8632
                         operand->dataSize = Byte_Ptr;
                     else if ( operand->constDisplacement < 0x10000 )
                         operand->dataSize = Short_Ptr;
+#ifndef ASM_X86_64
                     else
                         operand->dataSize = Int_Ptr;
+#else
+                    else if ( operand->constDisplacement <= 0xFFFFFFFF )
+                        operand->dataSize = Int_Ptr;
+                    else
+                        //This could be possible since we are using 48 bits
+                        operand->dataSize = QWord_Ptr;
+#endif
                 }
                 return Opr_Immediate;
             }
@@ -1724,6 +2008,9 @@ namespace AsmParserx8632
                         case Byte_Ptr:  type_suffix = 'b'; break;
                         case Short_Ptr: type_suffix = 'w'; break;
                         case Int_Ptr:   type_suffix = 'l'; break;
+#ifdef ASM_X86_64
+                        case QWord_Ptr: type_suffix = 'q'; break;
+#endif
                         default:
                             // %% these may be too strict
                             return false;
@@ -1781,6 +2068,22 @@ namespace AsmParserx8632
                     stmt->error("instruction allows only ST as second argument");
             }
 
+#ifdef ASM_X86_64
+            if ( op == Op_FCmpFlgP )
+            {
+                // Explicitly add %st as second argument to fucomip – it should
+                // be implicit, but the GNU as shipping with Mac OS X (Apple Inc
+                // version cctools-800~26, GNU assembler version 1.38) chokes on
+                // it otherwise.
+                assert ( nOperands == 1 );
+                nOperands = 2;
+                operands[1] = operands[0];
+                memset ( operands, 0, sizeof( Operand ) );
+                operands[0].cls = Opr_Reg;
+                operands[0].reg = Reg_ST;
+            }
+#endif
+
             if ( opInfo->needsType )
             {
                 PtrType exact_type = Default_Ptr;
@@ -1801,7 +2104,11 @@ namespace AsmParserx8632
                     case FP_Types:    min_type = Float_Ptr; break;
                 }
                 if ( op == Op_push && operands[0].cls == Opr_Immediate )
+#ifndef ASM_X86_64
                     min_type = Int_Ptr;
+#else
+                    min_type = QWord_Ptr;
+#endif
 
                 for ( int i = 0; i < nOperands; i++ )
                 {
@@ -1954,6 +2261,12 @@ namespace AsmParserx8632
                     if ( type_suffix != "b" )
                         asmcode->regs[Reg_EDX] = true;
                     break;
+#ifdef ASM_X86_64
+                case Clb_SizeRDXRAX:
+                    asmcode->regs[Reg_RAX] = true;
+                    asmcode->regs[Reg_RDX] = true;
+                    break;
+#endif
                 default:
                     // nothing
                     break;
@@ -2153,8 +2466,13 @@ namespace AsmParserx8632
 
                                 if ( operand->indexReg == Reg_Invalid &&
                                         decl->isVarDeclaration() &&
+#ifndef ASM_X86_64
                                         ( ( operand->baseReg == Reg_EBP && ! sc->func->naked ) ||
-                                          ( operand->baseReg == Reg_ESP && sc->func->naked ) ) )
+                                          ( operand->baseReg == Reg_ESP &&   sc->func->naked ) ) )
+#else
+                                        ( ( ( operand->baseReg == Reg_EBP || operand->baseReg == Reg_RBP ) && ! sc->func->naked ) ||
+                                          ( ( operand->baseReg == Reg_ESP || operand->baseReg == Reg_RSP ) && ! sc->func->naked ) ) )
+#endif
                                 {
 
                                     e = new AddrExp ( 0, e );
@@ -2169,7 +2487,11 @@ namespace AsmParserx8632
                                     {
                                         e = new AddExp ( 0, e,
                                                          new IntegerExp ( 0, operand->constDisplacement,
+#ifndef ASM_X86_64
                                                                           Type::tint32 ) );
+#else
+                                                                          Type::tint64 ) );
+#endif
                                         e->type = decl->type->pointerTo();
                                     }
                                     e = new PtrExp ( 0, e );
@@ -2216,7 +2538,7 @@ namespace AsmParserx8632
                                 {
                                     use_star = false;
                                     // simply write out the mangle
-                                    // on osx and mingw, prepend extra _
+                                    // on osx and windows, prepend extra _
                                     if ( global.params.os == OSMacOSX || global.params.os == OSWindows )
                                         insnTemplate << "_";
                                     insnTemplate << decl->mangle();
@@ -2302,11 +2624,19 @@ namespace AsmParserx8632
             return e;
         }
 
+#ifndef ASM_X86_64
         Expression * newIntExp ( int v /* %% type */ )
         {
             // Only handles 32-bit numbers as this is IA-32.
             return new IntegerExp ( stmt->loc, v, Type::tint32 );
         }
+#else
+        Expression * newIntExp ( long long v /* %% type */ )
+        {
+            // Handle 64 bit
+            return new IntegerExp ( stmt->loc, v, Type::tint64 );
+        }
+#endif
 
         void slotExp ( Expression * exp )
         {
@@ -2681,7 +3011,11 @@ namespace AsmParserx8632
                 case TOKint8: return Byte_Ptr;
                 case TOKint16: return Short_Ptr;
                 case TOKint32: return Int_Ptr;
-                    // 'long ptr' isn't accepted?
+#ifndef ASM_X86_64
+                // 'long ptr' isn't accepted?
+#else
+                case TOKint64: return QWord_Ptr;
+#endif
                 case TOKfloat32: return Float_Ptr;
                 case TOKfloat64: return Double_Ptr;
                 case TOKfloat80: return Extended_Ptr;
@@ -2777,8 +3111,12 @@ namespace AsmParserx8632
                 case TOKint64v:
                 case TOKuns64v:
                     // semantic here?
+#ifndef ASM_X86_64
                     // %% for tok64 really should use 64bit type
                     e = new IntegerExp ( stmt->loc, token->uns64value, Type::tint32 );
+#else
+                    e = new IntegerExp ( stmt->loc, token->uns64value, Type::tint64 );
+#endif
                     nextToken();
                     break;
                 case TOKfloat32v:
@@ -2977,6 +3315,7 @@ namespace AsmParserx8632
             static const char * directives[] = { ".byte", ".short", ".long", ".long",
                                                  "", "", ""
                                                };
+
                 machine_mode mode;
 
                 insnTemplate->writestring(static_cast<char*>(directives[op - Op_db]));
