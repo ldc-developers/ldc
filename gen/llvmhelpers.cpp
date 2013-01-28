@@ -397,13 +397,19 @@ void DtoLeaveMonitor(LLValue* v)
 
 // is this a good approach at all ?
 
-void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
+void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
 {
     Logger::println("DtoAssign()");
     LOG_SCOPE;
 
     Type* t = lhs->getType()->toBasetype();
     Type* t2 = rhs->getType()->toBasetype();
+
+    if (t->ty == Tvoid) {
+        // This is a frontend regression in DMD 2.061; should be removed once
+        // DMD Bugzilla issue 9268 is fixed.
+        error(loc, "Cannot assign values of type void.");
+    }
 
     if (t->ty == Tstruct) {
         DtoAggrCopy(lhs->getLVal(), rhs->getRVal());
@@ -418,7 +424,9 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
             else if (DtoArrayElementType(t)->equals(stripModifiers(t2))) {
                 DtoArrayInit(loc, s, rhs, op);
             }
-            else if (op != -1 && op != TOKblit && arrayNeedsPostblit(t)) {
+            else if (op != -1 && op != TOKblit && !canSkipPostblit &&
+                arrayNeedsPostblit(t)
+            ) {
                 DtoArrayAssign(s, rhs, op);
             }
 #endif
@@ -456,7 +464,9 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op)
         else if (DtoArrayElementType(t)->equals(stripModifiers(t2))) {
             DtoArrayInit(loc, lhs, rhs, op);
         }
-        else if (op != -1 && op != TOKblit && arrayNeedsPostblit(t)) {
+        else if (op != -1 && op != TOKblit && !canSkipPostblit &&
+            arrayNeedsPostblit(t)
+        ) {
             DtoArrayAssign(lhs, rhs, op);
         }
 #endif

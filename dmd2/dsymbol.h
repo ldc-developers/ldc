@@ -120,6 +120,9 @@ enum PROT
     PROTexport,
 };
 
+// this is used for printing the protection in json, traits, docs, etc.
+static const char* Pprotectionnames[] = {NULL, "none", "private", "package", "protected", "public", "export"};
+
 /* State of symbol in winding its way through the passes of the compiler
  */
 enum PASS
@@ -148,15 +151,20 @@ struct Dsymbol : Object
     Loc loc;                    // where defined
     Scope *scope;               // !=NULL means context to use for semantic()
     bool errors;                // this symbol failed to pass semantic()
+    char *depmsg;               // customized deprecation message
+    Expressions *userAttributes;        // user defined attributes from UserAttributeDeclaration
 
     Dsymbol();
     Dsymbol(Identifier *);
     char *toChars();
+    Loc& getLoc();
     char *locToChars();
     int equals(Object *o);
     int isAnonymous();
-    void error(Loc loc, const char *format, ...) IS_PRINTF(3);
-    void error(const char *format, ...) IS_PRINTF(2);
+    void error(Loc loc, const char *format, ...);
+    void error(const char *format, ...);
+    void deprecation(Loc loc, const char *format, ...);
+    void deprecation(const char *format, ...);
     void checkDeprecated(Loc loc, Scope *sc);
     Module *getModule();        // module where declared
     Module *getAccessModule();
@@ -189,13 +197,14 @@ struct Dsymbol : Object
     char *toHChars();
     virtual void toHBuffer(OutBuffer *buf, HdrGenState *hgs);
     virtual void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    virtual void toDocBuffer(OutBuffer *buf);
+    virtual void toDocBuffer(OutBuffer *buf, Scope *sc);
     virtual void toJsonBuffer(OutBuffer *buf);
     virtual unsigned size(Loc loc);
     virtual int isforwardRef();
     virtual void defineRef(Dsymbol *s);
     virtual AggregateDeclaration *isThis();     // is a 'this' required to access the member
     AggregateDeclaration *isAggregateMember();  // are we a member of an aggregate?
+    AggregateDeclaration *isAggregateMember2(); // are we a member of an aggregate?
     ClassDeclaration *isClassMember();          // are we a member of a class?
     virtual int isExport();                     // is Dsymbol exported?
     virtual int isImportedSymbol();             // is Dsymbol imported?

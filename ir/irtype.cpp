@@ -169,6 +169,28 @@ IrTypePointer* IrTypePointer::get(Type* dt)
     }
     else
     {
+        if (dt->nextOf()->ty == Tfunction)
+        {
+            TypeFunction* tf = static_cast<TypeFunction*>(dt->nextOf());
+            if (tf->funcdecl)
+            {
+                if (FuncLiteralDeclaration* fld =
+                    tf->funcdecl->isFuncLiteralDeclaration())
+                {
+                    if (fld->tok == TOKreserved)
+                    {
+                        // This is the type of a lambda that was inferred to be
+                        // a function literal instead of a delegate, so set tok
+                        // here in order to get correct types/mangling. Horrible
+                        // hack, but DMD does the same thing in FuncExp::toElem
+                        // and other random places.
+                        fld->tok = TOKfunction;
+                        fld->vthis = NULL;
+                    }
+                }
+            }
+        }
+
         elemType = DtoTypeNotVoid(dt->nextOf());
 
         // DtoTypeNotVoid could have already created the same type, e.g. for

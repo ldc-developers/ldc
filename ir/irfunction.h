@@ -40,8 +40,18 @@ struct IRTargetScope
     llvm::BasicBlock* breakTarget;
     llvm::BasicBlock* continueTarget;
 
+    /// If true, the breakTarget is only considered if it is explicitly
+    /// specified (via s), and not for unqualified "break;" statements.
+    bool onlyLabeledBreak;
+
     IRTargetScope();
-    IRTargetScope(Statement* s, EnclosingHandler* enclosinghandler, llvm::BasicBlock* continueTarget, llvm::BasicBlock* breakTarget);
+    IRTargetScope(
+        Statement* s,
+        EnclosingHandler* enclosinghandler,
+        llvm::BasicBlock* continueTarget,
+        llvm::BasicBlock* breakTarget,
+        bool onlyLabeledBreak = false
+    );
 };
 
 struct FuncGen

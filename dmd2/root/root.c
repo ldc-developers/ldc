@@ -8,7 +8,7 @@
 // See the included readme.txt for details.
 
 #ifndef POSIX
-#define POSIX (linux || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun&&__SVR4)
+#define POSIX (linux || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun)
 #endif
 
 #include <stdio.h>
@@ -20,7 +20,7 @@
 #include <assert.h>
 #include <ctype.h>
 
-#if (defined (__SVR4) && defined (__sun))
+#if defined (__sun)
 #include <alloca.h>
 #endif
 
@@ -62,68 +62,6 @@ extern "C" void __cdecl _assert(void *e, void *f, unsigned line)
 #endif
 
 
-/*************************************
- * Convert wchar string to ascii string.
- */
-
-char *wchar2ascii(wchar_t *us)
-{
-    return wchar2ascii(us, wcslen(us));
-}
-
-char *wchar2ascii(wchar_t *us, unsigned len)
-{
-    unsigned i;
-    char *p;
-
-    p = (char *)mem.malloc(len + 1);
-    for (i = 0; i <= len; i++)
-        p[i] = (char) us[i];
-    return p;
-}
-
-int wcharIsAscii(wchar_t *us)
-{
-    return wcharIsAscii(us, wcslen(us));
-}
-
-int wcharIsAscii(wchar_t *us, unsigned len)
-{
-    unsigned i;
-
-    for (i = 0; i <= len; i++)
-    {
-        if (us[i] & ~0xFF)      // if high bits set
-            return 0;           // it's not ascii
-    }
-    return 1;
-}
-
-
-/***********************************
- * Compare length-prefixed strings (bstr).
- */
-
-int bstrcmp(unsigned char *b1, unsigned char *b2)
-{
-    return (*b1 == *b2 && memcmp(b1 + 1, b2 + 1, *b2) == 0) ? 0 : 1;
-}
-
-/***************************************
- * Convert bstr into a malloc'd string.
- */
-
-char *bstr2str(unsigned char *b)
-{
-    char *s;
-    unsigned len;
-
-    len = *b;
-    s = (char *) mem.malloc(len + 1);
-    s[len] = 0;
-    return (char *)memcpy(s,b + 1,len);
-}
-
 /**************************************
  * Print error message and exit.
  */
@@ -140,11 +78,6 @@ void error(const char *format, ...)
     fflush(stdout);
 
     exit(EXIT_FAILURE);
-}
-
-void error_mem()
-{
-    error("out of memory");
 }
 
 /**************************************
@@ -206,10 +139,9 @@ void Object::mark()
 
 /****************************** String ********************************/
 
-String::String(char *str, int ref)
+String::String(char *str)
+    : str(mem.strdup(str))
 {
-    this->str = ref ? str : mem.strdup(str);
-    this->ref = ref;
 }
 
 String::~String()
@@ -269,7 +201,7 @@ hash_t String::hashCode()
     return calcHash(str, strlen(str));
 }
 
-unsigned String::len()
+size_t String::len()
 {
     return strlen(str);
 }
@@ -297,8 +229,8 @@ void String::print()
 
 /****************************** FileName ********************************/
 
-FileName::FileName(char *str, int ref)
-    : String(str,ref)
+FileName::FileName(char *str)
+    : String(str)
 {
 }
 
@@ -330,11 +262,6 @@ char *FileName::combine(const char *path, const char *name)
 #endif
     memcpy(f + pathlen, name, namelen + 1);
     return f;
-}
-
-FileName::FileName(char *path, char *name)
-    : String(combine(path,name),1)
-{
 }
 
 // Split a path into an Array of paths
@@ -684,7 +611,7 @@ FileName *FileName::defaultExt(const char *name, const char *ext)
 
     e = FileName::ext(name);
     if (e)                              // if already has an extension
-        return new FileName((char *)name, 0);
+        return new FileName((char *)name);
 
     len = strlen(name);
     extlen = strlen(ext);
@@ -692,7 +619,7 @@ FileName *FileName::defaultExt(const char *name, const char *ext)
     memcpy(s,name,len);
     s[len] = '.';
     memcpy(s + len + 1, ext, extlen + 1);
-    return new FileName(s, 0);
+    return new FileName(s);
 }
 
 /***************************
@@ -714,7 +641,7 @@ FileName *FileName::forceExt(const char *name, const char *ext)
         s = (char *)alloca(len + extlen + 1);
         memcpy(s,name,len);
         memcpy(s + len, ext, extlen + 1);
-        return new FileName(s, 0);
+        return new FileName(s);
     }
     else
         return defaultExt(name, ext);   // doesn't have one
@@ -986,9 +913,20 @@ char *FileName::canonicalName(const char *name)
   #endif
 #elif _WIN32
     /* Apparently, there is no good way to do this on Windows.
-     * GetFullPathName isn't it.
+     * GetFullPathName isn't it, but use it anyway.
      */
-    assert(0);
+    DWORD result = GetFullPathName(name, 0, NULL, NULL);
+    if (result)
+    {
+        char *buf = (char *)malloc(result);
+        result = GetFullPathName(name, result, buf, NULL);
+        if (result == 0)
+        {
+            free(buf);
+            return NULL;
+        }
+        return buf;
+    }
     return NULL;
 #else
     assert(0);
@@ -1014,7 +952,7 @@ File::File(char *n)
     buffer = NULL;
     len = 0;
     touchtime = NULL;
-    name = new FileName(n, 0);
+    name = new FileName(n);
 }
 
 File::~File()
@@ -1354,7 +1292,7 @@ err:
 void File::readv()
 {
     if (read())
-        error("Error reading file '%s'\n",name->toChars());
+        error("Error reading file '%s'",name->toChars());
 }
 
 /**************************************
@@ -1369,13 +1307,13 @@ void File::mmreadv()
 void File::writev()
 {
     if (write())
-        error("Error writing file '%s'\n",name->toChars());
+        error("Error writing file '%s'",name->toChars());
 }
 
 void File::appendv()
 {
     if (write())
-        error("Error appending to file '%s'\n",name->toChars());
+        error("Error appending to file '%s'",name->toChars());
 }
 
 /*******************************************
@@ -1424,7 +1362,7 @@ void File::remove()
 
 Files *File::match(char *n)
 {
-    return match(new FileName(n, 0));
+    return match(new FileName(n));
 }
 
 Files *File::match(FileName *n)
@@ -1524,6 +1462,10 @@ OutBuffer::OutBuffer()
     data = NULL;
     offset = 0;
     size = 0;
+
+    doindent = 0;
+    level = 0;
+    linehead = 1;
 }
 
 OutBuffer::~OutBuffer()
@@ -1547,7 +1489,7 @@ void OutBuffer::mark()
     mem.mark(data);
 }
 
-void OutBuffer::reserve(unsigned nbytes)
+void OutBuffer::reserve(size_t nbytes)
 {
     //printf("OutBuffer::reserve: size = %d, offset = %d, nbytes = %d\n", size, offset, nbytes);
     if (size - offset < nbytes)
@@ -1562,13 +1504,26 @@ void OutBuffer::reset()
     offset = 0;
 }
 
-void OutBuffer::setsize(unsigned size)
+void OutBuffer::setsize(size_t size)
 {
     offset = size;
 }
 
-void OutBuffer::write(const void *data, unsigned nbytes)
+void OutBuffer::write(const void *data, size_t nbytes)
 {
+    if (doindent && linehead)
+    {
+        if (level)
+        {
+            reserve(level);
+            for (size_t i=0; i<level; i++)
+            {
+                this->data[offset] = '\t';
+                offset++;
+            }
+        }
+        linehead = 0;
+    }
     reserve(nbytes);
     memcpy(this->data + offset, data, nbytes);
     offset += nbytes;
@@ -1585,9 +1540,8 @@ void OutBuffer::writestring(const char *string)
 }
 
 void OutBuffer::prependstring(const char *string)
-{   unsigned len;
-
-    len = strlen(string);
+{
+    size_t len = strlen(string);
     reserve(len);
     memmove(data + len, data, offset);
     memcpy(data, string, len);
@@ -1601,10 +1555,26 @@ void OutBuffer::writenl()
 #else
     writeByte('\n');
 #endif
+    if (doindent)
+        linehead = 1;
 }
 
 void OutBuffer::writeByte(unsigned b)
 {
+    if (doindent && linehead
+        && b != '\n')
+    {
+        if (level)
+        {
+            reserve(level);
+            for (size_t i=0; i<level; i++)
+            {
+                this->data[offset] = '\t';
+                offset++;
+            }
+        }
+        linehead = 0;
+    }
     reserve(1);
     this->data[offset] = (unsigned char)b;
     offset++;
@@ -1672,6 +1642,24 @@ void OutBuffer::prependbyte(unsigned b)
 
 void OutBuffer::writeword(unsigned w)
 {
+    if (doindent && linehead
+#if _WIN32
+        && w != 0x0A0D)
+#else
+        && w != '\n')
+#endif
+    {
+        if (level)
+        {
+            reserve(level);
+            for (size_t i=0; i<level; i++)
+            {
+                this->data[offset] = '\t';
+                offset++;
+            }
+        }
+        linehead = 0;
+    }
     reserve(2);
     *(unsigned short *)(this->data + offset) = (unsigned short)w;
     offset += 2;
@@ -1697,6 +1685,24 @@ void OutBuffer::writeUTF16(unsigned w)
 
 void OutBuffer::write4(unsigned w)
 {
+    if (doindent && linehead
+#if _WIN32
+        && w != 0x000A000D)
+#else
+        )
+#endif
+    {
+        if (level)
+        {
+            reserve(level);
+            for (size_t i=0; i<level; i++)
+            {
+                this->data[offset] = '\t';
+                offset++;
+            }
+        }
+        linehead = 0;
+    }
     reserve(4);
     *(unsigned *)(this->data + offset) = w;
     offset += 4;
@@ -1719,17 +1725,16 @@ void OutBuffer::write(Object *obj)
     }
 }
 
-void OutBuffer::fill0(unsigned nbytes)
+void OutBuffer::fill0(size_t nbytes)
 {
     reserve(nbytes);
     memset(data + offset,0,nbytes);
     offset += nbytes;
 }
 
-void OutBuffer::align(unsigned size)
-{   unsigned nbytes;
-
-    nbytes = ((offset + size - 1) & ~(size - 1)) - offset;
+void OutBuffer::align(size_t size)
+{
+    size_t nbytes = ((offset + size - 1) & ~(size - 1)) - offset;
     fill0(nbytes);
 }
 
@@ -1831,7 +1836,7 @@ void OutBuffer::bracket(char left, char right)
  * Return index just past right.
  */
 
-unsigned OutBuffer::bracket(unsigned i, const char *left, unsigned j, const char *right)
+size_t OutBuffer::bracket(size_t i, const char *left, size_t j, const char *right)
 {
     size_t leftlen = strlen(left);
     size_t rightlen = strlen(right);
@@ -1841,7 +1846,7 @@ unsigned OutBuffer::bracket(unsigned i, const char *left, unsigned j, const char
     return j + leftlen + rightlen;
 }
 
-void OutBuffer::spread(unsigned offset, unsigned nbytes)
+void OutBuffer::spread(size_t offset, size_t nbytes)
 {
     reserve(nbytes);
     memmove(data + offset + nbytes, data + offset,
@@ -1853,14 +1858,14 @@ void OutBuffer::spread(unsigned offset, unsigned nbytes)
  * Returns: offset + nbytes
  */
 
-unsigned OutBuffer::insert(unsigned offset, const void *p, unsigned nbytes)
+size_t OutBuffer::insert(size_t offset, const void *p, size_t nbytes)
 {
     spread(offset, nbytes);
     memmove(data + offset, p, nbytes);
     return offset + nbytes;
 }
 
-void OutBuffer::remove(unsigned offset, unsigned nbytes)
+void OutBuffer::remove(size_t offset, size_t nbytes)
 {
     memmove(data + offset, data + offset + nbytes, this->offset - (offset + nbytes));
     this->offset -= nbytes;
@@ -1872,6 +1877,7 @@ char *OutBuffer::toChars()
     return (char *)data;
 }
 
+// TODO: Remove (only used by disabled GC)
 /********************************* Bits ****************************/
 
 Bits::Bits()
@@ -1964,18 +1970,3 @@ void Bits::sub(Bits *b)
     for (u = 0; u < allocdim; u++)
         data[u] &= ~b->data[u];
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

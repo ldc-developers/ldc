@@ -87,7 +87,7 @@ void DtoEnterMonitor(LLValue* v);
 void DtoLeaveMonitor(LLValue* v);
 
 // basic operations
-void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op = -1);
+void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op = -1, bool canSkipPostblit = false);
 
 /// Create a null DValue.
 DValue* DtoNullValue(Type* t);

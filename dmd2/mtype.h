@@ -108,6 +108,8 @@ enum ENUMTY
     Treturn,
     Tnull,
     Tvector,
+    Tint128,
+    Tuns128,
     TMAX
 };
 typedef unsigned char TY;       // ENUMTY
@@ -163,6 +165,8 @@ struct Type : Object
     #define tuns32      basic[Tuns32]
     #define tint64      basic[Tint64]
     #define tuns64      basic[Tuns64]
+    #define tint128     basic[Tint128]
+    #define tuns128     basic[Tuns128]
     #define tfloat32    basic[Tfloat32]
     #define tfloat64    basic[Tfloat64]
     #define tfloat80    basic[Tfloat80]
@@ -271,7 +275,7 @@ struct Type : Object
     virtual int isunsigned();
     virtual int isscope();
     virtual int isString();
-    virtual int isAssignable();
+    virtual int isAssignable(int blit = 0);
     virtual int checkBoolean(); // if can be converted to boolean value
     virtual void checkDeprecated(Loc loc, Scope *sc);
     int isConst()       { return mod & MODconst; }
@@ -342,6 +346,7 @@ struct Type : Object
     virtual Type *nextOf();
     uinteger_t sizemask();
     virtual int needsDestruction();
+    virtual bool needsNested();
 
 
     static void error(Loc loc, const char *format, ...) IS_PRINTF(2);
@@ -466,6 +471,10 @@ struct TypeVector : Type
     int isZeroInit(Loc loc);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     TypeTuple *toArgTypes();
+
+#if IN_DMD
+    type *toCtype();
+#endif
 };
 
 struct TypeArray : TypeNext
@@ -505,6 +514,7 @@ struct TypeSArray : TypeArray
     Expression *toExpression();
     int hasPointers();
     int needsDestruction();
+    bool needsNested();
     TypeTuple *toArgTypes();
 #if CPP_MANGLE
     void toCppMangle(OutBuffer *buf, CppMangleState *cms);
@@ -671,6 +681,7 @@ struct TypeFunction : TypeNext
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     void purityLevel();
+    bool hasMutableIndirectionParams();
     void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
     void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
     void toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, HdrGenState* hgs, TypeFunction *attrs, TemplateDeclaration *td);
@@ -686,7 +697,7 @@ struct TypeFunction : TypeNext
     bool parameterEscapes(Parameter *p);
     Type *addStorageClass(StorageClass stc);
 
-    int callMatch(Expression *ethis, Expressions *toargs, int flag = 0);
+    MATCH callMatch(Expression *ethis, Expressions *toargs, int flag = 0);
 #if IN_DMD
     type *toCtype();
 #endif
@@ -751,6 +762,7 @@ struct TypeQualified : Type
 struct TypeIdentifier : TypeQualified
 {
     Identifier *ident;
+    Dsymbol *originalSymbol; // The symbol representing this identifier, before alias resolution
 
     TypeIdentifier(Loc loc, Identifier *ident);
     Type *syntaxCopy();
@@ -824,9 +836,10 @@ struct TypeStruct : Type
     Expression *defaultInitLiteral(Loc loc);
     Expression *voidInitLiteral(VarDeclaration *var);
     int isZeroInit(Loc loc);
-    int isAssignable();
+    int isAssignable(int blit = 0);
     int checkBoolean();
     int needsDestruction();
+    bool needsNested();
 #if IN_DMD
     dt_t **toDt(dt_t **pdt);
 #endif
@@ -875,8 +888,9 @@ struct TypeEnum : Type
     int isscalar();
     int isunsigned();
     int checkBoolean();
-    int isAssignable();
+    int isAssignable(int blit = 0);
     int needsDestruction();
+    bool needsNested();
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
     Type *toBasetype();
@@ -919,8 +933,9 @@ struct TypeTypedef : Type
     int isscalar();
     int isunsigned();
     int checkBoolean();
-    int isAssignable();
+    int isAssignable(int blit = 0);
     int needsDestruction();
+    bool needsNested();
     Type *toBasetype();
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
@@ -1050,6 +1065,7 @@ struct Parameter : Object
     Parameter *syntaxCopy();
     Type *isLazyArray();
     void toDecoBuffer(OutBuffer *buf, bool mangle);
+    int dyncast() { return DYNCAST_PARAMETER; } // kludge for template.isType()
     static Parameters *arraySyntaxCopy(Parameters *args);
     static char *argsTypesToChars(Parameters *args, int varargs);
     static void argsCppMangle(OutBuffer *buf, CppMangleState *cms, Parameters *arguments, int varargs);
@@ -1059,8 +1075,8 @@ struct Parameter : Object
     static size_t dim(Parameters *arguments);
     static Parameter *getNth(Parameters *arguments, size_t nth, size_t *pn = NULL);
 
-    typedef int (*ForeachDg)(void *ctx, size_t paramidx, Parameter *param, int flags);
-    static int foreach(Parameters *args, ForeachDg dg, void *ctx, size_t *pn=NULL, int flags = 0);
+    typedef int (*ForeachDg)(void *ctx, size_t paramidx, Parameter *param);
+    static int foreach(Parameters *args, ForeachDg dg, void *ctx, size_t *pn=NULL);
 };
 
 extern int PTRSIZE;
@@ -1076,5 +1092,6 @@ void MODtoBuffer(OutBuffer *buf, unsigned char mod);
 int MODimplicitConv(unsigned char modfrom, unsigned char modto);
 int MODmethodConv(unsigned char modfrom, unsigned char modto);
 int MODmerge(unsigned char mod1, unsigned char mod2);
+void identifierToDocBuffer(Identifier* ident, OutBuffer *buf, HdrGenState *hgs);
 
 #endif /* DMD_MTYPE_H */

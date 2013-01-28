@@ -515,9 +515,7 @@ LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var, llvm::BasicBlock* b
 
 LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::BasicBlock* bb)
 {
-    LLSmallVector<LLValue*,2> v(2);
-    v[0] = i0;
-    v[1] = i1;
+    LLValue* v[2] = { i0, i1 };
     return llvm::GetElementPtrInst::Create(ptr, v, var?var:"tmp", bb?bb:gIR->scopebb());
 }
 
@@ -532,9 +530,7 @@ LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* b
 
 LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::BasicBlock* bb)
 {
-    LLSmallVector<LLValue*,2> v(2);
-    v[0] = DtoConstUint(i0);
-    v[1] = DtoConstUint(i1);
+    LLValue* v[2] = { DtoConstUint(i0), DtoConstUint(i1) };
     return llvm::GetElementPtrInst::Create(ptr, v, var?var:"tmp", bb?bb:gIR->scopebb());
 }
 
@@ -550,13 +546,13 @@ LLConstant* DtoGEPi(LLConstant* ptr, unsigned i0, unsigned i1)
 
 void DtoMemSet(LLValue* dst, LLValue* val, LLValue* nbytes)
 {
-    dst = DtoBitCast(dst,getVoidPtrType());
+    LLType* VoidPtrTy = getVoidPtrType();
 
-    LLType* intTy = DtoSize_t();
-    LLType *VoidPtrTy = getVoidPtrType();
-    LLType *Tys[2] ={VoidPtrTy, intTy};
+    dst = DtoBitCast(dst, VoidPtrTy);
+
+    LLType* Tys[] = { VoidPtrTy, DtoSize_t() };
     llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
-                llvm::Intrinsic::memset, llvm::makeArrayRef(Tys, 2));
+                                                         llvm::Intrinsic::memset, Tys);
 
     gIR->ir->CreateCall5(fn, dst, val, nbytes, DtoConstUint(1), DtoConstBool(false), "");
 }
@@ -572,14 +568,14 @@ void DtoMemSetZero(LLValue* dst, LLValue* nbytes)
 
 void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes, unsigned align)
 {
-    dst = DtoBitCast(dst,getVoidPtrType());
-    src = DtoBitCast(src,getVoidPtrType());
+    LLType* VoidPtrTy = getVoidPtrType();
 
-    LLType* intTy = DtoSize_t();
-    LLType *VoidPtrTy = getVoidPtrType();
-    LLType *Tys[3] ={VoidPtrTy, VoidPtrTy, intTy};
+    dst = DtoBitCast(dst, VoidPtrTy);
+    src = DtoBitCast(src, VoidPtrTy);
+
+    LLType* Tys[] ={ VoidPtrTy, VoidPtrTy, DtoSize_t() };
     llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
-        llvm::Intrinsic::memcpy, llvm::makeArrayRef(Tys, 3));
+                                                         llvm::Intrinsic::memcpy, Tys);
 
     gIR->ir->CreateCall5(fn, dst, src, nbytes, DtoConstUint(align), DtoConstBool(false), "");
 }
@@ -590,19 +586,18 @@ LLValue* DtoMemCmp(LLValue* lhs, LLValue* rhs, LLValue* nbytes)
 {
     // int memcmp ( const void * ptr1, const void * ptr2, size_t num );
 
+    LLType* VoidPtrTy = getVoidPtrType();
     LLFunction* fn = gIR->module->getFunction("memcmp");
     if (!fn)
     {
-        std::vector<LLType*> params(3);
-        params[0] = getVoidPtrType();
-        params[1] = getVoidPtrType();
-        params[2] = DtoSize_t();
-        LLFunctionType* fty = LLFunctionType::get(LLType::getInt32Ty(gIR->context()), params, false);
+        LLType* Tys[] = { VoidPtrTy, VoidPtrTy, DtoSize_t() };
+        LLFunctionType* fty = LLFunctionType::get(LLType::getInt32Ty(gIR->context()),
+                                                  Tys, false);
         fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, "memcmp", gIR->module);
     }
 
-    lhs = DtoBitCast(lhs,getVoidPtrType());
-    rhs = DtoBitCast(rhs,getVoidPtrType());
+    lhs = DtoBitCast(lhs, VoidPtrTy);
+    rhs = DtoBitCast(rhs, VoidPtrTy);
 
     return gIR->ir->CreateCall3(fn, lhs, rhs, nbytes, "tmp");
 }
@@ -971,13 +966,13 @@ LLStructType* DtoInterfaceInfoType()
         return gIR->interfaceInfoType;
 
     // build interface info type
-    std::vector<LLType*> types;
+    LLSmallVector<LLType*, 3> types;
     // ClassInfo classinfo
     ClassDeclaration* cd2 = ClassDeclaration::classinfo;
     DtoResolveClass(cd2);
     types.push_back(DtoType(cd2->type));
     // void*[] vtbl
-    std::vector<LLType*> vtbltypes;
+    LLSmallVector<LLType*, 2> vtbltypes;
     vtbltypes.push_back(DtoSize_t());
     LLType* byteptrptrty = getPtrToType(getPtrToType(LLType::getInt8Ty(gIR->context())));
     vtbltypes.push_back(byteptrptrty);
@@ -1006,20 +1001,19 @@ LLStructType* DtoMutexType()
         llvm::Type *Int32Ty = llvm::Type::getInt32Ty(gIR->context());
 
         // Build RTL_CRITICAL_SECTION; size is 24 (32bit) or 40 (64bit)
-        std::vector<LLType*> rtl_types;
-        rtl_types.push_back(VoidPtrTy); // Pointer to DebugInfo
-        rtl_types.push_back(Int32Ty);   // LockCount
-        rtl_types.push_back(Int32Ty);   // RecursionCount
-        rtl_types.push_back(VoidPtrTy); // Handle of OwningThread
-        rtl_types.push_back(VoidPtrTy); // Handle of LockSemaphore
-        rtl_types.push_back(VoidPtrTy); // SpinCount
+        LLType *rtl_types[] = {
+            VoidPtrTy, // Pointer to DebugInfo
+            Int32Ty,   // LockCount
+            Int32Ty,   // RecursionCount
+            VoidPtrTy, // Handle of OwningThread
+            VoidPtrTy, // Handle of LockSemaphore
+            VoidPtrTy  // SpinCount
+        };
         LLStructType* rtl = LLStructType::create(gIR->context(), rtl_types, "RTL_CRITICAL_SECTION");
 
         // Build D_CRITICAL_SECTION; size is 28 (32bit) or 48 (64bit)
-        LLStructType* mutex = LLStructType::create(gIR->context(), "D_CRITICAL_SECTION");
-        std::vector<LLType*> types;
-        types.push_back(getPtrToType(mutex));
-        types.push_back(rtl);
+        LLStructType *mutex = LLStructType::create(gIR->context(), "D_CRITICAL_SECTION");
+        LLType *types[] = { getPtrToType(mutex), rtl };
         mutex->setBody(types);
 
         // Cache type
@@ -1035,25 +1029,25 @@ LLStructType* DtoMutexType()
     }
 
     // pthread_fastlock
-    std::vector<LLType*> types2;
-    types2.push_back(DtoSize_t());
-    types2.push_back(LLType::getInt32Ty(gIR->context()));
-    LLStructType* fastlock = LLStructType::get(gIR->context(), types2);
+    LLType *types2[] = {
+        DtoSize_t(),
+        LLType::getInt32Ty(gIR->context()) 
+    };
+    LLStructType* fastlock = LLStructType::get(gIR->context(), types2, false);
 
     // pthread_mutex
-    std::vector<LLType*> types1;
-    types1.push_back(LLType::getInt32Ty(gIR->context()));
-    types1.push_back(LLType::getInt32Ty(gIR->context()));
-    types1.push_back(getVoidPtrType());
-    types1.push_back(LLType::getInt32Ty(gIR->context()));
-    types1.push_back(fastlock);
-    LLStructType* pmutex = LLStructType::get(gIR->context(), types1);
+    LLType *types1[] = {
+        LLType::getInt32Ty(gIR->context()),
+        LLType::getInt32Ty(gIR->context()),
+        getVoidPtrType(),
+        LLType::getInt32Ty(gIR->context()),
+        fastlock
+    };
+    LLStructType* pmutex = LLStructType::get(gIR->context(), types1, false);
 
     // D_CRITICAL_SECTION
     LLStructType* mutex = LLStructType::create(gIR->context(), "D_CRITICAL_SECTION");
-    std::vector<LLType*> types;
-    types.push_back(getPtrToType(mutex));
-    types.push_back(pmutex);
+    LLType *types[] = { getPtrToType(mutex), pmutex };
     mutex->setBody(types);
 
     // Cache type
@@ -1073,13 +1067,14 @@ LLStructType* DtoModuleReferenceType()
     LLStructType* st = LLStructType::create(gIR->context(), "ModuleReference");
 
     // add members
-    std::vector<LLType*> types;
-    types.push_back(getPtrToType(st));
+    LLType *types[] = {
+        getPtrToType(st),
 #if DMDV1
-    types.push_back(DtoType(Module::moduleinfo->type));
+        DtoType(Module::moduleinfo->type)
 #else
-    types.push_back(DtoType(Module::moduleinfo->type->pointerTo()));
+        DtoType(Module::moduleinfo->type->pointerTo())
 #endif
+    };
 
     // resolve type
     st->setBody(types);
@@ -1100,10 +1095,8 @@ LLValue* DtoAggrPair(LLType* type, LLValue* V1, LLValue* V2, const char* name)
 
 LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name)
 {
-    llvm::SmallVector<LLType*, 2> types;
-    types.push_back(V1->getType());
-    types.push_back(V2->getType());
-    LLType* t = LLStructType::get(gIR->context(), types);
+    LLType *types[] = {  V1->getType(), V2->getType() };
+    LLType *t = LLStructType::get(gIR->context(), types, false);
     return DtoAggrPair(t, V1, V2, name);
 }
 

@@ -597,12 +597,10 @@ DValue* AssignExp::toElem(IRState* p)
                 // Note that the variable value is accessed directly (instead
                 // of via getLValue(), which would perform a load from the
                 // uninitialized location), and that rhs is stored as an l-value!
-
-                IrLocal* const local = ve->var->ir.irLocal;
-                assert(local && "ref var must be local and already initialized");
-
+                DVarValue* lhs = e1->toElem(p)->isVar();
+                assert(lhs);
                 DValue* rhs = e2->toElem(p);
-                DtoStore(rhs->getLVal(), local->value);
+                DtoStore(rhs->getLVal(), lhs->getRefStorage());
                 return rhs;
             }
         }
@@ -625,8 +623,16 @@ DValue* AssignExp::toElem(IRState* p)
         return r;
     }
 
-    Logger::println("performing normal assignment");
-    DtoAssign(loc, l, r, op);
+    bool canSkipPostblit = false;
+    if (!(e2->op == TOKslice && ((UnaExp *)e2)->e1->isLvalue()) &&
+        !(e2->op == TOKcast && ((UnaExp *)e2)->e1->isLvalue()) &&
+        (e2->op == TOKslice || !e2->isLvalue()))
+    {
+        canSkipPostblit = true;
+    }
+
+    Logger::println("performing normal assignment (canSkipPostblit = %d)", canSkipPostblit);
+    DtoAssign(loc, l, r, op, canSkipPostblit);
 
     if (l->isSlice())
         return l;
@@ -2689,13 +2695,22 @@ DValue* FuncExp::toElem(IRState* p)
 
     assert(fd);
 
+    if (fd->tok == TOKreserved && type->ty == Tpointer)
+    {
+        // This is a lambda that was inferred to be a function literal instead
+        // of a delegate, so set tok here in order to get correct types/mangling.
+        // Horrible hack, but DMD does the same thing.
+        fd->tok = TOKfunction;
+        fd->vthis = NULL;
+    }
+
     if (fd->isNested()) Logger::println("nested");
     Logger::println("kind = %s", fd->kind());
 
     fd->codegen(Type::sir);
     assert(fd->ir.irFunc->func);
 
-    if(fd->isNested() && !(fd->tok == TOKreserved && type->ty == Tpointer && fd->vthis)) {
+    if (fd->isNested()) {
         LLType* dgty = DtoType(type);
 
         LLValue* cval;
@@ -2745,7 +2760,18 @@ LLConstant* FuncExp::toConstElem(IRState* p)
     LOG_SCOPE;
 
     assert(fd);
-    if (fd->tok != TOKfunction && !(fd->tok == TOKreserved && type->ty == Tpointer && fd->vthis))
+
+    if (fd->tok == TOKreserved && type->ty == Tpointer)
+    {
+        // This is a lambda that was inferred to be a function literal instead
+        // of a delegate, so set tok here in order to get correct types/mangling.
+        // Horrible hack, but DMD does the same thing in FuncExp::toElem and
+        // other random places.
+        fd->tok = TOKfunction;
+        fd->vthis = NULL;
+    }
+
+    if (fd->tok != TOKfunction)
     {
         assert(fd->tok == TOKdelegate || fd->tok == TOKreserved);
         error("delegate literals as constant expressions are not yet allowed");
@@ -2897,6 +2923,21 @@ DValue* StructLiteralExp::toElem(IRState* p)
     Logger::print("StructLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+    if (sinit)
+    {
+        // Copied from VarExp::toElem, need to clean this mess up.
+        Type* sdecltype = sinit->type->toBasetype();
+        Logger::print("Sym: type = %s\n", sdecltype->toChars());
+        assert(sdecltype->ty == Tstruct);
+        TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
+        assert(ts->sym);
+        ts->sym->codegen(Type::sir);
+
+        LLValue* initsym = ts->sym->ir.irStruct->getInitSymbol();
+        initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
+        return new DVarValue(type, initsym);
+    }
+
     // make sure the struct is fully resolved
     sd->codegen(Type::sir);
 
@@ -2965,6 +3006,9 @@ DValue* StructLiteralExp::toElem(IRState* p)
         // store the initializer there
         DtoAssign(loc, &field, val, TOKconstruct);
 
+        if (expr)
+            callPostblit(loc, expr, field.getLVal());
+
         // Also zero out padding bytes counted as being part of the type in DMD
         // but not in LLVM; e.g. real/x86_fp80.
         int implicitPadding =
@@ -2975,24 +3019,6 @@ DValue* StructLiteralExp::toElem(IRState* p)
             Logger::println("zeroing %d padding bytes", implicitPadding);
             voidptr = write_zeroes(voidptr, offset - implicitPadding, offset);
         }
-
-#if DMDV2
-        Type *tb = vd->type->toBasetype();
-        if (tb->ty == Tstruct)
-        {
-            // Call postBlit()
-            StructDeclaration *sd = static_cast<TypeStruct *>(tb)->sym;
-            if (sd->postblit)
-            {
-                FuncDeclaration *fd = sd->postblit;
-                fd->codegen(Type::sir);
-                Expressions args;
-                DFuncValue dfn(fd, fd->ir.irFunc->func, val->getLVal());
-                DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
-            }
-        }
-#endif
-
     }
     // initialize trailing padding
     if (sd->structsize != offset)
@@ -3008,6 +3034,18 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
 {
     Logger::print("StructLiteralExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
+
+    if (sinit)
+    {
+        // Copied from VarExp::toConstElem, need to clean this mess up.
+        Type* sdecltype = sinit->type->toBasetype();
+        Logger::print("Sym: type=%s\n", sdecltype->toChars());
+        assert(sdecltype->ty == Tstruct);
+        TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
+        ts->sym->codegen(Type::sir);
+
+        return ts->sym->ir.irStruct->getDefaultInit();
+    }
 
     // make sure the struct is resolved
     sd->codegen(Type::sir);
@@ -3120,7 +3158,8 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
 
         llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assocarrayliteralTX");
         LLFunctionType* funcTy = func->getFunctionType();
-        LLValue* aaTypeInfo = DtoTypeInfoOf(stripModifiers(aatype));
+        LLValue* aaTypeInfo = DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype)),
+            DtoType(Type::typeinfoassociativearray->type));
 
         LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
 

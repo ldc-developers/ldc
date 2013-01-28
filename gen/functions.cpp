@@ -612,7 +612,16 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     llvm::AttrListPtr oldAttrs = func->getAttributes();
 #endif
     for (size_t i = 0; i < oldAttrs.getNumSlots(); ++i) {
+#if LDC_LLVM_VER >= 303
+        const unsigned Index = oldAttrs.getSlotIndex(i);
+        llvm::AttrBuilder &builder = llvm::AttrBuilder(oldAttrs.getSlotAttributes(i), Index).addAttribute(llvm::Attribute::None);
+        llvm::AttributeWithIndex curr = llvm::AttributeWithIndex::get(Index,
+                                                                      llvm::Attribute::get(
+                                                                          gIR->context(),
+                                                                          builder));
+#else
         llvm::AttributeWithIndex curr = oldAttrs.getSlot(i);
+#endif
 
         bool found = false;
         for (size_t j = 0; j < newSize; ++j) {
@@ -713,7 +722,14 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     fdecl->ir.irFunc->func = func;
 
     // calling convention
-    if (!vafunc && fdecl->llvmInternal != LLVMintrinsic)
+    if (!vafunc && fdecl->llvmInternal != LLVMintrinsic
+#if DMDV2
+        // DMD treats _Dmain as having C calling convention and this has been
+        // hardcoded into druntime, even if the frontend type has D linkage.
+        // See Bugzilla issue 9028.
+        && !fdecl->isMain()
+#endif
+        )
         func->setCallingConv(DtoCallingConv(fdecl->loc, f->linkage));
     else // fall back to C, it should be the right thing to do
         func->setCallingConv(llvm::CallingConv::C);

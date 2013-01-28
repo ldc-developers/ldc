@@ -24,16 +24,6 @@
 #include "id.h"
 #include "module.h"
 
-#if __FreeBSD__
-extern "C"
-{
-    longdouble sinl(longdouble);
-    longdouble cosl(longdouble);
-    longdouble tanl(longdouble);
-    longdouble sqrtl(longdouble);
-}
-#endif
-
 #if DMDV2
 
 /**********************************
@@ -46,7 +36,7 @@ enum BUILTIN FuncDeclaration::isBuiltin()
     static const char FeZe2[] = "FNaNbNeeZe";      // @trusted pure nothrow real function(real)
     static const char FuintZint[] = "FNaNbNfkZi";  // @safe pure nothrow int function(uint)
     static const char FuintZuint[] = "FNaNbNfkZk"; // @safe pure nothrow uint function(uint)
-    static const char FulongZulong[] = "FNaNbkZk"; // pure nothrow int function(ulong)
+    //static const char FulongZulong[] = "FNaNbkZk"; // pure nothrow int function(ulong)
     static const char FulongZint[] = "FNaNbNfmZi"; // @safe pure nothrow int function(uint)
     static const char FrealrealZreal [] = "FNaNbNfeeZe";  // @safe pure nothrow real function(real, real)
     static const char FrealZlong [] = "FNaNbNfeZl";  // @safe pure nothrow long function(real)
@@ -228,6 +218,7 @@ Expression *eval_builtin(Loc loc, enum BUILTIN builtin, Expressions *arguments)
             if (arg0->op == TOKint64)
                 e = new IntegerExp(loc, eval_bswap(arg0), arg0->type);
             break;
+        default: break;
     }
     return e;
 }

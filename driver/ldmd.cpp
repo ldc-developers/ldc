@@ -69,7 +69,7 @@ namespace ls = llvm::sys;
 
 // We reuse DMD's response file parsing routine for maximum compatibilty - it
 // handles quotes in a very peciuliar way.
-int response_expand(int *pargc, char ***pargv);
+int response_expand(size_t *pargc, char ***pargv);
 void browse(const char *url);
 
 /**
@@ -395,10 +395,10 @@ struct Params
  * Parses the flags from the given command line and the DFLAGS environment
  * variable into a Params struct.
  */
-Params parseArgs(int originalArgc, char** originalArgv, ls::Path ldcPath)
+Params parseArgs(size_t originalArgc, char** originalArgv, ls::Path ldcPath)
 {
     // Expand any response files present into the list of arguments.
-    int argc = originalArgc;
+    size_t argc = originalArgc;
     char** argv = originalArgv;
     if (response_expand(&argc, &argv))
     {
@@ -682,7 +682,7 @@ Params parseArgs(int originalArgc, char** originalArgv, ls::Path ldcPath)
             else if (strcmp(p + 1, "run") == 0)
             {
                 result.run = true;
-                int runargCount = (((int)i >= originalArgc) ? argc : originalArgc) - i - 1;
+                int runargCount = ((i >= originalArgc) ? argc : originalArgc) - i - 1;
                 if (runargCount)
                 {
                     result.files.push_back(argv[i + 1]);
@@ -800,6 +800,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     pushSwitches("-L=", p.linkerSwitches, r);
     if (p.defaultLibName) r.push_back(concat("-defaultlib=", p.defaultLibName));
     if (p.debugLibName) r.push_back(concat("-debuglib=", p.debugLibName));
+    if (p.moduleDepsFile) r.push_back(concat("-deps=", p.moduleDepsFile));
     if (p.hiddenDebugB) r.push_back("-hidden-debug-b");
     if (p.hiddenDebugC) r.push_back("-hidden-debug-c");
     if (p.hiddenDebugF) r.push_back("-hidden-debug-f");

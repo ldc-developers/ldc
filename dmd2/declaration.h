@@ -152,13 +152,13 @@ struct Declaration : Dsymbol
     void semantic(Scope *sc);
     const char *kind();
     unsigned size(Loc loc);
-    void checkModify(Loc loc, Scope *sc, Type *t);
+    int checkModify(Loc loc, Scope *sc, Type *t);
 
     Dsymbol *search(Loc loc, Identifier *ident, int flags);
 
     void emitComment(Scope *sc);
     void toJsonBuffer(OutBuffer *buf);
-    void toDocBuffer(OutBuffer *buf);
+    void toDocBuffer(OutBuffer *buf, Scope *sc);
 
     char *mangle();
     int isStatic() { return storage_class & STCstatic; }
@@ -236,7 +236,7 @@ struct TypedefDeclaration : Declaration
     Type *htype;
     Type *hbasetype;
 
-    void toDocBuffer(OutBuffer *buf);
+    void toDocBuffer(OutBuffer *buf, Scope *sc);
 
 #if IN_DMD
     void toObjFile(int multiobj);                       // compile to .obj file
@@ -278,7 +278,7 @@ struct AliasDeclaration : Declaration
     Type *htype;
     Dsymbol *haliassym;
 
-    void toDocBuffer(OutBuffer *buf);
+    void toDocBuffer(OutBuffer *buf, Scope *sc);
 
     AliasDeclaration *isAliasDeclaration() { return this; }
 };
@@ -289,7 +289,7 @@ struct VarDeclaration : Declaration
 {
     Initializer *init;
     unsigned offset;
-    int noscope;                 // no auto semantics
+    bool noscope;                // no auto semantics
 #if DMDV2
     FuncDeclarations nestedrefs; // referenced by these lexically nested functions
     bool isargptr;              // if parameter that _argptr points to
@@ -297,15 +297,15 @@ struct VarDeclaration : Declaration
     int nestedref;              // referenced by a lexically nested function
 #endif
     structalign_t alignment;
-    int ctorinit;               // it has been initialized in a ctor
-    int onstack;                // 1: it has been allocated on the stack
+    bool ctorinit;              // it has been initialized in a ctor
+    short onstack;              // 1: it has been allocated on the stack
                                 // 2: on stack, run destructor anyway
     int canassign;              // it can be assigned to
     Dsymbol *aliassym;          // if redone as alias to another symbol
 
     // When interpreting, these point to the value (NULL if value not determinable)
     // The index of this variable on the CTFE stack, -1 if not allocated
-    size_t ctfeAdrOnStack;
+    int ctfeAdrOnStack;
     // The various functions are used only to detect compiler CTFE bugs
     Expression *getValue();
     bool hasValue();
@@ -766,16 +766,20 @@ struct FuncDeclaration : Declaration
     Declaration *overnext;              // next in overload list
     Loc endloc;                         // location of closing curly bracket
     int vtblIndex;                      // for member functions, index into vtbl[]
-    int naked;                          // !=0 if naked
+    bool naked;                         // !=0 if naked
     ILS inlineStatusStmt;
     ILS inlineStatusExp;
     int inlineNest;                     // !=0 if nested inline
-    int isArrayOp;                      // !=0 if array operation
+#if IN_LLVM
+    char isArrayOp;                     // 1 if compiler-generated array op, 2 if druntime-provided
+#else
+    bool isArrayOp;                     // !=0 if array operation
+#endif
     enum PASS semanticRun;
     int semantic3Errors;                // !=0 if errors in semantic3
                                         // this function's frame ptr
     ForeachStatement *fes;              // if foreach body, this is the foreach
-    int introducing;                    // !=0 if 'introducing' function
+    bool introducing;                   // !=0 if 'introducing' function
     Type *tintro;                       // if !=NULL, then this is the type
                                         // of the 'introducing' function
                                         // this one is overriding
@@ -789,11 +793,13 @@ struct FuncDeclaration : Declaration
                                         // 8 if there's inline asm
 
     // Support for NRVO (named return value optimization)
-    int nrvo_can;                       // !=0 means we can do it
+    bool nrvo_can;                      // !=0 means we can do it
     VarDeclaration *nrvo_var;           // variable to replace with shidden
 #if IN_DMD
     Symbol *shidden;                    // hidden pointer passed to function
 #endif
+
+    ReturnStatements *returns;
 
 #if DMDV2
     enum BUILTIN builtin;               // set if this is a known, builtin
@@ -802,6 +808,7 @@ struct FuncDeclaration : Declaration
 
     int tookAddressOf;                  // set if someone took the address of
                                         // this function
+    bool requiresClosure;               // this function needs a closure
     VarDeclarations closureVars;        // local variables in this function
                                         // which are referenced by nested
                                         // functions
@@ -870,7 +877,7 @@ struct FuncDeclaration : Declaration
     int canInline(int hasthis, int hdrscan = false, int statementsToo = true);
     Expression *expandInline(InlineScanState *iss, Expression *ethis, Expressions *arguments, Statement **ps);
     const char *kind();
-    void toDocBuffer(OutBuffer *buf);
+    void toDocBuffer(OutBuffer *buf, Scope *sc);
     FuncDeclaration *isUnique();
     void checkNestedReference(Scope *sc, Loc loc);
     int needsClosure();
@@ -990,6 +997,7 @@ struct CtorDeclaration : FuncDeclaration
     int isVirtual();
     int addPreInvariant();
     int addPostInvariant();
+    bool isImplicit;  // implicitly generated ctor
 
     CtorDeclaration *isCtorDeclaration() { return this; }
 };
@@ -997,8 +1005,7 @@ struct CtorDeclaration : FuncDeclaration
 #if DMDV2
 struct PostBlitDeclaration : FuncDeclaration
 {
-    PostBlitDeclaration(Loc loc, Loc endloc, StorageClass stc = STCundefined);
-    PostBlitDeclaration(Loc loc, Loc endloc, Identifier *id);
+    PostBlitDeclaration(Loc loc, Loc endloc, StorageClass stc, Identifier *id);
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);

@@ -352,6 +352,7 @@ Msgtable msgtable[] =
     { "isArithmetic" },
     { "isAssociativeArray" },
     { "isFinalClass" },
+    { "isPOD" },
     { "isFloating" },
     { "isIntegral" },
     { "isScalar" },
@@ -367,6 +368,7 @@ Msgtable msgtable[] =
     { "isLazy" },
     { "hasMember" },
     { "identifier" },
+    { "getProtection" },
     { "parent" },
     { "getMember" },
     { "getOverloads" },
@@ -378,6 +380,7 @@ Msgtable msgtable[] =
     { "isSame" },
     { "compiles" },
     { "parameters" },
+    { "getAttributes" },
 };
 
 
