@@ -20,6 +20,7 @@
 #include "gen/logger.h"
 #include "gen/dvalue.h"
 #include "gen/abi-generic.h"
+#include "gen/abi-ppc64.h"
 #include "gen/abi-x86.h"
 #include "gen/abi-x86-64.h"
 #include "ir/irfunction.h"
@@ -74,6 +75,8 @@ TargetABI * TargetABI::getTarget()
         return getX86TargetABI();
     case ARCHx86_64:
         return getX86_64TargetABI();
+    case ARCHppc_64:
+        return getPPC64TargetABI();
     default:
         Logger::cout() << "WARNING: Unknown ABI, guessing...\n";
         return new UnknownTargetABI;
