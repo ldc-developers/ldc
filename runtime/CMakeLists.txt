@@ -7,7 +7,7 @@ cmake_minimum_required(VERSION 2.6)
 #
 
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   60)
+set(DMDFE_PATCH_VERSION   61)
 set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERSION})
 
 set(MULTILIB              OFF                                       CACHE BOOL    "Build both 32/64 bit runtime libraries")
