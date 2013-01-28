@@ -2471,32 +2471,13 @@ namespace AsmParserx8664
                                           ( operand->baseReg == Reg_ESP &&   sc->func->naked ) ) )
 #else
                                         ( ( ( operand->baseReg == Reg_EBP || operand->baseReg == Reg_RBP ) && ! sc->func->naked ) ||
-                                          ( ( operand->baseReg == Reg_ESP || operand->baseReg == Reg_RSP ) && ! sc->func->naked ) ) )
+                                          ( ( operand->baseReg == Reg_ESP || operand->baseReg == Reg_RSP ) &&   sc->func->naked ) ) )
 #endif
                                 {
 
                                     e = new AddrExp ( 0, e );
                                     e->type = decl->type->pointerTo();
 
-#if !IN_LLVM
-                                    /* DMD uses the same frame offsets for naked functions. */
-                                    if ( sc->func->naked )
-                                        operand->constDisplacement += 4;
-
-                                    if ( operand->constDisplacement )
-                                    {
-                                        e = new AddExp ( 0, e,
-                                                         new IntegerExp ( 0, operand->constDisplacement,
-#ifndef ASM_X86_64
-                                                                          Type::tint32 ) );
-#else
-                                                                          Type::tint64 ) );
-#endif
-                                        e->type = decl->type->pointerTo();
-                                    }
-                                    e = new PtrExp ( 0, e );
-                                    e->type = decl->type;
-#endif
                                     operand->constDisplacement = 0;
                                     operand->baseReg = Reg_Invalid;
 
