@@ -450,13 +450,6 @@ namespace AsmParserx8664
 #endif
         unsigned link;
 
-        /*
-        bool takesLabel()
-        {
-            return operands[0] & Opr_Label;
-        }
-        */
-
         unsigned nOperands()
         {
             if ( !operands[0] )
@@ -526,7 +519,6 @@ namespace AsmParserx8664
 #define D    Opr_Dest
 #define U    Opr_Update
 #define N    Opr_NoType
-//#define L    Opr_Label
 
 // D=dest, N=notype
     static AsmOpInfo asmOpInfo[N_AsmOpInfo] =
@@ -692,7 +684,6 @@ namespace AsmParserx8664
 #undef D
 #undef U
 #undef N
-//#undef L
 
     typedef struct
     {
@@ -1682,6 +1673,7 @@ namespace AsmParserx8664
 
             if ( token->value == TOKeof && op == Op_FMath0 )
             {
+                // FIXME: verify - no iteration for x86 vs. single iteration for x64
 #ifndef ASM_X86_64
                 for (operand_i = 0; operand_i < 0; operand_i++)
 #else
@@ -2341,10 +2333,10 @@ namespace AsmParserx8664
 
                         // DMD doesn't seem to allow this
                         /*
-                        if (opInfo->takesLabel())  tho... (near ptr <Number> would be abs?)
+                        if ( opTakesLabel() )  tho... (near ptr <Number> would be abs?)
                             fmt = "$a"; // GAS won't accept "jmp $42"; must be "jmp 42" (rel) or "jmp *42" (abs)
                         */
-                        if ( opTakesLabel() /*opInfo->takesLabel()*/ )
+                        if ( opTakesLabel() )
                         {
                             // "relative addressing not allowed in branch instructions" ..
                             stmt->error ( "integer constant not allowed in branch instructions" );
@@ -2388,7 +2380,7 @@ namespace AsmParserx8664
                                 asmcode->regs[clbr_reg] = true;
                             }
                         }
-                        if ( opTakesLabel() /*opInfo->takesLabel()*/ )
+                        if ( opTakesLabel() )
                             insnTemplate << '*';
                         writeReg ( operand->reg );
                         /*
@@ -2411,7 +2403,7 @@ namespace AsmParserx8664
                             mode = Mode_Input;
                         }
 
-                        use_star = opTakesLabel();//opInfo->takesLabel();
+                        use_star = opTakesLabel();
 
                         if (Logger::enabled()) {
                             Logger::cout() << "Opr_Mem\n";
@@ -3199,7 +3191,7 @@ namespace AsmParserx8664
                         }
                     }
 
-                    if ( opTakesLabel() /*opInfo->takesLabel()*/ && e->op == TOKidentifier )
+                    if ( opTakesLabel() && e->op == TOKidentifier )
                     {
                         // DMD uses labels secondarily to other symbols, so check
                         // if IdentifierExp::semantic won't find anything.
