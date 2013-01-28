@@ -752,8 +752,14 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
     // set calling convention and parameter attributes
 #if LDC_LLVM_VER >= 303
-	llvm::AttributeSet attrlist = llvm::AttributeSet::get(gIR->context(),
-        llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
+  // FIXME: This is horrible inefficient. The real fix is to use AttributeSet
+  // right from the beginning.
+	llvm::AttributeSet attrlist;
+  for (std::vector<llvm::AttributeWithIndex>::iterator I = attrs.begin(), E = attrs.end(); I != E; ++I)
+  {
+      llvm::AttributeSet  tmp = llvm::AttributeSet::get(gIR->context(), (*I).Index, llvm::AttrBuilder().addAttributes((*I).Attrs));
+      attrlist = attrlist.addAttributes(gIR->context(), (*I).Index, tmp);
+  }
 #elif LDC_LLVM_VER == 302
 	llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(gIR->context(),
         llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
