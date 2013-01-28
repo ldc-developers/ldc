@@ -40,7 +40,8 @@ struct Image
 
                 for (uint i = 0; i < numberOfImages; i++)
                 {
-                        result = dg(Image(i));
+                        auto image = Image(i);
+                        result = dg(image);
 
                         if (result)
                                 break;
@@ -55,7 +56,8 @@ struct Image
 
                 for (int i = numberOfImages - 1; i >= 0; i--)
                 {
-                        result = dg(Image(i));
+                        auto image = Image(i);
+                        result = dg(image);
 
                         if (result)
                                 break;
