@@ -34,8 +34,9 @@ int StructDeclaration::needOpAssign()
 {
 #define X 0
     if (X) printf("StructDeclaration::needOpAssign() %s\n", toChars());
+
     if (hasIdentityAssign)
-        goto Ldontneed;
+        goto Lneed;         // because has identity==elaborate opAssign
 
     if (dtor || postblit)
         goto Lneed;
@@ -74,24 +75,50 @@ Lneed:
 
 /******************************************
  * Build opAssign for struct.
- *      S* opAssign(S s) { ... }
+ *      ref S opAssign(S s) { ... }
  *
  * Note that s will be constructed onto the stack, probably copy-constructed.
  * Then, the body is:
- *      S tmp = *this;  // bit copy
- *      *this = s;      // bit copy
+ *      S tmp = this;   // bit copy
+ *      this = s;       // bit copy
  *      tmp.dtor();
  * Instead of running the destructor on s, run it on tmp instead.
  */
 
 FuncDeclaration *StructDeclaration::buildOpAssign(Scope *sc)
 {
+    Dsymbol *assign = search_function(this, Id::assign);
+    if (assign)
+    {
+        /* check identity opAssign exists
+         */
+        Expression *er = new NullExp(loc, type);        // dummy rvalue
+        Expression *el = new IdentifierExp(loc, Id::p); // dummy lvalue
+        el->type = type;
+        Expressions ar;  ar.push(er);
+        Expressions al;  al.push(el);
+        if (FuncDeclaration *fd = assign->isFuncDeclaration())
+        {
+            FuncDeclaration *f = fd->overloadResolve(loc, er, &ar, 1);
+            if (f == NULL)   f = fd->overloadResolve(loc, er, &al, 1);
+            if (f)
+                return (f->storage_class & STCdisable) ? NULL : f;
+        }
+        if (TemplateDeclaration *td = assign->isTemplateDeclaration())
+        {
+            FuncDeclaration *f = td->deduceFunctionTemplate(sc, loc, NULL, er, &ar, 1);
+            if (f == NULL)   f = td->deduceFunctionTemplate(sc, loc, NULL, er, &al, 1);
+            if (f)
+                return (f->storage_class & STCdisable) ? NULL : f;
+        }
+        // Even if non-identity opAssign is defined, built-in identity opAssign
+        // will be defined. (Is this an exception of operator overloading rule?)
+    }
+
     if (!needOpAssign())
         return NULL;
 
     //printf("StructDeclaration::buildOpAssign() %s\n", toChars());
-
-    FuncDeclaration *fop = NULL;
 
     Parameters *fparams = new Parameters;
     fparams->push(new Parameter(STCnodtor, type, Id::p, NULL));
@@ -100,7 +127,7 @@ FuncDeclaration *StructDeclaration::buildOpAssign(Scope *sc)
     ((TypeFunction *)ftype)->isref = 1;
 #endif
 
-    fop = new FuncDeclaration(loc, 0, Id::assign, STCundefined, ftype);
+    FuncDeclaration *fop = new FuncDeclaration(loc, 0, Id::assign, STCundefined, ftype);
 
     Expression *e = NULL;
     if (postblit)
@@ -160,7 +187,6 @@ FuncDeclaration *StructDeclaration::buildOpAssign(Scope *sc)
             AssignExp *ec = new AssignExp(0,
                 new DotVarExp(0, new ThisExp(0), v, 0),
                 new DotVarExp(0, new IdentifierExp(0, Id::p), v, 0));
-            ec->op = TOKblit;
             e = Expression::combine(e, ec);
         }
     }
@@ -174,15 +200,24 @@ FuncDeclaration *StructDeclaration::buildOpAssign(Scope *sc)
 
     fop->fbody = new CompoundStatement(0, s1, s2);
 
-    members->push(fop);
-    fop->addMember(sc, this, 1);
+    Dsymbol *s = fop;
+    if (assign && assign->isTemplateDeclaration())
+    {
+        // Wrap a template around the function declaration
+        TemplateParameters *tpl = new TemplateParameters();
+        Dsymbols *decldefs = new Dsymbols();
+        decldefs->push(s);
+        TemplateDeclaration *tempdecl =
+            new TemplateDeclaration(assign->loc, fop->ident, tpl, NULL, decldefs, 0);
+        s = tempdecl;
+    }
+    members->push(s);
+    s->addMember(sc, this, 1);
 
     sc = sc->push();
     sc->stc = 0;
     sc->linkage = LINKd;
-
-    fop->semantic(sc);
-
+    s->semantic(sc);
     sc->pop();
 
     //printf("-StructDeclaration::buildOpAssign() %s\n", toChars());
@@ -357,10 +392,10 @@ FuncDeclaration *StructDeclaration::buildXopEquals(Scope *sc)
     parameters->push(new Parameter(STCin, Type::tvoidptr, Id::p, NULL));
     parameters->push(new Parameter(STCin, Type::tvoidptr, Id::q, NULL));
     TypeFunction *tf = new TypeFunction(parameters, Type::tbool, 0, LINKd);
-    tf = (TypeFunction *)tf->semantic(loc, sc);
+    tf = (TypeFunction *)tf->semantic(0, sc);
 
     Identifier *id = Lexer::idPool("__xopEquals");
-    FuncDeclaration *fop = new FuncDeclaration(loc, 0, id, STCstatic, tf);
+    FuncDeclaration *fop = new FuncDeclaration(0, 0, id, STCstatic, tf);
 
     Expression *e = new CallExp(0,
         new DotIdExp(0,
@@ -370,7 +405,7 @@ FuncDeclaration *StructDeclaration::buildXopEquals(Scope *sc)
         new PtrExp(0, new CastExp(0,
             new IdentifierExp(0, Id::q), type->pointerTo()->constOf())));
 
-    fop->fbody = new ReturnStatement(loc, e);
+    fop->fbody = new ReturnStatement(0, e);
 
     size_t index = members->dim;
     members->push(fop);
@@ -395,9 +430,9 @@ FuncDeclaration *StructDeclaration::buildXopEquals(Scope *sc)
 
         if (!xerreq)
         {
-            Expression *e = new IdentifierExp(loc, Id::empty);
-            e = new DotIdExp(loc, e, Id::object);
-            e = new DotIdExp(loc, e, Lexer::idPool("_xopEquals"));
+            Expression *e = new IdentifierExp(0, Id::empty);
+            e = new DotIdExp(0, e, Id::object);
+            e = new DotIdExp(0, e, Lexer::idPool("_xopEquals"));
             e = e->semantic(sc);
             Dsymbol *s = getDsymbol(e);
             FuncDeclaration *fd = s->isFuncDeclaration();
@@ -567,8 +602,7 @@ FuncDeclaration *StructDeclaration::buildPostBlit(Scope *sc)
      */
     if (e || (stc & STCdisable))
     {   //printf("Building __fieldPostBlit()\n");
-        PostBlitDeclaration *dd = new PostBlitDeclaration(loc, 0, Lexer::idPool("__fieldPostBlit"));
-        dd->storage_class |= stc;
+        PostBlitDeclaration *dd = new PostBlitDeclaration(loc, 0, stc, Lexer::idPool("__fieldPostBlit"));
         dd->fbody = new ExpStatement(0, e);
         postblits.shift(dd);
         members->push(dd);
@@ -598,8 +632,7 @@ FuncDeclaration *StructDeclaration::buildPostBlit(Scope *sc)
                 ex = new CallExp(0, ex);
                 e = Expression::combine(e, ex);
             }
-            PostBlitDeclaration *dd = new PostBlitDeclaration(loc, 0, Lexer::idPool("__aggrPostBlit"));
-            dd->storage_class |= stc;
+            PostBlitDeclaration *dd = new PostBlitDeclaration(loc, 0, stc, Lexer::idPool("__aggrPostBlit"));
             dd->fbody = new ExpStatement(0, e);
             members->push(dd);
             dd->semantic(sc);

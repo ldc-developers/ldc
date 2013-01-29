@@ -377,7 +377,7 @@ bool operator!=(longdouble x, longdouble y)
 
 int _isnan(longdouble ld)
 {
-    return (ld.exponent == 0x7fff && ld.mantissa != 0);
+    return (ld.exponent == 0x7fff && ld.mantissa != 0 && ld.mantissa != (1LL << 63)); // exclude pseudo-infinity and infinity, but not FP Indefinite
 }
 
 longdouble fabsl(longdouble ld)
@@ -514,7 +514,7 @@ int ld_type(longdouble x)
     return LD_TYPE_SNAN;
 }
 
-int ld_sprint(char* str, int fmt, longdouble x)
+size_t ld_sprint(char* str, int fmt, longdouble x)
 {
     // fmt is 'a','A','f' or 'g'
     if(fmt != 'a' && fmt != 'A')
@@ -537,7 +537,7 @@ int ld_sprint(char* str, int fmt, longdouble x)
         return sprintf(str, x.sign ? "-INF" : "INF");
     }
 
-    int len = 0;
+    size_t len = 0;
     if(x.sign)
         str[len++] = '-';
     len += sprintf(str + len, mantissa & (1LL << 63) ? "0x1." : "0x0.");

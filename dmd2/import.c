@@ -169,15 +169,17 @@ void Import::importAll(Scope *sc)
 {
     if (!mod)
     {
-       load(sc);
-       mod->importAll(0);
+        load(sc);
+        if (mod)                // if successfully loaded module
+        {   mod->importAll(0);
 
-       if (!isstatic && !aliasId && !names.dim)
-       {
-           if (sc->explicitProtection)
-               protection = sc->protection;
-           sc->scopesym->importScope(mod, protection);
-       }
+            if (!isstatic && !aliasId && !names.dim)
+            {
+                if (sc->explicitProtection)
+                    protection = sc->protection;
+                sc->scopesym->importScope(mod, protection);
+            }
+        }
     }
 }
 
@@ -280,7 +282,9 @@ void Import::semantic(Scope *sc)
         escapePath(ob, sc->module->srcfile->toChars());
         ob->writestring(") : ");
 
-        ProtDeclaration::protectionToCBuffer(ob, sc->protection);
+        // use protection instead of sc->protection because it couldn't be
+        // resolved yet, see the comment above
+        ProtDeclaration::protectionToCBuffer(ob, protection);
         if (isstatic)
             StorageClassDeclaration::stcToCBuffer(ob, STCstatic);
         ob->writestring(": ");
@@ -333,10 +337,13 @@ void Import::semantic(Scope *sc)
 void Import::semantic2(Scope *sc)
 {
     //printf("Import::semantic2('%s')\n", toChars());
-    mod->semantic2();
-    if (mod->needmoduleinfo)
-    {   //printf("module5 %s because of %s\n", sc->module->toChars(), mod->toChars());
-        sc->module->needmoduleinfo = 1;
+    if (mod)
+    {
+        mod->semantic2();
+        if (mod->needmoduleinfo)
+        {   //printf("module5 %s because of %s\n", sc->module->toChars(), mod->toChars());
+            sc->module->needmoduleinfo = 1;
+        }
     }
 }
 

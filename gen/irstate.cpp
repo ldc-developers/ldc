@@ -54,12 +54,19 @@ IRTargetScope::IRTargetScope()
 {
 }
 
-IRTargetScope::IRTargetScope(Statement* s, EnclosingHandler* enclosinghandler, llvm::BasicBlock* continueTarget, llvm::BasicBlock* breakTarget)
+IRTargetScope::IRTargetScope(
+    Statement* s,
+    EnclosingHandler* enclosinghandler,
+    llvm::BasicBlock* continueTarget,
+    llvm::BasicBlock* breakTarget,
+    bool onlyLabeledBreak
+)
 {
     this->s = s;
     this->enclosinghandler = enclosinghandler;
     this->breakTarget = breakTarget;
     this->continueTarget = continueTarget;
+    this->onlyLabeledBreak = onlyLabeledBreak;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

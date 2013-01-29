@@ -70,7 +70,7 @@ Expression *Expression::implicitCastTo(Scope *sc, Type *t)
         }
 #endif
 #if DMDV2
-        if (match == MATCHconst && t == type->constOf())
+        if (match == MATCHconst && type->constConv(t))
         {
             Expression *e = copy();
             e->type = t;
@@ -769,7 +769,9 @@ MATCH FuncExp::implicitConvTo(Type *t)
 {
     //printf("FuncExp::implicitConvTo type = %p %s, t = %s\n", type, type ? type->toChars() : NULL, t->toChars());
     Expression *e = inferType(t, 1);
-    if (e)
+    if (e &&
+        (t->ty == Tdelegate ||
+         t->ty == Tpointer && t->nextOf()->ty == Tfunction))
     {
         if (e != this)
             return e->implicitConvTo(t);
@@ -777,13 +779,10 @@ MATCH FuncExp::implicitConvTo(Type *t)
         /* MATCHconst:   Conversion from implicit to explicit function pointer
          * MATCHconvert: Conversion from impliict funciton pointer to delegate
          */
-        if (tok == TOKreserved && type->ty == Tpointer &&
-            (t->ty == Tpointer || t->ty == Tdelegate))
+        if (fd->tok == TOKreserved &&   // fbody doesn't have a frame pointer
+            (type->equals(t) || type->nextOf()->covariant(t->nextOf()) == 1))
         {
-            if (type == t)
-                return MATCHexact;
-            if (type->nextOf()->covariant(t->nextOf()) == 1)
-                return t->ty == Tpointer ? MATCHconst : MATCHconvert;
+            return t->ty == Tpointer ? MATCHconst : MATCHconvert;
         }
     }
     return Expression::implicitConvTo(t);
@@ -854,6 +853,122 @@ MATCH CastExp::implicitConvTo(Type *t)
             result = Expression::implicitConvTo(t);
     }
     return result;
+}
+
+MATCH NewExp::implicitConvTo(Type *t)
+{
+#if 0
+    printf("NewExp::implicitConvTo(this=%s, type=%s, t=%s)\n",
+        toChars(), type->toChars(), t->toChars());
+#endif
+    MATCH match = Expression::implicitConvTo(t);
+    if (match != MATCHnomatch)
+        return match;
+
+    /* The return from new() is special in that it might be a unique pointer.
+     * If we can prove it is, allow the following implicit conversions:
+     *  mutable => immutable
+     *  non-shared => shared
+     *  shared => non-shared
+     */
+
+    Type *typeb = type->toBasetype();
+    Type *tb = t->toBasetype();
+
+    if (tb->ty == Tclass)
+    {
+        //printf("%s => %s\n", type->castMod(0)->toChars(), t->castMod(0)->toChars());
+        match = type->castMod(0)->implicitConvTo(t->castMod(0));
+        if (!match)
+            goto Lnomatch;
+
+        // Regardless, don't allow immutable to be implicitly converted to mutable
+        if (tb->isMutable() && !typeb->isMutable())
+            goto Lnomatch;
+
+        // All the fields must be convertible as well
+        ClassDeclaration *cd = ((TypeClass *)tb)->sym;
+
+        cd->size(loc);          // resolve any forward references
+
+        /* The following is excessively conservative, but be very
+         * careful in loosening them up.
+         */
+        if (cd->isNested() ||
+            cd->isInterfaceDeclaration() ||
+            cd->ctor ||
+            cd->baseClass != ClassDeclaration::object)
+            goto Lnomatch;
+
+        for (size_t i = 0; i < cd->fields.dim; i++)
+        {   Dsymbol *sm = cd->fields[i];
+            Declaration *d = sm->isDeclaration();
+            if (d->storage_class & STCref || d->hasPointers())
+                goto Lnomatch;
+        }
+        return (match == MATCHexact) ? MATCHconst : match;
+    }
+    else if ((tb->ty == Tpointer || tb->ty == Tarray) &&
+             (typeb->ty == Tpointer || typeb->ty == Tarray))
+    {
+        Type *typen = type->nextOf()->toBasetype();
+        Type *tn = tb->nextOf()->toBasetype();
+
+        //printf("%s => %s\n", typen->castMod(0)->toChars(), tn->castMod(0)->toChars());
+        {
+            /* Determine if the match failure was solely due to a difference
+             * in the mod bits, by rebuilding type and t without mod bits and
+             * retrying the implicit conversion.
+             */
+            Type *tn2 = tn->castMod(0);         // cast off mod bits
+            Type *typen2 = typen->castMod(0);
+            Type *t2 = (tb->ty == Tpointer) ? tn2->pointerTo() : tn2->arrayOf();
+            Type *type2 = (typeb->ty == Tpointer) ? typen2->pointerTo() : typen2->arrayOf();
+            match = type2->implicitConvTo(t2);
+            if (!match)
+                goto Lnomatch;
+        }
+
+        // Regardless, don't allow immutable to be implicitly converted to mutable
+        if (tn->isMutable() && !typen->isMutable())
+            goto Lnomatch;
+
+        if (tn->isTypeBasic())
+            ;
+        else if (tn->ty == Tstruct)
+        {
+            // All the fields must be convertible as well
+            StructDeclaration *sd = ((TypeStruct *)tn)->sym;
+
+            sd->size(loc);              // resolve any forward references
+
+            /* The following is excessively conservative, but be very
+             * careful in loosening them up.
+             */
+
+            if (sd->isNested() ||
+                sd->ctor)
+                goto Lnomatch;
+
+            for (size_t i = 0; i < sd->fields.dim; i++)
+            {   Dsymbol *sm = sd->fields[i];
+                Declaration *d = sm->isDeclaration();
+                if (d->storage_class & STCref || d->hasPointers())
+                    goto Lnomatch;
+            }
+        }
+        else
+        {
+            /* More fruit left on the table, such as pointers to immutable.
+             */
+            goto Lnomatch;
+        }
+
+        return (match == MATCHexact) ? MATCHconst : match;
+    }
+
+  Lnomatch:
+    return MATCHnomatch;
 }
 
 /* ==================== castTo ====================== */
@@ -943,6 +1058,12 @@ Expression *Expression::castTo(Scope *sc, Type *t)
                 e = new CastExp(loc, e, tv->elementType());
                 e = new VectorExp(loc, e, tb);
                 e = e->semantic(sc);
+                return e;
+            }
+            else if (typeb->implicitConvTo(tb) == MATCHconst && t == type->constOf())
+            {
+                Expression *e = copy();
+                e->type = t;
                 return e;
             }
             e = new CastExp(loc, e, tb);
@@ -1132,7 +1253,7 @@ Expression *StringExp::castTo(Scope *sc, Type *t)
     if (committed)
         goto Lcast;
 
-#define X(tf,tt)        ((tf) * 256 + (tt))
+#define X(tf,tt)        ((int)(tf) * 256 + (int)(tt))
     {
     OutBuffer buffer;
     size_t newlen = 0;
@@ -1258,12 +1379,9 @@ L2:
         if (dim2 != se->len)
         {
             // Copy when changing the string literal
-            unsigned newsz = se->sz;
-            void *s;
-            int d;
-
-            d = (dim2 < se->len) ? dim2 : se->len;
-            s = (unsigned char *)mem.malloc((dim2 + 1) * newsz);
+            size_t newsz = se->sz;
+            size_t d = (dim2 < se->len) ? dim2 : se->len;
+            void *s = (unsigned char *)mem.malloc((dim2 + 1) * newsz);
             memcpy(s, se->string, d * newsz);
             // Extend with 0, add terminating 0
             memset((char *)s + d * newsz, 0, (dim2 + 1 - d) * newsz);
@@ -1634,8 +1752,15 @@ Expression *FuncExp::castTo(Scope *sc, Type *t)
     //printf("FuncExp::castTo type = %s, t = %s\n", type->toChars(), t->toChars());
     Expression *e = inferType(t, 1);
     if (e)
-    {   if (e != this)
+    {
+        if (e != this)
             e = e->castTo(sc, t);
+        else if (!e->type->equals(t))
+        {
+            assert(e->type->nextOf()->covariant(t->nextOf()) == 1);
+            e = e->copy();
+            e->type = t;
+        }
         return e;
     }
     return Expression::castTo(sc, t);
@@ -1679,7 +1804,6 @@ Expression *CommaExp::castTo(Scope *sc, Type *t)
 /****************************************
  * Set type inference target
  *      flag    1: don't put an error when inference fails
- *              2: ldc specific: allow to infer function literal kind (TOKdelegate or TOKfunction)
  */
 
 Expression *Expression::inferType(Type *t, int flag, TemplateParameters *tparams)
@@ -1805,10 +1929,14 @@ Expression *FuncExp::inferType(Type *to, int flag, TemplateParameters *tparams)
                 FuncLiteralDeclaration *fld = td->onemember->isFuncLiteralDeclaration();
                 assert(fld);
                 if (!fld->type->nextOf() && tfv->next)
-                    fld->treq = tfv;
+                    fld->treq = to;
 
                 TemplateInstance *ti = new TemplateInstance(loc, td, tiargs);
                 e = (new ScopeExp(loc, ti))->semantic(td->scope);
+
+                // Reset inference target for the later re-semantic
+                fld->treq = NULL;
+
                 if (e->op == TOKfunction)
                 {   FuncExp *fe = (FuncExp *)e;
                     assert(fe->td == NULL);
@@ -1836,27 +1964,9 @@ Expression *FuncExp::inferType(Type *to, int flag, TemplateParameters *tparams)
         }
         else
             e = this;
-
-#if IN_LLVM
-        if (flag == 2 && e)
-        {   FuncExp *fe = (FuncExp *)e;
-            if (fe->fd && fe->fd->tok == TOKreserved)
-            {
-                if (fe->type->ty == Tpointer)
-                {
-                    fe->fd->vthis = NULL;
-                    fe->fd->tok = TOKfunction;
-                }
-                else
-                {
-                    fe->fd->tok = TOKdelegate;
-                }
-            }
-        }
-#endif
     }
 L1:
-    if (flag != 1 && !e)
+    if (!flag && !e)
     {   error("cannot infer function literal type from %s", to->toChars());
         e = new ErrorExp();
     }
@@ -2255,16 +2365,16 @@ Lagain:
 Lcc:
         while (1)
         {
-            int i1 = e2->implicitConvTo(t1);
-            int i2 = e1->implicitConvTo(t2);
+            MATCH i1 = e2->implicitConvTo(t1);
+            MATCH i2 = e1->implicitConvTo(t2);
 
             if (i1 && i2)
             {
                 // We have the case of class vs. void*, so pick class
                 if (t1->ty == Tpointer)
-                    i1 = 0;
+                    i1 = MATCHnomatch;
                 else if (t2->ty == Tpointer)
-                    i2 = 0;
+                    i2 = MATCHnomatch;
             }
 
             if (i2)
@@ -2331,8 +2441,8 @@ Lcc:
             if (!ts1->sym->aliasthis && !ts2->sym->aliasthis)
                 goto Lincompatible;
 
-            int i1 = 0;
-            int i2 = 0;
+            MATCH i1 = MATCHnomatch;
+            MATCH i2 = MATCHnomatch;
 
             Expression *e1b = NULL;
             Expression *e2b = NULL;

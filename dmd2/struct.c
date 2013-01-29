@@ -49,7 +49,7 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     stag = NULL;
     sinit = NULL;
 #endif
-    isnested = 0;
+    isnested = false;
     vthis = NULL;
 
 #if DMDV2
@@ -71,6 +71,13 @@ enum PROT AggregateDeclaration::prot()
     return protection;
 }
 
+void AggregateDeclaration::setScope(Scope *sc)
+{
+    if (sizeok == SIZEOKdone)
+        return;
+    ScopeDsymbol::setScope(sc);
+}
+
 void AggregateDeclaration::semantic2(Scope *sc)
 {
     //printf("AggregateDeclaration::semantic2(%s)\n", toChars());
@@ -84,6 +91,7 @@ void AggregateDeclaration::semantic2(Scope *sc)
         for (size_t i = 0; i < members->dim; i++)
         {
             Dsymbol *s = (*members)[i];
+            //printf("\t[%d] %s\n", i, s->toChars());
             s->semantic2(sc);
         }
         sc->pop();
@@ -157,6 +165,10 @@ unsigned AggregateDeclaration::size(Loc loc)
          */
         struct SV
         {
+            /* Returns:
+             *  0       this member doesn't need further processing to determine struct size
+             *  1       this member does
+             */
             static int func(Dsymbol *s, void *param)
             {   SV *psv = (SV *)param;
                 VarDeclaration *v = s->isVarDeclaration();
@@ -164,7 +176,7 @@ unsigned AggregateDeclaration::size(Loc loc)
                 {
                     if (v->scope)
                         v->semantic(NULL);
-                    if (v->storage_class & (STCstatic | STCextern | STCtls | STCgshared | STCconst | STCimmutable | STCmanifest | STCctfe | STCtemplateparameter))
+                    if (v->storage_class & (STCstatic | STCextern | STCtls | STCgshared | STCmanifest | STCctfe | STCtemplateparameter))
                         return 0;
                     if (v->storage_class & STCfield && v->sem >= SemanticDone)
                         return 0;
@@ -272,8 +284,6 @@ unsigned AggregateDeclaration::placeField(
             ;
         else if (8 < memalignsize)
             memalignsize = 8;
-        else if (alignment < memalignsize)
-            memalignsize = alignment;
     }
     else
     {
@@ -295,6 +305,7 @@ unsigned AggregateDeclaration::placeField(
 
 int AggregateDeclaration::isNested()
 {
+    assert((isnested & ~1) == 0);
     return isnested;
 }
 
@@ -403,7 +414,9 @@ void StructDeclaration::semantic(Scope *sc)
 
     assert(type);
     if (!members)                       // if forward reference
+    {
         return;
+    }
 
     if (symtab)
     {   if (sizeok == SIZEOKdone || !scope)
@@ -452,50 +465,15 @@ void StructDeclaration::semantic(Scope *sc)
     assert(!isAnonymous());
     if (sc->stc & STCabstract)
         error("structs, unions cannot be abstract");
+    userAttributes = sc->userAttributes;
 
     if (sizeok == SIZEOKnone)            // if not already done the addMember step
     {
-        int hasfunctions = 0;
         for (size_t i = 0; i < members->dim; i++)
         {
             Dsymbol *s = (*members)[i];
             //printf("adding member '%s' to '%s'\n", s->toChars(), this->toChars());
             s->addMember(sc, this, 1);
-            if (s->isFuncDeclaration())
-                hasfunctions = 1;
-        }
-
-        // If nested struct, add in hidden 'this' pointer to outer scope
-        if (hasfunctions && !(storage_class & STCstatic))
-        {   Dsymbol *s = toParent2();
-            if (s)
-            {
-                AggregateDeclaration *ad = s->isAggregateDeclaration();
-                FuncDeclaration *fd = s->isFuncDeclaration();
-
-                TemplateInstance *ti;
-                if (ad && (ti = ad->parent->isTemplateInstance()) != NULL && ti->isnested || fd)
-                {   isnested = 1;
-                    Type *t;
-                    if (ad)
-                        t = ad->handle;
-                    else if (fd)
-                    {   AggregateDeclaration *ad = fd->isMember2();
-                        if (ad)
-                            t = ad->handle;
-                        else
-                            t = Type::tvoidptr;
-                    }
-                    else
-                        assert(0);
-                    if (t->ty == Tstruct)
-                        t = Type::tvoidptr;     // t should not be a ref type
-                    assert(!vthis);
-                    vthis = new ThisDeclaration(loc, t);
-                    //vthis->storage_class |= STCref;
-                    members->push(vthis);
-                }
-            }
         }
     }
 
@@ -508,13 +486,12 @@ void StructDeclaration::semantic(Scope *sc)
     sc2->protection = PROTpublic;
     sc2->explicitProtection = 0;
     sc2->structalign = STRUCTALIGN_DEFAULT;
-
-    size_t members_dim = members->dim;
+    sc2->userAttributes = NULL;
 
     /* Set scope so if there are forward references, we still might be able to
      * resolve individual members like enums.
      */
-    for (size_t i = 0; i < members_dim; i++)
+    for (size_t i = 0; i < members->dim; i++)
     {   Dsymbol *s = (*members)[i];
         /* There are problems doing this in the general case because
          * Scope keeps track of things like 'offset'
@@ -526,7 +503,7 @@ void StructDeclaration::semantic(Scope *sc)
         }
     }
 
-    for (size_t i = 0; i < members_dim; i++)
+    for (size_t i = 0; i < members->dim; i++)
     {
         Dsymbol *s = (*members)[i];
 
@@ -535,7 +512,7 @@ void StructDeclaration::semantic(Scope *sc)
          * field was processed. The problem is the chicken-and-egg determination
          * of when that is. See Bugzilla 7426 for more info.
          */
-        if (i + 1 == members_dim)
+        if (i + 1 == members->dim)
         {
             if (sizeok == SIZEOKnone && s->isAliasDeclaration())
                 finalizeSize(sc2);
@@ -670,7 +647,7 @@ void StructDeclaration::semantic(Scope *sc)
     postblit = buildPostBlit(sc2);
     cpctor = buildCpCtor(sc2);
 
-    buildOpAssign(sc2);
+    hasIdentityAssign = (buildOpAssign(sc2) != NULL);
     hasIdentityEquals = (buildOpEquals(sc2) != NULL);
 
     xeq = buildXopEquals(sc2);
@@ -764,6 +741,45 @@ void StructDeclaration::finalizeSize(Scope *sc)
     sizeok = SIZEOKdone;
 }
 
+void StructDeclaration::makeNested()
+{
+    if (!isnested && sizeok != SIZEOKdone)
+    {
+        // If nested struct, add in hidden 'this' pointer to outer scope
+        if (!(storage_class & STCstatic))
+        {   Dsymbol *s = toParent2();
+            if (s)
+            {
+                AggregateDeclaration *ad = s->isAggregateDeclaration();
+                FuncDeclaration *fd = s->isFuncDeclaration();
+
+                TemplateInstance *ti;
+                if (ad && (ti = ad->parent->isTemplateInstance()) != NULL && ti->isnested || fd)
+                {   isnested = true;
+                    Type *t;
+                    if (ad)
+                        t = ad->handle;
+                    else if (fd)
+                    {   AggregateDeclaration *ad = fd->isMember2();
+                        if (ad)
+                            t = ad->handle;
+                        else
+                            t = Type::tvoidptr;
+                    }
+                    else
+                        assert(0);
+                    if (t->ty == Tstruct)
+                        t = Type::tvoidptr;     // t should not be a ref type
+                    assert(!vthis);
+                    vthis = new ThisDeclaration(loc, t);
+                    //vthis->storage_class |= STCref;
+                    members->push(vthis);
+                }
+            }
+        }
+    }
+}
+
 /***************************************
  * Return true if struct is POD (Plain Old Data).
  * This is defined as:
@@ -820,13 +836,13 @@ void StructDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writenl();
     buf->writeByte('{');
     buf->writenl();
+    buf->level++;
     for (size_t i = 0; i < members->dim; i++)
     {
         Dsymbol *s = (*members)[i];
-
-        buf->writestring("    ");
         s->toCBuffer(buf, hgs);
     }
+    buf->level--;
     buf->writeByte('}');
     buf->writenl();
 }

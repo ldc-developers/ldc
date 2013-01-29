@@ -20,7 +20,12 @@ struct Identifier;
 struct Symbol;
 struct FuncDeclaration;
 struct Blockx;
+#if IN_LLVM
+struct DValue;
+typedef DValue elem;
+#else
 struct elem;
+#endif
 #include "arraytypes.h"
 
 struct IRState

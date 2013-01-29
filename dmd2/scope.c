@@ -68,9 +68,9 @@ Scope::Scope()
     this->protection = PROTpublic;
     this->explicitProtection = 0;
     this->stc = 0;
+    this->depmsg = NULL;
     this->offset = 0;
     this->inunion = 0;
-    this->incontract = 0;
     this->nofree = 0;
     this->noctor = 0;
     this->noaccesscheck = 0;
@@ -84,6 +84,7 @@ Scope::Scope()
     this->lastdc = NULL;
     this->lastoffset = 0;
     this->docbuf = NULL;
+    this->userAttributes = NULL;
 }
 
 Scope::Scope(Scope *enclosing)
@@ -117,10 +118,10 @@ Scope::Scope(Scope *enclosing)
     this->linkage = enclosing->linkage;
     this->protection = enclosing->protection;
     this->explicitProtection = enclosing->explicitProtection;
+    this->depmsg = enclosing->depmsg;
     this->stc = enclosing->stc;
     this->offset = 0;
     this->inunion = enclosing->inunion;
-    this->incontract = enclosing->incontract;
     this->nofree = 0;
     this->noctor = enclosing->noctor;
     this->noaccesscheck = enclosing->noaccesscheck;
@@ -130,10 +131,11 @@ Scope::Scope(Scope *enclosing)
     this->parameterSpecialization = enclosing->parameterSpecialization;
     this->ignoreTemplates = enclosing->ignoreTemplates;
     this->callSuper = enclosing->callSuper;
-    this->flags = 0;
+    this->flags = (enclosing->flags & SCOPEcontract);
     this->lastdc = NULL;
     this->lastoffset = 0;
     this->docbuf = enclosing->docbuf;
+    this->userAttributes = enclosing->userAttributes;
     assert(this != enclosing);
 }
 
@@ -200,25 +202,48 @@ void Scope::mergeCallSuper(Loc loc, unsigned cs)
     // The two paths are callSuper and cs; the result is merged into callSuper.
 
     if (cs != callSuper)
-    {   int a;
-        int b;
+    {   // Have ALL branches called a constructor?
+        int aAll = (cs        & (CSXthis_ctor | CSXsuper_ctor)) != 0;
+        int bAll = (callSuper & (CSXthis_ctor | CSXsuper_ctor)) != 0;
 
-        callSuper |= cs & (CSXany_ctor | CSXlabel);
-        if (cs & CSXreturn)
-        {
+        // Have ANY branches called a constructor?
+        bool aAny = (cs        & CSXany_ctor) != 0;
+        bool bAny = (callSuper & CSXany_ctor) != 0;
+
+        // Have any branches returned?
+        bool aRet = (cs        & CSXreturn) != 0;
+        bool bRet = (callSuper & CSXreturn) != 0;
+
+        bool ok = true;
+
+        // If one has returned without a constructor call, there must be never
+        // have been ctor calls in the other.
+        if ( (aRet && !aAny && bAny) ||
+             (bRet && !bAny && aAny))
+        {   ok = false;
         }
-        else if (callSuper & CSXreturn)
+        // If one branch has called a ctor and then exited, anything the
+        // other branch has done is OK (except returning without a
+        // ctor call, but we already checked that).
+        else if (aRet && aAll)
+        {
+            callSuper |= cs & (CSXany_ctor | CSXlabel);
+        }
+        else if (bRet && bAll)
         {
             callSuper = cs | (callSuper & (CSXany_ctor | CSXlabel));
         }
         else
-        {
-            a = (cs        & (CSXthis_ctor | CSXsuper_ctor)) != 0;
-            b = (callSuper & (CSXthis_ctor | CSXsuper_ctor)) != 0;
-            if (a != b)
-                error(loc, "one path skips constructor");
-            callSuper |= cs;
+        {   // Both branches must have called ctors, or both not.
+            ok = (aAll == bAll);
+            // If one returned without a ctor, we must remember that
+            // (Don't bother if we've already found an error)
+            if (ok && aRet && !aAny)
+                callSuper |= CSXreturn;
+            callSuper |= cs & (CSXany_ctor | CSXlabel);
         }
+        if (!ok)
+            error(loc, "one path skips constructor");
     }
 }
 
@@ -257,8 +282,7 @@ Dsymbol *Scope::search(Loc loc, Identifier *ident, Dsymbol **pscopesym)
             s = sc->scopesym->search(loc, ident, 0);
             if (s)
             {
-                if ((global.params.warnings ||
-                    global.params.Dversion > 1) &&
+                if (global.params.Dversion > 1 &&
                     ident == Id::length &&
                     sc->scopesym->isArrayScopeSymbol() &&
                     sc->enclosing &&

@@ -41,7 +41,7 @@
 extern "C" char * __cdecl __locale_decpoint;
 #endif
 
-extern int HtmlNamedEntity(unsigned char *p, int length);
+extern int HtmlNamedEntity(unsigned char *p, size_t length);
 
 #define LS 0x2028       // UTF line separator
 #define PS 0x2029       // UTF paragraph separator
@@ -127,11 +127,11 @@ const char *Token::toChars()
             break;
 
         case TOKint64v:
-            sprintf(buffer,"%lldL",(intmax_t)int64value);
+            sprintf(buffer,"%lldL",(longlong)int64value);
             break;
 
         case TOKuns64v:
-            sprintf(buffer,"%lluUL",(uintmax_t)uns64value);
+            sprintf(buffer,"%lluUL",(ulonglong)uns64value);
             break;
 
 #ifdef IN_GCC
@@ -249,7 +249,7 @@ StringTable Lexer::stringtable;
 OutBuffer Lexer::stringbuffer;
 
 Lexer::Lexer(Module *mod,
-        unsigned char *base, unsigned begoffset, unsigned endoffset,
+        unsigned char *base, size_t begoffset, size_t endoffset,
         int doDocComment, int commentToken)
     : loc(mod, 1)
 {
@@ -318,6 +318,14 @@ void Lexer::error(Loc loc, const char *format, ...)
     va_list ap;
     va_start(ap, format);
     ::verror(loc, format, ap);
+    va_end(ap);
+}
+
+void Lexer::deprecation(const char *format, ...)
+{
+    va_list ap;
+    va_start(ap, format);
+    ::vdeprecation(tokenLoc(), format, ap);
     va_end(ap);
 }
 
@@ -576,8 +584,7 @@ void Lexer::scan(Token *t)
                 t->postfix = 0;
                 t->value = TOKstring;
 #if DMDV2
-                if (!global.params.useDeprecated)
-                    error("Escape String literal %.*s is deprecated, use double quoted string literal \"%.*s\" instead", (int)(p - pstart), pstart, (int)(p - pstart), pstart);
+                error("Escape String literal %.*s is deprecated, use double quoted string literal \"%.*s\" instead", p - pstart, pstart, p - pstart, pstart);
 #endif
                 return;
             }
@@ -1294,7 +1301,7 @@ unsigned Lexer::escapeSequence()
                     c = v;
                 }
                 else
-                    error("undefined escape hex sequence \\%c\n",c);
+                    error("undefined escape hex sequence \\%c",c);
                 break;
 
         case '&':                       // named character entity
@@ -1343,7 +1350,7 @@ unsigned Lexer::escapeSequence()
                         error("0%03o is larger than a byte", c);
                 }
                 else
-                    error("undefined escape sequence \\%c\n",c);
+                    error("undefined escape sequence \\%c",c);
                 break;
     }
     return c;
@@ -1943,7 +1950,7 @@ TOK Lexer::number(Token *t)
                         if (p[1] == '.')        // .. is a separate token
                             goto done;
 #if DMDV2
-                        if (isalpha(p[1]) || p[1] == '_')
+                        if (isalpha(p[1]) || p[1] == '_' || (p[1] & 0x80))
                             goto done;
 #endif
                     case 'i':
@@ -1985,7 +1992,7 @@ TOK Lexer::number(Token *t)
                     if (c == '.' && p[1] != '.')
                     {
 #if DMDV2
-                        if (isalpha(p[1]) || p[1] == '_')
+                        if (isalpha(p[1]) || p[1] == '_' || (p[1] & 0x80))
                             goto done;
 #endif
                         goto real;
@@ -2146,9 +2153,6 @@ done:
                 f = FLAGS_unsigned;
                 goto L1;
 
-            case 'l':
-                if (1 || !global.params.useDeprecated)
-                    error("'l' suffix is deprecated, use 'L' instead");
             case 'L':
                 f = FLAGS_long;
             L1:
@@ -2164,8 +2168,8 @@ done:
     }
 
 #if DMDV2
-    if (state == STATE_octal && n >= 8 && !global.params.useDeprecated)
-        error("octal literals 0%llo%.*s are deprecated, use std.conv.octal!%llo%.*s instead",
+    if (state == STATE_octal && n >= 8)
+        deprecation("octal literals 0%llo%.*s are deprecated, use std.conv.octal!%llo%.*s instead",
                 n, p - psuffix, psuffix, n, p - psuffix, psuffix);
 #endif
 
@@ -2404,8 +2408,7 @@ done:
             break;
 
         case 'l':
-            if (!global.params.useDeprecated)
-                error("'l' suffix is deprecated, use 'L' instead");
+            error("'l' suffix is deprecated, use 'L' instead");
         case 'L':
             result = TOKfloat80v;
             p++;
@@ -2413,7 +2416,7 @@ done:
     }
     if (*p == 'i' || *p == 'I')
     {
-        if (!global.params.useDeprecated && *p == 'I')
+        if (*p == 'I')
             error("'I' suffix is deprecated, use 'i' instead");
         p++;
         switch (result)
@@ -2427,6 +2430,7 @@ done:
             case TOKfloat80v:
                 result = TOKimaginary80v;
                 break;
+            default: break;
         }
     }
 #if _WIN32 && __DMC__
@@ -2839,8 +2843,8 @@ static Keyword keywords[] =
     {   "uint",         TOKuns32        },
     {   "long",         TOKint64        },
     {   "ulong",        TOKuns64        },
-    {   "cent",         TOKcent,        },
-    {   "ucent",        TOKucent,       },
+    {   "cent",         TOKint128,      },
+    {   "ucent",        TOKuns128,      },
     {   "float",        TOKfloat32      },
     {   "double",       TOKfloat64      },
     {   "real",         TOKfloat80      },
@@ -2943,7 +2947,7 @@ static Keyword keywords[] =
 
 int Token::isKeyword()
 {
-    for (unsigned u = 0; u < sizeof(keywords) / sizeof(keywords[0]); u++)
+    for (size_t u = 0; u < sizeof(keywords) / sizeof(keywords[0]); u++)
     {
         if (keywords[u].value == value)
             return 1;
@@ -2953,7 +2957,7 @@ int Token::isKeyword()
 
 void Lexer::initKeywords()
 {
-    unsigned nkeywords = sizeof(keywords) / sizeof(keywords[0]);
+    size_t nkeywords = sizeof(keywords) / sizeof(keywords[0]);
 
     stringtable.init(6151);
 
@@ -2962,7 +2966,7 @@ void Lexer::initKeywords()
 
     cmtable_init();
 
-    for (unsigned u = 0; u < nkeywords; u++)
+    for (size_t u = 0; u < nkeywords; u++)
     {
         //printf("keyword[%d] = '%s'\n",u, keywords[u].name);
         const char *s = keywords[u].name;

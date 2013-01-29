@@ -58,6 +58,7 @@ void StaticAssert::semantic2(Scope *sc)
     sc->flags |= SCOPEstaticassert;
     ++sc->ignoreTemplates;
     Expression *e = exp->semantic(sc);
+    e = resolveProperties(sc, e);
     sc = sc->pop();
     if (!e->type->checkBoolean())
     {
@@ -78,8 +79,14 @@ void StaticAssert::semantic2(Scope *sc)
             OutBuffer buf;
 
             msg = msg->semantic(sc);
+            msg = resolveProperties(sc, msg);
             msg = msg->ctfeInterpret();
             hgs.console = 1;
+            StringExp * s = msg->toString();
+            if (s)
+            {   s->postfix = 0; // Don't display a trailing 'c'
+                msg = s;
+            }
             msg->toCBuffer(&buf, &hgs);
             error("%s", buf.toChars());
         }
