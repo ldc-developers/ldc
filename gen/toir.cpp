@@ -3023,7 +3023,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
             inits[i] = exprs[i]->toConstElem(p);
 
     // vector of values to build aggregate from
-    std::vector<LLConstant*> values = DtoStructLiteralValues(sd, inits, true);
+    std::vector<LLConstant*> values = DtoStructLiteralValues(sd, inits);
 
     // we know those values are constants.. cast them
     std::vector<LLConstant*> constvals(values.size(), NULL);
