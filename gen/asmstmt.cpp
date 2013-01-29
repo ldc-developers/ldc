@@ -144,8 +144,10 @@ struct AsmParserCommon
 };
 AsmParserCommon* asmparser = NULL;
 
-#include "asm-x86-32.h"
-#include "asm-x86-64.h"
+#include "asm-x86.h" // x86 assembly parser
+#define ASM_X86_64
+#include "asm-x86.h" // x86_64 assembly parser
+#undef ASM_X86_64
 
 bool d_have_inline_asm() { return true; }
 
