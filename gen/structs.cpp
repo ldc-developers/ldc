@@ -153,39 +153,23 @@ LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
 //////////////////////////////////////////////////////////////////////////////////////////
 
 // helper function that adds zero bytes to a vector of constants
-size_t add_zeros(std::vector<llvm::Value*>& values, size_t diff)
+extern size_t add_zeros(std::vector<LLConstant*>& values, size_t diff);
+
+// return a constant array of type arrTypeD initialized with a constant value, or that constant value
+LLConstant* FillSArrayDims(Type* arrTypeD, LLConstant* init)
 {
-    size_t n = values.size();
-    bool is64 = global.params.is64bit;
-    while (diff)
+    if (arrTypeD->ty == Tsarray)
     {
-        if (is64 && diff % 8 == 0)
-        {
-            values.push_back(LLConstant::getNullValue(llvm::Type::getInt64Ty(gIR->context())));
-            diff -= 8;
-        }
-        else if (diff % 4 == 0)
-        {
-            values.push_back(LLConstant::getNullValue(llvm::Type::getInt32Ty(gIR->context())));
-            diff -= 4;
-        }
-        else if (diff % 2 == 0)
-        {
-            values.push_back(LLConstant::getNullValue(llvm::Type::getInt16Ty(gIR->context())));
-            diff -= 2;
-        }
-        else
-        {
-            values.push_back(LLConstant::getNullValue(llvm::Type::getInt8Ty(gIR->context())));
-            diff -= 1;
-        }
+        init = FillSArrayDims(arrTypeD->nextOf(), init);
+        size_t dim = static_cast<TypeSArray*>(arrTypeD)->dim->toUInteger();
+        LLArrayType* arrty = LLArrayType::get(init->getType(), dim);
+        return LLConstantArray::get(arrty, std::vector<LLConstant*>(dim, init));
     }
-    return values.size() - n;
+    return init;
 }
 
-std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd,
-                                                 const std::vector<llvm::Value*>& inits,
-                                                 bool isConst)
+std::vector<LLConstant*> DtoStructLiteralValues(const StructDeclaration* sd,
+                                                const std::vector<LLConstant*>& inits)
 {
     // get arrays
     size_t nvars = sd->fields.dim;
@@ -204,7 +188,7 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd,
     }
 
     // vector of values to build aggregate from
-    std::vector<llvm::Value*> values;
+    std::vector<LLConstant*> values;
 
     // offset trackers
     size_t lastoffset = 0;
@@ -268,24 +252,8 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd,
 
         assert(nextVar == var);
 
-        // add any 0 padding needed before this field
-        if (!isConst && os > lastoffset + lastsize)
-        {
-            //printf("added %lu zeros\n", os - lastoffset - lastsize);
-            add_zeros(values, os - lastoffset - lastsize);
-        }
-
-        size_t repCount = 1;
-        // compute repCount to fill each array dimension
-        for (Type *varType = var->type;
-             varType->ty == Tsarray;
-             varType = varType->nextOf())
-        {
-            repCount *= static_cast<TypeSArray*>(varType)->dim->toUInteger();
-        }
-
-        // add the expression values
-        std::fill_n(std::back_inserter(values), repCount, inits[i]);
+        LLConstant* init = FillSArrayDims(var->type, inits[i]);
+        values.push_back(init);
 
         // update offsets
         lastoffset = os;
@@ -293,8 +261,7 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd,
         // sometimes size of the initializer is less than size of the variable,
         // so make sure that lastsize is correct
         if (inits[i]->getType()->isSized())
-            lastsize = ceil(gDataLayout->getTypeSizeInBits(inits[i]->getType()) / 8.0);
-        else
+            sz = ceil(gDataLayout->getTypeSizeInBits(init->getType()) / 8.0);
 #endif
         lastsize = sz;
 

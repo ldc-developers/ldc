@@ -27,9 +27,8 @@ void DtoResolveStruct(StructDeclaration* sd);
 LLConstant* DtoConstStructInitializer(StructInitializer* si);
 
 /// Build values for a struct literal.
-std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd,
-                                                 const std::vector<llvm::Value*>& inits,
-                                                 bool isConst = false);
+std::vector<LLConstant*> DtoStructLiteralValues(const StructDeclaration* sd,
+                                                const std::vector<LLConstant*>& inits);
 
 /// Returns a boolean=true if the two structs are equal.
 LLValue* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs);
