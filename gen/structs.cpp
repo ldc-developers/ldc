@@ -271,8 +271,17 @@ std::vector<llvm::Value*> DtoStructLiteralValues(const StructDeclaration* sd,
             add_zeros(values, os - lastoffset - lastsize);
         }
 
-        // add the expression value
-        values.push_back(inits[i]);
+        size_t repCount = 1;
+        // compute repCount to fill each array dimension
+        for (Type *varType = var->type;
+             varType->ty == Tsarray;
+             varType = varType->nextOf())
+        {
+            repCount *= static_cast<TypeSArray*>(varType)->dim->toUInteger();
+        }
+
+        // add the expression values
+        std::fill_n(std::back_inserter(values), repCount, inits[i]);
 
         // update offsets
         lastoffset = os;
