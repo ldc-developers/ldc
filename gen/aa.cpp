@@ -42,6 +42,7 @@ static LLValue* to_keyti(DValue* key)
 }
 #endif
 
+
 /////////////////////////////////////////////////////////////////////////////////////
 
 DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
