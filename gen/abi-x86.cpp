@@ -19,63 +19,11 @@
 #include "ir/irfunction.h"
 #include "ir/irfuncty.h"
 
-struct X86_cfloat_rewrite : ABIRewrite
-{
-    // i64 -> {float,float}
-    LLValue* get(Type*, DValue* dv)
-    {
-        LLValue* in = dv->getRVal();
-
-        // extract real part
-        LLValue* rpart = gIR->ir->CreateTrunc(in, LLType::getInt32Ty(gIR->context()));
-        rpart = gIR->ir->CreateBitCast(rpart, LLType::getFloatTy(gIR->context()), ".re");
-
-        // extract imag part
-        LLValue* ipart = gIR->ir->CreateLShr(in, LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 32, false));
-        ipart = gIR->ir->CreateTrunc(ipart, LLType::getInt32Ty(gIR->context()));
-        ipart = gIR->ir->CreateBitCast(ipart, LLType::getFloatTy(gIR->context()), ".im");
-
-        // return {float,float} aggr pair with same bits
-        return DtoAggrPair(rpart, ipart, ".final_cfloat");
-    }
-
-    // {float,float} -> i64
-    LLValue* put(Type*, DValue* dv)
-    {
-        LLValue* v = dv->getRVal();
-
-        // extract real
-        LLValue* r = gIR->ir->CreateExtractValue(v, 0);
-        // cast to i32
-        r = gIR->ir->CreateBitCast(r, LLType::getInt32Ty(gIR->context()));
-        // zext to i64
-        r = gIR->ir->CreateZExt(r, LLType::getInt64Ty(gIR->context()));
-
-        // extract imag
-        LLValue* i = gIR->ir->CreateExtractValue(v, 1);
-        // cast to i32
-        i = gIR->ir->CreateBitCast(i, LLType::getInt32Ty(gIR->context()));
-        // zext to i64
-        i = gIR->ir->CreateZExt(i, LLType::getInt64Ty(gIR->context()));
-        // shift up
-        i = gIR->ir->CreateShl(i, LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 32, false));
-
-        // combine and return
-        return v = gIR->ir->CreateOr(r, i);
-    }
-
-    // {float,float} -> i64
-    LLType* type(Type*, LLType* t)
-    {
-        return LLType::getInt64Ty(gIR->context());
-    }
-};
-
 
 struct X86TargetABI : TargetABI
 {
     X87_complex_swap swapComplex;
-    X86_cfloat_rewrite cfloatToInt;
+    CfloatToInt cfloatToInt;
     CompositeToInt compositeToInt;
 
     bool returnInArg(TypeFunction* tf)
