@@ -121,8 +121,8 @@ bool Win64TargetABI::returnInArg(TypeFunction* tf)
     // real/ireal is returned on top of the x87 stack: ST(0)
     // complex numbers are returned in XMM0 & XMM1 (cfloat, cdouble)
     // or ST(1) & ST(0) (creal)
-    // all other structs are returned by struct-return (sret)
-    return rt->ty == Tstruct && !canRewriteAsInt(rt);
+    // all other structs and static arrays are returned by struct-return (sret)
+    return (rt->ty == Tstruct || rt->ty == Tsarray) && !canRewriteAsInt(rt);
 }
 
 bool Win64TargetABI::passByVal(Type* t)
