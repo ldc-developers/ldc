@@ -201,8 +201,31 @@ static LLValue *fixArgument(DValue *argval, TypeFunction* tf, LLType *callableAr
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+#if LDC_LLVM_VER >= 303
+static inline void addToAttributes(llvm::AttributeSet &Attrs,
+                                   unsigned Idx, llvm::Attribute Attr)
+{
+    llvm::AttrBuilder Builder(Attr);
+    Attrs = Attrs.addAttributes(gIR->context(), Idx,
+                                llvm::AttributeSet::get(gIR->context(), Idx, Builder));
+}
+#else
+static inline void addToAttributes(std::vector<llvm::AttributeWithIndex> &attrs,
+                                   unsigned Idx, llvm::Attributes Attr)
+{
+    attrs.push_back(llvm::AttributeWithIndex::get(Idx, Attr));
+}
+#endif
+
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 void DtoBuildDVarArgList(std::vector<LLValue*>& args,
-                         std::vector<llvm::AttributeWithIndex>& attrs,
+#if LDC_LLVM_VER >= 303
+                         llvm::AttributeSet &attrs,
+#else
+                         std::vector<llvm::AttributeWithIndex> &attrs,
+#endif
                          TypeFunction* tf, Expressions* arguments,
                          size_t argidx,
                          LLFunctionType* callableTy)
@@ -294,21 +317,16 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     LLValue* typeinfoarrayparam = new llvm::GlobalVariable(*gIR->module, tiarrty,
         true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array");
 
-    llvm::AttributeWithIndex Attr;
     // specify arguments
     args.push_back(DtoLoad(typeinfoarrayparam));
     if (HAS_ATTRIBUTES(tf->fty.arg_arguments->attrs)) {
-        Attr.Index = argidx;
-        Attr.Attrs = tf->fty.arg_arguments->attrs;
-        attrs.push_back(Attr);
+        addToAttributes(attrs, argidx, tf->fty.arg_arguments->attrs);
     }
     ++argidx;
 
     args.push_back(gIR->ir->CreateBitCast(mem, getPtrToType(LLType::getInt8Ty(gIR->context())), "tmp"));
     if (HAS_ATTRIBUTES(tf->fty.arg_argptr->attrs)) {
-        Attr.Index = argidx;
-        Attr.Attrs = tf->fty.arg_argptr->attrs;
-        attrs.push_back(Attr);
+        addToAttributes(attrs, argidx, tf->fty.arg_argptr->attrs);
     }
 
     // pass non variadic args
@@ -320,10 +338,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
 
         if (HAS_ATTRIBUTES(tf->fty.args[i]->attrs))
         {
-            llvm::AttributeWithIndex Attr;
-            Attr.Index = argidx;
-            Attr.Attrs = tf->fty.args[i]->attrs;
-            attrs.push_back(Attr);
+            addToAttributes(attrs, argidx, tf->fty.args[i]->attrs);
         }
     }
 }
@@ -379,15 +394,16 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     LLFunctionType::param_iterator argiter = argbegin;
 
     // parameter attributes
+#if LDC_LLVM_VER >= 303
+    llvm::AttributeSet attrs;
+#else
     std::vector<llvm::AttributeWithIndex> attrs;
-    llvm::AttributeWithIndex Attr;
+#endif
 
     // return attrs
     if (HAS_ATTRIBUTES(tf->fty.ret->attrs))
     {
-        Attr.Index = 0;
-        Attr.Attrs = tf->fty.ret->attrs;
-        attrs.push_back(Attr);
+        addToAttributes(attrs, 0, tf->fty.ret->attrs);
     }
 
     // handle implicit arguments
@@ -402,12 +418,18 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         args.push_back(retvar);
 
         // add attrs for hidden ptr
+#if LDC_LLVM_VER >= 303
+        const unsigned Index = 1;
+        llvm::AttrBuilder builder(tf->fty.arg_sret->attrs);
+        assert((builder.contains(llvm::Attribute::StructRet) || builder.contains(llvm::Attribute::InReg))
+            && "Sret arg not sret or inreg?");
+        llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(), Index, builder);
+        attrs = attrs.addAttributes(gIR->context(), Index, as);
+#else
+        llvm::AttributeWithIndex Attr;
         Attr.Index = 1;
         Attr.Attrs = tf->fty.arg_sret->attrs;
-#if LDC_LLVM_VER >= 303
-        assert((Attr.Attrs.hasAttribute(llvm::Attribute::StructRet) || Attr.Attrs.hasAttribute(llvm::Attribute::InReg))
-            && "Sret arg not sret or inreg?");
-#elif LDC_LLVM_VER == 302
+#if LDC_LLVM_VER == 302
         assert((Attr.Attrs.hasAttribute(llvm::Attributes::StructRet) || Attr.Attrs.hasAttribute(llvm::Attributes::InReg))
             && "Sret arg not sret or inreg?");
 #else
@@ -415,6 +437,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             && "Sret arg not sret or inreg?");
 #endif
         attrs.push_back(Attr);
+#endif
     }
 
     // then comes a context argument...
@@ -477,15 +500,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         // add attributes for context argument
         if (tf->fty.arg_this && HAS_ATTRIBUTES(tf->fty.arg_this->attrs))
         {
-            Attr.Index = retinptr ? 2 : 1;
-            Attr.Attrs = tf->fty.arg_this->attrs;
-            attrs.push_back(Attr);
+            addToAttributes(attrs, retinptr ? 2 : 1, tf->fty.arg_this->attrs);
         }
         else if (tf->fty.arg_nest && HAS_ATTRIBUTES(tf->fty.arg_nest->attrs))
         {
-            Attr.Index = retinptr ? 2 : 1;
-            Attr.Attrs = tf->fty.arg_nest->attrs;
-            attrs.push_back(Attr);
+            addToAttributes(attrs, retinptr ? 2 : 1, tf->fty.arg_nest->attrs);
         }
     }
 
@@ -528,13 +547,6 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         }
 
         size_t n = Parameter::dim(tf->parameters);
-#if LDC_LLVM_VER >= 303
-        LLSmallVector<llvm::Attribute, 10> attrptr(n, llvm::Attribute());
-#elif LDC_LLVM_VER == 302
-        LLSmallVector<llvm::Attributes, 10> attrptr(n, llvm::Attributes());
-#else
-        LLSmallVector<llvm::Attributes, 10> attrptr(n, llvm::Attribute::None);
-#endif
         std::vector<DValue*> argvals;
         if (dfnval && dfnval->func->isArrayOp) {
             // slightly different approach for array operators
@@ -553,6 +565,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             }
         }
 
+#if LDC_LLVM_VER == 302
+        LLSmallVector<llvm::Attributes, 10> attrptr(n, llvm::Attributes());
+#elif LDC_LLVM_VER < 302
+        LLSmallVector<llvm::Attributes, 10> attrptr(n, llvm::Attribute::None);
+#endif
         // do formal params
         int beg = argiter-argbegin;
         for (size_t i=0; i<n; i++)
@@ -563,7 +580,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             LLValue *arg = fixArgument(argval, tf, callableTy->getParamType(j), i);
             args.push_back(arg);
 
+#if LDC_LLVM_VER >= 303
+            addToAttributes(attrs, beg + 1 + (tf->fty.reverseParams ? n-i-1: i), tf->fty.args[i]->attrs);
+#else
             attrptr[i] = tf->fty.args[i]->attrs;
+#endif
             ++argiter;
         }
 
@@ -571,20 +592,21 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         if (tf->fty.reverseParams)
         {
             std::reverse(args.begin() + beg, args.end());
+#if LDC_LLVM_VER < 303
             std::reverse(attrptr.begin(), attrptr.end());
+#endif
         }
 
+#if LDC_LLVM_VER < 303
         // add attributes
         for (size_t i = 0; i < n; i++)
         {
             if (HAS_ATTRIBUTES(attrptr[i]))
             {
-                Attr.Index = beg + i + 1;
-                Attr.Attrs = attrptr[i];
-                attrs.push_back(Attr);
+                addToAttributes(attrs, beg + i + 1, attrptr[i]);
             }
         }
-
+#endif
         // do C varargs
         if (n_arguments > n)
         {
@@ -752,14 +774,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
     // set calling convention and parameter attributes
 #if LDC_LLVM_VER >= 303
-  // FIXME: This is horrible inefficient. The real fix is to use AttributeSet
-  // right from the beginning.
-	llvm::AttributeSet attrlist;
-  for (std::vector<llvm::AttributeWithIndex>::iterator I = attrs.begin(), E = attrs.end(); I != E; ++I)
-  {
-      llvm::AttributeSet  tmp = llvm::AttributeSet::get(gIR->context(), (*I).Index, llvm::AttrBuilder().addAttributes((*I).Attrs));
-      attrlist = attrlist.addAttributes(gIR->context(), (*I).Index, tmp);
-  }
+	llvm::AttributeSet attrlist = attrs;
 #elif LDC_LLVM_VER == 302
 	llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(gIR->context(),
         llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
