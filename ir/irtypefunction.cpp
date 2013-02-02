@@ -72,10 +72,9 @@ IrTypeDelegate* IrTypeDelegate::get(Type* dt)
             "picked up random pre-existing type?"
         );
 
-        llvm::SmallVector<LLType*, 2> types;
-        types.push_back(getVoidPtrType());
-        types.push_back(getPtrToType(dt->nextOf()->irtype->getLLType()));
-        LLStructType* lt = LLStructType::get(gIR->context(), types);
+        llvm::Type *types[] = { getVoidPtrType(), 
+                                getPtrToType(dt->nextOf()->irtype->getLLType()) };
+        LLStructType* lt = LLStructType::get(gIR->context(), types, false);
         dt->irtype = new IrTypeDelegate(dt, lt);
     }
 
