@@ -35,7 +35,9 @@ bool DtoIsPassedByRef(Type* type);
 
 // should argument be zero or sign extended
 #if LDC_LLVM_VER >= 303
-llvm::Attribute DtoShouldExtend(Type* type);
+llvm::Attribute::AttrKind DtoShouldExtend(Type* type);
+#elif LDC_LLVM_VER == 302
+llvm::Attributes::AttrVal DtoShouldExtend(Type* type);
 #else
 llvm::Attributes DtoShouldExtend(Type* type);
 #endif
