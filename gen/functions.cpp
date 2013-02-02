@@ -72,10 +72,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
     else
     {
         Type* rt = f->next;
-#if LDC_LLVM_VER >= 303
-        llvm::Attribute a;
-#elif LDC_LLVM_VER == 302
-        llvm::Attributes a;
+#if LDC_LLVM_VER >= 302
+        llvm::AttrBuilder attrBuilder;
 #else
         llvm::Attributes a = None;
 #endif
@@ -121,8 +119,17 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
             if (f->isref)
                 t = t->pointerTo();
 #endif
+#if LDC_LLVM_VER >= 302
+            attrBuilder.addAttribute(DtoShouldExtend(t));
+#else
             a = DtoShouldExtend(t);
+#endif
         }
+#if LDC_LLVM_VER >= 303
+        llvm::Attribute a = llvm::Attribute::get(gIR->context(), attrBuilder);
+#elif LDC_LLVM_VER == 302
+        llvm::Attributes a = llvm::Attributes::get(gIR->context(), attrBuilder);
+#endif
 #if DMDV2
         fty.ret = new IrFuncTyArg(rt, f->isref, a);
 #else
@@ -202,10 +209,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
 #endif
 
         Type* argtype = arg->type;
-#if LDC_LLVM_VER >= 303
-        llvm::Attribute a;
-#elif LDC_LLVM_VER == 302
-        llvm::Attributes a;
+#if LDC_LLVM_VER >= 302
+        llvm::AttrBuilder attrBuilder;
 #else
         llvm::Attributes a = None;
 #endif
@@ -222,9 +227,9 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         else if (abi->passByVal(byref ? argtype->pointerTo() : argtype))
         {
 #if LDC_LLVM_VER >= 303
-            if (!byref) a = llvm::Attribute::get(gIR->context(), llvm::AttrBuilder(a).addAttribute(llvm::Attribute::ByVal));
+            if (!byref) attrBuilder.addAttribute(llvm::Attribute::ByVal);
 #elif LDC_LLVM_VER == 302
-            if (!byref) a = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder(a).addAttribute(llvm::Attributes::ByVal));
+            if (!byref) attrBuilder.addAttribute(llvm::Attributes::ByVal);
 #else
             if (!byref) a |= llvm::Attribute::ByVal;
 #endif
@@ -234,15 +239,17 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         // sext/zext
         else if (!byref)
         {
-#if LDC_LLVM_VER >= 303
-            a = llvm::Attribute::get(gIR->context(), llvm::AttrBuilder(a).addAttributes(DtoShouldExtend(argtype)));
-#elif LDC_LLVM_VER == 302
-            a = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder(a).addAttributes(DtoShouldExtend(argtype)));
+#if LDC_LLVM_VER >= 302
+            attrBuilder.addAttribute(DtoShouldExtend(argtype));
 #else
             a |= DtoShouldExtend(argtype);
 #endif
         }
-
+#if LDC_LLVM_VER >= 303
+        llvm::Attribute a = llvm::Attribute::get(gIR->context(), attrBuilder);
+#elif LDC_LLVM_VER == 302
+        llvm::Attributes a = llvm::Attributes::get(gIR->context(), attrBuilder);
+#endif
         fty.args.push_back(new IrFuncTyArg(argtype, byref, a));
         lidx++;
     }
