@@ -70,18 +70,14 @@ LLStructType* DtoArrayType(Type* arrayTy)
     if (elemty == LLType::getVoidTy(gIR->context()))
         elemty = LLType::getInt8Ty(gIR->context());
 
-    llvm::SmallVector<LLType*, 2> elems;
-    elems.push_back(DtoSize_t());
-    elems.push_back(getPtrToType(elemty));
-    return LLStructType::get(gIR->context(), llvm::makeArrayRef(elems));
+    llvm::Type *elems[] = { DtoSize_t(), getPtrToType(elemty) };
+    return llvm::StructType::get(gIR->context(), elems, false);
 }
 
 LLStructType* DtoArrayType(LLType* t)
 {
-    llvm::SmallVector<LLType*, 2> elems;
-    elems.push_back(DtoSize_t());
-    elems.push_back(getPtrToType(t));
-    return LLStructType::get(gIR->context(), llvm::makeArrayRef(elems));
+    llvm::Type *elems[] = { DtoSize_t(), getPtrToType(t) };
+    return llvm::StructType::get(gIR->context(), elems, false);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
