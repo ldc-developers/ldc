@@ -57,10 +57,8 @@ IrTypeBasic* IrTypeBasic::get(Type* dt)
 
 LLType* IrTypeBasic::getComplexType(llvm::LLVMContext& ctx, LLType* type)
 {
-    llvm::SmallVector<LLType*, 2> types;
-    types.push_back(type);
-    types.push_back(type);
-    return llvm::StructType::get(ctx, types);
+    llvm::Type *types[] = { type, type };
+    return llvm::StructType::get(ctx, types, false);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -235,10 +233,8 @@ IrTypeArray* IrTypeArray::get(Type* dt)
     // just as for pointers.
     if (!dt->irtype)
     {
-        llvm::SmallVector<LLType*, 2> types;
-        types.push_back(DtoSize_t());
-        types.push_back(llvm::PointerType::get(elemType, 0));
-        LLType* at = llvm::StructType::get(llvm::getGlobalContext(), types/*, t->toChars()*/);
+        llvm::Type *types[] = { DtoSize_t(), llvm::PointerType::get(elemType, 0) };
+        LLType* at = llvm::StructType::get(llvm::getGlobalContext(), types, false);
         dt->irtype = new IrTypeArray(dt, at);
     }
 
