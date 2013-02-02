@@ -553,6 +553,61 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+#if LDC_LLVM_VER >= 303
+static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
+{
+    llvm::AttributeSet attrs;
+    int idx = 0;
+
+    // handle implicit args
+    #define ADD_PA(X) \
+    if (f->fty.X) { \
+        if (HAS_ATTRIBUTES(f->fty.X->attrs)) { \
+            llvm::AttrBuilder builder(f->fty.X->attrs); \
+            llvm::AttributeSet a = llvm::AttributeSet::get(gIR->context(), idx, builder); \
+            attrs = attrs.addAttributes(gIR->context(), idx, a); \
+        } \
+        idx++; \
+    }
+
+    ADD_PA(ret)
+    ADD_PA(arg_sret)
+    ADD_PA(arg_this)
+    ADD_PA(arg_nest)
+    ADD_PA(arg_arguments)
+    ADD_PA(arg_argptr)
+
+    #undef ADD_PA
+
+    // set attrs on the rest of the arguments
+    size_t n = Parameter::dim(f->parameters);
+    for (size_t k = 0; k < n; k++)
+    {
+        Parameter* fnarg = Parameter::getNth(f->parameters, k);
+        assert(fnarg);
+
+        llvm::Attribute a = f->fty.args[k]->attrs;
+        if (HAS_ATTRIBUTES(a))
+        {
+            unsigned i = idx + (f->fty.reverseParams ? n-k-1 : k);
+            llvm::AttrBuilder builder(a);
+            llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(), i, builder);
+            attrs = attrs.addAttributes(gIR->context(), i, as);
+        }
+    }
+
+    // Merge in any old attributes (attributes for the function itself are
+    // also stored in a list slot).
+    llvm::AttributeSet oldAttrs = func->getAttributes();
+    for (size_t i = 0; i < oldAttrs.getNumSlots(); ++i) {
+        attrs.addAttributes(gIR->context(), oldAttrs.getSlotIndex(i),
+                            oldAttrs.getSlotAttributes(i));
+    }
+
+    // Store the final attribute set
+    func->setAttributes(attrs);
+}
+#else
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
     LLSmallVector<llvm::AttributeWithIndex, 9> attrs;
@@ -579,9 +634,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
 
     // set attrs on the rest of the arguments
     size_t n = Parameter::dim(f->parameters);
-#if LDC_LLVM_VER >= 303
-    LLSmallVector<llvm::Attribute, 8> attrptr(n, llvm::Attribute());
-#elif LDC_LLVM_VER == 302
+#if LDC_LLVM_VER == 302
     LLSmallVector<llvm::Attributes, 8> attrptr(n, llvm::Attributes());
 #else
     LLSmallVector<llvm::Attributes, 8> attrptr(n, None);
@@ -613,31 +666,14 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     // Merge in any old attributes (attributes for the function itself are
     // also stored in a list slot).
     const size_t newSize = attrs.size();
-#if LDC_LLVM_VER >= 303
-    llvm::AttributeSet oldAttrs = func->getAttributes();
-#else
     llvm::AttrListPtr oldAttrs = func->getAttributes();
-#endif
     for (size_t i = 0; i < oldAttrs.getNumSlots(); ++i) {
-#if LDC_LLVM_VER >= 303
-        const unsigned Index = oldAttrs.getSlotIndex(i);
-        llvm::AttrBuilder &builder = llvm::AttrBuilder(oldAttrs.getSlotAttributes(i), Index).addAttribute(llvm::Attribute::None);
-        llvm::AttributeWithIndex curr = llvm::AttributeWithIndex::get(Index,
-                                                                      llvm::Attribute::get(
-                                                                          gIR->context(),
-                                                                          builder));
-#else
         llvm::AttributeWithIndex curr = oldAttrs.getSlot(i);
-#endif
 
         bool found = false;
         for (size_t j = 0; j < newSize; ++j) {
             if (attrs[j].Index == curr.Index) {
-#if LDC_LLVM_VER >= 303
-                attrs[j].Attrs = llvm::Attribute::get(
-                    gIR->context(),
-                    llvm::AttrBuilder(attrs[j].Attrs).addAttributes(curr.Attrs));
-#elif LDC_LLVM_VER == 302
+#if LDC_LLVM_VER == 302
                 attrs[j].Attrs = llvm::Attributes::get(
                     gIR->context(),
                     llvm::AttrBuilder(attrs[j].Attrs).addAttributes(curr.Attrs));
@@ -654,16 +690,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
         }
     }
 
-#if LDC_LLVM_VER >= 303
-  // FIXME: This is horrible inefficient. The real fix is to use AttributeSet
-  // right from the beginning.
-	llvm::AttributeSet attrlist;
-  for (llvm::SmallVector<llvm::AttributeWithIndex, 9>::iterator I = attrs.begin(), E = attrs.end(); I != E; ++I)
-  {
-      llvm::AttributeSet  tmp = llvm::AttributeSet::get(gIR->context(), (*I).Index, llvm::AttrBuilder().addAttributes((*I).Attrs));
-      attrlist = attrlist.addAttributes(gIR->context(), (*I).Index, tmp);
-  }
-#elif LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 302
 	llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(gIR->context(),
         llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
 #else
@@ -671,6 +698,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
 #endif
     func->setAttributes(attrlist);
 }
+#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
