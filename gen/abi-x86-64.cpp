@@ -414,8 +414,8 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
         if (tf->isref)
             return false;
 #endif
-        // All non-structs can be returned in registers.
-        return (rt->ty == Tstruct);
+        // Everything except structs/static arrays can be returned in registers.
+        return (rt->ty == Tstruct || rt->ty == Tsarray);
     } else {
         if (rt == Type::tvoid || keepUnchanged(rt))
             return false;
