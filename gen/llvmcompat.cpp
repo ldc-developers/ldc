@@ -39,6 +39,10 @@ Triple llvm::Triple__get32BitArchVariant(const std::string& triple) {
     switch (T.getArch()) {
         case Triple::UnknownArch:
         case Triple::msp430:
+#if LDC_LLVM_VER == 300
+        case Triple::alpha:
+        case Triple::systemz:
+#endif
             T.setArch(Triple::UnknownArch);
             break;
 
@@ -55,14 +59,20 @@ Triple llvm::Triple__get32BitArchVariant(const std::string& triple) {
         case Triple::thumb:
         case Triple::x86:
         case Triple::xcore:
+#if LDC_LLVM_VER == 300
+        case Triple::bfin:
+#endif
             // Already 32-bit.
             break;
 
         case Triple::mips64:    T.setArch(Triple::mips);    break;
         case Triple::mips64el:  T.setArch(Triple::mipsel);  break;
-        case Triple::ppc64:     T.setArch(Triple::ppc);   break;
+        case Triple::ppc64:     T.setArch(Triple::ppc);     break;
         case Triple::sparcv9:   T.setArch(Triple::sparc);   break;
         case Triple::x86_64:    T.setArch(Triple::x86);     break;
+#if LDC_LLVM_VER == 300
+        case Triple::ptx64:     T.setArch(Triple::ptx32);   break;
+#endif
     }
     return T;
 }
@@ -80,9 +90,16 @@ Triple llvm::Triple__get64BitArchVariant(const std::string& triple) {
         case Triple::tce:
         case Triple::thumb:
         case Triple::xcore:
+#if LDC_LLVM_VER == 300
+        case Triple::bfin:
+#endif
             T.setArch(Triple::UnknownArch);
             break;
 
+#if LDC_LLVM_VER == 300
+        case Triple::alpha:
+        case Triple::systemz:
+#endif
         case Triple::mips64:
         case Triple::mips64el:
         case Triple::ppc64:
@@ -96,6 +113,9 @@ Triple llvm::Triple__get64BitArchVariant(const std::string& triple) {
         case Triple::ppc:     T.setArch(Triple::ppc64);     break;
         case Triple::sparc:   T.setArch(Triple::sparcv9);   break;
         case Triple::x86:     T.setArch(Triple::x86_64);    break;
+#if LDC_LLVM_VER == 300
+        case Triple::ptx32:   T.setArch(Triple::ptx64);     break;
+#endif
     }
     return T;
 }
