@@ -10,6 +10,9 @@
 #ifndef ROOT_MEM_H
 #define ROOT_MEM_H
 
+#if defined(IN_LLVM) && (LDC_LLVM_VER >= 303)
+#include "llvm/Config/config.h"
+#endif
 #include <stddef.h>     // for size_t
 
 typedef void (*FINALIZERPROC)(void* pObj, void* pClientData);
