@@ -203,9 +203,9 @@ static LLValue *fixArgument(DValue *argval, TypeFunction* tf, LLType *callableAr
 
 #if LDC_LLVM_VER >= 303
 static inline void addToAttributes(llvm::AttributeSet &Attrs,
-                                   unsigned Idx, llvm::Attribute Attr)
+                                   unsigned Idx, llvm::AttrBuilder B)
 {
-    llvm::AttrBuilder Builder(Attr);
+    llvm::AttrBuilder Builder(B);
     Attrs = Attrs.addAttributes(gIR->context(), Idx,
                                 llvm::AttributeSet::get(gIR->context(), Idx, Builder));
 }

@@ -125,7 +125,8 @@ struct X86TargetABI : TargetABI
             {
                 Logger::println("Putting 'this' in register");
 #if LDC_LLVM_VER >= 303
-                fty.arg_this->attrs = llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::InReg));
+                fty.arg_this->attrs.clear();
+                fty.arg_this->attrs.addAttribute(llvm::Attribute::InReg);
 #elif LDC_LLVM_VER == 302
                 fty.arg_this->attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::InReg));
 #else
@@ -136,7 +137,8 @@ struct X86TargetABI : TargetABI
             {
                 Logger::println("Putting context ptr in register");
 #if LDC_LLVM_VER >= 303
-                fty.arg_nest->attrs = llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::InReg));
+                fty.arg_nest->attrs.clear();
+                fty.arg_nest->attrs.addAttribute(llvm::Attribute::InReg);
 #elif LDC_LLVM_VER == 302
                 fty.arg_nest->attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::InReg));
 #else
@@ -149,8 +151,7 @@ struct X86TargetABI : TargetABI
                 // sret and inreg are incompatible, but the ABI requires the
                 // sret parameter to be in EAX in this situation...
 #if LDC_LLVM_VER >= 303
-                sret->attrs = llvm::Attribute::get(gIR->context(), llvm::AttrBuilder(sret->attrs).addAttribute(llvm::Attribute::InReg)
-                                                                                                 .removeAttribute(llvm::Attribute::StructRet));
+                sret->attrs.addAttribute(llvm::Attribute::InReg).removeAttribute(llvm::Attribute::StructRet);
 #elif LDC_LLVM_VER == 302
                 sret->attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder(sret->attrs).addAttribute(llvm::Attributes::InReg)
                                                                                                   .removeAttribute(llvm::Attributes::StructRet));
@@ -175,7 +176,7 @@ struct X86TargetABI : TargetABI
                 {
                     Logger::println("Putting last (byref) parameter in register");
 #if LDC_LLVM_VER >= 303
-                    last->attrs = llvm::Attribute::get(gIR->context(), llvm::AttrBuilder(last->attrs).addAttribute(llvm::Attribute::InReg));
+                    last->attrs.addAttribute(llvm::Attribute::InReg);
 #elif LDC_LLVM_VER == 302
                     last->attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder(last->attrs).addAttribute(llvm::Attributes::InReg));
 #else
@@ -192,7 +193,7 @@ struct X86TargetABI : TargetABI
                         last->byref = false;
                         // erase previous attributes
 #if LDC_LLVM_VER >= 303
-                        last->attrs = llvm::Attribute();
+                        last->attrs.clear();
 #elif LDC_LLVM_VER == 302
                         last->attrs = llvm::Attributes();
 #else
@@ -200,7 +201,7 @@ struct X86TargetABI : TargetABI
 #endif
                     }
 #if LDC_LLVM_VER >= 303
-                    last->attrs = llvm::Attribute::get(gIR->context(), llvm::AttrBuilder(last->attrs).addAttribute(llvm::Attribute::InReg));
+                    last->attrs.addAttribute(llvm::Attribute::InReg);
 #elif LDC_LLVM_VER == 302
                     last->attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder(last->attrs).addAttribute(llvm::Attributes::InReg));
 #else

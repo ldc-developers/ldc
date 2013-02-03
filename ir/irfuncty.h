@@ -49,7 +49,7 @@ struct IrFuncTyArg : IrBase
     /** These are the final LLVM attributes used for the function.
      *  Must be valid for the LLVM Type and byref setting */
 #if LDC_LLVM_VER >= 303
-    llvm::Attribute attrs;
+    llvm::AttrBuilder attrs;
 #else
     llvm::Attributes attrs;
 #endif
@@ -76,7 +76,7 @@ struct IrFuncTyArg : IrBase
      *               LLVM Type will be of DtoType(type->pointerTo()), instead
      *               of just DtoType(type) */
 #if LDC_LLVM_VER >= 303
-    IrFuncTyArg(Type* t, bool byref, llvm::Attribute a = llvm::Attribute());
+    IrFuncTyArg(Type* t, bool byref, llvm::AttrBuilder b = llvm::AttrBuilder());
 #elif LDC_LLVM_VER == 302
     IrFuncTyArg(Type* t, bool byref, llvm::Attributes a = llvm::Attributes());
 #else
