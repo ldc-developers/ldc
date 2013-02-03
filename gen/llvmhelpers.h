@@ -214,7 +214,7 @@ LLFunctionType* DtoExtractFunctionType(LLType* type);
 #if LDC_LLVM_VER >= 303
 void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::AttributeSet& palist, TypeFunction* tf, Expressions* arguments, size_t argidx);
 #else
-void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::AttrListPtr& palist, TypeFunction* tf, Expressions* arguments, size_t argidx);
+void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::AttributeWithIndex>& palist, TypeFunction* tf, Expressions* arguments, size_t argidx);
 #endif
 
 ///
