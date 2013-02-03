@@ -37,6 +37,7 @@
 #include "gen/abi.h"
 #include "gen/nested.h"
 #include "gen/pragma.h"
+#include <iostream>
 
 #if LDC_LLVM_VER < 302
 using namespace llvm::Attribute;
@@ -83,7 +84,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         {
 #if LDC_LLVM_VER >= 302
 #if LDC_LLVM_VER >= 303
-            fty.arg_sret = new IrFuncTyArg(rt, true, llvm::Attribute::get(gIR->context(),
+            fty.arg_sret = new IrFuncTyArg(rt, true,
                 llvm::AttrBuilder().addAttribute(llvm::Attribute::StructRet)
                 .addAttribute(llvm::Attribute::NoAlias)
 #else
@@ -100,7 +101,10 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
                 // _silent_ miscompilations (especially in the GVN pass).
                 .addAttribute(llvm::Attributes::NoCapture)
             #endif
-            ));
+#if LDC_LLVM_VER == 302
+            )
+#endif
+            );
 #else
             fty.arg_sret = new IrFuncTyArg(rt, true, StructRet | NoAlias
             #if !STRUCTTHISREF
@@ -119,14 +123,18 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
             if (f->isref)
                 t = t->pointerTo();
 #endif
-#if LDC_LLVM_VER >= 302
-            attrBuilder.addAttribute(DtoShouldExtend(t));
+#if LDC_LLVM_VER >= 303
+            if (llvm::Attribute::AttrKind a = DtoShouldExtend(t))
+                attrBuilder.addAttribute(a);
+#elif LDC_LLVM_VER == 302
+            if (llvm::Attributes::AttrVal a = DtoShouldExtend(t))
+                attrBuilder.addAttribute(a);
 #else
             a = DtoShouldExtend(t);
 #endif
         }
 #if LDC_LLVM_VER >= 303
-        llvm::Attribute a = llvm::Attribute::get(gIR->context(), attrBuilder);
+        llvm::AttrBuilder a = attrBuilder;
 #elif LDC_LLVM_VER == 302
         llvm::Attributes a = llvm::Attributes::get(gIR->context(), attrBuilder);
 #endif
@@ -167,8 +175,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
                 // _argptr
 #if LDC_LLVM_VER >= 303
                 fty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
-                                                 llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoAlias)
-                                                                                                         .addAttribute(llvm::Attribute::NoCapture)));
+                                                 llvm::AttrBuilder().addAttribute(llvm::Attribute::NoAlias)
+                                                                    .addAttribute(llvm::Attribute::NoCapture));
 #elif LDC_LLVM_VER == 302
                 fty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
                                                  llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
@@ -239,14 +247,18 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         // sext/zext
         else if (!byref)
         {
-#if LDC_LLVM_VER >= 302
-            attrBuilder.addAttribute(DtoShouldExtend(argtype));
+#if LDC_LLVM_VER >= 303
+            if (llvm::Attribute::AttrKind a = DtoShouldExtend(argtype))
+                attrBuilder.addAttribute(a);
+#elif LDC_LLVM_VER == 302
+            if (llvm::Attributes::AttrVal a = DtoShouldExtend(argtype))
+                attrBuilder.addAttribute(a);
 #else
             a |= DtoShouldExtend(argtype);
 #endif
         }
 #if LDC_LLVM_VER >= 303
-        llvm::Attribute a = llvm::Attribute::get(gIR->context(), attrBuilder);
+        llvm::AttrBuilder a = attrBuilder;
 #elif LDC_LLVM_VER == 302
         llvm::Attributes a = llvm::Attributes::get(gIR->context(), attrBuilder);
 #endif
@@ -562,9 +574,8 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     // handle implicit args
     #define ADD_PA(X) \
     if (f->fty.X) { \
-        if (HAS_ATTRIBUTES(f->fty.X->attrs)) { \
-            llvm::AttrBuilder builder(f->fty.X->attrs); \
-            llvm::AttributeSet a = llvm::AttributeSet::get(gIR->context(), idx, builder); \
+        if (f->fty.X->attrs.hasAttributes()) { \
+            llvm::AttributeSet a = llvm::AttributeSet::get(gIR->context(), idx, f->fty.X->attrs); \
             attrs = attrs.addAttributes(gIR->context(), idx, a); \
         } \
         idx++; \
@@ -586,12 +597,11 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
         Parameter* fnarg = Parameter::getNth(f->parameters, k);
         assert(fnarg);
 
-        llvm::Attribute a = f->fty.args[k]->attrs;
-        if (HAS_ATTRIBUTES(a))
+        llvm::AttrBuilder a = f->fty.args[k]->attrs;
+        if (a.hasAttributes())
         {
             unsigned i = idx + (f->fty.reverseParams ? n-k-1 : k);
-            llvm::AttrBuilder builder(a);
-            llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(), i, builder);
+            llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(), i, a);
             attrs = attrs.addAttributes(gIR->context(), i, as);
         }
     }
