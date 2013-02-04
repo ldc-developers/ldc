@@ -89,7 +89,13 @@ struct X86TargetABI : TargetABI
         Type* rt = tf->next->toBasetype();
         // D only returns structs on the stack
         if (tf->linkage == LINKd)
-            return (rt->ty == Tstruct);
+        {
+            return rt->ty == Tstruct
+#if SARRAYVALUE
+                || rt->ty == Tsarray
+#endif
+            ;
+        }
         // other ABI's follow C, which is cdouble and creal returned on the stack
         // as well as structs
         else
