@@ -7,6 +7,16 @@
 //
 //===----------------------------------------------------------------------===//
 //
+// BIG RED TODO NOTE: On x86_64, the C ABI should also be used for extern(D)
+// functions, as mandated by the language standard and required for DMD
+// compatibility. The below description and implementation dates back to the
+// time where x86_64 was still an exotic target for D. Also, the frontend
+// toArgTypes() machinery should be used for doing the type classification to
+// reduce code duplication and make sure the va_arg implementation is always
+// up to date with the code we emit.
+//
+//===----------------------------------------------------------------------===//
+//
 // extern(C) implements the C calling convention for x86-64, as found in
 // http://www.x86-64.org/documentation/abi-0.99.pdf
 //
@@ -415,7 +425,11 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
             return false;
 #endif
         // All non-structs can be returned in registers.
-        return (rt->ty == Tstruct);
+        return rt->ty == Tstruct
+#if SARRAYVALUE
+            || rt->ty == Tsarray
+#endif
+        ;
     } else {
         if (rt == Type::tvoid || keepUnchanged(rt))
             return false;
