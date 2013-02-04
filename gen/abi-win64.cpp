@@ -191,6 +191,18 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf)
             // FIXME: use tightly packed struct for creal like DMD?
             arg.rewrite = &byval_rewrite;
             arg.ltype = byval_rewrite.type(arg.type, arg.ltype);
+
+            // the copy is treated as a local variable of the callee
+            // hence add the NoAlias and NoCapture attributes
+#if LDC_LLVM_VER >= 303
+            arg.attrs = llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoAlias)
+                                                                                .addAttribute(llvm::Attribute::NoCapture));
+#elif LDC_LLVM_VER == 302
+            arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
+                                                                                 .addAttribute(llvm::Attributes::NoCapture));
+#else
+            arg.attrs = llvm::Attribute::NoAlias | llvm::Attribute::NoCapture;
+#endif
         }
     }
 
