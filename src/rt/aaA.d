@@ -978,6 +978,13 @@ hash_t _aaGetHash(AA* aa, const(TypeInfo) tiRaw) nothrow
     return h;
 }
 
+version (LDC)
+{
+    // We cannot run this unit test here because the mismatch between the
+    // void* parameters of _aaLen et al. in object.di and the AA type in the
+    // corresponding function definitions here would cause problems.
+}
+else
 unittest
 {
     string[int] key1 = [1: "true", 2: "false"];
