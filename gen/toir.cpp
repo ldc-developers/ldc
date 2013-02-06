@@ -2923,6 +2923,8 @@ DValue* StructLiteralExp::toElem(IRState* p)
     Logger::print("StructLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+
+#if DMDV2
     if (sinit)
     {
         // Copied from VarExp::toElem, need to clean this mess up.
@@ -2937,6 +2939,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
         return new DVarValue(type, initsym);
     }
+#endif
 
     // make sure the struct is fully resolved
     sd->codegen(Type::sir);
@@ -3006,8 +3009,10 @@ DValue* StructLiteralExp::toElem(IRState* p)
         // store the initializer there
         DtoAssign(loc, &field, val, TOKconstruct);
 
+#if DMDV2
         if (expr)
             callPostblit(loc, expr, field.getLVal());
+#endif
 
         // Also zero out padding bytes counted as being part of the type in DMD
         // but not in LLVM; e.g. real/x86_fp80.
@@ -3035,6 +3040,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     Logger::print("StructLiteralExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+#if DMDV2
     if (sinit)
     {
         // Copied from VarExp::toConstElem, need to clean this mess up.
@@ -3046,6 +3052,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
 
         return ts->sym->ir.irStruct->getDefaultInit();
     }
+#endif
 
     // make sure the struct is resolved
     sd->codegen(Type::sir);
