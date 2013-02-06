@@ -195,8 +195,9 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf)
             // the copy is treated as a local variable of the callee
             // hence add the NoAlias and NoCapture attributes
 #if LDC_LLVM_VER >= 303
-            arg.attrs = llvm::Attribute::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attribute::NoAlias)
-                                                                                .addAttribute(llvm::Attribute::NoCapture));
+            arg.attrs.clear();
+            arg.attrs.addAttribute(llvm::Attribute::NoAlias)
+                     .addAttribute(llvm::Attribute::NoCapture);
 #elif LDC_LLVM_VER == 302
             arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
                                                                                  .addAttribute(llvm::Attributes::NoCapture));
