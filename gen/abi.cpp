@@ -21,6 +21,7 @@
 #include "gen/dvalue.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-ppc64.h"
+#include "gen/abi-win64.h"
 #include "gen/abi-x86.h"
 #include "gen/abi-x86-64.h"
 #include "ir/irfunction.h"
@@ -74,7 +75,10 @@ TargetABI * TargetABI::getTarget()
     case ARCHx86:
         return getX86TargetABI();
     case ARCHx86_64:
-        return getX86_64TargetABI();
+        if (global.params.os == OSWindows)
+            return getWin64TargetABI();
+        else
+            return getX86_64TargetABI();
     case ARCHppc_64:
         return getPPC64TargetABI();
     default:
