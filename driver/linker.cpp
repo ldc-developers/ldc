@@ -120,6 +120,50 @@ static void CreateDirectoryOnDisk(llvm::StringRef fileName)
 
 //////////////////////////////////////////////////////////////////////////////
 
+static std::string getOutputName(bool const sharedLib)
+{
+    if (!sharedLib && global.params.exefile)
+    {
+        return global.params.exefile;
+    }
+
+    if (sharedLib && global.params.objname)
+    {
+        return global.params.objname;
+    }
+
+    // Output name is inferred.
+    std::string result;
+
+    // try root module name
+    if (Module::rootModule)
+        result = Module::rootModule->toChars();
+    else if (global.params.objfiles->dim)
+        result = FileName::removeExt(static_cast<char*>(global.params.objfiles->data[0]));
+    else
+        result = "a.out";
+
+    if (sharedLib)
+    {
+        std::string libExt = std::string(".") + global.dll_ext;
+        if (!endsWith(result, libExt))
+        {
+            if (global.params.targetTriple.getOS() != llvm::Triple::Win32)
+                result = "lib" + result + libExt;
+            else
+                result.append(libExt);
+        }
+    }
+    else if (global.params.targetTriple.isOSWindows() && !endsWith(result, ".exe"))
+    {
+        result.append(".exe");
+    }
+
+    return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 static llvm::sys::Path gExePath;
 
 int linkObjToBinaryGcc(bool sharedLib)
@@ -147,38 +191,7 @@ int linkObjToBinaryGcc(bool sharedLib)
     }
 
     // output filename
-    std::string output;
-    if (!sharedLib && global.params.exefile)
-    {   // explicit
-        output = global.params.exefile;
-    }
-    else if (sharedLib && global.params.objname)
-    {   // explicit
-        output = global.params.objname;
-    }
-    else
-    {   // inferred
-        // try root module name
-        if (Module::rootModule)
-            output = Module::rootModule->toChars();
-        else if (global.params.objfiles->dim)
-            output = FileName::removeExt(static_cast<char*>(global.params.objfiles->data[0]));
-        else
-            output = "a.out";
-
-        if (sharedLib) {
-            std::string libExt = std::string(".") + global.dll_ext;
-            if (!endsWith(output, libExt))
-            {
-                if (global.params.os != OSWindows)
-                    output = "lib" + output + libExt;
-                else
-                    output.append(libExt);
-            }
-        } else if (global.params.os == OSWindows && !endsWith(output, ".exe")) {
-            output.append(".exe");
-        }
-    }
+    std::string output = getOutputName(sharedLib);
 
     if (sharedLib)
         args.push_back("-shared");
@@ -300,38 +313,8 @@ int linkObjToBinaryWin(bool sharedLib)
         args.push_back("/DLL");
 
     // output filename
-    std::string output;
-    if (!sharedLib && global.params.exefile)
-    {   // explicit
-        output = global.params.exefile;
-    }
-    else if (sharedLib && global.params.objname)
-    {   // explicit
-        output = global.params.objname;
-    }
-    else
-    {   // inferred
-        // try root module name
-        if (Module::rootModule)
-            output = Module::rootModule->toChars();
-        else if (global.params.objfiles->dim)
-            output = FileName::removeExt(static_cast<char*>(global.params.objfiles->data[0]));
-        else
-            output = "a.out";
+    std::string output = getOutputName(sharedLib);
 
-        if (sharedLib) {
-            std::string libExt = std::string(".") + global.dll_ext;
-            if (!endsWith(output, libExt))
-            {
-                if (global.params.os != OSWindows)
-                    output = "lib" + output + libExt;
-                else
-                    output.append(libExt);
-            }
-        } else if (global.params.os == OSWindows && !endsWith(output, ".exe")) {
-            output.append(".exe");
-        }
-    }
     args.push_back("/OUT:" + output);
 
     // object files
