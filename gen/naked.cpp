@@ -7,25 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "expression.h"
+#include "declaration.h"
+#include "statement.h"
+#include "template.h"
+#include "gen/dvalue.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/tollvm.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/InlineAsm.h"
 #else
 #include "llvm/InlineAsm.h"
 #endif
-
-#include "expression.h"
-#include "statement.h"
-#include "declaration.h"
-#include "template.h"
-
 #include <cassert>
-
-#include "gen/logger.h"
-#include "gen/irstate.h"
-#include "gen/llvmhelpers.h"
-#include "gen/tollvm.h"
-#include "gen/dvalue.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

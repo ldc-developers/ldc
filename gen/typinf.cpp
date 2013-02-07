@@ -20,39 +20,35 @@
 // Copyright (c) 2007 by Tomas Lindquist Olsen
 // tomas at famolsen dk
 
-#include <cstdio>
-#include <cassert>
-
-#include "gen/llvm.h"
-
+#include "aggregate.h"
+#include "attrib.h"
+#include "declaration.h"
+#include "enum.h"
+#include "expression.h"
+#include "id.h"
+#include "import.h"
+#include "init.h"
 #include "mars.h"
 #include "module.h"
 #include "mtype.h"
 #include "scope.h"
-#include "init.h"
-#include "expression.h"
-#include "attrib.h"
-#include "declaration.h"
 #include "template.h"
-#include "id.h"
-#include "enum.h"
-#include "import.h"
-#include "aggregate.h"
-
-#include "gen/irstate.h"
-#include "gen/logger.h"
-#include "gen/runtime.h"
-#include "gen/tollvm.h"
-#include "gen/llvmhelpers.h"
 #include "gen/arrays.h"
-#include "gen/structs.h"
 #include "gen/classes.h"
+#include "gen/irstate.h"
 #include "gen/linkage.h"
+#include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
 #include "gen/metadata.h"
 #include "gen/rttibuilder.h"
-
-#include "ir/irvar.h"
+#include "gen/runtime.h"
+#include "gen/structs.h"
+#include "gen/tollvm.h"
 #include "ir/irtype.h"
+#include "ir/irvar.h"
+#include <cassert>
+#include <cstdio>
 #include <ir/irtypeclass.h>
 
 /*******************************************

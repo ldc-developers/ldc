@@ -9,7 +9,8 @@
 
 #include "driver/cl_options.h"
 #include "gen/cl_helpers.h"
-
+#include "gen/logger.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Target/TargetMachine.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/DataLayout.h"
@@ -18,10 +19,6 @@
 #else
 #include "llvm/Target/TargetData.h"
 #endif
-
-#include "gen/logger.h"
-
-#include "llvm/Support/CommandLine.h"
 
 namespace opts {
 

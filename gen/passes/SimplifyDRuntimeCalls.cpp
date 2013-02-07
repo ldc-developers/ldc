@@ -17,7 +17,6 @@
 #define DEBUG_TYPE "simplify-drtcalls"
 
 #include "Passes.h"
-
 #include "llvm/Pass.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Function.h"

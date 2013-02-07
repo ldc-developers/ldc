@@ -7,19 +7,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <iostream>
-#include <string>
-#include <cassert>
-#include <cstring>
-
+#include "driver/configfile.h"
+#include "mars.h"
+#include "libconfig.h++"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-
-#include "libconfig.h++"
-
-#include "driver/configfile.h"
-
-#include "mars.h"
+#include <cassert>
+#include <cstring>
+#include <iostream>
+#include <string>
 
 namespace sys = llvm::sys;
 

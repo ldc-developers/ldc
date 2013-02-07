@@ -14,19 +14,33 @@
 #ifndef LDC_GEN_COMPLEX_H
 #define LDC_GEN_COMPLEX_H
 
+#include "lexer.h"
+#include "longdouble.h"
+
+struct DValue;
+struct Loc;
+struct Type;
+namespace llvm
+{
+    class Constant;
+    class StructType;
+    class Type;
+    class Value;
+}
+
 llvm::StructType* DtoComplexType(Type* t);
-LLType* DtoComplexBaseType(Type* t);
+llvm::Type* DtoComplexBaseType(Type* t);
 
-LLConstant* DtoConstComplex(Type* t, longdouble re, longdouble im);
+llvm::Constant* DtoConstComplex(Type* t, longdouble re, longdouble im);
 
-LLConstant* DtoComplexShuffleMask(unsigned a, unsigned b);
+llvm::Constant* DtoComplexShuffleMask(unsigned a, unsigned b);
 
 DValue* DtoComplex(Loc& loc, Type* to, DValue* val);
 
-void DtoComplexSet(LLValue* c, LLValue* re, LLValue* im);
+void DtoComplexSet(llvm::Value* c, llvm::Value* re, llvm::Value* im);
 
 void DtoGetComplexParts(Loc& loc, Type* to, DValue* c, DValue*& re, DValue*& im);
-void DtoGetComplexParts(Loc& loc, Type* to, DValue* c, LLValue*& re, LLValue*& im);
+void DtoGetComplexParts(Loc& loc, Type* to, DValue* c, llvm::Value*& re, llvm::Value*& im);
 
 DValue* DtoComplexAdd(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexSub(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
@@ -35,7 +49,7 @@ DValue* DtoComplexDiv(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexRem(Loc& loc, Type* type, DValue* lhs, DValue* rhs);
 DValue* DtoComplexNeg(Loc& loc, Type* type, DValue* val);
 
-LLValue* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs);
+llvm::Value* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs);
 
 DValue* DtoCastComplex(Loc& loc, DValue* val, Type* to);
 

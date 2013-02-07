@@ -7,36 +7,34 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "gen/functions.h"
+#include "aggregate.h"
+#include "declaration.h"
+#include "id.h"
+#include "init.h"
+#include "module.h"
+#include "mtype.h"
+#include "statement.h"
+#include "template.h"
+#include "gen/abi.h"
+#include "gen/arrays.h"
+#include "gen/classes.h"
+#include "gen/dvalue.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
-#include "llvm/Support/CFG.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/nested.h"
+#include "gen/pragma.h"
+#include "gen/runtime.h"
+#include "gen/todebug.h"
+#include "gen/tollvm.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Intrinsics.h"
 #else
 #include "llvm/Intrinsics.h"
 #endif
-
-#include "mtype.h"
-#include "aggregate.h"
-#include "init.h"
-#include "declaration.h"
-#include "template.h"
-#include "module.h"
-#include "statement.h"
-#include "id.h"
-
-#include "gen/irstate.h"
-#include "gen/tollvm.h"
-#include "gen/llvmhelpers.h"
-#include "gen/runtime.h"
-#include "gen/arrays.h"
-#include "gen/logger.h"
-#include "gen/functions.h"
-#include "gen/todebug.h"
-#include "gen/classes.h"
-#include "gen/dvalue.h"
-#include "gen/abi.h"
-#include "gen/nested.h"
-#include "gen/pragma.h"
+#include "llvm/Support/CFG.h"
 #include <iostream>
 
 #if LDC_LLVM_VER < 302

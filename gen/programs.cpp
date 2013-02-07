@@ -8,12 +8,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/programs.h"
-
+#include "mars.h"       // fatal()
+#include "root.h"       // error(char*)
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Program.h"
-
-#include "root.h"       // error(char*)
-#include "mars.h"       // fatal()
 
 using namespace llvm;
 

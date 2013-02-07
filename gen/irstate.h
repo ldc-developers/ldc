@@ -15,17 +15,15 @@
 #ifndef LDC_GEN_IRSTATE_H
 #define LDC_GEN_IRSTATE_H
 
-#include <vector>
-#include <deque>
-#include <list>
-#include <sstream>
-
-#include "root.h"
 #include "aggregate.h"
-
+#include "root.h"
 #include "ir/irfunction.h"
 #include "ir/irstruct.h"
 #include "ir/irvar.h"
+#include <deque>
+#include <list>
+#include <sstream>
+#include <vector>
 
 #if LDC_LLVM_VER >= 302
 #include "llvm/DIBuilder.h"

@@ -16,12 +16,11 @@
 #ifndef LDC_GEN_TOLLVM_H
 #define LDC_GEN_TOLLVM_H
 
-#include "gen/llvm.h"
-#include "lexer.h"
-#include "mtype.h"
 #include "attrib.h"
 #include "declaration.h"
-
+#include "lexer.h"
+#include "mtype.h"
+#include "gen/llvm.h"
 #include "gen/structs.h"
 
 // D->LLVM type handling stuff

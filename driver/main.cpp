@@ -7,9 +7,33 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvmcompat.h"
+#include "id.h"
+#include "json.h"
+#include "mars.h"
+#include "module.h"
+#include "mtype.h"
+#include "rmem.h"
+#include "root.h"
+#include "driver/cl_options.h"
+#include "driver/configfile.h"
+#include "driver/linker.h"
+#include "driver/toobj.h"
+#include "gen/cl_helpers.h"
+#include "gen/irstate.h"
+#include "gen/linkage.h"
 #include "gen/llvm.h"
+#include "gen/llvmcompat.h"
+#include "gen/logger.h"
+#include "gen/metadata.h"
+#include "gen/optimizer.h"
+#include "gen/passes/Passes.h"
 #include "llvm/Linker.h"
+#include "llvm/MC/SubtargetFeature.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/LinkAllIR.h"
 #include "llvm/IR/LLVMContext.h"
@@ -17,53 +41,25 @@
 #include "llvm/LinkAllVMCore.h"
 #include "llvm/LLVMContext.h"
 #endif
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetOptions.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/Host.h"
-#include "llvm/MC/SubtargetFeature.h"
-
-#include <stdio.h>
-#include <stdlib.h>
 #include <assert.h>
 #include <limits.h>
-
-#include "rmem.h"
-#include "root.h"
+#include <stdio.h>
+#include <stdlib.h>
+#if POSIX
+#include <errno.h>
+#elif _WIN32
+#include <windows.h>
+#endif
 
 // stricmp
 #if __GNUC__ && !_WIN32
 #include "gnuc.h"
 #endif
 
-#include "mars.h"
-#include "module.h"
-#include "mtype.h"
-#include "id.h"
+// Needs Type already declared.
 #include "cond.h"
-#include "json.h"
 
-#include "gen/logger.h"
-#include "gen/linkage.h"
-#include "gen/irstate.h"
-#include "gen/optimizer.h"
-#include "gen/metadata.h"
-#include "gen/passes/Passes.h"
-
-#include "driver/linker.h"
-#include "driver/cl_options.h"
-#include "gen/cl_helpers.h"
 using namespace opts;
-
-#include "driver/configfile.h"
-#include "driver/toobj.h"
-
-#if POSIX
-#include <errno.h>
-#elif _WIN32
-#include <windows.h>
-#endif
 
 extern void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 extern void backend_init();

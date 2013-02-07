@@ -15,8 +15,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef GEN_LLVM_H
-#define GEN_LLVM_H
+#ifndef LDC_GEN_LLVM_H
+#define LDC_GEN_LLVM_H
 
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Type.h"
@@ -94,4 +94,4 @@ using llvm::IRBuilder;
 using llvm::APFloat;
 using llvm::APInt;
 
-#endif // GEN_LLVM_H
+#endif // LDC_GEN_LLVM_H

@@ -12,16 +12,14 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_CL_OPTIONS_H
-#define LDC_CL_OPTIONS_H
+#ifndef LDC_DRIVER_CL_OPTIONS_H
+#define LDC_DRIVER_CL_OPTIONS_H
 
 #include "mars.h"
-
+#include "llvm/Support/CodeGen.h"
+#include "llvm/Support/CommandLine.h"
 #include <deque>
 #include <vector>
-
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/CodeGen.h"
 
 namespace opts {
     namespace cl = llvm::cl;

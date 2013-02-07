@@ -7,17 +7,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvm.h"
-
-#include "mtype.h"
-#include "declaration.h"
-
 #include "gen/complex.h"
-#include "gen/tollvm.h"
-#include "gen/llvmhelpers.h"
-#include "gen/irstate.h"
+#include "declaration.h"
+#include "mtype.h"
 #include "gen/dvalue.h"
+#include "gen/irstate.h"
+#include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/tollvm.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

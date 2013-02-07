@@ -13,22 +13,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <map>
-#include <string>
-#include <algorithm>
-
-#include <stdio.h>
-#include <string.h>
-#include <assert.h>
-
 #include "llvm/TableGen/Main.h"
+#include "llvm/ADT/StringRef.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/PathV1.h"
+#include "llvm/TableGen/Record.h"
 #if LDC_LLVM_VER < 302
 #include "llvm/TableGen/TableGenAction.h"
 #endif
-#include "llvm/TableGen/Record.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/PathV1.h"
-#include "llvm/ADT/StringRef.h"
+#include <algorithm>
+#include <assert.h>
+#include <map>
+#include <stdio.h>
+#include <string.h>
+#include <string>
 
 using namespace std;
 using namespace llvm;

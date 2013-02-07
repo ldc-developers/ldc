@@ -11,12 +11,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LLVMC_GEN_ARRAYS_H
-#define LLVMC_GEN_ARRAYS_H
+#ifndef LDC_GEN_ARRAYS_H
+#define LDC_GEN_ARRAYS_H
+
+#include "lexer.h"
+#include "gen/llvm.h"
 
 struct ArrayInitializer;
-
 struct DSliceValue;
+struct DValue;
+struct Expression;
+struct Loc;
+struct Type;
 
 llvm::StructType* DtoArrayType(Type* arrayTy);
 llvm::StructType* DtoArrayType(LLType* elemTy);
@@ -69,4 +75,4 @@ DValue* DtoCastArray(Loc& loc, DValue* val, Type* to);
 // generates an array bounds check
 void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBound = 0);
 
-#endif // LLVMC_GEN_ARRAYS_H
+#endif // LDC_GEN_ARRAYS_H

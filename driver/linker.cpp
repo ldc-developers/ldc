@@ -7,25 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "driver/linker.h"
+#include "mars.h"
+#include "module.h"
+#include "root.h"
+#include "driver/cl_options.h"
 #include "gen/llvm.h"
-#include "llvm/Linker.h"
+#include "gen/logger.h"
+#include "gen/optimizer.h"
+#include "gen/programs.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/Linker.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #if _WIN32
 #include "llvm/Support/SystemUtils.h"
 #endif
-
-#include "root.h"
-#include "mars.h"
-#include "module.h"
-
-#include "gen/logger.h"
-#include "gen/optimizer.h"
-#include "gen/programs.h"
-
-#include "driver/linker.h"
-#include "driver/cl_options.h"
 
 //////////////////////////////////////////////////////////////////////////////
 

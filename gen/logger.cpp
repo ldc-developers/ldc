@@ -7,17 +7,15 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "mars.h"
+#include "llvm/Support/CommandLine.h"
 #include <cassert>
 #include <cstdarg>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
-#include <string>
 #include <iostream>
-
-#include "mars.h"
-
-#include "llvm/Support/CommandLine.h"
+#include <string>
 
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/GlobalValue.h"

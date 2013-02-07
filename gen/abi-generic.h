@@ -11,12 +11,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_ABI_GENERIC
-#define LDC_GEN_ABI_GENERIC
+#ifndef LDC_GEN_ABI_GENERIC_H
+#define LDC_GEN_ABI_GENERIC_H
 
+#include "gen/abi.h"
+#include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
-#include "gen/tollvm.h"
+#include "gen/logger.h"
 #include "gen/structs.h"
+#include "gen/tollvm.h"
 
 /// Removes padding fields for (non-union-containing!) structs
 struct RemoveStructPadding : ABIRewrite {

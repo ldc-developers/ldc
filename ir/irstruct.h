@@ -16,9 +16,8 @@
 #define LDC_IR_IRSTRUCT_H
 
 #include "ir/ir.h"
-
-#include <vector>
 #include <map>
+#include <vector>
 
 // DMD forward declarations
 struct StructInitializer;

@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef _llvmd_gen_logger_h_
-#define _llvmd_gen_logger_h_
+#ifndef LDC_GEN_LOGGER_H
+#define LDC_GEN_LOGGER_H
 
 #include <iosfwd>
 

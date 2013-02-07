@@ -7,44 +7,40 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <stdio.h>
-#include <math.h>
-#include <fstream>
-
-#include "gen/llvm.h"
-#include "llvm/Support/CommandLine.h"
-
 #include "attrib.h"
+#include "enum.h"
+#include "hdrgen.h"
+#include "id.h"
 #include "init.h"
 #include "mtype.h"
-#include "template.h"
-#include "hdrgen.h"
 #include "port.h"
 #include "rmem.h"
-#include "id.h"
-#include "enum.h"
-
-#include "gen/irstate.h"
-#include "gen/logger.h"
-#include "gen/tollvm.h"
-#include "gen/llvmhelpers.h"
-#include "gen/runtime.h"
+#include "template.h"
+#include "gen/aa.h"
 #include "gen/arrays.h"
-#include "gen/structs.h"
 #include "gen/classes.h"
-#include "gen/typeinf.h"
 #include "gen/complex.h"
 #include "gen/dvalue.h"
-#include "gen/aa.h"
 #include "gen/functions.h"
-#include "gen/todebug.h"
+#include "gen/irstate.h"
+#include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
 #include "gen/nested.h"
-#include "gen/utils.h"
-#include "gen/warnings.h"
 #include "gen/optimizer.h"
 #include "gen/pragma.h"
-
+#include "gen/runtime.h"
+#include "gen/structs.h"
+#include "gen/todebug.h"
+#include "gen/tollvm.h"
+#include "gen/typeinf.h"
+#include "gen/utils.h"
+#include "gen/warnings.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
+#include <fstream>
+#include <math.h>
+#include <stdio.h>
 
 llvm::cl::opt<bool> checkPrintf("check-printf-calls",
     llvm::cl::desc("Validate printf call format strings against arguments"),

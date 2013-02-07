@@ -7,16 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cstdarg>
-
-#include "gen/llvm.h"
-
-#include "mtype.h"
-#include "declaration.h"
-#include "statement.h"
-
 #include "gen/irstate.h"
-#include "tollvm.h"
+#include "declaration.h"
+#include "mtype.h"
+#include "statement.h"
+#include "gen/llvm.h"
+#include "gen/tollvm.h"
+#include <cstdarg>
 
 IRState* gIR = 0;
 llvm::TargetMachine* gTargetMachine = 0;

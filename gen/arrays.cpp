@@ -7,22 +7,20 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvm.h"
-
-#include "mtype.h"
-#include "module.h"
-#include "dsymbol.h"
+#include "gen/arrays.h"
 #include "aggregate.h"
 #include "declaration.h"
+#include "dsymbol.h"
 #include "init.h"
-
-#include "gen/irstate.h"
-#include "gen/tollvm.h"
-#include "gen/llvmhelpers.h"
-#include "gen/arrays.h"
-#include "gen/runtime.h"
-#include "gen/logger.h"
+#include "module.h"
+#include "mtype.h"
 #include "gen/dvalue.h"
+#include "gen/irstate.h"
+#include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/runtime.h"
+#include "gen/tollvm.h"
 #include "ir/irmodule.h"
 #include "ir/irtypestruct.h"
 

@@ -7,24 +7,21 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvm.h"
-
-#include <algorithm>
-
-#include "mars.h"
-
-#include "gen/irstate.h"
-#include "gen/llvmhelpers.h"
-#include "gen/tollvm.h"
 #include "gen/abi.h"
-#include "gen/logger.h"
-#include "gen/dvalue.h"
+#include "mars.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-ppc64.h"
-#include "gen/abi-x86.h"
 #include "gen/abi-x86-64.h"
+#include "gen/abi-x86.h"
+#include "gen/dvalue.h"
+#include "gen/irstate.h"
+#include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "ir/irfuncty.h"
+#include <algorithm>
 
 //////////////////////////////////////////////////////////////////////////////
 

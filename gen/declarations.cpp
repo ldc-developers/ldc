@@ -7,26 +7,23 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvm.h"
-
 #include "aggregate.h"
 #include "declaration.h"
 #include "enum.h"
 #include "id.h"
+#include "init.h"
 #include "rmem.h"
 #include "template.h"
-#include "init.h"
-
 #include "gen/irstate.h"
-#include "gen/tollvm.h"
+#include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/todebug.h"
-
+#include "gen/tollvm.h"
 #include "ir/ir.h"
-#include "ir/irvar.h"
 #include "ir/irtype.h"
 #include "ir/irtypestruct.h"
+#include "ir/irvar.h"
 
 /* ================================================================== */
 
