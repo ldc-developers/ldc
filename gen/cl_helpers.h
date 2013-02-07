@@ -12,13 +12,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_CL_HELPERS_H
-#define LDC_CL_HELPERS_H
-
-#include <string>
+#ifndef LDC_GEN_CL_HELPERS_H
+#define LDC_GEN_CL_HELPERS_H
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
+#include <string>
 
 template <typename TYPE> struct ArrayBase;
 typedef ArrayBase<char> Strings;

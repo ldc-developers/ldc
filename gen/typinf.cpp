@@ -20,39 +20,35 @@
 // Copyright (c) 2007 by Tomas Lindquist Olsen
 // tomas at famolsen dk
 
-#include <cstdio>
-#include <cassert>
-
-#include "gen/llvm.h"
-
+#include "aggregate.h"
+#include "attrib.h"
+#include "declaration.h"
+#include "enum.h"
+#include "expression.h"
+#include "id.h"
+#include "import.h"
+#include "init.h"
 #include "mars.h"
 #include "module.h"
 #include "mtype.h"
 #include "scope.h"
-#include "init.h"
-#include "expression.h"
-#include "attrib.h"
-#include "declaration.h"
 #include "template.h"
-#include "id.h"
-#include "enum.h"
-#include "import.h"
-#include "aggregate.h"
-
-#include "gen/irstate.h"
-#include "gen/logger.h"
-#include "gen/runtime.h"
-#include "gen/tollvm.h"
-#include "gen/llvmhelpers.h"
 #include "gen/arrays.h"
-#include "gen/structs.h"
 #include "gen/classes.h"
+#include "gen/irstate.h"
 #include "gen/linkage.h"
+#include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
 #include "gen/metadata.h"
 #include "gen/rttibuilder.h"
-
-#include "ir/irvar.h"
+#include "gen/runtime.h"
+#include "gen/structs.h"
+#include "gen/tollvm.h"
 #include "ir/irtype.h"
+#include "ir/irvar.h"
+#include <cassert>
+#include <cstdio>
 #include <ir/irtypeclass.h>
 
 /*******************************************
@@ -719,8 +715,8 @@ void TypeInfoStructDeclaration::llvmDefine()
     // On x86_64, class TypeInfo_Struct contains 2 additional fields
     // (m_arg1/m_arg2) which are used for the X86_64 System V ABI varargs 
     // implementation. They are not present on any other cpu/os.
-    assert((global.params.cpu != ARCHx86_64 && tscd->fields.dim == 11) ||
-           (global.params.cpu == ARCHx86_64 && tscd->fields.dim == 13));
+    assert((global.params.targetTriple.getArch() != llvm::Triple::x86_64 && tscd->fields.dim == 11) ||
+           (global.params.targetTriple.getArch() == llvm::Triple::x86_64 && tscd->fields.dim == 13));
 
     //void function(void*)                    xdtor;
     b.push_funcptr(sd->dtor);

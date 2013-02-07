@@ -1838,8 +1838,12 @@ namespace AsmParserx8664
                                 }
 
                                 // osx needs an extra underscore
-                                if ( global.params.os == OSMacOSX || global.params.os == OSWindows )
+                                if ( global.params.targetTriple.getOS() == llvm::Triple::MacOSX ||
+                                    global.params.targetTriple.getOS() == llvm::Triple::Darwin ||
+                                    global.params.targetTriple.isOSWindows() )
+                                {
                                     insnTemplate << "_";
+                                }
 
                                 // print out the mangle
                                 insnTemplate << vd->mangle();
@@ -2512,8 +2516,12 @@ namespace AsmParserx8664
                                     use_star = false;
                                     // simply write out the mangle
                                     // on osx and windows, prepend extra _
-                                    if ( global.params.os == OSMacOSX || global.params.os == OSWindows )
+                                    if ( global.params.targetTriple.getOS() == llvm::Triple::MacOSX ||
+                                        global.params.targetTriple.getOS() == llvm::Triple::Darwin ||
+                                        global.params.targetTriple.isOSWindows() )
+                                    {
                                         insnTemplate << "_";
+                                    }
                                     insnTemplate << decl->mangle();
 //              addOperand2("${", ":c}", Arg_Pointer, e, asmcode);
                                 }

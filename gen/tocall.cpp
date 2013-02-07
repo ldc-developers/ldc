@@ -7,21 +7,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvm.h"
-
-#include "mtype.h"
 #include "declaration.h"
 #include "id.h"
-
-#include "gen/tollvm.h"
-#include "gen/llvmhelpers.h"
-#include "gen/irstate.h"
+#include "mtype.h"
+#include "gen/abi.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
-#include "gen/abi.h"
-#include "gen/nested.h"
-
+#include "gen/irstate.h"
+#include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/logger.h"
+#include "gen/nested.h"
+#include "gen/tollvm.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -59,21 +56,29 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
 
 llvm::CallingConv::ID DtoCallingConv(Loc loc, LINK l)
 {
+    llvm::Triple::ArchType const arch = global.params.targetTriple.getArch();
+
     if (l == LINKc || l == LINKcpp || l == LINKintrinsic)
         return llvm::CallingConv::C;
     else if (l == LINKd || l == LINKdefault)
     {
         //TODO: StdCall is not a good base on Windows due to extra name mangling
         // applied there
-        if (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
-            return (global.params.os != OSWindows) ? llvm::CallingConv::X86_StdCall : llvm::CallingConv::C;
+        if (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64)
+        {
+            return global.params.targetTriple.isOSWindows() ?
+                llvm::CallingConv::C : llvm::CallingConv::X86_StdCall;
+        }
         else
             return llvm::CallingConv::Fast;
     }
     // on the other hand, here, it's exactly what we want!!! TODO: right?
     // On Windows 64bit, there is only one calling convention!
     else if (l == LINKwindows)
-        return global.params.cpu == ARCHx86_64 ? llvm::CallingConv::C : llvm::CallingConv::X86_StdCall;
+    {
+        return (arch == llvm::Triple::x86_64) ?
+            llvm::CallingConv::C : llvm::CallingConv::X86_StdCall;
+    }
     else if (l == LINKpascal)
         return llvm::CallingConv::X86_StdCall;
     else
@@ -92,7 +97,7 @@ DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg)
     if (DtoIsPassedByRef(type))
         llt = getPtrToType(llt);
     // issue a warning for broken va_arg instruction.
-    if (global.params.cpu != ARCHx86)
+    if (global.params.targetTriple.getArch() != llvm::Triple::x86)
         warning(Loc(), "%s: va_arg for C variadic functions is probably broken for anything but x86", loc.toChars());
     // done
     return new DImValue(type, gIR->ir->CreateVAArg(expelem->getLVal(), llt, "tmp"));

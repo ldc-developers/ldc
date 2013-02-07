@@ -8,15 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/cl_helpers.h"
-
 #include "mars.h"
-#include "root.h"
 #include "rmem.h"
-
-#include <cctype>       // isupper, tolower
+#include "root.h"
 #include <algorithm>
-#include <utility>
+#include <cctype>       // isupper, tolower
 #include <stdarg.h>
+#include <utility>
 
 namespace opts {
 

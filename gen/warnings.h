@@ -11,9 +11,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __LDC_GEN_WARNINGS_H__
-#define __LDC_GEN_WARNINGS_H__
+#ifndef LDC_GEN_WARNINGS_H
+#define LDC_GEN_WARNINGS_H
+
+#include "expression.h"
+#include "mars.h"
 
 void warnInvalidPrintfCall(Loc loc, Expression* arguments, size_t nargs);
 
-#endif // __LDC_GEN_WARNINGS_H__
+#endif // LDC_GEN_WARNINGS_H

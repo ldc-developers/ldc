@@ -8,15 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/nested.h"
-
 #include "gen/dvalue.h"
+#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
-#include "gen/tollvm.h"
-#include "gen/functions.h"
 #include "gen/todebug.h"
-
+#include "gen/tollvm.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Support/CommandLine.h"
 namespace cl = llvm::cl;

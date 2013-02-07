@@ -16,13 +16,15 @@
 
 #include "mars.h"
 
+struct DValue;
+struct Expression;
 struct FuncDeclaration;
-struct Type;
-
 struct IRAsmBlock;
-
+struct Parameter;
+struct Type;
 namespace llvm
 {
+    class FunctionType;
     class Value;
 }
 

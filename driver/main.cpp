@@ -7,9 +7,33 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvmcompat.h"
+#include "id.h"
+#include "json.h"
+#include "mars.h"
+#include "module.h"
+#include "mtype.h"
+#include "rmem.h"
+#include "root.h"
+#include "driver/cl_options.h"
+#include "driver/configfile.h"
+#include "driver/linker.h"
+#include "driver/toobj.h"
+#include "gen/cl_helpers.h"
+#include "gen/irstate.h"
+#include "gen/linkage.h"
 #include "gen/llvm.h"
+#include "gen/llvmcompat.h"
+#include "gen/logger.h"
+#include "gen/metadata.h"
+#include "gen/optimizer.h"
+#include "gen/passes/Passes.h"
 #include "llvm/Linker.h"
+#include "llvm/MC/SubtargetFeature.h"
+#include "llvm/Support/Host.h"
+#include "llvm/Support/TargetRegistry.h"
+#include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetMachine.h"
+#include "llvm/Target/TargetOptions.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/LinkAllIR.h"
 #include "llvm/IR/LLVMContext.h"
@@ -17,53 +41,25 @@
 #include "llvm/LinkAllVMCore.h"
 #include "llvm/LLVMContext.h"
 #endif
-#include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetOptions.h"
-#include "llvm/Support/TargetSelect.h"
-#include "llvm/Support/TargetRegistry.h"
-#include "llvm/Support/Host.h"
-#include "llvm/MC/SubtargetFeature.h"
-
-#include <stdio.h>
-#include <stdlib.h>
 #include <assert.h>
 #include <limits.h>
-
-#include "rmem.h"
-#include "root.h"
+#include <stdio.h>
+#include <stdlib.h>
+#if POSIX
+#include <errno.h>
+#elif _WIN32
+#include <windows.h>
+#endif
 
 // stricmp
 #if __GNUC__ && !_WIN32
 #include "gnuc.h"
 #endif
 
-#include "mars.h"
-#include "module.h"
-#include "mtype.h"
-#include "id.h"
+// Needs Type already declared.
 #include "cond.h"
-#include "json.h"
 
-#include "gen/logger.h"
-#include "gen/linkage.h"
-#include "gen/irstate.h"
-#include "gen/optimizer.h"
-#include "gen/metadata.h"
-#include "gen/passes/Passes.h"
-
-#include "driver/linker.h"
-#include "driver/cl_options.h"
-#include "gen/cl_helpers.h"
 using namespace opts;
-
-#include "driver/configfile.h"
-#include "driver/toobj.h"
-
-#if POSIX
-#include <errno.h>
-#elif _WIN32
-#include <windows.h>
-#endif
 
 extern void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 extern void backend_init();
@@ -588,11 +584,8 @@ int main(int argc, char** argv)
     gDataLayout = target->getTargetData();
 #endif
 
-    global.params.isLE = gDataLayout->isLittleEndian();
     // Starting with LLVM 3.1 we could also use global.params.targetTriple.isArch64Bit();
     global.params.is64bit = gDataLayout->getPointerSizeInBits(ADDRESS_SPACE) == 64;
-    global.params.cpu = static_cast<ARCH>(global.params.targetTriple.getArch());
-    global.params.os = static_cast<OS>(global.params.targetTriple.getOS());
 
     switch (global.params.targetTriple.getArch())
     {
@@ -656,7 +649,7 @@ int main(int argc, char** argv)
     }
 
     // endianness
-    if (global.params.isLE) {
+    if (gDataLayout->isLittleEndian()) {
         VersionCondition::addPredefinedGlobalIdent("LittleEndian");
     }
     else {
@@ -683,7 +676,6 @@ int main(int argc, char** argv)
             VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
             break;
         case llvm::Triple::MinGW32:
-            global.params.os = OSWindows; // FIXME: Check source for uses of MinGW32
             VersionCondition::addPredefinedGlobalIdent("Windows");
             VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
             VersionCondition::addPredefinedGlobalIdent("mingw32"); // For backwards compatibility.
@@ -703,7 +695,6 @@ int main(int argc, char** argv)
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         case llvm::Triple::Darwin:
-            global.params.os = OSMacOSX;
             VersionCondition::addPredefinedGlobalIdent("OSX");
             VersionCondition::addPredefinedGlobalIdent("darwin"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("Posix");
@@ -748,7 +739,7 @@ int main(int argc, char** argv)
 #undef XSTR
 #undef STR
 
-    if (global.params.os == OSWindows) {
+    if (global.params.targetTriple.isOSWindows()) {
         global.dll_ext = "dll";
         global.lib_ext = "lib";
     } else {

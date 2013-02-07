@@ -19,10 +19,9 @@
 #include "gen/llvm.h"
 #include "ir/ir.h"
 #include "ir/irlandingpad.h"
-
-#include <vector>
-#include <stack>
 #include <map>
+#include <stack>
+#include <vector>
 
 struct Statement;
 struct EnclosingHandler;

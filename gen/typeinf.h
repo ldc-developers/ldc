@@ -15,6 +15,7 @@
 #ifndef LDC_GEN_TYPEINF_H
 #define LDC_GEN_TYPEINF_H
 
+struct TypeInfoDeclaration;
 void DtoResolveTypeInfo(TypeInfoDeclaration* tid);
 void DtoDeclareTypeInfo(TypeInfoDeclaration* tid);
 void DtoConstInitTypeInfo(TypeInfoDeclaration* tid);

@@ -671,11 +671,18 @@ enum LINK Parser::parseLinkage()
         }
         else if (id == Id::System)
         {
-            // LDC we configure target at runtime
-            if (global.params.os == OSWindows)
+#if IN_LLVM
+            if (global.params.targetTriple.isOSWindows())
                 link = LINKwindows;
             else
                 link = LINKc;
+#else
+#if _WIN32
+            link = LINKwindows;
+#else
+            link = LINKc;
+#endif
+#endif
         }
         else
         {

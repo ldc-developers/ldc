@@ -147,33 +147,11 @@ typedef ArrayBase<struct Identifier> Identifiers;
 typedef ArrayBase<char> Strings;
 
 #if IN_LLVM
-enum ARCH
-{
-    ARCHinvalid = llvm::Triple::UnknownArch,
-    ARCHx86 = llvm::Triple::x86,
-    ARCHx86_64 = llvm::Triple::x86_64,
-    ARCHppc = llvm::Triple::ppc,
-    ARCHppc_64 = llvm::Triple::ppc64,
-    ARCHarm = llvm::Triple::arm,
-    ARCHthumb = llvm::Triple::thumb,
-};
-
 enum OUTPUTFLAG
 {
     OUTPUTFLAGno,
     OUTPUTFLAGdefault, // for the .o default
     OUTPUTFLAGset // for -output
-};
-
-enum OS
-{
-    OSinvalid = llvm::Triple::UnknownOS,
-    OSLinux = llvm::Triple::Linux,
-    OSHaiku = llvm::Triple::Haiku,
-    OSWindows = llvm::Triple::Win32,
-    OSMacOSX = llvm::Triple::MacOSX,
-    OSFreeBSD = llvm::Triple::FreeBSD,
-    OSSolaris = llvm::Triple::Solaris,
 };
 
 typedef unsigned char ubyte;
@@ -200,12 +178,8 @@ struct Param
     char optimize;      // run optimizer
 #endif
     char map;           // generate linker .map file
-    ARCH cpu;           // target CPU
-    bool isLE;          // generate little endian code
     bool is64bit;       // generate 64 bit code
-#if IN_LLVM
-    OS   os;
-#else
+#if !IN_LLVM
     char isLinux;       // generate code for linux
     char isOSX;         // generate code for Mac OSX
     char isWindows;     // generate code for Windows

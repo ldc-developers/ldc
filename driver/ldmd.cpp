@@ -48,6 +48,10 @@
 # error "Please define LDC_EXE_NAME to the name of the LDC executable to use."
 #endif
 
+#include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Program.h"
+#include "llvm/Support/SystemUtils.h"
+#include "llvm/Support/raw_ostream.h"
 #include <cassert>
 #include <cerrno>
 #include <climits>
@@ -56,10 +60,6 @@
 #include <cstdlib>
 #include <numeric>
 #include <vector>
-#include "llvm/Support/FileSystem.h"
-#include "llvm/Support/Program.h"
-#include "llvm/Support/SystemUtils.h"
-#include "llvm/Support/raw_ostream.h"
 
 #ifdef HAVE_SC_ARG_MAX
 # include <unistd.h>

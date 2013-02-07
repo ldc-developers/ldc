@@ -11,8 +11,12 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_TOOBJ_H
-#define LDC_GEN_TOOBJ_H
+#ifndef LDC_DRIVER_TOOBJ_H
+#define LDC_DRIVER_TOOBJ_H
+
+#include <string>
+
+namespace llvm { class Module; }
 
 void writeModule(llvm::Module* m, std::string filename);
 

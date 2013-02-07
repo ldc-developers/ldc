@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef PRAGMA_H
-#define PRAGMA_H
+#ifndef LDC_GEN_PRAGMA_H
+#define LDC_GEN_PRAGMA_H
 
 #include <string>
 
@@ -51,4 +51,4 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str);
 void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *sym,
                     Pragma llvm_internal, const std::string &arg1str);
 
-#endif // PRAGMA_H
+#endif // LDC_GEN_PRAGMA_H

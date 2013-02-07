@@ -20,9 +20,9 @@
 #include <map>
 #include <string>
 #if LDC_LLVM_VER >= 302
-#include <llvm/DebugInfo.h>
+#include "llvm/DebugInfo.h"
 #else
-#include <llvm/Analysis/DebugInfo.h>
+#include "llvm/Analysis/DebugInfo.h"
 #endif
 #endif
 

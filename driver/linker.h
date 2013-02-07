@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_LINKER_H
-#define LDC_GEN_LINKER_H
+#ifndef LDC_DRIVER_LINKER_H
+#define LDC_DRIVER_LINKER_H
 
 #include "llvm/Support/CommandLine.h"
 #include <vector>
@@ -55,4 +55,4 @@ void deleteExecutable();
  */
 int runExecutable();
 
-#endif // LDC_GEN_LINKER_H
+#endif // LDC_DRIVER_LINKER_H

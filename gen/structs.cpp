@@ -7,29 +7,25 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <algorithm>
-
-#include "gen/llvm.h"
-#include "llvm/ADT/DenseMap.h"
-#include "llvm/Support/ManagedStatic.h"
-
-#include "mtype.h"
 #include "aggregate.h"
-#include "init.h"
 #include "declaration.h"
-
-#include "gen/irstate.h"
-#include "gen/tollvm.h"
-#include "gen/llvmhelpers.h"
+#include "init.h"
+#include "mtype.h"
 #include "gen/arrays.h"
-#include "gen/logger.h"
-#include "gen/structs.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
+#include "gen/irstate.h"
+#include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/structs.h"
+#include "gen/tollvm.h"
 #include "gen/utils.h"
-
 #include "ir/irstruct.h"
 #include "ir/irtypestruct.h"
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/Support/ManagedStatic.h"
+#include <algorithm>
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

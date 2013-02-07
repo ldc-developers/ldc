@@ -7,18 +7,15 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvm.h"
-
+#include "gen/rttibuilder.h"
 #include "aggregate.h"
 #include "mtype.h"
-
 #include "gen/arrays.h"
 #include "gen/irstate.h"
 #include "gen/linkage.h"
+#include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
-#include "gen/rttibuilder.h"
 #include "gen/tollvm.h"
-
 #include "ir/irstruct.h"
 
 RTTIBuilder::RTTIBuilder(AggregateDeclaration* base_class)

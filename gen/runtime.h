@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_RUNTIME_H_
-#define LDC_GEN_RUNTIME_H_
+#ifndef LDC_GEN_RUNTIME_H
+#define LDC_GEN_RUNTIME_H
 
 namespace llvm
 {
@@ -40,4 +40,4 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
 #define _adCmp "_adCmp2"
 #endif
 
-#endif // LDC_GEN_RUNTIME_H_
+#endif // LDC_GEN_RUNTIME_H

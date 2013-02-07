@@ -8,18 +8,15 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvm.h"
-
-#include "mtype.h"
 #include "aggregate.h"
-#include "init.h"
 #include "declaration.h"
-
-#include "gen/dvalue.h"
-#include "gen/irstate.h"
-
+#include "init.h"
+#include "mtype.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
+#include "gen/dvalue.h"
 #include "gen/functions.h"
+#include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/nested.h"
@@ -28,7 +25,6 @@
 #include "gen/structs.h"
 #include "gen/tollvm.h"
 #include "gen/utils.h"
-
 #include "ir/irstruct.h"
 #include "ir/irtypeclass.h"
 

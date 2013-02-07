@@ -7,26 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "driver/linker.h"
+#include "mars.h"
+#include "module.h"
+#include "root.h"
+#include "driver/cl_options.h"
 #include "gen/llvm.h"
-#include "llvm/Linker.h"
+#include "gen/logger.h"
+#include "gen/optimizer.h"
+#include "gen/programs.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/Linker.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #if _WIN32
 #include "llvm/Support/SystemUtils.h"
 #endif
-
-#include "root.h"
-#include "mars.h"
-#include "module.h"
-
-#define NO_COUT_LOGGER
-#include "gen/logger.h"
-#include "gen/optimizer.h"
-#include "gen/programs.h"
-
-#include "driver/linker.h"
-#include "driver/cl_options.h"
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -39,7 +35,7 @@ llvm::cl::opt<bool> quiet("quiet",
 
 //////////////////////////////////////////////////////////////////////////////
 
-bool endsWith(const std::string &str, const std::string &end)
+static bool endsWith(const std::string &str, const std::string &end)
 {
     return (str.length() >= end.length() && std::equal(end.rbegin(), end.rend(), str.rbegin()));
 }
@@ -120,9 +116,53 @@ static void CreateDirectoryOnDisk(llvm::StringRef fileName)
 
 //////////////////////////////////////////////////////////////////////////////
 
+static std::string getOutputName(bool const sharedLib)
+{
+    if (!sharedLib && global.params.exefile)
+    {
+        return global.params.exefile;
+    }
+
+    if (sharedLib && global.params.objname)
+    {
+        return global.params.objname;
+    }
+
+    // Output name is inferred.
+    std::string result;
+
+    // try root module name
+    if (Module::rootModule)
+        result = Module::rootModule->toChars();
+    else if (global.params.objfiles->dim)
+        result = FileName::removeExt(static_cast<char*>(global.params.objfiles->data[0]));
+    else
+        result = "a.out";
+
+    if (sharedLib)
+    {
+        std::string libExt = std::string(".") + global.dll_ext;
+        if (!endsWith(result, libExt))
+        {
+            if (global.params.targetTriple.getOS() != llvm::Triple::Win32)
+                result = "lib" + result + libExt;
+            else
+                result.append(libExt);
+        }
+    }
+    else if (global.params.targetTriple.isOSWindows() && !endsWith(result, ".exe"))
+    {
+        result.append(".exe");
+    }
+
+    return result;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 static llvm::sys::Path gExePath;
 
-int linkObjToBinaryGcc(bool sharedLib)
+static int linkObjToBinaryGcc(bool sharedLib)
 {
     Logger::println("*** Linking executable ***");
 
@@ -147,38 +187,7 @@ int linkObjToBinaryGcc(bool sharedLib)
     }
 
     // output filename
-    std::string output;
-    if (!sharedLib && global.params.exefile)
-    {   // explicit
-        output = global.params.exefile;
-    }
-    else if (sharedLib && global.params.objname)
-    {   // explicit
-        output = global.params.objname;
-    }
-    else
-    {   // inferred
-        // try root module name
-        if (Module::rootModule)
-            output = Module::rootModule->toChars();
-        else if (global.params.objfiles->dim)
-            output = FileName::removeExt(static_cast<char*>(global.params.objfiles->data[0]));
-        else
-            output = "a.out";
-
-        if (sharedLib) {
-            std::string libExt = std::string(".") + global.dll_ext;
-            if (!endsWith(output, libExt))
-            {
-                if (global.params.os != OSWindows)
-                    output = "lib" + output + libExt;
-                else
-                    output.append(libExt);
-            }
-        } else if (global.params.os == OSWindows && !endsWith(output, ".exe")) {
-            output.append(".exe");
-        }
-    }
+    std::string output = getOutputName(sharedLib);
 
     if (sharedLib)
         args.push_back("-shared");
@@ -207,32 +216,30 @@ int linkObjToBinaryGcc(bool sharedLib)
 
     // default libs
     bool addSoname = false;
-    switch(global.params.os) {
-    case OSLinux:
+    switch (global.params.targetTriple.getOS()) {
+    case llvm::Triple::Linux:
         addSoname = true;
         args.push_back("-lrt");
         // fallthrough
-    case OSMacOSX:
+    case llvm::Triple::Darwin:
+    case llvm::Triple::MacOSX:
         args.push_back("-ldl");
         // fallthrough
-    case OSFreeBSD:
+    case llvm::Triple::FreeBSD:
         addSoname = true;
         args.push_back("-lpthread");
         args.push_back("-lm");
         break;
 
-    case OSSolaris:
+    case llvm::Triple::Solaris:
         args.push_back("-lm");
         args.push_back("-lumem");
         // solaris TODO
         break;
 
-    case OSWindows:
-        // FIXME: I'd assume kernel32 etc
-        break;
-
     default:
         // OS not yet handled, will probably lead to linker errors.
+        // FIXME: Win32, MinGW.
         break;
     }
 
@@ -264,7 +271,7 @@ int linkObjToBinaryGcc(bool sharedLib)
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToBinaryWin(bool sharedLib)
+static int linkObjToBinaryWin(bool sharedLib)
 {
     Logger::println("*** Linking executable ***");
 
@@ -300,38 +307,8 @@ int linkObjToBinaryWin(bool sharedLib)
         args.push_back("/DLL");
 
     // output filename
-    std::string output;
-    if (!sharedLib && global.params.exefile)
-    {   // explicit
-        output = global.params.exefile;
-    }
-    else if (sharedLib && global.params.objname)
-    {   // explicit
-        output = global.params.objname;
-    }
-    else
-    {   // inferred
-        // try root module name
-        if (Module::rootModule)
-            output = Module::rootModule->toChars();
-        else if (global.params.objfiles->dim)
-            output = FileName::removeExt(static_cast<char*>(global.params.objfiles->data[0]));
-        else
-            output = "a.out";
+    std::string output = getOutputName(sharedLib);
 
-        if (sharedLib) {
-            std::string libExt = std::string(".") + global.dll_ext;
-            if (!endsWith(output, libExt))
-            {
-                if (global.params.os != OSWindows)
-                    output = "lib" + output + libExt;
-                else
-                    output.append(libExt);
-            }
-        } else if (global.params.os == OSWindows && !endsWith(output, ".exe")) {
-            output.append(".exe");
-        }
-    }
     args.push_back("/OUT:" + output);
 
     // object files
