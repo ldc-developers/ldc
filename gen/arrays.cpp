@@ -1207,8 +1207,7 @@ LLValue* DtoArrayLen(DValue* v)
         TypeSArray *sarray = static_cast<TypeSArray*>(v->type->toBasetype());
         return DtoConstSize_t(sarray->dim->toUInteger());
     }
-    assert(0 && "unsupported array for len");
-    return 0;
+    llvm_unreachable("unsupported array for len");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1232,8 +1231,8 @@ LLValue* DtoArrayPtr(DValue* v)
         assert(!v->isNull());
         return DtoGEPi(v->getRVal(), 0,0);
     }
-    assert(0);
-    return 0;
+
+    llvm_unreachable("Unexpected array type.");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

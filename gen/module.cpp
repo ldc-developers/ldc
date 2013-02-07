@@ -658,14 +658,6 @@ void Module::genmoduleinfo()
 
 #endif
 
-    /*Logger::println("MODULE INFO INITIALIZERS");
-    for (size_t i=0; i<initVec.size(); ++i)
-    {
-        Logger::cout() << *initVec[i] << '\n';
-        if (initVec[i]->getType() != moduleinfoTy->getElementType(i))
-            assert(0);
-    }*/
-
     // create and set initializer
     b.finalize(moduleInfoType, moduleInfoSymbol());
 

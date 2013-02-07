@@ -54,9 +54,6 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym);
 LLGlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym);
 LLGlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym);
 
-// TODO: this one should be removed!!!
-LLValue* DtoPointedType(LLValue* ptr, LLValue* val);
-
 // some types
 LLIntegerType* DtoSize_t();
 LLStructType* DtoInterfaceInfoType();

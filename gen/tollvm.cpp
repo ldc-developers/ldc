@@ -74,6 +74,9 @@ llvm::Attributes DtoShouldExtend(Type* type)
 #else
             return llvm::Attribute::ZExt;
 #endif
+        default:
+            // Do not extend.
+            break;
         }
     }
 #if LDC_LLVM_VER >= 303
@@ -221,8 +224,7 @@ LLType* DtoType(Type* t)
 */
 
     default:
-        printf("trying to convert unknown type '%s' with value %d\n", t->toChars(), t->ty);
-        assert(0);
+        llvm_unreachable("Unknown class of D Type!");
     }
     return 0;
 }
@@ -363,7 +365,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
     }
     else
     {
-        assert(0 && "not global/function");
+        llvm_unreachable("not global/function");
     }
 
     // If the function needs to be defined in the current module, check if it
@@ -459,40 +461,6 @@ llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym)
         return llvm::GlobalValue::AvailableExternallyLinkage;
     else
         return llvm::GlobalValue::ExternalLinkage;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-LLValue* DtoPointedType(LLValue* ptr, LLValue* val)
-{
-    LLType* ptrTy = ptr->getType()->getContainedType(0);
-    LLType* valTy = val->getType();
-    // ptr points to val's type
-    if (ptrTy == valTy)
-    {
-        return val;
-    }
-    // ptr is integer pointer
-    else if (ptrTy->isIntegerTy())
-    {
-        // val is integer
-        assert(valTy->isIntegerTy());
-        LLIntegerType* pt = llvm::cast<LLIntegerType>(ptrTy);
-        LLIntegerType* vt = llvm::cast<LLIntegerType>(valTy);
-        if (pt->getBitWidth() < vt->getBitWidth()) {
-            return new llvm::TruncInst(val, pt, "tmp", gIR->scopebb());
-        }
-        else
-        assert(0);
-    }
-    // something else unsupported
-    else
-    {
-        if (Logger::enabled())
-            Logger::cout() << *ptrTy << '|' << *valTy << '\n';
-        assert(0);
-    }
-    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -686,9 +654,9 @@ LLConstant* DtoConstFP(Type* t, longdouble value)
 #else
         return LLConstantFP::get(gIR->context(), APFloat(APInt(128, 2, bits)));
 #endif
-    } else {
-        assert(0 && "Unknown floating point type encountered");
     }
+
+    llvm_unreachable("Unknown floating point type encountered");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

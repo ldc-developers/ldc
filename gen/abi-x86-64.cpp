@@ -257,7 +257,7 @@ namespace {
                 return const_cast<LLType*>(LLType::getX86_FP80Ty(gIR->context()));
 
             default:
-                assert(0 && "Unanticipated argument class");
+                llvm_unreachable("Unanticipated argument class.");
         }
 
         switch(cl.classes[1]) {
@@ -291,7 +291,7 @@ namespace {
                 break;
 
             default:
-                assert(0 && "Unanticipated argument class for second half");
+                llvm_unreachable("Unanticipated argument class for second half.");
         }
         return LLStructType::get(gIR->context(), parts);
     }

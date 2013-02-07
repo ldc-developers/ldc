@@ -787,7 +787,7 @@ void TypeInfoClassDeclaration::codegen(Ir*i)
 void TypeInfoClassDeclaration::llvmDefine()
 {
 #if DMDV2
-    assert(0);
+    llvm_unreachable("TypeInfoClassDeclaration should not be called for D2");
 #endif
     Logger::println("TypeInfoClassDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;

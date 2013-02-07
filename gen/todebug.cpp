@@ -101,7 +101,7 @@ static llvm::DIType dwarfBasicType(Type* type)
     }
     else
     {
-        assert(0 && "unsupported basictype for debug info");
+        llvm_unreachable("unsupported basic type for debug info");
     }
 
     return gIR->dibuilder.createBasicType(
