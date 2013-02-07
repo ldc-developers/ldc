@@ -2923,8 +2923,11 @@ unsigned TypeBasic::alignsize()
 #if IN_LLVM
 unsigned TypeBasic::alignment()
 {
-    if (global.params.cpu == ARCHx86_64 && (ty == Tfloat80 || ty == Timaginary80))
+    if (global.params.targetTriple.getArch() == llvm::Triple::x86_64 &&
+        (ty == Tfloat80 || ty == Timaginary80))
+    {
         return 16;
+    }
     return Type::alignment();
 }
 #endif

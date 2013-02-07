@@ -140,18 +140,7 @@ the target object file format:
 
 struct OutBuffer;
 
-// LDC
-enum ARCH
-{
-    ARCHinvalid = llvm::Triple::UnknownArch,
-    ARCHx86 = llvm::Triple::x86,
-    ARCHx86_64 = llvm::Triple::x86_64,
-    ARCHppc = llvm::Triple::ppc,
-    ARCHppc_64 = llvm::Triple::ppc64,
-    ARCHarm = llvm::Triple::arm,
-    ARCHthumb = llvm::Triple::thumb,
-};
-
+#if IN_LLVM
 enum OUTPUTFLAG
 {
     OUTPUTFLAGno,
@@ -169,6 +158,7 @@ enum OS
     OSFreeBSD = llvm::Triple::FreeBSD,
     OSSolaris = llvm::Triple::Solaris,
 };
+#endif
 
 typedef unsigned char ubyte;
 
@@ -191,7 +181,6 @@ struct Param
 #endif
     char vtls;          // identify thread local variables
 // KN Start merge conflict
-    ARCH cpu;           // target CPU
     OS   os;            // target OS
     bool is64bit;       // generate 64 bit code
     bool useDeprecated; // allow use of deprecated features

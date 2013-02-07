@@ -941,7 +941,7 @@ DValue* CallExp::toElem(IRState* p)
             if (LLValue *argptr = gIR->func()->_argptr) {
                 DtoStore(DtoLoad(argptr), DtoBitCast(arg, getPtrToType(getVoidPtrType())));
                 return new DImValue(type, arg);
-            } else if (global.params.cpu == ARCHx86_64) {
+            } else if (global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
                 LLValue *va_list = DtoAlloca(exp->type->nextOf());
                 DtoStore(va_list, arg);
                 va_list = DtoBitCast(va_list, getVoidPtrType());
@@ -954,7 +954,8 @@ DValue* CallExp::toElem(IRState* p)
             }
         }
 #if DMDV2
-        else if (fndecl->llvmInternal == LLVMva_copy && global.params.cpu == ARCHx86_64) {
+        else if (fndecl->llvmInternal == LLVMva_copy &&
+            global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
             if (arguments->dim != 2) {
                 error("va_copy instruction expects 2 arguments");
                 return NULL;

@@ -68,6 +68,9 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
     LLType* t2;
 
     llvm::LLVMContext& ctx = llvm::getGlobalContext();
+    llvm::Triple::ArchType const a = global.params.targetTriple.getArch();
+    bool const anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
+    bool const anyPPC = (a == llvm::Triple::ppc) || (a == llvm::Triple::ppc64);
 
     switch(t->ty)
     {
@@ -110,10 +113,10 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
     case Tfloat80:
     case Timaginary80:
         // only x86 has 80bit float
-        if (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
+        if (anyX86)
             return llvm::Type::getX86_FP80Ty(ctx);
         // PPC has a special 128bit float
-        else if (global.params.cpu == ARCHppc || global.params.cpu == ARCHppc_64)
+        else if (anyPPC)
             return llvm::Type::getPPC_FP128Ty(ctx);
         // other platforms use 64bit reals
         else
@@ -129,11 +132,8 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
         return getComplexType(ctx, t2);
 
     case Tcomplex80:
-        t2 = (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
-            ? llvm::Type::getX86_FP80Ty(ctx)
-            : (global.params.cpu == ARCHppc || global.params.cpu == ARCHppc_64)
-              ? llvm::Type::getPPC_FP128Ty(ctx)
-              : llvm::Type::getDoubleTy(ctx);
+        t2 = anyX86 ? llvm::Type::getX86_FP80Ty(ctx)
+            : (anyPPC ? llvm::Type::getPPC_FP128Ty(ctx) : llvm::Type::getDoubleTy(ctx));
         return getComplexType(ctx, t2);
 
     case Tbool:

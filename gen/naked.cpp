@@ -227,7 +227,7 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
     //        It should be able to do this for a greater variety of types.
 
     // x86
-    if (global.params.cpu == ARCHx86)
+    if (global.params.targetTriple.getArch() == llvm::Triple::x86)
     {
         LINK l = fdecl->linkage;
         assert((l == LINKd || l == LINKc || l == LINKwindows) && "invalid linkage for asm implicit return");
@@ -301,7 +301,7 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
     }
 
     // x86_64
-    else if (global.params.cpu == ARCHx86_64)
+    else if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
     {
         LINK l = fdecl->linkage;
         /* TODO: Check if this works with extern(Windows), completely untested.

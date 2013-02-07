@@ -147,17 +147,6 @@ typedef ArrayBase<struct Identifier> Identifiers;
 typedef ArrayBase<char> Strings;
 
 #if IN_LLVM
-enum ARCH
-{
-    ARCHinvalid = llvm::Triple::UnknownArch,
-    ARCHx86 = llvm::Triple::x86,
-    ARCHx86_64 = llvm::Triple::x86_64,
-    ARCHppc = llvm::Triple::ppc,
-    ARCHppc_64 = llvm::Triple::ppc64,
-    ARCHarm = llvm::Triple::arm,
-    ARCHthumb = llvm::Triple::thumb,
-};
-
 enum OUTPUTFLAG
 {
     OUTPUTFLAGno,
@@ -200,7 +189,6 @@ struct Param
     char optimize;      // run optimizer
 #endif
     char map;           // generate linker .map file
-    ARCH cpu;           // target CPU
     bool is64bit;       // generate 64 bit code
 #if IN_LLVM
     OS   os;

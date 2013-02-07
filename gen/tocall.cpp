@@ -65,15 +65,22 @@ llvm::CallingConv::ID DtoCallingConv(Loc loc, LINK l)
     {
         //TODO: StdCall is not a good base on Windows due to extra name mangling
         // applied there
-        if (global.params.cpu == ARCHx86 || global.params.cpu == ARCHx86_64)
-            return (global.params.os != OSWindows) ? llvm::CallingConv::X86_StdCall : llvm::CallingConv::C;
+        if (global.params.targetTriple.getArch() == llvm::Triple::x86 ||
+            global.params.targetTriple.getArch() == llvm::Triple::x86_64)
+        {
+            return (global.params.os != OSWindows) ?
+                llvm::CallingConv::X86_StdCall : llvm::CallingConv::C;
+        }
         else
             return llvm::CallingConv::Fast;
     }
     // on the other hand, here, it's exactly what we want!!! TODO: right?
     // On Windows 64bit, there is only one calling convention!
     else if (l == LINKwindows)
-        return global.params.cpu == ARCHx86_64 ? llvm::CallingConv::C : llvm::CallingConv::X86_StdCall;
+    {
+        return (global.params.targetTriple.getArch() == llvm::Triple::x86_64) ?
+            llvm::CallingConv::C : llvm::CallingConv::X86_StdCall;
+    }
     else if (l == LINKpascal)
         return llvm::CallingConv::X86_StdCall;
     else
@@ -92,7 +99,7 @@ DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg)
     if (DtoIsPassedByRef(type))
         llt = getPtrToType(llt);
     // issue a warning for broken va_arg instruction.
-    if (global.params.cpu != ARCHx86)
+    if (global.params.targetTriple.getArch() != llvm::Triple::x86)
         warning(Loc(), "%s: va_arg for C variadic functions is probably broken for anything but x86", loc.toChars());
     // done
     return new DImValue(type, gIR->ir->CreateVAArg(expelem->getLVal(), llt, "tmp"));

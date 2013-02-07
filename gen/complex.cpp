@@ -38,10 +38,16 @@ LLType* DtoComplexBaseType(Type* t)
     case Tcomplex32: return LLType::getFloatTy(gIR->context());
     case Tcomplex64: return LLType::getDoubleTy(gIR->context());
     case Tcomplex80:
-        if ((global.params.cpu == ARCHx86) || (global.params.cpu == ARCHx86_64))
+        if ((global.params.targetTriple.getArch() == llvm::Triple::x86) ||
+            global.params.targetTriple.getArch() == llvm::Triple::x86_64)
+        {
             return LLType::getX86_FP80Ty(gIR->context());
-        else if (global.params.cpu == ARCHppc || global.params.cpu == ARCHppc_64)
+        }
+        else if (global.params.targetTriple.getArch() == llvm::Triple::ppc ||
+            global.params.targetTriple.getArch() == llvm::Triple::ppc64)
+        {
             return LLType::getPPC_FP128Ty(gIR->context());
+        }
         else
             return LLType::getDoubleTy(gIR->context());
     }

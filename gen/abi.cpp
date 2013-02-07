@@ -69,13 +69,13 @@ struct UnknownTargetABI : TargetABI
 
 TargetABI * TargetABI::getTarget()
 {
-    switch(global.params.cpu)
+    switch (global.params.targetTriple.getArch())
     {
-    case ARCHx86:
+    case llvm::Triple::x86:
         return getX86TargetABI();
-    case ARCHx86_64:
+    case llvm::Triple::x86_64:
         return getX86_64TargetABI();
-    case ARCHppc_64:
+    case llvm::Triple::ppc64:
         return getPPC64TargetABI();
     default:
         Logger::cout() << "WARNING: Unknown ABI, guessing...\n";

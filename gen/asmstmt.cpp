@@ -159,9 +159,11 @@ Statement *AsmStatement::semantic(Scope *sc)
 #endif
 
     bool err = false;
-    if ((global.params.cpu != ARCHx86) && (global.params.cpu != ARCHx86_64))
+    llvm::Triple const t = global.params.targetTriple;
+    if (!(t.getArch() == llvm::Triple::x86 || t.getArch() == llvm::Triple::x86_64))
     {
-        error("inline asm is not supported for the \"%s\" architecture", global.params.targetTriple.getArchName().str().c_str());
+        error("inline asm is not supported for the \"%s\" architecture",
+            t.getArchName().str().c_str());
         err = true;
     }
     if (!global.params.useInlineAsm)
@@ -185,9 +187,9 @@ Statement *AsmStatement::semantic(Scope *sc)
 
     if (!asmparser)
     {
-        if (global.params.cpu == ARCHx86)
+        if (t.getArch() == llvm::Triple::x86)
             asmparser = new AsmParserx8632::AsmParser;
-        else if (global.params.cpu == ARCHx86_64)
+        else if (t.getArch() == llvm::Triple::x86_64)
             asmparser = new AsmParserx8664::AsmParser;
     }
 
