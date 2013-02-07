@@ -20,7 +20,6 @@
 #include "mars.h"
 #include "module.h"
 
-#define NO_COUT_LOGGER
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 #include "gen/programs.h"
@@ -39,7 +38,7 @@ llvm::cl::opt<bool> quiet("quiet",
 
 //////////////////////////////////////////////////////////////////////////////
 
-bool endsWith(const std::string &str, const std::string &end)
+static bool endsWith(const std::string &str, const std::string &end)
 {
     return (str.length() >= end.length() && std::equal(end.rbegin(), end.rend(), str.rbegin()));
 }
@@ -166,7 +165,7 @@ static std::string getOutputName(bool const sharedLib)
 
 static llvm::sys::Path gExePath;
 
-int linkObjToBinaryGcc(bool sharedLib)
+static int linkObjToBinaryGcc(bool sharedLib)
 {
     Logger::println("*** Linking executable ***");
 
@@ -275,7 +274,7 @@ int linkObjToBinaryGcc(bool sharedLib)
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToBinaryWin(bool sharedLib)
+static int linkObjToBinaryWin(bool sharedLib)
 {
     Logger::println("*** Linking executable ***");
 
