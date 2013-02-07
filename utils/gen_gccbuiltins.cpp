@@ -21,14 +21,14 @@
 #include <string.h>
 #include <assert.h>
 
-#include <llvm/TableGen/Main.h>
+#include "llvm/TableGen/Main.h"
 #if LDC_LLVM_VER < 302
-#include <llvm/TableGen/TableGenAction.h>
+#include "llvm/TableGen/TableGenAction.h"
 #endif
-#include <llvm/TableGen/Record.h>
-#include <llvm/Support/CommandLine.h>
-#include <llvm/Support/PathV1.h>
-#include <llvm/ADT/StringRef.h>
+#include "llvm/TableGen/Record.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/PathV1.h"
+#include "llvm/ADT/StringRef.h"
 
 using namespace std;
 using namespace llvm;
