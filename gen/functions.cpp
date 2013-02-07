@@ -444,7 +444,7 @@ llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         }
         else {
             Logger::println("chars: %s type: %s kind: %s", fdecl->toChars(), fdecl->type->toChars(), fdecl->kind());
-            assert(0);
+            llvm_unreachable("needThis, but invalid parent declaration.");
         }
     }
     else if (fdecl->isNested()) {

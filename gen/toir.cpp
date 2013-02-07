@@ -211,7 +211,7 @@ DValue* VarExp::toElem(IRState* p)
             else if (llvm::isa<llvm::Argument>(vd->ir.getIrValue())) {
                 return new DImValue(type, vd->ir.getIrValue());
             }
-            else assert(0);
+            else llvm_unreachable("Unexpected parameter value.");
         }
         else {
             Logger::println("a normal variable");
@@ -271,7 +271,7 @@ DValue* VarExp::toElem(IRState* p)
     }
     else
     {
-        assert(0 && "Unimplemented VarExp type");
+        llvm_unreachable("Unimplemented VarExp type");
     }
 
     return 0;
@@ -399,8 +399,8 @@ LLConstant* NullExp::toConstElem(IRState* p)
     else {
         return LLConstant::getNullValue(t);
     }
-    assert(0);
-    return NULL;
+
+    llvm_unreachable("Unknown type for null constant.");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -504,8 +504,7 @@ DValue* StringExp::toElem(IRState* p)
         return new DImValue(type, arrptr);
     }
 
-    assert(0);
-    return 0;
+    llvm_unreachable("Unknown type for StringExp.");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -560,8 +559,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
         return DtoConstSlice(clen, arrptr, type);
     }
 
-    assert(0);
-    return NULL;
+    llvm_unreachable("Unknown type for StringExp.");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1229,8 +1227,7 @@ DValue* SymOffExp::toElem(IRState* p)
     Logger::print("SymOffExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    assert(0 && "SymOffExp::toElem should no longer be called :/");
-    return 0;
+    llvm_unreachable("SymOffExp::toElem should no longer be called.");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1454,7 +1451,7 @@ DValue* DotVarExp::toElem(IRState* p)
             arrptr = DtoIndexClass(l->getRVal(), tc->sym, vd);
         }
         else
-            assert(0);
+            llvm_unreachable("Unknown DotVarExp type for VarDeclaration.");
 
         //Logger::cout() << "mem: " << *arrptr << '\n';
         return new DVarValue(type, vd, arrptr);
@@ -1513,12 +1510,8 @@ DValue* DotVarExp::toElem(IRState* p)
 
         return new DFuncValue(fdecl, funcval, passedThis);
     }
-    else {
-        printf("unsupported dotvarexp: %s\n", var->toChars());
-    }
 
-    assert(0);
-    return 0;
+    llvm_unreachable("Unknown target for VarDeclaration.");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1557,9 +1550,7 @@ DValue* ThisExp::toElem(IRState* p)
         return new DVarValue(type, vd, v);
     }
 
-    // anything we're not yet handling ?
-    assert(0 && "no var in ThisExp");
-    return 0;
+    llvm_unreachable("No VarDeclaration in ThisExp.");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1611,8 +1602,8 @@ DValue* IndexExp::toElem(IRState* p)
         return DtoAAIndex(loc, type, l, r, modifiable);
     }
     else {
-        Logger::println("invalid index exp! e1type: %s", e1type->toChars());
-        assert(0);
+        Logger::println("e1type: %s", e1type->toChars());
+        llvm_unreachable("Unknown IndexExp target.");
     }
     return new DVarValue(type, arrptr);
 }
@@ -1762,7 +1753,7 @@ DValue* CmpExp::toElem(IRState* p)
             cmpop = llvm::FCmpInst::FCMP_ORD;break;
 
         default:
-            assert(0);
+            llvm_unreachable("Unsupported floating point comparison operator.");
         }
         eval = p->ir->CreateFCmp(cmpop, l->getRVal(), r->getRVal(), "tmp");
     }
@@ -1821,7 +1812,7 @@ DValue* CmpExp::toElem(IRState* p)
     }
     else
     {
-        assert(0 && "Unsupported CmpExp type");
+        llvm_unreachable("Unsupported CmpExp type");
     }
 
     return new DImValue(type, eval);
@@ -1858,7 +1849,7 @@ DValue* EqualExp::toElem(IRState* p)
             cmpop = llvm::ICmpInst::ICMP_NE;
             break;
         default:
-            assert(0);
+            llvm_unreachable("Unsupported integral type equality comparison.");
         }
         if (rv->getType() != lv->getType()) {
             rv = DtoBitCast(rv, lv->getType());
@@ -1897,7 +1888,7 @@ DValue* EqualExp::toElem(IRState* p)
     }
     else
     {
-        assert(0 && "Unsupported EqualExp type");
+        llvm_unreachable("Unsupported EqualExp type.");
     }
 
     return new DImValue(type, eval);
@@ -1997,7 +1988,7 @@ DValue* NewExp::toElem(IRState* p)
     // new static array
     else if (ntype->ty == Tsarray)
     {
-        assert(0);
+        llvm_unreachable("Static array new should decay to dynamic array.");
     }
     // new struct
     else if (ntype->ty == Tstruct)
@@ -2062,7 +2053,7 @@ DValue* NewExp::toElem(IRState* p)
         return new DImValue(type, mem);
     }
 
-    assert(0);
+    llvm_unreachable(0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2127,7 +2118,7 @@ DValue* DeleteExp::toElem(IRState* p)
     // unknown/invalid
     else
     {
-        assert(0 && "invalid delete");
+        llvm_unreachable("Unsupported DeleteExp target.");
     }
 
     // no value to return
@@ -2442,9 +2433,9 @@ DValue* DelegateExp::toElem(IRState* p)
     if (e1->op != TOKsuper && e1->op != TOKdottype && func->isVirtual() && !func->isFinal())
         castfptr = DtoVirtualFunctionPointer(u, func, toChars());
     else if (func->isAbstract())
-        assert(0 && "TODO delegate to abstract method");
+        llvm_unreachable("Delegate to abstract method not implemented.");
     else if (func->toParent()->isInterfaceDeclaration())
-        assert(0 && "TODO delegate to interface method");
+        llvm_unreachable("Delegate to interface method not implemented.");
     else
     {
         func->codegen(Type::sir);

@@ -52,8 +52,7 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
         return static_cast<TypeFunction*>(next);
     }
 
-    assert(0 && "cant get TypeFunction* from non lazy/function/delegate");
-    return 0;
+    llvm_unreachable("Cannot get TypeFunction* from non lazy/function/delegate");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -123,11 +122,8 @@ LLValue* DtoCallableValue(DValue* fn)
             return gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
         }
     }
-    else
-    {
-        assert(0 && "not a callable type");
-        return NULL;
-    }
+
+    llvm_unreachable("Not a callable type.");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

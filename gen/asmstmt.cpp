@@ -275,12 +275,12 @@ AsmStatement::toIR(IRState * irs)
             case Mode_Input:  cns = m_cns; break;
             case Mode_Output: cns = mw_cns;  is_input = false; break;
             case Mode_Update: cns = mrw_cns; is_input = false; break;
-            default: assert(0); break;
+            default: llvm_unreachable("Unknown inline asm reference mode."); break;
             }
             break;
         case Arg_FrameRelative:
-// FIXME
-assert(0 && "asm fixme Arg_FrameRelative");
+            // FIXME
+            llvm_unreachable("Arg_FrameRelative not supported.");
 /*          if (arg->expr->op == TOKvar)
                 arg_val = ((VarExp *) arg->expr)->var->toSymbol()->Stree;
             else
@@ -296,15 +296,15 @@ assert(0 && "asm fixme Arg_FrameRelative");
                 clobbers_mem = true;
             break;*/
         case Arg_LocalSize:
-// FIXME
-assert(0 && "asm fixme Arg_LocalSize");
+            // FIXME
+            llvm_unreachable("Arg_LocalSize not supported.");
 /*          var_frame_offset = cfun->x_frame_offset;
             if (var_frame_offset < 0)
                 var_frame_offset = - var_frame_offset;
             arg_val = irs->integerConstant( var_frame_offset );*/
             goto do_integer;
         default:
-            assert(0);
+            llvm_unreachable("Unknown inline asm reference type.");
         }
 
         if (is_input) {

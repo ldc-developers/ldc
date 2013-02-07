@@ -89,11 +89,7 @@ llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name
         return fn;
 
     fn = M->getFunction(name);
-    if (!fn) {
-        printf("Runtime function '%s' was not found\n", name);
-        assert(0);
-        //return NULL;
-    }
+    assert(fn && "Runtime function not found.");
 
     LLFunctionType* fnty = fn->getFunctionType();
     LLFunction* resfn = llvm::cast<llvm::Function>(target->getOrInsertFunction(name, fnty));

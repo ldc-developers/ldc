@@ -21,8 +21,6 @@ LLConstant* DtoConstComplex(Type* t, longdouble re, longdouble im);
 
 LLConstant* DtoComplexShuffleMask(unsigned a, unsigned b);
 
-LLValue* DtoRealPart(DValue* val);
-LLValue* DtoImagPart(DValue* val);
 DValue* DtoComplex(Loc& loc, Type* to, DValue* val);
 
 void DtoComplexSet(LLValue* c, LLValue* re, LLValue* im);

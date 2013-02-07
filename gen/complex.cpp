@@ -68,22 +68,6 @@ LLConstant* DtoConstComplex(Type* _ty, longdouble re, longdouble im)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoRealPart(DValue* val)
-{
-    assert(0);
-    return gIR->ir->CreateExtractElement(val->getRVal(), DtoConstUint(0), "tmp");
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-LLValue* DtoImagPart(DValue* val)
-{
-    assert(0);
-    return gIR->ir->CreateExtractElement(val->getRVal(), DtoConstUint(1), "tmp");
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* DtoComplex(Loc& loc, Type* to, DValue* val)
 {
     LLType* complexTy = DtoType(to);
@@ -181,7 +165,7 @@ void DtoGetComplexParts(Loc& loc, Type* to, DValue* val, DValue*& re, DValue*& i
         im = NULL;
     }
     else {
-        assert(0);
+        llvm_unreachable("Unexpected numeric type.");
     }
 }
 
@@ -360,7 +344,7 @@ DValue* DtoComplexDiv(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
             res_im = gIR->ir->CreateFMul(lhs_im, rhs_re, "imre");
         }
         else
-            assert(0 && "lhs has neither real nor imaginary part");
+            llvm_unreachable("lhs has neither real nor imaginary part");
 
         tmp1 = gIR->ir->CreateFMul(rhs_re, rhs_re, "rhs_resq");
         tmp2 = gIR->ir->CreateFMul(rhs_im, rhs_im, "rhs_imsq");

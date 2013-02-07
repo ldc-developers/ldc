@@ -139,8 +139,7 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
     case Tbool:
         return llvm::Type::getInt1Ty(ctx);
     default:
-        assert(0 && "not basic type");
-        return NULL;
+        llvm_unreachable("Unknown basic type.");
     }
 }
 

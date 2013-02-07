@@ -137,10 +137,8 @@ void VarDeclaration::codegen(Ir* p)
         Logger::println("data segment");
 
     #if DMDV2 && 0 // TODO:
-        if (storage_class & STCmanifest)
-        {
-            assert(0 && "manifest constant being codegened!!!");
-        }
+        assert(!(storage_class & STCmanifest) &&
+            "manifest constant being codegen'd!");
     #endif
 
         // don't duplicate work

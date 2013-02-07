@@ -139,7 +139,7 @@ void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostrea
 
     llvm::formatted_raw_ostream fout(out);
     if (Target.addPassesToEmitFile(Passes, fout, fileType, codeGenOptLevel()))
-        assert(0 && "no support for asm output");
+        llvm_unreachable("no support for asm output");
 
     Passes.doInitialization();
 
