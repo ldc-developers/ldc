@@ -220,32 +220,30 @@ int linkObjToBinaryGcc(bool sharedLib)
 
     // default libs
     bool addSoname = false;
-    switch(global.params.os) {
-    case OSLinux:
+    switch (global.params.targetTriple.getOS()) {
+    case llvm::Triple::Linux:
         addSoname = true;
         args.push_back("-lrt");
         // fallthrough
-    case OSMacOSX:
+    case llvm::Triple::Darwin:
+    case llvm::Triple::MacOSX:
         args.push_back("-ldl");
         // fallthrough
-    case OSFreeBSD:
+    case llvm::Triple::FreeBSD:
         addSoname = true;
         args.push_back("-lpthread");
         args.push_back("-lm");
         break;
 
-    case OSSolaris:
+    case llvm::Triple::Solaris:
         args.push_back("-lm");
         args.push_back("-lumem");
         // solaris TODO
         break;
 
-    case OSWindows:
-        // FIXME: I'd assume kernel32 etc
-        break;
-
     default:
         // OS not yet handled, will probably lead to linker errors.
+        // FIXME: Win32, MinGW.
         break;
     }
 

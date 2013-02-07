@@ -127,9 +127,13 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
     const char* mangle = fd->mangle();
     std::ostringstream tmpstr;
 
+    bool const isWin = global.params.targetTriple.isOSWindows();
+    bool const isOSX = (global.params.targetTriple.getOS() == llvm::Triple::Darwin ||
+        global.params.targetTriple.getOS() == llvm::Triple::MacOSX);
+
     // osx is different
     // also mangling has an extra underscore prefixed
-    if (global.params.os == OSMacOSX)
+    if (isOSX)
     {
         std::string section = "text";
         bool weak = false;
@@ -159,10 +163,11 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         {
             linkage = "weak";
             tmpstr << "section\t.gnu.linkonce.t.";
-            if (global.params.os != OSWindows)
+            if (!isWin)
             {
                 tmpstr << mangle << ",\"ax\",@progbits";
-            } else
+            }
+            else
             {
                 tmpstr << "_" << mangle << ",\"ax\"";
             }
@@ -171,7 +176,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         asmstr << "\t." << section << std::endl;
         asmstr << "\t.align\t16" << std::endl;
 
-        if (global.params.os == OSWindows)
+        if (isWin)
         {
             std::string def = "def";
             std::string endef = "endef";
@@ -179,7 +184,8 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
             // hard code these two numbers for now since gas ignores .scl and llvm
             // is defaulting to .type 32 for everything I have seen
             asmstr << "\t.scl 2; .type 32;\t" << "." << endef << std::endl;
-        } else
+        }
+        else
         {
             asmstr << "\t." << linkage << "\t" << mangle << std::endl;
             asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
@@ -199,7 +205,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
     // emit size after body
     // llvm does this on linux, but not on osx or Win
-    if (global.params.os != OSMacOSX && global.params.os != OSWindows)
+    if (!(isWin || isOSX))
     {
         asmstr << "\t.size\t" << mangle << ", .-" << mangle << std::endl << std::endl;
     }

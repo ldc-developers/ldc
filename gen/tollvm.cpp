@@ -965,7 +965,7 @@ LLStructType* DtoMutexType()
     // The structures defined here must be the same as in druntime/src/rt/critical.c
 
     // Windows
-    if (global.params.os == OSWindows)
+    if (global.params.targetTriple.isOSWindows())
     {
         llvm::Type *VoidPtrTy = llvm::Type::getInt8PtrTy(gIR->context());
         llvm::Type *Int32Ty = llvm::Type::getInt32Ty(gIR->context());
@@ -993,7 +993,7 @@ LLStructType* DtoMutexType()
     }
 
     // FreeBSD
-    else if (global.params.os == OSFreeBSD) {
+    else if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD) {
         // Just a pointer
         return LLStructType::get(gIR->context(), DtoSize_t());
     }

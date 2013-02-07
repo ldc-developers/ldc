@@ -590,7 +590,6 @@ int main(int argc, char** argv)
 
     // Starting with LLVM 3.1 we could also use global.params.targetTriple.isArch64Bit();
     global.params.is64bit = gDataLayout->getPointerSizeInBits(ADDRESS_SPACE) == 64;
-    global.params.os = static_cast<OS>(global.params.targetTriple.getOS());
 
     switch (global.params.targetTriple.getArch())
     {
@@ -681,7 +680,6 @@ int main(int argc, char** argv)
             VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
             break;
         case llvm::Triple::MinGW32:
-            global.params.os = OSWindows; // FIXME: Check source for uses of MinGW32
             VersionCondition::addPredefinedGlobalIdent("Windows");
             VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
             VersionCondition::addPredefinedGlobalIdent("mingw32"); // For backwards compatibility.
@@ -701,7 +699,6 @@ int main(int argc, char** argv)
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         case llvm::Triple::Darwin:
-            global.params.os = OSMacOSX;
             VersionCondition::addPredefinedGlobalIdent("OSX");
             VersionCondition::addPredefinedGlobalIdent("darwin"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("Posix");
@@ -746,7 +743,7 @@ int main(int argc, char** argv)
 #undef XSTR
 #undef STR
 
-    if (global.params.os == OSWindows) {
+    if (global.params.targetTriple.isOSWindows()) {
         global.dll_ext = "dll";
         global.lib_ext = "lib";
     } else {

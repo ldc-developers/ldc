@@ -154,17 +154,6 @@ enum OUTPUTFLAG
     OUTPUTFLAGset // for -output
 };
 
-enum OS
-{
-    OSinvalid = llvm::Triple::UnknownOS,
-    OSLinux = llvm::Triple::Linux,
-    OSHaiku = llvm::Triple::Haiku,
-    OSWindows = llvm::Triple::Win32,
-    OSMacOSX = llvm::Triple::MacOSX,
-    OSFreeBSD = llvm::Triple::FreeBSD,
-    OSSolaris = llvm::Triple::Solaris,
-};
-
 typedef unsigned char ubyte;
 #endif
 
@@ -190,9 +179,7 @@ struct Param
 #endif
     char map;           // generate linker .map file
     bool is64bit;       // generate 64 bit code
-#if IN_LLVM
-    OS   os;
-#else
+#if !IN_LLVM
     char isLinux;       // generate code for linux
     char isOSX;         // generate code for Mac OSX
     char isWindows;     // generate code for Windows

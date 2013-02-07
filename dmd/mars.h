@@ -181,7 +181,6 @@ struct Param
 #endif
     char vtls;          // identify thread local variables
 // KN Start merge conflict
-    OS   os;            // target OS
     bool is64bit;       // generate 64 bit code
     bool useDeprecated; // allow use of deprecated features
     bool useAssert;     // generate runtime code for assert()'s

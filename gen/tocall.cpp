@@ -59,17 +59,18 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
 
 llvm::CallingConv::ID DtoCallingConv(Loc loc, LINK l)
 {
+    llvm::Triple::ArchType const arch = global.params.targetTriple.getArch();
+
     if (l == LINKc || l == LINKcpp || l == LINKintrinsic)
         return llvm::CallingConv::C;
     else if (l == LINKd || l == LINKdefault)
     {
         //TODO: StdCall is not a good base on Windows due to extra name mangling
         // applied there
-        if (global.params.targetTriple.getArch() == llvm::Triple::x86 ||
-            global.params.targetTriple.getArch() == llvm::Triple::x86_64)
+        if (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64)
         {
-            return (global.params.os != OSWindows) ?
-                llvm::CallingConv::X86_StdCall : llvm::CallingConv::C;
+            return global.params.targetTriple.isOSWindows() ?
+                llvm::CallingConv::C : llvm::CallingConv::X86_StdCall;
         }
         else
             return llvm::CallingConv::Fast;
@@ -78,7 +79,7 @@ llvm::CallingConv::ID DtoCallingConv(Loc loc, LINK l)
     // On Windows 64bit, there is only one calling convention!
     else if (l == LINKwindows)
     {
-        return (global.params.targetTriple.getArch() == llvm::Triple::x86_64) ?
+        return (arch == llvm::Triple::x86_64) ?
             llvm::CallingConv::C : llvm::CallingConv::X86_StdCall;
     }
     else if (l == LINKpascal)

@@ -44,9 +44,9 @@ int os_critsecsize()
     // Return sizeof(RTL_CRITICAL_SECTION)
     return global.params.is64bit ? 40 : 24;
 #else
-    if (global.params.os == OSWindows)
+    if (global.params.targetTriple.isOSWindows())
         return global.params.is64bit ? 40 : 24;
-    else if (global.params.os == OSFreeBSD)
+    else if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD)
         return sizeof(size_t);
     else
         return sizeof(pthread_mutex_t);
