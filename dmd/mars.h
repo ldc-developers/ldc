@@ -194,7 +194,6 @@ struct Param
     ARCH cpu;           // target CPU
     OS   os;            // target OS
     bool is64bit;       // generate 64 bit code
-    bool isLE;          // generate little endian code
     bool useDeprecated; // allow use of deprecated features
     bool useAssert;     // generate runtime code for assert()'s
     bool useInvariants; // generate class invariant checks

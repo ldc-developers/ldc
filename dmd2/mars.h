@@ -201,7 +201,6 @@ struct Param
 #endif
     char map;           // generate linker .map file
     ARCH cpu;           // target CPU
-    bool isLE;          // generate little endian code
     bool is64bit;       // generate 64 bit code
 #if IN_LLVM
     OS   os;
