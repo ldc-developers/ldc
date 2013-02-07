@@ -14,8 +14,8 @@
 #ifndef LDC_GEN_TODEBUG_H
 #define LDC_GEN_TODEBUG_H
 
-#include "gen/tollvm.h"
 #include "gen/irstate.h"
+#include "gen/tollvm.h"
 
 void RegisterDwarfSymbols(llvm::Module* mod);
 

@@ -14,8 +14,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __LDC_GEN_ABI_H__
-#define __LDC_GEN_ABI_H__
+#ifndef LDC_GEN_ABI_H
+#define LDC_GEN_ABI_H
 
 #include <vector>
 

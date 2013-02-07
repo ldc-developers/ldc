@@ -7,39 +7,37 @@
 //
 //===----------------------------------------------------------------------===//
 
-
-#include <stdio.h>
-#include <math.h>
-#include <fstream>
-
+#include "init.h"
+#include "mars.h"
+#include "module.h"
+#include "mtype.h"
+#include "port.h"
+#include "gen/abi.h"
+#include "gen/arrays.h"
+#include "gen/dvalue.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/runtime.h"
+#include "gen/todebug.h"
+#include "gen/tollvm.h"
+#include "ir/irfunction.h"
+#include "ir/irlandingpad.h"
+#include "ir/irmodule.h"
+#include "llvm/Support/CFG.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/InlineAsm.h"
 #else
 #include "llvm/InlineAsm.h"
 #endif
-#include "llvm/Support/CFG.h"
+#include <fstream>
+#include <math.h>
+#include <stdio.h>
 
-#include "mars.h"
-#include "init.h"
-#include "mtype.h"
+// Need to include this after the other DMD includes because of missing
+// dependencies.
 #include "hdrgen.h"
-#include "port.h"
-#include "module.h"
-
-#include "gen/irstate.h"
-#include "gen/logger.h"
-#include "gen/tollvm.h"
-#include "gen/llvmhelpers.h"
-#include "gen/runtime.h"
-#include "gen/arrays.h"
-#include "gen/todebug.h"
-#include "gen/dvalue.h"
-#include "gen/abi.h"
-
-#include "ir/irfunction.h"
-#include "ir/irmodule.h"
-#include "ir/irlandingpad.h"
 
 //////////////////////////////////////////////////////////////////////////////
 

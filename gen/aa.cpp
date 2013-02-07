@@ -7,20 +7,18 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "gen/llvm.h"
-
-#include "mtype.h"
-#include "module.h"
-#include "declaration.h"
-#include "aggregate.h"
-
 #include "gen/aa.h"
-#include "gen/runtime.h"
-#include "gen/tollvm.h"
+#include "aggregate.h"
+#include "declaration.h"
+#include "module.h"
+#include "mtype.h"
+#include "gen/dvalue.h"
+#include "gen/irstate.h"
+#include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
-#include "gen/irstate.h"
-#include "gen/dvalue.h"
+#include "gen/runtime.h"
+#include "gen/tollvm.h"
 #include "ir/irmodule.h"
 
 #if DMDV2

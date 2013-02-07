@@ -8,13 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "ir/irfuncty.h"
-
 #include "mtype.h"
-
 #include "gen/abi.h"
 #include "gen/dvalue.h"
-#include "gen/logger.h"
 #include "gen/llvm.h"
+#include "gen/logger.h"
 #include "gen/tollvm.h"
 
 #if LDC_LLVM_VER >= 303

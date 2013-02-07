@@ -7,7 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "gen/runtime.h"
+#include "aggregate.h"
+#include "dsymbol.h"
+#include "lexer.h"
+#include "mars.h"
+#include "module.h"
+#include "mtype.h"
+#include "root.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
+#include "gen/logger.h"
+#include "gen/tollvm.h"
+#include "ir/irtype.h"
+#include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/MemoryBuffer.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Attributes.h"
@@ -15,23 +30,6 @@
 #include "llvm/Module.h"
 #include "llvm/Attributes.h"
 #endif
-#include "llvm/Bitcode/ReaderWriter.h"
-#include "llvm/Support/MemoryBuffer.h"
-#include "llvm/Support/CommandLine.h"
-
-#include "root.h"
-#include "mars.h"
-#include "lexer.h"
-#include "dsymbol.h"
-#include "mtype.h"
-#include "aggregate.h"
-#include "module.h"
-
-#include "gen/runtime.h"
-#include "gen/logger.h"
-#include "gen/tollvm.h"
-#include "gen/irstate.h"
-#include "ir/irtype.h"
 
 #if LDC_LLVM_VER < 302
 using namespace llvm::Attribute;

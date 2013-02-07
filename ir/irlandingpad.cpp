@@ -8,13 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvm.h"
-#include "gen/tollvm.h"
-#include "gen/irstate.h"
-#include "gen/runtime.h"
-#include "gen/logger.h"
 #include "gen/classes.h"
+#include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/runtime.h"
 #include "gen/todebug.h"
+#include "gen/tollvm.h"
 #include "ir/irlandingpad.h"
 
 IRLandingPadInfo::IRLandingPadInfo(Catch* catchstmt_, llvm::BasicBlock* end_) :

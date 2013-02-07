@@ -276,12 +276,12 @@ void Type::init()
     }
 
     // set real size and padding
-    if (global.params.cpu == ARCHx86)
+    if (global.params.targetTriple.getArch() == llvm::Triple::x86)
     {
         REALSIZE = 12;
         REALPAD = 2;
     }
-    else if (global.params.cpu == ARCHx86_64)
+    else if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
     {
         REALSIZE = 16;
         REALPAD = 6;
@@ -1175,8 +1175,11 @@ unsigned TypeBasic::alignsize()
 #if IN_LLVM
 unsigned TypeBasic::memalign(unsigned salign)
 {
-    if (global.params.cpu == ARCHx86_64 && (ty == Tfloat80 || ty == Timaginary80))
+    if (global.params.targetTriple.getArch() == llvm::Triple::x86_64 &&
+        (ty == Tfloat80 || ty == Timaginary80))
+    {
         return 16;
+    }
     return Type::memalign(salign);
 }
 #endif

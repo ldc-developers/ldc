@@ -11,13 +11,11 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __LDC_GEN_ABI_PPC64_H__
-#define __LDC_GEN_ABI_PPC64_H__
+#ifndef LDC_GEN_ABI_PPC64_H
+#define LDC_GEN_ABI_PPC64_H
 
-#include "gen/abi.h"
-
+struct TargetABI;
 
 TargetABI* getPPC64TargetABI();
-
 
 #endif

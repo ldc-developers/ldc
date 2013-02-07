@@ -17,8 +17,8 @@
 #ifndef LDC_GEN_DVALUE_H
 #define LDC_GEN_DVALUE_H
 
-#include <cassert>
 #include "root.h"
+#include <cassert>
 
 struct Type;
 struct Dsymbol;

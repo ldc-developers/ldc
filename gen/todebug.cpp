@@ -7,25 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "gen/todebug.h"
+#include "declaration.h"
+#include "mars.h"
+#include "module.h"
+#include "gen/irstate.h"
+#include "gen/linkage.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/tollvm.h"
+#include "gen/utils.h"
+#include "ir/irmodule.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-
-#include "declaration.h"
-#include "module.h"
-#include "mars.h"
-
-#include "gen/todebug.h"
-#include "gen/irstate.h"
-#include "gen/tollvm.h"
-#include "gen/logger.h"
-#include "gen/llvmhelpers.h"
-#include "gen/linkage.h"
-#include "gen/utils.h"
-
-#include "ir/irmodule.h"
 
 using namespace llvm::dwarf;
 

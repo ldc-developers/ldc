@@ -7,25 +7,22 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "expression.h"
+#include "declaration.h"
+#include "statement.h"
+#include "template.h"
+#include "gen/dvalue.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/tollvm.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/InlineAsm.h"
 #else
 #include "llvm/InlineAsm.h"
 #endif
-
-#include "expression.h"
-#include "statement.h"
-#include "declaration.h"
-#include "template.h"
-
 #include <cassert>
-
-#include "gen/logger.h"
-#include "gen/irstate.h"
-#include "gen/llvmhelpers.h"
-#include "gen/tollvm.h"
-#include "gen/dvalue.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -127,9 +124,13 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
     const char* mangle = fd->mangle();
     std::ostringstream tmpstr;
 
+    bool const isWin = global.params.targetTriple.isOSWindows();
+    bool const isOSX = (global.params.targetTriple.getOS() == llvm::Triple::Darwin ||
+        global.params.targetTriple.getOS() == llvm::Triple::MacOSX);
+
     // osx is different
     // also mangling has an extra underscore prefixed
-    if (global.params.os == OSMacOSX)
+    if (isOSX)
     {
         std::string section = "text";
         bool weak = false;
@@ -159,10 +160,11 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         {
             linkage = "weak";
             tmpstr << "section\t.gnu.linkonce.t.";
-            if (global.params.os != OSWindows)
+            if (!isWin)
             {
                 tmpstr << mangle << ",\"ax\",@progbits";
-            } else
+            }
+            else
             {
                 tmpstr << "_" << mangle << ",\"ax\"";
             }
@@ -171,7 +173,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         asmstr << "\t." << section << std::endl;
         asmstr << "\t.align\t16" << std::endl;
 
-        if (global.params.os == OSWindows)
+        if (isWin)
         {
             std::string def = "def";
             std::string endef = "endef";
@@ -179,7 +181,8 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
             // hard code these two numbers for now since gas ignores .scl and llvm
             // is defaulting to .type 32 for everything I have seen
             asmstr << "\t.scl 2; .type 32;\t" << "." << endef << std::endl;
-        } else
+        }
+        else
         {
             asmstr << "\t." << linkage << "\t" << mangle << std::endl;
             asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
@@ -199,7 +202,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
     // emit size after body
     // llvm does this on linux, but not on osx or Win
-    if (global.params.os != OSMacOSX && global.params.os != OSWindows)
+    if (!(isWin || isOSX))
     {
         asmstr << "\t.size\t" << mangle << ", .-" << mangle << std::endl << std::endl;
     }
@@ -227,7 +230,7 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
     //        It should be able to do this for a greater variety of types.
 
     // x86
-    if (global.params.cpu == ARCHx86)
+    if (global.params.targetTriple.getArch() == llvm::Triple::x86)
     {
         LINK l = fdecl->linkage;
         assert((l == LINKd || l == LINKc || l == LINKwindows) && "invalid linkage for asm implicit return");
@@ -301,7 +304,7 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
     }
 
     // x86_64
-    else if (global.params.cpu == ARCHx86_64)
+    else if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
     {
         LINK l = fdecl->linkage;
         /* TODO: Check if this works with extern(Windows), completely untested.

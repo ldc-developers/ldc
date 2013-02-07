@@ -8,13 +8,12 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/optimizer.h"
+#include "mars.h"       // error()
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
-
 #include "gen/passes/Passes.h"
-
-#include "llvm/PassManager.h"
 #include "llvm/LinkAllPasses.h"
+#include "llvm/PassManager.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DataLayout.h"
@@ -34,8 +33,6 @@
 #include "llvm/Support/PassNameParser.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
-
-#include "mars.h"       // error()
 
 using namespace llvm;
 

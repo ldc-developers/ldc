@@ -357,7 +357,8 @@ void Module::buildTargetFiles(bool singleObj)
 	if(!objfile)
 	{
 		if (global.params.output_o)
-			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.params.os == OSWindows ? global.obj_ext_alt : global.obj_ext);
+			objfile = Module::buildFilePath(global.params.objname, global.params.objdir,
+                global.params.targetTriple.isOSWindows() ? global.obj_ext_alt : global.obj_ext);
 		else if (global.params.output_bc)
 			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.bc_ext);
 		else if (global.params.output_ll) 

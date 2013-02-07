@@ -11,8 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __LDC_GEN_UTILS_H__
-#define __LDC_GEN_UTILS_H__
+#ifndef LDC_GEN_UTILS_H
+#define LDC_GEN_UTILS_H
 
 #include "root.h"
 

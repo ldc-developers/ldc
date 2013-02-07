@@ -8,8 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvmcompat.h"
-#include "llvm/Config/llvm-config.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/Config/llvm-config.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Function.h"

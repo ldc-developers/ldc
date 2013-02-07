@@ -16,10 +16,9 @@
 #ifndef LDC_IR_IR_H
 #define LDC_IR_IR_H
 
-#include <deque>
-
-#include "ir/irforw.h"
 #include "root.h"
+#include "ir/irforw.h"
+#include <deque>
 
 struct IRState;
 struct IrFunction;

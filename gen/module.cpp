@@ -7,7 +7,41 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "aggregate.h"
+#include "attrib.h"
+#include "declaration.h"
+#include "enum.h"
+#include "id.h"
+#include "import.h"
+#include "init.h"
+#include "mars.h"
+#include "module.h"
+#include "mtype.h"
+#include "scope.h"
+#include "statement.h"
+#include "template.h"
+#include "gen/abi.h"
+#include "gen/arrays.h"
+#include "gen/classes.h"
+#include "gen/functions.h"
+#include "gen/irstate.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/optimizer.h"
+#include "gen/programs.h"
+#include "gen/rttibuilder.h"
+#include "gen/runtime.h"
+#include "gen/structs.h"
+#include "gen/todebug.h"
+#include "gen/tollvm.h"
+#include "ir/irdsymbol.h"
+#include "ir/irmodule.h"
+#include "ir/irtype.h"
+#if !MODULEINFO_IS_STRUCT
+#include "ir/irtypeclass.h"
+#endif
+#include "ir/irvar.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/LinkAllPasses.h"
 #if LDC_LLVM_VER >= 303
@@ -20,44 +54,6 @@
 #else
 #include "llvm/Target/TargetData.h"
 #endif
-#endif
-
-#include "mars.h"
-#include "module.h"
-#include "mtype.h"
-#include "declaration.h"
-#include "statement.h"
-#include "enum.h"
-#include "aggregate.h"
-#include "init.h"
-#include "attrib.h"
-#include "id.h"
-#include "import.h"
-#include "template.h"
-#include "scope.h"
-
-#include "gen/abi.h"
-#include "gen/arrays.h"
-#include "gen/classes.h"
-#include "gen/functions.h"
-#include "gen/irstate.h"
-#include "gen/llvmhelpers.h"
-#include "gen/logger.h"
-#include "gen/programs.h"
-#include "gen/rttibuilder.h"
-#include "gen/runtime.h"
-#include "gen/structs.h"
-#include "gen/todebug.h"
-#include "gen/tollvm.h"
-#include "gen/optimizer.h"
-
-#include "ir/irdsymbol.h"
-#include "ir/irmodule.h"
-#include "ir/irtype.h"
-#include "ir/irvar.h"
-
-#if !MODULEINFO_IS_STRUCT
-#include "ir/irtypeclass.h"
 #endif
 
 #if DMDV2

@@ -8,8 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvm.h"
-#include "gen/tollvm.h"
 #include "gen/irstate.h"
+#include "gen/tollvm.h"
 #include "ir/irmodule.h"
 
 IrModule::IrModule(Module* module, const char* srcfilename)

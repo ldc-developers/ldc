@@ -9,11 +9,11 @@
 
 #include "pragma.h"
 #include "attrib.h"
-#include "id.h"
-#include "expression.h"
-#include "scope.h"
-#include "module.h"
 #include "declaration.h"
+#include "expression.h"
+#include "id.h"
+#include "module.h"
+#include "scope.h"
 #include "template.h"
 #include "llvm/Support/CommandLine.h"
 

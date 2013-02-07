@@ -7,26 +7,24 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include <cstddef>
-#include <fstream>
-
+#include "driver/toobj.h"
+#include "gen/irstate.h"
+#include "gen/logger.h"
+#include "gen/optimizer.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
+#include "llvm/PassManager.h"
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FormattedStream.h"
+#include "llvm/Support/Program.h"
+#include "llvm/Target/TargetMachine.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
 #else
 #include "llvm/Module.h"
 #endif
-#include "llvm/PassManager.h"
-#include "llvm/Support/Program.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/FormattedStream.h"
-#include "llvm/Target/TargetMachine.h"
-
-#include "gen/irstate.h"
-#include "gen/logger.h"
-#include "gen/optimizer.h"
-
+#include <cstddef>
+#include <fstream>
 
 // fwd decl
 void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& Out,

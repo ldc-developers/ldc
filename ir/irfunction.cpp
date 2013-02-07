@@ -10,7 +10,6 @@
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
-
 #include <sstream>
 
 FuncGen::FuncGen()

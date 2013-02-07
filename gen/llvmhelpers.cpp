@@ -8,36 +8,32 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvmhelpers.h"
-#include "gen/llvm.h"
-
-#include "mars.h"
-#include "init.h"
-#include "id.h"
 #include "expression.h"
-#include "template.h"
+#include "id.h"
+#include "init.h"
+#include "mars.h"
 #include "module.h"
-
+#include "template.h"
+#include "gen/arrays.h"
+#include "gen/classes.h"
+#include "gen/complex.h"
+#include "gen/dvalue.h"
+#include "gen/functions.h"
+#include "gen/irstate.h"
+#include "gen/llvm.h"
+#include "gen/llvmcompat.h"
+#include "gen/logger.h"
+#include "gen/nested.h"
+#include "gen/runtime.h"
+#include "gen/todebug.h"
+#include "gen/tollvm.h"
+#include "gen/typeinf.h"
+#include "ir/irmodule.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #if LDC_LLVM_VER >= 301
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #endif
-
-#include "gen/tollvm.h"
-#include "gen/irstate.h"
-#include "gen/runtime.h"
-#include "gen/logger.h"
-#include "gen/arrays.h"
-#include "gen/dvalue.h"
-#include "gen/complex.h"
-#include "gen/classes.h"
-#include "gen/functions.h"
-#include "gen/typeinf.h"
-#include "gen/todebug.h"
-#include "gen/nested.h"
-#include "ir/irmodule.h"
-#include "gen/llvmcompat.h"
-
 #include <stack>
 
 /****************************************************************************************/

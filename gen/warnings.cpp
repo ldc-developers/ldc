@@ -7,11 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "mars.h"
-#include "mtype.h"
-#include "expression.h"
-
 #include "gen/warnings.h"
+#include "mtype.h"
 
 void warnInvalidPrintfCall(Loc loc, Expression* arguments, size_t nargs)
 {

@@ -168,6 +168,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
 #endif
 }
 
+#if IN_LLVM
 File* Module::buildFilePath(const char* forcename, const char* path, const char* ext)
 {
     const char *argobj;
@@ -219,7 +220,6 @@ File* Module::buildFilePath(const char* forcename, const char* path, const char*
     return new File(FileName::forceExt(argobj, ext));
 }
 
-// LDC
 static void check_and_add_output_file(Module* NewMod, const std::string& str)
 {
     typedef std::map<std::string, Module*> map_t;
@@ -252,7 +252,8 @@ void Module::buildTargetFiles(bool singleObj)
         else if (global.params.output_s)
             objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.s_ext);
         else
-            objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.params.os == OSWindows ? global.obj_ext_alt : global.obj_ext);
+            objfile = Module::buildFilePath(global.params.objname, global.params.objdir,
+                global.params.targetTriple.isOSWindows() ? global.obj_ext_alt : global.obj_ext);
     }
     if(doDocComment && !docfile)
         docfile = Module::buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);
@@ -285,6 +286,7 @@ void Module::buildTargetFiles(bool singleObj)
     if (hdrfile)
         check_and_add_output_file(this, hdrfile->name->str);
 }
+#endif
 
 void Module::deleteObjFile()
 {

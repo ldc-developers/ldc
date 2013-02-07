@@ -8,15 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvm.h"
-
 #include "declaration.h"
-
-#include "gen/irstate.h"
-#include "gen/tollvm.h"
-#include "gen/dvalue.h"
-#include "gen/logger.h"
 #include "gen/complex.h"
+#include "gen/dvalue.h"
+#include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
+#include "gen/logger.h"
+#include "gen/tollvm.h"
 
 //////////////////////////////////////////////////////////////////////////////
 

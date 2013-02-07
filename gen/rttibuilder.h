@@ -12,22 +12,25 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef __LDC_GEN_RTTIBUILDER_H__
-#define __LDC_GEN_RTTIBUILDER_H__
+#ifndef LDC_GEN_RTTIBUILDER_H
+#define LDC_GEN_RTTIBUILDER_H
 
+#include "llvm/ADT/SmallVector.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Constant.h"
 #else
 #include "llvm/Constant.h"
 #endif
-#include "llvm/ADT/SmallVector.h"
 
-struct ClassDeclaration;
 struct AggregateDeclaration;
-struct TypeClass;
-struct Type;
-
+struct ClassDeclaration;
+struct Dsymbol;
+struct FuncDeclaration;
+struct IrGlobal;
 struct IrStruct;
+struct Type;
+struct TypeClass;
+namespace llvm { class StructType; }
 
 struct RTTIBuilder
 {
@@ -75,10 +78,10 @@ struct RTTIBuilder
 
     /// Creates the initializer constant and assigns it to the global.
     void finalize(IrGlobal* tid);
-    void finalize(LLType* type, LLValue* value);
+    void finalize(llvm::Type* type, llvm::Value* value);
 
     /// Creates the initializer constant and assigns it to the global.
-    llvm::Constant* get_constant(LLStructType *initType);
+    llvm::Constant* get_constant(llvm::StructType* initType);
 };
 
 #endif

@@ -11,11 +11,13 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_CONF_CONFIGFILE_H
-#define LDC_CONF_CONFIGFILE_H
+#ifndef LDC_DRIVER_CONFIGFILE_H
+#define LDC_DRIVER_CONFIGFILE_H
 
-#include <vector>
 #include <string>
+#include <vector>
+
+namespace llvm { namespace sys { class Path; } }
 
 namespace libconfig
 {
@@ -48,4 +50,4 @@ private:
     s_vector switches;
 };
 
-#endif // LDC_CONF_CONFIGFILE_H
+#endif // LDC_DRIVER_CONFIGFILE_H
