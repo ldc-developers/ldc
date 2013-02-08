@@ -1263,6 +1263,8 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     {
         llvm_unreachable("Unimplemented Declaration type for DeclarationExp.");
     }
+
+    return 0;
 }
 
 // does pretty much the same as DtoDeclarationExp, except it doesn't initialize, and only handles var declarations
@@ -1430,7 +1432,8 @@ DValue* DtoInitializer(LLValue* target, Initializer* init)
 {
     if (!init)
         return 0;
-    else if (ExpInitializer* ex = init->isExpInitializer())
+
+    if (ExpInitializer* ex = init->isExpInitializer())
     {
         Logger::println("expression initializer");
         assert(ex->exp);
@@ -1452,6 +1455,8 @@ DValue* DtoInitializer(LLValue* target, Initializer* init)
     {
         llvm_unreachable("Unknown initializer type.");
     }
+
+    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
