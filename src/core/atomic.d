@@ -166,7 +166,7 @@ else version( LDC )
                    op == "==" || op == "!=" || op == "<"  || op == "<="  ||
                    op == ">"  || op == ">=" )
         {
-            HeadUnshared!(T) get = atomicLoad!(msync.raw)( val );
+            HeadUnshared!(T) get = atomicLoad!(MemoryOrder.raw)( val );
             mixin( "return get " ~ op ~ " mod;" );
         }
         else
@@ -182,7 +182,7 @@ else version( LDC )
 
             do
             {
-                get = set = atomicLoad!(msync.raw)( val );
+                get = set = atomicLoad!(MemoryOrder.raw)( val );
                 mixin( "set " ~ op ~ " mod;" );
             } while( !cas( &val, get, set ) );
             return set;
@@ -265,15 +265,15 @@ else version( LDC )
 
     deprecated alias MemoryOrder msync;
 
-    private AtomicOrdering getOrdering(msync ms) pure
+    private AtomicOrdering getOrdering(MemoryOrder ms) pure
     {
-        if (ms == msync.acq)
+        if (ms == MemoryOrder.acq)
             return AtomicOrdering.Acquire;
-        else if (ms == msync.rel)
+        else if (ms == MemoryOrder.rel)
             return AtomicOrdering.Release;
-        else if (ms == msync.seq)
+        else if (ms == MemoryOrder.seq)
             return AtomicOrdering.SequentiallyConsistent;
-        else if (ms == msync.raw)
+        else if (ms == MemoryOrder.raw)
             return AtomicOrdering.NotAtomic;
         else
             assert(0);
@@ -297,10 +297,10 @@ else version( LDC )
         }
     }
 
-    HeadUnshared!(T) atomicLoad(msync ms = msync.seq, T)( ref const shared T val )
+    HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val )
         if(!__traits(isFloating, T))
     {
-        enum ordering = getOrdering(ms == msync.acq ? msync.seq : ms);
+        enum ordering = getOrdering(ms == MemoryOrder.acq ? MemoryOrder.seq : ms);
         static if (_passAsSizeT!T)
         {
             return cast(HeadUnshared!(T))cast(void*)llvm_atomic_load!(size_t)(cast(shared(size_t)*)&val, ordering);
@@ -315,7 +315,7 @@ else version( LDC )
         }
     }
 
-    void atomicStore(msync ms = msync.seq, T, V1)( ref shared T val, V1 newval )
+    void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval )
         if(__traits(isFloating, T))
     {
         static if(T.sizeof == int.sizeof)
@@ -338,10 +338,10 @@ else version( LDC )
         }
     }
 
-    void atomicStore(msync ms = msync.seq, T, V1)( ref shared T val, V1 newval )
+    void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval )
         if(!__traits(isFloating, T) && __traits(compiles, mixin("val = newval")))
     {
-        enum ordering = getOrdering(ms == msync.rel ? msync.seq : ms);
+        enum ordering = getOrdering(ms == MemoryOrder.rel ? MemoryOrder.seq : ms);
         static if (_passAsSizeT!T)
         {
             llvm_atomic_store!(size_t)(cast(size_t)newval, cast(shared(size_t)*)&val, ordering);
