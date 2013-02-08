@@ -1123,7 +1123,7 @@ DValue* CallExp::toElem(IRState* p)
                     // *q |= mask;
                     op = llvm::Instruction::Or;
                 } else {
-                    assert(false);
+                    llvm_unreachable("Unrecognized bitop intrinsic.");
                 }
 
                 LLValue *newVal = p->ir->CreateBinOp(op, val, mask, "bitop.new_val");

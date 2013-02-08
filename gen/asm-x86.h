@@ -1855,7 +1855,7 @@ namespace AsmParserx8664
                         break;
 
                     default:
-                        assert ( 0 && "asm unsupported arg" );
+                        llvm_unreachable("Unsupported argument in asm.");
                         break;
                 }
             }
@@ -2781,7 +2781,7 @@ namespace AsmParserx8664
                         e = new ComExp ( stmt->loc, e1 );
                         break;
                     default:
-                        assert ( 0 );
+                        llvm_unreachable("Unknown integer operation.");
                 }
                 e = e->semantic ( sc );
                 return e->optimize ( WANTvalue | WANTinterpret );
@@ -3383,7 +3383,7 @@ namespace AsmParserx8664
 #define HOST_WIDE_INT long
     bool getFrameRelativeValue ( LLValue* decl, HOST_WIDE_INT * result )
     {
-        assert ( 0 );
+        llvm_unreachable("getFrameRelativeValue not implemented.");
 // FIXME
 //     // Using this instead of DECL_RTL for struct args seems like a
 //     // good way to get hit by a truck because it may not agree with
