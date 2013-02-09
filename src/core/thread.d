@@ -2160,6 +2160,49 @@ private __gshared bool multiThreadedFlag = false;
 
 
 // Calls the given delegate, passing the current thread's stack pointer to it.
+version (LDC) version (D_InlineAsm_X86) version = NakedStackShell;
+version (NakedStackShell)
+{
+    // We cannot use the "generic" version below, as LLVM, contrary to DMD,
+    // uses a mov to a pre-computed offset instead of 'push' to push the
+    // sp parameter for fn on the stack, thus overwriting EDI in the register
+    // save block.
+    private void callWithStackShell(scope void delegate(void* sp) fn)
+    {
+        version (D_InlineAsm_X86)
+        {
+            asm
+            {
+                naked;
+                push EBP;
+                mov EBP, ESP;
+
+                // Push callee-save registers.
+                push EAX;
+                push EBX;
+                push ESI;
+                push EDI;
+
+                // Invoke fn, passing ESP and the context pointer. Go the
+                // indirection via EDX to avoid an LDC inline asm restriction.
+                mov EDX, [EBP+0xc];
+                push ESP;
+                mov EAX, [EBP+0x8];
+                call EDX;
+
+                // Pop the callee-save registers again.
+                pop EDI;
+                pop ESI;
+                pop EBX;
+
+                mov ESP, EBP;
+                pop EBP;
+                ret 0x8;
+            }
+        } else static assert(0);
+    }
+}
+else
 private void callWithStackShell(scope void delegate(void* sp) fn)
 in
 {
