@@ -1654,10 +1654,7 @@ bool mustDefineSymbol(Dsymbol* s)
             if (   !fd->isStaticCtorDeclaration()
                 && !fd->isStaticDtorDeclaration()
                 && !fd->isUnitTestDeclaration()
-                // FIXME: Should be canInline(true, false, false), but this
-                // causes a misoptimization in druntime on x86, likely due to
-                // an LLVM bug.
-                && fd->canInline(true))
+                && fd->canInline(true, false, false))
             {
                 return true;
             }
