@@ -288,16 +288,6 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
     # release mode in upstream builds).
     set(rt_flags "${d_flags};-disable-invariants")
 
-    # There seems to be a bug in LLVM prior to 3.2 which causes druntime to be
-    # miscompiled on 32 bit x86 builds with optimizations enabled, leading to
-    # segfaults during the GC marking phase, and other strange crashes. Until
-    # a proper workaround is figured out, simply fall back to -O0.
-    if(${LDC_LLVM_VER} LESS 302)
-        if ((${HOST_BITNESS} EQUAL 32) OR ("${rt_flags}" MATCHES "-m32"))
-            string(REGEX REPLACE "-O[1-5]" "-O0" rt_flags "${rt_flags}")
-        endif()
-    endif()
-
     set(CORE_O "")
     set(CORE_BC "")
     foreach(f ${CORE_D})
