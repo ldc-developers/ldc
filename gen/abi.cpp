@@ -11,6 +11,7 @@
 #include "mars.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-ppc64.h"
+#include "gen/abi-win64.h"
 #include "gen/abi-x86-64.h"
 #include "gen/abi-x86.h"
 #include "gen/dvalue.h"
@@ -71,7 +72,10 @@ TargetABI * TargetABI::getTarget()
     case llvm::Triple::x86:
         return getX86TargetABI();
     case llvm::Triple::x86_64:
-        return getX86_64TargetABI();
+        if (global.params.targetTriple.isOSWindows())
+            return getWin64TargetABI();
+        else
+            return getX86_64TargetABI();
     case llvm::Triple::ppc64:
         return getPPC64TargetABI();
     default:
