@@ -14,6 +14,8 @@
 
 #if __sun || _MSC_VER
 #include <alloca.h>
+#elif __MINGW32__
+#include <malloc.h>
 #endif
 
 #include "speller.h"

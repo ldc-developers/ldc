@@ -411,7 +411,7 @@ int runExecutable()
     int status = executeToolAndWait(gExePath, opts::runargs, global.params.verbose);
     if (status < 0)
     {
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
         error("program received signal %d", -status);
 #else
         error("program received signal %d (%s)", -status, strsignal(-status));
