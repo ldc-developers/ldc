@@ -27,15 +27,6 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-// Is this useful?
-llvm::cl::opt<bool> quiet("quiet",
-    llvm::cl::desc("Suppress output of link command (unless -v is also passed)"),
-    llvm::cl::Hidden,
-    llvm::cl::ZeroOrMore,
-    llvm::cl::init(true));
-
-//////////////////////////////////////////////////////////////////////////////
-
 static bool endsWith(const std::string &str, const std::string &end)
 {
     return (str.length() >= end.length() && std::equal(end.rbegin(), end.rend(), str.rbegin()));
@@ -210,7 +201,7 @@ static int linkObjToBinaryGcc(bool sharedLib)
     logstr << "\n"; // FIXME where's flush ?
 
     // try to call linker
-    return executeToolAndWait(gcc, args, !quiet || global.params.verbose);
+    return executeToolAndWait(gcc, args, global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -316,7 +307,7 @@ static int linkObjToBinaryWin(bool sharedLib)
     logstr << "\n"; // FIXME where's flush ?
 
     // try to call linker
-    return executeToolAndWait(tool, args, !quiet || global.params.verbose);
+    return executeToolAndWait(tool, args, global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -393,7 +384,7 @@ void createStaticLibrary()
     CreateDirectoryOnDisk(libName);
 
     // try to call archiver
-    executeToolAndWait(tool, args, !quiet || global.params.verbose);
+    executeToolAndWait(tool, args, global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -417,7 +408,7 @@ int runExecutable()
     assert(gExePath.isValid());
 
     // Run executable
-    int status = executeToolAndWait(gExePath, opts::runargs, !quiet || global.params.verbose);
+    int status = executeToolAndWait(gExePath, opts::runargs, global.params.verbose);
     if (status < 0)
     {
 #if defined(_MSC_VER)

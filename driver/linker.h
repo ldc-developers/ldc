@@ -15,10 +15,6 @@
 #ifndef LDC_DRIVER_LINKER_H
 #define LDC_DRIVER_LINKER_H
 
-#include "llvm/Support/CommandLine.h"
-
-extern llvm::cl::opt<bool> quiet;
-
 /**
  * Link an executable only from object files.
  * @param argv0 the argv[0] value as passed to main

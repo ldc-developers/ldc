@@ -387,9 +387,6 @@ int main(int argc, char** argv)
         }
     }
 
-    if (global.params.run)
-        quiet = 1;
-
     if (global.params.useUnitTests)
         global.params.useAssert = 1;
 
