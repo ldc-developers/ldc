@@ -176,7 +176,6 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf)
             continue;
 
         Type* ty = arg.type->toBasetype();
-        unsigned sz = ty->size();
 
         if (ty->ty == Tcomplex32)
         {
