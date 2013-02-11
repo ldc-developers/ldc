@@ -26,9 +26,41 @@
 #include <cstddef>
 #include <fstream>
 
-// fwd decl
-void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& Out,
-               llvm::TargetMachine::CodeGenFileType fileType);
+
+// based on llc code, University of Illinois Open Source License
+static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
+    llvm::raw_fd_ostream& out, llvm::TargetMachine::CodeGenFileType fileType)
+{
+    using namespace llvm;
+
+    // Build up all of the passes that we want to do to the module.
+    FunctionPassManager Passes(&m);
+
+#if LDC_LLVM_VER >= 302
+    if (const DataLayout *DL = Target.getDataLayout())
+        Passes.add(new DataLayout(*DL));
+    else
+        Passes.add(new DataLayout(&m));
+#else
+    if (const TargetData *TD = Target.getTargetData())
+        Passes.add(new TargetData(*TD));
+    else
+        Passes.add(new TargetData(&m));
+#endif
+
+    llvm::formatted_raw_ostream fout(out);
+    if (Target.addPassesToEmitFile(Passes, fout, fileType, codeGenOptLevel()))
+        llvm_unreachable("no support for asm output");
+
+    Passes.doInitialization();
+
+    // Run our queue of passes all at once now, efficiently.
+    for (llvm::Module::iterator I = m.begin(), E = m.end(); I != E; ++I)
+        if (!I->isDeclaration())
+            Passes.run(*I);
+
+    Passes.doFinalization();
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -83,7 +115,7 @@ void writeModule(llvm::Module* m, std::string filename)
             llvm::raw_fd_ostream out(spath.c_str(), err);
             if (err.empty())
             {
-                emit_file(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_AssemblyFile);
+                codegenModule(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_AssemblyFile);
             }
             else
             {
@@ -101,7 +133,7 @@ void writeModule(llvm::Module* m, std::string filename)
             llvm::raw_fd_ostream out(objpath.c_str(), err, llvm::raw_fd_ostream::F_Binary);
             if (err.empty())
             {
-                emit_file(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_ObjectFile);
+                codegenModule(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_ObjectFile);
             }
             else
             {
@@ -110,46 +142,4 @@ void writeModule(llvm::Module* m, std::string filename)
             }
         }
     }
-}
-
-/* ================================================================== */
-
-// based on llc code, University of Illinois Open Source License
-void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& out,
-               llvm::TargetMachine::CodeGenFileType fileType)
-{
-    using namespace llvm;
-
-    // Build up all of the passes that we want to do to the module.
-    FunctionPassManager Passes(&m);
-
-#if LDC_LLVM_VER >= 302
-    if (const DataLayout *DL = Target.getDataLayout())
-        Passes.add(new DataLayout(*DL));
-    else
-        Passes.add(new DataLayout(&m));
-#else
-    if (const TargetData *TD = Target.getTargetData())
-        Passes.add(new TargetData(*TD));
-    else
-        Passes.add(new TargetData(&m));
-#endif
-
-    llvm::formatted_raw_ostream fout(out);
-    if (Target.addPassesToEmitFile(Passes, fout, fileType, codeGenOptLevel()))
-        llvm_unreachable("no support for asm output");
-
-    Passes.doInitialization();
-
-    // Run our queue of passes all at once now, efficiently.
-    for (llvm::Module::iterator I = m.begin(), E = m.end(); I != E; ++I)
-        if (!I->isDeclaration())
-            Passes.run(*I);
-
-    Passes.doFinalization();
-
-    // release module from module provider so we can delete it ourselves
-    //std::string Err;
-    //llvm::Module* rmod = Provider.releaseModule(&Err);
-    //assert(rmod);
 }
