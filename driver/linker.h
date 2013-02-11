@@ -16,21 +16,8 @@
 #define LDC_DRIVER_LINKER_H
 
 #include "llvm/Support/CommandLine.h"
-#include <vector>
 
 extern llvm::cl::opt<bool> quiet;
-
-namespace llvm
-{
-    class Module;
-}
-
-/**
- * Links the modules given in MV in to dst.
- * @param dst Destination module.
- * @param MV Vector of modules to link in to destination.
- */
-void linkModules(llvm::Module* dst, const std::vector<llvm::Module*>& MV);
 
 /**
  * Link an executable only from object files.
