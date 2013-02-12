@@ -347,7 +347,7 @@ struct _d_exception
 // the 8-byte string identifying the type of exception
 // the first 4 are for vendor, the second 4 for language
 //TODO: This may be the wrong way around
-char[8] _d_exception_class = "LLDCD2\0\0";
+__gshared char[8] _d_exception_class = "LLDCD2\0\0";
 
 
 //
@@ -520,14 +520,14 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
 // is required though.
 version (X86_64)
 {
-  private int eh_exception_regno = 0;
-  private int eh_selector_regno = 1;
+  private enum eh_exception_regno = 0;
+  private enum eh_selector_regno = 1;
 } else version (PPC64) {
-  private int eh_exception_regno = 3;
-  private int eh_selector_regno = 4;
+  private enum eh_exception_regno = 3;
+  private enum eh_selector_regno = 4;
 } else {
-  private int eh_exception_regno = 0;
-  private int eh_selector_regno = 2;
+  private enum eh_exception_regno = 0;
+  private enum eh_selector_regno = 2;
 }
 
 private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, ptrdiff_t switchval, ptrdiff_t landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
