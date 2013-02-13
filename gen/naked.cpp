@@ -149,25 +149,23 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         }
         asmstr << "_" << mangle << ":" << std::endl;
     }
-    // this works on linux x86 32 and 64 bit
-    // assume it works everywhere else as well for now
-    // this needed a slight modification for Win
     else
     {
+        std::string fullMangle;
+        if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
+        {
+            fullMangle = "_";
+        }
+        fullMangle += mangle;
+
         const char* linkage = "globl";
         std::string section = "text";
         if (DtoIsTemplateInstance(fd))
         {
             linkage = "weak";
-            tmpstr << "section\t.gnu.linkonce.t.";
+            tmpstr << "section\t.gnu.linkonce.t." << fullMangle << ",\"ax\"";
             if (!isWin)
-            {
-                tmpstr << mangle << ",\"ax\",@progbits";
-            }
-            else
-            {
-                tmpstr << "_" << mangle << ",\"ax\"";
-            }
+                tmpstr << ",@progbits";
             section = tmpstr.str();
         }
         asmstr << "\t." << section << std::endl;
@@ -175,20 +173,18 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
         if (isWin)
         {
-            std::string def = "def";
-            std::string endef = "endef";
-            asmstr << "\t." << def << "\t" << mangle << ";";
+            asmstr << "\t.def\t" << fullMangle << ";";
             // hard code these two numbers for now since gas ignores .scl and llvm
             // is defaulting to .type 32 for everything I have seen
-            asmstr << "\t.scl 2; .type 32;\t" << "." << endef << std::endl;
+            asmstr << "\t.scl 2; .type 32;\t.endef" << std::endl;
         }
         else
         {
-            asmstr << "\t." << linkage << "\t" << mangle << std::endl;
-            asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
+            asmstr << "\t.type\t" << fullMangle << ",@function" << std::endl;
         }
 
-        asmstr << mangle << ":" << std::endl;
+        asmstr << "\t." << linkage << "\t" << fullMangle << std::endl;
+        asmstr << fullMangle << ":" << std::endl;
 
     }
 

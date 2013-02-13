@@ -42,10 +42,25 @@ if (NOT LLVM_CONFIG)
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "all-targets" index)
         list(APPEND LLVM_FIND_COMPONENTS ${LLVM_TARGETS_TO_BUILD})
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "backend" index)
+
         llvm_map_components_to_libraries(tmplibs ${LLVM_FIND_COMPONENTS})
-        foreach(lib ${tmplibs})
-            list(APPEND LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/${CMAKE_STATIC_LIBRARY_PREFIX}${lib}${CMAKE_STATIC_LIBRARY_SUFFIX}")
-        endforeach()
+        if(MSVC)
+            foreach(lib ${tmplibs})
+                list(APPEND LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/${CMAKE_STATIC_LIBRARY_PREFIX}${lib}${CMAKE_STATIC_LIBRARY_SUFFIX}")
+            endforeach()
+        else()
+            # Rely on the library search path being set correctly via -L on
+            # MinGW and others, as the library list returned by
+            # llvm_map_components_to_libraries also includes imagehlp and psapi.
+            set(LLVM_LDFLAGS "-L${LLVM_LIBRARY_DIRS}")
+            set(LLVM_LIBRARIES ${tmplibs})
+
+            # When using the CMake LLVM module, LLVM_DEFINITIONS is a list
+            # instead of a string. Later, the list seperators would entirely
+            # disappear, replace them by spaces instead. A better fix would be
+            # to switch to add_definitions() instead of throwing strings around.
+            string(REPLACE ";" " " LLVM_CXXFLAGS "${LLVM_CXXFLAGS}")
+        endif()
     else()
         if (NOT FIND_LLVM_QUIETLY)
             message(WARNING "Could not find llvm-config. Try manually setting LLVM_CONFIG to the llvm-config executable of the installation to use.")
@@ -95,13 +110,13 @@ else()
     llvm_set(LIBRARY_DIRS libdir)
     llvm_set_libs(LIBRARIES libfiles "${LLVM_LIBRARY_DIRS}/")
     llvm_set(ROOT_DIR prefix)
+endif()
 
-    # On CMake builds of LLVM, the output of llvm-config --cxxflags does not
-    # include -fno-rtti, leading to linker errors. Be sure to add it.
-    if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
-        if(NOT ${LLVM_CXXFLAGS} MATCHES "-fno-rtti")
-            set(LLVM_CXXFLAGS "${LLVM_CXXFLAGS} -fno-rtti")
-        endif()
+# On CMake builds of LLVM, the output of llvm-config --cxxflags does not
+# include -fno-rtti, leading to linker errors. Be sure to add it.
+if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
+    if(NOT ${LLVM_CXXFLAGS} MATCHES "-fno-rtti")
+        set(LLVM_CXXFLAGS "${LLVM_CXXFLAGS} -fno-rtti")
     endif()
 endif()
 

@@ -12,6 +12,7 @@
 #include "module.h"
 #include "root.h"
 #include "driver/cl_options.h"
+#include "driver/tool.h"
 #include "gen/llvm.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
@@ -26,75 +27,9 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-// Is this useful?
-llvm::cl::opt<bool> quiet("quiet",
-    llvm::cl::desc("Suppress output of link command (unless -v is also passed)"),
-    llvm::cl::Hidden,
-    llvm::cl::ZeroOrMore,
-    llvm::cl::init(true));
-
-//////////////////////////////////////////////////////////////////////////////
-
 static bool endsWith(const std::string &str, const std::string &end)
 {
     return (str.length() >= end.length() && std::equal(end.rbegin(), end.rend(), str.rbegin()));
-}
-
-typedef std::vector<llvm::Module*> Module_vector;
-
-void linkModules(llvm::Module* dst, const Module_vector& MV)
-{
-    if (MV.empty())
-        return;
-
-    llvm::Linker linker("ldc", dst);
-
-    std::string err;
-    for (Module_vector::const_iterator i=MV.begin(); i!=MV.end(); ++i)
-    {
-        if (!linker.LinkInModule(*i, &err))
-        {
-            error("%s", err.c_str());
-            fatal();
-        }
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-static int ExecuteToolAndWait(llvm::sys::Path tool, std::vector<std::string> args, bool verbose = false)
-{
-    // Construct real argument list.
-    // First entry is the tool itself, last entry must be NULL.
-    std::vector<const char *> realargs;
-    realargs.reserve(args.size() + 2);
-    realargs.push_back(tool.c_str());
-    for (std::vector<std::string>::const_iterator it = args.begin(); it != args.end(); ++it)
-    {
-        realargs.push_back((*it).c_str());
-    }
-    realargs.push_back(NULL);
-
-    // Print command line if requested
-    if (verbose)
-    {
-        // Print it
-        for (size_t i = 0; i < realargs.size()-1; i++)
-            printf("%s ", realargs[i]);
-        printf("\n");
-        fflush(stdout);
-    }
-
-    // Execute tool.
-    std::string errstr;
-    if (int status = llvm::sys::Program::ExecuteAndWait(tool, &realargs[0], NULL, NULL, 0, 0, &errstr))
-    {
-        error("%s failed with status: %d", tool.c_str(), status);
-        if (!errstr.empty())
-            error("message: %s", errstr.c_str());
-        return status;
-    }
-    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -266,7 +201,7 @@ static int linkObjToBinaryGcc(bool sharedLib)
     logstr << "\n"; // FIXME where's flush ?
 
     // try to call linker
-    return ExecuteToolAndWait(gcc, args, !quiet || global.params.verbose);
+    return executeToolAndWait(gcc, args, global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -372,7 +307,7 @@ static int linkObjToBinaryWin(bool sharedLib)
     logstr << "\n"; // FIXME where's flush ?
 
     // try to call linker
-    return ExecuteToolAndWait(tool, args, !quiet || global.params.verbose);
+    return executeToolAndWait(tool, args, global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -449,7 +384,7 @@ void createStaticLibrary()
     CreateDirectoryOnDisk(libName);
 
     // try to call archiver
-    ExecuteToolAndWait(tool, args, !quiet || global.params.verbose);
+    executeToolAndWait(tool, args, global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -473,10 +408,10 @@ int runExecutable()
     assert(gExePath.isValid());
 
     // Run executable
-    int status = ExecuteToolAndWait(gExePath, opts::runargs, !quiet || global.params.verbose);
+    int status = executeToolAndWait(gExePath, opts::runargs, global.params.verbose);
     if (status < 0)
     {
-#if defined(_MSC_VER)
+#if defined(_MSC_VER) || defined(__MINGW32__)
         error("program received signal %d", -status);
 #else
         error("program received signal %d (%s)", -status, strsignal(-status));

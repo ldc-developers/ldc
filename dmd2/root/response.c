@@ -29,7 +29,7 @@
 #include <utime.h>
 #endif
 
-#if _MSC_VER
+#if _MSC_VER || defined(__MINGW32__)
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <fcntl.h>

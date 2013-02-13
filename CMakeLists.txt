@@ -151,6 +151,7 @@ set(DRV_SRC
     driver/cl_options.cpp
     driver/configfile.cpp
     driver/toobj.cpp
+    driver/tool.cpp
     driver/linker.cpp
     driver/main.cpp
 )
@@ -159,6 +160,7 @@ set(DRV_HDR
     driver/cl_options.h
     driver/configfile.h
     driver/toobj.h
+    driver/tool.h
 )
 # exclude idgen and impcnvgen and generated sources, just in case
 list(REMOVE_ITEM FE_SRC

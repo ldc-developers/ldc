@@ -8,9 +8,11 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/toobj.h"
+#include "driver/tool.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/optimizer.h"
+#include "gen/programs.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/PassManager.h"
@@ -26,9 +28,64 @@
 #include <cstddef>
 #include <fstream>
 
-// fwd decl
-void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& Out,
-               llvm::TargetMachine::CodeGenFileType fileType);
+// based on llc code, University of Illinois Open Source License
+static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
+    llvm::raw_fd_ostream& out, llvm::TargetMachine::CodeGenFileType fileType)
+{
+    using namespace llvm;
+
+    // Build up all of the passes that we want to do to the module.
+    FunctionPassManager Passes(&m);
+
+#if LDC_LLVM_VER >= 302
+    if (const DataLayout *DL = Target.getDataLayout())
+        Passes.add(new DataLayout(*DL));
+    else
+        Passes.add(new DataLayout(&m));
+#else
+    if (const TargetData *TD = Target.getTargetData())
+        Passes.add(new TargetData(*TD));
+    else
+        Passes.add(new TargetData(&m));
+#endif
+
+    llvm::formatted_raw_ostream fout(out);
+    if (Target.addPassesToEmitFile(Passes, fout, fileType, codeGenOptLevel()))
+        llvm_unreachable("no support for asm output");
+
+    Passes.doInitialization();
+
+    // Run our queue of passes all at once now, efficiently.
+    for (llvm::Module::iterator I = m.begin(), E = m.end(); I != E; ++I)
+        if (!I->isDeclaration())
+            Passes.run(*I);
+
+    Passes.doFinalization();
+}
+
+static void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
+{
+    std::vector<std::string> args;
+    args.push_back("-O3");
+    args.push_back("-c");
+    args.push_back("-xassembler");
+    args.push_back(asmpath.str());
+    args.push_back("-o");
+    args.push_back(objpath.str());
+
+    if (global.params.is64bit)
+        args.push_back("-m64");
+    else
+        args.push_back("-m32");
+
+    // Run the compiler to assembly the program.
+    int R = executeToolAndWait(getGcc(), args, global.params.verbose);
+    if (R)
+    {
+        error("Error while invoking external assembler.");
+        fatal();
+    }
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -36,6 +93,11 @@ void writeModule(llvm::Module* m, std::string filename)
 {
     // run optimizer
     ldc_optimize_module(m);
+
+    // We don't use the integrated assembler with MinGW as it does not support
+    // emitting DW2 exception handling tables.
+    bool const assembleExternally = global.params.output_o &&
+        global.params.targetTriple.getOS() == llvm::Triple::MinGW32;
 
     // eventually do our own path stuff, dmd's is a bit strange.
     typedef llvm::sys::Path LLPath;
@@ -73,17 +135,19 @@ void writeModule(llvm::Module* m, std::string filename)
     }
 
     // write native assembly
-    if (global.params.output_s) {
+    if (global.params.output_s || assembleExternally) {
         LLPath spath = LLPath(filename);
         spath.eraseSuffix();
         spath.appendSuffix(std::string(global.s_ext));
+        if (!global.params.output_s) spath.createTemporaryFileOnDisk();
+
         Logger::println("Writing native asm to: %s\n", spath.c_str());
         std::string err;
         {
             llvm::raw_fd_ostream out(spath.c_str(), err);
             if (err.empty())
             {
-                emit_file(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_AssemblyFile);
+                codegenModule(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_AssemblyFile);
             }
             else
             {
@@ -91,9 +155,17 @@ void writeModule(llvm::Module* m, std::string filename)
                 fatal();
             }
         }
+
+        if (assembleExternally)
+        {
+            LLPath objpath(filename);
+            assemble(spath, objpath);
+        }
+
+        if (!global.params.output_s) spath.eraseFromDisk();
     }
 
-    if (global.params.output_o) {
+    if (global.params.output_o && !assembleExternally) {
         LLPath objpath = LLPath(filename);
         Logger::println("Writing object file to: %s\n", objpath.c_str());
         std::string err;
@@ -101,7 +173,7 @@ void writeModule(llvm::Module* m, std::string filename)
             llvm::raw_fd_ostream out(objpath.c_str(), err, llvm::raw_fd_ostream::F_Binary);
             if (err.empty())
             {
-                emit_file(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_ObjectFile);
+                codegenModule(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_ObjectFile);
             }
             else
             {
@@ -110,46 +182,4 @@ void writeModule(llvm::Module* m, std::string filename)
             }
         }
     }
-}
-
-/* ================================================================== */
-
-// based on llc code, University of Illinois Open Source License
-void emit_file(llvm::TargetMachine &Target, llvm::Module& m, llvm::raw_fd_ostream& out,
-               llvm::TargetMachine::CodeGenFileType fileType)
-{
-    using namespace llvm;
-
-    // Build up all of the passes that we want to do to the module.
-    FunctionPassManager Passes(&m);
-
-#if LDC_LLVM_VER >= 302
-    if (const DataLayout *DL = Target.getDataLayout())
-        Passes.add(new DataLayout(*DL));
-    else
-        Passes.add(new DataLayout(&m));
-#else
-    if (const TargetData *TD = Target.getTargetData())
-        Passes.add(new TargetData(*TD));
-    else
-        Passes.add(new TargetData(&m));
-#endif
-
-    llvm::formatted_raw_ostream fout(out);
-    if (Target.addPassesToEmitFile(Passes, fout, fileType, codeGenOptLevel()))
-        llvm_unreachable("no support for asm output");
-
-    Passes.doInitialization();
-
-    // Run our queue of passes all at once now, efficiently.
-    for (llvm::Module::iterator I = m.begin(), E = m.end(); I != E; ++I)
-        if (!I->isDeclaration())
-            Passes.run(*I);
-
-    Passes.doFinalization();
-
-    // release module from module provider so we can delete it ourselves
-    //std::string Err;
-    //llvm::Module* rmod = Provider.releaseModule(&Err);
-    //assert(rmod);
 }
