@@ -172,9 +172,16 @@ static int linkObjToBinaryGcc(bool sharedLib)
         // solaris TODO
         break;
 
+    case llvm::Triple::MinGW32:
+        // This is really more of a kludge, as linking in the Winsock functions
+        // should be handled by the pragma(lib, ...) in std.socket, but it
+        // makes LDC behave as expected for now.
+        args.push_back("-lws2_32");
+        break;
+
     default:
         // OS not yet handled, will probably lead to linker errors.
-        // FIXME: Win32, MinGW.
+        // FIXME: Win32.
         break;
     }
 
