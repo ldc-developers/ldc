@@ -358,11 +358,11 @@ FunctionPass *createGarbageCollect2Stack() {
 GarbageCollect2Stack::GarbageCollect2Stack()
 : FunctionPass(ID),
   AllocMemoryT(0, true, false),
-  NewArrayVT(0, true, false, false, 1),
 #ifdef DMDV1
   // _d_newarrayT returns just the void* ptr in the LDC D1 runtime.
   NewArrayT(0, true, false, true, 1)
 #else
+  NewArrayVT(0, true, true, false, 1),
   NewArrayT(0, true, true, true, 1)
 #endif
 {

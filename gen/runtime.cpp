@@ -399,10 +399,12 @@ static void LLVM_D_BuildRuntimeModule()
     {
         llvm::StringRef fname("_d_newarrayT");
         llvm::StringRef fname2("_d_newarrayiT");
+        llvm::StringRef fname3("_d_newarrayvT");
         LLType *types[] = { typeInfoTy, sizeTy };
         LLFunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M);
     }
     // void[] _d_newarraymT(TypeInfo ti, size_t length, size_t* dims)
     // void[] _d_newarraymiT(TypeInfo ti, size_t length, size_t* dims)

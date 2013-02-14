@@ -589,23 +589,17 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
         defaultInit = false;
     bool zeroInit = eltType->isZeroInit();
 
-#if DMDV2
-
-    const char* fnname = zeroInit ? "_d_newarrayT" : "_d_newarrayiT";
+    const char* fnname = defaultInit ? (zeroInit ? "_d_newarrayT" : "_d_newarrayiT") : "_d_newarrayvT";
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
 
     // call allocator
     LLValue* newArray = gIR->CreateCallOrInvoke2(fn, arrayTypeInfo, arrayLen, ".gc_mem").getInstruction();
 
+#if DMDV2
+
     return getSlice(arrayType, newArray);
 
 #else
-
-    const char* fnname = defaultInit ? (zeroInit ? "_d_newarrayT" : "_d_newarrayiT") : "_d_newarrayvT";
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
-
-    // call allocator
-    LLValue* newptr = gIR->CreateCallOrInvoke2(fn, arrayTypeInfo, arrayLen, ".gc_mem").getInstruction();
 
     // cast to wanted type
     LLType* dstType = DtoType(arrayType)->getContainedType(1);
