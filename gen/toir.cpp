@@ -3341,15 +3341,6 @@ CONSTSTUB(AssocArrayLiteralExp);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void obj_includelib(const char* lib)
-{
-    size_t n = strlen(lib)+3;
-    char *arg = static_cast<char *>(mem.malloc(n));
-    strcpy(arg, "-l");
-    strncat(arg, lib, n);
-    global.params.linkswitches->push(arg);
-}
-
 void backend_init()
 {
     // LLVM_D_InitRuntime is done in Module::genLLVMModule

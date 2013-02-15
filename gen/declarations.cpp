@@ -308,8 +308,6 @@ void AttribDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-void obj_includelib(const char* lib);
-
 void PragmaDeclaration::codegen(Ir* p)
 {
     if (ident == Id::lib)
@@ -324,7 +322,12 @@ void PragmaDeclaration::codegen(Ir* p)
         char *name = static_cast<char *>(mem.malloc(se->len + 1));
         memcpy(name, se->string, se->len);
         name[se->len] = 0;
-        obj_includelib(name);
+
+        size_t n = strlen(name)+3;
+        char *arg = static_cast<char *>(mem.malloc(n));
+        strcpy(arg, "-l");
+        strncat(arg, name, n);
+        global.params.linkswitches->push(arg);
     }
     AttribDeclaration::codegen(p);
 }
