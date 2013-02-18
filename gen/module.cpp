@@ -76,7 +76,7 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     LLFunctionType* fnTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
     assert(gIR->module->getFunction(name) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
-    fn->setCallingConv(DtoCallingConv(0, LINKd));
+    fn->setCallingConv(gABI->callingConv(LINKd));
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "entry", fn);
     IRBuilder<> builder(bb);
@@ -89,7 +89,7 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     for (FuncIterator itr = funcs.begin(), end = funcs.end(); itr != end; ++itr) {
         llvm::Function* f = (*itr)->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
-        call->setCallingConv(DtoCallingConv(0, LINKd));
+        call->setCallingConv(gABI->callingConv(LINKd));
     }
 
     // Increment vgate's

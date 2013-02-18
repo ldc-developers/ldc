@@ -26,6 +26,26 @@ struct X86TargetABI : TargetABI
     CfloatToInt cfloatToInt;
     CompositeToInt compositeToInt;
 
+    llvm::CallingConv::ID callingConv(LINK l)
+    {
+        switch (l)
+        {
+        case LINKc:
+        case LINKcpp:
+        case LINKintrinsic:
+            return llvm::CallingConv::C;
+        case LINKd:
+        case LINKdefault:
+            return global.params.targetTriple.isOSWindows() ?
+                llvm::CallingConv::C : llvm::CallingConv::X86_StdCall;
+        case LINKpascal:
+        case LINKwindows:
+            return llvm::CallingConv::X86_StdCall;
+        default:
+            llvm_unreachable("Unhandled D linkage type.");
+        }
+    }
+
     bool returnInArg(TypeFunction* tf)
     {
 #if DMDV2

@@ -194,9 +194,6 @@ void tokToIcmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate* outPred,
 // gen/tocall.cpp stuff below
 ////////////////////////////////////////////
 
-/// convert DMD calling conv to LLVM
-llvm::CallingConv::ID DtoCallingConv(Loc loc, LINK l);
-
 ///
 TypeFunction* DtoTypeFunction(DValue* fnval);
 

@@ -17,6 +17,8 @@
 #ifndef LDC_GEN_ABI_H
 #define LDC_GEN_ABI_H
 
+#include "mars.h"
+#include "llvm/CallingConv.h"
 #include <vector>
 
 struct Type;
@@ -55,6 +57,10 @@ struct TargetABI
 
     /// Returns the ABI for intrinsics
     static TargetABI* getIntrinsic();
+
+    /// Returns the LLVM calling convention to be used for the given D linkage
+    /// type on the target.
+    virtual llvm::CallingConv::ID callingConv(enum LINK l) = 0;
 
     /// Called if a new function type is resolved
     virtual void newFunctionType(TypeFunction* tf) {}

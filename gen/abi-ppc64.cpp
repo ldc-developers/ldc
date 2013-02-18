@@ -20,6 +20,23 @@
 #include "gen/tollvm.h"
 
 struct PPC64TargetABI : TargetABI {
+    llvm::CallingConv::ID callingConv(LINK l)
+    {
+        switch (l)
+        {
+        case LINKc:
+        case LINKcpp:
+        case LINKintrinsic:
+        case LINKpascal:
+        case LINKwindows:
+            return llvm::CallingConv::C;
+        case LINKd:
+        case LINKdefault:
+            return llvm::CallingConv::Fast;
+        default:
+            llvm_unreachable("Unhandled D linkage type.");
+        }
+    }
 
     void newFunctionType(TypeFunction* tf)
     {

@@ -91,6 +91,8 @@ struct Win64TargetABI : TargetABI
     CfloatToInt cfloatToInt;
     X87_complex_swap swapComplex;
 
+    llvm::CallingConv::ID callingConv(LINK l);
+
     bool returnInArg(TypeFunction* tf);
 
     bool passByVal(Type* t);
@@ -105,6 +107,23 @@ TargetABI* getWin64TargetABI()
     return new Win64TargetABI;
 }
 
+llvm::CallingConv::ID Win64TargetABI::callingConv(LINK l)
+{
+    switch (l)
+    {
+    case LINKc:
+    case LINKcpp:
+    case LINKd:
+    case LINKdefault:
+    case LINKintrinsic:
+    case LINKwindows:
+        return llvm::CallingConv::C;
+    case LINKpascal:
+        return llvm::CallingConv::X86_StdCall;
+    default:
+        llvm_unreachable("Unhandled D linkage type.");
+    }
+}
 
 bool Win64TargetABI::returnInArg(TypeFunction* tf)
 {

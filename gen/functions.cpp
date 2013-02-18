@@ -779,7 +779,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         && !fdecl->isMain()
 #endif
         )
-        func->setCallingConv(DtoCallingConv(fdecl->loc, f->linkage));
+        func->setCallingConv(gABI->callingConv(f->linkage));
     else // fall back to C, it should be the right thing to do
         func->setCallingConv(llvm::CallingConv::C);
 
