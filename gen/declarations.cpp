@@ -317,16 +317,35 @@ void PragmaDeclaration::codegen(Ir* p)
         Expression *e = static_cast<Expression *>(args->data[0]);
 
         assert(e->op == TOKstring);
-
         StringExp *se = static_cast<StringExp *>(e);
-        char *name = static_cast<char *>(mem.malloc(se->len + 1));
-        memcpy(name, se->string, se->len);
-        name[se->len] = 0;
 
-        size_t n = strlen(name)+3;
+        size_t nameLen = se->len;
+        if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
+        {
+            if (nameLen > 4 &&
+                !memcmp(static_cast<char*>(se->string) + nameLen - 4, ".lib", 4))
+            {
+                // On MinGW, strip the .lib suffix, if any, to improve
+                // compatibility with code written for DMD (we pass the name to GCC
+                // via -l, just as on Posix).
+                nameLen -= 4;
+            }
+
+            if (nameLen >= 7 && !memcmp(se->string, "shell32", 7))
+            {
+                // Another DMD compatibility kludge: Ignore
+                // pragma(lib, "shell32.lib"), it is implicitly provided by
+                // MinGW.
+                return;
+            }
+        }
+
+        size_t const n = nameLen + 3;
         char *arg = static_cast<char *>(mem.malloc(n));
-        strcpy(arg, "-l");
-        strncat(arg, name, n);
+        arg[0] = '-';
+        arg[1] = 'l';
+        memcpy(arg + 2, se->string, nameLen);
+        arg[n-1] = 0;
         global.params.linkswitches->push(arg);
     }
     AttribDeclaration::codegen(p);
