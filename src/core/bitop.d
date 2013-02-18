@@ -1,19 +1,14 @@
 /**
  * This module contains a collection of bit-level operations.
  *
- * Copyright: Copyright Don Clugston 2005 - 2009.
+ * Copyright: Copyright Don Clugston 2005 - 2013.
  * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
- * Authors:   Don Clugston, Sean Kelly, Walter Bright
+ * Authors:   Don Clugston, Sean Kelly, Walter Bright, Alex Rønne Petersen
  * Source:    $(DRUNTIMESRC core/_bitop.d)
  *
  * Some of the LDC-specific parts came »From GDC ... public domain!«
  */
 
-/*          Copyright Don Clugston 2005 - 2009.
- * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE_1_0.txt or copy at
- *          http://www.boost.org/LICENSE_1_0.txt)
- */
 module core.bitop;
 
 nothrow:
@@ -28,7 +23,6 @@ version (X86_64)
     version = AnyX86;
 else version (X86)
     version = AnyX86;
-
 
 /**
  * Scans the bits in v starting with bit 0, looking
@@ -69,7 +63,7 @@ version (LDC)
 }
 else
 {
-    pure int bsf(size_t v);
+    int bsf(size_t v) pure;
 }
 
 unittest
@@ -116,7 +110,7 @@ version (LDC)
 }
 else
 {
-    pure int bsr(size_t v);
+    int bsr(size_t v) pure;
 }
 
 unittest
@@ -126,6 +120,8 @@ unittest
 
 /**
  * Tests the bit.
+ * (No longer an intrisic - the compiler recognizes the patterns
+ * in the body.)
  */
 version (LDC)
 {
@@ -134,9 +130,32 @@ version (LDC)
 }
 else
 {
-    pure int bt(in size_t* p, size_t bitnum);
+    @system
+    {
+    int bt(in size_t* p, size_t bitnum) pure
+    {
+        static if (size_t.sizeof == 8)
+            return ((p[bitnum >> 6] & (1L << (bitnum & 63)))) != 0;
+        else static if (size_t.sizeof == 4)
+            return ((p[bitnum >> 5] & (1  << (bitnum & 31)))) != 0;
+        else
+            static assert(0);
+    }
 }
 
+unittest
+{
+    size_t array[2];
+
+    array[0] = 2;
+    array[1] = 0x100;
+
+
+    assert(bt(array.ptr, 1));
+    assert(array[0] == 2);
+    assert(array[1] == 0x100);
+}
+}
 
 /**
  * Tests and complements the bit.
@@ -195,7 +214,7 @@ int main()
     assert(array[0] == 2);
     assert(array[1] == 0x108);
 
-    assert(btc(array, 35) == -1);
+    assert(btc(array, 35));
     assert(array[0] == 2);
     assert(array[1] == 0x100);
 
@@ -203,11 +222,11 @@ int main()
     assert(array[0] == 2);
     assert(array[1] == 0x108);
 
-    assert(btr(array, 35) == -1);
+    assert(btr(array, 35));
     assert(array[0] == 2);
     assert(array[1] == 0x100);
 
-    assert(bt(array, 1) == -1);
+    assert(bt(array, 1));
     assert(array[0] == 2);
     assert(array[1] == 0x100);
 
@@ -244,7 +263,7 @@ unittest
         assert(array[1] == 0x108);
     }
 
-    assert(btc(array.ptr, 35) == -1);
+    assert(btc(array.ptr, 35));
     assert(array[0] == 2);
     assert(array[1] == 0x100);
 
@@ -260,11 +279,7 @@ unittest
         assert(array[1] == 0x108);
     }
 
-    assert(btr(array.ptr, 35) == -1);
-    assert(array[0] == 2);
-    assert(array[1] == 0x100);
-
-    assert(bt(array.ptr, 1) == -1);
+    assert(btr(array.ptr, 35));
     assert(array[0] == 2);
     assert(array[1] == 0x100);
 }
@@ -281,7 +296,7 @@ version (LDC)
 }
 else
 {
-    pure uint bswap(uint v);
+    uint bswap(uint v) pure;
 }
 
 
@@ -392,7 +407,7 @@ version (LDC)
 }
 else
 {
-    pure int popcnt( uint x )
+    int popcnt( uint x ) pure
     {
         // Avoid branches, and the potential for cache misses which
         // could be incurred with a table lookup.
@@ -440,7 +455,7 @@ unittest
 /**
  * Reverses the order of bits in a 32-bit integer.
  */
-@trusted pure uint bitswap( uint x )
+@trusted uint bitswap( uint x ) pure
 {
     version (AsmX86)
     {

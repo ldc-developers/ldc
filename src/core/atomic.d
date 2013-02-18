@@ -138,7 +138,8 @@ version( CoreDdoc )
         seq,    /// Fully sequenced (acquire + release).
     }
 
-    deprecated alias MemoryOrder msync; /// Deprecated. Please use MemoryOrder instead.
+    deprecated("Please use MemoryOrder instead.")
+    alias MemoryOrder msync;
 
     /**
      * Inserts a full load/store memory fence (on platforms that need it). This ensures
@@ -532,7 +533,8 @@ else version( AsmX86_32 )
         seq,
     }
 
-    deprecated alias MemoryOrder msync;
+    deprecated("Please use MemoryOrder instead.")
+    alias MemoryOrder msync;
 
 
     private
@@ -1002,7 +1004,8 @@ else version( AsmX86_64 )
         seq,
     }
 
-    deprecated alias MemoryOrder msync;
+    deprecated("Please use MemoryOrder instead.")
+    alias MemoryOrder msync;
 
 
     private
