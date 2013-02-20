@@ -151,6 +151,16 @@ version( Windows )
                 alias _tls_end   _tlsend;
             }
         }
+        else version (MinGW)
+        {
+            extern (C)
+            {
+                extern int _tls_start;
+                extern int _tls_end;
+            }
+            alias _tls_start _tlsstart;
+            alias _tls_end   _tlsend;
+        }
         else
         {
             __gshared int   _tlsstart;
@@ -300,6 +310,7 @@ else version( Posix )
         }
         else version (LDC)
         {
+            version = LDC_NoTlsBracketSyms;
         }
         else
         {
@@ -320,7 +331,7 @@ else version( Posix )
             obj.m_main.bstack = getStackBottom();
             obj.m_main.tstack = obj.m_main.bstack;
 
-            version (LDC)
+            version (LDC_NoTlsBracketSyms)
             {
                 version (OSX)
                 {
@@ -1271,7 +1282,7 @@ private:
         m_call = Call.NO;
         m_curr = &m_main;
 
-        version (LDC) {} else
+        version (LDC_NoTlsBracketSyms) {} else
         version (OSX)
         {
             //printf("test2 %p %p\n", _tls_data_array[0].ptr, &_tls_data_array[1][length]);
@@ -1938,7 +1949,7 @@ extern (C) Thread thread_attachThis()
         assert( thisThread.m_tmach != thisThread.m_tmach.init );
     }
 
-    version (LDC) {} else
+    version (LDC_NoTlsBracketSyms) {} else
     version (OSX)
     {
         //printf("test3 %p %p\n", _tls_data_array[0].ptr, &_tls_data_array[1][length]);
