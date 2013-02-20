@@ -36,11 +36,33 @@ struct X86TargetABI : TargetABI
             return llvm::CallingConv::C;
         case LINKd:
         case LINKdefault:
-            return global.params.targetTriple.isOSWindows() ?
-                llvm::CallingConv::C : llvm::CallingConv::X86_StdCall;
         case LINKpascal:
         case LINKwindows:
             return llvm::CallingConv::X86_StdCall;
+        default:
+            llvm_unreachable("Unhandled D linkage type.");
+        }
+    }
+
+    std::string mangleForLLVM(llvm::StringRef name, LINK l)
+    {
+        switch (l)
+        {
+        case LINKc:
+        case LINKcpp:
+        case LINKintrinsic:
+        case LINKpascal:
+        case LINKwindows:
+            return name;
+        case LINKd:
+        case LINKdefault:
+            if (global.params.targetTriple.isOSWindows())
+            {
+                // Prepend a 0x1 byte to keep LLVM from adding the usual
+                // "@<paramsize>" stdcall suffix.
+                return ("\1_" + name).str();
+            }
+            return name;
         default:
             llvm_unreachable("Unhandled D linkage type.");
         }
