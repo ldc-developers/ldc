@@ -670,3 +670,18 @@ char *Port::strupr(char *s)
 }
 
 #endif
+
+
+#if IN_LLVM
+#if __MINGW32__
+longdouble Port::strtold(const char *str, char **pend)
+{
+    return __mingw_strtold(str, pend);
+}
+#else
+longdouble Port::strtold(const char *str, char **pend)
+{
+    return ::strtold(str, pend);
+}
+#endif
+#endif

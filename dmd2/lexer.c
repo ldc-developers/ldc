@@ -2364,6 +2364,8 @@ done:
 #endif
 #ifdef IN_GCC
     t->float80value = real_t::parse((char *)stringbuffer.data, real_t::LongDouble);
+#elif IN_LLVM
+    t->float80value = Port::strtold((char *)stringbuffer.data, NULL);
 #else
     t->float80value = strtold((char *)stringbuffer.data, NULL);
 #endif

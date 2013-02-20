@@ -2620,6 +2620,8 @@ void floatToBuffer(OutBuffer *buf, Type *type, real_t value)
     __locale_decpoint = ".";
     real_t r = strtold(buffer, NULL);
     __locale_decpoint = save;
+#elif IN_LLVM
+    real_t r = Port::strtold(buffer, NULL);
 #else
     real_t r = strtold(buffer, NULL);
 #endif
