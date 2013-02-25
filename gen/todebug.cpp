@@ -281,6 +281,9 @@ static llvm::DIType dwarfCompositeType(Type* type)
            getTypeBitSize(T), // size in bits
            getABITypeAlign(T)*8, // alignment in bits
            llvm::DIType::FlagFwdDecl, // flags
+#if LDC_LLVM_VER >= 303
+           derivedFrom, // DerivedFrom
+#endif
            elemsArray
         );
     }
@@ -342,6 +345,9 @@ static llvm::DIType dwarfArrayType(Type* type) {
         getTypeBitSize(T), // size in bits
         getABITypeAlign(T)*8, // alignment in bits
         0, // What here?
+#if LDC_LLVM_VER >= 303
+        llvm::DIType(), // DerivedFrom
+#endif
         gIR->dibuilder.getOrCreateArray(elems)
     );
 
