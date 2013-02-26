@@ -741,47 +741,51 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         fdecl->ir.irFunc = new IrFunction(fdecl);
     }
 
-    // mangled name
-    const char* mangled_name;
-    if (fdecl->llvmInternal == LLVMintrinsic)
-        mangled_name = fdecl->intrinsicName.c_str();
-    else
-        mangled_name = fdecl->mangle();
-
     LLFunction* vafunc = 0;
     if (fdecl->isVaIntrinsic())
         vafunc = DtoDeclareVaFunction(fdecl);
 
+    // calling convention
+    LINK link = f->linkage;
+    if (vafunc || fdecl->llvmInternal == LLVMintrinsic
+#if DMDV2
+        // DMD treats _Dmain as having C calling convention and this has been
+        // hardcoded into druntime, even if the frontend type has D linkage.
+        // See Bugzilla issue 9028.
+        || fdecl->isMain()
+#endif
+    )
+    {
+        link = LINKc;
+    }
+
+    // mangled name
+    std::string mangledName;
+    if (fdecl->llvmInternal == LLVMintrinsic)
+        mangledName = fdecl->intrinsicName;
+    else
+        mangledName = fdecl->mangle();
+    mangledName = gABI->mangleForLLVM(mangledName, link);
+
     // construct function
     LLFunctionType* functype = DtoFunctionType(fdecl);
-    LLFunction* func = vafunc ? vafunc : gIR->module->getFunction(mangled_name);
+    LLFunction* func = vafunc ? vafunc : gIR->module->getFunction(mangledName);
     if (!func) {
         if(fdecl->llvmInternal == LLVMinline_ir)
             func = DtoInlineIRFunction(fdecl);
         else
-            func = LLFunction::Create(functype, DtoLinkage(fdecl), mangled_name, gIR->module);
+            func = LLFunction::Create(functype, DtoLinkage(fdecl), mangledName, gIR->module);
     } else if (func->getFunctionType() != functype) {
         error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", fdecl->mangle());
     }
+
+    func->setCallingConv(gABI->callingConv(link));
 
     if (Logger::enabled())
         Logger::cout() << "func = " << *func << std::endl;
 
     // add func to IRFunc
     fdecl->ir.irFunc->func = func;
-
-    // calling convention
-    if (!vafunc && fdecl->llvmInternal != LLVMintrinsic
-#if DMDV2
-        // DMD treats _Dmain as having C calling convention and this has been
-        // hardcoded into druntime, even if the frontend type has D linkage.
-        // See Bugzilla issue 9028.
-        && !fdecl->isMain()
-#endif
-        )
-        func->setCallingConv(DtoCallingConv(fdecl->loc, f->linkage));
-    else // fall back to C, it should be the right thing to do
-        func->setCallingConv(llvm::CallingConv::C);
 
     // parameter attributes
     if (!fdecl->isIntrinsic()) {

@@ -17,6 +17,8 @@
 #ifndef LDC_GEN_ABI_H
 #define LDC_GEN_ABI_H
 
+#include "mars.h"
+#include "llvm/CallingConv.h"
 #include <vector>
 
 struct Type;
@@ -55,6 +57,18 @@ struct TargetABI
 
     /// Returns the ABI for intrinsics
     static TargetABI* getIntrinsic();
+
+    /// Returns the LLVM calling convention to be used for the given D linkage
+    /// type on the target.
+    virtual llvm::CallingConv::ID callingConv(LINK l) = 0;
+
+    /// Applies any rewrites that might be required to accurately reproduce the
+    /// passed function name on LLVM given a specific calling convention.
+    ///
+    /// Using this function at a stage where the name could be user-visible is
+    /// almost certainly a mistake; it is intended to e.g. prepend '\1' where
+    /// disabling the LLVM-internal name mangling/postprocessing is required.
+    virtual std::string mangleForLLVM(llvm::StringRef name, LINK l) { return name; }
 
     /// Called if a new function type is resolved
     virtual void newFunctionType(TypeFunction* tf) {}

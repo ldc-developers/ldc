@@ -74,22 +74,25 @@ static llvm::Function* build_module_function(const std::string &name, const std:
 
     std::vector<LLType*> argsTy;
     LLFunctionType* fnTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
-    assert(gIR->module->getFunction(name) == NULL);
-    llvm::Function* fn = llvm::Function::Create(fnTy, llvm::GlobalValue::InternalLinkage, name, gIR->module);
-    fn->setCallingConv(DtoCallingConv(0, LINKd));
+
+    std::string const symbolName = gABI->mangleForLLVM(name, LINKd);
+    assert(gIR->module->getFunction(symbolName) == NULL);
+    llvm::Function* fn = llvm::Function::Create(fnTy,
+        llvm::GlobalValue::InternalLinkage, symbolName, gIR->module);
+    fn->setCallingConv(gABI->callingConv(LINKd));
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "entry", fn);
     IRBuilder<> builder(bb);
 
     // debug info
-    DtoDwarfSubProgramInternal(name.c_str(), name.c_str());
+    DtoDwarfSubProgramInternal(name.c_str(), symbolName.c_str());
 
     // Call ctor's
     typedef std::list<FuncDeclaration*>::const_iterator FuncIterator;
     for (FuncIterator itr = funcs.begin(), end = funcs.end(); itr != end; ++itr) {
         llvm::Function* f = (*itr)->ir.irFunc->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
-        call->setCallingConv(DtoCallingConv(0, LINKd));
+        call->setCallingConv(gABI->callingConv(LINKd));
     }
 
     // Increment vgate's

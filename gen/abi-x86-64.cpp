@@ -366,6 +366,8 @@ struct X86_64TargetABI : TargetABI {
     X87_complex_swap swapComplex;
     CompositeToInt compositeToInt;
 
+    llvm::CallingConv::ID callingConv(LINK l);
+
     void newFunctionType(TypeFunction* tf) {
         funcTypeStack.push_back(FuncTypeData(tf->linkage));
     }
@@ -413,6 +415,24 @@ TargetABI* getX86_64TargetABI() {
     return new X86_64TargetABI;
 }
 
+
+llvm::CallingConv::ID X86_64TargetABI::callingConv(LINK l)
+{
+    switch (l)
+    {
+    case LINKc:
+    case LINKcpp:
+    case LINKd:
+    case LINKdefault:
+    case LINKintrinsic:
+        return llvm::CallingConv::C;
+    case LINKpascal:
+    case LINKwindows: // Doesn't really make sense, user should use Win64 target.
+        return llvm::CallingConv::X86_StdCall;
+    default:
+        llvm_unreachable("Unhandled D linkage type.");
+    }
+}
 
 bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
     assert(linkage() == tf->linkage);

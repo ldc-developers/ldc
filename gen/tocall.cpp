@@ -54,42 +54,6 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::CallingConv::ID DtoCallingConv(Loc loc, LINK l)
-{
-    llvm::Triple::ArchType const arch = global.params.targetTriple.getArch();
-
-    if (l == LINKc || l == LINKcpp || l == LINKintrinsic)
-        return llvm::CallingConv::C;
-    else if (l == LINKd || l == LINKdefault)
-    {
-        //TODO: StdCall is not a good base on Windows due to extra name mangling
-        // applied there
-        if (arch == llvm::Triple::x86 || arch == llvm::Triple::x86_64)
-        {
-            return global.params.targetTriple.isOSWindows() ?
-                llvm::CallingConv::C : llvm::CallingConv::X86_StdCall;
-        }
-        else
-            return llvm::CallingConv::Fast;
-    }
-    // on the other hand, here, it's exactly what we want!!! TODO: right?
-    // On Windows 64bit, there is only one calling convention!
-    else if (l == LINKwindows)
-    {
-        return (arch == llvm::Triple::x86_64) ?
-            llvm::CallingConv::C : llvm::CallingConv::X86_StdCall;
-    }
-    else if (l == LINKpascal)
-        return llvm::CallingConv::X86_StdCall;
-    else
-    {
-        error(loc, "unsupported calling convention");
-        fatal();
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg)
 {
     DValue* expelem = valistArg->toElem(gIR);
@@ -377,7 +341,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     bool nestedcall = tf->fty.arg_nest;
     bool dvarargs = (tf->linkage == LINKd && tf->varargs == 1);
 
-    llvm::CallingConv::ID callconv = DtoCallingConv(loc, tf->linkage);
+    llvm::CallingConv::ID callconv = gABI->callingConv(tf->linkage);
 
     // get callee llvm value
     LLValue* callable = DtoCallableValue(fnval);
