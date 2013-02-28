@@ -518,6 +518,7 @@ void fatal();
 void err_nomem();
 #if IN_LLVM
 void error(const char *format, ...)  IS_PRINTF(1);
+void warning(const char *format, ...)  IS_PRINTF(1);
 #else
 int runLINK();
 void deleteExeFile();

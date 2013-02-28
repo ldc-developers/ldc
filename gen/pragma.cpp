@@ -46,15 +46,23 @@ static bool parseIntExp(Expression* e, dinteger_t& res)
 
 static void pragmaDeprecated(Identifier* oldIdent, Identifier* newIdent)
 {
-#ifndef DMDV1
+#if !DMDV1
     // Do not print a deprecation warning for D1 – we do not want to
     // introduce needless breakage at this stage.
-    if (!global.params.useDeprecated)
-        error("non-vendor-prefixed pragma '%s' is deprecated; use '%s' instead");
+    if (global.params.useDeprecated == 0)
+    {
+        error("non-vendor-prefixed pragma '%s' is deprecated; use '%s' instead",
+              oldIdent->toChars(), newIdent->toChars());
+    }
+    else if (global.params.useDeprecated == 2)
+    {
+        warning("non-vendor-prefixed pragma '%s' is deprecated; use '%s' instead",
+                oldIdent->toChars(), newIdent->toChars());
+    }
 #endif
 }
 
-static bool matchPragma(Identifier* needle, Identifier* ident, Identifier* oldIdent)
+bool matchPragma(Identifier* needle, Identifier* ident, Identifier* oldIdent)
 {
     if (needle == ident) return true;
     if (needle == oldIdent)
