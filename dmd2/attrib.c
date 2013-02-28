@@ -35,10 +35,9 @@
 #endif
 
 
-extern void obj_includelib(const char *name);
-
 #if IN_DMD
-bool obj_startaddress(Symbol *s);
+extern bool obj_includelib(const char *name);
+void obj_startaddress(Symbol *s);
 #endif
 
 
