@@ -3168,9 +3168,14 @@ Statement *PragmaStatement::semantic(Scope *sc)
 #endif
     }
 #if IN_LLVM
-    // LDC
-    else if (ident == Id::allow_inline)
+    // FIXME Move to pragma.cpp
+    else if (ident == Id::LDC_allow_inline || ident == Id::allow_inline)
     {
+#if DMDV2
+        if (ident == Id::allow_inline && !global.params.useDeprecated)
+            error("non-vendor-prefixed pragma '%s' is deprecated; use '%s' instead",
+                  Id::allow_inline->toChars(), Id::LDC_allow_inline->toChars());
+#endif
         sc->func->allowInlining = true;
     }
 #endif
