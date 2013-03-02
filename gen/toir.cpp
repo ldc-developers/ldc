@@ -1096,12 +1096,14 @@ DValue* CallExp::toElem(IRState* p)
             LLValue* ptr = exp1->toElem(p)->getRVal();
             LLValue* bitnum = exp2->toElem(p)->getRVal();
 
-            // auto q = cast(ubyte*)ptr + (bitnum >> 3);
-            LLValue* q = DtoBitCast(ptr, DtoType(Type::tuns8->pointerTo()));
-            q = DtoGEP1(q, p->ir->CreateLShr(bitnum, 3), "bitop.q");
+            unsigned bitmask = DtoSize_t()->getBitWidth() - 1;
+            assert(bitmask == 31 || bitmask == 63);
+            // auto q = cast(size_t*)ptr + (bitnum >> (64bit ? 6 : 5));
+            LLValue* q = DtoBitCast(ptr, DtoSize_t()->getPointerTo());
+            q = DtoGEP1(q, p->ir->CreateLShr(bitnum, bitmask == 63 ? 6 : 5), "bitop.q");
 
-            // auto mask = 1 << (bitnum & 7);
-            LLValue* mask = p->ir->CreateAnd(bitnum, DtoConstSize_t(7), "bitop.tmp");
+            // auto mask = 1 << (bitnum & bitmask);
+            LLValue* mask = p->ir->CreateAnd(bitnum, DtoConstSize_t(bitmask), "bitop.tmp");
             mask = p->ir->CreateShl(DtoConstSize_t(1), mask, "bitop.mask");
 
             // auto result = (*q & mask) ? -1 : 0;
@@ -1127,7 +1129,7 @@ DValue* CallExp::toElem(IRState* p)
                 }
 
                 LLValue *newVal = p->ir->CreateBinOp(op, val, mask, "bitop.new_val");
-                newVal = p->ir->CreateTrunc(newVal, DtoType(Type::tuns8), "bitop.tmp");
+                newVal = p->ir->CreateTrunc(newVal, DtoSize_t(), "bitop.tmp");
                 DtoStore(newVal, q);
             }
 
