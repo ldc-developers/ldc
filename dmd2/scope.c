@@ -131,7 +131,7 @@ Scope::Scope(Scope *enclosing)
     this->parameterSpecialization = enclosing->parameterSpecialization;
     this->ignoreTemplates = enclosing->ignoreTemplates;
     this->callSuper = enclosing->callSuper;
-    this->flags = (enclosing->flags & SCOPEcontract);
+    this->flags = (enclosing->flags & (SCOPEcontract | SCOPEdebug));
     this->lastdc = NULL;
     this->lastoffset = 0;
     this->docbuf = enclosing->docbuf;

@@ -61,9 +61,6 @@ struct Port
     static longdouble fmodl(longdouble x, longdouble y);
 
     static ulonglong strtoull(const char *p, char **pend, int base);
-#if IN_LLVM
-    static longdouble strtold(const char *str, char **pend);
-#endif
 
     static char *ull_to_string(char *buffer, ulonglong ull);
     static wchar_t *ull_to_string(wchar_t *buffer, ulonglong ull);
@@ -76,6 +73,9 @@ struct Port
     static const wchar_t *wlist_separator();
 
     static char *strupr(char *);
+
+    static int memicmp(const char *s1, const char *s2, int n);
+    static int stricmp(const char *s1, const char *s2);
 };
 
 #endif

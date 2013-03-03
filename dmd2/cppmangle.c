@@ -160,10 +160,10 @@ char *cpp_mangle(Dsymbol *s)
     cms.components.setDim(0);
 
     OutBuffer buf;
-#if TARGET_OSX
-    buf.writestring("__Z");
+#if IN_LLVM
+    buf.writestring("__Z" + !(global.params.targetTriple.isMacOSX()));      // "_Z" for OSX
 #else
-    buf.writestring("_Z");
+    buf.writestring("__Z" + !global.params.isOSX);      // "_Z" for OSX
 #endif
 
     cpp_mangle_name(&buf, &cms, s);

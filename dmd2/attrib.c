@@ -27,13 +27,9 @@
 #include "module.h"
 #include "parse.h"
 #include "template.h"
-#if TARGET_NET
- #include "frontend.net/pragma.h"
-#endif
 #if IN_LLVM
 #include "../gen/pragma.h"
 #endif
-
 
 #if IN_DMD
 extern bool obj_includelib(const char *name);
@@ -484,7 +480,14 @@ void StorageClassDeclaration::semantic(Scope *sc)
     }
 }
 
-void StorageClassDeclaration::stcToCBuffer(OutBuffer *buf, StorageClass stc)
+
+/*************************************************
+ * Pick off one of the storage classes from stc,
+ * and return a pointer to a string representation of it.
+ * stc is reduced by the one picked.
+ * tmp[] is a buffer big enough to hold that string.
+ */
+const char *StorageClassDeclaration::stcToChars(char tmp[], StorageClass& stc)
 {
     struct SCstring
     {
@@ -528,20 +531,38 @@ void StorageClassDeclaration::stcToCBuffer(OutBuffer *buf, StorageClass stc)
 
     for (int i = 0; i < sizeof(table)/sizeof(table[0]); i++)
     {
-        if (stc & table[i].stc)
+        StorageClass tbl = table[i].stc;
+        assert(tbl & STCStorageClass);
+        if (stc & tbl)
         {
+            stc &= ~tbl;
             enum TOK tok = table[i].tok;
 #if DMDV2
             if (tok == TOKat)
             {
-                buf->writeByte('@');
-                buf->writestring(table[i].id->toChars());
+                tmp[0] = '@';
+                strcpy(tmp + 1, table[i].id->toChars());
+                return tmp;
             }
             else
 #endif
-                buf->writestring(Token::toChars(tok));
-            buf->writeByte(' ');
+                return Token::toChars(tok);
         }
+    }
+    //printf("stc = %llx\n", (unsigned long long)stc);
+    return NULL;
+}
+
+void StorageClassDeclaration::stcToCBuffer(OutBuffer *buf, StorageClass stc)
+{
+    while (stc)
+    {   char tmp[20];
+        const char *p = stcToChars(tmp, stc);
+        if (!p)
+            break;
+        assert(strlen(p) < sizeof(tmp));
+        buf->writestring(p);
+        buf->writeByte(' ');
     }
 }
 
@@ -916,7 +937,9 @@ void AnonDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset
 void AnonDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
     buf->printf(isunion ? "union" : "struct");
-    buf->writestring("\n{\n");
+    buf->writenl();
+    buf->writestring("{");
+    buf->writenl();
     buf->level++;
     if (decl)
     {
@@ -927,7 +950,8 @@ void AnonDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
         }
     }
     buf->level--;
-    buf->writestring("}\n");
+    buf->writestring("}");
+    buf->writenl();
 }
 
 const char *AnonDeclaration::kind()
@@ -958,37 +982,6 @@ Dsymbol *PragmaDeclaration::syntaxCopy(Dsymbol *s)
 
 void PragmaDeclaration::setScope(Scope *sc)
 {
-#if TARGET_NET
-    if (ident == Lexer::idPool("assembly"))
-    {
-        if (!args || args->dim != 1)
-        {
-            error("pragma has invalid number of arguments");
-        }
-        else
-        {
-            Expression *e = (*args)[0];
-            e = e->semantic(sc);
-            e = resolveProperties(sc, e);
-            e = e->ctfeInterpret();
-            (*args)[0] = e;
-            StringExp* se = e->toString();
-            if (!se)
-            {
-                error("string expected, not '%s'", e->toChars());
-            }
-            PragmaScope* pragma = new PragmaScope(this, sc->parent, se);
-
-            assert(sc);
-            pragma->setScope(sc);
-
-            //add to module members
-            assert(sc->module);
-            assert(sc->module->members);
-            sc->module->members->push(pragma);
-        }
-    }
-#endif // TARGET_NET
 }
 
 void PragmaDeclaration::semantic(Scope *sc)
@@ -1113,11 +1106,6 @@ void PragmaDeclaration::semantic(Scope *sc)
         goto Lnodecl;
     }
 #endif
-#if TARGET_NET
-    else if (ident == Lexer::idPool("assembly"))
-    {
-    }
-#endif // TARGET_NET
 #if IN_LLVM
     else if ((llvm_internal = DtoGetPragma(sc, this, arg1str)) != LLVMnone)
     {

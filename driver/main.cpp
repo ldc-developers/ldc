@@ -51,9 +51,10 @@
 #include <windows.h>
 #endif
 
-// stricmp
-#if __GNUC__ && !_WIN32
-#include "gnuc.h"
+#if _WIN32
+#define strcasecmp(s1, s2) _stricmp(s1, s2)
+#else
+#define strcasecmp(s1, s2) strcmp(s1, s2)
 #endif
 
 // Needs Type already declared.
@@ -166,7 +167,7 @@ int main(int argc, char** argv)
     llvm::sys::PrintStackTraceOnErrorSignal();
 
     Strings files;
-    char *p, *ext;
+    const char *p, *ext;
     Module *m;
     int status = EXIT_SUCCESS;
 
@@ -792,8 +793,8 @@ int main(int argc, char** argv)
     modules.reserve(files.dim);
     for (unsigned i = 0; i < files.dim; i++)
     {   Identifier *id;
-        char *ext;
-        char *name;
+        const char *ext;
+        const char *name;
 
         p = static_cast<char *>(files.data[i]);
 
@@ -805,9 +806,9 @@ int main(int argc, char** argv)
             if (strcmp(ext, global.obj_ext) == 0 ||
                 strcmp(ext, global.bc_ext) == 0)
 #else
-            if (stricmp(ext, global.obj_ext) == 0 ||
-                stricmp(ext, global.obj_ext_alt) == 0 ||
-                stricmp(ext, global.bc_ext) == 0)
+            if (strcasecmp(ext, global.obj_ext) == 0 ||
+                strcasecmp(ext, global.obj_ext_alt) == 0 ||
+                strcasecmp(ext, global.bc_ext) == 0)
 #endif
             {
                 global.params.objfiles->push(static_cast<char *>(files.data[i]));
@@ -819,7 +820,7 @@ int main(int argc, char** argv)
 #elif __MINGW32__
             if (stricmp(ext, "a") == 0)
 #else
-            if (stricmp(ext, "lib") == 0)
+            if (strcasecmp(ext, "lib") == 0)
 #endif
             {
                 global.params.libfiles->push(static_cast<char *>(files.data[i]));
@@ -840,41 +841,40 @@ int main(int argc, char** argv)
             }
 
 #if !POSIX
-            if (stricmp(ext, "res") == 0)
+            if (strcasecmp(ext, "res") == 0)
             {
                 global.params.resfile = static_cast<char *>(files.data[i]);
                 continue;
             }
 
-            if (stricmp(ext, "def") == 0)
+            if (strcasecmp(ext, "def") == 0)
             {
                 global.params.deffile = static_cast<char *>(files.data[i]);
                 continue;
             }
 
-            if (stricmp(ext, "exe") == 0)
+            if (strcasecmp(ext, "exe") == 0)
             {
                 global.params.exefile = static_cast<char *>(files.data[i]);
                 continue;
             }
 #endif
 
-            if (stricmp(ext, global.mars_ext) == 0 ||
-            stricmp(ext, global.hdr_ext) == 0)
+            if (strcasecmp(ext, global.mars_ext) == 0 ||
+                strcasecmp(ext, global.hdr_ext) == 0)
             {
                 ext--;          // skip onto '.'
                 assert(*ext == '.');
-                name = static_cast<char *>(mem.malloc((ext - p) + 1));
-                memcpy(name, p, ext - p);
-                name[ext - p] = 0;      // strip extension
+                char *tmp = static_cast<char *>(mem.malloc((ext - p) + 1));
+                memcpy(tmp, p, ext - p);
+                tmp[ext - p] = 0;      // strip extension
+                name = tmp;
 
                 if (name[0] == 0 ||
                     strcmp(name, "..") == 0 ||
                     strcmp(name, ".") == 0)
                 {
-            Linvalid:
-                    error("invalid file name '%s'", static_cast<char *>(files.data[i]));
-                    fatal();
+                    goto Linvalid;
                 }
             }
             else
@@ -884,8 +884,13 @@ int main(int argc, char** argv)
         }
         else
         {   name = p;
-            if (!*name)
-            goto Linvalid;
+            if (!*p)
+            {
+        Linvalid:
+                error("invalid file name '%s'", static_cast<char *>(files.data[i]));
+                fatal();
+            }
+            name = p;
         }
 
         id = Lexer::idPool(name);
@@ -1073,7 +1078,7 @@ int main(int argc, char** argv)
             {
                 m->deleteObjFile();
                 writeModule(lm, m->objfile->name->str);
-                global.params.objfiles->push(m->objfile->name->str);
+                global.params.objfiles->push(const_cast<char*>(m->objfile->name->str));
                 delete lm;
             }
             else
@@ -1094,10 +1099,10 @@ int main(int argc, char** argv)
         Module* m = static_cast<Module*>(modules.data[0]);
 
         char* oname;
-        char* filename;
+        const char* filename;
         if ((oname = global.params.exefile) || (oname = global.params.objname))
         {
-            filename = FileName::forceExt(oname, global.obj_ext)->toChars();
+            filename = FileName::forceExt(oname, global.obj_ext);
             if (global.params.objdir)
             {
                 filename = FileName::combine(global.params.objdir, FileName::name(filename));
@@ -1108,7 +1113,7 @@ int main(int argc, char** argv)
 
 #if 1
         // Temporary workaround for http://llvm.org/bugs/show_bug.cgi?id=11479.
-        char* moduleName = filename;
+        char* moduleName = const_cast<char*>(filename);
 #else
         char* moduleName = m->toChars();
 #endif
@@ -1124,12 +1129,55 @@ int main(int argc, char** argv)
 
         m->deleteObjFile();
         writeModule(linker.getModule(), filename);
-        global.params.objfiles->push(filename);
+        global.params.objfiles->push(const_cast<char*>(filename));
     }
 
     // output json file
     if (global.params.doXGeneration)
-        json_generate(&modules);
+    {
+        OutBuffer buf;
+        json_generate(&buf, &modules);
+
+        // Write buf to file
+        const char *name = global.params.xfilename;
+
+        if (name && name[0] == '-' && name[1] == 0)
+        {   // Write to stdout; assume it succeeds
+            int n = fwrite(buf.data, 1, buf.offset, stdout);
+            assert(n == buf.offset);        // keep gcc happy about return values
+        }
+        else
+        {
+            /* The filename generation code here should be harmonized with Module::setOutfile()
+             */
+
+            const char *jsonfilename;
+
+            if (name && *name)
+            {
+                jsonfilename = FileName::defaultExt(name, global.json_ext);
+            }
+            else
+            {
+                // Generate json file name from first obj name
+                const char *n = (*global.params.objfiles)[0];
+                n = FileName::name(n);
+
+                //if (!FileName::absolute(name))
+                    //name = FileName::combine(dir, name);
+
+                jsonfilename = FileName::forceExt(n, global.json_ext);
+            }
+
+            FileName::ensurePathToNameExists(jsonfilename);
+
+            File *jsonfile = new File(jsonfilename);
+
+            jsonfile->setbuffer(buf.data, buf.offset);
+            jsonfile->ref = 1;
+            jsonfile->writev();
+        }
+    }
 
     backend_term();
     if (global.errors)
