@@ -97,7 +97,11 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
                 // Specifying nocapture on a parameter but then passing it as a
                 // non-nocapture argument in a function call can lead to
                 // _silent_ miscompilations (especially in the GVN pass).
+#if LDC_LLVM_VER >= 303
+                .addAttribute(llvm::Attribute::NoCapture)
+#else
                 .addAttribute(llvm::Attributes::NoCapture)
+#endif
             #endif
 #if LDC_LLVM_VER == 302
             )
