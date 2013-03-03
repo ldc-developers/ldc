@@ -125,7 +125,33 @@ extern (C) real rndtonl(real x);
  */
 
 version (LDC)
-    real ldexp(real n, int exp) @safe pure nothrow { return stdc.ldexpl(n, exp); }
+{
+    real ldexp(real n, int exp) @trusted pure nothrow
+    {
+        version (MinGW)
+        {
+            // The MinGW runtime only provides a double precision ldexp, and
+            // it doesn't seem to reliably possible to express the fscale
+            // semantics (two FP stack inputs/returns) reliably in an inline
+            // asm expr clobber list.
+            asm
+            {
+                naked;
+                push EAX;
+                fild [ESP];
+                fld real ptr [ESP+8];
+                fscale;
+                fstp ST(1);
+                pop EAX;
+                ret 12;
+            }
+        }
+        else
+        {
+            return stdc.ldexpl(n, exp);
+        }
+    }
+}
 else
 real ldexp(real n, int exp) @safe pure nothrow;    /* intrinsic */
 
