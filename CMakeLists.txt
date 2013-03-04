@@ -50,11 +50,8 @@ option(USE_METADATA "use metadata and related custom optimization passes" ON)
 mark_as_advanced(USE_BOEHM_GC GENERATE_OFFTI USE_METADATA)
 
 if(D_VERSION EQUAL 1)
-    set(DMDFE_PATH dmd)
-    set(LDC_EXE ldc)
-    set(LDMD_EXE ldmd)
-    set(RUNTIME runtime)
-    add_definitions(-DDMDV1)
+    message(FATAL_ERROR "D version 1 is no longer supported. 
+Please consider using D version 2 or checkout the 'd1' git branch for the last version supporting D version 1.")
 elseif(D_VERSION EQUAL 2)
     set(DMDFE_PATH dmd2)
     set(LDC_EXE ldc2)
