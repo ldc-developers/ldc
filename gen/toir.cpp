@@ -1516,11 +1516,7 @@ DValue* ThisExp::toElem(IRState* p)
         } else
         if (vdparent != p->func()->decl) {
             Logger::println("nested this exp");
-#if STRUCTTHISREF
             return DtoNestedVariable(loc, type, vd, type->ty == Tstruct);
-#else
-            return DtoNestedVariable(loc, type, vd);
-#endif
         }
         else {
             Logger::println("normal this exp");
