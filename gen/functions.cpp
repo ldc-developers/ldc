@@ -90,28 +90,12 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
                 llvm::AttrBuilder().addAttribute(llvm::Attributes::StructRet)
                 .addAttribute(llvm::Attributes::NoAlias)
 #endif
-            #if !STRUCTTHISREF
-                // In D2 where 'this' in structs is a reference, nocapture
-                // might not actually be applicable, even if it probably still
-                // is for all sane code from a high-level semantic standpoint.
-                // Specifying nocapture on a parameter but then passing it as a
-                // non-nocapture argument in a function call can lead to
-                // _silent_ miscompilations (especially in the GVN pass).
-#if LDC_LLVM_VER >= 303
-                .addAttribute(llvm::Attribute::NoCapture)
-#else
-                .addAttribute(llvm::Attributes::NoCapture)
-#endif
-            #endif
 #if LDC_LLVM_VER == 302
             )
 #endif
             );
 #else
             fty.arg_sret = new IrFuncTyArg(rt, true, StructRet | NoAlias
-            #if !STRUCTTHISREF
-                | NoCapture
-            #endif
             );
 #endif
             rt = Type::tvoid;
@@ -1010,9 +994,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         assert(thisvar);
 
         LLValue* thismem = thisvar;
-    #if STRUCTTHISREF
         if (!f->fty.arg_this->byref)
-    #endif
         {
             thismem = DtoRawAlloca(thisvar->getType(), 0, "this"); // FIXME: align?
             DtoStore(thisvar, thismem);

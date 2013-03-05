@@ -640,13 +640,9 @@ void TypeInfoStructDeclaration::llvmDefine()
     {
         Scope sc;
         Parameters *arguments = new Parameters;
-#if STRUCTTHISREF
+
         // arg type is ref const T
         Parameter *arg = new Parameter(STCref, tc->constOf(), NULL, NULL);
-#else
-        // arg type is const T*
-        Parameter *arg = new Parameter(STCin, tc->pointerTo(), NULL, NULL);
-#endif
         arguments->push(arg);
         tfcmpptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
         tfcmpptr->mod = MODconst;
