@@ -78,9 +78,7 @@ struct X86TargetABI : TargetABI
         if (tf->linkage == LINKd)
         {
             return rt->ty == Tstruct
-#if SARRAYVALUE
                 || rt->ty == Tsarray
-#endif
             ;
         }
         // other ABI's follow C, which is cdouble and creal returned on the stack

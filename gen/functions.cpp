@@ -192,9 +192,6 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
 
         // reference semantics? ref, out and d1 static arrays are
         bool byref = arg->storageClass & (STCref|STCout);
-#if !SARRAYVALUE
-        byref = byref || (arg->type->toBasetype()->ty == Tsarray);
-#endif
 
         Type* argtype = arg->type;
 #if LDC_LLVM_VER >= 302

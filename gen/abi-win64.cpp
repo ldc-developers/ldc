@@ -140,9 +140,7 @@ bool Win64TargetABI::returnInArg(TypeFunction* tf)
     // or ST(1) & ST(0) (creal)
     // all other structs and static arrays are returned by struct-return (sret)
     return (rt->ty == Tstruct
-#if SARRAYVALUE
             || rt->ty == Tsarray
-#endif
            ) && !canRewriteAsInt(rt);
 }
 
