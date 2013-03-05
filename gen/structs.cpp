@@ -253,12 +253,10 @@ std::vector<LLConstant*> DtoStructLiteralValues(const StructDeclaration* sd,
 
         // update offsets
         lastoffset = os;
-#if DMDV2
         // sometimes size of the initializer is less than size of the variable,
         // so make sure that lastsize is correct
         if (inits[i]->getType()->isSized())
             sz = ceil(gDataLayout->getTypeSizeInBits(init->getType()) / 8.0);
-#endif
         lastsize = sz;
 
         // go to next explicit init

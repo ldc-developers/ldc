@@ -114,13 +114,11 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op)
     Logger::println("DtoArrayInit");
     LOG_SCOPE;
 
-#if DMDV2
     if (op != -1 && op != TOKblit && arrayNeedsPostblit(array->type))
     {
         DtoArraySetAssign(loc, array, value, op);
         return;
     }
-#endif
 
     LLValue* dim = DtoArrayLen(array);
     LLValue* ptr = DtoArrayPtr(array);
@@ -182,8 +180,6 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-
-#if DMDV2
 
 Type *DtoArrayElementType(Type *arrayType)
 {
@@ -251,8 +247,6 @@ void DtoArraySetAssign(Loc &loc, DValue *array, DValue *value, int op)
     LLCallSite call = gIR->CreateCallOrInvoke(fn, args, ".newptr");
     call.setCallingConv(llvm::CallingConv::C);
 }
-
-#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -451,11 +445,9 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     // be used as an initializer for a static T[] - where modifying contents is allowed.
     LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, constarr->getType(), false, LLGlobalValue::InternalLinkage, constarr, ".constarray");
 
-#if DMDV2
     if (arrty->ty == Tpointer)
         // we need to return pointer to the static array.
         return DtoBitCast(gvar, DtoType(arrty));
-#endif
 
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
 
@@ -589,8 +581,6 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
         defaultInit = false;
     bool zeroInit = eltType->isZeroInit();
 
-#if DMDV2
-
     const char* fnname = zeroInit ? "_d_newarrayT" : "_d_newarrayiT";
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
 
@@ -598,27 +588,6 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
     LLValue* newArray = gIR->CreateCallOrInvoke2(fn, arrayTypeInfo, arrayLen, ".gc_mem").getInstruction();
 
     return getSlice(arrayType, newArray);
-
-#else
-
-    const char* fnname = defaultInit ? (zeroInit ? "_d_newarrayT" : "_d_newarrayiT") : "_d_newarrayvT";
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
-
-    // call allocator
-    LLValue* newptr = gIR->CreateCallOrInvoke2(fn, arrayTypeInfo, arrayLen, ".gc_mem").getInstruction();
-
-    // cast to wanted type
-    LLType* dstType = DtoType(arrayType)->getContainedType(1);
-    if (newptr->getType() != dstType)
-        newptr = DtoBitCast(newptr, dstType, ".gc_mem");
-
-    if (Logger::enabled())
-        Logger::cout() << "final ptr = " << *newptr << '\n';
-
-    return new DSliceValue(arrayType, arrayLen, newptr);
-
-
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -640,7 +609,6 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
     if (defaultInit && !isInitialized(vtype))
         defaultInit = false;
 
-#if DMDV2
     const char* fnname = zeroInit ? "_d_newarraymT" : "_d_newarraymiT";
 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
@@ -660,35 +628,6 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
         Logger::cout() << "final ptr = " << *newptr << '\n';
 
     return getSlice(arrayType, newptr);
-#else
-
-    const char* fnname = defaultInit ? (zeroInit ? "_d_newarraymT" : "_d_newarraymiT") : "_d_newarraymvT";
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
-
-    // build dims
-    LLValue* dimsArg = DtoArrayAlloca(Type::tsize_t, ndims, ".newdims");
-    LLValue* firstDim = NULL;
-    for (size_t i=0; i<ndims; ++i)
-    {
-        LLValue* dim = dims[i]->getRVal();
-        if (!firstDim) firstDim = dim;
-        DtoStore(dim, DtoGEPi1(dimsArg, i));
-    }
-
-    // call allocator
-    LLValue* newptr = gIR->CreateCallOrInvoke3(fn, arrayTypeInfo, DtoConstSize_t(ndims), dimsArg, ".gc_mem").getInstruction();
-
-    // cast to wanted type
-    LLType* dstType = DtoType(arrayType)->getContainedType(1);
-    if (newptr->getType() != dstType)
-        newptr = DtoBitCast(newptr, dstType, ".gc_mem");
-
-    if (Logger::enabled())
-        Logger::cout() << "final ptr = " << *newptr << '\n';
-
-    assert(firstDim);
-    return new DSliceValue(arrayType, firstDim, newptr);
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -712,33 +651,13 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, LLValue* newdim)
     args.push_back(DtoTypeInfoOf(arrayType));
     args.push_back(newdim);
 
-#if DMDV2
-
     args.push_back(DtoBitCast(array->getLVal(), fn->getFunctionType()->getParamType(2)));
     LLValue* newArray = gIR->CreateCallOrInvoke(fn, args, ".gc_mem").getInstruction();
 
     return getSlice(arrayType, newArray);
-
-#else
-
-    args.push_back(DtoArrayLen(array));
-
-    LLValue* arrPtr = DtoArrayPtr(array);
-    if (Logger::enabled())
-        Logger::cout() << "arrPtr = " << *arrPtr << '\n';
-    args.push_back(DtoBitCast(arrPtr, fn->getFunctionType()->getParamType(3), "tmp"));
-
-    LLValue* newptr = gIR->CreateCallOrInvoke(fn, args, ".gc_mem").getInstruction();
-    if (newptr->getType() != arrPtr->getType())
-        newptr = DtoBitCast(newptr, arrPtr->getType(), ".gc_mem");
-
-    return new DSliceValue(arrayType, newdim, newptr);
-
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-#if DMDV2
 
 void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* exp)
 {
@@ -768,31 +687,7 @@ void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* e
     callPostblit(loc, exp, val);
 }
 
-#else
-
-void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* exp)
-{
-    Logger::println("DtoCatAssignElement");
-    LOG_SCOPE;
-
-    assert(array);
-
-    LLValue *valueToAppend = makeLValue(loc, exp->toElem(gIR));
-
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_arrayappendcT");
-    LLSmallVector<LLValue*,3> args;
-    args.push_back(DtoTypeInfoOf(arrayType));
-    args.push_back(DtoBitCast(array->getLVal(), fn->getFunctionType()->getParamType(1)));
-    args.push_back(DtoBitCast(valueToAppend, getVoidPtrType()));
-
-    gIR->CreateCallOrInvoke(fn, args, ".appendedArray");
-}
-
-#endif
-
 //////////////////////////////////////////////////////////////////////////////////////////
-
-#if DMDV2
 
 DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp)
 {
@@ -818,43 +713,7 @@ DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp)
     return getSlice(arrayType, newArray);
 }
 
-#else
-
-DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp)
-{
-    Logger::println("DtoCatAssignArray");
-    LOG_SCOPE;
-
-    DValue* e = exp->toElem(gIR);
-
-    llvm::Value *len1, *len2, *src1, *src2, *res;
-
-    len1 = DtoArrayLen(arr);
-    len2 = DtoArrayLen(e);
-    res = gIR->ir->CreateAdd(len1,len2,"tmp");
-
-    DValue* newdim = new DImValue(Type::tsize_t, res);
-    DSliceValue* slice = DtoResizeDynArray(arr->getType(), arr, newdim->getRVal());
-
-    src1 = slice->ptr;
-    src2 = DtoArrayPtr(e);
-
-    // advance ptr
-    src1 = gIR->ir->CreateGEP(src1,len1,"tmp");
-
-    // memcpy
-    LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(src2->getType()->getContainedType(0)));
-    LLValue* bytelen = gIR->ir->CreateMul(len2, elemSize, "tmp");
-    DtoMemCpy(src1,src2,bytelen);
-
-    return slice;
-}
-
-#endif
-
 //////////////////////////////////////////////////////////////////////////////////////////
-
-#if DMDV2
 
 DSliceValue* DtoCatArrays(Type* arrayType, Expression* exp1, Expression* exp2)
 {
@@ -903,117 +762,6 @@ DSliceValue* DtoCatArrays(Type* arrayType, Expression* exp1, Expression* exp2)
     LLValue *newArray = gIR->CreateCallOrInvoke(fn, args, ".appendedArray").getInstruction();
     return getSlice(arrayType, newArray);
 }
-
-#else
-
-DSliceValue* DtoCatArrays(Type* type, Expression* exp1, Expression* exp2)
-{
-    Logger::println("DtoCatArrays");
-    LOG_SCOPE;
-
-    Type* t1 = exp1->type->toBasetype();
-    Type* t2 = exp2->type->toBasetype();
-
-    assert(t1->ty == Tarray || t1->ty == Tsarray);
-    assert(t2->ty == Tarray || t2->ty == Tsarray);
-
-    DValue* e1 = exp1->toElem(gIR);
-    DValue* e2 = exp2->toElem(gIR);
-
-    llvm::Value *len1, *len2, *src1, *src2, *res;
-
-    len1 = DtoArrayLen(e1);
-    len2 = DtoArrayLen(e2);
-    res = gIR->ir->CreateAdd(len1,len2,"tmp");
-
-    DValue* lenval = new DImValue(Type::tsize_t, res);
-    DSliceValue* slice = DtoNewDynArray(exp1->loc, type, lenval, false);
-    LLValue* mem = slice->ptr;
-
-    src1 = DtoArrayPtr(e1);
-    src2 = DtoArrayPtr(e2);
-
-    // first memcpy
-    LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(src1->getType()->getContainedType(0)));
-    LLValue* bytelen = gIR->ir->CreateMul(len1, elemSize, "tmp");
-    DtoMemCpy(mem,src1,bytelen);
-
-    // second memcpy
-    mem = gIR->ir->CreateGEP(mem,len1,"tmp");
-    bytelen = gIR->ir->CreateMul(len2, elemSize, "tmp");
-    DtoMemCpy(mem,src2,bytelen);
-
-    return slice;
-}
-
-#endif
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-#if DMDV1
-
-DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2)
-{
-    Logger::println("DtoCatArrayElement");
-    LOG_SCOPE;
-
-    Type* t1 = exp1->type->toBasetype();
-    Type* t2 = exp2->type->toBasetype();
-
-    DValue* e1 = exp1->toElem(gIR);
-    DValue* e2 = exp2->toElem(gIR);
-
-    llvm::Value *len1, *src1, *res;
-
-    // handle prefix case, eg. int~int[]
-    if (t2->nextOf() && t1 == t2->nextOf()->toBasetype())
-    {
-        len1 = DtoArrayLen(e2);
-        res = gIR->ir->CreateAdd(len1,DtoConstSize_t(1),"tmp");
-
-        DValue* lenval = new DImValue(Type::tsize_t, res);
-        DSliceValue* slice = DtoNewDynArray(exp1->loc, type, lenval, false);
-        LLValue* mem = slice->ptr;
-
-        DVarValue* memval = new DVarValue(e1->getType(), mem);
-        DtoAssign(exp1->loc, memval, e1);
-
-        src1 = DtoArrayPtr(e2);
-
-        mem = gIR->ir->CreateGEP(mem,DtoConstSize_t(1),"tmp");
-
-        LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(src1->getType()->getContainedType(0)));
-        LLValue* bytelen = gIR->ir->CreateMul(len1, elemSize, "tmp");
-        DtoMemCpy(mem,src1,bytelen);
-
-
-        return slice;
-    }
-    // handle suffix case, eg. int[]~int
-    else
-    {
-        len1 = DtoArrayLen(e1);
-        res = gIR->ir->CreateAdd(len1,DtoConstSize_t(1),"tmp");
-
-        DValue* lenval = new DImValue(Type::tsize_t, res);
-        DSliceValue* slice = DtoNewDynArray(exp1->loc, type, lenval, false);
-        LLValue* mem = slice->ptr;
-
-        src1 = DtoArrayPtr(e1);
-
-        LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(src1->getType()->getContainedType(0)));
-        LLValue* bytelen = gIR->ir->CreateMul(len1, elemSize, "tmp");
-        DtoMemCpy(mem,src1,bytelen);
-
-        mem = gIR->ir->CreateGEP(mem,len1,"tmp");
-        DVarValue* memval = new DVarValue(e2->getType(), mem);
-        DtoAssign(exp1->loc, memval, e2);
-
-        return slice;
-    }
-}
-
-#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1357,13 +1105,8 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
 void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBound)
 {
     Type* arrty = arr->getType()->toBasetype();
-#if DMDV2
     assert((arrty->ty == Tsarray || arrty->ty == Tarray || arrty->ty == Tpointer) &&
         "Can only array bounds check for static or dynamic arrays");
-#else
-    assert((arrty->ty == Tsarray || arrty->ty == Tarray) &&
-        "Can only array bounds check for static or dynamic arrays");
-#endif
 
     // static arrays could get static checks for static indices
     // but shouldn't since it might be generic code that's never executed
@@ -1405,25 +1148,10 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBoun
     std::vector<LLValue*> args;
 
     Module* funcmodule = gIR->func()->decl->getModule();
-#if DMDV2
     // module param
     LLValue *moduleInfoSymbol = funcmodule->moduleInfoSymbol();
     LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
     args.push_back(DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)));
-#else
-    // file param
-    // we might be generating for an imported template function
-    const char* cur_file = funcmodule->srcfile->name->toChars();
-    if (loc.filename && strcmp(loc.filename, cur_file) != 0)
-    {
-        args.push_back(DtoConstString(loc.filename));
-    }
-    else
-    {
-        IrModule* irmod = getIrModule(funcmodule);
-        args.push_back(DtoLoad(irmod->fileName));
-    }
-#endif
 
     // line param
     LLConstant* c = DtoConstUint(loc.linnum);

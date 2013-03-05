@@ -202,12 +202,10 @@ LLType* DtoType(Type* t)
     case Taarray:
         return getVoidPtrType();
 
-#if DMDV2
     case Tvector:
     {
         return IrTypeVector::get(t)->getLLType();
     }
-#endif
 
 /*
     Not needed atm as VarDecls for tuples are rewritten as a string of
@@ -1036,11 +1034,7 @@ LLStructType* DtoModuleReferenceType()
     // add members
     LLType *types[] = {
         getPtrToType(st),
-#if DMDV1
-        DtoType(Module::moduleinfo->type)
-#else
         DtoType(Module::moduleinfo->type->pointerTo())
-#endif
     };
 
     // resolve type

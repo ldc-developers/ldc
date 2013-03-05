@@ -60,7 +60,6 @@ void Expression::cacheLvalue(IRState* irs)
 
 DValue *Expression::toElemDtor(IRState *irs)
 {
-#if DMDV2
     Logger::println("Expression::toElemDtor(): %s", toChars());
     LOG_SCOPE
 
@@ -76,9 +75,6 @@ DValue *Expression::toElemDtor(IRState *irs)
         vd->edtor->toElem(gIR);
     }
     return val;
-#else
-    return toElem(irs);
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -117,13 +113,11 @@ DValue* VarExp::toElem(IRState* p)
     {
         Logger::println("VarDeclaration ' %s ' of type ' %s '", vd->toChars(), vd->type->toChars());
 
-#if DMDV2
         /* The magic variable __ctfe is always false at runtime
          */
         if (vd->ident == Id::ctfe) {
             return new DConstValue(type, DtoConstBool(false));
         }
-#endif
 
         // this is an error! must be accessed with DotVarExp
         if (var->needThis())
@@ -179,11 +173,7 @@ DValue* VarExp::toElem(IRState* p)
             return new DImValue(type, m);
         }
         // nested variable
-    #if DMDV2
         else if (vd->nestedrefs.dim) {
-    #else
-        else if (vd->nestedref) {
-    #endif
             Logger::println("nested variable");
             return DtoNestedVariable(loc, type, vd);
         }
@@ -238,9 +228,7 @@ DValue* VarExp::toElem(IRState* p)
     {
         Logger::println("FuncDeclaration");
         LLValue* func = 0;
-#if DMDV2
         fdecl = fdecl->toAliasFunc();
-#endif
         if (fdecl->llvmInternal == LLVMinline_asm) {
             error("special ldc inline asm is not a normal function");
             fatal();
@@ -608,11 +596,9 @@ DValue* AssignExp::toElem(IRState* p)
         Logger::println("performing aggregate zero initialization");
         assert(e2->toInteger() == 0);
         DtoAggrZeroInit(l->getLVal());
-#if DMDV2
         TypeStruct *ts = static_cast<TypeStruct*>(e1->type);
         if (ts->sym->isNested() && ts->sym->vthis)
             DtoResolveNestedContext(loc, ts->sym, l->getLVal());
-#endif
         // Return value should be irrelevant.
         return r;
     }
@@ -933,7 +919,6 @@ DValue* CallExp::toElem(IRState* p)
             // llvm doesn't need the second param hence the override
             Expression* exp = static_cast<Expression*>(arguments->data[0]);
             LLValue* arg = exp->toElem(p)->getLVal();
-#if DMDV2
             if (LLValue *argptr = gIR->func()->_argptr) {
                 DtoStore(DtoLoad(argptr), DtoBitCast(arg, getPtrToType(getVoidPtrType())));
                 return new DImValue(type, arg);
@@ -943,13 +928,11 @@ DValue* CallExp::toElem(IRState* p)
                 va_list = DtoBitCast(va_list, getVoidPtrType());
                 return new DImValue(type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), va_list, ""));
             } else
-#endif
             {
                 arg = DtoBitCast(arg, getVoidPtrType());
                 return new DImValue(type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), arg, ""));
             }
         }
-#if DMDV2
         else if (fndecl->llvmInternal == LLVMva_copy &&
             global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
             if (arguments->dim != 2) {
@@ -967,7 +950,6 @@ DValue* CallExp::toElem(IRState* p)
             DtoStore(DtoLoad(DtoLoad(arg2)), DtoLoad(arg1));
             return new DVarValue(type, arg1);
         }
-#endif
         // va_arg instruction
         else if (fndecl->llvmInternal == LLVMva_arg) {
             if (arguments->dim != 1) {
@@ -1525,7 +1507,6 @@ DValue* ThisExp::toElem(IRState* p)
         LLValue* v;
         Dsymbol* vdparent = vd->toParent2();
         Identifier *ident = p->func()->decl->ident;
-#if DMDV2
         // In D1, contracts are treated as normal nested methods, 'this' is
         // just passed in the context struct along with any used parameters.
         if (ident == Id::ensure || ident == Id::require) {
@@ -1533,7 +1514,6 @@ DValue* ThisExp::toElem(IRState* p)
             v = p->func()->nestArg;
             v = DtoBitCast(v, DtoType(type)->getPointerTo());
         } else
-#endif
         if (vdparent != p->func()->decl) {
             Logger::println("nested this exp");
 #if STRUCTTHISREF
@@ -1650,11 +1630,7 @@ DValue* SliceExp::toElem(IRState* p)
         LLValue* vlo = lo->getRVal();
         LLValue* vup = up->getRVal();
 
-#if DMDV2
         if(global.params.useArrayBounds)
-#else
-        if(global.params.useArrayBounds && (etype->ty == Tsarray || etype->ty == Tarray))
-#endif
             DtoArrayBoundsCheck(loc, e, up, lo);
 
         // offset by lower
@@ -1995,7 +1971,6 @@ DValue* NewExp::toElem(IRState* p)
         Logger::println("new struct on heap: %s\n", newtype->toChars());
         // allocate
         LLValue* mem = 0;
-#if DMDV2
         if (allocator)
         {
             // custom allocator
@@ -2004,7 +1979,6 @@ DValue* NewExp::toElem(IRState* p)
             DValue* res = DtoCallFunction(loc, NULL, &dfn, newargs);
             mem = DtoBitCast(res->getRVal(), DtoType(ntype->pointerTo()), ".newstruct_custom");
         } else
-#endif
         {
             // default allocator
             mem = DtoNew(newtype);
@@ -2019,7 +1993,6 @@ DValue* NewExp::toElem(IRState* p)
             ts->sym->codegen(Type::sir);
             DtoAggrCopy(mem, ts->sym->ir.irStruct->getInitSymbol());
         }
-#if DMDV2
         if (ts->sym->isNested() && ts->sym->vthis)
             DtoResolveNestedContext(loc, ts->sym, mem);
 
@@ -2032,7 +2005,6 @@ DValue* NewExp::toElem(IRState* p)
             DFuncValue dfn(member, member->ir.irFunc->func, mem);
             DtoCallFunction(loc, ts, &dfn, arguments);
         }
-#endif
         return new DImValue(type, mem);
     }
     // new basic type
@@ -2068,14 +2040,7 @@ DValue* DeleteExp::toElem(IRState* p)
     // simple pointer
     if (et->ty == Tpointer)
     {
-#if DMDV2
         DtoDeleteMemory(dval->isLVal() ? dval->getLVal() : makeLValue(loc, dval));
-#else
-        LLValue* rval = dval->getRVal();
-        DtoDeleteMemory(rval);
-        if (dval->isVar())
-            DtoStore(LLConstant::getNullValue(rval->getType()), dval->getLVal());
-#endif
     }
     // class
     else if (et->ty == Tclass)
@@ -2084,11 +2049,7 @@ DValue* DeleteExp::toElem(IRState* p)
         TypeClass* tc = static_cast<TypeClass*>(et);
         if (tc->sym->isInterfaceDeclaration())
         {
-#if DMDV2
             LLValue *val = dval->getLVal();
-#else
-            LLValue *val = dval->getRVal();
-#endif
             DtoDeleteInterface(val);
             onstack = true;
         }
@@ -2620,23 +2581,7 @@ DValue* CatExp::toElem(IRState* p)
     Logger::print("CatExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-#if DMDV2
     return DtoCatArrays(type, e1, e2);
-#else
-
-    bool arrNarr = e1->type->toBasetype() == e2->type->toBasetype();
-    // array ~ array
-    if (arrNarr)
-    {
-        return DtoCatArrays(type, e1, e2);
-    }
-    // array ~ element
-    // element ~ array
-    else
-    {
-        return DtoCatArrayElement(type, e1, e2);
-    }
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2706,17 +2651,14 @@ DValue* FuncExp::toElem(IRState* p)
         LLValue* cval;
         IrFunction* irfn = p->func();
         if (irfn->nestedVar
-#if DMDV2
             // We cannot use a frame allocated in one function
             // for a delegate created in another function
             // (that happens with anonymous functions)
             && fd->toParent2() == irfn->decl
-#endif
             )
             cval = irfn->nestedVar;
         else if (irfn->nestArg)
             cval = DtoLoad(irfn->nestArg);
-#if DMDV2
         // TODO: should we enable that for D1 as well?
         else if (irfn->thisArg)
         {
@@ -2728,7 +2670,6 @@ DValue* FuncExp::toElem(IRState* p)
                 cval = DtoLoad(DtoGEPi(cval, 0,ad->vthis->ir.irField->index, ".vthis"));
             }
         }
-#endif
         else
             cval = getNullPtr(getVoidPtrType());
         cval = DtoBitCast(cval, dgty->getContainedType(0));
@@ -2884,11 +2825,9 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     LLConstant* globalstore = new LLGlobalVariable(*gIR->module, t, false, LLGlobalValue::InternalLinkage, initval, ".dynarrayStorage");
     globalstore = DtoBitCast(globalstore, getPtrToType(arrtype));
 
-#if DMDV2
     if (bt->ty == Tpointer)
         // we need to return pointer to the static array.
         return globalstore;
-#endif
 
     // build a constant dynamic array reference with the .ptr field pointing into globalstore
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
@@ -2913,8 +2852,6 @@ DValue* StructLiteralExp::toElem(IRState* p)
     Logger::print("StructLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-
-#if DMDV2
     if (sinit)
     {
         // Copied from VarExp::toElem, need to clean this mess up.
@@ -2929,7 +2866,6 @@ DValue* StructLiteralExp::toElem(IRState* p)
         initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
         return new DVarValue(type, initsym);
     }
-#endif
 
     // make sure the struct is fully resolved
     sd->codegen(Type::sir);
@@ -2976,13 +2912,11 @@ DValue* StructLiteralExp::toElem(IRState* p)
             IF_LOG Logger::println("expr %zu = %s", it.index, expr->toChars());
             val = expr->toElem(gIR);
         }
-#if DMDV2
         else if (vd == sd->vthis) {
             IF_LOG Logger::println("initializing vthis");
             LOG_SCOPE
             val = new DImValue(vd->type, DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
         }
-#endif
         else
         {
             if (vd->init && vd->init->isVoidInitializer())
@@ -2999,10 +2933,8 @@ DValue* StructLiteralExp::toElem(IRState* p)
         // store the initializer there
         DtoAssign(loc, &field, val, TOKconstruct);
 
-#if DMDV2
         if (expr)
             callPostblit(loc, expr, field.getLVal());
-#endif
 
         // Also zero out padding bytes counted as being part of the type in DMD
         // but not in LLVM; e.g. real/x86_fp80.
@@ -3030,7 +2962,6 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     Logger::print("StructLiteralExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-#if DMDV2
     if (sinit)
     {
         // Copied from VarExp::toConstElem, need to clean this mess up.
@@ -3042,7 +2973,6 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
 
         return ts->sym->ir.irStruct->getDefaultInit();
     }
-#endif
 
     // make sure the struct is resolved
     sd->codegen(Type::sir);
@@ -3120,7 +3050,6 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     Type* aatype = basetype;
     Type* vtype = aatype->nextOf();
 
-#if DMDV2
     if (!keys->dim)
         goto LruntimeInit;
 
@@ -3185,7 +3114,6 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
     }
 
 LruntimeInit:
-#endif
 
     // it should be possible to avoid the temporary in some cases
     LLValue* tmp = DtoAlloca(type, "aaliteral");
@@ -3278,8 +3206,6 @@ DValue* TupleExp::toElem(IRState *p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#if DMDV2
-
 DValue* VectorExp::toElem(IRState* p)
 {
     Logger::print("VectorExp::toElem() %s\n", toChars());
@@ -3314,20 +3240,14 @@ DValue* VectorExp::toElem(IRState* p)
     return new DVarValue(to, vector);
 }
 
-#endif
-
-
 //////////////////////////////////////////////////////////////////////////////////////////
 
 #define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
 STUB(Expression);
 STUB(ScopeExp);
-
-#if DMDV2
 STUB(SymbolExp);
 STUB(PowExp);
 STUB(PowAssignExp);
-#endif
 
 #define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) { \
     error("expression '%s' is not a constant", toChars()); \

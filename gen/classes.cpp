@@ -796,7 +796,6 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     VarDeclaration* defConstructorVar = static_cast<VarDeclaration*>(cinfo->fields.data[10]);
     b.push_funcptr(cd->defaultCtor, defConstructorVar->type);
 
-#if DMDV2
     // immutable(void)* m_RTInfo;
     // The cases where getRTInfo is null are not quite here, but the code is
     // modelled after what DMD does.
@@ -806,10 +805,6 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
         b.push_size_as_vp(0);       // no pointers
     else
         b.push_size_as_vp(1);       // has pointers
-#else
-    // typeinfo - since 1.045
-    b.push_typeinfo(cd->type);
-#endif
 
     /*size_t n = inits.size();
     for (size_t i=0; i<n; ++i)

@@ -185,9 +185,7 @@ Usage:\n\
 #if 0
 "  -map           generate linker .map file\n"
 #endif
-#if DMDV2
 "  -noboundscheck turns off array bounds checking for all functions\n"
-#endif
 "  -nofloat       do not emit reference to floating point\n\
   -O             optimize\n\
   -o-            do not write object file\n\
@@ -450,18 +448,12 @@ Params parseArgs(size_t originalArgc, char** originalArgv, ls::Path ldcPath)
                 result.verbose = true;
             else if (strcmp(p + 1, "vdmd") == 0)
                 result.vdmd = true;
-#if DMDV2
             else if (strcmp(p + 1, "vtls") == 0)
                 result.logTlsUse = true;
-#endif
             else if (strcmp(p + 1, "v1") == 0)
             {
-#if DMDV1
-                // Just ignore, for backwards compatibility.
-#else
                 error("use DMD 1.0 series compilers for -v1 switch");
                 break;
-#endif
             }
             else if (strcmp(p + 1, "w") == 0)
                 result.warnings = Warnings::asErrors;
@@ -582,10 +574,8 @@ Params parseArgs(size_t originalArgc, char** originalArgv, ls::Path ldcPath)
                 result.quiet = 1;
             else if (strcmp(p + 1, "release") == 0)
                 result.release = 1;
-#if DMDV2
             else if (strcmp(p + 1, "noboundscheck") == 0)
                 result.noBoundsChecks = 1;
-#endif
             else if (strcmp(p + 1, "unittest") == 0)
                 result.emitUnitTests = 1;
             else if (p[1] == 'I')
@@ -752,12 +742,10 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.emitSharedLib) r.push_back("-shared");
     if (p.pic) r.push_back("-relocation-model=pic");
     if (p.emitMap) warning("Map file generation not yet supported by LDC.");
-#ifndef DMDV1
     // LDMD historically did not enable singleobj mode, so in order not to
     // break build systems as a D1 parting gift, don't change this right now.
     // This might change based on user feedback, though.
     if (!p.multiObj) r.push_back("-singleobj");
-#endif
     if (p.debugInfo == Debug::normal) r.push_back("-g");
     else if (p.debugInfo == Debug::pretendC) r.push_back("-gc");
     if (p.alwaysStackFrame) r.push_back("-disable-fp-elim");

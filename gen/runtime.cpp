@@ -218,10 +218,6 @@ static void LLVM_D_BuildRuntimeModule()
             = NoAttrs.addAttribute(gIR->context(), 1, llvm::Attribute::NoCapture),
         Attr_NoAlias_1_NoCapture
             = Attr_1_NoCapture.addAttribute(gIR->context(), 0, llvm::Attribute::NoAlias),
-#if DMDV1
-        Attr_NoAlias_3_NoCapture
-            = Attr_NoAlias.addAttribute(gIR->context(), 3, llvm::Attribute::NoCapture),
-#endif
         Attr_1_2_NoCapture
             = Attr_1_NoCapture.addAttribute(gIR->context(), 2, llvm::Attribute::NoCapture),
         Attr_1_3_NoCapture
@@ -251,10 +247,6 @@ static void LLVM_D_BuildRuntimeModule()
             = NoAttrs.addAttr(gIR->context(), 1, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
         Attr_NoAlias_1_NoCapture
             = Attr_1_NoCapture.addAttr(gIR->context(), 0, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias))),
-#if DMDV1
-        Attr_NoAlias_3_NoCapture
-            = Attr_NoAlias.addAttr(gIR->context(), 3, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
-#endif
         Attr_1_2_NoCapture
             = Attr_1_NoCapture.addAttr(gIR->context(), 2, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
         Attr_1_3_NoCapture
@@ -284,10 +276,6 @@ static void LLVM_D_BuildRuntimeModule()
             = NoAttrs.addAttr(1, NoCapture),
         Attr_NoAlias_1_NoCapture
             = Attr_1_NoCapture.addAttr(0, NoAlias),
-#if DMDV1
-        Attr_NoAlias_3_NoCapture
-            = Attr_NoAlias.addAttr(3, NoCapture),
-#endif
         Attr_1_2_NoCapture
             = Attr_1_NoCapture.addAttr(2, NoCapture),
         Attr_1_3_NoCapture
@@ -308,21 +296,13 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-    // D1:
-    // void _d_array_bounds( char[] file, uint line )
-    // void _d_switch_error( char[] file, uint line )
-    // D2:
     // void _d_array_bounds(ModuleInfo* m, uint line)
     // void _d_switch_error(ModuleInfo* m, uint line)
     {
         llvm::StringRef fname("_d_array_bounds");
         llvm::StringRef fname2("_d_switch_error");
         LLType *types[] = {
-#if DMDV2
             getPtrToType(DtoType(Module::moduleinfo->type)),
-#else
-            stringTy,
-#endif
             intTy
         };
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
@@ -360,40 +340,6 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
             ->setAttributes(Attr_NoAlias);
     }
-#if DMDV1
-    // void* _d_newarrayT(TypeInfo ti, size_t length)
-    // void* _d_newarrayiT(TypeInfo ti, size_t length)
-    // void* _d_newarrayvT(TypeInfo ti, size_t length)
-    {
-        llvm::StringRef fname("_d_newarrayT");
-        llvm::StringRef fname2("_d_newarrayiT");
-        llvm::StringRef fname3("_d_newarrayvT");
-        LLType *types[] = { typeInfoTy, sizeTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_NoAlias);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)
-            ->setAttributes(Attr_NoAlias);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M)
-            ->setAttributes(Attr_NoAlias);
-    }
-    // void* _d_newarraymT(TypeInfo ti, size_t length, size_t* dims)
-    // void* _d_newarraymiT(TypeInfo ti, size_t length, size_t* dims)
-    // void* _d_newarraymvT(TypeInfo ti, size_t length, size_t* dims)
-    {
-        llvm::StringRef fname("_d_newarraymT");
-        llvm::StringRef fname2("_d_newarraymiT");
-        llvm::StringRef fname3("_d_newarraymvT");
-        LLType *types[] = { typeInfoTy, sizeTy, rt_ptr(sizeTy) };
-        LLFunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_NoAlias_3_NoCapture);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)
-            ->setAttributes(Attr_NoAlias_3_NoCapture);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M)
-            ->setAttributes(Attr_NoAlias_3_NoCapture);
-    }
-#else
     // void[] _d_newarrayT(TypeInfo ti, size_t length)
     // void[] _d_newarrayiT(TypeInfo ti, size_t length)
     {
@@ -414,12 +360,7 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
-#endif
 
-    // D1:
-    // void* _d_arraysetlengthT(TypeInfo ti, size_t newlength, size_t plength, void* pdata)
-    // void* _d_arraysetlengthiT(TypeInfo ti, size_t newlength, size_t plength, void* pdata)
-    // D2:
     // void[] _d_arraysetlengthT(TypeInfo ti, size_t newlength, void[] *array)
     // void[] _d_arraysetlengthiT(TypeInfo ti, size_t newlength, void[] *array)
     {
@@ -428,21 +369,13 @@ static void LLVM_D_BuildRuntimeModule()
         LLType *types[] = {
             typeInfoTy,
             sizeTy,
-#if DMDV2
             voidArrayPtrTy
         };
         LLFunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
-#else
-            sizeTy,
-            voidPtrTy
-        };
-        LLFunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
-#endif
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
-#if DMDV2
     // byte[] _d_arrayappendcTX(TypeInfo ti, ref byte[] px, size_t n)
     {
         llvm::StringRef fname("_d_arrayappendcTX");
@@ -485,15 +418,6 @@ static void LLVM_D_BuildRuntimeModule()
         LLFunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, true);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
-#else // DMDV1
-    // byte[] _d_arrayappendcT(TypeInfo ti, void* array, void* element)
-    {
-        llvm::StringRef fname("_d_arrayappendcT");
-        LLType *types[] = { typeInfoTy, voidPtrTy, voidPtrTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
-    }
-#endif
 
     // Object _d_allocclass(ClassInfo ci)
     {
@@ -504,8 +428,6 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_NoAlias);
     }
 
-#if DMDV2
-
     // void _d_delarray_t(Array *p, TypeInfo ti)
     {
         llvm::StringRef fname("_d_delarray_t");
@@ -514,23 +436,6 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-#else
-
-    // void _d_delarray(size_t plength, void* pdata)
-    {
-        llvm::StringRef fname("_d_delarray");
-        LLType *types[] = { sizeTy, voidPtrTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
-    }
-
-#endif
-
-    // D1:
-    // void _d_delmemory(void* p)
-    // void _d_delinterface(void* p)
-    // void _d_callfinalizer(void* p)
-    // D2:
     // void _d_delmemory(void **p)
     // void _d_delinterface(void **p)
     // void _d_callfinalizer(void *p)
@@ -545,16 +450,11 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M);
     }
 
-    // D1: void _d_delclass(Object p)
     // D2: void _d_delclass(Object* p)
     {
         llvm::StringRef fname("_d_delclass");
         LLType *types[] = {
-#if DMDV2
             rt_ptr(objectTy)
-#else
-            objectTy
-#endif
         };
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
@@ -654,8 +554,6 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-#if DMDV2
-
     // void[] _d_arrayassign(TypeInfo ti, void[] from, void[] to)
     // void[] _d_arrayctor(TypeInfo ti, void[] from, void[] to)
     {
@@ -679,8 +577,6 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)
             ->setAttributes(Attr_NoAlias);
     }
-
-#endif
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
@@ -802,50 +698,28 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_ReadOnly_NoUnwind_1_NoCapture);
     }
 
-    // D1:
-    // void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
-    // D2:
     // void* _aaGetX(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
     {
-#if DMDV2
         llvm::StringRef fname("_aaGetX");
-#else
-        llvm::StringRef fname("_aaGet");
-#endif
         LLType *types[] = { aaTy, typeInfoTy, sizeTy, voidPtrTy };
         LLFunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
             ->setAttributes(Attr_1_4_NoCapture);
     }
 
-    // D1:
-    // void* _aaIn(AA aa, TypeInfo keyti, void* pkey)
-    // D2:
     // void* _aaInX(AA aa, TypeInfo keyti, void* pkey)
     {
-#if DMDV2
         llvm::StringRef fname("_aaInX");
-#else
-        llvm::StringRef fname("_aaIn");
-#endif
         LLType *types[] = { aaTy, typeInfoTy, voidPtrTy };
         LLFunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
             ->setAttributes(Attr_ReadOnly_1_3_NoCapture);
     }
 
-    // D1:
-    // void _aaDel(AA aa, TypeInfo keyti, void* pkey)
-    // D2:
     // bool _aaDelX(AA aa, TypeInfo keyti, void* pkey)
     {
-#if DMDV2
         llvm::StringRef fname("_aaDelX");
         LLType *retType = boolTy;
-#else
-        llvm::StringRef fname("_aaDel");
-        LLType *retType = voidTy;
-#endif
         LLType *types[] = { aaTy, typeInfoTy, voidPtrTy };
         LLFunctionType* fty = llvm::FunctionType::get(retType, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
@@ -896,7 +770,6 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_1_NoCapture);
     }
 
-#if DMDV2
     // int _aaEqual(TypeInfo_AssociativeArray ti, AA e1, AA e2)
     {
         llvm::StringRef fname("_aaEqual");
@@ -912,16 +785,6 @@ static void LLVM_D_BuildRuntimeModule()
         LLFunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
-#else
-    // int _aaEq(AA aa, AA ab, TypeInfo_AssociativeArray ti)
-    {
-        llvm::StringRef fname("_aaEq");
-        LLType *types[] = { aaTy, aaTy, typeInfoTy };
-        LLFunctionType* fty = llvm::FunctionType::get(intTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_1_2_NoCapture);
-    }
-#endif
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
@@ -1040,12 +903,10 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-#if DMDV2
     // void _d_hidden_func()
     {
         llvm::StringRef fname("_d_hidden_func");
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
-#endif
 }
