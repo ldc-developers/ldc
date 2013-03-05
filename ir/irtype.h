@@ -37,9 +37,7 @@ class IrTypeFunction;
 class IrTypePointer;
 class IrTypeSArray;
 class IrTypeStruct;
-#if DMDV2
 class IrTypeVector;
-#endif
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -72,10 +70,8 @@ public:
     virtual IrTypeSArray* isSArray()    { return NULL; }
     ///
     virtual IrTypeStruct* isStruct()    { return NULL; }
-#if DMDV2
     ///
     IrTypeVector* isVector()            { return NULL; }
-#endif
 
     ///
     Type* getDType()                    { return dtype; }
@@ -170,7 +166,6 @@ protected:
 
 //////////////////////////////////////////////////////////////////////////////
 
-#if DMDV2
 /// IrType for vectors
 class IrTypeVector : public IrType
 {
@@ -187,6 +182,5 @@ protected:
 
     static llvm::Type* vector2llvm(Type* dt);
 };
-#endif
 
 #endif

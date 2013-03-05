@@ -127,10 +127,8 @@ llvm::CallingConv::ID Win64TargetABI::callingConv(LINK l)
 
 bool Win64TargetABI::returnInArg(TypeFunction* tf)
 {
-#if DMDV2
     if (tf->isref)
         return false;
-#endif
 
     Type* rt = tf->next->toBasetype();
 
@@ -164,9 +162,7 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf)
 
     // RETURN VALUE
 
-#if DMDV2
     if (!tf->isref)
-#endif
     {
         if (rt->ty == Tcomplex80)
         {

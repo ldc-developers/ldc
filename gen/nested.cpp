@@ -44,7 +44,6 @@ static FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic) {
 static void storeVariable(VarDeclaration *vd, LLValue *dst)
 {
     LLValue *value = vd->ir.irLocal->value;
-#if DMDV2
     int ty = vd->type->ty;
     FuncDeclaration *fd = getParentFunc(vd, true);
     assert(fd && "No parent function for nested variable?");
@@ -54,7 +53,6 @@ static void storeVariable(VarDeclaration *vd, LLValue *dst)
         DtoAggrCopy(mem, value);
         DtoAlignedStore(mem, dst);
     } else
-#endif
     // Store the address into the frame
     DtoAlignedStore(value, dst);
 }
@@ -99,27 +97,11 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
     LLValue* ctx = 0;
     if (irfunc->decl->isMember2())
     {
-    #if DMDV2
         AggregateDeclaration* cd = irfunc->decl->isMember2();
         LLValue* val = irfunc->thisArg;
         if (cd->isClassDeclaration())
             val = DtoLoad(val);
         ctx = DtoLoad(DtoGEPi(val, 0, cd->vthis->ir.irField->index, ".vthis"));
-    #else
-        ClassDeclaration* cd = irfunc->decl->isMember2()->isClassDeclaration();
-        LLValue* val = DtoLoad(irfunc->thisArg);
-        ctx = DtoGEPi(val, 0, cd->vthis->ir.irField->index, ".vthis");
-
-        if (!irfunc->frameType && vd->isThisDeclaration())
-        {
-            // If the only "nested" variable is the outer this pointer, we don't
-            // emit a normal context, but just store the this pointer - see
-            // GitHub #127.
-            return new DVarValue(astype, vd, ctx);
-        }
-
-        ctx = DtoLoad(ctx);
-    #endif
     }
     else if (irfunc->nestedVar) {
         ctx = irfunc->nestedVar;
@@ -189,11 +171,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
     return new DVarValue(astype, vd, val);
 }
 
-#if DMDV2
 void DtoResolveNestedContext(Loc loc, AggregateDeclaration *decl, LLValue *value)
-#else
-void DtoResolveNestedContext(Loc loc, ClassDeclaration *decl, LLValue *value)
-#endif
 {
     Logger::println("Resolving nested context");
     LOG_SCOPE;
@@ -238,7 +216,6 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
     // or just have a this argument
     else if (irfunc->thisArg)
     {
-#if DMDV2
         AggregateDeclaration* ad = irfunc->decl->isMember2();
         val = ad->isClassDeclaration() ? DtoLoad(irfunc->thisArg) : irfunc->thisArg;
         if (!ad->vthis)
@@ -247,12 +224,6 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
             // function (but without any variables in the nested context).
             return val;
         }
-#else
-        ClassDeclaration* ad = irfunc->decl->isMember2()->isClassDeclaration();
-        val = DtoLoad(irfunc->thisArg);
-        if (!ad || !ad->vthis)
-            return val;
-#endif
         val = DtoLoad(DtoGEPi(val, 0, ad->vthis->ir.irField->index, ".vthis"));
     }
     else
@@ -264,20 +235,14 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
     }
 
     struct FuncDeclaration* fd = 0;
-#if DMDV2
     if (AggregateDeclaration *ad = sym->isAggregateDeclaration())
         // If sym is a nested struct or a nested class, pass the frame
         // of the function where sym is declared.
         fd = ad->toParent()->isFuncDeclaration();
     else
-#endif
     if (FuncDeclaration* symfd = sym->isFuncDeclaration()) {
         // Make sure we've had a chance to analyze nested context usage
-#if DMDV2
         DtoCreateNestedContextType(symfd);
-#else
-        DtoDefineFunction(symfd);
-#endif
 
         // if this is for a function that doesn't access variables from
         // enclosing scopes, it doesn't matter what we pass.
@@ -331,7 +296,6 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
         return;
     fd->ir.irFunc->nestedContextCreated = true;
 
-#if DMDV2
     if (fd->nestedVars.empty()) {
         // fill nestedVars
         size_t nnest = fd->closureVars.dim;
@@ -341,7 +305,6 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
             fd->nestedVars.insert(vd);
         }
     }
-#endif
 
     // construct nested variables array
     if (!fd->nestedVars.empty())
@@ -455,13 +418,10 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
         // Create frame for current function and append to frames list
         // FIXME: alignment ?
         LLValue* frame = 0;
-#if DMDV2
         if (fd->needsClosure())
             frame = DtoGcMalloc(frameType, ".frame");
         else
-#endif
-        frame = DtoRawAlloca(frameType, 0, ".frame");
-
+            frame = DtoRawAlloca(frameType, 0, ".frame");
 
         // copy parent frames into beginning
         if (depth != 0) {
@@ -470,20 +430,14 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                 assert(irfunction->thisArg);
                 assert(fd->isMember2());
                 LLValue* thisval = DtoLoad(irfunction->thisArg);
-#if DMDV2
                 AggregateDeclaration* cd = fd->isMember2();
-#else
-                ClassDeclaration* cd = fd->isMember2()->isClassDeclaration();
-#endif
                 assert(cd);
                 assert(cd->vthis);
                 Logger::println("Indexing to 'this'");
-#if DMDV2
                 if (cd->isStructDeclaration())
                     src = DtoExtractValue(thisval, cd->vthis->ir.irField->index, ".vthis");
                 else
-#endif
-                src = DtoLoad(DtoGEPi(thisval, 0, cd->vthis->ir.irField->index, ".vthis"));
+                    src = DtoLoad(DtoGEPi(thisval, 0, cd->vthis->ir.irField->index, ".vthis"));
             } else {
                 src = DtoLoad(src);
             }

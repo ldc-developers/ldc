@@ -70,10 +70,9 @@ struct X86TargetABI : TargetABI
 
     bool returnInArg(TypeFunction* tf)
     {
-#if DMDV2
         if (tf->isref)
             return false;
-#endif
+
         Type* rt = tf->next->toBasetype();
         // D only returns structs on the stack
         if (tf->linkage == LINKd)

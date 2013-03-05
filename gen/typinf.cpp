@@ -82,10 +82,8 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
         goto Linternal;
 
     case Tarray:
-    #if DMDV2
         // convert to corresponding dynamic array type
         t = t->nextOf()->mutableOf()->arrayOf();
-    #endif
         if (t->nextOf()->ty != Tclass)
         break;
         goto Linternal;
@@ -129,7 +127,6 @@ Expression *Type::getTypeInfo(Scope *sc)
 
     if (!t->vtinfo)
     {
-#if DMDV2
         if (t->isShared())
             t->vtinfo = new TypeInfoSharedDeclaration(t);
         else if (t->isConst())
@@ -139,7 +136,6 @@ Expression *Type::getTypeInfo(Scope *sc)
         else if (t->isWild())
             t->vtinfo = new TypeInfoWildDeclaration(t);
         else
-#endif
             t->vtinfo = t->getTypeInfoDeclaration();
         assert(t->vtinfo);
 
@@ -218,12 +214,10 @@ TypeInfoDeclaration *TypeClass::getTypeInfoDeclaration()
         return new TypeInfoClassDeclaration(this);
 }
 
-#if DMDV2
 TypeInfoDeclaration *TypeVector::getTypeInfoDeclaration()
 {
     return new TypeInfoVectorDeclaration(this);
 }
-#endif
 
 TypeInfoDeclaration *TypeEnum::getTypeInfoDeclaration()
 {
@@ -258,22 +252,14 @@ int Type::builtinTypeInfo()
 
 int TypeBasic::builtinTypeInfo()
 {
-#if DMDV2
     return mod ? 0 : 1;
-#else
-    return 1;
-#endif
 }
 
 int TypeDArray::builtinTypeInfo()
 {
-#if DMDV2
     return !mod && ((next->isTypeBasic() != NULL && !next->mod) ||
         // strings are so common, make them builtin
         (next->ty == Tchar && next->mod == MODimmutable));
-#else
-    return next->isTypeBasic() != NULL;
-#endif
 }
 
 int TypeClass::builtinTypeInfo()
@@ -466,11 +452,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     else
     {
         LLType* memty = DtoType(sd->memtype);
-#if DMDV2
         LLConstant* C = LLConstantInt::get(memty, sd->defaultval->toInteger(), !isLLVMUnsigned(sd->memtype));
-#else
-        LLConstant* C = LLConstantInt::get(memty, sd->defaultval, !isLLVMUnsigned(sd->memtype));
-#endif
         b.push_void_array(C, sd->memtype, sd);
     }
 
@@ -546,10 +528,8 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     // key typeinfo
     b.push_typeinfo(tc->index);
 
-#if DMDV2
     // impl typeinfo
     b.push_typeinfo(tc->getImpl()->type);
-#endif
 
     // finish
     b.finalize(ir.irGlobal);
@@ -646,16 +626,10 @@ void TypeInfoStructDeclaration::llvmDefine()
     {
         Scope sc;
         tftohash = new TypeFunction(NULL, Type::thash_t, 0, LINKd);
-#if DMDV2
         tftohash ->mod = MODconst;
-#endif
         tftohash = static_cast<TypeFunction *>(tftohash->semantic(0, &sc));
 
-#if DMDV2
         Type *retType = Type::tchar->invariantOf()->arrayOf();
-#else
-        Type *retType = Type::tchar->arrayOf();
-#endif
         tftostring = new TypeFunction(NULL, retType, 0, LINKd);
         tftostring = static_cast<TypeFunction *>(tftostring->semantic(0, &sc));
     }
@@ -675,9 +649,7 @@ void TypeInfoStructDeclaration::llvmDefine()
 #endif
         arguments->push(arg);
         tfcmpptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
-#if DMDV2
         tfcmpptr->mod = MODconst;
-#endif
         tfcmpptr = static_cast<TypeFunction *>(tfcmpptr->semantic(0, &sc));
     }
 
@@ -689,11 +661,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     b.push_funcptr(fd);
 
     // opEquals
-#if DMDV2
     fd = sd->xeq;
-#else
-    fd = find_method_overload(sd, Id::eq, tfcmpptr, gm);
-#endif
     b.push_funcptr(fd);
 
     // opCmp
@@ -707,8 +675,6 @@ void TypeInfoStructDeclaration::llvmDefine()
     // uint m_flags;
     unsigned hasptrs = tc->hasPointers() ? 1 : 0;
     b.push_uint(hasptrs);
-
-#if DMDV2
 
     ClassDeclaration* tscd = Type::typeinfostruct;
 
@@ -759,15 +725,12 @@ void TypeInfoStructDeclaration::llvmDefine()
     else
         b.push_size_as_vp(1);       // has pointers
 
-#endif
-
     // finish
     b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
 
-#if DMDV2
 void TypeInfoClassDeclaration::codegen(Ir*i)
 {
 
@@ -778,28 +741,10 @@ void TypeInfoClassDeclaration::codegen(Ir*i)
     tc->sym->codegen(Type::sir); // make sure class is resolved
     irg->value = tc->sym->ir.irStruct->getClassInfoSymbol();
 }
-#endif
 
 void TypeInfoClassDeclaration::llvmDefine()
 {
-#if DMDV2
     llvm_unreachable("TypeInfoClassDeclaration should not be called for D2");
-#endif
-    Logger::println("TypeInfoClassDeclaration::llvmDefine() %s", toChars());
-    LOG_SCOPE;
-
-    // make sure class is resolved
-    assert(tinfo->ty == Tclass);
-    TypeClass *tc = static_cast<TypeClass *>(tinfo);
-    tc->sym->codegen(Type::sir);
-
-    RTTIBuilder b(Type::typeinfoclass);
-
-    // TypeInfo base
-    b.push_classinfo(tc->sym);
-
-    // finish
-    b.finalize(ir.irGlobal);
 }
 
 /* ========================================================================= */
@@ -860,8 +805,6 @@ void TypeInfoTupleDeclaration::llvmDefine()
 }
 
 /* ========================================================================= */
-
-#if DMDV2
 
 void TypeInfoConstDeclaration::llvmDefine()
 {
@@ -933,5 +876,3 @@ void TypeInfoVectorDeclaration::llvmDefine()
     // finish
     b.finalize(ir.irGlobal);
 }
-
-#endif

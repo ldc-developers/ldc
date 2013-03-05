@@ -266,8 +266,6 @@ IrTypeArray* IrTypeArray::get(Type* dt)
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-#if DMDV2
-
 IrTypeVector::IrTypeVector(Type* dt)
 : IrType(dt, vector2llvm(dt))
 {
@@ -296,7 +294,5 @@ llvm::Type* IrTypeVector::vector2llvm(Type* dt)
         elemType = llvm::Type::getInt8Ty(llvm::getGlobalContext());
     return llvm::VectorType::get(elemType, dim);
 }
-
-#endif
 
 //////////////////////////////////////////////////////////////////////////////

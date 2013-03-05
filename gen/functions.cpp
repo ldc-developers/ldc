@@ -121,10 +121,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
         else
         {
             Type *t = rt;
-#if DMDV2
             if (f->isref)
                 t = t->pointerTo();
-#endif
 #if LDC_LLVM_VER >= 303
             if (llvm::Attribute::AttrKind a = DtoShouldExtend(t))
                 attrBuilder.addAttribute(a);
@@ -140,11 +138,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
 #elif LDC_LLVM_VER == 302
         llvm::Attributes a = llvm::Attributes::get(gIR->context(), attrBuilder);
 #endif
-#if DMDV2
         fty.ret = new IrFuncTyArg(rt, f->isref, a);
-#else
-        fty.ret = new IrFuncTyArg(rt, false, a);
-#endif
     }
     lidx++;
 
@@ -426,7 +420,6 @@ llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 
     Type *dthis=0, *dnest=0;
 
-#if DMDV2
     if (fdecl->ident == Id::ensure || fdecl->ident == Id::require) {
         FuncDeclaration *p = fdecl->parent->isFuncDeclaration();
         assert(p);
@@ -434,7 +427,6 @@ llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         assert(ad);
         dnest = Type::tvoid->pointerTo();
     } else
-#endif
     if (fdecl->needThis()) {
         if (AggregateDeclaration* ad = fdecl->isMember2()) {
             Logger::println("isMember = this is: %s", ad->type->toChars());
@@ -752,12 +744,10 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     // calling convention
     LINK link = f->linkage;
     if (vafunc || fdecl->llvmInternal == LLVMintrinsic
-#if DMDV2
         // DMD treats _Dmain as having C calling convention and this has been
         // hardcoded into druntime, even if the frontend type has D linkage.
         // See Bugzilla issue 9028.
         || fdecl->isMain()
-#endif
     )
     {
         link = LINKc;
@@ -815,7 +805,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         gIR->mainFunc = func;
     }
 
-#if DMDV2
     // shared static ctor
     if (fdecl->isSharedStaticCtorDeclaration()) {
         if (mustDefineSymbol(fdecl)) {
@@ -830,7 +819,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
                 gIR->sharedGates.push_front(dtorDecl->vgate);
         }
     } else
-#endif
     // static ctor
     if (fdecl->isStaticCtorDeclaration()) {
         if (mustDefineSymbol(fdecl)) {
@@ -841,10 +829,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     else if (StaticDtorDeclaration *dtorDecl = fdecl->isStaticDtorDeclaration()) {
         if (mustDefineSymbol(fdecl)) {
             gIR->dtors.push_front(fdecl);
-#if DMDV2
             if (dtorDecl->vgate)
                 gIR->gates.push_front(dtorDecl->vgate);
-#endif
         }
     }
 
@@ -1063,13 +1049,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
             IrParameter* irparam = vd->ir.irParam;
             assert(irparam);
 
-        #if DMDV1
-            if (vd->nestedref)
-            {
-                fd->nestedVars.insert(vd);
-            }
-        #endif
-
             bool refout = vd->storage_class & (STCref | STCout);
             bool lazy = vd->storage_class & STClazy;
             if (!refout && (!irparam->arg->byref || lazy))
@@ -1095,31 +1074,13 @@ void DtoDefineFunction(FuncDeclaration* fd)
         }
     }
 
-
-#if DMDV1
-    // need result variable? (nested)
-    if (fd->vresult && fd->vresult->nestedref) {
-        Logger::println("nested vresult value: %s", fd->vresult->toChars());
-        fd->nestedVars.insert(fd->vresult);
-    }
-
-    if (fd->vthis && fd->vthis->nestedref && !fd->nestedVars.empty()) {
-        Logger::println("nested vthis value: %s", fd->vthis->toChars());
-        fd->nestedVars.insert(fd->vthis);
-    }
-#endif
-
     FuncGen fg;
     irfunction->gen = &fg;
 
     DtoCreateNestedContext(fd);
 
     if (fd->vresult && !
-#if DMDV2
         fd->vresult->nestedrefs.dim // FIXME: not sure here :/
-#else
-        fd->vresult->nestedref
-#endif
     )
     {
         DtoVarDeclaration(fd->vresult);

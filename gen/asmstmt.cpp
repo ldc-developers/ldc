@@ -153,10 +153,8 @@ bool d_have_inline_asm() { return true; }
 
 Statement *AsmStatement::semantic(Scope *sc)
 {
-#if DMDV2
     if (sc->func && sc->func->isSafe())
         error("inline assembler not allowed in @safe function %s", sc->func->toChars());
-#endif
 
     bool err = false;
     llvm::Triple const t = global.params.targetTriple;
@@ -176,9 +174,6 @@ Statement *AsmStatement::semantic(Scope *sc)
 
     //puts(toChars());
 
-#if DMDV1
-    sc->func->inlineAsm = true;
-#endif
     sc->func->hasReturnExp |= 8;
 
     // empty statement -- still do the above things because they might be expected?
@@ -201,10 +196,8 @@ Statement *AsmStatement::semantic(Scope *sc)
 int AsmStatement::blockExit(bool mustNotThrow)
 {
     //printf("AsmStatement::blockExit(%p)\n", this);
-#if DMDV2
     if (mustNotThrow)
         error("asm statements are assumed to throw");
-#endif
     // Assume the worst
     return BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt;
 }

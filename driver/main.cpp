@@ -192,9 +192,7 @@ int main(int argc, char** argv)
     VersionCondition::addPredefinedGlobalIdent("LLVM"); // For backwards compatibility.
     VersionCondition::addPredefinedGlobalIdent("LDC");
     VersionCondition::addPredefinedGlobalIdent("all");
-#if DMDV2
     VersionCondition::addPredefinedGlobalIdent("D_Version2");
-#endif
 
     // build complete fixed up list of command line arguments
     std::vector<const char*> final_args;
@@ -210,11 +208,7 @@ int main(int argc, char** argv)
     ConfigFile cfg_file;
 
     // just ignore errors for now, they are still printed
-#if DMDV2
 #define CFG_FILENAME "ldc2.conf"
-#else
-#define CFG_FILENAME "ldc.conf"
-#endif
     cfg_file.read(global.params.argv0, (void*)main, CFG_FILENAME);
 #undef CFG_FILENAME
 
@@ -374,16 +368,7 @@ int main(int argc, char** argv)
         }
         else
         {
-#if DMDV2
             global.params.linkswitches->push(mem.strdup("-ldruntime-ldc"));
-#else
-            global.params.linkswitches->push(mem.strdup("-lldc-runtime"));
-            global.params.linkswitches->push(mem.strdup("-ltango-cc-tango"));
-            global.params.linkswitches->push(mem.strdup("-ltango-gc-basic"));
-            // pass the runtime again to resolve issues
-            // with linking order
-            global.params.linkswitches->push(mem.strdup("-lldc-runtime"));
-#endif
         }
     }
 
@@ -748,7 +733,6 @@ int main(int argc, char** argv)
     if (global.params.doDocComments)
         VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
 
-#if DMDV2
     // unittests?
     if (global.params.useUnitTests)
         VersionCondition::addPredefinedGlobalIdent("unittest");
@@ -758,7 +742,6 @@ int main(int argc, char** argv)
 
     if (!global.params.useArrayBounds)
         VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
-#endif
 
     // Initialization
     Type::init(&ir);

@@ -28,11 +28,7 @@
 void DtoCreateNestedContext(FuncDeclaration* fd);
 
 /// Resolves the nested context for classes and structs with arbitrary nesting.
-#if DMDV2
 void DtoResolveNestedContext(Loc loc, AggregateDeclaration *decl, LLValue *value);
-#else
-void DtoResolveNestedContext(Loc loc, ClassDeclaration *decl, LLValue *value);
-#endif
 
 /// Gets the context value for a call to a nested function or creating a nested
 /// class or struct with arbitrary nesting.

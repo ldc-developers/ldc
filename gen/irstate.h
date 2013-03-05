@@ -73,10 +73,8 @@ struct IRScope
 
     const IRScope& operator=(const IRScope& rhs);
 
-#if DMDV2
     // list of variables needing destruction
     std::vector<VarDeclaration*> varsInScope;
-#endif
 };
 
 struct IRBuilderHelper
@@ -159,9 +157,7 @@ struct IRState
     // basic block scopes
     std::vector<IRScope> scopes;
     IRScope& scope();
-#if DMDV2
     std::vector<VarDeclaration*> &varsInScope() { return scope().varsInScope; }
-#endif
     llvm::BasicBlock* scopebb();
     llvm::BasicBlock* scopeend();
     bool scopereturned();
@@ -193,12 +189,10 @@ struct IRState
     typedef std::list<VarDeclaration*> GatesList;
     FuncDeclList ctors;
     FuncDeclList dtors;
-#if DMDV2
     FuncDeclList sharedCtors;
     FuncDeclList sharedDtors;
     GatesList gates;
     GatesList sharedGates;
-#endif
     FuncDeclList unitTests;
 
     // all template instances that had members emitted

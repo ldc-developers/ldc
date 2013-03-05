@@ -124,16 +124,12 @@ void VarDeclaration::codegen(Ir* p)
         ad->codegen(p);
 
     // global variable
-#if DMDV2
     // taken from dmd2/structs
     if (isDataseg() || (storage_class & (STCconst | STCimmutable) && init))
-#else
-    if (isDataseg())
-#endif
     {
         Logger::println("data segment");
 
-    #if DMDV2 && 0 // TODO:
+    #if 0 // TODO:
         assert(!(storage_class & STCmanifest) &&
             "manifest constant being codegen'd!");
     #endif
@@ -147,12 +143,8 @@ void VarDeclaration::codegen(Ir* p)
 
         Logger::println("parent: %s (%s)", parent->toChars(), parent->kind());
 
-    #if DMDV2
         // not sure why this is only needed for d2
         bool _isconst = isConst() && init;
-    #else
-        bool _isconst = isConst();
-    #endif
 
         Logger::println("Creating global variable");
 
@@ -260,10 +252,8 @@ void TemplateInstance::codegen(Ir* p)
 #if LOG
     printf("TemplateInstance::codegen('%s', this = %p)\n", toChars(), this);
 #endif
-#if DMDV2
     if (ignore)
         return;
-#endif
 
     if (!errors && members)
     {

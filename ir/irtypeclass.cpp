@@ -323,7 +323,6 @@ std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, Array* vtbl_arr
 
         IF_LOG Logger::println("Adding type of %s", fd->toPrettyChars());
 
-#if DMDV2
         // If inferring return type and semantic3 has not been run, do it now.
         // This pops up in some other places in the frontend as well, however
         // it is probably a bug that it still occurs that late.
@@ -336,7 +335,6 @@ std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, Array* vtbl_arr
             if (spec && global.errors != olderrs)
                 spec->errors = global.errors - olderrs;
         }
-#endif
 
         if (!fd->type->nextOf()) {
             // Return type of the function has not been inferred. This seems to

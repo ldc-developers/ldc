@@ -44,10 +44,9 @@ struct PPC64TargetABI : TargetABI {
 
     bool returnInArg(TypeFunction* tf)
     {
-#if DMDV2
         if (tf->isref)
             return false;
-#endif
+
         // Return structs and static arrays on the stack. The latter is needed
         // because otherwise LLVM tries to actually return the array in a number
         // of physical registers, which leads, depending on the target, to

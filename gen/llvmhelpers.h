@@ -166,9 +166,7 @@ size_t realignOffset(size_t offset, Type* type);
 /// functions without problems.
 LLValue* makeLValue(Loc& loc, DValue* value);
 
-#if DMDV2
 void callPostblit(Loc &loc, Expression *exp, LLValue *val);
-#endif
 
 /// Returns whether the given variable is a DMD-internal "ref variable".
 ///
