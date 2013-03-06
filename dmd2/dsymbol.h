@@ -82,14 +82,11 @@ struct DeleteDeclaration;
 struct HdrGenState;
 struct OverloadSet;
 struct AA;
-#if TARGET_NET
-struct PragmaScope;
-#endif
+struct JsonOut;
 #if IN_LLVM
 struct TypeInfoDeclaration;
 struct ClassInfoDeclaration;
 #endif
-
 #ifdef IN_GCC
 union tree_node;
 typedef union tree_node TYPE;
@@ -153,6 +150,7 @@ struct Dsymbol : Object
     bool errors;                // this symbol failed to pass semantic()
     char *depmsg;               // customized deprecation message
     Expressions *userAttributes;        // user defined attributes from UserAttributeDeclaration
+    UnitTestDeclaration *unittest; // !=NULL means there's a unittest associated with this symbol
 
     Dsymbol();
     Dsymbol(Identifier *);
@@ -198,7 +196,8 @@ struct Dsymbol : Object
     virtual void toHBuffer(OutBuffer *buf, HdrGenState *hgs);
     virtual void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     virtual void toDocBuffer(OutBuffer *buf, Scope *sc);
-    virtual void toJsonBuffer(OutBuffer *buf);
+    virtual void toJson(JsonOut *json);
+    virtual void jsonProperties(JsonOut *json);
     virtual unsigned size(Loc loc);
     virtual int isforwardRef();
     virtual void defineRef(Dsymbol *s);
@@ -216,7 +215,7 @@ struct Dsymbol : Object
     virtual LabelDsymbol *isLabel();            // is this a LabelDsymbol?
     virtual AggregateDeclaration *isMember();   // is this symbol a member of an AggregateDeclaration?
     virtual Type *getType();                    // is this a type?
-    virtual char *mangle();
+    virtual char *mangle(bool isv = false);
     virtual int needThis();                     // need a 'this' pointer?
     virtual enum PROT prot();
     virtual Dsymbol *syntaxCopy(Dsymbol *s);    // copy only syntax trees
@@ -285,12 +284,10 @@ struct Dsymbol : Object
     virtual StaticStructInitDeclaration *isStaticStructInitDeclaration() { return NULL; }
     virtual AttribDeclaration *isAttribDeclaration() { return NULL; }
     virtual OverloadSet *isOverloadSet() { return NULL; }
+#if IN_LLVM
     virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return NULL; }
     virtual ClassInfoDeclaration* isClassInfoDeclaration() { return NULL; }
-#if TARGET_NET
-    virtual PragmaScope* isPragmaScope() { return NULL; }
-#endif
-#if IN_LLVM
+
     /// Codegen traversal
     virtual void codegen(Ir* ir);
 

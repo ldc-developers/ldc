@@ -609,14 +609,17 @@ void ClassDeclaration::semantic(Scope *sc)
 
     if (isCOMclass())
     {
-#if _WIN32
-        sc->linkage = LINKwindows;
+#if IN_LLVM
+        if (global.params.targetTriple.isOSWindows())
 #else
-        /* This enables us to use COM objects under Linux and
-         * work with things like XPCOM
-         */
-        sc->linkage = LINKc;
+        if (global.params.isWindows)
 #endif
+            sc->linkage = LINKwindows;
+        else
+            /* This enables us to use COM objects under Linux and
+             * work with things like XPCOM
+             */
+            sc->linkage = LINKc;
     }
     sc->protection = PROTpublic;
     sc->explicitProtection = 0;
@@ -794,27 +797,11 @@ void ClassDeclaration::semantic(Scope *sc)
     dtor = buildDtor(sc);
     if (Dsymbol *assign = search_function(this, Id::assign))
     {
-        Expression *e = new NullExp(loc, type); // dummy rvalue
-        Expressions *arguments = new Expressions();
-        arguments->push(e);
-
-        // check identity opAssign exists
-        FuncDeclaration *fd = assign->isFuncDeclaration();
-        if (fd)
-        {   fd = fd->overloadResolve(loc, e, arguments, 1);
-            if (fd && !(fd->storage_class & STCdisable))
-                goto Lassignerr;
+        if (FuncDeclaration *f = hasIdentityOpAssign(sc, assign))
+        {
+            if (!(f->storage_class & STCdisable))
+                error("identity assignment operator overload is illegal");
         }
-
-        if (TemplateDeclaration *td = assign->isTemplateDeclaration())
-        {   fd = td->deduceFunctionTemplate(sc, loc, NULL, e, arguments, 1+2);
-            if (fd && !(fd->storage_class & STCdisable))
-                goto Lassignerr;
-        }
-
-Lassignerr:
-        if (fd && !(fd->storage_class & STCdisable))
-            error("identity assignment operator overload is illegal");
     }
     sc->pop();
 
@@ -1664,6 +1651,7 @@ int BaseClass::fillVtbl(ClassDeclaration *cd, FuncDeclarations *vtbl, int newins
         assert(ifd);
         // Find corresponding function in this class
         tf = (ifd->type->ty == Tfunction) ? (TypeFunction *)(ifd->type) : NULL;
+        assert(tf);  // should always be non-null
         fd = cd->findFunc(ifd->ident, tf);
         if (fd && !fd->isAbstract())
         {
@@ -1687,8 +1675,10 @@ int BaseClass::fillVtbl(ClassDeclaration *cd, FuncDeclarations *vtbl, int newins
             //printf("            not found\n");
             // BUG: should mark this class as abstract?
             if (!cd->isAbstract())
-                cd->error("interface function %s.%s isn't implemented",
-                    id->toChars(), ifd->ident->toChars());
+                cd->error("interface function %s.%s%s isn't implemented",
+                    id->toChars(), ifd->ident->toChars(),
+                    Parameter::argsTypesToChars(tf->parameters, tf->varargs));
+
             fd = NULL;
         }
         if (vtbl)

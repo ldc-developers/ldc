@@ -123,7 +123,6 @@ struct ArrayInitializer : Initializer
 
 #if IN_DMD
     dt_t *toDt();
-    dt_t *toDtBit();    // for bit arrays
 #endif
 
     ArrayInitializer *isArrayInitializer() { return this; }
