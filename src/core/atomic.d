@@ -266,18 +266,18 @@ else version( LDC )
 
     deprecated alias MemoryOrder msync;
 
-    private AtomicOrdering getOrdering(MemoryOrder ms) pure
+    template _ordering(MemoryOrder ms)
     {
-        if (ms == MemoryOrder.acq)
-            return AtomicOrdering.Acquire;
-        else if (ms == MemoryOrder.rel)
-            return AtomicOrdering.Release;
-        else if (ms == MemoryOrder.seq)
-            return AtomicOrdering.SequentiallyConsistent;
-        else if (ms == MemoryOrder.raw)
-            return AtomicOrdering.NotAtomic;
+        static if (ms == MemoryOrder.acq)
+            enum _ordering = AtomicOrdering.Acquire;
+        else static if (ms == MemoryOrder.rel)
+            enum _ordering = AtomicOrdering.Release;
+        else static if (ms == MemoryOrder.seq)
+            enum _ordering = AtomicOrdering.SequentiallyConsistent;
+        else static if (ms == MemoryOrder.raw)
+            enum _ordering = AtomicOrdering.NotAtomic;
         else
-            assert(0);
+            static assert(0);
     }
 
     template _passAsSizeT(T)
@@ -301,7 +301,7 @@ else version( LDC )
     HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val )
         if(!__traits(isFloating, T))
     {
-        enum ordering = getOrdering(ms == MemoryOrder.acq ? MemoryOrder.seq : ms);
+        enum ordering = _ordering!(ms == MemoryOrder.acq ? MemoryOrder.seq : ms);
         static if (_passAsSizeT!T)
         {
             return cast(HeadUnshared!(T))cast(void*)llvm_atomic_load!(size_t)(cast(shared(size_t)*)&val, ordering);
@@ -342,7 +342,7 @@ else version( LDC )
     void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval )
         if(!__traits(isFloating, T) && __traits(compiles, mixin("val = newval")))
     {
-        enum ordering = getOrdering(ms == MemoryOrder.rel ? MemoryOrder.seq : ms);
+        enum ordering = _ordering!(ms == MemoryOrder.rel ? MemoryOrder.seq : ms);
         static if (_passAsSizeT!T)
         {
             llvm_atomic_store!(size_t)(cast(size_t)newval, cast(shared(size_t)*)&val, ordering);
