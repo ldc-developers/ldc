@@ -1,2 +1,0 @@
-[Environment]
-DFLAGS=-I@RUNTIME_DIR@ -I@RUNTIME_DIR@/lib/common -L-L@CMAKE_INSTALL_LIBDIR@ -d-version=Tango -defaultlib=@RUNTIME_AIO@ -debuglib=@RUNTIME_AIO@
