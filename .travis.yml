@@ -4,7 +4,6 @@ install:
   - sudo apt-get update -qq
   - sudo apt-get install -qq $LLVM_PACKAGE libconfig++8-dev
 env:
-  - DVER=1 LLVM_PACKAGE=llvm-3.1 LLVM_VERSION=3.1
   - DVER=2 LLVM_PACKAGE=llvm-3.0-dev LLVM_VERSION=3.0 TESTSUITE_FILTER=debug
   - DVER=2 LLVM_PACKAGE=llvm-3.0-dev LLVM_VERSION=3.0 TESTSUITE_FILTER=release
   - DVER=2 LLVM_PACKAGE=llvm-3.1 LLVM_VERSION=3.1 TESTSUITE_FILTER=debug

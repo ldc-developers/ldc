@@ -56,10 +56,7 @@
 #endif
 #endif
 
-#if DMDV2
 #define NEW_MODULEINFO_LAYOUT 1
-#endif
-
 
 static llvm::Function* build_module_function(const std::string &name, const std::list<FuncDeclaration*> &funcs,
                                              const std::list<VarDeclaration*> &gates = std::list<VarDeclaration*>())
@@ -116,11 +113,7 @@ llvm::Function* build_module_ctor()
     std::string name("_D");
     name.append(gIR->dmodule->mangle());
     name.append("6__ctorZ");
-#if DMDV2
     return build_module_function(name, gIR->ctors, gIR->gates);
-#else
-    return build_module_function(name, gIR->ctors);
-#endif
 }
 
 // build module dtor
@@ -143,8 +136,6 @@ static llvm::Function* build_module_unittest()
     return build_module_function(name, gIR->unitTests);
 }
 
-#if DMDV2
-
 // build module shared ctor
 
 llvm::Function* build_module_shared_ctor()
@@ -164,8 +155,6 @@ static llvm::Function* build_module_shared_dtor()
     name.append("13__shared_dtorZ");
     return build_module_function(name, gIR->sharedDtors);
 }
-
-#endif
 
 // build ModuleReference and register function, to register the module info in the global linked list
 static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
@@ -372,11 +361,7 @@ void Module::genmoduleinfo()
     // check for patch
     else
     {
-#if DMDV2
         unsigned sizeof_ModuleInfo = 16 * PTRSIZE;
-#else
-        unsigned sizeof_ModuleInfo = 14 * PTRSIZE;
-#endif
         if (sizeof_ModuleInfo != moduleinfo->structsize)
         {
             error("object.d ModuleInfo class is incorrect");
@@ -606,20 +591,12 @@ void Module::genmoduleinfo()
     LLType* fnptrTy = getPtrToType(LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false));
 
     // ctor
-#if DMDV2
     llvm::Function* fctor = build_module_shared_ctor();
-#else
-    llvm::Function* fctor = build_module_ctor();
-#endif
     c = fctor ? fctor : getNullValue(fnptrTy);
     b.push(c);
 
     // dtor
-#if DMDV2
     llvm::Function* fdtor = build_module_shared_dtor();
-#else
-    llvm::Function* fdtor = build_module_dtor();
-#endif
     c = fdtor ? fdtor : getNullValue(fnptrTy);
     b.push(c);
 
@@ -636,8 +613,6 @@ void Module::genmoduleinfo()
     c = getNullValue(fnptrTy);
     b.push(c);
 
-#if DMDV2
-
     // tls ctor
     fctor = build_module_ctor();
     c = fctor ? fctor : getNullValue(fnptrTy);
@@ -652,8 +627,6 @@ void Module::genmoduleinfo()
     LLType* AT = llvm::ArrayType::get(getVoidPtrType(), 2);
     c = getNullValue(AT);
     b.push(c);
-
-#endif
 
 #endif
 

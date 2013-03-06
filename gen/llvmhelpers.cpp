@@ -71,12 +71,10 @@ void DtoDeleteClass(LLValue* inst)
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delclass");
     // build args
     LLSmallVector<LLValue*,1> arg;
-#if DMDV2
     // druntime wants a pointer to object
     LLValue *ptr = DtoRawAlloca(inst->getType(), 0, "objectPtr");
     DtoStore(inst, ptr);
     inst = ptr;
-#endif
     arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
     // call
     gIR->CreateCallOrInvoke(fn, arg);
@@ -93,8 +91,6 @@ void DtoDeleteInterface(LLValue* inst)
     gIR->CreateCallOrInvoke(fn, arg);
 }
 
-#if DMDV2
-
 void DtoDeleteArray(DValue* arr)
 {
     // get runtime function
@@ -108,24 +104,6 @@ void DtoDeleteArray(DValue* arr)
     // call
     gIR->CreateCallOrInvoke(fn, arg);
 }
-
-#else
-
-void DtoDeleteArray(DValue* arr)
-{
-    // get runtime function
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delarray");
-
-    // build args
-    LLSmallVector<LLValue*,2> arg;
-    arg.push_back(DtoArrayLen(arr));
-    arg.push_back(DtoBitCast(DtoArrayPtr(arr), getVoidPtrType(), ".tmp"));
-
-    // call
-    gIR->CreateCallOrInvoke(fn, arg);
-}
-
-#endif
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
@@ -416,7 +394,6 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
             if (t->nextOf()->toBasetype()->equals(t2)) {
                 DtoArrayInit(loc, lhs, rhs, op);
             }
-#if DMDV2
             else if (DtoArrayElementType(t)->equals(stripModifiers(t2))) {
                 DtoArrayInit(loc, s, rhs, op);
             }
@@ -425,7 +402,6 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
             ) {
                 DtoArrayAssign(s, rhs, op);
             }
-#endif
             else if (DSliceValue *s2 = rhs->isSlice()) {
                 DtoArrayCopySlices(s, s2);
             }
@@ -456,7 +432,6 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
         if (t->nextOf()->toBasetype()->equals(t2)) {
             DtoArrayInit(loc, lhs, rhs, op);
         }
-#if DMDV2
         else if (DtoArrayElementType(t)->equals(stripModifiers(t2))) {
             DtoArrayInit(loc, lhs, rhs, op);
         }
@@ -465,7 +440,6 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
         ) {
             DtoArrayAssign(lhs, rhs, op);
         }
-#endif
         // T[n] = T[n]
         else if (DtoType(lhs->getType()) == DtoType(rhs->getType())) {
             DtoStaticArrayCopy(lhs->getLVal(), rhs->getRVal());
@@ -772,7 +746,6 @@ DValue* DtoCastNull(Loc& loc, DValue* val, Type* to)
     }
 }
 
-#if DMDV2
 DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
 {
     assert(val->getType()->toBasetype()->ty == Tvector);
@@ -828,19 +801,16 @@ DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
         fatal();
     }
 }
-#endif
 
 DValue* DtoCast(Loc& loc, DValue* val, Type* to)
 {
     Type* fromtype = val->getType()->toBasetype();
     Type* totype = to->toBasetype();
 
-#if DMDV2
     if (fromtype->ty == Taarray)
         fromtype = static_cast<TypeAArray*>(fromtype)->getImpl()->type;
     if (totype->ty == Taarray)
         totype = static_cast<TypeAArray*>(totype)->getImpl()->type;
-#endif
 
     if (fromtype->equals(totype))
         return val;
@@ -848,12 +818,10 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
     Logger::println("Casting from '%s' to '%s'", fromtype->toChars(), to->toChars());
     LOG_SCOPE;
 
-#if DMDV2
     if (fromtype->ty == Tvector) {
         return DtoCastVector(loc, val, to);
     }
     else
-#endif
     if (fromtype->isintegral()) {
         return DtoCastInt(loc, val, to);
     }
@@ -967,13 +935,11 @@ TemplateInstance* DtoIsTemplateInstance(Dsymbol* s, bool checkLiteralOwner)
     if (!s) return NULL;
     if (s->isTemplateInstance() && !s->isTemplateMixin())
         return s->isTemplateInstance();
-#if DMDV2
     if (FuncLiteralDeclaration* fld = s->isFuncLiteralDeclaration())
     {
         if (checkLiteralOwner && fld->owningTemplate)
             return fld->owningTemplate;
     }
-#endif
     if (s->parent)
         return DtoIsTemplateInstance(s->parent, checkLiteralOwner);
     return NULL;
@@ -1061,11 +1027,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
 
     Logger::println("vdtype = %s", vd->type->toChars());
 
-#if DMDV2
     if (vd->nestedrefs.dim)
-#else
-    if (vd->nestedref)
-#endif
     {
         Logger::println("has nestedref set (referenced by nested function/delegate)");
         assert(vd->ir.irLocal && "irLocal is expected to be already set by DtoCreateNestedContext");
@@ -1075,7 +1037,6 @@ void DtoVarDeclaration(VarDeclaration* vd)
     {
         // Nothing to do if it has already been allocated.
     }
-#if DMDV2
     /* Named Return Value Optimization (NRVO):
         T f(){
             T ret;        // &ret == hidden pointer
@@ -1088,12 +1049,10 @@ void DtoVarDeclaration(VarDeclaration* vd)
         vd->ir.irLocal = new IrLocal(vd);
         vd->ir.irLocal->value = gIR->func()->retArg;
     }
-#endif
     // normal stack variable, allocate storage on the stack if it has not already been done
     else {
         vd->ir.irLocal = new IrLocal(vd);
 
-#if DMDV2
         /* NRVO again:
             T t = f();    // t's memory address is taken hidden pointer
         */
@@ -1123,7 +1082,6 @@ void DtoVarDeclaration(VarDeclaration* vd)
                 }
             }
         }
-#endif
 
         Type* type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
         LLType* lltype = DtoType(type);
@@ -1144,7 +1102,6 @@ void DtoVarDeclaration(VarDeclaration* vd)
 
     DtoInitializer(vd->ir.irLocal->value, vd->init); // TODO: Remove altogether?
 
-#if DMDV2
 Lexit:
     /* Mark the point of construction of a variable that needs to be destructed.
      */
@@ -1153,7 +1110,6 @@ Lexit:
         // Put vd on list of things needing destruction
         gIR->varsInScope().push_back(vd);
     }
-#endif
 }
 
 DValue* DtoDeclarationExp(Dsymbol* declaration)
@@ -1285,11 +1241,7 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
     }
 
     // referenced by nested function?
-#if DMDV2
     if (var->nestedrefs.dim)
-#else
-    if (var->nestedref)
-#endif
     {
         assert(var->ir.irLocal);
         if(!var->ir.irLocal->value)
@@ -1508,13 +1460,8 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
 
 LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
 {
-#if DMDV2
     Type* expbase = stripModifiers(exp->type->toBasetype())->merge();
     Type* base = stripModifiers(type->toBasetype())->merge();
-#else
-    Type* expbase = exp->type->toBasetype();
-    Type* base = type->toBasetype();
-#endif
 
     // if not the same basetypes, we won't get the same llvm types either
     if (!expbase->equals(base))
@@ -1529,7 +1476,6 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
             return expand_to_sarray(base, exp);
         }
 
-#if DMDV2
         if (base->ty == Tvector)
         {
             LLConstant* val = exp->toConstElem(gIR);
@@ -1541,7 +1487,6 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
             return llvm::ConstantVector::getSplat(tv->size(loc), val);
 #endif
         }
-#endif
 
         error(loc, "LDC internal error: cannot yet convert default initializer %s of type %s to %s",
             exp->toChars(), exp->type->toChars(), type->toChars());
@@ -1793,13 +1738,9 @@ size_t realignOffset(size_t offset, Type* type)
 
 Type * stripModifiers( Type * type )
 {
-#if DMDV2
     if (type->ty == Tfunction)
         return type;
     return type->castMod(0);
-#else
-    return type;
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1839,7 +1780,6 @@ LLValue* makeLValue(Loc& loc, DValue* value)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#if DMDV2
 void callPostblit(Loc &loc, Expression *exp, LLValue *val)
 {
 
@@ -1859,7 +1799,6 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val)
         }
     }
 }
-#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

@@ -83,11 +83,10 @@ void ReturnStatement::toIR(IRState* p)
             DValue* e = exp->toElemDtor(p);
             // store return value
             DtoAssign(loc, rvar, e);
-#if DMDV2
+
             // call postblit if necessary
             if (!p->func()->type->isref && !(f->decl->nrvo_can && f->decl->nrvo_var))
                 callPostblit(loc, exp, rvar->getLVal());
-#endif
 
             // emit scopes
             DtoEnclosingHandlers(loc, NULL);
@@ -108,7 +107,6 @@ void ReturnStatement::toIR(IRState* p)
             } else {
                 if (exp->op == TOKnull)
                     exp->type = p->func()->type->next;
-#if DMDV2
                 DValue* dval = 0;
                 // call postblit if necessary
                 if (!p->func()->type->isref) {
@@ -120,10 +118,6 @@ void ReturnStatement::toIR(IRState* p)
                 }
                 // do abi specific transformations on the return value
                 v = p->func()->type->fty.putRet(exp->type, dval);
-#else
-                DValue* dval = exp->toElemDtor(p);
-                v = p->func()->type->fty.putRet(exp->type, dval);
-#endif
             }
 
             if (Logger::enabled())
@@ -137,9 +131,7 @@ void ReturnStatement::toIR(IRState* p)
             int ty = f->type->next->toBasetype()->ty;
             if (v->getType() != p->topfunc()->getReturnType() &&
                 (ty == Tstruct
-#if DMDV2
                  || ty == Tsarray
-#endif
                  ) && isaPointer(v->getType()))
             {
                 Logger::println("Loading value for return");
@@ -214,8 +206,6 @@ void ExpStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
-#if DMDV2
-
 void DtorExpStatement::toIR(IRState *irs)
 {
     assert(irs->func());
@@ -232,8 +222,6 @@ void DtorExpStatement::toIR(IRState *irs)
         ExpStatement::toIR(irs);
     }
 }
-
-#endif
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -1290,8 +1278,6 @@ void ForeachStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
-#if DMDV2
-
 void ForeachRangeStatement::toIR(IRState* p)
 {
     Logger::println("ForeachRangeStatement::toIR(): %s", loc.toChars());
@@ -1393,8 +1379,6 @@ void ForeachRangeStatement::toIR(IRState* p)
     // END
     p->scope() = IRScope(endbb,oldend);
 }
-
-#endif // D2
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -1627,16 +1611,10 @@ void SwitchErrorStatement::toIR(IRState* p)
 
     std::vector<LLValue*> args;
 
-#if DMDV2
     // module param
     LLValue *moduleInfoSymbol = gIR->func()->decl->getModule()->moduleInfoSymbol();
     LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
     args.push_back(DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)));
-#else
-    // file param
-    IrModule* irmod = getIrModule(NULL);
-    args.push_back(DtoLoad(irmod->fileName));
-#endif
 
     // line param
     LLConstant* c = DtoConstUint(loc.linnum);
@@ -1645,19 +1623,13 @@ void SwitchErrorStatement::toIR(IRState* p)
     // call
     LLCallSite call = gIR->CreateCallOrInvoke(fn, args);
     call.setDoesNotReturn();
-
-#if DMDV1
-    gIR->ir->CreateUnreachable();
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-#if DMDV2
 void ImportStatement::toIR(IRState *irs)
 {
 }
-#endif
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -1693,10 +1665,7 @@ STUBST(Statement);
 //STUBST(GotoStatement);
 //STUBST(UnrolledLoopStatement);
 //STUBST(OnScopeStatement);
-
-#if DMDV2
 STUBST(PragmaStatement);
-#endif
 
 //////////////////////////////////////////////////////////////////////////////
 

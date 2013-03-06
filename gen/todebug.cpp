@@ -298,11 +298,7 @@ static llvm::DIType dwarfCompositeType(Type* type)
 
 static llvm::DIGlobalVariable dwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd)
 {
-#if DMDV2
     assert(vd->isDataseg() || (vd->storage_class & (STCconst | STCimmutable) && vd->init));
-#else
-    assert(vd->isDataseg());
-#endif
 
     return gIR->dibuilder.createGlobalVariable(
         vd->toChars(), // name TODO: mangle() or toPrettyChars() instead?

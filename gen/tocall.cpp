@@ -135,11 +135,7 @@ static LLValue *fixArgument(DValue *argval, TypeFunction* tf, LLType *callableAr
     // pointer to a struct, load from it before passing it in.
     int ty = argval->getType()->toBasetype()->ty;
     if (isaPointer(arg) && !isaPointer(callableArgType) &&
-#if DMDV2
         (ty == Tstruct || ty == Tsarray))
-#else
-        ty == Tstruct)
-#endif
     {
         Logger::println("Loading struct type for function argument");
         arg = DtoLoad(arg);
@@ -408,7 +404,6 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // then comes a context argument...
     if(thiscall || delegatecall || nestedcall)
     {
-#if DMDV2
         if (dfnval && (dfnval->func->ident == Id::ensure || dfnval->func->ident == Id::require)) {
             // ... which can be the this "context" argument for a contract
             // invocation (in D2, we do not generate a full nested contexts
@@ -420,7 +415,6 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             args.push_back(thisarg);
         }
         else
-#endif
         if (thiscall && dfnval && dfnval->vthis)
         {
             // ... or a normal 'this' argument
@@ -630,9 +624,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // a stack slot before continuing.
     int ty = tf->next->toBasetype()->ty;
     if ((ty == Tstruct && !isaPointer(retllval))
-#if DMDV2
         || (ty == Tsarray && isaArray(retllval))
-#endif
         )
     {
         Logger::println("Storing return value to stack slot");
@@ -652,11 +644,9 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             switch(rbase->ty)
             {
             case Tarray:
-            #if DMDV2
                 if (tf->isref)
                     retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
                 else
-            #endif
                 retllval = DtoAggrPaint(retllval, DtoType(rbase));
                 break;
 
@@ -667,15 +657,12 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             case Tclass:
             case Taarray:
             case Tpointer:
-            #if DMDV2
                 if (tf->isref)
                     retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
                 else
-            #endif
                 retllval = DtoBitCast(retllval, DtoType(rbase));
                 break;
 
-#if DMDV2
             case Tstruct:
                 if (nextbase->ty == Taarray && !tf->isref)
                 {
@@ -694,7 +681,6 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
                     break;
                 }
                 // Fall through.
-#endif
 
             default:
                 // Unfortunately, DMD has quirks resp. bugs with regard to name
@@ -766,9 +752,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // or if we are returning a reference
     // make sure we provide a lvalue back!
     if (retinptr
-#if DMDV2
         || tf->isref
-#endif
         )
         return new DVarValue(resulttype, retllval);
 

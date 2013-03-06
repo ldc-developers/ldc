@@ -439,15 +439,12 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
     Type* rt = tf->next->toBasetype();
 
     if (tf->linkage == LINKd) {
-#if DMDV2
         if (tf->isref)
             return false;
-#endif
+
         // All non-structs can be returned in registers.
         return rt->ty == Tstruct
-#if SARRAYVALUE
             || rt->ty == Tsarray
-#endif
         ;
     } else {
         if (rt == Type::tvoid || keepUnchanged(rt))
