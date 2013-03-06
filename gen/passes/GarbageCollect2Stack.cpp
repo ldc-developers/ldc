@@ -359,12 +359,7 @@ GarbageCollect2Stack::GarbageCollect2Stack()
 : FunctionPass(ID),
   AllocMemoryT(0, true, false),
   NewArrayVT(0, true, false, false, 1),
-#ifdef DMDV1
-  // _d_newarrayT returns just the void* ptr in the LDC D1 runtime.
-  NewArrayT(0, true, false, true, 1)
-#else
   NewArrayT(0, true, true, true, 1)
-#endif
 {
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
     KnownFunctions["_d_newarrayvT"] = &NewArrayVT;

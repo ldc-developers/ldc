@@ -185,7 +185,6 @@ LLConstant * IrStruct::getVtblInit()
             fd->codegen(Type::sir);
             assert(fd->ir.irFunc && "invalid vtbl function");
             c = fd->ir.irFunc->func;
-#if DMDV2
             if (cd->isFuncHidden(fd))
             {   /* fd is hidden from the view of this class.
                  * If fd overlaps with any function in the vtbl[], then
@@ -218,7 +217,6 @@ LLConstant * IrStruct::getVtblInit()
                     }
                 }
             }
-#endif
         }
         constants.push_back(c);
     }

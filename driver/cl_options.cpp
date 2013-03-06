@@ -31,12 +31,6 @@ cl::list<std::string> runargs("run",
     cl::Positional,
     cl::PositionalEatsArgs);
 
-#if DMDV1
-static cl::opt<bool, true> useDeprecated("d",
-    cl::desc("Allow deprecated language features"),
-    cl::ZeroOrMore,
-    cl::location(global.params.useDeprecated));
-#else
 static cl::opt<ubyte, true> useDeprecated(
     cl::desc("Allow deprecated code/language features:"),
     cl::ZeroOrMore,
@@ -47,14 +41,11 @@ static cl::opt<ubyte, true> useDeprecated(
         clEnumValEnd),
     cl::location(global.params.useDeprecated),
     cl::init(2));
-#endif
 
-#if DMDV2
 cl::opt<bool, true> enforcePropertySyntax("property",
     cl::desc("Enforce property syntax"),
     cl::ZeroOrMore,
     cl::location(global.params.enforcePropertySyntax));
-#endif
 
 static cl::opt<ubyte, true> useDv1(
     cl::desc("Force language version:"),

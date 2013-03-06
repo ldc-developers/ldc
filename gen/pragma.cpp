@@ -46,7 +46,6 @@ static bool parseIntExp(Expression* e, dinteger_t& res)
 
 static void pragmaDeprecated(Identifier* oldIdent, Identifier* newIdent)
 {
-#if !DMDV1
     // Do not print a deprecation warning for D1 – we do not want to
     // introduce needless breakage at this stage.
     if (global.params.useDeprecated == 0)
@@ -59,7 +58,6 @@ static void pragmaDeprecated(Identifier* oldIdent, Identifier* newIdent)
         warning("non-vendor-prefixed pragma '%s' is deprecated; use '%s' instead",
                 oldIdent->toChars(), newIdent->toChars());
     }
-#endif
 }
 
 bool matchPragma(Identifier* needle, Identifier* ident, Identifier* oldIdent)
@@ -388,11 +386,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
             TypeFunction* type = static_cast<TypeFunction*>(fd->type);
             Type* retType = type->next;
             if (retType->ty != Tvoid || type->parameters->dim > 0 || (
-#if DMDV2
             fd->isAggregateMember()
-#else
-            fd->isThis()
-#endif
                   && !fd->isStatic())) {
                 error(s->loc, "the '%s' pragma is only allowed on void functions which take no arguments",
                       ident->toChars());

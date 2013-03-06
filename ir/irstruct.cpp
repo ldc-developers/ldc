@@ -67,11 +67,9 @@ LLGlobalVariable * IrStruct::getInitSymbol()
 
     // set alignment
     init->setAlignment(type->alignsize());
-#if DMDV2
     StructDeclaration *sd = aggrdecl->isStructDeclaration();
     if (sd && sd->alignment != STRUCTALIGN_DEFAULT)
         init->setAlignment(sd->alignment);
-#endif
 
     return init;
 }

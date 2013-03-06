@@ -36,12 +36,10 @@ void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src);
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src);
 
 void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op);
-#if DMDV2
 Type *DtoArrayElementType(Type *arrayType);
 bool arrayNeedsPostblit(Type *t);
 void DtoArrayAssign(DValue *from, DValue *to, int op);
 void DtoArraySetAssign(Loc &loc, DValue *array, DValue *value, int op);
-#endif
 void DtoSetArray(DValue* array, LLValue* dim, LLValue* ptr);
 void DtoSetArrayToNull(LLValue* v);
 
@@ -52,9 +50,6 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, llvm::Value* newd
 void DtoCatAssignElement(Loc& loc, Type* type, DValue* arr, Expression* exp);
 DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp);
 DSliceValue* DtoCatArrays(Type* type, Expression* e1, Expression* e2);
-#if DMDV1
-DSliceValue* DtoCatArrayElement(Type* type, Expression* exp1, Expression* exp2);
-#endif
 DSliceValue* DtoAppendDCharToString(DValue* arr, Expression* exp);
 DSliceValue* DtoAppendDCharToUnicodeString(DValue* arr, Expression* exp);
 

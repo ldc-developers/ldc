@@ -137,7 +137,6 @@ LLValue* DtoBinNumericEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op)
 LLValue* DtoBinFloatsEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op)
 {
     LLValue* res = 0;
-#if DMDV2
     if (op == TOKequal) {
         res = gIR->ir->CreateFCmpOEQ(lhs->getRVal(), rhs->getRVal(), "tmp");
     } else if (op == TOKnotequal) {
@@ -153,14 +152,6 @@ LLValue* DtoBinFloatsEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op)
         LLValue* val = DtoMemCmp(makeLValue(loc, lhs), makeLValue(loc, rhs), sz);
         res = gIR->ir->CreateICmp(cmpop, val, LLConstantInt::get(val->getType(), 0, false), "tmp");
     }
-#else
-    LLValue* lv = lhs->getRVal();
-    LLValue* rv = rhs->getRVal();
-    res = (op == TOKidentity || op == TOKequal) ?
-                gIR->ir->CreateFCmpOEQ(lv, rv, "tmp") :
-                gIR->ir->CreateFCmpUNE(lv, rv, "tmp");
-
-#endif
     assert(res);
     return res;
 }
