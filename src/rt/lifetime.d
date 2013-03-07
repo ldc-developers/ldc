@@ -829,6 +829,67 @@ Loverflow:
     assert(0);
 }
 
+
+/**
+ * Allocate a new array of length elements.
+ * ti is the type of the resulting array, or pointer to element.
+ * (The array is not initialized)
+ */
+extern (C) void[] _d_newarrayvT(const TypeInfo ti, size_t length)
+{
+    void[] result;
+    auto size = ti.next.tsize;                  // array element size
+
+    debug(PRINTF) printf("_d_newarrayvT(length = x%x, size = %d)\n", length, size);
+    if (length == 0 || size == 0)
+        result = null;
+    else
+    {
+        version (D_InlineAsm_X86)
+        {
+            asm
+            {
+                mov     EAX,size        ;
+                mul     EAX,length      ;
+                mov     size,EAX        ;
+                jc      Loverflow       ;
+            }
+        }
+        else version(D_InlineAsm_X86_64)
+        {
+            asm
+            {
+                mov     RAX,size        ;
+                mul     RAX,length      ;
+                mov     size,RAX        ;
+                jc      Loverflow       ;
+            }
+        }
+        else
+        {
+            auto newsize = size * length;
+            if (newsize / length != size)
+                goto Loverflow;
+
+            size = newsize;
+        }
+
+        // increase the size by the array pad.
+        auto info = gc_qalloc(size + __arrayPad(size), !(ti.next.flags & 1) ? BlkAttr.NO_SCAN | BlkAttr.APPENDABLE : BlkAttr.APPENDABLE);
+        debug(PRINTF) printf(" p = %p\n", info.base);
+        // update the length of the array
+        auto arrstart = __arrayStart(info);
+        auto isshared = ti.classinfo is TypeInfo_Shared.classinfo;
+        __setArrayAllocLength(info, size, isshared);
+        result = arrstart[0..length];
+    }
+    return result;
+
+Loverflow:
+    onOutOfMemoryError();
+    assert(0);
+}
+
 /**
  * For when the array has a non-zero initializer.
  */
