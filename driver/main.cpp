@@ -51,12 +51,6 @@
 #include <windows.h>
 #endif
 
-#if _WIN32
-#define strcasecmp(s1, s2) _stricmp(s1, s2)
-#else
-#define strcasecmp(s1, s2) strcmp(s1, s2)
-#endif
-
 // Needs Type already declared.
 #include "cond.h"
 
@@ -806,9 +800,9 @@ int main(int argc, char** argv)
             if (strcmp(ext, global.obj_ext) == 0 ||
                 strcmp(ext, global.bc_ext) == 0)
 #else
-            if (strcasecmp(ext, global.obj_ext) == 0 ||
-                strcasecmp(ext, global.obj_ext_alt) == 0 ||
-                strcasecmp(ext, global.bc_ext) == 0)
+            if (Port::stricmp(ext, global.obj_ext) == 0 ||
+                Port::stricmp(ext, global.obj_ext_alt) == 0 ||
+                Port::stricmp(ext, global.bc_ext) == 0)
 #endif
             {
                 global.params.objfiles->push(static_cast<char *>(files.data[i]));
@@ -818,9 +812,9 @@ int main(int argc, char** argv)
 #if POSIX
             if (strcmp(ext, "a") == 0)
 #elif __MINGW32__
-            if (stricmp(ext, "a") == 0)
+            if (Port::stricmp(ext, "a") == 0)
 #else
-            if (strcasecmp(ext, "lib") == 0)
+            if (Port::stricmp(ext, "lib") == 0)
 #endif
             {
                 global.params.libfiles->push(static_cast<char *>(files.data[i]));
@@ -841,27 +835,27 @@ int main(int argc, char** argv)
             }
 
 #if !POSIX
-            if (strcasecmp(ext, "res") == 0)
+            if (Port::stricmp(ext, "res") == 0)
             {
                 global.params.resfile = static_cast<char *>(files.data[i]);
                 continue;
             }
 
-            if (strcasecmp(ext, "def") == 0)
+            if (Port::stricmp(ext, "def") == 0)
             {
                 global.params.deffile = static_cast<char *>(files.data[i]);
                 continue;
             }
 
-            if (strcasecmp(ext, "exe") == 0)
+            if (Port::stricmp(ext, "exe") == 0)
             {
                 global.params.exefile = static_cast<char *>(files.data[i]);
                 continue;
             }
 #endif
 
-            if (strcasecmp(ext, global.mars_ext) == 0 ||
-                strcasecmp(ext, global.hdr_ext) == 0)
+            if (Port::stricmp(ext, global.mars_ext) == 0 ||
+                Port::stricmp(ext, global.hdr_ext) == 0)
             {
                 ext--;          // skip onto '.'
                 assert(*ext == '.');

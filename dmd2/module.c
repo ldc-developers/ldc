@@ -40,12 +40,6 @@
 #include "llvm/Support/CommandLine.h"
 #include <map>
 
-#if _WIN32
-#define strcasecmp(s1, s2) _stricmp(s1, s2)
-#else
-#define strcasecmp(s1, s2) strcmp(s1, s2)
-#endif
-
 static llvm::cl::opt<bool> preservePaths("op",
     llvm::cl::desc("Do not strip paths from source file"),
     llvm::cl::ZeroOrMore);
@@ -213,7 +207,7 @@ File* Module::buildFilePath(const char* forcename, const char* path, const char*
     // allow for .o and .obj on windows
 #if _WIN32
     if (ext == global.params.objdir && FileName::ext(argobj)
-	    && strcasecmp(FileName::ext(argobj), global.obj_ext_alt) == 0)
+	    && Port::stricmp(FileName::ext(argobj), global.obj_ext_alt) == 0)
 	return new File((char*)argobj);
 #endif
     return new File(FileName::forceExt(argobj, ext));
@@ -313,17 +307,17 @@ void Module::buildTargetFiles(bool singleObj)
 		hdrfile = Module::buildFilePath(global.params.hdrname, global.params.hdrdir, global.hdr_ext);
 
 	// safety check: never allow obj, doc or hdr file to have the source file's name
-	if(strcasecmp(FileName::name(objfile->name->str), FileName::name((char*)this->arg)) == 0)
+	if(Port::stricmp(FileName::name(objfile->name->str), FileName::name((char*)this->arg)) == 0)
 	{
 		error("Output object files with the same name as the source file are forbidden");
 		fatal();
 	}
-	if(docfile && strcasecmp(FileName::name(docfile->name->str), FileName::name((char*)this->arg)) == 0)
+	if(docfile && Port::stricmp(FileName::name(docfile->name->str), FileName::name((char*)this->arg)) == 0)
 	{
 		error("Output doc files with the same name as the source file are forbidden");
 		fatal();
 	}
-	if(hdrfile && strcasecmp(FileName::name(hdrfile->name->str), FileName::name((char*)this->arg)) == 0)
+	if(hdrfile && Port::stricmp(FileName::name(hdrfile->name->str), FileName::name((char*)this->arg)) == 0)
 	{
 		error("Output header files with the same name as the source file are forbidden");
 		fatal();
