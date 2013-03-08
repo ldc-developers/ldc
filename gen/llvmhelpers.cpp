@@ -808,7 +808,20 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
     Type* totype = to->toBasetype();
 
     if (fromtype->ty == Taarray)
+    {
+        // DMD allows casting AAs to void*, even if they are internally
+        // implemented as structs.
+        if (totype->ty == Tpointer)
+        {
+            IF_LOG Logger::println("Casting AA to pointer.");
+            LLValue *rval = DtoBitCast(val->getRVal(), DtoType(to));
+            return new DImValue(to, rval);
+        }
+
+        // Else try dealing with the rewritten (struct) type.
         fromtype = static_cast<TypeAArray*>(fromtype)->getImpl()->type;
+    }
+
     if (totype->ty == Taarray)
         totype = static_cast<TypeAArray*>(totype)->getImpl()->type;
 
@@ -821,8 +834,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
     if (fromtype->ty == Tvector) {
         return DtoCastVector(loc, val, to);
     }
-    else
-    if (fromtype->isintegral()) {
+    else if (fromtype->isintegral()) {
         return DtoCastInt(loc, val, to);
     }
     else if (fromtype->iscomplex()) {
