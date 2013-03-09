@@ -340,12 +340,12 @@ char *Port::strupr(char *s)
 
 int Port::memicmp(const char *s1, const char *s2, int n)
 {
-    return ::_memicmp(s1, s2, n);
+    return ::memicmp(s1, s2, n);
 }
 
 int Port::stricmp(const char *s1, const char *s2)
 {
-    return ::_stricmp(s1, s2);
+    return ::stricmp(s1, s2);
 }
 
 #endif
