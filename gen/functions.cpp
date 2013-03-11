@@ -815,6 +815,11 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         }
     }
 
+    if (fdecl->neverInline)
+    {
+        fdecl->ir.irFunc->setNeverInline();
+    }
+
     if (fdecl->llvmInternal == LLVMglobal_crt_ctor || fdecl->llvmInternal == LLVMglobal_crt_dtor)
     {
         AppendFunctionToLLVMGlobalCtorsDtors(func, fdecl->priority, fdecl->llvmInternal == LLVMglobal_crt_ctor);
