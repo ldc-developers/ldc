@@ -11,6 +11,7 @@ env:
 script:
   - cmake -DD_VERSION=$DVER -DLLVM_CONFIG=/usr/bin/llvm-config-$LLVM_VERSION
   - make
+  - bin/ldc2 -version # For environment info.
   - ctest --output-on-failure -R $TESTSUITE_FILTER
 
 notifications:
