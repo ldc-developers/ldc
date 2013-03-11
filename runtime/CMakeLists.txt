@@ -599,7 +599,16 @@ function(add_tests module_files)
         endfunction()
 
         testcase(debug "-g;-d-debug")
-        testcase(release "-O3;-release")
+
+        # Building the std.exception tests on x86_64 triggers an infinite
+        # recursion in scalar evolution on LLVM 3.1 (only), see the list of
+        # known LLVM bugs for details.
+        if(${LDC_LLVM_VER} EQUAL 301 AND ${HOST_BITNESS} EQUAL 64 AND
+            "${testroot}" STREQUAL "phobos_std_exception")
+            testcase(release "-O1;-release")
+        else()
+            testcase(release "-O3;-release")
+        endif()
 
         # On 64 bit multilib builds, run the tests in 32 bit mode as well.
         if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
