@@ -927,10 +927,10 @@ struct FuncDeclaration : Declaration
     // Functions that wouldn't have gotten semantic3'ed if we weren't inlining set this flag.
     bool availableExternally;
 
-    // true if overridden with the pragma(allow_inline); stmt
+    // true if overridden with the pragma(LDC_allow_inline); stmt
     bool allowInlining;
 
-    // true if set with pragma(LDC_no_inline)
+    // true if set with the pragma(LDC_never_inline); stmt
     bool neverInline;
 
     // true if has inline assembler
