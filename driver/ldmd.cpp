@@ -387,6 +387,57 @@ struct Params
     bool run;
     std::vector<char*> files;
     std::vector<char*> runArgs;
+
+  Params()
+    :
+    allowDeprecated(false),
+    compileOnly(false),
+    coverage(false),
+    emitSharedLib(false),
+    pic(false),
+    emitMap(false),
+    multiObj(false),
+    alwaysStackFrame(false),
+    profile(false),
+    verbose(false),
+    vdmd(false),
+    logTlsUse(false),
+    optimize(false),
+    noObj(false),
+    objDir(0),
+    objName(0),
+    preservePaths(false),
+    generateDocs(false),
+    docDir(0),
+    docName(0),
+    generateHeaders(false),
+    headerDir(0),
+    headerName(0),
+    generateJson(false),
+    jsonName(0),
+    ignoreUnsupportedPragmas(false),
+    enforcePropertySyntax(false),
+    enableInline(false),
+    emitStaticLib(false),
+    noFloat(false),
+    quiet(false),
+    release(false),
+    noBoundsChecks(false),
+    emitUnitTests(false),
+    debugFlag(false),
+    debugLevel(0),
+    versionLevel(0),
+    defaultLibName(0),
+    debugLibName(0),
+    moduleDepsFile(0),
+    hiddenDebugB(false),
+    hiddenDebugC(false),
+    hiddenDebugF(false),
+    hiddenDebugR(false),
+    hiddenDebugX(false),
+    hiddenDebugY(false),
+    run(false)
+  { }
 };
 
 /**
