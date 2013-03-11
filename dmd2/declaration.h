@@ -930,6 +930,9 @@ struct FuncDeclaration : Declaration
     // true if overridden with the pragma(allow_inline); stmt
     bool allowInlining;
 
+    // true if set with pragma(LDC_no_inline)
+    bool neverInline;
+
     // true if has inline assembler
     bool inlineAsm;
 #endif
