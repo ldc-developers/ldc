@@ -3135,6 +3135,10 @@ Statement *PragmaStatement::semantic(Scope *sc)
     {
         sc->func->allowInlining = true;
     }
+    else if (ident == Id::LDC_never_inline)
+    {
+        sc->func->neverInline = true;
+    }
 #endif
 #if DMDV2
     else if (ident == Id::startaddress)

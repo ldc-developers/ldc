@@ -4,14 +4,18 @@ LDC – the LLVM D Compiler
 The LDC project aims to provide a portable D programming language
 compiler with modern optimization and code generation capabilities.
 
-The compiler uses the official DMD frontends to support both D1 and D2,
-and relies on the LLVM Core libraries for code generation.
+The compiler uses the official DMD frontends to support the latest
+version of D2, and relies on the LLVM Core libraries for code
+generation.
 
 LDC is fully Open Source; the parts of the code not taken/adapted from
 other projects are BSD-licensed (see the LICENSE file for details).
 
 Please consult the D wiki for further information:
 http://wiki.dlang.org/LDC
+
+D1 is no longer available; see the 'd1' Git branch for the last
+version supporting it.
 
 
 Installation
@@ -36,7 +40,7 @@ For the impatient, a quick guide for building on *nix systems:
 
  3) Build and install LDC:
   $ mkdir build && cd build  # Out-of-source builds are recommended.
-  $ cmake ..  # Use -DD_VERSION=1 to build the D1 compiler.
+  $ cmake ..
   $ make
   $ make install # Or run LDC directly from the bin/ directory.
 
