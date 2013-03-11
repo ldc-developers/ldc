@@ -2957,7 +2957,7 @@ private void* getStackTop()
         {
             import ldc.llvmasm;
             pragma(LDC_allow_inline);
-            return __asm!(void *)("movq %esp, $0", "=r");
+            return __asm!(void *)("movl %esp, $0", "=r");
         }
         else version (D_InlineAsm_X86_64)
         {
