@@ -2945,7 +2945,34 @@ extern (C)
 
 private void* getStackTop()
 {
-    version (D_InlineAsm_X86)
+    version (LDC)
+    {
+        /* The inline assembler is written in a style that the code can be
+         * inlined.
+         * The use of intrinsic llvm_frameaddress is a reasonable default for
+         * cpu architectures without assembler support from LLVM. Because of
+         * the slightly different meaning the code must not be inlined.
+         */
+        version (D_InlineAsm_X86)
+        {
+            import ldc.llvmasm;
+            pragma(LDC_allow_inline);
+            return __asm!(void *)("movq %esp, $0", "=r");
+        }
+        else version (D_InlineAsm_X86_64)
+        {
+            import ldc.llvmasm;
+            pragma(LDC_allow_inline);
+            return __asm!(void *)("movq %rsp, $0", "=r");
+        }
+        else
+        {
+            import ldc.intrinsics;
+            // FIXME Prevent inlining
+            return llvm_frameaddress(0);
+        }
+    }
+    else version (D_InlineAsm_X86)
         asm { naked; mov EAX, ESP; ret; }
     else version (D_InlineAsm_X86_64)
         asm { naked; mov RAX, RSP; ret; }
