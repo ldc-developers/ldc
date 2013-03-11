@@ -40,8 +40,11 @@ For the impatient, a quick guide for building on *nix systems:
   $ make
   $ make install # Or run LDC directly from the bin/ directory.
 
+ 4) Run the test suite to verify your build. Still in the build/ dir:
+  $ ctest --output-on-failure -R release -j8  # adjust 8 to cpu count
+
 In case the above steps do not work, please first visit the extended
-documentation under the aforementioned URL.
+documentation at http://wiki.dlang.org/Building_LDC_from_source.
 
 Some Linux distributions are also packaging a recent version of LDC,
 so building it manually might not be necessary.
