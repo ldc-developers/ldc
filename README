@@ -44,8 +44,18 @@ For the impatient, a quick guide for building on *nix systems:
   $ make
   $ make install # Or run LDC directly from the bin/ directory.
 
+ 4) Run the test suite to verify your build. Still in the build/ dir:
+  $ ctest --output-on-failure -R release -j8  # adjust 8 to cpu count
+
+  # Note: The "-R release" option does speed up testing (so it is
+  # used in the CI builds) by filtering for tests with 'release'
+  # in their name (see: man ctest). However, for better coverage 
+  # (2x more tests, 60% longer to run), ctest without the '-R release'
+  # option. -R <regex> is also useful for running just one test
+  # quickly.
+
 In case the above steps do not work, please first visit the extended
-documentation under the aforementioned URL.
+documentation at http://wiki.dlang.org/Building_LDC_from_source.
 
 Some Linux distributions are also packaging a recent version of LDC,
 so building it manually might not be necessary.
