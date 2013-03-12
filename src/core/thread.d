@@ -2968,7 +2968,7 @@ private void* getStackTop()
         else
         {
             import ldc.intrinsics;
-            // FIXME Prevent inlining
+            pragma(LDC_never_inline);
             return llvm_frameaddress(0);
         }
     }
