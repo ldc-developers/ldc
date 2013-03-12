@@ -2274,6 +2274,17 @@ body
             static assert(false, "Architecture not supported.");
         }
     }
+    else version (PPC64)
+    {
+        version (LDC)
+        {
+            // FIXME Save registers.
+        }
+        else
+        {
+            static assert(false, "Architecture not supported.");
+        }
+    }
     else
     {
         static assert(false, "Architecture not supported.");
@@ -2320,6 +2331,17 @@ body
         {
             import ldc.llvmasm;
             __asm("pop {r0-r12}", "=r");
+        }
+        else
+        {
+            static assert(false, "Architecture not supported.");
+        }
+    }
+    else version (PPC64)
+    {
+        version (LDC)
+        {
+            // FIXME Restore registers.
         }
         else
         {
