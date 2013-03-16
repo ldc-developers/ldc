@@ -983,17 +983,6 @@ int main(int argc, char** argv)
     if (global.errors)
         fatal();
 
-#if !IN_LLVM
-    // Scan for functions to inline
-    if (global.params.useInline)
-    {
-        /* The problem with useArrayBounds and useAssert is that the
-         * module being linked to may not have generated them, so if
-         * we inline functions from those modules, the symbols for them will
-         * not be found at link time.
-         */
-        if (!global.params.useArrayBounds && !global.params.useAssert)
-#else
     // This doesn't play nice with debug info at the moment.
     //
     // Also, don't run the additional semantic3 passes when building unit tests.
@@ -1015,7 +1004,6 @@ int main(int argc, char** argv)
     {
         global.params.useAvailableExternally = true;
         Logger::println("Running some extra semantic3's for inlining purposes");
-#endif
         {
             // Do pass 3 semantic analysis on all imported modules,
             // since otherwise functions in them cannot be inlined
@@ -1030,16 +1018,6 @@ int main(int argc, char** argv)
             if (global.errors)
                 fatal();
         }
-
-#if !IN_LLVM
-        for (int i = 0; i < modules.dim; i++)
-        {
-            m = static_cast<Module *>(modules.data[i]);
-            if (global.params.verbose)
-                printf("inline scan %s\n", m->toChars());
-            m->inlineScan();
-        }
-#endif
     }
     if (global.errors || global.warnings)
         fatal();
