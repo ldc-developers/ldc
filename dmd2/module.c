@@ -750,7 +750,9 @@ void Module::parse()
     {
         comment = buf + 4;
         isDocFile = 1;
-#if IN_DMD
+#if IN_LLVM
+        doDocComment = true;
+#else
         if (!docfile)
             setDocfile();
 #endif
