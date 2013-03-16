@@ -232,8 +232,9 @@ void DtoFinalizeClass(LLValue* inst)
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_callfinalizer");
     // build args
-    LLSmallVector<LLValue*,1> arg;
-    arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
+    LLValue* arg[] = {
+        DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp")
+    };
     // call
     gIR->CreateCallOrInvoke(fn, arg, "");
 }
@@ -369,8 +370,6 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_dynamic_cast");
     LLFunctionType* funcTy = func->getFunctionType();
 
-    std::vector<LLValue*> args;
-
     // Object o
     LLValue* obj = val->getRVal();
     obj = DtoBitCast(obj, funcTy->getParamType(0));
@@ -433,8 +432,6 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_interface_cast");
     LLFunctionType* funcTy = func->getFunctionType();
-
-    std::vector<LLValue*> args;
 
     // void* p
     LLValue* ptr = val->getRVal();

@@ -93,16 +93,15 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
 
         gIR->scope() = IRScope(failbb, okbb);
 
-        std::vector<LLValue*> args;
-
-        // module param
         LLValue *moduleInfoSymbol = gIR->func()->decl->getModule()->moduleInfoSymbol();
         LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
-        args.push_back(DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)));
 
-        // line param
-        LLConstant* c = DtoConstUint(loc.linnum);
-        args.push_back(c);
+        LLValue* args[] = {
+            // module param
+            DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)),
+            // line param
+            DtoConstUint(loc.linnum)
+        };
 
         // call
         llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_bounds");
@@ -201,10 +200,7 @@ DValue *DtoAARemove(Loc& loc, DValue* aa, DValue* key)
     pkey = DtoBitCast(pkey, funcTy->getParamType(2));
 
     // build arg vector
-    LLSmallVector<LLValue*, 3> args;
-    args.push_back(aaval);
-    args.push_back(keyti);
-    args.push_back(pkey);
+    LLValue* args[] = { aaval, keyti, pkey };
 
     // call runtime
     LLCallSite call = gIR->CreateCallOrInvoke(func, args);

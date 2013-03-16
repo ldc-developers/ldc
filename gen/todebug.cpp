@@ -356,9 +356,11 @@ static llvm::DIType dwarfArrayType(Type* type) {
 
     llvm::DIFile file = DtoDwarfFile(Loc(gIR->dmodule, 0));
 
-    std::vector<llvm::Value*> elems;
-    elems.push_back(dwarfMemberType(0, Type::tsize_t, file, "length", 0));
-    elems.push_back(dwarfMemberType(0, t->nextOf()->pointerTo(), file, "ptr", global.params.is64bit?8:4));
+    llvm::Value* elems[] = {
+        dwarfMemberType(0, Type::tsize_t, file, "length", 0),
+        dwarfMemberType(0, t->nextOf()->pointerTo(), file, "ptr",
+                        global.params.is64bit ? 8 : 4)
+    };
 
     return gIR->dibuilder.createStructType
        (

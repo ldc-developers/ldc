@@ -23,10 +23,8 @@ llvm::StructType* DtoComplexType(Type* type)
 {
     Type* t = type->toBasetype();
     LLType* base = DtoComplexBaseType(t);
-    llvm::SmallVector<LLType*, 2> types;
-    types.push_back(base);
-    types.push_back(base);
-    return llvm::StructType::get(gIR->context(), types);
+    LLType* types[] = { base, base };
+    return llvm::StructType::get(gIR->context(), types, false);
 }
 
 LLType* DtoComplexBaseType(Type* t)
@@ -62,11 +60,10 @@ LLConstant* DtoConstComplex(Type* _ty, longdouble re, longdouble im)
     case Tcomplex80: base = Type::tfloat80; break;
     }
 
-    std::vector<LLConstant*> inits;
-    inits.push_back(DtoConstFP(base, re));
-    inits.push_back(DtoConstFP(base, im));
+    LLConstant * inits[] = { DtoConstFP(base, re), DtoConstFP(base, im) };
 
-    return llvm::ConstantStruct::get(DtoComplexType(_ty), inits);
+    return llvm::ConstantStruct::get(DtoComplexType(_ty),
+                                     llvm::ArrayRef<LLConstant *>(inits));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
