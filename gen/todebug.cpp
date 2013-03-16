@@ -475,17 +475,26 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
     Logger::println("D to dwarf subprogram");
     LOG_SCOPE;
 
+    llvm::DICompileUnit CU(gIR->dibuilder.getCU());
+    assert(CU && CU.Verify() && "Compilation unit missing or corrupted");
+
     llvm::DIFile file = DtoDwarfFile(fd->loc);
     Type *retType = static_cast<TypeFunction*>(fd->type)->next;
 
+    // Create "dummy" subroutine type for the return type
+    llvm::SmallVector<llvm::Value*, 16> Elts;
+    Elts.push_back(dwarfTypeDescription(retType, NULL));
+    llvm::DIArray EltTypeArray = gIR->dibuilder.getOrCreateArray(Elts);
+    llvm::DIType DIFnType = gIR->dibuilder.createSubroutineType(file, EltTypeArray);
+
     // FIXME: duplicates ?
     return gIR->dibuilder.createFunction(
-        llvm::DICompileUnit(file), // context
+        CU, // context
         fd->toPrettyChars(), // name
         fd->mangle(), // linkage name
         file, // file
         fd->loc.linnum, // line no
-        dwarfTypeDescription(retType, NULL), // type
+        DIFnType, // type
         fd->protection == PROTprivate, // is local to unit
         gIR->dmodule == getDefinedModule(fd), // isdefinition
 #if LDC_LLVM_VER >= 301
