@@ -306,7 +306,14 @@ int main(int argc, char** argv)
         // we're looking for it anyway, and pre-setting the flag...
         global.params.run = true;
         if (!runargs.empty()) {
-            files.push(mem.strdup(runargs[0].c_str()));
+            char const * name = runargs[0].c_str();
+            char const * ext = FileName::ext(name);
+            if (ext && FileName::equals(ext, "d") == 0 &&
+                FileName::equals(ext, "di") == 0) {
+                error("-run must be followed by a source file, not '%s'", name);
+            }
+
+            files.push(mem.strdup(name));
             runargs.erase(runargs.begin());
         } else {
             global.params.run = false;
