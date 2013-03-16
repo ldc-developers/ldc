@@ -522,7 +522,6 @@ void AsmBlockStatement::toIR(IRState* p)
 {
     Logger::println("AsmBlockStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
-    Logger::println("BEGIN ASM");
 
     // disable inlining by default
     if (!p->func()->decl->allowInlining)
@@ -768,7 +767,6 @@ void AsmBlockStatement::toIR(IRState* p)
     }
 
     p->asmBlock = NULL;
-    Logger::println("END ASM");
 
     // if asm contained external branches, emit goto forwarder code
     if(!gotoToVal.empty())
