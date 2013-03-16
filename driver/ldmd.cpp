@@ -822,7 +822,11 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.jsonName) r.push_back(concat("-Xf=", p.jsonName));
     if (p.ignoreUnsupportedPragmas) r.push_back("-ignore");
     if (p.enforcePropertySyntax) r.push_back("-property");
-    if (p.enableInline) r.push_back("-enable-inlining");
+    if (p.enableInline) {
+        // -inline also influences .di generation with DMD.
+        r.push_back("-enable-inlining");
+        r.push_back("-Hkeep-all-bodies");
+    }
     if (p.emitStaticLib) r.push_back("-lib");
     if (p.noFloat) warning("-nofloat is ignored by LDC.");
     if (p.quiet) r.push_back("-quiet"); // Undocumented.

@@ -282,6 +282,11 @@ struct Param
     char *exefile;
     char *mapfile;
 #if IN_LLVM
+    // Whether to keep all function bodies in .di file generation or to strip
+    // those of plain functions. For DMD, this is govenered by the -inline
+    // flag, which does not directly translate to LDC.
+    bool hdrKeepAllBodies;
+
     // LDC stuff
     OUTPUTFLAG output_ll;
     OUTPUTFLAG output_bc;

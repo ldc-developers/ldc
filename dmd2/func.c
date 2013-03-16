@@ -1948,7 +1948,13 @@ void FuncDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
             bodyToCBuffer(buf, hgs);
             hgs->autoMember--;
         }
-        else if(hgs->tpltMember == 0 && global.params.useInline == 0)
+        else if(hgs->tpltMember == 0 &&
+#if IN_LLVM
+            !global.params.hdrKeepAllBodies
+#else
+            global.params.useInline == 0
+#endif
+        )
             buf->writestring(";");
         else
             bodyToCBuffer(buf, hgs);
@@ -2022,7 +2028,13 @@ int FuncDeclaration::equals(Object *o)
 
 void FuncDeclaration::bodyToCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
-    if (fbody && (!hgs->hdrgen || global.params.useInline || hgs->autoMember || hgs->tpltMember))
+    if (fbody && (!hgs->hdrgen ||
+#if IN_LLVM
+        global.params.hdrKeepAllBodies ||
+#else
+        global.params.useInline ||
+#endif
+        hgs->autoMember || hgs->tpltMember))
     {
         int savetlpt = hgs->tpltMember;
         int saveauto = hgs->autoMember;
