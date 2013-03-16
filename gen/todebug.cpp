@@ -84,28 +84,56 @@ static llvm::DIType dwarfBasicType(Type* type)
     LLType* T = DtoType(type);
 
     // find encoding
-    unsigned id;
-    if (t->isintegral())
+    unsigned Encoding;
+    switch (t->ty)
     {
-        if (type->isunsigned())
-            id = DW_ATE_unsigned;
-        else
-            id = DW_ATE_signed;
-    }
-    else if (t->isfloating())
-    {
-        id = DW_ATE_float;
-    }
-    else
-    {
-        llvm_unreachable("unsupported basic type for debug info");
+    case Tbool:
+        Encoding = DW_ATE_boolean;
+        break;
+    case Tchar:
+    case Twchar:
+    case Tdchar:
+        Encoding = type->isunsigned() ? DW_ATE_unsigned_char
+                                      : DW_ATE_signed_char;
+        break;
+    case Tint8:
+    case Tint16:
+    case Tint32:
+    case Tint64:
+    case Tint128:
+        Encoding = DW_ATE_signed;
+        break;
+    case Tuns8:
+    case Tuns16:
+    case Tuns32:
+    case Tuns64:
+    case Tuns128:
+        Encoding = DW_ATE_unsigned;
+        break;
+    case Tfloat32:
+    case Tfloat64:
+    case Tfloat80:
+        Encoding = DW_ATE_float;
+        break;
+    case Timaginary32:
+    case Timaginary64:
+    case Timaginary80:
+        Encoding = DW_ATE_imaginary_float;
+        break;
+    case Tcomplex32:
+    case Tcomplex64:
+    case Tcomplex80:
+        Encoding = DW_ATE_complex_float;
+        break;
+    default:
+        llvm_unreachable("Unsupported basic type for debug info");
     }
 
     return gIR->dibuilder.createBasicType(
         type->toChars(), // name
         getTypeBitSize(T), // size (bits)
         getABITypeAlign(T)*8, // align (bits)
-        id
+        Encoding
     );
 }
 
@@ -475,17 +503,26 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
     Logger::println("D to dwarf subprogram");
     LOG_SCOPE;
 
+    llvm::DICompileUnit CU(gIR->dibuilder.getCU());
+    assert(CU && CU.Verify() && "Compilation unit missing or corrupted");
+
     llvm::DIFile file = DtoDwarfFile(fd->loc);
     Type *retType = static_cast<TypeFunction*>(fd->type)->next;
 
+    // Create "dummy" subroutine type for the return type
+    llvm::SmallVector<llvm::Value*, 16> Elts;
+    Elts.push_back(dwarfTypeDescription(retType, NULL));
+    llvm::DIArray EltTypeArray = gIR->dibuilder.getOrCreateArray(Elts);
+    llvm::DIType DIFnType = gIR->dibuilder.createSubroutineType(file, EltTypeArray);
+
     // FIXME: duplicates ?
     return gIR->dibuilder.createFunction(
-        llvm::DICompileUnit(file), // context
+        CU, // context
         fd->toPrettyChars(), // name
         fd->mangle(), // linkage name
         file, // file
         fd->loc.linnum, // line no
-        dwarfTypeDescription(retType, NULL), // type
+        DIFnType, // type
         fd->protection == PROTprivate, // is local to unit
         gIR->dmodule == getDefinedModule(fd), // isdefinition
 #if LDC_LLVM_VER >= 301
