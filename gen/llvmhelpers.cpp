@@ -739,6 +739,14 @@ DValue* DtoCastNull(Loc& loc, DValue* val, Type* to)
         rval = DtoAggrPair(DtoConstSize_t(0), rval, "null_array");
         return new DImValue(to, rval);
     }
+    else if (totype->ty == Tbool)
+    {
+        // In theory, we could return 'false' as a constant here, but DMD
+        // treats non-null values casted to typeof(null) as true.
+        LLValue* rval = val->getRVal();
+        LLValue* zero = LLConstant::getNullValue(rval->getType());
+        return new DImValue(to, gIR->ir->CreateICmpNE(rval, zero, "tmp"));
+    }
     else
     {
         error(loc, "invalid cast from null to '%s'", to->toChars());
