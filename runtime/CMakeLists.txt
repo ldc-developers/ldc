@@ -110,7 +110,6 @@ elseif(WIN32)
     list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/monitor.c)
 endif()
 list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
-set(CORE_D_HEADERS ${CORE_D} ${CORE_D_UNIX} ${CORE_D_OSX} ${CORE_D_WIN})
 list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
 file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
@@ -237,32 +236,6 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
             ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
     )
 endmacro()
-
-# Builds a .di "header" file for a given D module. The path of the output
-# file is appended to outlist_header.
-macro(dc_header input_d d_flags outlist_header)
-    file(RELATIVE_PATH output ${RUNTIME_DIR} ${input_d})
-
-    string(REGEX REPLACE "src/ldc" "src/core" output ${output})
-    string(REGEX REPLACE "^src/" "" di_output ${output})
-
-    # If a hand-written .di file exists along the source in src/, just copy
-    # it instead of running it through the compiler.
-    if(NOT EXISTS "${input_d}i")
-        set(out ${CMAKE_BINARY_DIR}/import/${di_output}i)
-        list(APPEND ${outlist_header} ${out})
-        add_custom_command(
-            OUTPUT ${out}
-            COMMAND ${LDC_LOC} ${DC_FLAGS} -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${input_d} -Hf=${out} -o- ${d_flags}
-            WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
-            DEPENDS ${LDC_LOC}
-                ${input_d}
-                ${LDC_IMPORTS}
-                ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
-        )
-    endif()
-endmacro()
-
 
 # Builds a copy of druntime/Phobos from the source files gathered above. The
 # names of the added library targets are appended to outlist_targets.
@@ -533,27 +506,38 @@ else()
     build_runtime_variants("" "${RT_CLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" LIBS_TO_INSTALL)
 endif()
 
-# Generate .di files.
-set(runtime_headers)
-foreach(f ${CORE_D_HEADERS})
-    dc_header(${f} "${D_FLAGS}" runtime_headers)
+# Copy over druntime modules, preferring hand-written .di files.
+set(DRUNTIME_IMPORT_DIR ${CMAKE_BINARY_DIR}/import)
+set(DRUNTIME_PACKAGES core etc ldc)
+
+set(druntime_modules)
+foreach(p ${DRUNTIME_PACKAGES})
+    file(GLOB_RECURSE m ${RUNTIME_DIR}/src/${p}/*.d ${RUNTIME_DIR}/src/${p}/*.di)
+    list(APPEND druntime_modules ${m})
 endforeach()
-add_custom_target(generate-headers ALL DEPENDS ${runtime_headers})
+
+list(APPEND druntime_modules ${RUNTIME_DIR}/src/object.di)
+foreach(f ${druntime_modules})
+    if (NOT EXISTS "${f}i")
+        file(RELATIVE_PATH relpath ${RUNTIME_DIR}/src ${f})
+        configure_file(${f} ${DRUNTIME_IMPORT_DIR}/${relpath} COPYONLY)
+    endif()
+endforeach()
 
 
 #
 # Install target.
 #
 
-install(DIRECTORY ${CMAKE_BINARY_DIR}/import/core DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
+install(FILES ${DRUNTIME_IMPORT_DIR}/object.di DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
+foreach(p ${DRUNTIME_PACKAGES})
+    install(DIRECTORY ${DRUNTIME_IMPORT_DIR}/${p} DESTINATION ${INCLUDE_INSTALL_DIR})
+endforeach()
 if(PHOBOS2_DIR)
     install(DIRECTORY ${PHOBOS2_DIR}/std DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
     install(DIRECTORY ${PHOBOS2_DIR}/etc DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
     install(FILES ${PHOBOS2_DIR}/crc32.d DESTINATION ${INCLUDE_INSTALL_DIR})
 endif()
-install(FILES ${RUNTIME_DIR}/src/object.di DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
-install(DIRECTORY ${RUNTIME_DIR}/src/ldc DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
-install(DIRECTORY ${RUNTIME_DIR}/src/core DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.di")
 install(FILES ${GCCBUILTINS} DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 
 foreach(libname ${LIBS_TO_INSTALL})
