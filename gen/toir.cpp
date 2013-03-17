@@ -1950,9 +1950,10 @@ DValue* NewExp::toElem(IRState* p)
         else
         {
             size_t ndims = arguments->dim;
-            std::vector<DValue*> dims(ndims);
+            std::vector<DValue*> dims;
+            dims.reserve(ndims);
             for (size_t i=0; i<ndims; ++i)
-                dims[i] = static_cast<Expression*>(arguments->data[i])->toElem(p);
+                dims.push_back(static_cast<Expression*>(arguments->data[i])->toElem(p));
             return DtoNewMulDimDynArray(loc, newtype, &dims[0], ndims, true);
         }
     }
@@ -2798,11 +2799,12 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     bool dyn = (bt->ty != Tsarray);
 
     // build the initializer
-    std::vector<LLConstant*> vals(elements->dim, NULL);
+    std::vector<LLConstant*> vals;
+    vals.reserve(elements->dim);
     for (unsigned i=0; i<elements->dim; ++i)
     {
         Expression* expr = static_cast<Expression*>(elements->data[i]);
-        vals[i] = expr->toConstElem(p);
+        vals.push_back(expr->toConstElem(p));
     }
 
     // build the constant array initialize
@@ -2974,7 +2976,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     sd->codegen(Type::sir);
 
     // get inits
-    std::vector<LLConstant*> inits(sd->fields.dim, NULL);
+    std::vector<LLConstant*> inits(sd->fields.dim, 0);
 
     size_t nexprs = elements->dim;;
     Expression** exprs = (Expression**)elements->data;
@@ -2987,8 +2989,8 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     std::vector<LLConstant*> values = DtoStructLiteralValues(sd, inits);
 
     // we know those values are constants.. cast them
-    std::vector<LLConstant*> constvals(values.size(), NULL);
-    std::vector<LLType*> types(values.size(), NULL);
+    std::vector<LLConstant*> constvals(values.size(), 0);
+    std::vector<LLType*> types(values.size(), 0);
     for (size_t i = 0; i < values.size(); ++i) {
         constvals[i] = llvm::cast<LLConstant>(values[i]);
         types[i] = values[i]->getType();
@@ -3059,6 +3061,8 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
 
     {
         std::vector<LLConstant*> keysInits, valuesInits;
+        keysInits.reserve(keys->dim);
+        valuesInits.reserve(keys->dim);
         for (size_t i = 0, n = keys->dim; i < n; ++i)
         {
             Expression* ekey = keys->tdata()[i];
@@ -3178,11 +3182,12 @@ DValue* TypeExp::toElem(IRState *p)
 DValue* TupleExp::toElem(IRState *p)
 {
     Logger::print("TupleExp::toElem() %s\n", toChars());
-    std::vector<LLType*> types(exps->dim, NULL);
+    std::vector<LLType*> types;
+    types.reserve(exps->dim);
     for (size_t i = 0; i < exps->dim; i++)
     {
         Expression *el = static_cast<Expression *>(exps->data[i]);
-        types[i] = DtoTypeNotVoid(el->type);
+        types.push_back(DtoTypeNotVoid(el->type));
     }
     LLValue *val = DtoRawAlloca(LLStructType::get(gIR->context(), types),0, "tuple");
     for (size_t i = 0; i < exps->dim; i++)

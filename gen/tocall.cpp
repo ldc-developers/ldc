@@ -259,6 +259,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
         Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
 
     std::vector<LLConstant*> vtypeinfos;
+    vtypeinfos.reserve(n_arguments);
     for (size_t i=begin; i<n_arguments; i++)
     {
         Expression* argexp = static_cast<Expression*>(arguments->data[i]);
@@ -270,11 +271,12 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     typeinfomem->setInitializer(tiinits);
 
     // put data in d-array
-    std::vector<LLConstant*> pinits;
-    pinits.push_back(DtoConstSize_t(vtype->getNumElements()));
-    pinits.push_back(llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype)));
+    LLConstant* pinits[] = {
+        DtoConstSize_t(vtype->getNumElements()),
+        llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype))
+    };
     LLType* tiarrty = DtoType(Type::typeinfo->type->arrayOf());
-    tiinits = LLConstantStruct::get(isaStruct(tiarrty), pinits);
+    tiinits = LLConstantStruct::get(isaStruct(tiarrty), llvm::ArrayRef<LLConstant*>(pinits));
     LLValue* typeinfoarrayparam = new llvm::GlobalVariable(*gIR->module, tiarrty,
         true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array");
 
@@ -507,6 +509,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
         size_t n = Parameter::dim(tf->parameters);
         std::vector<DValue*> argvals;
+        argvals.reserve(n);
         if (dfnval && dfnval->func->isArrayOp) {
             // slightly different approach for array operators
             for (int i=n-1; i>=0; --i) {
