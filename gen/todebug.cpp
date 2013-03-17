@@ -216,16 +216,6 @@ static llvm::DIType dwarfCompositeType(Type* type)
     LLType* T = DtoType(type);
     Type* t = type->toBasetype();
 
-    // defaults
-    llvm::StringRef name;
-    unsigned linnum = 0;
-    llvm::DIFile file;
-
-    // elements
-    std::vector<llvm::Value*> elems;
-
-    llvm::DIType derivedFrom;
-
     assert((t->ty == Tstruct || t->ty == Tclass) &&
            "unsupported type for dwarfCompositeType");
     AggregateDeclaration* sd;
@@ -254,9 +244,15 @@ static llvm::DIType dwarfCompositeType(Type* type)
     if (static_cast<llvm::MDNode*>(ir->diCompositeType) != 0)
         return ir->diCompositeType;
 
-    name = sd->toChars();
-    linnum = sd->loc.linnum;
-    file = DtoDwarfFile(sd->loc);
+    // elements
+    std::vector<llvm::Value*> elems;
+
+    // defaults
+    llvm::StringRef name = sd->toChars();
+    unsigned linnum = sd->loc.linnum;
+    llvm::DIFile file = DtoDwarfFile(sd->loc);
+    llvm::DIType derivedFrom;
+
     // set diCompositeType to handle recursive types properly
     if (!ir->diCompositeType)
         ir->diCompositeType = gIR->dibuilder.createTemporaryType();

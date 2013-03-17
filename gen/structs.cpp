@@ -328,6 +328,7 @@ LLType* DtoUnpaddedStructType(Type* dty) {
     Array& fields = sty->sym->fields;
 
     std::vector<LLType*> types;
+    types.reserve(fields.dim);
 
     for (unsigned i = 0; i < fields.dim; i++) {
         VarDeclaration* vd = static_cast<VarDeclaration*>(fields.data[i]);

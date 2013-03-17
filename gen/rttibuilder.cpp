@@ -165,8 +165,10 @@ void RTTIBuilder::finalize(LLType* type, LLValue* value)
 
     // set struct body
     if (st->isOpaque()) {
+        const int n = inits.size();
         std::vector<LLType*> types;
-        for (int i = 0, n = inits.size(); i < n; ++i)
+        types.reserve(n);
+        for (int i = 0; i < n; ++i)
             types.push_back(inits[i]->getType());
         st->setBody(types);
     }
