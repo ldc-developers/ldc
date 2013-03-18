@@ -380,7 +380,7 @@ int main(int argc, char** argv)
     // LDC output determination
 
     // if we don't link, autodetect target from extension
-    if(!global.params.link && global.params.objname) {
+    if(!global.params.link && !createStaticLib && global.params.objname) {
         ext = FileName::ext(global.params.objname);
         bool autofound = false;
         if (!ext) {
