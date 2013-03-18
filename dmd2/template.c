@@ -5081,6 +5081,11 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
 #endif
 
     // Copy the syntax trees from the TemplateDeclaration
+#if IN_LLVM  // Backport of DMD pull request #1760.
+    if (members && speculative)
+    {} // Don't copy again so they were previously created.
+    else
+#endif
     members = Dsymbol::arraySyntaxCopy(tempdecl->members);
 
     // Create our own scope for the template parameters
@@ -6644,6 +6649,11 @@ void TemplateMixin::semantic(Scope *sc)
     }
 
     // Copy the syntax trees from the TemplateDeclaration
+#if IN_LLVM // Backport of DMD pull request #1760.
+    if (scx && members)
+    {} // Don't copy again so they were previously created.
+    else
+#endif
     members = Dsymbol::arraySyntaxCopy(tempdecl->members);
     if (!members)
         return;
