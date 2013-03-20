@@ -2276,6 +2276,17 @@ body
             static assert(false, "Architecture not supported.");
         }
     }
+    else version (PPC64)
+    {
+        version (LDC)
+        {
+            // FIXME Save registers.
+        }
+        else
+        {
+            static assert(false, "Architecture not supported.");
+        }
+    }
     else
     {
         static assert(false, "Architecture not supported.");
@@ -2322,6 +2333,17 @@ body
         {
             import ldc.llvmasm;
             __asm("pop {r0-r12}", "=r");
+        }
+        else
+        {
+            static assert(false, "Architecture not supported.");
+        }
+    }
+    else version (PPC64)
+    {
+        version (LDC)
+        {
+            // FIXME Restore registers.
         }
         else
         {
@@ -2970,7 +2992,7 @@ private void* getStackTop()
         else
         {
             import ldc.intrinsics;
-            // FIXME Prevent inlining
+            pragma(LDC_never_inline);
             return llvm_frameaddress(0);
         }
     }
