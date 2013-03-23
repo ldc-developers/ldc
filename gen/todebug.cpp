@@ -558,6 +558,12 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
 
     llvm::DIFile file(DtoDwarfFile(Loc(gIR->dmodule, 0)));
 
+    // Create "dummy" subroutine type for the return type
+    llvm::SmallVector<llvm::Value*, 1> Elts;
+    Elts.push_back(llvm::DIType(NULL));
+    llvm::DIArray EltTypeArray = gIR->dibuilder.getOrCreateArray(Elts);
+    llvm::DIType DIFnType = gIR->dibuilder.createSubroutineType(file, EltTypeArray);
+
     // FIXME: duplicates ?
     return gIR->dibuilder.createFunction(
         llvm::DIDescriptor(file), // context
@@ -565,7 +571,7 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
         mangledname, // linkage name
         file, // file
         0, // line no
-        llvm::DIType(NULL), // return type. TODO: fill it up
+        DIFnType, // return type. TODO: fill it up
         true, // is local to unit
         true // isdefinition
 #if LDC_LLVM_VER >= 301
