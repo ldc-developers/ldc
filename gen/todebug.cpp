@@ -254,8 +254,19 @@ static llvm::DIType dwarfCompositeType(Type* type)
     llvm::DIType derivedFrom;
 
     // set diCompositeType to handle recursive types properly
-    if (!ir->diCompositeType)
+    if (!ir->diCompositeType) {
+#if LDC_LLVM_VER >= 301
+        unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
+                                          : llvm::dwarf::DW_TAG_class_type;
+        ir->diCompositeType = gIR->dibuilder.createForwardDecl(tag, name, 
+#if LDC_LLVM_VER >= 302
+                                                               llvm::DIDescriptor(file),
+#endif
+                                                               file, linnum);
+#else
         ir->diCompositeType = gIR->dibuilder.createTemporaryType();
+#endif
+    }
 
     if (!ir->aggrdecl->isInterfaceDeclaration()) // plain interfaces don't have one
     {
@@ -325,7 +336,10 @@ static llvm::DIGlobalVariable dwarfGlobalVariable(LLGlobalVariable* ll, VarDecla
     assert(vd->isDataseg() || (vd->storage_class & (STCconst | STCimmutable) && vd->init));
 
     return gIR->dibuilder.createGlobalVariable(
-        vd->toChars(), // name TODO: mangle() or toPrettyChars() instead?
+        vd->toChars(), // name
+#if LDC_LLVM_VER >= 303
+        vd->mangle(), // linkage name
+#endif
         DtoDwarfFile(vd->loc), // file
         vd->loc.linnum, // line num
         dwarfTypeDescription_impl(vd->type, NULL), // type
