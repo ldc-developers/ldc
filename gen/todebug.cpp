@@ -254,8 +254,19 @@ static llvm::DIType dwarfCompositeType(Type* type)
     llvm::DIType derivedFrom;
 
     // set diCompositeType to handle recursive types properly
-    if (!ir->diCompositeType)
+    if (!ir->diCompositeType) {
+#if LDC_LLVM_VER >= 301
+        unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
+                                          : llvm::dwarf::DW_TAG_class_type;
+        ir->diCompositeType = gIR->dibuilder.createForwardDecl(tag, name, 
+#if LDC_LLVM_VER >= 302
+                                                               llvm::DIDescriptor(file),
+#endif
+                                                               file, linnum);
+#else
         ir->diCompositeType = gIR->dibuilder.createTemporaryType();
+#endif
+    }
 
     if (!ir->aggrdecl->isInterfaceDeclaration()) // plain interfaces don't have one
     {
@@ -325,7 +336,10 @@ static llvm::DIGlobalVariable dwarfGlobalVariable(LLGlobalVariable* ll, VarDecla
     assert(vd->isDataseg() || (vd->storage_class & (STCconst | STCimmutable) && vd->init));
 
     return gIR->dibuilder.createGlobalVariable(
-        vd->toChars(), // name TODO: mangle() or toPrettyChars() instead?
+        vd->toChars(), // name
+#if LDC_LLVM_VER >= 303
+        vd->mangle(), // linkage name
+#endif
         DtoDwarfFile(vd->loc), // file
         vd->loc.linnum, // line num
         dwarfTypeDescription_impl(vd->type, NULL), // type
@@ -544,6 +558,12 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
 
     llvm::DIFile file(DtoDwarfFile(Loc(gIR->dmodule, 0)));
 
+    // Create "dummy" subroutine type for the return type
+    llvm::SmallVector<llvm::Value*, 1> Elts;
+    Elts.push_back(llvm::DIType(NULL));
+    llvm::DIArray EltTypeArray = gIR->dibuilder.getOrCreateArray(Elts);
+    llvm::DIType DIFnType = gIR->dibuilder.createSubroutineType(file, EltTypeArray);
+
     // FIXME: duplicates ?
     return gIR->dibuilder.createFunction(
         llvm::DIDescriptor(file), // context
@@ -551,7 +571,7 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
         mangledname, // linkage name
         file, // file
         0, // line no
-        llvm::DIType(NULL), // return type. TODO: fill it up
+        DIFnType, // return type. TODO: fill it up
         true, // is local to unit
         true // isdefinition
 #if LDC_LLVM_VER >= 301
