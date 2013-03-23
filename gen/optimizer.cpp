@@ -47,7 +47,7 @@ static cl::opt<signed char> optimizeLevel(
     cl::desc("Setting the optimization level:"),
     cl::ZeroOrMore,
     cl::values(
-        clEnumValN(2, "O",  "Equivalent to -O2"),
+        clEnumValN(3, "O",  "Equivalent to -O3"),
         clEnumValN(0, "O0", "No optimizations (default)"),
         clEnumValN(1, "O1", "Simple optimizations"),
         clEnumValN(2, "O2", "Good optimizations"),
