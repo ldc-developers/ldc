@@ -2640,7 +2640,12 @@ void realToMangleBuffer(OutBuffer *buf, real_t value)
         buf->writestring("NAN");        // no -NAN bugs
     else
     {
+#if IN_LLVM
+        // The buffer is too small for a longdouble on PPC.
+        char buffer[36];
+#else
         char buffer[32];
+#endif
         int n = ld_sprint(buffer, 'A', value);
         assert(n > 0 && n < sizeof(buffer));
         for (int i = 0; i < n; i++)
