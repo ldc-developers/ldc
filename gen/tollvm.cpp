@@ -492,7 +492,7 @@ LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var, llvm::BasicBlock* b
 
 LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::BasicBlock* bb)
 {
-    LLValue* v[2] = { i0, i1 };
+    LLValue* v[] = { i0, i1 };
     return llvm::GetElementPtrInst::Create(ptr, v, var?var:"tmp", bb?bb:gIR->scopebb());
 }
 
@@ -507,7 +507,7 @@ LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* b
 
 LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::BasicBlock* bb)
 {
-    LLValue* v[2] = { DtoConstUint(i0), DtoConstUint(i1) };
+    LLValue* v[] = { DtoConstUint(i0), DtoConstUint(i1) };
     return llvm::GetElementPtrInst::Create(ptr, v, var?var:"tmp", bb?bb:gIR->scopebb());
 }
 
@@ -515,7 +515,7 @@ LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::
 
 LLConstant* DtoGEPi(LLConstant* ptr, unsigned i0, unsigned i1)
 {
-    LLValue* v[2] = { DtoConstUint(i0), DtoConstUint(i1) };
+    LLValue* v[] = { DtoConstUint(i0), DtoConstUint(i1) };
     return llvm::ConstantExpr::getGetElementPtr(ptr, v, true);
 }
 
@@ -644,7 +644,7 @@ LLConstant* DtoConstFP(Type* t, longdouble value)
     if(llty == LLType::getFloatTy(gIR->context()) || llty == LLType::getDoubleTy(gIR->context()))
         return LLConstantFP::get(llty, value);
     else if(llty == LLType::getX86_FP80Ty(gIR->context())) {
-        uint64_t bits[] = {0, 0};
+        uint64_t bits[] = { 0, 0 };
         bits[0] = *reinterpret_cast<uint64_t*>(&value);
         bits[1] = *reinterpret_cast<uint16_t*>(reinterpret_cast<uint64_t*>(&value) + 1);
 #if LDC_LLVM_VER >= 303
@@ -678,7 +678,7 @@ LLConstant* DtoConstString(const char* str)
 #endif
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
-    LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
+    LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
     return DtoConstSlice(
         DtoConstSize_t(s.size()),
         llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true),
@@ -697,7 +697,7 @@ LLConstant* DtoConstStringPtr(const char* str, const char* section)
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
     if (section) gvar->setSection(section);
-    LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
+    LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
     return llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
 }
 

@@ -17,27 +17,22 @@
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
 
-void RegisterDwarfSymbols(llvm::Module* mod);
 
-/**
- * Emit the Dwarf compile_unit global for a Module m.
- * @param m
- */
+/// \brief Emit the Dwarf compile_unit global for a Module m.
+/// \param m        Module to emit as compile unit.
 void DtoDwarfCompileUnit(Module* m);
 
-/**
- * Emit the Dwarf subprogram global for a function declaration fd.
- * @param fd
- * @return the Dwarf subprogram global.
- */
+/// \brief Emit the Dwarf subprogram global for a function declaration fd.
+/// \param fd       Function declaration to emit as subprogram.
+/// \returns        the Dwarf subprogram global.
 llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd);
 
-/**
- * Emit the Dwarf subprogram global for a internal function.
- * This is used for generated functions like moduleinfoctors,
- * module ctors/dtors and unittests.
- * @return the Dwarf subprogram global.
- */
+/// \brief Emit the Dwarf subprogram global for a internal function.
+/// This is used for generated functions like moduleinfoctors,
+/// module ctors/dtors and unittests.
+/// \param prettyname   The name as seen in the source.
+/// \param mangledname  The mangled name in the object file.
+/// \returns       the Dwarf subprogram global.
 llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char* mangledname);
 
 void DtoDwarfFuncStart(FuncDeclaration* fd);
@@ -49,20 +44,17 @@ void DtoDwarfStopPoint(unsigned ln);
 
 void DtoDwarfValue(LLValue *val, VarDeclaration* vd);
 
-/**
- * Emits all things necessary for making debug info for a local variable vd.
- * @param ll LLVM Value of the variable.
- * @param vd Variable declaration to emit debug info for.
- */
+/// \brief Emits all things necessary for making debug info for a local variable vd.
+/// \param ll       LLVM Value of the variable.
+/// \param vd       Variable declaration to emit debug info for.
+/// \param addr     An array of complex address operations.
 void DtoDwarfLocalVariable(LLValue* ll, VarDeclaration* vd,
                            llvm::ArrayRef<LLValue*> addr = llvm::ArrayRef<LLValue*>());
 
-/**
- * Emits all things necessary for making debug info for a global variable vd.
- * @param ll
- * @param vd
- * @return
- */
+/// \brief Emits all things necessary for making debug info for a global variable vd.
+/// \param ll       LLVM global variable
+/// \param vd       Variable declaration to emit debug info for.
+/// \returns        Created debug info
 llvm::DIGlobalVariable DtoDwarfGlobalVariable(LLGlobalVariable* ll, VarDeclaration* vd);
 
 void DtoDwarfModuleEnd();

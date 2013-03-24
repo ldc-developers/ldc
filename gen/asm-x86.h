@@ -10,6 +10,12 @@
 // Parses "DMD-style" x86/x86_64 inline assembly blocks and converts them to
 // GDC/LLVM inline assembler syntax.
 //
+// This file is designed to be included twice, once with the ASM_X86_64 define
+// set to get the 64 bit asm parser, and once without to get the 32 bit one.
+// This is a direct result of merging two disparate but largely identical
+// implementations, and should be refactored to just use a runtime parameter
+// for choosing the architecture.
+//
 //===----------------------------------------------------------------------===//
 
 #include "id.h"

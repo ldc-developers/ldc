@@ -938,7 +938,7 @@ void SwitchStatement::toIR(IRState* p)
             // first sort it
             caseArray.sort();
             // iterate and add indices to cases
-            std::vector<LLConstant*> inits(caseArray.dim);
+            std::vector<LLConstant*> inits(caseArray.dim, 0);
             for (size_t i=0; i<caseArray.dim; ++i)
             {
                 Case* c = static_cast<Case*>(caseArray.data[i]);
@@ -956,14 +956,10 @@ void SwitchStatement::toIR(IRState* p)
             LLConstant* arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
 
             // build the static table
-            std::vector<LLType*> types;
-            types.push_back(DtoSize_t());
-            types.push_back(elemPtrTy);
-            LLStructType* sTy = llvm::StructType::get(gIR->context(), types);
-            std::vector<LLConstant*> sinits;
-            sinits.push_back(DtoConstSize_t(inits.size()));
-            sinits.push_back(arrPtr);
-            switchTable = llvm::ConstantStruct::get(sTy, sinits);
+            LLType* types[] = { DtoSize_t(), elemPtrTy };
+            LLStructType* sTy = llvm::StructType::get(gIR->context(), types, false);
+            LLConstant* sinits[] = { DtoConstSize_t(inits.size()), arrPtr };
+            switchTable = llvm::ConstantStruct::get(sTy, llvm::ArrayRef<LLConstant*>(sinits));
         }
 
         // condition var
@@ -1609,16 +1605,15 @@ void SwitchErrorStatement::toIR(IRState* p)
 
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_switch_error");
 
-    std::vector<LLValue*> args;
-
-    // module param
     LLValue *moduleInfoSymbol = gIR->func()->decl->getModule()->moduleInfoSymbol();
     LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
-    args.push_back(DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)));
 
-    // line param
-    LLConstant* c = DtoConstUint(loc.linnum);
-    args.push_back(c);
+    LLValue* args[] = {
+        // module param
+        DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)),
+        // line param
+        DtoConstUint(loc.linnum)
+    };
 
     // call
     LLCallSite call = gIR->CreateCallOrInvoke(fn, args);

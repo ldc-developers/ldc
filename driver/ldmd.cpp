@@ -807,7 +807,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.logTlsUse) warning("-vtls not yet supported by LDC.");
     if (p.warnings == Warnings::asErrors) r.push_back("-w");
     else if (p.warnings == Warnings::informational) r.push_back("-wi");
-    if (p.optimize) r.push_back("-O2");
+    if (p.optimize) r.push_back("-O3");
     if (p.noObj) r.push_back("-o-");
     if (p.objDir) r.push_back(concat("-od=", p.objDir));
     if (p.objName) r.push_back(concat("-of=", p.objName));

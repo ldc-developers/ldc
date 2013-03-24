@@ -84,28 +84,56 @@ static llvm::DIType dwarfBasicType(Type* type)
     LLType* T = DtoType(type);
 
     // find encoding
-    unsigned id;
-    if (t->isintegral())
+    unsigned Encoding;
+    switch (t->ty)
     {
-        if (type->isunsigned())
-            id = DW_ATE_unsigned;
-        else
-            id = DW_ATE_signed;
-    }
-    else if (t->isfloating())
-    {
-        id = DW_ATE_float;
-    }
-    else
-    {
-        llvm_unreachable("unsupported basic type for debug info");
+    case Tbool:
+        Encoding = DW_ATE_boolean;
+        break;
+    case Tchar:
+    case Twchar:
+    case Tdchar:
+        Encoding = type->isunsigned() ? DW_ATE_unsigned_char
+                                      : DW_ATE_signed_char;
+        break;
+    case Tint8:
+    case Tint16:
+    case Tint32:
+    case Tint64:
+    case Tint128:
+        Encoding = DW_ATE_signed;
+        break;
+    case Tuns8:
+    case Tuns16:
+    case Tuns32:
+    case Tuns64:
+    case Tuns128:
+        Encoding = DW_ATE_unsigned;
+        break;
+    case Tfloat32:
+    case Tfloat64:
+    case Tfloat80:
+        Encoding = DW_ATE_float;
+        break;
+    case Timaginary32:
+    case Timaginary64:
+    case Timaginary80:
+        Encoding = DW_ATE_imaginary_float;
+        break;
+    case Tcomplex32:
+    case Tcomplex64:
+    case Tcomplex80:
+        Encoding = DW_ATE_complex_float;
+        break;
+    default:
+        llvm_unreachable("Unsupported basic type for debug info");
     }
 
     return gIR->dibuilder.createBasicType(
         type->toChars(), // name
         getTypeBitSize(T), // size (bits)
         getABITypeAlign(T)*8, // align (bits)
-        id
+        Encoding
     );
 }
 
@@ -188,16 +216,6 @@ static llvm::DIType dwarfCompositeType(Type* type)
     LLType* T = DtoType(type);
     Type* t = type->toBasetype();
 
-    // defaults
-    llvm::StringRef name;
-    unsigned linnum = 0;
-    llvm::DIFile file;
-
-    // elements
-    std::vector<llvm::Value*> elems;
-
-    llvm::DIType derivedFrom;
-
     assert((t->ty == Tstruct || t->ty == Tclass) &&
            "unsupported type for dwarfCompositeType");
     AggregateDeclaration* sd;
@@ -226,12 +244,29 @@ static llvm::DIType dwarfCompositeType(Type* type)
     if (static_cast<llvm::MDNode*>(ir->diCompositeType) != 0)
         return ir->diCompositeType;
 
-    name = sd->toChars();
-    linnum = sd->loc.linnum;
-    file = DtoDwarfFile(sd->loc);
+    // elements
+    std::vector<llvm::Value*> elems;
+
+    // defaults
+    llvm::StringRef name = sd->toChars();
+    unsigned linnum = sd->loc.linnum;
+    llvm::DIFile file = DtoDwarfFile(sd->loc);
+    llvm::DIType derivedFrom;
+
     // set diCompositeType to handle recursive types properly
-    if (!ir->diCompositeType)
+    if (!ir->diCompositeType) {
+#if LDC_LLVM_VER >= 301
+        unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
+                                          : llvm::dwarf::DW_TAG_class_type;
+        ir->diCompositeType = gIR->dibuilder.createForwardDecl(tag, name, 
+#if LDC_LLVM_VER >= 302
+                                                               llvm::DIDescriptor(file),
+#endif
+                                                               file, linnum);
+#else
         ir->diCompositeType = gIR->dibuilder.createTemporaryType();
+#endif
+    }
 
     if (!ir->aggrdecl->isInterfaceDeclaration()) // plain interfaces don't have one
     {
@@ -301,7 +336,10 @@ static llvm::DIGlobalVariable dwarfGlobalVariable(LLGlobalVariable* ll, VarDecla
     assert(vd->isDataseg() || (vd->storage_class & (STCconst | STCimmutable) && vd->init));
 
     return gIR->dibuilder.createGlobalVariable(
-        vd->toChars(), // name TODO: mangle() or toPrettyChars() instead?
+        vd->toChars(), // name
+#if LDC_LLVM_VER >= 303
+        vd->mangle(), // linkage name
+#endif
         DtoDwarfFile(vd->loc), // file
         vd->loc.linnum, // line num
         dwarfTypeDescription_impl(vd->type, NULL), // type
@@ -328,9 +366,11 @@ static llvm::DIType dwarfArrayType(Type* type) {
 
     llvm::DIFile file = DtoDwarfFile(Loc(gIR->dmodule, 0));
 
-    std::vector<llvm::Value*> elems;
-    elems.push_back(dwarfMemberType(0, Type::tsize_t, file, "length", 0));
-    elems.push_back(dwarfMemberType(0, t->nextOf()->pointerTo(), file, "ptr", global.params.is64bit?8:4));
+    llvm::Value* elems[] = {
+        dwarfMemberType(0, Type::tsize_t, file, "length", 0),
+        dwarfMemberType(0, t->nextOf()->pointerTo(), file, "ptr",
+                        global.params.is64bit ? 8 : 4)
+    };
 
     return gIR->dibuilder.createStructType
        (
@@ -475,17 +515,26 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
     Logger::println("D to dwarf subprogram");
     LOG_SCOPE;
 
+    llvm::DICompileUnit CU(gIR->dibuilder.getCU());
+    assert(CU && CU.Verify() && "Compilation unit missing or corrupted");
+
     llvm::DIFile file = DtoDwarfFile(fd->loc);
     Type *retType = static_cast<TypeFunction*>(fd->type)->next;
 
+    // Create "dummy" subroutine type for the return type
+    llvm::SmallVector<llvm::Value*, 16> Elts;
+    Elts.push_back(dwarfTypeDescription(retType, NULL));
+    llvm::DIArray EltTypeArray = gIR->dibuilder.getOrCreateArray(Elts);
+    llvm::DIType DIFnType = gIR->dibuilder.createSubroutineType(file, EltTypeArray);
+
     // FIXME: duplicates ?
     return gIR->dibuilder.createFunction(
-        llvm::DICompileUnit(file), // context
+        CU, // context
         fd->toPrettyChars(), // name
         fd->mangle(), // linkage name
         file, // file
         fd->loc.linnum, // line no
-        dwarfTypeDescription(retType, NULL), // type
+        DIFnType, // type
         fd->protection == PROTprivate, // is local to unit
         gIR->dmodule == getDefinedModule(fd), // isdefinition
 #if LDC_LLVM_VER >= 301
@@ -509,6 +558,12 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
 
     llvm::DIFile file(DtoDwarfFile(Loc(gIR->dmodule, 0)));
 
+    // Create "dummy" subroutine type for the return type
+    llvm::SmallVector<llvm::Value*, 1> Elts;
+    Elts.push_back(llvm::DIType(NULL));
+    llvm::DIArray EltTypeArray = gIR->dibuilder.getOrCreateArray(Elts);
+    llvm::DIType DIFnType = gIR->dibuilder.createSubroutineType(file, EltTypeArray);
+
     // FIXME: duplicates ?
     return gIR->dibuilder.createFunction(
         llvm::DIDescriptor(file), // context
@@ -516,7 +571,7 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
         mangledname, // linkage name
         file, // file
         0, // line no
-        llvm::DIType(NULL), // return type. TODO: fill it up
+        DIFnType, // return type. TODO: fill it up
         true, // is local to unit
         true // isdefinition
 #if LDC_LLVM_VER >= 301

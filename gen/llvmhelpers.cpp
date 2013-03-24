@@ -59,8 +59,7 @@ void DtoDeleteMemory(LLValue* ptr)
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delmemory");
     // build args
-    LLSmallVector<LLValue*,1> arg;
-    arg.push_back(DtoBitCast(ptr, getVoidPtrType(), ".tmp"));
+    LLValue* arg[] = { DtoBitCast(ptr, getVoidPtrType(), ".tmp") };
     // call
     gIR->CreateCallOrInvoke(fn, arg);
 }
@@ -69,13 +68,14 @@ void DtoDeleteClass(LLValue* inst)
 {
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delclass");
-    // build args
-    LLSmallVector<LLValue*,1> arg;
     // druntime wants a pointer to object
     LLValue *ptr = DtoRawAlloca(inst->getType(), 0, "objectPtr");
     DtoStore(inst, ptr);
     inst = ptr;
-    arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
+    // build args
+    LLValue* arg[] = {
+        DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp")
+    };
     // call
     gIR->CreateCallOrInvoke(fn, arg);
 }
@@ -85,8 +85,9 @@ void DtoDeleteInterface(LLValue* inst)
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delinterface");
     // build args
-    LLSmallVector<LLValue*,1> arg;
-    arg.push_back(DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp"));
+    LLValue* arg[] = {
+        DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp")
+    };
     // call
     gIR->CreateCallOrInvoke(fn, arg);
 }
@@ -97,9 +98,10 @@ void DtoDeleteArray(DValue* arr)
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delarray_t");
 
     // build args
-    LLSmallVector<LLValue*,2> arg;
-    arg.push_back(DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(0)));
-    arg.push_back(DtoBitCast(DtoTypeInfoOf(arr->type->nextOf()), fn->getFunctionType()->getParamType(1)));
+    LLValue* arg[] = {
+        DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(0)),
+        DtoBitCast(DtoTypeInfoOf(arr->type->nextOf()), fn->getFunctionType()->getParamType(1))
+    };
 
     // call
     gIR->CreateCallOrInvoke(fn, arg);
@@ -155,11 +157,12 @@ LLValue* DtoGcMalloc(LLType* lltype, const char* name)
 
 void DtoAssert(Module* M, Loc loc, DValue* msg)
 {
-    std::vector<LLValue*> args;
-
     // func
     const char* fname = msg ? "_d_assert_msg" : "_d_assert";
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
+
+    // Arguments
+    llvm::SmallVector<LLValue*, 3> args;
 
     // msg param
     if (msg)
@@ -182,8 +185,7 @@ void DtoAssert(Module* M, Loc loc, DValue* msg)
     }
 
     // line param
-    LLConstant* c = DtoConstUint(loc.linnum);
-    args.push_back(c);
+    args.push_back(DtoConstUint(loc.linnum));
 
     // call
     gIR->CreateCallOrInvoke(fn, args);
