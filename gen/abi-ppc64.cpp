@@ -29,10 +29,9 @@ struct PPC64TargetABI : TargetABI {
         case LINKintrinsic:
         case LINKpascal:
         case LINKwindows:
-            return llvm::CallingConv::C;
         case LINKd:
         case LINKdefault:
-            return llvm::CallingConv::Fast;
+            return llvm::CallingConv::C;
         default:
             llvm_unreachable("Unhandled D linkage type.");
         }
