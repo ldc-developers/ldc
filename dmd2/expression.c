@@ -6414,10 +6414,10 @@ Expression *BinAssignExp::semantic(Scope *sc)
     }
     if (shift)
     {
-#if IN_DMD
-        e2 = e2->castTo(sc, Type::tshiftcnt);
-#elif IN_LLVM
+#if IN_LLVM
         e2 = e2->castTo(sc, e1->type);
+#else
+        e2 = e2->castTo(sc, Type::tshiftcnt);
 #endif
     }
 
@@ -11801,8 +11801,11 @@ Expression *ShlExp::semantic(Scope *sc)
             e2->type->toBasetype()->ty == Tvector)
             return incompatibleTypes();
         e1 = e1->integralPromotions(sc);
-        //e2 = e2->castTo(sc, Type::tshiftcnt);
-        e2 = e2->castTo(sc, e1->type); // LDC
+#if IN_LLVM
+        e2 = e2->castTo(sc, e1->type);
+#else
+        e2 = e2->castTo(sc, Type::tshiftcnt);
+#endif
         type = e1->type;
     }
     return this;
@@ -11829,8 +11832,11 @@ Expression *ShrExp::semantic(Scope *sc)
             e2->type->toBasetype()->ty == Tvector)
             return incompatibleTypes();
         e1 = e1->integralPromotions(sc);
-        //e2 = e2->castTo(sc, Type::tshiftcnt);
-        e2 = e2->castTo(sc, e1->type); // LDC
+#if IN_LLVM
+        e2 = e2->castTo(sc, e1->type);
+#else
+        e2 = e2->castTo(sc, Type::tshiftcnt);
+#endif
         type = e1->type;
     }
     return this;
@@ -11857,8 +11863,11 @@ Expression *UshrExp::semantic(Scope *sc)
             e2->type->toBasetype()->ty == Tvector)
             return incompatibleTypes();
         e1 = e1->integralPromotions(sc);
-        //e2 = e2->castTo(sc, Type::tshiftcnt);
-        e2 = e2->castTo(sc, e1->type); // LDC
+#if IN_LLVM
+        e2 = e2->castTo(sc, e1->type);
+#else
+        e2 = e2->castTo(sc, Type::tshiftcnt);
+#endif
         type = e1->type;
     }
     return this;
