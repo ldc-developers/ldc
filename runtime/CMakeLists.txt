@@ -606,6 +606,11 @@ function(add_tests module_files)
         if(${LDC_LLVM_VER} EQUAL 301 AND ${HOST_BITNESS} EQUAL 64 AND
             "${testroot}" STREQUAL "phobos_std_exception")
             testcase(release "-O1;-release")
+        # Building the std.range tests triggers an assertion error on
+        # every LLVM release before 3.3. See PR15608.
+        elseif(${LDC_LLVM_VER} LESS 303 AND
+            "${testroot}" STREQUAL "phobos_std_range")
+            testcase(release "-O1;-release")
         else()
             testcase(release "-O3;-release")
         endif()
