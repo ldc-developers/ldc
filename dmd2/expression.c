@@ -6422,8 +6422,13 @@ Expression *BinAssignExp::semantic(Scope *sc)
     }
 
     // vectors
+#if IN_LLVM
+    if (shift && (e1->type->toBasetype()->ty != Tvector &&
+                  e2->type->toBasetype()->ty == Tvector))
+#else
     if (shift && (e1->type->toBasetype()->ty == Tvector ||
                   e2->type->toBasetype()->ty == Tvector))
+#endif
         return incompatibleTypes();
 
     int isvector = type->toBasetype()->ty == Tvector;
@@ -11797,8 +11802,13 @@ Expression *ShlExp::semantic(Scope *sc)
             return e;
         e1 = e1->checkIntegral();
         e2 = e2->checkIntegral();
+#if IN_LLVM
+        if (e1->type->toBasetype()->ty != Tvector &&
+            e2->type->toBasetype()->ty == Tvector)
+#else
         if (e1->type->toBasetype()->ty == Tvector ||
             e2->type->toBasetype()->ty == Tvector)
+#endif
             return incompatibleTypes();
         e1 = e1->integralPromotions(sc);
 #if IN_LLVM
@@ -11828,8 +11838,13 @@ Expression *ShrExp::semantic(Scope *sc)
             return e;
         e1 = e1->checkIntegral();
         e2 = e2->checkIntegral();
+#if IN_LLVM
+        if (e1->type->toBasetype()->ty != Tvector &&
+            e2->type->toBasetype()->ty == Tvector)
+#else
         if (e1->type->toBasetype()->ty == Tvector ||
             e2->type->toBasetype()->ty == Tvector)
+#endif
             return incompatibleTypes();
         e1 = e1->integralPromotions(sc);
 #if IN_LLVM
@@ -11859,8 +11874,13 @@ Expression *UshrExp::semantic(Scope *sc)
             return e;
         e1 = e1->checkIntegral();
         e2 = e2->checkIntegral();
+#if IN_LLVM
+        if (e1->type->toBasetype()->ty != Tvector &&
+            e2->type->toBasetype()->ty == Tvector)
+#else
         if (e1->type->toBasetype()->ty == Tvector ||
             e2->type->toBasetype()->ty == Tvector)
+#endif
             return incompatibleTypes();
         e1 = e1->integralPromotions(sc);
 #if IN_LLVM
