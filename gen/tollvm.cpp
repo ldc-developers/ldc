@@ -678,6 +678,7 @@ LLConstant* DtoConstString(const char* str)
 #endif
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
+    gvar->setUnnamedAddr(true);
     LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
     return DtoConstSlice(
         DtoConstSize_t(s.size()),
@@ -697,6 +698,7 @@ LLConstant* DtoConstStringPtr(const char* str, const char* section)
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
     if (section) gvar->setSection(section);
+    gvar->setUnnamedAddr(true);
     LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
     return llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
 }
