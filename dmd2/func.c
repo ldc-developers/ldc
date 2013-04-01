@@ -938,7 +938,7 @@ void FuncDeclaration::semantic3(Scope *sc)
     semantic3Errors = 0;
 
 #if IN_LLVM
-    if (!global.params.useAvailableExternally)
+    if (!global.inExtraInliningSemantic)
         availableExternally = false;
 #endif
 

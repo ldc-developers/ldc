@@ -1881,7 +1881,7 @@ void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset,
 void VarDeclaration::semantic3(Scope *sc)
 {
     // LDC
-    if (!global.params.useAvailableExternally)
+    if (!global.inExtraInliningSemantic)
         availableExternally = false;
 
     if (aliassym)
@@ -2355,7 +2355,7 @@ void TypeInfoDeclaration::semantic(Scope *sc)
 {
     assert(linkage == LINKc);
 #if IN_LLVM
-    if (!global.params.useAvailableExternally)
+    if (!global.inExtraInliningSemantic)
         availableExternally = false;
 #endif
 }

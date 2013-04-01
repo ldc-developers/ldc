@@ -1606,7 +1606,7 @@ bool mustDefineSymbol(Dsymbol* s)
         if (fd->isArrayOp == 1)
             return true;
 
-        if (global.params.useAvailableExternally && fd->availableExternally) {
+        if (global.inExtraInliningSemantic && fd->availableExternally) {
             // Emit extra functions if we're inlining.
             // These will get available_externally linkage,
             // so they shouldn't end up in object code.
@@ -1637,7 +1637,7 @@ bool mustDefineSymbol(Dsymbol* s)
 
     // Inlining checks may create some variable and class declarations
     // we don't need to emit.
-    if (global.params.useAvailableExternally)
+    if (global.inExtraInliningSemantic)
     {
         if (VarDeclaration* vd = s->isVarDeclaration())
             if (vd->availableExternally)

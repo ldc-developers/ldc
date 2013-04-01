@@ -1009,7 +1009,7 @@ int main(int argc, char** argv)
     // inlining is unlikely to be important for test builds anyway.
     if (!global.params.symdebug && willInline() && !global.params.useUnitTests)
     {
-        global.params.useAvailableExternally = true;
+        global.inExtraInliningSemantic = true;
         Logger::println("Running some extra semantic3's for inlining purposes");
         {
             // Do pass 3 semantic analysis on all imported modules,

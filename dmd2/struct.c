@@ -101,7 +101,7 @@ void AggregateDeclaration::semantic2(Scope *sc)
 void AggregateDeclaration::semantic3(Scope *sc)
 {
 #if IN_LLVM
-    if (!global.params.useAvailableExternally)
+    if (!global.inExtraInliningSemantic)
         availableExternally = false;
 #endif
 

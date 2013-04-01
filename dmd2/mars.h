@@ -294,7 +294,6 @@ struct Param
     OUTPUTFLAG output_o;
     bool useInlineAsm;
     bool verbose_cg;
-    bool useAvailableExternally;
 
     // target stuff
     llvm::Triple targetTriple;
@@ -338,6 +337,8 @@ struct Global
 #if IN_LLVM
     char *ldc_version;
     char *llvm_version;
+
+    bool inExtraInliningSemantic;
 #endif
 
     Param params;
