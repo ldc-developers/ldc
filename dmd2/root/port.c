@@ -116,6 +116,16 @@ char *Port::strupr(char *s)
     return ::strupr(s);
 }
 
+int Port::memicmp(const char *s1, const char *s2, int n)
+{
+    return ::memicmp(s1, s2, n);
+}
+
+int Port::stricmp(const char *s1, const char *s2)
+{
+    return ::stricmp(s1, s2);
+}
+
 #endif
 
 #if _MSC_VER
@@ -328,6 +338,16 @@ char *Port::strupr(char *s)
     return ::strupr(s);
 }
 
+int Port::memicmp(const char *s1, const char *s2, int n)
+{
+    return ::memicmp(s1, s2, n);
+}
+
+int Port::stricmp(const char *s1, const char *s2)
+{
+    return ::stricmp(s1, s2);
+}
+
 #endif
 
 #if linux || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __HAIKU__ || __MINGW32__
@@ -524,6 +544,48 @@ char *Port::strupr(char *s)
     return t;
 }
 
+int Port::memicmp(const char *s1, const char *s2, int n)
+{
+    int result = 0;
+
+    for (int i = 0; i < n; i++)
+    {   char c1 = s1[i];
+        char c2 = s2[i];
+
+        result = c1 - c2;
+        if (result)
+        {
+            result = toupper(c1) - toupper(c2);
+            if (result)
+                break;
+        }
+    }
+    return result;
+}
+
+int Port::stricmp(const char *s1, const char *s2)
+{
+    int result = 0;
+
+    for (;;)
+    {   char c1 = *s1;
+        char c2 = *s2;
+
+        result = c1 - c2;
+        if (result)
+        {
+            result = toupper(c1) - toupper(c2);
+            if (result)
+                break;
+        }
+        if (!c1)
+            break;
+        s1++;
+        s2++;
+    }
+    return result;
+}
+
 #endif
 
 #if __sun
@@ -669,19 +731,4 @@ char *Port::strupr(char *s)
     return t;
 }
 
-#endif
-
-
-#if IN_LLVM
-#if __MINGW32__
-longdouble Port::strtold(const char *str, char **pend)
-{
-    return __mingw_strtold(str, pend);
-}
-#else
-longdouble Port::strtold(const char *str, char **pend)
-{
-    return ::strtold(str, pend);
-}
-#endif
 #endif

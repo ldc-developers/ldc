@@ -72,7 +72,7 @@ void ExpStatement::toNakedIR(IRState *p)
         Statement::toNakedIR(p);
         return;
     }
-    else if (vd && !vd->isDataseg())
+    else if (vd && !(vd->storage_class & (STCstatic | STCmanifest)))
     {
         error("non-static variable '%s' not allowed in naked function", vd->toChars());
         return;

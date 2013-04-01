@@ -8,8 +8,7 @@ default:
     // arguments before they are parsed.
     switches = [
         "-I@CMAKE_BINARY_DIR@/import",
-        "-I@RUNTIME_DIR@/import",
-        "-I@RUNTIME_DIR@/src",
+        "-I@RUNTIME_DIR@/src", // Needed for gc.*/rt.* unit tests.
         "-I@PHOBOS2_DIR@/",
         "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@", @MULTILIB_ADDITIONAL_PATH@
         "-defaultlib=phobos-ldc",

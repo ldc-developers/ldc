@@ -613,10 +613,14 @@ void TypeInfoStructDeclaration::llvmDefine()
     b.push_string(sd->toPrettyChars());
 
     // void[] init
-    // never emit a null array, even for zero initialized typeinfo
-    // the size() method uses this array!
-    size_t init_size = getTypeStoreSize(tc->irtype->getLLType());
-    b.push_void_array(init_size, irstruct->getInitSymbol());
+    // The protocol is to write a null pointer for zero-initialized arrays. The
+    // length field is always needed for tsize().
+    llvm::Constant *initPtr;
+    if (tc->isZeroInit(0))
+        initPtr = getNullValue(getVoidPtrType());
+    else
+        initPtr = irstruct->getInitSymbol();
+    b.push_void_array(getTypeStoreSize(tc->irtype->getLLType()), initPtr);
 
     // toX functions ground work
     static TypeFunction *tftohash;

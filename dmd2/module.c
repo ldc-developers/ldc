@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2012 by Digital Mars
+// Copyright (c) 1999-2013 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -12,20 +12,6 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#if defined (__sun)
-#include <alloca.h>
-#endif
-
-#if defined(_MSC_VER) || defined(__MINGW32__)
-#include <malloc.h>
-#endif
-
-#ifdef IN_GCC
-#include "gdc_alloca.h"
-#endif
-
-#include "rmem.h"
-
 #include "mars.h"
 #include "module.h"
 #include "parse.h"
@@ -36,11 +22,6 @@
 #include "dsymbol.h"
 #include "hdrgen.h"
 #include "lexer.h"
-
-// stricmp
-#if __GNUC__ && !_WIN32
-#include "gnuc.h"
-#endif
 
 #ifdef IN_GCC
 #include "d-dmd-gcc.h"
@@ -85,10 +66,9 @@ void Module::init()
 Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen)
         : Package(ident)
 {
-    FileName *srcfilename;
+    const char *srcfilename;
 #if IN_DMD
-    FileName *objfilename;
-    FileName *symfilename;
+    const char *symfilename;
 #endif
 
 //    printf("Module::Module(filename = '%s', ident = '%s')\n", filename, ident->toChars());
@@ -99,9 +79,6 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     members = NULL;
     isDocFile = 0;
     needmoduleinfo = 0;
-#ifdef IN_GCC
-    strictlyneedmoduleinfo = 0;
-#endif
     selfimports = 0;
     insearch = 0;
     searchCacheIdent = NULL;
@@ -150,61 +127,27 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     namelen = 0;
 
     srcfilename = FileName::defaultExt(filename, global.mars_ext);
-    if (!srcfilename->equalsExt(global.mars_ext) &&
-        !srcfilename->equalsExt(global.hdr_ext) &&
-        !srcfilename->equalsExt("dd"))
+    if (!FileName::equalsExt(srcfilename, global.mars_ext) &&
+        !FileName::equalsExt(srcfilename, global.hdr_ext) &&
+        !FileName::equalsExt(srcfilename, "dd"))
     {
-        error("source file name '%s' must have .%s extension", srcfilename->toChars(), global.mars_ext);
+        error("source file name '%s' must have .%s extension", srcfilename, global.mars_ext);
         fatal();
     }
-#if !IN_LLVM
-    char *argobj;
-    if (global.params.objname)
-        argobj = global.params.objname;
-#if 0
-    else if (global.params.preservePaths)
-        argobj = filename;
-    else
-        argobj = FileName::name(filename);
-    if (!FileName::absolute(argobj))
-    {
-        argobj = FileName::combine(global.params.objdir, argobj);
-    }
-#else // Bugzilla 3547
-    else
-    {
-        if (global.params.preservePaths)
-            argobj = filename;
-        else
-            argobj = FileName::name(filename);
-        if (!FileName::absolute(argobj))
-        {
-            argobj = FileName::combine(global.params.objdir, argobj);
-        }
-    }
-#endif
+    srcfile = new File(srcfilename);
 
-    if (global.params.objname)
-        objfilename = new FileName(argobj);
-    else
-        objfilename = FileName::forceExt(argobj, global.obj_ext);
+#if IN_DMD
+    objfile = setOutfile(global.params.objname, global.params.objdir, filename, global.obj_ext);
 
     symfilename = FileName::forceExt(filename, global.sym_ext);
-#endif
 
-    srcfile = new File(srcfilename);
-#if IN_DMD
     if (doDocComment)
-    {
         setDocfile();
-    }
 
     if (doHdrGen)
-    {
-        setHdrfile();
-    }
+        hdrfile = setOutfile(global.params.hdrname, global.params.hdrdir, arg, global.hdr_ext);
 
-    objfile = new File(objfilename);
+    //objfile = new File(objfilename);
     symfile = new File(symfilename);
 #endif
 #if IN_LLVM
@@ -263,8 +206,8 @@ File* Module::buildFilePath(const char* forcename, const char* path, const char*
 //    else
     // allow for .o and .obj on windows
 #if _WIN32
-    if (ext == global.params.objdir && FileName::ext(argobj) 
-	    && stricmp(FileName::ext(argobj), global.obj_ext_alt) == 0)
+    if (ext == global.params.objdir && FileName::ext(argobj)
+	    && Port::stricmp(FileName::ext(argobj), global.obj_ext_alt) == 0)
 	return new File((char*)argobj);
 #endif
     return new File(FileName::forceExt(argobj, ext));
@@ -273,58 +216,50 @@ File* Module::buildFilePath(const char* forcename, const char* path, const char*
 #if IN_DMD
 void Module::setDocfile()
 {
-    FileName *docfilename;
-    char *argdoc;
-
-    if (global.params.docname)
-        argdoc = global.params.docname;
-    else if (global.params.preservePaths)
-        argdoc = (char *)arg;
-    else
-        argdoc = FileName::name((char *)arg);
-    if (!FileName::absolute(argdoc))
-    {   //FileName::ensurePathExists(global.params.docdir);
-        argdoc = FileName::combine(global.params.docdir, argdoc);
-    }
-    if (global.params.docname)
-        docfilename = new FileName(argdoc);
-    else
-        docfilename = FileName::forceExt(argdoc, global.doc_ext);
-
-    if (docfilename->equals(srcfile->name))
-    {   error("Source file and documentation file have same name '%s'", srcfile->name->str);
-        fatal();
-    }
-
-    docfile = new File(docfilename);
+    docfile = setOutfile(global.params.docname, global.params.docdir, arg, global.doc_ext);
 }
 
-void Module::setHdrfile()
+/*********************************************
+ * Combines things into output file name for .html and .di files.
+ * Input:
+ *      name    Command line name given for the file, NULL if none
+ *      dir     Command line directory given for the file, NULL if none
+ *      arg     Name of the source file
+ *      ext     File name extension to use if 'name' is NULL
+ *      global.params.preservePaths     get output path from arg
+ *      srcfile Input file - output file name must not match input file
+ */
+
+File *Module::setOutfile(const char *name, const char *dir, const char *arg, const char *ext)
 {
-    FileName *hdrfilename;
-    char *arghdr;
+    const char *docfilename;
 
-    if (global.params.hdrname)
-        arghdr = global.params.hdrname;
-    else if (global.params.preservePaths)
-        arghdr = (char *)arg;
-    else
-        arghdr = FileName::name((char *)arg);
-    if (!FileName::absolute(arghdr))
-    {   //FileName::ensurePathExists(global.params.hdrdir);
-        arghdr = FileName::combine(global.params.hdrdir, arghdr);
+    if (name)
+    {
+        docfilename = name;
     }
-    if (global.params.hdrname)
-        hdrfilename = new FileName(arghdr);
     else
-        hdrfilename = FileName::forceExt(arghdr, global.hdr_ext);
+    {
+        const char *argdoc;
+        if (global.params.preservePaths)
+            argdoc = arg;
+        else
+            argdoc = FileName::name(arg);
 
-    if (hdrfilename->equals(srcfile->name))
-    {   error("Source file and 'header' file have same name '%s'", srcfile->name->str);
+        // If argdoc doesn't have an absolute path, make it relative to dir
+        if (!FileName::absolute(argdoc))
+        {   //FileName::ensurePathExists(dir);
+            argdoc = FileName::combine(dir, argdoc);
+        }
+        docfilename = FileName::forceExt(argdoc, ext);
+    }
+
+    if (FileName::equals(docfilename, srcfile->name->str))
+    {   error("Source file and output file have same name '%s'", srcfile->name->str);
         fatal();
     }
 
-    hdrfile = new File(hdrfilename);
+    return new File(docfilename);
 }
 #endif
 
@@ -361,7 +296,7 @@ void Module::buildTargetFiles(bool singleObj)
                 global.params.targetTriple.isOSWindows() ? global.obj_ext_alt : global.obj_ext);
 		else if (global.params.output_bc)
 			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.bc_ext);
-		else if (global.params.output_ll) 
+		else if (global.params.output_ll)
 			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.ll_ext);
 		else if (global.params.output_s)
 			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.s_ext);
@@ -372,17 +307,17 @@ void Module::buildTargetFiles(bool singleObj)
 		hdrfile = Module::buildFilePath(global.params.hdrname, global.params.hdrdir, global.hdr_ext);
 
 	// safety check: never allow obj, doc or hdr file to have the source file's name
-	if(stricmp(FileName::name(objfile->name->str), FileName::name((char*)this->arg)) == 0)
+	if(Port::stricmp(FileName::name(objfile->name->str), FileName::name((char*)this->arg)) == 0)
 	{
 		error("Output object files with the same name as the source file are forbidden");
 		fatal();
 	}
-	if(docfile && stricmp(FileName::name(docfile->name->str), FileName::name((char*)this->arg)) == 0)
+	if(docfile && Port::stricmp(FileName::name(docfile->name->str), FileName::name((char*)this->arg)) == 0)
 	{
 		error("Output doc files with the same name as the source file are forbidden");
 		fatal();
 	}
-	if(hdrfile && stricmp(FileName::name(hdrfile->name->str), FileName::name((char*)this->arg)) == 0)
+	if(hdrfile && Port::stricmp(FileName::name(hdrfile->name->str), FileName::name((char*)this->arg)) == 0)
 	{
 		error("Output header files with the same name as the source file are forbidden");
 		fatal();
@@ -457,11 +392,11 @@ Module *Module::load(Loc loc, Identifiers *packages, Identifier *ident)
 
     /* Search along global.path for .di file, then .d file.
      */
-    char *result = NULL;
-    FileName *fdi = FileName::forceExt(filename, global.hdr_ext);
-    FileName *fd  = FileName::forceExt(filename, global.mars_ext);
-    char *sdi = fdi->toChars();
-    char *sd  = fd->toChars();
+    const char *result = NULL;
+    const char *fdi = FileName::forceExt(filename, global.hdr_ext);
+    const char *fd  = FileName::forceExt(filename, global.mars_ext);
+    const char *sdi = fdi;
+    const char *sd  = fd;
 
     if (FileName::exists(sdi))
         result = sdi;
@@ -475,19 +410,19 @@ Module *Module::load(Loc loc, Identifiers *packages, Identifier *ident)
     {
         for (size_t i = 0; i < global.path->dim; i++)
         {
-            char *p = (*global.path)[i];
-            char *n = FileName::combine(p, sdi);
+            const char *p = (*global.path)[i];
+            const char *n = FileName::combine(p, sdi);
             if (FileName::exists(n))
             {   result = n;
                 break;
             }
-            mem.free(n);
+            FileName::free(n);
             n = FileName::combine(p, sd);
             if (FileName::exists(n))
             {   result = n;
                 break;
             }
-            mem.free(n);
+            FileName::free(n);
         }
     }
     if (result)
@@ -815,7 +750,9 @@ void Module::parse()
     {
         comment = buf + 4;
         isDocFile = 1;
-#if IN_DMD
+#if IN_LLVM
+        doDocComment = true;
+#else
         if (!docfile)
             setDocfile();
 #endif
@@ -1395,15 +1332,12 @@ DsymbolTable *Package::resolve(Identifiers *packages, Dsymbol **pparent, Package
             dst = ((Package *)p)->symtab;
             if (ppkg && !*ppkg)
                 *ppkg = (Package *)p;
-#if TARGET_NET
-#else
             if (p->isModule())
             {   // Return the module so that a nice error message can be generated
                 if (ppkg)
                     *ppkg = (Package *)p;
                 break;
             }
-#endif
         }
         if (pparent)
         {

@@ -287,7 +287,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
 {
     const bool mustDefine = mustDefineSymbol(sym);
 
-    // global variable
+    // global/static variable
     if (VarDeclaration* vd = sym->isVarDeclaration())
     {
         if (mustDefine)
@@ -302,11 +302,23 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         // template
         if (needsTemplateLinkage(sym))
             return templateLinkage;
-        // never use InternalLinkage for variables marked as "extern"
-        if (vd->storage_class & STCextern)
+
+        // Currently, we have to consider all variables, even function-local
+        // statics, to be external, as CTFE might cause template functions
+        // instances to be semantic3'd that occur within the body of a function
+        // from an imported module. Consequently, a copy of them is codegen'd
+        // in the importing module, even if they might reference a static in a
+        // function in the imported module (e.g. via an alias parameter).
+        //
+        // A fix for this would be to track instantiations/semantic3 runs made
+        // solely for CTFE purposes in a way similar to how the extra inlining
+        // semantic runs are handled.
+        //
+        // LDC_FIXME: Can this also occur for functions? Find a better solution.
+        if (true || vd->storage_class & STCextern)
             return llvm::GlobalValue::ExternalLinkage;
+
     }
-    // function
     else if (FuncDeclaration* fdecl = sym->isFuncDeclaration())
     {
         if (mustDefine)
