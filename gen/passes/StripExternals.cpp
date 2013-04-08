@@ -7,7 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// This transform stips the bodies of available_externally functions and
+// This transform strips the bodies of available_externally functions and
 // initializers of available_externally globals, turning them into external
 // declarations.
 // This is useful to allow Global DCE (-globaldce) to clean up references to
