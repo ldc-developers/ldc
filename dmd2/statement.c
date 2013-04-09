@@ -2319,6 +2319,7 @@ Lagain:
                 const char *r = (op == TOKforeach_reverse) ? "R" : "";
                 int j = sprintf(fdname, "_aApply%s%.*s%llu", r, 2, fntab[flag], (ulonglong)dim);
                 assert(j < sizeof(fdname));
+#if IN_LLVM
                 //LDC: Build arguments.
                 Parameters* args = new Parameters;
                 args->push(new Parameter(STCin, tn->arrayOf(), NULL, NULL));
@@ -2336,22 +2337,30 @@ Lagain:
                     args->push(new Parameter(STCin, dgty, NULL, NULL));
                     fdapply = FuncDeclaration::genCfunc(args, Type::tint32, fdname);
                 }
+#else
+                FuncDeclaration *fdapply = FuncDeclaration::genCfunc(Type::tindex, fdname);
+#endif
 
                 ec = new VarExp(0, fdapply);
                 Expressions *exps = new Expressions();
                 if (tab->ty == Tsarray)
                    aggr = aggr->castTo(sc, tn->arrayOf());
                 exps->push(aggr);
-
-        // LDC paint delegate argument to the type runtime expects
-        if (!dgty->equals(flde->type))
-        {
-            flde = new CastExp(loc, flde, flde->type);
-            flde->type = dgty;
-        }
+#if IN_LLVM
+                // LDC paint delegate argument to the type runtime expects
+                if (!dgty->equals(flde->type))
+                {
+                    flde = new CastExp(loc, flde, flde->type);
+                    flde->type = dgty;
+                }
+#endif
                 exps->push(flde);
                 e = new CallExp(loc, ec, exps);
+#if IN_LLVM
                 e->type = Type::tint32; // don't run semantic() on e
+#else
+                e->type = Type::tindex; // don't run semantic() on e
+#endif
             }
             else if (tab->ty == Tdelegate)
             {
