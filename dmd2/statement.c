@@ -2156,6 +2156,10 @@ Lagain:
 
                 arg->type = arg->type->semantic(loc, sc);
                 arg->type = arg->type->addStorageClass(arg->storageClass);
+#if IN_LLVM
+                // Type of parameter may be different; see below
+                Type *para_type = arg->type;
+#endif
                 if (tfld)
                 {   Parameter *prm = Parameter::getNth(tfld->parameters, i);
                     //printf("\tprm = %s%s\n", (prm->storageClass&STCref?"ref ":""), prm->ident->toChars());
@@ -2178,12 +2182,35 @@ Lagain:
                 LcopyArg:
                     id = Lexer::uniqueId("__applyArg", (int)i);
 
+#if IN_LLVM
+                    // In case of a foreach loop on an array the index passed
+                    // to the delegate is always of type size_t. The type of
+                    // the parameter must be changed to size_t and a cast to
+                    // the type used must be inserted. Otherwise the index is
+                    // always 0 on a big endian architecture. This fixes
+                    // issue #326.
+                    Initializer *ie;
+                    if (dim == 2 && i == 0 && (tab->ty == Tarray || tab->ty == Tsarray))
+                    {
+                        para_type = Type::tsize_t;
+                        ie = new ExpInitializer(0,
+                                 new CastExp(0,
+                                     new IdentifierExp(0, id), arg->type));
+                    }
+                    else
+                        ie = new ExpInitializer(0, new IdentifierExp(0, id));
+#else
                     Initializer *ie = new ExpInitializer(0, new IdentifierExp(0, id));
+#endif
                     VarDeclaration *v = new VarDeclaration(0, arg->type, arg->ident, ie);
                     s = new ExpStatement(0, v);
                     body = new CompoundStatement(loc, s, body);
                 }
+#if IN_LLVM
+                args->push(new Parameter(stc, para_type, id, NULL));
+#else
                 args->push(new Parameter(stc, arg->type, id, NULL));
+#endif
             }
             tfld = new TypeFunction(args, Type::tint32, 0, LINKd);
             cases = new Statements();
