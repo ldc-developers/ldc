@@ -7,8 +7,8 @@ struct __asmtuple_t(T...)
 
 pragma(LDC_inline_asm)
 {
-    void __asm()(const(char)[] asmcode, const(char)[] constraints, ...);
-    T __asm(T)(const(char)[] asmcode, const(char)[] constraints, ...);
+    void __asm()(const(char)[] asmcode, const(char)[] constraints, ...) pure nothrow;
+    T __asm(T)(const(char)[] asmcode, const(char)[] constraints, ...) pure nothrow;
 
     template __asmtuple(T...)
     {
