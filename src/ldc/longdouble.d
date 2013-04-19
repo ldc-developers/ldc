@@ -14,8 +14,25 @@ module ldc.longdouble;
 *          http://www.boost.org/LICENSE_1_0.txt)
 */
 
-version(Win64):
+version(Windows):
 extern(C):
+
+import ldc.llvmasm;
+
+
+private:
+    enum {
+        MASK_ROUNDING = 0xf3ffu,
+    }
+
+    enum {
+        ROUND_TO_NEAREST = 0x0000u,
+        ROUND_TO_MINUS_INF = 0x0400u,
+        ROUND_TO_PLUS_INF = 0x0800u,
+        ROUND_TO_ZERO = 0x0C00u,
+
+        EXC_PRECISION = 0x0020u,
+    }
 
 /*
  * The C runtime environment of Visual C++ has no support for long double
@@ -25,49 +42,43 @@ extern(C):
 // Computes the cosine.
 real cosl(real x)
 {
-    asm
-    {
-        fld x;
-        fcos;
-        fstp x;
-    }
-    return x;
+    pragma(LDC_allow_inline);
+    return __asm!(real)("fcos", "={st},{st}", x);
 }
 
 // Computes the sine.
 real sinl(real x)
 {
-    asm
-    {
-        fld x;
-        fsin;
-        fstp x;
-    }
-    return x;
+    pragma(LDC_allow_inline);
+    return __asm!(real)("fsin", "={st},{st}", x);
+}
+
+unittest
+{
+    real v = 3.0L;
+    real s = sinl(v);
+    real c = cosl(v);
+    assert(s*s + c*c == 1.0L);
 }
 
 // Computes the tangent.
 real tanl(real x)
 {
-    asm
-    {
-        fld x;
-        fptan;
-        fstp x;
-    }
-    return x;
+    pragma(LDC_allow_inline);
+    return __asm!(real)("fptan", "={st},{st}", x);
 }
 
 // Computes the square root.
 real sqrtl(real x)
 {
-    asm
-    {
-        fld x;
-        fsqrt;
-        fstp x;
-    }
-    return x;
+    pragma(LDC_allow_inline);
+    return __asm!(real)("fsqrt", "={st},{st}", x);
+}
+
+unittest
+{
+    assert(sqrtl(4.0L) == 2.0L);
+    assert(sqrtl(16.0L) == 4.0L);
 }
 
 // Round to the nearest integer value.
@@ -85,61 +96,41 @@ real ilogbl(real x)
 // Loads exponent of a floating-point number.
 real ldexpl(real arg, int exp)
 {
-    asm
-    {
-        fild exp;
-        fld arg;
-        fscale;
-        fstp arg;
-    }
-    return arg;
+//    See http://llvm.org/bugs/show_bug.cgi?id=15773
+//    pragma(LDC_allow_inline);
+//    return __asm!(real)("fscale", "={st},{st(1)},{st},~{st(1)}", exp, arg);
+    return __asm!(real)("fildl $2 ; fxch %st(1) ; fscale", "={st},{st},*m}", arg, &exp);
 }
 
 // Computes the natural logarithm.
 real logl(real x)
 {
-    asm
-    {
-        fld1;
-        fldl2e;
-        fdivrp;
-        fld x;
-        fyl2x;
-        fstp x;
-    }
-    return x;
+    // Computes log_e(x) = 1/(log_2 e) * log_2 x
+    pragma(LDC_allow_inline);
+    return __asm!(real)("fldl2e; fld1 ; fdivp ; fxch %st(1); fyl2x", "={st},{st}", x);
 }
 
 // Computes the base 10 logarithm.
 real log10l(real x)
 {
-    asm
-    {
-        fldlg2;
-        fld x;
-        fyl2x;
-        fstp x;
-    }
-    return x;
+    pragma(LDC_allow_inline);
+    return __asm!(real)("fldlg2 ; fxch %st(1) ; fyl2x", "={st},{st}", x);
 }
 
 // Computes a natural logarithm.
 real log1pl(real x)
 {
-    return 0.0;
+    // Computes log_e(1.0 + x) = 1/(log_2 e) * log_2 (1.0 + x)
+    // FIXME: Check input rang of x and use fyl2x if not in range
+    pragma(LDC_allow_inline);
+    return __asm!(real)("fldl2e; fld1 ; fdivp ; fxch %st(1); fyl2xp1", "={st},{st}", x);
 }
 
 // Computes the base 2 logarithm.
 real log2l(real x)
 {
-    asm
-    {
-        fld1;
-        fld x;
-        fyl2x;
-        fstp x;
-    }
-    return x;
+    pragma(LDC_allow_inline);
+    return __asm!(real)("fld1 ; fxch %st(1) ; fyl2x", "={st},{st}", x);
 }
 
 // Computes the radix-independent exponent.
@@ -148,8 +139,20 @@ real logbl(real x)
     return 0.0;
 }
 
-// Computes the base 2 exponential.
+// Computes the base-2 exponential of x (2^x).
 real exp2l(real x)
+{
+    return 0.0;
+}
+
+// Computes the base-2 exponential of x (2^x).
+double exp2(double x)
+{
+    return 0.0;
+}
+
+// Computes the base-2 exponential of x (2^x).
+float exp2f(float x)
 {
     return 0.0;
 }
@@ -175,30 +178,78 @@ real cbrtl(real arg)
 // Determines the absolute value.
 real fabsl(real x)
 {
-    asm
-    {
-        fld x;
-        fabs;
-        fstp x;
-    }
-    return x;
+    pragma(LDC_allow_inline);
+    return __asm!(real)("fabs", "={st},{st}", x);
+}
+
+unittest
+{
+    assert(42.0L == fabsl(-42.0L));
+    assert(42.0L == fabsl(42.0L));
 }
 
 // Compute the ceiling value.
-real ceill(real arg)
+real ceill(real x)
 {
-    return 0.0;
+    pragma(LDC_allow_inline);
+    // Store the current FPU control word.
+    uint fpuctl = void;
+    __asm!(void)("fstcw $0", "*m", &fpuctl);
+    // Load new FPU control word with rounding mode set toward +oo (bit 11/10 = 10b)
+    uint newctl = (fpuctl & MASK_ROUNDING) | ROUND_TO_PLUS_INF;
+    __asm!(void)("fldcw $0", "*m", &newctl);
+    // Round to integer
+    real res = __asm!(real)("frndint", "={st},{st}", x);
+    // Restore FPU control word
+    __asm!(void)("fldcw $0", "*m", &fpuctl);
+    return res;
+}
+
+unittest
+{
+    assert(5.0L == ceill(4.1L));
+    assert(-4.0L == ceill(-4.1L));
 }
 
 // Return the largest floating-point integer value that is not greater than the parameter.
 real floorl(real x)
 {
-    return 0.0;
+    pragma(LDC_allow_inline);
+    // Store the current FPU control word.
+    uint fpuctl = void;
+    __asm!(void)("fstcw $0", "*m", &fpuctl);
+    // Load new FPU control word with rounding mode set toward -oo (bit 11/10 = 01b)
+    uint newctl = (fpuctl & MASK_ROUNDING) | ROUND_TO_MINUS_INF;
+    __asm!(void)("fldcw $0", "*m", &newctl);
+    // Round to integer
+    real res = __asm!(real)("frndint", "={st},{st}", x);
+    // Restore FPU control word
+    __asm!(void)("fldcw $0", "*m", &fpuctl);
+    return res;
 }
 
-// Round numbers to an integer value in floating-point format.
+unittest
+{
+    assert(4.0L == floorl(4.1L));
+    assert(-5.0L == floorl(-4.1L));
+}
+
+// Round argument to an integer value in floating-point format, using the current rounding
+// direction and without raising the inexact floating-point exception.
 real nearbyintl(real x)
 {
+    pragma(LDC_allow_inline);
+    // Store the current FPU control word.
+    uint fpuctl = void;
+    __asm!(void)("fnstcw $0", "*m", &fpuctl);
+    // Load new FPU control word with precision exception = blocked (bit 5 set = 0x20)
+    uint newctl = fpuctl | EXC_PRECISION;
+    __asm!(void)("fldcw $0", "*m", &newctl);
+    // Round to integer
+    real res = __asm!(real)("frndint", "={st},{st}", x);
+    // Restore FPU control word
+    __asm!(void)("fldcw $0", "*m", &fpuctl);
+    return res;
     return 0.0;
 }
 
@@ -206,25 +257,17 @@ real nearbyintl(real x)
 // arg in the direction of the current rounding mode.
 real rintl(real x)
 {
-    asm
-    {
-        fld x;
-        frndint;
-        fstp x;
-    }
-    return x;
+    pragma(LDC_allow_inline);
+    return __asm!(real)("frndint", "={st},{st}", x);
 }
 
 // Round to the nearest integer value using current rounding direction.
 long llrintl(real x)
 {
-    long res;
-    asm
-    {
-        fld x;
-        fistp res;
-    }
-    return res;
+    long res = void;
+    pragma(LDC_allow_inline);
+    __asm!(void)("fistpl $0", "=*m,{st},~{st}", &res, x);
+    return  res;
 }
 
 // Rounds to the nearest integer value in a floating-point format.
@@ -234,9 +277,20 @@ real roundl(real arg)
 }
 
 // Rounds to truncated integer value.
-real truncl(real arg)
+real truncl(real x)
 {
-    return 0.0;
+    pragma(LDC_allow_inline);
+    // Store the current FPU control word.
+    uint fpuctl = void;
+    __asm!(void)("fstcw $0", "*m", &fpuctl);
+    // Load new FPU control word with rounding mode set toward zero (bit 11/10 = 11b)
+    uint newctl = (fpuctl & MASK_ROUNDING) | ROUND_TO_ZERO;
+    __asm!(void)("fldcw $0", "*m", &newctl);
+    // Round to integer
+    real res = __asm!(real)("frndint", "={st},{st}", x);
+    // Restore FPU control word
+    __asm!(void)("fldcw $0", "*m", &fpuctl);
+    return res;
 }
 
 // Returns the floating-point remainder.
@@ -254,15 +308,8 @@ real powl(real x, real y)
 // Computes the exponent using FLT_RADIX=2.
 real scalbnl (real x, int n)
 {
-/*
-    asm
-    {
-        mov [RBP+0x10],ECX; // Use shadow area
-        fild [RBP+0x10];
-        fistp x;
-        fstp x;
-    }
-    return x;
-*/
-    return 0.0;
+    pragma(LDC_allow_inline);
+    return __asm!(real)("fildl $2 ; fxch %st(1) ; fscale", "={st},{st},*m}", x, &n);
 }
+
+
