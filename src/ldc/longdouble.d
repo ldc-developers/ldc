@@ -42,14 +42,12 @@ private:
 // Computes the cosine.
 real cosl(real x)
 {
-    pragma(LDC_allow_inline);
     return __asm!(real)("fcos", "={st},{st}", x);
 }
 
 // Computes the sine.
 real sinl(real x)
 {
-    pragma(LDC_allow_inline);
     return __asm!(real)("fsin", "={st},{st}", x);
 }
 
@@ -64,14 +62,12 @@ unittest
 // Computes the tangent.
 real tanl(real x)
 {
-    pragma(LDC_allow_inline);
     return __asm!(real)("fptan", "={st},{st}", x);
 }
 
 // Computes the square root.
 real sqrtl(real x)
 {
-    pragma(LDC_allow_inline);
     return __asm!(real)("fsqrt", "={st},{st}", x);
 }
 
@@ -97,7 +93,6 @@ real ilogbl(real x)
 real ldexpl(real arg, int exp)
 {
 //    See http://llvm.org/bugs/show_bug.cgi?id=15773
-//    pragma(LDC_allow_inline);
 //    return __asm!(real)("fscale", "={st},{st(1)},{st},~{st(1)}", exp, arg);
     return __asm!(real)("fildl $2 ; fxch %st(1) ; fscale", "={st},{st},*m}", arg, &exp);
 }
@@ -106,14 +101,12 @@ real ldexpl(real arg, int exp)
 real logl(real x)
 {
     // Computes log_e(x) = 1/(log_2 e) * log_2 x
-    pragma(LDC_allow_inline);
     return __asm!(real)("fldl2e; fld1 ; fdivp ; fxch %st(1); fyl2x", "={st},{st}", x);
 }
 
 // Computes the base 10 logarithm.
 real log10l(real x)
 {
-    pragma(LDC_allow_inline);
     return __asm!(real)("fldlg2 ; fxch %st(1) ; fyl2x", "={st},{st}", x);
 }
 
@@ -122,14 +115,12 @@ real log1pl(real x)
 {
     // Computes log_e(1.0 + x) = 1/(log_2 e) * log_2 (1.0 + x)
     // FIXME: Check input rang of x and use fyl2x if not in range
-    pragma(LDC_allow_inline);
     return __asm!(real)("fldl2e; fld1 ; fdivp ; fxch %st(1); fyl2xp1", "={st},{st}", x);
 }
 
 // Computes the base 2 logarithm.
 real log2l(real x)
 {
-    pragma(LDC_allow_inline);
     return __asm!(real)("fld1 ; fxch %st(1) ; fyl2x", "={st},{st}", x);
 }
 
@@ -178,7 +169,6 @@ real cbrtl(real arg)
 // Determines the absolute value.
 real fabsl(real x)
 {
-    pragma(LDC_allow_inline);
     return __asm!(real)("fabs", "={st},{st}", x);
 }
 
@@ -191,7 +181,6 @@ unittest
 // Compute the ceiling value.
 real ceill(real x)
 {
-    pragma(LDC_allow_inline);
     // Store the current FPU control word.
     uint fpuctl = void;
     __asm!(void)("fstcw $0", "*m", &fpuctl);
@@ -214,7 +203,6 @@ unittest
 // Return the largest floating-point integer value that is not greater than the parameter.
 real floorl(real x)
 {
-    pragma(LDC_allow_inline);
     // Store the current FPU control word.
     uint fpuctl = void;
     __asm!(void)("fstcw $0", "*m", &fpuctl);
@@ -238,7 +226,6 @@ unittest
 // direction and without raising the inexact floating-point exception.
 real nearbyintl(real x)
 {
-    pragma(LDC_allow_inline);
     // Store the current FPU control word.
     uint fpuctl = void;
     __asm!(void)("fnstcw $0", "*m", &fpuctl);
@@ -250,14 +237,12 @@ real nearbyintl(real x)
     // Restore FPU control word
     __asm!(void)("fldcw $0", "*m", &fpuctl);
     return res;
-    return 0.0;
 }
 
 // Returns the integral value (represented as a floating-point number) nearest
 // arg in the direction of the current rounding mode.
 real rintl(real x)
 {
-    pragma(LDC_allow_inline);
     return __asm!(real)("frndint", "={st},{st}", x);
 }
 
@@ -265,7 +250,6 @@ real rintl(real x)
 long llrintl(real x)
 {
     long res = void;
-    pragma(LDC_allow_inline);
     __asm!(void)("fistpl $0", "=*m,{st},~{st}", &res, x);
     return  res;
 }
@@ -279,7 +263,6 @@ real roundl(real arg)
 // Rounds to truncated integer value.
 real truncl(real x)
 {
-    pragma(LDC_allow_inline);
     // Store the current FPU control word.
     uint fpuctl = void;
     __asm!(void)("fstcw $0", "*m", &fpuctl);
@@ -308,7 +291,6 @@ real powl(real x, real y)
 // Computes the exponent using FLT_RADIX=2.
 real scalbnl (real x, int n)
 {
-    pragma(LDC_allow_inline);
     return __asm!(real)("fildl $2 ; fxch %st(1) ; fscale", "={st},{st},*m}", x, &n);
 }
 
