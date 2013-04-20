@@ -237,10 +237,8 @@ static int linkObjToBinaryWin(bool sharedLib)
     // use address space layout randomization (ASLR) feature
     args.push_back("/DYNAMICBASE");
 
-#if LDC_LLVM_VER <= 302
     // because of a LLVM bug
     args.push_back("/LARGEADDRESSAWARE:NO");
-#endif
 
     // output debug information
     if (global.params.symdebug)
