@@ -3288,10 +3288,22 @@ Expression *TypeBasic::defaultInit(Loc loc)
      * so that uninitialised variables can be
      * detected even if exceptions are disabled.
      */
+#if IN_LLVM
+    union
+    {   unsigned short us[8];
+        longdouble     ld;
+    } snan =
+#if __LITTLE_ENDIAN__
+    {{ 0, 0, 0, 0xA000, 0x7FFF }};
+#else
+    {{ 0x7FFF, 0xA000, 0, 0, 0 }};
+#endif
+#else
     union
     {   unsigned short us[8];
         longdouble     ld;
     } snan = {{ 0, 0, 0, 0xA000, 0x7FFF }};
+#endif
     /*
      * Although long doubles are 10 bytes long, some
      * C ABIs pad them out to 12 or even 16 bytes, so
