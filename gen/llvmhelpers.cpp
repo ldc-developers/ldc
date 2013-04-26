@@ -1501,12 +1501,17 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
         if (base->ty == Tvector)
         {
             LLConstant* val = exp->toConstElem(gIR);
+
             TypeVector* tv = (TypeVector*)base;
+            assert(tv->basetype->ty == Tsarray);
+            dinteger_t elemCount =
+                static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
+
 #if LDC_LLVM_VER == 300
-            std::vector<LLConstant*> Elts(tv->size(loc), val);
+            std::vector<LLConstant*> Elts(elemCount, val);
             return llvm::ConstantVector::get(Elts);
 #else
-            return llvm::ConstantVector::getSplat(tv->size(loc), val);
+            return llvm::ConstantVector::getSplat(elemCount, val);
 #endif
         }
 
