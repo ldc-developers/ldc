@@ -583,7 +583,9 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
         defaultInit = false;
     bool zeroInit = eltType->isZeroInit();
 
-    const char* fnname = zeroInit ? "_d_newarrayT" : "_d_newarrayiT";
+    const char* fnname = defaultInit ?
+        (zeroInit ? "_d_newarrayT" : "_d_newarrayiT") :
+        "_d_newarrayvT";
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, fnname);
 
     // call allocator

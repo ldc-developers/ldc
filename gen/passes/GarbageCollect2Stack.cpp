@@ -358,7 +358,7 @@ FunctionPass *createGarbageCollect2Stack() {
 GarbageCollect2Stack::GarbageCollect2Stack()
 : FunctionPass(ID),
   AllocMemoryT(0, true, false),
-  NewArrayVT(0, true, false, false, 1),
+  NewArrayVT(0, true, true, false, 1),
   NewArrayT(0, true, true, true, 1)
 {
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
