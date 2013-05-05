@@ -1097,31 +1097,31 @@ int main(int argc, char** argv)
         char* moduleName = m->toChars();
 #endif
 
-        std::string errormsg;
 #if LDC_LLVM_VER >= 303
-        llvm::Linker linker(llvmModules[0]);
-        for (size_t i = 1; i < llvmModules.size(); i++)
-        {
-            if(linker.linkInModule(llvmModules[i], llvm::Linker::DestroySource, &errormsg))
-                error("%s", errormsg.c_str());
-            delete llvmModules[i];
-        }
+        llvm::Module *dest = new llvm::Module(moduleName, context);
+        llvm::Linker linker(dest);
 #else
         llvm::Linker linker("ldc", moduleName, context);
+#endif
+
+        std::string errormsg;
         for (size_t i = 0; i < llvmModules.size(); i++)
         {
-            if(linker.LinkInModule(llvmModules[i], &errormsg))
+#if LDC_LLVM_VER >= 303
+            if (linker.linkInModule(llvmModules[i], llvm::Linker::DestroySource, &errormsg))
+#else
+            if (linker.LinkInModule(llvmModules[i], &errormsg))
+#endif
                 error("%s", errormsg.c_str());
             delete llvmModules[i];
         }
-#endif
 
         m->deleteObjFile();
         writeModule(linker.getModule(), filename);
         global.params.objfiles->push(const_cast<char*>(filename));
 
 #if LDC_LLVM_VER >= 303
-        delete llvmModules[0];
+        delete dest;
 #endif
     }
 
