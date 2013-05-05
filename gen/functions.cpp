@@ -129,7 +129,16 @@ llvm::FunctionType* DtoFunctionType(Type* type, Type* thistype, Type* nesttype, 
     // member functions
     if (thistype)
     {
-        fty.arg_this = new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct);
+#if LDC_LLVM_VER >= 303
+        llvm::AttrBuilder attrBuilder;
+        if (f->funcdecl && f->funcdecl->isCtorDeclaration())
+            attrBuilder.addAttribute(llvm::Attribute::Returned);
+#endif
+        fty.arg_this = new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct
+#if LDC_LLVM_VER >= 303
+                                       , attrBuilder
+#endif
+                                       );
         lidx++;
     }
 
