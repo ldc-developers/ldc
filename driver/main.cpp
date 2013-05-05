@@ -1096,19 +1096,33 @@ int main(int argc, char** argv)
 #else
         char* moduleName = m->toChars();
 #endif
-        llvm::Linker linker("ldc", moduleName, context);
 
         std::string errormsg;
+#if LDC_LLVM_VER >= 303
+        llvm::Linker linker(llvmModules[0]);
+        for (size_t i = 1; i < llvmModules.size(); i++)
+        {
+            if(linker.linkInModule(llvmModules[i], llvm::Linker::DestroySource, &errormsg))
+                error("%s", errormsg.c_str());
+            delete llvmModules[i];
+        }
+#else
+        llvm::Linker linker("ldc", moduleName, context);
         for (size_t i = 0; i < llvmModules.size(); i++)
         {
             if(linker.LinkInModule(llvmModules[i], &errormsg))
                 error("%s", errormsg.c_str());
             delete llvmModules[i];
         }
+#endif
 
         m->deleteObjFile();
         writeModule(linker.getModule(), filename);
         global.params.objfiles->push(const_cast<char*>(filename));
+
+#if LDC_LLVM_VER >= 303
+        delete llvmModules[0];
+#endif
     }
 
     // output json file
