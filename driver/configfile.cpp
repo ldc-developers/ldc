@@ -16,8 +16,39 @@
 #include <cstring>
 #include <iostream>
 #include <string>
+#if _WIN32
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
+// Prevent name clash with LLVM
+#undef GetCurrentDirectory
+#endif
 
 namespace sys = llvm::sys;
+
+#if _WIN32
+static bool ReadPathFromRegistry(sys::Path& p)
+{
+    HKEY hkey;
+    bool res = false;
+    if (RegOpenKeyEx(HKEY_LOCAL_MACHINE,
+                     "SOFTWARE\\ldc-developers\\LDC\\0.11.0", //FIXME Version number should be a define
+                     NULL, KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS)
+    {
+        DWORD length;
+        if (RegGetValue(hkey, NULL, "Path", RRF_RT_REG_SZ, NULL, NULL, &length) == ERROR_SUCCESS)
+        {
+            char *data = static_cast<char *>(_alloca(length));
+            if (RegGetValue(hkey, NULL, "Path", RRF_RT_REG_SZ, NULL, data, &length) == ERROR_SUCCESS)
+            {
+                p = std::string(data);
+                res = true;
+            }
+        }
+        RegCloseKey(hkey);
+    }
+    return res;
+}
+#endif
 
 ConfigFile::ConfigFile()
 {
@@ -80,11 +111,14 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     }
 
 #if _WIN32
-    // try the install-prefix
-    p = sys::Path(LDC_INSTALL_PREFIX);
-    p.appendComponent(filename);
-    if (sys::fs::exists(p.str()))
-        return true;
+    // Try reading path from registry
+    if (ReadPathFromRegistry(p))
+    {
+        p.appendComponent("etc");
+        p.appendComponent(filename);
+        if (sys::fs::exists(p.str()))
+            return true;
+    }
 #else
     // try the install-prefix/etc
     p = sys::Path(LDC_INSTALL_PREFIX);
