@@ -200,7 +200,10 @@ real fabs(real x) @safe pure nothrow;      /* intrinsic */
  */
 version (LDC)
 {
-  version (LDC_LLVM_303)
+  version(LDC_LLVM_303) version = HAS_INTRINSIC_RINT;
+  version(LDC_LLVM_304) version = HAS_INTRINSIC_RINT;
+
+  version(HAS_INTRINSIC_RINT)
     real rint(real x) @safe pure nothrow { return llvm_rint(x); }
   else version (Windows) // FIXME: stdc.rintl not available under Windows
     real rint(real x) @safe pure nothrow { assert(0); }
