@@ -23,7 +23,6 @@
 #include "gen/irstate.h"
 #include "gen/linkage.h"
 #include "gen/llvm.h"
-#include "gen/llvmcompat.h"
 #include "gen/logger.h"
 #include "gen/metadata.h"
 #include "gen/optimizer.h"
