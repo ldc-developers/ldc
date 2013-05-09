@@ -49,6 +49,10 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
         Passes.add(new TargetData(&m));
 #endif
 
+#if LDC_LLVM_VER >= 303
+    Target.addAnalysisPasses(Passes);
+#endif
+
     llvm::formatted_raw_ostream fout(out);
     if (Target.addPassesToEmitFile(Passes, fout, fileType, codeGenOptLevel()))
         llvm_unreachable("no support for asm output");
