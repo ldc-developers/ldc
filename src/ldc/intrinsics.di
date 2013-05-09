@@ -207,7 +207,10 @@ pragma(LDC_intrinsic, "llvm.fabs.f#")
 pragma(LDC_intrinsic, "llvm.floor.f#")
     T llvm_floor(T)(T val);
 
-version(LDC_LLVM_303)
+version(LDC_LLVM_303) version = INTRINSICS_FROM_303;
+version(LDC_LLVM_304) version = INTRINSICS_FROM_303;
+
+version(INTRINSICS_FROM_303)
 {
 /// The 'llvm.exp2.*' intrinsics perform the exp2 function.
 
