@@ -2173,49 +2173,6 @@ private __gshared bool multiThreadedFlag = false;
 
 
 // Calls the given delegate, passing the current thread's stack pointer to it.
-version (LDC) version (D_InlineAsm_X86) version = NakedStackShell;
-version (NakedStackShell)
-{
-    // We cannot use the "generic" version below, as LLVM, contrary to DMD,
-    // uses a mov to a pre-computed offset instead of 'push' to push the
-    // sp parameter for fn on the stack, thus overwriting EDI in the register
-    // save block.
-    private void callWithStackShell(scope void delegate(void* sp) fn)
-    {
-        version (D_InlineAsm_X86)
-        {
-            asm
-            {
-                naked;
-                push EBP;
-                mov EBP, ESP;
-
-                // Push callee-save registers.
-                push EAX;
-                push EBX;
-                push ESI;
-                push EDI;
-
-                // Invoke fn, passing ESP and the context pointer. Go the
-                // indirection via EDX to avoid an LDC inline asm restriction.
-                mov EDX, [EBP+0xc];
-                push ESP;
-                mov EAX, [EBP+0x8];
-                call EDX;
-
-                // Pop the callee-save registers again.
-                pop EDI;
-                pop ESI;
-                pop EBX;
-
-                mov ESP, EBP;
-                pop EBP;
-                ret 0x8;
-            }
-        } else static assert(0);
-    }
-}
-else
 private void callWithStackShell(scope void delegate(void* sp) fn)
 in
 {
@@ -2223,69 +2180,88 @@ in
 }
 body
 {
-    // The purpose of the 'shell' is to ensure all the registers
-    // get put on the stack so they'll be scanned
-    void *sp;
+    // The purpose of the 'shell' is to ensure all the registers get
+    // put on the stack so they'll be scanned. We only need to push
+    // the callee-save registers.
+    void *sp = void;
 
     version (GNU)
     {
         __builtin_unwind_init();
-        sp = & sp;
+        sp = &sp;
     }
-    else version (D_InlineAsm_X86)
+    else version (AsmX86_Posix)
     {
+        size_t[3] regs = void;
         asm
         {
-            pushad              ;
-            mov sp[EBP],ESP     ;
+            mov [regs + 0 * 4], EBX;
+            mov [regs + 1 * 4], ESI;
+            mov [regs + 2 * 4], EDI;
+
+            mov sp[EBP], ESP;
         }
     }
-    else version (D_InlineAsm_X86_64)
+    else version (AsmX86_Windows)
     {
+        size_t[3] regs = void;
         asm
         {
-            push RAX ;
-            push RBX ;
-            push RCX ;
-            push RDX ;
-            push RSI ;
-            push RDI ;
-            push RBP ;
-            push R8  ;
-            push R9  ;
-            push R10  ;
-            push R11  ;
-            push R12  ;
-            push R13  ;
-            push R14  ;
-            push R15  ;
-            push RAX ;   // 16 byte align the stack
-            mov sp[RBP],RSP     ;
+            mov [regs + 0 * 4], EBX;
+            mov [regs + 1 * 4], ESI;
+            mov [regs + 2 * 4], EDI;
+
+            mov sp[EBP], ESP;
+        }
+    }
+    else version (AsmX86_64_Posix)
+    {
+        size_t[5] regs = void;
+        asm
+        {
+            mov [regs + 0 * 8], RBX;
+            mov [regs + 1 * 8], R12;
+            mov [regs + 2 * 8], R13;
+            mov [regs + 3 * 8], R14;
+            mov [regs + 4 * 8], R15;
+
+            mov sp[RBP], RSP;
+        }
+    }
+    else version (AsmX86_64_Windows)
+    {
+        size_t[7] regs = void;
+        asm
+        {
+            mov [regs + 0 * 8], RBX;
+            mov [regs + 1 * 8], RSI;
+            mov [regs + 2 * 8], RDI;
+            mov [regs + 3 * 8], R12;
+            mov [regs + 4 * 8], R13;
+            mov [regs + 5 * 8], R14;
+            mov [regs + 6 * 8], R15;
+
+            mov sp[RBP], RSP;
         }
     }
     else version (ARM)
     {
-        version (LDC)
-        {
-            import ldc.llvmasm;
-            __asm("push {r0-r12}", "r");
-            __asm("mov $0, sp", "=*m,r", &sp);
-        }
-        else
-        {
-            static assert(false, "Architecture not supported.");
-        }
-    }
-    else version (PPC64)
-    {
-        version (LDC)
-        {
-            // FIXME Save registers.
-        }
-        else
-        {
-            static assert(false, "Architecture not supported.");
-        }
+        import ldc.llvmasm;
+
+        // Callee-save registers, according to AAPCS, section 5.1.1.
+        // FIXME: As loads/stores are explicit on ARM, the code generated for
+        // this is horrible. Better write the entire function in ASM.
+        size_t[8] regs = void;
+        __asm("str  r4, $0", "=*m", regs.ptr + 0);
+        __asm("str  r5, $0", "=*m", regs.ptr + 1);
+        __asm("str  r6, $0", "=*m", regs.ptr + 2);
+        __asm("str  r7, $0", "=*m", regs.ptr + 3);
+        __asm("str  r8, $0", "=*m", regs.ptr + 4);
+        __asm("str  r9, $0", "=*m", regs.ptr + 5);
+        __asm("str r10, $0", "=*m", regs.ptr + 6);
+        __asm("str r11, $0", "=*m", regs.ptr + 7);
+
+        __asm("str sp, $0", "=*m", &sp);
     }
     else
     {
@@ -2293,67 +2269,6 @@ body
     }
 
     fn(sp);
-
-    version (GNU)
-    {
-        // registers will be popped automatically
-    }
-    else version (D_InlineAsm_X86)
-    {
-        asm
-        {
-            popad;
-        }
-    }
-    else version (D_InlineAsm_X86_64)
-    {
-        asm
-        {
-            pop RAX ;   // 16 byte align the stack
-            pop R15  ;
-            pop R14  ;
-            pop R13  ;
-            pop R12  ;
-            pop R11  ;
-            pop R10  ;
-            pop R9  ;
-            pop R8  ;
-            pop RBP ;
-            pop RDI ;
-            pop RSI ;
-            pop RDX ;
-            pop RCX ;
-            pop RBX ;
-            pop RAX ;
-        }
-    }
-    else version (ARM)
-    {
-        version (LDC)
-        {
-            import ldc.llvmasm;
-            __asm("pop {r0-r12}", "=r");
-        }
-        else
-        {
-            static assert(false, "Architecture not supported.");
-        }
-    }
-    else version (PPC64)
-    {
-        version (LDC)
-        {
-            // FIXME Restore registers.
-        }
-        else
-        {
-            static assert(false, "Architecture not supported.");
-        }
-    }
-    else
-    {
-        static assert(false, "Architecture not supported.");
-    }
 }
 
 
