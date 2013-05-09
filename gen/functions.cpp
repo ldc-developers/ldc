@@ -552,7 +552,10 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 #if LDC_LLVM_VER >= 303
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
-    llvm::AttributeSet attrs;
+    llvm::AttributeSet old = func->getAttributes();
+    llvm::AttributeSet existingAttrs[] = { old.getFnAttributes(), old.getRetAttributes() };
+    llvm::AttributeSet newAttrs = llvm::AttributeSet::get(gIR->context(), existingAttrs);
+
     int idx = 0;
 
     // handle implicit args
@@ -560,7 +563,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     if (f->fty.X) { \
         if (f->fty.X->attrs.hasAttributes()) { \
             llvm::AttributeSet a = llvm::AttributeSet::get(gIR->context(), idx, f->fty.X->attrs); \
-            attrs = attrs.addAttributes(gIR->context(), idx, a); \
+            newAttrs = newAttrs.addAttributes(gIR->context(), idx, a); \
         } \
         idx++; \
     }
@@ -586,20 +589,12 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
         {
             unsigned i = idx + (f->fty.reverseParams ? n-k-1 : k);
             llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(), i, a);
-            attrs = attrs.addAttributes(gIR->context(), i, as);
+            newAttrs = newAttrs.addAttributes(gIR->context(), i, as);
         }
     }
 
-    // Merge in any old attributes (attributes for the function itself are
-    // also stored in a list slot).
-    llvm::AttributeSet oldAttrs = func->getAttributes();
-    for (size_t i = 0; i < oldAttrs.getNumSlots(); ++i) {
-        attrs.addAttributes(gIR->context(), oldAttrs.getSlotIndex(i),
-                            oldAttrs.getSlotAttributes(i));
-    }
-
     // Store the final attribute set
-    func->setAttributes(attrs);
+    func->setAttributes(newAttrs);
 }
 #else
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
