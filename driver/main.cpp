@@ -17,6 +17,7 @@
 #include "driver/cl_options.h"
 #include "driver/configfile.h"
 #include "driver/linker.h"
+#include "driver/target.h"
 #include "driver/toobj.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
@@ -28,12 +29,10 @@
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
 #include "llvm/Linker.h"
-#include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
-#include "llvm/Target/TargetOptions.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/LinkAllIR.h"
 #include "llvm/IR/LLVMContext.h"
@@ -338,19 +337,10 @@ int main(int argc, char** argv)
         return EXIT_FAILURE;
     }
 
-#if LDC_LLVM_VER >= 301
-    llvm::TargetOptions targetOptions;
-#endif
-
     Array* libs;
     if (global.params.symdebug)
     {
         libs = global.params.debuglibnames;
-#if LDC_LLVM_VER == 300
-        llvm::NoFramePointerElim = true;
-#else
-        targetOptions.NoFramePointerElim = true;
-#endif
     }
     else
         libs = global.params.defaultlibnames;
@@ -452,120 +442,32 @@ int main(int argc, char** argv)
     // create a proper target
     Ir ir;
 
-    // check -m32/64 sanity
-    if (m32bits && m64bits)
-        error("cannot use both -m32 and -m64 options");
-    else if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty()))
+    // Set up the TargetMachine.
+    ExplicitBitness::Type bitness = ExplicitBitness::None;
+    if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty()))
         error("-m32 and -m64 switches cannot be used together with -march and -mtriple switches");
+
+    if (m32bits)
+        bitness = ExplicitBitness::M32;
+    if (m64bits)
+    {
+        if (bitness != ExplicitBitness::None)
+        {
+            error("cannot use both -m32 and -m64 options");
+        }
+    }
+
     if (global.errors)
         fatal();
 
-    // override triple if needed
-    std::string defaultTriple = llvm::sys::getDefaultTargetTriple();
-    if (sizeof(void*) == 4 && m64bits)
-    {
-#if LDC_LLVM_VER >= 301
-        defaultTriple = llvm::Triple(defaultTriple).get64BitArchVariant().str();
-#else
-        defaultTriple = llvm::Triple__get64BitArchVariant(defaultTriple).str();
-#endif
-    }
-    else if (sizeof(void*) == 8 && m32bits)
-    {
-#if LDC_LLVM_VER >= 301
-        defaultTriple = llvm::Triple(defaultTriple).get32BitArchVariant().str();
-#else
-        defaultTriple = llvm::Triple__get32BitArchVariant(defaultTriple).str();
-#endif
-    }
-
-    std::string triple;
-
-    // did the user override the target triple?
-    if (mTargetTriple.empty())
-    {
-        if (!mArch.empty())
-        {
-            error("you must specify a target triple as well with -mtriple when using the -march option");
-            fatal();
-        }
-        triple = defaultTriple;
-    }
-    else
-    {
-        triple = llvm::Triple::normalize(mTargetTriple);
-    }
-
-    global.params.targetTriple = llvm::Triple(triple);
-
-    // Allocate target machine.
-    const llvm::Target *theTarget = NULL;
-    // Check whether the user has explicitly specified an architecture to compile for.
-    if (mArch.empty())
-    {
-        std::string Err;
-        theTarget = llvm::TargetRegistry::lookupTarget(triple, Err);
-        if (theTarget == 0)
-        {
-            error("%s Please use the -march option.", Err.c_str());
-            fatal();
-        }
-    }
-    else
-    {
-        for (llvm::TargetRegistry::iterator it = llvm::TargetRegistry::begin(),
-             ie = llvm::TargetRegistry::end(); it != ie; ++it)
-        {
-            if (mArch == it->getName())
-            {
-                theTarget = &*it;
-                break;
-            }
-        }
-
-        if (!theTarget)
-        {
-            error("invalid target '%s'", mArch.c_str());
-            fatal();
-        }
-    }
-
-    // Package up features to be passed to target/subtarget
-    std::string FeaturesStr;
-    if (mCPU.size() || mAttrs.size())
-    {
-        llvm::SubtargetFeatures Features;
-        for (unsigned i = 0; i != mAttrs.size(); ++i)
-            Features.AddFeature(mAttrs[i]);
-        FeaturesStr = Features.getString();
-    }
-
-    // FIXME
-    //std::auto_ptr<llvm::TargetMachine> target(theTarget->createTargetMachine(triple, FeaturesStr));
-    //assert(target.get() && "Could not allocate target machine!");
-    //gTargetMachine = target.get();
-
-#if LDC_LLVM_VER == 300
-    llvm::TargetMachine* target = theTarget->createTargetMachine(triple, mCPU, FeaturesStr,
-                                                                 mRelocModel, mCodeModel);
-#else
-    llvm::TargetMachine * target = theTarget->createTargetMachine(
-        llvm::StringRef(triple),
-        llvm::StringRef(mCPU),
-        llvm::StringRef(FeaturesStr),
-        targetOptions,
-        mRelocModel,
-        mCodeModel,
-        codeGenOptLevel()
-    );
-#endif
-
-    gTargetMachine = target;
+    gTargetMachine = createTargetMachine(mTargetTriple, mArch, mCPU, mAttrs, bitness,
+        mRelocModel, mCodeModel, codeGenOptLevel(), global.params.symdebug);
+    global.params.targetTriple = llvm::Triple(gTargetMachine->getTargetTriple());
 
 #if LDC_LLVM_VER >= 302
-    gDataLayout = target->getDataLayout();
+    gDataLayout = gTargetMachine->getDataLayout();
 #else
-    gDataLayout = target->getTargetData();
+    gDataLayout = gTargetMachine->getTargetData();
 #endif
 
     // Starting with LLVM 3.1 we could also use global.params.targetTriple.isArch64Bit();
