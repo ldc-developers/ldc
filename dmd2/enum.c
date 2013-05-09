@@ -38,6 +38,7 @@ EnumDeclaration::EnumDeclaration(Loc loc, Identifier *id, Type *memtype)
 #if IN_DMD
     objFileDone = 0;
 #endif
+    protection = PROTundefined;
 }
 
 Dsymbol *EnumDeclaration::syntaxCopy(Dsymbol *s)
