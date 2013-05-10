@@ -310,6 +310,16 @@ cl::opt<llvm::CodeModel::Model> mCodeModel("code-model",
         clEnumValN(llvm::CodeModel::Large, "large", "Large code model"),
         clEnumValEnd));
 
+cl::opt<FloatABI::Type> mFloatABI("float-abi",
+    cl::desc("ABI/operations to use for floating-point types:"),
+    cl::init(FloatABI::Default),
+    cl::values(
+        clEnumValN(FloatABI::Default, "default", "Target default floating-point ABI"),
+        clEnumValN(FloatABI::Soft, "soft", "Software floating-point ABI and operations"),
+        clEnumValN(FloatABI::SoftFP, "softfp", "Soft-float ABI, but hardware floating-point instructions"),
+        clEnumValN(FloatABI::Hard, "hard", "Hardware floating-point ABI and instructions"),
+        clEnumValEnd));
+
 static cl::opt<bool, true, FlagParser> asserts("asserts",
     cl::desc("(*) Enable assertions"),
     cl::value_desc("bool"),
