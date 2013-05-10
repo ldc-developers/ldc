@@ -82,7 +82,8 @@ void ReturnStatement::toIR(IRState* p)
             DValue* rvar = new DVarValue(f->type->next, f->decl->ir.irFunc->retArg);
             DValue* e = exp->toElemDtor(p);
             // store return value
-            DtoAssign(loc, rvar, e);
+            if (rvar->getLVal() != e->getRVal())
+                DtoAssign(loc, rvar, e);
 
             // call postblit if necessary
             if (!p->func()->type->isref && !(f->decl->nrvo_can && f->decl->nrvo_var))
