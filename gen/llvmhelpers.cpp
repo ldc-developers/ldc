@@ -232,12 +232,6 @@ void DtoGoto(Loc loc, Identifier* target, TryFinallyStatement* sourceFinally)
         fatal();
     }
 
-    // if the target label is inside inline asm, error
-    if(lblstmt->asmLabel) {
-        error(loc, "cannot goto to label %s inside an inline asm block", target->toChars());
-        fatal();
-    }
-
     // find target basic block
     std::string labelname = gIR->func()->gen->getScopedLabelName(target->toChars());
     llvm::BasicBlock*& targetBB = gIR->func()->gen->labelToBB[labelname];
