@@ -943,7 +943,6 @@ struct LabelStatement : Statement
     void toIR(IRState *irs);
 
 #if IN_LLVM
-    bool asmLabel;       // for labels inside inline assembler
     void toNakedIR(IRState *irs);
 #endif
 };
