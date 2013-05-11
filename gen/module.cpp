@@ -53,8 +53,6 @@
 #endif
 #endif
 
-#define NEW_MODULEINFO_LAYOUT 1
-
 static llvm::Function* build_module_function(const std::string &name, const std::list<FuncDeclaration*> &funcs,
                                              const std::list<VarDeclaration*> &gates = std::list<VarDeclaration*>())
 {
@@ -440,8 +438,6 @@ void Module::genmoduleinfo()
         localClasses = LLConstantArray::get(localClassesTy, classInits);
     }
 
-#if NEW_MODULEINFO_LAYOUT
-
     // These must match the values in druntime/src/object_.d
     #define MIstandalone      4
     #define MItlsctor         8
@@ -516,113 +512,6 @@ void Module::genmoduleinfo()
 
     // Put out module name as a 0-terminated string, to save bytes
     b.push(DtoConstStringPtr(toPrettyChars()));
-
-#else
-    //     The layout is:
-    //         char[]          name;
-    //         ModuleInfo[]    importedModules;
-    //         ClassInfo[]     localClasses;
-    //         uint            flags;
-    //
-    //         void function() ctor;
-    //         void function() dtor;
-    //         void function() unitTest;
-    //
-    //         void* xgetMembers;
-    //         void function() ictor;
-    //
-    //         version(D_Version2) {
-    //             void *sharedctor;
-    //             void *shareddtor;
-    //             uint index;
-    //             void*[1] reserved;
-    //         }
-
-    LLConstant *c = 0;
-
-    // name
-    b.push_string(toPrettyChars());
-
-    // importedModules
-    if (importedModules)
-    {
-        std::string m_name("_D");
-        m_name.append(mangle());
-        m_name.append("9__importsZ");
-        llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
-        if (!m_gvar) m_gvar = new llvm::GlobalVariable(*gIR->module, importedModulesTy, true, llvm::GlobalValue::InternalLinkage, importedModules, m_name);
-        c = llvm::ConstantExpr::getBitCast(m_gvar, getPtrToType(importedModulesTy->getElementType()));
-        c = DtoConstSlice(DtoConstSize_t(importInits.size()), c);
-    }
-    else
-    {
-        c = DtoConstSlice(DtoConstSize_t(0), getNullValue(getPtrToType(moduleinfoTy)));
-    }
-    b.push(c);
-
-    // localClasses
-    if (localClasses)
-    {
-        std::string m_name("_D");
-        m_name.append(mangle());
-        m_name.append("9__classesZ");
-        assert(gIR->module->getGlobalVariable(m_name) == NULL);
-        llvm::GlobalVariable* m_gvar = new llvm::GlobalVariable(*gIR->module, localClassesTy, true, llvm::GlobalValue::InternalLinkage, localClasses, m_name);
-        c = DtoGEPi(m_gvar, 0, 0);
-        c = DtoConstSlice(DtoConstSize_t(classInits.size()), c);
-    }
-    else
-    {
-        c = DtoConstSlice( DtoConstSize_t(0), getNullValue(getPtrToType(getPtrToType(classinfoTy))) );
-    }
-    b.push(c);
-
-    // flags (4 means MIstandalone)
-    unsigned mi_flags = needmoduleinfo ? 0 : 4;
-    b.push_uint(mi_flags);
-
-    // function pointer type for next three fields
-    LLType* fnptrTy = getPtrToType(LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false));
-
-    // ctor
-    llvm::Function* fctor = build_module_shared_ctor();
-    c = fctor ? fctor : getNullValue(fnptrTy);
-    b.push(c);
-
-    // dtor
-    llvm::Function* fdtor = build_module_shared_dtor();
-    c = fdtor ? fdtor : getNullValue(fnptrTy);
-    b.push(c);
-
-    // unitTest
-    llvm::Function* unittest = build_module_unittest();
-    c = unittest ? unittest : getNullValue(fnptrTy);
-    b.push(c);
-
-    // xgetMembers
-    c = getNullValue(getVoidPtrType());
-    b.push(c);
-
-    // ictor
-    c = getNullValue(fnptrTy);
-    b.push(c);
-
-    // tls ctor
-    fctor = build_module_ctor();
-    c = fctor ? fctor : getNullValue(fnptrTy);
-    b.push(c);
-
-    // tls dtor
-    fdtor = build_module_dtor();
-    c = fdtor ? fdtor : getNullValue(fnptrTy);
-    b.push(c);
-
-    // index + reserved void*[1]
-    LLType* AT = llvm::ArrayType::get(getVoidPtrType(), 2);
-    c = getNullValue(AT);
-    b.push(c);
-
-#endif
 
     // create and set initializer
     b.finalize(moduleInfoType, moduleInfoSymbol());
