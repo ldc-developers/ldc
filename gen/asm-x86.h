@@ -22,6 +22,7 @@
 #if defined(_MSC_VER)
 #include <ctype.h>
 #endif
+#include "gen/llvmhelpers.h" // printLabelName
 
 #ifndef ASM_X86_64
 namespace AsmParserx8632
@@ -2496,7 +2497,7 @@ namespace AsmParserx8664
                             }
                             else
                             {
-                                // Plain memory reference to variable
+                                // Plain memory reference to variable or reference to label.
 
                                 /* If in a reg, DMD moves to memory.. even with -O, so we'll do the same
                                    by always using the "m" contraint.
