@@ -38,9 +38,6 @@
 #include "ir/irdsymbol.h"
 #include "ir/irmodule.h"
 #include "ir/irtype.h"
-#if !MODULEINFO_IS_STRUCT
-#include "ir/irtypeclass.h"
-#endif
 #include "ir/irvar.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/LinkAllPasses.h"
@@ -356,7 +353,7 @@ void Module::genmoduleinfo()
     // resolve ModuleInfo
     if (!moduleinfo)
     {
-        error("object.d is missing the ModuleInfo class");
+        error("object.d is missing the ModuleInfo struct");
         fatal();
     }
     // check for patch
@@ -374,11 +371,7 @@ void Module::genmoduleinfo()
     RTTIBuilder b(moduleinfo);
 
     // some types
-#if MODULEINFO_IS_STRUCT
     LLType* moduleinfoTy = moduleinfo->type->irtype->getLLType();
-#else
-    LLType* moduleinfoTy = moduleinfo->type->irtype->isClass()->getMemoryLLType();
-#endif
     LLType* classinfoTy = ClassDeclaration::classinfo->type->irtype->getLLType();
 
     // importedModules[]
