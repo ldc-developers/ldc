@@ -510,8 +510,12 @@ void Module::genmoduleinfo()
         b.push(localClasses);
     }
 
-    // Put out module name as a 0-terminated string, to save bytes
-    b.push(DtoConstStringPtr(toPrettyChars()));
+    // Put out module name as a 0-terminated string.
+    const char *name = toPrettyChars();
+    const size_t len = strlen(name) + 1;
+    llvm::IntegerType *it = llvm::IntegerType::getInt8Ty(gIR->context());
+    llvm::ArrayType *at = llvm::ArrayType::get(it, len);
+    b.push(toConstantArray(it, at, name, len, false));
 
     // create and set initializer
     b.finalize(moduleInfoType, moduleInfoSymbol());
