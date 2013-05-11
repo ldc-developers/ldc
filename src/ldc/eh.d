@@ -340,6 +340,9 @@ Lerr:
 // _Unwind_Exception member to the unwind call. The personality
 // routine is then able to get the whole struct by looking at the data
 // surrounding the unwind info.
+//
+// Note that the compiler-generated landing pad code also relies on the
+// exception object reference being stored at offset 0.
 struct _d_exception
 {
   Object exception_object;
@@ -552,7 +555,7 @@ private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, 
   else if(actions & _Unwind_Action.CLEANUP_PHASE)
   {
     debug(EH_personality) printf("Setting switch value to: %d!\n", switchval);
-    _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)cast(void*)(exception_struct));
+    _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)exception_struct);
     _Unwind_SetGR(context, eh_selector_regno, cast(ptrdiff_t)switchval);
     _Unwind_SetIP(context, landing_pad);
     return _Unwind_Reason_Code.INSTALL_CONTEXT;
