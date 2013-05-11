@@ -5509,9 +5509,6 @@ LabelStatement::LabelStatement(Loc loc, Identifier *ident, Statement *statement)
 #endif
     this->lblock = NULL;
     this->fwdrefs = NULL;
-#if IN_LLVM
-    this->asmLabel = false;
-#endif
 }
 
 Statement *LabelStatement::syntaxCopy()

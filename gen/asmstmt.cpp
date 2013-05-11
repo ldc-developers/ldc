@@ -149,7 +149,25 @@ AsmParserCommon* asmparser = NULL;
 #include "asm-x86.h" // x86_64 assembly parser
 #undef ASM_X86_64
 
-bool d_have_inline_asm() { return true; }
+/**
+ * Replaces <<func>> with the name of the currently codegen'd function.
+ *
+ * This kludge is required to handle labels correctly, as the instruction
+ * strings for jumps, … are generated during semantic3, but attribute inference
+ * might change the function type (and hence the mangled name) right at the end
+ * of semantic3.
+ */
+static void replace_func_name(IRState* p, std::string& insnt)
+{
+    static const std::string needle("<<func>>");
+
+    size_t pos;
+    while (std::string::npos != (pos = insnt.find(needle)))
+    {
+        // This will only happen for few instructions, and only once for those.
+        insnt.replace(pos, needle.size(), p->func()->decl->mangle(false));
+    }
+}
 
 Statement *AsmStatement::semantic(Scope *sc)
 {
@@ -443,6 +461,8 @@ AsmStatement::toIR(IRState * irs)
     }
 
     // excessive commas are removed later...
+
+    replace_func_name(irs, code->insnTemplate);
 
     // push asm statement
     IRAsmStmt* asmStmt = new IRAsmStmt;
@@ -838,6 +858,7 @@ void AsmStatement::toNakedIR(IRState *p)
     AsmCode * code = (AsmCode *) asmcode;
 
     // build asm stmt
+    replace_func_name(p, code->insnTemplate);
     p->nakedAsm << "\t" << code->insnTemplate << std::endl;
 }
 
