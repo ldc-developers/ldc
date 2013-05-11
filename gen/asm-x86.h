@@ -1890,7 +1890,9 @@ namespace AsmParserx8664
 
         void addLabel ( char* id )
         {
-            printLabelName(insnTemplate, sc->func->mangle(), id);
+            // We need to delay emitting the actual function name, see
+            // replace_func_name in asmstmt.cpp for details.
+            printLabelName(insnTemplate, "<<func>>", id);
         }
 
         /* Determines whether the operand is a register, memory reference
