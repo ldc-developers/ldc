@@ -179,11 +179,13 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
         case llvm::Triple::EABI:
             // EABI is always AAPCS, and if it was not marked 'hard', it's softfp
             return FloatABI::SoftFP;
+#if LDC_LLVM_VER >= 302
         case llvm::Triple::Android: {
             if (llvm::StringRef(llvmArchSuffix).startswith("v7"))
                 return FloatABI::SoftFP;
             return FloatABI::Soft;
         }
+#endif
         default:
             // Assume "soft".
             // TODO: Warn the user we are guessing.
