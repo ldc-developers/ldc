@@ -185,8 +185,9 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
             return FloatABI::Soft;
         }
         default:
-            // Assume "soft", but warn the user we are guessing.
-            return FloatABI::SoftFP;
+            // Assume "soft".
+            // TODO: Warn the user we are guessing.
+            return FloatABI::Soft;
         }
     }
 }
