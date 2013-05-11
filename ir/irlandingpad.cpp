@@ -163,8 +163,11 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
             // if it is a first catch and some catch allocated storage, store exception object
             if(isFirstCatch && catch_var)
             {
-                LLType* objectTy = DtoType(ClassDeclaration::object->type);
-                gIR->ir->CreateStore(gIR->ir->CreateBitCast(eh_ptr, objectTy), catch_var);
+                // eh_ptr is a pointer to _d_exception, which has a reference
+                // to the Throwable object at offset 0.
+                LLType *objectPtrTy = DtoType(ClassDeclaration::object->type->pointerTo());
+                LLValue *objectPtr = gIR->ir->CreateBitCast(eh_ptr, objectPtrTy);
+                gIR->ir->CreateStore(gIR->ir->CreateLoad(objectPtr), catch_var);
                 isFirstCatch = false;
             }
             // create next block
