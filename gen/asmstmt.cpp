@@ -149,8 +149,6 @@ AsmParserCommon* asmparser = NULL;
 #include "asm-x86.h" // x86_64 assembly parser
 #undef ASM_X86_64
 
-bool d_have_inline_asm() { return true; }
-
 Statement *AsmStatement::semantic(Scope *sc)
 {
     if (sc->func && sc->func->isSafe())
