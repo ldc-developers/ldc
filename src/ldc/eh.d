@@ -520,6 +520,16 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
 // Hints for these can be found by looking at the
 // EH_RETURN_DATA_REGNO macro in GCC, careful testing
 // is required though.
+//
+// If you have a native gcc you can try the following:
+// #include <stdio.h>
+//
+// int main(int argc, char *argv[])
+// {
+//     printf("EH_RETURN_DATA_REGNO(0) = %d\n", __builtin_eh_return_data_regno(0));
+//     printf("EH_RETURN_DATA_REGNO(1) = %d\n", __builtin_eh_return_data_regno(1));
+//     return 0;
+// }
 version (X86_64)
 {
   private enum eh_exception_regno = 0;
@@ -542,7 +552,7 @@ private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, 
   else if(actions & _Unwind_Action.CLEANUP_PHASE)
   {
     debug(EH_personality) printf("Setting switch value to: %d!\n", switchval);
-    _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)cast(void*)(exception_struct.exception_object));
+    _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)cast(void*)(exception_struct));
     _Unwind_SetGR(context, eh_selector_regno, cast(ptrdiff_t)switchval);
     _Unwind_SetIP(context, landing_pad);
     return _Unwind_Reason_Code.INSTALL_CONTEXT;
