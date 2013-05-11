@@ -30,15 +30,6 @@ namespace ExplicitBitness {
     };
 }
 
-namespace FloatABI {
-    enum Type {
-        Default,
-        Soft,
-        SoftFP,
-        Hard
-    };
-}
-
 namespace llvm { class TargetMachine; }
 
 /**
@@ -53,7 +44,6 @@ llvm::TargetMachine* createTargetMachine(
     std::string cpu,
     std::vector<std::string> attrs,
     ExplicitBitness::Type bitness,
-    FloatABI::Type floatABI,
     llvm::Reloc::Model relocModel,
     llvm::CodeModel::Model codeModel,
     llvm::CodeGenOpt::Level codeGenOptLevel,
