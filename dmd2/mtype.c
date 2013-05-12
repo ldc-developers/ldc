@@ -82,17 +82,19 @@ int REALSIZE = 16;
 int REALPAD = 6;
 int REALALIGNSIZE = 16;
 #elif TARGET_LINUX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
-int REALSIZE = 12; // LDC_FIXME: We differ from DMD here, yet target defines are never set?!
+int REALSIZE = 12;
 int REALPAD = 2;
 int REALALIGNSIZE = 4;
-#elif defined(IN_GCC)
+#elif TARGET_WINDOS
+int REALSIZE = 10;
+int REALPAD = 0;
+int REALALIGNSIZE = 2;
+#elif defined(IN_GCC) || defined(IN_LLVM)
 int REALSIZE = 0;
 int REALPAD = 0;
 int REALALIGNSIZE = 0;
 #else
-int REALSIZE = 10;
-int REALPAD = 0;
-int REALALIGNSIZE = 2;
+#error "fix this"
 #endif
 
 int Tsize_t = Tuns32;
