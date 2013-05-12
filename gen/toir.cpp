@@ -423,21 +423,6 @@ LLConstant* ComplexExp::toConstElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-template <typename T>
-static inline LLConstant* toConstantArray(LLType* ct, LLArrayType* at, T* str, size_t len, bool nullterm = true)
-{
-    std::vector<LLConstant*> vals;
-    vals.reserve(len+1);
-    for (size_t i = 0; i < len; ++i) {
-        vals.push_back(LLConstantInt::get(ct, str[i], false));
-    }
-    if (nullterm)
-        vals.push_back(LLConstantInt::get(ct, 0, false));
-    return LLConstantArray::get(at, vals);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* StringExp::toElem(IRState* p)
 {
     Logger::print("StringExp::toElem: %s @ %s\n", toChars(), type->toChars());

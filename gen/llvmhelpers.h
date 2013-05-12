@@ -220,4 +220,17 @@ void printLabelName(std::ostream& target, const char* func_mangle, const char* l
 
 void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function* func, const uint32_t priority, const bool isCtor);
 
+template <typename T>
+LLConstant* toConstantArray(LLType* ct, LLArrayType* at, T* str, size_t len, bool nullterm = true)
+{
+    std::vector<LLConstant*> vals;
+    vals.reserve(len+1);
+    for (size_t i = 0; i < len; ++i) {
+        vals.push_back(LLConstantInt::get(ct, str[i], false));
+    }
+    if (nullterm)
+        vals.push_back(LLConstantInt::get(ct, 0, false));
+    return LLConstantArray::get(at, vals);
+}
+
 #endif
