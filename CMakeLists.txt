@@ -389,14 +389,10 @@ if (HAVE_SC_ARG_MAX)
    add_definitions(-DHAVE_SC_ARG_MAX)
 endif()
 
-set_source_files_properties(dmd2/root/response.c dmd2/root/man.c PROPERTIES
-    LANGUAGE CXX
-    COMPILE_FLAGS "${DMD_CXXFLAGS}"
-)
 set_source_files_properties(driver/ldmd.cpp PROPERTIES
     COMPILE_FLAGS "${LDC_CXXFLAGS}"
 )
-add_executable(${LDMD_EXE} dmd2/root/response.c dmd2/root/man.c driver/ldmd.cpp)
+add_executable(${LDMD_EXE} dmd2/root/man.c driver/ldmd.cpp driver/response.cpp)
 set_target_properties(${LDMD_EXE} PROPERTIES
     COMPILE_DEFINITIONS LDC_EXE_NAME="${LDC_EXE_NAME}"
     COMPILE_FLAGS "${LLVM_CXXFLAGS}"
