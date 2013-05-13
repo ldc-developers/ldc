@@ -22,6 +22,7 @@
 #include <string.h>
 #include <string>
 #include <vector>
+#include <cctype>
 
 // returns true if the quote is unescaped
 bool applyBackslashRule(std::string &arg) {
