@@ -19,10 +19,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "id.h"
-#if defined(_MSC_VER)
-#include <ctype.h>
-#endif
 #include "gen/llvmhelpers.h" // printLabelName
+#include <cctype>
 
 #ifndef ASM_X86_64
 namespace AsmParserx8632
@@ -1539,11 +1537,7 @@ namespace AsmParserx8664
                 {
                     strncpy ( buf, regInfo[i].name, sizeof ( buf ) - 1 );
                     for ( p = buf; *p; p++ )
-#if defined(_MSC_VER)
-                        *p = tolower ( *p );
-#else
                         *p = std::tolower ( *p );
-#endif
                     regInfo[i].gccName = std::string ( buf, p - buf );
                     if ( ( i <= Reg_ST || i > Reg_ST7 ) && i != Reg_EFLAGS )
                         regInfo[i].ident = Lexer::idPool ( regInfo[i].name );
