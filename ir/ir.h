@@ -23,11 +23,6 @@
 struct IRState;
 struct IrFunction;
 
-struct IrBase : Object
-{
-    virtual ~IrBase() {}
-};
-
 class Ir
 {
 public:

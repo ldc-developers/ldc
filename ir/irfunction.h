@@ -89,7 +89,7 @@ private:
 };
 
 // represents a function
-struct IrFunction : IrBase
+struct IrFunction
 {
     // constructor
     IrFunction(FuncDeclaration* fd);

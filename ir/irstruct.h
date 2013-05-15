@@ -26,7 +26,7 @@ struct StructInitializer;
 
 // represents a struct or class
 // it is used during codegen to hold all the vital info we need
-struct IrStruct : IrBase
+struct IrStruct
 {
     /// Constructor.
     IrStruct(AggregateDeclaration* agg);

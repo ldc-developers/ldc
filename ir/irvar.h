@@ -24,7 +24,7 @@
 
 struct IrFuncTyArg;
 
-struct IrVar : IrBase
+struct IrVar
 {
     IrVar(VarDeclaration* var);
 
