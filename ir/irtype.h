@@ -47,8 +47,16 @@ class IrTypeVector;
 /// Derived classes should be created using their static get() methods, which
 /// makes sure that uniqueness is preserved in the face of forward references.
 /// Note that the get() methods expect the IrType of the passed type/symbol to
-/// be not yet set. This could be altered to just return the existing IrType
-/// in order to bring the API entirely in line with the LLVM type get() methods.
+/// be not yet set.
+///
+/// This could be altered to just return the existing IrType in order to bring
+/// the API entirely in line with the LLVM type get() methods. It has not been
+/// changed so far since currently all clients use the DtoType wrapper rather
+/// than handling IrType instances directly, and keeping it this way allows to
+/// easily check for uniqueness violations in the face of forward references.
+/// TODO: Implement the described changes (now that the forward reference
+/// handling logic seems to work correctly) and get rid of the "no-op" DtoType
+/// calls in IrStruct, ... that only exist for their side effect.
 class IrType
 {
 public:
