@@ -60,6 +60,8 @@ class IrTypeVector;
 class IrType
 {
 public:
+    virtual ~IrType() {}
+
     ///
     virtual IrTypeAggr* isAggr()        { return NULL; }
     ///

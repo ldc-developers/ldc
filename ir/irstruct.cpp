@@ -213,19 +213,6 @@ std::vector<llvm::Constant*> IrStruct::createStructDefaultInitializer()
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-// yet another rewrite of the notorious StructInitializer.
-
-typedef std::pair<VarDeclaration*, llvm::Constant*> VCPair;
-
-bool struct_init_data_sort(const VCPair& a, const VCPair& b)
-{
-    return (a.first && b.first)
-        ? a.first->offset < b.first->offset
-        : false;
-}
-
-// this time a bit more inspired by the DMD code.
-
 LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
 {
     IF_LOG Logger::println("Building StructInitializer of type %s", si->ad->toPrettyChars());
@@ -236,7 +223,7 @@ LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
     assert(si->vars.dim == si->value.dim && "inconsistent StructInitializer");
 
     // array of things to build
-    llvm::SmallVector<VCPair, 16> data(aggrdecl->fields.dim);
+    llvm::SmallVector<IrTypeStruct::VarInitConst, 16> data(aggrdecl->fields.dim);
 
     // start by creating a map from initializer indices to field indices.
     // I have no fucking clue why dmd represents it like this :/
@@ -345,65 +332,8 @@ LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
         fatal();
     }
 
-    // sort data array by offset
-    std::sort(data.begin(), data.end(), struct_init_data_sort);
-
-    // build array of constants and make sure explicit zero padding is inserted when necessary.
-    size_t offset = 0;
-    std::vector<llvm::Constant*> constants;
-    constants.reserve(n);
-
-    for (size_t i = 0; i < n; i++)
-    {
-        VarDeclaration* vd = data[i].first;
-        if (vd == NULL)
-            continue;
-
-        // get next aligned offset for this field
-        size_t alignedoffset = offset;
-        if (!packed)
-        {
-            alignedoffset = realignOffset(alignedoffset, vd->type);
-        }
-
-        // insert explicit padding?
-        if (alignedoffset < vd->offset)
-        {
-            size_t diff = vd->offset - alignedoffset;
-            IF_LOG Logger::println("adding %zu bytes zero padding", diff);
-            add_zeros(constants, diff);
-        }
-
-        IF_LOG Logger::println("adding field %s", vd->toChars());
-
-        constants.push_back(data[i].second);
-        offset = vd->offset + vd->type->size();
-    }
-
-    // tail padding?
-    if (offset < aggrdecl->structsize)
-    {
-        size_t diff = aggrdecl->structsize - offset;
-        IF_LOG Logger::println("adding %zu bytes zero padding", diff);
-        add_zeros(constants, diff);
-    }
-
-    // get initializer type
-    LLStructType* &ltype = si->ltype;
-    if (!ltype || ltype->isOpaque()) {
-        std::vector<LLConstant*>::iterator itr, end = constants.end();
-        std::vector<LLType*> types;
-        for (itr = constants.begin(); itr != end; ++itr)
-            types.push_back((*itr)->getType());
-        if (!ltype)
-            ltype = LLStructType::get(gIR->context(), types, packed);
-        else
-            ltype->setBody(types, packed);
-    }
-
-    // build constant
-    assert(!constants.empty());
-    llvm::Constant* c = LLConstantStruct::get(ltype, constants);
-    IF_LOG Logger::cout() << "final struct initializer: " << *c << std::endl;
-    return c;
+    llvm::Constant* init =
+        type->irtype->isStruct()->createInitializerConstant(data, si->ltype);
+    si->ltype = static_cast<llvm::StructType*>(init->getType());
+    return init;
 }
