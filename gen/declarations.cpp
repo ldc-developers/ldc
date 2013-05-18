@@ -99,7 +99,22 @@ void TupleDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-// FIXME: this is horrible!!!
+static llvm::GlobalVariable* createGlobal(llvm::Type* type, bool isConst,
+    llvm::GlobalValue::LinkageTypes linkage, llvm::StringRef name,
+    bool isThreadLocal)
+{
+#if LDC_LLVM_VER >= 302
+    // FIXME: clang uses a command line option for the thread model
+    const llvm::GlobalVariable::ThreadLocalMode tlsModel =
+        isThreadLocal ? llvm::GlobalVariable::GeneralDynamicTLSModel
+                      : llvm::GlobalVariable::NotThreadLocal;
+    return new llvm::GlobalVariable(*gIR->module, type, isConst, linkage,
+                                    NULL, name, 0, tlsModel);
+#else
+    return new llvm::GlobalVariable(*gIR->module, type, isConst, linkage,
+                                    NULL, name, 0, isThreadLocal);
+#endif
+}
 
 void VarDeclaration::codegen(Ir* p)
 {
@@ -124,7 +139,6 @@ void VarDeclaration::codegen(Ir* p)
         ad->codegen(p);
 
     // global variable
-    // taken from dmd2/structs
     if (isDataseg() || (storage_class & (STCconst | STCimmutable) && init))
     {
         Logger::println("data segment");
@@ -143,28 +157,58 @@ void VarDeclaration::codegen(Ir* p)
 
         Logger::println("parent: %s (%s)", parent->toChars(), parent->kind());
 
-        bool isLLConst = isConst() && init;
-
-        Logger::println("Creating global variable");
+        const bool isLLConst = isConst() && init;
+        const llvm::GlobalValue::LinkageTypes llLinkage = DtoLinkage(this);
 
         assert(!ir.initialized);
         ir.initialized = gIR->dmodule;
         std::string llName(mangle());
 
-        LLType *llType = DtoConstInitializerType(type, init);
-
-        // create the global variable
-#if LDC_LLVM_VER >= 302
-        // FIXME: clang uses a command line option for the thread model
-        LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, llType, isLLConst,
-                                                      DtoLinkage(this), NULL, llName, 0,
-                                                      isThreadlocal() ? LLGlobalVariable::GeneralDynamicTLSModel
-                                                                      : LLGlobalVariable::NotThreadLocal);
-#else
-        LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, llType, isLLConst,
-                                                      DtoLinkage(this), NULL, llName, 0, isThreadlocal());
-#endif
+        // Since the type of a global must exactly match the type of its
+        // initializer, we cannot know the type until after we have emitted the
+        // latter (e.g. in case of unions, …). However, it is legal for the
+        // initializer to refer to the address of the variable. Thus, we first
+        // create a global with the generic type (note the assignment to
+        // this->ir.irGlobal->value!), and in case we also do an initializer
+        // with a different type later, swap it out and replace any existing
+        // uses with bitcasts to the previous type.
+        llvm::GlobalVariable* gvar = createGlobal(DtoType(type), isLLConst,
+            llLinkage, llName, isThreadlocal());
         this->ir.irGlobal->value = gvar;
+
+        // Check if we are defining or just declaring the global in this module.
+        if (!(storage_class & STCextern) && mustDefineSymbol(this))
+        {
+            // Build the initializer. Might use this->ir.irGlobal->value!
+            LLConstant *initVal = DtoConstInitializer(loc, type, init);
+
+            // In case of type mismatch, swap out the variable.
+            if (initVal->getType() != gvar->getType()->getElementType())
+            {
+                llvm::GlobalVariable* newGvar = createGlobal(
+                    initVal->getType(), isLLConst, llLinkage,
+                    "", // We take on the name of the old global below.
+                    isThreadlocal());
+
+                newGvar->takeName(gvar);
+
+                llvm::Constant* newValue =
+                    llvm::ConstantExpr::getBitCast(newGvar, gvar->getType());
+                gvar->replaceAllUsesWith(newValue);
+
+                gvar->eraseFromParent();
+                gvar = newGvar;
+                this->ir.irGlobal->value = newGvar;
+            }
+
+            // Now, set the initializer.
+            assert(!ir.irGlobal->constInit);
+            ir.irGlobal->constInit = initVal;
+            gvar->setInitializer(initVal);
+
+            // Also set up the debug info.
+            DtoDwarfGlobalVariable(gvar, this);
+        }
 
         // Set the alignment (it is important not to use type->alignsize because
         // VarDeclarations can have an align() attribute independent of the type
@@ -172,36 +216,14 @@ void VarDeclaration::codegen(Ir* p)
         if (alignment != STRUCTALIGN_DEFAULT)
             gvar->setAlignment(alignment);
 
-        if (Logger::enabled())
-            Logger::cout() << *gvar << '\n';
-
-        // if this global is used from a nested function, this is necessary or
-        // optimization could potentially remove the global (if it's the only use)
+        // If this global is used from a naked function, we need to create an
+        // artificial "use" for it, or it could be removed by the optimizer if
+        // the only reference to it is in inline asm.
         if (nakedUse)
             gIR->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
 
-        // assign the initializer
-        if (!(storage_class & STCextern) && mustDefineSymbol(this))
-        {
-            if (Logger::enabled())
-            {
-                Logger::println("setting initializer");
-                Logger::cout() << "global: " << *gvar << '\n';
-    #if 0
-                Logger::cout() << "init:   " << *initVal << '\n';
-    #endif
-            }
-            // build the initializer
-            LLConstant *initVal = DtoConstInitializer(loc, type, init);
-
-            // set the initializer
-            assert(!ir.irGlobal->constInit);
-            ir.irGlobal->constInit = initVal;
-            gvar->setInitializer(initVal);
-
-            // do debug info
-            DtoDwarfGlobalVariable(gvar, this);
-        }
+        if (Logger::enabled())
+            Logger::cout() << *gvar << '\n';
     }
 }
 
