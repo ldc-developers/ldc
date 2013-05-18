@@ -143,27 +143,26 @@ void VarDeclaration::codegen(Ir* p)
 
         Logger::println("parent: %s (%s)", parent->toChars(), parent->kind());
 
-        // not sure why this is only needed for d2
-        bool _isconst = isConst() && init;
+        bool isLLConst = isConst() && init;
 
         Logger::println("Creating global variable");
 
         assert(!ir.initialized);
         ir.initialized = gIR->dmodule;
-        std::string _name(mangle());
+        std::string llName(mangle());
 
-        LLType *_type = DtoConstInitializerType(type, init);
+        LLType *llType = DtoConstInitializerType(type, init);
 
         // create the global variable
 #if LDC_LLVM_VER >= 302
         // FIXME: clang uses a command line option for the thread model
-        LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, _type, _isconst,
-                                                      DtoLinkage(this), NULL, _name, 0,
+        LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, llType, isLLConst,
+                                                      DtoLinkage(this), NULL, llName, 0,
                                                       isThreadlocal() ? LLGlobalVariable::GeneralDynamicTLSModel
                                                                       : LLGlobalVariable::NotThreadLocal);
 #else
-        LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, _type, _isconst,
-                                                      DtoLinkage(this), NULL, _name, 0, isThreadlocal());
+        LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, llType, isLLConst,
+                                                      DtoLinkage(this), NULL, llName, 0, isThreadlocal());
 #endif
         this->ir.irGlobal->value = gvar;
 
