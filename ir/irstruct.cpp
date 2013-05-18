@@ -92,6 +92,11 @@ llvm::Constant * IrStruct::getDefaultInit()
         types.push_back((*itr)->getType());
     init_type->setBody(types, packed);
 
+    // Whatever type we end up with due to unions, ..., it should match the
+    // the LLVM type corresponding to the D struct type in size.
+    assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(init_type) &&
+        "Struct initializer type mismatch, encountered type too small.");
+
     // build constant struct
     constInit = LLConstantStruct::get(init_type, constants);
     IF_LOG Logger::cout() << "final default initializer: " << *constInit << std::endl;
