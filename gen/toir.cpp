@@ -204,23 +204,29 @@ DValue* VarExp::toElem(IRState* p)
             Logger::println("a normal variable");
 
             // take care of forward references of global variables
-            if (vd->isDataseg() || (vd->storage_class & STCextern))
+            const bool isGlobal = vd->isDataseg() || (vd->storage_class & STCextern);
+            if (isGlobal)
                 vd->codegen(Type::sir);
 
-            LLValue* val;
+            assert(vd->ir.isSet() && "Variable not resolved.");
 
-            if (!vd->ir.isSet() || !(val = vd->ir.getIrValue())) {
-                // FIXME: this error is bad!
-                // We should be VERY careful about adding errors in general, as they have
-                // a tendency to "mask" out the underlying problems ...
-                error("variable %s not resolved", vd->toChars());
-                if (Logger::enabled())
-                    Logger::cout() << "unresolved variable had type: " << *DtoType(vd->type) << '\n';
-                fatal();
+            llvm::Value* val = vd->ir.getIrValue();
+            assert(val && "Variable value not set yet.");
+
+            if (isGlobal)
+            {
+                llvm::Type* expectedType = DtoType(type->pointerTo());
+                // The type of globals is determined by their initializer, so
+                // we might need to cast. Make sure that the type sizes fit -
+                // '==' instead of '<=' should probably work as well.
+                if (val->getType() != expectedType)
+                {
+                    llvm::Type* t = llvm::cast<llvm::PointerType>(val->getType())->getElementType();
+                    assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(t) &&
+                        "Global type mismatch, encountered type too small.");
+                    val = DtoBitCast(val, expectedType);
+                }
             }
-
-            if (vd->isDataseg() || (vd->storage_class & STCextern))
-                val = DtoBitCast(val, DtoType(type->pointerTo()));
 
             return new DVarValue(type, vd, val);
         }
