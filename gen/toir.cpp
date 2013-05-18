@@ -2783,20 +2783,45 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     // dynamic arrays can occur here as well ...
     bool dyn = (bt->ty != Tsarray);
 
-    // build the initializer
+    // Build the initializer. We have to take care as due to unions in the
+    // element types (with different fields being initialized), we can end up
+    // with different types for the initializer values. In this case, we
+    // generate a packed struct constant instead of an array constant.
+    LLType *elementType = NULL;
+    bool differentTypes = false;
+
     std::vector<LLConstant*> vals;
     vals.reserve(elements->dim);
-    for (unsigned i=0; i<elements->dim; ++i)
+    for (unsigned i = 0; i < elements->dim; ++i)
     {
-        Expression* expr = static_cast<Expression*>(elements->data[i]);
-        vals.push_back(expr->toConstElem(p));
+        LLConstant *val = (*elements)[i]->toConstElem(p);
+        if (!elementType)
+            elementType = val->getType();
+        else
+            differentTypes |= (elementType != val->getType());
+        vals.push_back(val);
     }
 
-    // build the constant array initialize
-    LLArrayType *t = elements->dim == 0 ?
-                           arrtype :
-                           LLArrayType::get(vals.front()->getType(), elements->dim);
-    LLConstant* initval = LLConstantArray::get(t, vals);
+    LLConstant *initval;
+    if (differentTypes)
+    {
+        std::vector<llvm::Type*> types;
+        types.reserve(elements->dim);
+        for (unsigned i = 0; i < elements->dim; ++i)
+            types.push_back(vals[i]->getType());
+        LLStructType *t = llvm::StructType::get(gIR->context(), types, true);
+        initval = LLConstantStruct::get(t, vals);
+    }
+    else if (!elementType)
+    {
+        assert(elements->dim == 0);
+        initval = LLConstantArray::get(arrtype, vals);
+    }
+    else
+    {
+        LLArrayType *t = LLArrayType::get(elementType, elements->dim);
+        initval = LLConstantArray::get(t, vals);
+    }
 
     // if static array, we're done
     if (!dyn)
@@ -2805,7 +2830,9 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     // we need to put the initializer in a global, and so we have a pointer to the array
     // Important: don't make the global constant, since this const initializer might
     // be used as an initializer for a static T[] - where modifying contents is allowed.
-    LLConstant* globalstore = new LLGlobalVariable(*gIR->module, t, false, LLGlobalValue::InternalLinkage, initval, ".dynarrayStorage");
+    LLConstant* globalstore = new LLGlobalVariable(*gIR->module,
+        initval->getType(), false, LLGlobalValue::InternalLinkage, initval,
+        ".dynarrayStorage");
     globalstore = DtoBitCast(globalstore, getPtrToType(arrtype));
 
     if (bt->ty == Tpointer)
