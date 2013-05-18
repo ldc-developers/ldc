@@ -47,6 +47,20 @@ static bool struct_init_data_sort(const IrTypeAggr::VarInitConst& a,
 
 extern size_t add_zeros(std::vector<llvm::Constant*>& constants, size_t diff);
 
+// return a constant array of type arrTypeD initialized with a constant value, or that constant value
+static llvm::Constant* FillSArrayDims(Type* arrTypeD, llvm::Constant* init)
+{
+    if (arrTypeD->ty == Tsarray)
+    {
+        init = FillSArrayDims(arrTypeD->nextOf(), init);
+        size_t dim = static_cast<TypeSArray*>(arrTypeD)->dim->toUInteger();
+        llvm::ArrayType* arrty = llvm::ArrayType::get(init->getType(), dim);
+        return llvm::ConstantArray::get(arrty,
+            std::vector<llvm::Constant*>(dim, init));
+    }
+    return init;
+}
+
 llvm::Constant* IrTypeAggr::createInitializerConstant(
     llvm::ArrayRef<IrTypeAggr::VarInitConst> initializers,
     llvm::StructType* initializerType)
@@ -90,7 +104,7 @@ llvm::Constant* IrTypeAggr::createInitializerConstant(
 
         IF_LOG Logger::println("adding field %s", vd->toChars());
 
-        constants.push_back(initializers[i].second);
+        constants.push_back(FillSArrayDims(vd->type, initializers[i].second));
         offset = vd->offset + vd->type->size();
     }
 

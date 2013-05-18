@@ -36,6 +36,7 @@
 #include "gen/typeinf.h"
 #include "gen/utils.h"
 #include "gen/warnings.h"
+#include "ir/irtypestruct.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <fstream>
@@ -2988,37 +2989,21 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     sd->codegen(Type::sir);
 
     // get inits
-    std::vector<LLConstant*> inits(sd->fields.dim, 0);
+    llvm::SmallVector<IrTypeStruct::VarInitConst, 16> varInits;
 
-    size_t nexprs = elements->dim;;
-    Expression** exprs = (Expression**)elements->data;
-
+    size_t nexprs = elements->dim;
     for (size_t i = 0; i < nexprs; i++)
-        if (exprs[i])
-            inits[i] = exprs[i]->toConstElem(p);
-
-    // vector of values to build aggregate from
-    std::vector<LLConstant*> values = DtoStructLiteralValues(sd, inits);
-
-    // we know those values are constants.. cast them
-    std::vector<LLConstant*> constvals(values.size(), 0);
-    std::vector<LLType*> types(values.size(), 0);
-    for (size_t i = 0; i < values.size(); ++i) {
-        constvals[i] = llvm::cast<LLConstant>(values[i]);
-        types[i] = values[i]->getType();
-    }
-
-    // return constant struct
-    if (!constType)
     {
-        if (type->ty == Ttypedef) // hack, see DtoConstInitializer.
-            constType = LLStructType::get(gIR->context(), types);
-        else
-            constType = isaStruct(DtoType(type));
+        if ((*elements)[i])
+        {
+            IrTypeStruct::VarInitConst v;
+            v.first = sd->fields[i];
+            v.second = (*elements)[i]->toConstElem(p);
+            varInits.push_back(v);
+        }
     }
-    else if (constType->isOpaque())
-        constType->setBody(types);
-    return LLConstantStruct::get(constType, llvm::makeArrayRef(constvals));
+
+    return sd->type->irtype->isStruct()->createInitializerConstant(varInits);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
