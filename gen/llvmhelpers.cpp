@@ -1304,60 +1304,6 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
 //      INITIALIZER HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-LLType* DtoConstInitializerType(Type* type, Initializer* init)
-{
-    if (type->ty == Ttypedef) {
-        TypeTypedef *td = static_cast<TypeTypedef*>(type);
-        if (td->sym->init)
-            return DtoConstInitializerType(td->sym->basetype, td->sym->init);
-    }
-
-    type = type->toBasetype();
-    if (type->ty == Tsarray)
-    {
-        if (!init)
-        {
-            TypeSArray *tsa = static_cast<TypeSArray*>(type);
-            LLType *llnext = DtoConstInitializerType(type->nextOf(), init);
-            return LLArrayType::get(llnext, tsa->dim->toUInteger());
-        }
-        else if (ArrayInitializer* ai = init->isArrayInitializer())
-        {
-            return DtoConstArrayInitializerType(ai);
-        }
-    }
-    else if (type->ty == Tstruct)
-    {
-        if (!init)
-        {
-        LdefaultInit:
-            TypeStruct *ts = static_cast<TypeStruct*>(type);
-            DtoResolveStruct(ts->sym);
-            return ts->sym->ir.irStruct->getDefaultInit()->getType();
-        }
-        else if (ExpInitializer* ex = init->isExpInitializer())
-        {
-            if (ex->exp->op == TOKstructliteral) {
-                StructLiteralExp* le = static_cast<StructLiteralExp*>(ex->exp);
-                if (!le->constType)
-                    le->constType = LLStructType::create(gIR->context(), std::string(type->toChars()) + "_init");
-                return le->constType;
-            } else if (ex->exp->op == TOKvar) {
-                if (static_cast<VarExp*>(ex->exp)->var->isStaticStructInitDeclaration())
-                    goto LdefaultInit;
-            }
-        }
-        else if (StructInitializer* si = init->isStructInitializer())
-        {
-            if (!si->ltype)
-                si->ltype = LLStructType::create(gIR->context(), std::string(type->toChars()) + "_init");
-            return si->ltype;
-        }
-    }
-
-    return DtoTypeNotVoid(type);
-}
-
 LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
 {
     LLConstant* _init = 0; // may return zero
