@@ -2897,9 +2897,22 @@ d_uns64 TypeBasic::size(Loc loc)
 
 unsigned TypeBasic::alignsize()
 {
+#if IN_LLVM
     if (ty == Tvoid)
         return 1;
     return GetTypeAlignment(sir, this);
+#endif
+
+    unsigned sz;
+
+    switch (ty)
+    {
+        case Tfloat80:
+        case Timaginary80:
+        case Tcomplex80:
+            sz = REALALIGNSIZE;
+            break;
+
 #if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
         case Tint64:
         case Tuns64:
@@ -2919,13 +2932,12 @@ unsigned TypeBasic::alignsize()
             sz = global.params.is64bit ? 8 : 4;
             break;
 #endif
-#if IN_DMD
+
         default:
             sz = size(0);
             break;
     }
     return sz;
-#endif
 }
 
 #if IN_LLVM
