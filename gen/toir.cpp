@@ -36,6 +36,7 @@
 #include "gen/typeinf.h"
 #include "gen/utils.h"
 #include "gen/warnings.h"
+#include "ir/irtypestruct.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <fstream>
@@ -203,23 +204,29 @@ DValue* VarExp::toElem(IRState* p)
             Logger::println("a normal variable");
 
             // take care of forward references of global variables
-            if (vd->isDataseg() || (vd->storage_class & STCextern))
+            const bool isGlobal = vd->isDataseg() || (vd->storage_class & STCextern);
+            if (isGlobal)
                 vd->codegen(Type::sir);
 
-            LLValue* val;
+            assert(vd->ir.isSet() && "Variable not resolved.");
 
-            if (!vd->ir.isSet() || !(val = vd->ir.getIrValue())) {
-                // FIXME: this error is bad!
-                // We should be VERY careful about adding errors in general, as they have
-                // a tendency to "mask" out the underlying problems ...
-                error("variable %s not resolved", vd->toChars());
-                if (Logger::enabled())
-                    Logger::cout() << "unresolved variable had type: " << *DtoType(vd->type) << '\n';
-                fatal();
+            llvm::Value* val = vd->ir.getIrValue();
+            assert(val && "Variable value not set yet.");
+
+            if (isGlobal)
+            {
+                llvm::Type* expectedType = DtoType(type->pointerTo());
+                // The type of globals is determined by their initializer, so
+                // we might need to cast. Make sure that the type sizes fit -
+                // '==' instead of '<=' should probably work as well.
+                if (val->getType() != expectedType)
+                {
+                    llvm::Type* t = llvm::cast<llvm::PointerType>(val->getType())->getElementType();
+                    assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(t) &&
+                        "Global type mismatch, encountered type too small.");
+                    val = DtoBitCast(val, expectedType);
+                }
             }
-
-            if (vd->isDataseg() || (vd->storage_class & STCextern))
-                val = DtoBitCast(val, DtoType(type->pointerTo()));
 
             return new DVarValue(type, vd, val);
         }
@@ -2783,20 +2790,45 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     // dynamic arrays can occur here as well ...
     bool dyn = (bt->ty != Tsarray);
 
-    // build the initializer
+    // Build the initializer. We have to take care as due to unions in the
+    // element types (with different fields being initialized), we can end up
+    // with different types for the initializer values. In this case, we
+    // generate a packed struct constant instead of an array constant.
+    LLType *elementType = NULL;
+    bool differentTypes = false;
+
     std::vector<LLConstant*> vals;
     vals.reserve(elements->dim);
-    for (unsigned i=0; i<elements->dim; ++i)
+    for (unsigned i = 0; i < elements->dim; ++i)
     {
-        Expression* expr = static_cast<Expression*>(elements->data[i]);
-        vals.push_back(expr->toConstElem(p));
+        LLConstant *val = (*elements)[i]->toConstElem(p);
+        if (!elementType)
+            elementType = val->getType();
+        else
+            differentTypes |= (elementType != val->getType());
+        vals.push_back(val);
     }
 
-    // build the constant array initialize
-    LLArrayType *t = elements->dim == 0 ?
-                           arrtype :
-                           LLArrayType::get(vals.front()->getType(), elements->dim);
-    LLConstant* initval = LLConstantArray::get(t, vals);
+    LLConstant *initval;
+    if (differentTypes)
+    {
+        std::vector<llvm::Type*> types;
+        types.reserve(elements->dim);
+        for (unsigned i = 0; i < elements->dim; ++i)
+            types.push_back(vals[i]->getType());
+        LLStructType *t = llvm::StructType::get(gIR->context(), types, true);
+        initval = LLConstantStruct::get(t, vals);
+    }
+    else if (!elementType)
+    {
+        assert(elements->dim == 0);
+        initval = LLConstantArray::get(arrtype, vals);
+    }
+    else
+    {
+        LLArrayType *t = LLArrayType::get(elementType, elements->dim);
+        initval = LLConstantArray::get(t, vals);
+    }
 
     // if static array, we're done
     if (!dyn)
@@ -2805,7 +2837,9 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     // we need to put the initializer in a global, and so we have a pointer to the array
     // Important: don't make the global constant, since this const initializer might
     // be used as an initializer for a static T[] - where modifying contents is allowed.
-    LLConstant* globalstore = new LLGlobalVariable(*gIR->module, t, false, LLGlobalValue::InternalLinkage, initval, ".dynarrayStorage");
+    LLConstant* globalstore = new LLGlobalVariable(*gIR->module,
+        initval->getType(), false, LLGlobalValue::InternalLinkage, initval,
+        ".dynarrayStorage");
     globalstore = DtoBitCast(globalstore, getPtrToType(arrtype));
 
     if (bt->ty == Tpointer)
@@ -2961,37 +2995,21 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     sd->codegen(Type::sir);
 
     // get inits
-    std::vector<LLConstant*> inits(sd->fields.dim, 0);
+    llvm::SmallVector<IrTypeStruct::VarInitConst, 16> varInits;
 
-    size_t nexprs = elements->dim;;
-    Expression** exprs = (Expression**)elements->data;
-
+    size_t nexprs = elements->dim;
     for (size_t i = 0; i < nexprs; i++)
-        if (exprs[i])
-            inits[i] = exprs[i]->toConstElem(p);
-
-    // vector of values to build aggregate from
-    std::vector<LLConstant*> values = DtoStructLiteralValues(sd, inits);
-
-    // we know those values are constants.. cast them
-    std::vector<LLConstant*> constvals(values.size(), 0);
-    std::vector<LLType*> types(values.size(), 0);
-    for (size_t i = 0; i < values.size(); ++i) {
-        constvals[i] = llvm::cast<LLConstant>(values[i]);
-        types[i] = values[i]->getType();
-    }
-
-    // return constant struct
-    if (!constType)
     {
-        if (type->ty == Ttypedef) // hack, see DtoConstInitializer.
-            constType = LLStructType::get(gIR->context(), types);
-        else
-            constType = isaStruct(DtoType(type));
+        if ((*elements)[i])
+        {
+            IrTypeStruct::VarInitConst v;
+            v.first = sd->fields[i];
+            v.second = (*elements)[i]->toConstElem(p);
+            varInits.push_back(v);
+        }
     }
-    else if (constType->isOpaque())
-        constType->setBody(types);
-    return LLConstantStruct::get(constType, llvm::makeArrayRef(constvals));
+
+    return sd->type->irtype->isStruct()->createInitializerConstant(varInits);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

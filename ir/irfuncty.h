@@ -37,7 +37,7 @@ namespace llvm {
 
 // represents a function type argument
 // both explicit and implicit as well as return values
-struct IrFuncTyArg : IrBase
+struct IrFuncTyArg
 {
     /** This is the original D type as the frontend knows it
      *  May NOT be rewritten!!! */
@@ -85,7 +85,7 @@ struct IrFuncTyArg : IrBase
 };
 
 // represents a function type
-struct IrFuncTy : IrBase
+struct IrFuncTy
 {
     // return value
     IrFuncTyArg* ret;
