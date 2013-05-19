@@ -19,7 +19,7 @@
 
 struct Module;
 
-struct IrModule : IrBase
+struct IrModule
 {
     IrModule(Module* module, const char* srcfilename);
     virtual ~IrModule();

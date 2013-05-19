@@ -117,7 +117,6 @@ DValue* DtoDeclarationExp(Dsymbol* declaration);
 LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr = 0);
 
 // initializer helpers
-LLType* DtoConstInitializerType(Type* type, Initializer* init);
 LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init);
 LLConstant* DtoConstExpInit(Loc loc, Type* t, Expression* exp);
 DValue* DtoInitializer(LLValue* target, Initializer* init);
