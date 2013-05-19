@@ -414,6 +414,18 @@ else
 {
     const int S = (void*).sizeof;
 
+    version (linux)
+    {
+        // The only range we need from /proc/self/maps is the TLS area in the
+        // main thread (for the other threads, it is allocated at the beginning
+        // of the stack by GLIBC, thus we already catch it with the other
+        // mechanisms). Thus, exclude all but the region that actually contains
+        // the D TLS symbols. This still leaves us with a much too large range,
+        // and will be replaced by a proper mechanism using the ELF header data
+        // once shared library support is added.
+        private ubyte dummyTlsSymbol;
+    }
+
     // TODO: This could use cleanup!
     void parseDataProcMaps()
     {
@@ -504,10 +516,21 @@ else
                                 !( dataStart >= start && dataEnd <= end ) ) &&
                                 !( &buf[0] >= start && &buf[0] < end ) )
                             {
-                                // we already have static data from this region.  anything else
-                                // is heap (%% check)
-                                debug (ProcMaps) printf("Adding map range %p 0%p\n", start, end);
-                                gc_addRange(start, end - start);
+                                version (linux)
+                                {
+                                    if (&dummyTlsSymbol >= start && &dummyTlsSymbol <= end)
+                                    {
+                                        gc_addRange(start, end - start);
+                                        break;
+                                    }
+                                }
+                                else
+                                {
+                                    // we already have static data from this region.  anything else
+                                    // is heap (%% check)
+                                    debug (ProcMaps) printf("Adding map range %p 0%p\n", start, end);
+                                    gc_addRange(start, end - start);
+                                }
                             }
                         }
                         version(X86_64)
@@ -524,7 +547,18 @@ else
                                     !( dataStart >= start && dataEnd <= end ) ) &&
                                     !( &buf[0] >= start && &buf[0] < end ) )
                                 {
-                                    gc_addRange(start, end - start);
+                                    version (linux)
+                                    {
+                                        if (&dummyTlsSymbol >= start && &dummyTlsSymbol <= end)
+                                        {
+                                            gc_addRange(start, end - start);
+                                            break;
+                                        }
+                                    }
+                                    else
+                                    {
+                                        gc_addRange(start, end - start);
+                                    }
                                 }
                             }
                         }
