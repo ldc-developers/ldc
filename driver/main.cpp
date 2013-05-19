@@ -547,7 +547,7 @@ int main(int argc, char** argv)
         VersionCondition::addPredefinedGlobalIdent("D_LP64");
     }
 
-    if (mRelocModel == llvm::Reloc::PIC_) {
+    if (gTargetMachine->getRelocationModel() == llvm::Reloc::PIC_) {
         VersionCondition::addPredefinedGlobalIdent("D_PIC");
     }
 
