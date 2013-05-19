@@ -968,6 +968,19 @@ void DtoDefineFunction(FuncDeclaration* fd)
     if (fd->isMain())
         gIR->emitMain = true;
 
+    // On x86_64, always set 'uwtable' for System V ABI compatibility.
+    // TODO: Find a better place for this.
+    if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
+    {
+#if LDC_LLVM_VER >= 303
+        func->addFnAttr(llvm::Attribute::UWTable);
+#elif LDC_LLVM_VER == 302
+        func->addFnAttr(llvm::Attributes::UWTable);
+#else
+        func->addFnAttr(UWTable);
+#endif
+    }
+
     std::string entryname("entry");
 
     llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), entryname,func);

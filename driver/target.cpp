@@ -175,6 +175,13 @@ llvm::TargetMachine* createTargetMachine(
         FeaturesStr = Features.getString();
     }
 
+    if (triple.isMacOSX() && relocModel == llvm::Reloc::Default)
+    {
+        // OS X defaults to PIC (and as of 10.7.5/LLVM 3.1-3.3, TLS use leads
+        // to crashes for non-PIC code). LLVM doesn't handle this.
+        relocModel = llvm::Reloc::PIC_;
+    }
+
 #if LDC_LLVM_VER == 300
     llvm::NoFramePointerElim = genDebugInfo;
 
