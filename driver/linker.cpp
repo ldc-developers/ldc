@@ -238,6 +238,10 @@ static int linkObjToBinaryWin(bool sharedLib)
     args.push_back("/DYNAMICBASE");
 
     // because of a LLVM bug
+    // most of the bug is fixed in LLVM 3.4
+#if LDC_LLVM_VER >= 304
+    if (global.params.symdebug)
+#endif
     args.push_back("/LARGEADDRESSAWARE:NO");
 
     // output debug information
