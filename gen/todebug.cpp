@@ -525,7 +525,12 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
     llvm::SmallVector<llvm::Value*, 16> Elts;
     Elts.push_back(dwarfTypeDescription(retType, NULL));
     llvm::DIArray EltTypeArray = gIR->dibuilder.getOrCreateArray(Elts);
-    llvm::DIType DIFnType = gIR->dibuilder.createSubroutineType(file, EltTypeArray);
+#if LDC_LLVM_VER >= 304
+    llvm::DICompositeType
+#else
+    llvm::DIType 
+#endif
+             DIFnType = gIR->dibuilder.createSubroutineType(file, EltTypeArray);
 
     // FIXME: duplicates ?
     return gIR->dibuilder.createFunction(
@@ -562,7 +567,12 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
     llvm::SmallVector<llvm::Value*, 1> Elts;
     Elts.push_back(llvm::DIType(NULL));
     llvm::DIArray EltTypeArray = gIR->dibuilder.getOrCreateArray(Elts);
-    llvm::DIType DIFnType = gIR->dibuilder.createSubroutineType(file, EltTypeArray);
+#if LDC_LLVM_VER >= 304
+    llvm::DICompositeType 
+#else
+    llvm::DIType
+#endif
+             DIFnType = gIR->dibuilder.createSubroutineType(file, EltTypeArray);
 
     // FIXME: duplicates ?
     return gIR->dibuilder.createFunction(
