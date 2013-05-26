@@ -348,6 +348,14 @@ int Port::stricmp(const char *s1, const char *s2)
     return ::stricmp(s1, s2);
 }
 
+// See vcbuild/strtold.c.
+longdouble strtold(const char *p, char **endp);
+
+longdouble Port::strtold(const char *p, char **endp)
+{
+    return ::strtold(p, endp);
+}
+
 #endif
 
 #if __MINGW32__
@@ -525,6 +533,11 @@ int Port::stricmp(const char *s1, const char *s2)
         s2++;
     }
     return result;
+}
+
+longdouble Port::strtold(const char *p, char **endp)
+{
+    return ::__mingw_strtold(p, endp);
 }
 
 #endif
@@ -765,6 +778,11 @@ int Port::stricmp(const char *s1, const char *s2)
     return result;
 }
 
+longdouble Port::strtold(const char *p, char **endp)
+{
+    return ::strtold(p, endp);
+}
+
 #endif
 
 #if __sun
@@ -908,6 +926,11 @@ char *Port::strupr(char *s)
     }
 
     return t;
+}
+
+longdouble Port::strtold(const char *p, char **endp)
+{
+    return ::strtold(p, endp);
 }
 
 #endif
