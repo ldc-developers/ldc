@@ -350,7 +350,186 @@ int Port::stricmp(const char *s1, const char *s2)
 
 #endif
 
-#if linux || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __HAIKU__ || __MINGW32__
+#if __MINGW32__
+
+#include <math.h>
+#include <time.h>
+#include <sys/time.h>
+#include <unistd.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <ctype.h>
+#include <wchar.h>
+#include <float.h>
+#include <assert.h>
+
+static double zero = 0;
+double Port::nan = copysign(NAN, 1.0);
+double Port::infinity = 1 / zero;
+double Port::dbl_max = 1.7976931348623157e308;
+double Port::dbl_min = 5e-324;
+longdouble Port::ldbl_max = LDBL_MAX;
+
+struct PortInitializer
+{
+    PortInitializer();
+};
+
+static PortInitializer portinitializer;
+
+PortInitializer::PortInitializer()
+{
+    assert(!signbit(Port::nan));
+}
+
+int Port::isNan(double r)
+{
+    return isnan(r);
+}
+
+int Port::isNan(longdouble r)
+{
+    return isnan(r);
+}
+
+int Port::isSignallingNan(double r)
+{
+    /* A signalling NaN is a NaN with 0 as the most significant bit of
+     * its significand, which is bit 51 of 0..63 for 64 bit doubles.
+     */
+    return isNan(r) && !((((unsigned char*)&r)[6]) & 8);
+}
+
+int Port::isSignallingNan(longdouble r)
+{
+    /* A signalling NaN is a NaN with 0 as the most significant bit of
+     * its significand, which is bit 62 of 0..79 for 80 bit reals.
+     */
+    return isNan(r) && !((((unsigned char*)&r)[7]) & 0x40);
+}
+
+int Port::isFinite(double r)
+{
+    return ::finite(r);
+}
+
+int Port::isInfinity(double r)
+{
+    return isinf(r);
+}
+
+int Port::Signbit(double r)
+{
+    union { double d; long long ll; } u;
+    u.d =  r;
+    return u.ll < 0;
+}
+
+double Port::floor(double d)
+{
+    return ::floor(d);
+}
+
+double Port::pow(double x, double y)
+{
+    return ::pow(x, y);
+}
+
+longdouble Port::fmodl(longdouble x, longdouble y)
+{
+    return ::fmodl(x, y);
+}
+
+unsigned long long Port::strtoull(const char *p, char **pend, int base)
+{
+    return ::strtoull(p, pend, base);
+}
+
+char *Port::ull_to_string(char *buffer, ulonglong ull)
+{
+    sprintf(buffer, "%llu", ull);
+    return buffer;
+}
+
+wchar_t *Port::ull_to_string(wchar_t *buffer, ulonglong ull)
+{
+    swprintf(buffer, sizeof(ulonglong) * 3 + 1, L"%llu", ull);
+    return buffer;
+}
+
+double Port::ull_to_double(ulonglong ull)
+{
+    return (double) ull;
+}
+
+const char *Port::list_separator()
+{
+    return ",";
+}
+
+const wchar_t *Port::wlist_separator()
+{
+    return L",";
+}
+
+char *Port::strupr(char *s)
+{
+    char *t = s;
+
+    while (*s)
+    {
+        *s = toupper(*s);
+        s++;
+    }
+
+    return t;
+}
+
+int Port::memicmp(const char *s1, const char *s2, int n)
+{
+    int result = 0;
+
+    for (int i = 0; i < n; i++)
+    {   char c1 = s1[i];
+        char c2 = s2[i];
+
+        result = c1 - c2;
+        if (result)
+        {
+            result = toupper(c1) - toupper(c2);
+            if (result)
+                break;
+        }
+    }
+    return result;
+}
+
+int Port::stricmp(const char *s1, const char *s2)
+{
+    int result = 0;
+
+    for (;;)
+    {   char c1 = *s1;
+        char c2 = *s2;
+
+        result = c1 - c2;
+        if (result)
+        {
+            result = toupper(c1) - toupper(c2);
+            if (result)
+                break;
+        }
+        if (!c1)
+            break;
+        s1++;
+        s2++;
+    }
+    return result;
+}
+
+#endif
+
+#if linux || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __HAIKU__
 
 #include <math.h>
 #if linux
@@ -408,7 +587,7 @@ int Port::isNan(double r)
 #else
     return __inline_isnan(r);
 #endif
-#elif __HAIKU__ || __OpenBSD__ || __MINGW32__
+#elif __HAIKU__ || __OpenBSD__
     return isnan(r);
 #else
     #undef isnan
@@ -424,7 +603,7 @@ int Port::isNan(longdouble r)
 #else
     return __inline_isnan(r);
 #endif
-#elif __HAIKU__ || __OpenBSD__ || __MINGW32__
+#elif __HAIKU__ || __OpenBSD__
     return isnan(r);
 #else
     #undef isnan
@@ -460,7 +639,7 @@ int Port::isInfinity(double r)
 {
 #if __APPLE__
     return fpclassify(r) == FP_INFINITE;
-#elif defined __HAIKU__ || __OpenBSD__ || __MINGW32__
+#elif defined __HAIKU__ || __OpenBSD__
     return isinf(r);
 #else
     #undef isinf
