@@ -41,14 +41,6 @@ struct Port
     static double dbl_min;
     static longdouble ldbl_max;
 
-#if !defined __HAIKU__ || __OpenBSD__
-#elif __GNUC__
-    // These conflict with macros in math.h, should rename them
-    #undef isnan
-    #undef isfinite
-    #undef isinfinity
-    #undef signbit
-#endif
     static int isNan(double);
     static int isNan(longdouble);
 
