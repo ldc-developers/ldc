@@ -93,9 +93,10 @@ file(GLOB_RECURSE CORE_D_UNIX ${RUNTIME_DIR}/src/core/sys/posix/*.d)
 file(GLOB_RECURSE CORE_D_OSX ${RUNTIME_DIR}/src/core/sys/osx/*.d)
 file(GLOB_RECURSE CORE_D_WIN ${RUNTIME_DIR}/src/core/sys/windows/*.d)
 set(CORE_D_SYS)
+set(DCRT_ASM)
 if(UNIX)
     list(APPEND CORE_D_SYS ${CORE_D_UNIX})
-    list(APPEND DCRT_C ${RUNTIME_DIR}/src/core/threadasm.S)
+    list(APPEND DCRT_ASM ${RUNTIME_DIR}/src/core/threadasm.S)
     if(APPLE)
         list(APPEND CORE_D_SYS ${CORE_D_OSX})
     endif()
@@ -297,6 +298,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
                         ${GC_O}
                         ${DCRT_O}
                         ${DCRT_C}
+                        ${DCRT_ASM}
                         ${GCCBUILTINS}
             )
             set(lib_targets ${RUNTIME_AIO}${target_suffix})
