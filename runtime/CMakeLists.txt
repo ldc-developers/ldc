@@ -115,6 +115,19 @@ list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
 list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
 file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
+# CMake 2.8.0 on Ubuntu 10.04 LTS chooses /usr/bin/as for the as compiler
+# instead of passing the file through GCC. Other old CMake versions may be
+# affected too, but said configuration is critical because it is the officialy
+# "blessed" host platform for the release packages. The workaround relies on
+# the fact that the default C compiler is GCC (or compatibile), the driver of
+# which intelligently handles the different input file types.
+if(CMAKE_VERSION VERSION_LESS "2.8.1")
+    if(UNIX)
+        message(WARNING "CMake version known not to handle druntime asm source files correctly, forcing them to be treated as C.")
+        set_source_files_properties(${DCRT_ASM} PROPERTIES LANGUAGE C)
+    endif()
+endif()
+
 if(PHOBOS2_DIR)
     if(BUILD_SHARED_LIBS)
         # std.net.curl depends on libcurl – when building a shared library, we
