@@ -1,5 +1,5 @@
-LDC – the LLVM D Compiler
-=========================
+LDC – the LLVM-based D Compiler
+===============================
 
 The LDC project aims to provide a portable D programming language
 compiler with modern optimization and code generation capabilities.
