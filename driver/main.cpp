@@ -620,7 +620,7 @@ int main(int argc, char** argv)
     // Expose LLVM version to runtime
 #define STR(x) #x
 #define XSTR(x) STR(x)
-    VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_"XSTR(LDC_LLVM_VER));
+    VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_" XSTR(LDC_LLVM_VER));
 #undef XSTR
 #undef STR
 
