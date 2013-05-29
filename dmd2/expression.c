@@ -2567,7 +2567,7 @@ void floatToBuffer(OutBuffer *buf, Type *type, real_t value)
     real_t r = strtold(buffer, NULL);
     __locale_decpoint = save;
 #else
-    real_t r = strtold(buffer, NULL);
+    real_t r = Port::strtold(buffer, NULL);
 #endif
 #if IN_LLVM
     if (r == value)                     // if exact duplication
