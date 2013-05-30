@@ -102,7 +102,7 @@ Global::Global()
 #endif
 #if IN_LLVM
     version = "v2.062";
-    ldc_version = "trunk";
+    ldc_version = "0.11.0";
     llvm_version = "LLVM "LDC_LLVM_VERSION_STRING;
 #endif
 
