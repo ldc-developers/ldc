@@ -22,7 +22,11 @@
 # Note: The variable names were chosen in conformance with the offical CMake
 # guidelines, see ${CMAKE_ROOT}/Modules/readme.txt.
 
-find_program(LLVM_CONFIG llvm-config ${LLVM_ROOT_DIR}/bin
+# Try suffixed versions to pick up the newest LLVM install available on Debian
+# derivatives.
+find_program(LLVM_CONFIG
+    NAMES llvm-config-3.3 llvm-config-3.2 llvm-config-3.1 llvm-config
+    PATHS ${LLVM_ROOT_DIR}/bin
     DOC "Path to llvm-config tool.")
 
 if (NOT LLVM_CONFIG)
