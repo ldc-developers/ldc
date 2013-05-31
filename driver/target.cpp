@@ -13,7 +13,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/target.h"
-#include "gen/llvmcompat.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Host.h"
@@ -88,19 +87,11 @@ llvm::TargetMachine* createTargetMachine(
     std::string defaultTriple = llvm::sys::getDefaultTargetTriple();
     if (sizeof(void*) == 4 && bitness == ExplicitBitness::M64)
     {
-#if LDC_LLVM_VER >= 301
         defaultTriple = llvm::Triple(defaultTriple).get64BitArchVariant().str();
-#else
-        defaultTriple = llvm::Triple__get64BitArchVariant(defaultTriple).str();
-#endif
     }
     else if (sizeof(void*) == 8 && bitness == ExplicitBitness::M32)
     {
-#if LDC_LLVM_VER >= 301
         defaultTriple = llvm::Triple(defaultTriple).get32BitArchVariant().str();
-#else
-        defaultTriple = llvm::Triple__get32BitArchVariant(defaultTriple).str();
-#endif
     }
 
     llvm::Triple triple;
@@ -182,12 +173,6 @@ llvm::TargetMachine* createTargetMachine(
         relocModel = llvm::Reloc::PIC_;
     }
 
-#if LDC_LLVM_VER == 300
-    llvm::NoFramePointerElim = genDebugInfo;
-
-    return theTarget->createTargetMachine(triple.str(), cpu, FeaturesStr,
-        relocModel, codeModel);
-#else
     llvm::TargetOptions targetOptions;
     targetOptions.NoFramePointerElim = genDebugInfo;
 
@@ -200,5 +185,4 @@ llvm::TargetMachine* createTargetMachine(
         codeModel,
         codeGenOptLevel
     );
-#endif
 }

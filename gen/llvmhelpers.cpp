@@ -31,9 +31,7 @@
 #include "ir/irmodule.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Target/TargetMachine.h"
-#if LDC_LLVM_VER >= 301
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#endif
 #include <stack>
 
 /****************************************************************************************/
@@ -1446,13 +1444,7 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
             assert(tv->basetype->ty == Tsarray);
             dinteger_t elemCount =
                 static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
-
-#if LDC_LLVM_VER == 300
-            std::vector<LLConstant*> Elts(elemCount, val);
-            return llvm::ConstantVector::get(Elts);
-#else
             return llvm::ConstantVector::getSplat(elemCount, val);
-#endif
         }
 
         error(loc, "LDC internal error: cannot yet convert default initializer %s of type %s to %s",

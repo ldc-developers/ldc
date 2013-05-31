@@ -673,11 +673,7 @@ LLConstant* DtoConstFP(Type* t, longdouble value)
 LLConstant* DtoConstString(const char* str)
 {
     llvm::StringRef s(str ? str : "");
-#if LDC_LLVM_VER == 300
-    LLConstant* init = LLConstantArray::get(gIR->context(), s, true);
-#else
     LLConstant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
-#endif
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
     gvar->setUnnamedAddr(true);
@@ -691,12 +687,8 @@ LLConstant* DtoConstString(const char* str)
 
 LLConstant* DtoConstStringPtr(const char* str, const char* section)
 {
-   llvm::StringRef s(str);
-#if LDC_LLVM_VER == 300
-    LLConstant* init = LLConstantArray::get(gIR->context(), s, true);
-#else
-   LLConstant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
-#endif
+    llvm::StringRef s(str);
+    LLConstant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
     if (section) gvar->setSection(section);

@@ -255,17 +255,13 @@ static llvm::DIType dwarfCompositeType(Type* type)
 
     // set diCompositeType to handle recursive types properly
     if (!ir->diCompositeType) {
-#if LDC_LLVM_VER >= 301
         unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
                                           : llvm::dwarf::DW_TAG_class_type;
-        ir->diCompositeType = gIR->dibuilder.createForwardDecl(tag, name, 
+        ir->diCompositeType = gIR->dibuilder.createForwardDecl(tag, name,
 #if LDC_LLVM_VER >= 302
                                                                llvm::DIDescriptor(file),
 #endif
                                                                file, linnum);
-#else
-        ir->diCompositeType = gIR->dibuilder.createTemporaryType();
-#endif
     }
 
     if (!ir->aggrdecl->isInterfaceDeclaration()) // plain interfaces don't have one
@@ -542,9 +538,7 @@ llvm::DISubprogram DtoDwarfSubProgram(FuncDeclaration* fd)
         DIFnType, // type
         fd->protection == PROTprivate, // is local to unit
         gIR->dmodule == getDefinedModule(fd), // isdefinition
-#if LDC_LLVM_VER >= 301
         fd->loc.linnum, // FIXME: scope line
-#endif
         0, // Flags
         false, // isOptimized
         fd->ir.irFunc->func
@@ -583,10 +577,8 @@ llvm::DISubprogram DtoDwarfSubProgramInternal(const char* prettyname, const char
         0, // line no
         DIFnType, // return type. TODO: fill it up
         true, // is local to unit
-        true // isdefinition
-#if LDC_LLVM_VER >= 301
-        , 0 // FIXME: scope line
-#endif
+        true, // isdefinition
+        0 // FIXME: scope line
     );
 }
 
