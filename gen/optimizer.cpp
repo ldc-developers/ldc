@@ -196,17 +196,11 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
 #endif // USE_METADATA
     }
 
-#if LDC_LLVM_VER >= 301
     // EP_OptimizerLast does not exist in LLVM 3.0, add it manually below.
     builder.addExtension(PassManagerBuilder::EP_OptimizerLast, addStripExternalsPass);
-#endif
 
     builder.populateFunctionPassManager(fpm);
     builder.populateModulePassManager(mpm);
-
-#if LDC_LLVM_VER < 301
-    addStripExternalsPass(builder, mpm);
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

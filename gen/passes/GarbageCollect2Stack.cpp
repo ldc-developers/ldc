@@ -200,11 +200,8 @@ namespace {
                     APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
                     Mask.flipAllBits();
                     APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
-    #if LDC_LLVM_VER >= 301
                     ComputeMaskedBits(arrSize, KnownZero, KnownOne, &A.TD);
-    #else
-                    ComputeMaskedBits(arrSize, Mask, KnownZero, KnownOne, &A.TD);
-    #endif
+
                     if ((KnownZero & Mask) != Mask)
                         return false;
                 }

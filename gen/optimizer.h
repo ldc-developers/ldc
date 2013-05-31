@@ -16,11 +16,7 @@
 #define LDC_GEN_OPTIMIZER_H
 
 // For llvm::CodeGenOpt::Level
-#if LDC_LLVM_VER == 300
-#include "llvm/Target/TargetMachine.h"
-#else
 #include "llvm/Support/CodeGen.h"
-#endif
 
 namespace llvm { class Module; }
 
