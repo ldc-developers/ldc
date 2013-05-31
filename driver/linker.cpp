@@ -185,12 +185,16 @@ static int linkObjToBinaryGcc(bool sharedLib)
         break;
     }
 
-    //FIXME: enforce 64 bit
-    if (global.params.is64bit)
-        args.push_back("-m64");
-    else
-        // Assume 32-bit?
-        args.push_back("-m32");
+    // Only specify -m32/-m64 for architectures where the two variants actually
+    // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
+    if (global.params.targetTriple.get64BitArchVariant().getArch() !=
+        llvm::Triple::UnknownArch
+    ) {
+        if (global.params.is64bit)
+            args.push_back("-m64");
+        else
+            args.push_back("-m32");
+    }
 
     if (opts::createSharedLib && addSoname) {
         std::string soname = opts::soname;
