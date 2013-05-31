@@ -16,9 +16,6 @@
 #define LDC_DRIVER_TARGET_H
 
 #include "llvm/Support/CodeGen.h"
-#if LDC_LLVM_VER == 300
-#include "llvm/Target/TargetMachine.h" // For llvm::CodeGenOpt::Level.
-#endif
 #include <string>
 #include <vector>
 
