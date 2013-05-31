@@ -279,31 +279,15 @@ pragma(LDC_intrinsic, "llvm.ctpop.i#")
 /// The 'llvm.ctlz' family of intrinsic functions counts the number of leading
 /// zeros in a variable.
 
-version (LDC_LLVM_300)
-{
-    pragma(LDC_intrinsic, "llvm.ctlz.i#")
-        T llvm_ctlz(T)(T src);
-}
-else
-{
-    pragma(LDC_intrinsic, "llvm.ctlz.i#")
-        T llvm_ctlz(T)(T src, bool isZerodefined);
-}
+pragma(LDC_intrinsic, "llvm.ctlz.i#")
+    T llvm_ctlz(T)(T src, bool isZerodefined);
 
 
 /// The 'llvm.cttz' family of intrinsic functions counts the number of trailing
 /// zeros.
 
-version (LDC_LLVM_300)
-{
-    pragma(LDC_intrinsic, "llvm.cttz.i#")
-        T llvm_cttz(T)(T src);
-}
-else
-{
-    pragma(LDC_intrinsic, "llvm.cttz.i#")
-        T llvm_cttz(T)(T src, bool isZerodefined);
-}
+pragma(LDC_intrinsic, "llvm.cttz.i#")
+    T llvm_cttz(T)(T src, bool isZerodefined);
 
 
 /// The 'llvm.part.select' family of intrinsic functions selects a range of bits
