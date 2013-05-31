@@ -285,33 +285,7 @@ char *TemplateInstance::mangle(bool isv)
     return id;
 }
 
-#if IN_LLVM
-char *TemplateMixin::mangle()
-{
-    OutBuffer buf;
-    char *id;
 
-#if 0
-    printf("TemplateMixin::mangle() %s", toChars());
-    if (parent)
-        printf("  parent = %s %s", parent->kind(), parent->toChars());
-    printf("\n");
-#endif
-    id = ident ? ident->toChars() : toChars();
-    if (parent)
-    {
-	char *p = parent->mangle();
-	if (p[0] == '_' && p[1] == 'D')
-	    p += 2;
-	buf.writestring(p);
-    }
-    buf.printf("%llu%s", (ulonglong)strlen(id), id);
-    id = buf.toChars();
-    buf.data = NULL;
-    //printf("TemplateMixin::mangle() %s = %s\n", toChars(), id);
-    return id;
-}
-#endif
 
 char *Dsymbol::mangle(bool isv)
 {
