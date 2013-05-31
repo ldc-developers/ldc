@@ -93,9 +93,10 @@ file(GLOB_RECURSE CORE_D_UNIX ${RUNTIME_DIR}/src/core/sys/posix/*.d)
 file(GLOB_RECURSE CORE_D_OSX ${RUNTIME_DIR}/src/core/sys/osx/*.d)
 file(GLOB_RECURSE CORE_D_WIN ${RUNTIME_DIR}/src/core/sys/windows/*.d)
 set(CORE_D_SYS)
+set(DCRT_ASM)
 if(UNIX)
     list(APPEND CORE_D_SYS ${CORE_D_UNIX})
-    list(APPEND DCRT_C ${RUNTIME_DIR}/src/core/threadasm.S)
+    list(APPEND DCRT_ASM ${RUNTIME_DIR}/src/core/threadasm.S)
     if(APPLE)
         list(APPEND CORE_D_SYS ${CORE_D_OSX})
     endif()
@@ -113,6 +114,19 @@ endif()
 list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
 list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
 file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
+
+# CMake 2.8.0 on Ubuntu 10.04 LTS chooses /usr/bin/as for the as compiler
+# instead of passing the file through GCC. Other old CMake versions may be
+# affected too, but said configuration is critical because it is the officialy
+# "blessed" host platform for the release packages. The workaround relies on
+# the fact that the default C compiler is GCC (or compatibile), the driver of
+# which intelligently handles the different input file types.
+if(CMAKE_VERSION VERSION_LESS "2.8.1")
+    if(UNIX)
+        message(WARNING "CMake version known not to handle druntime asm source files correctly, forcing them to be treated as C.")
+        set_source_files_properties(${DCRT_ASM} PROPERTIES LANGUAGE C)
+    endif()
+endif()
 
 if(PHOBOS2_DIR)
     if(BUILD_SHARED_LIBS)
@@ -297,6 +311,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
                         ${GC_O}
                         ${DCRT_O}
                         ${DCRT_C}
+                        ${DCRT_ASM}
                         ${GCCBUILTINS}
             )
             set(lib_targets ${RUNTIME_AIO}${target_suffix})
