@@ -163,6 +163,26 @@ static llvm::DIType dwarfPointerType(Type* type)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+static llvm::DIType dwarfVectorType(Type* type)
+{
+    LLType* T = DtoType(type);
+    Type* t = type->toBasetype();
+
+    assert(t->ty == Tvector && "only vectors allowed for debug info in dwarfVectorType");
+
+    // find base type
+    llvm::DIType basetype = dwarfTypeDescription_impl(static_cast<TypeVector*>(t)->elementType(), NULL);
+
+    return gIR->dibuilder.createVectorType(
+        getTypeBitSize(T), // size (bits)
+        getABITypeAlign(T)*8, // align (bits)
+        basetype, // element type
+        llvm::DIArray(0) // subscripts
+    );
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 static llvm::DIType dwarfMemberType(unsigned linnum, Type* type, llvm::DIFile file, const char* c_name, unsigned offset)
 {
     LLType* T = DtoType(type);
@@ -396,6 +416,8 @@ static llvm::DIType dwarfTypeDescription_impl(Type* type, const char* c_name)
     Type* t = type->toBasetype();
     if (t->ty == Tvoid)
         return llvm::DIType(NULL);
+    else if (t->ty == Tvector)
+        return dwarfVectorType(type);
     else if (t->isintegral() || t->isfloating())
         return dwarfBasicType(type);
     else if (t->ty == Tpointer)
