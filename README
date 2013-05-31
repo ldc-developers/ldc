@@ -1,5 +1,5 @@
-LDC – the LLVM D Compiler
-=========================
+LDC – the LLVM-based D Compiler
+===============================
 
 The LDC project aims to provide a portable D programming language
 compiler with modern optimization and code generation capabilities.
@@ -26,26 +26,13 @@ libraries, including experimental instructions for running LDC on
 Windows, is available on the project wiki, at
 http://wiki.dlang.org/Building_LDC_from_source.
 
-For the impatient, a quick guide for building on *nix systems:
+If you have a working C++ build environment, CMake, a current LLVM and
+libconfig++ (http://hyperrealm.com/libconfig/libconfig.html)
+available, there should be no big surprises, though.
 
- 1) Make sure your system has the necessary prerequisites:
-  - a working C++ build environment,
-  - CMake,
-  - LLVM 3.0+ (3.2 preferred),
-  - libconfig++ (http://hyperrealm.com/libconfig/libconfig.html).
-
- 2) Check out the library submodules, if you have not already:
+Do not forget to make sure all the submodules are up to date:
   $ cd ldc
   $ git submodule update --init
-
- 3) Build and install LDC:
-  $ mkdir build && cd build  # Out-of-source builds are recommended.
-  $ cmake ..
-  $ make
-  $ make install # Or run LDC directly from the bin/ directory.
-
-In case the above steps do not work, please first visit the extended
-documentation under the aforementioned URL.
 
 Some Linux distributions are also packaging a recent version of LDC,
 so building it manually might not be necessary.
@@ -55,10 +42,10 @@ Contact
 -------
 
 The best way to get in touch with the developers is either via the
-digitalmars.D.ldc forum/newsgroup/mailing list (http://forum.dlang.org)
-or the #ldc IRC channel on FreeNode.
+digitalmars.D.ldc forum/newsgroup/mailing list
+(http://forum.dlang.org) or the #ldc IRC channel on FreeNode.
 
-For further documentation, contributor information, etc. please see the
-D wiki: http://wiki.dlang.org/LDC
+For further documentation, contributor information, etc. please see
+the D wiki: http://wiki.dlang.org/LDC
 
 Feedback of any kind is very much appreciated!
