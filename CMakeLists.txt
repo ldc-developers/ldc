@@ -76,18 +76,34 @@ elseif(MSVC)
     ENABLE_LANGUAGE(ASM_MASM)
 endif()
 
+function(append value)
+    foreach(variable ${ARGN})
+        if(${variable} STREQUAL "")
+            set(${variable} "${value}" PARENT_SCOPE)
+        else()
+            set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
+        endif()
+    endforeach(variable)
+endfunction()
+
 # Use separate compiler flags for the frontend and for the LDC-specific parts,
 # as enabling warnings on the DMD frontend only leads to a lot of clutter in
 # the output (LLVM_CXXFLAGS sometimes already includes -Wall).
 set(DMD_CXXFLAGS)
 set(LDC_CXXFLAGS)
 if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
-    set(DMD_CXXFLAGS "-w")
+    append("-w" DMD_CXXFLAGS)
 
     # -Wunused-parameter triggers for LLVM headers, and
     # -Wmissing-field-initializer leads to reams of warnings in
     # gen/asm-*.h
-    set(LDC_CXXFLAGS "-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers")
+    append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers" LDC_CXXFLAGS)
+endif()
+# Append -mminimal-toc for gcc 4.0.x - 4.5.x on ppc64
+if( CMAKE_COMPILER_IS_GNUCXX
+    AND CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|powerpc64"
+    AND CMAKE_C_COMPILER_VERSION MATCHES ".*4\\.[0-5].*" )
+    append("-mminimal-toc" DMD_CXXFLAGS LDC_CXXFLAGS)
 endif()
 
 #
