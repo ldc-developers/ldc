@@ -359,6 +359,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
             ${GC_O}
             ${DCRT_O}
             ${DCRT_C}
+            ${DCRT_ASM}
         )
 
         # This is important as a "serialization point" in the build process so
