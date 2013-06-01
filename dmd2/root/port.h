@@ -19,8 +19,6 @@
 #if _MSC_VER
 #include <float.h>  // for _isnan
 #include <malloc.h> // for alloca
-// According to VC 8.0 docs, long double is the same as double
-longdouble strtold(const char *p,char **endp);
 #define strtof  strtod
 #define isnan   _isnan
 
@@ -41,14 +39,6 @@ struct Port
     static double dbl_min;
     static longdouble ldbl_max;
 
-#if !defined __HAIKU__ || __OpenBSD__
-#elif __GNUC__
-    // These conflict with macros in math.h, should rename them
-    #undef isnan
-    #undef isfinite
-    #undef isinfinity
-    #undef signbit
-#endif
     static int isNan(double);
     static int isNan(longdouble);
 
@@ -80,6 +70,8 @@ struct Port
 
     static int memicmp(const char *s1, const char *s2, int n);
     static int stricmp(const char *s1, const char *s2);
+
+    static longdouble strtold(const char *p, char **endp);
 };
 
 #endif
