@@ -376,7 +376,6 @@ struct TemplateMixin : TemplateInstance
     int hasPointers();
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     char *toChars();
-    char *mangle();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toJson(JsonOut *json);
 
