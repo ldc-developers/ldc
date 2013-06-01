@@ -172,12 +172,6 @@ list(REMOVE_ITEM FE_SRC
 )
 # Add/remove files for MSVC
 if(MSVC)
-    list(REMOVE_ITEM FE_SRC
-        ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/gnuc.c
-    )
-    list(REMOVE_ITEM FE_HDR
-        ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/gnuc.h
-    )
     list(APPEND FE_SRC
         ${PROJECT_SOURCE_DIR}/vcbuild/strtold.c
 # See below why this don't work
