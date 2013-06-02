@@ -717,7 +717,7 @@ Params parseArgs(size_t originalArgc, char** originalArgv, ls::Path ldcPath)
             }
             else if (memcmp(p + 1, "man", 3) == 0)
             {
-                browse("http://ldc-developers.github.com");
+                browse("http://wiki.dlang.org/LDC");
                 exit(EXIT_SUCCESS);
             }
             else if (strcmp(p + 1, "run") == 0)
