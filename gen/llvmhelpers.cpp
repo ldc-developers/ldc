@@ -1345,46 +1345,81 @@ static LLConstant* expand_to_sarray(Type* targetType, Type* initType, LLConstant
 
 LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
 {
+    IF_LOG Logger::println("DtoConstExpInit(targetType = %s, exp = %s)",
+        targetType->toChars(), exp->toChars());
+    LOG_SCOPE
+
     LLConstant* val = exp->toConstElem(gIR);
 
-    Type* expbase = stripModifiers(exp->type->toBasetype())->merge();
-    Type* base = stripModifiers(targetType->toBasetype())->merge();
+    // The situation here is a bit tricky: In an ideal world, we would always
+    // have val->getType() == DtoType(targetType). But there are two reasons
+    // why this is not true. One is that the LLVM type system cannot represent
+    // all the C types, leading to differences in types being necessary e.g. for
+    // union initializers. The second is that the frontend actually does not
+    // explicitly lowers things like initializing an array/vector with a scalar
+    // constant, or since 2.061 sometimes does not get implicit conversions for
+    // integers right. However, we cannot just rely on the actual Types being
+    // equal if there are no rewrites to do because of – as usual – AST
+    // inconsistency bugs.
 
-    // if not the same basetypes, we won't get the same llvm types either
-    if (!expbase->equals(base))
+    Type* expBase = stripModifiers(exp->type->toBasetype())->merge();
+    Type* targetBase = stripModifiers(targetType->toBasetype())->merge();
+
+    if (expBase->equals(targetBase))
     {
-        if (base->ty == Tsarray)
-        {
-            if (base->nextOf()->toBasetype()->ty == Tvoid) {
-                error(loc, "static arrays of voids have no default initializer");
-                fatal();
-            }
-            Logger::println("type is a static array, building constant array initializer to single value");
-            return expand_to_sarray(base, expbase, val);
-        }
-
-        if (base->ty == Tvector)
-        {
-
-
-            TypeVector* tv = (TypeVector*)base;
-            assert(tv->basetype->ty == Tsarray);
-            dinteger_t elemCount =
-                static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
-
-#if LDC_LLVM_VER == 300
-            std::vector<LLConstant*> Elts(elemCount, val);
-            return llvm::ConstantVector::get(Elts);
-#else
-            return llvm::ConstantVector::getSplat(elemCount, val);
-#endif
-        }
-
-        error(loc, "LDC internal error: cannot yet convert default initializer %s of type %s to %s",
-            exp->toChars(), exp->type->toChars(), targetType->toChars());
-        llvm_unreachable("Unsupported default initializer.");
+        Logger::println("Matching D types, nothing left to do.");
+        return val;
     }
 
+    llvm::Type* llType = val->getType();
+    llvm::Type* targetLLType = DtoType(targetBase);
+    if (llType == targetLLType)
+    {
+        Logger::println("Matching LLVM types, ignoring frontend glitch.");
+        return val;
+    }
+
+    if (targetBase->ty == Tsarray)
+    {
+        if (targetBase->nextOf()->toBasetype()->ty == Tvoid) {
+           error(loc, "static arrays of voids have no default initializer");
+           fatal();
+        }
+        Logger::println("Building constant array initializer to single value.");
+        return expand_to_sarray(targetBase, expBase, val);
+    }
+
+    if (targetBase->ty == Tvector)
+    {
+        Logger::println("Building vector initializer from scalar.");
+
+        TypeVector* tv = static_cast<TypeVector*>(targetBase);
+        assert(tv->basetype->ty == Tsarray);
+        dinteger_t elemCount =
+            static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
+
+#if LDC_LLVM_VER == 300
+        std::vector<LLConstant*> Elts(elemCount, val);
+        return llvm::ConstantVector::get(Elts);
+#else
+        return llvm::ConstantVector::getSplat(elemCount, val);
+#endif
+    }
+
+    if (llType->isIntegerTy() && targetLLType->isIntegerTy())
+    {
+        // This should really be fixed in the frontend.
+        Logger::println("Fixing up unresolved implicit integer conversion.");
+
+        llvm::IntegerType* source = llvm::cast<llvm::IntegerType>(llType);
+        llvm::IntegerType* target = llvm::cast<llvm::IntegerType>(targetLLType);
+
+        assert(target->getBitWidth() > source->getBitWidth() && "On initializer "
+            "integer type mismatch, the target should be wider than the source.");
+        return llvm::ConstantExpr::getZExtOrBitCast(val, target);
+    }
+
+    Logger::println("Unhandled type mismatch, giving up.");
     return val;
 }
 
