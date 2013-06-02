@@ -983,51 +983,6 @@ void DtoResolveDsymbol(Dsymbol* dsym)
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoConstInitGlobal(VarDeclaration* vd)
-{
-    vd->codegen(Type::sir);
-
-    if (vd->ir.initialized) return;
-    vd->ir.initialized = gIR->dmodule;
-
-    Logger::println("DtoConstInitGlobal(%s) @ %s", vd->toChars(), vd->loc.toChars());
-    LOG_SCOPE;
-
-    // build the initializer
-    LLConstant* initVal = DtoConstInitializer(vd->loc, vd->type, vd->init);
-
-    // set the initializer if appropriate
-    IrGlobal* glob = vd->ir.irGlobal;
-    llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(glob->value);
-
-    //if (LLStructType *st = isaStruct(glob->type)) {
-    //    st->setBody(initVal);
-    //}
-
-    assert(!glob->constInit);
-    glob->constInit = initVal;
-
-    // assign the initializer
-    if (!(vd->storage_class & STCextern) && mustDefineSymbol(vd))
-    {
-        if (Logger::enabled())
-        {
-            Logger::println("setting initializer");
-            Logger::cout() << "global: " << *gvar << '\n';
-#if 0
-            Logger::cout() << "init:   " << *initVal << '\n';
-#endif
-        }
-
-        gvar->setInitializer(initVal);
-
-        // do debug info
-        DtoDwarfGlobalVariable(gvar, vd);
-    }
-}
-
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
 //      DECLARATION EXP HELPER
@@ -1114,7 +1069,15 @@ void DtoVarDeclaration(VarDeclaration* vd)
     if (Logger::enabled())
         Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
 
-    DtoInitializer(vd->ir.irLocal->value, vd->init); // TODO: Remove altogether?
+    if (vd->init)
+    {
+        if (ExpInitializer* ex = vd->init->isExpInitializer())
+        {
+            // TODO: Refactor this so that it doesn't look like toElem has no effect.
+            Logger::println("expression initializer");
+            ex->exp->toElem(gIR);
+        }
+    }
 
 Lexit:
     /* Mark the point of construction of a variable that needs to be destructed.
@@ -1343,51 +1306,11 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoInitializer(LLValue* target, Initializer* init)
+static LLConstant* expand_to_sarray(Type* targetType, Type* initType, LLConstant* initConst)
 {
-    if (!init)
-        return 0;
-
-    if (ExpInitializer* ex = init->isExpInitializer())
-    {
-        Logger::println("expression initializer");
-        assert(ex->exp);
-        return ex->exp->toElem(gIR);
-    }
-    else if (init->isArrayInitializer())
-    {
-        // TODO: do nothing ?
-    }
-    else if (init->isVoidInitializer())
-    {
-        // do nothing
-    }
-    else if (init->isStructInitializer())
-    {
-        // TODO: again nothing ?
-    }
-    else
-    {
-        llvm_unreachable("Unknown initializer type.");
-    }
-
-    return 0;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-static LLConstant* expand_to_sarray(Type *base, Expression* exp)
-{
-    Logger::println("building type %s from expression (%s) of type %s", base->toChars(), exp->toChars(), exp->type->toChars());
-    LLType* dstTy = DtoType(base);
-    if (Logger::enabled())
-        Logger::cout() << "final llvm type requested: " << *dstTy << '\n';
-
-    LLConstant* val = exp->toConstElem(gIR);
-
-    Type* expbase = stripModifiers(exp->type->toBasetype());
-    Logger::println("expbase: %s", expbase->toChars());
-    Type* t = base->toBasetype();
+    Type* expbase = stripModifiers(initType);
+    IF_LOG Logger::println("expbase: %s", expbase->toChars());
+    Type* t = targetType;
 
     LLSmallVector<size_t, 4> dims;
 
@@ -1409,50 +1332,87 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
     std::vector<LLConstant*> inits;
     while (i--)
     {
-        LLArrayType* arrty = LLArrayType::get(val->getType(), dims[i]);
+        LLArrayType* arrty = LLArrayType::get(initConst->getType(), dims[i]);
         inits.clear();
-        inits.insert(inits.end(), dims[i], val);
-        val = LLConstantArray::get(arrty, inits);
+        inits.insert(inits.end(), dims[i], initConst);
+        initConst = LLConstantArray::get(arrty, inits);
     }
 
-    return val;
+    return initConst;
 }
 
-LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
+LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
 {
-    Type* expbase = stripModifiers(exp->type->toBasetype())->merge();
-    Type* base = stripModifiers(type->toBasetype())->merge();
+    IF_LOG Logger::println("DtoConstExpInit(targetType = %s, exp = %s)",
+        targetType->toChars(), exp->toChars());
+    LOG_SCOPE
 
-    // if not the same basetypes, we won't get the same llvm types either
-    if (!expbase->equals(base))
+    LLConstant* val = exp->toConstElem(gIR);
+
+    // The situation here is a bit tricky: In an ideal world, we would always
+    // have val->getType() == DtoType(targetType). But there are two reasons
+    // why this is not true. One is that the LLVM type system cannot represent
+    // all the C types, leading to differences in types being necessary e.g. for
+    // union initializers. The second is that the frontend actually does not
+    // explicitly lowers things like initializing an array/vector with a scalar
+    // constant, or since 2.061 sometimes does not get implicit conversions for
+    // integers right. However, we cannot just rely on the actual Types being
+    // equal if there are no rewrites to do because of – as usual – AST
+    // inconsistency bugs.
+
+    Type* expBase = stripModifiers(exp->type->toBasetype())->merge();
+    Type* targetBase = stripModifiers(targetType->toBasetype())->merge();
+
+    if (expBase->equals(targetBase))
     {
-        if (base->ty == Tsarray)
-        {
-            if (base->nextOf()->toBasetype()->ty == Tvoid) {
-                error(loc, "static arrays of voids have no default initializer");
-                fatal();
-            }
-            Logger::println("type is a static array, building constant array initializer to single value");
-            return expand_to_sarray(base, exp);
-        }
-
-        if (base->ty == Tvector)
-        {
-            LLConstant* val = exp->toConstElem(gIR);
-
-            TypeVector* tv = (TypeVector*)base;
-            assert(tv->basetype->ty == Tsarray);
-            dinteger_t elemCount =
-                static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
-            return llvm::ConstantVector::getSplat(elemCount, val);
-        }
-
-        error(loc, "LDC internal error: cannot yet convert default initializer %s of type %s to %s",
-            exp->toChars(), exp->type->toChars(), type->toChars());
-        llvm_unreachable("Unsupported default initializer.");
+        Logger::println("Matching D types, nothing left to do.");
+        return val;
     }
 
-    return exp->toConstElem(gIR);
+    llvm::Type* llType = val->getType();
+    llvm::Type* targetLLType = DtoType(targetBase);
+    if (llType == targetLLType)
+    {
+        Logger::println("Matching LLVM types, ignoring frontend glitch.");
+        return val;
+    }
+
+    if (targetBase->ty == Tsarray)
+    {
+        if (targetBase->nextOf()->toBasetype()->ty == Tvoid) {
+           error(loc, "static arrays of voids have no default initializer");
+           fatal();
+        }
+        Logger::println("Building constant array initializer to single value.");
+        return expand_to_sarray(targetBase, expBase, val);
+    }
+
+    if (targetBase->ty == Tvector)
+    {
+        Logger::println("Building vector initializer from scalar.");
+
+        TypeVector* tv = (TypeVector*)base;
+        assert(tv->basetype->ty == Tsarray);
+        dinteger_t elemCount =
+            static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
+        return llvm::ConstantVector::getSplat(elemCount, val);
+    }
+
+    if (llType->isIntegerTy() && targetLLType->isIntegerTy())
+    {
+        // This should really be fixed in the frontend.
+        Logger::println("Fixing up unresolved implicit integer conversion.");
+
+        llvm::IntegerType* source = llvm::cast<llvm::IntegerType>(llType);
+        llvm::IntegerType* target = llvm::cast<llvm::IntegerType>(targetLLType);
+
+        assert(target->getBitWidth() > source->getBitWidth() && "On initializer "
+            "integer type mismatch, the target should be wider than the source.");
+        return llvm::ConstantExpr::getZExtOrBitCast(val, target);
+    }
+
+    Logger::println("Unhandled type mismatch, giving up.");
+    return val;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

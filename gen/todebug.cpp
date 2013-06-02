@@ -516,7 +516,7 @@ void DtoDwarfCompileUnit(Module* m)
         global.params.symdebug == 2 ? DW_LANG_C : DW_LANG_D,
         srcname,
         srcpath,
-        "LDC (https://github.com/ldc-developers/ldc)",
+        "LDC (https://wiki.dlang.org/LDC)",
         false, // isOptimized TODO
         llvm::StringRef(), // Flags TODO
         1 // Runtime Version TODO

@@ -2365,7 +2365,7 @@ done:
 #ifdef IN_GCC
     t->float80value = real_t::parse((char *)stringbuffer.data, real_t::LongDouble);
 #else
-    t->float80value = strtold((char *)stringbuffer.data, NULL);
+    t->float80value = Port::strtold((char *)stringbuffer.data, NULL);
 #endif
     errno = 0;
     float strtofres;
