@@ -1391,7 +1391,7 @@ LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
     {
         Logger::println("Building vector initializer from scalar.");
 
-        TypeVector* tv = (TypeVector*)base;
+        TypeVector* tv = static_cast<TypeVector*>(targetBase);
         assert(tv->basetype->ty == Tsarray);
         dinteger_t elemCount =
             static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
