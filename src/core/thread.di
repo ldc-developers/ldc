@@ -1008,7 +1008,11 @@ private:
     {
         version (Windows)      enum FiberSize = 88;
         else version (OSX)     enum FiberSize = 88;
-        else version (Posix)   enum FiberSize = 88;
+        else version (Posix)
+        {
+            import core.sys.posix.ucontext;
+            enum FiberSize = 88 + ucontext_t.sizeof + 8;
+        }
         else static assert(0, "Platform not supported.");
     }
     else
@@ -1017,7 +1021,11 @@ private:
 
         version (Windows)      enum FiberSize = 44;
         else version (OSX)     enum FiberSize = 44;
-        else version (Posix)   enum FiberSize = 44;
+        else version (Posix)
+        {
+            import core.sys.posix.ucontext;
+            enum FiberSize = 44 + ucontext_t.sizeof + 4;
+        }
         else static assert(0, "Platform not supported.");
     }
 

@@ -2944,6 +2944,13 @@ private
             version = AsmExternal;
         }
     }
+    else version( PPC64 )
+    {
+        version( Posix )
+        {
+            version = AlignFiberStackTo16Byte;
+        }
+    }
     else version( MIPS_O32 )
     {
         version( Posix )
@@ -4147,7 +4154,7 @@ version (D_LP64)
     else version (OSX)
         static assert(__traits(classInstanceSize, Fiber) == 88);
     else version (Posix)
-        static assert(__traits(classInstanceSize, Fiber) == 88);
+        static assert(__traits(classInstanceSize, Fiber) == 88 + ucontext_t.sizeof + 8);
     else
         static assert(0, "Platform not supported.");
 }
@@ -4160,7 +4167,7 @@ else
     else version (OSX)
         static assert(__traits(classInstanceSize, Fiber) == 44);
     else version (Posix)
-        static assert(__traits(classInstanceSize, Fiber) == 44);
+        static assert(__traits(classInstanceSize, Fiber) == 44 + ucontext_t.sizeof + 4);
     else
         static assert(0, "Platform not supported.");
 }
