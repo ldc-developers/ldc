@@ -108,9 +108,6 @@ TemplateInstance* DtoIsTemplateInstance(Dsymbol* s, bool checkLiteralOwner = fal
 /// Dispatches as appropriate.
 void DtoResolveDsymbol(Dsymbol* dsym);
 
-/// Generates the constant initializer for a global variable.
-void DtoConstInitGlobal(VarDeclaration* vd);
-
 // declaration inside a declarationexp
 void DtoVarDeclaration(VarDeclaration* var);
 DValue* DtoDeclarationExp(Dsymbol* declaration);

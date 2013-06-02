@@ -985,51 +985,6 @@ void DtoResolveDsymbol(Dsymbol* dsym)
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoConstInitGlobal(VarDeclaration* vd)
-{
-    vd->codegen(Type::sir);
-
-    if (vd->ir.initialized) return;
-    vd->ir.initialized = gIR->dmodule;
-
-    Logger::println("DtoConstInitGlobal(%s) @ %s", vd->toChars(), vd->loc.toChars());
-    LOG_SCOPE;
-
-    // build the initializer
-    LLConstant* initVal = DtoConstInitializer(vd->loc, vd->type, vd->init);
-
-    // set the initializer if appropriate
-    IrGlobal* glob = vd->ir.irGlobal;
-    llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(glob->value);
-
-    //if (LLStructType *st = isaStruct(glob->type)) {
-    //    st->setBody(initVal);
-    //}
-
-    assert(!glob->constInit);
-    glob->constInit = initVal;
-
-    // assign the initializer
-    if (!(vd->storage_class & STCextern) && mustDefineSymbol(vd))
-    {
-        if (Logger::enabled())
-        {
-            Logger::println("setting initializer");
-            Logger::cout() << "global: " << *gvar << '\n';
-#if 0
-            Logger::cout() << "init:   " << *initVal << '\n';
-#endif
-        }
-
-        gvar->setInitializer(initVal);
-
-        // do debug info
-        DtoDwarfGlobalVariable(gvar, vd);
-    }
-}
-
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
 //      DECLARATION EXP HELPER
