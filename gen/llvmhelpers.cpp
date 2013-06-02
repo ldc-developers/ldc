@@ -1308,18 +1308,11 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static LLConstant* expand_to_sarray(Type *base, Expression* exp)
+static LLConstant* expand_to_sarray(Type* targetType, Type* initType, LLConstant* initConst)
 {
-    Logger::println("building type %s from expression (%s) of type %s", base->toChars(), exp->toChars(), exp->type->toChars());
-    LLType* dstTy = DtoType(base);
-    if (Logger::enabled())
-        Logger::cout() << "final llvm type requested: " << *dstTy << '\n';
-
-    LLConstant* val = exp->toConstElem(gIR);
-
-    Type* expbase = stripModifiers(exp->type->toBasetype());
-    Logger::println("expbase: %s", expbase->toChars());
-    Type* t = base->toBasetype();
+    Type* expbase = stripModifiers(initType);
+    IF_LOG Logger::println("expbase: %s", expbase->toChars());
+    Type* t = targetType;
 
     LLSmallVector<size_t, 4> dims;
 
@@ -1341,19 +1334,21 @@ static LLConstant* expand_to_sarray(Type *base, Expression* exp)
     std::vector<LLConstant*> inits;
     while (i--)
     {
-        LLArrayType* arrty = LLArrayType::get(val->getType(), dims[i]);
+        LLArrayType* arrty = LLArrayType::get(initConst->getType(), dims[i]);
         inits.clear();
-        inits.insert(inits.end(), dims[i], val);
-        val = LLConstantArray::get(arrty, inits);
+        inits.insert(inits.end(), dims[i], initConst);
+        initConst = LLConstantArray::get(arrty, inits);
     }
 
-    return val;
+    return initConst;
 }
 
-LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
+LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
 {
+    LLConstant* val = exp->toConstElem(gIR);
+
     Type* expbase = stripModifiers(exp->type->toBasetype())->merge();
-    Type* base = stripModifiers(type->toBasetype())->merge();
+    Type* base = stripModifiers(targetType->toBasetype())->merge();
 
     // if not the same basetypes, we won't get the same llvm types either
     if (!expbase->equals(base))
@@ -1365,12 +1360,12 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
                 fatal();
             }
             Logger::println("type is a static array, building constant array initializer to single value");
-            return expand_to_sarray(base, exp);
+            return expand_to_sarray(base, expbase, val);
         }
 
         if (base->ty == Tvector)
         {
-            LLConstant* val = exp->toConstElem(gIR);
+
 
             TypeVector* tv = (TypeVector*)base;
             assert(tv->basetype->ty == Tsarray);
@@ -1386,11 +1381,11 @@ LLConstant* DtoConstExpInit(Loc loc, Type* type, Expression* exp)
         }
 
         error(loc, "LDC internal error: cannot yet convert default initializer %s of type %s to %s",
-            exp->toChars(), exp->type->toChars(), type->toChars());
+            exp->toChars(), exp->type->toChars(), targetType->toChars());
         llvm_unreachable("Unsupported default initializer.");
     }
 
-    return exp->toConstElem(gIR);
+    return val;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
