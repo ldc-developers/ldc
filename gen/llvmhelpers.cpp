@@ -1071,7 +1071,15 @@ void DtoVarDeclaration(VarDeclaration* vd)
     if (Logger::enabled())
         Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
 
-    DtoInitializer(vd->ir.irLocal->value, vd->init); // TODO: Remove altogether?
+    if (vd->init)
+    {
+        if (ExpInitializer* ex = vd->init->isExpInitializer())
+        {
+            // TODO: Refactor this so that it doesn't look like toElem has no effect.
+            Logger::println("expression initializer");
+            ex->exp->toElem(gIR);
+        }
+    }
 
 Lexit:
     /* Mark the point of construction of a variable that needs to be destructed.
@@ -1296,39 +1304,6 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
         Logger::println("unsupported const initializer: %s", init->toChars());
     }
     return _init;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-DValue* DtoInitializer(LLValue* target, Initializer* init)
-{
-    if (!init)
-        return 0;
-
-    if (ExpInitializer* ex = init->isExpInitializer())
-    {
-        Logger::println("expression initializer");
-        assert(ex->exp);
-        return ex->exp->toElem(gIR);
-    }
-    else if (init->isArrayInitializer())
-    {
-        // TODO: do nothing ?
-    }
-    else if (init->isVoidInitializer())
-    {
-        // do nothing
-    }
-    else if (init->isStructInitializer())
-    {
-        // TODO: again nothing ?
-    }
-    else
-    {
-        llvm_unreachable("Unknown initializer type.");
-    }
-
-    return 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -116,7 +116,6 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr = 0);
 // initializer helpers
 LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init);
 LLConstant* DtoConstExpInit(Loc loc, Type* t, Expression* exp);
-DValue* DtoInitializer(LLValue* target, Initializer* init);
 
 // getting typeinfo of type, base=true casts to object.TypeInfo
 LLConstant* DtoTypeInfoOf(Type* ty, bool base=true);
