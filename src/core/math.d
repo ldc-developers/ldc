@@ -132,13 +132,13 @@ version (LDC)
         {
             // The MinGW runtime only provides a double precision ldexp, and
             // it doesn't seem to reliably possible to express the fscale
-            // semantics (two FP stack inputs/returns) reliably in an inline
-            // asm expr clobber list.
+            // semantics (two FP stack inputs/returns) in an inline asm
+            // expression clobber list.
             asm
             {
                 naked;
                 push EAX;
-                fild [ESP];
+                fild int ptr [ESP];
                 fld real ptr [ESP+8];
                 fscale;
                 fstp ST(1);
