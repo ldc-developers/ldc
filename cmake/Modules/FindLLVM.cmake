@@ -24,10 +24,15 @@
 
 # Try suffixed versions to pick up the newest LLVM install available on Debian
 # derivatives.
+# We also want an user-specified LLVM_ROOT_DIR to take precedence over the
+# system default locations such as /usr/local/bin. Executing find_program()
+# multiples times is the approach recommended in the docs.
+set(llvm_config_names llvm-config-3.3 llvm-config-3.2 llvm-config-3.1 llvm-config)
 find_program(LLVM_CONFIG
-    NAMES llvm-config-3.3 llvm-config-3.2 llvm-config-3.1 llvm-config
-    PATHS ${LLVM_ROOT_DIR}/bin
+    NAMES ${llvm_config_names}
+    PATHS ${LLVM_ROOT_DIR}/bin NO_DEFAULT_PATH
     DOC "Path to llvm-config tool.")
+find_program(LLVM_CONFIG NAMES ${llvm_config_names})
 
 if (NOT LLVM_CONFIG)
     if (WIN32)
