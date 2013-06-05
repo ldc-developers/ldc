@@ -407,6 +407,33 @@ static llvm::DIType dwarfArrayType(Type* type) {
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+static llvm::DIType dwarfSArrayType(Type *type)
+{
+    llvm::Type *T = DtoType(type);
+    Type *t = type->toBasetype();
+
+    // find base type
+    llvm::SmallVector<llvm::Value *, 8> subscripts;
+    while (t->ty == Tsarray)
+    {
+        TypeSArray *tsa = static_cast<TypeSArray *>(t);
+        int64_t Count = tsa->dim->toInteger();
+        llvm::Value *subscript = gIR->dibuilder.getOrCreateSubrange(0, Count-1);
+        subscripts.push_back(subscript);
+        t = t->nextOf();
+    }
+    llvm::DIType basetype = dwarfTypeDescription_impl(t, NULL);
+
+    return gIR->dibuilder.createArrayType(
+        getTypeBitSize(T), // size (bits)
+        getABITypeAlign(T)*8, // align (bits)
+        basetype, // element type
+        gIR->dibuilder.getOrCreateArray(subscripts) // subscripts
+    );
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 static llvm::DIType dwarfTypeDescription_impl(Type* type, const char* c_name)
 {
     Type* t = type->toBasetype();
@@ -420,6 +447,8 @@ static llvm::DIType dwarfTypeDescription_impl(Type* type, const char* c_name)
         return dwarfPointerType(type);
     else if (t->ty == Tarray)
         return dwarfArrayType(type);
+    else if (t->ty == Tsarray)
+        return dwarfSArrayType(type);
     else if (t->ty == Tstruct || t->ty == Tclass)
         return dwarfCompositeType(type);
 
