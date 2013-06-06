@@ -18,8 +18,8 @@
 #include "gen/llvm.h"
 
 struct ArrayInitializer;
-struct DSliceValue;
-struct DValue;
+class DSliceValue;
+class DValue;
 struct Expression;
 struct Loc;
 struct Type;

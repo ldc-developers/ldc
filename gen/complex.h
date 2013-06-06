@@ -17,7 +17,7 @@
 #include "lexer.h"
 #include "longdouble.h"
 
-struct DValue;
+class DValue;
 struct Loc;
 struct Type;
 namespace llvm

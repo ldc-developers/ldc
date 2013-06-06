@@ -16,7 +16,7 @@
 
 #include "mars.h"
 
-struct DValue;
+class DValue;
 struct Expression;
 struct FuncDeclaration;
 struct IRAsmBlock;

@@ -29,7 +29,7 @@ class Library;
 // Back end
 #if IN_LLVM
 class Ir;
-struct DValue;
+class DValue;
 typedef DValue elem;
 namespace llvm {
     class LLVMContext;

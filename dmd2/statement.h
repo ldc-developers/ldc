@@ -75,7 +75,7 @@ namespace llvm
 struct IRState;
 struct Blockx;
 #if IN_LLVM
-struct DValue;
+class DValue;
 typedef DValue elem;
 #endif
 
