@@ -372,14 +372,14 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
                     if (lazy)
                         types.push_back(irparam->value->getType()->getContainedType(0));
                     else
-                        types.push_back(DtoType(vd->type));
+                        types.push_back(i1ToI8(DtoType(vd->type)));
                 } else {
                     types.push_back(irparam->value->getType());
                 }
             } else if (isSpecialRefVar(vd)) {
                 types.push_back(DtoType(vd->type->pointerTo()));
             } else {
-                types.push_back(DtoType(vd->type));
+                types.push_back(i1ToI8(DtoType(vd->type)));
             }
             if (Logger::enabled()) {
                 Logger::cout() << "Nested var '" << vd->toChars() <<

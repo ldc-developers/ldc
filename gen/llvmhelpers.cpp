@@ -49,7 +49,7 @@ LLValue* DtoNew(Type* newtype)
     // call runtime allocator
     LLValue* mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_mem").getInstruction();
     // cast
-    return DtoBitCast(mem, getPtrToType(DtoType(newtype)), ".gc_mem");
+    return DtoBitCast(mem, getPtrToType(i1ToI8(DtoType(newtype))), ".gc_mem");
 }
 
 void DtoDeleteMemory(LLValue* ptr)
@@ -113,7 +113,7 @@ void DtoDeleteArray(DValue* arr)
 
 llvm::AllocaInst* DtoAlloca(Type* type, const char* name)
 {
-    LLType* lltype = DtoType(type);
+    LLType* lltype = i1ToI8(DtoType(type));
     llvm::AllocaInst* ai = new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
     ai->setAlignment(type->alignsize());
     return ai;
@@ -375,7 +375,10 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
 
     assert(t->ty != Tvoid && "Cannot assign values of type void.");
 
-    if (t->ty == Tstruct) {
+    if (t->ty == Tbool) {
+        DtoStoreZextI8(rhs->getRVal(), lhs->getLVal());
+    }
+    else if (t->ty == Tstruct) {
         llvm::Value* src = rhs->getRVal();
         llvm::Value* dst = lhs->getLVal();
 
@@ -623,7 +626,10 @@ DValue* DtoCastPtr(Loc& loc, DValue* val, Type* to)
     if (totype->ty == Tpointer || totype->ty == Tclass) {
         LLValue* src = val->getRVal();
         if (Logger::enabled())
-            Logger::cout() << "src: " << *src << "to type: " << *tolltype << '\n';
+        {
+            Logger::cout() << "src: " << *src << '\n';
+            Logger::cout() << "to type: " << *tolltype << '\n';
+        }
         rval = DtoBitCast(src, tolltype);
     }
     else if (totype->ty == Tbool) {
@@ -1056,9 +1062,9 @@ void DtoVarDeclaration(VarDeclaration* vd)
         }
 
         Type* type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
-        LLType* lltype = DtoType(type);
 
         llvm::Value* allocainst;
+        LLType* lltype = DtoType(type);
         if(gDataLayout->getTypeSizeInBits(lltype) == 0)
             allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
         else
@@ -1298,7 +1304,7 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     else if (init->isVoidInitializer())
     {
         Logger::println("const void initializer");
-        LLType* ty = DtoTypeNotVoid(type);
+        LLType* ty = voidToI8(DtoType(type));
         _init = LLConstant::getNullValue(ty);
     }
     else {
@@ -1366,14 +1372,14 @@ LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
     Type* expBase = stripModifiers(exp->type->toBasetype())->merge();
     Type* targetBase = stripModifiers(targetType->toBasetype())->merge();
 
-    if (expBase->equals(targetBase))
+    if (expBase->equals(targetBase) && targetBase->ty != Tbool)
     {
         Logger::println("Matching D types, nothing left to do.");
         return val;
     }
 
     llvm::Type* llType = val->getType();
-    llvm::Type* targetLLType = DtoType(targetBase);
+    llvm::Type* targetLLType = i1ToI8(DtoType(targetBase));
     if (llType == targetLLType)
     {
         Logger::println("Matching LLVM types, ignoring frontend glitch.");

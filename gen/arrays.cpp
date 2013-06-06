@@ -64,9 +64,7 @@ static LLValue *DtoSlicePtr(DValue *dval)
 LLStructType* DtoArrayType(Type* arrayTy)
 {
     assert(arrayTy->nextOf());
-    LLType* elemty = DtoType(arrayTy->nextOf());
-    if (elemty == LLType::getVoidTy(gIR->context()))
-        elemty = LLType::getInt8Ty(gIR->context());
+    LLType* elemty = i1ToI8(voidToI8(DtoType(arrayTy->nextOf())));
 
     llvm::Type *elems[] = { DtoSize_t(), getPtrToType(elemty) };
     return llvm::StructType::get(gIR->context(), elems, false);
@@ -87,10 +85,7 @@ LLArrayType* DtoStaticArrayType(Type* t)
     TypeSArray* tsa = static_cast<TypeSArray*>(t);
     Type* tnext = tsa->nextOf();
 
-    LLType* elemty = DtoType(tnext);
-    if (elemty == LLType::getVoidTy(gIR->context()))
-        elemty = LLType::getInt8Ty(gIR->context());
-
+    LLType* elemty = i1ToI8(voidToI8(DtoType(tnext)));
     return LLArrayType::get(elemty, tsa->dim->toUInteger());
 }
 
@@ -291,7 +286,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
     // get elem type
     Type* elemty = arrty->nextOf();
-    LLType* llelemty = DtoTypeNotVoid(elemty);
+    LLType* llelemty = i1ToI8(voidToI8(DtoType(elemty)));
 
     // true if array elements differ in type, can happen with array of unions
     bool mismatch = false;
@@ -424,7 +419,7 @@ void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
     LLValue* dstarr = get_slice_ptr(dst,sz1);
 
     LLValue* srcarr = DtoBitCast(DtoArrayPtr(src), getVoidPtrType());
-    LLType* arrayelemty = DtoTypeNotVoid(src->getType()->nextOf()->toBasetype());
+    LLType* arrayelemty = voidToI8(DtoType(src->getType()->nextOf()->toBasetype()));
     LLValue* sz2 = gIR->ir->CreateMul(DtoConstSize_t(getTypePaddedSize(arrayelemty)), DtoArrayLen(src), "tmp");
 
     copySlice(dstarr, sz1, srcarr, sz2);
@@ -939,7 +934,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
             Logger::cout() << "to array" << '\n';
 
         LLType* ptrty = DtoArrayType(totype)->getContainedType(1);
-        LLType* ety = DtoTypeNotVoid(fromtype->nextOf());
+        LLType* ety = voidToI8(DtoType(fromtype->nextOf()));
 
         if (fromtype->ty == Tsarray) {
             LLValue* uval = u->getRVal();

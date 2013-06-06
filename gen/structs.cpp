@@ -138,7 +138,7 @@ LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
     }
 
     // cast it to the right type
-    val = DtoBitCast(val, getPtrToType(DtoType(vd->type)));
+    val = DtoBitCast(val, getPtrToType(i1ToI8(DtoType(vd->type))));
 
     if (Logger::enabled())
         Logger::cout() << "value: " << *val << '\n';

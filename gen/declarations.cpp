@@ -172,7 +172,7 @@ void VarDeclaration::codegen(Ir* p)
         // this->ir.irGlobal->value!), and in case we also do an initializer
         // with a different type later, swap it out and replace any existing
         // uses with bitcasts to the previous type.
-        llvm::GlobalVariable* gvar = createGlobal(DtoType(type), isLLConst,
+        llvm::GlobalVariable* gvar = createGlobal(i1ToI8(DtoType(type)), isLLConst,
             llLinkage, llName, isThreadlocal());
         this->ir.irGlobal->value = gvar;
 
@@ -206,7 +206,7 @@ void VarDeclaration::codegen(Ir* p)
             ir.irGlobal->constInit = initVal;
             gvar->setInitializer(initVal);
 
-            // Also set up the debug info.
+            // Also set up the edbug info.
             DtoDwarfGlobalVariable(gvar, this);
         }
 
