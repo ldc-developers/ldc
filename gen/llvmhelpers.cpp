@@ -373,11 +373,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
     Type* t = lhs->getType()->toBasetype();
     Type* t2 = rhs->getType()->toBasetype();
 
-    if (t->ty == Tvoid) {
-        // This is a frontend regression in DMD 2.061; should be removed once
-        // DMD Bugzilla issue 9268 is fixed.
-        error(loc, "Cannot assign values of type void.");
-    }
+    assert(t->ty != Tvoid && "Cannot assign values of type void.");
 
     if (t->ty == Tstruct) {
         llvm::Value* src = rhs->getRVal();
