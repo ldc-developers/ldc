@@ -8,9 +8,13 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/todebug.h"
+#include "arraytypes.h"
 #include "declaration.h"
+#include "dsymbol.h"
+#include "enum.h"
 #include "mars.h"
 #include "module.h"
+#include "mtype.h"
 #include "gen/irstate.h"
 #include "gen/linkage.h"
 #include "gen/llvm.h"
@@ -139,6 +143,18 @@ static llvm::DIType dwarfBasicType(Type* type)
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+static llvm::DIType dwarfEnumType(Type *type)
+{
+    llvm::Type *T = DtoType(type);
+    Type *t = type->toBasetype();
+
+    // FIXME
+
+    return llvm::DIType(NULL);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 static llvm::DIType dwarfPointerType(Type* type)
 {
     LLType* T = DtoType(type);
@@ -169,15 +185,20 @@ static llvm::DIType dwarfVectorType(Type* type)
     Type* t = type->toBasetype();
 
     assert(t->ty == Tvector && "only vectors allowed for debug info in dwarfVectorType");
-
-    // find base type
-    llvm::DIType basetype = dwarfTypeDescription_impl(static_cast<TypeVector*>(t)->elementType(), NULL);
+    TypeVector *tv = static_cast<TypeVector *>(t);
+    Type *te = tv->elementType();
+    int64_t Dim = tv->size(Loc(0)) / te->size(Loc(0));
+    llvm::Value *subscripts[] =
+    {
+        gIR->dibuilder.getOrCreateSubrange(0, Dim)
+    };
+    llvm::DIType basetype = dwarfTypeDescription_impl(te, NULL);
 
     return gIR->dibuilder.createVectorType(
         getTypeBitSize(T), // size (bits)
         getABITypeAlign(T)*8, // align (bits)
         basetype, // element type
-        llvm::DIArray(0) // subscripts
+        gIR->dibuilder.getOrCreateArray(subscripts) // subscripts
     );
 }
 
@@ -441,6 +462,8 @@ static llvm::DIType dwarfTypeDescription_impl(Type* type, const char* c_name)
         return llvm::DIType(NULL);
     else if (t->ty == Tvector)
         return dwarfVectorType(type);
+    else if (t->ty == Tenum)
+        return dwarfEnumType(type);
     else if (t->isintegral() || t->isfloating())
         return dwarfBasicType(type);
     else if (t->ty == Tpointer)
