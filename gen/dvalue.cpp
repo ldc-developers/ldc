@@ -43,15 +43,14 @@ LLValue* DVarValue::getLVal()
 LLValue* DVarValue::getRVal()
 {
     assert(val);
-    Type* bt = type->toBasetype();
 
-    LLValue* tmp = val;
+    llvm::Value* storage = val;
     if (var && isSpecialRefVar(var))
-        tmp = DtoLoad(tmp);
+        storage = DtoLoad(storage);
 
-    if (DtoIsPassedByRef(bt))
-        return tmp;
-    return DtoLoad(tmp);
+    if (DtoIsPassedByRef(type->toBasetype()))
+        return storage;
+    return DtoLoad(storage);
 }
 
 LLValue* DVarValue::getRefStorage()
