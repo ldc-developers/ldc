@@ -95,12 +95,12 @@ void RTTIBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* ma
 
 void RTTIBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtype, Dsymbol * mangle_sym)
 {
-	std::string tmpStr(valtype->arrayOf()->toChars());
-	tmpStr.erase( remove( tmpStr.begin(), tmpStr.end(), '[' ), tmpStr.end() );
-	tmpStr.erase( remove( tmpStr.begin(), tmpStr.end(), ']' ), tmpStr.end() );
-	tmpStr.append("arr");
+    std::string tmpStr(valtype->arrayOf()->toChars());
+    tmpStr.erase( remove( tmpStr.begin(), tmpStr.end(), '[' ), tmpStr.end() );
+    tmpStr.erase( remove( tmpStr.begin(), tmpStr.end(), ']' ), tmpStr.end() );
+    tmpStr.append("arr");
 
-	std::string initname(mangle_sym?mangle_sym->mangle():".ldc");
+    std::string initname(mangle_sym?mangle_sym->mangle():".ldc");
     initname.append(".rtti.");
     initname.append(tmpStr);
     initname.append(".data");
