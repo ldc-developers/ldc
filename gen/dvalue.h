@@ -41,7 +41,7 @@ struct DFuncValue;
 struct DSliceValue;
 
 // base class for d-values
-struct DValue : Object
+struct DValue
 {
     Type* type;
     DValue(Type* ty) : type(ty) {}
