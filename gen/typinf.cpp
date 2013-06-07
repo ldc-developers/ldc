@@ -328,9 +328,9 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
         if (!meta && tid->tinfo->toBasetype()->ty < Terror) {
             // Construct the fields
             MDNodeField* mdVals[TD_NumFields];
-            if (TD_TypeInfo >= 0)
-                mdVals[TD_TypeInfo] = llvm::cast<MDNodeField>(irg->value);
+            mdVals[TD_TypeInfo] = llvm::cast<MDNodeField>(irg->value);
             mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
+
             // Construct the metadata and insert it into the module.
             llvm::NamedMDNode* node = gIR->module->getOrInsertNamedMetadata(metaname);
             node->addOperand(llvm::MDNode::get(gIR->context(),

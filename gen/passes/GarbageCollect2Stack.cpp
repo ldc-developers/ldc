@@ -495,8 +495,9 @@ Type* Analysis::getTypeFor(Value* typeinfo) const {
 
     if (node->getNumOperands() != TD_NumFields)
         return NULL;
-    if (TD_TypeInfo >= 0 && (!node->getOperand(TD_TypeInfo) ||
-           node->getOperand(TD_TypeInfo)->stripPointerCasts() != ti_global))
+
+    Value* ti = node->getOperand(TD_TypeInfo);
+    if (!ti || ti->stripPointerCasts() != ti_global)
         return NULL;
 
     return node->getOperand(TD_Type)->getType();
