@@ -11,8 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if USE_METADATA
-
 #ifndef LDC_GEN_METADATA_H
 #define LDC_GEN_METADATA_H
 
@@ -32,7 +30,7 @@ typedef llvm::Value MDNodeField;
 /// The fields in the metadata node for a TypeInfo instance.
 /// (Its name will be TD_PREFIX ~ <Name of TypeInfo global>)
 enum TypeDataFields {
-    TD_Confirm,     /// The TypeInfo this node is for.
+    TD_TypeInfo,    /// A reference toe the TypeInfo global this node is for.
 
     TD_Type,        /// A value of the LLVM type corresponding to this D type
 
@@ -56,5 +54,3 @@ enum ClassDataFields {
 };
 
 #endif
-
-#endif // USE_METADATA

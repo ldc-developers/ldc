@@ -1,5 +1,3 @@
-#if USE_METADATA
-
 //===-- GarbageCollect2Stack.cpp - Promote or remove GC allocations -------===//
 //
 //                         LDC – the LLVM D compiler
@@ -495,8 +493,9 @@ Type* Analysis::getTypeFor(Value* typeinfo) const {
 
     if (node->getNumOperands() != TD_NumFields)
         return NULL;
-    if (TD_Confirm >= 0 && (!node->getOperand(TD_Confirm) ||
-           node->getOperand(TD_Confirm)->stripPointerCasts() != ti_global))
+
+    Value* ti = node->getOperand(TD_TypeInfo);
+    if (!ti || ti->stripPointerCasts() != ti_global)
         return NULL;
 
     return node->getOperand(TD_Type)->getType();
@@ -800,5 +799,3 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
   // All uses examined - not captured or live across original allocation.
   return true;
 }
-
-#endif // USE_METADATA

@@ -43,11 +43,7 @@ set(CONF_INST_DIR ${SYSCONF_INSTALL_DIR} CACHE PATH "Directory ldc.conf is insta
 option(USE_BOEHM_GC "use the Boehm garbage collector internally")
 option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
 
-# Enabled by default now, will be removed entirely soon if no problems pop up
-# with the added functionality.
-option(USE_METADATA "use metadata and related custom optimization passes" ON)
-
-mark_as_advanced(USE_BOEHM_GC GENERATE_OFFTI USE_METADATA)
+mark_as_advanced(USE_BOEHM_GC GENERATE_OFFTI)
 
 if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported. 
@@ -279,10 +275,6 @@ endif()
 
 if(GENERATE_OFFTI)
     add_definitions(-DGENERATE_OFFTI)
-endif()
-
-if(USE_METADATA)
-    add_definitions(-DUSE_METADATA)
 endif()
 
 if(MSVC)
