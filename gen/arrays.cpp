@@ -389,6 +389,22 @@ static LLValue* get_slice_ptr(DSliceValue* e, LLValue*& sz)
     return DtoBitCast(e->ptr, getVoidPtrType());
 }
 
+static void copySlice(LLValue* dstarr, LLValue* sz1, LLValue* srcarr, LLValue* sz2)
+{
+    if (global.params.useAssert || global.params.useArrayBounds)
+    {
+        LLValue* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_slice_copy");
+        gIR->CreateCallOrInvoke4(fn, dstarr, sz1, srcarr, sz2);
+    }
+    else
+    {
+        // We might have dstarr == srcarr at compile time, but as long as
+        // sz1 == 0 at runtime, this would probably still be legal (the C spec
+        // is unclear here).
+        DtoMemCpy(dstarr, srcarr, sz1);
+    }
+}
+
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src)
 {
     Logger::println("ArrayCopySlices");
@@ -397,15 +413,7 @@ void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src)
     LLValue* dstarr = get_slice_ptr(dst,sz1);
     LLValue* srcarr = get_slice_ptr(src,sz2);
 
-    if (global.params.useAssert || global.params.useArrayBounds)
-    {
-        LLValue* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_slice_copy");
-        gIR->CreateCallOrInvoke4(fn, dstarr, sz1, srcarr, sz2);
-    }
-    else
-    {
-        DtoMemCpy(dstarr, srcarr, sz1);
-    }
+    copySlice(dstarr, sz1, srcarr, sz2);
 }
 
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
@@ -419,15 +427,7 @@ void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
     LLType* arrayelemty = DtoTypeNotVoid(src->getType()->nextOf()->toBasetype());
     LLValue* sz2 = gIR->ir->CreateMul(DtoConstSize_t(getTypePaddedSize(arrayelemty)), DtoArrayLen(src), "tmp");
 
-    if (global.params.useAssert || global.params.useArrayBounds)
-    {
-        LLValue* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_slice_copy");
-        gIR->CreateCallOrInvoke4(fn, dstarr, sz1, srcarr, sz2);
-    }
-    else
-    {
-        DtoMemCpy(dstarr, srcarr, sz1);
-    }
+    copySlice(dstarr, sz1, srcarr, sz2);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
