@@ -1502,6 +1502,11 @@ bool mustDefineSymbol(Dsymbol* s)
         if (fd->semanticRun < PASSsemantic3)
             return false;
 
+        // If a function has no body, we cannot possibly emit it (and so it
+        // cannot be available_externally either).
+        if (!fd->fbody)
+            return false;
+
         if (fd->isArrayOp == 1)
             return true;
 
