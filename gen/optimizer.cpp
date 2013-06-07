@@ -147,12 +147,10 @@ static void addSimplifyDRuntimeCallsPass(const PassManagerBuilder &builder, Pass
         addPass(pm, createSimplifyDRuntimeCalls());
 }
 
-#if USE_METADATA
 static void addGarbageCollect2StackPass(const PassManagerBuilder &builder, PassManagerBase &pm) {
     if (builder.OptLevel >= 2 && builder.SizeLevel == 0)
         addPass(pm, createGarbageCollect2Stack());
 }
-#endif
 
 /**
  * Adds a set of optimization passes to the given module/function pass
@@ -190,10 +188,8 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
         if (!disableSimplifyDruntimeCalls)
             builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd, addSimplifyDRuntimeCallsPass);
 
-#if USE_METADATA
         if (!disableGCToStack)
             builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd, addGarbageCollect2StackPass);
-#endif // USE_METADATA
     }
 
     // EP_OptimizerLast does not exist in LLVM 3.0, add it manually below.

@@ -11,8 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if USE_METADATA
-
 #ifndef LDC_GEN_METADATA_H
 #define LDC_GEN_METADATA_H
 
@@ -56,5 +54,3 @@ enum ClassDataFields {
 };
 
 #endif
-
-#endif // USE_METADATA

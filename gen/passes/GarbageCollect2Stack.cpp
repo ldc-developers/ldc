@@ -1,5 +1,3 @@
-#if USE_METADATA
-
 //===-- GarbageCollect2Stack.cpp - Promote or remove GC allocations -------===//
 //
 //                         LDC – the LLVM D compiler
@@ -801,5 +799,3 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
   // All uses examined - not captured or live across original allocation.
   return true;
 }
-
-#endif // USE_METADATA

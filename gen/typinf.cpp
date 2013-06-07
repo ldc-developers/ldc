@@ -317,7 +317,6 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 
     tid->ir.irGlobal = irg;
 
-#if USE_METADATA
     // don't do this for void or llvm will crash
     if (tid->tinfo->ty != Tvoid) {
         // Add some metadata for use by optimization passes.
@@ -337,7 +336,6 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
                 llvm::makeArrayRef(mdVals, TD_NumFields)));
         }
     }
-#endif // USE_METADATA
 
     DtoDeclareTypeInfo(tid);
 }
