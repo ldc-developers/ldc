@@ -146,35 +146,11 @@ static llvm::DIType dwarfBasicType(Type* type)
 static llvm::DIType dwarfEnumType(Type *type)
 {
     llvm::Type *T = DtoType(type);
+    Type *t = type->toBasetype();
 
-    assert(type->ty = Tenum && "only enums allowed for debug info in dwarfEnumType");
-    TypeEnum *te = static_cast<TypeEnum *>(type);
-    llvm::SmallVector<llvm::Value *, 8> subscripts;
-    for (ArrayIter<Dsymbol> it(te->sym->members); it.more(); it.next())
-    {
-        EnumMember *em = it->isEnumMember();
-        llvm::StringRef Name(em->toChars() /*em->ident->string*/);
-        uint64_t Val = em->value->toInteger();
-        llvm::Value *Subscript = gIR->dibuilder.createEnumerator(Name, Val);
-        subscripts.push_back(Subscript);
-    }
+    // FIXME
 
-    llvm::StringRef Name = te->toChars();
-    unsigned LineNumber = te->sym->loc.linnum;
-    llvm::DIFile File = DtoDwarfFile(te->sym->loc);
-
-    return gIR->dibuilder.createEnumerationType(
-        llvm::DIDescriptor(File),
-        Name,
-        File,
-        LineNumber,
-        getTypeBitSize(T), // size (bits)
-        getABITypeAlign(T)*8, // align (bits)
-        gIR->dibuilder.getOrCreateArray(subscripts) // subscripts
-#if LDC_LLVM_VER >= 302
-        , dwarfTypeDescription_impl(te->sym->memtype, NULL)
-#endif
-    );
+    return llvm::DIType(NULL);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -484,14 +460,12 @@ static llvm::DIType dwarfTypeDescription_impl(Type* type, const char* c_name)
     Type* t = type->toBasetype();
     if (t->ty == Tvoid)
         return llvm::DIType(NULL);
+    else if (t->ty == Tvector)
+        return dwarfVectorType(type);
+    else if (t->ty == Tenum)
+        return dwarfEnumType(type);
     else if (t->isintegral() || t->isfloating())
-    {
-        if (t->ty == Tvector)
-            return dwarfVectorType(type);
-        if (type->ty == Tenum)
-            return dwarfEnumType(type);
         return dwarfBasicType(type);
-    }
     else if (t->ty == Tpointer)
         return dwarfPointerType(type);
     else if (t->ty == Tarray)
