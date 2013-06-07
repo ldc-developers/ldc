@@ -317,14 +317,18 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 
     tid->ir.irGlobal = irg;
 
-    // don't do this for void or llvm will crash
-    if (tid->tinfo->ty != Tvoid) {
+    // We don't want to generate metadata for non-concrete types (such as tuple
+    // types, slice types, typeof(expr), etc.), void and function types (without
+    // an indirection), as there must be a valid LLVM undef value of that type.
+    // As those types cannot appear as LLVM values, they are not interesting for
+    // the optimizer passes anyway.
+    Type* t = tid->tinfo->toBasetype();
+    if (t->ty < Terror && t->ty != Tvoid && t->ty != Tfunction) {
         // Add some metadata for use by optimization passes.
         std::string metaname = std::string(TD_PREFIX) + mangle;
         llvm::NamedMDNode* meta = gIR->module->getNamedMetadata(metaname);
-        // Don't generate metadata for non-concrete types
-        // (such as tuple types, slice types, typeof(expr), etc.)
-        if (!meta && tid->tinfo->toBasetype()->ty < Terror) {
+
+        if (!meta) {
             // Construct the fields
             MDNodeField* mdVals[TD_NumFields];
             mdVals[TD_TypeInfo] = llvm::cast<MDNodeField>(irg->value);
