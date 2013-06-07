@@ -161,10 +161,12 @@ enum TOK
         TOKoverloadset,
         TOKpure,
         TOKnothrow,
-        TOKtls,
         TOKgshared,
         TOKline,
         TOKfile,
+        TOKmodulestring,
+        TOKfuncstring,
+        TOKprettyfunc,
         TOKshared,
         TOKat,
         TOKpow,
@@ -263,7 +265,9 @@ struct Token
 
     Token() : next(NULL) {}
     int isKeyword();
+#ifdef DEBUG
     void print();
+#endif
     const char *toChars();
     static const char *toChars(enum TOK);
 };
@@ -310,7 +314,6 @@ struct Lexer
     TOK escapeStringConstant(Token *t, int wide);
     TOK charConstant(Token *t, int wide);
     void stringPostfix(Token *t);
-    unsigned wchar(unsigned u);
     TOK number(Token *t);
     TOK inreal(Token *t);
     void error(const char *format, ...);

@@ -187,7 +187,7 @@ static llvm::DIType dwarfVectorType(Type* type)
     assert(t->ty == Tvector && "only vectors allowed for debug info in dwarfVectorType");
     TypeVector *tv = static_cast<TypeVector *>(t);
     Type *te = tv->elementType();
-    int64_t Dim = tv->size(Loc(0)) / te->size(Loc(0));
+    int64_t Dim = tv->size(Loc()) / te->size(Loc());
     llvm::Value *subscripts[] =
     {
         gIR->dibuilder.getOrCreateSubrange(0, Dim)

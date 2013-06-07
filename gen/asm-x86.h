@@ -1546,7 +1546,7 @@ namespace AsmParserx8664
                 for ( int i = 0; i < N_PtrNames; i++ )
                     ptrTypeIdentTable[i] = Lexer::idPool ( ptrTypeNameTable[i] );
 
-                Handled = new Expression ( 0, TOKvoid, sizeof ( Expression ) );
+                Handled = new Expression ( Loc(), TOKvoid, sizeof ( Expression ) );
 
                 ident_seg = Lexer::idPool ( "seg" );
 
@@ -2474,7 +2474,7 @@ namespace AsmParserx8664
 #endif
                                 {
 
-                                    e = new AddrExp ( 0, e );
+                                    e = new AddrExp ( Loc(), e );
                                     e->type = decl->type->pointerTo();
 
                                     operand->constDisplacement = 0;
@@ -2539,7 +2539,7 @@ namespace AsmParserx8664
                                     if ( !sc->func->naked ) // no addrexp in naked asm please :)
                                     {
                                         Type* tt = e->type->pointerTo();
-                                        e = new AddrExp ( 0, e );
+                                        e = new AddrExp ( Loc(), e );
                                         e->type = tt;
                                     }
 
@@ -2696,7 +2696,7 @@ namespace AsmParserx8664
                         // DMD doesn't check Tcomplex*, and counts Tcomplex32 as Tfloat64
                         TY ty = v->type->toBasetype()->ty;
                         operand->dataSizeHint = ty == Tfloat80 || ty == Timaginary80 ?
-                                                Extended_Ptr : ( PtrType ) v->type->size ( 0 );
+                                                Extended_Ptr : ( PtrType ) v->type->size ( Loc() );
                     }
 
                     if ( ! operand->symbolDisplacement.dim )

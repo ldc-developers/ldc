@@ -17,6 +17,7 @@
 #include "declaration.h"
 #include "dsymbol.h"
 #include "mtype.h"
+#include "target.h"
 #include "template.h"
 
 #include "gen/irstate.h"
@@ -190,7 +191,7 @@ void IrTypeClass::addBaseClassData(
 	Type* first = interfaces_idx->type->nextOf()->pointerTo();
 
         // align offset
-        offset = (offset + PTRSIZE - 1) & ~(PTRSIZE - 1);
+        offset = (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
 
         for (; !it2.done(); it2.next())
         {
@@ -203,7 +204,7 @@ void IrTypeClass::addBaseClassData(
             llvm::Type* ivtbl_type = llvm::StructType::get(gIR->context(), buildVtblType(first, &arr));
             defaultTypes.push_back(llvm::PointerType::get(ivtbl_type, 0));
 
-            offset += PTRSIZE;
+            offset += Target::ptrsize;
 
             // add to the interface map
             addInterfaceToMap(b->base, field_index);
@@ -256,7 +257,7 @@ IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
         defaultTypes.push_back(llvm::PointerType::get(llvm::Type::getInt8Ty(gIR->context()), 0));
 
         // we start right after the vtbl and monitor
-        size_t offset = PTRSIZE * 2;
+        size_t offset = Target::ptrsize * 2;
         size_t field_index = 2;
 
         // add data members recursively

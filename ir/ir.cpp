@@ -23,22 +23,22 @@
 #include "ir/irfunction.h"
 
 
-unsigned GetTypeAlignment(Ir* ir, Type* t)
+unsigned GetTypeAlignment(Type* t)
 {
     return gDataLayout->getABITypeAlignment(DtoType(t));
 }
 
-unsigned GetPointerSize(Ir* ir)
+unsigned GetPointerSize()
 {
     return gDataLayout->getPointerSize(ADDRESS_SPACE);
 }
 
-unsigned GetTypeStoreSize(Ir* ir, Type* t)
+unsigned GetTypeStoreSize(Type* t)
 {
     return gDataLayout->getTypeStoreSize(DtoType(t));
 }
 
-unsigned GetTypeAllocSize(Ir* ir, Type* t)
+unsigned GetTypeAllocSize(Type* t)
 {
     return gDataLayout->getTypeAllocSize(DtoType(t));
 }

@@ -59,22 +59,30 @@ private:
     VarDeclarations vars; // corresponding variables
     ArrayBase<void> savedId; // id of the previous state of that var
 
+    ArrayBase<void> frames;  // all previous frame pointers
+    Expressions savedThis;   // all previous values of localThis
+
     /* Global constants get saved here after evaluation, so we never
      * have to redo them. This saves a lot of time and memory.
      */
     Expressions globalValues; // values of global constants
-    size_t framepointer; // current frame pointer
-    size_t maxStackPointer; // most stack we've ever used
+
+    size_t framepointer;      // current frame pointer
+    size_t maxStackPointer;   // most stack we've ever used
+    Expression *localThis;    // value of 'this', or NULL if none
 public:
     CtfeStack();
 
     size_t stackPointer();
 
+    // The current value of 'this', or NULL if none
+    Expression *getThis();
+
     // Largest number of stack positions we've used
     size_t maxStackUsage();
-    // return the previous frame
-    size_t startFrame();
-    void endFrame(size_t oldframe);
+    // Start a new stack frame, using the provided 'this'.
+    void startFrame(Expression *thisexp);
+    void endFrame();
     bool isInCurrentFrame(VarDeclaration *v);
     Expression *getValue(VarDeclaration *v);
     void setValue(VarDeclaration *v, Expression *e);
@@ -88,13 +96,11 @@ struct InterState
 {
     InterState *caller;         // calling function's InterState
     FuncDeclaration *fd;        // function being interpreted
-    size_t framepointer;        // frame pointer of previous frame
     Statement *start;           // if !=NULL, start execution at this statement
     Statement *gotoTarget;      /* target of EXP_GOTO_INTERPRET result; also
                                  * target of labelled EXP_BREAK_INTERPRET or
                                  * EXP_CONTINUE_INTERPRET. (NULL if no label).
                                  */
-    Expression *localThis;      // value of 'this', or NULL if none
     bool awaitingLvalueReturn;  // Support for ref return values:
            // Any return to this function should return an lvalue.
     InterState();
@@ -113,24 +119,34 @@ size_t CtfeStack::stackPointer()
     return values.dim;
 }
 
+Expression *CtfeStack::getThis()
+{
+    return localThis;
+}
+
 // Largest number of stack positions we've used
 size_t CtfeStack::maxStackUsage()
 {
     return maxStackPointer;
 }
 
-// return the previous frame
-size_t CtfeStack::startFrame()
+void CtfeStack::startFrame(Expression *thisexp)
 {
     size_t oldframe = framepointer;
+    frames.push((void *)(size_t)(framepointer));
+    savedThis.push(localThis);
     framepointer = stackPointer();
-    return oldframe;
+    localThis = thisexp;
 }
 
-void CtfeStack::endFrame(size_t oldframe)
+void CtfeStack::endFrame()
 {
+    size_t oldframe = (size_t)(frames[frames.dim-1]);
+    localThis = savedThis[savedThis.dim-1];
     popAll(framepointer);
     framepointer = oldframe;
+    frames.setDim(frames.dim - 1);
+    savedThis.setDim(savedThis.dim -1);
 }
 
 bool CtfeStack::isInCurrentFrame(VarDeclaration *v)
@@ -240,9 +256,9 @@ void printCtfePerformanceStats()
 }
 
 
-Expression * resolveReferences(Expression *e, Expression *thisval);
+Expression * resolveReferences(Expression *e);
 Expression *getVarExp(Loc loc, InterState *istate, Declaration *d, CtfeGoal goal);
-VarDeclaration *findParentVar(Expression *e, Expression *thisval);
+VarDeclaration *findParentVar(Expression *e);
 Expression *evaluateIfBuiltin(InterState *istate, Loc loc,
     FuncDeclaration *fd, Expressions *arguments, Expression *pthis);
 Expression *scrubReturnValue(Loc loc, Expression *e);
@@ -299,15 +315,8 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
     // Func literals report isNested() even if they are in global scope,
     // so we need to check that the parent is a function.
     if (isNested() && toParent2()->isFuncDeclaration() && !thisarg && istate)
-        thisarg = istate->localThis;
+        thisarg = ctfeStack.getThis();
 
-    InterState istatex;
-    istatex.caller = istate;
-    istatex.fd = this;
-    istatex.localThis = thisarg;
-    istatex.framepointer = ctfeStack.startFrame();
-
-    Expressions vsave;          // place to save previous parameter values
     size_t dim = 0;
     if (needThis() && !thisarg)
     {   // error, no this. Prevent segfault.
@@ -320,16 +329,19 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
             return EXP_CANT_INTERPRET;
     }
     static int evaluatingArgs = 0;
+
+    // Place to hold all the arguments to the function while
+    // we are evaluating them.
+    Expressions eargs;
+
     if (arguments)
     {
         dim = arguments->dim;
         assert(!dim || (parameters && (parameters->dim == dim)));
-        vsave.setDim(dim);
 
         /* Evaluate all the arguments to the function,
          * store the results in eargs[]
          */
-        Expressions eargs;
         eargs.setDim(dim);
         for (size_t i = 0; i < dim; i++)
         {   Expression *earg = (*arguments)[i];
@@ -387,6 +399,18 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
             }
             eargs[i] = earg;
         }
+    }
+
+    // Now that we've evaluated all the arguments, we can start the frame
+    // (this is the moment when the 'call' actually takes place).
+
+    InterState istatex;
+    istatex.caller = istate;
+    istatex.fd = this;
+    ctfeStack.startFrame(thisarg);
+
+    if (arguments)
+    {
 
         for (size_t i = 0; i < dim; i++)
         {   Expression *earg = eargs[i];
@@ -471,7 +495,7 @@ Expression *FuncDeclaration::interpret(InterState *istate, Expressions *argument
     // Leave the function
     --CtfeStatus::callDepth;
 
-    ctfeStack.endFrame(istatex.framepointer);
+    ctfeStack.endFrame();
 
     // If fell off the end of a void function, return void
     if (!e && type->toBasetype()->nextOf()->ty == Tvoid)
@@ -731,8 +755,16 @@ Expression *scrubReturnValue(Loc loc, Expression *e)
 {
     if (e->op == TOKclassreference)
     {
-        error(loc, "%s class literals cannot be returned from CTFE", ((ClassReferenceExp*)e)->originalClass()->toChars());
-        return EXP_CANT_INTERPRET;
+        StructLiteralExp *se = ((ClassReferenceExp*)e)->value;
+        se->ownedByCtfe = false;
+        if (!(se->stageflags & stageScrub))
+        {
+            int old = se->stageflags;
+            se->stageflags |= stageScrub;
+            if (!scrubArray(loc, se->elements, true))
+                return EXP_CANT_INTERPRET;
+            se->stageflags = old;
+        }
     }
     if (e->op == TOKvoid)
     {
@@ -747,8 +779,14 @@ Expression *scrubReturnValue(Loc loc, Expression *e)
     {
         StructLiteralExp *se = (StructLiteralExp *)e;
         se->ownedByCtfe = false;
-        if (!scrubArray(loc, se->elements, true))
-            return EXP_CANT_INTERPRET;
+        if (!(se->stageflags & stageScrub))
+        {
+            int old = se->stageflags;
+            se->stageflags |= stageScrub;
+            if (!scrubArray(loc, se->elements, true))
+                return EXP_CANT_INTERPRET;
+            se->stageflags = old;
+        }
     }
     if (e->op == TOKstring)
     {
@@ -1361,12 +1399,11 @@ Expression *Expression::interpret(InterState *istate, CtfeGoal goal)
 
 Expression *ThisExp::interpret(InterState *istate, CtfeGoal goal)
 {
-    while (istate && !istate->localThis)
-        istate = istate->caller;
-    if (istate && istate->localThis && istate->localThis->op == TOKstructliteral)
-        return istate->localThis;
-    if (istate && istate->localThis)
-        return istate->localThis->interpret(istate, goal);
+    Expression *localThis = ctfeStack.getThis();
+    if (localThis && localThis->op == TOKstructliteral)
+        return localThis;
+    if (localThis)
+        return localThis->interpret(istate, goal);
     error("value of 'this' is not known at compile time");
     return EXP_CANT_INTERPRET;
 }
@@ -1407,11 +1444,11 @@ Expression *StringExp::interpret(InterState *istate, CtfeGoal goal)
      * In D2, we also disallow casts of read-only literals to mutable,
      * though it isn't strictly necessary.
      */
-#if DMDV2
+#if 0 //DMDV2
     // Fixed-length char arrays always get duped later anyway.
     if (type->ty == Tsarray)
         return this;
-    if (!(((TypeNext *)type)->next->mod & (MODconst | MODimmutable)))
+    if (!(((TypeNext *)type)->next->toBasetype()->mod & (MODconst | MODimmutable)))
     {   // It seems this happens only when there has been an explicit cast
         error("cannot cast a read-only string literal to mutable in CTFE");
         return EXP_CANT_INTERPRET;
@@ -1437,12 +1474,42 @@ Expression *SymOffExp::interpret(InterState *istate, CtfeGoal goal)
     {
         return this;
     }
+    if (isTypeInfo_Class(type) && offset == 0)
+    {
+        return this;
+    }
     if (type->ty != Tpointer)
     {   // Probably impossible
         error("Cannot interpret %s at compile time", toChars());
         return EXP_CANT_INTERPRET;
     }
     Type *pointee = ((TypePointer *)type)->next;
+    if ( var->isThreadlocal())
+    {
+        error("cannot take address of thread-local variable %s at compile time", var->toChars());
+        return EXP_CANT_INTERPRET;
+    }
+    // Check for taking an address of a shared variable.
+    // If the shared variable is an array, the offset might not be zero.
+    VarDeclaration *vd = var->isVarDeclaration();
+    Type *fromType = NULL;
+    if (var->type->ty == Tarray || var->type->ty == Tsarray)
+    {
+        fromType = ((TypeArray *)(var->type))->next;
+    }
+    if ( var->isDataseg() && (
+         (offset == 0 && isSafePointerCast(var->type, pointee)) ||
+         (fromType && isSafePointerCast(fromType, pointee))
+        ) && !(vd && vd->init &&
+#if DMDV2
+        (var->isConst() || var->isImmutable())
+#else
+        var>isConst()
+#endif
+        ))
+    {
+        return this;
+    }
     Expression *val = getVarExp(loc, istate, var, goal);
     if (val == EXP_CANT_INTERPRET)
         return val;
@@ -1534,12 +1601,13 @@ Expression *DelegateExp::interpret(InterState *istate, CtfeGoal goal)
 // -------------------------------------------------------------
 // The variable used in a dotvar, index, or slice expression,
 // after 'out', 'ref', and 'this' have been removed.
-Expression * resolveReferences(Expression *e, Expression *thisval)
+Expression * resolveReferences(Expression *e)
 {
     for(;;)
     {
         if (e->op == TOKthis)
         {
+            Expression *thisval = ctfeStack.getThis();
             assert(thisval);
             assert(e != thisval);
             e = thisval;
@@ -1579,11 +1647,7 @@ Expression *getVarExp(Loc loc, InterState *istate, Declaration *d, CtfeGoal goal
 {
     Expression *e = EXP_CANT_INTERPRET;
     VarDeclaration *v = d->isVarDeclaration();
-#if IN_LLVM
-    StaticStructInitDeclaration *s = d->isStaticStructInitDeclaration();
-#else
     SymbolDeclaration *s = d->isSymbolDeclaration();
-#endif
     if (v)
     {
 #if DMDV2
@@ -1596,7 +1660,7 @@ Expression *getVarExp(Loc loc, InterState *istate, Declaration *d, CtfeGoal goal
 #else
         if (v->isConst() && v->init && !v->isCTFE())
 #endif
-        {   e = v->init->toExpression();
+        {   e = v->init->toExpression(v->type);
             if (e && (e->op == TOKconstruct || e->op == TOKblit))
             {   AssignExp *ae = (AssignExp *)e;
                 e = ae->e2;
@@ -1693,20 +1757,12 @@ Expression *getVarExp(Loc loc, InterState *istate, Declaration *d, CtfeGoal goal
     }
     else if (s)
     {   // Struct static initializers, for example
-#if !IN_LLVM
-        if (s->dsym->toInitializer() == s->sym)
-#endif
-        {   e = s->dsym->type->defaultInitLiteral(loc);
-            e = e->semantic(NULL);
-            if (e->op == TOKerror)
-                e = EXP_CANT_INTERPRET;
-            else // Convert NULL to VoidExp
-                e = e->interpret(istate, goal);
-        }
-#if !IN_LLVM
-        else
-            error(loc, "cannot interpret symbol %s at compile time", s->toChars());
-#endif
+        e = s->dsym->type->defaultInitLiteral(loc);
+        e = e->semantic(NULL);
+        if (e->op == TOKerror)
+            e = EXP_CANT_INTERPRET;
+        else // Convert NULL to VoidExp
+            e = e->interpret(istate, goal);
     }
     else
         error(loc, "cannot interpret declaration %s at compile time", d->toChars());
@@ -1770,8 +1826,9 @@ Expression *DeclarationExp::interpret(InterState *istate, CtfeGoal goal)
                 if (!v2->isDataseg() || v2->isCTFE())
                     ctfeStack.push(v2);
             }
+            return NULL;
         }
-        if (!v->isDataseg() || v->isCTFE())
+        if (!(v->isDataseg() || v->storage_class & STCmanifest) || v->isCTFE())
             ctfeStack.push(v);
         Dsymbol *s = v->toAlias();
         if (s == v && !v->isStatic() && v->init)
@@ -1846,6 +1903,12 @@ Expression *TupleExp::interpret(InterState *istate, CtfeGoal goal)
     printf("%s TupleExp::interpret() %s\n", loc.toChars(), toChars());
 #endif
     Expressions *expsx = NULL;
+
+    if (e0)
+    {
+        if (e0->interpret(istate) == EXP_CANT_INTERPRET)
+            return EXP_CANT_INTERPRET;
+    }
 
     for (size_t i = 0; i < exps->dim; i++)
     {   Expression *e = (*exps)[i];
@@ -2223,30 +2286,26 @@ Expression *NewExp::interpret(InterState *istate, CtfeGoal goal)
     return EXP_CANT_INTERPRET;
 }
 
-Expression *UnaExp::interpretCommon(InterState *istate,  CtfeGoal goal, Expression *(*fp)(Type *, Expression *))
+Expression *UnaExp::interpret(InterState *istate,  CtfeGoal goal)
 {   Expression *e;
     Expression *e1;
 
 #if LOG
-    printf("%s UnaExp::interpretCommon() %s\n", loc.toChars(), toChars());
+    printf("%s UnaExp::interpret() %s\n", loc.toChars(), toChars());
 #endif
     e1 = this->e1->interpret(istate);
     if (exceptionOrCantInterpret(e1))
         return e1;
-    e = (*fp)(type, e1);
+    switch(op)
+    {
+    case TOKneg:    e = Neg(type, e1); break;
+    case TOKtilde:  e = Com(type, e1); break;
+    case TOKnot:    e = Not(type, e1); break;
+    case TOKtobool: e = Bool(type, e1); break;
+    default: assert(0);
+    }
     return e;
 }
-
-#define UNA_INTERPRET(op) \
-Expression *op##Exp::interpret(InterState *istate, CtfeGoal goal)  \
-{                                                                  \
-    return interpretCommon(istate, goal, &op);                     \
-}
-
-UNA_INTERPRET(Neg)
-UNA_INTERPRET(Com)
-UNA_INTERPRET(Not)
-UNA_INTERPRET(Bool)
 
 typedef Expression *(*fp_t)(Type *, Expression *, Expression *);
 
@@ -2314,30 +2373,7 @@ Lcant:
     return EXP_CANT_INTERPRET;
 }
 
-#define BIN_INTERPRET(op) \
-Expression *op##Exp::interpret(InterState *istate, CtfeGoal goal) \
-{                                                                 \
-    return interpretCommon(istate, goal, &op);                    \
-}
-
-BIN_INTERPRET(Add)
-BIN_INTERPRET(Min)
-BIN_INTERPRET(Mul)
-BIN_INTERPRET(Div)
-BIN_INTERPRET(Mod)
-BIN_INTERPRET(Shl)
-BIN_INTERPRET(Shr)
-BIN_INTERPRET(Ushr)
-BIN_INTERPRET(And)
-BIN_INTERPRET(Or)
-BIN_INTERPRET(Xor)
-#if DMDV2
-BIN_INTERPRET(Pow)
-#endif
-
-
 typedef int (*fp2_t)(Loc loc, enum TOK, Expression *, Expression *);
-
 
 Expression *BinExp::interpretCompareCommon(InterState *istate, CtfeGoal goal, fp2_t fp)
 {
@@ -2390,47 +2426,59 @@ Expression *BinExp::interpretCompareCommon(InterState *istate, CtfeGoal goal, fp
     return new IntegerExp(loc, cmp, type);
 }
 
-#define BIN_INTERPRET2(op, opfunc) \
-Expression *op##Exp::interpret(InterState *istate, CtfeGoal goal)  \
-{                                                                  \
-    return interpretCompareCommon(istate, goal, &opfunc);                \
+Expression *BinExp::interpret(InterState *istate, CtfeGoal goal)
+{
+    switch(op)
+    {
+    case TOKadd:  return interpretCommon(istate, goal, &Add);
+    case TOKmin:  return interpretCommon(istate, goal, &Min);
+    case TOKmul:  return interpretCommon(istate, goal, &Mul);
+    case TOKdiv:  return interpretCommon(istate, goal, &Div);
+    case TOKmod:  return interpretCommon(istate, goal, &Mod);
+    case TOKshl:  return interpretCommon(istate, goal, &Shl);
+    case TOKshr:  return interpretCommon(istate, goal, &Shr);
+    case TOKushr: return interpretCommon(istate, goal, &Ushr);
+    case TOKand:  return interpretCommon(istate, goal, &And);
+    case TOKor:   return interpretCommon(istate, goal, &Or);
+    case TOKxor:  return interpretCommon(istate, goal, &Xor);
+#if DMDV2
+    case TOKpow:  return interpretCommon(istate, goal, &Pow);
+#endif
+    case TOKequal:
+    case TOKnotequal:
+        return interpretCompareCommon(istate, goal, &ctfeEqual);
+    case TOKidentity:
+    case TOKnotidentity:
+        return interpretCompareCommon(istate, goal, &ctfeIdentity);
+    case TOKlt:
+    case TOKle:
+    case TOKgt:
+    case TOKge:
+    case TOKleg:
+    case TOKlg:
+    case TOKunord:
+    case TOKue:
+    case TOKug:
+    case TOKuge:
+    case TOKul:
+    case TOKule:
+        return interpretCompareCommon(istate, goal, &ctfeCmp);
+    default:
+        assert(0);
+        return NULL;
+    }
 }
-
-BIN_INTERPRET2(Equal, ctfeEqual)
-BIN_INTERPRET2(Identity, ctfeIdentity)
-BIN_INTERPRET2(Cmp, ctfeCmp)
 
 /* Helper functions for BinExp::interpretAssignCommon
  */
 
-// Return true if e is derived from UnaryExp.
-// Consider moving this function into Expression.
-UnaExp *isUnaExp(Expression *e)
-{
-   switch (e->op)
-   {
-        case TOKdotvar:
-        case TOKindex:
-        case TOKslice:
-        case TOKcall:
-        case TOKdot:
-        case TOKdotti:
-        case TOKdottype:
-        case TOKcast:
-            return (UnaExp *)e;
-        default:
-            break;
-    }
-    return NULL;
-}
-
 // Returns the variable which is eventually modified, or NULL if an rvalue.
 // thisval is the current value of 'this'.
-VarDeclaration * findParentVar(Expression *e, Expression *thisval)
+VarDeclaration * findParentVar(Expression *e)
 {
     for (;;)
     {
-        e = resolveReferences(e, thisval);
+        e = resolveReferences(e);
         if (e->op == TOKvar)
             break;
         if (e->op == TOKindex)
@@ -2448,7 +2496,6 @@ VarDeclaration * findParentVar(Expression *e, Expression *thisval)
     assert(v);
     return v;
 }
-
 
 Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_t fp, int post)
 {
@@ -2525,7 +2572,7 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
          * can be dealt with by making this a non-ref assign (y = x.dup).
          * Otherwise it's a big mess.
          */
-        VarDeclaration * targetVar = findParentVar(e2, istate->localThis);
+        VarDeclaration * targetVar = findParentVar(e2);
         if (!(targetVar && targetVar->isConst()))
             wantRef = true;
         // slice assignment of static arrays is not reference assignment
@@ -2566,7 +2613,7 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
     // First, deal with  this = e; and call() = e;
     if (e1->op == TOKthis)
     {
-        e1 = istate->localThis;
+        e1 = ctfeStack.getThis();
     }
     if (e1->op == TOKcall)
     {
@@ -2581,7 +2628,7 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
             // f() = e2, when f returns an array, is always a slice assignment.
             // Convert into arr[0..arr.length] = e2
             e1 = new SliceExp(loc, e1,
-                new IntegerExp(0, 0, Type::tsize_t),
+                new IntegerExp(Loc(), 0, Type::tsize_t),
                 ArrayLength(Type::tsize_t, e1));
             e1->type = type;
         }
@@ -2636,7 +2683,7 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
             return oldval;
         while (oldval->op == TOKvar)
         {
-            oldval = resolveReferences(oldval, istate->localThis);
+            oldval = resolveReferences(oldval);
             oldval = oldval->interpret(istate);
             if (exceptionOrCantInterpret(oldval))
                 return oldval;
@@ -2705,7 +2752,7 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
             {   // Get the old array literal.
                 oldval = e1->interpret(istate);
                 while (oldval->op == TOKvar)
-                {   oldval = resolveReferences(oldval, istate->localThis);
+                {   oldval = resolveReferences(oldval);
                     oldval = oldval->interpret(istate);
                 }
             }
@@ -2757,14 +2804,14 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
     // -------------------------------------------------
     // Make sure we're not trying to modify a global or static variable
     // We do this by locating the ultimate parent variable which gets modified.
-    VarDeclaration * ultimateVar = findParentVar(e1, istate->localThis);
+    VarDeclaration * ultimateVar = findParentVar(e1);
     if (ultimateVar && ultimateVar->isDataseg() && !ultimateVar->isCTFE())
     {   // Can't modify global or static data
         error("%s cannot be modified at compile time", ultimateVar->toChars());
         return EXP_CANT_INTERPRET;
     }
 
-    e1 = resolveReferences(e1, istate->localThis);
+    e1 = resolveReferences(e1);
 
     // Unless we have a simple var assignment, we're
     // only modifying part of the variable. So we need to make sure
@@ -2825,7 +2872,7 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
             ie = (IndexExp *)ie->e1;
             ++depth;
         }
-        Expression *aggregate = resolveReferences(ie->e1, istate->localThis);
+        Expression *aggregate = resolveReferences(ie->e1);
         Expression *oldagg = aggregate;
         // Get the AA to be modified. (We do an LvalueRef interpret, unless it
         // is a simple ref parameter -- in which case, we just want the value)
@@ -3075,7 +3122,7 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
         ArrayLiteralExp *existingAE = NULL;
         StringExp *existingSE = NULL;
 
-        Expression *aggregate = resolveReferences(ie->e1, istate->localThis);
+        Expression *aggregate = resolveReferences(ie->e1);
 
         // Set the index to modify, and check that it is in range
         dinteger_t indexToModify = index->toInteger();
@@ -3101,6 +3148,11 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
             if (aggregate->op != TOKslice && aggregate->op != TOKstring &&
                 aggregate->op != TOKarrayliteral && aggregate->op != TOKassocarrayliteral)
             {
+                if (aggregate->op == TOKsymoff)
+                {
+                    error("mutable variable %s cannot be modified at compile time, even through a pointer", ((SymOffExp *)aggregate)->var->toChars());
+                    return EXP_CANT_INTERPRET;
+                }
                 if (indexToModify != 0)
                 {
                     error("pointer index [%lld] lies outside memory block [0..1]", indexToModify);
@@ -3251,6 +3303,11 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
         if (oldval->op != TOKarrayliteral && oldval->op != TOKstring
             && oldval->op != TOKslice && oldval->op != TOKnull)
         {
+            if (oldval->op == TOKsymoff)
+            {
+                error("pointer %s cannot be sliced at compile time (it points to a static variable)", sexp->e1->toChars());
+                return EXP_CANT_INTERPRET;
+            }
             if (assignmentToSlicedPointer)
             {
                 error("pointer %s cannot be sliced at compile time (it does not point to an array)",
@@ -3298,7 +3355,7 @@ Expression *BinExp::interpretAssignCommon(InterState *istate, CtfeGoal goal, fp_
         if (upperbound == lowerbound)
             return newval;
 
-        Expression *aggregate = resolveReferences(((SliceExp *)e1)->e1, istate->localThis);
+        Expression *aggregate = resolveReferences(((SliceExp *)e1)->e1);
         dinteger_t firstIndex = lowerbound;
 
         ArrayLiteralExp *existingAE = NULL;
@@ -3515,29 +3572,30 @@ Expression *AssignExp::interpret(InterState *istate, CtfeGoal goal)
     return interpretAssignCommon(istate, goal, NULL);
 }
 
-#define BIN_ASSIGN_INTERPRET_CTFE(op, ctfeOp) \
-Expression *op##AssignExp::interpret(InterState *istate, CtfeGoal goal) \
-{                                                                       \
-    return interpretAssignCommon(istate, goal, &ctfeOp);                    \
-}
-
-#define BIN_ASSIGN_INTERPRET(op) BIN_ASSIGN_INTERPRET_CTFE(op, op)
-
-BIN_ASSIGN_INTERPRET(Add)
-BIN_ASSIGN_INTERPRET(Min)
-BIN_ASSIGN_INTERPRET_CTFE(Cat, ctfeCat)
-BIN_ASSIGN_INTERPRET(Mul)
-BIN_ASSIGN_INTERPRET(Div)
-BIN_ASSIGN_INTERPRET(Mod)
-BIN_ASSIGN_INTERPRET(Shl)
-BIN_ASSIGN_INTERPRET(Shr)
-BIN_ASSIGN_INTERPRET(Ushr)
-BIN_ASSIGN_INTERPRET(And)
-BIN_ASSIGN_INTERPRET(Or)
-BIN_ASSIGN_INTERPRET(Xor)
+Expression *BinAssignExp::interpret(InterState *istate, CtfeGoal goal)
+{
+    switch(op)
+    {
+    case TOKaddass:  return interpretAssignCommon(istate, goal, &Add);
+    case TOKminass:  return interpretAssignCommon(istate, goal, &Min);
+    case TOKcatass:  return interpretAssignCommon(istate, goal, &ctfeCat);
+    case TOKmulass:  return interpretAssignCommon(istate, goal, &Mul);
+    case TOKdivass:  return interpretAssignCommon(istate, goal, &Div);
+    case TOKmodass:  return interpretAssignCommon(istate, goal, &Mod);
+    case TOKshlass:  return interpretAssignCommon(istate, goal, &Shl);
+    case TOKshrass:  return interpretAssignCommon(istate, goal, &Shr);
+    case TOKushrass: return interpretAssignCommon(istate, goal, &Ushr);
+    case TOKandass:  return interpretAssignCommon(istate, goal, &And);
+    case TOKorass:   return interpretAssignCommon(istate, goal, &Or);
+    case TOKxorass:  return interpretAssignCommon(istate, goal, &Xor);
 #if DMDV2
-BIN_ASSIGN_INTERPRET(Pow)
+    case TOKpowass:  return interpretAssignCommon(istate, goal, &Pow);
 #endif
+    default:
+        assert(0);
+        return NULL;
+    }
+}
 
 Expression *PostExp::interpret(InterState *istate, CtfeGoal goal)
 {
@@ -3897,7 +3955,7 @@ Expression *CallExp::interpret(InterState *istate, CtfeGoal goal)
         Expression * pe = ((PtrExp*)ecall)->e1;
         if (pe->op == TOKvar) {
             VarDeclaration *vd = ((VarExp *)((PtrExp*)ecall)->e1)->var->isVarDeclaration();
-            if (vd && vd->getValue() && vd->getValue()->op == TOKsymoff)
+            if (vd && vd->hasValue() && vd->getValue()->op == TOKsymoff)
                 fd = ((SymOffExp *)vd->getValue())->var->isFuncDeclaration();
             else
             {
@@ -3938,7 +3996,7 @@ Expression *CallExp::interpret(InterState *istate, CtfeGoal goal)
     else if (ecall->op == TOKvar)
     {
         VarDeclaration *vd = ((VarExp *)ecall)->var->isVarDeclaration();
-        if (vd && vd->getValue())
+        if (vd && vd->hasValue())
             ecall = vd->getValue();
         else // Calling a function
             fd = ((VarExp *)e1)->var->isFuncDeclaration();
@@ -3959,7 +4017,7 @@ Expression *CallExp::interpret(InterState *istate, CtfeGoal goal)
 
     TypeFunction *tf = fd ? (TypeFunction *)(fd->type) : NULL;
     if (!tf)
-    {   // DAC: This should never happen, it's an internal compiler error.
+    {   // This should never happen, it's an internal compiler error.
         //printf("ecall=%s %d %d\n", ecall->toChars(), ecall->op, TOKcall);
         if (ecall->op == TOKidentifier)
             error("cannot evaluate %s at compile time. Circular reference?", toChars());
@@ -3988,8 +4046,10 @@ Expression *CallExp::interpret(InterState *istate, CtfeGoal goal)
         {   // Make a virtual function call.
             Expression *thisval = pthis;
             if (pthis->op == TOKvar)
-            {   assert(((VarExp*)thisval)->var->isVarDeclaration());
-                thisval = ((VarExp*)thisval)->var->isVarDeclaration()->getValue();
+            {
+                VarDeclaration *vthis = ((VarExp*)thisval)->var->isVarDeclaration();
+                assert(vthis);
+                thisval = getVarExp(loc, istate, vthis, ctfeNeedLvalue);
                 // If it is a reference, resolve it
                 if (thisval->op != TOKnull && thisval->op != TOKclassreference)
                     thisval = pthis->interpret(istate);
@@ -4042,6 +4102,8 @@ Expression *CallExp::interpret(InterState *istate, CtfeGoal goal)
         }
         return e;
     }
+    if (fd->dArrayOp)
+        return fd->dArrayOp->interpret(istate, arguments, pthis);
     if (!fd->fbody)
     {
         error("%s cannot be interpreted at compile time,"
@@ -4076,7 +4138,7 @@ Expression *CommaExp::interpret(InterState *istate, CtfeGoal goal)
     InterState istateComma;
     if (!istate &&  firstComma->e1->op == TOKdeclaration)
     {
-        ctfeStack.startFrame();
+        ctfeStack.startFrame(NULL);
         istate = &istateComma;
     }
 
@@ -4104,7 +4166,7 @@ Expression *CommaExp::interpret(InterState *istate, CtfeGoal goal)
             if (exceptionOrCantInterpret(newval))
             {
                 if (istate == &istateComma)
-                    ctfeStack.endFrame(0);
+                    ctfeStack.endFrame();
                 return newval;
             }
             if (newval != EXP_VOID_INTERPRET)
@@ -4126,7 +4188,7 @@ Expression *CommaExp::interpret(InterState *istate, CtfeGoal goal)
     }
     // If we created a temporary stack frame, end it now.
     if (istate == &istateComma)
-        ctfeStack.endFrame(0);
+        ctfeStack.endFrame();
     return e;
 }
 
@@ -4227,6 +4289,11 @@ Expression *IndexExp::interpret(InterState *istate, CtfeGoal goal)
         }
         else
         {   // Pointer to a non-array variable
+            if (agg->op == TOKsymoff)
+            {
+                    error("mutable variable %s cannot be read at compile time, even through a pointer", ((SymOffExp *)agg)->var->toChars());
+                    return EXP_CANT_INTERPRET;
+            }
             if ((indx + ofs) != 0)
             {
                 error("pointer index [%lld] lies outside memory block [0..1]",
@@ -4378,6 +4445,11 @@ Expression *SliceExp::interpret(InterState *istate, CtfeGoal goal)
                 return e;
             }
             error("cannot slice null pointer %s", this->e1->toChars());
+            return EXP_CANT_INTERPRET;
+        }
+        if (agg->op == TOKsymoff)
+        {
+            error("slicing pointers to static variables is not supported in CTFE");
             return EXP_CANT_INTERPRET;
         }
         if (agg->op != TOKarrayliteral && agg->op != TOKstring)
@@ -4681,17 +4753,21 @@ Expression *CastExp::interpret(InterState *istate, CtfeGoal goal)
                 return e;
             }
         }
-        if (e1->op == TOKvar)
+        if (e1->op == TOKvar || e1->op == TOKsymoff)
         {   // type painting operation
-            Type *origType = ((VarExp *)e1)->var->type;
+            Type *origType = (e1->op == TOKvar) ? ((VarExp *)e1)->var->type :
+                    ((SymOffExp *)e1)->var->type;
             if (castBackFromVoid && !isSafePointerCast(origType, pointee))
             {
                 error("using void* to reinterpret cast from %s* to %s* is not supported in CTFE",
                     origType->toChars(), pointee->toChars());
                 return EXP_CANT_INTERPRET;
             }
-            e = new VarExp(loc, ((VarExp *)e1)->var);
-            e->type = type;
+            if (e1->op == TOKvar)
+                e = new VarExp(loc, ((VarExp *)e1)->var);
+            else
+                e = new SymOffExp(loc, ((SymOffExp *)e1)->var, 0);
+            e->type = to;
             return e;
         }
 
@@ -4833,12 +4909,39 @@ Expression *PtrExp::interpret(InterState *istate, CtfeGoal goal)
 #else // this is required for D1, where structs return *this instead of 'this'.
     else if (e1->op == TOKthis)
     {
-        if(istate->localThis)
-            return istate->localThis->interpret(istate);
+        if (ctfeStack.getThis())
+            return ctfeStack.getThis()->interpret(istate);
     }
 #endif
     else
-    {   // It's possible we have an array bounds error. We need to make sure it
+    {
+        // Check for .classinfo, which is lowered in the semantic pass into **(class).
+        if (e1->op == TOKstar && e1->type->ty == Tpointer && isTypeInfo_Class(e1->type->nextOf()))
+        {
+            e = (((PtrExp *)e1)->e1)->interpret(istate, ctfeNeedLvalue);
+            if (exceptionOrCantInterpret(e))
+                return e;
+            if (e->op == TOKnull)
+            {
+                error("Null pointer dereference evaluating typeid. '%s' is null", ((PtrExp *)e1)->e1->toChars());
+                return EXP_CANT_INTERPRET;
+            }
+            if (e->op != TOKclassreference)
+            {   error("CTFE internal error determining classinfo");
+                return EXP_CANT_INTERPRET;
+            }
+            ClassDeclaration *cd = ((ClassReferenceExp *)e)->originalClass();
+            assert(cd);
+
+            // Create the classinfo, if it doesn't yet exist.
+            // TODO: This belongs in semantic, CTFE should not have to do this.
+            if (!cd->vclassinfo)
+                cd->vclassinfo = new TypeInfoClassDeclaration(cd->type);
+            e = new SymOffExp(loc, cd->vclassinfo, 0);
+            e->type = type;
+            return e;
+        }
+       // It's possible we have an array bounds error. We need to make sure it
         // errors with this line number, not the one where the pointer was set.
         e = e1->interpret(istate, ctfeNeedLvalue);
         if (exceptionOrCantInterpret(e))
@@ -4846,7 +4949,10 @@ Expression *PtrExp::interpret(InterState *istate, CtfeGoal goal)
         if (!(e->op == TOKvar || e->op == TOKdotvar || e->op == TOKindex
             || e->op == TOKslice || e->op == TOKaddress))
         {
-            error("dereference of invalid pointer '%s'", e->toChars());
+            if (e->op == TOKsymoff)
+                error("cannot dereference pointer to static variable %s at compile time", ((SymOffExp *)e)->var->toChars());
+            else
+                error("dereference of invalid pointer '%s'", e->toChars());
             return EXP_CANT_INTERPRET;
         }
         if (goal != ctfeNeedLvalue)

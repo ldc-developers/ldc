@@ -19,6 +19,7 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "mtype.h"
+#include "target.h"
 
 #include "gen/irstate.h"
 #include "gen/logger.h"

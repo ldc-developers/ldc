@@ -12,6 +12,7 @@
 #include "declaration.h"
 #include "init.h"
 #include "mtype.h"
+#include "target.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
@@ -198,7 +199,7 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
 {
     tc->sym->codegen(Type::sir);
 
-    uint64_t n = tc->sym->structsize - PTRSIZE * 2;
+    uint64_t n = tc->sym->structsize - Target::ptrsize * 2;
 
     // set vtable field seperately, this might give better optimization
     LLValue* tmp = DtoGEPi(dst,0,0,"vtbl");

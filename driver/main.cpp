@@ -14,6 +14,7 @@
 #include "mtype.h"
 #include "rmem.h"
 #include "root.h"
+#include "dmd2/target.h"
 #include "driver/cl_options.h"
 #include "driver/configfile.h"
 #include "driver/linker.h"
@@ -162,6 +163,8 @@ int main(int argc, char** argv)
     const char *p, *ext;
     Module *m;
     int status = EXIT_SUCCESS;
+
+    global.init();
 
     // Set some default values
 #if _WIN32
@@ -648,6 +651,7 @@ int main(int argc, char** argv)
     Type::init(&ir);
     Id::initialize();
     Module::init();
+    Target::init();
     initPrecedence();
 
     backend_init();
@@ -808,7 +812,7 @@ int main(int argc, char** argv)
         if (!Module::rootModule)
             Module::rootModule = m;
         m->importedFrom = m;
-        m->read(0);
+        m->read(Loc());
         m->parse(global.params.doDocComments);
         m->buildTargetFiles(singleObj);
         m->deleteObjFile();
@@ -924,6 +928,7 @@ int main(int argc, char** argv)
             if (global.errors)
                 fatal();
         }
+        global.inExtraInliningSemantic = false;
     }
     if (global.errors || global.warnings)
         fatal();

@@ -120,7 +120,7 @@ LLConstant* VarExp::toConstElem(IRState* p)
     Logger::print("VarExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    if (StaticStructInitDeclaration* sdecl = var->isStaticStructInitDeclaration())
+    if (SymbolDeclaration* sdecl = var->isSymbolDeclaration())
     {
         // this seems to be the static initialiser for structs
         Type* sdecltype = sdecl->type->toBasetype();
@@ -2086,7 +2086,7 @@ DValue* AssertExp::toElem(IRState* p)
     p->scope() = IRScope(endbb,oldend);
 
 
-    InvariantDeclaration* invdecl;
+    FuncDeclaration* invdecl;
     // class invariants
     if(
         global.params.useInvariants &&

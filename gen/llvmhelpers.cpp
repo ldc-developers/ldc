@@ -252,7 +252,7 @@ void DtoGoto(Loc loc, Identifier* target, TryFinallyStatement* sourceFinally)
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
-// TRY-FINALLY, VOLATILE AND SYNCHRONIZED HELPER
+// TRY-FINALLY AND SYNCHRONIZED HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
 void EnclosingSynchro::emitCode(IRState * p)
@@ -261,14 +261,6 @@ void EnclosingSynchro::emitCode(IRState * p)
         DtoLeaveMonitor(s->exp->toElem(p)->getRVal());
     else
         DtoLeaveCritical(s->llsync);
-}
-
-////////////////////////////////////////////////////////////////////////////////////////
-
-void EnclosingVolatile::emitCode(IRState * p)
-{
-    // store-load barrier
-    DtoMemoryBarrier(false, false, true, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////

@@ -56,7 +56,7 @@ void StaticAssert::semantic2(Scope *sc)
     sc = sc->push(sd);
     sc->flags |= SCOPEstaticassert;
     ++sc->ignoreTemplates;
-    Expression *e = exp->semantic(sc);
+    Expression *e = exp->ctfeSemantic(sc);
     e = resolveProperties(sc, e);
     sc = sc->pop();
     if (!e->type->checkBoolean())
@@ -77,7 +77,7 @@ void StaticAssert::semantic2(Scope *sc)
         {   HdrGenState hgs;
             OutBuffer buf;
 
-            msg = msg->semantic(sc);
+            msg = msg->ctfeSemantic(sc);
             msg = resolveProperties(sc, msg);
             msg = msg->ctfeInterpret();
             hgs.console = 1;
@@ -129,7 +129,7 @@ void StaticAssert::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     exp->toCBuffer(buf, hgs);
     if (msg)
     {
-        buf->writeByte(',');
+        buf->writestring(", ");
         msg->toCBuffer(buf, hgs);
     }
     buf->writestring(");");

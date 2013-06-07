@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "target.h"
 #include "gen/nested.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
@@ -444,7 +445,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
             if (depth > 1) {
                 src = DtoBitCast(src, getVoidPtrType());
                 LLValue* dst = DtoBitCast(frame, getVoidPtrType());
-                DtoMemCpy(dst, src, DtoConstSize_t((depth-1) * PTRSIZE),
+                DtoMemCpy(dst, src, DtoConstSize_t((depth-1) * Target::ptrsize),
                     getABITypeAlign(getVoidPtrType()));
             }
             // Copy nestArg into framelist; the outer frame is not in the list of pointers

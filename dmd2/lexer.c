@@ -38,7 +38,7 @@
 
 #if _WIN32 && __DMC__
 // from \dm\src\include\setlocal.h
-extern "C" char * __cdecl __locale_decpoint;
+extern "C" const char * __cdecl __locale_decpoint;
 #endif
 
 extern int HtmlNamedEntity(unsigned char *p, size_t length);
@@ -96,7 +96,7 @@ void *Token::operator new(size_t size)
 #ifdef DEBUG
 void Token::print()
 {
-    fprintf(stdmsg, "%s\n", toChars());
+    fprintf(stderr, "%s\n", toChars());
 }
 #endif
 
@@ -678,7 +678,7 @@ void Lexer::scan(Token *t)
                     }
                     else if (id == Id::VENDOR)
                     {
-                        t->ustring = (unsigned char *)"LDC";
+                        t->ustring = (unsigned char *)global.compiler.vendor;
                         goto Lstr;
                     }
                     else if (id == Id::TIMESTAMP)
@@ -909,6 +909,8 @@ void Lexer::scan(Token *t)
                         }
                         continue;
                     }
+                    default:
+                        break;
                 }
                 t->value = TOKdiv;
                 return;
@@ -1911,7 +1913,9 @@ TOK Lexer::number(Token *t)
     enum STATE state;
 
     enum FLAGS
-    {   FLAGS_decimal  = 1,             // decimal
+    {
+        FLAGS_none     = 0,
+        FLAGS_decimal  = 1,             // decimal
         FLAGS_unsigned = 2,             // u or U suffix
         FLAGS_long     = 4,             // l or L suffix
     };
@@ -2175,7 +2179,7 @@ done:
 
     switch (flags)
     {
-        case 0:
+        case FLAGS_none:
             /* Octal or Hexadecimal constant.
              * First that fits: int, uint, long, ulong
              */
@@ -2359,7 +2363,7 @@ done:
     stringbuffer.writeByte(0);
 
 #if _WIN32 && __DMC__
-    char *save = __locale_decpoint;
+    const char *save = __locale_decpoint;
     __locale_decpoint = ".";
 #endif
 #ifdef IN_GCC
@@ -2794,7 +2798,7 @@ Identifier *Lexer::uniqueId(const char *s, int num)
 {   char buffer[32];
     size_t slen = strlen(s);
 
-    assert(slen + sizeof(num) * 3 + 1 <= sizeof(buffer));
+    assert(slen + sizeof(num) * 3 + 1 <= sizeof(buffer) / sizeof(buffer[0]));
     sprintf(buffer, "%s%d", s, num);
     return idPool(buffer);
 }
@@ -2933,13 +2937,15 @@ static Keyword keywords[] =
 #if DMDV2
     {   "pure",         TOKpure         },
     {   "nothrow",      TOKnothrow      },
-    {   "__thread",     TOKtls          },
     {   "__gshared",    TOKgshared      },
     {   "__traits",     TOKtraits       },
     {   "__vector",     TOKvector       },
     {   "__overloadset", TOKoverloadset },
     {   "__FILE__",     TOKfile         },
     {   "__LINE__",     TOKline         },
+    {   "__MODULE__",   TOKmodulestring },
+    {   "__FUNCTION__", TOKfuncstring   },
+    {   "__PRETTY_FUNCTION__", TOKprettyfunc   },
     {   "shared",       TOKshared       },
     {   "immutable",    TOKimmutable    },
 #endif
@@ -2959,7 +2965,7 @@ void Lexer::initKeywords()
 {
     size_t nkeywords = sizeof(keywords) / sizeof(keywords[0]);
 
-    stringtable.init(6151);
+    stringtable._init(6151);
 
     if (global.params.Dversion == 1)
         nkeywords -= 2;

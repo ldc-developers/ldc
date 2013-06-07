@@ -23,7 +23,7 @@
 #include "declaration.h"
 #include "aggregate.h"
 #include "init.h"
-
+#include "enum.h"
 
 #ifdef IN_GCC
 #include "d-gcc-real.h"
@@ -68,7 +68,7 @@ Expression *expandVar(int result, VarDeclaration *v)
                         v->error("recursive initialization of constant");
                     goto L1;
                 }
-                Expression *ei = v->init->toExpression();
+                Expression *ei = v->getConstInitializer();
                 if (!ei)
                 {   if (v->storage_class & STCmanifest)
                         v->error("enum cannot be initialized with %s", v->init->toChars());
@@ -91,24 +91,20 @@ Expression *expandVar(int result, VarDeclaration *v)
                     }
                     else if (ei->implicitConvTo(v->type) >= MATCHconst)
                     {   // const var initialized with non-const expression
-                        ei = ei->implicitCastTo(0, v->type);
-                        ei = ei->semantic(0);
+                        ei = ei->implicitCastTo(NULL, v->type);
+                        ei = ei->semantic(NULL);
                     }
                     else
                         goto L1;
                 }
-                if (v->scope)
+                else if (!(result & WANTinterpret) &&
+                         !(v->storage_class & STCmanifest) &&
+                         ei->isConst() != 1 && ei->op != TOKstring &&
+                         ei->op != TOKaddress)
                 {
-                    v->inuse++;
-                    e = ei->syntaxCopy();
-                    e = e->semantic(v->scope);
-                    e = e->implicitCastTo(v->scope, v->type);
-                    // enabling this line causes test22 in test suite to fail
-                    //ei->type = e->type;
-                    v->scope = NULL;
-                    v->inuse--;
+                    goto L1;
                 }
-                else if (!ei->type)
+                if (!ei->type)
                 {
                     goto L1;
                 }
@@ -177,6 +173,7 @@ Expression *fromConstInitializer(int result, Expression *e1)
                 !(v->storage_class & STCtemplateparameter))
             {
                 e1->error("variable %s cannot be read at compile time", v->toChars());
+                e = e->copy();
                 e->type = Type::terror;
             }
         }
@@ -193,14 +190,22 @@ Expression *Expression::optimize(int result, bool keepLvalue)
 
 Expression *VarExp::optimize(int result, bool keepLvalue)
 {
-    return keepLvalue ? this : fromConstInitializer(result, this);
+    if (keepLvalue)
+    {
+        VarDeclaration *v = var->isVarDeclaration();
+        if (v && !(v->storage_class & STCmanifest))
+            return this;
+    }
+    return fromConstInitializer(result, this);
 }
 
 Expression *TupleExp::optimize(int result, bool keepLvalue)
 {
+    if (e0)
+        e0 = e0->optimize(WANTvalue | (result & WANTinterpret));
     for (size_t i = 0; i < exps->dim; i++)
-    {   Expression *e = (*exps)[i];
-
+    {
+        Expression *e = (*exps)[i];
         e = e->optimize(WANTvalue | (result & WANTinterpret));
         (*exps)[i] = e;
     }
@@ -239,6 +244,9 @@ Expression *AssocArrayLiteralExp::optimize(int result, bool keepLvalue)
 
 Expression *StructLiteralExp::optimize(int result, bool keepLvalue)
 {
+    if(stageflags & stageOptimize) return this;
+    int old = stageflags;
+    stageflags |= stageOptimize;
     if (elements)
     {
         for (size_t i = 0; i < elements->dim; i++)
@@ -249,6 +257,7 @@ Expression *StructLiteralExp::optimize(int result, bool keepLvalue)
             (*elements)[i] = e;
         }
     }
+    stageflags = old;
     return this;
 }
 
@@ -316,6 +325,14 @@ Expression *BoolExp::optimize(int result, bool keepLvalue)
     return e;
 }
 
+Expression *SymOffExp::optimize(int result, bool keepLvalue)
+{
+    assert(var);
+    if ((result & WANTinterpret) && var->isThreadlocal())
+            error("cannot take address of thread-local variable %s at compile time", var->toChars());
+    return this;
+}
+
 Expression *AddrExp::optimize(int result, bool keepLvalue)
 {   Expression *e;
 
@@ -332,13 +349,8 @@ Expression *AddrExp::optimize(int result, bool keepLvalue)
         return e->optimize(result);
     }
 
-    if (e1->op == TOKvar)
-    {   VarExp *ve = (VarExp *)e1;
-        if (ve->var->storage_class & STCmanifest)
-            e1 = e1->optimize(result);
-    }
-    else
-        e1 = e1->optimize(result);
+    // Keep lvalue-ness
+    e1 = e1->optimize(result, true);
 
     // Convert &*ex to ex
     if (e1->op == TOKstar)
@@ -489,7 +501,13 @@ Expression *NewExp::optimize(int result, bool keepLvalue)
     }
     if (result & WANTinterpret)
     {
-        error("cannot evaluate %s at compile time", toChars());
+        Expression *eresult = interpret(NULL);
+        if (eresult == EXP_CANT_INTERPRET)
+            return this;
+        if (eresult && eresult != EXP_VOID_INTERPRET)
+            return eresult;
+        else
+            error("cannot evaluate %s at compile time", toChars());
     }
     return this;
 }
@@ -509,12 +527,8 @@ Expression *CallExp::optimize(int result, bool keepLvalue)
         size_t pdim = Parameter::dim(tf->parameters) - (tf->varargs == 2 ? 1 : 0);
         for (size_t i = 0; i < arguments->dim; i++)
         {
-            bool keepLvalue = false;
-            if (i < pdim)
-            {
-                Parameter *p = Parameter::getNth(tf->parameters, i);
-                keepLvalue = ((p->storageClass & (STCref | STCout)) != 0);
-            }
+            Parameter *p = Parameter::getNth(tf->parameters, i);
+            bool keepLvalue = (p ? (p->storageClass & (STCref | STCout)) != 0 : false);
             Expression *e = (*arguments)[i];
             e = e->optimize(WANTvalue, keepLvalue);
             (*arguments)[i] = e;
@@ -603,7 +617,7 @@ Expression *CastExp::optimize(int result, bool keepLvalue)
 
     if ((e1->op == TOKstring || e1->op == TOKarrayliteral) &&
         (type->ty == Tpointer || type->ty == Tarray) &&
-        e1->type->nextOf()->size() == type->nextOf()->size()
+        e1->type->toBasetype()->nextOf()->size() == type->nextOf()->size()
        )
     {
         Expression *e = e1->castTo(NULL, type);
@@ -801,19 +815,19 @@ Expression *shift_optimize(int result, BinExp *e, Expression *(*shift)(Type *, E
 Expression *ShlExp::optimize(int result, bool keepLvalue)
 {
     //printf("ShlExp::optimize(result = %d) %s\n", result, toChars());
-    return shift_optimize(result, this, Shl);
+    return shift_optimize(result, this, &Shl);
 }
 
 Expression *ShrExp::optimize(int result, bool keepLvalue)
 {
     //printf("ShrExp::optimize(result = %d) %s\n", result, toChars());
-    return shift_optimize(result, this, Shr);
+    return shift_optimize(result, this, &Shr);
 }
 
 Expression *UshrExp::optimize(int result, bool keepLvalue)
 {
     //printf("UshrExp::optimize(result = %d) %s\n", result, toChars());
-    return shift_optimize(result, this, Ushr);
+    return shift_optimize(result, this, &Ushr);
 }
 
 Expression *AndExp::optimize(int result, bool keepLvalue)
@@ -984,7 +998,8 @@ Expression *IdentityExp::optimize(int result, bool keepLvalue)
     Expression *e = this;
 
     if ((this->e1->isConst()     && this->e2->isConst()) ||
-        (this->e1->op == TOKnull && this->e2->op == TOKnull))
+        (this->e1->op == TOKnull && this->e2->op == TOKnull) ||
+        (result & WANTinterpret))
     {
         e = Identity(op, type, this->e1, this->e2);
         if (e == EXP_CANT_INTERPRET)
@@ -1017,8 +1032,8 @@ void setLengthVarIfKnown(VarDeclaration *lengthVar, Expression *arr)
             return; // we don't know the length yet
     }
 
-    Expression *dollar = new IntegerExp(0, len, Type::tsize_t);
-    lengthVar->init = new ExpInitializer(0, dollar);
+    Expression *dollar = new IntegerExp(Loc(), len, Type::tsize_t);
+    lengthVar->init = new ExpInitializer(Loc(), dollar);
     lengthVar->storage_class |= STCstatic | STCconst;
 }
 
@@ -1027,25 +1042,16 @@ Expression *IndexExp::optimize(int result, bool keepLvalue)
 {   Expression *e;
 
     //printf("IndexExp::optimize(result = %d) %s\n", result, toChars());
-    Expression *e1 = this->e1->optimize(
-        WANTvalue | (result & (WANTinterpret| WANTexpand)));
-    e1 = fromConstInitializer(result, e1);
-    if (this->e1->op == TOKvar)
-    {   VarExp *ve = (VarExp *)this->e1;
-        if (ve->var->storage_class & STCmanifest)
-        {   /* We generally don't want to have more than one copy of an
-             * array literal, but if it's an enum we have to because the
-             * enum isn't stored elsewhere. See Bugzilla 2559
-             */
-            this->e1 = e1;
-        }
-    }
+    e1 = e1->optimize(WANTvalue | (result & (WANTinterpret| WANTexpand)));
+
+    Expression *ex = fromConstInitializer(result, e1);
+
     // We might know $ now
-    setLengthVarIfKnown(lengthVar, e1);
+    setLengthVarIfKnown(lengthVar, ex);
     e2 = e2->optimize(WANTvalue | (result & WANTinterpret));
     if (keepLvalue)
         return this;
-    e = Index(type, e1, e2);
+    e = Index(type, ex, e2);
     if (e == EXP_CANT_INTERPRET)
         e = this;
     return e;

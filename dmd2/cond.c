@@ -52,7 +52,7 @@ Condition::Condition(Loc loc)
 /* ============================================================ */
 
 DVCondition::DVCondition(Module *mod, unsigned level, Identifier *ident)
-        : Condition(0)
+        : Condition(Loc())
 {
     this->mod = mod;
     this->level = level;
@@ -127,20 +127,83 @@ void VersionCondition::checkPredefined(Loc loc, const char *ident)
 {
     static const char* reserved[] =
     {
-        "DigitalMars", "X86", "X86_64",
-        "Windows", "Win32", "Win64",
+        "DigitalMars",
+        "GNU",
+        "LDC",
+        "SDC",
+        "Windows",
+        "Win32",
+        "Win64",
         "linux",
-#if DMDV2
-        /* Although Posix is predefined by D1, disallowing its
-         * redefinition breaks makefiles and older builds.
-         */
-        "Posix",
-        "D_NET",
-#endif
-        "OSX", "FreeBSD",
+        "OSX",
+        "FreeBSD",
         "OpenBSD",
+        "NetBSD",
+        "DragonFlyBSD",
+        "BSD",
         "Solaris",
-        "LittleEndian", "BigEndian",
+        "Posix",
+        "AIX",
+        "Haiku",
+        "SkyOS",
+        "SysV3",
+        "SysV4",
+        "Hurd",
+        "Android",
+        "Cygwin",
+        "MinGW",
+        "X86",
+        "X86_64",
+        "ARM",
+        "ARM_Thumb",
+        "ARM_SoftFloat",
+        "ARM_SoftFP",
+        "ARM_HardFloat",
+        "AArch64",
+        "PPC",
+        "PPC_SoftFloat",
+        "PPC_HardFloat",
+        "PPC64",
+        "IA64",
+        "MIPS32",
+        "MIPS64",
+        "MIPS_O32",
+        "MIPS_N32",
+        "MIPS_O64",
+        "MIPS_N64",
+        "MIPS_EABI",
+        "MIPS_SoftFloat",
+        "MIPS_HardFloat",
+        "SPARC",
+        "SPARC_V8Plus",
+        "SPARC_SoftFloat",
+        "SPARC_HardFloat",
+        "SPARC64",
+        "S390",
+        "S390X",
+        "HPPA",
+        "HPPA64",
+        "SH",
+        "SH64",
+        "Alpha",
+        "Alpha_SoftFloat",
+        "Alpha_HardFloat",
+        "LittleEndian",
+        "BigEndian",
+        "D_Coverage",
+        "D_Ddoc",
+        "D_InlineAsm_X86",
+        "D_InlineAsm_X86_64",
+        "D_LP64",
+        "D_X32",
+        "D_HardFloat",
+        "D_SoftFloat",
+        "D_PIC",
+        "D_SIMD",
+        "D_Version2",
+        "D_NoBoundsChecks",
+        "unittest",
+        "assert",
         "all",
         "none",
 
@@ -168,7 +231,7 @@ void VersionCondition::checkPredefined(Loc loc, const char *ident)
 
 void VersionCondition::addGlobalIdent(const char *ident)
 {
-    checkPredefined(0, ident);
+    checkPredefined(Loc(), ident);
     addPredefinedGlobalIdent(ident);
 }
 
@@ -265,7 +328,7 @@ int StaticIfCondition::include(Scope *sc, ScopeDsymbol *s)
         sc = sc->push(sc->scopesym);
         sc->sd = s;                     // s gets any addMember()
         sc->flags |= SCOPEstaticif;
-        Expression *e = exp->semantic(sc);
+        Expression *e = exp->ctfeSemantic(sc);
         e = resolveProperties(sc, e);
         sc->pop();
         if (!e->type->checkBoolean())
@@ -296,136 +359,7 @@ int StaticIfCondition::include(Scope *sc, ScopeDsymbol *s)
 
 void StaticIfCondition::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
-    buf->writestring("static if(");
+    buf->writestring("static if (");
     exp->toCBuffer(buf, hgs);
     buf->writeByte(')');
 }
-
-
-/**************************** IftypeCondition *******************************/
-
-IftypeCondition::IftypeCondition(Loc loc, Type *targ, Identifier *id, enum TOK tok, Type *tspec)
-    : Condition(loc)
-{
-    this->targ = targ;
-    this->id = id;
-    this->tok = tok;
-    this->tspec = tspec;
-}
-
-Condition *IftypeCondition::syntaxCopy()
-{
-    return new IftypeCondition(loc,
-        targ->syntaxCopy(),
-        id,
-        tok,
-        tspec ? tspec->syntaxCopy() : NULL);
-}
-
-int IftypeCondition::include(Scope *sc, ScopeDsymbol *sd)
-{
-    //printf("IftypeCondition::include()\n");
-    if (inc == 0)
-    {
-        if (!sc)
-        {
-            error(loc, "iftype conditional cannot be at global scope");
-            inc = 2;
-            return 0;
-        }
-        Type *t = targ->trySemantic(loc, sc);
-        if (t)
-            targ = t;
-        else
-            inc = 2;                    // condition is false
-
-        if (!t)
-        {
-        }
-        else if (id && tspec)
-        {
-            /* Evaluate to TRUE if targ matches tspec.
-             * If TRUE, declare id as an alias for the specialized type.
-             */
-
-            MATCH m;
-            TemplateTypeParameter tp(loc, id, NULL, NULL);
-
-            TemplateParameters parameters;
-            parameters.setDim(1);
-            parameters[0] = &tp;
-
-            Objects dedtypes;
-            dedtypes.setDim(1);
-
-            m = targ->deduceType(sc, tspec, &parameters, &dedtypes);
-            if (m == MATCHnomatch ||
-                (m != MATCHexact && tok == TOKequal))
-                inc = 2;
-            else
-            {
-                inc = 1;
-                Type *tded = (Type *)dedtypes[0];
-                if (!tded)
-                    tded = targ;
-                Dsymbol *s = new AliasDeclaration(loc, id, tded);
-                s->semantic(sc);
-                sc->insert(s);
-                if (sd)
-                    s->addMember(sc, sd, 1);
-            }
-        }
-        else if (id)
-        {
-            /* Declare id as an alias for type targ. Evaluate to TRUE
-             */
-            Dsymbol *s = new AliasDeclaration(loc, id, targ);
-            s->semantic(sc);
-            sc->insert(s);
-            if (sd)
-                s->addMember(sc, sd, 1);
-            inc = 1;
-        }
-        else if (tspec)
-        {
-            /* Evaluate to TRUE if targ matches tspec
-             */
-            tspec = tspec->semantic(loc, sc);
-            //printf("targ  = %s\n", targ->toChars());
-            //printf("tspec = %s\n", tspec->toChars());
-            if (tok == TOKcolon)
-            {   if (targ->implicitConvTo(tspec))
-                    inc = 1;
-                else
-                    inc = 2;
-            }
-            else /* == */
-            {   if (targ->equals(tspec))
-                    inc = 1;
-                else
-                    inc = 2;
-            }
-        }
-        else
-             inc = 1;
-        //printf("inc = %d\n", inc);
-    }
-    return (inc == 1);
-}
-
-void IftypeCondition::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    buf->writestring("iftype(");
-    targ->toCBuffer(buf, id, hgs);
-    if (tspec)
-    {
-        if (tok == TOKcolon)
-            buf->writestring(" : ");
-        else
-            buf->writestring(" == ");
-        tspec->toCBuffer(buf, NULL, hgs);
-    }
-    buf->writeByte(')');
-}
-
-

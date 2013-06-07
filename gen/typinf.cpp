@@ -97,7 +97,7 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
         {   tid = new TypeInfoDeclaration(t, 1);
         internalTI[t->ty] = tid;
         }
-        e = new VarExp(0, tid);
+        e = new VarExp(Loc(), tid);
         e = e->addressOf(sc);
         e->type = tid->type;    // do this so we don't get redundant dereference
         return e;
@@ -118,7 +118,7 @@ Expression *Type::getTypeInfo(Scope *sc)
     //printf("Type::getTypeInfo() %p, %s\n", this, toChars());
     if (!Type::typeinfo)
     {
-        error(0, "TypeInfo not found. object.d may be incorrectly installed or corrupt, compile with -v switch");
+        error(Loc(), "TypeInfo not found. object.d may be incorrectly installed or corrupt, compile with -v switch");
         fatal();
     }
 
@@ -159,7 +159,7 @@ Expression *Type::getTypeInfo(Scope *sc)
             }
         }
     }
-    e = new VarExp(0, t->vtinfo);
+    e = new VarExp(Loc(), t->vtinfo);
     e = e->addressOf(sc);
     e->type = t->vtinfo->type;      // do this so we don't get redundant dereference
     return e;
@@ -409,7 +409,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     // void[] init
     // emit null array if we should use the basetype, or if the basetype
     // uses default initialization.
-    if (tinfo->isZeroInit(0) || !sd->init)
+    if (tinfo->isZeroInit(Loc()) || !sd->init)
     {
         b.push_null_void_array();
     }
@@ -446,7 +446,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     // void[] init
     // emit void[] with the default initialier, the array is null if the default
     // initializer is zero
-    if (!sd->defaultval || tinfo->isZeroInit(0))
+    if (!sd->defaultval || tinfo->isZeroInit(Loc()))
     {
         b.push_null_void_array();
     }
@@ -618,7 +618,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     // The protocol is to write a null pointer for zero-initialized arrays. The
     // length field is always needed for tsize().
     llvm::Constant *initPtr;
-    if (tc->isZeroInit(0))
+    if (tc->isZeroInit(Loc()))
         initPtr = getNullValue(getVoidPtrType());
     else
         initPtr = irstruct->getInitSymbol();
@@ -633,11 +633,11 @@ void TypeInfoStructDeclaration::llvmDefine()
         Scope sc;
         tftohash = new TypeFunction(NULL, Type::thash_t, 0, LINKd);
         tftohash ->mod = MODconst;
-        tftohash = static_cast<TypeFunction *>(tftohash->semantic(0, &sc));
+        tftohash = static_cast<TypeFunction *>(tftohash->semantic(Loc(), &sc));
 
         Type *retType = Type::tchar->invariantOf()->arrayOf();
         tftostring = new TypeFunction(NULL, retType, 0, LINKd);
-        tftostring = static_cast<TypeFunction *>(tftostring->semantic(0, &sc));
+        tftostring = static_cast<TypeFunction *>(tftostring->semantic(Loc(), &sc));
     }
 
     // this one takes a parameter, so we need to build a new one each time
@@ -652,7 +652,7 @@ void TypeInfoStructDeclaration::llvmDefine()
         arguments->push(arg);
         tfcmpptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
         tfcmpptr->mod = MODconst;
-        tfcmpptr = static_cast<TypeFunction *>(tfcmpptr->semantic(0, &sc));
+        tfcmpptr = static_cast<TypeFunction *>(tfcmpptr->semantic(Loc(), &sc));
     }
 
     // well use this module for all overload lookups

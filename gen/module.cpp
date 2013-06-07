@@ -19,6 +19,7 @@
 #include "mtype.h"
 #include "scope.h"
 #include "statement.h"
+#include "target.h"
 #include "template.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
@@ -357,7 +358,7 @@ void Module::genmoduleinfo()
     // check for patch
     else
     {
-        unsigned sizeof_ModuleInfo = 16 * PTRSIZE;
+        unsigned sizeof_ModuleInfo = 16 * Target::ptrsize;
         if (sizeof_ModuleInfo != moduleinfo->structsize)
         {
             error("object.d ModuleInfo class is incorrect");

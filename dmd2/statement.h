@@ -56,7 +56,6 @@ struct InterState;
 #if IN_LLVM
 struct CaseStatement;
 struct LabelStatement;
-struct VolatileStatement;
 struct SynchronizedStatement;
 #endif
 
@@ -70,6 +69,8 @@ namespace llvm
     class ConstantInt;
 }
 #endif
+
+typedef bool (*sapply_fp_t)(Statement *, void *);
 
 // Back end
 struct IRState;
@@ -125,13 +126,17 @@ struct Statement : Object
     virtual Statement *getRelatedLabeled() { return this; }
     virtual bool hasBreak();
     virtual bool hasContinue();
-    virtual bool usesEH();
+    bool usesEH();
+    virtual bool usesEHimpl();
     virtual int blockExit(bool mustNotThrow);
-    virtual int comeFrom();
-    virtual int isEmpty();
+    bool comeFrom();
+    virtual bool comeFromImpl();
+    bool hasCode();
+    virtual bool hasCodeImpl();
     virtual Statement *scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
     virtual Statements *flatten(Scope *sc);
     virtual Expression *interpret(InterState *istate);
+    virtual bool apply(sapply_fp_t fp, void *param);
     virtual Statement *last();
 
     virtual int inlineCost(InlineCostState *ics);
@@ -164,6 +169,7 @@ struct PeelStatement : Statement
 
     PeelStatement(Statement *s);
     Statement *semantic(Scope *sc);
+    bool apply(sapply_fp_t fp, void *param);
 };
 
 struct ExpStatement : Statement
@@ -177,7 +183,7 @@ struct ExpStatement : Statement
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
     int blockExit(bool mustNotThrow);
-    int isEmpty();
+    bool hasCodeImpl();
     Statement *scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
 
     int inlineCost(InlineCostState *ics);
@@ -227,13 +233,12 @@ struct CompoundStatement : Statement
     Statement *syntaxCopy();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Statement *semantic(Scope *sc);
-    bool usesEH();
     int blockExit(bool mustNotThrow);
-    int comeFrom();
-    int isEmpty();
+    bool hasCodeImpl();
     Statements *flatten(Scope *sc);
     ReturnStatement *isReturnStatement();
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
     Statement *last();
 
     int inlineCost(InlineCostState *ics);
@@ -270,10 +275,9 @@ struct UnrolledLoopStatement : Statement
     Statement *semantic(Scope *sc);
     bool hasBreak();
     bool hasContinue();
-    bool usesEH();
     int blockExit(bool mustNotThrow);
-    int comeFrom();
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     int inlineCost(InlineCostState *ics);
@@ -295,11 +299,10 @@ struct ScopeStatement : Statement
     Statement *semantic(Scope *sc);
     bool hasBreak();
     bool hasContinue();
-    bool usesEH();
     int blockExit(bool mustNotThrow);
-    int comeFrom();
-    int isEmpty();
+    bool hasCodeImpl();
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
 
     int inlineCost(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
@@ -319,10 +322,9 @@ struct WhileStatement : Statement
     Statement *semantic(Scope *sc);
     bool hasBreak();
     bool hasContinue();
-    bool usesEH();
     int blockExit(bool mustNotThrow);
-    int comeFrom();
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -340,10 +342,9 @@ struct DoStatement : Statement
     Statement *semantic(Scope *sc);
     bool hasBreak();
     bool hasContinue();
-    bool usesEH();
     int blockExit(bool mustNotThrow);
-    int comeFrom();
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -366,16 +367,15 @@ struct ForStatement : Statement
 
     ForStatement(Loc loc, Statement *init, Expression *condition, Expression *increment, Statement *body);
     Statement *syntaxCopy();
-    Statement *semanticInit(Scope *sc);
+    Statement *semanticInit(Scope *sc, Statements *ainit, size_t i);
     Statement *semantic(Scope *sc);
     Statement *scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
     Statement *getRelatedLabeled() { return relatedLabeled ? relatedLabeled : this; }
     bool hasBreak();
     bool hasContinue();
-    bool usesEH();
     int blockExit(bool mustNotThrow);
-    int comeFrom();
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     int inlineCost(InlineCostState *ics);
@@ -408,10 +408,9 @@ struct ForeachStatement : Statement
     int inferApplyArgTypes(Scope *sc, Dsymbol *&sapply);
     bool hasBreak();
     bool hasContinue();
-    bool usesEH();
     int blockExit(bool mustNotThrow);
-    int comeFrom();
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -436,10 +435,9 @@ struct ForeachRangeStatement : Statement
     Statement *semantic(Scope *sc);
     bool hasBreak();
     bool hasContinue();
-    bool usesEH();
     int blockExit(bool mustNotThrow);
-    int comeFrom();
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -461,8 +459,8 @@ struct IfStatement : Statement
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    bool usesEH();
     int blockExit(bool mustNotThrow);
     IfStatement *isIfStatement() { return this; }
 
@@ -484,8 +482,8 @@ struct ConditionalStatement : Statement
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     Statements *flatten(Scope *sc);
-    bool usesEH();
     int blockExit(bool mustNotThrow);
+    bool apply(sapply_fp_t fp, void *param);
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
@@ -499,8 +497,8 @@ struct PragmaStatement : Statement
     PragmaStatement(Loc loc, Identifier *ident, Expressions *args, Statement *body);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
-    bool usesEH();
     int blockExit(bool mustNotThrow);
+    bool apply(sapply_fp_t fp, void *param);
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
@@ -542,9 +540,9 @@ struct SwitchStatement : Statement
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     bool hasBreak();
-    bool usesEH();
     int blockExit(bool mustNotThrow);
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -568,10 +566,10 @@ struct CaseStatement : Statement
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     int compare(Object *obj);
-    bool usesEH();
     int blockExit(bool mustNotThrow);
-    int comeFrom();
+    bool comeFromImpl();
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     CaseStatement *isCaseStatement() { return this; }
 
@@ -596,6 +594,7 @@ struct CaseRangeStatement : Statement
     CaseRangeStatement(Loc loc, Expression *first, Expression *last, Statement *s);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
 
@@ -615,10 +614,10 @@ struct DefaultStatement : Statement
     DefaultStatement(Loc loc, Statement *s);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
-    bool usesEH();
     int blockExit(bool mustNotThrow);
-    int comeFrom();
+    bool comeFromImpl();
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     DefaultStatement *isDefaultStatement() { return this; }
 
@@ -740,8 +739,9 @@ struct SynchronizedStatement : Statement
     Statement *semantic(Scope *sc);
     bool hasBreak();
     bool hasContinue();
-    bool usesEH();
+    bool usesEHimpl();
     int blockExit(bool mustNotThrow);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -765,9 +765,9 @@ struct WithStatement : Statement
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    bool usesEH();
     int blockExit(bool mustNotThrow);
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -783,9 +783,10 @@ struct TryCatchStatement : Statement
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     bool hasBreak();
-    bool usesEH();
+    bool usesEHimpl();
     int blockExit(bool mustNotThrow);
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -821,9 +822,10 @@ struct TryFinallyStatement : Statement
     Statement *semantic(Scope *sc);
     bool hasBreak();
     bool hasContinue();
-    bool usesEH();
+    bool usesEHimpl();
     int blockExit(bool mustNotThrow);
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
 
     Statement *inlineScan(InlineScanState *iss);
 
@@ -840,9 +842,10 @@ struct OnScopeStatement : Statement
     int blockExit(bool mustNotThrow);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Statement *semantic(Scope *sc);
-    bool usesEH();
+    bool usesEHimpl();
     Statement *scopeCode(Scope *sc, Statement **sentry, Statement **sexit, Statement **sfinally);
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
 
     void toIR(IRState *irs);
 };
@@ -865,22 +868,6 @@ struct ThrowStatement : Statement
     void toIR(IRState *irs);
 };
 
-struct VolatileStatement : Statement
-{
-    Statement *statement;
-
-    VolatileStatement(Loc loc, Statement *statement);
-    Statement *syntaxCopy();
-    Statement *semantic(Scope *sc);
-    Statements *flatten(Scope *sc);
-    int blockExit(bool mustNotThrow);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-
-    Statement *inlineScan(InlineScanState *iss);
-
-    void toIR(IRState *irs);
-};
-
 struct DebugStatement : Statement
 {
     Statement *statement;
@@ -889,6 +876,7 @@ struct DebugStatement : Statement
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     Statements *flatten(Scope *sc);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
 
@@ -931,10 +919,10 @@ struct LabelStatement : Statement
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     Statements *flatten(Scope *sc);
-    bool usesEH();
     int blockExit(bool mustNotThrow);
-    int comeFrom();
+    bool comeFromImpl();
     Expression *interpret(InterState *istate);
+    bool apply(sapply_fp_t fp, void *param);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Statement *inlineScan(InlineScanState *iss);
@@ -968,7 +956,7 @@ struct AsmStatement : Statement
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     int blockExit(bool mustNotThrow);
-    int comeFrom();
+    bool comeFromImpl();
     Expression *interpret(InterState *istate);
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
@@ -995,7 +983,7 @@ struct ImportStatement : Statement
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
     int blockExit(bool mustNotThrow);
-    int isEmpty();
+    bool hasCodeImpl();
     Expression *interpret(InterState *istate);
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);

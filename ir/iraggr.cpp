@@ -12,6 +12,7 @@
 #include "declaration.h"
 #include "init.h"
 #include "mtype.h"
+#include "target.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
@@ -256,7 +257,7 @@ llvm::Constant* IrAggr::createInitializerConstant(
         constants.push_back(getNullValue(DtoType(Type::tvoid->pointerTo())));
 
         // we start right after the vtbl and monitor
-        offset = PTRSIZE * 2;
+        offset = Target::ptrsize * 2;
     }
 
     addFieldInitializers(constants, explicitInitializers, aggrdecl, offset);
@@ -409,14 +410,14 @@ void IrAggr::addFieldInitializers(
 
             size_t inter_idx = interfacesWithVtbls.size();
 
-            offset = (offset + PTRSIZE - 1) & ~(PTRSIZE - 1);
+            offset = (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
 
             ArrayIter<BaseClass> it2(*cd->vtblInterfaces);
             for (; !it2.done(); it2.next())
             {
                 BaseClass* b = it2.get();
                 constants.push_back(getInterfaceVtbl(b, newinsts, inter_idx));
-                offset += PTRSIZE;
+                offset += Target::ptrsize;
 
                 // add to the interface list
                 interfacesWithVtbls.push_back(b);
