@@ -117,18 +117,6 @@ class Object
         return this is o;
     }
 
-    bool opEquals(Object lhs, Object rhs)
-    {
-        if (lhs is rhs)
-            return true;
-        if (lhs is null || rhs is null)
-            return false;
-        if (typeid(lhs) == typeid(rhs))
-            return lhs.opEquals(rhs);
-        return lhs.opEquals(rhs) &&
-               rhs.opEquals(lhs);
-    }
-
     interface Monitor
     {
         void lock();
@@ -173,32 +161,6 @@ bool opEquals(Object lhs, Object rhs)
     // If same exact type => one call to method opEquals
     if (typeid(lhs) is typeid(rhs) || typeid(lhs).opEquals(typeid(rhs)))
         return lhs.opEquals(rhs);
-
-    // General case => symmetric calls to method opEquals
-    return lhs.opEquals(rhs) && rhs.opEquals(lhs);
-}
-
-bool opEquals(TypeInfo lhs, TypeInfo rhs)
-{
-    // If aliased to the same object or both null => equal
-    if (lhs is rhs) return true;
-
-    // If either is null => non-equal
-    if (lhs is null || rhs is null) return false;
-
-    // If same exact type => one call to method opEquals
-    if (typeid(lhs) == typeid(rhs)) return lhs.opEquals(rhs);
-
-    //printf("%.*s and %.*s, %d %d\n", lhs.toString(), rhs.toString(), lhs.opEquals(rhs), rhs.opEquals(lhs));
-
-    // Factor out top level const
-    // (This still isn't right, should follow same rules as compiler does for type equality.)
-    TypeInfo_Const c = cast(TypeInfo_Const) lhs;
-    if (c)
-        lhs = c.base;
-    c = cast(TypeInfo_Const) rhs;
-    if (c)
-        rhs = c.base;
 
     // General case => symmetric calls to method opEquals
     return lhs.opEquals(rhs) && rhs.opEquals(lhs);
@@ -310,7 +272,7 @@ class TypeInfo
 
     /// Get TypeInfo for 'next' type, as defined by what kind of type this is,
     /// null if none.
-    @property const(TypeInfo) next() nothrow pure const { return null; }
+    @property inout(TypeInfo) next() nothrow pure inout { return null; }
 
     /// Return default initializer.  If the type should be initialized to all zeros,
     /// an array with a null ptr and a length equal to the type size will be returned.
@@ -345,38 +307,6 @@ class TypeInfo
     @property immutable(void)* rtInfo() nothrow pure const @safe { return null; }
 }
 
-class TypeInfo_Vector : TypeInfo
-{
-    override string toString() const { return "__vector(" ~ base.toString() ~ ")"; }
-
-    override bool opEquals(Object o)
-    {
-        if (this is o)
-            return true;
-        auto c = cast(const TypeInfo_Vector)o;
-        return c && this.base == c.base;
-    }
-
-    override size_t getHash(in void* p) const { return base.getHash(p); }
-    override bool equals(in void* p1, in void* p2) const { return base.equals(p1, p2); }
-    override int compare(in void* p1, in void* p2) const { return base.compare(p1, p2); }
-    override @property size_t tsize() nothrow pure const { return base.tsize; }
-    override void swap(void* p1, void* p2) const { return base.swap(p1, p2); }
-
-    override @property const(TypeInfo) next() nothrow pure const { return base.next; }
-    override @property uint flags() nothrow pure const { return base.flags; }
-    override const(void)[] init() nothrow pure const { return base.init(); }
-
-    override @property size_t talign() nothrow pure const { return 16; }
-
-    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
-    {
-        return base.argTypes(arg1, arg2);
-    }
-
-    TypeInfo base;
-}
-
 class TypeInfo_Typedef : TypeInfo
 {
     override string toString() const { return name; }
@@ -396,7 +326,7 @@ class TypeInfo_Typedef : TypeInfo
     override @property size_t tsize() nothrow pure const { return base.tsize; }
     override void swap(void* p1, void* p2) const { return base.swap(p1, p2); }
 
-    override @property const(TypeInfo) next() nothrow pure const { return base.next; }
+    override @property inout(TypeInfo) next() nothrow pure inout { return base.next; }
     override @property uint flags() nothrow pure const { return base.flags; }
     override const(void)[] init() nothrow pure const @safe { return m_init.length ? m_init : base.init(); }
 
@@ -463,7 +393,7 @@ class TypeInfo_Pointer : TypeInfo
         *cast(void**)p2 = tmp;
     }
 
-    override @property const(TypeInfo) next() nothrow pure const { return m_next; }
+    override @property inout(TypeInfo) next() nothrow pure inout { return m_next; }
     override @property uint flags() nothrow pure const { return 1; }
 
     TypeInfo m_next;
@@ -534,7 +464,7 @@ class TypeInfo_Array : TypeInfo
 
     TypeInfo value;
 
-    override @property const(TypeInfo) next() nothrow pure const
+    override @property inout(TypeInfo) next() nothrow pure inout
     {
         return value;
     }
@@ -634,7 +564,7 @@ class TypeInfo_StaticArray : TypeInfo
     }
 
     override const(void)[] init() nothrow pure const { return value.init(); }
-    override @property const(TypeInfo) next() nothrow pure const { return value; }
+    override @property inout(TypeInfo) next() nothrow pure inout { return value; }
     override @property uint flags() nothrow pure const { return value.flags; }
 
     override void destroy(void* p) const
@@ -701,7 +631,7 @@ class TypeInfo_AssociativeArray : TypeInfo
         return (char[int]).sizeof;
     }
 
-    override @property const(TypeInfo) next() nothrow pure const { return value; }
+    override @property inout(TypeInfo) next() nothrow pure inout { return value; }
     override @property uint flags() nothrow pure const { return 1; }
 
     TypeInfo value;
@@ -719,6 +649,38 @@ class TypeInfo_AssociativeArray : TypeInfo
         arg1 = typeid(void*);
         return 0;
     }
+}
+
+class TypeInfo_Vector : TypeInfo
+{
+    override string toString() const { return "__vector(" ~ base.toString() ~ ")"; }
+
+    override bool opEquals(Object o)
+    {
+        if (this is o)
+            return true;
+        auto c = cast(const TypeInfo_Vector)o;
+        return c && this.base == c.base;
+    }
+
+    override size_t getHash(in void* p) const { return base.getHash(p); }
+    override bool equals(in void* p1, in void* p2) const { return base.equals(p1, p2); }
+    override int compare(in void* p1, in void* p2) const { return base.compare(p1, p2); }
+    override @property size_t tsize() nothrow pure const { return base.tsize; }
+    override void swap(void* p1, void* p2) const { return base.swap(p1, p2); }
+
+    override @property inout(TypeInfo) next() nothrow pure inout { return base.next; }
+    override @property uint flags() nothrow pure const { return base.flags; }
+    override const(void)[] init() nothrow pure const { return base.init(); }
+
+    override @property size_t talign() nothrow pure const { return 16; }
+
+    version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2)
+    {
+        return base.argTypes(arg1, arg2);
+    }
+
+    TypeInfo base;
 }
 
 class TypeInfo_Function : TypeInfo
@@ -1221,7 +1183,7 @@ class TypeInfo_Const : TypeInfo
     override @property size_t tsize() nothrow pure const { return base.tsize; }
     override void swap(void *p1, void *p2) const { return base.swap(p1, p2); }
 
-    override @property const(TypeInfo) next() nothrow pure const { return base.next; }
+    override @property inout(TypeInfo) next() nothrow pure inout { return base.next; }
     override @property uint flags() nothrow pure const { return base.flags; }
     override const(void)[] init() nothrow pure const { return base.init(); }
 
@@ -2108,6 +2070,16 @@ extern (C)
     hash_t _aaGetHash(void* aa, const(TypeInfo) tiRaw) nothrow;
 }
 
+private template _Unqual(T)
+{
+         static if (is(T U == shared(const U))) alias U _Unqual;
+    else static if (is(T U ==        const U )) alias U _Unqual;
+    else static if (is(T U ==    immutable U )) alias U _Unqual;
+    else static if (is(T U ==        inout U )) alias U _Unqual;
+    else static if (is(T U ==       shared U )) alias U _Unqual;
+    else                                        alias T _Unqual;
+}
+
 struct AssociativeArray(Key, Value)
 {
 private:
@@ -2117,8 +2089,8 @@ private:
         Slot *next;
         size_t hash;
         Key key;
-        version(D_LP64) align(16) Value value; // c.f. rt/aaA.d, aligntsize()
-        else align(4) Value value;
+        version(D_LP64) align(16) _Unqual!Value value; // c.f. rt/aaA.d, aligntsize()
+        else align(4) _Unqual!Value value;
 
         // Stop creating built-in opAssign
         @disable void opAssign(Slot);
@@ -2267,7 +2239,7 @@ public:
 
             @property ref Value front()
             {
-                return state.front.value;
+                return *cast(Value*)&state.front.value;
             }
 
             alias state this;
@@ -2347,8 +2319,7 @@ unittest
     assert(aa4.byValue.front == "onetwothreefourfive");
 }
 
-// Scheduled for deprecation in December 2012.
-// Please use destroy instead of clear.
+deprecated("Please use destroy instead of clear.")
 alias destroy clear;
 
 /++
@@ -2474,7 +2445,7 @@ version(unittest) unittest
 
 void destroy(T : U[n], U, size_t n)(ref T obj)
 {
-    obj = T.init;
+    obj[] = U.init;
 }
 
 version(unittest) unittest
@@ -2525,19 +2496,44 @@ version (unittest)
 }
 
 /**
- * (Property) Get the current capacity of an array.  The capacity is the number
- * of elements that the array can grow to before the array must be
- * extended/reallocated.
+ * (Property) Get the current capacity of a slice. The capacity is the size
+ * that the slice can grow to before the underlying array must be
+ * reallocated or extended.
+ *
+ * If an append must reallocate a slice with no possibility of extension, then
+ * 0 is returned. This happens when the slice references a static array, or
+ * if another slice references elements past the end of the current slice.
+ *
+ * Note: The capacity of a slice may be impacted by operations on other slices.
  */
 @property size_t capacity(T)(T[] arr) pure nothrow
 {
     return _d_arraysetcapacity(typeid(T[]), 0, cast(void[]*)&arr);
 }
+///
+unittest
+{
+    //Static array slice: no capacity
+    int[4] sarray = [1, 2, 3, 4];
+    int[]  slice  = sarray[];
+    assert(sarray.capacity == 0);
+    //Appending to slice will reallocate to a new array
+    slice ~= 5;
+    assert(slice.capacity >= 5);
+    
+    //Dynamic array slices
+    int[] a = [1, 2, 3, 4];
+    int[] b = a[1 .. $];
+    int[] c = a[1 .. $ - 1];
+    assert(a.capacity != 0);
+    assert(a.capacity == b.capacity + 1); //both a and b share the same tail
+    assert(c.capacity == 0);              //an append to c must relocate c.
+}
 
 /**
- * Try to reserve capacity for an array.  The capacity is the number of
- * elements that the array can grow to before the array must be
- * extended/reallocated.
+ * Reserves capacity for a slice. The capacity is the size
+ * that the slice can grow to before the underlying array must be
+ * reallocated or extended.
  *
  * The return value is the new capacity of the array (which may be larger than
  * the requested capacity).
@@ -2546,9 +2542,29 @@ size_t reserve(T)(ref T[] arr, size_t newcapacity) pure nothrow
 {
     return _d_arraysetcapacity(typeid(T[]), newcapacity, cast(void[]*)&arr);
 }
+///
+unittest
+{
+    //Static array slice: no capacity. Reserve relocates.
+    int[4] sarray = [1, 2, 3, 4];
+    int[]  slice  = sarray[];
+    auto u = slice.reserve(8); 
+    assert(u >= 8);
+    assert(sarray.ptr !is slice.ptr);
+    assert(slice.capacity == u);
+    
+    //Dynamic array slices
+    int[] a = [1, 2, 3, 4];
+    a.reserve(8); //prepare a for appending 4 more items
+    auto p = a.ptr;
+    u = a.capacity;
+    a ~= [5, 6, 7, 8];
+    assert(p == a.ptr);      //a should not have been reallocated
+    assert(u == a.capacity); //a should not have been extended
+}
 
 /**
- * Assume that it is safe to append to this array.  Appends made to this array
+ * Assume that it is safe to append to this array. Appends made to this array
  * after calling this function may append in place, even if the array was a
  * slice of a larger array to begin with.
  *
@@ -2563,23 +2579,31 @@ void assumeSafeAppend(T)(T[] arr)
 {
     _d_arrayshrinkfit(typeid(T[]), *(cast(void[]*)&arr));
 }
-
-version (unittest) unittest
+///
+unittest
 {
-    {
-        int[] arr;
-        auto newcap = arr.reserve(2000);
-        assert(newcap >= 2000);
-        assert(newcap == arr.capacity);
-        auto ptr = arr.ptr;
-        foreach(i; 0..2000)
-            arr ~= i;
-        assert(ptr == arr.ptr);
-        arr = arr[0..1];
-        arr.assumeSafeAppend();
-        arr ~= 5;
-        assert(ptr == arr.ptr);
-    }
+    int[] a = [1, 2, 3, 4];
+    int[] b = a[1 .. $ - 1];
+    assert(a.capacity >= 4);
+    assert(b.capacity == 0);
+    b.assumeSafeAppend();
+    assert(b.capacity >= 3);
+}
+
+unittest
+{
+    int[] arr;
+    auto newcap = arr.reserve(2000);
+    assert(newcap >= 2000);
+    assert(newcap == arr.capacity);
+    auto ptr = arr.ptr;
+    foreach(i; 0..2000)
+        arr ~= i;
+    assert(ptr == arr.ptr);
+    arr = arr[0..1];
+    arr.assumeSafeAppend();
+    arr ~= 5;
+    assert(ptr == arr.ptr);
 }
 
 

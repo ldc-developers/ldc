@@ -643,6 +643,18 @@ body
             jc  Loverflow;
         }
     }
+    else version (D_InlineAsm_X86_64)
+    {
+        size_t reqsize = void;
+
+        asm
+        {
+            mov RAX, newcapacity;
+            mul RAX, size;
+            mov reqsize, RAX;
+            jc  Loverflow;
+        }
+    }
     else
     {
         size_t reqsize = size * newcapacity;
@@ -2248,7 +2260,7 @@ void* _d_arrayliteralTX(const TypeInfo ti, size_t length)
     auto sizeelem = ti.next.tsize;              // array element size
     void* result;
 
-    //printf("_d_arrayliteralTX(sizeelem = %d, length = %d)\n", sizeelem, length);
+    debug(PRINTF) printf("_d_arrayliteralTX(sizeelem = %d, length = %d)\n", sizeelem, length);
     if (length == 0 || sizeelem == 0)
         result = null;
     else

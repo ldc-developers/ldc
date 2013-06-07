@@ -35,7 +35,6 @@ class Object
     size_t   toHash() @trusted nothrow;
     int      opCmp(Object o);
     bool     opEquals(Object o);
-    bool     opEquals(Object lhs, Object rhs);
 
     interface Monitor
     {
@@ -48,7 +47,6 @@ class Object
 
 bool opEquals(const Object lhs, const Object rhs);
 bool opEquals(Object lhs, Object rhs);
-//bool opEquals(TypeInfo lhs, TypeInfo rhs);
 
 void setSameMutex(shared Object ownee, shared Object owner);
 
@@ -76,7 +74,7 @@ class TypeInfo
     int      compare(in void* p1, in void* p2) const;
     @property size_t   tsize() nothrow pure const @safe;
     void     swap(void* p1, void* p2) const;
-    @property const(TypeInfo) next() nothrow pure const;
+    @property inout(TypeInfo) next() nothrow pure inout;
     const(void)[]   init() nothrow pure const @safe; // TODO: make this a property, but may need to be renamed to diambiguate with T.init...
     @property uint     flags() nothrow pure const @safe;
     // 1:    // has possible pointers into GC memory
@@ -114,17 +112,12 @@ class TypeInfo_Array : TypeInfo
     override int compare(in void* p1, in void* p2) const;
     override @property size_t tsize() nothrow pure const;
     override void swap(void* p1, void* p2) const;
-    override @property const(TypeInfo) next() nothrow pure const;
+    override @property inout(TypeInfo) next() nothrow pure inout;
     override @property uint flags() nothrow pure const;
     override @property size_t talign() nothrow pure const;
     version (X86_64) override int argTypes(out TypeInfo arg1, out TypeInfo arg2);
 
     TypeInfo value;
-}
-
-class TypeInfo_Vector : TypeInfo
-{
-    TypeInfo base;
 }
 
 class TypeInfo_StaticArray : TypeInfo
@@ -138,6 +131,11 @@ class TypeInfo_AssociativeArray : TypeInfo
     TypeInfo value;
     TypeInfo key;
     TypeInfo impl;
+}
+
+class TypeInfo_Vector : TypeInfo
+{
+    TypeInfo base;
 }
 
 class TypeInfo_Function : TypeInfo
@@ -392,6 +390,16 @@ extern (C)
     void* _d_assocarrayliteralT(TypeInfo_AssociativeArray ti, size_t length, ...);
 }
 
+private template _Unqual(T)
+{
+         static if (is(T U == shared(const U))) alias U _Unqual;
+    else static if (is(T U ==        const U )) alias U _Unqual;
+    else static if (is(T U ==    immutable U )) alias U _Unqual;
+    else static if (is(T U ==        inout U )) alias U _Unqual;
+    else static if (is(T U ==       shared U )) alias U _Unqual;
+    else                                        alias T _Unqual;
+}
+
 struct AssociativeArray(Key, Value)
 {
 private:
@@ -401,8 +409,8 @@ private:
         Slot *next;
         size_t hash;
         Key key;
-        version(D_LP64) align(16) Value value; // c.f. rt/aaA.d, aligntsize()
-        else align(4) Value value;
+        version(D_LP64) align(16) _Unqual!Value value; // c.f. rt/aaA.d, aligntsize()
+        else align(4) _Unqual!Value value;
 
         // Stop creating built-in opAssign
         @disable void opAssign(Slot);
@@ -551,7 +559,7 @@ public:
 
             @property ref Value front()
             {
-                return state.front.value;
+                return *cast(Value*)&state.front.value;
             }
 
             alias state this;
@@ -595,7 +603,7 @@ void destroy(T)(ref T obj) if (is(T == struct))
 
 void destroy(T : U[n], U, size_t n)(ref T obj)
 {
-    obj = T.init;
+    obj[] = U.init;
 }
 
 void destroy(T)(ref T obj)

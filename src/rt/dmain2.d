@@ -14,6 +14,7 @@ module rt.dmain2;
 private
 {
     import rt.memory;
+    import rt.sections;
     import rt.util.console;
     import rt.util.string;
     import core.stdc.stddef;
@@ -46,14 +47,14 @@ version (all)
 {
     extern (C) Throwable.TraceInfo _d_traceContext(void* ptr = null);
 
-    extern (C) void _d_createTrace(Object *o)
+    extern (C) void _d_createTrace(Object *o, void* context)
     {
         auto t = cast(Throwable) o;
 
         if (t !is null && t.info is null &&
             cast(byte*) t !is t.classinfo.init.ptr)
         {
-            t.info = _d_traceContext();
+            t.info = _d_traceContext(context);
         }
     }
 }
@@ -100,11 +101,6 @@ version (OSX)
 {
     // The bottom of the stack
     extern (C) __gshared void* __osx_stack_end = cast(void*)0xC0000000;
-
-    version (DigitalMars)
-    {
-    extern (C) extern (C) void _d_osx_image_init2();
-    }
 }
 
 /***********************************
@@ -299,12 +295,11 @@ alias void delegate(Throwable) ExceptionHandler;
 
 extern (C) bool rt_init(ExceptionHandler dg = null)
 {
-    version (DigitalMars) version (OSX)
-        _d_osx_image_init2();
     _d_criticalInit();
 
     try
     {
+        initSections();
         gc_init();
         initStaticDataGC();
         rt_moduleCtor();
@@ -337,6 +332,7 @@ extern (C) bool rt_term(ExceptionHandler dg = null)
         thread_joinAll();
         rt_moduleDtor();
         gc_term();
+        finiSections();
         return true;
     }
     catch (Throwable e)
@@ -413,11 +409,6 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
          * of the main thread's stack, so save the address of that.
          */
         __osx_stack_end = cast(void*)&argv;
-
-        version (DigitalMars)
-        {
-        _d_osx_image_init2();
-        }
     }
 
     version (FreeBSD) version (D_InlineAsm_X86)
@@ -618,6 +609,7 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
 
     void runAll()
     {
+        initSections();
         gc_init();
         initStaticDataGC();
         rt_moduleCtor();
@@ -630,6 +622,7 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
         thread_joinAll();
         rt_moduleDtor();
         gc_term();
+        finiSections();
     }
 
     tryExec(&runAll);

@@ -14,6 +14,7 @@ module core.thread;
 
 public import core.time; // for Duration
 static import rt.tlsgc;
+import rt.sections;
 
 // this should be true for most architectures
 version = StackGrowsDown;
@@ -124,50 +125,6 @@ version( Windows )
         extern (Windows) alias uint function(void*) btex_fptr;
         extern (C) uintptr_t _beginthreadex(void*, uint, btex_fptr, void*, uint, uint*);
 
-        version( DigitalMars )
-        {
-            version (Win32)
-            {
-                // NOTE: The memory between the addresses of _tlsstart and _tlsend
-                //       is the storage for thread-local data in D 2.0.  Both of
-                //       these are defined in dm\src\win32\tlsseg.asm by DMC.
-                extern (C)
-                {
-                    extern int _tlsstart;
-                    extern int _tlsend;
-                }
-            }
-            version (Win64)
-            {
-                // NOTE: The memory between the addresses of _tls_start and _tls_end
-                //       is the storage for thread-local data in D 2.0.  Both of
-                //       these are defined in LIBCMT:tlssub.obj
-                extern (C)
-                {
-                    extern int _tls_start;
-                    extern int _tls_end;
-                }
-                alias _tls_start _tlsstart;
-                alias _tls_end   _tlsend;
-            }
-        }
-        else version (MinGW)
-        {
-            extern (C)
-            {
-                extern int _tls_start;
-                extern int _tls_end;
-            }
-            alias _tls_start _tlsstart;
-            alias _tls_end   _tlsend;
-        }
-        else
-        {
-            __gshared int   _tlsstart;
-            alias _tlsstart _tlsend;
-        }
-
-
         //
         // Entry point for Windows threads
         //
@@ -179,10 +136,7 @@ version( Windows )
             assert( obj.m_curr is &obj.m_main );
             obj.m_main.bstack = getStackBottom();
             obj.m_main.tstack = obj.m_main.bstack;
-
-            void* pstart = cast(void*) &_tlsstart;
-            void* pend   = cast(void*) &_tlsend;
-            obj.m_tls = pstart[0 .. pend - pstart];
+            obj.m_tlsgcdata = rt.tlsgc.init();
 
             Thread.setThis( obj );
             //Thread.add( obj );
@@ -191,7 +145,6 @@ version( Windows )
                 Thread.remove( obj );
             }
             Thread.add( &obj.m_main );
-            obj.m_tlsgcdata = rt.tlsgc.init();
 
             // NOTE: No GC allocations may occur until the stack pointers have
             //       been set and Thread.getThis returns a valid reference to
@@ -277,48 +230,6 @@ else version( Posix )
             import gcc.builtins;
         }
 
-        version( DigitalMars )
-        {
-            version( linux )
-            {
-                extern (C)
-                {
-                    extern int _tlsstart;
-                    extern int _tlsend;
-                }
-            }
-            else version( OSX )
-            {
-                extern (C)
-                {
-                    __gshared void[][2] _tls_data_array;
-                }
-            }
-            else version( FreeBSD )
-            {
-                extern (C)
-                {
-                    extern void* _tlsstart;
-                    extern void* _tlsend;
-                }
-            }
-            else
-            {
-                __gshared int   _tlsstart;
-                alias _tlsstart _tlsend;
-            }
-        }
-        else version (LDC)
-        {
-            version = LDC_NoTlsBracketSyms;
-        }
-        else
-        {
-            __gshared int   _tlsstart;
-            alias _tlsstart _tlsend;
-        }
-
-
         //
         // Entry point for POSIX threads
         //
@@ -330,40 +241,7 @@ else version( Posix )
             assert( obj.m_curr is &obj.m_main );
             obj.m_main.bstack = getStackBottom();
             obj.m_main.tstack = obj.m_main.bstack;
-
-            version (LDC_NoTlsBracketSyms)
-            {
-                version (OSX)
-                {
-                    import ldc.memory;
-                    obj.m_tls = getCurrentTLSRange();
-                }
-                else
-                {
-                    // Nothing to do here for Linux – glibc allocates the TLS
-                    // data at the start of the stack area, so we scan it anyway.
-                }
-            }
-            else version(OSX)
-            {
-                // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
-                //       data output by the compiler is bracketed by _tls_data_array[2],
-                //       so make a copy of it for each thread.
-                const sz0 = (_tls_data_array[0].length + 15) & ~cast(size_t)15;
-                const sz2 = sz0 + _tls_data_array[1].length;
-                auto p = malloc( sz2 );
-                assert( p );
-                obj.m_tls = p[0 .. sz2];
-                memcpy( p, _tls_data_array[0].ptr, _tls_data_array[0].length );
-                memcpy( p + sz0, _tls_data_array[1].ptr, _tls_data_array[1].length );
-                scope (exit) { free( p ); obj.m_tls = null; }
-            }
-            else
-            {
-                auto pstart = cast(void*) &_tlsstart;
-                auto pend   = cast(void*) &_tlsend;
-                obj.m_tls = pstart[0 .. pend - pstart];
-            }
+            obj.m_tlsgcdata = rt.tlsgc.init();
 
             obj.m_isRunning = true;
             Thread.setThis( obj );
@@ -377,7 +255,6 @@ else version( Posix )
                 obj.m_isRunning = false;
             }
             Thread.add( &obj.m_main );
-            obj.m_tlsgcdata = rt.tlsgc.init();
 
             static extern (C) void thread_cleanupHandler( void* arg ) nothrow
             {
@@ -1092,41 +969,6 @@ class Thread
 
 
     /**
-     * $(RED Deprecated. It will be removed in December 2012. Please use the
-     *       version which takes a $(D Duration) instead.)
-     *
-     * Suspends the calling thread for at least the supplied period.  This may
-     * result in multiple OS calls if period is greater than the maximum sleep
-     * duration supported by the operating system.
-     *
-     * Params:
-     *  period = The minimum duration the calling thread should be suspended,
-     *           in 100 nanosecond intervals.
-     *
-     * In:
-     *  period must be non-negative.
-     *
-     * Example:
-     * ------------------------------------------------------------------------
-     *
-     * Thread.sleep( 500_000 );    // sleep for 50 milliseconds
-     * Thread.sleep( 50_000_000 ); // sleep for 5 seconds
-     *
-     * ------------------------------------------------------------------------
-     */
-    deprecated("Please use the overload of sleep which takes a Duration.")
-    static void sleep( long period )
-    in
-    {
-        assert( period >= 0 );
-    }
-    body
-    {
-        sleep( dur!"hnsecs"( period ) );
-    }
-
-
-    /**
      * Forces a context switch to occur away from the calling thread.
      */
     static void yield()
@@ -1156,30 +998,7 @@ class Thread
         // NOTE: This function may not be called until thread_init has
         //       completed.  See thread_suspendAll for more information
         //       on why this might occur.
-        version( Windows )
-        {
-            auto t = cast(Thread) TlsGetValue( sm_this );
-
-            // NOTE: If this thread was attached via thread_attachByAddr then
-            //       this TLS lookup won't initially be set, so when the TLS
-            //       lookup fails, try an exhaustive search.
-            if( t is null )
-            {
-                t = thread_findByAddr( GetCurrentThreadId() );
-                setThis( t );
-            }
-            return t;
-        }
-        else version( Posix )
-        {
-            auto t = cast(Thread) pthread_getspecific( sm_this );
-
-            // NOTE: See the comment near thread_findByAddr() for why the
-            //       secondary thread_findByAddr lookup can't be done on
-            //       Posix.  However, because thread_attachByAddr() is for
-            //       Windows only, the secondary lookup is pointless anyway.
-            return t;
-        }
+        return sm_this;
     }
 
 
@@ -1282,30 +1101,6 @@ private:
     {
         m_call = Call.NO;
         m_curr = &m_main;
-
-        version (LDC_NoTlsBracketSyms) {} else
-        version (OSX)
-        {
-            //printf("test2 %p %p\n", _tls_data_array[0].ptr, &_tls_data_array[1][length]);
-            //printf("test2 %p %p\n", &_tls_beg, &_tls_end);
-            // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
-            //       data output by the compiler is bracketed by _tls_data_array2],
-            //       so make a copy of it for each thread.
-            const sz0 = (_tls_data_array[0].length + 15) & ~cast(size_t)15;
-            const sz2 = sz0 + _tls_data_array[1].length;
-            auto p = malloc( sz2 );
-            assert( p );
-            m_tls = p[0 .. sz2];
-            memcpy( p, _tls_data_array[0].ptr, _tls_data_array[0].length );
-            memcpy( p + sz0, _tls_data_array[1].ptr, _tls_data_array[1].length );
-            // The free must happen at program end, if anywhere.
-        }
-        else
-        {
-            auto pstart = cast(void*) &_tlsstart;
-            auto pend   = cast(void*) &_tlsend;
-            m_tls = pstart[0 .. pend - pstart];
-        }
     }
 
 
@@ -1359,7 +1154,7 @@ private:
     //
     // Local storage
     //
-    __gshared TLSKey    sm_this;
+    static Thread       sm_this;
 
 
     //
@@ -1408,14 +1203,7 @@ private:
     //
     static void setThis( Thread t )
     {
-        version( Windows )
-        {
-            TlsSetValue( sm_this, cast(void*) t );
-        }
-        else version( Posix )
-        {
-            pthread_setspecific( sm_this, cast(void*) t );
-        }
+        sm_this = t;
     }
 
 
@@ -1474,7 +1262,6 @@ private:
     Context             m_main;
     Context*            m_curr;
     bool                m_lock;
-    void[]              m_tls;  // spans implicit thread local storage
     rt.tlsgc.Data*      m_tlsgcdata;
 
     version( Windows )
@@ -1764,13 +1551,13 @@ private:
 version (D_LP64)
 {
     version (Windows)
-        static assert(__traits(classInstanceSize, Thread) == 312);
+        static assert(__traits(classInstanceSize, Thread) == 296);
     else version (OSX)
-        static assert(__traits(classInstanceSize, Thread) == 320);
+        static assert(__traits(classInstanceSize, Thread) == 304);
     else version (Solaris)
-        static assert(__traits(classInstanceSize, Thread) == 176);
+        static assert(__traits(classInstanceSize, Thread) == 160);
     else version (Posix)
-        static assert(__traits(classInstanceSize, Thread) == 184);
+        static assert(__traits(classInstanceSize, Thread) == 168);
     else
             static assert(0, "Platform not supported.");
 }
@@ -1779,11 +1566,11 @@ else
     static assert((void*).sizeof == 4); // 32-bit
 
     version (Windows)
-        static assert(__traits(classInstanceSize, Thread) == 128);
+        static assert(__traits(classInstanceSize, Thread) == 120);
     else version (OSX)
-        static assert(__traits(classInstanceSize, Thread) == 128);
+        static assert(__traits(classInstanceSize, Thread) == 120);
     else version (Posix)
-        static assert(__traits(classInstanceSize, Thread) ==  92);
+        static assert(__traits(classInstanceSize, Thread) ==  84);
     else
         static assert(0, "Platform not supported.");
 }
@@ -1841,17 +1628,8 @@ extern (C) void thread_init()
     //       exist to be scanned at this point, it is sufficient for these
     //       functions to detect the condition and return immediately.
 
-    version( Windows )
+    version( OSX )
     {
-        Thread.sm_this = TlsAlloc();
-        assert( Thread.sm_this != TLS_OUT_OF_INDEXES );
-    }
-    else version( OSX )
-    {
-        int status;
-
-        status = pthread_key_create( &Thread.sm_this, null );
-        assert( status == 0 );
     }
     else version( Posix )
     {
@@ -1894,9 +1672,6 @@ extern (C) void thread_init()
         assert( status == 0 );
 
         status = sem_init( &suspendCount, 0, 0 );
-        assert( status == 0 );
-
-        status = pthread_key_create( &Thread.sm_this, null );
         assert( status == 0 );
     }
     Thread.sm_main = thread_attachThis();
@@ -1943,6 +1718,7 @@ extern (C) Thread thread_attachThis()
         thisThread.m_isRunning = true;
     }
     thisThread.m_isDaemon = true;
+    thisThread.m_tlsgcdata = rt.tlsgc.init();
     Thread.setThis( thisThread );
 
     version( OSX )
@@ -1951,35 +1727,10 @@ extern (C) Thread thread_attachThis()
         assert( thisThread.m_tmach != thisThread.m_tmach.init );
     }
 
-    version (LDC_NoTlsBracketSyms) {} else
-    version (OSX)
-    {
-        //printf("test3 %p %p\n", _tls_data_array[0].ptr, &_tls_data_array[1][length]);
-        //printf("test3 %p %p\n", &_tls_beg, &_tls_end);
-        // NOTE: OSX does not support TLS, so we do it ourselves.  The TLS
-        //       data output by the compiler is bracketed by _tls_data_array[2],
-        //       so make a copy of it for each thread.
-        const sz0 = (_tls_data_array[0].length + 15) & ~cast(size_t)15;
-        const sz2 = sz0 + _tls_data_array[1].length;
-        auto p = gc_malloc( sz2 );
-        assert( p );
-        thisThread.m_tls = p[0 .. sz2];
-        memcpy( p, _tls_data_array[0].ptr, _tls_data_array[0].length );
-        memcpy( p + sz0, _tls_data_array[1].ptr, _tls_data_array[1].length );
-        // used gc_malloc so no need to free
-    }
-    else
-    {
-        auto pstart = cast(void*) &_tlsstart;
-        auto pend   = cast(void*) &_tlsend;
-        thisThread.m_tls = pstart[0 .. pend - pstart];
-    }
-
     Thread.add( thisThread );
     Thread.add( thisContext );
     if( Thread.sm_main !is null )
         multiThreadedFlag = true;
-    thisThread.m_tlsgcdata = rt.tlsgc.init();
     return thisThread;
 }
 
@@ -2019,44 +1770,28 @@ version( Windows )
         thisContext.bstack = bstack;
         thisContext.tstack = thisContext.bstack;
 
-        if( addr == GetCurrentThreadId() )
-        {
-            thisThread.m_hndl = GetCurrentThreadHandle();
-        }
-        else
-        {
-            thisThread.m_hndl = OpenThreadHandle( addr );
-        }
-
         thisThread.m_isDaemon = true;
 
         if( addr == GetCurrentThreadId() )
         {
-            auto pstart = cast(void*) &_tlsstart;
-            auto pend   = cast(void*) &_tlsend;
-            thisThread.m_tls = pstart[0 .. pend - pstart];
+            thisThread.m_hndl = GetCurrentThreadHandle();
+            thisThread.m_tlsgcdata = rt.tlsgc.init();
             Thread.setThis( thisThread );
         }
         else
         {
-            // TODO: This seems wrong.  If we're binding threads from
-            //       a DLL, will they always have space reserved for
-            //       the TLS chunk we expect?  I don't know Windows
-            //       well enough to say.
-            auto pstart = cast(void*) &_tlsstart;
-            auto pend   = cast(void*) &_tlsend;
-            auto pos    = GetTlsDataAddress( thisThread.m_hndl );
-            if( pos ) // on x64, threads without TLS happen to exist
-                thisThread.m_tls = pos[0 .. pend - pstart];
-            else
-                thisThread.m_tls = [];
+            thisThread.m_hndl = OpenThreadHandle( addr );
+            impersonate_thread(addr,
+            {
+                thisThread.m_tlsgcdata = rt.tlsgc.init();
+                Thread.setThis( thisThread );
+            });
         }
 
         Thread.add( thisThread );
         Thread.add( thisContext );
         if( Thread.sm_main !is null )
             multiThreadedFlag = true;
-        thisThread.m_tlsgcdata = rt.tlsgc.init();
         return thisThread;
     }
 }
@@ -2731,8 +2466,6 @@ private void scanAllTypeImpl( scope ScanAllThreadsTypeFn scan, void* curStackTop
 
     for( Thread t = Thread.sm_tbeg; t; t = t.next )
     {
-        scan( ScanType.tls, t.m_tls.ptr, t.m_tls.ptr + t.m_tls.length );
-
         version( Windows )
         {
             // Ideally, we'd pass ScanType.regs or something like that, but this
@@ -2740,7 +2473,8 @@ private void scanAllTypeImpl( scope ScanAllThreadsTypeFn scan, void* curStackTop
             scan( ScanType.stack, t.m_reg.ptr, t.m_reg.ptr + t.m_reg.length );
         }
 
-        rt.tlsgc.scan(t.m_tlsgcdata, (p1, p2) => scan(ScanType.tls, p1, p2));
+        if (t.m_tlsgcdata !is null)
+            rt.tlsgc.scan(t.m_tlsgcdata, (p1, p2) => scan(ScanType.tls, p1, p2));
     }
 }
 
@@ -3347,7 +3081,8 @@ private
                 pop EBP;
 
                 // 'return' to complete switch
-                ret;
+                pop ECX;
+                jmp ECX;
             }
         }
         else version( AsmX86_64_Windows )
@@ -4657,41 +4392,5 @@ version( AsmX86_64_Posix )
 
         auto fib = new Fiber(&testStackAlignment);
         fib.call();
-    }
-}
-
-
-version (LDC) {} else
-version( OSX )
-{
-    // NOTE: The Mach-O object file format does not allow for thread local
-    //       storage declarations. So instead we roll our own by putting tls
-    //       into the sections bracketed by _tls_beg and _tls_end.
-    //
-    //       This function is called by the code emitted by the compiler.  It
-    //       is expected to translate an address into the TLS static data to
-    //       the corresponding address in the TLS dynamic per-thread data.
-    extern (D) void* ___tls_get_addr( void* p )
-    {
-        // NOTE: p is an address in the TLS static data emitted by the
-        //       compiler.  If it isn't, something is disastrously wrong.
-        auto obj = Thread.getThis();
-
-        immutable off0 = cast(size_t)(p - _tls_data_array[0].ptr);
-        if (off0 < _tls_data_array[0].length)
-        {
-            return obj.m_tls.ptr + off0;
-        }
-        immutable off1 = cast(size_t)(p - _tls_data_array[1].ptr);
-        if (off1 < _tls_data_array[1].length)
-        {
-            size_t sz = (_tls_data_array[0].length + 15) & ~cast(size_t)15;
-            return obj.m_tls.ptr + sz + off1;
-        }
-        else
-            assert(0);
-
-        //assert( p >= cast(void*) &_tls_beg && p < cast(void*) &_tls_end );
-        //return obj.m_tls.ptr + (p - cast(void*) &_tls_beg);
     }
 }

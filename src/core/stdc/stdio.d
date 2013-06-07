@@ -567,7 +567,6 @@ version( MinGW )
   // No unsafe pointer manipulation.
   extern (D) @trusted
   {
-    // TODO: Check if this is correct.
     void rewind(FILE* stream)   { fseek(stream,0L,SEEK_SET); stream._flag&=~_IOERR; }
     pure void clearerr(FILE* stream) { stream._flag &= ~(_IOERR|_IOEOF);                 }
     pure int  feof(FILE* stream)     { return stream._flag&_IOEOF;                       }
