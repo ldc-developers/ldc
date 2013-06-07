@@ -108,6 +108,7 @@ bool isArrayOpValid(Expression *e)
 
 Expression *BinExp::arrayOp(Scope *sc)
 {
+    //printf("BinExp::arrayOp() %s\n", toChars());
 
     Type *tb = type->toBasetype();
     assert(tb->ty == Tarray || tb->ty == Tsarray);
