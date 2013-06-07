@@ -17,7 +17,7 @@
 #include "lexer.h"
 
 enum TOK;
-struct DValue;
+class DValue;
 struct Loc;
 struct Type;
 namespace llvm { class Value; }

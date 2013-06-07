@@ -21,7 +21,7 @@ struct Symbol;
 struct FuncDeclaration;
 struct Blockx;
 #if IN_LLVM
-struct DValue;
+class DValue;
 typedef DValue elem;
 #else
 struct elem;

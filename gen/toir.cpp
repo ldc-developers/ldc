@@ -215,7 +215,7 @@ DValue* VarExp::toElem(IRState* p)
 
             if (isGlobal)
             {
-                llvm::Type* expectedType = DtoType(type->pointerTo());
+                llvm::Type* expectedType = llvm::PointerType::getUnqual(i1ToI8(DtoType(type)));
                 // The type of globals is determined by their initializer, so
                 // we might need to cast. Make sure that the type sizes fit -
                 // '==' instead of '<=' should probably work as well.
@@ -438,7 +438,7 @@ DValue* StringExp::toElem(IRState* p)
     Type* dtype = type->toBasetype();
     Type* cty = dtype->nextOf()->toBasetype();
 
-    LLType* ct = DtoTypeNotVoid(cty);
+    LLType* ct = voidToI8(DtoType(cty));
     //printf("ct = %s\n", type->nextOf()->toChars());
     LLArrayType* at = LLArrayType::get(ct,len+1);
 
@@ -496,7 +496,7 @@ LLConstant* StringExp::toConstElem(IRState* p)
     bool nullterm = (t->ty != Tsarray);
     size_t endlen = nullterm ? len+1 : len;
 
-    LLType* ct = DtoTypeNotVoid(cty);
+    LLType* ct = voidToI8(DtoType(cty));
     LLArrayType* at = LLArrayType::get(ct,endlen);
 
     LLConstant* _init;
@@ -2496,7 +2496,7 @@ DValue* CondExp::toElem(IRState* p)
         LLValue* resval = DtoAlloca(dtype,"condtmp");
         dvv = new DVarValue(type, resval);
     } else {
-        dvv = new DConstValue(type, getNullValue(DtoTypeNotVoid(dtype)));
+        dvv = new DConstValue(type, getNullValue(voidToI8(DtoType(dtype))));
     }
 
     llvm::BasicBlock* oldend = p->scopeend();
@@ -2726,7 +2726,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         Logger::cout() << (dyn?"dynamic":"static") << " array literal with length " << len << " of D type: '" << arrayType->toChars() << "' has llvm type: '" << *llType << "'\n";
 
     // llvm storage type
-    LLType* llElemType = DtoTypeNotVoid(elemType);
+    LLType* llElemType = voidToI8(DtoType(elemType));
     LLType* llStoType = LLArrayType::get(llElemType, len);
     if (Logger::enabled())
         Logger::cout() << "llvm storage type: '" << *llStoType << "'\n";
@@ -2785,7 +2785,7 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     Type* elemt = bt->nextOf();
 
     // build llvm array type
-    LLArrayType* arrtype = LLArrayType::get(DtoTypeNotVoid(elemt), elements->dim);
+    LLArrayType* arrtype = LLArrayType::get(i1ToI8(voidToI8(DtoType(elemt))), elements->dim);
 
     // dynamic arrays can occur here as well ...
     bool dyn = (bt->ty != Tsarray);
@@ -3190,7 +3190,7 @@ DValue* TupleExp::toElem(IRState *p)
     for (size_t i = 0; i < exps->dim; i++)
     {
         Expression *el = static_cast<Expression *>(exps->data[i]);
-        types.push_back(DtoTypeNotVoid(el->type));
+        types.push_back(voidToI8(DtoType(el->type)));
     }
     LLValue *val = DtoRawAlloca(LLStructType::get(gIR->context(), types),0, "tuple");
     for (size_t i = 0; i < exps->dim; i++)

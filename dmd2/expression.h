@@ -72,7 +72,7 @@ struct elem;
 
 #if IN_LLVM
 struct IRState;
-struct DValue;
+class DValue;
 namespace llvm {
     class Constant;
     class ConstantInt;

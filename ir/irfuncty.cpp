@@ -96,5 +96,5 @@ void IrFuncTy::getParam(Type* dty, size_t idx, DValue* val, llvm::Value* lval)
         return;
     }
 
-    DtoStore(val->getRVal(), lval);
+    DtoStoreZextI8(val->getRVal(), lval);
 }

@@ -169,7 +169,7 @@ void IrTypeClass::addBaseClassData(
         }
 
         // add default type
-        defaultTypes.push_back(DtoType(vd->type));
+        defaultTypes.push_back(DtoType(vd->type)); // @@@ i1ToI8?!
 
         // advance offset to right past this field
         offset = vd->offset + vd->type->size();

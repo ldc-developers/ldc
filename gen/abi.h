@@ -28,7 +28,7 @@
 struct Type;
 struct TypeFunction;
 struct IrFuncTyArg;
-struct DValue;
+class DValue;
 
 namespace llvm
 {

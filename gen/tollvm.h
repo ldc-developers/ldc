@@ -25,9 +25,8 @@
 
 // D->LLVM type handling stuff
 LLType* DtoType(Type* t);
-
-// same as DtoType except it converts 'void' to 'i8'
-LLType* DtoTypeNotVoid(Type* t);
+LLType* voidToI8(LLType* t);
+LLType* i1ToI8(LLType* t);
 
 // returns true is the type must be passed by pointer
 bool DtoIsPassedByRef(Type* type);
@@ -82,6 +81,7 @@ LLConstant* DtoConstBool(bool);
 LLValue* DtoLoad(LLValue* src, const char* name=0);
 LLValue* DtoAlignedLoad(LLValue* src, const char* name=0);
 void DtoStore(LLValue* src, LLValue* dst);
+void DtoStoreZextI8(LLValue* src, LLValue* dst);
 void DtoAlignedStore(LLValue* src, LLValue* dst);
 LLValue* DtoBitCast(LLValue* v, LLType* t, const char* name=0);
 LLConstant* DtoBitCast(LLConstant* v, LLType* t);
