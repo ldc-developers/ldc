@@ -1059,7 +1059,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
                 if (lazy)
                     argt = irparam->value->getType();
                 else
-                    argt = DtoType(vd->type);
+                    argt = i1ToI8(DtoType(vd->type));
                 LLValue* mem = DtoRawAlloca(argt, 0, vd->ident->toChars());
 
                 // let the abi transform the argument back first

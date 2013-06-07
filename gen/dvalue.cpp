@@ -18,18 +18,36 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
+static bool checkVarValueType(LLType* t, bool extraDeref)
+{
+    if (extraDeref)
+    {
+        llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t);
+        if (!pt) return false;
+
+        t = pt->getElementType();
+    }
+
+    llvm::PointerType* pt = llvm::dyn_cast<llvm::PointerType>(t);
+    if (!pt) return false;
+
+    // bools should not be stored as i1 any longer.
+    if (pt->getElementType() == llvm::Type::getInt1Ty(gIR->context()))
+        return false;
+
+    return true;
+}
+
 DVarValue::DVarValue(Type* t, VarDeclaration* vd, LLValue* llvmValue)
 : DValue(t), var(vd), val(llvmValue)
 {
-    assert(isaPointer(llvmValue));
-    assert(!isSpecialRefVar(vd) ||
-        isaPointer(isaPointer(llvmValue)->getElementType()));
+    assert(checkVarValueType(llvmValue->getType(), isSpecialRefVar(vd)));
 }
 
 DVarValue::DVarValue(Type* t, LLValue* llvmValue)
 : DValue(t), var(0), val(llvmValue)
 {
-    assert(isaPointer(llvmValue));
+    assert(checkVarValueType(llvmValue->getType(), false));
 }
 
 LLValue* DVarValue::getLVal()
@@ -43,15 +61,24 @@ LLValue* DVarValue::getLVal()
 LLValue* DVarValue::getRVal()
 {
     assert(val);
-    Type* bt = type->toBasetype();
 
-    LLValue* tmp = val;
+    llvm::Value* storage = val;
     if (var && isSpecialRefVar(var))
-        tmp = DtoLoad(tmp);
+        storage = DtoLoad(storage);
 
-    if (DtoIsPassedByRef(bt))
-        return tmp;
-    return DtoLoad(tmp);
+    if (DtoIsPassedByRef(type->toBasetype()))
+        return storage;
+
+    llvm::Value* rawValue = DtoLoad(storage);
+
+    if (type->toBasetype()->ty == Tbool)
+    {
+        assert(rawValue->getType() == llvm::Type::getInt8Ty(gIR->context()));
+        return gIR->ir->CreateTrunc(rawValue,
+            llvm::Type::getInt1Ty(gIR->context()));
+    }
+
+    return rawValue;
 }
 
 LLValue* DVarValue::getRefStorage()

@@ -17,7 +17,7 @@
 #include "lexer.h"
 #include <vector>
 
-struct DValue;
+class DValue;
 struct StructDeclaration;
 struct StructInitializer;
 struct Type;

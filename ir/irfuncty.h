@@ -26,7 +26,7 @@
 
 #include <vector>
 
-struct DValue;
+class DValue;
 struct ABIRewrite;
 namespace llvm {
     class Type;

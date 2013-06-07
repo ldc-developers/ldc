@@ -246,7 +246,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     {
         Expression* argexp = static_cast<Expression*>(arguments->data[i]);
         LLValue* argdst = DtoGEPi(mem,0,k);
-        argdst = DtoBitCast(argdst, getPtrToType(DtoType(argexp->type)));
+        argdst = DtoBitCast(argdst, getPtrToType(i1ToI8(DtoType(argexp->type))));
         DtoVariadicArgument(argexp, argdst);
     }
 
