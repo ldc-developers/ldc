@@ -4990,7 +4990,6 @@ SymOffExp::SymOffExp(Loc loc, Declaration *var, unsigned offset, int hasOverload
     : SymbolExp(loc, TOKsymoff, sizeof(SymOffExp), var, hasOverloads)
 {
     this->offset = offset;
-    m = NULL;
     VarDeclaration *v = var->isVarDeclaration();
     if (v && v->needThis())
         error("need 'this' for address of %s", v->toChars());
@@ -5002,7 +5001,6 @@ Expression *SymOffExp::semantic(Scope *sc)
     printf("SymOffExp::semantic('%s')\n", toChars());
 #endif
     //var->semantic(sc);
-    m = sc->module;
     if (!type)
         type = var->type->pointerTo();
     VarDeclaration *v = var->isVarDeclaration();
@@ -7485,7 +7483,6 @@ Expression *DelegateExp::semantic(Scope *sc)
 #endif
     if (!type)
     {
-        m = sc->module;
         e1 = e1->semantic(sc);
 #if IN_LLVM
         // LDC we need a copy as we store the LLVM type in TypeFunction,
@@ -8577,9 +8574,6 @@ void CallExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 AddrExp::AddrExp(Loc loc, Expression *e)
         : UnaExp(loc, TOKaddress, sizeof(AddrExp), e)
 {
-#if IN_LLVM
-    m = NULL;
-#endif
 }
 
 Expression *AddrExp::semantic(Scope *sc)
@@ -8589,9 +8583,6 @@ Expression *AddrExp::semantic(Scope *sc)
 #endif
     if (!type)
     {
-#if IN_LLVM
-        m = sc->module;
-#endif
         UnaExp::semantic(sc);
         Expression *olde1 = e1;
         if (e1->type == Type::terror)

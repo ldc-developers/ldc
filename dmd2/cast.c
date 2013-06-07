@@ -669,7 +669,7 @@ MATCH AddrExp::implicitConvTo(Type *t)
             {   Dsymbol *s = eo->vars->a[i];
                 FuncDeclaration *f2 = s->isFuncDeclaration();
                 assert(f2);
-                if (f2->overloadExactMatch(t->nextOf(), m))
+                if (f2->overloadExactMatch(t->nextOf()))
                 {   if (f)
                         /* Error if match in more than one overload set,
                          * even if one is a 'better' match than the other.
@@ -695,7 +695,7 @@ MATCH AddrExp::implicitConvTo(Type *t)
 #endif
             VarExp *ve = (VarExp *)e1;
             FuncDeclaration *f = ve->var->isFuncDeclaration();
-            if (f && f->overloadExactMatch(t->nextOf(), m))
+            if (f && f->overloadExactMatch(t->nextOf()))
                 result = MATCHexact;
         }
     }
@@ -725,7 +725,7 @@ MATCH SymOffExp::implicitConvTo(Type *t)
         {
             f = var->isFuncDeclaration();
             if (f)
-            {    f = f->overloadExactMatch(t->nextOf(), m);
+            {   f = f->overloadExactMatch(t->nextOf());
                 if (f)
                 {   if ((t->ty == Tdelegate && (f->needThis() || f->isNested())) ||
                         (t->ty == Tpointer && !(f->needThis() || f->isNested())))
@@ -758,7 +758,7 @@ MATCH DelegateExp::implicitConvTo(Type *t)
         if (type->ty == Tdelegate &&
             t->ty == Tdelegate)
         {
-            if (func && func->overloadExactMatch(t->nextOf(), m))
+            if (func && func->overloadExactMatch(t->nextOf()))
                 result = MATCHexact;
         }
     }
@@ -1422,7 +1422,7 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
             {   Dsymbol *s = eo->vars->a[i];
                 FuncDeclaration *f2 = s->isFuncDeclaration();
                 assert(f2);
-                if (f2->overloadExactMatch(t->nextOf(), m))
+                if (f2->overloadExactMatch(t->nextOf()))
                 {   if (f)
                         /* Error if match in more than one overload set,
                          * even if one is a 'better' match than the other.
@@ -1435,7 +1435,7 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
 #if IN_LLVM
             if (f)
             {
-                f = f->overloadExactMatch(tb->nextOf(), m);
+                f = f->overloadExactMatch(tb->nextOf());
                 if (f)
                 {
                     if (tb->ty == Tdelegate)
@@ -1495,7 +1495,7 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
 #if !IN_LLVM
                 assert(0);      // should be SymOffExp instead
 #endif
-                f = f->overloadExactMatch(tb->nextOf(), m);
+                f = f->overloadExactMatch(tb->nextOf());
                 if (f)
                 {
                     e = new VarExp(loc, f);
@@ -1652,7 +1652,7 @@ Expression *SymOffExp::castTo(Scope *sc, Type *t)
             f = var->isFuncDeclaration();
             if (f)
             {
-                f = f->overloadExactMatch(tb->nextOf(), m);
+                f = f->overloadExactMatch(tb->nextOf());
                 if (f)
                 {
                     if (tb->ty == Tdelegate)
@@ -1719,7 +1719,7 @@ Expression *DelegateExp::castTo(Scope *sc, Type *t)
         {
             if (func)
             {
-                f = func->overloadExactMatch(tb->nextOf(), m);
+                f = func->overloadExactMatch(tb->nextOf());
                 if (f)
                 {   int offset;
                     if (f->tintro && f->tintro->nextOf()->isBaseOf(f->type->nextOf(), &offset) && offset)

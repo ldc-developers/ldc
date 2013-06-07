@@ -13,10 +13,10 @@
 #include <ctype.h>
 #include <assert.h>
 #include <string.h>                     // memset()
-#if _MSC_VER
+#if _MSC_VER || IN_LLVM // complex.h breaks LLVM headers.
 #include <complex>
 #else
-#include <complex>
+#include <complex.h>
 #endif
 
 #ifdef __APPLE__
@@ -35,7 +35,6 @@
 #include "declaration.h"
 #include "aggregate.h"
 #include "template.h"
-#include "scope.h"
 
 static Dsymbol *inferApplyArgTypesX(Expression *ethis, FuncDeclaration *fstart, Parameters *arguments);
 static void inferApplyArgTypesZ(TemplateDeclaration *tstart, Parameters *arguments);
@@ -538,7 +537,7 @@ Expression *BinExp::op_overload(Scope *sc)
             FuncDeclaration *fd = s->isFuncDeclaration();
             if (fd)
             {
-		overloadResolveX(&m, fd, NULL, &args2, sc->module);
+                overloadResolveX(&m, fd, NULL, &args2);
             }
             else
             {   TemplateDeclaration *td = s->isTemplateDeclaration();
@@ -553,7 +552,7 @@ Expression *BinExp::op_overload(Scope *sc)
             FuncDeclaration *fd = s_r->isFuncDeclaration();
             if (fd)
             {
-		overloadResolveX(&m, fd, NULL, &args1, sc->module);
+                overloadResolveX(&m, fd, NULL, &args1);
             }
             else
             {   TemplateDeclaration *td = s_r->isTemplateDeclaration();
@@ -631,7 +630,7 @@ L1:
                 FuncDeclaration *fd = s_r->isFuncDeclaration();
                 if (fd)
                 {
-		    overloadResolveX(&m, fd, NULL, &args2, sc->module);
+                    overloadResolveX(&m, fd, NULL, &args2);
                 }
                 else
                 {   TemplateDeclaration *td = s_r->isTemplateDeclaration();
@@ -645,7 +644,7 @@ L1:
                 FuncDeclaration *fd = s->isFuncDeclaration();
                 if (fd)
                 {
-		    overloadResolveX(&m, fd, NULL, &args1, sc->module);
+                    overloadResolveX(&m, fd, NULL, &args1);
                 }
                 else
                 {   TemplateDeclaration *td = s->isTemplateDeclaration();
@@ -794,7 +793,7 @@ Expression *BinExp::compare_overload(Scope *sc, Identifier *id)
             FuncDeclaration *fd = s->isFuncDeclaration();
             if (fd)
             {
-                overloadResolveX(&m, fd, NULL, &args2, sc->module);
+                overloadResolveX(&m, fd, NULL, &args2);
             }
             else
             {   TemplateDeclaration *td = s->isTemplateDeclaration();
@@ -810,7 +809,7 @@ Expression *BinExp::compare_overload(Scope *sc, Identifier *id)
             FuncDeclaration *fd = s_r->isFuncDeclaration();
             if (fd)
             {
-                overloadResolveX(&m, fd, NULL, &args1, sc->module);
+                overloadResolveX(&m, fd, NULL, &args1);
             }
             else
             {   TemplateDeclaration *td = s_r->isTemplateDeclaration();
@@ -1108,7 +1107,7 @@ Expression *BinAssignExp::op_overload(Scope *sc)
             FuncDeclaration *fd = s->isFuncDeclaration();
             if (fd)
             {
-                overloadResolveX(&m, fd, NULL, &args2, sc->module);
+                overloadResolveX(&m, fd, NULL, &args2);
             }
             else
             {   TemplateDeclaration *td = s->isTemplateDeclaration();

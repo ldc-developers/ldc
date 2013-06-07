@@ -574,13 +574,13 @@ void TypeInfoDelegateDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-static FuncDeclaration* find_method_overload(AggregateDeclaration* ad, Identifier* id, TypeFunction* tf, Module* mod)
+static FuncDeclaration* find_method_overload(AggregateDeclaration* ad, Identifier* id, TypeFunction* tf)
 {
     Dsymbol *s = search_function(ad, id);
     FuncDeclaration *fdx = s ? s->isFuncDeclaration() : NULL;
     if (fdx)
     {
-        FuncDeclaration *fd = fdx->overloadExactMatch(tf, mod);
+        FuncDeclaration *fd = fdx->overloadExactMatch(tf);
         if (fd)
         {
             return fd;
@@ -656,10 +656,9 @@ void TypeInfoStructDeclaration::llvmDefine()
     }
 
     // well use this module for all overload lookups
-    Module *gm = getModule();
 
     // toHash
-    FuncDeclaration* fd = find_method_overload(sd, Id::tohash, tftohash, gm);
+    FuncDeclaration* fd = find_method_overload(sd, Id::tohash, tftohash);
     b.push_funcptr(fd);
 
     // opEquals
@@ -667,11 +666,11 @@ void TypeInfoStructDeclaration::llvmDefine()
     b.push_funcptr(fd);
 
     // opCmp
-    fd = find_method_overload(sd, Id::cmp, tfcmpptr, gm);
+    fd = find_method_overload(sd, Id::cmp, tfcmpptr);
     b.push_funcptr(fd);
 
     // toString
-    fd = find_method_overload(sd, Id::tostring, tftostring, gm);
+    fd = find_method_overload(sd, Id::tostring, tftostring);
     b.push_funcptr(fd);
 
     // uint m_flags;
