@@ -131,7 +131,7 @@ int execute(ls::Path exePath, const char** args)
         0, 0, &errorMsg);
     if (!errorMsg.empty())
     {
-        error("Could not execute %s: %s", exePath.c_str(), errorMsg.c_str());
+        error("Error executing %s: %s", exePath.c_str(), errorMsg.c_str());
     }
     return rc;
 }
