@@ -124,7 +124,7 @@ struct Match
 };
 
 void overloadResolveX(Match *m, FuncDeclaration *f,
-        Expression *ethis, Expressions *arguments, Module* from);
+        Expression *ethis, Expressions *arguments);
 int overloadApply(FuncDeclaration *fstart,
         int (*fp)(void *, FuncDeclaration *),
         void *param);
@@ -851,8 +851,8 @@ struct FuncDeclaration : Declaration
     int overrides(FuncDeclaration *fd);
     int findVtblIndex(Dsymbols *vtbl, int dim);
     int overloadInsert(Dsymbol *s);
-    FuncDeclaration *overloadExactMatch(Type *t, Module* from);
-    FuncDeclaration *overloadResolve(Loc loc, Expression *ethis, Expressions *arguments, int flags = 0, Module* from=NULL);
+    FuncDeclaration *overloadExactMatch(Type *t);
+    FuncDeclaration *overloadResolve(Loc loc, Expression *ethis, Expressions *arguments, int flags = 0);
     MATCH leastAsSpecialized(FuncDeclaration *g);
     LabelDsymbol *searchLabel(Identifier *ident);
     AggregateDeclaration *isThis();

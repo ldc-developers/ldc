@@ -513,7 +513,7 @@ void FuncDeclaration::semantic(Scope *sc)
                     if (s)
                     {
                         FuncDeclaration *f = s->isFuncDeclaration();
-                        f = f->overloadExactMatch(type, getModule());
+                        f = f->overloadExactMatch(type);
                         if (f && f->isFinal() && f->prot() != PROTprivate)
                             error("cannot override final function %s", f->toPrettyChars());
                     }
@@ -724,7 +724,7 @@ void FuncDeclaration::semantic(Scope *sc)
                     FuncDeclaration *f = s->isFuncDeclaration();
                     if (f)
                     {
-                        f = f->overloadExactMatch(type, getModule());
+                        f = f->overloadExactMatch(type);
                         if (f && f->isFinal() && f->prot() != PROTprivate)
                             error("cannot override final function %s.%s", b->base->toChars(), f->toPrettyChars());
                     }
@@ -2599,7 +2599,7 @@ int fp1(void *param, FuncDeclaration *f)
     return 0;
 }
 
-FuncDeclaration *FuncDeclaration::overloadExactMatch(Type *t, Module* from)
+FuncDeclaration *FuncDeclaration::overloadExactMatch(Type *t)
 {
     Param1 p;
     p.t = t;
@@ -2719,7 +2719,7 @@ int fp2(void *param, FuncDeclaration *f)
 
 
 void overloadResolveX(Match *m, FuncDeclaration *fstart,
-        Expression *ethis, Expressions *arguments, Module* from)
+        Expression *ethis, Expressions *arguments)
 {
     Param2 p;
     p.m = m;
@@ -2752,7 +2752,7 @@ static void MODMatchToBuffer(OutBuffer *buf, unsigned char lhsMod, unsigned char
         buf->writestring("mutable ");
 }
 
-FuncDeclaration *FuncDeclaration::overloadResolve(Loc loc, Expression *ethis, Expressions *arguments, int flags, Module* from)
+FuncDeclaration *FuncDeclaration::overloadResolve(Loc loc, Expression *ethis, Expressions *arguments, int flags)
 {
     TypeFunction *tf;
     Match m;
@@ -2775,7 +2775,7 @@ if (arguments)
 
     memset(&m, 0, sizeof(m));
     m.last = MATCHnomatch;
-    overloadResolveX(&m, this, ethis, arguments, from);
+    overloadResolveX(&m, this, ethis, arguments);
 
     if (m.count == 1)           // exactly one match
     {
