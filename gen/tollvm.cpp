@@ -545,8 +545,6 @@ void DtoMemSetZero(LLValue* dst, LLValue* nbytes)
 
 void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes, unsigned align)
 {
-    assert (src != dst && "src and dst of memcpy must be different");
-
     LLType* VoidPtrTy = getVoidPtrType();
 
     dst = DtoBitCast(dst, VoidPtrTy);
