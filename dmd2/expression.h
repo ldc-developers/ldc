@@ -753,12 +753,11 @@ struct SymOffExp : SymbolExp
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
 
-#if IN_DMD
-    dt_t **toDt(dt_t **pdt);
-#endif
-
 #if IN_LLVM
     DValue* toElem(IRState* irs);
+    llvm::Constant* toConstElem(IRState* irs);
+#else
+    dt_t **toDt(dt_t **pdt);
 #endif
 };
 

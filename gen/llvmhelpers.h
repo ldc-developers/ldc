@@ -24,6 +24,7 @@
 // this is used for tracking try-finally, synchronized and volatile scopes
 struct EnclosingHandler
 {
+    virtual ~EnclosingHandler() {}
     virtual void emitCode(IRState* p) = 0;
 };
 struct EnclosingTryFinally : EnclosingHandler
@@ -87,6 +88,9 @@ void DtoLeaveMonitor(LLValue* v);
 
 // basic operations
 void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op = -1, bool canSkipPostblit = false);
+
+DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl);
+llvm::Constant* DtoConstSymbolAddress(const Loc& loc,Declaration* decl);
 
 /// Create a null DValue.
 DValue* DtoNullValue(Type* t);

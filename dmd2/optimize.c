@@ -320,8 +320,6 @@ Expression *AddrExp::optimize(int result, bool keepLvalue)
 {   Expression *e;
 
     //printf("AddrExp::optimize(result = %d) %s\n", result, toChars());
-    // LDC never try to interpret: it could change the semantics by turning
-    // const p = &s; into an something like const p = &(Struct());
 
     /* Rewrite &(a,b) as (a,&b)
      */
@@ -331,35 +329,13 @@ Expression *AddrExp::optimize(int result, bool keepLvalue)
         ae->type = type;
         e = new CommaExp(ce->loc, ce->e1, ae);
         e->type = type;
-        return e->optimize(result & ~WANTinterpret);
+        return e->optimize(result);
     }
-
-#if IN_LLVM
-    if (e1->op == TOKindex)
-    {
-        IndexExp *ae = (IndexExp *)e1;
-
-        if (ae->e2->op == TOKint64 && ae->e1->op == TOKvar)
-        {
-            dinteger_t index = ae->e2->toInteger();
-            VarExp *ve = (VarExp *)ae->e1;
-            if (ve->type->ty == Tsarray
-                && !ve->var->isImportedSymbol())
-            {
-                TypeSArray *ts = (TypeSArray *)ve->type;
-                dinteger_t dim = ts->dim->toInteger();
-                if (index < 0 || index >= dim)
-                    error("array index %jd is out of bounds [0..%jd]", index, dim);
-                return this;
-            }
-        }
-    }
-#endif
 
     if (e1->op == TOKvar)
     {   VarExp *ve = (VarExp *)e1;
         if (ve->var->storage_class & STCmanifest)
-            e1 = e1->optimize(result & ~WANTinterpret);
+            e1 = e1->optimize(result);
     }
     else
         e1 = e1->optimize(result);
@@ -378,7 +354,6 @@ Expression *AddrExp::optimize(int result, bool keepLvalue)
         }
         return e;
     }
-#if !IN_LLVM
     if (e1->op == TOKvar)
     {   VarExp *ve = (VarExp *)e1;
         if (!ve->var->isOut() && !ve->var->isRef() &&
@@ -410,7 +385,6 @@ Expression *AddrExp::optimize(int result, bool keepLvalue)
             }
         }
     }
-#endif
     return this;
 }
 
@@ -617,13 +591,6 @@ Expression *CastExp::optimize(int result, bool keepLvalue)
     enum TOK op1 = e1->op;
 #define X 0
 
-#if IN_LLVM
-    if (type->toBasetype()->ty == Tpointer &&
-        e1->type->toBasetype()->ty == Tsarray)
-    {
-        return this;
-    }
-#endif
     Expression *e1old = e1;
     e1 = e1->optimize(result);
     e1 = fromConstInitializer(result, e1);

@@ -110,162 +110,7 @@ DValue* VarExp::toElem(IRState* p)
         return new DVarValue(type, V);
     }
 
-    if (VarDeclaration* vd = var->isVarDeclaration())
-    {
-        Logger::println("VarDeclaration ' %s ' of type ' %s '", vd->toChars(), vd->type->toChars());
-
-        /* The magic variable __ctfe is always false at runtime
-         */
-        if (vd->ident == Id::ctfe) {
-            return new DConstValue(type, DtoConstBool(false));
-        }
-
-        // this is an error! must be accessed with DotVarExp
-        if (var->needThis())
-        {
-            error("need 'this' to access member %s", toChars());
-            fatal();
-        }
-
-        // _arguments
-        if (vd->ident == Id::_arguments && p->func()->_arguments)
-        {
-            Logger::println("Id::_arguments");
-            LLValue* v = p->func()->_arguments;
-            return new DVarValue(type, vd, v);
-        }
-        // _argptr
-        else if (vd->ident == Id::_argptr && p->func()->_argptr)
-        {
-            Logger::println("Id::_argptr");
-            LLValue* v = p->func()->_argptr;
-            return new DVarValue(type, vd, v);
-        }
-        // _dollar
-        else if (vd->ident == Id::dollar)
-        {
-            Logger::println("Id::dollar");
-            LLValue* val = 0;
-            if (vd->ir.isSet() && (val = vd->ir.getIrValue())) {
-                // It must be length of a range
-                return new DVarValue(type, vd, val);
-            }
-            assert(!p->arrays.empty());
-            val = DtoArrayLen(p->arrays.back());
-            return new DImValue(type, val);
-        }
-        // classinfo
-        else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
-        {
-            Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
-            cid->cd->codegen(Type::sir);;
-            return new DVarValue(type, vd, cid->cd->ir.irStruct->getClassInfoSymbol());
-        }
-        // typeinfo
-        else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
-        {
-            Logger::println("TypeInfoDeclaration");
-            tid->codegen(Type::sir);
-            assert(tid->ir.getIrValue());
-            LLType* vartype = DtoType(type);
-            LLValue* m = tid->ir.getIrValue();
-            if (m->getType() != getPtrToType(vartype))
-                m = p->ir->CreateBitCast(m, vartype, "tmp");
-            return new DImValue(type, m);
-        }
-        // nested variable
-        else if (vd->nestedrefs.dim) {
-            Logger::println("nested variable");
-            return DtoNestedVariable(loc, type, vd);
-        }
-        // function parameter
-        else if (vd->isParameter()) {
-            Logger::println("function param");
-            Logger::println("type: %s", vd->type->toChars());
-            FuncDeclaration* fd = vd->toParent2()->isFuncDeclaration();
-            if (fd && fd != p->func()->decl) {
-                Logger::println("nested parameter");
-                return DtoNestedVariable(loc, type, vd);
-            }
-            else if (vd->storage_class & STClazy) {
-                Logger::println("lazy parameter");
-                assert(type->ty == Tdelegate);
-                return new DVarValue(type, vd->ir.getIrValue());
-            }
-            else if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(vd->ir.getIrValue())) {
-                return new DVarValue(type, vd, vd->ir.getIrValue());
-            }
-            else if (llvm::isa<llvm::Argument>(vd->ir.getIrValue())) {
-                return new DImValue(type, vd->ir.getIrValue());
-            }
-            else llvm_unreachable("Unexpected parameter value.");
-        }
-        else {
-            Logger::println("a normal variable");
-
-            // take care of forward references of global variables
-            const bool isGlobal = vd->isDataseg() || (vd->storage_class & STCextern);
-            if (isGlobal)
-                vd->codegen(Type::sir);
-
-            assert(vd->ir.isSet() && "Variable not resolved.");
-
-            llvm::Value* val = vd->ir.getIrValue();
-            assert(val && "Variable value not set yet.");
-
-            if (isGlobal)
-            {
-                llvm::Type* expectedType = llvm::PointerType::getUnqual(i1ToI8(DtoType(type)));
-                // The type of globals is determined by their initializer, so
-                // we might need to cast. Make sure that the type sizes fit -
-                // '==' instead of '<=' should probably work as well.
-                if (val->getType() != expectedType)
-                {
-                    llvm::Type* t = llvm::cast<llvm::PointerType>(val->getType())->getElementType();
-                    assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(t) &&
-                        "Global type mismatch, encountered type too small.");
-                    val = DtoBitCast(val, expectedType);
-                }
-            }
-
-            return new DVarValue(type, vd, val);
-        }
-    }
-    else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
-    {
-        Logger::println("FuncDeclaration");
-        LLValue* func = 0;
-        fdecl = fdecl->toAliasFunc();
-        if (fdecl->llvmInternal == LLVMinline_asm) {
-            error("special ldc inline asm is not a normal function");
-            fatal();
-        }
-        else if (fdecl->llvmInternal != LLVMva_arg) {
-            fdecl->codegen(Type::sir);
-            func = fdecl->ir.irFunc->func;
-        }
-        return new DFuncValue(fdecl, func);
-    }
-    else if (StaticStructInitDeclaration* sdecl = var->isStaticStructInitDeclaration())
-    {
-        // this seems to be the static initialiser for structs
-        Type* sdecltype = sdecl->type->toBasetype();
-        Logger::print("Sym: type=%s\n", sdecltype->toChars());
-        assert(sdecltype->ty == Tstruct);
-        TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
-        assert(ts->sym);
-        ts->sym->codegen(Type::sir);
-
-        LLValue* initsym = ts->sym->ir.irStruct->getInitSymbol();
-        initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
-        return new DVarValue(type, initsym);
-    }
-    else
-    {
-        llvm_unreachable("Unimplemented VarExp type");
-    }
-
-    return 0;
+    return DtoSymbolAddress(loc, type, var);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -682,14 +527,24 @@ static void errorOnIllegalArrayOp(Expression* base, Expression* e1, Expression* 
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+static dinteger_t undoStrideMul(const Loc& loc, Type* t, dinteger_t offset)
+{
+    assert(t->ty == Tpointer);
+    d_uns64 elemSize = t->nextOf()->size(loc);
+    assert((offset % elemSize) == 0 &&
+        "Expected offset by an integer amount of elements");
+
+    return offset / elemSize;
+}
+
 LLConstant* AddExp::toConstElem(IRState* p)
 {
     // add to pointer
-    if (e1->type->ty == Tpointer && e2->type->isintegral()) {
-        LLConstant *ptr = e1->toConstElem(p);
-        LLConstant *index = e2->toConstElem(p);
-        ptr = llvm::ConstantExpr::getGetElementPtr(ptr, llvm::makeArrayRef(&index, 1));
-        return ptr;
+    Type* t1b = e1->type->toBasetype();
+    if (t1b->ty == Tpointer && e2->type->isintegral()) {
+        llvm::Constant* ptr = e1->toConstElem(p);
+        dinteger_t idx = undoStrideMul(loc, t1b, e2->toInteger());
+        return llvm::ConstantExpr::getGetElementPtr(ptr, DtoConstSize_t(idx));
     }
 
     error("expression '%s' is not a constant", toChars());
@@ -697,7 +552,77 @@ LLConstant* AddExp::toConstElem(IRState* p)
     return NULL;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
+/// Tries to remove a MulExp by a constant value of baseSize from e. Returns
+/// NULL if not possible.
+static Expression* extractNoStrideInc(Expression* e, d_uns64 baseSize, bool& negate)
+{
+    MulExp* mul;
+    while (true)
+    {
+        if (e->op == TOKneg)
+        {
+            negate = !negate;
+            e = static_cast<NegExp*>(e)->e1;
+            continue;
+        }
+
+        if (e->op == TOKmul)
+        {
+            mul = static_cast<MulExp*>(e);
+            break;
+        }
+
+        return NULL;
+    }
+
+    if (!mul->e2->isConst()) return NULL;
+    dinteger_t stride = mul->e2->toInteger();
+
+    if (stride != baseSize) return NULL;
+
+    return mul->e1;
+}
+
+static DValue* emitPointerOffset(IRState* p, Loc loc, DValue* base,
+    Expression* offset, bool negateOffset, Type* resultType)
+{
+    // The operand emitted by the frontend is in units of bytes, and not
+    // pointer elements. We try to undo this before resorting to
+    // temporarily bitcasting the pointer to i8.
+
+    llvm::Value* noStrideInc = NULL;
+    if (offset->isConst())
+    {
+        dinteger_t byteOffset = offset->toInteger();
+        if (byteOffset == 0)
+        {
+            Logger::println("offset is zero");
+            return base;
+        }
+        noStrideInc = DtoConstSize_t(undoStrideMul(loc, base->type, byteOffset));
+    }
+    else if (Expression* inc = extractNoStrideInc(offset,
+        base->type->nextOf()->size(loc), negateOffset))
+    {
+        noStrideInc = inc->toElem(p)->getRVal();
+    }
+
+    if (noStrideInc)
+    {
+        if (negateOffset) noStrideInc = p->ir->CreateNeg(noStrideInc);
+        return new DImValue(base->type,
+            DtoGEP1(base->getRVal(), noStrideInc, 0, p->scopebb()));
+    }
+
+    // This might not actually be generated by the frontend, just to be
+    // safe.
+    llvm::Value* inc = offset->toElem(p)->getRVal();
+    if (negateOffset) inc = p->ir->CreateNeg(inc);
+    llvm::Value* bytePtr = DtoBitCast(base->getRVal(), getVoidPtrType());
+    DValue* result = new DImValue(Type::tvoidptr, DtoGEP1(bytePtr, inc));
+    return DtoCast(loc, result, resultType);
+}
+
 
 DValue* AddExp::toElem(IRState* p)
 {
@@ -705,7 +630,6 @@ DValue* AddExp::toElem(IRState* p)
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
-    DValue* r = e2->toElem(p);
 
     Type* t = type->toBasetype();
     Type* e1type = e1->type->toBasetype();
@@ -713,35 +637,28 @@ DValue* AddExp::toElem(IRState* p)
 
     errorOnIllegalArrayOp(this, e1, e2);
 
-    if (e1type != e2type && e1type->ty == Tpointer) {
-        Logger::println("add to pointer");
-        if (DConstValue* cv = r->isConst()) {
-            if (cv->c->isNullValue()) {
-                Logger::println("is zero");
-                return new DImValue(type, l->getRVal());
-            }
-        }
-        LLValue* v = llvm::GetElementPtrInst::Create(l->getRVal(), r->getRVal(), "tmp", p->scopebb());
-        return new DImValue(type, v);
+    if (e1type != e2type && e1type->ty == Tpointer && e2type->isintegral())
+    {
+        Logger::println("Adding integer to pointer");
+        return emitPointerOffset(p, loc, l, e2, false, type);
     }
     else if (t->iscomplex()) {
-        return DtoComplexAdd(loc, type, l, r);
+        return DtoComplexAdd(loc, type, l, e2->toElem(p));
     }
     else {
-        return DtoBinAdd(l,r);
+        return DtoBinAdd(l, e2->toElem(p));
     }
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
-
 LLConstant* MinExp::toConstElem(IRState* p)
 {
-    if (e1->type->ty == Tpointer && e2->type->isintegral()) {
-        LLConstant *ptr = e1->toConstElem(p);
-        LLConstant *index = e2->toConstElem(p);
-        index = llvm::ConstantExpr::getNeg(index);
-        ptr = llvm::ConstantExpr::getGetElementPtr(ptr, llvm::makeArrayRef(&index, 1));
-        return ptr;
+    Type* t1b = e1->type->toBasetype();
+    if (t1b->ty == Tpointer && e2->type->isintegral()) {
+        llvm::Constant* ptr = e1->toConstElem(p);
+        dinteger_t idx = undoStrideMul(loc, t1b, e2->toInteger());
+
+        llvm::Constant* negIdx = llvm::ConstantExpr::getNeg(DtoConstSize_t(idx));
+        return llvm::ConstantExpr::getGetElementPtr(ptr, negIdx);
     }
 
     error("expression '%s' is not a constant", toChars());
@@ -749,15 +666,12 @@ LLConstant* MinExp::toConstElem(IRState* p)
     return NULL;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* MinExp::toElem(IRState* p)
 {
     Logger::print("MinExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     DValue* l = e1->toElem(p);
-    DValue* r = e2->toElem(p);
 
     Type* t = type->toBasetype();
     Type* t1 = e1->type->toBasetype();
@@ -767,7 +681,7 @@ DValue* MinExp::toElem(IRState* p)
 
     if (t1->ty == Tpointer && t2->ty == Tpointer) {
         LLValue* lv = l->getRVal();
-        LLValue* rv = r->getRVal();
+        LLValue* rv = e2->toElem(p)->getRVal();
         if (Logger::enabled())
             Logger::cout() << "lv: " << *lv << " rv: " << *rv << '\n';
         lv = p->ir->CreatePtrToInt(lv, DtoSize_t(), "tmp");
@@ -777,16 +691,16 @@ DValue* MinExp::toElem(IRState* p)
             diff = p->ir->CreateIntToPtr(diff, DtoType(type), "tmp");
         return new DImValue(type, diff);
     }
-    else if (t1->ty == Tpointer) {
-        LLValue* idx = p->ir->CreateNeg(r->getRVal(), "tmp");
-        LLValue* v = llvm::GetElementPtrInst::Create(l->getRVal(), idx, "tmp", p->scopebb());
-        return new DImValue(type, v);
+    else if (t1->ty == Tpointer && t2->isintegral())
+    {
+        Logger::println("Subtracting integer from pointer");
+        return emitPointerOffset(p, loc, l, e2, true, type);
     }
     else if (t->iscomplex()) {
-        return DtoComplexSub(loc, type, l, r);
+        return DtoComplexSub(loc, type, l, e2->toElem(p));
     }
     else {
-        return DtoBinSub(l,r);
+        return DtoBinSub(l, e2->toElem(p));
     }
 }
 
@@ -1200,7 +1114,86 @@ DValue* SymOffExp::toElem(IRState* p)
     Logger::print("SymOffExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    llvm_unreachable("SymOffExp::toElem should no longer be called.");
+    DValue* base = DtoSymbolAddress(loc, var->type, var);
+
+    // This weird setup is required to be able to handle both variables as
+    // well as functions and TypeInfo references (which are not a DVarValue
+    // as well due to the level-of-indirection hack in Type::getTypeInfo that
+    // is unfortunately required by the frontend).
+    llvm::Value* baseValue;
+    if (base->isLVal())
+        baseValue = base->getLVal();
+    else
+        baseValue = base->getRVal();
+    assert(isaPointer(baseValue));
+
+    llvm::Value* offsetValue;
+    Type* offsetType;
+
+    if (offset == 0)
+    {
+        offsetValue = baseValue;
+        offsetType = base->type->pointerTo();
+    }
+    else
+    {
+        uint64_t elemSize = gDataLayout->getTypeStoreSize(
+            baseValue->getType()->getContainedType(0));
+        if (offset % elemSize == 0)
+        {
+            // We can turn this into a "nice" GEP.
+            offsetValue = DtoGEPi1(baseValue, offset / elemSize);
+            offsetType = base->type->pointerTo();
+        }
+        else
+        {
+            // Offset isn't a multiple of base type size, just cast to i8* and
+            // apply the byte offset.
+            offsetValue = DtoGEPi1(DtoBitCast(baseValue, getVoidPtrType()), offset);
+            offsetType = Type::tvoidptr;
+        }
+    }
+
+    // Casts are also "optimized into" SymOffExp by the frontend.
+    return DtoCast(loc, new DImValue(offsetType, offsetValue), type);
+}
+
+llvm::Constant* SymOffExp::toConstElem(IRState* p)
+{
+    Logger::print("SymOffExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+
+    // We might get null here due to the hackish implementation of
+    // AssocArrayLiteralExp::toElem.
+    llvm::Constant* base = DtoConstSymbolAddress(loc, var);
+    if (!base) return 0;
+
+    llvm::Constant* result;
+    if (offset == 0)
+    {
+        result = base;
+    }
+    else
+    {
+        uint64_t elemSize = gDataLayout->getTypeStoreSize(
+            base->getType()->getContainedType(0));
+        if (offset % elemSize == 0)
+        {
+            // We can turn this into a "nice" GEP.
+            result = llvm::ConstantExpr::getGetElementPtr(base,
+                DtoConstSize_t(offset / elemSize));
+        }
+        else
+        {
+            // Offset isn't a multiple of base type size, just cast to i8* and
+            // apply the byte offset.
+            result = llvm::ConstantExpr::getGetElementPtr(
+                DtoBitCast(base, getVoidPtrType()),
+                DtoConstSize_t(offset / elemSize));
+        }
+    }
+
+    return DtoBitCast(result, DtoType(type));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1255,47 +1248,8 @@ LLConstant* AddrExp::toConstElem(IRState* p)
     if (e1->op == TOKvar)
     {
         VarExp* vexp = static_cast<VarExp*>(e1);
-
-        // make sure 'this' isn't needed
-        if (vexp->var->needThis())
-        {
-            error("need 'this' to access %s", vexp->var->toChars());
-            fatal();
-        }
-
-        // global variable
-        if (VarDeclaration* vd = vexp->var->isVarDeclaration())
-        {
-            if (!vd->isDataseg())
-            {
-                // Not sure if this can be triggered from user code, but it is
-                // needed for the current hacky implementation of
-                // AssocArrayLiteralExp::toElem, which requires on error
-                // gagging to check for constantness of the initializer.
-                error("cannot use address of non-global variable '%s' "
-                    "as constant initializer", vd->toChars());
-                if (!global.gag) fatal();
-                return NULL;
-            }
-
-            vd->codegen(Type::sir);
-            LLConstant* llc = llvm::dyn_cast<LLConstant>(vd->ir.getIrValue());
-            assert(llc);
-            return DtoBitCast(llc, DtoType(type));
-        }
-        // static function
-        else if (FuncDeclaration* fd = vexp->var->isFuncDeclaration())
-        {
-            fd->codegen(Type::sir);
-            IrFunction* irfunc = fd->ir.irFunc;
-            return irfunc->func;
-        }
-        // something else
-        else
-        {
-            // fail
-            goto Lerr;
-        }
+        LLConstant *c = DtoConstSymbolAddress(loc, vexp->var);
+        return c ? DtoBitCast(c, DtoType(type)) : 0;
     }
     // address of indexExp
     else if (e1->op == TOKindex)
@@ -1335,7 +1289,6 @@ LLConstant* AddrExp::toConstElem(IRState* p)
     // not yet supported
     else
     {
-    Lerr:
         error("constant expression '%s' not yet implemented", toChars());
         fatal();
     }
@@ -2287,11 +2240,11 @@ DValue* X##Exp::toElem(IRState* p) \
     return new DImValue(type, x); \
 }
 
-BinBitExp(And,And);
-BinBitExp(Or,Or);
-BinBitExp(Xor,Xor);
-BinBitExp(Shl,Shl);
-BinBitExp(Ushr,LShr);
+BinBitExp(And,And)
+BinBitExp(Or,Or)
+BinBitExp(Xor,Xor)
+BinBitExp(Shl,Shl)
+BinBitExp(Ushr,LShr)
 
 DValue* ShrExp::toElem(IRState* p)
 {
@@ -3247,11 +3200,11 @@ DValue* VectorExp::toElem(IRState* p)
 //////////////////////////////////////////////////////////////////////////////////////////
 
 #define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
-STUB(Expression);
-STUB(ScopeExp);
-STUB(SymbolExp);
-STUB(PowExp);
-STUB(PowAssignExp);
+STUB(Expression)
+STUB(ScopeExp)
+STUB(SymbolExp)
+STUB(PowExp)
+STUB(PowAssignExp)
 
 #define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) { \
     error("expression '%s' is not a constant", toChars()); \
@@ -3259,11 +3212,11 @@ STUB(PowAssignExp);
         fatal(); \
     return NULL; \
 }
-CONSTSTUB(Expression);
-CONSTSTUB(GEPExp);
-CONSTSTUB(SliceExp);
-CONSTSTUB(IndexExp);
-CONSTSTUB(AssocArrayLiteralExp);
+CONSTSTUB(Expression)
+CONSTSTUB(GEPExp)
+CONSTSTUB(SliceExp)
+CONSTSTUB(IndexExp)
+CONSTSTUB(AssocArrayLiteralExp)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
