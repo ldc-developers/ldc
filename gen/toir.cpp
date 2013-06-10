@@ -2287,11 +2287,11 @@ DValue* X##Exp::toElem(IRState* p) \
     return new DImValue(type, x); \
 }
 
-BinBitExp(And,And);
-BinBitExp(Or,Or);
-BinBitExp(Xor,Xor);
-BinBitExp(Shl,Shl);
-BinBitExp(Ushr,LShr);
+BinBitExp(And,And)
+BinBitExp(Or,Or)
+BinBitExp(Xor,Xor)
+BinBitExp(Shl,Shl)
+BinBitExp(Ushr,LShr)
 
 DValue* ShrExp::toElem(IRState* p)
 {
@@ -3247,11 +3247,11 @@ DValue* VectorExp::toElem(IRState* p)
 //////////////////////////////////////////////////////////////////////////////////////////
 
 #define STUB(x) DValue *x::toElem(IRState * p) {error("Exp type "#x" not implemented: %s", toChars()); fatal(); return 0; }
-STUB(Expression);
-STUB(ScopeExp);
-STUB(SymbolExp);
-STUB(PowExp);
-STUB(PowAssignExp);
+STUB(Expression)
+STUB(ScopeExp)
+STUB(SymbolExp)
+STUB(PowExp)
+STUB(PowAssignExp)
 
 #define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) { \
     error("expression '%s' is not a constant", toChars()); \
@@ -3259,11 +3259,11 @@ STUB(PowAssignExp);
         fatal(); \
     return NULL; \
 }
-CONSTSTUB(Expression);
-CONSTSTUB(GEPExp);
-CONSTSTUB(SliceExp);
-CONSTSTUB(IndexExp);
-CONSTSTUB(AssocArrayLiteralExp);
+CONSTSTUB(Expression)
+CONSTSTUB(GEPExp)
+CONSTSTUB(SliceExp)
+CONSTSTUB(IndexExp)
+CONSTSTUB(AssocArrayLiteralExp)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
