@@ -24,6 +24,7 @@
 // this is used for tracking try-finally, synchronized and volatile scopes
 struct EnclosingHandler
 {
+    virtual ~EnclosingHandler() {}
     virtual void emitCode(IRState* p) = 0;
 };
 struct EnclosingTryFinally : EnclosingHandler
