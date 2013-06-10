@@ -847,19 +847,8 @@ bool hasNonConstPointers(Expression *e)
     }
     if (e->type->ty== Tpointer && e->type->nextOf()->ty != Tfunction)
     {
-#if IN_LLVM
-        // address of a global is OK
-        if (e->op == TOKaddress || e->op == TOKcast)
-            return false;
-        if (e->op == TOKadd || e->op == TOKmin) {
-            BinExp *be = (BinExp*)e;
-            if (be->e1->type->ty == Tpointer || be->e2->type->ty == Tpointer)
-                return false;
-        }
-#else
         if (e->op == TOKsymoff) // address of a global is OK
             return false;
-#endif
         if (e->op == TOKint64)  // cast(void *)int is OK
             return false;
         if (e->op == TOKstring) // "abc".ptr is OK

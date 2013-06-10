@@ -24,6 +24,7 @@
 #include "gen/llvmcompat.h"
 #include "gen/logger.h"
 #include "gen/nested.h"
+#include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/todebug.h"
 #include "gen/tollvm.h"
@@ -1797,4 +1798,218 @@ void tokToIcmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate* outPred, 
     default:
         llvm_unreachable("Invalid comparison operation");
     }
+}
+
+///////////////////////////////////////////////////////////////////////////////
+DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
+{
+    IF_LOG Logger::println("DtoSymbolAddress ('%s' of type '%s')",
+        decl->toChars(), decl->type->toChars());
+    LOG_SCOPE
+
+    if (VarDeclaration* vd = decl->isVarDeclaration())
+    {
+        // The magic variable __ctfe is always false at runtime
+        if (vd->ident == Id::ctfe)
+        {
+            return new DConstValue(type, DtoConstBool(false));
+        }
+
+        // this is an error! must be accessed with DotVarExp
+        if (vd->needThis())
+        {
+            error("need 'this' to access member %s", vd->toChars());
+            fatal();
+        }
+
+        // _arguments
+        if (vd->ident == Id::_arguments && gIR->func()->_arguments)
+        {
+            Logger::println("Id::_arguments");
+            LLValue* v = gIR->func()->_arguments;
+            return new DVarValue(type, vd, v);
+        }
+        // _argptr
+        else if (vd->ident == Id::_argptr && gIR->func()->_argptr)
+        {
+            Logger::println("Id::_argptr");
+            LLValue* v = gIR->func()->_argptr;
+            return new DVarValue(type, vd, v);
+        }
+        // _dollar
+        else if (vd->ident == Id::dollar)
+        {
+            Logger::println("Id::dollar");
+            LLValue* val = 0;
+            if (vd->ir.isSet() && (val = vd->ir.getIrValue()))
+            {
+                // It must be length of a range
+                return new DVarValue(type, vd, val);
+            }
+            assert(!gIR->arrays.empty());
+            val = DtoArrayLen(gIR->arrays.back());
+            return new DImValue(type, val);
+        }
+        // classinfo
+        else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
+        {
+            Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
+            cid->cd->codegen(Type::sir);;
+            return new DVarValue(type, vd, cid->cd->ir.irStruct->getClassInfoSymbol());
+        }
+        // typeinfo
+        else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
+        {
+            Logger::println("TypeInfoDeclaration");
+            tid->codegen(Type::sir);
+            assert(tid->ir.getIrValue());
+            LLType* vartype = DtoType(type);
+            LLValue* m = tid->ir.getIrValue();
+            if (m->getType() != getPtrToType(vartype))
+                m = gIR->ir->CreateBitCast(m, vartype, "tmp");
+            return new DImValue(type, m);
+        }
+        // nested variable
+        else if (vd->nestedrefs.dim)
+        {
+            Logger::println("nested variable");
+            return DtoNestedVariable(loc, type, vd);
+        }
+        // function parameter
+        else if (vd->isParameter())
+        {
+            Logger::println("function param");
+            Logger::println("type: %s", vd->type->toChars());
+            FuncDeclaration* fd = vd->toParent2()->isFuncDeclaration();
+            if (fd && fd != gIR->func()->decl)
+            {
+                Logger::println("nested parameter");
+                return DtoNestedVariable(loc, type, vd);
+            }
+            else if (vd->storage_class & STClazy)
+            {
+                Logger::println("lazy parameter");
+                assert(type->ty == Tdelegate);
+                return new DVarValue(type, vd->ir.getIrValue());
+            }
+            else if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) ||
+                llvm::isa<llvm::AllocaInst>(vd->ir.getIrValue()))
+            {
+                return new DVarValue(type, vd, vd->ir.getIrValue());
+            }
+            else if (llvm::isa<llvm::Argument>(vd->ir.getIrValue()))
+            {
+                return new DImValue(type, vd->ir.getIrValue());
+            }
+            else llvm_unreachable("Unexpected parameter value.");
+        }
+        else
+        {
+            Logger::println("a normal variable");
+
+            // take care of forward references of global variables
+            const bool isGlobal = vd->isDataseg() || (vd->storage_class & STCextern);
+            if (isGlobal)
+                vd->codegen(Type::sir);
+
+            assert(vd->ir.isSet() && "Variable not resolved.");
+
+            llvm::Value* val = vd->ir.getIrValue();
+            assert(val && "Variable value not set yet.");
+
+            if (isGlobal)
+            {
+                llvm::Type* expectedType = llvm::PointerType::getUnqual(i1ToI8(DtoType(type)));
+                // The type of globals is determined by their initializer, so
+                // we might need to cast. Make sure that the type sizes fit -
+                // '==' instead of '<=' should probably work as well.
+                if (val->getType() != expectedType)
+                {
+                    llvm::Type* t = llvm::cast<llvm::PointerType>(val->getType())->getElementType();
+                    assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(t) &&
+                        "Global type mismatch, encountered type too small.");
+                    val = DtoBitCast(val, expectedType);
+                }
+            }
+
+            return new DVarValue(type, vd, val);
+        }
+    }
+
+    if (FuncDeclaration* fdecl = decl->isFuncDeclaration())
+    {
+        Logger::println("FuncDeclaration");
+        LLValue* func = 0;
+        fdecl = fdecl->toAliasFunc();
+        if (fdecl->llvmInternal == LLVMinline_asm)
+        {
+            error("special ldc inline asm is not a normal function");
+            fatal();
+        }
+        else if (fdecl->llvmInternal != LLVMva_arg)
+        {
+            fdecl->codegen(Type::sir);
+            func = fdecl->ir.irFunc->func;
+        }
+        return new DFuncValue(fdecl, func);
+    }
+
+    if (StaticStructInitDeclaration* sdecl = decl->isStaticStructInitDeclaration())
+    {
+        // this seems to be the static initialiser for structs
+        Type* sdecltype = sdecl->type->toBasetype();
+        Logger::print("Sym: type=%s\n", sdecltype->toChars());
+        assert(sdecltype->ty == Tstruct);
+        TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
+        assert(ts->sym);
+        ts->sym->codegen(Type::sir);
+
+        LLValue* initsym = ts->sym->ir.irStruct->getInitSymbol();
+        initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
+        return new DVarValue(type, initsym);
+    }
+
+    llvm_unreachable("Unimplemented VarExp type");
+}
+
+llvm::Constant* DtoConstSymbolAddress(const Loc& loc, Declaration* decl)
+{
+    // Make sure 'this' isn't needed.
+    // TODO: This check really does not belong here, should be moved to
+    // semantic analysis in the frontend.
+    if (decl->needThis())
+    {
+        error("need 'this' to access %s", decl->toChars());
+        fatal();
+    }
+
+    // global variable
+    if (VarDeclaration* vd = decl->isVarDeclaration())
+    {
+        if (!vd->isDataseg())
+        {
+            // Not sure if this can be triggered from user code, but it is
+            // needed for the current hacky implementation of
+            // AssocArrayLiteralExp::toElem, which requires on error
+            // gagging to check for constantness of the initializer.
+            error(loc, "cannot use address of non-global variable '%s' "
+                "as constant initializer", vd->toChars());
+            if (!global.gag) fatal();
+            return NULL;
+        }
+
+        vd->codegen(Type::sir);
+        LLConstant* llc = llvm::dyn_cast<LLConstant>(vd->ir.getIrValue());
+        assert(llc);
+        return llc;
+    }
+    // static function
+    else if (FuncDeclaration* fd = decl->isFuncDeclaration())
+    {
+        fd->codegen(Type::sir);
+        IrFunction* irfunc = fd->ir.irFunc;
+        return irfunc->func;
+    }
+
+    llvm_unreachable("Taking constant address not implemented.");
 }

@@ -110,162 +110,7 @@ DValue* VarExp::toElem(IRState* p)
         return new DVarValue(type, V);
     }
 
-    if (VarDeclaration* vd = var->isVarDeclaration())
-    {
-        Logger::println("VarDeclaration ' %s ' of type ' %s '", vd->toChars(), vd->type->toChars());
-
-        /* The magic variable __ctfe is always false at runtime
-         */
-        if (vd->ident == Id::ctfe) {
-            return new DConstValue(type, DtoConstBool(false));
-        }
-
-        // this is an error! must be accessed with DotVarExp
-        if (var->needThis())
-        {
-            error("need 'this' to access member %s", toChars());
-            fatal();
-        }
-
-        // _arguments
-        if (vd->ident == Id::_arguments && p->func()->_arguments)
-        {
-            Logger::println("Id::_arguments");
-            LLValue* v = p->func()->_arguments;
-            return new DVarValue(type, vd, v);
-        }
-        // _argptr
-        else if (vd->ident == Id::_argptr && p->func()->_argptr)
-        {
-            Logger::println("Id::_argptr");
-            LLValue* v = p->func()->_argptr;
-            return new DVarValue(type, vd, v);
-        }
-        // _dollar
-        else if (vd->ident == Id::dollar)
-        {
-            Logger::println("Id::dollar");
-            LLValue* val = 0;
-            if (vd->ir.isSet() && (val = vd->ir.getIrValue())) {
-                // It must be length of a range
-                return new DVarValue(type, vd, val);
-            }
-            assert(!p->arrays.empty());
-            val = DtoArrayLen(p->arrays.back());
-            return new DImValue(type, val);
-        }
-        // classinfo
-        else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
-        {
-            Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
-            cid->cd->codegen(Type::sir);;
-            return new DVarValue(type, vd, cid->cd->ir.irStruct->getClassInfoSymbol());
-        }
-        // typeinfo
-        else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
-        {
-            Logger::println("TypeInfoDeclaration");
-            tid->codegen(Type::sir);
-            assert(tid->ir.getIrValue());
-            LLType* vartype = DtoType(type);
-            LLValue* m = tid->ir.getIrValue();
-            if (m->getType() != getPtrToType(vartype))
-                m = p->ir->CreateBitCast(m, vartype, "tmp");
-            return new DImValue(type, m);
-        }
-        // nested variable
-        else if (vd->nestedrefs.dim) {
-            Logger::println("nested variable");
-            return DtoNestedVariable(loc, type, vd);
-        }
-        // function parameter
-        else if (vd->isParameter()) {
-            Logger::println("function param");
-            Logger::println("type: %s", vd->type->toChars());
-            FuncDeclaration* fd = vd->toParent2()->isFuncDeclaration();
-            if (fd && fd != p->func()->decl) {
-                Logger::println("nested parameter");
-                return DtoNestedVariable(loc, type, vd);
-            }
-            else if (vd->storage_class & STClazy) {
-                Logger::println("lazy parameter");
-                assert(type->ty == Tdelegate);
-                return new DVarValue(type, vd->ir.getIrValue());
-            }
-            else if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) || llvm::isa<llvm::AllocaInst>(vd->ir.getIrValue())) {
-                return new DVarValue(type, vd, vd->ir.getIrValue());
-            }
-            else if (llvm::isa<llvm::Argument>(vd->ir.getIrValue())) {
-                return new DImValue(type, vd->ir.getIrValue());
-            }
-            else llvm_unreachable("Unexpected parameter value.");
-        }
-        else {
-            Logger::println("a normal variable");
-
-            // take care of forward references of global variables
-            const bool isGlobal = vd->isDataseg() || (vd->storage_class & STCextern);
-            if (isGlobal)
-                vd->codegen(Type::sir);
-
-            assert(vd->ir.isSet() && "Variable not resolved.");
-
-            llvm::Value* val = vd->ir.getIrValue();
-            assert(val && "Variable value not set yet.");
-
-            if (isGlobal)
-            {
-                llvm::Type* expectedType = llvm::PointerType::getUnqual(i1ToI8(DtoType(type)));
-                // The type of globals is determined by their initializer, so
-                // we might need to cast. Make sure that the type sizes fit -
-                // '==' instead of '<=' should probably work as well.
-                if (val->getType() != expectedType)
-                {
-                    llvm::Type* t = llvm::cast<llvm::PointerType>(val->getType())->getElementType();
-                    assert(getTypeStoreSize(DtoType(type)) <= getTypeStoreSize(t) &&
-                        "Global type mismatch, encountered type too small.");
-                    val = DtoBitCast(val, expectedType);
-                }
-            }
-
-            return new DVarValue(type, vd, val);
-        }
-    }
-    else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
-    {
-        Logger::println("FuncDeclaration");
-        LLValue* func = 0;
-        fdecl = fdecl->toAliasFunc();
-        if (fdecl->llvmInternal == LLVMinline_asm) {
-            error("special ldc inline asm is not a normal function");
-            fatal();
-        }
-        else if (fdecl->llvmInternal != LLVMva_arg) {
-            fdecl->codegen(Type::sir);
-            func = fdecl->ir.irFunc->func;
-        }
-        return new DFuncValue(fdecl, func);
-    }
-    else if (StaticStructInitDeclaration* sdecl = var->isStaticStructInitDeclaration())
-    {
-        // this seems to be the static initialiser for structs
-        Type* sdecltype = sdecl->type->toBasetype();
-        Logger::print("Sym: type=%s\n", sdecltype->toChars());
-        assert(sdecltype->ty == Tstruct);
-        TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
-        assert(ts->sym);
-        ts->sym->codegen(Type::sir);
-
-        LLValue* initsym = ts->sym->ir.irStruct->getInitSymbol();
-        initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
-        return new DVarValue(type, initsym);
-    }
-    else
-    {
-        llvm_unreachable("Unimplemented VarExp type");
-    }
-
-    return 0;
+    return DtoSymbolAddress(loc, type, var);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1269,7 +1114,86 @@ DValue* SymOffExp::toElem(IRState* p)
     Logger::print("SymOffExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    llvm_unreachable("SymOffExp::toElem should no longer be called.");
+    DValue* base = DtoSymbolAddress(loc, var->type, var);
+
+    // This weird setup is required to be able to handle both variables as
+    // well as functions and TypeInfo references (which are not a DVarValue
+    // as well due to the level-of-indirection hack in Type::getTypeInfo that
+    // is unfortunately required by the frontend).
+    llvm::Value* baseValue;
+    if (base->isLVal())
+        baseValue = base->getLVal();
+    else
+        baseValue = base->getRVal();
+    assert(isaPointer(baseValue));
+
+    llvm::Value* offsetValue;
+    Type* offsetType;
+
+    if (offset == 0)
+    {
+        offsetValue = baseValue;
+        offsetType = base->type->pointerTo();
+    }
+    else
+    {
+        uint64_t elemSize = gDataLayout->getTypeStoreSize(
+            baseValue->getType()->getContainedType(0));
+        if (offset % elemSize == 0)
+        {
+            // We can turn this into a "nice" GEP.
+            offsetValue = DtoGEPi1(baseValue, offset / elemSize);
+            offsetType = base->type->pointerTo();
+        }
+        else
+        {
+            // Offset isn't a multiple of base type size, just cast to i8* and
+            // apply the byte offset.
+            offsetValue = DtoGEPi1(DtoBitCast(baseValue, getVoidPtrType()), offset);
+            offsetType = Type::tvoidptr;
+        }
+    }
+
+    // Casts are also "optimized into" SymOffExp by the frontend.
+    return DtoCast(loc, new DImValue(offsetType, offsetValue), type);
+}
+
+llvm::Constant* SymOffExp::toConstElem(IRState* p)
+{
+    Logger::print("SymOffExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+
+    // We might get null here due to the hackish implementation of
+    // AssocArrayLiteralExp::toElem.
+    llvm::Constant* base = DtoConstSymbolAddress(loc, var);
+    if (!base) return 0;
+
+    llvm::Constant* result;
+    if (offset == 0)
+    {
+        result = base;
+    }
+    else
+    {
+        uint64_t elemSize = gDataLayout->getTypeStoreSize(
+            base->getType()->getContainedType(0));
+        if (offset % elemSize == 0)
+        {
+            // We can turn this into a "nice" GEP.
+            result = llvm::ConstantExpr::getGetElementPtr(base,
+                DtoConstSize_t(offset / elemSize));
+        }
+        else
+        {
+            // Offset isn't a multiple of base type size, just cast to i8* and
+            // apply the byte offset.
+            result = llvm::ConstantExpr::getGetElementPtr(
+                DtoBitCast(base, getVoidPtrType()),
+                DtoConstSize_t(offset / elemSize));
+        }
+    }
+
+    return DtoBitCast(result, DtoType(type));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1324,47 +1248,8 @@ LLConstant* AddrExp::toConstElem(IRState* p)
     if (e1->op == TOKvar)
     {
         VarExp* vexp = static_cast<VarExp*>(e1);
-
-        // make sure 'this' isn't needed
-        if (vexp->var->needThis())
-        {
-            error("need 'this' to access %s", vexp->var->toChars());
-            fatal();
-        }
-
-        // global variable
-        if (VarDeclaration* vd = vexp->var->isVarDeclaration())
-        {
-            if (!vd->isDataseg())
-            {
-                // Not sure if this can be triggered from user code, but it is
-                // needed for the current hacky implementation of
-                // AssocArrayLiteralExp::toElem, which requires on error
-                // gagging to check for constantness of the initializer.
-                error("cannot use address of non-global variable '%s' "
-                    "as constant initializer", vd->toChars());
-                if (!global.gag) fatal();
-                return NULL;
-            }
-
-            vd->codegen(Type::sir);
-            LLConstant* llc = llvm::dyn_cast<LLConstant>(vd->ir.getIrValue());
-            assert(llc);
-            return DtoBitCast(llc, DtoType(type));
-        }
-        // static function
-        else if (FuncDeclaration* fd = vexp->var->isFuncDeclaration())
-        {
-            fd->codegen(Type::sir);
-            IrFunction* irfunc = fd->ir.irFunc;
-            return irfunc->func;
-        }
-        // something else
-        else
-        {
-            // fail
-            goto Lerr;
-        }
+        LLConstant *c = DtoConstSymbolAddress(loc, vexp->var);
+        return c ? DtoBitCast(c, DtoType(type)) : 0;
     }
     // address of indexExp
     else if (e1->op == TOKindex)
@@ -1404,7 +1289,6 @@ LLConstant* AddrExp::toConstElem(IRState* p)
     // not yet supported
     else
     {
-    Lerr:
         error("constant expression '%s' not yet implemented", toChars());
         fatal();
     }

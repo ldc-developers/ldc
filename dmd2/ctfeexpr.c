@@ -1896,15 +1896,6 @@ bool isCtfeValueValid(Expression *newval)
         if (((SymOffExp *)newval)->var->isFuncDeclaration())
             return true;
     }
-#if IN_LLVM
-    if (newval->op == TOKaddress) { // function pointer
-        AddrExp *ae = (AddrExp *)newval;
-        if (ae->e1->op == TOKvar) {
-            if (((VarExp *)ae->e1)->var->isFuncDeclaration())
-                return true;
-        }
-    }
-#endif
 
     if (newval->op == TOKint64 || newval->op == TOKfloat64 ||
         newval->op == TOKchar || newval->op == TOKcomplex80)
