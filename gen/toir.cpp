@@ -3190,7 +3190,7 @@ DValue* TupleExp::toElem(IRState *p)
     for (size_t i = 0; i < exps->dim; i++)
     {
         Expression *el = static_cast<Expression *>(exps->data[i]);
-        types.push_back(voidToI8(DtoType(el->type)));
+        types.push_back(i1ToI8(voidToI8(DtoType(el->type))));
     }
     LLValue *val = DtoRawAlloca(LLStructType::get(gIR->context(), types),0, "tuple");
     for (size_t i = 0; i < exps->dim; i++)
@@ -3201,7 +3201,7 @@ DValue* TupleExp::toElem(IRState *p)
         if (el->type->ty == Tstruct)
             DtoStore(DtoLoad(ep->getRVal()), gep);
         else if (el->type->ty != Tvoid)
-            DtoStore(ep->getRVal(), gep);
+            DtoStoreZextI8(ep->getRVal(), gep);
         else
             DtoStore(LLConstantInt::get(LLType::getInt8Ty(gIR->context()), 0, false), gep);
     }
