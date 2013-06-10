@@ -2005,10 +2005,7 @@ Expression *BinExp::scaleFactor(Scope *sc)
         stride = t1b->nextOf()->size(loc);
         if (!t->equals(t2b))
             e2 = e2->castTo(sc, t);
-// LDC: llvm uses typesafe pointer arithmetic
-#if !IN_LLVM
         e2 = new MulExp(loc, e2, new IntegerExp(0, stride, t));
-#endif
         eoff = e2;
         e2->type = t;
         type = e1->type;
@@ -2024,9 +2021,7 @@ Expression *BinExp::scaleFactor(Scope *sc)
             e = e1->castTo(sc, t);
         else
             e = e1;
-#if !IN_LLVM
         e = new MulExp(loc, e, new IntegerExp(0, stride, t));
-#endif
         eoff = e;
         e->type = t;
         type = e2->type;

@@ -670,17 +670,10 @@ Expression *pointerArithmetic(Loc loc, enum TOK op, Type *type,
     Expression *val = agg1;
     TypeArray *tar = (TypeArray *)val->type;
     sinteger_t indx = ofs1;
-#if IN_LLVM // LDC: llvm uses typesafe pointer arithmetic
-    if (op == TOKadd || op == TOKaddass || op == TOKplusplus)
-        indx += ofs2;
-    else if (op == TOKmin || op == TOKminass || op == TOKminusminus)
-        indx -= ofs2;
-#else
     if (op == TOKadd || op == TOKaddass || op == TOKplusplus)
         indx = indx + ofs2/sz;
     else if (op == TOKmin || op == TOKminass || op == TOKminusminus)
         indx -= ofs2/sz;
-#endif
     else
     {
         error(loc, "CTFE Internal compiler error: bad pointer operation");
