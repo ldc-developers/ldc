@@ -1278,23 +1278,6 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
 #endif
 
             // Give error for overloaded function addresses
-#if IN_LLVM
-            if (arg->op == TOKaddress)
-            {   AddrExp *ae = (AddrExp *)arg;
-                if (ae->e1->op == TOKvar) {
-                    VarExp *ve = (VarExp*)ae->e1;
-                    FuncDeclaration *fd = ve->var->isFuncDeclaration();
-                    if (fd &&
-#if DMDV2
-                    ve->hasOverloads &&
-#endif
-                    !fd->isUnique())
-                    {
-                        arg->error("function %s is overloaded", arg->toChars());
-                    }
-                }
-            }
-#else
             if (arg->op == TOKsymoff)
             {   SymOffExp *se = (SymOffExp *)arg;
                 if (
@@ -1306,7 +1289,6 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
                     arg = new ErrorExp();
                 }
             }
-#endif
             arg->rvalue();
             arg = arg->optimize(WANTvalue);
         }
@@ -7882,27 +7864,12 @@ Lagain:
             e1 = new DsymbolExp(loc, se->sds);
             e1 = e1->semantic(sc);
         }
-#if IN_LLVM
-        else if (e1->op == TOKaddress)
-        {
-            AddrExp *ae = (AddrExp *)e1;
-            if (ae->e1->op == TOKvar) {
-                VarExp *ve = (VarExp*)ae->e1;
-                if (!ve->var->isOut() && !ve->var->isRef() &&
-                    !ve->var->isImportedSymbol() && ve->hasOverloads)
-                {
-                    e1 = ve;
-                }
-            }
-        }
-#else
         else if (e1->op == TOKsymoff && ((SymOffExp *)e1)->hasOverloads)
         {
             SymOffExp *se = (SymOffExp *)e1;
             e1 = new VarExp(se->loc, se->var, 1);
             e1 = e1->semantic(sc);
         }
-#endif
         else if (e1->op == TOKdotexp)
         {
             DotExp *de = (DotExp *) e1;
@@ -9282,20 +9249,6 @@ Lsafe:
 
 void CastExp::checkEscape()
 {   Type *tb = type->toBasetype();
-
-#if IN_LLVM
-    if (e1->op == TOKvar &&
-        tb->ty == Tpointer &&
-        e1->type->toBasetype()->ty == Tsarray)
-    {
-        VarDeclaration *v = ((VarExp*)e1)->var->isVarDeclaration();
-        if (v)
-        {
-            if (!v->isDataseg() && !(v->storage_class & (STCref | STCout)))
-                error("escaping reference to local variable %s", v->toChars());
-        }
-    }
-#endif
 
     if (tb->ty == Tarray && e1->op == TOKvar &&
         e1->type->toBasetype()->ty == Tsarray)

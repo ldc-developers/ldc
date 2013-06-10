@@ -2229,11 +2229,7 @@ Expression *VarDeclaration::callScopeDtor(Scope *sc)
             if (array)
             {
                 // Typeinfo.destroy(cast(void*)&v);
-#if IN_LLVM
-                Expression *ea = new AddrExp(loc, new DsymbolExp(loc, this));
-#else
                 Expression *ea = new SymOffExp(loc, this, 0, 0);
-#endif
                 ea = new CastExp(loc, ea, Type::tvoid->pointerTo());
                 Expressions *args = new Expressions();
                 args->push(ea);

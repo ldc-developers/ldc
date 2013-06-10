@@ -1509,59 +1509,6 @@ Expression *AddrExp::interpret(InterState *istate, CtfeGoal goal)
 #if LOG
     printf("%s AddrExp::interpret() %s\n", loc.toChars(), toChars());
 #endif
-#if IN_LLVM
-    if (e1->op == TOKvar)
-    {   VarExp *ve = (VarExp *)e1;
-        if (ve->var->isFuncDeclaration())
-            return this;
-        if (!ve->var->isOut() && !ve->var->isRef() &&
-            !ve->var->isImportedSymbol())
-        {
-            if (type->ty != Tpointer)
-            {   // Probably impossible
-                error("Cannot interpret %s at compile time", toChars());
-                return EXP_CANT_INTERPRET;
-            }
-            Type *pointee = ((TypePointer *)type)->next;
-            if (isSafePointerCast(ve->var->type, pointee))
-            {
-                ve = new VarExp(loc, ve->var);
-                ve->type = type;
-                return ve;
-            }
-        }
-    }
-    else if (e1->op == TOKindex)
-    {
-        IndexExp *ae = (IndexExp *)e1;
-        if (ae->e2->op == TOKint64 && ae->e1->op == TOKvar) {
-            dinteger_t indx = ae->e2->toInteger();
-            VarExp *ve = (VarExp *)ae->e1;
-            if (/*ve->type->ty == Tarray || */ve->type->ty == Tsarray)
-            {
-                Expression *val = getVarExp(loc, istate, ve->var, goal);
-
-                Expression *aggregate = NULL;
-                if (val->op == TOKarrayliteral || val->op == TOKstring)
-                    aggregate = val;
-                else if (val->op == TOKslice)
-                {
-                    aggregate = ((SliceExp *)val)->e1;
-                    Expression *lwr = ((SliceExp *)val)->lwr->interpret(istate);
-                    indx += lwr->toInteger();
-                }
-                if (aggregate)
-                {
-                    IntegerExp *ofs = new IntegerExp(loc, indx, Type::tsize_t);
-                    IndexExp *ie = new IndexExp(loc, aggregate, ofs);
-                    ie->type = type;
-                    return ie;
-                }
-            }
-        }
-    }
-#endif
-
     // For reference types, we need to return an lvalue ref.
     TY tb = e1->type->toBasetype()->ty;
     bool needRef = (tb == Tarray || tb == Taarray || tb == Tclass);
@@ -3958,16 +3905,8 @@ Expression *CallExp::interpret(InterState *istate, CtfeGoal goal)
                 if (exceptionOrCantInterpret(ecall))
                     return ecall;
 
-#if IN_LLVM
-                if (ecall->op == TOKaddress) {
-                    AddrExp *e = (AddrExp*)ecall;
-                    if (e->e1->op == TOKvar)
-                        fd = ((VarExp *)e->e1)->var->isFuncDeclaration();
-                }
-#else
                 if (ecall->op == TOKsymoff)
                     fd = ((SymOffExp *)ecall)->var->isFuncDeclaration();
-#endif
             }
         }
         else if (pe->op == TOKsymoff)

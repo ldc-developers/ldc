@@ -686,13 +686,11 @@ MATCH AddrExp::implicitConvTo(Type *t)
             t->ty == Tpointer && t->nextOf()->ty == Tfunction &&
             e1->op == TOKvar)
         {
-#if !IN_LLVM
             /* I don't think this can ever happen -
              * it should have been
              * converted to a SymOffExp.
              */
             assert(0);
-#endif
             VarExp *ve = (VarExp *)e1;
             FuncDeclaration *f = ve->var->isFuncDeclaration();
             if (f && f->overloadExactMatch(t->nextOf()))
@@ -991,7 +989,6 @@ Expression *Expression::castTo(Scope *sc, Type *t)
     Type *typeb = type->toBasetype();
     if (tb != typeb)
     {
-#if !IN_LLVM
         // Do (type *) cast of (type [dim])
         if (tb->ty == Tpointer &&
             typeb->ty == Tsarray
@@ -1004,17 +1001,15 @@ Expression *Expression::castTo(Scope *sc, Type *t)
             else
                 e = new AddrExp(loc, e);
         }
-        else
-#endif
 #if 0
-        if (tb->ty == Tdelegate && type->ty != Tdelegate)
+        else if (tb->ty == Tdelegate && type->ty != Tdelegate)
         {
             TypeDelegate *td = (TypeDelegate *)tb;
             TypeFunction *tf = (TypeFunction *)td->nextOf();
             return toDelegate(sc, tf->nextOf());
         }
-        else
 #endif
+        else
         {
             if (typeb->ty == Tstruct)
             {   TypeStruct *ts = (TypeStruct *)typeb;
@@ -1432,48 +1427,6 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
                         f = f2;
                 }
             }
-#if IN_LLVM
-            if (f)
-            {
-                f = f->overloadExactMatch(tb->nextOf());
-                if (f)
-                {
-                    if (tb->ty == Tdelegate)
-                    {
-                        if (f->needThis() && hasThis(sc))
-                        {
-                            e = new DelegateExp(loc, new ThisExp(loc), f);
-                            e = e->semantic(sc);
-                        }
-                        else if (f->isNested())
-                        {
-                            e = new DelegateExp(loc, new IntegerExp(0), f);
-                            e = e->semantic(sc);
-                        }
-                        else if (f->needThis())
-                        {   error("no 'this' to create delegate for %s", f->toChars());
-                            return new ErrorExp();
-                        }
-                        else
-                        {   error("cannot cast from function pointer to delegate");
-                            return new ErrorExp();
-                        }
-                    }
-                    else
-                    {
-                        e = new VarExp(loc, f);
-                        e->type = f->type;
-                        e = new AddrExp(loc, e);
-                        e->type = t;
-                        return e;
-                    }
-#if DMDV2
-                    f->tookAddressOf++;
-#endif
-                    return e;
-                }
-            }
-#else
             if (f)
             {   f->tookAddressOf++;
                 SymOffExp *se = new SymOffExp(loc, f, 0, 0);
@@ -1481,8 +1434,8 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
                 // Let SymOffExp::castTo() do the heavy lifting
                 return se->castTo(sc, t);
             }
-#endif
         }
+
 
         if (type->ty == Tpointer && type->nextOf()->ty == Tfunction &&
             tb->ty == Tpointer && tb->nextOf()->ty == Tfunction &&
@@ -1492,9 +1445,7 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
             FuncDeclaration *f = ve->var->isFuncDeclaration();
             if (f)
             {
-#if !IN_LLVM
                 assert(0);      // should be SymOffExp instead
-#endif
                 f = f->overloadExactMatch(tb->nextOf());
                 if (f)
                 {
@@ -1506,17 +1457,8 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
                 }
             }
         }
-
         e = Expression::castTo(sc, t);
     }
-#if IN_LLVM
-    else if (e1->op == TOKvar)
-    {
-        VarExp *ve = (VarExp*)e1->copy();
-        ve->hasOverloads = 0;
-        e1 = ve;
-    }
-#endif
     e->type = t;
     return e;
 }
@@ -2005,10 +1947,7 @@ Expression *BinExp::scaleFactor(Scope *sc)
         stride = t1b->nextOf()->size(loc);
         if (!t->equals(t2b))
             e2 = e2->castTo(sc, t);
-// LDC: llvm uses typesafe pointer arithmetic
-#if !IN_LLVM
         e2 = new MulExp(loc, e2, new IntegerExp(0, stride, t));
-#endif
         eoff = e2;
         e2->type = t;
         type = e1->type;
@@ -2024,9 +1963,7 @@ Expression *BinExp::scaleFactor(Scope *sc)
             e = e1->castTo(sc, t);
         else
             e = e1;
-#if !IN_LLVM
         e = new MulExp(loc, e, new IntegerExp(0, stride, t));
-#endif
         eoff = e;
         e->type = t;
         type = e2->type;

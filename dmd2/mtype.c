@@ -8973,17 +8973,9 @@ L1:
         {   /* The handle to the monitor (call it a void*)
              * *(cast(void**)e + 1)
              */
-#if IN_LLVM
-            e = e->castTo(sc, tint8->pointerTo()->pointerTo());
-            e = new AddExp(e->loc, e, new IntegerExp(1));
-            e->type = tint8->pointerTo();
-            e = e->castTo(sc, tvoidptr->pointerTo());
-            e = new PtrExp(e->loc, e);
-#else
             e = e->castTo(sc, tvoidptr->pointerTo());
             e = new AddExp(e->loc, e, new IntegerExp(1));
             e = new PtrExp(e->loc, e);
-#endif
             e = e->semantic(sc);
             return e;
         }

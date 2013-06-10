@@ -670,17 +670,10 @@ Expression *pointerArithmetic(Loc loc, enum TOK op, Type *type,
     Expression *val = agg1;
     TypeArray *tar = (TypeArray *)val->type;
     sinteger_t indx = ofs1;
-#if IN_LLVM // LDC: llvm uses typesafe pointer arithmetic
-    if (op == TOKadd || op == TOKaddass || op == TOKplusplus)
-        indx += ofs2;
-    else if (op == TOKmin || op == TOKminass || op == TOKminusminus)
-        indx -= ofs2;
-#else
     if (op == TOKadd || op == TOKaddass || op == TOKplusplus)
         indx = indx + ofs2/sz;
     else if (op == TOKmin || op == TOKminass || op == TOKminusminus)
         indx -= ofs2/sz;
-#endif
     else
     {
         error(loc, "CTFE Internal compiler error: bad pointer operation");
@@ -1903,15 +1896,6 @@ bool isCtfeValueValid(Expression *newval)
         if (((SymOffExp *)newval)->var->isFuncDeclaration())
             return true;
     }
-#if IN_LLVM
-    if (newval->op == TOKaddress) { // function pointer
-        AddrExp *ae = (AddrExp *)newval;
-        if (ae->e1->op == TOKvar) {
-            if (((VarExp *)ae->e1)->var->isFuncDeclaration())
-                return true;
-        }
-    }
-#endif
 
     if (newval->op == TOKint64 || newval->op == TOKfloat64 ||
         newval->op == TOKchar || newval->op == TOKcomplex80)
