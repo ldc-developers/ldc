@@ -419,7 +419,12 @@ DValue* AssignExp::toElem(IRState* p)
                 DVarValue* lhs = e1->toElem(p)->isVar();
                 assert(lhs);
                 DValue* rhs = e2->toElem(p);
-                DtoStore(rhs->getLVal(), lhs->getRefStorage());
+
+                // We shouldn't really need makeLValue() here, but the 2.063
+                // frontend generates ref variables initialized from function
+                // calls.
+                DtoStore(makeLValue(loc, rhs), lhs->getRefStorage());
+
                 return rhs;
             }
         }
