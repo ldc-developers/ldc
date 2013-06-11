@@ -2586,15 +2586,7 @@ namespace AsmParserx8664
 
         bool isIntExp ( Expression * exp )
         {
-            if ( exp->op == TOKint64 )
-                return 1;
-            if ( exp->op == TOKvar )
-            {
-                Declaration * v = ( ( VarExp * ) exp )->var;
-                if ( v->isConst() && v->type->isintegral() )
-                    return 1;
-            }
-            return 0;
+            return exp->op == TOKint64;
         }
         bool isRegExp ( Expression * exp ) { return exp->op == TOKmod; } // ewww.%%
         bool isLocalSize ( Expression * exp )
@@ -3220,6 +3212,7 @@ namespace AsmParserx8664
                     }
 
                     e = e->semantic ( sc );
+                    e = e->optimize (WANTvalue);
 
                     // Special case for floating point constant declarations.
                     if ( e->op == TOKfloat64 )
