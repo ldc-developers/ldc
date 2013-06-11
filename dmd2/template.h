@@ -14,15 +14,14 @@
 #ifdef __DMC__
 #pragma once
 #endif /* __DMC__ */
+
 #if IN_LLVM
 #include <string>
 #endif
 #include "root.h"
 #include "arraytypes.h"
 #include "dsymbol.h"
-#if IN_LLVM
-#include "mtype.h"
-#endif
+
 
 struct OutBuffer;
 struct Identifier;
