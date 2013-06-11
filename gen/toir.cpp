@@ -3206,17 +3206,14 @@ STUB(SymbolExp)
 STUB(PowExp)
 STUB(PowAssignExp)
 
-#define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) { \
-    error("expression '%s' is not a constant", toChars()); \
-    if (!global.gag) \
-        fatal(); \
-    return NULL; \
+llvm::Constant* Expression::toConstElem(IRState * p)
+{
+    error("expression '%s' is not a constant", toChars());
+    if (!global.gag)
+        fatal();
+    return NULL;
 }
-CONSTSTUB(Expression)
-CONSTSTUB(GEPExp)
-CONSTSTUB(SliceExp)
-CONSTSTUB(IndexExp)
-CONSTSTUB(AssocArrayLiteralExp)
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

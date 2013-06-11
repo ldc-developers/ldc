@@ -562,7 +562,6 @@ struct AssocArrayLiteralExp : Expression
 
 #if IN_LLVM
     DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
 #endif
 };
 
@@ -1398,7 +1397,6 @@ struct SliceExp : UnaExp
 
 #if IN_LLVM
     DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
 #endif
 };
 
@@ -1501,7 +1499,6 @@ struct IndexExp : BinExp
     elem *toElem(IRState *irs);
 #elif IN_LLVM
     DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
     void cacheLvalue(IRState* irs);
 #endif
 };
@@ -2127,7 +2124,6 @@ struct GEPExp : UnaExp
     Expression *toLvalue(Scope *sc, Expression *e);
 
     DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
 };
 
 #endif
