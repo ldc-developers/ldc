@@ -652,6 +652,7 @@ int main(int argc, char** argv)
     Id::initialize();
     Module::init();
     Target::init();
+    Expression::init();
     initPrecedence();
 
     backend_init();
