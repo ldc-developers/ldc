@@ -578,10 +578,6 @@ Expression *CallExp::optimize(int result, bool keepLvalue)
 
 Expression *CastExp::optimize(int result, bool keepLvalue)
 {
-#if IN_LLVM
-    if (disableOptimization)
-        return this;
-#endif
     //printf("CastExp::optimize(result = %d) %s\n", result, toChars());
     //printf("from %s to %s\n", type->toChars(), to->toChars());
     //printf("from %s\n", type->toChars());

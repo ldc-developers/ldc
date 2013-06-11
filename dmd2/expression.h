@@ -1345,7 +1345,6 @@ struct CastExp : UnaExp
 #if IN_LLVM
     DValue* toElem(IRState* irs);
     llvm::Constant *toConstElem(IRState *irs);
-    bool disableOptimization;
 #endif
 };
 

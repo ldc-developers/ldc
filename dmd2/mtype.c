@@ -3798,16 +3798,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         arguments = new Expressions();
         if (dup)
             arguments->push(getTypeInfo(sc));
-
-        // LDC repaint array type to void[]
-        if (n->ty != Tvoid) {
-            CastExp *exp = new CastExp(e->loc, e, e->type);
-            exp->type = Type::tvoid->arrayOf();
-            exp->disableOptimization = true;
-            e = exp;
-        }
         arguments->push(e);
-
         if (!dup)
             arguments->push(new IntegerExp(0, size, Type::tsize_t));
         e = new CallExp(e->loc, ec, arguments);
@@ -3846,14 +3837,6 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident)
         ec = new VarExp(0, adSort_fd);
         e = e->castTo(sc, n->arrayOf());        // convert to dynamic array
         arguments = new Expressions();
-
-        // LDC repaint array type to void[]
-        if (n->ty != Tvoid) {
-            CastExp *exp = new CastExp(e->loc, e, e->type);
-            exp->type = Type::tvoid->arrayOf();
-            exp->disableOptimization = true;
-            e = exp;
-        }
         arguments->push(e);
         // LDC, we don't support the getInternalTypeInfo
         // optimization arbitrarily, not yet at least...
