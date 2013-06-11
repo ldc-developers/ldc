@@ -446,7 +446,6 @@ AliasDeclaration::AliasDeclaration(Loc loc, Identifier *id, Type *type)
     this->haliassym = NULL;
     this->overnext = NULL;
     this->inSemantic = 0;
-    this->importprot = PROTundefined;
     assert(type);
 }
 
@@ -612,9 +611,6 @@ void AliasDeclaration::semantic(Scope *sc)
             if (overnext)
             {
                 FuncAliasDeclaration *fa = new FuncAliasDeclaration(f);
-#if IN_LLVM
-                fa->importprot = importprot;
-#endif
                 if (!fa->overloadInsert(overnext))
                     ScopeDsymbol::multiplyDefined(Loc(), overnext, f);
                 overnext = NULL;

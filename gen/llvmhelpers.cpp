@@ -1951,7 +1951,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
         return new DFuncValue(fdecl, func);
     }
 
-    if (StaticStructInitDeclaration* sdecl = decl->isStaticStructInitDeclaration())
+    if (SymbolDeclaration* sdecl = decl->isSymbolDeclaration())
     {
         // this seems to be the static initialiser for structs
         Type* sdecltype = sdecl->type->toBasetype();

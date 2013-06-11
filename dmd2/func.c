@@ -4007,9 +4007,6 @@ FuncAliasDeclaration::FuncAliasDeclaration(FuncDeclaration *funcalias, int hasOv
 {
     assert(funcalias != this);
     this->funcalias = funcalias;
-#if IN_LLVM
-    importprot = PROTundefined;
-#endif
 
     this->hasOverloads = hasOverloads;
     if (hasOverloads)
