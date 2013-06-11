@@ -1323,7 +1323,8 @@ DValue* PtrExp::toElem(IRState* p)
     }
     else
     {
-        V = e1->toElem(p)->getRVal();
+        // The frontend emits a cast in PtrExp for delegate member access.
+        V = DtoBitCast(e1->toElem(p)->getRVal(), DtoType(type->pointerTo()));
     }
     return new DVarValue(type, V);
 }
@@ -3098,16 +3099,6 @@ LruntimeInit:
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* GEPExp::toElem(IRState* p)
-{
-    // (&a.foo).funcptr is a case where e1->toElem is genuinely not an l-value.
-    LLValue* val = makeLValue(loc, e1->toElem(p));
-    LLValue* v = DtoGEPi(val, 0, index);
-    return new DVarValue(type, DtoBitCast(v, getPtrToType(DtoType(type))));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* BoolExp::toElem(IRState* p)
 {
     return new DImValue(type, DtoCast(loc, e1->toElem(p), Type::tbool)->getRVal());
@@ -3213,7 +3204,6 @@ STUB(PowAssignExp)
     return NULL; \
 }
 CONSTSTUB(Expression)
-CONSTSTUB(GEPExp)
 CONSTSTUB(SliceExp)
 CONSTSTUB(IndexExp)
 CONSTSTUB(AssocArrayLiteralExp)

@@ -2114,27 +2114,6 @@ struct LineInitExp : DefaultInitExp
 
 /****************************************************************/
 
-#if IN_LLVM
-
-// this stuff is strictly LDC
-
-struct GEPExp : UnaExp
-{
-    unsigned index;
-    Identifier* ident;
-
-    GEPExp(Loc loc, Expression* e, Identifier* id, unsigned idx);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    Expression *toLvalue(Scope *sc, Expression *e);
-
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-};
-
-#endif
-
-/****************************************************************/
-
 /* Special values used by the interpreter
  */
 #define EXP_CANT_INTERPRET      ((Expression *)1)
