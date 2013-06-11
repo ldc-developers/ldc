@@ -6717,13 +6717,25 @@ Expression *TypeDelegate::dotExp(Scope *sc, Expression *e, Identifier *ident)
 #endif
     if (ident == Id::ptr)
     {
-        e = new GEPExp(e->loc, e, ident, 0);
         e->type = tvoidptr;
         return e;
     }
     else if (ident == Id::funcptr)
     {
-        e = new GEPExp(e->loc, e, ident, 1);
+        if (!e->isLvalue())
+        {
+            Identifier *idtmp = Lexer::uniqueId("__dgtmp");
+            VarDeclaration *tmp = new VarDeclaration(e->loc, this, idtmp, new ExpInitializer(0, e));
+            tmp->storage_class |= STCctfe;
+            e = new DeclarationExp(e->loc, tmp);
+            e = new CommaExp(e->loc, e, new VarExp(e->loc, tmp));
+            e = e->semantic(sc);
+        }
+        e = e->addressOf(sc);
+        e->type = tvoidptr;
+        e = new AddExp(e->loc, e, new IntegerExp(PTRSIZE));
+        e->type = tvoidptr;
+        e = new PtrExp(e->loc, e);
         e->type = next->pointerTo();
         return e;
     }
