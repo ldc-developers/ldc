@@ -1135,10 +1135,6 @@ Expression *SwitchStatement::interpret(InterState *istate)
         s = sdefault;
     }
 
-#if IN_LLVM
-    if (!s)
-        return EXP_CANT_INTERPRET;
-#endif
     assert(s);
     istate->start = s;
     e = body ? body->interpret(istate) : NULL;
@@ -1595,6 +1591,7 @@ Expression *DelegateExp::interpret(InterState *istate, CtfeGoal goal)
 #endif
     return this;
 }
+
 
 // -------------------------------------------------------------
 //         Remove out, ref, and this
