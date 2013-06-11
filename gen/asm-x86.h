@@ -1827,6 +1827,12 @@ namespace AsmParserx8664
                         break;
 
                     case Arg_Memory:
+                        // Peel off one layer of explicitly taking the address, if present.
+                        if ( e->op == TOKaddress )
+                        {
+                            e = static_cast<AddrExp*>(e)->e1;
+                        }
+
                         if ( e->op == TOKvar )
                         {
                             VarExp* v = ( VarExp* ) e;
