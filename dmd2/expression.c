@@ -9052,9 +9052,6 @@ CastExp::CastExp(Loc loc, Expression *e, Type *t)
 {
     to = t;
     this->mod = ~0;
-#if IN_LLVM
-    disableOptimization = false;
-#endif
 }
 
 #if DMDV2
@@ -9065,9 +9062,6 @@ CastExp::CastExp(Loc loc, Expression *e, unsigned mod)
 {
     to = NULL;
     this->mod = mod;
-#if IN_LLVM
-    disableOptimization = false;
-#endif
 }
 #endif
 
