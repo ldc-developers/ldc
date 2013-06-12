@@ -91,9 +91,6 @@ public:
     ///
     IrTypeStruct* isStruct()    { return this; }
 
-    ///
-    llvm::Type* buildType();
-
 protected:
     ///
     IrTypeStruct(StructDeclaration* sd);
