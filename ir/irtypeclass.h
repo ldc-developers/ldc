@@ -14,7 +14,7 @@
 #ifndef __LDC_IR_IRTYPECLASS_H__
 #define __LDC_IR_IRTYPECLASS_H__
 
-#include "ir/irtypestruct.h"
+#include "ir/irtypeaggr.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/DerivedTypes.h"
 #else

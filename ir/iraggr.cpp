@@ -19,6 +19,7 @@
 #include "gen/utils.h"
 #include "ir/iraggr.h"
 #include "ir/irtypeclass.h"
+#include "ir/irtypestruct.h"
 #include <algorithm>
 
 //////////////////////////////////////////////////////////////////////////////

@@ -22,7 +22,6 @@
 #include "gen/tollvm.h"
 #include "gen/utils.h"
 #include "ir/iraggr.h"
-#include "ir/irtypestruct.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <algorithm>
