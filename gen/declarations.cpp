@@ -22,7 +22,6 @@
 #include "gen/tollvm.h"
 #include "ir/ir.h"
 #include "ir/irtype.h"
-#include "ir/irtypestruct.h"
 #include "ir/irvar.h"
 
 /* ================================================================== */

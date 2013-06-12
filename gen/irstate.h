@@ -18,7 +18,7 @@
 #include "aggregate.h"
 #include "root.h"
 #include "ir/irfunction.h"
-#include "ir/irstruct.h"
+#include "ir/iraggr.h"
 #include "ir/irvar.h"
 #include <deque>
 #include <list>
@@ -146,9 +146,9 @@ struct IRState
     llvm::Instruction* topallocapoint();
 
     // structs
-    typedef std::vector<IrStruct*> StructVector;
+    typedef std::vector<IrAggr*> StructVector;
     StructVector structs;
-    IrStruct* topstruct();
+    IrAggr* topstruct();
 
     // D main function
     bool emitMain;

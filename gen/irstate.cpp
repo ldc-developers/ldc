@@ -105,7 +105,7 @@ llvm::Instruction* IRState::topallocapoint()
     return functions.back()->allocapoint;
 }
 
-IrStruct* IRState::topstruct()
+IrAggr* IRState::topstruct()
 {
     assert(!structs.empty() && "Struct vector is empty!");
     return structs.back();

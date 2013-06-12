@@ -2874,7 +2874,6 @@ DValue* StructLiteralExp::toElem(IRState* p)
 
         // get initializer
         Expression* expr = (it.index < nexprs) ? exprs[it.index] : NULL;
-        IF_LOG Logger::println("expr: %p", expr);
         DValue* val;
         DConstValue cv(vd->type, NULL); // Only used in one branch; value is set beforehand
         if (expr)
@@ -2947,22 +2946,18 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     // make sure the struct is resolved
     sd->codegen(Type::sir);
 
-    // get inits
-    llvm::SmallVector<IrTypeStruct::VarInitConst, 16> varInits;
+    std::map<VarDeclaration*, llvm::Constant*> varInits;
 
     size_t nexprs = elements->dim;
     for (size_t i = 0; i < nexprs; i++)
     {
         if ((*elements)[i])
         {
-            IrTypeStruct::VarInitConst v;
-            v.first = sd->fields[i];
-            v.second = (*elements)[i]->toConstElem(p);
-            varInits.push_back(v);
+            varInits[sd->fields[i]] = (*elements)[i]->toConstElem(p);
         }
     }
 
-    return sd->type->irtype->isStruct()->createInitializerConstant(varInits);
+    return sd->ir.irStruct->createInitializerConstant(varInits);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -3206,17 +3201,14 @@ STUB(SymbolExp)
 STUB(PowExp)
 STUB(PowAssignExp)
 
-#define CONSTSTUB(x) LLConstant* x::toConstElem(IRState * p) { \
-    error("expression '%s' is not a constant", toChars()); \
-    if (!global.gag) \
-        fatal(); \
-    return NULL; \
+llvm::Constant* Expression::toConstElem(IRState * p)
+{
+    error("expression '%s' is not a constant", toChars());
+    if (!global.gag)
+        fatal();
+    return NULL;
 }
-CONSTSTUB(Expression)
-CONSTSTUB(GEPExp)
-CONSTSTUB(SliceExp)
-CONSTSTUB(IndexExp)
-CONSTSTUB(AssocArrayLiteralExp)
+
 
 //////////////////////////////////////////////////////////////////////////////////////////
 

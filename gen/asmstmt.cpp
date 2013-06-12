@@ -139,6 +139,7 @@ int AsmStatement::comeFrom()
 
 struct AsmParserCommon
 {
+    virtual ~AsmParserCommon() {}
     virtual void run(Scope* sc, AsmStatement* asmst) = 0;
     virtual std::string getRegName(int i) = 0;
 };

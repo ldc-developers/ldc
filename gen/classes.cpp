@@ -25,7 +25,7 @@
 #include "gen/structs.h"
 #include "gen/tollvm.h"
 #include "gen/utils.h"
-#include "ir/irstruct.h"
+#include "ir/iraggr.h"
 #include "ir/irtypeclass.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -55,10 +55,10 @@ void DtoResolveClass(ClassDeclaration* cd)
     // make sure type exists
     DtoType(cd->type);
 
-    // create IrStruct
+    // create IrAggr
     assert(cd->ir.irStruct == NULL);
-    IrStruct* irstruct = new IrStruct(cd);
-    cd->ir.irStruct = irstruct;
+    IrAggr* irAggr = new IrAggr(cd);
+    cd->ir.irStruct = irAggr;
 
     // make sure all fields really get their ir field
     ArrayIter<VarDeclaration> it(cd->fields);
@@ -75,30 +75,30 @@ void DtoResolveClass(ClassDeclaration* cd)
     bool needs_def = mustDefineSymbol(cd);
 
     // emit the ClassZ symbol
-    LLGlobalVariable* ClassZ = irstruct->getClassInfoSymbol();
+    LLGlobalVariable* ClassZ = irAggr->getClassInfoSymbol();
 
     // emit the interfaceInfosZ symbol if necessary
     if (cd->vtblInterfaces && cd->vtblInterfaces->dim > 0)
-        irstruct->getInterfaceArraySymbol(); // initializer is applied when it's built
+        irAggr->getInterfaceArraySymbol(); // initializer is applied when it's built
 
     // interface only emit typeinfo and classinfo
     if (cd->isInterfaceDeclaration())
     {
-        irstruct->initializeInterface();
+        irAggr->initializeInterface();
     }
     else
     {
         // emit the initZ symbol
-        LLGlobalVariable* initZ = irstruct->getInitSymbol();
+        LLGlobalVariable* initZ = irAggr->getInitSymbol();
         // emit the vtblZ symbol
-        LLGlobalVariable* vtblZ = irstruct->getVtblSymbol();
+        LLGlobalVariable* vtblZ = irAggr->getVtblSymbol();
 
         // perform definition
         if (needs_def)
         {
             // set symbol initializers
-            initZ->setInitializer(irstruct->getDefaultInit());
-            vtblZ->setInitializer(irstruct->getVtblInit());
+            initZ->setInitializer(irAggr->getDefaultInit());
+            vtblZ->setInitializer(irAggr->getVtblInit());
         }
     }
 
@@ -121,7 +121,7 @@ void DtoResolveClass(ClassDeclaration* cd)
         DtoTypeInfoOf(cd->type);
 
         // define classinfo
-        ClassZ->setInitializer(irstruct->getClassInfoInit());
+        ClassZ->setInitializer(irAggr->getClassInfoInit());
     }
 }
 
@@ -689,7 +689,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     assert(cd->type->ty == Tclass);
     TypeClass* cdty = static_cast<TypeClass*>(cd->type);
 
-    IrStruct* ir = cd->ir.irStruct;
+    IrAggr* ir = cd->ir.irStruct;
     assert(ir);
 
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;

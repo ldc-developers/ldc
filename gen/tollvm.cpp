@@ -31,6 +31,7 @@
 #include "ir/irtype.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypefunction.h"
+#include "ir/irtypestruct.h"
 
 bool DtoIsPassedByRef(Type* type)
 {

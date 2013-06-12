@@ -39,6 +39,8 @@ namespace llvm
 // return rewrite rule
 struct ABIRewrite
 {
+    virtual ~ABIRewrite() {}
+
     /// get a rewritten value back to its original form
     virtual llvm::Value* get(Type* dty, DValue* v) = 0;
 
@@ -56,6 +58,8 @@ struct ABIRewrite
 // interface called by codegen
 struct TargetABI
 {
+    virtual ~TargetABI() {}
+
     /// Returns the ABI for the target we're compiling for
     static TargetABI* getTarget();
 

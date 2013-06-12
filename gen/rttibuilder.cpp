@@ -16,7 +16,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
-#include "ir/irstruct.h"
+#include "ir/iraggr.h"
 
 RTTIBuilder::RTTIBuilder(AggregateDeclaration* base_class)
 {

@@ -29,7 +29,7 @@
 #include "gen/metadata.h"
 #include "gen/runtime.h"
 
-#include "ir/irstruct.h"
+#include "ir/iraggr.h"
 #include "ir/irtypeclass.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -41,7 +41,7 @@ extern LLConstant* DtoDefineClassInfo(ClassDeclaration* cd);
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLGlobalVariable * IrStruct::getVtblSymbol()
+LLGlobalVariable * IrAggr::getVtblSymbol()
 {
     if (vtbl)
         return vtbl;
@@ -63,7 +63,7 @@ LLGlobalVariable * IrStruct::getVtblSymbol()
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLGlobalVariable * IrStruct::getClassInfoSymbol()
+LLGlobalVariable * IrAggr::getClassInfoSymbol()
 {
     if (classInfo)
         return classInfo;
@@ -114,7 +114,7 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
+LLGlobalVariable * IrAggr::getInterfaceArraySymbol()
 {
     if (classInterfacesArray)
         return classInterfacesArray;
@@ -145,7 +145,7 @@ LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant * IrStruct::getVtblInit()
+LLConstant * IrAggr::getVtblInit()
 {
     if (constVtbl)
         return constVtbl;
@@ -253,7 +253,7 @@ LLConstant * IrStruct::getVtblInit()
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant * IrStruct::getClassInfoInit()
+LLConstant * IrAggr::getClassInfoInit()
 {
     if (constClassInfo)
         return constClassInfo;
@@ -263,110 +263,7 @@ LLConstant * IrStruct::getClassInfoInit()
 
 //////////////////////////////////////////////////////////////////////////////
 
-void IrStruct::addBaseClassInits(
-    std::vector<llvm::Constant*>& constants,
-    ClassDeclaration* base,
-    size_t& offset,
-    size_t& field_index)
-{
-    if (base->baseClass)
-    {
-        addBaseClassInits(constants, base->baseClass, offset, field_index);
-    }
-
-    IrTypeClass* tc = stripModifiers(base->type)->irtype->isClass();
-    assert(tc);
-
-    // go through fields
-    IrTypeAggr::iterator it;
-    for (it = tc->def_begin(); it != tc->def_end(); ++it)
-    {
-        VarDeclaration* vd = *it;
-
-        IF_LOG Logger::println("Adding default field %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
-        LOG_SCOPE;
-
-        assert(vd->offset >= offset && "default fields not sorted by offset");
-
-        // get next aligned offset for this type
-        size_t alignedoffset = realignOffset(offset, vd->type);
-
-        // insert explicit padding?
-        if (alignedoffset < vd->offset)
-        {
-            add_zeros(constants, vd->offset - alignedoffset);
-        }
-
-        // add default type
-        constants.push_back(get_default_initializer(vd, vd->init));
-
-        // advance offset to right past this field
-        offset = vd->offset + vd->type->size();
-    }
-
-    // has interface vtbls?
-    if (base->vtblInterfaces && base->vtblInterfaces->dim > 0)
-    {
-        // false when it's not okay to use functions from super classes
-        bool newinsts = (base == aggrdecl->isClassDeclaration());
-
-        size_t inter_idx = interfacesWithVtbls.size();
-
-        offset = (offset + PTRSIZE - 1) & ~(PTRSIZE - 1);
-
-        ArrayIter<BaseClass> it2(*base->vtblInterfaces);
-        for (; !it2.done(); it2.next())
-        {
-            BaseClass* b = it2.get();
-            constants.push_back(getInterfaceVtbl(b, newinsts, inter_idx));
-            offset += PTRSIZE;
-
-            // add to the interface list
-            interfacesWithVtbls.push_back(b);
-            inter_idx++;
-        }
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-std::vector<llvm::Constant*> IrStruct::createClassDefaultInitializer()
-{
-    ClassDeclaration* cd = aggrdecl->isClassDeclaration();
-    assert(cd && "invalid class aggregate");
-
-    IF_LOG Logger::println("Building class default initializer %s @ %s", cd->toPrettyChars(), cd->loc.toChars());
-    LOG_SCOPE;
-    IF_LOG Logger::println("Instance size: %u", cd->structsize);
-
-    // find the fields that contribute to the default initializer.
-    // these will define the default type.
-
-    std::vector<llvm::Constant*> constants;
-    constants.reserve(32);
-
-    // add vtbl
-    constants.push_back(getVtblSymbol());
-    // add monitor
-    constants.push_back(getNullValue(DtoType(Type::tvoid->pointerTo())));
-
-    // we start right after the vtbl and monitor
-    size_t offset = PTRSIZE * 2;
-    size_t field_index = 2;
-
-    // add data members recursively
-    addBaseClassInits(constants, cd, offset, field_index);
-
-    // tail padding?
-    if (offset < cd->structsize)
-        add_zeros(constants, cd->structsize - offset);
-
-    return constants;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instance, size_t interfaces_index)
+llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance, size_t interfaces_index)
 {
     ClassGlobalMap::iterator it = interfaceVtblMap.find(b->base);
     if (it != interfaceVtblMap.end())
@@ -454,7 +351,7 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant * IrStruct::getClassInfoInterfaces()
+LLConstant * IrAggr::getClassInfoInterfaces()
 {
     IF_LOG Logger::println("Building ClassInfo.interfaces");
     LOG_SCOPE;
@@ -496,7 +393,7 @@ LLConstant * IrStruct::getClassInfoInterfaces()
 
         IF_LOG Logger::println("Adding interface %s", it->base->toPrettyChars());
 
-        IrStruct* irinter = it->base->ir.irStruct;
+        IrAggr* irinter = it->base->ir.irStruct;
         assert(irinter && "interface has null IrStruct");
         IrTypeClass* itc = stripModifiers(irinter->type)->irtype->isClass();
         assert(itc && "null interface IrTypeClass");
@@ -559,7 +456,7 @@ LLConstant * IrStruct::getClassInfoInterfaces()
 
 //////////////////////////////////////////////////////////////////////////////
 
-void IrStruct::initializeInterface()
+void IrAggr::initializeInterface()
 {
     InterfaceDeclaration* base = aggrdecl->isInterfaceDeclaration();
     assert(base && "not interface");

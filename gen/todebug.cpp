@@ -280,7 +280,7 @@ static llvm::DIType dwarfCompositeType(Type* type)
     if (sd->sizeok == 0)
         return llvm::DICompositeType(NULL);
 
-    IrStruct* ir = sd->ir.irStruct;
+    IrAggr* ir = sd->ir.irStruct;
     assert(ir);
     if (static_cast<llvm::MDNode*>(ir->diCompositeType) != 0)
         return ir->diCompositeType;
