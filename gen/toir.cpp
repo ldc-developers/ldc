@@ -2874,7 +2874,6 @@ DValue* StructLiteralExp::toElem(IRState* p)
 
         // get initializer
         Expression* expr = (it.index < nexprs) ? exprs[it.index] : NULL;
-        IF_LOG Logger::println("expr: %p", expr);
         DValue* val;
         DConstValue cv(vd->type, NULL); // Only used in one branch; value is set beforehand
         if (expr)
