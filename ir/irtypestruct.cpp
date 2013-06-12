@@ -104,7 +104,7 @@ llvm::Constant* IrTypeAggr::createInitializerConstant(
 
         IF_LOG Logger::println("adding field %s", vd->toChars());
 
-        constants.push_back(FillSArrayDims(vd->type, initializers[i].second));
+        constants.push_back(FillSArrayDims(vd->type, data[i].second));
         offset = vd->offset + vd->type->size();
     }
 
