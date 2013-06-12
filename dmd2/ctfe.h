@@ -55,6 +55,7 @@ struct ClassReferenceExp : Expression
     /// Same as getFieldIndex, but checks for a direct match with the VarDeclaration
     int findFieldIndexByName(VarDeclaration *v);
 #if IN_LLVM
+    llvm::Constant* toConstElem(IRState *irs);
 #else
     dt_t **toDt(dt_t **pdt);
     dt_t **toDtI(dt_t **pdt, int offset);

@@ -43,6 +43,9 @@
 #include <math.h>
 #include <stdio.h>
 
+// Needs other includes.
+#include "ctfe.h"
+
 llvm::cl::opt<bool> checkPrintf("check-printf-calls",
     llvm::cl::desc("Validate printf call format strings against arguments"),
     llvm::cl::ZeroOrMore);
@@ -2824,7 +2827,7 @@ static LLValue* write_zeroes(LLValue* mem, unsigned start, unsigned end) {
 
 DValue* StructLiteralExp::toElem(IRState* p)
 {
-    Logger::print("StructLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
+    IF_LOG Logger::print("StructLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
     if (sinit)
@@ -2933,7 +2936,9 @@ DValue* StructLiteralExp::toElem(IRState* p)
 
 LLConstant* StructLiteralExp::toConstElem(IRState* p)
 {
-    Logger::print("StructLiteralExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
+    // type can legitimately be null for ClassReferenceExp::value.
+    IF_LOG Logger::print("StructLiteralExp::toConstElem: %s @ %s\n",
+        toChars(), type ? type->toChars() : "(null)");
     LOG_SCOPE;
 
     if (sinit)
@@ -2963,6 +2968,16 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     }
 
     return sd->ir.irStruct->createInitializerConstant(varInits);
+}
+
+llvm::Constant* ClassReferenceExp::toConstElem(IRState *p)
+{
+    IF_LOG Logger::print("ClassReferenceExp::toConstElem: %s @ %s\n",
+        toChars(), type->toChars());
+    LOG_SCOPE;
+
+    // FIXME: Handle type->sym->isInterfaceDeclaration().
+    return value->toConstElem(p);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
