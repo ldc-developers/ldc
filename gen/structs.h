@@ -36,9 +36,6 @@ namespace llvm
  */
 void DtoResolveStruct(StructDeclaration* sd);
 
-/// Build constant struct initializer.
-llvm::Constant* DtoConstStructInitializer(StructInitializer* si);
-
 /// Returns a boolean=true if the two structs are equal.
 llvm::Value* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs);
 
