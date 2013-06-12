@@ -27,7 +27,7 @@ struct ClassDeclaration;
 struct Dsymbol;
 struct FuncDeclaration;
 struct IrGlobal;
-struct IrStruct;
+struct IrAggr;
 struct Type;
 struct TypeClass;
 namespace llvm { class StructType; }
@@ -36,7 +36,7 @@ struct RTTIBuilder
 {
     AggregateDeclaration* base;
     TypeClass* basetype;
-    IrStruct* baseir;
+    IrAggr* baseir;
 
     // 10 is enough for any D1 TypeInfo
     // 14 is enough for any D1 ClassInfo

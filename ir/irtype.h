@@ -56,7 +56,7 @@ class IrTypeVector;
 /// easily check for uniqueness violations in the face of forward references.
 /// TODO: Implement the described changes (now that the forward reference
 /// handling logic seems to work correctly) and get rid of the "no-op" DtoType
-/// calls in IrStruct, ... that only exist for their side effect.
+/// calls in IrAggr, ... that only exist for their side effect.
 class IrType
 {
 public:

@@ -1,4 +1,4 @@
-//===-- irstruct.cpp ------------------------------------------------------===//
+//===-- iraggr.cpp --------------------------------------------------------===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -17,13 +17,13 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/utils.h"
-#include "ir/irstruct.h"
+#include "ir/iraggr.h"
 #include "ir/irtypeclass.h"
 #include <algorithm>
 
 //////////////////////////////////////////////////////////////////////////////
 
-IrStruct::IrStruct(AggregateDeclaration* aggr)
+IrAggr::IrAggr(AggregateDeclaration* aggr)
 :   diCompositeType(NULL),
     init_type(LLStructType::create(gIR->context(), std::string(aggr->toPrettyChars()) + "_init"))
 {
@@ -50,7 +50,7 @@ IrStruct::IrStruct(AggregateDeclaration* aggr)
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLGlobalVariable * IrStruct::getInitSymbol()
+LLGlobalVariable * IrAggr::getInitSymbol()
 {
     if (init)
         return init;
@@ -76,7 +76,7 @@ LLGlobalVariable * IrStruct::getInitSymbol()
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::Constant * IrStruct::getDefaultInit()
+llvm::Constant * IrAggr::getDefaultInit()
 {
     if (constInit)
         return constInit;
@@ -158,7 +158,7 @@ size_t add_zeros(std::vector<llvm::Constant*>& constants, size_t diff)
 // Matches the way the type is built in IrTypeStruct
 // maybe look at unifying the interface.
 
-std::vector<llvm::Constant*> IrStruct::createStructDefaultInitializer()
+std::vector<llvm::Constant*> IrAggr::createStructDefaultInitializer()
 {
     IF_LOG Logger::println("Building default initializer for %s", aggrdecl->toPrettyChars());
     LOG_SCOPE;
@@ -218,7 +218,7 @@ std::vector<llvm::Constant*> IrStruct::createStructDefaultInitializer()
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant * IrStruct::createStructInitializer(StructInitializer * si)
+LLConstant * IrAggr::createStructInitializer(StructInitializer * si)
 {
     IF_LOG Logger::println("Building StructInitializer of type %s", si->ad->toPrettyChars());
     LOG_SCOPE;

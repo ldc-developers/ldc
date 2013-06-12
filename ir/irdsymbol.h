@@ -18,7 +18,7 @@
 
 struct IrModule;
 struct IrFunction;
-struct IrStruct;
+struct IrAggr;
 struct IrGlobal;
 struct IrLocal;
 struct IrParameter;
@@ -52,7 +52,7 @@ struct IrDsymbol
 
     IrModule* irModule;
 
-    IrStruct* irStruct;
+    IrAggr* irStruct;
 
     IrFunction* irFunc;
 

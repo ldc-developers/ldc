@@ -1,4 +1,4 @@
-//===-- ir/irstruct.h - Codegen state for D aggregates ----------*- C++ -*-===//
+//===-- ir/iraggr.h - Codegen state for D aggregates ------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -12,8 +12,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRSTRUCT_H
-#define LDC_IR_IRSTRUCT_H
+#ifndef LDC_IR_IRAGGR_H
+#define LDC_IR_IRAGGR_H
 
 #include "ir/ir.h"
 #include <map>
@@ -26,10 +26,10 @@ struct StructInitializer;
 
 // represents a struct or class
 // it is used during codegen to hold all the vital info we need
-struct IrStruct
+struct IrAggr
 {
     /// Constructor.
-    IrStruct(AggregateDeclaration* agg);
+    IrAggr(AggregateDeclaration* agg);
 
     //////////////////////////////////////////////////////////////////////////
     // public fields,

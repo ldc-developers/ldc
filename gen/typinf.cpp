@@ -607,7 +607,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     }
 
     sd->codegen(Type::sir);
-    IrStruct* irstruct = sd->ir.irStruct;
+    IrAggr* irstruct = sd->ir.irStruct;
 
     RTTIBuilder b(Type::typeinfostruct);
 

@@ -21,7 +21,7 @@
 #include "gen/structs.h"
 #include "gen/tollvm.h"
 #include "gen/utils.h"
-#include "ir/irstruct.h"
+#include "ir/iraggr.h"
 #include "ir/irtypestruct.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -45,8 +45,8 @@ void DtoResolveStruct(StructDeclaration* sd)
     if (sd->sizeok != 1)
         return;
 
-    // create the IrStruct
-    IrStruct* irstruct = new IrStruct(sd);
+    // create the IrAggr
+    IrAggr* irstruct = new IrAggr(sd);
     sd->ir.irStruct = irstruct;
 
     // Set up our field metadata.

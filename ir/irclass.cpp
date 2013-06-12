@@ -29,7 +29,7 @@
 #include "gen/metadata.h"
 #include "gen/runtime.h"
 
-#include "ir/irstruct.h"
+#include "ir/iraggr.h"
 #include "ir/irtypeclass.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -41,7 +41,7 @@ extern LLConstant* DtoDefineClassInfo(ClassDeclaration* cd);
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLGlobalVariable * IrStruct::getVtblSymbol()
+LLGlobalVariable * IrAggr::getVtblSymbol()
 {
     if (vtbl)
         return vtbl;
@@ -63,7 +63,7 @@ LLGlobalVariable * IrStruct::getVtblSymbol()
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLGlobalVariable * IrStruct::getClassInfoSymbol()
+LLGlobalVariable * IrAggr::getClassInfoSymbol()
 {
     if (classInfo)
         return classInfo;
@@ -114,7 +114,7 @@ LLGlobalVariable * IrStruct::getClassInfoSymbol()
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
+LLGlobalVariable * IrAggr::getInterfaceArraySymbol()
 {
     if (classInterfacesArray)
         return classInterfacesArray;
@@ -145,7 +145,7 @@ LLGlobalVariable * IrStruct::getInterfaceArraySymbol()
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant * IrStruct::getVtblInit()
+LLConstant * IrAggr::getVtblInit()
 {
     if (constVtbl)
         return constVtbl;
@@ -253,7 +253,7 @@ LLConstant * IrStruct::getVtblInit()
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant * IrStruct::getClassInfoInit()
+LLConstant * IrAggr::getClassInfoInit()
 {
     if (constClassInfo)
         return constClassInfo;
@@ -263,7 +263,7 @@ LLConstant * IrStruct::getClassInfoInit()
 
 //////////////////////////////////////////////////////////////////////////////
 
-void IrStruct::addBaseClassInits(
+void IrAggr::addBaseClassInits(
     std::vector<llvm::Constant*>& constants,
     ClassDeclaration* base,
     size_t& offset,
@@ -330,7 +330,7 @@ void IrStruct::addBaseClassInits(
 
 //////////////////////////////////////////////////////////////////////////////
 
-std::vector<llvm::Constant*> IrStruct::createClassDefaultInitializer()
+std::vector<llvm::Constant*> IrAggr::createClassDefaultInitializer()
 {
     ClassDeclaration* cd = aggrdecl->isClassDeclaration();
     assert(cd && "invalid class aggregate");
@@ -366,7 +366,7 @@ std::vector<llvm::Constant*> IrStruct::createClassDefaultInitializer()
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instance, size_t interfaces_index)
+llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance, size_t interfaces_index)
 {
     ClassGlobalMap::iterator it = interfaceVtblMap.find(b->base);
     if (it != interfaceVtblMap.end())
@@ -454,7 +454,7 @@ llvm::GlobalVariable * IrStruct::getInterfaceVtbl(BaseClass * b, bool new_instan
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant * IrStruct::getClassInfoInterfaces()
+LLConstant * IrAggr::getClassInfoInterfaces()
 {
     IF_LOG Logger::println("Building ClassInfo.interfaces");
     LOG_SCOPE;
@@ -496,7 +496,7 @@ LLConstant * IrStruct::getClassInfoInterfaces()
 
         IF_LOG Logger::println("Adding interface %s", it->base->toPrettyChars());
 
-        IrStruct* irinter = it->base->ir.irStruct;
+        IrAggr* irinter = it->base->ir.irStruct;
         assert(irinter && "interface has null IrStruct");
         IrTypeClass* itc = stripModifiers(irinter->type)->irtype->isClass();
         assert(itc && "null interface IrTypeClass");
@@ -559,7 +559,7 @@ LLConstant * IrStruct::getClassInfoInterfaces()
 
 //////////////////////////////////////////////////////////////////////////////
 
-void IrStruct::initializeInterface()
+void IrAggr::initializeInterface()
 {
     InterfaceDeclaration* base = aggrdecl->isInterfaceDeclaration();
     assert(base && "not interface");
