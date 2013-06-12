@@ -91,6 +91,9 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
     if (sd->sizeok != 1)
         return t;
 
+    // TODO:: Somehow merge this with IrAggr::createInitializerConstant, or
+    // replace it by just taking the type of the default initializer.
+
     // mirror the sd->fields array but only fill in contributors
     size_t n = sd->fields.dim;
     LLSmallVector<VarDeclaration*, 16> data(n, NULL);

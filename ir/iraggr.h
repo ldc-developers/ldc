@@ -16,6 +16,7 @@
 #define LDC_IR_IRAGGR_H
 
 #include "ir/ir.h"
+#include "llvm/ADT/SmallVector.h"
 #include <map>
 #include <vector>
 
@@ -76,6 +77,24 @@ struct IrAggr
     void initializeInterface();
 
     //////////////////////////////////////////////////////////////////////////
+
+    typedef std::map<VarDeclaration*, llvm::Constant*> VarInitMap;
+
+    /// Creates an initializer constant for the struct type with the given
+    /// fields set to the provided constants. The remaining space (not
+    /// explicitly specified fields, padding) is default-initialized.
+    ///
+    /// The optional initializerType parmeter can be used to specify the exact
+    /// LLVM type to use for the initializer. If non-null and non-opaque, the
+    /// type must exactly match the generated constant. This parameter is used
+    /// mainly for supporting legacy code.
+    ///
+    /// Note that in the general case (if e.g. unions are involved), the
+    /// returned type is not necessarily the same as getLLType().
+    llvm::Constant* createInitializerConstant(
+        const VarInitMap& explicitInitializers,
+        llvm::StructType* initializerType = 0);
+
 protected:
     /// Static default initializer global.
     LLGlobalVariable* init;
@@ -114,31 +133,26 @@ protected:
 
     //////////////////////////////////////////////////////////////////////////
 
-    /// Create static default initializer for struct.
-    std::vector<llvm::Constant*> createStructDefaultInitializer();
-
-    /// Create static default initializer for class.
-    std::vector<llvm::Constant*> createClassDefaultInitializer();
-
     /// Returns vtbl for interface implementation, creates it if not already built.
     llvm::GlobalVariable* getInterfaceVtbl(
         BaseClass* b,
         bool new_inst,
         size_t interfaces_index);
 
-    /// Add base class data to initializer list.
-    /// Also creates the IrField instance for each data field.
-    void addBaseClassInits(
-        std::vector<llvm::Constant*>& constants,
-        ClassDeclaration* base,
-        size_t& offset,
-        size_t& field_index);
-
     // FIXME make this a member instead
     friend LLConstant* DtoDefineClassInfo(ClassDeclaration* cd);
 
     /// Create the Interface[] interfaces ClassInfo field initializer.
     LLConstant* getClassInfoInterfaces();
+
+private:
+    /// Recursively adds all the initializers for the given aggregate and, in
+    /// case of a class type, all its base classes.
+    void addFieldInitializers(
+        llvm::SmallVectorImpl<llvm::Constant*>& constants,
+        const VarInitMap& explicitInitializers,
+        AggregateDeclaration* decl,
+        unsigned& offset);
 };
 
 //////////////////////////////////////////////////////////////////////////////

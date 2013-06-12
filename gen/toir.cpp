@@ -2946,22 +2946,18 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     // make sure the struct is resolved
     sd->codegen(Type::sir);
 
-    // get inits
-    llvm::SmallVector<IrTypeStruct::VarInitConst, 16> varInits;
+    std::map<VarDeclaration*, llvm::Constant*> varInits;
 
     size_t nexprs = elements->dim;
     for (size_t i = 0; i < nexprs; i++)
     {
         if ((*elements)[i])
         {
-            IrTypeStruct::VarInitConst v;
-            v.first = sd->fields[i];
-            v.second = (*elements)[i]->toConstElem(p);
-            varInits.push_back(v);
+            varInits[sd->fields[i]] = (*elements)[i]->toConstElem(p);
         }
     }
 
-    return sd->type->irtype->isStruct()->createInitializerConstant(varInits);
+    return sd->ir.irStruct->createInitializerConstant(varInits);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

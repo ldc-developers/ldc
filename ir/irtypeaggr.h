@@ -12,8 +12,8 @@
 
 #include "ir/irtype.h"
 #include "llvm/ADT/ArrayRef.h"
+#include <map>
 #include <vector>
-#include <utility>
 
 namespace llvm {
     class Constant;
@@ -38,25 +38,6 @@ public:
 
     ///
     iterator def_end()          { return default_fields.end(); }
-
-    /// A pair of a member variable declaration and an associated initializer
-    /// constant.
-    typedef std::pair<VarDeclaration*, llvm::Constant*> VarInitConst;
-
-    /// Creates an initializer constant for the struct type with the given
-    /// fields set to the provided constants. The remaining space (not
-    /// explicitly specified fields, padding) is default-initialized.
-    ///
-    /// The optional initializerType parmeter can be used to specify the exact
-    /// LLVM type to use for the initializer. If non-null and non-opaque, the
-    /// type must exactly match the generated constant. This parameter is used
-    /// mainly for supporting legacy code.
-    ///
-    /// Note that in the general case (if e.g. unions are involved), the
-    /// returned type is not necessarily the same as getLLType().
-    llvm::Constant* createInitializerConstant(
-        llvm::ArrayRef<VarInitConst> initializers,
-        llvm::StructType* initializerType = 0);
 
 protected:
     ///
