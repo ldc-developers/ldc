@@ -16,15 +16,15 @@
 #ifndef __LDC_IR_IRTYPE_H__
 #define __LDC_IR_IRTYPE_H__
 
-#if LDC_LLVM_VER >= 303
-#include "llvm/IR/Type.h"
-#else
-#include "llvm/Type.h"
-#endif
-
 //////////////////////////////////////////////////////////////////////////////
 
 // forward declarations
+
+namespace llvm
+{
+    class LLVMContext;
+    class Type;
+}
 
 struct Type;
 
@@ -63,25 +63,25 @@ public:
     virtual ~IrType() {}
 
     ///
-    virtual IrTypeAggr* isAggr()        { return NULL; }
+    virtual IrTypeAggr* isAggr()        { return 0; }
     ///
-    virtual IrTypeArray* isArray()      { return NULL; }
+    virtual IrTypeArray* isArray()      { return 0; }
     ///
-    virtual IrTypeBasic* isBasic()      { return NULL; }
+    virtual IrTypeBasic* isBasic()      { return 0; }
     ///
-    virtual IrTypeClass* isClass()      { return NULL; }
+    virtual IrTypeClass* isClass()      { return 0; }
     ///
-    virtual IrTypeDelegate* isDelegate(){ return NULL; }
+    virtual IrTypeDelegate* isDelegate(){ return 0; }
     ///
-    virtual IrTypeFunction* isFunction(){ return NULL; }
+    virtual IrTypeFunction* isFunction(){ return 0; }
     ///
-    virtual IrTypePointer* isPointer()  { return NULL; }
+    virtual IrTypePointer* isPointer()  { return 0; }
     ///
-    virtual IrTypeSArray* isSArray()    { return NULL; }
+    virtual IrTypeSArray* isSArray()    { return 0; }
     ///
-    virtual IrTypeStruct* isStruct()    { return NULL; }
+    virtual IrTypeStruct* isStruct()    { return 0; }
     ///
-    IrTypeVector* isVector()            { return NULL; }
+    IrTypeVector* isVector()            { return 0; }
 
     ///
     Type* getDType()                    { return dtype; }
@@ -115,7 +115,7 @@ protected:
     ///
     IrTypeBasic(Type* dt);
     ///
-    static LLType* getComplexType(llvm::LLVMContext& ctx, LLType* type);
+    static llvm::Type* getComplexType(llvm::LLVMContext& ctx, llvm::Type* type);
     ///
     static llvm::Type* basic2llvm(Type* t);
 };
@@ -134,7 +134,7 @@ public:
 
 protected:
     ///
-    IrTypePointer(Type* dt, LLType *lt);
+    IrTypePointer(Type* dt, llvm::Type *lt);
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -171,7 +171,7 @@ public:
 
 protected:
     ///
-    IrTypeArray(Type* dt, LLType *lt);
+    IrTypeArray(Type* dt, llvm::Type *lt);
 };
 
 //////////////////////////////////////////////////////////////////////////////
