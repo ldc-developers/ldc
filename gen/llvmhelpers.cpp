@@ -1697,7 +1697,7 @@ LLValue* makeLValue(Loc& loc, DValue* value)
 
     if (needsMemory) {
         LLValue* tmp = DtoAlloca(valueType, ".makelvaluetmp");
-        DtoStore(valuePointer, tmp);
+        DtoStoreZextI8(valuePointer, tmp);
         valuePointer = tmp;
     }
 
