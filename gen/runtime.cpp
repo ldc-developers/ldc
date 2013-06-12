@@ -900,7 +900,7 @@ static void LLVM_D_BuildRuntimeModule()
 
     // void _d_invariant(Object o)
     {
-        llvm::StringRef fname("_d_invariant");
+        llvm::StringRef fname("_D9invariant12_d_invariantFC6ObjectZv");
         LLType *types[] = { objectTy };
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);

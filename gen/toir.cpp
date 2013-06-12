@@ -2102,7 +2102,7 @@ DValue* AssertExp::toElem(IRState* p)
         !(static_cast<TypeClass*>(condty)->sym->isInterfaceDeclaration()))
     {
         Logger::println("calling class invariant");
-        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_invariant");
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_D9invariant12_d_invariantFC6ObjectZv");
         LLValue* arg = DtoBitCast(cond->getRVal(), fn->getFunctionType()->getParamType(0));
         gIR->CreateCallOrInvoke(fn, arg);
     }
