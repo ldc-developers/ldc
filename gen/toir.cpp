@@ -1548,7 +1548,7 @@ DValue* SliceExp::toElem(IRState* p)
     // now all slices have *both* the 'len' and 'ptr' fields set to != null.
 
     // value being sliced
-    LLValue* elen;
+    LLValue* elen = 0;
     LLValue* eptr;
     DValue* e = e1->toElem(p);
 
@@ -1603,13 +1603,17 @@ DValue* SliceExp::toElem(IRState* p)
             // in this case, we also need to make sure the pointer is cast to the innermost element type
             eptr = DtoBitCast(eptr, DtoType(tsa->nextOf()->pointerTo()));
         }
-        // for normal code the actual array length is what we want!
-        else
-        {
-            elen = DtoArrayLen(e);
-        }
     }
 
+    // The frontend generates a SliceExp of static array type when assigning a
+    // fixed-width slice to a static array.
+    if (type->toBasetype()->ty == Tsarray)
+    {
+        return new DVarValue(type,
+            DtoBitCast(eptr, DtoType(type->pointerTo())));
+    }
+
+    if (!elen) elen = DtoArrayLen(e);
     return new DSliceValue(type, elen, eptr);
 }
 
