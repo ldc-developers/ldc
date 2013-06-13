@@ -12,7 +12,11 @@
 
 module rt.deh2;
 
-version (Posix)
+version (LDC)
+{
+    // We use a libunwind-based scheme on every OS.
+}
+else version (Posix)
 {
     version = deh2;
 }

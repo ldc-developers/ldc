@@ -12,6 +12,7 @@
 
 module rt.sections_osx;
 
+version (LDC) {} else
 version(OSX):
 
 // debug = PRINTF;

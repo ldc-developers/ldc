@@ -10,6 +10,7 @@
 
 module rt.sections_linux;
 
+version (LDC) {} else
 version (linux):
 
 // debug = PRINTF;

@@ -10,7 +10,9 @@
 
 module rt.sections;
 
-version (linux)
+version (LDC)
+    public import rt.sections_ldc;
+else version (linux)
     public import rt.sections_linux;
 else version (FreeBSD)
     public import rt.sections_freebsd;
@@ -22,6 +24,13 @@ else version (Win64)
     public import rt.sections_win64;
 else
     static assert(0, "unimplemented");
+
+version (LDC)
+{
+    // We do not have ehTables.
+}
+else
+{
 
 import rt.deh2, rt.minfo;
 
@@ -42,3 +51,4 @@ static assert(is(typeof(&initTLSRanges) RT == return) &&
               is(typeof(&initTLSRanges) == RT function()) &&
               is(typeof(&finiTLSRanges) == void function(RT)) &&
               is(typeof(&scanTLSRanges) == void function(RT, scope void delegate(void*, void*))));
+}

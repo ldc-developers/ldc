@@ -12,13 +12,6 @@
 
 module rt.memory;
 
-version (LDC)
-{
-    public import ldc.memory;
-}
-else
-{
-
 import gc.gc;
 import rt.sections;
 
@@ -29,6 +22,4 @@ void initStaticDataGC()
         foreach (rng; sg.gcRanges)
             gc_addRange(rng.ptr, rng.length);
     }
-}
-
 }

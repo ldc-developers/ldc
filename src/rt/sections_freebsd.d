@@ -10,6 +10,7 @@
 
 module rt.sections_freebsd;
 
+version (LDC) {} else
 version (FreeBSD):
 
 // debug = PRINTF;

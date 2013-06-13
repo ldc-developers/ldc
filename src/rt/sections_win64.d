@@ -12,6 +12,7 @@
 
 module rt.sections_win64;
 
+version (LDC) {} else
 version(Win64):
 
 // debug = PRINTF;
