@@ -3159,6 +3159,9 @@ DValue* TupleExp::toElem(IRState *p)
     IF_LOG Logger::print("TupleExp::toElem() %s\n", toChars());
     LOG_SCOPE;
 
+    // If there are any side effects, evaluate them first.
+    if (e0) e0->toElem(p);
+
     std::vector<LLType*> types;
     types.reserve(exps->dim);
     for (size_t i = 0; i < exps->dim; i++)
