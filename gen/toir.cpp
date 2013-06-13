@@ -3156,7 +3156,9 @@ DValue* TypeExp::toElem(IRState *p)
 
 DValue* TupleExp::toElem(IRState *p)
 {
-    Logger::print("TupleExp::toElem() %s\n", toChars());
+    IF_LOG Logger::print("TupleExp::toElem() %s\n", toChars());
+    LOG_SCOPE;
+
     std::vector<LLType*> types;
     types.reserve(exps->dim);
     for (size_t i = 0; i < exps->dim; i++)
@@ -3184,7 +3186,7 @@ DValue* TupleExp::toElem(IRState *p)
 
 DValue* VectorExp::toElem(IRState* p)
 {
-    Logger::print("VectorExp::toElem() %s\n", toChars());
+    IF_LOG Logger::print("VectorExp::toElem() %s\n", toChars());
     LOG_SCOPE;
 
     TypeVector *type = static_cast<TypeVector*>(to->toBasetype());
