@@ -2912,7 +2912,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         DVarValue field(vd->type, vd, DtoIndexStruct(mem, sd, vd));
 
         // store the initializer there
-        DtoAssign(loc, &field, val, TOKconstruct);
+        DtoAssign(loc, &field, val, TOKconstruct, true);
 
         if (expr)
             callPostblit(loc, expr, field.getLVal());
