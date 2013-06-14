@@ -96,18 +96,21 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
 
     // get the nested context
     LLValue* ctx = 0;
-    if (irfunc->decl->isMember2())
-    {
+    if (irfunc->nestedVar) {
+        // If this function has its own nested context struct, always load it.
+        ctx = irfunc->nestedVar;
+        dwarfValue = ctx;
+    } else if (irfunc->decl->isMember2()) {
+        // If this is a member function of a nested class without its own
+        // context, load the vthis member.
         AggregateDeclaration* cd = irfunc->decl->isMember2();
         LLValue* val = irfunc->thisArg;
         if (cd->isClassDeclaration())
             val = DtoLoad(val);
         ctx = DtoLoad(DtoGEPi(val, 0, cd->vthis->ir.irField->index, ".vthis"));
-    }
-    else if (irfunc->nestedVar) {
-        ctx = irfunc->nestedVar;
-        dwarfValue = ctx;
     } else {
+        // Otherwise, this is a simple nested function, load from the context
+        // argument.
         ctx = DtoLoad(irfunc->nestArg);
         dwarfValue = irfunc->nestArg;
         if (global.params.symdebug)
