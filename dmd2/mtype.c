@@ -8703,47 +8703,9 @@ L1:
                 e->type = t;    // do this so we don't get redundant dereference
             }
             else
-            {
-                /* For class objects, the classinfo reference is the first
+            {   /* For class objects, the classinfo reference is the first
                  * entry in the vtbl[]
                  */
-#if IN_LLVM
-
-                Type* ct;
-                if (sym->isInterfaceDeclaration()) {
-                    ct = t->pointerTo()->pointerTo()->pointerTo();
-                }
-                else {
-                    ct = t->pointerTo()->pointerTo();
-                }
-
-                e = e->castTo(sc, ct);
-                e = new PtrExp(e->loc, e);
-                e->type = ct->nextOf();
-                e = new PtrExp(e->loc, e);
-                e->type = ct->nextOf()->nextOf();
-
-                if (sym->isInterfaceDeclaration())
-                {
-                    if (sym->isCOMinterface())
-                    {   /* COM interface vtbl[]s are different in that the
-                         * first entry is always pointer to QueryInterface().
-                         * We can't get a .classinfo for it.
-                         */
-                        error(e->loc, "no .classinfo for COM interface objects");
-                    }
-                    /* For an interface, the first entry in the vtbl[]
-                     * is actually a pointer to an instance of struct Interface.
-                     * The first member of Interface is the .classinfo,
-                     * so add an extra pointer indirection.
-                     */
-                    e = new PtrExp(e->loc, e);
-                    e->type = ct->nextOf()->nextOf()->nextOf();
-                }
-            }
-
-#else
-
                 e = new PtrExp(e->loc, e);
                 e->type = t->pointerTo();
                 if (sym->isInterfaceDeclaration())
@@ -8767,9 +8729,6 @@ L1:
                 }
                 e = new PtrExp(e->loc, e, t);
             }
-
-#endif // !LDC
-
             return e;
         }
 

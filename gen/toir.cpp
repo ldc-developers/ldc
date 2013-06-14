@@ -1333,6 +1333,30 @@ DValue* PtrExp::toElem(IRState* p)
     {
         V = e1->toElem(p)->getRVal();
     }
+
+    // The frontend emits dereferences of class/interfaces types to access the
+    // first member, which is the .classinfo property.
+    Type* origType = e1->type->toBasetype();
+    if (origType->ty == Tclass)
+    {
+        TypeClass* ct = static_cast<TypeClass*>(origType);
+
+        Type* resultType;
+        if (ct->sym->isInterfaceDeclaration())
+        {
+            // For interfaces, the first entry in the vtbl is actually a pointer
+            // to an Interface instance, which has the type info as its first
+            // member, so we have to add an extra layer of indirection.
+            resultType = Type::typeinfointerface->type->pointerTo();
+        }
+        else
+        {
+            resultType = Type::typeinfointerface->type;
+        }
+
+        V = DtoBitCast(V, DtoType(resultType->pointerTo()->pointerTo()));
+    }
+
     return new DVarValue(type, V);
 }
 
