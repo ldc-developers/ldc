@@ -821,6 +821,13 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
             LLValue *rval = DtoBitCast(val->getRVal(), DtoType(to));
             return new DImValue(to, rval);
         }
+        else if (totype->ty == Tbool)
+        {
+            IF_LOG Logger::println("Casting AA to bool.");
+            LLValue* rval = val->getRVal();
+            LLValue* zero = LLConstant::getNullValue(rval->getType());
+            return new DImValue(to, gIR->ir->CreateICmpNE(rval, zero));
+        }
 
         // Else try dealing with the rewritten (struct) type.
         fromtype = static_cast<TypeAArray*>(fromtype)->getImpl()->type;
