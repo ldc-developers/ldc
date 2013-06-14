@@ -12,6 +12,9 @@
 #include "libconfig.h++"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
+#if LDC_LLVM_VER >= 304
+#include "llvm/Support/PathV1.h"
+#endif
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -19,11 +22,37 @@
 #if _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
+#include <shlobj.h>
 // Prevent name clash with LLVM
 #undef GetCurrentDirectory
 #endif
 
 namespace sys = llvm::sys;
+
+#if LDC_LLVM_VER >= 304
+#if _WIN32
+sys::Path GetUserHomeDirectory() {
+  char buff[MAX_PATH];
+  HRESULT res = SHGetFolderPathA(NULL,
+                                 CSIDL_FLAG_CREATE | CSIDL_APPDATA,
+                                 NULL,
+                                 SHGFP_TYPE_CURRENT,
+                                 buff);
+  if (res != S_OK)
+    assert(0 && "Failed to get user home directory");
+  return sys::Path(buff);
+}
+#else
+sys::Path GetUserHomeDirectory() {
+  const char* home = getenv("HOME");
+  Path result;
+  if (home && result.set(home))
+    return result;
+  result.set("/");
+  return result;
+}
+#endif
+#endif
 
 #if _WIN32
 static bool ReadPathFromRegistry(sys::Path& p)
@@ -81,7 +110,11 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     // user configuration
 
     // try ~/.ldc
+#if LDC_LLVM_VER >= 304
+    p = GetUserHomeDirectory();
+#else
     p = sys::Path::GetUserHomeDirectory();
+#endif
     p.appendComponent(".ldc");
     p.appendComponent(filename);
     if (sys::fs::exists(p.str()))
@@ -89,7 +122,11 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
 
 #if _WIN32
     // try home dir
+#if LDC_LLVM_VER >= 304
+    p = GetUserHomeDirectory();
+#else
     p = sys::Path::GetUserHomeDirectory();
+#endif
     p.appendComponent(filename);
     if (sys::fs::exists(p.str()))
         return true;

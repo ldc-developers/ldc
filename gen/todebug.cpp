@@ -27,6 +27,9 @@
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
+#if LDC_LLVM_VER >= 304
+#include "llvm/Support/PathV1.h"
+#endif
 
 using namespace llvm::dwarf;
 
