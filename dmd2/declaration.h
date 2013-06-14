@@ -886,7 +886,7 @@ struct FuncDeclaration : Declaration
     virtual int addPostInvariant();
     Expression *interpret(InterState *istate, Expressions *arguments, Expression *thisexp = NULL);
     void inlineScan();
-    int canInline(int hasthis, int hdrscan = false, int statementsToo = true);
+    int canInline(int hasthis, int hdrscan, int statementsToo);
     Expression *expandInline(InlineScanState *iss, Expression *ethis, Expressions *arguments, Statement **ps);
     const char *kind();
     void toDocBuffer(OutBuffer *buf, Scope *sc);

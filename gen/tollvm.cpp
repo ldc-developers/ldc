@@ -435,7 +435,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         for (Dsymbol* parent = sym->parent; parent ; parent = parent->parent)
         {
             FuncDeclaration *fd = parent->isFuncDeclaration();
-            if (fd && !fd->canInline(fd->needThis()))
+            if (fd && !fd->canInline(fd->needThis(), false, false))
             {
                 // We also cannot internalize nested functions which are
                 // leaked to the outside via a templated return type, because
