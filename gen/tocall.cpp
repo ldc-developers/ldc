@@ -513,7 +513,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         std::vector<DValue*> argvals;
         argvals.reserve(n);
         if (dfnval && dfnval->func->isArrayOp) {
-            // slightly different approach for array operators
+            // For array ops, the druntime implementation signatures are crafted
+            // specifically such that the evaluation order is as expected with
+            // the strange DMD reverse parameter passing order. Thus, we need
+            // to actually build the arguments right-to-left for them.
             for (int i=n-1; i>=0; --i) {
                 Parameter* fnarg = Parameter::getNth(tf->parameters, i);
                 assert(fnarg);

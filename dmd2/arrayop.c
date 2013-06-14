@@ -255,7 +255,10 @@ ArrayOp *buildArrayOp(Identifier *ident, BinExp *exp, Scope *sc, Loc loc)
     Parameters *fparams = new Parameters();
     Expression *loopbody = exp->buildArrayLoop(fparams);
     if (isDruntimeArrayOp(ident))
+    {
         op->cFunc = FuncDeclaration::genCfunc(fparams, exp->type, ident);
+        op->cFunc->isArrayOp = 2;
+    }
 #else
     if (isDruntimeArrayOp(ident))
         op->cFunc = FuncDeclaration::genCfunc(exp->type, ident);
