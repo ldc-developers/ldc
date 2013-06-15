@@ -605,7 +605,8 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, LLType* arrayT)
     name.append("__OffsetTypeInfos");
 
     // create symbol
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(arrTy,true,DtoInternalLinkage(cd),arrInit,name,gIR->module);
+    llvm::GlobalVariable* gvar = getOrCreateGlobal(cd->loc, *gIR->module, arrTy,
+        true,DtoInternalLinkage(cd),arrInit,name);
     ptr = DtoBitCast(gvar, getPtrToType(arrTy->getElementType()));
 
     return DtoConstSlice(size, ptr);

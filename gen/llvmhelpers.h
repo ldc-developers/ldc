@@ -226,4 +226,16 @@ LLConstant* toConstantArray(LLType* ct, LLArrayType* at, T* str, size_t len, boo
     return LLConstantArray::get(at, vals);
 }
 
+
+/// Tries to create an LLVM global with the given properties. If a variable with
+/// the same mangled name already exists, checks if the types match and returns
+/// it instead.
+///
+/// Necessary to support multiple declarations with the same mangled name, as
+/// can be the case due to pragma(mangle).
+llvm::GlobalVariable* getOrCreateGlobal(Loc loc, llvm::Module& module,
+    llvm::Type* type, bool isConstant, llvm::GlobalValue::LinkageTypes linkage,
+    llvm::Constant* init, llvm::StringRef name, bool isThreadLocal = false);
+
+
 #endif

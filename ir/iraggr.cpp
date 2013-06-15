@@ -64,7 +64,7 @@ LLGlobalVariable * IrAggr::getInitSymbol()
 
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
 
-    init = new llvm::GlobalVariable(
+    init = getOrCreateGlobal(aggrdecl->loc,
         *gIR->module, init_type, true, _linkage, NULL, initname);
 
     // set alignment

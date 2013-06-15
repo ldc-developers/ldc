@@ -178,8 +178,9 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     std::string thismrefname = "_D";
     thismrefname += gIR->dmodule->mangle();
     thismrefname += "11__moduleRefZ";
-    LLGlobalVariable* thismref = new LLGlobalVariable(*gIR->module, modulerefTy, false, LLGlobalValue::InternalLinkage, thismrefinit, thismrefname);
-
+    LLGlobalVariable* thismref = getOrCreateGlobal(Loc(), *gIR->module,
+        modulerefTy, false, LLGlobalValue::InternalLinkage, thismrefinit,
+        thismrefname);
     // make sure _Dmodule_ref is declared
     LLConstant* mref = gIR->module->getNamedGlobal("_Dmodule_ref");
     LLType *modulerefPtrTy = getPtrToType(modulerefTy);
@@ -341,7 +342,8 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
 
     // declare global
     // flags will be modified at runtime so can't make it constant
-    moduleInfoVar = new llvm::GlobalVariable(*gIR->module, moduleInfoType, false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
+    moduleInfoVar = getOrCreateGlobal(loc, *gIR->module, moduleInfoType,
+        false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
 
     return moduleInfoVar;
 }

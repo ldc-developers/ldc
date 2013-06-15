@@ -86,7 +86,7 @@ void RTTIBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* ma
     std::string initname(mangle_sym->mangle());
     initname.append(".rtti.voidarr.data");
 
-    LLGlobalVariable* G = new llvm::GlobalVariable(
+    LLGlobalVariable* G = new LLGlobalVariable(
         *gIR->module, CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname);
     G->setAlignment(valtype->alignsize());
 
@@ -105,7 +105,7 @@ void RTTIBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtype, D
     initname.append(tmpStr);
     initname.append(".data");
 
-    LLGlobalVariable* G = new llvm::GlobalVariable(
+    LLGlobalVariable* G = new LLGlobalVariable(
         *gIR->module, CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname);
     G->setAlignment(valtype->alignsize());
 

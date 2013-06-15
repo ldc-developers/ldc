@@ -2024,3 +2024,32 @@ llvm::Constant* DtoConstSymbolAddress(const Loc& loc, Declaration* decl)
 
     llvm_unreachable("Taking constant address not implemented.");
 }
+
+llvm::GlobalVariable* getOrCreateGlobal(Loc loc, llvm::Module& module,
+    llvm::Type* type, bool isConstant, llvm::GlobalValue::LinkageTypes linkage,
+    llvm::Constant* init, llvm::StringRef name, bool isThreadLocal)
+{
+    llvm::GlobalVariable* existing = module.getGlobalVariable(name, true);
+    if (existing)
+    {
+        if (existing->getType()->getElementType() != type)
+        {
+            error(loc, "Global variable type does not match previous "
+                "declaration with same mangled name: %s", name.str().c_str());
+            fatal();
+        }
+        return existing;
+    }
+
+#if LDC_LLVM_VER >= 302
+    // FIXME: clang uses a command line option for the thread model
+    const llvm::GlobalVariable::ThreadLocalMode tlsModel =
+        isThreadLocal ? llvm::GlobalVariable::GeneralDynamicTLSModel
+                      : llvm::GlobalVariable::NotThreadLocal;
+    return new llvm::GlobalVariable(module, type, isConstant, linkage,
+                                    init, name, 0, tlsModel);
+#else
+    return new llvm::GlobalVariable(module, type, isConstant, linkage,
+                                    init, name, 0, isThreadLocal);
+#endif
+}

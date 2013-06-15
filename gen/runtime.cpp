@@ -17,6 +17,7 @@
 #include "root.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "ir/irtype.h"
@@ -121,8 +122,8 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
     }
 
     LLPointerType* t = g->getType();
-    return new LLGlobalVariable(*target, t->getElementType(), g->isConstant(),
-                                g->getLinkage(), NULL, g->getName());
+    return getOrCreateGlobal(Loc(), *target, t->getElementType(), g->isConstant(),
+                             g->getLinkage(), NULL, g->getName());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
