@@ -1321,14 +1321,15 @@ LLConstant* AddrExp::toConstElem(IRState* p)
         }
 
         se->globalVar = new llvm::GlobalVariable(*p->module,
-            DtoType(e1->type), false, llvm::GlobalValue::InternalLinkage, 0);
+            DtoType(e1->type), false, llvm::GlobalValue::InternalLinkage, 0,
+            ".structliteral");
 
         llvm::Constant* constValue = se->toConstElem(p);
         if (constValue->getType() != se->globalVar->getType()->getContainedType(0))
         {
             llvm::GlobalVariable* finalGlobalVar = new llvm::GlobalVariable(
                 *p->module, constValue->getType(), false,
-                llvm::GlobalValue::InternalLinkage, 0);
+                llvm::GlobalValue::InternalLinkage, 0, ".structliteral");
             se->globalVar->replaceAllUsesWith(
                 DtoBitCast(finalGlobalVar, se->globalVar->getType()));
             se->globalVar->eraseFromParent();
@@ -3069,7 +3070,7 @@ llvm::Constant* ClassReferenceExp::toConstElem(IRState *p)
     {
         value->globalVar = new llvm::GlobalVariable(*p->module,
             origClass->type->irtype->isClass()->getMemoryLLType(),
-            false, llvm::GlobalValue::InternalLinkage, 0);
+            false, llvm::GlobalValue::InternalLinkage, 0, ".classref");
 
         std::map<VarDeclaration*, llvm::Constant*> varInits;
 
@@ -3109,8 +3110,9 @@ llvm::Constant* ClassReferenceExp::toConstElem(IRState *p)
 
         if (constValue->getType() != value->globalVar->getType()->getContainedType(0))
         {
-            llvm::GlobalVariable* finalGlobalVar = new llvm::GlobalVariable(*p->module,
-                constValue->getType(), false, llvm::GlobalValue::InternalLinkage, 0);
+            llvm::GlobalVariable* finalGlobalVar = new llvm::GlobalVariable(
+                *p->module, constValue->getType(), false,
+                llvm::GlobalValue::InternalLinkage, 0, ".classref");
             value->globalVar->replaceAllUsesWith(
                 DtoBitCast(finalGlobalVar, value->globalVar->getType()));
             value->globalVar->eraseFromParent();
