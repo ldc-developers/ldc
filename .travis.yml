@@ -1,13 +1,25 @@
 language: cpp
 install:
-  - echo yes | sudo add-apt-repository ppa:dr-graef/llvm-3.1.precise
+  - sudo sudo sh -c "echo 'deb http://archive.ubuntu.com/ubuntu/ precise-proposed restricted main multiverse universe' >> /etc/apt/sources.list"
+  - sudo sudo sh -c "echo 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise main' >> /etc/apt/sources.list"
+  - wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key | sudo apt-key add -
   - sudo apt-get update -qq
   - sudo apt-get install -qq $LLVM_PACKAGE libconfig++8-dev
 env:
-  - DVER=2 LLVM_PACKAGE=llvm-3.1 LLVM_VERSION=3.1 TESTSUITE_FILTER=debug
-  - DVER=2 LLVM_PACKAGE=llvm-3.1 LLVM_VERSION=3.1 TESTSUITE_FILTER=release
+  - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TESTSUITE_FILTER=debug
+  - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TESTSUITE_FILTER=release
+  - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER=debug
+  - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER=release
+  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=debug
+  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=release
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=debug
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=release
+matrix:
+  allow_failures:
+    - env: LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=debug
+    - env: LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=release
 script:
-  - cmake -DD_VERSION=$DVER -DLLVM_CONFIG=/usr/bin/llvm-config-$LLVM_VERSION
+  - cmake .
   - make
   - bin/ldc2 -version # For environment info.
   - ctest --output-on-failure -R $TESTSUITE_FILTER
