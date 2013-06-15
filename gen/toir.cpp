@@ -1130,7 +1130,7 @@ LLConstant* CastExp::toConstElem(IRState* p)
     return res;
 
 Lerr:
-    error("can not cast %s to %s at compile time", e1->type->toChars(), type->toChars());
+    error("cannot cast %s to %s at compile time", e1->type->toChars(), type->toChars());
     if (!global.gag)
         fatal();
     return NULL;
@@ -1229,7 +1229,7 @@ llvm::Constant* SymOffExp::toConstElem(IRState* p)
 
 DValue* AddrExp::toElem(IRState* p)
 {
-    Logger::println("AddrExp::toElem: %s @ %s", toChars(), type->toChars());
+    IF_LOG Logger::println("AddrExp::toElem: %s @ %s", toChars(), type->toChars());
     LOG_SCOPE;
     DValue* v = e1->toElem(p);
     if (v->isField()) {
@@ -1270,6 +1270,8 @@ DValue* AddrExp::toElem(IRState* p)
 
 LLConstant* AddrExp::toConstElem(IRState* p)
 {
+    IF_LOG Logger::println("AddrExp::toConstElem: %s @ %s", toChars(), type->toChars());
+    LOG_SCOPE;
     // FIXME: this should probably be generalized more so we don't
     // need to have a case for each thing we can take the address of
 

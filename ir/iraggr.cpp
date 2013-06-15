@@ -245,6 +245,7 @@ llvm::Constant* IrAggr::createInitializerConstant(
     llvm::StructType* initializerType)
 {
     IF_LOG Logger::println("Creating initializer constant for %s", aggrdecl->toChars());
+    LOG_SCOPE;
 
     llvm::SmallVector<llvm::Constant*, 16> constants;
 
