@@ -35,19 +35,37 @@ static cl::opt<std::string> mslib("ms-lib",
     cl::Hidden,
     cl::ZeroOrMore);
 
-sys::Path getProgram(const char *name, const cl::opt<std::string> &opt, const char *envVar = 0)
+#if LDC_LLVM_VER >= 304
+typedef std::string RetType;
+#else
+typedef sys::Path RetType;
+#endif
+
+RetType getProgram(const char *name, const cl::opt<std::string> &opt, const char *envVar = 0)
 {
-    sys::Path path;
+    RetType path;
     const char *prog = NULL;
 
     if (opt.getNumOccurrences() > 0 && opt.length() > 0 && (prog = opt.c_str()))
+#if LDC_LLVM_VER >= 304
+        path = sys::FindProgramByName(prog);
+#else
         path = sys::Program::FindProgramByName(prog);
+#endif
 
     if (path.empty() && envVar && (prog = getenv(envVar)))
+#if LDC_LLVM_VER >= 304
+        path = sys::FindProgramByName(prog);
+#else
         path = sys::Program::FindProgramByName(prog);
+#endif
 
     if (path.empty())
+#if LDC_LLVM_VER >= 304
+        path = sys::FindProgramByName(name);
+#else
         path = sys::Program::FindProgramByName(name);
+#endif
 
     if (path.empty()) {
         error("failed to locate %s", name);
@@ -57,22 +75,22 @@ sys::Path getProgram(const char *name, const cl::opt<std::string> &opt, const ch
     return path;
 }
 
-sys::Path getGcc()
+RetType getGcc()
 {
     return getProgram("gcc", gcc, "CC");
 }
 
-sys::Path getArchiver()
+RetType getArchiver()
 {
     return getProgram("ar", ar);
 }
 
-sys::Path getLink()
+RetType getLink()
 {
     return getProgram("link.exe", mslink);
 }
 
-sys::Path getLib()
+RetType getLib()
 {
     return getProgram("lib.exe", mslib);
 }

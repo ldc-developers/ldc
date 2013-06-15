@@ -102,7 +102,7 @@ static int linkObjToBinaryGcc(bool sharedLib)
     Logger::println("*** Linking executable ***");
 
     // find gcc for linking
-    llvm::sys::Path gcc = getGcc();
+    llvm::sys::Path gcc(getGcc());
 
     // build arguments
     std::vector<std::string> args;
@@ -222,7 +222,7 @@ static int linkObjToBinaryWin(bool sharedLib)
     Logger::println("*** Linking executable ***");
 
     // find link.exe for linking
-    llvm::sys::Path tool = getLink();
+    llvm::sys::Path tool(getLink());
 
     // build arguments
     std::vector<std::string> args;
@@ -346,7 +346,7 @@ void createStaticLibrary()
     const bool isTargetWindows = global.params.targetTriple.getOS() == llvm::Triple::Win32;
 
     // find archiver
-    llvm::sys::Path tool = isTargetWindows ? getLib() : getArchiver();
+    llvm::sys::Path tool(isTargetWindows ? getLib() : getArchiver());
 
     // build arguments
     std::vector<std::string> args;
