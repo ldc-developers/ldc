@@ -1955,7 +1955,6 @@ bool isCtfeValueValid(Expression *newval)
         if (((SymOffExp *)newval)->var->isDataseg())
             return true;    // pointer to static variable
     }
-
     if (newval->op == TOKint64 || newval->op == TOKfloat64 ||
         newval->op == TOKchar || newval->op == TOKcomplex80)
         return true;

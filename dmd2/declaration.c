@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2012 by Digital Mars
+// Copyright (c) 1999-2013 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -84,7 +84,7 @@ Declaration::Declaration(Identifier *id)
     linkage = LINKdefault;
     inuse = 0;
     sem = SemanticStart;
-    mangleOverride = NULL; 
+    mangleOverride = NULL;
 }
 
 void Declaration::semantic(Scope *sc)

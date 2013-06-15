@@ -278,6 +278,7 @@ struct ClassDeclaration : AggregateDeclaration
 
     BaseClasses *vtblInterfaces;        // array of base interfaces that have
                                         // their own vtbl[]
+
     TypeInfoClassDeclaration *vclassinfo;       // the ClassInfo object for this ClassDeclaration
     int com;                            // !=0 if this is a COM class (meaning
                                         // it derives from IUnknown)
