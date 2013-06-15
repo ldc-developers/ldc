@@ -327,7 +327,7 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
     // create name
     std::string MIname("_D");
     MIname.append(mangle());
-    MIname.append("8__ModuleZ");
+    MIname.append("12__ModuleInfoZ");
 
     if (gIR->dmodule != this) {
         LLType* moduleinfoTy = DtoType(moduleinfo->type);
@@ -388,7 +388,7 @@ void Module::genmoduleinfo()
         // declare the imported module info
         std::string m_name("_D");
         m_name.append(m->mangle());
-        m_name.append("8__ModuleZ");
+        m_name.append("12__ModuleInfoZ");
         llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
         if (!m_gvar) m_gvar = new llvm::GlobalVariable(*gIR->module, moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, m_name);
         importInits.push_back(m_gvar);
