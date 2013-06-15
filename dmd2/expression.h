@@ -635,7 +635,6 @@ struct StructLiteralExp : Expression
     llvm::Value* inProgressMemory;
 
     llvm::Constant *toConstElem(IRState *irs);
-    llvm::StructType *constType;
     // A global variable for taking the address of this struct literal constant,
     // if it already exists. Used to resolve self-references.
     llvm::GlobalVariable *globalVar;
