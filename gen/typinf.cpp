@@ -77,15 +77,15 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
         break;
 
     case Tclass:
-        if (static_cast<TypeClass *>(t)->sym->isInterfaceDeclaration())
-        break;
+        if (((TypeClass *)t)->sym->isInterfaceDeclaration())
+            break;
         goto Linternal;
 
     case Tarray:
         // convert to corresponding dynamic array type
         t = t->nextOf()->mutableOf()->arrayOf();
         if (t->nextOf()->ty != Tclass)
-        break;
+            break;
         goto Linternal;
 
     case Tfunction:
@@ -95,11 +95,11 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
         tid = internalTI[t->ty];
         if (!tid)
         {   tid = new TypeInfoDeclaration(t, 1);
-        internalTI[t->ty] = tid;
+            internalTI[t->ty] = tid;
         }
         e = new VarExp(Loc(), tid);
         e = e->addressOf(sc);
-        e->type = tid->type;    // do this so we don't get redundant dereference
+        e->type = tid->type;        // do this so we don't get redundant dereference
         return e;
 
     default:
@@ -122,12 +122,10 @@ Expression *Type::getTypeInfo(Scope *sc)
         fatal();
     }
 
-    Expression *e = 0;
     Type *t = merge2(); // do this since not all Type's are merge'd
-
     if (!t->vtinfo)
     {
-        if (t->isShared())
+        if (t->isShared())      // does both 'shared' and 'shared const'
             t->vtinfo = new TypeInfoSharedDeclaration(t);
         else if (t->isConst())
             t->vtinfo = new TypeInfoConstDeclaration(t);
@@ -138,30 +136,29 @@ Expression *Type::getTypeInfo(Scope *sc)
         else
             t->vtinfo = t->getTypeInfoDeclaration();
         assert(t->vtinfo);
+        vtinfo = t->vtinfo;
 
         /* If this has a custom implementation in std/typeinfo, then
          * do not generate a COMDAT for it.
          */
         if (!t->builtinTypeInfo())
         {   // Generate COMDAT
-            if (sc)         // if in semantic() pass
+            if (sc)                     // if in semantic() pass
             {   // Find module that will go all the way to an object file
                 Module *m = sc->module->importedFrom;
                 m->members->push(t->vtinfo);
             }
-            else            // if in obj generation pass
+            else                        // if in obj generation pass
             {
-#if IN_DMD
-                t->vtinfo->toObjFile(0); // TODO: multiobj
-#else
                 t->vtinfo->codegen(sir);
-#endif
             }
         }
     }
-    e = new VarExp(Loc(), t->vtinfo);
+    if (!vtinfo)
+        vtinfo = t->vtinfo;     // Types aren't merged, but we can share the vtinfo's
+    Expression *e = new VarExp(Loc(), t->vtinfo);
     e = e->addressOf(sc);
-    e->type = t->vtinfo->type;      // do this so we don't get redundant dereference
+    e->type = t->vtinfo->type;          // do this so we don't get redundant dereference
     return e;
 }
 
