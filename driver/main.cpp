@@ -772,7 +772,8 @@ int main(int argc, char** argv)
 #endif
 
             if (Port::stricmp(ext, global.mars_ext) == 0 ||
-                Port::stricmp(ext, global.hdr_ext) == 0)
+                Port::stricmp(ext, global.hdr_ext) == 0 ||
+                FileName::equals(ext, "dd"))
             {
                 ext--;          // skip onto '.'
                 assert(*ext == '.');
