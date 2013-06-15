@@ -4369,6 +4369,8 @@ StructLiteralExp::StructLiteralExp(Loc loc, StructDeclaration *sd, Expressions *
     this->ctorinit = 0;
 #if IN_LLVM
     constType = NULL;
+    this->inProgressMemory = NULL;
+    this->globalVar = NULL;
 #endif
     this->origin = this;
     this->stageflags = 0;

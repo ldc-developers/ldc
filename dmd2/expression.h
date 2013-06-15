@@ -76,6 +76,7 @@ class DValue;
 namespace llvm {
     class Constant;
     class ConstantInt;
+    class GlobalVariable;
     class StructType;
 }
 #endif
@@ -628,8 +629,16 @@ struct StructLiteralExp : Expression
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
 #if IN_LLVM
     DValue* toElem(IRState* irs);
+    // With the introduction of pointers returned from CTFE, struct literals can
+    // now contain pointers to themselves. While in toElem, contains a pointer
+    // to the memory used to build the literal for resolving such references.
+    llvm::Value* inProgressMemory;
+
     llvm::Constant *toConstElem(IRState *irs);
     llvm::StructType *constType;
+    // A global variable for taking the address of this struct literal constant,
+    // if it already exists. Used to resolve self-references.
+    llvm::GlobalVariable *globalVar;
 
     /// Set if this is really the result of a struct .init access and should be
     /// resolved codegen'd as an access to the given SymbolDeclaration.

@@ -36,11 +36,13 @@
 #include "gen/typeinf.h"
 #include "gen/utils.h"
 #include "gen/warnings.h"
+#include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <fstream>
 #include <math.h>
+#include <stack>
 #include <stdio.h>
 
 // Needs other includes.
@@ -1102,6 +1104,25 @@ LLConstant* CastExp::toConstElem(IRState* p)
         }
         return DtoBitCast(value, DtoType(tb));
     }
+    else if (tb->ty == Tclass && e1->type->ty == Tclass) {
+        assert(e1->op == TOKclassreference);
+        ClassDeclaration* cd = static_cast<ClassReferenceExp*>(e1)->originalClass();
+
+        llvm::Constant* instance = e1->toConstElem(p);
+        if (InterfaceDeclaration* it = static_cast<TypeClass*>(tb)->sym->isInterfaceDeclaration()) {
+            assert(it->isBaseOf(cd, NULL));
+
+            IrTypeClass* typeclass = cd->type->irtype->isClass();
+
+            // find interface impl
+            size_t i_index = typeclass->getInterfaceIndex(it);
+            assert(i_index != ~0UL);
+
+            // offset pointer
+            instance = DtoGEPi(instance, 0, i_index);
+        }
+        return DtoBitCast(instance, DtoType(tb));
+    }
     else {
         goto Lerr;
     }
@@ -1287,9 +1308,36 @@ LLConstant* AddrExp::toConstElem(IRState* p)
         assert(type->toBasetype()->ty == Tpointer);
         return DtoBitCast(gep, DtoType(type));
     }
-    else if (
-        e1->op == TOKstructliteral ||
-        e1->op == TOKslice)
+    else if (e1->op == TOKstructliteral)
+    {
+        StructLiteralExp* se = static_cast<StructLiteralExp*>(e1);
+
+        if (se->globalVar)
+        {
+            Logger::cout() << "Returning existing global: " << *se->globalVar << '\n';
+            return se->globalVar;
+        }
+
+        se->globalVar = new llvm::GlobalVariable(*p->module,
+            DtoType(e1->type), false, llvm::GlobalValue::InternalLinkage, 0);
+
+        llvm::Constant* constValue = se->toConstElem(p);
+        if (constValue->getType() != se->globalVar->getType()->getContainedType(0))
+        {
+            llvm::GlobalVariable* finalGlobalVar = new llvm::GlobalVariable(
+                *p->module, constValue->getType(), false,
+                llvm::GlobalValue::InternalLinkage, 0);
+            se->globalVar->replaceAllUsesWith(
+                DtoBitCast(finalGlobalVar, se->globalVar->getType()));
+            se->globalVar->eraseFromParent();
+            se->globalVar = finalGlobalVar;
+        }
+        se->globalVar->setInitializer(constValue);
+        se->globalVar->setAlignment(e1->type->alignsize());
+
+        return se->globalVar;
+    }
+    else if (e1->op == TOKslice)
     {
         error("non-constant expression '%s'", toChars());
         fatal();
@@ -2873,11 +2921,13 @@ DValue* StructLiteralExp::toElem(IRState* p)
         return new DVarValue(type, initsym);
     }
 
+    if (inProgressMemory) return new DVarValue(type, inProgressMemory);
+
     // make sure the struct is fully resolved
     sd->codegen(Type::sir);
 
     // alloca a stack slot
-    LLValue* mem = DtoRawAlloca(DtoType(type), 0, ".structliteral");
+    inProgressMemory = DtoRawAlloca(DtoType(type), 0, ".structliteral");
 
     // ready elements data
     assert(elements && "struct literal has null elements");
@@ -2885,7 +2935,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
     Expression** exprs = (Expression**)elements->data;
 
     // might be reset to an actual i8* value so only a single bitcast is emitted.
-    LLValue* voidptr = mem;
+    LLValue* voidptr = inProgressMemory;
     unsigned offset = 0;
 
     // go through fields
@@ -2933,7 +2983,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         }
 
         // get a pointer to this field
-        DVarValue field(vd->type, vd, DtoIndexStruct(mem, sd, vd));
+        DVarValue field(vd->type, vd, DtoIndexStruct(inProgressMemory, sd, vd));
 
         // store the initializer there
         DtoAssign(loc, &field, val, TOKconstruct, true);
@@ -2957,7 +3007,9 @@ DValue* StructLiteralExp::toElem(IRState* p)
         voidptr = write_zeroes(voidptr, offset, sd->structsize);
 
     // return as a var
-    return new DVarValue(type, mem);
+    DValue* result = new DVarValue(type, inProgressMemory);
+    inProgressMemory = 0;
+    return result;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2985,8 +3037,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     sd->codegen(Type::sir);
 
     std::map<VarDeclaration*, llvm::Constant*> varInits;
-
-    size_t nexprs = elements->dim;
+    const size_t nexprs = elements->dim;
     for (size_t i = 0; i < nexprs; i++)
     {
         if ((*elements)[i])
@@ -3004,8 +3055,86 @@ llvm::Constant* ClassReferenceExp::toConstElem(IRState *p)
         toChars(), type->toChars());
     LOG_SCOPE;
 
-    // FIXME: Handle type->sym->isInterfaceDeclaration().
-    return value->toConstElem(p);
+    ClassDeclaration* origClass = originalClass();
+
+    origClass->codegen(Type::sir);
+
+    if (value->globalVar)
+    {
+        IF_LOG Logger::cout() << "Using existing global: " << *value->globalVar << '\n';
+    }
+    else
+    {
+        value->globalVar = new llvm::GlobalVariable(*p->module,
+            origClass->type->irtype->isClass()->getMemoryLLType(),
+            false, llvm::GlobalValue::InternalLinkage, 0);
+
+        std::map<VarDeclaration*, llvm::Constant*> varInits;
+
+        // Unfortunately, ClassReferenceExp::getFieldAt is badly broken – it
+        // places the base class fields _after_ those of the subclass.
+        {
+            const size_t nexprs = value->elements->dim;
+
+            std::stack<ClassDeclaration*> classHierachy;
+            ClassDeclaration* cur = origClass;
+            while (cur)
+            {
+                classHierachy.push(cur);
+                cur = cur->baseClass;
+            }
+            size_t i = 0;
+            while (!classHierachy.empty())
+            {
+                cur = classHierachy.top();
+                classHierachy.pop();
+                for (size_t j = 0; j < cur->fields.dim; ++j)
+                {
+                    if ((*value->elements)[i])
+                    {
+                        VarDeclaration* field = cur->fields[j];
+                        IF_LOG Logger::println("Getting initializer for: %s", field->toChars());
+                        LOG_SCOPE;
+                        varInits[field] = (*value->elements)[i]->toConstElem(p);
+                    }
+                    ++i;
+                }
+            }
+            assert(i == nexprs);
+        }
+
+        llvm::Constant* constValue = origClass->ir.irStruct->createInitializerConstant(varInits);
+
+        if (constValue->getType() != value->globalVar->getType()->getContainedType(0))
+        {
+            llvm::GlobalVariable* finalGlobalVar = new llvm::GlobalVariable(*p->module,
+                constValue->getType(), false, llvm::GlobalValue::InternalLinkage, 0);
+            value->globalVar->replaceAllUsesWith(
+                DtoBitCast(finalGlobalVar, value->globalVar->getType()));
+            value->globalVar->eraseFromParent();
+            value->globalVar = finalGlobalVar;
+        }
+        value->globalVar->setInitializer(constValue);
+    }
+
+    llvm::Constant* result = value->globalVar;
+
+    assert(type->ty == Tclass);
+    ClassDeclaration* targetClass = static_cast<TypeClass*>(type)->sym;
+    if (InterfaceDeclaration* it = targetClass->isInterfaceDeclaration()) {
+        assert(it->isBaseOf(origClass, NULL));
+
+        IrTypeClass* typeclass = origClass->type->irtype->isClass();
+
+        // find interface impl
+        size_t i_index = typeclass->getInterfaceIndex(it);
+        assert(i_index != ~0UL);
+
+        // offset pointer
+        result = DtoGEPi(result, 0, i_index);
+    }
+
+    return DtoBitCast(result, DtoType(type));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
