@@ -1546,6 +1546,13 @@ bool mustDefineSymbol(Dsymbol* s)
         }
     }
 
+    if (VarDeclaration* vd = s->isVarDeclaration())
+    {
+        // Never define 'extern' variables.
+        if (vd->storage_class & STCextern)
+            return false;
+    }
+
     // Inlining checks may create some variable and class declarations
     // we don't need to emit.
     if (global.inExtraInliningSemantic)
