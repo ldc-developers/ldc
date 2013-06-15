@@ -1231,6 +1231,24 @@ DValue* AddrExp::toElem(IRState* p)
 {
     IF_LOG Logger::println("AddrExp::toElem: %s @ %s", toChars(), type->toChars());
     LOG_SCOPE;
+
+    // The address of a StructLiteralExp can in fact be a global variable, check
+    // for that instead of re-codegening the literal.
+    if (e1->op == TOKstructliteral)
+    {
+        IF_LOG Logger::println("is struct literal");
+        StructLiteralExp* se = static_cast<StructLiteralExp*>(e1);
+
+        // DMD uses origin here as well, necessary to handle messed-up AST on
+        // forward references.
+        if (se->origin->globalVar)
+        {
+            IF_LOG Logger::cout() << "returning address of global: " <<
+                *se->globalVar << '\n';
+            return new DImValue(type, DtoBitCast(se->origin->globalVar, DtoType(type)));
+        }
+    }
+
     DValue* v = e1->toElem(p);
     if (v->isField()) {
         Logger::println("is field");
