@@ -4620,7 +4620,19 @@ void StructLiteralExp::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 {
     buf->writestring(sd->toChars());
     buf->writeByte('(');
+#if IN_LLVM // Backport of DMD pull request 2183.
+    if (stageflags & 32)
+        buf->writestring("...");
+    else
+    {
+        int old = stageflags;
+        stageflags |= 32;
+#endif
     argsToCBuffer(buf, elements, hgs);
+#if IN_LLVM
+        stageflags = old;
+    }
+#endif
     buf->writeByte(')');
 }
 
