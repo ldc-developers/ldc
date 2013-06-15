@@ -204,6 +204,10 @@ static cl::list<std::string, StringsAdapter> stringImportPaths("J",
     cl::location(strImpPathStore),
     cl::Prefix);
 
+static cl::opt<bool, true> addMain("main",
+    cl::desc("add empty main() (e.g. for unittesting)"),
+    cl::ZeroOrMore,
+    cl::location(global.params.addMain));
 
 
 // -d-debug is a bit messy, it has 3 modes:

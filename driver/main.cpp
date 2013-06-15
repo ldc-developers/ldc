@@ -693,6 +693,12 @@ int main(int argc, char** argv)
         }
     }
 
+    if (global.params.addMain)
+    {
+        // a dummy name, we never actually look up this file
+        files.push(const_cast<char*>(global.main_d));
+    }
+
     // Create Modules
     Modules modules;
     modules.reserve(files.dim);
@@ -813,7 +819,18 @@ int main(int argc, char** argv)
         if (!Module::rootModule)
             Module::rootModule = m;
         m->importedFrom = m;
-        m->read(Loc());
+
+        if (strcmp(m->srcfile->name->str, global.main_d) == 0)
+        {
+            static const char buf[] = "void main(){}";
+            m->srcfile->setbuffer((void *)buf, sizeof(buf));
+            m->srcfile->ref = 1;
+        }
+        else
+        {
+            m->read(Loc());
+        }
+
         m->parse(global.params.doDocComments);
         m->buildTargetFiles(singleObj);
         m->deleteObjFile();
