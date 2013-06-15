@@ -36,7 +36,11 @@ int executeToolAndWait(llvm::sys::Path tool, std::vector<std::string> const & ar
 
     // Execute tool.
     std::string errstr;
+#if LDC_LLVM_VER >= 304
+    if (int status = llvm::sys::ExecuteAndWait(tool.str(), &realargs[0], NULL, NULL, 0, 0, &errstr))
+#else
     if (int status = llvm::sys::Program::ExecuteAndWait(tool, &realargs[0], NULL, NULL, 0, 0, &errstr))
+#endif
     {
         error("%s failed with status: %d", tool.c_str(), status);
         if (!errstr.empty())

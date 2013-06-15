@@ -83,7 +83,8 @@ static void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objp
         args.push_back("-m32");
 
     // Run the compiler to assembly the program.
-    int R = executeToolAndWait(getGcc(), args, global.params.verbose);
+    llvm::sys::Path gcc(getGcc());
+    int R = executeToolAndWait(gcc, args, global.params.verbose);
     if (R)
     {
         error("Error while invoking external assembler.");
