@@ -52,6 +52,9 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/raw_ostream.h"
+#if LDC_LLVM_VER >= 304
+#include "llvm/Support/PathV1.h"
+#endif
 #include <cassert>
 #include <cerrno>
 #include <climits>
@@ -66,6 +69,32 @@
 #endif
 
 namespace ls = llvm::sys;
+
+#if LDC_LLVM_VER >= 304
+namespace llvm {
+/// Prepend the path to the program being executed
+/// to \p ExeName, given the value of argv[0] and the address of main()
+/// itself. This allows us to find another LLVM tool if it is built in the same
+/// directory. An empty string is returned on error; note that this function
+/// just mainpulates the path and doesn't check for executability.
+/// @brief Find a named executable.
+static ls::Path PrependMainExecutablePath(const std::string &ExeName,
+                                          const char *Argv0, void *MainAddr) {
+  // Check the directory that the calling program is in.  We can do
+  // this if ProgramPath contains at least one / character, indicating that it
+  // is a relative path to the executable itself.
+  ls::Path Result = ls::Path::GetMainExecutable(Argv0, MainAddr);
+  Result.eraseComponent();
+
+  if (!Result.isEmpty()) {
+    Result.appendComponent(ExeName);
+    Result.appendSuffix(ls::Path::GetEXESuffix());
+  }
+
+  return Result;
+}
+}
+#endif
 
 // We reuse DMD's response file parsing routine for maximum compatibilty - it
 // handles quotes in a very peciuliar way.
@@ -127,8 +156,13 @@ char* concat(const char* a, int b)
 int execute(ls::Path exePath, const char** args)
 {
     std::string errorMsg;
+#if LDC_LLVM_VER >= 304
+    int rc = ls::ExecuteAndWait(exePath.str(), args, NULL, NULL,
+        0, 0, &errorMsg);
+#else
     int rc = ls::Program::ExecuteAndWait(exePath, args, NULL, NULL,
         0, 0, &errorMsg);
+#endif
     if (!errorMsg.empty())
     {
         error("Error executing %s: %s", exePath.c_str(), errorMsg.c_str());
@@ -885,7 +919,11 @@ ls::Path locateBinary(std::string exeName, const char* argv0)
         argv0, (void*)&locateBinary);
     if (path.canExecute()) return path;
 
+#if LDC_LLVM_VER >= 304
+    path = ls::FindProgramByName(exeName);
+#else
     path = ls::Program::FindProgramByName(exeName);
+#endif
     if (path.canExecute()) return path;
 
     return ls::Path();
