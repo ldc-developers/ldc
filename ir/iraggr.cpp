@@ -26,8 +26,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 IrAggr::IrAggr(AggregateDeclaration* aggr)
-:   diCompositeType(NULL),
-    init_type(LLStructType::create(gIR->context(), std::string(aggr->toPrettyChars()) + "_init"))
+:   init_type(LLStructType::create(gIR->context(), std::string(aggr->toPrettyChars()) + "_init"))
 {
     aggrdecl = aggr;
 
