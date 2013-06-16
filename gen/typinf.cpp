@@ -320,7 +320,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
     // As those types cannot appear as LLVM values, they are not interesting for
     // the optimizer passes anyway.
     Type* t = tid->tinfo->toBasetype();
-    if (t->ty < Terror && t->ty != Tvoid && t->ty != Tfunction) {
+    if (t->ty < Terror && t->ty != Tvoid && t->ty != Tfunction && t->ty != Tident) {
         // Add some metadata for use by optimization passes.
         std::string metaname = std::string(TD_PREFIX) + mangle;
         llvm::NamedMDNode* meta = gIR->module->getNamedMetadata(metaname);
