@@ -15,6 +15,7 @@
 #include "module.h"
 #include "mtype.h"
 #include "root.h"
+#include "gen/abi.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
@@ -899,12 +900,13 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-    // void _d_invariant(Object o)
+    // void invariant._d_invariant(Object o)
     {
         llvm::StringRef fname("_D9invariant12_d_invariantFC6ObjectZv");
         LLType *types[] = { objectTy };
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function* fn = llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        fn->setCallingConv(gABI->callingConv(LINKd));
     }
 
     // void _d_hidden_func()
