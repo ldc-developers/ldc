@@ -45,7 +45,7 @@ sys::Path GetUserHomeDirectory() {
 #else
 sys::Path GetUserHomeDirectory() {
   const char* home = getenv("HOME");
-  Path result;
+  sys::Path result;
   if (home && result.set(home))
     return result;
   result.set("/");

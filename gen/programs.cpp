@@ -39,33 +39,30 @@ static cl::opt<std::string> mslib("ms-lib",
 typedef std::string RetType;
 #else
 typedef sys::Path RetType;
+
+namespace llvm {
+namespace sys {
+inline sys::Path FindProgramByName(const std::string& name)
+{
+    return llvm::sys::Program::FindProgramByName(name);
+}
+} // namespace sys
+} // namespace llvm
 #endif
 
-RetType getProgram(const char *name, const cl::opt<std::string> &opt, const char *envVar = 0)
+static RetType getProgram(const char *name, const cl::opt<std::string> &opt, const char *envVar = 0)
 {
     RetType path;
     const char *prog = NULL;
 
     if (opt.getNumOccurrences() > 0 && opt.length() > 0 && (prog = opt.c_str()))
-#if LDC_LLVM_VER >= 304
         path = sys::FindProgramByName(prog);
-#else
-        path = sys::Program::FindProgramByName(prog);
-#endif
 
     if (path.empty() && envVar && (prog = getenv(envVar)))
-#if LDC_LLVM_VER >= 304
         path = sys::FindProgramByName(prog);
-#else
-        path = sys::Program::FindProgramByName(prog);
-#endif
 
     if (path.empty())
-#if LDC_LLVM_VER >= 304
         path = sys::FindProgramByName(name);
-#else
-        path = sys::Program::FindProgramByName(name);
-#endif
 
     if (path.empty()) {
         error("failed to locate %s", name);
