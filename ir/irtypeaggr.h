@@ -12,7 +12,11 @@
 
 #include "ir/irtype.h"
 #include "llvm/ADT/ArrayRef.h"
+#if LDC_LLVM_VER >= 302
 #include "llvm/DebugInfo.h"
+#else
+#include "llvm/Analysis/DebugInfo.h"
+#endif
 #include <map>
 #include <vector>
 
