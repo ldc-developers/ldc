@@ -4778,11 +4778,10 @@ TemplateInstance::TemplateInstance(Loc loc, Identifier *ident)
     this->havetempdecl = 0;
     this->enclosing = NULL;
     this->speculative = 0;
-    this->ignore = true;
 
 #if IN_LLVM
+    this->ignore = true;
     this->emittedInModule = NULL;
-    this->tmodule = NULL;
 #endif
 }
 
@@ -4812,12 +4811,10 @@ TemplateInstance::TemplateInstance(Loc loc, TemplateDeclaration *td, Objects *ti
     this->havetempdecl = 1;
     this->enclosing = NULL;
     this->speculative = 0;
-    this->ignore = true;
 
 #if IN_LLVM
-    this->tinst = NULL;
+    this->ignore = true;
     this->emittedInModule = NULL;
-    this->tmodule = NULL;
 #endif
 
     assert(tempdecl->scope);
@@ -4962,10 +4959,11 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
 #endif
         return;
     }
-    
+
+#if IN_LLVM
     if (!sc->ignoreTemplates)
         ignore = false;
-
+#endif
 
     // get the enclosing template instance from the scope tinst
     tinst = sc->tinst;
@@ -4980,17 +4978,6 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
         return;
     }
     semanticRun = PASSsemantic;
-#if IN_LLVM
-    // get the enclosing template instance from the scope tinst
-    tinst = sc->tinst;
-
-    // get the module of the outermost enclosing instantiation
-    if (tinst)
-	tmodule = tinst->tmodule;
-    else
-	tmodule = sc->module;
-    //printf("%s in %s\n", toChars(), tmodule->toChars());
-#endif
 
 #if LOG
     printf("\tdo semantic\n");

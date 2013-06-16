@@ -354,7 +354,6 @@ struct TemplateInstance : ScopeDsymbol
 
 #if IN_LLVM
     bool ignore;        // true if the instance must be ignored when codegen'ing
-    Module* tmodule; // module from outermost enclosing template instantiation
     Module* emittedInModule; // which module this template instance has been emitted in
 
     void codegen(Ir*);
