@@ -1137,18 +1137,6 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         Logger::println("FuncDeclaration");
         f->codegen(Type::sir);
     }
-    // alias declaration
-    else if (declaration->isAliasDeclaration())
-    {
-        Logger::println("AliasDeclaration - no work");
-        // do nothing
-    }
-    // enum
-    else if (declaration->isEnumDeclaration())
-    {
-        Logger::println("EnumDeclaration - no work");
-        // do nothing
-    }
     // class
     else if (ClassDeclaration* e = declaration->isClassDeclaration())
     {
@@ -1195,15 +1183,12 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
             DtoDeclarationExp(exp->s);
         }
     }
-    // template
-    else if (declaration->isTemplateDeclaration())
-    {
-        Logger::println("TemplateDeclaration");
-        // do nothing
-    }
     else
     {
-        llvm_unreachable("Unimplemented Declaration type for DeclarationExp.");
+        // Do nothing for template/alias/enum declarations and static
+        // assertions. We cannot detect StaticAssert without RTTI, so don't
+        // even bother to check.
+        IF_LOG Logger::println("Ignoring Symbol: %s", declaration->kind());
     }
 
     return 0;
