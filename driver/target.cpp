@@ -18,6 +18,7 @@
 #include "llvm/Support/Host.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
+#include "llvm/Target/TargetLowering.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "mars.h"
@@ -176,13 +177,19 @@ llvm::TargetMachine* createTargetMachine(
     llvm::TargetOptions targetOptions;
     targetOptions.NoFramePointerElim = genDebugInfo;
 
-    return theTarget->createTargetMachine(
-        triple.str(),
-        cpu,
-        FeaturesStr,
-        targetOptions,
-        relocModel,
-        codeModel,
-        codeGenOptLevel
+    llvm::TargetMachine* TM = theTarget->createTargetMachine(triple.str(),
+                                                             cpu,
+                                                             FeaturesStr,
+                                                             targetOptions,
+                                                             relocModel,
+                                                             codeModel,
+                                                             codeGenOptLevel
     );
+
+    // Override the unwind_resume library call with the D version
+    llvm::TargetLowering *TLI = const_cast<llvm::TargetLowering *>(TM->getTargetLowering());
+    TLI->setLibcallName(llvm::RTLIB::UNWIND_RESUME, "_d_eh_resume_unwind");
+    TLI->setLibcallCallingConv(llvm::RTLIB::UNWIND_RESUME, llvm::CallingConv::C);
+
+    return TM;
 }

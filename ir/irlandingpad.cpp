@@ -190,9 +190,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
     this->nInfos = nInfos;
 
     // no catch matched and all finallys executed - resume unwind
-    llvm::Function* unwind_resume_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_resume_unwind");
-    gIR->ir->CreateCall(unwind_resume_fn, eh_ptr);
-    gIR->ir->CreateUnreachable();
+    gIR->ir->CreateResume(landingPad);
 
     // restore scope
     gIR->scope() = savedscope;

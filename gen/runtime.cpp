@@ -886,14 +886,6 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-    // void _d_eh_resume_unwind(ptr exc_struct)
-    {
-        llvm::StringRef fname("_d_eh_resume_unwind");
-        LLType *types[] = { voidPtrTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
-    }
-
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
