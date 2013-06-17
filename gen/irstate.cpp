@@ -165,6 +165,21 @@ LLCallSite IRState::CreateCallOrInvoke4(LLValue* Callee, LLValue* Arg1, LLValue*
     return CreateCallOrInvoke(Callee, args, Name);
 }
 
+bool IRState::emitArrayBoundsChecks()
+{
+    int p = global.params.useArrayBounds;
+
+    // 0 or 2 are absolute decisions.
+    if (p != 1) return p != 0;
+
+    // Safe functions only.
+    if (functions.empty()) return false;
+
+    Type* t = func()->decl->type;
+    return t->ty == Tfunction && ((TypeFunction*)t)->trust == TRUSTsafe;
+}
+
+
 //////////////////////////////////////////////////////////////////////////////////////////
 
 IRBuilder<>* IRBuilderHelper::operator->()

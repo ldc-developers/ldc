@@ -193,13 +193,9 @@ struct Param
     bool useInvariants; // generate class invariant checks
     bool useIn;         // generate precondition checks
     bool useOut;        // generate postcondition checks
-#if IN_LLVM
-    bool useArrayBounds;
-#else
     char useArrayBounds; // 0: no array bounds checks
                          // 1: array bounds checks for safe functions only
                          // 2: array bounds checks for all functions
-#endif
     bool noboundscheck; // no array bounds checking at all
     bool stackstomp;    // add stack stomping code
     bool useSwitchError; // check for switches without a default

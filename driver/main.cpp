@@ -175,6 +175,7 @@ int main(int argc, char** argv)
     global.params.argv0 = argv[0];
 #endif
     global.params.useSwitchError = 1;
+    global.params.useArrayBounds = 2;
 
     global.params.linkswitches = new Strings();
     global.params.libfiles = new Strings();
@@ -368,6 +369,14 @@ int main(int argc, char** argv)
 
     if (global.params.useUnitTests)
         global.params.useAssert = 1;
+
+    // Bounds checking is a bit peculiar: -enable/disable-boundscheck is an
+    // absolute decision. Only if no explicit option is specified, -release
+    // downgrades useArrayBounds 2 to 1 (only for safe functions).
+    if (opts::boundsChecks == cl::BOU_UNSET)
+        global.params.useArrayBounds = opts::nonSafeBoundsChecks ? 2 : 1;
+    else
+        global.params.useArrayBounds = (opts::boundsChecks == cl::BOU_TRUE) ? 2 : 0;
 
     // LDC output determination
 
