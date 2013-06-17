@@ -10,6 +10,7 @@
 #include "declaration.h"
 #include "id.h"
 #include "mtype.h"
+#include "target.h"
 #include "gen/abi.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
@@ -211,24 +212,24 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
         assert(argexp->type->ty != Ttuple);
         vtypes.push_back(DtoType(argexp->type));
         size_t sz = getTypePaddedSize(vtypes.back());
-        size_t asz = (sz + PTRSIZE - 1) & ~(PTRSIZE -1);
+        size_t asz = (sz + Target::ptrsize - 1) & ~(Target::ptrsize -1);
         if (sz != asz)
         {
-            if (sz < PTRSIZE)
+            if (sz < Target::ptrsize)
             {
                 vtypes.back() = DtoSize_t();
             }
             else
             {
                 // ok then... so we build some type that is big enough
-                // and aligned to PTRSIZE
+                // and aligned to Target::ptrsize
                 std::vector<LLType*> gah;
-                gah.reserve(asz/PTRSIZE);
+                gah.reserve(asz/Target::ptrsize);
                 size_t gah_sz = 0;
                 while (gah_sz < asz)
                 {
                     gah.push_back(DtoSize_t());
-                    gah_sz += PTRSIZE;
+                    gah_sz += Target::ptrsize;
                 }
                 vtypes.back() = LLStructType::get(gIR->context(), gah, true);
             }
@@ -512,7 +513,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         std::vector<DValue*> argvals;
         argvals.reserve(n);
         if (dfnval && dfnval->func->isArrayOp) {
-            // slightly different approach for array operators
+            // For array ops, the druntime implementation signatures are crafted
+            // specifically such that the evaluation order is as expected with
+            // the strange DMD reverse parameter passing order. Thus, we need
+            // to actually build the arguments right-to-left for them.
             for (int i=n-1; i>=0; --i) {
                 Parameter* fnarg = Parameter::getNth(tf->parameters, i);
                 assert(fnarg);

@@ -45,8 +45,8 @@ void DtoResolveStruct(StructDeclaration* sd)
         return;
 
     // create the IrAggr
-    IrAggr* irstruct = new IrAggr(sd);
-    sd->ir.irStruct = irstruct;
+    IrAggr* iraggr = new IrAggr(sd);
+    sd->ir.irAggr = iraggr;
 
     // Set up our field metadata.
     for (ArrayIter<VarDeclaration> it(sd->fields); !it.done(); it.next())
@@ -61,10 +61,10 @@ void DtoResolveStruct(StructDeclaration* sd)
     if (emitGlobalData)
     {
         // emit the initZ symbol
-        LLGlobalVariable* initZ = irstruct->getInitSymbol();
+        LLGlobalVariable* initZ = iraggr->getInitSymbol();
 
         // set initZ initializer
-        initZ->setInitializer(irstruct->getDefaultInit());
+        initZ->setInitializer(iraggr->getDefaultInit());
     }
 
     // emit members

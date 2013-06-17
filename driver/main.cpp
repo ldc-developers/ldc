@@ -14,6 +14,7 @@
 #include "mtype.h"
 #include "rmem.h"
 #include "root.h"
+#include "dmd2/target.h"
 #include "driver/cl_options.h"
 #include "driver/configfile.h"
 #include "driver/linker.h"
@@ -163,6 +164,8 @@ int main(int argc, char** argv)
     Module *m;
     int status = EXIT_SUCCESS;
 
+    global.init();
+
     // Set some default values
 #if _WIN32
     char buf[MAX_PATH];
@@ -172,6 +175,7 @@ int main(int argc, char** argv)
     global.params.argv0 = argv[0];
 #endif
     global.params.useSwitchError = 1;
+    global.params.useArrayBounds = 2;
 
     global.params.linkswitches = new Strings();
     global.params.libfiles = new Strings();
@@ -365,6 +369,14 @@ int main(int argc, char** argv)
 
     if (global.params.useUnitTests)
         global.params.useAssert = 1;
+
+    // Bounds checking is a bit peculiar: -enable/disable-boundscheck is an
+    // absolute decision. Only if no explicit option is specified, -release
+    // downgrades useArrayBounds 2 to 1 (only for safe functions).
+    if (opts::boundsChecks == cl::BOU_UNSET)
+        global.params.useArrayBounds = opts::nonSafeBoundsChecks ? 2 : 1;
+    else
+        global.params.useArrayBounds = (opts::boundsChecks == cl::BOU_TRUE) ? 2 : 0;
 
     // LDC output determination
 
@@ -648,6 +660,8 @@ int main(int argc, char** argv)
     Type::init(&ir);
     Id::initialize();
     Module::init();
+    Target::init();
+    Expression::init();
     initPrecedence();
 
     backend_init();
@@ -686,6 +700,12 @@ int main(int argc, char** argv)
                 global.filePath->append(a);
             }
         }
+    }
+
+    if (global.params.addMain)
+    {
+        // a dummy name, we never actually look up this file
+        files.push(const_cast<char*>(global.main_d));
     }
 
     // Create Modules
@@ -761,7 +781,8 @@ int main(int argc, char** argv)
 #endif
 
             if (Port::stricmp(ext, global.mars_ext) == 0 ||
-                Port::stricmp(ext, global.hdr_ext) == 0)
+                Port::stricmp(ext, global.hdr_ext) == 0 ||
+                FileName::equals(ext, "dd"))
             {
                 ext--;          // skip onto '.'
                 assert(*ext == '.');
@@ -808,7 +829,18 @@ int main(int argc, char** argv)
         if (!Module::rootModule)
             Module::rootModule = m;
         m->importedFrom = m;
-        m->read(0);
+
+        if (strcmp(m->srcfile->name->str, global.main_d) == 0)
+        {
+            static const char buf[] = "void main(){}";
+            m->srcfile->setbuffer((void *)buf, sizeof(buf));
+            m->srcfile->ref = 1;
+        }
+        else
+        {
+            m->read(Loc());
+        }
+
         m->parse(global.params.doDocComments);
         m->buildTargetFiles(singleObj);
         m->deleteObjFile();
@@ -924,6 +956,7 @@ int main(int argc, char** argv)
             if (global.errors)
                 fatal();
         }
+        global.inExtraInliningSemantic = false;
     }
     if (global.errors || global.warnings)
         fatal();

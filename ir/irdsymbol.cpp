@@ -36,7 +36,7 @@ IrDsymbol::IrDsymbol(const IrDsymbol& s)
     assert(incr);
     DModule = s.DModule;
     irModule = s.irModule;
-    irStruct = s.irStruct;
+    irAggr = s.irAggr;
     irFunc = s.irFunc;
     resolved = s.resolved;
     declared = s.declared;
@@ -56,7 +56,7 @@ void IrDsymbol::reset()
 {
     DModule = NULL;
     irModule = NULL;
-    irStruct = NULL;
+    irAggr = NULL;
     irFunc = NULL;
     resolved = declared = initialized = defined = false;
     irGlobal = NULL;
@@ -66,7 +66,7 @@ void IrDsymbol::reset()
 
 bool IrDsymbol::isSet()
 {
-    return (irStruct || irFunc || irGlobal || irLocal || irField);
+    return (irAggr || irFunc || irGlobal || irLocal || irField);
 }
 
 IrVar* IrDsymbol::getIrVar()

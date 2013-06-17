@@ -15,6 +15,7 @@
 
 #include "root.h"
 #include "rmem.h"
+#include "target.h"
 
 #include "enum.h"
 #include "init.h"
@@ -220,11 +221,16 @@ ClassDeclaration::ClassDeclaration(Loc loc, Identifier *id, BaseClasses *basecla
         }
 
 #if !MODULEINFO_IS_STRUCT
+  #ifdef DMDV2
+        if (id == Id::ModuleInfo && !Module::moduleinfo)
+            Module::moduleinfo = this;
+  #else
         if (id == Id::ModuleInfo)
         {   if (Module::moduleinfo)
                 Module::moduleinfo->error("%s", msg);
             Module::moduleinfo = this;
         }
+  #endif
 #endif
     }
 
@@ -232,6 +238,7 @@ ClassDeclaration::ClassDeclaration(Loc loc, Identifier *id, BaseClasses *basecla
     isscope = 0;
     isabstract = 0;
     inuse = 0;
+    doAncestorsSemantic = SemanticStart;
 }
 
 Dsymbol *ClassDeclaration::syntaxCopy(Dsymbol *s)
@@ -280,7 +287,7 @@ void ClassDeclaration::semantic(Scope *sc)
     type = type->semantic(loc, sc);
     handle = type;
 
-    if (!members)                       // if forward reference
+    if (!members)               // if opaque declaration
     {   //printf("\tclass '%s' is forward referenced\n", toChars());
         return;
     }
@@ -300,7 +307,7 @@ void ClassDeclaration::semantic(Scope *sc)
         scope = NULL;
     }
     unsigned dprogress_save = Module::dprogress;
-    int errors = global.gaggedErrors;
+    int errors = global.errors;
 
     if (sc->stc & STCdeprecated)
     {
@@ -376,7 +383,7 @@ void ClassDeclaration::semantic(Scope *sc)
                 }
                 if (!tc->sym->symtab || tc->sym->sizeok == SIZEOKnone)
                 {   // Try to resolve forward reference
-                    if (/*sc->mustsemantic &&*/ tc->sym->scope)
+                    if (/*doAncestorsSemantic == SemanticIn &&*/ tc->sym->scope)
                         tc->sym->semantic(NULL);
                 }
                 if (!tc->sym->symtab || tc->sym->scope || tc->sym->sizeok == SIZEOKnone)
@@ -444,7 +451,7 @@ void ClassDeclaration::semantic(Scope *sc)
 
             if (!tc->sym->symtab)
             {   // Try to resolve forward reference
-                if (/*sc->mustsemantic &&*/ tc->sym->scope)
+                if (/*doAncestorsSemantic == SemanticIn &&*/ tc->sym->scope)
                     tc->sym->semantic(NULL);
             }
 
@@ -464,6 +471,8 @@ void ClassDeclaration::semantic(Scope *sc)
         }
         i++;
     }
+    if (doAncestorsSemantic == SemanticIn)
+        doAncestorsSemantic = SemanticDone;
 
 
     // If no base class, and this is not an Object, use Object as base class
@@ -508,6 +517,7 @@ void ClassDeclaration::semantic(Scope *sc)
         com = baseClass->isCOMclass();
         isscope = baseClass->isscope;
         vthis = baseClass->vthis;
+        enclosing = baseClass->enclosing;
         storage_class |= baseClass->storage_class & STC_TYPECTOR;
     }
     else
@@ -535,7 +545,6 @@ void ClassDeclaration::semantic(Scope *sc)
          */
         if (vthis)              // if inheriting from nested class
         {   // Use the base class's 'this' member
-            isnested = true;
             if (storage_class & STCstatic)
                 error("static class cannot inherit from nested class %s", baseClass->toChars());
             if (toParent2() != baseClass->toParent2() &&
@@ -556,41 +565,11 @@ void ClassDeclaration::semantic(Scope *sc)
                         baseClass->toChars(),
                         baseClass->toParent2()->toChars());
                 }
-                isnested = false;
+                enclosing = NULL;
             }
         }
-        else if (!(storage_class & STCstatic))
-        {   Dsymbol *s = toParent2();
-            if (s)
-            {
-                AggregateDeclaration *ad = s->isClassDeclaration();
-                FuncDeclaration *fd = s->isFuncDeclaration();
-
-
-                if (ad || fd)
-                {   isnested = true;
-                    Type *t;
-                    if (ad)
-                        t = ad->handle;
-                    else if (fd)
-                    {   AggregateDeclaration *ad2 = fd->isMember2();
-                        if (ad2)
-                            t = ad2->handle;
-                        else
-                        {
-                            t = Type::tvoidptr;
-                        }
-                    }
-                    else
-                        assert(0);
-                    if (t->ty == Tstruct)       // ref to struct
-                        t = Type::tvoidptr;
-                    assert(!vthis);
-                    vthis = new ThisDeclaration(loc, t);
-                    members->push(vthis);
-                }
-            }
-        }
+        else
+            makeNested();
     }
 
     if (storage_class & STCauto)
@@ -627,12 +606,12 @@ void ClassDeclaration::semantic(Scope *sc)
     if (baseClass)
     {   sc->offset = baseClass->structsize;
         alignsize = baseClass->alignsize;
-//      if (isnested)
-//          sc->offset += PTRSIZE;      // room for uplevel context pointer
+//      if (enclosing)
+//          sc->offset += Target::ptrsize;      // room for uplevel context pointer
     }
     else
-    {   sc->offset = PTRSIZE * 2;       // allow room for __vptr and __monitor
-        alignsize = PTRSIZE;
+    {   sc->offset = Target::ptrsize * 2;       // allow room for __vptr and __monitor
+        alignsize = Target::ptrsize;
     }
     sc->userAttributes = NULL;
     structsize = sc->offset;
@@ -674,8 +653,8 @@ void ClassDeclaration::semantic(Scope *sc)
     }
     sc->offset = structsize;
 
-    if (global.gag && global.gaggedErrors != errors)
-    {   // The type is no good, yet the error messages were gagged.
+    if (global.errors != errors)
+    {   // The type is no good.
         type = Type::terror;
     }
 
@@ -713,43 +692,57 @@ void ClassDeclaration::semantic(Scope *sc)
     /* Look for special member functions.
      * They must be in this class, not in a base class.
      */
-    ctor = search(0, Id::ctor, 0);
+    ctor = search(Loc(), Id::ctor, 0);
 #if DMDV1
     if (ctor && (ctor->toParent() != this || !ctor->isCtorDeclaration()))
         ctor = NULL;
 #else
     if (ctor && (ctor->toParent() != this || !(ctor->isCtorDeclaration() || ctor->isTemplateDeclaration())))
         ctor = NULL;    // search() looks through ancestor classes
+    if (!ctor && noDefaultCtor)
+    {
+        // A class object is always created by constructor, so this check is legitimate.
+        for (size_t i = 0; i < fields.dim; i++)
+        {
+            VarDeclaration *v = fields[i]->isVarDeclaration();
+            if (v->storage_class & STCnodefaultctor)
+                ::error(v->loc, "field %s must be initialized in constructor", v->toChars());
+        }
+    }
 #endif
 
 //    dtor = (DtorDeclaration *)search(Id::dtor, 0);
 //    if (dtor && dtor->toParent() != this)
 //      dtor = NULL;
 
-//    inv = (InvariantDeclaration *)search(Id::classInvariant, 0);
-//    if (inv && inv->toParent() != this)
-//      inv = NULL;
+    inv = buildInv(sc);
 
     // Can be in base class
-    aggNew    = (NewDeclaration *)search(0, Id::classNew, 0);
-    aggDelete = (DeleteDeclaration *)search(0, Id::classDelete, 0);
+    aggNew    = (NewDeclaration *)search(Loc(), Id::classNew, 0);
+    aggDelete = (DeleteDeclaration *)search(Loc(), Id::classDelete, 0);
 
-    // If this class has no constructor, but base class does, create
-    // a constructor:
+    // If this class has no constructor, but base class has a default
+    // ctor, create a constructor:
     //    this() { }
     if (!ctor && baseClass && baseClass->ctor)
     {
-        //printf("Creating default this(){} for class %s\n", toChars());
-        Type *tf = new TypeFunction(NULL, NULL, 0, LINKd, 0);
-        CtorDeclaration *ctor = new CtorDeclaration(loc, 0, 0, tf);
-        ctor->isImplicit = true;
-        ctor->fbody = new CompoundStatement(0, new Statements());
-        members->push(ctor);
-        ctor->addMember(sc, this, 1);
-        *sc = scsave;   // why? What about sc->nofree?
-        ctor->semantic(sc);
-        this->ctor = ctor;
-        defaultCtor = ctor;
+        if (resolveFuncCall(loc, sc, baseClass->ctor, NULL, NULL, NULL, 1))
+        {
+            //printf("Creating default this(){} for class %s\n", toChars());
+            Type *tf = new TypeFunction(NULL, NULL, 0, LINKd, 0);
+            CtorDeclaration *ctor = new CtorDeclaration(loc, Loc(), 0, tf);
+            ctor->fbody = new CompoundStatement(Loc(), new Statements());
+            members->push(ctor);
+            ctor->addMember(sc, this, 1);
+            *sc = scsave;   // why? What about sc->nofree?
+            ctor->semantic(sc);
+            this->ctor = ctor;
+            defaultCtor = ctor;
+        }
+        else
+        {
+            error("Cannot implicitly generate a default ctor when base class %s is missing a default ctor", baseClass->toPrettyChars());
+        }
     }
 
 #if 0
@@ -766,7 +759,7 @@ void ClassDeclaration::semantic(Scope *sc)
     for (size_t i = 0; i < vtblInterfaces->dim; i++)
     {
         BaseClass *b = (*vtblInterfaces)[i];
-        unsigned thissize = PTRSIZE;
+        unsigned thissize = Target::ptrsize;
 
         alignmember(STRUCTALIGN_DEFAULT, thissize, &sc->offset);
         assert(b->offset == 0);
@@ -795,13 +788,10 @@ void ClassDeclaration::semantic(Scope *sc)
     Module::dprogress++;
 
     dtor = buildDtor(sc);
-    if (Dsymbol *assign = search_function(this, Id::assign))
+    if (FuncDeclaration *f = hasIdentityOpAssign(sc))
     {
-        if (FuncDeclaration *f = hasIdentityOpAssign(sc, assign))
-        {
-            if (!(f->storage_class & STCdisable))
-                error("identity assignment operator overload is illegal");
-        }
+        if (!(f->storage_class & STCdisable))
+            error("identity assignment operator overload is illegal");
     }
     sc->pop();
 
@@ -821,6 +811,15 @@ void ClassDeclaration::semantic(Scope *sc)
         deferred->semantic2(sc);
         deferred->semantic3(sc);
     }
+
+#if 0
+    if (type->ty == Tclass && ((TypeClass *)type)->sym != this)
+    {
+        printf("this = %p %s\n", this, this->toChars());
+        printf("type = %d sym = %p\n", type->ty, ((TypeClass *)type)->sym);
+    }
+#endif
+    assert(type->ty != Tclass || ((TypeClass *)type)->sym == this);
 }
 
 void ClassDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
@@ -837,7 +836,7 @@ void ClassDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
         BaseClass *b = (*baseclasses)[i];
 
         if (i)
-            buf->writeByte(',');
+            buf->writestring(", ");
         //buf->writestring(b->base->ident->toChars());
         b->type->toCBuffer(buf, NULL, hgs);
     }
@@ -941,19 +940,24 @@ Dsymbol *ClassDeclaration::search(Loc loc, Identifier *ident, int flags)
     Dsymbol *s;
     //printf("%s.ClassDeclaration::search('%s')\n", toChars(), ident->toChars());
 
-    if (scope && !symtab)
-    {   Scope *sc = scope;
-        sc->mustsemantic++;
+    //if (scope) printf("%s doAncestorsSemantic = %d\n", toChars(), doAncestorsSemantic);
+    if (scope && doAncestorsSemantic == SemanticStart)
+    {
+        // must semantic on base class/interfaces
+        doAncestorsSemantic = SemanticIn;
+
         // If speculatively gagged, ungag now.
         unsigned oldgag = global.gag;
         if (global.isSpeculativeGagging())
             global.gag = 0;
-        semantic(sc);
+        semantic(scope);
         global.gag = oldgag;
-        sc->mustsemantic--;
+
+        if (doAncestorsSemantic != SemanticDone)
+            doAncestorsSemantic = SemanticStart;
     }
 
-    if (!members || !symtab)
+    if (!members || !symtab)    // opaque or semantic() is not yet called
     {
         error("is forward referenced when looking for '%s'", ident->toChars());
         //*(char*)0=0;
@@ -987,17 +991,17 @@ Dsymbol *ClassDeclaration::search(Loc loc, Identifier *ident, int flags)
     return s;
 }
 
-Dsymbol *ClassDeclaration::searchBase(Loc loc, Identifier *ident)
+ClassDeclaration *ClassDeclaration::searchBase(Loc loc, Identifier *ident)
 {
     // Search bases classes in depth-first, left to right order
 
     for (size_t i = 0; i < baseclasses->dim; i++)
     {
         BaseClass *b = (*baseclasses)[i];
-        Dsymbol *cdb = b->type->isClassHandle();
+        ClassDeclaration *cdb = b->type->isClassHandle();
         if (cdb->ident->equals(ident))
             return cdb;
-        cdb = ((ClassDeclaration *)cdb)->searchBase(loc, ident);
+        cdb = cdb->searchBase(loc, ident);
         if (cdb)
             return cdb;
     }
@@ -1019,7 +1023,7 @@ int isf(void *param, FuncDeclaration *fd)
 int ClassDeclaration::isFuncHidden(FuncDeclaration *fd)
 {
     //printf("ClassDeclaration::isFuncHidden(class = %s, fd = %s)\n", toChars(), fd->toChars());
-    Dsymbol *s = search(0, fd->ident, 4|2);
+    Dsymbol *s = search(Loc(), fd->ident, 4|2);
     if (!s)
     {   //printf("not found\n");
         /* Because, due to a hack, if there are multiple definitions
@@ -1289,7 +1293,7 @@ void InterfaceDeclaration::semantic(Scope *sc)
         scope = NULL;
     }
 
-    int errors = global.gaggedErrors;
+    int errors = global.errors;
 
     if (sc->stc & STCdeprecated)
     {
@@ -1359,7 +1363,7 @@ void InterfaceDeclaration::semantic(Scope *sc)
             }
             if (!b->base->symtab)
             {   // Try to resolve forward reference
-                if (sc->mustsemantic && b->base->scope)
+                if (doAncestorsSemantic == SemanticIn && b->base->scope)
                     b->base->semantic(NULL);
             }
             if (!b->base->symtab || b->base->scope || b->base->inuse)
@@ -1379,6 +1383,8 @@ void InterfaceDeclaration::semantic(Scope *sc)
 #endif
         i++;
     }
+    if (doAncestorsSemantic == SemanticIn)
+        doAncestorsSemantic = SemanticDone;
 
     interfaces_dim = baseclasses->dim;
     interfaces = baseclasses->tdata();
@@ -1438,7 +1444,7 @@ void InterfaceDeclaration::semantic(Scope *sc)
     sc->protection = PROTpublic;
     sc->explicitProtection = 0;
 //    structalign = sc->structalign;
-    sc->offset = PTRSIZE * 2;
+    sc->offset = Target::ptrsize * 2;
     sc->userAttributes = NULL;
     structsize = sc->offset;
     inuse++;
@@ -1464,8 +1470,8 @@ void InterfaceDeclaration::semantic(Scope *sc)
         s->semantic(sc);
     }
 
-    if (global.gag && global.gaggedErrors != errors)
-    {   // The type is no good, yet the error messages were gagged.
+    if (global.errors != errors)
+    {   // The type is no good.
         type = Type::terror;
     }
 
@@ -1473,6 +1479,15 @@ void InterfaceDeclaration::semantic(Scope *sc)
     //members->print();
     sc->pop();
     //printf("-InterfaceDeclaration::semantic(%s), type = %p\n", toChars(), type);
+
+#if 0
+    if (type->ty == Tclass && ((TypeClass *)type)->sym != this)
+    {
+        printf("this = %p %s\n", this, this->toChars());
+        printf("type = %d sym = %p\n", type->ty, ((TypeClass *)type)->sym);
+    }
+#endif
+    assert(type->ty != Tclass || ((TypeClass *)type)->sym == this);
 }
 
 
@@ -1664,8 +1679,7 @@ int BaseClass::fillVtbl(ClassDeclaration *cd, FuncDeclarations *vtbl, int newins
             if (newinstance &&
                 fd->toParent() != cd &&
                 ifd->toParent() == base)
-                cd->error("interface function %s.%s is not implemented",
-                    id->toChars(), ifd->ident->toChars());
+                cd->error("interface function '%s' is not implemented", ifd->toFullSignature());
 
             if (fd->toParent() == cd)
                 result = 1;
@@ -1675,9 +1689,7 @@ int BaseClass::fillVtbl(ClassDeclaration *cd, FuncDeclarations *vtbl, int newins
             //printf("            not found\n");
             // BUG: should mark this class as abstract?
             if (!cd->isAbstract())
-                cd->error("interface function %s.%s%s isn't implemented",
-                    id->toChars(), ifd->ident->toChars(),
-                    Parameter::argsTypesToChars(tf->parameters, tf->varargs));
+                cd->error("interface function '%s' is not implemented", ifd->toFullSignature());
 
             fd = NULL;
         }

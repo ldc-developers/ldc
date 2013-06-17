@@ -12,6 +12,7 @@
 #include "declaration.h"
 #include "init.h"
 #include "mtype.h"
+#include "target.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
@@ -56,9 +57,9 @@ void DtoResolveClass(ClassDeclaration* cd)
     DtoType(cd->type);
 
     // create IrAggr
-    assert(cd->ir.irStruct == NULL);
+    assert(cd->ir.irAggr == NULL);
     IrAggr* irAggr = new IrAggr(cd);
-    cd->ir.irStruct = irAggr;
+    cd->ir.irAggr = irAggr;
 
     // make sure all fields really get their ir field
     ArrayIter<VarDeclaration> it(cd->fields);
@@ -151,7 +152,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     else
     {
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, _d_allocclass);
-        LLConstant* ci = DtoBitCast(tc->sym->ir.irStruct->getClassInfoSymbol(), DtoType(ClassDeclaration::classinfo->type));
+        LLConstant* ci = DtoBitCast(tc->sym->ir.irAggr->getClassInfoSymbol(), DtoType(ClassDeclaration::classinfo->type));
         mem = gIR->CreateCallOrInvoke(fn, ci, ".newclass_gc_alloc").getInstruction();
         mem = DtoBitCast(mem, DtoType(tc), ".newclass_gc");
     }
@@ -198,11 +199,11 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
 {
     tc->sym->codegen(Type::sir);
 
-    uint64_t n = tc->sym->structsize - PTRSIZE * 2;
+    uint64_t n = tc->sym->structsize - Target::ptrsize * 2;
 
     // set vtable field seperately, this might give better optimization
     LLValue* tmp = DtoGEPi(dst,0,0,"vtbl");
-    LLValue* val = DtoBitCast(tc->sym->ir.irStruct->getVtblSymbol(), tmp->getType()->getContainedType(0));
+    LLValue* val = DtoBitCast(tc->sym->ir.irAggr->getVtblSymbol(), tmp->getType()->getContainedType(0));
     DtoStore(val, tmp);
 
     // monitor always defaults to zero
@@ -218,7 +219,7 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
     LLValue* dstarr = DtoGEPi(dst,0,2,"tmp");
 
     // init symbols might not have valid types
-    LLValue* initsym = tc->sym->ir.irStruct->getInitSymbol();
+    LLValue* initsym = tc->sym->ir.irAggr->getInitSymbol();
     initsym = DtoBitCast(initsym, DtoType(tc));
     LLValue* srcarr = DtoGEPi(initsym,0,2,"tmp");
 
@@ -379,7 +380,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     TypeClass* to = static_cast<TypeClass*>(_to->toBasetype());
     to->sym->codegen(Type::sir);
 
-    LLValue* cinfo = to->sym->ir.irStruct->getClassInfoSymbol();
+    LLValue* cinfo = to->sym->ir.irAggr->getClassInfoSymbol();
     // unfortunately this is needed as the implementation of object differs somehow from the declaration
     // this could happen in user code as well :/
     cinfo = DtoBitCast(cinfo, funcTy->getParamType(1));
@@ -440,7 +441,7 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     // ClassInfo c
     TypeClass* to = static_cast<TypeClass*>(_to->toBasetype());
     to->sym->codegen(Type::sir);
-    LLValue* cinfo = to->sym->ir.irStruct->getClassInfoSymbol();
+    LLValue* cinfo = to->sym->ir.irAggr->getClassInfoSymbol();
     // unfortunately this is needed as the implementation of object differs somehow from the declaration
     // this could happen in user code as well :/
     cinfo = DtoBitCast(cinfo, funcTy->getParamType(1));
@@ -579,14 +580,14 @@ static LLConstant* build_offti_entry(ClassDeclaration* cd, VarDeclaration* vd)
 
 static LLConstant* build_offti_array(ClassDeclaration* cd, LLType* arrayT)
 {
-    IrStruct* irstruct = cd->ir.irStruct;
+    IrAggr* iraggr = cd->ir.irAggr;
 
-    size_t nvars = irstruct->varDecls.size();
+    size_t nvars = iraggr->varDecls.size();
     std::vector<LLConstant*> arrayInits(nvars);
 
     for (size_t i=0; i<nvars; i++)
     {
-        arrayInits[i] = build_offti_entry(cd, irstruct->varDecls[i]);
+        arrayInits[i] = build_offti_entry(cd, iraggr->varDecls[i]);
     }
 
     LLConstant* size = DtoConstSize_t(nvars);
@@ -604,7 +605,8 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, LLType* arrayT)
     name.append("__OffsetTypeInfos");
 
     // create symbol
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(arrTy,true,DtoInternalLinkage(cd),arrInit,name,gIR->module);
+    llvm::GlobalVariable* gvar = getOrCreateGlobal(cd->loc, *gIR->module, arrTy,
+        true,DtoInternalLinkage(cd),arrInit,name);
     ptr = DtoBitCast(gvar, getPtrToType(arrTy->getElementType()));
 
     return DtoConstSlice(size, ptr);
@@ -689,7 +691,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     assert(cd->type->ty == Tclass);
     TypeClass* cdty = static_cast<TypeClass*>(cd->type);
 
-    IrAggr* ir = cd->ir.irStruct;
+    IrAggr* ir = cd->ir.irAggr;
     assert(ir);
 
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;

@@ -1557,48 +1557,6 @@ void SynchronizedStatement::toIR(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////
 
-void VolatileStatement::toIR(IRState* p)
-{
-    Logger::println("VolatileStatement::toIR(): %s", loc.toChars());
-    LOG_SCOPE;
-
-    // emit dwarf stop point
-    DtoDwarfStopPoint(loc.linnum);
-
-    // mark in-volatile
-    // FIXME
-
-    // has statement
-    if (statement != NULL)
-    {
-        // load-store
-        DtoMemoryBarrier(false, true, false, false);
-
-        // do statement
-        p->func()->gen->targetScopes.push_back(IRTargetScope(this,new EnclosingVolatile(this),NULL,NULL));
-        statement->toIR(p);
-        p->func()->gen->targetScopes.pop_back();
-
-        // no point in a unreachable barrier, terminating statements must insert this themselves.
-        if (statement->blockExit(false) & BEfallthru)
-        {
-            // store-load
-            DtoMemoryBarrier(false, false, true, false);
-        }
-    }
-    // barrier only
-    else
-    {
-        // load-store & store-load
-        DtoMemoryBarrier(false, true, true, false);
-    }
-
-    // restore volatile state
-    // FIXME
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
 void SwitchErrorStatement::toIR(IRState* p)
 {
     Logger::println("SwitchErrorStatement::toIR(): %s", loc.toChars());
@@ -1653,7 +1611,6 @@ STUBST(Statement);
 //STUBST(AsmStatement);
 //STUBST(TryCatchStatement);
 //STUBST(TryFinallyStatement);
-//STUBST(VolatileStatement);
 //STUBST(LabelStatement);
 //STUBST(ThrowStatement);
 //STUBST(GotoCaseStatement);

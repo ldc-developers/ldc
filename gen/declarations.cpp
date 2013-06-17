@@ -98,23 +98,6 @@ void TupleDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-static llvm::GlobalVariable* createGlobal(llvm::Type* type, bool isConst,
-    llvm::GlobalValue::LinkageTypes linkage, llvm::StringRef name,
-    bool isThreadLocal)
-{
-#if LDC_LLVM_VER >= 302
-    // FIXME: clang uses a command line option for the thread model
-    const llvm::GlobalVariable::ThreadLocalMode tlsModel =
-        isThreadLocal ? llvm::GlobalVariable::GeneralDynamicTLSModel
-                      : llvm::GlobalVariable::NotThreadLocal;
-    return new llvm::GlobalVariable(*gIR->module, type, isConst, linkage,
-                                    NULL, name, 0, tlsModel);
-#else
-    return new llvm::GlobalVariable(*gIR->module, type, isConst, linkage,
-                                    NULL, name, 0, isThreadLocal);
-#endif
-}
-
 void VarDeclaration::codegen(Ir* p)
 {
     Logger::print("VarDeclaration::codegen(): %s | %s\n", toChars(), type->toChars());
@@ -171,8 +154,9 @@ void VarDeclaration::codegen(Ir* p)
         // this->ir.irGlobal->value!), and in case we also do an initializer
         // with a different type later, swap it out and replace any existing
         // uses with bitcasts to the previous type.
-        llvm::GlobalVariable* gvar = createGlobal(i1ToI8(DtoType(type)), isLLConst,
-            llLinkage, llName, isThreadlocal());
+        llvm::GlobalVariable* gvar = getOrCreateGlobal(loc, *gIR->module,
+            i1ToI8(DtoType(type)), isLLConst, llLinkage, 0, llName,
+            isThreadlocal());
         this->ir.irGlobal->value = gvar;
 
         // Check if we are defining or just declaring the global in this module.
@@ -184,8 +168,8 @@ void VarDeclaration::codegen(Ir* p)
             // In case of type mismatch, swap out the variable.
             if (initVal->getType() != gvar->getType()->getElementType())
             {
-                llvm::GlobalVariable* newGvar = createGlobal(
-                    initVal->getType(), isLLConst, llLinkage,
+                llvm::GlobalVariable* newGvar = getOrCreateGlobal(loc,
+                    *gIR->module, initVal->getType(), isLLConst, llLinkage, 0,
                     "", // We take on the name of the old global below.
                     isThreadlocal());
 

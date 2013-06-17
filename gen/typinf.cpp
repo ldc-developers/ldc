@@ -77,15 +77,15 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
         break;
 
     case Tclass:
-        if (static_cast<TypeClass *>(t)->sym->isInterfaceDeclaration())
-        break;
+        if (((TypeClass *)t)->sym->isInterfaceDeclaration())
+            break;
         goto Linternal;
 
     case Tarray:
         // convert to corresponding dynamic array type
         t = t->nextOf()->mutableOf()->arrayOf();
         if (t->nextOf()->ty != Tclass)
-        break;
+            break;
         goto Linternal;
 
     case Tfunction:
@@ -95,11 +95,11 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
         tid = internalTI[t->ty];
         if (!tid)
         {   tid = new TypeInfoDeclaration(t, 1);
-        internalTI[t->ty] = tid;
+            internalTI[t->ty] = tid;
         }
-        e = new VarExp(0, tid);
+        e = new VarExp(Loc(), tid);
         e = e->addressOf(sc);
-        e->type = tid->type;    // do this so we don't get redundant dereference
+        e->type = tid->type;        // do this so we don't get redundant dereference
         return e;
 
     default:
@@ -118,16 +118,14 @@ Expression *Type::getTypeInfo(Scope *sc)
     //printf("Type::getTypeInfo() %p, %s\n", this, toChars());
     if (!Type::typeinfo)
     {
-        error(0, "TypeInfo not found. object.d may be incorrectly installed or corrupt, compile with -v switch");
+        error(Loc(), "TypeInfo not found. object.d may be incorrectly installed or corrupt, compile with -v switch");
         fatal();
     }
 
-    Expression *e = 0;
     Type *t = merge2(); // do this since not all Type's are merge'd
-
     if (!t->vtinfo)
     {
-        if (t->isShared())
+        if (t->isShared())      // does both 'shared' and 'shared const'
             t->vtinfo = new TypeInfoSharedDeclaration(t);
         else if (t->isConst())
             t->vtinfo = new TypeInfoConstDeclaration(t);
@@ -138,30 +136,29 @@ Expression *Type::getTypeInfo(Scope *sc)
         else
             t->vtinfo = t->getTypeInfoDeclaration();
         assert(t->vtinfo);
+        vtinfo = t->vtinfo;
 
         /* If this has a custom implementation in std/typeinfo, then
          * do not generate a COMDAT for it.
          */
         if (!t->builtinTypeInfo())
         {   // Generate COMDAT
-            if (sc)         // if in semantic() pass
+            if (sc)                     // if in semantic() pass
             {   // Find module that will go all the way to an object file
                 Module *m = sc->module->importedFrom;
                 m->members->push(t->vtinfo);
             }
-            else            // if in obj generation pass
+            else                        // if in obj generation pass
             {
-#if IN_DMD
-                t->vtinfo->toObjFile(0); // TODO: multiobj
-#else
                 t->vtinfo->codegen(sir);
-#endif
             }
         }
     }
-    e = new VarExp(0, t->vtinfo);
+    if (!vtinfo)
+        vtinfo = t->vtinfo;     // Types aren't merged, but we can share the vtinfo's
+    Expression *e = new VarExp(Loc(), t->vtinfo);
     e = e->addressOf(sc);
-    e->type = t->vtinfo->type;      // do this so we don't get redundant dereference
+    e->type = t->vtinfo->type;          // do this so we don't get redundant dereference
     return e;
 }
 
@@ -323,7 +320,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
     // As those types cannot appear as LLVM values, they are not interesting for
     // the optimizer passes anyway.
     Type* t = tid->tinfo->toBasetype();
-    if (t->ty < Terror && t->ty != Tvoid && t->ty != Tfunction) {
+    if (t->ty < Terror && t->ty != Tvoid && t->ty != Tfunction && t->ty != Tident) {
         // Add some metadata for use by optimization passes.
         std::string metaname = std::string(TD_PREFIX) + mangle;
         llvm::NamedMDNode* meta = gIR->module->getNamedMetadata(metaname);
@@ -409,7 +406,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     // void[] init
     // emit null array if we should use the basetype, or if the basetype
     // uses default initialization.
-    if (tinfo->isZeroInit(0) || !sd->init)
+    if (tinfo->isZeroInit(Loc()) || !sd->init)
     {
         b.push_null_void_array();
     }
@@ -446,7 +443,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     // void[] init
     // emit void[] with the default initialier, the array is null if the default
     // initializer is zero
-    if (!sd->defaultval || tinfo->isZeroInit(0))
+    if (!sd->defaultval || tinfo->isZeroInit(Loc()))
     {
         b.push_null_void_array();
     }
@@ -607,7 +604,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     }
 
     sd->codegen(Type::sir);
-    IrAggr* irstruct = sd->ir.irStruct;
+    IrAggr* iraggr = sd->ir.irAggr;
 
     RTTIBuilder b(Type::typeinfostruct);
 
@@ -618,10 +615,10 @@ void TypeInfoStructDeclaration::llvmDefine()
     // The protocol is to write a null pointer for zero-initialized arrays. The
     // length field is always needed for tsize().
     llvm::Constant *initPtr;
-    if (tc->isZeroInit(0))
+    if (tc->isZeroInit(Loc()))
         initPtr = getNullValue(getVoidPtrType());
     else
-        initPtr = irstruct->getInitSymbol();
+        initPtr = iraggr->getInitSymbol();
     b.push_void_array(getTypeStoreSize(tc->irtype->getLLType()), initPtr);
 
     // toX functions ground work
@@ -633,11 +630,11 @@ void TypeInfoStructDeclaration::llvmDefine()
         Scope sc;
         tftohash = new TypeFunction(NULL, Type::thash_t, 0, LINKd);
         tftohash ->mod = MODconst;
-        tftohash = static_cast<TypeFunction *>(tftohash->semantic(0, &sc));
+        tftohash = static_cast<TypeFunction *>(tftohash->semantic(Loc(), &sc));
 
         Type *retType = Type::tchar->invariantOf()->arrayOf();
         tftostring = new TypeFunction(NULL, retType, 0, LINKd);
-        tftostring = static_cast<TypeFunction *>(tftostring->semantic(0, &sc));
+        tftostring = static_cast<TypeFunction *>(tftostring->semantic(Loc(), &sc));
     }
 
     // this one takes a parameter, so we need to build a new one each time
@@ -652,7 +649,7 @@ void TypeInfoStructDeclaration::llvmDefine()
         arguments->push(arg);
         tfcmpptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
         tfcmpptr->mod = MODconst;
-        tfcmpptr = static_cast<TypeFunction *>(tfcmpptr->semantic(0, &sc));
+        tfcmpptr = static_cast<TypeFunction *>(tfcmpptr->semantic(Loc(), &sc));
     }
 
     // well use this module for all overload lookups
@@ -740,7 +737,7 @@ void TypeInfoClassDeclaration::codegen(Ir*i)
     assert(tinfo->ty == Tclass);
     TypeClass *tc = static_cast<TypeClass *>(tinfo);
     tc->sym->codegen(Type::sir); // make sure class is resolved
-    irg->value = tc->sym->ir.irStruct->getClassInfoSymbol();
+    irg->value = tc->sym->ir.irAggr->getClassInfoSymbol();
 }
 
 void TypeInfoClassDeclaration::llvmDefine()

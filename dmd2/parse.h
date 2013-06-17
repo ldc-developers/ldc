@@ -71,9 +71,9 @@ struct Parser : Lexer
     Parser(Module *module, unsigned char *base, size_t length, int doDocComment);
 
     Dsymbols *parseModule();
-    Dsymbols *parseDeclDefs(int once);
+    Dsymbols *parseDeclDefs(int once, Dsymbol **pLastDecl = NULL);
     Dsymbols *parseAutoDeclarations(StorageClass storageClass, unsigned char *comment);
-    Dsymbols *parseBlock();
+    Dsymbols *parseBlock(Dsymbol **pLastDecl);
     void composeStorageClass(StorageClass stc);
     StorageClass parseAttribute(Expressions **pexps);
     StorageClass parsePostfix();
@@ -114,7 +114,8 @@ struct Parser : Lexer
     Dsymbols *parseDeclarations(StorageClass storage_class, unsigned char *comment);
     void parseContracts(FuncDeclaration *f);
     void checkDanglingElse(Loc elseloc);
-    Statement *parseStatement(int flags);
+    /** endPtr used for documented unittests */
+    Statement *parseStatement(int flags, unsigned char** endPtr = NULL);
     Initializer *parseInitializer();
     Expression *parseDefaultInitExp();
     void check(Loc loc, enum TOK value);
@@ -123,7 +124,7 @@ struct Parser : Lexer
     void checkParens(enum TOK value, Expression *e);
     int isDeclaration(Token *t, int needId, enum TOK endtok, Token **pt);
     int isBasicType(Token **pt);
-    int isDeclarator(Token **pt, int *haveId, enum TOK endtok);
+    int isDeclarator(Token **pt, int *haveId, int *haveTpl, enum TOK endtok);
     int isParameters(Token **pt);
     int isExpression(Token **pt);
     int skipParens(Token *t, Token **pt);

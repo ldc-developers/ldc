@@ -102,9 +102,7 @@ void unittests();
 #define DMDV2   1       // Version 2.0 features
 #define SNAN_DEFAULT_INIT DMDV2 // if floats are default initialized to signalling NaN
 #define MODULEINFO_IS_STRUCT DMDV2   // if ModuleInfo is a struct rather than a class
-#define BUG6652 2       // Making foreach range statement parameter non-ref in default
-                        // 1: Modifying iteratee in body is warned with -w switch
-                        // 2: Modifying iteratee in body is error without -d switch
+#define PULL93  0       // controversial pull #93 for bugzilla 3449
 
 // Set if C++ mangling is done by the front end
 #define CPP_MANGLE (DMDV2 && (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS || IN_LLVM))
@@ -159,24 +157,27 @@ struct Param
 {
     bool obj;           // write object file
     bool link;          // perform link
-#if !IN_LLVM
+#if IN_LLVM
+    bool verbose;       // verbose compile
+    bool vtls;          // identify thread local variables
+    bool vfield;        // identify non-mutable field variables
+    ubyte symdebug;     // insert debug symbolic information
+    bool is64bit;       // generate 64 bit code
+#else
     char dll;           // generate shared dynamic library
     char lib;           // write library file instead of object file(s)
     char multiobj;      // break one object file into multiple ones
     char oneobj;        // write one object file instead of multiple ones
     bool trace;         // insert profiling hooks
     char quiet;         // suppress non-error messages
-#endif
-    bool verbose;       // verbose compile
-    bool vtls;          // identify thread local variables
-    ubyte symdebug;     // insert debug symbolic information
-#if !IN_LLVM
-    char alwaysframe;   // always emit standard stack frame
-    char optimize;      // run optimizer
-#endif
+    char verbose;       // verbose compile
+    char vtls;          // identify thread local variables
+    char vfield;        // identify non-mutable field variables
+    char symdebug;      // insert debug symbolic information
+    bool alwaysframe;   // always emit standard stack frame
+    bool optimize;      // run optimizer
     char map;           // generate linker .map file
-    bool is64bit;       // generate 64 bit code
-#if !IN_LLVM
+    char is64bit;       // generate 64 bit code
     char isLinux;       // generate code for linux
     char isOSX;         // generate code for Mac OSX
     char isWindows;     // generate code for Windows
@@ -192,13 +193,9 @@ struct Param
     bool useInvariants; // generate class invariant checks
     bool useIn;         // generate precondition checks
     bool useOut;        // generate postcondition checks
-#if IN_LLVM
-    bool useArrayBounds;
-#else
     char useArrayBounds; // 0: no array bounds checks
                          // 1: array bounds checks for safe functions only
                          // 2: array bounds checks for all functions
-#endif
     bool noboundscheck; // no array bounds checking at all
     bool stackstomp;    // add stack stomping code
     bool useSwitchError; // check for switches without a default
@@ -211,16 +208,21 @@ struct Param
     ubyte warnings;     // 0: enable warnings
                         // 1: warnings as errors
                         // 2: informational warnings (no errors)
-#if !IN_LLVM
-    char pic;           // generate position-independent-code for shared libs
-    char cov;           // generate code coverage data
-    char nofloat;       // code should not pull in floating point support
-#endif
+#if IN_LLVM
     ubyte Dversion;      // D version number
     bool ignoreUnsupportedPragmas;      // rather than error on them
     bool enforcePropertySyntax;
-#if !IN_LLVM
+    bool addMain; // LDC_FIXME: Implement.
+#else
+    bool pic;           // generate position-independent-code for shared libs
+    bool cov;           // generate code coverage data
+    unsigned char covPercent;   // 0..100 code coverage percentage required
+    bool nofloat;       // code should not pull in floating point support
+    char Dversion;      // D version number
+    char ignoreUnsupportedPragmas;      // rather than error on them
+    char enforcePropertySyntax;
     char betterC;       // be a "better C" compiler; no dependency on D runtime
+    bool addMain;       // add a default main() function
 #endif
 
     char *argv0;        // program name
@@ -304,6 +306,11 @@ struct Param
 #endif
 };
 
+struct Compiler
+{
+    const char *vendor;     // Compiler backend name
+};
+
 typedef unsigned structalign_t;
 #define STRUCTALIGN_DEFAULT ~0  // magic value means "match whatever the underlying C compiler does"
 // other values are all powers of 2
@@ -328,10 +335,9 @@ struct Global
     const char *map_ext;        // for .map files
     const char *copyright;
     const char *written;
+    const char *main_d;         // dummy filename for dummy main()
     Strings *path;        // Array of char*'s which form the import lookup path
     Strings *filePath;    // Array of char*'s which form the file import lookup path
-
-    structalign_t structalign;       // default alignment for struct fields
 
     const char *version;
 #if IN_LLVM
@@ -341,6 +347,7 @@ struct Global
     bool inExtraInliningSemantic;
 #endif
 
+    Compiler compiler;
     Param params;
     unsigned errors;       // number of errors reported so far
     unsigned warnings;     // number of warnings reported so far
@@ -361,7 +368,7 @@ struct Global
      */
     bool endGagging(unsigned oldGagged);
 
-    Global();
+    void init();
 };
 
 extern Global global;
@@ -417,14 +424,6 @@ typedef d_uns32                 d_dchar;
 typedef longdouble real_t;
 #endif
 
-// Modify OutBuffer::writewchar to write the correct size of wchar
-#if _WIN32
-#define writewchar writeword
-#else
-// This needs a configuration test...
-#define writewchar write4
-#endif
-
 #ifdef IN_GCC
 #include "d-gcc-complex_t.h"
 #endif
@@ -440,12 +439,6 @@ struct Loc
     Loc()
     {
         linnum = 0;
-        filename = NULL;
-    }
-
-    Loc(int x)
-    {
-        linnum = x;
         filename = NULL;
     }
 
@@ -532,13 +525,6 @@ const char *inifile(const char *argv0, const char *inifile, const char* envsecti
 void halt();
 #if !IN_LLVM
 void util_progress();
-#endif
-
-/*** Where to send error messages ***/
-#if defined(IN_GCC) || IN_LLVM
-#define stdmsg stderr
-#else
-#define stdmsg stderr
 #endif
 
 #if !IN_LLVM

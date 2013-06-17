@@ -385,7 +385,7 @@ static LLValue* get_slice_ptr(DSliceValue* e, LLValue*& sz)
 
 static void copySlice(LLValue* dstarr, LLValue* sz1, LLValue* srcarr, LLValue* sz2)
 {
-    if (global.params.useAssert || global.params.useArrayBounds)
+    if (global.params.useAssert || gIR->emitArrayBoundsChecks())
     {
         LLValue* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_slice_copy");
         gIR->CreateCallOrInvoke4(fn, dstarr, sz1, srcarr, sz2);
