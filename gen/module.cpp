@@ -431,7 +431,7 @@ void Module::genmoduleinfo()
             continue;
         }
         Logger::println("class: %s", cd->toPrettyChars());
-        LLConstant *c = DtoBitCast(cd->ir.irStruct->getClassInfoSymbol(), classinfoTy);
+        LLConstant *c = DtoBitCast(cd->ir.irAggr->getClassInfoSymbol(), classinfoTy);
         classInits.push_back(c);
     }
     // has class array?

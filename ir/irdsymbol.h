@@ -52,7 +52,7 @@ struct IrDsymbol
 
     IrModule* irModule;
 
-    IrAggr* irStruct;
+    IrAggr* irAggr;
 
     IrFunction* irFunc;
 

@@ -134,7 +134,7 @@ LLConstant* VarExp::toConstElem(IRState* p)
         TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
         ts->sym->codegen(Type::sir);
 
-        return ts->sym->ir.irStruct->getDefaultInit();
+        return ts->sym->ir.irAggr->getDefaultInit();
     }
 
     if (TypeInfoDeclaration* ti = var->isTypeInfoDeclaration())
@@ -2038,7 +2038,7 @@ DValue* NewExp::toElem(IRState* p)
         else {
             assert(ts->sym);
             ts->sym->codegen(Type::sir);
-            DtoAggrCopy(mem, ts->sym->ir.irStruct->getInitSymbol());
+            DtoAggrCopy(mem, ts->sym->ir.irAggr->getInitSymbol());
         }
         if (ts->sym->isNested() && ts->sym->vthis)
             DtoResolveNestedContext(loc, ts->sym, mem);
@@ -2937,7 +2937,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         assert(ts->sym);
         ts->sym->codegen(Type::sir);
 
-        LLValue* initsym = ts->sym->ir.irStruct->getInitSymbol();
+        LLValue* initsym = ts->sym->ir.irAggr->getInitSymbol();
         initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
         return new DVarValue(type, initsym);
     }
@@ -3051,7 +3051,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
         TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
         ts->sym->codegen(Type::sir);
 
-        return ts->sym->ir.irStruct->getDefaultInit();
+        return ts->sym->ir.irAggr->getDefaultInit();
     }
 
     // make sure the struct is resolved
@@ -3067,7 +3067,7 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
         }
     }
 
-    return sd->ir.irStruct->createInitializerConstant(varInits);
+    return sd->ir.irAggr->createInitializerConstant(varInits);
 }
 
 llvm::Constant* ClassReferenceExp::toConstElem(IRState *p)
@@ -3124,7 +3124,7 @@ llvm::Constant* ClassReferenceExp::toConstElem(IRState *p)
             assert(i == nexprs);
         }
 
-        llvm::Constant* constValue = origClass->ir.irStruct->createInitializerConstant(varInits);
+        llvm::Constant* constValue = origClass->ir.irAggr->createInitializerConstant(varInits);
 
         if (constValue->getType() != value->globalVar->getType()->getContainedType(0))
         {

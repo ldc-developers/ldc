@@ -1279,7 +1279,7 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     {
         Logger::println("const struct initializer");
         si->ad->codegen(Type::sir);
-        return si->ad->ir.irStruct->createStructInitializer(si);
+        return si->ad->ir.irAggr->createStructInitializer(si);
     }
     else if (ArrayInitializer* ai = init->isArrayInitializer())
     {
@@ -1851,7 +1851,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
         {
             Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
             cid->cd->codegen(Type::sir);;
-            return new DVarValue(type, vd, cid->cd->ir.irStruct->getClassInfoSymbol());
+            return new DVarValue(type, vd, cid->cd->ir.irAggr->getClassInfoSymbol());
         }
         // typeinfo
         else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
@@ -1960,7 +1960,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
         assert(ts->sym);
         ts->sym->codegen(Type::sir);
 
-        LLValue* initsym = ts->sym->ir.irStruct->getInitSymbol();
+        LLValue* initsym = ts->sym->ir.irAggr->getInitSymbol();
         initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
         return new DVarValue(type, initsym);
     }

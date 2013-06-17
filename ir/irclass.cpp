@@ -394,7 +394,7 @@ LLConstant * IrAggr::getClassInfoInterfaces()
 
         IF_LOG Logger::println("Adding interface %s", it->base->toPrettyChars());
 
-        IrAggr* irinter = it->base->ir.irStruct;
+        IrAggr* irinter = it->base->ir.irAggr;
         assert(irinter && "interface has null IrStruct");
         IrTypeClass* itc = stripModifiers(irinter->type)->irtype->isClass();
         assert(itc && "null interface IrTypeClass");

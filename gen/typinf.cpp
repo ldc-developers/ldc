@@ -604,7 +604,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     }
 
     sd->codegen(Type::sir);
-    IrAggr* irstruct = sd->ir.irStruct;
+    IrAggr* iraggr = sd->ir.irAggr;
 
     RTTIBuilder b(Type::typeinfostruct);
 
@@ -618,7 +618,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     if (tc->isZeroInit(Loc()))
         initPtr = getNullValue(getVoidPtrType());
     else
-        initPtr = irstruct->getInitSymbol();
+        initPtr = iraggr->getInitSymbol();
     b.push_void_array(getTypeStoreSize(tc->irtype->getLLType()), initPtr);
 
     // toX functions ground work
@@ -737,7 +737,7 @@ void TypeInfoClassDeclaration::codegen(Ir*i)
     assert(tinfo->ty == Tclass);
     TypeClass *tc = static_cast<TypeClass *>(tinfo);
     tc->sym->codegen(Type::sir); // make sure class is resolved
-    irg->value = tc->sym->ir.irStruct->getClassInfoSymbol();
+    irg->value = tc->sym->ir.irAggr->getClassInfoSymbol();
 }
 
 void TypeInfoClassDeclaration::llvmDefine()
