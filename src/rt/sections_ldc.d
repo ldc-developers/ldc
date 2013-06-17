@@ -216,7 +216,7 @@ void initSections()
                     continue;
 
                 globalSectionGroup._gcRanges.insertBack(
-                    cast(void*)(sec.addr + slide))[0 .. sec.size];
+                    (cast(void*)(sec.addr + slide))[0 .. sec.size]);
             }
         }
         _dyld_register_func_for_add_image(&scanSections);
