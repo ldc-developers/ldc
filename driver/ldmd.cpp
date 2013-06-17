@@ -233,8 +233,12 @@ Usage:\n\
   -quiet         suppress unnecessary messages\n\
   -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
-  -shared        generate shared library\n\
-  -unittest      compile in unit tests\n\
+  -shared        generate shared library\n"
+#if 0
+"  -transition=id show additional info about language change identified by 'id'\n\
+  -transition=?  list all language changes\n"
+#endif
+"  -unittest      compile in unit tests\n\
   -v             verbose\n\
   -vdmd          print the command used to invoke the underlying compiler\n\
   -version=level compile in version code >= level\n\
@@ -529,6 +533,8 @@ Params parseArgs(size_t originalArgc, char** originalArgv, ls::Path ldcPath)
                 result.targetModel = Model::m64;
             else if (strcmp(p + 1, "profile") == 0)
                 result.profile = true;
+            else if (memcmp(p + 1, "transition", 10) == 0)
+                warning("-transition not yet supported by LDC.");
             else if (strcmp(p + 1, "v") == 0)
                 result.verbose = true;
             else if (strcmp(p + 1, "vdmd") == 0)

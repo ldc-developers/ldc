@@ -132,11 +132,6 @@ void AsmStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writenl();
 }
 
-int AsmStatement::comeFrom()
-{
-    return FALSE;
-}
-
 struct AsmParserCommon
 {
     virtual ~AsmParserCommon() {}
@@ -577,7 +572,7 @@ void AsmBlockStatement::toIR(IRState* p)
 
     {
         FuncDeclaration* fd = gIR->func()->decl;
-        char* fdmangle = fd->mangle();
+        const char* fdmangle = fd->mangle();
 
         // we use a simple static counter to make sure the new end labels are unique
         static size_t uniqueLabelsId = 0;

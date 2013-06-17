@@ -45,9 +45,6 @@ struct IrAggr
     /// true only for: align(1) struct S { ... }
     bool packed;
 
-    /// Composite type debug description.
-    llvm::DIType diCompositeType;
-
     //////////////////////////////////////////////////////////////////////////
 
     /// Create the __initZ symbol lazily.

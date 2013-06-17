@@ -252,7 +252,7 @@ void DtoGoto(Loc loc, Identifier* target, TryFinallyStatement* sourceFinally)
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
-// TRY-FINALLY, VOLATILE AND SYNCHRONIZED HELPER
+// TRY-FINALLY AND SYNCHRONIZED HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
 void EnclosingSynchro::emitCode(IRState * p)
@@ -261,14 +261,6 @@ void EnclosingSynchro::emitCode(IRState * p)
         DtoLeaveMonitor(s->exp->toElem(p)->getRVal());
     else
         DtoLeaveCritical(s->llsync);
-}
-
-////////////////////////////////////////////////////////////////////////////////////////
-
-void EnclosingVolatile::emitCode(IRState * p)
-{
-    // store-load barrier
-    DtoMemoryBarrier(false, false, true, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -829,6 +821,13 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
             LLValue *rval = DtoBitCast(val->getRVal(), DtoType(to));
             return new DImValue(to, rval);
         }
+        else if (totype->ty == Tbool)
+        {
+            IF_LOG Logger::println("Casting AA to bool.");
+            LLValue* rval = val->getRVal();
+            LLValue* zero = LLConstant::getNullValue(rval->getType());
+            return new DImValue(to, gIR->ir->CreateICmpNE(rval, zero));
+        }
 
         // Else try dealing with the rewritten (struct) type.
         fromtype = static_cast<TypeAArray*>(fromtype)->getImpl()->type;
@@ -1138,18 +1137,6 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         Logger::println("FuncDeclaration");
         f->codegen(Type::sir);
     }
-    // alias declaration
-    else if (declaration->isAliasDeclaration())
-    {
-        Logger::println("AliasDeclaration - no work");
-        // do nothing
-    }
-    // enum
-    else if (declaration->isEnumDeclaration())
-    {
-        Logger::println("EnumDeclaration - no work");
-        // do nothing
-    }
     // class
     else if (ClassDeclaration* e = declaration->isClassDeclaration())
     {
@@ -1196,15 +1183,12 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
             DtoDeclarationExp(exp->s);
         }
     }
-    // template
-    else if (declaration->isTemplateDeclaration())
-    {
-        Logger::println("TemplateDeclaration");
-        // do nothing
-    }
     else
     {
-        llvm_unreachable("Unimplemented Declaration type for DeclarationExp.");
+        // Do nothing for template/alias/enum declarations and static
+        // assertions. We cannot detect StaticAssert without RTTI, so don't
+        // even bother to check.
+        IF_LOG Logger::println("Ignoring Symbol: %s", declaration->kind());
     }
 
     return 0;
@@ -1295,7 +1279,7 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     {
         Logger::println("const struct initializer");
         si->ad->codegen(Type::sir);
-        return si->ad->ir.irStruct->createStructInitializer(si);
+        return si->ad->ir.irAggr->createStructInitializer(si);
     }
     else if (ArrayInitializer* ai = init->isArrayInitializer())
     {
@@ -1510,6 +1494,11 @@ bool mustDefineSymbol(Dsymbol* s)
         if (fd->semanticRun < PASSsemantic3)
             return false;
 
+        // If a function has no body, we cannot possibly emit it (and so it
+        // cannot be available_externally either).
+        if (!fd->fbody)
+            return false;
+
         if (fd->isArrayOp == 1)
             return true;
 
@@ -1540,6 +1529,13 @@ bool mustDefineSymbol(Dsymbol* s)
             // We won't be inlining this, so we only need to emit a declaration.
             return false;
         }
+    }
+
+    if (VarDeclaration* vd = s->isVarDeclaration())
+    {
+        // Never define 'extern' variables.
+        if (vd->storage_class & STCextern)
+            return false;
     }
 
     // Inlining checks may create some variable and class declarations
@@ -1700,7 +1696,7 @@ LLValue* makeLValue(Loc& loc, DValue* value)
 
     if (needsMemory) {
         LLValue* tmp = DtoAlloca(valueType, ".makelvaluetmp");
-        DtoStore(valuePointer, tmp);
+        DtoStoreZextI8(valuePointer, tmp);
         valuePointer = tmp;
     }
 
@@ -1855,7 +1851,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
         {
             Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
             cid->cd->codegen(Type::sir);;
-            return new DVarValue(type, vd, cid->cd->ir.irStruct->getClassInfoSymbol());
+            return new DVarValue(type, vd, cid->cd->ir.irAggr->getClassInfoSymbol());
         }
         // typeinfo
         else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
@@ -1954,7 +1950,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
         return new DFuncValue(fdecl, func);
     }
 
-    if (StaticStructInitDeclaration* sdecl = decl->isStaticStructInitDeclaration())
+    if (SymbolDeclaration* sdecl = decl->isSymbolDeclaration())
     {
         // this seems to be the static initialiser for structs
         Type* sdecltype = sdecl->type->toBasetype();
@@ -1964,7 +1960,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
         assert(ts->sym);
         ts->sym->codegen(Type::sir);
 
-        LLValue* initsym = ts->sym->ir.irStruct->getInitSymbol();
+        LLValue* initsym = ts->sym->ir.irAggr->getInitSymbol();
         initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
         return new DVarValue(type, initsym);
     }
@@ -2012,4 +2008,33 @@ llvm::Constant* DtoConstSymbolAddress(const Loc& loc, Declaration* decl)
     }
 
     llvm_unreachable("Taking constant address not implemented.");
+}
+
+llvm::GlobalVariable* getOrCreateGlobal(Loc loc, llvm::Module& module,
+    llvm::Type* type, bool isConstant, llvm::GlobalValue::LinkageTypes linkage,
+    llvm::Constant* init, llvm::StringRef name, bool isThreadLocal)
+{
+    llvm::GlobalVariable* existing = module.getGlobalVariable(name, true);
+    if (existing)
+    {
+        if (existing->getType()->getElementType() != type)
+        {
+            error(loc, "Global variable type does not match previous "
+                "declaration with same mangled name: %s", name.str().c_str());
+            fatal();
+        }
+        return existing;
+    }
+
+#if LDC_LLVM_VER >= 302
+    // FIXME: clang uses a command line option for the thread model
+    const llvm::GlobalVariable::ThreadLocalMode tlsModel =
+        isThreadLocal ? llvm::GlobalVariable::GeneralDynamicTLSModel
+                      : llvm::GlobalVariable::NotThreadLocal;
+    return new llvm::GlobalVariable(module, type, isConstant, linkage,
+                                    init, name, 0, tlsModel);
+#else
+    return new llvm::GlobalVariable(module, type, isConstant, linkage,
+                                    init, name, 0, isThreadLocal);
+#endif
 }

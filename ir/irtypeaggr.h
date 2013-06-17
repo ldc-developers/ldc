@@ -12,6 +12,11 @@
 
 #include "ir/irtype.h"
 #include "llvm/ADT/ArrayRef.h"
+#if LDC_LLVM_VER >= 302
+#include "llvm/DebugInfo.h"
+#else
+#include "llvm/Analysis/DebugInfo.h"
+#endif
 #include <map>
 #include <vector>
 
@@ -38,6 +43,11 @@ public:
 
     ///
     iterator def_end()          { return default_fields.end(); }
+
+
+    /// Composite type debug description. This is not only to cache, but also
+    /// used for resolving forward references.
+    llvm::DIType diCompositeType;
 
 protected:
     ///

@@ -15,11 +15,14 @@
 #include "module.h"
 #include "mtype.h"
 #include "root.h"
+#include "gen/abi.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "ir/irtype.h"
+#include "ir/irtypefunction.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
@@ -92,6 +95,7 @@ llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name
     LLFunctionType* fnty = fn->getFunctionType();
     LLFunction* resfn = llvm::cast<llvm::Function>(target->getOrInsertFunction(name, fnty));
     resfn->setAttributes(fn->getAttributes());
+    resfn->setCallingConv(fn->getCallingConv());
     return resfn;
 }
 
@@ -121,8 +125,8 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
     }
 
     LLPointerType* t = g->getType();
-    return new LLGlobalVariable(*target, t->getElementType(), g->isConstant(),
-                                g->getLinkage(), NULL, g->getName());
+    return getOrCreateGlobal(Loc(), *target, t->getElementType(), g->isConstant(),
+                             g->getLinkage(), NULL, g->getName());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -898,12 +902,26 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-    // void _d_invariant(Object o)
+    // void invariant._d_invariant(Object o)
     {
-        llvm::StringRef fname("_d_invariant");
-        LLType *types[] = { objectTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        // KLUDGE: _d_invariant is actually extern(D) in the upstream runtime, possibly
+        // for more efficient parameter passing on x86. This complicates our code here
+        // quite a bit, though.
+        llvm::StringRef fname("_D9invariant12_d_invariantFC6ObjectZv");
+        Parameters* params = new Parameters();
+        params->push(new Parameter(STCin, ClassDeclaration::object->type, NULL, NULL));
+        TypeFunction* dty = new TypeFunction(params, Type::tvoid, 0, LINKd);
+        llvm::Function* fn = llvm::Function::Create(llvm::cast<llvm::FunctionType>(DtoType(dty)),
+            llvm::GlobalValue::ExternalLinkage, fname, M);
+        gABI->newFunctionType(dty);
+        gABI->rewriteFunctionType(dty);
+        gABI->doneWithFunctionType();
+#if LDC_LLVM_VER < 303
+        fn->addAttribute(1, dty->fty.args[0]->attrs);
+#else
+        fn->addAttributes(1, llvm::AttributeSet::get(gIR->context(), 1, dty->fty.args[0]->attrs));
+#endif
+        fn->setCallingConv(gABI->callingConv(LINKd));
     }
 
     // void _d_hidden_func()

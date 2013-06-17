@@ -208,6 +208,9 @@ struct IRState
 
     // 'used' array solely for keeping a reference to globals
     std::vector<LLConstant*> usedArray;
+
+    /// Whether to emit array bounds checking in the current function.
+    bool emitArrayBoundsChecks();
 };
 
 template <typename T>

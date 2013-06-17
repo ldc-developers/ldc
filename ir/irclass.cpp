@@ -19,6 +19,7 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "mtype.h"
+#include "target.h"
 
 #include "gen/irstate.h"
 #include "gen/logger.h"
@@ -55,7 +56,7 @@ LLGlobalVariable * IrAggr::getVtblSymbol()
 
     LLType* vtblTy = stripModifiers(type)->irtype->isClass()->getVtbl();
 
-    vtbl = new llvm::GlobalVariable(
+    vtbl = getOrCreateGlobal(aggrdecl->loc,
         *gIR->module, vtblTy, true, _linkage, NULL, initname);
 
     return vtbl;
@@ -85,7 +86,7 @@ LLGlobalVariable * IrAggr::getClassInfoSymbol()
     assert(tc && "invalid ClassInfo type");
 
     // classinfos cannot be constants since they're used as locks for synchronized
-    classInfo = new llvm::GlobalVariable(
+    classInfo = getOrCreateGlobal(aggrdecl->loc,
         *gIR->module, tc->getMemoryLLType(), false, _linkage, NULL, initname);
 
     // Generate some metadata on this ClassInfo if it's for a class.
@@ -137,7 +138,7 @@ LLGlobalVariable * IrAggr::getInterfaceArraySymbol()
     name.append("16__interfaceInfosZ");
 
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
-    classInterfacesArray = new llvm::GlobalVariable(*gIR->module,
+    classInterfacesArray = getOrCreateGlobal(cd->loc, *gIR->module,
         array_type, true, _linkage, NULL, name);
 
     return classInterfacesArray;
@@ -334,7 +335,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
     mangle.append(b->base->mangle());
     mangle.append("6__vtblZ");
 
-    llvm::GlobalVariable* GV = new llvm::GlobalVariable(
+    llvm::GlobalVariable* GV = getOrCreateGlobal(cd->loc,
         *gIR->module,
         vtbl_constant->getType(),
         true,
@@ -393,7 +394,7 @@ LLConstant * IrAggr::getClassInfoInterfaces()
 
         IF_LOG Logger::println("Adding interface %s", it->base->toPrettyChars());
 
-        IrAggr* irinter = it->base->ir.irStruct;
+        IrAggr* irinter = it->base->ir.irAggr;
         assert(irinter && "interface has null IrStruct");
         IrTypeClass* itc = stripModifiers(irinter->type)->irtype->isClass();
         assert(itc && "null interface IrTypeClass");

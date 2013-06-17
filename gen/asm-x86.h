@@ -1546,7 +1546,7 @@ namespace AsmParserx8664
                 for ( int i = 0; i < N_PtrNames; i++ )
                     ptrTypeIdentTable[i] = Lexer::idPool ( ptrTypeNameTable[i] );
 
-                Handled = new Expression ( 0, TOKvoid, sizeof ( Expression ) );
+                Handled = new Expression ( Loc(), TOKvoid, sizeof ( Expression ) );
 
                 ident_seg = Lexer::idPool ( "seg" );
 
@@ -1827,6 +1827,12 @@ namespace AsmParserx8664
                         break;
 
                     case Arg_Memory:
+                        // Peel off one layer of explicitly taking the address, if present.
+                        if ( e->op == TOKaddress )
+                        {
+                            e = static_cast<AddrExp*>(e)->e1;
+                        }
+
                         if ( e->op == TOKvar )
                         {
                             VarExp* v = ( VarExp* ) e;
@@ -2474,7 +2480,7 @@ namespace AsmParserx8664
 #endif
                                 {
 
-                                    e = new AddrExp ( 0, e );
+                                    e = new AddrExp ( Loc(), e );
                                     e->type = decl->type->pointerTo();
 
                                     operand->constDisplacement = 0;
@@ -2539,7 +2545,7 @@ namespace AsmParserx8664
                                     if ( !sc->func->naked ) // no addrexp in naked asm please :)
                                     {
                                         Type* tt = e->type->pointerTo();
-                                        e = new AddrExp ( 0, e );
+                                        e = new AddrExp ( Loc(), e );
                                         e->type = tt;
                                     }
 
@@ -2580,15 +2586,7 @@ namespace AsmParserx8664
 
         bool isIntExp ( Expression * exp )
         {
-            if ( exp->op == TOKint64 )
-                return 1;
-            if ( exp->op == TOKvar )
-            {
-                Declaration * v = ( ( VarExp * ) exp )->var;
-                if ( v->isConst() && v->type->isintegral() )
-                    return 1;
-            }
-            return 0;
+            return exp->op == TOKint64;
         }
         bool isRegExp ( Expression * exp ) { return exp->op == TOKmod; } // ewww.%%
         bool isLocalSize ( Expression * exp )
@@ -2696,7 +2694,7 @@ namespace AsmParserx8664
                         // DMD doesn't check Tcomplex*, and counts Tcomplex32 as Tfloat64
                         TY ty = v->type->toBasetype()->ty;
                         operand->dataSizeHint = ty == Tfloat80 || ty == Timaginary80 ?
-                                                Extended_Ptr : ( PtrType ) v->type->size ( 0 );
+                                                Extended_Ptr : ( PtrType ) v->type->size ( Loc() );
                     }
 
                     if ( ! operand->symbolDisplacement.dim )
@@ -3214,6 +3212,7 @@ namespace AsmParserx8664
                     }
 
                     e = e->semantic ( sc );
+                    e = e->optimize (WANTvalue);
 
                     // Special case for floating point constant declarations.
                     if ( e->op == TOKfloat64 )

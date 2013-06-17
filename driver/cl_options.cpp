@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/cl_options.h"
+#include "mars.h"
 #include "gen/cl_helpers.h"
 #include "gen/logger.h"
 #include "llvm/Support/CommandLine.h"
@@ -204,6 +205,10 @@ static cl::list<std::string, StringsAdapter> stringImportPaths("J",
     cl::location(strImpPathStore),
     cl::Prefix);
 
+static cl::opt<bool, true> addMain("main",
+    cl::desc("add empty main() (e.g. for unittesting)"),
+    cl::ZeroOrMore,
+    cl::location(global.params.addMain));
 
 
 // -d-debug is a bit messy, it has 3 modes:
@@ -217,7 +222,7 @@ struct D_DebugStorage {
         if (str.empty()) {
             // Bare "-d-debug" has a special meaning.
             global.params.useAssert = true;
-            global.params.useArrayBounds = true;
+            global.params.useArrayBounds = 2;
             global.params.useInvariants = true;
             global.params.useIn = true;
             global.params.useOut = true;
@@ -316,11 +321,8 @@ static cl::opt<bool, true, FlagParser> asserts("asserts",
     cl::location(global.params.useAssert),
     cl::init(true));
 
-static cl::opt<bool, true, FlagParser> boundsChecks("boundscheck",
-    cl::desc("(*) Enable array bounds checks"),
-    cl::value_desc("bool"),
-    cl::location(global.params.useArrayBounds),
-    cl::init(true));
+cl::opt<BoolOrDefaultAdapter, false, FlagParser> boundsChecks("boundscheck",
+    cl::desc("(*) Enable array bounds checks"));
 
 static cl::opt<bool, true, FlagParser> invariants("invariants",
     cl::desc("(*) Enable invariants"),
@@ -344,8 +346,9 @@ static cl::opt<MultiSetter, true, FlagParser> contracts("contracts",
     cl::desc("(*) Enable function pre- and post-conditions"),
     cl::location(ContractsSetter));
 
+bool nonSafeBoundsChecks = true;
 static MultiSetter ReleaseSetter(true, &global.params.useAssert,
-    &global.params.useArrayBounds, &global.params.useInvariants,
+    &nonSafeBoundsChecks, &global.params.useInvariants,
     &global.params.useOut, &global.params.useIn, NULL);
 static cl::opt<MultiSetter, true, cl::parser<bool> > release("release",
     cl::desc("Disables asserts, invariants, contracts and boundscheck"),

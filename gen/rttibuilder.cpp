@@ -26,7 +26,7 @@ RTTIBuilder::RTTIBuilder(AggregateDeclaration* base_class)
     base = base_class;
     basetype = static_cast<TypeClass*>(base->type);
 
-    baseir = base->ir.irStruct;
+    baseir = base->ir.irAggr;
     assert(baseir && "no IrStruct for TypeInfo base class");
 
     if (base->isClassDeclaration()) {
@@ -59,7 +59,7 @@ void RTTIBuilder::push_typeinfo(Type* t)
 
 void RTTIBuilder::push_classinfo(ClassDeclaration* cd)
 {
-    inits.push_back(cd->ir.irStruct->getClassInfoSymbol());
+    inits.push_back(cd->ir.irAggr->getClassInfoSymbol());
 }
 
 void RTTIBuilder::push_string(const char* str)
@@ -86,7 +86,7 @@ void RTTIBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* ma
     std::string initname(mangle_sym->mangle());
     initname.append(".rtti.voidarr.data");
 
-    LLGlobalVariable* G = new llvm::GlobalVariable(
+    LLGlobalVariable* G = new LLGlobalVariable(
         *gIR->module, CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname);
     G->setAlignment(valtype->alignsize());
 
@@ -105,7 +105,7 @@ void RTTIBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtype, D
     initname.append(tmpStr);
     initname.append(".data");
 
-    LLGlobalVariable* G = new llvm::GlobalVariable(
+    LLGlobalVariable* G = new LLGlobalVariable(
         *gIR->module, CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname);
     G->setAlignment(valtype->alignsize());
 

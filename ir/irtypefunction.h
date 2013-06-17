@@ -28,14 +28,9 @@ public:
     ///
     IrTypeFunction* isFunction()  { return this; }
 
-    IrFuncTy* fty() { return irfty; }
-
 protected:
     ///
     IrTypeFunction(Type* dt, llvm::Type* lt);
-
-    ///
-    IrFuncTy* irfty;
 };
 
 ///

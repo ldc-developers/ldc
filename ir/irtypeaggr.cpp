@@ -24,6 +24,6 @@
 
 IrTypeAggr::IrTypeAggr(AggregateDeclaration * ad)
 :   IrType(ad->type, LLStructType::create(gIR->context(), ad->toPrettyChars())),
-    aggr(ad)
+    diCompositeType(NULL), aggr(ad)
 {
 }

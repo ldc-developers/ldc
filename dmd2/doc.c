@@ -106,9 +106,10 @@ Parameter *isFunctionParameter(Dsymbol *s, unsigned char *p, size_t len);
 
 int isIdStart(unsigned char *p);
 int isIdTail(unsigned char *p);
+int isIndentWS(unsigned char *p);
 int utfStride(unsigned char *p);
 
-static unsigned char ddoc_default[] = "\
+static const char ddoc_default[] = "\
 DDOC =  <html><head>\n\
         <META http-equiv=\"content-type\" content=\"text/html; charset=utf-8\">\n\
         <title>$(TITLE)</title>\n\
@@ -140,6 +141,7 @@ LINK2 = <a href=\"$1\">$+</a>\n\
 LPAREN= (\n\
 RPAREN= )\n\
 DOLLAR= $\n\
+DEPRECATED= $0\n\
 \n\
 RED =   <font color=red>$0</font>\n\
 BLUE =  <font color=blue>$0</font>\n\
@@ -199,11 +201,11 @@ ESCAPES = /</&lt;/\n\
           /&/&amp;/\n\
 ";
 
-static char ddoc_decl_s[] = "$(DDOC_DECL ";
-static char ddoc_decl_e[] = ")\n";
+static const char ddoc_decl_s[] = "$(DDOC_DECL ";
+static const char ddoc_decl_e[] = ")\n";
 
-static char ddoc_decl_dd_s[] = "$(DDOC_DECL_DD ";
-static char ddoc_decl_dd_e[] = ")\n";
+static const char ddoc_decl_dd_s[] = "$(DDOC_DECL_DD ";
+static const char ddoc_decl_dd_e[] = ")\n";
 
 
 /****************************************************
@@ -473,7 +475,91 @@ void escapeStrayParenthesis(OutBuffer *buf, size_t start, Loc loc)
     }
 }
 
+static bool emitAnchorName(OutBuffer *buf, Dsymbol *s)
+{
+    if (!s || s->isPackage() || s->isModule())
+        return false;
+
+    TemplateDeclaration *td;
+    bool dot;
+
+    // Add parent names first
+    dot = emitAnchorName(buf, s->parent);
+    // Eponymous template members can share the parent anchor name
+    if (s->parent && (td = s->parent->isTemplateDeclaration()) != NULL &&
+        td->onemember == s)
+        return dot;
+    if (dot)
+        buf->writeByte('.');
+    // Use "this" not "__ctor"
+    if (s->isCtorDeclaration() || ((td = s->isTemplateDeclaration()) != NULL &&
+        td->onemember && td->onemember->isCtorDeclaration()))
+        buf->writestring("this");
+    else
+    {
+        /* We just want the identifier, not overloads like TemplateDeclaration::toChars.
+         * We don't want the template parameter list and constraints. */
+        buf->writestring(s->Dsymbol::toChars());
+    }
+    return true;
+}
+
+static void emitAnchor(OutBuffer *buf, Dsymbol *s)
+{
+    buf->writestring("$(DDOC_ANCHOR ");
+    emitAnchorName(buf, s);
+    buf->writeByte(')');
+}
+
 /******************************* emitComment **********************************/
+
+/** Get leading indentation from 'src' which represents lines of code. */
+static size_t getCodeIndent(const char *src)
+{
+    while (src && *src == '\n')
+        ++src;  // skip until we find the first non-empty line
+
+    size_t codeIndent = 0;
+    while (src && (*src == ' ' || *src == '\t'))
+    {
+        codeIndent++;
+        src++;
+    }
+    return codeIndent;
+}
+
+void emitUnittestComment(Scope *sc, Dsymbol *s, size_t ofs)
+{
+    OutBuffer *buf = sc->docbuf;
+
+    for (UnitTestDeclaration *utd = s->unittest; utd; utd = utd->unittest)
+    {
+        if (utd->protection == PROTprivate || !utd->comment || !utd->fbody)
+            continue;
+
+        // Strip whitespaces to avoid showing empty summary
+        unsigned char *c = utd->comment;
+        while (*c == ' ' || *c == '\t' || *c == '\n' || *c == '\r') ++c;
+
+        OutBuffer codebuf;
+        codebuf.writestring("$(DDOC_EXAMPLES \n");
+        size_t o = codebuf.offset;
+        codebuf.writestring((char *)c);
+
+        if (utd->codedoc)
+        {
+            size_t i = getCodeIndent(utd->codedoc);
+            while (i--) codebuf.writeByte(' ');
+            codebuf.writestring("----\n");
+            codebuf.writestring(utd->codedoc);
+            codebuf.writestring("----\n");
+            highlightText(sc, s, &codebuf, o);
+        }
+
+        codebuf.writestring(")");
+        buf->insert(buf->offset - ofs, codebuf.data, codebuf.offset);
+    }
+}
 
 /*
  * Emit doc comment to documentation file
@@ -505,34 +591,12 @@ void Dsymbol::emitDitto(Scope *sc)
     buf->spread(sc->lastoffset, b.offset);
     memcpy(buf->data + sc->lastoffset, b.data, b.offset);
     sc->lastoffset += b.offset;
-}
 
-void emitUnittestComment(Scope *sc, Dsymbol *s, UnitTestDeclaration *test)
-{
-    static char pre[] = "$(D_CODE \n";
-    OutBuffer *buf = sc->docbuf;
-
-    buf->writestring("$(DDOC_SECTION ");
-    buf->writestring("$(B Example:)");
-    for (UnitTestDeclaration *utd = test; utd; utd = utd->unittest)
-    {
-        if (utd->protection == PROTprivate || !utd->comment || !utd->fbody)
-            continue;
-
-        OutBuffer codebuf;
-        const char *body = utd->fbody->toChars();
-        if (strlen(body))
-        {
-            codebuf.writestring(pre);
-            codebuf.writestring(body);
-            codebuf.writestring(")");
-            codebuf.writeByte(0);
-            highlightCode2(sc, s, &codebuf, 0);
-            buf->writestring(codebuf.toChars());
-        }
-    }
-
-    buf->writestring(")");
+    Dsymbol *s = this;
+    if (!s->unittest && parent)
+        s = parent->isTemplateDeclaration();
+    if (s)
+        emitUnittestComment(sc, s, strlen(ddoc_decl_dd_e));
 }
 
 void ScopeDsymbol::emitMemberComments(Scope *sc)
@@ -586,6 +650,7 @@ void emitProtection(OutBuffer *buf, PROT prot)
 
 void Dsymbol::emitComment(Scope *sc)               { }
 void InvariantDeclaration::emitComment(Scope *sc)  { }
+void UnitTestDeclaration::emitComment(Scope *sc)   { }
 #if DMDV2
 void PostBlitDeclaration::emitComment(Scope *sc)   { }
 #endif
@@ -650,8 +715,10 @@ void AggregateDeclaration::emitComment(Scope *sc)
     dc->pmacrotable = &sc->module->macrotable;
 
     buf->writestring(ddoc_decl_s);
-    toDocBuffer(buf, sc);
-    sc->lastoffset = buf->offset;
+        size_t o = buf->offset;
+        toDocBuffer(buf, sc);
+        highlightCode(sc, this, buf, o);
+        sc->lastoffset = buf->offset;
     buf->writestring(ddoc_decl_e);
 
     buf->writestring(ddoc_decl_dd_s);
@@ -747,7 +814,9 @@ void EnumDeclaration::emitComment(Scope *sc)
     dc->pmacrotable = &sc->module->macrotable;
 
     buf->writestring(ddoc_decl_s);
+        size_t o = buf->offset;
         toDocBuffer(buf, sc);
+        highlightCode(sc, this, buf, o);
         sc->lastoffset = buf->offset;
     buf->writestring(ddoc_decl_e);
 
@@ -767,7 +836,6 @@ void EnumMember::emitComment(Scope *sc)
 
     OutBuffer *buf = sc->docbuf;
     DocComment *dc = DocComment::parse(sc, this, comment);
-    size_t o;
 
     if (!dc)
     {
@@ -777,7 +845,7 @@ void EnumMember::emitComment(Scope *sc)
     dc->pmacrotable = &sc->module->macrotable;
 
     buf->writestring(ddoc_decl_s);
-        o = buf->offset;
+        size_t o = buf->offset;
         toDocBuffer(buf, sc);
         highlightCode(sc, this, buf, o);
         sc->lastoffset = buf->offset;
@@ -786,42 +854,6 @@ void EnumMember::emitComment(Scope *sc)
     buf->writestring(ddoc_decl_dd_s);
     dc->writeSections(sc, this, buf);
     buf->writestring(ddoc_decl_dd_e);
-}
-
-static bool emitAnchorName(OutBuffer *buf, Dsymbol *s)
-{
-    if (!s || s->isPackage() || s->isModule())
-        return false;
-
-    TemplateDeclaration *td;
-    bool dot;
-
-    // Add parent names first
-    dot = emitAnchorName(buf, s->parent);
-    // Eponymous template members can share the parent anchor name
-    if (s->parent && (td = s->parent->isTemplateDeclaration()) != NULL &&
-        td->onemember == s)
-        return dot;
-    if (dot)
-        buf->writeByte('.');
-    // Use "this" not "__ctor"
-    if (s->isCtorDeclaration() || ((td = s->isTemplateDeclaration()) != NULL &&
-        td->onemember && td->onemember->isCtorDeclaration()))
-        buf->writestring("this");
-    else
-    {
-        /* We just want the identifier, not overloads like TemplateDeclaration::toChars.
-         * We don't want the template parameter list and constraints. */
-        buf->writestring(s->Dsymbol::toChars());
-    }
-    return true;
-}
-
-static void emitAnchor(OutBuffer *buf, Dsymbol *s)
-{
-    buf->writestring("$(DDOC_ANCHOR ");
-    emitAnchorName(buf, s);
-    buf->writeByte(')');
 }
 
 /******************************* toDocBuffer **********************************/
@@ -867,6 +899,9 @@ void declarationToDocBuffer(Declaration *decl, OutBuffer *buf, TemplateDeclarati
     //printf("declarationToDocBuffer() %s, originalType = %s, td = %s\n", decl->toChars(), decl->originalType ? decl->originalType->toChars() : "--", td ? td->toChars() : "--");
     if (decl->ident)
     {
+        if (decl->isDeprecated())
+            buf->writestring("$(DEPRECATED ");
+
         prefix(buf, decl);
 
         if (decl->type)
@@ -883,6 +918,10 @@ void declarationToDocBuffer(Declaration *decl, OutBuffer *buf, TemplateDeclarati
         }
         else
             buf->writestring(decl->ident->toChars());
+
+        if (decl->isDeprecated())
+            buf->writestring(")");
+
         buf->writestring(";\n");
     }
 }
@@ -901,7 +940,7 @@ void AliasDeclaration::toDocBuffer(OutBuffer *buf, Scope *sc)
             buf->writestring("deprecated ");
 
         emitProtection(buf, protection);
-        buf->writestring("alias ");
+        buf->printf("alias %s = ", toChars());
 
         if (Dsymbol *s = aliassym)  // ident alias
         {
@@ -923,8 +962,6 @@ void AliasDeclaration::toDocBuffer(OutBuffer *buf, Scope *sc)
             }
         }
 
-        buf->writestring(" ");
-        buf->writestring(toChars());
         buf->writestring(";\n");
     }
 }
@@ -1033,11 +1070,10 @@ void AggregateDeclaration::toDocBuffer(OutBuffer *buf, Scope *sc)
 {
     if (ident)
     {
-        emitAnchor(buf, this);
 #if 0
         emitProtection(buf, protection);
 #endif
-        buf->printf("%s $(DDOC_PSYMBOL %s)", kind(), toChars());
+        buf->printf("%s %s", kind(), toChars());
         buf->writestring(";\n");
     }
 }
@@ -1061,8 +1097,7 @@ void StructDeclaration::toDocBuffer(OutBuffer *buf, Scope *sc)
         }
         else
         {
-            emitAnchor(buf, this);
-            buf->printf("%s $(DDOC_PSYMBOL %s)", kind(), toChars());
+            buf->printf("%s %s", kind(), toChars());
         }
         buf->writestring(";\n");
     }
@@ -1087,10 +1122,9 @@ void ClassDeclaration::toDocBuffer(OutBuffer *buf, Scope *sc)
         }
         else
         {
-            emitAnchor(buf, this);
             if (isAbstract())
                 buf->writestring("abstract ");
-            buf->printf("%s $(DDOC_PSYMBOL %s)", kind(), toChars());
+            buf->printf("%s %s", kind(), toChars());
         }
         int any = 0;
         for (size_t i = 0; i < baseclasses->dim; i++)
@@ -1127,8 +1161,7 @@ void EnumDeclaration::toDocBuffer(OutBuffer *buf, Scope *sc)
 {
     if (ident)
     {
-        emitAnchor(buf, this);
-        buf->printf("%s $(DDOC_PSYMBOL %s)", kind(), toChars());
+        buf->printf("%s %s", kind(), toChars());
         buf->writestring(";\n");
     }
 }
@@ -1195,6 +1228,7 @@ void DocComment::parseSections(unsigned char *comment)
     p = comment;
     while (*p)
     {
+        unsigned char *pstart0 = p;
         p = skipwhitespace(p);
         pstart = p;
         pend = p;
@@ -1210,6 +1244,11 @@ void DocComment::parseSections(unsigned char *comment)
             // Check for start/end of a code section
             if (*p == '-')
             {
+                if (!inCode)
+                {   // restore leading indentation
+                    while (pstart0 < pstart && isIndentWS(pstart-1)) --pstart;
+                }
+
                 int numdash = 0;
                 while (*p == '-')
                 {
@@ -1298,7 +1337,7 @@ void DocComment::parseSections(unsigned char *comment)
 void DocComment::writeSections(Scope *sc, Dsymbol *s, OutBuffer *buf)
 {
     //printf("DocComment::writeSections()\n");
-    if (sections.dim)
+    if (sections.dim || s->unittest)
     {
         buf->writestring("$(DDOC_SECTIONS \n");
         for (size_t i = 0; i < sections.dim; i++)
@@ -1320,7 +1359,7 @@ void DocComment::writeSections(Scope *sc, Dsymbol *s, OutBuffer *buf)
             }
         }
         if (s->unittest)
-            emitUnittestComment(sc, s, s->unittest);
+            emitUnittestComment(sc, s, 0);
         buf->writestring(")\n");
     }
     else
@@ -1911,6 +1950,7 @@ void highlightText(Scope *sc, Dsymbol *s, OutBuffer *buf, size_t offset)
     int inCode = 0;
     //int inComment = 0;                  // in <!-- ... --> comment
     size_t iCodeStart;                    // start of code section
+    size_t codeIndent = 0;
 
     size_t iLineStart = offset;
 
@@ -2083,6 +2123,30 @@ void highlightText(Scope *sc, Dsymbol *s, OutBuffer *buf, size_t offset)
 
                         codebuf.write(buf->data + iCodeStart, i - iCodeStart);
                         codebuf.writeByte(0);
+
+                        // Remove leading indentations from all lines
+                        bool lineStart = true;
+                        unsigned char *endp = codebuf.data + codebuf.offset;
+                        for (unsigned char *p = codebuf.data; p < endp; )
+                        {
+                            if (lineStart)
+                            {
+                                size_t j = codeIndent;
+                                unsigned char *q = p;
+                                while (j-- > 0 && q < endp && isIndentWS(q))
+                                    ++q;
+                                codebuf.remove(p - codebuf.data, q - p);
+                                assert(codebuf.data <= p);
+                                assert(p < codebuf.data + codebuf.offset);
+                                lineStart = false;
+                                endp = codebuf.data + codebuf.offset; // update
+                                continue;
+                            }
+                            if (*p == '\n')
+                                lineStart = true;
+                            ++p;
+                        }
+
                         highlightCode2(sc, s, &codebuf, 0);
                         buf->remove(iCodeStart, i - iCodeStart);
                         i = buf->insert(iCodeStart, codebuf.data, codebuf.offset);
@@ -2093,6 +2157,7 @@ void highlightText(Scope *sc, Dsymbol *s, OutBuffer *buf, size_t offset)
                     {   static char pre[] = "$(D_CODE \n";
 
                         inCode = 1;
+                        codeIndent = istart - iLineStart;  // save indent count
                         i = buf->insert(i, pre, sizeof(pre) - 1);
                         iCodeStart = i;
                         i--;            // place i on >
@@ -2238,6 +2303,9 @@ void highlightCode2(Scope *sc, Dsymbol *s, OutBuffer *buf, size_t offset)
     unsigned char *lastp = buf->data;
     const char *highlight;
 
+    if (s->isModule() && ((Module *)s)->isDocFile)
+        sid = "";
+
     //printf("highlightCode2('%.*s')\n", buf->offset - 1, buf->data);
     res.reserve(buf->offset);
     while (1)
@@ -2360,6 +2428,15 @@ int isIdTail(unsigned char *p)
             return 1;
     }
     return 0;
+}
+
+/****************************************
+ * Determine if p points to the indentation space.
+ */
+
+int isIndentWS(unsigned char *p)
+{
+    return (*p == ' ') || (*p == '\t');
 }
 
 /*****************************************

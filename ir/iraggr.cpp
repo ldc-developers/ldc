@@ -12,6 +12,7 @@
 #include "declaration.h"
 #include "init.h"
 #include "mtype.h"
+#include "target.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
@@ -25,8 +26,7 @@
 //////////////////////////////////////////////////////////////////////////////
 
 IrAggr::IrAggr(AggregateDeclaration* aggr)
-:   diCompositeType(NULL),
-    init_type(LLStructType::create(gIR->context(), std::string(aggr->toPrettyChars()) + "_init"))
+:   init_type(LLStructType::create(gIR->context(), std::string(aggr->toPrettyChars()) + "_init"))
 {
     aggrdecl = aggr;
 
@@ -63,7 +63,7 @@ LLGlobalVariable * IrAggr::getInitSymbol()
 
     llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
 
-    init = new llvm::GlobalVariable(
+    init = getOrCreateGlobal(aggrdecl->loc,
         *gIR->module, init_type, true, _linkage, NULL, initname);
 
     // set alignment
@@ -244,6 +244,7 @@ llvm::Constant* IrAggr::createInitializerConstant(
     llvm::StructType* initializerType)
 {
     IF_LOG Logger::println("Creating initializer constant for %s", aggrdecl->toChars());
+    LOG_SCOPE;
 
     llvm::SmallVector<llvm::Constant*, 16> constants;
 
@@ -256,7 +257,7 @@ llvm::Constant* IrAggr::createInitializerConstant(
         constants.push_back(getNullValue(DtoType(Type::tvoid->pointerTo())));
 
         // we start right after the vtbl and monitor
-        offset = PTRSIZE * 2;
+        offset = Target::ptrsize * 2;
     }
 
     addFieldInitializers(constants, explicitInitializers, aggrdecl, offset);
@@ -409,14 +410,14 @@ void IrAggr::addFieldInitializers(
 
             size_t inter_idx = interfacesWithVtbls.size();
 
-            offset = (offset + PTRSIZE - 1) & ~(PTRSIZE - 1);
+            offset = (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
 
             ArrayIter<BaseClass> it2(*cd->vtblInterfaces);
             for (; !it2.done(); it2.next())
             {
                 BaseClass* b = it2.get();
                 constants.push_back(getInterfaceVtbl(b, newinsts, inter_idx));
-                offset += PTRSIZE;
+                offset += Target::ptrsize;
 
                 // add to the interface list
                 interfacesWithVtbls.push_back(b);

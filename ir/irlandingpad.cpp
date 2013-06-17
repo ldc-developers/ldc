@@ -173,7 +173,7 @@ void IRLandingPad::constructLandingPad(llvm::BasicBlock* inBB)
             // create next block
             llvm::BasicBlock *next = llvm::BasicBlock::Create(gIR->context(), "eh.next", gIR->topfunc(), gIR->scopeend());
             // get class info symbol
-            LLValue *classInfo = rit->catchType->ir.irStruct->getClassInfoSymbol();
+            LLValue *classInfo = rit->catchType->ir.irAggr->getClassInfoSymbol();
             // add that symbol as landing pad clause
             landingPad->addClause(classInfo);
             // call llvm.eh.typeid.for to get class info index in the exception table

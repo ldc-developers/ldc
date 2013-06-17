@@ -19,6 +19,7 @@
 #include "mtype.h"
 #include "scope.h"
 #include "statement.h"
+#include "target.h"
 #include "template.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
@@ -177,8 +178,9 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     std::string thismrefname = "_D";
     thismrefname += gIR->dmodule->mangle();
     thismrefname += "11__moduleRefZ";
-    LLGlobalVariable* thismref = new LLGlobalVariable(*gIR->module, modulerefTy, false, LLGlobalValue::InternalLinkage, thismrefinit, thismrefname);
-
+    LLGlobalVariable* thismref = getOrCreateGlobal(Loc(), *gIR->module,
+        modulerefTy, false, LLGlobalValue::InternalLinkage, thismrefinit,
+        thismrefname);
     // make sure _Dmodule_ref is declared
     LLConstant* mref = gIR->module->getNamedGlobal("_Dmodule_ref");
     LLType *modulerefPtrTy = getPtrToType(modulerefTy);
@@ -325,7 +327,7 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
     // create name
     std::string MIname("_D");
     MIname.append(mangle());
-    MIname.append("8__ModuleZ");
+    MIname.append("12__ModuleInfoZ");
 
     if (gIR->dmodule != this) {
         LLType* moduleinfoTy = DtoType(moduleinfo->type);
@@ -340,7 +342,8 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
 
     // declare global
     // flags will be modified at runtime so can't make it constant
-    moduleInfoVar = new llvm::GlobalVariable(*gIR->module, moduleInfoType, false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
+    moduleInfoVar = getOrCreateGlobal(loc, *gIR->module, moduleInfoType,
+        false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
 
     return moduleInfoVar;
 }
@@ -357,7 +360,7 @@ void Module::genmoduleinfo()
     // check for patch
     else
     {
-        unsigned sizeof_ModuleInfo = 16 * PTRSIZE;
+        unsigned sizeof_ModuleInfo = 16 * Target::ptrsize;
         if (sizeof_ModuleInfo != moduleinfo->structsize)
         {
             error("object.d ModuleInfo class is incorrect");
@@ -385,7 +388,7 @@ void Module::genmoduleinfo()
         // declare the imported module info
         std::string m_name("_D");
         m_name.append(m->mangle());
-        m_name.append("8__ModuleZ");
+        m_name.append("12__ModuleInfoZ");
         llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
         if (!m_gvar) m_gvar = new llvm::GlobalVariable(*gIR->module, moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, m_name);
         importInits.push_back(m_gvar);
@@ -428,7 +431,7 @@ void Module::genmoduleinfo()
             continue;
         }
         Logger::println("class: %s", cd->toPrettyChars());
-        LLConstant *c = DtoBitCast(cd->ir.irStruct->getClassInfoSymbol(), classinfoTy);
+        LLConstant *c = DtoBitCast(cd->ir.irAggr->getClassInfoSymbol(), classinfoTy);
         classInits.push_back(c);
     }
     // has class array?

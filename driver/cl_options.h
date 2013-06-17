@@ -15,7 +15,7 @@
 #ifndef LDC_DRIVER_CL_OPTIONS_H
 #define LDC_DRIVER_CL_OPTIONS_H
 
-#include "mars.h"
+#include "gen/cl_helpers.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
 #include <deque>
@@ -62,6 +62,9 @@ namespace opts {
     extern cl::opt<llvm::CodeModel::Model> mCodeModel;
     extern cl::opt<bool, true> singleObj;
     extern cl::opt<bool> linkonceTemplates;
+
+    extern cl::opt<BoolOrDefaultAdapter, false, FlagParser> boundsChecks;
+    extern bool nonSafeBoundsChecks;
 
     // Arguments to -d-debug
     extern std::vector<std::string> debugArgs;

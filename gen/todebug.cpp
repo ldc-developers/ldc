@@ -23,6 +23,7 @@
 #include "gen/tollvm.h"
 #include "gen/utils.h"
 #include "ir/irmodule.h"
+#include "ir/irtypeaggr.h"
 #include "llvm/CodeGen/MachineModuleInfo.h"
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/FileSystem.h"
@@ -214,7 +215,7 @@ static llvm::DIType dwarfVectorType(Type* type)
     assert(t->ty == Tvector && "only vectors allowed for debug info in dwarfVectorType");
     TypeVector *tv = static_cast<TypeVector *>(t);
     Type *te = tv->elementType();
-    int64_t Dim = tv->size(Loc(0)) / te->size(Loc(0));
+    int64_t Dim = tv->size(Loc()) / te->size(Loc());
     llvm::Value *subscripts[] =
     {
         gIR->dibuilder.getOrCreateSubrange(0, Dim)
@@ -281,9 +282,7 @@ static void add_base_fields(
 
 static llvm::DIType dwarfCompositeType(Type* type)
 {
-    LLType* T = DtoType(type);
     Type* t = type->toBasetype();
-
     assert((t->ty == Tstruct || t->ty == Tclass) &&
            "unsupported type for dwarfCompositeType");
     AggregateDeclaration* sd;
@@ -299,18 +298,19 @@ static llvm::DIType dwarfCompositeType(Type* type)
     }
     assert(sd);
 
-    // make sure it's resolved
-    sd->codegen(Type::sir);
+    // Use the actual type associated with the declaration, ignoring any
+    // const/… wrappers.
+    LLType* T = DtoType(sd->type);
+    IrTypeAggr* ir = sd->type->irtype->isAggr();
+    assert(ir);
+
+    if (static_cast<llvm::MDNode*>(ir->diCompositeType) != 0)
+        return ir->diCompositeType;
 
     // if we don't know the aggregate's size, we don't know enough about it
     // to provide debug info. probably a forward-declared struct?
     if (sd->sizeok == 0)
         return llvm::DICompositeType(NULL);
-
-    IrAggr* ir = sd->ir.irStruct;
-    assert(ir);
-    if (static_cast<llvm::MDNode*>(ir->diCompositeType) != 0)
-        return ir->diCompositeType;
 
     // elements
     std::vector<llvm::Value*> elems;
@@ -322,17 +322,15 @@ static llvm::DIType dwarfCompositeType(Type* type)
     llvm::DIType derivedFrom;
 
     // set diCompositeType to handle recursive types properly
-    if (!ir->diCompositeType) {
-        unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
-                                          : llvm::dwarf::DW_TAG_class_type;
-        ir->diCompositeType = gIR->dibuilder.createForwardDecl(tag, name,
+    unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
+                                        : llvm::dwarf::DW_TAG_class_type;
+    ir->diCompositeType = gIR->dibuilder.createForwardDecl(tag, name,
 #if LDC_LLVM_VER >= 302
-                                                               llvm::DIDescriptor(file),
+                                                           llvm::DIDescriptor(file),
 #endif
-                                                               file, linnum);
-    }
+                                                           file, linnum);
 
-    if (!ir->aggrdecl->isInterfaceDeclaration()) // plain interfaces don't have one
+    if (!sd->isInterfaceDeclaration()) // plain interfaces don't have one
     {
         if (t->ty == Tstruct)
         {
@@ -348,7 +346,7 @@ static llvm::DIType dwarfCompositeType(Type* type)
         }
         else
         {
-            ClassDeclaration *classDecl = ir->aggrdecl->isClassDeclaration();
+            ClassDeclaration *classDecl = sd->isClassDeclaration();
             add_base_fields(classDecl, file, elems);
             if (classDecl->baseClass)
                 derivedFrom = dwarfCompositeType(classDecl->baseClass->getType());

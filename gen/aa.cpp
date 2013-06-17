@@ -80,7 +80,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
 
     // Only check bounds for rvalues ('aa[key]').
     // Lvalue use ('aa[key] = value') auto-adds an element.
-    if (!lvalue && global.params.useArrayBounds) {
+    if (!lvalue && gIR->emitArrayBoundsChecks()) {
         llvm::BasicBlock* oldend = gIR->scopeend();
         llvm::BasicBlock* failbb = llvm::BasicBlock::Create(gIR->context(), "aaboundscheckfail", gIR->topfunc(), oldend);
         llvm::BasicBlock* okbb = llvm::BasicBlock::Create(gIR->context(), "aaboundsok", gIR->topfunc(), oldend);
