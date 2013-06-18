@@ -27,35 +27,36 @@ namespace llvm {
     class Function;
 }
 
-// only to be used within IRLandingPad
-// holds information about a single catch or finally
-struct IRLandingPadInfo
+// holds information about a single catch
+struct IRLandingPadCatchInfo
 {
     // default constructor for being able to store in a vector
-    IRLandingPadInfo() :
-        target(NULL), finallyBody(NULL), catchstmt(NULL)
+    IRLandingPadCatchInfo() :
+        target(NULL), end(0), catchStmt(NULL), catchType(0)
     {}
 
-    // constructor for catch
-    IRLandingPadInfo(Catch* catchstmt, llvm::BasicBlock* end);
-
-    // constructor for finally
-    IRLandingPadInfo(Statement* finallystmt);
+    IRLandingPadCatchInfo(Catch* catchStmt, llvm::BasicBlock* end);
 
     // codegen the catch block
     void toIR();
 
-    // the target catch bb if this is a catch
-    // or the target finally bb if this is a finally
-    llvm::BasicBlock* target;
+    llvm::BasicBlock *target;
+    llvm::BasicBlock *end;
+    Catch *catchStmt;
+    ClassDeclaration *catchType;
+};
 
-    // nonzero if this is a finally
-    Statement* finallyBody;
+// holds information about a single try-catch-inally block
+struct IRLandingPadScope
+{
+    IRLandingPadScope() : target(0), finallyBody(0) {}
 
-    // nonzero if this is a catch
-    Catch* catchstmt;
-    llvm::BasicBlock* end;
-    ClassDeclaration* catchType;
+    // the target for invokes
+    llvm::BasicBlock *target;
+    // information about catch blocks
+    std::deque<IRLandingPadCatchInfo> catches;
+    // the body of finally
+    Statement *finallyBody;
 };
 
 
@@ -86,18 +87,12 @@ struct IRLandingPad
     llvm::Value* getExceptionStorage();
 
 private:
-    // constructs the landing pad from infos
-    void constructLandingPad(llvm::BasicBlock* inBB);
+    // constructs the landing pad
+    void constructLandingPad(IRLandingPadScope scope);
 
-    // information needed to create landing pads
-    std::deque<IRLandingPadInfo> infos;
-    std::deque<IRLandingPadInfo> unpushed_infos;
-
-    // the number of infos we had before the push
-    std::stack<size_t> nInfos;
-
-    // the target for invokes
-    std::stack<llvm::BasicBlock*> padBBs;
+    // information about try-catch-finally blocks
+    std::stack<IRLandingPadScope> scopeStack;
+    IRLandingPadScope unpushedScope;
 
     // storage for the catch variable
     llvm::Value* catch_var;
