@@ -74,7 +74,6 @@ void IRLandingPadCatchInfo::toIR()
     DtoDwarfBlockEnd();
 }
 
-
 void IRLandingPad::addCatch(Catch* catchstmt, llvm::BasicBlock* end)
 {
     unpushedScope.catches.push_back(IRLandingPadCatchInfo(catchstmt, end));
@@ -114,23 +113,29 @@ llvm::BasicBlock* IRLandingPad::get()
         return scopeStack.top().target;
 }
 
+// creates new landing pad
+static llvm::LandingPadInst *createLandingPadInst()
+{
+    llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");
+    LLType *retType = LLStructType::get(LLType::getInt8PtrTy(gIR->context()),
+                                        LLType::getInt32Ty(gIR->context()),
+                                        NULL);
+    return gIR->ir->CreateLandingPad(retType, personality_fn, 0, "landing_pad");
+}
+
 void IRLandingPad::constructLandingPad(IRLandingPadScope scope)
 {
     // save and rewrite scope
     IRScope savedIRScope = gIR->scope();
     gIR->scope() = IRScope(scope.target, savedIRScope.end);
 
-    // personality fn
-    llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");
     // create landingpad
-    LLType *retType = LLStructType::get(LLType::getInt8PtrTy(gIR->context()), LLType::getInt32Ty(gIR->context()), NULL);
-    llvm::LandingPadInst *landingPad = gIR->ir->CreateLandingPad(retType, personality_fn, 0);
+    llvm::LandingPadInst *landingPad = createLandingPadInst();
     LLValue* eh_ptr = DtoExtractValue(landingPad, 0);
     LLValue* eh_sel = DtoExtractValue(landingPad, 1);
 
     // add landingpad clauses, emit finallys and 'if' chain to catch the exception
     llvm::Function* eh_typeid_for_fn = GET_INTRINSIC_DECL(eh_typeid_for);
-
     bool isFirstCatch = true;
     std::stack<IRLandingPadScope> savedScopeStack = scopeStack;
     std::deque<IRLandingPadCatchInfo>::iterator catchItr, catchItrEnd;
@@ -162,7 +167,26 @@ void IRLandingPad::constructLandingPad(IRLandingPadScope scope)
         }
 
         if (scope.finallyBody) {
+            // create collision landing pad that handles exceptions thrown inside the finally block
+            llvm::BasicBlock *collision = llvm::BasicBlock::Create(gIR->context(), "eh.collision", gIR->topfunc(), gIR->scopeend());
+            llvm::BasicBlock *bb = gIR->scopebb();
+            gIR->scope() = IRScope(collision, gIR->scopeend());
+            llvm::LandingPadInst *collisionLandingPad = createLandingPadInst();
+            LLValue* collision_eh_ptr = DtoExtractValue(collisionLandingPad, 0);
+            collisionLandingPad->setCleanup(true);
+            llvm::Function* collision_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_handle_collision");
+            gIR->CreateCallOrInvoke2(collision_fn, collision_eh_ptr, eh_ptr);
+            gIR->ir->CreateUnreachable();
+            gIR->scope() = IRScope(bb, gIR->scopeend());
+
+            // set collision landing pad as unwind target and emit the body of the finally
+            DtoDwarfBlockStart(scope.finallyBody->loc);
+            scopeStack.push(IRLandingPadScope(collision));
+            gIR->func()->gen->landingPad = collision;
             scope.finallyBody->toIR(gIR);
+            scopeStack.pop();
+            gIR->func()->gen->landingPad = get();
+            DtoDwarfBlockEnd();
             landingPad->setCleanup(true);
         }
 

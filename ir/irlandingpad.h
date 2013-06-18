@@ -25,6 +25,7 @@ namespace llvm {
     class Value;
     class BasicBlock;
     class Function;
+    class LandingPadInst;
 }
 
 // holds information about a single catch
@@ -49,7 +50,7 @@ struct IRLandingPadCatchInfo
 // holds information about a single try-catch-inally block
 struct IRLandingPadScope
 {
-    IRLandingPadScope() : target(0), finallyBody(0) {}
+    explicit IRLandingPadScope(llvm::BasicBlock *target_ = NULL) : target(target_), finallyBody(0) {}
 
     // the target for invokes
     llvm::BasicBlock *target;
@@ -80,13 +81,13 @@ struct IRLandingPad
     // and its infos
     void pop();
 
-    // gets the current landing pad
-    llvm::BasicBlock* get();
-
     // creates or gets storage for exception object
     llvm::Value* getExceptionStorage();
 
 private:
+    // gets the current landing pad
+    llvm::BasicBlock* get();
+
     // constructs the landing pad
     void constructLandingPad(IRLandingPadScope scope);
 
