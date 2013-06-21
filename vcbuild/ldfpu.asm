@@ -39,27 +39,27 @@ ld_read ENDP
 
 ; long long ld_readll(longdouble* ld);
 ; rcx: ld
-ld_readll PROC
-	fld tbyte ptr [rcx]
-	push rax
-	fistp qword ptr [rsp]
-	pop rax
-	ret
-ld_readll ENDP
+;ld_readll PROC
+;	fld tbyte ptr [rcx]
+;	push rax
+;	fistp qword ptr [rsp]
+;	pop rax
+;	ret
+;ld_readll ENDP
 
 ; unsigned long long ld_readull(longdouble* ld);
 ; rcx: ld
-ld_readull PROC
-	fld tbyte ptr [rcx]
-	push rax
-	lea rax,twoPow63
-	fld tbyte ptr [rax]
-	fsubp ST(1),ST(0)  ; move it into signed range
-	fistp qword ptr [rsp]
-	pop rax
-	btc rax,63
-	ret
-ld_readull ENDP
+;ld_readull PROC
+;	fld tbyte ptr [rcx]
+;	push rax
+;	lea rax,twoPow63
+;	fld tbyte ptr [rax]
+;	fsubp ST(1),ST(0)  ; move it into signed range
+;	fistp qword ptr [rsp]
+;	pop rax
+;	btc rax,63
+;	ret
+;ld_readull ENDP
 
 ; void ld_set(longdouble* ld, double d);
 ; rcx: ld
@@ -79,8 +79,8 @@ ld_set ENDP
 ld_setll PROC
 	push rdx
 	fild qword ptr [rsp]
-	fstp tbyte ptr [rcx]
-	pop rax
+    fstp tbyte ptr [rcx]
+    pop rax
 	ret
 ld_setll ENDP
 
@@ -94,8 +94,8 @@ ld_setull PROC
 	lea rax,twoPow63
 	fld tbyte ptr [rax]
 	faddp ST(1),ST(0)
-	fstp tbyte ptr [rcx]
-	pop rax
+    fstp tbyte ptr [rcx]
+    pop rax
 	ret
 ld_setull ENDP
 
@@ -109,7 +109,7 @@ ld_expl PROC
 	fscale                  ; ST(0) = ST(0) * (2**ST(1))
 	fstp    ST(1)
 	fstp    tbyte ptr [rcx]
-	pop rax
+    pop rax
 	ret
 ld_expl ENDP
 
