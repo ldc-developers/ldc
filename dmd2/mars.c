@@ -103,9 +103,6 @@ void Global::init()
     compiler.vendor = "Digital Mars D";
 #endif
 #if IN_LLVM
-    version = "v2.063";
-    ldc_version = "trunk";
-    llvm_version = "LLVM " LDC_LLVM_VERSION_STRING;
     compiler.vendor = "LDC";
 #endif
 

@@ -29,6 +29,10 @@ include(GetLinuxDistribution)
 # Main configuration.
 #
 
+# Version information
+set(LDC_VERSION "0.12.0") # May be overridden by git hash tag
+set(DMD_VERSION "2.63.1")
+
 # Generally, we want to install everything into CMAKE_INSTALL_PREFIX, but when
 # it is /usr, put the config files into /etc to meet common practice.
 if(NOT DEFINED SYSCONF_INSTALL_DIR)
@@ -154,6 +158,12 @@ set(LDC_GENERATED
 #
 # Gather source files.
 #
+include(GetGitRevisionDescription)
+get_git_head_revision(REFSPEC HASH)
+if(NOT HASH STREQUAL "GITDIR-NOTFOUND")
+    string(SUBSTRING "${HASH}" 0 6 LDC_VERSION)
+endif()
+configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 
 # Also add the header files to the build so that they are available in IDE
 # project files generated via CMake.
@@ -171,11 +181,13 @@ set(DRV_SRC
     driver/tool.cpp
     driver/linker.cpp
     driver/main.cpp
+    ${CMAKE_BINARY_DIR}/driver/ldc-version.cpp
 )
 set(DRV_HDR
     driver/linker.h
     driver/cl_options.h
     driver/configfile.h
+    driver/ldc-version.h
     driver/target.h
     driver/toobj.h
     driver/tool.h
@@ -267,7 +279,6 @@ add_definitions(
     -DOPAQUE_VTBLS
     -DLDC_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"
     -DLDC_LLVM_VER=${LDC_LLVM_VER}
-    -DLDC_LLVM_VERSION_STRING="${LLVM_VERSION_STRING}"
 )
 
 if(UNIX)

@@ -17,6 +17,7 @@
 #include "dmd2/target.h"
 #include "driver/cl_options.h"
 #include "driver/configfile.h"
+#include "driver/ldc-version.h"
 #include "driver/linker.h"
 #include "driver/target.h"
 #include "driver/toobj.h"
@@ -86,7 +87,7 @@ static cl::list<std::string, StringsAdapter> debuglibs("debuglib",
 
 void printVersion() {
     printf("LDC - the LLVM D compiler (%s):\n", global.ldc_version);
-    printf("  based on DMD %s and %s\n", global.version, global.llvm_version);
+    printf("  based on DMD v%s and LLVM %s\n", global.version, global.llvm_version);
     printf("  Default target: %s\n", llvm::sys::getDefaultTargetTriple().c_str());
     std::string CPU = llvm::sys::getHostCPUName();
     if (CPU == "generic") CPU = "(unknown)";
@@ -165,6 +166,9 @@ int main(int argc, char** argv)
     int status = EXIT_SUCCESS;
 
     global.init();
+    global.version = ldc::dmd_version;
+    global.ldc_version = ldc::ldc_version;
+    global.llvm_version = ldc::llvm_version;
 
     // Set some default values
 #if _WIN32

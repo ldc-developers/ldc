@@ -1,0 +1,18 @@
+//===-- driver/ldc-version.c - ----------------------------------*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
+#include "driver/ldc-version.h"
+
+namespace ldc {
+
+const char * const ldc_version = "@LDC_VERSION@";
+const char * const dmd_version = "@DMD_VERSION@";
+const char * const llvm_version = "@LLVM_VERSION_STRING@";
+
+}
