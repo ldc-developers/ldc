@@ -341,8 +341,8 @@ struct Global
 
     const char *version;
 #if IN_LLVM
-    char *ldc_version;
-    char *llvm_version;
+    const char *ldc_version;
+    const char *llvm_version;
 
     bool inExtraInliningSemantic;
 #endif
