@@ -54,6 +54,11 @@
 #include "llvm/Support/raw_ostream.h"
 #if LDC_LLVM_VER >= 304
 #include "llvm/Support/PathV1.h"
+#if _WIN32
+#include "Windows.h"
+#else
+#include <sys/stat.h>
+#endif
 #endif
 #include <cassert>
 #include <cerrno>
@@ -95,6 +100,28 @@ static ls::Path PrependMainExecutablePath(const std::string &ExeName,
 }
 }
 #endif
+
+static bool canExecute(const ls::Path &p)
+{
+#if LDC_LLVM_VER >= 304
+#if _WIN32
+    // FIXME: take security attributes into account.
+    DWORD attr = GetFileAttributes(p.c_str());
+    return attr != INVALID_FILE_ATTRIBUTES;
+#else
+    if (0 != access(p.c_str(), R_OK | X_OK ))
+        return false;
+    struct stat buf;
+    if (0 != stat(p.c_str(), &buf))
+        return false;
+    if (!S_ISREG(buf.st_mode))
+        return false;
+    return true;
+#endif
+#else
+    return p.canExecute();
+#endif
+}
 
 // We reuse DMD's response file parsing routine for maximum compatibilty - it
 // handles quotes in a very peciuliar way.
@@ -923,14 +950,14 @@ ls::Path locateBinary(std::string exeName, const char* argv0)
 {
     ls::Path path = llvm::PrependMainExecutablePath(exeName,
         argv0, (void*)&locateBinary);
-    if (path.canExecute()) return path;
+    if (canExecute(path)) return path;
 
 #if LDC_LLVM_VER >= 304
     path = ls::FindProgramByName(exeName);
 #else
     path = ls::Program::FindProgramByName(exeName);
 #endif
-    if (path.canExecute()) return path;
+    if (canExecute(path)) return path;
 
     return ls::Path();
 }
