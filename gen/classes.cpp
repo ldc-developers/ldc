@@ -513,8 +513,9 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl, char* n
     // sanity checks
     assert(fdecl->isVirtual());
     assert(!fdecl->isFinal());
-    assert(fdecl->vtblIndex > 0); // 0 is always ClassInfo/Interface*
     assert(inst->getType()->toBasetype()->ty == Tclass);
+    // 0 is always ClassInfo/Interface* unless it is a CPP interface
+    assert(fdecl->vtblIndex > 0 || (fdecl->vtblIndex == 0 && fdecl->linkage == LINKcpp));
 
     // get instance
     LLValue* vthis = inst->getRVal();

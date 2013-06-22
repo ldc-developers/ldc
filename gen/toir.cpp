@@ -1496,11 +1496,13 @@ DValue* DotVarExp::toElem(IRState* p)
         // If we are calling a non-final interface function, we need to get
         // the pointer to the underlying object instead of passing the
         // interface pointer directly.
+        // Unless it is a cpp interface, in that case, we have to match
+        // C++ behavior and pass the interface pointer.
         LLValue* passedThis = 0;
         if (e1type->ty == Tclass)
         {
             TypeClass* tc = static_cast<TypeClass*>(e1type);
-            if (tc->sym->isInterfaceDeclaration() && nonFinal)
+            if (tc->sym->isInterfaceDeclaration() && nonFinal && !tc->sym->isCPPinterface())
                 passedThis = DtoCastInterfaceToObject(l, NULL)->getRVal();
         }
         LLValue* vthis = l->getRVal();
