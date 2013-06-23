@@ -31,7 +31,15 @@ include(GetLinuxDistribution)
 
 # Version information
 set(LDC_VERSION "0.12.0") # May be overridden by git hash tag
-set(DMD_VERSION "2.63.1")
+set(DMDFE_MAJOR_VERSION   2)
+set(DMDFE_MINOR_VERSION   0)
+set(DMDFE_PATCH_VERSION   63)
+set(DMDFE_FIX_LEVEL       1) # Comment out if not used
+
+set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
+if(DEFINED DMDFE_FIX_LEVEL)
+    set(DMD_VERSION ${DMD_VERSION}.${DMDFE_FIX_LEVEL})
+endif()
 
 # Generally, we want to install everything into CMAKE_INSTALL_PREFIX, but when
 # it is /usr, put the config files into /etc to meet common practice.
@@ -43,7 +51,7 @@ if(NOT DEFINED SYSCONF_INSTALL_DIR)
     endif()
 endif()
 
-set(D_VERSION 2 CACHE STRING "D language version")
+set(D_VERSION ${DMDFE_MAJOR_VERSION} CACHE STRING "D language version")
 set(PROGRAM_PREFIX "" CACHE STRING "Prepended to ldc/ldmd binary names")
 set(PROGRAM_SUFFIX "" CACHE STRING "Appended to ldc/ldmd binary names")
 set(CONF_INST_DIR ${SYSCONF_INSTALL_DIR} CACHE PATH "Directory ldc.conf is installed to")
