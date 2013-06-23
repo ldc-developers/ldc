@@ -55,7 +55,7 @@ option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
 mark_as_advanced(USE_BOEHM_GC GENERATE_OFFTI)
 
 if(D_VERSION EQUAL 1)
-    message(FATAL_ERROR "D version 1 is no longer supported. 
+    message(FATAL_ERROR "D version 1 is no longer supported.
 Please consider using D version 2 or checkout the 'd1' git branch for the last version supporting D version 1.")
 elseif(D_VERSION EQUAL 2)
     set(DMDFE_PATH dmd2)
@@ -303,7 +303,7 @@ endif()
 # Check endianess.
 # There is no realiable way to delegate the work to the compiler.
 # E.g. gcc up to version 4.6 defines __LITTLE_ENDIAN, but not 4.7
-# 
+#
 include(TestBigEndian)
 test_big_endian(BIGENDIAN)
 if(${BIGENDIAN})
