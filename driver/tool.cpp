@@ -11,7 +11,7 @@
 #include "mars.h"
 #include "llvm/Support/Program.h"
 
-int executeToolAndWait(llvm::sys::Path tool, std::vector<std::string> const & args, bool verbose)
+int executeToolAndWait(const std::string &tool, std::vector<std::string> const &args, bool verbose)
 {
     // Construct real argument list.
     // First entry is the tool itself, last entry must be NULL.
@@ -37,9 +37,10 @@ int executeToolAndWait(llvm::sys::Path tool, std::vector<std::string> const & ar
     // Execute tool.
     std::string errstr;
 #if LDC_LLVM_VER >= 304
-    if (int status = llvm::sys::ExecuteAndWait(tool.str(), &realargs[0], NULL, NULL, 0, 0, &errstr))
+    if (int status = llvm::sys::ExecuteAndWait(tool, &realargs[0], NULL, NULL, 0, 0, &errstr))
 #else
-    if (int status = llvm::sys::Program::ExecuteAndWait(tool, &realargs[0], NULL, NULL, 0, 0, &errstr))
+    llvm::sys::Path toolpath(tool);
+    if (int status = llvm::sys::Program::ExecuteAndWait(toolpath, &realargs[0], NULL, NULL, 0, 0, &errstr))
 #endif
     {
         error("%s failed with status: %d", tool.c_str(), status);

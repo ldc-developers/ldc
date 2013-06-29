@@ -36,14 +36,14 @@ static bool endsWith(const std::string &str, const std::string &end)
 
 static void CreateDirectoryOnDisk(llvm::StringRef fileName)
 {
-    llvm::sys::Path dir(llvm::sys::path::parent_path(fileName));
-    if (!dir.empty() && !llvm::sys::fs::exists(dir.str()))
+    llvm::StringRef dir(llvm::sys::path::parent_path(fileName));
+    if (!dir.empty() && !llvm::sys::fs::exists(dir))
     {
-        std::string errstr;
-        dir.createDirectoryOnDisk(true, &errstr);
-        if (!errstr.empty())
+        bool Existed;
+        llvm::error_code ec = llvm::sys::fs::create_directory(dir, Existed);
+        if (ec)
         {
-            error("failed to create path to file: %s\n%s", dir.c_str(), errstr.c_str());
+            error("failed to create path to file: %s\n%s", dir.data(), ec.message().c_str());
             fatal();
         }
     }
@@ -95,14 +95,14 @@ static std::string getOutputName(bool const sharedLib)
 
 //////////////////////////////////////////////////////////////////////////////
 
-static llvm::sys::Path gExePath;
+static std::string gExePath;
 
 static int linkObjToBinaryGcc(bool sharedLib)
 {
     Logger::println("*** Linking executable ***");
 
     // find gcc for linking
-    llvm::sys::Path gcc(getGcc());
+    std::string gcc(getGcc());
 
     // build arguments
     std::vector<std::string> args;
@@ -131,11 +131,11 @@ static int linkObjToBinaryGcc(bool sharedLib)
     args.push_back(output);
 
     // set the global gExePath
-    gExePath.set(output);
-    assert(gExePath.isValid());
+    gExePath = output;
+    //assert(gExePath.isValid());
 
     // create path to exe
-    CreateDirectoryOnDisk(gExePath.str());
+    CreateDirectoryOnDisk(gExePath);
 
     // additional linker switches
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
@@ -222,7 +222,7 @@ static int linkObjToBinaryWin(bool sharedLib)
     Logger::println("*** Linking executable ***");
 
     // find link.exe for linking
-    llvm::sys::Path tool(getLink());
+    std::string tool(getLink());
 
     // build arguments
     std::vector<std::string> args;
@@ -276,11 +276,11 @@ static int linkObjToBinaryWin(bool sharedLib)
     }
 
     // set the global gExePath
-    gExePath.set(output);
-    assert(gExePath.isValid());
+    gExePath = output;
+    //assert(gExePath.isValid());
 
     // create path to exe
-    CreateDirectoryOnDisk(gExePath.str());
+    CreateDirectoryOnDisk(gExePath);
 
     // additional linker switches
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
@@ -346,7 +346,7 @@ void createStaticLibrary()
     const bool isTargetWindows = global.params.targetTriple.getOS() == llvm::Triple::Win32;
 
     // find archiver
-    llvm::sys::Path tool(isTargetWindows ? getLib() : getArchiver());
+    std::string tool(isTargetWindows ? getLib() : getArchiver());
 
     // build arguments
     std::vector<std::string> args;
@@ -406,12 +406,13 @@ void createStaticLibrary()
 
 void deleteExecutable()
 {
-    if (!gExePath.isEmpty())
+    if (!gExePath.empty())
     {
-        assert(gExePath.isValid());
+        //assert(gExePath.isValid());
         bool is_directory;
-        assert(!(!llvm::sys::fs::is_directory(gExePath.str(), is_directory) && is_directory));
-        gExePath.eraseFromDisk(false);
+        assert(!(!llvm::sys::fs::is_directory(gExePath, is_directory) && is_directory));
+        bool Existed;
+        llvm::sys::fs::remove(gExePath, Existed);
     }
 }
 
@@ -419,8 +420,8 @@ void deleteExecutable()
 
 int runExecutable()
 {
-    assert(!gExePath.isEmpty());
-    assert(gExePath.isValid());
+    assert(!gExePath.empty());
+    //assert(gExePath.isValid());
 
     // Run executable
     int status = executeToolAndWait(gExePath, opts::runargs, global.params.verbose);

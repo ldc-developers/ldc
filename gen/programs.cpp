@@ -35,24 +35,20 @@ static cl::opt<std::string> mslib("ms-lib",
     cl::Hidden,
     cl::ZeroOrMore);
 
-#if LDC_LLVM_VER >= 304
-typedef std::string RetType;
-#else
-typedef sys::Path RetType;
-
+#if LDC_LLVM_VER < 304
 namespace llvm {
 namespace sys {
-inline sys::Path FindProgramByName(const std::string& name)
+inline std::string FindProgramByName(const std::string& name)
 {
-    return llvm::sys::Program::FindProgramByName(name);
+    return llvm::sys::Program::FindProgramByName(name).str();
 }
 } // namespace sys
 } // namespace llvm
 #endif
 
-static RetType getProgram(const char *name, const cl::opt<std::string> &opt, const char *envVar = 0)
+static std::string getProgram(const char *name, const cl::opt<std::string> &opt, const char *envVar = 0)
 {
-    RetType path;
+    std::string path;
     const char *prog = NULL;
 
     if (opt.getNumOccurrences() > 0 && opt.length() > 0 && (prog = opt.c_str()))
@@ -72,22 +68,22 @@ static RetType getProgram(const char *name, const cl::opt<std::string> &opt, con
     return path;
 }
 
-RetType getGcc()
+std::string getGcc()
 {
     return getProgram("gcc", gcc, "CC");
 }
 
-RetType getArchiver()
+std::string getArchiver()
 {
     return getProgram("ar", ar);
 }
 
-RetType getLink()
+std::string getLink()
 {
     return getProgram("link.exe", mslink);
 }
 
-RetType getLib()
+std::string getLib()
 {
     return getProgram("lib.exe", mslib);
 }

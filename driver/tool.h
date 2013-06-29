@@ -15,10 +15,9 @@
 #ifndef LDC_DRIVER_TOOL_H
 #define LDC_DRIVER_TOOL_H
 
-#include "llvm/Support/PathV1.h"
 #include <vector>
 #include <string>
 
-int executeToolAndWait(llvm::sys::Path tool, std::vector<std::string> const & args, bool verbose = false);
+int executeToolAndWait(const std::string &tool, std::vector<std::string> const &args, bool verbose = false);
 
 #endif

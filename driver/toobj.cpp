@@ -83,7 +83,7 @@ static void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objp
         args.push_back("-m32");
 
     // Run the compiler to assembly the program.
-    llvm::sys::Path gcc(getGcc());
+    std::string gcc(getGcc());
     int R = executeToolAndWait(gcc, args, global.params.verbose);
     if (R)
     {
