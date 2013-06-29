@@ -93,7 +93,7 @@ std::string getEXESuffix() {
 #if _WIN32
   return "exe";
 #else
-  return StringRef();
+  return llvm::StringRef();
 #endif
 }
 #else
@@ -115,7 +115,7 @@ static std::string prependMainExecutablePath(const std::string &ExeName,
   // Check the directory that the calling program is in.  We can do
   // this if ProgramPath contains at least one / character, indicating that it
   // is a relative path to the executable itself.
-  llvm::SmallString<128> Result = ls::fs::getMainExecutable(Argv0, MainAddr);
+  llvm::SmallString<128> Result(ls::fs::getMainExecutable(Argv0, MainAddr));
   sys::path::remove_filename(Result);
 
   if (!Result.empty()) {
