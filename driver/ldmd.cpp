@@ -48,12 +48,13 @@
 # error "Please define LDC_EXE_NAME to the name of the LDC executable to use."
 #endif
 
+#include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/raw_ostream.h"
 #if LDC_LLVM_VER >= 304
-#include "llvm/Support/PathV1.h"
 #if _WIN32
 #include "Windows.h"
 #else
@@ -75,6 +76,32 @@
 
 namespace ls = llvm::sys;
 
+#if LDC_LLVM_VER < 304
+namespace llvm {
+namespace sys {
+namespace fs {
+bool can_execute(const Twine &Path) {
+  return ls::Path(Path.str()).canExecute();
+}
+}
+}
+}
+#endif
+
+#if LDC_LLVM_VER >= 304
+std::string getEXESuffix() {
+#if _WIN32
+  return "exe";
+#else
+  return StringRef();
+#endif
+}
+#else
+std::string getEXESuffix() {
+  return ls::Path::GetEXESuffix().str();
+}
+#endif
+
 #if LDC_LLVM_VER >= 304
 namespace llvm {
 /// Prepend the path to the program being executed
@@ -83,45 +110,30 @@ namespace llvm {
 /// directory. An empty string is returned on error; note that this function
 /// just mainpulates the path and doesn't check for executability.
 /// @brief Find a named executable.
-static ls::Path PrependMainExecutablePath(const std::string &ExeName,
+static std::string prependMainExecutablePath(const std::string &ExeName,
                                           const char *Argv0, void *MainAddr) {
   // Check the directory that the calling program is in.  We can do
   // this if ProgramPath contains at least one / character, indicating that it
   // is a relative path to the executable itself.
-  ls::Path Result = ls::Path::GetMainExecutable(Argv0, MainAddr);
-  Result.eraseComponent();
+  llvm::SmallString<128> Result = ls::fs::getMainExecutable(Argv0, MainAddr);
+  sys::path::remove_filename(Result);
 
-  if (!Result.isEmpty()) {
-    Result.appendComponent(ExeName);
-    Result.appendSuffix(ls::Path::GetEXESuffix());
+  if (!Result.empty()) {
+    sys::path::append(Result, ExeName);
+    sys::path::append(Result, getEXESuffix());
   }
 
-  return Result;
+  return Result.str();
 }
 }
-#endif
-
-static bool canExecute(const ls::Path &p)
-{
-#if LDC_LLVM_VER >= 304
-#if _WIN32
-    // FIXME: take security attributes into account.
-    DWORD attr = GetFileAttributes(p.c_str());
-    return attr != INVALID_FILE_ATTRIBUTES;
 #else
-    if (0 != access(p.c_str(), R_OK | X_OK ))
-        return false;
-    struct stat buf;
-    if (0 != stat(p.c_str(), &buf))
-        return false;
-    if (!S_ISREG(buf.st_mode))
-        return false;
-    return true;
-#endif
-#else
-    return p.canExecute();
-#endif
+namespace llvm {
+static std::string prependMainExecutablePath(const std::string &ExeName,
+                                          const char *Argv0, void *MainAddr) {
+  return llvm::PrependMainExecutablePath(ExeName, Argv0, MainAddr).str();
 }
+}
+#endif
 
 // We reuse DMD's response file parsing routine for maximum compatibilty - it
 // handles quotes in a very peciuliar way.
@@ -180,14 +192,14 @@ char* concat(const char* a, int b)
 /**
  * Runs the given executable, returning its error code.
  */
-int execute(ls::Path exePath, const char** args)
+int execute(const std::string &exePath, const char** args)
 {
     std::string errorMsg;
 #if LDC_LLVM_VER >= 304
-    int rc = ls::ExecuteAndWait(exePath.str(), args, NULL, NULL,
+    int rc = ls::ExecuteAndWait(exePath, args, NULL, NULL,
         0, 0, &errorMsg);
 #else
-    int rc = ls::Program::ExecuteAndWait(exePath, args, NULL, NULL,
+    int rc = ls::Program::ExecuteAndWait(ls::Path(exePath), args, NULL, NULL,
         0, 0, &errorMsg);
 #endif
     if (!errorMsg.empty())
@@ -200,7 +212,7 @@ int execute(ls::Path exePath, const char** args)
 /**
  * Prints usage information to stdout.
  */
-void printUsage(const char* argv0, ls::Path ldcPath)
+void printUsage(const char* argv0, const std::string &ldcPath)
 {
     // Print version information by actually invoking ldc -version.
     const char* args[] = { ldcPath.c_str(), "-version", NULL };
@@ -509,7 +521,7 @@ struct Params
  * Parses the flags from the given command line and the DFLAGS environment
  * variable into a Params struct.
  */
-Params parseArgs(size_t originalArgc, char** originalArgv, ls::Path ldcPath)
+Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ldcPath)
 {
     // Expand any response files present into the list of arguments.
     size_t argc = originalArgc;
@@ -946,20 +958,20 @@ size_t maxCommandLineLen()
  * nothing was found. Search paths: 1. Directory where this binary resides.
  * 2. System PATH.
  */
-ls::Path locateBinary(std::string exeName, const char* argv0)
+std::string locateBinary(std::string exeName, const char* argv0)
 {
-    ls::Path path = llvm::PrependMainExecutablePath(exeName,
+    std::string path = llvm::prependMainExecutablePath(exeName,
         argv0, (void*)&locateBinary);
-    if (canExecute(path)) return path;
+    if (ls::fs::can_execute(path)) return path;
 
 #if LDC_LLVM_VER >= 304
     path = ls::FindProgramByName(exeName);
 #else
-    path = ls::Program::FindProgramByName(exeName);
+    path = ls::Program::FindProgramByName(exeName).str();
 #endif
-    if (canExecute(path)) return path;
+    if (ls::fs::can_execute(path)) return path;
 
-    return ls::Path();
+    return "";
 }
 
 static size_t addStrlen(size_t acc, const char* str)
@@ -970,8 +982,8 @@ static size_t addStrlen(size_t acc, const char* str)
 
 int main(int argc, char *argv[])
 {
-    ls::Path ldcPath = locateBinary(LDC_EXE_NAME, argv[0]);
-    if (!ldcPath.isValid())
+    std::string ldcPath = locateBinary(LDC_EXE_NAME, argv[0]);
+    if (ldcPath.empty())
     {
         error("Could not locate "LDC_EXE_NAME" executable.");
     }
