@@ -17,6 +17,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Target/TargetMachine.h"
@@ -67,15 +68,15 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
     Passes.doFinalization();
 }
 
-static void assemble(const llvm::sys::Path& asmpath, const llvm::sys::Path& objpath)
+static void assemble(const std::string &asmpath, const std::string &objpath)
 {
     std::vector<std::string> args;
     args.push_back("-O3");
     args.push_back("-c");
     args.push_back("-xassembler");
-    args.push_back(asmpath.str());
+    args.push_back(asmpath);
     args.push_back("-o");
-    args.push_back(objpath.str());
+    args.push_back(objpath);
 
     if (global.params.is64bit)
         args.push_back("-m64");
@@ -105,13 +106,12 @@ void writeModule(llvm::Module* m, std::string filename)
         global.params.targetTriple.getOS() == llvm::Triple::MinGW32;
 
     // eventually do our own path stuff, dmd's is a bit strange.
-    typedef llvm::sys::Path LLPath;
+    typedef llvm::SmallString<128> LLPath;
 
     // write LLVM bitcode
     if (global.params.output_bc) {
         LLPath bcpath = LLPath(filename);
-        bcpath.eraseSuffix();
-        bcpath.appendSuffix(std::string(global.bc_ext));
+        llvm::sys::path::replace_extension(bcpath, global.bc_ext);
         Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
         std::string errinfo;
         llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::raw_fd_ostream::F_Binary);
@@ -126,8 +126,7 @@ void writeModule(llvm::Module* m, std::string filename)
     // write LLVM IR
     if (global.params.output_ll) {
         LLPath llpath = LLPath(filename);
-        llpath.eraseSuffix();
-        llpath.appendSuffix(std::string(global.ll_ext));
+        llvm::sys::path::replace_extension(llpath, global.ll_ext);
         Logger::println("Writing LLVM asm to: %s\n", llpath.c_str());
         std::string errinfo;
         llvm::raw_fd_ostream aos(llpath.c_str(), errinfo);
@@ -142,9 +141,16 @@ void writeModule(llvm::Module* m, std::string filename)
     // write native assembly
     if (global.params.output_s || assembleExternally) {
         LLPath spath = LLPath(filename);
-        spath.eraseSuffix();
-        spath.appendSuffix(std::string(global.s_ext));
-        if (!global.params.output_s) spath.createTemporaryFileOnDisk();
+        llvm::sys::path::replace_extension(spath, global.s_ext);
+        if (!global.params.output_s)
+        {
+            int Dummy;
+            llvm::sys::fs::unique_file("ldc-%%%%%%%.s", Dummy, spath, true
+#if LDC_LLVM_VER >= 302
+                                       , 0
+#endif
+                                       );
+        }
 
         Logger::println("Writing native asm to: %s\n", spath.c_str());
         std::string err;
@@ -164,10 +170,14 @@ void writeModule(llvm::Module* m, std::string filename)
         if (assembleExternally)
         {
             LLPath objpath(filename);
-            assemble(spath, objpath);
+            assemble(spath.str(), objpath.str());
         }
 
-        if (!global.params.output_s) spath.eraseFromDisk();
+        if (!global.params.output_s)
+        {
+            bool Existed;
+            llvm::sys::fs::remove(spath.str(), Existed);
+        }
     }
 
     if (global.params.output_o && !assembleExternally) {
