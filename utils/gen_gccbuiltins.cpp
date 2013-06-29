@@ -14,9 +14,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "llvm/TableGen/Main.h"
+#include "llvm/ADT/SmallString.h"
 #include "llvm/ADT/StringRef.h"
 #include "llvm/Support/CommandLine.h"
-#include "llvm/Support/PathV1.h"
+#include "llvm/Support/Path.h"
 #include "llvm/TableGen/Record.h"
 #if LDC_LLVM_VER < 302
 #include "llvm/TableGen/TableGenAction.h"
@@ -171,12 +172,12 @@ int main(int argc, char** argv)
         return 1;
     }
 
-    sys::Path file(LLVM_INTRINSIC_TD_PATH);
-    file.appendComponent("llvm");
+    llvm::SmallString<128> file(LLVM_INTRINSIC_TD_PATH);
+    sys::path::append(file, "llvm");
 #if LDC_LLVM_VER >= 303
-    file.appendComponent("IR");
+    sys::path::append(file, "IR");
 #endif
-    file.appendComponent("Intrinsics.td");
+    sys::path::append(file, "Intrinsics.td");
 
     string iStr = string("-I=") + string(LLVM_INTRINSIC_TD_PATH);
     string oStr = string("-o=") + argv[1];
