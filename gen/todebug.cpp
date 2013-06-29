@@ -28,9 +28,6 @@
 #include "llvm/Support/Dwarf.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-#if LDC_LLVM_VER >= 304
-#include "llvm/Support/PathV1.h"
-#endif
 
 using namespace llvm::dwarf;
 
@@ -579,22 +576,13 @@ void DtoDwarfCompileUnit(Module* m)
     LOG_SCOPE;
 
     // prepare srcpath
-    const char *srcname = m->srcfile->name->toChars();
-    std::string srcpath(FileName::path(srcname));
-    if (!FileName::absolute(srcpath.c_str())) {
-        llvm::sys::Path tmp = llvm::sys::Path::GetCurrentDirectory();
-        tmp.appendComponent(srcpath);
-        srcpath = tmp.str();
-        if (!srcpath.empty() && *srcpath.rbegin() != '/' && *srcpath.rbegin() != '\\')
-            srcpath = srcpath + '/';
-    } else {
-        srcname = FileName::name(srcname);
-    }
+    llvm::SmallString<128> srcpath(m->srcfile->name->toChars());
+    llvm::sys::fs::make_absolute(srcpath);
 
     gIR->dibuilder.createCompileUnit(
         global.params.symdebug == 2 ? DW_LANG_C : DW_LANG_D,
-        srcname,
-        srcpath,
+        llvm::sys::path::filename(srcpath),
+        llvm::sys::path::parent_path(srcpath),
         "LDC (http://wiki.dlang.org/LDC)",
         false, // isOptimized TODO
         llvm::StringRef(), // Flags TODO
