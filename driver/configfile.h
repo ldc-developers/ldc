@@ -16,8 +16,7 @@
 
 #include <string>
 #include <vector>
-
-namespace llvm { namespace sys { class Path; } }
+#include "llvm/ADT/SmallString.h"
 
 namespace libconfig
 {
@@ -42,7 +41,7 @@ public:
     const std::string& path()     { return pathstr; }
 
 private:
-    bool locate(llvm::sys::Path& path, const char* argv0, void* mainAddr, const char* filename);
+    bool locate(llvm::SmallString<128> &path, const char* argv0, void* mainAddr, const char* filename);
 
     libconfig::Config* cfg;
     std::string pathstr;

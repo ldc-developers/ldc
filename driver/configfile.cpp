@@ -12,9 +12,6 @@
 #include "libconfig.h++"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
-#if LDC_LLVM_VER >= 304
-#include "llvm/Support/PathV1.h"
-#endif
 #include <cassert>
 #include <cstring>
 #include <iostream>
@@ -31,7 +28,7 @@ namespace sys = llvm::sys;
 
 #if LDC_LLVM_VER >= 304
 #if _WIN32
-sys::Path GetUserHomeDirectory() {
+std::string getUserHomeDirectory() {
   char buff[MAX_PATH];
   HRESULT res = SHGetFolderPathA(NULL,
                                  CSIDL_FLAG_CREATE | CSIDL_APPDATA,
@@ -40,22 +37,32 @@ sys::Path GetUserHomeDirectory() {
                                  buff);
   if (res != S_OK)
     assert(0 && "Failed to get user home directory");
-  return sys::Path(buff);
+  return buff;
 }
 #else
-sys::Path GetUserHomeDirectory() {
+std::string getUserHomeDirectory() {
   const char* home = getenv("HOME");
-  sys::Path result;
-  if (home && result.set(home))
-    return result;
-  result.set("/");
-  return result;
+  return home ? home : "/";
 }
 #endif
+#else
+std::string getUserHomeDirectory() {
+  return llvm::sys::Path::GetUserHomeDirectory().str();
+}
+#endif
+
+#if LDC_LLVM_VER >= 304
+static std::string getMainExecutable(const char *argv0, void *MainExecAddr) {
+  return sys::fs::getMainExecutable(argv0, MainExecAddr);
+}
+#else
+static std::string getMainExecutable(const char *argv0, void *MainExecAddr) {
+  return llvm::sys::Path::GetMainExecutable(argv0, MainExecAddr).str();
+}
 #endif
 
 #if _WIN32
-static bool ReadPathFromRegistry(sys::Path& p)
+static bool ReadPathFromRegistry(llvm::SmallString<128> &p)
 {
     HKEY hkey;
     bool res = false;
@@ -90,44 +97,38 @@ ConfigFile::~ConfigFile()
 }
 
 
-bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const char* filename)
+bool ConfigFile::locate(llvm::SmallString<128> &p, const char* argv0, void* mainAddr, const char* filename)
 {
     // temporary configuration
 
     // try the current working dir
-    p = sys::Path::GetCurrentDirectory();
-    p.appendComponent(filename);
-    if (sys::fs::exists(p.str()))
-        return true;
+    if (sys::fs::current_path(p))
+    {
+        sys::path::append(p, filename);
+        if (sys::fs::exists(p.str()))
+            return true;
+    }
 
     // try next to the executable
-    p = sys::Path::GetMainExecutable(argv0, mainAddr);
-    p.eraseComponent();
-    p.appendComponent(filename);
+    p = getMainExecutable(argv0, mainAddr);
+    sys::path::remove_filename(p);
+    sys::path::append(p, filename);
     if (sys::fs::exists(p.str()))
         return true;
 
     // user configuration
 
     // try ~/.ldc
-#if LDC_LLVM_VER >= 304
-    p = GetUserHomeDirectory();
-#else
-    p = sys::Path::GetUserHomeDirectory();
-#endif
-    p.appendComponent(".ldc");
-    p.appendComponent(filename);
+    p = getUserHomeDirectory();
+    sys::path::append(p, ".ldc");
+    sys::path::append(p, filename);
     if (sys::fs::exists(p.str()))
         return true;
 
 #if _WIN32
     // try home dir
-#if LDC_LLVM_VER >= 304
-    p = GetUserHomeDirectory();
-#else
-    p = sys::Path::GetUserHomeDirectory();
-#endif
-    p.appendComponent(filename);
+    p = getUserHomeDirectory();
+    sys::path::append(p, filename);
     if (sys::fs::exists(p.str()))
         return true;
 #endif
@@ -136,13 +137,13 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
 
     // try in etc relative to the executable: exe\..\etc
     // do not use .. in path because of security risks
-    p = sys::Path::GetMainExecutable(argv0, mainAddr);
-    p.eraseComponent();
-    p.eraseComponent();
-    if (!p.isEmpty())
+    p = getMainExecutable(argv0, mainAddr);
+    sys::path::remove_filename(p);
+    sys::path::remove_filename(p);
+    if (!p.empty())
     {
-        p.appendComponent("etc");
-        p.appendComponent(filename);
+        sys::path::append(p, "etc");
+        sys::path::append(p, filename);
         if (sys::fs::exists(p.str()))
             return true;
     }
@@ -151,36 +152,36 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
     // Try reading path from registry
     if (ReadPathFromRegistry(p))
     {
-        p.appendComponent("etc");
-        p.appendComponent(filename);
+        sys::path::append(p, "etc");
+        sys::path::append(p, filename);
         if (sys::fs::exists(p.str()))
             return true;
     }
 #else
     // try the install-prefix/etc
-    p = sys::Path(LDC_INSTALL_PREFIX);
-    p.appendComponent("etc");
-    p.appendComponent(filename);
+    p = LDC_INSTALL_PREFIX;
+    sys::path::append(p, "etc");
+    sys::path::append(p, filename);
     if (sys::fs::exists(p.str()))
         return true;
 
     // try the install-prefix/etc/ldc
-    p = sys::Path(LDC_INSTALL_PREFIX);
-    p.appendComponent("etc");
-    p.appendComponent("ldc");
-    p.appendComponent(filename);
+    p = LDC_INSTALL_PREFIX;
+    sys::path::append(p, "etc");
+    sys::path::append(p, "ldc");
+    sys::path::append(p, filename);
     if (sys::fs::exists(p.str()))
         return true;
 
     // try /etc (absolute path)
-    p = sys::Path("/etc");
-    p.appendComponent(filename);
+    p = "/etc";
+    sys::path::append(p, filename);
     if (sys::fs::exists(p.str()))
         return true;
 
     // try /etc/ldc (absolute path)
-    p = sys::Path("/etc/ldc");
-    p.appendComponent(filename);
+    p = "/etc/ldc";
+    sys::path::append(p, filename);
     if (sys::fs::exists(p.str()))
         return true;
 #endif
@@ -190,7 +191,7 @@ bool ConfigFile::locate(sys::Path& p, const char* argv0, void* mainAddr, const c
 
 bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
 {
-    sys::Path p;
+    llvm::SmallString<128> p;
     if (!locate(p, argv0, mainAddr, filename))
     {
         // failed to find cfg, users still have the DFLAGS environment var
@@ -224,7 +225,7 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
         {
             std::string binpathkey = "%%ldcbinarypath%%";
 
-            std::string binpath = sys::path::parent_path(sys::Path::GetMainExecutable(argv0, mainAddr).str());
+            std::string binpath = sys::path::parent_path(getMainExecutable(argv0, mainAddr));
 
             libconfig::Setting& arr = cfg->lookup("default.switches");
             int len = arr.getLength();
