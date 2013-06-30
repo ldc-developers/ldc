@@ -283,23 +283,25 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
     std::vector<llvm::Constant*> constants;
     constants.reserve(vtbl_array.dim);
 
-    // start with the interface info
-    VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
+    if (!b->base->isCPPinterface()) { // skip interface info for CPP interfaces
+        // start with the interface info
+        VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
 
-    // index into the interfaces array
-    llvm::Constant* idxs[2] = {
-        DtoConstSize_t(0),
-        DtoConstSize_t(interfaces_index)
-    };
+        // index into the interfaces array
+        llvm::Constant* idxs[2] = {
+            DtoConstSize_t(0),
+            DtoConstSize_t(interfaces_index)
+        };
 
-    llvm::Constant* c = llvm::ConstantExpr::getGetElementPtr(
-        getInterfaceArraySymbol(), idxs, true);
+        llvm::Constant* c = llvm::ConstantExpr::getGetElementPtr(
+            getInterfaceArraySymbol(), idxs, true);
 
-    constants.push_back(c);
+        constants.push_back(c);
+    }
 
     // add virtual function pointers
     size_t n = vtbl_array.dim;
-    for (size_t i = 1; i < n; i++)
+    for (size_t i = b->base->vtblOffset(); i < n; i++)
     {
         Dsymbol* dsym = static_cast<Dsymbol*>(vtbl_array.data[i]);
         if (dsym == NULL)
@@ -320,7 +322,59 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
         fd->codegen(Type::sir);
         assert(fd->ir.irFunc && "invalid vtbl function");
 
-        constants.push_back(fd->ir.irFunc->func);
+        LLFunction *fn = fd->ir.irFunc->func;
+
+        // If the base is a cpp interface, 'this' parameter is a pointer to
+        // the interface not the underlying object as expected. Instead of
+        // the function, we place into the vtable a small wrapper, called thunk,
+        // that casts 'this' to the object and then pass it to the real function.
+        if (b->base->isCPPinterface()) {
+            TypeFunction *f = (TypeFunction*)fd->type->toBasetype();
+            assert(f->fty.arg_this);
+
+            // create the thunk function
+            OutBuffer name;
+            name.writestring("Th");
+            name.printf("%i", b->offset);
+            name.writestring(fd->mangle());
+            LLFunction *thunk = LLFunction::Create(isaFunction(fn->getType()->getContainedType(0)),
+                                                 DtoLinkage(fd), name.toChars(), gIR->module);
+
+            // create entry and end blocks
+            llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "entry", thunk);
+            llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "endentry", thunk);
+            gIR->scopes.push_back(IRScope(beginbb, endbb));
+
+            // copy the function parameters, so later we can pass them to the real function
+            std::vector<LLValue*> args;
+            llvm::Function::arg_iterator iarg = thunk->arg_begin();
+            for (; iarg != thunk->arg_end(); ++iarg)
+                args.push_back(iarg);
+
+            // cast 'this' to Object
+            LLValue* &thisArg = args[(f->fty.arg_sret == 0) ? 0 : 1];
+            LLType* thisType = thisArg->getType();
+            thisArg = DtoBitCast(thisArg, getVoidPtrType());
+            thisArg = DtoGEP1(thisArg, DtoConstInt(-b->offset));
+            thisArg = DtoBitCast(thisArg, thisType);
+
+            // call the real vtbl function.
+            LLValue *retVal = gIR->ir->CreateCall(fn, args);
+
+            // return from the thunk
+            if (thunk->getReturnType() == LLType::getVoidTy(gIR->context()))
+                llvm::ReturnInst::Create(gIR->context(), beginbb);
+            else
+                llvm::ReturnInst::Create(gIR->context(), retVal, beginbb);
+
+            // clean up
+            gIR->scopes.pop_back();
+            thunk->getBasicBlockList().pop_back();
+
+            fn = thunk;
+        }
+
+        constants.push_back(fn);
     }
 
     // build the vtbl constant
