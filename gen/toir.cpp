@@ -2953,7 +2953,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
     // ready elements data
     assert(elements && "struct literal has null elements");
     size_t nexprs = elements->dim;
-    Expression** exprs = (Expression**)elements->data;
+    Expression **exprs = reinterpret_cast<Expression **>(elements->data);
 
     // might be reset to an actual i8* value so only a single bitcast is emitted.
     LLValue* voidptr = inProgressMemory;
