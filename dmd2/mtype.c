@@ -3558,6 +3558,13 @@ Expression *TypeVector::defaultInit(Loc loc)
     return basetype->defaultInit(loc);
 }
 
+#if IN_LLVM
+Expression *TypeVector::defaultInitLiteral(Loc loc)
+{
+    return basetype->defaultInitLiteral(loc);
+}
+#endif
+
 int TypeVector::isZeroInit(Loc loc)
 {
     return basetype->isZeroInit(loc);
