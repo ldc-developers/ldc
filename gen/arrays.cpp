@@ -284,7 +284,11 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     }
 
     // get elem type
-    Type* elemty = arrty->nextOf();
+    Type* elemty;
+    if (arrty->ty == Tvector)
+        elemty = static_cast<TypeVector *>(arrty)->elementType();
+    else
+        elemty = arrty->nextOf();
     LLType* llelemty = i1ToI8(voidToI8(DtoType(elemty)));
 
     // true if array elements differ in type, can happen with array of unions
@@ -349,12 +353,17 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     if (mismatch)
         constarr = LLConstantStruct::getAnon(gIR->context(), initvals); // FIXME should this pack?
     else
-        constarr = LLConstantArray::get(LLArrayType::get(llelemty, arrlen), initvals);
+    {
+        if (arrty->ty == Tvector)
+            constarr = llvm::ConstantVector::get(initvals);
+        else
+            constarr = LLConstantArray::get(LLArrayType::get(llelemty, arrlen), initvals);
+    }
 
 //     std::cout << "constarr: " << *constarr << std::endl;
 
     // if the type is a static array, we're done
-    if (arrty->ty == Tsarray)
+    if (arrty->ty == Tsarray || arrty->ty == Tvector)
         return constarr;
 
     // we need to make a global with the data, so we have a pointer to the array
