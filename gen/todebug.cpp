@@ -315,6 +315,8 @@ static llvm::DIType dwarfCompositeType(Type* type)
     // defaults
     llvm::StringRef name = sd->toChars();
     unsigned linnum = sd->loc.linnum;
+    llvm::DICompileUnit CU(gIR->dibuilder.getCU());
+    assert(CU && CU.Verify() && "Compilation unit missing or corrupted");
     llvm::DIFile file = DtoDwarfFile(sd->loc);
     llvm::DIType derivedFrom;
 
@@ -355,9 +357,9 @@ static llvm::DIType dwarfCompositeType(Type* type)
     llvm::DIType ret;
     if (t->ty == Tclass) {
         ret = gIR->dibuilder.createClassType(
-           llvm::DIDescriptor(file),
+           CU, // compile unit where defined
            name, // name
-           file, // compile unit where defined
+           file, // file where defined
            linnum, // line number where defined
            getTypeBitSize(T), // size in bits
            getABITypeAlign(T)*8, // alignment in bits
@@ -368,9 +370,9 @@ static llvm::DIType dwarfCompositeType(Type* type)
         );
     } else {
         ret = gIR->dibuilder.createStructType(
-           llvm::DIDescriptor(file),
+           CU, // compile unit where defined
            name, // name
-           file, // compile unit where defined
+           file, // file where defined
            linnum, // line number where defined
            getTypeBitSize(T), // size in bits
            getABITypeAlign(T)*8, // alignment in bits
