@@ -165,7 +165,7 @@ static llvm::DIType dwarfEnumType(Type *type)
     llvm::DIFile File = DtoDwarfFile(te->sym->loc);
 
     return gIR->dibuilder.createEnumerationType(
-        llvm::DIDescriptor(File),
+        llvm::DICompileUnit(gIR->dibuilder.getCU()),
         Name,
         File,
         LineNumber,
@@ -241,7 +241,7 @@ static llvm::DIType dwarfMemberType(unsigned linnum, Type* type, llvm::DIFile fi
         basetype = llvm::DIType(NULL);
 
     return gIR->dibuilder.createMemberType(
-        llvm::DIDescriptor(file),
+        llvm::DICompileUnit(gIR->dibuilder.getCU()),
         c_name, // name
         file, // file
         linnum, // line number
@@ -325,7 +325,7 @@ static llvm::DIType dwarfCompositeType(Type* type)
                                         : llvm::dwarf::DW_TAG_class_type;
     ir->diCompositeType = gIR->dibuilder.createForwardDecl(tag, name,
 #if LDC_LLVM_VER >= 302
-                                                           llvm::DIDescriptor(file),
+                                                           llvm::DICompileUnit(gIR->dibuilder.getCU()),
 #endif
                                                            file, linnum);
 
@@ -435,7 +435,7 @@ static llvm::DIType dwarfArrayType(Type* type) {
 
     return gIR->dibuilder.createStructType
        (
-        llvm::DIDescriptor(file),
+        llvm::DICompileUnit(gIR->dibuilder.getCU()),
         llvm::StringRef(), // Name TODO: Really no name for arrays?
         file, // File
         0, // LineNo
