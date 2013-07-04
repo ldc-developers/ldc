@@ -1022,6 +1022,10 @@ Initializer *ExpInitializer::semantic(Scope *sc, Type *t, NeedInterpret needInte
 
     // Look for the case of statically initializing an array
     // with a single member.
+#if IN_LLVM
+    // Fix for part 1 of issue 424.
+    if (tb->ty == Tvector) tb = static_cast<TypeVector *>(tb)->basetype;
+#endif
     if (tb->ty == Tsarray &&
         !tb->nextOf()->equals(ti->toBasetype()->nextOf()) &&
         exp->implicitConvTo(tb->nextOf())
