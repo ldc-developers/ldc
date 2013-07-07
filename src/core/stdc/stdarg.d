@@ -16,6 +16,9 @@ module core.stdc.stdarg;
 
 @system:
 
+version ( PPC ) version = AnyPPC;
+version ( PPC64 ) version = AnyPPC;
+
 version( X86_64 )
 {
     version( LDC ) version = LDC_X86_64;
@@ -518,7 +521,7 @@ else version ( X86_64 )
         dest = src;
     }
 }
-else version ( PPC64 )
+else version ( AnyPPC )
 {
     version ( LDC )
     {
