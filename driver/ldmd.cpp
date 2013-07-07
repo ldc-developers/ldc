@@ -80,8 +80,14 @@ namespace ls = llvm::sys;
 namespace llvm {
 namespace sys {
 namespace fs {
+
 bool can_execute(const Twine &Path) {
   return ls::Path(Path.str()).canExecute();
+}
+
+error_code createUniqueFile(const Twine &Model, int &ResultFD,
+                            SmallVectorImpl<char> &ResultPath) {
+  return llvm::sys::fs::unique_file(Model, ResultFD, ResultPath);
 }
 }
 }
@@ -1010,7 +1016,7 @@ int main(int argc, char *argv[])
     {
         int rspFd;
         llvm::SmallString<128> rspPath;
-        if (ls::fs::unique_file("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath) !=
+        if (ls::fs::createUniqueFile("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath) !=
             llvm::errc::success)
         {
             error("Could not open temporary response file.");
