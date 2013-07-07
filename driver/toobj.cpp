@@ -144,12 +144,16 @@ void writeModule(llvm::Module* m, std::string filename)
         llvm::sys::path::replace_extension(spath, global.s_ext);
         if (!global.params.output_s)
         {
+#if LDC_LLVM_VER >= 304
+            llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.s", spath);
+#else
             int Dummy;
             llvm::sys::fs::unique_file("ldc-%%%%%%%.s", Dummy, spath, true
 #if LDC_LLVM_VER >= 302
                                        , 0
 #endif
                                        );
+#endif
         }
 
         Logger::println("Writing native asm to: %s\n", spath.c_str());
