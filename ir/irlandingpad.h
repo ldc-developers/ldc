@@ -47,17 +47,38 @@ struct IRLandingPadCatchInfo
     ClassDeclaration *catchType;
 };
 
+// holds information about a single finally
+class IRLandingPadCatchFinallyInfo
+{
+public:
+    virtual ~IRLandingPadCatchFinallyInfo() {}
+    virtual void toIR(LLValue *eh_ptr) = 0;
+};
+
+class IRLandingPadFinallyStatementInfo : public IRLandingPadCatchFinallyInfo
+{
+public:
+    IRLandingPadFinallyStatementInfo(Statement *finallyBody);
+    // codegen the finally block
+    void toIR(LLValue *eh_ptr);
+private:
+    // the body of finally
+    Statement *finallyBody;
+};
+
 // holds information about a single try-catch-inally block
 struct IRLandingPadScope
 {
-    explicit IRLandingPadScope(llvm::BasicBlock *target_ = NULL) : target(target_), finallyBody(0) {}
+    explicit IRLandingPadScope(llvm::BasicBlock *target_ = NULL) :
+        target(target_), finally(0), isFinallyCreatedInternally(false) {}
 
     // the target for invokes
     llvm::BasicBlock *target;
     // information about catch blocks
     std::deque<IRLandingPadCatchInfo> catches;
-    // the body of finally
-    Statement *finallyBody;
+    // information about a finally block
+    IRLandingPadCatchFinallyInfo *finally;
+    bool isFinallyCreatedInternally;
 };
 
 
@@ -73,8 +94,10 @@ struct IRLandingPad
 
     // add catch information, will be used in next call to push
     void addCatch(Catch* catchstmt, llvm::BasicBlock* end);
+    // add finally statement, will be used in next call to push
+    void addFinally(Statement* finallyStmt);
     // add finally information, will be used in next call to push
-    void addFinally(Statement* finallystmt);
+    void addFinally(IRLandingPadCatchFinallyInfo *finallyInfo);
 
     // builds the most recently constructed landing pad
     // and the catch blocks, then pops the landing pad bb
@@ -85,6 +108,7 @@ struct IRLandingPad
     llvm::Value* getExceptionStorage();
 
 private:
+    friend class IRLandingPadFinallyStatementInfo;
     // gets the current landing pad
     llvm::BasicBlock* get();
 
