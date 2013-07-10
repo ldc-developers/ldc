@@ -38,6 +38,7 @@
 #include "gen/warnings.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
+#include "ir/irlandingpad.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <fstream>
@@ -64,22 +65,55 @@ void Expression::cacheLvalue(IRState* irs)
  * Evaluate Expression, then call destructors on any temporaries in it.
  */
 
-DValue *Expression::toElemDtor(IRState *irs)
+DValue *Expression::toElemDtor(IRState *p)
 {
     Logger::println("Expression::toElemDtor(): %s", toChars());
     LOG_SCOPE
 
-    size_t starti = irs->varsInScope().size();
-    DValue *val = toElem(irs);
-    size_t endi = irs->varsInScope().size();
+    class CallDestructors : public IRLandingPadCatchFinallyInfo {
+    public:
+        std::vector<Expression*> edtors;
 
-    // Add destructors
-    while (endi-- > starti)
-    {
+        void toIR(LLValue */*eh_ptr*/ = 0)
+        {
+            std::vector<Expression*>::const_reverse_iterator itr, end = edtors.rend();
+            for (itr = edtors.rbegin(); itr != end; ++itr)
+                (*itr)->toElem(gIR);
+        }
+    };
+
+    // create finally block that calls destructors on temporaries
+    CallDestructors *callDestructors = new CallDestructors;
+
+    // create landing pad
+    llvm::BasicBlock *oldend = p->scopeend();
+    llvm::BasicBlock *landingpadbb = llvm::BasicBlock::Create(gIR->context(), "landingpad", p->topfunc(), oldend);
+
+    // set up the landing pad
+    IRLandingPad& pad = gIR->func()->gen->landingPadInfo;
+    pad.addFinally(callDestructors);
+    pad.push(landingpadbb);
+
+    // evaluate expression
+    size_t starti = p->varsInScope().size();
+    DValue *val = toElem(p);
+    size_t endi = p->varsInScope().size();
+
+    // prepare list of the destructors
+    while (endi-- > starti) {
         VarDeclaration *vd = gIR->varsInScope().back();
         gIR->varsInScope().pop_back();
-        vd->edtor->toElem(gIR);
+        callDestructors->edtors.push_back(vd->edtor);
     }
+
+    // build the landing pad
+    llvm::BasicBlock *oldbb = p->scopebb();
+    pad.pop();
+
+    // call the destructors
+    gIR->scope() = IRScope(oldbb, oldend);
+    callDestructors->toIR();
+    delete callDestructors;
     return val;
 }
 
