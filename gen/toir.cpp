@@ -115,33 +115,40 @@ DValue *Expression::toElemDtor(IRState *p)
     apply(&CallDestructors::searchVarsWithDesctructors, &edtors);
 
     if (!edtors.empty()) {
-        // create finally block that calls destructors on temporaries
-        CallDestructors *callDestructors = new CallDestructors(edtors);
+        if (op == TOKcall) {
+            // create finally block that calls destructors on temporaries
+            CallDestructors *callDestructors = new CallDestructors(edtors);
 
-        // create landing pad
-        llvm::BasicBlock *oldend = p->scopeend();
-        llvm::BasicBlock *landingpadbb = llvm::BasicBlock::Create(gIR->context(), "landingpad", p->topfunc(), oldend);
+            // create landing pad
+            llvm::BasicBlock *oldend = p->scopeend();
+            llvm::BasicBlock *landingpadbb = llvm::BasicBlock::Create(gIR->context(), "landingpad", p->topfunc(), oldend);
 
-        // set up the landing pad
-        IRLandingPad& pad = gIR->func()->gen->landingPadInfo;
-        pad.addFinally(callDestructors);
-        pad.push(landingpadbb);
+            // set up the landing pad
+            IRLandingPad &pad = gIR->func()->gen->landingPadInfo;
+            pad.addFinally(callDestructors);
+            pad.push(landingpadbb);
 
-        // evaluate the expression
-        DValue *val = toElem(p);
+            // evaluate the expression
+            DValue *val = toElem(p);
 
-        // build the landing pad
-        llvm::BasicBlock *oldbb = p->scopebb();
-        pad.pop();
+            // build the landing pad
+            llvm::BasicBlock *oldbb = p->scopebb();
+            pad.pop();
 
-        // call the destructors
-        gIR->scope() = IRScope(oldbb, oldend);
-        callDestructors->toIR();
-        delete callDestructors;
-        return val;
-    } else {
-        return toElem(p);
+            // call the destructors
+            gIR->scope() = IRScope(oldbb, oldend);
+            callDestructors->toIR();
+            delete callDestructors;
+            return val;
+        } else {
+            DValue *val = toElem(p);
+            CallDestructors(edtors).toIR();
+            return val;
+        }
     }
+
+    return toElem(p);
+
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
