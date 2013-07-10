@@ -35,6 +35,24 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <stack>
 
+#if LDC_LLVM_VER >= 302
+#include "llvm/Support/CommandLine.h"
+
+llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel("fthread-model",
+    llvm::cl::desc("Thread model"),
+    llvm::cl::init(llvm::GlobalVariable::GeneralDynamicTLSModel),
+    llvm::cl::values(
+        clEnumValN(llvm::GlobalVariable::GeneralDynamicTLSModel, "global-dynamic",
+                   "Global dynamic TLS model (default)"),
+        clEnumValN(llvm::GlobalVariable::LocalDynamicTLSModel, "local-dynamic",
+                   "Local dynamic TLS model"),
+        clEnumValN(llvm::GlobalVariable::InitialExecTLSModel, "initial-exec",
+                   "Initial exec TLS model"),
+        clEnumValN(llvm::GlobalVariable::LocalExecTLSModel, "local-exec",
+                   "Local exec TLS model"),
+        clEnumValEnd));
+#endif
+
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
 // DYNAMIC MEMORY HELPERS
@@ -2027,10 +2045,15 @@ llvm::GlobalVariable* getOrCreateGlobal(Loc loc, llvm::Module& module,
     }
 
 #if LDC_LLVM_VER >= 302
-    // FIXME: clang uses a command line option for the thread model
+    // Use a command line option for the thread model.
+    // On PPC there is only local-exec available - in this case just ignore the
+    // command line.
     const llvm::GlobalVariable::ThreadLocalMode tlsModel =
-        isThreadLocal ? llvm::GlobalVariable::GeneralDynamicTLSModel
-                      : llvm::GlobalVariable::NotThreadLocal;
+        isThreadLocal
+            ? (global.params.targetTriple.getArch() == llvm::Triple::ppc
+                  ? llvm::GlobalVariable::LocalExecTLSModel
+                  : clThreadModel.getValue())
+            : llvm::GlobalVariable::NotThreadLocal;
     return new llvm::GlobalVariable(module, type, isConstant, linkage,
                                     init, name, 0, tlsModel);
 #else
