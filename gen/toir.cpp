@@ -72,7 +72,11 @@ DValue *Expression::toElemDtor(IRState *p)
 
     class CallDestructors : public IRLandingPadCatchFinallyInfo {
     public:
-        std::vector<Expression*> edtors;
+        CallDestructors(const std::vector<Expression*> &edtors_)
+            : edtors(edtors_)
+        {}
+
+        const std::vector<Expression*> &edtors;
 
         void toIR(LLValue */*eh_ptr*/ = 0)
         {
@@ -80,41 +84,64 @@ DValue *Expression::toElemDtor(IRState *p)
             for (itr = edtors.rbegin(); itr != end; ++itr)
                 (*itr)->toElem(gIR);
         }
+
+        static int searchVarsWithDesctructors(Expression *exp, void *edtors)
+        {
+            if (exp->op == TOKdeclaration) {
+                DeclarationExp *de = (DeclarationExp*)exp;
+                if (VarDeclaration *vd = de->declaration->isVarDeclaration()) {
+                    while (vd->aliassym) {
+                        vd = vd->aliassym->isVarDeclaration();
+                        if (!vd)
+                            return 0;
+                    }
+
+                    if (vd->init) {
+                        if (ExpInitializer *ex = vd->init->isExpInitializer())
+                            ex->exp->apply(&searchVarsWithDesctructors, edtors);
+                    }
+
+                    if (!vd->isDataseg() && vd->edtor && !vd->noscope)
+                        static_cast<std::vector<Expression*>*>(edtors)->push_back(vd->edtor);
+                }
+            }
+            return 0;
+        }
     };
 
-    // create finally block that calls destructors on temporaries
-    CallDestructors *callDestructors = new CallDestructors;
 
-    // create landing pad
-    llvm::BasicBlock *oldend = p->scopeend();
-    llvm::BasicBlock *landingpadbb = llvm::BasicBlock::Create(gIR->context(), "landingpad", p->topfunc(), oldend);
+    // find destructors that must be called
+    std::vector<Expression*> edtors;
+    apply(&CallDestructors::searchVarsWithDesctructors, &edtors);
 
-    // set up the landing pad
-    IRLandingPad& pad = gIR->func()->gen->landingPadInfo;
-    pad.addFinally(callDestructors);
-    pad.push(landingpadbb);
+    if (!edtors.empty()) {
+        // create finally block that calls destructors on temporaries
+        CallDestructors *callDestructors = new CallDestructors(edtors);
 
-    // evaluate expression
-    size_t starti = p->varsInScope().size();
-    DValue *val = toElem(p);
-    size_t endi = p->varsInScope().size();
+        // create landing pad
+        llvm::BasicBlock *oldend = p->scopeend();
+        llvm::BasicBlock *landingpadbb = llvm::BasicBlock::Create(gIR->context(), "landingpad", p->topfunc(), oldend);
 
-    // prepare list of the destructors
-    while (endi-- > starti) {
-        VarDeclaration *vd = gIR->varsInScope().back();
-        gIR->varsInScope().pop_back();
-        callDestructors->edtors.push_back(vd->edtor);
+        // set up the landing pad
+        IRLandingPad& pad = gIR->func()->gen->landingPadInfo;
+        pad.addFinally(callDestructors);
+        pad.push(landingpadbb);
+
+        // evaluate the expression
+        DValue *val = toElem(p);
+
+        // build the landing pad
+        llvm::BasicBlock *oldbb = p->scopebb();
+        pad.pop();
+
+        // call the destructors
+        gIR->scope() = IRScope(oldbb, oldend);
+        callDestructors->toIR();
+        delete callDestructors;
+        return val;
+    } else {
+        return toElem(p);
     }
-
-    // build the landing pad
-    llvm::BasicBlock *oldbb = p->scopebb();
-    pad.pop();
-
-    // call the destructors
-    gIR->scope() = IRScope(oldbb, oldend);
-    callDestructors->toIR();
-    delete callDestructors;
-    return val;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
