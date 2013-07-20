@@ -29,6 +29,21 @@
 #include <cstddef>
 #include <fstream>
 
+#if LDC_LLVM_VER < 304
+namesspace llvm {
+namespace sys {
+namespace fs {
+enum OpenFlags {
+  F_Excl = llvm::raw_fd_ostream::F_Excl,
+  F_Append = llvm::raw_fd_ostream::F_Append,
+  F_Binary = llvm::raw_fd_ostream::F_Binary
+};
+
+}
+}
+}
+#endif
+
 // based on llc code, University of Illinois Open Source License
 static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
     llvm::raw_fd_ostream& out, llvm::TargetMachine::CodeGenFileType fileType)
@@ -114,7 +129,7 @@ void writeModule(llvm::Module* m, std::string filename)
         llvm::sys::path::replace_extension(bcpath, global.bc_ext);
         Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
         std::string errinfo;
-        llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::raw_fd_ostream::F_Binary);
+        llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::sys::fs::F_Binary);
         if (bos.has_error())
         {
             error("cannot write LLVM bitcode file '%s': %s", bcpath.c_str(), errinfo.c_str());
@@ -189,7 +204,7 @@ void writeModule(llvm::Module* m, std::string filename)
         Logger::println("Writing object file to: %s\n", objpath.c_str());
         std::string err;
         {
-            llvm::raw_fd_ostream out(objpath.c_str(), err, llvm::raw_fd_ostream::F_Binary);
+            llvm::raw_fd_ostream out(objpath.c_str(), err, llvm::sys::fs::F_Binary);
             if (err.empty())
             {
                 codegenModule(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_ObjectFile);
