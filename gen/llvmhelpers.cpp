@@ -1073,7 +1073,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
                         {
                             vd->ir.irLocal->value = val;
                         }
-                        goto Lexit;
+                        return;
                     }
                 }
             }
@@ -1104,15 +1104,6 @@ void DtoVarDeclaration(VarDeclaration* vd)
             Logger::println("expression initializer");
             ex->exp->toElem(gIR);
         }
-    }
-
-Lexit:
-    /* Mark the point of construction of a variable that needs to be destructed.
-     */
-    if (vd->edtor && !vd->noscope)
-    {
-        // Put vd on list of things needing destruction
-        gIR->varsInScope().push_back(vd);
     }
 }
 
