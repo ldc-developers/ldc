@@ -30,7 +30,7 @@
 #include <fstream>
 
 #if LDC_LLVM_VER < 304
-namesspace llvm {
+namespace llvm {
 namespace sys {
 namespace fs {
 enum OpenFlags {
