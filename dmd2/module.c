@@ -741,7 +741,7 @@ void Module::importAll(Scope *prevsc)
     sc->pop();          // 2 pops because Scope::createGlobal() created 2
 }
 
-void Module::semantic(Scope* unused_sc)
+void Module::semantic()
 {
     if (semanticstarted)
         return;
@@ -811,7 +811,7 @@ void Module::semantic(Scope* unused_sc)
     //printf("-Module::semantic(this = %p, '%s'): parent = %p\n", this, toChars(), parent);
 }
 
-void Module::semantic2(Scope* unused_sc)
+void Module::semantic2()
 {
     if (deferred.dim)
     {
@@ -851,7 +851,7 @@ void Module::semantic2(Scope* unused_sc)
     //printf("-Module::semantic2('%s'): parent = %p\n", toChars(), parent);
 }
 
-void Module::semantic3(Scope* unused_sc)
+void Module::semantic3()
 {
     //printf("Module::semantic3('%s'): parent = %p\n", toChars(), parent);
     if (semanticstarted >= 3)
@@ -904,8 +904,7 @@ void Module::inlineScan()
 /****************************************************
  */
 
-// is this used anywhere?
-/*
+#if IN_DMD
 void Module::gensymfile()
 {
     OutBuffer buf;
@@ -927,7 +926,8 @@ void Module::gensymfile()
     buf.data = NULL;
 
     symfile->writev();
-}*/
+}
+#endif
 
 /**********************************
  * Determine if we need to generate an instance of ModuleInfo

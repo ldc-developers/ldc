@@ -52,6 +52,9 @@ struct Parameter;
 #ifdef IN_GCC
 union tree_node; typedef union tree_node TYPE;
 typedef TYPE type;
+#elif IN_LLVM
+#else
+typedef struct TYPE type;
 #endif
 
 #if IN_DMD

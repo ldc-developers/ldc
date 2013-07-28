@@ -907,7 +907,7 @@ bool hasNonConstPointers(Expression *e)
                 int old = se->stageflags;
                 se->stageflags |= stageSearchPointers;
                 bool ret = arrayHasNonConstPointers(se->elements);
-                se->stageflags = old; 
+                se->stageflags = old;
                 return ret;
             }
             else
