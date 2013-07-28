@@ -37,16 +37,6 @@
 #include "llvm/LLVMContext.h"
 #include "llvm/DerivedTypes.h"
 #endif
-#include "llvm/Support/CommandLine.h"
-#include <map>
-
-static llvm::cl::opt<bool> preservePaths("op",
-    llvm::cl::desc("Do not strip paths from source file"),
-    llvm::cl::ZeroOrMore);
-
-static llvm::cl::opt<bool> fqnNames("oq",
-    llvm::cl::desc("Write object files with fully qualified names"),
-    llvm::cl::ZeroOrMore);
 #endif
 
 AggregateDeclaration *Module::moduleinfo;
@@ -161,58 +151,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     this->arrayfuncs = 0;
 #endif
 }
-#if IN_LLVM
-File* Module::buildFilePath(const char* forcename, const char* path, const char* ext)
-{
-    const char *argobj;
-    if (forcename)
-	argobj = forcename;
-    else
-    {
-	if (preservePaths)
-	    argobj = (char*)this->arg;
-	else
-	    argobj = FileName::name((char*)this->arg);
 
-	if (fqnNames)
-	{
-	    if(md)
-		argobj = FileName::replaceName((char*)argobj, md->toChars());
-	    else
-		argobj = FileName::replaceName((char*)argobj, toChars());
-
-	    // add ext, otherwise forceExt will make nested.module into nested.bc
-	    size_t len = strlen(argobj);
-	    size_t extlen = strlen(ext);
-	    char* s = (char *)alloca(len + 1 + extlen + 1);
-	    memcpy(s, argobj, len);
-	    s[len] = '.';
-	    memcpy(s + len + 1, ext, extlen + 1);
-	    s[len+1+extlen] = 0;
-	    argobj = s;
-	}
-    }
-
-    if (!FileName::absolute(argobj))
-    {
-	argobj = FileName::combine(path, argobj);
-    }
-
-    FileName::ensurePathExists(FileName::path(argobj));
-
-// always append the extension! otherwise hard to make output switches consistent
-//    if (forcename)
-//	return new File(argobj);
-//    else
-    // allow for .o and .obj on windows
-#if _WIN32
-    if (ext == global.params.objdir && FileName::ext(argobj)
-	    && Port::stricmp(FileName::ext(argobj), global.obj_ext_alt) == 0)
-	return new File((char*)argobj);
-#endif
-    return new File(FileName::forceExt(argobj, ext));
-}
-#endif
 #if IN_DMD
 void Module::setDocfile()
 {
@@ -261,78 +200,6 @@ File *Module::setOutfile(const char *name, const char *dir, const char *arg, con
 
     return new File(docfilename);
 }
-#endif
-
-#if IN_LLVM
-
-// LDC
-static void check_and_add_output_file(Module* NewMod, const std::string& str)
-{
-	typedef std::map<std::string, Module*> map_t;
-	static map_t files;
-
-	map_t::iterator i = files.find(str);
-	if (i != files.end())
-	{
-		Module* ThisMod = i->second;
-		error(Loc(), "Output file '%s' for module '%s' collides with previous module '%s'. See the -oq option",
-			str.c_str(), NewMod->toPrettyChars(), ThisMod->toPrettyChars());
-		fatal();
-	}
-	files.insert(std::make_pair(str, NewMod));
-}
-
-void Module::buildTargetFiles(bool singleObj)
-{
-	if(objfile &&
-	   (!doDocComment || docfile) &&
-	   (!doHdrGen || hdrfile))
-		return;
-
-	if(!objfile)
-	{
-		if (global.params.output_o)
-			objfile = Module::buildFilePath(global.params.objname, global.params.objdir,
-                global.params.targetTriple.isOSWindows() ? global.obj_ext_alt : global.obj_ext);
-		else if (global.params.output_bc)
-			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.bc_ext);
-		else if (global.params.output_ll)
-			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.ll_ext);
-		else if (global.params.output_s)
-			objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.s_ext);
-	}
-	if(doDocComment && !docfile)
-		docfile = Module::buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);
-	if(doHdrGen && !hdrfile)
-		hdrfile = Module::buildFilePath(global.params.hdrname, global.params.hdrdir, global.hdr_ext);
-
-	// safety check: never allow obj, doc or hdr file to have the source file's name
-	if(Port::stricmp(FileName::name(objfile->name->str), FileName::name((char*)this->arg)) == 0)
-	{
-		error("Output object files with the same name as the source file are forbidden");
-		fatal();
-	}
-	if(docfile && Port::stricmp(FileName::name(docfile->name->str), FileName::name((char*)this->arg)) == 0)
-	{
-		error("Output doc files with the same name as the source file are forbidden");
-		fatal();
-	}
-	if(hdrfile && Port::stricmp(FileName::name(hdrfile->name->str), FileName::name((char*)this->arg)) == 0)
-	{
-		error("Output header files with the same name as the source file are forbidden");
-		fatal();
-	}
-
-	// LDC
-	// another safety check to make sure we don't overwrite previous output files
-	if (!singleObj)
-		check_and_add_output_file(this, objfile->name->str);
-	if (docfile)
-		check_and_add_output_file(this, docfile->name->str);
-	if (hdrfile)
-		check_and_add_output_file(this, hdrfile->name->str);
-}
-
 #endif
 
 void Module::deleteObjFile()

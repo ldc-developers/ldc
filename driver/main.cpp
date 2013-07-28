@@ -209,9 +209,7 @@ int main(int argc, char** argv)
     ConfigFile cfg_file;
 
     // just ignore errors for now, they are still printed
-#define CFG_FILENAME "ldc2.conf"
-    cfg_file.read(global.params.argv0, (void*)main, CFG_FILENAME);
-#undef CFG_FILENAME
+    cfg_file.read(global.params.argv0, (void*)main, "ldc2.conf");
 
     // insert config file additions to the argument list
     final_args.insert(final_args.end(), cfg_file.switches_begin(), cfg_file.switches_end());
