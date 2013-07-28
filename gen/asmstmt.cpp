@@ -35,7 +35,6 @@
 #include "gen/dvalue.h"
 #include "gen/tollvm.h"
 #include "gen/logger.h"
-#include "gen/todebug.h"
 #include "gen/llvmhelpers.h"
 #include "gen/functions.h"
 
@@ -230,7 +229,7 @@ AsmStatement::toIR(IRState * irs)
     assert(asmblock);
 
     // debug info
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     if (!asmcode)
         return;

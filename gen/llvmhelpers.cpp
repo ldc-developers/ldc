@@ -26,7 +26,6 @@
 #include "gen/nested.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
-#include "gen/todebug.h"
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
 #include "ir/irmodule.h"
@@ -208,7 +207,7 @@ void DtoAssert(Module* M, Loc loc, DValue* msg)
     gIR->CreateCallOrInvoke(fn, args);
 
     // end debug info
-    DtoDwarfFuncEnd(gIR->func()->decl);
+    gIR->DBuilder.EmitFuncEnd(gIR->func()->decl);
 
     // after assert is always unreachable
     gIR->ir->CreateUnreachable();
@@ -515,7 +514,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
     DVarValue *var = lhs->isVar();
     VarDeclaration *vd = var ? var->var : 0;
     if (vd)
-        DtoDwarfValue(DtoLoad(var->getLVal()), vd);
+        gIR->DBuilder.EmitValue(DtoLoad(var->getLVal()), vd);
 }
 
 /****************************************************************************************/
@@ -1090,7 +1089,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
 
         vd->ir.irLocal->value = allocainst;
 
-        DtoDwarfLocalVariable(allocainst, vd);
+        gIR->DBuilder.EmitLocalVariable(allocainst, vd);
     }
 
     if (Logger::enabled())
@@ -1217,7 +1216,7 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
     {
         addr = DtoAlloca(var->type, var->toChars());
         // add debug info
-        DtoDwarfLocalVariable(addr, var);
+        gIR->DBuilder.EmitLocalVariable(addr, var);
     }
 
     // referenced by nested function?

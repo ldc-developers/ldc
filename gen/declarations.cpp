@@ -18,7 +18,6 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
-#include "gen/todebug.h"
 #include "gen/tollvm.h"
 #include "ir/ir.h"
 #include "ir/irtype.h"
@@ -190,7 +189,7 @@ void VarDeclaration::codegen(Ir* p)
             gvar->setInitializer(initVal);
 
             // Also set up the edbug info.
-            DtoDwarfGlobalVariable(gvar, this);
+            gIR->DBuilder.EmitGlobalVariable(gvar, this);
         }
 
         // Set the alignment (it is important not to use type->alignsize because

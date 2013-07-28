@@ -20,7 +20,6 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/runtime.h"
-#include "gen/todebug.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "ir/irlandingpad.h"
@@ -63,7 +62,7 @@ void ReturnStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // emit dwarf stop point
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     // is there a return value expression?
     if (exp || (!exp && (p->topfunc() == p->mainFunc)) )
@@ -93,7 +92,7 @@ void ReturnStatement::toIR(IRState* p)
             DtoEnclosingHandlers(loc, NULL);
 
             // emit dbg end function
-            DtoDwarfFuncEnd(f->decl);
+            gIR->DBuilder.EmitFuncEnd(f->decl);
 
             // emit ret
             llvm::ReturnInst::Create(gIR->context(), p->scopebb());
@@ -159,7 +158,7 @@ void ReturnStatement::toIR(IRState* p)
             // emit scopes
             DtoEnclosingHandlers(loc, NULL);
 
-            DtoDwarfFuncEnd(p->func()->decl);
+            gIR->DBuilder.EmitFuncEnd(p->func()->decl);
             llvm::ReturnInst::Create(gIR->context(), v, p->scopebb());
         }
     }
@@ -168,7 +167,7 @@ void ReturnStatement::toIR(IRState* p)
     {
         assert(p->topfunc()->getReturnType() == LLType::getVoidTy(gIR->context()));
         DtoEnclosingHandlers(loc, NULL);
-        DtoDwarfFuncEnd(p->func()->decl);
+        gIR->DBuilder.EmitFuncEnd(p->func()->decl);
         llvm::ReturnInst::Create(gIR->context(), p->scopebb());
     }
 
@@ -186,7 +185,7 @@ void ExpStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // emit dwarf stop point
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     if (exp) {
         elem* e;
@@ -232,7 +231,7 @@ void IfStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // start a dwarf lexical block
-    DtoDwarfBlockStart(loc);
+    gIR->DBuilder.EmitBlockStart(loc);
     if (match)
         DtoRawVarDeclaration(match);
 
@@ -258,9 +257,9 @@ void IfStatement::toIR(IRState* p)
     // do scoped statements
 
     if (ifbody) {
-        DtoDwarfBlockStart(ifbody->loc);
+        gIR->DBuilder.EmitBlockStart(ifbody->loc);
         ifbody->toIR(p);
-        DtoDwarfBlockEnd();
+        gIR->DBuilder.EmitBlockEnd();
     }
     if (!gIR->scopereturned()) {
         llvm::BranchInst::Create(endbb,gIR->scopebb());
@@ -269,16 +268,16 @@ void IfStatement::toIR(IRState* p)
     if (elsebody) {
         //assert(0);
         gIR->scope() = IRScope(elsebb,endbb);
-        DtoDwarfBlockStart(elsebody->loc);
+        gIR->DBuilder.EmitBlockStart(elsebody->loc);
         elsebody->toIR(p);
         if (!gIR->scopereturned()) {
             llvm::BranchInst::Create(endbb,gIR->scopebb());
         }
-        DtoDwarfBlockEnd();
+        gIR->DBuilder.EmitBlockEnd();
     }
 
     // end the dwarf lexical block
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 
     // rewrite the scope
     gIR->scope() = IRScope(endbb,oldend);
@@ -313,9 +312,9 @@ void ScopeStatement::toIR(IRState* p)
         p->scope().end = endbb;*/
 
     if (statement) {
-        DtoDwarfBlockStart(statement->loc);
+        gIR->DBuilder.EmitBlockStart(statement->loc);
         statement->toIR(p);
-        DtoDwarfBlockEnd();
+        gIR->DBuilder.EmitBlockEnd();
     }
 
     /*p->scope().end = oldend;
@@ -331,7 +330,7 @@ void WhileStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // start a dwarf lexical block
-    DtoDwarfBlockStart(loc);
+    gIR->DBuilder.EmitBlockStart(loc);
 
     // create while blocks
     llvm::BasicBlock* oldend = gIR->scopeend();
@@ -371,7 +370,7 @@ void WhileStatement::toIR(IRState* p)
     gIR->scope() = IRScope(endbb,oldend);
 
     // end the dwarf lexical block
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -382,7 +381,7 @@ void DoStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // start a dwarf lexical block
-    DtoDwarfBlockStart(loc);
+    gIR->DBuilder.EmitBlockStart(loc);
 
     // create while blocks
     llvm::BasicBlock* oldend = gIR->scopeend();
@@ -419,7 +418,7 @@ void DoStatement::toIR(IRState* p)
     gIR->scope() = IRScope(endbb,oldend);
 
     // end the dwarf lexical block
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -430,7 +429,7 @@ void ForStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // start new dwarf lexical block
-    DtoDwarfBlockStart(loc);
+    gIR->DBuilder.EmitBlockStart(loc);
 
     // create for blocks
     llvm::BasicBlock* oldend = gIR->scopeend();
@@ -497,7 +496,7 @@ void ForStatement::toIR(IRState* p)
     gIR->scope() = IRScope(endbb,oldend);
 
     // end the dwarf lexical block
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -513,7 +512,7 @@ void BreakStatement::toIR(IRState* p)
         return;
 
     // emit dwarf stop point
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     if (ident != 0) {
         Logger::println("ident = %s", ident->toChars());
@@ -568,7 +567,7 @@ void ContinueStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // emit dwarf stop point
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     if (ident != 0) {
         Logger::println("ident = %s", ident->toChars());
@@ -634,21 +633,21 @@ void TryFinallyStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // emit dwarf stop point
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     // if there's no finalbody or no body, things are simple
     if (!finalbody) {
         if (body) {
-            DtoDwarfBlockStart(body->loc);
+            gIR->DBuilder.EmitBlockStart(body->loc);
             body->toIR(p);
-            DtoDwarfBlockEnd();
+            gIR->DBuilder.EmitBlockEnd();
         }
         return;
     }
     if (!body) {
-        DtoDwarfBlockStart(finalbody->loc);
+        gIR->DBuilder.EmitBlockStart(finalbody->loc);
         finalbody->toIR(p);
-        DtoDwarfBlockEnd();
+        gIR->DBuilder.EmitBlockEnd();
         return;
     }
 
@@ -690,9 +689,9 @@ void TryFinallyStatement::toIR(IRState* p)
     p->scope() = IRScope(trybb,finallybb);
 
     assert(body);
-    DtoDwarfBlockStart(body->loc);
+    gIR->DBuilder.EmitBlockStart(body->loc);
     body->toIR(p);
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 
     // terminate try BB
     if (!p->scopereturned())
@@ -705,9 +704,9 @@ void TryFinallyStatement::toIR(IRState* p)
     // do finally block
     //
     p->scope() = IRScope(finallybb,landingpadbb);
-    DtoDwarfBlockStart(finalbody->loc);
+    gIR->DBuilder.EmitBlockStart(finalbody->loc);
     finalbody->toIR(p);
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 
     // terminate finally
     //TODO: isn't it an error to have a 'returned' finally block?
@@ -727,7 +726,7 @@ void TryCatchStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // emit dwarf stop point
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     // create basic blocks
     llvm::BasicBlock* oldend = p->scopeend();
@@ -762,9 +761,9 @@ void TryCatchStatement::toIR(IRState* p)
     p->scope() = IRScope(trybb,landingpadbb);
 
     assert(body);
-    DtoDwarfBlockStart(body->loc);
+    gIR->DBuilder.EmitBlockStart(body->loc);
     body->toIR(p);
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 
     if (!gIR->scopereturned())
         llvm::BranchInst::Create(endbb, p->scopebb());
@@ -783,12 +782,12 @@ void ThrowStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // emit dwarf stop point
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     assert(exp);
     DValue* e = exp->toElemDtor(p);
 
-    DtoDwarfFuncEnd(gIR->func()->decl);
+    gIR->DBuilder.EmitFuncEnd(gIR->func()->decl);
 
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_throw_exception");
     //Logger::cout() << "calling: " << *fn << '\n';
@@ -865,7 +864,7 @@ void SwitchStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // emit dwarf stop point
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     llvm::BasicBlock* oldbb = gIR->scopebb();
     llvm::BasicBlock* oldend = gIR->scopeend();
@@ -1038,9 +1037,9 @@ void CaseStatement::toIR(IRState* p)
     p->scope() = IRScope(bodyBB, p->scopeend());
 
     assert(statement);
-    DtoDwarfBlockStart(statement->loc);
+    gIR->DBuilder.EmitBlockStart(statement->loc);
     statement->toIR(p);
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1065,9 +1064,9 @@ void DefaultStatement::toIR(IRState* p)
     p->scope() = IRScope(bodyBB, p->scopeend());
 
     assert(statement);
-    DtoDwarfBlockStart(statement->loc);
+    gIR->DBuilder.EmitBlockStart(statement->loc);
     statement->toIR(p);
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1082,7 +1081,7 @@ void UnrolledLoopStatement::toIR(IRState* p)
         return;
 
     // start a dwarf lexical block
-    DtoDwarfBlockStart(loc);
+    gIR->DBuilder.EmitBlockStart(loc);
 
     // DMD doesn't fold stuff like continue/break, and since this isn't really a loop
     // we have to keep track of each statement and jump to the next/end on continue/break
@@ -1140,7 +1139,7 @@ void UnrolledLoopStatement::toIR(IRState* p)
     p->scope() = IRScope(endbb,oldend);
 
     // end the dwarf lexical block
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1151,7 +1150,7 @@ void ForeachStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // start a dwarf lexical block
-    DtoDwarfBlockStart(loc);
+    gIR->DBuilder.EmitBlockStart(loc);
 
     //assert(arguments->dim == 1);
     assert(value != 0);
@@ -1267,7 +1266,7 @@ void ForeachStatement::toIR(IRState* p)
     llvm::BranchInst::Create(condbb, p->scopebb());
 
     // end the dwarf lexical block
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 
     // end
     p->scope() = IRScope(endbb,oldend);
@@ -1281,7 +1280,7 @@ void ForeachRangeStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // start a dwarf lexical block
-    DtoDwarfBlockStart(loc);
+    gIR->DBuilder.EmitBlockStart(loc);
 
     // evaluate lwr/upr
     assert(lwr->type->isintegral());
@@ -1371,7 +1370,7 @@ void ForeachRangeStatement::toIR(IRState* p)
     llvm::BranchInst::Create(condbb, p->scopebb());
 
     // end the dwarf lexical block
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 
     // END
     p->scope() = IRScope(endbb,oldend);
@@ -1430,7 +1429,7 @@ void GotoStatement::toIR(IRState* p)
     Logger::println("GotoStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "aftergoto", p->topfunc(), oldend);
@@ -1447,7 +1446,7 @@ void GotoDefaultStatement::toIR(IRState* p)
     Logger::println("GotoDefaultStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "aftergotodefault", p->topfunc(), oldend);
@@ -1468,7 +1467,7 @@ void GotoCaseStatement::toIR(IRState* p)
     Logger::println("GotoCaseStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "aftergotocase", p->topfunc(), oldend);
@@ -1492,7 +1491,7 @@ void WithStatement::toIR(IRState* p)
     Logger::println("WithStatement::toIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    DtoDwarfBlockStart(loc);
+    gIR->DBuilder.EmitBlockStart(loc);
 
     assert(exp);
 
@@ -1507,7 +1506,7 @@ void WithStatement::toIR(IRState* p)
     if (body)
         body->toIR(p);
 
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -1524,7 +1523,7 @@ void SynchronizedStatement::toIR(IRState* p)
     LOG_SCOPE;
 
     // emit dwarf stop point
-    DtoDwarfStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(loc.linnum);
 
     // enter lock
     if (exp)
@@ -1540,9 +1539,9 @@ void SynchronizedStatement::toIR(IRState* p)
 
     // emit body
     p->func()->gen->targetScopes.push_back(IRTargetScope(this,new EnclosingSynchro(this),NULL,NULL));
-    DtoDwarfBlockStart(body->loc);
+    gIR->DBuilder.EmitBlockStart(body->loc);
     body->toIR(p);
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
     p->func()->gen->targetScopes.pop_back();
 
     // exit lock
