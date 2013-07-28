@@ -453,13 +453,13 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
         return var;
     }
 
-    if (moduleInfoVar)
-        return moduleInfoVar;
-
-    // declare global
-    // flags will be modified at runtime so can't make it constant
-    moduleInfoVar = getOrCreateGlobal(loc, *gIR->module, moduleInfoType,
-        false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
+    if (!moduleInfoVar) {
+        // declare global
+        // flags will be modified at runtime so can't make it constant
+        LLType *moduleInfoType = llvm::StructType::create(llvm::getGlobalContext());
+        moduleInfoVar = getOrCreateGlobal(loc, *gIR->module, moduleInfoType,
+            false, llvm::GlobalValue::ExternalLinkage, NULL, MIname);
+    }
 
     return moduleInfoVar;
 }
@@ -637,10 +637,11 @@ void Module::genmoduleinfo()
     b.push(toConstantArray(it, at, name, len, false));
 
     // create and set initializer
-    b.finalize(moduleInfoType, moduleInfoSymbol());
+    LLGlobalVariable *moduleInfoSym = moduleInfoSymbol();
+    b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
 
     // build the modulereference and ctor for registering it
-    LLFunction* mictor = build_module_reference_and_ctor(moduleInfoSymbol());
+    LLFunction* mictor = build_module_reference_and_ctor(moduleInfoSym);
 
     AppendFunctionToLLVMGlobalCtorsDtors(mictor, 65535, true);
 }

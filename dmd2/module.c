@@ -27,18 +27,6 @@
 #include "d-dmd-gcc.h"
 #endif
 
-#if IN_LLVM
-#if LDC_LLVM_VER >= 303
-#include "llvm/IR/Type.h"
-#include "llvm/IR/LLVMContext.h"
-#include "llvm/IR/DerivedTypes.h"
-#else
-#include "llvm/Type.h"
-#include "llvm/LLVMContext.h"
-#include "llvm/DerivedTypes.h"
-#endif
-#endif
-
 AggregateDeclaration *Module::moduleinfo;
 
 Module *Module::rootModule;
@@ -144,7 +132,6 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     // LDC
     llvmForceLogging = false;
     moduleInfoVar = NULL;
-    moduleInfoType = llvm::StructType::create(llvm::getGlobalContext());
     this->doDocComment = doDocComment;
     this->doHdrGen = doHdrGen;
     this->isRoot = false;
@@ -214,9 +201,6 @@ void Module::deleteObjFile()
 
 Module::~Module()
 {
-#if IN_LLVM
-    delete moduleInfoType;
-#endif
 }
 
 const char *Module::kind()

@@ -201,7 +201,6 @@ struct Module : Package
 
     bool llvmForceLogging;
     llvm::GlobalVariable* moduleInfoVar;
-    llvm::StructType* moduleInfoType;
 
     // array ops emitted in this module already
     AA *arrayfuncs;
