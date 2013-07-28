@@ -13,7 +13,6 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/runtime.h"
-#include "gen/todebug.h"
 #include "gen/tollvm.h"
 #include "ir/irlandingpad.h"
 
@@ -50,7 +49,7 @@ void IRLandingPadCatchInfo::toIR()
         return;
 
     gIR->scope() = IRScope(target, target);
-    DtoDwarfBlockStart(catchStmt->loc);
+    gIR->DBuilder.EmitBlockStart(catchStmt->loc);
 
     // assign storage to catch var
     if (catchStmt->var) {
@@ -81,7 +80,7 @@ void IRLandingPadCatchInfo::toIR()
     if (!gIR->scopereturned())
         gIR->ir->CreateBr(end);
 
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 }
 
 IRLandingPadFinallyStatementInfo::IRLandingPadFinallyStatementInfo(Statement *finallyBody_) :
@@ -107,13 +106,13 @@ void IRLandingPadFinallyStatementInfo::toIR(LLValue *eh_ptr)
     gIR->scope() = IRScope(bb, gIR->scopeend());
 
     // set collision landing pad as unwind target and emit the body of the finally
-    DtoDwarfBlockStart(finallyBody->loc);
+    gIR->DBuilder.EmitBlockStart(finallyBody->loc);
     padInfo.scopeStack.push(IRLandingPadScope(collision));
     pad = collision;
     finallyBody->toIR(gIR);
     padInfo.scopeStack.pop();
     pad = padInfo.get();
-    DtoDwarfBlockEnd();
+    gIR->DBuilder.EmitBlockEnd();
 }
 
 void IRLandingPad::addCatch(Catch* catchstmt, llvm::BasicBlock* end)

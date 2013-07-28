@@ -14,7 +14,6 @@
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
-#include "gen/todebug.h"
 #include "gen/tollvm.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Support/CommandLine.h"
@@ -114,7 +113,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
         ctx = DtoLoad(irfunc->nestArg);
         dwarfValue = irfunc->nestArg;
         if (global.params.symdebug)
-            dwarfOpDeref(dwarfAddr);
+            gIR->DBuilder.OpDeref(dwarfAddr);
     }
     assert(ctx);
 
@@ -143,8 +142,8 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
     } else {
         // Load frame pointer and index that...
         if (dwarfValue && global.params.symdebug) {
-            dwarfOpOffset(dwarfAddr, val, vd->ir.irLocal->nestedDepth);
-            dwarfOpDeref(dwarfAddr);
+            gIR->DBuilder.OpOffset(dwarfAddr, val, vd->ir.irLocal->nestedDepth);
+            gIR->DBuilder.OpDeref(dwarfAddr);
         }
         Logger::println("Lower depth");
         val = DtoGEPi(val, 0, vd->ir.irLocal->nestedDepth);
@@ -157,7 +156,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
     assert(idx != -1 && "Nested context not yet resolved for variable.");
 
     if (dwarfValue && global.params.symdebug)
-        dwarfOpOffset(dwarfAddr, val, idx);
+        gIR->DBuilder.OpOffset(dwarfAddr, val, idx);
 
     val = DtoGEPi(val, 0, idx, vd->toChars());
     Logger::cout() << "Addr: " << *val << '\n';
@@ -170,7 +169,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
     }
 
     if (dwarfValue && global.params.symdebug)
-        DtoDwarfLocalVariable(dwarfValue, vd, dwarfAddr);
+        gIR->DBuilder.EmitLocalVariable(dwarfValue, vd, dwarfAddr);
 
     return new DVarValue(astype, vd, val);
 }
@@ -493,8 +492,8 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
 
             if (global.params.symdebug) {
                 LLSmallVector<LLValue*, 2> addr;
-                dwarfOpOffset(addr, frameType, vd->ir.irLocal->nestedIndex);
-                DtoDwarfLocalVariable(frame, vd, addr);
+                gIR->DBuilder.OpOffset(addr, frameType, vd->ir.irLocal->nestedIndex);
+                gIR->DBuilder.EmitLocalVariable(frame, vd, addr);
             }
         }
     }

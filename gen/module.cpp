@@ -34,7 +34,6 @@
 #include "gen/rttibuilder.h"
 #include "gen/runtime.h"
 #include "gen/structs.h"
-#include "gen/todebug.h"
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
 #include "ir/irmodule.h"
@@ -78,7 +77,7 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     IRBuilder<> builder(bb);
 
     // debug info
-    DtoDwarfSubProgramInternal(name.c_str(), symbolName.c_str());
+    gIR->DBuilder.EmitSubProgramInternal(name.c_str(), symbolName.c_str());
 
     // Call ctor's
     typedef std::list<FuncDeclaration*>::const_iterator FuncIterator;
@@ -193,7 +192,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     IRBuilder<> builder(bb);
 
     // debug info
-    DtoDwarfSubProgramInternal(fname.c_str(), fname.c_str());
+    gIR->DBuilder.EmitSubProgramInternal(fname.c_str(), fname.c_str());
 
     // get current beginning
     LLValue* curbeg = builder.CreateLoad(mref, "current");
@@ -262,7 +261,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     gABI = TargetABI::getTarget();
 
     // debug info
-    DtoDwarfCompileUnit(this);
+    gIR->DBuilder.EmitCompileUnit(this);
 
     // handle invalid 'objectø module
     if (!ClassDeclaration::object) {
@@ -301,8 +300,8 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
         }
     }
 
-    // finilize debug info
-    DtoDwarfModuleEnd();
+    // finalize debug info
+    gIR->DBuilder.EmitModuleEnd();
 
     // generate ModuleInfo
     genmoduleinfo();
