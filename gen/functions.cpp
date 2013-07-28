@@ -27,7 +27,6 @@
 #include "gen/nested.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
-#include "gen/todebug.h"
 #include "gen/tollvm.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Intrinsics.h"
@@ -942,7 +941,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 
     // debug info
-    fd->ir.irFunc->diSubprogram = DtoDwarfSubProgram(fd);
+    fd->ir.irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
 
     Type* t = fd->type->toBasetype();
     TypeFunction* f = static_cast<TypeFunction*>(t);
@@ -995,7 +994,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     irfunction->allocapoint = allocaPoint;
 
     // debug info - after all allocas, but before any llvm.dbg.declare etc
-    DtoDwarfFuncStart(fd);
+    gIR->DBuilder.EmitFuncStart(fd);
 
     // this hack makes sure the frame pointer elimination optimization is disabled.
     // this this eliminates a bunch of inline asm related issues.
@@ -1023,7 +1022,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         assert(fd->vthis->ir.irParam->value == thisvar);
         fd->vthis->ir.irParam->value = thismem;
 
-        DtoDwarfLocalVariable(thismem, fd->vthis);
+        gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis);
     }
 
     // give the 'nestArg' storage
@@ -1071,7 +1070,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
             }
 
             if (global.params.symdebug && !(isaArgument(irparam->value) && isaArgument(irparam->value)->hasByValAttr()) && !refout)
-                DtoDwarfLocalVariable(irparam->value, vd);
+                gIR->DBuilder.EmitLocalVariable(irparam->value, vd);
         }
     }
 
@@ -1120,7 +1119,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         // in automatically, so we do it here.
 
         // pass the previous block into this block
-        DtoDwarfFuncEnd(fd);
+        gIR->DBuilder.EmitFuncEnd(fd);
         if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
             llvm::ReturnInst::Create(gIR->context(), gIR->scopebb());
         }

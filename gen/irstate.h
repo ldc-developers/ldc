@@ -20,16 +20,12 @@
 #include "ir/irfunction.h"
 #include "ir/iraggr.h"
 #include "ir/irvar.h"
+#include "gen/dibuilder.h"
 #include <deque>
 #include <list>
 #include <sstream>
 #include <vector>
 
-#if LDC_LLVM_VER >= 302
-#include "llvm/DIBuilder.h"
-#else
-#include "llvm/Analysis/DIBuilder.h"
-#endif
 #include "llvm/Support/CallSite.h"
 
 namespace llvm {
@@ -178,7 +174,7 @@ struct IRState
     IRBuilderHelper ir;
 
     // debug info helper
-    llvm::DIBuilder dibuilder;
+    ldc::DIBuilder DBuilder;
 
     // static ctors/dtors/unittests
     typedef std::list<FuncDeclaration*> FuncDeclList;
