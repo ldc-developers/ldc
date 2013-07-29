@@ -209,9 +209,7 @@ int main(int argc, char** argv)
     ConfigFile cfg_file;
 
     // just ignore errors for now, they are still printed
-#define CFG_FILENAME "ldc2.conf"
-    cfg_file.read(global.params.argv0, (void*)main, CFG_FILENAME);
-#undef CFG_FILENAME
+    cfg_file.read(global.params.argv0, (void*)main, "ldc2.conf");
 
     // insert config file additions to the argument list
     final_args.insert(final_args.end(), cfg_file.switches_begin(), cfg_file.switches_end());
@@ -477,7 +475,15 @@ int main(int argc, char** argv)
 
     gTargetMachine = createTargetMachine(mTargetTriple, mArch, mCPU, mAttrs, bitness,
         mRelocModel, mCodeModel, codeGenOptLevel(), global.params.symdebug);
-    global.params.targetTriple = llvm::Triple(gTargetMachine->getTargetTriple());
+    llvm::Triple targetTriple = llvm::Triple(gTargetMachine->getTargetTriple());
+    global.params.targetTriple = targetTriple;
+    global.params.trace        = false;
+    global.params.isLinux      = targetTriple.getOS() == llvm::Triple::Linux;
+    global.params.isOSX        = targetTriple.isMacOSX();
+    global.params.isWindows    = targetTriple.isOSWindows();
+    global.params.isFreeBSD    = targetTriple.getOS() == llvm::Triple::FreeBSD;
+    global.params.isOpenBSD    = targetTriple.getOS() == llvm::Triple::OpenBSD;
+    global.params.isSolaris    = targetTriple.getOS() == llvm::Triple::Solaris;
 
 #if LDC_LLVM_VER >= 302
     gDataLayout = gTargetMachine->getDataLayout();

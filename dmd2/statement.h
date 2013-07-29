@@ -75,17 +75,16 @@ typedef bool (*sapply_fp_t)(Statement *, void *);
 // Back end
 struct IRState;
 struct Blockx;
-#if IN_LLVM
-class DValue;
-typedef DValue elem;
-#endif
 
 #ifdef IN_GCC
 union tree_node; typedef union tree_node block;
-//union tree_node; typedef union tree_node elem;
+union tree_node; typedef union tree_node elem;
+#elif IN_LLVM
+class DValue;
+typedef DValue elem;
 #else
 struct block;
-//struct elem;
+struct elem;
 #endif
 struct code;
 

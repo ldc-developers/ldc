@@ -5509,7 +5509,7 @@ void TemplateInstance::semanticTiargs(Loc loc, Scope *sc, Objects *tiargs, int f
                 {
                     ea = ea->optimize(WANTvalue);
                 }
-            } 
+            }
             else if (ea->op == TOKvar)
             {   /* This test is to skip substituting a const var with
                  * its initializer. The problem is the initializer won't
@@ -6999,3 +6999,5 @@ void TemplateMixin::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     buf->writebyte(';');
     buf->writenl();
 }
+
+

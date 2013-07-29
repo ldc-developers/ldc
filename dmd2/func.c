@@ -1888,16 +1888,8 @@ void FuncDeclaration::semantic3(Scope *sc)
                 if (cd)
                 {
                     if (!global.params.is64bit &&
-#if IN_LLVM
-                        global.params.targetTriple.isOSWindows() &&
-#else
                         global.params.isWindows &&
-#endif
-                        !isStatic() && !fbody->usesEH()
-#if !IN_LLVM
-                        && !global.params.trace
-#endif
-                    )
+                        !isStatic() && !fbody->usesEH() && !global.params.trace)
                     {
                         /* The back end uses the "jmonitor" hack for syncing;
                          * no need to do the sync at this level.

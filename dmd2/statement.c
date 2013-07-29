@@ -1989,11 +1989,6 @@ Lagain:
         {
             Expression *ec;
             Expression *e;
-#if IN_LLVM
-            FuncDeclaration *fdapply;
-            TypeDelegate* dgty;
-            TypeDelegate* fldeTy;
-#endif
 
             if (!checkForArgTypes())
             {   body = body->semanticNoScope(sc);
@@ -2135,46 +2130,36 @@ Lagain:
                 /* Call:
                  *      _aaApply(aggr, keysize, flde)
                  */
-#if !IN_LLVM
+#if IN_LLVM // LDC: Build parameters.
+                static const char *names[2] = { "_aaApply", "_aaApply2" };
+                static FuncDeclaration *funcs[2] = { NULL, NULL };
+                static TypeDelegate *dgs[2] = { NULL, NULL };
+
                 FuncDeclaration *fdapply;
-                if (dim == 2)
-                    fdapply = FuncDeclaration::genCfunc(Type::tindex, "_aaApply2");
-                else
-                    fdapply = FuncDeclaration::genCfunc(Type::tindex, "_aaApply");
-#else
-                //LDC: Build arguments.
-                static FuncDeclaration *aaApply2_fd = NULL;
-                static TypeDelegate* aaApply2_dg;
-                if(!aaApply2_fd) {
+                TypeDelegate *fldeTy;
+
+                unsigned char i = dim == 2;
+                if (!funcs[i]) {
                     Parameters* args = new Parameters;
                     args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL));
                     args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
                     Parameters* dgargs = new Parameters;
                     dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-                    dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-                    aaApply2_dg = new TypeDelegate(new TypeFunction(dgargs, Type::tint32, 0, LINKd));
-                    args->push(new Parameter(STCin, aaApply2_dg, NULL, NULL));
-                    aaApply2_fd = FuncDeclaration::genCfunc(args, Type::tint32, "_aaApply2");
+                    if (dim == 2)
+                        dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
+                    dgs[i] = new TypeDelegate(new TypeFunction(dgargs, Type::tint32, 0, LINKd));
+                    args->push(new Parameter(STCin, dgs[i], NULL, NULL));
+                    funcs[i] = FuncDeclaration::genCfunc(args, Type::tint32, names[i]);
                 }
-                static FuncDeclaration *aaApply_fd = NULL;
-                static TypeDelegate* aaApply_dg;
-                if(!aaApply_fd) {
-                    Parameters* args = new Parameters;
-                    args->push(new Parameter(STCin, Type::tvoid->pointerTo(), NULL, NULL)); // FIXME: Real parameter type is AA.
-                    args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
-                    Parameters* dgargs = new Parameters;
-                    dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-                    aaApply_dg = new TypeDelegate(new TypeFunction(dgargs, Type::tint32, 0, LINKd));
-                    args->push(new Parameter(STCin, aaApply_dg, NULL, NULL));
-                    aaApply_fd = FuncDeclaration::genCfunc(args, Type::tint32, "_aaApply");
-                }
-                if (dim == 2) {
-                    fdapply = aaApply2_fd;
-                    fldeTy = aaApply2_dg;
-                } else {
-                    fdapply = aaApply_fd;
-                    fldeTy = aaApply_dg;
-                }
+                fdapply = funcs[i];
+                fldeTy = dgs[i];
+
+#else
+                FuncDeclaration *fdapply;
+                if (dim == 2)
+                    fdapply = FuncDeclaration::genCfunc(Type::tindex, "_aaApply2");
+                else
+                    fdapply = FuncDeclaration::genCfunc(Type::tindex, "_aaApply");
 #endif
                 ec = new VarExp(Loc(), fdapply);
                 Expressions *exps = new Expressions();
@@ -2229,24 +2214,19 @@ Lagain:
                 const char *r = (op == TOKforeach_reverse) ? "R" : "";
                 int j = sprintf(fdname, "_aApply%s%.*s%llu", r, 2, fntab[flag], (ulonglong)dim);
                 assert(j < sizeof(fdname) / sizeof(fdname[0]));
-#if IN_LLVM
-                //LDC: Build arguments.
+#if IN_LLVM // LDC: Build parameters.
+                FuncDeclaration *fdapply;
+                TypeDelegate *dgty;
                 Parameters* args = new Parameters;
                 args->push(new Parameter(STCin, tn->arrayOf(), NULL, NULL));
-                if (dim == 2) {
-                    Parameters* dgargs = new Parameters;
+                Parameters* dgargs = new Parameters;
+                dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
+                if (dim == 2)
                     dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-                    dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-                    dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tint32, 0, LINKd));
-                    args->push(new Parameter(STCin, dgty, NULL, NULL));
-                    fdapply = FuncDeclaration::genCfunc(args, Type::tint32, fdname);
-                } else {
-                    Parameters* dgargs = new Parameters;
-                    dgargs->push(new Parameter(STCin, Type::tvoidptr, NULL, NULL));
-                    dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tint32, 0, LINKd));
-                    args->push(new Parameter(STCin, dgty, NULL, NULL));
-                    fdapply = FuncDeclaration::genCfunc(args, Type::tint32, fdname);
-                }
+                dgty = new TypeDelegate(new TypeFunction(dgargs, Type::tint32, 0, LINKd));
+                args->push(new Parameter(STCin, dgty, NULL, NULL));
+                fdapply = FuncDeclaration::genCfunc(args, Type::tint32, fdname);
+
 #else
                 FuncDeclaration *fdapply = FuncDeclaration::genCfunc(Type::tindex, fdname);
 #endif
@@ -4419,8 +4399,7 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
         Statements *cs = new Statements();
         cs->push(new ExpStatement(loc, tmp));
 
-#if IN_LLVM
-        // LDC: Build args
+#if IN_LLVM // LDC: Build parameters.
         Parameters* args = new Parameters;
         args->push(new Parameter(STCin, ClassDeclaration::object->type, NULL, NULL));
         FuncDeclaration *fdenter = FuncDeclaration::genCfunc(args, Type::tvoid, Id::monitorenter);
@@ -4431,7 +4410,7 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
         e->type = Type::tvoid;                  // do not run semantic on e
         cs->push(new ExpStatement(loc, e));
 
-#if IN_LLVM
+#if IN_LLVM  // LDC: Build parameters.
         FuncDeclaration *fdexit = FuncDeclaration::genCfunc(args, Type::tvoid, Id::monitorexit);
 #else
         FuncDeclaration *fdexit = FuncDeclaration::genCfunc(Type::tvoid, Id::monitorexit);
@@ -4465,8 +4444,7 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
         Statements *cs = new Statements();
         cs->push(new ExpStatement(loc, tmp));
 
-#if IN_LLVM
-        // LDC: Build args
+#if IN_LLVM  // LDC: Build parameters.
         Parameters* args = new Parameters;
         args->push(new Parameter(STCin, t->pointerTo(), NULL, NULL));
 
@@ -4480,7 +4458,7 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
         e->type = Type::tvoid;                  // do not run semantic on e
         cs->push(new ExpStatement(loc, e));
 
-#if IN_LLVM
+#if IN_LLVM // LDC: Build parameters.
         FuncDeclaration *fdexit = FuncDeclaration::genCfunc(args, Type::tvoid, Id::criticalexit);
 #else
         FuncDeclaration *fdexit = FuncDeclaration::genCfunc(Type::tvoid, Id::criticalexit);

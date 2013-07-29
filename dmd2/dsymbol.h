@@ -163,7 +163,7 @@ struct Dsymbol : Object
     void deprecation(Loc loc, const char *format, ...);
     void deprecation(const char *format, ...);
     void checkDeprecated(Loc loc, Scope *sc);
-    Module *getModule();        // module where declared
+    Module *getModule();
     Module *getAccessModule();
     Dsymbol *pastMixin();
     Dsymbol *toParent();

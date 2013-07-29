@@ -3624,37 +3624,24 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident, int f
 
     if (ident == Id::reverse && (n->ty == Tchar || n->ty == Twchar))
     {
-
-#if IN_LLVM
-        Expression *ec;
-
-        //LDC: Build arguments.
-        static FuncDeclaration *adReverseChar_fd = NULL;
-        if(!adReverseChar_fd) {
-            Parameters* args = new Parameters;
-            Type* arrty = Type::tchar->arrayOf();
-            args->push(new Parameter(STCin, arrty, NULL, NULL));
-            adReverseChar_fd = FuncDeclaration::genCfunc(args, arrty, "_adReverseChar");
-        }
-        static FuncDeclaration *adReverseWchar_fd = NULL;
-        if(!adReverseWchar_fd) {
-            Parameters* args = new Parameters;
-            Type* arrty = Type::twchar->arrayOf();
-            args->push(new Parameter(STCin, arrty, NULL, NULL));
-            adReverseWchar_fd = FuncDeclaration::genCfunc(args, arrty, "_adReverseWchar");
-        }
-
-        if(n->ty == Twchar)
-            ec = new VarExp(Loc(), adReverseWchar_fd);
-        else
-            ec = new VarExp(Loc(), adReverseChar_fd);
-#else
         static const char *name[2] = { "_adReverseChar", "_adReverseWchar" };
 
+#if IN_LLVM // LDC: Build parameters.
+        static FuncDeclaration *funcs[2] = { 0, 0 };
+        int i = n->ty == Twchar;
+        if (!funcs[i]) {
+            Parameters *args = new Parameters;
+            Type *next = n->ty == Twchar ? Type::twchar : Type::tchar;
+            Type *arrty = next->arrayOf();
+            args->push(new Parameter(STCin, arrty, NULL, NULL));
+            funcs[i] = FuncDeclaration::genCfunc(args, arrty, name[i]);
+        }
+        FuncDeclaration *fd = funcs[i];
+#else
         const char *nm = name[n->ty == Twchar];
         FuncDeclaration *fd = FuncDeclaration::genCfunc(Type::tindex, nm);
-        Expression *ec = new VarExp(Loc(), fd);
 #endif
+        Expression *ec = new VarExp(Loc(), fd);
         e = e->castTo(sc, n->arrayOf());        // convert to dynamic array
         Expressions *arguments = new Expressions();
         arguments->push(e);
@@ -3664,34 +3651,28 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident, int f
     else if (ident == Id::sort && (n->ty == Tchar || n->ty == Twchar))
     {
         Expression *ec;
+        FuncDeclaration *fd;
         Expressions *arguments;
+        const char *nm;
+        static const char *name[2] = { "_adSortChar", "_adSortWchar" };
 
-#if IN_LLVM
-        //LDC: Build arguments.
-        static FuncDeclaration *adSortChar_fd = NULL;
-        if(!adSortChar_fd) {
-                Parameters* args = new Parameters;
-                Type* arrty = Type::tchar->arrayOf();
-                args->push(new Parameter(STCin, arrty, NULL, NULL));
-                adSortChar_fd = FuncDeclaration::genCfunc(args, arrty, "_adSortChar");
+#if IN_LLVM // LDC: Build parameters.
+        static FuncDeclaration *funcs[2] = { 0, 0 };
+        int i = n->ty == Twchar;
+        if (!funcs[i]) {
+            Parameters *args = new Parameters;
+            Type *next = n->ty == Twchar ? Type::twchar : Type::tchar;
+            Type *arrty = next->arrayOf();
+            args->push(new Parameter(STCin, arrty, NULL, NULL));
+            funcs[i] = FuncDeclaration::genCfunc(args, arrty, name[i]);
         }
-        static FuncDeclaration *adSortWchar_fd = NULL;
-        if(!adSortWchar_fd) {
-                Parameters* args = new Parameters;
-                Type* arrty = Type::twchar->arrayOf();
-                args->push(new Parameter(STCin, arrty, NULL, NULL));
-                adSortWchar_fd = FuncDeclaration::genCfunc(args, arrty, "_adSortWchar");
-        }
-
-        if(n->ty == Twchar)
-                ec = new VarExp(Loc(), adSortWchar_fd);
-        else
-                ec = new VarExp(Loc(), adSortChar_fd);
+        fd = funcs[i];
 #else
         nm = name[n->ty == Twchar];
         fd = FuncDeclaration::genCfunc(Type::tindex, nm);
-        ec = new VarExp(Loc(), fd);
 #endif
+        ec = new VarExp(Loc(), fd);
+
         e = e->castTo(sc, n->arrayOf());        // convert to dynamic array
         arguments = new Expressions();
         arguments->push(e);
@@ -3701,6 +3682,7 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident, int f
     else if (ident == Id::reverse || ident == Id::dup || ident == Id::idup)
     {
         Expression *ec;
+        FuncDeclaration *fd;
         Expressions *arguments;
         int size = next->size(e->loc);
         int dup;
@@ -3708,31 +3690,31 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident, int f
         Expression *olde = e;
         assert(size);
         dup = (ident == Id::dup || ident == Id::idup);
-#if IN_LLVM
-        //LDC: Build arguments.
-        static FuncDeclaration *adDup_fd = NULL;
-        if(!adDup_fd) {
-            Parameters* args = new Parameters;
-            args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
-            args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
-            adDup_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::adDup);
+#if IN_LLVM  // LDC: Build parameters.
+        Parameters *args = new Parameters;
+        if (dup) {
+            static FuncDeclaration *adDup_fd = 0;
+            if (!adDup_fd) {
+                Parameters* args = new Parameters;
+                args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
+                args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+                adDup_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::adDup);
+            }
+            fd = adDup_fd;
+        } else {
+            static FuncDeclaration *adReverse_fd = 0;
+            if (!adReverse_fd) {
+                Parameters* args = new Parameters;
+                args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
+                args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
+                adReverse_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::adReverse);
+            }
+            fd = adReverse_fd;
         }
-        static FuncDeclaration *adReverse_fd = NULL;
-        if(!adReverse_fd) {
-            Parameters* args = new Parameters;
-            args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
-            args->push(new Parameter(STCin, Type::tsize_t, NULL, NULL));
-            adReverse_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), Id::adReverse);
-        }
-
-        if(dup)
-            ec = new VarExp(Loc(), adDup_fd);
-        else
-            ec = new VarExp(Loc(), adReverse_fd);
 #else
         fd = FuncDeclaration::genCfunc(Type::tindex, dup ? Id::adDup : Id::adReverse);
-        ec = new VarExp(Loc(), fd);
 #endif
+        ec = new VarExp(Loc(), fd);
         e = e->castTo(sc, n->arrayOf());        // convert to dynamic array
         arguments = new Expressions();
         if (dup)
@@ -3768,21 +3750,18 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident, int f
         Expression *ec;
         Expressions *arguments;
 
-#if IN_LLVM
-        //LDC: Build arguments.
-        static FuncDeclaration *adSort_fd = NULL;
-        if(!adSort_fd) {
+#if IN_LLVM  // LDC: Build parameters.
+        static FuncDeclaration *fd = NULL;
+        if (!fd) {
             Parameters* args = new Parameters;
             args->push(new Parameter(STCin, Type::tvoid->arrayOf(), NULL, NULL));
             args->push(new Parameter(STCin, Type::typeinfo->type, NULL, NULL));
-            adSort_fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), "_adSort");
+            fd = FuncDeclaration::genCfunc(args, Type::tvoid->arrayOf(), "_adSort");
         }
-
-        ec = new VarExp(Loc(), adSort_fd);
 #else
         fd = FuncDeclaration::genCfunc(tint32->arrayOf(), "_adSort");
-        ec = new VarExp(Loc(), fd);
 #endif
+        ec = new VarExp(Loc(), fd);
         e = e->castTo(sc, n->arrayOf());        // convert to dynamic array
         arguments = new Expressions();
         arguments->push(e);

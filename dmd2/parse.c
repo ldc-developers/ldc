@@ -993,7 +993,7 @@ enum LINK Parser::parseLinkage()
         else if (id == Id::System)
         {
 #if IN_LLVM
-            if (global.params.targetTriple.isOSWindows())
+            if (global.params.isWindows)
                 link = LINKwindows;
             else
                 link = LINKc;
