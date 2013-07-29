@@ -251,7 +251,7 @@ int isDruntimeArrayOp(Identifier *ident)
 ArrayOp *buildArrayOp(Identifier *ident, BinExp *exp, Scope *sc, Loc loc)
 {
     ArrayOp *op = new ArrayOp;
-#if IN_LLVM
+#if IN_LLVM  // LDC: Build parameters.
     Parameters *fparams = new Parameters();
     Expression *loopbody = exp->buildArrayLoop(fparams);
     if (isDruntimeArrayOp(ident))
