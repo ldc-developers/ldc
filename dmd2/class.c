@@ -588,11 +588,7 @@ void ClassDeclaration::semantic(Scope *sc)
 
     if (isCOMclass())
     {
-#if IN_LLVM
-        if (global.params.targetTriple.isOSWindows())
-#else
         if (global.params.isWindows)
-#endif
             sc->linkage = LINKwindows;
         else
             /* This enables us to use COM objects under Linux and
