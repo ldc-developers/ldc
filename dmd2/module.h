@@ -143,12 +143,15 @@ struct Module : Package
     void parse();       // syntactic parse
 #endif
     void importAll(Scope *sc);
-    void semantic(Scope* unused_sc = NULL);    // semantic analysis
-    void semantic2(Scope* unused_sc = NULL);   // pass 2 semantic analysis
-    void semantic3(Scope* unused_sc = NULL);   // pass 3 semantic analysis
+    void semantic();    // semantic analysis
+    void semantic2();   // pass 2 semantic analysis
+    void semantic3();   // pass 3 semantic analysis
     void inlineScan();  // scan for functions to inline
     void genhdrfile();  // generate D import file
-//    void gensymfile();
+#if IN_DMD
+    void genobjfile(int multiobj);
+    void gensymfile();
+#endif
     void gendocfile();
     int needModuleInfo();
     Dsymbol *search(Loc loc, Identifier *ident, int flags);
@@ -201,7 +204,6 @@ struct Module : Package
 
     bool llvmForceLogging;
     llvm::GlobalVariable* moduleInfoVar;
-    llvm::StructType* moduleInfoType;
 
     // array ops emitted in this module already
     AA *arrayfuncs;

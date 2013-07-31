@@ -162,7 +162,14 @@ struct Param
     bool vtls;          // identify thread local variables
     bool vfield;        // identify non-mutable field variables
     ubyte symdebug;     // insert debug symbolic information
+    bool trace;         // insert profiling hooks
     bool is64bit;       // generate 64 bit code
+    bool isLinux;       // generate code for linux
+    bool isOSX;         // generate code for Mac OSX
+    bool isWindows;     // generate code for Windows
+    bool isFreeBSD;     // generate code for FreeBSD
+    bool isOpenBSD;     // generate code for OpenBSD
+    bool isSolaris;     // generate code for Solaris
 #else
     char dll;           // generate shared dynamic library
     char lib;           // write library file instead of object file(s)

@@ -145,7 +145,7 @@ struct Declaration : Dsymbol
     enum PROT protection;
     enum LINK linkage;
     int inuse;                  // used to detect cycles
-    const char *mangleOverride;      // overridden symbol with pragma(mangle, "...") 
+    const char *mangleOverride;      // overridden symbol with pragma(mangle, "...")
     enum Semantic sem;
 
     Declaration(Identifier *id);
