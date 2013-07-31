@@ -6437,7 +6437,7 @@ MATCH TypeDelegate::implicitConvTo(Type *to)
     //printf("TypeDelegate::implicitConvTo(this=%p, to=%p)\n", this, to);
     //printf("from: %s\n", toChars());
     //printf("to  : %s\n", to->toChars());
-    if (this == to)
+    if (equals(to))
         return MATCHexact;
 #if 1 // not allowing covariant conversions because it interferes with overriding
     if (to->ty == Tdelegate && this->nextOf()->covariant(to->nextOf()) == 1)

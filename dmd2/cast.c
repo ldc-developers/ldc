@@ -163,7 +163,7 @@ MATCH Expression::implicitConvTo(Type *t)
         type = Type::terror;
     }
     Expression *e = optimize(WANTvalue | WANTflags);
-    if (e->type == t)
+    if (e->type->equals(t))
         return MATCHexact;
     if (e != this)
     {   //printf("\toptimized to %s of type %s\n", e->toChars(), e->type->toChars());
