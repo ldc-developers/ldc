@@ -740,7 +740,7 @@ struct TypeFunction : TypeNext
     // LDC
     IrFuncTy fty;
 
-    FuncDeclaration* funcdecl;
+    FuncDeclaration *sym;
 #endif
 };
 

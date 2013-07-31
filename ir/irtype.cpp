@@ -169,10 +169,10 @@ IrTypePointer* IrTypePointer::get(Type* dt)
         if (dt->nextOf()->ty == Tfunction)
         {
             TypeFunction* tf = static_cast<TypeFunction*>(dt->nextOf());
-            if (tf->funcdecl)
+            if (tf->sym)
             {
                 if (FuncLiteralDeclaration* fld =
-                    tf->funcdecl->isFuncLiteralDeclaration())
+                    tf->sym->isFuncLiteralDeclaration())
                 {
                     if (fld->tok == TOKreserved)
                     {

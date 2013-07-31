@@ -121,8 +121,8 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
     {
         assert(type->ty == Tfunction && "invalid function type");
         TypeFunction* tf = (TypeFunction*)type;
-        if (tf->funcdecl == NULL)
-            tf->funcdecl = this;
+        if (tf->sym == NULL)
+            tf->sym = this;
     }
 #endif
 }

@@ -5205,7 +5205,7 @@ TypeFunction::TypeFunction(Parameters *parameters, Type *treturn, int varargs, e
     this->fargs = NULL;
 
 #if IN_LLVM
-    this->funcdecl = NULL;
+    this->sym = NULL;
 #endif
     if (stc & STCpure)
         this->purity = PUREfwdref;
@@ -6358,7 +6358,7 @@ Type *TypeFunction::addStorageClass(StorageClass stc)
             tf->trust = TRUSTsafe;
 
 #if IN_LLVM
-        tf->funcdecl = t->funcdecl;
+        tf->sym = t->sym;
 #endif
 
         tf->deco = tf->merge()->deco;

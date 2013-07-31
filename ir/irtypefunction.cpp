@@ -34,8 +34,8 @@ IrTypeFunction* IrTypeFunction::get(Type* dt, Type* nestedContextOverride)
     // a class vtbl, ...
     llvm::Type* lt;
     TypeFunction* tf = static_cast<TypeFunction*>(dt);
-    if (tf->funcdecl)
-        lt = DtoFunctionType(tf->funcdecl);
+    if (tf->sym)
+        lt = DtoFunctionType(tf->sym);
     else
         lt = DtoFunctionType(tf, NULL, nestedContextOverride);
 
