@@ -241,6 +241,7 @@ struct Type : Object
 
     Type(TY ty);
     virtual const char *kind();
+    Type *copy();
     virtual Type *syntaxCopy();
     int equals(Object *o);
     int dyncast() { return DYNCAST_TYPE; } // kludge for template.isType()
@@ -703,7 +704,6 @@ struct TypeFunction : TypeNext
 
     TypeFunction(Parameters *parameters, Type *treturn, int varargs, enum LINK linkage, StorageClass stc = 0);
     const char *kind();
-    TypeFunction *copy();
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     void purityLevel();
