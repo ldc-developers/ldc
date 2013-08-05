@@ -181,7 +181,7 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
     size_t offset = 0;
     size_t field_index = 0;
 
-    bool packed = (sd->type->alignsize() == 1);
+    bool packed = (sd->alignment == 1);
 
     // first we sort the list by offset
     std::sort(data.begin(), data.end(), var_offset_sort_cb);
