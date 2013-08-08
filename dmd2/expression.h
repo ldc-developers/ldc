@@ -65,14 +65,14 @@ struct dt_t;
 
 #ifdef IN_GCC
 union tree_node; typedef union tree_node elem;
-#endif
-#if IN_DMD
+#elif IN_LLVM
+class DValue; typedef class DValue elem;
+#else
 struct elem;
 #endif
 
 #if IN_LLVM
 struct IRState;
-class DValue;
 namespace llvm {
     class Constant;
     class ConstantInt;
@@ -226,22 +226,18 @@ struct Expression : Object
     virtual Expression *buildArrayLoop(Parameters *fparams);
     int isArrayOperand();
 
-#if IN_DMD
     // Back end
     virtual elem *toElem(IRState *irs);
     elem *toElemDtor(IRState *irs);
-    virtual dt_t **toDt(dt_t **pdt);
-#endif
-
 #if IN_LLVM
-    virtual DValue* toElem(IRState* irs);
-    DValue *toElemDtor(IRState *irs);
     virtual llvm::Constant *toConstElem(IRState *irs);
     virtual void cacheLvalue(IRState* irs);
 
     llvm::Value* cachedLvalue;
 
     virtual AssignExp* isAssignExp() { return NULL; }
+#else
+    virtual dt_t **toDt(dt_t **pdt);
 #endif
 };
 
@@ -267,12 +263,11 @@ struct IntegerExp : Expression
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toMangleBuffer(OutBuffer *buf);
     Expression *toLvalue(Scope *sc, Expression *e);
-#if IN_DMD
     elem *toElem(IRState *irs);
-    dt_t **toDt(dt_t **pdt);
-#elif IN_LLVM
-    DValue* toElem(IRState* irs);
+#if IN_LLVM
     llvm::Constant *toConstElem(IRState *irs);
+#else
+    dt_t **toDt(dt_t **pdt);
 #endif
 };
 
@@ -305,12 +300,11 @@ struct RealExp : Expression
     int isBool(int result);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toMangleBuffer(OutBuffer *buf);
-#if IN_DMD
     elem *toElem(IRState *irs);
-    dt_t **toDt(dt_t **pdt);
-#elif IN_LLVM
-    DValue* toElem(IRState* irs);
+#if IN_LLVM
     llvm::Constant *toConstElem(IRState *irs);
+#else
+    dt_t **toDt(dt_t **pdt);
 #endif
 };
 
@@ -333,12 +327,11 @@ struct ComplexExp : Expression
     int isBool(int result);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toMangleBuffer(OutBuffer *buf);
-#if IN_DMD
     elem *toElem(IRState *irs);
-    dt_t **toDt(dt_t **pdt);
-#elif IN_LLVM
-    DValue* toElem(IRState* irs);
+#if IN_LLVM
     llvm::Constant *toConstElem(IRState *irs);
+#else
+    dt_t **toDt(dt_t **pdt);
 #endif
 };
 
@@ -392,13 +385,7 @@ struct ThisExp : Expression
     Expression *doInline(InlineDoState *ids);
     //Expression *inlineScan(InlineScanState *iss);
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct SuperExp : ThisExp
@@ -426,12 +413,11 @@ struct NullExp : Expression
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
-#if IN_DMD
     elem *toElem(IRState *irs);
-    dt_t **toDt(dt_t **pdt);
-#elif IN_LLVM
-    DValue* toElem(IRState* irs);
+#if IN_LLVM
     llvm::Constant *toConstElem(IRState *irs);
+#else
+    dt_t **toDt(dt_t **pdt);
 #endif
 };
 
@@ -465,12 +451,11 @@ struct StringExp : Expression
     unsigned charAt(size_t i);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toMangleBuffer(OutBuffer *buf);
-#if IN_DMD
     elem *toElem(IRState *irs);
-    dt_t **toDt(dt_t **pdt);
-#elif IN_LLVM
-    DValue* toElem(IRState* irs);
+#if IN_LLVM
     llvm::Constant *toConstElem(IRState *irs);
+#else
+    dt_t **toDt(dt_t **pdt);
 #endif
 };
 
@@ -500,16 +485,10 @@ struct TupleExp : Expression
     Expression *optimize(int result, bool keepLvalue = false);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     Expression *castTo(Scope *sc, Type *t);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
 
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct ArrayLiteralExp : Expression
@@ -524,11 +503,7 @@ struct ArrayLiteralExp : Expression
     int apply(apply_fp_t fp, void *param);
     Expression *semantic(Scope *sc);
     int isBool(int result);
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#else
     elem *toElem(IRState *irs);
-#endif
     StringExp *toString();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toMangleBuffer(OutBuffer *buf);
@@ -559,9 +534,7 @@ struct AssocArrayLiteralExp : Expression
     int apply(apply_fp_t fp, void *param);
     Expression *semantic(Scope *sc);
     int isBool(int result);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toMangleBuffer(OutBuffer *buf);
     Expression *optimize(int result, bool keepLvalue = false);
@@ -572,10 +545,6 @@ struct AssocArrayLiteralExp : Expression
 
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 // scrubReturnValue is running
@@ -623,12 +592,12 @@ struct StructLiteralExp : Expression
     Expression *semantic(Scope *sc);
     Expression *getField(Type *type, unsigned offset);
     int getFieldIndex(Type *type, unsigned offset);
+    elem *toElem(IRState *irs);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toMangleBuffer(OutBuffer *buf);
     Expression *optimize(int result, bool keepLvalue = false);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
 #if IN_LLVM
-    DValue* toElem(IRState* irs);
     // With the introduction of pointers returned from CTFE, struct literals can
     // now contain pointers to themselves. While in toElem, contains a pointer
     // to the memory used to build the literal for resolving such references.
@@ -667,13 +636,7 @@ struct TypeExp : Expression
     int rvalue();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Expression *optimize(int result, bool keepLvalue = false);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct ScopeExp : Expression
@@ -683,14 +646,8 @@ struct ScopeExp : Expression
     ScopeExp(Loc loc, ScopeDsymbol *sds);
     Expression *syntaxCopy();
     Expression *semantic(Scope *sc);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct TemplateExp : Expression
@@ -726,18 +683,12 @@ struct NewExp : Expression
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     Expression *optimize(int result, bool keepLvalue = false);
     MATCH implicitConvTo(Type *t);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     //int inlineCost3(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     //Expression *inlineScan(InlineScanState *iss);
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct NewAnonClassExp : Expression
@@ -765,13 +716,7 @@ struct SymbolExp : Expression
 
     SymbolExp(Loc loc, enum TOK op, int size, Declaration *var, int hasOverloads);
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 #endif
 
@@ -819,19 +764,17 @@ struct VarExp : SymbolExp
     int isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
     Expression *modifiableLvalue(Scope *sc, Expression *e);
-#if IN_DMD
+#if IN_LLVM
+    DValue* toElem(IRState* irs);
+    llvm::Constant *toConstElem(IRState *irs);
+    void cacheLvalue(IRState* irs);
+#else
     dt_t **toDt(dt_t **pdt);
 #endif
 
     int inlineCost3(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     //Expression *inlineScan(InlineScanState *iss);
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-    void cacheLvalue(IRState* irs);
-#endif
 };
 
 #if DMDV2
@@ -866,19 +809,16 @@ struct FuncExp : Expression
     Expression *inferType(Type *t, int flag = 0, Scope *sc = NULL, TemplateParameters *tparams = NULL);
     char *toChars();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-#if IN_DMD
     elem *toElem(IRState *irs);
+#if IN_LLVM
+    llvm::Constant *toConstElem(IRState *irs);
+#else
     dt_t **toDt(dt_t **pdt);
 #endif
 
     int inlineCost3(InlineCostState *ics);
     //Expression *doInline(InlineDoState *ids);
     //Expression *inlineScan(InlineScanState *iss);
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-#endif
 };
 
 // Declaration of a symbol
@@ -892,17 +832,11 @@ struct DeclarationExp : Expression
     Expression *semantic(Scope *sc);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
 
     int inlineCost3(InlineCostState *ics);
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct TypeidExp : Expression
@@ -934,13 +868,7 @@ struct HaltExp : Expression
     Expression *semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct IsExp : Expression
@@ -1078,13 +1006,7 @@ struct AssertExp : UnaExp
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct DotIdExp : UnaExp
@@ -1122,12 +1044,9 @@ struct DotVarExp : UnaExp
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void dump(int indent);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
 
 #if IN_LLVM
-    DValue* toElem(IRState* irs);
     void cacheLvalue(IRState* irs);
 #endif
 };
@@ -1159,13 +1078,7 @@ struct DelegateExp : UnaExp
     void dump(int indent);
 
     int inlineCost3(InlineCostState *ics);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct DotTypeExp : UnaExp
@@ -1175,13 +1088,7 @@ struct DotTypeExp : UnaExp
     DotTypeExp(Loc loc, Expression *e, Dsymbol *sym);
     Expression *semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct CallExp : UnaExp
@@ -1201,9 +1108,7 @@ struct CallExp : UnaExp
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void dump(int indent);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
     int isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
     Expression *addDtorHook(Scope *sc);
@@ -1214,7 +1119,6 @@ struct CallExp : UnaExp
     Expression *inlineScan(InlineScanState *iss);
 
 #if IN_LLVM
-    DValue* toElem(IRState* irs);
     void cacheLvalue(IRState* p);
 #endif
 };
@@ -1224,15 +1128,12 @@ struct AddrExp : UnaExp
     AddrExp(Loc loc, Expression *e);
     Expression *semantic(Scope *sc);
     void checkEscape();
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
     MATCH implicitConvTo(Type *t);
     Expression *castTo(Scope *sc, Type *t);
     Expression *optimize(int result, bool keepLvalue = false);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
 #if IN_LLVM
-    DValue* toElem(IRState* irs);
     llvm::Constant *toConstElem(IRState *irs);
 #else
     dt_t **toDt(dt_t **pdt);
@@ -1250,9 +1151,7 @@ struct PtrExp : UnaExp
     Expression *toLvalue(Scope *sc, Expression *e);
     Expression *modifiableLvalue(Scope *sc, Expression *e);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
     Expression *optimize(int result, bool keepLvalue = false);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
 
@@ -1260,7 +1159,6 @@ struct PtrExp : UnaExp
     Identifier *opId();
 
 #if IN_LLVM
-    DValue* toElem(IRState* irs);
     void cacheLvalue(IRState* irs);
 #endif
 };
@@ -1277,13 +1175,7 @@ struct NegExp : UnaExp
     // For operator overloading
     Identifier *opId();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct UAddExp : UnaExp
@@ -1307,13 +1199,7 @@ struct ComExp : UnaExp
     // For operator overloading
     Identifier *opId();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct NotExp : UnaExp
@@ -1322,13 +1208,7 @@ struct NotExp : UnaExp
     Expression *semantic(Scope *sc);
     Expression *optimize(int result, bool keepLvalue = false);
     int isBit();
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct BoolExp : UnaExp
@@ -1337,13 +1217,7 @@ struct BoolExp : UnaExp
     Expression *semantic(Scope *sc);
     Expression *optimize(int result, bool keepLvalue = false);
     int isBit();
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct DeleteExp : UnaExp
@@ -1352,13 +1226,7 @@ struct DeleteExp : UnaExp
     Expression *semantic(Scope *sc);
     Expression *checkToBoolean(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct CastExp : UnaExp
@@ -1379,16 +1247,13 @@ struct CastExp : UnaExp
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void buildArrayIdent(OutBuffer *buf, Expressions *arguments);
     Expression *buildArrayLoop(Parameters *fparams);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
 
     // For operator overloading
     Identifier *opId();
     Expression *op_overload(Scope *sc);
 
 #if IN_LLVM
-    DValue* toElem(IRState* irs);
     llvm::Constant *toConstElem(IRState *irs);
 #else
     dt_t **toDt(dt_t **pdt);
@@ -1404,12 +1269,9 @@ struct VectorExp : UnaExp
     Expression *syntaxCopy();
     Expression *semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-#if IN_DMD
     elem *toElem(IRState *irs);
+#if IN_DMD
     dt_t **toDt(dt_t **pdt);
-#endif
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
 #endif
 };
 
@@ -1437,18 +1299,12 @@ struct SliceExp : UnaExp
     Expression *optimize(int result, bool keepLvalue = false);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     void dump(int indent);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
     void buildArrayIdent(OutBuffer *buf, Expressions *arguments);
     Expression *buildArrayLoop(Parameters *fparams);
 
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct ArrayLengthExp : UnaExp
@@ -1458,15 +1314,9 @@ struct ArrayLengthExp : UnaExp
     Expression *optimize(int result, bool keepLvalue = false);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
 
     static Expression *rewriteOpAssign(BinExp *exp);
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 // e1[a0,a1,a2,a3,...]
@@ -1519,12 +1369,9 @@ struct CommaExp : BinExp
     Expression *castTo(Scope *sc, Type *t);
     Expression *optimize(int result, bool keepLvalue = false);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
 
 #if IN_LLVM
-    DValue* toElem(IRState* irs);
     void cacheLvalue(IRState* irs);
 #endif
 };
@@ -1546,10 +1393,9 @@ struct IndexExp : BinExp
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     Expression *doInline(InlineDoState *ids);
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#elif IN_LLVM
-    DValue* toElem(IRState* irs);
+
+#if IN_LLVM
     void cacheLvalue(IRState* irs);
 #endif
 };
@@ -1563,13 +1409,7 @@ struct PostExp : BinExp
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Identifier *opId();    // For operator overloading
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 /* For both ++i and --i
@@ -1591,12 +1431,9 @@ struct AssignExp : BinExp
     Identifier *opId();    // For operator overloading
     void buildArrayIdent(OutBuffer *buf, Expressions *arguments);
     Expression *buildArrayLoop(Parameters *fparams);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
 
 #if IN_LLVM
-    DValue* toElem(IRState* irs);
     virtual AssignExp* isAssignExp() { return this; }
 #endif
 };
@@ -1605,14 +1442,6 @@ struct ConstructExp : AssignExp
 {
     ConstructExp(Loc loc, Expression *e1, Expression *e2);
 };
-
-#if IN_DMD
-#define ASSIGNEXP_TOELEM    elem *toElem(IRState *irs);
-#elif IN_LLVM
-#define ASSIGNEXP_TOELEM    DValue* toElem(IRState *irs);
-#else
-#define ASSIGNEXP_TOELEM
-#endif
 
 #define ASSIGNEXP(op)   \
 struct op##AssignExp : BinAssignExp                             \
@@ -1624,7 +1453,7 @@ struct op##AssignExp : BinAssignExp                             \
                                                                 \
     Identifier *opId();    /* For operator overloading */       \
                                                                 \
-    ASSIGNEXP_TOELEM                                            \
+    elem *toElem(IRState *irs);                                 \
 };
 
 #define X(a) a
@@ -1662,7 +1491,6 @@ ASSIGNEXP(Cat)
 
 #undef X
 #undef ASSIGNEXP
-#undef ASSIGNEXP_TOELEM
 
 struct AddExp : BinExp
 {
@@ -1678,13 +1506,10 @@ struct AddExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
 
 #if IN_LLVM
     llvm::Constant *toConstElem(IRState* p);
-    DValue* toElem(IRState* irs);
 #endif
 };
 
@@ -1701,13 +1526,10 @@ struct MinExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
 
 #if IN_LLVM
     llvm::Constant *toConstElem(IRState* p);
-    DValue* toElem(IRState* irs);
 #endif
 };
 
@@ -1722,13 +1544,7 @@ struct CatExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct MulExp : BinExp
@@ -1745,13 +1561,7 @@ struct MulExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct DivExp : BinExp
@@ -1767,13 +1577,7 @@ struct DivExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct ModExp : BinExp
@@ -1789,13 +1593,7 @@ struct ModExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 #if DMDV2
@@ -1811,13 +1609,7 @@ struct PowExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 #endif
 
@@ -1832,13 +1624,7 @@ struct ShlExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct ShrExp : BinExp
@@ -1852,13 +1638,7 @@ struct ShrExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct UshrExp : BinExp
@@ -1872,13 +1652,7 @@ struct UshrExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct AndExp : BinExp
@@ -1895,13 +1669,7 @@ struct AndExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct OrExp : BinExp
@@ -1919,13 +1687,7 @@ struct OrExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct XorExp : BinExp
@@ -1943,13 +1705,7 @@ struct XorExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct OrOrExp : BinExp
@@ -1960,13 +1716,7 @@ struct OrOrExp : BinExp
     int isBit();
     Expression *optimize(int result, bool keepLvalue = false);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct AndAndExp : BinExp
@@ -1977,13 +1727,7 @@ struct AndAndExp : BinExp
     int isBit();
     Expression *optimize(int result, bool keepLvalue = false);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct CmpExp : BinExp
@@ -1998,13 +1742,7 @@ struct CmpExp : BinExp
     Identifier *opId();
     Expression *op_overload(Scope *sc);
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct InExp : BinExp
@@ -2018,13 +1756,7 @@ struct InExp : BinExp
     Identifier *opId();
     Identifier *opId_r();
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 struct RemoveExp : BinExp
@@ -2032,13 +1764,7 @@ struct RemoveExp : BinExp
     RemoveExp(Loc loc, Expression *e1, Expression *e2);
     Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 // == and !=
@@ -2055,13 +1781,7 @@ struct EqualExp : BinExp
     Identifier *opId();
     Expression *op_overload(Scope *sc);
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 // is and !is
@@ -2072,11 +1792,7 @@ struct IdentityExp : BinExp
     Expression *semantic(Scope *sc);
     int isBit();
     Expression *optimize(int result, bool keepLvalue = false);
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#else
     elem *toElem(IRState *irs);
-#endif
 };
 
 /****************************************************************/
@@ -2106,13 +1822,7 @@ struct CondExp : BinExp
     Expression *doInline(InlineDoState *ids);
     Expression *inlineScan(InlineScanState *iss);
 
-#if IN_DMD
     elem *toElem(IRState *irs);
-#endif
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 #if DMDV2
