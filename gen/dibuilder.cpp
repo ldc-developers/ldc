@@ -446,7 +446,11 @@ llvm::DIType ldc::DIBuilder::CreateTypeDescription(Type* type,
     }
 
     if (t->ty == Tvoid)
+#if LDC_LLVM_VER >= 304
+        return DBuilder.createUnspecifiedType(t->toChars());
+#else
         return llvm::DIType(NULL);
+#endif
     else if (t->isintegral() || t->isfloating())
     {
         if (t->ty == Tvector)
