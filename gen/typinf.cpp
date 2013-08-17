@@ -450,9 +450,17 @@ void TypeInfoEnumDeclaration::llvmDefine()
     // otherwise emit a void[] with the default initializer
     else
     {
-        LLType* memty = DtoType(sd->memtype);
-        LLConstant* C = LLConstantInt::get(memty, sd->defaultval->toInteger(), !isLLVMUnsigned(sd->memtype));
-        b.push_void_array(C, sd->memtype, sd);
+        Type *memtype = sd->memtype;
+        LLType *memty = DtoType(memtype);
+        LLConstant *C;
+        if (memtype->isintegral())
+            C = LLConstantInt::get(memty, sd->defaultval->toInteger(), !isLLVMUnsigned(memtype));
+        else if (memtype->isString())
+            C = DtoConstString(static_cast<const char *>(sd->defaultval->toString()->string));
+        else
+            llvm_unreachable("Unsupported type");
+
+        b.push_void_array(C, memtype, sd);
     }
 
     // finish
