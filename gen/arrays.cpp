@@ -118,14 +118,18 @@ void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op)
     LLValue* ptr = DtoArrayPtr(array);
     Type* arrayelemty = array->getType()->nextOf()->toBasetype();
 
-    // lets first optimize all zero initializations down to a memset.
+    // lets first optimize all zero/constant i8 initializations down to a memset.
     // this simplifies codegen later on as llvm null's have no address!
     LLValue *val = value->getRVal();
-    if (isaConstant(val) && isaConstant(val)->isNullValue())
+    if (isaConstant(val) && (isaConstant(val)->isNullValue()
+                             || val->getType() == LLType::getInt8Ty(gIR->context())))
     {
         size_t X = getTypePaddedSize(val->getType());
         LLValue* nbytes = gIR->ir->CreateMul(dim, DtoConstSize_t(X), ".nbytes");
-        DtoMemSetZero(ptr, nbytes);
+        if (isaConstant(val)->isNullValue())
+            DtoMemSetZero(ptr, nbytes);
+        else
+            DtoMemSet(ptr, val, nbytes);
         return;
     }
 
