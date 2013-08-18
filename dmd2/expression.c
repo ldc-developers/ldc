@@ -119,13 +119,13 @@ Expression *getRightThis(Loc loc, Scope *sc, AggregateDeclaration *ad,
                     {
                         //printf("rewriting e1 to %s's this\n", f->toChars());
                         n++;
-
+#if IN_LLVM
                         // LDC seems dmd misses it sometimes here :/
                         if (f->isMember2()) {
                             f->vthis->nestedrefs.push(sc->parent->isFuncDeclaration());
                             f->closureVars.push(f->vthis);
                         }
-
+#endif
                         e1 = new VarExp(loc, f->vthis);
                     }
                     else
@@ -1440,7 +1440,6 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
 
             //printf("arg: %s\n", arg->toChars());
             //printf("type: %s\n", arg->type->toChars());
-
 #if DMDV2
             /* Look for arguments that cannot 'escape' from the called
              * function.
@@ -1482,8 +1481,12 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
         {
 
             // If not D linkage, do promotions
+#if IN_LLVM
             // LDC: don't do promotions on intrinsics
             if (tf->linkage != LINKd && tf->linkage != LINKintrinsic)
+#else
+            if (tf->linkage != LINKd)
+#endif
             {
                 // Promote bytes, words, etc., to ints
                 arg = arg->integralPromotions(sc);
@@ -9601,7 +9604,6 @@ Lsafe:
 
 void CastExp::checkEscape()
 {   Type *tb = type->toBasetype();
-
     if (tb->ty == Tarray && e1->op == TOKvar &&
         e1->type->toBasetype()->ty == Tsarray)
     {   VarExp *ve = (VarExp *)e1;
