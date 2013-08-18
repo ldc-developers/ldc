@@ -378,7 +378,8 @@ DValue* StringExp::toElem(IRState* p)
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
     if (Logger::enabled())
         Logger::cout() << "type: " << *at << "\ninit: " << *_init << '\n';
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,at,true,_linkage,_init,".str");
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module, at, true, _linkage, _init, ".str");
+    gvar->setUnnamedAddr(true);
 
     llvm::ConstantInt* zero = LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
     LLConstant* idxs[2] = { zero, zero };
@@ -438,7 +439,8 @@ LLConstant* StringExp::toConstElem(IRState* p)
     }
 
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,_init->getType(),true,_linkage,_init,".str");
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module, _init->getType(), true, _linkage, _init, ".str");
+    gvar->setUnnamedAddr(true);
 
     llvm::ConstantInt* zero = LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
     LLConstant* idxs[2] = { zero, zero };
