@@ -544,11 +544,7 @@ void DtoMemSet(LLValue* dst, LLValue* val, LLValue* nbytes)
 
     dst = DtoBitCast(dst, VoidPtrTy);
 
-    LLType* Tys[] = { VoidPtrTy, DtoSize_t() };
-    llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
-                                                         llvm::Intrinsic::memset, Tys);
-
-    gIR->ir->CreateCall5(fn, dst, val, nbytes, DtoConstUint(1), DtoConstBool(false), "");
+    gIR->ir->CreateMemSet(dst, val, nbytes, 1 /*Align*/, false /*isVolatile*/);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -567,11 +563,7 @@ void DtoMemCpy(LLValue* dst, LLValue* src, LLValue* nbytes, unsigned align)
     dst = DtoBitCast(dst, VoidPtrTy);
     src = DtoBitCast(src, VoidPtrTy);
 
-    LLType* Tys[] ={ VoidPtrTy, VoidPtrTy, DtoSize_t() };
-    llvm::Function* fn = llvm::Intrinsic::getDeclaration(gIR->module,
-                                                         llvm::Intrinsic::memcpy, Tys);
-
-    gIR->ir->CreateCall5(fn, dst, src, nbytes, DtoConstUint(align), DtoConstBool(false), "");
+    gIR->ir->CreateMemCpy(dst, src, nbytes, align, false /*isVolatile*/);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
