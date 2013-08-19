@@ -64,6 +64,12 @@ extern const llvm::TargetData* gDataLayout;
 
 namespace ldc {
 
+#if LDC_LLVM_VER >= 304
+typedef llvm::DICompositeType DIFunctionType;
+#else
+typedef llvm::DIType DIFunctionType;
+#endif
+
 class DIBuilder
 {
     IRState *const IR;
@@ -141,6 +147,9 @@ private:
     llvm::DIType CreateCompositeType(Type *type);
     llvm::DIType CreateArrayType(Type *type);
     llvm::DIType CreateSArrayType(Type *type);
+    llvm::DIType CreateAArrayType(Type *type);
+    DIFunctionType CreateFunctionType(Type *type);
+    DIFunctionType CreateDelegateType(Type *type);
     llvm::DIType CreateTypeDescription(Type* type, const char* c_name, bool derefclass = false);
 
 public:
