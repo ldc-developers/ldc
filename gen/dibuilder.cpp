@@ -434,6 +434,54 @@ llvm::DIType ldc::DIBuilder::CreateSArrayType(Type *type)
     );
 }
 
+llvm::DIType ldc::DIBuilder::CreateAArrayType(Type *type)
+{
+    // FIXME: Implement
+#if LDC_LLVM_VER >= 304
+    return DBuilder.createUnspecifiedType(type->toChars());
+#else
+    return llvm::DIType(NULL);
+#endif
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+ldc::DIFunctionType ldc::DIBuilder::CreateFunctionType(Type *type)
+{
+    TypeFunction *t = static_cast<TypeFunction*>(type);
+    Type *retType = t->next;
+
+    llvm::DIFile file = CreateFile(Loc(IR->dmodule, 0));
+
+    // Create "dummy" subroutine type for the return type
+    llvm::SmallVector<llvm::Value*, 16> Elts;
+    Elts.push_back(CreateTypeDescription(retType, NULL, true));
+    llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
+    return DBuilder.createSubroutineType(file, EltTypeArray);
+}
+
+ldc::DIFunctionType ldc::DIBuilder::CreateDelegateType(Type *type)
+{
+    // FIXME: Implement
+    TypeDelegate *t = static_cast<TypeDelegate*>(type);
+
+    llvm::DIFile file = CreateFile(Loc(IR->dmodule, 0));
+
+    // Create "dummy" subroutine type for the return type
+    llvm::SmallVector<llvm::Value*, 16> Elts;
+    Elts.push_back(
+#if LDC_LLVM_VER >= 304
+        DBuilder.createUnspecifiedType(type->toChars())
+#else
+        llvm::DIType(NULL)
+#endif
+    );
+    llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
+    return DBuilder.createSubroutineType(file, EltTypeArray);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 llvm::DIType ldc::DIBuilder::CreateTypeDescription(Type* type,
                                                    const char* c_name,
                                                    bool derefclass)
@@ -445,7 +493,7 @@ llvm::DIType ldc::DIBuilder::CreateTypeDescription(Type* type,
         t = type->toBasetype();
     }
 
-    if (t->ty == Tvoid)
+    if (t->ty == Tvoid || t->ty == Tnull)
 #if LDC_LLVM_VER >= 304
         return DBuilder.createUnspecifiedType(t->toChars());
 #else
@@ -465,10 +513,17 @@ llvm::DIType ldc::DIBuilder::CreateTypeDescription(Type* type,
         return CreateArrayType(type);
     else if (t->ty == Tsarray)
         return CreateSArrayType(type);
+    else if (t->ty == Taarray)
+        return CreateAArrayType(type);
     else if (t->ty == Tstruct || t->ty == Tclass)
         return CreateCompositeType(type);
+    else if (t->ty == Tfunction)
+        return CreateFunctionType(type);
+    else if (t->ty == Tdelegate)
+        return CreateDelegateType(type);
 
-    return llvm::DIType(NULL);
+    // Crash if the type is not supported.
+    llvm_unreachable("Unsupported type in debug info");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -515,18 +570,9 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd)
     assert(CU && CU.Verify() && "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
     llvm::DIFile file = CreateFile(fd->loc);
-    Type *retType = static_cast<TypeFunction*>(fd->type)->next;
 
-    // Create "dummy" subroutine type for the return type
-    llvm::SmallVector<llvm::Value*, 16> Elts;
-    Elts.push_back(CreateTypeDescription(retType, NULL, true));
-    llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
-#if LDC_LLVM_VER >= 304
-    llvm::DICompositeType
-#else
-    llvm::DIType
-#endif
-             DIFnType = DBuilder.createSubroutineType(file, EltTypeArray);
+    // Create subroutine type
+    ldc::DIFunctionType DIFnType = CreateFunctionType(static_cast<TypeFunction*>(fd->type));
 
     // FIXME: duplicates ?
     return DBuilder.createFunction(
@@ -560,12 +606,7 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgramInternal(llvm::StringRef pretty
     llvm::SmallVector<llvm::Value *, 1> Elts;
     Elts.push_back(llvm::DIType(NULL));
     llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
-#if LDC_LLVM_VER >= 304
-    llvm::DICompositeType
-#else
-    llvm::DIType
-#endif
-             DIFnType = DBuilder.createSubroutineType(file, EltTypeArray);
+    ldc::DIFunctionType DIFnType = DBuilder.createSubroutineType(file, EltTypeArray);
 
     // FIXME: duplicates ?
     return DBuilder.createFunction(
