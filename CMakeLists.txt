@@ -343,7 +343,7 @@ set_target_properties(
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_LIB} "${LLVM_LDFLAGS}" ${LLVM_LIBRARIES})
+target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
 if(WIN32)
     target_link_libraries(${LDC_LIB} imagehlp psapi)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -399,7 +399,7 @@ set_target_properties(
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
     COMPILE_FLAGS "${TABLEGEN_CXXFLAGS} ${LDC_CXXFLAGS}"
 )
-target_link_libraries(gen_gccbuiltins "${LLVM_LDFLAGS}" ${LLVM_LIBRARIES})
+target_link_libraries(gen_gccbuiltins ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
@@ -429,7 +429,7 @@ set_target_properties(${LDMD_EXE} PROPERTIES
 # use symbols from libdl, ..., so LLVM_LDFLAGS must come _after_ them in the
 # command line. Maybe this could be improved using library groups, at least with
 # GNU ld.
-target_link_libraries(${LDMD_EXE} "${LLVM_LDFLAGS}" ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
+target_link_libraries(${LDMD_EXE} ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
 
 #
 # Test and runtime targets. Note that enable_testing() is order-sensitive!
