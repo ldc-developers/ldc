@@ -34,7 +34,7 @@ find_program(LLVM_CONFIG
     DOC "Path to llvm-config tool.")
 find_program(LLVM_CONFIG NAMES ${llvm_config_names})
 
-if (NOT LLVM_CONFIG)
+if (WIN32 OR NOT LLVM_CONFIG)
     if (WIN32)
         # A bit of a sanity check:
         if( NOT EXISTS ${LLVM_ROOT_DIR}/include/llvm )
