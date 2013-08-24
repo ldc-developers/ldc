@@ -16,7 +16,7 @@
 
 module rt.sections_ldc;
 
-version(LDC):
+version (LDC):
 
 import rt.minfo;
 
@@ -171,7 +171,7 @@ private
             int end;
         }
     }
-    else version( freebsd )
+    else version (FreeBSD)
     {
         extern extern (C) __gshared
         {
@@ -179,7 +179,7 @@ private
             int _end;
         }
     }
-    else version( solaris )
+    else version (Solaris)
     {
         extern extern(C) __gshared
         {
@@ -243,11 +243,11 @@ void initSections()
         globalSectionGroup._gcRanges.insertBack(getTLSRange(getTLSInfo(phdr)));
 
     }
-    else version (freebsd)
+    else version (FreeBSD)
     {
         pushRange(&etext, &_end);
     }
-    else version (solaris)
+    else version (Solaris)
     {
         pushRange(&_environ, &_end);
     }
@@ -291,6 +291,14 @@ void[] initTLSRanges()
         // glibc allocates the TLS area for each new thread at the stack of
         // the stack, so we only need to do something for the main thread.
         return null;
+    }
+    else version (FreeBSD)
+    {
+        static assert(0, "TLS range detection not implemented on FreeBSD.");
+    }
+    else version (Solaris)
+    {
+        static assert(0, "TLS range detection not implemented on Solaris.");
     }
     else version (Windows)
     {
