@@ -186,8 +186,6 @@ llvm::DIType ldc::DIBuilder::CreatePointerType(Type *type)
     // find base type
     Type *nt = t->nextOf();
     llvm::DIType basetype = CreateTypeDescription(nt, NULL);
-    if (nt->ty == Tvoid)
-        basetype = llvm::DIType(NULL);
 
     return DBuilder.createPointerType(
         basetype,
@@ -230,8 +228,6 @@ llvm::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
 
     // find base type
     llvm::DIType basetype = CreateTypeDescription(t, NULL, true);
-    if (t->ty == Tvoid)
-        basetype = llvm::DIType(NULL);
 
     return DBuilder.createMemberType(
         llvm::DICompileUnit(GetCU()),
@@ -295,7 +291,11 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
     // if we don't know the aggregate's size, we don't know enough about it
     // to provide debug info. probably a forward-declared struct?
     if (sd->sizeok == 0)
+#if LDC_LLVM_VER >= 304
+        return DBuilder.createUnspecifiedType(sd->toChars());
+#else
         return llvm::DICompositeType(NULL);
+#endif
 
     // elements
     std::vector<llvm::Value *> elems;
@@ -604,7 +604,11 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgramInternal(llvm::StringRef pretty
 
     // Create "dummy" subroutine type for the return type
     llvm::SmallVector<llvm::Value *, 1> Elts;
+#if LDC_LLVM_VER >= 304
+    Elts.push_back(DBuilder.createUnspecifiedType(prettyname));
+#else
     Elts.push_back(llvm::DIType(NULL));
+#endif
     llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
     ldc::DIFunctionType DIFnType = DBuilder.createSubroutineType(file, EltTypeArray);
 
