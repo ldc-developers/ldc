@@ -898,7 +898,7 @@ LLValue* DtoArrayPtr(DValue* v)
         if (DSliceValue* s = v->isSlice())
             return s->ptr;
         else if (v->isNull())
-            return getNullPtr(getPtrToType(DtoType(t->nextOf())));
+            return getNullPtr(getPtrToType(i1ToI8(DtoType(t->nextOf()))));
         else if (v->isLVal())
             return DtoLoad(DtoGEPi(v->getLVal(), 0,1), ".ptr");
         return gIR->ir->CreateExtractValue(v->getRVal(), 1, ".ptr");
