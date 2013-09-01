@@ -204,7 +204,7 @@ extern(C) int _d_isbaseof(ClassInfo oc, ClassInfo c);
  * translated to a call to _d_throw_exception. This method translate the D
  * exception into an OS exception with a call to RtlRaiseException.
  *
- * The OS now searches for an exception handler. The next frame with a 
+ * The OS now searches for an exception handler. The next frame with a
  * registered exception handler (flag UNW_EHANDLER) is located with the help of
  * RtlVirtualUnwind. Then this exception handler is called. If the return value
  * is ExceptionContinueSearch then this process is repeated with the next
@@ -438,6 +438,12 @@ extern(C) void _d_eh_resume_unwind(Object e)
     }
     else
         console("_d_eh_resume_unwind: No exception object provided");
+    abort();
+}
+
+extern(C) void _d_eh_handle_collision(Object* exception_struct, Object* inflight_exception_struct)
+{
+    console("_d_eh_handle_collision: Not yet implemented");
     abort();
 }
 
