@@ -5486,6 +5486,33 @@ void TemplateInstance::semanticTiargs(Loc loc, Scope *sc, Objects *tiargs, int f
                 continue;
             }
             (*tiargs)[j] = ta->merge2();
+#if IN_LLVM
+            if (ta->ty == Tfunction) {
+                FuncDeclaration *sym = ((TypeFunction*)ta)->sym;
+                TypeFunction *merged = (TypeFunction*)(*tiargs)[j];
+                if (sym != merged->sym) {
+                    // Restore TypeFunction::sym
+                    merged = (TypeFunction*)merged->copy();
+                    merged->sym = sym;
+                    (*tiargs)[j] = merged;
+                }
+            } else if (ta->ty == Tdelegate || ta->ty == Tpointer) {
+                TypeNext *merged = (TypeNext*)(*tiargs)[j];
+                Type *next = ta->nextOf();
+                if (next->ty == Tfunction) {
+                    FuncDeclaration *sym = ((TypeFunction*)next)->sym;
+                    TypeFunction *tf = (TypeFunction*)merged->next;
+                    if (sym != tf->sym) {
+                        // Restore TypeFunction::sym
+                        merged = (TypeNext*)merged->copy();
+                        tf = (TypeFunction*)tf->copy();
+                        tf->sym = sym;
+                        merged->next = tf;
+                        (*tiargs)[j] = merged;
+                    }
+                }
+            }
+#endif
         }
         else if (ea)
         {

@@ -67,11 +67,6 @@ IrTypeDelegate* IrTypeDelegate::get(Type* dt)
     }
     if (!dt->irtype)
     {
-        assert(static_cast<TypeFunction*>(dt->nextOf())->fty.arg_nest &&
-            "Underlying function type should have nested context arg, "
-            "picked up random pre-existing type?"
-        );
-
         llvm::Type *types[] = { getVoidPtrType(), 
                                 getPtrToType(dt->nextOf()->irtype->getLLType()) };
         LLStructType* lt = LLStructType::get(gIR->context(), types, false);
