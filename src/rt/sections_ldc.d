@@ -18,7 +18,23 @@ module rt.sections_ldc;
 
 version (LDC):
 
+import core.stdc.stdlib : alloca;
 import rt.minfo;
+
+version (linux)
+{
+    version = UseELF;
+
+    import core.sys.linux.elf;
+    import core.sys.linux.link;
+}
+version (FreeBSD)
+{
+    version = UseELF;
+
+    import core.sys.freebsd.sys.elf;
+    import core.sys.freebsd.sys.link_elf;
+}
 
 struct SectionGroup
 {
@@ -93,10 +109,28 @@ private
             int _bss_end__;
         }
     }
-    else version (linux)
+    else version (UseELF)
     {
-        import core.sys.linux.elf;
-        import core.sys.linux.link;
+        nothrow
+        void findDataSection(void[]* data)
+        {
+            static extern(C) nothrow
+            int callback(dl_phdr_info* info, size_t sz, void* arg)
+            {
+                auto range = cast(void[]*) arg;
+                foreach (i, ref phdr; info.dlpi_phdr[0 .. info.dlpi_phnum])
+                {
+                    if (phdr.p_type == PT_LOAD && phdr.p_flags == (PF_W|PF_R))
+                    {
+                        *range = (cast(void*)phdr.p_vaddr)[0 .. phdr.p_memsz];
+                        return 1;
+                    }
+                }
+                return 0;
+            }
+
+            dl_iterate_phdr(&callback, data);
+        }
 
         struct TLSInfo { size_t moduleId, size; }
         TLSInfo getTLSInfo(in ref dl_phdr_info info)
@@ -164,20 +198,6 @@ private
             auto ti = tls_index(info.moduleId, 0);
             return __tls_get_addr(&ti)[0 .. info.size];
         }
-
-        extern extern (C) __gshared
-        {
-            int __data_start;
-            int end;
-        }
-    }
-    else version (FreeBSD)
-    {
-        extern extern (C) __gshared
-        {
-            char etext;
-            int _end;
-        }
     }
     else version (Solaris)
     {
@@ -233,19 +253,17 @@ void initSections()
     {
         pushRange(&_data_start__, &_bss_end__);
     }
-    else version (linux)
+    else version (UseELF)
     {
-        pushRange(&__data_start, &end);
+        // Add data section based on ELF image
+        void[] data = void;
+        findDataSection(&data);
+        globalSectionGroup._gcRanges.insertBack(data);
 
         // Explicitly add TLS range for main thread.
         dl_phdr_info phdr = void;
         findPhdrForAddr(&globalSectionGroup, &phdr) || assert(0);
         globalSectionGroup._gcRanges.insertBack(getTLSRange(getTLSInfo(phdr)));
-
-    }
-    else version (FreeBSD)
-    {
-        pushRange(&etext, &_end);
     }
     else version (Solaris)
     {
@@ -294,7 +312,7 @@ void[] initTLSRanges()
     }
     else version (FreeBSD)
     {
-        static assert(0, "TLS range detection not implemented on FreeBSD.");
+        return null;
     }
     else version (Solaris)
     {
