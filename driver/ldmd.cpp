@@ -881,7 +881,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     // LDMD historically did not enable singleobj mode, so in order not to
     // break build systems as a D1 parting gift, don't change this right now.
     // This might change based on user feedback, though.
-    if (!p.multiObj && !p.compileOnly) r.push_back("-singleobj");
+    if (!p.multiObj) r.push_back("-singleobj");
     if (p.debugInfo == Debug::normal) r.push_back("-g");
     else if (p.debugInfo == Debug::pretendC) r.push_back("-gc");
     if (p.alwaysStackFrame) r.push_back("-disable-fp-elim");
