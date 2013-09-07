@@ -86,43 +86,25 @@ version( linux )
         struct stat_t
         {
             dev_t       st_dev;
-            static if(__WORDSIZE==32)
+            ushort      __pad1;
+            static if (!__USE_FILE_OFFSET64)
             {
-                ushort      __pad1;
-            }
-            static if( !__USE_FILE_OFFSET64 || __WORDSIZE==64 )
-            {
-                uint        st_ino;
+                ino_t       st_ino;
             }
             else
             {
                 uint        __st_ino;
             }
-            static if (__WORDSIZE==32)
-            {
-                mode_t      st_mode;
-                nlink_t     st_nlink;
-            }
-            else
-            {
-                nlink_t     st_nlink;
-                mode_t      st_mode;
-            }
+            mode_t      st_mode;
+            nlink_t     st_nlink;
             uid_t       st_uid;
             gid_t       st_gid;
-            static if(__WORDSIZE==64)
-            {
-                uint        pad0;
-            }
             dev_t       st_rdev;
-            static if(__WORDSIZE==32)
-            {
-                ushort      __pad2;
-            }
+            ushort      __pad2;
             off_t       st_size;
             blksize_t   st_blksize;
             blkcnt_t    st_blocks;
-            static if( __USE_MISC || __USE_XOPEN2K8 )
+            static if (__USE_MISC || __USE_XOPEN2K8)
             {
                 timespec    st_atim;
                 timespec    st_mtim;
@@ -137,27 +119,20 @@ version( linux )
             else
             {
                 time_t      st_atime;
-                c_ulong     st_atimensec;
+                ulong_t     st_atimensec;
                 time_t      st_mtime;
-                c_ulong     st_mtimensec;
+                ulong_t     st_mtimensec;
                 time_t      st_ctime;
-                c_ulong     st_ctimensec;
+                ulong_t     st_ctimensec;
             }
-            static if(__WORDSIZE==64)
+            static if (__USE_FILE_OFFSET64)
             {
-                c_long      __unused[3];
+                ino_t       st_ino;
             }
             else
             {
-                static if( __USE_FILE_OFFSET64 )
-                {
-                    ino_t       st_ino;
-                }
-                else
-                {
-                    c_ulong     __unused4;
-                    c_ulong     __unused5;
-                }
+                c_ulong     __unused4;
+                c_ulong     __unused5;
             }
         }
     }
@@ -166,43 +141,17 @@ version( linux )
         struct stat_t
         {
             dev_t       st_dev;
-            static if(__WORDSIZE==32)
-            {
-                ushort      __pad1;
-            }
-            static if( !__USE_FILE_OFFSET64 || __WORDSIZE==64 )
-            {
-                uint        st_ino;
-            }
-            else
-            {
-                uint        __st_ino;
-            }
-            static if (__WORDSIZE==32)
-            {
-                mode_t      st_mode;
-                nlink_t     st_nlink;
-            }
-            else
-            {
-                nlink_t     st_nlink;
-                mode_t      st_mode;
-            }
+            ino_t       st_ino;
+            nlink_t     st_nlink;
+            mode_t      st_mode;
             uid_t       st_uid;
             gid_t       st_gid;
-            static if(__WORDSIZE==64)
-            {
-                uint        pad0;
-            }
+            uint        __pad0;
             dev_t       st_rdev;
-            static if(__WORDSIZE==32)
-            {
-                ushort      __pad2;
-            }
             off_t       st_size;
             blksize_t   st_blksize;
             blkcnt_t    st_blocks;
-            static if( __USE_MISC || __USE_XOPEN2K8 )
+            static if (__USE_MISC || __USE_XOPEN2K8)
             {
                 timespec    st_atim;
                 timespec    st_mtim;
@@ -217,28 +166,13 @@ version( linux )
             else
             {
                 time_t      st_atime;
-                c_ulong     st_atimensec;
+                ulong_t     st_atimensec;
                 time_t      st_mtime;
-                c_ulong     st_mtimensec;
+                ulong_t     st_mtimensec;
                 time_t      st_ctime;
-                c_ulong     st_ctimensec;
+                ulong_t     st_ctimensec;
             }
-            static if(__WORDSIZE==64)
-            {
-                c_long      __unused[3];
-            }
-            else
-            {
-                static if( __USE_FILE_OFFSET64 )
-                {
-                    ino_t       st_ino;
-                }
-                else
-                {
-                    c_ulong     __unused4;
-                    c_ulong     __unused5;
-                }
-            }
+            slong_t     __unused[3];
         }
     }
     else version (MIPS_O32)
@@ -346,6 +280,187 @@ version( linux )
             c_ulong     __unused5;
             c_ulong     __unused6;
         }
+    }
+    else version (ARM)
+    {
+        private
+        {
+            alias __dev_t = ulong;
+            alias __ino_t = c_ulong;
+            alias __ino64_t = ulong;
+            alias __mode_t = uint;
+            alias __nlink_t = size_t;
+            alias __uid_t = uint;
+            alias __gid_t = uint;
+            alias __off_t = c_long;
+            alias __off64_t = long;
+            alias __blksize_t = c_long;
+            alias __blkcnt_t = c_long;
+            alias __blkcnt64_t = long;
+            alias __timespec = timespec;
+            alias __time_t = time_t;
+        }
+        struct stat_t
+        {
+            __dev_t st_dev;
+            ushort __pad1;
+
+            static if(!__USE_FILE_OFFSET64)
+            {
+                __ino_t st_ino;
+            }
+            else
+            {
+                __ino_t __st_ino;
+            }
+            __mode_t st_mode;
+            __nlink_t st_nlink;
+            __uid_t st_uid;
+            __gid_t st_gid;
+            __dev_t st_rdev;
+            ushort __pad2;
+
+            static if(!__USE_FILE_OFFSET64)
+            {
+                __off_t st_size;
+            }
+            else
+            {
+                __off64_t st_size;
+            }
+            __blksize_t st_blksize;
+
+            static if(!__USE_FILE_OFFSET64)
+            {
+                __blkcnt_t st_blocks;
+            }
+            else
+            {
+                __blkcnt64_t st_blocks;
+            }
+
+            static if( __USE_MISC || __USE_XOPEN2K8)
+            {
+                __timespec st_atim;
+                __timespec st_mtim;
+                __timespec st_ctim;
+                extern(D)
+                {
+                    @property ref time_t st_atime() { return st_atim.tv_sec; }
+                    @property ref time_t st_mtime() { return st_mtim.tv_sec; }
+                    @property ref time_t st_ctime() { return st_ctim.tv_sec; }
+                }
+            }
+            else
+            {
+                __time_t st_atime;
+                c_ulong st_atimensec;
+                __time_t st_mtime;
+                c_ulong st_mtimensec;
+                __time_t st_ctime;
+                c_ulong st_ctimensec;
+            }
+
+            static if(!__USE_FILE_OFFSET64)
+            {
+                c_ulong __unused4;
+                c_ulong __unused5;
+            }
+            else
+            {
+                __ino64_t st_ino;
+            }
+        }
+        static if(__USE_FILE_OFFSET64)
+            static assert(stat_t.sizeof == 104);
+        else
+            static assert(stat_t.sizeof == 88);
+    }
+    else version (AArch64)
+    {
+        private
+        {
+            alias __dev_t = ulong;
+            alias __ino_t = c_ulong;
+            alias __ino64_t = ulong;
+            alias __mode_t = uint;
+            alias __nlink_t = uint;
+            alias __uid_t = uint;
+            alias __gid_t = uint;
+            alias __off_t = c_long;
+            alias __off64_t = long;
+            alias __blksize_t = int;
+            alias __blkcnt_t = c_long;
+            alias __blkcnt64_t = long;
+            alias __timespec = timespec;
+            alias __time_t = time_t;
+        }
+        struct stat_t
+        {
+            __dev_t st_dev;
+
+            static if(!__USE_FILE_OFFSET64)
+            {
+                __ino_t st_ino;
+            }
+            else
+            {
+                __ino64_t st_ino;
+            }
+            __mode_t st_mode;
+            __nlink_t st_nlink;
+            __uid_t st_uid;
+            __gid_t st_gid;
+            __dev_t st_rdev;
+            __dev_t __pad1;
+
+            static if(!__USE_FILE_OFFSET64)
+            {
+                __off_t st_size;
+            }
+            else
+            {
+                __off64_t st_size;
+            }
+            __blksize_t st_blksize;
+            int __pad2;
+
+            static if(!__USE_FILE_OFFSET64)
+            {
+                __blkcnt_t st_blocks;
+            }
+            else
+            {
+                __blkcnt64_t st_blocks;
+            }
+
+            static if(__USE_MISC)
+            {
+                __timespec st_atim;
+                __timespec st_mtim;
+                __timespec st_ctim;
+                extern(D)
+                {
+                    @property ref time_t st_atime() { return st_atim.tv_sec; }
+                    @property ref time_t st_mtime() { return st_mtim.tv_sec; }
+                    @property ref time_t st_ctime() { return st_ctim.tv_sec; }
+                }
+            }
+            else
+            {
+                __time_t st_atime;
+                c_ulong st_atimensec;
+                __time_t st_mtime;
+                c_ulong st_mtimensec;
+                __time_t st_ctime;
+                c_ulong st_ctimensec;
+            }
+            int[2] __unused;
+        }
+        static if(__USE_FILE_OFFSET64)
+            static assert(stat_t.sizeof == 128);
+        else
+            static assert(stat_t.sizeof == 128);
     }
     else
         static assert(0, "unimplemented");
