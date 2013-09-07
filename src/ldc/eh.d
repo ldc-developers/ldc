@@ -36,6 +36,10 @@ version (ARM)
     version (linux) version = GCC_UNWIND;
     version (freebsd) version = GCC_UNWIND;
 }
+version (AArch64)
+{
+    version (linux) version = GCC_UNWIND;
+}
 version (PPC64)
 {
     version (linux) version = GCC_UNWIND;
@@ -520,6 +524,11 @@ else version (PPC)
 {
     private enum eh_exception_regno = 3;
     private enum eh_selector_regno = 4;
+}
+else version (AArch64)
+{
+    private enum eh_exception_regno = 0;
+    private enum eh_selector_regno = 1;
 }
 else
 {
