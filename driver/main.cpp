@@ -529,6 +529,11 @@ int main(int argc, char** argv)
             VersionCondition::addPredefinedGlobalIdent("ARM_Soft");
             VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
             break;
+#if LDC_LLVM_VER >= 303
+        case llvm::Triple::aarch64:
+            VersionCondition::addPredefinedGlobalIdent("AArch64");
+            break;
+#endif
         case llvm::Triple::mips:
         case llvm::Triple::mipsel:
             // FIXME: Detect O32/N32 variants (MIPS_{O32,N32}[_SoftFP,_HardFP]).
