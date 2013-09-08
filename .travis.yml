@@ -5,13 +5,15 @@ install:
   - wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key | sudo apt-key add -
   - sudo apt-get update -qq
   - sudo apt-get install -qq $LLVM_PACKAGE libconfig++8-dev
+  - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo apt-get install -qq gcc-multilib libcurl3:i386 ; fi
+  - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo ln -s /usr/lib/i386-linux-gnu/libcurl.so.4.2.0 /usr/lib/i386-linux-gnu/libcurl.so ; fi
 env:
   - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TESTSUITE_FILTER=debug
   - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TESTSUITE_FILTER=release
   - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER=debug
   - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER=release
-  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=debug
-  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=release
+  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=debug OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=release OPTS="-DMULTILIB=ON"
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=debug
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=release
 matrix:
@@ -19,7 +21,7 @@ matrix:
     - env: LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=debug
     - env: LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=release
 script:
-  - cmake .
+  - cmake $OPTS .
   - make
   - bin/ldc2 -version # For environment info.
   - ctest --output-on-failure -R $TESTSUITE_FILTER
