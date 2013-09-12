@@ -203,7 +203,10 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
     Logger::println("DtoNestedContext for %s", sym->toPrettyChars());
     LOG_SCOPE;
 
+    // The function we are currently in, and the constructed object/called
+    // function might inherit a context pointer from.
     IrFunction* irfunc = gIR->func();
+
     bool fromParent = true;
 
     LLValue* val;
@@ -237,28 +240,27 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
         return llvm::ConstantPointerNull::get(getVoidPtrType());
     }
 
-    struct FuncDeclaration* fd = 0;
-    if (AggregateDeclaration *ad = sym->isAggregateDeclaration())
+    struct FuncDeclaration* frameToPass = 0;
+    if (AggregateDeclaration *ad = sym->isAggregateDeclaration()) {
         // If sym is a nested struct or a nested class, pass the frame
         // of the function where sym is declared.
-        fd = ad->toParent()->isFuncDeclaration();
-    else
-    if (FuncDeclaration* symfd = sym->isFuncDeclaration()) {
+        frameToPass = ad->toParent()->isFuncDeclaration();
+    } else if (FuncDeclaration* symfd = sym->isFuncDeclaration()) {
         // Make sure we've had a chance to analyze nested context usage
         DtoCreateNestedContextType(symfd);
 
         // if this is for a function that doesn't access variables from
         // enclosing scopes, it doesn't matter what we pass.
-        // Tell LLVM about it by passing an 'undef'.
-        if (symfd && symfd->ir.irFunc->depth == -1)
+        if (symfd->ir.irFunc->depth == -1)
             return llvm::UndefValue::get(getVoidPtrType());
 
-        // If sym is a nested function, and it's parent context is different than the
-        // one we got, adjust it.
-        fd = getParentFunc(symfd, true);
+        // If sym is a nested function, and its parent context is different
+        // than the one we got, adjust it.
+        frameToPass = getParentFunc(symfd, true);
     }
-    if (fd) {
-        Logger::println("For nested function, parent is %s", fd->toChars());
+
+    if (frameToPass) {
+        Logger::println("Parent frame is from %s", frameToPass->toChars());
         FuncDeclaration* ctxfd = irfunc->decl;
         Logger::println("Current function is %s", ctxfd->toChars());
         if (fromParent) {
@@ -267,7 +269,7 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
         }
         Logger::println("Context is from %s", ctxfd->toChars());
 
-        unsigned neededDepth = fd->ir.irFunc->depth;
+        unsigned neededDepth = frameToPass->ir.irFunc->depth;
         unsigned ctxDepth = ctxfd->ir.irFunc->depth;
 
         Logger::cout() << "Needed depth: " << neededDepth << '\n';
@@ -280,7 +282,8 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
         } else {
             val = DtoBitCast(val, LLPointerType::getUnqual(ctxfd->ir.irFunc->frameType));
             val = DtoGEPi(val, 0, neededDepth);
-            val = DtoAlignedLoad(val, (std::string(".frame.") + fd->toChars()).c_str());
+            val = DtoAlignedLoad(val,
+                (std::string(".frame.") + frameToPass->toChars()).c_str());
         }
     }
 
