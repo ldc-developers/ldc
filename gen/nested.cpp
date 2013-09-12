@@ -319,7 +319,13 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
 
         LLStructType* innerFrameType = NULL;
         unsigned depth = -1;
-        if (!fd->isStatic()) {
+
+        // Static functions and function (not delegate) literals don't allow
+        // access to a parent context, even if they are nested.
+        const bool certainlyNewRoot = fd->isStatic() ||
+            (fd->isFuncLiteralDeclaration() &&
+            static_cast<FuncLiteralDeclaration*>(fd)->tok == TOKfunction);
+        if (!certainlyNewRoot) {
             if (FuncDeclaration* parfd = getParentFunc(fd, true)) {
                 // Make sure the parent has already been analyzed.
                 DtoCreateNestedContextType(parfd);
