@@ -377,7 +377,10 @@ DValue* StringExp::toElem(IRState* p)
 
     llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
     if (Logger::enabled())
-        Logger::cout() << "type: " << *at << "\ninit: " << *_init << '\n';
+    {
+        Logger::cout() << "type: " << *at << '\n';
+        Logger::cout() << "init: " << *_init << '\n';
+    }
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module, at, true, _linkage, _init, ".str");
     gvar->setUnnamedAddr(true);
 
