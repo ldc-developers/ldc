@@ -302,14 +302,13 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
         return;
     fd->ir.irFunc->nestedContextCreated = true;
 
-    if (fd->nestedVars.empty()) {
-        // fill nestedVars
-        size_t nnest = fd->closureVars.dim;
-        for (size_t i = 0; i < nnest; ++i)
-        {
-            VarDeclaration* vd = static_cast<VarDeclaration*>(fd->closureVars.data[i]);
-            fd->nestedVars.insert(vd);
-        }
+    // fill nestedVars
+    assert(fd->nestedVars.empty() && "nestedVars should only be filled here");
+    size_t nnest = fd->closureVars.dim;
+    for (size_t i = 0; i < nnest; ++i)
+    {
+        VarDeclaration* vd = static_cast<VarDeclaration*>(fd->closureVars.data[i]);
+        fd->nestedVars.insert(vd);
     }
 
     // construct nested variables array
