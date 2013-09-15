@@ -915,12 +915,15 @@ static void LLVM_D_BuildRuntimeModule()
         // KLUDGE: _d_invariant is actually extern(D) in the upstream runtime, possibly
         // for more efficient parameter passing on x86. This complicates our code here
         // quite a bit, though.
-        llvm::StringRef fname("_D9invariant12_d_invariantFC6ObjectZv");
         Parameters* params = new Parameters();
         params->push(new Parameter(STCin, ClassDeclaration::object->type, NULL, NULL));
         TypeFunction* dty = new TypeFunction(params, Type::tvoid, 0, LINKd);
-        llvm::Function* fn = llvm::Function::Create(llvm::cast<llvm::FunctionType>(DtoType(dty)),
-            llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function* fn = llvm::Function::Create(
+            llvm::cast<llvm::FunctionType>(DtoType(dty)),
+            llvm::GlobalValue::ExternalLinkage,
+            gABI->mangleForLLVM("_D9invariant12_d_invariantFC6ObjectZv", LINKd),
+            M
+        );
         gABI->newFunctionType(dty);
         gABI->rewriteFunctionType(dty);
         gABI->doneWithFunctionType();

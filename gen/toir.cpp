@@ -17,6 +17,7 @@
 #include "rmem.h"
 #include "template.h"
 #include "gen/aa.h"
+#include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
@@ -2273,7 +2274,8 @@ DValue* AssertExp::toElem(IRState* p)
         !(static_cast<TypeClass*>(condty)->sym->isInterfaceDeclaration()))
     {
         Logger::println("calling class invariant");
-        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_D9invariant12_d_invariantFC6ObjectZv");
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module,
+            gABI->mangleForLLVM("_D9invariant12_d_invariantFC6ObjectZv", LINKd).c_str());
         LLValue* arg = DtoBitCast(cond->getRVal(), fn->getFunctionType()->getParamType(0));
         gIR->CreateCallOrInvoke(fn, arg);
     }
