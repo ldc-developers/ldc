@@ -14,7 +14,7 @@ module ldc.longdouble;
 *          http://www.boost.org/LICENSE_1_0.txt)
 */
 
-version(Windows):
+version(Win64):
 extern(C):
 
 import ldc.llvmasm;
