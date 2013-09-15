@@ -169,7 +169,8 @@ void writeModule(llvm::Module* m, std::string filename)
         llvm::sys::Path spath(filename);
         spath.eraseSuffix();
         spath.appendSuffix(std::string(global.s_ext));
-        spath.createTemporaryFileOnDisk();
+        if (!global.params.output_s)
+            spath.createTemporaryFileOnDisk();
 #endif
 
         Logger::println("Writing native asm to: %s\n", spath.c_str());
