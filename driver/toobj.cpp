@@ -20,6 +20,9 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/Program.h"
+#if LDC_LLVM_VER < 304
+#include "llvm/Support/PathV1.h"
+#endif
 #include "llvm/Target/TargetMachine.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
@@ -155,21 +158,19 @@ void writeModule(llvm::Module* m, std::string filename)
 
     // write native assembly
     if (global.params.output_s || assembleExternally) {
+#if LDC_LLVM_VER >= 304
         LLPath spath = LLPath(filename);
         llvm::sys::path::replace_extension(spath, global.s_ext);
         if (!global.params.output_s)
-        {
-#if LDC_LLVM_VER >= 304
             llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.s", spath);
 #else
-            int Dummy;
-            llvm::sys::fs::unique_file("ldc-%%%%%%%.s", Dummy, spath, true
-#if LDC_LLVM_VER >= 302
-                                       , 0
+        // Pre-3.4 versions don't have a createUniqueFile overload that does
+        // not open the file.
+        llvm::sys::Path spath(filename);
+        spath.eraseSuffix();
+        spath.appendSuffix(std::string(global.s_ext));
+        spath.createTemporaryFileOnDisk();
 #endif
-                                       );
-#endif
-        }
 
         Logger::println("Writing native asm to: %s\n", spath.c_str());
         std::string err;
