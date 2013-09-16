@@ -2448,15 +2448,8 @@ DValue* HaltExp::toElem(IRState* p)
     Logger::print("HaltExp::toElem: %s\n", toChars());
     LOG_SCOPE;
 
-    // FIXME: DMD inserts a trap here... we probably should as well !?!
-
-#if 1
-    DtoAssert(p->func()->decl->getModule(), loc, NULL);
-#else
-    // call the new (?) trap intrinsic
-    p->ir->CreateCall(GET_INTRINSIC_DECL(trap),"");
-    new llvm::UnreachableInst(p->scopebb());
-#endif
+    p->ir->CreateCall(GET_INTRINSIC_DECL(trap), "");
+    p->ir->CreateUnreachable();
 
     // this terminated the basicblock, start a new one
     // this is sensible, since someone might goto behind the assert
