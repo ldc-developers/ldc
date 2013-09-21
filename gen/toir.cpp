@@ -1262,7 +1262,7 @@ DValue* SymOffExp::toElem(IRState* p)
 
 llvm::Constant* SymOffExp::toConstElem(IRState* p)
 {
-    Logger::print("SymOffExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
+    IF_LOG Logger::println("SymOffExp::toConstElem: %s @ %s", toChars(), type->toChars());
     LOG_SCOPE;
 
     // We might get null here due to the hackish implementation of
@@ -1277,8 +1277,11 @@ llvm::Constant* SymOffExp::toConstElem(IRState* p)
     }
     else
     {
-        uint64_t elemSize = gDataLayout->getTypeStoreSize(
+        const unsigned elemSize = gDataLayout->getTypeStoreSize(
             base->getType()->getContainedType(0));
+
+        Logger::println("adding offset: %u (elem size: %u)", offset, elemSize);
+
         if (offset % elemSize == 0)
         {
             // We can turn this into a "nice" GEP.
@@ -1291,7 +1294,7 @@ llvm::Constant* SymOffExp::toConstElem(IRState* p)
             // apply the byte offset.
             result = llvm::ConstantExpr::getGetElementPtr(
                 DtoBitCast(base, getVoidPtrType()),
-                DtoConstSize_t(offset / elemSize));
+                DtoConstSize_t(offset));
         }
     }
 
