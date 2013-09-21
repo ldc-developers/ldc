@@ -911,7 +911,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     }
     if (p.emitStaticLib) r.push_back("-lib");
     if (p.noFloat) warning("-nofloat is ignored by LDC.");
-    if (p.quiet) r.push_back("-quiet"); // Undocumented.
+    // -quiet is the default in (newer?) frontend versions, just ignore it.
     if (p.release) r.push_back("-release"); // Also disables boundscheck.
     if (p.noBoundsChecks) r.push_back("-disable-boundscheck");
     if (p.emitUnitTests) r.push_back("-unittest");
