@@ -74,7 +74,7 @@ struct UnknownTargetABI : TargetABI
         return t->toBasetype()->ty == Tstruct;
     }
 
-    void rewriteFunctionType(TypeFunction* t)
+    void rewriteFunctionType(TypeFunction* t, IrFuncTy &fty)
     {
         // why?
     }
@@ -135,11 +135,9 @@ struct IntrinsicABI : TargetABI
         }
     }
 
-    void rewriteFunctionType(TypeFunction* tf)
+    void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     {
         assert(tf->linkage == LINKintrinsic);
-
-        IrFuncTy& fty = tf->fty;
 
         if (!fty.arg_sret) {
             Type* rt = fty.ret->type->toBasetype();

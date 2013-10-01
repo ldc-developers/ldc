@@ -915,7 +915,7 @@ struct FuncDeclaration : Declaration
     virtual FuncDeclaration *toAliasFunc() { return this; }
 
 #if IN_LLVM
-    // LDC stuff
+    IrFuncTy irFty;
 
     /// Codegen traversal
     void codegen(Ir* ir);

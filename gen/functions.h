@@ -20,6 +20,7 @@ class DValue;
 struct Expression;
 struct FuncDeclaration;
 struct IRAsmBlock;
+struct IrFuncTy;
 struct Parameter;
 struct Type;
 namespace llvm
@@ -28,7 +29,7 @@ namespace llvm
     class Value;
 }
 
-llvm::FunctionType* DtoFunctionType(Type* t, Type* thistype, Type* nesttype, bool ismain = false);
+llvm::FunctionType* DtoFunctionType(Type* t, IrFuncTy &irFty, Type* thistype, Type* nesttype, bool ismain = false);
 llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl);
 
 llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl);

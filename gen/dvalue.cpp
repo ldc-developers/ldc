@@ -101,6 +101,10 @@ LLValue* DSliceValue::getRVal()
 /////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////
 
+DFuncValue::DFuncValue(Type *t, FuncDeclaration* fd, llvm::Value* v, llvm::Value* vt)
+: DValue(t), func(fd), val(v), vthis(vt)
+{}
+
 DFuncValue::DFuncValue(FuncDeclaration* fd, LLValue* v, LLValue* vt)
 : DValue(fd->type), func(fd), val(v), vthis(vt)
 {}

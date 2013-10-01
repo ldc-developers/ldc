@@ -152,6 +152,7 @@ public:
 class DFuncValue : public DValue
 {
 public:
+    DFuncValue(Type *t, FuncDeclaration* fd, llvm::Value* v, llvm::Value* vt = 0);
     DFuncValue(FuncDeclaration* fd, llvm::Value* v, llvm::Value* vt = 0);
 
     virtual llvm::Value* getRVal();

@@ -29,6 +29,7 @@
 #include "gen/arrays.h"
 #include "gen/metadata.h"
 #include "gen/runtime.h"
+#include "gen/functions.h"
 
 #include "ir/iraggr.h"
 #include "ir/irtypeclass.h"
@@ -177,7 +178,7 @@ LLConstant * IrAggr::getVtblInit()
 
         if (cd->isAbstract() || (fd->isAbstract() && !fd->fbody))
         {
-            c = getNullValue(DtoType(fd->type->pointerTo()));
+            c = getNullValue(getPtrToType(DtoFunctionType(fd)));
         }
         else
         {
@@ -329,8 +330,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
         // the function, we place into the vtable a small wrapper, called thunk,
         // that casts 'this' to the object and then pass it to the real function.
         if (b->base->isCPPinterface()) {
-            TypeFunction *f = (TypeFunction*)fd->type->toBasetype();
-            assert(f->fty.arg_this);
+            assert(fd->irFty.arg_this);
 
             // create the thunk function
             OutBuffer name;
@@ -352,7 +352,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
                 args.push_back(iarg);
 
             // cast 'this' to Object
-            LLValue* &thisArg = args[(f->fty.arg_sret == 0) ? 0 : 1];
+            LLValue* &thisArg = args[(fd->irFty.arg_sret == 0) ? 0 : 1];
             LLType* thisType = thisArg->getType();
             thisArg = DtoBitCast(thisArg, getVoidPtrType());
             thisArg = DtoGEP1(thisArg, DtoConstInt(-b->offset));

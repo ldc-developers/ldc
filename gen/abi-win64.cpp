@@ -97,7 +97,7 @@ struct Win64TargetABI : TargetABI
 
     bool passByVal(Type* t);
 
-    void rewriteFunctionType(TypeFunction* tf);
+    void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty);
 };
 
 
@@ -153,9 +153,8 @@ bool Win64TargetABI::passByVal(Type* t)
     return (t->ty == Tstruct || t->ty == Tsarray) && !canRewriteAsInt(t);
 }
 
-void Win64TargetABI::rewriteFunctionType(TypeFunction* tf)
+void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
 {
-    IrFuncTy& fty = tf->fty;
     Type* rt = fty.ret->type->toBasetype();
 
     // RETURN VALUE

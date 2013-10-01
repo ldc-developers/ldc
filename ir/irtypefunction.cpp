@@ -30,14 +30,8 @@ IrTypeFunction* IrTypeFunction::get(Type* dt, Type* nestedContextOverride)
     assert(!dt->irtype);
     assert(dt->ty == Tfunction);
 
-    // We can't get cycles here, but we can end up building the type as part of
-    // a class vtbl, ...
-    llvm::Type* lt;
     TypeFunction* tf = static_cast<TypeFunction*>(dt);
-    if (tf->funcdecl)
-        lt = DtoFunctionType(tf->funcdecl);
-    else
-        lt = DtoFunctionType(tf, NULL, nestedContextOverride);
+    llvm::Type* lt = DtoFunctionType(tf, tf->irFty, NULL, nestedContextOverride);
 
     if (!dt->irtype)
         dt->irtype = new IrTypeFunction(dt, lt);
@@ -51,29 +45,21 @@ IrTypeDelegate::IrTypeDelegate(Type * dt, LLType* lt)
 {
 }
 
-IrTypeDelegate* IrTypeDelegate::get(Type* dt)
+IrTypeDelegate* IrTypeDelegate::get(Type* t)
 {
-    assert(!dt->irtype);
-    assert(dt->ty == Tdelegate);
+    assert(!t->irtype);
+    assert(t->ty == Tdelegate);
+    assert(t->nextOf()->ty == Tfunction);
 
-    // We can't get cycles here, but we could end up building the type as part
-    // of a class vtbl, ...
-    if (!dt->nextOf()->irtype)
-    {
-        // Build the underlying function type. Be sure to set irtype here, so
-        // the nested context arg doesn't disappear if DtoType is ever called
-        // on dt->nextOf().
-        IrTypeFunction::get(dt->nextOf(), Type::tvoid->pointerTo());
-    }
+    TypeDelegate *dt = (TypeDelegate*)t;
+
     if (!dt->irtype)
     {
-        assert(static_cast<TypeFunction*>(dt->nextOf())->fty.arg_nest &&
-            "Underlying function type should have nested context arg, "
-            "picked up random pre-existing type?"
-        );
+        TypeFunction* tf = static_cast<TypeFunction*>(dt->nextOf());
+        llvm::Type* ltf = DtoFunctionType(tf, dt->irFty, NULL, Type::tvoid->pointerTo());
 
         llvm::Type *types[] = { getVoidPtrType(), 
-                                getPtrToType(dt->nextOf()->irtype->getLLType()) };
+                                getPtrToType(ltf) };
         LLStructType* lt = LLStructType::get(gIR->context(), types, false);
         dt->irtype = new IrTypeDelegate(dt, lt);
     }

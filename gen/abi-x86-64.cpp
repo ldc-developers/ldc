@@ -376,7 +376,7 @@ struct X86_64TargetABI : TargetABI {
 
     bool passByVal(Type* t);
 
-    void rewriteFunctionType(TypeFunction* tf);
+    void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty);
 
     void doneWithFunctionType() {
         funcTypeStack.pop_back();
@@ -539,8 +539,7 @@ void X86_64TargetABI::fixup(IrFuncTyArg& arg) {
     }
 }
 
-void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf) {
-    IrFuncTy& fty = tf->fty;
+void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty) {
     Type* rt = fty.ret->type->toBasetype();
 
     if (tf->linkage == LINKd) {

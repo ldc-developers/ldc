@@ -25,6 +25,7 @@
 #include "gen/tollvm.h"
 #include "gen/utils.h"
 #include "gen/llvmhelpers.h"
+#include "gen/functions.h"
 #include "ir/irtypeclass.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -346,7 +347,7 @@ std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, Array* vtbl_arr
             continue;
         }
 
-        types.push_back(DtoType(fd->type->pointerTo()));
+        types.push_back(getPtrToType(DtoFunctionType(fd)));
 
     }
 

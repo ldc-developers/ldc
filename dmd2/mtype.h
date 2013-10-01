@@ -744,8 +744,7 @@ struct TypeFunction : TypeNext
     Expression *defaultInit(Loc loc);
 
 #if IN_LLVM
-    // LDC
-    IrFuncTy fty;
+    IrFuncTy irFty;
 
     FuncDeclaration* funcdecl;
 #endif
@@ -777,6 +776,10 @@ struct TypeDelegate : TypeNext
 
 #if IN_DMD
     type *toCtype();
+#endif
+
+#if IN_LLVM
+    IrFuncTy irFty;
 #endif
 };
 
