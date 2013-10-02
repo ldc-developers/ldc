@@ -939,7 +939,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
 }
 
 /**
-  * Returns the OS-dependent length limit for the command line when invoking
+ * Returns the OS-dependent length limit for the command line when invoking
  * subprocesses.
  */
 size_t maxCommandLineLen()
