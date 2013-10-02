@@ -20,7 +20,7 @@
 
 namespace llvm { class Module; }
 
-bool ldc_optimize_module(llvm::Module* m);
+bool ldc_optimize_module(llvm::Module* m, bool isCompleteExecutable);
 
 // Returns whether the normal, full inlining pass will be run.
 bool willInline();
