@@ -591,10 +591,6 @@ int main(int argc, char **argv)
     // stack trace on signals
     llvm::sys::PrintStackTraceOnErrorSignal();
 
-    const char *p;
-    Module *m;
-    int status = EXIT_SUCCESS;
-
     global.init();
     global.version = ldc::dmd_version;
     global.ldc_version = ldc::ldc_version;
@@ -730,7 +726,7 @@ int main(int argc, char **argv)
         const char *ext;
         const char *name;
 
-        p = static_cast<char *>(files.data[i]);
+        const char *p = static_cast<char *>(files.data[i]);
 
         p = FileName::name(p);      // strip path
         ext = FileName::ext(p);
@@ -829,7 +825,7 @@ int main(int argc, char **argv)
         }
 
         id = Lexer::idPool(name);
-        m = new Module(static_cast<char *>(files.data[i]), id, global.params.doDocComments, global.params.doHdrGeneration);
+        Module *m = new Module(static_cast<char *>(files.data[i]), id, global.params.doDocComments, global.params.doHdrGeneration);
         m->isRoot = true;
         modules.push(m);
     }
@@ -837,7 +833,7 @@ int main(int argc, char **argv)
     // Read files, parse them
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = static_cast<Module *>(modules.data[i]);
+        Module *m = modules[i];
         if (global.params.verbose)
             printf("parse     %s\n", m->toChars());
         if (!Module::rootModule)
@@ -879,10 +875,9 @@ int main(int argc, char **argv)
          */
         for (unsigned i = 0; i < modules.dim; i++)
         {
-            m = static_cast<Module *>(modules.data[i]);
             if (global.params.verbose)
-                printf("import    %s\n", m->toChars());
-            m->genhdrfile();
+                printf("import    %s\n", modules[i]->toChars());
+            modules[i]->genhdrfile();
         }
     }
     if (global.errors)
@@ -891,10 +886,9 @@ int main(int argc, char **argv)
     // load all unconditional imports for better symbol resolving
     for (unsigned i = 0; i < modules.dim; i++)
     {
-       m = static_cast<Module *>(modules.data[i]);
        if (global.params.verbose)
-           printf("importall %s\n", m->toChars());
-       m->importAll(0);
+           printf("importall %s\n", modules[i]->toChars());
+       modules[i]->importAll(0);
     }
     if (global.errors)
        fatal();
@@ -902,10 +896,9 @@ int main(int argc, char **argv)
     // Do semantic analysis
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = static_cast<Module *>(modules.data[i]);
         if (global.params.verbose)
-            printf("semantic  %s\n", m->toChars());
-        m->semantic();
+            printf("semantic  %s\n", modules[i]->toChars());
+        modules[i]->semantic();
     }
     if (global.errors)
         fatal();
@@ -916,10 +909,9 @@ int main(int argc, char **argv)
     // Do pass 2 semantic analysis
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = static_cast<Module *>(modules.data[i]);
         if (global.params.verbose)
-            printf("semantic2 %s\n", m->toChars());
-        m->semantic2();
+            printf("semantic2 %s\n", modules[i]->toChars());
+        modules[i]->semantic2();
     }
     if (global.errors)
         fatal();
@@ -927,10 +919,9 @@ int main(int argc, char **argv)
     // Do pass 3 semantic analysis
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = static_cast<Module *>(modules.data[i]);
         if (global.params.verbose)
-            printf("semantic3 %s\n", m->toChars());
-        m->semantic3();
+            printf("semantic3 %s\n", modules[i]->toChars());
+        modules[i]->semantic3();
     }
     if (global.errors)
         fatal();
@@ -961,7 +952,7 @@ int main(int argc, char **argv)
             // since otherwise functions in them cannot be inlined
             for (unsigned i = 0; i < Module::amodules.dim; i++)
             {
-                m = static_cast<Module *>(Module::amodules.data[i]);
+                Module *m = Module::amodules[i];
                 if (global.params.verbose)
                     printf("semantic3 %s\n", m->toChars());
                 m->semantic2();
@@ -993,7 +984,7 @@ int main(int argc, char **argv)
     // Generate output files
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = static_cast<Module *>(modules.data[i]);
+        Module *m = modules[i];
         if (global.params.verbose)
             printf("code      %s\n", m->toChars());
         if (global.params.obj)
@@ -1021,7 +1012,7 @@ int main(int argc, char **argv)
     // internal linking for singleobj
     if (singleObj && llvmModules.size() > 0)
     {
-        Module* m = static_cast<Module*>(modules.data[0]);
+        Module *m = modules[0];
 
         char* oname;
         const char* filename;
@@ -1125,6 +1116,7 @@ int main(int argc, char **argv)
     if (global.errors)
         fatal();
 
+    int status = EXIT_SUCCESS;
     if (!global.params.objfiles->dim)
     {
         if (global.params.link)
@@ -1139,21 +1131,17 @@ int main(int argc, char **argv)
         else if (createStaticLib)
             createStaticLibrary();
 
-        if (global.params.run)
+        if (global.params.run && status == EXIT_SUCCESS)
         {
-            if (!status)
-            {
-                status = runExecutable();
+            status = runExecutable();
 
-                /* Delete .obj files and .exe file
-                 */
-                for (unsigned i = 0; i < modules.dim; i++)
-                {
-                    m = static_cast<Module *>(modules.data[i]);
-                    m->deleteObjFile();
-                }
-                deleteExecutable();
+            /* Delete .obj files and .exe file
+                */
+            for (unsigned i = 0; i < modules.dim; i++)
+            {
+                modules[i]->deleteObjFile();
             }
+            deleteExecutable();
         }
     }
 
