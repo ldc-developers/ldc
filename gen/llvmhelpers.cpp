@@ -29,6 +29,7 @@
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
 #include "ir/irmodule.h"
+#include "llvm/InlineAsm.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -2050,4 +2051,86 @@ llvm::GlobalVariable* getOrCreateGlobal(Loc loc, llvm::Module& module,
     return new llvm::GlobalVariable(module, type, isConstant, linkage,
                                     init, name, 0, isThreadLocal);
 #endif
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments)
+{
+    Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
+    LOG_SCOPE;
+
+    TemplateInstance* ti = fd->toParent()->isTemplateInstance();
+    assert(ti && "invalid inline __asm expr");
+
+    assert(arguments->dim >= 2 && "invalid __asm call");
+
+    // get code param
+    Expression* e = static_cast<Expression*>(arguments->data[0]);
+    Logger::println("code exp: %s", e->toChars());
+    StringExp* se = static_cast<StringExp*>(e);
+    if (e->op != TOKstring || se->sz != 1)
+    {
+        e->error("__asm code argument is not a char[] string literal");
+        fatal();
+    }
+    std::string code(static_cast<char*>(se->string), se->len);
+
+    // get constraints param
+    e = static_cast<Expression*>(arguments->data[1]);
+    Logger::println("constraint exp: %s", e->toChars());
+    se = static_cast<StringExp*>(e);
+    if (e->op != TOKstring || se->sz != 1)
+    {
+        e->error("__asm constraints argument is not a char[] string literal");
+        fatal();
+    }
+    std::string constraints(static_cast<char*>(se->string), se->len);
+
+    // build runtime arguments
+    size_t n = arguments->dim;
+
+    LLSmallVector<llvm::Value*, 8> args;
+    args.reserve(n-2);
+    std::vector<LLType*> argtypes;
+    argtypes.reserve(n-2);
+
+    for (size_t i = 2; i < n; i++)
+    {
+        e = static_cast<Expression*>(arguments->data[i]);
+        args.push_back(e->toElem(gIR)->getRVal());
+        argtypes.push_back(args.back()->getType());
+    }
+
+    // build asm function type
+    Type* type = fd->type->nextOf()->toBasetype();
+    LLType* ret_type = DtoType(type);
+    llvm::FunctionType* FT = llvm::FunctionType::get(ret_type, argtypes, false);
+
+    // build asm call
+    bool sideeffect = true;
+    llvm::InlineAsm* ia = llvm::InlineAsm::get(FT, code, constraints, sideeffect);
+
+    llvm::Value* rv = gIR->ir->CreateCall(ia, args, "");
+
+    // work around missing tuple support for users of the return value
+    if (type->ty == Tstruct)
+    {
+        // make a copy
+        llvm::Value* mem = DtoAlloca(type, ".__asm_tuple_ret");
+
+        TypeStruct* ts = static_cast<TypeStruct*>(type);
+        size_t n = ts->sym->fields.dim;
+        for (size_t i = 0; i < n; i++)
+        {
+            llvm::Value* v = gIR->ir->CreateExtractValue(rv, i, "");
+            llvm::Value* gep = DtoGEPi(mem, 0, i);
+            DtoStore(v, gep);
+        }
+
+        return new DVarValue(fd->type->nextOf(), mem);
+    }
+
+    // return call as im value
+    return new DImValue(fd->type->nextOf(), rv);
 }

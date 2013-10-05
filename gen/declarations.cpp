@@ -198,12 +198,6 @@ void VarDeclaration::codegen(Ir* p)
         if (alignment != STRUCTALIGN_DEFAULT)
             gvar->setAlignment(alignment);
 
-        // If this global is used from a naked function, we need to create an
-        // artificial "use" for it, or it could be removed by the optimizer if
-        // the only reference to it is in inline asm.
-        if (nakedUse)
-            gIR->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
-
         if (Logger::enabled())
             Logger::cout() << *gvar << '\n';
     }

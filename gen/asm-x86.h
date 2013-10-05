@@ -1807,81 +1807,12 @@ namespace AsmParserx8664
 
         void addOperand ( const char * fmt, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input )
         {
-            if ( sc->func->naked )
-            {
-                switch ( type )
-                {
-                    case Arg_Integer:
-                        if ( e->type->isunsigned() )
-                            insnTemplate << "$" << e->toUInteger();
-                        else
-#ifndef ASM_X86_64
-                            insnTemplate << "$" << (sinteger_t)e->toInteger();
-#else
-                            insnTemplate << "$" << e->toInteger();
-#endif
-                        break;
-
-                    case Arg_Pointer:
-                        stmt->error ( "unsupported pointer reference to '%s' in naked asm", e->toChars() );
-                        break;
-
-                    case Arg_Memory:
-                        // Peel off one layer of explicitly taking the address, if present.
-                        if ( e->op == TOKaddress )
-                        {
-                            e = static_cast<AddrExp*>(e)->e1;
-                        }
-
-                        if ( e->op == TOKvar )
-                        {
-                            VarExp* v = ( VarExp* ) e;
-                            if ( VarDeclaration* vd = v->var->isVarDeclaration() )
-                            {
-                                if ( !vd->isDataseg() )
-                                {
-                                    stmt->error ( "only global variables can be referenced by identifier in naked asm" );
-                                    break;
-                                }
-
-                                // osx needs an extra underscore
-                                if ( global.params.targetTriple.getOS() == llvm::Triple::MacOSX ||
-                                    global.params.targetTriple.getOS() == llvm::Triple::Darwin ||
-                                    global.params.targetTriple.isOSWindows() )
-                                {
-                                    insnTemplate << "_";
-                                }
-
-                                // print out the mangle
-                                insnTemplate << vd->mangle();
-                                vd->nakedUse = true;
-                                break;
-                            }
-                        }
-                        stmt->error ( "unsupported memory reference to '%s' in naked asm", e->toChars() );
-                        break;
-
-                    default:
-                        llvm_unreachable("Unsupported argument in asm.");
-                        break;
-                }
-            }
-            else
-            {
-                insnTemplate << fmt
-                             << "<<" << (mode==Mode_Input ? "in" : "out") << asmcode->args.size() << ">>";
-                asmcode->args.push_back ( AsmArg ( type, e, mode ) );
-            }
+            insnTemplate << fmt
+                         << "<<" << (mode==Mode_Input ? "in" : "out") << asmcode->args.size() << ">>";
+            asmcode->args.push_back ( AsmArg ( type, e, mode ) );
         }
         void addOperand2 ( const char * fmtpre, const char * fmtpost, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input )
         {
-            if ( sc->func->naked )
-            {
-                // taken from above
-                stmt->error ( "only global variables can be referenced by identifier in naked asm" );
-                return;
-            }
-
             insnTemplate << fmtpre
                          << "<<" << (mode==Mode_Input ? "in" : "out") << ">>"
                          << fmtpost;
