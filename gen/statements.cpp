@@ -117,7 +117,7 @@ void ReturnStatement::toIR(IRState* p)
                     dval = ae->toElemDtor(p);
                 }
                 // do abi specific transformations on the return value
-                v = p->func()->type->fty.putRet(exp->type, dval);
+                v = p->func()->decl->irFty.putRet(exp->type, dval);
             }
 
             if (Logger::enabled())

@@ -87,11 +87,7 @@ L1:
         tfn.isref       = fd->storage_class & STCauto ? false : tfo->isref;
         tfn.trust       = tfo->trust;
         tfn.next        = NULL;     // do not mangle return type
-#if IN_LLVM
-        tfn.toDecoBuffer(&buf, 0, true);
-#else
         tfn.toDecoBuffer(&buf, 0);
-#endif
     }
     else if (sthis->type->deco)
         buf.writestring(sthis->type->deco);

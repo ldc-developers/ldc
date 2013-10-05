@@ -24,11 +24,19 @@
 #include "gen/structs.h"
 
 // D->LLVM type handling stuff
+
+/* The function takes a d type and returns an appropriate llvm type.
+ *
+ * Notice that the function does not support function types with context arguments.
+ * DtoTypeFunction(FuncDeclaration*) is to be used instead.
+ */
 LLType* DtoType(Type* t);
 LLType* voidToI8(LLType* t);
 LLType* i1ToI8(LLType* t);
 
-// returns true is the type must be passed by pointer
+
+
+// returns true if the type must be passed by pointer
 bool DtoIsPassedByRef(Type* type);
 
 // should argument be zero or sign extended

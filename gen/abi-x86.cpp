@@ -92,9 +92,8 @@ struct X86TargetABI : TargetABI
         return t->toBasetype()->ty == Tstruct || t->toBasetype()->ty == Tsarray;
     }
 
-    void rewriteFunctionType(TypeFunction* tf)
+    void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     {
-        IrFuncTy& fty = tf->fty;
         Type* rt = fty.ret->type->toBasetype();
 
         // extern(D)

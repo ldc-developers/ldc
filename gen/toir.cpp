@@ -1465,7 +1465,11 @@ DValue* PtrExp::toElem(IRState* p)
     if (type->toBasetype()->ty == Tfunction)
     {
         assert(!cachedLvalue);
-        return new DImValue(type, e1->toElem(p)->getRVal());
+        DValue *dv = e1->toElem(p);
+        if (DFuncValue *dfv = dv->isFunc())
+            return new DFuncValue(type, dfv->func, dfv->getRVal());
+        else
+            return new DImValue(type, dv->getRVal());
     }
 
     // get the rvalue and return it as an lvalue
@@ -2798,7 +2802,7 @@ DValue* FuncExp::toElem(IRState* p)
         return new DImValue(type, DtoAggrPair(cval, castfptr, ".func"));
 
     } else {
-        return new DImValue(type, fd->ir.irFunc->func);
+        return new DFuncValue(type, fd, fd->ir.irFunc->func);
     }
 }
 

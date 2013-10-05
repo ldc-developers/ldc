@@ -27,6 +27,7 @@
 
 struct Type;
 struct TypeFunction;
+struct IrFuncTy;
 struct IrFuncTyArg;
 class DValue;
 
@@ -88,7 +89,7 @@ struct TargetABI
     virtual bool passByVal(Type* t) = 0;
 
     /// Called to give ABI the chance to rewrite the types
-    virtual void rewriteFunctionType(TypeFunction* t) = 0;
+    virtual void rewriteFunctionType(TypeFunction* t, IrFuncTy &fty) = 0;
 
     /// Called if resolution of new function type is done
     virtual void doneWithFunctionType() {}
