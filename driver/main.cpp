@@ -19,7 +19,7 @@
 #include "driver/configfile.h"
 #include "driver/ldc-version.h"
 #include "driver/linker.h"
-#include "driver/target.h"
+#include "driver/targetmachine.h"
 #include "driver/toobj.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
