@@ -141,6 +141,266 @@ static void initFromString(char*& dest, const cl::opt<std::string>& src) {
     }
 }
 
+int main(int argc, char **argv);
+
+/// Parses switches from the command line, any response files and the global
+/// config file and sets up global.params accordingly.
+///
+/// Returns a list of source file names.
+static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &helpOnly) {
+#if _WIN32
+    char buf[MAX_PATH];
+    GetModuleFileName(NULL, buf, MAX_PATH);
+    const char* argv0 = &buf;
+    // FIXME: We cannot set params.argv0 here, as we would escape a stack
+    // reference, but it is unused anyway.
+    global.params.argv0 = NULL;
+#else
+    const char* argv0 = global.params.argv0 = argv[0];
+#endif
+
+    // Set some default values.
+    global.params.useSwitchError = 1;
+    global.params.useArrayBounds = 2;
+
+    global.params.linkswitches = new Strings();
+    global.params.libfiles = new Strings();
+    global.params.objfiles = new Strings();
+    global.params.ddocfiles = new Strings();
+
+    global.params.moduleDeps = NULL;
+    global.params.moduleDepsFile = NULL;
+
+    // build complete fixed up list of command line arguments
+    std::vector<const char*> final_args;
+    final_args.reserve(argc);
+
+    // insert command line args until -run is reached
+    int run_argnum = 1;
+    while (run_argnum < argc && strncmp(argv[run_argnum], "-run", 4) != 0)
+        ++run_argnum;
+    final_args.insert(final_args.end(), &argv[0], &argv[run_argnum]);
+
+    // read the configuration file
+    ConfigFile cfg_file;
+
+    // just ignore errors for now, they are still printed
+    cfg_file.read(argv0, (void*)main, "ldc2.conf");
+
+    // insert config file additions to the argument list
+    final_args.insert(final_args.end(), cfg_file.switches_begin(), cfg_file.switches_end());
+
+    // insert -run and everything beyond
+    final_args.insert(final_args.end(), &argv[run_argnum], &argv[argc]);
+
+    // Handle fixed-up arguments!
+    cl::SetVersionPrinter(&printVersion);
+    cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(&final_args[0]),
+        "LDC - the LLVM D compiler\n"
+#if LDC_LLVM_VER < 302
+        , true
+#endif
+    );
+
+    // Print config file path if -v was passed
+    if (global.params.verbose) {
+        const std::string& path = cfg_file.path();
+        if (!path.empty())
+            printf("config    %s\n", path.c_str());
+    }
+
+    // Negated options
+    global.params.link = !compileOnly;
+    global.params.obj = !dontWriteObj;
+    global.params.useInlineAsm = !noAsm;
+
+    // String options: std::string --> char*
+    initFromString(global.params.objname, objectFile);
+    initFromString(global.params.objdir, objectDir);
+
+    initFromString(global.params.docdir, ddocDir);
+    initFromString(global.params.docname, ddocFile);
+    global.params.doDocComments |=
+        global.params.docdir || global.params.docname;
+
+    initFromString(global.params.xfilename, jsonFile);
+    if (global.params.xfilename)
+        global.params.doXGeneration = true;
+
+    initFromString(global.params.hdrdir, hdrDir);
+    initFromString(global.params.hdrname, hdrFile);
+    global.params.doHdrGeneration |=
+        global.params.hdrdir || global.params.hdrname;
+
+    initFromString(global.params.moduleDepsFile, moduleDepsFile);
+    if (global.params.moduleDepsFile != NULL)
+    {
+         global.params.moduleDeps = new OutBuffer;
+    }
+
+    processVersions(debugArgs, "debug",
+        DebugCondition::setGlobalLevel,
+        DebugCondition::addGlobalIdent);
+    processVersions(versions, "version",
+        VersionCondition::setGlobalLevel,
+        VersionCondition::addGlobalIdent);
+
+    global.params.output_o =
+        (opts::output_o == cl::BOU_UNSET
+            && !(opts::output_bc || opts::output_ll || opts::output_s))
+        ? OUTPUTFLAGdefault
+        : opts::output_o == cl::BOU_TRUE
+            ? OUTPUTFLAGset
+            : OUTPUTFLAGno;
+    global.params.output_bc = opts::output_bc ? OUTPUTFLAGset : OUTPUTFLAGno;
+    global.params.output_ll = opts::output_ll ? OUTPUTFLAGset : OUTPUTFLAGno;
+    global.params.output_s  = opts::output_s  ? OUTPUTFLAGset : OUTPUTFLAGno;
+
+    templateLinkage =
+        opts::linkonceTemplates ? LLGlobalValue::LinkOnceODRLinkage
+                                : LLGlobalValue::WeakODRLinkage;
+
+    if (global.params.run || !runargs.empty()) {
+        // FIXME: how to properly detect the presence of a PositionalEatsArgs
+        // option without parameters? We want to emit an error in that case...
+        // You'd think getNumOccurrences would do it, but it just returns the
+        // number of parameters)
+        // NOTE: Hacked around it by detecting -run in getenv_setargv(), where
+        // we're looking for it anyway, and pre-setting the flag...
+        global.params.run = true;
+        if (!runargs.empty()) {
+            char const * name = runargs[0].c_str();
+            char const * ext = FileName::ext(name);
+            if (ext && FileName::equals(ext, "d") == 0 &&
+                FileName::equals(ext, "di") == 0) {
+                error("-run must be followed by a source file, not '%s'", name);
+            }
+
+            sourceFiles.push(mem.strdup(name));
+            runargs.erase(runargs.begin());
+        } else {
+            global.params.run = false;
+            error("Expected at least one argument to '-run'\n");
+        }
+    }
+
+    sourceFiles.reserve(fileList.size());
+    typedef std::vector<std::string>::iterator It;
+    for(It I = fileList.begin(), E = fileList.end(); I != E; ++I)
+        if (!I->empty())
+            sourceFiles.push(mem.strdup(I->c_str()));
+
+    Array* libs;
+    if (global.params.symdebug)
+    {
+        libs = global.params.debuglibnames;
+    }
+    else
+        libs = global.params.defaultlibnames;
+
+    if (!noDefaultLib)
+    {
+        if (libs)
+        {
+            for (unsigned i = 0; i < libs->dim; i++)
+            {
+                char* lib = static_cast<char *>(libs->data[i]);
+                char *arg = static_cast<char *>(mem.malloc(strlen(lib) + 3));
+                strcpy(arg, "-l");
+                strcpy(arg+2, lib);
+                global.params.linkswitches->push(arg);
+            }
+        }
+        else
+        {
+            global.params.linkswitches->push(mem.strdup("-ldruntime-ldc"));
+        }
+    }
+
+    if (global.params.useUnitTests)
+        global.params.useAssert = 1;
+
+    // Bounds checking is a bit peculiar: -enable/disable-boundscheck is an
+    // absolute decision. Only if no explicit option is specified, -release
+    // downgrades useArrayBounds 2 to 1 (only for safe functions).
+    if (opts::boundsChecks == cl::BOU_UNSET)
+        global.params.useArrayBounds = opts::nonSafeBoundsChecks ? 2 : 1;
+    else
+        global.params.useArrayBounds = (opts::boundsChecks == cl::BOU_TRUE) ? 2 : 0;
+
+    // LDC output determination
+
+    // if we don't link, autodetect target from extension
+    if(!global.params.link && !createStaticLib && global.params.objname) {
+        const char *ext = FileName::ext(global.params.objname);
+        bool autofound = false;
+        if (!ext) {
+            // keep things as they are
+        } else if (strcmp(ext, global.ll_ext) == 0) {
+            global.params.output_ll = OUTPUTFLAGset;
+            autofound = true;
+        } else if (strcmp(ext, global.bc_ext) == 0) {
+            global.params.output_bc = OUTPUTFLAGset;
+            autofound = true;
+        } else if (strcmp(ext, global.s_ext) == 0) {
+            global.params.output_s = OUTPUTFLAGset;
+            autofound = true;
+        } else if (strcmp(ext, global.obj_ext) == 0 || strcmp(ext, global.obj_ext_alt) == 0) {
+            global.params.output_o = OUTPUTFLAGset;
+            autofound = true;
+        } else {
+            // append dot, so forceExt won't change existing name even if it contains dots
+            size_t len = strlen(global.params.objname);
+            char* s = static_cast<char *>(mem.malloc(len + 1 + 1));
+            memcpy(s, global.params.objname, len);
+            s[len] = '.';
+            s[len+1] = 0;
+            global.params.objname = s;
+
+        }
+        if(autofound && global.params.output_o == OUTPUTFLAGdefault)
+            global.params.output_o = OUTPUTFLAGno;
+    }
+
+    // only link if possible
+    if (!global.params.obj || !global.params.output_o || createStaticLib)
+        global.params.link = 0;
+
+    if (createStaticLib && createSharedLib)
+        error("-lib and -shared switches cannot be used together");
+
+    if (createSharedLib && mRelocModel == llvm::Reloc::Default)
+        mRelocModel = llvm::Reloc::PIC_;
+
+    if (global.params.link && !createSharedLib)
+    {
+        global.params.exefile = global.params.objname;
+        if (sourceFiles.dim > 1)
+            global.params.objname = NULL;
+    }
+    else if (global.params.run)
+    {
+        error("flags conflict with -run");
+        fatal();
+    }
+    else if (global.params.objname && sourceFiles.dim > 1) {
+        if (createStaticLib || createSharedLib)
+        {
+            singleObj = true;
+        }
+        if (!singleObj)
+        {
+            error("multiple source files, but only one .obj name");
+            fatal();
+        }
+    }
+
+    if (soname.getNumOccurrences() > 0 && !createSharedLib) {
+        error("-soname can be used only when building a shared library");
+        fatal();
+    }
+}
+
 /// Registers the predefined versions specific to the current target triple
 /// and other target specific options with VersionCondition.
 static void registerPredefinedTargetVersions() {
@@ -323,7 +583,7 @@ static void registerPredefinedVersions() {
 #undef STR
 }
 
-int main(int argc, char** argv)
+int main(int argc, char **argv)
 {
     mem.init();                         // initialize storage allocator
     mem.setStackBottom(&argv);
@@ -331,8 +591,7 @@ int main(int argc, char** argv)
     // stack trace on signals
     llvm::sys::PrintStackTraceOnErrorSignal();
 
-    Strings files;
-    const char *p, *ext;
+    const char *p;
     Module *m;
     int status = EXIT_SUCCESS;
 
@@ -341,282 +600,26 @@ int main(int argc, char** argv)
     global.ldc_version = ldc::ldc_version;
     global.llvm_version = ldc::llvm_version;
 
-    // Set some default values
-#if _WIN32
-    char buf[MAX_PATH];
-    GetModuleFileName(NULL, buf, MAX_PATH);
-    global.params.argv0 = buf;
-#else
-    global.params.argv0 = argv[0];
-#endif
-    global.params.useSwitchError = 1;
-    global.params.useArrayBounds = 2;
-
-    global.params.linkswitches = new Strings();
-    global.params.libfiles = new Strings();
-    global.params.objfiles = new Strings();
-    global.params.ddocfiles = new Strings();
-
-    global.params.moduleDeps = NULL;
-    global.params.moduleDepsFile = NULL;
-
-
-    // build complete fixed up list of command line arguments
-    std::vector<const char*> final_args;
-    final_args.reserve(argc);
-
-    // insert command line args until -run is reached
-    int run_argnum = 1;
-    while (run_argnum < argc && strncmp(argv[run_argnum], "-run", 4) != 0)
-        ++run_argnum;
-    final_args.insert(final_args.end(), &argv[0], &argv[run_argnum]);
-
-    // read the configuration file
-    ConfigFile cfg_file;
-
-    // just ignore errors for now, they are still printed
-    cfg_file.read(global.params.argv0, (void*)main, "ldc2.conf");
-
-    // insert config file additions to the argument list
-    final_args.insert(final_args.end(), cfg_file.switches_begin(), cfg_file.switches_end());
-
-    // insert -run and everything beyond
-    final_args.insert(final_args.end(), &argv[run_argnum], &argv[argc]);
-
-#if 0
-    for (size_t i = 0; i < final_args.size(); ++i)
-    {
-        printf("final_args[%zu] = %s\n", i, final_args[i]);
-    }
-#endif
-
-    // Initialize LLVM.
-    // Initialize targets first, so that --version shows registered targets.
+    // Initialize LLVM before parsing the command line so that --version shows
+    // registered targets.
     llvm::InitializeAllTargetInfos();
     llvm::InitializeAllTargets();
     llvm::InitializeAllTargetMCs();
     llvm::InitializeAllAsmPrinters();
     llvm::InitializeAllAsmParsers();
 
-    // Handle fixed-up arguments!
-    cl::SetVersionPrinter(&printVersion);
-    cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(&final_args[0]),
-        "LDC - the LLVM D compiler\n"
-#if LDC_LLVM_VER < 302
-        , true
-#endif
-    );
+    bool helpOnly;
+    Strings files;
+    parseCommandLine(argc, argv, files, helpOnly);
 
-    // Print config file path if -v was passed
-    if (global.params.verbose) {
-        const std::string& path = cfg_file.path();
-        if (!path.empty())
-            printf("config    %s\n", path.c_str());
-    }
-
-    bool skipModules = mCPU == "help" ||(!mAttrs.empty() && mAttrs.front() == "help");
-
-    // Negated options
-    global.params.link = !compileOnly;
-    global.params.obj = !dontWriteObj;
-    global.params.useInlineAsm = !noAsm;
-
-    // String options: std::string --> char*
-    initFromString(global.params.objname, objectFile);
-    initFromString(global.params.objdir, objectDir);
-
-    initFromString(global.params.docdir, ddocDir);
-    initFromString(global.params.docname, ddocFile);
-    global.params.doDocComments |=
-        global.params.docdir || global.params.docname;
-
-    initFromString(global.params.xfilename, jsonFile);
-    if (global.params.xfilename)
-        global.params.doXGeneration = true;
-
-    initFromString(global.params.hdrdir, hdrDir);
-    initFromString(global.params.hdrname, hdrFile);
-    global.params.doHdrGeneration |=
-        global.params.hdrdir || global.params.hdrname;
-
-    initFromString(global.params.moduleDepsFile, moduleDepsFile);
-    if (global.params.moduleDepsFile != NULL)
-    {
-         global.params.moduleDeps = new OutBuffer;
-    }
-
-    processVersions(debugArgs, "debug",
-        DebugCondition::setGlobalLevel,
-        DebugCondition::addGlobalIdent);
-    processVersions(versions, "version",
-        VersionCondition::setGlobalLevel,
-        VersionCondition::addGlobalIdent);
-
-    global.params.output_o =
-        (opts::output_o == cl::BOU_UNSET
-            && !(opts::output_bc || opts::output_ll || opts::output_s))
-        ? OUTPUTFLAGdefault
-        : opts::output_o == cl::BOU_TRUE
-            ? OUTPUTFLAGset
-            : OUTPUTFLAGno;
-    global.params.output_bc = opts::output_bc ? OUTPUTFLAGset : OUTPUTFLAGno;
-    global.params.output_ll = opts::output_ll ? OUTPUTFLAGset : OUTPUTFLAGno;
-    global.params.output_s  = opts::output_s  ? OUTPUTFLAGset : OUTPUTFLAGno;
-
-    templateLinkage =
-        opts::linkonceTemplates ? LLGlobalValue::LinkOnceODRLinkage
-                                : LLGlobalValue::WeakODRLinkage;
-
-    if (global.params.run || !runargs.empty()) {
-        // FIXME: how to properly detect the presence of a PositionalEatsArgs
-        // option without parameters? We want to emit an error in that case...
-        // You'd think getNumOccurrences would do it, but it just returns the
-        // number of parameters)
-        // NOTE: Hacked around it by detecting -run in getenv_setargv(), where
-        // we're looking for it anyway, and pre-setting the flag...
-        global.params.run = true;
-        if (!runargs.empty()) {
-            char const * name = runargs[0].c_str();
-            char const * ext = FileName::ext(name);
-            if (ext && FileName::equals(ext, "d") == 0 &&
-                FileName::equals(ext, "di") == 0) {
-                error("-run must be followed by a source file, not '%s'", name);
-            }
-
-            files.push(mem.strdup(name));
-            runargs.erase(runargs.begin());
-        } else {
-            global.params.run = false;
-            error("Expected at least one argument to '-run'\n");
-        }
-    }
-
-
-    files.reserve(fileList.size());
-    typedef std::vector<std::string>::iterator It;
-    for(It I = fileList.begin(), E = fileList.end(); I != E; ++I)
-        if (!I->empty())
-            files.push(mem.strdup(I->c_str()));
-
-    if (global.errors)
-    {
-        fatal();
-    }
-    if (files.dim == 0 && !skipModules)
+    if (files.dim == 0 && !helpOnly)
     {
         cl::PrintHelpMessage();
         return EXIT_FAILURE;
     }
 
-    Array* libs;
-    if (global.params.symdebug)
-    {
-        libs = global.params.debuglibnames;
-    }
-    else
-        libs = global.params.defaultlibnames;
-
-    if (!noDefaultLib)
-    {
-        if (libs)
-        {
-            for (unsigned i = 0; i < libs->dim; i++)
-            {
-                char* lib = static_cast<char *>(libs->data[i]);
-                char *arg = static_cast<char *>(mem.malloc(strlen(lib) + 3));
-                strcpy(arg, "-l");
-                strcpy(arg+2, lib);
-                global.params.linkswitches->push(arg);
-            }
-        }
-        else
-        {
-            global.params.linkswitches->push(mem.strdup("-ldruntime-ldc"));
-        }
-    }
-
-    if (global.params.useUnitTests)
-        global.params.useAssert = 1;
-
-    // Bounds checking is a bit peculiar: -enable/disable-boundscheck is an
-    // absolute decision. Only if no explicit option is specified, -release
-    // downgrades useArrayBounds 2 to 1 (only for safe functions).
-    if (opts::boundsChecks == cl::BOU_UNSET)
-        global.params.useArrayBounds = opts::nonSafeBoundsChecks ? 2 : 1;
-    else
-        global.params.useArrayBounds = (opts::boundsChecks == cl::BOU_TRUE) ? 2 : 0;
-
-    // LDC output determination
-
-    // if we don't link, autodetect target from extension
-    if(!global.params.link && !createStaticLib && global.params.objname) {
-        ext = FileName::ext(global.params.objname);
-        bool autofound = false;
-        if (!ext) {
-            // keep things as they are
-        } else if (strcmp(ext, global.ll_ext) == 0) {
-            global.params.output_ll = OUTPUTFLAGset;
-            autofound = true;
-        } else if (strcmp(ext, global.bc_ext) == 0) {
-            global.params.output_bc = OUTPUTFLAGset;
-            autofound = true;
-        } else if (strcmp(ext, global.s_ext) == 0) {
-            global.params.output_s = OUTPUTFLAGset;
-            autofound = true;
-        } else if (strcmp(ext, global.obj_ext) == 0 || strcmp(ext, global.obj_ext_alt) == 0) {
-            global.params.output_o = OUTPUTFLAGset;
-            autofound = true;
-        } else {
-            // append dot, so forceExt won't change existing name even if it contains dots
-            size_t len = strlen(global.params.objname);
-            char* s = static_cast<char *>(mem.malloc(len + 1 + 1));
-            memcpy(s, global.params.objname, len);
-            s[len] = '.';
-            s[len+1] = 0;
-            global.params.objname = s;
-
-        }
-        if(autofound && global.params.output_o == OUTPUTFLAGdefault)
-            global.params.output_o = OUTPUTFLAGno;
-    }
-
-    // only link if possible
-    if (!global.params.obj || !global.params.output_o || createStaticLib)
-        global.params.link = 0;
-
-    if (createStaticLib && createSharedLib)
-        error("-lib and -shared switches cannot be used together");
-
-    if (createSharedLib && mRelocModel == llvm::Reloc::Default)
-        mRelocModel = llvm::Reloc::PIC_;
-
-    if (global.params.link && !createSharedLib)
-    {
-        global.params.exefile = global.params.objname;
-        if (files.dim > 1)
-            global.params.objname = NULL;
-    }
-    else if (global.params.run)
-    {
-        error("flags conflict with -run");
+    if (global.errors)
         fatal();
-    }
-    else if (global.params.objname && files.dim > 1) {
-        if (createStaticLib || createSharedLib)
-        {
-            singleObj = true;
-        }
-        if (!singleObj)
-        {
-            error("multiple source files, but only one .obj name");
-            fatal();
-        }
-    }
-
-    if (soname.getNumOccurrences() > 0 && !createSharedLib) {
-        error("-soname can be used only when building a shared library");
-        fatal();
-    }
 
     // create a proper target
     Ir ir;
