@@ -28,7 +28,7 @@ static std::string getX86TargetCPU(const std::string &cpu,
 {
     if (!cpu.empty()) {
         if (cpu != "native")
-          return cpu;
+            return cpu;
 
         // FIXME: Reject attempts to use -mcpu=native unless the target matches
         // the host.
@@ -37,18 +37,17 @@ static std::string getX86TargetCPU(const std::string &cpu,
         // with -native.
         std::string cpu = llvm::sys::getHostCPUName();
         if (!cpu.empty() && cpu != "generic")
-          return cpu;
+            return cpu;
     }
 
     // Select the default CPU if none was given (or detection failed).
 
-    bool is64Bit = triple.getArch() == llvm::Triple::x86_64;
-
+    // Intel Macs are relatively recent, take advantage of that.
     if (triple.isOSDarwin())
-        return is64Bit ? "core2" : "yonah";
+        return triple.isArch64Bit() ? "core2" : "yonah";
 
     // Everything else goes to x86-64 in 64-bit mode.
-    if (is64Bit)
+    if (triple.isArch64Bit())
         return "x86-64";
 
     if (triple.getOSName().startswith("haiku"))
