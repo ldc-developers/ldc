@@ -141,6 +141,188 @@ static void initFromString(char*& dest, const cl::opt<std::string>& src) {
     }
 }
 
+/// Registers the predefined versions specific to the current target triple
+/// and other target specific options with VersionCondition.
+static void registerPredefinedTargetVersions() {
+    switch (global.params.targetTriple.getArch())
+    {
+        case llvm::Triple::x86:
+            VersionCondition::addPredefinedGlobalIdent("X86");
+            if (global.params.useInlineAsm) {
+                VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
+            }
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+            break;
+        case llvm::Triple::x86_64:
+            VersionCondition::addPredefinedGlobalIdent("X86_64");
+            if (global.params.useInlineAsm) {
+                VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86_64");
+            }
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+            break;
+        case llvm::Triple::ppc:
+            // FIXME: Detect soft float (PPC_SoftFP/PPC_HardFP).
+            VersionCondition::addPredefinedGlobalIdent("PPC");
+            break;
+        case llvm::Triple::ppc64:
+            VersionCondition::addPredefinedGlobalIdent("PPC64");
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+            break;
+        case llvm::Triple::arm:
+            // FIXME: Detect various FP ABIs (ARM_Soft, ARM_SoftFP, ARM_HardFP).
+            VersionCondition::addPredefinedGlobalIdent("ARM");
+            break;
+        case llvm::Triple::thumb:
+            VersionCondition::addPredefinedGlobalIdent("ARM");
+            VersionCondition::addPredefinedGlobalIdent("Thumb"); // For backwards compatibility.
+            VersionCondition::addPredefinedGlobalIdent("ARM_Thumb");
+            VersionCondition::addPredefinedGlobalIdent("ARM_Soft");
+            VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
+            break;
+#if LDC_LLVM_VER >= 303
+        case llvm::Triple::aarch64:
+            VersionCondition::addPredefinedGlobalIdent("AArch64");
+            break;
+#endif
+        case llvm::Triple::mips:
+        case llvm::Triple::mipsel:
+            // FIXME: Detect O32/N32 variants (MIPS_{O32,N32}[_SoftFP,_HardFP]).
+            VersionCondition::addPredefinedGlobalIdent("MIPS");
+            break;
+        case llvm::Triple::mips64:
+        case llvm::Triple::mips64el:
+            // FIXME: Detect N64 variants (MIPS64_N64[_SoftFP,_HardFP]).
+            VersionCondition::addPredefinedGlobalIdent("MIPS64");
+            break;
+        case llvm::Triple::sparc:
+            // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
+            // FIXME: Detect soft float (SPARC_SoftFP/SPARC_HardFP).
+            VersionCondition::addPredefinedGlobalIdent("SPARC");
+            break;
+        case llvm::Triple::sparcv9:
+            VersionCondition::addPredefinedGlobalIdent("SPARC64");
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+            break;
+        default:
+            error("invalid cpu architecture specified: %s", global.params.targetTriple.getArchName().str().c_str());
+            fatal();
+    }
+
+    // endianness
+    if (gDataLayout->isLittleEndian()) {
+        VersionCondition::addPredefinedGlobalIdent("LittleEndian");
+    }
+    else {
+        VersionCondition::addPredefinedGlobalIdent("BigEndian");
+    }
+
+    // a generic 64bit version
+    if (global.params.is64bit) {
+        VersionCondition::addPredefinedGlobalIdent("LLVM64"); // For backwards compatibility.
+        VersionCondition::addPredefinedGlobalIdent("D_LP64");
+    }
+
+    if (gTargetMachine->getRelocationModel() == llvm::Reloc::PIC_) {
+        VersionCondition::addPredefinedGlobalIdent("D_PIC");
+    }
+
+    // parse the OS out of the target triple
+    // see http://gcc.gnu.org/install/specific.html for details
+    // also llvm's different SubTargets have useful information
+    switch (global.params.targetTriple.getOS())
+    {
+        case llvm::Triple::Win32:
+            VersionCondition::addPredefinedGlobalIdent("Windows");
+            VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
+            break;
+        case llvm::Triple::MinGW32:
+            VersionCondition::addPredefinedGlobalIdent("Windows");
+            VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
+            VersionCondition::addPredefinedGlobalIdent("mingw32"); // For backwards compatibility.
+            VersionCondition::addPredefinedGlobalIdent("MinGW");
+            break;
+        case llvm::Triple::Cygwin:
+            error("Cygwin is not yet supported");
+            fatal();
+            VersionCondition::addPredefinedGlobalIdent("Cygwin");
+            break;
+        case llvm::Triple::Linux:
+            VersionCondition::addPredefinedGlobalIdent("linux");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::Haiku:
+            VersionCondition::addPredefinedGlobalIdent("Haiku");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::Darwin:
+            VersionCondition::addPredefinedGlobalIdent("OSX");
+            VersionCondition::addPredefinedGlobalIdent("darwin"); // For backwards compatibility.
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::FreeBSD:
+            VersionCondition::addPredefinedGlobalIdent("freebsd"); // For backwards compatibility.
+            VersionCondition::addPredefinedGlobalIdent("FreeBSD");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::Solaris:
+            VersionCondition::addPredefinedGlobalIdent("solaris"); // For backwards compatibility.
+            VersionCondition::addPredefinedGlobalIdent("Solaris");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::DragonFly:
+            VersionCondition::addPredefinedGlobalIdent("DragonFlyBSD");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::NetBSD:
+            VersionCondition::addPredefinedGlobalIdent("NetBSD");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+        case llvm::Triple::OpenBSD:
+            VersionCondition::addPredefinedGlobalIdent("OpenBSD");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+#if LDC_LLVM_VER >= 302
+        case llvm::Triple::AIX:
+            VersionCondition::addPredefinedGlobalIdent("AIX");
+            VersionCondition::addPredefinedGlobalIdent("Posix");
+            break;
+#endif
+        default:
+            error("target '%s' is not yet supported", global.params.targetTriple.str().c_str());
+            fatal();
+    }
+}
+
+/// Registers all predefined D version identifiers for the current
+/// configuration with VersionCondition.
+static void registerPredefinedVersions() {
+    VersionCondition::addPredefinedGlobalIdent("LLVM"); // For backwards compatibility.
+    VersionCondition::addPredefinedGlobalIdent("LDC");
+    VersionCondition::addPredefinedGlobalIdent("all");
+    VersionCondition::addPredefinedGlobalIdent("D_Version2");
+
+    if (global.params.doDocComments)
+        VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
+
+    if (global.params.useUnitTests)
+        VersionCondition::addPredefinedGlobalIdent("unittest");
+
+    if (global.params.useAssert)
+        VersionCondition::addPredefinedGlobalIdent("assert");
+
+    if (!global.params.useArrayBounds)
+        VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
+
+    registerPredefinedTargetVersions();
+
+    // Expose LLVM version to runtime
+#define STR(x) #x
+#define XSTR(x) STR(x)
+    VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_" XSTR(LDC_LLVM_VER));
+#undef XSTR
+#undef STR
+}
+
 int main(int argc, char** argv)
 {
     mem.init();                         // initialize storage allocator
@@ -178,11 +360,6 @@ int main(int argc, char** argv)
     global.params.moduleDeps = NULL;
     global.params.moduleDepsFile = NULL;
 
-    // Set predefined version identifiers
-    VersionCondition::addPredefinedGlobalIdent("LLVM"); // For backwards compatibility.
-    VersionCondition::addPredefinedGlobalIdent("LDC");
-    VersionCondition::addPredefinedGlobalIdent("all");
-    VersionCondition::addPredefinedGlobalIdent("D_Version2");
 
     // build complete fixed up list of command line arguments
     std::vector<const char*> final_args;
@@ -483,160 +660,8 @@ int main(int argc, char** argv)
     // Starting with LLVM 3.1 we could also use global.params.targetTriple.isArch64Bit();
     global.params.is64bit = gDataLayout->getPointerSizeInBits(ADDRESS_SPACE) == 64;
 
-    switch (global.params.targetTriple.getArch())
-    {
-        case llvm::Triple::x86:
-            VersionCondition::addPredefinedGlobalIdent("X86");
-            if (global.params.useInlineAsm) {
-                VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
-            }
-            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
-            break;
-        case llvm::Triple::x86_64:
-            VersionCondition::addPredefinedGlobalIdent("X86_64");
-            if (global.params.useInlineAsm) {
-                VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86_64");
-            }
-            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
-            break;
-        case llvm::Triple::ppc:
-            // FIXME: Detect soft float (PPC_SoftFP/PPC_HardFP).
-            VersionCondition::addPredefinedGlobalIdent("PPC");
-            break;
-        case llvm::Triple::ppc64:
-            VersionCondition::addPredefinedGlobalIdent("PPC64");
-            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
-            break;
-        case llvm::Triple::arm:
-            // FIXME: Detect various FP ABIs (ARM_Soft, ARM_SoftFP, ARM_HardFP).
-            VersionCondition::addPredefinedGlobalIdent("ARM");
-            break;
-        case llvm::Triple::thumb:
-            VersionCondition::addPredefinedGlobalIdent("ARM");
-            VersionCondition::addPredefinedGlobalIdent("Thumb"); // For backwards compatibility.
-            VersionCondition::addPredefinedGlobalIdent("ARM_Thumb");
-            VersionCondition::addPredefinedGlobalIdent("ARM_Soft");
-            VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
-            break;
-#if LDC_LLVM_VER >= 303
-        case llvm::Triple::aarch64:
-            VersionCondition::addPredefinedGlobalIdent("AArch64");
-            break;
-#endif
-        case llvm::Triple::mips:
-        case llvm::Triple::mipsel:
-            // FIXME: Detect O32/N32 variants (MIPS_{O32,N32}[_SoftFP,_HardFP]).
-            VersionCondition::addPredefinedGlobalIdent("MIPS");
-            break;
-        case llvm::Triple::mips64:
-        case llvm::Triple::mips64el:
-            // FIXME: Detect N64 variants (MIPS64_N64[_SoftFP,_HardFP]).
-            VersionCondition::addPredefinedGlobalIdent("MIPS64");
-            break;
-        case llvm::Triple::sparc:
-            // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
-            // FIXME: Detect soft float (SPARC_SoftFP/SPARC_HardFP).
-            VersionCondition::addPredefinedGlobalIdent("SPARC");
-            break;
-        case llvm::Triple::sparcv9:
-            VersionCondition::addPredefinedGlobalIdent("SPARC64");
-            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
-            break;
-        default:
-            error("invalid cpu architecture specified: %s", global.params.targetTriple.getArchName().str().c_str());
-            fatal();
-    }
-
-    // endianness
-    if (gDataLayout->isLittleEndian()) {
-        VersionCondition::addPredefinedGlobalIdent("LittleEndian");
-    }
-    else {
-        VersionCondition::addPredefinedGlobalIdent("BigEndian");
-    }
-
-    // a generic 64bit version
-    if (global.params.is64bit) {
-        VersionCondition::addPredefinedGlobalIdent("LLVM64"); // For backwards compatibility.
-        VersionCondition::addPredefinedGlobalIdent("D_LP64");
-    }
-
-    if (gTargetMachine->getRelocationModel() == llvm::Reloc::PIC_) {
-        VersionCondition::addPredefinedGlobalIdent("D_PIC");
-    }
-
-    // parse the OS out of the target triple
-    // see http://gcc.gnu.org/install/specific.html for details
-    // also llvm's different SubTargets have useful information
-    switch (global.params.targetTriple.getOS())
-    {
-        case llvm::Triple::Win32:
-            VersionCondition::addPredefinedGlobalIdent("Windows");
-            VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
-            break;
-        case llvm::Triple::MinGW32:
-            VersionCondition::addPredefinedGlobalIdent("Windows");
-            VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
-            VersionCondition::addPredefinedGlobalIdent("mingw32"); // For backwards compatibility.
-            VersionCondition::addPredefinedGlobalIdent("MinGW");
-            break;
-        case llvm::Triple::Cygwin:
-            error("Cygwin is not yet supported");
-            fatal();
-            VersionCondition::addPredefinedGlobalIdent("Cygwin");
-            break;
-        case llvm::Triple::Linux:
-            VersionCondition::addPredefinedGlobalIdent("linux");
-            VersionCondition::addPredefinedGlobalIdent("Posix");
-            break;
-        case llvm::Triple::Haiku:
-            VersionCondition::addPredefinedGlobalIdent("Haiku");
-            VersionCondition::addPredefinedGlobalIdent("Posix");
-            break;
-        case llvm::Triple::Darwin:
-            VersionCondition::addPredefinedGlobalIdent("OSX");
-            VersionCondition::addPredefinedGlobalIdent("darwin"); // For backwards compatibility.
-            VersionCondition::addPredefinedGlobalIdent("Posix");
-            break;
-        case llvm::Triple::FreeBSD:
-            VersionCondition::addPredefinedGlobalIdent("freebsd"); // For backwards compatibility.
-            VersionCondition::addPredefinedGlobalIdent("FreeBSD");
-            VersionCondition::addPredefinedGlobalIdent("Posix");
-            break;
-        case llvm::Triple::Solaris:
-            VersionCondition::addPredefinedGlobalIdent("solaris"); // For backwards compatibility.
-            VersionCondition::addPredefinedGlobalIdent("Solaris");
-            VersionCondition::addPredefinedGlobalIdent("Posix");
-            break;
-        case llvm::Triple::DragonFly:
-            VersionCondition::addPredefinedGlobalIdent("DragonFlyBSD");
-            VersionCondition::addPredefinedGlobalIdent("Posix");
-            break;
-        case llvm::Triple::NetBSD:
-            VersionCondition::addPredefinedGlobalIdent("NetBSD");
-            VersionCondition::addPredefinedGlobalIdent("Posix");
-            break;
-        case llvm::Triple::OpenBSD:
-            VersionCondition::addPredefinedGlobalIdent("OpenBSD");
-            VersionCondition::addPredefinedGlobalIdent("Posix");
-            break;
-#if LDC_LLVM_VER >= 302
-        case llvm::Triple::AIX:
-            VersionCondition::addPredefinedGlobalIdent("AIX");
-            VersionCondition::addPredefinedGlobalIdent("Posix");
-            break;
-#endif
-        default:
-            error("target '%s' is not yet supported", global.params.targetTriple.str().c_str());
-            fatal();
-    }
-
-    // Expose LLVM version to runtime
-#define STR(x) #x
-#define XSTR(x) STR(x)
-    VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_" XSTR(LDC_LLVM_VER));
-#undef XSTR
-#undef STR
+    // Set predefined version identifiers.
+    registerPredefinedVersions();
 
     if (global.params.targetTriple.isOSWindows()) {
         global.dll_ext = "dll";
@@ -645,20 +670,6 @@ int main(int argc, char** argv)
         global.dll_ext = "so";
         global.lib_ext = "a";
     }
-
-    // added in 1.039
-    if (global.params.doDocComments)
-        VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
-
-    // unittests?
-    if (global.params.useUnitTests)
-        VersionCondition::addPredefinedGlobalIdent("unittest");
-
-    if (global.params.useAssert)
-        VersionCondition::addPredefinedGlobalIdent("assert");
-
-    if (!global.params.useArrayBounds)
-        VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
 
     // Initialization
     Type::init(&ir);
