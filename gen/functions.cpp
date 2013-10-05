@@ -40,7 +40,7 @@
 using namespace llvm::Attribute;
 #endif
 
-llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype, Type* nesttype, bool ismain)
+llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype, Type* nesttype, bool isMain, bool isCtor)
 {
     if (Logger::enabled())
         Logger::println("DtoFunctionType(%s)", type->toChars());
@@ -62,7 +62,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     size_t lidx = 0;
 
     // main needs a little special handling
-    if (ismain)
+    if (isMain)
     {
         newIrFty.ret = new IrFuncTyArg(Type::tint32, false);
     }
@@ -130,7 +130,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     {
 #if LDC_LLVM_VER >= 303
         llvm::AttrBuilder attrBuilder;
-        if (f->funcdecl && f->funcdecl->isCtorDeclaration())
+        if (isCtor)
             attrBuilder.addAttribute(llvm::Attribute::Returned);
 #endif
         newIrFty.arg_this = new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct
@@ -186,7 +186,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     // if this _Dmain() doesn't have an argument, we force it to have one
     int nargs = Parameter::dim(f->parameters);
 
-    if (ismain && nargs == 0)
+    if (isMain && nargs == 0)
     {
         Type* mainargs = Type::tchar->arrayOf()->arrayOf();
         newIrFty.args.push_back(new IrFuncTyArg(mainargs, false));
@@ -434,7 +434,7 @@ llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         dnest = Type::tvoid->pointerTo();
     }
 
-    LLFunctionType* functype = DtoFunctionType(fdecl->type, fdecl->irFty, dthis, dnest, fdecl->isMain());
+    LLFunctionType* functype = DtoFunctionType(fdecl->type, fdecl->irFty, dthis, dnest, fdecl->isMain(), fdecl->isCtorDeclaration());
 
     return functype;
 }
