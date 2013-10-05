@@ -229,9 +229,6 @@ struct Type : Object
     static unsigned char mangleChar[TMAX];
     static unsigned short sizeTy[TMAX];
     static StringTable stringtable;
-#if IN_LLVM
-    static StringTable deco_stringtable;
-#endif
 
     // These tables are for implicit conversion of binary ops;
     // the indices are the type of operand one, followed by operand two.
@@ -263,7 +260,7 @@ struct Type : Object
     virtual Type *semantic(Loc loc, Scope *sc);
     Type *trySemantic(Loc loc, Scope *sc);
     // append the mangleof or a string uniquely identifying this type to buf
-    virtual void toDecoBuffer(OutBuffer *buf, int flag = 0, bool mangle=false);
+    virtual void toDecoBuffer(OutBuffer *buf, int flag = 0);
     Type *merge();
     Type *merge2();
     virtual void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
@@ -400,7 +397,7 @@ struct TypeNext : Type
     Type *next;
 
     TypeNext(TY ty, Type *next);
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+    void toDecoBuffer(OutBuffer *buf, int flag);
     void checkDeprecated(Loc loc, Scope *sc);
     Type *reliesOnTident(TemplateParameters *tparams = NULL);
     int hasWild();
@@ -468,11 +465,7 @@ struct TypeVector : Type
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     char *toChars();
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
-#if IN_LLVM
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
-#else
     void toDecoBuffer(OutBuffer *buf, int flag);
-#endif
     void toJson(JsonOut *json);
     MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wildmatch = NULL);
 #if CPP_MANGLE
@@ -516,7 +509,7 @@ struct TypeSArray : TypeArray
     unsigned alignsize();
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+    void toDecoBuffer(OutBuffer *buf, int flag);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void toJson(JsonOut *json);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -559,7 +552,7 @@ struct TypeDArray : TypeArray
     unsigned alignsize();
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+    void toDecoBuffer(OutBuffer *buf, int flag);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void toJson(JsonOut *json);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -597,7 +590,7 @@ struct TypeAArray : TypeArray
     Type *semantic(Loc loc, Scope *sc);
     StructDeclaration *getImpl();
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+    void toDecoBuffer(OutBuffer *buf, int flag);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void toJson(JsonOut *json);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -714,7 +707,7 @@ struct TypeFunction : TypeNext
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     void purityLevel();
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+    void toDecoBuffer(OutBuffer *buf, int flag);
     void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
     void toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, HdrGenState* hgs, TypeFunction *attrs, TemplateDeclaration *td);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
@@ -745,8 +738,6 @@ struct TypeFunction : TypeNext
 
 #if IN_LLVM
     IrFuncTy irFty;
-
-    FuncDeclaration* funcdecl;
 #endif
 };
 
@@ -809,7 +800,7 @@ struct TypeIdentifier : TypeQualified
     const char *kind();
     Type *syntaxCopy();
     //char *toChars();
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+    void toDecoBuffer(OutBuffer *buf, int flag);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void toJson(JsonOut *json);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);
@@ -892,7 +883,7 @@ struct TypeStruct : Type
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+    void toDecoBuffer(OutBuffer *buf, int flag);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void toJson(JsonOut *json);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -942,7 +933,7 @@ struct TypeEnum : Type
     char *toChars();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+    void toDecoBuffer(OutBuffer *buf, int flag);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void toJson(JsonOut *json);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -988,7 +979,7 @@ struct TypeTypedef : Type
     char *toChars();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+    void toDecoBuffer(OutBuffer *buf, int flag);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void toJson(JsonOut *json);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -1042,7 +1033,7 @@ struct TypeClass : Type
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+    void toDecoBuffer(OutBuffer *buf, int flag);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void toJson(JsonOut *json);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
@@ -1087,11 +1078,7 @@ struct TypeTuple : Type
     int equals(Object *o);
     Type *reliesOnTident(TemplateParameters *tparams = NULL);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
-#if IN_LLVM
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
-#else
     void toDecoBuffer(OutBuffer *buf, int flag);
-#endif
     void toJson(JsonOut *json);
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
@@ -1118,7 +1105,7 @@ struct TypeNull : Type
     const char *kind();
 
     Type *syntaxCopy();
-    void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+    void toDecoBuffer(OutBuffer *buf, int flag);
     MATCH implicitConvTo(Type *to);
     int checkBoolean();
 
@@ -1144,7 +1131,7 @@ struct Parameter : Object
     Parameter(StorageClass storageClass, Type *type, Identifier *ident, Expression *defaultArg);
     Parameter *syntaxCopy();
     Type *isLazyArray();
-    void toDecoBuffer(OutBuffer *buf, bool mangle);
+    void toDecoBuffer(OutBuffer *buf);
     int dyncast() { return DYNCAST_PARAMETER; } // kludge for template.isType()
     static Parameters *arraySyntaxCopy(Parameters *args);
     static char *argsTypesToChars(Parameters *args, int varargs);
@@ -1152,7 +1139,7 @@ struct Parameter : Object
     static void argsCppMangle(OutBuffer *buf, CppMangleState *cms, Parameters *arguments, int varargs);
 #endif
     static void argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Parameters *arguments, int varargs);
-    static void argsToDecoBuffer(OutBuffer *buf, Parameters *arguments, bool mangle);
+    static void argsToDecoBuffer(OutBuffer *buf, Parameters *arguments);
     static int isTPL(Parameters *arguments);
     static size_t dim(Parameters *arguments);
     static Parameter *getNth(Parameters *arguments, size_t nth, size_t *pn = NULL);
