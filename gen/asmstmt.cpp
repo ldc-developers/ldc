@@ -839,33 +839,3 @@ Statement *AsmBlockStatement::semantic(Scope *sc)
 
     return CompoundStatement::semantic(sc);
 }
-
-//////////////////////////////////////////////////////////////////////////////
-
-void AsmStatement::toNakedIR(IRState *p)
-{
-    Logger::println("AsmStatement::toNakedIR(): %s", loc.toChars());
-    LOG_SCOPE;
-
-    // is there code?
-    if (!asmcode)
-        return;
-    AsmCode * code = (AsmCode *) asmcode;
-
-    // build asm stmt
-    replace_func_name(p, code->insnTemplate);
-    p->nakedAsm << "\t" << code->insnTemplate << std::endl;
-}
-
-void AsmBlockStatement::toNakedIR(IRState *p)
-{
-    Logger::println("AsmBlockStatement::toNakedIR(): %s", loc.toChars());
-    LOG_SCOPE;
-
-    // do asm statements
-    for (unsigned i=0; i<statements->dim; i++)
-    {
-        Statement* s = static_cast<Statement*>(statements->data[i]);
-        if (s) s->toNakedIR(p);
-    }
-}

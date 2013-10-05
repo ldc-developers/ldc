@@ -373,9 +373,6 @@ struct VarDeclaration : Declaration
     /// Override added to set above flag.
     void semantic3(Scope *sc);
 
-    /// This var is used by a naked function.
-    bool nakedUse;
-
     // debug description
     llvm::DIVariable debugVariable;
     llvm::DISubprogram debugFunc;

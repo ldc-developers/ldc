@@ -196,7 +196,6 @@ struct IRState
 
     // for inline asm
     IRAsmBlock* asmBlock;
-    std::ostringstream nakedAsm;
 
     // 'used' array solely for keeping a reference to globals
     std::vector<LLConstant*> usedArray;

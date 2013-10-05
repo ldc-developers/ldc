@@ -157,7 +157,6 @@ struct Statement : Object
 
 #if IN_LLVM
     virtual AsmBlockStatement *isAsmBlockStatement() { return NULL; }
-    virtual void toNakedIR(IRState *irs);
     virtual AsmBlockStatement* endsWithAsm();
 #endif
 };
@@ -193,9 +192,6 @@ struct ExpStatement : Statement
     void toIR(IRState *irs);
 
     ExpStatement *isExpStatement() { return this; }
-#if IN_LLVM
-    void toNakedIR(IRState *irs);
-#endif
 };
 
 struct DtorExpStatement : ExpStatement
@@ -250,7 +246,6 @@ struct CompoundStatement : Statement
     CompoundStatement *isCompoundStatement() { return this; }
 
 #if IN_LLVM
-    virtual void toNakedIR(IRState *irs);
     virtual AsmBlockStatement* endsWithAsm();
 #endif
 };
@@ -928,10 +923,6 @@ struct LabelStatement : Statement
     LabelStatement *isLabelStatement() { return this; }
 
     void toIR(IRState *irs);
-
-#if IN_LLVM
-    void toNakedIR(IRState *irs);
-#endif
 };
 
 struct LabelDsymbol : Dsymbol
@@ -969,8 +960,6 @@ struct AsmStatement : Statement
  #if IN_LLVM
     // non-zero if this is a branch, contains the target labels identifier
     Identifier* isBranchToLabel;
-
-    void toNakedIR(IRState *irs);
 #endif
 };
 
@@ -1009,7 +998,6 @@ struct AsmBlockStatement : CompoundStatement
     AsmBlockStatement *isAsmBlockStatement() { return this; }
 
     void toIR(IRState *irs);
-    void toNakedIR(IRState *irs);
     AsmBlockStatement* endsWithAsm();
 
     llvm::Value* abiret;
