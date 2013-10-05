@@ -1644,7 +1644,7 @@ Type *Type::merge()
 
         //if (next)
             //next = next->merge();
-        toDecoBuffer(&buf, 0);
+        toDecoBuffer(&buf);
         sv = stringtable.update((char *)buf.data, buf.offset);
         if (sv->ptrvalue)
         {   t = (Type *) sv->ptrvalue;
@@ -2215,7 +2215,7 @@ Identifier *Type::getTypeInfoIdent(int internal)
             buf.writeByte(mangleChar[((TypeArray *)this)->next->ty]);
     }
     else
-       toDecoBuffer(&buf, 0);
+        toDecoBuffer(&buf);
 
     size_t len = buf.offset;
     buf.writeByte(0);
@@ -4728,7 +4728,7 @@ Expression *TypeAArray::dotExp(Scope *sc, Expression *e, Identifier *ident, int 
 void TypeAArray::toDecoBuffer(OutBuffer *buf, int flag)
 {
     Type::toDecoBuffer(buf, flag);
-    index->toDecoBuffer(buf, 0);
+    index->toDecoBuffer(buf);
     next->toDecoBuffer(buf, (flag & 0x100) ? 0 : mod);
 }
 
@@ -5390,13 +5390,12 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf, int flag)
             default: break;
         }
     }
-
     // Write argument types
     Parameter::argsToDecoBuffer(buf, parameters);
     //if (buf->data[buf->offset - 1] == '@') halt();
     buf->writeByte('Z' - varargs);      // mark end of arg list
     if(next != NULL)
-        next->toDecoBuffer(buf, 0);
+        next->toDecoBuffer(buf);
     inuse--;
 }
 
@@ -5695,7 +5694,7 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
                 if (!fparam->type)
                     continue;
             }
-// Possible merge conflict
+
             Type *t = fparam->type->toBasetype();
 
             if (fparam->storageClass & (STCout | STCref | STClazy))
