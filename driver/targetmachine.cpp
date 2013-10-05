@@ -83,66 +83,37 @@ llvm::TargetMachine* createTargetMachine(
     llvm::CodeGenOpt::Level codeGenOptLevel,
     bool genDebugInfo)
 {
-    // override triple if needed
-    std::string defaultTriple = llvm::sys::getDefaultTargetTriple();
-    if (sizeof(void*) == 4 && bitness == ExplicitBitness::M64)
-    {
-        defaultTriple = llvm::Triple(defaultTriple).get64BitArchVariant().str();
-    }
-    else if (sizeof(void*) == 8 && bitness == ExplicitBitness::M32)
-    {
-        defaultTriple = llvm::Triple(defaultTriple).get32BitArchVariant().str();
-    }
-
+    // Determine target triple. If the user didn't explicitly specify one, use
+    // the one set at LLVM configure time.
     llvm::Triple triple;
-
-    // did the user override the target triple?
     if (targetTriple.empty())
     {
-        if (!arch.empty())
+        triple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
+
+        // Handle -m32/-m64.
+        if (sizeof(void*) == 4 && bitness == ExplicitBitness::M64)
         {
-            error("you must specify a target triple as well with -mtriple when using the -arch option");
-            fatal();
+            triple = triple.get64BitArchVariant();
         }
-        triple = llvm::Triple(defaultTriple);
+        else if (sizeof(void*) == 8 && bitness == ExplicitBitness::M32)
+        {
+            triple = triple.get32BitArchVariant();
+        }
     }
     else
     {
         triple = llvm::Triple(llvm::Triple::normalize(targetTriple));
     }
 
-    // Allocate target machine.
-    const llvm::Target *theTarget = NULL;
-    // Check whether the user has explicitly specified an architecture to compile for.
-    if (arch.empty())
+    // Look up the LLVM backend to use.
+    std::string errMsg;
+    const llvm::Target *target =
+        llvm::TargetRegistry::lookupTarget(arch, triple, errMsg);
+    if (target == 0)
     {
-        std::string Err;
-        theTarget = llvm::TargetRegistry::lookupTarget(triple.str(), Err);
-        if (theTarget == 0)
-        {
-            error("%s Please use the -march option.", Err.c_str());
-            fatal();
-        }
+        error("%s", errMsg.c_str());
+        fatal();
     }
-    else
-    {
-        for (llvm::TargetRegistry::iterator it = llvm::TargetRegistry::begin(),
-             ie = llvm::TargetRegistry::end(); it != ie; ++it)
-        {
-            if (arch == it->getName())
-            {
-                theTarget = &*it;
-                break;
-            }
-        }
-
-        if (!theTarget)
-        {
-            error("invalid target '%s'", arch.c_str());
-            fatal();
-        }
-    }
-
 
     // With an empty CPU string, LLVM will default to the host CPU, which is
     // usually not what we want (expected behavior from other compilers is
@@ -176,7 +147,7 @@ llvm::TargetMachine* createTargetMachine(
     llvm::TargetOptions targetOptions;
     targetOptions.NoFramePointerElim = genDebugInfo;
 
-    return theTarget->createTargetMachine(
+    return target->createTargetMachine(
         triple.str(),
         cpu,
         FeaturesStr,
