@@ -3544,18 +3544,3 @@ llvm::Constant* Expression::toConstElem(IRState * p)
         fatal();
     return NULL;
 }
-
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void backend_init()
-{
-    // LLVM_D_InitRuntime is done in Module::genLLVMModule
-    // since it requires the semantic pass to be done
-}
-
-void backend_term()
-{
-    LLVM_D_FreeRuntime();
-    llvm::llvm_shutdown();
-}

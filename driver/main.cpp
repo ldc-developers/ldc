@@ -29,8 +29,10 @@
 #include "gen/metadata.h"
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
+#include "gen/runtime.h"
 #include "llvm/Linker.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -57,8 +59,6 @@
 using namespace opts;
 
 extern void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
-extern void backend_init();
-extern void backend_term();
 
 static cl::opt<bool> noDefaultLib("nodefaultlib",
     cl::desc("Don't add a default library for linking implicitly"),
@@ -668,10 +668,6 @@ int main(int argc, char** argv)
     Expression::init();
     initPrecedence();
 
-    backend_init();
-
-    //printf("%d source files\n",files.dim);
-
     // Build import search path
     if (global.params.imppath)
     {
@@ -1108,7 +1104,10 @@ int main(int argc, char** argv)
         }
     }
 
-    backend_term();
+
+    LLVM_D_FreeRuntime();
+    llvm::llvm_shutdown();
+
     if (global.errors)
         fatal();
 
