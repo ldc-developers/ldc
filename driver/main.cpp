@@ -141,21 +141,10 @@ static void initFromString(char*& dest, const cl::opt<std::string>& src) {
     }
 }
 
-#if _WIN32 && __DMC__
-extern "C"
-{
-    extern int _xi_a;
-    extern int _end;
-}
-#endif
-
 int main(int argc, char** argv)
 {
     mem.init();                         // initialize storage allocator
     mem.setStackBottom(&argv);
-#if _WIN32 && __DMC__
-    mem.addroots((char *)&_xi_a, (char *)&_end);
-#endif
 
     // stack trace on signals
     llvm::sys::PrintStackTraceOnErrorSignal();
