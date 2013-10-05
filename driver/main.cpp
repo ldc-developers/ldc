@@ -19,7 +19,7 @@
 #include "driver/configfile.h"
 #include "driver/ldc-version.h"
 #include "driver/linker.h"
-#include "driver/target.h"
+#include "driver/targetmachine.h"
 #include "driver/toobj.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
@@ -29,8 +29,10 @@
 #include "gen/metadata.h"
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
+#include "gen/runtime.h"
 #include "llvm/Linker.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -57,8 +59,6 @@
 using namespace opts;
 
 extern void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
-extern void backend_init();
-extern void backend_term();
 
 static cl::opt<bool> noDefaultLib("nodefaultlib",
     cl::desc("Don't add a default library for linking implicitly"),
@@ -141,43 +141,25 @@ static void initFromString(char*& dest, const cl::opt<std::string>& src) {
     }
 }
 
-#if _WIN32 && __DMC__
-extern "C"
-{
-    extern int _xi_a;
-    extern int _end;
-}
-#endif
+int main(int argc, char **argv);
 
-int main(int argc, char** argv)
-{
-    mem.init();                         // initialize storage allocator
-    mem.setStackBottom(&argv);
-#if _WIN32 && __DMC__
-    mem.addroots((char *)&_xi_a, (char *)&_end);
-#endif
-
-    // stack trace on signals
-    llvm::sys::PrintStackTraceOnErrorSignal();
-
-    Strings files;
-    const char *p, *ext;
-    Module *m;
-    int status = EXIT_SUCCESS;
-
-    global.init();
-    global.version = ldc::dmd_version;
-    global.ldc_version = ldc::ldc_version;
-    global.llvm_version = ldc::llvm_version;
-
-    // Set some default values
+/// Parses switches from the command line, any response files and the global
+/// config file and sets up global.params accordingly.
+///
+/// Returns a list of source file names.
+static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &helpOnly) {
 #if _WIN32
     char buf[MAX_PATH];
     GetModuleFileName(NULL, buf, MAX_PATH);
-    global.params.argv0 = buf;
+    const char* argv0 = &buf;
+    // FIXME: We cannot set params.argv0 here, as we would escape a stack
+    // reference, but it is unused anyway.
+    global.params.argv0 = NULL;
 #else
-    global.params.argv0 = argv[0];
+    const char* argv0 = global.params.argv0 = argv[0];
 #endif
+
+    // Set some default values.
     global.params.useSwitchError = 1;
     global.params.useArrayBounds = 2;
 
@@ -188,12 +170,6 @@ int main(int argc, char** argv)
 
     global.params.moduleDeps = NULL;
     global.params.moduleDepsFile = NULL;
-
-    // Set predefined version identifiers
-    VersionCondition::addPredefinedGlobalIdent("LLVM"); // For backwards compatibility.
-    VersionCondition::addPredefinedGlobalIdent("LDC");
-    VersionCondition::addPredefinedGlobalIdent("all");
-    VersionCondition::addPredefinedGlobalIdent("D_Version2");
 
     // build complete fixed up list of command line arguments
     std::vector<const char*> final_args;
@@ -209,28 +185,13 @@ int main(int argc, char** argv)
     ConfigFile cfg_file;
 
     // just ignore errors for now, they are still printed
-    cfg_file.read(global.params.argv0, (void*)main, "ldc2.conf");
+    cfg_file.read(argv0, (void*)main, "ldc2.conf");
 
     // insert config file additions to the argument list
     final_args.insert(final_args.end(), cfg_file.switches_begin(), cfg_file.switches_end());
 
     // insert -run and everything beyond
     final_args.insert(final_args.end(), &argv[run_argnum], &argv[argc]);
-
-#if 0
-    for (size_t i = 0; i < final_args.size(); ++i)
-    {
-        printf("final_args[%zu] = %s\n", i, final_args[i]);
-    }
-#endif
-
-    // Initialize LLVM.
-    // Initialize targets first, so that --version shows registered targets.
-    llvm::InitializeAllTargetInfos();
-    llvm::InitializeAllTargets();
-    llvm::InitializeAllTargetMCs();
-    llvm::InitializeAllAsmPrinters();
-    llvm::InitializeAllAsmParsers();
 
     // Handle fixed-up arguments!
     cl::SetVersionPrinter(&printVersion);
@@ -247,8 +208,6 @@ int main(int argc, char** argv)
         if (!path.empty())
             printf("config    %s\n", path.c_str());
     }
-
-    bool skipModules = mCPU == "help" ||(!mAttrs.empty() && mAttrs.front() == "help");
 
     // Negated options
     global.params.link = !compileOnly;
@@ -317,7 +276,7 @@ int main(int argc, char** argv)
                 error("-run must be followed by a source file, not '%s'", name);
             }
 
-            files.push(mem.strdup(name));
+            sourceFiles.push(mem.strdup(name));
             runargs.erase(runargs.begin());
         } else {
             global.params.run = false;
@@ -325,22 +284,11 @@ int main(int argc, char** argv)
         }
     }
 
-
-    files.reserve(fileList.size());
+    sourceFiles.reserve(fileList.size());
     typedef std::vector<std::string>::iterator It;
     for(It I = fileList.begin(), E = fileList.end(); I != E; ++I)
         if (!I->empty())
-            files.push(mem.strdup(I->c_str()));
-
-    if (global.errors)
-    {
-        fatal();
-    }
-    if (files.dim == 0 && !skipModules)
-    {
-        cl::PrintHelpMessage();
-        return EXIT_FAILURE;
-    }
+            sourceFiles.push(mem.strdup(I->c_str()));
 
     Array* libs;
     if (global.params.symdebug)
@@ -384,7 +332,7 @@ int main(int argc, char** argv)
 
     // if we don't link, autodetect target from extension
     if(!global.params.link && !createStaticLib && global.params.objname) {
-        ext = FileName::ext(global.params.objname);
+        const char *ext = FileName::ext(global.params.objname);
         bool autofound = false;
         if (!ext) {
             // keep things as they are
@@ -427,15 +375,14 @@ int main(int argc, char** argv)
     if (global.params.link && !createSharedLib)
     {
         global.params.exefile = global.params.objname;
-        if (files.dim > 1)
+        if (sourceFiles.dim > 1)
             global.params.objname = NULL;
     }
     else if (global.params.run)
     {
         error("flags conflict with -run");
-        fatal();
     }
-    else if (global.params.objname && files.dim > 1) {
+    else if (global.params.objname && sourceFiles.dim > 1) {
         if (createStaticLib || createSharedLib)
         {
             singleObj = true;
@@ -443,57 +390,17 @@ int main(int argc, char** argv)
         if (!singleObj)
         {
             error("multiple source files, but only one .obj name");
-            fatal();
         }
     }
 
     if (soname.getNumOccurrences() > 0 && !createSharedLib) {
         error("-soname can be used only when building a shared library");
-        fatal();
     }
+}
 
-    // create a proper target
-    Ir ir;
-
-    // Set up the TargetMachine.
-    ExplicitBitness::Type bitness = ExplicitBitness::None;
-    if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty()))
-        error("-m32 and -m64 switches cannot be used together with -march and -mtriple switches");
-
-    if (m32bits)
-        bitness = ExplicitBitness::M32;
-    if (m64bits)
-    {
-        if (bitness != ExplicitBitness::None)
-        {
-            error("cannot use both -m32 and -m64 options");
-        }
-    }
-
-    if (global.errors)
-        fatal();
-
-    gTargetMachine = createTargetMachine(mTargetTriple, mArch, mCPU, mAttrs, bitness,
-        mRelocModel, mCodeModel, codeGenOptLevel(), global.params.symdebug);
-    llvm::Triple targetTriple = llvm::Triple(gTargetMachine->getTargetTriple());
-    global.params.targetTriple = targetTriple;
-    global.params.trace        = false;
-    global.params.isLinux      = targetTriple.getOS() == llvm::Triple::Linux;
-    global.params.isOSX        = targetTriple.isMacOSX();
-    global.params.isWindows    = targetTriple.isOSWindows();
-    global.params.isFreeBSD    = targetTriple.getOS() == llvm::Triple::FreeBSD;
-    global.params.isOpenBSD    = targetTriple.getOS() == llvm::Triple::OpenBSD;
-    global.params.isSolaris    = targetTriple.getOS() == llvm::Triple::Solaris;
-
-#if LDC_LLVM_VER >= 302
-    gDataLayout = gTargetMachine->getDataLayout();
-#else
-    gDataLayout = gTargetMachine->getTargetData();
-#endif
-
-    // Starting with LLVM 3.1 we could also use global.params.targetTriple.isArch64Bit();
-    global.params.is64bit = gDataLayout->getPointerSizeInBits(ADDRESS_SPACE) == 64;
-
+/// Registers the predefined versions specific to the current target triple
+/// and other target specific options with VersionCondition.
+static void registerPredefinedTargetVersions() {
     switch (global.params.targetTriple.getArch())
     {
         case llvm::Triple::x86:
@@ -641,27 +548,19 @@ int main(int argc, char** argv)
             error("target '%s' is not yet supported", global.params.targetTriple.str().c_str());
             fatal();
     }
+}
 
-    // Expose LLVM version to runtime
-#define STR(x) #x
-#define XSTR(x) STR(x)
-    VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_" XSTR(LDC_LLVM_VER));
-#undef XSTR
-#undef STR
+/// Registers all predefined D version identifiers for the current
+/// configuration with VersionCondition.
+static void registerPredefinedVersions() {
+    VersionCondition::addPredefinedGlobalIdent("LLVM"); // For backwards compatibility.
+    VersionCondition::addPredefinedGlobalIdent("LDC");
+    VersionCondition::addPredefinedGlobalIdent("all");
+    VersionCondition::addPredefinedGlobalIdent("D_Version2");
 
-    if (global.params.targetTriple.isOSWindows()) {
-        global.dll_ext = "dll";
-        global.lib_ext = "lib";
-    } else {
-        global.dll_ext = "so";
-        global.lib_ext = "a";
-    }
-
-    // added in 1.039
     if (global.params.doDocComments)
         VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
 
-    // unittests?
     if (global.params.useUnitTests)
         VersionCondition::addPredefinedGlobalIdent("unittest");
 
@@ -671,6 +570,103 @@ int main(int argc, char** argv)
     if (!global.params.useArrayBounds)
         VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
 
+    registerPredefinedTargetVersions();
+
+    // Expose LLVM version to runtime
+#define STR(x) #x
+#define XSTR(x) STR(x)
+    VersionCondition::addPredefinedGlobalIdent("LDC_LLVM_" XSTR(LDC_LLVM_VER));
+#undef XSTR
+#undef STR
+}
+
+int main(int argc, char **argv)
+{
+    mem.init();                         // initialize storage allocator
+    mem.setStackBottom(&argv);
+
+    // stack trace on signals
+    llvm::sys::PrintStackTraceOnErrorSignal();
+
+    global.init();
+    global.version = ldc::dmd_version;
+    global.ldc_version = ldc::ldc_version;
+    global.llvm_version = ldc::llvm_version;
+
+    // Initialize LLVM before parsing the command line so that --version shows
+    // registered targets.
+    llvm::InitializeAllTargetInfos();
+    llvm::InitializeAllTargets();
+    llvm::InitializeAllTargetMCs();
+    llvm::InitializeAllAsmPrinters();
+    llvm::InitializeAllAsmParsers();
+
+    bool helpOnly;
+    Strings files;
+    parseCommandLine(argc, argv, files, helpOnly);
+
+    if (files.dim == 0 && !helpOnly)
+    {
+        cl::PrintHelpMessage();
+        return EXIT_FAILURE;
+    }
+
+    if (global.errors)
+        fatal();
+
+    // create a proper target
+    Ir ir;
+
+    // Set up the TargetMachine.
+    ExplicitBitness::Type bitness = ExplicitBitness::None;
+    if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty()))
+        error("-m32 and -m64 switches cannot be used together with -march and -mtriple switches");
+
+    if (m32bits)
+        bitness = ExplicitBitness::M32;
+    if (m64bits)
+    {
+        if (bitness != ExplicitBitness::None)
+        {
+            error("cannot use both -m32 and -m64 options");
+        }
+    }
+
+    if (global.errors)
+        fatal();
+
+    gTargetMachine = createTargetMachine(mTargetTriple, mArch, mCPU, mAttrs, bitness,
+        mRelocModel, mCodeModel, codeGenOptLevel(), global.params.symdebug);
+    llvm::Triple targetTriple = llvm::Triple(gTargetMachine->getTargetTriple());
+    global.params.targetTriple = targetTriple;
+    global.params.trace        = false;
+    global.params.isLinux      = targetTriple.getOS() == llvm::Triple::Linux;
+    global.params.isOSX        = targetTriple.isMacOSX();
+    global.params.isWindows    = targetTriple.isOSWindows();
+    global.params.isFreeBSD    = targetTriple.getOS() == llvm::Triple::FreeBSD;
+    global.params.isOpenBSD    = targetTriple.getOS() == llvm::Triple::OpenBSD;
+    global.params.isSolaris    = targetTriple.getOS() == llvm::Triple::Solaris;
+
+#if LDC_LLVM_VER >= 302
+    gDataLayout = gTargetMachine->getDataLayout();
+#else
+    gDataLayout = gTargetMachine->getTargetData();
+#endif
+
+    // Starting with LLVM 3.1 we could also use global.params.targetTriple.isArch64Bit();
+    global.params.is64bit = gDataLayout->getPointerSizeInBits(ADDRESS_SPACE) == 64;
+
+    // Set predefined version identifiers.
+    registerPredefinedVersions();
+
+    if (global.params.targetTriple.isOSWindows()) {
+        global.dll_ext = "dll";
+        global.lib_ext = "lib";
+    } else {
+        global.dll_ext = "so";
+        global.lib_ext = "a";
+    }
+
     // Initialization
     Type::init(&ir);
     Id::initialize();
@@ -678,10 +674,6 @@ int main(int argc, char** argv)
     Target::init();
     Expression::init();
     initPrecedence();
-
-    backend_init();
-
-    //printf("%d source files\n",files.dim);
 
     // Build import search path
     if (global.params.imppath)
@@ -731,7 +723,7 @@ int main(int argc, char** argv)
         const char *ext;
         const char *name;
 
-        p = static_cast<char *>(files.data[i]);
+        const char *p = static_cast<char *>(files.data[i]);
 
         p = FileName::name(p);      // strip path
         ext = FileName::ext(p);
@@ -830,7 +822,7 @@ int main(int argc, char** argv)
         }
 
         id = Lexer::idPool(name);
-        m = new Module(static_cast<char *>(files.data[i]), id, global.params.doDocComments, global.params.doHdrGeneration);
+        Module *m = new Module(static_cast<char *>(files.data[i]), id, global.params.doDocComments, global.params.doHdrGeneration);
         m->isRoot = true;
         modules.push(m);
     }
@@ -838,7 +830,7 @@ int main(int argc, char** argv)
     // Read files, parse them
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = static_cast<Module *>(modules.data[i]);
+        Module *m = modules[i];
         if (global.params.verbose)
             printf("parse     %s\n", m->toChars());
         if (!Module::rootModule)
@@ -880,10 +872,9 @@ int main(int argc, char** argv)
          */
         for (unsigned i = 0; i < modules.dim; i++)
         {
-            m = static_cast<Module *>(modules.data[i]);
             if (global.params.verbose)
-                printf("import    %s\n", m->toChars());
-            m->genhdrfile();
+                printf("import    %s\n", modules[i]->toChars());
+            modules[i]->genhdrfile();
         }
     }
     if (global.errors)
@@ -892,10 +883,9 @@ int main(int argc, char** argv)
     // load all unconditional imports for better symbol resolving
     for (unsigned i = 0; i < modules.dim; i++)
     {
-       m = static_cast<Module *>(modules.data[i]);
        if (global.params.verbose)
-           printf("importall %s\n", m->toChars());
-       m->importAll(0);
+           printf("importall %s\n", modules[i]->toChars());
+       modules[i]->importAll(0);
     }
     if (global.errors)
        fatal();
@@ -903,10 +893,9 @@ int main(int argc, char** argv)
     // Do semantic analysis
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = static_cast<Module *>(modules.data[i]);
         if (global.params.verbose)
-            printf("semantic  %s\n", m->toChars());
-        m->semantic();
+            printf("semantic  %s\n", modules[i]->toChars());
+        modules[i]->semantic();
     }
     if (global.errors)
         fatal();
@@ -917,10 +906,9 @@ int main(int argc, char** argv)
     // Do pass 2 semantic analysis
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = static_cast<Module *>(modules.data[i]);
         if (global.params.verbose)
-            printf("semantic2 %s\n", m->toChars());
-        m->semantic2();
+            printf("semantic2 %s\n", modules[i]->toChars());
+        modules[i]->semantic2();
     }
     if (global.errors)
         fatal();
@@ -928,10 +916,9 @@ int main(int argc, char** argv)
     // Do pass 3 semantic analysis
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = static_cast<Module *>(modules.data[i]);
         if (global.params.verbose)
-            printf("semantic3 %s\n", m->toChars());
-        m->semantic3();
+            printf("semantic3 %s\n", modules[i]->toChars());
+        modules[i]->semantic3();
     }
     if (global.errors)
         fatal();
@@ -962,7 +949,7 @@ int main(int argc, char** argv)
             // since otherwise functions in them cannot be inlined
             for (unsigned i = 0; i < Module::amodules.dim; i++)
             {
-                m = static_cast<Module *>(Module::amodules.data[i]);
+                Module *m = Module::amodules[i];
                 if (global.params.verbose)
                     printf("semantic3 %s\n", m->toChars());
                 m->semantic2();
@@ -994,7 +981,7 @@ int main(int argc, char** argv)
     // Generate output files
     for (unsigned i = 0; i < modules.dim; i++)
     {
-        m = static_cast<Module *>(modules.data[i]);
+        Module *m = modules[i];
         if (global.params.verbose)
             printf("code      %s\n", m->toChars());
         if (global.params.obj)
@@ -1022,7 +1009,7 @@ int main(int argc, char** argv)
     // internal linking for singleobj
     if (singleObj && llvmModules.size() > 0)
     {
-        Module* m = static_cast<Module*>(modules.data[0]);
+        Module *m = modules[0];
 
         char* oname;
         const char* filename;
@@ -1119,10 +1106,14 @@ int main(int argc, char** argv)
         }
     }
 
-    backend_term();
+
+    LLVM_D_FreeRuntime();
+    llvm::llvm_shutdown();
+
     if (global.errors)
         fatal();
 
+    int status = EXIT_SUCCESS;
     if (!global.params.objfiles->dim)
     {
         if (global.params.link)
@@ -1137,21 +1128,17 @@ int main(int argc, char** argv)
         else if (createStaticLib)
             createStaticLibrary();
 
-        if (global.params.run)
+        if (global.params.run && status == EXIT_SUCCESS)
         {
-            if (!status)
-            {
-                status = runExecutable();
+            status = runExecutable();
 
-                /* Delete .obj files and .exe file
-                 */
-                for (unsigned i = 0; i < modules.dim; i++)
-                {
-                    m = static_cast<Module *>(modules.data[i]);
-                    m->deleteObjFile();
-                }
-                deleteExecutable();
+            /* Delete .obj files and .exe file
+                */
+            for (unsigned i = 0; i < modules.dim; i++)
+            {
+                modules[i]->deleteObjFile();
             }
+            deleteExecutable();
         }
     }
 

@@ -1,4 +1,4 @@
-//===-- target.cpp --------------------------------------------------------===//
+//===-- targetmachine.cpp -------------------------------------------------===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -12,7 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "driver/target.h"
+#include "driver/targetmachine.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Host.h"

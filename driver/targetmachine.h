@@ -1,4 +1,4 @@
-//===-- driver/target.h - LLVM target setup ---------------------*- C++ -*-===//
+//===-- driver/targetmachine.h - LLVM target setup --------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //

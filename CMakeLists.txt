@@ -184,7 +184,7 @@ file(GLOB IR_HDR ir/*.h)
 set(DRV_SRC
     driver/cl_options.cpp
     driver/configfile.cpp
-    driver/target.cpp
+    driver/targetmachine.cpp
     driver/toobj.cpp
     driver/tool.cpp
     driver/linker.cpp
@@ -196,7 +196,7 @@ set(DRV_HDR
     driver/cl_options.h
     driver/configfile.h
     driver/ldc-version.h
-    driver/target.h
+    driver/targetmachine.h
     driver/toobj.h
     driver/tool.h
 )
