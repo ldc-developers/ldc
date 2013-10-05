@@ -259,7 +259,6 @@ struct Type : Object
     virtual unsigned alignsize();
     virtual Type *semantic(Loc loc, Scope *sc);
     Type *trySemantic(Loc loc, Scope *sc);
-    // append the mangleof or a string uniquely identifying this type to buf
     virtual void toDecoBuffer(OutBuffer *buf, int flag = 0);
     Type *merge();
     Type *merge2();
@@ -821,7 +820,7 @@ struct TypeInstance : TypeQualified
     const char *kind();
     Type *syntaxCopy();
     //char *toChars();
-    //void toDecoBuffer(OutBuffer *buf, int flag, bool mangle);
+    //void toDecoBuffer(OutBuffer *buf, int flag);
     void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void toJson(JsonOut *json);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps);

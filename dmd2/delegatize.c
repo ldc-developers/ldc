@@ -21,10 +21,6 @@
 #include "scope.h"
 #include "init.h"
 
-#if IN_LLVM
-#include "init.h"
-#endif
-
 /********************************************
  * Convert from expression to delegate that returns the expression,
  * i.e. convert:
