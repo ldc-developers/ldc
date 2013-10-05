@@ -25,32 +25,20 @@
 
 TypeFunction* DtoTypeFunction(DValue* fnval)
 {
-    Type* type = fnval->getType()->toBasetype();
-    if (type->ty == Tfunction)
-    {
-         return static_cast<TypeFunction*>(type);
-    }
-    else if (type->ty == Tdelegate)
-    {
-        // FIXME: There is really no reason why the function type should be
-        // unmerged at this stage, but the frontend still seems to produce such
-        // cases; for example for the uint(uint) next type of the return type of
-        // (&zero)(), leading to a crash in DtoCallFunction:
-        // ---
-        // void test8198() {
-        //   uint delegate(uint) zero() { return null; }
-        //   auto a = (&zero)()(0);
-        // }
-        // ---
-        // Calling merge() here works around the symptoms, but does not fix the
-        // root cause.
-
-        Type* next = type->nextOf()->merge();
+    Type *type = fnval->getType()->toBasetype();
+    TypeFunction *tf = 0;
+    if (type->ty == Tfunction) {
+        tf = static_cast<TypeFunction*>(type);
+    } else if (type->ty == Tdelegate) {
+        Type* next = type->nextOf();
         assert(next->ty == Tfunction);
-        return static_cast<TypeFunction*>(next);
+        tf = static_cast<TypeFunction*>(next);
+    } else {
+        llvm_unreachable("Cannot get TypeFunction* from non lazy/function/delegate");
     }
 
-    llvm_unreachable("Cannot get TypeFunction* from non lazy/function/delegate");
+    assert(!tf->sym || tf->sym->type->ty == Tfunction);
+    return tf->sym ? static_cast<TypeFunction*>(tf->sym->type) : tf;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

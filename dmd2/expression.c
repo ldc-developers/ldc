@@ -1212,7 +1212,7 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
 
             if (!arg)
             {
-                if (!p->defaultArg || !fd)
+                if (!p->defaultArg)
                 {
                     if (tf->varargs == 2 && i + 1 == nparams)
                         goto L2;
@@ -1378,7 +1378,7 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
                     arg = arg->implicitCastTo(sc, p->type->substWildTo(wildmatch));
                     arg = arg->optimize(WANTvalue, p->storageClass & STCref);
                 }
-                else if (p->type != arg->type)
+                else if (!p->type->equals(arg->type))
                 {
                     //printf("arg->type = %s, p->type = %s\n", arg->type->toChars(), p->type->toChars());
                     if (arg->op == TOKtype)
@@ -12989,6 +12989,7 @@ Expression *CondExp::semantic(Scope *sc)
             e2 = e2->castTo(sc, type);
         }
     }
+    type = type->merge2();
 #if 0
     printf("res: %s\n", type->toChars());
     printf("e1 : %s\n", e1->type->toChars());
