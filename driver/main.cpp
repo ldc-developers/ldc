@@ -381,7 +381,6 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     else if (global.params.run)
     {
         error("flags conflict with -run");
-        fatal();
     }
     else if (global.params.objname && sourceFiles.dim > 1) {
         if (createStaticLib || createSharedLib)
@@ -391,13 +390,11 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
         if (!singleObj)
         {
             error("multiple source files, but only one .obj name");
-            fatal();
         }
     }
 
     if (soname.getNumOccurrences() > 0 && !createSharedLib) {
         error("-soname can be used only when building a shared library");
-        fatal();
     }
 }
 
