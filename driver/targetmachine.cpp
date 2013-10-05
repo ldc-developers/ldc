@@ -23,14 +23,14 @@
 #include "mars.h"
 
 
-static std::string getX86TargetCPU(std::string arch,
+static std::string getX86TargetCPU(const std::string &cpu,
     const llvm::Triple &triple)
 {
-    if (!arch.empty()) {
-        if (arch != "native")
-          return arch;
+    if (!cpu.empty()) {
+        if (cpu != "native")
+          return cpu;
 
-        // FIXME: Reject attempts to use -march=native unless the target matches
+        // FIXME: Reject attempts to use -mcpu=native unless the target matches
         // the host.
         //
         // FIXME: We should also incorporate the detected target features for use
@@ -118,13 +118,10 @@ llvm::TargetMachine* createTargetMachine(
     // With an empty CPU string, LLVM will default to the host CPU, which is
     // usually not what we want (expected behavior from other compilers is
     // to default to "generic").
-    if (cpu.empty())
+    if (triple.getArch() == llvm::Triple::x86_64 ||
+        triple.getArch() == llvm::Triple::x86)
     {
-        if (triple.getArch() == llvm::Triple::x86_64 ||
-            triple.getArch() == llvm::Triple::x86)
-        {
-            cpu = getX86TargetCPU(arch, triple);
-        }
+        cpu = getX86TargetCPU(cpu, triple);
     }
 
     // Package up features to be passed to target/subtarget
