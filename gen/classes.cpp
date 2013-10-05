@@ -538,7 +538,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl, char* n
         Logger::cout() << "funcval: " << *funcval << '\n';
 
     // cast to final funcptr type
-    funcval = DtoBitCast(funcval, getPtrToType(DtoType(fdecl->type)));
+    funcval = DtoBitCast(funcval, getPtrToType(DtoFunctionType(fdecl)));
 
     // postpone naming until after casting to get the name in call instructions
     funcval->setName(name);

@@ -1,6 +1,6 @@
 //===-- abi-ppc64.cpp -----------------------------------------------------===//
 //
-//                         LDC – the LLVM D compiler
+//                         LDC ? the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
@@ -63,7 +63,7 @@ struct PPC64TargetABI : TargetABI {
     {
     }
 
-    void rewriteFunctionType(TypeFunction* tf)
+    void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     {
     }
 };

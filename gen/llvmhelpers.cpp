@@ -28,6 +28,7 @@
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
+#include "gen/abi.h"
 #include "ir/irmodule.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Target/TargetMachine.h"
@@ -1060,19 +1061,24 @@ void DtoVarDeclaration(VarDeclaration* vd)
                 if (ae->e2->op == TOKcall) {
                     CallExp *ce = static_cast<CallExp *>(ae->e2);
                     TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
-                    if (tf->ty == Tfunction && tf->fty.arg_sret) {
-                        LLValue* const val = ce->toElem(gIR)->getLVal();
-                        if (isSpecialRefVar(vd))
-                        {
-                            vd->ir.irLocal->value = DtoAlloca(
-                                vd->type->pointerTo(), vd->toChars());
-                            DtoStore(val, vd->ir.irLocal->value);
+                    if (tf->ty == Tfunction && tf->linkage != LINKintrinsic) {
+                        gABI->newFunctionType(tf);
+                        bool retInArg = gABI->returnInArg(tf);
+                        gABI->doneWithFunctionType();
+                        if (retInArg) {
+                            LLValue* const val = ce->toElem(gIR)->getLVal();
+                            if (isSpecialRefVar(vd))
+                            {
+                                vd->ir.irLocal->value = DtoAlloca(
+                                    vd->type->pointerTo(), vd->toChars());
+                                DtoStore(val, vd->ir.irLocal->value);
+                            }
+                            else
+                            {
+                                vd->ir.irLocal->value = val;
+                            }
+                            return;
                         }
-                        else
-                        {
-                            vd->ir.irLocal->value = val;
-                        }
-                        return;
                     }
                 }
             }

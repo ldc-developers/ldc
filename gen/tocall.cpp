@@ -23,6 +23,23 @@
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+IrFuncTy &DtoIrTypeFunction(DValue* fnval)
+{
+    if (DFuncValue* dfnval = fnval->isFunc())
+    {
+        if (dfnval->func)
+            return dfnval->func->irFty;
+    }
+
+    Type* type = stripModifiers(fnval->getType()->toBasetype());
+    if (type->ty == Tfunction)
+        return static_cast<TypeFunction*>(type)->irFty;
+    else if (type->ty == Tdelegate)
+        return static_cast<TypeDelegate*>(type)->irFty;
+
+    llvm_unreachable("Cannot get IrFuncTy from non lazy/function/delegate");
+}
+
 TypeFunction* DtoTypeFunction(DValue* fnval)
 {
     Type* type = fnval->getType()->toBasetype();
@@ -113,7 +130,7 @@ LLFunctionType* DtoExtractFunctionType(LLType* type)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static LLValue *fixArgument(DValue *argval, TypeFunction* tf, LLType *callableArgType, size_t argIndex)
+static LLValue *fixArgument(DValue *argval, IrFuncTy &irFty, LLType *callableArgType, size_t argIndex)
 {
 #if 0
     if (Logger::enabled()) {
@@ -123,7 +140,7 @@ static LLValue *fixArgument(DValue *argval, TypeFunction* tf, LLType *callableAr
 #endif
 
     // give the ABI a say
-    LLValue* arg = tf->fty.putParam(argval->getType(), argIndex, argval);
+    LLValue* arg = irFty.putParam(argval->getType(), argIndex, argval);
 
 #if 0
     if (Logger::enabled()) {
@@ -189,8 +206,8 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
 #else
                          std::vector<llvm::AttributeWithIndex> &attrs,
 #endif
-                         TypeFunction* tf, Expressions* arguments,
-                         size_t argidx,
+                         TypeFunction* tf, IrFuncTy &irFty,
+                         Expressions* arguments, size_t argidx,
                          LLFunctionType* callableTy)
 {
     Logger::println("doing d-style variadic arguments");
@@ -284,14 +301,14 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
 
     // specify arguments
     args.push_back(DtoLoad(typeinfoarrayparam));
-    if (HAS_ATTRIBUTES(tf->fty.arg_arguments->attrs)) {
-        addToAttributes(attrs, argidx, tf->fty.arg_arguments->attrs);
+    if (HAS_ATTRIBUTES(irFty.arg_arguments->attrs)) {
+        addToAttributes(attrs, argidx, irFty.arg_arguments->attrs);
     }
     ++argidx;
 
     args.push_back(gIR->ir->CreateBitCast(mem, getPtrToType(LLType::getInt8Ty(gIR->context())), "tmp"));
-    if (HAS_ATTRIBUTES(tf->fty.arg_argptr->attrs)) {
-        addToAttributes(attrs, argidx, tf->fty.arg_argptr->attrs);
+    if (HAS_ATTRIBUTES(irFty.arg_argptr->attrs)) {
+        addToAttributes(attrs, argidx, irFty.arg_argptr->attrs);
     }
 
     // pass non variadic args
@@ -299,11 +316,11 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     {
         Parameter* fnarg = Parameter::getNth(tf->parameters, i);
         DValue* argval = DtoArgument(fnarg, static_cast<Expression*>(arguments->data[i]));
-        args.push_back(fixArgument(argval, tf, callableTy->getParamType(argidx++), i));
+        args.push_back(fixArgument(argval, irFty, callableTy->getParamType(argidx++), i));
 
-        if (HAS_ATTRIBUTES(tf->fty.args[i]->attrs))
+        if (HAS_ATTRIBUTES(irFty.args[i]->attrs))
         {
-            addToAttributes(attrs, argidx, tf->fty.args[i]->attrs);
+            addToAttributes(attrs, argidx, irFty.args[i]->attrs);
         }
     }
 }
@@ -332,13 +349,14 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     bool va_intrinsic = (dfnval && dfnval->func && dfnval->func->isVaIntrinsic());
 
     // get function type info
+    IrFuncTy &irFty = DtoIrTypeFunction(fnval);
     TypeFunction* tf = DtoTypeFunction(fnval);
 
     // misc
-    bool retinptr = tf->fty.arg_sret;
-    bool thiscall = tf->fty.arg_this;
+    bool retinptr = irFty.arg_sret;
+    bool thiscall = irFty.arg_this;
     bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
-    bool nestedcall = tf->fty.arg_nest;
+    bool nestedcall = irFty.arg_nest;
     bool dvarargs = (tf->linkage == LINKd && tf->varargs == 1);
 
     llvm::CallingConv::ID callconv = gABI->callingConv(tf->linkage);
@@ -366,14 +384,14 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 #endif
 
     // return attrs
-    if (HAS_ATTRIBUTES(tf->fty.ret->attrs))
+    if (HAS_ATTRIBUTES(irFty.ret->attrs))
     {
-        addToAttributes(attrs, 0, tf->fty.ret->attrs);
+        addToAttributes(attrs, 0, irFty.ret->attrs);
     }
 
     // handle implicit arguments
     std::vector<LLValue*> args;
-    args.reserve(tf->fty.args.size());
+    args.reserve(irFty.args.size());
 
     // return in hidden ptr is first
     if (retinptr)
@@ -385,7 +403,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         // add attrs for hidden ptr
 #if LDC_LLVM_VER >= 303
         const unsigned Index = 1;
-        llvm::AttrBuilder builder(tf->fty.arg_sret->attrs);
+        llvm::AttrBuilder builder(irFty.arg_sret->attrs);
         assert((builder.contains(llvm::Attribute::StructRet) || builder.contains(llvm::Attribute::InReg))
             && "Sret arg not sret or inreg?");
         llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(), Index, builder);
@@ -393,7 +411,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 #else
         llvm::AttributeWithIndex Attr;
         Attr.Index = 1;
-        Attr.Attrs = tf->fty.arg_sret->attrs;
+        Attr.Attrs = irFty.arg_sret->attrs;
 #if LDC_LLVM_VER == 302
         assert((Attr.Attrs.hasAttribute(llvm::Attributes::StructRet) || Attr.Attrs.hasAttribute(llvm::Attributes::InReg))
             && "Sret arg not sret or inreg?");
@@ -461,13 +479,13 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         }
 
         // add attributes for context argument
-        if (tf->fty.arg_this && HAS_ATTRIBUTES(tf->fty.arg_this->attrs))
+        if (irFty.arg_this && HAS_ATTRIBUTES(irFty.arg_this->attrs))
         {
-            addToAttributes(attrs, retinptr ? 2 : 1, tf->fty.arg_this->attrs);
+            addToAttributes(attrs, retinptr ? 2 : 1, irFty.arg_this->attrs);
         }
-        else if (tf->fty.arg_nest && HAS_ATTRIBUTES(tf->fty.arg_nest->attrs))
+        else if (irFty.arg_nest && HAS_ATTRIBUTES(irFty.arg_nest->attrs))
         {
-            addToAttributes(attrs, retinptr ? 2 : 1, tf->fty.arg_nest->attrs);
+            addToAttributes(attrs, retinptr ? 2 : 1, irFty.arg_nest->attrs);
         }
     }
 
@@ -490,7 +508,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // d style varargs needs a few more hidden arguments as well as special passing
     else if (dvarargs)
     {
-        DtoBuildDVarArgList(args, attrs, tf, arguments, argiter-argbegin+1, callableTy);
+        DtoBuildDVarArgList(args, attrs, tf, irFty, arguments, argiter-argbegin+1, callableTy);
     }
 
     // otherwise we're looking at a normal function call
@@ -543,20 +561,20 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         {
             DValue* argval = argvals.at(i);
 
-            int j = tf->fty.reverseParams ? beg + n - i - 1 : beg + i;
-            LLValue *arg = fixArgument(argval, tf, callableTy->getParamType(j), i);
+            int j = irFty.reverseParams ? beg + n - i - 1 : beg + i;
+            LLValue *arg = fixArgument(argval, irFty, callableTy->getParamType(j), i);
             args.push_back(arg);
 
 #if LDC_LLVM_VER >= 303
-            addToAttributes(attrs, beg + 1 + (tf->fty.reverseParams ? n-i-1: i), tf->fty.args[i]->attrs);
+            addToAttributes(attrs, beg + 1 + (irFty.reverseParams ? n-i-1: i), irFty.args[i]->attrs);
 #else
-            attrptr[i] = tf->fty.args[i]->attrs;
+            attrptr[i] = irFty.args[i]->attrs;
 #endif
             ++argiter;
         }
 
         // reverse the relevant params as well as the param attrs
-        if (tf->fty.reverseParams)
+        if (irFty.reverseParams)
         {
             std::reverse(args.begin() + beg, args.end());
 #if LDC_LLVM_VER < 303
@@ -623,7 +641,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     {
         // do abi specific return value fixups
         DImValue dretval(tf->next, retllval);
-        retllval = tf->fty.getRet(tf->next, &dretval);
+        retllval = irFty.getRet(tf->next, &dretval);
     }
 
     // Hack around LDC assuming structs and static arrays are in memory:

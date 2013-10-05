@@ -186,6 +186,8 @@ void tokToIcmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate* outPred,
 ////////////////////////////////////////////
 
 ///
+IrFuncTy &DtoIrTypeFunction(DValue* fnval);
+///
 TypeFunction* DtoTypeFunction(DValue* fnval);
 
 ///
