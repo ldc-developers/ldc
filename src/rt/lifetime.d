@@ -1030,6 +1030,11 @@ void[] _d_newarrayOpT(alias op)(const TypeInfo ti, size_t ndims, va_list q)
                     va_list ap2;
                     va_copy(ap2, ap);
                 }
+                else version(ARM)
+                {
+                    va_list ap2;
+                    va_copy(ap2, ap);
+                }
                 for (size_t i = 0; i < dim; i++)
                 {
                     version (Win64)

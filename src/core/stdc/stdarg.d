@@ -369,6 +369,57 @@ version( X86 )
         dest = src;
     }
 }
+else version( ARM )
+{
+    // FIXME: This isn't actually tested at all.
+    // Really struct va_list { void* ptr; }, but for compatibility with
+    // x86-style code that uses void*, we just define it as the raw pointer.
+    alias va_list = void*;
+
+    version(LDC)
+    {
+        pragma(LDC_va_start)
+            void va_start(T)(va_list ap, ref T);
+    }
+    else static assert("Unsupported platform.");
+
+    /**
+     * Retrieve and return the next value that is type T.
+     * This is the preferred version.
+     */
+    void va_arg(T)(ref va_list ap, ref T parmn)
+    {
+        parmn = *cast(T*)ap;
+        ap = cast(va_list)(cast(void*)ap + ((T.sizeof + int.sizeof - 1) & ~(int.sizeof - 1)));
+    }
+
+    /**
+     * Retrieve and store through parmn the next value that is of TypeInfo ti.
+     * Used when the static type is not known.
+     */
+    void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
+    {
+        // Wait until everyone updates to get TypeInfo.talign
+        //auto talign = ti.talign;
+        //auto p = cast(void*)(cast(size_t)ap + talign - 1) & ~(talign - 1);
+        auto p = ap;
+        auto tsize = ti.tsize;
+        ap = cast(void*)(cast(size_t)p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1)));
+        parmn[0..tsize] = p[0..tsize];
+    }
+
+    /**
+     * End use of ap.
+     */
+    void va_end(va_list ap)
+    {
+    }
+
+    void va_copy(out va_list dest, va_list src)
+    {
+        dest = src;
+    }
+}
 else version ( LDC_X86_64 )
 {
     alias __va_list *va_list;
