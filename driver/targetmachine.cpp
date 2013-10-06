@@ -319,8 +319,8 @@ llvm::TargetMachine* createTargetMachine(
 
     if (Logger::enabled())
     {
-        Logger::cout() << "Targeting '" << triple.str() << "' (CPU '" << cpu
-            << "' with features '" << features.getString() << "').\n";
+        Logger::println("Targeting '%s' (CPU '%s' with features '%s')",
+            triple.str().c_str(), cpu.c_str(), features.getString().c_str());
     }
 
     if (triple.isMacOSX() && relocModel == llvm::Reloc::Default)
