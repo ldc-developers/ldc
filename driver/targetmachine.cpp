@@ -21,6 +21,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Target/TargetOptions.h"
 #include "mars.h"
+#include "gen/logger.h"
 
 
 static std::string getX86TargetCPU(const std::string &cpu,
@@ -32,9 +33,6 @@ static std::string getX86TargetCPU(const std::string &cpu,
 
         // FIXME: Reject attempts to use -mcpu=native unless the target matches
         // the host.
-        //
-        // FIXME: We should also incorporate the detected target features for use
-        // with -native.
         std::string cpu = llvm::sys::getHostCPUName();
         if (!cpu.empty() && cpu != "generic")
             return cpu;
@@ -114,6 +112,23 @@ llvm::TargetMachine* createTargetMachine(
         fatal();
     }
 
+    // Package up features to be passed to target/subtarget.
+    llvm::SubtargetFeatures features;
+    features.getDefaultSubtargetFeatures(triple);
+    if (cpu == "native")
+    {
+        llvm::StringMap<bool> hostFeatures;
+        if (llvm::sys::getHostCPUFeatures(hostFeatures))
+        {
+            llvm::StringMapConstIterator<bool> i = hostFeatures.begin(),
+                end = hostFeatures.end();
+            for (; i != end; ++i)
+                features.AddFeature(i->first(), i->second);
+        }
+    }
+    for (unsigned i = 0; i < attrs.size(); ++i)
+        features.AddFeature(attrs[i]);
+
     // With an empty CPU string, LLVM will default to the host CPU, which is
     // usually not what we want (expected behavior from other compilers is
     // to default to "generic").
@@ -123,14 +138,10 @@ llvm::TargetMachine* createTargetMachine(
         cpu = getX86TargetCPU(cpu, triple);
     }
 
-    // Package up features to be passed to target/subtarget
-    std::string FeaturesStr;
-    if (cpu.size() || attrs.size())
+    if (Logger::enabled())
     {
-        llvm::SubtargetFeatures Features;
-        for (unsigned i = 0; i != attrs.size(); ++i)
-            Features.AddFeature(attrs[i]);
-        FeaturesStr = Features.getString();
+        Logger::cout() << "Targeting CPU '" << cpu << "' with features '" <<
+            features.getString() << "'.\n";
     }
 
     if (triple.isMacOSX() && relocModel == llvm::Reloc::Default)
@@ -146,7 +157,7 @@ llvm::TargetMachine* createTargetMachine(
     return target->createTargetMachine(
         triple.str(),
         cpu,
-        FeaturesStr,
+        features.getString(),
         targetOptions,
         relocModel,
         codeModel,
