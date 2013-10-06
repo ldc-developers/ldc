@@ -113,17 +113,18 @@ static std::string getTargetCPU(const std::string &cpu,
             return hostCPU;
     }
 
-    if (triple.getArch() == llvm::Triple::x86_64 ||
-        triple.getArch() == llvm::Triple::x86)
+    switch (triple.getArch())
     {
+    default:
+        // We don't know about the specifics of this platform, just return the
+        // empty string and let LLVM decide.
+        return cpu;
+    case llvm::Triple::x86:
+    case llvm::Triple::x86_64:
         return getX86TargetCPU(triple);
-    }
-    else if (triple.getArch() == llvm::Triple::arm)
-    {
+    case llvm::Triple::arm:
         return getARMTargetCPU(triple);
     }
-
-    return cpu;
 }
 
 
