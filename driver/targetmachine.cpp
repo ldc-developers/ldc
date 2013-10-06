@@ -8,7 +8,8 @@
 //===----------------------------------------------------------------------===//
 //
 // Note: The target CPU detection logic has been adapted from Clang
-// (lib/Driver/Tools.cpp).
+// (Tools.cpp and ToolChain.cpp in lib/Driver, the latter seems to have the
+// more up-to-date version).
 //
 //===----------------------------------------------------------------------===//
 
@@ -127,6 +128,74 @@ static std::string getTargetCPU(const std::string &cpu,
     }
 }
 
+static const char *getLLVMArchSuffixForARM(llvm::StringRef CPU)
+{
+    return llvm::StringSwitch<const char *>(CPU)
+        .Case("strongarm", "v4")
+        .Cases("arm7tdmi", "arm7tdmi-s", "arm710t", "v4t")
+        .Cases("arm720t", "arm9", "arm9tdmi", "v4t")
+        .Cases("arm920", "arm920t", "arm922t", "v4t")
+        .Cases("arm940t", "ep9312","v4t")
+        .Cases("arm10tdmi",  "arm1020t", "v5")
+        .Cases("arm9e",  "arm926ej-s",  "arm946e-s", "v5e")
+        .Cases("arm966e-s",  "arm968e-s",  "arm10e", "v5e")
+        .Cases("arm1020e",  "arm1022e",  "xscale", "iwmmxt", "v5e")
+        .Cases("arm1136j-s",  "arm1136jf-s",  "arm1176jz-s", "v6")
+        .Cases("arm1176jzf-s",  "mpcorenovfp",  "mpcore", "v6")
+        .Cases("arm1156t2-s",  "arm1156t2f-s", "v6t2")
+        .Cases("cortex-a5", "cortex-a7", "cortex-a8", "v7")
+        .Cases("cortex-a9", "cortex-a12", "cortex-a15", "v7")
+        .Cases("cortex-r4", "cortex-r5", "v7r")
+        .Case("cortex-m0", "v6m")
+        .Case("cortex-m3", "v7m")
+        .Case("cortex-m4", "v7em")
+        .Case("cortex-a9-mp", "v7f")
+        .Case("swift", "v7s")
+        .Case("cortex-a53", "v8")
+        .Default("");
+}
+
+static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
+    const char* llvmArchSuffix)
+{
+    switch (triple.getOS()) {
+    case llvm::Triple::Darwin:
+    case llvm::Triple::MacOSX:
+    case llvm::Triple::IOS: {
+        // Darwin defaults to "softfp" for v6 and v7.
+        if (llvm::StringRef(llvmArchSuffix).startswith("v6") ||
+            llvm::StringRef(llvmArchSuffix).startswith("v7"))
+            return FloatABI::SoftFP;
+        return FloatABI::Soft;
+    }
+
+    case llvm::Triple::FreeBSD:
+        // FreeBSD defaults to soft float
+        return FloatABI::Soft;
+
+    default:
+        switch(triple.getEnvironment()) {
+        case llvm::Triple::GNUEABIHF:
+            return FloatABI::Hard;
+        case llvm::Triple::GNUEABI:
+            return FloatABI::SoftFP;
+        case llvm::Triple::EABI:
+            // EABI is always AAPCS, and if it was not marked 'hard', it's softfp
+            return FloatABI::SoftFP;
+#if LDC_LLVM_VER >= 302
+        case llvm::Triple::Android: {
+            if (llvm::StringRef(llvmArchSuffix).startswith("v7"))
+                return FloatABI::SoftFP;
+            return FloatABI::Soft;
+        }
+#endif
+        default:
+            // Assume "soft".
+            // TODO: Warn the user we are guessing.
+            return FloatABI::Soft;
+        }
+    }
+}
 
 llvm::TargetMachine* createTargetMachine(
     std::string targetTriple,
@@ -134,6 +203,7 @@ llvm::TargetMachine* createTargetMachine(
     std::string cpu,
     std::vector<std::string> attrs,
     ExplicitBitness::Type bitness,
+    FloatABI::Type floatABI,
     llvm::Reloc::Model relocModel,
     llvm::CodeModel::Model codeModel,
     llvm::CodeGenOpt::Level codeGenOptLevel,
@@ -207,8 +277,42 @@ llvm::TargetMachine* createTargetMachine(
         relocModel = llvm::Reloc::PIC_;
     }
 
+    if (floatABI == FloatABI::Default)
+    {
+        switch (triple.getArch())
+        {
+        default: // X86, ...
+            floatABI = FloatABI::Hard;
+            break;
+        case llvm::Triple::arm:
+            floatABI = getARMFloatABI(triple, getLLVMArchSuffixForARM(cpu));
+            break;
+        case llvm::Triple::thumb:
+            floatABI = FloatABI::Soft;
+            break;
+        }
+    }
+
+
     llvm::TargetOptions targetOptions;
     targetOptions.NoFramePointerElim = genDebugInfo;
+
+    switch (floatABI)
+    {
+    default: llvm_unreachable("Floating point ABI type unknown.");
+    case FloatABI::Soft:
+        targetOptions.UseSoftFloat = true;
+        targetOptions.FloatABIType = llvm::FloatABI::Soft;
+        break;
+    case FloatABI::SoftFP:
+        targetOptions.UseSoftFloat = false;
+        targetOptions.FloatABIType = llvm::FloatABI::Soft;
+        break;
+    case FloatABI::Hard:
+        targetOptions.UseSoftFloat = false;
+        targetOptions.FloatABIType = llvm::FloatABI::Hard;
+        break;
+    }
 
     return target->createTargetMachine(
         triple.str(),

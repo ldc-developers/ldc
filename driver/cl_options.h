@@ -15,6 +15,7 @@
 #ifndef LDC_DRIVER_CL_OPTIONS_H
 #define LDC_DRIVER_CL_OPTIONS_H
 
+#include "driver/targetmachine.h"
 #include "gen/cl_helpers.h"
 #include "llvm/Support/CodeGen.h"
 #include "llvm/Support/CommandLine.h"
@@ -60,6 +61,7 @@ namespace opts {
     extern cl::opt<std::string> mTargetTriple;
     extern cl::opt<llvm::Reloc::Model> mRelocModel;
     extern cl::opt<llvm::CodeModel::Model> mCodeModel;
+    extern cl::opt<FloatABI::Type> mFloatABI;
     extern cl::opt<bool, true> singleObj;
     extern cl::opt<bool> linkonceTemplates;
 
