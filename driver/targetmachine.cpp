@@ -160,13 +160,14 @@ llvm::TargetMachine* createTargetMachine(
         triple = llvm::Triple(llvm::Triple::normalize(targetTriple));
     }
 
-    // Look up the LLVM backend to use.
+    // Look up the LLVM backend to use. This also updates triple with the
+    // user-specified arch, if any.
     std::string errMsg;
     const llvm::Target *target =
         llvm::TargetRegistry::lookupTarget(arch, triple, errMsg);
     if (target == 0)
     {
-        error("%s", errMsg.c_str());
+        error("Could not determine target platform: %s", errMsg.c_str());
         fatal();
     }
 
@@ -194,8 +195,8 @@ llvm::TargetMachine* createTargetMachine(
 
     if (Logger::enabled())
     {
-        Logger::cout() << "Targeting CPU '" << cpu << "' with features '" <<
-            features.getString() << "'.\n";
+        Logger::cout() << "Targeting '" << triple.str() << "' (CPU '" << cpu
+            << "' with features '" << features.getString() << "').\n";
     }
 
     if (triple.isMacOSX() && relocModel == llvm::Reloc::Default)
