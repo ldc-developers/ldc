@@ -197,6 +197,60 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
     }
 }
 
+/// Looks up a target based on an arch name and a target triple.
+///
+/// If the arch name is non-empty, then the lookup is done by arch. Otherwise,
+/// the target triple is used.
+///
+/// This has been adapted from the corresponding LLVM 3.2+ overload of
+/// llvm::TargetRegistry::lookupTarget. Once support for LLVM 3.1 is dropped,
+/// the registry method can be used instead.
+const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
+    std::string &errorMsg)
+{
+    // Allocate target machine. First, check whether the user has explicitly
+    // specified an architecture to compile for. If so we have to look it up by
+    // name, because it might be a backend that has no mapping to a target triple.
+    const llvm::Target *target = 0;
+    if (!arch.empty())
+    {
+        for (llvm::TargetRegistry::iterator it = llvm::TargetRegistry::begin(),
+            ie = llvm::TargetRegistry::end(); it != ie; ++it)
+        {
+            if (arch == it->getName())
+            {
+                target = &*it;
+                break;
+            }
+        }
+
+        if (!target)
+        {
+            errorMsg = "invalid target architecture '" + arch + "', see "
+                "-version for a list of supported targets.";
+            return 0;
+        }
+
+        // Adjust the triple to match (if known), otherwise stick with the
+        // given triple.
+        llvm::Triple::ArchType Type = llvm::Triple::getArchTypeForLLVMName(arch);
+        if (Type != llvm::Triple::UnknownArch)
+            triple.setArch(Type);
+    }
+    else
+    {
+        std::string tempError;
+        target = llvm::TargetRegistry::lookupTarget(triple.getTriple(), tempError);
+        if (!target)
+        {
+            errorMsg = "unable to get target for '" + triple.getTriple() +
+                "', see -version and -mtriple.";
+        }
+    }
+
+    return target;
+}
+
 llvm::TargetMachine* createTargetMachine(
     std::string targetTriple,
     std::string arch,
@@ -234,11 +288,10 @@ llvm::TargetMachine* createTargetMachine(
     // Look up the LLVM backend to use. This also updates triple with the
     // user-specified arch, if any.
     std::string errMsg;
-    const llvm::Target *target =
-        llvm::TargetRegistry::lookupTarget(arch, triple, errMsg);
+    const llvm::Target *target = lookupTarget(arch, triple, errMsg);
     if (target == 0)
     {
-        error("Could not determine target platform: %s", errMsg.c_str());
+        error("%s", errMsg.c_str());
         fatal();
     }
 
