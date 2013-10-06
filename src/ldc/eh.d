@@ -148,10 +148,27 @@ else version(GCC_UNWIND)
     void _Unwind_Resume(_Unwind_Exception*);
     _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
     ptrdiff_t _Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr context);
-    ptrdiff_t _Unwind_GetIP(_Unwind_Context_Ptr context);
-    ptrdiff_t _Unwind_SetIP(_Unwind_Context_Ptr context, ptrdiff_t new_value);
-    ptrdiff_t _Unwind_SetGR(_Unwind_Context_Ptr context, int index,
-            ptrdiff_t new_value);
+    version (ARM)
+    {
+        // On ARM, these are macros resp. not visible (static inline). To avoid
+        // an unmaintainable amount of dependencies on implementation details,
+        // just use a C shim.
+        ptrdiff_t _d_eh_GetIP(_Unwind_Context_Ptr context);
+        alias _Unwind_GetIP = _d_eh_GetIP;
+
+        void _d_eh_SetIP(_Unwind_Context_Ptr context, ptrdiff_t new_value);
+        alias _Unwind_SetIP = _d_eh_SetIP;
+
+        void _d_eh_SetGR(_Unwind_Context_Ptr context, int index, ptrdiff_t new_value);
+        alias _Unwind_SetGR = _d_eh_SetGR;
+    }
+    else
+    {
+        ptrdiff_t _Unwind_GetIP(_Unwind_Context_Ptr context);
+        void _Unwind_SetIP(_Unwind_Context_Ptr context, ptrdiff_t new_value);
+        void _Unwind_SetGR(_Unwind_Context_Ptr context, int index,
+                ptrdiff_t new_value);
+    }
     ptrdiff_t _Unwind_GetRegionStart(_Unwind_Context_Ptr context);
     ptrdiff_t _Unwind_GetTextRelBase(_Unwind_Context_Ptr context);
     ptrdiff_t _Unwind_GetDataRelBase(_Unwind_Context_Ptr context);
