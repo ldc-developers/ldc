@@ -635,26 +635,27 @@ int main(int argc, char **argv)
     if (global.errors)
         fatal();
 
-    gTargetMachine = createTargetMachine(mTargetTriple, mArch, mCPU, mAttrs, bitness,
-        mRelocModel, mCodeModel, codeGenOptLevel(), global.params.symdebug);
-    llvm::Triple targetTriple = llvm::Triple(gTargetMachine->getTargetTriple());
-    global.params.targetTriple = targetTriple;
-    global.params.trace        = false;
-    global.params.isLinux      = targetTriple.getOS() == llvm::Triple::Linux;
-    global.params.isOSX        = targetTriple.isMacOSX();
-    global.params.isWindows    = targetTriple.isOSWindows();
-    global.params.isFreeBSD    = targetTriple.getOS() == llvm::Triple::FreeBSD;
-    global.params.isOpenBSD    = targetTriple.getOS() == llvm::Triple::OpenBSD;
-    global.params.isSolaris    = targetTriple.getOS() == llvm::Triple::Solaris;
+    gTargetMachine = createTargetMachine(mTargetTriple, mArch, mCPU, mAttrs,
+        bitness, mFloatABI, mRelocModel, mCodeModel, codeGenOptLevel(),
+        global.params.symdebug);
+
+    {
+        llvm::Triple triple = llvm::Triple(gTargetMachine->getTargetTriple());
+        global.params.targetTriple = triple;
+        global.params.isLinux      = triple.getOS() == llvm::Triple::Linux;
+        global.params.isOSX        = triple.isMacOSX();
+        global.params.isWindows    = triple.isOSWindows();
+        global.params.isFreeBSD    = triple.getOS() == llvm::Triple::FreeBSD;
+        global.params.isOpenBSD    = triple.getOS() == llvm::Triple::OpenBSD;
+        global.params.isSolaris    = triple.getOS() == llvm::Triple::Solaris;
+        global.params.is64bit      = triple.isArch64Bit();
+    }
 
 #if LDC_LLVM_VER >= 302
     gDataLayout = gTargetMachine->getDataLayout();
 #else
     gDataLayout = gTargetMachine->getTargetData();
 #endif
-
-    // Starting with LLVM 3.1 we could also use global.params.targetTriple.isArch64Bit();
-    global.params.is64bit = gDataLayout->getPointerSizeInBits(ADDRESS_SPACE) == 64;
 
     // Set predefined version identifiers.
     registerPredefinedVersions();
