@@ -13,6 +13,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/targetmachine.h"
+#include "llvm/ADT/StringSwitch.h"
 #include "llvm/ADT/Triple.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Host.h"
@@ -24,20 +25,8 @@
 #include "gen/logger.h"
 
 
-static std::string getX86TargetCPU(const std::string &cpu,
-    const llvm::Triple &triple)
+static std::string getX86TargetCPU(const llvm::Triple &triple)
 {
-    if (!cpu.empty()) {
-        if (cpu != "native")
-            return cpu;
-
-        // FIXME: Reject attempts to use -mcpu=native unless the target matches
-        // the host.
-        std::string cpu = llvm::sys::getHostCPUName();
-        if (!cpu.empty() && cpu != "generic")
-            return cpu;
-    }
-
     // Select the default CPU if none was given (or detection failed).
 
     // Intel Macs are relatively recent, take advantage of that.
@@ -68,6 +57,75 @@ static std::string getX86TargetCPU(const std::string &cpu,
     // Fallback to p4.
     return "pentium4";
 }
+
+static std::string getARMTargetCPU(const llvm::Triple &triple)
+{
+    const char *result = llvm::StringSwitch<const char *>(triple.getArchName())
+        .Cases("armv2", "armv2a","arm2")
+        .Case("armv3", "arm6")
+        .Case("armv3m", "arm7m")
+        .Case("armv4", "strongarm")
+        .Case("armv4t", "arm7tdmi")
+        .Cases("armv5", "armv5t", "arm10tdmi")
+        .Cases("armv5e", "armv5te", "arm1026ejs")
+        .Case("armv5tej", "arm926ej-s")
+        .Cases("armv6", "armv6k", "arm1136jf-s")
+        .Case("armv6j", "arm1136j-s")
+        .Cases("armv6z", "armv6zk", "arm1176jzf-s")
+        .Case("armv6t2", "arm1156t2-s")
+        .Cases("armv6m", "armv6-m", "cortex-m0")
+        .Cases("armv7", "armv7a", "armv7-a", "cortex-a8")
+        .Cases("armv7l", "armv7-l", "cortex-a8")
+        .Cases("armv7f", "armv7-f", "cortex-a9-mp")
+        .Cases("armv7s", "armv7-s", "swift")
+        .Cases("armv7r", "armv7-r", "cortex-r4")
+        .Cases("armv7m", "armv7-m", "cortex-m3")
+        .Cases("armv7em", "armv7e-m", "cortex-m4")
+        .Cases("armv8", "armv8a", "armv8-a", "cortex-a53")
+        .Case("ep9312", "ep9312")
+        .Case("iwmmxt", "iwmmxt")
+        .Case("xscale", "xscale")
+        // If all else failed, return the most base CPU with thumb interworking
+        // supported by LLVM.
+        .Default(0);
+
+    if (result)
+        return result;
+
+    return (triple.getEnvironment() == llvm::Triple::GNUEABIHF) ?
+        "arm1176jzf-s" : "arm7tdmi";
+}
+
+/// Returns the LLVM name of the target CPU to use given the provided
+/// -mcpu argument and target triple.
+static std::string getTargetCPU(const std::string &cpu,
+    const llvm::Triple &triple)
+{
+    if (!cpu.empty())
+    {
+        if (cpu != "native")
+            return cpu;
+
+        // FIXME: Reject attempts to use -mcpu=native unless the target matches
+        // the host.
+        std::string hostCPU = llvm::sys::getHostCPUName();
+        if (!hostCPU.empty() && hostCPU != "generic")
+            return hostCPU;
+    }
+
+    if (triple.getArch() == llvm::Triple::x86_64 ||
+        triple.getArch() == llvm::Triple::x86)
+    {
+        return getX86TargetCPU(triple);
+    }
+    else if (triple.getArch() == llvm::Triple::arm)
+    {
+        return getARMTargetCPU(triple);
+    }
+
+    return cpu;
+}
+
 
 llvm::TargetMachine* createTargetMachine(
     std::string targetTriple,
@@ -132,11 +190,7 @@ llvm::TargetMachine* createTargetMachine(
     // With an empty CPU string, LLVM will default to the host CPU, which is
     // usually not what we want (expected behavior from other compilers is
     // to default to "generic").
-    if (triple.getArch() == llvm::Triple::x86_64 ||
-        triple.getArch() == llvm::Triple::x86)
-    {
-        cpu = getX86TargetCPU(cpu, triple);
-    }
+    cpu = getTargetCPU(cpu, triple);
 
     if (Logger::enabled())
     {
