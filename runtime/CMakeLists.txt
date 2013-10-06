@@ -108,6 +108,11 @@ if(UNIX)
     endif()
     list(REMOVE_ITEM LDC_D ${RUNTIME_DIR}/src/ldc/eh2.d)
     list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/msvc.c)
+
+    # Using CMAKE_SYSTEM_PROCESSOR might be inacurrate when somebody is
+    # cross-compiling by just setting the tool executbles to a cross toolchain,
+    # so just always include the file.
+    list(APPEND DCRT_C ${RUNTIME_DIR}/src/ldc/arm_unwind.c)
 elseif(WIN32)
     list(APPEND CORE_D_SYS ${CORE_D_WIN})
     if (MSVC)
