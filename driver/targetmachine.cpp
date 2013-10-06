@@ -18,6 +18,7 @@
 #include "llvm/ADT/Triple.h"
 #include "llvm/MC/SubtargetFeature.h"
 #include "llvm/Support/Host.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -346,6 +347,19 @@ llvm::TargetMachine* createTargetMachine(
         }
     }
 
+    if (triple.getArch() == llvm::Triple::arm)
+    {
+        // On ARM, we want to use EHABI exception handling, as we don't support
+        // SJLJ EH in druntime. Unfortunately, it is still in a partly
+        // experimental state, and the -arm-enable-ehabi-descriptors command
+        // line option is not exposed via an internal API at all.
+        const char *backendArgs[3] = {
+            "ldc2", // Fake name, irrelevant.
+            "-arm-enable-ehabi",
+            "-arm-enable-ehabi-descriptors"
+        };
+        llvm::cl::ParseCommandLineOptions(3, backendArgs);
+    }
 
     llvm::TargetOptions targetOptions;
     targetOptions.NoFramePointerElim = genDebugInfo;
