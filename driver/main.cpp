@@ -151,7 +151,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
 #if _WIN32
     char buf[MAX_PATH];
     GetModuleFileName(NULL, buf, MAX_PATH);
-    const char* argv0 = &buf;
+    const char* argv0 = &buf[0];
     // FIXME: We cannot set params.argv0 here, as we would escape a stack
     // reference, but it is unused anyway.
     global.params.argv0 = NULL;
