@@ -1052,7 +1052,9 @@ int main(int argc, char **argv)
         }
 
         m->deleteObjFile();
-        writeModule(linker.getModule(), filename);
+        const bool completeExecutable = global.params.link &&
+            !createSharedLib && global.params.objfiles->dim == 0;
+        writeModule(linker.getModule(), filename, completeExecutable);
         global.params.objfiles->push(const_cast<char*>(filename));
 
 #if LDC_LLVM_VER >= 303

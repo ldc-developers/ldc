@@ -154,6 +154,15 @@ static void addGarbageCollect2StackPass(const PassManagerBuilder &builder, PassM
         addPass(pm, createGarbageCollect2Stack());
 }
 
+static void addInternalizePass(const PassManagerBuilder &builder, PassManagerBase &pm) {
+    static const char* exportList[] = {
+        "_Dmain"
+    };
+
+    if (builder.OptLevel >= 4)
+        addPass(pm, createInternalizePass(exportList));
+}
+
 /**
  * Adds a set of optimization passes to the given module/function pass
  * managers based on the given optimization and size reduction levels.
@@ -162,7 +171,8 @@ static void addGarbageCollect2StackPass(const PassManagerBuilder &builder, PassM
  * PassManagerBuilder.
  */
 static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm,
-                                  unsigned optLevel, unsigned sizeLevel) {
+                                  unsigned optLevel, unsigned sizeLevel,
+                                  bool isCompleteExecutable) {
     fpm.add(createVerifierPass());                  // Verify that input is correct
 
     PassManagerBuilder builder;
@@ -189,6 +199,9 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
     /* builder.Vectorize is set in ctor from command line switch */
 
     if (!disableLangSpecificPasses) {
+        if (isCompleteExecutable)
+            builder.addExtension(PassManagerBuilder::EP_ModuleOptimizerEarly, addInternalizePass);
+
         if (!disableSimplifyDruntimeCalls)
             builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd, addSimplifyDRuntimeCallsPass);
 
@@ -206,7 +219,7 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
 //////////////////////////////////////////////////////////////////////////////////////////
 // This function runs optimization passes based on command line arguments.
 // Returns true if any optimization passes were invoked.
-bool ldc_optimize_module(llvm::Module* m)
+bool ldc_optimize_module(llvm::Module* m, bool isCompleteExecutable)
 {
     // Create a PassManager to hold and optimize the collection of
     // per-module passes we are about to build.
@@ -246,7 +259,7 @@ bool ldc_optimize_module(llvm::Module* m)
     // Create a new optimization pass for each one specified on the command line
     for (unsigned i = 0; i < passList.size(); ++i) {
         if (optimizeLevel && optimizeLevel.getPosition() < passList.getPosition(i)) {
-            addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
+            addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel(), isCompleteExecutable);
             defaultsAdded = true;
         }
 
@@ -269,7 +282,7 @@ bool ldc_optimize_module(llvm::Module* m)
 
     // Add the default passes for the specified optimization level.
     if (!defaultsAdded)
-        addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
+        addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel(), isCompleteExecutable);
 
     // Run per-function passes.
     fpm.doInitialization();

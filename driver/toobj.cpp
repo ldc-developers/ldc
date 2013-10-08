@@ -113,10 +113,10 @@ static void assemble(const std::string &asmpath, const std::string &objpath)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void writeModule(llvm::Module* m, std::string filename)
+void writeModule(llvm::Module* m, std::string filename, bool isCompleteExecutable)
 {
     // run optimizer
-    ldc_optimize_module(m);
+    ldc_optimize_module(m, isCompleteExecutable);
 
     // We don't use the integrated assembler with MinGW as it does not support
     // emitting DW2 exception handling tables.
