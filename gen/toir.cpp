@@ -508,6 +508,26 @@ DValue* AssignExp::toElem(IRState* p)
         }
     }
 
+    if (e1->op == TOKslice)
+    {
+        // Check if this is an initialization of a static array with an array
+        // literal that the frontend has foolishly rewritten into an
+        // assignment of a dynamic array literal to a slice.
+        Logger::println("performing static array literal assignment");
+        SliceExp * const se = static_cast<SliceExp *>(e1);
+        Type * const t2 = e2->type->toBasetype();
+        Type * const ta = se->e1->type->toBasetype();
+
+        if (se->lwr == NULL && ta->ty == Tsarray &&
+            e2->op == TOKarrayliteral &&
+            t2->nextOf()->mutableOf()->implicitConvTo(ta->nextOf()))
+        {
+            ArrayLiteralExp * const ale = static_cast<ArrayLiteralExp *>(e2);
+            initializeArrayLiteral(p, ale, se->e1->toElem(p)->getLVal());
+            return e1->toElem(p);
+        }
+    }
+
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
