@@ -492,7 +492,7 @@ DValue* AssignExp::toElem(IRState* p)
             {
                 Logger::println("performing ref variable initialization");
                 // Note that the variable value is accessed directly (instead
-                // of via getLValue(), which would perform a load from the
+                // of via getLVal(), which would perform a load from the
                 // uninitialized location), and that rhs is stored as an l-value!
                 DVarValue* lhs = e1->toElem(p)->isVar();
                 assert(lhs);
