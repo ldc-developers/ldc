@@ -11,6 +11,7 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "dsymbol.h"
+#include "expression.h"
 #include "init.h"
 #include "module.h"
 #include "mtype.h"
@@ -385,6 +386,98 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     gep = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llelemty));
 
     return DtoConstSlice(DtoConstSize_t(arrlen), gep, arrty);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
+{
+    Type* const arrayType = ale->type->toBasetype();
+    Type* const elemType = arrayType->nextOf()->toBasetype();
+    size_t const len = ale->elements->dim;
+
+    // Check for const'ness
+    bool isAllConst = true;
+    for (size_t i = 0; i < len && isAllConst; ++i)
+    {
+        Expression *expr = static_cast<Expression *>(ale->elements->data[i]);
+        isAllConst = expr->isConst() == 1;
+    }
+
+    if (isAllConst)
+    {
+        // allocate room for initializers
+        std::vector<LLConstant *> initvals(len, NULL);
+
+        LLType* llElemType = voidToI8(DtoType(elemType));
+
+        // true if array elements differ in type
+        bool mismatch = false;
+
+        // store elements
+        for (size_t i = 0; i < len; ++i)
+        {
+            Expression *expr = static_cast<Expression *>(ale->elements->data[i]);
+            llvm::Constant *c = expr->toConstElem(gIR);
+            if (llElemType != c->getType())
+                mismatch = true;
+            initvals[i] = c;
+        }
+        LLConstant *constarr;
+        if (mismatch)
+            constarr = LLConstantStruct::getAnon(gIR->context(), initvals); // FIXME should this pack?;
+        else
+            constarr = LLConstantArray::get(LLArrayType::get(llElemType, len), initvals);
+
+#if LDC_LLVM_VER == 301
+        // Simply storing the constant array triggers a problem in LLVM 3.1.
+        // With -O3 the statement
+        //     void[0] sa0 = (void[0]).init;
+        // is compiled to
+        //     tail call void @llvm.trap()
+        // which is not what we want!
+        // Therefore a global variable is always used.
+        LLGlobalVariable *gvar = new LLGlobalVariable(
+            *gIR->module,
+            constarr->getType(),
+            true,
+            LLGlobalValue::InternalLinkage,
+            constarr,
+            ".constarrayliteral_init"
+        );
+        DtoMemCpy(dstMem, gvar, DtoConstSize_t(getTypePaddedSize(constarr->getType())));
+#else
+        // If the type pointed to by dstMem is different from the array type
+        // then we must assign the value to a global variable.
+        if (constarr->getType() != dstMem->getType()->getPointerElementType())
+        {
+            LLGlobalVariable *gvar = new LLGlobalVariable(
+                *gIR->module,
+                constarr->getType(),
+                true,
+                LLGlobalValue::InternalLinkage,
+                constarr,
+                ".constarrayliteral_init"
+            );
+            DtoMemCpy(dstMem, gvar, DtoConstSize_t(getTypePaddedSize(constarr->getType())));
+        }
+        else
+            DtoStore(constarr, dstMem);
+#endif
+    }
+    else
+    {
+        // store elements
+        for (size_t i = 0; i < len; ++i)
+        {
+            LLValue *elemAddr = DtoGEPi(dstMem, 0, i, "tmp", p->scopebb());
+
+            // emulate assignment
+            DVarValue *vv = new DVarValue((*ale->elements)[i]->type, elemAddr);
+            DValue *e = (*ale->elements)[i]->toElem(p);
+            DtoAssign(ale->loc, vv, e);
+        }
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
