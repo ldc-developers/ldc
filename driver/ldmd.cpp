@@ -126,7 +126,10 @@ static std::string prependMainExecutablePath(const std::string &ExeName,
 
   if (!Result.empty()) {
     sys::path::append(Result, ExeName);
-    sys::path::append(Result, getEXESuffix());
+
+    // Do not use path::append here, this is not a path component before which
+    // to insert the path seperator.
+    Result.append(getEXESuffix());
   }
 
   return Result.str();
