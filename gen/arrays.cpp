@@ -11,6 +11,7 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "dsymbol.h"
+#include "expression.h"
 #include "init.h"
 #include "module.h"
 #include "mtype.h"
@@ -385,6 +386,108 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     gep = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llelemty));
 
     return DtoConstSlice(DtoConstSize_t(arrlen), gep, arrty);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+bool isConstLiteral(ArrayLiteralExp* ale)
+{
+    for (size_t i = 0; i < ale->elements->dim; ++i)
+    {
+        // We have to check specifically for '1', as SymOffExp is classified as
+        // '2' and the address of a local variable is not an LLVM constant.
+        if ((*ale->elements)[i]->isConst() != 1)
+            return false;
+    }
+    return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Constant* arrayLiteralToConst(IRState* p, ArrayLiteralExp* ale)
+{
+    assert(isConstLiteral(ale) && "Array literal cannot be represented as a constant.");
+
+    // Build the initializer. We have to take care as due to unions in the
+    // element types (with different fields being initialized), we can end up
+    // with different types for the initializer values. In this case, we
+    // generate a packed struct constant instead of an array constant.
+    LLType *elementType = NULL;
+    bool differentTypes = false;
+
+    std::vector<LLConstant*> vals;
+    vals.reserve(ale->elements->dim);
+    for (unsigned i = 0; i < ale->elements->dim; ++i)
+    {
+        llvm::Constant *val = (*ale->elements)[i]->toConstElem(p);
+        if (!elementType)
+            elementType = val->getType();
+        else
+            differentTypes |= (elementType != val->getType());
+        vals.push_back(val);
+    }
+
+    if (differentTypes)
+        return llvm::ConstantStruct::getAnon(vals, true);
+
+    if (!elementType)
+    {
+        assert(ale->elements->dim == 0);
+        elementType = i1ToI8(voidToI8(DtoType(ale->type->toBasetype()->nextOf())));
+        return llvm::ConstantArray::get(LLArrayType::get(elementType, 0), vals);
+    }
+
+    llvm::ArrayType *t = llvm::ArrayType::get(elementType, ale->elements->dim);
+    return llvm::ConstantArray::get(t, vals);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
+{
+    size_t elemCount = ale->elements->dim;
+
+    // Don't try to write nothing to a zero-element array, we might represent it
+    // as a null pointer.
+    if (elemCount == 0) return;
+
+    if (isConstLiteral(ale))
+    {
+        llvm::Constant* constarr = arrayLiteralToConst(p, ale);
+
+        // Emit a global for longer arrays, as an inline constant is always
+        // lowered to a series of movs or similar at the asm level. The
+        // optimizer can still decide to promote the memcpy intrinsic, so
+        // the cutoff merely affects compilation speed.
+        if (elemCount <= 4)
+        {
+            DtoStore(constarr, DtoBitCast(dstMem, getPtrToType(constarr->getType())));
+        }
+        else
+        {
+            llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
+                *gIR->module,
+                constarr->getType(),
+                true,
+                LLGlobalValue::InternalLinkage,
+                constarr,
+                ".arrayliteral"
+            );
+            DtoMemCpy(dstMem, gvar, DtoConstSize_t(getTypePaddedSize(constarr->getType())));
+        }
+    }
+    else
+    {
+        // Store the elements one by one.
+        for (size_t i = 0; i < elemCount; ++i)
+        {
+            DValue* e = (*ale->elements)[i]->toElem(p);
+
+            LLValue* elemAddr = DtoGEPi(dstMem, 0, i, "tmp", p->scopebb());
+            DVarValue* vv = new DVarValue(e->type, elemAddr);
+            DtoAssign(ale->loc, vv, e);
+        }
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
