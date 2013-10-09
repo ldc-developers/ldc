@@ -445,61 +445,46 @@ llvm::Constant* arrayLiteralToConst(IRState* p, ArrayLiteralExp* ale)
 
 void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
 {
+    size_t elemCount = ale->elements->dim;
+
     // Don't try to write nothing to a zero-element array, we might represent it
     // as a null pointer.
-    if (ale->elements->dim == 0) return;
+    if (elemCount == 0) return;
 
     if (isConstLiteral(ale))
     {
-        // allocate room for initializers
         llvm::Constant* constarr = arrayLiteralToConst(p, ale);
 
-#if LDC_LLVM_VER == 301
-        // Simply storing the constant array triggers a problem in LLVM 3.1.
-        // With -O3 the statement
-        //     void[0] sa0 = (void[0]).init;
-        // is compiled to
-        //     tail call void @llvm.trap()
-        // which is not what we want!
-        // Therefore a global variable is always used.
-        LLGlobalVariable *gvar = new LLGlobalVariable(
-            *gIR->module,
-            constarr->getType(),
-            true,
-            LLGlobalValue::InternalLinkage,
-            constarr,
-            ".constarrayliteral_init"
-        );
-        DtoMemCpy(dstMem, gvar, DtoConstSize_t(getTypePaddedSize(constarr->getType())));
-#else
-        // If the type pointed to by dstMem is different from the array type
-        // then we must assign the value to a global variable.
-        if (constarr->getType() != dstMem->getType()->getPointerElementType())
+        // Emit a global for longer arrays, as an inline constant is always
+        // lowered to a series of movs or similar at the asm level. The
+        // optimizer can still decide to promote the memcpy intrinsic, so
+        // the cutoff merely affects compilation speed.
+        if (elemCount <= 4)
         {
-            LLGlobalVariable *gvar = new LLGlobalVariable(
+            DtoStore(constarr, DtoBitCast(dstMem, getPtrToType(constarr->getType())));
+        }
+        else
+        {
+            llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
                 *gIR->module,
                 constarr->getType(),
                 true,
                 LLGlobalValue::InternalLinkage,
                 constarr,
-                ".constarrayliteral_init"
+                ".arrayliteral"
             );
             DtoMemCpy(dstMem, gvar, DtoConstSize_t(getTypePaddedSize(constarr->getType())));
         }
-        else
-            DtoStore(constarr, dstMem);
-#endif
     }
     else
     {
-        // store elements
-        for (size_t i = 0; i < ale->elements->dim; ++i)
+        // Store the elements one by one.
+        for (size_t i = 0; i < elemCount; ++i)
         {
-            LLValue *elemAddr = DtoGEPi(dstMem, 0, i, "tmp", p->scopebb());
+            DValue* e = (*ale->elements)[i]->toElem(p);
 
-            // emulate assignment
-            DVarValue *vv = new DVarValue((*ale->elements)[i]->type, elemAddr);
-            DValue *e = (*ale->elements)[i]->toElem(p);
+            LLValue* elemAddr = DtoGEPi(dstMem, 0, i, "tmp", p->scopebb());
+            DVarValue* vv = new DVarValue(e->type, elemAddr);
             DtoAssign(ale->loc, vv, e);
         }
     }
