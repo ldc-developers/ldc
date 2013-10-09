@@ -473,6 +473,7 @@ void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
                 constarr,
                 ".arrayliteral"
             );
+            gvar->setUnnamedAddr(true);
             DtoMemCpy(dstMem, gvar, DtoConstSize_t(getTypePaddedSize(constarr->getType())));
         }
     }
