@@ -23,8 +23,9 @@ matrix:
 script:
   - cmake $OPTS .
   - make
-  - bin/ldc2 -version # For environment info.
-  - ctest --output-on-failure -R $TESTSUITE_FILTER
+  # Outputs some environment info, plus makes sure we only run the test suite
+  # if we could actually build the executable.
+  - bin/ldc2 -version && ctest --output-on-failure -R $TESTSUITE_FILTER
 
 notifications:
   # Temporarily disabled due to time limit problems.
