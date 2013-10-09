@@ -1022,6 +1022,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
     assert(!vd->aliassym && "Aliases are handled in DtoDeclarationExp.");
 
     Logger::println("vdtype = %s", vd->type->toChars());
+    LOG_SCOPE
 
     if (vd->nestedrefs.dim)
     {
