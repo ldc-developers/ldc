@@ -2945,21 +2945,20 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     if (!dyn)
         return initval;
 
-    // we need to put the initializer in a global, and so we have a pointer to the array
-    // Important: don't make the global constant, since this const initializer might
-    // be used as an initializer for a static T[] - where modifying contents is allowed.
-    LLConstant* globalstore = new LLGlobalVariable(*gIR->module,
-        initval->getType(), false, LLGlobalValue::InternalLinkage, initval,
+    bool canBeConst = type->isConst() || type->isImmutable();
+    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,
+        initval->getType(), canBeConst, llvm::GlobalValue::InternalLinkage, initval,
         ".dynarrayStorage");
-    globalstore = DtoBitCast(globalstore, getPtrToType(arrtype));
+    gvar->setUnnamedAddr(canBeConst);
+    llvm::Constant* store = DtoBitCast(gvar, getPtrToType(arrtype));
 
     if (bt->ty == Tpointer)
         // we need to return pointer to the static array.
-        return globalstore;
+        return store;
 
-    // build a constant dynamic array reference with the .ptr field pointing into globalstore
+    // build a constant dynamic array reference with the .ptr field pointing into store
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
-    LLConstant* globalstorePtr = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, true);
+    LLConstant* globalstorePtr = llvm::ConstantExpr::getGetElementPtr(store, idxs, true);
 
     return DtoConstSlice(DtoConstSize_t(elements->dim), globalstorePtr);
 }
