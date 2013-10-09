@@ -390,44 +390,69 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
+bool isConstLiteral(ArrayLiteralExp* ale)
 {
-    Type* const arrayType = ale->type->toBasetype();
-    Type* const elemType = arrayType->nextOf()->toBasetype();
-    size_t const len = ale->elements->dim;
-
-    // Check for const'ness
-    bool isAllConst = true;
-    for (size_t i = 0; i < len && isAllConst; ++i)
+    for (size_t i = 0; i < ale->elements->dim; ++i)
     {
-        Expression *expr = static_cast<Expression *>(ale->elements->data[i]);
-        isAllConst = expr->isConst() == 1;
+        // We have to check specifically for '1', as SymOffExp is classified as
+        // '2' and the address of a local variable is not an LLVM constant.
+        if ((*ale->elements)[i]->isConst() != 1)
+            return false;
+    }
+    return true;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Constant* arrayLiteralToConst(IRState* p, ArrayLiteralExp* ale)
+{
+    assert(isConstLiteral(ale) && "Array literal cannot be represented as a constant.");
+
+    // Build the initializer. We have to take care as due to unions in the
+    // element types (with different fields being initialized), we can end up
+    // with different types for the initializer values. In this case, we
+    // generate a packed struct constant instead of an array constant.
+    LLType *elementType = NULL;
+    bool differentTypes = false;
+
+    std::vector<LLConstant*> vals;
+    vals.reserve(ale->elements->dim);
+    for (unsigned i = 0; i < ale->elements->dim; ++i)
+    {
+        llvm::Constant *val = (*ale->elements)[i]->toConstElem(p);
+        if (!elementType)
+            elementType = val->getType();
+        else
+            differentTypes |= (elementType != val->getType());
+        vals.push_back(val);
     }
 
-    if (isAllConst)
+    if (differentTypes)
+        return llvm::ConstantStruct::getAnon(vals, true);
+
+    if (!elementType)
+    {
+        assert(ale->elements->dim == 0);
+        elementType = i1ToI8(voidToI8(DtoType(ale->type->toBasetype()->nextOf())));
+        return llvm::ConstantArray::get(LLArrayType::get(elementType, 0), vals);
+    }
+
+    llvm::ArrayType *t = llvm::ArrayType::get(elementType, ale->elements->dim);
+    return llvm::ConstantArray::get(t, vals);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
+{
+    // Don't try to write nothing to a zero-element array, we might represent it
+    // as a null pointer.
+    if (ale->elements->dim == 0) return;
+
+    if (isConstLiteral(ale))
     {
         // allocate room for initializers
-        std::vector<LLConstant *> initvals(len, NULL);
-
-        LLType* llElemType = voidToI8(DtoType(elemType));
-
-        // true if array elements differ in type
-        bool mismatch = false;
-
-        // store elements
-        for (size_t i = 0; i < len; ++i)
-        {
-            Expression *expr = static_cast<Expression *>(ale->elements->data[i]);
-            llvm::Constant *c = expr->toConstElem(gIR);
-            if (llElemType != c->getType())
-                mismatch = true;
-            initvals[i] = c;
-        }
-        LLConstant *constarr;
-        if (mismatch)
-            constarr = LLConstantStruct::getAnon(gIR->context(), initvals); // FIXME should this pack?;
-        else
-            constarr = LLConstantArray::get(LLArrayType::get(llElemType, len), initvals);
+        llvm::Constant* constarr = arrayLiteralToConst(p, ale);
 
 #if LDC_LLVM_VER == 301
         // Simply storing the constant array triggers a problem in LLVM 3.1.
@@ -468,7 +493,7 @@ void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
     else
     {
         // store elements
-        for (size_t i = 0; i < len; ++i)
+        for (size_t i = 0; i < ale->elements->dim; ++i)
         {
             LLValue *elemAddr = DtoGEPi(dstMem, 0, i, "tmp", p->scopebb());
 

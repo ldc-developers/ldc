@@ -2925,45 +2925,7 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     // dynamic arrays can occur here as well ...
     bool dyn = (bt->ty != Tsarray);
 
-    // Build the initializer. We have to take care as due to unions in the
-    // element types (with different fields being initialized), we can end up
-    // with different types for the initializer values. In this case, we
-    // generate a packed struct constant instead of an array constant.
-    LLType *elementType = NULL;
-    bool differentTypes = false;
-
-    std::vector<LLConstant*> vals;
-    vals.reserve(elements->dim);
-    for (unsigned i = 0; i < elements->dim; ++i)
-    {
-        LLConstant *val = (*elements)[i]->toConstElem(p);
-        if (!elementType)
-            elementType = val->getType();
-        else
-            differentTypes |= (elementType != val->getType());
-        vals.push_back(val);
-    }
-
-    LLConstant *initval;
-    if (differentTypes)
-    {
-        std::vector<llvm::Type*> types;
-        types.reserve(elements->dim);
-        for (unsigned i = 0; i < elements->dim; ++i)
-            types.push_back(vals[i]->getType());
-        LLStructType *t = llvm::StructType::get(gIR->context(), types, true);
-        initval = LLConstantStruct::get(t, vals);
-    }
-    else if (!elementType)
-    {
-        assert(elements->dim == 0);
-        initval = LLConstantArray::get(arrtype, vals);
-    }
-    else
-    {
-        LLArrayType *t = LLArrayType::get(elementType, elements->dim);
-        initval = LLConstantArray::get(t, vals);
-    }
+    llvm::Constant* initval = arrayLiteralToConst(p, this);
 
     // if static array, we're done
     if (!dyn)
