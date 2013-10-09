@@ -2870,9 +2870,9 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
     Type* elemType = arrayType->nextOf()->toBasetype();
 
     // is dynamic ?
-    bool dyn = (arrayType->ty == Tarray);
+    bool const dyn = (arrayType->ty == Tarray);
     // length
-    size_t len = elements->dim;
+    size_t const len = elements->dim;
 
     // llvm target type
     LLType* llType = DtoType(arrayType);
@@ -2892,9 +2892,23 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         return new DSliceValue(type, DtoConstSize_t(0), getNullPtr(getPtrToType(llElemType)));
     }
 
-    // dst pointer
     if (dyn)
     {
+        if (arrayType->isImmutable() && isConstLiteral(this))
+        {
+            llvm::Constant* init = arrayLiteralToConst(p, this);
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(
+                *gIR->module,
+                init->getType(),
+                true,
+                llvm::GlobalValue::InternalLinkage,
+                init,
+                ".immutablearray"
+            );
+            return new DSliceValue(arrayType, DtoConstSize_t(elements->dim),
+                DtoBitCast(global, getPtrToType(llElemType)));
+        }
+
         DSliceValue* dynSlice = DtoNewDynArray(loc, arrayType,
             new DConstValue(Type::tsize_t, DtoConstSize_t(len)), false);
         initializeArrayLiteral(p, this, DtoBitCast(dynSlice->ptr, getPtrToType(llStoType)));
