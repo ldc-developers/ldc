@@ -18,9 +18,11 @@
 #include "gen/llvm.h"
 
 struct ArrayInitializer;
+struct ArrayLiteralExp;
 class DSliceValue;
 class DValue;
 struct Expression;
+struct IRState;
 struct Loc;
 struct Type;
 
@@ -31,6 +33,17 @@ llvm::ArrayType* DtoStaticArrayType(Type* sarrayTy);
 LLType* DtoConstArrayInitializerType(ArrayInitializer* arrinit);
 LLConstant* DtoConstArrayInitializer(ArrayInitializer* si);
 LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr, Type *type = 0);
+
+/// Returns whether the array literal can be evaluated to a (LLVM) constant.
+bool isConstLiteral(ArrayLiteralExp* ale);
+
+/// Returns the constant for the given array literal expression.
+llvm::Constant* arrayLiteralToConst(IRState* p, ArrayLiteralExp* ale);
+
+/// Initializes a chunk of memory with the contents of an array literal.
+///
+/// dstMem is expected to be a pointer to the array allocation.
+void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem);
 
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src);
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src);

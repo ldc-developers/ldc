@@ -492,7 +492,7 @@ DValue* AssignExp::toElem(IRState* p)
             {
                 Logger::println("performing ref variable initialization");
                 // Note that the variable value is accessed directly (instead
-                // of via getLValue(), which would perform a load from the
+                // of via getLVal(), which would perform a load from the
                 // uninitialized location), and that rhs is stored as an l-value!
                 DVarValue* lhs = e1->toElem(p)->isVar();
                 assert(lhs);
@@ -505,6 +505,26 @@ DValue* AssignExp::toElem(IRState* p)
 
                 return rhs;
             }
+        }
+    }
+
+    if (e1->op == TOKslice)
+    {
+        // Check if this is an initialization of a static array with an array
+        // literal that the frontend has foolishly rewritten into an
+        // assignment of a dynamic array literal to a slice.
+        Logger::println("performing static array literal assignment");
+        SliceExp * const se = static_cast<SliceExp *>(e1);
+        Type * const t2 = e2->type->toBasetype();
+        Type * const ta = se->e1->type->toBasetype();
+
+        if (se->lwr == NULL && ta->ty == Tsarray &&
+            e2->op == TOKarrayliteral &&
+            t2->nextOf()->mutableOf()->implicitConvTo(ta->nextOf()))
+        {
+            ArrayLiteralExp * const ale = static_cast<ArrayLiteralExp *>(e2);
+            initializeArrayLiteral(p, ale, se->e1->toElem(p)->getLVal());
+            return e1->toElem(p);
         }
     }
 
@@ -2850,9 +2870,9 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
     Type* elemType = arrayType->nextOf()->toBasetype();
 
     // is dynamic ?
-    bool dyn = (arrayType->ty == Tarray);
+    bool const dyn = (arrayType->ty == Tarray);
     // length
-    size_t len = elements->dim;
+    size_t const len = elements->dim;
 
     // llvm target type
     LLType* llType = DtoType(arrayType);
@@ -2872,95 +2892,34 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         return new DSliceValue(type, DtoConstSize_t(0), getNullPtr(getPtrToType(llElemType)));
     }
 
-    // dst pointer
-    LLValue* dstMem;
-    DSliceValue* dynSlice = NULL;
-    if(dyn)
+    if (dyn)
     {
-        dynSlice = DtoNewDynArray(loc, arrayType, new DConstValue(Type::tsize_t, DtoConstSize_t(len)), false);
-        dstMem = dynSlice->ptr;
-    }
-    else
-        dstMem = DtoRawAlloca(llStoType, 0, "arrayliteral");
-
-    // Check for const'ness
-    bool isAllConst = true;
-    for (size_t i = 0; i < len && isAllConst; ++i)
-    {
-        Expression *expr = static_cast<Expression *>(elements->data[i]);
-        isAllConst = expr->isConst() == 1;
-    }
-
-    if (isAllConst)
-    {
-        // allocate room for initializers
-        std::vector<LLConstant *> initvals(len, NULL);
-
-        // true if array elements differ in type
-        bool mismatch = false;
-
-        // store elements
-        for (size_t i = 0; i < len; ++i)
+        if (arrayType->isImmutable() && isConstLiteral(this))
         {
-            Expression *expr = static_cast<Expression *>(elements->data[i]);
-            llvm::Constant *c = expr->toConstElem(gIR);
-            if (llElemType != c->getType())
-                mismatch = true;
-            initvals[i] = c;
+            llvm::Constant* init = arrayLiteralToConst(p, this);
+            llvm::GlobalVariable* global = new llvm::GlobalVariable(
+                *gIR->module,
+                init->getType(),
+                true,
+                llvm::GlobalValue::InternalLinkage,
+                init,
+                ".immutablearray"
+            );
+            return new DSliceValue(arrayType, DtoConstSize_t(elements->dim),
+                DtoBitCast(global, getPtrToType(llElemType)));
         }
-        LLConstant *constarr;
-        if (mismatch)
-            constarr = LLConstantStruct::getAnon(gIR->context(), initvals); // FIXME should this pack?;
-        else
-            constarr = LLConstantArray::get(LLArrayType::get(llElemType, len), initvals);
 
-#if LDC_LLVM_VER == 301
-        // Simply storing the constant array triggers a problem in LLVM 3.1.
-        // With -O3 the statement
-        //     void[0] sa0 = (void[0]).init;
-        // is compiled to
-        //     tail call void @llvm.trap()
-        // which is not what we want!
-        // Therefore a global variable is always used.
-        LLGlobalVariable *gvar = new LLGlobalVariable(*gIR->module, constarr->getType(), true, LLGlobalValue::InternalLinkage, constarr, ".constarrayliteral_init");
-        DtoMemCpy(dstMem, gvar, DtoConstSize_t(getTypePaddedSize(constarr->getType())));
-#else
-        // If the type pointed to by dstMem is different from the array type
-        // then we must assign the value to a global variable.
-        if (constarr->getType() != dstMem->getType()->getPointerElementType())
-        {
-            LLGlobalVariable *gvar = new LLGlobalVariable(*gIR->module, constarr->getType(), true, LLGlobalValue::InternalLinkage, constarr, ".constarrayliteral_init");
-            DtoMemCpy(dstMem, gvar, DtoConstSize_t(getTypePaddedSize(constarr->getType())));
-        }
-        else
-            DtoStore(constarr, dstMem);
-#endif
+        DSliceValue* dynSlice = DtoNewDynArray(loc, arrayType,
+            new DConstValue(Type::tsize_t, DtoConstSize_t(len)), false);
+        initializeArrayLiteral(p, this, DtoBitCast(dynSlice->ptr, getPtrToType(llStoType)));
+        return dynSlice;
     }
     else
     {
-        // store elements
-        for (size_t i = 0; i < len; ++i)
-        {
-            Expression *expr = static_cast<Expression *>(elements->data[i]);
-            LLValue *elemAddr;
-            if(dyn)
-                elemAddr = DtoGEPi1(dstMem, i, "tmp", p->scopebb());
-            else
-                elemAddr = DtoGEPi(dstMem, 0, i, "tmp", p->scopebb());
-
-            // emulate assignment
-            DVarValue *vv = new DVarValue(expr->type, elemAddr);
-            DValue *e = expr->toElem(p);
-            DtoAssign(loc, vv, e);
-        }
+        llvm::Value* storage = DtoRawAlloca(llStoType, 0, "arrayliteral");
+        initializeArrayLiteral(p, this, storage);
+        return new DImValue(type, storage);
     }
-
-    // return storage directly ?
-    if (!dyn)
-        return new DImValue(type, dstMem);
-
-    // return slice
-    return dynSlice;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2980,45 +2939,7 @@ LLConstant* ArrayLiteralExp::toConstElem(IRState* p)
     // dynamic arrays can occur here as well ...
     bool dyn = (bt->ty != Tsarray);
 
-    // Build the initializer. We have to take care as due to unions in the
-    // element types (with different fields being initialized), we can end up
-    // with different types for the initializer values. In this case, we
-    // generate a packed struct constant instead of an array constant.
-    LLType *elementType = NULL;
-    bool differentTypes = false;
-
-    std::vector<LLConstant*> vals;
-    vals.reserve(elements->dim);
-    for (unsigned i = 0; i < elements->dim; ++i)
-    {
-        LLConstant *val = (*elements)[i]->toConstElem(p);
-        if (!elementType)
-            elementType = val->getType();
-        else
-            differentTypes |= (elementType != val->getType());
-        vals.push_back(val);
-    }
-
-    LLConstant *initval;
-    if (differentTypes)
-    {
-        std::vector<llvm::Type*> types;
-        types.reserve(elements->dim);
-        for (unsigned i = 0; i < elements->dim; ++i)
-            types.push_back(vals[i]->getType());
-        LLStructType *t = llvm::StructType::get(gIR->context(), types, true);
-        initval = LLConstantStruct::get(t, vals);
-    }
-    else if (!elementType)
-    {
-        assert(elements->dim == 0);
-        initval = LLConstantArray::get(arrtype, vals);
-    }
-    else
-    {
-        LLArrayType *t = LLArrayType::get(elementType, elements->dim);
-        initval = LLConstantArray::get(t, vals);
-    }
+    llvm::Constant* initval = arrayLiteralToConst(p, this);
 
     // if static array, we're done
     if (!dyn)
