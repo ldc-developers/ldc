@@ -167,10 +167,21 @@ set(LDC_GENERATED
 # Gather source files.
 #
 include(GetGitRevisionDescription)
-get_git_head_revision(REFSPEC HASH)
-if(NOT HASH STREQUAL "GITDIR-NOTFOUND")
-    string(SUBSTRING "${HASH}" 0 6 LDC_VERSION)
+git_get_exact_tag(TAG)
+if(NOT TAG MATCHES "NOTFOUND")
+    if(TAG MATCHES "v[0-9].*")
+        # For a version tag, remove the leading 'v'.
+        string(SUBSTRING "${TAG}" 1 -1 LDC_VERSION)
+    else()
+        set(LDC_VERSION "${TAG}")
+    endif()
+else()
+    get_git_head_revision(REFSPEC HASH)
+    if(NOT HASH STREQUAL "GITDIR-NOTFOUND")
+        string(SUBSTRING "${HASH}" 0 6 LDC_VERSION)
+    endif()
 endif()
+message(STATUS "LDC version identifier: ${LDC_VERSION}")
 configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 
 # Also add the header files to the build so that they are available in IDE
