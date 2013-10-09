@@ -115,7 +115,9 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
 
 Expression *Type::getTypeInfo(Scope *sc)
 {
-    //printf("Type::getTypeInfo() %p, %s\n", this, toChars());
+    IF_LOG Logger::println("Type::getTypeInfo(): %s", toChars());
+    LOG_SCOPE
+
     if (!Type::typeinfo)
     {
         error(Loc(), "TypeInfo not found. object.d may be incorrectly installed or corrupt, compile with -v switch");

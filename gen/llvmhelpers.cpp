@@ -1428,6 +1428,9 @@ LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
 
 LLConstant* DtoTypeInfoOf(Type* type, bool base)
 {
+    IF_LOG Logger::println("DtoTypeInfoOf(type = '%s', base='%d')", type->toChars(), base);
+    LOG_SCOPE
+
     type = type->merge2(); // needed.. getTypeInfo does the same
     type->getTypeInfo(NULL);
     TypeInfoDeclaration* tidecl = type->vtinfo;
