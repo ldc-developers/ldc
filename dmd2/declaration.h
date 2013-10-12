@@ -189,11 +189,6 @@ struct Declaration : Dsymbol
     enum PROT prot();
 
     Declaration *isDeclaration() { return this; }
-
-#if IN_LLVM
-    /// Codegen traversal
-    virtual void codegen(Ir* ir);
-#endif
 };
 
 /**************************************************************/

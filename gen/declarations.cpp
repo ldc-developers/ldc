@@ -27,14 +27,7 @@
 
 void Dsymbol::codegen(Ir*)
 {
-    Logger::println("Ignoring Dsymbol::codegen for %s", toChars());
-}
-
-/* ================================================================== */
-
-void Declaration::codegen(Ir*)
-{
-    Logger::println("Ignoring Declaration::codegen for %s", toChars());
+    Logger::println("Ignoring Dsymbol::codegen for %s", toPrettyChars());
 }
 
 /* ================================================================== */
