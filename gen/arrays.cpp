@@ -392,6 +392,8 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
 bool isConstLiteral(ArrayLiteralExp* ale)
 {
+    // FIXME: This is overly pessemistic, isConst() always returns 0 e.g. for
+    // StructLiteralExps. Thus, we waste optimization potential (GitHub #506).
     for (size_t i = 0; i < ale->elements->dim; ++i)
     {
         // We have to check specifically for '1', as SymOffExp is classified as
@@ -406,8 +408,6 @@ bool isConstLiteral(ArrayLiteralExp* ale)
 
 llvm::Constant* arrayLiteralToConst(IRState* p, ArrayLiteralExp* ale)
 {
-    assert(isConstLiteral(ale) && "Array literal cannot be represented as a constant.");
-
     // Build the initializer. We have to take care as due to unions in the
     // element types (with different fields being initialized), we can end up
     // with different types for the initializer values. In this case, we
