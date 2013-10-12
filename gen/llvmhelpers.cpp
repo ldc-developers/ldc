@@ -1374,7 +1374,6 @@ LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
 
     if (expBase->equals(targetBase) && targetBase->ty != Tbool)
     {
-        Logger::println("Matching D types, nothing left to do.");
         return val;
     }
 
