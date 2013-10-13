@@ -217,7 +217,7 @@ void VarDeclaration::codegen(IRState *p)
             if (initVal->getType() != gvar->getType()->getElementType())
             {
                 llvm::GlobalVariable* newGvar = getOrCreateGlobal(loc,
-                    *gIR->module, initVal->getType(), gvar->isConstant(),
+                    *p->module, initVal->getType(), gvar->isConstant(),
                     llLinkage, 0,
                     "", // We take on the name of the old global below.
                     gvar->isThreadLocal());
@@ -241,14 +241,14 @@ void VarDeclaration::codegen(IRState *p)
             gvar->setLinkage(llLinkage);
 
             // Also set up the edbug info.
-            gIR->DBuilder.EmitGlobalVariable(gvar, this);
+            p->DBuilder.EmitGlobalVariable(gvar, this);
         }
 
         // If this global is used from a naked function, we need to create an
         // artificial "use" for it, or it could be removed by the optimizer if
         // the only reference to it is in inline asm.
         if (nakedUse)
-            gIR->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
+            p->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
 
         if (Logger::enabled())
             Logger::cout() << *gvar << '\n';
