@@ -54,6 +54,6 @@ llvm::TargetMachine* createTargetMachine(
     llvm::Reloc::Model relocModel,
     llvm::CodeModel::Model codeModel,
     llvm::CodeGenOpt::Level codeGenOptLevel,
-    bool genDebugInfo);
+    bool noFramePointerElim);
 
 #endif // LDC_DRIVER_TARGET_H
