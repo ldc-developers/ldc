@@ -737,10 +737,10 @@ DValue* DtoCastNull(Loc& loc, DValue* val, Type* to)
     Type* totype = to->toBasetype();
     LLType* tolltype = DtoType(to);
 
-    if (totype->ty == Tpointer)
+    if (totype->ty == Tpointer || totype->ty == Tclass)
     {
         if (Logger::enabled())
-            Logger::cout() << "cast null to pointer: " << *tolltype << '\n';
+            Logger::cout() << "cast null to pointer/class: " << *tolltype << '\n';
         LLValue *rval = DtoBitCast(val->getRVal(), tolltype);
         return new DImValue(to, rval);
     }
