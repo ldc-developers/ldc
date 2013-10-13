@@ -205,14 +205,19 @@ LLConstant* get_default_initializer(VarDeclaration* vd, Initializer* init)
     {
         return DtoConstInitializer(init->loc, vd->type, init);
     }
-    else if (vd->init)
+
+    if (vd->init)
     {
         return DtoConstInitializer(vd->init->loc, vd->type, vd->init);
     }
-    else
+
+    if (vd->type->size(vd->loc) == 0)
     {
-        return DtoConstExpInit(vd->loc, vd->type, vd->type->defaultInit(vd->loc));
+        // We need to be able to handle void[0] struct members even if void has
+        // no default initializer.
+        return llvm::ConstantPointerNull::get(getPtrToType(DtoType(vd->type)));
     }
+    return DtoConstExpInit(vd->loc, vd->type, vd->type->defaultInit(vd->loc));
 }
 
 // return a constant array of type arrTypeD initialized with a constant value, or that constant value
