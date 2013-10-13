@@ -95,7 +95,7 @@ struct TYPE;
 #endif
 
 #if IN_LLVM
-class IRState;
+struct IRState;
 namespace llvm
 {
     class Value;
