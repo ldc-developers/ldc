@@ -1393,41 +1393,6 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static LLConstant* expand_to_sarray(Type* targetType, Type* initType, LLConstant* initConst)
-{
-    Type* expbase = stripModifiers(initType);
-    IF_LOG Logger::println("expbase: %s", expbase->toChars());
-    Type* t = targetType;
-
-    LLSmallVector<size_t, 4> dims;
-
-    while(1)
-    {
-        Logger::println("t: %s", t->toChars());
-        if (t->equals(expbase))
-            break;
-        assert(t->ty == Tsarray);
-        TypeSArray* tsa = static_cast<TypeSArray*>(t);
-        dims.push_back(tsa->dim->toInteger());
-        assert(t->nextOf());
-        t = stripModifiers(t->nextOf()->toBasetype());
-    }
-
-    size_t i = dims.size();
-    assert(i);
-
-    std::vector<LLConstant*> inits;
-    while (i--)
-    {
-        LLArrayType* arrty = LLArrayType::get(initConst->getType(), dims[i]);
-        inits.clear();
-        inits.insert(inits.end(), dims[i], initConst);
-        initConst = LLConstantArray::get(arrty, inits);
-    }
-
-    return initConst;
-}
-
 LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
 {
     IF_LOG Logger::println("DtoConstExpInit(targetType = %s, exp = %s)",
@@ -1470,7 +1435,12 @@ LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
            fatal();
         }
         Logger::println("Building constant array initializer to single value.");
-        return expand_to_sarray(targetBase, expBase, val);
+
+        d_uns64 elemCount = targetBase->size() / expBase->size();
+        assert(targetBase->size() % expBase->size() == 0);
+
+        std::vector<llvm::Constant*> initVals(elemCount, val);
+        return llvm::ConstantArray::get(llvm::ArrayType::get(llType, elemCount), initVals);
     }
 
     if (targetBase->ty == Tvector)
