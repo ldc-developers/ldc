@@ -202,6 +202,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
 #endif
     );
 
+    helpOnly = mCPU == "help" ||
+        (std::find(mAttrs.begin(), mAttrs.end(), "help") != mAttrs.end());
+
     // Print config file path if -v was passed
     if (global.params.verbose) {
         const std::string& path = cfg_file.path();
@@ -1068,8 +1071,7 @@ int main(int argc, char **argv)
 
         if (name && name[0] == '-' && name[1] == 0)
         {   // Write to stdout; assume it succeeds
-            int n = fwrite(buf.data, 1, buf.offset, stdout);
-            assert(n == buf.offset);        // keep gcc happy about return values
+            (void)fwrite(buf.data, 1, buf.offset, stdout);
         }
         else
         {
