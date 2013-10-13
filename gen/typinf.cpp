@@ -152,7 +152,7 @@ Expression *Type::getTypeInfo(Scope *sc)
             }
             else                        // if in obj generation pass
             {
-                t->vtinfo->codegen(sir);
+                t->vtinfo->codegen(gIR);
             }
         }
     }
@@ -317,10 +317,10 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 
     // TypeInfo instances (except ClassInfo ones) are always emitted as weak
     // symbols when they are used.
-    tid->codegen(Type::sir);
+    tid->codegen(gIR);
 }
 
-void TypeInfoDeclaration::codegen(Ir*)
+void TypeInfoDeclaration::codegen(IRState* p)
 {
     Logger::println("TypeInfoDeclaration::codegen(%s)", toPrettyChars());
     LOG_SCOPE;
@@ -728,7 +728,7 @@ void TypeInfoStructDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-void TypeInfoClassDeclaration::codegen(Ir* p)
+void TypeInfoClassDeclaration::codegen(IRState *p)
 {
     // For classes, the TypeInfo is in fact a ClassInfo instance and emitted
     // as a __ClassZ symbol. For interfaces, the __InterfaceZ symbol is

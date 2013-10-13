@@ -1210,7 +1210,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         // static
         if (vd->isDataseg())
         {
-            vd->codegen(Type::sir);
+            vd->codegen(gIR);
         }
         else
         {
@@ -1222,19 +1222,19 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     else if (StructDeclaration* s = declaration->isStructDeclaration())
     {
         Logger::println("StructDeclaration");
-        s->codegen(Type::sir);
+        s->codegen(gIR);
     }
     // function declaration
     else if (FuncDeclaration* f = declaration->isFuncDeclaration())
     {
         Logger::println("FuncDeclaration");
-        f->codegen(Type::sir);
+        f->codegen(gIR);
     }
     // class
     else if (ClassDeclaration* e = declaration->isClassDeclaration())
     {
         Logger::println("ClassDeclaration");
-        e->codegen(Type::sir);
+        e->codegen(gIR);
     }
     // typedef
     else if (TypedefDeclaration* tdef = declaration->isTypedefDeclaration())
@@ -1482,7 +1482,7 @@ LLConstant* DtoTypeInfoOf(Type* type, bool base)
     type->getTypeInfo(NULL);
     TypeInfoDeclaration* tidecl = type->vtinfo;
     assert(tidecl);
-    tidecl->codegen(Type::sir);
+    tidecl->codegen(gIR);
     assert(tidecl->ir.irGlobal != NULL);
     assert(tidecl->ir.irGlobal->value != NULL);
     LLConstant* c = isaConstant(tidecl->ir.irGlobal->value);

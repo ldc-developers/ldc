@@ -15,7 +15,6 @@
 #ifndef LDC_IR_IRAGGR_H
 #define LDC_IR_IRAGGR_H
 
-#include "ir/ir.h"
 #include "llvm/ADT/SmallVector.h"
 #include <map>
 #include <vector>

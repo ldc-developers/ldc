@@ -25,6 +25,7 @@ struct IrParameter;
 struct IrField;
 struct IrVar;
 struct Dsymbol;
+struct Module;
 
 namespace llvm {
     class Value;

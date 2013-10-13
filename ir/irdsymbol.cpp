@@ -9,7 +9,6 @@
 
 #include "gen/llvm.h"
 #include "gen/logger.h"
-#include "ir/ir.h"
 #include "ir/irdsymbol.h"
 #include "ir/irvar.h"
 

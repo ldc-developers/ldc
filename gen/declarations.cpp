@@ -22,20 +22,19 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/utils.h"
-#include "ir/ir.h"
 #include "ir/irtype.h"
 #include "ir/irvar.h"
 
 /* ================================================================== */
 
-void Dsymbol::codegen(Ir*)
+void Dsymbol::codegen(IRState *)
 {
     IF_LOG Logger::println("Ignoring Dsymbol::codegen for %s", toPrettyChars());
 }
 
 /* ================================================================== */
 
-void InterfaceDeclaration::codegen(Ir* p)
+void InterfaceDeclaration::codegen(IRState *p)
 {
     IF_LOG Logger::println("InterfaceDeclaration::codegen: '%s'", toPrettyChars());
     LOG_SCOPE
@@ -70,7 +69,7 @@ void InterfaceDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-void StructDeclaration::codegen(Ir* p)
+void StructDeclaration::codegen(IRState *p)
 {
     IF_LOG Logger::println("StructDeclaration::codegen: '%s'", toPrettyChars());
     LOG_SCOPE
@@ -104,7 +103,7 @@ void StructDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-void ClassDeclaration::codegen(Ir* p)
+void ClassDeclaration::codegen(IRState *p)
 {
     IF_LOG Logger::println("ClassDeclaration::codegen: '%s'", toPrettyChars());
     LOG_SCOPE
@@ -146,7 +145,7 @@ void ClassDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-void TupleDeclaration::codegen(Ir* p)
+void TupleDeclaration::codegen(IRState *p)
 {
     IF_LOG Logger::println("TupleDeclaration::codegen(): '%s'", toPrettyChars());
     LOG_SCOPE
@@ -169,7 +168,7 @@ void TupleDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-void VarDeclaration::codegen(Ir* p)
+void VarDeclaration::codegen(IRState *p)
 {
     IF_LOG Logger::println("VarDeclaration::codegen(): '%s'", toPrettyChars());
     LOG_SCOPE;
@@ -258,7 +257,7 @@ void VarDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-void TypedefDeclaration::codegen(Ir*)
+void TypedefDeclaration::codegen(IRState *)
 {
     IF_LOG Logger::println("TypedefDeclaration::codegen: '%s'", toPrettyChars());
     LOG_SCOPE;
@@ -277,7 +276,7 @@ void TypedefDeclaration::codegen(Ir*)
 
 /* ================================================================== */
 
-void EnumDeclaration::codegen(Ir*)
+void EnumDeclaration::codegen(IRState *)
 {
     IF_LOG Logger::println("Ignoring EnumDeclaration::codegen: '%s'", toPrettyChars());
 
@@ -289,7 +288,7 @@ void EnumDeclaration::codegen(Ir*)
 
 /* ================================================================== */
 
-void FuncDeclaration::codegen(Ir* p)
+void FuncDeclaration::codegen(IRState *p)
 {
     // don't touch function aliases, they don't contribute any new symbols
     if (!isFuncAliasDeclaration())
@@ -300,7 +299,7 @@ void FuncDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-void TemplateInstance::codegen(Ir* p)
+void TemplateInstance::codegen(IRState *p)
 {
     IF_LOG Logger::println("TemplateInstance::codegen: '%s'", toPrettyChars());
     LOG_SCOPE
@@ -319,7 +318,7 @@ void TemplateInstance::codegen(Ir* p)
 
 /* ================================================================== */
 
-void TemplateMixin::codegen(Ir* p)
+void TemplateMixin::codegen(IRState *p)
 {
     IF_LOG Logger::println("TemplateInstance::codegen: '%s'", toPrettyChars());
     LOG_SCOPE
@@ -338,7 +337,7 @@ void TemplateMixin::codegen(Ir* p)
 
 /* ================================================================== */
 
-void AttribDeclaration::codegen(Ir* p)
+void AttribDeclaration::codegen(IRState *p)
 {
     Array *d = include(NULL, NULL);
 
@@ -353,7 +352,7 @@ void AttribDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-void PragmaDeclaration::codegen(Ir* p)
+void PragmaDeclaration::codegen(IRState *p)
 {
     if (ident == Id::lib)
     {

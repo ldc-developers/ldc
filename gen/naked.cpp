@@ -86,7 +86,7 @@ void ExpStatement::toNakedIR(IRState *p)
 
     // make sure the symbols gets processed
     // TODO: codegen() here is likely incorrect
-    d->declaration->codegen(Type::sir);
+    d->declaration->codegen(p);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

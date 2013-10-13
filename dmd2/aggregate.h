@@ -209,7 +209,7 @@ struct StructDeclaration : AggregateDeclaration
     StructDeclaration *isStructDeclaration() { return this; }
 
 #if IN_LLVM
-    void codegen(Ir*);
+    void codegen(IRState*);
 #endif
 };
 
@@ -337,7 +337,7 @@ struct ClassDeclaration : AggregateDeclaration
     ClassDeclaration *isClassDeclaration() { return (ClassDeclaration *)this; }
 
 #if IN_LLVM
-    virtual void codegen(Ir*);
+    virtual void codegen(IRState*);
 #endif
 };
 
@@ -367,7 +367,7 @@ struct InterfaceDeclaration : ClassDeclaration
     InterfaceDeclaration *isInterfaceDeclaration() { return this; }
 
 #if IN_LLVM
-    void codegen(Ir*);
+    void codegen(IRState*);
 #endif
 };
 

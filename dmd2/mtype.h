@@ -24,7 +24,6 @@
 #if IN_LLVM
 #include "../ir/irfuncty.h"
 namespace llvm { class Type; }
-class Ir;
 class IrType;
 #endif
 
@@ -247,11 +246,7 @@ struct Type : Object
     int covariant(Type *t, StorageClass *pstc = NULL);
     char *toChars();
     static char needThisPrefix();
-#if IN_LLVM
-    static void init(Ir*);
-#else
     static void init();
-#endif
 
     #define SIZE_INVALID (~(d_uns64)0)
     d_uns64 size();
@@ -371,7 +366,6 @@ struct Type : Object
     virtual TypeBasic *isTypeBasic();
 
 #if IN_LLVM
-    static Ir* sir;
     IrType* irtype;
 #endif
 };

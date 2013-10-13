@@ -76,7 +76,7 @@ struct EnumDeclaration : ScopeDsymbol
 #endif
 
 #if IN_LLVM
-    void codegen(Ir*);
+    void codegen(IRState*);
 #endif
 };
 

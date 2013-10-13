@@ -211,7 +211,7 @@ struct TupleDeclaration : Declaration
 #if IN_LLVM
     void semantic3(Scope *sc);
     /// Codegen traversal
-    void codegen(Ir* ir);
+    void codegen(IRState* ir);
 #endif
 };
 
@@ -251,7 +251,7 @@ struct TypedefDeclaration : Declaration
 
 #if IN_LLVM
     /// Codegen traversal
-    void codegen(Ir* ir);
+    void codegen(IRState* ir);
 #endif
 };
 
@@ -357,7 +357,7 @@ struct VarDeclaration : Declaration
 
 #if IN_LLVM
     /// Codegen traversal
-    virtual void codegen(Ir* ir);
+    void codegen(IRState* ir);
 
     /// Index into parent aggregate.
     /// Set during type generation.
@@ -450,7 +450,7 @@ struct TypeInfoDeclaration : VarDeclaration
 
 #if IN_LLVM
     /// Codegen traversal
-    void codegen(Ir* ir);
+    void codegen(IRState* ir);
     virtual void llvmDefine();
 #endif
 };
@@ -482,7 +482,7 @@ struct TypeInfoClassDeclaration : TypeInfoDeclaration
     // __ClassZ/__InterfaceZ symbols instead of a TypeInfo_….init one. DMD also
     // generates them for SomeInterface.classinfo access, so we can't just
     // distinguish between them using tinfo and thus need to override codegen().
-    void codegen(Ir* p);
+    void codegen(IRState* ir);
     void llvmDefine();
 #endif
 };
@@ -919,7 +919,7 @@ struct FuncDeclaration : Declaration
     IrFuncTy irFty;
 
     /// Codegen traversal
-    void codegen(Ir* ir);
+    void codegen(IRState* ir);
 
     // vars declared in this function that nested funcs reference
     // is this is not empty, nestedFrameRef is set and these VarDecls

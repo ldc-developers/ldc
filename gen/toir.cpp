@@ -2551,7 +2551,7 @@ DValue* DelegateExp::toElem(IRState* p)
                 owner = owner->toParent();
             if (owner->isTemplateInstance() || owner == p->dmodule)
             {
-                func->codegen(Type::sir);
+                func->codegen(p);
             }
         }
 
@@ -2800,7 +2800,7 @@ DValue* FuncExp::toElem(IRState* p)
 
     // We need to actually codegen the function here, as literals are not added
     // to the module member list.
-    fd->codegen(Type::sir);
+    fd->codegen(p);
     assert(fd->ir.irFunc->func);
 
     if (fd->isNested()) {
@@ -2869,7 +2869,7 @@ LLConstant* FuncExp::toConstElem(IRState* p)
 
     // We need to actually codegen the function here, as literals are not added
     // to the module member list.
-    fd->codegen(Type::sir);
+    fd->codegen(p);
     assert(fd->ir.irFunc->func);
 
     return fd->ir.irFunc->func;
