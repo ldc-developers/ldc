@@ -2012,3 +2012,20 @@ llvm::GlobalVariable* getOrCreateGlobal(Loc loc, llvm::Module& module,
                                     init, name, 0, isThreadLocal);
 #endif
 }
+
+FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic) {
+    if (!sym)
+        return NULL;
+    Dsymbol* parent = sym->parent;
+    assert(parent);
+    while (parent && !parent->isFuncDeclaration()) {
+        if (stopOnStatic) {
+            Declaration* decl = sym->isDeclaration();
+            if (decl && decl->isStatic())
+                return NULL;
+        }
+        parent = parent->parent;
+    }
+
+    return (parent ? parent->isFuncDeclaration() : NULL);
+}

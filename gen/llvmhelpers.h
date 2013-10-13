@@ -239,5 +239,6 @@ llvm::GlobalVariable* getOrCreateGlobal(Loc loc, llvm::Module& module,
     llvm::Type* type, bool isConstant, llvm::GlobalValue::LinkageTypes linkage,
     llvm::Constant* init, llvm::StringRef name, bool isThreadLocal = false);
 
+FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic);
 
 #endif

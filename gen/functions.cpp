@@ -910,6 +910,22 @@ void DtoDefineFunction(FuncDeclaration* fd)
     if (fd->ir.defined) return;
     fd->ir.defined = true;
 
+    // We cannot emit nested functions with parents that have not gone through
+    // semantic analysis. This can happen as DMD leaks some template instances
+    // from constraints into the module member list. DMD gets away with being
+    // sloppy as functions in template contraints obviously never need to access
+    // data from the template function itself, but it would still mess up our
+    // nested context creation code.
+    FuncDeclaration* parent = fd;
+    while ((parent = getParentFunc(parent, true)))
+    {
+        if (parent->semanticRun != PASSsemantic3done)
+        {
+            Logger::println("Ignoring nested function with unanalyzed parent.");
+            return;
+        }
+    }
+
     if (fd->isUnitTestDeclaration()) {
         if (global.params.useUnitTests)
             gIR->unitTests.push_back(fd);
