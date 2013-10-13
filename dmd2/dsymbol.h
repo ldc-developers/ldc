@@ -95,7 +95,7 @@ struct TYPE;
 #endif
 
 #if IN_LLVM
-class Ir;
+class IRState;
 namespace llvm
 {
     class Value;
@@ -287,7 +287,7 @@ struct Dsymbol : Object
     virtual ClassInfoDeclaration* isClassInfoDeclaration() { return NULL; }
 
     /// Codegen traversal
-    virtual void codegen(Ir* ir);
+    virtual void codegen(IRState* p);
 
     // llvm stuff
     int llvmInternal;

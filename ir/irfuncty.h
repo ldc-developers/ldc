@@ -16,7 +16,6 @@
 #ifndef LDC_IR_IRFUNCTY_H
 #define LDC_IR_IRFUNCTY_H
 
-#include "ir/ir.h"
 #include "llvm/ADT/SmallVector.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Attributes.h"
@@ -27,6 +26,7 @@
 #include <vector>
 
 class DValue;
+struct Type;
 struct ABIRewrite;
 namespace llvm {
     class Type;

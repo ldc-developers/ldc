@@ -356,7 +356,7 @@ struct TemplateInstance : ScopeDsymbol
     bool ignore;        // true if the instance must be ignored when codegen'ing
     Module* emittedInModule; // which module this template instance has been emitted in
 
-    void codegen(Ir*);
+    void codegen(IRState*);
 #endif
 };
 
@@ -386,7 +386,7 @@ struct TemplateMixin : TemplateInstance
     TemplateMixin *isTemplateMixin() { return this; }
 
 #if IN_LLVM
-    void codegen(Ir*);
+    void codegen(IRState*);
 #endif
 };
 

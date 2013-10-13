@@ -702,6 +702,12 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     Logger::println("DtoDeclareFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
 
+    if (fdecl->isUnitTestDeclaration() && !global.params.useUnitTests)
+    {
+        Logger::println("unit tests not enabled");
+        return;
+    }
+
     //printf("declare function: %s\n", fdecl->toPrettyChars());
 
     // intrinsic sanity check
@@ -715,10 +721,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     TypeFunction* f = static_cast<TypeFunction*>(t);
 
     IrFuncTy &irFty = fdecl->irFty;
-    bool declareOnly = !mustDefineSymbol(fdecl);
-
-    if (fdecl->llvmInternal == LLVMva_start)
-        declareOnly = true;
 
     if (!fdecl->ir.irFunc) {
         fdecl->ir.irFunc = new IrFunction(fdecl);
@@ -753,9 +755,16 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     LLFunction* func = vafunc ? vafunc : gIR->module->getFunction(mangledName);
     if (!func) {
         if(fdecl->llvmInternal == LLVMinline_ir)
+        {
             func = DtoInlineIRFunction(fdecl);
+        }
         else
-            func = LLFunction::Create(functype, DtoLinkage(fdecl), mangledName, gIR->module);
+        {
+            // All function declarations are "external" - any other linkage type
+            // is set when actually defining the function.
+            func = LLFunction::Create(functype,
+                llvm::GlobalValue::ExternalLinkage, mangledName, gIR->module);
+        }
     } else if (func->getFunctionType() != functype) {
         error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", fdecl->mangle());
     }
@@ -790,35 +799,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             error(fdecl->loc, "only one main function allowed");
         }
         gIR->mainFunc = func;
-    }
-
-    // shared static ctor
-    if (fdecl->isSharedStaticCtorDeclaration()) {
-        if (mustDefineSymbol(fdecl)) {
-            gIR->sharedCtors.push_back(fdecl);
-        }
-    }
-    // shared static dtor
-    else if (StaticDtorDeclaration *dtorDecl = fdecl->isSharedStaticDtorDeclaration()) {
-        if (mustDefineSymbol(fdecl)) {
-            gIR->sharedDtors.push_front(fdecl);
-            if (dtorDecl->vgate)
-                gIR->sharedGates.push_front(dtorDecl->vgate);
-        }
-    } else
-    // static ctor
-    if (fdecl->isStaticCtorDeclaration()) {
-        if (mustDefineSymbol(fdecl)) {
-            gIR->ctors.push_back(fdecl);
-        }
-    }
-    // static dtor
-    else if (StaticDtorDeclaration *dtorDecl = fdecl->isStaticDtorDeclaration()) {
-        if (mustDefineSymbol(fdecl)) {
-            gIR->dtors.push_front(fdecl);
-            if (dtorDecl->vgate)
-                gIR->gates.push_front(dtorDecl->vgate);
-        }
     }
 
     if (fdecl->neverInline)
@@ -909,14 +889,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             }
         }
     }
-
-    if (fdecl->isUnitTestDeclaration() && !declareOnly)
-        gIR->unitTests.push_back(fdecl);
-
-    if (!declareOnly)
-        Type::sir->addFunctionBody(fdecl->ir.irFunc);
-    else
-        assert(func->getLinkage() != llvm::GlobalValue::InternalLinkage);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -927,14 +899,36 @@ void DtoDefineFunction(FuncDeclaration* fd)
 {
     DtoDeclareFunction(fd);
 
-    if (fd->ir.defined) return;
-    fd->ir.defined = true;
-
     assert(fd->ir.declared);
 
     if (Logger::enabled())
-        Logger::println("DtoDefineFunc(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
+        Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
     LOG_SCOPE;
+
+    // Be sure to call DtoDeclareFunction first, as LDC_inline_asm functions are
+    // "defined" there. TODO: Clean this up.
+    if (fd->ir.defined) return;
+    fd->ir.defined = true;
+
+    if (fd->isUnitTestDeclaration()) {
+        if (global.params.useUnitTests)
+            gIR->unitTests.push_back(fd);
+        else
+            return;
+    } else if (fd->isSharedStaticCtorDeclaration()) {
+        gIR->sharedCtors.push_back(fd);
+    } else if (StaticDtorDeclaration *dtorDecl = fd->isSharedStaticDtorDeclaration()) {
+        gIR->sharedDtors.push_front(fd);
+        if (dtorDecl->vgate)
+            gIR->sharedGates.push_front(dtorDecl->vgate);
+    } else if (fd->isStaticCtorDeclaration()) {
+        gIR->ctors.push_back(fd);
+    } else if (StaticDtorDeclaration *dtorDecl = fd->isStaticDtorDeclaration()) {
+        gIR->dtors.push_front(fd);
+        if (dtorDecl->vgate)
+            gIR->gates.push_front(dtorDecl->vgate);
+    }
+
 
     // if this function is naked, we take over right away! no standard processing!
     if (fd->naked)
@@ -954,9 +948,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     llvm::Function* func = fd->ir.irFunc->func;
 
-    // sanity check
-    assert(mustDefineSymbol(fd));
-
     // set module owner
     fd->ir.DModule = gIR->dmodule;
 
@@ -971,6 +962,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     if (fd->isMain())
         gIR->emitMain = true;
+
+    func->setLinkage(DtoLinkage(fd));
 
     // On x86_64, always set 'uwtable' for System V ABI compatibility.
     // TODO: Find a better place for this.
@@ -1185,7 +1178,7 @@ llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl)
             break;
     }
 
-    DtoResolveDsymbol(f);
+    DtoResolveFunction(f);
     return llvm::cast<llvm::FunctionType>(DtoType(f->type));
 }
 

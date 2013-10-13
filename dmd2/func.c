@@ -4735,11 +4735,7 @@ void UnitTestDeclaration::semantic(Scope *sc)
     {   sc = scope;
         scope = NULL;
     }
-#if IN_LLVM
-    if (global.params.useUnitTests && sc->module->isRoot)
-#else
     if (global.params.useUnitTests)
-#endif
     {
         if (!type)
             type = new TypeFunction(NULL, Type::tvoid, FALSE, LINKd);

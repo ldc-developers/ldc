@@ -10,13 +10,9 @@
 #include <assert.h>
 
 #include "target.h"
+#include "gen/irstate.h"
 #include "mars.h"
 #include "mtype.h"
-
-unsigned GetTypeAlignment(Type* t);
-unsigned GetPointerSize();
-unsigned GetTypeStoreSize(Type* t);
-unsigned GetTypeAllocSize(Type* t);
 
 int Target::ptrsize;
 int Target::realsize;
@@ -25,10 +21,12 @@ int Target::realalignsize;
 
 void Target::init()
 {
-    ptrsize = GetPointerSize();
-    realsize = GetTypeAllocSize(Type::basic[Tfloat80]);
-    realpad = realsize - GetTypeStoreSize(Type::basic[Tfloat80]);
-    realalignsize = GetTypeAlignment(Type::basic[Tfloat80]);
+    ptrsize = gDataLayout->getPointerSize(ADDRESS_SPACE);
+
+    llvm::Type* real = DtoType(Type::basic[Tfloat80]);
+    realsize = gDataLayout->getTypeAllocSize(real);
+    realpad = realsize - gDataLayout->getTypeStoreSize(real);
+    realalignsize = gDataLayout->getABITypeAlignment(real);
 }
 
 /******************************
@@ -39,7 +37,7 @@ unsigned Target::alignsize (Type* type)
 {
     assert (type->isTypeBasic());
     if (type->ty == Tvoid) return 1;
-    return GetTypeAlignment(type);
+    return gDataLayout->getABITypeAlignment(DtoType(type));
 }
 
 /******************************

@@ -11,6 +11,7 @@
 #include "aggregate.h"
 #include "mtype.h"
 #include "gen/arrays.h"
+#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/linkage.h"
 #include "gen/llvm.h"
@@ -20,8 +21,7 @@
 
 RTTIBuilder::RTTIBuilder(AggregateDeclaration* base_class)
 {
-    // make sure the base typeinfo class has been processed
-    base_class->codegen(Type::sir);
+    DtoResolveDsymbol(base_class);
 
     base = base_class;
     basetype = static_cast<TypeClass*>(base->type);
@@ -136,7 +136,7 @@ void RTTIBuilder::push_funcptr(FuncDeclaration* fd, Type* castto)
 {
     if (fd)
     {
-        fd->codegen(Type::sir);
+        DtoResolveFunction(fd);
         LLConstant* F = fd->ir.irFunc->func;
         if (castto)
             F = DtoBitCast(F, DtoType(castto));
@@ -177,7 +177,9 @@ void RTTIBuilder::finalize(LLType* type, LLValue* value)
     LLConstant* tiInit = LLConstantStruct::get(st, inits);
 
     // set the initializer
-    isaGlobalVar(value)->setInitializer(tiInit);
+    llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(value);
+    gvar->setInitializer(tiInit);
+    gvar->setLinkage(TYPEINFO_LINKAGE_TYPE);
 }
 
 LLConstant* RTTIBuilder::get_constant(LLStructType *initType)

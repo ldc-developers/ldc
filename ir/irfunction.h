@@ -17,7 +17,6 @@
 #define LDC_IR_IRFUNCTION_H
 
 #include "gen/llvm.h"
-#include "ir/ir.h"
 #include "ir/irlandingpad.h"
 #include <map>
 #include <stack>

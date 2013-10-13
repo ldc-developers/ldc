@@ -14,73 +14,144 @@
 #include "init.h"
 #include "rmem.h"
 #include "template.h"
+#include "gen/classes.h"
+#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
-#include "ir/ir.h"
+#include "gen/utils.h"
 #include "ir/irtype.h"
 #include "ir/irvar.h"
 
 /* ================================================================== */
 
-void Dsymbol::codegen(Ir*)
+void Dsymbol::codegen(IRState *)
 {
-    Logger::println("Ignoring Dsymbol::codegen for %s", toChars());
+    IF_LOG Logger::println("Ignoring Dsymbol::codegen for %s", toPrettyChars());
 }
 
 /* ================================================================== */
 
-void Declaration::codegen(Ir*)
+void InterfaceDeclaration::codegen(IRState *p)
 {
-    Logger::println("Ignoring Declaration::codegen for %s", toChars());
-}
+    IF_LOG Logger::println("InterfaceDeclaration::codegen: '%s'", toPrettyChars());
+    LOG_SCOPE
 
-/* ================================================================== */
+    if (ir.defined) return;
+    ir.defined = true;
 
-void InterfaceDeclaration::codegen(Ir*)
-{
     if (type->ty == Terror)
     {   error("had semantic errors when compiling");
         return;
     }
 
     if (members && symtab)
-        DtoResolveDsymbol(this);
+    {
+        DtoResolveClass(this);
+
+        // Emit any members (e.g. final functions).
+        for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())
+        {
+            it->codegen(p);
+        }
+
+        // Emit TypeInfo.
+        DtoTypeInfoOf(type);
+
+        // Define __InterfaceZ.
+        llvm::GlobalVariable *interfaceZ = ir.irAggr->getClassInfoSymbol();
+        interfaceZ->setInitializer(ir.irAggr->getClassInfoInit());
+        interfaceZ->setLinkage(DtoExternalLinkage(this));
+    }
 }
 
 /* ================================================================== */
 
-void StructDeclaration::codegen(Ir*)
+void StructDeclaration::codegen(IRState *p)
 {
+    IF_LOG Logger::println("StructDeclaration::codegen: '%s'", toPrettyChars());
+    LOG_SCOPE
+
+    if (ir.defined) return;
+    ir.defined = true;
+
     if (type->ty == Terror)
     {   error("had semantic errors when compiling");
         return;
     }
 
     if (members && symtab)
-        DtoResolveDsymbol(this);
+    {
+        DtoResolveStruct(this);
+
+        for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())
+        {
+            it->codegen(p);
+        }
+
+        // Define the __initZ symbol.
+        llvm::GlobalVariable *initZ = ir.irAggr->getInitSymbol();
+        initZ->setInitializer(ir.irAggr->getDefaultInit());
+        initZ->setLinkage(DtoExternalLinkage(this));
+
+        // emit typeinfo
+        DtoTypeInfoOf(type);
+    }
 }
 
 /* ================================================================== */
 
-void ClassDeclaration::codegen(Ir*)
+void ClassDeclaration::codegen(IRState *p)
 {
+    IF_LOG Logger::println("ClassDeclaration::codegen: '%s'", toPrettyChars());
+    LOG_SCOPE
+
+    if (ir.defined) return;
+    ir.defined = true;
+
     if (type->ty == Terror)
     {   error("had semantic errors when compiling");
         return;
     }
 
     if (members && symtab)
-        DtoResolveDsymbol(this);
+    {
+        DtoResolveClass(this);
+
+        for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())
+        {
+            it->codegen(p);
+        }
+
+        llvm::GlobalValue::LinkageTypes const linkage = DtoExternalLinkage(this);
+
+        llvm::GlobalVariable *initZ = ir.irAggr->getInitSymbol();
+        initZ->setInitializer(ir.irAggr->getDefaultInit());
+        initZ->setLinkage(linkage);
+
+        llvm::GlobalVariable *vtbl = ir.irAggr->getVtblSymbol();
+        vtbl->setInitializer(ir.irAggr->getVtblInit());
+        vtbl->setLinkage(linkage);
+
+        llvm::GlobalVariable *classZ = ir.irAggr->getClassInfoSymbol();
+        classZ->setInitializer(ir.irAggr->getClassInfoInit());
+        classZ->setLinkage(linkage);
+
+        // No need to do TypeInfo here, it is <name>__classZ for classes in D2.
+    }
 }
 
 /* ================================================================== */
 
-void TupleDeclaration::codegen(Ir* p)
+void TupleDeclaration::codegen(IRState *p)
 {
-    Logger::println("TupleDeclaration::codegen(): %s", toChars());
+    IF_LOG Logger::println("TupleDeclaration::codegen(): '%s'", toPrettyChars());
+    LOG_SCOPE
+
+    if (ir.defined) return;
+    ir.defined = true;
 
     assert(isexp);
     assert(objects);
@@ -97,15 +168,20 @@ void TupleDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-void VarDeclaration::codegen(Ir* p)
+void VarDeclaration::codegen(IRState *p)
 {
-    Logger::print("VarDeclaration::codegen(): %s | %s\n", toChars(), type->toChars());
+    IF_LOG Logger::println("VarDeclaration::codegen(): '%s'", toPrettyChars());
     LOG_SCOPE;
+
+    if (ir.defined) return;
+    ir.defined = true;
 
     if (type->ty == Terror)
     {   error("had semantic errors when compiling");
         return;
     }
+
+    DtoResolveVariable(this);
 
     // just forward aliases
     if (aliassym)
@@ -114,10 +190,6 @@ void VarDeclaration::codegen(Ir* p)
         toAlias()->codegen(p);
         return;
     }
-
-    // output the parent aggregate first
-    if (AggregateDeclaration* ad = isMember())
-        ad->codegen(p);
 
     // global variable
     if (isDataseg() || (storage_class & (STCconst | STCimmutable) && init))
@@ -129,37 +201,14 @@ void VarDeclaration::codegen(Ir* p)
             "manifest constant being codegen'd!");
     #endif
 
-        // don't duplicate work
-        if (this->ir.resolved) return;
-        this->ir.resolved = true;
-        this->ir.declared = true;
+        llvm::GlobalVariable *gvar = llvm::cast<llvm::GlobalVariable>(
+            this->ir.irGlobal->value);
+        assert(gvar && "DtoResolveVariable should have created value");
 
-        this->ir.irGlobal = new IrGlobal(this);
-
-        Logger::println("parent: %s (%s)", parent->toChars(), parent->kind());
-
-        const bool isLLConst = isConst() && init;
         const llvm::GlobalValue::LinkageTypes llLinkage = DtoLinkage(this);
 
-        assert(!ir.initialized);
-        ir.initialized = gIR->dmodule;
-        std::string llName(mangle());
-
-        // Since the type of a global must exactly match the type of its
-        // initializer, we cannot know the type until after we have emitted the
-        // latter (e.g. in case of unions, …). However, it is legal for the
-        // initializer to refer to the address of the variable. Thus, we first
-        // create a global with the generic type (note the assignment to
-        // this->ir.irGlobal->value!), and in case we also do an initializer
-        // with a different type later, swap it out and replace any existing
-        // uses with bitcasts to the previous type.
-        llvm::GlobalVariable* gvar = getOrCreateGlobal(loc, *gIR->module,
-            i1ToI8(DtoType(type)), isLLConst, llLinkage, 0, llName,
-            isThreadlocal());
-        this->ir.irGlobal->value = gvar;
-
         // Check if we are defining or just declaring the global in this module.
-        if (!(storage_class & STCextern) && mustDefineSymbol(this))
+        if (!(storage_class & STCextern))
         {
             // Build the initializer. Might use this->ir.irGlobal->value!
             LLConstant *initVal = DtoConstInitializer(loc, type, init);
@@ -168,10 +217,12 @@ void VarDeclaration::codegen(Ir* p)
             if (initVal->getType() != gvar->getType()->getElementType())
             {
                 llvm::GlobalVariable* newGvar = getOrCreateGlobal(loc,
-                    *gIR->module, initVal->getType(), isLLConst, llLinkage, 0,
+                    *p->module, initVal->getType(), gvar->isConstant(),
+                    llLinkage, 0,
                     "", // We take on the name of the old global below.
-                    isThreadlocal());
+                    gvar->isThreadLocal());
 
+                newGvar->setAlignment(gvar->getAlignment());
                 newGvar->takeName(gvar);
 
                 llvm::Constant* newValue =
@@ -187,22 +238,17 @@ void VarDeclaration::codegen(Ir* p)
             assert(!ir.irGlobal->constInit);
             ir.irGlobal->constInit = initVal;
             gvar->setInitializer(initVal);
+            gvar->setLinkage(llLinkage);
 
             // Also set up the edbug info.
-            gIR->DBuilder.EmitGlobalVariable(gvar, this);
+            p->DBuilder.EmitGlobalVariable(gvar, this);
         }
-
-        // Set the alignment (it is important not to use type->alignsize because
-        // VarDeclarations can have an align() attribute independent of the type
-        // as well).
-        if (alignment != STRUCTALIGN_DEFAULT)
-            gvar->setAlignment(alignment);
 
         // If this global is used from a naked function, we need to create an
         // artificial "use" for it, or it could be removed by the optimizer if
         // the only reference to it is in inline asm.
         if (nakedUse)
-            gIR->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
+            p->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
 
         if (Logger::enabled())
             Logger::cout() << *gvar << '\n';
@@ -211,10 +257,13 @@ void VarDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-void TypedefDeclaration::codegen(Ir*)
+void TypedefDeclaration::codegen(IRState *)
 {
-    Logger::print("TypedefDeclaration::codegen: %s\n", toChars());
+    IF_LOG Logger::println("TypedefDeclaration::codegen: '%s'", toPrettyChars());
     LOG_SCOPE;
+
+    if (ir.defined) return;
+    ir.defined = true;
 
     if (type->ty == Terror)
     {   error("had semantic errors when compiling");
@@ -227,9 +276,9 @@ void TypedefDeclaration::codegen(Ir*)
 
 /* ================================================================== */
 
-void EnumDeclaration::codegen(Ir*)
+void EnumDeclaration::codegen(IRState *)
 {
-    Logger::println("Ignoring EnumDeclaration::codegen for %s", toChars());
+    IF_LOG Logger::println("Ignoring EnumDeclaration::codegen: '%s'", toPrettyChars());
 
     if (type->ty == Terror)
     {   error("had semantic errors when compiling");
@@ -239,54 +288,56 @@ void EnumDeclaration::codegen(Ir*)
 
 /* ================================================================== */
 
-void FuncDeclaration::codegen(Ir* p)
+void FuncDeclaration::codegen(IRState *p)
 {
     // don't touch function aliases, they don't contribute any new symbols
     if (!isFuncAliasDeclaration())
     {
-        DtoResolveDsymbol(this);
+        DtoDefineFunction(this);
     }
 }
 
 /* ================================================================== */
 
-void TemplateInstance::codegen(Ir* p)
+void TemplateInstance::codegen(IRState *p)
 {
-#if LOG
-    printf("TemplateInstance::codegen('%s', this = %p)\n", toChars(), this);
-#endif
-    if (ignore)
-        return;
+    IF_LOG Logger::println("TemplateInstance::codegen: '%s'", toPrettyChars());
+    LOG_SCOPE
+
+    if (ir.defined) return;
+    ir.defined = true;
 
     if (!errors && members)
     {
         for (unsigned i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = static_cast<Dsymbol *>(members->data[i]);
-            s->codegen(p);
+            (*members)[i]->codegen(p);
         }
     }
 }
 
 /* ================================================================== */
 
-void TemplateMixin::codegen(Ir* p)
+void TemplateMixin::codegen(IRState *p)
 {
+    IF_LOG Logger::println("TemplateInstance::codegen: '%s'", toPrettyChars());
+    LOG_SCOPE
+
+    if (ir.defined) return;
+    ir.defined = true;
+
     if (!errors && members)
     {
         for (unsigned i = 0; i < members->dim; i++)
         {
-            Dsymbol *s = static_cast<Dsymbol *>(members->data[i]);
-            if (s->isVarDeclaration())
-                continue;
-            s->codegen(p);
+            (*members)[i]->codegen(p);
         }
     }
 }
 
 /* ================================================================== */
 
-void AttribDeclaration::codegen(Ir* p)
+void AttribDeclaration::codegen(IRState *p)
 {
     Array *d = include(NULL, NULL);
 
@@ -301,7 +352,7 @@ void AttribDeclaration::codegen(Ir* p)
 
 /* ================================================================== */
 
-void PragmaDeclaration::codegen(Ir* p)
+void PragmaDeclaration::codegen(IRState *p)
 {
     if (ident == Id::lib)
     {

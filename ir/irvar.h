@@ -15,7 +15,6 @@
 #ifndef LDC_IR_IRVAR_H
 #define LDC_IR_IRVAR_H
 
-#include "ir/ir.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Type.h"
 #else
@@ -23,6 +22,7 @@
 #endif
 
 struct IrFuncTyArg;
+struct VarDeclaration;
 
 struct IrVar
 {

@@ -50,9 +50,6 @@
 #include "aggregate.h"
 #include "hdrgen.h"
 
-#if IN_LLVM
-Ir* Type::sir = NULL;
-#endif
 
 FuncDeclaration *hasThis(Scope *sc);
 
@@ -197,11 +194,7 @@ char Type::needThisPrefix()
     return 'M';         // name mangling prefix for functions needing 'this'
 }
 
-#if IN_LLVM
-void Type::init(Ir* _sir)
-#else
 void Type::init()
-#endif
 {
     stringtable._init(1543);
     Lexer::initKeywords();
@@ -352,10 +345,6 @@ void Type::init()
         Tsize_t = Tuns32;
         Tptrdiff_t = Tint32;
     }
-
-#if IN_LLVM
-    sir = _sir;
-#endif
 
     tsize_t = basic[Tsize_t];
     tptrdiff_t = basic[Tptrdiff_t];

@@ -81,7 +81,7 @@ public:
     ///
     virtual IrTypeStruct* isStruct()    { return 0; }
     ///
-    IrTypeVector* isVector()            { return 0; }
+    virtual IrTypeVector* isVector()    { return 0; }
 
     ///
     Type* getDType()                    { return dtype; }

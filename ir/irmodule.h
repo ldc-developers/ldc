@@ -15,9 +15,11 @@
 #ifndef LDC_IR_IRMODULE_H
 #define LDC_IR_IRMODULE_H
 
-#include "ir/ir.h"
-
 struct Module;
+namespace llvm
+{
+    class GlobalVariable;
+}
 
 struct IrModule
 {
@@ -26,7 +28,7 @@ struct IrModule
 
     Module* M;
 
-    LLGlobalVariable* fileName;
+    llvm::GlobalVariable* fileName;
 };
 
 #endif
