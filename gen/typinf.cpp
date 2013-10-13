@@ -282,40 +282,8 @@ int TypeClass::builtinTypeInfo()
 //                                (wut?)
 //////////////////////////////////////////////////////////////////////////////
 
-void DtoResolveTypeInfo(TypeInfoDeclaration* tid);
-void DtoDeclareTypeInfo(TypeInfoDeclaration* tid);
-
-void TypeInfoDeclaration::codegen(Ir*)
+static void emitTypeMetadata(TypeInfoDeclaration *tid)
 {
-    DtoResolveTypeInfo(this);
-}
-
-void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
-{
-    if (tid->ir.resolved) return;
-    tid->ir.resolved = true;
-
-    Logger::println("DtoResolveTypeInfo(%s)", tid->toChars());
-    LOG_SCOPE;
-
-    std::string mangle(tid->mangle());
-
-    IrGlobal* irg = new IrGlobal(tid);
-    irg->value = gIR->module->getGlobalVariable(mangle);
-
-    if (!irg->value) {
-        if (tid->tinfo->builtinTypeInfo()) // this is a declaration of a builtin __initZ var
-            irg->type = Type::typeinfo->type->irtype->isClass()->getMemoryLLType();
-        else
-            irg->type = LLStructType::create(gIR->context(), tid->toPrettyChars());
-        irg->value = new llvm::GlobalVariable(*gIR->module, irg->type, true,
-                                              TYPEINFO_LINKAGE_TYPE, NULL, mangle);
-    } else {
-        irg->type = irg->value->getType()->getContainedType(0);
-    }
-
-    tid->ir.irGlobal = irg;
-
     // We don't want to generate metadata for non-concrete types (such as tuple
     // types, slice types, typeof(expr), etc.), void and function types (without
     // an indirection), as there must be a valid LLVM undef value of that type.
@@ -324,13 +292,14 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
     Type* t = tid->tinfo->toBasetype();
     if (t->ty < Terror && t->ty != Tvoid && t->ty != Tfunction && t->ty != Tident) {
         // Add some metadata for use by optimization passes.
-        std::string metaname = std::string(TD_PREFIX) + mangle;
+        std::string metaname(TD_PREFIX);
+        metaname += tid->mangle();
         llvm::NamedMDNode* meta = gIR->module->getNamedMetadata(metaname);
 
         if (!meta) {
             // Construct the fields
             MDNodeField* mdVals[TD_NumFields];
-            mdVals[TD_TypeInfo] = llvm::cast<MDNodeField>(irg->value);
+            mdVals[TD_TypeInfo] = llvm::cast<MDNodeField>(tid->ir.irGlobal->value);
             mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
 
             // Construct the metadata and insert it into the module.
@@ -339,39 +308,59 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
                 llvm::makeArrayRef(mdVals, TD_NumFields)));
         }
     }
-
-    DtoDeclareTypeInfo(tid);
 }
 
-void DtoDeclareTypeInfo(TypeInfoDeclaration* tid)
+void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 {
-    DtoResolveTypeInfo(tid);
+    if (tid->ir.resolved) return;
+    tid->ir.resolved = true;
 
-    if (tid->ir.declared) return;
-    tid->ir.declared = true;
+    // TypeInfo instances (except ClassInfo ones) are always emitted as weak
+    // symbols when they are used.
+    tid->codegen(Type::sir);
+}
 
-    Logger::println("DtoDeclareTypeInfo(%s)", tid->toChars());
+void TypeInfoDeclaration::codegen(Ir*)
+{
+    Logger::println("TypeInfoDeclaration::codegen(%s)", toPrettyChars());
     LOG_SCOPE;
 
+    if (ir.defined) return;
+    ir.defined = true;
+
+    std::string mangled(mangle());
     if (Logger::enabled())
     {
-        std::string mangled(tid->mangle());
-        Logger::println("type = '%s'", tid->tinfo->toChars());
+        Logger::println("type = '%s'", tinfo->toChars());
         Logger::println("typeinfo mangle: %s", mangled.c_str());
     }
 
-    IrGlobal* irg = tid->ir.irGlobal;
-    assert(irg->value != NULL);
+    IrGlobal* irg = new IrGlobal(this);
+    ir.irGlobal = irg;
+    irg->value = gIR->module->getGlobalVariable(mangled);
+    if (irg->value) {
+        irg->type = irg->value->getType()->getContainedType(0);
+        assert(irg->type->isStructTy());
+    } else {
+        if (tinfo->builtinTypeInfo()) // this is a declaration of a builtin __initZ var
+            irg->type = Type::typeinfo->type->irtype->isClass()->getMemoryLLType();
+        else
+            irg->type = LLStructType::create(gIR->context(), toPrettyChars());
+        irg->value = new llvm::GlobalVariable(*gIR->module, irg->type, true,
+            llvm::GlobalValue::ExternalLinkage, NULL, mangled);
+    }
+
+    emitTypeMetadata(this);
 
     // this is a declaration of a builtin __initZ var
-    if (tid->tinfo->builtinTypeInfo()) {
+    if (tinfo->builtinTypeInfo()) {
         LLGlobalVariable* g = isaGlobalVar(irg->value);
         g->setLinkage(llvm::GlobalValue::ExternalLinkage);
         return;
     }
 
     // define custom typedef
-    tid->llvmDefine();
+    llvmDefine();
 }
 
 /* ========================================================================= */
@@ -613,7 +602,7 @@ void TypeInfoStructDeclaration::llvmDefine()
         fatal();
     }
 
-    sd->codegen(Type::sir);
+    DtoResolveStruct(sd);
     IrAggr* iraggr = sd->ir.irAggr;
 
     RTTIBuilder b(Type::typeinfostruct);
@@ -739,20 +728,31 @@ void TypeInfoStructDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-void TypeInfoClassDeclaration::codegen(Ir*i)
+void TypeInfoClassDeclaration::codegen(Ir* p)
 {
-
-    IrGlobal* irg = new IrGlobal(this);
+    // For classes, the TypeInfo is in fact a ClassInfo instance and emitted
+    // as a __ClassZ symbol. For interfaces, the __InterfaceZ symbol is
+    // referenced as "info" member in a (normal) TypeInfo_Interface instance.
+    IrGlobal *irg = new IrGlobal(this);
     ir.irGlobal = irg;
+
     assert(tinfo->ty == Tclass);
     TypeClass *tc = static_cast<TypeClass *>(tinfo);
-    tc->sym->codegen(Type::sir); // make sure class is resolved
+    DtoResolveClass(tc->sym);
+
     irg->value = tc->sym->ir.irAggr->getClassInfoSymbol();
+    irg->type = irg->value->getType()->getContainedType(0);
+
+    if (!tc->sym->isInterfaceDeclaration())
+    {
+        emitTypeMetadata(this);
+    }
 }
 
 void TypeInfoClassDeclaration::llvmDefine()
 {
-    llvm_unreachable("TypeInfoClassDeclaration should not be called for D2");
+    llvm_unreachable("TypeInfoClassDeclaration::llvmDefine() should not be called, "
+        "as a custom Dsymbol::codegen() override is used");
 }
 
 /* ========================================================================= */
@@ -765,7 +765,7 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     // make sure interface is resolved
     assert(tinfo->ty == Tclass);
     TypeClass *tc = static_cast<TypeClass *>(tinfo);
-    tc->sym->codegen(Type::sir);
+    DtoResolveClass(tc->sym);
 
     RTTIBuilder b(Type::typeinfointerface);
 

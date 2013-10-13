@@ -31,9 +31,6 @@ public:
     void setState(IRState* p)   { irs = p; }
     IRState* getState()         { return irs; }
 
-    void addFunctionBody(IrFunction* f);
-    void emitFunctionBodies();
-
 private:
     IRState* irs;
 

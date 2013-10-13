@@ -85,6 +85,7 @@ void ExpStatement::toNakedIR(IRState *p)
     // enum decls should always be safe
 
     // make sure the symbols gets processed
+    // TODO: codegen() here is likely incorrect
     d->declaration->codegen(Type::sir);
 }
 

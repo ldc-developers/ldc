@@ -478,7 +478,11 @@ struct TypeInfoClassDeclaration : TypeInfoDeclaration
 #endif
 
 #if IN_LLVM
-    void codegen(Ir*);
+    // TypeInfoClassDeclaration instances are different; they describe
+    // __ClassZ/__InterfaceZ symbols instead of a TypeInfo_….init one. DMD also
+    // generates them for SomeInterface.classinfo access, so we can't just
+    // distinguish between them using tinfo and thus need to override codegen().
+    void codegen(Ir* p);
     void llvmDefine();
 #endif
 };
@@ -814,7 +818,9 @@ struct FuncDeclaration : Declaration
                                         // functions
     FuncDeclarations siblingCallers;    // Sibling nested functions which
                                         // called this one
+#if IN_DMD
     FuncDeclarations deferred;          // toObjFile() these functions after this one
+#endif
 
     unsigned flags;
     #define FUNCFLAGpurityInprocess 1   // working on determining purity

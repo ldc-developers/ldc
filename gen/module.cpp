@@ -398,9 +398,6 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
         dsym->codegen(sir);
     }
 
-    // emit function bodies
-    sir->emitFunctionBodies();
-
     // for singleobj-compilation, fully emit all seen template instances
     if (global.params.singleObj)
     {
@@ -410,9 +407,6 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
             for (it = ir.seenTemplateInstances.begin(); it != end; ++it)
                 (*it)->codegen(sir);
             ir.seenTemplateInstances.clear();
-
-            // emit any newly added function bodies
-            sir->emitFunctionBodies();
         }
     }
 
@@ -532,8 +526,8 @@ void Module::genmoduleinfo()
     std::vector<LLConstant*> classInits;
     for (size_t i = 0; i < aclasses.dim; i++)
     {
-        ClassDeclaration* cd = static_cast<ClassDeclaration*>(aclasses.data[i]);
-        cd->codegen(Type::sir);
+        ClassDeclaration* cd = aclasses[i];
+        DtoResolveClass(cd);
 
         if (cd->isInterfaceDeclaration())
         {
@@ -638,6 +632,7 @@ void Module::genmoduleinfo()
     // create and set initializer
     LLGlobalVariable *moduleInfoSym = moduleInfoSymbol();
     b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
+    moduleInfoSym->setLinkage(llvm::GlobalValue::ExternalLinkage);
 
     // build the modulereference and ctor for registering it
     LLFunction* mictor = build_module_reference_and_ctor(moduleInfoSym);

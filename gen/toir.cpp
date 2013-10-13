@@ -13,6 +13,7 @@
 #include "id.h"
 #include "init.h"
 #include "mtype.h"
+#include "module.h"
 #include "port.h"
 #include "rmem.h"
 #include "template.h"
@@ -200,8 +201,7 @@ LLConstant* VarExp::toConstElem(IRState* p)
         Logger::print("Sym: type=%s\n", sdecltype->toChars());
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
-        ts->sym->codegen(Type::sir);
-
+        DtoResolveStruct(ts->sym);
         return ts->sym->ir.irAggr->getDefaultInit();
     }
 
@@ -1186,7 +1186,7 @@ LLConstant* CastExp::toConstElem(IRState* p)
     else if (tb->ty == Tpointer && e1->op == TOKvar) {
         VarDeclaration *vd = static_cast<VarExp*>(e1)->var->isVarDeclaration();
         assert(vd);
-        vd->codegen(Type::sir);
+        DtoResolveVariable(vd);
         LLConstant *value = vd->ir.irGlobal ? isaConstant(vd->ir.irGlobal->value) : 0;
         if (!value)
            goto Lerr;
@@ -1355,7 +1355,7 @@ DValue* AddrExp::toElem(IRState* p)
         //Logger::println("FuncDeclaration");
         FuncDeclaration* fd = fv->func;
         assert(fd);
-        fd->codegen(Type::sir);
+        DtoResolveFunction(fd);
         return new DFuncValue(fd, fd->ir.irFunc->func);
     }
     else if (v->isIm()) {
@@ -1407,7 +1407,7 @@ LLConstant* AddrExp::toConstElem(IRState* p)
         VarDeclaration* vd = vexp->var->isVarDeclaration();
         assert(vd);
         assert(vd->type->toBasetype()->ty == Tsarray);
-        vd->codegen(Type::sir);
+        DtoResolveVariable(vd);
         assert(vd->ir.irGlobal);
 
         // get index
@@ -1632,7 +1632,6 @@ DValue* DotVarExp::toElem(IRState* p)
         }
         else
         {
-            fdecl->codegen(Type::sir);
             funcval = fdecl->ir.irFunc->func;
         }
         assert(funcval);
@@ -2123,7 +2122,7 @@ DValue* NewExp::toElem(IRState* p)
         if (allocator)
         {
             // custom allocator
-            allocator->codegen(Type::sir);
+            DtoResolveDsymbol(allocator);
             DFuncValue dfn(allocator, allocator->ir.irFunc->func);
             DValue* res = DtoCallFunction(loc, NULL, &dfn, newargs);
             mem = DtoBitCast(res->getRVal(), DtoType(ntype->pointerTo()), ".newstruct_custom");
@@ -2139,7 +2138,7 @@ DValue* NewExp::toElem(IRState* p)
         }
         else {
             assert(ts->sym);
-            ts->sym->codegen(Type::sir);
+            DtoResolveStruct(ts->sym);
             DtoAggrCopy(mem, ts->sym->ir.irAggr->getInitSymbol());
         }
         if (ts->sym->isNested() && ts->sym->vthis)
@@ -2150,7 +2149,7 @@ DValue* NewExp::toElem(IRState* p)
         {
             Logger::println("Calling constructor");
             assert(arguments != NULL);
-            member->codegen(Type::sir);
+            DtoResolveDsymbol(member);
             DFuncValue dfn(member, member->ir.irFunc->func, mem);
             DtoCallFunction(loc, ts, &dfn, arguments);
         }
@@ -2313,7 +2312,7 @@ DValue* AssertExp::toElem(IRState* p)
         (invdecl = static_cast<TypeStruct*>(condty->nextOf())->sym->inv) != NULL)
     {
         Logger::print("calling struct invariant");
-        static_cast<TypeStruct*>(condty->nextOf())->sym->codegen(Type::sir);
+        DtoResolveFunction(invdecl);
         DFuncValue invfunc(invdecl, invdecl->ir.irFunc->func, cond->getRVal());
         DtoCallFunction(loc, NULL, &invfunc, NULL);
     }
@@ -2541,7 +2540,21 @@ DValue* DelegateExp::toElem(IRState* p)
         llvm_unreachable("Delegate to interface method not implemented.");
     else
     {
-        func->codegen(Type::sir);
+        DtoResolveFunction(func);
+
+        // We need to actually codegen the function here, as literals are not
+        // added to the module member list.
+        if (func->semanticRun == PASSsemantic3done)
+        {
+            Dsymbol *owner = func->toParent();
+            while (!owner->isTemplateInstance() && owner->toParent())
+                owner = owner->toParent();
+            if (owner->isTemplateInstance() || owner == p->dmodule)
+            {
+                func->codegen(Type::sir);
+            }
+        }
+
         castfptr = func->ir.irFunc->func;
     }
 
@@ -2785,6 +2798,8 @@ DValue* FuncExp::toElem(IRState* p)
     if (fd->isNested()) Logger::println("nested");
     Logger::println("kind = %s", fd->kind());
 
+    // We need to actually codegen the function here, as literals are not added
+    // to the module member list.
     fd->codegen(Type::sir);
     assert(fd->ir.irFunc->func);
 
@@ -2852,6 +2867,8 @@ LLConstant* FuncExp::toConstElem(IRState* p)
         return 0;
     }
 
+    // We need to actually codegen the function here, as literals are not added
+    // to the module member list.
     fd->codegen(Type::sir);
     assert(fd->ir.irFunc->func);
 
@@ -2987,7 +3004,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
         assert(ts->sym);
-        ts->sym->codegen(Type::sir);
+        DtoResolveStruct(ts->sym);
 
         LLValue* initsym = ts->sym->ir.irAggr->getInitSymbol();
         initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
@@ -2997,7 +3014,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
     if (inProgressMemory) return new DVarValue(type, inProgressMemory);
 
     // make sure the struct is fully resolved
-    sd->codegen(Type::sir);
+    DtoResolveStruct(sd);
 
     // alloca a stack slot
     inProgressMemory = DtoRawAlloca(DtoType(type), 0, ".structliteral");
@@ -3101,13 +3118,13 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
         Logger::print("Sym: type=%s\n", sdecltype->toChars());
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
-        ts->sym->codegen(Type::sir);
+        DtoResolveStruct(ts->sym);
 
         return ts->sym->ir.irAggr->getDefaultInit();
     }
 
     // make sure the struct is resolved
-    sd->codegen(Type::sir);
+    DtoResolveStruct(sd);
 
     std::map<VarDeclaration*, llvm::Constant*> varInits;
     const size_t nexprs = elements->dim;
@@ -3129,8 +3146,7 @@ llvm::Constant* ClassReferenceExp::toConstElem(IRState *p)
     LOG_SCOPE;
 
     ClassDeclaration* origClass = originalClass();
-
-    origClass->codegen(Type::sir);
+    DtoResolveClass(origClass);
 
     if (value->globalVar)
     {

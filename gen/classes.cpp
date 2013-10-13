@@ -35,23 +35,20 @@
 
 void DtoResolveClass(ClassDeclaration* cd)
 {
-    // make sure the base classes are processed first
-    ArrayIter<BaseClass> base_iter(cd->baseclasses);
-    while (base_iter.more())
-    {
-        BaseClass* bc = base_iter.get();
-        if (bc)
-        {
-            bc->base->codegen(Type::sir);
-        }
-        base_iter.next();
-    }
-
     if (cd->ir.resolved) return;
     cd->ir.resolved = true;
 
     Logger::println("DtoResolveClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
+
+    // make sure the base classes are processed first
+    ArrayIter<BaseClass> base_iter(cd->baseclasses);
+    while (base_iter.more())
+    {
+        BaseClass* bc = base_iter.get();
+        DtoResolveClass(bc->base);
+        base_iter.next();
+    }
 
     // make sure type exists
     DtoType(cd->type);
@@ -73,11 +70,6 @@ void DtoResolveClass(ClassDeclaration* cd)
         }
     }
 
-    bool needs_def = mustDefineSymbol(cd);
-
-    // emit the ClassZ symbol
-    LLGlobalVariable* ClassZ = irAggr->getClassInfoSymbol();
-
     // emit the interfaceInfosZ symbol if necessary
     if (cd->vtblInterfaces && cd->vtblInterfaces->dim > 0)
         irAggr->getInterfaceArraySymbol(); // initializer is applied when it's built
@@ -87,43 +79,6 @@ void DtoResolveClass(ClassDeclaration* cd)
     {
         irAggr->initializeInterface();
     }
-    else
-    {
-        // emit the initZ symbol
-        LLGlobalVariable* initZ = irAggr->getInitSymbol();
-        // emit the vtblZ symbol
-        LLGlobalVariable* vtblZ = irAggr->getVtblSymbol();
-
-        // perform definition
-        if (needs_def)
-        {
-            // set symbol initializers
-            initZ->setInitializer(irAggr->getDefaultInit());
-            vtblZ->setInitializer(irAggr->getVtblInit());
-        }
-    }
-
-    // emit members
-    if (cd->members)
-    {
-        ArrayIter<Dsymbol> it(*cd->members);
-        while (!it.done())
-        {
-            Dsymbol* member = it.get();
-            if (member)
-                member->codegen(Type::sir);
-            it.next();
-        }
-    }
-
-    if (needs_def)
-    {
-        // emit typeinfo
-        DtoTypeInfoOf(cd->type);
-
-        // define classinfo
-        ClassZ->setInitializer(irAggr->getClassInfoInit());
-    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -131,7 +86,7 @@ void DtoResolveClass(ClassDeclaration* cd)
 DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
 {
     // resolve type
-    tc->sym->codegen(Type::sir);
+    DtoResolveClass(tc->sym);
 
     // allocate
     LLValue* mem;
@@ -143,7 +98,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     // custom allocator
     else if (newexp->allocator)
     {
-        newexp->allocator->codegen(Type::sir);
+        DtoResolveDsymbol(newexp->allocator);
         DFuncValue dfn(newexp->allocator, newexp->allocator->ir.irFunc->func);
         DValue* res = DtoCallFunction(newexp->loc, NULL, &dfn, newexp->newargs);
         mem = DtoBitCast(res->getRVal(), DtoType(tc), ".newclass_custom");
@@ -184,7 +139,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     {
         Logger::println("Calling constructor");
         assert(newexp->arguments != NULL);
-        newexp->member->codegen(Type::sir);
+        DtoResolveDsymbol(newexp->member);
         DFuncValue dfn(newexp->member, newexp->member->ir.irFunc->func, mem);
         return DtoCallFunction(newexp->loc, tc, &dfn, newexp->arguments);
     }
@@ -197,7 +152,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
 
 void DtoInitClass(TypeClass* tc, LLValue* dst)
 {
-    tc->sym->codegen(Type::sir);
+    DtoResolveClass(tc->sym);
 
     uint64_t n = tc->sym->structsize - Target::ptrsize * 2;
 
@@ -365,8 +320,8 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     // call:
     // Object _d_dynamic_cast(Object o, ClassInfo c)
 
-    ClassDeclaration::object->codegen(Type::sir);
-    ClassDeclaration::classinfo->codegen(Type::sir);
+    DtoResolveClass(ClassDeclaration::object);
+    DtoResolveClass(ClassDeclaration::classinfo);
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_dynamic_cast");
     LLFunctionType* funcTy = func->getFunctionType();
@@ -378,7 +333,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
 
     // ClassInfo c
     TypeClass* to = static_cast<TypeClass*>(_to->toBasetype());
-    to->sym->codegen(Type::sir);
+    DtoResolveClass(to->sym);
 
     LLValue* cinfo = to->sym->ir.irAggr->getClassInfoSymbol();
     // unfortunately this is needed as the implementation of object differs somehow from the declaration
@@ -428,8 +383,8 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     // call:
     // Object _d_interface_cast(void* p, ClassInfo c)
 
-    ClassDeclaration::object->codegen(Type::sir);
-    ClassDeclaration::classinfo->codegen(Type::sir);
+    DtoResolveClass(ClassDeclaration::object);
+    DtoResolveClass(ClassDeclaration::classinfo);
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_interface_cast");
     LLFunctionType* funcTy = func->getFunctionType();
@@ -440,7 +395,7 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
 
     // ClassInfo c
     TypeClass* to = static_cast<TypeClass*>(_to->toBasetype());
-    to->sym->codegen(Type::sir);
+    DtoResolveClass(to->sym);
     LLValue* cinfo = to->sym->ir.irAggr->getClassInfoSymbol();
     // unfortunately this is needed as the implementation of object differs somehow from the declaration
     // this could happen in user code as well :/
@@ -623,7 +578,7 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
     if (!dtor)
         return getNullPtr(getVoidPtrType());
 
-    dtor->codegen(Type::sir);
+    DtoResolveDsymbol(dtor);
     return llvm::ConstantExpr::getBitCast(dtor->ir.irFunc->func, getPtrToType(LLType::getInt8Ty(gIR->context())));
 }
 

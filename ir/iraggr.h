@@ -57,9 +57,9 @@ struct IrAggr
     /// Builds the __vtblZ initializer constant lazily.
     LLConstant* getVtblInit();
 
-    /// Create the __ClassZ symbol lazily.
+    /// Create the __ClassZ/__InterfaceZ symbol lazily.
     LLGlobalVariable* getClassInfoSymbol();
-    /// Builds the __ClassZ initializer constant lazily.
+    /// Builds the __ClassZ/__InterfaceZ initializer constant lazily.
     LLConstant* getClassInfoInit();
 
     /// Create the __interfaceInfos symbol lazily.

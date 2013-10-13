@@ -47,18 +47,3 @@ Ir::Ir()
 : irs(NULL)
 {
 }
-
-void Ir::addFunctionBody(IrFunction * f)
-{
-    functionbodies.push_back(f);
-}
-
-void Ir::emitFunctionBodies()
-{
-    while (!functionbodies.empty())
-    {
-        IrFunction* irf = functionbodies.front();
-        functionbodies.pop_front();
-        DtoDefineFunction(irf->decl);
-    }
-}
