@@ -53,12 +53,10 @@ LLGlobalVariable * IrAggr::getVtblSymbol()
     initname.append(aggrdecl->mangle());
     initname.append("6__vtblZ");
 
-    llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
-
     LLType* vtblTy = stripModifiers(type)->irtype->isClass()->getVtbl();
 
     vtbl = getOrCreateGlobal(aggrdecl->loc,
-        *gIR->module, vtblTy, true, _linkage, NULL, initname);
+        *gIR->module, vtblTy, true, llvm::GlobalValue::ExternalLinkage, NULL, initname);
 
     return vtbl;
 }
@@ -79,8 +77,9 @@ LLGlobalVariable * IrAggr::getClassInfoSymbol()
     else
         initname.append("7__ClassZ");
 
-    llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
-
+    // The type is also ClassInfo for interfaces – the actual TypeInfo for them
+    // is a TypeInfo_Interface instance that references __ClassZ in its "base"
+    // member.
     ClassDeclaration* cinfo = ClassDeclaration::classinfo;
     DtoType(cinfo->type);
     IrTypeClass* tc = stripModifiers(cinfo->type)->irtype->isClass();
@@ -88,7 +87,8 @@ LLGlobalVariable * IrAggr::getClassInfoSymbol()
 
     // classinfos cannot be constants since they're used as locks for synchronized
     classInfo = getOrCreateGlobal(aggrdecl->loc,
-        *gIR->module, tc->getMemoryLLType(), false, _linkage, NULL, initname);
+        *gIR->module, tc->getMemoryLLType(), false,
+        llvm::GlobalValue::ExternalLinkage, NULL, initname);
 
     // Generate some metadata on this ClassInfo if it's for a class.
     ClassDeclaration* classdecl = aggrdecl->isClassDeclaration();
@@ -138,9 +138,8 @@ LLGlobalVariable * IrAggr::getInterfaceArraySymbol()
     name.append(cd->mangle());
     name.append("16__interfaceInfosZ");
 
-    llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
     classInterfacesArray = getOrCreateGlobal(cd->loc, *gIR->module,
-        array_type, true, _linkage, NULL, name);
+        array_type, true, llvm::GlobalValue::ExternalLinkage, NULL, name);
 
     return classInterfacesArray;
 }
@@ -182,7 +181,7 @@ LLConstant * IrAggr::getVtblInit()
         }
         else
         {
-            fd->codegen(Type::sir);
+            DtoResolveFunction(fd);
             assert(fd->ir.irFunc && "invalid vtbl function");
             c = fd->ir.irFunc->func;
             if (cd->isFuncHidden(fd))
@@ -320,7 +319,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
         assert((!fd->isAbstract() || fd->fbody) &&
             "null symbol in interface implementation vtable");
 
-        fd->codegen(Type::sir);
+        DtoResolveFunction(fd);
         assert(fd->ir.irFunc && "invalid vtbl function");
 
         LLFunction *fn = fd->ir.irFunc->func;
@@ -380,9 +379,6 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
     // build the vtbl constant
     llvm::Constant* vtbl_constant = LLConstantStruct::getAnon(gIR->context(), constants, false);
 
-    // create the global variable to hold it
-    llvm::GlobalValue::LinkageTypes _linkage = DtoExternalLinkage(aggrdecl);
-
     std::string mangle("_D");
     mangle.append(cd->mangle());
     mangle.append("11__interface");
@@ -393,7 +389,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
         *gIR->module,
         vtbl_constant->getType(),
         true,
-        _linkage,
+        llvm::GlobalValue::ExternalLinkage,
         vtbl_constant,
         mangle
     );

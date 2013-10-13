@@ -55,32 +55,6 @@ void DtoResolveStruct(StructDeclaration* sd)
         assert(!vd->ir.irField);
         (void)new IrField(vd);
     }
-
-    // perform definition
-    bool emitGlobalData = mustDefineSymbol(sd);
-    if (emitGlobalData)
-    {
-        // emit the initZ symbol
-        LLGlobalVariable* initZ = iraggr->getInitSymbol();
-
-        // set initZ initializer
-        initZ->setInitializer(iraggr->getDefaultInit());
-    }
-
-    // emit members
-    if (sd->members)
-    {
-        for (ArrayIter<Dsymbol> it(sd->members); !it.done(); it.next())
-        {
-            it.get()->codegen(Type::sir);
-        }
-    }
-
-    if (emitGlobalData)
-    {
-        // emit typeinfo
-        DtoTypeInfoOf(sd->type);
-    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

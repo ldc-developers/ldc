@@ -16,7 +16,6 @@
 #define LDC_IR_IRLANDINGPADINFO_H
 
 #include "statement.h"
-#include "ir/ir.h"
 #include <deque>
 #include <stack>
 

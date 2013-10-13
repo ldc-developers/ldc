@@ -614,9 +614,6 @@ int main(int argc, char **argv)
     if (global.errors)
         fatal();
 
-    // create a proper target
-    Ir ir;
-
     // Set up the TargetMachine.
     ExplicitBitness::Type bitness = ExplicitBitness::None;
     if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty()))
@@ -669,7 +666,7 @@ int main(int argc, char **argv)
     }
 
     // Initialization
-    Type::init(&ir);
+    Type::init();
     Id::initialize();
     Module::init();
     Target::init();
@@ -987,7 +984,7 @@ int main(int argc, char **argv)
             printf("code      %s\n", m->toChars());
         if (global.params.obj)
         {
-            llvm::Module* lm = m->genLLVMModule(context, &ir);
+            llvm::Module* lm = m->genLLVMModule(context);
             if (!singleObj)
             {
                 m->deleteObjFile();

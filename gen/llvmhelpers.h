@@ -102,9 +102,15 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to);
 // is template instance check, returns module where instantiated
 TemplateInstance* DtoIsTemplateInstance(Dsymbol* s, bool checkLiteralOwner = false);
 
-/// Generate code for the symbol.
-/// Dispatches as appropriate.
+/// Makes sure the declarations corresponding to the given D symbol have been
+/// emitted to the currently processed LLVM module.
+///
+/// This means that dsym->ir can be expected to set to reasonable values.
+///
+/// This function does *not* emit any (function, variable) *definitions*; this
+/// is done by Dsymbol::codegen.
 void DtoResolveDsymbol(Dsymbol* dsym);
+void DtoResolveVariable(VarDeclaration* var);
 
 // declaration inside a declarationexp
 void DtoVarDeclaration(VarDeclaration* var);
@@ -134,12 +140,6 @@ void findDefaultTarget();
 
 /// Fixup an overloaded intrinsic name string.
 void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, std::string& name);
-
-/// Returns true if the symbol should be defined in the current module, not just declared.
-bool mustDefineSymbol(Dsymbol* s);
-
-/// Returns true if the symbol needs template linkage, or just external.
-bool needsTemplateLinkage(Dsymbol* s);
 
 /// Returns true if there is any unaligned type inside the aggregate.
 bool hasUnalignedFields(Type* t);

@@ -737,10 +737,10 @@ DValue* DtoCastNull(Loc& loc, DValue* val, Type* to)
     Type* totype = to->toBasetype();
     LLType* tolltype = DtoType(to);
 
-    if (totype->ty == Tpointer)
+    if (totype->ty == Tpointer || totype->ty == Tclass)
     {
         if (Logger::enabled())
-            Logger::cout() << "cast null to pointer: " << *tolltype << '\n';
+            Logger::cout() << "cast null to pointer/class: " << *tolltype << '\n';
         LLValue *rval = DtoBitCast(val->getRVal(), tolltype);
         return new DImValue(to, rval);
     }
@@ -1005,8 +1005,86 @@ void DtoResolveDsymbol(Dsymbol* dsym)
     else if (TypeInfoDeclaration* fd = dsym->isTypeInfoDeclaration()) {
         DtoResolveTypeInfo(fd);
     }
-    else {
-        llvm_unreachable("Unsupported DSymbol for DtoResolveDsymbol.");
+    else if (VarDeclaration* vd = dsym->isVarDeclaration()) {
+        DtoResolveVariable(vd);
+    }
+}
+
+void DtoResolveVariable(VarDeclaration* vd)
+{
+    if (vd->isTypeInfoDeclaration())
+        return DtoResolveTypeInfo(static_cast<TypeInfoDeclaration *>(vd));
+
+    IF_LOG Logger::println("DtoResolveVariable(%s)", vd->toPrettyChars());
+    LOG_SCOPE;
+
+    // just forward aliases
+    // TODO: Is this required here or is the check in VarDeclaration::codegen
+    // sufficient?
+    if (vd->aliassym)
+    {
+        Logger::println("alias sym");
+        DtoResolveDsymbol(vd->aliassym);
+        return;
+    }
+
+    if (AggregateDeclaration* ad = vd->isMember())
+        DtoResolveDsymbol(ad);
+
+    // global variable
+    if (vd->isDataseg() || (vd->storage_class & (STCconst | STCimmutable) && vd->init))
+    {
+        Logger::println("data segment");
+
+    #if 0 // TODO:
+        assert(!(storage_class & STCmanifest) &&
+            "manifest constant being codegen'd!");
+    #endif
+
+        // don't duplicate work
+        if (vd->ir.resolved) return;
+        vd->ir.resolved = true;
+        vd->ir.declared = true;
+
+        vd->ir.irGlobal = new IrGlobal(vd);
+
+        IF_LOG {
+            if (vd->parent)
+                Logger::println("parent: %s (%s)", vd->parent->toChars(), vd->parent->kind());
+            else
+                Logger::println("parent: null");
+        }
+
+        const bool isLLConst = vd->isConst() && vd->init;
+
+        assert(!vd->ir.initialized);
+        vd->ir.initialized = gIR->dmodule;
+        std::string llName(vd->mangle());
+
+        // Since the type of a global must exactly match the type of its
+        // initializer, we cannot know the type until after we have emitted the
+        // latter (e.g. in case of unions, …). However, it is legal for the
+        // initializer to refer to the address of the variable. Thus, we first
+        // create a global with the generic type (note the assignment to
+        // vd->ir.irGlobal->value!), and in case we also do an initializer
+        // with a different type later, swap it out and replace any existing
+        // uses with bitcasts to the previous type.
+        //
+        // We always start out with external linkage; any other type is set
+        // when actually defining it in VarDeclaration::codegen.
+        llvm::GlobalVariable* gvar = getOrCreateGlobal(vd->loc, *gIR->module,
+            i1ToI8(DtoType(vd->type)), isLLConst, llvm::GlobalValue::ExternalLinkage,
+            0, llName, vd->isThreadlocal());
+        vd->ir.irGlobal->value = gvar;
+
+        // Set the alignment (it is important not to use type->alignsize because
+        // VarDeclarations can have an align() attribute independent of the type
+        // as well).
+        if (vd->alignment != STRUCTALIGN_DEFAULT)
+            gvar->setAlignment(vd->alignment);
+
+        if (Logger::enabled())
+            Logger::cout() << *gvar << '\n';
     }
 }
 
@@ -1132,7 +1210,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         // static
         if (vd->isDataseg())
         {
-            vd->codegen(Type::sir);
+            vd->codegen(gIR);
         }
         else
         {
@@ -1144,19 +1222,19 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     else if (StructDeclaration* s = declaration->isStructDeclaration())
     {
         Logger::println("StructDeclaration");
-        s->codegen(Type::sir);
+        s->codegen(gIR);
     }
     // function declaration
     else if (FuncDeclaration* f = declaration->isFuncDeclaration())
     {
         Logger::println("FuncDeclaration");
-        f->codegen(Type::sir);
+        f->codegen(gIR);
     }
     // class
     else if (ClassDeclaration* e = declaration->isClassDeclaration())
     {
         Logger::println("ClassDeclaration");
-        e->codegen(Type::sir);
+        e->codegen(gIR);
     }
     // typedef
     else if (TypedefDeclaration* tdef = declaration->isTypedefDeclaration())
@@ -1293,7 +1371,7 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     else if (StructInitializer* si = init->isStructInitializer())
     {
         Logger::println("const struct initializer");
-        si->ad->codegen(Type::sir);
+        DtoResolveDsymbol(si->ad);
         return si->ad->ir.irAggr->createStructInitializer(si);
     }
     else if (ArrayInitializer* ai = init->isArrayInitializer())
@@ -1314,41 +1392,6 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-
-static LLConstant* expand_to_sarray(Type* targetType, Type* initType, LLConstant* initConst)
-{
-    Type* expbase = stripModifiers(initType);
-    IF_LOG Logger::println("expbase: %s", expbase->toChars());
-    Type* t = targetType;
-
-    LLSmallVector<size_t, 4> dims;
-
-    while(1)
-    {
-        Logger::println("t: %s", t->toChars());
-        if (t->equals(expbase))
-            break;
-        assert(t->ty == Tsarray);
-        TypeSArray* tsa = static_cast<TypeSArray*>(t);
-        dims.push_back(tsa->dim->toInteger());
-        assert(t->nextOf());
-        t = stripModifiers(t->nextOf()->toBasetype());
-    }
-
-    size_t i = dims.size();
-    assert(i);
-
-    std::vector<LLConstant*> inits;
-    while (i--)
-    {
-        LLArrayType* arrty = LLArrayType::get(initConst->getType(), dims[i]);
-        inits.clear();
-        inits.insert(inits.end(), dims[i], initConst);
-        initConst = LLConstantArray::get(arrty, inits);
-    }
-
-    return initConst;
-}
 
 LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
 {
@@ -1374,7 +1417,6 @@ LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
 
     if (expBase->equals(targetBase) && targetBase->ty != Tbool)
     {
-        Logger::println("Matching D types, nothing left to do.");
         return val;
     }
 
@@ -1393,7 +1435,12 @@ LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
            fatal();
         }
         Logger::println("Building constant array initializer to single value.");
-        return expand_to_sarray(targetBase, expBase, val);
+
+        d_uns64 elemCount = targetBase->size() / expBase->size();
+        assert(targetBase->size() % expBase->size() == 0);
+
+        std::vector<llvm::Constant*> initVals(elemCount, val);
+        return llvm::ConstantArray::get(llvm::ArrayType::get(llType, elemCount), initVals);
     }
 
     if (targetBase->ty == Tvector)
@@ -1428,11 +1475,14 @@ LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
 
 LLConstant* DtoTypeInfoOf(Type* type, bool base)
 {
+    IF_LOG Logger::println("DtoTypeInfoOf(type = '%s', base='%d')", type->toChars(), base);
+    LOG_SCOPE
+
     type = type->merge2(); // needed.. getTypeInfo does the same
     type->getTypeInfo(NULL);
     TypeInfoDeclaration* tidecl = type->vtinfo;
     assert(tidecl);
-    tidecl->codegen(Type::sir);
+    tidecl->codegen(gIR);
     assert(tidecl->ir.irGlobal != NULL);
     assert(tidecl->ir.irGlobal->value != NULL);
     LLConstant* c = isaConstant(tidecl->ir.irGlobal->value);
@@ -1496,98 +1546,6 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
     }
 
     Logger::println("final intrinsic name: %s", name.c_str());
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-bool mustDefineSymbol(Dsymbol* s)
-{
-    if (FuncDeclaration* fd = s->isFuncDeclaration())
-    {
-        // we can't (and probably shouldn't?) define functions
-        // that weren't semantic3'ed
-        if (fd->semanticRun < PASSsemantic3)
-            return false;
-
-        // If a function has no body, we cannot possibly emit it (and so it
-        // cannot be available_externally either).
-        if (!fd->fbody)
-            return false;
-
-        if (fd->isArrayOp == 1)
-            return true;
-
-        if (global.inExtraInliningSemantic && fd->availableExternally) {
-            // Emit extra functions if we're inlining.
-            // These will get available_externally linkage,
-            // so they shouldn't end up in object code.
-
-            assert(fd->type->ty == Tfunction);
-            // * If we define extra static constructors, static destructors
-            //   and unittests they'll get registered to run, and we won't
-            //   be calling them directly anyway.
-            // * If it's a large function, don't emit it unnecessarily.
-            //   Use DMD's canInline() to determine whether it's large.
-            //   inlineCost() members have been changed to pay less attention
-            //   to DMDs limitations, but still have some issues. The most glaring
-            //   offenders are any kind of control flow statements other than
-            //   'if' and 'return'.
-            if (   !fd->isStaticCtorDeclaration()
-                && !fd->isStaticDtorDeclaration()
-                && !fd->isUnitTestDeclaration()
-                && fd->canInline(true, false, false))
-            {
-                return true;
-            }
-
-            // This was only semantic'ed for inlining checks.
-            // We won't be inlining this, so we only need to emit a declaration.
-            return false;
-        }
-    }
-
-    if (VarDeclaration* vd = s->isVarDeclaration())
-    {
-        // Never define 'extern' variables.
-        if (vd->storage_class & STCextern)
-            return false;
-    }
-
-    // Inlining checks may create some variable and class declarations
-    // we don't need to emit.
-    if (global.inExtraInliningSemantic)
-    {
-        if (VarDeclaration* vd = s->isVarDeclaration())
-            if (vd->availableExternally)
-                return false;
-
-        if (ClassDeclaration* cd = s->isClassDeclaration())
-            if (cd->availableExternally)
-                return false;
-    }
-
-    TemplateInstance* tinst = DtoIsTemplateInstance(s, true);
-    if (tinst)
-    {
-        if (!global.params.singleObj)
-            return true;
-
-        if (!tinst->emittedInModule)
-        {
-            gIR->seenTemplateInstances.insert(tinst);
-            tinst->emittedInModule = gIR->dmodule;
-        }
-        return tinst->emittedInModule == gIR->dmodule;
-    }
-
-    return s->getModule() == gIR->dmodule;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-bool needsTemplateLinkage(Dsymbol* s)
-{
-    return DtoIsTemplateInstance(s) && mustDefineSymbol(s);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1732,7 +1690,7 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val)
             FuncDeclaration *fd = sd->postblit;
             if (fd->storage_class & STCdisable)
                 fd->toParent()->error(loc, "is not copyable because it is annotated with @disable");
-            fd->codegen(Type::sir);
+            DtoResolveFunction(fd);
             Expressions args;
             DFuncValue dfn(fd, fd->ir.irFunc->func, val);
             DtoCallFunction(loc, Type::basic[Tvoid], &dfn, &args);
@@ -1865,14 +1823,14 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
         else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
         {
             Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
-            cid->cd->codegen(Type::sir);;
+            DtoResolveClass(cid->cd);
             return new DVarValue(type, vd, cid->cd->ir.irAggr->getClassInfoSymbol());
         }
         // typeinfo
         else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
         {
             Logger::println("TypeInfoDeclaration");
-            tid->codegen(Type::sir);
+            DtoResolveTypeInfo(tid);
             assert(tid->ir.getIrValue());
             LLType* vartype = DtoType(type);
             LLValue* m = tid->ir.getIrValue();
@@ -1921,7 +1879,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
             // take care of forward references of global variables
             const bool isGlobal = vd->isDataseg() || (vd->storage_class & STCextern);
             if (isGlobal)
-                vd->codegen(Type::sir);
+                DtoResolveVariable(vd);
 
             assert(vd->ir.isSet() && "Variable not resolved.");
 
@@ -1950,19 +1908,15 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
     if (FuncDeclaration* fdecl = decl->isFuncDeclaration())
     {
         Logger::println("FuncDeclaration");
-        LLValue* func = 0;
         fdecl = fdecl->toAliasFunc();
         if (fdecl->llvmInternal == LLVMinline_asm)
         {
+            // TODO: Is this needed? If so, what about other intrinsics?
             error("special ldc inline asm is not a normal function");
             fatal();
         }
-        else if (fdecl->llvmInternal != LLVMva_arg)
-        {
-            fdecl->codegen(Type::sir);
-            func = fdecl->ir.irFunc->func;
-        }
-        return new DFuncValue(fdecl, func);
+        DtoResolveFunction(fdecl);
+        return new DFuncValue(fdecl, fdecl->ir.irFunc->func);
     }
 
     if (SymbolDeclaration* sdecl = decl->isSymbolDeclaration())
@@ -1973,7 +1927,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
         assert(ts->sym);
-        ts->sym->codegen(Type::sir);
+        DtoResolveStruct(ts->sym);
 
         LLValue* initsym = ts->sym->ir.irAggr->getInitSymbol();
         initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
@@ -2009,7 +1963,7 @@ llvm::Constant* DtoConstSymbolAddress(const Loc& loc, Declaration* decl)
             return NULL;
         }
 
-        vd->codegen(Type::sir);
+        DtoResolveVariable(vd);
         LLConstant* llc = llvm::dyn_cast<LLConstant>(vd->ir.getIrValue());
         assert(llc);
         return llc;
@@ -2017,7 +1971,7 @@ llvm::Constant* DtoConstSymbolAddress(const Loc& loc, Declaration* decl)
     // static function
     else if (FuncDeclaration* fd = decl->isFuncDeclaration())
     {
-        fd->codegen(Type::sir);
+        DtoResolveFunction(fd);
         IrFunction* irfunc = fd->ir.irFunc;
         return irfunc->func;
     }

@@ -63,7 +63,7 @@ struct AttribDeclaration : Dsymbol
 #endif
 
 #if IN_LLVM
-    virtual void codegen(Ir*);
+    void codegen(IRState*);
 #endif
 };
 
@@ -161,7 +161,7 @@ struct PragmaDeclaration : AttribDeclaration
 #endif
 
 #if IN_LLVM
-    void codegen(Ir*);
+    void codegen(IRState*);
 #endif
 };
 

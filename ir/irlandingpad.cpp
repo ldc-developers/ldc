@@ -34,7 +34,7 @@ IRLandingPadCatchInfo::IRLandingPadCatchInfo(Catch* catchstmt_, llvm::BasicBlock
     assert(catchStmt->type);
     catchType = catchStmt->type->toBasetype()->isClassHandle();
     assert(catchType);
-    catchType->codegen(Type::sir);
+    DtoResolveClass(catchType);
 
     if (catchStmt->var) {
         if (!catchStmt->var->nestedrefs.dim) {

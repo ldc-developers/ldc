@@ -326,7 +326,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     return ctor;
 }
 
-llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
+llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
 {
     bool logenabled = Logger::enabled();
     if (llvmForceLogging && !logenabled)
@@ -363,8 +363,6 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     // reset all IR data stored in Dsymbols
     IrDsymbol::resetAll();
 
-    sir->setState(&ir);
-
     // set target triple
     ir.module->setTargetTriple(global.params.targetTriple.str());
 
@@ -395,11 +393,8 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     for (unsigned k=0; k < members->dim; k++) {
         Dsymbol* dsym = static_cast<Dsymbol*>(members->data[k]);
         assert(dsym);
-        dsym->codegen(sir);
+        dsym->codegen(&ir);
     }
-
-    // emit function bodies
-    sir->emitFunctionBodies();
 
     // for singleobj-compilation, fully emit all seen template instances
     if (global.params.singleObj)
@@ -408,11 +403,8 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
         {
             IRState::TemplateInstanceSet::iterator it, end = ir.seenTemplateInstances.end();
             for (it = ir.seenTemplateInstances.begin(); it != end; ++it)
-                (*it)->codegen(sir);
+                (*it)->codegen(&ir);
             ir.seenTemplateInstances.clear();
-
-            // emit any newly added function bodies
-            sir->emitFunctionBodies();
         }
     }
 
@@ -431,8 +423,6 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context, Ir* sir)
     {
         Logger::disable();
     }
-
-    sir->setState(NULL);
 
     return ir.module;
 }
@@ -532,8 +522,8 @@ void Module::genmoduleinfo()
     std::vector<LLConstant*> classInits;
     for (size_t i = 0; i < aclasses.dim; i++)
     {
-        ClassDeclaration* cd = static_cast<ClassDeclaration*>(aclasses.data[i]);
-        cd->codegen(Type::sir);
+        ClassDeclaration* cd = aclasses[i];
+        DtoResolveClass(cd);
 
         if (cd->isInterfaceDeclaration())
         {
@@ -638,6 +628,7 @@ void Module::genmoduleinfo()
     // create and set initializer
     LLGlobalVariable *moduleInfoSym = moduleInfoSymbol();
     b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
+    moduleInfoSym->setLinkage(llvm::GlobalValue::ExternalLinkage);
 
     // build the modulereference and ctor for registering it
     LLFunction* mictor = build_module_reference_and_ctor(moduleInfoSym);
