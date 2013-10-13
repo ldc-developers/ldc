@@ -262,7 +262,7 @@ llvm::TargetMachine* createTargetMachine(
     llvm::Reloc::Model relocModel,
     llvm::CodeModel::Model codeModel,
     llvm::CodeGenOpt::Level codeGenOptLevel,
-    bool genDebugInfo)
+    bool noFramePointerElim)
 {
     // Determine target triple. If the user didn't explicitly specify one, use
     // the one set at LLVM configure time.
@@ -362,7 +362,7 @@ llvm::TargetMachine* createTargetMachine(
     }
 
     llvm::TargetOptions targetOptions;
-    targetOptions.NoFramePointerElim = genDebugInfo;
+    targetOptions.NoFramePointerElim = noFramePointerElim;
 
     switch (floatABI)
     {
