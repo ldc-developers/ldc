@@ -202,6 +202,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
 #endif
     );
 
+    helpOnly = mCPU == "help" ||
+        (std::find(mAttrs.begin(), mAttrs.end(), "help") != mAttrs.end());
+
     // Print config file path if -v was passed
     if (global.params.verbose) {
         const std::string& path = cfg_file.path();
