@@ -618,7 +618,7 @@ void TypeInfoStructDeclaration::llvmDefine()
         initPtr = getNullValue(getVoidPtrType());
     else
         initPtr = iraggr->getInitSymbol();
-    b.push_void_array(getTypeStoreSize(tc->irtype->getLLType()), initPtr);
+    b.push_void_array(getTypeStoreSize(DtoType(tc)), initPtr);
 
     // toX functions ground work
     static TypeFunction *tftohash;
