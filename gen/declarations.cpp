@@ -50,7 +50,7 @@ void InterfaceDeclaration::codegen(Ir* p)
 
     if (members && symtab)
     {
-        DtoResolveDsymbol(this);
+        DtoResolveClass(this);
 
         // Emit any members (e.g. final functions).
         for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())

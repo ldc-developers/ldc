@@ -1879,7 +1879,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
             // take care of forward references of global variables
             const bool isGlobal = vd->isDataseg() || (vd->storage_class & STCextern);
             if (isGlobal)
-                DtoResolveDsymbol(vd);
+                DtoResolveVariable(vd);
 
             assert(vd->ir.isSet() && "Variable not resolved.");
 

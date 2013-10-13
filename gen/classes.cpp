@@ -98,7 +98,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     // custom allocator
     else if (newexp->allocator)
     {
-        DtoResolveDsymbol(newexp->allocator);
+        DtoResolveFunction(newexp->allocator);
         DFuncValue dfn(newexp->allocator, newexp->allocator->ir.irFunc->func);
         DValue* res = DtoCallFunction(newexp->loc, NULL, &dfn, newexp->newargs);
         mem = DtoBitCast(res->getRVal(), DtoType(tc), ".newclass_custom");
@@ -139,7 +139,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     {
         Logger::println("Calling constructor");
         assert(newexp->arguments != NULL);
-        DtoResolveDsymbol(newexp->member);
+        DtoResolveFunction(newexp->member);
         DFuncValue dfn(newexp->member, newexp->member->ir.irFunc->func, mem);
         return DtoCallFunction(newexp->loc, tc, &dfn, newexp->arguments);
     }
@@ -578,7 +578,7 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
     if (!dtor)
         return getNullPtr(getVoidPtrType());
 
-    DtoResolveDsymbol(dtor);
+    DtoResolveFunction(dtor);
     return llvm::ConstantExpr::getBitCast(dtor->ir.irFunc->func, getPtrToType(LLType::getInt8Ty(gIR->context())));
 }
 

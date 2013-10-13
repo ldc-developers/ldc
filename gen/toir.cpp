@@ -1585,7 +1585,7 @@ DValue* DotVarExp::toElem(IRState* p)
     }
     else if (FuncDeclaration* fdecl = var->isFuncDeclaration())
     {
-        DtoResolveDsymbol(fdecl);
+        DtoResolveFunction(fdecl);
 
         // This is a bit more convoluted than it would need to be, because it
         // has to take templated interface methods into account, for which
@@ -2122,7 +2122,7 @@ DValue* NewExp::toElem(IRState* p)
         if (allocator)
         {
             // custom allocator
-            DtoResolveDsymbol(allocator);
+            DtoResolveFunction(allocator);
             DFuncValue dfn(allocator, allocator->ir.irFunc->func);
             DValue* res = DtoCallFunction(loc, NULL, &dfn, newargs);
             mem = DtoBitCast(res->getRVal(), DtoType(ntype->pointerTo()), ".newstruct_custom");
@@ -2149,7 +2149,7 @@ DValue* NewExp::toElem(IRState* p)
         {
             Logger::println("Calling constructor");
             assert(arguments != NULL);
-            DtoResolveDsymbol(member);
+            DtoResolveFunction(member);
             DFuncValue dfn(member, member->ir.irFunc->func, mem);
             DtoCallFunction(loc, ts, &dfn, arguments);
         }

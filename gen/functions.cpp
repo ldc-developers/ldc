@@ -1178,7 +1178,7 @@ llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl)
             break;
     }
 
-    DtoResolveDsymbol(f);
+    DtoResolveFunction(f);
     return llvm::cast<llvm::FunctionType>(DtoType(f->type));
 }
 

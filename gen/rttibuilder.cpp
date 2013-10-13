@@ -11,6 +11,7 @@
 #include "aggregate.h"
 #include "mtype.h"
 #include "gen/arrays.h"
+#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/linkage.h"
 #include "gen/llvm.h"
@@ -135,7 +136,7 @@ void RTTIBuilder::push_funcptr(FuncDeclaration* fd, Type* castto)
 {
     if (fd)
     {
-        DtoResolveDsymbol(fd);
+        DtoResolveFunction(fd);
         LLConstant* F = fd->ir.irFunc->func;
         if (castto)
             F = DtoBitCast(F, DtoType(castto));
