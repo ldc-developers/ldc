@@ -61,6 +61,7 @@ namespace opts {
     extern cl::opt<std::string> mTargetTriple;
     extern cl::opt<llvm::Reloc::Model> mRelocModel;
     extern cl::opt<llvm::CodeModel::Model> mCodeModel;
+    extern cl::opt<bool> disableFpElim;
     extern cl::opt<FloatABI::Type> mFloatABI;
     extern cl::opt<bool, true> singleObj;
     extern cl::opt<bool> linkonceTemplates;
