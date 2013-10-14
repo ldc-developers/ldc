@@ -50,7 +50,7 @@ namespace Logger
     static std::string indent_str;
 
     llvm::cl::opt<bool> _enabled("vv",
-        llvm::cl::desc("Very verbose"),
+        llvm::cl::desc("Print front-end/glue code debug log"),
         llvm::cl::ZeroOrMore);
 
     void indent()
