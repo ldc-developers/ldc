@@ -141,6 +141,59 @@ static void initFromString(char*& dest, const cl::opt<std::string>& src) {
     }
 }
 
+
+#if LDC_LLVM_VER >= 303
+static void hide(llvm::StringMap<cl::Option *>& map, const char* name) {
+    // Check if option exists first for resilience against LLVM changes
+    // between versions.
+    if (map.count(name))
+        map[name]->setHiddenFlag(cl::Hidden);
+}
+
+/// Removes command line options exposed from within LLVM that are unlikely
+/// to be useful for end users from the -help output.
+static void hideLLVMOptions() {
+    llvm::StringMap<cl::Option *> map;
+    cl::getRegisteredOptions(map);
+    hide(map, "bounds-checking-single-trap");
+    hide(map, "disable-spill-fusing");
+    hide(map, "enable-correct-eh-support");
+    hide(map, "enable-load-pre");
+    hide(map, "enable-objc-arc-opts");
+    hide(map, "enable-tbaa");
+    hide(map, "fatal-assembler-warnings");
+    hide(map, "internalize-public-api-file");
+    hide(map, "internalize-public-api-list");
+    hide(map, "join-liveintervals");
+    hide(map, "limit-float-precision");
+    hide(map, "mc-x86-disable-arith-relaxation");
+    hide(map, "pre-RA-sched");
+    hide(map, "print-after-all");
+    hide(map, "print-before-all");
+    hide(map, "print-machineinstrs");
+    hide(map, "profile-estimator-loop-weight");
+    hide(map, "profile-estimator-loop-weight");
+    hide(map, "profile-file");
+    hide(map, "profile-info-file");
+    hide(map, "profile-verifier-noassert");
+    hide(map, "regalloc");
+    hide(map, "shrink-wrap");
+    hide(map, "spiller");
+    hide(map, "stats");
+    hide(map, "strip-debug");
+    hide(map, "struct-path-tbaa");
+    hide(map, "time-passes");
+    hide(map, "unit-at-a-time");
+    hide(map, "verify-dom-info");
+    hide(map, "verify-loop-info");
+    hide(map, "verify-regalloc");
+    hide(map, "verify-region-info");
+    hide(map, "verify-scev");
+    hide(map, "x86-early-ifcvt");
+    hide(map, "x86-use-vzeroupper");
+}
+#endif
+
 int main(int argc, char **argv);
 
 /// Parses switches from the command line, any response files and the global
@@ -195,6 +248,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
 
     // Handle fixed-up arguments!
     cl::SetVersionPrinter(&printVersion);
+#if LDC_LLVM_VER >= 303
+    hideLLVMOptions();
+#endif
     cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(&final_args[0]),
         "LDC - the LLVM D compiler\n"
 #if LDC_LLVM_VER < 302
