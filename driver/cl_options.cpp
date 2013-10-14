@@ -28,7 +28,7 @@ cl::list<std::string> fileList(
     cl::Positional, cl::desc("files"));
 
 cl::list<std::string> runargs("run",
-    cl::desc("program args..."),
+    cl::desc("Runs the resulting program, passing the remaining arguments to it"),
     cl::Positional,
     cl::PositionalEatsArgs);
 
@@ -165,11 +165,11 @@ cl::opt<std::string> ddocFile("Df",
 
 // Json options
 static cl::opt<bool, true> doJson("X",
-    cl::desc("generate JSON file"),
+    cl::desc("Generate JSON file"),
     cl::location(global.params.doXGeneration));
 
 cl::opt<std::string> jsonFile("Xf",
-    cl::desc("write JSON file to <filename>"),
+    cl::desc("Write JSON file to <filename>"),
     cl::value_desc("filename"),
     cl::Prefix);
 
@@ -206,7 +206,7 @@ static cl::list<std::string, StringsAdapter> stringImportPaths("J",
     cl::Prefix);
 
 static cl::opt<bool, true> addMain("main",
-    cl::desc("add empty main() (e.g. for unittesting)"),
+    cl::desc("Add empty main() (e.g. for unittesting)"),
     cl::ZeroOrMore,
     cl::location(global.params.addMain));
 
