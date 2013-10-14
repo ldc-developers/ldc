@@ -203,6 +203,11 @@ struct IRState
 
     /// Whether to emit array bounds checking in the current function.
     bool emitArrayBoundsChecks();
+
+#if LDC_LLVM_VER >= 303
+    /// Vector of options passed to the linker as metadata in object file.
+    llvm::SmallVector<llvm::Value *, 5> LinkerMetadataArgs;
+#endif
 };
 
 template <typename T>
