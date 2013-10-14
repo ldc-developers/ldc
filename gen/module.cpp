@@ -414,6 +414,12 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
     // generate ModuleInfo
     genmoduleinfo();
 
+#if LDC_LLVM_VER >= 303
+    // Add the linker options metadata flag.
+    ir.module->addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
+                             llvm::MDNode::get(ir.context(), ir.LinkerMetadataArgs));
+#endif
+
     // verify the llvm
     verifyModule(*ir.module);
 

@@ -24,6 +24,7 @@
 #include "gen/utils.h"
 #include "ir/irtype.h"
 #include "ir/irvar.h"
+#include "llvm/ADT/SmallString.h"
 
 /* ================================================================== */
 
@@ -384,13 +385,38 @@ void PragmaDeclaration::codegen(IRState *p)
             }
         }
 
-        size_t const n = nameLen + 3;
-        char *arg = static_cast<char *>(mem.malloc(n));
-        arg[0] = '-';
-        arg[1] = 'l';
-        memcpy(arg + 2, se->string, nameLen);
-        arg[n-1] = 0;
-        global.params.linkswitches->push(arg);
+#if LDC_LLVM_VER >= 303
+        // With LLVM 3.3 or later we can place the library name in the object
+        // file. This seems to be supported only on Windows.
+        if (global.params.targetTriple.getOS() == llvm::Triple::Win32)
+        {
+            llvm::SmallString<24> LibName(llvm::StringRef(static_cast<const char *>(se->string), nameLen));
+
+            // Win32: /DEFAULTLIB:"curl"
+            if (LibName.endswith(".a"))
+                LibName = LibName.substr(0, LibName.size()-2);
+            if (LibName.endswith(".lib"))
+                LibName = LibName.substr(0, LibName.size()-4);
+            llvm::SmallString<24> tmp("/DEFAULTLIB:\""); 
+            tmp.append(LibName);
+            tmp.append("\"");
+            LibName = tmp;
+
+            // Embedd library name as linker option in object file
+            llvm::Value *Value = llvm::MDString::get(gIR->context(), LibName);
+            gIR->LinkerMetadataArgs.push_back(llvm::MDNode::get(gIR->context(), Value));
+        }
+        else
+#endif
+        {
+            size_t const n = nameLen + 3;
+            char *arg = static_cast<char *>(mem.malloc(n));
+            arg[0] = '-';
+            arg[1] = 'l';
+            memcpy(arg + 2, se->string, nameLen);
+            arg[n-1] = 0;
+            global.params.linkswitches->push(arg);
+        }
     }
     AttribDeclaration::codegen(p);
 }
