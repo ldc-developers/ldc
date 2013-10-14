@@ -24,23 +24,6 @@ namespace cl = llvm::cl;
 // NESTED VARIABLE HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-static FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic) {
-    if (!sym)
-        return NULL;
-    Dsymbol* parent = sym->parent;
-    assert(parent);
-    while (parent && !parent->isFuncDeclaration()) {
-        if (stopOnStatic) {
-            Declaration* decl = sym->isDeclaration();
-            if (decl && decl->isStatic())
-                return NULL;
-        }
-        parent = parent->parent;
-    }
-
-    return (parent ? parent->isFuncDeclaration() : NULL);
-}
-
 static void storeVariable(VarDeclaration *vd, LLValue *dst)
 {
     LLValue *value = vd->ir.irLocal->value;
