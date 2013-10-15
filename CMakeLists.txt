@@ -170,8 +170,12 @@ include(GetGitRevisionDescription)
 git_get_exact_tag(TAG)
 if(NOT TAG MATCHES "NOTFOUND")
     if(TAG MATCHES "v[0-9].*")
-        # For a version tag, remove the leading 'v'.
-        string(SUBSTRING "${TAG}" 1 -1 LDC_VERSION)
+        # For a version tag, remove the leading 'v'. CMake 2.8.0 (e.g. Ubuntu
+        # 10.04 LTS) doesn't support -1 in string(SUBSTRING ...), so spell it
+        # out.
+        string(LENGTH "${TAG}" taglen)
+        MATH(EXPR taglen "${taglen} - 1")
+        string(SUBSTRING "${TAG}" 1 ${taglen} LDC_VERSION)
     else()
         set(LDC_VERSION "${TAG}")
     endif()
