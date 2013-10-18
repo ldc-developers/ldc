@@ -534,7 +534,7 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
         }
     }
 
-    DtoType(fdecl->type);
+    DtoFunctionType(fdecl);
 
     Logger::println("DtoResolveFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
