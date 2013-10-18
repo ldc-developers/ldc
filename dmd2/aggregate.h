@@ -20,12 +20,6 @@
 #include "dsymbol.h"
 #include "declaration.h"
 
-#if IN_LLVM
-#include <vector>
-#include <set>
-#include <map>
-#endif
-
 struct Identifier;
 struct Type;
 struct TypeFunction;
@@ -47,18 +41,6 @@ enum Sizeok
     SIZEOKdone,         // size of aggregate is set correctly
     SIZEOKfwd,          // error in computing size of aggregate
 };
-
-#if IN_LLVM
-struct ClassInfoDeclaration;
-namespace llvm
-{
-    class Type;
-    class Value;
-    class Constant;
-    class ConstantStruct;
-    class GlobalVariable;
-}
-#endif
 
 struct AggregateDeclaration : ScopeDsymbol
 {
