@@ -95,10 +95,6 @@ struct Scope
     int noaccesscheck;          // don't do access checks
     int needctfe;               // inside a ctfe-only expression
 
-#if IN_LLVM
-    int ignoreTemplates;        // set if newly instantiated templates should be ignored when codegen'ing
-#endif
-
     unsigned callSuper;         // primitive flow analysis for constructors
 
     structalign_t structalign;       // alignment for struct members

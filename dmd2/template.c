@@ -1850,7 +1850,6 @@ Lmatch:
          */
         makeParamNamesVisibleInConstraint(paramscope, fargs);
         Expression *e = constraint->syntaxCopy();
-        paramscope->ignoreTemplates++;
         paramscope->flags |= SCOPEstaticif;
 
         /* Detect recursive attempts to instantiate this template declaration,
@@ -4780,7 +4779,6 @@ TemplateInstance::TemplateInstance(Loc loc, Identifier *ident)
     this->speculative = 0;
 
 #if IN_LLVM
-    this->ignore = true;
     this->emittedInModule = NULL;
 #endif
 }
@@ -4813,7 +4811,6 @@ TemplateInstance::TemplateInstance(Loc loc, TemplateDeclaration *td, Objects *ti
     this->speculative = 0;
 
 #if IN_LLVM
-    this->ignore = true;
     this->emittedInModule = NULL;
 #endif
 
@@ -4959,11 +4956,6 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
 #endif
         return;
     }
-
-#if IN_LLVM
-    if (!sc->ignoreTemplates)
-        ignore = false;
-#endif
 
     // get the enclosing template instance from the scope tinst
     tinst = sc->tinst;
@@ -6309,8 +6301,6 @@ void TemplateInstance::semantic3(Scope *sc)
         sc = sc->push(argsym);
         sc = sc->push(this);
         sc->tinst = this;
-        if (ignore)
-            sc->ignoreTemplates++;
         int oldgag = global.gag;
         int olderrors = global.errors;
         /* If this is a speculative instantiation, gag errors.

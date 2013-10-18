@@ -353,7 +353,6 @@ struct TemplateInstance : ScopeDsymbol
     AliasDeclaration *isAliasDeclaration();
 
 #if IN_LLVM
-    bool ignore;        // true if the instance must be ignored when codegen'ing
     Module* emittedInModule; // which module this template instance has been emitted in
 
     void codegen(IRState*);
