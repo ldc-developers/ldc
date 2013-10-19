@@ -1,22 +1,22 @@
 /**
- * Contains OS-level allocation routines.
+ * Contains OS-level routines needed by the garbage collector.
  *
- * Copyright: Copyright Digital Mars 2005 - 2009.
+ * Copyright: Copyright Digital Mars 2005 - 2013.
  * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
- * Authors:   Walter Bright, David Friedman, Sean Kelly
+ * Authors:   Walter Bright, David Friedman, Sean Kelly, Leandro Lucarella
  */
 
-/*          Copyright Digital Mars 2005 - 2009.
+/*          Copyright Digital Mars 2005 - 2013.
  * Distributed under the Boost Software License, Version 1.0.
  *    (See accompanying file LICENSE or copy at
  *          http://www.boost.org/LICENSE_1_0.txt)
  */
-module gc.gcalloc;
+module gc.os;
 
 
 version (Windows)
 {
-    private import core.sys.windows.windows;
+    import core.sys.windows.windows;
 
     alias int pthread_t;
 
@@ -29,14 +29,15 @@ version (Windows)
 }
 else version (Posix)
 {
-    private import core.sys.posix.sys.mman;
-    private import core.stdc.stdlib;
+    import core.sys.posix.sys.mman;
+    version (linux) import core.sys.linux.sys.mman : MAP_ANON;
+    import core.stdc.stdlib;
 
     //version = GC_Use_Alloc_MMap;
 }
 else
 {
-    private import core.stdc.stdlib;
+    import core.stdc.stdlib;
 
     //version = GC_Use_Alloc_Malloc;
 }
@@ -60,39 +61,13 @@ static if (is(typeof(VirtualAlloc))) // version (GC_Use_Alloc_Win32)
      */
     void *os_mem_map(size_t nbytes)
     {
-        return VirtualAlloc(null, nbytes, MEM_RESERVE, PAGE_READWRITE);
-    }
-
-
-    /**
-     * Commit memory.
-     * Returns:
-     *      0       success
-     *      !=0     failure
-     */
-    int os_mem_commit(void *base, size_t offset, size_t nbytes)
-    {   void *p;
-
-        p = VirtualAlloc(base + offset, nbytes, MEM_COMMIT, PAGE_READWRITE);
-    return cast(int)(p is null);
-    }
-
-
-    /**
-     * Decommit memory.
-     * Returns:
-     *      0       success
-     *      !=0     failure
-     */
-    int os_mem_decommit(void *base, size_t offset, size_t nbytes)
-    {
-    return cast(int)(VirtualFree(base + offset, nbytes, MEM_DECOMMIT) == 0);
+        return VirtualAlloc(null, nbytes, MEM_RESERVE | MEM_COMMIT,
+                PAGE_READWRITE);
     }
 
 
     /**
      * Unmap memory allocated with os_mem_map().
-     * Memory must have already been decommitted.
      * Returns:
      *      0       success
      *      !=0     failure
@@ -112,18 +87,6 @@ else static if (is(typeof(mmap)))  // else version (GC_Use_Alloc_MMap)
     }
 
 
-    int os_mem_commit(void *base, size_t offset, size_t nbytes)
-    {
-        return 0;
-    }
-
-
-    int os_mem_decommit(void *base, size_t offset, size_t nbytes)
-    {
-        return 0;
-    }
-
-
     int os_mem_unmap(void *base, size_t nbytes)
     {
         return munmap(base, nbytes);
@@ -134,18 +97,6 @@ else static if (is(typeof(valloc))) // else version (GC_Use_Alloc_Valloc)
     void *os_mem_map(size_t nbytes)
     {
         return valloc(nbytes);
-    }
-
-
-    int os_mem_commit(void *base, size_t offset, size_t nbytes)
-    {
-        return 0;
-    }
-
-
-    int os_mem_decommit(void *base, size_t offset, size_t nbytes)
-    {
-        return 0;
     }
 
 
@@ -163,7 +114,7 @@ else static if (is(typeof(malloc))) // else version (GC_Use_Alloc_Malloc)
     //       after PAGESIZE bytes used by the GC.
 
 
-    private import gc.gcx;
+    import gc.gc;
 
 
     const size_t PAGE_MASK = PAGESIZE - 1;
@@ -175,18 +126,6 @@ else static if (is(typeof(malloc))) // else version (GC_Use_Alloc_Malloc)
         q = p + ((PAGESIZE - ((cast(size_t) p & PAGE_MASK))) & PAGE_MASK);
         * cast(void**)(q + nbytes) = p;
         return q;
-    }
-
-
-    int os_mem_commit(void *base, size_t offset, size_t nbytes)
-    {
-        return 0;
-    }
-
-
-    int os_mem_decommit(void *base, size_t offset, size_t nbytes)
-    {
-        return 0;
     }
 
 

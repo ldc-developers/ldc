@@ -12,28 +12,18 @@
 
 module rt.lifetime;
 
-private
-{
-    import core.stdc.stdlib;
-    import core.stdc.string;
-    import core.stdc.stdarg;
-    import core.bitop;
-    debug(PRINTF) import core.stdc.stdio;
-    static import rt.tlsgc;
-}
+import core.stdc.stdlib;
+import core.stdc.string;
+import core.stdc.stdarg;
+import core.bitop;
+static import core.memory;
+private alias BlkAttr = core.memory.GC.BlkAttr;
+debug(PRINTF) import core.stdc.stdio;
+static import rt.tlsgc;
 
 private
 {
-    enum BlkAttr : uint
-    {
-        FINALIZE   = 0b0000_0001,
-        NO_SCAN    = 0b0000_0010,
-        NO_MOVE    = 0b0000_0100,
-        APPENDABLE = 0b0000_1000,
-        ALL_BITS   = 0b1111_1111
-    }
-
-    struct BlkInfo
+    package struct BlkInfo
     {
         void*  base;
         size_t size;
@@ -112,7 +102,7 @@ extern (C) Object _d_newclass(const ClassInfo ci)
     void* p;
 
     debug(PRINTF) printf("_d_newclass(ci = %p, %s)\n", ci, cast(char *)ci.name);
-    if (ci.m_flags & 1) // if COM object
+    if (ci.m_flags & TypeInfo_Class.ClassFlags.isCOMclass)
     {   /* COM objects are not garbage collected, they are reference counted
          * using AddRef() and Release().  They get free'd by C's free()
          * function called by Release() when Release()'s reference count goes
@@ -125,15 +115,20 @@ extern (C) Object _d_newclass(const ClassInfo ci)
     else
     {
         // TODO: should this be + 1 to avoid having pointers to the next block?
-        p = gc_malloc(ci.init.length,
-                      BlkAttr.FINALIZE | (ci.m_flags & 2 ? BlkAttr.NO_SCAN : 0));
+        BlkAttr attr = BlkAttr.FINALIZE;
+        // extern(C++) classes don't have a classinfo pointer in their vtable so the GC can't finalize them
+        if (ci.m_flags & TypeInfo_Class.ClassFlags.isCPPclass)
+            attr &= ~BlkAttr.FINALIZE;
+        if (ci.m_flags & TypeInfo_Class.ClassFlags.noPointers)
+            attr |= BlkAttr.NO_SCAN;
+        p = gc_malloc(ci.init.length, attr);
         debug(PRINTF) printf(" p = %p\n", p);
     }
 
     debug(PRINTF)
     {
         printf("p = %p\n", p);
-        printf("ci = %p, ci.init = %p, len = %d\n", ci, ci.init, ci.init.length);
+        printf("ci = %p, ci.init.ptr = %p, len = %llu\n", ci, ci.init.ptr, cast(ulong)ci.init.length);
         printf("vptr = %p\n", *cast(void**) ci.init);
         printf("vtbl[0] = %p\n", (*cast(void***) ci.init)[0]);
         printf("vtbl[1] = %p\n", (*cast(void***) ci.init)[1]);
@@ -349,7 +344,7 @@ bool __setArrayAllocLength(ref BlkInfo info, size_t newlength, bool isshared, si
 /**
   get the start of the array for the given block
   */
-void *__arrayStart(BlkInfo info)
+void *__arrayStart(BlkInfo info) nothrow pure
 {
     return info.base + ((info.size & BIGLENGTHMASK) ? LARGEPREFIX : 0);
 }
@@ -359,7 +354,7 @@ void *__arrayStart(BlkInfo info)
   NOT included in the passed in size.  Therefore, do NOT call this function
   with the size of an allocated block.
   */
-size_t __arrayPad(size_t size)
+size_t __arrayPad(size_t size) nothrow pure @safe
 {
     return size > MAXMEDSIZE ? LARGEPAD : (size > MAXSMALLSIZE ? MEDPAD : SMALLPAD);
 }
@@ -391,7 +386,7 @@ else
     int __nextBlkIdx;
 }
 
-@property BlkInfo *__blkcache()
+@property BlkInfo *__blkcache() nothrow
 {
     if(!__blkcache_storage)
     {
@@ -453,7 +448,7 @@ void processGCMarks(BlkInfo* cache, scope rt.tlsgc.IsMarkedDg isMarked)
         the base ptr as an indication of whether the struct is valid, or set
         the BlkInfo as a side-effect and return a bool to indicate success.
   */
-BlkInfo *__getBlkInfo(void *interior)
+BlkInfo *__getBlkInfo(void *interior) nothrow
 {
     BlkInfo *ptr = __blkcache;
     version(single_cache)
@@ -477,20 +472,20 @@ BlkInfo *__getBlkInfo(void *interior)
         auto curi = ptr + __nextBlkIdx;
         for(auto i = curi; i >= ptr; --i)
         {
-            if(i.base && i.base <= interior && (interior - i.base) < i.size)
+            if(i.base && i.base <= interior && cast(size_t)(interior - i.base) < i.size)
                 return i;
         }
 
         for(auto i = ptr + N_CACHE_BLOCKS - 1; i > curi; --i)
         {
-            if(i.base && i.base <= interior && (interior - i.base) < i.size)
+            if(i.base && i.base <= interior && cast(size_t)(interior - i.base) < i.size)
                 return i;
         }
     }
     return null; // not in cache.
 }
 
-void __insertBlkInfoCache(BlkInfo bi, BlkInfo *curpos)
+void __insertBlkInfoCache(BlkInfo bi, BlkInfo *curpos) nothrow
 {
     version(single_cache)
     {
@@ -722,6 +717,8 @@ body
         if(u)
         {
             // extend worked, save the new current allocated size
+            if(bic)
+                bic.size = u; // update cache
             curcapacity = u - offset - LARGEPAD;
             return curcapacity / size;
         }
@@ -2152,7 +2149,7 @@ extern (C) void[] _d_arraycatnT(const TypeInfo ti, uint n, ...)
     {
         byte[]* p = cast(byte[]*)(&n + 1);
 
-        for (auto i = 0; i < n; i++)
+        for (auto i = 0u; i < n; i++)
         {
             byte[] b = *p++;
             length += b.length;
@@ -2173,7 +2170,7 @@ extern (C) void[] _d_arraycatnT(const TypeInfo ti, uint n, ...)
         __va_list argsave = __va_argsave.va;
         va_list ap;
         va_start(ap, __va_argsave);
-        for (auto i = 0; i < n; i++)
+        for (auto i = 0u; i < n; i++)
         {
             byte[] b;
             va_arg(ap, b);
@@ -2212,7 +2209,7 @@ extern (C) void[] _d_arraycatnT(const TypeInfo ti, uint n, ...)
         p = cast(byte[]*)(&n + 1);
 
         size_t j = 0;
-        for (auto i = 0; i < n; i++)
+        for (auto i = 0u; i < n; i++)
         {
             byte[] b = *p++;
             if (b.length)
@@ -2241,7 +2238,7 @@ extern (C) void[] _d_arraycatnT(const TypeInfo ti, uint n, ...)
     {
         va_list ap2 = &argsave;
         size_t j = 0;
-        for (auto i = 0; i < n; i++)
+        for (auto i = 0u; i < n; i++)
         {
             byte[] b;
             va_arg(ap2, b);

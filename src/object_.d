@@ -175,7 +175,7 @@ struct Interface
 {
     TypeInfo_Class   classinfo;  /// .classinfo for this interface (not for containing class)
     void*[]     vtbl;
-    ptrdiff_t   offset;     /// offset to Interface 'this' from Object 'this'
+    size_t      offset;     /// offset to Interface 'this' from Object 'this'
 }
 
 /**
@@ -619,6 +619,11 @@ class TypeInfo_AssociativeArray : TypeInfo
                     this.value == c.value;
     }
 
+    override bool equals(in void* p1, in void* p2) @trusted const
+    {
+        return !!_aaEqual(this, *cast(const void**) p1, *cast(const void**) p2);
+    }
+
     override hash_t getHash(in void* p) nothrow @trusted const
     {
         return _aaGetHash(cast(void*)p, this);
@@ -828,14 +833,18 @@ class TypeInfo_Class : TypeInfo
     TypeInfo_Class   base;           /// base class
     void*       destructor;
     void function(Object) classInvariant;
-    uint        m_flags;
-    //  1:                      // is IUnknown or is derived from IUnknown
-    //  2:                      // has no possible pointers into GC memory
-    //  4:                      // has offTi[] member
-    //  8:                      // has constructors
-    // 16:                      // has xgetMembers member
-    // 32:                      // has typeinfo member
-    // 64:                      // is not constructable
+    enum ClassFlags : uint
+    {
+        isCOMclass = 0x1,
+        noPointers = 0x2,
+        hasOffTi = 0x4,
+        hasCtor = 0x8,
+        hasGetMembers = 0x10,
+        hasTypeInfo = 0x20,
+        isAbstract = 0x40,
+        isCPPclass = 0x80,
+    }
+    ClassFlags m_flags;
     void*       deallocator;
     OffsetTypeInfo[] m_offTi;
     void function(Object) defaultConstructor;   // default Constructor
@@ -1040,7 +1049,11 @@ class TypeInfo_Struct : TypeInfo
     int      function(in void*, in void*) xopCmp;
     char[]   function(in void*)           xtoString;
 
-    uint m_flags;
+    enum StructFlags : uint
+    {
+        hasPointers = 0x1,
+    }
+    StructFlags m_flags;
   }
     void function(void*)                    xdtor;
     void function(void*)                    xpostblit;
@@ -1523,9 +1536,9 @@ unittest
 
 enum
 {
-    MIctorstart  = 1,   // we've started constructing it
-    MIctordone   = 2,   // finished construction
-    MIstandalone = 4,   // module ctor does not depend on other module
+    MIctorstart  = 0x1,   // we've started constructing it
+    MIctordone   = 0x2,   // finished construction
+    MIstandalone = 0x4,   // module ctor does not depend on other module
                         // ctors being done first
     MItlsctor    = 8,
     MItlsdtor    = 0x10,
@@ -1536,307 +1549,147 @@ enum
     MIunitTest   = 0x200,
     MIimportedModules = 0x400,
     MIlocalClasses = 0x800,
-    MInew        = 0x80000000        // it's the "new" layout
+    MIname       = 0x1000,
 }
 
 
 struct ModuleInfo
 {
-    struct New
+    uint _flags;
+    uint _index; // index into _moduleinfo_array[]
+
+    private void* addrOf(int flag) nothrow pure
+    in
     {
-        uint flags;
-        uint index;                        // index into _moduleinfo_array[]
-
-        /* Order of appearance, depending on flags
-         * tlsctor
-         * tlsdtor
-         * xgetMembers
-         * ctor
-         * dtor
-         * ictor
-         * importedModules
-         * localClasses
-         * name
-         */
+        assert(flag >= MItlsctor && flag <= MIname);
+        assert(!(flag & (flag - 1)) && !(flag & ~(flag - 1) << 1));
     }
-    struct Old
+    body
     {
-        string          name;
-        ModuleInfo*[]    importedModules;
-        TypeInfo_Class[]     localClasses;
-        uint            flags;
+        void* p = cast(void*)&this + ModuleInfo.sizeof;
 
-        void function() ctor;       // module shared static constructor (order dependent)
-        void function() dtor;       // module shared static destructor
-        void function() unitTest;   // module unit tests
-
-        void* xgetMembers;          // module getMembers() function
-
-        void function() ictor;      // module shared static constructor (order independent)
-
-        void function() tlsctor;        // module thread local static constructor (order dependent)
-        void function() tlsdtor;        // module thread local static destructor
-
-        uint index;                        // index into _moduleinfo_array[]
-
-        void*[1] reserved;          // for future expansion
+        if (flags & MItlsctor)
+        {
+            if (flag == MItlsctor) return p;
+            p += typeof(tlsctor).sizeof;
+        }
+        if (flags & MItlsdtor)
+        {
+            if (flag == MItlsdtor) return p;
+            p += typeof(tlsdtor).sizeof;
+        }
+        if (flags & MIctor)
+        {
+            if (flag == MIctor) return p;
+            p += typeof(ctor).sizeof;
+        }
+        if (flags & MIdtor)
+        {
+            if (flag == MIdtor) return p;
+            p += typeof(dtor).sizeof;
+        }
+        if (flags & MIxgetMembers)
+        {
+            if (flag == MIxgetMembers) return p;
+            p += typeof(xgetMembers).sizeof;
+        }
+        if (flags & MIictor)
+        {
+            if (flag == MIictor) return p;
+            p += typeof(ictor).sizeof;
+        }
+        if (flags & MIunitTest)
+        {
+            if (flag == MIunitTest) return p;
+            p += typeof(unitTest).sizeof;
+        }
+        if (flags & MIimportedModules)
+        {
+            if (flag == MIimportedModules) return p;
+            p += size_t.sizeof + *cast(size_t*)p * typeof(importedModules[0]).sizeof;
+        }
+        if (flags & MIlocalClasses)
+        {
+            if (flag == MIlocalClasses) return p;
+            p += size_t.sizeof + *cast(size_t*)p * typeof(localClasses[0]).sizeof;
+        }
+        if (true || flags & MIname) // always available for now
+        {
+            if (flag == MIname) return p;
+            p += .strlen(cast(immutable char*)p);
+        }
+        assert(0);
     }
 
-    union
-    {
-        New n;
-        Old o;
-    }
+    @property uint index() nothrow pure { return _index; }
+    @property void index(uint i) nothrow pure { _index = i; }
 
-    @property bool isNew() nothrow pure { return (n.flags & MInew) != 0; }
-
-    @property uint index() nothrow pure { return isNew ? n.index : o.index; }
-    @property void index(uint i) nothrow pure { if (isNew) n.index = i; else o.index = i; }
-
-    @property uint flags() nothrow pure { return isNew ? n.flags : o.flags; }
-    @property void flags(uint f) nothrow pure { if (isNew) n.flags = f; else o.flags = f; }
+    @property uint flags() nothrow pure { return _flags; }
+    @property void flags(uint f) nothrow pure { _flags = f; }
 
     @property void function() tlsctor() nothrow pure
     {
-        if (isNew)
-        {
-            if (n.flags & MItlsctor)
-            {
-                size_t off = New.sizeof;
-                return *cast(typeof(return)*)(cast(void*)(&this) + off);
-            }
-            return null;
-        }
-        else
-            return o.tlsctor;
+        return flags & MItlsctor ? *cast(typeof(return)*)addrOf(MItlsctor) : null;
     }
 
     @property void function() tlsdtor() nothrow pure
     {
-        if (isNew)
-        {
-            if (n.flags & MItlsdtor)
-            {
-                size_t off = New.sizeof;
-                if (n.flags & MItlsctor)
-                    off += o.tlsctor.sizeof;
-                return *cast(typeof(return)*)(cast(void*)(&this) + off);
-            }
-            return null;
-        }
-        else
-            return o.tlsdtor;
+        return flags & MItlsdtor ? *cast(typeof(return)*)addrOf(MItlsdtor) : null;
     }
 
     @property void* xgetMembers() nothrow pure
     {
-        if (isNew)
-        {
-            if (n.flags & MIxgetMembers)
-            {
-                size_t off = New.sizeof;
-                if (n.flags & MItlsctor)
-                    off += o.tlsctor.sizeof;
-                if (n.flags & MItlsdtor)
-                    off += o.tlsdtor.sizeof;
-                return *cast(typeof(return)*)(cast(void*)(&this) + off);
-            }
-            return null;
-        }
-        return o.xgetMembers;
+        return flags & MIxgetMembers ? *cast(typeof(return)*)addrOf(MIxgetMembers) : null;
     }
 
     @property void function() ctor() nothrow pure
     {
-        if (isNew)
-        {
-            if (n.flags & MIctor)
-            {
-                size_t off = New.sizeof;
-                if (n.flags & MItlsctor)
-                    off += o.tlsctor.sizeof;
-                if (n.flags & MItlsdtor)
-                    off += o.tlsdtor.sizeof;
-                if (n.flags & MIxgetMembers)
-                    off += o.xgetMembers.sizeof;
-                return *cast(typeof(return)*)(cast(void*)(&this) + off);
-            }
-            return null;
-        }
-        return o.ctor;
+        return flags & MIctor ? *cast(typeof(return)*)addrOf(MIctor) : null;
     }
 
     @property void function() dtor() nothrow pure
     {
-        if (isNew)
-        {
-            if (n.flags & MIdtor)
-            {
-                size_t off = New.sizeof;
-                if (n.flags & MItlsctor)
-                    off += o.tlsctor.sizeof;
-                if (n.flags & MItlsdtor)
-                    off += o.tlsdtor.sizeof;
-                if (n.flags & MIxgetMembers)
-                    off += o.xgetMembers.sizeof;
-                if (n.flags & MIctor)
-                    off += o.ctor.sizeof;
-                return *cast(typeof(return)*)(cast(void*)(&this) + off);
-            }
-            return null;
-        }
-        return o.dtor;
+        return flags & MIdtor ? *cast(typeof(return)*)addrOf(MIdtor) : null;
     }
 
     @property void function() ictor() nothrow pure
     {
-        if (isNew)
-        {
-            if (n.flags & MIictor)
-            {
-                size_t off = New.sizeof;
-                if (n.flags & MItlsctor)
-                    off += o.tlsctor.sizeof;
-                if (n.flags & MItlsdtor)
-                    off += o.tlsdtor.sizeof;
-                if (n.flags & MIxgetMembers)
-                    off += o.xgetMembers.sizeof;
-                if (n.flags & MIctor)
-                    off += o.ctor.sizeof;
-                if (n.flags & MIdtor)
-                    off += o.ctor.sizeof;
-                return *cast(typeof(return)*)(cast(void*)(&this) + off);
-            }
-            return null;
-        }
-        return o.ictor;
+        return flags & MIictor ? *cast(typeof(return)*)addrOf(MIictor) : null;
     }
 
     @property void function() unitTest() nothrow pure
     {
-        if (isNew)
-        {
-            if (n.flags & MIunitTest)
-            {
-                size_t off = New.sizeof;
-                if (n.flags & MItlsctor)
-                    off += o.tlsctor.sizeof;
-                if (n.flags & MItlsdtor)
-                    off += o.tlsdtor.sizeof;
-                if (n.flags & MIxgetMembers)
-                    off += o.xgetMembers.sizeof;
-                if (n.flags & MIctor)
-                    off += o.ctor.sizeof;
-                if (n.flags & MIdtor)
-                    off += o.ctor.sizeof;
-                if (n.flags & MIictor)
-                    off += o.ictor.sizeof;
-                return *cast(typeof(return)*)(cast(void*)(&this) + off);
-            }
-            return null;
-        }
-        return o.unitTest;
+        return flags & MIunitTest ? *cast(typeof(return)*)addrOf(MIunitTest) : null;
     }
 
     @property ModuleInfo*[] importedModules() nothrow pure
     {
-        if (isNew)
+        if (flags & MIimportedModules)
         {
-            if (n.flags & MIimportedModules)
-            {
-                size_t off = New.sizeof;
-                if (n.flags & MItlsctor)
-                    off += o.tlsctor.sizeof;
-                if (n.flags & MItlsdtor)
-                    off += o.tlsdtor.sizeof;
-                if (n.flags & MIxgetMembers)
-                    off += o.xgetMembers.sizeof;
-                if (n.flags & MIctor)
-                    off += o.ctor.sizeof;
-                if (n.flags & MIdtor)
-                    off += o.ctor.sizeof;
-                if (n.flags & MIictor)
-                    off += o.ictor.sizeof;
-                if (n.flags & MIunitTest)
-                    off += o.unitTest.sizeof;
-                auto plength = cast(size_t*)(cast(void*)(&this) + off);
-                ModuleInfo** pm = cast(ModuleInfo**)(plength + 1);
-                return pm[0 .. *plength];
-            }
-            return null;
+            auto p = cast(size_t*)addrOf(MIimportedModules);
+            return (cast(ModuleInfo**)(p + 1))[0 .. *p];
         }
-        return o.importedModules;
+        return null;
     }
 
     @property TypeInfo_Class[] localClasses() nothrow pure
     {
-        if (isNew)
+        if (flags & MIlocalClasses)
         {
-            if (n.flags & MIlocalClasses)
-            {
-                size_t off = New.sizeof;
-                if (n.flags & MItlsctor)
-                    off += o.tlsctor.sizeof;
-                if (n.flags & MItlsdtor)
-                    off += o.tlsdtor.sizeof;
-                if (n.flags & MIxgetMembers)
-                    off += o.xgetMembers.sizeof;
-                if (n.flags & MIctor)
-                    off += o.ctor.sizeof;
-                if (n.flags & MIdtor)
-                    off += o.ctor.sizeof;
-                if (n.flags & MIictor)
-                    off += o.ictor.sizeof;
-                if (n.flags & MIunitTest)
-                    off += o.unitTest.sizeof;
-                if (n.flags & MIimportedModules)
-                {
-                    auto plength = cast(size_t*)(cast(void*)(&this) + off);
-                    off += size_t.sizeof + *plength * plength.sizeof;
-                }
-                auto plength = cast(size_t*)(cast(void*)(&this) + off);
-                TypeInfo_Class* pt = cast(TypeInfo_Class*)(plength + 1);
-                return pt[0 .. *plength];
-            }
-            return null;
+            auto p = cast(size_t*)addrOf(MIlocalClasses);
+            return (cast(TypeInfo_Class*)(p + 1))[0 .. *p];
         }
-        return o.localClasses;
+        return null;
     }
 
     @property string name() nothrow pure
     {
-        if (isNew)
+        if (true || flags & MIname) // always available for now
         {
-            size_t off = New.sizeof;
-            if (n.flags & MItlsctor)
-                off += o.tlsctor.sizeof;
-            if (n.flags & MItlsdtor)
-                off += o.tlsdtor.sizeof;
-            if (n.flags & MIxgetMembers)
-                off += o.xgetMembers.sizeof;
-            if (n.flags & MIctor)
-                off += o.ctor.sizeof;
-            if (n.flags & MIdtor)
-                off += o.ctor.sizeof;
-            if (n.flags & MIictor)
-                off += o.ictor.sizeof;
-            if (n.flags & MIunitTest)
-                off += o.unitTest.sizeof;
-            if (n.flags & MIimportedModules)
-            {
-                auto plength = cast(size_t*)(cast(void*)(&this) + off);
-                off += size_t.sizeof + *plength * plength.sizeof;
-            }
-            if (n.flags & MIlocalClasses)
-            {
-                auto plength = cast(size_t*)(cast(void*)(&this) + off);
-                off += size_t.sizeof + *plength * plength.sizeof;
-            }
-            auto p = cast(immutable(char)*)(cast(void*)(&this) + off);
-            auto len = strlen(p);
-            return p[0 .. len];
+            auto p = cast(immutable char*)addrOf(MIname);
+            return p[0 .. .strlen(p)];
         }
-        return o.name;
+        // return null;
     }
 
     alias int delegate(ref ModuleInfo*) ApplyDg;
@@ -2051,14 +1904,14 @@ extern (C)
 {
     // from druntime/src/compiler/dmd/aaA.d
 
-    size_t _aaLen(void* p);
-    void* _aaGet(void** pp, TypeInfo keyti, size_t valuesize, ...);
-    void* _aaGetRvalue(void* p, TypeInfo keyti, size_t valuesize, ...);
-    void* _aaIn(void* p, TypeInfo keyti, ...);
-    void _aaDel(void* p, TypeInfo keyti, ...);
-    void[] _aaValues(void* p, size_t keysize, size_t valuesize);
-    void[] _aaKeys(void* p, size_t keysize);
-    void* _aaRehash(void** pp, TypeInfo keyti);
+    size_t _aaLen(in void* p) pure nothrow;
+    void* _aaGetX(void** pp, const TypeInfo keyti, in size_t valuesize, in void* pkey);
+    inout(void)* _aaGetRvalueX(inout void* p, in TypeInfo keyti, in size_t valuesize, in void* pkey);
+    inout(void)* _aaIn(inout void* p, in TypeInfo keyti);
+    void _aaDel(void* p, in TypeInfo keyti, ...);
+    inout(void)[] _aaValues(inout void* p, in size_t keysize, in size_t valuesize) pure nothrow;
+    inout(void)[] _aaKeys(inout void* p, in size_t keysize) pure nothrow;
+    void* _aaRehash(void** pp, in TypeInfo keyti) pure nothrow;
 
     extern (D) alias scope int delegate(void *) _dg_t;
     int _aaApply(void* aa, size_t keysize, _dg_t dg);
@@ -2066,8 +1919,26 @@ extern (C)
     extern (D) alias scope int delegate(void *, void *) _dg2_t;
     int _aaApply2(void* aa, size_t keysize, _dg2_t dg);
 
-    void* _d_assocarrayliteralT(TypeInfo_AssociativeArray ti, size_t length, ...);
-    hash_t _aaGetHash(void* aa, const(TypeInfo) tiRaw) nothrow;
+    private struct AARange { void* impl, current; }
+    AARange _aaRange(void* aa);
+    bool _aaRangeEmpty(AARange r);
+    void* _aaRangeFrontKey(AARange r);
+    void* _aaRangeFrontValue(AARange r);
+    void _aaRangePopFront(ref AARange r);
+
+    void* _d_assocarrayliteralT(TypeInfo_AssociativeArray ti, in size_t length, ...);
+    int _aaEqual(in TypeInfo tiRaw, in void* e1, in void* e2);
+    hash_t _aaGetHash(in void* aa, in TypeInfo tiRaw) nothrow;
+}
+
+private template _Unqual(T)
+{
+         static if (is(T U == shared(const U))) alias U _Unqual;
+    else static if (is(T U ==        const U )) alias U _Unqual;
+    else static if (is(T U ==    immutable U )) alias U _Unqual;
+    else static if (is(T U ==        inout U )) alias U _Unqual;
+    else static if (is(T U ==       shared U )) alias U _Unqual;
+    else                                        alias T _Unqual;
 }
 
 private template _Unqual(T)
@@ -2083,99 +1954,44 @@ private template _Unqual(T)
 struct AssociativeArray(Key, Value)
 {
 private:
-    // Duplicates of the stuff found in druntime/src/rt/aaA.d
-    struct Slot
-    {
-        Slot *next;
-        size_t hash;
-        Key key;
-        version(D_LP64) align(16) _Unqual!Value value; // c.f. rt/aaA.d, aligntsize()
-        else align(4) _Unqual!Value value;
-
-        // Stop creating built-in opAssign
-        @disable void opAssign(Slot);
-    }
-
-    struct Hashtable
-    {
-        Slot*[] b;
-        size_t nodes;
-        TypeInfo keyti;
-        Slot*[4] binit;
-    }
-
-    void* p; // really Hashtable*
-
-    struct Range
-    {
-        // State
-        Slot*[] slots;
-        Slot* current;
-
-        this(void * aa)
-        {
-            if (!aa) return;
-            auto pImpl = cast(Hashtable*) aa;
-            slots = pImpl.b;
-            nextSlot();
-        }
-
-        void nextSlot()
-        {
-            foreach (i, slot; slots)
-            {
-                if (!slot) continue;
-                current = slot;
-                slots = slots.ptr[i .. slots.length];
-                break;
-            }
-        }
-
-    public:
-        @property bool empty() const
-        {
-            return current is null;
-        }
-
-        @property ref inout(Slot) front() inout
-        {
-            assert(current);
-            return *current;
-        }
-
-        void popFront()
-        {
-            assert(current);
-            current = current.next;
-            if (!current)
-            {
-                slots = slots[1 .. $];
-                nextSlot();
-            }
-        }
-    }
+    void* p;
 
 public:
+    @property size_t length() const { return _aaLen(p); }
 
-    @property size_t length() { return _aaLen(p); }
-
-    Value[Key] rehash() @property
+    Value[Key] rehash()
     {
-        auto p = _aaRehash(&p, typeid(Value[Key]));
+        auto p = _aaRehash(cast(void**) &p, typeid(Value[Key]));
         return *cast(Value[Key]*)(&p);
     }
 
-    Value[] values() @property
+    // Note: can't make `values` and `keys` inout as it is used
+    // e.g. in Phobos like `ReturnType!(aa.keys)` instead of `typeof(aa.keys)`
+    // which will result in `inout` propagation.
+
+    inout(Value)[] inout_values() inout @property
     {
         auto a = _aaValues(p, Key.sizeof, Value.sizeof);
-        return *cast(Value[]*) &a;
+        return *cast(inout Value[]*) &a;
     }
 
-    Key[] keys() @property
+    inout(Key)[] inout_keys() inout @property
     {
         auto a = _aaKeys(p, Key.sizeof);
-        return *cast(Key[]*) &a;
+        return *cast(inout Key[]*) &a;
     }
+
+    Value[] values() @property
+    { return inout_values; }
+
+    Key[] keys() @property
+    { return inout_keys; }
+
+    const(Value)[] values() const @property
+    { return inout_values; }
+
+    const(Key)[] keys() const @property
+    { return inout_keys; }
 
     int opApply(scope int delegate(ref Key, ref Value) dg)
     {
@@ -2193,8 +2009,13 @@ public:
         return p ? *p : defaultValue;
     }
 
-    static if (is(typeof({ Value[Key] r; r[Key.init] = Value.init; }())))
-        @property Value[Key] dup()
+    static if (is(typeof({
+        ref Value get();    // pseudo lvalue of Value
+        Value[Key] r; r[Key.init] = get();
+        // bug 10720 - check whether Value is copyable
+    })))
+    {
+        Value[Key] dup()
         {
             Value[Key] result;
             foreach (k, v; this)
@@ -2203,49 +2024,38 @@ public:
             }
             return result;
         }
+    }
+    else
+        @disable Value[Key] dup();    // for better error message
 
-    @property auto byKey()
+    auto byKey()
     {
         static struct Result
         {
-            Range state;
+            AARange r;
 
-            this(void* p)
-            {
-                state = Range(p);
-            }
-
-            @property ref Key front()
-            {
-                return state.front.key;
-            }
-
-            alias state this;
+            @property bool empty() { return _aaRangeEmpty(r); }
+            @property ref Key front() { return *cast(Key*)_aaRangeFrontKey(r); }
+            void popFront() { _aaRangePopFront(r); }
+            Result save() { return this; }
         }
 
-        return Result(p);
+        return Result(_aaRange(p));
     }
 
-    @property auto byValue()
+    auto byValue()
     {
         static struct Result
         {
-            Range state;
+            AARange r;
 
-            this(void* p)
-            {
-                state = Range(p);
-            }
-
-            @property ref Value front()
-            {
-                return *cast(Value*)&state.front.value;
-            }
-
-            alias state this;
+            @property bool empty() { return _aaRangeEmpty(r); }
+            @property ref Value front() { return *cast(Value*)_aaRangeFrontValue(r); }
+            void popFront() { _aaRangePopFront(r); }
+            Result save() { return this; }
         }
 
-        return Result(p);
+        return Result(_aaRange(p));
     }
 }
 
@@ -2317,6 +2127,122 @@ unittest
     assert(aa2.byValue.front == 987);
     assert(aa3.byValue.front == 1234);
     assert(aa4.byValue.front == "onetwothreefourfive");
+}
+
+unittest
+{
+    // test for bug 10720
+    static struct NC
+    {
+        @disable this(this) { }
+    }
+
+    NC[string] aa;
+    static assert(!is(aa.nonExistingField));
+}
+
+unittest
+{
+    // bug 5842
+    string[string] test = null;
+    test["test1"] = "test1";
+    test.remove("test1");
+    test.rehash;
+    test["test3"] = "test3"; // causes divide by zero if rehash broke the AA
+}
+
+unittest
+{
+    string[] keys = ["a", "b", "c", "d", "e", "f"];
+
+    // Test forward range capabilities of byKey
+    {
+        int[string] aa;
+        foreach (key; keys)
+            aa[key] = 0;
+
+        auto keyRange = aa.byKey();
+        auto savedKeyRange = keyRange.save;
+
+        // Consume key range once
+        size_t keyCount = 0;
+        while (!keyRange.empty)
+        {
+            aa[keyRange.front]++;
+            keyCount++;
+            keyRange.popFront();
+        }
+
+        foreach (key; keys)
+        {
+            assert(aa[key] == 1);
+        }
+        assert(keyCount == keys.length);
+
+        // Verify it's possible to iterate the range the second time
+        keyCount = 0;
+        while (!savedKeyRange.empty)
+        {
+            aa[savedKeyRange.front]++;
+            keyCount++;
+            savedKeyRange.popFront();
+        }
+
+        foreach (key; keys)
+        {
+            assert(aa[key] == 2);
+        }
+        assert(keyCount == keys.length);
+    }
+
+    // Test forward range capabilities of byValue
+    {
+        size_t[string] aa;
+        foreach (i; 0 .. keys.length)
+        {
+            aa[keys[i]] = i;
+        }
+
+        auto valRange = aa.byValue();
+        auto savedValRange = valRange.save;
+
+        // Consume value range once
+        int[] hasSeen;
+        hasSeen.length = keys.length;
+        while (!valRange.empty)
+        {
+            assert(hasSeen[valRange.front] == 0);
+            hasSeen[valRange.front]++;
+            valRange.popFront();
+        }
+
+        foreach (sawValue; hasSeen) { assert(sawValue == 1); }
+
+        // Verify it's possible to iterate the range the second time
+        hasSeen = null;
+        hasSeen.length = keys.length;
+        while (!savedValRange.empty)
+        {
+            assert(!hasSeen[savedValRange.front]);
+            hasSeen[savedValRange.front] = true;
+            savedValRange.popFront();
+        }
+
+        foreach (sawValue; hasSeen) { assert(sawValue); }
+    }
+}
+
+unittest
+{
+    // expanded test for 5842: increase AA size past the point where the AA
+    // stops using binit, in order to test another code path in rehash.
+    int[int] aa;
+    foreach (int i; 0 .. 32)
+        aa[i] = i;
+    foreach (int i; 0 .. 32)
+        aa.remove(i);
+    aa.rehash;
+    aa[1] = 1;
 }
 
 deprecated("Please use destroy instead of clear.")
@@ -2520,7 +2446,7 @@ unittest
     //Appending to slice will reallocate to a new array
     slice ~= 5;
     assert(slice.capacity >= 5);
-    
+
     //Dynamic array slices
     int[] a = [1, 2, 3, 4];
     int[] b = a[1 .. $];
@@ -2538,7 +2464,7 @@ unittest
  * The return value is the new capacity of the array (which may be larger than
  * the requested capacity).
  */
-size_t reserve(T)(ref T[] arr, size_t newcapacity) pure nothrow
+size_t reserve(T)(ref T[] arr, size_t newcapacity) pure nothrow @trusted
 {
     return _d_arraysetcapacity(typeid(T[]), newcapacity, cast(void[]*)&arr);
 }
@@ -2548,11 +2474,11 @@ unittest
     //Static array slice: no capacity. Reserve relocates.
     int[4] sarray = [1, 2, 3, 4];
     int[]  slice  = sarray[];
-    auto u = slice.reserve(8); 
+    auto u = slice.reserve(8);
     assert(u >= 8);
     assert(sarray.ptr !is slice.ptr);
     assert(slice.capacity == u);
-    
+
     //Dynamic array slices
     int[] a = [1, 2, 3, 4];
     a.reserve(8); //prepare a for appending 4 more items
@@ -2563,31 +2489,47 @@ unittest
     assert(u == a.capacity); //a should not have been extended
 }
 
+// Issue 6646: should be possible to use array.reserve from SafeD.
+@safe unittest
+{
+    int[] a;
+    a.reserve(10);
+}
+
 /**
  * Assume that it is safe to append to this array. Appends made to this array
  * after calling this function may append in place, even if the array was a
  * slice of a larger array to begin with.
  *
- * Use this only when you are sure no elements are in use beyond the array in
- * the memory block.  If there are, those elements could be overwritten by
- * appending to this array.
+ * Use this only when it is certain there are no elements in use beyond the
+ * array in the memory block.  If there are, those elements will be
+ * overwritten by appending to this array.
  *
  * Calling this function, and then using references to data located after the
  * given array results in undefined behavior.
+ *
+ * Returns:
+ *   The input is returned.
  */
-void assumeSafeAppend(T)(T[] arr)
+auto ref inout(T[]) assumeSafeAppend(T)(auto ref inout(T[]) arr)
 {
     _d_arrayshrinkfit(typeid(T[]), *(cast(void[]*)&arr));
+    return arr;
 }
 ///
 unittest
 {
     int[] a = [1, 2, 3, 4];
-    int[] b = a[1 .. $ - 1];
-    assert(a.capacity >= 4);
-    assert(b.capacity == 0);
-    b.assumeSafeAppend();
-    assert(b.capacity >= 3);
+
+    // Without assumeSafeAppend. Appending relocates.
+    int[] b = a [0 .. 3];
+    b ~= 5;
+    assert(a.ptr != b.ptr);
+
+    // With assumeSafeAppend. Appending overwrites.
+    int[] c = a [0 .. 3];
+    c.assumeSafeAppend() ~= 5;
+    assert(a.ptr == c.ptr);
 }
 
 unittest
@@ -2606,6 +2548,33 @@ unittest
     assert(ptr == arr.ptr);
 }
 
+unittest
+{
+    int[] arr = [1, 2, 3];
+    void foo(ref int[] i)
+    {
+        i ~= 5;
+    }
+    arr = arr[0 .. 2];
+    foo(assumeSafeAppend(arr)); //pass by ref
+    assert(arr[]==[1, 2, 5]);
+    arr = arr[0 .. 1].assumeSafeAppend(); //pass by value
+}
+
+//@@@10574@@@
+unittest
+{
+    int[] a;
+    immutable(int[]) b;
+    auto a2 = &assumeSafeAppend(a);
+    auto b2 = &assumeSafeAppend(b);
+    auto a3 = assumeSafeAppend(a[]);
+    auto b3 = assumeSafeAppend(b[]);
+    assert(is(typeof(*a2) == int[]));
+    assert(is(typeof(*b2) == immutable(int[])));
+    assert(is(typeof(a3) == int[]));
+    assert(is(typeof(b3) == immutable(int[])));
+}
 
 version (none)
 {
@@ -2662,6 +2631,11 @@ bool _ArrayEq(T1, T2)(T1[] a1, T2[] a2)
 bool _xopEquals(in void*, in void*)
 {
     throw new Error("TypeInfo.equals is not implemented");
+}
+
+bool _xopCmp(in void*, in void*)
+{
+    throw new Error("TypeInfo.compare is not implemented");
 }
 
 /******************************************

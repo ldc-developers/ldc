@@ -12,7 +12,7 @@
 
 module rt.memory;
 
-import gc.gc;
+import core.memory;
 import rt.sections;
 
 void initStaticDataGC()
@@ -20,6 +20,6 @@ void initStaticDataGC()
     foreach (ref sg; SectionGroup)
     {
         foreach (rng; sg.gcRanges)
-            gc_addRange(rng.ptr, rng.length);
+            GC.addRange(rng.ptr, rng.length);
     }
 }

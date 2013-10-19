@@ -103,36 +103,30 @@ unittest
  */
 version (LDC)
 {
-    pure pragma(LDC_intrinsic, "ldc.bitop.bt")
-        int bt(in size_t* p, size_t bitnum);
+    pragma(LDC_intrinsic, "ldc.bitop.bt")
+        int bt(in size_t* p, size_t bitnum) pure @system;
 }
 else
+int bt(in size_t* p, size_t bitnum) pure @system
 {
-    @system
-    {
-    int bt(in size_t* p, size_t bitnum) pure
-    {
-        static if (size_t.sizeof == 8)
-            return ((p[bitnum >> 6] & (1L << (bitnum & 63)))) != 0;
-        else static if (size_t.sizeof == 4)
-            return ((p[bitnum >> 5] & (1  << (bitnum & 31)))) != 0;
-        else
-            static assert(0);
-    }
+    static if (size_t.sizeof == 8)
+        return ((p[bitnum >> 6] & (1L << (bitnum & 63)))) != 0;
+    else static if (size_t.sizeof == 4)
+        return ((p[bitnum >> 5] & (1  << (bitnum & 31)))) != 0;
+    else
+        static assert(0);
 }
-
-unittest
+///
+@system pure unittest
 {
     size_t array[2];
 
     array[0] = 2;
     array[1] = 0x100;
 
-
     assert(bt(array.ptr, 1));
     assert(array[0] == 2);
     assert(array[1] == 0x100);
-}
 }
 
 /**
@@ -140,13 +134,11 @@ unittest
  */
 version (LDC)
 {
-    pure pragma(LDC_intrinsic, "ldc.bitop.btc")
-        int btc(size_t* p, size_t bitnum);
+    pragma(LDC_intrinsic, "ldc.bitop.btc")
+        int btc(size_t* p, size_t bitnum) pure @system;
 }
 else
-{
-    int btc(size_t* p, size_t bitnum) pure;
-}
+int btc(size_t* p, size_t bitnum) pure @system;
 
 
 /**
@@ -154,20 +146,18 @@ else
  */
 version (LDC)
 {
-    pure pragma(LDC_intrinsic, "ldc.bitop.btr")
-        int btr(size_t* p, size_t bitnum);
+    pragma(LDC_intrinsic, "ldc.bitop.btr")
+        int btr(size_t* p, size_t bitnum) pure @system;
 }
 else
-{
-    int btr(size_t* p, size_t bitnum) pure;
-}
+int btr(size_t* p, size_t bitnum) pure @system;
 
 
 /**
  * Tests and sets the bit.
  * Params:
  * p = a non-NULL pointer to an array of size_ts.
- * index = a bit number, starting with bit 0 of p[0],
+ * bitnum = a bit number, starting with bit 0 of p[0],
  * and progressing. It addresses bits like the expression:
 ---
 p[index / (size_t.sizeof*8)] & (1 << (index & ((size_t.sizeof*8) - 1)))
@@ -175,54 +165,17 @@ p[index / (size_t.sizeof*8)] & (1 << (index & ((size_t.sizeof*8) - 1)))
  * Returns:
  *      A non-zero value if the bit was set, and a zero
  *      if it was clear.
- *
- * Example:
- * ---
-import std.stdio;
-import core.bitop;
-
-int main()
-{
-    size_t array[2];
-
-    array[0] = 2;
-    array[1] = 0x100;
-
-    assert(btc(array, 35) == 0);
-    assert(array[0] == 2);
-    assert(array[1] == 0x108);
-
-    assert(btc(array, 35));
-    assert(array[0] == 2);
-    assert(array[1] == 0x100);
-
-    assert(bts(array, 35) == 0);
-    assert(array[0] == 2);
-    assert(array[1] == 0x108);
-
-    assert(btr(array, 35));
-    assert(array[0] == 2);
-    assert(array[1] == 0x100);
-
-    assert(bt(array, 1));
-    assert(array[0] == 2);
-    assert(array[1] == 0x100);
-
-    return 0;
-}
- * ---
  */
 version (LDC)
 {
-    pure pragma(LDC_intrinsic, "ldc.bitop.bts")
-        int bts(size_t* p, size_t bitnum);
+    pragma(LDC_intrinsic, "ldc.bitop.bts")
+        int bts(size_t* p, size_t bitnum) pure @system;
 }
 else
-{
-    int bts(size_t* p, size_t bitnum) pure;
-}
+int bts(size_t* p, size_t bitnum) pure @system;
 
-unittest
+///
+@system pure unittest
 {
     size_t array[2];
 

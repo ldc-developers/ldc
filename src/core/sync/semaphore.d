@@ -171,7 +171,7 @@ class Semaphore
      *  period = The time to wait.
      *
      * In:
-     *  val must be non-negative.
+     *  period must be non-negative.
      *
      * Throws:
      *  SyncException on error.
@@ -179,10 +179,10 @@ class Semaphore
      * Returns:
      *  true if notified before the timeout and false if not.
      */
-    bool wait( Duration val )
+    bool wait( Duration period )
     in
     {
-        assert( !val.isNegative );
+        assert( !period.isNegative );
     }
     body
     {
@@ -190,7 +190,7 @@ class Semaphore
         {
             auto maxWaitMillis = dur!("msecs")( uint.max - 1 );
 
-            while( val > maxWaitMillis )
+            while( period > maxWaitMillis )
             {
                 auto rc = WaitForSingleObject( m_hndl, cast(uint)
                                                        maxWaitMillis.total!"msecs" );
@@ -199,13 +199,13 @@ class Semaphore
                 case WAIT_OBJECT_0:
                     return true;
                 case WAIT_TIMEOUT:
-                    val -= maxWaitMillis;
+                    period -= maxWaitMillis;
                     continue;
                 default:
                     throw new SyncException( "Unable to wait for semaphore" );
                 }
             }
-            switch( WaitForSingleObject( m_hndl, cast(uint) val.total!"msecs" ) )
+            switch( WaitForSingleObject( m_hndl, cast(uint) period.total!"msecs" ) )
             {
             case WAIT_OBJECT_0:
                 return true;
@@ -220,15 +220,15 @@ class Semaphore
             mach_timespec_t t = void;
             (cast(byte*) &t)[0 .. t.sizeof] = 0;
 
-            if( val.total!"seconds" > t.tv_sec.max )
+            if( period.total!"seconds" > t.tv_sec.max )
             {
                 t.tv_sec  = t.tv_sec.max;
-                t.tv_nsec = cast(typeof(t.tv_nsec)) val.fracSec.nsecs;
+                t.tv_nsec = cast(typeof(t.tv_nsec)) period.fracSec.nsecs;
             }
             else
             {
-                t.tv_sec  = cast(typeof(t.tv_sec)) val.total!"seconds";
-                t.tv_nsec = cast(typeof(t.tv_nsec)) val.fracSec.nsecs;
+                t.tv_sec  = cast(typeof(t.tv_sec)) period.total!"seconds";
+                t.tv_nsec = cast(typeof(t.tv_nsec)) period.fracSec.nsecs;
             }
             while( true )
             {
@@ -244,7 +244,7 @@ class Semaphore
         else version( Posix )
         {
             timespec t = void;
-            mktspec( t, val );
+            mktspec( t, period );
 
             while( true )
             {
@@ -354,158 +354,89 @@ private:
 
 version( unittest )
 {
-    private import core.thread;
-
+    import core.thread, core.atomic;
 
     void testWait()
     {
-        auto semaphore    = new Semaphore;
-        int  numToProduce = 10;
-        bool allProduced  = false;
-        auto synProduced  = new Object;
-        int  numConsumed  = 0;
-        auto synConsumed  = new Object;
-        int  numConsumers = 10;
-        int  numComplete  = 0;
-        auto synComplete  = new Object;
+        auto semaphore = new Semaphore;
+        shared bool stopConsumption = false;
+        immutable numToProduce = 20;
+        immutable numConsumers = 10;
+        shared size_t numConsumed;
+        shared size_t numComplete;
 
         void consumer()
         {
-            while( true )
+            while (true)
             {
                 semaphore.wait();
 
-                synchronized( synProduced )
-                {
-                    if( allProduced )
-                        break;
-                }
-
-                synchronized( synConsumed )
-                {
-                    ++numConsumed;
-                }
+                if (atomicLoad(stopConsumption))
+                    break;
+                atomicOp!"+="(numConsumed, 1);
             }
-
-            synchronized( synComplete )
-            {
-                ++numComplete;
-            }
+            atomicOp!"+="(numComplete, 1);
         }
 
         void producer()
         {
-            assert( !semaphore.tryWait() );
+            assert(!semaphore.tryWait());
 
-            for( int i = 0; i < numToProduce; ++i )
-            {
+            foreach (_; 0 .. numToProduce)
                 semaphore.notify();
-                Thread.yield();
-            }
-            Thread.sleep( dur!"seconds"(1) );
-            synchronized( synProduced )
-            {
-                allProduced = true;
-            }
 
-            for( int i = 0; i < numConsumers; ++i )
-            {
+            // wait until all items are consumed
+            while (atomicLoad(numConsumed) != numToProduce)
+                Thread.yield();
+
+            // mark consumption as finished
+            atomicStore(stopConsumption, true);
+
+            // wake all consumers
+            foreach (_; 0 .. numConsumers)
                 semaphore.notify();
+
+            // wait until all consumers completed
+            while (atomicLoad(numComplete) != numConsumers)
                 Thread.yield();
-            }
 
-            version (FreeBSD) enum factor = 500_000;
-            else enum factor = 10_000;
-
-            for( int i = numConsumers * factor; i > 0; --i )
-            {
-                synchronized( synComplete )
-                {
-                    if( numComplete == numConsumers )
-                        break;
-                }
-                Thread.yield();
-            }
-
-            {
-                bool cond;
-                synchronized( synComplete )
-                {
-                    cond = numComplete == numConsumers;
-                }
-                assert(cond);
-            }
-
-            {
-                bool cond;
-                synchronized( synConsumed )
-                {
-                    cond = numConsumed == numToProduce;
-                }
-                assert(cond);
-            }
-
-            assert( !semaphore.tryWait() );
+            assert(!semaphore.tryWait());
             semaphore.notify();
-            assert( semaphore.tryWait() );
-            assert( !semaphore.tryWait() );
+            assert(semaphore.tryWait());
+            assert(!semaphore.tryWait());
         }
 
         auto group = new ThreadGroup;
 
         for( int i = 0; i < numConsumers; ++i )
-            group.create( &consumer );
-        group.create( &producer );
+            group.create(&consumer);
+        group.create(&producer);
         group.joinAll();
     }
 
 
     void testWaitTimeout()
     {
-        auto synReady   = new Object;
-        auto semReady   = new Semaphore;
-        bool alertedOne = true;
-        bool alertedTwo = true;
-        int  numReady   = 0;
+        auto sem = new Semaphore;
+        shared bool semReady;
+        bool alertedOne, alertedTwo;
 
         void waiter()
         {
-            synchronized( synReady )
-            {
-                numReady++;
-            }
-            while( true )
-            {
-                synchronized( synReady )
-                {
-                    if( numReady > 1 )
-                        break;
-                }
+            while (!atomicLoad(semReady))
                 Thread.yield();
-            }
-            alertedOne = semReady.wait( dur!"msecs"(100) );
-            alertedTwo = semReady.wait( dur!"msecs"(100) );
+            alertedOne = sem.wait(dur!"msecs"(1));
+            alertedTwo = sem.wait(dur!"msecs"(1));
+            assert(alertedOne && !alertedTwo);
         }
 
-        auto thread = new Thread( &waiter );
+        auto thread = new Thread(&waiter);
         thread.start();
 
-        while( true )
-        {
-            synchronized( synReady )
-            {
-                if( numReady )
-                {
-                    numReady++;
-                    break;
-                }
-            }
-            Thread.yield();
-        }
-        Thread.yield();
-        semReady.notify();
+        sem.notify();
+        atomicStore(semReady, true);
         thread.join();
-        assert( numReady == 2 && alertedOne && !alertedTwo );
+        assert(alertedOne && !alertedTwo);
     }
 
 

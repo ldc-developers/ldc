@@ -13,8 +13,8 @@ module core.thread;
 
 
 public import core.time; // for Duration
+import core.exception : onOutOfMemoryError;
 static import rt.tlsgc;
-import rt.sections;
 
 // this should be true for most architectures
 version = StackGrowsDown;
@@ -48,12 +48,12 @@ else version (Windows)
  */
 class ThreadException : Exception
 {
-    this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
+    @safe pure nothrow this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
     {
         super(msg, file, line, next);
     }
 
-    this(string msg, Throwable next, string file = __FILE__, size_t line = __LINE__)
+    @safe pure nothrow this(string msg, Throwable next, string file = __FILE__, size_t line = __LINE__)
     {
         super(msg, file, line, next);
     }
@@ -65,12 +65,12 @@ class ThreadException : Exception
  */
 class FiberException : Exception
 {
-    this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
+    @safe pure nothrow this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
     {
         super(msg, file, line, next);
     }
 
-    this(string msg, Throwable next, string file = __FILE__, size_t line = __LINE__)
+    @safe pure nothrow this(string msg, Throwable next, string file = __FILE__, size_t line = __LINE__)
     {
         super(msg, file, line, next);
     }
@@ -235,7 +235,17 @@ else version( Posix )
         //
         extern (C) void* thread_entryPoint( void* arg )
         {
-            Thread  obj = cast(Thread) arg;
+            version (Shared)
+            {
+                import rt.sections;
+                Thread obj = cast(Thread)(cast(void**)arg)[0];
+                auto loadedLibraries = (cast(void**)arg)[1];
+                .free(arg);
+            }
+            else
+            {
+                Thread obj = cast(Thread)arg;
+            }
             assert( obj );
 
             assert( obj.m_curr is &obj.m_main );
@@ -314,6 +324,7 @@ else version( Posix )
 
             try
             {
+                version (Shared) inheritLoadedLibraries(loadedLibraries);
                 rt_moduleTlsCtor();
                 try
                 {
@@ -324,6 +335,7 @@ else version( Posix )
                     append( t );
                 }
                 rt_moduleTlsDtor();
+                version (Shared) cleanupLoadedLibraries();
             }
             catch( Throwable t )
             {
@@ -636,8 +648,26 @@ class Thread
                 m_isRunning = true;
                 scope( failure ) m_isRunning = false;
 
-                if( pthread_create( &m_addr, &attr, &thread_entryPoint, cast(void*) this ) != 0 )
-                    throw new ThreadException( "Error creating thread" );
+                version (Shared)
+                {
+                    import rt.sections;
+                    auto libs = pinLoadedLibraries();
+                    auto ps = cast(void**).malloc(2 * size_t.sizeof);
+                    if (ps is null) onOutOfMemoryError();
+                    ps[0] = cast(void*)this;
+                    ps[1] = cast(void*)libs;
+                    if( pthread_create( &m_addr, &attr, &thread_entryPoint, ps ) != 0 )
+                    {
+                        unpinLoadedLibraries(libs);
+                        .free(ps);
+                        throw new ThreadException( "Error creating thread" );
+                    }
+                }
+                else
+                {
+                    if( pthread_create( &m_addr, &attr, &thread_entryPoint, cast(void*) this ) != 0 )
+                        throw new ThreadException( "Error creating thread" );
+                }
             }
             version( OSX )
             {
@@ -829,10 +859,19 @@ class Thread
     /**
      * The maximum scheduling priority that may be set for a thread.  On
      * systems where multiple scheduling policies are defined, this value
-     * represents the minimum valid priority for the scheduling policy of
+     * represents the maximum valid priority for the scheduling policy of
      * the process.
      */
     __gshared const int PRIORITY_MAX;
+
+
+    /**
+     * The default scheduling priority that is set for a thread.  On
+     * systems where multiple scheduling policies are defined, this value
+     * represents the default priority for the scheduling policy of
+     * the process.
+     */
+    __gshared const int PRIORITY_DEFAULT;
 
 
     /**
@@ -866,6 +905,12 @@ class Thread
      *  val = The new scheduling priority of this thread.
      */
     final @property void priority( int val )
+    in
+    {
+        assert(val >= PRIORITY_MIN);
+        assert(val <= PRIORITY_MAX);
+    }
+    body
     {
         version( Windows )
         {
@@ -874,22 +919,41 @@ class Thread
         }
         else version( Posix )
         {
-            // NOTE: pthread_setschedprio is not implemented on linux, so use
-            //       the more complicated get/set sequence below.
-            //if( pthread_setschedprio( m_addr, val ) )
-            //    throw new ThreadException( "Unable to set thread priority" );
+            static if( __traits( compiles, pthread_setschedprio ) )
+            {
+                if( pthread_setschedprio( m_addr, val ) )
+                    throw new ThreadException( "Unable to set thread priority" );
+            }
+            else
+            {
+                // NOTE: pthread_setschedprio is not implemented on OSX or FreeBSD, so use
+                //       the more complicated get/set sequence below.
+                int         policy;
+                sched_param param;
 
-            int         policy;
-            sched_param param;
-
-            if( pthread_getschedparam( m_addr, &policy, &param ) )
-                throw new ThreadException( "Unable to set thread priority" );
-            param.sched_priority = val;
-            if( pthread_setschedparam( m_addr, policy, &param ) )
-                throw new ThreadException( "Unable to set thread priority" );
+                if( pthread_getschedparam( m_addr, &policy, &param ) )
+                    throw new ThreadException( "Unable to set thread priority" );
+                param.sched_priority = val;
+                if( pthread_setschedparam( m_addr, policy, &param ) )
+                    throw new ThreadException( "Unable to set thread priority" );
+            }
         }
     }
 
+
+    unittest
+    {
+        auto thr = Thread.getThis();
+        immutable prio = thr.priority;
+        scope (exit) thr.priority = prio;
+
+        assert(prio == PRIORITY_DEFAULT);
+        assert(prio >= PRIORITY_MIN && prio <= PRIORITY_MAX);
+        thr.priority = PRIORITY_MIN;
+        assert(thr.priority == PRIORITY_MIN);
+        thr.priority = PRIORITY_MAX;
+        assert(thr.priority == PRIORITY_MAX);
+    }
 
     ///////////////////////////////////////////////////////////////////////////
     // Actions on Calling Thread
@@ -925,6 +989,10 @@ class Thread
         version( Windows )
         {
             auto maxSleepMillis = dur!("msecs")( uint.max - 1 );
+
+            // avoid a non-zero time to be round down to 0
+            if( val > dur!"msecs"( 0 ) && val < dur!"msecs"( 1 ) )
+                val = dur!"msecs"( 1 );
 
             // NOTE: In instances where all other threads in the process have a
             //       lower priority than the current thread, the current thread
@@ -1066,8 +1134,9 @@ class Thread
     {
         version( Windows )
         {
-            PRIORITY_MIN = -15;
-            PRIORITY_MAX =  15;
+            PRIORITY_MIN = THREAD_PRIORITY_IDLE;
+            PRIORITY_DEFAULT = THREAD_PRIORITY_NORMAL;
+            PRIORITY_MAX = THREAD_PRIORITY_TIME_CRITICAL;
         }
         else version( Posix )
         {
@@ -1080,6 +1149,8 @@ class Thread
 
             PRIORITY_MIN = sched_get_priority_min( policy );
             assert( PRIORITY_MIN != -1 );
+
+            PRIORITY_DEFAULT = param.sched_priority;
 
             PRIORITY_MAX = sched_get_priority_max( policy );
             assert( PRIORITY_MAX != -1 );
@@ -1339,21 +1410,29 @@ private:
     //
     @property static Mutex slock()
     {
-        __gshared Mutex m;
-        __gshared byte[__traits(classInstanceSize, Mutex)] ms;
+        return cast(Mutex)_locks[0].ptr;
+    }
 
-        if (m is null)
+    @property static Mutex criticalRegionLock()
+    {
+        return cast(Mutex)_locks[1].ptr;
+    }
+
+    __gshared byte[__traits(classInstanceSize, Mutex)][2] _locks;
+
+    static void initLocks()
+    {
+        foreach (ref lock; _locks)
         {
-            // Initialization doesn't need to be synchronized because
-            // creating a thread will lock this mutex.
-            ms[] = Mutex.classinfo.init[];
-            m = cast(Mutex)ms.ptr;
-            m.__ctor();
-
-            extern(C) void destroy() { m.__dtor(); }
-            atexit(&destroy);
+            lock[] = Mutex.classinfo.init[];
+            (cast(Mutex)lock.ptr).__ctor();
         }
-        return m;
+    }
+
+    static void termLocks()
+    {
+        foreach (ref lock; _locks)
+            (cast(Mutex)lock.ptr).__dtor();
     }
 
     __gshared Context*  sm_cbeg;
@@ -1628,6 +1707,8 @@ extern (C) void thread_init()
     //       exist to be scanned at this point, it is sufficient for these
     //       functions to detect the condition and return immediately.
 
+    Thread.initLocks();
+
     version( OSX )
     {
     }
@@ -1675,6 +1756,16 @@ extern (C) void thread_init()
         assert( status == 0 );
     }
     Thread.sm_main = thread_attachThis();
+}
+
+
+/**
+ * Terminates the thread module. No other thread routine may be called
+ * afterwards.
+ */
+extern (C) void thread_term()
+{
+    Thread.termLocks();
 }
 
 
@@ -2169,17 +2260,12 @@ private void suspend( Thread t )
                 }
                 throw new ThreadException( "Unable to suspend thread" );
             }
-            // NOTE: It's really not ideal to wait for each thread to
-            //       signal individually -- rather, it would be better to
-            //       suspend them all and wait once at the end.  However,
-            //       semaphores don't really work this way, and the obvious
-            //       alternative (looping on an atomic suspend count)
-            //       requires either the atomic module (which only works on
-            //       x86) or other specialized functionality.  It would
-            //       also be possible to simply loop on sem_wait at the
-            //       end, but I'm not convinced that this would be much
-            //       faster than the current approach.
-            sem_wait( &suspendCount );
+            while (sem_wait(&suspendCount) != 0)
+            {
+                if (errno != EINTR)
+                    throw new ThreadException( "Unable to wait for semaphore" );
+                errno = 0;
+            }
         }
         else if( !t.m_lock )
         {
@@ -2232,61 +2318,30 @@ extern (C) void thread_suspendAll()
         //       the same thread to be suspended twice, which would likely
         //       cause the second suspend to fail, the garbage collection to
         //       abort, and Bad Things to occur.
-        for( Thread t = Thread.sm_tbeg; t; t = t.next )
-        {
-            if( t.isRunning )
-                suspend( t );
-            else
-                Thread.remove( t );
-        }
 
-        // The world is stopped. We now make sure that all threads are outside
-        // critical regions by continually suspending and resuming them until all
-        // of them are safe. This is extremely error-prone; if some thread enters
-        // a critical region and never exits it (e.g. it waits for a mutex forever),
-        // then we'll pretty much 'deadlock' here. Not much we can do about that,
-        // and it indicates incorrect use of the critical region API anyway.
-        for (;;)
+        Thread.criticalRegionLock.lock();
+        for (Thread t = Thread.sm_tbeg; t !is null; t = t.next)
         {
-            uint unsafeCount;
-
-            for (auto t = Thread.sm_tbeg; t; t = t.next)
+            Duration waittime = dur!"usecs"(10);
+        Lagain:
+            if (!t.isRunning)
             {
-                // NOTE: We don't need to check whether the thread has died here,
-                //       since it's checked in the loops above and below.
-                if (atomicLoad(*cast(shared)&t.m_isInCriticalRegion))
-                {
-                    unsafeCount += 10;
-                    resume(t);
-                }
+                Thread.remove(t);
             }
-
-            // If all threads are safe (i.e. unsafeCount == 0), no threads were in
-            // critical regions in the first place, and we can just break. Otherwise,
-            // we sleep for a bit to give the threads a chance to get to safe points.
-            if (unsafeCount)
-                Thread.sleep(dur!"usecs"(unsafeCount)); // This heuristic could probably use some tuning.
-            else
-                break;
-
-            // Some thread was not in a safe region, so we suspend the world again to
-            // re-do this loop to check whether we're safe now.
-            for (auto t = Thread.sm_tbeg; t; t = t.next)
+            else if (t.m_isInCriticalRegion)
             {
-                // The thread could have died in the meantime. Also see the note in
-                // the topmost loop that initially suspends the world.
-                if (t.isRunning)
-                    suspend(t);
-                else
-                    Thread.remove(t);
+                Thread.criticalRegionLock.unlock();
+                Thread.sleep(waittime);
+                if (waittime < dur!"msecs"(10)) waittime *= 2;
+                Thread.criticalRegionLock.lock();
+                goto Lagain;
+            }
+            else
+            {
+                suspend(t);
             }
         }
-
-        version( Posix )
-        {
-            // wait on semaphore -- see note in suspend for
-            // why this is currently not implemented
-        }
+        Thread.criticalRegionLock.unlock();
     }
 }
 
@@ -2491,7 +2546,8 @@ in
 }
 body
 {
-    atomicStore(*cast(shared)&Thread.getThis().m_isInCriticalRegion, true);
+    synchronized (Thread.criticalRegionLock)
+        Thread.getThis().m_isInCriticalRegion = true;
 }
 
 extern (C) void thread_exitCriticalRegion()
@@ -2501,7 +2557,8 @@ in
 }
 body
 {
-    atomicStore(*cast(shared)&Thread.getThis().m_isInCriticalRegion, false);
+    synchronized (Thread.criticalRegionLock)
+        Thread.getThis().m_isInCriticalRegion = false;
 }
 
 extern (C) bool thread_inCriticalRegion()
@@ -2511,7 +2568,8 @@ in
 }
 body
 {
-    return atomicLoad(*cast(shared)&Thread.getThis().m_isInCriticalRegion);
+    synchronized (Thread.criticalRegionLock)
+        return Thread.getThis().m_isInCriticalRegion;
 }
 
 unittest
@@ -2539,55 +2597,66 @@ unittest
     //       to cause a deadlock.
     // NOTE: DO NOT USE LOCKS IN CRITICAL REGIONS IN NORMAL CODE.
 
-    import core.sync.condition;
+    import core.sync.semaphore;
 
-    bool critical;
-    auto cond1 = new Condition(new Mutex());
+    auto sema = new Semaphore(),
+         semb = new Semaphore();
 
-    bool stop;
-    auto cond2 = new Condition(new Mutex());
-
-    auto thr = new Thread(delegate void()
+    auto thr = new Thread(
     {
         thread_enterCriticalRegion();
-
         assert(thread_inCriticalRegion());
-        assert(atomicLoad(*cast(shared)&Thread.getThis().m_isInCriticalRegion));
+        sema.notify();
 
-        synchronized (cond1.mutex)
-        {
-            critical = true;
-            cond1.notify();
-        }
-
-        synchronized (cond2.mutex)
-            while (!stop)
-                cond2.wait();
-
+        semb.wait();
         assert(thread_inCriticalRegion());
-        assert(atomicLoad(*cast(shared)&Thread.getThis().m_isInCriticalRegion));
 
         thread_exitCriticalRegion();
-
         assert(!thread_inCriticalRegion());
-        assert(!atomicLoad(*cast(shared)&Thread.getThis().m_isInCriticalRegion));
+        sema.notify();
+
+        semb.wait();
+        assert(!thread_inCriticalRegion());
     });
 
     thr.start();
 
-    synchronized (cond1.mutex)
-        while (!critical)
-            cond1.wait();
+    sema.wait();
+    synchronized (Thread.criticalRegionLock)
+        assert(thr.m_isInCriticalRegion);
+    semb.notify();
 
-    assert(atomicLoad(*cast(shared)&thr.m_isInCriticalRegion));
-
-    synchronized (cond2.mutex)
-    {
-        stop = true;
-        cond2.notify();
-    }
+    sema.wait();
+    synchronized (Thread.criticalRegionLock)
+        assert(!thr.m_isInCriticalRegion);
+    semb.notify();
 
     thr.join();
+}
+
+unittest
+{
+    import core.sync.semaphore;
+
+    shared bool inCriticalRegion;
+    auto sem = new Semaphore();
+
+    auto thr = new Thread(
+    {
+        thread_enterCriticalRegion();
+        inCriticalRegion = true;
+        sem.notify();
+        Thread.sleep(dur!"msecs"(1));
+        inCriticalRegion = false;
+        thread_exitCriticalRegion();
+    });
+    thr.start();
+
+    sem.wait();
+    assert(inCriticalRegion);
+    thread_suspendAll();
+    assert(!inCriticalRegion);
+    thread_resumeAll();
 }
 
 /**
@@ -3412,15 +3481,12 @@ class Fiber
 
 
     /**
-     * Resets this fiber so that it may be re-used.  This routine may only be
-     * called for fibers that have terminated, as doing otherwise could result
-     * in scope-dependent functionality that is not executed.  Stack-based
-     * classes, for example, may not be cleaned up properly if a fiber is reset
-     * before it has terminated.
-     *
-     * Params:
-     *  fn = The fiber function.
-     *  dg = The fiber function.
+     * Resets this fiber so that it may be re-used, optionally with a
+     * new function/delegate.  This routine may only be called for
+     * fibers that have terminated, as doing otherwise could result in
+     * scope-dependent functionality that is not executed.
+     * Stack-based classes, for example, may not be cleaned up
+     * properly if a fiber is reset before it has terminated.
      *
      * In:
      *  This fiber must be in state TERM.
@@ -3714,6 +3780,7 @@ private:
         else
         {
             version (Posix) import core.sys.posix.sys.mman; // mmap
+            version (linux) import core.sys.linux.sys.mman : MAP_ANON;
 
             static if( __traits( compiles, mmap ) )
             {
@@ -4397,6 +4464,86 @@ unittest
 
     fib.reset(delegate void(){method = "delegate";});
     expect(fib, "delegate");
+}
+
+
+// stress testing GC stack scanning
+unittest
+{
+    import core.memory;
+
+    static void unreferencedThreadObject()
+    {
+        static void sleep() { Thread.sleep(dur!"msecs"(100)); }
+        auto thread = new Thread(&sleep);
+        thread.start();
+    }
+    unreferencedThreadObject();
+    GC.collect();
+
+    static class Foo
+    {
+        this(int value)
+        {
+            _value = value;
+        }
+
+        int bar()
+        {
+            return _value;
+        }
+
+        int _value;
+    }
+
+    static void collect()
+    {
+        auto foo = new Foo(2);
+        assert(foo.bar() == 2);
+        GC.collect();
+        Fiber.yield();
+        GC.collect();
+        assert(foo.bar() == 2);
+    }
+
+    auto fiber = new Fiber(&collect);
+
+    fiber.call();
+    GC.collect();
+    fiber.call();
+
+    // thread reference
+    auto foo = new Foo(2);
+
+    void collect2()
+    {
+        assert(foo.bar() == 2);
+        GC.collect();
+        Fiber.yield();
+        GC.collect();
+        assert(foo.bar() == 2);
+    }
+
+    fiber = new Fiber(&collect2);
+
+    fiber.call();
+    GC.collect();
+    fiber.call();
+
+    static void recurse(size_t cnt)
+    {
+        --cnt;
+        Fiber.yield();
+        if (cnt)
+        {
+            auto fib = new Fiber(() { recurse(cnt); });
+            fib.call();
+            GC.collect();
+            fib.call();
+        }
+    }
+    fiber = new Fiber(() { recurse(20); });
+    fiber.call();
 }
 
 }

@@ -2,31 +2,16 @@
  * The exception module defines all system-level exceptions and provides a
  * mechanism to alter system-level error handling.
  *
- * Copyright: Copyright Sean Kelly 2005 - 2011.
- * License:   $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0)
+ * Copyright: Copyright Sean Kelly 2005 - 2013.
+ * License: Distributed under the
+ *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0).
+ *    (See accompanying file LICENSE)
  * Authors:   Sean Kelly and Jonathan M Davis
  * Source:    $(DRUNTIMESRC core/_exception.d)
- */
-
-/*          Copyright Sean Kelly 2005 - 2011.
- * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE or copy at
- *          http://www.boost.org/LICENSE_1_0.txt)
  */
 module core.exception;
 
 import core.stdc.stdio;
-
-private
-{
-    alias void function( string file, size_t line, string msg ) errorHandlerType;
-
-    // NOTE: One assert handler is used for all threads.  Thread-local
-    //       behavior should occur within the handler itself.  This delegate
-    //       is __gshared for now based on the assumption that it will only
-    //       set by the main thread during program initialization.
-    __gshared errorHandlerType assertHandler = null;
-}
 
 
 /**
@@ -34,7 +19,7 @@ private
  */
 class RangeError : Error
 {
-    this( string file = __FILE__, size_t line = __LINE__, Throwable next = null )
+    @safe pure nothrow this( string file = __FILE__, size_t line = __LINE__, Throwable next = null )
     {
         super( "Range violation", file, line, next );
     }
@@ -65,17 +50,17 @@ unittest
  */
 class AssertError : Error
 {
-    this( string file, size_t line )
+    @safe pure nothrow this( string file, size_t line )
     {
         this(cast(Throwable)null, file, line);
     }
 
-    this( Throwable next, string file = __FILE__, size_t line = __LINE__ )
+    @safe pure nothrow this( Throwable next, string file = __FILE__, size_t line = __LINE__ )
     {
         this( "Assertion failure", file, line, next);
     }
 
-    this( string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null )
+    @safe pure nothrow this( string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null )
     {
         super( msg, file, line, next );
     }
@@ -140,12 +125,12 @@ class FinalizeError : Error
 {
     ClassInfo   info;
 
-    this( ClassInfo ci, Throwable next, string file = __FILE__, size_t line = __LINE__ )
+    @safe pure nothrow this( ClassInfo ci, Throwable next, string file = __FILE__, size_t line = __LINE__ )
     {
         this(ci, file, line, next);
     }
 
-    this( ClassInfo ci, string file = __FILE__, size_t line = __LINE__, Throwable next = null )
+    @safe pure nothrow this( ClassInfo ci, string file = __FILE__, size_t line = __LINE__, Throwable next = null )
     {
         super( "Finalization error", file, line, next );
         info = ci;
@@ -205,7 +190,7 @@ unittest
  */
 class HiddenFuncError : Error
 {
-    this( ClassInfo ci )
+    @safe pure nothrow this( ClassInfo ci )
     {
         super( "Hidden method called for " ~ ci.name );
     }
@@ -229,7 +214,7 @@ unittest
  */
 class OutOfMemoryError : Error
 {
-    this(string file = __FILE__, size_t line = __LINE__, Throwable next = null )
+    @safe pure nothrow this(string file = __FILE__, size_t line = __LINE__, Throwable next = null )
     {
         super( "Memory allocation failed", file, line, next );
     }
@@ -270,7 +255,7 @@ unittest
  */
 class InvalidMemoryOperationError : Error
 {
-    this(string file = __FILE__, size_t line = __LINE__, Throwable next = null )
+    @safe pure nothrow this(string file = __FILE__, size_t line = __LINE__, Throwable next = null )
     {
         super( "Invalid memory operation", file, line, next );
     }
@@ -306,7 +291,7 @@ unittest
  */
 class SwitchError : Error
 {
-    this( string file = __FILE__, size_t line = __LINE__, Throwable next = null )
+    @safe pure nothrow this( string file = __FILE__, size_t line = __LINE__, Throwable next = null )
     {
         super( "No appropriate switch clause found", file, line, next );
     }
@@ -339,7 +324,7 @@ class UnicodeException : Exception
 {
     size_t idx;
 
-    this( string msg, size_t idx, string file = __FILE__, size_t line = __LINE__, Throwable next = null )
+    this( string msg, size_t idx, string file = __FILE__, size_t line = __LINE__, Throwable next = null ) @safe pure nothrow
     {
         super( msg, file, line, next );
         this.idx = idx;
@@ -373,13 +358,39 @@ unittest
 ///////////////////////////////////////////////////////////////////////////////
 
 
+// NOTE: One assert handler is used for all threads.  Thread-local
+//       behavior should occur within the handler itself.  This delegate
+//       is __gshared for now based on the assumption that it will only
+//       set by the main thread during program initialization.
+private __gshared AssertHandler _assertHandler = null;
+
+
+/**
+Gets/sets assert hander. null means the default handler is used.
+*/
+alias AssertHandler = void function(string file, size_t line, string msg) nothrow;
+
+/// ditto
+@property AssertHandler assertHandler() @trusted nothrow
+{
+    return _assertHandler;
+}
+
+/// ditto
+@property void assertHandler(AssertHandler handler) @trusted nothrow
+{
+    _assertHandler = handler;
+}
+
 /**
  * Overrides the default assert hander with a user-supplied version.
+ * $(RED Deprecated.
+ *   Please use $(LREF assertHandler) instead.)
  *
  * Params:
  *  h = The new assert handler.  Set to null to use the default handler.
  */
-void setAssertHandler( errorHandlerType h )
+deprecated void setAssertHandler( AssertHandler h ) @trusted nothrow
 {
     assertHandler = h;
 }
@@ -398,11 +409,11 @@ void setAssertHandler( errorHandlerType h )
  *  file = The name of the file that signaled this error.
  *  line = The line number on which this error occurred.
  */
-extern (C) void onAssertError( string file = __FILE__, size_t line = __LINE__ )
+extern (C) void onAssertError( string file = __FILE__, size_t line = __LINE__ ) nothrow
 {
-    if( assertHandler is null )
+    if( _assertHandler is null )
         throw new AssertError( file, line );
-    assertHandler( file, line, null);
+    _assertHandler( file, line, null);
 }
 
 
@@ -415,11 +426,11 @@ extern (C) void onAssertError( string file = __FILE__, size_t line = __LINE__ )
  *  line = The line number on which this error occurred.
  *  msg  = An error message supplied by the user.
  */
-extern (C) void onAssertErrorMsg( string file, size_t line, string msg )
+extern (C) void onAssertErrorMsg( string file, size_t line, string msg ) nothrow
 {
-    if( assertHandler is null )
+    if( _assertHandler is null )
         throw new AssertError( msg, file, line );
-    assertHandler( file, line, msg );
+    _assertHandler( file, line, msg );
 }
 
 
@@ -433,7 +444,7 @@ extern (C) void onAssertErrorMsg( string file, size_t line, string msg )
  *  line = The line number on which this error occurred.
  *  msg  = An error message supplied by the user.
  */
-extern (C) void onUnittestErrorMsg( string file, size_t line, string msg )
+extern (C) void onUnittestErrorMsg( string file, size_t line, string msg ) nothrow
 {
     onAssertErrorMsg( file, line, msg );
 }
@@ -454,7 +465,7 @@ extern (C) void onUnittestErrorMsg( string file, size_t line, string msg )
  * Throws:
  *  RangeError.
  */
-extern (C) void onRangeError( string file = __FILE__, size_t line = __LINE__ )
+extern (C) void onRangeError( string file = __FILE__, size_t line = __LINE__ ) @safe pure nothrow
 {
     throw new RangeError( file, line, null );
 }
@@ -464,12 +475,15 @@ extern (C) void onRangeError( string file = __FILE__, size_t line = __LINE__ )
  * A callback for finalize errors in D.  A FinalizeError will be thrown.
  *
  * Params:
+ *  info = The ClassInfo instance for the object that failed finalization.
  *  e = The exception thrown during finalization.
+ *  file = The name of the file that signaled this error.
+ *  line = The line number on which this error occurred.
  *
  * Throws:
  *  FinalizeError.
  */
-extern (C) void onFinalizeError( ClassInfo info, Exception e, string file = __FILE__, size_t line = __LINE__ )
+extern (C) void onFinalizeError( ClassInfo info, Exception e, string file = __FILE__, size_t line = __LINE__ ) @safe pure nothrow
 {
     throw new FinalizeError( info, file, line, e );
 }
@@ -482,7 +496,7 @@ extern (C) void onFinalizeError( ClassInfo info, Exception e, string file = __FI
  * Throws:
  *  HiddenFuncError.
  */
-extern (C) void onHiddenFuncError( Object o )
+extern (C) void onHiddenFuncError( Object o ) @safe pure nothrow
 {
     throw new HiddenFuncError( o.classinfo );
 }
@@ -495,7 +509,7 @@ extern (C) void onHiddenFuncError( Object o )
  * Throws:
  *  OutOfMemoryError.
  */
-extern (C) void onOutOfMemoryError()
+extern (C) void onOutOfMemoryError() @trusted pure nothrow
 {
     // NOTE: Since an out of memory condition exists, no allocation must occur
     //       while generating this object.
@@ -510,7 +524,7 @@ extern (C) void onOutOfMemoryError()
  * Throws:
  *  InvalidMemoryOperationError.
  */
-extern (C) void onInvalidMemoryOperationError()
+extern (C) void onInvalidMemoryOperationError() @trusted pure nothrow
 {
     // The same restriction applies as for onOutOfMemoryError. The GC is in an
     // undefined state, thus no allocation must occur while generating this object.
@@ -529,7 +543,7 @@ extern (C) void onInvalidMemoryOperationError()
  * Throws:
  *  SwitchError.
  */
-extern (C) void onSwitchError( string file = __FILE__, size_t line = __LINE__ )
+extern (C) void onSwitchError( string file = __FILE__, size_t line = __LINE__ ) @safe pure nothrow
 {
     throw new SwitchError( file, line, null );
 }
@@ -541,11 +555,110 @@ extern (C) void onSwitchError( string file = __FILE__, size_t line = __LINE__ )
  * Params:
  *  msg = Information about the error.
  *  idx = String index where this error was detected.
+ *  file = The name of the file that signaled this error.
+ *  line = The line number on which this error occurred.
  *
  * Throws:
  *  UnicodeException.
  */
-extern (C) void onUnicodeError( string msg, size_t idx, string file = __FILE__, size_t line = __LINE__ )
+extern (C) void onUnicodeError( string msg, size_t idx, string file = __FILE__, size_t line = __LINE__ ) @safe pure
 {
     throw new UnicodeException( msg, idx, file, line );
 }
+
+/***********************************
+ * These functions must be defined for any D program linked
+ * against this library.
+ */
+/+
+extern (C) void onAssertError(string file, size_t line);
+extern (C) void onAssertErrorMsg(string file, size_t line, string msg);
+extern (C) void onUnittestErrorMsg(string file, size_t line, string msg);
+extern (C) void onRangeError(string file, size_t line);
+extern (C) void onHiddenFuncError(Object o);
+extern (C) void onSwitchError(string file, size_t line);
++/
+
+/***********************************
+ * Function calls to these are generated by the compiler and inserted into
+ * the object code.
+ */
+
+extern (C)
+{
+    // Use ModuleInfo to get file name for "m" versions
+
+    /* One of these three is called upon an assert() fail.
+     */
+    void _d_assertm(ModuleInfo* m, uint line)
+    {
+        onAssertError(m.name, line);
+    }
+
+    void _d_assert_msg(string msg, string file, uint line)
+    {
+        onAssertErrorMsg(file, line, msg);
+    }
+
+    void _d_assert(string file, uint line)
+    {
+        onAssertError(file, line);
+    }
+
+    /* One of these three is called upon an assert() fail inside of a unittest block
+     */
+    void _d_unittestm(ModuleInfo* m, uint line)
+    {
+        _d_unittest(m.name, line);
+    }
+
+    void _d_unittest_msg(string msg, string file, uint line)
+    {
+        onUnittestErrorMsg(file, line, msg);
+    }
+
+    void _d_unittest(string file, uint line)
+    {
+        _d_unittest_msg("unittest failure", file, line);
+    }
+
+    /* Called when an array index is out of bounds
+     */
+    void _d_array_bounds(ModuleInfo* m, uint line)
+    {
+        onRangeError(m.name, line);
+    }
+
+    void _d_arraybounds(string file, uint line)
+    {
+        onRangeError(file, line);
+    }
+
+    /* Called when a switch statement has no DefaultStatement, yet none of the cases match
+     */
+    void _d_switch_error(ModuleInfo* m, uint line)
+    {
+        onSwitchError(m.name, line);
+    }
+
+    void _d_hidden_func()
+    {
+        Object o;
+        version(D_InlineAsm_X86)
+            asm
+            {
+                mov o, EAX;
+            }
+        else version(D_InlineAsm_X86_64)
+            asm
+            {
+                mov o, RDI;
+            }
+        else
+            static assert(0, "unknown os");
+
+        onHiddenFuncError(o);
+    }
+}
+
+

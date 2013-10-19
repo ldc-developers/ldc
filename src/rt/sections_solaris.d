@@ -16,7 +16,7 @@ version (Solaris):
 // debug = PRINTF;
 debug(PRINTF) import core.stdc.stdio;
 import core.stdc.stdlib : malloc, free;
-import rt.deh2, rt.minfo;
+import rt.deh, rt.minfo;
 
 struct SectionGroup
 {
@@ -49,18 +49,21 @@ struct SectionGroup
 
     @property inout(void[])[] gcRanges() inout
     {
-        auto pbeg = cast(void*)&__dso_handle;
-        auto pend = cast(void*)&_end;
-        return pbeg[0 .. pend - pbeg];
+        return _gcRanges[];
     }
 
 private:
     ModuleGroup _moduleGroup;
+    void[][1] _gcRanges;
 }
 
 void initSections()
 {
     _sections.moduleGroup = ModuleGroup(getModuleInfos());
+
+    auto pbeg = cast(void*)&__dso_handle;
+    auto pend = cast(void*)&_end;
+    _sections._gcRanges[0] = pbeg[0 .. pend - pbeg];
 }
 
 void finiSections()

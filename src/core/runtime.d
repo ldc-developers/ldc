@@ -14,6 +14,15 @@
  */
 module core.runtime;
 
+version (Windows) import core.stdc.wchar_ : wchar_t;
+
+
+/// C interface for Runtime.loadLibrary
+extern (C) void* rt_loadLibrary(const char* name);
+/// ditto
+version (Windows) extern (C) void* rt_loadLibraryW(const wchar_t* name);
+/// C interface for Runtime.unloadLibrary, returns 1/0 instead of bool
+extern (C) int rt_unloadLibrary(void* ptr);
 
 private
 {
@@ -30,9 +39,6 @@ private
     alias void delegate( Throwable ) ExceptionHandler;
     extern (C) bool rt_init( ExceptionHandler dg = null );
     extern (C) bool rt_term( ExceptionHandler dg = null );
-
-    extern (C) void* rt_loadLibrary( in char[] name );
-    extern (C) bool  rt_unloadLibrary( void* ptr );
 
     extern (C) void* thread_stackBottom();
 
@@ -111,9 +117,12 @@ struct Runtime
 
 
     /**
-     * Terminates the runtime.  This call is to be used in instances where the
-     * standard program termination process will not be not executed.  This is
-     * most often in shared libraries or in libraries linked to a C program.
+     * Terminates the runtime. This call is to be used in instances
+     * where the standard program termination process will not be not
+     * executed. This is most often in shared libraries or in
+     * libraries linked to a C program. All non-daemon threads must be
+     * joined or detached prior to calling this function. See also
+     * $(CXREF thread, thread_joinAll) and $(CXREF thread, thread_detachThis).
      *
      * Params:
      *  dg = A delegate which will receive any exception thrown during the
@@ -141,11 +150,25 @@ struct Runtime
     }
 
     /**
-     * Returns the unprocessed C arguments supplied when the process was
-     * started. Use this when you need to supply argc and argv to C libraries.
+     * Returns the unprocessed C arguments supplied when the process was started.
+     * Use this when you need to supply argc and argv to C libraries.
      *
      * Returns:
      *  A $(LREF CArgs) struct with the arguments supplied when this process was started.
+     *
+     * Example:
+     * ---
+     * import core.runtime;
+     *
+     * // A C library function requiring char** arguments
+     * extern(C) void initLibFoo(int argc, char** argv);
+     *
+     * void main()
+     * {
+     *     auto args = Runtime.cArgs;
+     *     initLibFoo(args.argc, args.argv);
+     * }
+     * ---
      */
     static @property CArgs cArgs()
     {
@@ -163,9 +186,47 @@ struct Runtime
      * Returns:
      *  A reference to the library or null on error.
      */
-    static void* loadLibrary( in char[] name )
+    static void* loadLibrary()(in char[] name)
     {
-        return rt_loadLibrary( name );
+        import core.stdc.stdlib : free, malloc;
+        version (Windows)
+        {
+            import core.sys.windows.windows;
+
+            if (name.length == 0) return null;
+            // Load a DLL at runtime
+            auto len = MultiByteToWideChar(
+                CP_UTF8, 0, name.ptr, cast(int)name.length, null, 0);
+            if (len == 0)
+                return null;
+
+            auto buf = cast(wchar_t*)malloc((len+1) * wchar_t.sizeof);
+            if (buf is null) return null;
+            scope (exit) free(buf);
+
+            len = MultiByteToWideChar(
+                CP_UTF8, 0, name.ptr, cast(int)name.length, buf, len);
+            if (len == 0)
+                return null;
+
+            buf[len] = '\0';
+
+            return rt_loadLibraryW(buf);
+        }
+        else version (Posix)
+        {
+            /* Need a 0-terminated C string for the dll name
+             */
+            immutable len = name.length;
+            auto buf = cast(char*)malloc(len + 1);
+            if (!buf) return null;
+            scope (exit) free(buf);
+
+            buf[0 .. len] = name[];
+            buf[len] = 0;
+
+            return rt_loadLibrary(buf);
+        }
     }
 
 
@@ -177,9 +238,9 @@ struct Runtime
      * Params:
      *  p = A reference to the library to unload.
      */
-    static bool unloadLibrary( void* p )
+    static bool unloadLibrary()(void* p)
     {
-        return rt_unloadLibrary( p );
+        return !!rt_unloadLibrary(p);
     }
 
 
