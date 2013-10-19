@@ -446,7 +446,16 @@ void ForStatement::toIR(IRState* p)
     assert(!gIR->scopereturned());
     llvm::BranchInst::Create(forbb, gIR->scopebb());
 
-    p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,forincbb,endbb));
+    // In case of loops that have been rewritten to a composite statement
+    // containing the initializers and then the actual loop, we need to
+    // register the former as target scope start.
+    Statement* scopeStart = getRelatedLabeled();
+    while (ScopeStatement* scope = scopeStart->isScopeStatement())
+    {
+        scopeStart = scope->statement;
+    }
+    p->func()->gen->targetScopes.push_back(IRTargetScope(
+        scopeStart, NULL, forincbb, endbb));
 
     // replace current scope
     gIR->scope() = IRScope(forbb,forbodybb);
