@@ -767,6 +767,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         }
     } else if (func->getFunctionType() != functype) {
         error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", fdecl->mangle());
+        fatal();
     }
 
     func->setCallingConv(gABI->callingConv(link));
