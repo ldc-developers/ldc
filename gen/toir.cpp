@@ -2636,7 +2636,10 @@ DValue* CommaExp::toElem(IRState* p)
 
     e1->toElem(p);
     DValue* v = e2->toElem(p);
-    assert(e2->type == type);
+
+    // Actually, we can get qualifier mismatches in the 2.064 frontend:
+    // assert(e2->type == type);
+
     return v;
 }
 
