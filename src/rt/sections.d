@@ -10,6 +10,8 @@
 
 module rt.sections;
 
+version (LDC)
+    public import rt.sections_ldc;
 version (linux)
     public import rt.sections_linux;
 else version (FreeBSD)
