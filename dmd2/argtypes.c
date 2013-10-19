@@ -154,14 +154,6 @@ TypeTuple *TypeSArray::toArgTypes()
 #endif
 }
 
-TypeTuple *TypeDArray::toArgTypes()
-{
-    /* Should be done as if it were:
-     * struct S { size_t length; void* ptr; }
-     */
-    return new TypeTuple(Type::tsize_t, Type::tvoidptr);
-}
-
 TypeTuple *TypeAArray::toArgTypes()
 {
     return new TypeTuple(Type::tvoidptr);
@@ -170,14 +162,6 @@ TypeTuple *TypeAArray::toArgTypes()
 TypeTuple *TypePointer::toArgTypes()
 {
     return new TypeTuple(Type::tvoidptr);
-}
-
-TypeTuple *TypeDelegate::toArgTypes()
-{
-    /* Should be done as if it were:
-     * struct S { void* ptr; void* funcptr; }
-     */
-    return new TypeTuple(Type::tvoidptr, Type::tvoidptr);
 }
 
 /*************************************
@@ -273,6 +257,38 @@ Type *argtypemerge(Type *t1, Type *t2, unsigned offset2)
     return t;
 }
 
+TypeTuple *TypeDArray::toArgTypes()
+{
+    /* Should be done as if it were:
+     * struct S { size_t length; void* ptr; }
+     */
+    if (global.params.is64bit && !global.params.isLP64)
+    {
+        // For AMD64 ILP32 ABI, D arrays fit into a single integer register.
+        unsigned offset = Type::tsize_t->size(Loc());
+        Type *t = argtypemerge(Type::tsize_t, Type::tvoidptr, offset);
+        if (t)
+            return new TypeTuple(t);
+    }
+    return new TypeTuple(Type::tsize_t, Type::tvoidptr);
+}
+
+TypeTuple *TypeDelegate::toArgTypes()
+{
+    /* Should be done as if it were:
+     * struct S { size_t length; void* ptr; }
+     */
+    if (global.params.is64bit && !global.params.isLP64)
+    {
+        // For AMD64 ILP32 ABI, delegates fit into a single integer register.
+        unsigned offset = Type::tsize_t->size(Loc());
+        Type *t = argtypemerge(Type::tsize_t, Type::tvoidptr, offset);
+        if (t)
+            return new TypeTuple(t);
+    }
+    return new TypeTuple(Type::tvoidptr, Type::tvoidptr);
+}
+
 TypeTuple *TypeStruct::toArgTypes()
 {
     //printf("TypeStruct::toArgTypes() %s\n", toChars());
@@ -309,8 +325,6 @@ TypeTuple *TypeStruct::toArgTypes()
     if (global.params.is64bit && sym->fields.dim)
     {
 #if 1
-        unsigned sz1 = 0;
-        unsigned sz2 = 0;
         t1 = NULL;
         for (size_t i = 0; i < sym->fields.dim; i++)
         {   VarDeclaration *f = sym->fields[i];

@@ -39,7 +39,6 @@
 static Dsymbol *inferApplyArgTypesX(Expression *ethis, FuncDeclaration *fstart, Parameters *arguments);
 static void inferApplyArgTypesZ(TemplateDeclaration *tstart, Parameters *arguments);
 static int inferApplyArgTypesY(TypeFunction *tf, Parameters *arguments, int flags = 0);
-static void templateResolve(Match *m, TemplateDeclaration *td, Loc loc, Scope *sc, Objects *tiargs, Expression *ethis, Expressions *arguments);
 
 /******************************** Expression **************************/
 
@@ -182,7 +181,7 @@ AggregateDeclaration *isAggregate(Type *t)
 /*******************************************
  * Helper function to turn operator into template argument list
  */
-Objects *opToArg(Scope *sc, enum TOK op)
+Objects *opToArg(Scope *sc, TOK op)
 {
     /* Remove the = from op=
      */
@@ -236,10 +235,11 @@ Expression *UnaExp::op_overload(Scope *sc)
             Dsymbol *fd = search_function(ad, Id::opIndexUnary);
             if (fd)
             {
-                ae = resolveOpDollar(sc, ae);
+                Expression *e0 = resolveOpDollar(sc, ae);
                 Objects *tiargs = opToArg(sc, op);
                 Expression *e = new DotTemplateInstanceExp(loc, ae->e1, fd->ident, tiargs);
                 e = new CallExp(loc, e, ae->arguments);
+                e = combine(e0, e);
                 e = e->semantic(sc);
                 return e;
             }
@@ -277,16 +277,18 @@ Expression *UnaExp::op_overload(Scope *sc)
             Dsymbol *fd = search_function(ad, Id::opSliceUnary);
             if (fd)
             {
-                se = resolveOpDollar(sc, se);
+                Expression *e0 = resolveOpDollar(sc, se);
                 Expressions *a = new Expressions();
                 assert(!se->lwr || se->upr);
                 if (se->lwr)
-                {   a->push(se->lwr);
+                {
+                    a->push(se->lwr);
                     a->push(se->upr);
                 }
                 Objects *tiargs = opToArg(sc, op);
                 Expression *e = new DotTemplateInstanceExp(loc, se->e1, fd->ident, tiargs);
                 e = new CallExp(loc, e, a);
+                e = combine(e0, e);
                 e = e->semantic(sc);
                 return e;
             }
@@ -388,9 +390,10 @@ Expression *ArrayExp::op_overload(Scope *sc)
             /* Rewrite op e1[arguments] as:
              *    e1.opIndex(arguments)
              */
-            ArrayExp *ae = resolveOpDollar(sc, this);
-            Expression *e = new DotIdExp(loc, ae->e1, fd->ident);
-            e = new CallExp(loc, e, ae->arguments);
+            Expression *e0 = resolveOpDollar(sc, this);
+            Expression *e = new DotIdExp(loc, e1, fd->ident);
+            e = new CallExp(loc, e, arguments);
+            e = combine(e0, e);
             e = e->semantic(sc);
             return e;
         }
@@ -546,8 +549,10 @@ Expression *BinExp::op_overload(Scope *sc)
 
         args1.setDim(1);
         args1[0] = e1;
+        expandTuples(&args1);
         args2.setDim(1);
         args2[0] = e2;
+        expandTuples(&args2);
         argsset = 1;
 
         Match m;
@@ -555,32 +560,12 @@ Expression *BinExp::op_overload(Scope *sc)
         m.last = MATCHnomatch;
 
         if (s)
-        {
-            FuncDeclaration *fd = s->isFuncDeclaration();
-            if (fd)
-            {
-                overloadResolveX(&m, fd, NULL, &args2);
-            }
-            else
-            {   TemplateDeclaration *td = s->isTemplateDeclaration();
-                templateResolve(&m, td, loc, sc, tiargs, e1, &args2);
-            }
-        }
+            functionResolve(&m, s, loc, sc, tiargs, e1->type, &args2);
 
         FuncDeclaration *lastf = m.lastf;
 
         if (s_r)
-        {
-            FuncDeclaration *fd = s_r->isFuncDeclaration();
-            if (fd)
-            {
-                overloadResolveX(&m, fd, NULL, &args1);
-            }
-            else
-            {   TemplateDeclaration *td = s_r->isTemplateDeclaration();
-                templateResolve(&m, td, loc, sc, tiargs, e2, &args1);
-            }
-        }
+            functionResolve(&m, s_r, loc, sc, tiargs, e2->type, &args1);
 
         if (m.count > 1)
         {
@@ -637,10 +622,13 @@ L1:
              */
 
             if (!argsset)
-            {   args1.setDim(1);
+            {
+                args1.setDim(1);
                 args1[0] = e1;
+                expandTuples(&args1);
                 args2.setDim(1);
                 args2[0] = e2;
+                expandTuples(&args2);
             }
 
             Match m;
@@ -648,31 +636,12 @@ L1:
             m.last = MATCHnomatch;
 
             if (s_r)
-            {
-                FuncDeclaration *fd = s_r->isFuncDeclaration();
-                if (fd)
-                {
-                    overloadResolveX(&m, fd, NULL, &args2);
-                }
-                else
-                {   TemplateDeclaration *td = s_r->isTemplateDeclaration();
-                    templateResolve(&m, td, loc, sc, tiargs, e1, &args2);
-                }
-            }
+                functionResolve(&m, s_r, loc, sc, tiargs, e1->type, &args2);
+
             FuncDeclaration *lastf = m.lastf;
 
             if (s)
-            {
-                FuncDeclaration *fd = s->isFuncDeclaration();
-                if (fd)
-                {
-                    overloadResolveX(&m, fd, NULL, &args1);
-                }
-                else
-                {   TemplateDeclaration *td = s->isTemplateDeclaration();
-                    templateResolve(&m, td, loc, sc, tiargs, e2, &args1);
-                }
-            }
+                functionResolve(&m, s, loc, sc, tiargs, e2->type, &args1);
 
             if (m.count > 1)
             {
@@ -805,8 +774,10 @@ Expression *BinExp::compare_overload(Scope *sc, Identifier *id)
 
         args1.setDim(1);
         args1[0] = e1;
+        expandTuples(&args1);
         args2.setDim(1);
         args2[0] = e2;
+        expandTuples(&args2);
 
         Match m;
         memset(&m, 0, sizeof(m));
@@ -819,33 +790,13 @@ Expression *BinExp::compare_overload(Scope *sc, Identifier *id)
         }
 
         if (s)
-        {
-            FuncDeclaration *fd = s->isFuncDeclaration();
-            if (fd)
-            {
-                overloadResolveX(&m, fd, NULL, &args2);
-            }
-            else
-            {   TemplateDeclaration *td = s->isTemplateDeclaration();
-                templateResolve(&m, td, loc, sc, tiargs, e1, &args2);
-            }
-        }
+            functionResolve(&m, s, loc, sc, tiargs, e1->type, &args2);
 
         FuncDeclaration *lastf = m.lastf;
         int count = m.count;
 
         if (s_r)
-        {
-            FuncDeclaration *fd = s_r->isFuncDeclaration();
-            if (fd)
-            {
-                overloadResolveX(&m, fd, NULL, &args1);
-            }
-            else
-            {   TemplateDeclaration *td = s_r->isTemplateDeclaration();
-                templateResolve(&m, td, loc, sc, tiargs, e2, &args1);
-            }
-        }
+            functionResolve(&m, s_r, loc, sc, tiargs, e2->type, &args1);
 
         if (m.count > 1)
         {
@@ -953,7 +904,7 @@ Expression *EqualExp::op_overload(Scope *sc)
     {   ClassDeclaration *cd1 = t1->isClassHandle();
         ClassDeclaration *cd2 = t2->isClassHandle();
 
-        if (!(cd1->isCPPinterface() || cd2->isCPPinterface()))
+        if (!(cd1->cpp || cd2->cpp))
         {
             /* Rewrite as:
              *      .object.opEquals(e1, e2)
@@ -1013,13 +964,14 @@ Expression *BinAssignExp::op_overload(Scope *sc)
             Dsymbol *fd = search_function(ad, Id::opIndexOpAssign);
             if (fd)
             {
-                ae = resolveOpDollar(sc, ae);
+                Expression *e0 = resolveOpDollar(sc, ae);
                 Expressions *a = (Expressions *)ae->arguments->copy();
                 a->insert(0, e2);
 
                 Objects *tiargs = opToArg(sc, op);
                 Expression *e = new DotTemplateInstanceExp(loc, ae->e1, fd->ident, tiargs);
                 e = new CallExp(loc, e, a);
+                e = combine(e0, e);
                 e = e->semantic(sc);
                 return e;
             }
@@ -1057,18 +1009,20 @@ Expression *BinAssignExp::op_overload(Scope *sc)
             Dsymbol *fd = search_function(ad, Id::opSliceOpAssign);
             if (fd)
             {
-                se = resolveOpDollar(sc, se);
+                Expression *e0 = resolveOpDollar(sc, se);
                 Expressions *a = new Expressions();
                 a->push(e2);
                 assert(!se->lwr || se->upr);
                 if (se->lwr)
-                {   a->push(se->lwr);
+                {
+                    a->push(se->lwr);
                     a->push(se->upr);
                 }
 
                 Objects *tiargs = opToArg(sc, op);
                 Expression *e = new DotTemplateInstanceExp(loc, se->e1, fd->ident, tiargs);
                 e = new CallExp(loc, e, a);
+                e = combine(e0, e);
                 e = e->semantic(sc);
                 return e;
             }
@@ -1147,23 +1101,14 @@ Expression *BinAssignExp::op_overload(Scope *sc)
 
         args2.setDim(1);
         args2[0] = e2;
+        expandTuples(&args2);
 
         Match m;
         memset(&m, 0, sizeof(m));
         m.last = MATCHnomatch;
 
         if (s)
-        {
-            FuncDeclaration *fd = s->isFuncDeclaration();
-            if (fd)
-            {
-                overloadResolveX(&m, fd, NULL, &args2);
-            }
-            else
-            {   TemplateDeclaration *td = s->isTemplateDeclaration();
-                templateResolve(&m, td, loc, sc, tiargs, e1, &args2);
-            }
-        }
+            functionResolve(&m, s, loc, sc, tiargs, e1->type, &args2);
 
         if (m.count > 1)
         {
@@ -1540,47 +1485,51 @@ int ForeachStatement::inferApplyArgTypes(Scope *sc, Dsymbol *&sapply)
 
 static Dsymbol *inferApplyArgTypesX(Expression *ethis, FuncDeclaration *fstart, Parameters *arguments)
 {
-    struct Param3
+  struct ParamOpOver
+  {
+    Parameters *arguments;
+    int mod;
+    MATCH match;
+    FuncDeclaration *fd_best;
+    FuncDeclaration *fd_ambig;
+
+    static int fp(void *param, Dsymbol *s)
     {
-        Parameters *arguments;
-        int mod;
-        MATCH match;
-        FuncDeclaration *fd_best;
-        FuncDeclaration *fd_ambig;
-
-        static int fp(void *param, FuncDeclaration *f)
-        {
-            Param3 *p = (Param3 *)param;
-            TypeFunction *tf = (TypeFunction *)f->type;
-            MATCH m = MATCHexact;
-
-            if (f->isThis())
-            {   if (!MODimplicitConv(p->mod, tf->mod))
-                    m = MATCHnomatch;
-                else if (p->mod != tf->mod)
-                    m = MATCHconst;
-            }
-            if (!inferApplyArgTypesY(tf, p->arguments, 1))
-                m = MATCHnomatch;
-
-            if (m > p->match)
-            {   p->fd_best = f;
-                p->fd_ambig = NULL;
-                p->match = m;
-            }
-            else if (m == p->match)
-                p->fd_ambig = f;
+        FuncDeclaration *f = s->isFuncDeclaration();
+        if (!f)
             return 0;
-        }
-    };
+        ParamOpOver *p = (ParamOpOver *)param;
+        TypeFunction *tf = (TypeFunction *)f->type;
+        MATCH m = MATCHexact;
 
-    Param3 p;
+        if (f->isThis())
+        {
+            if (!MODimplicitConv(p->mod, tf->mod))
+                m = MATCHnomatch;
+            else if (p->mod != tf->mod)
+                m = MATCHconst;
+        }
+        if (!inferApplyArgTypesY(tf, p->arguments, 1))
+            m = MATCHnomatch;
+
+        if (m > p->match)
+        {
+            p->fd_best = f;
+            p->fd_ambig = NULL;
+            p->match = m;
+        }
+        else if (m == p->match)
+            p->fd_ambig = f;
+        return 0;
+    }
+  };
+    ParamOpOver p;
     p.arguments = arguments;
     p.mod = ethis->type->mod;
     p.match = MATCHnomatch;
     p.fd_best = NULL;
     p.fd_ambig = NULL;
-    overloadApply(fstart, &Param3::fp, &p);
+    overloadApply(fstart, &p, &ParamOpOver::fp);
     if (p.fd_best)
     {
         inferApplyArgTypesY((TypeFunction *)p.fd_best->type, arguments);
@@ -1637,10 +1586,10 @@ static int inferApplyArgTypesY(TypeFunction *tf, Parameters *arguments, int flag
             arg->type = arg->type->addStorageClass(arg->storageClass);
         }
     }
-  Lmatch:
+Lmatch:
     return 1;
 
-  Lnomatch:
+Lnomatch:
     return 0;
 }
 
@@ -1676,29 +1625,3 @@ void inferApplyArgTypesZ(TemplateDeclaration *tstart, Parameters *arguments)
     }
 }
 #endif
-
-/**************************************
- */
-
-static void templateResolve(Match *m, TemplateDeclaration *td, Loc loc, Scope *sc,
-        Objects *tiargs, Expression *ethis, Expressions *arguments)
-{
-    FuncDeclaration *fd;
-
-    assert(td);
-    fd = td->deduceFunctionTemplate(loc, sc, tiargs, ethis->type, arguments, 1);
-    if (!fd)
-        return;
-    m->anyf = fd;
-    if (m->last >= MATCHexact)
-    {
-        m->nextf = fd;
-        m->count++;
-    }
-    else
-    {
-        m->last = MATCHexact;
-        m->lastf = fd;
-        m->count = 1;
-    }
-}

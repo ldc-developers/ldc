@@ -805,7 +805,7 @@ void ThrowStatement::toIR(IRState* p)
 //////////////////////////////////////////////////////////////////////////////
 
 // used to build the sorted list of cases
-struct Case : Object
+struct Case : RootObject
 {
     StringExp* str;
     size_t index;
@@ -815,7 +815,7 @@ struct Case : Object
         index = i;
     }
 
-    int compare(Object *obj) {
+    int compare(RootObject *obj) {
         Case* c2 = static_cast<Case*>(obj);
         return str->compare(c2->str);
     }
@@ -922,7 +922,7 @@ void SwitchStatement::toIR(IRState* p)
     {
         // string switch?
         llvm::Value* switchTable = 0;
-        Array caseArray;
+        Objects caseArray;
         if (!condition->type->isintegral())
         {
             Logger::println("is string switch");
@@ -1388,7 +1388,7 @@ void LabelStatement::toIR(IRState* p)
     {
         IRAsmStmt* a = new IRAsmStmt;
         std::stringstream label;
-        printLabelName(label, p->func()->decl->mangle(), ident->toChars());
+        printLabelName(label, p->func()->decl->mangleExact(), ident->toChars());
         label << ":";
         a->code = label.str();
         p->asmBlock->s.push_back(a);

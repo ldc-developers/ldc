@@ -26,7 +26,7 @@ namespace llvm
     class Type;
 }
 
-struct Type;
+class Type;
 
 class IrTypeAggr;
 class IrTypeArray;

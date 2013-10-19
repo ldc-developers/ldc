@@ -12,8 +12,8 @@
 
 #include "ir/irtypeaggr.h"
 
-struct StructDeclaration;
-struct TypeStruct;
+class StructDeclaration;
+class TypeStruct;
 
 /// IrType for struct/union types.
 class IrTypeStruct : public IrTypeAggr

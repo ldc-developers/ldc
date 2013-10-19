@@ -1247,11 +1247,11 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     {
         Logger::println("AttribDeclaration");
         // choose the right set in case this is a conditional declaration
-        Array *d = a->include(NULL, NULL);
+        Dsymbols *d = a->include(NULL, NULL);
         if (d)
             for (unsigned i=0; i < d->dim; ++i)
             {
-                DtoDeclarationExp(static_cast<Dsymbol*>(d->data[i]));
+                DtoDeclarationExp((*d)[i]);
             }
     }
     // mixin declaration
@@ -1368,12 +1368,6 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
         Logger::println("const expression initializer");
         _init = DtoConstExpInit(loc, type, ex->exp);
     }
-    else if (StructInitializer* si = init->isStructInitializer())
-    {
-        Logger::println("const struct initializer");
-        DtoResolveDsymbol(si->ad);
-        return si->ad->ir.irAggr->createStructInitializer(si);
-    }
     else if (ArrayInitializer* ai = init->isArrayInitializer())
     {
         Logger::println("const array initializer");
@@ -1385,7 +1379,10 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
         LLType* ty = voidToI8(DtoType(type));
         _init = LLConstant::getNullValue(ty);
     }
-    else {
+    else
+    {
+        // StructInitializer is no longer suposed to make it to the glue layer
+        // in DMD 2.064.
         Logger::println("unsupported const initializer: %s", init->toChars());
     }
     return _init;
@@ -1488,7 +1485,7 @@ LLConstant* DtoTypeInfoOf(Type* type, bool base)
     LLConstant* c = isaConstant(tidecl->ir.irGlobal->value);
     assert(c != NULL);
     if (base)
-        return llvm::ConstantExpr::getBitCast(c, DtoType(Type::typeinfo->type));
+        return llvm::ConstantExpr::getBitCast(c, DtoType(Type::dtypeinfo->type));
     return c;
 }
 

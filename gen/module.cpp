@@ -382,10 +382,6 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
         error("is missing 'class Object'");
         fatal();
     }
-    if (!ClassDeclaration::classinfo) {
-        error("is missing 'class ClassInfo'");
-        fatal();
-    }
 
     LLVM_D_InitRuntime();
 
@@ -471,8 +467,8 @@ void Module::genmoduleinfo()
     // check for patch
     else
     {
-        unsigned sizeof_ModuleInfo = 16 * Target::ptrsize;
-        if (sizeof_ModuleInfo != moduleinfo->structsize)
+        // The base struct should consist only of _flags/_index.
+        if (moduleinfo->structsize != 4 + 4)
         {
             error("object.d ModuleInfo class is incorrect");
             fatal();
@@ -484,7 +480,7 @@ void Module::genmoduleinfo()
 
     // some types
     LLType* moduleinfoTy = moduleinfo->type->irtype->getLLType();
-    LLType* classinfoTy = ClassDeclaration::classinfo->type->irtype->getLLType();
+    LLType* classinfoTy = Type::typeinfoclass->type->irtype->getLLType();
 
     // importedModules[]
     std::vector<LLConstant*> importInits;

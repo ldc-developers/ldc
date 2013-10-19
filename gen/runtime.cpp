@@ -188,8 +188,8 @@ static void LLVM_D_BuildRuntimeModule()
     LLType* dstringTy = DtoType(Type::tdchar->arrayOf());
 
     LLType* objectTy = DtoType(ClassDeclaration::object->type);
-    LLType* classInfoTy = DtoType(ClassDeclaration::classinfo->type);
-    LLType* typeInfoTy = DtoType(Type::typeinfo->type);
+    LLType* classInfoTy = DtoType(Type::typeinfoclass->type);
+    LLType* typeInfoTy = DtoType(Type::dtypeinfo->type);
     LLType* aaTypeInfoTy = DtoType(Type::typeinfoassociativearray->type);
 
     LLType* aaTy = rt_ptr(LLStructType::get(gIR->context()));

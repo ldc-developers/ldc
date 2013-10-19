@@ -578,7 +578,7 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd)
     return DBuilder.createFunction(
         CU, // context
         fd->toPrettyChars(), // name
-        fd->mangle(), // linkage name
+        fd->mangleExact(), // linkage name
         file, // file
         fd->loc.linnum, // line no
         DIFnType, // type

@@ -29,12 +29,14 @@
 
 #include "mars.h"
 #include "module.h"
+#include "scope.h"
 #include "mtype.h"
 #include "id.h"
 #include "cond.h"
 #include "expression.h"
 #include "lexer.h"
 #if !IN_LLVM
+#include "parse.h"
 #include "lib.h"
 #include "json.h"
 #endif
@@ -56,6 +58,36 @@ void obj_end(Library *library, File *objfile);
 void printCtfePerformanceStats();
 
 static bool parse_arch(size_t argc, char** argv, bool is64bit);
+
+/** Normalize path by turning forward slashes into backslashes */
+void toWinPath(char *src)
+{
+    if (src == NULL)
+        return;
+
+    while (*src != '\0')
+    {
+        if (*src == '/')
+            *src = '\\';
+        src++;
+    }
+}
+
+Ungag::~Ungag()
+{
+    //printf("+ungag dtor gag %d => %d\n", global.gag, oldgag);
+    global.gag = oldgag;
+}
+
+Ungag Dsymbol::ungagSpeculative()
+{
+    unsigned oldgag = global.gag;
+
+    if (global.isSpeculativeGagging() && !isSpeculative())
+        global.gag = 0;
+
+    return Ungag(oldgag);
+}
 
 Global global;
 
@@ -104,6 +136,7 @@ void Global::init()
 #if IN_LLVM
     compiler.vendor = "LDC";
 #endif
+    stdmsg = stdout;
 
     main_d = "__main.d";
 
@@ -135,6 +168,13 @@ bool Global::endGagging(unsigned oldGagged)
 bool Global::isSpeculativeGagging()
 {
     return gag && gag == speculativeGag;
+}
+
+void Global::increaseErrorCount()
+{
+    if (gag)
+        ++gaggedErrors;
+    ++errors;
 }
 
 
@@ -233,6 +273,7 @@ void verrorPrint(Loc loc, const char *header, const char *format, va_list ap,
 }
 
 // header is "Error: " by default (see mars.h)
+extern "C" {
 void verror(Loc loc, const char *format, va_list ap,
                 const char *p1, const char *p2, const char *header)
 {
@@ -248,6 +289,7 @@ void verror(Loc loc, const char *format, va_list ap,
         global.gaggedErrors++;
     }
     global.errors++;
+}
 }
 
 // Doesn't increase error count, doesn't print "Error:".
@@ -328,7 +370,7 @@ Usage:\n\
   @cmdfile       read arguments from cmdfile\n\
   -c             do not link\n\
   -cov           do code coverage analysis\n\
-  -cov=nnn       require at least %%nnn code coverage\n\
+  -cov=nnn       require at least nnn%% code coverage\n\
   -D             generate documentation\n\
   -Dddocdir      write documentation file to docdir directory\n\
   -Dffilename    write documentation file to filename\n\
@@ -340,8 +382,9 @@ Usage:\n\
   -debug=ident   compile in debug code identified by ident\n\
   -debuglib=name    set symbolic debug library to name\n\
   -defaultlib=name  set default library to name\n\
-  -deps=filename write module dependencies to filename\n%s"
-"  -g             add symbolic debug info\n\
+  -deps          print module dependencies (imports/file/version/debug/lib)\n\
+  -deps=filename write module dependencies to filename (only imports - deprecated)\n%s\
+  -g             add symbolic debug info\n\
   -gc            add symbolic debug info, pretend to be C\n\
   -gs            always emit stack frame\n\
   -gx            add stack stomp code\n\
@@ -354,12 +397,10 @@ Usage:\n\
   -inline        do function inlining\n\
   -Jpath         where to look for string imports\n\
   -Llinkerflag   pass linkerflag to link\n\
-  -lib           generate library rather than object files\n"
-#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
-"  -m32           generate 32 bit code\n\
-  -m64           generate 64 bit code\n"
-#endif
-"  -main          add default main() (e.g. for unittesting)\n\
+  -lib           generate library rather than object files\n\
+  -m32           generate 32 bit code\n\
+  -m64           generate 64 bit code\n\
+  -main          add default main() (e.g. for unittesting)\n\
   -man           open web browser on manual page\n\
   -map           generate linker .map file\n\
   -noboundscheck turns off array bounds checking for all functions\n\
@@ -397,6 +438,52 @@ extern "C"
     extern int _end;
 }
 #endif
+
+static Module *entrypoint = NULL;
+
+/************************************
+ * Generate C main() in response to seeing D main().
+ * This used to be in druntime, but contained a reference to _Dmain
+ * which didn't work when druntime was made into a dll and was linked
+ * to a program, such as a C++ program, that didn't have a _Dmain.
+ */
+
+void genCmain(Scope *sc)
+{
+    if (entrypoint)
+        return;
+
+    /* The D code to be generated is provided as D source code in the form of a string.
+     * Note that Solaris, for unknown reasons, requires both a main() and an _main()
+     */
+    static utf8_t code[] = "extern(C) {\n\
+        int _d_run_main(int argc, char **argv, void* mainFunc);\n\
+        int _Dmain(char[][] args);\n\
+        int main(int argc, char **argv) { return _d_run_main(argc, argv, &_Dmain); }\n\
+        version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }\n\
+        }\n\
+        ";
+
+    Identifier *id = Id::entrypoint;
+    Module *m = new Module("__entrypoint.d", id, 0, 0);
+
+    Parser p(m, code, sizeof(code) / sizeof(code[0]), 0);
+    p.scanloc = Loc();
+    p.nextToken();
+    m->members = p.parseModule();
+    assert(p.token.value == TOKeof);
+
+    char v = global.params.verbose;
+    global.params.verbose = 0;
+    m->importedFrom = sc->module;
+    m->importAll(NULL);
+    m->semantic();
+    m->semantic2();
+    m->semantic3();
+    global.params.verbose = v;
+
+    entrypoint = m;
+}
 
 int tryMain(size_t argc, char *argv[])
 {
@@ -452,7 +539,6 @@ int tryMain(size_t argc, char *argv[])
     global.params.useSwitchError = 1;
     global.params.useInline = 0;
     global.params.obj = 1;
-    global.params.Dversion = 2;
     global.params.quiet = 1;
     global.params.useDeprecated = 2;
 
@@ -564,7 +650,7 @@ int tryMain(size_t argc, char *argv[])
                 //      -cov=nnn
                 if (p[4] == '=')
                 {
-                    if (isdigit((unsigned char)p[5]))
+                    if (isdigit((utf8_t)p[5]))
                     {   long percent;
 
                         errno = 0;
@@ -579,17 +665,25 @@ int tryMain(size_t argc, char *argv[])
                 else if (p[4])
                     goto Lerror;
             }
-            else if (strcmp(p + 1, "shared") == 0
-#if TARGET_OSX
-                // backwards compatibility with old switch
-                || strcmp(p + 1, "dylib") == 0
-#endif
-                )
+            else if (strcmp(p + 1, "shared") == 0)
                 global.params.dll = 1;
-#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
-            else if (strcmp(p + 1, "fPIC") == 0)
-                global.params.pic = 1;
+            else if (strcmp(p + 1, "dylib") == 0)
+            {
+#if TARGET_OSX
+                warning(Loc(), "use -shared instead of -dylib");
+                global.params.dll = 1;
+#else
+                goto Lerror;
 #endif
+            }
+            else if (strcmp(p + 1, "fPIC") == 0)
+            {
+#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
+                global.params.pic = 1;
+#else
+                goto Lerror;
+#endif
+            }
             else if (strcmp(p + 1, "map") == 0)
                 global.params.map = 1;
             else if (strcmp(p + 1, "multiobj") == 0)
@@ -639,7 +733,7 @@ Language changes listed by -transition=id:\n\
 #endif
                         return EXIT_FAILURE;
                     }
-                    if (isdigit((unsigned char)p[12]))
+                    if (isdigit((utf8_t)p[12]))
                     {   long num;
 
                         errno = 0;
@@ -660,7 +754,7 @@ Language changes listed by -transition=id:\n\
                         if (strcmp(p + 12, "tls") == 0)
                             global.params.vtls = 1;
 #if PULL93
-                        else if (strcmp(p + 12, "field") == 0)
+                        if (strcmp(p + 12, "field") == 0)
                             global.params.vfield = 1;
 #endif
                     }
@@ -671,15 +765,6 @@ Language changes listed by -transition=id:\n\
                     goto Lerror;
             }
 #endif
-            else if (strcmp(p + 1, "v1") == 0)
-            {
-#if DMDV1
-                global.params.Dversion = 1;
-#else
-                error(Loc(), "use DMD 1.0 series compilers for -v1 switch");
-                break;
-#endif
-            }
             else if (strcmp(p + 1, "w") == 0)
                 global.params.warnings = 1;
             else if (strcmp(p + 1, "wi") == 0)
@@ -697,12 +782,18 @@ Language changes listed by -transition=id:\n\
                     case 'd':
                         if (!p[3])
                             goto Lnoarg;
+#if _WIN32
+                        toWinPath(p + 3);
+#endif
                         global.params.objdir = p + 3;
                         break;
 
                     case 'f':
                         if (!p[3])
                             goto Lnoarg;
+#if _WIN32
+                        toWinPath(p + 3);
+#endif
                         global.params.objname = p + 3;
                         break;
 
@@ -824,7 +915,7 @@ Language changes listed by -transition=id:\n\
                 //      -debug=identifier
                 if (p[6] == '=')
                 {
-                    if (isdigit((unsigned char)p[7]))
+                    if (isdigit((utf8_t)p[7]))
                     {   long level;
 
                         errno = 0;
@@ -850,7 +941,7 @@ Language changes listed by -transition=id:\n\
                 //      -version=identifier
                 if (p[8] == '=')
                 {
-                    if (isdigit((unsigned char)p[9]))
+                    if (isdigit((utf8_t)p[9]))
                     {   long level;
 
                         errno = 0;
@@ -897,11 +988,23 @@ Language changes listed by -transition=id:\n\
                 setdebuglib = 1;
                 global.params.debuglibname = p + 1 + 9;
             }
-            else if (memcmp(p + 1, "deps=", 5) == 0)
+            else if (memcmp(p + 1, "deps", 4) == 0)
             {
-                global.params.moduleDepsFile = p + 1 + 5;
-                if (!global.params.moduleDepsFile[0])
-                    goto Lnoarg;
+                if(global.params.moduleDeps)
+                {
+                    error(Loc(), "-deps[=file] can only be provided once!");
+                    break;
+                }
+                if (p[5] == '=')
+                {
+                    global.params.moduleDepsFile = p + 1 + 5;
+                    if (!global.params.moduleDepsFile[0])
+                        goto Lnoarg;
+                } // Else output to stdout.
+                else if (p[5]!='\0')
+                {
+                    goto Lerror;
+                }
                 global.params.moduleDeps = new OutBuffer;
             }
             else if (strcmp(p + 1, "main") == 0)
@@ -999,6 +1102,9 @@ Language changes listed by -transition=id:\n\
         error(Loc(), "the architecture must not be changed in the %s section of %s",
               is64bit ? "Environment64" : "Environment32", inifilename);
 
+    // Target uses 64bit pointers.
+    global.params.isLP64 = global.params.is64bit;
+
     if (global.errors)
     {
         fatal();
@@ -1095,7 +1201,6 @@ Language changes listed by -transition=id:\n\
     {
         VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86_64");
         VersionCondition::addPredefinedGlobalIdent("X86_64");
-        VersionCondition::addPredefinedGlobalIdent("D_LP64");
         VersionCondition::addPredefinedGlobalIdent("D_SIMD");
 #if TARGET_WINDOS
         VersionCondition::addPredefinedGlobalIdent("Win64");
@@ -1118,6 +1223,8 @@ Language changes listed by -transition=id:\n\
         VersionCondition::addPredefinedGlobalIdent("Win32");
 #endif
     }
+    if (global.params.isLP64)
+        VersionCondition::addPredefinedGlobalIdent("D_LP64");
     if (global.params.doDocComments)
         VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
     if (global.params.cov)
@@ -1144,9 +1251,9 @@ Language changes listed by -transition=id:\n\
     initPrecedence();
 
     if (global.params.verbose)
-    {   printf("binary    %s\n", argv[0]);
-        printf("version   %s\n", global.version);
-        printf("config    %s\n", inifilename ? inifilename : "(none)");
+    {   fprintf(global.stdmsg, "binary    %s\n", argv[0]);
+        fprintf(global.stdmsg, "version   %s\n", global.version);
+        fprintf(global.stdmsg, "config    %s\n", inifilename ? inifilename : "(none)");
     }
 
     //printf("%d source files\n",files.dim);
@@ -1349,7 +1456,7 @@ Language changes listed by -transition=id:\n\
     for (size_t i = 0; i < modules.dim; i++)
     {
         m = modules[i];
-        m->read(0);
+        m->read(Loc());
     }
 #endif
 
@@ -1360,10 +1467,10 @@ Language changes listed by -transition=id:\n\
     {
         m = modules[modi];
         if (global.params.verbose)
-            printf("parse     %s\n", m->toChars());
+            fprintf(global.stdmsg, "parse     %s\n", m->toChars());
         if (!Module::rootModule)
             Module::rootModule = m;
-        m->importedFrom = m;
+        m->importedFrom = m;    // m->isRoot() == true
         if (!global.params.oneobj || modi == 0 || m->isDocFile)
             m->deleteObjFile();
 #if ASYNCREAD
@@ -1420,7 +1527,7 @@ Language changes listed by -transition=id:\n\
         {
             m = modules[i];
             if (global.params.verbose)
-                printf("import    %s\n", m->toChars());
+                fprintf(global.stdmsg, "import    %s\n", m->toChars());
             m->genhdrfile();
         }
     }
@@ -1432,7 +1539,7 @@ Language changes listed by -transition=id:\n\
     {
        m = modules[i];
        if (global.params.verbose)
-           printf("importall %s\n", m->toChars());
+           fprintf(global.stdmsg, "importall %s\n", m->toChars());
        m->importAll(NULL);
     }
     if (global.errors)
@@ -1445,7 +1552,7 @@ Language changes listed by -transition=id:\n\
     {
         m = modules[i];
         if (global.params.verbose)
-            printf("semantic  %s\n", m->toChars());
+            fprintf(global.stdmsg, "semantic  %s\n", m->toChars());
         m->semantic();
     }
     if (global.errors)
@@ -1459,7 +1566,7 @@ Language changes listed by -transition=id:\n\
     {
         m = modules[i];
         if (global.params.verbose)
-            printf("semantic2 %s\n", m->toChars());
+            fprintf(global.stdmsg, "semantic2 %s\n", m->toChars());
         m->semantic2();
     }
     if (global.errors)
@@ -1470,12 +1577,11 @@ Language changes listed by -transition=id:\n\
     {
         m = modules[i];
         if (global.params.verbose)
-            printf("semantic3 %s\n", m->toChars());
+            fprintf(global.stdmsg, "semantic3 %s\n", m->toChars());
         m->semantic3();
     }
     if (global.errors)
         fatal();
-
     if (global.params.useInline)
     {
         /* The problem with useArrayBounds and useAssert is that the
@@ -1492,22 +1598,28 @@ Language changes listed by -transition=id:\n\
             {
                 m = Module::amodules[i];
                 if (global.params.verbose)
-                    printf("semantic3 %s\n", m->toChars());
+                    fprintf(global.stdmsg, "semantic3 %s\n", m->toChars());
                 m->semantic3();
             }
             if (global.errors)
                 fatal();
         }
     }
+    Module::runDeferredSemantic3();
+    if (global.errors)
+        fatal();
 
-    if (global.params.moduleDeps != NULL)
+    if (global.params.moduleDeps)
     {
-        assert(global.params.moduleDepsFile != NULL);
-
-        File deps(global.params.moduleDepsFile);
         OutBuffer* ob = global.params.moduleDeps;
-        deps.setbuffer((void*)ob->data, ob->offset);
-        deps.writev();
+        if (global.params.moduleDepsFile)
+        {
+            File deps(global.params.moduleDepsFile);
+            deps.setbuffer((void*)ob->data, ob->offset);
+            deps.writev();
+        }
+        else
+            printf("%.*s", (int)ob->offset, ob->data);
     }
 
     // Scan for functions to inline
@@ -1517,7 +1629,7 @@ Language changes listed by -transition=id:\n\
         {
             m = modules[i];
             if (global.params.verbose)
-                printf("inline scan %s\n", m->toChars());
+                fprintf(global.stdmsg, "inline scan %s\n", m->toChars());
             m->inlineScan();
         }
     }
@@ -1592,14 +1704,21 @@ Language changes listed by -transition=id:\n\
 
     if (global.params.oneobj)
     {
+        if (modules.dim)
+            obj_start(modules[0]->srcfile->toChars());
         for (size_t i = 0; i < modules.dim; i++)
         {
             m = modules[i];
             if (global.params.verbose)
-                printf("code      %s\n", m->toChars());
-            if (i == 0)
-                obj_start(m->srcfile->toChars());
+                fprintf(global.stdmsg, "code      %s\n", m->toChars());
             m->genobjfile(0);
+            if (entrypoint && m == entrypoint->importedFrom)
+            {
+                char v = global.params.verbose;
+                global.params.verbose = 0;
+                entrypoint->genobjfile(0);
+                global.params.verbose = v;
+            }
             if (!global.errors && global.params.doDocComments)
                 m->gendocfile();
         }
@@ -1614,10 +1733,18 @@ Language changes listed by -transition=id:\n\
         {
             m = modules[i];
             if (global.params.verbose)
-                printf("code      %s\n", m->toChars());
+                fprintf(global.stdmsg, "code      %s\n", m->toChars());
             if (global.params.obj)
-            {   obj_start(m->srcfile->toChars());
+            {
+                obj_start(m->srcfile->toChars());
                 m->genobjfile(global.params.multiobj);
+                if (entrypoint && m == entrypoint->importedFrom)
+                {
+                    char v = global.params.verbose;
+                    global.params.verbose = 0;
+                    entrypoint->genobjfile(global.params.multiobj);
+                    global.params.verbose = v;
+                }
                 obj_end(library, m->objfile);
                 obj_write_deferred(library);
             }
@@ -1662,8 +1789,7 @@ Language changes listed by -transition=id:\n\
                  */
                 for (size_t i = 0; i < modules.dim; i++)
                 {
-                    Module *m = modules[i];
-                    m->deleteObjFile();
+                    modules[i]->deleteObjFile();
                     if (global.params.oneobj)
                         break;
                 }
@@ -1814,11 +1940,32 @@ Ldone:
     assert(argc == argv->dim);
     argv->reserve(argc_left);
     for (int i = 0; i < argc_left; i++)
-        argv->data[argc++] = (void *)(*pargv)[i];
+        (*argv)[argc++] = (*pargv)[i];
 
     *pargc = argc;
     *pargv = argv->tdata();
 }
+
+void escapePath(OutBuffer *buf, const char *fname)
+{
+    while (1)
+    {
+        switch (*fname)
+        {
+            case 0:
+                return;
+            case '(':
+            case ')':
+            case '\\':
+                buf->writebyte('\\');
+            default:
+                buf->writebyte(*fname);
+                break;
+        }
+        fname++;
+    }
+}
+
 
 /***********************************
  * Parse command line arguments for -m32 or -m64

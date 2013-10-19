@@ -20,7 +20,7 @@
 #include <vector>
 
 // DMD forward declarations
-struct StructInitializer;
+class StructInitializer;
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -63,9 +63,6 @@ struct IrAggr
 
     /// Create the __interfaceInfos symbol lazily.
     LLGlobalVariable* getInterfaceArraySymbol();
-
-    /// Creates a StructInitializer constant.
-    LLConstant* createStructInitializer(StructInitializer* si);
 
     //////////////////////////////////////////////////////////////////////////
 

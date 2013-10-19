@@ -68,9 +68,9 @@ struct JsonOut
     void property(const char *name, Type* type);
     void property(const char *name, const char *deconame, Type* type);
     void property(const char *name, Parameters* parameters);
-    void property(const char *name, enum TRUST trust);
-    void property(const char *name, enum PURE purity);
-    void property(const char *name, enum LINK linkage);
+    void property(const char *name, TRUST trust);
+    void property(const char *name, PURE purity);
+    void property(const char *name, LINK linkage);
 };
 
 
@@ -82,7 +82,7 @@ void json_generate(OutBuffer *buf, Modules *modules)
     for (size_t i = 0; i < modules->dim; i++)
     {   Module *m = (*modules)[i];
         if (global.params.verbose)
-            printf("json gen %s\n", m->toChars());
+            fprintf(global.stdmsg, "json gen %s\n", m->toChars());
         m->toJson(&json);
     }
     json.arrayEnd();
@@ -128,7 +128,7 @@ void JsonOut::stringPart(const char *s)
 {
     for (; *s; s++)
     {
-        unsigned char c = (unsigned char) *s;
+        utf8_t c = (utf8_t) *s;
         switch (c)
         {
             case '\n':
@@ -307,7 +307,7 @@ void JsonOut::propertyBool(const char *name, bool b)
 }
 
 
-void JsonOut::property(const char *name, enum TRUST trust)
+void JsonOut::property(const char *name, TRUST trust)
 {
     switch (trust)
     {
@@ -329,7 +329,7 @@ void JsonOut::property(const char *name, enum TRUST trust)
     }
 }
 
-void JsonOut::property(const char *name, enum PURE purity)
+void JsonOut::property(const char *name, PURE purity)
 {
     switch (purity)
     {
@@ -354,7 +354,7 @@ void JsonOut::property(const char *name, enum PURE purity)
     }
 }
 
-void JsonOut::property(const char *name, enum LINK linkage)
+void JsonOut::property(const char *name, LINK linkage)
 {
     switch (linkage)
     {
@@ -395,7 +395,7 @@ void JsonOut::propertyStorageClass(const char *name, StorageClass stc)
         {   char tmp[20];
             const char *p = StorageClassDeclaration::stcToChars(tmp, stc);
             assert(p);
-            assert(strlen(p) < sizeof(tmp));
+            assert(strlen(p) < sizeof(tmp) / sizeof(tmp[0]));
             if (p[0] == '@')
             {
                 indent();
@@ -544,7 +544,7 @@ void TypeQualified::toJson(JsonOut *json) // ident.ident.ident.etc
     json->arrayStart();
 
     for (size_t i = 0; i < idents.dim; i++)
-    {   Object *ident = idents[i];
+    {   RootObject *ident = idents[i];
         json->item(ident->toChars());
     }
 
@@ -806,7 +806,6 @@ void ConditionalDeclaration::toJson(JsonOut *json)
 
 
 void ClassInfoDeclaration::toJson(JsonOut *json)  { }
-void ModuleInfoDeclaration::toJson(JsonOut *json) { }
 void TypeInfoDeclaration::toJson(JsonOut *json)   { }
 #if DMDV2
 void PostBlitDeclaration::toJson(JsonOut *json)   { }
@@ -971,9 +970,10 @@ void TemplateDeclaration::toJson(JsonOut *json)
             if (s->isTemplateThisParameter())
                 json->property("kind", "this");
             else
-#endif
                 json->property("kind", "type");
-
+#else
+            json->property("kind", "type");
+#endif
             json->property("type", "deco", type->specType);
 
             json->property("default", "defaultDeco", type->defaultType);

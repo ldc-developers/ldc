@@ -20,26 +20,26 @@
 template<class C>
 struct ArrayIter
 {
-    Array* array;
+    Array<C>* array;
     size_t index;
 
-    ArrayIter(Array& arr, size_t idx = 0)
+    ArrayIter(Array<C>& arr, size_t idx = 0)
     :   array(&arr), index(idx)
     { }
-    ArrayIter(Array* arr, size_t idx = 0)
+    ArrayIter(Array<C>* arr, size_t idx = 0)
     :   array(arr), index(idx)
     { assert(arr && "null array"); }
 
-    ArrayIter<C>& operator=(const Array& arr)
+    ArrayIter<C>& operator=(const Array<C>& arr)
     {
-        array = const_cast<Array*>(&arr);
+        array = const_cast<Array<C>*>(&arr);
         index = 0;
         return *this;
     }
-    ArrayIter<C>& operator=(const Array* arr)
+    ArrayIter<C>& operator=(const Array<C>* arr)
     {
         assert(arr && "null array");
-        array = const_cast<Array*>(arr);
+        array = const_cast<Array<C>*>(arr);
         index = 0;
         return *this;
     }
@@ -54,7 +54,7 @@ struct ArrayIter
     }
 
     C* get() {
-        return static_cast<C*>(array->data[index]);
+        return (*array)[index];
     }
     C* operator->() {
         return get();

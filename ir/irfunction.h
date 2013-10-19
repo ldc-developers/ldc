@@ -22,7 +22,7 @@
 #include <stack>
 #include <vector>
 
-struct Statement;
+class Statement;
 struct EnclosingHandler;
 
 // scope statements that can be target of jumps

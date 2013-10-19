@@ -16,26 +16,26 @@
 #define LDC_IR_IRFORW_H
 
 // dmd forward declarations
-struct Module;
-struct Dsymbol;
+class Module;
+class Dsymbol;
 struct Declaration;
-struct VarDeclaration;
-struct FuncDeclaration;
+class VarDeclaration;
+class FuncDeclaration;
 struct AggregateDeclaration;
-struct StructDeclaration;
-struct ClassDeclaration;
+class StructDeclaration;
+class ClassDeclaration;
 struct InterfaceDeclaration;
 struct Expression;
 struct BaseClass;
 struct Array;
 struct Argument;
 
-struct Type;
-struct TypeStruct;
-struct TypeClass;
+class Type;
+class TypeStruct;
+class TypeClass;
 struct TypeEnum;
 struct TypeArray;
-struct TypeFunction;
+class TypeFunction;
 
 // llvm forward declarations
 namespace llvm

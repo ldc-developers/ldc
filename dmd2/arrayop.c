@@ -250,18 +250,18 @@ int isDruntimeArrayOp(Identifier *ident)
 
 ArrayOp *buildArrayOp(Identifier *ident, BinExp *exp, Scope *sc, Loc loc)
 {
-    ArrayOp *op = new ArrayOp;
-#if IN_LLVM  // LDC: Build parameters.
     Parameters *fparams = new Parameters();
     Expression *loopbody = exp->buildArrayLoop(fparams);
+
+    ArrayOp *op = new ArrayOp;
     if (isDruntimeArrayOp(ident))
+#if IN_LLVM
     {
+#endif
         op->cFunc = FuncDeclaration::genCfunc(fparams, exp->type, ident);
+#if IN_LLVM
         op->cFunc->isArrayOp = 2;
     }
-#else
-    if (isDruntimeArrayOp(ident))
-        op->cFunc = FuncDeclaration::genCfunc(exp->type, ident);
 #endif
     else
         op->cFunc = NULL;
@@ -271,10 +271,6 @@ ArrayOp *buildArrayOp(Identifier *ident, BinExp *exp, Scope *sc, Loc loc)
      *      loopbody;
      *  return p;
      */
-#if !IN_LLVM
-    Parameters *fparams = new Parameters();
-    Expression *loopbody = exp->buildArrayLoop(fparams);
-#endif
     Parameter *p = (*fparams)[0 /*fparams->dim - 1*/];
 #if DMDV1
     // for (size_t i = 0; i < p.length; i++)
@@ -298,9 +294,12 @@ ArrayOp *buildArrayOp(Identifier *ident, BinExp *exp, Scope *sc, Loc loc)
     //printf("s2: %s\n", s2->toChars());
     Statement *fbody = new CompoundStatement(Loc(), s1, s2);
 
+    // Built-in array ops should be @trusted, pure and nothrow
+    StorageClass stc = STCtrusted | STCpure | STCnothrow;
+
     /* Construct the function
      */
-    TypeFunction *ftype = new TypeFunction(fparams, exp->type, 0, LINKc);
+    TypeFunction *ftype = new TypeFunction(fparams, exp->type, 0, LINKc, stc);
     //printf("ftype: %s\n", ftype->toChars());
     FuncDeclaration *fd = new FuncDeclaration(Loc(), Loc(), ident, STCundefined, ftype);
     fd->fbody = fbody;
@@ -336,6 +335,13 @@ bool isArrayOpValid(Expression *e)
 {
     if (e->op == TOKslice)
         return true;
+    if (e->op == TOKarrayliteral)
+    {
+        Type *t = e->type->toBasetype();
+        while (t->ty == Tarray || t->ty == Tsarray)
+            t = t->nextOf()->toBasetype();
+        return (t->ty != Tvoid);
+    }
     Type *tb = e->type->toBasetype();
 
     if ( (tb->ty == Tarray) || (tb->ty == Tsarray) )
@@ -482,6 +488,12 @@ void CastExp::buildArrayIdent(OutBuffer *buf, Expressions *arguments)
         Expression::buildArrayIdent(buf, arguments);
 }
 
+void ArrayLiteralExp::buildArrayIdent(OutBuffer *buf, Expressions *arguments)
+{
+    buf->writestring("Slice");
+    arguments->shift(this);
+}
+
 void SliceExp::buildArrayIdent(OutBuffer *buf, Expressions *arguments)
 {
     buf->writestring("Slice");
@@ -497,30 +509,30 @@ void AssignExp::buildArrayIdent(OutBuffer *buf, Expressions *arguments)
     buf->writestring("Assign");
 }
 
-#define X(Str) \
-void Str##AssignExp::buildArrayIdent(OutBuffer *buf, Expressions *arguments) \
-{                                                       \
-    /* Evaluate assign expressions right to left        \
-     */                                                 \
-    e2->buildArrayIdent(buf, arguments);                \
-    e1->buildArrayIdent(buf, arguments);                \
-    buf->writestring(#Str);                             \
-    buf->writestring("ass");                            \
-}
-
-X(Add)
-X(Min)
-X(Mul)
-X(Div)
-X(Mod)
-X(Xor)
-X(And)
-X(Or)
+void BinAssignExp::buildArrayIdent(OutBuffer *buf, Expressions *arguments)
+{
+    /* Evaluate assign expressions right to left
+     */
+    e2->buildArrayIdent(buf, arguments);
+    e1->buildArrayIdent(buf, arguments);
+    const char *s;
+    switch(op)
+    {
+    case TOKaddass: s = "Addass"; break;
+    case TOKminass: s = "Subass"; break;
+    case TOKmulass: s = "Mulass"; break;
+    case TOKdivass: s = "Divass"; break;
+    case TOKmodass: s = "Modass"; break;
+    case TOKxorass: s = "Xorass"; break;
+    case TOKandass: s = "Andass"; break;
+    case TOKorass:  s = "Orass";  break;
 #if DMDV2
-X(Pow)
+    case TOKpowass: s = "Powass"; break;
 #endif
-
-#undef X
+    default: assert(0);
+    }
+    buf->writestring(s);
+}
 
 void NegExp::buildArrayIdent(OutBuffer *buf, Expressions *arguments)
 {
@@ -534,29 +546,35 @@ void ComExp::buildArrayIdent(OutBuffer *buf, Expressions *arguments)
     buf->writestring("Com");
 }
 
-#define X(Str) \
-void Str##Exp::buildArrayIdent(OutBuffer *buf, Expressions *arguments)  \
-{                                                                       \
-    /* Evaluate assign expressions left to right                        \
-     */                                                                 \
-    e1->buildArrayIdent(buf, arguments);                                \
-    e2->buildArrayIdent(buf, arguments);                                \
-    buf->writestring(#Str);                                             \
-}
-
-X(Add)
-X(Min)
-X(Mul)
-X(Div)
-X(Mod)
-X(Xor)
-X(And)
-X(Or)
+void BinExp::buildArrayIdent(OutBuffer *buf, Expressions *arguments)
+{
+    /* Evaluate assign expressions left to right
+     */
+    const char *s = NULL;
+    switch(op)
+    {
+    case TOKadd: s = "Add"; break;
+    case TOKmin: s = "Sub"; break;
+    case TOKmul: s = "Mul"; break;
+    case TOKdiv: s = "Div"; break;
+    case TOKmod: s = "Mod"; break;
+    case TOKxor: s = "Xor"; break;
+    case TOKand: s = "And"; break;
+    case TOKor:  s = "Or";  break;
 #if DMDV2
-X(Pow)
+    case TOKpow: s = "Pow"; break;
 #endif
-
-#undef X
+    default: break;
+    }
+    if (s)
+    {
+        e1->buildArrayIdent(buf, arguments);
+        e2->buildArrayIdent(buf, arguments);
+        buf->writestring(s);
+    }
+    else
+        Expression::buildArrayIdent(buf, arguments);
+}
 
 /******************************************
  * Construct the inner loop for the array operation function,
@@ -581,6 +599,19 @@ Expression *CastExp::buildArrayLoop(Parameters *fparams)
     }
     else
         return Expression::buildArrayLoop(fparams);
+}
+
+Expression *ArrayLiteralExp::buildArrayLoop(Parameters *fparams)
+{
+    Identifier *id = Identifier::generateId("p", fparams->dim);
+    Parameter *param = new Parameter(STCconst, type, id, NULL);
+    fparams->shift(param);
+    Expression *e = new IdentifierExp(Loc(), id);
+    Expressions *arguments = new Expressions();
+    Expression *index = new IdentifierExp(Loc(), Id::p);
+    arguments->push(index);
+    e = new ArrayExp(Loc(), e, arguments);
+    return e;
 }
 
 Expression *SliceExp::buildArrayLoop(Parameters *fparams)
@@ -616,32 +647,33 @@ Expression *AssignExp::buildArrayLoop(Parameters *fparams)
     return e;
 }
 
-#define X(Str) \
-Expression *Str##AssignExp::buildArrayLoop(Parameters *fparams) \
-{                                                               \
-    /* Evaluate assign expressions right to left                \
-     */                                                         \
-    Expression *ex2 = e2->buildArrayLoop(fparams);              \
-    Expression *ex1 = e1->buildArrayLoop(fparams);              \
-    Parameter *param = (*fparams)[0];                           \
-    param->storageClass = 0;                                    \
-    Expression *e = new Str##AssignExp(loc, ex1, ex2);          \
-    return e;                                                   \
-}
-
-X(Add)
-X(Min)
-X(Mul)
-X(Div)
-X(Mod)
-X(Xor)
-X(And)
-X(Or)
+Expression *BinAssignExp::buildArrayLoop(Parameters *fparams)
+{
+    /* Evaluate assign expressions right to left
+     */
+    Expression *ex2 = e2->buildArrayLoop(fparams);
+    Expression *ex1 = e1->buildArrayLoop(fparams);
+    Parameter *param = (*fparams)[0];
+    param->storageClass = 0;
+    Expression *e;
+    switch(op)
+    {
+    case TOKaddass: return new AddAssignExp(loc, ex1, ex2);
+    case TOKminass: return new MinAssignExp(loc, ex1, ex2);
+    case TOKmulass: return new MulAssignExp(loc, ex1, ex2);
+    case TOKdivass: return new DivAssignExp(loc, ex1, ex2);
+    case TOKmodass: return new ModAssignExp(loc, ex1, ex2);
+    case TOKxorass: return new XorAssignExp(loc, ex1, ex2);
+    case TOKandass: return new AndAssignExp(loc, ex1, ex2);
+    case TOKorass:  return new OrAssignExp(loc, ex1, ex2);
 #if DMDV2
-X(Pow)
+    case TOKpowass: return new PowAssignExp(loc, ex1, ex2);
 #endif
-
-#undef X
+    default:
+        assert(0);
+        return NULL;
+    }
+}
 
 Expression *NegExp::buildArrayLoop(Parameters *fparams)
 {
@@ -657,31 +689,34 @@ Expression *ComExp::buildArrayLoop(Parameters *fparams)
     return e;
 }
 
-#define X(Str) \
-Expression *Str##Exp::buildArrayLoop(Parameters *fparams)       \
-{                                                               \
-    /* Evaluate assign expressions left to right                \
-     */                                                         \
-    Expression *ex1 = e1->buildArrayLoop(fparams);              \
-    Expression *ex2 = e2->buildArrayLoop(fparams);              \
-    Expression *e = new Str##Exp(Loc(), ex1, ex2);                  \
-    return e;                                                   \
-}
-
-X(Add)
-X(Min)
-X(Mul)
-X(Div)
-X(Mod)
-X(Xor)
-X(And)
-X(Or)
+Expression *BinExp::buildArrayLoop(Parameters *fparams)
+{
+    switch(op)
+    {
+    case TOKadd:
+    case TOKmin:
+    case TOKmul:
+    case TOKdiv:
+    case TOKmod:
+    case TOKxor:
+    case TOKand:
+    case TOKor:
 #if DMDV2
-X(Pow)
+    case TOKpow:
 #endif
-
-#undef X
-
+    {
+        /* Evaluate assign expressions left to right
+         */
+        BinExp *e = (BinExp *)copy();
+        e->e1 = e->e1->buildArrayLoop(fparams);
+        e->e2 = e->e2->buildArrayLoop(fparams);
+        e->type = NULL;
+        return e;
+    }
+    default:
+        return Expression::buildArrayLoop(fparams);
+    }
+}
 
 /***********************************************
  * Test if operand is a valid array op operand.
@@ -692,6 +727,13 @@ int Expression::isArrayOperand()
     //printf("Expression::isArrayOperand() %s\n", toChars());
     if (op == TOKslice)
         return 1;
+    if (op == TOKarrayliteral)
+    {
+        Type *t = type->toBasetype();
+        while (t->ty == Tarray || t->ty == Tsarray)
+            t = t->nextOf()->toBasetype();
+        return (t->ty != Tvoid);
+    }
     if (type->toBasetype()->ty == Tarray)
     {
         switch (op)
