@@ -99,6 +99,12 @@ void StructDeclaration::codegen(IRState *p)
 
         // emit typeinfo
         DtoTypeInfoOf(type);
+
+        // Emit __xopEquals/__xopCmp.
+        if (xeq && xeq != xerreq)
+            xeq->codegen(p);
+        if (xcmp && xcmp != xerrcmp)
+            xcmp->codegen(p);
     }
 }
 
