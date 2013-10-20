@@ -27,7 +27,7 @@ static llvm::LandingPadInst *createLandingPadInst()
 }
 
 IRLandingPadCatchInfo::IRLandingPadCatchInfo(Catch* catchstmt_, llvm::BasicBlock* end_) :
-    catchStmt(catchstmt_), end(end_)
+    end(end_), catchStmt(catchstmt_)
 {
     target = llvm::BasicBlock::Create(gIR->context(), "catch", gIR->topfunc(), end);
 
