@@ -60,13 +60,11 @@ void IRLandingPadCatchInfo::toIR()
             catchStmt->var->ir.irLocal = new IrLocal(catchStmt->var);
             LLValue* catch_var = gIR->func()->gen->landingPadInfo.getExceptionStorage();
             catchStmt->var->ir.irLocal->value = gIR->ir->CreateBitCast(catch_var, getPtrToType(DtoType(catchStmt->var->type)));
-        }
+        } else {
+            // this will alloca if we haven't already and take care of nested refs
+            DtoDeclarationExp(catchStmt->var);
 
-        // this will alloca if we haven't already and take care of nested refs
-        DtoDeclarationExp(catchStmt->var);
-
-        // the exception will only be stored in catch_var. copy it over if necessary
-        if (catchStmt->var->ir.irLocal->value != gIR->func()->gen->landingPadInfo.getExceptionStorage()) {
+            // the exception will only be stored in catch_var. copy it over if necessary
             LLValue* exc = gIR->ir->CreateBitCast(DtoLoad(gIR->func()->gen->landingPadInfo.getExceptionStorage()), DtoType(catchStmt->var->type));
             DtoStore(exc, catchStmt->var->ir.irLocal->value);
         }
