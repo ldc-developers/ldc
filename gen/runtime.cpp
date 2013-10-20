@@ -314,11 +314,11 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
-    // void _d_assert_msg( char[] msg, char[] file, uint line )
+    // void _d_assert_msg(string msg, string file, uint line)
     {
         llvm::StringRef fname("_d_assert_msg");
         LLType *types[] = { stringTy, stringTy, intTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
+        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
