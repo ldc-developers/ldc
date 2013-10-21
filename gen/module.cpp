@@ -42,6 +42,7 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/Verifier.h"
 #include "llvm/LinkAllPasses.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DataLayout.h"
@@ -326,6 +327,173 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     return ctor;
 }
 
+/// Builds the body for the ldc.dso_ctor and ldc.dso_dtor functions.
+///
+/// Pseudocode:
+/// if (dsoInitialized == executeWhenInitialized) {
+///     dsoInitiaized = !executeWhenInitialized;
+///     auto record = CompilerDSOData(1, dsoSlot, minfoBeg, minfoEnd);
+///     _d_dso_registry(&record);
+/// }
+static void build_dso_ctor_dtor_body(
+    llvm::Function* targetFunc,
+    llvm::GlobalVariable* dsoInitiaized,
+    llvm::GlobalVariable* dsoSlot,
+    llvm::GlobalVariable* minfoBeg,
+    llvm::GlobalVariable* minfoEnd,
+    bool executeWhenInitialized
+) {
+    llvm::Function* const dsoRegistry = LLVM_D_GetRuntimeFunction(
+        gIR->module, "_d_dso_registry");
+    llvm::Type* const recordPtrTy = dsoRegistry->getFunctionType()->getContainedType(1);
+    llvm::Type* const recordTy = recordPtrTy->getContainedType(0);
+
+    llvm::BasicBlock* const entryBB =
+        llvm::BasicBlock::Create(gIR->context(), "", targetFunc);
+    llvm::BasicBlock* const initBB =
+        llvm::BasicBlock::Create(gIR->context(), "init", targetFunc);
+    llvm::BasicBlock* const endBB =
+        llvm::BasicBlock::Create(gIR->context(), "end", targetFunc);
+
+    {
+        IRBuilder<> b(entryBB);
+        llvm::Value* initialized = b.CreateLoad(dsoInitiaized);
+        if (executeWhenInitialized)
+            b.CreateCondBr(initialized, initBB, endBB);
+        else
+            b.CreateCondBr(initialized, endBB, initBB);
+    }
+    {
+        IRBuilder<> b(initBB);
+        b.CreateStore(b.getInt1(!executeWhenInitialized), dsoInitiaized);
+
+        llvm::Value* record = b.CreateAlloca(recordTy);
+        b.CreateStore(DtoConstSize_t(1), b.CreateStructGEP(record, 0)); // version
+        b.CreateStore(dsoSlot, b.CreateStructGEP(record, 1)); // slot
+        b.CreateStore(minfoBeg, b.CreateStructGEP(record, 2));
+        b.CreateStore(minfoEnd, b.CreateStructGEP(record, 3));
+
+        b.CreateCall(dsoRegistry, record);
+        b.CreateBr(endBB);
+    }
+    {
+        IRBuilder<> b(endBB);
+        b.CreateRetVoid();
+    }
+}
+
+static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
+{
+    // Build the ModuleInfo reference and bracketing symbols.
+    llvm::Type* const moduleInfoPtrTy =
+        getPtrToType(DtoType(Module::moduleinfo->type));
+
+    // Order is important here: We must create the symbols in the
+    // bracketing sections right before/after the ModuleInfo reference
+    // so that they end up in the correct order in the object file.
+    llvm::GlobalVariable* minfoBeg = new llvm::GlobalVariable(
+        *gIR->module,
+        moduleInfoPtrTy,
+        true,
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        getNullPtr(moduleInfoPtrTy),
+        "_minfo_beg"
+    );
+    minfoBeg->setSection(".minfo_beg");
+    minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
+
+    std::string thismrefname = "_D";
+    thismrefname += gIR->dmodule->mangle();
+    thismrefname += "11__moduleRefZ";
+    llvm::GlobalVariable* thismref = new llvm::GlobalVariable(
+        *gIR->module,
+        moduleInfoPtrTy,
+        true,
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        DtoBitCast(thisModuleInfo, moduleInfoPtrTy),
+        thismrefname
+    );
+    thismref->setSection(".minfo");
+    gIR->usedArray.push_back(thismref);
+
+    llvm::GlobalVariable* minfoEnd = new llvm::GlobalVariable(
+        *gIR->module,
+        moduleInfoPtrTy,
+        true,
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        getNullPtr(moduleInfoPtrTy),
+        "_minfo_end"
+    );
+    minfoEnd->setSection(".minfo_end");
+    minfoEnd->setVisibility(llvm::GlobalValue::HiddenVisibility);
+
+    // Build the ctor to invoke _d_dso_registry.
+    llvm::GlobalVariable* dsoSlot = new llvm::GlobalVariable(
+        *gIR->module,
+        getVoidPtrType(),
+        false,
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        getNullPtr(getVoidPtrType()),
+        "ldc.dso_slot"
+    );
+    dsoSlot->setVisibility(llvm::GlobalValue::HiddenVisibility);
+    llvm::GlobalVariable* dsoInitiaized = new llvm::GlobalVariable(
+        *gIR->module,
+        llvm::Type::getInt1Ty(gIR->context()),
+        false,
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        llvm::ConstantInt::getFalse(gIR->context()),
+        "ldc.dso_initialized"
+    );
+    dsoInitiaized->setVisibility(llvm::GlobalValue::HiddenVisibility);
+
+    llvm::Function* dsoCtor = llvm::Function::Create(
+        llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        "ldc.dso_ctor",
+        gIR->module
+    );
+    dsoCtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
+    build_dso_ctor_dtor_body(dsoCtor, dsoInitiaized, dsoSlot, minfoBeg, minfoEnd, false);
+    llvm::appendToGlobalCtors(*gIR->module, dsoCtor, 65535);
+
+    llvm::Function* dsoDtor = llvm::Function::Create(
+        llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        "ldc.dso_dtor",
+        gIR->module
+    );
+    dsoDtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
+    build_dso_ctor_dtor_body(dsoDtor, dsoInitiaized, dsoSlot, minfoBeg, minfoEnd, true);
+    llvm::appendToGlobalDtors(*gIR->module, dsoDtor, 65535);
+}
+
+static void build_llvm_used_array(IRState* p)
+{
+    if (p->usedArray.empty()) return;
+
+    std::vector<llvm::Constant*> usedVoidPtrs;
+    usedVoidPtrs.reserve(p->usedArray.size());
+
+    for (std::vector<llvm::Constant*>::iterator it = p->usedArray.begin(),
+        end = p->usedArray.end(); it != end; ++it)
+    {
+        usedVoidPtrs.push_back(DtoBitCast(*it, getVoidPtrType()));
+    }
+
+    llvm::ArrayType *arrayType = llvm::ArrayType::get(
+        getVoidPtrType(), usedVoidPtrs.size());
+    llvm::GlobalVariable* llvmUsed = new llvm::GlobalVariable(
+        *p->module,
+        arrayType,
+        false,
+        llvm::GlobalValue::AppendingLinkage,
+        llvm::ConstantArray::get(arrayType, usedVoidPtrs),
+        "llvm.used"
+    );
+    llvmUsed->setSection("llvm.metadata");
+}
+
 llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
 {
     bool logenabled = Logger::enabled();
@@ -409,6 +577,8 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
 
     // generate ModuleInfo
     genmoduleinfo();
+
+    build_llvm_used_array(&ir);
 
 #if LDC_LLVM_VER >= 303
     // Add the linker options metadata flag.
@@ -632,8 +802,11 @@ void Module::genmoduleinfo()
     b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
     moduleInfoSym->setLinkage(llvm::GlobalValue::ExternalLinkage);
 
-    // build the modulereference and ctor for registering it
-    LLFunction* mictor = build_module_reference_and_ctor(moduleInfoSym);
-
-    AppendFunctionToLLVMGlobalCtorsDtors(mictor, 65535, true);
+    if (global.params.isLinux) {
+        build_dso_registry_calls(moduleInfoSym);
+    } else {
+        // build the modulereference and ctor for registering it
+        LLFunction* mictor = build_module_reference_and_ctor(moduleInfoSym);
+        AppendFunctionToLLVMGlobalCtorsDtors(mictor, 65535, true);
+    }
 }
