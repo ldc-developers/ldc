@@ -118,6 +118,18 @@ if( CMAKE_COMPILER_IS_GNUCXX
     AND CMAKE_C_COMPILER_VERSION MATCHES ".*4\\.[0-5].*" )
     append("-mminimal-toc" DMD_CXXFLAGS LDC_CXXFLAGS)
 endif()
+set(SANITIZE_CXXFLAGS)
+set(SANITIZE_LDFLAGS)
+if(SANITIZE)
+    if("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang")
+        append("-fsanitize=address" SANITIZE_CXXFLAGS)
+        append("-fsanitize=address" SANITIZE_LDFLAGS)
+    else()
+        message(WARNING "Option SANITIZE specified but compiler is not clang.")
+    endif()
+endif()
+append("${SANITIZE_CXXFLAGS}" DMD_CXXFLAGS)
+append("${SANITIZE_CXXFLAGS}" LDC_CXXFLAGS)
 
 #
 # Run idgen and impcnvgen.
@@ -135,6 +147,7 @@ set_target_properties(
     LINKER_LANGUAGE CXX
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${DMD_CXXFLAGS}"
+    LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 get_target_property(IDGEN_LOC idgen LOCATION)
 get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
@@ -355,6 +368,7 @@ set_target_properties(
     LIBRARY_OUTPUT_NAME ldc
     RUNTIME_OUTPUT_NAME ldc
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
+    LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
@@ -376,6 +390,7 @@ set_target_properties(
     OUTPUT_NAME ${LDC_EXE_NAME}
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
+    LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY})
 if(MSVC)
@@ -413,6 +428,7 @@ set_target_properties(
     gen_gccbuiltins PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
     COMPILE_FLAGS "${TABLEGEN_CXXFLAGS} ${LDC_CXXFLAGS}"
+    LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 target_link_libraries(gen_gccbuiltins ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -437,6 +453,7 @@ add_executable(${LDMD_EXE} dmd2/root/man.c driver/ldmd.cpp driver/response.cpp)
 set_target_properties(${LDMD_EXE} PROPERTIES
     COMPILE_DEFINITIONS LDC_EXE_NAME="${LDC_EXE_NAME}"
     COMPILE_FLAGS "${LLVM_CXXFLAGS}"
+    LINK_FLAGS "${SANITIZE_LDFLAGS}"
     OUTPUT_NAME "${LDMD_EXE_NAME}"
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
 )
