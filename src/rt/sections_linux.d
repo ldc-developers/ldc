@@ -10,7 +10,6 @@
 
 module rt.sections_linux;
 
-version (LDC) {} else
 version (linux):
 
 // debug = PRINTF;
@@ -22,7 +21,7 @@ import core.sys.linux.dlfcn;
 import core.sys.linux.elf;
 import core.sys.linux.link;
 import core.sys.posix.pthread;
-import rt.deh;
+version (DigitalMars) import rt.deh;
 import rt.dmain2;
 import rt.minfo;
 import rt.util.container;
@@ -60,7 +59,7 @@ struct DSO
         return _moduleGroup;
     }
 
-    @property immutable(FuncTable)[] ehTables() const
+    version (DigitalMars) @property immutable(FuncTable)[] ehTables() const
     {
         return _ehTables[];
     }
@@ -78,7 +77,7 @@ private:
         assert(_tlsMod || !_tlsSize);
     }
 
-    immutable(FuncTable)[] _ehTables;
+    version (DigitalMars) immutable(FuncTable)[] _ehTables;
     ModuleGroup _moduleGroup;
     Array!(void[]) _gcRanges;
     size_t _tlsMod;
@@ -285,7 +284,7 @@ struct CompilerDSOData
     size_t _version;                                  // currently 1
     void** _slot;                                     // can be used to store runtime data
     object.ModuleInfo** _minfo_beg, _minfo_end;       // array of modules in this object file
-    immutable(rt.deh.FuncTable)* _deh_beg, _deh_end; // array of exception handling data
+    version (DigitalMars) immutable(rt.deh.FuncTable)* _deh_beg, _deh_end; // array of exception handling data
 }
 
 T[] toRange(T)(T* beg, T* end) { return beg[0 .. end - beg]; }
@@ -311,8 +310,13 @@ extern(C) void _d_dso_registry(CompilerDSOData* data)
         assert(typeid(DSO).init().ptr is null);
         *data._slot = pdso; // store backlink in library record
 
-        pdso._moduleGroup = ModuleGroup(toRange(data._minfo_beg, data._minfo_end));
-        pdso._ehTables = toRange(data._deh_beg, data._deh_end);
+        auto minfoBeg = data._minfo_beg;
+        while (minfoBeg < data._minfo_end && !*minfoBeg) ++minfoBeg;
+        auto minfoEnd = minfoBeg;
+        while (minfoEnd < data._minfo_end && *minfoEnd) ++minfoEnd;
+        pdso._moduleGroup = ModuleGroup(toRange(minfoBeg, minfoEnd));
+
+        version (DigitalMars) pdso._ehTables = toRange(data._deh_beg, data._deh_end);
 
         dl_phdr_info info = void;
         findDSOInfoForAddr(data._slot, &info) || assert(0);
