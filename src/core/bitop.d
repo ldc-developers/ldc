@@ -101,8 +101,10 @@ unittest
  * (No longer an intrisic - the compiler recognizes the patterns
  * in the body.)
  */
-version (LDC)
+version (none)
 {
+    // Our implementation returns an arbitrary non-zero value if the bit was
+    // set, which is not what std.bitmanip expects.
     pragma(LDC_intrinsic, "ldc.bitop.bt")
         int bt(in size_t* p, size_t bitnum) pure @system;
 }
