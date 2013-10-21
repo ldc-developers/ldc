@@ -12,7 +12,7 @@
 namespace ldc {
 
 const char * const ldc_version = "@LDC_VERSION@";
-const char * const dmd_version = "@DMD_VERSION@";
+const char * const dmd_version = "v@DMD_VERSION@";
 const char * const llvm_version = "@LLVM_VERSION_STRING@";
 
 }
