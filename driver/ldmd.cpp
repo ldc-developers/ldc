@@ -485,6 +485,7 @@ struct Params
     multiObj(false),
     debugInfo(Debug::none),
     alwaysStackFrame(false),
+    targetModel(Model::automatic),
     profile(false),
     verbose(false),
     vdmd(false),
