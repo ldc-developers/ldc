@@ -268,7 +268,7 @@ set(LDC_SOURCE_FILES
 )
 
 # DMD source files have a .c extension, but are actually C++ code.
-foreach(file ${LDC_SOURCE_FILES})
+foreach(file ${LDC_SOURCE_FILES} ${DRV_SRC} ${DRV_HDR})
     if(file MATCHES ".*\\.c$")
         set_source_files_properties(${file} PROPERTIES
             LANGUAGE CXX
