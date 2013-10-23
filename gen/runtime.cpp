@@ -430,7 +430,7 @@ static void LLVM_D_BuildRuntimeModule()
     {
         llvm::StringRef fname("_d_newclass");
         LLType *types[] = { classInfoTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
+        LLFunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
             ->setAttributes(Attr_NoAlias);
     }
