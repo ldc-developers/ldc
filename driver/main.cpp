@@ -88,6 +88,11 @@ static cl::list<std::string, StringsAdapter> debuglibs("debuglib",
 void printVersion() {
     printf("LDC - the LLVM D compiler (%s):\n", global.ldc_version);
     printf("  based on DMD %s and LLVM %s\n", global.version, global.llvm_version);
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+    printf("  compiled with address sanitizer enabled\n");
+#endif
+#endif
     printf("  Default target: %s\n", llvm::sys::getDefaultTargetTriple().c_str());
     std::string CPU = llvm::sys::getHostCPUName();
     if (CPU == "generic") CPU = "(unknown)";
