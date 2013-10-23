@@ -146,6 +146,7 @@ namespace {
         : TypeInfoArgNr(typeInfoArgNr),
           SafeToDelete(safeToDelete),
           ReturnsArray(returnsArray) {}
+        virtual ~FunctionInfo() {}
     };
 
     class ArrayFI : public FunctionInfo {
