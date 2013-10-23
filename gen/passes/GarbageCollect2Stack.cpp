@@ -252,7 +252,7 @@ namespace {
         }
     };
 
-    // FunctionInfo for _d_allocclass
+    // FunctionInfo for _d_newclass
     class AllocClassFI : public FunctionInfo {
         public:
         virtual bool analyze(CallSite CS, const Analysis& A) {
@@ -360,7 +360,7 @@ GarbageCollect2Stack::GarbageCollect2Stack()
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
     KnownFunctions["_d_newarrayvT"] = &NewArrayVT;
     KnownFunctions["_d_newarrayT"] = &NewArrayT;
-    KnownFunctions[_d_allocclass] = &AllocClass;
+    KnownFunctions["_d_newclass"] = &AllocClass;
 }
 
 static void RemoveCall(CallSite CS, const Analysis& A) {
