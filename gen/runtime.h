@@ -30,7 +30,6 @@ llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name
 
 llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* name);
 
-#define _d_allocclass "_d_newclass"
 #define _adEq "_adEq2"
 #define _adCmp "_adCmp2"
 
