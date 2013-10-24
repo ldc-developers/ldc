@@ -336,7 +336,6 @@ namespace {
           AU.addRequired<DominatorTree>();
 
           AU.addPreserved<CallGraph>();
-          AU.addPreserved<DominatorTree>();
         }
     };
     char GarbageCollect2Stack::ID = 0;
@@ -363,20 +362,20 @@ GarbageCollect2Stack::GarbageCollect2Stack()
 }
 
 static void RemoveCall(CallSite CS, const Analysis& A) {
+    // For an invoke instruction, we insert a branch to the normal target BB
+    // immediately before it. Ideally, we would find a way to not invalidate
+    // the dominator tree here.
     if (CS.isInvoke()) {
         InvokeInst* Invoke = cast<InvokeInst>(CS.getInstruction());
-        // If this was an invoke instruction, we need to do some extra
-        // work to preserve the control flow.
 
-        // Create a "conditional" branch that -simplifycfg can clean up, so we
-        // can keep using the DominatorTree without updating it.
-        BranchInst::Create(Invoke->getNormalDest(), Invoke->getUnwindDest(),
-            ConstantInt::getTrue(A.M.getContext()), Invoke->getParent());
+        BranchInst::Create(Invoke->getNormalDest(), Invoke);
+        Invoke->getUnwindDest()->removePredecessor(CS->getParent());
     }
+
     // Remove the runtime call.
     if (A.CGNode)
         A.CGNode->removeCallEdgeFor(CS);
-    CS.getInstruction()->eraseFromParent();
+    CS->eraseFromParent();
 }
 
 static bool isSafeToStackAllocateArray(Instruction* Alloc, DominatorTree& DT,
