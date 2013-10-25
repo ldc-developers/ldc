@@ -87,17 +87,9 @@ void EmitMemSet(IRBuilder<>& B, Value* Dst, Value* Val, Value* Len,
                 const Analysis& A) {
     Dst = B.CreateBitCast(Dst, PointerType::getUnqual(B.getInt8Ty()));
 
-    Module *M = B.GetInsertBlock()->getParent()->getParent();
-    Type* intTy = Len->getType();
-    Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
-    Type *Tys[2] = {VoidPtrTy, intTy};
-    Function *MemSet = Intrinsic::getDeclaration(M, Intrinsic::memset,
-        llvm::makeArrayRef(Tys, 2));
-    Value *Align = ConstantInt::get(B.getInt32Ty(), 1);
-
-    CallSite CS = B.CreateCall5(MemSet, Dst, Val, Len, Align, B.getFalse());
+    CallSite CS = B.CreateMemSet(Dst, Val, Len, 1 /*Align*/, false /*isVolatile*/);
     if (A.CGNode)
-        A.CGNode->addCalledFunction(CS, A.CG->getOrInsertFunction(MemSet));
+        A.CGNode->addCalledFunction(CS, A.CG->getOrInsertFunction(CS.getCalledFunction()));
 }
 
 static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len,
