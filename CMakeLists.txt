@@ -130,6 +130,8 @@ if(SANITIZE)
 endif()
 append("${SANITIZE_CXXFLAGS}" DMD_CXXFLAGS)
 append("${SANITIZE_CXXFLAGS}" LDC_CXXFLAGS)
+# LLVM_CXXFLAGS may contain -Werror which causes compile errors with dmd source
+string(REPLACE "-Werror" "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
 
 #
 # Run idgen and impcnvgen.
