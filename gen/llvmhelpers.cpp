@@ -1916,7 +1916,8 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
             fatal();
         }
         DtoResolveFunction(fdecl);
-        return new DFuncValue(fdecl, fdecl->ir.irFunc->func);
+        assert(fdecl->llvmInternal == LLVMva_arg || fdecl->ir.irFunc);
+        return new DFuncValue(fdecl, fdecl->ir.irFunc ? fdecl->ir.irFunc->func : 0);
     }
 
     if (SymbolDeclaration* sdecl = decl->isSymbolDeclaration())
