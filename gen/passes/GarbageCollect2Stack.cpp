@@ -142,6 +142,31 @@ namespace {
         virtual ~FunctionInfo() {}
     };
 
+    static bool isKnownLessThan(Value* Val, uint64_t Limit, const Analysis& A) {
+        unsigned BitsLimit = Log2_64(Limit);
+
+        // LLVM's alloca ueses an i32 for the number of elements.
+        BitsLimit = std::min(BitsLimit, 32U);
+
+        const IntegerType* SizeType =
+            dyn_cast<IntegerType>(Val->getType());
+        if (!SizeType)
+            return false;
+        unsigned Bits = SizeType->getBitWidth();
+
+        if (Bits > BitsLimit) {
+            APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
+            Mask.flipAllBits();
+            APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
+            ComputeMaskedBits(Val, KnownZero, KnownOne, &A.TD);
+
+            if ((KnownZero & Mask) != Mask)
+                return false;
+        }
+
+        return true;
+    }
+
     class ArrayFI : public FunctionInfo {
         Value* arrSize;
         int ArrSizeArgNr;
@@ -174,29 +199,10 @@ namespace {
             // miscompilations for humongous arrays, but as the value "range"
             // (set bits) inference algorithm is rather limited, this is
             // useful for experimenting.
-            if (SizeLimit > 0)
-            {
+            if (SizeLimit > 0) {
                 uint64_t ElemSize = A.TD.getTypeAllocSize(Ty);
-                unsigned BitsLimit = Log2_64(SizeLimit / ElemSize);
-
-                // LLVM's alloca ueses an i32 for the number of elements.
-                BitsLimit = std::min(BitsLimit, 32U);
-
-                const IntegerType* SizeType =
-                    dyn_cast<IntegerType>(arrSize->getType());
-                if (!SizeType)
+                if (!isKnownLessThan(arrSize, SizeLimit / ElemSize, A))
                     return false;
-                unsigned Bits = SizeType->getBitWidth();
-
-                if (Bits > BitsLimit) {
-                    APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
-                    Mask.flipAllBits();
-                    APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
-                    ComputeMaskedBits(arrSize, KnownZero, KnownOne, &A.TD);
-
-                    if ((KnownZero & Mask) != Mask)
-                        return false;
-                }
             }
 
             return true;
