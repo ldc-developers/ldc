@@ -302,6 +302,62 @@ namespace {
 
         AllocClassFI() : FunctionInfo(ReturnType::Pointer) {}
     };
+
+    /// Describes runtime functions that allocate a chunk of memory with a
+    /// given size.
+    class UntypedMemoryFI : public FunctionInfo {
+        unsigned SizeArgNr;
+        Value* SizeArg;
+    public:
+        virtual bool analyze(CallSite CS, const Analysis& A) {
+            if (CS.arg_size() < SizeArgNr + 1)
+                return false;
+
+            SizeArg = CS.getArgument(SizeArgNr);
+
+            // If the user explicitly disabled the limits, don't even check
+            // whether the allocated size fits in 32 bits. This could cause
+            // miscompilations for humongous allocations, but as the value
+            // "range" (set bits) inference algorithm is rather limited, this
+            // is useful for experimenting.
+            if (SizeLimit > 0) {
+                if (!isKnownLessThan(SizeArg, SizeLimit, A))
+                    return false;
+            }
+
+            // Should be i8.
+            Ty = CS.getType()->getContainedType(0);
+            return true;
+        }
+
+        virtual Value* promote(CallSite CS, IRBuilder<>& B, const Analysis& A) {
+            IRBuilder<> Builder = B;
+            // If the allocation is of constant size it's best to put it in the
+            // entry block, so do so if we're not already there.
+            // For dynamically-sized allocations it's best to avoid the overhead
+            // of allocating them if possible, so leave those where they are.
+            // While we're at it, update statistics too.
+            if (isa<Constant>(SizeArg)) {
+                BasicBlock& Entry = CS.getCaller()->getEntryBlock();
+                if (Builder.GetInsertBlock() != &Entry)
+                    Builder.SetInsertPoint(&Entry, Entry.begin());
+                NumGcToStack++;
+            } else {
+                NumToDynSize++;
+            }
+
+            // Convert array size to 32 bits if necessary
+            Value* count = Builder.CreateIntCast(SizeArg, Builder.getInt32Ty(), false);
+            AllocaInst* alloca = Builder.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
+
+            return Builder.CreateBitCast(alloca, CS.getType());
+        }
+
+        UntypedMemoryFI(unsigned sizeArgNr)
+        : FunctionInfo(ReturnType::Pointer),
+          SizeArgNr(sizeArgNr)
+        {}
+    };
 }
 
 
@@ -320,6 +376,7 @@ namespace {
         ArrayFI NewArrayVT;
         ArrayFI NewArrayT;
         AllocClassFI AllocClass;
+        UntypedMemoryFI AllocMemory;
 
     public:
         static char ID; // Pass identification
@@ -358,12 +415,14 @@ GarbageCollect2Stack::GarbageCollect2Stack()
 : FunctionPass(ID),
   AllocMemoryT(ReturnType::Pointer, 0),
   NewArrayVT(ReturnType::Array, 0, 1, false),
-  NewArrayT(ReturnType::Array, 0, 1, true)
+  NewArrayT(ReturnType::Array, 0, 1, true),
+  AllocMemory(0)
 {
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
     KnownFunctions["_d_newarrayvT"] = &NewArrayVT;
     KnownFunctions["_d_newarrayT"] = &NewArrayT;
     KnownFunctions["_d_newclass"] = &AllocClass;
+    KnownFunctions["_d_allocmemory"] = &AllocMemory;
 }
 
 static void RemoveCall(CallSite CS, const Analysis& A) {
