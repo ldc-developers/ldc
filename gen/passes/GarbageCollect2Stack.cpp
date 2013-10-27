@@ -109,7 +109,6 @@ namespace {
 
     public:
         unsigned TypeInfoArgNr;
-        bool SafeToDelete;
 
         /// Whether the allocated memory is returned as a D array instead of
         /// just a plain pointer.
@@ -134,10 +133,8 @@ namespace {
             return new AllocaInst(Ty, ".nongc_mem", Begin); // FIXME: align?
         }
 
-        FunctionInfo(unsigned typeInfoArgNr, bool safeToDelete, bool returnsArray)
-        : TypeInfoArgNr(typeInfoArgNr),
-          SafeToDelete(safeToDelete),
-          ReturnsArray(returnsArray) {}
+        FunctionInfo(unsigned typeInfoArgNr, bool returnsArray)
+        : TypeInfoArgNr(typeInfoArgNr), ReturnsArray(returnsArray) {}
         virtual ~FunctionInfo() {}
     };
 
@@ -147,9 +144,9 @@ namespace {
         bool Initialized;
 
     public:
-        ArrayFI(unsigned tiArgNr, bool safeToDelete, bool returnsArray,
+        ArrayFI(unsigned tiArgNr, bool returnsArray,
                 bool initialized, unsigned arrSizeArgNr)
-        : FunctionInfo(tiArgNr, safeToDelete, returnsArray),
+        : FunctionInfo(tiArgNr, returnsArray),
           ArrSizeArgNr(arrSizeArgNr),
           Initialized(initialized)
         {}
@@ -288,7 +285,7 @@ namespace {
 
         // The default promote() should be fine.
 
-        AllocClassFI() : FunctionInfo(~0u, true, false) {}
+        AllocClassFI() : FunctionInfo(~0u, false) {}
     };
 }
 
@@ -420,7 +417,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 
             FunctionInfo* info = OMI->getValue();
 
-            if (Inst->use_empty() && info->SafeToDelete) {
+            if (Inst->use_empty()) {
                 Changed = true;
                 NumDeleted++;
                 RemoveCall(CS, A);
