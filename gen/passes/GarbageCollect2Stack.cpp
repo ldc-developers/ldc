@@ -115,18 +115,11 @@ namespace {
         Type* Ty;
 
     public:
-        unsigned TypeInfoArgNr;
         ReturnType::Type ReturnType;
 
         // Analyze the current call, filling in some fields. Returns true if
         // this is an allocation we can stack-allocate.
-        virtual bool analyze(CallSite CS, const Analysis& A) {
-            Value* TypeInfo = CS.getArgument(TypeInfoArgNr);
-            Ty = A.getTypeFor(TypeInfo);
-            if (!Ty) return false;
-
-            return A.TD.getTypeAllocSize(Ty) < SizeLimit;
-        }
+        virtual bool analyze(CallSite CS, const Analysis& A) = 0;
 
         // Returns the alloca to replace this call.
         // It will always be inserted before the call.
@@ -137,8 +130,8 @@ namespace {
             return new AllocaInst(Ty, ".nongc_mem", Begin); // FIXME: align?
         }
 
-        FunctionInfo(unsigned typeInfoArgNr, ReturnType::Type returnType)
-        : TypeInfoArgNr(typeInfoArgNr), ReturnType(returnType) {}
+        FunctionInfo(ReturnType::Type returnType)
+        : ReturnType(returnType) {}
         virtual ~FunctionInfo() {}
     };
 
@@ -167,22 +160,36 @@ namespace {
         return true;
     }
 
-    class ArrayFI : public FunctionInfo {
-        Value* arrSize;
-        int ArrSizeArgNr;
-        bool Initialized;
+    class TypeInfoFI : public FunctionInfo {
+        unsigned TypeInfoArgNr;
 
     public:
-        ArrayFI(unsigned tiArgNr, ReturnType::Type returnType,
-                bool initialized, unsigned arrSizeArgNr)
-        : FunctionInfo(tiArgNr, returnType),
+        TypeInfoFI(ReturnType::Type returnType, unsigned tiArgNr)
+        : FunctionInfo(returnType), TypeInfoArgNr(tiArgNr) {}
+
+        virtual bool analyze(CallSite CS, const Analysis& A) {
+            Value* TypeInfo = CS.getArgument(TypeInfoArgNr);
+            Ty = A.getTypeFor(TypeInfo);
+            if (!Ty) return false;
+            return A.TD.getTypeAllocSize(Ty) < SizeLimit;
+        }
+    };
+
+    class ArrayFI : public TypeInfoFI {
+        int ArrSizeArgNr;
+        bool Initialized;
+        Value* arrSize;
+
+    public:
+        ArrayFI(ReturnType::Type returnType, unsigned tiArgNr,
+            unsigned arrSizeArgNr, bool initialized)
+        : TypeInfoFI(returnType, tiArgNr),
           ArrSizeArgNr(arrSizeArgNr),
           Initialized(initialized)
         {}
 
         virtual bool analyze(CallSite CS, const Analysis& A) {
-            if (!FunctionInfo::analyze(CS, A))
-                return false;
+            if (!TypeInfoFI::analyze(CS, A)) return false;
 
             arrSize = CS.getArgument(ArrSizeArgNr);
 
@@ -255,8 +262,6 @@ namespace {
     class AllocClassFI : public FunctionInfo {
         public:
         virtual bool analyze(CallSite CS, const Analysis& A) {
-            // This call contains no TypeInfo parameter, so don't call the
-            // base class implementation here...
             if (CS.arg_size() != 1)
                 return false;
             Value* arg = CS.getArgument(0)->stripPointerCasts();
@@ -295,7 +300,7 @@ namespace {
 
         // The default promote() should be fine.
 
-        AllocClassFI() : FunctionInfo(~0u, ReturnType::Pointer) {}
+        AllocClassFI() : FunctionInfo(ReturnType::Pointer) {}
     };
 }
 
@@ -311,7 +316,7 @@ namespace {
         StringMap<FunctionInfo*> KnownFunctions;
         Module* M;
 
-        FunctionInfo AllocMemoryT;
+        TypeInfoFI AllocMemoryT;
         ArrayFI NewArrayVT;
         ArrayFI NewArrayT;
         AllocClassFI AllocClass;
@@ -351,9 +356,9 @@ FunctionPass *createGarbageCollect2Stack() {
 
 GarbageCollect2Stack::GarbageCollect2Stack()
 : FunctionPass(ID),
-  AllocMemoryT(0, ReturnType::Pointer),
-  NewArrayVT(0, ReturnType::Array, false, 1),
-  NewArrayT(0, ReturnType::Array, true, 1)
+  AllocMemoryT(ReturnType::Pointer, 0),
+  NewArrayVT(ReturnType::Array, 0, 1, false),
+  NewArrayT(ReturnType::Array, 0, 1, true)
 {
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
     KnownFunctions["_d_newarrayvT"] = &NewArrayVT;
