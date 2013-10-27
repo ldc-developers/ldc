@@ -103,16 +103,20 @@ static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len,
 //===----------------------------------------------------------------------===//
 
 namespace {
+    namespace ReturnType {
+        enum Type {
+            Pointer, /// Function returns a pointer to the allocated memory.
+            Array /// Function returns the allocated memory as an array slice.
+        };
+    }
+
     class FunctionInfo {
     protected:
         Type* Ty;
 
     public:
         unsigned TypeInfoArgNr;
-
-        /// Whether the allocated memory is returned as a D array instead of
-        /// just a plain pointer.
-        bool ReturnsArray;
+        ReturnType::Type ReturnType;
 
         // Analyze the current call, filling in some fields. Returns true if
         // this is an allocation we can stack-allocate.
@@ -133,8 +137,8 @@ namespace {
             return new AllocaInst(Ty, ".nongc_mem", Begin); // FIXME: align?
         }
 
-        FunctionInfo(unsigned typeInfoArgNr, bool returnsArray)
-        : TypeInfoArgNr(typeInfoArgNr), ReturnsArray(returnsArray) {}
+        FunctionInfo(unsigned typeInfoArgNr, ReturnType::Type returnType)
+        : TypeInfoArgNr(typeInfoArgNr), ReturnType(returnType) {}
         virtual ~FunctionInfo() {}
     };
 
@@ -144,9 +148,9 @@ namespace {
         bool Initialized;
 
     public:
-        ArrayFI(unsigned tiArgNr, bool returnsArray,
+        ArrayFI(unsigned tiArgNr, ReturnType::Type returnType,
                 bool initialized, unsigned arrSizeArgNr)
-        : FunctionInfo(tiArgNr, returnsArray),
+        : FunctionInfo(tiArgNr, returnType),
           ArrSizeArgNr(arrSizeArgNr),
           Initialized(initialized)
         {}
@@ -228,7 +232,7 @@ namespace {
                 EmitMemZero(B, alloca, Size, A);
             }
 
-            if (ReturnsArray) {
+            if (ReturnType == ReturnType::Array) {
                 Value* arrStruct = llvm::UndefValue::get(CS.getType());
                 arrStruct = Builder.CreateInsertValue(arrStruct, arrSize, 0);
                 Value* memPtr = Builder.CreateBitCast(alloca,
@@ -285,7 +289,7 @@ namespace {
 
         // The default promote() should be fine.
 
-        AllocClassFI() : FunctionInfo(~0u, false) {}
+        AllocClassFI() : FunctionInfo(~0u, ReturnType::Pointer) {}
     };
 }
 
@@ -341,9 +345,9 @@ FunctionPass *createGarbageCollect2Stack() {
 
 GarbageCollect2Stack::GarbageCollect2Stack()
 : FunctionPass(ID),
-  AllocMemoryT(0, true, false),
-  NewArrayVT(0, true, true, false, 1),
-  NewArrayT(0, true, true, true, 1)
+  AllocMemoryT(0, ReturnType::Pointer),
+  NewArrayVT(0, ReturnType::Array, false, 1),
+  NewArrayT(0, ReturnType::Array, true, 1)
 {
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
     KnownFunctions["_d_newarrayvT"] = &NewArrayVT;
@@ -430,7 +434,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
                 continue;
 
             SmallVector<CallInst*, 4> RemoveTailCallInsts;
-            if (info->ReturnsArray) {
+            if (info->ReturnType == ReturnType::Array) {
                 if (!isSafeToStackAllocateArray(Inst, DT, RemoveTailCallInsts)) continue;
             } else {
                 if (!isSafeToStackAllocate(Inst, Inst, DT, RemoveTailCallInsts)) continue;
