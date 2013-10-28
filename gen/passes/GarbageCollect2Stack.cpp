@@ -103,27 +103,23 @@ static void EmitMemZero(IRBuilder<>& B, Value* Dst, Value* Len,
 //===----------------------------------------------------------------------===//
 
 namespace {
+    namespace ReturnType {
+        enum Type {
+            Pointer, /// Function returns a pointer to the allocated memory.
+            Array /// Function returns the allocated memory as an array slice.
+        };
+    }
+
     class FunctionInfo {
     protected:
         Type* Ty;
 
     public:
-        unsigned TypeInfoArgNr;
-        bool SafeToDelete;
-
-        /// Whether the allocated memory is returned as a D array instead of
-        /// just a plain pointer.
-        bool ReturnsArray;
+        ReturnType::Type ReturnType;
 
         // Analyze the current call, filling in some fields. Returns true if
         // this is an allocation we can stack-allocate.
-        virtual bool analyze(CallSite CS, const Analysis& A) {
-            Value* TypeInfo = CS.getArgument(TypeInfoArgNr);
-            Ty = A.getTypeFor(TypeInfo);
-            if (!Ty) return false;
-
-            return A.TD.getTypeAllocSize(Ty) < SizeLimit;
-        }
+        virtual bool analyze(CallSite CS, const Analysis& A) = 0;
 
         // Returns the alloca to replace this call.
         // It will always be inserted before the call.
@@ -134,29 +130,66 @@ namespace {
             return new AllocaInst(Ty, ".nongc_mem", Begin); // FIXME: align?
         }
 
-        FunctionInfo(unsigned typeInfoArgNr, bool safeToDelete, bool returnsArray)
-        : TypeInfoArgNr(typeInfoArgNr),
-          SafeToDelete(safeToDelete),
-          ReturnsArray(returnsArray) {}
+        FunctionInfo(ReturnType::Type returnType)
+        : ReturnType(returnType) {}
         virtual ~FunctionInfo() {}
     };
 
-    class ArrayFI : public FunctionInfo {
-        Value* arrSize;
-        int ArrSizeArgNr;
-        bool Initialized;
+    static bool isKnownLessThan(Value* Val, uint64_t Limit, const Analysis& A) {
+        unsigned BitsLimit = Log2_64(Limit);
+
+        // LLVM's alloca ueses an i32 for the number of elements.
+        BitsLimit = std::min(BitsLimit, 32U);
+
+        const IntegerType* SizeType =
+            dyn_cast<IntegerType>(Val->getType());
+        if (!SizeType)
+            return false;
+        unsigned Bits = SizeType->getBitWidth();
+
+        if (Bits > BitsLimit) {
+            APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
+            Mask.flipAllBits();
+            APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
+            ComputeMaskedBits(Val, KnownZero, KnownOne, &A.TD);
+
+            if ((KnownZero & Mask) != Mask)
+                return false;
+        }
+
+        return true;
+    }
+
+    class TypeInfoFI : public FunctionInfo {
+        unsigned TypeInfoArgNr;
 
     public:
-        ArrayFI(unsigned tiArgNr, bool safeToDelete, bool returnsArray,
-                bool initialized, unsigned arrSizeArgNr)
-        : FunctionInfo(tiArgNr, safeToDelete, returnsArray),
+        TypeInfoFI(ReturnType::Type returnType, unsigned tiArgNr)
+        : FunctionInfo(returnType), TypeInfoArgNr(tiArgNr) {}
+
+        virtual bool analyze(CallSite CS, const Analysis& A) {
+            Value* TypeInfo = CS.getArgument(TypeInfoArgNr);
+            Ty = A.getTypeFor(TypeInfo);
+            if (!Ty) return false;
+            return A.TD.getTypeAllocSize(Ty) < SizeLimit;
+        }
+    };
+
+    class ArrayFI : public TypeInfoFI {
+        int ArrSizeArgNr;
+        bool Initialized;
+        Value* arrSize;
+
+    public:
+        ArrayFI(ReturnType::Type returnType, unsigned tiArgNr,
+            unsigned arrSizeArgNr, bool initialized)
+        : TypeInfoFI(returnType, tiArgNr),
           ArrSizeArgNr(arrSizeArgNr),
           Initialized(initialized)
         {}
 
         virtual bool analyze(CallSite CS, const Analysis& A) {
-            if (!FunctionInfo::analyze(CS, A))
-                return false;
+            if (!TypeInfoFI::analyze(CS, A)) return false;
 
             arrSize = CS.getArgument(ArrSizeArgNr);
 
@@ -173,29 +206,10 @@ namespace {
             // miscompilations for humongous arrays, but as the value "range"
             // (set bits) inference algorithm is rather limited, this is
             // useful for experimenting.
-            if (SizeLimit > 0)
-            {
+            if (SizeLimit > 0) {
                 uint64_t ElemSize = A.TD.getTypeAllocSize(Ty);
-                unsigned BitsLimit = Log2_64(SizeLimit / ElemSize);
-
-                // LLVM's alloca ueses an i32 for the number of elements.
-                BitsLimit = std::min(BitsLimit, 32U);
-
-                const IntegerType* SizeType =
-                    dyn_cast<IntegerType>(arrSize->getType());
-                if (!SizeType)
+                if (!isKnownLessThan(arrSize, SizeLimit / ElemSize, A))
                     return false;
-                unsigned Bits = SizeType->getBitWidth();
-
-                if (Bits > BitsLimit) {
-                    APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
-                    Mask.flipAllBits();
-                    APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
-                    ComputeMaskedBits(arrSize, KnownZero, KnownOne, &A.TD);
-
-                    if ((KnownZero & Mask) != Mask)
-                        return false;
-                }
             }
 
             return true;
@@ -231,7 +245,7 @@ namespace {
                 EmitMemZero(B, alloca, Size, A);
             }
 
-            if (ReturnsArray) {
+            if (ReturnType == ReturnType::Array) {
                 Value* arrStruct = llvm::UndefValue::get(CS.getType());
                 arrStruct = Builder.CreateInsertValue(arrStruct, arrSize, 0);
                 Value* memPtr = Builder.CreateBitCast(alloca,
@@ -248,8 +262,6 @@ namespace {
     class AllocClassFI : public FunctionInfo {
         public:
         virtual bool analyze(CallSite CS, const Analysis& A) {
-            // This call contains no TypeInfo parameter, so don't call the
-            // base class implementation here...
             if (CS.arg_size() != 1)
                 return false;
             Value* arg = CS.getArgument(0)->stripPointerCasts();
@@ -288,7 +300,63 @@ namespace {
 
         // The default promote() should be fine.
 
-        AllocClassFI() : FunctionInfo(~0u, true, false) {}
+        AllocClassFI() : FunctionInfo(ReturnType::Pointer) {}
+    };
+
+    /// Describes runtime functions that allocate a chunk of memory with a
+    /// given size.
+    class UntypedMemoryFI : public FunctionInfo {
+        unsigned SizeArgNr;
+        Value* SizeArg;
+    public:
+        virtual bool analyze(CallSite CS, const Analysis& A) {
+            if (CS.arg_size() < SizeArgNr + 1)
+                return false;
+
+            SizeArg = CS.getArgument(SizeArgNr);
+
+            // If the user explicitly disabled the limits, don't even check
+            // whether the allocated size fits in 32 bits. This could cause
+            // miscompilations for humongous allocations, but as the value
+            // "range" (set bits) inference algorithm is rather limited, this
+            // is useful for experimenting.
+            if (SizeLimit > 0) {
+                if (!isKnownLessThan(SizeArg, SizeLimit, A))
+                    return false;
+            }
+
+            // Should be i8.
+            Ty = CS.getType()->getContainedType(0);
+            return true;
+        }
+
+        virtual Value* promote(CallSite CS, IRBuilder<>& B, const Analysis& A) {
+            IRBuilder<> Builder = B;
+            // If the allocation is of constant size it's best to put it in the
+            // entry block, so do so if we're not already there.
+            // For dynamically-sized allocations it's best to avoid the overhead
+            // of allocating them if possible, so leave those where they are.
+            // While we're at it, update statistics too.
+            if (isa<Constant>(SizeArg)) {
+                BasicBlock& Entry = CS.getCaller()->getEntryBlock();
+                if (Builder.GetInsertBlock() != &Entry)
+                    Builder.SetInsertPoint(&Entry, Entry.begin());
+                NumGcToStack++;
+            } else {
+                NumToDynSize++;
+            }
+
+            // Convert array size to 32 bits if necessary
+            Value* count = Builder.CreateIntCast(SizeArg, Builder.getInt32Ty(), false);
+            AllocaInst* alloca = Builder.CreateAlloca(Ty, count, ".nongc_mem"); // FIXME: align?
+
+            return Builder.CreateBitCast(alloca, CS.getType());
+        }
+
+        UntypedMemoryFI(unsigned sizeArgNr)
+        : FunctionInfo(ReturnType::Pointer),
+          SizeArgNr(sizeArgNr)
+        {}
     };
 }
 
@@ -304,10 +372,11 @@ namespace {
         StringMap<FunctionInfo*> KnownFunctions;
         Module* M;
 
-        FunctionInfo AllocMemoryT;
+        TypeInfoFI AllocMemoryT;
         ArrayFI NewArrayVT;
         ArrayFI NewArrayT;
         AllocClassFI AllocClass;
+        UntypedMemoryFI AllocMemory;
 
     public:
         static char ID; // Pass identification
@@ -344,14 +413,16 @@ FunctionPass *createGarbageCollect2Stack() {
 
 GarbageCollect2Stack::GarbageCollect2Stack()
 : FunctionPass(ID),
-  AllocMemoryT(0, true, false),
-  NewArrayVT(0, true, true, false, 1),
-  NewArrayT(0, true, true, true, 1)
+  AllocMemoryT(ReturnType::Pointer, 0),
+  NewArrayVT(ReturnType::Array, 0, 1, false),
+  NewArrayT(ReturnType::Array, 0, 1, true),
+  AllocMemory(0)
 {
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
     KnownFunctions["_d_newarrayvT"] = &NewArrayVT;
     KnownFunctions["_d_newarrayT"] = &NewArrayT;
     KnownFunctions["_d_newclass"] = &AllocClass;
+    KnownFunctions["_d_allocmemory"] = &AllocMemory;
 }
 
 static void RemoveCall(CallSite CS, const Analysis& A) {
@@ -420,7 +491,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 
             FunctionInfo* info = OMI->getValue();
 
-            if (Inst->use_empty() && info->SafeToDelete) {
+            if (Inst->use_empty()) {
                 Changed = true;
                 NumDeleted++;
                 RemoveCall(CS, A);
@@ -433,7 +504,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
                 continue;
 
             SmallVector<CallInst*, 4> RemoveTailCallInsts;
-            if (info->ReturnsArray) {
+            if (info->ReturnType == ReturnType::Array) {
                 if (!isSafeToStackAllocateArray(Inst, DT, RemoveTailCallInsts)) continue;
             } else {
                 if (!isSafeToStackAllocate(Inst, Inst, DT, RemoveTailCallInsts)) continue;
