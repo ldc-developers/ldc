@@ -252,9 +252,6 @@ extern (C) CArgs rt_cArgs()
     return _cArgs;
 }
 
-version (LDC) {}
-else version (linux) version = InitInRtSections;
-
 /***********************************
  * Run the given main function.
  * Its purpose is to wrap the D main()
@@ -514,7 +511,7 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
             result = (result == EXIT_SUCCESS) ? EXIT_FAILURE : result;
     }
 
-    version (InitInRtSections) // initialization is done in rt.sections_linux
+    version (linux) // initialization is done in rt.sections_linux
         tryExec(&runMain);
     else
         tryExec(&runMainWithInit);
