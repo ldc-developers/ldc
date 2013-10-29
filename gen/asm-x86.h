@@ -280,6 +280,7 @@ namespace AsmParserx8664
         Op_DstSrcMMX,
         Op_DstSrcImmS,
         Op_DstSrcImmM,
+        Op_ExtSrcImmS,
         Op_UpdSrcShft,
         Op_DstSrcNT,
         Op_UpdSrcNT,
@@ -544,6 +545,7 @@ namespace AsmParserx8664
         /* Op_DstSrcMMX */  { { U|mmx, mmxm, 0 }     }, // some may not be update %%
         /* Op_DstSrcImmS*/  { { U|sse, ssem, N|imm } }, // some may not be update %%
         /* Op_DstSrcImmM*/  { { U|mmx, mmxm, N|imm } }, // some may not be update %%
+        /* Op_ExtSrcImmS*/  { { D|mr, sse, N|imm } }, // used for extractps
         /* Op_UpdSrcShft*/  { { U|mr,  reg,  N|shft},1, Clb_Flags }, // 16/32 only
         /* Op_DstSrcNT  */  { { D|mr,  mr,   0 },    0  }, // used for movd .. operands can be rm32,sse,mmx
         /* Op_UpdSrcNT  */  { { U|mr,  mr,   0 },    0  }, // used for movd .. operands can be rm32,sse,mmx
@@ -717,12 +719,18 @@ namespace AsmParserx8664
         { "addpd",   Op_DstSrcSSE },
         { "addps",   Op_DstSrcSSE },
 #ifdef ASM_X86_64
-        { "addq",    Op_DstSrcSSE },
+        { "addq",    Op_DstSrcSSE }, // ?
 #endif
         { "addsd",   Op_DstSrcSSE },
         { "addss",   Op_DstSrcSSE },
         { "addsubpd", Op_DstSrcSSE },
         { "addsubps", Op_DstSrcSSE },
+        { "aesdec", Op_DstSrcSSE },
+        { "aesdeclast", Op_DstSrcSSE },
+        { "aesenc", Op_DstSrcSSE },
+        { "aesenclast", Op_DstSrcSSE },
+        { "aesimc", Op_DstSrcSSE },
+        { "aeskeygenassist", Op_DstSrcImmS },
 #ifndef ASM_X86_64
         { "align",   Op_Align },
 #endif
@@ -733,8 +741,12 @@ namespace AsmParserx8664
         { "andps",   Op_DstSrcSSE },
 #ifndef ASM_X86_64
         { "arpl",    Op_UpdSrcNT },
-        { "bound",   Op_bound },
 #endif
+        { "blendpd", Op_DstSrcImmS },
+        { "blendps", Op_DstSrcImmS },
+        { "blendvpd", Op_DstSrcSSE },
+        { "blendvps", Op_DstSrcSSE },
+        { "bound",   Op_bound },
         { "bsf",     Op_SrcSrcFW },
         { "bsr",     Op_SrcSrcFW },
         { "bswap",   Op_bswap },
@@ -744,7 +756,7 @@ namespace AsmParserx8664
         { "bts",     Op_UpdSrcFW },
         { "call",    Op_Branch },
 #ifdef ASM_X86_64
-        { "callf",   Op_Branch },
+        { "callf",   Op_Branch }, // ?
 #endif
         { "cbw",     Op_0_AX },
 #ifndef ASM_X86_64
@@ -792,7 +804,7 @@ namespace AsmParserx8664
         { "cmppd",   Op_DstSrcImmS },
         { "cmpps",   Op_DstSrcImmS },
 #ifdef ASM_X86_64
-        { "cmpq",    Op_DstSrcNT },
+        { "cmpq",    Op_DstSrcNT }, // ?
 #endif
         { "cmps",    Op_cmps  },
         { "cmpsb",   Op_cmpsX },
@@ -813,6 +825,7 @@ namespace AsmParserx8664
 #ifdef ASM_X86_64
         { "cqo",     Op_0_DXAX },
 #endif
+        { "crc32", Op_DstSrc },
         { "cvtdq2pd", Op_DstSrcSSE },
         { "cvtdq2ps", Op_DstSrcSSE },
         { "cvtpd2dq", Op_DstSrcSSE },
@@ -858,6 +871,8 @@ namespace AsmParserx8664
         { "divsd",   Op_DstSrcSSE },
         { "divss",   Op_DstSrcSSE },
         { "dl",      Op_dl },
+        { "dppd",    Op_DstSrcImmS },
+        { "dpps",    Op_DstSrcImmS },
         { "dq",      Op_dl },
         { "ds",      Op_ds },
         { "dt",      Op_de },
@@ -865,6 +880,7 @@ namespace AsmParserx8664
         { "emms",    Op_0 }, // clobber all mmx/fp?
         { "enter",   Op_enter },
         { "even",    Op_Even },
+        { "extractps", Op_ExtSrcImmS },
         { "f2xm1",   Op_F0_ST }, // %% most of these are update...
         { "fabs",    Op_F0_ST },
         { "fadd",    Op_FMath },
@@ -977,6 +993,7 @@ namespace AsmParserx8664
         { "ins",     Op_ins },
         { "insb",    Op_insX },
         { "insd",    Op_insX },
+        { "insertps",Op_DstSrcImmS },
         { "insw",    Op_insX },
         { "int",     Op_SrcImm },
         { "into",    Op_0 },
@@ -985,7 +1002,7 @@ namespace AsmParserx8664
         { "iret",    Op_iret },
         { "iretd",   Op_iretd },
 #ifdef ASM_X86_64
-        { "iretq",   Op_iretq },
+        { "iretq",   Op_iretq }, // ?
 #endif
         { "ja",      Op_CBranch },
         { "jae",     Op_CBranch },
@@ -1001,8 +1018,8 @@ namespace AsmParserx8664
         { "jle",     Op_CBranch },
         { "jmp",     Op_Branch },
 #ifdef ASM_X86_64
-        { "jmpe",    Op_Branch },
-        { "jmpf",    Op_Branch },
+        { "jmpe",    Op_Branch }, // ?
+        { "jmpf",    Op_Branch }, // ?
 #endif
         { "jna",     Op_CBranch },
         { "jnae",    Op_CBranch },
@@ -1023,7 +1040,7 @@ namespace AsmParserx8664
         { "jpe",     Op_CBranch },
         { "jpo",     Op_CBranch },
 #ifdef ASM_X86_64
-        { "jrcxz",   Op_CBranch },
+        { "jrcxz",   Op_CBranch }, // Not supported by DMD
 #endif
         { "js",      Op_CBranch },
         { "jz",      Op_CBranch },
@@ -1034,7 +1051,7 @@ namespace AsmParserx8664
         { "lds",     Op_DstSrc }, // reg dest only
         { "lea",     Op_DstSrc }, // "
 #ifdef ASM_X86_64
-        { "leaq",    Op_DstSrcSSE }, // "
+        { "leaq",    Op_DstSrcSSE }, // ?
 #endif
         { "leave",   Op_0 }, // EBP,ESP clobbers
 #ifndef ASM_X86_64
@@ -1079,7 +1096,7 @@ namespace AsmParserx8664
         { "movapd",  Op_DstSrcSSE },
         { "movaps",  Op_DstSrcSSE },
 #ifdef ASM_X86_64
-        { "movb",    Op_DstSrcNT  },
+        { "movb",    Op_DstSrcNT  }, // ?
 #endif
         { "movd",    Op_DstSrcNT  }, // also mmx and sse
         { "movddup", Op_DstSrcSSE },
@@ -1090,7 +1107,7 @@ namespace AsmParserx8664
         { "movhpd",  Op_DstSrcSSE },
         { "movhps",  Op_DstSrcSSE },
 #ifdef ASM_X86_64
-        { "movl",    Op_DstSrc },
+        { "movl",    Op_DstSrc }, // ?
 #endif
         { "movlhps", Op_DstSrcSSE },
         { "movlpd",  Op_DstSrcSSE },
@@ -1098,6 +1115,7 @@ namespace AsmParserx8664
         { "movmskpd", Op_DstSrcSSE },
         { "movmskps", Op_DstSrcSSE },
         { "movntdq", Op_DstSrcNT  }, // limited to sse, but mem dest
+        { "movntdqa",Op_DstSrcNT },
         { "movnti",  Op_DstSrcNT  }, // limited to gpr, but mem dest
         { "movntpd", Op_DstSrcNT  }, // limited to sse, but mem dest
         { "movntps", Op_DstSrcNT  }, // limited to sse, but mem dest
@@ -1124,6 +1142,7 @@ namespace AsmParserx8664
         { "movzbl",  Op_DstSrcNT },
 #endif
         { "movzx",   Op_movzx },
+        { "mpsadbw", Op_DstSrcImmS },
         { "mul",     Op_mul },
         { "mulpd",   Op_DstSrcSSE },
         { "mulps",   Op_DstSrcSSE },
@@ -1149,6 +1168,7 @@ namespace AsmParserx8664
 #endif
         { "packssdw", Op_DstSrcMMX }, // %% also SSE
         { "packsswb", Op_DstSrcMMX },
+        { "packusdw", Op_DstSrcSSE },
         { "packuswb", Op_DstSrcMMX },
         { "paddb",   Op_DstSrcMMX },
         { "paddd",   Op_DstSrcMMX },
@@ -1162,17 +1182,28 @@ namespace AsmParserx8664
         { "pand",    Op_DstSrcMMX },
         { "pandn",   Op_DstSrcMMX },
 #ifdef ASM_X86_64
-        { "pause",   Op_DstSrcMMX },
+        { "pause",   Op_DstSrcMMX }, // ?
 #endif
         { "pavgb",   Op_DstSrcMMX },
         { "pavgusb", Op_DstSrcMMX }, // AMD 3dNow!
         { "pavgw",   Op_DstSrcMMX },
+        { "pblendvb", Op_DstSrcSSE }, // implicit xmm0
+        { "pblendw", Op_DstSrcImmS },
         { "pcmpeqb", Op_DstSrcMMX },
         { "pcmpeqd", Op_DstSrcMMX },
+        { "pcmpeqq", Op_DstSrcSSE },
         { "pcmpeqw", Op_DstSrcMMX },
+        { "pcmpestri", Op_DstSrcImmS },
+        { "pcmpestrm", Op_DstSrcImmS },
         { "pcmpgtb", Op_DstSrcMMX },
         { "pcmpgtd", Op_DstSrcMMX },
+        { "pcmpgtq", Op_DstSrcSSE },
         { "pcmpgtw", Op_DstSrcMMX },
+        { "pcmpistri", Op_DstSrcImmS },
+        { "pcmpistrm", Op_DstSrcImmS },
+        { "pextrb",  Op_DstSrcImmM }, // gpr32 dest
+        { "pextrd",  Op_DstSrcImmM }, // gpr32 dest
+        { "pextrq",  Op_DstSrcImmM }, // gpr32 dest
         { "pextrw",  Op_DstSrcImmM }, // gpr32 dest
         { "pf2id",   Op_DstSrcMMX }, // %% AMD 3dNow! opcodes
         { "pfacc",   Op_DstSrcMMX },
@@ -1196,27 +1227,53 @@ namespace AsmParserx8664
         { "phaddd",  Op_DstSrcSSE },
         { "phaddsw", Op_DstSrcSSE },
         { "phaddw",  Op_DstSrcSSE },
+        { "phminposuw", Op_DstSrcSSE },
         { "phsubd",  Op_DstSrcSSE },
         { "phsubsw", Op_DstSrcSSE },
         { "phsubw",  Op_DstSrcSSE },
 #endif
         { "pi2fd",   Op_DstSrcMMX }, // %%
+        { "pinsrb",  Op_DstSrcImmM }, // gpr32(16), mem16 src, sse too
+        { "pinsrd",  Op_DstSrcImmM }, // gpr32(16), mem16 src, sse too
+        { "pinsrq",  Op_DstSrcImmM }, // gpr32(16), mem16 src, sse too
         { "pinsrw",  Op_DstSrcImmM }, // gpr32(16), mem16 src, sse too
 #ifdef ASM_X86_64
         { "pmaddubsw", Op_DstSrcSSE },
 #endif
         { "pmaddwd", Op_DstSrcMMX },
+        { "pmaxsb",  Op_DstSrcSSE },
+        { "pmaxsd",  Op_DstSrcSSE },
         { "pmaxsw",  Op_DstSrcMMX },
         { "pmaxub",  Op_DstSrcMMX },
+        { "pmaxud",  Op_DstSrcSSE },
+        { "pmaxuw",  Op_DstSrcSSE },
+        { "pminsb",  Op_DstSrcSSE },
+        { "pminsd",  Op_DstSrcSSE },
         { "pminsw",  Op_DstSrcMMX },
         { "pminub",  Op_DstSrcMMX },
+        { "pminud",  Op_DstSrcSSE },
+        { "pminuw",  Op_DstSrcSSE },
         { "pmovmskb", Op_DstSrcMMX },
+        { "pmovsxbd", Op_DstSrcSSE },
+        { "pmovsxbq", Op_DstSrcSSE },
+        { "pmovsxbw", Op_DstSrcSSE },
+        { "pmovsxdq", Op_DstSrcSSE },
+        { "pmovsxwd", Op_DstSrcSSE },
+        { "pmovsxwq", Op_DstSrcSSE },
+        { "pmovzxbd", Op_DstSrcSSE },
+        { "pmovzxbq", Op_DstSrcSSE },
+        { "pmovzxbw", Op_DstSrcSSE },
+        { "pmovzxdq", Op_DstSrcSSE },
+        { "pmovzxwd", Op_DstSrcSSE },
+        { "pmovzxwq", Op_DstSrcSSE },
+        { "pmuldq",  Op_DstSrcSSE },
 #ifdef ASM_X86_64
         { "pmulhrsw", Op_DstSrcMMX },
 #endif
         { "pmulhrw", Op_DstSrcMMX }, // AMD 3dNow!
         { "pmulhuw", Op_DstSrcMMX },
         { "pmulhw",  Op_DstSrcMMX },
+        { "pmulld",  Op_DstSrcSSE },
         { "pmullw",  Op_DstSrcMMX },
         { "pmuludq", Op_DstSrcMMX }, // also sse
         { "pop",     Op_DstW },
@@ -1224,6 +1281,7 @@ namespace AsmParserx8664
         { "popa",    Op_SizedStack }, // For intel this is always 16-bit
         { "popad",   Op_SizedStack }, // GAS doesn't accept 'popad' -- these clobber everything, but supposedly it would be used to preserve clobbered regs
 #endif
+        { "popcnt",  Op_DstSrc },
         { "popf",    Op_0 }, // rewrite the insn with a special case
 #ifndef ASM_X86_64
         { "popfd",   Op_0 },
@@ -1271,6 +1329,7 @@ namespace AsmParserx8664
         { "psubusw", Op_DstSrcMMX },
         { "psubw",   Op_DstSrcMMX },
         { "pswapd",  Op_DstSrcMMX }, // AMD 3dNow!
+        { "ptest",   Op_SrcSrcSSEF },
         { "punpckhbw",  Op_DstSrcMMX },
         { "punpckhdq",  Op_DstSrcMMX },
         { "punpckhqdq", Op_DstSrcMMX },
@@ -1289,15 +1348,18 @@ namespace AsmParserx8664
         { "pushfd",  Op_0 },
 #else
         { "pushfq",  Op_0 }, // Op_SizedStack?
-        { "pushq",   Op_push },
+        { "pushq",   Op_push }, // ?
 #endif
         { "pxor",    Op_DstSrcMMX },
         { "rcl",     Op_Shift }, // limited src operands -- change to shift
         { "rcpps",   Op_DstSrcSSE },
         { "rcpss",   Op_DstSrcSSE },
         { "rcr",     Op_Shift },
+//        { rdfsbase, XXXX },
+//        { rdgsbase, XXXX },
         { "rdmsr",   Op_0_DXAX },
         { "rdpmc",   Op_0_DXAX },
+//        { rdrand, XXXX },
         { "rdtsc",   Op_0_DXAX },
         { "rep",     Op_0 },
         { "repe",    Op_0 },
@@ -1307,10 +1369,14 @@ namespace AsmParserx8664
         { "ret",     Op_ret },
         { "retf",    Op_retf },
 #ifdef ASM_X86_64
-        { "retn",    Op_retf },
+        { "retn",    Op_retf }, // ?
 #endif
         { "rol",     Op_Shift },
         { "ror",     Op_Shift },
+        { "roundpd", Op_DstSrcImmS },
+        { "roundps", Op_DstSrcImmS },
+        { "roundsd", Op_DstSrcImmS },
+        { "roundss", Op_DstSrcImmS },
         { "rsm",     Op_0 },
         { "rsqrtps", Op_DstSrcSSE },
         { "rsqrtss", Op_DstSrcSSE },
@@ -1360,6 +1426,13 @@ namespace AsmParserx8664
         { "setz",    Op_DstRMBNT },
         { "sfence",  Op_0 },
         { "sgdt",    Op_DstMemNT },
+        { "sha1msg1", Op_DstSrcSSE },
+        { "sha1msg2", Op_DstSrcSSE },
+        { "sha1nexte", Op_DstSrcSSE },
+        { "sha1rnds4", Op_DstSrcImmS },
+        { "sha256msg1", Op_DstSrcSSE },
+        { "sha256msg2", Op_DstSrcSSE },
+        { "sha256rnds2", Op_DstSrcSSE }, // implicit xmm0
         { "shl",     Op_Shift },
         { "shld",    Op_UpdSrcShft },
         { "shr",     Op_Shift },
@@ -1389,19 +1462,19 @@ namespace AsmParserx8664
         { "subpd",   Op_DstSrcSSE },
         { "subps",   Op_DstSrcSSE },
 #ifdef ASM_X86_64
-        { "subq",    Op_DstSrcSSE },
+        { "subq",    Op_DstSrcSSE }, // ?
 #endif
         { "subsd",   Op_DstSrcSSE },
         { "subss",   Op_DstSrcSSE },
 #ifdef ASM_X86_64
-        { "swapgs",  Op_0 },
+        { "swapgs",  Op_0 }, // Not supported by DMD
 #endif
         { "syscall", Op_0 },
         { "sysenter", Op_0 },
         { "sysexit", Op_0 },
         { "sysret",  Op_0 },
 #ifdef ASM_X86_64
-        { "sysretq", Op_0 },
+        { "sysretq", Op_0 }, // ?
 #endif
         { "test",    Op_SrcSrcF },
         { "ucomisd", Op_SrcSrcSSEF },
@@ -1411,12 +1484,305 @@ namespace AsmParserx8664
         { "unpckhps", Op_DstSrcSSE },
         { "unpcklpd", Op_DstSrcSSE },
         { "unpcklps", Op_DstSrcSSE },
+//        { vaddpd, XXXX },
+//        { vaddps, XXXX },
+//        { vaddsd, XXXX },
+//        { vaddss, XXXX },
+//        { vaddsubpd, XXXX },
+//        { vaddsubps, XXXX },
+//        { vaesdec, XXXX },
+//        { vaesdeclast, XXXX },
+//        { vaesenc, XXXX },
+//        { vaesenclast, XXXX },
+//        { vaesimc, XXXX },
+//        { vaeskeygenassist, XXXX },
+//        { vandnpd, XXXX },
+//        { vandnps, XXXX },
+//        { vandpd, XXXX },
+//        { vandps, XXXX },
+//        { vblendpd, XXXX },
+//        { vblendps, XXXX },
+//        { vblendvpd, XXXX },
+//        { vblendvps, XXXX },
+//        { vbroadcastf128, XXXX },
+//        { vbroadcastsd, XXXX },
+//        { vbroadcastss, XXXX },
+//        { vcmppd, XXXX },
+//        { vcmpps, XXXX },
+//        { vcmpsd, XXXX },
+//        { vcmpss, XXXX },
+//        { vcomisd, XXXX },
+//        { vcomiss, XXXX },
+//        { vcvtdq2pd, XXXX },
+//        { vcvtdq2ps, XXXX },
+//        { vcvtpd2dq, XXXX },
+//        { vcvtpd2ps, XXXX },
+//        { vcvtph2ps, XXXX },
+//        { vcvtps2dq, XXXX },
+//        { vcvtps2pd, XXXX },
+//        { vcvtps2ph, XXXX },
+//        { vcvtsd2si, XXXX },
+//        { vcvtsd2ss, XXXX },
+//        { vcvtsi2sd, XXXX },
+//        { vcvtsi2ss, XXXX },
+//        { vcvtss2sd, XXXX },
+//        { vcvtss2si, XXXX },
+//        { vcvttpd2dq, XXXX },
+//        { vcvttps2dq, XXXX },
+//        { vcvttsd2si, XXXX },
+//        { vcvttss2si, XXXX },
+//        { vdivpd, XXXX },
+//        { vdivps, XXXX },
+//        { vdivsd, XXXX },
+//        { vdivss, XXXX },
+//        { vdppd, XXXX },
+//        { vdpps, XXXX },
         { "verr",    Op_SrcMemNTF },
         { "verw",    Op_SrcMemNTF },
+//        { vextractf128, XXXX },
+//        { vextractps, XXXX },
+//        { vfmadd132pd, XXXX },
+//        { vfmadd132ps, XXXX },
+//        { vfmadd132sd, XXXX },
+//        { vfmadd132ss, XXXX },
+//        { vfmadd213pd, XXXX },
+//        { vfmadd213ps, XXXX },
+//        { vfmadd213sd, XXXX },
+//        { vfmadd213ss, XXXX },
+//        { vfmadd231pd, XXXX },
+//        { vfmadd231ps, XXXX },
+//        { vfmadd231sd, XXXX },
+//        { vfmadd231ss, XXXX },
+//        { vfmaddsub132pd, XXXX },
+//        { vfmaddsub132ps, XXXX },
+//        { vfmaddsub213pd, XXXX },
+//        { vfmaddsub213ps, XXXX },
+//        { vfmaddsub231pd, XXXX },
+//        { vfmaddsub231ps, XXXX },
+//        { vfmsub132pd, XXXX },
+//        { vfmsub132ps, XXXX },
+//        { vfmsub132sd, XXXX },
+//        { vfmsub132ss, XXXX },
+//        { vfmsub213pd, XXXX },
+//        { vfmsub213ps, XXXX },
+//        { vfmsub213sd, XXXX },
+//        { vfmsub213ss, XXXX },
+//        { vfmsub231pd, XXXX },
+//        { vfmsub231ps, XXXX },
+//        { vfmsub231sd, XXXX },
+//        { vfmsub231ss, XXXX },
+//        { vfmsubadd132pd, XXXX },
+//        { vfmsubadd132ps, XXXX },
+//        { vfmsubadd213pd, XXXX },
+//        { vfmsubadd213ps, XXXX },
+//        { vfmsubadd231pd, XXXX },
+//        { vfmsubadd231ps, XXXX },
+//        { vhaddpd, XXXX },
+//        { vhaddps, XXXX },
+//        { vinsertf128, XXXX },
+//        { vinsertps, XXXX },
+//        { vlddqu, XXXX },
+//        { vldmxcsr, XXXX },
+//        { vmaskmovdqu, XXXX },
+//        { vmaskmovpd, XXXX },
+//        { vmaskmovps, XXXX },
+//        { vmaxpd, XXXX },
+//        { vmaxps, XXXX },
+//        { vmaxsd, XXXX },
+//        { vmaxss, XXXX },
+//        { vminpd, XXXX },
+//        { vminps, XXXX },
+//        { vminsd, XXXX },
+//        { vminss, XXXX },
+//        { vmovapd, XXXX },
+//        { vmovaps, XXXX },
+//        { vmovd, XXXX },
+//        { vmovddup, XXXX },
+//        { vmovdqa, XXXX },
+//        { vmovdqu, XXXX },
+//        { vmovhlps, XXXX },
+//        { vmovhpd, XXXX },
+//        { vmovhps, XXXX },
+//        { vmovlhps, XXXX },
+//        { vmovlpd, XXXX },
+//        { vmovlps, XXXX },
+//        { vmovmskpd, XXXX },
+//        { vmovmskps, XXXX },
+//        { vmovntdq, XXXX },
+//        { vmovntdqa, XXXX },
+//        { vmovntpd, XXXX },
+//        { vmovntps, XXXX },
+//        { vmovq, XXXX },
+//        { vmovsd, XXXX },
+//        { vmovshdup, XXXX },
+//        { vmovsldup, XXXX },
+//        { vmovss, XXXX },
+//        { vmovupd, XXXX },
+//        { vmovups, XXXX },
+//        { vmpsadbw, XXXX },
+//        { vmulpd, XXXX },
+//        { vmulps, XXXX },
+//        { vmulsd, XXXX },
+//        { vmulss, XXXX },
+//        { vorpd, XXXX },
+//        { vorps, XXXX },
+//        { vpabsb, XXXX },
+//        { vpabsd, XXXX },
+//        { vpabsw, XXXX },
+//        { vpackssdw, XXXX },
+//        { vpacksswb, XXXX },
+//        { vpackusdw, XXXX },
+//        { vpackuswb, XXXX },
+//        { vpaddb, XXXX },
+//        { vpaddd, XXXX },
+//        { vpaddq, XXXX },
+//        { vpaddsb, XXXX },
+//        { vpaddsw, XXXX },
+//        { vpaddusb, XXXX },
+//        { vpaddusw, XXXX },
+//        { vpaddw, XXXX },
+//        { vpalignr, XXXX },
+//        { vpand, XXXX },
+//        { vpandn, XXXX },
+//        { vpavgb, XXXX },
+//        { vpavgw, XXXX },
+//        { vpblendvb, XXXX },
+//        { vpblendw, XXXX },
+//        { vpclmulqdq, XXXX },
+//        { vpcmpeqb, XXXX },
+//        { vpcmpeqd, XXXX },
+//        { vpcmpeqq, XXXX },
+//        { vpcmpeqw, XXXX },
+//        { vpcmpestri, XXXX },
+//        { vpcmpestrm, XXXX },
+//        { vpcmpgtb, XXXX },
+//        { vpcmpgtd, XXXX },
+//        { vpcmpgtq, XXXX },
+//        { vpcmpgtw, XXXX },
+//        { vpcmpistri, XXXX },
+//        { vpcmpistrm, XXXX },
+//        { vperm2f128, XXXX },
+//        { vpermilpd, XXXX },
+//        { vpermilps, XXXX },
+//        { vpextrb, XXXX },
+//        { vpextrd, XXXX },
+//        { vpextrq, XXXX },
+//        { vpextrw, XXXX },
+//        { vphaddd, XXXX },
+//        { vphaddsw, XXXX },
+//        { vphaddw, XXXX },
+//        { vphminposuw, XXXX },
+//        { vphsubd, XXXX },
+//        { vphsubsw, XXXX },
+//        { vphsubw, XXXX },
+//        { vpinsrb, XXXX },
+//        { vpinsrd, XXXX },
+//        { vpinsrq, XXXX },
+//        { vpinsrw, XXXX },
+//        { vpmaddubsw, XXXX },
+//        { vpmaddwd, XXXX },
+//        { vpmaxsb, XXXX },
+//        { vpmaxsd, XXXX },
+//        { vpmaxsw, XXXX },
+//        { vpmaxub, XXXX },
+//        { vpmaxud, XXXX },
+//        { vpmaxuw, XXXX },
+//        { vpminsb, XXXX },
+//        { vpminsd, XXXX },
+//        { vpminsw, XXXX },
+//        { vpminub, XXXX },
+//        { vpminud, XXXX },
+//        { vpminuw, XXXX },
+//        { vpmovmskb, XXXX },
+//        { vpmovsxbd, XXXX },
+//        { vpmovsxbq, XXXX },
+//        { vpmovsxbw, XXXX },
+//        { vpmovsxdq, XXXX },
+//        { vpmovsxwd, XXXX },
+//        { vpmovsxwq, XXXX },
+//        { vpmovzxbd, XXXX },
+//        { vpmovzxbq, XXXX },
+//        { vpmovzxbw, XXXX },
+//        { vpmovzxdq, XXXX },
+//        { vpmovzxwd, XXXX },
+//        { vpmovzxwq, XXXX },
+//        { vpmuldq, XXXX },
+//        { vpmulhrsw, XXXX },
+//        { vpmulhuw, XXXX },
+//        { vpmulhw, XXXX },
+//        { vpmulld, XXXX },
+//        { vpmullw, XXXX },
+//        { vpmuludq, XXXX },
+//        { vpor, XXXX },
+//        { vpsadbw, XXXX },
+//        { vpshufb, XXXX },
+//        { vpshufd, XXXX },
+//        { vpshufhw, XXXX },
+//        { vpshuflw, XXXX },
+//        { vpsignb, XXXX },
+//        { vpsignd, XXXX },
+//        { vpsignw, XXXX },
+//        { vpslld, XXXX },
+//        { vpslldq, XXXX },
+//        { vpsllq, XXXX },
+//        { vpsllw, XXXX },
+//        { vpsrad, XXXX },
+//        { vpsraw, XXXX },
+//        { vpsrld, XXXX },
+//        { vpsrldq, XXXX },
+//        { vpsrlq, XXXX },
+//        { vpsrlw, XXXX },
+//        { vpsubb, XXXX },
+//        { vpsubd, XXXX },
+//        { vpsubq, XXXX },
+//        { vpsubsb, XXXX },
+//        { vpsubsw, XXXX },
+//        { vpsubusb, XXXX },
+//        { vpsubusw, XXXX },
+//        { vpsubw, XXXX },
+//        { vptest, XXXX },
+//        { vpunpckhbw, XXXX },
+//        { vpunpckhdq, XXXX },
+//        { vpunpckhqdq, XXXX },
+//        { vpunpckhwd, XXXX },
+//        { vpunpcklbw, XXXX },
+//        { vpunpckldq, XXXX },
+//        { vpunpcklqdq, XXXX },
+//        { vpunpcklwd, XXXX },
+//        { vpxor, XXXX },
+//        { vrcpps, XXXX },
+//        { vrcpss, XXXX },
+//        { vroundpd, XXXX },
+//        { vroundps, XXXX },
+//        { vroundsd, XXXX },
+//        { vroundss, XXXX },
+//        { vshufpd, XXXX },
+//        { vshufps, XXXX },
+//        { vsqrtpd, XXXX },
+//        { vsqrtps, XXXX },
+//        { vsqrtsd, XXXX },
+//        { vsqrtss, XXXX },
+//        { vstmxcsr, XXXX },
+//        { vsubpd, XXXX },
+//        { vsubps, XXXX },
+//        { vsubsd, XXXX },
+//        { vsubss, XXXX },
+//        { vucomisd, XXXX },
+//        { vucomiss, XXXX },
+//        { vunpckhpd, XXXX },
+//        { vunpckhps, XXXX },
+//        { vunpcklpd, XXXX },
+//        { vunpcklps, XXXX },
+//        { vxorpd, XXXX },
+//        { vxorps, XXXX },
+//        { vzeroall, XXXX },
+//        { vzeroupper, XXXX },
 #ifndef ASM_X86_64
         { "wait",    Op_0 },
 #endif
         { "wbinvd",  Op_0 },
+//        { wrfsbase, XXXX },
+//        { wrgsbase, XXXX },
         { "wrmsr",   Op_0 },
         { "xadd",    Op_UpdUpdF },
         { "xchg",    Op_UpdUpd },
@@ -1427,8 +1793,15 @@ namespace AsmParserx8664
         { "xorpd",   Op_DstSrcSSE },
         { "xorps",   Op_DstSrcSSE },
 #ifdef ASM_X86_64
-        { "xorq",    Op_DstSrcNT },
+        { "xorq",    Op_DstSrcNT }, //?
 #endif
+//        { xrstor, XXXX },
+//        { xrstor64, XXXX },
+//        { xsave, XXXX },
+//        { xsave64, XXXX },
+//        { xsaveopt, XXXX },
+//        { xsaveopt64, XXXX },
+//        { xsetbv, XXXX },
     };
 
     typedef enum
