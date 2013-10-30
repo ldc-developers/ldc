@@ -149,17 +149,25 @@ extern (C) __gshared bool rt_trapExceptions = true;
 
 alias void delegate(Throwable) ExceptionHandler;
 
+/**
+ * Keep track of how often rt_init/rt_term were called.
+ */
+shared size_t _initCount;
+
 /**********************************************
  * Initialize druntime.
  * If a C program wishes to call D code, and there's no D main(), then it
  * must call rt_init() and rt_term().
- * If it fails, call dg. Except that what dg might be
- * able to do is undetermined, since the state of druntime
- * will not be known.
- * This needs rethinking.
  */
-extern (C) bool rt_init(ExceptionHandler dg = null)
+extern (C) int rt_init()
 {
+    /* @@BUG 11380 @@ Need to synchronize rt_init/rt_term calls for
+       version (Shared) druntime, because multiple C threads might
+       initialize different D libraries without knowing about the
+       shared druntime. Also we need to attach any thread that calls
+       rt_init. */
+    if (_initCount++) return 1;
+
     _STI_monitor_staticctor();
     _STI_critical_init();
 
@@ -170,68 +178,45 @@ extern (C) bool rt_init(ExceptionHandler dg = null)
         initStaticDataGC();
         rt_moduleCtor();
         rt_moduleTlsCtor();
-        return true;
+        return 1;
     }
-    catch (Throwable e)
+    catch (Throwable t)
     {
-        /* Note that if we get here, the runtime is in an unknown state.
-         * I'm not sure what the point of calling dg is.
-         */
-        if (dg)
-            dg(e);
-        else
-            throw e;    // rethrow, don't silently ignore error
-        /* Rethrow, and the two STD functions aren't called?
-         * This needs rethinking.
-         */
+        _initCount = 0;
+        printThrowable(t);
     }
     _STD_critical_term();
     _STD_monitor_staticdtor();
-    return false;
+    return 0;
 }
 
 /**********************************************
  * Terminate use of druntime.
- * If it fails, call dg. Except that what dg might be
- * able to do is undetermined, since the state of druntime
- * will not be known.
- * This needs rethinking.
  */
-extern (C) bool rt_term(ExceptionHandler dg = null)
+extern (C) int rt_term()
 {
+    if (!_initCount) return 0; // was never initialized
+    if (--_initCount) return 1;
+
     try
     {
-        /* Check that all other non-daemon threads have finished
-         * execution before calling the shared module destructors.
-         * Calling thread_joinAll here would be too late because other
-         * shared libraries might have already been
-         * destructed/unloaded.
-         */
-        import core.thread : Thread;
-        auto tthis = Thread.getThis();
-        foreach (t; Thread)
-        {
-            if (t !is tthis && t.isRunning && !t.isDaemon)
-                assert(0, "Can only call rt_term when all non-daemon threads have been joined or detached.");
-        }
-
         rt_moduleTlsDtor();
+        thread_joinAll();
         rt_moduleDtor();
         gc_term();
         finiSections();
-        return true;
+        return 1;
     }
-    catch (Throwable e)
+    catch (Throwable t)
     {
-        if (dg)
-            dg(e);
+        printThrowable(t);
     }
     finally
     {
         _STD_critical_term();
         _STD_monitor_staticdtor();
     }
-    return false;
+    return 0;
 }
 
 /***********************************
@@ -393,75 +378,6 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
 
     void tryExec(scope void delegate() dg)
     {
-        void printLocLine(Throwable t)
-        {
-            if (t.file)
-            {
-               console(t.classinfo.name)("@")(t.file)("(")(t.line)(")");
-            }
-            else
-            {
-                console(t.classinfo.name);
-            }
-            console("\n");
-        }
-
-        void printMsgLine(Throwable t)
-        {
-            if (t.file)
-            {
-               console(t.classinfo.name)("@")(t.file)("(")(t.line)(")");
-            }
-            else
-            {
-                console(t.classinfo.name);
-            }
-            if (t.msg)
-            {
-                console(": ")(t.msg);
-            }
-            console("\n");
-        }
-
-        void printInfoBlock(Throwable t)
-        {
-            if (t.info)
-            {
-                console("----------------\n");
-                foreach (i; t.info)
-                    console(i)("\n");
-                console("----------------\n");
-            }
-        }
-
-        void print(Throwable t)
-        {
-            Throwable firstWithBypass = null;
-
-            for (; t; t = t.next)
-            {
-                printMsgLine(t);
-                printInfoBlock(t);
-                auto e = cast(Error) t;
-                if (e && e.bypassedException)
-                {
-                    console("Bypasses ");
-                    printLocLine(e.bypassedException);
-                    if (firstWithBypass is null)
-                        firstWithBypass = t;
-                }
-            }
-            if (firstWithBypass is null)
-                return;
-            console("=== Bypassed ===\n");
-            for (t = firstWithBypass; t; t = t.next)
-            {
-                auto e = cast(Error) t;
-                if (e && e.bypassedException)
-                    print(e.bypassedException);
-            }
-        }
-
         if (trapExceptions)
         {
             try
@@ -470,7 +386,7 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
             }
             catch (Throwable t)
             {
-                print(t);
+                printThrowable(t);
                 result = EXIT_FAILURE;
             }
         }
@@ -488,33 +404,18 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
     //       the user's main function.  If main terminates with an exception,
     //       the exception is handled and then cleanup begins.  An exception
     //       thrown during cleanup, however, will abort the cleanup process.
-    void runMain()
-    {
-        if (runModuleUnitTests())
-            tryExec({ result = mainFunc(args); });
-        else
-            result = EXIT_FAILURE;
-
-        tryExec({thread_joinAll();});
-    }
-
-    void runMainWithInit()
+    void runAll()
     {
         if (rt_init() && runModuleUnitTests())
             tryExec({ result = mainFunc(args); });
         else
             result = EXIT_FAILURE;
 
-        tryExec({thread_joinAll();});
-
         if (!rt_term())
             result = (result == EXIT_SUCCESS) ? EXIT_FAILURE : result;
     }
 
-    version (linux) // initialization is done in rt.sections_linux
-        tryExec(&runMain);
-    else
-        tryExec(&runMainWithInit);
+    tryExec(&runAll);
 
     // Issue 10344: flush stdout and return nonzero on failure
     if (.fflush(.stdout) != 0)
@@ -527,4 +428,27 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
     }
 
     return result;
+}
+
+private void printThrowable(Throwable t)
+{
+    void sink(const(char)[] buf) nothrow
+    {
+        printf("%.*s", cast(int)buf.length, buf.ptr);
+    }
+
+    for (; t; t = t.next)
+    {
+        t.toString(&sink); sink("\n");
+
+        auto e = cast(Error)t;
+        if (e is null || e.bypassedException is null) continue;
+
+        sink("=== Bypassed ===\n");
+        for (auto t2 = e.bypassedException; t2; t2 = t2.next)
+        {
+            t2.toString(&sink); sink("\n");
+        }
+        sink("=== ~Bypassed ===\n");
+    }
 }
