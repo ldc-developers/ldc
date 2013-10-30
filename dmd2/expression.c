@@ -414,7 +414,7 @@ Expression *resolvePropertiesX(Scope *sc, Expression *e1, Expression *e2 = NULL)
         tthis  = NULL;
         goto Lfd;
     }
-    else if (e1->op == TOKdotvar && e1->type->toBasetype()->ty == Tfunction)
+    else if (e1->op == TOKdotvar && e1->type && e1->type->toBasetype()->ty == Tfunction)
     {
         DotVarExp *dve = (DotVarExp *)e1;
         s      = dve->var->isFuncDeclaration();
@@ -422,7 +422,7 @@ Expression *resolvePropertiesX(Scope *sc, Expression *e1, Expression *e2 = NULL)
         tthis  = dve->e1->type;
         goto Lfd;
     }
-    else if (e1->op == TOKvar && e1->type->toBasetype()->ty == Tfunction)
+    else if (e1->op == TOKvar && e1->type && e1->type->toBasetype()->ty == Tfunction)
     {
         s      = ((VarExp *)e1)->var->isFuncDeclaration();
         tiargs = NULL;
@@ -4618,7 +4618,6 @@ StructLiteralExp::StructLiteralExp(Loc loc, StructDeclaration *sd, Expressions *
     this->soffset = 0;
     this->fillHoles = 1;
     this->ownedByCtfe = false;
-    this->ctorinit = 0;
 #if IN_LLVM
     this->inProgressMemory = NULL;
     this->globalVar = NULL;
@@ -4729,52 +4728,17 @@ Expression *StructLiteralExp::semantic(Scope *sc)
 
     /* Fill out remainder of elements[] with default initializers for fields[]
      */
-    for (size_t i = elements->dim; i < nfields; i++)
+    Expression *e = fill(false);
+    if (e->op == TOKerror)
     {
-        Expression *e;
-        VarDeclaration *v = sd->fields[i];
-        assert(!v->isThisDeclaration());
-
-        if (v->offset < offset)
-        {
-            e = NULL;
-            sd->hasUnions = 1;
-        }
-        else
-        {
-            if (v->init)
-            {
-                if (v->init->isVoidInitializer())
-                    e = NULL;
-                else
-                    e = v->getConstInitializer(false);
-            }
-            else
-            {
-                if ((v->storage_class & STCnodefaultctor) && !ctorinit)
-                {
-                    error("field %s.%s must be initialized because it has no default constructor",
-                            sd->type->toChars(), v->toChars());
-                }
-                if (v->type->needsNested() && ctorinit)
-                    e = v->type->defaultInit(loc);
-                else
-                    e = v->type->defaultInitLiteral(loc);
-            }
-            offset = v->offset + v->type->size();
-        }
-        if (e && e->op == TOKerror)
-        {
-            /* An error in the initializer needs to be recorded as an error
-             * in the enclosing function or template, since the initializer
-             * will be part of the stuct declaration.
-             */
-            global.increaseErrorCount();
-            return e;
-        }
-        elements->push(e);
+        /* An error in the initializer needs to be recorded as an error
+         * in the enclosing function or template, since the initializer
+         * will be part of the stuct declaration.
+         */
+        global.increaseErrorCount();
+        return e;
     }
-
+    assert(e == this);
     type = stype ? stype : sd->type;
 
     /* If struct requires a destructor, rewrite as:
@@ -4792,6 +4756,115 @@ Expression *StructLiteralExp::semantic(Scope *sc)
         return e;
     }
 
+    return this;
+}
+
+Expression *StructLiteralExp::fill(bool ctorinit)
+{
+    assert(sd && sd->sizeok == SIZEOKdone);
+    size_t nfields = sd->fields.dim - sd->isNested();
+
+    size_t dim = elements->dim;
+    elements->setDim(nfields);
+    for (size_t i = dim; i < nfields; i++)
+        (*elements)[i] = NULL;
+
+    // Fill in missing any elements with default initializers
+    for (size_t i = 0; i < nfields; i++)
+    {
+        if ((*elements)[i])
+            continue;
+        VarDeclaration *vd = sd->fields[i];
+        VarDeclaration *vx = vd;
+        if (vd->init && vd->init->isVoidInitializer())
+            vx = NULL;
+        // Find overlapped fields with the hole [vd->offset .. vd->offset->size()].
+        size_t fieldi = i;
+        for (size_t j = 0; j < nfields; j++)
+        {
+            if (i == j)
+                continue;
+            VarDeclaration *v2 = sd->fields[j];
+            if (v2->init && v2->init->isVoidInitializer())
+                continue;
+
+            bool overlap = (vd->offset < v2->offset + v2->type->size() &&
+                            v2->offset < vd->offset + vd->type->size());
+            if (!overlap)
+                continue;
+
+            sd->hasUnions = 1;  // note that directly unrelated...
+
+            if ((*elements)[j])
+            {
+                vx = NULL;
+                break;
+            }
+
+#if 1
+            /* Prefer first found non-void-initialized field
+             * union U { int a; int b = 2; }
+             * U u;    // Error: overlapping initialization for field a and b
+             */
+            if (!vx)
+                vx = v2, fieldi = j;
+            else if (v2->init)
+            {
+                error("overlapping initialization for field %s and %s",
+                    v2->toChars(), vd->toChars());
+            }
+#else   // fix Bugzilla 1432
+            /* Prefer explicitly initialized field
+             * union U { int a; int b = 2; }
+             * U u;    // OK (u.b == 2)
+             */
+            if (!vx || !vx->init && v2->init)
+                vx = v2, fieldi = j;
+            else if (vx != vd &&
+                !(vx->offset < v2->offset + v2->type->size() &&
+                  v2->offset < vx->offset + vx->type->size()))
+            {
+                // Both vx and v2 fills vd, but vx and v2 does not overlap
+            }
+            else if (vx->init && v2->init)
+            {
+                error("overlapping default initialization for field %s and %s",
+                    v2->toChars(), vd->toChars());
+            }
+            else
+                assert(vx->init || !vx->init && !v2->init);
+#endif
+        }
+        if (vx)
+        {
+            Expression *e;
+            if (vx->init)
+            {
+                assert(!vx->init->isVoidInitializer());
+                e = vx->getConstInitializer(false);
+            }
+            else
+            {
+                if ((vx->storage_class & STCnodefaultctor) && !ctorinit)
+                {
+                    error("field %s.%s must be initialized because it has no default constructor",
+                            sd->type->toChars(), vx->toChars());
+                }
+                if (vx->type->needsNested() && ctorinit)
+                    e = vx->type->defaultInit(loc);
+                else
+                    e = vx->type->defaultInitLiteral(loc);
+            }
+            (*elements)[fieldi] = e;
+        }
+    }
+
+    for (size_t i = 0; i < elements->dim; i++)
+    {
+        Expression *e = (*elements)[i];
+        if (e && e->op == TOKerror)
+            return e;
+    }
     return this;
 }
 
@@ -7885,7 +7958,9 @@ Expression *DotVarExp::semantic(Scope *sc)
                 Identifier *id = Lexer::uniqueId("__tup");
                 ExpInitializer *ei = new ExpInitializer(e1->loc, e1);
                 VarDeclaration *v = new VarDeclaration(e1->loc, NULL, id, ei);
-                v->storage_class |= STCctfe | STCref | STCforeach;
+                v->storage_class |= STCctfe;
+                if (e1->isLvalue())
+                    v->storage_class |= STCref | STCforeach;
                 e0 = new DeclarationExp(e1->loc, v);
                 ev = new VarExp(e1->loc, v);
                 e0 = e0->semantic(sc);
@@ -8732,8 +8807,8 @@ Lagain:
 
     // Check for call operator overload
     if (t1)
-    {   AggregateDeclaration *ad;
-
+    {
+        AggregateDeclaration *ad;
         if (t1->ty == Tstruct)
         {
             ad = ((TypeStruct *)t1)->sym;
@@ -8762,29 +8837,29 @@ Lagain:
                 ExpInitializer *ei = NULL;
                 if (t1->needsNested())
                 {
-                    Expressions *args = new Expressions();
-                    StructLiteralExp *se = new StructLiteralExp(loc, (StructDeclaration *)ad, args);
-                    se->ctorinit = 1;
-                    ei = new ExpInitializer(loc, se);
+                    StructLiteralExp *sle = new StructLiteralExp(loc, (StructDeclaration *)ad, NULL, e1->type);
+                    Expression *e = sle->fill(true);
+                    if (e->op == TOKerror)
+                        return e;
+                    sle->type = type;
+                    ei = new ExpInitializer(loc, sle);
                 }
-
                 VarDeclaration *tmp = new VarDeclaration(loc, t1, idtmp, ei);
                 tmp->storage_class |= STCctfe;
-                Expression *av = new DeclarationExp(loc, tmp);
-                av = new CommaExp(loc, av, new VarExp(loc, tmp));
 
-                Expression *e;
+                Expression *e = new DeclarationExp(loc, tmp);
+                e = new CommaExp(loc, e, new VarExp(loc, tmp));
                 if (CtorDeclaration *cf = ad->ctor->isCtorDeclaration())
                 {
-                    e = new DotVarExp(loc, av, cf, 1);
+                    e = new DotVarExp(loc, e, cf, 1);
                 }
                 else if (TemplateDeclaration *td = ad->ctor->isTemplateDeclaration())
                 {
-                    e = new DotTemplateExp(loc, av, td);
+                    e = new DotTemplateExp(loc, e, td);
                 }
                 else if (OverloadSet *os = ad->ctor->isOverloadSet())
                 {
-                    e = new DotExp(loc, av, new OverExp(loc, os));
+                    e = new DotExp(loc, e, new OverExp(loc, os));
                 }
                 else
                     assert(0);
@@ -11446,7 +11521,9 @@ Ltupleassign:
             Identifier *id = Lexer::uniqueId("__tup");
             ExpInitializer *ei = new ExpInitializer(e2->loc, e2);
             VarDeclaration *v = new VarDeclaration(e2->loc, NULL, id, ei);
-            v->storage_class = STCctfe | STCref | STCforeach;
+            v->storage_class = STCctfe;
+            if (e2->isLvalue())
+                v->storage_class = STCref | STCforeach;
             Expression *e0 = new DeclarationExp(e2->loc, v);
             Expression *ev = new VarExp(e2->loc, v);
             ev->type = e2->type;
@@ -11532,6 +11609,8 @@ Ltupleassign:
                     VarDeclaration *v = new VarDeclaration(loc, ie->e1->type,
                         Lexer::uniqueId("__aatmp"), new ExpInitializer(loc, ie->e1));
                     v->storage_class |= STCctfe;
+                    if (ea->isLvalue())
+                        v->storage_class |= STCforeach | STCref;
                     v->semantic(sc);
                     e0 = combine(e0, new DeclarationExp(loc, v));
                     ea = new VarExp(loc, v);
@@ -11541,6 +11620,8 @@ Ltupleassign:
                     VarDeclaration *v = new VarDeclaration(loc, ie->e2->type,
                         Lexer::uniqueId("__aakey"), new ExpInitializer(loc, ie->e2));
                     v->storage_class |= STCctfe;
+                    if (ek->isLvalue())
+                        v->storage_class |= STCforeach | STCref;
                     v->semantic(sc);
                     e0 = combine(e0, new DeclarationExp(loc, v));
                     ek = new VarExp(loc, v);
@@ -11550,6 +11631,8 @@ Ltupleassign:
                     VarDeclaration *v = new VarDeclaration(loc, e2->type,
                         Lexer::uniqueId("__aaval"), new ExpInitializer(loc, e2));
                     v->storage_class |= STCctfe;
+                    if (ev->isLvalue())
+                        v->storage_class |= STCforeach | STCref;
                     v->semantic(sc);
                     e0 = combine(e0, new DeclarationExp(loc, v));
                     ev = new VarExp(loc, v);
@@ -11761,7 +11844,7 @@ Ltupleassign:
                 e2 = new SliceExp(e2->loc, e2, NULL, NULL);
                 e2 = e2->semantic(sc);
             }
-            else if (global.params.warnings && !global.gag && op == TOKassign &&
+            else if (0 && global.params.warnings && !global.gag && op == TOKassign &&
                      e2->op != TOKarrayliteral && e2->op != TOKstring &&
                      !e2->implicitConvTo(t1))
             {   // Disallow sa = da (Converted to sa[] = da[])
@@ -11891,7 +11974,7 @@ Ltupleassign:
         {
             e2->checkPostblit(sc, t2->nextOf());
         }
-        if (global.params.warnings && !global.gag && op == TOKassign &&
+        if (0 && global.params.warnings && !global.gag && op == TOKassign &&
             e2->op != TOKslice && e2->op != TOKassign &&
             e2->op != TOKarrayliteral && e2->op != TOKstring &&
             !(e2->op == TOKadd || e2->op == TOKmin ||
@@ -11915,7 +11998,7 @@ Ltupleassign:
     }
     else
     {
-        if (global.params.warnings && !global.gag && op == TOKassign &&
+        if (0 && global.params.warnings && !global.gag && op == TOKassign &&
             t1->ty == Tarray && t2->ty == Tsarray &&
             e2->op != TOKslice && //e2->op != TOKarrayliteral &&
             t2->implicitConvTo(t1))
@@ -13976,7 +14059,8 @@ Expression *extractOpDollarSideEffect(Scope *sc, UnaExp *ue)
         Identifier *id = Lexer::uniqueId("__dop");
         ExpInitializer *ei = new ExpInitializer(ue->loc, ue->e1);
         VarDeclaration *v = new VarDeclaration(ue->loc, ue->e1->type, id, ei);
-        v->storage_class |= STCctfe | STCforeach | STCref;
+        v->storage_class |= STCctfe
+                            | (ue->e1->isLvalue() ? (STCforeach | STCref) : 0);
         e0 = new DeclarationExp(ue->loc, v);
         e0 = e0->semantic(sc);
         ue->e1 = new VarExp(ue->loc, v);
@@ -14098,9 +14182,9 @@ Expression *BinExp::reorderSettingAAElem(Scope *sc)
     {
         Identifier *id = Lexer::uniqueId("__aatmp");
         VarDeclaration *vd = new VarDeclaration(ie->e1->loc, ie->e1->type, id, new ExpInitializer(ie->e1->loc, ie->e1));
-        vd->storage_class |= STCref | STCforeach;
         Expression *de = new DeclarationExp(ie->e1->loc, vd);
-
+        if (ie->e1->isLvalue())
+            vd->storage_class |= STCref | STCforeach;
         ec = de;
         ie->e1 = new VarExp(ie->e1->loc, vd);
     }
@@ -14108,7 +14192,8 @@ Expression *BinExp::reorderSettingAAElem(Scope *sc)
     {
         Identifier *id = Lexer::uniqueId("__aakey");
         VarDeclaration *vd = new VarDeclaration(ie->e2->loc, ie->e2->type, id, new ExpInitializer(ie->e2->loc, ie->e2));
-        vd->storage_class |= STCref | STCforeach;
+        if (ie->e2->isLvalue())
+            vd->storage_class |= STCref | STCforeach;
         Expression *de = new DeclarationExp(ie->e2->loc, vd);
 
         ec = ec ? new CommaExp(loc, ec, de) : de;

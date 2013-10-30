@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2012 by Digital Mars
+// Copyright (c) 1999-2013 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -218,6 +218,7 @@ struct Param
     bool ignoreUnsupportedPragmas;      // rather than error on them
     bool enforcePropertySyntax;
     bool addMain; // LDC_FIXME: Implement.
+    bool allInst; // LDC_FIXME: Implement.
 #else
     bool pic;           // generate position-independent-code for shared libs
     bool cov;           // generate code coverage data
@@ -227,6 +228,7 @@ struct Param
     char enforcePropertySyntax;
     char betterC;       // be a "better C" compiler; no dependency on D runtime
     bool addMain;       // add a default main() function
+    bool allInst;       // generate code for all template instantiations
 #endif
 
     char *argv0;        // program name

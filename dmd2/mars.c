@@ -368,6 +368,7 @@ Usage:\n\
 \n\
   files.d        D source files\n\
   @cmdfile       read arguments from cmdfile\n\
+  -allinst       generate code for all template instantiations\n\
   -c             do not link\n\
   -cov           do code coverage analysis\n\
   -cov=nnn       require at least nnn%% code coverage\n\
@@ -634,7 +635,9 @@ int tryMain(size_t argc, char *argv[])
         p = argv[i];
         if (*p == '-')
         {
-            if (strcmp(p + 1, "de") == 0)
+            if (strcmp(p + 1, "allinst") == 0)
+                global.params.allInst = true;
+            else if (strcmp(p + 1, "de") == 0)
                 global.params.useDeprecated = 0;
             else if (strcmp(p + 1, "d") == 0)
                 global.params.useDeprecated = 1;
@@ -1713,12 +1716,7 @@ Language changes listed by -transition=id:\n\
                 fprintf(global.stdmsg, "code      %s\n", m->toChars());
             m->genobjfile(0);
             if (entrypoint && m == entrypoint->importedFrom)
-            {
-                char v = global.params.verbose;
-                global.params.verbose = 0;
                 entrypoint->genobjfile(0);
-                global.params.verbose = v;
-            }
             if (!global.errors && global.params.doDocComments)
                 m->gendocfile();
         }
@@ -1739,12 +1737,7 @@ Language changes listed by -transition=id:\n\
                 obj_start(m->srcfile->toChars());
                 m->genobjfile(global.params.multiobj);
                 if (entrypoint && m == entrypoint->importedFrom)
-                {
-                    char v = global.params.verbose;
-                    global.params.verbose = 0;
                     entrypoint->genobjfile(global.params.multiobj);
-                    global.params.verbose = v;
-                }
                 obj_end(library, m->objfile);
                 obj_write_deferred(library);
             }

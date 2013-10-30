@@ -1274,8 +1274,12 @@ const char *lookForSourceFile(const char *filename)
     {
         /* The filename exists and it's a directory.
          * Therefore, the result should be: filename/package.d
+         * iff filename/package.d is a file
          */
-        return FileName::combine(filename, "package.d");
+        const char *n = FileName::combine(filename, "package.d");
+        if (FileName::exists(n) == 1)
+            return n;
+        FileName::free(n);
     }
 
     if (FileName::absolute(filename))
@@ -1302,7 +1306,12 @@ const char *lookForSourceFile(const char *filename)
         n = FileName::combine(p, b);
         FileName::free(b);
         if (FileName::exists(n) == 2)
-            return FileName::combine(n, "package.d");
+        {
+            const char *n2 = FileName::combine(n, "package.d");
+            if (FileName::exists(n2) == 1)
+                return n2;
+            FileName::free(n2);
+        }
         FileName::free(n);
     }
     return NULL;
