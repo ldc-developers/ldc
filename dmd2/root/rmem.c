@@ -138,7 +138,7 @@ void Mem::addroots(char* pStart, char* pEnd)
 
 /* =================================================== */
 
-#if 1
+#if IN_DMD
 
 /* Allocate, but never release
  */
