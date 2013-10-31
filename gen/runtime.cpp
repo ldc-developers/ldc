@@ -188,9 +188,10 @@ static void LLVM_D_BuildRuntimeModule()
     LLType* dstringTy = DtoType(Type::tdchar->arrayOf());
 
     LLType* objectTy = DtoType(ClassDeclaration::object->type);
-    LLType* classInfoTy = DtoType(ClassDeclaration::classinfo->type);
-    LLType* typeInfoTy = DtoType(Type::typeinfo->type);
+    LLType* classInfoTy = DtoType(Type::typeinfoclass->type);
+    LLType* typeInfoTy = DtoType(Type::dtypeinfo->type);
     LLType* aaTypeInfoTy = DtoType(Type::typeinfoassociativearray->type);
+    LLType* moduleInfoPtrTy = getPtrToType(DtoType(Module::moduleinfo->type));
 
     LLType* aaTy = rt_ptr(LLStructType::get(gIR->context()));
 
@@ -306,7 +307,7 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::StringRef fname("_d_array_bounds");
         llvm::StringRef fname2("_d_switch_error");
         LLType *types[] = {
-            getPtrToType(DtoType(Module::moduleinfo->type)),
+            moduleInfoPtrTy,
             intTy
         };
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
@@ -314,11 +315,11 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
-    // void _d_assert_msg( char[] msg, char[] file, uint line )
+    // void _d_assert_msg(string msg, string file, uint line)
     {
         llvm::StringRef fname("_d_assert_msg");
         LLType *types[] = { stringTy, stringTy, intTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
+        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
@@ -777,7 +778,7 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_1_NoCapture);
     }
 
-    // int _aaEqual(TypeInfo_AssociativeArray ti, AA e1, AA e2)
+    // int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
     {
         llvm::StringRef fname("_aaEqual");
         LLType *types[] = { typeInfoTy, aaTy, aaTy };
@@ -939,6 +940,25 @@ static void LLVM_D_BuildRuntimeModule()
     {
         llvm::StringRef fname("_d_hidden_func");
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // void _d_dso_registry(CompilerDSOData* data)
+    if (global.params.isLinux) {
+        llvm::StringRef fname("_d_dso_registry");
+
+        llvm::StructType* dsoDataTy = llvm::StructType::get(
+            sizeTy, // version
+            getPtrToType(voidPtrTy), // slot
+            getPtrToType(moduleInfoPtrTy), // _minfo_beg
+            getPtrToType(moduleInfoPtrTy), // _minfo_end
+            NULL
+        );
+
+        llvm::Type* params[] = {
+            getPtrToType(dsoDataTy)
+        };
+        llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, params, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 }

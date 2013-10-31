@@ -19,8 +19,8 @@
 #include "llvm/Support/Compiler.h"
 #include <string>
 
-template <typename TYPE> struct ArrayBase;
-typedef ArrayBase<char> Strings;
+template <typename TYPE> struct Array;
+typedef Array<char> Strings;
 
 namespace opts {
     namespace cl = llvm::cl;

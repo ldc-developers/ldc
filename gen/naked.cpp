@@ -96,7 +96,7 @@ void LabelStatement::toNakedIR(IRState *p)
     Logger::println("LabelStatement::toNakedIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    printLabelName(p->nakedAsm, p->func()->decl->mangle(), ident->toChars());
+    printLabelName(p->nakedAsm, p->func()->decl->mangleExact(), ident->toChars());
     p->nakedAsm << ":";
 
     if (statement)
@@ -107,7 +107,7 @@ void LabelStatement::toNakedIR(IRState *p)
 
 void DtoDefineNakedFunction(FuncDeclaration* fd)
 {
-    Logger::println("DtoDefineNakedFunction(%s)", fd->mangle());
+    Logger::println("DtoDefineNakedFunction(%s)", fd->mangleExact());
     LOG_SCOPE;
 
     assert(fd->ir.irFunc);
@@ -122,7 +122,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
     // FIXME: could we perhaps use llvm asmwriter to give us these details ?
 
-    const char* mangle = fd->mangle();
+    const char* mangle = fd->mangleExact();
     std::ostringstream tmpstr;
 
     bool const isWin = global.params.targetTriple.isOSWindows();
@@ -215,7 +215,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
 void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
 {
-    Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangle());
+    Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangleExact());
     LOG_SCOPE;
 
     IRAsmStmt* as = new IRAsmStmt;

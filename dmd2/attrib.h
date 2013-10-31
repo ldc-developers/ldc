@@ -17,18 +17,19 @@
 
 #include "dsymbol.h"
 
-struct Expression;
-struct Statement;
-struct LabelDsymbol;
-struct Initializer;
-struct Module;
-struct Condition;
+class Expression;
+class Statement;
+class LabelDsymbol;
+class Initializer;
+class Module;
+class Condition;
 struct HdrGenState;
 
 /**************************************************************/
 
-struct AttribDeclaration : Dsymbol
+class AttribDeclaration : public Dsymbol
 {
+public:
     Dsymbols *decl;     // array of Dsymbol's
 
     AttribDeclaration(Dsymbols *decl);
@@ -36,21 +37,21 @@ struct AttribDeclaration : Dsymbol
     int apply(Dsymbol_apply_ft_t fp, void *param);
     int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
     void setScopeNewSc(Scope *sc,
-        StorageClass newstc, enum LINK linkage, enum PROT protection, int explictProtection,
+        StorageClass newstc, LINK linkage, PROT protection, int explictProtection,
         structalign_t structalign);
     void semanticNewSc(Scope *sc,
-        StorageClass newstc, enum LINK linkage, enum PROT protection, int explictProtection,
+        StorageClass newstc, LINK linkage, PROT protection, int explictProtection,
         structalign_t structalign);
     void semantic(Scope *sc);
     void semantic2(Scope *sc);
     void semantic3(Scope *sc);
     void inlineScan();
-    void addComment(unsigned char *comment);
+    void addComment(utf8_t *comment);
     void emitComment(Scope *sc);
     const char *kind();
-    int oneMember(Dsymbol **ps, Identifier *ident);
+    bool oneMember(Dsymbol **ps, Identifier *ident);
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
-    int hasPointers();
+    bool hasPointers();
     bool hasStaticCtorOrDtor();
     void checkCtorConstInit();
     void addLocalClass(ClassDeclarations *);
@@ -67,23 +68,25 @@ struct AttribDeclaration : Dsymbol
 #endif
 };
 
-struct StorageClassDeclaration : AttribDeclaration
+class StorageClassDeclaration : public AttribDeclaration
 {
+public:
     StorageClass stc;
 
     StorageClassDeclaration(StorageClass stc, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void setScope(Scope *sc);
     void semantic(Scope *sc);
-    int oneMember(Dsymbol **ps, Identifier *ident);
+    bool oneMember(Dsymbol **ps, Identifier *ident);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     static const char *stcToChars(char tmp[], StorageClass& stc);
     static void stcToCBuffer(OutBuffer *buf, StorageClass stc);
 };
 
-struct DeprecatedDeclaration : StorageClassDeclaration
+class DeprecatedDeclaration : public StorageClassDeclaration
 {
+public:
     Expression *msg;
 
     DeprecatedDeclaration(Expression *msg, Dsymbols *decl);
@@ -92,11 +95,12 @@ struct DeprecatedDeclaration : StorageClassDeclaration
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
 
-struct LinkDeclaration : AttribDeclaration
+class LinkDeclaration : public AttribDeclaration
 {
-    enum LINK linkage;
+public:
+    LINK linkage;
 
-    LinkDeclaration(enum LINK p, Dsymbols *decl);
+    LinkDeclaration(LINK p, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void setScope(Scope *sc);
     void semantic(Scope *sc);
@@ -105,22 +109,24 @@ struct LinkDeclaration : AttribDeclaration
     char *toChars();
 };
 
-struct ProtDeclaration : AttribDeclaration
+class ProtDeclaration : public AttribDeclaration
 {
-    enum PROT protection;
+public:
+    PROT protection;
 
-    ProtDeclaration(enum PROT p, Dsymbols *decl);
+    ProtDeclaration(PROT p, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void importAll(Scope *sc);
     void setScope(Scope *sc);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
-    static void protectionToCBuffer(OutBuffer *buf, enum PROT protection);
+    static void protectionToCBuffer(OutBuffer *buf, PROT protection);
 };
 
-struct AlignDeclaration : AttribDeclaration
+class AlignDeclaration : public AttribDeclaration
 {
+public:
     unsigned salign;
 
     AlignDeclaration(unsigned sa, Dsymbols *decl);
@@ -130,13 +136,14 @@ struct AlignDeclaration : AttribDeclaration
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
 
-struct AnonDeclaration : AttribDeclaration
+class AnonDeclaration : public AttribDeclaration
 {
+public:
     bool isunion;
     structalign_t alignment;
     int sem;                    // 1 if successful semantic()
 
-    AnonDeclaration(Loc loc, int isunion, Dsymbols *decl);
+    AnonDeclaration(Loc loc, bool isunion, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
@@ -144,15 +151,16 @@ struct AnonDeclaration : AttribDeclaration
     const char *kind();
 };
 
-struct PragmaDeclaration : AttribDeclaration
+class PragmaDeclaration : public AttribDeclaration
 {
+public:
     Expressions *args;          // array of Expression's
 
     PragmaDeclaration(Loc loc, Identifier *ident, Expressions *args, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
     void setScope(Scope *sc);
-    int oneMember(Dsymbol **ps, Identifier *ident);
+    bool oneMember(Dsymbol **ps, Identifier *ident);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
 
@@ -165,25 +173,27 @@ struct PragmaDeclaration : AttribDeclaration
 #endif
 };
 
-struct ConditionalDeclaration : AttribDeclaration
+class ConditionalDeclaration : public AttribDeclaration
 {
+public:
     Condition *condition;
     Dsymbols *elsedecl; // array of Dsymbol's for else block
 
     ConditionalDeclaration(Condition *condition, Dsymbols *decl, Dsymbols *elsedecl);
     Dsymbol *syntaxCopy(Dsymbol *s);
-    int oneMember(Dsymbol **ps, Identifier *ident);
+    bool oneMember(Dsymbol **ps, Identifier *ident);
     void emitComment(Scope *sc);
     Dsymbols *include(Scope *sc, ScopeDsymbol *s);
-    void addComment(unsigned char *comment);
+    void addComment(utf8_t *comment);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void toJson(JsonOut *json);
     void importAll(Scope *sc);
     void setScope(Scope *sc);
 };
 
-struct StaticIfDeclaration : ConditionalDeclaration
+class StaticIfDeclaration : public ConditionalDeclaration
 {
+public:
     ScopeDsymbol *sd;
     int addisdone;
 
@@ -199,8 +209,9 @@ struct StaticIfDeclaration : ConditionalDeclaration
 
 // Mixin declarations
 
-struct CompileDeclaration : AttribDeclaration
+class CompileDeclaration : public AttribDeclaration
 {
+public:
     Expression *exp;
 
     ScopeDsymbol *sd;
@@ -219,8 +230,9 @@ struct CompileDeclaration : AttribDeclaration
  * User defined attributes look like:
  *      [ args, ... ]
  */
-struct UserAttributeDeclaration : AttribDeclaration
+class UserAttributeDeclaration : public AttribDeclaration
 {
+public:
     Expressions *atts;
 
     UserAttributeDeclaration(Expressions *atts, Dsymbols *decl);

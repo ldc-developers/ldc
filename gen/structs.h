@@ -18,10 +18,10 @@
 #include <vector>
 
 class DValue;
-struct StructDeclaration;
-struct StructInitializer;
-struct Type;
-struct VarDeclaration;
+class StructDeclaration;
+class StructInitializer;
+class Type;
+class VarDeclaration;
 namespace llvm
 {
     class Constant;

@@ -25,8 +25,8 @@ namespace llvm {
     class StructType;
 }
 
-struct AggregateDeclaration;
-struct VarDeclaration;
+class AggregateDeclaration;
+class VarDeclaration;
 
 /// Base class of IrTypes for aggregate types.
 class IrTypeAggr : public IrType

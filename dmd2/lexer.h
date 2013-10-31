@@ -19,8 +19,8 @@
 #include "mars.h"
 
 struct StringTable;
-struct Identifier;
-struct Module;
+class Identifier;
+class Module;
 
 /* Tokens:
         (       )
@@ -69,6 +69,8 @@ enum TOK
         TOKnewanonclass, TOKcomment,
         TOKarrayliteral, TOKassocarrayliteral,
         TOKstructliteral,
+        TOKclassreference,
+        TOKthrownexception,
 
         // Operators
         TOKlt,          TOKgt,
@@ -229,10 +231,11 @@ enum TOK
 struct Token
 {
     Token *next;
-    unsigned char *ptr;         // pointer to first character of this token within buffer
-    enum TOK value;
-    unsigned char *blockComment; // doc comment string prior to this token
-    unsigned char *lineComment;  // doc comment for previous token
+    Loc loc;
+    utf8_t *ptr;         // pointer to first character of this token within buffer
+    TOK value;
+    utf8_t *blockComment; // doc comment string prior to this token
+    utf8_t *lineComment;  // doc comment for previous token
     union
     {
         // Integers
@@ -242,23 +245,16 @@ struct Token
         d_uns64 uns64value;
 
         // Floats
-#ifdef IN_GCC
-        // real_t float80value; // can't use this in a union!
-#else
         d_float80 float80value;
-#endif
 
         struct
-        {   unsigned char *ustring;     // UTF8 string
+        {   utf8_t *ustring;     // UTF8 string
             unsigned len;
             unsigned char postfix;      // 'c', 'w', 'd'
         };
 
         Identifier *ident;
     };
-#ifdef IN_GCC
-    real_t float80value; // can't use this in a union!
-#endif
 
     static const char *tochars[TOKMAX];
     static void *operator new(size_t sz);
@@ -269,20 +265,21 @@ struct Token
     void print();
 #endif
     const char *toChars();
-    static const char *toChars(enum TOK);
+    static const char *toChars(TOK);
 };
 
-struct Lexer
+class Lexer
 {
+public:
     static StringTable stringtable;
     static OutBuffer stringbuffer;
     static Token *freelist;
 
-    Loc loc;                    // for error messages
+    Loc scanloc;                // for error messages
 
-    unsigned char *base;        // pointer to start of buffer
-    unsigned char *end;         // past end of buffer
-    unsigned char *p;           // current character
+    utf8_t *base;        // pointer to start of buffer
+    utf8_t *end;         // past end of buffer
+    utf8_t *p;           // current character
     Token token;
     Module *mod;
     int doDocComment;           // collect doc comment information
@@ -290,7 +287,7 @@ struct Lexer
     int commentToken;           // !=0 means comments are TOKcomment's
 
     Lexer(Module *mod,
-        unsigned char *base, size_t begoffset, size_t endoffset,
+        utf8_t *base, size_t begoffset, size_t endoffset,
         int doDocComment, int commentToken);
 
     static void initKeywords();
@@ -324,9 +321,7 @@ struct Lexer
     void getDocComment(Token *t, unsigned lineComment);
 
     static int isValidIdentifier(char *p);
-    static unsigned char *combineComments(unsigned char *c1, unsigned char *c2);
-
-    Loc tokenLoc();
+    static utf8_t *combineComments(utf8_t *c1, utf8_t *c2);
 };
 
 #endif /* DMD_LEXER_H */

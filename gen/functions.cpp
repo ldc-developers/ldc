@@ -49,6 +49,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     // sanity check
     assert(type->ty == Tfunction);
     TypeFunction* f = static_cast<TypeFunction*>(type);
+    assert(f->next && "Encountered function type with invalid return type; "
+        "trying to codegen function ignored by the frontend?");
 
     TargetABI* abi = (f->linkage == LINKintrinsic ? TargetABI::getIntrinsic() : gABI);
     // Tell the ABI we're resolving a new function type
@@ -158,7 +160,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
             if (f->varargs == 1)
             {
                 // _arguments
-                newIrFty.arg_arguments = new IrFuncTyArg(Type::typeinfo->type->arrayOf(), false);
+                newIrFty.arg_arguments = new IrFuncTyArg(Type::dtypeinfo->type->arrayOf(), false);
                 lidx++;
                 // _argptr
 #if LDC_LLVM_VER >= 303
@@ -298,7 +300,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
 
 LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 {
-    const char* mangled_name = fdecl->mangle();
+    const char* mangled_name = fdecl->mangleExact();
     TemplateInstance* tinst = fdecl->parent->isTemplateInstance();
     assert(tinst);
 
@@ -483,58 +485,60 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
     if (fdecl->parent)
     if (TemplateInstance* tinst = fdecl->parent->isTemplateInstance())
     {
-        TemplateDeclaration* tempdecl = tinst->tempdecl;
-        if (tempdecl->llvmInternal == LLVMva_arg)
+        if (TemplateDeclaration* tempdecl = tinst->tempdecl->isTemplateDeclaration())
         {
-            Logger::println("magic va_arg found");
-            fdecl->llvmInternal = LLVMva_arg;
-            fdecl->ir.resolved = true;
-            fdecl->ir.declared = true;
-            fdecl->ir.initialized = true;
-            fdecl->ir.defined = true;
-            return; // this gets mapped to an instruction so a declaration makes no sence
-        }
-        else if (tempdecl->llvmInternal == LLVMva_start)
-        {
-            Logger::println("magic va_start found");
-            fdecl->llvmInternal = LLVMva_start;
-        }
-        else if (tempdecl->llvmInternal == LLVMintrinsic)
-        {
-            Logger::println("overloaded intrinsic found");
-            fdecl->llvmInternal = LLVMintrinsic;
-            DtoOverloadedIntrinsicName(tinst, tempdecl, fdecl->intrinsicName);
-            fdecl->linkage = LINKintrinsic;
-            static_cast<TypeFunction*>(fdecl->type)->linkage = LINKintrinsic;
-        }
-        else if (tempdecl->llvmInternal == LLVMinline_asm)
-        {
-            Logger::println("magic inline asm found");
-            TypeFunction* tf = static_cast<TypeFunction*>(fdecl->type);
-            if (tf->varargs != 1 || (fdecl->parameters && fdecl->parameters->dim != 0))
+            if (tempdecl->llvmInternal == LLVMva_arg)
             {
-                error("invalid __asm declaration, must be a D style variadic with no explicit parameters");
-                fatal();
+                Logger::println("magic va_arg found");
+                fdecl->llvmInternal = LLVMva_arg;
+                fdecl->ir.resolved = true;
+                fdecl->ir.declared = true;
+                fdecl->ir.initialized = true;
+                fdecl->ir.defined = true;
+                return; // this gets mapped to an instruction so a declaration makes no sence
             }
-            fdecl->llvmInternal = LLVMinline_asm;
-            fdecl->ir.resolved = true;
-            fdecl->ir.declared = true;
-            fdecl->ir.initialized = true;
-            fdecl->ir.defined = true;
-            return; // this gets mapped to a special inline asm call, no point in going on.
-        }
-        else if (tempdecl->llvmInternal == LLVMinline_ir)
-        {
-            fdecl->llvmInternal = LLVMinline_ir;
-            fdecl->linkage = LINKc;
-            fdecl->ir.defined = true;
-            Type* type = fdecl->type;
-            assert(type->ty == Tfunction);
-            static_cast<TypeFunction*>(type)->linkage = LINKc;
+            else if (tempdecl->llvmInternal == LLVMva_start)
+            {
+                Logger::println("magic va_start found");
+                fdecl->llvmInternal = LLVMva_start;
+            }
+            else if (tempdecl->llvmInternal == LLVMintrinsic)
+            {
+                Logger::println("overloaded intrinsic found");
+                fdecl->llvmInternal = LLVMintrinsic;
+                DtoOverloadedIntrinsicName(tinst, tempdecl, fdecl->intrinsicName);
+                fdecl->linkage = LINKintrinsic;
+                static_cast<TypeFunction*>(fdecl->type)->linkage = LINKintrinsic;
+            }
+            else if (tempdecl->llvmInternal == LLVMinline_asm)
+            {
+                Logger::println("magic inline asm found");
+                TypeFunction* tf = static_cast<TypeFunction*>(fdecl->type);
+                if (tf->varargs != 1 || (fdecl->parameters && fdecl->parameters->dim != 0))
+                {
+                    error("invalid __asm declaration, must be a D style variadic with no explicit parameters");
+                    fatal();
+                }
+                fdecl->llvmInternal = LLVMinline_asm;
+                fdecl->ir.resolved = true;
+                fdecl->ir.declared = true;
+                fdecl->ir.initialized = true;
+                fdecl->ir.defined = true;
+                return; // this gets mapped to a special inline asm call, no point in going on.
+            }
+            else if (tempdecl->llvmInternal == LLVMinline_ir)
+            {
+                fdecl->llvmInternal = LLVMinline_ir;
+                fdecl->linkage = LINKc;
+                fdecl->ir.defined = true;
+                Type* type = fdecl->type;
+                assert(type->ty == Tfunction);
+                static_cast<TypeFunction*>(type)->linkage = LINKc;
+            }
         }
     }
 
-    DtoType(fdecl->type);
+    DtoFunctionType(fdecl);
 
     Logger::println("DtoResolveFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
@@ -747,7 +751,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     if (fdecl->llvmInternal == LLVMintrinsic)
         mangledName = fdecl->intrinsicName;
     else
-        mangledName = fdecl->mangle();
+        mangledName = fdecl->mangleExact();
     mangledName = gABI->mangleForLLVM(mangledName, link);
 
     // construct function
@@ -766,7 +770,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
                 llvm::GlobalValue::ExternalLinkage, mangledName, gIR->module);
         }
     } else if (func->getFunctionType() != functype) {
-        error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", fdecl->mangle());
+        error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", fdecl->mangleExact());
+        fatal();
     }
 
     func->setCallingConv(gABI->callingConv(link));
@@ -897,16 +902,56 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
 void DtoDefineFunction(FuncDeclaration* fd)
 {
-    DtoDeclareFunction(fd);
-
-    assert(fd->ir.declared);
-
     if (Logger::enabled())
         Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
     LOG_SCOPE;
 
-    // Be sure to call DtoDeclareFunction first, as LDC_inline_asm functions are
-    // "defined" there. TODO: Clean this up.
+    if (fd->ir.defined) return;
+
+    // Skip generating code if this part of a TemplateInstance that is instantiated
+    // only by non-root modules (i.e. modules not listed on the command line).
+    // See DMD's FuncDeclaration::toObjFile. Check this before calling
+    // DtoDeclareFunction DtoDeclareFunction to avoid touching unanalyzed code.
+    TemplateInstance *ti = fd->inTemplateInstance();
+    if (!global.params.useUnitTests &&
+        ti && ti->instantiatingModule && !ti->instantiatingModule->isRoot())
+    {
+        Module *mi = ti->instantiatingModule;
+
+        // If mi imports any root modules, we still need to generate the code.
+        for (size_t i = 0; i < Module::amodules.dim; ++i)
+        {
+            Module *m = Module::amodules[i];
+            m->insearch = 0;
+        }
+        bool importsRoot = false;
+        for (size_t i = 0; i < Module::amodules.dim; ++i)
+        {
+            Module *m = Module::amodules[i];
+            if (m->isRoot() && mi->imports(m))
+            {
+                importsRoot = true;
+                break;
+            }
+        }
+        for (size_t i = 0; i < Module::amodules.dim; ++i)
+        {
+            Module *m = Module::amodules[i];
+            m->insearch = 0;
+        }
+        if (!importsRoot)
+        {
+            IF_LOG Logger::println("Ignoring; already instantiated in %s (%s)", ti->instantiatingModule->toChars(), ti->toChars());
+            fd->ir.defined = true;
+            return;
+        }
+    }
+
+    DtoDeclareFunction(fd);
+    assert(fd->ir.declared);
+
+    // DtoResolveFunction might also set the defined flag for functions we
+    // should not touch.
     if (fd->ir.defined) return;
     fd->ir.defined = true;
 

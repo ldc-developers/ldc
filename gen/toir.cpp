@@ -1589,8 +1589,8 @@ DValue* DotVarExp::toElem(IRState* p)
 
         // This is a bit more convoluted than it would need to be, because it
         // has to take templated interface methods into account, for which
-        // isFinal is not necessarily true.
-        const bool nonFinal = !fdecl->isFinal() &&
+        // isFinalFunc is not necessarily true.
+        const bool nonFinal = !fdecl->isFinalFunc() &&
             (fdecl->isAbstract() || fdecl->isVirtual());
 
         // If we are calling a non-final interface function, we need to get
@@ -2532,7 +2532,7 @@ DValue* DelegateExp::toElem(IRState* p)
 
     LLValue* castfptr;
 
-    if (e1->op != TOKsuper && e1->op != TOKdottype && func->isVirtual() && !func->isFinal())
+    if (e1->op != TOKsuper && e1->op != TOKdottype && func->isVirtual() && !func->isFinalFunc())
         castfptr = DtoVirtualFunctionPointer(u, func, toChars());
     else if (func->isAbstract())
         llvm_unreachable("Delegate to abstract method not implemented.");
@@ -2636,7 +2636,10 @@ DValue* CommaExp::toElem(IRState* p)
 
     e1->toElem(p);
     DValue* v = e2->toElem(p);
-    assert(e2->type == type);
+
+    // Actually, we can get qualifier mismatches in the 2.064 frontend:
+    // assert(e2->type == type);
+
     return v;
 }
 

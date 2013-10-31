@@ -163,7 +163,7 @@ MATCH Expression::implicitConvTo(Type *t)
         type = Type::terror;
     }
     Expression *e = optimize(WANTvalue | WANTflags);
-    if (e->type == t)
+    if (e->type->equals(t))
         return MATCHexact;
     if (e != this)
     {   //printf("\toptimized to %s of type %s\n", e->toChars(), e->type->toChars());
@@ -351,8 +351,8 @@ MATCH IntegerExp::implicitConvTo(Type *t)
             }
             else
             {
-                f = (float)(long long)value;
-                if (f != (long long)value)
+                f = (float)(sinteger_t)value;
+                if (f != (sinteger_t)value)
                     goto Lno;
             }
             goto Lyes;
@@ -369,8 +369,8 @@ MATCH IntegerExp::implicitConvTo(Type *t)
             }
             else
             {
-                f = (double)(long long)value;
-                if (f != (long long)value)
+                f = (double)(sinteger_t)value;
+                if (f != (sinteger_t)value)
                     goto Lno;
             }
             goto Lyes;
@@ -387,8 +387,8 @@ MATCH IntegerExp::implicitConvTo(Type *t)
             }
             else
             {
-                f = ldouble((long long)value);
-                if (f != (long long)value)
+                f = ldouble((sinteger_t)value);
+                if (f != (sinteger_t)value)
                     goto Lno;
             }
             goto Lyes;
@@ -418,6 +418,11 @@ Lno:
     return MATCHnomatch;
 }
 
+MATCH ErrorExp::implicitConvTo(Type *t)
+{
+    return MATCHnomatch;
+}
+
 MATCH NullExp::implicitConvTo(Type *t)
 {
 #if 0
@@ -431,7 +436,7 @@ MATCH NullExp::implicitConvTo(Type *t)
      * and mutable to immutable. It works because, after all, a null
      * doesn't actually point to anything.
      */
-    if (t->invariantOf()->equals(type->invariantOf()))
+    if (t->immutableOf()->equals(type->immutableOf()))
         return MATCHconst;
 
     return Expression::implicitConvTo(t);
@@ -655,7 +660,7 @@ MATCH CallExp::implicitConvTo(Type *t)
      * convert to immutable
      */
     if (f && f->isolateReturn())
-        return type->invariantOf()->implicitConvTo(t);
+        return type->immutableOf()->implicitConvTo(t);
 
     /* The result of arr.dup and arr.idup can be unique essentially.
      * So deal with this case specially.
@@ -680,7 +685,7 @@ MATCH CallExp::implicitConvTo(Type *t)
                     return MATCHnomatch;
             }
         }
-        m = type->invariantOf()->implicitConvTo(t);
+        m = type->immutableOf()->implicitConvTo(t);
         return m;
     }
 
@@ -1021,8 +1026,7 @@ Type *SliceExp::toStaticArrayType()
         if (lwr->isConst() && upr->isConst())
         {
             size_t len = upr->toUInteger() - lwr->toUInteger();
-            return new TypeSArray(type->toBasetype()->nextOf(),
-                        new IntegerExp(Loc(), len, Type::tindex));
+            return TypeSArray::makeType(loc, type->toBasetype()->nextOf(), len);
         }
     }
     return NULL;
@@ -1049,6 +1053,7 @@ MATCH SliceExp::implicitConvTo(Type *t)
 
 /**************************************
  * Do an explicit cast.
+ * Assume that the 'this' expression does not have any indirections.
  */
 
 Expression *Expression::castTo(Scope *sc, Type *t)
@@ -1058,21 +1063,21 @@ Expression *Expression::castTo(Scope *sc, Type *t)
     printf("Expression::castTo(this=%s, type=%s, t=%s)\n",
         toChars(), type->toChars(), t->toChars());
 #endif
-    if (type == t)
+    if (type->equals(t))
         return this;
     if (op == TOKvar)
     {
         VarDeclaration *v = ((VarExp *)this)->var->isVarDeclaration();
         if (v && v->storage_class & STCmanifest)
         {
-            Expression *e = optimize(WANTvalue | WANTinterpret);
+            Expression *e = ctfeInterpret();
             return e->castTo(sc, t);
         }
     }
     Expression *e = this;
     Type *tb = t->toBasetype();
     Type *typeb = type->toBasetype();
-    if (tb != typeb)
+    if (!tb->equals(typeb))
     {
         // Do (type *) cast of (type [dim])
         if (tb->ty == Tpointer &&
@@ -1140,7 +1145,7 @@ Expression *Expression::castTo(Scope *sc, Type *t)
                 e = e->semantic(sc);
                 return e;
             }
-            else if (typeb->implicitConvTo(tb) == MATCHconst && t == type->constOf())
+            else if (typeb->implicitConvTo(tb) == MATCHconst && t->equals(type->constOf()))
             {
                 Expression *e = copy();
                 e->type = t;
@@ -1167,8 +1172,9 @@ Expression *ErrorExp::castTo(Scope *sc, Type *t)
 
 
 Expression *RealExp::castTo(Scope *sc, Type *t)
-{   Expression *e = this;
-    if (type != t)
+{
+    Expression *e = this;
+    if (!type->equals(t))
     {
         if ((type->isreal() && t->isreal()) ||
             (type->isimaginary() && t->isimaginary())
@@ -1184,8 +1190,9 @@ Expression *RealExp::castTo(Scope *sc, Type *t)
 
 
 Expression *ComplexExp::castTo(Scope *sc, Type *t)
-{   Expression *e = this;
-    if (type != t)
+{
+    Expression *e = this;
+    if (!type->equals(t))
     {
         if (type->iscomplex() && t->iscomplex())
         {   e = copy();
@@ -1200,8 +1207,8 @@ Expression *ComplexExp::castTo(Scope *sc, Type *t)
 
 Expression *NullExp::castTo(Scope *sc, Type *t)
 {
-    //printf("NullExp::castTo(t = %p)\n", t);
-    if (type == t)
+    //printf("NullExp::castTo(t = %s) %s\n", t->toChars(), toChars());
+    if (type->equals(t))
     {
         committed = 1;
         return this;
@@ -1212,7 +1219,7 @@ Expression *NullExp::castTo(Scope *sc, Type *t)
     Type *tb = t->toBasetype();
 #if 0
     e->type = type->toBasetype();
-    if (tb != e->type)
+    if (!tb->equals(e->type))
     {
         // NULL implicitly converts to any pointer type or dynamic array
         if (e->type->ty == Tpointer && e->type->nextOf()->ty == Tvoid &&
@@ -1243,6 +1250,10 @@ Expression *NullExp::castTo(Scope *sc, Type *t)
         return e->Expression::castTo(sc, t);
     }
 #endif
+    if (tb->ty == Tsarray || tb->ty == Tstruct)
+    {
+        error("cannot cast null to %s", t->toChars());
+    }
     e->type = t;
     return e;
 }
@@ -1278,7 +1289,7 @@ Expression *StringExp::castTo(Scope *sc, Type *t)
         copied = 1;
     }
 
-    if (type == t)
+    if (type->equals(t))
     {
         return se;
     }
@@ -1289,7 +1300,7 @@ Expression *StringExp::castTo(Scope *sc, Type *t)
         return Expression::castTo(sc, t);
 
     Type *typeb = type->toBasetype();
-    if (typeb == tb)
+    if (typeb->equals(tb))
     {
         if (!copied)
         {   se = (StringExp *)copy();
@@ -1308,6 +1319,16 @@ Expression *StringExp::castTo(Scope *sc, Type *t)
         se->len = (len * sz) / se->sz;
         se->committed = 1;
         se->type = t;
+
+        /* Assure space for terminating 0
+         */
+        if ((se->len + 1) * se->sz > (len + 1) * sz)
+        {
+            void *s = (void *)mem.malloc((se->len + 1) * se->sz);
+            memcpy(s, se->string, se->len * se->sz);
+            memset((char *)s + se->len * se->sz, 0, se->sz);
+            se->string = s;
+        }
         return se;
     }
 
@@ -1357,7 +1378,7 @@ Expression *StringExp::castTo(Scope *sc, Type *t)
         case X(Tchar, Twchar):
             for (size_t u = 0; u < len;)
             {   unsigned c;
-                const char *p = utf_decodeChar((unsigned char *)se->string, len, &u, &c);
+                const char *p = utf_decodeChar((utf8_t *)se->string, len, &u, &c);
                 if (p)
                     error("%s", p);
                 else
@@ -1370,7 +1391,7 @@ Expression *StringExp::castTo(Scope *sc, Type *t)
         case X(Tchar, Tdchar):
             for (size_t u = 0; u < len;)
             {   unsigned c;
-                const char *p = utf_decodeChar((unsigned char *)se->string, len, &u, &c);
+                const char *p = utf_decodeChar((utf8_t *)se->string, len, &u, &c);
                 if (p)
                     error("%s", p);
                 buffer.write4(c);
@@ -1469,7 +1490,7 @@ L2:
             // Copy when changing the string literal
             size_t newsz = se->sz;
             size_t d = (dim2 < se->len) ? dim2 : se->len;
-            void *s = (unsigned char *)mem.malloc((dim2 + 1) * newsz);
+            void *s = (void *)mem.malloc((dim2 + 1) * newsz);
             memcpy(s, se->string, d * newsz);
             // Extend with 0, add terminating 0
             memset((char *)s + d * newsz, 0, (dim2 + 1 - d) * newsz);
@@ -1498,7 +1519,7 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
 
     tb = t->toBasetype();
     type = type->toBasetype();
-    if (tb != type)
+    if (!tb->equals(type))
     {
         // Look for pointers to functions where the functions are overloaded.
 
@@ -1559,6 +1580,9 @@ Expression *AddrExp::castTo(Scope *sc, Type *t)
 
 Expression *TupleExp::castTo(Scope *sc, Type *t)
 {
+    if (type->equals(t))
+        return this;
+
     TupleExp *e = (TupleExp *)copy();
     e->e0 = e0 ? e0->copy() : NULL;
     e->exps = (Expressions *)exps->copy();
@@ -1674,12 +1698,12 @@ Expression *SymOffExp::castTo(Scope *sc, Type *t)
     printf("SymOffExp::castTo(this=%s, type=%s, t=%s)\n",
         toChars(), type->toChars(), t->toChars());
 #endif
-    if (type == t && hasOverloads == 0)
+    if (type == t && !hasOverloads)
         return this;
     Expression *e;
     Type *tb = t->toBasetype();
     Type *typeb = type->toBasetype();
-    if (tb != typeb)
+    if (!tb->equals(typeb))
     {
         // Look for pointers to functions where the functions are overloaded.
         FuncDeclaration *f;
@@ -1732,7 +1756,7 @@ Expression *SymOffExp::castTo(Scope *sc, Type *t)
     else
     {   e = copy();
         e->type = t;
-        ((SymOffExp *)e)->hasOverloads = 0;
+        ((SymOffExp *)e)->hasOverloads = false;
     }
     return e;
 }
@@ -1743,12 +1767,12 @@ Expression *DelegateExp::castTo(Scope *sc, Type *t)
     printf("DelegateExp::castTo(this=%s, type=%s, t=%s)\n",
         toChars(), type->toChars(), t->toChars());
 #endif
-    static char msg[] = "cannot form delegate due to covariant return type";
+    static const char msg[] = "cannot form delegate due to covariant return type";
 
     Expression *e = this;
     Type *tb = t->toBasetype();
     Type *typeb = type->toBasetype();
-    if (tb != typeb || hasOverloads)
+    if (!tb->equals(typeb) || hasOverloads)
     {
         // Look for delegates to functions where the functions are overloaded.
         FuncDeclaration *f;
@@ -1810,7 +1834,7 @@ Expression *CondExp::castTo(Scope *sc, Type *t)
 {
     Expression *e = this;
 
-    if (type != t)
+    if (!type->equals(t))
     {
         if (1 || e1->op == TOKstring || e2->op == TOKstring)
         {   e = new CondExp(loc, econd, e1->castTo(sc, t), e2->castTo(sc, t));
@@ -1849,6 +1873,14 @@ Expression *SliceExp::castTo(Scope *sc, Type *t)
         /* If a SliceExp has Tsarray, it will become lvalue.
          * That's handled in SliceExp::isLvalue and toLvalue
          */
+        e = copy();
+        e->type = t;
+    }
+    else if (typeb->ty == Tarray && tb->ty == Tarray &&
+             typeb->nextOf()->constConv(tb->nextOf()) == MATCHconst)
+    {
+        // immutable(T)[] to const(T)[]
+        //           T [] to const(T)[]
         e = copy();
         e->type = t;
     }
@@ -2200,13 +2232,13 @@ Lagain:
 
         if (t1b->ty == ty1)     // if no promotions
         {
-            if (t1 == t2)
+            if (t1->equals(t2))
             {
                 t = t1;
                 goto Lret;
             }
 
-            if (t1b == t2b)
+            if (t1b->equals(t2b))
             {
                 t = t1b;
                 goto Lret;
@@ -2228,8 +2260,14 @@ Lagain:
     t1 = t1b;
     t2 = t2b;
 
-    if (t1 == t2)
+    if (t1->ty == Ttuple || t2->ty == Ttuple)
+        goto Lincompatible;
+
+    if (t1->equals(t2))
     {
+        // merging can not result in new enum type
+        if (t->ty == Tenum)
+            t = t1b;
     }
     else if ((t1->ty == Tpointer && t2->ty == Tpointer) ||
              (t1->ty == Tdelegate && t2->ty == Tdelegate))
@@ -2238,12 +2276,8 @@ Lagain:
         Type *t1n = t1->nextOf();
         Type *t2n = t2->nextOf();
 
-        if (t1n == t2n)
+        if (t1n->equals(t2n))
             ;
-#if IN_LLVM
-        else if (t1n->equals(t2n))
-            ;
-#endif
         else if (t1n->ty == Tvoid)      // pointers to void are always compatible
             t = t2;
         else if (t2n->ty == Tvoid)
@@ -2800,8 +2834,8 @@ Expression *Expression::integralPromotions(Scope *sc)
 
 int arrayTypeCompatible(Loc loc, Type *t1, Type *t2)
 {
-    t1 = t1->toBasetype();
-    t2 = t2->toBasetype();
+    t1 = t1->toBasetype()->merge2();
+    t2 = t2->toBasetype()->merge2();
 
     if ((t1->ty == Tarray || t1->ty == Tsarray || t1->ty == Tpointer) &&
         (t2->ty == Tarray || t2->ty == Tsarray || t2->ty == Tpointer))
@@ -2864,7 +2898,7 @@ IntRange Expression::getIntRange()
 
 IntRange IntegerExp::getIntRange()
 {
-    return IntRange(value).cast(type) DUMP;
+    return IntRange(SignExtendedNumber(value)).cast(type) DUMP;
 }
 
 IntRange CastExp::getIntRange()

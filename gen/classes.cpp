@@ -107,7 +107,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     else
     {
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_newclass");
-        LLConstant* ci = DtoBitCast(tc->sym->ir.irAggr->getClassInfoSymbol(), DtoType(ClassDeclaration::classinfo->type));
+        LLConstant* ci = DtoBitCast(tc->sym->ir.irAggr->getClassInfoSymbol(), DtoType(Type::typeinfoclass->type));
         mem = gIR->CreateCallOrInvoke(fn, ci, ".newclass_gc_alloc").getInstruction();
         mem = DtoBitCast(mem, DtoType(tc), ".newclass_gc");
     }
@@ -321,7 +321,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     // Object _d_dynamic_cast(Object o, ClassInfo c)
 
     DtoResolveClass(ClassDeclaration::object);
-    DtoResolveClass(ClassDeclaration::classinfo);
+    DtoResolveClass(Type::typeinfoclass);
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_dynamic_cast");
     LLFunctionType* funcTy = func->getFunctionType();
@@ -384,7 +384,7 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     // Object _d_interface_cast(void* p, ClassInfo c)
 
     DtoResolveClass(ClassDeclaration::object);
-    DtoResolveClass(ClassDeclaration::classinfo);
+    DtoResolveClass(Type::typeinfoclass);
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_interface_cast");
     LLFunctionType* funcTy = func->getFunctionType();
@@ -467,7 +467,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl, char* n
 {
     // sanity checks
     assert(fdecl->isVirtual());
-    assert(!fdecl->isFinal());
+    assert(!fdecl->isFinalFunc());
     assert(inst->getType()->toBasetype()->ty == Tclass);
     // 0 is always ClassInfo/Interface* unless it is a CPP interface
     assert(fdecl->vtblIndex > 0 || (fdecl->vtblIndex == 0 && fdecl->linkage == LINKcpp));
@@ -650,7 +650,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     IrAggr* ir = cd->ir.irAggr;
     assert(ir);
 
-    ClassDeclaration* cinfo = ClassDeclaration::classinfo;
+    ClassDeclaration* cinfo = Type::typeinfoclass;
 
     if (cinfo->fields.dim != 12)
     {
@@ -659,7 +659,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     }
 
     // use the rtti builder
-    RTTIBuilder b(ClassDeclaration::classinfo);
+    RTTIBuilder b(cinfo);
 
     LLConstant* c;
 

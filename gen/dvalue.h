@@ -20,10 +20,10 @@
 #include "root.h"
 #include <cassert>
 
-struct Type;
-struct Dsymbol;
-struct VarDeclaration;
-struct FuncDeclaration;
+class Type;
+class Dsymbol;
+class VarDeclaration;
+class FuncDeclaration;
 
 namespace llvm
 {

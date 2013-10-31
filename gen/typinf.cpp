@@ -118,7 +118,7 @@ Expression *Type::getTypeInfo(Scope *sc)
     IF_LOG Logger::println("Type::getTypeInfo(): %s", toChars());
     LOG_SCOPE
 
-    if (!Type::typeinfo)
+    if (!Type::dtypeinfo)
     {
         error(Loc(), "TypeInfo not found. object.d may be incorrectly installed or corrupt, compile with -v switch");
         fatal();
@@ -343,7 +343,7 @@ void TypeInfoDeclaration::codegen(IRState* p)
         assert(irg->type->isStructTy());
     } else {
         if (tinfo->builtinTypeInfo()) // this is a declaration of a builtin __initZ var
-            irg->type = Type::typeinfo->type->irtype->isClass()->getMemoryLLType();
+            irg->type = Type::dtypeinfo->type->irtype->isClass()->getMemoryLLType();
         else
             irg->type = LLStructType::create(gIR->context(), toPrettyChars());
         irg->value = new llvm::GlobalVariable(*gIR->module, irg->type, true,
@@ -370,7 +370,7 @@ void TypeInfoDeclaration::llvmDefine()
     Logger::println("TypeInfoDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    RTTIBuilder b(Type::typeinfo);
+    RTTIBuilder b(Type::dtypeinfo);
     b.finalize(ir.irGlobal);
 }
 
@@ -434,7 +434,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     // void[] init
     // emit void[] with the default initialier, the array is null if the default
     // initializer is zero
-    if (!sd->defaultval || tinfo->isZeroInit(Loc()))
+    if (!sd->members || tinfo->isZeroInit(loc))
     {
         b.push_null_void_array();
     }
@@ -444,10 +444,11 @@ void TypeInfoEnumDeclaration::llvmDefine()
         Type *memtype = sd->memtype;
         LLType *memty = DtoType(memtype);
         LLConstant *C;
+        Expression *defaultval = sd->getDefaultValue(loc);
         if (memtype->isintegral())
-            C = LLConstantInt::get(memty, sd->defaultval->toInteger(), !isLLVMUnsigned(memtype));
+            C = LLConstantInt::get(memty, defaultval->toInteger(), !isLLVMUnsigned(memtype));
         else if (memtype->isString())
-            C = DtoConstString(static_cast<const char *>(sd->defaultval->toString()->string));
+            C = DtoConstString(static_cast<const char *>(defaultval->toString()->string));
         else
             llvm_unreachable("Unsupported type");
 
@@ -631,7 +632,7 @@ void TypeInfoStructDeclaration::llvmDefine()
         tftohash ->mod = MODconst;
         tftohash = static_cast<TypeFunction *>(tftohash->semantic(Loc(), &sc));
 
-        Type *retType = Type::tchar->invariantOf()->arrayOf();
+        Type *retType = Type::tchar->immutableOf()->arrayOf();
         tftostring = new TypeFunction(NULL, retType, 0, LINKd);
         tftostring = static_cast<TypeFunction *>(tftostring->semantic(Loc(), &sc));
     }
@@ -708,7 +709,7 @@ void TypeInfoStructDeclaration::llvmDefine()
                 b.push_typeinfo(targ);
             }
             else
-                b.push_null(Type::typeinfo->type);
+                b.push_null(Type::dtypeinfo->type);
         }
     }
 
@@ -791,7 +792,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     std::vector<LLConstant*> arrInits;
     arrInits.reserve(dim);
 
-    LLType* tiTy = DtoType(Type::typeinfo->type);
+    LLType* tiTy = DtoType(Type::dtypeinfo->type);
 
     for (size_t i = 0; i < dim; i++)
     {
@@ -806,7 +807,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     RTTIBuilder b(Type::typeinfotypelist);
 
     // push TypeInfo[]
-    b.push_array(arrC, dim, Type::typeinfo->type, NULL);
+    b.push_array(arrC, dim, Type::dtypeinfo->type, NULL);
 
     // finish
     b.finalize(ir.irGlobal);

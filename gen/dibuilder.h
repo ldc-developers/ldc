@@ -35,12 +35,12 @@
 
 struct IRState;
 
-struct ClassDeclaration;
-struct Dsymbol;
-struct FuncDeclaration;
-struct Module;
-struct Type;
-struct VarDeclaration;
+class ClassDeclaration;
+class Dsymbol;
+class FuncDeclaration;
+class Module;
+class Type;
+class VarDeclaration;
 
 namespace llvm {
     class GlobalVariable;
