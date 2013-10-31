@@ -432,23 +432,69 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
 
 private void printThrowable(Throwable t)
 {
-    void sink(const(char)[] buf) nothrow
+    static void printLocLine(Throwable t)
     {
-        printf("%.*s", cast(int)buf.length, buf.ptr);
+        if (t.file)
+        {
+            console(t.classinfo.name)("@")(t.file)("(")(t.line)(")");
+        }
+        else
+        {
+            console(t.classinfo.name);
+        }
+        console("\n");
     }
+
+    static void printMsgLine(Throwable t)
+    {
+        if (t.file)
+        {
+            console(t.classinfo.name)("@")(t.file)("(")(t.line)(")");
+        }
+        else
+        {
+            console(t.classinfo.name);
+        }
+        if (t.msg)
+        {
+            console(": ")(t.msg);
+        }
+        console("\n");
+    }
+
+    static void printInfoBlock(Throwable t)
+    {
+        if (t.info)
+        {
+            console("----------------\n");
+            foreach (i; t.info)
+                console(i)("\n");
+            console("----------------\n");
+        }
+    }
+
+    Throwable firstWithBypass = null;
 
     for (; t; t = t.next)
     {
-        t.toString(&sink); sink("\n");
-
-        auto e = cast(Error)t;
-        if (e is null || e.bypassedException is null) continue;
-
-        sink("=== Bypassed ===\n");
-        for (auto t2 = e.bypassedException; t2; t2 = t2.next)
+        printMsgLine(t);
+        printInfoBlock(t);
+        auto e = cast(Error) t;
+        if (e && e.bypassedException)
         {
-            t2.toString(&sink); sink("\n");
+            console("Bypasses ");
+            printLocLine(e.bypassedException);
+            if (firstWithBypass is null)
+                firstWithBypass = t;
         }
-        sink("=== ~Bypassed ===\n");
+    }
+    if (firstWithBypass is null)
+        return;
+    console("=== Bypassed ===\n");
+    for (t = firstWithBypass; t; t = t.next)
+    {
+        auto e = cast(Error) t;
+        if (e && e.bypassedException)
+            printThrowable(e.bypassedException);
     }
 }
