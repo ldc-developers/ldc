@@ -936,10 +936,11 @@ static void LLVM_D_BuildRuntimeModule()
         fn->setCallingConv(gABI->callingConv(LINKd));
     }
 
-    // void _d_hidden_func()
+    // void _d_hidden_func(Object o)
     {
         llvm::StringRef fname("_d_hidden_func");
-        LLFunctionType* fty = llvm::FunctionType::get(voidTy, false);
+        LLType *types[] = { voidPtrTy };
+        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
