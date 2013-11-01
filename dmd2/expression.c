@@ -1323,6 +1323,10 @@ bool Expression::checkPostblit(Scope *sc, Type *t)
     t = t->baseElemOf();
     if (t->ty == Tstruct)
     {
+        // Bugzilla 11395: Require TypeInfo generation for array concatenation
+        if (!t->vtinfo)
+            t->getTypeInfo(sc);
+
         StructDeclaration *sd = ((TypeStruct *)t)->sym;
         if (sd->postblit)
         {
@@ -12608,9 +12612,9 @@ Expression *CatExp::semantic(Scope *sc)
         {
             type = type->nextOf()->toHeadMutable()->arrayOf();
         }
-        if (tb->nextOf())
+        if (Type *tbn = tb->nextOf())
         {
-            checkPostblit(sc, tb->nextOf());
+            checkPostblit(sc, tbn);
         }
 #if 0
         e1->type->print();
