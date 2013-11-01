@@ -641,6 +641,15 @@ extern (C)
         onSwitchError(m.name, line);
     }
 
+version(LDC)
+{
+    void _d_hidden_func(Object o)
+    {
+        onHiddenFuncError(o);
+    }
+}
+else
+{
     void _d_hidden_func()
     {
         Object o;
@@ -659,6 +668,7 @@ extern (C)
 
         onHiddenFuncError(o);
     }
+}
 }
 
 
