@@ -3792,9 +3792,12 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident, int f
         // LDC, we don't support the getInternalTypeInfo
         // optimization arbitrarily, not yet at least...
         arguments->push(n->getTypeInfo(sc));
-#else        arguments->push(n->ty == Tsarray
+#else
+        arguments->push(n->ty == Tsarray
                     ? n->getTypeInfo(sc)        // don't convert to dynamic array
-                    : n->getInternalTypeInfo(sc));#endif        e = new CallExp(e->loc, ec, arguments);
+                    : n->getInternalTypeInfo(sc));
+#endif
+        e = new CallExp(e->loc, ec, arguments);
         e->type = next->arrayOf();
     }
     else
@@ -6492,14 +6495,16 @@ Expression *TypeDelegate::dotExp(Scope *sc, Expression *e, Identifier *ident, in
     {
 #if IN_LLVM
         e = new GEPExp(e->loc, e, ident, 0);
-#endif        e->type = tvoidptr;
+#endif
+        e->type = tvoidptr;
         return e;
     }
     else if (ident == Id::funcptr)
     {
 #if IN_LLVM
         e = new GEPExp(e->loc, e, ident, 1);
-#else        if (!e->isLvalue())
+#else
+        if (!e->isLvalue())
         {
             Identifier *idtmp = Lexer::uniqueId("__dgtmp");
             VarDeclaration *tmp = new VarDeclaration(e->loc, this, idtmp, new ExpInitializer(Loc(), e));
@@ -6513,7 +6518,9 @@ Expression *TypeDelegate::dotExp(Scope *sc, Expression *e, Identifier *ident, in
         e = new AddExp(e->loc, e, new IntegerExp(Target::ptrsize));
         e->type = tvoidptr;
         e = new PtrExp(e->loc, e);
-#endif        e->type = next->pointerTo();
+
+#endif
+        e->type = next->pointerTo();
         return e;
     }
     else
@@ -9609,8 +9616,11 @@ void Parameter::argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Parameters *argu
             StorageClass stc = arg->storageClass;
             if (arg->type && arg->type->mod & MODshared)
                 stc &= ~STCshared;
-            StorageClassDeclaration::stcToCBuffer(buf,
-                stc & (STCconst | STCimmutable | STCwild | STCshared | STCscope));            argbuf.reset();
+
+            StorageClassDeclaration::stcToCBuffer(buf,
+                stc & (STCconst | STCimmutable | STCwild | STCshared | STCscope));
+
+            argbuf.reset();
             if (arg->storageClass & STCalias)
             {   if (arg->ident)
                     argbuf.writestring(arg->ident->toChars());
