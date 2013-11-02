@@ -3788,10 +3788,13 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident, int f
         e = e->castTo(sc, n->arrayOf());        // convert to dynamic array
         arguments = new Expressions();
         arguments->push(e);
+#if IN_LLVM
         // LDC, we don't support the getInternalTypeInfo
         // optimization arbitrarily, not yet at least...
         arguments->push(n->getTypeInfo(sc));
-        e = new CallExp(e->loc, ec, arguments);
+#else        arguments->push(n->ty == Tsarray
+                    ? n->getTypeInfo(sc)        // don't convert to dynamic array
+                    : n->getInternalTypeInfo(sc));#endif        e = new CallExp(e->loc, ec, arguments);
         e->type = next->arrayOf();
     }
     else
@@ -5426,10 +5429,10 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf, int flag)
         case LINKwindows:       mc = 'W';       break;
         case LINKpascal:        mc = 'V';       break;
         case LINKcpp:           mc = 'R';       break;
-
+#if IN_LLVM
         // LDC
-        case LINKintrinsic: mc = 'Q';   break;
-
+        case LINKintrinsic:     mc = 'Q';       break;
+#endif
         default:
             assert(0);
     }
@@ -5521,10 +5524,10 @@ void TypeFunction::toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, Hd
             case LINKwindows:   p = "Windows";  break;
             case LINKpascal:    p = "Pascal";   break;
             case LINKcpp:       p = "C++";      break;
-
-        // LDC
-        case LINKintrinsic: p = "Intrinsic"; break;
-
+#if IN_LLVM
+            // LDC
+            case LINKintrinsic: p = "Intrinsic"; break;
+#endif
             default:
                 assert(0);
         }
@@ -5578,10 +5581,10 @@ void functionToCBuffer2(TypeFunction *t, OutBuffer *buf, HdrGenState *hgs, int m
             case LINKwindows:   p = "Windows";  break;
             case LINKpascal:    p = "Pascal";   break;
             case LINKcpp:       p = "C++";      break;
-
-        // LDC
-        case LINKintrinsic: p = "Intrinsic"; break;
-
+#if IN_LLVM
+            // LDC
+            case LINKintrinsic: p = "Intrinsic"; break;
+#endif
             default:
                 assert(0);
         }
@@ -6487,14 +6490,30 @@ Expression *TypeDelegate::dotExp(Scope *sc, Expression *e, Identifier *ident, in
 #endif
     if (ident == Id::ptr)
     {
+#if IN_LLVM
         e = new GEPExp(e->loc, e, ident, 0);
-        e->type = tvoidptr;
+#endif        e->type = tvoidptr;
         return e;
     }
     else if (ident == Id::funcptr)
     {
+#if IN_LLVM
         e = new GEPExp(e->loc, e, ident, 1);
-        e->type = next->pointerTo();
+#else        if (!e->isLvalue())
+        {
+            Identifier *idtmp = Lexer::uniqueId("__dgtmp");
+            VarDeclaration *tmp = new VarDeclaration(e->loc, this, idtmp, new ExpInitializer(Loc(), e));
+            tmp->storage_class |= STCctfe;
+            e = new DeclarationExp(e->loc, tmp);
+            e = new CommaExp(e->loc, e, new VarExp(e->loc, tmp));
+            e = e->semantic(sc);
+        }
+        e = e->addressOf(sc);
+        e->type = tvoidptr;
+        e = new AddExp(e->loc, e, new IntegerExp(Target::ptrsize));
+        e->type = tvoidptr;
+        e = new PtrExp(e->loc, e);
+#endif        e->type = next->pointerTo();
         return e;
     }
     else
@@ -9590,11 +9609,8 @@ void Parameter::argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Parameters *argu
             StorageClass stc = arg->storageClass;
             if (arg->type && arg->type->mod & MODshared)
                 stc &= ~STCshared;
-
-            StorageClassDeclaration::stcToCBuffer(buf,
-                stc & (STCconst | STCimmutable | STCshared | STCscope));
-
-            argbuf.reset();
+            StorageClassDeclaration::stcToCBuffer(buf,
+                stc & (STCconst | STCimmutable | STCwild | STCshared | STCscope));            argbuf.reset();
             if (arg->storageClass & STCalias)
             {   if (arg->ident)
                     argbuf.writestring(arg->ident->toChars());

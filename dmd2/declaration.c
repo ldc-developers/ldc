@@ -735,7 +735,11 @@ void AliasDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     {
         if (haliassym)
         {
+#if IN_LLVM
             buf->writestring(haliassym->toChars());
+#else
+            haliassym->toCBuffer(buf, hgs);
+#endif
             buf->writeByte(' ');
             buf->writestring(ident->toChars());
         }
@@ -747,10 +751,10 @@ void AliasDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
     {
         if (aliassym)
         {
-#if !IN_LLVM
-            aliassym->toCBuffer(buf, hgs);
-#else
+#if IN_LLVM
             buf->writestring(aliassym->toChars());
+#else
+            aliassym->toCBuffer(buf, hgs);
 #endif
             buf->writeByte(' ');
             buf->writestring(ident->toChars());
@@ -2661,3 +2665,4 @@ Dsymbol *ThisDeclaration::syntaxCopy(Dsymbol *s)
     assert(0);          // should never be produced by syntax
     return NULL;
 }
+

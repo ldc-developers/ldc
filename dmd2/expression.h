@@ -47,9 +47,6 @@ struct InterState;
 #if IN_DMD
 struct Symbol;          // back end symbol
 #endif
-struct OverloadSet;
-struct Initializer;
-struct StringExp;
 class OverloadSet;
 class Initializer;
 class StringExp;
