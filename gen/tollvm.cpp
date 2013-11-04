@@ -454,11 +454,11 @@ llvm::GlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym)
         return llvm::GlobalValue::InternalLinkage;
 }
 
-llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym)
+llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym, bool checkInline)
 {
     if (DtoIsTemplateInstance(sym))
         return templateLinkage;
-    else if (isAvailableExternally(sym))
+    else if (checkInline && isAvailableExternally(sym))
         return llvm::GlobalValue::AvailableExternallyLinkage;
     else
         return llvm::GlobalValue::ExternalLinkage;
