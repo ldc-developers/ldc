@@ -293,8 +293,10 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
             DtoConstSize_t(interfaces_index)
         };
 
+        llvm::GlobalVariable* interfaceInfosZ = getInterfaceArraySymbol();
+        interfaceInfosZ->setLinkage(DtoExternalLinkage(cd, false));
         llvm::Constant* c = llvm::ConstantExpr::getGetElementPtr(
-            getInterfaceArraySymbol(), idxs, true);
+            interfaceInfosZ, idxs, true);
 
         constants.push_back(c);
     }
@@ -389,7 +391,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
         *gIR->module,
         vtbl_constant->getType(),
         true,
-        llvm::GlobalValue::ExternalLinkage,
+        DtoExternalLinkage(cd, false),
         vtbl_constant,
         mangle
     );
