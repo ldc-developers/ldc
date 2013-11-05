@@ -724,8 +724,6 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     Type* t = fdecl->type->toBasetype();
     TypeFunction* f = static_cast<TypeFunction*>(t);
 
-    IrFuncTy &irFty = fdecl->irFty;
-
     if (!fdecl->ir.irFunc) {
         fdecl->ir.irFunc = new IrFunction(fdecl);
     }
@@ -816,9 +814,9 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         AppendFunctionToLLVMGlobalCtorsDtors(func, fdecl->priority, fdecl->llvmInternal == LLVMglobal_crt_ctor);
     }
 
-    // we never reference parameters of function prototypes
-    std::string str;
-   // if (!declareOnly)
+    IrFuncTy &irFty = fdecl->irFty;
+
+    // if (!declareOnly)
     {
         // name parameters
         llvm::Function::arg_iterator iarg = func->arg_begin();
@@ -840,12 +838,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
                 // parameters below, because it can be referred to in nested
                 // context types. Will be given storage in DtoDefineFunction.
                 assert(!v->ir.irParam);
-                IrParameter* p = new IrParameter(v);
-                p->isVthis = true;
-                p->value = iarg;
-                p->arg = irFty.arg_this;
-
-                v->ir.irParam = p;
+                v->ir.irParam = new IrParameter(v, iarg, irFty.arg_this, true);
             }
 
             ++iarg;
@@ -866,8 +859,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             ++iarg;
         }
 
+        // we never reference parameters of function prototypes
         unsigned int k = 0;
-
         for (; iarg != func->arg_end(); ++iarg)
         {
             if (fdecl->parameters && fdecl->parameters->dim > k)
@@ -878,13 +871,10 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
                 VarDeclaration* argvd = argsym->isVarDeclaration();
                 assert(argvd);
                 assert(!argvd->ir.irLocal);
-                argvd->ir.irParam = new IrParameter(argvd);
-                argvd->ir.irParam->value = iarg;
-                argvd->ir.irParam->arg = irFty.args[paramIndex];
-
-                str = argvd->ident->toChars();
+                std::string str(argvd->ident->toChars());
                 str.append("_arg");
                 iarg->setName(str);
+                argvd->ir.irParam = new IrParameter(argvd, iarg, irFty.args[paramIndex]);
 
                 k++;
             }
