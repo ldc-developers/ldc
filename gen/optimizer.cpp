@@ -31,6 +31,7 @@
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/PassNameParser.h"
+#include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
@@ -106,6 +107,17 @@ static cl::opt<bool>
 stripDebug("strip-debug",
            cl::desc("Strip symbolic debug information before optimization"));
 
+#if LDC_LLVM_VER >= 303
+cl::opt<opts::SanitizerCheck> opts::sanitize("sanitize",
+    cl::desc("Enable runtime instrumentation for bug detection"),
+    cl::init(opts::None),
+    cl::values(
+        clEnumValN(opts::AddressSanitizer, "address", "memory errors"),
+        clEnumValN(opts::MemorySanitizer, "memory", "memory errors"),
+        clEnumValN(opts::ThreadSanitizer, "thread", "race detection"),
+        clEnumValEnd));
+#endif
+
 static unsigned optLevel() {
     // Use -O2 as a base for the size-optimization levels.
     return optimizeLevel >= 0 ? optimizeLevel : 2;
@@ -154,6 +166,36 @@ static void addGarbageCollect2StackPass(const PassManagerBuilder &builder, PassM
         addPass(pm, createGarbageCollect2Stack());
 }
 
+#if LDC_LLVM_VER >= 303
+static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
+                                      PassManagerBase &PM) {
+  PM.add(createAddressSanitizerFunctionPass());
+  PM.add(createAddressSanitizerModulePass());
+}
+
+static void addMemorySanitizerPass(const PassManagerBuilder &Builder,
+                                   PassManagerBase &PM) {
+  PM.add(createMemorySanitizerPass());
+
+  // MemorySanitizer inserts complex instrumentation that mostly follows
+  // the logic of the original code, but operates on "shadow" values.
+  // It can benefit from re-running some general purpose optimization passes.
+  if (Builder.OptLevel > 0) {
+    PM.add(createEarlyCSEPass());
+    PM.add(createReassociatePass());
+    PM.add(createLICMPass());
+    PM.add(createGVNPass());
+    PM.add(createInstructionCombiningPass());
+    PM.add(createDeadStoreEliminationPass());
+  }
+}
+
+static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
+                                   PassManagerBase &PM) {
+  PM.add(createThreadSanitizerPass());
+}
+#endif
+
 /**
  * Adds a set of optimization passes to the given module/function pass
  * managers based on the given optimization and size reduction levels.
@@ -187,6 +229,29 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
     builder.DisableUnitAtATime = !unitAtATime;
     builder.DisableUnrollLoops = optLevel == 0;
     /* builder.Vectorize is set in ctor from command line switch */
+
+#if LDC_LLVM_VER >= 303
+    if (opts::sanitize == opts::AddressSanitizer) {
+        builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
+                             addAddressSanitizerPasses);
+        builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
+                             addAddressSanitizerPasses);
+    }
+
+    if (opts::sanitize == opts::MemorySanitizer) {
+        builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
+                             addMemorySanitizerPass);
+        builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
+                             addMemorySanitizerPass);
+    }
+
+    if (opts::sanitize == opts::ThreadSanitizer) {
+        builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
+                             addThreadSanitizerPass);
+        builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
+                             addThreadSanitizerPass);
+    }
+#endif
 
     if (!disableLangSpecificPasses) {
         if (!disableSimplifyDruntimeCalls)

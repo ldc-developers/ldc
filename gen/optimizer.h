@@ -18,6 +18,17 @@
 // For llvm::CodeGenOpt::Level
 #include "llvm/Support/CodeGen.h"
 
+#if LDC_LLVM_VER >= 303
+#include "llvm/Support/CommandLine.h"
+
+namespace opts {
+
+enum SanitizerCheck { None, AddressSanitizer, MemorySanitizer, ThreadSanitizer };
+
+extern llvm::cl::opt<SanitizerCheck> sanitize;
+}
+#endif
+
 namespace llvm { class Module; }
 
 bool ldc_optimize_module(llvm::Module* m);

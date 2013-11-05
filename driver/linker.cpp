@@ -137,6 +137,21 @@ static int linkObjToBinaryGcc(bool sharedLib)
     // create path to exe
     CreateDirectoryOnDisk(gExePath);
 
+#if LDC_LLVM_VER >= 303
+    // Pass sanitizer arguments to linker. Requires clang.
+    if (opts::sanitize == opts::AddressSanitizer) {
+        args.push_back("-fsanitize=address");
+    }
+
+    if (opts::sanitize == opts::MemorySanitizer) {
+        args.push_back("-fsanitize=memory");
+    }
+
+    if (opts::sanitize == opts::ThreadSanitizer) {
+        args.push_back("-fsanitize=thread");
+    }
+#endif
+
     // additional linker switches
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
     {
