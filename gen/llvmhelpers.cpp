@@ -1121,8 +1121,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
     */
     else if (gIR->func()->retArg && gIR->func()->decl->nrvo_can && gIR->func()->decl->nrvo_var == vd) {
         assert(!isSpecialRefVar(vd) && "Can this happen?");
-        vd->ir.irLocal = new IrLocal(vd);
-        vd->ir.irLocal->value = gIR->func()->retArg;
+        vd->ir.irLocal = new IrLocal(vd, gIR->func()->retArg);
     }
     // normal stack variable, allocate storage on the stack if it has not already been done
     else {
@@ -1339,8 +1338,7 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
 
         assert(!var->ir.isSet());
         assert(addr);
-        var->ir.irLocal = new IrLocal(var);
-        var->ir.irLocal->value = addr;
+        var->ir.irLocal = new IrLocal(var, addr);
     }
 
     // return the alloca

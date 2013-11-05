@@ -26,7 +26,10 @@ struct VarDeclaration;
 
 struct IrVar
 {
-    IrVar(VarDeclaration* var);
+    IrVar(VarDeclaration* var)
+        : V(var), value(0) { }
+    IrVar(VarDeclaration* var, llvm::Value* value)
+        : V(var), value(value) { }
 
     VarDeclaration* V;
     llvm::Value* value;
@@ -35,7 +38,10 @@ struct IrVar
 // represents a global variable
 struct IrGlobal : IrVar
 {
-    IrGlobal(VarDeclaration* v);
+    IrGlobal(VarDeclaration* v)
+        : IrVar(v), type(0), constInit(0) { }
+    IrGlobal(VarDeclaration* v, llvm::Type *type, llvm::Constant* constInit = 0)
+        : IrVar(v), type(type), constInit(constInit) { }
 
     llvm::Type *type;
     llvm::Constant* constInit;
@@ -44,7 +50,12 @@ struct IrGlobal : IrVar
 // represents a local variable variable
 struct IrLocal : IrVar
 {
-    IrLocal(VarDeclaration* v);
+    IrLocal(VarDeclaration* v)
+        : IrVar(v), nestedDepth(0), nestedIndex(-1) { }
+    IrLocal(VarDeclaration* v, llvm::Value* value)
+        : IrVar(v, value), nestedDepth(0), nestedIndex(-1) { }
+    IrLocal(VarDeclaration* v, int nestedDepth, int nestedIndex)
+        : IrVar(v), nestedDepth(nestedDepth), nestedIndex(nestedIndex) { }
 
     // Used for hybrid nested context creation.
     int nestedDepth;
@@ -54,7 +65,13 @@ struct IrLocal : IrVar
 // represents a function parameter
 struct IrParameter : IrLocal
 {
-    IrParameter(VarDeclaration* v);
+    IrParameter(VarDeclaration* v)
+        : IrLocal(v), arg(0), isVthis(false) { }
+    IrParameter(VarDeclaration* v, llvm::Value* value)
+        : IrLocal(v, value), arg(0), isVthis(false) { }
+    IrParameter(VarDeclaration* v, llvm::Value* value, IrFuncTyArg *arg, bool isVthis = false)
+        : IrLocal(v, value), arg(arg), isVthis(isVthis) { }
+
     IrFuncTyArg *arg;
     bool isVthis; // true, if it is the 'this' parameter
 };

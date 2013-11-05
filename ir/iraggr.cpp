@@ -26,27 +26,21 @@
 //////////////////////////////////////////////////////////////////////////////
 
 IrAggr::IrAggr(AggregateDeclaration* aggr)
-:   init_type(LLStructType::create(gIR->context(), std::string(aggr->toPrettyChars()) + "_init"))
-{
-    aggrdecl = aggr;
-
-    type = aggr->type;
-
-    packed = (type->ty == Tstruct)
-        ? type->alignsize() == 1
-        : false;
-
+:   aggrdecl(aggr),
+    type(aggr->type),
+    packed((type->ty == Tstruct) ? type->alignsize() == 1 : false),
     // above still need to be looked at
-
-    init = NULL;
-    constInit = NULL;
-
-    vtbl = NULL;
-    constVtbl = NULL;
-    classInfo = NULL;
-    constClassInfo = NULL;
-
-    classInterfacesArray = NULL;
+    init(0),
+    constInit(0),
+    init_type(LLStructType::create(gIR->context(), std::string(aggr->toPrettyChars()) + "_init")),
+    vtbl(0),
+    constVtbl(0),
+    classInfo(0),
+    constClassInfo(0),
+    interfaceVtblMap(),
+    classInterfacesArray(0),
+    interfacesWithVtbls()
+{
 }
 
 //////////////////////////////////////////////////////////////////////////////
