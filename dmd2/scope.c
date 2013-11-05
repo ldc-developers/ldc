@@ -278,9 +278,13 @@ unsigned *Scope::saveFieldInit()
     {
         size_t dim = fieldinit_dim;
         fi = new unsigned[dim];
+#if IN_LLVM // ASan
+        memcpy(fi, fieldinit, sizeof(*fi) * dim);
+#else
         fi[0] = dim;
         for (size_t i = 0; i < dim; i++)
             fi[i] = fieldinit[i];
+#endif
     }
     return fi;
 }

@@ -32,12 +32,20 @@ hash_t Identifier::hashCode()
 
 bool Identifier::equals(RootObject *o)
 {
+#if IN_LLVM // ASan
+    return this == o || strncmp(string,o->toChars(),len+1) == 0;
+#else
     return this == o || memcmp(string,o->toChars(),len+1) == 0;
+#endif
 }
 
 int Identifier::compare(RootObject *o)
 {
+#if IN_LLVM // ASan
+    return strncmp(string, o->toChars(), len + 1);
+#else
     return memcmp(string, o->toChars(), len + 1);
+#endif
 }
 
 char *Identifier::toChars()
@@ -60,12 +68,21 @@ const char *Identifier::toHChars2()
     {   p = toChars();
         if (*p == '_')
         {
+#if IN_LLVM // ASan
+            if (strncmp(p, "_staticCtor", 11) == 0)
+                p = "static this";
+            else if (strncmp(p, "_staticDtor", 11) == 0)
+                p = "static ~this";
+            else if (strncmp(p, "__invariant", 11) == 0)
+                p = "invariant";
+#else
             if (memcmp(p, "_staticCtor", 11) == 0)
                 p = "static this";
             else if (memcmp(p, "_staticDtor", 11) == 0)
                 p = "static ~this";
             else if (memcmp(p, "__invariant", 11) == 0)
                 p = "invariant";
+#endif
         }
     }
 

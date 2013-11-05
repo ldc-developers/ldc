@@ -311,7 +311,11 @@ const char *ClassDeclaration::mangle(bool isv)
         this == object     ||
         this == Type::typeinfoclass  ||
         this == Module::moduleinfo ||
+#if IN_LLVM // ASan
+        strncmp(ident->toChars(), "TypeInfo_", 9) == 0
+#else
         memcmp(ident->toChars(), "TypeInfo_", 9) == 0
+#endif
        )
         parent = NULL;
 
