@@ -103,7 +103,6 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     protection = PROTpublic;
     type = NULL;
     handle = NULL;
-    scope = 0;
     structsize = 0;             // size of struct
     alignsize = 0;              // size of struct for alignment purposes
     hasUnions = 0;

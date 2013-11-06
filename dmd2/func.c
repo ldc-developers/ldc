@@ -47,8 +47,10 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
     frequire = NULL;
     fdrequire = NULL;
     fdensure = NULL;
+#if IN_LLVM
     fdrequireParams = NULL;
     fdensureParams = NULL;
+#endif
     outId = NULL;
     vresult = NULL;
     returnLabel = NULL;
@@ -909,7 +911,11 @@ void FuncDeclaration::semantic(Scope *sc)
             Parameter *a = NULL;
             if (outId)
             {   a = new Parameter(STCref | STCconst, f->nextOf(), outId, NULL);
+#if IN_LLVM
                 arguments->insert(0, a);
+#else
+                arguments->push(a);
+#endif
             }
             TypeFunction *tf = new TypeFunction(arguments, Type::tvoid, 0, LINKd);
             tf->isnothrow = f->isnothrow;
@@ -955,9 +961,13 @@ Ldone:
     }
 
     Module::dprogress++;
+#if IN_LLVM
     //LDC relies on semanticRun variable not being reset here
     if(semanticRun < PASSsemanticdone)
         semanticRun = PASSsemanticdone;
+#else
+    semanticRun = PASSsemanticdone;
+#endif
 
     /* Save scope for possible later use (if we need the
      * function internals)
@@ -2329,7 +2339,11 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf, Expressions *params)
             sc->pop();
         }
 
+#if IN_LLVM
         sf = fdv->mergeFrequire(sf, params);
+#else
+        sf = fdv->mergeFrequire(sf);
+#endif
         if (sf && fdv->fdrequire)
         {
             //printf("fdv->frequire: %s\n", fdv->frequire->toChars());
@@ -2337,7 +2351,12 @@ Statement *FuncDeclaration::mergeFrequire(Statement *sf, Expressions *params)
              *   try { __require(); }
              *   catch { frequire; }
              */
+#if IN_LLVM
             Expression *e = new CallExp(loc, new VarExp(loc, fdv->fdrequire, 0), params);
+#else
+            Expression *eresult = NULL;
+            Expression *e = new CallExp(loc, new VarExp(loc, fdv->fdrequire, 0), eresult);
+#endif
             Statement *s2 = new ExpStatement(loc, e);
 
             Catch *c = new Catch(loc, NULL, NULL, sf);
@@ -2363,8 +2382,10 @@ Statement *FuncDeclaration::mergeFensure(Statement *sf, Identifier *oid, Express
 Statement *FuncDeclaration::mergeFensure(Statement *sf, Identifier *oid)
 #endif
 {
+#if IN_LLVM
     if (!params)
         params = fdensureParams;
+#endif
 
     /* Same comments as for mergeFrequire(), except that we take care
      * of generating a consistent reference to the 'result' local by
@@ -2391,7 +2412,11 @@ Statement *FuncDeclaration::mergeFensure(Statement *sf, Identifier *oid)
             sc->pop();
         }
 
+#if IN_LLVM
         sf = fdv->mergeFensure(sf, oid, params);
+#else
+        sf = fdv->mergeFensure(sf, oid);
+#endif
         if (fdv->fdensure)
         {
             //printf("fdv->fensure: %s\n", fdv->fensure->toChars());
@@ -4285,7 +4310,9 @@ void DtorDeclaration::semantic(Scope *sc)
     if (!ad)
     {
         error("destructors are only for class/struct/union definitions, not %s %s", parent->kind(), parent->toChars());
-    fatal();
+#if IN_LLVM
+        fatal();
+#endif
     }
     else if (ident == Id::dtor && semanticRun < PASSsemantic)
         ad->dtors.push(this);
@@ -4721,6 +4748,7 @@ void UnitTestDeclaration::semantic(Scope *sc)
     {   sc = scope;
         scope = NULL;
     }
+
     if (global.params.useUnitTests)
     {
         if (!type)
