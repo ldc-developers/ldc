@@ -571,13 +571,21 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
     Type* from = val->getType()->toBasetype();
     assert(from->isintegral());
 
-    size_t fromsz = from->size();
-    size_t tosz = to->size();
-
     LLValue* rval = val->getRVal();
     if (rval->getType() == tolltype) {
         return new DImValue(_to, rval);
     }
+
+    // Check for special DMD hack to avoid "has no effect" error.
+    // See expression.c, method AssignExp::semantic(), around line 11499
+    llvm::ConstantInt* isConstInt = isaConstantInt(rval);
+    if (from == Type::tint32 && to == Type::tvoid && isConstInt->isNullValue())
+    {
+        return val;
+    }
+
+    size_t fromsz = from->size();
+    size_t tosz = to->size();
 
     if (to->ty == Tbool) {
         LLValue* zero = LLConstantInt::get(rval->getType(), 0, false);
