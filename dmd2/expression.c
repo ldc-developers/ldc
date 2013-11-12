@@ -11678,7 +11678,10 @@ Ltupleassign:
                         ex = ex->modifiableLvalue(sc, ex);  // allocate new slot
                         ey = new ConstructExp(loc, ex, ey);
 
+#if !IN_LLVM
+// Do not cast the value to void. Same as in 2.065.
                         e = new CastExp(e->loc, e, Type::tvoid);
+#endif
                         ey = new CastExp(ey->loc, ey, Type::tvoid);
                     }
                 }

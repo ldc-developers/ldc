@@ -1140,6 +1140,14 @@ DValue* CastExp::toElem(IRState* p)
     // get the value to cast
     DValue* u = e1->toElem(p);
 
+    // a constructor expression is casted to void in order to mark
+    // the value as unused. See expression.d, method AssignExp::semantic(),
+    // around line 11681
+    if (to == Type::tvoid && e1->op == TOKconstruct)
+    {
+        return new DNullValue(Type::tvoid, 0);
+    }
+
     // cast it to the 'to' type, if necessary
     DValue* v = u;
     if (!to->equals(e1->type))
