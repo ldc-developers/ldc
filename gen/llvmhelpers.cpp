@@ -1063,7 +1063,7 @@ void DtoResolveVariable(VarDeclaration* vd)
                 Logger::println("parent: null");
         }
 
-        const bool isLLConst = vd->isConst() && vd->init;
+        const bool isLLConst = (vd->isConst() || vd->isImmutable()) && vd->init;
 
         assert(!vd->ir.initialized);
         vd->ir.initialized = gIR->dmodule;
