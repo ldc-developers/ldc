@@ -275,7 +275,13 @@ bool Module::read(Loc loc)
         if (!strcmp(srcfile->toChars(), "object.d"))
         {
             ::error(loc, "cannot find source code for runtime library file 'object.d'");
+#if IN_LLVM
+            errorSupplemental(loc, "ldc2 might not be correctly installed.");
+            errorSupplemental(loc, "Please check your ldc2.conf configuration file.");
+            errorSupplemental(loc, "Installation instructions can be found at http://wiki.dlang.org/LDC.");
+#else
             errorSupplemental(loc, "dmd might not be correctly installed. Run 'dmd -man' for installation instructions.");
+#endif
         }
         else
         {
