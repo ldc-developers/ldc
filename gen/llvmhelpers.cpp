@@ -1139,13 +1139,21 @@ void DtoVarDeclaration(VarDeclaration* vd)
             T t = f();    // t's memory address is taken hidden pointer
         */
         ExpInitializer *ei = 0;
-        if (vd->type->toBasetype()->ty == Tstruct && vd->init &&
-            !!(ei = vd->init->isExpInitializer()))
+        if ((vd->type->toBasetype()->ty == Tstruct ||
+             vd->type->toBasetype()->ty == Tsarray /* new in 2.064*/) &&
+            vd->init &&
+            (ei = vd->init->isExpInitializer()))
         {
             if (ei->exp->op == TOKconstruct) {
                 AssignExp *ae = static_cast<AssignExp*>(ei->exp);
-                if (ae->e2->op == TOKcall) {
-                    CallExp *ce = static_cast<CallExp *>(ae->e2);
+                // The return value can be casted to a different type.
+                // Just look at the original expression in this case.
+                // Happens with runnable/sdtor, test10094().
+                Expression *rhs = ae->e2;
+                if (rhs->op == TOKcast)
+                    rhs = static_cast<CastExp *>(rhs)->e1;
+                if (rhs->op == TOKcall) {
+                    CallExp *ce = static_cast<CallExp *>(rhs);
                     TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
                     if (tf->ty == Tfunction && tf->linkage != LINKintrinsic) {
                         gABI->newFunctionType(tf);
