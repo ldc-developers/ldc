@@ -535,18 +535,25 @@ void BreakStatement::toIR(IRState* p)
             targetLoopStatement = tmp->statement;
 
         // find the right break block and jump there
+        // the right break block is found in the nearest scope to the LabelStatement
+        // with onlyLabelBreak == true. Therefore the search starts at the outer
+        // scope (in contract to most other searches, which start with the inner
+        // scope). This code is tested by test runnable/foreach5.d, test9068().
         bool found = false;
-        FuncGen::TargetScopeVec::reverse_iterator it = p->func()->gen->targetScopes.rbegin();
-        FuncGen::TargetScopeVec::reverse_iterator it_end = p->func()->gen->targetScopes.rend();
-        while(it != it_end) {
-            if(it->s == targetLoopStatement) {
+        FuncGen::TargetScopeVec::iterator it = p->func()->gen->targetScopes.begin();
+        FuncGen::TargetScopeVec::iterator it_end = p->func()->gen->targetScopes.end();
+        while (it != it_end && it->s != target)
+            ++it;
+        assert(it != it_end && "Labeled break but no label found");
+        while (it != it_end) {
+            if (it->onlyLabeledBreak || it->s == targetLoopStatement) {
                 llvm::BranchInst::Create(it->breakTarget, p->scopebb());
                 found = true;
                 break;
             }
             ++it;
         }
-        assert(found);
+        assert(found && "Labeled break but no jump target found");
     }
     else {
         // find closest scope with a break target
