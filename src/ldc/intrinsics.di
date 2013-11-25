@@ -208,8 +208,17 @@ pragma(LDC_intrinsic, "llvm.floor.f#")
     T llvm_floor(T)(T val);
 
 version(LDC_LLVM_303) version = INTRINSICS_FROM_303;
-version(LDC_LLVM_304) version = INTRINSICS_FROM_303;
-version(LDC_LLVM_305) version = INTRINSICS_FROM_303;
+version(LDC_LLVM_304)
+{
+    version = INTRINSICS_FROM_303;
+    version = INTRINSICS_FROM_304;
+}
+version(LDC_LLVM_305)
+{
+    version = INTRINSICS_FROM_303;
+    version = INTRINSICS_FROM_304;
+    version = INTRINSICS_FROM_305;
+}
 
 version(INTRINSICS_FROM_303)
 {
@@ -228,25 +237,40 @@ pragma(LDC_intrinsic, "llvm.log10.f#")
 pragma(LDC_intrinsic, "llvm.log2.f#")
     T llvm_log2(T)(T val);
 
-// The 'llvm.ceil.*' intrinsics return the ceiling of the operand.
+/// The 'llvm.ceil.*' intrinsics return the ceiling of the operand.
 
 pragma(LDC_intrinsic, "llvm.ceil.f#")
     T llvm_ceil(T)(T val);
 
-// The 'llvm.trunc.*' intrinsics returns the operand rounded to the nearest integer not larger in magnitude than the operand.
+/// The 'llvm.trunc.*' intrinsics returns the operand rounded to the nearest integer not larger in magnitude than the operand.
 
 pragma(LDC_intrinsic, "llvm.trunc.f#")
     T llvm_trunc(T)(T val);
 
-// The 'llvm.rint.*' intrinsics returns the operand rounded to the nearest integer. It may raise an inexact floating-point exception if the operand isn't an integer.
+/// The 'llvm.rint.*' intrinsics returns the operand rounded to the nearest integer. It may raise an inexact floating-point exception if the operand isn't an integer.
 
 pragma(LDC_intrinsic, "llvm.rint.f#")
     T llvm_rint(T)(T val);
 
-// The 'llvm.nearbyint.*' intrinsics returns the operand rounded to the nearest integer.
+/// The 'llvm.nearbyint.*' intrinsics returns the operand rounded to the nearest integer.
 
 pragma(LDC_intrinsic, "llvm.nearbyint.f#")
     T llvm_nearbyint(T)(T val);
+}
+
+version(INTRINSICS_FROM_304)
+{
+
+/// The 'llvm.copysign.*' intrinsics return a value with the magnitude of the first operand and the sign of the second operand.
+
+pragma(LDC_INTRINSIC, "llvm.copysign.f#")
+    T llvm_copysign(T)(T mag, T sgn);
+
+/// The 'llvm.round.*' intrinsics returns the operand rounded to the nearest integer.
+
+pragma(LDC_INTRINSIC, "llvm.round.f#")
+    T llvm_round(T)(T val);
+
 }
 
 /// The 'llvm.fmuladd.*' intrinsic functions represent multiply-add expressions
