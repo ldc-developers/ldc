@@ -209,6 +209,7 @@ pragma(LDC_intrinsic, "llvm.floor.f#")
 
 version(LDC_LLVM_303) version = INTRINSICS_FROM_303;
 version(LDC_LLVM_304) version = INTRINSICS_FROM_303;
+version(LDC_LLVM_305) version = INTRINSICS_FROM_303;
 
 version(INTRINSICS_FROM_303)
 {
