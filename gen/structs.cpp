@@ -41,7 +41,7 @@ void DtoResolveStruct(StructDeclaration* sd)
     DtoType(sd->type);
 
     // if it's a forward declaration, all bets are off. The type should be enough
-    if (sd->sizeok != 1)
+    if (sd->sizeok != SIZEOKdone)
         return;
 
     // create the IrAggr

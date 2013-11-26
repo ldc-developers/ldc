@@ -88,7 +88,7 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
     LOG_SCOPE;
 
     // if it's a forward declaration, all bets are off, stick with the opaque
-    if (sd->sizeok != 1)
+    if (sd->sizeok != SIZEOKdone)
         return t;
 
     // TODO:: Somehow merge this with IrAggr::createInitializerConstant, or

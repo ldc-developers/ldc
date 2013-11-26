@@ -598,7 +598,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     StructDeclaration *sd = tc->sym;
 
     // can't emit typeinfo for forward declarations
-    if (sd->sizeok != 1)
+    if (sd->sizeok != SIZEOKdone)
     {
         sd->error("cannot emit TypeInfo for forward declaration");
         fatal();

@@ -290,7 +290,7 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
 
     // if we don't know the aggregate's size, we don't know enough about it
     // to provide debug info. probably a forward-declared struct?
-    if (sd->sizeok == 0)
+    if (sd->sizeok == SIZEOKnone)
 #if LDC_LLVM_VER >= 304
         return DBuilder.createUnspecifiedType(sd->toChars());
 #else
