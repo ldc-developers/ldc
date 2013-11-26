@@ -263,12 +263,12 @@ version(INTRINSICS_FROM_304)
 
 /// The 'llvm.copysign.*' intrinsics return a value with the magnitude of the first operand and the sign of the second operand.
 
-pragma(LDC_INTRINSIC, "llvm.copysign.f#")
+pragma(LDC_intrinsic, "llvm.copysign.f#")
     T llvm_copysign(T)(T mag, T sgn);
 
 /// The 'llvm.round.*' intrinsics returns the operand rounded to the nearest integer.
 
-pragma(LDC_INTRINSIC, "llvm.round.f#")
+pragma(LDC_intrinsic, "llvm.round.f#")
     T llvm_round(T)(T val);
 
 }
