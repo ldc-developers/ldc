@@ -536,7 +536,7 @@ void Module::genmoduleinfo()
             Logger::println("skipping interface '%s' in moduleinfo", cd->toPrettyChars());
             continue;
         }
-        else if (cd->sizeok != 1)
+        else if (cd->sizeok != SIZEOKdone)
         {
             Logger::println("skipping opaque class declaration '%s' in moduleinfo", cd->toPrettyChars());
             continue;
