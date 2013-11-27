@@ -397,7 +397,11 @@ namespace {
 #endif
           AU.addRequired<DominatorTree>();
 
+#if LDC_LLVM_VER >= 305
+          AU.addPreserved<CallGraphWrapperPass>();
+#else
           AU.addPreserved<CallGraph>();
+#endif
         }
     };
     char GarbageCollect2Stack::ID = 0;
@@ -460,7 +464,11 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
     TargetData& TD = getAnalysis<TargetData>();
 #endif
     DominatorTree& DT = getAnalysis<DominatorTree>();
+#if LDC_LLVM_VER >= 305
+    CallGraph* CG = &getAnalysisIfAvailable<CallGraphWrapperPass>()->getCallGraph();
+#else
     CallGraph* CG = getAnalysisIfAvailable<CallGraph>();
+#endif
     CallGraphNode* CGNode = CG ? (*CG)[&F] : NULL;
 
     Analysis A = { TD, *M, CG, CGNode };

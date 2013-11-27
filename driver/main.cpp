@@ -638,6 +638,21 @@ static void registerPredefinedVersions() {
 
     registerPredefinedTargetVersions();
 
+#if LDC_LLVM_VER >= 303
+    // Pass sanitizer arguments to linker. Requires clang.
+    if (opts::sanitize == opts::AddressSanitizer) {
+        VersionCondition::addPredefinedGlobalIdent("LDC_AddressSanitizer");
+    }
+
+    if (opts::sanitize == opts::MemorySanitizer) {
+        VersionCondition::addPredefinedGlobalIdent("LDC_MemorySanitizer");
+    }
+
+    if (opts::sanitize == opts::ThreadSanitizer) {
+        VersionCondition::addPredefinedGlobalIdent("LDC_ThreadSanitizer");
+    }
+#endif
+
     // Expose LLVM version to runtime
 #define STR(x) #x
 #define XSTR(x) STR(x)
