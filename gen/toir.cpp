@@ -3150,6 +3150,21 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     return sd->ir.irAggr->createInitializerConstant(varInits);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+
+DValue* ClassReferenceExp::toElem(IRState* p)
+{
+    IF_LOG Logger::print("ClassReferenceExp::toElem: %s @ %s\n",
+        toChars(), type->toChars());
+    LOG_SCOPE;
+
+    error("ClassReferenceExp::toElem is not yet implemented");
+    fatal();
+    return 0;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 llvm::Constant* ClassReferenceExp::toConstElem(IRState *p)
 {
     IF_LOG Logger::print("ClassReferenceExp::toConstElem: %s @ %s\n",

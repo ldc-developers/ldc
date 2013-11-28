@@ -57,8 +57,8 @@ public:
     Symbol* toSymbol();
     dt_t **toInstanceDt(dt_t **pdt);
     dt_t **toDt2(dt_t **pdt, ClassDeclaration *cd, Dts *dts);
-    elem *toElem(IRState *irs);
 #endif
+    elem *toElem(IRState *irs);
 };
 
 /// Return index of the field, or -1 if not found
