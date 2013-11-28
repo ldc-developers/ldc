@@ -154,17 +154,21 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
 {
     DtoResolveClass(tc->sym);
 
-    uint64_t n = tc->sym->structsize - Target::ptrsize * 2;
+    const bool isCPPclass = tc->sym->isCPPclass() ? true : false;
+    uint64_t n = tc->sym->structsize - Target::ptrsize * (isCPPclass ? 1 : 2);
 
     // set vtable field seperately, this might give better optimization
     LLValue* tmp = DtoGEPi(dst,0,0,"vtbl");
     LLValue* val = DtoBitCast(tc->sym->ir.irAggr->getVtblSymbol(), tmp->getType()->getContainedType(0));
     DtoStore(val, tmp);
 
-    // monitor always defaults to zero
-    tmp = DtoGEPi(dst,0,1,"monitor");
-    val = LLConstant::getNullValue(tmp->getType()->getContainedType(0));
-    DtoStore(val, tmp);
+    if (!isCPPclass)
+    {
+        // monitor always defaults to zero
+        tmp = DtoGEPi(dst,0,1,"monitor");
+        val = LLConstant::getNullValue(tmp->getType()->getContainedType(0));
+        DtoStore(val, tmp);
+    }
 
     // done?
     if (n == 0)
