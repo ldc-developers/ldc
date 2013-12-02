@@ -139,12 +139,12 @@ void Mem::addroots(char* pStart, char* pEnd)
 /* =================================================== */
 
 #if defined(__has_feature)
-#if !__has_feature(address_sanitizer)
-#define DEFINE_NEW_DELETE
+#if __has_feature(address_sanitizer)
+#define USE_ASAN_NEW_DELETE
 #endif
 #endif
 
-#if defined(DEFINE_NEW_DELETE)
+#if !defined(USE_ASAN_NEW_DELETE)
 
 #if IN_DMD
 
