@@ -572,6 +572,12 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::Linux:
             VersionCondition::addPredefinedGlobalIdent("linux");
             VersionCondition::addPredefinedGlobalIdent("Posix");
+#if LDC_LLVM_VER >= 302
+            if (global.params.targetTriple.getEnvironment() == llvm::Triple::Android)
+            {
+                VersionCondition::addPredefinedGlobalIdent("Android");
+            }
+#endif
             break;
         case llvm::Triple::Haiku:
             VersionCondition::addPredefinedGlobalIdent("Haiku");
@@ -611,8 +617,19 @@ static void registerPredefinedTargetVersions() {
             break;
 #endif
         default:
-            error("target '%s' is not yet supported", global.params.targetTriple.str().c_str());
-            fatal();
+            switch (global.params.targetTriple.getEnvironment())
+            {
+#if LDC_LLVM_VER >= 302
+                case llvm::Triple::Android:
+                    VersionCondition::addPredefinedGlobalIdent("Android");
+                    VersionCondition::addPredefinedGlobalIdent("linux");
+                    VersionCondition::addPredefinedGlobalIdent("Posix");
+                    break;
+#endif
+                default:
+                    error("target '%s' is not yet supported", global.params.targetTriple.str().c_str());
+                    fatal();
+            }
     }
 }
 
