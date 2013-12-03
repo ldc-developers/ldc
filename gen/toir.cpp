@@ -3045,12 +3045,39 @@ DValue* StructLiteralExp::toElem(IRState* p)
     {
         VarDeclaration* vd = it.get();
 
+        // get initializer expression
+        Expression* expr = (it.index < nexprs) ? exprs[it.index] : NULL;
+        if (!expr)
+        {
+            // In case of an union, we can't simply use the default initializer.
+            // Consider the type union U7727A1 { int i; double d; } and
+            // the declaration U7727A1 u = { d: 1.225 };
+            // The loop will first visit variable i and then d. Since d has an
+            // explicit initializer, we must use this one. The solution is to
+            // peek at the next variables.
+            ArrayIter<VarDeclaration> it2(it.array, it.index+1);
+            for (; !it2.done(); it2.next())
+            {
+                VarDeclaration* vd2 = it2.get();
+                if (vd->offset != vd2->offset) break;
+                it.next(); // skip var
+                Expression* expr2 = (it2.index < nexprs) ? exprs[it2.index] : NULL;
+                if (expr2)
+                {
+                    vd = vd2;
+                    expr = expr2;
+                    break;
+                }
+            }
+        }
+
         // don't re-initialize unions
         if (vd->offset < offset)
         {
             IF_LOG Logger::println("skipping field: %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
             continue;
         }
+
         // initialize any padding so struct comparisons work
         if (vd->offset != offset)
             voidptr = write_zeroes(voidptr, offset, vd->offset);
@@ -3060,7 +3087,6 @@ DValue* StructLiteralExp::toElem(IRState* p)
         LOG_SCOPE
 
         // get initializer
-        Expression* expr = (it.index < nexprs) ? exprs[it.index] : NULL;
         DValue* val;
         DConstValue cv(vd->type, NULL); // Only used in one branch; value is set beforehand
         if (expr)
