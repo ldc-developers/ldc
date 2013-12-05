@@ -465,7 +465,8 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 #endif
     DominatorTree& DT = getAnalysis<DominatorTree>();
 #if LDC_LLVM_VER >= 305
-    CallGraph* CG = &getAnalysisIfAvailable<CallGraphWrapperPass>()->getCallGraph();
+    CallGraphWrapperPass* CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
+    CallGraph* CG = CGPass ? &CGPass->getCallGraph() : 0;
 #else
     CallGraph* CG = getAnalysisIfAvailable<CallGraph>();
 #endif
