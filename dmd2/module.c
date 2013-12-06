@@ -91,7 +91,7 @@ Module::Module(char *filename, Identifier *ident, int doDocComment, int doHdrGen
     macrotable = NULL;
     escapetable = NULL;
     safe = FALSE;
-#if IN-DMD
+#if IN_DMD
     doppelganger = 0;
     cov = NULL;
     covb = NULL;
