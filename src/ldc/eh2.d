@@ -19,7 +19,6 @@ private:
 import core.sys.windows.windows;
 import core.stdc.stdlib; // abort
 import core.stdc.stdio;
-import rt.util.console;
 
 // Missing in core.sys.windows.windows
 alias ulong ULONG64;
@@ -409,10 +408,10 @@ extern(C) void _d_throw_exception(Object e)
         RtlRaiseException(&ExceptionRecord);
 
         // This is only reached in case we did something seriously wrong
-        console("_d_throw_exception: RtlRaiseException failed");
+        fprintf(stderr, "_d_throw_exception: RtlRaiseException failed");
     }
     else
-        console("_d_throw_exception: No exception object provided");
+        fprintf(stderr, "_d_throw_exception: No exception object provided");
     abort();
 }
 
@@ -434,16 +433,16 @@ extern(C) void _d_eh_resume_unwind(Object e)
         RtlRaiseException(&ExceptionRecord);
 
         // This is only reached in case we did something seriously wrong
-        console("_d_eh_resume_unwind: RtlRaiseException failed");
+        fprintf(stderr, "_d_eh_resume_unwind: RtlRaiseException failed");
     }
     else
-        console("_d_eh_resume_unwind: No exception object provided");
+        fprintf(stderr, "_d_eh_resume_unwind: No exception object provided");
     abort();
 }
 
 extern(C) void _d_eh_handle_collision(Object* exception_struct, Object* inflight_exception_struct)
 {
-    console("_d_eh_handle_collision: Not yet implemented");
+    fprintf(stderr, "_d_eh_handle_collision: Not yet implemented");
     abort();
 }
 

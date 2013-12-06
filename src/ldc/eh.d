@@ -6,7 +6,6 @@ module ldc.eh;
 
 private import core.stdc.stdio;
 private import core.stdc.stdlib;
-private import rt.util.console;
 private import core.stdc.stdarg;
 
 // debug = EH_personality;
@@ -178,11 +177,11 @@ else
     // runtime calls these directly
     void _Unwind_Resume(_Unwind_Exception*)
     {
-        console("_Unwind_Resume is not implemented on this platform.\n");
+        fprintf(stderr, "_Unwind_Resume is not implemented on this platform.\n");
     }
     _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*)
     {
-        console("_Unwind_RaiseException is not implemented on this platform.\n");
+        fprintf(stderr, "_Unwind_RaiseException is not implemented on this platform.\n");
         return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
     }
 }
@@ -273,10 +272,11 @@ private size_t get_size_of_encoded_value(ubyte encoding)
 
 private ubyte* get_encoded_value(ubyte* addr, ref size_t res, ubyte encoding, _Unwind_Context_Ptr context)
 {
+    ubyte *old_addr = addr;
+
     if (encoding == _DW_EH_Format.DW_EH_PE_aligned)
         goto Lerr;
 
-    ubyte *old_addr = addr;
     switch (encoding & 0x0f)
     {
       case _DW_EH_Format.DW_EH_PE_absptr:
@@ -632,7 +632,7 @@ extern(C) void _d_throw_exception(Object e)
         exc_struct.exception_object = e;
         debug(EH_personality) printf("throw exception %p\n", e);
         _Unwind_Reason_Code ret = _Unwind_RaiseException(&exc_struct.unwind_info);
-        console("_Unwind_RaiseException failed with reason code: ")(ret)("\n");
+        fprintf(stderr, "_Unwind_RaiseException failed with reason code: %d\n");
     }
     abort();
 }
