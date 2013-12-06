@@ -107,8 +107,8 @@ private
     alias void delegate(void*, void*) scanFn;
     extern (C) void thread_scanAll(scope scanFn fn);
 
-    extern (C) void onOutOfMemoryError();
-    extern (C) void onInvalidMemoryOperationError();
+    extern (C) void onOutOfMemoryError() @trusted /* pure dmd @@@BUG11461@@@ */ nothrow;
+    extern (C) void onInvalidMemoryOperationError() @trusted /* pure dmd @@@BUG11461@@@ */ nothrow;
 
     enum
     {
@@ -246,7 +246,7 @@ class GC
 
     void initialize()
     {
-        mutexStorage[] = GCMutex.classinfo.init[];
+        mutexStorage[] = typeid(GCMutex).init[];
         gcLock = cast(GCMutex) mutexStorage.ptr;
         gcLock.__ctor();
         gcx = cast(Gcx*)cstdlib.calloc(1, Gcx.sizeof);
@@ -643,41 +643,33 @@ class GC
 
                     if (newsz < psz)
                     {   // Shrink in place
-                        {
-                            gcLock.lock();
-                            scope(exit) gcLock.unlock();
-                            debug (MEMSTOMP) memset(p + size, 0xF2, psize - size);
-                            pool.freePages(pagenum + newsz, psz - newsz);
-                            pool.updateOffsets(pagenum);
-                        }
-                        if(alloc_size)
-                            *alloc_size = newsz * PAGESIZE;
-                        gcx.updateCaches(p, newsz * PAGESIZE);
-                        return p;
+                        debug (MEMSTOMP) memset(p + size, 0xF2, psize - size);
+                        pool.freePages(pagenum + newsz, psz - newsz);
                     }
                     else if (pagenum + newsz <= pool.npages)
-                    {
-                        // Attempt to expand in place
-                        gcLock.lock();
-                        scope(exit) gcLock.unlock();
-
+                    {   // Attempt to expand in place
                         foreach (binsz; pool.pagetable[pagenum + psz .. pagenum + newsz])
-                            if (binsz != B_FREE) goto Lno;
+                            if (binsz != B_FREE) goto Lfallthrough;
 
                         debug (MEMSTOMP) memset(p + psize, 0xF0, size - psize);
                         debug(PRINTF) printFreeInfo(pool);
                         memset(&pool.pagetable[pagenum + psz], B_PAGEPLUS, newsz - psz);
-                        pool.updateOffsets(pagenum);
-                        if(alloc_size)
-                            *alloc_size = newsz * PAGESIZE;
                         pool.freepages -= (newsz - psz);
                         debug(PRINTF) printFreeInfo(pool);
-                        gcx.updateCaches(p, newsz * PAGESIZE);
-                        return p;
-
-                    Lno:
-                        {}
                     }
+                    pool.updateOffsets(pagenum);
+                    if (bits)
+                    {
+                        immutable biti = cast(size_t)(p - pool.baseAddr) >> pool.shiftBy;
+                        gcx.clrBits(pool, biti, ~BlkAttr.NONE);
+                        gcx.setBits(pool, biti, bits);
+                    }
+                    if(alloc_size)
+                        *alloc_size = newsz * PAGESIZE;
+                    gcx.updateCaches(p, newsz * PAGESIZE);
+                    return p;
+                    Lfallthrough:
+                        {}
                 }
                 if (psize < size ||             // if new size is bigger
                     psize > size * 2)           // or less than half
@@ -1647,6 +1639,7 @@ struct Gcx
             else
             {
                 // we are in a B_FREE page
+                assert(bin == B_FREE);
                 return null;
             }
         }
@@ -2324,6 +2317,7 @@ struct Gcx
                     else
                     {
                         // Don't mark bits in B_FREE pages
+                        assert(bin == B_FREE);
                         continue;
                     }
 
@@ -2584,8 +2578,6 @@ struct Gcx
                         }
                     }
                 }
-
-                continue;
             }
             else
             {
@@ -2630,7 +2622,7 @@ struct Gcx
                                 toClear |= GCBits.BITS_1 << clearIndex;
 
                                 List *list = cast(List *)p;
-                                debug(PRINTF) printf("\tcollecting %p\n", list);
+                                debug(COLLECT_PRINTF) printf("\tcollecting %p\n", list);
                                 log_free(sentinel_add(list));
 
                                 debug (MEMSTOMP) memset(p, 0xF3, size);
@@ -2744,10 +2736,15 @@ struct Gcx
             {
                 biti = (offset & notbinsize[bins]) >> pool.shiftBy;
             }
-            else
+            else if(bins == B_PAGEPLUS)
             {
                 pn -= pool.bPageOffsets[pn];
                 biti = pn * (PAGESIZE >> pool.shiftBy);
+            }
+            else // bins == B_FREE
+            {
+                assert(bins == B_FREE);
+                return IsMarked.no;
             }
             return pool.mark.test(biti) ? IsMarked.yes : IsMarked.no;
         }

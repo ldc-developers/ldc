@@ -25,17 +25,16 @@ class TypeInfo_d : TypeInfo
 
     static bool _equals(double f1, double f2)
     {
-        return f1 == f2 ||
-                (f1 !<>= f1 && f2 !<>= f2);
+        return f1 == f2;
     }
 
     static int _compare(double d1, double d2)
     {
-        if (d1 !<>= d2)         // if either are NaN
+        if (d1 != d1 || d2 != d2) // if either are NaN
         {
-            if (d1 !<>= d1)
+            if (d1 != d1)
             {
-                if (d2 !<>= d2)
+                if (d2 != d2)
                     return 0;
                 return -1;
             }
