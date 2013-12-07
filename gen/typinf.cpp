@@ -591,21 +591,6 @@ void TypeInfoDelegateDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-static FuncDeclaration* find_method_overload(AggregateDeclaration* ad, Identifier* id, TypeFunction* tf)
-{
-    Dsymbol *s = search_function(ad, id);
-    FuncDeclaration *fdx = s ? s->isFuncDeclaration() : NULL;
-    if (fdx)
-    {
-        FuncDeclaration *fd = fdx->overloadExactMatch(tf);
-        if (fd)
-        {
-            return fd;
-        }
-    }
-    return NULL;
-}
-
 void TypeInfoStructDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoStructDeclaration::llvmDefine() %s", toChars());
@@ -641,41 +626,10 @@ void TypeInfoStructDeclaration::llvmDefine()
         initPtr = iraggr->getInitSymbol();
     b.push_void_array(getTypeStoreSize(DtoType(tc)), initPtr);
 
-    // toX functions ground work
-    static TypeFunction *tftohash;
-    static TypeFunction *tftostring;
-
-    if (!tftohash)
-    {
-        Scope sc;
-        tftohash = new TypeFunction(NULL, Type::thash_t, 0, LINKd);
-        tftohash ->mod = MODconst;
-        tftohash = static_cast<TypeFunction *>(tftohash->semantic(Loc(), &sc));
-
-        Type *retType = Type::tchar->immutableOf()->arrayOf();
-        tftostring = new TypeFunction(NULL, retType, 0, LINKd);
-        tftostring = static_cast<TypeFunction *>(tftostring->semantic(Loc(), &sc));
-    }
-
-    // this one takes a parameter, so we need to build a new one each time
-    // to get the right type. can we avoid this?
-    TypeFunction *tfcmpptr;
-    {
-        Scope sc;
-        Parameters *arguments = new Parameters;
-
-        // arg type is ref const T
-        Parameter *arg = new Parameter(STCref, tc->constOf(), NULL, NULL);
-        arguments->push(arg);
-        tfcmpptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
-        tfcmpptr->mod = MODconst;
-        tfcmpptr = static_cast<TypeFunction *>(tfcmpptr->semantic(Loc(), &sc));
-    }
-
     // well use this module for all overload lookups
 
     // toHash
-    FuncDeclaration* fd = find_method_overload(sd, Id::tohash, tftohash);
+    FuncDeclaration* fd = search_toHash(sd);
     b.push_funcptr(fd);
 
     // opEquals
@@ -683,11 +637,11 @@ void TypeInfoStructDeclaration::llvmDefine()
     b.push_funcptr(fd);
 
     // opCmp
-    fd = find_method_overload(sd, Id::cmp, tfcmpptr);
+    fd = sd->xcmp;
     b.push_funcptr(fd);
 
     // toString
-    fd = find_method_overload(sd, Id::tostring, tftostring);
+    fd = search_toString(sd);
     b.push_funcptr(fd);
 
     // uint m_flags;
