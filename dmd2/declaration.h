@@ -930,11 +930,6 @@ public:
     /// Codegen traversal
     void codegen(IRState* ir);
 
-    // vars declared in this function that nested funcs reference
-    // is this is not empty, nestedFrameRef is set and these VarDecls
-    // probably have nestedref set too, see VarDeclaration::checkNestedReference
-    std::set<VarDeclaration*> nestedVars;
-
     std::string intrinsicName;
     uint32_t priority;
 
