@@ -109,6 +109,11 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
     return t->getTypeInfo(sc);
 }
 
+
+bool inNonRoot(Dsymbol *s);
+FuncDeclaration *search_toHash(StructDeclaration *sd);
+FuncDeclaration *search_toString(StructDeclaration *sd);
+
 /****************************************************
  * Get the exact TypeInfo.
  */
@@ -146,9 +151,23 @@ Expression *Type::getTypeInfo(Scope *sc)
         if (!t->builtinTypeInfo())
         {   // Generate COMDAT
             if (sc)                     // if in semantic() pass
-            {   // Find module that will go all the way to an object file
+            {
+                // Find module that will go all the way to an object file
                 Module *m = sc->module->importedFrom;
                 m->members->push(t->vtinfo);
+
+                if (ty == Tstruct)
+                {
+                    StructDeclaration *sd = ((TypeStruct *)this)->sym;
+                    if ((sd->xeq && sd->xeq != sd->xerreq ||
+                         sd->xcmp && sd->xcmp != sd->xerrcmp ||
+                         search_toHash(sd) ||
+                         search_toString(sd)
+                        ) && inNonRoot(sd))
+                    {
+                        Module::addDeferredSemantic3(sd);
+                    }
+                }
             }
             else                        // if in obj generation pass
             {
