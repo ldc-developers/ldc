@@ -223,7 +223,7 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
         return llvm::ConstantPointerNull::get(getVoidPtrType());
     }
 
-    struct FuncDeclaration* frameToPass = 0;
+    FuncDeclaration* frameToPass = 0;
     if (AggregateDeclaration *ad = sym->isAggregateDeclaration()) {
         // If sym is a nested struct or a nested class, pass the frame
         // of the function where sym is declared.
