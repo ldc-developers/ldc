@@ -77,7 +77,7 @@ void LLVM_D_FreeRuntime()
 llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name)
 {
     if (noruntime) {
-        error("No implicit runtime calls allowed with -noruntime option enabled");
+        error("No implicit runtime calls (%s) allowed with -noruntime option enabled", name);
         fatal();
     }
 
@@ -109,7 +109,7 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
     }
 
     if (noruntime) {
-        error("No implicit runtime calls allowed with -noruntime option enabled");
+        error("No implicit runtime calls (%s) allowed with -noruntime option enabled", name);
         fatal();
     }
 
