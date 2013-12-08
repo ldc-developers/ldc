@@ -601,6 +601,13 @@ void TypeInfoStructDeclaration::llvmDefine()
     TypeStruct *tc = static_cast<TypeStruct *>(tinfo);
     StructDeclaration *sd = tc->sym;
 
+    // handle opaque structs
+    if (!sd->members) {
+        RTTIBuilder b(Type::typeinfostruct);
+        b.finalize(ir.irGlobal);
+        return;
+    }
+
     // can't emit typeinfo for forward declarations
     if (sd->sizeok != SIZEOKdone)
     {
