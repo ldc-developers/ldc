@@ -576,14 +576,6 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
         return new DImValue(_to, rval);
     }
 
-    // Check for special DMD hack to avoid "has no effect" error.
-    // See expression.c, method AssignExp::semantic(), around line 11499
-    llvm::ConstantInt* isConstInt = isaConstantInt(rval);
-    if (from == Type::tint32 && to == Type::tvoid && isConstInt->isNullValue())
-    {
-        return val;
-    }
-
     size_t fromsz = from->size();
     size_t tosz = to->size();
 
