@@ -3180,9 +3180,7 @@ DValue* ClassReferenceExp::toElem(IRState* p)
         toChars(), type->toChars());
     LOG_SCOPE;
 
-    error("ClassReferenceExp::toElem is not yet implemented");
-    fatal();
-    return 0;
+    return new DImValue(type, toConstElem(p));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -3257,21 +3255,23 @@ llvm::Constant* ClassReferenceExp::toConstElem(IRState *p)
 
     llvm::Constant* result = value->globalVar;
 
-    assert(type->ty == Tclass);
-    ClassDeclaration* targetClass = static_cast<TypeClass*>(type)->sym;
-    if (InterfaceDeclaration* it = targetClass->isInterfaceDeclaration()) {
-        assert(it->isBaseOf(origClass, NULL));
+    if (type->ty == Tclass) {
+        ClassDeclaration* targetClass = static_cast<TypeClass*>(type)->sym;
+        if (InterfaceDeclaration* it = targetClass->isInterfaceDeclaration()) {
+            assert(it->isBaseOf(origClass, NULL));
 
-        IrTypeClass* typeclass = origClass->type->irtype->isClass();
+            IrTypeClass* typeclass = origClass->type->irtype->isClass();
 
-        // find interface impl
-        size_t i_index = typeclass->getInterfaceIndex(it);
-        assert(i_index != ~0UL);
+            // find interface impl
+            size_t i_index = typeclass->getInterfaceIndex(it);
+            assert(i_index != ~0UL);
 
-        // offset pointer
-        result = DtoGEPi(result, 0, i_index);
+            // offset pointer
+            result = DtoGEPi(result, 0, i_index);
+        }
     }
 
+    assert(type->ty == Tclass || type->ty == Tenum);
     return DtoBitCast(result, DtoType(type));
 }
 
