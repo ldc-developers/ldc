@@ -102,7 +102,18 @@ if(UNIX)
     if(${CMAKE_SYSTEM} MATCHES "Linux")
         list(APPEND CORE_D_SYS ${CORE_D_LINUX})
     endif()
-    list(APPEND DCRT_ASM ${RUNTIME_DIR}/src/core/threadasm.S)
+    # Assembler support was rewritten in CMake 2.8.5.
+    # The assembler file must be passed to gcc but prior to this
+    # version it is passed to as. This results in a bunch of
+    # error message. This is only critical for non-x86 platforms.
+    # On x86/x86-64 the file can safely be ignored.
+    if("${CMAKE_VERSION}" MATCHES "^2\\.8\\.[01234]($|\\..*)")
+        message(WARNING "Excluding core/threadasm.S from build because of missing CMake support.")
+        message(WARNING "This file is required for certain non-x86 platforms.")
+        message(WARNING "Please consider updating CMake to at least 2.8.5.")
+    else()
+        list(APPEND DCRT_ASM ${RUNTIME_DIR}/src/core/threadasm.S)
+    endif()
     if(APPLE)
         list(APPEND CORE_D_SYS ${CORE_D_OSX})
     endif()
