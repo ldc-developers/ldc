@@ -2291,7 +2291,7 @@ DValue* AssertExp::toElem(IRState* p)
 
     // call assert runtime functions
     p->scope() = IRScope(assertbb,endbb);
-    DtoAssert(p->func()->decl->getModule(), loc, msg ? msg->toElem(p) : NULL);
+    DtoAssert(p->func()->decl->getModule(), loc, msg ? msg->toElemDtor(p) : NULL);
 
     // rewrite the scope
     p->scope() = IRScope(endbb,oldend);
