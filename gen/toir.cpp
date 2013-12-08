@@ -520,6 +520,7 @@ DValue* AssignExp::toElem(IRState* p)
 
         if (se->lwr == NULL && ta->ty == Tsarray &&
             e2->op == TOKarrayliteral &&
+            op == TOKconstruct &&   // DMD Bugzilla 11238: avoid aliasing issue
             t2->nextOf()->mutableOf()->implicitConvTo(ta->nextOf()))
         {
             ArrayLiteralExp * const ale = static_cast<ArrayLiteralExp *>(e2);
