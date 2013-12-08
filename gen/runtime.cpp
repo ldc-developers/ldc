@@ -168,6 +168,18 @@ static LLType* rt_dg2()
     return LLStructType::get(gIR->context(), types, false);
 }
 
+template<typename DECL>
+static void ensureDecl(DECL *decl, const char *msg)
+{
+    if (!decl || !decl->type)
+    {
+        Logger::println("Missing class declaration: %s\n", msg);
+        error(Loc(), "Missing class declaration: %s", msg);
+        errorSupplemental(Loc(), "Please check that object.di is included and valid");
+        fatal();
+    }
+}
+
 static void LLVM_D_BuildRuntimeModule()
 {
     Logger::println("building runtime module");
@@ -187,10 +199,15 @@ static void LLVM_D_BuildRuntimeModule()
     LLType* wstringTy = DtoType(Type::twchar->arrayOf());
     LLType* dstringTy = DtoType(Type::tdchar->arrayOf());
 
+    ensureDecl(ClassDeclaration::object, "Object");
     LLType* objectTy = DtoType(ClassDeclaration::object->type);
+    ensureDecl(Type::typeinfoclass, "TypeInfo_Class");
     LLType* classInfoTy = DtoType(Type::typeinfoclass->type);
+    ensureDecl(Type::dtypeinfo, "DTypeInfo");
     LLType* typeInfoTy = DtoType(Type::dtypeinfo->type);
+    ensureDecl(Type::typeinfoassociativearray, "TypeInfo_AssociativeArray");
     LLType* aaTypeInfoTy = DtoType(Type::typeinfoassociativearray->type);
+    ensureDecl(Module::moduleinfo, "ModuleInfo");
     LLType* moduleInfoPtrTy = getPtrToType(DtoType(Module::moduleinfo->type));
 
     LLType* aaTy = rt_ptr(LLStructType::get(gIR->context()));
