@@ -34,6 +34,8 @@
 #include "llvm/Attributes.h"
 #endif
 
+#include <algorithm>
+
 #if LDC_LLVM_VER < 302
 using namespace llvm::Attribute;
 #endif
@@ -44,11 +46,63 @@ static llvm::cl::opt<bool> noruntime("noruntime",
     llvm::cl::desc("Do not allow code that generates implicit runtime calls"),
     llvm::cl::ZeroOrMore);
 
+static llvm::cl::opt<bool> nogc("nogc",
+    llvm::cl::desc("Do not allow code that generates implicit garbage collector calls"),
+    llvm::cl::ZeroOrMore);
+
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 static llvm::Module* M = NULL;
 
 static void LLVM_D_BuildRuntimeModule();
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+static void checkForImplicitGCCall(const char *name)
+{
+    if (nogc)
+    {
+        static const std::string GCNAMES[] =
+        {
+            "_aaDelX",
+            "_aaGetX",
+            "_aaKeys",
+            "_aaRehash",
+            "_aaValues",
+            "_adDupT",
+            "_d_allocmemory",
+            "_d_allocmemoryT",
+            "_d_array_cast_len",
+            "_d_array_slice_copy",
+            "_d_arrayappendT",
+            "_d_arrayappendcTX",
+            "_d_arrayappendcd",
+            "_d_arrayappendwd",
+            "_d_arraycatT",
+            "_d_arraycatnT",
+            "_d_arraysetlengthT",
+            "_d_arraysetlengthiT",
+            "_d_assocarrayliteralTX",
+            "_d_callfinalizer",
+            "_d_delarray_t",
+            "_d_delclass",
+            "_d_delinterface",
+            "_d_delmemory",
+            "_d_newarrayT",
+            "_d_newarrayiT",
+            "_d_newarraymT",
+            "_d_newarraymiT",
+            "_d_newarrayvT",
+            "_d_newclass",
+        };
+
+        if (binary_search(&GCNAMES[0], &GCNAMES[sizeof(GCNAMES) / sizeof(std::string)], name))
+        {
+            error("No implicit garbage collector calls allowed with -nogc option enabled: %s", name);
+            fatal();
+        }
+    }
+}
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -80,6 +134,7 @@ llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name
         error("No implicit runtime calls (%s) allowed with -noruntime option enabled", name);
         fatal();
     }
+    checkForImplicitGCCall(name);
 
     if (!M) {
         LLVM_D_InitRuntime();
@@ -112,6 +167,7 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
         error("No implicit runtime calls (%s) allowed with -noruntime option enabled", name);
         fatal();
     }
+    checkForImplicitGCCall(name);
 
     if (!M) {
         LLVM_D_InitRuntime();
