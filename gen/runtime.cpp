@@ -43,7 +43,7 @@ using namespace llvm::Attribute;
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 static llvm::cl::opt<bool> noruntime("noruntime",
-    llvm::cl::desc("Do not allow code that generates implicit runtime calls"),
+    llvm::cl::desc("Deprecated. Please use -nogc instead."),
     llvm::cl::ZeroOrMore);
 
 static llvm::cl::opt<bool> nogc("nogc",
@@ -112,7 +112,11 @@ bool LLVM_D_InitRuntime()
     LOG_SCOPE;
 
     if (!M)
+    {
+        if (noruntime)
+            deprecation(Loc(), "-noruntime has no function and will be removed in 0.14.0. Please use -nogc instead.");
         LLVM_D_BuildRuntimeModule();
+    }
 
     return true;
 }
@@ -130,10 +134,6 @@ void LLVM_D_FreeRuntime()
 
 llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name)
 {
-    if (noruntime) {
-        error("No implicit runtime calls (%s) allowed with -noruntime option enabled", name);
-        fatal();
-    }
     checkForImplicitGCCall(name);
 
     if (!M) {
@@ -163,10 +163,6 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
         return gv;
     }
 
-    if (noruntime) {
-        error("No implicit runtime calls (%s) allowed with -noruntime option enabled", name);
-        fatal();
-    }
     checkForImplicitGCCall(name);
 
     if (!M) {
