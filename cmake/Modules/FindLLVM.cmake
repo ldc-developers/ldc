@@ -51,6 +51,10 @@ if (WIN32 OR NOT LLVM_CONFIG)
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "all-targets" index)
         list(APPEND LLVM_FIND_COMPONENTS ${LLVM_TARGETS_TO_BUILD})
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "backend" index)
+        if(${LLVM_VERSION_STRING} MATCHES "3.[0-4][A-Za-z]*")
+            # Versions below 3.5 do not supoort component lto
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "lto" index)
+        endif()
 
         llvm_map_components_to_libraries(tmplibs ${LLVM_FIND_COMPONENTS})
         if(MSVC)
@@ -102,6 +106,10 @@ else()
     endmacro()
 
     llvm_set(VERSION_STRING version)
+    if(${LLVM_VERSION_STRING} MATCHES "3.[0-4][A-Za-z]*")
+        # Versions below 3.5 do not supoort component lto
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "lto" index)
+    endif()
     if(${LLVM_VERSION_STRING} MATCHES "3.0[A-Za-z]*")
         # Version 3.0 does not support component all-targets
         llvm_set(TARGETS_TO_BUILD targets-built)
