@@ -1715,12 +1715,12 @@ DValue* IndexExp::toElem(IRState* p)
         arrptr = DtoGEP1(l->getRVal(),r->getRVal());
     }
     else if (e1type->ty == Tsarray) {
-        if (gIR->emitArrayBoundsChecks())
+        if (gIR->emitArrayBoundsChecks() && !skipboundscheck)
             DtoArrayBoundsCheck(loc, l, r);
         arrptr = DtoGEP(l->getRVal(), zero, r->getRVal());
     }
     else if (e1type->ty == Tarray) {
-        if (gIR->emitArrayBoundsChecks())
+        if (gIR->emitArrayBoundsChecks() && !skipboundscheck)
             DtoArrayBoundsCheck(loc, l, r);
         arrptr = DtoArrayPtr(l);
         arrptr = DtoGEP1(arrptr,r->getRVal());

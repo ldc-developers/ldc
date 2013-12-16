@@ -1135,24 +1135,8 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBoun
     assert((arrty->ty == Tsarray || arrty->ty == Tarray || arrty->ty == Tpointer) &&
         "Can only array bounds check for static or dynamic arrays");
 
-    // Do not emit bounds check code if the index is statically known to be
-    // within bounds.
-    if (arrty->ty == Tsarray && isaConstantInt(index->getRVal())) {
-        assert(!arr->isSlice());
-        assert(!arr->isNull());
-        assert(!lowerBound);
-
-        TypeSArray *sarray = static_cast<TypeSArray*>(arrty);
-        llvm::ConstantInt *constIndex = static_cast<llvm::ConstantInt*>(index->getRVal());
-        if (sarray->dim->toUInteger() < constIndex->getZExtValue()) {
-            // If this happens then it is possible a frontend bug.
-            // Just output a warning and continue generating a runtime check.
-            // This could be generic code which is never executed.
-            warning(loc, "Static array index out of bounds (should have been detected during semantic analysis)");
-        }
-        else
-            return ;
-    }
+    // We do not check if the bounds check can be omitted. This is the
+    // responsibility of the caller and performed in IndexExp::toElem().
 
     // runtime check
 
