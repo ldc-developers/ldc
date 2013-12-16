@@ -45,6 +45,10 @@
 
 using namespace llvm;
 
+#if LDC_LLVM_VER < 302
+typedef TargetData DataLayout;
+#endif
+
 STATISTIC(NumSimplified, "Number of runtime calls simplified");
 STATISTIC(NumDeleted, "Number of runtime calls deleted");
 
@@ -59,11 +63,7 @@ namespace {
     protected:
         Function *Caller;
         bool* Changed;
-#if LDC_LLVM_VER >= 302
-        const DataLayout *TD;
-#else
-        const TargetData *TD;
-#endif
+        const DataLayout *DL;
         AliasAnalysis *AA;
         LLVMContext *Context;
 
@@ -85,16 +85,11 @@ namespace {
         /// delete CI.
         virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B)=0;
 
-#if LDC_LLVM_VER >= 302
-        Value *OptimizeCall(CallInst *CI, bool& Changed, const DataLayout &TD,
+        Value *OptimizeCall(CallInst *CI, bool& Changed, const DataLayout &DL,
                 AliasAnalysis& AA, IRBuilder<> &B) {
-#else
-        Value *OptimizeCall(CallInst *CI, bool& Changed, const TargetData &TD,
-                AliasAnalysis& AA, IRBuilder<> &B) {
-#endif
             Caller = CI->getParent()->getParent();
             this->Changed = &Changed;
-            this->TD = &TD;
+            this->DL = &DL;
             this->AA = &AA;
             if (CI->getCalledFunction())
                 Context = &CI->getCalledFunction()->getContext();
@@ -112,14 +107,7 @@ Value *LibCallOptimization::CastToCStr(Value *V, IRBuilder<> &B) {
 /// expects that the size has type 'intptr_t' and Dst/Src are pointers.
 Value *LibCallOptimization::EmitMemCpy(Value *Dst, Value *Src, Value *Len,
                                        unsigned Align, IRBuilder<> &B) {
-  Module *M = Caller->getParent();
-  Type* intTy = Len->getType();
-  Type *VoidPtrTy = PointerType::getUnqual(B.getInt8Ty());
-  Type *Tys[3] ={VoidPtrTy, VoidPtrTy, intTy};
-  Value *MemCpy = Intrinsic::getDeclaration(M, Intrinsic::memcpy, llvm::makeArrayRef(Tys, 3));
-
-  return B.CreateCall5(MemCpy, CastToCStr(Dst, B), CastToCStr(Src, B), Len,
-                       ConstantInt::get(B.getInt32Ty(), Align), B.getFalse());
+  return B.CreateMemCpy(CastToCStr(Dst, B), CastToCStr(Src, B), Len, Align, false);
 }
 
 //===----------------------------------------------------------------------===//
@@ -312,18 +300,10 @@ namespace {
         void InitOptimizations();
         bool runOnFunction(Function &F);
 
-#if LDC_LLVM_VER >= 302
         bool runOnce(Function &F, const DataLayout& DL, AliasAnalysis& AA);
-#else
-        bool runOnce(Function &F, const TargetData& TD, AliasAnalysis& AA);
-#endif
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-#if LDC_LLVM_VER >= 302
           AU.addRequired<DataLayout>();
-#else
-          AU.addRequired<TargetData>();
-#endif
           AU.addRequired<AliasAnalysis>();
         }
     };
@@ -373,11 +353,7 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     if (Optimizations.empty())
         InitOptimizations();
 
-#if LDC_LLVM_VER >= 302
-    const DataLayout &TD = getAnalysis<DataLayout>();
-#else
-    const TargetData &TD = getAnalysis<TargetData>();
-#endif
+    const DataLayout &DL = getAnalysis<DataLayout>();
     AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
 
     // Iterate to catch opportunities opened up by other optimizations,
@@ -388,18 +364,14 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     bool EverChanged = false;
     bool Changed;
     do {
-        Changed = runOnce(F, TD, AA);
+        Changed = runOnce(F, DL, AA);
         EverChanged |= Changed;
     } while (Changed);
 
     return EverChanged;
 }
 
-#if LDC_LLVM_VER >= 302
-bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout& TD, AliasAnalysis& AA) {
-#else
-bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD, AliasAnalysis& AA) {
-#endif
+bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout& DL, AliasAnalysis& AA) {
     IRBuilder<> Builder(F.getContext());
 
     bool Changed = false;
@@ -426,7 +398,7 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const TargetData& TD, AliasAnal
             Builder.SetInsertPoint(BB, I);
 
             // Try to optimize this call.
-            Value *Result = OMI->second->OptimizeCall(CI, Changed, TD, AA, Builder);
+            Value *Result = OMI->second->OptimizeCall(CI, Changed, DL, AA, Builder);
             if (Result == 0) continue;
 
             DEBUG(errs() << "SimplifyDRuntimeCalls simplified: " << *CI;
