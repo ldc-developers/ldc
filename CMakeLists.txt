@@ -7,6 +7,9 @@ if(MSVC)
     set(LIBCONFIG_DLL OFF CACHE BOOL "Use libconfig++ DLL instead of static library")
 endif()
 
+include(CheckIncludeFile)
+include(CheckLibraryExists)
+
 #
 # Locate LLVM.
 #
@@ -351,9 +354,16 @@ else()
 endif()
 
 #
-# Check if libpthread is available
+# Check if libpthread is available.
 #
-find_package(Threads)
+if( NOT WIN32 OR CYGWIN )
+    check_include_file(pthread.h HAVE_PTHREAD_H)
+    check_library_exists(pthread pthread_create "" HAVE_LIBPTHREAD)
+    if(HAVE_LIBPTHREAD)
+        set(PTHREAD_LIB -lpthread)
+    endif()
+endif()
+
 
 #
 # Set up the main ldc/ldc2 target.
@@ -379,7 +389,7 @@ set_target_properties(
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} "${LLVM_LDFLAGS}")
+target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} ${PTHREAD_LIB} "${LLVM_LDFLAGS}")
 if(WIN32)
     target_link_libraries(${LDC_LIB} imagehlp psapi)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -399,7 +409,7 @@ set_target_properties(
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
+target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY} ${PTHREAD_LIBS})
 if(MSVC)
     # Add a post build event in Visual Studio to copy the config file into Debug/Release folder
     add_custom_command(TARGET ${LDC_EXE} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf $<TARGET_FILE_DIR:${LDC_EXE}> COMMENT "Copy config file ${LDC_EXE}.conf")
@@ -437,7 +447,7 @@ set_target_properties(
     COMPILE_FLAGS "${TABLEGEN_CXXFLAGS} ${LDC_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-target_link_libraries(gen_gccbuiltins ${LLVM_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} "${LLVM_LDFLAGS}")
+target_link_libraries(gen_gccbuiltins ${LLVM_LIBRARIES} ${PTHREAD_LIB} "${LLVM_LDFLAGS}")
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
