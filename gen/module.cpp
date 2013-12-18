@@ -394,7 +394,7 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
     llvm::GlobalVariable* minfoBeg = new llvm::GlobalVariable(
         *gIR->module,
         moduleInfoPtrTy,
-        true,
+        false, // FIXME: mRelocModel != llvm::Reloc::PIC_
         llvm::GlobalValue::LinkOnceODRLinkage,
         getNullPtr(moduleInfoPtrTy),
         "_minfo_beg"
@@ -408,7 +408,7 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
     llvm::GlobalVariable* thismref = new llvm::GlobalVariable(
         *gIR->module,
         moduleInfoPtrTy,
-        true,
+        false, // FIXME: mRelocModel != llvm::Reloc::PIC_
         llvm::GlobalValue::LinkOnceODRLinkage,
         DtoBitCast(thisModuleInfo, moduleInfoPtrTy),
         thismrefname
@@ -419,7 +419,7 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
     llvm::GlobalVariable* minfoEnd = new llvm::GlobalVariable(
         *gIR->module,
         moduleInfoPtrTy,
-        true,
+        false, // FIXME: mRelocModel != llvm::Reloc::PIC_
         llvm::GlobalValue::LinkOnceODRLinkage,
         getNullPtr(moduleInfoPtrTy),
         "_minfo_end"
