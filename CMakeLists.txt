@@ -351,6 +351,11 @@ else()
 endif()
 
 #
+# Check if libpthread is available
+#
+find_package(Threads)
+
+#
 # Set up the main ldc/ldc2 target.
 #
 if(BUILD_SHARED)
@@ -374,7 +379,7 @@ set_target_properties(
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
+target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} "${LLVM_LDFLAGS}")
 if(WIN32)
     target_link_libraries(${LDC_LIB} imagehlp psapi)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -394,7 +399,7 @@ set_target_properties(
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY})
+target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY} ${CMAKE_THREAD_LIBS_INIT})
 if(MSVC)
     # Add a post build event in Visual Studio to copy the config file into Debug/Release folder
     add_custom_command(TARGET ${LDC_EXE} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf $<TARGET_FILE_DIR:${LDC_EXE}> COMMENT "Copy config file ${LDC_EXE}.conf")
@@ -432,7 +437,7 @@ set_target_properties(
     COMPILE_FLAGS "${TABLEGEN_CXXFLAGS} ${LDC_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-target_link_libraries(gen_gccbuiltins ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
+target_link_libraries(gen_gccbuiltins ${LLVM_LIBRARIES} ${CMAKE_THREAD_LIBS_INIT} "${LLVM_LDFLAGS}")
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
