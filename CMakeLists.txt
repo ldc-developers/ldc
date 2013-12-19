@@ -495,7 +495,7 @@ set_target_properties(${LDMD_EXE} PROPERTIES
 # use symbols from libdl, ..., so LLVM_LDFLAGS must come _after_ them in the
 # command line. Maybe this could be improved using library groups, at least with
 # GNU ld.
-target_link_libraries(${LDMD_EXE} ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
+target_link_libraries(${LDMD_EXE} ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} "${LLVM_LDFLAGS}")
 
 #
 # Test and runtime targets. Note that enable_testing() is order-sensitive!
