@@ -7,6 +7,9 @@ if(MSVC)
     set(LIBCONFIG_DLL OFF CACHE BOOL "Use libconfig++ DLL instead of static library")
 endif()
 
+include(CheckIncludeFile)
+include(CheckLibraryExists)
+
 #
 # Locate LLVM.
 #
@@ -351,6 +354,35 @@ else()
 endif()
 
 #
+# Check if libpthread is available.
+# FIXME: Guard with LLVM_ENABLE_THREADS
+#
+if( NOT WIN32 OR CYGWIN )
+    check_include_file(pthread.h HAVE_PTHREAD_H)
+    check_library_exists(pthread pthread_create "" HAVE_LIBPTHREAD)
+    if(HAVE_LIBPTHREAD)
+        set(PTHREAD_LIBS -lpthread)
+    endif()
+endif()
+
+#
+# Check if terminfo is available.
+# FIXME: Guard with LLVM_ENABLE_TERMINFO
+#
+if( NOT WIN32 OR CYGWIN )
+    set(HAVE_TERMINFO 0)
+    foreach(library tinfo terminfo curses ncurses ncursesw)
+        string(TOUPPER ${library} library_suffix)
+        check_library_exists(${library} setupterm "" HAVE_TERMINFO_${library_suffix})
+        if(HAVE_TERMINFO_${library_suffix})
+            set(HAVE_TERMINFO 1)
+            set(TERMINFO_LIBS "${library}")
+        break()
+        endif()
+    endforeach()
+endif()
+
+#
 # Set up the main ldc/ldc2 target.
 #
 if(BUILD_SHARED)
@@ -374,7 +406,7 @@ set_target_properties(
 )
 
 # LDFLAGS should actually be in target property LINK_FLAGS, but this works, and gets around linking problems
-target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
+target_link_libraries(${LDC_LIB} ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} "${LLVM_LDFLAGS}")
 if(WIN32)
     target_link_libraries(${LDC_LIB} imagehlp psapi)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
@@ -394,7 +426,7 @@ set_target_properties(
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY})
+target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY} ${PTHREAD_LIBS} ${CMAKE_DL_LIBS} ${TERMINFO_LIBS})
 if(MSVC)
     # Add a post build event in Visual Studio to copy the config file into Debug/Release folder
     add_custom_command(TARGET ${LDC_EXE} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf $<TARGET_FILE_DIR:${LDC_EXE}> COMMENT "Copy config file ${LDC_EXE}.conf")
@@ -432,7 +464,7 @@ set_target_properties(
     COMPILE_FLAGS "${TABLEGEN_CXXFLAGS} ${LDC_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-target_link_libraries(gen_gccbuiltins ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
+target_link_libraries(gen_gccbuiltins ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} "${LLVM_LDFLAGS}")
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
@@ -463,7 +495,7 @@ set_target_properties(${LDMD_EXE} PROPERTIES
 # use symbols from libdl, ..., so LLVM_LDFLAGS must come _after_ them in the
 # command line. Maybe this could be improved using library groups, at least with
 # GNU ld.
-target_link_libraries(${LDMD_EXE} ${LLVM_LIBRARIES} "${LLVM_LDFLAGS}")
+target_link_libraries(${LDMD_EXE} ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} "${LLVM_LDFLAGS}")
 
 #
 # Test and runtime targets. Note that enable_testing() is order-sensitive!

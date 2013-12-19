@@ -33,6 +33,7 @@ namespace llvm {
     class Value;
     class Instruction;
     class Function;
+    class FunctionType;
 }
 
 // represents a function type argument
@@ -87,6 +88,9 @@ struct IrFuncTyArg
 // represents a function type
 struct IrFuncTy
 {
+    // The final LLVM type
+    llvm::FunctionType* funcType;
+
     // return value
     IrFuncTyArg* ret;
 
@@ -111,7 +115,8 @@ struct IrFuncTy
     bool reverseParams;
 
     IrFuncTy()
-    :   ret(NULL),
+    :   funcType(0),
+        ret(NULL),
         arg_sret(NULL),
         arg_this(NULL),
         arg_nest(NULL),
@@ -126,7 +131,8 @@ struct IrFuncTy
     // Copy constructor and operator= seems to be required for MSC
 
     IrFuncTy(const IrFuncTy& rhs)
-    :   ret(rhs.ret),
+    :   funcType(ths.funcType),
+        ret(rhs.ret),
         args(IrFuncTy::ArgList(rhs.args)),
         arg_sret(rhs.arg_sret),
         arg_this(rhs.arg_this),
@@ -139,6 +145,7 @@ struct IrFuncTy
 
     IrFuncTy& operator=(const IrFuncTy& rhs)
     {
+        funcType = rhs.funcType;
         ret = rhs.ret;
         args = IrFuncTy::ArgList(rhs.args);
         arg_sret = rhs.arg_sret;
@@ -153,6 +160,7 @@ struct IrFuncTy
 #endif
 
     void reset() {
+        funcType = 0;
         ret = NULL;
         arg_sret = arg_this = arg_nest = arg_arguments = arg_argptr = NULL;
 #if defined(_MSC_VER)

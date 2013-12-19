@@ -56,6 +56,10 @@
 
 using namespace llvm;
 
+#if LDC_LLVM_VER < 302
+typedef TargetData DataLayout;
+#endif
+
 STATISTIC(NumGcToStack, "Number of calls promoted to constant-size allocas");
 STATISTIC(NumToDynSize, "Number of calls promoted to dynamically-sized allocas");
 STATISTIC(NumDeleted, "Number of GC calls deleted because the return value was unused");
@@ -66,11 +70,7 @@ SizeLimit("dgc2stack-size-limit", cl::init(1024), cl::Hidden,
 
 namespace {
     struct Analysis {
-#if LDC_LLVM_VER >= 302
-        DataLayout& TD;
-#else
-        TargetData& TD;
-#endif
+        DataLayout& DL;
         const Module& M;
         CallGraph* CG;
         CallGraphNode* CGNode;
@@ -151,7 +151,7 @@ namespace {
             APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
             Mask.flipAllBits();
             APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
-            ComputeMaskedBits(Val, KnownZero, KnownOne, &A.TD);
+            ComputeMaskedBits(Val, KnownZero, KnownOne, &A.DL);
 
             if ((KnownZero & Mask) != Mask)
                 return false;
@@ -171,7 +171,7 @@ namespace {
             Value* TypeInfo = CS.getArgument(TypeInfoArgNr);
             Ty = A.getTypeFor(TypeInfo);
             if (!Ty) return false;
-            return A.TD.getTypeAllocSize(Ty) < SizeLimit;
+            return A.DL.getTypeAllocSize(Ty) < SizeLimit;
         }
     };
 
@@ -207,7 +207,7 @@ namespace {
             // (set bits) inference algorithm is rather limited, this is
             // useful for experimenting.
             if (SizeLimit > 0) {
-                uint64_t ElemSize = A.TD.getTypeAllocSize(Ty);
+                uint64_t ElemSize = A.DL.getTypeAllocSize(Ty);
                 if (!isKnownLessThan(arrSize, SizeLimit / ElemSize, A))
                     return false;
             }
@@ -237,7 +237,7 @@ namespace {
 
             if (Initialized) {
                 // For now, only zero-init is supported.
-                uint64_t size = A.TD.getTypeStoreSize(Ty);
+                uint64_t size = A.DL.getTypeStoreSize(Ty);
                 Value* TypeSize = ConstantInt::get(arrSize->getType(), size);
                 // Use the original B to put initialization at the
                 // allocation site.
@@ -295,7 +295,7 @@ namespace {
                 return false;
 
             Ty =node->getOperand(CD_BodyType)->getType();
-            return A.TD.getTypeAllocSize(Ty) < SizeLimit;
+            return A.DL.getTypeAllocSize(Ty) < SizeLimit;
         }
 
         // The default promote() should be fine.
@@ -390,11 +390,7 @@ namespace {
         bool runOnFunction(Function &F);
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-#if LDC_LLVM_VER >= 302
           AU.addRequired<DataLayout>();
-#else
-          AU.addRequired<TargetData>();
-#endif
           AU.addRequired<DominatorTree>();
 
 #if LDC_LLVM_VER >= 305
@@ -458,11 +454,7 @@ static bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& D
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
     DEBUG(errs() << "\nRunning -dgc2stack on function " << F.getName() << '\n');
 
-#if LDC_LLVM_VER >= 302
-    DataLayout& TD = getAnalysis<DataLayout>();
-#else
-    TargetData& TD = getAnalysis<TargetData>();
-#endif
+    DataLayout& DL = getAnalysis<DataLayout>();
     DominatorTree& DT = getAnalysis<DominatorTree>();
 #if LDC_LLVM_VER >= 305
     CallGraphWrapperPass* CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
@@ -472,7 +464,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 #endif
     CallGraphNode* CGNode = CG ? (*CG)[&F] : NULL;
 
-    Analysis A = { TD, *M, CG, CGNode };
+    Analysis A = { DL, *M, CG, CGNode };
 
     BasicBlock& Entry = F.getEntryBlock();
 

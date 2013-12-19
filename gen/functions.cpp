@@ -52,6 +52,9 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     assert(f->next && "Encountered function type with invalid return type; "
         "trying to codegen function ignored by the frontend?");
 
+    // Return cached type if available
+    if (irFty.funcType) return irFty.funcType;
+
     TargetABI* abi = (f->linkage == LINKintrinsic ? TargetABI::getIntrinsic() : gABI);
     // Tell the ABI we're resolving a new function type
     abi->newFunctionType(f);
@@ -285,11 +288,11 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
         std::reverse(argtypes.begin() + beg, argtypes.end());
     }
 
-    LLFunctionType* functype = LLFunctionType::get(irFty.ret->ltype, argtypes, irFty.c_vararg);
+    irFty.funcType = LLFunctionType::get(irFty.ret->ltype, argtypes, irFty.c_vararg);
 
-    Logger::cout() << "Final function type: " << *functype << "\n";
+    Logger::cout() << "Final function type: " << *irFty.funcType << "\n";
 
-    return functype;
+    return irFty.funcType;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
