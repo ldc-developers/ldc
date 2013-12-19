@@ -1137,10 +1137,9 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBoun
 
     // Do not emit bounds check code if the index is statically known to be
     // within bounds.
-    if (arrty->ty == Tsarray && isaConstantInt(index->getRVal())) {
+    if (arrty->ty == Tsarray && isaConstantInt(index->getRVal()) && !lowerBound) {
         assert(!arr->isSlice());
         assert(!arr->isNull());
-        assert(!lowerBound);
 
         TypeSArray *sarray = static_cast<TypeSArray*>(arrty);
         llvm::ConstantInt *constIndex = static_cast<llvm::ConstantInt*>(index->getRVal());
