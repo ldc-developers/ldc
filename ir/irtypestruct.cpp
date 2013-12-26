@@ -38,34 +38,50 @@ IrTypeStruct::IrTypeStruct(StructDeclaration * sd)
 
 //////////////////////////////////////////////////////////////////////////////
 
-size_t add_zeros(std::vector<llvm::Type*>& defaultTypes, size_t diff)
+static bool isAligned(llvm::Type* type, size_t offset) {
+    return gDataLayout->getABITypeAlignment(type) % offset == 0;
+}
+
+size_t add_zeros(std::vector<llvm::Type*>& defaultTypes,
+    size_t startOffset, size_t endOffset)
 {
-    size_t n = defaultTypes.size();
-    while (diff)
+    size_t const oldLength = defaultTypes.size();
+
+    llvm::Type* const eightByte = llvm::Type::getInt64Ty(gIR->context());
+    llvm::Type* const fourByte = llvm::Type::getInt32Ty(gIR->context());
+    llvm::Type* const twoByte = llvm::Type::getInt16Ty(gIR->context());
+
+    assert(startOffset <= endOffset);
+    size_t paddingLeft = endOffset - startOffset;
+    while (paddingLeft)
     {
-        if (global.params.is64bit && diff % 8 == 0)
+        if (global.params.is64bit && paddingLeft >= 8 && isAligned(eightByte, startOffset))
         {
-            defaultTypes.push_back(llvm::Type::getInt64Ty(gIR->context()));
-            diff -= 8;
+            defaultTypes.push_back(eightByte);
+            startOffset += 8;
         }
-        else if (diff % 4 == 0)
+        else if (paddingLeft >= 4 && isAligned(fourByte, startOffset))
         {
-            defaultTypes.push_back(llvm::Type::getInt32Ty(gIR->context()));
-            diff -= 4;
+            defaultTypes.push_back(fourByte);
+            startOffset += 4;
         }
-        else if (diff % 2 == 0)
+        else if (paddingLeft >= 2 && isAligned(twoByte, startOffset))
         {
-            defaultTypes.push_back(llvm::Type::getInt16Ty(gIR->context()));
-            diff -= 2;
+            defaultTypes.push_back(twoByte);
+            startOffset += 2;
         }
         else
         {
             defaultTypes.push_back(llvm::Type::getInt8Ty(gIR->context()));
-            diff -= 1;
+            startOffset += 1;
         }
+
+        paddingLeft = endOffset - startOffset;
     }
-    return defaultTypes.size() - n;
+
+    return defaultTypes.size() - oldLength;
 }
+
 
 bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2)
 {
@@ -209,7 +225,7 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
         // insert explicit padding?
         if (alignedoffset < vd->offset)
         {
-            field_index += add_zeros(defaultTypes, vd->offset - alignedoffset);
+            field_index += add_zeros(defaultTypes, alignedoffset, vd->offset);
         }
 
         // add default type
@@ -225,7 +241,7 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
     // tail padding?
     if (offset < sd->structsize)
     {
-        add_zeros(defaultTypes, sd->structsize - offset);
+        add_zeros(defaultTypes, offset, sd->structsize);
     }
 
     // set struct body
