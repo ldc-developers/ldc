@@ -237,9 +237,15 @@ public:
     virtual elem *toElem(IRState *irs);
     elem *toElemDtor(IRState *irs);
 #if IN_LLVM
+    /// Emits an LLVM constant corresponding to the expression.
+    ///
+    /// Due to the current implementation of AssocArrayLiteralExp::toElem,the
+    /// implementations have to be able to handle being called on expressions
+    /// that are not actually constant. In such a case, an LLVM undef of the
+    /// expected type should be returned (_not_ null).
     virtual llvm::Constant *toConstElem(IRState *irs);
-    virtual void cacheLvalue(IRState* irs);
 
+    virtual void cacheLvalue(IRState* irs);
     llvm::Value* cachedLvalue;
 
     virtual AssignExp* isAssignExp() { return NULL; }
