@@ -87,34 +87,50 @@ llvm::Constant * IrAggr::getDefaultInit()
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
+static bool isAligned(llvm::Type* type, size_t offset) {
+    return gDataLayout->getABITypeAlignment(type) % offset == 0;
+}
+
 // helper function that adds zero bytes to a vector of constants
-size_t add_zeros(llvm::SmallVectorImpl<llvm::Constant*>& constants, size_t diff)
+size_t add_zeros(llvm::SmallVectorImpl<llvm::Constant*>& constants,
+    size_t startOffset, size_t endOffset)
 {
-    size_t n = constants.size();
-    while (diff)
+    size_t const oldLength = constants.size();
+
+    llvm::Type* const eightByte = llvm::Type::getInt64Ty(gIR->context());
+    llvm::Type* const fourByte = llvm::Type::getInt32Ty(gIR->context());
+    llvm::Type* const twoByte = llvm::Type::getInt16Ty(gIR->context());
+
+    assert(startOffset <= endOffset);
+    size_t paddingLeft = endOffset - startOffset;
+    while (paddingLeft)
     {
-        if (global.params.is64bit && diff % 8 == 0)
+        if (global.params.is64bit && paddingLeft >= 8 && isAligned(eightByte, startOffset))
         {
-            constants.push_back(LLConstant::getNullValue(llvm::Type::getInt64Ty(gIR->context())));
-            diff -= 8;
+            constants.push_back(llvm::Constant::getNullValue(eightByte));
+            startOffset += 8;
         }
-        else if (diff % 4 == 0)
+        else if (paddingLeft >= 4 && isAligned(fourByte, startOffset))
         {
-            constants.push_back(LLConstant::getNullValue(llvm::Type::getInt32Ty(gIR->context())));
-            diff -= 4;
+            constants.push_back(llvm::Constant::getNullValue(fourByte));
+            startOffset += 4;
         }
-        else if (diff % 2 == 0)
+        else if (paddingLeft >= 2 && isAligned(twoByte, startOffset))
         {
-            constants.push_back(LLConstant::getNullValue(llvm::Type::getInt16Ty(gIR->context())));
-            diff -= 2;
+            constants.push_back(llvm::Constant::getNullValue(twoByte));
+            startOffset += 2;
         }
         else
         {
-            constants.push_back(LLConstant::getNullValue(llvm::Type::getInt8Ty(gIR->context())));
-            diff -= 1;
+            constants.push_back(llvm::Constant::getNullValue(
+                llvm::Type::getInt8Ty(gIR->context())));
+            startOffset += 1;
         }
+
+        paddingLeft = endOffset - startOffset;
     }
-    return constants.size() - n;
+
+    return constants.size() - oldLength;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -201,9 +217,7 @@ llvm::Constant* IrAggr::createInitializerConstant(
     const size_t structsize = type->size();
     if (offset < structsize)
     {
-        size_t diff = structsize - offset;
-        IF_LOG Logger::println("adding %zu bytes zero padding", diff);
-        add_zeros(constants, diff);
+        add_zeros(constants, offset, structsize);
     }
 
     // get initializer type
@@ -324,9 +338,7 @@ void IrAggr::addFieldInitializers(
         // insert explicit padding?
         if (alignedoffset < vd->offset)
         {
-            size_t diff = vd->offset - alignedoffset;
-            IF_LOG Logger::println("adding %zu bytes zero padding", diff);
-            add_zeros(constants, diff);
+            add_zeros(constants, alignedoffset, vd->offset);
         }
 
         IF_LOG Logger::println("adding field %s", vd->toChars());

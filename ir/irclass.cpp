@@ -37,7 +37,6 @@
 //////////////////////////////////////////////////////////////////////////////
 
 extern LLConstant* get_default_initializer(VarDeclaration* vd, Initializer* init);
-extern size_t add_zeros(std::vector<llvm::Constant*>& constants, size_t diff);
 
 extern LLConstant* DtoDefineClassInfo(ClassDeclaration* cd);
 

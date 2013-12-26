@@ -121,9 +121,6 @@ LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-// helper function that adds zero bytes to a vector of constants
-extern size_t add_zeros(std::vector<LLConstant*>& values, size_t diff);
-
 /// Return the type returned by DtoUnpaddedStruct called on a value of the
 /// specified type.
 /// Union types will get expanded into a struct, with a type for each member.

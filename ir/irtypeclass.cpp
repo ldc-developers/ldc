@@ -30,7 +30,8 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-extern size_t add_zeros(std::vector<llvm::Type*>& defaultTypes, size_t diff);
+extern size_t add_zeros(std::vector<llvm::Type*>& defaultTypes,
+    size_t startOffset, size_t endOffset);
 extern bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2);
 
 //////////////////////////////////////////////////////////////////////////////
@@ -167,7 +168,7 @@ void IrTypeClass::addBaseClassData(
         // insert explicit padding?
         if (alignedoffset < vd->offset)
         {
-            field_index += add_zeros(defaultTypes, vd->offset - alignedoffset);
+            field_index += add_zeros(defaultTypes, alignedoffset, vd->offset);
         }
 
         // add default type
@@ -220,7 +221,7 @@ void IrTypeClass::addBaseClassData(
     // tail padding?
     if (offset < base->structsize)
     {
-        field_index += add_zeros(defaultTypes, base->structsize - offset);
+        field_index += add_zeros(defaultTypes, offset, base->structsize);
         offset = base->structsize;
     }
 #endif
@@ -268,7 +269,7 @@ IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
         // tail padding?
         if (offset < cd->structsize)
         {
-            field_index += add_zeros(defaultTypes, cd->structsize - offset);
+            field_index += add_zeros(defaultTypes, offset, cd->structsize);
             offset = cd->structsize;
         }
 #endif
