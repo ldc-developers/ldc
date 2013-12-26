@@ -3302,6 +3302,36 @@ DValue* RemoveExp::toElem(IRState* p)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+/// Constructs an array initializer constant with the given constants as its
+/// elements. If the element types differ (unions, …), an anonymous struct
+/// literal is emitted (as for array constant initializers).
+static llvm::Constant* arrayConst(std::vector<llvm::Constant*>& vals,
+    Type* nominalElemType)
+{
+    if (vals.size() == 0)
+    {
+        llvm::ArrayType* type = llvm::ArrayType::get(DtoType(nominalElemType), 0);
+        return llvm::ConstantArray::get(type, vals);
+    }
+
+    llvm::Type* elementType = NULL;
+    bool differentTypes = false;
+    for (std::vector<llvm::Constant*>::iterator i = vals.begin(), end = vals.end();
+         i != end; ++i)
+    {
+        if (!elementType)
+            elementType = (*i)->getType();
+        else
+            differentTypes |= (elementType != (*i)->getType());
+    }
+
+    if (differentTypes)
+        return llvm::ConstantStruct::getAnon(vals, true);
+
+    llvm::ArrayType *t = llvm::ArrayType::get(elementType, vals.size());
+    return llvm::ConstantArray::get(t, vals);
+}
+
 DValue* AssocArrayLiteralExp::toElem(IRState* p)
 {
     Logger::print("AssocArrayLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
@@ -3356,16 +3386,16 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
 
         LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
 
-        LLArrayType* arrtype = LLArrayType::get(DtoType(indexType), keys->dim);
-        LLConstant* initval = LLConstantArray::get(arrtype, keysInits);
-        LLConstant* globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
+        LLConstant* initval = arrayConst(keysInits, indexType);
+        LLConstant* globalstore = new LLGlobalVariable(*gIR->module, initval->getType(),
+            false, LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
         LLConstant* slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, true);
         slice = DtoConstSlice(DtoConstSize_t(keys->dim), slice);
         LLValue* keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
 
-        arrtype = LLArrayType::get(DtoType(vtype), values->dim);
-        initval = LLConstantArray::get(arrtype, valuesInits);
-        globalstore = new LLGlobalVariable(*gIR->module, arrtype, false, LLGlobalValue::InternalLinkage, initval, ".aaValuesStorage");
+        initval = arrayConst(valuesInits, vtype);
+        globalstore = new LLGlobalVariable(*gIR->module, initval->getType(),
+            false, LLGlobalValue::InternalLinkage, initval, ".aaValuesStorage");
         slice = llvm::ConstantExpr::getGetElementPtr(globalstore, idxs, true);
         slice = DtoConstSlice(DtoConstSize_t(keys->dim), slice);
         LLValue* valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
