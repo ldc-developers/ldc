@@ -382,6 +382,10 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
         llvm_unreachable("not global/function");
     }
 
+    // The logic here should be sound in theory, but as long as the frontend
+    // keeps inserting templates into wrong modules, this yields to linking
+    // errors (see e.g. GitHub issue #558).
+#if 0
     // Check if sym is a nested function and we can declare it as internal.
     //
     // Nested naked functions and the implicitly generated __require/__ensure
@@ -427,7 +431,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
             }
         }
     }
-
+#endif
     // default to external linkage
     return llvm::GlobalValue::ExternalLinkage;
 }
