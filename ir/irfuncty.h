@@ -131,7 +131,7 @@ struct IrFuncTy
     // Copy constructor and operator= seems to be required for MSC
 
     IrFuncTy(const IrFuncTy& rhs)
-    :   funcType(ths.funcType),
+    :   funcType(rhs.funcType),
         ret(rhs.ret),
         args(IrFuncTy::ArgList(rhs.args)),
         arg_sret(rhs.arg_sret),
