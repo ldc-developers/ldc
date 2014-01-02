@@ -1291,6 +1291,8 @@ llvm::Constant* SymOffExp::toConstElem(IRState* p)
     LOG_SCOPE;
 
     llvm::Constant* base = DtoConstSymbolAddress(loc, var);
+    if (base == 0) return llvm::UndefValue::get(DtoType(type));
+
     llvm::Constant* result;
     if (offset == 0)
     {
