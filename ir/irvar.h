@@ -22,7 +22,7 @@
 #endif
 
 struct IrFuncTyArg;
-struct VarDeclaration;
+class VarDeclaration;
 
 struct IrVar
 {

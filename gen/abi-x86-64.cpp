@@ -177,10 +177,9 @@ namespace {
                 }
             }
         } else if (ty->ty == Tstruct) {
-            Array* fields = &static_cast<TypeStruct*>(ty)->sym->fields;
-            for (size_t i = 0; i < fields->dim; i++) {
-                VarDeclaration* field = static_cast<VarDeclaration*>(fields->data[i]);
-                classifyType(accum, field->type, offset + field->offset);
+            VarDeclarations& fields = static_cast<TypeStruct*>(ty)->sym->fields;
+            for (size_t i = 0; i < fields.dim; i++) {
+                classifyType(accum, fields[i]->type, offset + fields[i]->offset);
             }
         } else {
             if (Logger::enabled())

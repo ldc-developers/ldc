@@ -520,6 +520,7 @@ DValue* AssignExp::toElem(IRState* p)
 
         if (se->lwr == NULL && ta->ty == Tsarray &&
             e2->op == TOKarrayliteral &&
+            op == TOKconstruct &&   // DMD Bugzilla 11238: avoid aliasing issue
             t2->nextOf()->mutableOf()->implicitConvTo(ta->nextOf()))
         {
             ArrayLiteralExp * const ale = static_cast<ArrayLiteralExp *>(e2);
@@ -651,8 +652,8 @@ LLConstant* AddExp::toConstElem(IRState* p)
     }
 
     error("expression '%s' is not a constant", toChars());
-    fatal();
-    return NULL;
+    if (!global.gag) fatal();
+    return llvm::UndefValue::get(DtoType(type));
 }
 
 /// Tries to remove a MulExp by a constant value of baseSize from e. Returns
@@ -765,8 +766,8 @@ LLConstant* MinExp::toConstElem(IRState* p)
     }
 
     error("expression '%s' is not a constant", toChars());
-    fatal();
-    return NULL;
+    if (!global.gag) fatal();
+    return llvm::UndefValue::get(DtoType(type));
 }
 
 DValue* MinExp::toElem(IRState* p)
@@ -1140,6 +1141,10 @@ DValue* CastExp::toElem(IRState* p)
     // get the value to cast
     DValue* u = e1->toElem(p);
 
+    // handle cast to void (usually created by frontend to avoid "has no effect" error)
+    if (to == Type::tvoid)
+        return new DImValue(Type::tvoid, llvm::UndefValue::get(voidToI8(DtoType(Type::tvoid))));
+
     // cast it to the 'to' type, if necessary
     DValue* v = u;
     if (!to->equals(e1->type))
@@ -1226,7 +1231,7 @@ Lerr:
     error("cannot cast %s to %s at compile time", e1->type->toChars(), type->toChars());
     if (!global.gag)
         fatal();
-    return NULL;
+    return llvm::UndefValue::get(DtoType(type));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1285,11 +1290,7 @@ llvm::Constant* SymOffExp::toConstElem(IRState* p)
     IF_LOG Logger::println("SymOffExp::toConstElem: %s @ %s", toChars(), type->toChars());
     LOG_SCOPE;
 
-    // We might get null here due to the hackish implementation of
-    // AssocArrayLiteralExp::toElem.
     llvm::Constant* base = DtoConstSymbolAddress(loc, var);
-    if (!base) return 0;
-
     llvm::Constant* result;
     if (offset == 0)
     {
@@ -1457,7 +1458,8 @@ LLConstant* AddrExp::toConstElem(IRState* p)
     else if (e1->op == TOKslice)
     {
         error("non-constant expression '%s'", toChars());
-        fatal();
+        if (!global.gag) fatal();
+        return llvm::UndefValue::get(DtoType(type));
     }
     // not yet supported
     else
@@ -1589,8 +1591,8 @@ DValue* DotVarExp::toElem(IRState* p)
 
         // This is a bit more convoluted than it would need to be, because it
         // has to take templated interface methods into account, for which
-        // isFinal is not necessarily true.
-        const bool nonFinal = !fdecl->isFinal() &&
+        // isFinalFunc is not necessarily true.
+        const bool nonFinal = !fdecl->isFinalFunc() &&
             (fdecl->isAbstract() || fdecl->isVirtual());
 
         // If we are calling a non-final interface function, we need to get
@@ -1710,12 +1712,12 @@ DValue* IndexExp::toElem(IRState* p)
         arrptr = DtoGEP1(l->getRVal(),r->getRVal());
     }
     else if (e1type->ty == Tsarray) {
-        if (gIR->emitArrayBoundsChecks())
+        if (gIR->emitArrayBoundsChecks() && !skipboundscheck)
             DtoArrayBoundsCheck(loc, l, r);
         arrptr = DtoGEP(l->getRVal(), zero, r->getRVal());
     }
     else if (e1type->ty == Tarray) {
-        if (gIR->emitArrayBoundsChecks())
+        if (gIR->emitArrayBoundsChecks() && !skipboundscheck)
             DtoArrayBoundsCheck(loc, l, r);
         arrptr = DtoArrayPtr(l);
         arrptr = DtoGEP1(arrptr,r->getRVal());
@@ -2286,7 +2288,7 @@ DValue* AssertExp::toElem(IRState* p)
 
     // call assert runtime functions
     p->scope() = IRScope(assertbb,endbb);
-    DtoAssert(p->func()->decl->getModule(), loc, msg ? msg->toElem(p) : NULL);
+    DtoAssert(p->func()->decl->getModule(), loc, msg ? msg->toElemDtor(p) : NULL);
 
     // rewrite the scope
     p->scope() = IRScope(endbb,oldend);
@@ -2532,7 +2534,7 @@ DValue* DelegateExp::toElem(IRState* p)
 
     LLValue* castfptr;
 
-    if (e1->op != TOKsuper && e1->op != TOKdottype && func->isVirtual() && !func->isFinal())
+    if (e1->op != TOKsuper && e1->op != TOKdottype && func->isVirtual() && !func->isFinalFunc())
         castfptr = DtoVirtualFunctionPointer(u, func, toChars());
     else if (func->isAbstract())
         llvm_unreachable("Delegate to abstract method not implemented.");
@@ -2636,7 +2638,10 @@ DValue* CommaExp::toElem(IRState* p)
 
     e1->toElem(p);
     DValue* v = e2->toElem(p);
-    assert(e2->type == type);
+
+    // Actually, we can get qualifier mismatches in the 2.064 frontend:
+    // assert(e2->type == type);
+
     return v;
 }
 
@@ -2864,7 +2869,8 @@ LLConstant* FuncExp::toConstElem(IRState* p)
     {
         assert(fd->tok == TOKdelegate || fd->tok == TOKreserved);
         error("delegate literals as constant expressions are not yet allowed");
-        return 0;
+        if (!global.gag) fatal();
+        return llvm::UndefValue::get(DtoType(type));
     }
 
     // We need to actually codegen the function here, as literals are not added
@@ -3034,12 +3040,39 @@ DValue* StructLiteralExp::toElem(IRState* p)
     {
         VarDeclaration* vd = it.get();
 
+        // get initializer expression
+        Expression* expr = (it.index < nexprs) ? exprs[it.index] : NULL;
+        if (!expr)
+        {
+            // In case of an union, we can't simply use the default initializer.
+            // Consider the type union U7727A1 { int i; double d; } and
+            // the declaration U7727A1 u = { d: 1.225 };
+            // The loop will first visit variable i and then d. Since d has an
+            // explicit initializer, we must use this one. The solution is to
+            // peek at the next variables.
+            ArrayIter<VarDeclaration> it2(it.array, it.index+1);
+            for (; !it2.done(); it2.next())
+            {
+                VarDeclaration* vd2 = it2.get();
+                if (vd->offset != vd2->offset) break;
+                it.next(); // skip var
+                Expression* expr2 = (it2.index < nexprs) ? exprs[it2.index] : NULL;
+                if (expr2)
+                {
+                    vd = vd2;
+                    expr = expr2;
+                    break;
+                }
+            }
+        }
+
         // don't re-initialize unions
         if (vd->offset < offset)
         {
             IF_LOG Logger::println("skipping field: %s %s (+%u)", vd->type->toChars(), vd->toChars(), vd->offset);
             continue;
         }
+
         // initialize any padding so struct comparisons work
         if (vd->offset != offset)
             voidptr = write_zeroes(voidptr, offset, vd->offset);
@@ -3049,7 +3082,6 @@ DValue* StructLiteralExp::toElem(IRState* p)
         LOG_SCOPE
 
         // get initializer
-        Expression* expr = (it.index < nexprs) ? exprs[it.index] : NULL;
         DValue* val;
         DConstValue cv(vd->type, NULL); // Only used in one branch; value is set beforehand
         if (expr)
@@ -3139,6 +3171,19 @@ LLConstant* StructLiteralExp::toConstElem(IRState* p)
     return sd->ir.irAggr->createInitializerConstant(varInits);
 }
 
+//////////////////////////////////////////////////////////////////////////////////////////
+
+DValue* ClassReferenceExp::toElem(IRState* p)
+{
+    IF_LOG Logger::print("ClassReferenceExp::toElem: %s @ %s\n",
+        toChars(), type->toChars());
+    LOG_SCOPE;
+
+    return new DImValue(type, toConstElem(p));
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 llvm::Constant* ClassReferenceExp::toConstElem(IRState *p)
 {
     IF_LOG Logger::print("ClassReferenceExp::toConstElem: %s @ %s\n",
@@ -3209,21 +3254,23 @@ llvm::Constant* ClassReferenceExp::toConstElem(IRState *p)
 
     llvm::Constant* result = value->globalVar;
 
-    assert(type->ty == Tclass);
-    ClassDeclaration* targetClass = static_cast<TypeClass*>(type)->sym;
-    if (InterfaceDeclaration* it = targetClass->isInterfaceDeclaration()) {
-        assert(it->isBaseOf(origClass, NULL));
+    if (type->ty == Tclass) {
+        ClassDeclaration* targetClass = static_cast<TypeClass*>(type)->sym;
+        if (InterfaceDeclaration* it = targetClass->isInterfaceDeclaration()) {
+            assert(it->isBaseOf(origClass, NULL));
 
-        IrTypeClass* typeclass = origClass->type->irtype->isClass();
+            IrTypeClass* typeclass = origClass->type->irtype->isClass();
 
-        // find interface impl
-        size_t i_index = typeclass->getInterfaceIndex(it);
-        assert(i_index != ~0UL);
+            // find interface impl
+            size_t i_index = typeclass->getInterfaceIndex(it);
+            assert(i_index != ~0UL);
 
-        // offset pointer
-        result = DtoGEPi(result, 0, i_index);
+            // offset pointer
+            result = DtoGEPi(result, 0, i_index);
+        }
     }
 
+    assert(type->ty == Tclass || type->ty == Tenum);
     return DtoBitCast(result, DtoType(type));
 }
 
@@ -3508,5 +3555,10 @@ llvm::Constant* Expression::toConstElem(IRState * p)
     error("expression '%s' is not a constant", toChars());
     if (!global.gag)
         fatal();
-    return NULL;
+
+    // Do not return null here, as AssocArrayLiteralExp::toElem determines
+    // whether it can allocate the needed arrays statically by just invoking
+    // toConstElem on its key/value expressions, and handling the null value
+    // consequently would require error-prone adaptions in all other code.
+    return llvm::UndefValue::get(DtoType(type));
 }

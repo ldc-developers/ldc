@@ -137,68 +137,6 @@ size_t add_zeros(llvm::SmallVectorImpl<llvm::Constant*>& constants,
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-LLConstant * IrAggr::createStructInitializer(StructInitializer * si)
-{
-    IF_LOG Logger::println("Building StructInitializer of type %s", si->ad->toPrettyChars());
-    LOG_SCOPE;
-
-    // sanity check
-    assert(si->ad == aggrdecl && "struct type mismatch");
-    assert(si->vars.dim == si->value.dim && "inconsistent StructInitializer");
-
-    // array of things to build
-    VarInitMap initConsts;
-
-    // fill in explicit initializers
-    const size_t n = si->vars.dim;
-    for (size_t i = 0; i < n; i++)
-    {
-        VarDeclaration* vd = si->vars[i];
-        Initializer* ini = si->value[i];
-        if (!ini)
-        {
-            // Unclear when this occurs - createInitializerConstant will just
-            // fill in default initializer.
-            continue;
-        }
-
-        VarInitMap::iterator it, end = initConsts.end();
-        for (it = initConsts.begin(); it != end; ++it)
-        {
-            if (it->first == vd)
-            {
-                error(ini->loc, "duplicate initialization of %s", vd->toChars());
-                continue;
-            }
-
-            const unsigned f_begin = it->first->offset;
-            const unsigned f_end = f_begin + it->first->type->size();
-
-            if (vd->offset < f_end && (vd->offset + vd->type->size()) > f_begin)
-            {
-                error(ini->loc, "initializer for %s overlaps previous initialization of %s",
-                      vd->toChars(), it->first->toChars());
-            }
-        }
-
-        IF_LOG Logger::println("Explicit initializer: %s @+%u", vd->toChars(), vd->offset);
-        LOG_SCOPE;
-
-        initConsts[vd] = DtoConstInitializer(ini->loc, vd->type, ini);
-    }
-    // stop if there were errors
-    if (global.errors)
-    {
-        fatal();
-    }
-
-    llvm::Constant* init = createInitializerConstant(initConsts, si->ltype);
-    si->ltype = static_cast<llvm::StructType*>(init->getType());
-    return init;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
 typedef std::pair<VarDeclaration*, llvm::Constant*> VarInitConst;
 
 static bool struct_init_data_sort(const VarInitConst& a, const VarInitConst& b)

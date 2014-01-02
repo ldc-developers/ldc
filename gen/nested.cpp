@@ -15,6 +15,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "gen/utils.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Support/CommandLine.h"
 namespace cl = llvm::cl;
@@ -285,17 +286,8 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
         return;
     fd->ir.irFunc->nestedContextCreated = true;
 
-    // fill nestedVars
-    assert(fd->nestedVars.empty() && "nestedVars should only be filled here");
-    size_t nnest = fd->closureVars.dim;
-    for (size_t i = 0; i < nnest; ++i)
-    {
-        VarDeclaration* vd = static_cast<VarDeclaration*>(fd->closureVars.data[i]);
-        fd->nestedVars.insert(vd);
-    }
-
     // construct nested variables array
-    if (!fd->nestedVars.empty())
+    if (fd->closureVars.dim != 0)
     {
         Logger::println("has nested frame");
         // start with adding all enclosing parent frames until a static parent is reached
@@ -345,9 +337,9 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
 
         // Add the direct nested variables of this function, and update their indices to match.
         // TODO: optimize ordering for minimal space usage?
-        for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i)
-        {
-            VarDeclaration* vd = *i;
+        VarDeclarationIter closureVarsIter(fd->closureVars);
+        for (; closureVarsIter.more(); closureVarsIter.next()) {
+            VarDeclaration* vd = *closureVarsIter;
             if (!vd->ir.irLocal)
                 vd->ir.irLocal = new IrLocal(vd);
 
@@ -404,7 +396,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
     DtoCreateNestedContextType(fd);
 
     // construct nested variables array
-    if (!fd->nestedVars.empty())
+    if (fd->closureVars.dim != 0)
     {
         IrFunction* irfunction = fd->ir.irFunc;
         unsigned depth = irfunction->depth;
@@ -451,9 +443,9 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
         irfunction->nestedVar = frame;
 
         // go through all nested vars and assign addresses where possible.
-        for (std::set<VarDeclaration*>::iterator i=fd->nestedVars.begin(); i!=fd->nestedVars.end(); ++i)
-        {
-            VarDeclaration* vd = *i;
+        VarDeclarationIter closureVarsIter(fd->closureVars);
+        for (; closureVarsIter.more(); closureVarsIter.next()) {
+            VarDeclaration* vd = *closureVarsIter;
 
             LLValue* gep = DtoGEPi(frame, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
             if (vd->isParameter()) {

@@ -269,7 +269,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     }
 
     // build type info array
-    LLType* typeinfotype = DtoType(Type::typeinfo->type);
+    LLType* typeinfotype = DtoType(Type::dtypeinfo->type);
     LLArrayType* typeinfoarraytype = LLArrayType::get(typeinfotype,vtype->getNumElements());
 
     llvm::GlobalVariable* typeinfomem =
@@ -294,7 +294,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
         DtoConstSize_t(vtype->getNumElements()),
         llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype))
     };
-    LLType* tiarrty = DtoType(Type::typeinfo->type->arrayOf());
+    LLType* tiarrty = DtoType(Type::dtypeinfo->type->arrayOf());
     tiinits = LLConstantStruct::get(isaStruct(tiarrty), llvm::ArrayRef<LLConstant*>(pinits));
     LLValue* typeinfoarrayparam = new llvm::GlobalVariable(*gIR->module, tiarrty,
         true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array");

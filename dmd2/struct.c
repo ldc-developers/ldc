@@ -22,6 +22,75 @@
 #include "template.h"
 
 FuncDeclaration *StructDeclaration::xerreq;     // object.xopEquals
+FuncDeclaration *StructDeclaration::xerrcmp;    // object.xopCmp
+
+bool inNonRoot(Dsymbol *s)
+{
+    if (!s || !s->parent)
+        return false;
+    s = s->parent;
+    for (; s; s = s->parent)
+    {
+        if (TemplateInstance *ti = s->isTemplateInstance())
+        {
+            if (!ti->instantiatingModule || !ti->instantiatingModule->isRoot())
+                return true;
+            return false;
+        }
+        else if (Module *m = s->isModule())
+        {
+            if (!m->isRoot())
+                return true;
+            break;
+        }
+    }
+    return false;
+}
+
+/***************************************
+ * Search toHash member function for TypeInfo_Struct.
+ *      const hash_t toHash();
+ */
+FuncDeclaration *search_toHash(StructDeclaration *sd)
+{
+    Dsymbol *s = search_function(sd, Id::tohash);
+    FuncDeclaration *fd = s ? s->isFuncDeclaration() : NULL;
+    if (fd)
+    {
+        static TypeFunction *tftohash;
+        if (!tftohash)
+        {
+            tftohash = new TypeFunction(NULL, Type::thash_t, 0, LINKd);
+            tftohash->mod = MODconst;
+            tftohash = (TypeFunction *)tftohash->merge();
+        }
+
+        fd = fd->overloadExactMatch(tftohash);
+    }
+    return fd;
+}
+
+/***************************************
+ * Search toString member function for TypeInfo_Struct.
+ *      string toString();
+ */
+FuncDeclaration *search_toString(StructDeclaration *sd)
+{
+    Dsymbol *s = search_function(sd, Id::tostring);
+    FuncDeclaration *fd = s ? s->isFuncDeclaration() : NULL;
+    if (fd)
+    {
+        static TypeFunction *tftostring;
+        if (!tftostring)
+        {
+            tftostring = new TypeFunction(NULL, Type::tstring, 0, LINKd);
+            tftostring = (TypeFunction *)tftostring->merge();
+        }
+
+        fd = fd->overloadExactMatch(tftostring);
+    }
+    return fd;
+}
 
 /********************************* AggregateDeclaration ****************************/
 
@@ -34,7 +103,6 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     protection = PROTpublic;
     type = NULL;
     handle = NULL;
-    scope = 0;
     structsize = 0;             // size of struct
     alignsize = 0;              // size of struct for alignment purposes
     hasUnions = 0;
@@ -66,7 +134,7 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
 #endif
 }
 
-enum PROT AggregateDeclaration::prot()
+PROT AggregateDeclaration::prot()
 {
     return protection;
 }
@@ -109,6 +177,10 @@ void AggregateDeclaration::semantic3(Scope *sc)
     //printf("AggregateDeclaration::semantic3(%s)\n", toChars());
     if (members)
     {
+        StructDeclaration *sd = isStructDeclaration();
+        if (!sc)    // from runDeferredSemantic3 for TypeInfo generation
+            goto Lxop;
+
         sc = sc->push(this);
         sc->parent = this;
         for (size_t i = 0; i < members->dim; i++)
@@ -116,20 +188,13 @@ void AggregateDeclaration::semantic3(Scope *sc)
             Dsymbol *s = (*members)[i];
             s->semantic3(sc);
         }
-
-        if (StructDeclaration *sd = isStructDeclaration())
-        {
-            //if (sd->xeq != NULL) printf("sd = %s xeq @ [%s]\n", sd->toChars(), sd->loc.toChars());
-            //assert(sd->xeq == NULL);
-            if (sd->xeq == NULL)
-                sd->xeq = sd->buildXopEquals(sc);
-        }
         sc = sc->pop();
 
         if (!getRTInfo && Type::rtinfo &&
             (!isDeprecated() || global.params.useDeprecated) && // don't do it for unused deprecated types
             (type && type->ty != Terror)) // or error types
-        {   // Evaluate: gcinfo!type
+        {
+            // Evaluate: RTinfo!type
             Objects *tiargs = new Objects();
             tiargs->push(type);
             TemplateInstance *ti = new TemplateInstance(loc, Type::rtinfo, tiargs);
@@ -138,9 +203,54 @@ void AggregateDeclaration::semantic3(Scope *sc)
             ti->semantic3(sc);
             Dsymbol *s = ti->toAlias();
             Expression *e = new DsymbolExp(Loc(), s, 0);
-            e = e->ctfeSemantic(ti->tempdecl->scope);
+
+            Scope *sc2 = ti->tempdecl->scope->startCTFE();
+            sc2->instantiatingModule = sc->instantiatingModule ? sc->instantiatingModule : sc->module;
+            e = e->semantic(sc2);
+            sc2->endCTFE();
+
             e = e->ctfeInterpret();
             getRTInfo = e;
+        }
+
+        if (sd)
+        {
+        Lxop:
+            if (sd->xeq &&
+                sd->xeq->scope &&
+                sd->xeq->semanticRun < PASSsemantic3done)
+            {
+                unsigned errors = global.startGagging();
+                sd->xeq->semantic3(sd->xeq->scope);
+                if (global.endGagging(errors))
+                    sd->xeq = sd->xerreq;
+            }
+
+            if (sd->xcmp &&
+                sd->xcmp->scope &&
+                sd->xcmp->semanticRun < PASSsemantic3done)
+            {
+                unsigned errors = global.startGagging();
+                sd->xcmp->semantic3(sd->xcmp->scope);
+                if (global.endGagging(errors))
+                    sd->xcmp = sd->xerrcmp;
+            }
+
+            FuncDeclaration *ftostr = search_toString(sd);
+            if (ftostr &&
+                ftostr->scope &&
+                ftostr->semanticRun < PASSsemantic3done)
+            {
+                ftostr->semantic3(ftostr->scope);
+            }
+
+            FuncDeclaration *ftohash = search_toHash(sd);
+            if (ftohash &&
+                ftohash->scope &&
+                ftohash->semanticRun < PASSsemantic3done)
+            {
+                ftohash->semantic3(ftohash->scope);
+            }
         }
     }
 }
@@ -164,8 +274,6 @@ unsigned AggregateDeclaration::size(Loc loc)
     //printf("AggregateDeclaration::size() %s, scope = %p\n", toChars(), scope);
     if (loc.linnum == 0)
         loc = this->loc;
-    if (!members)
-        error(loc, "unknown size");
     if (sizeok != SIZEOKdone && scope)
         semantic(NULL);
 
@@ -209,8 +317,13 @@ unsigned AggregateDeclaration::size(Loc loc)
       L1: ;
     }
 
-    if (sizeok != SIZEOKdone)
-    {   error(loc, "no size yet for forward reference");
+    if (!members)
+    {
+        error(loc, "unknown size");
+    }
+    else if (sizeok != SIZEOKdone)
+    {
+        error(loc, "no size yet for forward reference");
         //*(char*)0=0;
     }
     return structsize;
@@ -226,7 +339,7 @@ bool AggregateDeclaration::isDeprecated()
     return isdeprecated;
 }
 
-int AggregateDeclaration::isExport()
+bool AggregateDeclaration::isExport()
 {
     return protection == PROTexport;
 }
@@ -244,11 +357,11 @@ void AggregateDeclaration::alignmember(
     //printf("alignment = %d, size = %d, offset = %d\n",alignment,size,offset);
     switch (alignment)
     {
-        case 1:
+        case (structalign_t) 1:
             // No alignment
             break;
 
-        case STRUCTALIGN_DEFAULT:
+        case (structalign_t) STRUCTALIGN_DEFAULT:
         {   /* Must match what the corresponding C compiler's default
              * alignment behavior is.
              */
@@ -427,6 +540,25 @@ int AggregateDeclaration::numFieldsInUnion(int firstIndex)
     return count;
 }
 
+/*******************************************
+ * Look for constructor declaration.
+ */
+void AggregateDeclaration::searchCtor()
+{
+    ctor = search(Loc(), Id::ctor, 0);
+    if (ctor)
+    {
+        if (!(ctor->isCtorDeclaration() ||
+              ctor->isTemplateDeclaration() ||
+              ctor->isOverloadSet()))
+        {
+            error("%s %s is not a constructor; identifiers starting with __ are reserved for the implementation", ctor->kind(), ctor->toChars());
+            errors = true;
+            ctor = NULL;
+        }
+    }
+}
+
 /********************************* StructDeclaration ****************************/
 
 StructDeclaration::StructDeclaration(Loc loc, Identifier *id)
@@ -440,6 +572,7 @@ StructDeclaration::StructDeclaration(Loc loc, Identifier *id)
     postblit = NULL;
 
     xeq = NULL;
+    xcmp = NULL;
     alignment = 0;
 #endif
     arg1type = NULL;
@@ -500,14 +633,13 @@ void StructDeclaration::semantic(Scope *sc)
 
     Scope *scx = NULL;
     if (scope)
-    {   sc = scope;
+    {
+        sc = scope;
         scx = scope;            // save so we don't make redundant copies
         scope = NULL;
     }
-
-    int errors = global.errors;
-
     unsigned dprogress_save = Module::dprogress;
+    int errors = global.errors;
 
     parent = sc->parent;
     type = type->semantic(loc, sc);
@@ -547,15 +679,10 @@ void StructDeclaration::semantic(Scope *sc)
      * resolve individual members like enums.
      */
     for (size_t i = 0; i < members->dim; i++)
-    {   Dsymbol *s = (*members)[i];
-        /* There are problems doing this in the general case because
-         * Scope keeps track of things like 'offset'
-         */
-        //if (s->isEnumDeclaration() || (s->isAggregateDeclaration() && s->ident))
-        {
-            //printf("struct: setScope %s %s\n", s->kind(), s->toChars());
-            s->setScope(sc2);
-        }
+    {
+        Dsymbol *s = (*members)[i];
+        //printf("struct: setScope %s %s\n", s->kind(), s->toChars());
+        s->setScope(sc2);
     }
 
     for (size_t i = 0; i < members->dim; i++)
@@ -572,14 +699,10 @@ void StructDeclaration::semantic(Scope *sc)
             if (sizeok == SIZEOKnone && s->isAliasDeclaration())
                 finalizeSize(sc2);
         }
+
         // Ungag errors when not speculative
-        unsigned oldgag = global.gag;
-        if (global.isSpeculativeGagging() && !isSpeculative())
-        {
-            global.gag = 0;
-        }
+        Ungag ungag = ungagSpeculative();
         s->semantic(sc2);
-        global.gag = oldgag;
     }
     finalizeSize(sc2);
 
@@ -704,6 +827,19 @@ void StructDeclaration::semantic(Scope *sc)
 
     buildOpAssign(sc2);
     buildOpEquals(sc2);
+
+    xeq = buildXopEquals(sc2);
+    xcmp = buildXopCmp(sc2);
+
+    /* Even if the struct is merely imported and its semantic3 is not run,
+     * the TypeInfo object would be speculatively stored in each object
+     * files. To set correct function pointer, run semantic3 for xeq and xcmp.
+     */
+    //if ((xeq && xeq != xerreq || xcmp && xcmp != xerrcmp) && isImportedSym(this))
+    //    Module::addDeferredSemantic3(this);
+    /* Defer requesting semantic3 until TypeInfo generation is actually invoked.
+     * See Type::getTypeInfo().
+     */
 #endif
     inv = buildInv(sc2);
 
@@ -711,9 +847,7 @@ void StructDeclaration::semantic(Scope *sc)
 
     /* Look for special member functions.
      */
-#if DMDV2
-    ctor = search(Loc(), Id::ctor, 0);
-#endif
+    searchCtor();
     aggNew =       (NewDeclaration *)search(Loc(), Id::classNew,       0);
     aggDelete = (DeleteDeclaration *)search(Loc(), Id::classDelete,    0);
 
@@ -735,6 +869,7 @@ void StructDeclaration::semantic(Scope *sc)
     if (global.errors != errors)
     {   // The type is no good.
         type = Type::terror;
+        this->errors = true;
     }
 
     if (deferred && !global.gag)
@@ -743,14 +878,12 @@ void StructDeclaration::semantic(Scope *sc)
         deferred->semantic3(sc);
     }
 
-#if 0
     if (type->ty == Tstruct && ((TypeStruct *)type)->sym != this)
     {
-        printf("this = %p %s\n", this, this->toChars());
-        printf("type = %d sym = %p\n", type->ty, ((TypeStruct *)type)->sym);
+        error("failed semantic analysis");
+        this->errors = true;
+        type = Type::terror;
     }
-#endif
-    assert(type->ty != Tstruct || ((TypeStruct *)type)->sym == this);
 }
 
 Dsymbol *StructDeclaration::search(Loc loc, Identifier *ident, int flags)
@@ -830,13 +963,10 @@ bool StructDeclaration::isPOD()
         assert(v && v->isField());
         if (v->storage_class & STCref)
             continue;
-        Type *tv = v->type->toBasetype();
-        while (tv->ty == Tsarray)
-        {   TypeSArray *ta = (TypeSArray *)tv;
-            tv = tv->nextOf()->toBasetype();
-        }
+        Type *tv = v->type->baseElemOf();
         if (tv->ty == Tstruct)
-        {   TypeStruct *ts = (TypeStruct *)tv;
+        {
+            TypeStruct *ts = (TypeStruct *)tv;
             StructDeclaration *sd = ts->sym;
             if (!sd->isPOD())
                 return false;

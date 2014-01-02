@@ -634,6 +634,12 @@ function(add_tests module_files)
         elseif(${LDC_LLVM_VER} LESS 303 AND
             "${testroot}" STREQUAL "phobos_std_range")
             testcase(release "-O1;-release")
+        # Building the rt.util.container tests triggers a bug in the
+        # jump threading pass on every LLVM release before 3.4.
+        # See PR17621.
+        elseif(${LDC_LLVM_VER} LESS 304 AND
+            "${testroot}" STREQUAL "druntime_src_rt_util_container")
+            testcase(release "-O1;-release")
         else()
             testcase(release "-O3;-release")
         endif()

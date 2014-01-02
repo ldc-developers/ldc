@@ -34,6 +34,8 @@
 #include "llvm/Attributes.h"
 #endif
 
+#include <algorithm>
+
 #if LDC_LLVM_VER < 302
 using namespace llvm::Attribute;
 #endif
@@ -41,7 +43,11 @@ using namespace llvm::Attribute;
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
 static llvm::cl::opt<bool> noruntime("noruntime",
-    llvm::cl::desc("Do not allow code that generates implicit runtime calls"),
+    llvm::cl::desc("Deprecated. Please use -nogc instead."),
+    llvm::cl::ZeroOrMore);
+
+static llvm::cl::opt<bool> nogc("nogc",
+    llvm::cl::desc("Do not allow code that generates implicit garbage collector calls"),
     llvm::cl::ZeroOrMore);
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -52,13 +58,65 @@ static void LLVM_D_BuildRuntimeModule();
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
+static void checkForImplicitGCCall(const char *name)
+{
+    if (nogc)
+    {
+        static const std::string GCNAMES[] =
+        {
+            "_aaDelX",
+            "_aaGetX",
+            "_aaKeys",
+            "_aaRehash",
+            "_aaValues",
+            "_adDupT",
+            "_d_allocmemory",
+            "_d_allocmemoryT",
+            "_d_array_cast_len",
+            "_d_array_slice_copy",
+            "_d_arrayappendT",
+            "_d_arrayappendcTX",
+            "_d_arrayappendcd",
+            "_d_arrayappendwd",
+            "_d_arraycatT",
+            "_d_arraycatnT",
+            "_d_arraysetlengthT",
+            "_d_arraysetlengthiT",
+            "_d_assocarrayliteralTX",
+            "_d_callfinalizer",
+            "_d_delarray_t",
+            "_d_delclass",
+            "_d_delinterface",
+            "_d_delmemory",
+            "_d_newarrayT",
+            "_d_newarrayiT",
+            "_d_newarraymT",
+            "_d_newarraymiT",
+            "_d_newarrayvT",
+            "_d_newclass",
+        };
+
+        if (binary_search(&GCNAMES[0], &GCNAMES[sizeof(GCNAMES) / sizeof(std::string)], name))
+        {
+            error("No implicit garbage collector calls allowed with -nogc option enabled: %s", name);
+            fatal();
+        }
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
 bool LLVM_D_InitRuntime()
 {
     Logger::println("*** Initializing D runtime declarations ***");
     LOG_SCOPE;
 
     if (!M)
+    {
+        if (noruntime)
+            deprecation(Loc(), "-noruntime has no function and will be removed in 0.14.0. Please use -nogc instead.");
         LLVM_D_BuildRuntimeModule();
+    }
 
     return true;
 }
@@ -76,10 +134,7 @@ void LLVM_D_FreeRuntime()
 
 llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name)
 {
-    if (noruntime) {
-        error("No implicit runtime calls allowed with -noruntime option enabled");
-        fatal();
-    }
+    checkForImplicitGCCall(name);
 
     if (!M) {
         LLVM_D_InitRuntime();
@@ -108,10 +163,7 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
         return gv;
     }
 
-    if (noruntime) {
-        error("No implicit runtime calls allowed with -noruntime option enabled");
-        fatal();
-    }
+    checkForImplicitGCCall(name);
 
     if (!M) {
         LLVM_D_InitRuntime();
@@ -201,14 +253,14 @@ static void LLVM_D_BuildRuntimeModule()
 
     ensureDecl(ClassDeclaration::object, "Object");
     LLType* objectTy = DtoType(ClassDeclaration::object->type);
-    ensureDecl(ClassDeclaration::classinfo, "ClassInfo");
-    LLType* classInfoTy = DtoType(ClassDeclaration::classinfo->type);
-    ensureDecl(Type::typeinfo, "TypeInfo");
-    LLType* typeInfoTy = DtoType(Type::typeinfo->type);
+    ensureDecl(Type::typeinfoclass, "TypeInfo_Class");
+    LLType* classInfoTy = DtoType(Type::typeinfoclass->type);
+    ensureDecl(Type::dtypeinfo, "DTypeInfo");
+    LLType* typeInfoTy = DtoType(Type::dtypeinfo->type);
     ensureDecl(Type::typeinfoassociativearray, "TypeInfo_AssociativeArray");
     LLType* aaTypeInfoTy = DtoType(Type::typeinfoassociativearray->type);
     ensureDecl(Module::moduleinfo, "ModuleInfo");
-    LLType* moduleInfoPtr = getPtrToType(DtoType(Module::moduleinfo->type));
+    LLType* moduleInfoPtrTy = getPtrToType(DtoType(Module::moduleinfo->type));
 
     LLType* aaTy = rt_ptr(LLStructType::get(gIR->context()));
 
@@ -324,7 +376,7 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::StringRef fname("_d_array_bounds");
         llvm::StringRef fname2("_d_switch_error");
         LLType *types[] = {
-            moduleInfoPtr,
+            moduleInfoPtrTy,
             intTy
         };
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
@@ -332,11 +384,11 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
-    // void _d_assert_msg( char[] msg, char[] file, uint line )
+    // void _d_assert_msg(string msg, string file, uint line)
     {
         llvm::StringRef fname("_d_assert_msg");
         LLType *types[] = { stringTy, stringTy, intTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
+        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
@@ -795,7 +847,7 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_1_NoCapture);
     }
 
-    // int _aaEqual(TypeInfo_AssociativeArray ti, AA e1, AA e2)
+    // int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
     {
         llvm::StringRef fname("_aaEqual");
         LLType *types[] = { typeInfoTy, aaTy, aaTy };
@@ -953,10 +1005,30 @@ static void LLVM_D_BuildRuntimeModule()
         fn->setCallingConv(gABI->callingConv(LINKd));
     }
 
-    // void _d_hidden_func()
+    // void _d_hidden_func(Object o)
     {
         llvm::StringRef fname("_d_hidden_func");
-        LLFunctionType* fty = llvm::FunctionType::get(voidTy, false);
+        LLType *types[] = { voidPtrTy };
+        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // void _d_dso_registry(CompilerDSOData* data)
+    if (global.params.isLinux) {
+        llvm::StringRef fname("_d_dso_registry");
+
+        llvm::StructType* dsoDataTy = llvm::StructType::get(
+            sizeTy, // version
+            getPtrToType(voidPtrTy), // slot
+            getPtrToType(moduleInfoPtrTy), // _minfo_beg
+            getPtrToType(moduleInfoPtrTy), // _minfo_end
+            NULL
+        );
+
+        llvm::Type* params[] = {
+            getPtrToType(dsoDataTy)
+        };
+        llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, params, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 }

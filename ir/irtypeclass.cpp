@@ -189,7 +189,7 @@ void IrTypeClass::addBaseClassData(
 
         ArrayIter<BaseClass> it2(*base->vtblInterfaces);
 
-        VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
+        VarDeclarationIter interfaces_idx(Type::typeinfoclass->fields, 3);
         Type* first = interfaces_idx->type->nextOf()->pointerTo();
 
         // align offset
@@ -285,7 +285,16 @@ IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
     // VTBL
 
     // set vtbl type body
-    t->vtbl_type->setBody(t->buildVtblType(ClassDeclaration::classinfo->type, &cd->vtbl));
+    FuncDeclarations vtbl;
+    vtbl.reserve(cd->vtbl.dim);
+    vtbl.push(0);
+    for (size_t i = 1; i < cd->vtbl.dim; ++i)
+    {
+        FuncDeclaration *fd = cd->vtbl[i]->isFuncDeclaration();
+        assert(fd);
+        vtbl.push(fd);
+    }
+    t->vtbl_type->setBody(t->buildVtblType(Type::typeinfoclass->type, &vtbl));
 
     IF_LOG Logger::cout() << "class type: " << *t->type << std::endl;
 
@@ -294,7 +303,7 @@ IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
 
 //////////////////////////////////////////////////////////////////////////////
 
-std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, Array* vtbl_array)
+std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, FuncDeclarations* vtbl_array)
 {
     IF_LOG Logger::println("Building vtbl type for class %s", cd->toPrettyChars());
     LOG_SCOPE;
@@ -306,13 +315,13 @@ std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, Array* vtbl_arr
     types.push_back(DtoType(first));
 
     // then come the functions
-    ArrayIter<Dsymbol> it(*vtbl_array);
+    ArrayIter<FuncDeclaration> it(*vtbl_array);
     it.index = 1;
 
     for (; !it.done(); it.next())
     {
-        Dsymbol* dsym = it.get();
-        if (dsym == NULL)
+        FuncDeclaration* fd = it.get();
+        if (fd == NULL)
         {
             // FIXME
             // why is this null?
@@ -320,9 +329,6 @@ std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, Array* vtbl_arr
             types.push_back(getVoidPtrType());
             continue;
         }
-
-        FuncDeclaration* fd = dsym->isFuncDeclaration();
-        assert(fd && "invalid vtbl entry");
 
         IF_LOG Logger::println("Adding type of %s", fd->toPrettyChars());
 

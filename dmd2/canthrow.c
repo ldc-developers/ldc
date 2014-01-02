@@ -56,14 +56,15 @@ int lambdaCanThrow(Expression *e, void *param)
     switch (e->op)
     {
         case TOKdeclaration:
-        {   DeclarationExp *de = (DeclarationExp *)e;
+        {
+            DeclarationExp *de = (DeclarationExp *)e;
             pct->can = Dsymbol_canThrow(de->declaration, pct->mustnot);
             break;
         }
 
         case TOKcall:
-        {   CallExp *ce = (CallExp *)e;
-
+        {
+            CallExp *ce = (CallExp *)e;
             if (global.errors && !ce->e1->type)
                 break;                       // error recovery
 
@@ -79,14 +80,15 @@ int lambdaCanThrow(Expression *e, void *param)
             else
             {
                 if (pct->mustnot)
-                    e->error("%s is not nothrow", ce->e1->toChars());
+                    e->error("'%s' is not nothrow", ce->f ? ce->f->toPrettyChars() : ce->e1->toChars());
                 pct->can = TRUE;
             }
             break;
         }
 
         case TOKnew:
-        {   NewExp *ne = (NewExp *)e;
+        {
+            NewExp *ne = (NewExp *)e;
             if (ne->member)
             {
                 // See if constructor call can throw
@@ -99,6 +101,33 @@ int lambdaCanThrow(Expression *e, void *param)
                 }
             }
             // regard storage allocation failures as not recoverable
+            break;
+        }
+
+        case TOKassign:
+        case TOKconstruct:
+        {
+            /* Element-wise assignment could invoke postblits.
+             */
+            AssignExp *ae = (AssignExp *)e;
+            if (ae->e1->op != TOKslice)
+                break;
+
+            Type *tv = ae->e1->type->toBasetype()->nextOf()->baseElemOf();
+            if (tv->ty != Tstruct)
+                break;
+            StructDeclaration *sd = ((TypeStruct *)tv)->sym;
+            if (!sd->postblit || sd->postblit->type->ty != Tfunction)
+                break;
+
+            if (((TypeFunction *)sd->postblit->type)->isnothrow)
+                ;
+            else
+            {
+                if (pct->mustnot)
+                    e->error("'%s' is not nothrow", sd->postblit->toPrettyChars());
+                pct->can = TRUE;
+            }
             break;
         }
 
@@ -175,7 +204,7 @@ int Dsymbol_canThrow(Dsymbol *s, bool mustNotThrow)
     else if ((td = s->isTupleDeclaration()) != NULL)
     {
         for (size_t i = 0; i < td->objects->dim; i++)
-        {   Object *o = (*td->objects)[i];
+        {   RootObject *o = (*td->objects)[i];
             if (o->dyncast() == DYNCAST_EXPRESSION)
             {   Expression *eo = (Expression *)o;
                 if (eo->op == TOKdsymbol)

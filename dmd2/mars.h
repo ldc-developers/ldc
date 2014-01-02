@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2012 by Digital Mars
+// Copyright (c) 1999-2013 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -94,10 +94,6 @@ void unittests();
 # endif
 #endif
 
-#ifdef IN_GCC
-/* Changes for the GDC compiler by David Friedman */
-#endif
-
 #define DMDV1   0
 #define DMDV2   1       // Version 2.0 features
 #define SNAN_DEFAULT_INIT DMDV2 // if floats are default initialized to signalling NaN
@@ -137,9 +133,9 @@ void unittests();
 struct OutBuffer;
 
 // Can't include arraytypes.h here, need to declare these directly.
-template <typename TYPE> struct ArrayBase;
-typedef ArrayBase<struct Identifier> Identifiers;
-typedef ArrayBase<char> Strings;
+template <typename TYPE> struct Array;
+typedef Array<class Identifier> Identifiers;
+typedef Array<char> Strings;
 
 #if IN_LLVM
 enum OUTPUTFLAG
@@ -164,6 +160,7 @@ struct Param
     ubyte symdebug;     // insert debug symbolic information
     bool trace;         // insert profiling hooks
     bool is64bit;       // generate 64 bit code
+    bool isLP64;        // generate code for LP64
     bool isLinux;       // generate code for linux
     bool isOSX;         // generate code for Mac OSX
     bool isWindows;     // generate code for Windows
@@ -185,6 +182,7 @@ struct Param
     bool optimize;      // run optimizer
     char map;           // generate linker .map file
     char is64bit;       // generate 64 bit code
+    char isLP64;        // generate code for LP64
     char isLinux;       // generate code for linux
     char isOSX;         // generate code for Mac OSX
     char isWindows;     // generate code for Windows
@@ -220,16 +218,17 @@ struct Param
     bool ignoreUnsupportedPragmas;      // rather than error on them
     bool enforcePropertySyntax;
     bool addMain; // LDC_FIXME: Implement.
+    bool allInst; // LDC_FIXME: Implement.
 #else
     bool pic;           // generate position-independent-code for shared libs
     bool cov;           // generate code coverage data
     unsigned char covPercent;   // 0..100 code coverage percentage required
     bool nofloat;       // code should not pull in floating point support
-    char Dversion;      // D version number
     char ignoreUnsupportedPragmas;      // rather than error on them
     char enforcePropertySyntax;
     char betterC;       // be a "better C" compiler; no dependency on D runtime
     bool addMain;       // add a default main() function
+    bool allInst;       // generate code for all template instantiations
 #endif
 
     char *argv0;        // program name
@@ -255,8 +254,6 @@ struct Param
 
     unsigned versionlevel;      // version level
     Strings *versionids;   // version identifiers
-
-    bool dump_source;
 
     Strings *defaultlibnames;	// default libraries for non-debug builds
     Strings *debuglibnames;	// default libraries for debug builds
@@ -322,6 +319,14 @@ typedef unsigned structalign_t;
 #define STRUCTALIGN_DEFAULT ~0  // magic value means "match whatever the underlying C compiler does"
 // other values are all powers of 2
 
+struct Ungag
+{
+    unsigned oldgag;
+
+    Ungag(unsigned old) : oldgag(old) {}
+    ~Ungag();
+};
+
 struct Global
 {
     const char *mars_ext;
@@ -358,6 +363,7 @@ struct Global
     Param params;
     unsigned errors;       // number of errors reported so far
     unsigned warnings;     // number of warnings reported so far
+    FILE *stdmsg;          // where to send verbose messages
     unsigned gag;          // !=0 means gag reporting of errors & warnings
     unsigned gaggedErrors; // number of errors reported while gagged
 
@@ -375,6 +381,12 @@ struct Global
      */
     bool endGagging(unsigned oldGagged);
 
+    /*  Increment the error count to record that an error
+     *  has occured in the current context. An error message
+     *  may or may not have been printed.
+     */
+    void increaseErrorCount();
+
     void init();
 };
 
@@ -391,12 +403,7 @@ extern Global global;
  #include  <complex.h>
  typedef _Complex long double complex_t;
 #else
- #ifndef IN_GCC
-  #include "complex_t.h"
- #endif
- #ifdef __APPLE__
-  //#include "complex.h"//This causes problems with include the c++ <complex> and not the C "complex.h"
- #endif
+ #include "complex_t.h"
 #endif
 
 // Be careful not to care about sign when using dinteger_t
@@ -425,17 +432,10 @@ typedef d_uns8                  d_char;
 typedef d_uns16                 d_wchar;
 typedef d_uns32                 d_dchar;
 
-#ifdef IN_GCC
-#include "d-gcc-real.h"
-#else
 typedef longdouble real_t;
-#endif
 
-#ifdef IN_GCC
-#include "d-gcc-complex_t.h"
-#endif
 
-struct Module;
+class Module;
 
 //typedef unsigned Loc;         // file location
 struct Loc
@@ -456,7 +456,9 @@ struct Loc
 };
 
 #ifndef GCC_SAFE_DMD
+#undef TRUE
 #define TRUE    1
+#undef FALSE
 #define FALSE   0
 #endif
 
@@ -508,7 +510,9 @@ void warning(Loc loc, const char *format, ...);
 void deprecation(Loc loc, const char *format, ...);
 void error(Loc loc, const char *format, ...);
 void errorSupplemental(Loc loc, const char *format, ...);
+extern "C" {
 void verror(Loc loc, const char *format, va_list ap, const char *p1 = NULL, const char *p2 = NULL, const char *header = "Error: ");
+}
 void vwarning(Loc loc, const char *format, va_list);
 void verrorSupplemental(Loc loc, const char *format, va_list ap);
 void verrorPrint(Loc loc, const char *header, const char *format, va_list ap, const char *p1 = NULL, const char *p2 = NULL);
@@ -530,14 +534,11 @@ int runProgram();
 const char *inifile(const char *argv0, const char *inifile, const char* envsectionname);
 #endif
 void halt();
-#if !IN_LLVM
-void util_progress();
-#endif
 
 #if !IN_LLVM
-struct Dsymbol;
+class Dsymbol;
 class Library;
-struct File;
+class File;
 void obj_start(char *srcfile);
 void obj_end(Library *library, File *objfile);
 void obj_append(Dsymbol *s);
@@ -545,5 +546,7 @@ void obj_write_deferred(Library *library);
 #endif
 
 const char *importHint(const char *s);
+/// Little helper function for writting out deps.
+void escapePath(OutBuffer *buf, const char *fname);
 
 #endif /* DMD_MARS_H */

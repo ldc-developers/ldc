@@ -1870,7 +1870,7 @@ namespace AsmParserx8664
             Reg segmentPrefix;
             Reg reg;
             sinteger_t constDisplacement; // use to build up.. should be int constant in the end..
-            Array      symbolDisplacement; // array of expressions or..
+            Expressions symbolDisplacement; // array of expressions or..
             Reg baseReg;
             Reg indexReg;
             int scale;
@@ -3158,7 +3158,7 @@ namespace AsmParserx8664
                         llvm_unreachable("Unknown integer operation.");
                 }
                 e = e->semantic ( sc );
-                return e->optimize ( WANTvalue | WANTinterpret );
+                return e->ctfeInterpret();
             }
             else
             {
@@ -3626,7 +3626,7 @@ namespace AsmParserx8664
 
             // parse primary: DMD allows 'MyAlign' (const int) but not '2+2'
             // GAS is padding with NOPs last time I checked.
-            Expression * e = parseAsmExp()->optimize ( WANTvalue | WANTinterpret );
+            Expression * e = parseAsmExp()->ctfeInterpret();
             uinteger_t align = e->toUInteger();
 
             if ( ( align & ( align - 1 ) ) == 0 )

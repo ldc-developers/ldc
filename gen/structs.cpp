@@ -134,19 +134,18 @@ LLType* DtoUnpaddedStructType(Type* dty) {
         return it->second;
 
     TypeStruct* sty = static_cast<TypeStruct*>(dty);
-    Array& fields = sty->sym->fields;
+    VarDeclarations& fields = sty->sym->fields;
 
     std::vector<LLType*> types;
     types.reserve(fields.dim);
 
     for (unsigned i = 0; i < fields.dim; i++) {
-        VarDeclaration* vd = static_cast<VarDeclaration*>(fields.data[i]);
         LLType* fty;
-        if (vd->type->ty == Tstruct) {
+        if (fields[i]->type->ty == Tstruct) {
             // Nested structs are the only members that can contain padding
-            fty = DtoUnpaddedStructType(vd->type);
+            fty = DtoUnpaddedStructType(fields[i]->type);
         } else {
-            fty = DtoType(vd->type);
+            fty = DtoType(fields[i]->type);
         }
         types.push_back(fty);
     }
@@ -162,17 +161,16 @@ LLType* DtoUnpaddedStructType(Type* dty) {
 LLValue* DtoUnpaddedStruct(Type* dty, LLValue* v) {
     assert(dty->ty == Tstruct);
     TypeStruct* sty = static_cast<TypeStruct*>(dty);
-    Array& fields = sty->sym->fields;
+    VarDeclarations& fields = sty->sym->fields;
 
     LLValue* newval = llvm::UndefValue::get(DtoUnpaddedStructType(dty));
 
     for (unsigned i = 0; i < fields.dim; i++) {
-        VarDeclaration* vd = static_cast<VarDeclaration*>(fields.data[i]);
-        LLValue* fieldptr = DtoIndexStruct(v, sty->sym, vd);
+        LLValue* fieldptr = DtoIndexStruct(v, sty->sym, fields[i]);
         LLValue* fieldval;
-        if (vd->type->ty == Tstruct) {
+        if (fields[i]->type->ty == Tstruct) {
             // Nested structs are the only members that can contain padding
-            fieldval = DtoUnpaddedStruct(vd->type, fieldptr);
+            fieldval = DtoUnpaddedStruct(fields[i]->type, fieldptr);
         } else {
             fieldval = DtoLoad(fieldptr);
         }
@@ -185,15 +183,14 @@ LLValue* DtoUnpaddedStruct(Type* dty, LLValue* v) {
 void DtoPaddedStruct(Type* dty, LLValue* v, LLValue* lval) {
     assert(dty->ty == Tstruct);
     TypeStruct* sty = static_cast<TypeStruct*>(dty);
-    Array& fields = sty->sym->fields;
+    VarDeclarations& fields = sty->sym->fields;
 
     for (unsigned i = 0; i < fields.dim; i++) {
-        VarDeclaration* vd = static_cast<VarDeclaration*>(fields.data[i]);
-        LLValue* fieldptr = DtoIndexStruct(lval, sty->sym, vd);
+        LLValue* fieldptr = DtoIndexStruct(lval, sty->sym, fields[i]);
         LLValue* fieldval = DtoExtractValue(v, i);
-        if (vd->type->ty == Tstruct) {
+        if (fields[i]->type->ty == Tstruct) {
             // Nested structs are the only members that can contain padding
-            DtoPaddedStruct(vd->type, fieldval, fieldptr);
+            DtoPaddedStruct(fields[i]->type, fieldval, fieldptr);
         } else {
             DtoStore(fieldval, fieldptr);
         }

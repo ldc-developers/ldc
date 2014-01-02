@@ -12,8 +12,10 @@
 #include "mars.h"
 #include "module.h"
 #include "mtype.h"
+#include "parse.h"
 #include "rmem.h"
 #include "root.h"
+#include "scope.h"
 #include "dmd2/target.h"
 #include "driver/cl_options.h"
 #include "driver/configfile.h"
@@ -270,7 +272,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     if (global.params.verbose) {
         const std::string& path = cfg_file.path();
         if (!path.empty())
-            printf("config    %s\n", path.c_str());
+            fprintf(global.stdmsg, "config    %s\n", path.c_str());
     }
 
     // Negated options
@@ -354,7 +356,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
         if (!I->empty())
             sourceFiles.push(mem.strdup(I->c_str()));
 
-    Array* libs;
+    Strings* libs;
     if (global.params.symdebug)
     {
         libs = global.params.debuglibnames;
@@ -677,6 +679,46 @@ static void registerPredefinedVersions() {
 #undef STR
 }
 
+static Module *entrypoint = NULL;
+
+/// Callback to generate a C main() function, invoked by the frontend.
+void genCmain(Scope *sc)
+{
+    if (entrypoint)
+        return;
+
+    /* The D code to be generated is provided as D source code in the form of a string.
+     * Note that Solaris, for unknown reasons, requires both a main() and an _main()
+     */
+    static utf8_t code[] = "extern(C) {\n\
+        int _d_run_main(int argc, char **argv, void* mainFunc);\n\
+        int _Dmain(char[][] args);\n\
+        int main(int argc, char **argv) { return _d_run_main(argc, argv, &_Dmain); }\n\
+        version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }\n\
+        }\n\
+        ";
+
+    Identifier *id = Id::entrypoint;
+    Module *m = new Module("__entrypoint.d", id, 0, 0);
+
+    Parser p(m, code, sizeof(code) / sizeof(code[0]), 0);
+    p.scanloc = Loc();
+    p.nextToken();
+    m->members = p.parseModule();
+    assert(p.token.value == TOKeof);
+
+    char v = global.params.verbose;
+    global.params.verbose = 0;
+    m->importedFrom = sc->module;
+    m->importAll(NULL);
+    m->semantic();
+    m->semantic2();
+    m->semantic3();
+    global.params.verbose = v;
+
+    entrypoint = m;
+}
+
 int main(int argc, char **argv)
 {
     mem.init();                         // initialize storage allocator
@@ -742,6 +784,8 @@ int main(int argc, char **argv)
         global.params.isFreeBSD    = triple.getOS() == llvm::Triple::FreeBSD;
         global.params.isOpenBSD    = triple.getOS() == llvm::Triple::OpenBSD;
         global.params.isSolaris    = triple.getOS() == llvm::Triple::Solaris;
+        // FIXME: Correctly handle the x32 ABI (AMD64 ILP32) here.
+        global.params.isLP64       = triple.isArch64Bit();
         global.params.is64bit      = triple.isArch64Bit();
     }
 
@@ -918,7 +962,6 @@ int main(int argc, char **argv)
 
         id = Lexer::idPool(name);
         Module *m = new Module(static_cast<char *>(files.data[i]), id, global.params.doDocComments, global.params.doHdrGeneration);
-        m->isRoot = true;
         modules.push(m);
     }
 
@@ -927,7 +970,7 @@ int main(int argc, char **argv)
     {
         Module *m = modules[i];
         if (global.params.verbose)
-            printf("parse     %s\n", m->toChars());
+            fprintf(global.stdmsg, "parse     %s\n", m->toChars());
         if (!Module::rootModule)
             Module::rootModule = m;
         m->importedFrom = m;
@@ -968,7 +1011,7 @@ int main(int argc, char **argv)
         for (unsigned i = 0; i < modules.dim; i++)
         {
             if (global.params.verbose)
-                printf("import    %s\n", modules[i]->toChars());
+                fprintf(global.stdmsg, "import    %s\n", modules[i]->toChars());
             modules[i]->genhdrfile();
         }
     }
@@ -979,7 +1022,7 @@ int main(int argc, char **argv)
     for (unsigned i = 0; i < modules.dim; i++)
     {
        if (global.params.verbose)
-           printf("importall %s\n", modules[i]->toChars());
+           fprintf(global.stdmsg, "importall %s\n", modules[i]->toChars());
        modules[i]->importAll(0);
     }
     if (global.errors)
@@ -989,7 +1032,7 @@ int main(int argc, char **argv)
     for (unsigned i = 0; i < modules.dim; i++)
     {
         if (global.params.verbose)
-            printf("semantic  %s\n", modules[i]->toChars());
+            fprintf(global.stdmsg, "semantic  %s\n", modules[i]->toChars());
         modules[i]->semantic();
     }
     if (global.errors)
@@ -1002,7 +1045,7 @@ int main(int argc, char **argv)
     for (unsigned i = 0; i < modules.dim; i++)
     {
         if (global.params.verbose)
-            printf("semantic2 %s\n", modules[i]->toChars());
+            fprintf(global.stdmsg, "semantic2 %s\n", modules[i]->toChars());
         modules[i]->semantic2();
     }
     if (global.errors)
@@ -1012,7 +1055,7 @@ int main(int argc, char **argv)
     for (unsigned i = 0; i < modules.dim; i++)
     {
         if (global.params.verbose)
-            printf("semantic3 %s\n", modules[i]->toChars());
+            fprintf(global.stdmsg, "semantic3 %s\n", modules[i]->toChars());
         modules[i]->semantic3();
     }
     if (global.errors)
@@ -1046,7 +1089,7 @@ int main(int argc, char **argv)
             {
                 Module *m = Module::amodules[i];
                 if (global.params.verbose)
-                    printf("semantic3 %s\n", m->toChars());
+                    fprintf(global.stdmsg, "semantic3 %s\n", m->toChars());
                 m->semantic2();
                 m->semantic3();
             }
@@ -1055,6 +1098,9 @@ int main(int argc, char **argv)
         }
         global.inExtraInliningSemantic = false;
     }
+
+    Module::runDeferredSemantic3();
+
     if (global.errors || global.warnings)
         fatal();
 
@@ -1078,10 +1124,30 @@ int main(int argc, char **argv)
     {
         Module *m = modules[i];
         if (global.params.verbose)
-            printf("code      %s\n", m->toChars());
+            fprintf(global.stdmsg, "code      %s\n", m->toChars());
         if (global.params.obj)
         {
             llvm::Module* lm = m->genLLVMModule(context);
+            if (entrypoint && entrypoint->importedFrom == m)
+            {
+#if LDC_LLVM_VER >= 303
+                llvm::Linker linker(lm);
+#else
+                llvm::Linker linker("ldc", lm);
+#endif
+
+                llvm::Module* entryModule = entrypoint->genLLVMModule(context);
+                std::string linkError;
+
+#if LDC_LLVM_VER >= 303
+                const bool hadError = linker.linkInModule(entryModule, &linkError);
+#else
+                const bool hadError= linker.LinkInModule(entryModule, &linkError);
+                linker.releaseModule();
+#endif
+                if (hadError)
+                    error("%s", linkError.c_str());
+            }
             if (!singleObj)
             {
                 m->deleteObjFile();
@@ -1094,11 +1160,8 @@ int main(int argc, char **argv)
         }
         if (global.errors)
             m->deleteObjFile();
-        else
-        {
-            if (global.params.doDocComments)
+        else if (global.params.doDocComments)
             m->gendocfile();
-        }
     }
 
     // internal linking for singleobj
