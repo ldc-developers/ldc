@@ -36,8 +36,11 @@
 #include "llvm/Support/CFG.h"
 #include <iostream>
 
-#if LDC_LLVM_VER < 302
-using namespace llvm::Attribute;
+#if LDC_LLVM_VER == 302
+namespace llvm
+{
+    typedef llvm::Attributes Attribute;
+}
 #endif
 
 llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype, Type* nesttype, bool isMain, bool isCtor)
@@ -78,7 +81,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
 #if LDC_LLVM_VER >= 302
         llvm::AttrBuilder attrBuilder;
 #else
-        llvm::Attributes a = None;
+        llvm::Attributes a = llvm::Attribute::None;
 #endif
 
         // sret return
@@ -99,8 +102,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
 #endif
             );
 #else
-            newIrFty.arg_sret = new IrFuncTyArg(rt, true, StructRet | NoAlias
-            );
+            newIrFty.arg_sret = new IrFuncTyArg(rt, true,
+                                                llvm::Attribute::StructRet | llvm::Attribute::NoAlias);
 #endif
             rt = Type::tvoid;
             lidx++;
@@ -175,7 +178,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
                                                  llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
                                                                                                           .addAttribute(llvm::Attributes::NoCapture)));
 #else
-                newIrFty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false, NoAlias | NoCapture);
+                newIrFty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
+                                                      llvm::Attribute::NoAlias | llvm::Attribute::NoCapture);
 #endif
                 lidx++;
             }
@@ -210,7 +214,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
 #if LDC_LLVM_VER >= 302
         llvm::AttrBuilder attrBuilder;
 #else
-        llvm::Attributes a = None;
+        llvm::Attributes a = llvm::Attribute::None;
 #endif
 
         // handle lazy args
@@ -224,10 +228,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
         // byval
         else if (abi->passByVal(byref ? argtype->pointerTo() : argtype))
         {
-#if LDC_LLVM_VER >= 303
+#if LDC_LLVM_VER >= 302
             if (!byref) attrBuilder.addAttribute(llvm::Attribute::ByVal);
-#elif LDC_LLVM_VER == 302
-            if (!byref) attrBuilder.addAttribute(llvm::Attributes::ByVal);
 #else
             if (!byref) a |= llvm::Attribute::ByVal;
 #endif
@@ -368,13 +370,7 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 
     LLFunction* fun = gIR->module->getFunction(mangled_name);
     fun->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
-#if LDC_LLVM_VER >= 303
     fun->addFnAttr(llvm::Attribute::AlwaysInline);
-#elif LDC_LLVM_VER == 302
-    fun->addFnAttr(llvm::Attributes::AlwaysInline);
-#else
-    fun->addFnAttr(AlwaysInline);
-#endif
     return fun;
 }
 
@@ -634,7 +630,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
 #if LDC_LLVM_VER == 302
     LLSmallVector<llvm::Attributes, 8> attrptr(n, llvm::Attributes());
 #else
-    LLSmallVector<llvm::Attributes, 8> attrptr(n, None);
+    LLSmallVector<llvm::Attributes, 8> attrptr(n, llvm::Attribute::None);
 #endif
 
     for (size_t k = 0; k < n; ++k)
@@ -787,13 +783,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     if (!fdecl->isIntrinsic()) {
         set_param_attrs(f, func, fdecl);
         if (global.params.disableRedZone) {
-#if LDC_LLVM_VER >= 303
             func->addFnAttr(llvm::Attribute::NoRedZone);
-#elif LDC_LLVM_VER == 302
-            func->addFnAttr(llvm::Attributes::NoRedZone);
-#else
-            func->addFnAttr(NoRedZone);
-#endif
         }
     }
 
@@ -1023,13 +1013,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     // TODO: Find a better place for this.
     if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
     {
-#if LDC_LLVM_VER >= 303
         func->addFnAttr(llvm::Attribute::UWTable);
-#elif LDC_LLVM_VER == 302
-        func->addFnAttr(llvm::Attributes::UWTable);
-#else
-        func->addFnAttr(UWTable);
-#endif
     }
 
     std::string entryname("entry");
