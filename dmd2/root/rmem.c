@@ -11,7 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if linux || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
+#if __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
 #include "../root/rmem.h"
 #else
 #include "rmem.h"
