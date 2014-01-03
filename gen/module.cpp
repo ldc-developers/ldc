@@ -508,7 +508,11 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
     if (global.params.verbose_cg)
         printf("codegen: %s (%s)\n", toPrettyChars(), srcfile->toChars());
 
-    assert(!global.errors);
+    if (global.errors)
+    {
+        Logger::println("Aborting because of errors");
+        fatal();
+    }
 
     // name the module
 #if 1

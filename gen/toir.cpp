@@ -3549,8 +3549,13 @@ DValue* VectorExp::toElem(IRState* p)
 STUB(Expression)
 STUB(ScopeExp)
 STUB(SymbolExp)
-STUB(PowExp)
 STUB(PowAssignExp)
+
+DValue *PowExp::toElem(IRState * p)
+{
+    error("must import std.math to use ^^ operator");
+    return new DNullValue(type, llvm::UndefValue::get(DtoType(type)));
+}
 
 llvm::Constant* Expression::toConstElem(IRState * p)
 {
