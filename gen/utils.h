@@ -74,9 +74,9 @@ struct ArrayIter
 };
 
 // From dsymbol.h / declaration.h
-struct Dsymbol;
-struct FuncDeclaration;
-struct VarDeclaration;
+class Dsymbol;
+class FuncDeclaration;
+class VarDeclaration;
 
 // some aliases
 typedef ArrayIter<Dsymbol> DsymbolIter;
