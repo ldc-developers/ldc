@@ -127,51 +127,6 @@ struct IrFuncTy
         reverseParams(false)
     {}
 
-#if defined(_MSC_VER)
-    // Copy constructor and operator= seems to be required for MSC
-
-    IrFuncTy(const IrFuncTy& rhs)
-    :   funcType(rhs.funcType),
-        ret(rhs.ret),
-        args(IrFuncTy::ArgList(rhs.args)),
-        arg_sret(rhs.arg_sret),
-        arg_this(rhs.arg_this),
-        arg_nest(rhs.arg_nest),
-        arg_arguments(rhs.arg_arguments),
-        arg_argptr(rhs.arg_argptr),
-        c_vararg(rhs.c_vararg),
-        reverseParams(rhs.reverseParams)
-    {}
-
-    IrFuncTy& operator=(const IrFuncTy& rhs)
-    {
-        funcType = rhs.funcType;
-        ret = rhs.ret;
-        args = IrFuncTy::ArgList(rhs.args);
-        arg_sret = rhs.arg_sret;
-        arg_this = rhs.arg_this;
-        arg_nest = rhs.arg_nest;
-        arg_arguments = rhs.arg_arguments;
-        arg_argptr = rhs.arg_argptr;
-        c_vararg = rhs.c_vararg;
-        reverseParams = rhs.reverseParams;
-        return *this;
-    }
-#endif
-
-    void reset() {
-        funcType = 0;
-        ret = NULL;
-        arg_sret = arg_this = arg_nest = arg_arguments = arg_argptr = NULL;
-#if defined(_MSC_VER)
-        args = IrFuncTy::ArgList();
-#else
-        args.clear();
-#endif
-        c_vararg = false;
-        reverseParams = false;
-    }
-
     llvm::Value* putRet(Type* dty, DValue* dval);
     llvm::Value* getRet(Type* dty, DValue* dval);
 

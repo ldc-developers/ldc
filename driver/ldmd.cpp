@@ -1003,7 +1003,7 @@ int main(int argc, char *argv[])
     std::string ldcPath = locateBinary(LDC_EXE_NAME, argv[0]);
     if (ldcPath.empty())
     {
-        error("Could not locate "LDC_EXE_NAME" executable.");
+        error("Could not locate " LDC_EXE_NAME " executable.");
     }
 
     // We need to manually set up argv[0] and the terminating NULL.
