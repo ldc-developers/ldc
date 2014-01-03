@@ -256,14 +256,14 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
         lidx++;
     }
 
-    // Now we can modify irFty safely.
-    irFty = newIrFty;
-
     // let the abi rewrite the types as necesary
-    abi->rewriteFunctionType(f, irFty);
+    abi->rewriteFunctionType(f, newIrFty);
 
     // Tell the ABI we're done with this function type
     abi->doneWithFunctionType();
+
+    // Now we can modify irFty safely.
+    irFty = llvm_move(newIrFty);
 
     // build the function type
     std::vector<LLType*> argtypes;
