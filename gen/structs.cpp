@@ -10,6 +10,7 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "init.h"
+#include "module.h"
 #include "mtype.h"
 #include "gen/arrays.h"
 #include "gen/dvalue.h"
@@ -42,7 +43,10 @@ void DtoResolveStruct(StructDeclaration* sd)
 
     // if it's a forward declaration, all bets are off. The type should be enough
     if (sd->sizeok != SIZEOKdone)
-        return;
+    {
+        error("struct %s.%s unknown size", sd->getModule()->toChars(), sd->toChars());
+        fatal();
+    }
 
     // create the IrAggr
     IrAggr* iraggr = new IrAggr(sd);
