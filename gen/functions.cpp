@@ -377,25 +377,23 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 static llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 {
     IrFuncTy &irFty = fdecl->irFty;
-    LLFunctionType* type = 0;
+    if (irFty.funcType) return irFty.funcType;
 
-    // create new ir funcTy
-    irFty.reset();
     irFty.ret = new IrFuncTyArg(Type::tvoid, false);
 
     irFty.args.push_back(new IrFuncTyArg(Type::tvoid->pointerTo(), false));
 
     if (fdecl->llvmInternal == LLVMva_start)
-        type = GET_INTRINSIC_DECL(vastart)->getFunctionType();
+        irFty.funcType = GET_INTRINSIC_DECL(vastart)->getFunctionType();
     else if (fdecl->llvmInternal == LLVMva_copy) {
-        type = GET_INTRINSIC_DECL(vacopy)->getFunctionType();
+        irFty.funcType = GET_INTRINSIC_DECL(vacopy)->getFunctionType();
         irFty.args.push_back(new IrFuncTyArg(Type::tvoid->pointerTo(), false));
     }
     else if (fdecl->llvmInternal == LLVMva_end)
-        type = GET_INTRINSIC_DECL(vaend)->getFunctionType();
-    assert(type);
+        irFty.funcType = GET_INTRINSIC_DECL(vaend)->getFunctionType();
+    assert(irFty.funcType);
 
-    return type;
+    return irFty.funcType;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

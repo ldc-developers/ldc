@@ -159,19 +159,6 @@ struct IrFuncTy
     }
 #endif
 
-    void reset() {
-        funcType = 0;
-        ret = NULL;
-        arg_sret = arg_this = arg_nest = arg_arguments = arg_argptr = NULL;
-#if defined(_MSC_VER)
-        args = IrFuncTy::ArgList();
-#else
-        args.clear();
-#endif
-        c_vararg = false;
-        reverseParams = false;
-    }
-
     llvm::Value* putRet(Type* dty, DValue* dval);
     llvm::Value* getRet(Type* dty, DValue* dval);
 
