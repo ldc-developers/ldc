@@ -32,4 +32,8 @@
 #define HAS_ATTRIBUTES(x) (x)
 #endif
 
+#if LDC_LLVM_VER < 302
+#define llvm_move(value) (value)
+#endif
+
 #endif
