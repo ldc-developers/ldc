@@ -654,6 +654,14 @@ Expression *ArrayInitializer::toExpression(Type *tx)
                edim = ((TypeSArray *)t)->dim->toInteger();
                break;
 
+#if IN_LLVM
+// Backport from DMD 2.065
+           case Tvector:
+               t = ((TypeVector *)t)->basetype;
+               edim = (size_t)((TypeSArray *)t)->dim->toInteger();
+               break;
+#endif
+
            case Tpointer:
            case Tarray:
                edim = dim;
