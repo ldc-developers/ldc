@@ -260,8 +260,6 @@ if(MSVC)
     )
     endif()
 endif()
-# disable dmd gc
-list(REMOVE_ITEM FE_SRC ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/dmgcmem.c)
 set(LDC_SOURCE_FILES
     ${LDC_GENERATED}
     ${FE_SRC}
