@@ -666,27 +666,61 @@ static PortInitializer portinitializer;
 
 PortInitializer::PortInitializer()
 {
+#if IN_LLVM
+    union
+    {   unsigned int ui[2];
+        double d;
+    } nan =
+#if __LITTLE_ENDIAN__
+    {{ 0, 0x7FF80000 }};
+#else
+    {{ 0x7FF80000, 0 }};
+#endif
+#else
     union
     {   unsigned int ui[2];
         double d;
     } nan = {{ 0, 0x7FF80000 }};
-
+#endif
     Port::nan = nan.d;
     assert(!signbit(Port::nan));
 
+#if IN_LLVM
+    union
+    {   unsigned int ui[4];
+        longdouble ld;
+    } ldbl_nan =
+#if __LITTLE_ENDIAN__
+    {{ 0, 0xC0000000, 0x7FFF, 0}};
+#else
+    {{ 0, 0x7FFF, 0xC0000000, 0}};
+#endif
+#else
     union
     {   unsigned int ui[4];
         longdouble ld;
     } ldbl_nan = {{ 0, 0xC0000000, 0x7FFF, 0}};
+#endif
 
     Port::ldbl_nan = ldbl_nan.ld;
     assert(!signbit(Port::ldbl_nan));
 
+#if IN_LLVM
+    union
+    {   unsigned int ui[4];
+        longdouble     ld;
+    } snan =
+#if __LITTLE_ENDIAN__
+    {{ 0, 0xA0000000, 0x7FFF, 0 }};
+#else
+    {{ 0, 0x7FFF, 0xA0000000, 0 }};
+#endif
+#else
     union
     {   unsigned int ui[4];
         longdouble     ld;
     } snan = {{ 0, 0xA0000000, 0x7FFF, 0 }};
-
+#endif
     Port::snan = snan.ld;
 
 #if __FreeBSD__ && __i386__
