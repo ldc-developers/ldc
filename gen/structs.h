@@ -33,8 +33,13 @@ namespace llvm
  * Sets up codegen metadata and emits global data (.init, etc.), if needed.
  *
  * Has no effect on already resolved struct declarations.
+ *
+ * callerLoc is the location of the expression which requires the struct type
+ * (only for better diagnosis)
  */
 void DtoResolveStruct(StructDeclaration* sd);
+void DtoResolveStruct(StructDeclaration* sd, Loc& callerLoc);
+
 
 /// Returns a boolean=true if the two structs are equal.
 llvm::Value* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs);

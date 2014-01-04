@@ -2142,7 +2142,7 @@ DValue* NewExp::toElem(IRState* p)
         }
         else {
             assert(ts->sym);
-            DtoResolveStruct(ts->sym);
+            DtoResolveStruct(ts->sym, loc);
             DtoAggrCopy(mem, ts->sym->ir.irAggr->getInitSymbol());
         }
         if (ts->sym->isNested() && ts->sym->vthis)
