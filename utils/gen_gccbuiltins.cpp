@@ -55,6 +55,18 @@ string dtype(Record* rec)
         type = type.substr(i);
     }
 
+    if(vec.size() > 0 && type.size() > 0)
+    {
+        int typeSize, vecElements;
+        if(
+            sscanf(vec.c_str(), "%d", &vecElements) == 1 &&
+            sscanf(type.c_str() + 1, "%d", &typeSize) == 1 &&
+            typeSize * vecElements > 256)
+        {
+            return "";
+        }
+    }
+
     if(type == "i8")
         return "byte" + vec;
     else if(type == "i16")
