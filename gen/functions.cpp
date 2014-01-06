@@ -28,6 +28,7 @@
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "llvm/Linker.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Intrinsics.h"
 #else
@@ -353,7 +354,15 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
     stream << ")\n{\n" << code <<  "\n}";
 
     llvm::SMDiagnostic err;
-    llvm::ParseAssemblyString(stream.str().c_str(), gIR->module, err, gIR->context());
+
+#if LDC_LLVM_VER >= 303 
+    llvm::Module* m = llvm::ParseAssemblyString(
+        stream.str().c_str(), NULL, err, gIR->context());
+#else
+    llvm::ParseAssemblyString(
+        stream.str().c_str(), gIR->module, err, gIR->context());
+#endif
+
     std::string errstr = err.getMessage();
     if(errstr != "")
         error(tinst->loc,
@@ -365,6 +374,14 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 #endif
             (std::string(err.getColumnNo(), ' ') + '^').c_str(),
             errstr.c_str(), stream.str().c_str());
+
+#if LDC_LLVM_VER >= 303 
+    std::string errstr2 = "";
+    llvm::Linker(gIR->module).linkInModule(m, &errstr2);
+    if(errstr2 != "")
+        error(tinst->loc,
+            "Error when linking in llvm inline ir: %s", errstr2.c_str());
+#endif
 
     LLFunction* fun = gIR->module->getFunction(mangled_name);
     fun->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
