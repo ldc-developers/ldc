@@ -686,42 +686,71 @@ PortInitializer::PortInitializer()
     assert(!signbit(Port::nan));
 
 #if IN_LLVM
-    union
-    {   unsigned int ui[4];
-        longdouble ld;
-    } ldbl_nan =
+    if (sizeof(double) == sizeof(longdouble))
+    {
+        // double and longdouble are same type.
+        // E.g. on ARM.
+        Port::ldbl_nan = Port::nan;
+    }
+    else
+    {
+        union
+        {   unsigned int ui[4];
+            longdouble ld;
+        } ldbl_nan =
 #if __LITTLE_ENDIAN__
-    {{ 0, 0xC0000000, 0x7FFF, 0}};
+        {{ 0, 0xC0000000, 0x7FFF, 0}};
 #else
-    {{ 0, 0x7FFF, 0xC0000000, 0}};
+        {{ 0, 0x7FFF, 0xC0000000, 0}};
 #endif
+        Port::ldbl_nan = ldbl_nan.ld;
+    }
 #else
     union
     {   unsigned int ui[4];
         longdouble ld;
     } ldbl_nan = {{ 0, 0xC0000000, 0x7FFF, 0}};
+    Port::ldbl_nan = ldbl_nan.ld;
 #endif
 
-    Port::ldbl_nan = ldbl_nan.ld;
     assert(!signbit(Port::ldbl_nan));
 
 #if IN_LLVM
-    union
-    {   unsigned int ui[4];
-        longdouble     ld;
-    } snan =
+    if (sizeof(double) == sizeof(longdouble))
+    {
+        // double and longdouble are same type.
+        // E.g. on ARM.
+        union
+        {   unsigned int ui[2];
+            double d;
+        } snan =
 #if __LITTLE_ENDIAN__
-    {{ 0, 0xA0000000, 0x7FFF, 0 }};
+        {{ 0, 0x7FFC0000 }};
 #else
-    {{ 0, 0x7FFF, 0xA0000000, 0 }};
+        {{ 0x7FFC0000, 0 }};
 #endif
+        Port::snan = snan.d;
+    }
+    else
+    {
+        union
+        {   unsigned int ui[4];
+            longdouble     ld;
+        } snan =
+    #if __LITTLE_ENDIAN__
+        {{ 0, 0xA0000000, 0x7FFF, 0 }};
+    #else
+        {{ 0, 0x7FFF, 0xA0000000, 0 }};
+    #endif
+        Port::snan = snan.ld;
+    }
 #else
     union
     {   unsigned int ui[4];
         longdouble     ld;
     } snan = {{ 0, 0xA0000000, 0x7FFF, 0 }};
-#endif
     Port::snan = snan.ld;
+#endif
 
 #if __FreeBSD__ && __i386__
     // LDBL_MAX comes out as infinity. Fix.
