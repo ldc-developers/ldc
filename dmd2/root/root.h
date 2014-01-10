@@ -17,6 +17,10 @@
 #include "port.h"
 #include "rmem.h"
 
+#if IN_LLVM
+#include <iterator>
+#endif
+
 #if __DMC__
 #pragma once
 #endif
@@ -520,6 +524,78 @@ struct Array
         }
         return 0;
     }
+
+#if IN_LLVM
+    // Define members and types like std::vector
+    typedef size_t size_type;
+
+    Array(const Array<TYPE> &a) : dim(0), data(0), allocdim(0)
+    {
+        setDim(a.dim);
+        memcpy(data, a.data, dim * sizeof(*data));
+    }
+
+    Array &operator=(Array<TYPE> &a)
+    {
+        setDim(a.dim);
+        memcpy(data, a.data, dim * sizeof(*data));
+        return *this;
+    }
+
+    size_type size()
+    {
+        return static_cast<size_type>(dim);
+    }
+
+    bool empty()
+    {
+        return dim == 0;
+    }
+
+    TYPE *front()
+    {
+        return data[0];
+    }
+
+    TYPE *back()
+    {
+        return data[dim-1];
+    }
+
+    void push_back(TYPE *a)
+    {
+        push(a);
+    }
+
+    void pop_back()
+    {
+        pop();
+    }
+
+    typedef TYPE **iterator;
+    typedef std::reverse_iterator<iterator> reverse_iterator;
+
+    iterator begin()
+    {
+        return static_cast<iterator>(&data[0]);
+    }
+
+    iterator end()
+    {
+        return static_cast<iterator>(&data[dim]);
+    }
+
+    reverse_iterator rbegin()
+    {
+        return reverse_iterator(end());
+    }
+
+    reverse_iterator rend()
+    {
+        return reverse_iterator(begin());
+    }
+
+#endif
 };
 
 // TODO: Remove (only used by disabled GC)
