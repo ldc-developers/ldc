@@ -315,12 +315,11 @@ std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, FuncDeclaration
     types.push_back(DtoType(first));
 
     // then come the functions
-    ArrayIter<FuncDeclaration> it(*vtbl_array);
-    it.index = 1;
-
-    for (; !it.done(); it.next())
+    for (FuncDeclarations::iterator I = vtbl_array->begin() + 1,
+                                    E = vtbl_array->end();
+                                    I != E; ++I)
     {
-        FuncDeclaration* fd = it.get();
+        FuncDeclaration* fd = *I;
         if (fd == NULL)
         {
             // FIXME

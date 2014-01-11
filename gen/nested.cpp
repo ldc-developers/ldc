@@ -15,7 +15,6 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
-#include "gen/utils.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/Support/CommandLine.h"
 namespace cl = llvm::cl;
@@ -337,9 +336,10 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
 
         // Add the direct nested variables of this function, and update their indices to match.
         // TODO: optimize ordering for minimal space usage?
-        VarDeclarationIter closureVarsIter(fd->closureVars);
-        for (; closureVarsIter.more(); closureVarsIter.next()) {
-            VarDeclaration* vd = *closureVarsIter;
+        for (VarDeclarations::iterator I = fd->closureVars.begin(),
+                                       E = fd->closureVars.end();
+                                       I != E; ++I) {
+            VarDeclaration* vd = *I;
             if (!vd->ir.irLocal)
                 vd->ir.irLocal = new IrLocal(vd);
 
@@ -443,9 +443,10 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
         irfunction->nestedVar = frame;
 
         // go through all nested vars and assign addresses where possible.
-        VarDeclarationIter closureVarsIter(fd->closureVars);
-        for (; closureVarsIter.more(); closureVarsIter.next()) {
-            VarDeclaration* vd = *closureVarsIter;
+        for (VarDeclarations::iterator I = fd->closureVars.begin(),
+                                       E = fd->closureVars.end();
+                                       I != E; ++I) {
+            VarDeclaration *vd = *I;
 
             LLValue* gep = DtoGEPi(frame, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
             if (vd->isParameter()) {

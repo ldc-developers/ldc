@@ -25,7 +25,6 @@
 #include "gen/runtime.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
-#include "gen/utils.h"
 #include "ir/iraggr.h"
 #include "ir/irtypeclass.h"
 
@@ -42,12 +41,11 @@ void DtoResolveClass(ClassDeclaration* cd)
     LOG_SCOPE;
 
     // make sure the base classes are processed first
-    ArrayIter<BaseClass> base_iter(cd->baseclasses);
-    while (base_iter.more())
+    for (BaseClasses::iterator I = cd->baseclasses->begin(),
+                               E = cd->baseclasses->end();
+                               I != E; ++I)
     {
-        BaseClass* bc = base_iter.get();
-        DtoResolveClass(bc->base);
-        base_iter.next();
+        DtoResolveClass((*I)->base);
     }
 
     // make sure type exists
@@ -59,10 +57,11 @@ void DtoResolveClass(ClassDeclaration* cd)
     cd->ir.irAggr = irAggr;
 
     // make sure all fields really get their ir field
-    ArrayIter<VarDeclaration> it(cd->fields);
-    for (; !it.done(); it.next())
+    for (VarDeclarations::iterator I = cd->fields.begin(),
+                                   E = cd->fields.end();
+                                   I != E; ++I)
     {
-        VarDeclaration* vd = it.get();
+        VarDeclaration* vd = *I;
         if (vd->ir.irField == NULL) {
             new IrField(vd);
         } else {

@@ -21,7 +21,6 @@
 #include "gen/logger.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
-#include "gen/utils.h"
 #include "ir/iraggr.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -58,9 +57,11 @@ void DtoResolveStruct(StructDeclaration* sd, Loc& callerLoc)
     sd->ir.irAggr = iraggr;
 
     // Set up our field metadata.
-    for (ArrayIter<VarDeclaration> it(sd->fields); !it.done(); it.next())
+    for (VarDeclarations::iterator I = sd->fields.begin(),
+                                   E = sd->fields.end();
+                                   I != E; ++I)
     {
-        VarDeclaration* vd = it.get();
+        VarDeclaration *vd = *I;
         assert(!vd->ir.irField);
         (void)new IrField(vd);
     }

@@ -21,7 +21,6 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
-#include "gen/utils.h"
 #include "ir/irtype.h"
 #include "ir/irvar.h"
 #include "llvm/ADT/SmallString.h"
@@ -53,9 +52,11 @@ void InterfaceDeclaration::codegen(IRState *p)
         DtoResolveClass(this);
 
         // Emit any members (e.g. final functions).
-        for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())
+        for (Dsymbols::iterator I = members->begin(),
+                                E = members->end();
+                                I != E; ++I)
         {
-            it->codegen(p);
+            (*I)->codegen(p);
         }
 
         // Emit TypeInfo.
@@ -87,9 +88,11 @@ void StructDeclaration::codegen(IRState *p)
     {
         DtoResolveStruct(this);
 
-        for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())
+        for (Dsymbols::iterator I = members->begin(),
+                                E = members->end();
+                                I != E; ++I)
         {
-            it->codegen(p);
+            (*I)->codegen(p);
         }
 
         // Define the __initZ symbol.
@@ -127,9 +130,11 @@ void ClassDeclaration::codegen(IRState *p)
     {
         DtoResolveClass(this);
 
-        for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())
+        for (Dsymbols::iterator I = members->begin(),
+                                E = members->end();
+                                I != E; ++I)
         {
-            it->codegen(p);
+            (*I)->codegen(p);
         }
 
         llvm::GlobalValue::LinkageTypes const linkage = DtoExternalLinkage(this);
