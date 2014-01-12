@@ -21,6 +21,7 @@
 #include "llvm/Linker.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
+#include "llvm/Support/PathV2.h"
 #if _WIN32
 #include "llvm/Support/SystemUtils.h"
 #endif
@@ -394,7 +395,12 @@ void createStaticLibrary()
     if (!endsWith(libName, libExt))
     {
         if (!isTargetWindows)
-            libName = "lib" + libName + libExt;
+        {
+            libName = llvm::sys::path::parent_path(libName).str()
+                    + "/lib"
+                    + llvm::sys::path::filename(libName).str()
+                    + libExt;
+        }
         else
             libName.append(libExt);
     }
