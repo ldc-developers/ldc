@@ -404,7 +404,8 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
         // Create frame for current function and append to frames list
         // FIXME: alignment ?
         LLValue* frame = 0;
-        if (fd->needsClosure())
+        bool needsClosure = fd->needsClosure();
+        if (needsClosure)
             frame = DtoGcMalloc(frameType, ".frame");
         else
             frame = DtoRawAlloca(frameType, 0, ".frame");
@@ -447,6 +448,9 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                                        E = fd->closureVars.end();
                                        I != E; ++I) {
             VarDeclaration *vd = *I;
+
+            if (needsClosure && vd->needsAutoDtor())
+                vd->error("has scoped destruction, cannot build closure");
 
             LLValue* gep = DtoGEPi(frame, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
             if (vd->isParameter()) {
