@@ -23,7 +23,6 @@
 #include "gen/irstate.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
-#include "gen/utils.h"
 #include "gen/llvmhelpers.h"
 #include "gen/functions.h"
 #include "ir/irtypeclass.h"
@@ -64,27 +63,28 @@ void IrTypeClass::addBaseClassData(
     // FIXME: merge code with structs in IrTypeAggr
 
     // mirror the sd->fields array but only fill in contributors
-    size_t n = base->fields.dim;
+    const size_t n = base->fields.dim;
     LLSmallVector<VarDeclaration*, 16> data(n, NULL);
     default_fields.reserve(n);
 
     // first fill in the fields with explicit initializers
-    VarDeclarationIter field_it(base->fields);
-    for (; field_it.more(); field_it.next())
+    for (size_t index = 0; index < n; ++index)
     {
+        VarDeclaration *field = base->fields[index];
+
         // init is !null for explicit inits
-        if (field_it->init != NULL)
+        if (field->init != NULL)
         {
             IF_LOG Logger::println("adding explicit initializer for struct field %s",
-                field_it->toChars());
+                field->toChars());
 
-            data[field_it.index] = *field_it;
+            data[index] = field;
 
-            size_t f_begin = field_it->offset;
-            size_t f_end = f_begin + field_it->type->size();
+            size_t f_begin = field->offset;
+            size_t f_end = f_begin + field->type->size();
 
             // make sure there is no overlap
-            for (size_t i = 0; i < field_it.index; i++)
+            for (size_t i = 0; i < index; i++)
             {
                 if (data[i] != NULL)
                 {
@@ -96,7 +96,7 @@ void IrTypeClass::addBaseClassData(
                         continue;
 
                     base->error(vd->loc, "has overlapping initialization for %s and %s",
-                        field_it->toChars(), vd->toChars());
+                        field->toChars(), vd->toChars());
                 }
             }
         }
@@ -108,14 +108,14 @@ void IrTypeClass::addBaseClassData(
     }
 
     // fill in default initializers
-    field_it = VarDeclarationIter(base->fields);
-    for (;field_it.more(); field_it.next())
+    for (size_t index = 0; index < n; ++index)
     {
-        if (data[field_it.index])
+        if (data[index])
             continue;
+        VarDeclaration *field = base->fields[index];
 
-        size_t f_begin = field_it->offset;
-        size_t f_end = f_begin + field_it->type->size();
+        size_t f_begin = field->offset;
+        size_t f_end = f_begin + field->type->size();
 
         // make sure it doesn't overlap anything explicit
         bool overlaps = false;
@@ -138,8 +138,8 @@ void IrTypeClass::addBaseClassData(
         if (!overlaps)
         {
             IF_LOG Logger::println("adding default initializer for struct field %s",
-                field_it->toChars());
-            data[field_it.index] = *field_it;
+                field->toChars());
+            data[index] = field;
         }
     }
 
@@ -187,17 +187,17 @@ void IrTypeClass::addBaseClassData(
     {
         bool new_instances = (base == cd);
 
-        ArrayIter<BaseClass> it2(*base->vtblInterfaces);
-
-        VarDeclarationIter interfaces_idx(Type::typeinfoclass->fields, 3);
+        VarDeclaration *interfaces_idx = Type::typeinfoclass->fields[3];
         Type* first = interfaces_idx->type->nextOf()->pointerTo();
 
         // align offset
         offset = (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
 
-        for (; !it2.done(); it2.next())
+        for (BaseClasses::iterator I = base->vtblInterfaces->begin(),
+                                   E = base->vtblInterfaces->end();
+                                   I != E; ++I)
         {
-            BaseClass* b = it2.get();
+            BaseClass *b = *I;
             IF_LOG Logger::println("Adding interface vtbl for %s", b->base->toPrettyChars());
 
             FuncDeclarations arr;

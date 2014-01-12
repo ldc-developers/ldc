@@ -17,7 +17,6 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
-#include "gen/utils.h"
 #include "ir/iraggr.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
@@ -359,15 +358,15 @@ void IrAggr::addFieldInitializers(
 
             offset = (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
 
-            ArrayIter<BaseClass> it2(*cd->vtblInterfaces);
-            for (; !it2.done(); it2.next())
+            for (BaseClasses::iterator I = cd->vtblInterfaces->begin(),
+                                       E = cd->vtblInterfaces->end();
+                                       I != E; ++I)
             {
-                BaseClass* b = it2.get();
-                constants.push_back(getInterfaceVtbl(b, newinsts, inter_idx));
+                constants.push_back(getInterfaceVtbl(*I, newinsts, inter_idx));
                 offset += Target::ptrsize;
 
                 // add to the interface list
-                interfacesWithVtbls.push_back(b);
+                interfacesWithVtbls.push_back(*I);
                 inter_idx++;
             }
         }

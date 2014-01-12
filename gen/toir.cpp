@@ -35,7 +35,6 @@
 #include "gen/structs.h"
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
-#include "gen/utils.h"
 #include "gen/warnings.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
@@ -3029,7 +3028,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
 
     // ready elements data
     assert(elements && "struct literal has null elements");
-    size_t nexprs = elements->dim;
+    const size_t nexprs = elements->dim;
     Expression **exprs = reinterpret_cast<Expression **>(elements->data);
 
     // might be reset to an actual i8* value so only a single bitcast is emitted.
@@ -3037,13 +3036,13 @@ DValue* StructLiteralExp::toElem(IRState* p)
     unsigned offset = 0;
 
     // go through fields
-    ArrayIter<VarDeclaration> it(sd->fields);
-    for (; !it.done(); it.next())
+    const size_t nfields = sd->fields.dim;
+    for (size_t index = 0; index < nfields; ++index)
     {
-        VarDeclaration* vd = it.get();
+        VarDeclaration *vd = sd->fields[index];
 
         // get initializer expression
-        Expression* expr = (it.index < nexprs) ? exprs[it.index] : NULL;
+        Expression* expr = (index < nexprs) ? exprs[index] : NULL;
         if (!expr)
         {
             // In case of an union, we can't simply use the default initializer.
@@ -3052,13 +3051,12 @@ DValue* StructLiteralExp::toElem(IRState* p)
             // The loop will first visit variable i and then d. Since d has an
             // explicit initializer, we must use this one. The solution is to
             // peek at the next variables.
-            ArrayIter<VarDeclaration> it2(it.array, it.index+1);
-            for (; !it2.done(); it2.next())
+            for (size_t index2 = index+1; index2 < nfields; ++index2)
             {
-                VarDeclaration* vd2 = it2.get();
+                VarDeclaration *vd2 = sd->fields[index2];
                 if (vd->offset != vd2->offset) break;
-                it.next(); // skip var
-                Expression* expr2 = (it2.index < nexprs) ? exprs[it2.index] : NULL;
+                ++index; // skip var
+                Expression* expr2 = (index2 < nexprs) ? exprs[index2] : NULL;
                 if (expr2)
                 {
                     vd = vd2;
@@ -3088,7 +3086,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         DConstValue cv(vd->type, NULL); // Only used in one branch; value is set beforehand
         if (expr)
         {
-            IF_LOG Logger::println("expr %zu = %s", it.index, expr->toChars());
+            IF_LOG Logger::println("expr %zu = %s", index, expr->toChars());
             val = expr->toElem(gIR);
         }
         else if (vd == sd->vthis) {
