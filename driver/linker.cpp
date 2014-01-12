@@ -21,7 +21,7 @@
 #include "llvm/Linker.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
-#include "llvm/Support/PathV2.h"
+#include "llvm/Support/Path.h"
 #if _WIN32
 #include "llvm/Support/SystemUtils.h"
 #endif
