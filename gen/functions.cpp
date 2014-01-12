@@ -302,7 +302,11 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
 
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SourceMgr.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/AsmParser/Parser.h"
+#else
 #include "llvm/Assembly/Parser.h"
+#endif
 
 LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 {
