@@ -41,7 +41,11 @@
 #include "llvm/Support/CallSite.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/CallGraph.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/Dominators.h"
+#else
 #include "llvm/Analysis/Dominators.h"
+#endif
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -391,7 +395,11 @@ namespace {
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
           AU.addRequired<DataLayout>();
+#if LDC_LLVM_VER >= 305
+          AU.addRequired<DominatorTreeWrapperPass>();
+#else
           AU.addRequired<DominatorTree>();
+#endif
 
 #if LDC_LLVM_VER >= 305
           AU.addPreserved<CallGraphWrapperPass>();
@@ -455,7 +463,11 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
     DEBUG(errs() << "\nRunning -dgc2stack on function " << F.getName() << '\n');
 
     DataLayout& DL = getAnalysis<DataLayout>();
+#if LDC_LLVM_VER >= 305
+    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+#else
     DominatorTree& DT = getAnalysis<DominatorTree>();
+#endif
 #if LDC_LLVM_VER >= 305
     CallGraphWrapperPass* CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
     CallGraph* CG = CGPass ? &CGPass->getCallGraph() : 0;

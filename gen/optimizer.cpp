@@ -26,7 +26,11 @@
 #endif
 #endif
 #include "llvm/ADT/Triple.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/Verifier.h"
+#else
 #include "llvm/Analysis/Verifier.h"
+#endif
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Support/CommandLine.h"
