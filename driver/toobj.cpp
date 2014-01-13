@@ -13,7 +13,11 @@
 #include "gen/logger.h"
 #include "gen/optimizer.h"
 #include "gen/programs.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/Verifier.h"
+#else
 #include "llvm/Analysis/Verifier.h"
+#endif
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/PassManager.h"
 #include "llvm/Support/CommandLine.h"
