@@ -359,12 +359,17 @@ bool ldc_optimize_module(llvm::Module* m)
 // Verifies the module.
 void verifyModule(llvm::Module* m) {
     if (!noVerify) {
-        std::string verifyErr;
         Logger::println("Verifying module...");
         LOG_SCOPE;
-        if (llvm::verifyModule(*m, llvm::ReturnStatusAction, &verifyErr))
+        std::string ErrorStr;
+#if LDC_LLVM_VER >= 305
+        raw_string_ostream OS(ErrorStr);
+        if (llvm::verifyModule(*m, &OS))
+#else
+        if (llvm::verifyModule(*m, llvm::ReturnStatusAction, &ErrorStr))
+#endif
         {
-            error("%s", verifyErr.c_str());
+            error("%s", ErrorStr.c_str());
             fatal();
         }
         else {
