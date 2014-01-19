@@ -25,6 +25,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/nested.h"
+#include "gen/optimizer.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
@@ -989,6 +990,22 @@ void DtoDefineFunction(FuncDeclaration* fd)
     {
         func->addFnAttr(llvm::Attribute::UWTable);
     }
+#if LDC_LLVM_VER >= 303
+    if (opts::sanitize != opts::None) {
+        // Set the required sanitizer attribute.
+        if (opts::sanitize == opts::AddressSanitizer) {
+            func->addFnAttr(llvm::Attribute::SanitizeAddress);
+        }
+
+        if (opts::sanitize == opts::MemorySanitizer) {
+            func->addFnAttr(llvm::Attribute::SanitizeMemory);
+        }
+
+        if (opts::sanitize == opts::ThreadSanitizer) {
+            func->addFnAttr(llvm::Attribute::SanitizeThread);
+        }
+    }
+#endif
 
     std::string entryname("entry");
 
