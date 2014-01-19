@@ -384,7 +384,11 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout& DL, AliasAnal
             // Ignore indirect calls and calls to non-external functions.
             Function *Callee = CI->getCalledFunction();
             if (Callee == 0 || !Callee->isDeclaration() ||
-                    !(Callee->hasExternalLinkage() || Callee->hasDLLImportLinkage()))
+                    !(Callee->hasExternalLinkage()
+#if LDC_LLVM_VER < 305
+                    || Callee->hasDLLImportLinkage()
+#endif
+                    ))
                 continue;
 
             // Ignore unknown calls.
