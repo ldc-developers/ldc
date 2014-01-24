@@ -22,7 +22,11 @@
 #include <stdarg.h>
 #include <errno.h>
 #include <wchar.h>
+#if IN_LLVM
+#include <cstdlib>
+#else
 #include <stdlib.h>
+#endif
 #include <assert.h>
 #include <time.h>       // for time() and ctime()
 

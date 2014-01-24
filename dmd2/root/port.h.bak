@@ -13,11 +13,7 @@
 #if defined(IN_LLVM) && (LDC_LLVM_VER >= 303)
 #include "llvm/Config/config.h"
 #endif
-#if IN_LLVM
-#include <cstdlib>
-#else
 #include <stdlib.h> // for alloca
-#endif
 #include <stdint.h>
 
 #include "longdouble.h"
