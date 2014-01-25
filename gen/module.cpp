@@ -59,6 +59,13 @@
 #endif
 #endif
 
+#if LDC_LLVM_VER >= 304
+// FIXME: This is from driver/ldc-version.h.
+namespace ldc {
+extern const char * const ldc_version;
+}
+#endif
+
 static llvm::cl::opt<bool> preservePaths("op",
     llvm::cl::desc("Do not strip paths from source file"),
     llvm::cl::ZeroOrMore);
@@ -592,6 +599,17 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
     // Add the linker options metadata flag.
     ir.module->addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
                              llvm::MDNode::get(ir.context(), ir.LinkerMetadataArgs));
+#endif
+
+#if LDC_LLVM_VER >= 304
+    // Emit ldc version as llvm.ident metadata.
+    llvm::NamedMDNode *IdentMetadata = ir.module->getOrInsertNamedMetadata("llvm.ident");
+    std::string Version("ldc version ");
+    Version.append(ldc::ldc_version);
+    llvm::Value *IdentNode[] = {
+        llvm::MDString::get(ir.context(), Version)
+    };
+    IdentMetadata->addOperand(llvm::MDNode::get(ir.context(), IdentNode));
 #endif
 
     // verify the llvm
