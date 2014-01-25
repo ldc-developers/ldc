@@ -76,10 +76,9 @@ file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
 list(REMOVE_ITEM DCRT_D
     ${RUNTIME_DC_DIR}/alloca.d
     ${RUNTIME_DC_DIR}/deh.d
-    ${RUNTIME_DC_DIR}/deh2.d
+    ${RUNTIME_DC_DIR}/deh_win32.d
+    ${RUNTIME_DC_DIR}/deh_win64_posix.d
     ${RUNTIME_DC_DIR}/llmath.d
-    ${RUNTIME_DC_DIR}/memory_osx.d
-    ${RUNTIME_DC_DIR}/qsort2.d
     ${RUNTIME_DC_DIR}/trace.d
 )
 file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
