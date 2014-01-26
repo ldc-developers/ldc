@@ -153,8 +153,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
     else
     {
         std::string fullMangle;
-        if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32 ||
-            global.params.targetTriple.getOS() == llvm::Triple::Win32)
+        if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
         {
             fullMangle = "_";
         }
