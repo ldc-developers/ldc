@@ -347,6 +347,7 @@ llvm::TargetMachine* createTargetMachine(
         }
     }
 
+#if LDC_LLVM_VER < 305
     if (triple.getArch() == llvm::Triple::arm)
     {
         // On ARM, we want to use EHABI exception handling, as we don't support
@@ -360,6 +361,7 @@ llvm::TargetMachine* createTargetMachine(
         };
         llvm::cl::ParseCommandLineOptions(3, backendArgs);
     }
+#endif
 
     llvm::TargetOptions targetOptions;
     targetOptions.NoFramePointerElim = noFramePointerElim;
