@@ -348,7 +348,7 @@ llvm::TargetMachine* createTargetMachine(
     }
 
 #if LDC_LLVM_VER < 305
-    if (triple.getArch() == llvm::Triple::arm)
+    if (triple.getArch() == llvm::Triple::arm && !triple.isOSDarwin())
     {
         // On ARM, we want to use EHABI exception handling, as we don't support
         // SJLJ EH in druntime. Unfortunately, it is still in a partly
