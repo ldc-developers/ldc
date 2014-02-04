@@ -85,12 +85,10 @@ disableSimplifyDruntimeCalls("disable-simplify-drtcalls",
     cl::desc("Disable simplification of druntime calls"),
     cl::ZeroOrMore);
 
-#if LDC_LLVM_VER < 304
 static cl::opt<bool>
 disableSimplifyLibCalls("disable-simplify-libcalls",
     cl::desc("Disable simplification of well-known C runtime calls"),
     cl::ZeroOrMore);
-#endif
 
 static cl::opt<bool>
 disableGCToStack("disable-gc2stack",
@@ -317,11 +315,10 @@ bool ldc_optimize_module(llvm::Module* m)
     // Add an appropriate TargetLibraryInfo pass for the module's triple.
     TargetLibraryInfo *tli = new TargetLibraryInfo(Triple(m->getTargetTriple()));
 
-#if LDC_LLVM_VER < 304
     // The -disable-simplify-libcalls flag actually disables all builtin optzns.
     if (disableSimplifyLibCalls)
         tli->disableAllFunctions();
-#endif
+
     mpm.add(tli);
 
     // Add an appropriate TargetData instance for this module.
