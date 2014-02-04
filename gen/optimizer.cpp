@@ -122,6 +122,22 @@ cl::opt<opts::SanitizerCheck> opts::sanitize("sanitize",
         clEnumValEnd));
 #endif
 
+#if LDC_LLVM_VER >= 304
+static cl::opt<bool>
+disableLoopUnrolling("disable-loop-unrolling",
+                     cl::desc("Disable loop unrolling in all relevant passes"),
+                     cl::init(false));
+static cl::opt<bool>
+disableLoopVectorization("disable-loop-vectorization",
+                     cl::desc("Disable the loop vectorization pass"),
+                     cl::init(false));
+
+static cl::opt<bool>
+disableSLPVectorization("disable-slp-vectorization",
+                        cl::desc("Disable the slp vectorization pass"),
+                        cl::init(false));
+#endif
+
 static unsigned optLevel() {
     // Use -O2 as a base for the size-optimization levels.
     return optimizeLevel >= 0 ? optimizeLevel : 2;
@@ -232,7 +248,24 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
 #endif
     builder.DisableUnitAtATime = !unitAtATime;
     builder.DisableUnrollLoops = optLevel == 0;
+
+#if LDC_LLVM_VER >= 304
+    builder.DisableUnrollLoops = (disableLoopUnrolling.getNumOccurrences() > 0) ?
+                                  disableLoopUnrolling : optLevel == 0;
+
+    // This is final, unless there is a #pragma vectorize enable
+    if (disableLoopVectorization)
+        builder.LoopVectorize = false;
+    // If option wasn't forced via cmd line (-vectorize-loops, -loop-vectorize)
+    else if (!builder.LoopVectorize)
+      builder.LoopVectorize = optLevel > 1 && sizeLevel < 2;
+
+    // When #pragma vectorize is on for SLP, do the same as above
+    builder.SLPVectorize =
+        disableSLPVectorization ? false : optLevel > 1 && sizeLevel < 2;
+#else
     /* builder.Vectorize is set in ctor from command line switch */
+#endif
 
 #if LDC_LLVM_VER >= 303
     if (opts::sanitize == opts::AddressSanitizer) {
