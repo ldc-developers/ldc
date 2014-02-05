@@ -1,4 +1,7 @@
 language: cpp
+compiler:
+  - gcc
+  - clang
 install:
   # LLVM 3.2
   - sudo sh -c "echo 'deb http://archive.ubuntu.com/ubuntu/ precise-proposed restricted main multiverse universe' >> /etc/apt/sources.list"
