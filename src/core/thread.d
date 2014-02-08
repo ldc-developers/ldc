@@ -2736,6 +2736,23 @@ private void* getStackBottom()
 {
     version (Windows)
     {
+        version (LDC)
+        {
+            // Use LLVM inline assembler to enable inlining.
+            import ldc.llvmasm;
+            version (X86)
+            {
+                return __asm!(void*)("movl %fs:(4), $0", "=r");
+            }
+            else version (X86_64)
+            {
+                return __asm!(void*)("movq %gs:0($0), %rax", "={rax},r", 8);
+            }
+            else
+                static assert(false, "Architecture not supported.");
+        }
+        else
+        {
         version (D_InlineAsm_X86)
             asm { naked; mov EAX, FS:4; ret; }
         else version(D_InlineAsm_X86_64)
@@ -2747,6 +2764,7 @@ private void* getStackBottom()
             }
         else
             static assert(false, "Architecture not supported.");
+        }
     }
     else version (OSX)
     {
