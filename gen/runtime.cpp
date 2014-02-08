@@ -58,7 +58,7 @@ static void LLVM_D_BuildRuntimeModule();
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-static void checkForImplicitGCCall(const char *name)
+static void checkForImplicitGCCall(const Loc &loc, const char *name)
 {
     if (nogc)
     {
@@ -98,7 +98,7 @@ static void checkForImplicitGCCall(const char *name)
 
         if (binary_search(&GCNAMES[0], &GCNAMES[sizeof(GCNAMES) / sizeof(std::string)], name))
         {
-            error("No implicit garbage collector calls allowed with -nogc option enabled: %s", name);
+            error(loc, "No implicit garbage collector calls allowed with -nogc option enabled: %s", name);
             fatal();
         }
     }
@@ -134,7 +134,7 @@ void LLVM_D_FreeRuntime()
 
 llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name)
 {
-    checkForImplicitGCCall(name);
+    checkForImplicitGCCall(Loc(), name);
 
     if (!M) {
         LLVM_D_InitRuntime();
@@ -163,7 +163,7 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
         return gv;
     }
 
-    checkForImplicitGCCall(name);
+    checkForImplicitGCCall(Loc(), name);
 
     if (!M) {
         LLVM_D_InitRuntime();
@@ -171,7 +171,7 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
 
     LLGlobalVariable* g = M->getNamedGlobal(name);
     if (!g) {
-        error("Runtime global '%s' was not found", name);
+        error(Loc(), "Runtime global '%s' was not found", name);
         fatal();
         //return NULL;
     }

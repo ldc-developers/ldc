@@ -188,7 +188,6 @@ if(PHOBOS2_DIR)
             ${PHOBOS2_D_C}
             ${PHOBOS2_D_C_SYS}
             ${PHOBOS2_ETC}
-            ${PHOBOS2_DIR}/crc32.d
     )
     list(REMOVE_ITEM PHOBOS2_D
             ${PHOBOS2_DIR}/std/intrinsic.d

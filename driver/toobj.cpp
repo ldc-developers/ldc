@@ -110,7 +110,7 @@ static void assemble(const std::string &asmpath, const std::string &objpath)
     int R = executeToolAndWait(gcc, args, global.params.verbose);
     if (R)
     {
-        error("Error while invoking external assembler.");
+        error(Loc(), "Error while invoking external assembler.");
         fatal();
     }
 }
@@ -139,7 +139,7 @@ void writeModule(llvm::Module* m, std::string filename)
         llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::sys::fs::F_Binary);
         if (bos.has_error())
         {
-            error("cannot write LLVM bitcode file '%s': %s", bcpath.c_str(), errinfo.c_str());
+            error(Loc(), "cannot write LLVM bitcode file '%s': %s", bcpath.c_str(), errinfo.c_str());
             fatal();
         }
         llvm::WriteBitcodeToFile(m, bos);
@@ -154,7 +154,7 @@ void writeModule(llvm::Module* m, std::string filename)
         llvm::raw_fd_ostream aos(llpath.c_str(), errinfo);
         if (aos.has_error())
         {
-            error("cannot write LLVM asm file '%s': %s", llpath.c_str(), errinfo.c_str());
+            error(Loc(), "cannot write LLVM asm file '%s': %s", llpath.c_str(), errinfo.c_str());
             fatal();
         }
         m->print(aos, NULL);
@@ -187,7 +187,7 @@ void writeModule(llvm::Module* m, std::string filename)
             }
             else
             {
-                error("cannot write native asm: %s", err.c_str());
+                error(Loc(), "cannot write native asm: %s", err.c_str());
                 fatal();
             }
         }
@@ -217,7 +217,7 @@ void writeModule(llvm::Module* m, std::string filename)
             }
             else
             {
-                error("cannot write object file: %s", err.c_str());
+                error(Loc(), "cannot write object file: %s", err.c_str());
                 fatal();
             }
         }

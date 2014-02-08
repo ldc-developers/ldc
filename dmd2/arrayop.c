@@ -272,23 +272,12 @@ ArrayOp *buildArrayOp(Identifier *ident, BinExp *exp, Scope *sc, Loc loc)
      *  return p;
      */
     Parameter *p = (*fparams)[0 /*fparams->dim - 1*/];
-#if DMDV1
-    // for (size_t i = 0; i < p.length; i++)
-    Initializer *init = new ExpInitializer(0, new IntegerExp(0, 0, Type::tsize_t));
-    Dsymbol *d = new VarDeclaration(0, Type::tsize_t, Id::p, init);
-    Statement *s1 = new ForStatement(0,
-        new ExpStatement(0, d),
-        new CmpExp(TOKlt, 0, new IdentifierExp(0, Id::p), new ArrayLengthExp(0, new IdentifierExp(0, p->ident))),
-        new PostExp(TOKplusplus, 0, new IdentifierExp(0, Id::p)),
-        new ExpStatement(0, loopbody));
-#else
     // foreach (i; 0 .. p.length)
     Statement *s1 = new ForeachRangeStatement(Loc(), TOKforeach,
         new Parameter(0, NULL, Id::p, NULL),
         new IntegerExp(Loc(), 0, Type::tsize_t),
         new ArrayLengthExp(Loc(), new IdentifierExp(Loc(), p->ident)),
         new ExpStatement(Loc(), loopbody));
-#endif
     //printf("%s\n", s1->toChars());
     Statement *s2 = new ReturnStatement(Loc(), new IdentifierExp(Loc(), p->ident));
     //printf("s2: %s\n", s2->toChars());
@@ -316,7 +305,14 @@ ArrayOp *buildArrayOp(Identifier *ident, BinExp *exp, Scope *sc, Loc loc)
     sc->linkage = LINKc;
     fd->semantic(sc);
     fd->semantic2(sc);
+    unsigned errors = global.startGagging();
     fd->semantic3(sc);
+    if (global.endGagging(errors))
+    {
+        fd->type = Type::terror;
+        fd->errors = true;
+        fd->fbody = NULL;
+    }
     sc->pop();
 
     if (op->cFunc)
@@ -344,7 +340,8 @@ bool isArrayOpValid(Expression *e)
     }
     Type *tb = e->type->toBasetype();
 
-    if ( (tb->ty == Tarray) || (tb->ty == Tsarray) )
+    BinExp *be;
+    if (tb->ty == Tarray || tb->ty == Tsarray)
     {
         switch (e->op)
         {
@@ -365,11 +362,14 @@ bool isArrayOpValid(Expression *e)
             case TOKxorass:
             case TOKandass:
             case TOKorass:
-#if DMDV2
             case TOKpow:
             case TOKpowass:
-#endif
-                 return isArrayOpValid(((BinExp *)e)->e1) && isArrayOpValid(((BinExp *)e)->e2);
+                be = (BinExp *)e;
+                return isArrayOpValid(be->e1) && isArrayOpValid(be->e2);
+
+            case TOKconstruct:
+                be = (BinExp *)e;
+                return be->e1->op == TOKslice && isArrayOpValid(be->e2);
 
             case TOKcall:
                  return false; // TODO: Decide if [] is required after arrayop calls.
@@ -395,15 +395,15 @@ Expression *BinExp::arrayOp(Scope *sc)
 
     Type *tb = type->toBasetype();
     assert(tb->ty == Tarray || tb->ty == Tsarray);
-    if (tb->nextOf()->toBasetype()->ty == Tvoid)
+    Type *tbn = tb->nextOf()->toBasetype();
+    if (tbn->ty == Tvoid)
     {
         error("Cannot perform array operations on void[] arrays");
         return new ErrorExp();
     }
-
-    if (!isArrayOpValid(e2))
+    if (!isArrayOpValid(this))
     {
-        e2->error("invalid array operation %s (did you forget a [] ?)", toChars());
+        error("invalid array operation %s (did you forget a [] ?)", toChars());
         return new ErrorExp();
     }
 
@@ -420,11 +420,7 @@ Expression *BinExp::arrayOp(Scope *sc)
 
     /* Append deco of array element type
      */
-#if DMDV2
     buf.writestring(type->toBasetype()->nextOf()->toBasetype()->mutableOf()->deco);
-#else
-    buf.writestring(type->toBasetype()->nextOf()->toBasetype()->deco);
-#endif
 
     buf.writeByte(0);
     char *name = buf.toChars();
@@ -439,6 +435,20 @@ Expression *BinExp::arrayOp(Scope *sc)
 
     if (!op)
         op = buildArrayOp(ident, this, sc, loc);
+
+    if (op->dFunc && op->dFunc->errors)
+    {
+        const char *fmt;
+        if (tbn->ty == Tstruct || tbn->ty == Tclass)
+            fmt = "invalid array operation '%s' because %s doesn't support necessary arithmetic operations";
+        else if (!tbn->isscalar())
+            fmt = "invalid array operation '%s' because %s is not a scalar type";
+        else
+            fmt = "invalid array operation '%s' for element type %s";
+
+        error(fmt, toChars(), tbn->toChars());
+        return new ErrorExp();
+    }
 
     *pOp = op;
 
@@ -461,6 +471,10 @@ Expression *BinAssignExp::arrayOp(Scope *sc)
     {
         error("slice %s is not mutable", e1->toChars());
         return new ErrorExp();
+    }
+    if (e1->op == TOKarrayliteral)
+    {
+        return e1->modifiableLvalue(sc, e1);
     }
 
     return BinExp::arrayOp(sc);
@@ -526,9 +540,7 @@ void BinAssignExp::buildArrayIdent(OutBuffer *buf, Expressions *arguments)
     case TOKxorass: s = "Xorass"; break;
     case TOKandass: s = "Andass"; break;
     case TOKorass:  s = "Orass";  break;
-#if DMDV2
     case TOKpowass: s = "Powass"; break;
-#endif
     default: assert(0);
     }
     buf->writestring(s);
@@ -561,9 +573,7 @@ void BinExp::buildArrayIdent(OutBuffer *buf, Expressions *arguments)
     case TOKxor: s = "Xor"; break;
     case TOKand: s = "And"; break;
     case TOKor:  s = "Or";  break;
-#if DMDV2
     case TOKpow: s = "Pow"; break;
-#endif
     default: break;
     }
     if (s)
@@ -632,14 +642,12 @@ Expression *AssignExp::buildArrayLoop(Parameters *fparams)
     /* Evaluate assign expressions right to left
      */
     Expression *ex2 = e2->buildArrayLoop(fparams);
-#if DMDV2
     /* Need the cast because:
      *   b = c + p[i];
      * where b is a byte fails because (c + p[i]) is an int
      * which cannot be implicitly cast to byte.
      */
     ex2 = new CastExp(Loc(), ex2, e1->type->nextOf());
-#endif
     Expression *ex1 = e1->buildArrayLoop(fparams);
     Parameter *param = (*fparams)[0];
     param->storageClass = 0;
@@ -666,9 +674,7 @@ Expression *BinAssignExp::buildArrayLoop(Parameters *fparams)
     case TOKxorass: return new XorAssignExp(loc, ex1, ex2);
     case TOKandass: return new AndAssignExp(loc, ex1, ex2);
     case TOKorass:  return new OrAssignExp(loc, ex1, ex2);
-#if DMDV2
     case TOKpowass: return new PowAssignExp(loc, ex1, ex2);
-#endif
     default:
         assert(0);
         return NULL;
@@ -701,9 +707,7 @@ Expression *BinExp::buildArrayLoop(Parameters *fparams)
     case TOKxor:
     case TOKand:
     case TOKor:
-#if DMDV2
     case TOKpow:
-#endif
     {
         /* Evaluate assign expressions left to right
          */
@@ -755,10 +759,8 @@ int Expression::isArrayOperand()
             case TOKxorass:
             case TOKandass:
             case TOKorass:
-#if DMDV2
             case TOKpow:
             case TOKpowass:
-#endif
             case TOKneg:
             case TOKtilde:
                 return 1;

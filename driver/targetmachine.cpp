@@ -292,7 +292,7 @@ llvm::TargetMachine* createTargetMachine(
     const llvm::Target *target = lookupTarget(arch, triple, errMsg);
     if (target == 0)
     {
-        error("%s", errMsg.c_str());
+        error(Loc(), "%s", errMsg.c_str());
         fatal();
     }
 

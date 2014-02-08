@@ -110,7 +110,6 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
 }
 
 
-bool inNonRoot(Dsymbol *s);
 FuncDeclaration *search_toHash(StructDeclaration *sd);
 FuncDeclaration *search_toString(StructDeclaration *sd);
 
@@ -163,7 +162,7 @@ Expression *Type::getTypeInfo(Scope *sc)
                          sd->xcmp && sd->xcmp != sd->xerrcmp ||
                          search_toHash(sd) ||
                          search_toString(sd)
-                        ) && inNonRoot(sd))
+                        ) && sd->inNonRoot())
                     {
                         Module::addDeferredSemantic3(sd);
                     }
@@ -171,7 +170,7 @@ Expression *Type::getTypeInfo(Scope *sc)
             }
             else                        // if in obj generation pass
             {
-                t->vtinfo->codegen(gIR);
+                Declaration_codegen(t->vtinfo);
             }
         }
     }
@@ -337,50 +336,50 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 
     // TypeInfo instances (except ClassInfo ones) are always emitted as weak
     // symbols when they are used.
-    tid->codegen(gIR);
+    Declaration_codegen(tid);
 }
 
-void TypeInfoDeclaration::codegen(IRState* p)
+void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p)
 {
-    Logger::println("TypeInfoDeclaration::codegen(%s)", toPrettyChars());
+    Logger::println("TypeInfoDeclaration::codegen(%s)", decl->toPrettyChars());
     LOG_SCOPE;
 
-    if (ir.defined) return;
-    ir.defined = true;
+    if (decl->ir.defined) return;
+    decl->ir.defined = true;
 
-    std::string mangled(mangle());
+    std::string mangled(decl->mangle());
     if (Logger::enabled())
     {
-        Logger::println("type = '%s'", tinfo->toChars());
+        Logger::println("type = '%s'", decl->tinfo->toChars());
         Logger::println("typeinfo mangle: %s", mangled.c_str());
     }
 
-    IrGlobal* irg = new IrGlobal(this);
-    ir.irGlobal = irg;
+    IrGlobal* irg = new IrGlobal(decl);
+    decl->ir.irGlobal = irg;
     irg->value = gIR->module->getGlobalVariable(mangled);
     if (irg->value) {
         irg->type = irg->value->getType()->getContainedType(0);
         assert(irg->type->isStructTy());
     } else {
-        if (tinfo->builtinTypeInfo()) // this is a declaration of a builtin __initZ var
+        if (decl->tinfo->builtinTypeInfo()) // this is a declaration of a builtin __initZ var
             irg->type = Type::dtypeinfo->type->irtype->isClass()->getMemoryLLType();
         else
-            irg->type = LLStructType::create(gIR->context(), toPrettyChars());
+            irg->type = LLStructType::create(gIR->context(), decl->toPrettyChars());
         irg->value = new llvm::GlobalVariable(*gIR->module, irg->type, true,
             llvm::GlobalValue::ExternalLinkage, NULL, mangled);
     }
 
-    emitTypeMetadata(this);
+    emitTypeMetadata(decl);
 
     // this is a declaration of a builtin __initZ var
-    if (tinfo->builtinTypeInfo()) {
+    if (decl->tinfo->builtinTypeInfo()) {
         LLGlobalVariable* g = isaGlobalVar(irg->value);
         g->setLinkage(llvm::GlobalValue::ExternalLinkage);
         return;
     }
 
     // define custom typedef
-    llvmDefine();
+    decl->llvmDefine();
 }
 
 /* ========================================================================= */
@@ -710,16 +709,16 @@ void TypeInfoStructDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-void TypeInfoClassDeclaration::codegen(IRState *p)
+void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p)
 {
     // For classes, the TypeInfo is in fact a ClassInfo instance and emitted
     // as a __ClassZ symbol. For interfaces, the __InterfaceZ symbol is
     // referenced as "info" member in a (normal) TypeInfo_Interface instance.
-    IrGlobal *irg = new IrGlobal(this);
-    ir.irGlobal = irg;
+    IrGlobal *irg = new IrGlobal(decl);
+    decl->ir.irGlobal = irg;
 
-    assert(tinfo->ty == Tclass);
-    TypeClass *tc = static_cast<TypeClass *>(tinfo);
+    assert(decl->tinfo->ty == Tclass);
+    TypeClass *tc = static_cast<TypeClass *>(decl->tinfo);
     DtoResolveClass(tc->sym);
 
     irg->value = tc->sym->ir.irAggr->getClassInfoSymbol();
@@ -727,7 +726,7 @@ void TypeInfoClassDeclaration::codegen(IRState *p)
 
     if (!tc->sym->isInterfaceDeclaration())
     {
-        emitTypeMetadata(this);
+        emitTypeMetadata(decl);
     }
 }
 

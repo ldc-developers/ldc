@@ -99,7 +99,7 @@ TypeTuple *TypeBasic::toArgTypes()
             t2 = Type::tfloat80;
             break;
 
-        case Tascii:
+        case Tchar:
             t1 = Type::tuns8;
             break;
 
@@ -127,16 +127,13 @@ TypeTuple *TypeBasic::toArgTypes()
     return t;
 }
 
-#if DMDV2
 TypeTuple *TypeVector::toArgTypes()
 {
     return new TypeTuple(this);
 }
-#endif
 
 TypeTuple *TypeSArray::toArgTypes()
 {
-#if DMDV2
     if (dim)
     {
         /* Should really be done as if it were a struct with dim members
@@ -149,9 +146,6 @@ TypeTuple *TypeSArray::toArgTypes()
             return next->toArgTypes();
     }
     return new TypeTuple();     // pass on the stack for efficiency
-#else
-    return new TypeTuple();     // pass on the stack for efficiency
-#endif
 }
 
 TypeTuple *TypeAArray::toArgTypes()
@@ -204,8 +198,8 @@ Type *argtypemerge(Type *t1, Type *t2, unsigned offset2)
     if (!t2)
         return t1;
 
-    unsigned sz1 = t1->size(Loc());
-    unsigned sz2 = t2->size(Loc());
+    unsigned sz1 = (unsigned)t1->size(Loc());
+    unsigned sz2 = (unsigned)t2->size(Loc());
 
     if (t1->ty != t2->ty &&
         (t1->ty == Tfloat80 || t2->ty == Tfloat80))
@@ -265,7 +259,7 @@ TypeTuple *TypeDArray::toArgTypes()
     if (global.params.is64bit && !global.params.isLP64)
     {
         // For AMD64 ILP32 ABI, D arrays fit into a single integer register.
-        unsigned offset = Type::tsize_t->size(Loc());
+        unsigned offset = (unsigned)Type::tsize_t->size(Loc());
         Type *t = argtypemerge(Type::tsize_t, Type::tvoidptr, offset);
         if (t)
             return new TypeTuple(t);
@@ -281,7 +275,7 @@ TypeTuple *TypeDelegate::toArgTypes()
     if (global.params.is64bit && !global.params.isLP64)
     {
         // For AMD64 ILP32 ABI, delegates fit into a single integer register.
-        unsigned offset = Type::tsize_t->size(Loc());
+        unsigned offset = (unsigned)Type::tsize_t->size(Loc());
         Type *t = argtypemerge(Type::tsize_t, Type::tvoidptr, offset);
         if (t)
             return new TypeTuple(t);
@@ -327,7 +321,8 @@ TypeTuple *TypeStruct::toArgTypes()
 #if 1
         t1 = NULL;
         for (size_t i = 0; i < sym->fields.dim; i++)
-        {   VarDeclaration *f = sym->fields[i];
+        {
+            VarDeclaration *f = sym->fields[i];
             //printf("f->type = %s\n", f->type->toChars());
 
             TypeTuple *tup = f->type->toArgTypes();
@@ -360,7 +355,7 @@ TypeTuple *TypeStruct::toArgTypes()
                     goto Lmemory;
 
                 // Fields that overlap the 8byte boundary goto Lmemory
-                unsigned fieldsz = f->type->size(Loc());
+                d_uns64 fieldsz = f->type->size(Loc());
                 if (f->offset < 8 && (f->offset + fieldsz) > 8)
                     goto Lmemory;
             }
@@ -407,7 +402,8 @@ TypeTuple *TypeStruct::toArgTypes()
         }
 #else
         if (sym->fields.dim == 1)
-        {   VarDeclaration *f = sym->fields[0];
+        {
+            VarDeclaration *f = sym->fields[0];
             //printf("f->type = %s\n", f->type->toChars());
             TypeTuple *tup = f->type->toArgTypes();
             if (tup)

@@ -34,11 +34,11 @@ int findCondition(Strings *ids, Identifier *ident)
             const char *id = (*ids)[i];
 
             if (strcmp(id, ident->toChars()) == 0)
-                return TRUE;
+                return true;
         }
     }
 
-    return FALSE;
+    return false;
 }
 
 /* ============================================================ */
@@ -90,7 +90,7 @@ void printDepsConditional(Scope *sc, DVCondition* condition, const char* depType
     if (!global.params.moduleDeps || global.params.moduleDepsFile)
         return;
     OutBuffer *ob = global.params.moduleDeps;
-    Module* imod = sc ? (sc->instantiatingModule ? sc->instantiatingModule : sc->module) : condition->mod;
+    Module* imod = sc ? sc->instantiatingModule() : condition->mod;
     if (!imod)
         return;
     ob->writestring(depType);
@@ -187,6 +187,7 @@ bool VersionCondition::isPredefined(const char *ident)
         "ARM_SoftFP",
         "ARM_HardFloat",
         "AArch64",
+        "Epiphany",
         "PPC",
         "PPC_SoftFloat",
         "PPC_HardFloat",
@@ -233,15 +234,14 @@ bool VersionCondition::isPredefined(const char *ident)
         "assert",
         "all",
         "none",
-
 #if IN_LLVM
-    "LLVM", "LDC", "LLVM64",
-    "PPC", "PPC64",
-    "darwin","solaris","freebsd"
+        "LLVM", "LLVM64",
+        "darwin", "solaris", "freebsd",
 #endif
+        NULL
     };
 
-    for (unsigned i = 0; i < sizeof(reserved) / sizeof(reserved[0]); i++)
+    for (unsigned i = 0; reserved[i]; i++)
     {
         if (strcmp(ident, reserved[i]) == 0)
             return true;
@@ -375,9 +375,9 @@ int StaticIfCondition::include(Scope *sc, ScopeDsymbol *s)
         {
             goto Lerror;
         }
-        else if (e->isBool(TRUE))
+        else if (e->isBool(true))
             inc = 1;
-        else if (e->isBool(FALSE))
+        else if (e->isBool(false))
             inc = 2;
         else
         {

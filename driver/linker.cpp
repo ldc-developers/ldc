@@ -44,7 +44,7 @@ static void CreateDirectoryOnDisk(llvm::StringRef fileName)
         llvm::error_code ec = llvm::sys::fs::create_directory(dir, Existed);
         if (ec)
         {
-            error("failed to create path to file: %s\n%s", dir.data(), ec.message().c_str());
+            error(Loc(), "failed to create path to file: %s\n%s", dir.data(), ec.message().c_str());
             fatal();
         }
     }
@@ -71,7 +71,7 @@ static std::string getOutputName(bool const sharedLib)
     if (Module::rootModule)
         result = Module::rootModule->toChars();
     else if (global.params.objfiles->dim)
-        result = FileName::removeExt(static_cast<char*>(global.params.objfiles->data[0]));
+        result = FileName::removeExt(static_cast<const char*>(global.params.objfiles->data[0]));
     else
         result = "a.out";
 
@@ -111,14 +111,14 @@ static int linkObjToBinaryGcc(bool sharedLib)
     // object files
     for (unsigned i = 0; i < global.params.objfiles->dim; i++)
     {
-        char *p = static_cast<char *>(global.params.objfiles->data[i]);
+        const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
         args.push_back(p);
     }
 
     // user libs
     for (unsigned i = 0; i < global.params.libfiles->dim; i++)
     {
-        char *p = static_cast<char *>(global.params.libfiles->data[i]);
+        const char *p = static_cast<const char *>(global.params.libfiles->data[i]);
         args.push_back(p);
     }
 
@@ -156,7 +156,7 @@ static int linkObjToBinaryGcc(bool sharedLib)
     // additional linker switches
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
     {
-        char *p = static_cast<char *>(global.params.linkswitches->data[i]);
+        const char *p = static_cast<const char *>(global.params.linkswitches->data[i]);
         // Don't push -l and -L switches using -Xlinker, but pass them directly
         // to GCC. This makes sure user-defined paths take precedence over
         // GCC's builtin LIBRARY_PATHs.
@@ -280,14 +280,14 @@ static int linkObjToBinaryWin(bool sharedLib)
     // object files
     for (unsigned i = 0; i < global.params.objfiles->dim; i++)
     {
-        char *p = static_cast<char *>(global.params.objfiles->data[i]);
+        const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
         args.push_back(p);
     }
 
     // user libs
     for (unsigned i = 0; i < global.params.libfiles->dim; i++)
     {
-        char *p = static_cast<char *>(global.params.libfiles->data[i]);
+        const char *p = static_cast<const char *>(global.params.libfiles->data[i]);
         args.push_back(p);
     }
 
@@ -303,7 +303,7 @@ static int linkObjToBinaryWin(bool sharedLib)
     {
         static const std::string LIBPATH("-L");
         static const std::string LIB("-l");
-        std::string str(static_cast<char *>(global.params.linkswitches->data[i]));
+        std::string str(static_cast<const char *>(global.params.linkswitches->data[i]));
         if (str.length() > 2)
         {
             if (std::equal(LIBPATH.begin(), LIBPATH.end(), str.begin()))
@@ -387,7 +387,7 @@ void createStaticLibrary()
         if (Module::rootModule)
             libName = Module::rootModule->toChars();
         else if (global.params.objfiles->dim)
-            libName = FileName::removeExt(static_cast<char*>(global.params.objfiles->data[0]));
+            libName = FileName::removeExt(static_cast<const char*>(global.params.objfiles->data[0]));
         else
             libName = "a.out";
     }
@@ -412,7 +412,7 @@ void createStaticLibrary()
     // object files
     for (unsigned i = 0; i < global.params.objfiles->dim; i++)
     {
-        char *p = static_cast<char *>(global.params.objfiles->data[i]);
+        const char *p = static_cast<const char *>(global.params.objfiles->data[i]);
         args.push_back(p);
     }
 
@@ -449,9 +449,9 @@ int runExecutable()
     if (status < 0)
     {
 #if defined(_MSC_VER) || defined(__MINGW32__)
-        error("program received signal %d", -status);
+        error(Loc(), "program received signal %d", -status);
 #else
-        error("program received signal %d (%s)", -status, strsignal(-status));
+        error(Loc(), "program received signal %d (%s)", -status, strsignal(-status));
 #endif
         return -status;
     }

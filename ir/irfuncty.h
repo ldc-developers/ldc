@@ -24,7 +24,7 @@
 #endif
 
 #if defined(_MSC_VER)
-#include "root.h"
+#include "array.h"
 #endif
 
 #include <vector>
@@ -108,7 +108,7 @@ struct IrFuncTy
     // normal explicit arguments
 //    typedef llvm::SmallVector<IrFuncTyArg*, 4> ArgList;
 #if defined(_MSC_VER)
-    typedef Array<IrFuncTyArg> ArgList;
+    typedef Array<IrFuncTyArg *> ArgList;
     typedef ArgList::iterator ArgIter;
     typedef ArgList::reverse_iterator ArgRIter;
 #else

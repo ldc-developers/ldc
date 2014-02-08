@@ -289,7 +289,7 @@ void EnclosingTryFinally::emitCode(IRState * p)
     {
         llvm::BasicBlock* oldpad = p->func()->gen->landingPad;
         p->func()->gen->landingPad = landingPad;
-        tf->finalbody->toIR(p);
+        Statement_toIR(tf->finalbody, p);
         p->func()->gen->landingPad = oldpad;
     }
 }
@@ -1217,7 +1217,7 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         // static
         if (vd->isDataseg())
         {
-            vd->codegen(gIR);
+            Declaration_codegen(vd);
         }
         else
         {
@@ -1229,19 +1229,19 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     else if (StructDeclaration* s = declaration->isStructDeclaration())
     {
         Logger::println("StructDeclaration");
-        s->codegen(gIR);
+        Declaration_codegen(s);
     }
     // function declaration
     else if (FuncDeclaration* f = declaration->isFuncDeclaration())
     {
         Logger::println("FuncDeclaration");
-        f->codegen(gIR);
+        Declaration_codegen(f);
     }
     // class
     else if (ClassDeclaration* e = declaration->isClassDeclaration())
     {
         Logger::println("ClassDeclaration");
-        e->codegen(gIR);
+        Declaration_codegen(e);
     }
     // typedef
     else if (TypedefDeclaration* tdef = declaration->isTypedefDeclaration())
@@ -1485,7 +1485,7 @@ LLConstant* DtoTypeInfoOf(Type* type, bool base)
     type->getTypeInfo(NULL);
     TypeInfoDeclaration* tidecl = type->vtinfo;
     assert(tidecl);
-    tidecl->codegen(gIR);
+    Declaration_codegen(tidecl);
     assert(tidecl->ir.irGlobal != NULL);
     assert(tidecl->ir.irGlobal->value != NULL);
     LLConstant* c = isaConstant(tidecl->ir.irGlobal->value);
@@ -1790,7 +1790,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
         // this is an error! must be accessed with DotVarExp
         if (vd->needThis())
         {
-            error("need 'this' to access member %s", vd->toChars());
+            error(loc, "need 'this' to access member %s", vd->toChars());
             fatal();
         }
 
@@ -1915,7 +1915,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
         if (fdecl->llvmInternal == LLVMinline_asm)
         {
             // TODO: Is this needed? If so, what about other intrinsics?
-            error("special ldc inline asm is not a normal function");
+            error(loc, "special ldc inline asm is not a normal function");
             fatal();
         }
         DtoResolveFunction(fdecl);
@@ -1948,7 +1948,7 @@ llvm::Constant* DtoConstSymbolAddress(const Loc& loc, Declaration* decl)
     // semantic analysis in the frontend.
     if (decl->needThis())
     {
-        error("need 'this' to access %s", decl->toChars());
+        error(loc, "need 'this' to access %s", decl->toChars());
         fatal();
     }
 

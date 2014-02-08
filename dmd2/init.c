@@ -208,7 +208,7 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t, NeedInterpret needI
         {
             if (Identifier *id = field[i])
             {
-                Dsymbol *s = sd->search(loc, id, 0);
+                Dsymbol *s = sd->search(loc, id);
                 if (!s)
                 {
                     s = sd->search_correct(id);
@@ -278,22 +278,21 @@ Initializer *StructInitializer::semantic(Scope *sc, Type *t, NeedInterpret needI
             return new ErrorInitializer();
 
         StructLiteralExp *sle = new StructLiteralExp(loc, sd, elements, t);
-        Expression *e = sle->fill(false);
-        if (e->op == TOKerror)
+        if (!sd->fill(loc, elements, false))
             return new ErrorInitializer();
+        sle->type = t;
 
-        e->type = t;
-
-        ExpInitializer *ie = new ExpInitializer(loc, e);
+        ExpInitializer *ie = new ExpInitializer(loc, sle);
         return ie->semantic(sc, t, needInterpret);
     }
-    else if (t->ty == Tdelegate && value.dim == 0)
+    else if ((t->ty == Tdelegate || t->ty == Tpointer && t->nextOf()->ty == Tfunction) && value.dim == 0)
     {
+        TOK tok = (t->ty == Tdelegate) ? TOKdelegate : TOKfunction;
         /* Rewrite as empty delegate literal { }
          */
         Parameters *arguments = new Parameters;
         Type *tf = new TypeFunction(arguments, NULL, 0, LINKd);
-        FuncLiteralDeclaration *fd = new FuncLiteralDeclaration(loc, Loc(), tf, TOKdelegate, NULL);
+        FuncLiteralDeclaration *fd = new FuncLiteralDeclaration(loc, Loc(), tf, tok, NULL);
         fd->fbody = new CompoundStatement(loc, new Statements());
         fd->endloc = loc;
         Expression *e = new FuncExp(loc, fd);
@@ -387,12 +386,9 @@ Initializer *ArrayInitializer::semantic(Scope *sc, Type *t, NeedInterpret needIn
     if (sem)                            // if semantic() already run
         return this;
     sem = 1;
-    type = t;
-    Initializer *aa = NULL;
     t = t->toBasetype();
     switch (t->ty)
     {
-        case Tpointer:
         case Tsarray:
         case Tarray:
             break;
@@ -402,14 +398,26 @@ Initializer *ArrayInitializer::semantic(Scope *sc, Type *t, NeedInterpret needIn
             break;
 
         case Taarray:
-            // was actually an associative array literal
-            aa = new ExpInitializer(loc, toAssocArrayLiteral());
-            return aa->semantic(sc, t, needInterpret);
+        case Tstruct:   // consider implicit constructor call
+        {
+            Expression *e;
+            if (t->ty == Taarray || isAssociativeArray())
+                e = toAssocArrayLiteral();
+            else
+                e = toExpression();
+            ExpInitializer *ei = new ExpInitializer(e->loc, e);
+            return ei->semantic(sc, t, needInterpret);
+        }
+        case Tpointer:
+            if (t->nextOf()->ty != Tfunction)
+                break;
 
         default:
-            error(loc, "cannot use array to initialize %s", type->toChars());
+            error(loc, "cannot use array to initialize %s", t->toChars());
             goto Lerr;
     }
+
+    type = t;
 
     length = 0;
     for (size_t i = 0; i < index.dim; i++)
@@ -422,7 +430,7 @@ Initializer *ArrayInitializer::semantic(Scope *sc, Type *t, NeedInterpret needIn
             sc = sc->endCTFE();
             idx = idx->ctfeInterpret();
             index[i] = idx;
-            length = idx->toInteger();
+            length = (size_t)idx->toInteger();
             if (idx->op == TOKerror)
                 errors = true;
         }
@@ -509,16 +517,13 @@ Expression *ArrayInitializer::toExpression(Type *tx)
         switch (t->ty)
         {
            case Tsarray:
-               edim = ((TypeSArray *)t)->dim->toInteger();
+               edim = (size_t)((TypeSArray *)t)->dim->toInteger();
                break;
 
-#if IN_LLVM
-// Backport from DMD 2.065
            case Tvector:
                t = ((TypeVector *)t)->basetype;
                edim = (size_t)((TypeSArray *)t)->dim->toInteger();
                break;
-#endif
 
            case Tpointer:
            case Tarray:
@@ -537,7 +542,7 @@ Expression *ArrayInitializer::toExpression(Type *tx)
             if (index[i])
             {
                 if (index[i]->op == TOKint64)
-                    j = index[i]->toInteger();
+                    j = (size_t)index[i]->toInteger();
                 else
                     goto Lno;
             }
@@ -552,7 +557,7 @@ Expression *ArrayInitializer::toExpression(Type *tx)
     for (size_t i = 0, j = 0; i < value.dim; i++, j++)
     {
         if (index[i])
-            j = (index[i])->toInteger();
+            j = (size_t)(index[i])->toInteger();
         assert(j < edim);
         Initializer *iz = value[i];
         if (!iz)
@@ -816,7 +821,7 @@ Initializer *ExpInitializer::semantic(Scope *sc, Type *t, NeedInterpret needInte
     exp = resolveProperties(sc, exp);
     if (needInterpret) sc = sc->endCTFE();
     if (exp->op == TOKerror)
-        return this;
+        return new ErrorInitializer();
 
     int olderrors = global.errors;
     if (needInterpret)
@@ -974,7 +979,7 @@ Expression *ExpInitializer::toExpression(Type *t)
         if (tb->ty == Tsarray && exp->implicitConvTo(tb->nextOf()))
         {
             TypeSArray *tsa = (TypeSArray *)tb;
-            size_t d = tsa->dim->toInteger();
+            size_t d = (size_t)tsa->dim->toInteger();
             Expressions *elements = new Expressions();
             elements->setDim(d);
             for (size_t i = 0; i < d; i++)

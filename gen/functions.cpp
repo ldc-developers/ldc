@@ -535,7 +535,7 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
                 TypeFunction* tf = static_cast<TypeFunction*>(fdecl->type);
                 if (tf->varargs != 1 || (fdecl->parameters && fdecl->parameters->dim != 0))
                 {
-                    error("invalid __asm declaration, must be a D style variadic with no explicit parameters");
+                    tempdecl->error("invalid __asm declaration, must be a D style variadic with no explicit parameters");
                     fatal();
                 }
                 fdecl->llvmInternal = LLVMinline_asm;
@@ -915,7 +915,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     // only by non-root modules (i.e. modules not listed on the command line).
     // See DMD's FuncDeclaration::toObjFile. Check this before calling
     // DtoDeclareFunction DtoDeclareFunction to avoid touching unanalyzed code.
-    TemplateInstance *ti = fd->inTemplateInstance();
+    TemplateInstance *ti = fd->isInstantiated();
     if (!global.params.useUnitTests &&
         ti && ti->instantiatingModule && !ti->instantiatingModule->isRoot())
     {
@@ -1173,7 +1173,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 
     // output function body
-    fd->fbody->toIR(gIR);
+    Statement_toIR(fd->fbody, gIR);
     irfunction->gen = 0;
 
     // TODO: clean up this mess

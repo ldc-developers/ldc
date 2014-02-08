@@ -657,7 +657,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 
     if (cinfo->fields.dim != 12)
     {
-        error("object.d ClassInfo class is incorrect");
+        error(Loc(), "object.d ClassInfo class is incorrect");
         fatal();
     }
 

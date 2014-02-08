@@ -216,9 +216,9 @@ int AsmStatement::blockExit(bool mustNotThrow)
 }
 
 void
-AsmStatement::toIR(IRState * irs)
+AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
 {
-    Logger::println("AsmStatement::toIR(): %s", loc.toChars());
+    Logger::println("AsmStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
     // sanity check
@@ -229,9 +229,9 @@ AsmStatement::toIR(IRState * irs)
     assert(asmblock);
 
     // debug info
-    gIR->DBuilder.EmitStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
 
-    if (!asmcode)
+    if (!stmt->asmcode)
         return;
 
     static std::string i_cns = "i";
@@ -241,7 +241,7 @@ AsmStatement::toIR(IRState * irs)
     static std::string mrw_cns = "+*m";
     static std::string memory_name = "memory";
 
-    AsmCode * code = (AsmCode *) asmcode;
+    AsmCode *code = static_cast<AsmCode *>(stmt->asmcode);
     std::vector<LLValue*> input_values;
     std::vector<std::string> input_constraints;
     std::vector<LLValue*> output_values;
@@ -466,7 +466,7 @@ AsmStatement::toIR(IRState * irs)
     asmStmt->in_c = llvmInConstraints;
     asmStmt->out.insert(asmStmt->out.begin(), output_values.begin(), output_values.end());
     asmStmt->in.insert(asmStmt->in.begin(), input_values.begin(), input_values.end());
-    asmStmt->isBranchToLabel = isBranchToLabel;
+    asmStmt->isBranchToLabel = stmt->isBranchToLabel;
     asmblock->s.push_back(asmStmt);
 }
 
@@ -533,9 +533,9 @@ static void remap_inargs(std::string& insnt, size_t nargs, size_t idx)
 
 LLValue* DtoAggrPairSwap(LLValue* aggr);
 
-void AsmBlockStatement::toIR(IRState* p)
+void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
 {
-    Logger::println("AsmBlockStatement::toIR(): %s", loc.toChars());
+    Logger::println("AsmBlockStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
     // disable inlining by default
@@ -544,16 +544,16 @@ void AsmBlockStatement::toIR(IRState* p)
 
     // create asm block structure
     assert(!p->asmBlock);
-    IRAsmBlock* asmblock = new IRAsmBlock(this);
+    IRAsmBlock* asmblock = new IRAsmBlock(stmt);
     assert(asmblock);
     p->asmBlock = asmblock;
 
     // do asm statements
-    for (unsigned i=0; i<statements->dim; i++)
+    for (unsigned i=0; i < stmt->statements->dim; i++)
     {
-        Statement* s = static_cast<Statement*>(statements->data[i]);
+        Statement* s = static_cast<Statement*>(stmt->statements->data[i]);
         if (s) {
-            s->toIR(p);
+            Statement_toIR(s, p);
         }
     }
 
@@ -650,11 +650,11 @@ void AsmBlockStatement::toIR(IRState* p)
     FuncDeclaration* thisfunc = p->func()->decl;
     bool useabiret = false;
     p->asmBlock->asmBlock->abiret = NULL;
-    if (thisfunc->fbody->endsWithAsm() == this && thisfunc->type->nextOf()->ty != Tvoid)
+    if (thisfunc->fbody->endsWithAsm() == stmt && thisfunc->type->nextOf()->ty != Tvoid)
     {
         // there can't be goto forwarders in this case
         assert(gotoToVal.empty());
-        emitABIReturnAsmStmt(asmblock, loc, thisfunc);
+        emitABIReturnAsmStmt(asmblock, stmt->loc, thisfunc);
         useabiret = true;
     }
 
@@ -803,7 +803,7 @@ void AsmBlockStatement::toIR(IRState* p)
             sw->addCase(LLConstantInt::get(llvm::IntegerType::get(gIR->context(), 32), it->second), casebb);
 
             p->scope() = IRScope(casebb,bb);
-            DtoGoto(loc, it->first, enclosingFinally);
+            DtoGoto(stmt->loc, it->first, stmt->enclosingFinally);
         }
 
         p->scope() = IRScope(bb,oldend);
@@ -842,30 +842,43 @@ Statement *AsmBlockStatement::semantic(Scope *sc)
 
 //////////////////////////////////////////////////////////////////////////////
 
-void AsmStatement::toNakedIR(IRState *p)
+AsmBlockStatement* Statement::endsWithAsm()
 {
-    Logger::println("AsmStatement::toNakedIR(): %s", loc.toChars());
+    // does not end with inline asm
+    return NULL;
+}
+
+AsmBlockStatement* CompoundStatement::endsWithAsm()
+{
+    // make the last inner statement decide
+    if (statements && statements->dim)
+    {
+        unsigned last = statements->dim - 1;
+        Statement* s = static_cast<Statement*>(statements->data[last]);
+        if (s) return s->endsWithAsm();
+    }
+    return NULL;
+}
+
+AsmBlockStatement* AsmBlockStatement::endsWithAsm()
+{
+    // yes this is inline asm
+    return this;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void AsmStatement_toNakedIR(AsmStatement *stmt, IRState *irs)
+{
+    Logger::println("AsmStatement::toNakedIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
     // is there code?
-    if (!asmcode)
+    if (!stmt->asmcode)
         return;
-    AsmCode * code = (AsmCode *) asmcode;
+    AsmCode * code = static_cast<AsmCode *>(stmt->asmcode);
 
     // build asm stmt
-    replace_func_name(p, code->insnTemplate);
-    p->nakedAsm << "\t" << code->insnTemplate << std::endl;
-}
-
-void AsmBlockStatement::toNakedIR(IRState *p)
-{
-    Logger::println("AsmBlockStatement::toNakedIR(): %s", loc.toChars());
-    LOG_SCOPE;
-
-    // do asm statements
-    for (unsigned i=0; i<statements->dim; i++)
-    {
-        Statement* s = static_cast<Statement*>(statements->data[i]);
-        if (s) s->toNakedIR(p);
-    }
+    replace_func_name(irs, code->insnTemplate);
+    irs->nakedAsm << "\t" << code->insnTemplate << std::endl;
 }

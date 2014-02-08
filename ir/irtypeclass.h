@@ -22,7 +22,7 @@
 #endif
 
 template <typename TYPE> struct Array;
-typedef Array<class FuncDeclaration> FuncDeclarations;
+typedef Array<class FuncDeclaration *> FuncDeclarations;
 
 ///
 class IrTypeClass : public IrTypeAggr

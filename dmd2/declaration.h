@@ -91,16 +91,16 @@ enum PURE;
 #define STC_TYPECTOR    (STCconst | STCimmutable | STCshared | STCwild)
 #define STC_FUNCATTR    (STCref | STCnothrow | STCpure | STCproperty | STCsafe | STCtrusted | STCsystem)
 
-#define STCproperty     0x100000000LL
-#define STCsafe         0x200000000LL
-#define STCtrusted      0x400000000LL
-#define STCsystem       0x800000000LL
-#define STCctfe         0x1000000000LL  // can be used in CTFE, even if it is static
-#define STCdisable      0x2000000000LL  // for functions that are not callable
-#define STCresult       0x4000000000LL  // for result variables passed to out contracts
+#define STCproperty      0x100000000LL
+#define STCsafe          0x200000000LL
+#define STCtrusted       0x400000000LL
+#define STCsystem        0x800000000LL
+#define STCctfe          0x1000000000LL  // can be used in CTFE, even if it is static
+#define STCdisable       0x2000000000LL  // for functions that are not callable
+#define STCresult        0x4000000000LL  // for result variables passed to out contracts
 #define STCnodefaultctor 0x8000000000LL  // must be set inside constructor
-#define STCtemp         0x10000000000LL  // temporary variable introduced by inlining
-                                         // and used only in backend process, so it's rvalue
+#define STCtemp          0x10000000000LL // temporary variable
+#define STCrvalue        0x20000000000LL // force rvalue for variables
 
 const StorageClass STCStorageClass = (STCauto | STCscope | STCstatic | STCextern | STCconst | STCfinal |
     STCabstract | STCsynchronized | STCdeprecated | STCoverride | STClazy | STCalias |
@@ -150,11 +150,9 @@ public:
     unsigned size(Loc loc);
     int checkModify(Loc loc, Scope *sc, Type *t, Expression *e1, int flag);
 
-    Dsymbol *search(Loc loc, Identifier *ident, int flags);
+    Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
 
     void emitComment(Scope *sc);
-    void toJson(JsonOut *json);
-    virtual void jsonProperties(JsonOut *json);
     void toDocBuffer(OutBuffer *buf, Scope *sc);
 
     const char *mangle(bool isv = false);
@@ -185,6 +183,7 @@ public:
     PROT prot();
 
     Declaration *isDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 /**************************************************************/
@@ -204,11 +203,10 @@ public:
     bool needThis();
 
     TupleDeclaration *isTupleDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
     void semantic3(Scope *sc);
-    /// Codegen traversal
-    void codegen(IRState* ir);
 #endif
 };
 
@@ -228,7 +226,6 @@ public:
     const char *kind();
     Type *getType();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    void toJson(JsonOut *json);
     Type *htype;
     Type *hbasetype;
 
@@ -247,10 +244,7 @@ public:
     Symbol *toInitializer();
 #endif
 
-#if IN_LLVM
-    /// Codegen traversal
-    void codegen(IRState* ir);
-#endif
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 /**************************************************************/
@@ -278,6 +272,7 @@ public:
     void toDocBuffer(OutBuffer *buf, Scope *sc);
 
     AliasDeclaration *isAliasDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 /**************************************************************/
@@ -288,18 +283,16 @@ public:
     Initializer *init;
     unsigned offset;
     bool noscope;                // no auto semantics
-#if DMDV2
     FuncDeclarations nestedrefs; // referenced by these lexically nested functions
     bool isargptr;              // if parameter that _argptr points to
-#else
-    int nestedref;              // referenced by a lexically nested function
-#endif
     structalign_t alignment;
     bool ctorinit;              // it has been initialized in a ctor
     short onstack;              // 1: it has been allocated on the stack
                                 // 2: on stack, run destructor anyway
     int canassign;              // it can be assigned to
+    bool overlapped;            // if it is a field and has overlapping
     Dsymbol *aliassym;          // if redone as alias to another symbol
+    VarDeclaration *lastVar;    // Linked list of variables for goto-skips-init detection
 
     // When interpreting, these point to the value (NULL if value not determinable)
     // The index of this variable on the CTFE stack, -1 if not allocated
@@ -311,12 +304,10 @@ public:
     void setValueWithoutChecking(Expression *newval);
     void setValue(Expression *newval);
 
-#if DMDV2
     VarDeclaration *rundtor;    // if !NULL, rundtor is tested at runtime to see
                                 // if the destructor should be run. Used to prevent
                                 // dtor calls on postblitted vars
     Expression *edtor;          // if !=NULL, does the destruction of the variable
-#endif
 
     VarDeclaration(Loc loc, Type *t, Identifier *id, Initializer *init);
     Dsymbol *syntaxCopy(Dsymbol *);
@@ -325,7 +316,6 @@ public:
     void semantic2(Scope *sc);
     const char *kind();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    void toJson(JsonOut *json);
     Type *htype;
     Initializer *hinit;
     AggregateDeclaration *isThis();
@@ -336,10 +326,8 @@ public:
     bool isThreadlocal();
     bool isCTFE();
     bool hasPointers();
-#if DMDV2
     bool canTakeAddressOf();
     bool needsAutoDtor();
-#endif
     Expression *callScopeDtor(Scope *sc);
     ExpInitializer *getExpInitializer();
     Expression *getConstInitializer(bool needFullType = true);
@@ -354,11 +342,9 @@ public:
     const char *mangle(bool isv = false);
     // Eliminate need for dynamic_cast
     VarDeclaration *isVarDeclaration() { return (VarDeclaration *)this; }
+    void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
-    /// Codegen traversal
-    void codegen(IRState* ir);
-
     /// Index into parent aggregate.
     /// Set during type generation.
     unsigned aggrIndex;
@@ -394,6 +380,7 @@ public:
 
     // Eliminate need for dynamic_cast
     SymbolDeclaration *isSymbolDeclaration() { return (SymbolDeclaration *)this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class ClassInfoDeclaration : public VarDeclaration
@@ -406,13 +393,13 @@ public:
     void semantic(Scope *sc);
 
     void emitComment(Scope *sc);
-    void toJson(JsonOut *json);
 
 #if IN_DMD
     Symbol *toSymbol();
 #endif
 
     ClassInfoDeclaration* isClassInfoDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoDeclaration : public VarDeclaration
@@ -421,12 +408,12 @@ public:
     Type *tinfo;
 
     TypeInfoDeclaration(Type *tinfo, int internal);
+    static TypeInfoDeclaration *create(Type *tinfo, int internal);
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     char *toChars();
 
     void emitComment(Scope *sc);
-    void toJson(JsonOut *json);
 
 #if IN_DMD
     Symbol *toSymbol();
@@ -434,10 +421,9 @@ public:
     virtual void toDt(dt_t **pdt);
 #endif
     TypeInfoDeclaration *isTypeInfoDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
-    /// Codegen traversal
-    void codegen(IRState* ir);
     virtual void llvmDefine();
 #endif
 };
@@ -446,6 +432,7 @@ class TypeInfoStructDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoStructDeclaration(Type *tinfo);
+    static TypeInfoStructDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -454,12 +441,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoClassDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoClassDeclaration(Type *tinfo);
+    static TypeInfoClassDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     Symbol *toSymbol();
@@ -471,15 +461,17 @@ public:
     // __ClassZ/__InterfaceZ symbols instead of a TypeInfo_….init one. DMD also
     // generates them for SomeInterface.classinfo access, so we can't just
     // distinguish between them using tinfo and thus need to override codegen().
-    void codegen(IRState* ir);
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoInterfaceDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoInterfaceDeclaration(Type *tinfo);
+    static TypeInfoInterfaceDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -488,12 +480,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoTypedefDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoTypedefDeclaration(Type *tinfo);
+    static TypeInfoTypedefDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -502,12 +497,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoPointerDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoPointerDeclaration(Type *tinfo);
+    static TypeInfoPointerDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -516,12 +514,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoArrayDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoArrayDeclaration(Type *tinfo);
+    static TypeInfoArrayDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -530,12 +531,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoStaticArrayDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoStaticArrayDeclaration(Type *tinfo);
+    static TypeInfoStaticArrayDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -544,12 +548,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoAssociativeArrayDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoAssociativeArrayDeclaration(Type *tinfo);
+    static TypeInfoAssociativeArrayDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -558,12 +565,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoEnumDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoEnumDeclaration(Type *tinfo);
+    static TypeInfoEnumDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -572,12 +582,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoFunctionDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoFunctionDeclaration(Type *tinfo);
+    static TypeInfoFunctionDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -586,12 +599,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoDelegateDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoDelegateDeclaration(Type *tinfo);
+    static TypeInfoDelegateDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -600,12 +616,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoTupleDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoTupleDeclaration(Type *tinfo);
+    static TypeInfoTupleDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -614,13 +633,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
-#if DMDV2
 class TypeInfoConstDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoConstDeclaration(Type *tinfo);
+    static TypeInfoConstDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -629,12 +650,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoInvariantDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoInvariantDeclaration(Type *tinfo);
+    static TypeInfoInvariantDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -643,12 +667,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoSharedDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoSharedDeclaration(Type *tinfo);
+    static TypeInfoSharedDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -657,12 +684,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoWildDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoWildDeclaration(Type *tinfo);
+    static TypeInfoWildDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -671,12 +701,15 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeInfoVectorDeclaration : public TypeInfoDeclaration
 {
 public:
     TypeInfoVectorDeclaration(Type *tinfo);
+    static TypeInfoVectorDeclaration *create(Type *tinfo);
 
 #if IN_DMD
     void toDt(dt_t **pdt);
@@ -685,8 +718,9 @@ public:
 #if IN_LLVM
     void llvmDefine();
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
-#endif
 
 /**************************************************************/
 
@@ -696,6 +730,7 @@ public:
     ThisDeclaration(Loc loc, Type *t);
     Dsymbol *syntaxCopy(Dsymbol *);
     ThisDeclaration *isThisDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 enum ILS
@@ -706,36 +741,19 @@ enum ILS
 };
 
 /**************************************************************/
-#if DMDV2
 
 enum BUILTIN
 {
     BUILTINunknown = -1,        // not known if this is a builtin
-    BUILTINnot,                 // this is not a builtin
-    BUILTINsin,                 // std.math.sin
-    BUILTINcos,                 // std.math.cos
-    BUILTINtan,                 // std.math.tan
-    BUILTINsqrt,                // std.math.sqrt
-    BUILTINfabs,                // std.math.fabs
-    BUILTINatan2,               // std.math.atan2
-    BUILTINrndtol,              // std.math.rndtol
-    BUILTINexpm1,               // std.math.expm1
-    BUILTINexp2,                // std.math.exp2
-    BUILTINyl2x,                // std.math.yl2x
-    BUILTINyl2xp1,              // std.math.yl2xp1
-    BUILTINbsr,                 // core.bitop.bsr
-    BUILTINbsf,                 // core.bitop.bsf
-    BUILTINbswap,               // core.bitop.bswap
-#ifdef IN_GCC
-    BUILTINgcc,                 // GCC builtin
-#endif
+    BUILTINno,                  // this is not a builtin
+    BUILTINyes,                 // this is a builtin
 };
 
-Expression *eval_builtin(Loc loc, BUILTIN builtin, Expressions *arguments);
+Expression *eval_builtin(Loc loc, FuncDeclaration *fd, Expressions *arguments);
 
-#else
-enum BUILTIN { };
-#endif
+typedef Expression *(*builtin_fp)(Loc loc, FuncDeclaration *fd, Expressions *arguments);
+void add_builtin(const char *mangle, builtin_fp fp);
+void builtin_init();
 
 class FuncDeclaration : public Declaration
 {
@@ -788,7 +806,7 @@ public:
     bool isArrayOp;                     // true if array operation
 #endif
     FuncDeclaration *dArrayOp;          // D version of array op for ctfe
-    int semantic3Errors;                // !=0 if errors in semantic3
+    bool semantic3Errors;               // true if errors in semantic3
                                         // this function's frame ptr
     ForeachStatement *fes;              // if foreach body, this is the foreach
     bool introducing;                   // true if 'introducing' function
@@ -812,8 +830,8 @@ public:
 #endif
 
     ReturnStatements *returns;
+    GotoStatements *gotos;              // Gotos with forward references
 
-#if DMDV2
     BUILTIN builtin;               // set if this is a known, builtin
                                         // function we can evaluate at compile
                                         // time
@@ -834,9 +852,6 @@ public:
     #define FUNCFLAGpurityInprocess 1   // working on determining purity
     #define FUNCFLAGsafetyInprocess 2   // working on determining safety
     #define FUNCFLAGnothrowInprocess 4  // working on determining nothrow
-#else
-    int nestedFrameRef;                 // !=0 if nested variables referenced
-#endif
 
     FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageClass storage_class, Type *type);
     Dsymbol *syntaxCopy(Dsymbol *);
@@ -851,7 +866,6 @@ public:
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void bodyToCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    void toJson(JsonOut *json);
     int overrides(FuncDeclaration *fd);
     int findVtblIndex(Dsymbols *vtbl, int dim);
     bool overloadInsert(Dsymbol *s);
@@ -897,7 +911,7 @@ public:
     void ctfeCompile();
     void inlineScan();
     int canInline(int hasthis, int hdrscan, int statementsToo);
-    Expression *expandInline(InlineScanState *iss, Expression *ethis, Expressions *arguments, Statement **ps);
+    Expression *expandInline(InlineScanState *iss, Expression *eret, Expression *ethis, Expressions *arguments, Statement **ps);
     const char *kind();
     void toDocBuffer(OutBuffer *buf, Scope *sc);
     FuncDeclaration *isUnique();
@@ -920,15 +934,13 @@ public:
     int cvMember(unsigned char *p);
     void buildClosure(IRState *irs); // Should this be inside or outside the #if IN_DMD?
 #endif
+    bool needsCodegen();
     FuncDeclaration *isFuncDeclaration() { return this; }
 
     virtual FuncDeclaration *toAliasFunc() { return this; }
 
 #if IN_LLVM
     IrFuncTy irFty;
-
-    /// Codegen traversal
-    void codegen(IRState* ir);
 
     std::string intrinsicName;
     uint32_t priority;
@@ -953,15 +965,15 @@ public:
     // true if has inline assembler
     bool inlineAsm;
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
-#if DMDV2
 FuncDeclaration *resolveFuncCall(Loc loc, Scope *sc, Dsymbol *s,
         Objects *tiargs,
         Type *tthis,
         Expressions *arguments,
         int flags = 0);
-#endif
 
 class FuncAliasDeclaration : public FuncDeclaration
 {
@@ -979,6 +991,7 @@ public:
     const char *mangle(bool isv = false);
 
     FuncDeclaration *toAliasFunc();
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class FuncLiteralDeclaration : public FuncDeclaration
@@ -1006,6 +1019,9 @@ public:
     // once for the first module.
     TemplateInstance *owningTemplate;
 #endif
+
+    const char *toPrettyChars();
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class CtorDeclaration : public FuncDeclaration
@@ -1021,9 +1037,9 @@ public:
     bool addPostInvariant();
 
     CtorDeclaration *isCtorDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
-#if DMDV2
 class PostBlitDeclaration : public FuncDeclaration
 {
 public:
@@ -1031,7 +1047,6 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    void toJson(JsonOut *json);
     bool isVirtual();
     bool addPreInvariant();
     bool addPostInvariant();
@@ -1039,8 +1054,8 @@ public:
     void emitComment(Scope *sc);
 
     PostBlitDeclaration *isPostBlitDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
-#endif
 
 class DtorDeclaration : public FuncDeclaration
 {
@@ -1059,6 +1074,7 @@ public:
     void emitComment(Scope *sc);
 
     DtorDeclaration *isDtorDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class StaticCtorDeclaration : public FuncDeclaration
@@ -1077,9 +1093,9 @@ public:
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     StaticCtorDeclaration *isStaticCtorDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
-#if DMDV2
 class SharedStaticCtorDeclaration : public StaticCtorDeclaration
 {
 public:
@@ -1088,8 +1104,8 @@ public:
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     SharedStaticCtorDeclaration *isSharedStaticCtorDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
-#endif
 
 class StaticDtorDeclaration : public FuncDeclaration
 {
@@ -1109,9 +1125,9 @@ public:
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     StaticDtorDeclaration *isStaticDtorDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
-#if DMDV2
 class SharedStaticDtorDeclaration : public StaticDtorDeclaration
 {
 public:
@@ -1120,8 +1136,8 @@ public:
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     SharedStaticDtorDeclaration *isSharedStaticDtorDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
-#endif
 
 class InvariantDeclaration : public FuncDeclaration
 {
@@ -1136,6 +1152,7 @@ public:
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     InvariantDeclaration *isInvariantDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class UnitTestDeclaration : public FuncDeclaration
@@ -1150,9 +1167,11 @@ public:
     bool addPreInvariant();
     bool addPostInvariant();
     void emitComment(Scope *sc);
+    void inlineScan();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     UnitTestDeclaration *isUnitTestDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class NewDeclaration : public FuncDeclaration
@@ -1171,6 +1190,7 @@ public:
     bool addPostInvariant();
 
     NewDeclaration *isNewDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 
@@ -1189,6 +1209,7 @@ public:
     bool addPreInvariant();
     bool addPostInvariant();
     DeleteDeclaration *isDeleteDeclaration() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 #endif /* DMD_DECLARATION_H */

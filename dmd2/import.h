@@ -60,12 +60,12 @@ public:
     void semantic2(Scope *sc);
     Dsymbol *toAlias();
     int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
-    Dsymbol *search(Loc loc, Identifier *ident, int flags);
+    Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
     bool overloadInsert(Dsymbol *s);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    void toJson(JsonOut *json);
 
     Import *isImport() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 #endif /* DMD_IMPORT_H */

@@ -72,7 +72,7 @@ void MultiSetter::operator=(bool val) {
 
 void StringsAdapter::push_back(const char* cstr) {
     if (!cstr || !*cstr)
-        error("Expected argument to '-%s'", name);
+        error(Loc(), "Expected argument to '-%s'", name);
 
     if (!*arrp)
         *arrp = new Strings;

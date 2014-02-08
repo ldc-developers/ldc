@@ -50,12 +50,12 @@ static void pragmaDeprecated(Identifier* oldIdent, Identifier* newIdent)
     // introduce needless breakage at this stage.
     if (global.params.useDeprecated == 0)
     {
-        error("non-vendor-prefixed pragma '%s' is deprecated; use '%s' instead",
+        error(Loc(), "non-vendor-prefixed pragma '%s' is deprecated; use '%s' instead",
               oldIdent->toChars(), newIdent->toChars());
     }
     else if (global.params.useDeprecated == 2)
     {
-        warning("non-vendor-prefixed pragma '%s' is deprecated; use '%s' instead",
+        warning(Loc(), "non-vendor-prefixed pragma '%s' is deprecated; use '%s' instead",
                 oldIdent->toChars(), newIdent->toChars());
     }
 }
@@ -82,7 +82,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
-             error("requires exactly 1 string literal parameter");
+             error(Loc(), "requires exactly 1 string literal parameter");
              fatal();
         }
 
@@ -131,12 +131,12 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
         {
             if (args->dim != 1 || !parseIntExp(expr, priority))
             {
-                error("requires at most 1 integer literal parameter");
+                error(Loc(), "requires at most 1 integer literal parameter");
                 fatal();
             }
             if (priority > 65535)
             {
-                error("priority may not be greater then 65535");
+                error(Loc(), "priority may not be greater then 65535");
                 priority = 65535;
             }
         }
@@ -153,7 +153,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMno_typeinfo;
@@ -164,7 +164,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMno_moduleinfo;
@@ -175,7 +175,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMalloca;
@@ -186,7 +186,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMva_start;
@@ -197,7 +197,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMva_copy;
@@ -208,7 +208,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMva_end;
@@ -219,7 +219,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMva_arg;
@@ -230,7 +230,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMfence;
@@ -241,7 +241,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMatomic_load;
@@ -252,7 +252,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMatomic_store;
@@ -263,7 +263,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMatomic_cmp_xchg;
@@ -274,7 +274,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
-             error("requires exactly 1 string literal parameter");
+             error(Loc(), "requires exactly 1 string literal parameter");
              fatal();
         }
         return LLVMatomic_rmw;
@@ -287,7 +287,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
 
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
-             error("requires exactly 1 string literal parameter");
+             error(Loc(), "requires exactly 1 string literal parameter");
              fatal();
         }
         else if (arg1str == "verbose")
@@ -296,7 +296,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
         }
         else
         {
-            error("command '%s' invalid", expr->toChars());
+            error(Loc(), "command '%s' invalid", expr->toChars());
             fatal();
         }
 
@@ -308,7 +308,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         sc->module->llvmForceLogging = true;
@@ -320,7 +320,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMinline_asm;
@@ -331,7 +331,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     {
         if (args && args->dim > 0)
         {
-             error("takes no parameters");
+             error(Loc(), "takes no parameters");
              fatal();
         }
         return LLVMinline_ir;
@@ -348,8 +348,8 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
 
     if (s->llvmInternal)
     {
-        error("multiple LDC specific pragmas not allowed not affect the same "
-              "declaration ('%s' at '%s')", s->toChars(), s->loc.toChars());
+        error(Loc(), "multiple LDC specific pragmas not allowed not affect the same "
+                     "declaration ('%s' at '%s')", s->toChars(), s->loc.toChars());
         fatal();
     }
 

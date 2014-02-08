@@ -52,6 +52,12 @@ public:
     int dyncast() { return DYNCAST_TUPLE; } // kludge for template.isType()
 };
 
+struct TemplatePrevious
+{
+    TemplatePrevious *prev;
+    Scope *sc;
+    Objects *dedargs;
+};
 
 class TemplateDeclaration : public ScopeDsymbol
 {
@@ -62,7 +68,7 @@ public:
     Expression *constraint;
 
     // Hash table to look up TemplateInstance's of this TemplateDeclaration
-    Array<TemplateInstances> buckets;
+    Array<TemplateInstances *> buckets;
     size_t numinstances;                // number of instances in the hash table
 
     TemplateDeclaration *overnext;      // next overloaded TemplateDeclaration
@@ -71,19 +77,15 @@ public:
 
     Dsymbol *onemember;         // if !=NULL then one member of this template
 
-    int literal;                // this template declaration is a literal
-    int ismixin;                // template declaration is only to be used as a mixin
+    bool literal;               // this template declaration is a literal
+    bool ismixin;               // template declaration is only to be used as a mixin
+    bool isstatic;              // this is static template declaration
     PROT protection;
 
-    struct Previous
-    {   Previous *prev;
-        Scope *sc;
-        Objects *dedargs;
-    };
-    Previous *previous;         // threaded list of previous instantiation attempts on stack
+    TemplatePrevious *previous;         // threaded list of previous instantiation attempts on stack
 
     TemplateDeclaration(Loc loc, Identifier *id, TemplateParameters *parameters,
-        Expression *constraint, Dsymbols *decldefs, int ismixin);
+        Expression *constraint, Dsymbols *decldefs, bool ismixin = false, bool literal = false);
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
     bool overloadInsert(Dsymbol *s);
@@ -93,27 +95,30 @@ public:
     char *toChars();
 
     void emitComment(Scope *sc);
-    void toJson(JsonOut *json);
-    virtual void jsonProperties(JsonOut *json);
     PROT prot();
 //    void toDocBuffer(OutBuffer *buf);
+
+    bool evaluateConstraint(TemplateInstance *ti, Scope *sc, Scope *paramscope, Objects *dedtypes, FuncDeclaration *fd);
 
     MATCH matchWithInstance(Scope *sc, TemplateInstance *ti, Objects *atypes, Expressions *fargs, int flag);
     MATCH leastAsSpecialized(Scope *sc, TemplateDeclaration *td2, Expressions *fargs);
 
-    MATCH deduceFunctionTemplateMatch(FuncDeclaration *f, Loc loc, Scope *sc, Objects *tiargs, Type *tthis, Expressions *fargs, Objects *dedargs);
+    MATCH deduceFunctionTemplateMatch(TemplateInstance *ti, Scope *sc, FuncDeclaration *&fd, Type *tthis, Expressions *fargs);
     RootObject *declareParameter(Scope *sc, TemplateParameter *tp, RootObject *o);
-    FuncDeclaration *doHeaderInstantiation(Scope *sc, Objects *tdargs, Type *tthis, Expressions *fargs);
+    FuncDeclaration *doHeaderInstantiation(TemplateInstance *ti, Scope *sc, FuncDeclaration *fd, Type *tthis, Expressions *fargs);
     TemplateInstance *findExistingInstance(TemplateInstance *tithis, Expressions *fargs);
     TemplateInstance *addInstance(TemplateInstance *ti);
     void removeInstance(TemplateInstance *handle);
+
+    TemplateInstance *getInstantiating(Scope *sc);
 
     TemplateDeclaration *isTemplateDeclaration() { return this; }
 
     TemplateTupleParameter *isVariadic();
     bool isOverloadable();
 
-    void makeParamNamesVisibleInConstraint(Scope *paramscope, Expressions *fargs);
+    void accept(Visitor *v) { v->visit(this); }
+
 #if IN_LLVM
     // LDC
     std::string intrinsicName;
@@ -145,9 +150,7 @@ public:
     virtual TemplateTypeParameter  *isTemplateTypeParameter();
     virtual TemplateValueParameter *isTemplateValueParameter();
     virtual TemplateAliasParameter *isTemplateAliasParameter();
-#if DMDV2
     virtual TemplateThisParameter *isTemplateThisParameter();
-#endif
     virtual TemplateTupleParameter *isTemplateTupleParameter();
 
     virtual TemplateParameter *syntaxCopy() = 0;
@@ -198,7 +201,6 @@ public:
     void *dummyArg();
 };
 
-#if DMDV2
 class TemplateThisParameter : public TemplateTypeParameter
 {
 public:
@@ -212,7 +214,6 @@ public:
     TemplateParameter *syntaxCopy();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 };
-#endif
 
 class TemplateValueParameter : public TemplateParameter
 {
@@ -324,12 +325,8 @@ public:
     hash_t hash;                        // cached result of hashCode()
     Expressions *fargs;                 // for function template, these are the function arguments
     Module *instantiatingModule;        // the top module that instantiated this instance
-#ifdef IN_GCC
-    /* On some targets, it is necessary to know whether a symbol
-       will be emitted in the output or not before the symbol
-       is used.  This can be different from getModule(). */
-    Module * objFileModule;
-#endif
+
+    TemplateInstances* deferred;
 
     TemplateInstance(Loc loc, Identifier *temp_id);
     TemplateInstance(Loc loc, TemplateDeclaration *tempdecl, Objects *tiargs);
@@ -363,7 +360,7 @@ public:
     bool semanticTiargs(Scope *sc);
     bool findBestMatch(Scope *sc, Expressions *fargs);
     bool needsTypeInference(Scope *sc, int flag = 0);
-    bool hasNestedArgs(Objects *tiargs);
+    bool hasNestedArgs(Objects *tiargs, bool isstatic);
     void declareParameters(Scope *sc);
     Identifier *genIdent(Objects *args);
     void expandMembers(Scope *sc);
@@ -372,11 +369,10 @@ public:
 
     TemplateInstance *isTemplateInstance() { return this; }
     AliasDeclaration *isAliasDeclaration();
+    void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
     Module* emittedInModule; // which module this template instance has been emitted in
-
-    void codegen(IRState*);
 #endif
 };
 
@@ -398,7 +394,6 @@ public:
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     char *toChars();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    void toJson(JsonOut *json);
 
 #if IN_DMD
     void toObjFile(int multiobj);                       // compile to .obj file
@@ -407,10 +402,7 @@ public:
     bool findTemplateDeclaration(Scope *sc);
 
     TemplateMixin *isTemplateMixin() { return this; }
-
-#if IN_LLVM
-    void codegen(IRState*);
-#endif
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 Expression *isExpression(RootObject *o);

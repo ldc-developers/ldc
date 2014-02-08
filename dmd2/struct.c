@@ -15,6 +15,7 @@
 #include "aggregate.h"
 #include "scope.h"
 #include "mtype.h"
+#include "init.h"
 #include "declaration.h"
 #include "module.h"
 #include "id.h"
@@ -23,29 +24,6 @@
 
 FuncDeclaration *StructDeclaration::xerreq;     // object.xopEquals
 FuncDeclaration *StructDeclaration::xerrcmp;    // object.xopCmp
-
-bool inNonRoot(Dsymbol *s)
-{
-    if (!s || !s->parent)
-        return false;
-    s = s->parent;
-    for (; s; s = s->parent)
-    {
-        if (TemplateInstance *ti = s->isTemplateInstance())
-        {
-            if (!ti->instantiatingModule || !ti->instantiatingModule->isRoot())
-                return true;
-            return false;
-        }
-        else if (Module *m = s->isModule())
-        {
-            if (!m->isRoot())
-                return true;
-            break;
-        }
-    }
-    return false;
-}
 
 /***************************************
  * Search toHash member function for TypeInfo_Struct.
@@ -105,7 +83,6 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     handle = NULL;
     structsize = 0;             // size of struct
     alignsize = 0;              // size of struct for alignment purposes
-    hasUnions = 0;
     sizeok = SIZEOKnone;        // size not determined yet
     deferred = NULL;
     isdeprecated = false;
@@ -120,12 +97,10 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     enclosing = NULL;
     vthis = NULL;
 
-#if DMDV2
     ctor = NULL;
     defaultCtor = NULL;
     aliasthis = NULL;
-    noDefaultCtor = FALSE;
-#endif
+    noDefaultCtor = false;
     dtor = NULL;
     getRTInfo = NULL;
 
@@ -205,7 +180,7 @@ void AggregateDeclaration::semantic3(Scope *sc)
             Expression *e = new DsymbolExp(Loc(), s, 0);
 
             Scope *sc2 = ti->tempdecl->scope->startCTFE();
-            sc2->instantiatingModule = sc->instantiatingModule ? sc->instantiatingModule : sc->module;
+            sc2->tinst = sc->tinst;
             e = e->semantic(sc2);
             sc2->endCTFE();
 
@@ -250,6 +225,20 @@ void AggregateDeclaration::semantic3(Scope *sc)
                 ftohash->semanticRun < PASSsemantic3done)
             {
                 ftohash->semantic3(ftohash->scope);
+            }
+
+            if (sd->postblit &&
+                sd->postblit->scope &&
+                sd->postblit->semanticRun < PASSsemantic3done)
+            {
+                sd->postblit->semantic3(sd->postblit->scope);
+            }
+
+            if (sd->dtor &&
+                sd->dtor->scope &&
+                sd->dtor->semanticRun < PASSsemantic3done)
+            {
+                sd->dtor->semantic3(sd->dtor->scope);
             }
         }
     }
@@ -496,13 +485,13 @@ int AggregateDeclaration::firstFieldInUnion(int indx)
 {
     if (isUnionDeclaration())
         return 0;
-    VarDeclaration * vd = fields[indx];
+    VarDeclaration *vd = fields[indx];
     int firstNonZero = indx; // first index in the union with non-zero size
     for (; ;)
     {
         if (indx == 0)
             return firstNonZero;
-        VarDeclaration * v = fields[indx - 1];
+        VarDeclaration *v = fields[indx - 1];
         if (v->offset != vd->offset)
             return firstNonZero;
         --indx;
@@ -521,7 +510,7 @@ int AggregateDeclaration::firstFieldInUnion(int indx)
  */
 int AggregateDeclaration::numFieldsInUnion(int firstIndex)
 {
-    VarDeclaration * vd = fields[firstIndex];
+    VarDeclaration *vd = fields[firstIndex];
     /* If it is a zero-length field, AND we can't find an earlier non-zero
      * sized field with the same offset, we assume it's not part of a union.
      */
@@ -531,7 +520,7 @@ int AggregateDeclaration::numFieldsInUnion(int firstIndex)
     int count = 1;
     for (size_t i = firstIndex+1; i < fields.dim; ++i)
     {
-        VarDeclaration * v = fields[i];
+        VarDeclaration *v = fields[i];
         // If offsets are different, they are not in the same union
         if (v->offset != vd->offset)
             break;
@@ -545,7 +534,7 @@ int AggregateDeclaration::numFieldsInUnion(int firstIndex)
  */
 void AggregateDeclaration::searchCtor()
 {
-    ctor = search(Loc(), Id::ctor, 0);
+    ctor = search(Loc(), Id::ctor);
     if (ctor)
     {
         if (!(ctor->isCtorDeclaration() ||
@@ -565,7 +554,6 @@ StructDeclaration::StructDeclaration(Loc loc, Identifier *id)
     : AggregateDeclaration(loc, id)
 {
     zeroInit = 0;       // assume false until we do semantic processing
-#if DMDV2
     hasIdentityAssign = 0;
     hasIdentityEquals = 0;
     cpctor = NULL;
@@ -574,25 +562,15 @@ StructDeclaration::StructDeclaration(Loc loc, Identifier *id)
     xeq = NULL;
     xcmp = NULL;
     alignment = 0;
-#endif
+    ispod = ISPODfwd;
     arg1type = NULL;
     arg2type = NULL;
 
     // For forward references
     type = new TypeStruct(this);
 
-#if MODULEINFO_IS_STRUCT
-  #ifdef DMDV2
     if (id == Id::ModuleInfo && !Module::moduleinfo)
         Module::moduleinfo = this;
-  #else
-    if (id == Id::ModuleInfo)
-    {   if (Module::moduleinfo)
-            Module::moduleinfo->error("only object.d can define this reserved struct name");
-        Module::moduleinfo = this;
-    }
-  #endif
-#endif
 }
 
 Dsymbol *StructDeclaration::syntaxCopy(Dsymbol *s)
@@ -653,6 +631,11 @@ void StructDeclaration::semantic(Scope *sc)
     if (sc->stc & STCabstract)
         error("structs, unions cannot be abstract");
     userAttributes = sc->userAttributes;
+    if (userAttributes)
+    {
+        userAttributesScope = sc;
+        userAttributesScope->setNoFree();
+    }
 
     if (sizeok == SIZEOKnone)            // if not already done the addMember step
     {
@@ -707,13 +690,13 @@ void StructDeclaration::semantic(Scope *sc)
     finalizeSize(sc2);
 
     if (sizeok == SIZEOKfwd)
-    {   // semantic() failed because of forward references.
+    {
+        // semantic() failed because of forward references.
         // Unwind what we did, and defer it for later
         for (size_t i = 0; i < fields.dim; i++)
-        {   Dsymbol *s = fields[i];
-            VarDeclaration *vd = s->isVarDeclaration();
-            if (vd)
-                vd->offset = 0;
+        {
+            VarDeclaration *vd = fields[i];
+            vd->offset = 0;
         }
         fields.setDim(0);
         structsize = 0;
@@ -737,9 +720,8 @@ void StructDeclaration::semantic(Scope *sc)
     zeroInit = 1;
     for (size_t i = 0; i < fields.dim; i++)
     {
-        Dsymbol *s = fields[i];
-        VarDeclaration *vd = s->isVarDeclaration();
-        if (vd && !vd->isDataseg())
+        VarDeclaration *vd = fields[i];
+        if (!vd->isDataseg())
         {
             if (vd->init)
             {
@@ -758,69 +740,6 @@ void StructDeclaration::semantic(Scope *sc)
         }
     }
 
-#if DMDV1
-    /* This doesn't work for DMDV2 because (ref S) and (S) parameter
-     * lists will overload the same.
-     */
-    /* The TypeInfo_Struct is expecting an opEquals and opCmp with
-     * a parameter that is a pointer to the struct. But if there
-     * isn't one, but is an opEquals or opCmp with a value, write
-     * another that is a shell around the value:
-     *  int opCmp(struct *p) { return opCmp(*p); }
-     */
-
-    TypeFunction *tfeqptr;
-    {
-        Parameters *arguments = new Parameters;
-        Parameter *arg = new Parameter(STCin, handle, Id::p, NULL);
-
-        arguments->push(arg);
-        tfeqptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
-        tfeqptr = (TypeFunction *)tfeqptr->semantic(Loc(), sc);
-    }
-
-    TypeFunction *tfeq;
-    {
-        Parameters *arguments = new Parameters;
-        Parameter *arg = new Parameter(STCin, type, NULL, NULL);
-
-        arguments->push(arg);
-        tfeq = new TypeFunction(arguments, Type::tint32, 0, LINKd);
-        tfeq = (TypeFunction *)tfeq->semantic(Loc(), sc);
-    }
-
-    Identifier *id = Id::eq;
-    for (int i = 0; i < 2; i++)
-    {
-        Dsymbol *s = search_function(this, id);
-        FuncDeclaration *fdx = s ? s->isFuncDeclaration() : NULL;
-        if (fdx)
-        {   FuncDeclaration *fd = fdx->overloadExactMatch(tfeqptr);
-            if (!fd)
-            {   fd = fdx->overloadExactMatch(tfeq);
-                if (fd)
-                {   // Create the thunk, fdptr
-                    FuncDeclaration *fdptr = new FuncDeclaration(loc, loc, fdx->ident, STCundefined, tfeqptr);
-                    Expression *e = new IdentifierExp(loc, Id::p);
-                    e = new PtrExp(loc, e);
-                    Expressions *args = new Expressions();
-                    args->push(e);
-                    e = new IdentifierExp(loc, id);
-                    e = new CallExp(loc, e, args);
-                    fdptr->fbody = new ReturnStatement(loc, e);
-                    ScopeDsymbol *s = fdx->parent->isScopeDsymbol();
-                    assert(s);
-                    s->members->push(fdptr);
-                    fdptr->addMember(sc, s, 1);
-                    fdptr->semantic(sc2);
-                }
-            }
-        }
-
-        id = Id::cmp;
-    }
-#endif
-#if DMDV2
     dtor = buildDtor(sc2);
     postblit = buildPostBlit(sc2);
     cpctor = buildCpCtor(sc2);
@@ -840,7 +759,6 @@ void StructDeclaration::semantic(Scope *sc)
     /* Defer requesting semantic3 until TypeInfo generation is actually invoked.
      * See Type::getTypeInfo().
      */
-#endif
     inv = buildInv(sc2);
 
     sc2->pop();
@@ -848,8 +766,8 @@ void StructDeclaration::semantic(Scope *sc)
     /* Look for special member functions.
      */
     searchCtor();
-    aggNew =       (NewDeclaration *)search(Loc(), Id::classNew,       0);
-    aggDelete = (DeleteDeclaration *)search(Loc(), Id::classDelete,    0);
+    aggNew =       (NewDeclaration *)search(Loc(), Id::classNew);
+    aggDelete = (DeleteDeclaration *)search(Loc(), Id::classDelete);
 
     TypeTuple *tup = type->toArgTypes();
     size_t dim = tup->arguments->dim;
@@ -934,33 +852,158 @@ void StructDeclaration::finalizeSize(Scope *sc)
         structsize = (structsize + alignment - 1) & ~(alignment - 1);
 
     sizeok = SIZEOKdone;
+
+    // Calculate fields[i]->overlapped
+    fill(loc, NULL, true);
+}
+
+bool StructDeclaration::fill(Loc loc, Expressions *elements, bool ctorinit)
+{
+    assert(sizeok == SIZEOKdone);
+    size_t nfields = fields.dim - isNested();
+
+    if (elements)
+    {
+        size_t dim = elements->dim;
+        elements->setDim(nfields);
+        for (size_t i = dim; i < nfields; i++)
+            (*elements)[i] = NULL;
+    }
+
+    // Fill in missing any elements with default initializers
+    for (size_t i = 0; i < nfields; i++)
+    {
+        if (elements && (*elements)[i])
+            continue;
+        VarDeclaration *vd = fields[i];
+        VarDeclaration *vx = vd;
+        if (vd->init && vd->init->isVoidInitializer())
+            vx = NULL;
+        // Find overlapped fields with the hole [vd->offset .. vd->offset->size()].
+        size_t fieldi = i;
+        for (size_t j = 0; j < nfields; j++)
+        {
+            if (i == j)
+                continue;
+            VarDeclaration *v2 = fields[j];
+            bool overlap = (vd->offset < v2->offset + v2->type->size() &&
+                            v2->offset < vd->offset + vd->type->size());
+            if (!overlap)
+                continue;
+
+            if (elements)
+            {
+                if ((*elements)[j])
+                {
+                    vx = NULL;
+                    break;
+                }
+            }
+            else
+            {
+                vd->overlapped = true;
+            }
+            if (v2->init && v2->init->isVoidInitializer())
+                continue;
+
+            if (elements)
+            {
+                /* Prefer first found non-void-initialized field
+                 * union U { int a; int b = 2; }
+                 * U u;    // Error: overlapping initialization for field a and b
+                 */
+                if (!vx)
+                    vx = v2, fieldi = j;
+                else if (v2->init)
+                {
+                    ::error(loc, "overlapping initialization for field %s and %s",
+                        v2->toChars(), vd->toChars());
+                }
+            }
+            else
+            {
+                // Will fix Bugzilla 1432 by enabling this path always
+
+                /* Prefer explicitly initialized field
+                 * union U { int a; int b = 2; }
+                 * U u;    // OK (u.b == 2)
+                 */
+                if (!vx || !vx->init && v2->init)
+                    vx = v2, fieldi = j;
+                else if (vx != vd &&
+                    !(vx->offset < v2->offset + v2->type->size() &&
+                      v2->offset < vx->offset + vx->type->size()))
+                {
+                    // Both vx and v2 fills vd, but vx and v2 does not overlap
+                }
+                else if (vx->init && v2->init)
+                {
+                    ::error(loc, "overlapping default initialization for field %s and %s",
+                        v2->toChars(), vd->toChars());
+                }
+                else
+                    assert(vx->init || !vx->init && !v2->init);
+            }
+        }
+        if (elements && vx)
+        {
+            Expression *e;
+            if (vx->init)
+            {
+                assert(!vx->init->isVoidInitializer());
+                e = vx->getConstInitializer(false);
+            }
+            else
+            {
+                if ((vx->storage_class & STCnodefaultctor) && !ctorinit)
+                {
+                    ::error(loc, "field %s.%s must be initialized because it has no default constructor",
+                            type->toChars(), vx->toChars());
+                }
+                if (vx->type->needsNested() && ctorinit)
+                    e = vx->type->defaultInit(loc);
+                else
+                    e = vx->type->defaultInitLiteral(loc);
+            }
+            (*elements)[fieldi] = e;
+        }
+    }
+
+    if (elements)
+    {
+        for (size_t i = 0; i < elements->dim; i++)
+        {
+            Expression *e = (*elements)[i];
+            if (e && e->op == TOKerror)
+                return false;
+        }
+    }
+    return true;
 }
 
 /***************************************
  * Return true if struct is POD (Plain Old Data).
  * This is defined as:
  *      not nested
- *      no postblits, constructors, destructors, or assignment operators
- *      no fields with with any of those
+ *      no postblits, destructors, or assignment operators
+ *      no fields that are themselves non-POD
  * The idea being these are compatible with C structs.
- *
- * Note that D struct constructors can mean POD, since there is always default
- * construction with no ctor, but that interferes with OPstrpar which wants it
- * on the stack in memory, not in registers.
  */
 bool StructDeclaration::isPOD()
 {
-    if (enclosing || cpctor || postblit || ctor || dtor)
-        return false;
+    // If we've already determined whether this struct is POD.
+    if (ispod != ISPODfwd)
+        return (ispod == ISPODyes);
 
-    /* Recursively check any fields have a constructor.
-     * We should cache the results of this.
-     */
+    ispod = ISPODyes;
+
+    if (enclosing || cpctor || postblit || dtor)
+        ispod = ISPODno;
+
+    // Recursively check all fields are POD.
     for (size_t i = 0; i < fields.dim; i++)
     {
-        Dsymbol *s = fields[i];
-        VarDeclaration *v = s->isVarDeclaration();
-        assert(v && v->isField());
+        VarDeclaration *v = fields[i];
         if (v->storage_class & STCref)
             continue;
         Type *tv = v->type->baseElemOf();
@@ -969,10 +1012,14 @@ bool StructDeclaration::isPOD()
             TypeStruct *ts = (TypeStruct *)tv;
             StructDeclaration *sd = ts->sym;
             if (!sd->isPOD())
-                return false;
+            {
+                ispod = ISPODno;
+                break;
+            }
         }
     }
-    return true;
+
+    return (ispod == ISPODyes);
 }
 
 void StructDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
@@ -1011,7 +1058,6 @@ const char *StructDeclaration::kind()
 UnionDeclaration::UnionDeclaration(Loc loc, Identifier *id)
     : StructDeclaration(loc, id)
 {
-    hasUnions = 1;
 }
 
 Dsymbol *UnionDeclaration::syntaxCopy(Dsymbol *s)

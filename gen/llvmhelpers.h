@@ -241,4 +241,7 @@ llvm::GlobalVariable* getOrCreateGlobal(Loc loc, llvm::Module& module,
 
 FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic);
 
+void Declaration_codegen(Dsymbol *decl);
+void Declaration_codegen(Dsymbol *decl, IRState *irs);
+
 #endif

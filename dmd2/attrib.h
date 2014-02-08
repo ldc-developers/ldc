@@ -46,7 +46,7 @@ public:
     void semantic2(Scope *sc);
     void semantic3(Scope *sc);
     void inlineScan();
-    void addComment(utf8_t *comment);
+    void addComment(const utf8_t *comment);
     void emitComment(Scope *sc);
     const char *kind();
     bool oneMember(Dsymbol **ps, Identifier *ident);
@@ -56,16 +56,13 @@ public:
     void checkCtorConstInit();
     void addLocalClass(ClassDeclarations *);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    void toJson(JsonOut *json);
     AttribDeclaration *isAttribDeclaration() { return this; }
 
 #if IN_DMD
     void toObjFile(int multiobj);                       // compile to .obj file
 #endif
 
-#if IN_LLVM
-    void codegen(IRState*);
-#endif
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class StorageClassDeclaration : public AttribDeclaration
@@ -82,6 +79,7 @@ public:
 
     static const char *stcToChars(char tmp[], StorageClass& stc);
     static void stcToCBuffer(OutBuffer *buf, StorageClass stc);
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class DeprecatedDeclaration : public StorageClassDeclaration
@@ -93,6 +91,7 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *s);
     void setScope(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class LinkDeclaration : public AttribDeclaration
@@ -107,6 +106,7 @@ public:
     void semantic3(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     char *toChars();
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class ProtDeclaration : public AttribDeclaration
@@ -119,9 +119,11 @@ public:
     void importAll(Scope *sc);
     void setScope(Scope *sc);
     void semantic(Scope *sc);
+    void emitComment(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     static void protectionToCBuffer(OutBuffer *buf, PROT protection);
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class AlignDeclaration : public AttribDeclaration
@@ -134,6 +136,7 @@ public:
     void setScope(Scope *sc);
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class AnonDeclaration : public AttribDeclaration
@@ -149,6 +152,7 @@ public:
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class PragmaDeclaration : public AttribDeclaration
@@ -168,9 +172,7 @@ public:
     void toObjFile(int multiobj);                       // compile to .obj file
 #endif
 
-#if IN_LLVM
-    void codegen(IRState*);
-#endif
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class ConditionalDeclaration : public AttribDeclaration
@@ -184,11 +186,11 @@ public:
     bool oneMember(Dsymbol **ps, Identifier *ident);
     void emitComment(Scope *sc);
     Dsymbols *include(Scope *sc, ScopeDsymbol *s);
-    void addComment(utf8_t *comment);
+    void addComment(const utf8_t *comment);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    void toJson(JsonOut *json);
     void importAll(Scope *sc);
     void setScope(Scope *sc);
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class StaticIfDeclaration : public ConditionalDeclaration
@@ -205,6 +207,7 @@ public:
     void importAll(Scope *sc);
     void setScope(Scope *sc);
     const char *kind();
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 // Mixin declarations
@@ -224,6 +227,7 @@ public:
     void semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 /**
@@ -242,6 +246,7 @@ public:
     static Expressions *concat(Expressions *udas1, Expressions *udas2);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 #endif /* DMD_ATTRIB_H */

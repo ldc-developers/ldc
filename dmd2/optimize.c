@@ -13,10 +13,6 @@
 #include <assert.h>
 #include <math.h>
 
-#if __DMC__
-#include <complex.h>
-#endif
-
 #include "lexer.h"
 #include "mtype.h"
 #include "expression.h"
@@ -421,7 +417,7 @@ Expression *PtrExp::optimize(int result, bool keepLvalue)
         Expression *e = expandVar(result, v);
         if (e && e->op == TOKstructliteral)
         {   StructLiteralExp *sle = (StructLiteralExp *)e;
-            e = sle->getField(type, se->offset);
+            e = sle->getField(type, (unsigned)se->offset);
             if (e && e != EXP_CANT_INTERPRET)
                 return e;
         }
@@ -449,7 +445,7 @@ Expression *DotVarExp::optimize(int result, bool keepLvalue)
         VarDeclaration *vf = var->isVarDeclaration();
         if (vf)
         {
-            Expression *e = sle->getField(type, vf->offset);
+            e = sle->getField(type, vf->offset);
             if (e && e != EXP_CANT_INTERPRET)
                 return e;
         }
@@ -489,7 +485,6 @@ Expression *NewExp::optimize(int result, bool keepLvalue)
 Expression *CallExp::optimize(int result, bool keepLvalue)
 {
     //printf("CallExp::optimize(result = %d) %s\n", result, toChars());
-    Expression *e = this;
 
     // Optimize parameters with keeping lvalue-ness
     if (arguments)
@@ -502,9 +497,9 @@ Expression *CallExp::optimize(int result, bool keepLvalue)
         for (size_t i = 0; i < arguments->dim; i++)
         {
             Parameter *p = Parameter::getNth(tf->parameters, i);
-            bool keepLvalue = (p ? (p->storageClass & (STCref | STCout)) != 0 : false);
+            bool keep = (p ? (p->storageClass & (STCref | STCout)) != 0 : false);
             Expression *e = (*arguments)[i];
-            e = e->optimize(WANTvalue, keepLvalue);
+            e = e->optimize(WANTvalue, keep);
             (*arguments)[i] = e;
         }
     }
@@ -513,6 +508,7 @@ Expression *CallExp::optimize(int result, bool keepLvalue)
     if (keepLvalue)
         return this;
 
+    Expression *e = this;
 #if 1
 #else
     if (e1->op == TOKvar)
@@ -573,7 +569,10 @@ Expression *CastExp::optimize(int result, bool keepLvalue)
         e1->type->implicitConvTo(type) >= MATCHconst)
     {
         if (X) printf(" returning2 %s\n", e1->toChars());
-        goto L1;
+    L1: // Returning e1 with changing its type
+        Expression *e = (e1old == e1 ? e1->copy() : e1);
+        e->type = type;
+        return e;
     }
 
     /* The first test here is to prevent infinite loops
@@ -631,10 +630,6 @@ Expression *CastExp::optimize(int result, bool keepLvalue)
     else
         e = this;
     if (X) printf(" returning6 %s\n", e->toChars());
-    return e;
-L1: // Returning e1 with changing its type
-    e = (e1old == e1 ? e1->copy() : e1);
-    e->type = type;
     return e;
 #undef X
 }
@@ -1034,7 +1029,7 @@ void setLengthVarIfKnown(VarDeclaration *lengthVar, Expression *arr)
     {
         Type *t = arr->type->toBasetype();
         if (t->ty == Tsarray)
-            len = ((TypeSArray *)t)->dim->toInteger();
+            len = (size_t)((TypeSArray *)t)->dim->toInteger();
         else
             return; // we don't know the length yet
     }
@@ -1100,7 +1095,7 @@ Expression *AndAndExp::optimize(int result, bool keepLvalue)
     if (e1->op == TOKerror)
         return e1;
     e = this;
-    if (e1->isBool(FALSE))
+    if (e1->isBool(false))
     {
         if (type->toBasetype()->ty == Tvoid)
             e = e2;
@@ -1126,7 +1121,7 @@ Expression *AndAndExp::optimize(int result, bool keepLvalue)
 
                 e = new IntegerExp(loc, n1 && n2, type);
             }
-            else if (e1->isBool(TRUE))
+            else if (e1->isBool(true))
             {
                 if (type->toBasetype()->ty == Tvoid)
                     e = e2;
@@ -1144,7 +1139,7 @@ Expression *OrOrExp::optimize(int result, bool keepLvalue)
     if (e1->op == TOKerror)
         return e1;
     e = this;
-    if (e1->isBool(TRUE))
+    if (e1->isBool(true))
     {   // Replace with (e1, 1)
         e = new CommaExp(loc, e1, new IntegerExp(loc, 1, type));
         e->type = type;
@@ -1166,7 +1161,7 @@ Expression *OrOrExp::optimize(int result, bool keepLvalue)
 
                 e = new IntegerExp(loc, n1 || n2, type);
             }
-            else if (e1->isBool(FALSE))
+            else if (e1->isBool(false))
             {
                 if (type->toBasetype()->ty == Tvoid)
                     e = e2;
@@ -1211,9 +1206,9 @@ Expression *CondExp::optimize(int result, bool keepLvalue)
 {   Expression *e;
 
     econd = econd->optimize(WANTflags);
-    if (econd->isBool(TRUE))
+    if (econd->isBool(true))
         e = e1->optimize(result, keepLvalue);
-    else if (econd->isBool(FALSE))
+    else if (econd->isBool(false))
         e = e2->optimize(result, keepLvalue);
     else
     {   e1 = e1->optimize(result, keepLvalue);

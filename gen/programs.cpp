@@ -8,8 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/programs.h"
-#include "mars.h"       // fatal()
-#include "root.h"       // error(char*)
+#include "mars.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Program.h"
 
@@ -61,7 +60,7 @@ static std::string getProgram(const char *name, const cl::opt<std::string> &opt,
         path = sys::FindProgramByName(name);
 
     if (path.empty()) {
-        error("failed to locate %s", name);
+        error(Loc(), "failed to locate %s", name);
         fatal();
     }
 

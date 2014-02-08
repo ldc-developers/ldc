@@ -17,10 +17,9 @@
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
-#include <string>
 
 template <typename TYPE> struct Array;
-typedef Array<char> Strings;
+typedef Array<const char *> Strings;
 
 namespace opts {
     namespace cl = llvm::cl;

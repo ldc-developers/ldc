@@ -122,7 +122,7 @@ static void processVersions(std::vector<std::string>& list, const char* type,
             char* end;
             long level = strtol(value, &end, 10);
             if (*end || errno || level > INT_MAX) {
-                error("Invalid %s level: %s", type, I->c_str());
+                error(Loc(), "Invalid %s level: %s", type, I->c_str());
             } else {
                 setLevel((unsigned)level);
             }
@@ -132,18 +132,18 @@ static void processVersions(std::vector<std::string>& list, const char* type,
                 addIdent(cstr);
                 continue;
             } else {
-                error("Invalid %s identifier or level: '%s'", type, I->c_str());
+                error(Loc(), "Invalid %s identifier or level: '%s'", type, I->c_str());
             }
         }
     }
 }
 
 // Helper function to handle -of, -od, etc.
-static void initFromString(char*& dest, const cl::opt<std::string>& src) {
+static void initFromString(const char*& dest, const cl::opt<std::string>& src) {
     dest = 0;
     if (src.getNumOccurrences() != 0) {
         if (src.empty())
-            error("Expected argument to '-%s'", src.ArgStr);
+            error(Loc(), "Expected argument to '-%s'", src.ArgStr);
         dest = mem.strdup(src.c_str());
     }
 }
@@ -339,14 +339,14 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
             char const * ext = FileName::ext(name);
             if (ext && FileName::equals(ext, "d") == 0 &&
                 FileName::equals(ext, "di") == 0) {
-                error("-run must be followed by a source file, not '%s'", name);
+                error(Loc(), "-run must be followed by a source file, not '%s'", name);
             }
 
             sourceFiles.push(mem.strdup(name));
             runargs.erase(runargs.begin());
         } else {
             global.params.run = false;
-            error("Expected at least one argument to '-run'\n");
+            error(Loc(), "Expected at least one argument to '-run'\n");
         }
     }
 
@@ -370,7 +370,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
         {
             for (unsigned i = 0; i < libs->dim; i++)
             {
-                char* lib = static_cast<char *>(libs->data[i]);
+                const char* lib = static_cast<const char *>(libs->data[i]);
                 char *arg = static_cast<char *>(mem.malloc(strlen(lib) + 3));
                 strcpy(arg, "-l");
                 strcpy(arg+2, lib);
@@ -433,7 +433,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
         global.params.link = 0;
 
     if (createStaticLib && createSharedLib)
-        error("-lib and -shared switches cannot be used together");
+        error(Loc(), "-lib and -shared switches cannot be used together");
 
     if (createSharedLib && mRelocModel == llvm::Reloc::Default)
         mRelocModel = llvm::Reloc::PIC_;
@@ -446,7 +446,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     }
     else if (global.params.run)
     {
-        error("flags conflict with -run");
+        error(Loc(), "flags conflict with -run");
     }
     else if (global.params.objname && sourceFiles.dim > 1) {
         if (createStaticLib || createSharedLib)
@@ -455,12 +455,12 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
         }
         if (!singleObj)
         {
-            error("multiple source files, but only one .obj name");
+            error(Loc(), "multiple source files, but only one .obj name");
         }
     }
 
     if (soname.getNumOccurrences() > 0 && !createSharedLib) {
-        error("-soname can be used only when building a shared library");
+        error(Loc(), "-soname can be used only when building a shared library");
     }
 }
 
@@ -527,7 +527,7 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
         default:
-            error("invalid cpu architecture specified: %s", global.params.targetTriple.getArchName().str().c_str());
+            error(Loc(), "invalid cpu architecture specified: %s", global.params.targetTriple.getArchName().str().c_str());
             fatal();
     }
 
@@ -565,7 +565,7 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("MinGW");
             break;
         case llvm::Triple::Cygwin:
-            error("Cygwin is not yet supported");
+            error(Loc(), "Cygwin is not yet supported");
             fatal();
             VersionCondition::addPredefinedGlobalIdent("Cygwin");
             break;
@@ -628,7 +628,7 @@ static void registerPredefinedTargetVersions() {
                     break;
 #endif
                 default:
-                    error("target '%s' is not yet supported", global.params.targetTriple.str().c_str());
+                    error(Loc(), "target '%s' is not yet supported", global.params.targetTriple.str().c_str());
                     fatal();
             }
     }
@@ -721,9 +721,6 @@ void genCmain(Scope *sc)
 
 int main(int argc, char **argv)
 {
-    mem.init();                         // initialize storage allocator
-    mem.setStackBottom(&argv);
-
     // stack trace on signals
     llvm::sys::PrintStackTraceOnErrorSignal();
 
@@ -756,7 +753,7 @@ int main(int argc, char **argv)
     // Set up the TargetMachine.
     ExplicitBitness::Type bitness = ExplicitBitness::None;
     if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty()))
-        error("-m32 and -m64 switches cannot be used together with -march and -mtriple switches");
+        error(Loc(), "-m32 and -m64 switches cannot be used together with -march and -mtriple switches");
 
     if (m32bits)
         bitness = ExplicitBitness::M32;
@@ -764,7 +761,7 @@ int main(int argc, char **argv)
     {
         if (bitness != ExplicitBitness::None)
         {
-            error("cannot use both -m32 and -m64 options");
+            error(Loc(), "cannot use both -m32 and -m64 options");
         }
     }
 
@@ -813,13 +810,14 @@ int main(int argc, char **argv)
     Target::init();
     Expression::init();
     initPrecedence();
+    builtin_init();
 
     // Build import search path
     if (global.params.imppath)
     {
         for (unsigned i = 0; i < global.params.imppath->dim; i++)
         {
-            char *path = static_cast<char *>(global.params.imppath->data[i]);
+            const char *path = static_cast<const char *>(global.params.imppath->data[i]);
             Strings *a = FileName::splitPath(path);
 
             if (a)
@@ -836,7 +834,7 @@ int main(int argc, char **argv)
     {
         for (unsigned i = 0; i < global.params.fileImppath->dim; i++)
         {
-            char *path = static_cast<char *>(global.params.fileImppath->data[i]);
+            const char *path = static_cast<const char *>(global.params.fileImppath->data[i]);
             Strings *a = FileName::splitPath(path);
 
             if (a)
@@ -862,7 +860,7 @@ int main(int argc, char **argv)
         const char *ext;
         const char *name;
 
-        const char *p = static_cast<char *>(files.data[i]);
+        const char *p = static_cast<const char *>(files.data[i]);
 
         p = FileName::name(p);      // strip path
         ext = FileName::ext(p);
@@ -877,7 +875,7 @@ int main(int argc, char **argv)
                 Port::stricmp(ext, global.bc_ext) == 0)
 #endif
             {
-                global.params.objfiles->push(static_cast<char *>(files.data[i]));
+                global.params.objfiles->push(static_cast<const char *>(files.data[i]));
                 continue;
             }
 
@@ -889,39 +887,39 @@ int main(int argc, char **argv)
             if (Port::stricmp(ext, "lib") == 0)
 #endif
             {
-                global.params.libfiles->push(static_cast<char *>(files.data[i]));
+                global.params.libfiles->push(static_cast<const char *>(files.data[i]));
                 continue;
             }
 
             if (strcmp(ext, global.ddoc_ext) == 0)
             {
-                global.params.ddocfiles->push(static_cast<char *>(files.data[i]));
+                global.params.ddocfiles->push(static_cast<const char *>(files.data[i]));
                 continue;
             }
 
             if (FileName::equals(ext, global.json_ext))
             {
                 global.params.doXGeneration = 1;
-                global.params.xfilename = static_cast<char *>(files.data[i]);
+                global.params.xfilename = static_cast<const char *>(files.data[i]);
                 continue;
             }
 
 #if !POSIX
             if (Port::stricmp(ext, "res") == 0)
             {
-                global.params.resfile = static_cast<char *>(files.data[i]);
+                global.params.resfile = static_cast<const char *>(files.data[i]);
                 continue;
             }
 
             if (Port::stricmp(ext, "def") == 0)
             {
-                global.params.deffile = static_cast<char *>(files.data[i]);
+                global.params.deffile = static_cast<const char *>(files.data[i]);
                 continue;
             }
 
             if (Port::stricmp(ext, "exe") == 0)
             {
-                global.params.exefile = static_cast<char *>(files.data[i]);
+                global.params.exefile = static_cast<const char *>(files.data[i]);
                 continue;
             }
 #endif
@@ -945,7 +943,7 @@ int main(int argc, char **argv)
                 }
             }
             else
-            {   error("unrecognized file extension %s\n", ext);
+            {   error(Loc(), "unrecognized file extension %s\n", ext);
                 fatal();
             }
         }
@@ -954,14 +952,14 @@ int main(int argc, char **argv)
             if (!*p)
             {
         Linvalid:
-                error("invalid file name '%s'", static_cast<char *>(files.data[i]));
+                error(Loc(), "invalid file name '%s'", static_cast<const char *>(files.data[i]));
                 fatal();
             }
             name = p;
         }
 
         id = Lexer::idPool(name);
-        Module *m = new Module(static_cast<char *>(files.data[i]), id, global.params.doDocComments, global.params.doHdrGeneration);
+        Module *m = new Module(static_cast<const char *>(files.data[i]), id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
     }
 
@@ -1146,7 +1144,7 @@ int main(int argc, char **argv)
                 linker.releaseModule();
 #endif
                 if (hadError)
-                    error("%s", linkError.c_str());
+                    error(Loc(), "%s", linkError.c_str());
             }
             if (!singleObj)
             {
@@ -1169,7 +1167,7 @@ int main(int argc, char **argv)
     {
         Module *m = modules[0];
 
-        char* oname;
+        const char* oname;
         const char* filename;
         if ((oname = global.params.exefile) || (oname = global.params.objname))
         {
@@ -1204,7 +1202,7 @@ int main(int argc, char **argv)
 #else
             if (linker.LinkInModule(llvmModules[i], &errormsg))
 #endif
-                error("%s", errormsg.c_str());
+                error(Loc(), "%s", errormsg.c_str());
             delete llvmModules[i];
         }
 
@@ -1253,13 +1251,13 @@ int main(int argc, char **argv)
                 jsonfilename = FileName::forceExt(n, global.json_ext);
             }
 
-            FileName::ensurePathToNameExists(jsonfilename);
+            ensurePathToNameExists(Loc(), jsonfilename);
 
             File *jsonfile = new File(jsonfilename);
 
             jsonfile->setbuffer(buf.data, buf.offset);
             jsonfile->ref = 1;
-            jsonfile->writev();
+            writeFile(Loc(), jsonfile);
         }
     }
 
@@ -1274,9 +1272,9 @@ int main(int argc, char **argv)
     if (!global.params.objfiles->dim)
     {
         if (global.params.link)
-            error("no object files to link");
+            error(Loc(), "no object files to link");
         else if (createStaticLib)
-            error("no object files");
+            error(Loc(), "no object files");
     }
     else
     {

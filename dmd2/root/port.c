@@ -1,4 +1,3 @@
-
 // Copyright (c) 1999-2012 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
@@ -570,8 +569,6 @@ PortInitializer::PortInitializer()
 #endif
 }
 
-#ifndef __HAIKU__
-#endif
 int Port::isNan(double r)
 {
 #if __APPLE__
@@ -580,7 +577,7 @@ int Port::isNan(double r)
 #else
     return __inline_isnan(r);
 #endif
-#elif __HAIKU__ || __OpenBSD__
+#elif __HAIKU__ || __FreeBSD__ || __OpenBSD__
     return isnan(r);
 #else
     #undef isnan
@@ -596,7 +593,7 @@ int Port::isNan(longdouble r)
 #else
     return __inline_isnan(r);
 #endif
-#elif __HAIKU__ || __OpenBSD__
+#elif __HAIKU__ || __FreeBSD__ || __OpenBSD__
     return isnan(r);
 #else
     #undef isnan
@@ -624,7 +621,7 @@ int Port::isInfinity(double r)
 {
 #if __APPLE__
     return fpclassify(r) == FP_INFINITE;
-#elif defined __HAIKU__ || __OpenBSD__
+#elif __HAIKU__ || __FreeBSD__ || __OpenBSD__
     return isinf(r);
 #else
     #undef isinf
@@ -634,7 +631,7 @@ int Port::isInfinity(double r)
 
 longdouble Port::fmodl(longdouble x, longdouble y)
 {
-#if __FreeBSD__ || __OpenBSD__
+#if __FreeBSD__ && __FreeBSD_version < 800000 || __OpenBSD__
     return ::fmod(x, y);        // hack for now, fix later
 #else
     return ::fmodl(x, y);
@@ -846,11 +843,6 @@ float Port::strtof(const char *p, char **endp)
 double Port::strtod(const char *p, char **endp)
 {
     return ::strtod(p, endp);
-}
-
-longdouble Port::strtold(const char *p, char **endp)
-{
-    return ::strtold(p, endp);
 }
 
 longdouble Port::strtold(const char *p, char **endp)

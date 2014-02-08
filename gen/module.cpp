@@ -572,7 +572,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
     for (unsigned k=0; k < members->dim; k++) {
         Dsymbol* dsym = static_cast<Dsymbol*>(members->data[k]);
         assert(dsym);
-        dsym->codegen(&ir);
+        Declaration_codegen(dsym);
     }
 
     // for singleobj-compilation, fully emit all seen template instances
@@ -582,7 +582,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
         {
             IRState::TemplateInstanceSet::iterator it, end = ir.seenTemplateInstances.end();
             for (it = ir.seenTemplateInstances.begin(); it != end; ++it)
-                (*it)->codegen(&ir);
+                Declaration_codegen(*it);
             ir.seenTemplateInstances.clear();
         }
     }

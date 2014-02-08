@@ -47,6 +47,7 @@ private:
 public:
     bool isdeprecated;
     bool added;
+    int inuse;
 
     EnumDeclaration(Loc loc, Identifier *id, Type *memtype);
     Dsymbol *syntaxCopy(Dsymbol *s);
@@ -57,9 +58,7 @@ public:
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Type *getType();
     const char *kind();
-#if DMDV2
-    Dsymbol *search(Loc, Identifier *ident, int flags);
-#endif
+    Dsymbol *search(Loc, Identifier *ident, int flags = IgnoreNone);
     bool isDeprecated();                // is Dsymbol deprecated?
     PROT prot();
     Expression *getMaxMinValue(Loc loc, Identifier *id);
@@ -67,7 +66,6 @@ public:
     Type *getMemtype(Loc loc);
 
     void emitComment(Scope *sc);
-    void toJson(JsonOut *json);
     void toDocBuffer(OutBuffer *buf, Scope *sc);
 
     EnumDeclaration *isEnumDeclaration() { return this; }
@@ -81,9 +79,7 @@ public:
     Symbol *toInitializer();
 #endif
 
-#if IN_LLVM
-    void codegen(IRState*);
-#endif
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 
@@ -109,10 +105,10 @@ public:
     Expression *getVarExp(Loc loc, Scope *sc);
 
     void emitComment(Scope *sc);
-    void toJson(JsonOut *json);
     void toDocBuffer(OutBuffer *buf, Scope *sc);
 
     EnumMember *isEnumMember() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 #endif /* DMD_ENUM_H */

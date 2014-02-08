@@ -65,7 +65,8 @@ public:
     Package *isPackage() { return this; }
 
     virtual void semantic(Scope *) { }
-    Dsymbol *search(Loc loc, Identifier *ident, int flags);
+    Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class Module : public Package
@@ -125,14 +126,13 @@ public:
     int doDocComment;          // enable generating doc comments for this module
     int doHdrGen;              // enable generating header file for this module
 
-    Module(char *arg, Identifier *ident, int doDocComment, int doHdrGen);
+    Module(const char *arg, Identifier *ident, int doDocComment, int doHdrGen);
+    static Module* create(const char *arg, Identifier *ident, int doDocComment, int doHdrGen);
     ~Module();
 
     static Module *load(Loc loc, Identifiers *packages, Identifier *ident);
 
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    void toJson(JsonOut *json);
-    void jsonProperties(JsonOut *json);
     const char *kind();
 #if !IN_LLVM
     File *setOutfile(const char *name, const char *dir, const char *arg, const char *ext);
@@ -156,7 +156,7 @@ public:
 #endif
     void gendocfile();
     int needModuleInfo();
-    Dsymbol *search(Loc loc, Identifier *ident, int flags);
+    Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
     void deleteObjFile();
     static void addDeferredSemantic(Dsymbol *s);
     static void runDeferredSemantic();
@@ -213,6 +213,8 @@ public:
     // array ops emitted in this module already
     AA *arrayfuncs;
 #endif
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 

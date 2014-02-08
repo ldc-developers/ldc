@@ -356,9 +356,9 @@ bool ldc_optimize_module(llvm::Module* m)
         else {
             const char* arg = passInf->getPassArgument(); // may return null
             if (arg)
-                error("Can't create pass '-%s' (%s)", arg, pass->getPassName());
+                error(Loc(), "Can't create pass '-%s' (%s)", arg, pass->getPassName());
             else
-                error("Can't create pass (%s)", pass->getPassName());
+                error(Loc(), "Can't create pass (%s)", pass->getPassName());
             llvm_unreachable("pass creation failed");
         }
         if (pass) {
@@ -399,7 +399,7 @@ void verifyModule(llvm::Module* m) {
         if (llvm::verifyModule(*m, llvm::ReturnStatusAction, &ErrorStr))
 #endif
         {
-            error("%s", ErrorStr.c_str());
+            error(Loc(), "%s", ErrorStr.c_str());
             fatal();
         }
         else {

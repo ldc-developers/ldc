@@ -23,6 +23,7 @@ int Target::ptrsize;
 int Target::realsize;
 int Target::realpad;
 int Target::realalignsize;
+bool Target::reverseCppOverloads;
 
 void Target::init()
 {
@@ -32,6 +33,8 @@ void Target::init()
     realsize = gDataLayout->getTypeAllocSize(real);
     realpad = realsize - gDataLayout->getTypeStoreSize(real);
     realalignsize = gDataLayout->getABITypeAlignment(real);
+
+    reverseCppOverloads = false; // DMC is not supported.
 }
 
 /******************************

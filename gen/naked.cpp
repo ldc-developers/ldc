@@ -25,83 +25,120 @@
 #include <cassert>
 
 //////////////////////////////////////////////////////////////////////////////////////////
-
-void Statement::toNakedIR(IRState *p)
-{
-    error("statement not allowed in naked function");
-}
+// FIXME: Integrate these functions
+void AsmStatement_toNakedIR(AsmStatement *stmt, IRState *irs);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void CompoundStatement::toNakedIR(IRState *p)
-{
-    Logger::println("CompoundStatement::toNakedIR(): %s", loc.toChars());
-    LOG_SCOPE;
+class ToNakedIRVisitor : public Visitor {
+    IRState *irs;
+public:
 
-    if (statements)
-    for (unsigned i = 0; i < statements->dim; i++)
-    {
-        Statement* s = static_cast<Statement*>(statements->data[i]);
-        if (s) s->toNakedIR(p);
-    }
-}
+    ToNakedIRVisitor(IRState *irs) : irs(irs) { }
 
-//////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
 
-void ExpStatement::toNakedIR(IRState *p)
-{
-    Logger::println("ExpStatement::toNakedIR(): %s", loc.toChars());
-    LOG_SCOPE;
+    // Import all functions from class Visitor
+    using Visitor::visit;
 
-    // only expstmt supported in declarations
-    if (exp->op != TOKdeclaration)
-    {
-        Statement::toNakedIR(p);
-        return;
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(Statement *stmt) LLVM_OVERRIDE {
+        error(Loc(), "Statement not allowed in naked function");
     }
 
-    DeclarationExp* d = static_cast<DeclarationExp*>(exp);
-    VarDeclaration* vd = d->declaration->isVarDeclaration();
-    FuncDeclaration* fd = d->declaration->isFuncDeclaration();
-    EnumDeclaration* ed = d->declaration->isEnumDeclaration();
+    //////////////////////////////////////////////////////////////////////////
 
-    // and only static variable/function declaration
-    // no locals or nested stuffies!
-    if (!vd && !fd && !ed)
-    {
-        Statement::toNakedIR(p);
-        return;
+    void visit(AsmStatement *stmt) LLVM_OVERRIDE {
+        AsmStatement_toNakedIR(stmt, irs);
     }
-    else if (vd && !(vd->storage_class & (STCstatic | STCmanifest)))
-    {
-        error("non-static variable '%s' not allowed in naked function", vd->toChars());
-        return;
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(AsmBlockStatement *stmt) LLVM_OVERRIDE {
+        Logger::println("AsmBlockStatement::toNakedIR(): %s", stmt->loc.toChars());
+        LOG_SCOPE;
+
+        for (Statements::iterator I = stmt->statements->begin(),
+                                  E = stmt->statements->end();
+                                  I != E; ++I)
+        {
+            Statement *s = *I;
+            if (s) s->accept(this);
+        }
     }
-    else if (fd && !fd->isStatic())
-    {
-        error("non-static nested function '%s' not allowed in naked function", fd->toChars());
-        return;
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(CompoundStatement *stmt) LLVM_OVERRIDE {
+        Logger::println("CompoundStatement::toNakedIR(): %s", stmt->loc.toChars());
+        LOG_SCOPE;
+
+        if (stmt->statements)
+            for (Statements::iterator I = stmt->statements->begin(),
+                                      E = stmt->statements->end();
+                                      I != E; ++I)
+            {
+                Statement *s = *I;
+                if (s) s->accept(this);
+            }
     }
-    // enum decls should always be safe
 
-    // make sure the symbols gets processed
-    // TODO: codegen() here is likely incorrect
-    d->declaration->codegen(p);
-}
+    //////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////////////////
+    void visit(ExpStatement *stmt) LLVM_OVERRIDE {
+        Logger::println("ExpStatement::toNakedIR(): %s", stmt->loc.toChars());
+        LOG_SCOPE;
 
-void LabelStatement::toNakedIR(IRState *p)
-{
-    Logger::println("LabelStatement::toNakedIR(): %s", loc.toChars());
-    LOG_SCOPE;
+        // only expstmt supported in declarations
+        if (stmt->exp->op != TOKdeclaration)
+        {
+            visit(static_cast<Statement *>(stmt));
+            return;
+        }
 
-    printLabelName(p->nakedAsm, p->func()->decl->mangleExact(), ident->toChars());
-    p->nakedAsm << ":";
+        DeclarationExp* d = static_cast<DeclarationExp*>(stmt->exp);
+        VarDeclaration* vd = d->declaration->isVarDeclaration();
+        FuncDeclaration* fd = d->declaration->isFuncDeclaration();
+        EnumDeclaration* ed = d->declaration->isEnumDeclaration();
 
-    if (statement)
-        statement->toNakedIR(p);
-}
+        // and only static variable/function declaration
+        // no locals or nested stuffies!
+        if (!vd && !fd && !ed)
+        {
+            visit(static_cast<Statement *>(stmt));
+            return;
+        }
+        else if (vd && !(vd->storage_class & (STCstatic | STCmanifest)))
+        {
+            error(vd->loc, "non-static variable '%s' not allowed in naked function", vd->toChars());
+            return;
+        }
+        else if (fd && !fd->isStatic())
+        {
+            error(fd->loc, "non-static nested function '%s' not allowed in naked function", fd->toChars());
+            return;
+        }
+        // enum decls should always be safe
+
+        // make sure the symbols gets processed
+        // TODO: codegen() here is likely incorrect
+        Declaration_codegen(d->declaration, irs);
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(LabelStatement *stmt) LLVM_OVERRIDE {
+        Logger::println("LabelStatement::toNakedIR(): %s", stmt->loc.toChars());
+        LOG_SCOPE;
+
+        printLabelName(irs->nakedAsm, irs->func()->decl->mangleExact(), stmt->ident->toChars());
+        irs->nakedAsm << ":";
+
+        if (stmt->statement)
+            stmt->statement->accept(this);
+    }
+};
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -190,7 +227,8 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
     }
 
     // emit body
-    fd->fbody->toNakedIR(gIR);
+    ToNakedIRVisitor v(gIR);
+    fd->fbody->accept(&v);
 
     // We could have generated new errors in toNakedIR(), but we are in codegen
     // already so we have to abort here.

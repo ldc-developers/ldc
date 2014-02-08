@@ -39,6 +39,7 @@ EnumDeclaration::EnumDeclaration(Loc loc, Identifier *id, Type *memtype)
     protection = PROTundefined;
     parent = NULL;
     added = false;
+    inuse = 0;
 }
 
 Dsymbol *EnumDeclaration::syntaxCopy(Dsymbol *s)
@@ -118,15 +119,25 @@ void EnumDeclaration::semantic(Scope *sc)
     if (!members && !memtype)               // enum ident;
         return;
 
-    if (semanticRun > PASSinit)
+    if (semanticRun >= PASSsemanticdone)
         return;             // semantic() already completed
+    if (semanticRun == PASSsemantic)
+    {
+        assert(memtype);
+        ::error(loc, "circular reference to enum base type %s", memtype->toChars());
+        errors = true;
+        semanticRun = PASSsemanticdone;
+        return;
+    }
+    semanticRun = PASSsemantic;
 
     if (!symtab)
         symtab = new DsymbolTable();
 
     Scope *scx = NULL;
     if (scope)
-    {   sc = scope;
+    {
+        sc = scope;
         scx = scope;            // save so we don't make redundant copies
         scope = NULL;
     }
@@ -136,6 +147,11 @@ void EnumDeclaration::semantic(Scope *sc)
     if (sc->stc & STCdeprecated)
         isdeprecated = true;
     userAttributes = sc->userAttributes;
+    if (userAttributes)
+    {
+        userAttributesScope = sc;
+        userAttributesScope->setNoFree();
+    }
 
     parent = sc->parent;
     protection = sc->protection;
@@ -160,12 +176,14 @@ void EnumDeclaration::semantic(Scope *sc)
         if (memtype->ty == Tenum)
         {   EnumDeclaration *sym = (EnumDeclaration *)memtype->toDsymbol(sc);
             if (!sym->memtype || !sym->members || !sym->symtab || sym->scope)
-            {   // memtype is forward referenced, so try again later
+            {
+                // memtype is forward referenced, so try again later
                 scope = scx ? scx : new Scope(*sc);
                 scope->setNoFree();
                 scope->module->addDeferredSemantic(this);
                 Module::dprogress = dprogress_save;
                 //printf("\tdeferring %s\n", toChars());
+                semanticRun = PASSinit;
                 return;
             }
         }
@@ -208,7 +226,8 @@ void EnumDeclaration::semantic(Scope *sc)
     if (isAnonymous())
         sce = sc;
     else
-    {   sce = sc->push(this);
+    {
+        sce = sc->push(this);
         sce->parent = this;
     }
     sce = sce->startCTFE();
@@ -286,6 +305,11 @@ Expression *EnumDeclaration::getMaxMinValue(Loc loc, Identifier *id)
 
     Expression **pval = (id == Id::max) ? &maxval : &minval;
 
+    if (inuse)
+    {
+        error(loc, "recursive definition of .%s property", id->toChars());
+        goto Lerrors;
+    }
     if (*pval)
         return *pval;
 
@@ -333,7 +357,9 @@ Expression *EnumDeclaration::getMaxMinValue(Loc loc, Identifier *id)
              *      maxval = e;
              */
             Expression *ec = new CmpExp(id == Id::max ? TOKgt : TOKlt, em->loc, e, *pval);
+            inuse++;
             ec = ec->semantic(em->scope);
+            inuse--;
             ec = ec->ctfeInterpret();
             if (ec->toInteger())
                 *pval = e;
@@ -381,20 +407,21 @@ Type *EnumDeclaration::getMemtype(Loc loc)
     if (loc.linnum == 0)
         loc = this->loc;
     if (scope)
-    {   /* Enum is forward referenced. We don't need to resolve the whole thing,
+    {
+        /* Enum is forward referenced. We don't need to resolve the whole thing,
          * just the base type
          */
         if (memtype)
             memtype = memtype->semantic(loc, scope);
         else
         {
-            if (!isAnonymous())
+            if (!isAnonymous() && members)
                 memtype = Type::tint32;
         }
     }
     if (!memtype)
     {
-        if (!isAnonymous())
+        if (!isAnonymous() && members)
             memtype = Type::tint32;
         else
         {
@@ -476,7 +503,8 @@ Dsymbol *EnumDeclaration::search(Loc loc, Identifier *ident, int flags)
         semantic(scope);
 
     if (!members || !symtab || scope)
-    {   error("is forward referenced when looking for '%s'", ident->toChars());
+    {
+        error("is forward referenced when looking for '%s'", ident->toChars());
         //*(char*)0=0;
         return NULL;
     }
@@ -702,6 +730,7 @@ Expression *EnumMember::getVarExp(Loc loc, Scope *sc)
         vd->protection = ed->isAnonymous() ? ed->protection : PROTpublic;
         vd->parent = ed->isAnonymous() ? ed->parent : ed;
         vd->userAttributes = ed->isAnonymous() ? ed->userAttributes : NULL;
+        vd->userAttributesScope = ed->isAnonymous() ? ed->userAttributesScope : NULL;
     }
     Expression *e = new VarExp(loc, vd);
     return e->semantic(sc);

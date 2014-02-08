@@ -33,11 +33,11 @@ include(GetLinuxDistribution)
 #
 
 # Version information
-set(LDC_VERSION "0.13.0") # May be overridden by git hash tag
+set(LDC_VERSION "0.14.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   64)
-#set(DMDFE_FIX_LEVEL       2) # Comment out if not used
+set(DMDFE_PATCH_VERSION   65)
+#set(DMDFE_FIX_LEVEL       0) # Comment out if not used
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)

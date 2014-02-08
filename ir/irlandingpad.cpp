@@ -73,7 +73,7 @@ void IRLandingPadCatchInfo::toIR()
     // emit handler, if there is one
     // handler is zero for instance for 'catch { debug foo(); }'
     if (catchStmt->handler)
-        catchStmt->handler->toIR(gIR);
+        Statement_toIR(catchStmt->handler, gIR);
 
     if (!gIR->scopereturned())
         gIR->ir->CreateBr(end);
@@ -107,7 +107,7 @@ void IRLandingPadFinallyStatementInfo::toIR(LLValue *eh_ptr)
     gIR->DBuilder.EmitBlockStart(finallyBody->loc);
     padInfo.scopeStack.push(IRLandingPadScope(collision));
     pad = collision;
-    finallyBody->toIR(gIR);
+    Statement_toIR(finallyBody, gIR);
     padInfo.scopeStack.pop();
     pad = padInfo.get();
     gIR->DBuilder.EmitBlockEnd();
