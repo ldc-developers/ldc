@@ -472,29 +472,12 @@ LLConstant* DtoConstFP(Type* t, longdouble value)
     LLType* llty = DtoType(t);
     assert(llty->isFloatingPointTy());
 
-    if(llty == LLType::getFloatTy(gIR->context()) || llty == LLType::getDoubleTy(gIR->context()))
-        return LLConstantFP::get(llty, value);
-    else if(llty == LLType::getX86_FP80Ty(gIR->context())) {
-        uint64_t bits[] = { 0, 0 };
-        bits[0] = *reinterpret_cast<uint64_t*>(&value);
-        bits[1] = *reinterpret_cast<uint16_t*>(reinterpret_cast<uint64_t*>(&value) + 1);
-#if LDC_LLVM_VER >= 303
-        return LLConstantFP::get(gIR->context(), APFloat(APFloat::x87DoubleExtended, APInt(80, 2, bits)));
-#else
-        return LLConstantFP::get(gIR->context(), APFloat(APInt(80, 2, bits)));
-#endif
-    } else if(llty == LLType::getPPC_FP128Ty(gIR->context())) {
-        uint64_t bits[] = {0, 0};
-        bits[0] = *reinterpret_cast<uint64_t*>(&value);
-        bits[1] = *reinterpret_cast<uint16_t*>(reinterpret_cast<uint64_t*>(&value) + 1);
-#if LDC_LLVM_VER >= 303
-        return LLConstantFP::get(gIR->context(), APFloat(APFloat::PPCDoubleDouble, APInt(128, 2, bits)));
-#else
-        return LLConstantFP::get(gIR->context(), APFloat(APInt(128, 2, bits)));
-#endif
-    }
-
-    llvm_unreachable("Unknown floating point type encountered");
+    if (llty == LLType::getFloatTy(gIR->context()))
+        return LLConstantFP::get(llty, value.convertToFloat());
+    else if (llty == LLType::getDoubleTy(gIR->context()))
+        return LLConstantFP::get(llty, value.convertToDouble());
+    else
+        return LLConstantFP::get(gIR->context(), value);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
