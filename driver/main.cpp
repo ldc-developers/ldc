@@ -933,6 +933,8 @@ int main(int argc, char **argv)
     Expression::init();
     initPrecedence();
     builtin_init();
+    ldc::real_init();
+    ldc::port_init();
 
     // Build import search path
     if (global.params.imppath)

@@ -8,6 +8,7 @@ if(MSVC)
 endif()
 
 include(CheckIncludeFile)
+include(CheckSymbolExists)
 include(CheckLibraryExists)
 
 #
@@ -243,22 +244,7 @@ list(REMOVE_ITEM FE_SRC
 # Add/remove files for MSVC
 if(MSVC)
     list(APPEND FE_SRC
-        ${PROJECT_SOURCE_DIR}/vcbuild/strtold.c
-# See below why this don't work
-#        if(CMAKE_CL_64)
-#        ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
-#        endif()
-    )
-    if(CMAKE_CL_64)
-        # MASM support does not work yet!
-        add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
-                           COMMAND ${CMAKE_ASM_MASM_COMPILER} /c /Fo${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
-                           DEPENDS ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
-                           COMMENT "generate ldfpu.obj")
-        list(APPEND FE_SRC
-            ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
-    )
-    endif()
+        ${PROJECT_SOURCE_DIR}/vcbuild/strtold.c)
 endif()
 set(LDC_SOURCE_FILES
     ${LDC_GENERATED}
@@ -337,6 +323,26 @@ if(MSVC)
 else()
     set(EXTRA_CXXFLAGS "-fexceptions")
 endif()
+
+#
+# check string functions
+#
+check_symbol_exists(memicmp "string.h" HAVE_MEMICMP)
+check_symbol_exists(stricmp "string.h" HAVE_STRICMP)
+check_symbol_exists(strupr "string.h" HAVE_STRUPR)
+
+if(HAVE_MEMICMP)
+    add_definitions(-DHAVE_MEMICMP)
+endif()
+
+if(HAVE_STRICMP)
+    add_definitions(-DHAVE_STRICMP)
+endif()
+
+if(HAVE_STRUPR)
+    add_definitions(-DHAVE_STRUPR)
+endif()
+
 
 #
 # Check endianess.
@@ -472,7 +478,6 @@ get_target_property(GEN_GCCBUILTINS_LOC gen_gccbuiltins LOCATION)
 #
 # LDMD
 #
-include(CheckSymbolExists)
 CHECK_SYMBOL_EXISTS(_SC_ARG_MAX "unistd.h" HAVE_SC_ARG_MAX)
 if (HAVE_SC_ARG_MAX)
    add_definitions(-DHAVE_SC_ARG_MAX)

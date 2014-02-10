@@ -43,6 +43,7 @@ Expression *eval_unimp(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     return NULL;
 }
 
+#if !IN_LLVM
 Expression *eval_sin(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 {
     Expression *arg0 = (*arguments)[0];
@@ -63,6 +64,7 @@ Expression *eval_tan(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     assert(arg0->op == TOKfloat64);
     return new RealExp(loc, tanl(arg0->toReal()), arg0->type);
 }
+#endif
 
 Expression *eval_sqrt(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 {
@@ -133,18 +135,30 @@ void builtin_init()
     builtins._init(45);
 
     // @safe pure nothrow real function(real)
+#if IN_LLVM
+    add_builtin("_D4core4math3sinFNaNbNfeZe", &eval_unimp);
+    add_builtin("_D4core4math3cosFNaNbNfeZe", &eval_unimp);
+    add_builtin("_D4core4math3tanFNaNbNfeZe", &eval_unimp);
+#else
     add_builtin("_D4core4math3sinFNaNbNfeZe", &eval_sin);
     add_builtin("_D4core4math3cosFNaNbNfeZe", &eval_cos);
     add_builtin("_D4core4math3tanFNaNbNfeZe", &eval_tan);
+#endif
     add_builtin("_D4core4math4sqrtFNaNbNfeZe", &eval_sqrt);
     add_builtin("_D4core4math4fabsFNaNbNfeZe", &eval_fabs);
     add_builtin("_D4core4math5expm1FNaNbNfeZe", &eval_unimp);
     add_builtin("_D4core4math4exp21FNaNbNfeZe", &eval_unimp);
 
     // @trusted pure nothrow real function(real)
+#if IN_LLVM
+    add_builtin("_D4core4math3sinFNaNbNeeZe", &eval_unimp);
+    add_builtin("_D4core4math3cosFNaNbNeeZe", &eval_unimp);
+    add_builtin("_D4core4math3tanFNaNbNeeZe", &eval_unimp);
+#else
     add_builtin("_D4core4math3sinFNaNbNeeZe", &eval_sin);
     add_builtin("_D4core4math3cosFNaNbNeeZe", &eval_cos);
     add_builtin("_D4core4math3tanFNaNbNeeZe", &eval_tan);
+#endif
     add_builtin("_D4core4math4sqrtFNaNbNeeZe", &eval_sqrt);
     add_builtin("_D4core4math4fabsFNaNbNeeZe", &eval_fabs);
     add_builtin("_D4core4math5expm1FNaNbNeeZe", &eval_unimp);
@@ -164,18 +178,30 @@ void builtin_init()
     add_builtin("_D4core4math6rndtolFNaNbNfeZl", &eval_unimp);
 
     // @safe pure nothrow real function(real)
+#if IN_LLVM
+    add_builtin("_D3std4math3sinFNaNbNfeZe", &eval_unimp);
+    add_builtin("_D3std4math3cosFNaNbNfeZe", &eval_unimp);
+    add_builtin("_D3std4math3tanFNaNbNfeZe", &eval_unimp);
+#else
     add_builtin("_D3std4math3sinFNaNbNfeZe", &eval_sin);
     add_builtin("_D3std4math3cosFNaNbNfeZe", &eval_cos);
     add_builtin("_D3std4math3tanFNaNbNfeZe", &eval_tan);
+#endif
     add_builtin("_D3std4math4sqrtFNaNbNfeZe", &eval_sqrt);
     add_builtin("_D3std4math4fabsFNaNbNfeZe", &eval_fabs);
     add_builtin("_D3std4math5expm1FNaNbNfeZe", &eval_unimp);
     add_builtin("_D3std4math4exp21FNaNbNfeZe", &eval_unimp);
 
     // @trusted pure nothrow real function(real)
+#if IN_LLVM
+    add_builtin("_D3std4math3sinFNaNbNeeZe", &eval_unimp);
+    add_builtin("_D3std4math3cosFNaNbNeeZe", &eval_unimp);
+    add_builtin("_D3std4math3tanFNaNbNeeZe", &eval_unimp);
+#else
     add_builtin("_D3std4math3sinFNaNbNeeZe", &eval_sin);
     add_builtin("_D3std4math3cosFNaNbNeeZe", &eval_cos);
     add_builtin("_D3std4math3tanFNaNbNeeZe", &eval_tan);
+#endif
     add_builtin("_D3std4math4sqrtFNaNbNeeZe", &eval_sqrt);
     add_builtin("_D3std4math4fabsFNaNbNeeZe", &eval_fabs);
     add_builtin("_D3std4math5expm1FNaNbNeeZe", &eval_unimp);

@@ -13,6 +13,12 @@
 #ifndef __LONG_DOUBLE_H__
 #define __LONG_DOUBLE_H__
 
+#if IN_LLVM
+
+#include "gen/ldc-real.h"
+
+#else
+
 #if !_MSC_VER // has native 10 byte doubles
 #include <stdio.h>
 typedef long double longdouble;
@@ -238,5 +244,7 @@ extern longdouble ld_snan;
 size_t ld_sprint(char* str, int fmt, longdouble x);
 
 #endif // !_MSC_VER
+
+#endif // !IN_LLVM
 
 #endif // __LONG_DOUBLE_H__
