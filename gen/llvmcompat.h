@@ -33,6 +33,7 @@
 #endif
 
 #if LDC_LLVM_VER < 302
+#define LLVM_OVERRIDE
 #define llvm_move(value) (value)
 #endif
 
