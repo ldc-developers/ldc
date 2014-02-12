@@ -525,3 +525,10 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     endif()
     install(DIRECTORY bash_completion.d/ DESTINATION ${BASH_COMPLETION_INST_DIR})
 endif()
+
+#
+# Packaging
+#
+
+include (CMakeCPack.cmake)
+include (CPack)
