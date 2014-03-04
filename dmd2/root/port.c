@@ -590,8 +590,6 @@ PortInitializer::PortInitializer()
 #endif
 }
 
-#ifndef __HAIKU__
-#endif
 int Port::isNan(double r)
 {
 #if __APPLE__
@@ -600,7 +598,7 @@ int Port::isNan(double r)
 #else
     return __inline_isnan(r);
 #endif
-#elif __HAIKU__ || __OpenBSD__
+#elif __HAIKU__ || __OpenBSD__ || __FreeBSD__
     return isnan(r);
 #else
     #undef isnan
@@ -616,7 +614,7 @@ int Port::isNan(longdouble r)
 #else
     return __inline_isnan(r);
 #endif
-#elif __HAIKU__ || __OpenBSD__
+#elif __HAIKU__ || __OpenBSD__ || __FreeBSD__
     return isnan(r);
 #else
     #undef isnan
@@ -646,13 +644,11 @@ int Port::isFinite(double r)
     return ::finite(r);
 }
 
-#if !defined __HAIKU__
-#endif
 int Port::isInfinity(double r)
 {
 #if __APPLE__
     return fpclassify(r) == FP_INFINITE;
-#elif defined __HAIKU__ || __OpenBSD__
+#elif defined __HAIKU__ || __OpenBSD__ || __FreeBSD__
     return isinf(r);
 #else
     #undef isinf
