@@ -524,12 +524,14 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("SPARC64");
             VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
+#if LDC_LLVM_VER >= 302
         case llvm::Triple::nvptx:
             VersionCondition::addPredefinedGlobalIdent("NVPTX");
             break;
         case llvm::Triple::nvptx64:
             VersionCondition::addPredefinedGlobalIdent("NVPTX64");
             break;
+#endif
         default:
             error("invalid cpu architecture specified: %s", global.params.targetTriple.getArchName().str().c_str());
             fatal();
