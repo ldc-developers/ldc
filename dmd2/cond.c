@@ -209,8 +209,8 @@ void VersionCondition::checkPredefined(Loc loc, const char *ident)
 
 #if IN_LLVM
     "LLVM", "LDC", "LLVM64",
-    "PPC", "PPC64",
-    "darwin","solaris","freebsd"
+    "darwin","solaris","freebsd",
+    "NVPTX", "NVPTX64"
 #endif
     };
 
