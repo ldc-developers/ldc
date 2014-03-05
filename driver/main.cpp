@@ -502,6 +502,9 @@ static void registerPredefinedTargetVersions() {
             break;
 #if LDC_LLVM_VER >= 303
         case llvm::Triple::aarch64:
+#if LDC_LLVM_VER >= 305
+        case llvm::Triple::aarch64_be:
+#endif
             VersionCondition::addPredefinedGlobalIdent("AArch64");
             break;
 #endif
