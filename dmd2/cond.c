@@ -237,6 +237,7 @@ bool VersionCondition::isPredefined(const char *ident)
 #if IN_LLVM
         "LLVM", "LLVM64",
         "darwin", "solaris", "freebsd",
+        "NVPTX", "NVPTX64"
 #endif
         NULL
     };
