@@ -26,7 +26,11 @@
 #include <sstream>
 #include <vector>
 
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/CallSite.h"
+#else
 #include "llvm/Support/CallSite.h"
+#endif
 
 namespace llvm {
     class LLVMContext;

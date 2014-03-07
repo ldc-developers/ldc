@@ -38,7 +38,11 @@
 #include "llvm/Target/TargetData.h"
 #endif
 #endif
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/CallSite.h"
+#else
 #include "llvm/Support/CallSite.h"
+#endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/CallGraph.h"
 #if LDC_LLVM_VER >= 305

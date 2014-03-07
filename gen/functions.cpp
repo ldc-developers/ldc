@@ -29,13 +29,21 @@
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/Linker/Linker.h"
+#else
 #include "llvm/Linker.h"
+#endif
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Intrinsics.h"
 #else
 #include "llvm/Intrinsics.h"
 #endif
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/CFG.h"
+#else
 #include "llvm/Support/CFG.h"
+#endif
 #include <iostream>
 
 #if LDC_LLVM_VER == 302
