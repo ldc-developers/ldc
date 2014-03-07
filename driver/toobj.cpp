@@ -136,7 +136,13 @@ void writeModule(llvm::Module* m, std::string filename)
         llvm::sys::path::replace_extension(bcpath, global.bc_ext);
         Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
         std::string errinfo;
-        llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::sys::fs::F_Binary);
+        llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, 
+#if LDC_LLVM_VER >= 305
+                llvm::sys::fs::F_None
+#else
+                llvm::sys::fs::F_Binary
+#endif
+                );
         if (bos.has_error())
         {
             error("cannot write LLVM bitcode file '%s': %s", bcpath.c_str(), errinfo.c_str());
@@ -151,7 +157,13 @@ void writeModule(llvm::Module* m, std::string filename)
         llvm::sys::path::replace_extension(llpath, global.ll_ext);
         Logger::println("Writing LLVM asm to: %s\n", llpath.c_str());
         std::string errinfo;
-        llvm::raw_fd_ostream aos(llpath.c_str(), errinfo);
+        llvm::raw_fd_ostream aos(llpath.c_str(), errinfo,
+#if LDC_LLVM_VER >= 305
+            llvm::sys::fs::F_None
+#else
+            llvm::sys::fs::F_Binary
+#endif
+            );
         if (aos.has_error())
         {
             error("cannot write LLVM asm file '%s': %s", llpath.c_str(), errinfo.c_str());
@@ -180,7 +192,13 @@ void writeModule(llvm::Module* m, std::string filename)
         Logger::println("Writing native asm to: %s\n", spath.c_str());
         std::string err;
         {
-            llvm::raw_fd_ostream out(spath.c_str(), err);
+            llvm::raw_fd_ostream out(spath.c_str(), err,
+#if LDC_LLVM_VER >= 305
+                llvm::sys::fs::F_None
+#else
+                llvm::sys::fs::F_Binary
+#endif
+                );
             if (err.empty())
             {
                 codegenModule(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_AssemblyFile);
@@ -210,7 +228,13 @@ void writeModule(llvm::Module* m, std::string filename)
         Logger::println("Writing object file to: %s\n", objpath.c_str());
         std::string err;
         {
-            llvm::raw_fd_ostream out(objpath.c_str(), err, llvm::sys::fs::F_Binary);
+            llvm::raw_fd_ostream out(objpath.c_str(), err, 
+#if LDC_LLVM_VER >= 305
+                llvm::sys::fs::F_None
+#else
+                llvm::sys::fs::F_Binary
+#endif
+                );
             if (err.empty())
             {
                 codegenModule(*gTargetMachine, *m, out, llvm::TargetMachine::CGFT_ObjectFile);
