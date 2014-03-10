@@ -60,7 +60,12 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
     // Build up all of the passes that we want to do to the module.
     FunctionPassManager Passes(&m);
 
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 305
+    if (const DataLayout *DL = Target.getDataLayout())
+        Passes.add(new DataLayoutPass(*DL));
+    else
+        Passes.add(new DataLayoutPass(&m));
+#elif LDC_LLVM_VER >= 302
     if (const DataLayout *DL = Target.getDataLayout())
         Passes.add(new DataLayout(*DL));
     else
