@@ -361,7 +361,7 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
     const DataLayout *DL = DLP ? &DLP->getDataLayout() : 0;
 #else
-    const DataLayout DL = &getAnalysis<DataLayout>();
+    const DataLayout *DL = &getAnalysis<DataLayout>();
 #endif
     AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
 
