@@ -310,14 +310,14 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
 //////////////////////////////////////////////////////////////////////////////////////////
 // This function runs optimization passes based on command line arguments.
 // Returns true if any optimization passes were invoked.
-bool ldc_optimize_module(llvm::Module* m)
+bool ldc_optimize_module(llvm::Module *M)
 {
     // Create a PassManager to hold and optimize the collection of
     // per-module passes we are about to build.
     PassManager mpm;
 
     // Add an appropriate TargetLibraryInfo pass for the module's triple.
-    TargetLibraryInfo *tli = new TargetLibraryInfo(Triple(m->getTargetTriple()));
+    TargetLibraryInfo *tli = new TargetLibraryInfo(Triple(M->getTargetTriple()));
 
     // The -disable-simplify-libcalls flag actually disables all builtin optzns.
     if (disableSimplifyLibCalls)
@@ -325,19 +325,25 @@ bool ldc_optimize_module(llvm::Module* m)
 
     mpm.add(tli);
 
-    // Add an appropriate TargetData instance for this module.
-#if LDC_LLVM_VER >= 302
-    mpm.add(new DataLayout(m));
+    // Add an appropriate DataLayout instance for this module.
+#if LDC_LLVM_VER >= 305
+    const DataLayout *DL = M->getDataLayout();
+    assert(DL && "DataLayout not set at module");
+    mpm.add(new DataLayoutPass(*DL));
+#elif LDC_LLVM_VER >= 302
+    mpm.add(new DataLayout(M));
 #else
-    mpm.add(new TargetData(m));
+    mpm.add(new TargetData(M));
 #endif
 
     // Also set up a manager for the per-function passes.
-    FunctionPassManager fpm(m);
-#if LDC_LLVM_VER >= 302
-    fpm.add(new DataLayout(m));
+    FunctionPassManager fpm(M);
+#if LDC_LLVM_VER >= 305
+    fpm.add(new DataLayoutPass(M));
+#elif LDC_LLVM_VER >= 302
+    fpm.add(new DataLayout(M));
 #else
-    fpm.add(new TargetData(m));
+    fpm.add(new TargetData(M));
 #endif
 
     // If the -strip-debug command line option was specified, add it before
@@ -376,15 +382,15 @@ bool ldc_optimize_module(llvm::Module* m)
 
     // Run per-function passes.
     fpm.doInitialization();
-    for (llvm::Module::iterator F = m->begin(), E = m->end(); F != E; ++F)
+    for (llvm::Module::iterator F = M->begin(), E = M->end(); F != E; ++F)
         fpm.run(*F);
     fpm.doFinalization();
 
     // Run per-module passes.
-    mpm.run(*m);
+    mpm.run(*M);
 
     // Verify the resulting module.
-    verifyModule(m);
+    verifyModule(M);
 
     // Report that we run some passes.
     return true;
