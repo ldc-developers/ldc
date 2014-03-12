@@ -445,7 +445,7 @@ inout(ArrayRet_t) _aaKeys(inout AA aa, in size_t keysize) pure nothrow
     return *cast(inout ArrayRet_t*)(&a);
 }
 
-version (LDC) {} else // the test crashes but only in this file
+version (LDC) {/*FIXME*/} else // the test crashes but only in this file
 unittest
 {
     int[string] aa;
@@ -490,6 +490,7 @@ unittest
     }
 }
 
+version (LDC) {/*FIXME*/} else
 unittest // Test for Issue 10381
 {
     alias II = int[int];
@@ -839,6 +840,7 @@ unittest
 }
 
 // Issue 9852
+version (LDC) {/*FIXME*/} else
 unittest
 {
     // Original test case (revised, original assert was wrong)
