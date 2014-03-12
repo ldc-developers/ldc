@@ -32,6 +32,10 @@
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
+#if LDC_LLVM_VER >= 304
+#include "llvm/InitializePasses.h"
+#endif
+#include "llvm/LinkAllPasses.h"
 #if LDC_LLVM_VER >= 305
 #include "llvm/Linker/Linker.h"
 #else
@@ -468,6 +472,29 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     }
 }
 
+static void initializePasses() {
+#if LDC_LLVM_VER >= 304
+    using namespace llvm;
+    // Initialize passes
+    PassRegistry &Registry = *PassRegistry::getPassRegistry();
+    initializeCore(Registry);
+    initializeDebugIRPass(Registry);
+    initializeScalarOpts(Registry);
+    initializeObjCARCOpts(Registry);
+    initializeVectorization(Registry);
+    initializeIPO(Registry);
+    initializeAnalysis(Registry);
+    initializeIPA(Registry);
+    initializeTransformUtils(Registry);
+    initializeInstCombine(Registry);
+    initializeInstrumentation(Registry);
+    initializeTarget(Registry);
+    // For codegen passes, only passes that do IR to IR transformation are
+    // supported. For now, just add CodeGenPrepare.
+    initializeCodeGenPreparePass(Registry);
+#endif
+}
+
 /// Registers the predefined versions specific to the current target triple
 /// and other target specific options with VersionCondition.
 static void registerPredefinedTargetVersions() {
@@ -754,6 +781,8 @@ int main(int argc, char **argv)
     llvm::InitializeAllTargetMCs();
     llvm::InitializeAllAsmPrinters();
     llvm::InitializeAllAsmParsers();
+
+    initializePasses();
 
     bool helpOnly;
     Strings files;

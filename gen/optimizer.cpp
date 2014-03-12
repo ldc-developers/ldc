@@ -43,6 +43,7 @@
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
 
+extern llvm::TargetMachine* gTargetMachine;
 using namespace llvm;
 
 // Allow the user to specify specific optimizations to run.
@@ -336,10 +337,16 @@ bool ldc_optimize_module(llvm::Module *M)
     mpm.add(new TargetData(M));
 #endif
 
+#if LDC_LLVM_VER >= 305
+    // Add internal analysis passes from the target machine.
+    gTargetMachine->addAnalysisPasses(mpm);
+#endif
+
     // Also set up a manager for the per-function passes.
     FunctionPassManager fpm(M);
 #if LDC_LLVM_VER >= 305
     fpm.add(new DataLayoutPass(M));
+    gTargetMachine->addAnalysisPasses(fpm);
 #elif LDC_LLVM_VER >= 302
     fpm.add(new DataLayout(M));
 #else
