@@ -70,6 +70,79 @@ FuncDeclaration *search_toString(StructDeclaration *sd)
     return fd;
 }
 
+/***************************************
+ * Request additonal semantic analysis for TypeInfo generation.
+ */
+void semanticTypeInfo(Scope *sc, Type *t)
+{
+    class FullTypeInfoVisitor : public Visitor
+    {
+    public:
+        Scope *sc;
+
+        void visit(Type *t)
+        {
+            Type *tb = t->toBasetype();
+            if (tb != t)
+                tb->accept(this);
+        }
+        void visit(TypeNext *t)
+        {
+            if (t->next)
+                t->next->accept(this);
+        }
+        void visit(TypeBasic *t) { }
+        void visit(TypeVector *t)
+        {
+            t->basetype->accept(this);
+        }
+        void visit(TypeAArray *t)
+        {
+            t->index->accept(this);
+            visit((TypeNext *)t);
+        }
+        void visit(TypeFunction *t)
+        {
+            visit((TypeNext *)t);
+            // Currently TypeInfo_Function doesn't store parameter types.
+        }
+        void visit(TypeStruct *t)
+        {
+            Dsymbol *s;
+            StructDeclaration *sd = t->sym;
+            if (sd->members &&
+                (sd->xeq  && sd->xeq  != sd->xerreq  ||
+                 sd->xcmp && sd->xcmp != sd->xerrcmp ||
+                 (sd->postblit && !(sd->postblit->storage_class & STCdisable)) ||
+                 sd->dtor ||
+                 search_toHash(sd) ||
+                 search_toString(sd)
+                ) &&
+                sd->inNonRoot())
+            {
+                //printf("deferred sem3 for TypeInfo - sd = %s, inNonRoot = %d\n", sd->toChars(), sd->inNonRoot());
+                Module::addDeferredSemantic3(sd);
+            }
+        }
+        void visit(TypeClass *t) { }
+        void visit(TypeTuple *t)
+        {
+            if (t->arguments)
+            {
+                for (size_t i = 0; i < t->arguments->dim; i++)
+                {
+                    Type *tprm = (*t->arguments)[i]->type;
+                    if (tprm)
+                        tprm->accept(this);
+                }
+            }
+        }
+    };
+    FullTypeInfoVisitor v;
+    v.sc = sc;
+    t->accept(&v);
+}
+
 /********************************* AggregateDeclaration ****************************/
 
 AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
@@ -125,7 +198,8 @@ void AggregateDeclaration::semantic2(Scope *sc)
 {
     //printf("AggregateDeclaration::semantic2(%s)\n", toChars());
     if (scope && members)
-    {   error("has forward references");
+    {
+        error("has forward references");
         return;
     }
     if (members)
@@ -630,12 +704,7 @@ void StructDeclaration::semantic(Scope *sc)
     assert(!isAnonymous());
     if (sc->stc & STCabstract)
         error("structs, unions cannot be abstract");
-    userAttributes = sc->userAttributes;
-    if (userAttributes)
-    {
-        userAttributesScope = sc;
-        userAttributesScope->setNoFree();
-    }
+    userAttribDecl = sc->userAttribDecl;
 
     if (sizeok == SIZEOKnone)            // if not already done the addMember step
     {
@@ -656,7 +725,7 @@ void StructDeclaration::semantic(Scope *sc)
     sc2->protection = PROTpublic;
     sc2->explicitProtection = 0;
     sc2->structalign = STRUCTALIGN_DEFAULT;
-    sc2->userAttributes = NULL;
+    sc2->userAttribDecl = NULL;
 
     /* Set scope so if there are forward references, we still might be able to
      * resolve individual members like enums.
@@ -757,7 +826,7 @@ void StructDeclaration::semantic(Scope *sc)
     //if ((xeq && xeq != xerreq || xcmp && xcmp != xerrcmp) && isImportedSym(this))
     //    Module::addDeferredSemantic3(this);
     /* Defer requesting semantic3 until TypeInfo generation is actually invoked.
-     * See Type::getTypeInfo().
+     * See semanticTypeInfo().
      */
     inv = buildInv(sc2);
 
@@ -768,6 +837,29 @@ void StructDeclaration::semantic(Scope *sc)
     searchCtor();
     aggNew =       (NewDeclaration *)search(Loc(), Id::classNew);
     aggDelete = (DeleteDeclaration *)search(Loc(), Id::classDelete);
+
+    if (ctor)
+    {
+        Dsymbol *scall = search(Loc(), Id::call);
+        if (scall)
+        {
+            unsigned errors = global.startGagging();
+            unsigned oldspec = global.speculativeGag;
+            global.speculativeGag = global.gag;
+            sc = sc->push();
+            sc->speculative = true;
+            FuncDeclaration *fcall = resolveFuncCall(loc, sc, scall, NULL, NULL, NULL, 1);
+            sc = sc->pop();
+            global.speculativeGag = oldspec;
+            global.endGagging(errors);
+
+            if (fcall && fcall->isStatic())
+            {
+                error(fcall->loc, "static opCall is hidden by constructors and can never be called");
+                errorSupplemental(fcall->loc, "Please use a factory method instead, or replace all constructors with static opCall.");
+            }
+        }
+    }
 
     TypeTuple *tup = type->toArgTypes();
     size_t dim = tup->arguments->dim;

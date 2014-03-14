@@ -87,7 +87,7 @@ Scope::Scope()
     this->lastdc = NULL;
     this->lastoffset = 0;
     this->docbuf = NULL;
-    this->userAttributes = NULL;
+    this->userAttribDecl = NULL;
 }
 
 Scope::Scope(Scope *enclosing)
@@ -138,7 +138,7 @@ Scope::Scope(Scope *enclosing)
     this->lastdc = NULL;
     this->lastoffset = 0;
     this->docbuf = enclosing->docbuf;
-    this->userAttributes = enclosing->userAttributes;
+    this->userAttribDecl = enclosing->userAttribDecl;
     assert(this != enclosing);
 }
 

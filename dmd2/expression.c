@@ -944,19 +944,24 @@ Expression *resolveUFCSProperties(Scope *sc, Expression *e1, Expression *e2 = NU
  * Perform semantic() on an array of Expressions.
  */
 
-Expressions *arrayExpressionSemantic(Expressions *exps, Scope *sc)
+bool arrayExpressionSemantic(Expressions *exps, Scope *sc)
 {
+    bool err = false;
     if (exps)
     {
         for (size_t i = 0; i < exps->dim; i++)
-        {   Expression *e = (*exps)[i];
+        {
+            Expression *e = (*exps)[i];
             if (e)
-            {   e = e->semantic(sc);
+            {
+                e = e->semantic(sc);
                 (*exps)[i] = e;
+                if (e->op == TOKerror)
+                    err = true;
             }
         }
     }
-    return exps;
+    return err;
 }
 
 
@@ -987,15 +992,18 @@ void expandTuples(Expressions *exps)
     if (exps)
     {
         for (size_t i = 0; i < exps->dim; i++)
-        {   Expression *arg = (*exps)[i];
+        {
+            Expression *arg = (*exps)[i];
             if (!arg)
                 continue;
 
             // Look for tuple with 0 members
             if (arg->op == TOKtype)
-            {   TypeExp *e = (TypeExp *)arg;
+            {
+                TypeExp *e = (TypeExp *)arg;
                 if (e->type->toBasetype()->ty == Ttuple)
-                {   TypeTuple *tt = (TypeTuple *)e->type->toBasetype();
+                {
+                    TypeTuple *tt = (TypeTuple *)e->type->toBasetype();
 
                     if (!tt->arguments || tt->arguments->dim == 0)
                     {
@@ -1207,7 +1215,8 @@ bool preFunctionParameters(Loc loc, Scope *sc, Expressions *exps)
         expandTuples(exps);
 
         for (size_t i = 0; i < exps->dim; i++)
-        {   Expression *arg = (*exps)[i];
+        {
+            Expression *arg = (*exps)[i];
 
             arg = resolveProperties(sc, arg);
             if (arg->op == TOKtype)
@@ -1292,8 +1301,7 @@ bool Expression::checkPostblit(Scope *sc, Type *t)
     if (t->ty == Tstruct)
     {
         // Bugzilla 11395: Require TypeInfo generation for array concatenation
-        if (!t->vtinfo)
-            t->getTypeInfo(sc);
+        semanticTypeInfo(sc, t);
 
         StructDeclaration *sd = ((TypeStruct *)t)->sym;
         if (sd->postblit)
@@ -4331,7 +4339,8 @@ Expression *ArrayLiteralExp::semantic(Scope *sc)
     /* Perhaps an empty array literal [ ] should be rewritten as null?
      */
 
-    arrayExpressionSemantic(elements, sc);    // run semantic() on each element
+    if (arrayExpressionSemantic(elements, sc))  // run semantic() on each element
+        return new ErrorExp();
     expandTuples(elements);
 
     Type *t0;
@@ -4344,9 +4353,12 @@ Expression *ArrayLiteralExp::semantic(Scope *sc)
     /* Disallow array literals of type void being used.
      */
     if (elements->dim > 0 && t0->ty == Tvoid)
-    {   error("%s of type %s has no value", toChars(), type->toChars());
+    {
+        error("%s of type %s has no value", toChars(), type->toChars());
         return new ErrorExp();
     }
+
+    semanticTypeInfo(sc, t0);
 
     return this;
 }
@@ -4470,8 +4482,10 @@ Expression *AssocArrayLiteralExp::semantic(Scope *sc)
         return this;
 
     // Run semantic() on each element
-    arrayExpressionSemantic(keys, sc);
-    arrayExpressionSemantic(values, sc);
+    bool err_keys = arrayExpressionSemantic(keys, sc);
+    bool err_vals = arrayExpressionSemantic(values, sc);
+    if (err_keys || err_vals)
+        return new ErrorExp();
     expandTuples(keys);
     expandTuples(values);
     if (keys->dim != values->dim)
@@ -4490,6 +4504,9 @@ Expression *AssocArrayLiteralExp::semantic(Scope *sc)
 
     type = new TypeAArray(tvalue, tkey);
     type = type->semantic(loc, sc);
+
+    semanticTypeInfo(sc, type);
+
     return this;
 }
 
@@ -4608,7 +4625,8 @@ Expression *StructLiteralExp::semantic(Scope *sc)
         return new ErrorExp();
     size_t nfields = sd->fields.dim - sd->isNested();
 
-    elements = arrayExpressionSemantic(elements, sc);   // run semantic() on each element
+    if (arrayExpressionSemantic(elements, sc))  // run semantic() on each element
+        return new ErrorExp();
     expandTuples(elements);
     size_t offset = 0;
     for (size_t i = 0; i < elements->dim; i++)
@@ -5144,12 +5162,16 @@ Lagain:
     tb = type->toBasetype();
     //printf("tb: %s, deco = %s\n", tb->toChars(), tb->deco);
 
-    arrayExpressionSemantic(newargs, sc);
-    if (preFunctionParameters(loc, sc, newargs))
+    if (arrayExpressionSemantic(newargs, sc) ||
+        preFunctionParameters(loc, sc, newargs))
+    {
         goto Lerr;
-    arrayExpressionSemantic(arguments, sc);
-    if (preFunctionParameters(loc, sc, arguments))
+    }
+    if (arrayExpressionSemantic(arguments, sc) ||
+        preFunctionParameters(loc, sc, arguments))
+    {
         goto Lerr;
+    }
 
     nargs = arguments ? arguments->dim : 0;
 
@@ -5442,8 +5464,9 @@ Lagain:
         goto Lerr;
     }
 
-//printf("NewExp: '%s'\n", toChars());
-//printf("NewExp:type '%s'\n", type->toChars());
+    //printf("NewExp: '%s'\n", toChars());
+    //printf("NewExp:type '%s'\n", type->toChars());
+    semanticTypeInfo(sc, type);
 
     return this;
 
@@ -6357,13 +6380,15 @@ Expression *TypeidExp::semantic(Scope *sc)
     }
 
     if (ea && ta->toBasetype()->ty == Tclass)
-    {   /* Get the dynamic type, which is .classinfo
+    {
+        /* Get the dynamic type, which is .classinfo
          */
         e = new DotIdExp(ea->loc, ea, Id::classinfo);
         e = e->semantic(sc);
     }
     else
-    {   /* Get the static type
+    {
+        /* Get the static type
          */
         e = ta->getTypeInfo(sc);
         if (e->loc.linnum == 0)
@@ -7359,6 +7384,10 @@ Expression *AssertExp::semantic(Scope *sc)
         msg = msg->implicitCastTo(sc, Type::tchar->constOf()->arrayOf());
         msg = msg->optimize(WANTvalue);
     }
+    if (e1->op == TOKerror)
+        return e1;
+    if (msg && msg->op == TOKerror)
+        return msg;
     if (e1->isBool(false))
     {
         FuncDeclaration *fd = sc->parent->isFuncDeclaration();
@@ -7366,7 +7395,8 @@ Expression *AssertExp::semantic(Scope *sc)
             fd->hasReturnExp |= 4;
 
         if (!global.params.useAssert)
-        {   Expression *e = new HaltExp(loc);
+        {
+            Expression *e = new HaltExp(loc);
             e = e->semantic(sc);
             return e;
         }
@@ -8455,9 +8485,11 @@ Expression *CallExp::semantic(Scope *sc)
 
     if (e1->op == TOKfunction)
     {
-        FuncExp *fe = (FuncExp *)e1;
-        arguments = arrayExpressionSemantic(arguments, sc);
+        arrayExpressionSemantic(arguments, sc);
         preFunctionParameters(loc, sc, arguments);
+
+        // Run e1 semantic even if arguments have any errors
+        FuncExp *fe = (FuncExp *)e1;
         e1 = fe->semantic(sc, arguments);
         if (e1->op == TOKerror)
             return e1;
@@ -8636,19 +8668,12 @@ Lagain:
 
     t1 = NULL;
     if (e1->type)
+    {
         t1 = e1->type->toBasetype();
 
-    arguments = arrayExpressionSemantic(arguments, sc);
-    preFunctionParameters(loc, sc, arguments);
-
-    // Check for call operator overload
-    if (t1)
-    {
-        AggregateDeclaration *ad;
         if (t1->ty == Tstruct)
         {
-            ad = ((TypeStruct *)t1)->sym;
-
+            AggregateDeclaration *ad = ((TypeStruct *)t1)->sym;
             if (ad->sizeok == SIZEOKnone)
             {
                 if (ad->scope)
@@ -8662,10 +8687,31 @@ Lagain:
                     return new ErrorExp();
                 }
             }
+        }
+    }
+
+    if (e1->op == TOKerror)
+        return e1;
+    if (arrayExpressionSemantic(arguments, sc) ||
+        preFunctionParameters(loc, sc, arguments))
+    {
+        return new ErrorExp();
+    }
+
+    // Check for call operator overload
+    if (t1)
+    {
+        AggregateDeclaration *ad;
+        if (t1->ty == Tstruct)
+        {
+            ad = ((TypeStruct *)t1)->sym;
 
             // First look for constructor
-            if (e1->op == TOKtype && ad->ctor && (ad->noDefaultCtor || arguments && arguments->dim))
+            if (e1->op == TOKtype && ad->ctor)
             {
+                if (!ad->noDefaultCtor && !(arguments && arguments->dim))
+                    goto Lx;
+
                 // Create variable that will get constructed
                 Identifier *idtmp = Lexer::uniqueId("__ctmp");
 
@@ -8721,6 +8767,7 @@ Lagain:
 
             /* It's a struct literal
              */
+        Lx:
             Expression *e = new StructLiteralExp(loc, (StructDeclaration *)ad, arguments, e1->type);
             e = e->semantic(sc);
             return e;
@@ -8735,30 +8782,6 @@ Lagain:
             e = new CallExp(loc, e, arguments);
             e = e->semantic(sc);
             return e;
-        }
-    }
-
-    // If there was an error processing any argument, or the call,
-    // return an error without trying to resolve the function call.
-    if (arguments && arguments->dim)
-    {
-        for (size_t k = 0; k < arguments->dim; k++)
-        {   Expression *checkarg = (*arguments)[k];
-            if (checkarg->op == TOKerror)
-                return checkarg;
-        }
-    }
-    if (e1->op == TOKerror)
-        return e1;
-
-    // If there was an error processing any template argument,
-    // return an error without trying to resolve the template.
-    if (tiargs && tiargs->dim)
-    {
-        for (size_t k = 0; k < tiargs->dim; k++)
-        {   RootObject *o = (*tiargs)[k];
-            if (isError(o))
-                return new ErrorExp();
         }
     }
 
@@ -9733,8 +9756,6 @@ DeleteExp::DeleteExp(Loc loc, Expression *e)
 
 Expression *DeleteExp::semantic(Scope *sc)
 {
-    Type *tb;
-
     UnaExp::semantic(sc);
     e1 = resolveProperties(sc, e1);
     e1 = e1->modifiableLvalue(sc, NULL);
@@ -9742,7 +9763,7 @@ Expression *DeleteExp::semantic(Scope *sc)
         return e1;
     type = Type::tvoid;
 
-    tb = e1->type->toBasetype();
+    Type *tb = e1->type->toBasetype();
     switch (tb->ty)
     {   case Tclass:
         {   TypeClass *tc = (TypeClass *)tb;
@@ -9809,10 +9830,17 @@ Expression *DeleteExp::semantic(Scope *sc)
             break;
 
         case Tarray:
-            /* BUG: look for deleting arrays of structs with dtors.
-             */
+        {
+            Type *tv = tb->nextOf()->baseElemOf();
+            if (tv->ty == Tstruct)
+            {
+                TypeStruct *ts = (TypeStruct *)tv;
+                StructDeclaration *sd = ts->sym;
+                if (sd->dtor)
+                    semanticTypeInfo(sc, ts);
+            }
             break;
-
+        }
         default:
             if (e1->op == TOKindex)
             {
@@ -11766,7 +11794,9 @@ Ltupleassign:
         if (ale->e1->op == TOKerror)
             return ale->e1;
 
-        checkDefCtor(ale->loc, ale->e1->type->toBasetype()->nextOf());
+        Type *tn = ale->e1->type->toBasetype()->nextOf();
+        checkDefCtor(ale->loc, tn);
+        semanticTypeInfo(sc, tn);
     }
     else if (e1->op == TOKslice)
     {
@@ -12784,6 +12814,25 @@ PowExp::PowExp(Loc loc, Expression *e1, Expression *e2)
 {
 }
 
+Module *loadStdMath()
+{
+    static Import *impStdMath = NULL;
+    if (!impStdMath)
+    {
+        Identifiers *a = new Identifiers();
+        a->push(Id::std);
+        Import *s = new Import(Loc(), a, Id::math, NULL, false);
+        s->load(NULL);
+        if (s->mod)
+        {
+            s->mod->importAll(NULL);
+            s->mod->semantic();
+        }
+        impStdMath = s;
+    }
+    return impStdMath->mod;
+}
+
 Expression *PowExp::semantic(Scope *sc)
 {
     if (type)
@@ -12854,36 +12903,23 @@ Expression *PowExp::semantic(Scope *sc)
         return e;
     }
 
-    static int importMathChecked = 0;
-    static bool importMath = false;
-    if (!importMathChecked)
+    Module *mmath = loadStdMath();
+    if (!mmath)
     {
-        importMathChecked = 1;
-        for (size_t i = 0; i < Module::amodules.dim; i++)
-        {   Module *mi = Module::amodules[i];
-            //printf("\t[%d] %s\n", i, mi->toChars());
-            if (mi->ident == Id::math &&
-                mi->parent->ident == Id::std &&
-                !mi->parent->parent)
-            {
-                importMath = true;
-                break;
-            }
-        }
-    }
-    if (!importMath)
-    {   // Leave handling of PowExp to the backend, or throw
+        //error("requires std.math for ^^ operators");
+        //fatal();
+
+        // Leave handling of PowExp to the backend, or throw
         // an error gracefully if no backend support exists.
         typeCombine(sc);
         e = this;
         return e;
     }
+    e = new ScopeExp(loc, mmath);
 
-    e = new IdentifierExp(loc, Id::empty);
-    e = new DotIdExp(loc, e, Id::std);
-    e = new DotIdExp(loc, e, Id::math);
     if (e2->op == TOKfloat64 && e2->toReal() == 0.5)
-    {   // Replace e1 ^^ 0.5 with .std.math.sqrt(x)
+    {
+        // Replace e1 ^^ 0.5 with .std.math.sqrt(x)
         e = new CallExp(loc, new DotIdExp(loc, e, Id::_sqrt), e1);
     }
     else
@@ -13467,7 +13503,7 @@ EqualExp::EqualExp(TOK op, Loc loc, Expression *e1, Expression *e2)
     assert(op == TOKequal || op == TOKnotequal);
 }
 
-int needDirectEq(Type *t1, Type *t2)
+int needDirectEq(Scope *sc, Type *t1, Type *t2)
 {
     assert(t1->ty == Tarray || t1->ty == Tsarray);
     assert(t2->ty == Tarray || t2->ty == Tsarray);
@@ -13491,6 +13527,7 @@ int needDirectEq(Type *t1, Type *t2)
     if (t->ty != Tstruct)
         return false;
 
+    semanticTypeInfo(sc, t);
     return ((TypeStruct *)t)->sym->hasIdentityEquals;
 }
 
@@ -13542,8 +13579,9 @@ Expression *EqualExp::semantic(Scope *sc)
     if ((t1->ty == Tarray || t1->ty == Tsarray) &&
         (t2->ty == Tarray || t2->ty == Tsarray))
     {
-        if (needDirectEq(t1, t2))
-        {   /* Rewrite as:
+        if (needDirectEq(sc, t1, t2))
+        {
+            /* Rewrite as:
              * _ArrayEq(e1, e2)
              */
             Expression *eq = new IdentifierExp(loc, Id::_ArrayEq);
@@ -13658,6 +13696,8 @@ Expression *EqualExp::semantic(Scope *sc)
             e2 = e2->castTo(sc, Type::tcomplex80);
         }
     }
+    if (e1->type->toBasetype()->ty == Taarray)
+        semanticTypeInfo(sc, e1->type->toBasetype());
 
     if (e1->type->toBasetype()->ty == Tvector)
         return incompatibleTypes();
