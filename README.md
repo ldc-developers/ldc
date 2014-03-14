@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/ldc-developers/ldc.png?branch=master)](https://travis-ci.org/ldc-developers/ldc)
+
 LDC – the LLVM-based D Compiler
 ===============================
 
@@ -31,8 +33,9 @@ libconfig++ (http://hyperrealm.com/libconfig/libconfig.html)
 available, there should be no big surprises, though.
 
 Do not forget to make sure all the submodules are up to date:
-  $ cd ldc
-  $ git submodule update --init
+
+    $ cd ldc
+    $ git submodule update --init
 
 Some Linux distributions are also packaging a recent version of LDC,
 so building it manually might not be necessary.
