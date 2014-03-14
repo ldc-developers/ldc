@@ -3,13 +3,13 @@ install:
   # LLVM 3.2
   - sudo sh -c "echo 'deb http://archive.ubuntu.com/ubuntu/ precise-proposed restricted main multiverse universe' >> /etc/apt/sources.list"
 
-  # LLVM 3.4 snapshots
+  # Some random Launchpad PPA for LLVM 3.3/3.4, should consder replacing this with
+  # the official Clang binary package from the llvm.org download page.
+  - echo yes | sudo add-apt-repository ppa:h-rayflood/llvm
+
+  # LLVM 3.5 snapshots
   - sudo sh -c "echo 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise main' >> /etc/apt/sources.list"
   - wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key | sudo apt-key add -
-
-  # Some random Launchpad PPA for LLVM 3.3, should consder replacing this with
-  # the official Clang binary package from the llvm.org download page.
-  - echo yes | sudo add-apt-repository ppa:nmi/llvm-3.3
 
   - sudo apt-get update -qq
   - sudo apt-get install -qq $LLVM_PACKAGE libconfig++8-dev
