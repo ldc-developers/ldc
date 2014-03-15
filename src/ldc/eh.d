@@ -43,7 +43,11 @@ version (PPC64)
 {
     version (linux) version = GCC_UNWIND;
 }
-version (PPC)
+version (MIPS)
+{
+    version (linux) version = GCC_UNWIND;
+}
+version (MIPS64)
 {
     version (linux) version = GCC_UNWIND;
 }
@@ -541,6 +545,11 @@ else version (PPC)
 {
     private enum eh_exception_regno = 3;
     private enum eh_selector_regno = 4;
+}
+else version (MIPS64)
+{
+    private enum eh_exception_regno = 4;
+    private enum eh_selector_regno = 5;
 }
 else version (AArch64)
 {
