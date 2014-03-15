@@ -102,7 +102,7 @@ bool ConfigFile::locate(llvm::SmallString<128> &p, const char* argv0, void* main
     // temporary configuration
 
     // try the current working dir
-    if (sys::fs::current_path(p))
+    if (!sys::fs::current_path(p))
     {
         sys::path::append(p, filename);
         if (sys::fs::exists(p.str()))
