@@ -62,6 +62,32 @@ void Expression::cacheLvalue(IRState* irs)
 }
 
 /*******************************************
+ * Search for temporaries for which the destructor mst be called.
+ */
+static int searchVarsWithDesctructors(Expression *exp, void *edtors)
+{
+    if (exp->op == TOKdeclaration) {
+        DeclarationExp *de = static_cast<DeclarationExp *>(exp);
+        if (VarDeclaration *vd = de->declaration->isVarDeclaration()) {
+            while (vd->aliassym) {
+                vd = vd->aliassym->isVarDeclaration();
+                if (!vd)
+                    return 0;
+            }
+
+            if (vd->init) {
+                if (ExpInitializer *ex = vd->init->isExpInitializer())
+                    ex->exp->apply(&searchVarsWithDesctructors, edtors);
+            }
+
+            if (!vd->isDataseg() && vd->edtor && !vd->noscope)
+                static_cast<std::vector<Expression*>*>(edtors)->push_back(vd->edtor);
+        }
+    }
+    return 0;
+}
+
+/*******************************************
  * Evaluate Expression, then call destructors on any temporaries in it.
  */
 
@@ -84,38 +110,14 @@ DValue *Expression::toElemDtor(IRState *p)
             for (itr = edtors.rbegin(); itr != end; ++itr)
                 (*itr)->toElem(gIR);
         }
-
-        static int searchVarsWithDesctructors(Expression *exp, void *edtors)
-        {
-            if (exp->op == TOKdeclaration) {
-                DeclarationExp *de = (DeclarationExp*)exp;
-                if (VarDeclaration *vd = de->declaration->isVarDeclaration()) {
-                    while (vd->aliassym) {
-                        vd = vd->aliassym->isVarDeclaration();
-                        if (!vd)
-                            return 0;
-                    }
-
-                    if (vd->init) {
-                        if (ExpInitializer *ex = vd->init->isExpInitializer())
-                            ex->exp->apply(&searchVarsWithDesctructors, edtors);
-                    }
-
-                    if (!vd->isDataseg() && vd->edtor && !vd->noscope)
-                        static_cast<std::vector<Expression*>*>(edtors)->push_back(vd->edtor);
-                }
-            }
-            return 0;
-        }
     };
-
 
     // find destructors that must be called
     std::vector<Expression*> edtors;
-    apply(&CallDestructors::searchVarsWithDesctructors, &edtors);
+    apply(&searchVarsWithDesctructors, &edtors);
 
     if (!edtors.empty()) {
-        if (op == TOKcall) {
+        if (op == TOKcall || op == TOKassert) {
             // create finally block that calls destructors on temporaries
             CallDestructors *callDestructors = new CallDestructors(edtors);
 
@@ -135,9 +137,11 @@ DValue *Expression::toElemDtor(IRState *p)
             llvm::BasicBlock *oldbb = p->scopebb();
             pad.pop();
 
-            // call the destructors
             gIR->scope() = IRScope(oldbb, oldend);
-            callDestructors->toIR();
+
+            // call the destructors but not for AssertExp
+            if (op == TOKcall)
+                callDestructors->toIR();
             delete callDestructors;
             return val;
         } else {
@@ -2292,12 +2296,12 @@ DValue* AssertExp::toElem(IRState* p)
     llvm::BranchInst::Create(endbb, assertbb, condval, p->scopebb());
 
     // call assert runtime functions
-    p->scope() = IRScope(assertbb,endbb);
-    DtoAssert(p->func()->decl->getModule(), loc, msg ? msg->toElemDtor(p) : NULL);
+    p->scope() = IRScope(assertbb, endbb);
+
+    DtoAssert(p->func()->decl->getModule(), loc, msg ? msg->toElem(p) : NULL);
 
     // rewrite the scope
-    p->scope() = IRScope(endbb,oldend);
-
+    p->scope() = IRScope(endbb, oldend);
 
     FuncDeclaration* invdecl;
     // class invariants
