@@ -742,6 +742,22 @@ static void registerPredefinedVersions() {
 #undef STR
 }
 
+/// Dump all predefined version identifiers.
+static void dumpPredefinedVersions()
+{
+    if (Logger::enabled() && global.params.versionids)
+    {
+        Logger::print("Predefined version identifiers:");
+        for (Strings::iterator I = global.params.versionids->begin(),
+                               E = global.params.versionids->end();
+             I != E; ++I)
+        {
+            Logger::print(" %s", *I);
+        }
+        Logger::println("");
+    }
+}
+
 static Module *entrypoint = NULL;
 
 /// Callback to generate a C main() function, invoked by the frontend.
@@ -862,6 +878,7 @@ int main(int argc, char **argv)
 
     // Set predefined version identifiers.
     registerPredefinedVersions();
+    dumpPredefinedVersions();
 
     if (global.params.targetTriple.isOSWindows()) {
         global.dll_ext = "dll";
