@@ -495,6 +495,22 @@ static void initializePasses() {
 #endif
 }
 
+/// Register the float ABI.
+/// Also defines D_SoftFloat or D_HardFloat depending on ABI type.
+static void registerPredefinedFloatABI(const char *soft, const char *hard)
+{
+    if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft)
+    {
+        VersionCondition::addPredefinedGlobalIdent(soft);
+        VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
+    }
+    if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Hard)
+    {
+        VersionCondition::addPredefinedGlobalIdent(hard);
+        VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+    }
+}
+
 /// Registers the predefined versions specific to the current target triple
 /// and other target specific options with VersionCondition.
 static void registerPredefinedTargetVersions() {
@@ -515,23 +531,23 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
         case llvm::Triple::ppc:
-            // FIXME: Detect soft float (PPC_SoftFP/PPC_HardFP).
             VersionCondition::addPredefinedGlobalIdent("PPC");
+            registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
             break;
         case llvm::Triple::ppc64:
             VersionCondition::addPredefinedGlobalIdent("PPC64");
-            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+            registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
             break;
         case llvm::Triple::arm:
-            // FIXME: Detect various FP ABIs (ARM_Soft, ARM_SoftFP, ARM_HardFP).
             VersionCondition::addPredefinedGlobalIdent("ARM");
+            // FIXME: What about ARM_SoftFP?.
+            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
             break;
         case llvm::Triple::thumb:
             VersionCondition::addPredefinedGlobalIdent("ARM");
             VersionCondition::addPredefinedGlobalIdent("Thumb"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("ARM_Thumb");
-            VersionCondition::addPredefinedGlobalIdent("ARM_Soft");
-            VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
+            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
             break;
 #if LDC_LLVM_VER >= 303
         case llvm::Triple::aarch64:
@@ -539,33 +555,38 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::aarch64_be:
 #endif
             VersionCondition::addPredefinedGlobalIdent("AArch64");
+            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
             break;
 #endif
         case llvm::Triple::mips:
         case llvm::Triple::mipsel:
-            // FIXME: Detect O32/N32 variants (MIPS_{O32,N32}[_SoftFP,_HardFP]).
+            // FIXME: Detect O32/N32 variants (MIPS_(O32|N32)).
             VersionCondition::addPredefinedGlobalIdent("MIPS");
+            registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
             break;
         case llvm::Triple::mips64:
         case llvm::Triple::mips64el:
-            // FIXME: Detect N64 variants (MIPS64_N64[_SoftFP,_HardFP]).
+            // FIXME: Detect N32/N64 variants (MIPS_(N64|N32)).
             VersionCondition::addPredefinedGlobalIdent("MIPS64");
+            registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
             break;
         case llvm::Triple::sparc:
             // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
-            // FIXME: Detect soft float (SPARC_SoftFP/SPARC_HardFP).
             VersionCondition::addPredefinedGlobalIdent("SPARC");
+            registerPredefinedFloatABI("SPARC_SoftFloat", "SPARC_HardFloat");
             break;
         case llvm::Triple::sparcv9:
             VersionCondition::addPredefinedGlobalIdent("SPARC64");
-            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+            registerPredefinedFloatABI("SPARC_SoftFloat", "SPARC_HardFloat");
             break;
 #if LDC_LLVM_VER >= 302
         case llvm::Triple::nvptx:
             VersionCondition::addPredefinedGlobalIdent("NVPTX");
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
         case llvm::Triple::nvptx64:
             VersionCondition::addPredefinedGlobalIdent("NVPTX64");
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
 #endif
         default:
