@@ -18,8 +18,9 @@ install:
   - sudo apt-get install -qq $LLVM_PACKAGE libconfig++8-dev
 
   # 32bit libraries
-  - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo apt-get install -qq gcc-multilib libcurl3:i386 ; fi
+  - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo apt-get install -qq gcc-multilib libcurl3:i386 libstdc++6:i386; fi
   - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo ln -s /usr/lib/i386-linux-gnu/libcurl.so.4.2.0 /usr/lib/i386-linux-gnu/libcurl.so ; fi
+  - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo ln -s /usr/lib/i386-linux-gnu/libstdc++.so.6 /usr/lib/i386-linux-gnu/libstdc++.so ; fi
 
   # g++4.8.1
   - if [[ "$LLVM_PACKAGE" == *3.5* ]] && [[ "$CXX" == "g++" ]]; then sudo apt-get install -qq g++-4.8; export CXX="g++-4.8"; fi
