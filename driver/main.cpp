@@ -604,7 +604,6 @@ static void registerPredefinedTargetVersions() {
 
     // a generic 64bit version
     if (global.params.is64bit) {
-        VersionCondition::addPredefinedGlobalIdent("LLVM64"); // For backwards compatibility.
         VersionCondition::addPredefinedGlobalIdent("D_LP64");
     }
 
@@ -655,12 +654,10 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         case llvm::Triple::FreeBSD:
-            VersionCondition::addPredefinedGlobalIdent("freebsd"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("FreeBSD");
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
         case llvm::Triple::Solaris:
-            VersionCondition::addPredefinedGlobalIdent("solaris"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("Solaris");
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
@@ -700,7 +697,6 @@ static void registerPredefinedTargetVersions() {
 /// Registers all predefined D version identifiers for the current
 /// configuration with VersionCondition.
 static void registerPredefinedVersions() {
-    VersionCondition::addPredefinedGlobalIdent("LLVM"); // For backwards compatibility.
     VersionCondition::addPredefinedGlobalIdent("LDC");
     VersionCondition::addPredefinedGlobalIdent("all");
     VersionCondition::addPredefinedGlobalIdent("D_Version2");
