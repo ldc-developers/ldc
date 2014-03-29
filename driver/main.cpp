@@ -754,7 +754,7 @@ static void dumpPredefinedVersions()
         {
             Logger::print(" %s", *I);
         }
-        Logger::println("");
+        Logger::print("\n");
     }
 }
 
