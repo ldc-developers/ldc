@@ -495,6 +495,20 @@ static void initializePasses() {
 #endif
 }
 
+/// Register the MIPS ABI.
+static void registerMipsABI()
+{
+    llvm::StringRef features = gTargetMachine->getTargetFeatureString();
+    if (features.find("+o32") != std::string::npos)
+        VersionCondition::addPredefinedGlobalIdent("MIPS_O32");
+    if (features.find("+n32") != std::string::npos)
+        VersionCondition::addPredefinedGlobalIdent("MIPS_N32");
+    if (features.find("+n64") != std::string::npos)
+        VersionCondition::addPredefinedGlobalIdent("MIPS_N64");
+    if (features.find("+eabi") != std::string::npos)
+        VersionCondition::addPredefinedGlobalIdent("MIPS_EABI");
+}
+
 /// Register the float ABI.
 /// Also defines D_SoftFloat or D_HardFloat depending on ABI type.
 static void registerPredefinedFloatABI(const char *soft, const char *hard)
@@ -560,15 +574,15 @@ static void registerPredefinedTargetVersions() {
 #endif
         case llvm::Triple::mips:
         case llvm::Triple::mipsel:
-            // FIXME: Detect O32/N32 variants (MIPS_(O32|N32)).
             VersionCondition::addPredefinedGlobalIdent("MIPS");
             registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
+            registerMipsABI();
             break;
         case llvm::Triple::mips64:
         case llvm::Triple::mips64el:
-            // FIXME: Detect N32/N64 variants (MIPS_(N64|N32)).
             VersionCondition::addPredefinedGlobalIdent("MIPS64");
             registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
+            registerMipsABI();
             break;
         case llvm::Triple::sparc:
             // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
