@@ -1037,21 +1037,16 @@ void[] _d_newarrayOpT(alias op)(const TypeInfo ti, size_t ndims, va_list q)
                 }
                 for (size_t i = 0; i < dim; i++)
                 {
-                    version (Win64)
+                    version(LDC)
+                    {
+                    }
+                    else version (Win64)
                     {
                     }
                     else version(X86_64)
                     {
-                        version(LDC)
-                        {
-                            va_list ap2;
-                            va_copy(ap2, ap);
-                        }
-                        else
-                        {
-                            __va_list argsave = *cast(__va_list*)ap;
-                            va_list ap2 = &argsave;
-                        }
+                        __va_list argsave = *cast(__va_list*)ap;
+                        va_list ap2 = &argsave;
                     }
                     (cast(void[]*)p.ptr)[i] = foo(ti.next, ap2, ndims - 1);
                 }
