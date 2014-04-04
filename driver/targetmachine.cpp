@@ -206,7 +206,7 @@ static void addMipsABI(const llvm::Triple &triple, std::vector<std::string> &att
     const bool is64Bit = triple.getArch() == llvm::Triple::mips64 ||
                          triple.getArch() == llvm::Triple::mips64el;
     const uint32_t defaultABI = is64Bit ? N64 : O32;
-    uint32_t bits = 0;
+    uint32_t bits = defaultABI;
     std::vector<std::string>::iterator I = attrs.begin();
     while (I != attrs.end())
     {
@@ -235,14 +235,8 @@ static void addMipsABI(const llvm::Triple &triple, std::vector<std::string> &att
         case EABI: attrs.push_back("+eabi"); break;
         default: error(Loc(), "Only one ABI argument is supported"); fatal();
     }
-    if (is64Bit)
-    {
-        if (bits != N64) attrs.push_back("-n64");
-    }
-    else
-    {
-        if (bits != O32) attrs.push_back("-o32");
-    }
+    if (bits != defaultABI)
+        attrs.push_back(is64Bit ? "-n64" : "-o32");
 }
 
 /// Looks up a target based on an arch name and a target triple.
