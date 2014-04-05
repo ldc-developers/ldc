@@ -755,16 +755,16 @@ static void registerPredefinedVersions() {
 /// Dump all predefined version identifiers.
 static void dumpPredefinedVersions()
 {
-    if (Logger::enabled() && global.params.versionids)
+    if (global.params.verbose && global.params.versionids)
     {
-        Logger::print("Predefined version identifiers:");
+        fprintf(global.stdmsg, "Predefined version identifiers:");
         for (Strings::iterator I = global.params.versionids->begin(),
                                E = global.params.versionids->end();
              I != E; ++I)
         {
-            Logger::print(" %s", *I);
+            fprintf(global.stdmsg, " %s", *I);
         }
-        Logger::print("\n");
+        fprintf(global.stdmsg, "\n");
     }
 }
 
