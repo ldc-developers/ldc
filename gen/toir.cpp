@@ -2897,7 +2897,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         Logger::cout() << (dyn?"dynamic":"static") << " array literal with length " << len << " of D type: '" << arrayType->toChars() << "' has llvm type: '" << *llType << "'\n";
 
     // llvm storage type
-    LLType* llElemType = voidToI8(DtoType(elemType));
+    LLType* llElemType = i1ToI8(voidToI8(DtoType(elemType)));
     LLType* llStoType = LLArrayType::get(llElemType, len);
     if (Logger::enabled())
         Logger::cout() << "llvm storage type: '" << *llStoType << "'\n";
