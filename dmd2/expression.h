@@ -1351,6 +1351,9 @@ public:
     Expression *semantic(Scope *sc);
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     elem *toElem(IRState *irs);
+#if IN_LLVM
+    llvm::Constant *toConstElem(IRState *irs);
+#endif
 #if IN_DMD
     dt_t **toDt(dt_t **pdt);
 #endif
