@@ -110,15 +110,15 @@ void Module::buildTargetFiles(bool singleObj)
         hdrfile = Module::buildFilePath(global.params.hdrname, global.params.hdrdir, global.hdr_ext);
 
     // safety check: never allow obj, doc or hdr file to have the source file's name
-    if (Port::stricmp(FileName::name(objfile->name->str), FileName::name((char*)this->arg)) == 0) {
+    if (Port::stricmp(FileName::name(objfile->name->str), FileName::name(this->arg)) == 0) {
         error("Output object files with the same name as the source file are forbidden");
         fatal();
     }
-    if (docfile && Port::stricmp(FileName::name(docfile->name->str), FileName::name((char*)this->arg)) == 0) {
+    if (docfile && Port::stricmp(FileName::name(docfile->name->str), FileName::name(this->arg)) == 0) {
         error("Output doc files with the same name as the source file are forbidden");
         fatal();
     }
-    if (hdrfile && Port::stricmp(FileName::name(hdrfile->name->str), FileName::name((char*)this->arg)) == 0) {
+    if (hdrfile && Port::stricmp(FileName::name(hdrfile->name->str), FileName::name(this->arg)) == 0) {
         error("Output header files with the same name as the source file are forbidden");
         fatal();
     }
@@ -140,13 +140,13 @@ File* Module::buildFilePath(const char* forcename, const char* path, const char*
         argobj = forcename;
     } else {
         if (preservePaths)
-            argobj = (char*)this->arg;
+            argobj = this->arg;
         else
-            argobj = FileName::name((char*)this->arg);
+            argobj = FileName::name(this->arg);
 
         if (fqnNames) {
             char *name = md ? md->toChars() : toChars();
-            argobj = FileName::replaceName((char*)argobj, name);
+            argobj = FileName::replaceName(argobj, name);
 
             // add ext, otherwise forceExt will make nested.module into nested.bc
             size_t len = strlen(argobj);
