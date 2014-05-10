@@ -988,8 +988,12 @@ std::string locateBinary(std::string exeName, const char* argv0)
  * Makes sure the given directory (absolute or relative) exists on disk.
  */
 static void createOutputDir(const char* dir) {
+#if LDC_LLVM_VER >= 305
+    if (ls::fs::create_directories(dir) != llvm::errc::success)
+#else
     bool dirExisted; // ignored
     if (ls::fs::create_directories(dir, dirExisted) != llvm::errc::success)
+#endif
         error("Could not create output directory '%s'.", dir);
 }
 
@@ -1067,9 +1071,13 @@ int main(int argc, char *argv[])
 
         int rc = execute(ldcPath, &newArgs[0]);
 
+#if LDC_LLVM_VER >= 305
+        if (ls::fs::remove(rspPath.str()) != llvm::errc::success)
+#else
         bool couldRemove;
         if (ls::fs::remove(rspPath.str(), couldRemove) != llvm::errc::success ||
             !couldRemove)
+#endif
         {
             warning("Could not remove response file.");
         }

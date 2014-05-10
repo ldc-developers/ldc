@@ -41,8 +41,10 @@
 #else
 #include "llvm/Linker.h"
 #endif
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -94,6 +96,19 @@ static cl::list<std::string, StringsAdapter> debuglibs("debuglib",
     cl::value_desc("lib,..."),
     cl::location(debugLibStore),
     cl::CommaSeparated);
+
+
+#if LDC_LLVM_VER < 304
+namespace llvm {
+namespace sys {
+namespace fs {
+static std::string getMainExecutable(const char *argv0, void *MainExecAddr) {
+  return llvm::sys::Path::GetMainExecutable(argv0, MainExecAddr).str();
+}
+}
+}
+}
+#endif
 
 void printVersion() {
     printf("LDC - the LLVM D compiler (%s):\n", global.ldc_version);
@@ -276,8 +291,13 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     helpOnly = mCPU == "help" ||
         (std::find(mAttrs.begin(), mAttrs.end(), "help") != mAttrs.end());
 
-    // Print config file path if -v was passed
+    // Print some information if -v was passed
+    // - path to compiler binary
+    // - version number
+    // - used config file
     if (global.params.verbose) {
+        fprintf(global.stdmsg, "binary    %s\n", llvm::sys::fs::getMainExecutable(argv0, (void*)main).c_str());
+        fprintf(global.stdmsg, "version   %s (DMD %s, LLVM %s)\n", global.ldc_version, global.version, global.llvm_version);
         const std::string& path = cfg_file.path();
         if (!path.empty())
             fprintf(global.stdmsg, "config    %s\n", path.c_str());
@@ -757,11 +777,19 @@ static void dumpPredefinedVersions()
 {
     if (global.params.verbose && global.params.versionids)
     {
-        fprintf(global.stdmsg, "Predefined version identifiers:");
+        fprintf(global.stdmsg, "predefs  ");
+        int col = 10;
         for (Strings::iterator I = global.params.versionids->begin(),
                                E = global.params.versionids->end();
              I != E; ++I)
         {
+            int len = strlen(*I);
+            if (col + len > 80)
+            {
+                col = 10;
+                fprintf(global.stdmsg, "\n         ");
+            }
+            col += len;
             fprintf(global.stdmsg, " %s", *I);
         }
         fprintf(global.stdmsg, "\n");

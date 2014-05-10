@@ -348,7 +348,11 @@ llvm::TargetMachine* createTargetMachine(
             llvm::StringMapConstIterator<bool> i = hostFeatures.begin(),
                 end = hostFeatures.end();
             for (; i != end; ++i)
+#if LDC_LLVM_VER >= 305
+                features.AddFeature(std::string((i->second ? "+" : "-")).append(i->first()));
+#else
                 features.AddFeature(i->first(), i->second);
+#endif
         }
     }
     if (triple.getArch() == llvm::Triple::mips ||

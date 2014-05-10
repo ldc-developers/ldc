@@ -33,9 +33,9 @@ env:
   - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER=debug
   - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER=release
   - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=debug OPTS="-DMULTILIB=ON"
-  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=release OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=release
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=debug
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=release
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=release OPTS="-DMULTILIB=ON"
   - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev" TESTSUITE_FILTER=debug
   - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev" TESTSUITE_FILTER=release
 matrix:

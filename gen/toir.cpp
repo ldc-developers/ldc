@@ -2912,7 +2912,7 @@ DValue* ArrayLiteralExp::toElem(IRState* p)
         Logger::cout() << (dyn?"dynamic":"static") << " array literal with length " << len << " of D type: '" << arrayType->toChars() << "' has llvm type: '" << *llType << "'\n";
 
     // llvm storage type
-    LLType* llElemType = voidToI8(DtoType(elemType));
+    LLType* llElemType = i1ToI8(voidToI8(DtoType(elemType)));
     LLType* llStoType = LLArrayType::get(llElemType, len);
     if (Logger::enabled())
         Logger::cout() << "llvm storage type: '" << *llStoType << "'\n";
@@ -3547,6 +3547,32 @@ DValue* VectorExp::toElem(IRState* p)
     }
 
     return new DVarValue(to, vector);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+llvm::Constant* VectorExp::toConstElem(IRState* p)
+{
+    Logger::print("VectorExp::toConstElem: %s @ %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+
+    TypeVector *tv = static_cast<TypeVector*>(to->toBasetype());
+    assert(tv->ty == Tvector);
+
+    // The AST for
+    //   static immutable ubyte16 vec1 = 123;
+    // differs from
+    //    static immutable ubyte[16] vec1 = 123;
+    // In the vector case the AST contains an IntegerExp (of type int) and a
+    // CastExp to type ubyte. In the static array case the AST only contains an
+    // IntegerExp of type ubyte. Simply call optimize to get  rid of the cast.
+    // FIXME: Check DMD source to understand why two different ASTs are
+    //        constructed.
+    llvm::Constant *val = e1->optimize(WANTvalue)->toConstElem(p);
+
+    dinteger_t elemCount =
+        static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
+    return llvm::ConstantVector::getSplat(elemCount, val);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

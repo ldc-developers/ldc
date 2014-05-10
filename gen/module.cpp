@@ -59,6 +59,10 @@
 #endif
 #endif
 
+#ifdef __sun
+#include <alloca.h>
+#endif
+
 static llvm::cl::opt<bool> preservePaths("op",
     llvm::cl::desc("Do not strip paths from source file"),
     llvm::cl::ZeroOrMore);
