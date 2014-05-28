@@ -919,6 +919,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     if (fd->ir.defined) return;
 
+#if 0
     // Skip generating code if this part of a TemplateInstance that is instantiated
     // only by non-root modules (i.e. modules not listed on the command line).
     // See DMD's FuncDeclaration::toObjFile. Check this before calling
@@ -957,6 +958,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
             return;
         }
     }
+#endif
 
     DtoDeclareFunction(fd);
     assert(fd->ir.declared);
