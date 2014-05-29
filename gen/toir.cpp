@@ -1002,6 +1002,12 @@ DValue* CallExp::toElem(IRState* p)
             int atomicOrdering = static_cast<Expression*>(arguments->data[2])->toInteger();
             LLValue* val = exp1->toElem(p)->getRVal();
             LLValue* ptr = exp2->toElem(p)->getRVal();
+
+            if (!val->getType()->isIntegerTy()) {
+                error("atomic store only supports integer types, not '%s'", exp1->type->toChars());
+                return NULL;
+            }
+
             llvm::StoreInst* ret = gIR->ir->CreateStore(val, ptr, "tmp");
             ret->setAtomic(llvm::AtomicOrdering(atomicOrdering));
             ret->setAlignment(getTypeAllocSize(val->getType()));
@@ -1016,8 +1022,16 @@ DValue* CallExp::toElem(IRState* p)
 
             Expression* exp = static_cast<Expression*>(arguments->data[0]);
             int atomicOrdering = static_cast<Expression*>(arguments->data[1])->toInteger();
+
             LLValue* ptr = exp->toElem(p)->getRVal();
             Type* retType = exp->type->nextOf();
+
+            if (!ptr->getType()->getContainedType(0)->isIntegerTy()) {
+                error("atomic load only supports integer types, not '%s'", retType->toChars());
+                fatal();
+                return NULL;
+            }
+
             llvm::LoadInst* val = gIR->ir->CreateLoad(ptr, "tmp");
             val->setAlignment(getTypeAllocSize(val->getType()));
             val->setAtomic(llvm::AtomicOrdering(atomicOrdering));
