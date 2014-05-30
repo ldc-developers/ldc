@@ -284,81 +284,43 @@ else version( LDC )
             static assert(0);
     }
 
-    template _passAsSizeT(T)
+    private template _AtomicType(T)
     {
-        // LLVM currently does not support atomic load/store for pointers, thus
-        // we have to manually cast them to size_t.
-        static if (is(T P == U*, U)) // pointer
-        {
-            enum _passAsSizeT = true;
-        }
-        else static if (is(T == interface) || is (T == class))
-        {
-            enum _passAsSizeT = true;
-        }
+        static if (T.sizeof == ubyte.sizeof)
+            alias _AtomicType = ubyte;
+        else static if (T.sizeof == ushort.sizeof)
+            alias _AtomicType = ushort;
+        else static if (T.sizeof == uint.sizeof)
+            alias _AtomicType = uint;
+        else static if (T.sizeof == ulong.sizeof)
+            alias _AtomicType = ulong;
         else
-        {
-            enum _passAsSizeT = false;
-        }
+            static assert(is(_AtomicType!T),
+                "Cannot atomically load/store type of size " ~ T.sizeof.stringof);
     }
 
-    HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val )
+    // This could also handle floating-point types, the constraint is just there
+    // to avoid ambiguities with below "general" floating point definition from
+    // the upstream runtime.
+    HeadUnshared!T atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)(ref const shared T val)
         if(!__traits(isFloating, T))
     {
+        alias Int = _AtomicType!T;
         enum ordering = _ordering!(ms == MemoryOrder.acq ? MemoryOrder.seq : ms);
-        static if (_passAsSizeT!T)
-        {
-            return cast(HeadUnshared!(T))cast(void*)llvm_atomic_load!(size_t)(cast(shared(size_t)*)&val, ordering);
-        }
-        else static if (T.sizeof == bool.sizeof)
-        {
-            return cast(HeadUnshared!(T))llvm_atomic_load!(ubyte)(cast(shared(ubyte)*)&val, ordering);
-        }
-        else
-        {
-            return cast(HeadUnshared!(T))llvm_atomic_load!(T)(&val, ordering);
-        }
+
+        auto asInt = llvm_atomic_load!Int(cast(shared(Int)*)cast(void*)&val, ordering);
+        return *cast(HeadUnshared!T*)&asInt;
     }
 
     void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval )
-        if(__traits(isFloating, T))
+        if(__traits(compiles, mixin("val = newval")))
     {
-        static if(T.sizeof == int.sizeof)
-        {
-            static assert(is(T : float));
-            auto ptrVal = cast(shared int*)&val;
-            auto ptrNewval = cast(int*)&newval;
-            atomicStore!(ms)(*ptrVal, *ptrNewval);
-        }
-        else static if(T.sizeof == long.sizeof)
-        {
-            static assert(is(T : double));
-            auto ptrVal = cast(shared long*)&val;
-            auto ptrNewval = cast(long*)&newval;
-            atomicStore!(ms)(*ptrVal, *ptrNewval);
-        }
-        else
-        {
-            static assert(0, "Cannot atomically store 80-bit reals.");
-        }
-    }
-
-    void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval )
-        if(!__traits(isFloating, T) && __traits(compiles, mixin("val = newval")))
-    {
+        alias Int = _AtomicType!T;
         enum ordering = _ordering!(ms == MemoryOrder.rel ? MemoryOrder.seq : ms);
-        static if (_passAsSizeT!T)
-        {
-            llvm_atomic_store!(size_t)(cast(size_t)newval, cast(shared(size_t)*)&val, ordering);
-        }
-        else static if (T.sizeof == bool.sizeof)
-        {
-            llvm_atomic_store!(ubyte)(newval, cast(shared(ubyte)*)&val, ordering);
-        }
-        else
-        {
-            llvm_atomic_store!(T)(cast(T)newval, &val, ordering);
-        }
+
+        auto target = cast(shared(Int)*)cast(void*)&val;
+        auto newPtr = cast(Int*)&newval;
+        llvm_atomic_store!Int(*newPtr, target, ordering);
     }
 
     void atomicFence() nothrow
