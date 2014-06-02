@@ -286,7 +286,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
     fd->ir.irFunc->nestedContextCreated = true;
 
     // construct nested variables array
-    if (fd->closureVars.dim != 0)
+    if (fd->closureVars.dim > 0)
     {
         Logger::println("has nested frame");
         // start with adding all enclosing parent frames until a static parent is reached
@@ -396,7 +396,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
     DtoCreateNestedContextType(fd);
 
     // construct nested variables array
-    if (fd->closureVars.dim != 0)
+    if (fd->closureVars.dim > 0)
     {
         IrFunction* irfunction = fd->ir.irFunc;
         unsigned depth = irfunction->depth;
@@ -448,9 +448,6 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                                        E = fd->closureVars.end();
                                        I != E; ++I) {
             VarDeclaration *vd = *I;
-
-            if (needsClosure && vd->needsAutoDtor())
-                vd->error("has scoped destruction, cannot build closure");
 
             LLValue* gep = DtoGEPi(frame, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
             if (vd->isParameter()) {
