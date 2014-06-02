@@ -923,6 +923,7 @@ DValue* CallExp::toElem(IRState* p)
         if (fndecl->llvmInternal == LLVMva_start) {
             if (arguments->dim != 2) {
                 error("va_start instruction expects 2 arguments");
+                fatal();
                 return NULL;
             }
             // llvm doesn't need the second param hence the override
@@ -946,6 +947,7 @@ DValue* CallExp::toElem(IRState* p)
             global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
             if (arguments->dim != 2) {
                 error("va_copy instruction expects 2 arguments");
+                fatal();
                 return NULL;
             }
             Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
@@ -963,6 +965,7 @@ DValue* CallExp::toElem(IRState* p)
         else if (fndecl->llvmInternal == LLVMva_arg) {
             if (arguments->dim != 1) {
                 error("va_arg instruction expects 1 arguments");
+                fatal();
                 return NULL;
             }
             return DtoVaArg(loc, type, static_cast<Expression*>(arguments->data[0]));
@@ -971,6 +974,7 @@ DValue* CallExp::toElem(IRState* p)
         else if (fndecl->llvmInternal == LLVMalloca) {
             if (arguments->dim != 1) {
                 error("alloca expects 1 arguments");
+                fatal();
                 return NULL;
             }
             Expression* exp = static_cast<Expression*>(arguments->data[0]);
@@ -998,6 +1002,12 @@ DValue* CallExp::toElem(IRState* p)
             int atomicOrdering = static_cast<Expression*>(arguments->data[2])->toInteger();
             LLValue* val = exp1->toElem(p)->getRVal();
             LLValue* ptr = exp2->toElem(p)->getRVal();
+
+            if (!val->getType()->isIntegerTy()) {
+                error("atomic store only supports integer types, not '%s'", exp1->type->toChars());
+                return NULL;
+            }
+
             llvm::StoreInst* ret = gIR->ir->CreateStore(val, ptr, "tmp");
             ret->setAtomic(llvm::AtomicOrdering(atomicOrdering));
             ret->setAlignment(getTypeAllocSize(val->getType()));
@@ -1006,12 +1016,22 @@ DValue* CallExp::toElem(IRState* p)
         } else if (fndecl->llvmInternal == LLVMatomic_load) {
             if (arguments->dim != 2) {
                 error("atomic load instruction expects 2 arguments");
+                fatal();
                 return NULL;
             }
+
             Expression* exp = static_cast<Expression*>(arguments->data[0]);
             int atomicOrdering = static_cast<Expression*>(arguments->data[1])->toInteger();
+
             LLValue* ptr = exp->toElem(p)->getRVal();
             Type* retType = exp->type->nextOf();
+
+            if (!ptr->getType()->getContainedType(0)->isIntegerTy()) {
+                error("atomic load only supports integer types, not '%s'", retType->toChars());
+                fatal();
+                return NULL;
+            }
+
             llvm::LoadInst* val = gIR->ir->CreateLoad(ptr, "tmp");
             val->setAlignment(getTypeAllocSize(val->getType()));
             val->setAtomic(llvm::AtomicOrdering(atomicOrdering));
@@ -1020,6 +1040,7 @@ DValue* CallExp::toElem(IRState* p)
         } else if (fndecl->llvmInternal == LLVMatomic_cmp_xchg) {
             if (arguments->dim != 4) {
                 error("cmpxchg instruction expects 4 arguments");
+                fatal();
                 return NULL;
             }
             Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
@@ -1035,6 +1056,7 @@ DValue* CallExp::toElem(IRState* p)
         } else if (fndecl->llvmInternal == LLVMatomic_rmw) {
             if (arguments->dim != 3) {
                 error("atomic_rmw instruction expects 3 arguments");
+                fatal();
                 return NULL;
             }
 
@@ -1057,6 +1079,7 @@ DValue* CallExp::toElem(IRState* p)
             for (; ; ++op) {
                 if (ops[op] == 0) {
                     error("unknown atomic_rmw operation %s", fndecl->intrinsicName.c_str());
+                    fatal();
                     return NULL;
                 }
                 if (fndecl->intrinsicName == ops[op])
@@ -1079,6 +1102,7 @@ DValue* CallExp::toElem(IRState* p)
         {
             if (arguments->dim != 2) {
                 error("bitop intrinsic expects 2 arguments");
+                fatal();
                 return NULL;
             }
 
