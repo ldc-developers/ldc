@@ -463,7 +463,7 @@ void FuncDeclaration::semantic(Scope *sc)
 
     cd = parent->isClassDeclaration();
     if (cd)
-    {   size_t vi;
+    {   signed long vi;
         CtorDeclaration *ctor;
         DtorDeclaration *dtor;
 

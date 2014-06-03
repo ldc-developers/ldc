@@ -29,13 +29,18 @@
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/Linker/Linker.h"
+#include "llvm/Analysis/CFG.h"
+#else
 #include "llvm/Linker.h"
+#include "llvm/Support/CFG.h"
+#endif
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Intrinsics.h"
 #else
 #include "llvm/Intrinsics.h"
 #endif
-#include "llvm/Support/CFG.h"
 #include <iostream>
 
 #if LDC_LLVM_VER == 302
@@ -265,7 +270,11 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     abi->doneWithFunctionType();
 
     // Now we can modify irFty safely.
+#if LDC_LLVM_VER >= 305
+    irFty = std::move(newIrFty);
+#else
     irFty = llvm_move(newIrFty);
+#endif
 
     // build the function type
     std::vector<LLType*> argtypes;
@@ -360,7 +369,7 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 
     llvm::SMDiagnostic err;
 
-#if LDC_LLVM_VER >= 303 
+#if LDC_LLVM_VER >= 303
     llvm::Module* m = llvm::ParseAssemblyString(
         stream.str().c_str(), NULL, err, gIR->context());
 #else
@@ -380,7 +389,7 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
             (std::string(err.getColumnNo(), ' ') + '^').c_str(),
             errstr.c_str(), stream.str().c_str());
 
-#if LDC_LLVM_VER >= 303 
+#if LDC_LLVM_VER >= 303
     std::string errstr2 = "";
     llvm::Linker(gIR->module).linkInModule(m, &errstr2);
     if(errstr2 != "")

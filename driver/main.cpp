@@ -30,7 +30,11 @@
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/Linker/Linker.h"
+#else
 #include "llvm/Linker.h"
+#endif
 #include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/TargetRegistry.h"

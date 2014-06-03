@@ -308,7 +308,11 @@ llvm::TargetMachine* createTargetMachine(
             llvm::StringMapConstIterator<bool> i = hostFeatures.begin(),
                 end = hostFeatures.end();
             for (; i != end; ++i)
+#if LDC_LLVM_VER >= 305
+                if(i->second) features.AddFeature(i->first());
+#else
                 features.AddFeature(i->first(), i->second);
+#endif
         }
     }
     for (unsigned i = 0; i < attrs.size(); ++i)

@@ -24,7 +24,11 @@
 #include "ir/irfunction.h"
 #include "ir/irlandingpad.h"
 #include "ir/irmodule.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/Analysis/CFG.h"
+#else
 #include "llvm/Support/CFG.h"
+#endif
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/InlineAsm.h"
 #else

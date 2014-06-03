@@ -271,7 +271,7 @@ void AggregateDeclaration::alignmember(
  * Returns:
  *      offset to place field at
  */
-unsigned AggregateDeclaration::placeField(
+signed long AggregateDeclaration::placeField(
         unsigned *nextoffset,   // next location in aggregate
         unsigned memsize,       // size of member
         unsigned memalignsize,  // size of member for alignment purposes

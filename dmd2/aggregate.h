@@ -110,7 +110,7 @@ struct AggregateDeclaration : ScopeDsymbol
     void inlineScan();
     unsigned size(Loc loc);
     static void alignmember(structalign_t salign, unsigned size, unsigned *poffset);
-    static unsigned placeField(unsigned *nextoffset,
+    static signed long placeField(unsigned *nextoffset,
         unsigned memsize, unsigned memalignsize, structalign_t memalign,
         unsigned *paggsize, unsigned *paggalignsize, bool isunion);
     Type *getType();
