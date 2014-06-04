@@ -34,7 +34,11 @@
 #include "llvm/Target/TargetLibraryInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Support/CommandLine.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/LegacyPassNameParser.h"
+#else
 #include "llvm/Support/PassNameParser.h"
+#endif
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -292,7 +296,9 @@ bool ldc_optimize_module(llvm::Module* m)
     mpm.add(tli);
 
     // Add an appropriate TargetData instance for this module.
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 305
+    mpm.add(Pass::createPass(m));
+#elif LDC_LLVM_VER >= 302
     mpm.add(new DataLayout(m));
 #else
     mpm.add(new TargetData(m));
@@ -300,7 +306,9 @@ bool ldc_optimize_module(llvm::Module* m)
 
     // Also set up a manager for the per-function passes.
     FunctionPassManager fpm(m);
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 305
+    fpm.add(Pass::createPass(m));
+#elif LDC_LLVM_VER >= 302
     fpm.add(new DataLayout(m));
 #else
     fpm.add(new TargetData(m));

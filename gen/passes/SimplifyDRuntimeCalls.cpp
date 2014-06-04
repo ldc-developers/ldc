@@ -303,7 +303,11 @@ namespace {
         bool runOnce(Function &F, const DataLayout& DL, AliasAnalysis& AA);
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+#if LDC_LLVM_VER >= 305
+          AU.addRequired<DataLayoutPass>();
+#else
           AU.addRequired<DataLayout>();
+#endif
           AU.addRequired<AliasAnalysis>();
         }
     };
@@ -353,7 +357,11 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     if (Optimizations.empty())
         InitOptimizations();
 
+#if LDC_LLVM_VER >= 305
+    const DataLayout &DL = getAnalysis<DataLayoutPass>().getDataLayout();
+#else
     const DataLayout &DL = getAnalysis<DataLayout>();
+#endif
     AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
 
     // Iterate to catch opportunities opened up by other optimizations,

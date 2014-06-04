@@ -657,12 +657,22 @@ void ldc::DIBuilder::EmitBlockStart(Loc loc)
     Logger::println("D to dwarf block start");
     LOG_SCOPE;
 
+#if LDC_LLVM_VER >= 305
+    llvm::DILexicalBlock block = DBuilder.createLexicalBlock(
+            GetCurrentScope(), // scope
+            CreateFile(loc), // file
+            loc.linnum, // line
+            0, // column
+            0 // DWARF path discriminator value
+            );
+#else
     llvm::DILexicalBlock block = DBuilder.createLexicalBlock(
             GetCurrentScope(), // scope
             CreateFile(loc), // file
             loc.linnum, // line
             0 // column
             );
+#endif
     IR->func()->diLexicalBlocks.push(block);
     EmitStopPoint(loc.linnum);
 }

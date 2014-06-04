@@ -2811,7 +2811,7 @@ unsigned TypeBasic::alignsize()
 }
 
 #if IN_LLVM
-unsigned TypeBasic::alignment()
+signed long TypeBasic::alignment()
 {
     if (global.params.targetTriple.getArch() == llvm::Triple::x86_64 &&
         (ty == Tfloat80 || ty == Timaginary80))

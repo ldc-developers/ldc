@@ -418,7 +418,7 @@ struct TypeBasic : Type
     d_uns64 size(Loc loc);
     unsigned alignsize();
 #if IN_LLVM
-    unsigned alignment();
+    signed long alignment();
 #endif
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
