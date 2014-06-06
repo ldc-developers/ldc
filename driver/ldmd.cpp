@@ -989,7 +989,7 @@ std::string locateBinary(std::string exeName, const char* argv0)
  */
 static void createOutputDir(const char* dir) {
 #if LDC_LLVM_VER >= 305
-    if (ls::fs::create_directories(dir) != llvm::errc::success)
+    if (!ls::fs::create_directories(dir))
 #else
     bool dirExisted; // ignored
     if (ls::fs::create_directories(dir, dirExisted) != llvm::errc::success)
@@ -1046,8 +1046,7 @@ int main(int argc, char *argv[])
     {
         int rspFd;
         llvm::SmallString<128> rspPath;
-        if (ls::fs::createUniqueFile("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath) !=
-            llvm::errc::success)
+        if (!ls::fs::createUniqueFile("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath))
         {
             error("Could not open temporary response file.");
         }
@@ -1072,7 +1071,7 @@ int main(int argc, char *argv[])
         int rc = execute(ldcPath, &newArgs[0]);
 
 #if LDC_LLVM_VER >= 305
-        if (ls::fs::remove(rspPath.str()) != llvm::errc::success)
+        if (!ls::fs::remove(rspPath.str()))
 #else
         bool couldRemove;
         if (ls::fs::remove(rspPath.str(), couldRemove) != llvm::errc::success ||
