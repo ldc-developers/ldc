@@ -372,7 +372,7 @@ public:
     void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
-    Module* emittedInModule; // which module this template instance has been emitted in
+    void codegen(IRState*);
 #endif
 };
 

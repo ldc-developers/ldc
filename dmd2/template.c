@@ -5133,10 +5133,6 @@ TemplateInstance::TemplateInstance(Loc loc, Identifier *ident)
     this->speculative = false;
     this->hash = 0;
     this->fargs = NULL;
-#if IN_LLVM
-    this->emittedInModule = NULL;
-#endif
-
 }
 
 /*****************
@@ -5168,10 +5164,6 @@ TemplateInstance::TemplateInstance(Loc loc, TemplateDeclaration *td, Objects *ti
     this->speculative = false;
     this->hash = 0;
     this->fargs = NULL;
-
-#if IN_LLVM
-    this->emittedInModule = NULL;
-#endif
 
     assert(tempdecl->scope);
 }
