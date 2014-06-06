@@ -196,7 +196,7 @@ void IRLandingPad::constructLandingPad(IRLandingPadScope scope)
             // get class info symbol
             LLValue *classInfo = catchItr->catchType->ir.irAggr->getClassInfoSymbol();
             // add that symbol as landing pad clause
-            landingPad->addClause(classInfo);
+            landingPad->addClause(llvm::cast<llvm::Constant>(classInfo));
             // call llvm.eh.typeid.for to get class info index in the exception table
             classInfo = DtoBitCast(classInfo, getPtrToType(DtoType(Type::tint8)));
             LLValue *eh_id = gIR->ir->CreateCall(eh_typeid_for_fn, classInfo);
