@@ -919,8 +919,9 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     if (fd->ir.defined) return;
 
-    // Skip generating code if this part of a TemplateInstance that is instantiated
-    // only by non-root modules (i.e. modules not listed on the command line).
+    // Skip generating code for this part of a TemplateInstance if it has been
+    // instantiated by any non-root module (i.e. a module not listed on the
+    // command line).
     // See DMD's FuncDeclaration::toObjFile. Check this before calling
     // DtoDeclareFunction DtoDeclareFunction to avoid touching unanalyzed code.
     TemplateInstance *ti = fd->inTemplateInstance();
