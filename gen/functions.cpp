@@ -919,43 +919,21 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     if (fd->ir.defined) return;
 
-    // Skip generating code if this part of a TemplateInstance that is instantiated
-    // only by non-root modules (i.e. modules not listed on the command line).
-    // See DMD's FuncDeclaration::toObjFile. Check this before calling
-    // DtoDeclareFunction DtoDeclareFunction to avoid touching unanalyzed code.
-    TemplateInstance *ti = fd->isInstantiated();
-    if (!global.params.useUnitTests &&
-        ti && ti->instantiatingModule && !ti->instantiatingModule->isRoot())
+    // Adapted from FuncDeclaration::toObjFile
+    if ((fd->type && fd->type->ty == Tfunction && ((TypeFunction *)fd->type)->next == NULL) ||
+        (fd->type && fd->type->ty == Tfunction && ((TypeFunction *)fd->type)->next->ty == Terror))
     {
-        Module *mi = ti->instantiatingModule;
+        IF_LOG Logger::println("Ignoring; no return type or return error type");
+        fd->ir.defined = true;
+        return;
+    }
 
-        // If mi imports any root modules, we still need to generate the code.
-        for (size_t i = 0; i < Module::amodules.dim; ++i)
-        {
-            Module *m = Module::amodules[i];
-            m->insearch = 0;
-        }
-        bool importsRoot = false;
-        for (size_t i = 0; i < Module::amodules.dim; ++i)
-        {
-            Module *m = Module::amodules[i];
-            if (m->isRoot() && mi->imports(m))
-            {
-                importsRoot = true;
-                break;
-            }
-        }
-        for (size_t i = 0; i < Module::amodules.dim; ++i)
-        {
-            Module *m = Module::amodules[i];
-            m->insearch = 0;
-        }
-        if (!importsRoot)
-        {
-            IF_LOG Logger::println("Ignoring; already instantiated in %s (%s)", ti->instantiatingModule->toChars(), ti->toChars());
-            fd->ir.defined = true;
-            return;
-        }
+    if ((fd->isUnitTestDeclaration() && !global.params.useUnitTests) ||
+        !fd->needsCodegen())
+    {
+        IF_LOG Logger::println("Ignoring; does not need codegen");
+        fd->ir.defined = true;
+        return;
     }
 
     DtoDeclareFunction(fd);
