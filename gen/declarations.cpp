@@ -100,7 +100,7 @@ public:
             return;
         }
 
-        if (decl->members && decl->symtab)
+        if (!decl->isAnonymous() && decl->members)
         {
             DtoResolveStruct(decl);
 
