@@ -231,6 +231,9 @@ public:
     virtual void checkCtorConstInit() { }
 
     virtual void addComment(utf8_t *comment);
+#if IN_LLVM // backported from 2.065
+    bool inNonRoot();
+#endif
     virtual void emitComment(Scope *sc);
     void emitDitto(Scope *sc);
 

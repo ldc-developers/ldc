@@ -3965,6 +3965,93 @@ bool FuncDeclaration::hasNestedFrameRefs()
     return false;
 }
 
+#if IN_LLVM // backported from 2.065
+/***********************************************
+ * Returns true if this function is not defined in non-root module, nor
+ * obviously instantiated in non-root module.
+ *
+ * Note: ti->instantiatingModule does not stabilize until semantic analysis is completed,
+ * so don't call this function during semantic analysis to return precise result.
+ */
+
+bool FuncDeclaration::needsCodegen()
+{
+    assert(semanticRun == PASSsemantic3done);
+
+    for (FuncDeclaration *fd = this; fd; )
+    {
+        if (!fd->inTemplateInstance() && fd->inNonRoot())
+            return false;
+        if (fd->isNested())
+            fd = fd->toParent2()->isFuncDeclaration();
+        else
+            break;
+    }
+
+    /* The issue is that if the importee is compiled with a different -debug
+     * setting than the importer, the importer may believe it exists
+     * in the compiled importee when it does not, when the instantiation
+     * is behind a conditional debug declaration.
+     */
+    // workaround for Bugzilla 11239
+    if (global.params.useUnitTests ||
+        global.params.allInst ||
+        global.params.debuglevel)
+    {
+        return true;
+    }
+
+    FuncDeclaration *fd = this;
+Lagain:
+    TemplateInstance *ti = fd->inTemplateInstance();
+    if (ti && ti->instantiatingModule && !ti->instantiatingModule->isRoot())
+    {
+        Module *mi = ti->instantiatingModule;
+
+        // If mi imports any root modules, we still need to generate the code.
+        for (size_t i = 0; i < Module::amodules.dim; ++i)
+        {
+            Module *m = Module::amodules[i];
+            m->insearch = 0;
+        }
+        bool importsRoot = false;
+        for (size_t i = 0; i < Module::amodules.dim; ++i)
+        {
+            Module *m = Module::amodules[i];
+            if (m->isRoot() && mi->imports(m))
+            {
+                importsRoot = true;
+                break;
+            }
+        }
+        for (size_t i = 0; i < Module::amodules.dim; ++i)
+        {
+            Module *m = Module::amodules[i];
+            m->insearch = 0;
+        }
+        if (!importsRoot)
+        {
+            //printf("instantiated by %s   %s\n", ti->instantiatingModule->toChars(), ti->toChars());
+            return false;
+        }
+    }
+
+    if (fd->isNested())
+    {
+        /* Bugzilla 11863: The enclosing function must have its code generated first.
+         * Therefore if parent is instantiated in non-root, this function also prevent
+         * code generation.
+         */
+        fd = fd->toParent2()->isFuncDeclaration();
+        if (fd)
+            goto Lagain;
+    }
+    //if (AggregateDeclaration *ad = fd->isMember2()) { ... }
+
+    return true;
+}
+#endif
+
 /*********************************************
  * Return the function's parameter list, and whether
  * it is variadic or not.

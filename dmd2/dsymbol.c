@@ -821,6 +821,35 @@ void Dsymbol::addComment(utf8_t *comment)
 #endif
 }
 
+#if IN_LLVM // backported from 2.065
+/****************************************
+ * Returns true if this symbol is defined in non-root module.
+ */
+
+bool Dsymbol::inNonRoot()
+{
+    Dsymbol *s = parent;
+    for (; s; s = s->parent)
+    {
+        if (TemplateInstance *ti = s->isTemplateInstance())
+        {
+            if (ti->isTemplateMixin())
+                continue;
+            if (!ti->instantiatingModule || !ti->instantiatingModule->isRoot())
+                return true;
+            return false;
+        }
+        else if (Module *m = s->isModule())
+        {
+            if (!m->isRoot())
+                return true;
+            break;
+        }
+    }
+    return false;
+}
+#endif
+
 /********************************* OverloadSet ****************************/
 
 #if DMDV2

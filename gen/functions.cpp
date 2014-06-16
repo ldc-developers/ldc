@@ -928,44 +928,44 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     if (fd->ir.defined) return;
 
+    if ((fd->type && fd->type->ty == Tfunction && static_cast<TypeFunction *>(fd->type)->next == NULL) ||
+        (fd->type && fd->type->ty == Tfunction && static_cast<TypeFunction *>(fd->type)->next->ty == Terror))
+    {
+        IF_LOG Logger::println("Ignoring; no return type or return error type");
+        fd->ir.defined = true;
+        return;
+    }
+
+    if (fd->isUnitTestDeclaration() && !global.params.useUnitTests)
+    {
+        IF_LOG Logger::println("No code generation for unit test declaration %s", fd->toChars());
+        fd->ir.defined = true;
+        return;
+    }
+
+    if (fd->semanticRun == PASSsemanticdone)
+    {
+        /* What happened is this function failed semantic3() with errors,
+         * but the errors were gagged.
+         * Try to reproduce those errors, and then fail.
+         */
+        error("errors compiling function %s", fd->toPrettyChars());
+        fd->ir.defined = true;
+        return;
+    }
+    assert(fd->semanticRun == PASSsemantic3done);
+    assert(fd->ident != Id::empty);
+
     // Skip generating code for this part of a TemplateInstance if it has been
     // instantiated by any non-root module (i.e. a module not listed on the
     // command line).
-    // See DMD's FuncDeclaration::toObjFile. Check this before calling
-    // DtoDeclareFunction DtoDeclareFunction to avoid touching unanalyzed code.
-    TemplateInstance *ti = fd->inTemplateInstance();
-    if (!global.params.useUnitTests &&
-        ti && ti->instantiatingModule && !ti->instantiatingModule->isRoot())
+    // Check this before calling DtoDeclareFunction to avoid touching
+    // unanalyzed code.
+    if (!fd->needsCodegen())
     {
-        Module *mi = ti->instantiatingModule;
-
-        // If mi imports any root modules, we still need to generate the code.
-        for (size_t i = 0; i < Module::amodules.dim; ++i)
-        {
-            Module *m = Module::amodules[i];
-            m->insearch = 0;
-        }
-        bool importsRoot = false;
-        for (size_t i = 0; i < Module::amodules.dim; ++i)
-        {
-            Module *m = Module::amodules[i];
-            if (m->isRoot() && mi->imports(m))
-            {
-                importsRoot = true;
-                break;
-            }
-        }
-        for (size_t i = 0; i < Module::amodules.dim; ++i)
-        {
-            Module *m = Module::amodules[i];
-            m->insearch = 0;
-        }
-        if (!importsRoot)
-        {
-            IF_LOG Logger::println("Ignoring; already instantiated in %s (%s)", ti->instantiatingModule->toChars(), ti->toChars());
-            fd->ir.defined = true;
-            return;
-        }
+        IF_LOG Logger::println("No code generation for %s", fd->toChars());
+        fd->ir.defined = true;
+        return;
     }
 
     DtoDeclareFunction(fd);

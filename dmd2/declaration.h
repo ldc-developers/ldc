@@ -922,6 +922,9 @@ public:
     int cvMember(unsigned char *p);
     void buildClosure(IRState *irs); // Should this be inside or outside the #if IN_DMD?
 #endif
+#if IN_LLVM // backported from 2.065
+    bool needsCodegen();
+#endif
     FuncDeclaration *isFuncDeclaration() { return this; }
 
     virtual FuncDeclaration *toAliasFunc() { return this; }
