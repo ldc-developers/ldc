@@ -148,8 +148,17 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     {
 #if LDC_LLVM_VER >= 303
         llvm::AttrBuilder attrBuilder;
-        if (isCtor)
-            attrBuilder.addAttribute(llvm::Attribute::Returned);
+// Issue 624: In case of a ctor 'this' is passed to the function and is also
+// the return value. This could be a perfect case for the 'Returned' attribute.
+// However the 'this' type and the return type are transformed in different
+// ways, making them bitcast incompatible.
+// Example: extern(C): struct Value { this(string) {} string s; }
+// return type: { i64, i64 }
+// this type:   %ldc_github_624.Value*
+// FIXME: (1) Investigate why the types are handled in different ways
+//        (2) The attributes are cleared by some abi implementations
+//        if (isCtor)
+//            attrBuilder.addAttribute(llvm::Attribute::Returned);
 #endif
         newIrFty.arg_this = new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct
 #if LDC_LLVM_VER >= 303
@@ -919,8 +928,9 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     if (fd->ir.defined) return;
 
-    // Skip generating code if this part of a TemplateInstance that is instantiated
-    // only by non-root modules (i.e. modules not listed on the command line).
+    // Skip generating code for this part of a TemplateInstance if it has been
+    // instantiated by any non-root module (i.e. a module not listed on the
+    // command line).
     // See DMD's FuncDeclaration::toObjFile. Check this before calling
     // DtoDeclareFunction DtoDeclareFunction to avoid touching unanalyzed code.
     TemplateInstance *ti = fd->isInstantiated();
