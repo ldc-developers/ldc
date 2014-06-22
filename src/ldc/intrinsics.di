@@ -290,7 +290,7 @@ pragma(LDC_intrinsic, "llvm.fmuladd.f#")
 /// useful for performing operations on data that is not in the target's native
 /// byte order.
 
-pragma(LDC_intrinsic, "llvm.bswap.i#.i#")
+pragma(LDC_intrinsic, "llvm.bswap.i#")
     T llvm_bswap(T)(T val);
 
 
