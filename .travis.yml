@@ -35,7 +35,8 @@ env:
   - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=debug OPTS="-DMULTILIB=ON"
   - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=release
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=debug
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=release OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER="(druntime|dmd-testsuite).*_release" OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER="phobos_.*_release" OPTS="-DMULTILIB=ON"
   - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER=debug
   - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER=release
 matrix:
