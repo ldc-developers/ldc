@@ -45,7 +45,11 @@ matrix:
     - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER=release
 script:
   - cmake $OPTS .
-  - make
+  - make VERBOSE=1
+  - nm -A -s lib/libphobos-ldc.a | grep _D6object15__T8capacityTaZ8capacityFNaNbNdAaZm
+  - ar x lib/libphobos-ldc.a
+  - ar crS libphobos-ldc.a `ar t lib/libphobos-ldc.a`
+  - mv libphobos-ldc.a lib/
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version && ctest --output-on-failure -R $TESTSUITE_FILTER
