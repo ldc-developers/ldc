@@ -12,8 +12,10 @@
 #include "mars.h"
 #include "module.h"
 #include "mtype.h"
+#include "parse.h"
 #include "rmem.h"
 #include "root.h"
+#include "scope.h"
 #include "dmd2/target.h"
 #include "driver/cl_options.h"
 #include "driver/configfile.h"
@@ -30,9 +32,19 @@
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
+#if LDC_LLVM_VER >= 304
+#include "llvm/InitializePasses.h"
+#endif
+#include "llvm/LinkAllPasses.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/Linker/Linker.h"
+#else
 #include "llvm/Linker.h"
+#endif
+#include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
+#include "llvm/Support/Path.h"
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
@@ -84,6 +96,19 @@ static cl::list<std::string, StringsAdapter> debuglibs("debuglib",
     cl::value_desc("lib,..."),
     cl::location(debugLibStore),
     cl::CommaSeparated);
+
+
+#if LDC_LLVM_VER < 304
+namespace llvm {
+namespace sys {
+namespace fs {
+static std::string getMainExecutable(const char *argv0, void *MainExecAddr) {
+  return llvm::sys::Path::GetMainExecutable(argv0, MainExecAddr).str();
+}
+}
+}
+}
+#endif
 
 void printVersion() {
     printf("LDC - the LLVM D compiler (%s):\n", global.ldc_version);
@@ -266,11 +291,16 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     helpOnly = mCPU == "help" ||
         (std::find(mAttrs.begin(), mAttrs.end(), "help") != mAttrs.end());
 
-    // Print config file path if -v was passed
+    // Print some information if -v was passed
+    // - path to compiler binary
+    // - version number
+    // - used config file
     if (global.params.verbose) {
+        fprintf(global.stdmsg, "binary    %s\n", llvm::sys::fs::getMainExecutable(argv0, (void*)main).c_str());
+        fprintf(global.stdmsg, "version   %s (DMD %s, LLVM %s)\n", global.ldc_version, global.version, global.llvm_version);
         const std::string& path = cfg_file.path();
         if (!path.empty())
-            printf("config    %s\n", path.c_str());
+            fprintf(global.stdmsg, "config    %s\n", path.c_str());
     }
 
     // Negated options
@@ -354,7 +384,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
         if (!I->empty())
             sourceFiles.push(mem.strdup(I->c_str()));
 
-    Array* libs;
+    Strings* libs;
     if (global.params.symdebug)
     {
         libs = global.params.debuglibnames;
@@ -462,6 +492,59 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     }
 }
 
+static void initializePasses() {
+#if LDC_LLVM_VER >= 304
+    using namespace llvm;
+    // Initialize passes
+    PassRegistry &Registry = *PassRegistry::getPassRegistry();
+    initializeCore(Registry);
+    initializeDebugIRPass(Registry);
+    initializeScalarOpts(Registry);
+    initializeObjCARCOpts(Registry);
+    initializeVectorization(Registry);
+    initializeIPO(Registry);
+    initializeAnalysis(Registry);
+    initializeIPA(Registry);
+    initializeTransformUtils(Registry);
+    initializeInstCombine(Registry);
+    initializeInstrumentation(Registry);
+    initializeTarget(Registry);
+    // For codegen passes, only passes that do IR to IR transformation are
+    // supported. For now, just add CodeGenPrepare.
+    initializeCodeGenPreparePass(Registry);
+#endif
+}
+
+/// Register the MIPS ABI.
+static void registerMipsABI()
+{
+    llvm::StringRef features = gTargetMachine->getTargetFeatureString();
+    if (features.find("+o32") != std::string::npos)
+        VersionCondition::addPredefinedGlobalIdent("MIPS_O32");
+    if (features.find("+n32") != std::string::npos)
+        VersionCondition::addPredefinedGlobalIdent("MIPS_N32");
+    if (features.find("+n64") != std::string::npos)
+        VersionCondition::addPredefinedGlobalIdent("MIPS_N64");
+    if (features.find("+eabi") != std::string::npos)
+        VersionCondition::addPredefinedGlobalIdent("MIPS_EABI");
+}
+
+/// Register the float ABI.
+/// Also defines D_SoftFloat or D_HardFloat depending on ABI type.
+static void registerPredefinedFloatABI(const char *soft, const char *hard)
+{
+    if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft)
+    {
+        VersionCondition::addPredefinedGlobalIdent(soft);
+        VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
+    }
+    if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Hard)
+    {
+        VersionCondition::addPredefinedGlobalIdent(hard);
+        VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+    }
+}
+
 /// Registers the predefined versions specific to the current target triple
 /// and other target specific options with VersionCondition.
 static void registerPredefinedTargetVersions() {
@@ -482,23 +565,23 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
         case llvm::Triple::ppc:
-            // FIXME: Detect soft float (PPC_SoftFP/PPC_HardFP).
             VersionCondition::addPredefinedGlobalIdent("PPC");
+            registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
             break;
         case llvm::Triple::ppc64:
             VersionCondition::addPredefinedGlobalIdent("PPC64");
-            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+            registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
             break;
         case llvm::Triple::arm:
-            // FIXME: Detect various FP ABIs (ARM_Soft, ARM_SoftFP, ARM_HardFP).
             VersionCondition::addPredefinedGlobalIdent("ARM");
+            // FIXME: What about ARM_SoftFP?.
+            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
             break;
         case llvm::Triple::thumb:
             VersionCondition::addPredefinedGlobalIdent("ARM");
             VersionCondition::addPredefinedGlobalIdent("Thumb"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("ARM_Thumb");
-            VersionCondition::addPredefinedGlobalIdent("ARM_Soft");
-            VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
+            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
             break;
 #if LDC_LLVM_VER >= 303
         case llvm::Triple::aarch64:
@@ -506,33 +589,38 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::aarch64_be:
 #endif
             VersionCondition::addPredefinedGlobalIdent("AArch64");
+            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
             break;
 #endif
         case llvm::Triple::mips:
         case llvm::Triple::mipsel:
-            // FIXME: Detect O32/N32 variants (MIPS_{O32,N32}[_SoftFP,_HardFP]).
             VersionCondition::addPredefinedGlobalIdent("MIPS");
+            registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
+            registerMipsABI();
             break;
         case llvm::Triple::mips64:
         case llvm::Triple::mips64el:
-            // FIXME: Detect N64 variants (MIPS64_N64[_SoftFP,_HardFP]).
             VersionCondition::addPredefinedGlobalIdent("MIPS64");
+            registerPredefinedFloatABI("MIPS_SoftFloat", "MIPS_HardFloat");
+            registerMipsABI();
             break;
         case llvm::Triple::sparc:
             // FIXME: Detect SPARC v8+ (SPARC_V8Plus).
-            // FIXME: Detect soft float (SPARC_SoftFP/SPARC_HardFP).
             VersionCondition::addPredefinedGlobalIdent("SPARC");
+            registerPredefinedFloatABI("SPARC_SoftFloat", "SPARC_HardFloat");
             break;
         case llvm::Triple::sparcv9:
             VersionCondition::addPredefinedGlobalIdent("SPARC64");
-            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+            registerPredefinedFloatABI("SPARC_SoftFloat", "SPARC_HardFloat");
             break;
 #if LDC_LLVM_VER >= 302
         case llvm::Triple::nvptx:
             VersionCondition::addPredefinedGlobalIdent("NVPTX");
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
         case llvm::Triple::nvptx64:
             VersionCondition::addPredefinedGlobalIdent("NVPTX64");
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
 #endif
         default:
@@ -688,6 +776,72 @@ static void registerPredefinedVersions() {
 #undef STR
 }
 
+/// Dump all predefined version identifiers.
+static void dumpPredefinedVersions()
+{
+    if (global.params.verbose && global.params.versionids)
+    {
+        fprintf(global.stdmsg, "predefs  ");
+        int col = 10;
+        for (Strings::iterator I = global.params.versionids->begin(),
+                               E = global.params.versionids->end();
+             I != E; ++I)
+        {
+            int len = strlen(*I);
+            if (col + len > 80)
+            {
+                col = 10;
+                fprintf(global.stdmsg, "\n         ");
+            }
+            col += len;
+            fprintf(global.stdmsg, " %s", *I);
+        }
+        fprintf(global.stdmsg, "\n");
+    }
+}
+
+static Module *entrypoint = NULL;
+static Module *rootHasMain = NULL;
+
+/// Callback to generate a C main() function, invoked by the frontend.
+void genCmain(Scope *sc)
+{
+    if (entrypoint)
+        return;
+
+    /* The D code to be generated is provided as D source code in the form of a string.
+     * Note that Solaris, for unknown reasons, requires both a main() and an _main()
+     */
+    static utf8_t code[] = "extern(C) {\n\
+        int _d_run_main(int argc, char **argv, void* mainFunc);\n\
+        int _Dmain(char[][] args);\n\
+        int main(int argc, char **argv) { return _d_run_main(argc, argv, &_Dmain); }\n\
+        version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }\n\
+        }\n\
+        ";
+
+    Identifier *id = Id::entrypoint;
+    Module *m = new Module("__entrypoint.d", id, 0, 0);
+
+    Parser p(m, code, sizeof(code) / sizeof(code[0]), 0);
+    p.scanloc = Loc();
+    p.nextToken();
+    m->members = p.parseModule();
+    assert(p.token.value == TOKeof);
+
+    char v = global.params.verbose;
+    global.params.verbose = 0;
+    m->importedFrom = m;
+    m->importAll(NULL);
+    m->semantic();
+    m->semantic2();
+    m->semantic3();
+    global.params.verbose = v;
+
+    entrypoint = m;
+    rootHasMain = sc->module;
+}
+
 int main(int argc, char **argv)
 {
     mem.init();                         // initialize storage allocator
@@ -708,6 +862,8 @@ int main(int argc, char **argv)
     llvm::InitializeAllTargetMCs();
     llvm::InitializeAllAsmPrinters();
     llvm::InitializeAllAsmParsers();
+
+    initializePasses();
 
     bool helpOnly;
     Strings files;
@@ -753,6 +909,8 @@ int main(int argc, char **argv)
         global.params.isFreeBSD    = triple.getOS() == llvm::Triple::FreeBSD;
         global.params.isOpenBSD    = triple.getOS() == llvm::Triple::OpenBSD;
         global.params.isSolaris    = triple.getOS() == llvm::Triple::Solaris;
+        // FIXME: Correctly handle the x32 ABI (AMD64 ILP32) here.
+        global.params.isLP64       = triple.isArch64Bit();
         global.params.is64bit      = triple.isArch64Bit();
     }
 
@@ -764,6 +922,7 @@ int main(int argc, char **argv)
 
     // Set predefined version identifiers.
     registerPredefinedVersions();
+    dumpPredefinedVersions();
 
     if (global.params.targetTriple.isOSWindows()) {
         global.dll_ext = "dll";
@@ -929,7 +1088,6 @@ int main(int argc, char **argv)
 
         id = Lexer::idPool(name);
         Module *m = new Module(static_cast<char *>(files.data[i]), id, global.params.doDocComments, global.params.doHdrGeneration);
-        m->isRoot = true;
         modules.push(m);
     }
 
@@ -938,7 +1096,7 @@ int main(int argc, char **argv)
     {
         Module *m = modules[i];
         if (global.params.verbose)
-            printf("parse     %s\n", m->toChars());
+            fprintf(global.stdmsg, "parse     %s\n", m->toChars());
         if (!Module::rootModule)
             Module::rootModule = m;
         m->importedFrom = m;
@@ -979,7 +1137,7 @@ int main(int argc, char **argv)
         for (unsigned i = 0; i < modules.dim; i++)
         {
             if (global.params.verbose)
-                printf("import    %s\n", modules[i]->toChars());
+                fprintf(global.stdmsg, "import    %s\n", modules[i]->toChars());
             modules[i]->genhdrfile();
         }
     }
@@ -990,7 +1148,7 @@ int main(int argc, char **argv)
     for (unsigned i = 0; i < modules.dim; i++)
     {
        if (global.params.verbose)
-           printf("importall %s\n", modules[i]->toChars());
+           fprintf(global.stdmsg, "importall %s\n", modules[i]->toChars());
        modules[i]->importAll(0);
     }
     if (global.errors)
@@ -1000,7 +1158,7 @@ int main(int argc, char **argv)
     for (unsigned i = 0; i < modules.dim; i++)
     {
         if (global.params.verbose)
-            printf("semantic  %s\n", modules[i]->toChars());
+            fprintf(global.stdmsg, "semantic  %s\n", modules[i]->toChars());
         modules[i]->semantic();
     }
     if (global.errors)
@@ -1013,7 +1171,7 @@ int main(int argc, char **argv)
     for (unsigned i = 0; i < modules.dim; i++)
     {
         if (global.params.verbose)
-            printf("semantic2 %s\n", modules[i]->toChars());
+            fprintf(global.stdmsg, "semantic2 %s\n", modules[i]->toChars());
         modules[i]->semantic2();
     }
     if (global.errors)
@@ -1023,7 +1181,7 @@ int main(int argc, char **argv)
     for (unsigned i = 0; i < modules.dim; i++)
     {
         if (global.params.verbose)
-            printf("semantic3 %s\n", modules[i]->toChars());
+            fprintf(global.stdmsg, "semantic3 %s\n", modules[i]->toChars());
         modules[i]->semantic3();
     }
     if (global.errors)
@@ -1057,7 +1215,7 @@ int main(int argc, char **argv)
             {
                 Module *m = Module::amodules[i];
                 if (global.params.verbose)
-                    printf("semantic3 %s\n", m->toChars());
+                    fprintf(global.stdmsg, "semantic3 %s\n", m->toChars());
                 m->semantic2();
                 m->semantic3();
             }
@@ -1066,6 +1224,9 @@ int main(int argc, char **argv)
         }
         global.inExtraInliningSemantic = false;
     }
+
+    Module::runDeferredSemantic3();
+
     if (global.errors || global.warnings)
         fatal();
 
@@ -1089,10 +1250,30 @@ int main(int argc, char **argv)
     {
         Module *m = modules[i];
         if (global.params.verbose)
-            printf("code      %s\n", m->toChars());
+            fprintf(global.stdmsg, "code      %s\n", m->toChars());
         if (global.params.obj)
         {
             llvm::Module* lm = m->genLLVMModule(context);
+            if (entrypoint && rootHasMain == m)
+            {
+#if LDC_LLVM_VER >= 303
+                llvm::Linker linker(lm);
+#else
+                llvm::Linker linker("ldc", lm);
+#endif
+
+                llvm::Module* entryModule = entrypoint->genLLVMModule(context);
+                std::string linkError;
+
+#if LDC_LLVM_VER >= 303
+                const bool hadError = linker.linkInModule(entryModule, &linkError);
+#else
+                const bool hadError= linker.LinkInModule(entryModule, &linkError);
+                linker.releaseModule();
+#endif
+                if (hadError)
+                    error("%s", linkError.c_str());
+            }
             if (!singleObj)
             {
                 m->deleteObjFile();
@@ -1105,11 +1286,8 @@ int main(int argc, char **argv)
         }
         if (global.errors)
             m->deleteObjFile();
-        else
-        {
-            if (global.params.doDocComments)
+        else if (global.params.doDocComments)
             m->gendocfile();
-        }
     }
 
     // internal linking for singleobj

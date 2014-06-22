@@ -21,7 +21,6 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
-#include "gen/utils.h"
 #include "ir/irtype.h"
 #include "ir/irvar.h"
 #include "llvm/ADT/SmallString.h"
@@ -53,9 +52,11 @@ void InterfaceDeclaration::codegen(IRState *p)
         DtoResolveClass(this);
 
         // Emit any members (e.g. final functions).
-        for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())
+        for (Dsymbols::iterator I = members->begin(),
+                                E = members->end();
+                                I != E; ++I)
         {
-            it->codegen(p);
+            (*I)->codegen(p);
         }
 
         // Emit TypeInfo.
@@ -87,9 +88,11 @@ void StructDeclaration::codegen(IRState *p)
     {
         DtoResolveStruct(this);
 
-        for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())
+        for (Dsymbols::iterator I = members->begin(),
+                                E = members->end();
+                                I != E; ++I)
         {
-            it->codegen(p);
+            (*I)->codegen(p);
         }
 
         // Define the __initZ symbol.
@@ -99,6 +102,12 @@ void StructDeclaration::codegen(IRState *p)
 
         // emit typeinfo
         DtoTypeInfoOf(type);
+
+        // Emit __xopEquals/__xopCmp.
+        if (xeq && xeq != xerreq)
+            xeq->codegen(p);
+        if (xcmp && xcmp != xerrcmp)
+            xcmp->codegen(p);
     }
 }
 
@@ -121,9 +130,11 @@ void ClassDeclaration::codegen(IRState *p)
     {
         DtoResolveClass(this);
 
-        for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())
+        for (Dsymbols::iterator I = members->begin(),
+                                E = members->end();
+                                I != E; ++I)
         {
-            it->codegen(p);
+            (*I)->codegen(p);
         }
 
         llvm::GlobalValue::LinkageTypes const linkage = DtoExternalLinkage(this);
@@ -340,13 +351,13 @@ void TemplateMixin::codegen(IRState *p)
 
 void AttribDeclaration::codegen(IRState *p)
 {
-    Array *d = include(NULL, NULL);
+    Dsymbols *d = include(NULL, NULL);
 
     if (d)
     {
         for (unsigned i = 0; i < d->dim; i++)
-        {   Dsymbol *s = static_cast<Dsymbol *>(d->data[i]);
-            s->codegen(p);
+        {
+            (*d)[i]->codegen(p);
         }
     }
 }

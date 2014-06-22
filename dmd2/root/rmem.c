@@ -11,11 +11,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#if __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
-#include "../root/rmem.h"
-#else
 #include "rmem.h"
-#endif
 
 /* This implementation of the storage allocator uses the standard C allocation package.
  */
@@ -142,6 +138,69 @@ void Mem::addroots(char* pStart, char* pEnd)
 
 /* =================================================== */
 
+#if defined(__has_feature)
+#if __has_feature(address_sanitizer)
+#define USE_ASAN_NEW_DELETE
+#endif
+#endif
+
+#if !defined(USE_ASAN_NEW_DELETE)
+
+#if IN_DMD
+
+/* Allocate, but never release
+ */
+
+// Allocate a little less than 64kB because the C runtime adds some overhead that
+// causes the actual memory block to be larger than 64kB otherwise. E.g. the dmc
+// runtime rounds the size up to 128kB, but the remaining space in the chunk is less
+// than 64kB, so it cannot be used by another chunk.
+#define CHUNK_SIZE (4096 * 16 - 64)
+
+static size_t heapleft = 0;
+static void *heapp;
+
+void * operator new(size_t m_size)
+{
+    // 16 byte alignment is better (and sometimes needed) for doubles
+    m_size = (m_size + 15) & ~15;
+
+    // The layout of the code is selected so the most common case is straight through
+    if (m_size <= heapleft)
+    {
+     L1:
+        heapleft -= m_size;
+        void *p = heapp;
+        heapp = (void *)((char *)heapp + m_size);
+        return p;
+    }
+
+    if (m_size > CHUNK_SIZE)
+    {
+        void *p = malloc(m_size);
+        if (p)
+            return p;
+        printf("Error: out of memory\n");
+        exit(EXIT_FAILURE);
+        return p;
+    }
+
+    heapleft = CHUNK_SIZE;
+    heapp = malloc(CHUNK_SIZE);
+    if (!heapp)
+    {
+        printf("Error: out of memory\n");
+        exit(EXIT_FAILURE);
+    }
+    goto L1;
+}
+
+void operator delete(void *p)
+{
+}
+
+#else
+
 void * operator new(size_t m_size)
 {
     void *p = malloc(m_size);
@@ -157,4 +216,7 @@ void operator delete(void *p)
     free(p);
 }
 
+#endif
+
+#endif
 

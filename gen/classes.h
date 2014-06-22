@@ -17,11 +17,11 @@
 
 #include "gen/structs.h"
 
-struct ClassDeclaration;
-struct CtorDeclaration;
-struct FuncDeclaration;
-struct NewExp;
-struct TypeClass;
+class ClassDeclaration;
+class CtorDeclaration;
+class FuncDeclaration;
+class NewExp;
+class TypeClass;
 
 /// Resolves the llvm type for a class declaration
 void DtoResolveClass(ClassDeclaration* cd);
@@ -41,7 +41,6 @@ llvm::Constant* DtoDefineClassInfo(ClassDeclaration* cd);
 
 DValue* DtoNewClass(Loc loc, TypeClass* type, NewExp* newexp);
 void DtoInitClass(TypeClass* tc, llvm::Value* dst);
-DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* arguments, llvm::Value* mem);
 void DtoFinalizeClass(llvm::Value* inst);
 
 DValue* DtoCastClass(DValue* val, Type* to);

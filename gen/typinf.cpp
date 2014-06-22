@@ -109,6 +109,11 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
     return t->getTypeInfo(sc);
 }
 
+
+bool inNonRoot(Dsymbol *s);
+FuncDeclaration *search_toHash(StructDeclaration *sd);
+FuncDeclaration *search_toString(StructDeclaration *sd);
+
 /****************************************************
  * Get the exact TypeInfo.
  */
@@ -118,7 +123,7 @@ Expression *Type::getTypeInfo(Scope *sc)
     IF_LOG Logger::println("Type::getTypeInfo(): %s", toChars());
     LOG_SCOPE
 
-    if (!Type::typeinfo)
+    if (!Type::dtypeinfo)
     {
         error(Loc(), "TypeInfo not found. object.d may be incorrectly installed or corrupt, compile with -v switch");
         fatal();
@@ -146,9 +151,23 @@ Expression *Type::getTypeInfo(Scope *sc)
         if (!t->builtinTypeInfo())
         {   // Generate COMDAT
             if (sc)                     // if in semantic() pass
-            {   // Find module that will go all the way to an object file
+            {
+                // Find module that will go all the way to an object file
                 Module *m = sc->module->importedFrom;
                 m->members->push(t->vtinfo);
+
+                if (ty == Tstruct)
+                {
+                    StructDeclaration *sd = ((TypeStruct *)this)->sym;
+                    if ((sd->xeq && sd->xeq != sd->xerreq ||
+                         sd->xcmp && sd->xcmp != sd->xerrcmp ||
+                         search_toHash(sd) ||
+                         search_toString(sd)
+                        ) && inNonRoot(sd))
+                    {
+                        Module::addDeferredSemantic3(sd);
+                    }
+                }
             }
             else                        // if in obj generation pass
             {
@@ -258,7 +277,8 @@ int TypeDArray::builtinTypeInfo()
 {
     return !mod && ((next->isTypeBasic() != NULL && !next->mod) ||
         // strings are so common, make them builtin
-        (next->ty == Tchar && next->mod == MODimmutable));
+        (next->ty == Tchar && next->mod == MODimmutable) ||
+        (next->ty == Tchar && next->mod == MODconst));
 }
 
 int TypeClass::builtinTypeInfo()
@@ -343,7 +363,7 @@ void TypeInfoDeclaration::codegen(IRState* p)
         assert(irg->type->isStructTy());
     } else {
         if (tinfo->builtinTypeInfo()) // this is a declaration of a builtin __initZ var
-            irg->type = Type::typeinfo->type->irtype->isClass()->getMemoryLLType();
+            irg->type = Type::dtypeinfo->type->irtype->isClass()->getMemoryLLType();
         else
             irg->type = LLStructType::create(gIR->context(), toPrettyChars());
         irg->value = new llvm::GlobalVariable(*gIR->module, irg->type, true,
@@ -370,7 +390,7 @@ void TypeInfoDeclaration::llvmDefine()
     Logger::println("TypeInfoDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
-    RTTIBuilder b(Type::typeinfo);
+    RTTIBuilder b(Type::dtypeinfo);
     b.finalize(ir.irGlobal);
 }
 
@@ -434,7 +454,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     // void[] init
     // emit void[] with the default initialier, the array is null if the default
     // initializer is zero
-    if (!sd->defaultval || tinfo->isZeroInit(Loc()))
+    if (!sd->members || tinfo->isZeroInit(loc))
     {
         b.push_null_void_array();
     }
@@ -444,10 +464,11 @@ void TypeInfoEnumDeclaration::llvmDefine()
         Type *memtype = sd->memtype;
         LLType *memty = DtoType(memtype);
         LLConstant *C;
+        Expression *defaultval = sd->getDefaultValue(loc);
         if (memtype->isintegral())
-            C = LLConstantInt::get(memty, sd->defaultval->toInteger(), !isLLVMUnsigned(memtype));
+            C = LLConstantInt::get(memty, defaultval->toInteger(), !isLLVMUnsigned(memtype));
         else if (memtype->isString())
-            C = DtoConstString(static_cast<const char *>(sd->defaultval->toString()->string));
+            C = DtoConstString(static_cast<const char *>(defaultval->toString()->string));
         else
             llvm_unreachable("Unsupported type");
 
@@ -570,21 +591,6 @@ void TypeInfoDelegateDeclaration::llvmDefine()
 
 /* ========================================================================= */
 
-static FuncDeclaration* find_method_overload(AggregateDeclaration* ad, Identifier* id, TypeFunction* tf)
-{
-    Dsymbol *s = search_function(ad, id);
-    FuncDeclaration *fdx = s ? s->isFuncDeclaration() : NULL;
-    if (fdx)
-    {
-        FuncDeclaration *fd = fdx->overloadExactMatch(tf);
-        if (fd)
-        {
-            return fd;
-        }
-    }
-    return NULL;
-}
-
 void TypeInfoStructDeclaration::llvmDefine()
 {
     Logger::println("TypeInfoStructDeclaration::llvmDefine() %s", toChars());
@@ -594,6 +600,13 @@ void TypeInfoStructDeclaration::llvmDefine()
     assert(tinfo->ty == Tstruct);
     TypeStruct *tc = static_cast<TypeStruct *>(tinfo);
     StructDeclaration *sd = tc->sym;
+
+    // handle opaque structs
+    if (!sd->members) {
+        RTTIBuilder b(Type::typeinfostruct);
+        b.finalize(ir.irGlobal);
+        return;
+    }
 
     // can't emit typeinfo for forward declarations
     if (sd->sizeok != SIZEOKdone)
@@ -620,41 +633,10 @@ void TypeInfoStructDeclaration::llvmDefine()
         initPtr = iraggr->getInitSymbol();
     b.push_void_array(getTypeStoreSize(DtoType(tc)), initPtr);
 
-    // toX functions ground work
-    static TypeFunction *tftohash;
-    static TypeFunction *tftostring;
-
-    if (!tftohash)
-    {
-        Scope sc;
-        tftohash = new TypeFunction(NULL, Type::thash_t, 0, LINKd);
-        tftohash ->mod = MODconst;
-        tftohash = static_cast<TypeFunction *>(tftohash->semantic(Loc(), &sc));
-
-        Type *retType = Type::tchar->invariantOf()->arrayOf();
-        tftostring = new TypeFunction(NULL, retType, 0, LINKd);
-        tftostring = static_cast<TypeFunction *>(tftostring->semantic(Loc(), &sc));
-    }
-
-    // this one takes a parameter, so we need to build a new one each time
-    // to get the right type. can we avoid this?
-    TypeFunction *tfcmpptr;
-    {
-        Scope sc;
-        Parameters *arguments = new Parameters;
-
-        // arg type is ref const T
-        Parameter *arg = new Parameter(STCref, tc->constOf(), NULL, NULL);
-        arguments->push(arg);
-        tfcmpptr = new TypeFunction(arguments, Type::tint32, 0, LINKd);
-        tfcmpptr->mod = MODconst;
-        tfcmpptr = static_cast<TypeFunction *>(tfcmpptr->semantic(Loc(), &sc));
-    }
-
     // well use this module for all overload lookups
 
     // toHash
-    FuncDeclaration* fd = find_method_overload(sd, Id::tohash, tftohash);
+    FuncDeclaration* fd = search_toHash(sd);
     b.push_funcptr(fd);
 
     // opEquals
@@ -662,11 +644,11 @@ void TypeInfoStructDeclaration::llvmDefine()
     b.push_funcptr(fd);
 
     // opCmp
-    fd = find_method_overload(sd, Id::cmp, tfcmpptr);
+    fd = sd->xcmp;
     b.push_funcptr(fd);
 
     // toString
-    fd = find_method_overload(sd, Id::tostring, tftostring);
+    fd = search_toString(sd);
     b.push_funcptr(fd);
 
     // uint m_flags;
@@ -708,7 +690,7 @@ void TypeInfoStructDeclaration::llvmDefine()
                 b.push_typeinfo(targ);
             }
             else
-                b.push_null(Type::typeinfo->type);
+                b.push_null(Type::dtypeinfo->type);
         }
     }
 
@@ -791,7 +773,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     std::vector<LLConstant*> arrInits;
     arrInits.reserve(dim);
 
-    LLType* tiTy = DtoType(Type::typeinfo->type);
+    LLType* tiTy = DtoType(Type::dtypeinfo->type);
 
     for (size_t i = 0; i < dim; i++)
     {
@@ -806,7 +788,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     RTTIBuilder b(Type::typeinfotypelist);
 
     // push TypeInfo[]
-    b.push_array(arrC, dim, Type::typeinfo->type, NULL);
+    b.push_array(arrC, dim, Type::dtypeinfo->type, NULL);
 
     // finish
     b.finalize(ir.irGlobal);

@@ -25,7 +25,6 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/llvmhelpers.h"
-#include "gen/utils.h"
 #include "gen/arrays.h"
 #include "gen/metadata.h"
 #include "gen/runtime.h"
@@ -79,7 +78,7 @@ LLGlobalVariable * IrAggr::getClassInfoSymbol()
     // The type is also ClassInfo for interfaces – the actual TypeInfo for them
     // is a TypeInfo_Interface instance that references __ClassZ in its "base"
     // member.
-    ClassDeclaration* cinfo = ClassDeclaration::classinfo;
+    ClassDeclaration* cinfo = Type::typeinfoclass;
     DtoType(cinfo->type);
     IrTypeClass* tc = stripModifiers(cinfo->type)->irtype->isClass();
     assert(tc && "invalid ClassInfo type");
@@ -126,8 +125,7 @@ LLGlobalVariable * IrAggr::getInterfaceArraySymbol()
     assert(n > 0 && "getting ClassInfo.interfaces storage symbol, but we "
                     "don't implement any interfaces");
 
-    VarDeclarationIter idx(ClassDeclaration::classinfo->fields, 3);
-    LLType* InterfaceTy = DtoType(idx->type->nextOf());
+    LLType* InterfaceTy = DtoType(Type::typeinfoclass->fields[3]->type->nextOf());
 
     // create Interface[N]
     LLArrayType* array_type = llvm::ArrayType::get(InterfaceTy,n);
@@ -161,7 +159,7 @@ LLConstant * IrAggr::getVtblInit()
 
     // start with the classinfo
     llvm::Constant* c = getClassInfoSymbol();
-    c = DtoBitCast(c, DtoType(ClassDeclaration::classinfo->type));
+    c = DtoBitCast(c, DtoType(Type::typeinfoclass->type));
     constants.push_back(c);
 
     // add virtual function pointers
@@ -283,9 +281,6 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
     constants.reserve(vtbl_array.dim);
 
     if (!b->base->isCPPinterface()) { // skip interface info for CPP interfaces
-        // start with the interface info
-        VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
-
         // index into the interfaces array
         llvm::Constant* idxs[2] = {
             DtoConstSize_t(0),
@@ -336,7 +331,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
             OutBuffer name;
             name.writestring("Th");
             name.printf("%i", b->offset);
-            name.writestring(fd->mangle());
+            name.writestring(fd->mangleExact());
             LLFunction *thunk = LLFunction::Create(isaFunction(fn->getType()->getContainedType(0)),
                                                  DtoLinkage(fd), name.toChars(), gIR->module);
 
@@ -415,7 +410,7 @@ LLConstant * IrAggr::getClassInfoInterfaces()
     assert(stripModifiers(type)->irtype->isClass()->getNumInterfaceVtbls() == n &&
         "inconsistent number of interface vtables in this class");
 
-    VarDeclarationIter interfaces_idx(ClassDeclaration::classinfo->fields, 3);
+    VarDeclaration *interfaces_idx = Type::typeinfoclass->fields[3];
 
     if (n == 0)
         return getNullValue(DtoType(interfaces_idx->type));
@@ -432,10 +427,10 @@ LLConstant * IrAggr::getClassInfoInterfaces()
     LLSmallVector<LLConstant*, 6> constants;
     constants.reserve(cd->vtblInterfaces->dim);
 
-    LLType* classinfo_type = DtoType(ClassDeclaration::classinfo->type);
+    LLType* classinfo_type = DtoType(Type::typeinfoclass->type);
     LLType* voidptrptr_type = DtoType(
         Type::tvoid->pointerTo()->pointerTo());
-    VarDeclarationIter idx(ClassDeclaration::classinfo->fields, 3);
+    VarDeclaration *idx = Type::typeinfoclass->fields[3];
     LLStructType* interface_type = isaStruct(DtoType(idx->type->nextOf()));
     assert(interface_type);
 
@@ -517,11 +512,12 @@ void IrAggr::initializeInterface()
     if (!base->vtblInterfaces)
         return;
 
-    ArrayIter<BaseClass> it(*base->vtblInterfaces);
-    for (; !it.done(); it.next())
+    for (BaseClasses::iterator I = base->vtblInterfaces->begin(),
+                               E = base->vtblInterfaces->end();
+                               I != E; ++I)
     {
         // add to the interface list
-        interfacesWithVtbls.push_back(it.get());
+        interfacesWithVtbls.push_back(*I);
     }
 }
 

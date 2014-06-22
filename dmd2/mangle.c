@@ -46,7 +46,7 @@ char *mangle(Declaration *sthis, bool isv)
     do
     {
         //printf("mangle: s = %p, '%s', parent = %p\n", s, s->toChars(), s->parent);
-        if (s->ident)
+        if (s->getIdent())
         {
             FuncDeclaration *fd = s->isFuncDeclaration();
             if (s != sthis && fd)
@@ -79,6 +79,17 @@ L1:
         buf.writeByte(Type::needThisPrefix());
     if (isv && fd && (fd->inferRetType || getFuncTemplateDecl(fd)))
     {
+#if DDMD
+        TypeFunction *tfn = (TypeFunction *)sthis->type->copy();
+        TypeFunction *tfo = (TypeFunction *)sthis->originalType;
+        tfn->purity      = tfo->purity;
+        tfn->isnothrow   = tfo->isnothrow;
+        tfn->isproperty  = tfo->isproperty;
+        tfn->isref       = fd->storage_class & STCauto ? false : tfo->isref;
+        tfn->trust       = tfo->trust;
+        tfn->next        = NULL;     // do not mangle return type
+        tfn->toDecoBuffer(&buf, 0);
+#else
         TypeFunction tfn = *(TypeFunction *)sthis->type;
         TypeFunction *tfo = (TypeFunction *)sthis->originalType;
         tfn.purity      = tfo->purity;
@@ -88,6 +99,7 @@ L1:
         tfn.trust       = tfo->trust;
         tfn.next        = NULL;     // do not mangle return type
         tfn.toDecoBuffer(&buf, 0);
+#endif
     }
     else if (sthis->type->deco)
         buf.writestring(sthis->type->deco);
@@ -167,7 +179,49 @@ const char *Declaration::mangle(bool isv)
         return p;
     }
 
+/******************************************************************************
+ * Normally FuncDeclaration and FuncAliasDeclaration have overloads.
+ * If and only if there is no overloads, mangle() could return
+ * exact mangled name.
+ *
+ *      module test;
+ *      void foo(long) {}           // _D4test3fooFlZv
+ *      void foo(string) {}         // _D4test3fooFAyaZv
+ *
+ *      // from FuncDeclaration::mangle().
+ *      pragma(msg, foo.mangleof);  // prints unexact mangled name "4test3foo"
+ *                                  // by calling Dsymbol::mangle()
+ *
+ *      // from FuncAliasDeclaration::mangle()
+ *      pragma(msg, __traits(getOverloads, test, "foo")[0].mangleof);  // "_D4test3fooFlZv"
+ *      pragma(msg, __traits(getOverloads, test, "foo")[1].mangleof);  // "_D4test3fooFAyaZv"
+ *
+ * If a function has no overloads, .mangleof property still returns exact mangled name.
+ *
+ *      void bar() {}
+ *      pragma(msg, bar.mangleof);  // still prints "_D4test3barFZv"
+ *                                  // by calling FuncDeclaration::mangleExact().
+ */
 const char *FuncDeclaration::mangle(bool isv)
+{
+    return isUnique() ? mangleExact(isv) : Dsymbol::mangle(isv);
+}
+// ditto
+const char *FuncAliasDeclaration::mangle(bool isv)
+{
+    FuncDeclaration *f = toAliasFunc();
+    FuncAliasDeclaration *fa = f->isFuncAliasDeclaration();
+    if (!hasOverloads && !fa)
+        return f->mangleExact(isv);
+    if (fa)
+        return fa->mangle(isv);
+    return Dsymbol::mangle(isv);
+}
+
+/******************************************************************************
+ * Returns exact mangled name of function.
+ */
+const char *FuncDeclaration::mangleExact(bool isv)
 #if __DMC__
     __out(result)
     {
@@ -176,9 +230,11 @@ const char *FuncDeclaration::mangle(bool isv)
     __body
 #endif
     {
+        assert(!isFuncAliasDeclaration());
+
         if (mangleOverride)
-            return mangleOverride; 
-    
+            return mangleOverride;
+
         if (isMain())
             return (char *)"_Dmain";
 
@@ -253,11 +309,13 @@ const char *ClassDeclaration::mangle(bool isv)
         ident == Id::TypeInfo_Typedef  ||
         ident == Id::TypeInfo_Tuple ||
         this == object     ||
-        this == classinfo  ||
-#if !MODULEINFO_IS_STRUCT
+        this == Type::typeinfoclass  ||
         this == Module::moduleinfo ||
-#endif
+#if IN_LLVM // ASan
+        strncmp(ident->toChars(), "TypeInfo_", 9) == 0
+#else
         memcmp(ident->toChars(), "TypeInfo_", 9) == 0
+#endif
        )
         parent = NULL;
 
@@ -277,6 +335,7 @@ const char *TemplateInstance::mangle(bool isv)
         printf("  parent = %s %s", parent->kind(), parent->toChars());
     printf("\n");
 #endif
+    getIdent();
     const char *id = ident ? ident->toChars() : toChars();
     if (!tempdecl)
         error("is not defined");
@@ -285,7 +344,7 @@ const char *TemplateInstance::mangle(bool isv)
         Dsymbol *par = enclosing || isTemplateMixin() ? parent : tempdecl->parent;
         if (par)
         {
-            const char *p = par->mangle();
+            const char *p = par->mangle(isv);
             if (p[0] == '_' && p[1] == 'D')
                 p += 2;
             buf.writestring(p);
@@ -314,7 +373,8 @@ const char *Dsymbol::mangle(bool isv)
     id = ident ? ident->toChars() : toChars();
     if (parent)
     {
-        const char *p = parent->mangle(isv);
+        FuncDeclaration *f = parent->isFuncDeclaration();
+        const char *p = f ? f->mangleExact(isv) : parent->mangle(isv);
         if (p[0] == '_' && p[1] == 'D')
             p += 2;
         buf.writestring(p);

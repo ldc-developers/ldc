@@ -941,7 +941,7 @@ LLStructType* DtoInterfaceInfoType()
     // build interface info type
     LLSmallVector<LLType*, 3> types;
     // ClassInfo classinfo
-    ClassDeclaration* cd2 = ClassDeclaration::classinfo;
+    ClassDeclaration* cd2 = Type::typeinfoclass;
     DtoResolveClass(cd2);
     types.push_back(DtoType(cd2->type));
     // void*[] vtbl

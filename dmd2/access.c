@@ -38,14 +38,14 @@ int hasPackageAccess(Scope *sc, Dsymbol *s);
  * Return PROT access for Dsymbol smember in this declaration.
  */
 
-enum PROT AggregateDeclaration::getAccess(Dsymbol *smember)
+PROT AggregateDeclaration::getAccess(Dsymbol *smember)
 {
     return PROTpublic;
 }
 
-enum PROT StructDeclaration::getAccess(Dsymbol *smember)
+PROT StructDeclaration::getAccess(Dsymbol *smember)
 {
-    enum PROT access_ret = PROTnone;
+    PROT access_ret = PROTnone;
 
 #if LOG
     printf("+StructDeclaration::getAccess(this = '%s', smember = '%s')\n",
@@ -62,9 +62,9 @@ enum PROT StructDeclaration::getAccess(Dsymbol *smember)
     return access_ret;
 }
 
-enum PROT ClassDeclaration::getAccess(Dsymbol *smember)
+PROT ClassDeclaration::getAccess(Dsymbol *smember)
 {
-    enum PROT access_ret = PROTnone;
+    PROT access_ret = PROTnone;
 
 #if LOG
     printf("+ClassDeclaration::getAccess(this = '%s', smember = '%s')\n",
@@ -84,7 +84,7 @@ enum PROT ClassDeclaration::getAccess(Dsymbol *smember)
         for (size_t i = 0; i < baseclasses->dim; i++)
         {   BaseClass *b = (*baseclasses)[i];
 
-            enum PROT access = b->base->getAccess(smember);
+            PROT access = b->base->getAccess(smember);
             switch (access)
             {
                 case PROTnone:
@@ -152,7 +152,7 @@ static int accessCheckX(
             {
                 for (size_t i = 0; i < cdthis->baseclasses->dim; i++)
                 {   BaseClass *b = (*cdthis->baseclasses)[i];
-                    enum PROT access = b->base->getAccess(smember);
+                    PROT access = b->base->getAccess(smember);
                     if (access >= PROTprotected ||
                         accessCheckX(smember, sfunc, b->base, cdscope)
                        )
@@ -192,7 +192,7 @@ void AggregateDeclaration::accessCheck(Loc loc, Scope *sc, Dsymbol *smember)
 
     FuncDeclaration *f = sc->func;
     AggregateDeclaration *cdscope = sc->getStructClassScope();
-    enum PROT access;
+    PROT access;
 
 #if LOG
     printf("AggregateDeclaration::accessCheck() for %s.%s in function %s() in scope %s\n",
@@ -214,7 +214,7 @@ void AggregateDeclaration::accessCheck(Loc loc, Scope *sc, Dsymbol *smember)
     //assert(smember->parent->isBaseOf(this, NULL));
 
     if (smemberparent == this)
-    {   enum PROT access2 = smember->prot();
+    {   PROT access2 = smember->prot();
 
         result = access2 >= PROTpublic ||
                 hasPrivateAccess(f) ||
@@ -290,24 +290,59 @@ int hasPackageAccess(Scope *sc, Dsymbol *s)
     printf("hasPackageAccess(s = '%s', sc = '%p')\n", s->toChars(), sc);
 #endif
 
+    Package *pkg = NULL;
     for (; s; s = s->parent)
     {
-        if (s->isPackage() && !s->isModule())
+        if (Module *m = s->isModule())
+        {
+            DsymbolTable *dst = Package::resolve(m->md ? m->md->packages : NULL, NULL, NULL);
+            assert(dst);
+            Dsymbol *s2 = dst->lookup(m->ident);
+            assert(s2);
+            Package *p = s2->isPackage();
+            if (p && p->isPkgMod == PKGmodule)
+            {
+                assert(p->mod == m);
+                pkg = p;
+                break;
+            }
+        }
+        else if ((pkg = s->isPackage()) != NULL)
             break;
     }
 #if LOG
-    if (s)
-        printf("\tthis is in package '%s'\n", s->toChars());
+    if (pkg)
+        printf("\tthis is in package '%s'\n", pkg->toChars());
 #endif
 
-    if (s && s == sc->module->parent)
+    if (pkg)
     {
+        if (pkg == sc->module->parent)
+        {
 #if LOG
-        printf("\ts is in same package as sc\n");
+            printf("\ts is in same package as sc\n");
 #endif
-        return 1;
+            return 1;
+        }
+        if (pkg->isPkgMod == PKGmodule && pkg->mod == sc->module)
+        {
+#if LOG
+            printf("\ts is in same package.d module as sc\n");
+#endif
+            return 1;
+        }
+        s = sc->module->parent;
+        for (; s; s = s->parent)
+        {
+            if (s == pkg)
+            {
+#if LOG
+                printf("\ts is in ancestor package of sc\n");
+#endif
+                return 1;
+            }
+        }
     }
-
 
 #if LOG
     printf("\tno package access\n");
@@ -375,6 +410,9 @@ int AggregateDeclaration::hasPrivateAccess(Dsymbol *smember)
 
 void accessCheck(Loc loc, Scope *sc, Expression *e, Declaration *d)
 {
+    if (sc->flags & SCOPEnoaccesscheck)
+        return;
+
 #if LOG
     if (e)
     {   printf("accessCheck(%s . %s)\n", e->toChars(), d->toChars());
@@ -395,7 +433,8 @@ void accessCheck(Loc loc, Scope *sc, Expression *e, Declaration *d)
         }
     }
     else if (e->type->ty == Tclass)
-    {   // Do access check
+    {
+        // Do access check
         ClassDeclaration *cd = (ClassDeclaration *)(((TypeClass *)e->type)->sym);
         if (e->op == TOKsuper)
         {
@@ -406,7 +445,8 @@ void accessCheck(Loc loc, Scope *sc, Expression *e, Declaration *d)
         cd->accessCheck(loc, sc, d);
     }
     else if (e->type->ty == Tstruct)
-    {   // Do access check
+    {
+        // Do access check
         StructDeclaration *cd = (StructDeclaration *)(((TypeStruct *)e->type)->sym);
         cd->accessCheck(loc, sc, d);
     }

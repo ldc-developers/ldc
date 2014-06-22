@@ -23,10 +23,14 @@
 #include "llvm/Attributes.h"
 #endif
 
+#if defined(_MSC_VER)
+#include "root.h"
+#endif
+
 #include <vector>
 
 class DValue;
-struct Type;
+class Type;
 struct ABIRewrite;
 namespace llvm {
     class Type;
@@ -103,9 +107,15 @@ struct IrFuncTy
 
     // normal explicit arguments
 //    typedef llvm::SmallVector<IrFuncTyArg*, 4> ArgList;
+#if defined(_MSC_VER)
+    typedef Array<IrFuncTyArg> ArgList;
+    typedef ArgList::iterator ArgIter;
+    typedef ArgList::reverse_iterator ArgRIter;
+#else
     typedef std::vector<IrFuncTyArg*> ArgList;
     typedef ArgList::iterator ArgIter;
     typedef ArgList::reverse_iterator ArgRIter;
+#endif
     ArgList args;
 
     // C varargs

@@ -25,7 +25,6 @@
 #include "gen/runtime.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
-#include "gen/utils.h"
 #include "ir/iraggr.h"
 #include "ir/irtypeclass.h"
 
@@ -42,12 +41,11 @@ void DtoResolveClass(ClassDeclaration* cd)
     LOG_SCOPE;
 
     // make sure the base classes are processed first
-    ArrayIter<BaseClass> base_iter(cd->baseclasses);
-    while (base_iter.more())
+    for (BaseClasses::iterator I = cd->baseclasses->begin(),
+                               E = cd->baseclasses->end();
+                               I != E; ++I)
     {
-        BaseClass* bc = base_iter.get();
-        DtoResolveClass(bc->base);
-        base_iter.next();
+        DtoResolveClass((*I)->base);
     }
 
     // make sure type exists
@@ -59,10 +57,11 @@ void DtoResolveClass(ClassDeclaration* cd)
     cd->ir.irAggr = irAggr;
 
     // make sure all fields really get their ir field
-    ArrayIter<VarDeclaration> it(cd->fields);
-    for (; !it.done(); it.next())
+    for (VarDeclarations::iterator I = cd->fields.begin(),
+                                   E = cd->fields.end();
+                                   I != E; ++I)
     {
-        VarDeclaration* vd = it.get();
+        VarDeclaration* vd = *I;
         if (vd->ir.irField == NULL) {
             new IrField(vd);
         } else {
@@ -107,7 +106,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
     else
     {
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_newclass");
-        LLConstant* ci = DtoBitCast(tc->sym->ir.irAggr->getClassInfoSymbol(), DtoType(ClassDeclaration::classinfo->type));
+        LLConstant* ci = DtoBitCast(tc->sym->ir.irAggr->getClassInfoSymbol(), DtoType(Type::typeinfoclass->type));
         mem = gIR->CreateCallOrInvoke(fn, ci, ".newclass_gc_alloc").getInstruction();
         mem = DtoBitCast(mem, DtoType(tc), ".newclass_gc");
     }
@@ -154,17 +153,21 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
 {
     DtoResolveClass(tc->sym);
 
-    uint64_t n = tc->sym->structsize - Target::ptrsize * 2;
+    const bool isCPPclass = tc->sym->isCPPclass() ? true : false;
+    uint64_t n = tc->sym->structsize - Target::ptrsize * (isCPPclass ? 1 : 2);
 
     // set vtable field seperately, this might give better optimization
     LLValue* tmp = DtoGEPi(dst,0,0,"vtbl");
     LLValue* val = DtoBitCast(tc->sym->ir.irAggr->getVtblSymbol(), tmp->getType()->getContainedType(0));
     DtoStore(val, tmp);
 
-    // monitor always defaults to zero
-    tmp = DtoGEPi(dst,0,1,"monitor");
-    val = LLConstant::getNullValue(tmp->getType()->getContainedType(0));
-    DtoStore(val, tmp);
+    if (!isCPPclass)
+    {
+        // monitor always defaults to zero
+        tmp = DtoGEPi(dst,0,1,"monitor");
+        val = LLConstant::getNullValue(tmp->getType()->getContainedType(0));
+        DtoStore(val, tmp);
+    }
 
     // done?
     if (n == 0)
@@ -321,7 +324,7 @@ DValue* DtoDynamicCastObject(DValue* val, Type* _to)
     // Object _d_dynamic_cast(Object o, ClassInfo c)
 
     DtoResolveClass(ClassDeclaration::object);
-    DtoResolveClass(ClassDeclaration::classinfo);
+    DtoResolveClass(Type::typeinfoclass);
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_dynamic_cast");
     LLFunctionType* funcTy = func->getFunctionType();
@@ -384,7 +387,7 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
     // Object _d_interface_cast(void* p, ClassInfo c)
 
     DtoResolveClass(ClassDeclaration::object);
-    DtoResolveClass(ClassDeclaration::classinfo);
+    DtoResolveClass(Type::typeinfoclass);
 
     llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_interface_cast");
     LLFunctionType* funcTy = func->getFunctionType();
@@ -467,7 +470,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl, char* n
 {
     // sanity checks
     assert(fdecl->isVirtual());
-    assert(!fdecl->isFinal());
+    assert(!fdecl->isFinalFunc());
     assert(inst->getType()->toBasetype()->ty == Tclass);
     // 0 is always ClassInfo/Interface* unless it is a CPP interface
     assert(fdecl->vtblIndex > 0 || (fdecl->vtblIndex == 0 && fdecl->linkage == LINKcpp));
@@ -650,7 +653,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     IrAggr* ir = cd->ir.irAggr;
     assert(ir);
 
-    ClassDeclaration* cinfo = ClassDeclaration::classinfo;
+    ClassDeclaration* cinfo = Type::typeinfoclass;
 
     if (cinfo->fields.dim != 12)
     {
@@ -659,7 +662,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     }
 
     // use the rtti builder
-    RTTIBuilder b(ClassDeclaration::classinfo);
+    RTTIBuilder b(cinfo);
 
     LLConstant* c;
 

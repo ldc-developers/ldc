@@ -17,12 +17,12 @@
 #include "mars.h"
 
 class DValue;
-struct Expression;
-struct FuncDeclaration;
+class Expression;
+class FuncDeclaration;
 struct IRAsmBlock;
 struct IrFuncTy;
-struct Parameter;
-struct Type;
+class Parameter;
+class Type;
 namespace llvm
 {
     class FunctionType;

@@ -13,15 +13,17 @@
 #if defined(IN_LLVM) && (LDC_LLVM_VER >= 303)
 #include "llvm/Config/config.h"
 #endif
+#if IN_LLVM
+#include <cstdlib>
+#else
+#include <stdlib.h> // for alloca
+#endif
+#include <stdint.h>
 
 #include "longdouble.h"
 
 #if _MSC_VER
-#include <float.h>  // for _isnan
-#include <malloc.h> // for alloca
-#define strtof  strtod
-#define isnan   _isnan
-
+#include <alloca.h>
 typedef __int64 longlong;
 typedef unsigned __int64 ulonglong;
 #else
@@ -29,12 +31,17 @@ typedef long long longlong;
 typedef unsigned long long ulonglong;
 #endif
 
-typedef double d_time;
+typedef unsigned char utf8_t;
 
 struct Port
 {
     static double nan;
+    static longdouble ldbl_nan;
+    static longdouble snan;
+
     static double infinity;
+    static longdouble ldbl_infinity;
+
     static double dbl_max;
     static double dbl_min;
     static longdouble ldbl_max;
@@ -45,32 +52,18 @@ struct Port
     static int isSignallingNan(double);
     static int isSignallingNan(longdouble);
 
-    static int isFinite(double);
     static int isInfinity(double);
-    static int Signbit(double);
-
-    static double floor(double);
-    static double pow(double x, double y);
 
     static longdouble fmodl(longdouble x, longdouble y);
-
-    static ulonglong strtoull(const char *p, char **pend, int base);
-
-    static char *ull_to_string(char *buffer, ulonglong ull);
-    static wchar_t *ull_to_string(wchar_t *buffer, ulonglong ull);
-
-    // Convert ulonglong to double
-    static double ull_to_double(ulonglong ull);
-
-    // Get locale-dependent list separator
-    static const char *list_separator();
-    static const wchar_t *wlist_separator();
+    static int fequal(longdouble x, longdouble y);
 
     static char *strupr(char *);
 
     static int memicmp(const char *s1, const char *s2, int n);
     static int stricmp(const char *s1, const char *s2);
 
+    static float strtof(const char *p, char **endp);
+    static double strtod(const char *p, char **endp);
     static longdouble strtold(const char *p, char **endp);
 };
 

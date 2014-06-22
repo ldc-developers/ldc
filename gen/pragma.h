@@ -16,8 +16,8 @@
 
 #include <string>
 
-struct PragmaDeclaration;
-struct Dsymbol;
+class PragmaDeclaration;
+class Dsymbol;
 struct Scope;
 
 enum Pragma

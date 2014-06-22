@@ -24,7 +24,11 @@
 #include "ir/irfunction.h"
 #include "ir/irlandingpad.h"
 #include "ir/irmodule.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/CFG.h"
+#else
 #include "llvm/Support/CFG.h"
+#endif
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/InlineAsm.h"
 #else
@@ -446,7 +450,16 @@ void ForStatement::toIR(IRState* p)
     assert(!gIR->scopereturned());
     llvm::BranchInst::Create(forbb, gIR->scopebb());
 
-    p->func()->gen->targetScopes.push_back(IRTargetScope(this,NULL,forincbb,endbb));
+    // In case of loops that have been rewritten to a composite statement
+    // containing the initializers and then the actual loop, we need to
+    // register the former as target scope start.
+    Statement* scopeStart = getRelatedLabeled();
+    while (ScopeStatement* scope = scopeStart->isScopeStatement())
+    {
+        scopeStart = scope->statement;
+    }
+    p->func()->gen->targetScopes.push_back(IRTargetScope(
+        scopeStart, NULL, forincbb, endbb));
 
     // replace current scope
     gIR->scope() = IRScope(forbb,forbodybb);
@@ -526,18 +539,25 @@ void BreakStatement::toIR(IRState* p)
             targetLoopStatement = tmp->statement;
 
         // find the right break block and jump there
+        // the right break block is found in the nearest scope to the LabelStatement
+        // with onlyLabelBreak == true. Therefore the search starts at the outer
+        // scope (in contract to most other searches, which start with the inner
+        // scope). This code is tested by test runnable/foreach5.d, test9068().
         bool found = false;
-        FuncGen::TargetScopeVec::reverse_iterator it = p->func()->gen->targetScopes.rbegin();
-        FuncGen::TargetScopeVec::reverse_iterator it_end = p->func()->gen->targetScopes.rend();
-        while(it != it_end) {
-            if(it->s == targetLoopStatement) {
+        FuncGen::TargetScopeVec::iterator it = p->func()->gen->targetScopes.begin();
+        FuncGen::TargetScopeVec::iterator it_end = p->func()->gen->targetScopes.end();
+        while (it != it_end && it->s != target)
+            ++it;
+        assert(it != it_end && "Labeled break but no label found");
+        while (it != it_end) {
+            if (it->onlyLabeledBreak || it->s == targetLoopStatement) {
                 llvm::BranchInst::Create(it->breakTarget, p->scopebb());
                 found = true;
                 break;
             }
             ++it;
         }
-        assert(found);
+        assert(found && "Labeled break but no jump target found");
     }
     else {
         // find closest scope with a break target
@@ -805,7 +825,7 @@ void ThrowStatement::toIR(IRState* p)
 //////////////////////////////////////////////////////////////////////////////
 
 // used to build the sorted list of cases
-struct Case : Object
+struct Case : RootObject
 {
     StringExp* str;
     size_t index;
@@ -815,7 +835,7 @@ struct Case : Object
         index = i;
     }
 
-    int compare(Object *obj) {
+    int compare(RootObject *obj) {
         Case* c2 = static_cast<Case*>(obj);
         return str->compare(c2->str);
     }
@@ -922,7 +942,7 @@ void SwitchStatement::toIR(IRState* p)
     {
         // string switch?
         llvm::Value* switchTable = 0;
-        Array caseArray;
+        Objects caseArray;
         if (!condition->type->isintegral())
         {
             Logger::println("is string switch");
@@ -1388,7 +1408,7 @@ void LabelStatement::toIR(IRState* p)
     {
         IRAsmStmt* a = new IRAsmStmt;
         std::stringstream label;
-        printLabelName(label, p->func()->decl->mangle(), ident->toChars());
+        printLabelName(label, p->func()->decl->mangleExact(), ident->toChars());
         label << ":";
         a->code = label.str();
         p->asmBlock->s.push_back(a);

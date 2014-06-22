@@ -571,13 +571,13 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
     Type* from = val->getType()->toBasetype();
     assert(from->isintegral());
 
-    size_t fromsz = from->size();
-    size_t tosz = to->size();
-
     LLValue* rval = val->getRVal();
     if (rval->getType() == tolltype) {
         return new DImValue(_to, rval);
     }
+
+    size_t fromsz = from->size();
+    size_t tosz = to->size();
 
     if (to->ty == Tbool) {
         LLValue* zero = LLConstantInt::get(rval->getType(), 0, false);
@@ -1131,13 +1131,21 @@ void DtoVarDeclaration(VarDeclaration* vd)
             T t = f();    // t's memory address is taken hidden pointer
         */
         ExpInitializer *ei = 0;
-        if (vd->type->toBasetype()->ty == Tstruct && vd->init &&
-            !!(ei = vd->init->isExpInitializer()))
+        if ((vd->type->toBasetype()->ty == Tstruct ||
+             vd->type->toBasetype()->ty == Tsarray /* new in 2.064*/) &&
+            vd->init &&
+            (ei = vd->init->isExpInitializer()))
         {
             if (ei->exp->op == TOKconstruct) {
                 AssignExp *ae = static_cast<AssignExp*>(ei->exp);
-                if (ae->e2->op == TOKcall) {
-                    CallExp *ce = static_cast<CallExp *>(ae->e2);
+                // The return value can be casted to a different type.
+                // Just look at the original expression in this case.
+                // Happens with runnable/sdtor, test10094().
+                Expression *rhs = ae->e2;
+                if (rhs->op == TOKcast)
+                    rhs = static_cast<CastExp *>(rhs)->e1;
+                if (rhs->op == TOKcall) {
+                    CallExp *ce = static_cast<CallExp *>(rhs);
                     TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
                     if (tf->ty == Tfunction && tf->linkage != LINKintrinsic) {
                         gABI->newFunctionType(tf);
@@ -1246,11 +1254,11 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
     {
         Logger::println("AttribDeclaration");
         // choose the right set in case this is a conditional declaration
-        Array *d = a->include(NULL, NULL);
+        Dsymbols *d = a->include(NULL, NULL);
         if (d)
             for (unsigned i=0; i < d->dim; ++i)
             {
-                DtoDeclarationExp(static_cast<Dsymbol*>(d->data[i]));
+                DtoDeclarationExp((*d)[i]);
             }
     }
     // mixin declaration
@@ -1366,12 +1374,6 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
         Logger::println("const expression initializer");
         _init = DtoConstExpInit(loc, type, ex->exp);
     }
-    else if (StructInitializer* si = init->isStructInitializer())
-    {
-        Logger::println("const struct initializer");
-        DtoResolveDsymbol(si->ad);
-        return si->ad->ir.irAggr->createStructInitializer(si);
-    }
     else if (ArrayInitializer* ai = init->isArrayInitializer())
     {
         Logger::println("const array initializer");
@@ -1383,7 +1385,10 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
         LLType* ty = voidToI8(DtoType(type));
         _init = LLConstant::getNullValue(ty);
     }
-    else {
+    else
+    {
+        // StructInitializer is no longer suposed to make it to the glue layer
+        // in DMD 2.064.
         Logger::println("unsupported const initializer: %s", init->toChars());
     }
     return _init;
@@ -1486,7 +1491,7 @@ LLConstant* DtoTypeInfoOf(Type* type, bool base)
     LLConstant* c = isaConstant(tidecl->ir.irGlobal->value);
     assert(c != NULL);
     if (base)
-        return llvm::ConstantExpr::getBitCast(c, DtoType(Type::typeinfo->type));
+        return llvm::ConstantExpr::getBitCast(c, DtoType(Type::dtypeinfo->type));
     return c;
 }
 

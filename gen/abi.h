@@ -25,8 +25,8 @@
 #endif
 #include <vector>
 
-struct Type;
-struct TypeFunction;
+class Type;
+class TypeFunction;
 struct IrFuncTy;
 struct IrFuncTyArg;
 class DValue;

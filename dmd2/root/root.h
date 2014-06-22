@@ -12,10 +12,14 @@
 
 #include <stdlib.h>
 #include <stdarg.h>
-#ifdef DEBUG
+#include <string.h>
 #include <assert.h>
-#endif
 #include "port.h"
+#include "rmem.h"
+
+#if IN_LLVM
+#include <iterator>
+#endif
 
 #if __DMC__
 #pragma once
@@ -30,17 +34,18 @@ typedef size_t hash_t;
 struct OutBuffer;
 
 // Can't include arraytypes.h here, need to declare these directly.
-template <typename TYPE> struct ArrayBase;
-typedef ArrayBase<struct File> Files;
-typedef ArrayBase<char> Strings;
+template <typename TYPE> struct Array;
+typedef Array<class File> Files;
+typedef Array<char> Strings;
 
 
-struct Object
+class RootObject
 {
-    Object() { }
-    virtual ~Object() { }
+public:
+    RootObject() { }
+    virtual ~RootObject() { }
 
-    virtual int equals(Object *o);
+    virtual bool equals(RootObject *o);
 
     /**
      * Returns a hash code, useful for things like building hash tables of Objects.
@@ -51,7 +56,7 @@ struct Object
      * Return <0, ==0, or >0 if this is less than, equal to, or greater than obj.
      * Useful for sorting Objects.
      */
-    virtual int compare(Object *obj);
+    virtual int compare(RootObject *obj);
 
     /**
      * Pretty-print an Object. Useful for debugging the old-fashioned way.
@@ -74,8 +79,9 @@ struct Object
         void mark();
 };
 
-struct String : Object
+class String : public RootObject
 {
+public:
     const char *str;                  // the string itself
 
     String(const char *str);
@@ -85,20 +91,21 @@ struct String : Object
     static hash_t calcHash(const char *str);
     hash_t hashCode();
     size_t len();
-    int equals(Object *obj);
-    int compare(Object *obj);
+    bool equals(RootObject *obj);
+    int compare(RootObject *obj);
     char *toChars();
     void print();
     void mark();
 };
 
-struct FileName : String
+class FileName : public String
 {
+public:
     FileName(const char *str);
     hash_t hashCode();
-    int equals(Object *obj);
+    bool equals(RootObject *obj);
     static int equals(const char *name1, const char *name2);
-    int compare(Object *obj);
+    int compare(RootObject *obj);
     static int compare(const char *name1, const char *name2);
     static int absolute(const char *name);
     static const char *ext(const char *);
@@ -128,8 +135,9 @@ struct FileName : String
     static void free(const char *str);
 };
 
-struct File : Object
+class File : public RootObject
 {
+public:
     int ref;                    // != 0 if this is a reference to someone else's buffer
     unsigned char *buffer;      // data for our file
     size_t len;                 // amount of data in buffer[]
@@ -233,13 +241,15 @@ struct File : Object
     void remove();              // delete file
 };
 
-struct OutBuffer : Object
+struct OutBuffer
 {
     unsigned char *data;
     size_t offset;
     size_t size;
 
-    int doindent, level, linehead;
+    int doindent;
+    int level;
+    int notlinehead;
 
     OutBuffer();
     ~OutBuffer();
@@ -263,7 +273,7 @@ struct OutBuffer : Object
     void writeUTF16(unsigned w);
     void write4(unsigned w);
     void write(OutBuffer *buf);
-    void write(Object *obj);
+    void write(RootObject *obj);
     void fill0(size_t nbytes);
     void align(size_t size);
     void vprintf(const char *format, va_list args);
@@ -277,45 +287,178 @@ struct OutBuffer : Object
     char *extractString();
 };
 
+template <typename TYPE>
 struct Array
 {
     size_t dim;
-    void **data;
+    TYPE **data;
 
   private:
     size_t allocdim;
     #define SMALLARRAYCAP       1
-    void *smallarray[SMALLARRAYCAP];    // inline storage for small arrays
+    TYPE *smallarray[SMALLARRAYCAP];    // inline storage for small arrays
 
   public:
-    Array();
-    ~Array();
-    //Array(const Array&);
-    void mark();
-    char *toChars();
+    Array()
+    {
+        data = SMALLARRAYCAP ? &smallarray[0] : NULL;
+        dim = 0;
+        allocdim = SMALLARRAYCAP;
+    }
 
-    void reserve(size_t nentries);
-    void setDim(size_t newdim);
-    void fixDim();
-    void push(void *ptr);
-    void *pop();
-    void shift(void *ptr);
-    void insert(size_t index, void *ptr);
-    void insert(size_t index, Array *a);
-    void append(Array *a);
-    void remove(size_t i);
-    void zero();
-    void *tos();
-    void sort();
-    Array *copy();
-};
+    ~Array()
+    {
+        if (data != &smallarray[0])
+            mem.free(data);
+    }
 
-template <typename TYPE>
-struct ArrayBase : Array
-{
+    void mark()
+    {
+        mem.mark(data);
+        for (size_t u = 0; u < dim; u++)
+            mem.mark(data[u]);      // BUG: what if arrays of Object's?
+    }
+
+    char *toChars()
+    {
+        char **buf = (char **)malloc(dim * sizeof(char *));
+        assert(buf);
+        size_t len = 2;
+        for (size_t u = 0; u < dim; u++)
+        {
+            buf[u] = ((RootObject *)data[u])->toChars();
+            len += strlen(buf[u]) + 1;
+        }
+        char *str = (char *)mem.malloc(len);
+
+        str[0] = '[';
+        char *p = str + 1;
+        for (size_t u = 0; u < dim; u++)
+        {
+            if (u)
+                *p++ = ',';
+            len = strlen(buf[u]);
+            memcpy(p,buf[u],len);
+            p += len;
+        }
+        *p++ = ']';
+        *p = 0;
+        free(buf);
+        return str;
+    }
+
+    void reserve(size_t nentries)
+    {
+        //printf("Array::reserve: dim = %d, allocdim = %d, nentries = %d\n", (int)dim, (int)allocdim, (int)nentries);
+        if (allocdim - dim < nentries)
+        {
+            if (allocdim == 0)
+            {   // Not properly initialized, someone memset it to zero
+                if (nentries <= SMALLARRAYCAP)
+                {   allocdim = SMALLARRAYCAP;
+                    data = SMALLARRAYCAP ? &smallarray[0] : NULL;
+                }
+                else
+                {   allocdim = nentries;
+                    data = (TYPE **)mem.malloc(allocdim * sizeof(*data));
+                }
+            }
+            else if (allocdim == SMALLARRAYCAP)
+            {
+                allocdim = dim + nentries;
+                data = (TYPE **)mem.malloc(allocdim * sizeof(*data));
+                memcpy(data, &smallarray[0], dim * sizeof(*data));
+            }
+            else
+            {   allocdim = dim + nentries;
+                data = (TYPE **)mem.realloc(data, allocdim * sizeof(*data));
+            }
+        }
+    }
+
+    void setDim(size_t newdim)
+    {
+        if (dim < newdim)
+        {
+            reserve(newdim - dim);
+        }
+        dim = newdim;
+    }
+
+    void fixDim()
+    {
+        if (dim != allocdim)
+        {
+            if (allocdim >= SMALLARRAYCAP)
+            {
+                if (dim <= SMALLARRAYCAP)
+                {
+                    memcpy(&smallarray[0], data, dim * sizeof(*data));
+                    mem.free(data);
+                }
+                else
+                    data = (TYPE **)mem.realloc(data, dim * sizeof(*data));
+            }
+            allocdim = dim;
+        }
+    }
+
+    TYPE *pop()
+    {
+        return data[--dim];
+    }
+
+    void shift(TYPE *ptr)
+    {
+        reserve(1);
+        memmove(data + 1, data, dim * sizeof(*data));
+        data[0] = ptr;
+        dim++;
+    }
+
+    void remove(size_t i)
+    {
+        if (dim - i - 1)
+            memmove(data + i, data + i + 1, (dim - i - 1) * sizeof(data[0]));
+        dim--;
+    }
+
+    void zero()
+    {
+        memset(data,0,dim * sizeof(data[0]));
+    }
+
+    TYPE *tos()
+    {
+        return dim ? data[dim - 1] : NULL;
+    }
+
+    void sort()
+    {
+        struct ArraySort
+        {
+            static int
+    #if _WIN32
+              __cdecl
+    #endif
+            Array_sort_compare(const void *x, const void *y)
+            {
+                RootObject *ox = *(RootObject **)x;
+                RootObject *oy = *(RootObject **)y;
+
+                return ox->compare(oy);
+            }
+        };
+
+        if (dim)
+        {
+            qsort(data, dim, sizeof(RootObject *), &ArraySort::Array_sort_compare);
+        }
+    }
+
     TYPE **tdata()
     {
-        return (TYPE **)data;
+        return data;
     }
 
     TYPE*& operator[] (size_t index)
@@ -323,36 +466,52 @@ struct ArrayBase : Array
 #ifdef DEBUG
         assert(index < dim);
 #endif
-        return ((TYPE **)data)[index];
+        return data[index];
     }
 
     void insert(size_t index, TYPE *v)
     {
-        Array::insert(index, (void *)v);
+        reserve(1);
+        memmove(data + index + 1, data + index, (dim - index) * sizeof(*data));
+        data[index] = v;
+        dim++;
     }
 
-    void insert(size_t index, ArrayBase *a)
+    void insert(size_t index, Array *a)
     {
-        Array::insert(index, (Array *)a);
+        if (a)
+        {
+            size_t d = a->dim;
+            reserve(d);
+            if (dim != index)
+                memmove(data + index + d, data + index, (dim - index) * sizeof(*data));
+            memcpy(data + index, a->data, d * sizeof(*data));
+            dim += d;
+        }
     }
 
-    void append(ArrayBase *a)
+    void append(Array *a)
     {
-        Array::append((Array *)a);
+        insert(dim, a);
     }
 
     void push(TYPE *a)
     {
-        Array::push((void *)a);
+        reserve(1);
+        data[dim++] = a;
     }
 
-    ArrayBase *copy()
+    Array *copy()
     {
-        return (ArrayBase *)Array::copy();
+        Array *a = new Array();
+
+        a->setDim(dim);
+        memcpy(a->data, data, dim * sizeof(*data));
+        return a;
     }
 
-    typedef int (*ArrayBase_apply_ft_t)(TYPE *, void *);
-    int apply(ArrayBase_apply_ft_t fp, void *param)
+    typedef int (*Array_apply_ft_t)(TYPE *, void *);
+    int apply(Array_apply_ft_t fp, void *param)
     {
         for (size_t i = 0; i < dim; i++)
         {   TYPE *e = (*this)[i];
@@ -365,11 +524,84 @@ struct ArrayBase : Array
         }
         return 0;
     }
+
+#if IN_LLVM
+    // Define members and types like std::vector
+    typedef size_t size_type;
+
+    Array(const Array<TYPE> &a) : dim(0), data(0), allocdim(0)
+    {
+        setDim(a.dim);
+        memcpy(data, a.data, dim * sizeof(*data));
+    }
+
+    Array &operator=(Array<TYPE> &a)
+    {
+        setDim(a.dim);
+        memcpy(data, a.data, dim * sizeof(*data));
+        return *this;
+    }
+
+    size_type size()
+    {
+        return static_cast<size_type>(dim);
+    }
+
+    bool empty()
+    {
+        return dim == 0;
+    }
+
+    TYPE *front()
+    {
+        return data[0];
+    }
+
+    TYPE *back()
+    {
+        return data[dim-1];
+    }
+
+    void push_back(TYPE *a)
+    {
+        push(a);
+    }
+
+    void pop_back()
+    {
+        pop();
+    }
+
+    typedef TYPE **iterator;
+    typedef std::reverse_iterator<iterator> reverse_iterator;
+
+    iterator begin()
+    {
+        return static_cast<iterator>(&data[0]);
+    }
+
+    iterator end()
+    {
+        return static_cast<iterator>(&data[dim]);
+    }
+
+    reverse_iterator rbegin()
+    {
+        return reverse_iterator(end());
+    }
+
+    reverse_iterator rend()
+    {
+        return reverse_iterator(begin());
+    }
+
+#endif
 };
 
 // TODO: Remove (only used by disabled GC)
-struct Bits : Object
+class Bits : public RootObject
 {
+public:
     unsigned bitdim;
     unsigned allocdim;
     unsigned *data;

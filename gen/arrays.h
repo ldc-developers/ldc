@@ -17,14 +17,14 @@
 #include "lexer.h"
 #include "gen/llvm.h"
 
-struct ArrayInitializer;
-struct ArrayLiteralExp;
+class ArrayInitializer;
+class ArrayLiteralExp;
 class DSliceValue;
 class DValue;
-struct Expression;
+class Expression;
 struct IRState;
 struct Loc;
-struct Type;
+class Type;
 
 llvm::StructType* DtoArrayType(Type* arrayTy);
 llvm::StructType* DtoArrayType(LLType* elemTy);

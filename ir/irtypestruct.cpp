@@ -23,7 +23,6 @@
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
 #include "gen/logger.h"
-#include "gen/utils.h"
 #include "gen/llvmhelpers.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -111,27 +110,28 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
     // replace it by just taking the type of the default initializer.
 
     // mirror the sd->fields array but only fill in contributors
-    size_t n = sd->fields.dim;
+    const size_t n = sd->fields.dim;
     LLSmallVector<VarDeclaration*, 16> data(n, NULL);
     t->default_fields.reserve(n);
 
     // first fill in the fields with explicit initializers
-    VarDeclarationIter field_it(sd->fields);
-    for (; field_it.more(); field_it.next())
+    for (size_t index = 0; index < n; ++index)
     {
+        VarDeclaration *field = sd->fields[index];
+
         // init is !null for explicit inits
-        if (field_it->init != NULL && !field_it->init->isVoidInitializer())
+        if (field->init != NULL && !field->init->isVoidInitializer())
         {
             IF_LOG Logger::println("adding explicit initializer for struct field %s",
-                field_it->toChars());
+                field->toChars());
 
-            data[field_it.index] = *field_it;
+            data[index] = field;
 
-            size_t f_begin = field_it->offset;
-            size_t f_end = f_begin + field_it->type->size();
+            size_t f_begin = field->offset;
+            size_t f_end = f_begin + field->type->size();
 
             // make sure there is no overlap
-            for (size_t i = 0; i < field_it.index; i++)
+            for (size_t i = 0; i < index; i++)
             {
                 if (data[i] != NULL)
                 {
@@ -143,7 +143,7 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
                         continue;
 
                     sd->error(vd->loc, "has overlapping initialization for %s and %s",
-                        field_it->toChars(), vd->toChars());
+                        field->toChars(), vd->toChars());
                 }
             }
         }
@@ -155,14 +155,14 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
     }
 
     // fill in default initializers
-    field_it = VarDeclarationIter(sd->fields);
-    for (;field_it.more(); field_it.next())
+    for (size_t index = 0; index < n; ++index)
     {
-        if (data[field_it.index])
+        if (data[index])
             continue;
+        VarDeclaration *field = sd->fields[index];
 
-        size_t f_begin = field_it->offset;
-        size_t f_end = f_begin + field_it->type->size();
+        size_t f_begin = field->offset;
+        size_t f_end = f_begin + field->type->size();
 
         // make sure it doesn't overlap anything explicit
         bool overlaps = false;
@@ -185,8 +185,8 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
         if (!overlaps)
         {
             IF_LOG Logger::println("adding default initializer for struct field %s",
-                field_it->toChars());
-            data[field_it.index] = *field_it;
+                field->toChars());
+            data[index] = field;
         }
     }
 

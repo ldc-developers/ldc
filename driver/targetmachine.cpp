@@ -199,6 +199,46 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
     }
 }
 
+/// Sanitizes the MIPS ABI in the feature string.
+static void addMipsABI(const llvm::Triple &triple, std::vector<std::string> &attrs)
+{
+    enum ABI { O32 = 1<<0, N32 = 1<<1, N64 = 1<<2, EABI = 1<<3 };
+    const bool is64Bit = triple.getArch() == llvm::Triple::mips64 ||
+                         triple.getArch() == llvm::Triple::mips64el;
+    const uint32_t defaultABI = is64Bit ? N64 : O32;
+    uint32_t bits = defaultABI;
+    std::vector<std::string>::iterator I = attrs.begin();
+    while (I != attrs.end())
+    {
+        std::string str = *I;
+        bool enabled = str[0] == '+';
+        std::string flag = (str[0] == '+' || str[0] == '-') ? str.substr(1) : str;
+        uint32_t newBit = 0;
+        if (flag == "o32") newBit = O32;
+        if (flag == "n32") newBit = N32;
+        if (flag == "n64") newBit = N64;
+        if (flag == "eabi") newBit = EABI;
+        if (newBit)
+        {
+            I = attrs.erase(I);
+            if (enabled) bits |= newBit;
+            else bits &= ~newBit;
+        }
+        else
+            ++I;
+    }
+    switch (bits)
+    {
+        case O32: attrs.push_back("+o32"); break;
+        case N32: attrs.push_back("+n32"); break;
+        case N64: attrs.push_back("+n64"); break;
+        case EABI: attrs.push_back("+eabi"); break;
+        default: error(Loc(), "Only one ABI argument is supported"); fatal();
+    }
+    if (bits != defaultABI)
+        attrs.push_back(is64Bit ? "-n64" : "-o32");
+}
+
 /// Looks up a target based on an arch name and a target triple.
 ///
 /// If the arch name is non-empty, then the lookup is done by arch. Otherwise,
@@ -308,9 +348,18 @@ llvm::TargetMachine* createTargetMachine(
             llvm::StringMapConstIterator<bool> i = hostFeatures.begin(),
                 end = hostFeatures.end();
             for (; i != end; ++i)
+#if LDC_LLVM_VER >= 305
+                features.AddFeature(std::string((i->second ? "+" : "-")).append(i->first()));
+#else
                 features.AddFeature(i->first(), i->second);
+#endif
         }
     }
+    if (triple.getArch() == llvm::Triple::mips ||
+        triple.getArch() == llvm::Triple::mipsel ||
+        triple.getArch() == llvm::Triple::mips64 ||
+        triple.getArch() == llvm::Triple::mips64el)
+        addMipsABI(triple, attrs);
     for (unsigned i = 0; i < attrs.size(); ++i)
         features.AddFeature(attrs[i]);
 
@@ -348,7 +397,8 @@ llvm::TargetMachine* createTargetMachine(
         }
     }
 
-    if (triple.getArch() == llvm::Triple::arm)
+#if LDC_LLVM_VER < 305
+    if (triple.getArch() == llvm::Triple::arm && !triple.isOSDarwin())
     {
         // On ARM, we want to use EHABI exception handling, as we don't support
         // SJLJ EH in druntime. Unfortunately, it is still in a partly
@@ -361,6 +411,7 @@ llvm::TargetMachine* createTargetMachine(
         };
         llvm::cl::ParseCommandLineOptions(3, backendArgs);
     }
+#endif
 
     llvm::TargetOptions targetOptions;
     targetOptions.NoFramePointerElim = noFramePointerElim;

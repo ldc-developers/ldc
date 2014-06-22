@@ -96,7 +96,7 @@ void LabelStatement::toNakedIR(IRState *p)
     Logger::println("LabelStatement::toNakedIR(): %s", loc.toChars());
     LOG_SCOPE;
 
-    printLabelName(p->nakedAsm, p->func()->decl->mangle(), ident->toChars());
+    printLabelName(p->nakedAsm, p->func()->decl->mangleExact(), ident->toChars());
     p->nakedAsm << ":";
 
     if (statement)
@@ -107,7 +107,7 @@ void LabelStatement::toNakedIR(IRState *p)
 
 void DtoDefineNakedFunction(FuncDeclaration* fd)
 {
-    Logger::println("DtoDefineNakedFunction(%s)", fd->mangle());
+    Logger::println("DtoDefineNakedFunction(%s)", fd->mangleExact());
     LOG_SCOPE;
 
     assert(fd->ir.irFunc);
@@ -122,7 +122,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
     // FIXME: could we perhaps use llvm asmwriter to give us these details ?
 
-    const char* mangle = fd->mangle();
+    const char* mangle = fd->mangleExact();
     std::ostringstream tmpstr;
 
     bool const isWin = global.params.targetTriple.isOSWindows();
@@ -142,7 +142,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
             weak = true;
         }
         asmstr << "\t." << section << std::endl;
-        asmstr << "\t.align\t4,0x90" << std::endl;
+        asmstr << "\t.align\t4, 0x90" << std::endl;
         asmstr << "\t.globl\t_" << mangle << std::endl;
         if (weak)
         {
@@ -150,44 +150,50 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         }
         asmstr << "_" << mangle << ":" << std::endl;
     }
-    else
+    // Windows is different
+    else if (isWin)
     {
         std::string fullMangle;
-        if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32 ||
-            global.params.targetTriple.getOS() == llvm::Triple::Win32)
+        if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
         {
             fullMangle = "_";
         }
         fullMangle += mangle;
 
-        const char* linkage = "globl";
-        std::string section = "text";
+        asmstr << "\t.def\t" << fullMangle << ";" << std::endl;
+        // hard code these two numbers for now since gas ignores .scl and llvm
+        // is defaulting to .type 32 for everything I have seen
+        asmstr << "\t.scl 2;" << std::endl;
+        asmstr << "\t.type 32;" << std::endl;
+        asmstr << "\t.endef" << std::endl;
+
         if (DtoIsTemplateInstance(fd))
         {
-            linkage = "weak";
-            tmpstr << "section\t.gnu.linkonce.t." << fullMangle << ",\"ax\"";
-            if (!isWin)
-                tmpstr << ",@progbits";
-            section = tmpstr.str();
+            asmstr << "\t.section\t.text$" << fullMangle << ",\"xr\"" << std::endl;
+            asmstr << "\t.linkonce\tdiscard" << std::endl;
         }
-        asmstr << "\t." << section << std::endl;
-        asmstr << "\t.align\t16" << std::endl;
-
-        if (isWin)
+        else
+            asmstr << "\t.text" << std::endl;
+        asmstr << "\t.globl\t" << fullMangle << std::endl;
+        asmstr << "\t.align\t16, 0x90" << std::endl;
+        asmstr << fullMangle << ":" << std::endl;
+    }
+    else
+    {
+        if (DtoIsTemplateInstance(fd))
         {
-            asmstr << "\t.def\t" << fullMangle << ";";
-            // hard code these two numbers for now since gas ignores .scl and llvm
-            // is defaulting to .type 32 for everything I have seen
-            asmstr << "\t.scl 2; .type 32;\t.endef" << std::endl;
+            asmstr << "\t.section\t.text." << mangle << ",\"axG\",@progbits,"
+                   << mangle << ",comdat" << std::endl;
+            asmstr << "\t.weak\t" << mangle << std::endl;
         }
         else
         {
-            asmstr << "\t.type\t" << fullMangle << ",@function" << std::endl;
+            asmstr << "\t.text" << std::endl;
+            asmstr << "\t.globl\t" << mangle << std::endl;
         }
-
-        asmstr << "\t." << linkage << "\t" << fullMangle << std::endl;
-        asmstr << fullMangle << ":" << std::endl;
-
+        asmstr << "\t.align\t16, 0x90" << std::endl;
+        asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
+        asmstr << mangle << ":" << std::endl;
     }
 
     // emit body
@@ -215,7 +221,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
 void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
 {
-    Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangle());
+    Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangleExact());
     LOG_SCOPE;
 
     IRAsmStmt* as = new IRAsmStmt;

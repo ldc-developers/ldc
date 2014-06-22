@@ -76,10 +76,9 @@ file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
 list(REMOVE_ITEM DCRT_D
     ${RUNTIME_DC_DIR}/alloca.d
     ${RUNTIME_DC_DIR}/deh.d
-    ${RUNTIME_DC_DIR}/deh2.d
+    ${RUNTIME_DC_DIR}/deh_win32.d
+    ${RUNTIME_DC_DIR}/deh_win64_posix.d
     ${RUNTIME_DC_DIR}/llmath.d
-    ${RUNTIME_DC_DIR}/memory_osx.d
-    ${RUNTIME_DC_DIR}/qsort2.d
     ${RUNTIME_DC_DIR}/trace.d
 )
 file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
@@ -633,6 +632,12 @@ function(add_tests module_files)
         # every LLVM release before 3.3. See PR15608.
         elseif(${LDC_LLVM_VER} LESS 303 AND
             "${testroot}" STREQUAL "phobos_std_range")
+            testcase(release "-O1;-release")
+        # Building the rt.util.container tests triggers a bug in the
+        # jump threading pass on every LLVM release before 3.4.
+        # See PR17621.
+        elseif(${LDC_LLVM_VER} LESS 304 AND
+            "${testroot}" STREQUAL "druntime_src_rt_util_container")
             testcase(release "-O1;-release")
         else()
             testcase(release "-O3;-release")

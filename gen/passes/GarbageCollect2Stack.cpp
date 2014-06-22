@@ -38,7 +38,11 @@
 #include "llvm/Target/TargetData.h"
 #endif
 #endif
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/CallSite.h"
+#else
 #include "llvm/Support/CallSite.h"
+#endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/CallGraph.h"
 #if LDC_LLVM_VER >= 305
@@ -74,7 +78,7 @@ SizeLimit("dgc2stack-size-limit", cl::init(1024), cl::Hidden,
 
 namespace {
     struct Analysis {
-        DataLayout& DL;
+        const DataLayout& DL;
         const Module& M;
         CallGraph* CG;
         CallGraphNode* CGNode;
@@ -155,7 +159,11 @@ namespace {
             APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
             Mask.flipAllBits();
             APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
+#if LDC_LLVM_VER >= 305
+            computeKnownBits(Val, KnownZero, KnownOne, &A.DL);
+#else
             ComputeMaskedBits(Val, KnownZero, KnownOne, &A.DL);
+#endif
 
             if ((KnownZero & Mask) != Mask)
                 return false;
@@ -394,17 +402,14 @@ namespace {
         bool runOnFunction(Function &F);
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-          AU.addRequired<DataLayout>();
 #if LDC_LLVM_VER >= 305
-          AU.addRequired<DominatorTreeWrapperPass>();
+            AU.addRequired<DataLayoutPass>();
+            AU.addRequired<DominatorTreeWrapperPass>();
+            AU.addPreserved<CallGraphWrapperPass>();
 #else
-          AU.addRequired<DominatorTree>();
-#endif
-
-#if LDC_LLVM_VER >= 305
-          AU.addPreserved<CallGraphWrapperPass>();
-#else
-          AU.addPreserved<CallGraph>();
+            AU.addRequired<DataLayout>();
+            AU.addRequired<DominatorTree>();
+            AU.addPreserved<CallGraph>();
 #endif
         }
     };
@@ -462,19 +467,19 @@ static bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& D
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
     DEBUG(errs() << "\nRunning -dgc2stack on function " << F.getName() << '\n');
 
-    DataLayout& DL = getAnalysis<DataLayout>();
 #if LDC_LLVM_VER >= 305
+    DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+    assert(DLP && "required DataLayoutPass is null");
+    const DataLayout &DL = DLP->getDataLayout();
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
+    CallGraph *CG = CGPass ? &CGPass->getCallGraph() : 0;
 #else
-    DominatorTree& DT = getAnalysis<DominatorTree>();
+    DataLayout &DL = getAnalysis<DataLayout>();
+    DominatorTree &DT = getAnalysis<DominatorTree>();
+    CallGraph *CG = getAnalysisIfAvailable<CallGraph>();
 #endif
-#if LDC_LLVM_VER >= 305
-    CallGraphWrapperPass* CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
-    CallGraph* CG = CGPass ? &CGPass->getCallGraph() : 0;
-#else
-    CallGraph* CG = getAnalysisIfAvailable<CallGraph>();
-#endif
-    CallGraphNode* CGNode = CG ? (*CG)[&F] : NULL;
+    CallGraphNode *CGNode = CG ? (*CG)[&F] : NULL;
 
     Analysis A = { DL, *M, CG, CGNode };
 
@@ -789,7 +794,11 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
 
   for (Value::use_iterator UI = V->use_begin(), UE = V->use_end();
        UI != UE; ++UI) {
+#if LDC_LLVM_VER >= 305
+    Use *U = &(*UI);
+#else
     Use *U = &UI.getUse();
+#endif
     Visited.insert(U);
     Worklist.push_back(U);
   }
@@ -865,7 +874,11 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
       // The original value is not captured via this if the new value isn't.
       for (Instruction::use_iterator UI = I->use_begin(), UE = I->use_end();
            UI != UE; ++UI) {
+#if LDC_LLVM_VER >= 305
+        Use *U = &(*UI);
+#else
         Use *U = &UI.getUse();
+#endif
         if (Visited.insert(U))
           Worklist.push_back(U);
       }

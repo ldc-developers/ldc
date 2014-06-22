@@ -110,6 +110,11 @@ else()
     endmacro()
 
     llvm_set(VERSION_STRING version)
+    llvm_set(CXXFLAGS cxxflags)
+    llvm_set(HOST_TARGET host-target)
+    llvm_set(INCLUDE_DIRS includedir)
+    llvm_set(ROOT_DIR prefix)
+
     if(${LLVM_VERSION_STRING} MATCHES "3.[0-4][A-Za-z]*")
         # Versions below 3.5 do not supoort component lto
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "lto" index)
@@ -124,13 +129,16 @@ else()
         # Version 3.1+ does not supoort component backend
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "backend" index)
     endif()
-    llvm_set(CXXFLAGS cxxflags)
-    llvm_set(HOST_TARGET host-target)
-    llvm_set(INCLUDE_DIRS includedir)
+
     llvm_set(LDFLAGS ldflags)
+    if(NOT ${LLVM_VERSION_STRING} MATCHES "3.[0-4][A-Za-z]*")
+        # In LLVM 3.5+, the system library dependencies (e.g. "-lz") are accessed
+        # using the separate "--system-libs" flag.
+        llvm_set(SYSTEM_LIBS system-libs)
+        set(LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
+    endif()
     llvm_set(LIBRARY_DIRS libdir)
     llvm_set_libs(LIBRARIES libfiles "${LLVM_LIBRARY_DIRS}/")
-    llvm_set(ROOT_DIR prefix)
 endif()
 
 # On CMake builds of LLVM, the output of llvm-config --cxxflags does not

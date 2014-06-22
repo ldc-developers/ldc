@@ -18,8 +18,9 @@ install:
   - sudo apt-get install -qq $LLVM_PACKAGE libconfig++8-dev
 
   # 32bit libraries
-  - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo apt-get install -qq gcc-multilib libcurl3:i386 ; fi
+  - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo apt-get install -qq gcc-multilib libcurl3:i386 libstdc++6:i386; fi
   - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo ln -s /usr/lib/i386-linux-gnu/libcurl.so.4.2.0 /usr/lib/i386-linux-gnu/libcurl.so ; fi
+  - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo ln -s /usr/lib/i386-linux-gnu/libstdc++.so.6 /usr/lib/i386-linux-gnu/libstdc++.so ; fi
 
   # g++4.8.1
   - if [[ "$LLVM_PACKAGE" == *3.5* ]] && [[ "$CXX" == "g++" ]]; then sudo apt-get install -qq g++-4.8; export CXX="g++-4.8"; fi
@@ -32,15 +33,16 @@ env:
   - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER=debug
   - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER=release
   - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=debug OPTS="-DMULTILIB=ON"
-  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=release OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=release
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=debug
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=release
-  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev" TESTSUITE_FILTER=debug
-  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev" TESTSUITE_FILTER=release
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER="(druntime|dmd-testsuite).*_release" OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER="phobos_.*_release" OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER=debug
+  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER=release
 matrix:
   allow_failures:
-    - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev" TESTSUITE_FILTER=debug
-    - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev" TESTSUITE_FILTER=release
+    - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER=debug
+    - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER=release
 script:
   - cmake $OPTS .
   - make

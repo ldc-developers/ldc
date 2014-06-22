@@ -12,7 +12,6 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
-#include "gen/utils.h"
 #include "ir/irtypeaggr.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
@@ -149,9 +148,11 @@ llvm::DIType ldc::DIBuilder::CreateEnumType(Type *type)
     assert(type->ty == Tenum && "only enums allowed for debug info in dwarfEnumType");
     TypeEnum *te = static_cast<TypeEnum *>(type);
     llvm::SmallVector<llvm::Value *, 8> subscripts;
-    for (ArrayIter<Dsymbol> it(te->sym->members); it.more(); it.next())
+    for (Dsymbols::iterator I = te->sym->members->begin(),
+                            E = te->sym->members->end();
+                            I != E; ++I)
     {
-        EnumMember *em = it->isEnumMember();
+        EnumMember *em = (*I)->isEnumMember();
         llvm::StringRef Name(em->toChars());
         uint64_t Val = em->value->toInteger();
         llvm::Value *Subscript = DBuilder.createEnumerator(Name, Val);
@@ -251,12 +252,13 @@ void ldc::DIBuilder::AddBaseFields(ClassDeclaration *sd, llvm::DIFile file,
         AddBaseFields(sd->baseClass, file, elems);
     }
 
-    ArrayIter<VarDeclaration> it(sd->fields);
     size_t narr = sd->fields.dim;
     elems.reserve(narr);
-    for (; !it.done(); it.next())
+    for (VarDeclarations::iterator I = sd->fields.begin(),
+                                   E = sd->fields.end();
+                                   I != E; ++I)
     {
-        VarDeclaration* vd = it.get();
+        VarDeclaration* vd = *I;
         elems.push_back(CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset));
     }
 }
@@ -311,7 +313,12 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
     // set diCompositeType to handle recursive types properly
     unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
                                         : llvm::dwarf::DW_TAG_class_type;
-    ir->diCompositeType = DBuilder.createForwardDecl(tag, name,
+#if LDC_LLVM_VER >= 305
+    ir->diCompositeType = DBuilder.createReplaceableForwardDecl(
+#else
+    ir->diCompositeType = DBuilder.createForwardDecl(
+#endif
+                                                           tag, name,
 #if LDC_LLVM_VER >= 302
                                                            CU,
 #endif
@@ -321,12 +328,12 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
     {
         if (t->ty == Tstruct)
         {
-            ArrayIter<VarDeclaration> it(sd->fields);
-            size_t narr = sd->fields.dim;
-            elems.reserve(narr);
-            for (; !it.done(); it.next())
+            elems.reserve(sd->fields.dim);
+            for (VarDeclarations::iterator I = sd->fields.begin(),
+                                           E = sd->fields.end();
+                                           I != E; ++I)
             {
-                VarDeclaration* vd = it.get();
+                VarDeclaration* vd = *I;
                 llvm::DIType dt = CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset);
                 elems.push_back(dt);
             }
@@ -578,7 +585,7 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd)
     return DBuilder.createFunction(
         CU, // context
         fd->toPrettyChars(), // name
-        fd->mangle(), // linkage name
+        fd->mangleExact(), // linkage name
         file, // file
         fd->loc.linnum, // line no
         DIFnType, // type
@@ -662,6 +669,9 @@ void ldc::DIBuilder::EmitBlockStart(Loc loc)
             CreateFile(loc), // file
             loc.linnum, // line
             0 // column
+#if LDC_LLVM_VER >= 305
+            , 0 // DWARF path discriminator value
+#endif
             );
     IR->func()->diLexicalBlocks.push(block);
     EmitStopPoint(loc.linnum);

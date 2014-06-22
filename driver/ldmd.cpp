@@ -884,7 +884,8 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.emitSharedLib) r.push_back("-shared");
     if (p.pic) r.push_back("-relocation-model=pic");
     if (p.emitMap) warning("Map file generation not yet supported by LDC.");
-    if ((!p.multiObj && !p.compileOnly) || p.objName) r.push_back("-singleobj");
+    if (!p.emitStaticLib && ((!p.multiObj && !p.compileOnly) || p.objName))
+        r.push_back("-singleobj");
     if (p.debugInfo == Debug::normal) r.push_back("-g");
     else if (p.debugInfo == Debug::pretendC) r.push_back("-gc");
     if (p.alwaysStackFrame) r.push_back("-disable-fp-elim");
@@ -987,8 +988,12 @@ std::string locateBinary(std::string exeName, const char* argv0)
  * Makes sure the given directory (absolute or relative) exists on disk.
  */
 static void createOutputDir(const char* dir) {
+#if LDC_LLVM_VER >= 305
+    if (!ls::fs::create_directories(dir))
+#else
     bool dirExisted; // ignored
     if (ls::fs::create_directories(dir, dirExisted) != llvm::errc::success)
+#endif
         error("Could not create output directory '%s'.", dir);
 }
 
@@ -1041,8 +1046,7 @@ int main(int argc, char *argv[])
     {
         int rspFd;
         llvm::SmallString<128> rspPath;
-        if (ls::fs::createUniqueFile("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath) !=
-            llvm::errc::success)
+        if (!ls::fs::createUniqueFile("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath))
         {
             error("Could not open temporary response file.");
         }
@@ -1066,9 +1070,13 @@ int main(int argc, char *argv[])
 
         int rc = execute(ldcPath, &newArgs[0]);
 
+#if LDC_LLVM_VER >= 305
+        if (!ls::fs::remove(rspPath.str()))
+#else
         bool couldRemove;
         if (ls::fs::remove(rspPath.str(), couldRemove) != llvm::errc::success ||
             !couldRemove)
+#endif
         {
             warning("Could not remove response file.");
         }

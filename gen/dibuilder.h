@@ -14,8 +14,13 @@
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DataLayout.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/DebugInfo.h"
+#include "llvm/IR/DIBuilder.h"
+#else
 #include "llvm/DebugInfo.h"
 #include "llvm/DIBuilder.h"
+#endif
 #else
 #if LDC_LLVM_VER == 302
 #include "llvm/DataLayout.h"
@@ -35,12 +40,12 @@
 
 struct IRState;
 
-struct ClassDeclaration;
-struct Dsymbol;
-struct FuncDeclaration;
-struct Module;
-struct Type;
-struct VarDeclaration;
+class ClassDeclaration;
+class Dsymbol;
+class FuncDeclaration;
+class Module;
+class Type;
+class VarDeclaration;
 
 namespace llvm {
     class GlobalVariable;

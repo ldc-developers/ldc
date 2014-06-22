@@ -1,6 +1,6 @@
 
 // Compiler implementation of the D programming language
-// Copyright (c) 1999-2012 by Digital Mars
+// Copyright (c) 1999-2013 by Digital Mars
 // All Rights Reserved
 // written by Walter Bright
 // http://www.digitalmars.com
@@ -18,12 +18,11 @@
 #include "root.h"
 #include "dsymbol.h"
 
-struct ModuleInfoDeclaration;
-struct ClassDeclaration;
+class ClassDeclaration;
 struct ModuleDeclaration;
 struct Macro;
 struct Escape;
-struct VarDeclaration;
+class VarDeclaration;
 class Library;
 
 // Back end
@@ -39,14 +38,25 @@ namespace llvm {
 #else
 
 #ifdef IN_GCC
-union tree_node; typedef union tree_node elem;
+typedef union tree_node elem;
 #else
 struct elem;
 #endif
 #endif
 
-struct Package : ScopeDsymbol
+enum PKG
 {
+    PKGunknown, // not yet determined whether it's a package.d or not
+    PKGmodule,  // already determined that's an actual package.d
+    PKGpackage, // already determined that's an actual package
+};
+
+class Package : public ScopeDsymbol
+{
+public:
+    PKG isPkgMod;
+    Module *mod;        // != NULL if isPkgMod == PKGmodule
+
     Package(Identifier *ident);
     const char *kind();
 
@@ -54,15 +64,18 @@ struct Package : ScopeDsymbol
 
     Package *isPackage() { return this; }
 
-    virtual void semantic(Scope *sc) { }
+    virtual void semantic(Scope *) { }
+    Dsymbol *search(Loc loc, Identifier *ident, int flags);
 };
 
-struct Module : Package
+class Module : public Package
 {
+public:
     static Module *rootModule;
     static DsymbolTable *modules;       // symbol table of all modules
     static Modules amodules;            // array of all modules
     static Dsymbols deferred;   // deferred Dsymbol's needing semantic() run on them
+    static Dsymbols deferred3;  // deferred Dsymbol's needing semantic3() run on them
     static unsigned dprogress;  // progress resolving the deferred list
     static void init();
 
@@ -85,15 +98,7 @@ struct Module : Package
     int selfImports();          // returns !=0 if module imports itself
 
     int insearch;
-    Identifier *searchCacheIdent;
-    Dsymbol *searchCacheSymbol; // cached value of search
-    int searchCacheFlags;       // cached flags
 
-    int semanticstarted;        // has semantic() been started?
-    int semanticRun;            // has semantic() been done?
-    int root;                   // != 0 if this is a 'root' module,
-                                // i.e. a module that will be taken all the
-                                // way to an object file
     Module *importedFrom;       // module from command line we're imported from,
                                 // i.e. a module that will be taken all the
                                 // way to an object file
@@ -101,8 +106,6 @@ struct Module : Package
     Dsymbols *decldefs;         // top level declarations for this Module
 
     Modules aimports;             // all imported modules
-
-    ModuleInfoDeclaration *vmoduleinfo;
 
     unsigned debuglevel;        // debug level
     Strings *debugids;      // debug identifiers
@@ -114,7 +117,7 @@ struct Module : Package
 
     Macro *macrotable;          // document comment macros
     Escape *escapetable;        // document comment escapes
-    bool safe;                  // TRUE if module is marked as 'safe'
+    bool safe;                  // true if module is marked as 'safe'
 
     size_t nameoffset;          // offset of module name from start of ModuleInfo
     size_t namelen;             // length of module name in characters
@@ -154,12 +157,16 @@ struct Module : Package
     void gendocfile();
     int needModuleInfo();
     Dsymbol *search(Loc loc, Identifier *ident, int flags);
-    Dsymbol *symtabInsert(Dsymbol *s);
     void deleteObjFile();
-    void addDeferredSemantic(Dsymbol *s);
+    static void addDeferredSemantic(Dsymbol *s);
     static void runDeferredSemantic();
-    static void clearCache();
+    static void addDeferredSemantic3(Dsymbol *s);
+    static void runDeferredSemantic3();
     int imports(Module *m);
+
+    bool isRoot() { return this->importedFrom == this; }
+                                // true if the module source file is directly
+                                // listed in command line.
 
     // Back end
 #if IN_DMD
@@ -186,7 +193,6 @@ struct Module : Package
     Symbol *toModuleArray();    // get module array bounds function
 
 
-    static Symbol *gencritsec();
     elem *toEfilename();
 
     Symbol *toSymbol();
@@ -206,19 +212,18 @@ struct Module : Package
 
     // array ops emitted in this module already
     AA *arrayfuncs;
-
-    bool isRoot;
 #endif
 };
 
 
 struct ModuleDeclaration
 {
+    Loc loc;
     Identifier *id;
     Identifiers *packages;            // array of Identifier's representing packages
     bool safe;
 
-    ModuleDeclaration(Identifiers *packages, Identifier *id, bool safe);
+    ModuleDeclaration(Loc loc, Identifiers *packages, Identifier *id, bool safe);
 
     char *toChars();
 };

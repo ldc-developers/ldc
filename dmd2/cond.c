@@ -84,16 +84,41 @@ DebugCondition::DebugCondition(Module *mod, unsigned level, Identifier *ident)
 {
 }
 
+// Helper for printing dependency information
+void printDepsConditional(Scope *sc, DVCondition* condition, const char* depType)
+{
+    if (!global.params.moduleDeps || global.params.moduleDepsFile)
+        return;
+    OutBuffer *ob = global.params.moduleDeps;
+    Module* imod = sc ? (sc->instantiatingModule ? sc->instantiatingModule : sc->module) : condition->mod;
+    if (!imod)
+        return;
+    ob->writestring(depType);
+    ob->writestring(imod->toPrettyChars());
+    ob->writestring(" (");
+    escapePath(ob, imod->srcfile->toChars());
+    ob->writestring(") : ");
+    if (condition->ident)
+        ob->printf("%s\n", condition->ident->toChars());
+    else
+        ob->printf("%d\n", condition->level);
+}
+
+
 int DebugCondition::include(Scope *sc, ScopeDsymbol *s)
 {
     //printf("DebugCondition::include() level = %d, debuglevel = %d\n", level, global.params.debuglevel);
     if (inc == 0)
     {
         inc = 2;
+        bool definedInModule = false;
         if (ident)
         {
             if (findCondition(mod->debugids, ident))
+            {
                 inc = 1;
+                definedInModule = true;
+            }
             else if (findCondition(global.params.debugids, ident))
                 inc = 1;
             else
@@ -104,6 +129,8 @@ int DebugCondition::include(Scope *sc, ScopeDsymbol *s)
         }
         else if (level <= global.params.debuglevel || level <= mod->debuglevel)
             inc = 1;
+        if (!definedInModule)
+            printDepsConditional(sc, this, "depsDebug ");
     }
     return (inc == 1);
 }
@@ -123,7 +150,7 @@ void VersionCondition::setGlobalLevel(unsigned level)
     global.params.versionlevel = level;
 }
 
-void VersionCondition::checkPredefined(Loc loc, const char *ident)
+bool VersionCondition::isPredefined(const char *ident)
 {
     static const char* reserved[] =
     {
@@ -217,16 +244,12 @@ void VersionCondition::checkPredefined(Loc loc, const char *ident)
     for (unsigned i = 0; i < sizeof(reserved) / sizeof(reserved[0]); i++)
     {
         if (strcmp(ident, reserved[i]) == 0)
-            goto Lerror;
+            return true;
     }
 
     if (ident[0] == 'D' && ident[1] == '_')
-        goto Lerror;
-
-    return;
-
-  Lerror:
-    error(loc, "version identifier '%s' is reserved and cannot be set", ident);
+        return true;
+    return false;
 }
 
 void VersionCondition::addGlobalIdent(const char *ident)
@@ -255,10 +278,14 @@ int VersionCondition::include(Scope *sc, ScopeDsymbol *s)
     if (inc == 0)
     {
         inc = 2;
+        bool definedInModule=false;
         if (ident)
         {
             if (findCondition(mod->versionids, ident))
+            {
                 inc = 1;
+                definedInModule = true;
+            }
             else if (findCondition(global.params.versionids, ident))
                 inc = 1;
             else
@@ -270,6 +297,8 @@ int VersionCondition::include(Scope *sc, ScopeDsymbol *s)
         }
         else if (level <= global.params.versionlevel || level <= mod->versionlevel)
             inc = 1;
+        if (!definedInModule && (!ident || (!isPredefined(ident->toChars()) && ident != Lexer::idPool(Token::toChars(TOKunittest)) && ident != Lexer::idPool(Token::toChars(TOKassert)))))
+            printDepsConditional(sc, this, "depsVersion ");
     }
     return (inc == 1);
 }
@@ -312,9 +341,7 @@ int StaticIfCondition::include(Scope *sc, ScopeDsymbol *s)
         {
             error(loc, (nest > 1000) ? "unresolvable circular static if expression"
                                      : "error evaluating static if expression");
-            if (!global.gag)
-                inc = 2;                // so we don't see the error message again
-            return 0;
+            goto Lerror;
         }
 
         if (!sc)
@@ -328,21 +355,25 @@ int StaticIfCondition::include(Scope *sc, ScopeDsymbol *s)
         sc = sc->push(sc->scopesym);
         sc->sd = s;                     // s gets any addMember()
         sc->flags |= SCOPEstaticif;
-        Expression *e = exp->ctfeSemantic(sc);
+
+        sc = sc->startCTFE();
+        Expression *e = exp->semantic(sc);
         e = resolveProperties(sc, e);
+        sc = sc->endCTFE();
+
         sc->pop();
+        --nest;
+
         if (!e->type->checkBoolean())
         {
             if (e->type->toBasetype() != Type::terror)
                 exp->error("expression %s of type %s does not have a boolean value", exp->toChars(), e->type->toChars());
-            inc = 0;
-            return 0;
+            goto Lerror;
         }
         e = e->ctfeInterpret();
-        --nest;
         if (e->op == TOKerror)
-        {   exp = e;
-            inc = 0;
+        {
+            goto Lerror;
         }
         else if (e->isBool(TRUE))
             inc = 1;
@@ -351,10 +382,15 @@ int StaticIfCondition::include(Scope *sc, ScopeDsymbol *s)
         else
         {
             e->error("expression %s is not constant or does not evaluate to a bool", e->toChars());
-            inc = 2;
+            goto Lerror;
         }
     }
     return (inc == 1);
+
+Lerror:
+    if (!global.gag)
+        inc = 2;                // so we don't see the error message again
+    return 0;
 }
 
 void StaticIfCondition::toCBuffer(OutBuffer *buf, HdrGenState *hgs)

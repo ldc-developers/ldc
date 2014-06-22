@@ -27,7 +27,7 @@ static llvm::LandingPadInst *createLandingPadInst()
 }
 
 IRLandingPadCatchInfo::IRLandingPadCatchInfo(Catch* catchstmt_, llvm::BasicBlock* end_) :
-    catchStmt(catchstmt_), end(end_)
+    end(end_), catchStmt(catchstmt_)
 {
     target = llvm::BasicBlock::Create(gIR->context(), "catch", gIR->topfunc(), end);
 
@@ -60,13 +60,11 @@ void IRLandingPadCatchInfo::toIR()
             catchStmt->var->ir.irLocal = new IrLocal(catchStmt->var);
             LLValue* catch_var = gIR->func()->gen->landingPadInfo.getExceptionStorage();
             catchStmt->var->ir.irLocal->value = gIR->ir->CreateBitCast(catch_var, getPtrToType(DtoType(catchStmt->var->type)));
-        }
+        } else {
+            // this will alloca if we haven't already and take care of nested refs
+            DtoDeclarationExp(catchStmt->var);
 
-        // this will alloca if we haven't already and take care of nested refs
-        DtoDeclarationExp(catchStmt->var);
-
-        // the exception will only be stored in catch_var. copy it over if necessary
-        if (catchStmt->var->ir.irLocal->value != gIR->func()->gen->landingPadInfo.getExceptionStorage()) {
+            // the exception will only be stored in catch_var. copy it over if necessary
             LLValue* exc = gIR->ir->CreateBitCast(DtoLoad(gIR->func()->gen->landingPadInfo.getExceptionStorage()), DtoType(catchStmt->var->type));
             DtoStore(exc, catchStmt->var->ir.irLocal->value);
         }
@@ -198,7 +196,7 @@ void IRLandingPad::constructLandingPad(IRLandingPadScope scope)
             // get class info symbol
             LLValue *classInfo = catchItr->catchType->ir.irAggr->getClassInfoSymbol();
             // add that symbol as landing pad clause
-            landingPad->addClause(classInfo);
+            landingPad->addClause(llvm::cast<llvm::Constant>(classInfo));
             // call llvm.eh.typeid.for to get class info index in the exception table
             classInfo = DtoBitCast(classInfo, getPtrToType(DtoType(Type::tint8)));
             LLValue *eh_id = gIR->ir->CreateCall(eh_typeid_for_fn, classInfo);

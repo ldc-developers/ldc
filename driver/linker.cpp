@@ -18,9 +18,14 @@
 #include "gen/optimizer.h"
 #include "gen/programs.h"
 #include "llvm/ADT/Triple.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/Linker/Linker.h"
+#else
 #include "llvm/Linker.h"
+#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
+#include "llvm/Support/Path.h"
 #if _WIN32
 #include "llvm/Support/SystemUtils.h"
 #endif
@@ -394,7 +399,12 @@ void createStaticLibrary()
     if (!endsWith(libName, libExt))
     {
         if (!isTargetWindows)
-            libName = "lib" + libName + libExt;
+        {
+            libName = llvm::sys::path::parent_path(libName).str()
+                    + "/lib"
+                    + llvm::sys::path::filename(libName).str()
+                    + libExt;
+        }
         else
             libName.append(libExt);
     }
