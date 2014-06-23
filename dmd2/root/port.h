@@ -10,9 +10,6 @@
 // Portable wrapper around compiler/system specific things.
 // The idea is to minimize #ifdef's in the app code.
 
-#if defined(IN_LLVM) && ((LDC_LLVM_VER == 303) || (LDC_LLVM_VER == 304))
-#include "llvm/Config/config.h"
-#endif
 #if IN_LLVM
 #include <cstdlib>
 #else
