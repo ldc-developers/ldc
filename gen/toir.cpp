@@ -2839,6 +2839,13 @@ DValue* FuncExp::toElem(IRState* p)
     // We need to actually codegen the function here, as literals are not added
     // to the module member list.
     Declaration_codegen(fd, p);
+    if (!fd->ir.irFunc)
+    {
+        // See DtoDefineFunction for reasons why codegen was suppressed.
+        // Instead just declare the function.
+        DtoDeclareFunction(fd);
+        assert(!fd->isNested());
+    }
     assert(fd->ir.irFunc->func);
 
     if (fd->isNested()) {

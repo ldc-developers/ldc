@@ -797,6 +797,7 @@ static void dumpPredefinedVersions()
 }
 
 static Module *entrypoint = NULL;
+static Module *rootHasMain = NULL;
 
 /// Callback to generate a C main() function, invoked by the frontend.
 void genCmain(Scope *sc)
@@ -826,7 +827,7 @@ void genCmain(Scope *sc)
 
     char v = global.params.verbose;
     global.params.verbose = 0;
-    m->importedFrom = sc->module;
+    m->importedFrom = m;
     m->importAll(NULL);
     m->semantic();
     m->semantic2();
@@ -834,6 +835,7 @@ void genCmain(Scope *sc)
     global.params.verbose = v;
 
     entrypoint = m;
+    rootHasMain = sc->module;
 }
 
 int main(int argc, char **argv)
@@ -1246,7 +1248,7 @@ int main(int argc, char **argv)
         if (global.params.obj)
         {
             llvm::Module* lm = m->genLLVMModule(context);
-            if (entrypoint && entrypoint->importedFrom == m)
+            if (entrypoint && rootHasMain == m)
             {
 #if LDC_LLVM_VER >= 303
                 llvm::Linker linker(lm);

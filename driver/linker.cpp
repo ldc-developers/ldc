@@ -45,7 +45,12 @@ static void CreateDirectoryOnDisk(llvm::StringRef fileName)
     if (!dir.empty() && !llvm::sys::fs::exists(dir))
     {
         bool Existed;
-        llvm::error_code ec = llvm::sys::fs::create_directory(dir, Existed);
+#if LDC_LLVM_VER >= 305
+        std::error_code 
+#else
+        llvm::error_code
+#endif
+                         ec = llvm::sys::fs::create_directory(dir, Existed);
         if (ec)
         {
             error(Loc(), "failed to create path to file: %s\n%s", dir.data(), ec.message().c_str());
