@@ -949,7 +949,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
          * but the errors were gagged.
          * Try to reproduce those errors, and then fail.
          */
-        error("errors compiling function %s", fd->toPrettyChars());
+        error(fd->loc, "errors compiling function %s", fd->toPrettyChars());
         fd->ir.defined = true;
         return;
     }
