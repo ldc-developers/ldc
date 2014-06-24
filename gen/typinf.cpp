@@ -155,18 +155,7 @@ Expression *Type::getTypeInfo(Scope *sc)
                 Module *m = sc->module->importedFrom;
                 m->members->push(t->vtinfo);
 
-                if (ty == Tstruct)
-                {
-                    StructDeclaration *sd = ((TypeStruct *)this)->sym;
-                    if ((sd->xeq && sd->xeq != sd->xerreq ||
-                         sd->xcmp && sd->xcmp != sd->xerrcmp ||
-                         search_toHash(sd) ||
-                         search_toString(sd)
-                        ) && sd->inNonRoot())
-                    {
-                        Module::addDeferredSemantic3(sd);
-                    }
-                }
+                semanticTypeInfo(sc, t);
             }
             else                        // if in obj generation pass
             {
