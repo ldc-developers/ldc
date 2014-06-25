@@ -4174,9 +4174,14 @@ void FuncLiteralDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
 
     CompoundStatement *cs = fbody->isCompoundStatement();
     Statement *s1;
+#if IN_LLVM // backport from DMD 2.066
+    if (semanticRun >= PASSsemantic3done && cs)
+    {
+#else
     if (semanticRun >= PASSsemantic3done)
     {
         assert(cs);
+#endif
         s1 = (*cs->statements)[cs->statements->dim - 1];
     }
     else
