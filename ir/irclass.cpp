@@ -158,13 +158,17 @@ LLConstant * IrAggr::getVtblInit()
     constants.reserve(cd->vtbl.dim);
 
     // start with the classinfo
-    llvm::Constant* c = getClassInfoSymbol();
-    c = DtoBitCast(c, DtoType(Type::typeinfoclass->type));
-    constants.push_back(c);
+    llvm::Constant* c;
+    if (!cd->isCPPclass())
+    {
+        c = getClassInfoSymbol();
+        c = DtoBitCast(c, DtoType(Type::typeinfoclass->type));
+        constants.push_back(c);
+    }
 
     // add virtual function pointers
     size_t n = cd->vtbl.dim;
-    for (size_t i = 1; i < n; i++)
+    for (size_t i = cd->vtblOffset(); i < n; i++)
     {
         Dsymbol* dsym = static_cast<Dsymbol*>(cd->vtbl.data[i]);
         assert(dsym && "null vtbl member");
