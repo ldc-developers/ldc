@@ -56,9 +56,11 @@ void Stream::writeValue(std::ostream& OS, const llvm::Value& V) {
 namespace Logger
 {
     static std::string indent_str;
+    bool _enabled;
 
-    llvm::cl::opt<bool> _enabled("vv",
+    static llvm::cl::opt<bool, true> enabledopt("vv",
         llvm::cl::desc("Print front-end/glue code debug log"),
+        llvm::cl::location(_enabled),
         llvm::cl::ZeroOrMore);
 
     void indent()
@@ -125,18 +127,6 @@ namespace Logger
             vprintf(fmt,va);
             va_end(va);
         }
-    }
-    void enable()
-    {
-        _enabled = true;
-    }
-    void disable()
-    {
-        _enabled = false;
-    }
-    bool enabled()
-    {
-        return _enabled;
     }
     void attention(Loc loc, const char* fmt,...)
     {
