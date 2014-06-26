@@ -925,10 +925,11 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     if (fd->ir.defined) return;
 
-    if ((fd->type && fd->type->ty == Tfunction && static_cast<TypeFunction *>(fd->type)->next == NULL) ||
+    if ((fd->type && fd->type->ty == Terror) ||
+        (fd->type && fd->type->ty == Tfunction && static_cast<TypeFunction *>(fd->type)->next == NULL) ||
         (fd->type && fd->type->ty == Tfunction && static_cast<TypeFunction *>(fd->type)->next->ty == Terror))
     {
-        IF_LOG Logger::println("Ignoring; no return type or return error type");
+        IF_LOG Logger::println("Ignoring; has error type, no return type or returns error type");
         fd->ir.defined = true;
         return;
     }
