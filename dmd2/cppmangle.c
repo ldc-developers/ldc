@@ -26,7 +26,7 @@
 #include "import.h"
 #include "aggregate.h"
 
-#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
+#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS || IN_LLVM
 
 /* Do mangling for C++ linkage.
  * Follows Itanium C++ ABI 1.86
