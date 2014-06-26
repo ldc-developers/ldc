@@ -93,7 +93,7 @@ LLArrayType* DtoStaticArrayType(Type* t)
 
 void DtoSetArrayToNull(LLValue* v)
 {
-    Logger::println("DtoSetArrayToNull");
+    IF_LOG Logger::println("DtoSetArrayToNull");
     LOG_SCOPE;
 
     assert(isaPointer(v));
@@ -106,7 +106,7 @@ void DtoSetArrayToNull(LLValue* v)
 
 void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op)
 {
-    Logger::println("DtoArrayInit");
+    IF_LOG Logger::println("DtoArrayInit");
     LOG_SCOPE;
 
     if (op != -1 && op != TOKblit && arrayNeedsPostblit(array->type))
@@ -201,7 +201,7 @@ bool arrayNeedsPostblit(Type *t)
 // Does array assignment (or initialization) from another array of the same element type.
 void DtoArrayAssign(DValue *array, DValue *value, int op)
 {
-    Logger::println("DtoArrayAssign");
+    IF_LOG Logger::println("DtoArrayAssign");
     LOG_SCOPE;
 
     assert(value && array);
@@ -228,7 +228,7 @@ void DtoArrayAssign(DValue *array, DValue *value, int op)
 // otherwise, does assignment to an array.
 void DtoArraySetAssign(Loc &loc, DValue *array, DValue *value, int op)
 {
-    Logger::println("DtoArraySetAssign");
+    IF_LOG Logger::println("DtoArraySetAssign");
     LOG_SCOPE;
 
     assert(array && value);
@@ -253,7 +253,7 @@ void DtoArraySetAssign(Loc &loc, DValue *array, DValue *value, int op)
 
 void DtoSetArray(DValue* array, LLValue* dim, LLValue* ptr)
 {
-    Logger::println("SetArray");
+    IF_LOG Logger::println("SetArray");
     LLValue *arr = array->getLVal();
     assert(isaStruct(arr->getType()->getContainedType(0)));
     DtoStore(dim, DtoGEPi(arr,0,0));
@@ -264,7 +264,7 @@ void DtoSetArray(DValue* array, LLValue* dim, LLValue* ptr)
 
 LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 {
-    Logger::println("DtoConstArrayInitializer: %s | %s", arrinit->toChars(), arrinit->type->toChars());
+    IF_LOG Logger::println("DtoConstArrayInitializer: %s | %s", arrinit->toChars(), arrinit->type->toChars());
     LOG_SCOPE;
 
     assert(arrinit->value.dim == arrinit->index.dim);
@@ -518,7 +518,7 @@ static void copySlice(LLValue* dstarr, LLValue* sz1, LLValue* srcarr, LLValue* s
 
 void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src)
 {
-    Logger::println("ArrayCopySlices");
+    IF_LOG Logger::println("ArrayCopySlices");
 
     LLValue *sz1,*sz2;
     LLValue* dstarr = get_slice_ptr(dst,sz1);
@@ -529,7 +529,7 @@ void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src)
 
 void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
 {
-    Logger::println("ArrayCopyToSlice");
+    IF_LOG Logger::println("ArrayCopyToSlice");
 
     LLValue* sz1;
     LLValue* dstarr = get_slice_ptr(dst,sz1);
@@ -544,7 +544,7 @@ void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src)
 //////////////////////////////////////////////////////////////////////////////////////////
 void DtoStaticArrayCopy(LLValue* dst, LLValue* src)
 {
-    Logger::println("StaticArrayCopy");
+    IF_LOG Logger::println("StaticArrayCopy");
 
     size_t n = getTypePaddedSize(dst->getType()->getContainedType(0));
     DtoMemCpy(dst, src, DtoConstSize_t(n));
@@ -571,7 +571,7 @@ static bool isInitialized(Type* et) {
     }
     // If it's a typedef with "= void" initializer then don't initialize.
     if (et->ty == Ttypedef) {
-        Logger::println("Typedef: %s", et->toChars());
+        IF_LOG Logger::println("Typedef: %s", et->toChars());
         TypedefDeclaration* tdd = static_cast<TypeTypedef*>(et)->sym;
         if (tdd && tdd->init && tdd->init->isVoidInitializer())
             return false;
@@ -599,7 +599,7 @@ static DSliceValue *getSlice(Type *arrayType, LLValue *array)
 //////////////////////////////////////////////////////////////////////////////////////////
 DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool defaultInit)
 {
-    Logger::println("DtoNewDynArray : %s", arrayType->toChars());
+    IF_LOG Logger::println("DtoNewDynArray : %s", arrayType->toChars());
     LOG_SCOPE;
 
     // typeinfo arg
@@ -629,7 +629,7 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
 //////////////////////////////////////////////////////////////////////////////////////////
 DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size_t ndims, bool defaultInit)
 {
-    Logger::println("DtoNewMulDimDynArray : %s", arrayType->toChars());
+    IF_LOG Logger::println("DtoNewMulDimDynArray : %s", arrayType->toChars());
     LOG_SCOPE;
 
     // typeinfo arg
@@ -661,8 +661,7 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
     // call allocator
     LLValue* newptr = gIR->CreateCallOrInvoke(fn, args, ".gc_mem").getInstruction();
 
-    if (Logger::enabled())
-        Logger::cout() << "final ptr = " << *newptr << '\n';
+    IF_LOG Logger::cout() << "final ptr = " << *newptr << '\n';
 
     return getSlice(arrayType, newptr);
 }
@@ -670,7 +669,7 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
 //////////////////////////////////////////////////////////////////////////////////////////
 DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, LLValue* newdim)
 {
-    Logger::println("DtoResizeDynArray : %s", arrayType->toChars());
+    IF_LOG Logger::println("DtoResizeDynArray : %s", arrayType->toChars());
     LOG_SCOPE;
 
     assert(array);
@@ -698,7 +697,7 @@ DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, LLValue* newdim)
 
 void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* exp)
 {
-    Logger::println("DtoCatAssignElement");
+    IF_LOG Logger::println("DtoCatAssignElement");
     LOG_SCOPE;
 
     assert(array);
@@ -729,7 +728,7 @@ void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* e
 
 DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp)
 {
-    Logger::println("DtoCatAssignArray");
+    IF_LOG Logger::println("DtoCatAssignArray");
     LOG_SCOPE;
     Type *arrayType = arr->getType();
 
@@ -755,7 +754,7 @@ DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp)
 
 DSliceValue* DtoCatArrays(Type* arrayType, Expression* exp1, Expression* exp2)
 {
-    Logger::println("DtoCatAssignArray");
+    IF_LOG Logger::println("DtoCatAssignArray");
     LOG_SCOPE;
 
     std::vector<LLValue*> args;
@@ -827,7 +826,7 @@ DSliceValue* DtoAppendDChar(DValue* arr, Expression* exp, const char *func)
 
 DSliceValue* DtoAppendDCharToString(DValue* arr, Expression* exp)
 {
-    Logger::println("DtoAppendDCharToString");
+    IF_LOG Logger::println("DtoAppendDCharToString");
     LOG_SCOPE;
     return DtoAppendDChar(arr, exp, "_d_arrayappendcd");
 }
@@ -836,7 +835,7 @@ DSliceValue* DtoAppendDCharToString(DValue* arr, Expression* exp)
 
 DSliceValue* DtoAppendDCharToUnicodeString(DValue* arr, Expression* exp)
 {
-    Logger::println("DtoAppendDCharToUnicodeString");
+    IF_LOG Logger::println("DtoAppendDCharToUnicodeString");
     LOG_SCOPE;
     return DtoAppendDChar(arr, exp, "_d_arrayappendwd");
 }
@@ -845,7 +844,7 @@ DSliceValue* DtoAppendDCharToUnicodeString(DValue* arr, Expression* exp)
 // helper for eq and cmp
 static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue* r, bool useti)
 {
-    Logger::println("comparing arrays");
+    IF_LOG Logger::println("comparing arrays");
     LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, func);
     assert(fn);
 
@@ -910,7 +909,7 @@ LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r)
 //////////////////////////////////////////////////////////////////////////////////////////
 LLValue* DtoArrayCastLength(LLValue* len, LLType* elemty, LLType* newelemty)
 {
-    Logger::println("DtoArrayCastLength");
+    IF_LOG Logger::println("DtoArrayCastLength");
     LOG_SCOPE;
 
     assert(len);
@@ -960,7 +959,7 @@ LLValue* DtoDynArrayIs(TOK op, DValue* l, DValue* r)
 //////////////////////////////////////////////////////////////////////////////////////////
 LLValue* DtoArrayLen(DValue* v)
 {
-    Logger::println("DtoArrayLen");
+    IF_LOG Logger::println("DtoArrayLen");
     LOG_SCOPE;
 
     Type* t = v->getType()->toBasetype();
@@ -986,7 +985,7 @@ LLValue* DtoArrayLen(DValue* v)
 //////////////////////////////////////////////////////////////////////////////////////////
 LLValue* DtoArrayPtr(DValue* v)
 {
-    Logger::println("DtoArrayPtr");
+    IF_LOG Logger::println("DtoArrayPtr");
     LOG_SCOPE;
 
     Type* t = v->getType()->toBasetype();
@@ -1011,7 +1010,7 @@ LLValue* DtoArrayPtr(DValue* v)
 //////////////////////////////////////////////////////////////////////////////////////////
 DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
 {
-    Logger::println("DtoCastArray");
+    IF_LOG Logger::println("DtoCastArray");
     LOG_SCOPE;
 
     LLType* tolltype = DtoType(to);
@@ -1027,19 +1026,16 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
     LLValue* rval2;
     bool isslice = false;
 
-    if (Logger::enabled())
-        Logger::cout() << "from array or sarray" << '\n';
+    IF_LOG Logger::cout() << "from array or sarray" << '\n';
 
     if (totype->ty == Tpointer) {
-        if (Logger::enabled())
-            Logger::cout() << "to pointer" << '\n';
+        IF_LOG Logger::cout() << "to pointer" << '\n';
         rval = DtoArrayPtr(u);
         if (rval->getType() != tolltype)
             rval = gIR->ir->CreateBitCast(rval, tolltype, "tmp");
     }
     else if (totype->ty == Tarray) {
-        if (Logger::enabled())
-            Logger::cout() << "to array" << '\n';
+        IF_LOG Logger::cout() << "to array" << '\n';
 
         LLType* ptrty = DtoArrayType(totype)->getContainedType(1);
         LLType* ety = voidToI8(DtoType(fromtype->nextOf()));
@@ -1047,8 +1043,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
         if (fromtype->ty == Tsarray) {
             LLValue* uval = u->getRVal();
 
-            if (Logger::enabled())
-                Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
+            IF_LOG Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
 
             assert(isaPointer(uval->getType()));
             LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
@@ -1076,16 +1071,14 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
         isslice = true;
     }
     else if (totype->ty == Tsarray) {
-        if (Logger::enabled())
-            Logger::cout() << "to sarray" << '\n';
+        IF_LOG Logger::cout() << "to sarray" << '\n';
 
         size_t tosize = static_cast<TypeSArray*>(totype)->dim->toInteger();
 
         if (fromtype->ty == Tsarray) {
             LLValue* uval = u->getRVal();
 
-            if (Logger::enabled())
-                Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
+            IF_LOG Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
 
             assert(isaPointer(uval->getType()));
 

@@ -56,7 +56,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(AsmBlockStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("AsmBlockStatement::toNakedIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("AsmBlockStatement::toNakedIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         for (Statements::iterator I = stmt->statements->begin(),
@@ -71,7 +71,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(CompoundStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("CompoundStatement::toNakedIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("CompoundStatement::toNakedIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         if (stmt->statements)
@@ -87,7 +87,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(ExpStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("ExpStatement::toNakedIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("ExpStatement::toNakedIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // only expstmt supported in declarations
@@ -129,7 +129,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(LabelStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("LabelStatement::toNakedIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("LabelStatement::toNakedIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         printLabelName(irs->nakedAsm, irs->func()->decl->mangleExact(), stmt->ident->toChars());
@@ -144,7 +144,7 @@ public:
 
 void DtoDefineNakedFunction(FuncDeclaration* fd)
 {
-    Logger::println("DtoDefineNakedFunction(%s)", fd->mangleExact());
+    IF_LOG Logger::println("DtoDefineNakedFunction(%s)", fd->mangleExact());
     LOG_SCOPE;
 
     assert(fd->ir.irFunc);
@@ -259,7 +259,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
 void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
 {
-    Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangleExact());
+    IF_LOG Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangleExact());
     LOG_SCOPE;
 
     IRAsmStmt* as = new IRAsmStmt;
@@ -416,7 +416,7 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
 
 DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments)
 {
-    Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
+    IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
     LOG_SCOPE;
 
     TemplateInstance* ti = fd->toParent()->isTemplateInstance();
@@ -426,7 +426,7 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
 
     // get code param
     Expression* e = static_cast<Expression*>(arguments->data[0]);
-    Logger::println("code exp: %s", e->toChars());
+    IF_LOG Logger::println("code exp: %s", e->toChars());
     StringExp* se = static_cast<StringExp*>(e);
     if (e->op != TOKstring || se->sz != 1)
     {
@@ -437,7 +437,7 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
 
     // get constraints param
     e = static_cast<Expression*>(arguments->data[1]);
-    Logger::println("constraint exp: %s", e->toChars());
+    IF_LOG Logger::println("constraint exp: %s", e->toChars());
     se = static_cast<StringExp*>(e);
     if (e->op != TOKstring || se->sz != 1)
     {

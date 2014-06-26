@@ -218,7 +218,7 @@ int AsmStatement::blockExit(bool mustNotThrow)
 void
 AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
 {
-    Logger::println("AsmStatement::toIR(): %s", stmt->loc.toChars());
+    IF_LOG Logger::println("AsmStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
     // sanity check
@@ -369,7 +369,7 @@ AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
     }
 
     typedef std::vector<std::string>::iterator It;
-    if (Logger::enabled()) {
+    IF_LOG {
         Logger::cout() << "final asm: " << code->insnTemplate << '\n';
         std::ostringstream ss;
 
@@ -435,7 +435,7 @@ AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
         asmblock->clobs.insert(clobstr);
     }
 
-    if (Logger::enabled()) {
+    IF_LOG {
         typedef std::vector<LLValue*>::iterator It;
         {
             Logger::println("Output values:");
@@ -535,7 +535,7 @@ LLValue* DtoAggrPairSwap(LLValue* aggr);
 
 void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
 {
-    Logger::println("AsmBlockStatement::toIR(): %s", stmt->loc.toChars());
+    IF_LOG Logger::println("AsmBlockStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
     // disable inlining by default
@@ -614,7 +614,7 @@ void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
             gotoToVal[a->isBranchToLabel] = n_goto;
 
             // provide an in-asm target for the branch and set value
-            Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->string);
+            IF_LOG Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->string);
             printLabelName(code, fdmangle, a->isBranchToLabel->string);
             code << ":\n\t";
             code << "movl $<<in" << n_goto << ">>, $<<out0>>\n";
@@ -727,8 +727,10 @@ void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
     if (!out_c.empty())
         out_c.resize(out_c.size()-1);
 
-    Logger::println("code = \"%s\"", code.c_str());
-    Logger::println("constraints = \"%s\"", out_c.c_str());
+    IF_LOG {
+        Logger::println("code = \"%s\"", code.c_str());
+        Logger::println("constraints = \"%s\"", out_c.c_str());
+    }
 
     // build return types
     LLType* retty;
@@ -742,14 +744,13 @@ void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
     types.insert(types.end(), outtypes.begin(), outtypes.end());
     types.insert(types.end(), intypes.begin(), intypes.end());
     llvm::FunctionType* fty = llvm::FunctionType::get(retty, types, false);
-    if (Logger::enabled())
-        Logger::cout() << "function type = " << *fty << '\n';
+    IF_LOG Logger::cout() << "function type = " << *fty << '\n';
 
     std::vector<LLValue*> args;
     args.insert(args.end(), outargs.begin(), outargs.end());
     args.insert(args.end(), inargs.begin(), inargs.end());
 
-    if (Logger::enabled()) {
+    IF_LOG {
         Logger::cout() << "Arguments:" << '\n';
         Logger::indent();
         for (std::vector<LLValue*>::iterator b = args.begin(), i = b, e = args.end(); i != e; ++i) {
@@ -766,8 +767,7 @@ void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
     llvm::CallInst* call = p->ir->CreateCall(ia, args,
         retty == LLType::getVoidTy(gIR->context()) ? "" : "asm");
 
-    if (Logger::enabled())
-        Logger::cout() << "Complete asm statement: " << *call << '\n';
+    IF_LOG Logger::cout() << "Complete asm statement: " << *call << '\n';
 
     // capture abi return value
     if (useabiret)
@@ -870,7 +870,7 @@ AsmBlockStatement* AsmBlockStatement::endsWithAsm()
 
 void AsmStatement_toNakedIR(AsmStatement *stmt, IRState *irs)
 {
-    Logger::println("AsmStatement::toNakedIR(): %s", stmt->loc.toChars());
+    IF_LOG Logger::println("AsmStatement::toNakedIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
     // is there code?

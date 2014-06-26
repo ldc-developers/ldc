@@ -133,7 +133,7 @@ LLFunctionType* DtoExtractFunctionType(LLType* type)
 static LLValue *fixArgument(DValue *argval, IrFuncTy &irFty, LLType *callableArgType, size_t argIndex)
 {
 #if 0
-    if (Logger::enabled()) {
+    IF_LOG {
         Logger::cout() << "Argument before ABI: " << *argval->getRVal() << '\n';
         Logger::cout() << "Argument type before ABI: " << *DtoType(argval->getType()) << '\n';
     }
@@ -143,7 +143,7 @@ static LLValue *fixArgument(DValue *argval, IrFuncTy &irFty, LLType *callableArg
     LLValue* arg = irFty.putParam(argval->getType(), argIndex, argval);
 
 #if 0
-    if (Logger::enabled()) {
+    IF_LOG {
         Logger::cout() << "Argument after ABI: " << *arg << '\n';
         Logger::cout() << "Argument type after ABI: " << *arg->getType() << '\n';
     }
@@ -164,8 +164,7 @@ static LLValue *fixArgument(DValue *argval, IrFuncTy &irFty, LLType *callableArg
     if (arg->getType() != callableArgType)
     {
     #if 1
-        if (Logger::enabled())
-        {
+        IF_LOG {
             Logger::cout() << "arg:     " << *arg << '\n';
             Logger::cout() << "of type: " << *arg->getType() << '\n';
             Logger::cout() << "expects: " << *callableArgType << '\n';
@@ -210,14 +209,14 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
                          Expressions* arguments, size_t argidx,
                          LLFunctionType* callableTy)
 {
-    Logger::println("doing d-style variadic arguments");
+    IF_LOG Logger::println("doing d-style variadic arguments");
     LOG_SCOPE
 
     std::vector<LLType*> vtypes;
 
     // number of non variadic args
     int begin = Parameter::dim(tf->parameters);
-    Logger::println("num non vararg params = %d", begin);
+    IF_LOG Logger::println("num non vararg params = %d", begin);
 
     // get n args in arguments list
     size_t n_arguments = arguments ? arguments->dim : 0;
@@ -254,8 +253,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     }
     LLStructType* vtype = LLStructType::get(gIR->context(), vtypes);
 
-    if (Logger::enabled())
-        Logger::cout() << "d-variadic argument struct type:\n" << *vtype << '\n';
+    IF_LOG Logger::cout() << "d-variadic argument struct type:\n" << *vtype << '\n';
 
     LLValue* mem = DtoRawAlloca(vtype, 0, "_argptr_storage");
 
@@ -274,8 +272,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
 
     llvm::GlobalVariable* typeinfomem =
         new llvm::GlobalVariable(*gIR->module, typeinfoarraytype, true, llvm::GlobalValue::InternalLinkage, NULL, "._arguments.storage");
-    if (Logger::enabled())
-        Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
+    IF_LOG Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
 
     std::vector<LLConstant*> vtypeinfos;
     vtypeinfos.reserve(n_arguments);
@@ -331,9 +328,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
 
 DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments)
 {
-    if (Logger::enabled()) {
-        Logger::println("DtoCallFunction()");
-    }
+    IF_LOG Logger::println("DtoCallFunction()");
     LOG_SCOPE
 
     // the callee D type
@@ -366,8 +361,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     LLFunctionType* callableTy = DtoExtractFunctionType(callable->getType());
     assert(callableTy);
 
-//     if (Logger::enabled())
-//         Logger::cout() << "callable: " << *callable << '\n';
+//     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
 
     // get n arguments
     size_t n_arguments = arguments ? arguments->dim : 0;
@@ -516,7 +510,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     else
     {
         Logger::println("doing normal arguments");
-        if (Logger::enabled()) {
+        IF_LOG {
             Logger::println("Arguments so far: (%d)", static_cast<int>(args.size()));
             Logger::indent();
             for (size_t i = 0; i < args.size(); i++) {
@@ -610,8 +604,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     }
 
 #if 0
-    if (Logger::enabled())
-    {
+    IF_LOG {
         Logger::println("%lu params passed", args.size());
         for (int i=0; i<args.size(); ++i) {
             assert(args[i]);
@@ -626,8 +619,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         varname = "tmp";
 
 #if 0
-    if (Logger::enabled())
-        Logger::cout() << "Calling: " << *callable << '\n';
+    IF_LOG Logger::cout() << "Calling: " << *callable << '\n';
 #endif
 
     // call the function
@@ -666,7 +658,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         Type* nextbase = stripModifiers(tf->nextOf()->toBasetype());
         if (!rbase->equals(nextbase))
         {
-            Logger::println("repainting return value from '%s' to '%s'", tf->nextOf()->toChars(), rbase->toChars());
+            IF_LOG Logger::println("repainting return value from '%s' to '%s'", tf->nextOf()->toChars(), rbase->toChars());
             switch(rbase->ty)
             {
             case Tarray:
@@ -744,8 +736,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
                 Logger::println("Unknown return mismatch type, ignoring.");
                 break;
             }
-            if (Logger::enabled())
-                Logger::cout() << "final return value: " << *retllval << '\n';
+            IF_LOG Logger::cout() << "final return value: " << *retllval << '\n';
         }
     }
 

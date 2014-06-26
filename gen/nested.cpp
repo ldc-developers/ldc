@@ -44,7 +44,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd);
 
 DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
 {
-    Logger::println("DtoNestedVariable for %s @ %s", vd->toChars(), loc.toChars());
+    IF_LOG Logger::println("DtoNestedVariable for %s @ %s", vd->toChars(), loc.toChars());
     LOG_SCOPE;
 
     ////////////////////////////////////
@@ -107,32 +107,36 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
     // Extract variable from nested context
 
     LLValue* val = DtoBitCast(ctx, LLPointerType::getUnqual(irfunc->frameType));
-    Logger::cout() << "Context: " << *val << '\n';
-    Logger::cout() << "of type: " << *irfunc->frameType << '\n';
+    IF_LOG {
+        Logger::cout() << "Context: " << *val << '\n';
+        Logger::cout() << "of type: " << *irfunc->frameType << '\n';
+    }
 
     unsigned vardepth = vd->ir.irLocal->nestedDepth;
     unsigned funcdepth = irfunc->depth;
 
-    Logger::cout() << "Variable: " << vd->toChars() << '\n';
-    Logger::cout() << "Variable depth: " << vardepth << '\n';
-    Logger::cout() << "Function: " << irfunc->decl->toChars() << '\n';
-    Logger::cout() << "Function depth: " << funcdepth << '\n';
+    IF_LOG {
+        Logger::cout() << "Variable: " << vd->toChars() << '\n';
+        Logger::cout() << "Variable depth: " << vardepth << '\n';
+        Logger::cout() << "Function: " << irfunc->decl->toChars() << '\n';
+        Logger::cout() << "Function depth: " << funcdepth << '\n';
+    }
 
     if (vardepth == funcdepth) {
         // This is not always handled above because functions without
         // variables accessed by nested functions don't create new frames.
-        Logger::println("Same depth");
+        IF_LOG Logger::println("Same depth");
     } else {
         // Load frame pointer and index that...
         if (dwarfValue && global.params.symdebug) {
             gIR->DBuilder.OpOffset(dwarfAddr, val, vd->ir.irLocal->nestedDepth);
             gIR->DBuilder.OpDeref(dwarfAddr);
         }
-        Logger::println("Lower depth");
+        IF_LOG Logger::println("Lower depth");
         val = DtoGEPi(val, 0, vd->ir.irLocal->nestedDepth);
-        Logger::cout() << "Frame index: " << *val << '\n';
+        IF_LOG Logger::cout() << "Frame index: " << *val << '\n';
         val = DtoAlignedLoad(val, (std::string(".frame.") + vdparent->toChars()).c_str());
-        Logger::cout() << "Frame: " << *val << '\n';
+        IF_LOG Logger::cout() << "Frame: " << *val << '\n';
     }
 
     int idx = vd->ir.irLocal->nestedIndex;
@@ -142,13 +146,17 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
         gIR->DBuilder.OpOffset(dwarfAddr, val, idx);
 
     val = DtoGEPi(val, 0, idx, vd->toChars());
-    Logger::cout() << "Addr: " << *val << '\n';
-    Logger::cout() << "of type: " << *val->getType() << '\n';
+    IF_LOG {
+        Logger::cout() << "Addr: " << *val << '\n';
+        Logger::cout() << "of type: " << *val->getType() << '\n';
+    }
     if (byref || (vd->isParameter() && vd->ir.irParam->arg->byref)) {
         val = DtoAlignedLoad(val);
         //dwarfOpDeref(dwarfAddr);
-        Logger::cout() << "Was byref, now: " << *val << '\n';
-        Logger::cout() << "of type: " << *val->getType() << '\n';
+        IF_LOG {
+            Logger::cout() << "Was byref, now: " << *val << '\n';
+            Logger::cout() << "of type: " << *val->getType() << '\n';
+        }
     }
 
     if (dwarfValue && global.params.symdebug)
@@ -159,7 +167,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
 
 void DtoResolveNestedContext(Loc loc, AggregateDeclaration *decl, LLValue *value)
 {
-    Logger::println("Resolving nested context");
+    IF_LOG Logger::println("Resolving nested context");
     LOG_SCOPE;
 
     // get context
@@ -183,7 +191,7 @@ void DtoResolveNestedContext(Loc loc, AggregateDeclaration *decl, LLValue *value
 
 LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
 {
-    Logger::println("DtoNestedContext for %s", sym->toPrettyChars());
+    IF_LOG Logger::println("DtoNestedContext for %s", sym->toPrettyChars());
     LOG_SCOPE;
 
     // The function we are currently in, and the constructed object/called
@@ -243,25 +251,27 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
     }
 
     if (frameToPass) {
-        Logger::println("Parent frame is from %s", frameToPass->toChars());
+        IF_LOG Logger::println("Parent frame is from %s", frameToPass->toChars());
         FuncDeclaration* ctxfd = irfunc->decl;
-        Logger::println("Current function is %s", ctxfd->toChars());
+        IF_LOG Logger::println("Current function is %s", ctxfd->toChars());
         if (fromParent) {
             ctxfd = getParentFunc(ctxfd, true);
             assert(ctxfd && "Context from outer function, but no outer function?");
         }
-        Logger::println("Context is from %s", ctxfd->toChars());
+        IF_LOG Logger::println("Context is from %s", ctxfd->toChars());
 
         unsigned neededDepth = frameToPass->ir.irFunc->depth;
         unsigned ctxDepth = ctxfd->ir.irFunc->depth;
 
-        Logger::cout() << "Needed depth: " << neededDepth << '\n';
-        Logger::cout() << "Context depth: " << ctxDepth << '\n';
+        IF_LOG {
+            Logger::cout() << "Needed depth: " << neededDepth << '\n';
+            Logger::cout() << "Context depth: " << ctxDepth << '\n';
+        }
 
         if (neededDepth >= ctxDepth) {
             // assert(neededDepth <= ctxDepth + 1 && "How are we going more than one nesting level up?");
             // fd needs the same context as we do, so all is well
-            Logger::println("Calling sibling function or directly nested function");
+            IF_LOG Logger::println("Calling sibling function or directly nested function");
         } else {
             val = DtoBitCast(val, LLPointerType::getUnqual(ctxfd->ir.irFunc->frameType));
             val = DtoGEPi(val, 0, neededDepth);
@@ -270,13 +280,15 @@ LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
         }
     }
 
-    Logger::cout() << "result = " << *val << '\n';
-    Logger::cout() << "of type " << *val->getType() << '\n';
+    IF_LOG {
+        Logger::cout() << "result = " << *val << '\n';
+        Logger::cout() << "of type " << *val->getType() << '\n';
+    }
     return val;
 }
 
 static void DtoCreateNestedContextType(FuncDeclaration* fd) {
-    Logger::println("DtoCreateNestedContextType for %s", fd->toChars());
+    IF_LOG Logger::println("DtoCreateNestedContextType for %s", fd->toChars());
     LOG_SCOPE
 
     DtoDeclareFunction(fd);
@@ -311,7 +323,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
         }
         fd->ir.irFunc->depth = ++depth;
 
-        Logger::cout() << "Function " << fd->toChars() << " has depth " << depth << '\n';
+        IF_LOG Logger::cout() << "Function " << fd->toChars() << " has depth " << depth << '\n';
 
         typedef std::vector<LLType*> TypeVec;
         TypeVec types;
@@ -367,16 +379,14 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
             } else {
                 types.push_back(i1ToI8(DtoType(vd->type)));
             }
-            if (Logger::enabled()) {
-                Logger::cout() << "Nested var '" << vd->toChars() <<
-                    "' of type " << *types.back() << "\n";
-            }
+            IF_LOG Logger::cout() << "Nested var '" << vd->toChars()
+                                  << "' of type " << *types.back() << "\n";
         }
 
         LLStructType* frameType = LLStructType::create(gIR->context(), types,
                                                        std::string("nest.") + fd->toChars());
 
-        Logger::cout() << "frameType = " << *frameType << '\n';
+        IF_LOG Logger::cout() << "frameType = " << *frameType << '\n';
 
         // Store type in IrFunction
         fd->ir.irFunc->frameType = frameType;
@@ -390,7 +400,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
 
 
 void DtoCreateNestedContext(FuncDeclaration* fd) {
-    Logger::println("DtoCreateNestedContext for %s", fd->toChars());
+    IF_LOG Logger::println("DtoCreateNestedContext for %s", fd->toChars());
     LOG_SCOPE
 
     DtoCreateNestedContextType(fd);
@@ -457,7 +467,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
 
             LLValue* gep = DtoGEPi(frame, 0, vd->ir.irLocal->nestedIndex, vd->toChars());
             if (vd->isParameter()) {
-                Logger::println("nested param: %s", vd->toChars());
+                IF_LOG Logger::println("nested param: %s", vd->toChars());
                 LOG_SCOPE
                 IrParameter* parm = vd->ir.irParam;
 
@@ -476,7 +486,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                     parm->value = gep;
                 }
             } else {
-                Logger::println("nested var:   %s", vd->toChars());
+                IF_LOG Logger::println("nested var:   %s", vd->toChars());
                 assert(!vd->ir.irLocal->value);
                 vd->ir.irLocal->value = gep;
             }

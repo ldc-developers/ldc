@@ -510,7 +510,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
         Logger::enable();
     }
 
-    Logger::println("Generating module: %s", (md ? md->toChars() : toChars()));
+    IF_LOG Logger::println("Generating module: %s", (md ? md->toChars() : toChars()));
     LOG_SCOPE;
 
     if (global.params.verbose_cg)
@@ -548,8 +548,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
 
     // set final data layout
     ir.module->setDataLayout(gDataLayout->getStringRepresentation());
-    if (Logger::enabled())
-        Logger::cout() << "Final data layout: " << ir.module->getDataLayout() << '\n';
+    IF_LOG Logger::cout() << "Final data layout: " << ir.module->getDataLayout() << '\n';
 
     // allocate the target abi
     gABI = TargetABI::getTarget();
@@ -722,15 +721,15 @@ void Module::genmoduleinfo()
 
         if (cd->isInterfaceDeclaration())
         {
-            Logger::println("skipping interface '%s' in moduleinfo", cd->toPrettyChars());
+            IF_LOG Logger::println("skipping interface '%s' in moduleinfo", cd->toPrettyChars());
             continue;
         }
         else if (cd->sizeok != SIZEOKdone)
         {
-            Logger::println("skipping opaque class declaration '%s' in moduleinfo", cd->toPrettyChars());
+            IF_LOG Logger::println("skipping opaque class declaration '%s' in moduleinfo", cd->toPrettyChars());
             continue;
         }
-        Logger::println("class: %s", cd->toPrettyChars());
+        IF_LOG Logger::println("class: %s", cd->toPrettyChars());
         LLConstant *c = DtoBitCast(cd->ir.irAggr->getClassInfoSymbol(), classinfoTy);
         classInits.push_back(c);
     }

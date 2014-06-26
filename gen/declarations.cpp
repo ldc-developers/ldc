@@ -276,8 +276,7 @@ public:
             if (decl->nakedUse)
                 irs->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
 
-            if (Logger::enabled())
-                Logger::cout() << *gvar << '\n';
+            IF_LOG Logger::cout() << *gvar << '\n';
         }
     }
 

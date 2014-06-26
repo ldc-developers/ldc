@@ -55,8 +55,7 @@ namespace llvm
 
 llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype, Type* nesttype, bool isMain, bool isCtor)
 {
-    if (Logger::enabled())
-        Logger::println("DtoFunctionType(%s)", type->toChars());
+    IF_LOG Logger::println("DtoFunctionType(%s)", type->toChars());
     LOG_SCOPE
 
     // sanity check
@@ -311,7 +310,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
 
     irFty.funcType = LLFunctionType::get(irFty.ret->ltype, argtypes, irFty.c_vararg);
 
-    Logger::cout() << "Final function type: " << *irFty.funcType << "\n";
+    IF_LOG Logger::cout() << "Final function type: " << *irFty.funcType << "\n";
 
     return irFty.funcType;
 }
@@ -456,7 +455,7 @@ llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
     } else
     if (fdecl->needThis()) {
         if (AggregateDeclaration* ad = fdecl->isMember2()) {
-            Logger::println("isMember = this is: %s", ad->type->toChars());
+            IF_LOG Logger::println("isMember = this is: %s", ad->type->toChars());
             dthis = ad->type;
             LLType* thisty = DtoType(dthis);
             //Logger::cout() << "this llvm type: " << *thisty << '\n';
@@ -464,7 +463,7 @@ llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
                 thisty = getPtrToType(thisty);
         }
         else {
-            Logger::println("chars: %s type: %s kind: %s", fdecl->toChars(), fdecl->type->toChars(), fdecl->kind());
+            IF_LOG Logger::println("chars: %s type: %s kind: %s", fdecl->toChars(), fdecl->type->toChars(), fdecl->kind());
             llvm_unreachable("needThis, but invalid parent declaration.");
         }
     }
@@ -501,7 +500,7 @@ static llvm::Function* DtoDeclareVaFunction(FuncDeclaration* fdecl)
 void DtoResolveFunction(FuncDeclaration* fdecl)
 {
     if ((!global.params.useUnitTests || !fdecl->type) && fdecl->isUnitTestDeclaration()) {
-        Logger::println("Ignoring unittest %s", fdecl->toPrettyChars());
+        IF_LOG Logger::println("Ignoring unittest %s", fdecl->toPrettyChars());
         return; // ignore declaration completely
     }
 
@@ -576,7 +575,7 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
     DtoFunctionType(fdecl);
 
-    Logger::println("DtoResolveFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
+    IF_LOG Logger::println("DtoResolveFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
 
     // queue declaration unless the function is abstract without body
@@ -739,7 +738,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     if (fdecl->ir.declared) return;
     fdecl->ir.declared = true;
 
-    Logger::println("DtoDeclareFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
+    IF_LOG Logger::println("DtoDeclareFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
 
     if (fdecl->isUnitTestDeclaration() && !global.params.useUnitTests)
@@ -810,8 +809,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     func->setCallingConv(gABI->callingConv(link));
 
-    if (Logger::enabled())
-        Logger::cout() << "func = " << *func << std::endl;
+    IF_LOG Logger::cout() << "func = " << *func << std::endl;
 
     // add func to IRFunc
     fdecl->ir.irFunc->func = func;
@@ -922,8 +920,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
 void DtoDefineFunction(FuncDeclaration* fd)
 {
-    if (Logger::enabled())
-        Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
+    IF_LOG Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
     LOG_SCOPE;
 
     if (fd->ir.defined) return;
@@ -1037,7 +1034,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     if (fd->fbody == NULL)
         return;
 
-    Logger::println("Doing function body for: %s", fd->toChars());
+    IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
     assert(fd->ir.irFunc);
     IrFunction* irfunction = fd->ir.irFunc;
     gIR->functions.push_back(irfunction);
@@ -1278,7 +1275,7 @@ llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl)
 
 DValue* DtoArgument(Parameter* fnarg, Expression* argexp)
 {
-    Logger::println("DtoArgument");
+    IF_LOG Logger::println("DtoArgument");
     LOG_SCOPE;
 
     DValue* arg = argexp->toElem(gIR);
@@ -1312,7 +1309,7 @@ DValue* DtoArgument(Parameter* fnarg, Expression* argexp)
 
 void DtoVariadicArgument(Expression* argexp, LLValue* dst)
 {
-    Logger::println("DtoVariadicArgument");
+    IF_LOG Logger::println("DtoVariadicArgument");
     LOG_SCOPE;
     DVarValue vv(argexp->type, dst);
     DtoAssign(argexp->loc, &vv, argexp->toElem(gIR));

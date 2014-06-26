@@ -137,8 +137,7 @@ namespace {
     };
 
     void classifyType(Classification& accum, Type* ty, d_uns64 offset) {
-        if (Logger::enabled())
-            Logger::cout() << "Classifying " << ty->toChars() << " @ " << offset << '\n';
+        IF_LOG Logger::cout() << "Classifying " << ty->toChars() << " @ " << offset << '\n';
 
         ty = ty->toBasetype();
 
@@ -182,8 +181,7 @@ namespace {
                 classifyType(accum, fields[i]->type, offset + fields[i]->offset);
             }
         } else {
-            if (Logger::enabled())
-                Logger::cout() << "x86-64 ABI: Implicitly handled type: "
+            IF_LOG Logger::cout() << "x86-64 ABI: Implicitly handled type: "
                                << ty->toChars() << '\n';
             // arrays, delegates, etc. (pointer-sized fields, <= 16 bytes)
             assert((offset == 0 || offset == 8)
@@ -707,16 +705,14 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty) {
         for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I) {
             IrFuncTyArg& arg = **I;
 
-            if (Logger::enabled())
-                Logger::cout() << "Arg: " << arg.type->toChars() << '\n';
+            IF_LOG Logger::cout() << "Arg: " << arg.type->toChars() << '\n';
 
             // Arguments that are in memory are of no interest to us.
             if (arg.byref)
                 continue;
 
             fixup(arg);
-            if (Logger::enabled())
-                Logger::cout() << "New arg type: " << *arg.ltype << '\n';
+            IF_LOG Logger::cout() << "New arg type: " << *arg.ltype << '\n';
         }
     }
 }

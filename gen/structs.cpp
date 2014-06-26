@@ -39,7 +39,7 @@ void DtoResolveStruct(StructDeclaration* sd, Loc& callerLoc)
     if (sd->ir.resolved) return;
     sd->ir.resolved = true;
 
-    Logger::println("Resolving struct type: %s (%s)", sd->toChars(), sd->loc.toChars());
+    IF_LOG Logger::println("Resolving struct type: %s (%s)", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
     // make sure type exists
@@ -93,7 +93,7 @@ LLValue* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs)
 
 LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
 {
-    Logger::println("indexing struct field %s:", vd->toPrettyChars());
+    IF_LOG Logger::println("indexing struct field %s:", vd->toPrettyChars());
     LOG_SCOPE;
 
     DtoResolveStruct(sd);
@@ -123,8 +123,7 @@ LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
     // cast it to the right type
     val = DtoBitCast(val, getPtrToType(i1ToI8(DtoType(vd->type))));
 
-    if (Logger::enabled())
-        Logger::cout() << "value: " << *val << '\n';
+    IF_LOG Logger::cout() << "value: " << *val << '\n';
 
     return val;
 }

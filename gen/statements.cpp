@@ -87,8 +87,7 @@ static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
 
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
 
-    if (Logger::enabled())
-    {
+    IF_LOG {
         Logger::cout() << *table->getType() << '\n';
         Logger::cout() << *fn->getFunctionType()->getParamType(0) << '\n';
     }
@@ -119,7 +118,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(CompoundStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("CompoundStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("CompoundStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         for (Statements::iterator I = stmt->statements->begin(),
@@ -136,7 +135,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(ReturnStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("ReturnStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("ReturnStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // emit dwarf stop point
@@ -197,8 +196,7 @@ public:
                     v = irs->func()->decl->irFty.putRet(stmt->exp->type, dval);
                 }
 
-                if (Logger::enabled())
-                    Logger::cout() << "return value is '" <<*v << "'\n";
+                IF_LOG Logger::cout() << "return value is '" <<*v << "'\n";
 
                 IrFunction* f = irs->func();
                 // Hack around LDC assuming structs and static arrays are in memory:
@@ -228,8 +226,7 @@ public:
                     else
                         v = gIR->ir->CreateBitCast(v, irs->topfunc()->getReturnType(), "tmp");
 
-                    if (Logger::enabled())
-                        Logger::cout() << "return value after cast: " << *v << '\n';
+                    IF_LOG Logger::cout() << "return value after cast: " << *v << '\n';
                 }
 
                 // emit scopes
@@ -257,7 +254,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(ExpStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("ExpStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("ExpStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // emit dwarf stop point
@@ -301,7 +298,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(IfStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("IfStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("IfStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // start a dwarf lexical block
@@ -319,8 +316,7 @@ public:
         llvm::BasicBlock* elsebb = stmt->elsebody ? llvm::BasicBlock::Create(gIR->context(), "else", gIR->topfunc(), endbb) : endbb;
 
         if (cond_val->getType() != LLType::getInt1Ty(gIR->context())) {
-            if (Logger::enabled())
-                Logger::cout() << "if conditional: " << *cond_val << '\n';
+            IF_LOG Logger::cout() << "if conditional: " << *cond_val << '\n';
             cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
         }
         llvm::BranchInst::Create(ifbb, elsebb, cond_val, gIR->scopebb());
@@ -359,7 +355,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(ScopeStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("ScopeStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("ScopeStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         /*llvm::BasicBlock* oldend = p->scopeend();
@@ -397,7 +393,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(WhileStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("WhileStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("WhileStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // start a dwarf lexical block
@@ -447,7 +443,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(DoStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("DoStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("DoStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // start a dwarf lexical block
@@ -494,7 +490,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(ForStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("ForStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("ForStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // start new dwarf lexical block
@@ -580,7 +576,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(BreakStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("BreakStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("BreakStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // don't emit two terminators in a row
@@ -592,7 +588,7 @@ public:
         gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
 
         if (stmt->ident != 0) {
-            Logger::println("ident = %s", stmt->ident->toChars());
+            IF_LOG Logger::println("ident = %s", stmt->ident->toChars());
 
             DtoEnclosingHandlers(stmt->loc, stmt->target);
 
@@ -646,14 +642,14 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(ContinueStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("ContinueStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("ContinueStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // emit dwarf stop point
         gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
 
         if (stmt->ident != 0) {
-            Logger::println("ident = %s", stmt->ident->toChars());
+            IF_LOG Logger::println("ident = %s", stmt->ident->toChars());
 
             DtoEnclosingHandlers(stmt->loc, stmt->target);
 
@@ -700,7 +696,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(OnScopeStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("OnScopeStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("OnScopeStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         assert(stmt->statement);
@@ -710,7 +706,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(TryFinallyStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("TryFinallyStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("TryFinallyStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // emit dwarf stop point
@@ -802,7 +798,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(TryCatchStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("TryCatchStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("TryCatchStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // emit dwarf stop point
@@ -859,7 +855,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(ThrowStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("ThrowStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("ThrowStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // emit dwarf stop point
@@ -886,7 +882,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(SwitchStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("SwitchStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("SwitchStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // emit dwarf stop point
@@ -1049,7 +1045,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(CaseStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("CaseStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("CaseStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         llvm::BasicBlock* nbb = llvm::BasicBlock::Create(gIR->context(), "case", irs->topfunc(), irs->scopeend());
@@ -1079,7 +1075,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(DefaultStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("DefaultStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("DefaultStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         assert(stmt->bodyBB);
@@ -1106,7 +1102,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(UnrolledLoopStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("UnrolledLoopStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("UnrolledLoopStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // if no statements, there's nothing to do
@@ -1178,7 +1174,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(ForeachStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("ForeachStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("ForeachStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // start a dwarf lexical block
@@ -1192,7 +1188,7 @@ public:
         //Argument* arg = static_cast<Argument*>(arguments->data[0]);
         //Logger::println("Argument is %s", arg->toChars());
 
-        Logger::println("aggr = %s", stmt->aggr->toChars());
+        IF_LOG Logger::println("aggr = %s", stmt->aggr->toChars());
 
         // key
         LLType* keytype = stmt->key ? DtoType(stmt->key->type) : DtoSize_t();
@@ -1204,7 +1200,7 @@ public:
         LLValue* zerokey = LLConstantInt::get(keytype, 0, false);
 
         // value
-        Logger::println("value = %s", stmt->value->toPrettyChars());
+        IF_LOG Logger::println("value = %s", stmt->value->toPrettyChars());
         LLValue* valvar = NULL;
         if (!stmt->value->isRef() && !stmt->value->isOut()) {
             // Create a local variable to serve as the value.
@@ -1307,7 +1303,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(ForeachRangeStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("ForeachRangeStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("ForeachRangeStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // start a dwarf lexical block
@@ -1410,7 +1406,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(LabelStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("LabelStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("LabelStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // if it's an inline asm label, we don't create a basicblock, just emit it in the asm
@@ -1455,7 +1451,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(GotoStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("GotoStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("GotoStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
@@ -1471,7 +1467,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(GotoDefaultStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("GotoDefaultStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("GotoDefaultStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
@@ -1491,7 +1487,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(GotoCaseStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("GotoCaseStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("GotoCaseStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
@@ -1514,7 +1510,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(WithStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("WithStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("WithStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         gIR->DBuilder.EmitBlockStart(stmt->loc);
@@ -1544,7 +1540,7 @@ public:
     }
 
     void visit(SynchronizedStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("SynchronizedStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("SynchronizedStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         // emit dwarf stop point
@@ -1582,7 +1578,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(SwitchErrorStatement *stmt) LLVM_OVERRIDE {
-        Logger::println("SwitchErrorStatement::toIR(): %s", stmt->loc.toChars());
+        IF_LOG Logger::println("SwitchErrorStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_switch_error");

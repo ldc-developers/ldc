@@ -378,7 +378,7 @@ void DtoLeaveMonitor(LLValue* v)
 
 void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
 {
-    Logger::println("DtoAssign()");
+    IF_LOG Logger::println("DtoAssign()");
     LOG_SCOPE;
 
     Type* t = lhs->getType()->toBasetype();
@@ -463,7 +463,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
     else if (t->ty == Tdelegate) {
         LLValue* l = lhs->getLVal();
         LLValue* r = rhs->getRVal();
-        if (Logger::enabled()) {
+        IF_LOG {
             Logger::cout() << "lhs: " << *l << '\n';
             Logger::cout() << "rhs: " << *r << '\n';
         }
@@ -473,8 +473,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
         assert(t2->ty == Tclass);
         LLValue* l = lhs->getLVal();
         LLValue* r = rhs->getRVal();
-        if (Logger::enabled())
-        {
+        IF_LOG {
             Logger::cout() << "l : " << *l << '\n';
             Logger::cout() << "r : " << *r << '\n';
         }
@@ -489,14 +488,14 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
     else {
         LLValue* l = lhs->getLVal();
         LLValue* r = rhs->getRVal();
-        if (Logger::enabled()) {
+        IF_LOG {
             Logger::cout() << "lhs: " << *l << '\n';
             Logger::cout() << "rhs: " << *r << '\n';
         }
         LLType* lit = l->getType()->getContainedType(0);
         if (r->getType() != lit) {
             r = DtoCast(loc, rhs, lhs->getType())->getRVal();
-            if (Logger::enabled()) {
+            IF_LOG {
                 Logger::println("Type mismatch, really assigning:");
                 LOG_SCOPE
                 Logger::cout() << "lhs: " << *l << '\n';
@@ -585,8 +584,7 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
     }
     else if (to->isintegral()) {
         if (fromsz < tosz || from->ty == Tbool) {
-            if (Logger::enabled())
-                Logger::cout() << "cast to: " << *tolltype << '\n';
+            IF_LOG Logger::cout() << "cast to: " << *tolltype << '\n';
             if (isLLVMUnsigned(from) || from->ty == Tbool) {
                 rval = new llvm::ZExtInst(rval, tolltype, "tmp", gIR->scopebb());
             } else {
@@ -612,8 +610,7 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
         }
     }
     else if (to->ty == Tpointer) {
-        if (Logger::enabled())
-            Logger::cout() << "cast pointer: " << *tolltype << '\n';
+        IF_LOG Logger::cout() << "cast pointer: " << *tolltype << '\n';
         rval = gIR->ir->CreateIntToPtr(rval, tolltype, "tmp");
     }
     else {
@@ -636,8 +633,7 @@ DValue* DtoCastPtr(Loc& loc, DValue* val, Type* to)
 
     if (totype->ty == Tpointer || totype->ty == Tclass) {
         LLValue* src = val->getRVal();
-        if (Logger::enabled())
-        {
+        IF_LOG {
             Logger::cout() << "src: " << *src << '\n';
             Logger::cout() << "to type: " << *tolltype << '\n';
         }
@@ -739,15 +735,13 @@ DValue* DtoCastNull(Loc& loc, DValue* val, Type* to)
 
     if (totype->ty == Tpointer || totype->ty == Tclass)
     {
-        if (Logger::enabled())
-            Logger::cout() << "cast null to pointer/class: " << *tolltype << '\n';
+        IF_LOG Logger::cout() << "cast null to pointer/class: " << *tolltype << '\n';
         LLValue *rval = DtoBitCast(val->getRVal(), tolltype);
         return new DImValue(to, rval);
     }
     if (totype->ty == Tarray)
     {
-        if (Logger::enabled())
-            Logger::cout() << "cast null to array: " << *tolltype << '\n';
+        IF_LOG Logger::cout() << "cast null to array: " << *tolltype << '\n';
         LLValue *rval = val->getRVal();
         rval = DtoBitCast(rval, DtoType(to->nextOf()->pointerTo()));
         rval = DtoAggrPair(DtoConstSize_t(0), rval, "null_array");
@@ -784,21 +778,15 @@ DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
         if (val->isLVal())
         {
             LLValue* vector = val->getLVal();
-            if (Logger::enabled())
-            {
-                Logger::cout() << "src: " << *vector << "to type: " <<
-                    *tolltype << " (casting address)\n";
-            }
+            IF_LOG Logger::cout() << "src: " << *vector << "to type: "
+            	                    << *tolltype << " (casting address)\n";
             return new DVarValue(to, DtoBitCast(vector, getPtrToType(tolltype)));
         }
         else
         {
             LLValue* vector = val->getRVal();
-            if (Logger::enabled())
-            {
-                Logger::cout() << "src: " << *vector << "to type: " <<
-                    *tolltype << " (creating temporary)\n";
-            }
+            IF_LOG Logger::cout() << "src: " << *vector << "to type: "
+                                  << *tolltype << " (creating temporary)\n";
             LLValue *array = DtoAlloca(to);
 
             TypeSArray *st = static_cast<TypeSArray*>(totype);
@@ -857,7 +845,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
     if (fromtype->equals(totype))
         return val;
 
-    Logger::println("Casting from '%s' to '%s'", fromtype->toChars(), to->toChars());
+    IF_LOG Logger::println("Casting from '%s' to '%s'", fromtype->toChars(), to->toChars());
     LOG_SCOPE;
 
     if (fromtype->ty == Tvector) {
@@ -900,7 +888,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
 DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
 {
     Type* from = val->getType()->toBasetype();
-    Logger::println("repainting from '%s' to '%s'", from->toChars(), to->toChars());
+    IF_LOG Logger::println("repainting from '%s' to '%s'", from->toChars(), to->toChars());
 
     if (from->ty == Tarray)
     {
@@ -935,8 +923,7 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
             LLValue* ptr = val->getLVal();
             assert(isaPointer(ptr));
             ptr = DtoBitCast(ptr, getPtrToType(DtoType(dgty)));
-            if (Logger::enabled())
-                Logger::cout() << "dg ptr: " << *ptr << '\n';
+            IF_LOG Logger::cout() << "dg ptr: " << *ptr << '\n';
             return new DVarValue(to, ptr);
         }
         else
@@ -946,8 +933,7 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
             LLValue* funcptr = gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
             funcptr = DtoBitCast(funcptr, DtoType(dgty)->getContainedType(1));
             LLValue* aggr = DtoAggrPair(context, funcptr, "tmp");
-            if (Logger::enabled())
-                Logger::cout() << "dg: " << *aggr << '\n';
+            IF_LOG Logger::cout() << "dg: " << *aggr << '\n';
             return new DImValue(to, aggr);
         }
     }
@@ -1083,8 +1069,7 @@ void DtoResolveVariable(VarDeclaration* vd)
         if (vd->alignment != STRUCTALIGN_DEFAULT)
             gvar->setAlignment(vd->alignment);
 
-        if (Logger::enabled())
-            Logger::cout() << *gvar << '\n';
+        IF_LOG Logger::cout() << *gvar << '\n';
     }
 }
 
@@ -1099,12 +1084,12 @@ void DtoVarDeclaration(VarDeclaration* vd)
     assert(!vd->isDataseg() && "Statics/globals are handled in DtoDeclarationExp.");
     assert(!vd->aliassym && "Aliases are handled in DtoDeclarationExp.");
 
-    Logger::println("vdtype = %s", vd->type->toChars());
+    IF_LOG Logger::println("vdtype = %s", vd->type->toChars());
     LOG_SCOPE
 
     if (vd->nestedrefs.dim)
     {
-        Logger::println("has nestedref set (referenced by nested function/delegate)");
+        IF_LOG Logger::println("has nestedref set (referenced by nested function/delegate)");
         assert(vd->ir.irLocal && "irLocal is expected to be already set by DtoCreateNestedContext");
     }
 
@@ -1184,8 +1169,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
         gIR->DBuilder.EmitLocalVariable(allocainst, vd);
     }
 
-    if (Logger::enabled())
-        Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
+    IF_LOG Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
 
     if (vd->init)
     {
@@ -1200,7 +1184,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
 
 DValue* DtoDeclarationExp(Dsymbol* declaration)
 {
-    Logger::print("DtoDeclarationExp: %s\n", declaration->toChars());
+    IF_LOG Logger::print("DtoDeclarationExp: %s\n", declaration->toChars());
     LOG_SCOPE;
 
     // variable declaration
@@ -1363,7 +1347,7 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     LLConstant* _init = 0; // may return zero
     if (!init)
     {
-        Logger::println("const default initializer for %s", type->toChars());
+        IF_LOG Logger::println("const default initializer for %s", type->toChars());
         Expression *initExp = type->defaultInit();
         if (type->ty == Ttypedef)
             initExp->type = type; // This carries the typedef type into toConstElem.
@@ -1389,7 +1373,7 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
     {
         // StructInitializer is no longer suposed to make it to the glue layer
         // in DMD 2.064.
-        Logger::println("unsupported const initializer: %s", init->toChars());
+        IF_LOG Logger::println("unsupported const initializer: %s", init->toChars());
     }
     return _init;
 }
@@ -1499,12 +1483,14 @@ LLConstant* DtoTypeInfoOf(Type* type, bool base)
 
 void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, std::string& name)
 {
-    Logger::println("DtoOverloadedIntrinsicName");
+    IF_LOG Logger::println("DtoOverloadedIntrinsicName");
     LOG_SCOPE;
 
-    Logger::println("template instance: %s", ti->toChars());
-    Logger::println("template declaration: %s", td->toChars());
-    Logger::println("intrinsic name: %s", td->intrinsicName.c_str());
+    IF_LOG {
+        Logger::println("template instance: %s", ti->toChars());
+        Logger::println("template declaration: %s", td->toChars());
+        Logger::println("intrinsic name: %s", td->intrinsicName.c_str());
+    }
 
     // for now use the size in bits of the first template param in the instance
     assert(ti->tdtypes.dim == 1);
@@ -1548,7 +1534,7 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
         }
     }
 
-    Logger::println("final intrinsic name: %s", name.c_str());
+    IF_LOG Logger::println("final intrinsic name: %s", name.c_str());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1850,8 +1836,10 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
         // function parameter
         else if (vd->isParameter())
         {
-            Logger::println("function param");
-            Logger::println("type: %s", vd->type->toChars());
+            IF_LOG {
+                Logger::println("function param");
+                Logger::println("type: %s", vd->type->toChars());
+            }
             FuncDeclaration* fd = vd->toParent2()->isFuncDeclaration();
             if (fd && fd != gIR->func()->decl)
             {
@@ -1927,7 +1915,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
     {
         // this seems to be the static initialiser for structs
         Type* sdecltype = sdecl->type->toBasetype();
-        Logger::print("Sym: type=%s\n", sdecltype->toChars());
+        IF_LOG Logger::print("Sym: type=%s\n", sdecltype->toChars());
         assert(sdecltype->ty == Tstruct);
         TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
         assert(ts->sym);

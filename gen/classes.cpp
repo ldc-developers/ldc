@@ -37,7 +37,7 @@ void DtoResolveClass(ClassDeclaration* cd)
     if (cd->ir.resolved) return;
     cd->ir.resolved = true;
 
-    Logger::println("DtoResolveClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
+    IF_LOG Logger::println("DtoResolveClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;
 
     // make sure the base classes are processed first
@@ -123,8 +123,7 @@ DValue* DtoNewClass(Loc loc, TypeClass* tc, NewExp* newexp)
         size_t idx = tc->sym->vthis->ir.irField->index;
         LLValue* src = thisval->getRVal();
         LLValue* dst = DtoGEPi(mem,0,idx,"tmp");
-        if (Logger::enabled())
-            Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
+        IF_LOG Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
         DtoStore(src, DtoBitCast(dst, getPtrToType(src->getType())));
     }
     // set the context for nested classes
@@ -202,7 +201,7 @@ void DtoFinalizeClass(LLValue* inst)
 
 DValue* DtoCastClass(DValue* val, Type* _to)
 {
-    Logger::println("DtoCastClass(%s, %s)", val->getType()->toChars(), _to->toChars());
+    IF_LOG Logger::println("DtoCastClass(%s, %s)", val->getType()->toChars(), _to->toChars());
     LOG_SCOPE;
 
     Type* to = _to->toBasetype();
@@ -270,8 +269,7 @@ DValue* DtoCastClass(DValue* val, Type* _to)
             LLValue* orig = v;
             v = DtoGEPi(v, 0, i_index);
             LLType* ifType = DtoType(_to);
-            if (Logger::enabled())
-            {
+            IF_LOG {
                 Logger::cout() << "V = " << *v << std::endl;
                 Logger::cout() << "T = " << *ifType << std::endl;
             }
@@ -417,11 +415,10 @@ DValue* DtoDynamicCastInterface(DValue* val, Type* _to)
 
 LLValue* DtoIndexClass(LLValue* src, ClassDeclaration* cd, VarDeclaration* vd)
 {
-    Logger::println("indexing class field %s:", vd->toPrettyChars());
+    IF_LOG Logger::println("indexing class field %s:", vd->toPrettyChars());
     LOG_SCOPE;
 
-    if (Logger::enabled())
-        Logger::cout() << "src: " << *src << '\n';
+    IF_LOG Logger::cout() << "src: " << *src << '\n';
 
     // make sure class is resolved
     DtoResolveClass(cd);
@@ -437,8 +434,7 @@ LLValue* DtoIndexClass(LLValue* src, ClassDeclaration* cd, VarDeclaration* vd)
 
     // gep to the index
 #if 0
-    if (Logger::enabled())
-    {
+    IF_LOG {
         Logger::cout() << "src2: " << *src << '\n';
         Logger::cout() << "index: " << field->index << '\n';
         Logger::cout() << "srctype: " << *src->getType() << '\n';
@@ -458,8 +454,7 @@ LLValue* DtoIndexClass(LLValue* src, ClassDeclaration* cd, VarDeclaration* vd)
     // cast it to the right type
     val = DtoBitCast(val, getPtrToType(i1ToI8(DtoType(vd->type))));
 
-    if (Logger::enabled())
-        Logger::cout() << "value: " << *val << '\n';
+    IF_LOG Logger::cout() << "value: " << *val << '\n';
 
     return val;
 }
@@ -477,8 +472,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl, char* n
 
     // get instance
     LLValue* vthis = inst->getRVal();
-    if (Logger::enabled())
-        Logger::cout() << "vthis: " << *vthis << '\n';
+    IF_LOG Logger::cout() << "vthis: " << *vthis << '\n';
 
     LLValue* funcval = vthis;
     // get the vtbl for objects
@@ -492,8 +486,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl, char* n
     // load funcptr
     funcval = DtoAlignedLoad(funcval);
 
-    if (Logger::enabled())
-        Logger::cout() << "funcval: " << *funcval << '\n';
+    IF_LOG Logger::cout() << "funcval: " << *funcval << '\n';
 
     // cast to final funcptr type
     funcval = DtoBitCast(funcval, getPtrToType(DtoFunctionType(fdecl)));
@@ -501,8 +494,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl, char* n
     // postpone naming until after casting to get the name in call instructions
     funcval->setName(name);
 
-    if (Logger::enabled())
-        Logger::cout() << "funcval casted: " << *funcval << '\n';
+    IF_LOG Logger::cout() << "funcval casted: " << *funcval << '\n';
 
     return funcval;
 }
@@ -644,7 +636,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 //              TypeInfo typeinfo; // since dmd 1.045
 //        }
 
-    Logger::println("DtoDefineClassInfo(%s)", cd->toChars());
+    IF_LOG Logger::println("DtoDefineClassInfo(%s)", cd->toChars());
     LOG_SCOPE;
 
     assert(cd->type->ty == Tclass);

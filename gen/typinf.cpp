@@ -330,15 +330,14 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 
 void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p)
 {
-    Logger::println("TypeInfoDeclaration::codegen(%s)", decl->toPrettyChars());
+    IF_LOG Logger::println("TypeInfoDeclaration::codegen(%s)", decl->toPrettyChars());
     LOG_SCOPE;
 
     if (decl->ir.defined) return;
     decl->ir.defined = true;
 
     std::string mangled(decl->mangle());
-    if (Logger::enabled())
-    {
+    IF_LOG {
         Logger::println("type = '%s'", decl->tinfo->toChars());
         Logger::println("typeinfo mangle: %s", mangled.c_str());
     }
@@ -375,7 +374,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p)
 
 void TypeInfoDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     RTTIBuilder b(Type::dtypeinfo);
@@ -386,7 +385,7 @@ void TypeInfoDeclaration::llvmDefine()
 
 void TypeInfoTypedefDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoTypedefDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoTypedefDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     RTTIBuilder b(Type::typeinfotypedef);
@@ -424,7 +423,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
 
 void TypeInfoEnumDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoEnumDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoEnumDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     RTTIBuilder b(Type::typeinfoenum);
@@ -471,7 +470,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
 
 void TypeInfoPointerDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoPointerDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoPointerDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     RTTIBuilder b(Type::typeinfopointer);
@@ -485,7 +484,7 @@ void TypeInfoPointerDeclaration::llvmDefine()
 
 void TypeInfoArrayDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoArrayDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoArrayDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     RTTIBuilder b(Type::typeinfoarray);
@@ -499,7 +498,7 @@ void TypeInfoArrayDeclaration::llvmDefine()
 
 void TypeInfoStaticArrayDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoStaticArrayDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoStaticArrayDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     assert(tinfo->ty == Tsarray);
@@ -521,7 +520,7 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
 
 void TypeInfoAssociativeArrayDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoAssociativeArrayDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoAssociativeArrayDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     assert(tinfo->ty == Taarray);
@@ -546,7 +545,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
 
 void TypeInfoFunctionDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoFunctionDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoFunctionDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     RTTIBuilder b(Type::typeinfofunction);
@@ -562,7 +561,7 @@ void TypeInfoFunctionDeclaration::llvmDefine()
 
 void TypeInfoDelegateDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoDelegateDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoDelegateDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     assert(tinfo->ty == Tdelegate);
@@ -581,7 +580,7 @@ void TypeInfoDelegateDeclaration::llvmDefine()
 
 void TypeInfoStructDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoStructDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoStructDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     // make sure struct is resolved
@@ -729,7 +728,7 @@ void TypeInfoClassDeclaration::llvmDefine()
 
 void TypeInfoInterfaceDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoInterfaceDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoInterfaceDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     // make sure interface is resolved
@@ -750,7 +749,7 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
 
 void TypeInfoTupleDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoTupleDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoTupleDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     // create elements array
@@ -786,7 +785,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
 
 void TypeInfoConstDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoConstDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoConstDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     RTTIBuilder b(Type::typeinfoconst);
@@ -800,7 +799,7 @@ void TypeInfoConstDeclaration::llvmDefine()
 
 void TypeInfoInvariantDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoInvariantDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoInvariantDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     RTTIBuilder b(Type::typeinfoinvariant);
@@ -814,7 +813,7 @@ void TypeInfoInvariantDeclaration::llvmDefine()
 
 void TypeInfoSharedDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoSharedDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoSharedDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     RTTIBuilder b(Type::typeinfoshared);
@@ -828,7 +827,7 @@ void TypeInfoSharedDeclaration::llvmDefine()
 
 void TypeInfoWildDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoWildDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoWildDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     RTTIBuilder b(Type::typeinfowild);
@@ -842,7 +841,7 @@ void TypeInfoWildDeclaration::llvmDefine()
 
 void TypeInfoVectorDeclaration::llvmDefine()
 {
-    Logger::println("TypeInfoVectorDeclaration::llvmDefine() %s", toChars());
+    IF_LOG Logger::println("TypeInfoVectorDeclaration::llvmDefine() %s", toChars());
     LOG_SCOPE;
 
     assert(tinfo->ty == Tvector);

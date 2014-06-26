@@ -153,8 +153,7 @@ struct IntrinsicABI : TargetABI
         for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I) {
             IrFuncTyArg& arg = **I;
 
-            if (Logger::enabled())
-                Logger::cout() << "Arg: " << arg.type->toChars() << '\n';
+            IF_LOG Logger::cout() << "Arg: " << arg.type->toChars() << '\n';
 
             // Arguments that are in memory are of no interest to us.
             if (arg.byref)
@@ -164,8 +163,7 @@ struct IntrinsicABI : TargetABI
             if (ty->ty == Tstruct)
                 fixup(arg);
 
-            if (Logger::enabled())
-                Logger::cout() << "New arg type: " << *arg.ltype << '\n';
+            IF_LOG Logger::cout() << "New arg type: " << *arg.ltype << '\n';
         }
     }
 };
