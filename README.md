@@ -1,4 +1,4 @@
-[![Build Status](https://travis-ci.org/ldc-developers/ldc.png?branch=master)](https://travis-ci.org/ldc-developers/ldc)
+[![Build Status](https://travis-ci.org/ldc-developers/ldc.png?branch=master)](https://travis-ci.org/ldc-developers/ldc) [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)](https://www.bountysource.com/trackers/283332-ldc?utm_source=283332&utm_medium=shield&utm_campaign=TRACKER_BADGE)
 
 LDC – the LLVM-based D Compiler
 ===============================
