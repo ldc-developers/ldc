@@ -57,8 +57,9 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
 {
     using namespace llvm;
 
-    // Build up all of the passes that we want to do to the module.
-    FunctionPassManager Passes(&m);
+    // Create a PassManager to hold and optimize the collection of passes we are
+    // about to build.
+    PassManager Passes;
 
 #if LDC_LLVM_VER >= 305
     if (const DataLayout *DL = Target.getDataLayout())
@@ -85,14 +86,7 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
     if (Target.addPassesToEmitFile(Passes, fout, fileType, codeGenOptLevel()))
         llvm_unreachable("no support for asm output");
 
-    Passes.doInitialization();
-
-    // Run our queue of passes all at once now, efficiently.
-    for (llvm::Module::iterator I = m.begin(), E = m.end(); I != E; ++I)
-        if (!I->isDeclaration())
-            Passes.run(*I);
-
-    Passes.doFinalization();
+    Passes.run(m);
 }
 
 static void assemble(const std::string &asmpath, const std::string &objpath)
