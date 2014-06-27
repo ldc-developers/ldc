@@ -63,9 +63,10 @@ extern(C)
 // libunwind headers
 extern(C)
 {
+    // FIXME: Some of these do not actually exist on ARM.
     enum _Unwind_Reason_Code : int
     {
-        NO_REASON = 0,
+        NO_REASON = 0, // "OK" on ARM
         FOREIGN_EXCEPTION_CAUGHT = 1,
         FATAL_PHASE2_ERROR = 2,
         FATAL_PHASE1_ERROR = 3,
@@ -73,7 +74,8 @@ extern(C)
         END_OF_STACK = 5,
         HANDLER_FOUND = 6,
         INSTALL_CONTEXT = 7,
-        CONTINUE_UNWIND = 8
+        CONTINUE_UNWIND = 8,
+        FAILURE = 9 // ARM only
     }
 
     enum _Unwind_Action : int
@@ -148,11 +150,12 @@ version(HP_LIBUNWIND)
 }
 else version(GCC_UNWIND)
 {
-    void _Unwind_Resume(_Unwind_Exception*);
-    _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
     ptrdiff_t _Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr context);
     version (ARM)
     {
+        _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Control_Block*);
+        void _Unwind_Resume(_Unwind_Control_Block*);
+
         // On ARM, these are macros resp. not visible (static inline). To avoid
         // an unmaintainable amount of dependencies on implementation details,
         // just use a C shim.
@@ -162,11 +165,16 @@ else version(GCC_UNWIND)
         void _d_eh_SetIP(_Unwind_Context_Ptr context, ptrdiff_t new_value);
         alias _Unwind_SetIP = _d_eh_SetIP;
 
+        ptrdiff_t _d_eh_GetGR(_Unwind_Context_Ptr context, int index);
+        alias _Unwind_GetGR = _d_eh_GetGR;
+
         void _d_eh_SetGR(_Unwind_Context_Ptr context, int index, ptrdiff_t new_value);
         alias _Unwind_SetGR = _d_eh_SetGR;
     }
     else
     {
+        _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
+        void _Unwind_Resume(_Unwind_Exception*);
         ptrdiff_t _Unwind_GetIP(_Unwind_Context_Ptr context);
         void _Unwind_SetIP(_Unwind_Context_Ptr context, ptrdiff_t new_value);
         void _Unwind_SetGR(_Unwind_Context_Ptr context, int index,
@@ -358,6 +366,29 @@ Lerr:
     return addr;
 }
 
+ptrdiff_t get_base_of_encoded_value(ubyte encoding, _Unwind_Context_Ptr context)
+{
+    if (encoding == _DW_EH_Format.DW_EH_PE_omit)
+        return 0;
+
+    with (_DW_EH_Format) switch (encoding & 0x70) {
+        case DW_EH_PE_absptr:
+        case DW_EH_PE_pcrel:
+        case DW_EH_PE_aligned:
+            return 0;
+
+        case DW_EH_PE_textrel:
+            return _Unwind_GetTextRelBase (context);
+        case DW_EH_PE_datarel:
+            return _Unwind_GetDataRelBase (context);
+        case DW_EH_PE_funcrel:
+            return _Unwind_GetRegionStart (context);
+
+        default:
+            fatalerror("Unsupported encoding type to get base from.");
+            assert(0);
+    }
+}
 
 // exception struct used by the runtime.
 // _d_throw allocates a new instance and passes the address of its
@@ -370,7 +401,15 @@ Lerr:
 struct _d_exception
 {
     Object exception_object;
-    _Unwind_Exception unwind_info;
+    //version (ARM)
+    version (none)
+    {
+        _Unwind_Control_Block unwind_info;
+    }
+    else
+    {
+        _Unwind_Exception unwind_info;
+    }
 }
 
 // the 8-byte string identifying the type of exception

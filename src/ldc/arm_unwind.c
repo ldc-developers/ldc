@@ -24,6 +24,11 @@ void _d_eh_SetIP(_Unwind_Context *context, _Unwind_Word new_value)
     _Unwind_SetIP(context, new_value);
 }
 
+_Unwind_Word _d_eh_GetGR(_Unwind_Context *context, int index)
+{
+    return _Unwind_GetGR(context, index);
+}
+
 void _d_eh_SetGR(_Unwind_Context *context, int index, _Unwind_Word new_value)
 {
     _Unwind_SetGR(context, index, new_value);
