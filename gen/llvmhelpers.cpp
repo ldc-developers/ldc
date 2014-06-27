@@ -1090,7 +1090,10 @@ void DtoVarDeclaration(VarDeclaration* vd)
     if (vd->nestedrefs.dim)
     {
         IF_LOG Logger::println("has nestedref set (referenced by nested function/delegate)");
-        assert(vd->ir.irLocal && "irLocal is expected to be already set by DtoCreateNestedContext");
+
+        // A variable may not be really nested even if nextedrefs is not empty
+        // in case it is referenced by a function inside __traits(compile) or typeof.
+        // assert(vd->ir.irLocal && "irLocal is expected to be already set by DtoCreateNestedContext");
     }
 
     if(vd->ir.irLocal)
@@ -1289,10 +1292,11 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
         gIR->DBuilder.EmitLocalVariable(addr, var);
     }
 
-    // referenced by nested function?
-    if (var->nestedrefs.dim)
+    // nested variable?
+    // A variable may not be really nested even if nextedrefs is not empty
+    // in case it is referenced by a function inside __traits(compile) or typeof.
+    if (var->nestedrefs.dim && var->ir.irLocal)
     {
-        assert(var->ir.irLocal);
         if(!var->ir.irLocal->value)
         {
             assert(addr);
