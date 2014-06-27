@@ -512,6 +512,9 @@ static void initializePasses() {
     // For codegen passes, only passes that do IR to IR transformation are
     // supported. For now, just add CodeGenPrepare.
     initializeCodeGenPreparePass(Registry);
+#if LDC_LLVM_VER >= 305
+    initializeAtomicExpandLoadLinkedPass(Registry);
+#endif
 #endif
 }
 
