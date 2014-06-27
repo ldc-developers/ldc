@@ -983,9 +983,9 @@ void DtoDefineFunction(FuncDeclaration* fd)
     FuncDeclaration* parent = fd;
     while ((parent = getParentFunc(parent, true)))
     {
-        if (parent->semanticRun != PASSsemantic3done)
+        if (parent->semanticRun != PASSsemantic3done || parent->semantic3Errors)
         {
-            Logger::println("Ignoring nested function with unanalyzed parent.");
+            IF_LOG Logger::println("Ignoring nested function with unanalyzed parent.");
             return;
         }
     }
