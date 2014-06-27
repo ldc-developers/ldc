@@ -2096,6 +2096,23 @@ else
 
             __asm("str sp, $0", "=*m", &sp);
         }
+        else version (MIPS64)
+        {
+            import ldc.llvmasm;
+
+            // Callee-save registers, according to MIPSpro N32 ABI Handbook,
+            // chapter 2, table 2-1.
+            // FIXME: Should $28 (gp), $29 (sp) and $30 (s8) be saved, too?
+            size_t[8] regs = void;
+            __asm(`sd $$16,  0($0);
+                   sd $$17,  8($0);
+                   sd $$18, 16($0);
+                   sd $$19, 24($0);
+                   sd $$20, 32($0);
+                   sd $$21, 40($0);
+                   sd $$22, 48($0);
+                   sd $$23, 56($0)`, "r", regs.ptr);
+        }
         else
         {
             static assert(false, "Architecture not supported.");
