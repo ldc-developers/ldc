@@ -153,8 +153,10 @@ else version(GCC_UNWIND)
     ptrdiff_t _Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr context);
     version (ARM)
     {
-        _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Control_Block*);
-        void _Unwind_Resume(_Unwind_Control_Block*);
+        // FIXME: _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Control_Block*);
+        // FIXME: void _Unwind_Resume(_Unwind_Control_Block*);
+        _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
+        void _Unwind_Resume(_Unwind_Exception*);
 
         // On ARM, these are macros resp. not visible (static inline). To avoid
         // an unmaintainable amount of dependencies on implementation details,
