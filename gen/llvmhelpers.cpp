@@ -1112,6 +1112,19 @@ void DtoVarDeclaration(VarDeclaration* vd)
     else {
         vd->ir.irLocal = new IrLocal(vd);
 
+        Type* type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
+
+        llvm::Value* allocainst;
+        LLType* lltype = DtoType(type);
+        if(gDataLayout->getTypeSizeInBits(lltype) == 0)
+            allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
+        else
+            allocainst = DtoAlloca(type, vd->toChars());
+
+        vd->ir.irLocal->value = allocainst;
+
+        gIR->DBuilder.EmitLocalVariable(allocainst, vd);
+
         /* NRVO again:
             T t = f();    // t's memory address is taken hidden pointer
         */
@@ -1131,42 +1144,23 @@ void DtoVarDeclaration(VarDeclaration* vd)
                     rhs = static_cast<CastExp *>(rhs)->e1;
                 if (rhs->op == TOKcall) {
                     CallExp *ce = static_cast<CallExp *>(rhs);
-                    TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
-                    if (tf->ty == Tfunction && tf->linkage != LINKintrinsic) {
-                        gABI->newFunctionType(tf);
-                        bool retInArg = gABI->returnInArg(tf);
-                        gABI->doneWithFunctionType();
-                        if (retInArg) {
+                    if (DtoIsReturnInArg(ce->e1->type))
+                    {
+                        if (isSpecialRefVar(vd))
+                        {
                             LLValue* const val = ce->toElem(gIR)->getLVal();
-                            if (isSpecialRefVar(vd))
-                            {
-                                vd->ir.irLocal->value = DtoAlloca(
-                                    vd->type->pointerTo(), vd->toChars());
-                                DtoStore(val, vd->ir.irLocal->value);
-                            }
-                            else
-                            {
-                                vd->ir.irLocal->value = val;
-                            }
-                            return;
+                            DtoStore(val, vd->ir.irLocal->value);
                         }
+                        else
+                        {
+                            DValue* fnval = ce->e1->toElem(gIR);
+                            DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments, vd->ir.irLocal->value);
+                        }
+                        return;
                     }
                 }
             }
         }
-
-        Type* type = isSpecialRefVar(vd) ? vd->type->pointerTo() : vd->type;
-
-        llvm::Value* allocainst;
-        LLType* lltype = DtoType(type);
-        if(gDataLayout->getTypeSizeInBits(lltype) == 0)
-            allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
-        else
-            allocainst = DtoAlloca(type, vd->toChars());
-
-        vd->ir.irLocal->value = allocainst;
-
-        gIR->DBuilder.EmitLocalVariable(allocainst, vd);
     }
 
     IF_LOG Logger::cout() << "llvm value for decl: " << *vd->ir.irLocal->value << '\n';
