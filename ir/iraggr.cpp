@@ -87,6 +87,8 @@ llvm::Constant * IrAggr::getDefaultInit()
 //////////////////////////////////////////////////////////////////////////////
 
 static bool isAligned(llvm::Type* type, size_t offset) {
+    if (offset == 0)
+        return true;
     return gDataLayout->getABITypeAlignment(type) % offset == 0;
 }
 
@@ -278,6 +280,8 @@ void IrAggr::addFieldInitializers(
         if (data[i].first) continue;
 
         VarDeclaration* vd = decl->fields[i];
+        if (vd->init && vd->init->isVoidInitializer())
+            continue;
 
         unsigned vd_begin = vd->offset;
         unsigned vd_end = vd_begin + vd->type->size();
