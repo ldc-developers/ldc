@@ -1041,6 +1041,8 @@ DValue* CallExp::toElem(IRState* p)
             LLValue* val = exp3->toElem(p)->getRVal();
 #if LDC_LLVM_VER >= 305
             LLValue* ret = gIR->ir->CreateAtomicCmpXchg(ptr, cmp, val, llvm::AtomicOrdering(atomicOrdering), llvm::AtomicOrdering(atomicOrdering));
+            // Use the same quickfix as for dragonegg - see r210956
+            ret = gIR->ir->CreateExtractValue(ret, 0);
 #else
             LLValue* ret = gIR->ir->CreateAtomicCmpXchg(ptr, cmp, val, llvm::AtomicOrdering(atomicOrdering));
 #endif
