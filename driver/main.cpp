@@ -572,10 +572,16 @@ static void registerPredefinedTargetVersions() {
             registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
             break;
         case llvm::Triple::ppc64:
+#if LDC_LLVM_VER >= 305
+        case llvm::Triple::ppc64le:
+#endif
             VersionCondition::addPredefinedGlobalIdent("PPC64");
             registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
             break;
         case llvm::Triple::arm:
+#if LDC_LLVM_VER >= 305
+        case llvm::Triple::armeb:
+#endif
             VersionCondition::addPredefinedGlobalIdent("ARM");
             // FIXME: What about ARM_SoftFP?.
             registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
@@ -590,6 +596,8 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::aarch64:
 #if LDC_LLVM_VER >= 305
         case llvm::Triple::aarch64_be:
+        case llvm::Triple::arm64:
+        case llvm::Triple::arm64_be:
 #endif
             VersionCondition::addPredefinedGlobalIdent("AArch64");
             registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
