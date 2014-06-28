@@ -14,6 +14,7 @@
 #include "id.h"
 #include "init.h"
 #include "module.h"
+#include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
@@ -38,6 +39,19 @@ bool DtoIsPassedByRef(Type* type)
     Type* typ = type->toBasetype();
     TY t = typ->ty;
     return (t == Tstruct || t == Tsarray);
+}
+
+bool DtoIsReturnInArg(Type *type)
+{
+    TypeFunction *tf = static_cast<TypeFunction *>(type->toBasetype());
+    if (tf->ty == Tfunction && tf->linkage != LINKintrinsic)
+    {
+        gABI->newFunctionType(tf);
+        bool retInArg = gABI->returnInArg(tf);
+        gABI->doneWithFunctionType();
+        return retInArg;
+    }
+    return false;
 }
 
 #if LDC_LLVM_VER >= 303

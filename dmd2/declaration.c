@@ -1130,16 +1130,12 @@ Lnomatch:
             //printf("declaring field %s of type %s\n", v->toChars(), v->type->toChars());
             v->semantic(sc);
 
-#if !IN_LLVM
-// removed for LDC since TupleDeclaration::toObj already creates the fields;
-// adding them to the scope again leads to duplicates
             if (sc->scopesym)
             {
                 //printf("adding %s to %s\n", v->toChars(), sc->scopesym->toChars());
                 if (sc->scopesym->members)
                     sc->scopesym->members->push(v);
             }
-#endif
             Expression *e = new DsymbolExp(loc, v);
             (*exps)[i] = e;
         }

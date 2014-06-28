@@ -326,7 +326,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
 
 // FIXME: this function is a mess !
 
-DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments)
+DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments, llvm::Value *retvar)
 {
     IF_LOG Logger::println("DtoCallFunction()");
     LOG_SCOPE
@@ -390,7 +390,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // return in hidden ptr is first
     if (retinptr)
     {
-        LLValue* retvar = DtoRawAlloca((*argiter)->getContainedType(0), resulttype->alignsize(), ".rettmp");
+        if (!retvar)
+            retvar = DtoRawAlloca((*argiter)->getContainedType(0), resulttype->alignsize(), ".rettmp");
         ++argiter;
         args.push_back(retvar);
 

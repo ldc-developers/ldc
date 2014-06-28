@@ -377,6 +377,10 @@ cl::opt<bool> linkonceTemplates("linkonce-templates",
     cl::desc("Use linkonce_odr linkage for template symbols instead of weak_odr"),
     cl::ZeroOrMore);
 
+cl::opt<bool, true> allinst("allinst",
+    cl::desc("generate code for all template instantiations"),
+    cl::location(global.params.allInst));
+
 static cl::extrahelp footer("\n"
 "-d-debug can also be specified without options, in which case it enables all\n"
 "debug checks (i.e. (asserts, boundchecks, contracts and invariants) as well\n"

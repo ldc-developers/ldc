@@ -530,6 +530,18 @@ DValue* AssignExp::toElem(IRState* p)
         }
     }
 
+    // NRVO for object field initialization in constructor
+    if (op == TOKconstruct && e2->op == TOKcall)
+    {
+        CallExp *ce = static_cast<CallExp *>(e2);
+        if (DtoIsReturnInArg(ce->e1->type))
+        {
+            DValue* fnval = ce->e1->toElem(p);
+            LLValue *lval = e1->toElem(p)->getLVal();
+            return DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments, lval);
+        }
+    }
+
     DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
@@ -933,34 +945,10 @@ DValue* CallExp::toElem(IRState* p)
             if (LLValue *argptr = gIR->func()->_argptr) {
                 DtoStore(DtoLoad(argptr), DtoBitCast(arg, getPtrToType(getVoidPtrType())));
                 return new DImValue(type, arg);
-            } else if (global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
-                LLValue *va_list = DtoAlloca(exp->type->nextOf());
-                DtoStore(va_list, arg);
-                va_list = DtoBitCast(va_list, getVoidPtrType());
-                return new DImValue(type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), va_list, ""));
-            } else
-            {
+            } else {
                 arg = DtoBitCast(arg, getVoidPtrType());
                 return new DImValue(type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), arg, ""));
             }
-        }
-        else if (fndecl->llvmInternal == LLVMva_copy &&
-            global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
-            if (arguments->dim != 2) {
-                error("va_copy instruction expects 2 arguments");
-                fatal();
-                return NULL;
-            }
-            Expression* exp1 = static_cast<Expression*>(arguments->data[0]);
-            Expression* exp2 = static_cast<Expression*>(arguments->data[1]);
-            LLValue* arg1 = exp1->toElem(p)->getLVal();
-            LLValue* arg2 = exp2->toElem(p)->getLVal();
-
-            LLValue *va_list = DtoAlloca(exp1->type->nextOf());
-            DtoStore(va_list, arg1);
-
-            DtoStore(DtoLoad(DtoLoad(arg2)), DtoLoad(arg1));
-            return new DVarValue(type, arg1);
         }
         // va_arg instruction
         else if (fndecl->llvmInternal == LLVMva_arg) {

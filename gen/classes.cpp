@@ -587,6 +587,8 @@ static unsigned build_classinfo_flags(ClassDeclaration* cd)
         flags |= 8;
     if (cd->isabstract)
         flags |= 64;
+    if (cd->isCPPclass())
+        flags |= 128;
     for (ClassDeclaration *cd2 = cd; cd2; cd2 = cd2->baseClass)
     {
         if (!cd2->members)
