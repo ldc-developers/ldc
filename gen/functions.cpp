@@ -1068,10 +1068,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 #endif
 
-    std::string entryname("entry");
-
-    llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), entryname,func);
-    llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "endentry",func);
+    llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "", func);
+    llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "endentry", func);
 
     //assert(gIR->scopes.empty());
     gIR->scopes.push_back(IRScope(beginbb, endbb));

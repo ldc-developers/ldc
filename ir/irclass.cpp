@@ -340,7 +340,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
                                                  DtoLinkage(fd), name.toChars(), gIR->module);
 
             // create entry and end blocks
-            llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "entry", thunk);
+            llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "", thunk);
             llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "endentry", thunk);
             gIR->scopes.push_back(IRScope(beginbb, endbb));
 
