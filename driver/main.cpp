@@ -187,6 +187,9 @@ static void hideLLVMOptions() {
     cl::getRegisteredOptions(map);
     hide(map, "bounds-checking-single-trap");
     hide(map, "disable-spill-fusing");
+    hide(map, "cppfname");
+    hide(map, "cppfor");
+    hide(map, "cppgen");
     hide(map, "enable-correct-eh-support");
     hide(map, "enable-load-pre");
     hide(map, "enable-objc-arc-opts");
@@ -197,6 +200,8 @@ static void hideLLVMOptions() {
     hide(map, "join-liveintervals");
     hide(map, "limit-float-precision");
     hide(map, "mc-x86-disable-arith-relaxation");
+    hide(map, "mno-ldc1-sdc1");
+    hide(map, "nvptx-sched4reg");
     hide(map, "pre-RA-sched");
     hide(map, "print-after-all");
     hide(map, "print-before-all");
