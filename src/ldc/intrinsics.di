@@ -315,25 +315,6 @@ pragma(LDC_intrinsic, "llvm.cttz.i#")
     T llvm_cttz(T)(T src, bool isZerodefined);
 
 
-/// The 'llvm.part.select' family of intrinsic functions selects a range of bits
-/// from an integer value and returns them in the same bit width as the original
-/// value.
-
-pragma(LDC_intrinsic, "llvm.part.select.i#")
-    T llvm_part_select(T)(T val, uint loBit, uint hiBit);
-
-
-// The 'llvm.part.set' family of intrinsic functions replaces a range of bits
-// in an integer value with another integer value. It returns the integer with
-// the replaced bits.
-
-// TODO
-// declare i17 @llvm.part.set.i17.i9 (i17 %val, i9 %repl, i32 %lo, i32 %hi)
-// declare i29 @llvm.part.set.i29.i9 (i29 %val, i9 %repl, i32 %lo, i32 %hi)
-
-
-
-
 //
 // ATOMIC OPERATIONS AND SYNCHRONIZATION INTRINSICS
 //
@@ -456,14 +437,8 @@ pragma(LDC_intrinsic, "llvm.usub.with.overflow.i#")
 pragma(LDC_intrinsic, "llvm.smul.with.overflow.i#")
     OverflowRet!(T) llvm_smul_with_overflow(T)(T lhs, T rhs);
 
-/* Note: LLVM documentations says:
- *  Warning: 'llvm.umul.with.overflow' is badly broken.
- *  It is actively being fixed, but it should not currently be used!
- *
- * See: http://llvm.org/docs/LangRef.html#int_umul_overflow
- */
-//pragma(LDC_intrinsic, "llvm.umul.with.overflow.i#")
-//    OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs);
+pragma(LDC_intrinsic, "llvm.umul.with.overflow.i#")
+    OverflowRet!(T) llvm_umul_with_overflow(T)(T lhs, T rhs);
 
 
 //
