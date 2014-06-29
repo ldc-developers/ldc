@@ -336,11 +336,21 @@ Expression *AddrExp::optimize(int result, bool keepLvalue)
         ex = ((PtrExp *)e1)->e1;
         if (type->equals(ex->type))
             e = ex;
+#if IN_LLVM // Backport of D-Programming-Language/dmd#3685
+        else if (type->toBasetype()->immutableOf()->equals(ex->type->toBasetype()->immutableOf()))
+        {
+            e = ex->copy();
+            e->type = type;
+        }
+        else
+            return this;
+#else
         else
         {
             e = ex->copy();
             e->type = type;
         }
+#endif
         return e;
     }
     if (e1->op == TOKvar)
@@ -392,8 +402,8 @@ Expression *PtrExp::optimize(int result, bool keepLvalue)
         ex = ((AddrExp *)e1)->e1;
         if (type->equals(ex->type))
             e = ex;
-#if IN_LLVM // Backport of D-Programming-Language/dmd#3662.
-        else if (ex->type->implicitConvTo(type) >= MATCHconst)
+#if IN_LLVM // Backport of D-Programming-Language/dmd#3685
+        else if (type->toBasetype()->immutableOf()->equals(ex->type->toBasetype()->immutableOf()))
         {
             e = ex->copy();
             e->type = type;
