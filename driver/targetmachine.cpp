@@ -303,7 +303,8 @@ llvm::TargetMachine* createTargetMachine(
     llvm::Reloc::Model relocModel,
     llvm::CodeModel::Model codeModel,
     llvm::CodeGenOpt::Level codeGenOptLevel,
-    bool noFramePointerElim)
+    bool noFramePointerElim,
+    bool noLinkerStripDead)
 {
     // Determine target triple. If the user didn't explicitly specify one, use
     // the one set at LLVM configure time.
@@ -431,6 +432,16 @@ llvm::TargetMachine* createTargetMachine(
         targetOptions.UseSoftFloat = false;
         targetOptions.FloatABIType = llvm::FloatABI::Hard;
         break;
+    }
+
+    // Right now, we only support linker-level dead code elimination on Linux
+    // using the GNU toolchain (based on ld's --gc-sections flag). The Apple ld
+    // on OS X supports a similar flag (-dead_strip) that doesn't require
+    // emitting the symbols into different sections. The MinGW ld doesn't seem
+    // to support --gc-sections at all, and FreeBSD needs more investigation.
+    if (!noLinkerStripDead && triple.getOS() == llvm::Triple::Linux) {
+        llvm::TargetMachine::setDataSections(true);
+        llvm::TargetMachine::setFunctionSections(true);
     }
 
     return target->createTargetMachine(

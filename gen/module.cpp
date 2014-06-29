@@ -340,21 +340,21 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 /// Pseudocode:
 /// if (dsoInitialized == executeWhenInitialized) {
 ///     dsoInitiaized = !executeWhenInitialized;
-///     auto record = CompilerDSOData(1, dsoSlot, minfoBeg, minfoEnd);
-///     _d_dso_registry(&record);
+///     auto record = {1, dsoSlot, minfoBeg, minfoEnd, minfoUsedPointer};
+///     _d_dso_registry(cast(CompilerDSOData*)&record);
 /// }
 static void build_dso_ctor_dtor_body(
     llvm::Function* targetFunc,
-    llvm::GlobalVariable* dsoInitiaized,
-    llvm::GlobalVariable* dsoSlot,
-    llvm::GlobalVariable* minfoBeg,
-    llvm::GlobalVariable* minfoEnd,
+    llvm::Value* dsoInitiaized,
+    llvm::Value* dsoSlot,
+    llvm::Value* minfoBeg,
+    llvm::Value* minfoEnd,
+    llvm::Value* minfoUsedPointer,
     bool executeWhenInitialized
 ) {
     llvm::Function* const dsoRegistry = LLVM_D_GetRuntimeFunction(
         gIR->module, "_d_dso_registry");
     llvm::Type* const recordPtrTy = dsoRegistry->getFunctionType()->getContainedType(1);
-    llvm::Type* const recordTy = recordPtrTy->getContainedType(0);
 
     llvm::BasicBlock* const entryBB =
         llvm::BasicBlock::Create(gIR->context(), "", targetFunc);
@@ -375,13 +375,23 @@ static void build_dso_ctor_dtor_body(
         IRBuilder<> b(initBB);
         b.CreateStore(b.getInt1(!executeWhenInitialized), dsoInitiaized);
 
-        llvm::Value* record = b.CreateAlloca(recordTy);
-        b.CreateStore(DtoConstSize_t(1), b.CreateStructGEP(record, 0)); // version
+        llvm::Constant* version = DtoConstSize_t(1);
+        llvm::Type* memberTypes[] = {
+            version->getType(),
+            dsoSlot->getType(),
+            minfoBeg->getType(),
+            minfoEnd->getType(),
+            minfoUsedPointer->getType()
+        };
+        llvm::Value* record = b.CreateAlloca(
+            llvm::StructType::get(gIR->context(), memberTypes, false));
+        b.CreateStore(version, b.CreateStructGEP(record, 0)); // version
         b.CreateStore(dsoSlot, b.CreateStructGEP(record, 1)); // slot
         b.CreateStore(minfoBeg, b.CreateStructGEP(record, 2));
         b.CreateStore(minfoEnd, b.CreateStructGEP(record, 3));
+        b.CreateStore(minfoUsedPointer, b.CreateStructGEP(record, 4));
 
-        b.CreateCall(dsoRegistry, record);
+        b.CreateCall(dsoRegistry, b.CreateBitCast(record, recordPtrTy));
         b.CreateBr(endBB);
     }
     {
@@ -436,6 +446,8 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
     minfoEnd->setVisibility(llvm::GlobalValue::HiddenVisibility);
 
     // Build the ctor to invoke _d_dso_registry.
+
+    // This is the DSO slot for use by the druntime implementation.
     llvm::GlobalVariable* dsoSlot = new llvm::GlobalVariable(
         *gIR->module,
         getVoidPtrType(),
@@ -445,6 +457,36 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
         "ldc.dso_slot"
     );
     dsoSlot->setVisibility(llvm::GlobalValue::HiddenVisibility);
+
+    // Okay, so the theory is easy: We want to have one global constructor and
+    // destructor per object (i.e. executable/shared library) that calls
+    // _d_dso_registry with the respective DSO record. However, there are a
+    // couple of issues that make this harder than necessary:
+    //
+    //  1) The natural way to implement the "one-per-image" part would be to
+    //     emit a weak reference to a weak function into a .ctors.<somename>
+    //     section (llvm.global_ctors doesn't support the necessary
+    //     functionality, so we'd use our knowledge of the linker script to work
+    //     around that). But as of LLVM 3.4, emitting a symbol both as weak and
+    //     into a custom section is not supported by the MC layer. Thus, we have
+    //     to use a normal ctor/dtor and manually ensure that we only perform
+    //     the call once. This is done by introducing ldc.dso_initialized.
+    //
+    //  2) To make sure the .minfo section isn't removed by the linker when
+    //     using --gc-sections, we need to keep a reference to it around in
+    //     _every_ object file (as --gc-sections works per object file). The
+    //     natural place for this is the ctor, where we just load a reference
+    //     on the stack after the DSO record (to ensure LLVM doesn't optimize
+    //     it out). However, this way, we need to have at least one ctor
+    //     instance per object file be pulled into the final executable. We
+    //     do this here by making the module mangle string part of its name,
+    //     even thoguht this is slightly wasteful on -singleobj builds.
+    //
+    // It might be a better idea to simply use a custom linker script (using
+    // INSERT AFTER… so as to still keep the default one) to avoid all these
+    // problems. This would mean that it is no longer safe to link D objects
+    // directly using e.g. "g++ dcode.o cppcode.o", though.
+
     llvm::GlobalVariable* dsoInitiaized = new llvm::GlobalVariable(
         *gIR->module,
         llvm::Type::getInt1Ty(gIR->context()),
@@ -455,14 +497,23 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
     );
     dsoInitiaized->setVisibility(llvm::GlobalValue::HiddenVisibility);
 
+    // There is no reason for this cast to void*, other than that removing it
+    // seems to trigger a bug in the llvm::Linker (at least on LLVM 3.4)
+    // causing it to not merge the %object.ModuleInfo types properly. This
+    // manifests itself in a type mismatch assertion being triggered on the
+    // minfoUsedPointer store in the ctor as soon as the optimizer runs.
+    llvm::Value* minfoRefPtr = DtoBitCast(thismref, getVoidPtrType());
+
+    std::string ctorName = "ldc.dso_ctor.";
+    ctorName += gIR->dmodule->mangle();
     llvm::Function* dsoCtor = llvm::Function::Create(
         llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
         llvm::GlobalValue::LinkOnceODRLinkage,
-        "ldc.dso_ctor",
+        ctorName,
         gIR->module
     );
     dsoCtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
-    build_dso_ctor_dtor_body(dsoCtor, dsoInitiaized, dsoSlot, minfoBeg, minfoEnd, false);
+    build_dso_ctor_dtor_body(dsoCtor, dsoInitiaized, dsoSlot, minfoBeg, minfoEnd, minfoRefPtr, false);
     llvm::appendToGlobalCtors(*gIR->module, dsoCtor, 65535);
 
     llvm::Function* dsoDtor = llvm::Function::Create(
@@ -472,7 +523,7 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
         gIR->module
     );
     dsoDtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
-    build_dso_ctor_dtor_body(dsoDtor, dsoInitiaized, dsoSlot, minfoBeg, minfoEnd, true);
+    build_dso_ctor_dtor_body(dsoDtor, dsoInitiaized, dsoSlot, minfoBeg, minfoEnd, minfoRefPtr, true);
     llvm::appendToGlobalDtors(*gIR->module, dsoDtor, 65535);
 }
 
