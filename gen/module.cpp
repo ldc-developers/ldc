@@ -571,18 +571,6 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
         Declaration_codegen(dsym);
     }
 
-    // for singleobj-compilation, fully emit all seen template instances
-    if (global.params.singleObj)
-    {
-        while (!ir.seenTemplateInstances.empty())
-        {
-            IRState::TemplateInstanceSet::iterator it, end = ir.seenTemplateInstances.end();
-            for (it = ir.seenTemplateInstances.begin(); it != end; ++it)
-                Declaration_codegen(*it);
-            ir.seenTemplateInstances.clear();
-        }
-    }
-
     // finalize debug info
     gIR->DBuilder.EmitModuleEnd();
 
