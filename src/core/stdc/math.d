@@ -105,12 +105,19 @@ version( none )
 version( DigitalMars )
 {
     version( Win32 )
-        version = DigitalMarsWin32;
+        version = DMC_RUNTIME;
     version( Win64 )
-        version = DigitalMarsWin64;     // just to get it to compile for the moment - fix later
+        version = MSVC_RUNTIME;
 }
 
-version( DigitalMarsWin32 )
+version( LDC )
+{
+    version( Win64 )
+        version = MSVC_RUNTIME;
+
+}
+
+version( DMC_RUNTIME )
 {
     enum
     {
@@ -179,7 +186,7 @@ version( DigitalMarsWin32 )
     }
   }
 }
-else version( DigitalMarsWin64 )
+else version( MSVC_RUNTIME )
 {
     enum
     {
