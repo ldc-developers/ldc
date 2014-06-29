@@ -186,6 +186,7 @@ static void hideLLVMOptions() {
     llvm::StringMap<cl::Option *> map;
     cl::getRegisteredOptions(map);
     hide(map, "bounds-checking-single-trap");
+    hide(map, "disable-debug-info-verifier");
     hide(map, "disable-spill-fusing");
     hide(map, "cppfname");
     hide(map, "cppfor");
