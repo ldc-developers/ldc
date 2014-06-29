@@ -198,7 +198,7 @@ static llvm::Function* build_module_function(const std::string &name, const std:
         llvm::GlobalValue::InternalLinkage, symbolName, gIR->module);
     fn->setCallingConv(gABI->callingConv(LINKd));
 
-    llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "entry", fn);
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "", fn);
     IRBuilder<> builder(bb);
 
     // debug info
