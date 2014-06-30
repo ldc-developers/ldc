@@ -326,29 +326,15 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
              dc(${f} "${d_flags};-I${PHOBOS2_DIR}" ${PHOBOS2_DIR} "${target_suffix}" PHOBOS2_O PHOBOS2_BC)
         endforeach()
 
-        add_library(phobos-ldc${target_suffix} ${D_LIBRARY_TYPE}
+        add_library(phobos2-ldc${target_suffix} ${D_LIBRARY_TYPE}
             ${ZLIB_C}
             ${PHOBOS2_O}
-            ${CORE_O}
-            ${CORE_C}
-            ${GC_O}
-            ${DCRT_O}
-            ${DCRT_C}
-            ${DCRT_ASM}
         )
-
-        # This is important as a "serialization point" in the build process so
-        # CMake doesn't invoke the dc()-generated command twice for files linked
-        # both into the druntime and Phobos libraries at the same time, which
-        # lead to corrupted library files. It is unclear whether this is really
-        # a CMake bug or not.
-        add_dependencies(phobos-ldc${target_suffix} ${lib_targets})
-
         set_target_properties(
-            phobos-ldc${target_suffix} PROPERTIES
+            phobos2-ldc${target_suffix} PROPERTIES
             VERSION                     ${DMDFE_VERSION}
             SOVERSION                   ${DMDFE_PATCH_VERSION}
-            OUTPUT_NAME                 phobos-ldc${lib_suffix}
+            OUTPUT_NAME                 phobos2-ldc${lib_suffix}
             LINKER_LANGUAGE             C
             ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
             LIBRARY_OUTPUT_DIRECTORY    ${output_path}
@@ -356,12 +342,13 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
             COMPILE_FLAGS               "${c_flags}"
             LINK_FLAGS                  "${ld_flags}"
         )
-        # Phobos now uses curl
+
         if(BUILD_SHARED_LIBS)
-            target_link_libraries(phobos-ldc${target_suffix} "curl")
+            target_link_libraries(phobos2-ldc${target_suffix} druntime-ldc${target_suffix})
+            target_link_libraries(phobos2-ldc${target_suffix} "curl")
         endif()
 
-        list(APPEND ${outlist_targets} "phobos-ldc${target_suffix}")
+        list(APPEND ${outlist_targets} "phobos2-ldc${target_suffix}")
     endif()
 
     if(BUILD_BC_LIBS)
@@ -375,12 +362,12 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
 
         set(bclibs
             ${output_path}/libdruntime-ldc${lib_suffix}-bc.a
-            ${output_path}/libphobos-ldc${lib_suffix}-bc.a
+            ${output_path}/libphobos2-ldc${lib_suffix}-bc.a
         )
         add_custom_command(
             OUTPUT ${bclibs}
             COMMAND ${LLVM_AR_EXE} rs libdruntime-ldc${lib_suffix}-bc.a ${CORE_BC} ${GC_BC} ${DCRT_BC}
-            COMMAND ${LLVM_AR_EXE} rs libphobos-ldc${lib_suffix}-bc.a ${PHOBOS2_BC}
+            COMMAND ${LLVM_AR_EXE} rs libphobos2-ldc${lib_suffix}-bc.a ${PHOBOS2_BC}
             WORKING_DIRECTORY ${output_path}
             DEPENDS
                 ${CORE_BC}
