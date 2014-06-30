@@ -86,22 +86,6 @@ int Port::fequal(longdouble x, longdouble y)
     return memcmp(&x, &y, 10) == 0;
 }
 
-char *Port::strupr(char *s)
-{
-    return ::strupr(s);
-}
-
-int Port::memicmp(const char *s1, const char *s2, int n)
-{
-    return ::memicmp(s1, s2, n);
-}
-
-int Port::stricmp(const char *s1, const char *s2)
-{
-    return ::stricmp(s1, s2);
-}
-
-
 extern "C" const char * __cdecl __locale_decpoint;
 
 float Port::strtof(const char *buffer, char **endp)
@@ -223,21 +207,6 @@ int Port::fequal(longdouble x, longdouble y)
     return memcmp(&x, &y, 10) == 0;
 }
 
-char *Port::strupr(char *s)
-{
-    return ::strupr(s);
-}
-
-int Port::memicmp(const char *s1, const char *s2, int n)
-{
-    return ::memicmp(s1, s2, n);
-}
-
-int Port::stricmp(const char *s1, const char *s2)
-{
-    return ::stricmp(s1, s2);
-}
-
 float Port::strtof(const char *p, char **endp)
 {
     return static_cast<float>(::strtod(p, endp));
@@ -357,61 +326,6 @@ int Port::fequal(longdouble x, longdouble y)
      * so be sure and ignore them.
      */
     return memcmp(&x, &y, 10) == 0;
-}
-
-char *Port::strupr(char *s)
-{
-    char *t = s;
-
-    while (*s)
-    {
-        *s = toupper(*s);
-        s++;
-    }
-
-    return t;
-}
-
-int Port::memicmp(const char *s1, const char *s2, int n)
-{
-    int result = 0;
-
-    for (int i = 0; i < n; i++)
-    {   char c1 = s1[i];
-        char c2 = s2[i];
-
-        result = c1 - c2;
-        if (result)
-        {
-            result = toupper(c1) - toupper(c2);
-            if (result)
-                break;
-        }
-    }
-    return result;
-}
-
-int Port::stricmp(const char *s1, const char *s2)
-{
-    int result = 0;
-
-    for (;;)
-    {   char c1 = *s1;
-        char c2 = *s2;
-
-        result = c1 - c2;
-        if (result)
-        {
-            result = toupper(c1) - toupper(c2);
-            if (result)
-                break;
-        }
-        if (!c1)
-            break;
-        s1++;
-        s2++;
-    }
-    return result;
 }
 
 float Port::strtof(const char *p, char **endp)
@@ -646,61 +560,6 @@ int Port::fequal(longdouble x, longdouble y)
     return memcmp(&x, &y, 10) == 0;
 }
 
-char *Port::strupr(char *s)
-{
-    char *t = s;
-
-    while (*s)
-    {
-        *s = toupper(*s);
-        s++;
-    }
-
-    return t;
-}
-
-int Port::memicmp(const char *s1, const char *s2, int n)
-{
-    int result = 0;
-
-    for (int i = 0; i < n; i++)
-    {   char c1 = s1[i];
-        char c2 = s2[i];
-
-        result = c1 - c2;
-        if (result)
-        {
-            result = toupper(c1) - toupper(c2);
-            if (result)
-                break;
-        }
-    }
-    return result;
-}
-
-int Port::stricmp(const char *s1, const char *s2)
-{
-    int result = 0;
-
-    for (;;)
-    {   char c1 = *s1;
-        char c2 = *s2;
-
-        result = c1 - c2;
-        if (result)
-        {
-            result = toupper(c1) - toupper(c2);
-            if (result)
-                break;
-        }
-        if (!c1)
-            break;
-        s1++;
-        s2++;
-    }
-    return result;
-}
-
 float Port::strtof(const char *p, char **endp)
 {
     return ::strtof(p, endp);
@@ -823,21 +682,28 @@ int Port::fequal(longdouble x, longdouble y)
     return memcmp(&x, &y, 10) == 0;
 }
 
-char *Port::strupr(char *s)
+float Port::strtof(const char *p, char **endp)
 {
-    char *t = s;
-
-    while (*s)
-    {
-        *s = toupper(*s);
-        s++;
-    }
-
-    return t;
+    return ::strtof(p, endp);
 }
+
+double Port::strtod(const char *p, char **endp)
+{
+    return ::strtod(p, endp);
+}
+
+longdouble Port::strtold(const char *p, char **endp)
+{
+    return ::strtold(p, endp);
+}
+
+#endif
 
 int Port::memicmp(const char *s1, const char *s2, int n)
 {
+#if HAVE_MEMICMP
+    return ::memicmp(s1, s2, n);
+#else
     int result = 0;
 
     for (int i = 0; i < n; i++)
@@ -853,10 +719,14 @@ int Port::memicmp(const char *s1, const char *s2, int n)
         }
     }
     return result;
+#endif
 }
 
 int Port::stricmp(const char *s1, const char *s2)
 {
+#if HAVE_STRICMP
+    return ::stricmp(s1, s2);
+#else
     int result = 0;
 
     for (;;)
@@ -876,21 +746,22 @@ int Port::stricmp(const char *s1, const char *s2)
         s2++;
     }
     return result;
-}
-
-float Port::strtof(const char *p, char **endp)
-{
-    return ::strtof(p, endp);
-}
-
-double Port::strtod(const char *p, char **endp)
-{
-    return ::strtod(p, endp);
-}
-
-longdouble Port::strtold(const char *p, char **endp)
-{
-    return ::strtold(p, endp);
-}
-
 #endif
+}
+
+char *Port::strupr(char *s)
+{
+#if HAVE_STRUPR
+    return ::strupr(s);
+#else
+    char *t = s;
+
+    while (*s)
+    {
+        *s = toupper(*s);
+        s++;
+    }
+
+    return t;
+#endif
+}
