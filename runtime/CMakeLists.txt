@@ -434,6 +434,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
                     ${DCRT_BC}
                     ${LDC_IMPORTS}
                     ${PHOBOS2_BC}
+                VERBATIM
             )
         else()
             set(bclibs
