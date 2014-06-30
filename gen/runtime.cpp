@@ -42,10 +42,6 @@ using namespace llvm::Attribute;
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-static llvm::cl::opt<bool> noruntime("noruntime",
-    llvm::cl::desc("Deprecated. Please use -nogc instead."),
-    llvm::cl::ZeroOrMore);
-
 static llvm::cl::opt<bool> nogc("nogc",
     llvm::cl::desc("Do not allow code that generates implicit garbage collector calls"),
     llvm::cl::ZeroOrMore);
@@ -113,8 +109,6 @@ bool LLVM_D_InitRuntime()
 
     if (!M)
     {
-        if (noruntime)
-            deprecation(Loc(), "-noruntime has no function and will be removed in 0.14.0. Please use -nogc instead.");
         LLVM_D_BuildRuntimeModule();
     }
 
