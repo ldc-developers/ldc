@@ -110,10 +110,14 @@ set(LDC_CXXFLAGS)
 if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
     append("-w" DMD_CXXFLAGS)
 
-    # -Wunused-parameter triggers for LLVM headers, and
-    # -Wmissing-field-initializer leads to reams of warnings in
-    # gen/asm-*.h
-    append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers" LDC_CXXFLAGS)
+    # Disable some noisy warnings:
+    #  * -Wunused-parameter triggers for LLVM headers
+    #  * -Wmissing-field-initializer leads to reams of warnings in gen/asm-*.h
+    #  * -Wnon-virtual-dtor is something Walter has declined to let us fix upstream
+    #    and it triggers for the visitors we need in our glue code
+    #  * -Wpedantic warns on trailing commas in initializer lists and casting
+    #    function pointers to void*.
+    append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor -Wno-pedantic" LDC_CXXFLAGS)
 endif()
 # Append -mminimal-toc for gcc 4.0.x - 4.5.x on ppc64
 if( CMAKE_COMPILER_IS_GNUCXX
