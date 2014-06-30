@@ -402,7 +402,7 @@ extern(C) void _d_throw_exception(Object e)
         ExceptionRecord.ExceptionFlags = EXCEPTION_NONCONTINUABLE;
         ExceptionRecord.ExceptionAddress = &_d_throw_exception;
         ExceptionRecord.NumberParameters = 1;
-        ExceptionRecord.ExceptionInformation[0] = cast(ULONG_PTR) e;
+        ExceptionRecord.ExceptionInformation[0] = cast(ULONG_PTR) cast(void*) e;
 
         // Raise exception
         RtlRaiseException(&ExceptionRecord);
@@ -427,7 +427,7 @@ extern(C) void _d_eh_resume_unwind(Object e)
         ExceptionRecord.ExceptionFlags = EXCEPTION_NONCONTINUABLE;
         ExceptionRecord.ExceptionAddress = &_d_eh_resume_unwind;
         ExceptionRecord.NumberParameters = 1;
-        ExceptionRecord.ExceptionInformation[0] = cast(ULONG_PTR) e;
+        ExceptionRecord.ExceptionInformation[0] = cast(ULONG_PTR) cast(void*) e;
 
         // Raise exception
         RtlRaiseException(&ExceptionRecord);
@@ -571,10 +571,10 @@ private size_t get_size_of_encoded_value(ubyte encoding)
 
 private ubyte* get_encoded_value(ubyte* addr, ref size_t res, ubyte encoding /*, _Unwind_Context_Ptr context*/)
 {
+    ubyte* old_addr = addr;
     if (encoding == _DW_EH_Format.DW_EH_PE_aligned)
         goto Lerr;
 
-    ubyte *old_addr = addr;
     switch (encoding & 0x0f)
     {
     case _DW_EH_Format.DW_EH_PE_absptr:
