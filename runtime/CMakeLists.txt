@@ -42,36 +42,29 @@ else()
 endif()
 
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
-set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "runtime source dir")
+set(RUNTIME_DIR ${PROJECT_SOURCE_DIR}/druntime CACHE PATH "druntime root directory")
+set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "Phobos root directory")
 
 #
 # Gather source files.
 #
 
-set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "phobos2 source dir")
-set(RUNTIME_CC druntime-core)
-set(RUNTIME_GC druntime-gc-basic)
-set(RUNTIME_DC druntime-rt-ldc)
-set(RUNTIME_AIO druntime-ldc)
-set(RUNTIME_DC_DIR ${RUNTIME_DIR}/src/rt)
-set(RUNTIME_GC_DIR ${RUNTIME_DIR}/src/gc)
-set(RUNTIME_INCLUDE ${RUNTIME_DIR}/src)
 file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d )
 file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d )
 file(GLOB CORE_D_STDC ${RUNTIME_DIR}/src/core/stdc/*.d )
-file(GLOB_RECURSE GC_D ${RUNTIME_GC_DIR}/*.d)
-file(GLOB_RECURSE DCRT_D ${RUNTIME_DC_DIR}/*.d)
+file(GLOB_RECURSE GC_D ${RUNTIME_DIR}/src/gc/*.d)
+file(GLOB_RECURSE DCRT_D ${RUNTIME_DIR}/src/rt/*.d)
 file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
 list(REMOVE_ITEM DCRT_D
-    ${RUNTIME_DC_DIR}/alloca.d
-    ${RUNTIME_DC_DIR}/deh.d
-    ${RUNTIME_DC_DIR}/deh_win32.d
-    ${RUNTIME_DC_DIR}/deh_win64_posix.d
-    ${RUNTIME_DC_DIR}/llmath.d
-    ${RUNTIME_DC_DIR}/trace.d
+    ${RUNTIME_DIR}/src/rt/alloca.d
+    ${RUNTIME_DIR}/src/rt/deh.d
+    ${RUNTIME_DIR}/src/rt/deh_win32.d
+    ${RUNTIME_DIR}/src/rt/deh_win64_posix.d
+    ${RUNTIME_DIR}/src/rt/llmath.d
+    ${RUNTIME_DIR}/src/rt/trace.d
 )
-file(GLOB DCRT_C ${RUNTIME_DC_DIR}/*.c)
-list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/deh.c ${RUNTIME_DC_DIR}/dylib_fixes.c)
+file(GLOB DCRT_C ${RUNTIME_DIR}/src/rt/*.c)
+list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/deh.c ${RUNTIME_DIR}/src/rt/dylib_fixes.c)
 if(APPLE)
     list(APPEND DCRT_C ${RUNTIME_DIR}/src/ldc/osx_tls.c)
 endif()
@@ -106,7 +99,7 @@ if(UNIX)
         list(APPEND CORE_D_SYS ${CORE_D_OSX})
     endif()
     list(REMOVE_ITEM LDC_D ${RUNTIME_DIR}/src/ldc/eh2.d)
-    list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/msvc.c)
+    list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/msvc.c)
 
     # Using CMAKE_SYSTEM_PROCESSOR might be inacurrate when somebody is
     # cross-compiling by just setting the tool executbles to a cross toolchain,
@@ -119,7 +112,7 @@ elseif(WIN32)
     else()
         list(REMOVE_ITEM LDC_D ${RUNTIME_DIR}/src/ldc/eh2.d)
     endif()
-    list(REMOVE_ITEM DCRT_C ${RUNTIME_DC_DIR}/monitor.c)
+    list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/monitor.c)
 endif()
 list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
 list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
@@ -239,7 +232,7 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
     add_custom_command(
         OUTPUT
             ${outfiles}
-        COMMAND ${LDC_LOC} ${dc_flags} -c -I${RUNTIME_INCLUDE} -I${RUNTIME_GC_DIR} ${input_d} -of${output_o} ${d_flags}
+        COMMAND ${LDC_LOC} ${dc_flags} -c -I${RUNTIME_DIR}/src -I${RUNTIME_DIR}/src/gc ${input_d} -of${output_o} ${d_flags}
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${LDC_LOC}
             ${input_d}
@@ -299,7 +292,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
             COMMAND ${GEN_GCCBUILTINS_LOC} ${GCCBUILTINS} "x86"
             DEPENDS ${GEN_GCCBUILTINS_LOC}
         )
-        add_library(${RUNTIME_AIO}${target_suffix}
+        add_library(druntime-ldc${target_suffix}
                     ${D_LIBRARY_TYPE}
                     ${CORE_O}
                     ${CORE_C}
@@ -309,8 +302,8 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
                     ${DCRT_ASM}
                     ${GCCBUILTINS}
         )
-        set(lib_targets ${RUNTIME_AIO}${target_suffix})
-        set_target_properties(${RUNTIME_AIO}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_AIO}${lib_suffix})
+        set(lib_targets druntime-ldc${target_suffix})
+        set_target_properties(druntime-ldc${target_suffix} PROPERTIES OUTPUT_NAME druntime-ldc${lib_suffix})
     endif()
 
     set_target_properties(
