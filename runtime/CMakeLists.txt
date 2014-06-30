@@ -10,7 +10,6 @@ set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERS
 
 set(MULTILIB              OFF                                       CACHE BOOL    "Build both 32/64 bit runtime libraries")
 set(BUILD_BC_LIBS         OFF                                       CACHE BOOL    "Build the runtime as LLVM bitcode libraries")
-set(BUILD_SINGLE_LIB      ON                                        CACHE BOOL    "Build single runtime library (no core/rt/gc split)")
 set(LIB_SUFFIX            ""                                        CACHE STRING  "'64' to install libraries into ${PREFIX}/lib64")
 set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d         CACHE PATH    "Path to install D modules to")
 set(BUILD_SHARED_LIBS     OFF                                       CACHE BOOL    "Whether to build the runtime as a shared library (*UNSUPPORTED*)")
@@ -37,14 +36,9 @@ endif()
 if(BUILD_SHARED_LIBS)
     list(APPEND D_FLAGS -relocation-model=pic)
     if(APPLE)
-        if(BUILD_SINGLE_LIB)
-            # We need to explicitly specify that __Dmain should be resolved at
-            # runtime with the default OS X tool chain.
-            list(APPEND LD_FLAGS -Wl,-U,__Dmain)
-        else()
-            # In split mode ignore missing symbols altogether.
-            list(APPEND LD_FLAGS -Wl,-undefined,dynamic_lookup)
-        endif()
+        # We need to explicitly specify that __Dmain should be resolved at
+        # runtime with the default OS X tool chain.
+        list(APPEND LD_FLAGS -Wl,-U,__Dmain)
     endif()
     set(D_LIBRARY_TYPE SHARED)
 else()
@@ -310,32 +304,18 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
             COMMAND ${GEN_GCCBUILTINS_LOC} ${GCCBUILTINS} "x86"
             DEPENDS ${GEN_GCCBUILTINS_LOC}
         )
-        if(BUILD_SINGLE_LIB)
-            add_library(${RUNTIME_AIO}${target_suffix}
-                        ${D_LIBRARY_TYPE}
-                        ${CORE_O}
-                        ${CORE_C}
-                        ${GC_O}
-                        ${DCRT_O}
-                        ${DCRT_C}
-                        ${DCRT_ASM}
-                        ${GCCBUILTINS}
-            )
-            set(lib_targets ${RUNTIME_AIO}${target_suffix})
-            set_target_properties(${RUNTIME_AIO}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_AIO}${lib_suffix})
-        else()
-            add_library(${RUNTIME_CC}${target_suffix} ${D_LIBRARY_TYPE} ${CORE_O} ${CORE_C} ${GCCBUILTINS})
-            add_library(${RUNTIME_GC}${target_suffix} ${D_LIBRARY_TYPE} ${GC_O})
-            add_library(${RUNTIME_DC}${target_suffix} ${D_LIBRARY_TYPE} ${DCRT_O} ${DCRT_C})
-            set_target_properties(${RUNTIME_CC}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_CC}${lib_suffix})
-            set_target_properties(${RUNTIME_GC}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_GC}${lib_suffix})
-            set_target_properties(${RUNTIME_DC}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_DC}${lib_suffix})
-            set(lib_targets
-                ${RUNTIME_CC}${target_suffix}
-                ${RUNTIME_GC}${target_suffix}
-                ${RUNTIME_DC}${target_suffix}
-            )
-        endif()
+        add_library(${RUNTIME_AIO}${target_suffix}
+                    ${D_LIBRARY_TYPE}
+                    ${CORE_O}
+                    ${CORE_C}
+                    ${GC_O}
+                    ${DCRT_O}
+                    ${DCRT_C}
+                    ${DCRT_ASM}
+                    ${GCCBUILTINS}
+        )
+        set(lib_targets ${RUNTIME_AIO}${target_suffix})
+        set_target_properties(${RUNTIME_AIO}${target_suffix} PROPERTIES OUTPUT_NAME ${RUNTIME_AIO}${lib_suffix})
     endif()
 
     set_target_properties(
@@ -405,46 +385,23 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
             message(SEND_ERROR "llvm-ar not found")
         endif()
 
-        if(BUILD_SINGLE_LIB)
-            set(bclibs
-                ${output_path}/libdruntime-ldc${lib_suffix}-bc.a
-                ${output_path}/libphobos-ldc${lib_suffix}-bc.a
-            )
-            add_custom_command(
-                OUTPUT ${bclibs}
-                COMMAND ${LLVM_AR_EXE} rs libdruntime-ldc${lib_suffix}-bc.a ${CORE_BC} ${GC_BC} ${DCRT_BC}
-                COMMAND ${LLVM_AR_EXE} rs libphobos-ldc${lib_suffix}-bc.a ${PHOBOS2_BC}
-                WORKING_DIRECTORY ${output_path}
-                DEPENDS
-                    ${CORE_BC}
-                    ${GC_BC}
-                    ${DCRT_BC}
-                    ${LDC_IMPORTS}
-                    ${PHOBOS2_BC}
-                VERBATIM
-            )
-        else()
-            set(bclibs
-                ${output_path}/lib${RUNTIME_CC}${lib_suffix}-bc.a
-                ${output_path}/lib${RUNTIME_GC}${lib_suffix}-bc.a
-                ${output_path}/lib${RUNTIME_DC}${lib_suffix}-bc.a
-                ${output_path}/libphobos-ldc${lib_suffix}-bc.a
-            )
-            add_custom_command(
-                OUTPUT ${bclibs}
-                COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_CC}${lib_suffix}-bc.a ${CORE_BC}
-                COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_GC}${lib_suffix}-bc.a ${GC_BC}
-                COMMAND ${LLVM_AR_EXE} rs lib${RUNTIME_DC}${lib_suffix}-bc.a ${DCRT_BC}
-                COMMAND ${LLVM_AR_EXE} rs libphobos-ldc${lib_suffix}-bc.a ${PHOBOS2_BC}
-                WORKING_DIRECTORY ${output_path}
-                DEPENDS
-                    ${CORE_BC}
-                    ${GC_BC}
-                    ${DCRT_BC}
-                    ${LDC_IMPORTS}
-                    ${PHOBOS2_BC}
-            )
-        endif()
+        set(bclibs
+            ${output_path}/libdruntime-ldc${lib_suffix}-bc.a
+            ${output_path}/libphobos-ldc${lib_suffix}-bc.a
+        )
+        add_custom_command(
+            OUTPUT ${bclibs}
+            COMMAND ${LLVM_AR_EXE} rs libdruntime-ldc${lib_suffix}-bc.a ${CORE_BC} ${GC_BC} ${DCRT_BC}
+            COMMAND ${LLVM_AR_EXE} rs libphobos-ldc${lib_suffix}-bc.a ${PHOBOS2_BC}
+            WORKING_DIRECTORY ${output_path}
+            DEPENDS
+                ${CORE_BC}
+                ${GC_BC}
+                ${DCRT_BC}
+                ${LDC_IMPORTS}
+                ${PHOBOS2_BC}
+            VERBATIM
+        )
 
         add_custom_target(bitcode-libraries${target_suffix} ALL DEPENDS ${bclibs})
     endif()
