@@ -226,6 +226,16 @@ static void hideLLVMOptions() {
     hide(map, "verify-scev");
     hide(map, "x86-early-ifcvt");
     hide(map, "x86-use-vzeroupper");
+
+    // We enable -fdata-sections/-ffunction-sections by default where it makes
+    // sense for reducing code size, so hide them to avoid confusion.
+    //
+    // We need our own switch as these two are defined by LLVM and linked to
+    // static TargetMachine members, but the default we want to use depends
+    // on the target triple (and thus we do not know it until after the command
+    // line has been parsed).
+    hide(map, "fdata-sections");
+    hide(map, "ffunction-sections");
 }
 #endif
 
@@ -907,7 +917,7 @@ int main(int argc, char **argv)
 
     gTargetMachine = createTargetMachine(mTargetTriple, mArch, mCPU, mAttrs,
         bitness, mFloatABI, mRelocModel, mCodeModel, codeGenOptLevel(),
-        global.params.symdebug || disableFpElim);
+        global.params.symdebug || disableFpElim, disableLinkerStripDead);
 
     {
         llvm::Triple triple = llvm::Triple(gTargetMachine->getTargetTriple());

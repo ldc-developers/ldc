@@ -377,6 +377,10 @@ cl::opt<bool> linkonceTemplates("linkonce-templates",
     cl::desc("Use linkonce_odr linkage for template symbols instead of weak_odr"),
     cl::ZeroOrMore);
 
+cl::opt<bool> disableLinkerStripDead("disable-linker-strip-dead",
+    cl::desc("Do not try to remove unused symbols during linking"),
+    cl::init(false));
+
 cl::opt<bool, true> allinst("allinst",
     cl::desc("generate code for all template instantiations"),
     cl::location(global.params.allInst));
