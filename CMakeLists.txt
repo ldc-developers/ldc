@@ -1,11 +1,6 @@
 project(ldc)
 cmake_minimum_required(VERSION 2.8)
 
-# Reading the LOCATION property has been deprecated in CMake 3.0, see GitHub #658.
-if(NOT ${CMAKE_VERSION} VERSION_LESS 3.0)
-    cmake_policy(SET CMP0026 OLD)
-endif()
-
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 if(MSVC)
@@ -163,24 +158,18 @@ set_target_properties(
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${DMD_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-get_target_property(IDGEN_LOC idgen LOCATION)
-get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
-#
+
 add_custom_command(
     OUTPUT
         ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
         ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
-    # 2.4
-    COMMAND ${IDGEN_LOC}
-    #COMMAND idgen
+    COMMAND idgen
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     DEPENDS idgen
 )
 add_custom_command(
     OUTPUT ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
-    # 2.4
-    COMMAND ${IMPCNVGEN_LOC}
-    #COMMAND impcnvgen
+    COMMAND impcnvgen
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     DEPENDS impcnvgen
 )
@@ -311,6 +300,8 @@ include_directories(
     ${DMDFE_PATH}/root
     ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     ${PROJECT_SOURCE_DIR}
+)
+include_directories( SYSTEM
     ${LLVM_INCLUDE_DIRS}
     ${LIBCONFIG++_INCLUDE_DIR}
 )
@@ -439,8 +430,6 @@ if(MSVC)
     add_custom_command(TARGET ${LDC_EXE} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf $<TARGET_FILE_DIR:${LDC_EXE}> COMMENT "Copy config file ${LDC_EXE}.conf")
 endif()
 
-# For use by the druntime/Phobos build system.
-get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 
 #
 # Intrinsics module generation tools.
@@ -475,8 +464,6 @@ target_link_libraries(gen_gccbuiltins ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMIN
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
-
-get_target_property(GEN_GCCBUILTINS_LOC gen_gccbuiltins LOCATION)
 
 #
 # LDMD

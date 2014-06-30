@@ -167,16 +167,11 @@ else()
 endif()
 
 # should only be necessary if run independently from ldc cmake project
-if(NOT LDC_LOC)
+if(NOT LDC_EXE)
+    find_program(LDC_EXE ldc2 ${PROJECT_BINARY_DIR}/../bin DOC "path to ldc binary")
     if(NOT LDC_EXE)
-        set(LDC_EXE ldc2)
-    endif()
-
-    find_program(LDC_LOC ${LDC_EXE} ${PROJECT_BINARY_DIR}/../bin DOC "path to ldc binary")
-    if(NOT LDC_LOC)
         message(SEND_ERROR "ldc not found")
     endif()
-    set(LDC_EXE_NAME ${LDC_EXE})
 endif()
 
 #
@@ -206,8 +201,7 @@ configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY
 set(GCCBUILTINS "${PROJECT_BINARY_DIR}/gccbuiltins_x86.di")
 add_custom_command(
     OUTPUT ${GCCBUILTINS}
-    COMMAND ${GEN_GCCBUILTINS_LOC} ${GCCBUILTINS} "x86"
-    DEPENDS ${GEN_GCCBUILTINS_LOC}
+    COMMAND gen_gccbuiltins ${GCCBUILTINS} "x86"
 )
 
 # Always build zlib and other C parts of the runtime in release mode, regardless
@@ -278,12 +272,11 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
     add_custom_command(
         OUTPUT
             ${outfiles}
-        COMMAND ${LDC_LOC} ${dc_flags} -c -I${RUNTIME_DIR}/src -I${RUNTIME_DIR}/src/gc ${input_d} -of${output_o} ${cur_d_flags}
+        COMMAND ${LDC_EXE} ${dc_flags} -c -I${RUNTIME_DIR}/src -I${RUNTIME_DIR}/src/gc ${input_d} -of${output_o} ${cur_d_flags}
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
-        DEPENDS ${LDC_LOC}
-            ${input_d}
-            ${GCCBUILTINS}
-            ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
+        DEPENDS ${input_d}
+                ${GCCBUILTINS}
+                ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
     )
 endmacro()
 
@@ -619,8 +612,8 @@ macro(build_test_runner name_suffix d_flags c_flags)
 
         set(libarg "druntime-ldc-unittest${name_suffix}")
         add_test(NAME build-druntime-test-runner${name_suffix}
-            COMMAND ${LDC_LOC}
-                -of${PROJECT_BINARY_DIR}/druntime-test-runner${name_suffix}
+            COMMAND ${LDC_EXE}
+                -of${PROJECT_BINARY_DIR}/druntime-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
                 -defaultlib=${libarg} -debuglib=${libarg}
                 -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
         )
@@ -630,8 +623,8 @@ macro(build_test_runner name_suffix d_flags c_flags)
         if(PHOBOS2_DIR)
             set(libarg "phobos2-ldc-unittest${name_suffix},druntime-ldc-unittest${name_suffix}")
             add_test(NAME build-phobos2-test-runner${name_suffix}
-                COMMAND ${LDC_LOC}
-                    -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}
+                COMMAND ${LDC_EXE}
+                    -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
                     -L--no-as-needed -defaultlib=${libarg} -debuglib=${libarg}
                     -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
             )
@@ -666,8 +659,8 @@ macro(build_test_runner name_suffix d_flags c_flags)
             --build ${CMAKE_BINARY_DIR} --target druntime-ldc-unittest${name_suffix})
 
         add_test(NAME build-druntime-test-runner${name_suffix}
-            COMMAND ${LDC_LOC}
-                -of${PROJECT_BINARY_DIR}/druntime-test-runner${name_suffix}
+            COMMAND ${LDC_EXE}
+                -of${PROJECT_BINARY_DIR}/druntime-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
                 -defaultlib=${druntime-casm} -debuglib=${druntime-casm}
                 -singleobj ${flags} ${druntime_o} ${RUNTIME_DIR}/src/test_runner.d
         )
@@ -697,8 +690,8 @@ macro(build_test_runner name_suffix d_flags c_flags)
                 --build ${CMAKE_BINARY_DIR} --target phobos2-ldc-unittest${name_suffix})
 
             add_test(NAME build-phobos2-test-runner${name_suffix}
-                COMMAND ${LDC_LOC}
-                    -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}
+                COMMAND ${LDC_EXE}
+                    -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
                     -defaultlib=druntime-ldc,${phobos2-casm} -debuglib=druntime-ldc,${phobos2-casm}
                     -singleobj -L-lcurl ${flags} ${phobos2_o} ${RUNTIME_DIR}/src/test_runner.d
             )
