@@ -611,40 +611,46 @@ function(add_tests module_files)
             add_test(NAME ${testroot}_${name}_build
                 COMMAND ${LDC_LOC}
                     -of${PROJECT_BINARY_DIR}/${testroot}_${name}
-                    -unittest -d -w -singleobj ${flags}
-                    ${file} ${PROJECT_SOURCE_DIR}/emptymain.d
+                    -unittest -main -d -w -singleobj ${flags} ${file}
             )
             add_test(NAME ${testroot}_${name}_run COMMAND ${PROJECT_BINARY_DIR}/${testroot}_${name})
             set_tests_properties(${testroot}_${name}_run PROPERTIES DEPENDS ${testroot}_${name}_build)
         endfunction()
 
-        testcase(debug "-g;-d-debug")
+        set(dbgflags "-g;-d-debug")
+        if("${testroot}" STREQUAL "phobos_std_net_curl")
+            set(flags "${dbgflags};-L=-lcurl")
+        endif()
+        testcase(debug "${dbgflags}")
 
+        set(relflags "-O3;-release")
         # Building the std.exception tests on x86_64 triggers an infinite
         # recursion in scalar evolution on LLVM 3.1 (only), see the list of
         # known LLVM bugs for details.
         if(${LDC_LLVM_VER} EQUAL 301 AND ${HOST_BITNESS} EQUAL 64 AND
             "${testroot}" STREQUAL "phobos_std_exception")
-            testcase(release "-O1;-release")
+            set(relflags "-O1;-release")
         # Building the std.range tests triggers an assertion error on
         # every LLVM release before 3.3. See PR15608.
         elseif(${LDC_LLVM_VER} LESS 303 AND
             "${testroot}" STREQUAL "phobos_std_range")
-            testcase(release "-O1;-release")
+            set(relflags "-O1;-release")
         # Building the rt.util.container tests triggers a bug in the
         # jump threading pass on every LLVM release before 3.4.
         # See PR17621.
         elseif(${LDC_LLVM_VER} LESS 304 AND
             "${testroot}" STREQUAL "druntime_src_rt_util_container")
-            testcase(release "-O1;-release")
-        else()
-            testcase(release "-O3;-release")
+            set(relflags "-O1;-release")
         endif()
+        if("${testroot}" STREQUAL "phobos_std_net_curl")
+            set(flags "${relflags};-L=-lcurl")
+        endif()
+        testcase(release "${relflags}")
 
         # On 64 bit multilib builds, run the tests in 32 bit mode as well.
         if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
-            testcase(debug_32 "-g;-d-debug;-m32")
-            testcase(release_32 "-O3;-release;-m32")
+            testcase(debug_32 "${dbgflags};-m32")
+            testcase(release_32 "${relflags};-m32")
         endif()
     endforeach()
 endfunction()
