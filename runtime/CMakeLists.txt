@@ -285,29 +285,26 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
         )
     endif()
 
-    if(EXISTS ${RUNTIME_DIR})
-        set(GCCBUILTINS "${PROJECT_BINARY_DIR}/gccbuiltins_x86.di")
-        add_custom_command(
-            OUTPUT ${GCCBUILTINS}
-            COMMAND ${GEN_GCCBUILTINS_LOC} ${GCCBUILTINS} "x86"
-            DEPENDS ${GEN_GCCBUILTINS_LOC}
-        )
-        add_library(druntime-ldc${target_suffix}
-                    ${D_LIBRARY_TYPE}
-                    ${CORE_O}
-                    ${CORE_C}
-                    ${GC_O}
-                    ${DCRT_O}
-                    ${DCRT_C}
-                    ${DCRT_ASM}
-                    ${GCCBUILTINS}
-        )
-        set(lib_targets druntime-ldc${target_suffix})
-        set_target_properties(druntime-ldc${target_suffix} PROPERTIES OUTPUT_NAME druntime-ldc${lib_suffix})
-    endif()
+    set(GCCBUILTINS "${PROJECT_BINARY_DIR}/gccbuiltins_x86.di")
+    add_custom_command(
+        OUTPUT ${GCCBUILTINS}
+        COMMAND ${GEN_GCCBUILTINS_LOC} ${GCCBUILTINS} "x86"
+        DEPENDS ${GEN_GCCBUILTINS_LOC}
+    )
+    add_library(druntime-ldc${target_suffix}
+                ${D_LIBRARY_TYPE}
+                ${CORE_O}
+                ${CORE_C}
+                ${GC_O}
+                ${DCRT_O}
+                ${DCRT_C}
+                ${DCRT_ASM}
+                ${GCCBUILTINS}
+    )
+    set_target_properties(druntime-ldc${target_suffix} PROPERTIES OUTPUT_NAME druntime-ldc${lib_suffix})
 
     set_target_properties(
-        ${lib_targets} PROPERTIES
+        druntime-ldc${target_suffix} PROPERTIES
         VERSION                     ${DMDFE_VERSION}
         SOVERSION                   ${DMDFE_PATCH_VERSION}
         LINKER_LANGUAGE             C
@@ -317,7 +314,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
         COMPILE_FLAGS               "${c_flags}"
         LINK_FLAGS                  "${ld_flags}"
     )
-    list(APPEND ${outlist_targets} ${lib_targets})
+    list(APPEND ${outlist_targets} druntime-ldc${target_suffix})
 
     if(PHOBOS2_DIR)
         set(PHOBOS2_O "")
