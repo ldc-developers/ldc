@@ -440,8 +440,13 @@ llvm::TargetMachine* createTargetMachine(
     // emitting the symbols into different sections. The MinGW ld doesn't seem
     // to support --gc-sections at all, and FreeBSD needs more investigation.
     if (!noLinkerStripDead && triple.getOS() == llvm::Triple::Linux) {
+#if LDC_LLVM_VER < 305
         llvm::TargetMachine::setDataSections(true);
         llvm::TargetMachine::setFunctionSections(true);
+#else
+        targetOptions.FunctionSections = true;
+        targetOptions.DataSections = true;
+#endif
     }
 
     return target->createTargetMachine(
