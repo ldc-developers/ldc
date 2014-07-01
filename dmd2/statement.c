@@ -31,11 +31,6 @@
 #include "attrib.h"
 #include "import.h"
 
-#if IN_LLVM
-// From pragma.cpp
-bool matchPragma(Identifier* needle, Identifier* ident, Identifier* oldIdent);
-#endif
-
 Identifier *fixupLabelName(Scope *sc, Identifier *ident)
 {
     unsigned flags = (sc->flags & SCOPEcontract);
@@ -3015,7 +3010,7 @@ Statement *PragmaStatement::semantic(Scope *sc)
     }
 #if IN_LLVM
     // FIXME Move to pragma.cpp
-    else if (matchPragma(ident, Id::LDC_allow_inline, Id::allow_inline))
+    else if (ident == Id::LDC_allow_inline)
     {
         sc->func->allowInlining = true;
     }

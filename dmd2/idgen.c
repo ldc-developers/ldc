@@ -292,25 +292,6 @@ Msgtable msgtable[] =
     { "LDC_atomic_rmw" },
     { "LDC_global_crt_ctor" },
     { "LDC_global_crt_dtor" },
-
-    // Deprecated LDC pragmas lacking the vendor prefix.
-    { "intrinsic" },
-    { "no_typeinfo" },
-    { "no_moduleinfo" },
-    { "Alloca", "alloca" },
-    { "vastart", "va_start" },
-    { "vacopy", "va_copy" },
-    { "vaend", "va_end" },
-    { "vaarg", "va_arg" },
-    { "ldc" },
-    { "allow_inline" },
-    { "llvm_inline_asm" },
-    { "llvm_inline_ir" },
-    { "fence" },
-    { "atomic_load" },
-    { "atomic_store" },
-    { "atomic_cmp_xchg" },
-    { "atomic_rmw" },
 #endif
 
     // For special functions
