@@ -267,29 +267,17 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     global.params.moduleDeps = NULL;
     global.params.moduleDepsFile = NULL;
 
-    // build complete fixed up list of command line arguments
+    // Build combined list of command line arguments.
     std::vector<const char*> final_args;
-    final_args.reserve(argc);
+    final_args.push_back(argv[0]);
 
-    // insert command line args until -run is reached
-    int run_argnum = 1;
-    while (run_argnum < argc && strncmp(argv[run_argnum], "-run", 4) != 0)
-        ++run_argnum;
-    final_args.insert(final_args.end(), &argv[0], &argv[run_argnum]);
-
-    // read the configuration file
     ConfigFile cfg_file;
-
     // just ignore errors for now, they are still printed
     cfg_file.read(argv0, (void*)main, "ldc2.conf");
-
-    // insert config file additions to the argument list
     final_args.insert(final_args.end(), cfg_file.switches_begin(), cfg_file.switches_end());
 
-    // insert -run and everything beyond
-    final_args.insert(final_args.end(), &argv[run_argnum], &argv[argc]);
+    final_args.insert(final_args.end(), &argv[1], &argv[argc]);
 
-    // Handle fixed-up arguments!
     cl::SetVersionPrinter(&printVersion);
 #if LDC_LLVM_VER >= 303
     hideLLVMOptions();
