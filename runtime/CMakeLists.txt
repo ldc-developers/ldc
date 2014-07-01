@@ -459,7 +459,7 @@ if(MULTILIB)
         set(hostsuffix "${LIB_SUFFIX}${HOST_BITNESS}")
 
         set(hosttargets)
-        build_runtime_variants("" "${RT_CLAGS}" "${LD_FLAGS}" "${hostsuffix}" hosttargets)
+        build_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${hostsuffix}" hosttargets)
 
         set(multitargets)
         build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" multitargets)
@@ -479,11 +479,11 @@ if(MULTILIB)
             list(APPEND LIBS_TO_INSTALL ${t})
         endforeach()
     else()
-        build_runtime_variants("" "${RT_CLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" LIBS_TO_INSTALL)
+        build_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" LIBS_TO_INSTALL)
         build_runtime_variants("-m${MULTILIB_SUFFIX}" "-m${MULTILIB_SUFFIX} ${RT_CFLAGS}" "-m${MULTILIB_SUFFIX} ${LD_FLAGS}" "${MULTILIB_SUFFIX}" dummy)
     endif()
 else()
-    build_runtime_variants("" "${RT_CLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" LIBS_TO_INSTALL)
+    build_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" LIBS_TO_INSTALL)
 endif()
 
 # Copy over druntime modules, preferring hand-written .di files.
