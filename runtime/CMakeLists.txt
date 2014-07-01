@@ -197,8 +197,15 @@ configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.rebuild.conf)
 
 #
-# Macros.
+# druntime/Phobos compilation helpers.
 #
+
+set(GCCBUILTINS "${PROJECT_BINARY_DIR}/gccbuiltins_x86.di")
+add_custom_command(
+    OUTPUT ${GCCBUILTINS}
+    COMMAND ${GEN_GCCBUILTINS_LOC} ${GCCBUILTINS} "x86"
+    DEPENDS ${GEN_GCCBUILTINS_LOC}
+)
 
 # Compiles the given D module into an object file, and if enabled, a bitcode
 # file. The ouput is written to a path based on output_dir. The paths of the
@@ -236,8 +243,87 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${LDC_LOC}
             ${input_d}
+            ${GCCBUILTINS}
             ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
     )
+endmacro()
+
+# Sets target_suffix to a purely cosmetical suffix for the CMake target names
+# from the given suffixes on the library name and the target path. We could use
+# any string that resolves the ambiguities between the different variants.
+macro(get_target_suffix lib_suffix path_suffix target_suffix)
+    set(${target_suffix} "")
+    if(NOT "${lib_suffix}" STREQUAL "")
+        set(${target_suffix} "${lib_suffix}")
+    endif()
+    if(NOT "${path_suffix}" STREQUAL "")
+        set(${target_suffix} "${${target_suffix}}_${path_suffix}")
+    endif()
+endmacro()
+
+# Sets up the targets for building the individual druntime object files,
+# appending the names of the (bitcode) files to link into the library to
+# outlist_o (outlist_bc).
+macro(compile_druntime d_flags lib_suffix path_suffix outlist_o outlist_bc)
+    get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
+
+    # Always disable invariants for debug builds of core.* and gc.* (there
+    # are/were some broken invariants around; druntime is always built in
+    # release mode in upstream builds).
+    set(rt_flags "${d_flags};-disable-invariants")
+    if(BUILD_SHARED_LIBS)
+        set(shared ";-d-version=Shared")
+    else()
+        set(shared)
+    endif()
+
+    foreach(f ${CORE_D} ${GC_D})
+        dc(
+            ${f}
+            "${rt_flags}${shared}"
+            "${RUNTIME_DIR}"
+            "${target_suffix}"
+            ${outlist_o}
+            ${outlist_bc}
+        )
+    endforeach()
+
+    foreach(f ${DCRT_D})
+        dc(
+            ${f}
+            "${d_flags}${shared}"
+            "${RUNTIME_DIR}"
+            "${target_suffix}"
+            ${outlist_o}
+            ${outlist_bc}
+        )
+    endforeach()
+
+    # TODO: Handle these in bitcode builds (GitHub #220).
+    list(APPEND ${outlist_o} ${CORE_C} ${DCRT_C} ${DCRT_ASM})
+    if(NOT MSVC)
+        # Always build zlib and other C parts of the runtime in release mode.
+        set_source_files_properties(${CORE_C} ${DCRT_C} PROPERTIES
+            COMPILE_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELEASE}"
+        )
+    endif()
+endmacro()
+
+# Sets up the targets for building the individual Phobos object files,
+# appending the names of the (bitcode) files to link into the library to
+# outlist_o (outlist_bc).
+macro(compile_phobos2 d_flags lib_suffix path_suffix outlist_o outlist_bc)
+    get_target_suffix("${lib_suffix}" "${path_suffix}" target_suffix)
+    foreach(f ${PHOBOS2_D})
+         dc(
+            ${f}
+            "${d_flags};-I${PHOBOS2_DIR}"
+            ${PHOBOS2_DIR}
+            "${target_suffix}"
+            ${outlist_o}
+            ${outlist_bc}
+        )
+    endforeach()
 endmacro()
 
 # Builds a copy of druntime/Phobos from the source files gathered above. The
@@ -245,65 +331,14 @@ endmacro()
 macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targets)
     set(output_path ${CMAKE_BINARY_DIR}/lib${path_suffix})
 
-    # "Vanity" suffix for target names.
-    set(target_suffix "")
-    if(NOT "${lib_suffix}" STREQUAL "")
-        set(target_suffix "${lib_suffix}")
-    endif()
-    if(NOT "${path_suffix}" STREQUAL "")
-        set(target_suffix "${target_suffix}_${path_suffix}")
-    endif()
+    set(druntime_o "")
+    set(druntime_bc "")
+    compile_druntime("${d_flags}" "${lib_suffix}" "${path_suffix}" druntime_o druntime_bc)
 
-    # Always disable invariants for debug builds of core.* and gc.* (there
-    # are/were some broken invariants around; druntime is always built in
-    # release mode in upstream builds).
-    set(rt_flags "${d_flags};-disable-invariants")
-
-    set(CORE_O "")
-    set(CORE_BC "")
-    foreach(f ${CORE_D})
-        dc(${f} "${rt_flags}" "${RUNTIME_DIR}" "${target_suffix}" CORE_O CORE_BC)
-    endforeach()
-
-    set(GC_O "")
-    set(GC_BC "")
-    foreach(f ${GC_D})
-        dc(${f} "${rt_flags}" "${RUNTIME_DIR}" "${target_suffix}" GC_O GC_BC)
-    endforeach()
-
-    set(DCRT_O "")
-    set(DCRT_BC "")
-    foreach(f ${DCRT_D})
-        dc(${f} "${d_flags}" "${RUNTIME_DIR}" "${target_suffix}" DCRT_O DCRT_BC)
-    endforeach()
-
-    if(NOT MSVC)
-        # Always build zlib and other C parts of the runtime in release mode.
-        set_source_files_properties(${CORE_C} ${DCRT_C} PROPERTIES
-            COMPILE_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELEASE}"
-        )
-    endif()
-
-    set(GCCBUILTINS "${PROJECT_BINARY_DIR}/gccbuiltins_x86.di")
-    add_custom_command(
-        OUTPUT ${GCCBUILTINS}
-        COMMAND ${GEN_GCCBUILTINS_LOC} ${GCCBUILTINS} "x86"
-        DEPENDS ${GEN_GCCBUILTINS_LOC}
-    )
-    add_library(druntime-ldc${target_suffix}
-                ${D_LIBRARY_TYPE}
-                ${CORE_O}
-                ${CORE_C}
-                ${GC_O}
-                ${DCRT_O}
-                ${DCRT_C}
-                ${DCRT_ASM}
-                ${GCCBUILTINS}
-    )
-    set_target_properties(druntime-ldc${target_suffix} PROPERTIES OUTPUT_NAME druntime-ldc${lib_suffix})
-
+    add_library(druntime-ldc${target_suffix} ${D_LIBRARY_TYPE} ${druntime_o})
     set_target_properties(
         druntime-ldc${target_suffix} PROPERTIES
+        OUTPUT_NAME                 druntime-ldc${lib_suffix}
         VERSION                     ${DMDFE_VERSION}
         SOVERSION                   ${DMDFE_PATCH_VERSION}
         LINKER_LANGUAGE             C
@@ -316,21 +351,16 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
     list(APPEND ${outlist_targets} druntime-ldc${target_suffix})
 
     if(PHOBOS2_DIR)
-        set(PHOBOS2_O "")
-        set(PHOBOS2_BC "")
-        foreach(f ${PHOBOS2_D})
-             dc(${f} "${d_flags};-I${PHOBOS2_DIR}" ${PHOBOS2_DIR} "${target_suffix}" PHOBOS2_O PHOBOS2_BC)
-        endforeach()
+        set(phobos2_o "")
+        set(phobos2_bc "")
+        compile_phobos2("${d_flags}" "${lib_suffix}" "${path_suffix}" phobos2_o phobos2_bc)
 
-        add_library(phobos2-ldc${target_suffix} ${D_LIBRARY_TYPE}
-            ${ZLIB_C}
-            ${PHOBOS2_O}
-        )
+        add_library(phobos2-ldc${target_suffix} ${D_LIBRARY_TYPE} ${ZLIB_C} ${phobos2_o})
         set_target_properties(
             phobos2-ldc${target_suffix} PROPERTIES
+            OUTPUT_NAME                 phobos2-ldc${lib_suffix}
             VERSION                     ${DMDFE_VERSION}
             SOVERSION                   ${DMDFE_PATCH_VERSION}
-            OUTPUT_NAME                 phobos2-ldc${lib_suffix}
             LINKER_LANGUAGE             C
             ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
             LIBRARY_OUTPUT_DIRECTORY    ${output_path}
@@ -362,14 +392,12 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
         )
         add_custom_command(
             OUTPUT ${bclibs}
-            COMMAND ${LLVM_AR_EXE} rs libdruntime-ldc${lib_suffix}-bc.a ${CORE_BC} ${GC_BC} ${DCRT_BC}
-            COMMAND ${LLVM_AR_EXE} rs libphobos2-ldc${lib_suffix}-bc.a ${PHOBOS2_BC}
+            COMMAND ${LLVM_AR_EXE} rs libdruntime-ldc${lib_suffix}-bc.a ${druntime_bc}
+            COMMAND ${LLVM_AR_EXE} rs libphobos2-ldc${lib_suffix}-bc.a ${phobos2_bc}
             WORKING_DIRECTORY ${output_path}
             DEPENDS
-                ${CORE_BC}
-                ${GC_BC}
-                ${DCRT_BC}
-                ${PHOBOS2_BC}
+                ${druntime_bc}
+                ${phobos2_bc}
             VERBATIM
         )
 
