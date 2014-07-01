@@ -1,6 +1,11 @@
 project(ldc)
 cmake_minimum_required(VERSION 2.8)
 
+# Reading the LOCATION property has been deprecated in CMake 3.0, see GitHub #658.
+if(NOT ${CMAKE_VERSION} VERSION_LESS 3.0)
+    cmake_policy(SET CMP0026 OLD)
+endif()
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 if(MSVC)
