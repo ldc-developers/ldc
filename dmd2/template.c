@@ -5235,7 +5235,11 @@ void TemplateInstance::tryExpandMembers(Scope *sc2)
     static int nest;
     // extracted to a function to allow windows SEH to work without destructors in the same function
     //printf("%d\n", nest);
+#if IN_LLVM
+    if (++nest > global.params.nestedTmpl)
+#else
     if (++nest > 500)
+#endif
     {
         global.gag = 0;                 // ensure error message gets printed
         error("recursive expansion");
@@ -5705,7 +5709,11 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
         while (ti && !ti->deferred && ti->tinst)
         {
             ti = ti->tinst;
+#if IN_LLVM
+            if (++nest > global.params.nestedTmpl)
+#else
             if (++nest > 500)
+#endif
             {
                 global.gag = 0;            // ensure error message gets printed
                 error("recursive expansion");
@@ -7530,7 +7538,11 @@ void TemplateMixin::semantic(Scope *sc)
 
     static int nest;
     //printf("%d\n", nest);
+#if IN_LLVM
+    if (++nest > global.params.nestedTmpl)
+#else
     if (++nest > 500)
+#endif
     {
         global.gag = 0;                 // ensure error message gets printed
         error("recursive expansion");

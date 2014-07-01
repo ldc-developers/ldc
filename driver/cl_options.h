@@ -70,6 +70,8 @@ namespace opts {
     extern cl::opt<BoolOrDefaultAdapter, false, FlagParser> boundsChecks;
     extern bool nonSafeBoundsChecks;
 
+    extern cl::opt<unsigned, true> nestedTemplateDepth;
+
     // Arguments to -d-debug
     extern std::vector<std::string> debugArgs;
     // Arguments to -run
