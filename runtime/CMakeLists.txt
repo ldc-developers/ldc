@@ -236,7 +236,6 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${LDC_LOC}
             ${input_d}
-            ${LDC_IMPORTS}
             ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
     )
 endmacro()
@@ -370,7 +369,6 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
                 ${CORE_BC}
                 ${GC_BC}
                 ${DCRT_BC}
-                ${LDC_IMPORTS}
                 ${PHOBOS2_BC}
             VERBATIM
         )
