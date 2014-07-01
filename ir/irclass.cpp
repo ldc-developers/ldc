@@ -135,6 +135,8 @@ LLGlobalVariable * IrAggr::getInterfaceArraySymbol()
     name.append(cd->mangle());
     name.append("16__interfaceInfosZ");
 
+    // We keep this as external for now and only consider template linkage if
+    // we emit the initializer later.
     classInterfacesArray = getOrCreateGlobal(cd->loc, *gIR->module,
         array_type, true, llvm::GlobalValue::ExternalLinkage, NULL, name);
 
@@ -292,7 +294,6 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
         };
 
         llvm::GlobalVariable* interfaceInfosZ = getInterfaceArraySymbol();
-        interfaceInfosZ->setLinkage(DtoExternalLinkage(cd, false));
         llvm::Constant* c = llvm::ConstantExpr::getGetElementPtr(
             interfaceInfosZ, idxs, true);
 
@@ -484,6 +485,7 @@ LLConstant * IrAggr::getClassInfoInterfaces()
     // create and apply initializer
     LLConstant* arr = LLConstantArray::get(array_type, constants);
     classInterfacesArray->setInitializer(arr);
+    classInterfacesArray->setLinkage(DtoExternalLinkage(cd, false));
 
     // return null, only baseclass provide interfaces
     if (cd->vtblInterfaces->dim == 0)
