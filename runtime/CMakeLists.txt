@@ -379,6 +379,17 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
         COMPILE_FLAGS               "${c_flags}"
         LINK_FLAGS                  "${ld_flags}"
     )
+
+    # When building a shared library, we need to link in all the default
+    # libraries otherwise implicitly added by LDC to make it loadable from
+    # C executables.
+    if(BUILD_SHARED_LIBS)
+        # TOOD: Once BUILD_SHARED_LIBS is supported on operating systems other
+        # than Linux, the library selection will need to be adapted based on
+        # the target.
+        target_link_libraries(druntime-ldc${target_suffix} "m" "pthread" "rt" "dl")
+    endif()
+
     list(APPEND ${outlist_targets} druntime-ldc${target_suffix})
 
     if(PHOBOS2_DIR)
@@ -401,8 +412,10 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
         )
 
         if(BUILD_SHARED_LIBS)
-            target_link_libraries(phobos2-ldc${target_suffix} druntime-ldc${target_suffix})
-            target_link_libraries(phobos2-ldc${target_suffix} "curl")
+            # TODO: As for druntime, adapt once shared libraries are supported
+            # on more operating systems.
+            target_link_libraries(phobos2-ldc${target_suffix}
+                druntime-ldc${target_suffix} "curl" "m" "pthread" "dl")
         endif()
 
         list(APPEND ${outlist_targets} "phobos2-ldc${target_suffix}")
