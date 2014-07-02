@@ -525,7 +525,6 @@ if(${BUILD_SHARED})
     install(TARGETS ${LDC_LIB} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
-install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.rebuild.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.rebuild.conf)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     set(BASH_COMPLETION_INST_DIR "${CONF_INST_DIR}/bash_completion.d")

@@ -192,9 +192,8 @@ if(MULTILIB AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
 endif()
 
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
-# Prepare the config files for installation in bin.
+# Prepare the config files we are going to install later in bin.
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}.rebuild.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.rebuild.conf)
 
 #
 # druntime/Phobos compilation helpers.
