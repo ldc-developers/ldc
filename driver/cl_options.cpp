@@ -385,6 +385,12 @@ cl::opt<bool, true> allinst("allinst",
     cl::desc("generate code for all template instantiations"),
     cl::location(global.params.allInst));
 
+cl::opt<unsigned, true> nestedTemplateDepth("template-depth",
+    cl::desc("(experimental) set maximum number of nested template instantiations"),
+    cl::location(global.params.nestedTmpl),
+    cl::init(500));
+
+
 static cl::extrahelp footer("\n"
 "-d-debug can also be specified without options, in which case it enables all\n"
 "debug checks (i.e. (asserts, boundchecks, contracts and invariants) as well\n"

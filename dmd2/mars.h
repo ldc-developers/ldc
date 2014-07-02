@@ -178,6 +178,7 @@ struct Param
     bool enforcePropertySyntax;
     bool addMain; // LDC_FIXME: Implement.
     bool allInst; // LDC_FIXME: Implement.
+    unsigned nestedTmpl; // maximum nested template instantiations
 #else
     bool pic;           // generate position-independent-code for shared libs
     bool cov;           // generate code coverage data
