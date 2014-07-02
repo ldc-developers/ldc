@@ -24,7 +24,7 @@ $(ROOT)/loadDR.done: RUN_ARGS:=$(DRUNTIMESO)
 
 $(ROOT)/%.done: $(ROOT)/%
 	@echo Testing $*
-	$(QUIET)./$(ROOT)/$* $(RUN_ARGS)
+	$(QUIET)$(ROOT)/$* $(RUN_ARGS)
 	@touch $@
 
 $(ROOT)/link: $(SRC)/link.d $(ROOT)/lib.so $(DRUNTIMESO)
