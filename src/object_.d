@@ -27,7 +27,6 @@ private
     import core.memory;
     import rt.util.hash;
     import rt.util.string;
-    import rt.minfo;
     debug(PRINTF) import core.stdc.stdio;
 
     extern (C) void onOutOfMemoryError() @trusted /* pure dmd @@@BUG11461@@@ */ nothrow;
@@ -1712,6 +1711,7 @@ struct ModuleInfo
 
     static int opApply(scope ApplyDg dg)
     {
+        import rt.minfo;
         return rt.minfo.moduleinfos_apply(dg);
     }
 }
