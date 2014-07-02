@@ -28,27 +28,26 @@ install:
   # clang 3.4
   - if [[ "$LLVM_PACKAGE" == *3.5* ]] && [[ "$CXX" == "clang++" ]]; then sudo apt-get install --allow-unauthenticated -qq clang-3.4; export CXX="clang++-3.4"; fi
 env:
-  - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TESTSUITE_FILTER=debug
-  - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TESTSUITE_FILTER=release
-  - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER=debug
-  - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER=release
-  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=debug OPTS="-DMULTILIB=ON"
-  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER=release
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER=debug
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER="(druntime|dmd-testsuite).*_release" OPTS="-DMULTILIB=ON"
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER="phobos_.*_release" OPTS="-DMULTILIB=ON"
-  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER=debug
-  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER=release
+  - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TESTSUITE_FILTER="-R debug$"
+  - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TESTSUITE_FILTER="-E debug$"
+  - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER="-R debug$"
+  - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER="-E debug$"
+  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER="-R debug$" OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER="-E debug$"
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER="-R debug$"
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER="-E debug$" OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER="-R debug$"
+  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER="-E debug$"
 matrix:
   allow_failures:
-    - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER=debug
-    - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER=release
+    - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER="-R debug$"
+    - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER="-E debug$"
 script:
   - cmake $OPTS .
   - make
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
-  - bin/ldc2 -version && ctest --output-on-failure -R $TESTSUITE_FILTER
+  - bin/ldc2 -version && ctest --output-on-failure $TESTSUITE_FILTER
 
 notifications:
   # Temporarily disabled due to time limit problems.

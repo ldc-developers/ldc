@@ -206,6 +206,19 @@ add_custom_command(
     DEPENDS ${GEN_GCCBUILTINS_LOC}
 )
 
+# Always build zlib and other C parts of the runtime in release mode, regardless
+# of what the user chose for LDC itself. We can't easily do this on MSVC builds
+# due to incompatible switches.
+if(NOT MSVC)
+    set(cfiles "${CORE_C};${DCRT_C}")
+    if(PHOBOS2_DIR)
+        list(APPEND cfiles "${ZLIB_C}")
+    endif()
+    set_source_files_properties(${cfiles} PROPERTIES
+        COMPILE_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELEASE}"
+    )
+endif()
+
 # Compiles the given D module into an object file, and if enabled, a bitcode
 # file. The ouput is written to a path based on output_dir. The paths of the
 # output files are appended to outlist_o and outlist_bc, respectively.
@@ -227,6 +240,29 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
         list(APPEND ${outlist_bc} ${output_bc})
     endif()
 
+    # We hit a few known bugs in older LLVM versions when building the unit
+    # tests with full optimizations. Downgrade the optimization flags for those
+    # specific files so we can at least test the rest of them.
+    set(cur_d_flags ${d_flags})
+    if("${cur_d_flags}" MATCHES "-unittest")
+        if(${LDC_LLVM_VER} EQUAL 301 AND "${input_d}" MATCHES "std/exception.d" AND
+            ${HOST_BITNESS} EQUAL 64)
+            # Building the std.exception tests on x86_64 triggers an infinite
+            # recursion in scalar evolution on LLVM 3.1 (only), see the list of
+            # known LLVM bugs for details.
+            string(REPLACE "-O3" "-O1" cur_d_flags "${cur_d_flags}")
+        elseif(${LDC_LLVM_VER} LESS 303 AND "${input_d}" MATCHES "std/range.d")
+            # Building the std.range tests triggers an assertion error on
+            # every LLVM release before 3.3. See PR15608.
+            string(REPLACE "-O3" "-O1" cur_d_flags "${cur_d_flags}")
+        elseif(${LDC_LLVM_VER} LESS 304 AND "${input_d}" MATCHES "rt/util/container.d")
+            # Building the rt.util.container tests triggers a bug in the
+            # jump threading pass on every LLVM release before 3.4.
+            # See PR17621.
+            string(REPLACE "-O3" "-O1" cur_d_flags "${cur_d_flags}")
+        endif()
+    endif()
+
     # Compile
     if(BUILD_BC_LIBS)
         set(outfiles ${output_o} ${output_bc})
@@ -238,7 +274,7 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
     add_custom_command(
         OUTPUT
             ${outfiles}
-        COMMAND ${LDC_LOC} ${dc_flags} -c -I${RUNTIME_DIR}/src -I${RUNTIME_DIR}/src/gc ${input_d} -of${output_o} ${d_flags}
+        COMMAND ${LDC_LOC} ${dc_flags} -c -I${RUNTIME_DIR}/src -I${RUNTIME_DIR}/src/gc ${input_d} -of${output_o} ${cur_d_flags}
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${LDC_LOC}
             ${input_d}
@@ -297,15 +333,6 @@ macro(compile_druntime d_flags lib_suffix path_suffix outlist_o outlist_bc)
             ${outlist_bc}
         )
     endforeach()
-
-    # TODO: Handle these in bitcode builds (GitHub #220).
-    list(APPEND ${outlist_o} ${CORE_C} ${DCRT_C} ${DCRT_ASM})
-    if(NOT MSVC)
-        # Always build zlib and other C parts of the runtime in release mode.
-        set_source_files_properties(${CORE_C} ${DCRT_C} PROPERTIES
-            COMPILE_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELEASE}"
-        )
-    endif()
 endmacro()
 
 # Sets up the targets for building the individual Phobos object files,
@@ -334,7 +361,8 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
     set(druntime_bc "")
     compile_druntime("${d_flags}" "${lib_suffix}" "${path_suffix}" druntime_o druntime_bc)
 
-    add_library(druntime-ldc${target_suffix} ${D_LIBRARY_TYPE} ${druntime_o})
+    add_library(druntime-ldc${target_suffix} ${D_LIBRARY_TYPE}
+        ${druntime_o} ${CORE_C} ${DCRT_C} ${DCRT_ASM})
     set_target_properties(
         druntime-ldc${target_suffix} PROPERTIES
         OUTPUT_NAME                 druntime-ldc${lib_suffix}
@@ -542,64 +570,174 @@ endforeach()
 #
 # Test targets.
 #
-function(add_tests module_files)
-    foreach(file ${module_files})
-        string(REPLACE ${PROJECT_SOURCE_DIR}/ "" stripped ${file})
-        string(REPLACE ".d" "" stripped ${stripped})
-        string(REPLACE "/" "_" testroot ${stripped})
 
-        function(testcase name flags)
-            # -singleobj to avoid output file clashes when tests are run in parallel.
-            add_test(NAME ${testroot}_${name}_build
+# Build the "test runner" executables containing the druntime and Phobos unit
+# tests. They are invoked with the modules to test later. When using a shared
+# runtime, we just build another copy of the two libraries with -unittest
+# enabled. When linking statically, we have to directly pass the object files
+# to the linking command instead so that all tests are pulled in.
+
+macro(build_test_runner name_suffix d_flags c_flags)
+    # TODO: Implement weaker optimization flags for older LLVM versions.
+
+    set(flags "${D_FLAGS};${d_flags};-unittest")
+    if(BUILD_SHARED_LIBS)
+        set(unittest_libs "")
+        build_runtime(
+            "${flags}"
+            "${RT_CFLAGS} ${c_flags}"
+            "${LD_FLAGS} ${c_flags}"
+            "-unittest${name_suffix}"
+            ""
+            unittest_libs
+        )
+
+        # Only build the unittest libraries when running the tests. Unfortunately,
+        # I couldn't find an easier way to make a test depend on a CMake target than
+        # just invoking the build command through the CMake executable.
+        set_target_properties(${unittest_libs} PROPERTIES EXCLUDE_FROM_ALL ON)
+        foreach(l ${unittest_libs})
+            add_test(build-${l} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${l})
+        endforeach()
+
+        set(libarg "druntime-ldc-unittest${name_suffix}")
+        add_test(NAME build-druntime-test-runner${name_suffix}
+            COMMAND ${LDC_LOC}
+                -of${PROJECT_BINARY_DIR}/druntime-test-runner${name_suffix}
+                -defaultlib=${libarg} -debuglib=${libarg}
+                -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
+        )
+        set_tests_properties(build-druntime-test-runner${name_suffix} PROPERTIES
+            DEPENDS build-druntime-ldc-unittest${name_suffix})
+
+        if(PHOBOS2_DIR)
+            set(libarg "phobos2-ldc-unittest${name_suffix},druntime-ldc-unittest${name_suffix}")
+            add_test(NAME build-phobos2-test-runner${name_suffix}
                 COMMAND ${LDC_LOC}
-                    -of${PROJECT_BINARY_DIR}/${testroot}_${name}
-                    -unittest -main -d -w -singleobj ${flags} ${file}
+                    -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}
+                    -defaultlib=${libarg} -debuglib=${libarg}
+                    -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
             )
-            add_test(NAME ${testroot}_${name}_run COMMAND ${PROJECT_BINARY_DIR}/${testroot}_${name})
-            set_tests_properties(${testroot}_${name}_run PROPERTIES DEPENDS ${testroot}_${name}_build)
-        endfunction()
+            set_tests_properties(build-phobos2-test-runner${name_suffix} PROPERTIES
+                DEPENDS build-phobos2-ldc-unittest${name_suffix})
+        endif()
+    else()
+        set(druntime_o "")
+        set(druntime_bc "")
+        compile_druntime("${flags}" "-unittest${name_suffix}" "" druntime_o druntime_bc)
 
-        set(dbgflags "-g;-d-debug")
-        if("${testroot}" STREQUAL "phobos_std_net_curl")
-            set(dbgflags "${dbgflags};-L=-lcurl")
-        endif()
-        testcase(debug "${dbgflags}")
+        # We need to compile a small static library with the C/ASM files, as
+        # there is no easy way of getting the object file names used when
+        # compiling the main libraries. If we could require CMake 2.8.8, we
+        # would be able to just build the files once (resp. twice for multilib)
+        # for both the runtime debug/release builds and the tests. Oh well.
+        set(druntime-casm druntime-ldc-casm${name_suffix})
+        add_library(${druntime-casm} STATIC
+            ${CORE_C} ${DCRT_C} ${DCRT_ASM})
+        set_target_properties(
+            ${druntime-casm} PROPERTIES
+            LINKER_LANGUAGE             C
+            COMPILE_FLAGS               "${RT_CFLAGS} ${c_flags}"
+            LINK_FLAGS                  "${LD_FLAGS} ${ld_flags}"
+            ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
+        )
 
-        set(relflags "-O3;-release")
-        # Building the std.exception tests on x86_64 triggers an infinite
-        # recursion in scalar evolution on LLVM 3.1 (only), see the list of
-        # known LLVM bugs for details.
-        if(${LDC_LLVM_VER} EQUAL 301 AND ${HOST_BITNESS} EQUAL 64 AND
-            "${testroot}" STREQUAL "phobos_std_exception")
-            set(relflags "-O1;-release")
-        # Building the std.range tests triggers an assertion error on
-        # every LLVM release before 3.3. See PR15608.
-        elseif(${LDC_LLVM_VER} LESS 303 AND
-            "${testroot}" STREQUAL "phobos_std_range")
-            set(relflags "-O1;-release")
-        # Building the rt.util.container tests triggers a bug in the
-        # jump threading pass on every LLVM release before 3.4.
-        # See PR17621.
-        elseif(${LDC_LLVM_VER} LESS 304 AND
-            "${testroot}" STREQUAL "druntime_src_rt_util_container")
-            set(relflags "-O1;-release")
-        endif()
-        if("${testroot}" STREQUAL "phobos_std_net_curl")
-            set(relflags "${relflags};-L=-lcurl")
-        endif()
-        testcase(release "${relflags}")
+        # See shared library case for explanation.
+        set_target_properties(${druntime-casm} PROPERTIES EXCLUDE_FROM_ALL ON)
+        add_custom_target(druntime-ldc-unittest${name_suffix} DEPENDS ${druntime_o} ${druntime-casm})
+        add_test(build-druntime-ldc-unittest${name_suffix} "${CMAKE_COMMAND}"
+            --build ${CMAKE_BINARY_DIR} --target druntime-ldc-unittest${name_suffix})
 
-        # On 64 bit multilib builds, run the tests in 32 bit mode as well.
-        if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
-            testcase(debug_32 "${dbgflags};-m32")
-            testcase(release_32 "${relflags};-m32")
+        add_test(NAME build-druntime-test-runner${name_suffix}
+            COMMAND ${LDC_LOC}
+                -of${PROJECT_BINARY_DIR}/druntime-test-runner${name_suffix}
+                -defaultlib=${druntime-casm} -debuglib=${druntime-casm}
+                -singleobj ${flags} ${druntime_o} ${RUNTIME_DIR}/src/test_runner.d
+        )
+        set_tests_properties(build-druntime-test-runner${name_suffix} PROPERTIES
+            DEPENDS build-druntime-ldc-unittest${name_suffix}
+        )
+
+        # And the same for Phobos.
+        if(PHOBOS2_DIR)
+            set(phobos2_o "")
+            set(phobos2_bc "")
+            compile_phobos2("${flags}" "-unittest${name_suffix}" "" phobos2_o phobos2_bc)
+
+            set(phobos2-casm phobos2-ldc-casm${name_suffix})
+            add_library(${phobos2-casm} STATIC ${ZLIB_C})
+            set_target_properties(
+                ${phobos2-casm} PROPERTIES
+                LINKER_LANGUAGE             C
+                COMPILE_FLAGS               "${RT_CFLAGS} ${c_flags}"
+                LINK_FLAGS                  "${LD_FLAGS} ${ld_flags}"
+                ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
+            )
+
+            set_target_properties(${phobos2-casm} PROPERTIES EXCLUDE_FROM_ALL ON)
+            add_custom_target(phobos2-ldc-unittest${name_suffix} DEPENDS ${phobos2_o} ${phobos2-casm})
+            add_test(build-phobos2-ldc-unittest${name_suffix} "${CMAKE_COMMAND}"
+                --build ${CMAKE_BINARY_DIR} --target phobos2-ldc-unittest${name_suffix})
+
+            add_test(NAME build-phobos2-test-runner${name_suffix}
+                COMMAND ${LDC_LOC}
+                    -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}
+                    -defaultlib=druntime-ldc,${phobos2-casm} -debuglib=druntime-ldc,${phobos2-casm}
+                    -singleobj -L-lcurl ${flags} ${phobos2_o} ${RUNTIME_DIR}/src/test_runner.d
+            )
+            set_tests_properties(build-phobos2-test-runner${name_suffix} PROPERTIES
+                DEPENDS build-phobos2-ldc-unittest${name_suffix}
+            )
         endif()
+    endif()
+endmacro()
+build_test_runner("" "${D_FLAGS_RELEASE}" "")
+build_test_runner("-debug" "${D_FLAGS_DEBUG}" "")
+if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
+    build_test_runner("-32" "${D_FLAGS_RELEASE};-m32" "-m32")
+    build_test_runner("-debug-32" "${D_FLAGS_DEBUG};-m32" "-m32")
+endif()
+
+# Add the druntime/Phobos test runner invocations for all the different modules.
+
+macro(file_to_module_name file_name out_module_name)
+    string(REPLACE ${PROJECT_SOURCE_DIR}/ "" stripped ${file_name})
+    string(REPLACE "druntime/src/" "" stripped ${stripped})
+    string(REPLACE "phobos/" "" stripped ${stripped})
+    string(REPLACE "object_.d" "object.d" stripped ${stripped})
+    string(REPLACE ".d" "" stripped ${stripped})
+    string(REPLACE "/" "." module ${stripped})
+
+    # The logical module name for package.d files doesn't include the
+    # trailing .package part.
+    string(REPLACE ".package" "" module ${module})
+
+    # rt.invariant doesn't have a module declaration, presumably because
+    # invariant is a keyword.
+    string(REPLACE "rt.invariant" "invariant" ${out_module_name} ${module})
+endmacro()
+
+function(add_tests d_files runner name_suffix)
+    foreach(file ${d_files})
+        file_to_module_name(${file} module)
+        add_test(NAME "${module}${name_suffix}"
+            COMMAND ${runner}-test-runner${name_suffix} ${module}
+        )
+        set_tests_properties("${module}${name_suffix}" PROPERTIES
+            DEPENDS build-${runner}-test-runner${name_suffix}
+        )
     endforeach()
 endfunction()
+function(add_runtime_tests name_suffix)
+    add_tests("${CORE_D};${DCRT_D};${GC_D}" "druntime" "${name_suffix}")
+    if(PHOBOS2_DIR)
+        add_tests("${PHOBOS2_D}" "phobos2" "${name_suffix}")
+    endif()
+endfunction()
 
-add_tests("${CORE_D}")
-add_tests("${DCRT_D}")
-add_tests("${GC_D}")
-if(PHOBOS2_DIR)
-    add_tests("${PHOBOS2_D}")
+add_runtime_tests("")
+add_runtime_tests("-debug")
+if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
+    add_runtime_tests("-32")
+    add_runtime_tests("-debug-32")
 endif()
