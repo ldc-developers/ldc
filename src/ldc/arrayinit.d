@@ -1,3 +1,5 @@
+module ldc.arrayinit;
+
 private import ldc.intrinsics;
 
 extern(C):
