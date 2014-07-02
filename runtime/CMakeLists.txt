@@ -191,6 +191,10 @@ if(MULTILIB AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
     set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
 endif()
 
+if(BUILD_SHARED_LIBS AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
+    set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib\",")
+endif()
+
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
 # Prepare the config files we are going to install later in bin.
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
