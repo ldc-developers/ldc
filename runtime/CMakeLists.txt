@@ -758,3 +758,20 @@ if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
     add_runtime_tests("-32")
     add_runtime_tests("-debug-32")
 endif()
+
+# Add the standalone druntime tests.
+# TODO: Add test/excetions and test/init_fini.
+if(BUILD_SHARED_LIBS)
+    get_property(ldmd_path TARGET ldmd2 PROPERTY LOCATION)
+    get_property(druntime_path TARGET druntime-ldc PROPERTY LOCATION)
+    set(outdir ${PROJECT_BINARY_DIR}/druntime-test-shared)
+
+    add_test(NAME clean-druntime-test-shared
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
+    add_test(NAME druntime-test-shared
+        COMMAND make -C ${PROJECT_SOURCE_DIR}/druntime/test/shared
+            ROOT=${outdir} DMD=${ldmd_path} MODEL=default DRUNTIMESO=${druntime_path}
+            CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib
+    )
+    set_tests_properties(druntime-test-shared PROPERTIES DEPENDS clean-druntime-test-shared)
+endif()
