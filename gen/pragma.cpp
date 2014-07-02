@@ -44,11 +44,6 @@ static bool parseIntExp(Expression* e, dinteger_t& res)
     return false;
 }
 
-bool matchPragma(Identifier* needle, Identifier* ident)
-{
-    return needle == ident;
-}
-
 Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
 {
     Identifier *ident = decl->ident;
@@ -56,7 +51,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     Expression *expr = (args && args->dim > 0) ? (*args)[0]->semantic(sc) : 0;
 
     // pragma(LDC_intrinsic, "string") { funcdecl(s) }
-    if (matchPragma(ident, Id::LDC_intrinsic))
+    if (ident == Id::LDC_intrinsic)
     {
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
@@ -127,7 +122,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_no_typeinfo) { typedecl(s) }
-    else if (matchPragma(ident, Id::LDC_no_typeinfo))
+    else if (ident == Id::LDC_no_typeinfo)
     {
         if (args && args->dim > 0)
         {
@@ -138,7 +133,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_no_moduleinfo) ;
-    else if (matchPragma(ident, Id::LDC_no_moduleinfo))
+    else if (ident == Id::LDC_no_moduleinfo)
     {
         if (args && args->dim > 0)
         {
@@ -149,7 +144,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_alloca) { funcdecl(s) }
-    else if (matchPragma(ident, Id::LDC_alloca))
+    else if (ident == Id::LDC_alloca)
     {
         if (args && args->dim > 0)
         {
@@ -160,7 +155,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_va_start) { templdecl(s) }
-    else if (matchPragma(ident, Id::LDC_va_start))
+    else if (ident == Id::LDC_va_start)
     {
         if (args && args->dim > 0)
         {
@@ -171,7 +166,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_va_copy) { funcdecl(s) }
-    else if (matchPragma(ident, Id::LDC_va_copy))
+    else if (ident == Id::LDC_va_copy)
     {
         if (args && args->dim > 0)
         {
@@ -182,7 +177,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_va_end) { funcdecl(s) }
-    else if (matchPragma(ident, Id::LDC_va_end))
+    else if (ident == Id::LDC_va_end)
     {
         if (args && args->dim > 0)
         {
@@ -193,7 +188,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_va_arg) { templdecl(s) }
-    else if (matchPragma(ident, Id::LDC_va_arg))
+    else if (ident == Id::LDC_va_arg)
     {
         if (args && args->dim > 0)
         {
@@ -204,7 +199,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_fence) { funcdecl(s) }
-    else if (matchPragma(ident, Id::LDC_fence))
+    else if (ident == Id::LDC_fence)
     {
         if (args && args->dim > 0)
         {
@@ -215,7 +210,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_atomic_load) { templdecl(s) }
-    else if (matchPragma(ident, Id::LDC_atomic_load))
+    else if (ident == Id::LDC_atomic_load)
     {
         if (args && args->dim > 0)
         {
@@ -226,7 +221,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_atomic_store) { templdecl(s) }
-    else if (matchPragma(ident, Id::LDC_atomic_store))
+    else if (ident == Id::LDC_atomic_store)
     {
         if (args && args->dim > 0)
         {
@@ -237,7 +232,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_atomic_cmp_xchg) { templdecl(s) }
-    else if (matchPragma(ident, Id::LDC_atomic_cmp_xchg))
+    else if (ident == Id::LDC_atomic_cmp_xchg)
     {
         if (args && args->dim > 0)
         {
@@ -248,7 +243,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_atomic_rmw, "string") { templdecl(s) }
-    else if (matchPragma(ident, Id::LDC_atomic_rmw))
+    else if (ident == Id::LDC_atomic_rmw)
     {
         if (!args || args->dim != 1 || !parseStringExp(expr, arg1str))
         {
@@ -271,7 +266,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_inline_asm) { templdecl(s) }
-    else if (matchPragma(ident, Id::LDC_inline_asm))
+    else if (ident == Id::LDC_inline_asm)
     {
         if (args && args->dim > 0)
         {
@@ -282,7 +277,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
     }
 
     // pragma(LDC_inline_ir) { templdecl(s) }
-    else if (matchPragma(ident, Id::LDC_inline_ir))
+    else if (ident == Id::LDC_inline_ir)
     {
         if (args && args->dim > 0)
         {
