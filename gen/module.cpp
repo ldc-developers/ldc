@@ -302,7 +302,8 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     std::string thismrefname = "_D";
     thismrefname += gIR->dmodule->mangle();
     thismrefname += "11__moduleRefZ";
-    LLGlobalVariable* thismref = getOrCreateGlobal(Loc(), *gIR->module,
+    Loc loc;
+    LLGlobalVariable* thismref = getOrCreateGlobal(loc, *gIR->module,
         modulerefTy, false, LLGlobalValue::InternalLinkage, thismrefinit,
         thismrefname);
     // make sure _Dmodule_ref is declared
@@ -352,7 +353,7 @@ static void build_dso_ctor_dtor_body(
     llvm::Value* minfoUsedPointer,
     bool executeWhenInitialized
 ) {
-    llvm::Function* const dsoRegistry = LLVM_D_GetRuntimeFunction(
+    llvm::Function* const dsoRegistry = LLVM_D_GetRuntimeFunction(Loc(),
         gIR->module, "_d_dso_registry");
     llvm::Type* const recordPtrTy = dsoRegistry->getFunctionType()->getContainedType(1);
 

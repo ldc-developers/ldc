@@ -81,7 +81,7 @@ DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg)
     // issue a warning for broken va_arg instruction.
     if (global.params.targetTriple.getArch() != llvm::Triple::x86
         && global.params.targetTriple.getArch() != llvm::Triple::ppc64)
-        warning(Loc(), "%s: va_arg for C variadic functions is probably broken for anything but x86 and ppc64", loc.toChars());
+        warning(loc, "va_arg for C variadic functions is probably broken for anything but x86 and ppc64");
     // done
     return new DImValue(type, gIR->ir->CreateVAArg(expelem->getLVal(), llt, "tmp"));
 }

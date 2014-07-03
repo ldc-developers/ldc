@@ -476,7 +476,7 @@ DValue* AssignExp::toElem(IRState* p)
         DValue* arr = ale->e1->toElem(p);
         DVarValue arrval(ale->e1->type, arr->getLVal());
         DValue* newlen = e2->toElem(p);
-        DSliceValue* slice = DtoResizeDynArray(arrval.getType(), &arrval, newlen->getRVal());
+        DSliceValue* slice = DtoResizeDynArray(loc, arrval.getType(), &arrval, newlen->getRVal());
         DtoAssign(loc, &arrval, slice);
         return newlen;
     }
@@ -644,7 +644,7 @@ static void errorOnIllegalArrayOp(Expression* base, Expression* e1, Expression* 
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static dinteger_t undoStrideMul(const Loc& loc, Type* t, dinteger_t offset)
+static dinteger_t undoStrideMul(Loc& loc, Type* t, dinteger_t offset)
 {
     assert(t->ty == Tpointer);
     d_uns64 elemSize = t->nextOf()->size(loc);
@@ -1624,7 +1624,7 @@ DValue* DotVarExp::toElem(IRState* p)
         {
             TypeClass* tc = static_cast<TypeClass*>(e1type);
             if (tc->sym->isInterfaceDeclaration() && nonFinal && !tc->sym->isCPPinterface())
-                passedThis = DtoCastInterfaceToObject(l, NULL)->getRVal();
+                passedThis = DtoCastInterfaceToObject(loc, l, NULL)->getRVal();
         }
         LLValue* vthis = l->getRVal();
         if (!passedThis) passedThis = vthis;
@@ -2148,7 +2148,7 @@ DValue* NewExp::toElem(IRState* p)
         } else
         {
             // default allocator
-            mem = DtoNew(newtype);
+            mem = DtoNew(loc, newtype);
         }
         // init
         TypeStruct* ts = static_cast<TypeStruct*>(ntype);
@@ -2178,7 +2178,7 @@ DValue* NewExp::toElem(IRState* p)
     else
     {
         // allocate
-        LLValue* mem = DtoNew(newtype);
+        LLValue* mem = DtoNew(loc, newtype);
         DVarValue tmpvar(newtype, mem);
 
         // default initialize
@@ -2207,7 +2207,7 @@ DValue* DeleteExp::toElem(IRState* p)
     // simple pointer
     if (et->ty == Tpointer)
     {
-        DtoDeleteMemory(dval->isLVal() ? dval->getLVal() : makeLValue(loc, dval));
+        DtoDeleteMemory(loc, dval->isLVal() ? dval->getLVal() : makeLValue(loc, dval));
     }
     // class
     else if (et->ty == Tclass)
@@ -2217,18 +2217,18 @@ DValue* DeleteExp::toElem(IRState* p)
         if (tc->sym->isInterfaceDeclaration())
         {
             LLValue *val = dval->getLVal();
-            DtoDeleteInterface(val);
+            DtoDeleteInterface(loc, val);
             onstack = true;
         }
         else if (DVarValue* vv = dval->isVar()) {
             if (vv->var && vv->var->onstack) {
-                DtoFinalizeClass(dval->getRVal());
+                DtoFinalizeClass(loc, dval->getRVal());
                 onstack = true;
             }
         }
         if (!onstack) {
             LLValue* rval = dval->getRVal();
-            DtoDeleteClass(rval);
+            DtoDeleteClass(loc, rval);
         }
         if (dval->isVar()) {
             LLValue* lval = dval->getLVal();
@@ -2238,7 +2238,7 @@ DValue* DeleteExp::toElem(IRState* p)
     // dyn array
     else if (et->ty == Tarray)
     {
-        DtoDeleteArray(dval);
+        DtoDeleteArray(loc, dval);
         if (dval->isLVal())
             DtoSetArrayToNull(dval->getLVal());
     }
@@ -2319,7 +2319,7 @@ DValue* AssertExp::toElem(IRState* p)
         !(static_cast<TypeClass*>(condty)->sym->isInterfaceDeclaration()))
     {
         Logger::println("calling class invariant");
-        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module,
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module,
             gABI->mangleForLLVM("_D9invariant12_d_invariantFC6ObjectZv", LINKd).c_str());
         LLValue* arg = DtoBitCast(cond->getRVal(), fn->getFunctionType()->getParamType(0));
         gIR->CreateCallOrInvoke(fn, arg);
@@ -2536,7 +2536,7 @@ DValue* DelegateExp::toElem(IRState* p)
             if (cd->isInterfaceDeclaration())
             {
                 Logger::println("context type is interface");
-                src = DtoCastInterfaceToObject(u, ClassDeclaration::object->type);
+                src = DtoCastInterfaceToObject(loc, u, ClassDeclaration::object->type);
             }
         }
         uval = src->getRVal();
@@ -2758,7 +2758,7 @@ DValue* CatExp::toElem(IRState* p)
     IF_LOG Logger::print("CatExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
-    return DtoCatArrays(type, e1, e2);
+    return DtoCatArrays(loc, type, e1, e2);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -2780,14 +2780,14 @@ DValue* CatAssignExp::toElem(IRState* p)
     {
         if (elemtype->ty == Tchar)
             // append dchar to char[]
-            DtoAppendDCharToString(l, e2);
+            DtoAppendDCharToString(loc, l, e2);
         else /*if (elemtype->ty == Twchar)*/
             // append dchar to wchar[]
-            DtoAppendDCharToUnicodeString(l, e2);
+            DtoAppendDCharToUnicodeString(loc, l, e2);
     }
     else if (e1type->equals(e2type)) {
         // apeend array
-        DSliceValue* slice = DtoCatAssignArray(l,e2);
+        DSliceValue* slice = DtoCatAssignArray(loc, l, e2);
         DtoAssign(loc, l, slice);
     }
     else {
@@ -3397,7 +3397,7 @@ DValue* AssocArrayLiteralExp::toElem(IRState* p)
         Type* indexType = static_cast<TypeAArray*>(aatype)->index;
         assert(indexType && vtype);
 
-        llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_d_assocarrayliteralTX");
+        llvm::Function* func = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_assocarrayliteralTX");
         LLFunctionType* funcTy = func->getFunctionType();
         LLValue* aaTypeInfo = DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype)),
             DtoType(Type::typeinfoassociativearray->type));

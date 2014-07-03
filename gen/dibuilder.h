@@ -113,7 +113,7 @@ public:
     void EmitFuncEnd(FuncDeclaration *fd);
 
     /// \brief Emits debug info for block start
-    void EmitBlockStart(Loc loc);
+    void EmitBlockStart(Loc& loc);
 
     /// \brief Emits debug info for block end
     void EmitBlockEnd();
@@ -143,7 +143,7 @@ private:
     void Declare(llvm::Value *var, llvm::DIVariable divar);
     void AddBaseFields(ClassDeclaration *sd, llvm::DIFile file,
                          std::vector<llvm::Value*> &elems);
-    llvm::DIFile CreateFile(Loc loc);
+    llvm::DIFile CreateFile(Loc& loc);
     llvm::DIType CreateBasicType(Type *type);
     llvm::DIType CreateEnumType(Type *type);
     llvm::DIType CreatePointerType(Type *type);

@@ -32,7 +32,7 @@ static void storeVariable(VarDeclaration *vd, LLValue *dst)
     assert(fd && "No parent function for nested variable?");
     if (fd->needsClosure() && !vd->isRef() && (ty == Tstruct || ty == Tsarray) && isaPointer(value->getType())) {
         // Copy structs and static arrays
-        LLValue *mem = DtoGcMalloc(DtoType(vd->type), ".gc_mem");
+        LLValue *mem = DtoGcMalloc(vd->loc, DtoType(vd->type), ".gc_mem");
         DtoAggrCopy(mem, value);
         DtoAlignedStore(mem, dst);
     } else
@@ -42,7 +42,7 @@ static void storeVariable(VarDeclaration *vd, LLValue *dst)
 
 static void DtoCreateNestedContextType(FuncDeclaration* fd);
 
-DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
+DValue* DtoNestedVariable(Loc& loc, Type* astype, VarDeclaration* vd, bool byref)
 {
     IF_LOG Logger::println("DtoNestedVariable for %s @ %s", vd->toChars(), loc.toChars());
     LOG_SCOPE;
@@ -165,7 +165,7 @@ DValue* DtoNestedVariable(Loc loc, Type* astype, VarDeclaration* vd, bool byref)
     return new DVarValue(astype, vd, val);
 }
 
-void DtoResolveNestedContext(Loc loc, AggregateDeclaration *decl, LLValue *value)
+void DtoResolveNestedContext(Loc& loc, AggregateDeclaration *decl, LLValue *value)
 {
     IF_LOG Logger::println("Resolving nested context");
     LOG_SCOPE;
@@ -189,7 +189,7 @@ void DtoResolveNestedContext(Loc loc, AggregateDeclaration *decl, LLValue *value
     }
 }
 
-LLValue* DtoNestedContext(Loc loc, Dsymbol* sym)
+LLValue* DtoNestedContext(Loc& loc, Dsymbol* sym)
 {
     IF_LOG Logger::println("DtoNestedContext for %s", sym->toPrettyChars());
     LOG_SCOPE;
@@ -416,7 +416,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
         LLValue* frame = 0;
         bool needsClosure = fd->needsClosure();
         if (needsClosure)
-            frame = DtoGcMalloc(frameType, ".frame");
+            frame = DtoGcMalloc(fd->loc, frameType, ".frame");
         else
             frame = DtoRawAlloca(frameType, 0, ".frame");
 

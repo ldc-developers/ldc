@@ -126,9 +126,9 @@ void LLVM_D_FreeRuntime()
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name)
+llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, const char* name)
 {
-    checkForImplicitGCCall(Loc(), name);
+    checkForImplicitGCCall(loc, name);
 
     if (!M) {
         LLVM_D_InitRuntime();
@@ -150,14 +150,14 @@ llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* name)
+llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(Loc& loc, llvm::Module* target, const char* name)
 {
     LLGlobalVariable* gv = target->getNamedGlobal(name);
     if (gv) {
         return gv;
     }
 
-    checkForImplicitGCCall(Loc(), name);
+    checkForImplicitGCCall(loc, name);
 
     if (!M) {
         LLVM_D_InitRuntime();
@@ -165,13 +165,13 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* 
 
     LLGlobalVariable* g = M->getNamedGlobal(name);
     if (!g) {
-        error(Loc(), "Runtime global '%s' was not found", name);
+        error(loc, "Runtime global '%s' was not found", name);
         fatal();
         //return NULL;
     }
 
     LLPointerType* t = g->getType();
-    return getOrCreateGlobal(Loc(), *target, t->getElementType(), g->isConstant(),
+    return getOrCreateGlobal(loc, *target, t->getElementType(), g->isConstant(),
                              g->getLinkage(), NULL, g->getName());
 }
 

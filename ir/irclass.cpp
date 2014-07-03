@@ -214,7 +214,7 @@ LLConstant * IrAggr::getVtblInit()
                         else
                             cd->deprecation("use of %s hidden by %s is deprecated", fd->toPrettyChars(), cd->toChars());
 
-                        c = DtoBitCast(LLVM_D_GetRuntimeFunction(gIR->module, "_d_hidden_func"), c->getType());
+                        c = DtoBitCast(LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_hidden_func"), c->getType());
                         break;
                     }
                 }

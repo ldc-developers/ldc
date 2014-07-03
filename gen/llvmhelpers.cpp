@@ -58,10 +58,10 @@ llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel("fthread-mode
 // DYNAMIC MEMORY HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-LLValue* DtoNew(Type* newtype)
+LLValue* DtoNew(Loc& loc, Type* newtype)
 {
     // get runtime function
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_allocmemoryT");
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_allocmemoryT");
     // get type info
     LLConstant* ti = DtoTypeInfoOf(newtype);
     assert(isaPointer(ti));
@@ -71,20 +71,20 @@ LLValue* DtoNew(Type* newtype)
     return DtoBitCast(mem, getPtrToType(i1ToI8(DtoType(newtype))), ".gc_mem");
 }
 
-void DtoDeleteMemory(LLValue* ptr)
+void DtoDeleteMemory(Loc& loc, LLValue* ptr)
 {
     // get runtime function
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delmemory");
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delmemory");
     // build args
     LLValue* arg[] = { DtoBitCast(ptr, getVoidPtrType(), ".tmp") };
     // call
     gIR->CreateCallOrInvoke(fn, arg);
 }
 
-void DtoDeleteClass(LLValue* inst)
+void DtoDeleteClass(Loc& loc, LLValue* inst)
 {
     // get runtime function
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delclass");
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delclass");
     // druntime wants a pointer to object
     LLValue *ptr = DtoRawAlloca(inst->getType(), 0, "objectPtr");
     DtoStore(inst, ptr);
@@ -97,10 +97,10 @@ void DtoDeleteClass(LLValue* inst)
     gIR->CreateCallOrInvoke(fn, arg);
 }
 
-void DtoDeleteInterface(LLValue* inst)
+void DtoDeleteInterface(Loc& loc, LLValue* inst)
 {
     // get runtime function
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delinterface");
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delinterface");
     // build args
     LLValue* arg[] = {
         DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp")
@@ -109,10 +109,10 @@ void DtoDeleteInterface(LLValue* inst)
     gIR->CreateCallOrInvoke(fn, arg);
 }
 
-void DtoDeleteArray(DValue* arr)
+void DtoDeleteArray(Loc& loc, DValue* arr)
 {
     // get runtime function
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_delarray_t");
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delarray_t");
 
     // build args
     LLValue* arg[] = {
@@ -155,10 +155,10 @@ llvm::AllocaInst* DtoRawAlloca(LLType* lltype, size_t alignment, const char* nam
     return ai;
 }
 
-LLValue* DtoGcMalloc(LLType* lltype, const char* name)
+LLValue* DtoGcMalloc(Loc& loc, LLType* lltype, const char* name)
 {
     // get runtime function
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_allocmemory");
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_allocmemory");
     // parameters
     LLValue *size = DtoConstSize_t(getTypeAllocSize(lltype));
     // call runtime allocator
@@ -172,11 +172,11 @@ LLValue* DtoGcMalloc(LLType* lltype, const char* name)
 // ASSERT HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-void DtoAssert(Module* M, Loc loc, DValue* msg)
+void DtoAssert(Module* M, Loc& loc, DValue* msg)
 {
     // func
     const char* fname = msg ? "_d_assert_msg" : "_d_assert";
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, fname);
 
     // Arguments
     llvm::SmallVector<LLValue*, 3> args;
@@ -239,7 +239,7 @@ LabelStatement* DtoLabelStatement(Identifier* ident)
 /*////////////////////////////////////////////////////////////////////////////////////////
 // GOTO HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
-void DtoGoto(Loc loc, Identifier* target, TryFinallyStatement* sourceFinally)
+void DtoGoto(Loc& loc, Identifier* target, TryFinallyStatement* sourceFinally)
 {
     assert(!gIR->scopereturned());
 
@@ -276,9 +276,9 @@ void DtoGoto(Loc loc, Identifier* target, TryFinallyStatement* sourceFinally)
 void EnclosingSynchro::emitCode(IRState * p)
 {
     if (s->exp)
-        DtoLeaveMonitor(s->exp->toElem(p)->getRVal());
+        DtoLeaveMonitor(s->exp->loc, s->exp->toElem(p)->getRVal());
     else
-        DtoLeaveCritical(s->llsync);
+        DtoLeaveCritical(s->loc, s->llsync);
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////
@@ -296,7 +296,7 @@ void EnclosingTryFinally::emitCode(IRState * p)
 
 ////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoEnclosingHandlers(Loc loc, Statement* target)
+void DtoEnclosingHandlers(Loc& loc, Statement* target)
 {
     // labels are a special case: they are not required to enclose the current scope
     // for them we use the enclosing scope handler as a reference point
@@ -343,28 +343,28 @@ void DtoEnclosingHandlers(Loc loc, Statement* target)
 // SYNCHRONIZED SECTION HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-void DtoEnterCritical(LLValue* g)
+void DtoEnterCritical(Loc& loc, LLValue* g)
 {
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_criticalenter");
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_criticalenter");
     gIR->CreateCallOrInvoke(fn, g);
 }
 
-void DtoLeaveCritical(LLValue* g)
+void DtoLeaveCritical(Loc& loc, LLValue* g)
 {
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_criticalexit");
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_criticalexit");
     gIR->CreateCallOrInvoke(fn, g);
 }
 
-void DtoEnterMonitor(LLValue* v)
+void DtoEnterMonitor(Loc& loc, LLValue* v)
 {
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_monitorenter");
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_monitorenter");
     v = DtoBitCast(v, fn->getFunctionType()->getParamType(0));
     gIR->CreateCallOrInvoke(fn, v);
 }
 
-void DtoLeaveMonitor(LLValue* v)
+void DtoLeaveMonitor(Loc& loc, LLValue* v)
 {
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_monitorexit");
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_monitorexit");
     v = DtoBitCast(v, fn->getFunctionType()->getParamType(0));
     gIR->CreateCallOrInvoke(fn, v);
 }
@@ -411,13 +411,13 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
             else if (op != -1 && op != TOKblit && !canSkipPostblit &&
                 arrayNeedsPostblit(t)
             ) {
-                DtoArrayAssign(s, rhs, op);
+                DtoArrayAssign(loc, s, rhs, op);
             }
             else if (DSliceValue *s2 = rhs->isSlice()) {
-                DtoArrayCopySlices(s, s2);
+                DtoArrayCopySlices(loc, s, s2);
             }
             else {
-                DtoArrayCopyToSlice(s, rhs);
+                DtoArrayCopyToSlice(loc, s, rhs);
             }
         }
         // rhs is slice
@@ -449,7 +449,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
         else if (op != -1 && op != TOKblit && !canSkipPostblit &&
             arrayNeedsPostblit(t)
         ) {
-            DtoArrayAssign(lhs, rhs, op);
+            DtoArrayAssign(loc, lhs, rhs, op);
         }
         // T[n] = T[n]
         else if (DtoType(lhs->getType()) == DtoType(rhs->getType())) {
@@ -861,7 +861,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
         return DtoCastFloat(loc, val, to);
     }
     else if (fromtype->ty == Tclass) {
-        return DtoCastClass(val, to);
+        return DtoCastClass(loc, val, to);
     }
     else if (fromtype->ty == Tarray || fromtype->ty == Tsarray) {
         return DtoCastArray(loc, val, to);
@@ -1340,7 +1340,7 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
 //      INITIALIZER HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
+LLConstant* DtoConstInitializer(Loc& loc, Type* type, Initializer* init)
 {
     LLConstant* _init = 0; // may return zero
     if (!init)
@@ -1378,7 +1378,7 @@ LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp)
+LLConstant* DtoConstExpInit(Loc& loc, Type* targetType, Expression* exp)
 {
     IF_LOG Logger::println("DtoConstExpInit(targetType = %s, exp = %s)",
         targetType->toChars(), exp->toChars());
@@ -1665,7 +1665,7 @@ LLValue* makeLValue(Loc& loc, DValue* value)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void callPostblit(Loc &loc, Expression *exp, LLValue *val)
+void callPostblit(Loc& loc, Expression *exp, LLValue *val)
 {
 
     Type *tb = exp->type->toBasetype();
@@ -1757,7 +1757,7 @@ void tokToIcmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate* outPred, 
 }
 
 ///////////////////////////////////////////////////////////////////////////////
-DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
+DValue* DtoSymbolAddress(Loc& loc, Type* type, Declaration* decl)
 {
     IF_LOG Logger::println("DtoSymbolAddress ('%s' of type '%s')",
         decl->toChars(), decl->type->toChars());
@@ -1927,7 +1927,7 @@ DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl)
     llvm_unreachable("Unimplemented VarExp type");
 }
 
-llvm::Constant* DtoConstSymbolAddress(const Loc& loc, Declaration* decl)
+llvm::Constant* DtoConstSymbolAddress(Loc& loc, Declaration* decl)
 {
     // Make sure 'this' isn't needed.
     // TODO: This check really does not belong here, should be moved to
@@ -1969,7 +1969,7 @@ llvm::Constant* DtoConstSymbolAddress(const Loc& loc, Declaration* decl)
     llvm_unreachable("Taking constant address not implemented.");
 }
 
-llvm::GlobalVariable* getOrCreateGlobal(Loc loc, llvm::Module& module,
+llvm::GlobalVariable* getOrCreateGlobal(Loc& loc, llvm::Module& module,
     llvm::Type* type, bool isConstant, llvm::GlobalValue::LinkageTypes linkage,
     llvm::Constant* init, llvm::StringRef name, bool isThreadLocal)
 {

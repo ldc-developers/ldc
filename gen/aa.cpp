@@ -47,7 +47,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     // extern(C) void* _aaInX(AA aa*, TypeInfo keyti, void* pkey)
 
     // first get the runtime function
-    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, lvalue?"_aaGetX":"_aaInX");
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(loc, gIR->module, lvalue?"_aaGetX":"_aaInX");
     LLFunctionType* funcTy = func->getFunctionType();
 
     // aa param
@@ -104,7 +104,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
         };
 
         // call
-        llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_array_bounds");
+        llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_array_bounds");
         gIR->CreateCallOrInvoke(errorfn, args);
 
         // the function does not return
@@ -129,7 +129,7 @@ DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
     // extern(C) void* _aaInX(AA aa*, TypeInfo keyti, void* pkey)
 
     // first get the runtime function
-    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaInX");
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_aaInX");
     LLFunctionType* funcTy = func->getFunctionType();
 
     IF_LOG Logger::cout() << "_aaIn = " << *func << '\n';
@@ -174,7 +174,7 @@ DValue *DtoAARemove(Loc& loc, DValue* aa, DValue* key)
     // extern(C) bool _aaDelX(AA aa, TypeInfo keyti, void* pkey)
 
     // first get the runtime function
-    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaDelX");
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_aaDelX");
     LLFunctionType* funcTy = func->getFunctionType();
 
     IF_LOG Logger::cout() << "_aaDel = " << *func << '\n';
@@ -210,7 +210,7 @@ LLValue* DtoAAEquals(Loc& loc, TOK op, DValue* l, DValue* r)
 {
     Type* t = l->getType()->toBasetype();
     assert(t == r->getType()->toBasetype() && "aa equality is only defined for aas of same type");
-    llvm::Function* func = LLVM_D_GetRuntimeFunction(gIR->module, "_aaEqual");
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_aaEqual");
     LLFunctionType* funcTy = func->getFunctionType();
 
     LLValue* aaval = DtoBitCast(l->getRVal(), funcTy->getParamType(1));

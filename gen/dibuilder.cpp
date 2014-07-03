@@ -69,7 +69,7 @@ void ldc::DIBuilder::Declare(llvm::Value *var, llvm::DIVariable divar)
     instr->setDebugLoc(IR->ir->getCurrentDebugLocation());
 }
 
-llvm::DIFile ldc::DIBuilder::CreateFile(Loc loc)
+llvm::DIFile ldc::DIBuilder::CreateFile(Loc& loc)
 {
     llvm::SmallString<128> path(loc.filename ? loc.filename : "");
     llvm::sys::fs::make_absolute(path);
@@ -392,7 +392,8 @@ llvm::DIType ldc::DIBuilder::CreateArrayType(Type *type)
 
     assert(t->ty == Tarray && "Only arrays allowed for debug info in DIBuilder::CreateArrayType");
 
-    llvm::DIFile file = CreateFile(Loc(IR->dmodule, 0));
+    Loc loc(IR->dmodule, 0);
+    llvm::DIFile file = CreateFile(loc);
 
     llvm::Value *elems[] = {
         CreateMemberType(0, Type::tsize_t, file, "length", 0),
@@ -458,7 +459,8 @@ ldc::DIFunctionType ldc::DIBuilder::CreateFunctionType(Type *type)
     TypeFunction *t = static_cast<TypeFunction*>(type);
     Type *retType = t->next;
 
-    llvm::DIFile file = CreateFile(Loc(IR->dmodule, 0));
+    Loc loc(IR->dmodule, 0);
+    llvm::DIFile file = CreateFile(loc);
 
     // Create "dummy" subroutine type for the return type
     llvm::SmallVector<llvm::Value*, 16> Elts;
@@ -472,7 +474,8 @@ ldc::DIFunctionType ldc::DIBuilder::CreateDelegateType(Type *type)
     // FIXME: Implement
     TypeDelegate *t = static_cast<TypeDelegate*>(type);
 
-    llvm::DIFile file = CreateFile(Loc(IR->dmodule, 0));
+    Loc loc(IR->dmodule, 0);
+    llvm::DIFile file = CreateFile(loc);
 
     // Create "dummy" subroutine type for the return type
     llvm::SmallVector<llvm::Value*, 16> Elts;
@@ -607,7 +610,8 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgramInternal(llvm::StringRef pretty
     Logger::println("D to dwarf subprogram");
     LOG_SCOPE;
 
-    llvm::DIFile file(CreateFile(Loc(IR->dmodule, 0)));
+    Loc loc(IR->dmodule, 0);
+    llvm::DIFile file(CreateFile(loc));
 
     // Create "dummy" subroutine type for the return type
     llvm::SmallVector<llvm::Value *, 1> Elts;
@@ -656,7 +660,7 @@ void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd)
     assert(static_cast<llvm::MDNode *>(fd->ir.irFunc->diSubprogram) != 0);
 }
 
-void ldc::DIBuilder::EmitBlockStart(Loc loc)
+void ldc::DIBuilder::EmitBlockStart(Loc& loc)
 {
     if (!global.params.symdebug)
         return;

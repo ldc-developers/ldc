@@ -128,7 +128,7 @@ namespace Logger
             va_end(va);
         }
     }
-    void attention(Loc loc, const char* fmt,...)
+    void attention(Loc& loc, const char* fmt,...)
     {
         va_list va;
         va_start(va,fmt);

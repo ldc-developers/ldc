@@ -19,7 +19,7 @@
 // creates new landing pad
 static llvm::LandingPadInst *createLandingPadInst()
 {
-    llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");
+    llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_personality");
     LLType *retType = LLStructType::get(LLType::getInt8PtrTy(gIR->context()),
                                         LLType::getInt32Ty(gIR->context()),
                                         NULL);
@@ -98,7 +98,7 @@ void IRLandingPadFinallyStatementInfo::toIR(LLValue *eh_ptr)
     llvm::LandingPadInst *collisionLandingPad = createLandingPadInst();
     LLValue* collision_eh_ptr = DtoExtractValue(collisionLandingPad, 0);
     collisionLandingPad->setCleanup(true);
-    llvm::Function* collision_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_handle_collision");
+    llvm::Function* collision_fn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_handle_collision");
     gIR->CreateCallOrInvoke2(collision_fn, collision_eh_ptr, eh_ptr);
     gIR->ir->CreateUnreachable();
     gIR->scope() = IRScope(bb, gIR->scopeend());
@@ -222,7 +222,7 @@ void IRLandingPad::constructLandingPad(IRLandingPadScope scope)
     gIR->func()->gen->landingPad = get();
 
     // no catch matched and all finallys executed - resume unwind
-    llvm::Function* unwind_resume_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_resume_unwind");
+    llvm::Function* unwind_resume_fn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_resume_unwind");
     gIR->ir->CreateCall(unwind_resume_fn, eh_ptr);
     gIR->ir->CreateUnreachable();
 
