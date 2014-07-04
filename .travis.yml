@@ -28,26 +28,32 @@ install:
   # clang 3.4
   - if [[ "$LLVM_PACKAGE" == *3.5* ]] && [[ "$CXX" == "clang++" ]]; then sudo apt-get install --allow-unauthenticated -qq clang-3.4; export CXX="clang++-3.4"; fi
 env:
-  - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TESTSUITE_FILTER="-R debug$"
-  - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TESTSUITE_FILTER="-E debug$"
-  - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER="-R debug$"
-  - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TESTSUITE_FILTER="-E debug$"
-  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER="-R debug$" OPTS="-DMULTILIB=ON"
-  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TESTSUITE_FILTER="-E debug$"
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER="-R debug$"
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TESTSUITE_FILTER="-E debug$" OPTS="-DMULTILIB=ON"
-  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER="-R debug$"
-  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER="-E debug$"
+  - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TEST_DEBUG=1
+  - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev"
+  - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TEST_DEBUG=1
+  - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev"
+  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TEST_DEBUG=1 OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev"
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TEST_DEBUG=1
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TEST_DEBUG=1
+  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev"
 matrix:
   allow_failures:
-    - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER="-R debug$"
-    - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TESTSUITE_FILTER="-E debug$"
+    - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TEST_DEBUG=1
+    - env: LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev"
 script:
   - cmake $OPTS .
   - make
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
-  - bin/ldc2 -version && ctest --output-on-failure $TESTSUITE_FILTER
+  - bin/ldc2 -version || exit 1
+  # We need to run the druntime/Phobos unittest build targets build separately
+  # with output shown (--verbose), because we hit the non-configurable Travis
+  # "silence timeout" of 10 minutes otherwise. So much for "no news is good news".
+  - if [[ -z "${TEST_DEBUG}" ]]; then export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest(-32)?$" RUN_SEL="-E debug(-32)?$" ; else export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest-debug(-32)?$" RUN_SEL="-R debug(-32)?$"; fi
+  - ctest --verbose ${BUILD_SEL}
+  - ctest --output-on-failure ${RUN_SEL}
 
 notifications:
   # Temporarily disabled due to time limit problems.
