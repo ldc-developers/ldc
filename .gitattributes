@@ -1,2 +1,5 @@
+*     text=auto
+*.sh  eol=lf
+
 .gitattributes export-ignore
 .travis.yml export-ignore

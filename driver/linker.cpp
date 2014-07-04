@@ -44,13 +44,12 @@ static void CreateDirectoryOnDisk(llvm::StringRef fileName)
     llvm::StringRef dir(llvm::sys::path::parent_path(fileName));
     if (!dir.empty() && !llvm::sys::fs::exists(dir))
     {
-        bool Existed;
 #if LDC_LLVM_VER >= 305
-        std::error_code 
+        std::error_code ec = llvm::sys::fs::create_directory(dir);
 #else
-        llvm::error_code
+        bool existed;
+        llvm::error_code ec = llvm::sys::fs::create_directory(dir, existed);
 #endif
-                         ec = llvm::sys::fs::create_directory(dir, Existed);
         if (ec)
         {
             error(Loc(), "failed to create path to file: %s\n%s", dir.data(), ec.message().c_str());
@@ -255,9 +254,7 @@ static int linkObjToBinaryWin(bool sharedLib)
     // build arguments
     std::vector<std::string> args;
 
-    // be verbose if requested
-    if (!global.params.verbose)
-        args.push_back("/NOLOGO");
+    args.push_back("/NOLOGO");
 
     // specify that the image will contain a table of safe exception handlers (32bit only)
     if (!global.params.is64bit)
@@ -271,14 +268,25 @@ static int linkObjToBinaryWin(bool sharedLib)
 
     // because of a LLVM bug
     // most of the bug is fixed in LLVM 3.4
-#if LDC_LLVM_VER >= 304
+#if LDC_LLVM_VER < 304
     if (global.params.symdebug)
+        args.push_back("/LARGEADDRESSAWARE:NO");
+    else
 #endif
-    args.push_back("/LARGEADDRESSAWARE:NO");
+    args.push_back("/LARGEADDRESSAWARE");
 
     // output debug information
     if (global.params.symdebug)
+    {
         args.push_back("/DEBUG");
+    }
+
+    // remove dead code and fold identical COMDATs
+    if (!opts::disableLinkerStripDead)
+    {
+        args.push_back("/OPT:REF");
+        args.push_back("/OPT:ICF");
+    }
 
     // specify creation of DLL
     if (sharedLib)
@@ -313,14 +321,13 @@ static int linkObjToBinaryWin(bool sharedLib)
     // additional linker switches
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
     {
-        static const std::string LIBPATH("-L");
-        static const std::string LIB("-l");
         std::string str(static_cast<const char *>(global.params.linkswitches->data[i]));
         if (str.length() > 2)
         {
-            if (std::equal(LIBPATH.begin(), LIBPATH.end(), str.begin()))
+            // rewrite common -L and -l switches
+            if (str[0] == '-' && str[1] == 'L')
                 str = "/LIBPATH:" + str.substr(2);
-            else if (std::equal(LIB.begin(), LIB.end(), str.begin()))
+            else if (str[0] == '-' && str[1] == 'l')
             {
                 str = str.substr(2) + ".lib";
             }
@@ -444,8 +451,12 @@ void deleteExecutable()
         //assert(gExePath.isValid());
         bool is_directory;
         assert(!(!llvm::sys::fs::is_directory(gExePath, is_directory) && is_directory));
+#if LDC_LLVM_VER < 305
         bool Existed;
         llvm::sys::fs::remove(gExePath, Existed);
+#else
+        llvm::sys::fs::remove(gExePath);
+#endif
     }
 }
 
