@@ -85,7 +85,7 @@ static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
         llvm_unreachable("not char/wchar/dchar");
     }
 
-    llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, fname);
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(e->loc, gIR->module, fname);
 
     IF_LOG {
         Logger::cout() << *table->getType() << '\n';
@@ -866,7 +866,7 @@ public:
 
         gIR->DBuilder.EmitFuncEnd(gIR->func()->decl);
 
-        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_throw_exception");
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(stmt->loc, gIR->module, "_d_throw_exception");
         //Logger::cout() << "calling: " << *fn << '\n';
         LLValue* arg = DtoBitCast(e->getRVal(), fn->getFunctionType()->getParamType(0));
         //Logger::cout() << "arg: " << *arg << '\n';
@@ -1550,12 +1550,12 @@ public:
         if (stmt->exp)
         {
             stmt->llsync = stmt->exp->toElem(irs)->getRVal();
-            DtoEnterMonitor(stmt->llsync);
+            DtoEnterMonitor(stmt->loc, stmt->llsync);
         }
         else
         {
             stmt->llsync = generate_unique_critical_section();
-            DtoEnterCritical(stmt->llsync);
+            DtoEnterCritical(stmt->loc, stmt->llsync);
         }
 
         // emit body
@@ -1570,9 +1570,9 @@ public:
         if (irs->scopereturned())
             return;
         else if (stmt->exp)
-            DtoLeaveMonitor(stmt->llsync);
+            DtoLeaveMonitor(stmt->loc, stmt->llsync);
         else
-            DtoLeaveCritical(stmt->llsync);
+            DtoLeaveCritical(stmt->loc, stmt->llsync);
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -1581,7 +1581,7 @@ public:
         IF_LOG Logger::println("SwitchErrorStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
-        llvm::Function* fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_switch_error");
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(stmt->loc, gIR->module, "_d_switch_error");
 
         LLValue *moduleInfoSymbol = gIR->func()->decl->getModule()->moduleInfoSymbol();
         LLType *moduleInfoType = DtoType(Module::moduleinfo->type);

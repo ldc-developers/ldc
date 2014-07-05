@@ -44,47 +44,47 @@ struct EnclosingSynchro : EnclosingHandler
 
 
 // dynamic memory helpers
-LLValue* DtoNew(Type* newtype);
-void DtoDeleteMemory(LLValue* ptr);
-void DtoDeleteClass(LLValue* inst);
-void DtoDeleteInterface(LLValue* inst);
-void DtoDeleteArray(DValue* arr);
+LLValue* DtoNew(Loc& loc, Type* newtype);
+void DtoDeleteMemory(Loc& loc, LLValue* ptr);
+void DtoDeleteClass(Loc& loc, LLValue* inst);
+void DtoDeleteInterface(Loc& loc, LLValue* inst);
+void DtoDeleteArray(Loc& loc, DValue* arr);
 
 // emit an alloca
 llvm::AllocaInst* DtoAlloca(Type* type, const char* name = "");
 llvm::AllocaInst* DtoArrayAlloca(Type* type, unsigned arraysize, const char* name = "");
 llvm::AllocaInst* DtoRawAlloca(LLType* lltype, size_t alignment, const char* name = "");
-LLValue* DtoGcMalloc(LLType* lltype, const char* name = "");
+LLValue* DtoGcMalloc(Loc& loc, LLType* lltype, const char* name = "");
 
 // assertion generator
-void DtoAssert(Module* M, Loc loc, DValue* msg);
+void DtoAssert(Module* M, Loc& loc, DValue* msg);
 
 // return the LabelStatement from the current function with the given identifier or NULL if not found
 LabelStatement* DtoLabelStatement(Identifier* ident);
 
 /// emits goto to LabelStatement with the target identifier
 /// the sourceFinally is only used for error checking
-void DtoGoto(Loc loc, Identifier* target, TryFinallyStatement* sourceFinally);
+void DtoGoto(Loc& loc, Identifier* target, TryFinallyStatement* sourceFinally);
 
 // Generates IR for enclosing handlers between the current state and
 // the scope created by the 'target' statement.
-void DtoEnclosingHandlers(Loc loc, Statement* target);
+void DtoEnclosingHandlers(Loc& loc, Statement* target);
 
 /// Enters a critical section.
-void DtoEnterCritical(LLValue* g);
+void DtoEnterCritical(Loc& loc, LLValue* g);
 /// leaves a critical section.
-void DtoLeaveCritical(LLValue* g);
+void DtoLeaveCritical(Loc& loc, LLValue* g);
 
 /// Enters a monitor lock.
-void DtoEnterMonitor(LLValue* v);
+void DtoEnterMonitor(Loc& loc, LLValue* v);
 /// Leaves a monitor lock.
-void DtoLeaveMonitor(LLValue* v);
+void DtoLeaveMonitor(Loc& loc, LLValue* v);
 
 // basic operations
 void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op = -1, bool canSkipPostblit = false);
 
-DValue* DtoSymbolAddress(const Loc& loc, Type* type, Declaration* decl);
-llvm::Constant* DtoConstSymbolAddress(const Loc& loc,Declaration* decl);
+DValue* DtoSymbolAddress(Loc& loc, Type* type, Declaration* decl);
+llvm::Constant* DtoConstSymbolAddress(Loc& loc,Declaration* decl);
 
 /// Create a null DValue.
 DValue* DtoNullValue(Type* t);
@@ -118,8 +118,8 @@ DValue* DtoDeclarationExp(Dsymbol* declaration);
 LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr = 0);
 
 // initializer helpers
-LLConstant* DtoConstInitializer(Loc loc, Type* type, Initializer* init);
-LLConstant* DtoConstExpInit(Loc loc, Type* targetType, Expression* exp);
+LLConstant* DtoConstInitializer(Loc& loc, Type* type, Initializer* init);
+LLConstant* DtoConstExpInit(Loc& loc, Type* targetType, Expression* exp);
 
 // getting typeinfo of type, base=true casts to object.TypeInfo
 LLConstant* DtoTypeInfoOf(Type* ty, bool base=true);
@@ -132,8 +132,8 @@ DValue* DtoBinSub(DValue* lhs, DValue* rhs);
 DValue* DtoBinMul(Type* resulttype, DValue* lhs, DValue* rhs);
 DValue* DtoBinDiv(Type* resulttype, DValue* lhs, DValue* rhs);
 DValue* DtoBinRem(Type* resulttype, DValue* lhs, DValue* rhs);
-LLValue* DtoBinNumericEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op);
-LLValue* DtoBinFloatsEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op);
+LLValue* DtoBinNumericEquals(Loc& loc, DValue* lhs, DValue* rhs, TOK op);
+LLValue* DtoBinFloatsEquals(Loc& loc, DValue* lhs, DValue* rhs, TOK op);
 
 // target stuff
 void findDefaultTarget();
@@ -145,7 +145,7 @@ void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, s
 bool hasUnalignedFields(Type* t);
 
 ///
-DValue* DtoInlineAsmExpr(Loc loc, FuncDeclaration* fd, Expressions* arguments);
+DValue* DtoInlineAsmExpr(Loc& loc, FuncDeclaration* fd, Expressions* arguments);
 
 /// Create the IrModule if necessary and returns it.
 IrModule* getIrModule(Module* M);
@@ -159,7 +159,7 @@ size_t realignOffset(size_t offset, Type* type);
 /// functions without problems.
 LLValue* makeLValue(Loc& loc, DValue* value);
 
-void callPostblit(Loc &loc, Expression *exp, LLValue *val);
+void callPostblit(Loc& loc, Expression *exp, LLValue *val);
 
 /// Returns whether the given variable is a DMD-internal "ref variable".
 ///
@@ -235,7 +235,7 @@ LLConstant* toConstantArray(LLType* ct, LLArrayType* at, T* str, size_t len, boo
 ///
 /// Necessary to support multiple declarations with the same mangled name, as
 /// can be the case due to pragma(mangle).
-llvm::GlobalVariable* getOrCreateGlobal(Loc loc, llvm::Module& module,
+llvm::GlobalVariable* getOrCreateGlobal(Loc& loc, llvm::Module& module,
     llvm::Type* type, bool isConstant, llvm::GlobalValue::LinkageTypes linkage,
     llvm::Constant* init, llvm::StringRef name, bool isThreadLocal = false);
 

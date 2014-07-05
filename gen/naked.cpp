@@ -257,7 +257,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
+void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc& loc, FuncDeclaration* fdecl)
 {
     IF_LOG Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangleExact());
     LOG_SCOPE;
@@ -414,7 +414,7 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
 
 // sort of kinda related to naked ...
 
-DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments)
+DValue * DtoInlineAsmExpr(Loc& loc, FuncDeclaration * fd, Expressions * arguments)
 {
     IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
     LOG_SCOPE;

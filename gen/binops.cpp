@@ -108,7 +108,7 @@ DValue* DtoBinRem(Type* targettype, DValue* lhs, DValue* rhs)
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoBinNumericEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op)
+LLValue* DtoBinNumericEquals(Loc& loc, DValue* lhs, DValue* rhs, TOK op)
 {
     assert(op == TOKequal || op == TOKnotequal ||
            op == TOKidentity || op == TOKnotidentity);
@@ -134,7 +134,7 @@ LLValue* DtoBinNumericEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op)
 
 //////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoBinFloatsEquals(Loc loc, DValue* lhs, DValue* rhs, TOK op)
+LLValue* DtoBinFloatsEquals(Loc& loc, DValue* lhs, DValue* rhs, TOK op)
 {
     LLValue* res = 0;
     if (op == TOKequal) {
