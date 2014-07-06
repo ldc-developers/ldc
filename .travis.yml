@@ -44,7 +44,8 @@ env:
   - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TEST_DEBUG=1 OPTS="-DMULTILIB=ON"
   - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev"
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TEST_DEBUG=1
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=32
+  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=32
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TEST_DEBUG=1 OPTS="-DBUILD_SHARED_LIBS=ON"
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DBUILD_SHARED_LIBS=ON"
   - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TEST_DEBUG=1
@@ -61,15 +62,35 @@ script:
   - bin/ldc2 -version || exit 1
   # We need to run the druntime/Phobos unittest build targets build separately
   # with output shown (--verbose), because we hit the non-configurable Travis
-  # "silence timeout" of 10 minutes otherwise. So much for "no news is good news".
+  # "silence timeout" of 10 minutes otherwise. So much for "no news is good
+  # news".
+  # Also, we need to split up the multilib release mode tests into 32 bit and
+  # 64 bit tests to avoid the hard 50 minutes time limit. This is just about
+  # the most wasteful solution possible, but the one officially suggested by
+  # Travis.
+  # The below is atrociously complex, but a simpler solution that works with
+  # CTest's inept implementation of regular expressions and -R/-E was hard to
+  # find.
   -
-    if [[ -z "${TEST_DEBUG}" ]]; then
-      export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest(-32)?$";
-      export RUN_SEL="-E debug(-32)?$";
+    if [[ "${TEST_BITNESS}" == "32" ]]; then
+      export NEED_32="-32";
+    elif [[ "${TEST_BITNESS}" == "64" ]]; then
+      export NEED_32="";
     else
-      export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest-debug(-32)?$";
-      export RUN_SEL="-R debug(-32)?$";
-    fi
+      export NEED_32="(-32)?";
+    fi;
+    if [[ -z "${TEST_DEBUG}" ]]; then
+      export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest${NEED_32}$";
+      export RUN_SEL="-E -debug(-32)?$";
+      if [[ "${TEST_BITNESS}" == "32" ]]; then
+        export RUN_SEL="-R -32$ ${RUN_SEL}";
+      elif [[ "${TEST_BITNESS}" == "64" ]]; then
+        export RUN_SEL="-E ((-debug)|(-32))$";
+      fi;
+    else
+      export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest-debug${NEED_32}$";
+      export RUN_SEL="-R debug${NEED_32}$";
+    fi;
   - ctest --verbose ${BUILD_SEL}
   - ctest --output-on-failure ${RUN_SEL}
 
