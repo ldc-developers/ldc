@@ -632,7 +632,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
             add_test(NAME build-phobos2-test-runner${name_suffix}
                 COMMAND ${LDC_LOC}
                     -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}
-                    -defaultlib=${libarg} -debuglib=${libarg}
+                    -L--no-as-needed -defaultlib=${libarg} -debuglib=${libarg}
                     -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
             )
             set_tests_properties(build-phobos2-test-runner${name_suffix} PROPERTIES
