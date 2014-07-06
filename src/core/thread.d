@@ -4296,26 +4296,7 @@ private:
         // NOTE: If use of this fiber is multiplexed across threads, the thread
         //       executing here may be different from the one above, so get the
         //       current thread handle before unlocking, etc.
-        // LDC NOTE: Currently, it is not safe to migrate fibers across threads
-        //       when they use TLS at all, as LLVM might cache the TLS address
-        //       lookup across a context switch (see GitHub #666). This
-        //       workaround enables users to do this at least as long as they
-        //       are very careful about accessing TLS data themselves (such as
-        //       in the shared fiber unittest below).
-        version (LDC) version (D_PIC) enum defeatTlsGetAddrCaching = true;
-        static if (is(typeof(defeatTlsGetAddrCaching)))
-        {
-            static Thread getThread()
-            {
-                pragma(LDC_never_inline);
-                return Thread.getThis();
-            }
-            tobj = getThread();
-        }
-        else
-        {
-            tobj = Thread.getThis();
-        }
+        tobj = Thread.getThis();
         atomicStore!(MemoryOrder.raw)(*cast(shared)&tobj.m_lock, false);
         tobj.m_curr.tstack = tobj.m_curr.bstack;
     }
