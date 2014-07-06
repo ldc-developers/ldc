@@ -16,17 +16,26 @@ before_install:
 install:
   - sudo apt-get update -qq
   - sudo apt-get install -qq $LLVM_PACKAGE libconfig++8-dev
-
-  # 32bit libraries
-  - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo apt-get install -qq gcc-multilib libcurl3:i386 libstdc++6:i386; fi
-  - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo ln -s /usr/lib/i386-linux-gnu/libcurl.so.4.2.0 /usr/lib/i386-linux-gnu/libcurl.so ; fi
-  - if [[ "${OPTS}" == *MULTILIB*ON* ]]; then sudo ln -s /usr/lib/i386-linux-gnu/libstdc++.so.6 /usr/lib/i386-linux-gnu/libstdc++.so ; fi
-
-  # g++4.8.1
-  - if [[ "$LLVM_PACKAGE" == *3.5* ]] && [[ "$CXX" == "g++" ]]; then sudo apt-get install -qq g++-4.8; export CXX="g++-4.8"; fi
-
-  # clang 3.4
-  - if [[ "$LLVM_PACKAGE" == *3.5* ]] && [[ "$CXX" == "clang++" ]]; then sudo apt-get install --allow-unauthenticated -qq clang-3.4; export CXX="clang++-3.4"; fi
+  -
+    if [[ "${OPTS}" == *MULTILIB*ON* ]]; then
+      sudo apt-get install -qq gcc-multilib libcurl3:i386 libstdc++6:i386;
+    fi
+  -
+    if [[ "${OPTS}" == *MULTILIB*ON* ]]; then
+      sudo ln -s /usr/lib/i386-linux-gnu/libcurl.so.4.2.0 /usr/lib/i386-linux-gnu/libcurl.so;
+    fi
+  -
+    if [[ "${OPTS}" == *MULTILIB*ON* ]]; then
+      sudo ln -s /usr/lib/i386-linux-gnu/libstdc++.so.6 /usr/lib/i386-linux-gnu/libstdc++.so;
+    fi
+  -
+    if [[ "$LLVM_PACKAGE" == *3.5* ]] && [[ "$CXX" == "g++" ]]; then
+      sudo apt-get install -qq g++-4.8; export CXX="g++-4.8";
+    fi
+  -
+    if [[ "$LLVM_PACKAGE" == *3.5* ]] && [[ "$CXX" == "clang++" ]]; then
+      sudo apt-get install --allow-unauthenticated -qq clang-3.4; export CXX="clang++-3.4";
+    fi
 env:
   - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TEST_DEBUG=1
   - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev"
@@ -53,7 +62,14 @@ script:
   # We need to run the druntime/Phobos unittest build targets build separately
   # with output shown (--verbose), because we hit the non-configurable Travis
   # "silence timeout" of 10 minutes otherwise. So much for "no news is good news".
-  - if [[ -z "${TEST_DEBUG}" ]]; then export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest(-32)?$" RUN_SEL="-E debug(-32)?$" ; else export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest-debug(-32)?$" RUN_SEL="-R debug(-32)?$"; fi
+  -
+    if [[ -z "${TEST_DEBUG}" ]]; then
+      export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest(-32)?$";
+      export RUN_SEL="-E debug(-32)?$";
+    else
+      export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest-debug(-32)?$";
+      export RUN_SEL="-R debug(-32)?$";
+    fi
   - ctest --verbose ${BUILD_SEL}
   - ctest --output-on-failure ${RUN_SEL}
 
