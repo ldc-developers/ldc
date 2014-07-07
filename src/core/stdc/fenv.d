@@ -181,14 +181,14 @@ else version( Solaris )
 
     struct fex_handler_t
     {
-        int __mode;
+        int             __mode;
         void function() __handler;
     }
 
     struct fenv_t
     {
-        fex_handler_t[FEX_NUM_EXC] __handler;
-        c_ulong __fsr;
+        fex_handler_t[FEX_NUM_EXC]  __handler;
+        c_ulong                     __fsr;
     }
 
     alias int fexcept_t;
@@ -248,7 +248,7 @@ else version( Android )
 else version( Solaris )
 {
     private extern const fenv_t __fenv_def_env;
-    enum FE_DFL_ENV = &__fenv_def_env;
+    const fenv_t* FE_DFL_ENV = &__fenv_def_env;
 }
 else
 {
