@@ -216,8 +216,10 @@ struct Param
     unsigned versionlevel; // version level
     Strings *versionids;   // version identifiers
 
-    Strings *defaultlibnames;	// default libraries for non-debug builds
-    Strings *debuglibnames;	// default libraries for debug builds
+#if IN_DMD
+    const char *defaultlibname; // default library for non-debug builds
+    const char *debuglibname;   // default library for debug builds
+#endif
 
     const char *moduleDepsFile; // filename for deps output
     OutBuffer *moduleDeps;      // contents to be written to deps file

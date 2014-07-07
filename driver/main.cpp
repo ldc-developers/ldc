@@ -74,7 +74,8 @@ extern void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
 
 static cl::opt<bool> noDefaultLib("nodefaultlib",
     cl::desc("Don't add a default library for linking implicitly"),
-    cl::ZeroOrMore);
+    cl::ZeroOrMore,
+    cl::Hidden);
 
 static StringsAdapter impPathsStore("I", global.params.imppath);
 static cl::list<std::string, StringsAdapter> importPaths("I",
@@ -83,19 +84,15 @@ static cl::list<std::string, StringsAdapter> importPaths("I",
     cl::location(impPathsStore),
     cl::Prefix);
 
-static StringsAdapter defaultLibStore("defaultlib", global.params.defaultlibnames);
-static cl::list<std::string, StringsAdapter> defaultlibs("defaultlib",
-    cl::desc("Set default libraries for non-debug build"),
-    cl::value_desc("lib,..."),
-    cl::location(defaultLibStore),
-    cl::CommaSeparated);
+static cl::opt<std::string> defaultLib("defaultlib",
+    cl::desc("Default libraries for non-debug-info build (overrides previous)"),
+    cl::value_desc("lib1,lib2,..."),
+    cl::ZeroOrMore);
 
-static StringsAdapter debugLibStore("debuglib", global.params.debuglibnames);
-static cl::list<std::string, StringsAdapter> debuglibs("debuglib",
-    cl::desc("Set default libraries for debug build"),
-    cl::value_desc("lib,..."),
-    cl::location(debugLibStore),
-    cl::CommaSeparated);
+static cl::opt<std::string> debugLib("debuglib",
+    cl::desc("Default libraries for debug info build (overrides previous)"),
+    cl::value_desc("lib1,lib2,..."),
+    cl::ZeroOrMore);
 
 
 #if LDC_LLVM_VER < 304
@@ -270,29 +267,17 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     global.params.moduleDeps = NULL;
     global.params.moduleDepsFile = NULL;
 
-    // build complete fixed up list of command line arguments
+    // Build combined list of command line arguments.
     std::vector<const char*> final_args;
-    final_args.reserve(argc);
+    final_args.push_back(argv[0]);
 
-    // insert command line args until -run is reached
-    int run_argnum = 1;
-    while (run_argnum < argc && strncmp(argv[run_argnum], "-run", 4) != 0)
-        ++run_argnum;
-    final_args.insert(final_args.end(), &argv[0], &argv[run_argnum]);
-
-    // read the configuration file
     ConfigFile cfg_file;
-
     // just ignore errors for now, they are still printed
     cfg_file.read(argv0, (void*)main, "ldc2.conf");
-
-    // insert config file additions to the argument list
     final_args.insert(final_args.end(), cfg_file.switches_begin(), cfg_file.switches_end());
 
-    // insert -run and everything beyond
-    final_args.insert(final_args.end(), &argv[run_argnum], &argv[argc]);
+    final_args.insert(final_args.end(), &argv[1], &argv[argc]);
 
-    // Handle fixed-up arguments!
     cl::SetVersionPrinter(&printVersion);
 #if LDC_LLVM_VER >= 303
     hideLLVMOptions();
@@ -400,30 +385,27 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
         if (!I->empty())
             sourceFiles.push(mem.strdup(I->c_str()));
 
-    Strings* libs;
-    if (global.params.symdebug)
+    if (noDefaultLib)
     {
-        libs = global.params.debuglibnames;
+        deprecation(Loc(), "-nodefaultlib is deprecated, as "
+            "-defaultlib/-debuglib now override the existing list instead of "
+            "appending to it. Please use the latter instead.");
     }
     else
-        libs = global.params.defaultlibnames;
-
-    if (!noDefaultLib)
     {
-        if (libs)
+        // Parse comma-separated default library list.
+        std::stringstream libNames(
+            global.params.symdebug ? debugLib : defaultLib);
+        while (libNames.good())
         {
-            for (unsigned i = 0; i < libs->dim; i++)
-            {
-                const char* lib = static_cast<const char *>(libs->data[i]);
-                char *arg = static_cast<char *>(mem.malloc(strlen(lib) + 3));
-                strcpy(arg, "-l");
-                strcpy(arg+2, lib);
-                global.params.linkswitches->push(arg);
-            }
-        }
-        else
-        {
-            global.params.linkswitches->push(mem.strdup("-ldruntime-ldc"));
+            std::string lib;
+            std::getline(libNames, lib, ',');
+            if (lib.empty()) continue;
+
+            char *arg = static_cast<char *>(mem.malloc(lib.size() + 3));
+            strcpy(arg, "-l");
+            strcpy(arg+2, lib.c_str());
+            global.params.linkswitches->push(arg);
         }
     }
 
