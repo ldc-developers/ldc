@@ -73,14 +73,14 @@ script:
   # find.
   -
     if [[ "${TEST_BITNESS}" == "32" ]]; then
-      export NEED_32="-32";
+      need_32="-32";
     elif [[ "${TEST_BITNESS}" == "64" ]]; then
-      export NEED_32="";
+      need_32="";
     else
-      export NEED_32="(-32)?";
+      need_32="(-32)?";
     fi;
     if [[ -z "${TEST_DEBUG}" ]]; then
-      export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest${NEED_32}$";
+      export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest${need_32}$";
       export RUN_SEL="-E -debug(-32)?$";
       if [[ "${TEST_BITNESS}" == "32" ]]; then
         export RUN_SEL="-R -32$ ${RUN_SEL}";
@@ -88,8 +88,8 @@ script:
         export RUN_SEL="-E ((-debug)|(-32))$";
       fi;
     else
-      export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest-debug${NEED_32}$";
-      export RUN_SEL="-R debug${NEED_32}$";
+      export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest-debug${need_32}$";
+      export RUN_SEL="-R debug${need_32}$";
     fi;
   - ctest --verbose ${BUILD_SEL}
   - ctest --output-on-failure ${RUN_SEL}
