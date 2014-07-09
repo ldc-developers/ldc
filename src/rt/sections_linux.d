@@ -720,11 +720,22 @@ const(char)[] dsoName(const char* dlpi_name)
     return p[0 .. strlen(p)];
 }
 
+version (LDC)
+{
+    extern(C) extern __gshared
+    {
+        pragma(LDC_extern_weak) void* _d_execBssBegAddr;
+        pragma(LDC_extern_weak) void* _d_execBssEndAddr;
+    }
+}
+else
+{
 extern(C)
 {
     // .bss, .lbss, .lrodata, .ldata
     extern __gshared void* __bss_start;
     extern __gshared void* _end;
+}
 }
 
 nothrow
@@ -734,8 +745,32 @@ body
 {
     const(ModuleInfo)* conflicting;
 
+    version (LDC)
+    {
+        // If the main executable we have been loaded into is a D application,
+        // some ModuleInfos might have been copy-relocated into its .bss
+        // section (if it not position-independent, that is). Note that under
+        // normal circumstances, a ModuleInfo object is never zero-initialized,
+        // so by restricting our check to the BSS section, we can be sure not
+        // to produce false-negatives.
+        //
+        // _d_execBss{Beg, End}Addr are emitted into the entry point module
+        // along with main(). If the main executable is not a D program, the
+        // weak symbols will be undefined and we simply skip the copy-relocation
+        // check.
+        void* bss_start;
+        size_t bss_size;
+        if (&_d_execBssBegAddr && &_d_execBssEndAddr)
+        {
+            bss_start = _d_execBssBegAddr;
+            bss_size = _d_execBssEndAddr - bss_start;
+        }
+    }
+    else
+    {
     auto bss_start = cast(void*)&__bss_start;
     immutable bss_size = cast(void*)&_end - bss_start;
+    }
 
     foreach (m; modules)
     {
