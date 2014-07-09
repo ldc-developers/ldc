@@ -287,6 +287,17 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
         return LLVMinline_ir;
     }
 
+    // pragma(LDC_extern_weak) { vardecl(s) }
+    else if (ident == Id::LDC_extern_weak)
+    {
+        if (args && args->dim > 0)
+        {
+             error(Loc(), "takes no parameters");
+             fatal();
+        }
+        return LLVMextern_weak;
+    }
+
     return LLVMnone;
 }
 
@@ -507,6 +518,38 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         {
             error(s->loc, "the '%s' pragma is only allowed on template declarations",
                   ident->toChars());
+            fatal();
+        }
+        break;
+
+    case LLVMextern_weak:
+        if (VarDeclaration* vd = s->isVarDeclaration())
+        {
+            if (!vd->isDataseg() || !(vd->storage_class & STCextern)) {
+                error(s->loc, "'%s' requires storage class 'extern'",
+                    ident->toChars());
+                fatal();
+            }
+
+            // It seems like the interaction between weak symbols and thread-local
+            // storage is not well-defined (the address of an undefined weak TLS
+            // symbol is non-zero on the ELF static TLS model on Linux x86_64).
+            // Thus, just disallow this altogether.
+            if (vd->isThreadlocal()) {
+                error(s->loc, "'%s' cannot be applied to thread-local variable '%s'",
+                    ident->toChars(), vd->toPrettyChars());
+                fatal();
+            }
+            vd->llvmInternal = llvm_internal;
+        }
+        else
+        {
+            // Currently, things like "pragma(LDC_extern_weak) extern int foo;"
+            // fail because 'extern' creates an intermediate
+            // StorageClassDeclaration. This might eventually be fixed by making
+            // extern_weak a proper storage class.
+            error(s->loc, "the '%s' pragma can only be specified directly on "
+                "variable declarations for now", ident->toChars());
             fatal();
         }
         break;
