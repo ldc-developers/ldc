@@ -823,6 +823,7 @@ void genCmain(Scope *sc)
         int main(int argc, char **argv) { return _d_run_main(argc, argv, &_Dmain); }\n\
         version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }\n\
         }\n\
+        pragma(LDC_no_moduleinfo);\n\
         ";
 
     Identifier *id = Id::entrypoint;
