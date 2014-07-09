@@ -207,6 +207,7 @@ public:
     llvm::GlobalVariable* moduleInfoSymbol();
 
     bool llvmForceLogging;
+    bool noModuleInfo; /// Do not emit any module metadata.
     llvm::GlobalVariable* moduleInfoVar;
 
     // array ops emitted in this module already

@@ -136,6 +136,7 @@ Module::Module(const char *filename, Identifier *ident, int doDocComment, int do
 #if IN_LLVM
     // LDC
     llvmForceLogging = false;
+    noModuleInfo = false;
     moduleInfoVar = NULL;
     this->doDocComment = doDocComment;
     this->doHdrGen = doHdrGen;

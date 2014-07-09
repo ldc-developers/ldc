@@ -28,7 +28,6 @@ enum Pragma
     LLVMglobal_crt_ctor,
     LLVMglobal_crt_dtor,
     LLVMno_typeinfo,
-    LLVMno_moduleinfo,
     LLVMalloca,
     LLVMva_start,
     LLVMva_copy,
