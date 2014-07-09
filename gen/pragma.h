@@ -44,7 +44,8 @@ enum Pragma
     LLVMbitop_bt,
     LLVMbitop_btc,
     LLVMbitop_btr,
-    LLVMbitop_bts
+    LLVMbitop_bts,
+    LLVMextern_weak
 };
 
 Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str);

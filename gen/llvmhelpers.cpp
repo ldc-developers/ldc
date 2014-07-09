@@ -1055,12 +1055,17 @@ void DtoResolveVariable(VarDeclaration* vd)
         // vd->ir.irGlobal->value!), and in case we also do an initializer
         // with a different type later, swap it out and replace any existing
         // uses with bitcasts to the previous type.
-        //
+
         // We always start out with external linkage; any other type is set
         // when actually defining it in VarDeclaration::codegen.
+        llvm::GlobalValue::LinkageTypes linkage = llvm::GlobalValue::ExternalLinkage;
+        if (vd->llvmInternal == LLVMextern_weak) {
+            linkage = llvm::GlobalValue::ExternalWeakLinkage;
+        }
+
         llvm::GlobalVariable* gvar = getOrCreateGlobal(vd->loc, *gIR->module,
-            i1ToI8(DtoType(vd->type)), isLLConst, llvm::GlobalValue::ExternalLinkage,
-            0, llName, vd->isThreadlocal());
+            i1ToI8(DtoType(vd->type)), isLLConst, linkage, 0, llName,
+            vd->isThreadlocal());
         vd->ir.irGlobal->value = gvar;
 
         // Set the alignment (it is important not to use type->alignsize because

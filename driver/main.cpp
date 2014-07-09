@@ -847,6 +847,59 @@ void genCmain(Scope *sc)
     rootHasMain = sc->module;
 }
 
+/// Emits a declaration for the given symbol, which is assumed to be of type
+/// i8*, and defines a second globally visible i8* that contains the address
+/// of the first symbol.
+static void emitSymbolAddrGlobal(llvm::Module& lm, const char* symbolName,
+    const char* addrName)
+{
+    llvm::Type* voidPtr = llvm::PointerType::get(
+        llvm::Type::getInt8Ty(lm.getContext()), 0);
+    llvm::GlobalVariable* targetSymbol = new llvm::GlobalVariable(
+        lm, voidPtr, false, llvm::GlobalValue::ExternalLinkage,
+        NULL, symbolName
+    );
+    new llvm::GlobalVariable(lm, voidPtr, false,
+        llvm::GlobalValue::ExternalLinkage,
+        llvm::ConstantExpr::getBitCast(targetSymbol, voidPtr),
+        addrName
+    );
+}
+
+/// Adds the __entrypoint module and related support code into the given LLVM
+/// module. This assumes that genCmain() has already been called.
+static void emitEntryPointInto(llvm::Module* lm)
+{
+    assert(entrypoint && "Entry point Dmodule has not been generated.");
+#if LDC_LLVM_VER >= 303
+    llvm::Linker linker(lm);
+#else
+    llvm::Linker linker("ldc", lm);
+#endif
+
+    llvm::LLVMContext& context = lm->getContext();
+    llvm::Module* entryModule = entrypoint->genLLVMModule(context);
+
+    // On Linux, strongly define the excecutabe BSS bracketing symbols in the
+    // main module for druntime use (see rt.sections_linux).
+    if (global.params.isLinux)
+    {
+        emitSymbolAddrGlobal(*entryModule, "__bss_start", "_d_execBssBegAddr");
+        emitSymbolAddrGlobal(*entryModule, "_end", "_d_execBssEndAddr");
+    }
+
+    std::string linkError;
+#if LDC_LLVM_VER >= 303
+    const bool hadError = linker.linkInModule(entryModule, &linkError);
+#else
+    const bool hadError = linker.LinkInModule(entryModule, &linkError);
+    linker.releaseModule();
+#endif
+    if (hadError)
+        error(Loc(), "%s", linkError.c_str());
+}
+
+
 int main(int argc, char **argv)
 {
     // stack trace on signals
@@ -1258,25 +1311,7 @@ int main(int argc, char **argv)
         {
             llvm::Module* lm = m->genLLVMModule(context);
             if (entrypoint && rootHasMain == m)
-            {
-#if LDC_LLVM_VER >= 303
-                llvm::Linker linker(lm);
-#else
-                llvm::Linker linker("ldc", lm);
-#endif
-
-                llvm::Module* entryModule = entrypoint->genLLVMModule(context);
-                std::string linkError;
-
-#if LDC_LLVM_VER >= 303
-                const bool hadError = linker.linkInModule(entryModule, &linkError);
-#else
-                const bool hadError= linker.LinkInModule(entryModule, &linkError);
-                linker.releaseModule();
-#endif
-                if (hadError)
-                    error(Loc(), "%s", linkError.c_str());
-            }
+                emitEntryPointInto(lm);
             if (!singleObj)
             {
                 m->deleteObjFile();

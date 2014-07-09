@@ -38,6 +38,10 @@
 #include "doc.h"
 #include "aav.h"
 
+#if IN_LLVM
+#include "gen/pragma.h"
+#endif
+
 bool isArrayOpValid(Expression *e);
 #if IN_DMD
 Expression *createTypeInfoArray(Scope *sc, Expression *args[], size_t dim);
@@ -5608,6 +5612,14 @@ Expression *SymOffExp::semantic(Scope *sc)
 
 int SymOffExp::isBool(int result)
 {
+#if IN_LLVM
+    // For a weak symbol, we only statically know that it is non-null if the
+    // offset is non-zero.
+    if (var->llvmInternal == LLVMextern_weak)
+    {
+        return result && offset != 0;
+    }
+#endif
     return result ? true : false;
 }
 

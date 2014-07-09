@@ -292,6 +292,7 @@ Msgtable msgtable[] =
     { "LDC_atomic_rmw" },
     { "LDC_global_crt_ctor" },
     { "LDC_global_crt_dtor" },
+    { "LDC_extern_weak" },
 #endif
 
     // For special functions

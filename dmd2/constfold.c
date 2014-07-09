@@ -24,6 +24,10 @@
 #include "declaration.h"
 #include "utf.h"
 
+#if IN_LLVM
+#include "gen/pragma.h"
+#endif
+
 #define LOG 0
 
 int RealEquals(real_t x1, real_t x2);
@@ -68,6 +72,13 @@ int NullExp::isConst()
 
 int SymOffExp::isConst()
 {
+#if IN_LLVM
+    // We don't statically know anything about the address of a weak symbol
+    // if there is no offset. With an offset, we can at least say that it is
+    // non-zero.
+    if (var->llvmInternal == LLVMextern_weak && !offset)
+        return 0;
+#endif
     return 2;
 }
 
