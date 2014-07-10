@@ -4444,9 +4444,6 @@ void DtorDeclaration::semantic(Scope *sc)
     if (!ad)
     {
         error("destructors are only for class/struct/union definitions, not %s %s", parent->kind(), parent->toChars());
-#if IN_LLVM
-        fatal();
-#endif
     }
     else if (ident == Id::dtor && semanticRun < PASSsemantic)
         ad->dtors.push(this);
