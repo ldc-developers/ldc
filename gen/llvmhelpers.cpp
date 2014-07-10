@@ -260,7 +260,7 @@ void DtoGoto(Loc& loc, Identifier* target, TryFinallyStatement* sourceFinally)
 
     // goto into finally blocks is forbidden by the spec
     // but should work fine
-    if(lblstmt->enclosingFinally != sourceFinally) {
+    if(lblstmt->tf != sourceFinally) {
         error(loc, "spec disallows goto into or out of finally block");
         fatal();
     }

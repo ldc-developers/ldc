@@ -1459,7 +1459,7 @@ public:
         llvm::BasicBlock* oldend = gIR->scopeend();
         llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "aftergoto", irs->topfunc(), oldend);
 
-        DtoGoto(stmt->loc, stmt->label->ident, stmt->enclosingFinally);
+        DtoGoto(stmt->loc, stmt->label->ident, stmt->tf);
 
         irs->scope() = IRScope(bb, oldend);
     }
