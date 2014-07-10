@@ -417,10 +417,6 @@ enum LINK
     LINKcpp,
     LINKwindows,
     LINKpascal,
-
-#if IN_LLVM
-    LINKintrinsic,
-#endif
 };
 
 enum DYNCAST

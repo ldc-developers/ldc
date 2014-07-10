@@ -26,7 +26,6 @@ struct PPC64TargetABI : TargetABI {
         {
         case LINKc:
         case LINKcpp:
-        case LINKintrinsic:
         case LINKpascal:
         case LINKwindows:
         case LINKd:

@@ -534,7 +534,7 @@ DValue* AssignExp::toElem(IRState* p)
     if (op == TOKconstruct && e2->op == TOKcall)
     {
         CallExp *ce = static_cast<CallExp *>(e2);
-        if (DtoIsReturnInArg(ce->e1->type))
+        if (DtoIsReturnInArg(ce))
         {
             DValue* fnval = ce->e1->toElem(p);
             LLValue *lval = e1->toElem(p)->getLVal();

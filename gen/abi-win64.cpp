@@ -115,7 +115,6 @@ llvm::CallingConv::ID Win64TargetABI::callingConv(LINK l)
     case LINKcpp:
     case LINKd:
     case LINKdefault:
-    case LINKintrinsic:
     case LINKwindows:
         return llvm::CallingConv::C;
     case LINKpascal:

@@ -44,7 +44,6 @@ struct UnknownTargetABI : TargetABI
         {
         case LINKc:
         case LINKcpp:
-        case LINKintrinsic:
         case LINKpascal:
         case LINKwindows:
             return llvm::CallingConv::C;
@@ -137,8 +136,6 @@ struct IntrinsicABI : TargetABI
 
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     {
-        assert(tf->linkage == LINKintrinsic);
-
         if (!fty.arg_sret) {
             Type* rt = fty.ret->type->toBasetype();
             if (rt->ty == Tstruct)  {

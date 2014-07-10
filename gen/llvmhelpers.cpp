@@ -1152,7 +1152,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
                     rhs = static_cast<CastExp *>(rhs)->e1;
                 if (rhs->op == TOKcall) {
                     CallExp *ce = static_cast<CallExp *>(rhs);
-                    if (DtoIsReturnInArg(ce->e1->type))
+                    if (DtoIsReturnInArg(ce))
                     {
                         if (isSpecialRefVar(vd))
                         {

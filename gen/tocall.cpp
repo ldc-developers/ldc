@@ -11,6 +11,7 @@
 #include "id.h"
 #include "mtype.h"
 #include "target.h"
+#include "pragma.h"
 #include "gen/abi.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
@@ -340,6 +341,9 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // get func value if any
     DFuncValue* dfnval = fnval->isFunc();
 
+    // handle intrinsics
+    bool intrinsic = (dfnval && dfnval->func && dfnval->func->llvmInternal == LLVMintrinsic);
+
     // handle special vararg intrinsics
     bool va_intrinsic = (dfnval && dfnval->func && dfnval->func->isVaIntrinsic());
 
@@ -630,7 +634,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     LLValue* retllval = (retinptr) ? args[0] : call.getInstruction();
 
     // Ignore ABI for intrinsics
-    if (tf->linkage != LINKintrinsic && !retinptr)
+    if (!intrinsic && !retinptr)
     {
         // do abi specific return value fixups
         DImValue dretval(tf->next, retllval);
