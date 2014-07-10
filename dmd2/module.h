@@ -204,16 +204,17 @@ public:
     llvm::Module* genLLVMModule(llvm::LLVMContext& context);
     void buildTargetFiles(bool singleObj);
     File* buildFilePath(const char* forcename, const char* path, const char* ext);
-    Module *isModule() { return this; }
     llvm::GlobalVariable* moduleInfoSymbol();
 
     bool llvmForceLogging;
+    bool noModuleInfo; /// Do not emit any module metadata.
     llvm::GlobalVariable* moduleInfoVar;
 
     // array ops emitted in this module already
     AA *arrayfuncs;
 #endif
 
+    Module *isModule() { return this; }
     void accept(Visitor *v) { v->visit(this); }
 };
 

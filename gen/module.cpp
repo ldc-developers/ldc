@@ -626,27 +626,31 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
     // finalize debug info
     gIR->DBuilder.EmitModuleEnd();
 
-    // generate ModuleInfo
-    genmoduleinfo();
+    // Skip emission of all the additional module metadata if requested by the user.
+    if (!noModuleInfo)
+    {
+        // generate ModuleInfo
+        genmoduleinfo();
 
-    build_llvm_used_array(&ir);
+        build_llvm_used_array(&ir);
 
-#if LDC_LLVM_VER >= 303
-    // Add the linker options metadata flag.
-    ir.module->addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
-                             llvm::MDNode::get(ir.context(), ir.LinkerMetadataArgs));
-#endif
+    #if LDC_LLVM_VER >= 303
+        // Add the linker options metadata flag.
+        ir.module->addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
+                                 llvm::MDNode::get(ir.context(), ir.LinkerMetadataArgs));
+    #endif
 
-#if LDC_LLVM_VER >= 304
-    // Emit ldc version as llvm.ident metadata.
-    llvm::NamedMDNode *IdentMetadata = ir.module->getOrInsertNamedMetadata("llvm.ident");
-    std::string Version("ldc version ");
-    Version.append(global.ldc_version);
-    llvm::Value *IdentNode[] = {
-        llvm::MDString::get(ir.context(), Version)
-    };
-    IdentMetadata->addOperand(llvm::MDNode::get(ir.context(), IdentNode));
-#endif
+    #if LDC_LLVM_VER >= 304
+        // Emit ldc version as llvm.ident metadata.
+        llvm::NamedMDNode *IdentMetadata = ir.module->getOrInsertNamedMetadata("llvm.ident");
+        std::string Version("ldc version ");
+        Version.append(global.ldc_version);
+        llvm::Value *IdentNode[] = {
+            llvm::MDString::get(ir.context(), Version)
+        };
+        IdentMetadata->addOperand(llvm::MDNode::get(ir.context(), IdentNode));
+    #endif
+    }
 
     // verify the llvm
     verifyModule(*ir.module);

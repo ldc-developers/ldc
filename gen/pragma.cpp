@@ -140,7 +140,8 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
              error(Loc(), "takes no parameters");
              fatal();
         }
-        return LLVMno_moduleinfo;
+        sc->module->noModuleInfo = true;
+        return LLVMignore;
     }
 
     // pragma(LDC_alloca) { funcdecl(s) }
