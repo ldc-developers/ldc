@@ -203,12 +203,7 @@ void builtin_init()
     add_builtin("_D4core5bitop3bsrFNaNbNfmZi", &eval_bsr);
 
     // @safe pure nothrow uint function(uint)
-#if IN_LLVM
-    // bswap is intrinsic and isn't mangled
-    add_builtin("bswap", &eval_bswap);
-#else
     add_builtin("_D4core5bitop5bswapFNaNbNfkZk", &eval_bswap);
-#endif
 }
 
 /**********************************
