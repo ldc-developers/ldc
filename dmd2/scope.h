@@ -79,7 +79,7 @@ struct Scope
     Dsymbol *parent;            // parent to use
     LabelStatement *slabel;     // enclosing labelled statement
     SwitchStatement *sw;        // enclosing switch statement
-    TryFinallyStatement *enclosingFinally;	// enclosing try finally statement; set inside its finally block
+    TryFinallyStatement *tf;    // enclosing try finally statement
     TemplateInstance *tinst;    // enclosing template instance
     Statement *enclosingScopeExit; // enclosing statement that wants to do something on scope exit
     Statement *sbreak;          // enclosing statement that supports "break"

@@ -3801,11 +3801,7 @@ Statement *ReturnStatement::semantic(Scope *sc)
 
     if ((sc->flags & SCOPEcontract) || (scx->flags & SCOPEcontract))
         error("return statements cannot be in contracts");
-#if !IN_LLVM
     if (sc->tf || scx->tf)
-#else
-    if (sc->enclosingFinally || scx->enclosingFinally)
-#endif
         error("return statements cannot be in finally, scope(exit) or scope(success) bodies");
 
     if (fd->isCtorDeclaration())
@@ -4197,11 +4193,7 @@ Statement *BreakStatement::semantic(Scope *sc)
 
                 if (!s->hasBreak())
                     error("label '%s' has no break", ident->toChars());
-#if !IN_LLVM
                 else if (ls->tf != sc->tf)
-#else
-                else if (ls->enclosingFinally != sc->enclosingFinally)
-#endif
                     error("cannot break out of finally block");
                 else
 #if IN_LLVM
@@ -4314,11 +4306,7 @@ Statement *ContinueStatement::semantic(Scope *sc)
 
                 if (!s->hasContinue())
                     error("label '%s' has no continue", ident->toChars());
-#if !IN_LLVM
                 else if (ls->tf != sc->tf)
-#else
-                else if (ls->enclosingFinally != sc->enclosingFinally)
-#endif
                     error("cannot continue out of finally block");
                 else
 #if IN_LLVM
@@ -4845,11 +4833,7 @@ void Catch::semantic(Scope *sc)
     //printf("Catch::semantic(%s)\n", ident->toChars());
 
 #ifndef IN_GCC
-#if !IN_LLVM
     if (sc->tf)
-#else
-    if (sc->enclosingFinally)
-#endif
     {
         /* This is because the _d_local_unwind() gets the stack munged
          * up on this. The workaround is to place any try-catches into
@@ -4954,11 +4938,7 @@ Statement *TryFinallyStatement::semantic(Scope *sc)
     sc->enclosingScopeExit = oldScopeExit;
 #endif
     sc = sc->push();
-#if !IN_LLVM
     sc->tf = this;
-#else
-    sc->enclosingFinally = this;
-#endif
     sc->sbreak = NULL;
     sc->scontinue = NULL;       // no break or continue out of finally block
     finalbody = finalbody->semanticNoScope(sc);
@@ -5229,10 +5209,8 @@ GotoStatement::GotoStatement(Loc loc, Identifier *ident)
 {
     this->ident = ident;
     this->label = NULL;
-#if !IN_LLVM
     this->tf = NULL;
-#else
-    this->enclosingFinally = NULL;
+#if IN_LLVM
     this->enclosingScopeExit = NULL;
 #endif
     this->lastVar = NULL;
@@ -5253,10 +5231,8 @@ Statement *GotoStatement::semantic(Scope *sc)
 
     this->lastVar = sc->lastVar;
     this->fd = sc->func;
-#if !IN_LLVM
     tf = sc->tf;
-#else
-    enclosingFinally = sc->enclosingFinally;
+#if IN_LLVM
     enclosingScopeExit = sc->enclosingScopeExit;
 #endif
     label = fd->searchLabel(ident);
@@ -5280,21 +5256,13 @@ Statement *GotoStatement::semantic(Scope *sc)
             fd->gotos = new GotoStatements();
         fd->gotos->push(this);
     }
-#if IN_LLVM
-    else if (checkLabel(sc))
-#else
     else if (checkLabel())
-#endif
         return new ErrorStatement();
 
     return this;
 }
 
-#if IN_LLVM
-bool GotoStatement::checkLabel(Scope *sc)
-#else
 bool GotoStatement::checkLabel()
-#endif
 {
     if (!label->statement)
     {
@@ -5304,7 +5272,7 @@ bool GotoStatement::checkLabel()
 #if !IN_LLVM
     if (label->statement->tf != tf)
 #else
-    if (label->statement && label->statement->enclosingFinally != sc->enclosingFinally)
+    if (label->statement && label->statement->tf != tf)
 #endif
     {
         error("cannot goto in or out of finally block");
@@ -5358,10 +5326,8 @@ LabelStatement::LabelStatement(Loc loc, Identifier *ident, Statement *statement)
 {
     this->ident = ident;
     this->statement = statement;
-#if !IN_LLVM
     this->tf = NULL;
-#else
-    this->enclosingFinally = NULL;
+#if IN_LLVM
     this->enclosingScopeExit = NULL;
 #endif
     this->gotoTarget = NULL;
@@ -5392,10 +5358,8 @@ Statement *LabelStatement::semantic(Scope *sc)
     }
     else
         ls->statement = this;
-#if !IN_LLVM
     tf = sc->tf;
-#else
-    enclosingFinally = sc->enclosingFinally;
+#if IN_LLVM
     enclosingScopeExit = sc->enclosingScopeExit;
 #endif
     sc = sc->push();
