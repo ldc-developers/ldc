@@ -530,19 +530,20 @@ DValue* AssignExp::toElem(IRState* p)
         }
     }
 
+    DValue* l = e1->toElem(p);
+
     // NRVO for object field initialization in constructor
-    if (op == TOKconstruct && e2->op == TOKcall)
+    if (l->isVar() && op == TOKconstruct && e2->op == TOKcall)
     {
         CallExp *ce = static_cast<CallExp *>(e2);
         if (DtoIsReturnInArg(ce))
         {
             DValue* fnval = ce->e1->toElem(p);
-            LLValue *lval = e1->toElem(p)->getLVal();
+            LLValue *lval = l->getLVal();
             return DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments, lval);
         }
     }
 
-    DValue* l = e1->toElem(p);
     DValue* r = e2->toElem(p);
 
     if (e1->type->toBasetype()->ty == Tstruct && e2->op == TOKint64)
