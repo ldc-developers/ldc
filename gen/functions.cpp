@@ -951,8 +951,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
         fd->ir.defined = true;
         return;
     }
-    assert(fd->semanticRun == PASSsemantic3done);
-    assert(fd->ident != Id::empty);
 
     // Skip generating code for this part of a TemplateInstance if it has been
     // instantiated by any non-root module (i.e. a module not listed on the
@@ -989,6 +987,9 @@ void DtoDefineFunction(FuncDeclaration* fd)
             return;
         }
     }
+
+    assert(fd->semanticRun == PASSsemantic3done);
+    assert(fd->ident != Id::empty);
 
     if (fd->isUnitTestDeclaration()) {
         if (global.params.useUnitTests)
