@@ -255,12 +255,20 @@ IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
     // classes have monitor and fields
     else
     {
-        // add monitor
-        defaultTypes.push_back(llvm::PointerType::get(llvm::Type::getInt8Ty(gIR->context()), 0));
+        size_t offset;
+        size_t field_index;
+        if (!cd->isCPPclass() && !cd->isCPPinterface()) {
+            // add monitor
+            defaultTypes.push_back(llvm::PointerType::get(llvm::Type::getInt8Ty(gIR->context()), 0));
 
-        // we start right after the vtbl and monitor
-        size_t offset = Target::ptrsize * 2;
-        size_t field_index = 2;
+            // we start right after the vtbl and monitor
+            offset = Target::ptrsize * 2;
+            field_index = 2;
+        } else {
+            // C++ classes does not have a monitor
+            offset = Target::ptrsize;
+            field_index = 1;
+        }
 
         // add data members recursively
         t->addBaseClassData(defaultTypes, cd, offset, field_index);
@@ -288,7 +296,7 @@ IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
     FuncDeclarations vtbl;
     vtbl.reserve(cd->vtbl.dim);
     vtbl.push(0);
-    for (size_t i = 1; i < cd->vtbl.dim; ++i)
+    for (size_t i = cd->vtblOffset(); i < cd->vtbl.dim; ++i)
     {
         FuncDeclaration *fd = cd->vtbl[i]->isFuncDeclaration();
         assert(fd);
@@ -312,7 +320,8 @@ std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, FuncDeclaration
     types.reserve(vtbl_array->dim);
 
     // first comes the classinfo
-    types.push_back(DtoType(first));
+    if (!cd->isCPPclass() && !cd->isCPPinterface())
+        types.push_back(DtoType(first));
 
     // then come the functions
     for (FuncDeclarations::iterator I = vtbl_array->begin() + 1,
