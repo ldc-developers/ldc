@@ -666,10 +666,6 @@ void LinkDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
         case LINKcpp:           p = "C++";              break;
         case LINKwindows:       p = "Windows";          break;
         case LINKpascal:        p = "Pascal";           break;
-
-#if IN_LLVM
-    case LINKintrinsic: p = "Intrinsic"; break;
-#endif
         default:
             assert(0);
             break;

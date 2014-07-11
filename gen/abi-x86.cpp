@@ -32,7 +32,6 @@ struct X86TargetABI : TargetABI
         {
         case LINKc:
         case LINKcpp:
-        case LINKintrinsic:
             return llvm::CallingConv::C;
         case LINKd:
         case LINKdefault:
@@ -50,7 +49,6 @@ struct X86TargetABI : TargetABI
         {
         case LINKc:
         case LINKcpp:
-        case LINKintrinsic:
         case LINKpascal:
         case LINKwindows:
             return name;

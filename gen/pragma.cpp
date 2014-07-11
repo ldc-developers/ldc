@@ -324,8 +324,6 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         {
             fd->llvmInternal = llvm_internal;
             fd->intrinsicName = arg1str;
-            fd->linkage = LINKintrinsic;
-            static_cast<TypeFunction*>(fd->type)->linkage = LINKintrinsic;
         }
         else if (TemplateDeclaration* td = s->isTemplateDeclaration())
         {

@@ -138,9 +138,6 @@ const char *Declaration::mangle(bool isv)
                 case LINKd:
                     break;
 
-#if IN_LLVM
-                case LINKintrinsic:
-#endif
                 case LINKc:
                 case LINKwindows:
                 case LINKpascal:

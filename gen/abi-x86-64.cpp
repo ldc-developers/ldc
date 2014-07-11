@@ -421,7 +421,6 @@ llvm::CallingConv::ID X86_64TargetABI::callingConv(LINK l)
     case LINKcpp:
     case LINKd:
     case LINKdefault:
-    case LINKintrinsic:
         return llvm::CallingConv::C;
     case LINKpascal:
     case LINKwindows: // Doesn't really make sense, user should use Win64 target.

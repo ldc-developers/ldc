@@ -260,7 +260,7 @@ void DtoGoto(Loc& loc, Identifier* target, TryFinallyStatement* sourceFinally)
 
     // goto into finally blocks is forbidden by the spec
     // but should work fine
-    if(lblstmt->enclosingFinally != sourceFinally) {
+    if(lblstmt->tf != sourceFinally) {
         error(loc, "spec disallows goto into or out of finally block");
         fatal();
     }
@@ -1152,7 +1152,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
                     rhs = static_cast<CastExp *>(rhs)->e1;
                 if (rhs->op == TOKcall) {
                     CallExp *ce = static_cast<CallExp *>(rhs);
-                    if (DtoIsReturnInArg(ce->e1->type))
+                    if (DtoIsReturnInArg(ce))
                     {
                         if (isSpecialRefVar(vd))
                         {

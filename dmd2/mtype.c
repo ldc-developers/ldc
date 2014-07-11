@@ -5652,10 +5652,6 @@ void TypeFunction::toDecoBuffer(OutBuffer *buf, int flag)
         case LINKwindows:       mc = 'W';       break;
         case LINKpascal:        mc = 'V';       break;
         case LINKcpp:           mc = 'R';       break;
-#if IN_LLVM
-        // LDC
-        case LINKintrinsic:     mc = 'Q';       break;
-#endif
         default:
             assert(0);
     }
@@ -5749,10 +5745,6 @@ void TypeFunction::toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, Hd
             case LINKwindows:   p = "Windows";  break;
             case LINKpascal:    p = "Pascal";   break;
             case LINKcpp:       p = "C++";      break;
-#if IN_LLVM
-            // LDC
-            case LINKintrinsic: p = "Intrinsic"; break;
-#endif
             default:
                 assert(0);
         }
@@ -5806,10 +5798,6 @@ void functionToCBuffer2(TypeFunction *t, OutBuffer *buf, HdrGenState *hgs, int m
             case LINKwindows:   p = "Windows";  break;
             case LINKpascal:    p = "Pascal";   break;
             case LINKcpp:       p = "C++";      break;
-#if IN_LLVM
-            // LDC
-            case LINKintrinsic: p = "Intrinsic"; break;
-#endif
             default:
                 assert(0);
         }

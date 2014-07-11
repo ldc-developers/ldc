@@ -39,9 +39,9 @@ LLType* i1ToI8(LLType* t);
 // returns true if the type must be passed by pointer
 bool DtoIsPassedByRef(Type* type);
 
-// returns true if the type is a function and
-// the return value is passed in a register
-bool DtoIsReturnInArg(Type *type);
+// returns true if the return value of the call expression
+// is passed in a register
+bool DtoIsReturnInArg(CallExp *ce);
 
 // should argument be zero or sign extended
 #if LDC_LLVM_VER >= 303

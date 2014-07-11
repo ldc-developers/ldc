@@ -41,10 +41,10 @@ bool DtoIsPassedByRef(Type* type)
     return (t == Tstruct || t == Tsarray);
 }
 
-bool DtoIsReturnInArg(Type *type)
+bool DtoIsReturnInArg(CallExp *ce)
 {
-    TypeFunction *tf = static_cast<TypeFunction *>(type->toBasetype());
-    if (tf->ty == Tfunction && tf->linkage != LINKintrinsic)
+    TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
+    if (tf->ty == Tfunction && (!ce->f || ce->f->llvmInternal != LLVMintrinsic))
     {
         gABI->newFunctionType(tf);
         bool retInArg = gABI->returnInArg(tf);

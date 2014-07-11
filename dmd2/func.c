@@ -1140,11 +1140,9 @@ void FuncDeclaration::semantic3(Scope *sc)
         if (this->ident != Id::require && this->ident != Id::ensure)
             sc2->flags = sc->flags & ~SCOPEcontract;
 #if IN_LLVM
-        sc2->enclosingFinally = NULL;
         sc2->enclosingScopeExit = NULL;
-#else
-        sc2->tf = NULL;
 #endif
+        sc2->tf = NULL;
         sc2->noctor = 0;
         sc2->speculative = sc->speculative || isSpeculative() != NULL;
         sc2->userAttribDecl = NULL;
@@ -1975,7 +1973,7 @@ void FuncDeclaration::semantic3(Scope *sc)
         {
             for (size_t i = 0; i < gotos->dim; ++i)
             {
-                (*gotos)[i]->checkLabel(sc2);
+                (*gotos)[i]->checkLabel();
             }
         }
 
@@ -4446,9 +4444,6 @@ void DtorDeclaration::semantic(Scope *sc)
     if (!ad)
     {
         error("destructors are only for class/struct/union definitions, not %s %s", parent->kind(), parent->toChars());
-#if IN_LLVM
-        fatal();
-#endif
     }
     else if (ident == Id::dtor && semanticRun < PASSsemantic)
         ad->dtors.push(this);

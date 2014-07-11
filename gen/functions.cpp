@@ -53,7 +53,8 @@ namespace llvm
 }
 #endif
 
-llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype, Type* nesttype, bool isMain, bool isCtor)
+llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype, Type* nesttype,
+                                    bool isMain, bool isCtor, bool isIntrinsic)
 {
     IF_LOG Logger::println("DtoFunctionType(%s)", type->toChars());
     LOG_SCOPE
@@ -67,7 +68,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     // Return cached type if available
     if (irFty.funcType) return irFty.funcType;
 
-    TargetABI* abi = (f->linkage == LINKintrinsic ? TargetABI::getIntrinsic() : gABI);
+    TargetABI* abi = (isIntrinsic ? TargetABI::getIntrinsic() : gABI);
     // Tell the ABI we're resolving a new function type
     abi->newFunctionType(f);
 
@@ -471,7 +472,9 @@ llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         dnest = Type::tvoid->pointerTo();
     }
 
-    LLFunctionType* functype = DtoFunctionType(fdecl->type, fdecl->irFty, dthis, dnest, fdecl->isMain(), fdecl->isCtorDeclaration());
+    LLFunctionType* functype = DtoFunctionType(fdecl->type, fdecl->irFty, dthis, dnest,
+                                               fdecl->isMain(), fdecl->isCtorDeclaration(),
+                                               fdecl->llvmInternal == LLVMintrinsic);
 
     return functype;
 }
@@ -542,8 +545,6 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
                 Logger::println("overloaded intrinsic found");
                 fdecl->llvmInternal = LLVMintrinsic;
                 DtoOverloadedIntrinsicName(tinst, tempdecl, fdecl->intrinsicName);
-                fdecl->linkage = LINKintrinsic;
-                static_cast<TypeFunction*>(fdecl->type)->linkage = LINKintrinsic;
             }
             else if (tempdecl->llvmInternal == LLVMinline_asm)
             {
@@ -951,8 +952,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
         fd->ir.defined = true;
         return;
     }
-    assert(fd->semanticRun == PASSsemantic3done);
-    assert(fd->ident != Id::empty);
 
     // Skip generating code for this part of a TemplateInstance if it has been
     // instantiated by any non-root module (i.e. a module not listed on the
@@ -989,6 +988,9 @@ void DtoDefineFunction(FuncDeclaration* fd)
             return;
         }
     }
+
+    assert(fd->semanticRun == PASSsemantic3done);
+    assert(fd->ident != Id::empty);
 
     if (fd->isUnitTestDeclaration()) {
         if (global.params.useUnitTests)

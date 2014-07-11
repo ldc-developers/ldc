@@ -29,7 +29,8 @@ namespace llvm
     class Value;
 }
 
-llvm::FunctionType* DtoFunctionType(Type* t, IrFuncTy &irFty, Type* thistype, Type* nesttype, bool isMain = false, bool isCtor = false);
+llvm::FunctionType* DtoFunctionType(Type* t, IrFuncTy &irFty, Type* thistype, Type* nesttype,
+                                    bool isMain = false, bool isCtor = false, bool isIntrinsic = false);
 llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl);
 
 llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl);

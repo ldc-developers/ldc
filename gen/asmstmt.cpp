@@ -834,7 +834,7 @@ Statement *AsmBlockStatement::syntaxCopy()
 // necessary for in-asm branches
 Statement *AsmBlockStatement::semantic(Scope *sc)
 {
-    enclosingFinally = sc->enclosingFinally;
+    enclosingFinally = sc->tf;
     enclosingScopeExit = sc->enclosingScopeExit;
 
     return CompoundStatement::semantic(sc);

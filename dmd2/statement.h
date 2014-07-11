@@ -963,10 +963,8 @@ class GotoStatement : public Statement
 public:
     Identifier *ident;
     LabelDsymbol *label;
-#if !IN_LLVM
     TryFinallyStatement *tf;
-#else
-    TryFinallyStatement *enclosingFinally;
+#if IN_LLVM
     Statement* enclosingScopeExit;
 #endif
     VarDeclaration *lastVar;
@@ -975,11 +973,7 @@ public:
     GotoStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
-#if IN_LLVM
-    bool checkLabel(Scope *sc);
-#else
     bool checkLabel();
-#endif
     int blockExit(bool mustNotThrow);
     Expression *interpret(InterState *istate);
     void ctfeCompile(CompiledCtfeFunction *ccf);
@@ -993,10 +987,8 @@ class LabelStatement : public Statement
 public:
     Identifier *ident;
     Statement *statement;
-#if !IN_LLVM
     TryFinallyStatement *tf;
-#else
-    TryFinallyStatement *enclosingFinally;
+#if IN_LLVM
     Statement* enclosingScopeExit;
 #endif
     Statement *gotoTarget;      // interpret
