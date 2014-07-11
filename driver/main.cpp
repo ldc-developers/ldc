@@ -1311,8 +1311,13 @@ int main(int argc, char **argv)
         if (global.params.obj)
         {
             llvm::Module* lm = m->genLLVMModule(context);
+
+            if (global.errors)
+                fatal();
+
             if (entrypoint && rootHasMain == m)
                 emitEntryPointInto(lm);
+
             if (!singleObj)
             {
                 m->deleteObjFile();
@@ -1321,11 +1326,11 @@ int main(int argc, char **argv)
                 delete lm;
             }
             else
+            {
                 llvmModules.push_back(lm);
+            }
         }
-        if (global.errors)
-            m->deleteObjFile();
-        else if (global.params.doDocComments)
+        if (global.params.doDocComments)
             m->gendocfile();
     }
 
