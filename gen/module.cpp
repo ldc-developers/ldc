@@ -554,6 +554,53 @@ static void build_llvm_used_array(IRState* p)
     llvmUsed->setSection("llvm.metadata");
 }
 
+static void codegenModule(Module* m)
+{
+    // debug info
+    gIR->DBuilder.EmitCompileUnit(m);
+
+    // process module members
+    for (unsigned k=0; k < m->members->dim; k++) {
+        Dsymbol* dsym = static_cast<Dsymbol*>(m->members->data[k]);
+        assert(dsym);
+        Declaration_codegen(dsym);
+    }
+
+    if (global.errors) return;
+
+    // finalize debug info
+    gIR->DBuilder.EmitModuleEnd();
+
+    // Skip emission of all the additional module metadata if requested by the user.
+    if (!m->noModuleInfo)
+    {
+        // generate ModuleInfo
+        m->genmoduleinfo();
+
+        build_llvm_used_array(gIR);
+
+    #if LDC_LLVM_VER >= 303
+        // Add the linker options metadata flag.
+        gIR->module->addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
+            llvm::MDNode::get(gIR->context(), gIR->LinkerMetadataArgs));
+    #endif
+
+    #if LDC_LLVM_VER >= 304
+        // Emit ldc version as llvm.ident metadata.
+        llvm::NamedMDNode *IdentMetadata = gIR->module->getOrInsertNamedMetadata("llvm.ident");
+        std::string Version("ldc version ");
+        Version.append(global.ldc_version);
+        llvm::Value *IdentNode[] = {
+            llvm::MDString::get(gIR->context(), Version)
+        };
+        IdentMetadata->addOperand(llvm::MDNode::get(gIR->context(), IdentNode));
+    #endif
+    }
+
+    // verify the llvm
+    verifyModule(*gIR->module);
+}
+
 llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
 {
     bool logenabled = Logger::enabled();
@@ -605,9 +652,6 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
     // allocate the target abi
     gABI = TargetABI::getTarget();
 
-    // debug info
-    gIR->DBuilder.EmitCompileUnit(this);
-
     // handle invalid 'objectø module
     if (!ClassDeclaration::object) {
         error("is missing 'class Object'");
@@ -616,46 +660,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
 
     LLVM_D_InitRuntime();
 
-    // process module members
-    for (unsigned k=0; k < members->dim; k++) {
-        Dsymbol* dsym = static_cast<Dsymbol*>(members->data[k]);
-        assert(dsym);
-        Declaration_codegen(dsym);
-    }
-
-    if (global.errors) return;
-
-    // finalize debug info
-    gIR->DBuilder.EmitModuleEnd();
-
-    // Skip emission of all the additional module metadata if requested by the user.
-    if (!noModuleInfo)
-    {
-        // generate ModuleInfo
-        genmoduleinfo();
-
-        build_llvm_used_array(&ir);
-
-    #if LDC_LLVM_VER >= 303
-        // Add the linker options metadata flag.
-        ir.module->addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
-                                 llvm::MDNode::get(ir.context(), ir.LinkerMetadataArgs));
-    #endif
-
-    #if LDC_LLVM_VER >= 304
-        // Emit ldc version as llvm.ident metadata.
-        llvm::NamedMDNode *IdentMetadata = ir.module->getOrInsertNamedMetadata("llvm.ident");
-        std::string Version("ldc version ");
-        Version.append(global.ldc_version);
-        llvm::Value *IdentNode[] = {
-            llvm::MDString::get(ir.context(), Version)
-        };
-        IdentMetadata->addOperand(llvm::MDNode::get(ir.context(), IdentNode));
-    #endif
-    }
-
-    // verify the llvm
-    verifyModule(*ir.module);
+    codegenModule(this); 
 
     gIR = NULL;
 
