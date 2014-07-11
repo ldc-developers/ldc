@@ -422,26 +422,40 @@ else version( ARM )
 }
 else version ( LDC_X86_64 )
 {
-    alias va_list = __va_list;
+    // We absolutely need va_list to be something that causes the actual struct
+    // to be passed by reference for compatibility with C function declarations.
+    // Otherwise, e.g. "extern(C) int vprintf(const char*, va_list)" would fail
+    // horribly. Now, with va_list = __va_list*, we can't properly implement
+    // va_copy without cheating, as it needs to save the struct contents
+    // somewhere (offset_regs, offset_fpregs), copying a pointer does not help.
+    //
+    // Currently, we just special-case va_start/va_copy when lowering the
+    // pragmas and make them allocate the struct on the caller's stack. This
+    // gets us 99% there for the common use cases. Eventually, the whole mess
+    // will have to be cleaned up (also in DMD), probably by making va_list a
+    // magic built-in type that on x86_64 decays to a reference like the actual
+    // definition in C (one-element array), or by giving va_copy a different
+    // signature.
+    alias va_list = __va_list*;
 
     pragma(LDC_va_start)
-        void va_start(T)(va_list ap, ref T);
+        void va_start(T)(out va_list ap, ref T);
 
-    T va_arg(T)(ref va_list ap)
+    T va_arg(T)(va_list ap)
     {
         T a;
         va_arg(ap, a);
         return a;
     }
 
-    void va_arg(T)(ref va_list ap, ref T parmn)
+    void va_arg(T)(va_list apx, ref T parmn)
     {
-        va_arg_x86_64(&ap, parmn);
+        va_arg_x86_64(apx, parmn);
     }
 
-    void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
+    void va_arg()(va_list apx, TypeInfo ti, void* parmn)
     {
-        va_arg_x86_64(&ap, ti, parmn);
+        va_arg_x86_64(apx, ti, parmn);
     }
 
     pragma(LDC_va_end)
