@@ -622,6 +622,8 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
         assert(dsym);
         Declaration_codegen(dsym);
     }
+    if (global.errors || global.warnings)
+        fatal();
 
     // finalize debug info
     gIR->DBuilder.EmitModuleEnd();
