@@ -32,7 +32,7 @@ class TemplateInstance;
 
 #if IN_LLVM
 struct EnclosingHandler;
-struct AnonDeclaration;
+class AnonDeclaration;
 #endif
 
 #if __GNUC__
