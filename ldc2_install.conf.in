@@ -10,7 +10,7 @@ default:
         "-I@INCLUDE_INSTALL_DIR@/ldc",
         "-I@INCLUDE_INSTALL_DIR@",
         "-L-L@CMAKE_INSTALL_LIBDIR@", @MULTILIB_ADDITIONAL_INSTALL_PATH@
-        "-defaultlib=phobos2-ldc,druntime-ldc",
-        "-debuglib=phobos2-ldc-debug,druntime-ldc-debug"
+        "-defaultlib=druntime-ldc,phobos2-ldc,druntime-ldc",
+        "-debuglib=druntime-ldc-debug,phobos2-ldc-debug,druntime-ldc-debug"
     ];
 };
