@@ -940,16 +940,43 @@ DValue* CallExp::toElem(IRState* p)
                 fatal();
                 return NULL;
             }
-            // llvm doesn't need the second param hence the override
-            Expression* exp = static_cast<Expression*>(arguments->data[0]);
+            Expression* exp = (*arguments)[0];
             LLValue* arg = exp->toElem(p)->getLVal();
             if (LLValue *argptr = gIR->func()->_argptr) {
                 DtoStore(DtoLoad(argptr), DtoBitCast(arg, getPtrToType(getVoidPtrType())));
                 return new DImValue(type, arg);
+            } else if (global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
+                // Since the user only created a __va_list* on the stack before
+                // invoking va_start, we first need to allocate the actual
+                // struct before invoking va_start.
+                LLValue *va_list = DtoAlloca(exp->type->nextOf());
+                DtoStore(va_list, arg);
+                va_list = DtoBitCast(va_list, getVoidPtrType());
+                return new DImValue(type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), va_list, ""));
             } else {
                 arg = DtoBitCast(arg, getVoidPtrType());
                 return new DImValue(type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), arg, ""));
             }
+        }
+        else if (fndecl->llvmInternal == LLVMva_copy &&
+            global.params.targetTriple.getArch() == llvm::Triple::x86_64
+        ) {
+            if (arguments->dim != 2) {
+                error("va_copy instruction expects 2 arguments");
+                fatal();
+                return NULL;
+            }
+
+            // Similar to va_start, we need to create a new struct on the stack
+            // first and set the target argument to it.
+            Expression* exp1 = (*arguments)[0];
+            LLValue* va_list = DtoAlloca(exp1->type->nextOf());
+            LLValue* arg1 = exp1->toElem(p)->getLVal();
+            DtoStore(va_list, arg1);
+
+            LLValue* arg2 = (*arguments)[1]->toElem(p)->getRVal();
+            DtoStore(DtoLoad(arg2), DtoLoad(arg1));
+            return new DVarValue(type, arg1);
         }
         // va_arg instruction
         else if (fndecl->llvmInternal == LLVMva_arg) {
