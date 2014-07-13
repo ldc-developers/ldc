@@ -153,15 +153,16 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
     DtoResolveClass(tc->sym);
 
     // Set vtable field. Doing this seperately might be optimized better.
-    LLValue* tmp = DtoGEPi(dst,0,0,"vtbl");
-    LLValue* val = DtoBitCast(tc->sym->ir.irAggr->getVtblSymbol(), tmp->getType()->getContainedType(0));
+    LLValue* tmp = DtoGEPi(dst, 0, 0, "vtbl");
+    LLValue* val = DtoBitCast(tc->sym->ir.irAggr->getVtblSymbol(),
+        tmp->getType()->getContainedType(0));
     DtoStore(val, tmp);
 
     // For D classes, set the monitor field to null.
     const bool isCPPclass = tc->sym->isCPPclass() ? true : false;
     if (!isCPPclass)
     {
-        tmp = DtoGEPi(dst,0,1,"monitor");
+        tmp = DtoGEPi(dst, 0, 1, "monitor");
         val = LLConstant::getNullValue(tmp->getType()->getContainedType(0));
         DtoStore(val, tmp);
     }
