@@ -366,15 +366,15 @@ static void build_dso_ctor_dtor_body(
 
     {
         IRBuilder<> b(entryBB);
-        llvm::Value* initialized = b.CreateLoad(dsoInitiaized);
-        if (executeWhenInitialized)
-            b.CreateCondBr(initialized, initBB, endBB);
-        else
-            b.CreateCondBr(initialized, endBB, initBB);
+        llvm::Value* condEval = b.CreateICmp(executeWhenInitialized ? llvm::ICmpInst::ICMP_NE
+                                                                    : llvm::ICmpInst::ICMP_EQ,
+                                             b.CreateLoad(dsoInitiaized),
+                                             b.getInt8(0));
+        b.CreateCondBr(condEval, initBB, endBB);
     }
     {
         IRBuilder<> b(initBB);
-        b.CreateStore(b.getInt1(!executeWhenInitialized), dsoInitiaized);
+        b.CreateStore(b.getInt8(!executeWhenInitialized), dsoInitiaized);
 
         llvm::Constant* version = DtoConstSize_t(1);
         llvm::Type* memberTypes[] = {
@@ -490,10 +490,10 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
 
     llvm::GlobalVariable* dsoInitiaized = new llvm::GlobalVariable(
         *gIR->module,
-        llvm::Type::getInt1Ty(gIR->context()),
+        llvm::Type::getInt8Ty(gIR->context()),
         false,
         llvm::GlobalValue::LinkOnceODRLinkage,
-        llvm::ConstantInt::getFalse(gIR->context()),
+        llvm::ConstantInt::get(llvm::Type::getInt8Ty(gIR->context()), 0),
         "ldc.dso_initialized"
     );
     dsoInitiaized->setVisibility(llvm::GlobalValue::HiddenVisibility);
