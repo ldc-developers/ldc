@@ -1,7 +1,7 @@
-[![Build Status](https://travis-ci.org/ldc-developers/ldc.png?branch=master)](https://travis-ci.org/ldc-developers/ldc) [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)](https://www.bountysource.com/trackers/283332-ldc?utm_source=283332&utm_medium=shield&utm_campaign=TRACKER_BADGE)
-
 LDC – the LLVM-based D Compiler
 ===============================
+
+[![Build Status](https://travis-ci.org/ldc-developers/ldc.png?branch=master)](https://travis-ci.org/ldc-developers/ldc) [![Bountysource](https://www.bountysource.com/badge/tracker?tracker_id=283332)](https://www.bountysource.com/trackers/283332-ldc?utm_source=283332&utm_medium=shield&utm_campaign=TRACKER_BADGE)
 
 The LDC project aims to provide a portable D programming language
 compiler with modern optimization and code generation capabilities.
