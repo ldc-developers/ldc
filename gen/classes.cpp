@@ -152,35 +152,34 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
 {
     DtoResolveClass(tc->sym);
 
-    const bool isCPPclass = tc->sym->isCPPclass() ? true : false;
-    uint64_t n = tc->sym->structsize - Target::ptrsize * (isCPPclass ? 1 : 2);
-
-    // set vtable field seperately, this might give better optimization
+    // Set vtable field. Doing this seperately might be optimized better.
     LLValue* tmp = DtoGEPi(dst,0,0,"vtbl");
     LLValue* val = DtoBitCast(tc->sym->ir.irAggr->getVtblSymbol(), tmp->getType()->getContainedType(0));
     DtoStore(val, tmp);
 
+    // For D classes, set the monitor field to null.
+    const bool isCPPclass = tc->sym->isCPPclass() ? true : false;
     if (!isCPPclass)
     {
-        // monitor always defaults to zero
         tmp = DtoGEPi(dst,0,1,"monitor");
         val = LLConstant::getNullValue(tmp->getType()->getContainedType(0));
         DtoStore(val, tmp);
     }
 
-    // done?
-    if (n == 0)
+    // Copy the rest from the static initializer, if any.
+    unsigned const firstDataIdx = isCPPclass ? 1 : 2;
+    uint64_t const dataBytes = tc->sym->structsize - Target::ptrsize * firstDataIdx;
+    if (dataBytes == 0)
         return;
 
-    // copy the rest from the static initializer
-    LLValue* dstarr = DtoGEPi(dst,0,2,"tmp");
+    LLValue* dstarr = DtoGEPi(dst, 0, firstDataIdx, "tmp");
 
     // init symbols might not have valid types
     LLValue* initsym = tc->sym->ir.irAggr->getInitSymbol();
     initsym = DtoBitCast(initsym, DtoType(tc));
-    LLValue* srcarr = DtoGEPi(initsym,0,2,"tmp");
+    LLValue* srcarr = DtoGEPi(initsym, 0, firstDataIdx, "tmp");
 
-    DtoMemCpy(dstarr, srcarr, DtoConstSize_t(n));
+    DtoMemCpy(dstarr, srcarr, DtoConstSize_t(dataBytes));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
