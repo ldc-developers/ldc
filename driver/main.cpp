@@ -857,7 +857,7 @@ static void emitSymbolAddrGlobal(llvm::Module& lm, const char* symbolName,
     llvm::Type* voidPtr = llvm::PointerType::get(
         llvm::Type::getInt8Ty(lm.getContext()), 0);
     llvm::GlobalVariable* targetSymbol = new llvm::GlobalVariable(
-        lm, voidPtr, false, llvm::GlobalValue::ExternalLinkage,
+        lm, voidPtr, false, llvm::GlobalValue::ExternalWeakLinkage,
         NULL, symbolName
     );
     new llvm::GlobalVariable(lm, voidPtr, false,
