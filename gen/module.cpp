@@ -340,13 +340,13 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 ///
 /// Pseudocode:
 /// if (dsoInitialized == executeWhenInitialized) {
-///     dsoInitiaized = !executeWhenInitialized;
+///     dsoInitialized = !executeWhenInitialized;
 ///     auto record = {1, dsoSlot, minfoBeg, minfoEnd, minfoUsedPointer};
 ///     _d_dso_registry(cast(CompilerDSOData*)&record);
 /// }
 static void build_dso_ctor_dtor_body(
     llvm::Function* targetFunc,
-    llvm::Value* dsoInitiaized,
+    llvm::Value* dsoInitialized,
     llvm::Value* dsoSlot,
     llvm::Value* minfoBeg,
     llvm::Value* minfoEnd,
@@ -366,15 +366,15 @@ static void build_dso_ctor_dtor_body(
 
     {
         IRBuilder<> b(entryBB);
-        llvm::Value* initialized = b.CreateLoad(dsoInitiaized);
-        if (executeWhenInitialized)
-            b.CreateCondBr(initialized, initBB, endBB);
-        else
-            b.CreateCondBr(initialized, endBB, initBB);
+        llvm::Value* condEval = b.CreateICmp(executeWhenInitialized ? llvm::ICmpInst::ICMP_NE
+                                                                    : llvm::ICmpInst::ICMP_EQ,
+                                             b.CreateLoad(dsoInitialized),
+                                             b.getInt8(0));
+        b.CreateCondBr(condEval, initBB, endBB);
     }
     {
         IRBuilder<> b(initBB);
-        b.CreateStore(b.getInt1(!executeWhenInitialized), dsoInitiaized);
+        b.CreateStore(b.getInt8(!executeWhenInitialized), dsoInitialized);
 
         llvm::Constant* version = DtoConstSize_t(1);
         llvm::Type* memberTypes[] = {
@@ -488,15 +488,15 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
     // problems. This would mean that it is no longer safe to link D objects
     // directly using e.g. "g++ dcode.o cppcode.o", though.
 
-    llvm::GlobalVariable* dsoInitiaized = new llvm::GlobalVariable(
+    llvm::GlobalVariable* dsoInitialized = new llvm::GlobalVariable(
         *gIR->module,
-        llvm::Type::getInt1Ty(gIR->context()),
+        llvm::Type::getInt8Ty(gIR->context()),
         false,
         llvm::GlobalValue::LinkOnceODRLinkage,
-        llvm::ConstantInt::getFalse(gIR->context()),
+        llvm::ConstantInt::get(llvm::Type::getInt8Ty(gIR->context()), 0),
         "ldc.dso_initialized"
     );
-    dsoInitiaized->setVisibility(llvm::GlobalValue::HiddenVisibility);
+    dsoInitialized->setVisibility(llvm::GlobalValue::HiddenVisibility);
 
     // There is no reason for this cast to void*, other than that removing it
     // seems to trigger a bug in the llvm::Linker (at least on LLVM 3.4)
@@ -514,7 +514,7 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
         gIR->module
     );
     dsoCtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
-    build_dso_ctor_dtor_body(dsoCtor, dsoInitiaized, dsoSlot, minfoBeg, minfoEnd, minfoRefPtr, false);
+    build_dso_ctor_dtor_body(dsoCtor, dsoInitialized, dsoSlot, minfoBeg, minfoEnd, minfoRefPtr, false);
     llvm::appendToGlobalCtors(*gIR->module, dsoCtor, 65535);
 
     llvm::Function* dsoDtor = llvm::Function::Create(
@@ -524,7 +524,7 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
         gIR->module
     );
     dsoDtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
-    build_dso_ctor_dtor_body(dsoDtor, dsoInitiaized, dsoSlot, minfoBeg, minfoEnd, minfoRefPtr, true);
+    build_dso_ctor_dtor_body(dsoDtor, dsoInitialized, dsoSlot, minfoBeg, minfoEnd, minfoRefPtr, true);
     llvm::appendToGlobalDtors(*gIR->module, dsoDtor, 65535);
 }
 
