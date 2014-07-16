@@ -217,8 +217,12 @@ void writeModule(llvm::Module* m, std::string filename)
 
         if (!global.params.output_s)
         {
-            bool Existed;
-            llvm::sys::fs::remove(spath.str(), Existed);
+#if LDC_LLVM_VER < 305
+            bool existed;
+            llvm::sys::fs::remove(spath.str(), existed);
+#else
+            llvm::sys::fs::remove(spath.str());
+#endif
         }
     }
 
