@@ -333,7 +333,7 @@ if(GENERATE_OFFTI)
 endif()
 
 if(MSVC)
-    set(EXTRA_CXXFLAGS "/W0 /wd4996 /GF /GR-")
+    set(EXTRA_CXXFLAGS "/W0 /wd4996 /GF /GR- /MP")
 else()
     set(EXTRA_CXXFLAGS "-fexceptions")
 endif()

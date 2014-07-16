@@ -731,6 +731,7 @@ function(add_tests d_files runner name_suffix)
     foreach(file ${d_files})
         file_to_module_name(${file} module)
         add_test(NAME "${module}${name_suffix}"
+            WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
             COMMAND ${runner}-test-runner${name_suffix} ${module}
         )
         set_tests_properties("${module}${name_suffix}" PROPERTIES
