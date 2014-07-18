@@ -439,7 +439,9 @@ llvm::TargetMachine* createTargetMachine(
     // on OS X supports a similar flag (-dead_strip) that doesn't require
     // emitting the symbols into different sections. The MinGW ld doesn't seem
     // to support --gc-sections at all, and FreeBSD needs more investigation.
-    if (!noLinkerStripDead && triple.getOS() == llvm::Triple::Linux) {
+    if (!noLinkerStripDead &&
+        (triple.getOS() == llvm::Triple::Linux || triple.getOS() == llvm::Triple::Win32))
+    {
 #if LDC_LLVM_VER < 305
         llvm::TargetMachine::setDataSections(true);
         llvm::TargetMachine::setFunctionSections(true);

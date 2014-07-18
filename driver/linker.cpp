@@ -282,7 +282,9 @@ static int linkObjToBinaryWin(bool sharedLib)
     }
 
     // remove dead code and fold identical COMDATs
-    if (!opts::disableLinkerStripDead)
+    if (opts::disableLinkerStripDead)
+        args.push_back("/OPT:NOREF");
+    else
     {
         args.push_back("/OPT:REF");
         args.push_back("/OPT:ICF");

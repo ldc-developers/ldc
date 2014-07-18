@@ -104,7 +104,7 @@ DValue *Expression::toElemDtor(IRState *p)
 
         const std::vector<Expression*> &edtors;
 
-        void toIR(LLValue */*eh_ptr*/ = 0)
+        void toIR(LLValue* /*eh_ptr*/ = 0)
         {
             std::vector<Expression*>::const_reverse_iterator itr, end = edtors.rend();
             for (itr = edtors.rbegin(); itr != end; ++itr)

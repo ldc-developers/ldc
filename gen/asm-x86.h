@@ -2047,9 +2047,9 @@ namespace AsmParserx8664
 
             if ( token->value == TOKeof && op == Op_FMath0 )
             {
-                // FIXME: verify - no iteration for x86 vs. single iteration for x64
+                // no iteration for x86 vs. single iteration for x64
 #ifndef ASM_X86_64
-                for (operand_i = 0; operand_i < 0; operand_i++)
+                while (false)
 #else
                 for (operand_i = 0; operand_i < 1; operand_i++)
 #endif

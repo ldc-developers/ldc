@@ -71,13 +71,13 @@ if (WIN32 OR NOT LLVM_CONFIG)
             # llvm_map_components_to_libraries also includes imagehlp and psapi.
             set(LLVM_LDFLAGS "-L${LLVM_LIBRARY_DIRS}")
             set(LLVM_LIBRARIES ${tmplibs})
-
-            # When using the CMake LLVM module, LLVM_DEFINITIONS is a list
-            # instead of a string. Later, the list seperators would entirely
-            # disappear, replace them by spaces instead. A better fix would be
-            # to switch to add_definitions() instead of throwing strings around.
-            string(REPLACE ";" " " LLVM_CXXFLAGS "${LLVM_CXXFLAGS}")
         endif()
+
+        # When using the CMake LLVM module, LLVM_DEFINITIONS is a list
+        # instead of a string. Later, the list seperators would entirely
+        # disappear, replace them by spaces instead. A better fix would be
+        # to switch to add_definitions() instead of throwing strings around.
+        string(REPLACE ";" " " LLVM_CXXFLAGS "${LLVM_CXXFLAGS}")
     else()
         if (NOT FIND_LLVM_QUIETLY)
             message(WARNING "Could not find llvm-config. Try manually setting LLVM_CONFIG to the llvm-config executable of the installation to use.")

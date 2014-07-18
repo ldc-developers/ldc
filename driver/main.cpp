@@ -498,7 +498,6 @@ static void initializePasses() {
     initializeCore(Registry);
     initializeDebugIRPass(Registry);
     initializeScalarOpts(Registry);
-    initializeObjCARCOpts(Registry);
     initializeVectorization(Registry);
     initializeIPO(Registry);
     initializeAnalysis(Registry);
