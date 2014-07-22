@@ -37,11 +37,9 @@ install:
       sudo apt-get install --allow-unauthenticated -qq clang-3.4; export CXX="clang++-3.4";
     fi
 env:
-  - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev" TEST_DEBUG=1
   - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev"
-  - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev" TEST_DEBUG=1
   - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev"
-  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TEST_DEBUG=1 OPTS="-DMULTILIB=ON"
+  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TEST_DEBUG=1
   - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev"
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TEST_DEBUG=1
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=32
@@ -52,11 +50,11 @@ env:
   - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev"
 script:
   - cmake $OPTS .
-  - make
+  - make -j2
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
-  # We need to run the druntime/Phobos unittest build targets build separately
+  # We need to run the druntime/phobos unittest build targets and the testsuite
   # with output shown (--verbose), because we hit the non-configurable Travis
   # "silence timeout" of 10 minutes otherwise. So much for "no news is good
   # news".
@@ -76,19 +74,19 @@ script:
       need_32="(-32)?";
     fi;
     if [[ -z "${TEST_DEBUG}" ]]; then
-      export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest${need_32}$";
-      export RUN_SEL="-E -debug(-32)?$";
+      export BUILD_SEL="-R (dmd-testsuite${need_32}$)|(build-(druntime|phobos2)-ldc-unittest${need_32}$)";
+      export RUN_SEL="-E (dmd-testsuite)|(-debug(-32)?$)";
       if [[ "${TEST_BITNESS}" == "32" ]]; then
         export RUN_SEL="-R -32$ ${RUN_SEL}";
       elif [[ "${TEST_BITNESS}" == "64" ]]; then
-        export RUN_SEL="-E ((-debug)|(-32))$";
+        export RUN_SEL="-E (dmd-testsuite)|(((-debug)|(-32))$)";
       fi;
     else
-      export BUILD_SEL="-R build-(druntime|phobos2)-ldc-unittest-debug${need_32}$";
-      export RUN_SEL="-R debug${need_32}$";
+      export BUILD_SEL="-R (dmd-testsuite-debug${need_32}$)|(build-(druntime|phobos2)-ldc-unittest-debug${need_32}$)";
+      export RUN_SEL="-R debug${need_32}$ -E dmd-testsuite";
     fi;
-  - ctest --verbose ${BUILD_SEL}
-  - ctest --output-on-failure ${RUN_SEL}
+  - ctest -j2 --verbose ${BUILD_SEL}
+  - ctest -j2 --output-on-failure ${RUN_SEL}
 
 notifications:
   # Temporarily disabled due to time limit problems.
