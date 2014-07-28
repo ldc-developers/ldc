@@ -135,7 +135,7 @@ else()
         # In LLVM 3.5+, the system library dependencies (e.g. "-lz") are accessed
         # using the separate "--system-libs" flag.
         llvm_set(SYSTEM_LIBS system-libs)
-        set(LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
+        string(REPLACE "\n" " " LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
     endif()
     llvm_set(LIBRARY_DIRS libdir)
     llvm_set_libs(LIBRARIES libfiles "${LLVM_LIBRARY_DIRS}/")
