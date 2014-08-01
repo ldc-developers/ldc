@@ -465,7 +465,11 @@ ldc::DIFunctionType ldc::DIBuilder::CreateFunctionType(Type *type)
     // Create "dummy" subroutine type for the return type
     llvm::SmallVector<llvm::Value*, 16> Elts;
     Elts.push_back(CreateTypeDescription(retType, NULL, true));
+#if LDC_LLVM_VER >= 306
+    llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
+#else
     llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
+#endif
     return DBuilder.createSubroutineType(file, EltTypeArray);
 }
 
@@ -486,7 +490,11 @@ ldc::DIFunctionType ldc::DIBuilder::CreateDelegateType(Type *type)
         llvm::DIType(NULL)
 #endif
     );
+#if LDC_LLVM_VER >= 306
+    llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
+#else
     llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
+#endif
     return DBuilder.createSubroutineType(file, EltTypeArray);
 }
 
@@ -620,7 +628,11 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgramInternal(llvm::StringRef pretty
 #else
     Elts.push_back(llvm::DIType(NULL));
 #endif
+#if LDC_LLVM_VER >= 306
+    llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
+#else
     llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
+#endif
     ldc::DIFunctionType DIFnType = DBuilder.createSubroutineType(file, EltTypeArray);
 
     // FIXME: duplicates ?
