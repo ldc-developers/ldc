@@ -19,6 +19,26 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
+version(LDC_LLVM_303) version = INTRINSICS_FROM_303;
+version(LDC_LLVM_304)
+{
+    version = INTRINSICS_FROM_303;
+    version = INTRINSICS_FROM_304;
+}
+version(LDC_LLVM_305)
+{
+    version = INTRINSICS_FROM_303;
+    version = INTRINSICS_FROM_304;
+    version = INTRINSICS_FROM_305;
+}
+version(LDC_LLVM_306)
+{
+    version = INTRINSICS_FROM_303;
+    version = INTRINSICS_FROM_304;
+    version = INTRINSICS_FROM_305;
+    version = INTRINSICS_FROM_306;
+}
+
 // All intrinsics are nothrow. The codegen intrinsics are not categorized any
 // further (they probably could), the rest is pure (aborting is fine by
 // definition; memcpy and friends can be viewed as weakly pure, just as e.g.
@@ -68,9 +88,15 @@ pragma(LDC_intrinsic, "llvm.stackrestore")
 /// prefetch instruction if supported; otherwise, it is a noop. Prefetches have
 /// no effect on the behavior of the program but can change its performance
 /// characteristics.
+/// ptr is the address to be prefetched, rw is the specifier determining if the
+/// fetch should be for a read (0) or write (1), and locality is a temporal
+/// locality specifier ranging from (0) - no locality, to (3) - extremely local
+/// keep in cache. The cache type specifies whether the prefetch is performed on
+/// the data (1) or instruction (0) cache. The rw, locality and cache type
+/// arguments must be constant integers.
 
 pragma(LDC_intrinsic, "llvm.prefetch")
-    void llvm_prefetch(void* ptr, uint rw, uint locality);
+    void llvm_prefetch(void* ptr, uint rw, uint locality, uint cachetype);
 
 
 /// The 'llvm.pcmarker' intrinsic is a method to export a Program Counter (PC)
@@ -99,6 +125,25 @@ pragma(LDC_intrinsic, "llvm.readcyclecounter")
 // used that intrinsic.
 alias llvm_readcyclecounter readcyclecounter;
 
+
+version(INTRINSICS_FROM_305)
+{
+/// The 'llvm.clear_cache' intrinsic ensures visibility of modifications in the
+/// specified range to the execution unit of the processor. On targets with
+/// non-unified instruction and data cache, the implementation flushes the
+/// instruction cache.
+/// On platforms with coherent instruction and data caches (e.g. x86), this
+/// intrinsic is a nop. On platforms with non-coherent instruction and data
+/// cache (e.g. ARM, MIPS), the intrinsic is lowered either to appropriate
+/// instructions or a system call, if cache flushing requires special privileges.
+///
+/// The default behavior is to emit a call to __clear_cache from the run time library.
+///
+/// This instrinsic does not empty the instruction pipeline. Modifications of
+/// the current function are outside the scope of the intrinsic.
+pragma(LDC_intrinsic, "llvm.clear_cache")
+    void llvm_clear_cache(void *from, void *to);
+}
 
 
 
@@ -206,19 +251,6 @@ pragma(LDC_intrinsic, "llvm.fabs.f#")
 
 pragma(LDC_intrinsic, "llvm.floor.f#")
     T llvm_floor(T)(T val);
-
-version(LDC_LLVM_303) version = INTRINSICS_FROM_303;
-version(LDC_LLVM_304)
-{
-    version = INTRINSICS_FROM_303;
-    version = INTRINSICS_FROM_304;
-}
-version(LDC_LLVM_305)
-{
-    version = INTRINSICS_FROM_303;
-    version = INTRINSICS_FROM_304;
-    version = INTRINSICS_FROM_305;
-}
 
 version(INTRINSICS_FROM_303)
 {
