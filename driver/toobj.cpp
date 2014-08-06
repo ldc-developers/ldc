@@ -28,6 +28,9 @@
 #include "llvm/Support/PathV1.h"
 #endif
 #include "llvm/Target/TargetMachine.h"
+#if LDC_LLVM_VER >= 306
+#include "llvm/Target/TargetSubtargetInfo.h"
+#endif
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
 #else
@@ -61,7 +64,12 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
     // about to build.
     PassManager Passes;
 
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER >= 306
+    if (const DataLayout *DL = Target.getSubtargetImpl()->getDataLayout())
+        Passes.add(new DataLayoutPass(*DL));
+    else
+        Passes.add(new DataLayoutPass(&m));
+#elif LDC_LLVM_VER == 305
     if (const DataLayout *DL = Target.getDataLayout())
         Passes.add(new DataLayoutPass(*DL));
     else

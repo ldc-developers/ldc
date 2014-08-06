@@ -48,6 +48,9 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
+#if LDC_LLVM_VER >= 306
+#include "llvm/Target/TargetSubtargetInfo.h"
+#endif
 #if LDC_LLVM_VER >= 303
 #include "llvm/LinkAllIR.h"
 #include "llvm/IR/LLVMContext.h"
@@ -971,7 +974,9 @@ int main(int argc, char **argv)
         global.params.is64bit      = triple.isArch64Bit();
     }
 
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 306
+    gDataLayout = gTargetMachine->getSubtargetImpl()->getDataLayout();
+#elif LDC_LLVM_VER >= 302
     gDataLayout = gTargetMachine->getDataLayout();
 #else
     gDataLayout = gTargetMachine->getTargetData();
