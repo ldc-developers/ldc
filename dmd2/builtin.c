@@ -23,6 +23,10 @@
 #include "identifier.h"
 #include "id.h"
 #include "module.h"
+#if IN_LLVM
+#include "template.h"
+#include "gen/pragma.h"
+#endif
 
 StringTable builtins;
 
@@ -78,6 +82,154 @@ Expression *eval_fabs(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     return new RealExp(loc, fabsl(arg0->toReal()), arg0->type);
 }
 
+#if IN_LLVM
+
+static inline Type *getTypeOfOverloadedIntrinsic(FuncDeclaration *fd)
+{
+    // Depending on the state of the code generation we have to look at
+    // the template instance or the function declaration.
+    assert(fd->parent && "function declaration requires parent");
+    TemplateInstance* tinst = fd->parent->isTemplateInstance();
+    if (tinst)
+    {
+        // See DtoOverloadedIntrinsicName
+        assert(tinst->tdtypes.dim == 1);
+        return static_cast<Type*>(tinst->tdtypes.data[0]);
+    }
+    else
+    {
+        assert(fd->type->ty == Tfunction);
+        TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
+        assert(tf->parameters->dim >= 1);
+        return tf->parameters->data[0]->type;
+    }
+}
+
+static inline int getBitsizeOfType(Loc loc, Type *type)
+{
+    switch (type->toBasetype()->ty)
+    {
+      case Tint64:
+      case Tuns64: return 64;
+      case Tint32:
+      case Tuns32: return 32;
+      case Tint16:
+      case Tuns16: return 16;
+      case Tint128:
+      case Tuns128:
+          error(loc, "cent/ucent not supported");
+          break;
+      default:
+          error(loc, "unsupported type");
+          break;
+    }
+    return 32; // in case of error
+}
+
+Expression *eval_cttz(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKint64);
+    uinteger_t x = arg0->toInteger();
+
+    int n = getBitsizeOfType(loc, type);
+
+    if (x == 0)
+    {
+        if ((*arguments)[1]->toInteger())
+            error(loc, "llvm.cttz.i#(0) is undefined");
+    }
+    else
+    {
+        int c = n >> 1;
+        n -= 1;
+        const uinteger_t mask = (static_cast<uinteger_t>(1L) << n) 
+                                | (static_cast<uinteger_t>(1L) << n)-1;
+        do {
+            uinteger_t y = (x << c) & mask; if (y != 0) { n -= c; x = y; }
+            c = c >> 1;
+        } while (c != 0);
+    }
+
+    return new IntegerExp(loc, n, type);
+}
+
+Expression *eval_ctlz(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKint64);
+    uinteger_t x = arg0->toInteger();
+    if (x == 0 && (*arguments)[1]->toInteger())
+        error(loc, "llvm.ctlz.i#(0) is undefined");
+
+    int n = getBitsizeOfType(loc, type);
+    int c = n >> 1;
+    do {
+        uinteger_t y = x >> c; if (y != 0) { n -= c; x = y; }
+        c = c >> 1;
+    } while (c != 0);
+
+    return new IntegerExp(loc, n - x, type);
+}
+
+Expression *eval_bswap(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKint64);
+    uinteger_t n = arg0->toInteger();
+    #define BYTEMASK  0x00FF00FF00FF00FFLL
+    #define SHORTMASK 0x0000FFFF0000FFFFLL
+    #define INTMASK 0x0000FFFF0000FFFFLL
+    switch (type->toBasetype()->ty)
+    {
+      case Tint64:
+      case Tuns64:
+          // swap high and low uints
+          n = ((n >> 32) & INTMASK) | ((n & INTMASK) << 32);
+      case Tint32:
+      case Tuns32:
+          // swap adjacent ushorts
+          n = ((n >> 16) & SHORTMASK) | ((n & SHORTMASK) << 16);
+      case Tint16:
+      case Tuns16:
+          // swap adjacent ubytes
+          n = ((n >> 8 ) & BYTEMASK)  | ((n & BYTEMASK) << 8 );
+          break;
+      case Tint128:
+      case Tuns128:
+          error(loc, "cent/ucent not supported");
+          break;
+      default:
+          error(loc, "unsupported type");
+          break;
+    }
+    return new IntegerExp(loc, n, type);
+}
+
+Expression *eval_ctpop(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    // FIXME Does not work for cent/ucent
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKint64);
+    uinteger_t n = arg0->toInteger();
+    n = n - ((n >> 1) & 0x5555555555555555);
+    n = (n & 0x3333333333333333) + ((n >> 2) & 0x3333333333333333);
+    n = n  + ((n >> 4) & 0x0F0F0F0F0F0F0F0F);
+    n = n + (n >> 8);
+    n = n + (n >> 16);
+    n = n + (n >> 32);
+    return new IntegerExp(loc, n, type);
+}
+#else
+
 Expression *eval_bsf(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 {
     Expression *arg0 = (*arguments)[0];
@@ -127,10 +279,15 @@ Expression *eval_bswap(Loc loc, FuncDeclaration *fd, Expressions *arguments)
         n = ((n >> 32) & INTMASK) | ((n & INTMASK) << 32);
     return new IntegerExp(loc, n, arg0->type);
 }
+#endif
 
 void builtin_init()
 {
+#if IN_LLVM
+    builtins._init(67); // Prime number like default value
+#else
     builtins._init(45);
+#endif
 
     // @safe pure nothrow real function(real)
     add_builtin("_D4core4math3sinFNaNbNfeZe", &eval_sin);
@@ -194,6 +351,38 @@ void builtin_init()
     // @safe pure nothrow long function(real)
     add_builtin("_D3std4math6rndtolFNaNbNfeZl", &eval_unimp);
 
+#if IN_LLVM
+    // intrinsic llvm.bswap.i16/i32/i64/i128
+    add_builtin("llvm.bswap.i#", &eval_bswap);
+    add_builtin("llvm.bswap.i16", &eval_bswap);
+    add_builtin("llvm.bswap.i32", &eval_bswap);
+    add_builtin("llvm.bswap.i64", &eval_bswap);
+    add_builtin("llvm.bswap.i128", &eval_bswap);
+
+    // intrinsic llvm.cttz.i8/i16/i32/i64/i128
+    add_builtin("llvm.cttz.i#", &eval_cttz);
+    add_builtin("llvm.cttz.i8", &eval_cttz);
+    add_builtin("llvm.cttz.i16", &eval_cttz);
+    add_builtin("llvm.cttz.i32", &eval_cttz);
+    add_builtin("llvm.cttz.i64", &eval_cttz);
+    add_builtin("llvm.cttz.i128", &eval_cttz);
+
+    // intrinsic llvm.ctlz.i8/i16/i32/i64/i128
+    add_builtin("llvm.ctlz.i#", &eval_ctlz);
+    add_builtin("llvm.ctlz.i8", &eval_ctlz);
+    add_builtin("llvm.ctlz.i16", &eval_ctlz);
+    add_builtin("llvm.ctlz.i32", &eval_ctlz);
+    add_builtin("llvm.ctlz.i64", &eval_ctlz);
+    add_builtin("llvm.ctlz.i128", &eval_ctlz);
+
+    // intrinsic llvm.ctpop.i8/i16/i32/i64/i128
+    add_builtin("llvm.ctpop.i#", &eval_ctpop);
+    add_builtin("llvm.ctpop.i8", &eval_ctpop);
+    add_builtin("llvm.ctpop.i16", &eval_ctpop);
+    add_builtin("llvm.ctpop.i32", &eval_ctpop);
+    add_builtin("llvm.ctpop.i64", &eval_ctpop);
+    add_builtin("llvm.ctpop.i128", &eval_ctpop);
+#else
     // @safe pure nothrow int function(uint)
     add_builtin("_D4core5bitop3bsfFNaNbNfkZi", &eval_bsf);
     add_builtin("_D4core5bitop3bsrFNaNbNfkZi", &eval_bsr);
@@ -204,6 +393,7 @@ void builtin_init()
 
     // @safe pure nothrow uint function(uint)
     add_builtin("_D4core5bitop5bswapFNaNbNfkZk", &eval_bswap);
+#endif
 }
 
 /**********************************
@@ -214,7 +404,13 @@ BUILTIN FuncDeclaration::isBuiltin()
 {
     if (builtin == BUILTINunknown)
     {
+#if IN_LLVM
+        const char *name = llvmInternal == LLVMintrinsic ? intrinsicName.c_str()
+                                                         : mangleExact();
+        builtin_fp fp = builtin_lookup(name);
+#else
         builtin_fp fp = builtin_lookup(mangleExact());
+#endif
         builtin = fp ? BUILTINyes : BUILTINno;
     }
     return builtin;
@@ -229,7 +425,13 @@ Expression *eval_builtin(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 {
     if (fd->builtin == BUILTINyes)
     {
+#if IN_LLVM
+        const char *name = fd->llvmInternal == LLVMintrinsic ? fd->intrinsicName.c_str()
+                                                             : fd->mangleExact();
+        builtin_fp fp = builtin_lookup(name);
+#else
         builtin_fp fp = builtin_lookup(fd->mangleExact());
+#endif
         assert(fp);
         return fp(loc, fd, arguments);
     }
