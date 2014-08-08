@@ -59,6 +59,7 @@ MultiSetter::MultiSetter(bool invert, bool* p, ...) {
         while ((p = va_arg(va, bool*))) {
             locations.push_back(p);
         }
+        va_end(va);
     }
 }
 
