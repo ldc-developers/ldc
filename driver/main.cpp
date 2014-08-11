@@ -666,6 +666,20 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::Win32:
             VersionCondition::addPredefinedGlobalIdent("Windows");
             VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
+#if LDC_LLVM_VER >= 306
+            if (global.params.targetTriple.isWindowsGNUEnvironment())
+            {
+                VersionCondition::addPredefinedGlobalIdent("mingw32"); // For backwards compatibility.
+                VersionCondition::addPredefinedGlobalIdent("MinGW");
+            }
+            if (global.params.targetTriple.isWindowsCygwinEnvironment())
+            {
+                error(Loc(), "Cygwin is not yet supported");
+                fatal();
+                VersionCondition::addPredefinedGlobalIdent("Cygwin");
+            }
+            break;
+#else
             break;
         case llvm::Triple::MinGW32:
             VersionCondition::addPredefinedGlobalIdent("Windows");
@@ -678,6 +692,7 @@ static void registerPredefinedTargetVersions() {
             fatal();
             VersionCondition::addPredefinedGlobalIdent("Cygwin");
             break;
+#endif
         case llvm::Triple::Linux:
 #if LDC_LLVM_VER >= 302
             if (global.params.targetTriple.getEnvironment() == llvm::Triple::Android)

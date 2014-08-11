@@ -388,7 +388,11 @@ public:
             StringExp *se = static_cast<StringExp *>(e);
 
             size_t nameLen = se->len;
+#if LDC_LLVM_VER >= 306
+            if (global.params.targetTriple.isWindowsGNUEnvironment())
+#else
             if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
+#endif
             {
                 if (nameLen > 4 &&
                     !memcmp(static_cast<char*>(se->string) + nameLen - 4, ".lib", 4))

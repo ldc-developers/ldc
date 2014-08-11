@@ -132,7 +132,11 @@ void writeModule(llvm::Module* m, std::string filename)
     // We don't use the integrated assembler with MinGW as it does not support
     // emitting DW2 exception handling tables.
     bool const assembleExternally = global.params.output_o &&
+#if LDC_LLVM_VER >= 306
+        global.params.targetTriple.isWindowsGNUEnvironment();
+#else
         global.params.targetTriple.getOS() == llvm::Triple::MinGW32;
+#endif
 
     // eventually do our own path stuff, dmd's is a bit strange.
     typedef llvm::SmallString<128> LLPath;
