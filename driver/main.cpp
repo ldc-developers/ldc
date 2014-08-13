@@ -48,6 +48,9 @@
 #include "llvm/Support/TargetRegistry.h"
 #include "llvm/Support/TargetSelect.h"
 #include "llvm/Target/TargetMachine.h"
+#if LDC_LLVM_VER >= 306
+#include "llvm/Target/TargetSubtargetInfo.h"
+#endif
 #if LDC_LLVM_VER >= 303
 #include "llvm/LinkAllIR.h"
 #include "llvm/IR/LLVMContext.h"
@@ -589,12 +592,14 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("ARM_Thumb");
             registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
             break;
+#if LDC_LLVM_VER == 305
+        case llvm::Triple::arm64:
+        case llvm::Triple::arm64_be:
+#endif
 #if LDC_LLVM_VER >= 303
         case llvm::Triple::aarch64:
 #if LDC_LLVM_VER >= 305
         case llvm::Triple::aarch64_be:
-        case llvm::Triple::arm64:
-        case llvm::Triple::arm64_be:
 #endif
             VersionCondition::addPredefinedGlobalIdent("AArch64");
             registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
@@ -661,6 +666,20 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::Win32:
             VersionCondition::addPredefinedGlobalIdent("Windows");
             VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
+#if LDC_LLVM_VER >= 306
+            if (global.params.targetTriple.isWindowsGNUEnvironment())
+            {
+                VersionCondition::addPredefinedGlobalIdent("mingw32"); // For backwards compatibility.
+                VersionCondition::addPredefinedGlobalIdent("MinGW");
+            }
+            if (global.params.targetTriple.isWindowsCygwinEnvironment())
+            {
+                error(Loc(), "Cygwin is not yet supported");
+                fatal();
+                VersionCondition::addPredefinedGlobalIdent("Cygwin");
+            }
+            break;
+#else
             break;
         case llvm::Triple::MinGW32:
             VersionCondition::addPredefinedGlobalIdent("Windows");
@@ -673,6 +692,7 @@ static void registerPredefinedTargetVersions() {
             fatal();
             VersionCondition::addPredefinedGlobalIdent("Cygwin");
             break;
+#endif
         case llvm::Triple::Linux:
 #if LDC_LLVM_VER >= 302
             if (global.params.targetTriple.getEnvironment() == llvm::Triple::Android)
@@ -969,7 +989,9 @@ int main(int argc, char **argv)
         global.params.is64bit      = triple.isArch64Bit();
     }
 
-#if LDC_LLVM_VER >= 302
+#if LDC_LLVM_VER >= 306
+    gDataLayout = gTargetMachine->getSubtargetImpl()->getDataLayout();
+#elif LDC_LLVM_VER >= 302
     gDataLayout = gTargetMachine->getDataLayout();
 #else
     gDataLayout = gTargetMachine->getTargetData();

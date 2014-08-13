@@ -28,6 +28,9 @@
 #include "llvm/Support/PathV1.h"
 #endif
 #include "llvm/Target/TargetMachine.h"
+#if LDC_LLVM_VER >= 306
+#include "llvm/Target/TargetSubtargetInfo.h"
+#endif
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
 #else
@@ -61,7 +64,12 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
     // about to build.
     PassManager Passes;
 
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER >= 306
+    if (const DataLayout *DL = Target.getSubtargetImpl()->getDataLayout())
+        Passes.add(new DataLayoutPass(*DL));
+    else
+        Passes.add(new DataLayoutPass(&m));
+#elif LDC_LLVM_VER == 305
     if (const DataLayout *DL = Target.getDataLayout())
         Passes.add(new DataLayoutPass(*DL));
     else
@@ -124,7 +132,11 @@ void writeModule(llvm::Module* m, std::string filename)
     // We don't use the integrated assembler with MinGW as it does not support
     // emitting DW2 exception handling tables.
     bool const assembleExternally = global.params.output_o &&
+#if LDC_LLVM_VER >= 306
+        global.params.targetTriple.isWindowsGNUEnvironment();
+#else
         global.params.targetTriple.getOS() == llvm::Triple::MinGW32;
+#endif
 
     // eventually do our own path stuff, dmd's is a bit strange.
     typedef llvm::SmallString<128> LLPath;

@@ -29,12 +29,6 @@ class ArrayInitializer;
 class ExpInitializer;
 struct HdrGenState;
 
-#if IN_LLVM
-namespace llvm {
-    class StructType;
-}
-#endif
-
 enum NeedInterpret { INITnointerpret, INITinterpret };
 
 class Initializer : public RootObject

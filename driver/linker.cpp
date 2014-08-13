@@ -199,18 +199,30 @@ static int linkObjToBinaryGcc(bool sharedLib)
         // solaris TODO
         break;
 
+#if LDC_LLVM_VER <= 305
     case llvm::Triple::MinGW32:
         // This is really more of a kludge, as linking in the Winsock functions
         // should be handled by the pragma(lib, ...) in std.socket, but it
         // makes LDC behave as expected for now.
         args.push_back("-lws2_32");
         break;
+#endif
 
     default:
         // OS not yet handled, will probably lead to linker errors.
         // FIXME: Win32.
         break;
     }
+
+#if LDC_LLVM_VER >= 306
+    if (global.params.targetTriple.isWindowsGNUEnvironment())
+    {
+        // This is really more of a kludge, as linking in the Winsock functions
+        // should be handled by the pragma(lib, ...) in std.socket, but it
+        // makes LDC behave as expected for now.
+        args.push_back("-lws2_32");
+    }
+#endif
 
     // Only specify -m32/-m64 for architectures where the two variants actually
     // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
