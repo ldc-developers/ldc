@@ -343,7 +343,7 @@ void SimplifyDRuntimeCalls::InitOptimizations() {
     Optimizations["_d_allocmemoryT"] = &Allocation;
     Optimizations["_d_newarrayT"] = &Allocation;
     Optimizations["_d_newarrayiT"] = &Allocation;
-    Optimizations["_d_newarrayvT"] = &Allocation;
+    Optimizations["_d_newarrayU"] = &Allocation;
     Optimizations["_d_newarraymT"] = &Allocation;
     Optimizations["_d_newarraymiT"] = &Allocation;
     Optimizations["_d_newarraymvT"] = &Allocation;

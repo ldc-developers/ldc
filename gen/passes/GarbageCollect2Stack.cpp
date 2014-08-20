@@ -385,7 +385,7 @@ namespace {
         Module* M;
 
         TypeInfoFI AllocMemoryT;
-        ArrayFI NewArrayVT;
+        ArrayFI NewArrayU;
         ArrayFI NewArrayT;
         AllocClassFI AllocClass;
         UntypedMemoryFI AllocMemory;
@@ -427,12 +427,12 @@ FunctionPass *createGarbageCollect2Stack() {
 GarbageCollect2Stack::GarbageCollect2Stack()
 : FunctionPass(ID),
   AllocMemoryT(ReturnType::Pointer, 0),
-  NewArrayVT(ReturnType::Array, 0, 1, false),
+  NewArrayU(ReturnType::Array, 0, 1, false),
   NewArrayT(ReturnType::Array, 0, 1, true),
   AllocMemory(0)
 {
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
-    KnownFunctions["_d_newarrayvT"] = &NewArrayVT;
+    KnownFunctions["_d_newarrayU"] = &NewArrayU;
     KnownFunctions["_d_newarrayT"] = &NewArrayT;
     KnownFunctions["_d_newclass"] = &AllocClass;
     KnownFunctions["_d_allocmemory"] = &AllocMemory;

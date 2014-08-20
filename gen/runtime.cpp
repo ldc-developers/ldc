@@ -88,7 +88,7 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name)
             "_d_newarrayiT",
             "_d_newarraymT",
             "_d_newarraymiT",
-            "_d_newarrayvT",
+            "_d_newarrayU",
             "_d_newclass",
         };
 
@@ -410,11 +410,11 @@ static void LLVM_D_BuildRuntimeModule()
     }
     // void[] _d_newarrayT(TypeInfo ti, size_t length)
     // void[] _d_newarrayiT(TypeInfo ti, size_t length)
-    // void[] _d_newarrayvT(TypeInfo ti, size_t length)
+    // void[] _d_newarrayU(TypeInfo ti, size_t length)
     {
         llvm::StringRef fname("_d_newarrayT");
         llvm::StringRef fname2("_d_newarrayiT");
-        llvm::StringRef fname3("_d_newarrayvT");
+        llvm::StringRef fname3("_d_newarrayU");
         LLType *types[] = { typeInfoTy, sizeTy };
         LLFunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
