@@ -119,11 +119,13 @@ public:
             // emit typeinfo
             DtoTypeInfoOf(decl->type);
 
-            // Emit __xopEquals/__xopCmp.
+            // Emit __xopEquals/__xopCmp/__xtoHash.
             if (decl->xeq && decl->xeq != decl->xerreq)
                 decl->xeq->accept(this);
             if (decl->xcmp && decl->xcmp != decl->xerrcmp)
                 decl->xcmp->accept(this);
+            if (decl->xhash)
+                decl->xhash->accept(this);
         }
     }
 
