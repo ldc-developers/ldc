@@ -2,21 +2,20 @@
  * D header file for C99.
  *
  * Copyright: Copyright Sean Kelly 2005 - 2009.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License: Distributed under the
+ *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0).
+ *    (See accompanying file LICENSE)
  * Authors:   Sean Kelly
+ * Source:    $(DRUNTIMESRC core/stdc/_locale.d)
  * Standards: ISO/IEC 9899:1999 (E)
  */
 
-/*          Copyright Sean Kelly 2005 - 2009.
- * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE or copy at
- *          http://www.boost.org/LICENSE_1_0.txt)
- */
 module core.stdc.locale;
 
 extern (C):
 @trusted: // Only setlocale operates on C strings.
 nothrow:
+@nogc:
 
 struct lconv
 {
@@ -90,6 +89,25 @@ else version(FreeBSD)
     enum LC_NUMERIC        = 4;
     enum LC_TIME           = 5;
     enum LC_MESSAGES       = 6;
+}
+else version(Android)
+{
+    enum
+    {
+        LC_CTYPE          = 0,
+        LC_NUMERIC        = 1,
+        LC_TIME           = 2,
+        LC_COLLATE        = 3,
+        LC_MONETARY       = 4,
+        LC_MESSAGES       = 5,
+        LC_ALL            = 6,
+        LC_PAPER          = 7,
+        LC_NAME           = 8,
+        LC_ADDRESS        = 9,
+        LC_TELEPHONE      = 10,
+        LC_MEASUREMENT    = 11,
+        LC_IDENTIFICATION = 12,
+    }
 }
 else
 {

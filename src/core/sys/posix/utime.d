@@ -19,6 +19,8 @@ public import core.sys.posix.sys.types; // for time_t
 
 version (Posix):
 extern (C):
+nothrow:
+@nogc:
 
 //
 // Required
@@ -54,6 +56,16 @@ else version( OSX )
     int utime(in char*, in utimbuf*);
 }
 else version( FreeBSD )
+{
+    struct utimbuf
+    {
+        time_t  actime;
+        time_t  modtime;
+    }
+
+    int utime(in char*, in utimbuf*);
+}
+else version( Android )
 {
     struct utimbuf
     {

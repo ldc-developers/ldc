@@ -24,7 +24,8 @@ import core.sys.posix.pthread;
 version (DigitalMars) import rt.deh;
 import rt.dmain2;
 import rt.minfo;
-import rt.util.container;
+import rt.util.container.array;
+import rt.util.container.hashtab;
 
 alias DSO SectionGroup;
 struct DSO
@@ -49,7 +50,7 @@ struct DSO
         return 0;
     }
 
-    @property inout(ModuleInfo*)[] modules() inout
+    @property immutable(ModuleInfo*)[] modules() const
     {
         return _moduleGroup.modules;
     }
@@ -85,6 +86,7 @@ private:
 
     version (Shared)
     {
+        Array!(void[]) _codeSegments; // array of code segments
         Array!(DSO*) _deps; // D libraries needed by this DSO
         link_map* _linkMap; // corresponding link_map*
     }
@@ -113,7 +115,7 @@ void finiSections()
     _isRuntimeInitialized = false;
 }
 
-alias ScanDG = void delegate(void* pbeg, void* pend);
+alias ScanDG = void delegate(void* pbeg, void* pend) nothrow;
 
 version (Shared)
 {
@@ -130,7 +132,7 @@ version (Shared)
         tdsos.reset();
     }
 
-    void scanTLSRanges(Array!(ThreadDSO)* tdsos, scope ScanDG dg)
+    void scanTLSRanges(Array!(ThreadDSO)* tdsos, scope ScanDG dg) nothrow
     {
         foreach (ref tdso; *tdsos)
             dg(tdso._tlsRange.ptr, tdso._tlsRange.ptr + tdso._tlsRange.length);
@@ -210,7 +212,7 @@ else
         rngs.reset();
     }
 
-    void scanTLSRanges(Array!(void[])* rngs, scope ScanDG dg)
+    void scanTLSRanges(Array!(void[])* rngs, scope ScanDG dg) nothrow
     {
         foreach (rng; *rngs)
             dg(rng.ptr, rng.ptr + rng.length);
@@ -285,9 +287,9 @@ else
  */
 struct CompilerDSOData
 {
-    size_t _version;                                  // currently 1
-    void** _slot;                                     // can be used to store runtime data
-    object.ModuleInfo** _minfo_beg, _minfo_end;       // array of modules in this object file
+    size_t _version;                                       // currently 1
+    void** _slot;                                          // can be used to store runtime data
+    immutable(object.ModuleInfo*)* _minfo_beg, _minfo_end; // array of modules in this object file
     version (DigitalMars) immutable(rt.deh.FuncTable)* _deh_beg, _deh_end; // array of exception handling data
 }
 
@@ -379,6 +381,8 @@ extern(C) void _d_dso_registry(CompilerDSOData* data)
             immutable runTlsDtors = !_rtLoading;
             runModuleDestructors(pdso, runTlsDtors);
             unregisterGCRanges(pdso);
+            // run finalizers after module dtors (same order as in rt_term)
+            version (Shared) runFinalizers(pdso);
         }
 
         version (Shared)
@@ -537,9 +541,16 @@ void unregisterGCRanges(DSO* pdso)
         GC.removeRange(rng.ptr);
 }
 
+version (Shared) void runFinalizers(DSO* pdso)
+{
+    foreach (seg; pdso._codeSegments)
+        GC.runFinalizers(seg);
+}
+
 void freeDSO(DSO* pdso)
 {
     pdso._gcRanges.reset();
+    version (Shared) pdso._codeSegments.reset();
     .free(pdso);
 }
 
@@ -639,18 +650,29 @@ void scanSegments(in ref dl_phdr_info info, DSO* pdso)
 {
     foreach (ref phdr; info.dlpi_phdr[0 .. info.dlpi_phnum])
     {
-        // If loadable segment and writeable
-        if (phdr.p_type == PT_LOAD && phdr.p_flags & PF_W)
+        switch (phdr.p_type)
         {
-                                  /* base address + virtual address */
-            auto beg = cast(void*)(info.dlpi_addr + phdr.p_vaddr);
-            pdso._gcRanges.insertBack(beg[0 .. phdr.p_memsz]);
-        }
-        else if (phdr.p_type == PT_TLS)
-        {   // Thread local storage segment
+        case PT_LOAD:
+            if (phdr.p_flags & PF_W) // writeable data segment
+            {
+                auto beg = cast(void*)(info.dlpi_addr + phdr.p_vaddr);
+                pdso._gcRanges.insertBack(beg[0 .. phdr.p_memsz]);
+            }
+            version (Shared) if (phdr.p_flags & PF_X) // code segment
+            {
+                auto beg = cast(void*)(info.dlpi_addr + phdr.p_vaddr);
+                pdso._codeSegments.insertBack(beg[0 .. phdr.p_memsz]);
+            }
+            break;
+
+        case PT_TLS: // TLS segment
             assert(!pdso._tlsSize); // is unique per DSO
             pdso._tlsMod = info.dlpi_tls_modid;
             pdso._tlsSize = phdr.p_memsz;
+            break;
+
+        default:
+            break;
         }
     }
 }
@@ -730,20 +752,19 @@ version (LDC)
 }
 else
 {
-extern(C)
-{
-    // .bss, .lbss, .lrodata, .ldata
-    extern __gshared void* __bss_start;
-    extern __gshared void* _end;
-}
+    extern(C)
+    {
+        void* rt_get_bss_start() @nogc nothrow;
+        void* rt_get_end() @nogc nothrow;
+    }	
 }
 
 nothrow
-void checkModuleCollisions(in ref dl_phdr_info info, in ModuleInfo*[] modules)
+void checkModuleCollisions(in ref dl_phdr_info info, in immutable(ModuleInfo)*[] modules)
 in { assert(modules.length); }
 body
 {
-    const(ModuleInfo)* conflicting;
+    immutable(ModuleInfo)* conflicting;
 
     version (LDC)
     {
@@ -768,14 +789,15 @@ body
     }
     else
     {
-    auto bss_start = cast(void*)&__bss_start;
-    immutable bss_size = cast(void*)&_end - bss_start;
+        auto bss_start = rt_get_bss_start();
+        immutable bss_size = rt_get_end() - bss_start;
+        assert(bss_size >= 0);
     }
 
     foreach (m; modules)
     {
         auto addr = cast(const(void*))m;
-        if (cast(size_t)(addr - bss_start) < bss_size)
+        if (cast(size_t)(addr - bss_start) < cast(size_t)bss_size)
         {
             // Module is in .bss of the exe because it was copy relocated
         }
@@ -792,7 +814,7 @@ body
         dl_phdr_info other=void;
         findDSOInfoForAddr(conflicting, &other) || assert(0);
 
-        auto modname = (cast(ModuleInfo*)conflicting).name;
+        auto modname = conflicting.name;
         auto loading = dsoName(info.dlpi_name);
         auto existing = dsoName(other.dlpi_name);
         fprintf(stderr, "Fatal Error while loading '%.*s':\n\tThe module '%.*s' is already defined in '%.*s'.\n",

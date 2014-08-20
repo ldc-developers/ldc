@@ -19,6 +19,8 @@ public import core.sys.posix.sys.types; // for gid_t, uid_t
 
 version (Posix):
 extern (C):
+nothrow:
+@nogc:
 
 //
 // Required
@@ -98,16 +100,25 @@ else version (Solaris)
         char* pw_shell;
     }
 }
+else version( Android )
+{
+    struct passwd
+    {
+        char*   pw_name;
+        char*   pw_passwd;
+        uid_t   pw_uid;
+        gid_t   pw_gid;
+        char*   pw_dir;
+        char*   pw_shell;
+    }
+}
 else
 {
     static assert(false, "Unsupported platform");
 }
 
-version( Posix )
-{
-    passwd* getpwnam(in char*);
-    passwd* getpwuid(uid_t);
-}
+passwd* getpwnam(in char*);
+passwd* getpwuid(uid_t);
 
 //
 // Thread-Safe Functions (TSF)
@@ -136,6 +147,10 @@ else version (Solaris)
 {
     int getpwnam_r(in char*, passwd*, char*, size_t, passwd**);
     int getpwuid_r(uid_t, passwd*, char*, size_t, passwd**);
+}
+else version( Android )
+{
+    // Missing from bionic
 }
 else
 {
@@ -174,6 +189,10 @@ else version (Solaris)
     void endpwent();
     passwd* getpwent();
     void setpwent();
+}
+else version ( Android )
+{
+    void    endpwent();
 }
 else
 {

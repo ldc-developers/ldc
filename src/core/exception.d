@@ -221,7 +221,7 @@ class OutOfMemoryError : Error
 
     @trusted override const string toString()
     {
-        return msg.ptr ? (cast()super).toString() : "Memory allocation failed";
+        return msg.length ? (cast()super).toString() : "Memory allocation failed";
     }
 }
 
@@ -262,7 +262,7 @@ class InvalidMemoryOperationError : Error
 
     @trusted override const string toString()
     {
-        return msg.ptr ? (cast()super).toString() : "Invalid memory operation";
+        return msg.length ? (cast()super).toString() : "Invalid memory operation";
     }
 }
 
@@ -483,7 +483,7 @@ extern (C) void onRangeError( string file = __FILE__, size_t line = __LINE__ ) @
  * Throws:
  *  FinalizeError.
  */
-extern (C) void onFinalizeError( ClassInfo info, Exception e, string file = __FILE__, size_t line = __LINE__ ) @safe pure nothrow
+extern (C) void onFinalizeError( ClassInfo info, Throwable e, string file = __FILE__, size_t line = __LINE__ ) @safe pure nothrow
 {
     throw new FinalizeError( info, file, line, e );
 }
@@ -509,7 +509,7 @@ extern (C) void onHiddenFuncError( Object o ) @safe pure nothrow
  * Throws:
  *  OutOfMemoryError.
  */
-extern (C) void onOutOfMemoryError() @trusted pure nothrow
+extern (C) void onOutOfMemoryError(void* pretend_sideffect = null) @trusted pure nothrow /* dmd @@@BUG11461@@@ */
 {
     // NOTE: Since an out of memory condition exists, no allocation must occur
     //       while generating this object.
@@ -524,7 +524,7 @@ extern (C) void onOutOfMemoryError() @trusted pure nothrow
  * Throws:
  *  InvalidMemoryOperationError.
  */
-extern (C) void onInvalidMemoryOperationError() @trusted pure nothrow
+extern (C) void onInvalidMemoryOperationError(void* pretend_sideffect = null) @trusted pure nothrow /* dmd @@@BUG11461@@@ */
 {
     // The same restriction applies as for onOutOfMemoryError. The GC is in an
     // undefined state, thus no allocation must occur while generating this object.
@@ -590,7 +590,7 @@ extern (C)
 
     /* One of these three is called upon an assert() fail.
      */
-    void _d_assertm(ModuleInfo* m, uint line)
+    void _d_assertm(immutable(ModuleInfo)* m, uint line)
     {
         onAssertError(m.name, line);
     }
@@ -607,7 +607,7 @@ extern (C)
 
     /* One of these three is called upon an assert() fail inside of a unittest block
      */
-    void _d_unittestm(ModuleInfo* m, uint line)
+    void _d_unittestm(immutable(ModuleInfo)* m, uint line)
     {
         _d_unittest(m.name, line);
     }
@@ -624,7 +624,7 @@ extern (C)
 
     /* Called when an array index is out of bounds
      */
-    void _d_array_bounds(ModuleInfo* m, uint line)
+    void _d_array_bounds(immutable(ModuleInfo)* m, uint line)
     {
         onRangeError(m.name, line);
     }
@@ -636,7 +636,7 @@ extern (C)
 
     /* Called when a switch statement has no DefaultStatement, yet none of the cases match
      */
-    void _d_switch_error(ModuleInfo* m, uint line)
+    void _d_switch_error(immutable(ModuleInfo)* m, uint line)
     {
         onSwitchError(m.name, line);
     }
@@ -670,5 +670,3 @@ else
     }
 }
 }
-
-

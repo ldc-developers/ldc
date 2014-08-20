@@ -72,7 +72,7 @@ struct Impl
     TypeInfo _keyti;
     Entry*[4] binit;    // initial value of buckets[]
 
-    @property const(TypeInfo) keyti() const @safe pure nothrow
+    @property const(TypeInfo) keyti() const @safe pure nothrow @nogc
     { return _keyti; }
 }
 
@@ -89,7 +89,7 @@ struct AA
  * GC won't be faced with misaligned pointers
  * in value.
  */
-size_t aligntsize(in size_t tsize) @safe pure nothrow
+size_t aligntsize(in size_t tsize) @safe pure nothrow @nogc
 {
     version (D_LP64) {
         // align to 16 bytes on 64-bit
@@ -105,7 +105,7 @@ extern (C):
 /****************************************************
  * Determine number of entries in associative array.
  */
-size_t _aaLen(in AA aa) pure nothrow
+size_t _aaLen(in AA aa) pure nothrow @nogc
 in
 {
     //printf("_aaLen()+\n");
@@ -175,8 +175,7 @@ body
     {
         if (key_hash == e.hash)
         {
-            auto c = keyti.compare(pkey, e + 1);
-            if (c == 0)
+            if (keyti.equals(pkey, e + 1))
                 goto Lret;
         }
         pe = &e.next;
@@ -231,8 +230,7 @@ inout(void)* _aaGetRvalueX(inout AA aa, in TypeInfo keyti, in size_t valuesize, 
         {
             if (key_hash == e.hash)
             {
-                auto c = keyti.compare(pkey, e + 1);
-                if (c == 0)
+                if (keyti.equals(pkey, e + 1))
                     return cast(inout void *)(e + 1) + keysize;
             }
             e = e.next;
@@ -273,8 +271,7 @@ body
             {
                 if (key_hash == e.hash)
                 {
-                    auto c = keyti.compare(pkey, e + 1);
-                    if (c == 0)
+                    if (keyti.equals(pkey, e + 1))
                         return cast(inout void *)(e + 1) + aligntsize(keyti.tsize);
                 }
                 e = e.next;
@@ -304,8 +301,7 @@ bool _aaDelX(AA aa, in TypeInfo keyti, in void* pkey)
         {
             if (key_hash == e.hash)
             {
-                auto c = keyti.compare(pkey, e + 1);
-                if (c == 0)
+                if (keyti.equals(pkey, e + 1))
                 {
                     *pe = e.next;
                     aa.impl.nodes--;
@@ -446,7 +442,7 @@ inout(ArrayRet_t) _aaKeys(inout AA aa, in size_t keysize) pure nothrow
 }
 
 version (LDC) {/*FIXME*/} else // the test crashes but only in this file
-unittest
+pure nothrow unittest
 {
     int[string] aa;
 
@@ -620,8 +616,7 @@ Impl* _d_assocarrayliteralTX(const TypeInfo_AssociativeArray ti, void[] keys, vo
                 }
                 if (key_hash == e.hash)
                 {
-                    auto c = keyti.compare(pkey, e + 1);
-                    if (c == 0)
+                    if (keyti.equals(pkey, e + 1))
                         break;
                 }
                 pe = &e.next;
@@ -633,7 +628,7 @@ Impl* _d_assocarrayliteralTX(const TypeInfo_AssociativeArray ti, void[] keys, vo
 }
 
 
-const(TypeInfo_AssociativeArray) _aaUnwrapTypeInfo(const(TypeInfo) tiRaw) pure nothrow
+const(TypeInfo_AssociativeArray) _aaUnwrapTypeInfo(const(TypeInfo) tiRaw) pure nothrow @nogc
 {
     const(TypeInfo)* p = &tiRaw;
     TypeInfo_AssociativeArray ti;
@@ -725,8 +720,7 @@ int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
                 if (key_hash == f.hash)
                 {
                     //printf("hash equals\n");
-                    auto c = keyti.compare(pkey, f + 1);
-                    if (c == 0)
+                    if (keyti.equals(pkey, f + 1))
                     {   // Found key in e2. Compare values
                         //printf("key equals\n");
                         auto pvalue2 = cast(void *)(f + 1) + keysize;
@@ -813,7 +807,7 @@ version (LDC)
     // corresponding function definitions here would cause problems.
 }
 else
-unittest
+pure nothrow unittest
 {
     string[int] key1 = [1: "true", 2: "false"];
     string[int] key2 = [1: "false", 2: "true"];
@@ -841,7 +835,7 @@ unittest
 
 // Issue 9852
 version (LDC) {/*FIXME*/} else
-unittest
+pure nothrow unittest
 {
     // Original test case (revised, original assert was wrong)
     int[string] a;
@@ -873,7 +867,7 @@ struct Range
 }
 
 
-Range _aaRange(AA aa)
+Range _aaRange(AA aa) pure nothrow @nogc
 {
     typeof(return) res;
     if (aa.impl is null)
@@ -892,13 +886,13 @@ Range _aaRange(AA aa)
 }
 
 
-bool _aaRangeEmpty(Range r)
+bool _aaRangeEmpty(Range r) pure nothrow @nogc
 {
     return r.current is null;
 }
 
 
-void* _aaRangeFrontKey(Range r)
+void* _aaRangeFrontKey(Range r) pure nothrow @nogc
 in
 {
     assert(r.current !is null);
@@ -909,7 +903,7 @@ body
 }
 
 
-void* _aaRangeFrontValue(Range r)
+void* _aaRangeFrontValue(Range r) pure nothrow @nogc
 in
 {
     assert(r.current !is null);
@@ -921,7 +915,7 @@ body
 }
 
 
-void _aaRangePopFront(ref Range r)
+void _aaRangePopFront(ref Range r) pure nothrow @nogc
 {
     if (r.current.next !is null)
     {

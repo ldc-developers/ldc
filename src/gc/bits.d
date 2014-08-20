@@ -17,9 +17,7 @@ module gc.bits;
 import core.bitop;
 import core.stdc.string;
 import core.stdc.stdlib;
-
-
-private extern (C) void onOutOfMemoryError() @trusted /* pure dmd @@@BUG11461@@@ */ nothrow;
+import core.exception : onOutOfMemoryError;
 
 
 version (DigitalMars)
@@ -52,7 +50,7 @@ struct GCBits
     size_t nwords = 0;    // allocated words in data[] excluding sentinals
     size_t nbits = 0;     // number of bits in data[] excluding sentinals
 
-    void Dtor()
+    void Dtor() nothrow
     {
         if (data)
         {
@@ -69,7 +67,7 @@ struct GCBits
         }
     }
 
-    void alloc(size_t nbits)
+    void alloc(size_t nbits) nothrow
     {
         this.nbits = nbits;
         nwords = (nbits + (BITS_PER_WORD - 1)) >> BITS_SHIFT;
@@ -78,7 +76,7 @@ struct GCBits
             onOutOfMemoryError();
     }
 
-    wordtype test(size_t i)
+    wordtype test(size_t i) nothrow
     in
     {
         assert(i < nbits);
@@ -96,7 +94,7 @@ struct GCBits
         }
     }
 
-    void set(size_t i)
+    void set(size_t i) nothrow
     in
     {
         assert(i < nbits);
@@ -107,7 +105,7 @@ struct GCBits
         data[1 + (i >> BITS_SHIFT)] |= (BITS_1 << (i & BITS_MASK));
     }
 
-    void clear(size_t i)
+    void clear(size_t i) nothrow
     in
     {
         assert(i < nbits);
@@ -118,7 +116,7 @@ struct GCBits
         data[1 + (i >> BITS_SHIFT)] &= ~(BITS_1 << (i & BITS_MASK));
     }
 
-    wordtype testClear(size_t i)
+    wordtype testClear(size_t i) nothrow
     {
         version (bitops)
         {
@@ -149,7 +147,7 @@ struct GCBits
         }
     }
 
-    wordtype testSet(size_t i)
+    wordtype testSet(size_t i) nothrow
     {
         version (bitops)
         {
@@ -180,12 +178,12 @@ struct GCBits
         }
     }
 
-    void zero()
+    void zero() nothrow
     {
         memset(data + 1, 0, nwords * wordtype.sizeof);
     }
 
-    void copy(GCBits *f)
+    void copy(GCBits *f) nothrow
     in
     {
         assert(nwords == f.nwords);
@@ -195,7 +193,7 @@ struct GCBits
         memcpy(data + 1, f.data + 1, nwords * wordtype.sizeof);
     }
 
-    wordtype* base()
+    wordtype* base() nothrow
     in
     {
         assert(data);

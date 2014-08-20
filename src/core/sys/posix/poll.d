@@ -18,6 +18,8 @@ private import core.sys.posix.config;
 
 version (Posix):
 extern (C):
+nothrow:
+@nogc:
 
 //
 // XOpen (XSI)
@@ -140,4 +142,31 @@ else version( FreeBSD )
     }
 
     int poll(pollfd*, nfds_t, int);
+}
+else version( Android )
+{
+    struct pollfd
+    {
+        int     fd;
+        short   events;
+        short   revents;
+    }
+
+    alias uint nfds_t;
+
+    enum
+    {
+        POLLIN      = 0x001,
+        POLLRDNORM  = 0x040,
+        POLLRDBAND  = 0x080,
+        POLLPRI     = 0x002,
+        POLLOUT     = 0x004,
+        POLLWRNORM  = 0x100,
+        POLLWRBAND  = 0x200,
+        POLLERR     = 0x008,
+        POLLHUP     = 0x010,
+        POLLNVAL    = 0x020,
+    }
+
+    int poll(pollfd*, nfds_t, c_long);
 }

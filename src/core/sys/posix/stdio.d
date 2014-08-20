@@ -21,6 +21,9 @@ public import core.sys.posix.sys.types; // for off_t
 version (Posix):
 extern (C):
 
+nothrow:
+@nogc:
+
 //
 // Required (defined in core.stdc.stdio)
 //
@@ -129,6 +132,14 @@ version( linux )
         FILE* tmpfile();
     }
 }
+else version( Android )
+{
+    int   fgetpos(FILE*, fpos_t *);
+    FILE* fopen(in char*, in char*);
+    FILE* freopen(in char*, in char*, FILE*);
+    int   fseek(FILE*, c_long, int);
+    int   fsetpos(FILE*, in fpos_t*);
+}
 
 //
 // C Extension (CX)
@@ -170,23 +181,20 @@ version( linux )
     off_t ftello(FILE*);
   }
 }
-else version( Posix )
+else
 {
     int   fseeko(FILE*, off_t, int);
     off_t ftello(FILE*);
 }
 
-version( Posix )
-{
-    char*  ctermid(char*);
-    FILE*  fdopen(int, in char*);
-    int    fileno(FILE*);
-    //int    fseeko(FILE*, off_t, int);
-    //off_t  ftello(FILE*);
-    char*  gets(char*);
-    int    pclose(FILE*);
-    FILE*  popen(in char*, in char*);
-}
+char*  ctermid(char*);
+FILE*  fdopen(int, in char*);
+int    fileno(FILE*);
+//int    fseeko(FILE*, off_t, int);
+//off_t  ftello(FILE*);
+char*  gets(char*);
+int    pclose(FILE*);
+FILE*  popen(in char*, in char*);
 
 //
 // Thread-Safe Functions (TSF)
@@ -222,9 +230,14 @@ va_list (defined in core.stdc.stdarg)
 char*  tempnam(in char*, in char*);
 */
 
+char*  tempnam(in char*, in char*);
+
 version( linux )
 {
     enum P_tmpdir  = "/tmp";
-
-    char*  tempnam(in char*, in char*);
 }
+version( OSX )
+{
+    enum P_tmpdir  = "/var/tmp";
+}
+

@@ -13,6 +13,7 @@ module core.bitop;
 
 nothrow:
 @safe:
+@nogc:
 
 version( D_InlineAsm_X86_64 )
     version = AsmX86;

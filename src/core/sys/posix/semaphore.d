@@ -19,6 +19,8 @@ private import core.sys.posix.time;
 
 version (Posix):
 extern (C):
+nothrow:
+@nogc:
 
 //
 // Required
@@ -92,6 +94,15 @@ else version (Solaris)
 
     enum SEM_FAILED = cast(sem_t*)-1;
 }
+else version( Android )
+{
+    struct sem_t
+    {
+        uint count; //volatile
+    }
+
+    enum SEM_FAILED = null;
+}
 else
 {
     static assert(false, "Unsupported platform");
@@ -130,6 +141,10 @@ else version( FreeBSD )
     int sem_timedwait(sem_t*, in timespec*);
 }
 else version (Solaris)
+{
+    int sem_timedwait(sem_t*, in timespec*);
+}
+else version( Android )
 {
     int sem_timedwait(sem_t*, in timespec*);
 }

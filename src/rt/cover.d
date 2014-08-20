@@ -183,6 +183,26 @@ shared static ~this()
         if( !flst )
             continue; //throw new Exception( "Error opening file for write: " ~ lstfn );
 
+        // Calculate the maximum number of digits in the line with the greatest
+        // number of calls.
+        uint maxCallCount = 0;
+        foreach (i; 0..c.data.length)
+        {
+            if ( i < srclines.length )
+            {
+                const uint lineCallCount = c.data[i];
+                if (maxCallCount < lineCallCount)
+                    maxCallCount = lineCallCount;
+            }
+        }
+
+        // Make sure that there are a minimum of seven columns in each file so
+        // that unless there are a very large number of calls, the columns in
+        // each files lineup.
+        uint maxDigits = digits(maxCallCount);
+        if (maxDigits < 7)
+            maxDigits = 7;
+
         uint nno;
         uint nyes;
 
@@ -200,17 +220,17 @@ shared static ~this()
                     if( c.valid[i] )
                     {
                         nno++;
-                        fprintf( flst, "0000000|%.*s\n", cast(int)line.length, line.ptr );
+                        fprintf( flst, "%0*u|%.*s\n", maxDigits, 0, cast(int)line.length, line.ptr );
                     }
                     else
                     {
-                        fprintf( flst, "       |%.*s\n", cast(int)line.length, line.ptr );
+                        fprintf( flst, "%*s|%.*s\n", maxDigits, " ".ptr, cast(int)line.length, line.ptr );
                     }
                 }
                 else
                 {
                     nyes++;
-                    fprintf( flst, "%7u|%.*s\n", n, cast(int)line.length, line.ptr );
+                    fprintf( flst, "%*u|%.*s\n", maxDigits, n, cast(int)line.length, line.ptr );
                 }
             }
         }
@@ -230,6 +250,14 @@ shared static ~this()
     }
 }
 
+uint digits( uint number )
+{
+    if (number < 10)
+        return 1;
+
+    return digits(number / 10) + 1;
+}
+
 string appendFN( string path, string name )
 {
     if (!path.length) return name;
@@ -241,7 +269,7 @@ string appendFN( string path, string name )
 
     auto dest = path;
 
-    if( dest.ptr && dest[$ - 1] != sep )
+    if( dest.length && dest[$ - 1] != sep )
         dest ~= sep;
     dest ~= name;
     return dest;
@@ -264,7 +292,7 @@ string baseName( string name, string ext = null )
             ret ~= c;
         }
     }
-    return chomp( ret, ext.ptr ? ext : "" );
+    return ext.length ? chomp(ret,  ext) : ret;
 }
 
 
@@ -417,7 +445,9 @@ void splitLines( char[] buf, ref char[][] lines )
             lines ~= buf[beg .. pos];
             beg = pos + 1;
             if( buf[pos] == '\r' && pos < buf.length - 1 && buf[pos + 1] == '\n' )
-                ++pos, ++beg;
+            {
+                ++pos; ++beg;
+            }
             continue;
         default:
             continue;

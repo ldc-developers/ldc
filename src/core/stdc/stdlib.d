@@ -1,7 +1,7 @@
 /**
  * D header file for C99.
  *
- * Copyright: Copyright Sean Kelly 2005 - 2012.
+ * Copyright: Copyright Sean Kelly 2005 - 2014.
  * License: Distributed under the
  *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0).
  *    (See accompanying file LICENSE)
@@ -17,7 +17,16 @@ public import core.stdc.stddef; // for size_t, wchar_t
 
 extern (C):
 @system:
+
+/* Placed outside @nogc in order to not constrain what the callback does.
+ */
+alias int function(in void*, in void*) _compare_fp_t;
+void*   bsearch(in void* key, in void* base, size_t nmemb, size_t size, _compare_fp_t compar);
+void    qsort(void* base, size_t nmemb, size_t size, _compare_fp_t compar);
+
+
 nothrow:
+@nogc:
 
 struct div_t
 {
@@ -46,6 +55,7 @@ else version(linux)   enum RAND_MAX = 0x7fffffff;
 else version(OSX)     enum RAND_MAX = 0x7fffffff;
 else version(FreeBSD) enum RAND_MAX = 0x7fffffff;
 else version(Solaris) enum RAND_MAX = 0x7fff;
+else version(Android) enum RAND_MAX = 0x7fffffff;
 else static assert( false, "Unsupported platform" );
 
 double  atof(in char* nptr);
@@ -71,6 +81,13 @@ else version (MinGW)
 {
     real __mingw_strtold(in char* nptr, char** endptr);
     alias __mingw_strtold strtold;
+}
+else version (Android)
+{
+    real strtold(in char* nptr, char** endptr)
+    {   // Fake it again till we make it
+        return strtod(nptr, endptr);
+    }
 }
 else
 {
@@ -100,9 +117,6 @@ void    _Exit(int status);
 
 char*   getenv(in char* name);
 int     system(in char* string);
-
-void*   bsearch(in void* key, in void* base, size_t nmemb, size_t size, int function(in void*, in void*) compar);
-void    qsort(void* base, size_t nmemb, size_t size, int function(in void*, in void*) compar);
 
 // These only operate on integer values.
 @trusted

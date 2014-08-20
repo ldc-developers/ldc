@@ -21,7 +21,7 @@ version( LDC )
     /**
      * The base vararg list type.
      */
-    alias void* va_list;
+    alias char* va_list;
 
     /**
      * This function initializes the supplied argument pointer for subsequent
@@ -29,7 +29,7 @@ version( LDC )
      *
      * Params:
      *  ap      = The argument pointer to initialize.
-     *  paramn  = The identifier of the rightmost parameter in the function
+     *  parmn  = The identifier of the rightmost parameter in the function
      *            parameter list.
      */
     pragma(LDC_va_start)

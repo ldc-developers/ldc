@@ -30,7 +30,7 @@ struct SectionGroup
         return dg(_sections);
     }
 
-    @property inout(ModuleInfo*)[] modules() inout
+    @property immutable(ModuleInfo*)[] modules() const
     {
         return _moduleGroup.modules;
     }
@@ -66,12 +66,9 @@ void initSections()
 
     version (X86_64)
     {
-        auto pbeg = cast(void*)&etext;
-        auto pend = cast(void*)&_deh_end;
+        auto pbeg = cast(void*)&__progname; // first .data symbols
+        auto pend = cast(void*)&_end;
         _sections._gcRanges[0] = pbeg[0 .. pend - pbeg];
-        pbeg = cast(void*)&__progname;
-        pend = cast(void*)&_end;
-        _sections._gcRanges[1] = pbeg[0 .. pend - pbeg];
     }
     else
     {
@@ -83,7 +80,7 @@ void initSections()
 
 void finiSections()
 {
-    .free(_sections.modules.ptr);
+    .free(cast(void*)_sections.modules.ptr);
 }
 
 void[] initTLSRanges()
@@ -97,7 +94,7 @@ void finiTLSRanges(void[] rng)
 {
 }
 
-void scanTLSRanges(void[] rng, scope void delegate(void* pbeg, void* pend) dg)
+void scanTLSRanges(void[] rng, scope void delegate(void* pbeg, void* pend) nothrow dg) nothrow
 {
     dg(rng.ptr, rng.ptr + rng.length);
 }
@@ -111,12 +108,12 @@ __gshared SectionGroup _sections;
 struct ModuleReference
 {
     ModuleReference* next;
-    ModuleInfo*      mod;
+    ModuleInfo* mod;
 }
 
-extern (C) __gshared ModuleReference* _Dmodule_ref;   // start of linked list
+extern (C) __gshared immutable(ModuleReference*) _Dmodule_ref;   // start of linked list
 
-ModuleInfo*[] getModuleInfos()
+immutable(ModuleInfo*)[] getModuleInfos()
 out (result)
 {
     foreach(m; result)
@@ -125,17 +122,17 @@ out (result)
 body
 {
     size_t len;
-    ModuleReference *mr;
+    immutable(ModuleReference)* mr;
 
     for (mr = _Dmodule_ref; mr; mr = mr.next)
         len++;
-    auto result = (cast(ModuleInfo**).malloc(len * size_t.sizeof))[0 .. len];
+    auto result = (cast(immutable(ModuleInfo)**).malloc(len * size_t.sizeof))[0 .. len];
     len = 0;
     for (mr = _Dmodule_ref; mr; mr = mr.next)
     {   result[len] = mr.mod;
         len++;
     }
-    return result;
+    return cast(immutable)result;
 }
 
 extern(C)

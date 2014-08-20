@@ -16,6 +16,7 @@ private
     import rt.memory;
     import rt.sections;
     import rt.util.string;
+    import core.atomic;
     import core.stdc.stddef;
     import core.stdc.stdlib;
     import core.stdc.string;
@@ -152,7 +153,7 @@ extern (C) int rt_init()
        initialize different D libraries without knowing about the
        shared druntime. Also we need to attach any thread that calls
        rt_init. */
-    if (_initCount++) return 1;
+    if (atomicOp!"+="(_initCount, 1) > 1) return 1;
 
     _STI_monitor_staticctor();
     _STI_critical_init();
@@ -182,7 +183,7 @@ extern (C) int rt_init()
 extern (C) int rt_term()
 {
     if (!_initCount) return 0; // was never initialized
-    if (--_initCount) return 1;
+    if (atomicOp!"-="(_initCount, 1)) return 1;
 
     try
     {
@@ -285,9 +286,6 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
         }
     }
 
-    // Allocate args[] on the stack
-    char[][] args = (cast(char[]*) alloca(argc * (char[]).sizeof))[0 .. argc];
-
     version (Windows)
     {
         /* Because we want args[] to be UTF-8, and Windows doesn't guarantee that,
@@ -299,7 +297,10 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
         immutable size_t wCommandLineLength = wcslen(wCommandLine);
         int wargc;
         wchar_t** wargs = CommandLineToArgvW(wCommandLine, &wargc);
-        assert(wargc == argc);
+        // assert(wargc == argc); /* argc can be broken by Unicode arguments */
+
+        // Allocate args[] on the stack - use wargc
+        char[][] args = (cast(char[]*) alloca(wargc * (char[]).sizeof))[0 .. wargc];
 
         // This is required because WideCharToMultiByte requires int as input.
         assert(wCommandLineLength <= cast(size_t) int.max, "Wide char command line length must not exceed int.max");
@@ -327,6 +328,9 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
     }
     else version (Posix)
     {
+        // Allocate args[] on the stack
+        char[][] args = (cast(char[]*) alloca(argc * (char[]).sizeof))[0 .. argc];
+
         size_t totalArgsLength = 0;
         foreach(i, ref arg; args)
         {
@@ -342,10 +346,10 @@ extern (C) int _d_run_main(int argc, char **argv, MainFunc mainFunc)
      * This also means that when this function returns, _d_args will refer to garbage.
      */
     {
-        auto buff = cast(char[]*) alloca(argc * (char[]).sizeof + totalArgsLength);
+        auto buff = cast(char[]*) alloca(args.length * (char[]).sizeof + totalArgsLength);
 
-        char[][] argsCopy = buff[0 .. argc];
-        auto argBuff = cast(char*) (buff + argc);
+        char[][] argsCopy = buff[0 .. args.length];
+        auto argBuff = cast(char*) (buff + args.length);
         foreach(i, arg; args)
         {
             argsCopy[i] = (argBuff[0 .. arg.length] = arg[]);

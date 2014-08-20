@@ -2,17 +2,15 @@
  * D header file for C99.
  *
  * Copyright: Copyright Sean Kelly 2005 - 2009.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License: Distributed under the
+ *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0).
+ *    (See accompanying file LICENSE)
  * Authors:   Sean Kelly,
-              Alex Rønne Petersen
+ *            Alex Rønne Petersen
+ * Source:    $(DRUNTIMESRC core/stdc/_time.d)
  * Standards: ISO/IEC 9899:1999 (E)
  */
 
-/*          Copyright Sean Kelly 2005 - 2009.
- * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE or copy at
- *          http://www.boost.org/LICENSE_1_0.txt)
- */
 module core.stdc.time;
 
 private import core.stdc.config;
@@ -21,6 +19,7 @@ private import core.stdc.stddef; // for size_t
 extern (C):
 @trusted: // There are only a few functions here that use unsafe C strings.
 nothrow:
+@nogc:
 
 version( Windows )
 {
@@ -79,7 +78,11 @@ else version( FreeBSD )
 }
 else version (linux)
 {
-    enum clock_t CLOCKS_PER_SEC = 1000000;
+    enum clock_t CLOCKS_PER_SEC = 1_000_000;
+}
+else version (Android)
+{
+    enum clock_t CLOCKS_PER_SEC = 1_000_000;
 }
 
 clock_t clock();
@@ -117,6 +120,11 @@ else version( FreeBSD )
     extern __gshared const(char)*[2] tzname; // non-standard
 }
 else version (Solaris)
+{
+    void tzset();
+    extern __gshared const(char)*[2] tzname;
+}
+else version( Android )
 {
     void tzset();
     extern __gshared const(char)*[2] tzname;

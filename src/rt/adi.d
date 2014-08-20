@@ -22,19 +22,6 @@ private
     import core.stdc.stdlib;
     import core.memory;
     import rt.util.utf;
-
-    enum BlkAttr : uint
-    {
-        FINALIZE    = 0b0000_0001,
-        NO_SCAN     = 0b0000_0010,
-        NO_MOVE     = 0b0000_0100,
-        APPENDABLE  = 0b0000_1000,
-        ALL_BITS    = 0b1111_1111
-    }
-
-    extern (C) void* gc_malloc( size_t sz, uint ba = 0 );
-    extern (C) void* gc_calloc( size_t sz, uint ba = 0 );
-    extern (C) void  gc_free( void* p );
 }
 
 
@@ -254,7 +241,7 @@ body
             //version (Windows)
                 tmp = cast(byte*) alloca(szelem);
             //else
-                //tmp = gc_malloc(szelem);
+                //tmp = GC.malloc(szelem);
         }
 
         for (; lo < hi; lo += szelem, hi -= szelem)
@@ -272,7 +259,7 @@ body
             //if (szelem > 16)
                 // BUG: bad code is generate for delete pointer, tries
                 // to call delclass.
-                //gc_free(tmp);
+                //GC.free(tmp);
         }
     }
     return a;
@@ -314,6 +301,23 @@ unittest
     }
 }
 
+private dchar[] mallocUTF32(C)(in C[] s)
+{
+    size_t j = 0;
+    auto p = cast(dchar*)malloc(dchar.sizeof * s.length);
+    auto r = p[0..s.length]; // r[] will never be longer than s[]
+    for (size_t i = 0; i < s.length; )
+    {
+        dchar c = s[i];
+        if (c >= 0x80)
+            c = decode(s, i);
+        else
+            i++;                // c is ascii, no need for decode
+        r[j++] = c;
+    }
+    return r[0 .. j];
+}
+
 /**********************************************
  * Sort array of chars.
  */
@@ -322,7 +326,7 @@ extern (C) char[] _adSortChar(char[] a)
 {
     if (a.length > 1)
     {
-        dchar[] da = cast(dchar[])toUTF32(a);
+        auto da = mallocUTF32(a);
         da.sort;
         size_t i = 0;
         foreach (dchar d; da)
@@ -331,7 +335,7 @@ extern (C) char[] _adSortChar(char[] a)
             a[i .. i + t.length] = t[];
             i += t.length;
         }
-        GC.free(da.ptr);
+        free(da.ptr);
     }
     return a;
 }
@@ -344,7 +348,7 @@ extern (C) wchar[] _adSortWchar(wchar[] a)
 {
     if (a.length > 1)
     {
-        dchar[] da = cast(dchar[])toUTF32(a);
+        auto da = mallocUTF32(a);
         da.sort;
         size_t i = 0;
         foreach (dchar d; da)
@@ -353,7 +357,7 @@ extern (C) wchar[] _adSortWchar(wchar[] a)
             a[i .. i + t.length] = t[];
             i += t.length;
         }
-        GC.free(da.ptr);
+        free(da.ptr);
     }
     return a;
 }

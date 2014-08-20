@@ -28,6 +28,9 @@ private
 
     __gshared gc_t _gc;
 
+    static import core.memory;
+    alias BlkInfo = core.memory.GC.BlkInfo;
+
     extern (C) void thread_init();
     extern (C) void thread_term();
 
@@ -37,6 +40,7 @@ private
         {
             void function() gc_enable;
             void function() gc_disable;
+        nothrow:
             void function() gc_collect;
             void function() gc_minimize;
 
@@ -44,11 +48,11 @@ private
             uint function(void*, uint) gc_setAttr;
             uint function(void*, uint) gc_clrAttr;
 
-            void*   function(size_t, uint) gc_malloc;
-            BlkInfo function(size_t, uint) gc_qalloc;
-            void*   function(size_t, uint) gc_calloc;
-            void*   function(void*, size_t, uint ba) gc_realloc;
-            size_t  function(void*, size_t, size_t) gc_extend;
+            void*   function(size_t, uint, const TypeInfo) gc_malloc;
+            BlkInfo function(size_t, uint, const TypeInfo) gc_qalloc;
+            void*   function(size_t, uint, const TypeInfo) gc_calloc;
+            void*   function(void*, size_t, uint ba, const TypeInfo) gc_realloc;
+            size_t  function(void*, size_t, size_t, const TypeInfo) gc_extend;
             size_t  function(size_t) gc_reserve;
             void    function(void*) gc_free;
 
@@ -58,10 +62,11 @@ private
             BlkInfo function(void*) gc_query;
 
             void function(void*) gc_addRoot;
-            void function(void*, size_t) gc_addRange;
+            void function(void*, size_t, const TypeInfo ti) gc_addRange;
 
             void function(void*) gc_removeRoot;
             void function(void*) gc_removeRange;
+            void function(in void[]) gc_runFinalizers;
         }
     }
 
@@ -97,6 +102,7 @@ private
 
         pthis.gc_removeRoot = &gc_removeRoot;
         pthis.gc_removeRange = &gc_removeRange;
+        pthis.gc_runFinalizers = &gc_runFinalizers;
     }
 }
 
@@ -158,7 +164,7 @@ extern (C)
         return proxy.gc_disable();
     }
 
-    void gc_collect()
+    void gc_collect() nothrow
     {
         if( proxy is null )
         {
@@ -168,103 +174,103 @@ extern (C)
         return proxy.gc_collect();
     }
 
-    void gc_minimize()
+    void gc_minimize() nothrow
     {
         if( proxy is null )
             return _gc.minimize();
         return proxy.gc_minimize();
     }
 
-    uint gc_getAttr( void* p )
+    uint gc_getAttr( void* p ) nothrow
     {
         if( proxy is null )
             return _gc.getAttr( p );
         return proxy.gc_getAttr( p );
     }
 
-    uint gc_setAttr( void* p, uint a )
+    uint gc_setAttr( void* p, uint a ) nothrow
     {
         if( proxy is null )
             return _gc.setAttr( p, a );
         return proxy.gc_setAttr( p, a );
     }
 
-    uint gc_clrAttr( void* p, uint a )
+    uint gc_clrAttr( void* p, uint a ) nothrow
     {
         if( proxy is null )
             return _gc.clrAttr( p, a );
         return proxy.gc_clrAttr( p, a );
     }
 
-    void* gc_malloc( size_t sz, uint ba = 0 )
+    void* gc_malloc( size_t sz, uint ba = 0, const TypeInfo ti = null ) nothrow
     {
         if( proxy is null )
-            return _gc.malloc( sz, ba );
-        return proxy.gc_malloc( sz, ba );
+            return _gc.malloc( sz, ba, null, ti );
+        return proxy.gc_malloc( sz, ba, ti );
     }
 
-    BlkInfo gc_qalloc( size_t sz, uint ba = 0 )
+    BlkInfo gc_qalloc( size_t sz, uint ba = 0, const TypeInfo ti = null ) nothrow
     {
         if( proxy is null )
         {
             BlkInfo retval;
-            retval.base = _gc.malloc( sz, ba, &retval.size );
+            retval.base = _gc.malloc( sz, ba, &retval.size, ti );
             retval.attr = ba;
             return retval;
         }
-        return proxy.gc_qalloc( sz, ba );
+        return proxy.gc_qalloc( sz, ba, ti );
     }
 
-    void* gc_calloc( size_t sz, uint ba = 0 )
+    void* gc_calloc( size_t sz, uint ba = 0, const TypeInfo ti = null ) nothrow
     {
         if( proxy is null )
-            return _gc.calloc( sz, ba );
-        return proxy.gc_calloc( sz, ba );
+            return _gc.calloc( sz, ba, null, ti );
+        return proxy.gc_calloc( sz, ba, ti );
     }
 
-    void* gc_realloc( void* p, size_t sz, uint ba = 0 )
+    void* gc_realloc( void* p, size_t sz, uint ba = 0, const TypeInfo ti = null ) nothrow
     {
         if( proxy is null )
-            return _gc.realloc( p, sz, ba );
-        return proxy.gc_realloc( p, sz, ba );
+            return _gc.realloc( p, sz, ba, null, ti );
+        return proxy.gc_realloc( p, sz, ba, ti );
     }
 
-    size_t gc_extend( void* p, size_t mx, size_t sz )
+    size_t gc_extend( void* p, size_t mx, size_t sz, const TypeInfo ti = null ) nothrow
     {
         if( proxy is null )
-            return _gc.extend( p, mx, sz );
-        return proxy.gc_extend( p, mx, sz );
+            return _gc.extend( p, mx, sz, ti );
+        return proxy.gc_extend( p, mx, sz,ti );
     }
 
-    size_t gc_reserve( size_t sz )
+    size_t gc_reserve( size_t sz ) nothrow
     {
         if( proxy is null )
             return _gc.reserve( sz );
         return proxy.gc_reserve( sz );
     }
 
-    void gc_free( void* p )
+    void gc_free( void* p ) nothrow
     {
         if( proxy is null )
             return _gc.free( p );
         return proxy.gc_free( p );
     }
 
-    void* gc_addrOf( void* p )
+    void* gc_addrOf( void* p ) nothrow
     {
         if( proxy is null )
             return _gc.addrOf( p );
         return proxy.gc_addrOf( p );
     }
 
-    size_t gc_sizeOf( void* p )
+    size_t gc_sizeOf( void* p ) nothrow
     {
         if( proxy is null )
             return _gc.sizeOf( p );
         return proxy.gc_sizeOf( p );
     }
 
-    BlkInfo gc_query( void* p )
+    BlkInfo gc_query( void* p ) nothrow
     {
         if( proxy is null )
             return _gc.query( p );
@@ -273,7 +279,7 @@ extern (C)
 
     // NOTE: This routine is experimental. The stats or function name may change
     //       before it is made officially available.
-    GCStats gc_stats()
+    GCStats gc_stats() nothrow
     {
         if( proxy is null )
         {
@@ -287,35 +293,42 @@ extern (C)
         return GCStats.init;
     }
 
-    void gc_addRoot( void* p )
+    void gc_addRoot( void* p ) nothrow
     {
         if( proxy is null )
             return _gc.addRoot( p );
         return proxy.gc_addRoot( p );
     }
 
-    void gc_addRange( void* p, size_t sz )
+    void gc_addRange( void* p, size_t sz, const TypeInfo ti = null ) nothrow
     {
         if( proxy is null )
-            return _gc.addRange( p, sz );
-        return proxy.gc_addRange( p, sz );
+            return _gc.addRange( p, sz, ti );
+        return proxy.gc_addRange( p, sz, ti );
     }
 
-    void gc_removeRoot( void* p )
+    void gc_removeRoot( void* p ) nothrow
     {
         if( proxy is null )
             return _gc.removeRoot( p );
         return proxy.gc_removeRoot( p );
     }
 
-    void gc_removeRange( void* p )
+    void gc_removeRange( void* p ) nothrow
     {
         if( proxy is null )
             return _gc.removeRange( p );
         return proxy.gc_removeRange( p );
     }
 
-    Proxy* gc_getProxy()
+    void gc_runFinalizers( in void[] segment ) nothrow
+    {
+        if( proxy is null )
+            return _gc.runFinalizers( segment );
+        return proxy.gc_runFinalizers( segment );
+    }
+
+    Proxy* gc_getProxy() nothrow
     {
         return &pthis;
     }
@@ -329,18 +342,21 @@ extern (C)
                 // TODO: Decide if this is an error condition.
             }
             proxy = p;
-            foreach( r; _gc.rootIter )
+            foreach (r; _gc.rootIter)
                 proxy.gc_addRoot( r );
-            foreach( r; _gc.rangeIter )
-                proxy.gc_addRange( r.pbot, r.ptop - r.pbot );
+
+            foreach (r; _gc.rangeIter)
+                proxy.gc_addRange( r.pbot, r.ptop - r.pbot, null );
         }
 
         void gc_clrProxy()
         {
-            foreach( r; _gc.rangeIter )
+            foreach (r; _gc.rangeIter)
                 proxy.gc_removeRange( r.pbot );
-            foreach( r; _gc.rootIter )
+
+            foreach (r; _gc.rootIter)
                 proxy.gc_removeRoot( r );
+
             proxy = null;
         }
     }

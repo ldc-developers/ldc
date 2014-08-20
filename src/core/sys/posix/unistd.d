@@ -21,6 +21,8 @@ public import core.sys.posix.sys.types; // for size_t, ssize_t, uid_t, gid_t, of
 
 version (Posix):
 extern (C):
+nothrow:
+@nogc:
 
 version( Posix )
 {
@@ -28,64 +30,64 @@ version( Posix )
     enum STDOUT_FILENO = 1;
     enum STDERR_FILENO = 2;
 
-    __gshared char*   optarg;
-    __gshared int     optind;
-    __gshared int     opterr;
-    __gshared int     optopt;
+    extern __gshared char*   optarg;
+    extern __gshared int     optind;
+    extern __gshared int     opterr;
+    extern __gshared int     optopt;
 
     int     access(in char*, int);
-    uint    alarm(uint);
+    uint    alarm(uint) @trusted;
     int     chdir(in char*);
     int     chown(in char*, uid_t, gid_t);
-    int     close(int);
+    int     close(int) @trusted;
     size_t  confstr(int, char*, size_t);
-    int     dup(int);
-    int     dup2(int, int);
+    int     dup(int) @trusted;
+    int     dup2(int, int) @trusted;
     int     execl(in char*, in char*, ...);
     int     execle(in char*, in char*, ...);
     int     execlp(in char*, in char*, ...);
     int     execv(in char*, in char**);
     int     execve(in char*, in char**, in char**);
     int     execvp(in char*, in char**);
-    void    _exit(int);
-    int     fchown(int, uid_t, gid_t);
-    pid_t   fork();
-    c_long  fpathconf(int, int);
+    void    _exit(int) @trusted;
+    int     fchown(int, uid_t, gid_t) @trusted;
+    pid_t   fork() @trusted;
+    c_long  fpathconf(int, int) @trusted;
     //int     ftruncate(int, off_t);
     char*   getcwd(char*, size_t);
-    gid_t   getegid();
-    uid_t   geteuid();
-    gid_t   getgid();
+    gid_t   getegid() @trusted;
+    uid_t   geteuid() @trusted;
+    gid_t   getgid() @trusted;
     int     getgroups(int, gid_t *);
     int     gethostname(char*, size_t);
-    char*   getlogin();
+    char*   getlogin() @trusted;
     int     getlogin_r(char*, size_t);
     int     getopt(int, in char**, in char*);
-    pid_t   getpgrp();
-    pid_t   getpid();
-    pid_t   getppid();
-    uid_t   getuid();
-    int     isatty(int);
+    pid_t   getpgrp() @trusted;
+    pid_t   getpid() @trusted;
+    pid_t   getppid() @trusted;
+    uid_t   getuid() @trusted;
+    int     isatty(int) @trusted;
     int     link(in char*, in char*);
     //off_t   lseek(int, off_t, int);
     c_long  pathconf(in char*, int);
-    int     pause();
-    int     pipe(ref int[2]);
+    int     pause() @trusted;
+    int     pipe(ref int[2]) @trusted;
     ssize_t read(int, void*, size_t);
     ssize_t readlink(in char*, char*, size_t);
     int     rmdir(in char*);
-    int     setegid(gid_t);
-    int     seteuid(uid_t);
-    int     setgid(gid_t);
-    int     setpgid(pid_t, pid_t);
-    pid_t   setsid();
-    int     setuid(uid_t);
-    uint    sleep(uint);
+    int     setegid(gid_t) @trusted;
+    int     seteuid(uid_t) @trusted;
+    int     setgid(gid_t) @trusted;
+    int     setpgid(pid_t, pid_t) @trusted;
+    pid_t   setsid() @trusted;
+    int     setuid(uid_t) @trusted;
+    uint    sleep(uint) @trusted;
     int     symlink(in char*, in char*);
-    c_long  sysconf(int);
-    pid_t   tcgetpgrp(int);
-    int     tcsetpgrp(int, pid_t);
-    char*   ttyname(int);
+    c_long  sysconf(int) @trusted;
+    pid_t   tcgetpgrp(int) @trusted;
+    int     tcsetpgrp(int, pid_t) @trusted;
+    char*   ttyname(int) @trusted;
     int     ttyname_r(int, char*, size_t);
     int     unlink(in char*);
     ssize_t write(int, in void*, size_t);
@@ -95,32 +97,59 @@ version( linux )
 {
   static if( __USE_FILE_OFFSET64 )
   {
-    off_t lseek64(int, off_t, int);
+    off_t lseek64(int, off_t, int) @trusted;
     alias lseek64 lseek;
   }
   else
   {
-    off_t lseek(int, off_t, int);
+    off_t lseek(int, off_t, int) @trusted;
   }
   static if( __USE_LARGEFILE64 )
   {
-    int   ftruncate64(int, off_t);
+    int   ftruncate64(int, off_t) @trusted;
     alias ftruncate64 ftruncate;
   }
   else
   {
-    int   ftruncate(int, off_t);
+    int   ftruncate(int, off_t) @trusted;
   }
 }
 else version( FreeBSD )
 {
-    off_t lseek(int, off_t, int);
-    int   ftruncate(int, off_t);
+    off_t lseek(int, off_t, int) @trusted;
+    int   ftruncate(int, off_t) @trusted;
+}
+else version( Solaris )
+{
+    version ( D_LP64 )
+    {
+        off_t   lseek(int, off_t, int) @trusted;
+        alias   lseek lseek64;
+
+        int     ftruncate(int, off_t) @trusted;
+        alias   ftruncate ftruncate64;
+    }
+    else
+    {
+        static if( __USE_LARGEFILE64 )
+        {
+            off64_t lseek64(int, off64_t, int) @trusted;
+            alias   lseek64 lseek;
+
+            int     ftruncate64(int, off64) @trusted;
+            alias   ftruncate64 ftruncate;
+        }
+        else
+        {
+            off_t   lseek(int, off_t, int) @trusted;
+            int     ftruncate(int, off_t) @trusted;
+        }
+    }
 }
 else version( Posix )
 {
-    off_t lseek(int, off_t, int);
-    int   ftruncate(int, off_t);
+    off_t lseek(int, off_t, int) @trusted;
+    int   ftruncate(int, off_t) @trusted;
 }
 
 version( linux )
@@ -449,6 +478,178 @@ else version( OSX )
     enum F_LOCK     = 1;
     enum F_TLOCK    = 2;
     enum F_TEST     = 3;
+
+    enum
+    {
+        _SC_ARG_MAX                      =   1,
+        _SC_CHILD_MAX                    =   2,
+        _SC_CLK_TCK                      =   3,
+        _SC_NGROUPS_MAX                  =   4,
+        _SC_OPEN_MAX                     =   5,
+        _SC_JOB_CONTROL                  =   6,
+        _SC_SAVED_IDS                    =   7,
+        _SC_VERSION                      =   8,
+        _SC_BC_BASE_MAX                  =   9,
+        _SC_BC_DIM_MAX                   =  10,
+        _SC_BC_SCALE_MAX                 =  11,
+        _SC_BC_STRING_MAX                =  12,
+        _SC_COLL_WEIGHTS_MAX             =  13,
+        _SC_EXPR_NEST_MAX                =  14,
+        _SC_LINE_MAX                     =  15,
+        _SC_RE_DUP_MAX                   =  16,
+        _SC_2_VERSION                    =  17,
+        _SC_2_C_BIND                     =  18,
+        _SC_2_C_DEV                      =  19,
+        _SC_2_CHAR_TERM                  =  20,
+        _SC_2_FORT_DEV                   =  21,
+        _SC_2_FORT_RUN                   =  22,
+        _SC_2_LOCALEDEF                  =  23,
+        _SC_2_SW_DEV                     =  24,
+        _SC_2_UPE                        =  25,
+        _SC_STREAM_MAX                   =  26,
+        _SC_TZNAME_MAX                   =  27,
+        _SC_ASYNCHRONOUS_IO              =  28,
+        _SC_PAGESIZE                     =  29,
+        _SC_MEMLOCK                      =  30,
+        _SC_MEMLOCK_RANGE                =  31,
+        _SC_MEMORY_PROTECTION            =  32,
+        _SC_MESSAGE_PASSING              =  33,
+        _SC_PRIORITIZED_IO               =  34,
+        _SC_PRIORITY_SCHEDULING          =  35,
+        _SC_REALTIME_SIGNALS             =  36,
+        _SC_SEMAPHORES                   =  37,
+        _SC_FSYNC                        =  38,
+        _SC_SHARED_MEMORY_OBJECTS        =  39,
+        _SC_SYNCHRONIZED_IO              =  40,
+        _SC_TIMERS                       =  41,
+        _SC_AIO_LISTIO_MAX               =  42,
+        _SC_AIO_MAX                      =  43,
+        _SC_AIO_PRIO_DELTA_MAX           =  44,
+        _SC_DELAYTIMER_MAX               =  45,
+        _SC_MQ_OPEN_MAX                  =  46,
+        _SC_MAPPED_FILES                 =  47,
+        _SC_RTSIG_MAX                    =  48,
+        _SC_SEM_NSEMS_MAX                =  49,
+        _SC_SEM_VALUE_MAX                =  50,
+        _SC_SIGQUEUE_MAX                 =  51,
+        _SC_TIMER_MAX                    =  52,
+        _SC_IOV_MAX                      =  56,
+        _SC_NPROCESSORS_CONF             =  57,
+        _SC_NPROCESSORS_ONLN             =  58,
+        _SC_2_PBS                        =  59,
+        _SC_2_PBS_ACCOUNTING             =  60,
+        _SC_2_PBS_CHECKPOINT             =  61,
+        _SC_2_PBS_LOCATE                 =  62,
+        _SC_2_PBS_MESSAGE                =  63,
+        _SC_2_PBS_TRACK                  =  64,
+        _SC_ADVISORY_INFO                =  65,
+        _SC_BARRIERS                     =  66,
+        _SC_CLOCK_SELECTION              =  67,
+        _SC_CPUTIME                      =  68,
+        _SC_FILE_LOCKING                 =  69,
+        _SC_GETGR_R_SIZE_MAX             =  70,
+        _SC_GETPW_R_SIZE_MAX             =  71,
+        _SC_HOST_NAME_MAX                =  72,
+        _SC_LOGIN_NAME_MAX               =  73,
+        _SC_MONOTONIC_CLOCK              =  74,
+        _SC_MQ_PRIO_MAX                  =  75,
+        _SC_READER_WRITER_LOCKS          =  76,
+        _SC_REGEXP                       =  77,
+        _SC_SHELL                        =  78,
+        _SC_SPAWN                        =  79,
+        _SC_SPIN_LOCKS                   =  80,
+        _SC_SPORADIC_SERVER              =  81,
+        _SC_THREAD_ATTR_STACKADDR        =  82,
+        _SC_THREAD_ATTR_STACKSIZE        =  83,
+        _SC_THREAD_CPUTIME               =  84,
+        _SC_THREAD_DESTRUCTOR_ITERATIONS =  85,
+        _SC_THREAD_KEYS_MAX              =  86,
+        _SC_THREAD_PRIO_INHERIT          =  87,
+        _SC_THREAD_PRIO_PROTECT          =  88,
+        _SC_THREAD_PRIORITY_SCHEDULING   =  89,
+        _SC_THREAD_PROCESS_SHARED        =  90,
+        _SC_THREAD_SAFE_FUNCTIONS        =  91,
+        _SC_THREAD_SPORADIC_SERVER       =  92,
+        _SC_THREAD_STACK_MIN             =  93,
+        _SC_THREAD_THREADS_MAX           =  94,
+        _SC_TIMEOUTS                     =  95,
+        _SC_THREADS                      =  96,
+        _SC_TRACE                        =  97,
+        _SC_TRACE_EVENT_FILTER           =  98,
+        _SC_TRACE_INHERIT                =  99,
+        _SC_TRACE_LOG                    = 100,
+        _SC_TTY_NAME_MAX                 = 101,
+        _SC_TYPED_MEMORY_OBJECTS         = 102,
+        _SC_V6_ILP32_OFF32               = 103,
+        _SC_V6_ILP32_OFFBIG              = 104,
+        _SC_V6_LP64_OFF64                = 105,
+        _SC_V6_LPBIG_OFFBIG              = 106,
+        _SC_ATEXIT_MAX                   = 107,
+        _SC_XOPEN_CRYPT                  = 108,
+        _SC_XOPEN_ENH_I18N               = 109,
+        _SC_XOPEN_LEGACY                 = 110,
+        _SC_XOPEN_REALTIME               = 111,
+        _SC_XOPEN_REALTIME_THREADS       = 112,
+        _SC_XOPEN_SHM                    = 113,
+        _SC_XOPEN_STREAMS                = 114,
+        _SC_XOPEN_UNIX                   = 115,
+        _SC_XOPEN_VERSION                = 116,
+        _SC_IPV6                         = 118,
+        _SC_RAW_SOCKETS                  = 119,
+        _SC_SYMLOOP_MAX                  = 120,
+        _SC_XOPEN_XCU_VERSION            = 121,
+        _SC_XBS5_ILP32_OFF32             = 122,
+        _SC_XBS5_ILP32_OFFBIG            = 123,
+        _SC_XBS5_LP64_OFF64              = 124,
+        _SC_XBS5_LPBIG_OFFBIG            = 125,
+        _SC_SS_REPL_MAX                  = 126,
+        _SC_TRACE_EVENT_NAME_MAX         = 127,
+        _SC_TRACE_NAME_MAX               = 128,
+        _SC_TRACE_SYS_MAX                = 129,
+        _SC_TRACE_USER_EVENT_MAX         = 130,
+        _SC_PASS_MAX                     = 131,
+    }
+
+    enum _SC_PAGE_SIZE = _SC_PAGESIZE;
+
+    enum
+    {
+        _CS_PATH                                =     1,
+        _CS_POSIX_V6_ILP32_OFF32_CFLAGS         =     2,
+        _CS_POSIX_V6_ILP32_OFF32_LDFLAGS        =     3,
+        _CS_POSIX_V6_ILP32_OFF32_LIBS           =     4,
+        _CS_POSIX_V6_ILP32_OFFBIG_CFLAGS        =     5,
+        _CS_POSIX_V6_ILP32_OFFBIG_LDFLAGS       =     6,
+        _CS_POSIX_V6_ILP32_OFFBIG_LIBS          =     7,
+        _CS_POSIX_V6_LP64_OFF64_CFLAGS          =     8,
+        _CS_POSIX_V6_LP64_OFF64_LDFLAGS         =     9,
+        _CS_POSIX_V6_LP64_OFF64_LIBS            =    10,
+        _CS_POSIX_V6_LPBIG_OFFBIG_CFLAGS        =    11,
+        _CS_POSIX_V6_LPBIG_OFFBIG_LDFLAGS       =    12,
+        _CS_POSIX_V6_LPBIG_OFFBIG_LIBS          =    13,
+        _CS_POSIX_V6_WIDTH_RESTRICTED_ENVS      =    14,
+
+        _CS_XBS5_ILP32_OFF32_CFLAGS             =    20,
+        _CS_XBS5_ILP32_OFF32_LDFLAGS            =    21,
+        _CS_XBS5_ILP32_OFF32_LIBS               =    22,
+        _CS_XBS5_ILP32_OFF32_LINTFLAGS          =    23,
+        _CS_XBS5_ILP32_OFFBIG_CFLAGS            =    24,
+        _CS_XBS5_ILP32_OFFBIG_LDFLAGS           =    25,
+        _CS_XBS5_ILP32_OFFBIG_LIBS              =    26,
+        _CS_XBS5_ILP32_OFFBIG_LINTFLAGS         =    27,
+        _CS_XBS5_LP64_OFF64_CFLAGS              =    28,
+        _CS_XBS5_LP64_OFF64_LDFLAGS             =    29,
+        _CS_XBS5_LP64_OFF64_LIBS                =    30,
+        _CS_XBS5_LP64_OFF64_LINTFLAGS           =    31,
+        _CS_XBS5_LPBIG_OFFBIG_CFLAGS            =    32,
+        _CS_XBS5_LPBIG_OFFBIG_LDFLAGS           =    33,
+        _CS_XBS5_LPBIG_OFFBIG_LIBS              =    34,
+        _CS_XBS5_LPBIG_OFFBIG_LINTFLAGS         =    35,
+
+        _CS_DARWIN_USER_DIR                     = 65536,
+        _CS_DARWIN_USER_TEMP_DIR                = 65537,
+        _CS_DARWIN_USER_CACHE_DIR               = 65538,
+    }
 }
 else version( FreeBSD )
 {
@@ -462,6 +663,278 @@ else version( FreeBSD )
     enum F_TLOCK    = 2;
     enum F_TEST     = 3;
 }
+else version( Android )
+{
+    enum F_OK       = 0;
+    enum R_OK       = 4;
+    enum W_OK       = 2;
+    enum X_OK       = 1;
+
+    enum _SC_PAGESIZE         = 0x0027;
+    enum _SC_NPROCESSORS_ONLN = 0x0061;
+}
+else version( Solaris )
+{
+    enum F_OK       = 0;
+    enum R_OK       = 4;
+    enum W_OK       = 2;
+    enum X_OK       = 1;
+
+    enum
+    {
+        // large file compilation environment configuration
+        _CS_LFS_CFLAGS                  = 68,
+        _CS_LFS_LDFLAGS                 = 69,
+        _CS_LFS_LIBS                    = 70,
+        _CS_LFS_LINTFLAGS               = 71,
+        // transitional large file interface configuration
+        _CS_LFS64_CFLAGS                = 72,
+        _CS_LFS64_LDFLAGS               = 73,
+        _CS_LFS64_LIBS                  = 74,
+        _CS_LFS64_LINTFLAGS             = 75,
+
+        // UNIX 98
+        _CS_XBS5_ILP32_OFF32_CFLAGS     = 700,
+        _CS_XBS5_ILP32_OFF32_LDFLAGS    = 701,
+        _CS_XBS5_ILP32_OFF32_LIBS       = 702,
+        _CS_XBS5_ILP32_OFF32_LINTFLAGS  = 703,
+        _CS_XBS5_ILP32_OFFBIG_CFLAGS    = 705,
+        _CS_XBS5_ILP32_OFFBIG_LDFLAGS   = 706,
+        _CS_XBS5_ILP32_OFFBIG_LIBS      = 707,
+        _CS_XBS5_ILP32_OFFBIG_LINTFLAGS = 708,
+        _CS_XBS5_LP64_OFF64_CFLAGS      = 709,
+        _CS_XBS5_LP64_OFF64_LDFLAGS     = 710,
+        _CS_XBS5_LP64_OFF64_LIBS        = 711,
+        _CS_XBS5_LP64_OFF64_LINTFLAGS   = 712,
+        _CS_XBS5_LPBIG_OFFBIG_CFLAGS    = 713,
+        _CS_XBS5_LPBIG_OFFBIG_LDFLAGS   = 714,
+        _CS_XBS5_LPBIG_OFFBIG_LIBS      = 715,
+        _CS_XBS5_LPBIG_OFFBIG_LINTFLAGS = 716,
+
+        // UNIX 03
+        _CS_POSIX_V6_ILP32_OFF32_CFLAGS         = 800,
+        _CS_POSIX_V6_ILP32_OFF32_LDFLAGS        = 801,
+        _CS_POSIX_V6_ILP32_OFF32_LIBS           = 802,
+        _CS_POSIX_V6_ILP32_OFF32_LINTFLAGS      = 803,
+        _CS_POSIX_V6_ILP32_OFFBIG_CFLAGS        = 804,
+        _CS_POSIX_V6_ILP32_OFFBIG_LDFLAGS       = 805,
+        _CS_POSIX_V6_ILP32_OFFBIG_LIBS          = 806,
+        _CS_POSIX_V6_ILP32_OFFBIG_LINTFLAGS     = 807,
+        _CS_POSIX_V6_LP64_OFF64_CFLAGS          = 808,
+        _CS_POSIX_V6_LP64_OFF64_LDFLAGS         = 809,
+        _CS_POSIX_V6_LP64_OFF64_LIBS            = 810,
+        _CS_POSIX_V6_LP64_OFF64_LINTFLAGS       = 811,
+        _CS_POSIX_V6_LPBIG_OFFBIG_CFLAGS        = 812,
+        _CS_POSIX_V6_LPBIG_OFFBIG_LDFLAGS       = 813,
+        _CS_POSIX_V6_LPBIG_OFFBIG_LIBS          = 814,
+        _CS_POSIX_V6_LPBIG_OFFBIG_LINTFLAGS     = 815,
+        _CS_POSIX_V6_WIDTH_RESTRICTED_ENVS      = 816
+    }
+
+    enum {
+        _SC_ARG_MAX                     = 1,
+        _SC_CHILD_MAX                   = 2,
+        _SC_CLK_TCK                     = 3,
+        _SC_NGROUPS_MAX                 = 4,
+        _SC_OPEN_MAX                    = 5,
+        _SC_JOB_CONTROL                 = 6,
+        _SC_SAVED_IDS                   = 7,
+        _SC_VERSION                     = 8,
+
+        _SC_PASS_MAX                    = 9,
+        _SC_LOGNAME_MAX                 = 10,
+        _SC_PAGESIZE                    = 11,
+        _SC_XOPEN_VERSION               = 12,
+        // 13 reserved for SVr4-ES/MP _SC_NACLS_MAX
+        _SC_NPROCESSORS_CONF            = 14,
+        _SC_NPROCESSORS_ONLN            = 15,
+        _SC_STREAM_MAX                  = 16,
+        _SC_TZNAME_MAX                  = 17,
+
+        _SC_AIO_LISTIO_MAX              = 18,
+        _SC_AIO_MAX                     = 19,
+        _SC_AIO_PRIO_DELTA_MAX          = 20,
+        _SC_ASYNCHRONOUS_IO             = 21,
+        _SC_DELAYTIMER_MAX              = 22,
+        _SC_FSYNC                       = 23,
+        _SC_MAPPED_FILES                = 24,
+        _SC_MEMLOCK                     = 25,
+        _SC_MEMLOCK_RANGE               = 26,
+        _SC_MEMORY_PROTECTION           = 27,
+        _SC_MESSAGE_PASSING             = 28,
+        _SC_MQ_OPEN_MAX                 = 29,
+        _SC_MQ_PRIO_MAX                 = 30,
+        _SC_PRIORITIZED_IO              = 31,
+        _SC_PRIORITY_SCHEDULING         = 32,
+        _SC_REALTIME_SIGNALS            = 33,
+        _SC_RTSIG_MAX                   = 34,
+        _SC_SEMAPHORES                  = 35,
+        _SC_SEM_NSEMS_MAX               = 36,
+        _SC_SEM_VALUE_MAX               = 37,
+        _SC_SHARED_MEMORY_OBJECTS       = 38,
+        _SC_SIGQUEUE_MAX                = 39,
+        _SC_SIGRT_MIN                   = 40,
+        _SC_SIGRT_MAX                   = 41,
+        _SC_SYNCHRONIZED_IO             = 42,
+        _SC_TIMERS                      = 43,
+        _SC_TIMER_MAX                   = 44,
+
+        _SC_2_C_BIND                    = 45,
+        _SC_2_C_DEV                     = 46,
+        _SC_2_C_VERSION                 = 47,
+        _SC_2_FORT_DEV                  = 48,
+        _SC_2_FORT_RUN                  = 49,
+        _SC_2_LOCALEDEF                 = 50,
+        _SC_2_SW_DEV                    = 51,
+        _SC_2_UPE                       = 52,
+        _SC_2_VERSION                   = 53,
+        _SC_BC_BASE_MAX                 = 54,
+        _SC_BC_DIM_MAX                  = 55,
+        _SC_BC_SCALE_MAX                = 56,
+        _SC_BC_STRING_MAX               = 57,
+        _SC_COLL_WEIGHTS_MAX            = 58,
+        _SC_EXPR_NEST_MAX               = 59,
+        _SC_LINE_MAX                    = 60,
+        _SC_RE_DUP_MAX                  = 61,
+        _SC_XOPEN_CRYPT                 = 62,
+        _SC_XOPEN_ENH_I18N              = 63,
+        _SC_XOPEN_SHM                   = 64,
+        _SC_2_CHAR_TERM                 = 66,
+        _SC_XOPEN_XCU_VERSION           = 67,
+
+        _SC_ATEXIT_MAX                  = 76,
+        _SC_IOV_MAX                     = 77,
+        _SC_XOPEN_UNIX                  = 78,
+
+        _SC_T_IOV_MAX                   = 79,
+
+        _SC_PHYS_PAGES                  = 500,
+        _SC_AVPHYS_PAGES                = 501,
+
+        _SC_COHER_BLKSZ         = 503,
+        _SC_SPLIT_CACHE         = 504,
+        _SC_ICACHE_SZ           = 505,
+        _SC_DCACHE_SZ           = 506,
+        _SC_ICACHE_LINESZ       = 507,
+        _SC_DCACHE_LINESZ       = 508,
+        _SC_ICACHE_BLKSZ        = 509,
+        _SC_DCACHE_BLKSZ        = 510,
+        _SC_DCACHE_TBLKSZ       = 511,
+        _SC_ICACHE_ASSOC        = 512,
+        _SC_DCACHE_ASSOC        = 513,
+
+        _SC_MAXPID              = 514,
+        _SC_STACK_PROT          = 515,
+        _SC_NPROCESSORS_MAX     = 516,
+        _SC_CPUID_MAX           = 517,
+        _SC_EPHID_MAX           = 518,
+
+        _SC_THREAD_DESTRUCTOR_ITERATIONS = 568,
+        _SC_GETGR_R_SIZE_MAX            = 569,
+        _SC_GETPW_R_SIZE_MAX            = 570,
+        _SC_LOGIN_NAME_MAX              = 571,
+        _SC_THREAD_KEYS_MAX             = 572,
+        _SC_THREAD_STACK_MIN            = 573,
+        _SC_THREAD_THREADS_MAX          = 574,
+        _SC_TTY_NAME_MAX                = 575,
+        _SC_THREADS                     = 576,
+        _SC_THREAD_ATTR_STACKADDR       = 577,
+        _SC_THREAD_ATTR_STACKSIZE       = 578,
+        _SC_THREAD_PRIORITY_SCHEDULING  = 579,
+        _SC_THREAD_PRIO_INHERIT         = 580,
+        _SC_THREAD_PRIO_PROTECT         = 581,
+        _SC_THREAD_PROCESS_SHARED       = 582,
+        _SC_THREAD_SAFE_FUNCTIONS       = 583,
+
+        _SC_XOPEN_LEGACY                = 717,
+        _SC_XOPEN_REALTIME              = 718,
+        _SC_XOPEN_REALTIME_THREADS      = 719,
+        _SC_XBS5_ILP32_OFF32            = 720,
+        _SC_XBS5_ILP32_OFFBIG           = 721,
+        _SC_XBS5_LP64_OFF64             = 722,
+        _SC_XBS5_LPBIG_OFFBIG           = 723,
+
+        _SC_2_PBS                       = 724,
+        _SC_2_PBS_ACCOUNTING            = 725,
+        _SC_2_PBS_CHECKPOINT            = 726,
+        _SC_2_PBS_LOCATE                = 728,
+        _SC_2_PBS_MESSAGE               = 729,
+        _SC_2_PBS_TRACK                 = 730,
+        _SC_ADVISORY_INFO               = 731,
+        _SC_BARRIERS                    = 732,
+        _SC_CLOCK_SELECTION             = 733,
+        _SC_CPUTIME                     = 734,
+        _SC_HOST_NAME_MAX               = 735,
+        _SC_MONOTONIC_CLOCK             = 736,
+        _SC_READER_WRITER_LOCKS         = 737,
+        _SC_REGEXP                      = 738,
+        _SC_SHELL                       = 739,
+        _SC_SPAWN                       = 740,
+        _SC_SPIN_LOCKS                  = 741,
+        _SC_SPORADIC_SERVER             = 742,
+        _SC_SS_REPL_MAX                 = 743,
+        _SC_SYMLOOP_MAX                 = 744,
+        _SC_THREAD_CPUTIME              = 745,
+        _SC_THREAD_SPORADIC_SERVER      = 746,
+        _SC_TIMEOUTS                    = 747,
+        _SC_TRACE                       = 748,
+        _SC_TRACE_EVENT_FILTER          = 749,
+        _SC_TRACE_EVENT_NAME_MAX        = 750,
+        _SC_TRACE_INHERIT               = 751,
+        _SC_TRACE_LOG                   = 752,
+        _SC_TRACE_NAME_MAX              = 753,
+        _SC_TRACE_SYS_MAX               = 754,
+        _SC_TRACE_USER_EVENT_MAX        = 755,
+        _SC_TYPED_MEMORY_OBJECTS        = 756,
+        _SC_V6_ILP32_OFF32              = 757,
+        _SC_V6_ILP32_OFFBIG             = 758,
+        _SC_V6_LP64_OFF64               = 759,
+        _SC_V6_LPBIG_OFFBIG             = 760,
+        _SC_XOPEN_STREAMS               = 761,
+        _SC_IPV6                        = 762,
+        _SC_RAW_SOCKETS                 = 763,
+    }
+    enum _SC_PAGE_SIZE = _SC_PAGESIZE;
+
+    enum {
+        _PC_LINK_MAX            = 1,
+        _PC_MAX_CANON           = 2,
+        _PC_MAX_INPUT           = 3,
+        _PC_NAME_MAX            = 4,
+        _PC_PATH_MAX            = 5,
+        _PC_PIPE_BUF            = 6,
+        _PC_NO_TRUNC            = 7,
+        _PC_VDISABLE            = 8,
+        _PC_CHOWN_RESTRICTED    = 9,
+
+        _PC_ASYNC_IO            = 10,
+        _PC_PRIO_IO             = 11,
+        _PC_SYNC_IO             = 12,
+
+        _PC_ALLOC_SIZE_MIN      = 13,
+        _PC_REC_INCR_XFER_SIZE  = 14,
+        _PC_REC_MAX_XFER_SIZE   = 15,
+        _PC_REC_MIN_XFER_SIZE   = 16,
+        _PC_REC_XFER_ALIGN      = 17,
+        _PC_SYMLINK_MAX         = 18,
+        _PC_2_SYMLINKS          = 19,
+        _PC_ACL_ENABLED         = 20,
+        _PC_MIN_HOLE_SIZE       = 21,
+        _PC_CASE_BEHAVIOR       = 22,
+        _PC_SATTR_ENABLED       = 23,
+        _PC_SATTR_EXISTS        = 24,
+        _PC_ACCESS_FILTERING    = 25,
+
+        _PC_TIMESTAMP_RESOLUTION = 26,
+
+        _PC_FILESIZEBITS        = 67,
+
+        _PC_XATTR_ENABLED       = 100,
+        _PC_XATTR_EXISTS        = 101
+    }
+
+    enum _PC_LAST = 101;
+}
 
 //
 // File Synchronization (FSC)
@@ -472,15 +945,23 @@ int fsync(int);
 
 version( linux )
 {
-    int fsync(int);
+    int fsync(int) @trusted;
 }
 else version( OSX )
 {
-    int fsync(int);
+    int fsync(int) @trusted;
 }
 else version( FreeBSD )
 {
-    int fsync(int);
+    int fsync(int) @trusted;
+}
+else version( Android )
+{
+    int fsync(int) @trusted;
+}
+else version( Solaris )
+{
+    int fsync(int) @trusted;
 }
 
 //
@@ -492,7 +973,11 @@ int fdatasync(int);
 
 version( linux )
 {
-    int fdatasync(int);
+    int fdatasync(int) @trusted;
+}
+else version( Android )
+{
+    int fdatasync(int) @trusted;
 }
 
 //
@@ -527,30 +1012,30 @@ version( linux )
 {
     char*      crypt(in char*, in char*);
     char*      ctermid(char*);
-    void       encrypt(ref char[64], int);
-    int        fchdir(int);
-    c_long     gethostid();
-    pid_t      getpgid(pid_t);
-    pid_t      getsid(pid_t);
+    void       encrypt(ref char[64], int) @trusted;
+    int        fchdir(int) @trusted;
+    c_long     gethostid() @trusted;
+    pid_t      getpgid(pid_t) @trusted;
+    pid_t      getsid(pid_t) @trusted;
     char*      getwd(char*); // LEGACY
     int        lchown(in char*, uid_t, gid_t);
     //int        lockf(int, int, off_t);
-    int        nice(int);
+    int        nice(int) @trusted;
     //ssize_t    pread(int, void*, size_t, off_t);
     //ssize_t    pwrite(int, in void*, size_t, off_t);
-    pid_t      setpgrp();
-    int        setregid(gid_t, gid_t);
-    int        setreuid(uid_t, uid_t);
+    pid_t      setpgrp() @trusted;
+    int        setregid(gid_t, gid_t) @trusted;
+    int        setreuid(uid_t, uid_t) @trusted;
     void       swab(in void*, void*, ssize_t);
-    void       sync();
+    void       sync() @trusted;
     //int        truncate(in char*, off_t);
-    useconds_t ualarm(useconds_t, useconds_t);
-    int        usleep(useconds_t);
+    useconds_t ualarm(useconds_t, useconds_t) @trusted;
+    int        usleep(useconds_t) @trusted;
     pid_t      vfork();
 
   static if( __USE_FILE_OFFSET64 )
   {
-    int        lockf64(int, int, off_t);
+    int        lockf64(int, int, off_t) @trusted;
     alias      lockf64 lockf;
 
     ssize_t    pread64(int, void*, size_t, off_t);
@@ -564,13 +1049,79 @@ version( linux )
   }
   else
   {
-    int        lockf(int, int, off_t);
+    int        lockf(int, int, off_t) @trusted;
     ssize_t    pread(int, void*, size_t, off_t);
     ssize_t    pwrite(int, in void*, size_t, off_t);
     int        truncate(in char*, off_t);
   }
 }
 else version( OSX )
+{
+    char*      crypt(in char*, in char*);
+    char*      ctermid(char*);
+    void       encrypt(ref char[64], int) @trusted;
+    int        fchdir(int) @trusted;
+    c_long     gethostid() @trusted;
+    pid_t      getpgid(pid_t) @trusted;
+    pid_t      getsid(pid_t) @trusted;
+    char*      getwd(char*); // LEGACY
+    int        lchown(in char*, uid_t, gid_t);
+    int        lockf(int, int, off_t) @trusted;
+    int        nice(int) @trusted;
+    ssize_t    pread(int, void*, size_t, off_t);
+    ssize_t    pwrite(int, in void*, size_t, off_t);
+    pid_t      setpgrp() @trusted;
+    int        setregid(gid_t, gid_t) @trusted;
+    int        setreuid(uid_t, uid_t) @trusted;
+    void       swab(in void*, void*, ssize_t);
+    void       sync() @trusted;
+    int        truncate(in char*, off_t);
+    useconds_t ualarm(useconds_t, useconds_t) @trusted;
+    int        usleep(useconds_t) @trusted;
+    pid_t      vfork();
+}
+else version( FreeBSD )
+{
+    char*      crypt(in char*, in char*);
+    //char*      ctermid(char*);
+    void       encrypt(ref char[64], int) @trusted;
+    int        fchdir(int) @trusted;
+    c_long     gethostid() @trusted;
+    int        getpgid(pid_t) @trusted;
+    int        getsid(pid_t) @trusted;
+    char*      getwd(char*); // LEGACY
+    int        lchown(in char*, uid_t, gid_t);
+    int        lockf(int, int, off_t) @trusted;
+    int        nice(int) @trusted;
+    ssize_t    pread(int, void*, size_t, off_t);
+    ssize_t    pwrite(int, in void*, size_t, off_t);
+    int        setpgrp(pid_t, pid_t) @trusted;
+    int        setregid(gid_t, gid_t) @trusted;
+    int        setreuid(uid_t, uid_t) @trusted;
+    void       swab(in void*, void*, ssize_t);
+    void       sync() @trusted;
+    int        truncate(in char*, off_t);
+    useconds_t ualarm(useconds_t, useconds_t) @trusted;
+    int        usleep(useconds_t) @trusted;
+    pid_t      vfork();
+}
+else version( Android )
+{
+    int        fchdir(int) @trusted;
+    pid_t      getpgid(pid_t) @trusted;
+    int        lchown(in char*, uid_t, gid_t);
+    int        nice(int) @trusted;
+    ssize_t    pread(int, void*, size_t, off_t);
+    ssize_t    pwrite(int, in void*, size_t, off_t);
+    int        setpgrp() @trusted;
+    int        setregid(gid_t, gid_t) @trusted;
+    int        setreuid(uid_t, uid_t) @trusted;
+    int        sync() @trusted;
+    int        truncate(in char*, off_t);
+    int        usleep(c_ulong) @trusted;
+    pid_t      vfork();
+}
+else version( Solaris )
 {
     char*      crypt(in char*, in char*);
     char*      ctermid(char*);
@@ -594,29 +1145,43 @@ else version( OSX )
     useconds_t ualarm(useconds_t, useconds_t);
     int        usleep(useconds_t);
     pid_t      vfork();
-}
-else version( FreeBSD )
-{
-    char*      crypt(in char*, in char*);
-    //char*      ctermid(char*);
-    void       encrypt(ref char[64], int);
-    int        fchdir(int);
-    c_long     gethostid();
-    int        getpgid(pid_t);
-    int        getsid(pid_t);
-    char*      getwd(char*); // LEGACY
-    int        lchown(in char*, uid_t, gid_t);
-    int        lockf(int, int, off_t);
-    int        nice(int);
-    ssize_t    pread(int, void*, size_t, off_t);
-    ssize_t    pwrite(int, in void*, size_t, off_t);
-    int        setpgrp(pid_t, pid_t);
-    int        setregid(gid_t, gid_t);
-    int        setreuid(uid_t, uid_t);
-    void       swab(in void*, void*, ssize_t);
-    void       sync();
-    int        truncate(in char*, off_t);
-    useconds_t ualarm(useconds_t, useconds_t);
-    int        usleep(useconds_t);
-    pid_t      vfork();
+
+    version (D_LP64)
+    {
+        int         lockf(int, int, off_t);
+        alias       lockf lockf64;
+
+        ssize_t     pread(int, void*, size_t, off_t);
+        alias       pread pread64;
+
+        ssize_t     pwrite(int, in void*, size_t, off_t);
+        alias       pwrite pwrite64;
+
+        int         truncate(in char*, off_t);
+        alias       truncate truncate64;
+    }
+    else
+    {
+        static if( __USE_FILE_OFFSET64 )
+        {
+            int        lockf64(int, int, off64_t);
+            alias      lockf64 lockf;
+
+            ssize_t    pread64(int, void*, size_t, off64_t);
+            alias      pread64 pread;
+
+            ssize_t    pwrite64(int, in void*, size_t, off_t);
+            alias      pwrite64 pwrite;
+
+            int        truncate64(in char*, off_t);
+            alias      truncate64 truncate;
+        }
+        else
+        {
+            int        lockf(int, int, off_t);
+            ssize_t    pread(int, void*, size_t, off_t);
+            ssize_t    pwrite(int, in void*, size_t, off_t);
+            int        truncate(in char*, off_t);
+        }
+    }
 }

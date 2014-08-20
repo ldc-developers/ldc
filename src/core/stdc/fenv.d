@@ -2,21 +2,20 @@
  * D header file for C99.
  *
  * Copyright: Copyright Sean Kelly 2005 - 2009.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License: Distributed under the
+ *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0).
+ *    (See accompanying file LICENSE)
  * Authors:   Sean Kelly
+ * Source:    $(DRUNTIMESRC core/stdc/_fenv.d)
  * Standards: ISO/IEC 9899:1999 (E)
  */
 
-/*          Copyright Sean Kelly 2005 - 2009.
- * Distributed under the Boost Software License, Version 1.0.
- *    (See accompanying file LICENSE or copy at
- *          http://www.boost.org/LICENSE_1_0.txt)
- */
 module core.stdc.fenv;
 
 extern (C):
 @system:
 nothrow:
+@nogc:
 
 version( Windows )
 {
@@ -150,6 +149,27 @@ else version ( FreeBSD )
 
     alias ushort fexcept_t;
 }
+else version( Android )
+{
+    version(X86)
+    {
+        struct fenv_t
+        {
+            ushort   __control;
+            ushort   __mxcsr_hi;
+            ushort   __status;
+            ushort   __mxcsr_lo;
+            uint     __tag;
+            byte[16] __other;
+        }
+
+        alias ushort fexcept_t;
+    }
+    else
+    {
+        static assert(false, "Architecture not supported.");
+    }
+}
 else
 {
     static assert( false, "Unsupported platform" );
@@ -185,6 +205,11 @@ else version( OSX )
     fenv_t* FE_DFL_ENV = &_FE_DFL_ENV;
 }
 else version( FreeBSD )
+{
+    private extern const fenv_t __fe_dfl_env;
+    const fenv_t* FE_DFL_ENV = &__fe_dfl_env;
+}
+else version( Android )
 {
     private extern const fenv_t __fe_dfl_env;
     const fenv_t* FE_DFL_ENV = &__fe_dfl_env;
