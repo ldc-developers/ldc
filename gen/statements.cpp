@@ -651,27 +651,29 @@ public:
         if (stmt->ident != 0) {
             IF_LOG Logger::println("ident = %s", stmt->ident->toChars());
 
-            DtoEnclosingHandlers(stmt->loc, stmt->target);
-
             // get the loop statement the label refers to
             Statement* targetLoopStatement = stmt->target->statement;
             ScopeStatement* tmp;
             while((tmp = targetLoopStatement->isScopeStatement()))
                 targetLoopStatement = tmp->statement;
 
-            // find the right continue block and jump there
+            // find the right continue block
             bool found = false;
             FuncGen::TargetScopeVec::reverse_iterator it = irs->func()->gen->targetScopes.rbegin();
             FuncGen::TargetScopeVec::reverse_iterator it_end = irs->func()->gen->targetScopes.rend();
             while (it != it_end) {
                 if (it->s == targetLoopStatement) {
-                    llvm::BranchInst::Create(it->continueTarget, gIR->scopebb());
                     found = true;
                     break;
                 }
                 ++it;
             }
+
             assert(found);
+            // emit destructors and finally statements
+            DtoEnclosingHandlers(stmt->loc, it->s);
+            // jump to the continue block
+            llvm::BranchInst::Create(it->continueTarget, gIR->scopebb());
         }
         else {
             // find closest scope with a continue target
