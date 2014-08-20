@@ -1708,8 +1708,14 @@ DValue* ThisExp::toElem(IRState* p)
     IF_LOG Logger::print("ThisExp::toElem: %s @ %s\n", toChars(), type->toChars());
     LOG_SCOPE;
 
+    // special cases: `this(int) { this(); }` and `this(int) { super(); }`
+    if (!var) {
+        Logger::println("this exp without var declaration");
+        LLValue* v = p->func()->thisArg;
+        return new DVarValue(type, v);
+    }
     // regular this expr
-    if (VarDeclaration* vd = var->isVarDeclaration()) {
+    else if (VarDeclaration* vd = var->isVarDeclaration()) {
         LLValue* v;
         Dsymbol* vdparent = vd->toParent2();
         Identifier *ident = p->func()->decl->ident;
