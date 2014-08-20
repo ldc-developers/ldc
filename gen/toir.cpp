@@ -579,10 +579,7 @@ DValue* AssignExp::toElem(IRState* p)
     Logger::println("performing normal assignment (canSkipPostblit = %d)", canSkipPostblit);
     DtoAssign(loc, l, r, op, canSkipPostblit);
 
-    if (l->isSlice())
-        return l;
-
-    return r;
+    return l;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
