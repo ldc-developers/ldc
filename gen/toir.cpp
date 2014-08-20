@@ -1646,8 +1646,10 @@ DValue* DotVarExp::toElem(IRState* p)
         // This is a bit more convoluted than it would need to be, because it
         // has to take templated interface methods into account, for which
         // isFinalFunc is not necessarily true.
+        // Also, private methods are always not virtual.
         const bool nonFinal = !fdecl->isFinalFunc() &&
-            (fdecl->isAbstract() || fdecl->isVirtual());
+            (fdecl->isAbstract() || fdecl->isVirtual()) &&
+            fdecl->prot() != PROTprivate;
 
         // If we are calling a non-final interface function, we need to get
         // the pointer to the underlying object instead of passing the
