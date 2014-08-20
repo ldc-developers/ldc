@@ -830,12 +830,6 @@ Lancestorsdone:
             alignsize = thissize;
     }
     structsize = offset;
-#if IN_LLVM
-    if (sc->structalign == STRUCTALIGN_DEFAULT)
-        structsize = (structsize + alignsize - 1) & ~(alignsize - 1);
-    else
-        structsize = (structsize + sc->structalign - 1) & ~(sc->structalign - 1);
-#endif
 
     sizeok = SIZEOKdone;
 
