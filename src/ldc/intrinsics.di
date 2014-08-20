@@ -39,12 +39,12 @@ version(LDC_LLVM_306)
     version = INTRINSICS_FROM_306;
 }
 
-// All intrinsics are nothrow. The codegen intrinsics are not categorized any
-// further (they probably could), the rest is pure (aborting is fine by
+// All intrinsics are nothrow and @nogc. The codegen intrinsics are not categorized
+// any further (they probably could), the rest is pure (aborting is fine by
 // definition; memcpy and friends can be viewed as weakly pure, just as e.g.
 // strlen() is marked weakly pure as well) and mostly @safe.
 nothrow:
-
+@nogc:
 
 //
 // CODE GENERATOR INTRINSICS
