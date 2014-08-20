@@ -1,11 +1,13 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2013 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/json.c
+ */
 
 // This implements the JSON capability.
 
@@ -360,7 +362,7 @@ public:
         }
     }
 
-    void property(const char *name, Loc *loc)
+    void property(const char *linename, const char *charname, Loc *loc)
     {
         if (loc)
         {
@@ -375,7 +377,11 @@ public:
             }
 
             if (loc->linnum)
-                property(name, loc->linnum);
+            {
+                property(linename, loc->linnum);
+                if (loc->charnum)
+                    property(charname, loc->charnum);
+            }
         }
     }
 
@@ -445,11 +451,17 @@ public:
         }
 
         if (s->prot() != PROTpublic)
-            property("protection", Pprotectionnames[s->prot()]);
+            property("protection", protectionToChars(s->prot()));
+
+        if (EnumMember *em = s->isEnumMember())
+        {
+            if (em->origValue)
+                property("value", em->origValue->toChars());
+        }
 
         property("comment", (const char *)s->comment);
 
-        property("line", &s->loc);
+        property("line", "char", &s->loc);
     }
 
     void jsonProperties(Declaration *d)
@@ -543,9 +555,9 @@ public:
 
         property("kind", s->kind());
         property("comment", (const char *)s->comment);
-        property("line", &s->loc);
+        property("line", "char", &s->loc);
         if (s->prot() != PROTpublic)
-            property("protection", Pprotectionnames[s->prot()]);
+            property("protection", protectionToChars(s->prot()));
         if (s->aliasId)
             property("alias", s->aliasId->toChars());
 
@@ -691,7 +703,7 @@ public:
         if (tf && tf->ty == Tfunction)
             property("parameters", tf->parameters);
 
-        property("endline", &d->endloc);
+        property("endline", "endchar", &d->endloc);
 
         if (d->foverrides.dim)
         {

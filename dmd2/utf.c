@@ -1,10 +1,13 @@
-// Copyright (c) 2003-2012 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+
+/* Compiler implementation of the D programming language
+ * Copyright (c) 2003-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/utf.c
+ */
 
 /// Description of UTF-8 in [1].  Unicode non-characters and private-use
 /// code points described in [2],[4].
@@ -67,12 +70,16 @@ char const UTF16_DECODE_INVALID_CODE_POINT[]= "Invalid code point decoded";
 bool utf_isValidDchar(dchar_t c)
 {
     // TODO: Whether non-char code points should be rejected is pending review
-    return c <= 0x10FFFF                        // largest character code point
-        && !(0xD800 <= c && c <= 0xDFFF)        // surrogate pairs
-        && (c & 0xFFFFFE) != 0x00FFFE           // non-characters
-//        && (c & 0xFFFE) != 0xFFFE               // non-characters
-//        && !(0x00FDD0 <= c && c <= 0x00FDEF)    // non-characters
-        ;
+    // largest character code point
+    if (c > 0x10FFFF)
+        return false;
+    // surrogate pairs
+    if (0xD800 <= c && c <= 0xDFFF)
+        return false;
+    // non-characters
+    if ((c & 0xFFFFFE) == 0x00FFFE)
+        return false;
+    return true;
 }
 
 /*******************************
@@ -239,7 +246,8 @@ const char *utf_decodeChar(utf8_t const *s, size_t len, size_t *pidx, dchar_t *p
      *      11111100 100000xx (10xxxxxx 10xxxxxx 10xxxxxx 10xxxxxx)
      */
     utf8_t u2 = s[++i];
-    if ((u & 0xFE) == 0xC0 ||           // overlong combination
+    // overlong combination
+    if ((u & 0xFE) == 0xC0 ||
         (u == 0xE0 && (u2 & 0xE0) == 0x80) ||
         (u == 0xF0 && (u2 & 0xF0) == 0x80) ||
         (u == 0xF8 && (u2 & 0xF8) == 0x80) ||

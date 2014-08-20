@@ -1,18 +1,20 @@
 
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/apply.c
+ */
 
 #include <stdio.h>
 #include <assert.h>
 
 #include "mars.h"
 #include "expression.h"
+#include "visitor.h"
 
 
 /**************************************
@@ -26,127 +28,118 @@
  * Creating an iterator for this would be much more complex.
  */
 
-int Expression::apply(apply_fp_t fp, void *param)
+class PostorderExpressionVisitor : public StoppableVisitor
 {
-    return (*fp)(this, param);
-}
+public:
+    StoppableVisitor *v;
+    PostorderExpressionVisitor(StoppableVisitor *v) : v(v) {}
 
-/******************************
- * Perform apply() on an t if not null
- */
-#define condApply(t, fp, param) (t ? t->apply(fp, param) : 0)
+    bool doCond(Expression *e)
+    {
+        if (!stop && e)
+            e->accept(this);
+        return stop;
+    }
+    bool doCond(Expressions *e)
+    {
+        if (!e)
+            return false;
+        for (size_t i = 0; i < e->dim && !stop; i++)
+            doCond((*e)[i]);
+        return stop;
+    }
+    bool applyTo(Expression *e)
+    {
+        e->accept(v);
+        stop = v->stop;
+        return true;
+    }
 
-int NewExp::apply(apply_fp_t fp, void *param)
+    void visit(Expression *e)
+    {
+        applyTo(e);
+    }
+
+    void visit(NewExp *e)
+    {
+        //printf("NewExp::apply(): %s\n", toChars());
+
+        doCond(e->thisexp) || doCond(e->newargs) || doCond(e->arguments) || applyTo(e);
+    }
+
+    void visit(NewAnonClassExp *e)
+    {
+        //printf("NewAnonClassExp::apply(): %s\n", toChars());
+
+        doCond(e->thisexp) || doCond(e->newargs) || doCond(e->arguments) || applyTo(e);
+    }
+
+    void visit(UnaExp *e)
+    {
+        doCond(e->e1) || applyTo(e);
+    }
+
+    void visit(BinExp *e)
+    {
+        doCond(e->e1) || doCond(e->e2) || applyTo(e);
+    }
+
+    void visit(AssertExp *e)
+    {
+        //printf("CallExp::apply(apply_fp_t fp, void *param): %s\n", toChars());
+        doCond(e->e1) || doCond(e->msg) || applyTo(e);
+    }
+
+    void visit(CallExp *e)
+    {
+        //printf("CallExp::apply(apply_fp_t fp, void *param): %s\n", toChars());
+        doCond(e->e1) || doCond(e->arguments) || applyTo(e);
+    }
+
+    void visit(ArrayExp *e)
+    {
+        //printf("ArrayExp::apply(apply_fp_t fp, void *param): %s\n", toChars());
+        doCond(e->e1) || doCond(e->arguments) || applyTo(e);
+    }
+
+    void visit(SliceExp *e)
+    {
+        doCond(e->e1) || doCond(e->lwr) || doCond(e->upr) || applyTo(e);
+    }
+
+    void visit(ArrayLiteralExp *e)
+    {
+        doCond(e->elements) || applyTo(e);
+    }
+
+    void visit(AssocArrayLiteralExp *e)
+    {
+        doCond(e->keys) || doCond(e->values) || applyTo(e);
+    }
+
+    void visit(StructLiteralExp *e)
+    {
+        if (e->stageflags & stageApply) return;
+        int old = e->stageflags;
+        e->stageflags |= stageApply;
+        doCond(e->elements) || applyTo(e);
+        e->stageflags = old;
+    }
+
+    void visit(TupleExp *e)
+    {
+        doCond(e->e0) || doCond(e->exps) || applyTo(e);
+    }
+
+    void visit(CondExp *e)
+    {
+        doCond(e->econd) || doCond(e->e1) || doCond(e->e2) || applyTo(e);
+    }
+};
+
+bool walkPostorder(Expression *e, StoppableVisitor *v)
 {
-    //printf("NewExp::apply(): %s\n", toChars());
-
-    return condApply(thisexp, fp, param) ||
-           condApply(newargs, fp, param) ||
-           condApply(arguments, fp, param) ||
-           (*fp)(this, param);
+    PostorderExpressionVisitor pv(v);
+    e->accept(&pv);
+    return v->stop;
 }
-
-int NewAnonClassExp::apply(apply_fp_t fp, void *param)
-{
-    //printf("NewAnonClassExp::apply(): %s\n", toChars());
-
-    return condApply(thisexp, fp, param) ||
-           condApply(newargs, fp, param) ||
-           condApply(arguments, fp, param) ||
-           (*fp)(this, param);
-}
-
-int UnaExp::apply(apply_fp_t fp, void *param)
-{
-    return e1->apply(fp, param) ||
-           (*fp)(this, param);
-}
-
-int BinExp::apply(apply_fp_t fp, void *param)
-{
-    return e1->apply(fp, param) ||
-           e2->apply(fp, param) ||
-           (*fp)(this, param);
-}
-
-int AssertExp::apply(apply_fp_t fp, void *param)
-{
-    //printf("CallExp::apply(apply_fp_t fp, void *param): %s\n", toChars());
-    return e1->apply(fp, param) ||
-           condApply(msg, fp, param) ||
-           (*fp)(this, param);
-}
-
-
-int CallExp::apply(apply_fp_t fp, void *param)
-{
-    //printf("CallExp::apply(apply_fp_t fp, void *param): %s\n", toChars());
-    return e1->apply(fp, param) ||
-           condApply(arguments, fp, param) ||
-           (*fp)(this, param);
-}
-
-
-int ArrayExp::apply(apply_fp_t fp, void *param)
-{
-    //printf("ArrayExp::apply(apply_fp_t fp, void *param): %s\n", toChars());
-    return e1->apply(fp, param) ||
-           condApply(arguments, fp, param) ||
-           (*fp)(this, param);
-}
-
-
-int SliceExp::apply(apply_fp_t fp, void *param)
-{
-    return e1->apply(fp, param) ||
-           condApply(lwr, fp, param) ||
-           condApply(upr, fp, param) ||
-           (*fp)(this, param);
-}
-
-
-int ArrayLiteralExp::apply(apply_fp_t fp, void *param)
-{
-    return condApply(elements, fp, param) ||
-           (*fp)(this, param);
-}
-
-
-int AssocArrayLiteralExp::apply(apply_fp_t fp, void *param)
-{
-    return condApply(keys, fp, param) ||
-           condApply(values, fp, param) ||
-           (*fp)(this, param);
-}
-
-
-int StructLiteralExp::apply(apply_fp_t fp, void *param)
-{
-    if(stageflags & stageApply) return 0;
-    int old = stageflags;
-    stageflags |= stageApply;
-    int ret = condApply(elements, fp, param) ||
-           (*fp)(this, param);
-    stageflags = old;
-    return ret;
-}
-
-
-int TupleExp::apply(apply_fp_t fp, void *param)
-{
-    return (e0 ? (*fp)(e0, param) : 0) ||
-           condApply(exps, fp, param) ||
-           (*fp)(this, param);
-}
-
-
-int CondExp::apply(apply_fp_t fp, void *param)
-{
-    return econd->apply(fp, param) ||
-           e1->apply(fp, param) ||
-           e2->apply(fp, param) ||
-           (*fp)(this, param);
-}
-
-
-

@@ -49,6 +49,8 @@
 // Needs other includes.
 #include "ctfe.h"
 
+bool walkPostorder(Expression *e, StoppableVisitor *v);
+
 llvm::cl::opt<bool> checkPrintf("check-printf-calls",
     llvm::cl::desc("Validate printf call format strings against arguments"),
     llvm::cl::ZeroOrMore);
@@ -62,30 +64,38 @@ void Expression::cacheLvalue(IRState* irs)
 }
 
 /*******************************************
- * Search for temporaries for which the destructor mst be called.
+ * Search for temporaries for which the destructor must be called.
  */
-static int searchVarsWithDesctructors(Expression *exp, void *edtors)
+class SearchVarsWithDestructors : public StoppableVisitor
 {
-    if (exp->op == TOKdeclaration) {
-        DeclarationExp *de = static_cast<DeclarationExp *>(exp);
-        if (VarDeclaration *vd = de->declaration->isVarDeclaration()) {
-            while (vd->aliassym) {
-                vd = vd->aliassym->isVarDeclaration();
-                if (!vd)
-                    return 0;
-            }
+public:
+    std::vector<Expression*> edtors;
 
-            if (vd->init) {
-                if (ExpInitializer *ex = vd->init->isExpInitializer())
-                    ex->exp->apply(&searchVarsWithDesctructors, edtors);
-            }
-
-            if (!vd->isDataseg() && vd->edtor && !vd->noscope)
-                static_cast<std::vector<Expression*>*>(edtors)->push_back(vd->edtor);
-        }
+    virtual void visit(Expression *e)
+    {
     }
-    return 0;
-}
+
+    virtual void visit(DeclarationExp *e)
+    {
+        VarDeclaration *vd = e->declaration->isVarDeclaration();
+        if (!vd)
+            return;
+
+        while (vd->aliassym) {
+            vd = vd->aliassym->isVarDeclaration();
+            if (!vd)
+                return;
+        }
+
+        if (vd->init) {
+            if (ExpInitializer *ex = vd->init->isExpInitializer())
+                walkPostorder(ex->exp, this);
+        }
+
+        if (!vd->isDataseg() && vd->edtor && !vd->noscope)
+            edtors.push_back(vd->edtor);
+    }
+};
 
 /*******************************************
  * Evaluate Expression, then call destructors on any temporaries in it.
@@ -113,13 +123,13 @@ DValue *Expression::toElemDtor(IRState *p)
     };
 
     // find destructors that must be called
-    std::vector<Expression*> edtors;
-    apply(&searchVarsWithDesctructors, &edtors);
+    SearchVarsWithDestructors visitor;
+    walkPostorder(this, &visitor);
 
-    if (!edtors.empty()) {
+    if (!visitor.edtors.empty()) {
         if (op == TOKcall || op == TOKassert) {
             // create finally block that calls destructors on temporaries
-            CallDestructors *callDestructors = new CallDestructors(edtors);
+            CallDestructors *callDestructors = new CallDestructors(visitor.edtors);
 
             // create landing pad
             llvm::BasicBlock *oldend = p->scopeend();
@@ -146,7 +156,7 @@ DValue *Expression::toElemDtor(IRState *p)
             return val;
         } else {
             DValue *val = toElem(p);
-            CallDestructors(edtors).toIR();
+            CallDestructors(visitor.edtors).toIR();
             return val;
         }
     }
@@ -3485,12 +3495,22 @@ LruntimeInit:
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* GEPExp::toElem(IRState* p)
+static DValue* toGEP(UnaExp *exp, IRState* p, unsigned index)
 {
     // (&a.foo).funcptr is a case where e1->toElem is genuinely not an l-value.
-    LLValue* val = makeLValue(loc, e1->toElem(p));
+    LLValue* val = makeLValue(exp->loc, exp->e1->toElem(p));
     LLValue* v = DtoGEPi(val, 0, index);
-    return new DVarValue(type, DtoBitCast(v, getPtrToType(DtoType(type))));
+    return new DVarValue(exp->type, DtoBitCast(v, getPtrToType(DtoType(exp->type))));
+}
+
+DValue* DelegatePtrExp::toElem(IRState* p)
+{
+    return toGEP(this, p, 0);
+}
+
+DValue* DelegateFuncptrExp::toElem(IRState* p)
+{
+    return toGEP(this, p, 1);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

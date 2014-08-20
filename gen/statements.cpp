@@ -189,7 +189,7 @@ public:
                         dval = stmt->exp->toElemDtor(irs);
                         callPostblit(stmt->loc, stmt->exp, dval->getRVal());
                     } else {
-                        Expression *ae = stmt->exp->addressOf(NULL);
+                        Expression *ae = stmt->exp->addressOf();
                         dval = ae->toElemDtor(irs);
                     }
                     // do abi specific transformations on the return value
@@ -1414,7 +1414,7 @@ public:
         {
             IRAsmStmt* a = new IRAsmStmt;
             std::stringstream label;
-            printLabelName(label, irs->func()->decl->mangleExact(), stmt->ident->toChars());
+            printLabelName(label, mangleExact(irs->func()->decl), stmt->ident->toChars());
             label << ":";
             a->code = label.str();
             irs->asmBlock->s.push_back(a);

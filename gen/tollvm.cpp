@@ -41,16 +41,19 @@ bool DtoIsPassedByRef(Type* type)
     return (t == Tstruct || t == Tsarray);
 }
 
+RET retStyle(TypeFunction *tf)
+{
+    gABI->newFunctionType(tf);
+    bool retInArg = gABI->returnInArg(tf);
+    gABI->doneWithFunctionType();
+    return retInArg ? RETstack : RETregs;
+}
+
 bool DtoIsReturnInArg(CallExp *ce)
 {
     TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
     if (tf->ty == Tfunction && (!ce->f || ce->f->llvmInternal != LLVMintrinsic))
-    {
-        gABI->newFunctionType(tf);
-        bool retInArg = gABI->returnInArg(tf);
-        gABI->doneWithFunctionType();
-        return retInArg;
-    }
+        return retStyle(tf) == RETstack;
     return false;
 }
 
@@ -357,7 +360,7 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
             return llvm::GlobalValue::AvailableExternallyLinkage;
 
         // array operations are always template linkage
-        if (fdecl->isArrayOp == 1)
+        if (fdecl->isArrayOp  && !isDruntimeArrayOp(fdecl))
             return templateLinkage;
 
         // template instances should have weak linkage

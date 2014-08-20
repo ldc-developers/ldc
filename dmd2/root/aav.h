@@ -1,19 +1,19 @@
 
-// Copyright (c) 2010-2012 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Copyright (c) 2010-2014 by Digital Mars
+ * All Rights Reserved, written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * (See accompanying file LICENSE or copy at http://www.boost.org/LICENSE_1_0.txt)
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/root/aav.h
+ */
 
 typedef void* Value;
 typedef void* Key;
 
 struct AA;
 
-size_t _aaLen(AA* aa);
-Value* _aaGet(AA** aa, Key key);
-Value _aaGetRvalue(AA* aa, Key key);
-void _aaRehash(AA** paa);
+size_t dmd_aaLen(AA* aa);
+Value* dmd_aaGet(AA** aa, Key key);
+Value dmd_aaGetRvalue(AA* aa, Key key);
+void dmd_aaRehash(AA** paa);
 

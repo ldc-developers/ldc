@@ -2226,7 +2226,7 @@ namespace AsmParserx8664
                                 }
 
                                 // print out the mangle
-                                insnTemplate << vd->mangle();
+                                insnTemplate << mangle(vd);
                                 vd->nakedUse = true;
                                 break;
                             }
@@ -2904,7 +2904,7 @@ namespace AsmParserx8664
                                     {
                                         insnTemplate << "_";
                                     }
-                                    insnTemplate << decl->mangle();
+                                    insnTemplate << mangle(decl);
 //              addOperand2("${", ":c}", Arg_Pointer, e, asmcode);
                                 }
                                 else

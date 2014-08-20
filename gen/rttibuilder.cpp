@@ -83,7 +83,7 @@ void RTTIBuilder::push_void_array(uint64_t dim, llvm::Constant* ptr)
 
 void RTTIBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* mangle_sym)
 {
-    std::string initname(mangle_sym->mangle());
+    std::string initname(mangle(mangle_sym));
     initname.append(".rtti.voidarr.data");
 
     LLGlobalVariable* G = new LLGlobalVariable(
@@ -100,7 +100,7 @@ void RTTIBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtype, D
     tmpStr.erase( remove( tmpStr.begin(), tmpStr.end(), ']' ), tmpStr.end() );
     tmpStr.append("arr");
 
-    std::string initname(mangle_sym?mangle_sym->mangle():".ldc");
+    std::string initname(mangle_sym ? mangle(mangle_sym) : ".ldc");
     initname.append(".rtti.");
     initname.append(tmpStr);
     initname.append(".data");

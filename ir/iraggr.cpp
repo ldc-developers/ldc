@@ -51,7 +51,7 @@ LLGlobalVariable * IrAggr::getInitSymbol()
 
     // create the initZ symbol
     std::string initname("_D");
-    initname.append(aggrdecl->mangle());
+    initname.append(mangle(aggrdecl));
     initname.append("6__initZ");
 
     init = getOrCreateGlobal(aggrdecl->loc,

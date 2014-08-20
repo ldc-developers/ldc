@@ -1,17 +1,21 @@
 
-// Copyright (c) 1999-2012 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved, written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * (See accompanying file LICENSE or copy at http://www.boost.org/LICENSE_1_0.txt)
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/root/outbuffer.c
+ */
 
 #include <assert.h>
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#if __sun
+#include <alloca.h>
+#endif
 
 #include "outbuffer.h"
 #include "object.h"
@@ -306,17 +310,16 @@ void OutBuffer::align(size_t size)
 
 void OutBuffer::vprintf(const char *format, va_list args)
 {
-    char buffer[128];
-    char *p;
-    unsigned psize;
     int count;
 
-    p = buffer;
-    psize = sizeof(buffer);
+    if (doindent)
+        write(NULL, 0); // perform indent
+    unsigned psize = 128;
     for (;;)
     {
+        reserve(psize);
 #if _WIN32
-        count = _vsnprintf(p,psize,format,args);
+        count = _vsnprintf((char *)data + offset,psize,format,args);
         if (count != -1)
             break;
         psize *= 2;
@@ -332,7 +335,7 @@ void OutBuffer::vprintf(const char *format, va_list args)
   of ap is undefined after the call. The application should call
   va_end(ap) itself afterwards.
  */
-        count = vsnprintf(p,psize,format,va);
+        count = vsnprintf((char *)data + offset,psize,format,va);
         va_end(va);
         if (count == -1)
             psize *= 2;
@@ -341,11 +344,10 @@ void OutBuffer::vprintf(const char *format, va_list args)
         else
             break;
 #else
-    assert(0);
+        assert(0);
 #endif
-        p = (char *) alloca(psize);     // buffer too small, try again with larger size
     }
-    write(p,count);
+    offset += count;
 }
 
 void OutBuffer::printf(const char *format, ...)
@@ -405,8 +407,16 @@ void OutBuffer::remove(size_t offset, size_t nbytes)
     this->offset -= nbytes;
 }
 
-char *OutBuffer::toChars()
+char *OutBuffer::peekString()
 {
-    writeByte(0);
+    if (!offset || data[offset-1] != '\0')
+        writeByte(0);
     return (char *)data;
+}
+
+char *OutBuffer::extractString()
+{
+    if (!offset || data[offset-1] != '\0')
+        writeByte(0);
+    return extractData();
 }

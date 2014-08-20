@@ -1,12 +1,13 @@
 
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2012 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/import.c
+ */
 
 #include <stdio.h>
 #include <assert.h>
@@ -52,15 +53,21 @@ Import::Import(Loc loc, Identifiers *packages, Identifier *id, Identifier *alias
     this->mod = NULL;
 
     // Set symbol name (bracketed)
-    // import [cstdio] = std.stdio;
     if (aliasId)
+    {
+        // import [cstdio] = std.stdio;
         this->ident = aliasId;
-    // import [std].stdio;
+    }
     else if (packages && packages->dim)
+    {
+        // import [std].stdio;
         this->ident = (*packages)[0];
-    // import [foo];
+    }
     else
+    {
+        // import [foo];
         this->ident = id;
+    }
 }
 
 void Import::addAlias(Identifier *name, Identifier *alias)
@@ -135,11 +142,11 @@ void Import::load(Scope *sc)
                     else
                         assert(p->isPkgMod == PKGmodule);
                 }
-                else if (p->isPkgMod == PKGmodule)
+                else
                 {
-                    mod = p->mod;
+                    mod = p->isPackageMod();
                 }
-                if (p->isPkgMod != PKGmodule)
+                if (!mod)
                 {
                     ::error(loc, "can only import from a module, not from package %s.%s",
                         p->toPrettyChars(), id->toChars());
@@ -271,10 +278,10 @@ void Import::semantic(Scope *sc)
         sc = sc->pop();
     }
 
+    // object self-imports itself, so skip that (Bugzilla 7547)
+    // don't list pseudo modules __entrypoint.d, __main.d (Bugzilla 11117, 11164)
     if (global.params.moduleDeps != NULL &&
-        // object self-imports itself, so skip that (Bugzilla 7547)
         !(id == Id::object && sc->module->ident == Id::object) &&
-        // don't list pseudo modules __entrypoint.d, __main.d (Bugzilla 11117, 11164)
         sc->module->ident != Id::entrypoint &&
         strcmp(sc->module->ident->string, "__main") != 0)
     {
@@ -302,7 +309,8 @@ void Import::semantic(Scope *sc)
 
         // use protection instead of sc->protection because it couldn't be
         // resolved yet, see the comment above
-        ProtDeclaration::protectionToCBuffer(ob, protection);
+        protectionToBuffer(ob, protection);
+        ob->writeByte(' ');
         if (isstatic)
             StorageClassDeclaration::stcToCBuffer(ob, STCstatic);
         ob->writestring(": ");
@@ -322,14 +330,14 @@ void Import::semantic(Scope *sc)
             escapePath(ob, mod->srcfile->toChars());
         else
             ob->writestring("???");
-        ob->writebyte(')');
+        ob->writeByte(')');
 
         for (size_t i = 0; i < names.dim; i++)
         {
             if (i == 0)
-                ob->writebyte(':');
+                ob->writeByte(':');
             else
-                ob->writebyte(',');
+                ob->writeByte(',');
 
             Identifier *name = names[i];
             Identifier *alias = aliases[i];

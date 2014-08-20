@@ -7,10 +7,12 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "module.h"
+#include "doc.h"
 #include "id.h"
+#include "hdrgen.h"
 #include "json.h"
 #include "mars.h"
-#include "module.h"
 #include "mtype.h"
 #include "parse.h"
 #include "rmem.h"
@@ -32,6 +34,7 @@
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
+#include "gen/abi.h"
 #if LDC_LLVM_VER >= 304
 #include "llvm/InitializePasses.h"
 #endif
@@ -321,9 +324,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     global.params.doDocComments |=
         global.params.docdir || global.params.docname;
 
-    initFromString(global.params.xfilename, jsonFile);
-    if (global.params.xfilename)
-        global.params.doXGeneration = true;
+    initFromString(global.params.jsonfilename, jsonFile);
+    if (global.params.jsonfilename)
+        global.params.doJsonGeneration = true;
 
     initFromString(global.params.hdrdir, hdrDir);
     initFromString(global.params.hdrname, hdrFile);
@@ -997,6 +1000,9 @@ int main(int argc, char **argv)
     gDataLayout = gTargetMachine->getTargetData();
 #endif
 
+    // allocate the target abi
+    gABI = TargetABI::getTarget();
+
     // Set predefined version identifiers.
     registerPredefinedVersions();
     dumpPredefinedVersions();
@@ -1105,8 +1111,8 @@ int main(int argc, char **argv)
 
             if (FileName::equals(ext, global.json_ext))
             {
-                global.params.doXGeneration = 1;
-                global.params.xfilename = static_cast<const char *>(files.data[i]);
+                global.params.doJsonGeneration = 1;
+                global.params.jsonfilename = static_cast<const char *>(files.data[i]);
                 continue;
             }
 
@@ -1195,7 +1201,7 @@ int main(int argc, char **argv)
         m->deleteObjFile();
         if (m->isDocFile)
         {
-            m->gendocfile();
+            gendocfile(m);
 
             // Remove m from list of modules
             modules.remove(i);
@@ -1216,7 +1222,7 @@ int main(int argc, char **argv)
         {
             if (global.params.verbose)
                 fprintf(global.stdmsg, "import    %s\n", modules[i]->toChars());
-            modules[i]->genhdrfile();
+            genhdrfile(modules[i]);
         }
     }
     if (global.errors)
@@ -1352,7 +1358,7 @@ int main(int argc, char **argv)
             }
         }
         if (global.params.doDocComments)
-            m->gendocfile();
+            gendocfile(m);
     }
 
     // internal linking for singleobj
@@ -1409,13 +1415,13 @@ int main(int argc, char **argv)
     }
 
     // output json file
-    if (global.params.doXGeneration)
+    if (global.params.doJsonGeneration)
     {
         OutBuffer buf;
         json_generate(&buf, &modules);
 
         // Write buf to file
-        const char *name = global.params.xfilename;
+        const char *name = global.params.jsonfilename;
 
         if (name && name[0] == '-' && name[1] == 0)
         {   // Write to stdout; assume it succeeds

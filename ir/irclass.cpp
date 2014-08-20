@@ -48,7 +48,7 @@ LLGlobalVariable * IrAggr::getVtblSymbol()
 
     // create the initZ symbol
     std::string initname("_D");
-    initname.append(aggrdecl->mangle());
+    initname.append(mangle(aggrdecl));
     initname.append("6__vtblZ");
 
     LLType* vtblTy = stripModifiers(type)->irtype->isClass()->getVtbl();
@@ -68,7 +68,7 @@ LLGlobalVariable * IrAggr::getClassInfoSymbol()
 
     // create the initZ symbol
     std::string initname("_D");
-    initname.append(aggrdecl->mangle());
+    initname.append(mangle(aggrdecl));
 
     if (aggrdecl->isInterfaceDeclaration())
         initname.append("11__InterfaceZ");
@@ -132,7 +132,7 @@ LLGlobalVariable * IrAggr::getInterfaceArraySymbol()
 
     // put it in a global
     std::string name("_D");
-    name.append(cd->mangle());
+    name.append(mangle(cd));
     name.append("16__interfaceInfosZ");
 
     // We keep this as external for now and only consider template linkage if
@@ -336,9 +336,9 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
             OutBuffer name;
             name.writestring("Th");
             name.printf("%i", b->offset);
-            name.writestring(fd->mangleExact());
+            name.writestring(mangleExact(fd));
             LLFunction *thunk = LLFunction::Create(isaFunction(fn->getType()->getContainedType(0)),
-                                                 DtoLinkage(fd), name.toChars(), gIR->module);
+                                                 DtoLinkage(fd), name.extractString(), gIR->module);
 
             // create entry and end blocks
             llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "", thunk);
@@ -380,11 +380,11 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
     // build the vtbl constant
     llvm::Constant* vtbl_constant = LLConstantStruct::getAnon(gIR->context(), constants, false);
 
-    std::string mangle("_D");
-    mangle.append(cd->mangle());
-    mangle.append("11__interface");
-    mangle.append(b->base->mangle());
-    mangle.append("6__vtblZ");
+    std::string mangledName("_D");
+    mangledName.append(mangle(cd));
+    mangledName.append("11__interface");
+    mangledName.append(mangle(b->base));
+    mangledName.append("6__vtblZ");
 
     llvm::GlobalVariable* GV = getOrCreateGlobal(cd->loc,
         *gIR->module,
@@ -392,7 +392,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
         true,
         DtoExternalLinkage(cd, false),
         vtbl_constant,
-        mangle
+        mangledName
     );
 
     // insert into the vtbl map

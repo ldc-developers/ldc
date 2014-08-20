@@ -834,13 +834,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
             LLValue* zero = LLConstant::getNullValue(rval->getType());
             return new DImValue(to, gIR->ir->CreateICmpNE(rval, zero));
         }
-
-        // Else try dealing with the rewritten (struct) type.
-        fromtype = static_cast<TypeAArray*>(fromtype)->getImpl()->type;
     }
-
-    if (totype->ty == Taarray)
-        totype = static_cast<TypeAArray*>(totype)->getImpl()->type;
 
     if (fromtype->equals(totype))
         return val;
@@ -1045,7 +1039,7 @@ void DtoResolveVariable(VarDeclaration* vd)
 
         assert(!vd->ir.initialized);
         vd->ir.initialized = gIR->dmodule;
-        std::string llName(vd->mangle());
+        std::string llName(mangle(vd));
 
         // Since the type of a global must exactly match the type of its
         // initializer, we cannot know the type until after we have emitted the

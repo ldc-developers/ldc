@@ -1,12 +1,13 @@
 
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/canthrow.c
+ */
 
 #include <stdio.h>
 #include <assert.h>
@@ -23,122 +24,136 @@
 #include "scope.h"
 #include "attrib.h"
 
-bool Dsymbol_canThrow(Dsymbol *s, bool mustNotThrow);
-int lambdaCanThrow(Expression *e, void *param);
+bool Dsymbol_canThrow(Dsymbol *s, FuncDeclaration *func, bool mustNotThrow);
+bool walkPostorder(Expression *e, StoppableVisitor *v);
 
 /********************************************
- * Convert from expression to delegate that returns the expression,
- * i.e. convert:
- *      expr
- * to:
- *      t delegate() { return expr; }
+ * Returns true if the expression may throw exceptions.
+ * If 'mustNotThrow' is true, generate an error if it throws
  */
 
-struct CanThrow
-{
-    bool can;
-    bool mustnot;
-};
-
-bool Expression::canThrow(bool mustNotThrow)
+bool canThrow(Expression *e, FuncDeclaration *func, bool mustNotThrow)
 {
     //printf("Expression::canThrow(%d) %s\n", mustNotThrow, toChars());
-    CanThrow ct;
-    ct.can = false;
-    ct.mustnot = mustNotThrow;
-    apply(&lambdaCanThrow, &ct);
-    return ct.can;
-}
 
-int lambdaCanThrow(Expression *e, void *param)
-{
-    CanThrow *pct = (CanThrow *)param;
-    switch (e->op)
+    // stop walking if we determine this expression can throw
+    class CanThrow : public StoppableVisitor
     {
-        case TOKdeclaration:
+        FuncDeclaration *func;
+        bool mustNotThrow;
+
+    public:
+        CanThrow(FuncDeclaration *func, bool mustNotThrow)
+            : func(func), mustNotThrow(mustNotThrow)
         {
-            DeclarationExp *de = (DeclarationExp *)e;
-            pct->can = Dsymbol_canThrow(de->declaration, pct->mustnot);
-            break;
         }
 
-        case TOKcall:
+        void visit(Expression *)
         {
-            CallExp *ce = (CallExp *)e;
+        }
+
+        void visit(DeclarationExp *de)
+        {
+            stop = Dsymbol_canThrow(de->declaration, func, mustNotThrow);
+        }
+
+        void visit(CallExp *ce)
+        {
             if (global.errors && !ce->e1->type)
-                break;                       // error recovery
+                return;                       // error recovery
 
             /* If calling a function or delegate that is typed as nothrow,
              * then this expression cannot throw.
              * Note that pure functions can throw.
              */
             Type *t = ce->e1->type->toBasetype();
-            if (t->ty == Tfunction && ((TypeFunction *)t)->isnothrow)
+            if (ce->f && ce->f == func)
+                ;
+            else if (t->ty == Tfunction && ((TypeFunction *)t)->isnothrow)
                 ;
             else if (t->ty == Tdelegate && ((TypeFunction *)((TypeDelegate *)t)->next)->isnothrow)
                 ;
             else
             {
-                if (pct->mustnot)
-                    e->error("'%s' is not nothrow", ce->f ? ce->f->toPrettyChars() : ce->e1->toChars());
-                pct->can = true;
+                if (mustNotThrow)
+                {
+                    const char *s;
+                    if (ce->f)
+                        s = ce->f->toPrettyChars();
+                    else if (ce->e1->op == TOKstar)
+                    {
+                        // print 'fp' if ce->e1 is (*fp)
+                        s = ((PtrExp *)ce->e1)->e1->toChars();
+                    }
+                    else
+                        s = ce->e1->toChars();
+                    ce->error("'%s' is not nothrow", s);
+                }
+                stop = true;
             }
-            break;
         }
 
-        case TOKnew:
+        void visit(NewExp *ne)
         {
-            NewExp *ne = (NewExp *)e;
             if (ne->member)
             {
                 // See if constructor call can throw
                 Type *t = ne->member->type->toBasetype();
                 if (t->ty == Tfunction && !((TypeFunction *)t)->isnothrow)
                 {
-                    if (pct->mustnot)
-                        e->error("constructor %s is not nothrow", ne->member->toChars());
-                    pct->can = true;
+                    if (mustNotThrow)
+                        ne->error("constructor %s is not nothrow", ne->member->toChars());
+                    stop = true;
                 }
             }
             // regard storage allocation failures as not recoverable
-            break;
         }
 
-        case TOKassign:
-        case TOKconstruct:
+        void visit(AssignExp *ae)
         {
+            // blit-init cannot throw
+            if (ae->op == TOKblit)
+                return;
+
             /* Element-wise assignment could invoke postblits.
              */
-            AssignExp *ae = (AssignExp *)e;
-            if (ae->e1->op != TOKslice)
-                break;
+            Type *t;
+            if (ae->type->toBasetype()->ty == Tsarray)
+            {
+                if (!ae->e2->isLvalue())
+                    return;
+                t = ae->type;
+            }
+            else if (ae->e1->op == TOKslice)
+                t = ((SliceExp *)ae->e1)->e1->type;
+            else
+                return;
 
-            Type *tv = ae->e1->type->toBasetype()->nextOf()->baseElemOf();
+            Type *tv = t->baseElemOf();
             if (tv->ty != Tstruct)
-                break;
+                return;
             StructDeclaration *sd = ((TypeStruct *)tv)->sym;
             if (!sd->postblit || sd->postblit->type->ty != Tfunction)
-                break;
+                return;
 
             if (((TypeFunction *)sd->postblit->type)->isnothrow)
                 ;
             else
             {
-                if (pct->mustnot)
-                    e->error("'%s' is not nothrow", sd->postblit->toPrettyChars());
-                pct->can = true;
+                if (mustNotThrow)
+                    ae->error("'%s' is not nothrow", sd->postblit->toPrettyChars());
+                stop = true;
             }
-            break;
         }
 
-        case TOKnewanonclass:
+        void visit(NewAnonClassExp *)
+        {
             assert(0);          // should have been lowered by semantic()
-            break;
+        }
+    };
 
-        default:
-            break;
-    }
-    return pct->can; // stop walking if we determine this expression can throw
+    CanThrow ct(func, mustNotThrow);
+    return walkPostorder(e, &ct);
 }
 
 /**************************************
@@ -146,7 +161,7 @@ int lambdaCanThrow(Expression *e, void *param)
  * Mirrors logic in Dsymbol_toElem().
  */
 
-bool Dsymbol_canThrow(Dsymbol *s, bool mustNotThrow)
+bool Dsymbol_canThrow(Dsymbol *s, FuncDeclaration *func, bool mustNotThrow)
 {
     AttribDeclaration *ad;
     VarDeclaration *vd;
@@ -163,7 +178,7 @@ bool Dsymbol_canThrow(Dsymbol *s, bool mustNotThrow)
             for (size_t i = 0; i < decl->dim; i++)
             {
                 s = (*decl)[i];
-                if (Dsymbol_canThrow(s, mustNotThrow))
+                if (Dsymbol_canThrow(s, func, mustNotThrow))
                     return true;
             }
         }
@@ -172,7 +187,7 @@ bool Dsymbol_canThrow(Dsymbol *s, bool mustNotThrow)
     {
         s = s->toAlias();
         if (s != vd)
-            return Dsymbol_canThrow(s, mustNotThrow);
+            return Dsymbol_canThrow(s, func, mustNotThrow);
         if (vd->storage_class & STCmanifest)
             ;
         else if (vd->isStatic() || vd->storage_class & (STCextern | STCtls | STCgshared))
@@ -180,12 +195,13 @@ bool Dsymbol_canThrow(Dsymbol *s, bool mustNotThrow)
         else
         {
             if (vd->init)
-            {   ExpInitializer *ie = vd->init->isExpInitializer();
-                if (ie && ie->exp->canThrow(mustNotThrow))
+            {
+                ExpInitializer *ie = vd->init->isExpInitializer();
+                if (ie && canThrow(ie->exp, func, mustNotThrow))
                     return true;
             }
             if (vd->edtor && !vd->noscope)
-                return vd->edtor->canThrow(mustNotThrow);
+                return canThrow(vd->edtor, func, mustNotThrow);
         }
     }
     else if ((tm = s->isTemplateMixin()) != NULL)
@@ -196,7 +212,7 @@ bool Dsymbol_canThrow(Dsymbol *s, bool mustNotThrow)
             for (size_t i = 0; i < tm->members->dim; i++)
             {
                 Dsymbol *sm = (*tm->members)[i];
-                if (Dsymbol_canThrow(sm, mustNotThrow))
+                if (Dsymbol_canThrow(sm, func, mustNotThrow))
                     return true;
             }
         }
@@ -204,12 +220,15 @@ bool Dsymbol_canThrow(Dsymbol *s, bool mustNotThrow)
     else if ((td = s->isTupleDeclaration()) != NULL)
     {
         for (size_t i = 0; i < td->objects->dim; i++)
-        {   RootObject *o = (*td->objects)[i];
+        {
+            RootObject *o = (*td->objects)[i];
             if (o->dyncast() == DYNCAST_EXPRESSION)
-            {   Expression *eo = (Expression *)o;
+            {
+                Expression *eo = (Expression *)o;
                 if (eo->op == TOKdsymbol)
-                {   DsymbolExp *se = (DsymbolExp *)eo;
-                    if (Dsymbol_canThrow(se->s, mustNotThrow))
+                {
+                    DsymbolExp *se = (DsymbolExp *)eo;
+                    if (Dsymbol_canThrow(se->s, func, mustNotThrow))
                         return true;
                 }
             }

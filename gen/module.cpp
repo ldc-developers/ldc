@@ -231,7 +231,7 @@ static llvm::Function* build_module_function(const std::string &name, const std:
 llvm::Function* build_module_ctor()
 {
     std::string name("_D");
-    name.append(gIR->dmodule->mangle());
+    name.append(mangle(gIR->dmodule));
     name.append("6__ctorZ");
     return build_module_function(name, gIR->ctors, gIR->gates);
 }
@@ -241,7 +241,7 @@ llvm::Function* build_module_ctor()
 static llvm::Function* build_module_dtor()
 {
     std::string name("_D");
-    name.append(gIR->dmodule->mangle());
+    name.append(mangle(gIR->dmodule));
     name.append("6__dtorZ");
     return build_module_function(name, gIR->dtors);
 }
@@ -251,7 +251,7 @@ static llvm::Function* build_module_dtor()
 static llvm::Function* build_module_unittest()
 {
     std::string name("_D");
-    name.append(gIR->dmodule->mangle());
+    name.append(mangle(gIR->dmodule));
     name.append("10__unittestZ");
     return build_module_function(name, gIR->unitTests);
 }
@@ -261,7 +261,7 @@ static llvm::Function* build_module_unittest()
 llvm::Function* build_module_shared_ctor()
 {
     std::string name("_D");
-    name.append(gIR->dmodule->mangle());
+    name.append(mangle(gIR->dmodule));
     name.append("13__shared_ctorZ");
     return build_module_function(name, gIR->sharedCtors, gIR->sharedGates);
 }
@@ -271,7 +271,7 @@ llvm::Function* build_module_shared_ctor()
 static llvm::Function* build_module_shared_dtor()
 {
     std::string name("_D");
-    name.append(gIR->dmodule->mangle());
+    name.append(mangle(gIR->dmodule));
     name.append("13__shared_dtorZ");
     return build_module_function(name, gIR->sharedDtors);
 }
@@ -284,7 +284,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 
     // build ctor name
     std::string fname = "_D";
-    fname += gIR->dmodule->mangle();
+    fname += mangle(gIR->dmodule);
     fname += "16__moduleinfoCtorZ";
 
     // build a function that registers the moduleinfo in the global moduleinfo linked list
@@ -300,7 +300,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 
     // create the ModuleReference node for this module
     std::string thismrefname = "_D";
-    thismrefname += gIR->dmodule->mangle();
+    thismrefname += mangle(gIR->dmodule);
     thismrefname += "11__moduleRefZ";
     Loc loc;
     LLGlobalVariable* thismref = getOrCreateGlobal(loc, *gIR->module,
@@ -422,7 +422,7 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
     minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
 
     std::string thismrefname = "_D";
-    thismrefname += gIR->dmodule->mangle();
+    thismrefname += mangle(gIR->dmodule);
     thismrefname += "11__moduleRefZ";
     llvm::GlobalVariable* thismref = new llvm::GlobalVariable(
         *gIR->module,
@@ -506,7 +506,7 @@ static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
     llvm::Value* minfoRefPtr = DtoBitCast(thismref, getVoidPtrType());
 
     std::string ctorName = "ldc.dso_ctor.";
-    ctorName += gIR->dmodule->mangle();
+    ctorName += mangle(gIR->dmodule);
     llvm::Function* dsoCtor = llvm::Function::Create(
         llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
         llvm::GlobalValue::LinkOnceODRLinkage,
@@ -649,9 +649,6 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
     ir.module->setDataLayout(gDataLayout->getStringRepresentation());
     IF_LOG Logger::cout() << "Final data layout: " << ir.module->getDataLayout() << '\n';
 
-    // allocate the target abi
-    gABI = TargetABI::getTarget();
-
     // handle invalid 'objectø module
     if (!ClassDeclaration::object) {
         error("is missing 'class Object'");
@@ -676,7 +673,7 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
 {
     // create name
     std::string MIname("_D");
-    MIname.append(mangle());
+    MIname.append(mangle(this));
     MIname.append("12__ModuleInfoZ");
 
     if (gIR->dmodule != this) {
@@ -737,7 +734,7 @@ void Module::genmoduleinfo()
 
         // declare the imported module info
         std::string m_name("_D");
-        m_name.append(m->mangle());
+        m_name.append(mangle(m));
         m_name.append("12__ModuleInfoZ");
         llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
         if (!m_gvar) m_gvar = new llvm::GlobalVariable(*gIR->module, moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, m_name);

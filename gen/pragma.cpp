@@ -38,7 +38,7 @@ static bool parseIntExp(Expression* e, dinteger_t& res)
     e = e->optimize(WANTvalue);
     if (e->op == TOKint64 && (i = static_cast<IntegerExp *>(e)))
     {
-        res = i->value;
+        res = i->getInteger();
         return true;
     }
     return false;

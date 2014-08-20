@@ -48,16 +48,6 @@ cl::opt<bool, true> enforcePropertySyntax("property",
     cl::ZeroOrMore,
     cl::location(global.params.enforcePropertySyntax));
 
-static cl::opt<ubyte, true> useDv1(
-    cl::desc("Force language version:"),
-    cl::ZeroOrMore,
-    cl::values(
-        clEnumValN(1, "v1", "D language version 1.00"),
-        clEnumValEnd),
-    cl::location(global.params.Dversion),
-    cl::init(2),
-    cl::Hidden);
-
 cl::opt<bool> compileOnly("c",
     cl::desc("Do not link"),
     cl::ZeroOrMore);
@@ -166,7 +156,7 @@ cl::opt<std::string> ddocFile("Df",
 // Json options
 static cl::opt<bool, true> doJson("X",
     cl::desc("Generate JSON file"),
-    cl::location(global.params.doXGeneration));
+    cl::location(global.params.doJsonGeneration));
 
 cl::opt<std::string> jsonFile("Xf",
     cl::desc("Write JSON file to <filename>"),
