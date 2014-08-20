@@ -26,6 +26,8 @@ import core.exception : onOutOfMemoryError, onFinalizeError;
 
 private
 {
+    version(LDC) extern (C) void _d_monitordelete(Object h, bool det = true);
+
     alias bool function(Object) CollectHandler;
     __gshared CollectHandler collectHandler = null;
 
