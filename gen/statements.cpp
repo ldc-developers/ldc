@@ -279,24 +279,6 @@ public:
 
     //////////////////////////////////////////////////////////////////////////
 
-    void visit(DtorExpStatement *stmt) LLVM_OVERRIDE {
-        assert(irs->func());
-        FuncDeclaration *fd = irs->func()->decl;
-        assert(fd);
-        if (fd->nrvo_can && fd->nrvo_var == stmt->var)
-            /* Do not call destructor, because var is returned as the nrvo variable.
-             * This is done at this stage because nrvo can be turned off at a
-             * very late stage in semantic analysis.
-             */
-            ;
-        else
-        {
-            visit(static_cast<ExpStatement *>(stmt));
-        }
-    }
-
-    //////////////////////////////////////////////////////////////////////////
-
     void visit(IfStatement *stmt) LLVM_OVERRIDE {
         IF_LOG Logger::println("IfStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
