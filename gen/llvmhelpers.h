@@ -90,7 +90,7 @@ DValue* DtoSymbolAddress(Loc& loc, Type* type, Declaration* decl);
 llvm::Constant* DtoConstSymbolAddress(Loc& loc,Declaration* decl);
 
 /// Create a null DValue.
-DValue* DtoNullValue(Type* t);
+DValue* DtoNullValue(Type* t, Loc loc = Loc());
 
 // casts
 DValue* DtoCastInt(Loc& loc, DValue* val, Type* to);

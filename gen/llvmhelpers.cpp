@@ -530,7 +530,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
 //      NULL VALUE HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-DValue* DtoNullValue(Type* type)
+DValue* DtoNullValue(Type* type, Loc loc)
 {
     Type* basetype = type->toBasetype();
     TY basety = basetype->ty;
@@ -560,8 +560,11 @@ DValue* DtoNullValue(Type* type)
     {
         return new DNullValue(type, LLConstant::getNullValue(lltype));
     }
-
-    llvm_unreachable("null not known for this type.");
+    else
+    {
+        error(loc, "null not known for type '%s'", type->toChars());
+        fatal();
+    }
 }
 
 
@@ -736,40 +739,6 @@ DValue* DtoCastDelegate(Loc& loc, DValue* val, Type* to)
     }
 }
 
-DValue* DtoCastNull(Loc& loc, DValue* val, Type* to)
-{
-    Type* totype = to->toBasetype();
-    LLType* tolltype = DtoType(to);
-
-    if (totype->ty == Tpointer || totype->ty == Tclass)
-    {
-        IF_LOG Logger::cout() << "cast null to pointer/class: " << *tolltype << '\n';
-        LLValue *rval = DtoBitCast(val->getRVal(), tolltype);
-        return new DImValue(to, rval);
-    }
-    if (totype->ty == Tarray)
-    {
-        IF_LOG Logger::cout() << "cast null to array: " << *tolltype << '\n';
-        LLValue *rval = val->getRVal();
-        rval = DtoBitCast(rval, DtoType(to->nextOf()->pointerTo()));
-        rval = DtoAggrPair(DtoConstSize_t(0), rval, "null_array");
-        return new DImValue(to, rval);
-    }
-    else if (totype->ty == Tbool)
-    {
-        // In theory, we could return 'false' as a constant here, but DMD
-        // treats non-null values casted to typeof(null) as true.
-        LLValue* rval = val->getRVal();
-        LLValue* zero = LLConstant::getNullValue(rval->getType());
-        return new DImValue(to, gIR->ir->CreateICmpNE(rval, zero, "tmp"));
-    }
-    else
-    {
-        error(loc, "invalid cast from null to '%s'", to->toChars());
-        fatal();
-    }
-}
-
 DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
 {
     assert(val->getType()->toBasetype()->ty == Tvector);
@@ -875,7 +844,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
         return DtoCastDelegate(loc, val, to);
     }
     else if (fromtype->ty == Tnull) {
-        return DtoCastNull(loc, val, to);
+        return DtoNullValue(to, loc);
     }
     else if (fromtype->ty == totype->ty) {
         return val;
