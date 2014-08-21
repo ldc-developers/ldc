@@ -5880,6 +5880,10 @@ MATCH FuncExp::matchType(Type *to, Scope *sc, FuncExp **presult, int flag)
 
             // Bugzilla 12508: Tweak function body for covariant returns.
             (*presult)->fd->modifyReturns(sc, tof->next);
+#if IN_LLVM
+            // Also, update function return type.
+            (*presult)->fd->type = tof;
+#endif
         }
     }
     else if (!flag)
