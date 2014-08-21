@@ -50,6 +50,7 @@
 #include "ctfe.h"
 
 bool walkPostorder(Expression *e, StoppableVisitor *v);
+void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd, Expressions *elements);
 
 llvm::cl::opt<bool> checkPrintf("check-printf-calls",
     llvm::cl::desc("Validate printf call format strings against arguments"),
@@ -2188,45 +2189,72 @@ DValue* NewExp::toElem(IRState* p)
             DFuncValue dfn(allocator, allocator->ir.irFunc->func);
             DValue* res = DtoCallFunction(loc, NULL, &dfn, newargs);
             mem = DtoBitCast(res->getRVal(), DtoType(ntype->pointerTo()), ".newstruct_custom");
-        } else
+        }
+        else
         {
             // default allocator
             mem = DtoNew(loc, newtype);
         }
-        // init
-        TypeStruct* ts = static_cast<TypeStruct*>(ntype);
-        if (ts->isZeroInit(ts->sym->loc)) {
-            DtoAggrZeroInit(mem);
-        }
-        else {
-            assert(ts->sym);
-            DtoResolveStruct(ts->sym, loc);
-            DtoAggrCopy(mem, ts->sym->ir.irAggr->getInitSymbol());
-        }
-        if (ts->sym->isNested() && ts->sym->vthis)
-            DtoResolveNestedContext(loc, ts->sym, mem);
 
-        // call constructor
-        if (member)
+        TypeStruct* ts = static_cast<TypeStruct*>(ntype);
+
+        if (!member && arguments)
         {
-            Logger::println("Calling constructor");
-            assert(arguments != NULL);
-            DtoResolveFunction(member);
-            DFuncValue dfn(member, member->ir.irFunc->func, mem);
-            DtoCallFunction(loc, ts, &dfn, arguments);
+            IF_LOG Logger::println("Constructing using literal");
+            write_struct_literal(loc, mem, ts->sym, arguments);
         }
+        else
+        {
+            // init
+            if (ts->isZeroInit(ts->sym->loc)) {
+                DtoAggrZeroInit(mem);
+            }
+            else {
+                assert(ts->sym);
+                DtoResolveStruct(ts->sym, loc);
+                DtoAggrCopy(mem, ts->sym->ir.irAggr->getInitSymbol());
+            }
+
+            // set nested context
+            if (ts->sym->isNested() && ts->sym->vthis)
+                DtoResolveNestedContext(loc, ts->sym, mem);
+
+            // call constructor
+            if (member)
+            {
+                IF_LOG Logger::println("Calling constructor");
+                assert(arguments != NULL);
+                DtoResolveFunction(member);
+                DFuncValue dfn(member, member->ir.irFunc->func, mem);
+                DtoCallFunction(loc, ts, &dfn, arguments);
+            }
+        }
+
         return new DImValue(type, mem);
     }
     // new basic type
     else
     {
+        IF_LOG Logger::println("basic type on heap: %s\n", newtype->toChars());
+
         // allocate
         LLValue* mem = DtoNew(loc, newtype);
         DVarValue tmpvar(newtype, mem);
 
-        // default initialize
-        // static arrays never appear here, so using the defaultInit is ok!
-        Expression* exp = newtype->defaultInit(loc);
+        Expression* exp = 0;
+        if (!arguments || arguments->dim == 0)
+        {
+            IF_LOG Logger::println("default initializer\n");
+            // static arrays never appear here, so using the defaultInit is ok!
+            exp = newtype->defaultInit(loc);
+        }
+        else
+        {
+            IF_LOG Logger::println("uniform constructor\n");
+            assert(arguments->dim == 1);
+            exp = (*arguments)[0];
+        }
+
         DValue* iv = exp->toElem(gIR);
         DtoAssign(loc, &tmpvar, iv);
 
@@ -3061,41 +3089,15 @@ static LLValue* write_zeroes(LLValue* mem, unsigned start, unsigned end) {
     return mem;
 }
 
-DValue* StructLiteralExp::toElem(IRState* p)
+void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd, Expressions *elements)
 {
-    IF_LOG Logger::print("StructLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
-    LOG_SCOPE;
-
-    if (sinit)
-    {
-        // Copied from VarExp::toElem, need to clean this mess up.
-        Type* sdecltype = sinit->type->toBasetype();
-        IF_LOG Logger::print("Sym: type = %s\n", sdecltype->toChars());
-        assert(sdecltype->ty == Tstruct);
-        TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
-        assert(ts->sym);
-        DtoResolveStruct(ts->sym);
-
-        LLValue* initsym = ts->sym->ir.irAggr->getInitSymbol();
-        initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
-        return new DVarValue(type, initsym);
-    }
-
-    if (inProgressMemory) return new DVarValue(type, inProgressMemory);
-
-    // make sure the struct is fully resolved
-    DtoResolveStruct(sd);
-
-    // alloca a stack slot
-    inProgressMemory = DtoRawAlloca(DtoType(type), 0, ".structliteral");
-
     // ready elements data
     assert(elements && "struct literal has null elements");
     const size_t nexprs = elements->dim;
     Expression **exprs = reinterpret_cast<Expression **>(elements->data);
 
     // might be reset to an actual i8* value so only a single bitcast is emitted.
-    LLValue* voidptr = inProgressMemory;
+    LLValue *voidptr = mem;
     unsigned offset = 0;
 
     // go through fields
@@ -3168,7 +3170,7 @@ DValue* StructLiteralExp::toElem(IRState* p)
         }
 
         // get a pointer to this field
-        DVarValue field(vd->type, vd, DtoIndexStruct(inProgressMemory, sd, vd));
+        DVarValue field(vd->type, vd, DtoIndexStruct(mem, sd, vd));
 
         // store the initializer there
         DtoAssign(loc, &field, val, TOKconstruct, true);
@@ -3190,6 +3192,38 @@ DValue* StructLiteralExp::toElem(IRState* p)
     // initialize trailing padding
     if (sd->structsize != offset)
         voidptr = write_zeroes(voidptr, offset, sd->structsize);
+}
+
+DValue* StructLiteralExp::toElem(IRState* p)
+{
+    IF_LOG Logger::print("StructLiteralExp::toElem: %s @ %s\n", toChars(), type->toChars());
+    LOG_SCOPE;
+
+    if (sinit)
+    {
+        // Copied from VarExp::toElem, need to clean this mess up.
+        Type* sdecltype = sinit->type->toBasetype();
+        IF_LOG Logger::print("Sym: type = %s\n", sdecltype->toChars());
+        assert(sdecltype->ty == Tstruct);
+        TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
+        assert(ts->sym);
+        DtoResolveStruct(ts->sym);
+
+        LLValue* initsym = ts->sym->ir.irAggr->getInitSymbol();
+        initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
+        return new DVarValue(type, initsym);
+    }
+
+    if (inProgressMemory) return new DVarValue(type, inProgressMemory);
+
+    // make sure the struct is fully resolved
+    DtoResolveStruct(sd);
+
+    // alloca a stack slot
+    inProgressMemory = DtoRawAlloca(DtoType(type), 0, ".structliteral");
+
+    // fill the allocated struct literal
+    write_struct_literal(loc, inProgressMemory, sd, elements);
 
     // return as a var
     DValue* result = new DVarValue(type, inProgressMemory);
