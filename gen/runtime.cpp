@@ -357,25 +357,25 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
 
     // void _d_assert( char[] file, uint line )
+    // void _d_arraybounds(ModuleInfo* m, uint line)
     {
         llvm::StringRef fname("_d_assert");
+        llvm::StringRef fname2("_d_arraybounds");
         LLType *types[] = { stringTy, intTy };
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
-    // void _d_array_bounds(ModuleInfo* m, uint line)
     // void _d_switch_error(ModuleInfo* m, uint line)
     {
-        llvm::StringRef fname("_d_array_bounds");
-        llvm::StringRef fname2("_d_switch_error");
+        llvm::StringRef fname("_d_switch_error");
         LLType *types[] = {
             moduleInfoPtrTy,
             intTy
         };
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }
 
     // void _d_assert_msg(string msg, string file, uint line)

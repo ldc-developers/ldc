@@ -59,6 +59,9 @@ LLValue* DtoGcMalloc(Loc& loc, LLType* lltype, const char* name = "");
 // assertion generator
 void DtoAssert(Module* M, Loc& loc, DValue* msg);
 
+// returns module file name
+LLValue* DtoModuleFileName(Module* M, const Loc& loc);
+
 // return the LabelStatement from the current function with the given identifier or NULL if not found
 LabelStatement* DtoLabelStatement(Identifier* ident);
 

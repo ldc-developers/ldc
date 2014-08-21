@@ -1167,18 +1167,16 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBoun
 
     std::vector<LLValue*> args;
 
+    // file param
     Module* funcmodule = gIR->func()->decl->getModule();
-    // module param
-    LLValue *moduleInfoSymbol = funcmodule->moduleInfoSymbol();
-    LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
-    args.push_back(DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)));
+    args.push_back(DtoModuleFileName(funcmodule, loc));
 
     // line param
     LLConstant* c = DtoConstUint(loc.linnum);
     args.push_back(c);
 
     // call
-    llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_array_bounds");
+    llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arraybounds");
     gIR->CreateCallOrInvoke(errorfn, args);
 
     // the function does not return

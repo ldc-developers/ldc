@@ -188,18 +188,7 @@ void DtoAssert(Module* M, Loc& loc, DValue* msg)
     }
 
     // file param
-
-    // we might be generating for an imported template function
-    const char* cur_file = M->srcfile->name->toChars();
-    if (loc.filename && strcmp(loc.filename, cur_file) != 0)
-    {
-        args.push_back(DtoConstString(loc.filename));
-    }
-    else
-    {
-        IrModule* irmod = getIrModule(M);
-        args.push_back(DtoLoad(irmod->fileName));
-    }
+    args.push_back(DtoModuleFileName(M, loc));
 
     // line param
     args.push_back(DtoConstUint(loc.linnum));
@@ -214,6 +203,25 @@ void DtoAssert(Module* M, Loc& loc, DValue* msg)
     gIR->ir->CreateUnreachable();
 }
 
+/****************************************************************************************/
+/*////////////////////////////////////////////////////////////////////////////////////////
+// Module file name
+////////////////////////////////////////////////////////////////////////////////////////*/
+
+LLValue *DtoModuleFileName(Module* M, const Loc& loc)
+{
+    // we might be generating for an imported template function
+    const char* cur_file = M->srcfile->name->toChars();
+    if (loc.filename && strcmp(loc.filename, cur_file) != 0)
+    {
+        return DtoConstString(loc.filename);
+    }
+    else
+    {
+        IrModule* irmod = getIrModule(M);
+        return DtoLoad(irmod->fileName);
+    }
+}
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
