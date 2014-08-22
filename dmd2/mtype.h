@@ -480,9 +480,6 @@ public:
     bool isZeroInit(Loc loc);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_DMD
-#endif
 };
 
 class TypeArray : public TypeNext
@@ -515,16 +512,12 @@ public:
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
     Expression *defaultInitLiteral(Loc loc);
-#if IN_DMD
-#endif
     TypeInfoDeclaration *getTypeInfoDeclaration();
     Expression *toExpression();
     int hasPointers();
     bool needsDestruction();
     bool needsNested();
 
-#if IN_DMD
-#endif
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -550,8 +543,6 @@ public:
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
 
-#if IN_DMD
-#endif
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -583,7 +574,6 @@ public:
 #if IN_DMD
     // Back end
     Symbol *aaGetSymbol(const char *func, int flags);
-
 #endif
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -604,8 +594,6 @@ public:
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
 
-#if IN_DMD
-#endif
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -696,19 +684,13 @@ public:
 
     Type *substWildTo(unsigned mod);
     MATCH callMatch(Type *tthis, Expressions *toargs, int flag = 0);
-#if IN_DMD
-#endif
-
-#if IN_DMD
-#endif
 
     Expression *defaultInit(Loc loc);
+    void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
     IrFuncTy irFty;
 #endif
-
-    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeDelegate : public TypeNext
@@ -730,14 +712,11 @@ public:
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     int hasPointers();
 
-#if IN_DMD
-#endif
+    void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
     IrFuncTy irFty;
 #endif
-
-    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeQualified : public Type
@@ -859,8 +838,6 @@ public:
     bool checkBoolean();
     bool needsDestruction();
     bool needsNested();
-#if IN_DMD
-#endif
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
     MATCH implicitConvTo(Type *to);
@@ -868,15 +845,14 @@ public:
     unsigned char deduceWild(Type *t, bool isRef);
     Type *toHeadMutable();
 
-#if IN_DMD
-#elif IN_LLVM
+    void accept(Visitor *v) { v->visit(this); }
+
+#if IN_LLVM
     // LDC
     // cache the hasUnalignedFields check
     // 0 = not checked, 1 = aligned, 2 = unaligned
     int unaligned;
 #endif
-
-    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeEnum : public Type
@@ -916,9 +892,6 @@ public:
     int hasPointers();
     Type *nextOf();
 
-#if IN_DMD
-#endif
-
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -957,14 +930,9 @@ public:
     Expression *defaultInit(Loc loc);
     Expression *defaultInitLiteral(Loc loc);
     bool isZeroInit(Loc loc);
-#if IN_DMD
-#endif
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
     int hasWild();
-
-#if IN_DMD
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -997,9 +965,6 @@ public:
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
     int builtinTypeInfo();
-
-#if IN_DMD
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };

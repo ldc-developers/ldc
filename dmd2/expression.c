@@ -3424,16 +3424,8 @@ Expression *ThisExp::semantic(Scope *sc)
 #if LOGSEMANTIC
     printf("ThisExp::semantic()\n");
 #endif
-#if IN_LLVM && 0
-    if (type)
-    {
-        var->isVarDeclaration()->checkNestedReference(sc, loc);
-        return this;
-    }
-#else
     if (type)
         return this;
-#endif
 
     FuncDeclaration *fd = hasThis(sc);  // fd is the uplevel function with the 'this' variable
 

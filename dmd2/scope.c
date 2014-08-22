@@ -101,11 +101,7 @@ Scope *Scope::copy()
     /* Bugzilla 11777: The copied scope should not inherit fieldinit.
      */
     sc->fieldinit = NULL;
-
     return sc;
-#if IN_LLVM
-    this->enclosingScopeExit = enclosing->enclosingScopeExit;
-#endif
 }
 
 Scope *Scope::createGlobal(Module *module)
