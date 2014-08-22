@@ -74,6 +74,9 @@
 // Needs Type already declared.
 #include "cond.h"
 
+// in traits.c
+void initTraitsStringTable();
+
 using namespace opts;
 
 extern void getenv_setargv(const char *envvar, int *pargc, char** *pargv);
@@ -1020,6 +1023,7 @@ int main(int argc, char **argv)
     Expression::init();
     initPrecedence();
     builtin_init();
+    initTraitsStringTable();
 
     // Build import search path
     if (global.params.imppath)
