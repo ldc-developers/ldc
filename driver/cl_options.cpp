@@ -325,8 +325,26 @@ static cl::opt<bool, true, FlagParser> asserts("asserts",
     cl::location(global.params.useAssert),
     cl::init(true));
 
-cl::opt<BoolOrDefaultAdapter, false, FlagParser> boundsChecks("boundscheck",
-    cl::desc("(*) Enable array bounds checks"));
+BoundsCheck boundsCheck = BC_Default;
+
+class BoundsChecksAdapter {
+public:
+    void operator=(bool val) {
+        boundsCheck = (val ? BC_On : BC_Off);
+    }
+};
+
+cl::opt<BoundsChecksAdapter, false, FlagParser> boundsChecksOld("boundscheck",
+    cl::desc("(*) Enable array bounds check (deprecated, use -boundscheck=on|off)"));
+
+cl::opt<BoundsCheck, true> boundsChecksNew("boundscheck",
+    cl::desc("(*) Enable array bounds check"),
+    cl::location(boundsCheck),
+    cl::values(
+        clEnumValN(BC_Off, "off", "no array bounds checks"),
+        clEnumValN(BC_SafeOnly, "safeonly", "array bounds checks for safe functions only"),
+        clEnumValN(BC_On, "on", "array bounds checks for all functions"),
+        clEnumValEnd));
 
 static cl::opt<bool, true, FlagParser> invariants("invariants",
     cl::desc("(*) Enable invariants"),

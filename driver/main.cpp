@@ -418,13 +418,10 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     if (global.params.useUnitTests)
         global.params.useAssert = 1;
 
-    // Bounds checking is a bit peculiar: -enable/disable-boundscheck is an
-    // absolute decision. Only if no explicit option is specified, -release
-    // downgrades useArrayBounds 2 to 1 (only for safe functions).
-    if (opts::boundsChecks == cl::BOU_UNSET)
-        global.params.useArrayBounds = opts::nonSafeBoundsChecks ? 2 : 1;
-    else
-        global.params.useArrayBounds = (opts::boundsChecks == cl::BOU_TRUE) ? 2 : 0;
+    // -release downgrades default bounds checking level to BC_SafeOnly (only for safe functions).
+    global.params.useArrayBounds = opts::nonSafeBoundsChecks ? opts::BC_On : opts::BC_SafeOnly;
+    if (opts::boundsCheck != opts::BC_Default)
+        global.params.useArrayBounds = opts::boundsCheck;
 
     // LDC output determination
 
