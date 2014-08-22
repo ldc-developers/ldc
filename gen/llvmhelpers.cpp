@@ -543,8 +543,13 @@ DValue* DtoNullValue(Type* type, Loc loc)
         LLValue* res = DtoAggrPair(DtoType(type), LLConstant::getNullValue(basefp), LLConstant::getNullValue(basefp));
         return new DImValue(type, res);
     }
-    // integer, floating, pointer and class have no special representation
-    else if (basetype->isintegral() || basetype->isfloating() || basety == Tpointer || basety == Tclass)
+    // integer, floating, pointer, assoc array, delegate and class have no special representation
+    else if (basetype->isintegral() ||
+             basetype->isfloating() ||
+             basety == Tpointer ||
+             basety == Tclass ||
+             basety == Tdelegate ||
+             basety == Taarray)
     {
         return new DConstValue(type, LLConstant::getNullValue(lltype));
     }
@@ -554,11 +559,6 @@ DValue* DtoNullValue(Type* type, Loc loc)
         LLValue* len = DtoConstSize_t(0);
         LLValue* ptr = getNullPtr(getPtrToType(DtoType(basetype->nextOf())));
         return new DSliceValue(type, len, ptr);
-    }
-    // delegate
-    else if (basety == Tdelegate)
-    {
-        return new DNullValue(type, LLConstant::getNullValue(lltype));
     }
     else
     {
