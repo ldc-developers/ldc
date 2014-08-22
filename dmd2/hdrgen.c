@@ -690,6 +690,18 @@ public:
         buf->writenl();
     }
 
+#if IN_LLVM
+    void visit(AsmBlockStatement *s)
+    {
+        for (size_t i = 0; i < s->statements->dim; i++)
+        {
+            Statement *sx = (*s->statements)[i];
+            if (sx)
+                sx->accept(this);
+        }
+    }
+#endif
+
     void visit(ImportStatement *s)
     {
         for (size_t i = 0; i < s->imports->dim; i++)
