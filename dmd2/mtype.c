@@ -3728,10 +3728,14 @@ Expression *TypeVector::dotExp(Scope *sc, Expression *e, Identifier *ident, int 
 #endif
     if (ident == Id::array)
     {
+#if IN_LLVM
+        e = e->castTo(sc, basetype);
+#else
         //e = e->castTo(sc, basetype);
         // Keep lvalue-ness
         e = e->copy();
         e->type = basetype;
+#endif
         return e;
     }
     if (ident == Id::offsetof || ident == Id::offset || ident == Id::stringof)
