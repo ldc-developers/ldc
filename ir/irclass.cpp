@@ -202,15 +202,14 @@ LLConstant * IrAggr::getVtblInit()
                     {
                         TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
                         if (tf->ty == Tfunction)
-                            cd->deprecation(
-                                "use of %s%s hidden by %s is deprecated. Use 'alias %s.%s %s;' to introduce base class overload set.",
-                                fd->toPrettyChars(),
-                                Parameter::argsTypesToChars(tf->parameters, tf->varargs),
-                                cd->toChars(),
-                                fd->parent->toChars(),
-                                fd->toChars(),
-                                fd->toChars()
-                           );
+                            cd->deprecation("use of %s%s hidden by %s is deprecated; use 'alias %s = %s.%s;' to introduce base class overload set",
+                                            fd->toPrettyChars(),
+                                            Parameter::argsTypesToChars(tf->parameters, tf->varargs),
+                                            cd->toChars(),
+
+                                            fd->toChars(),
+                                            fd->parent->toChars(),
+                                            fd->toChars());
                         else
                             cd->deprecation("use of %s hidden by %s is deprecated", fd->toPrettyChars(), cd->toChars());
 

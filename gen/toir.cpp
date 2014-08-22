@@ -2960,7 +2960,7 @@ LLConstant* FuncExp::toConstElem(IRState* p)
     if (fd->tok != TOKfunction)
     {
         assert(fd->tok == TOKdelegate || fd->tok == TOKreserved);
-        error("delegate literals as constant expressions are not yet allowed");
+        error("non-constant nested delegate literal expression %s", toChars());
         if (!global.gag) fatal();
         return llvm::UndefValue::get(DtoType(type));
     }
