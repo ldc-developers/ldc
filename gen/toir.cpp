@@ -2747,15 +2747,10 @@ DValue* CondExp::toElem(IRState* p)
     LOG_SCOPE;
 
     Type* dtype = type->toBasetype();
-
-    DValue* dvv;
-    // voids returns will need no storage
+    LLValue *retPtr = 0;
     if (dtype->ty != Tvoid) {
-        // allocate a temporary for the final result. failed to come up with a better way :/
-        LLValue* resval = DtoAlloca(dtype,"condtmp");
-        dvv = new DVarValue(type, resval);
-    } else {
-        dvv = new DConstValue(type, getNullValue(voidToI8(DtoType(dtype))));
+        // allocate a temporary for pointer to the final result.
+        retPtr = DtoAlloca(dtype->pointerTo(), "condtmp");
     }
 
     llvm::BasicBlock* oldend = p->scopeend();
@@ -2770,17 +2765,20 @@ DValue* CondExp::toElem(IRState* p)
     p->scope() = IRScope(condtrue, condfalse);
     DValue* u = e1->toElemDtor(p);
     if (dtype->ty != Tvoid)
-        DtoAssign(loc, dvv, u);
+        DtoStore(makeLValue(loc, u), retPtr);
     llvm::BranchInst::Create(condend,p->scopebb());
 
     p->scope() = IRScope(condfalse, condend);
     DValue* v = e2->toElemDtor(p);
     if (dtype->ty != Tvoid)
-        DtoAssign(loc, dvv, v);
+        DtoStore(makeLValue(loc, v), retPtr);
     llvm::BranchInst::Create(condend,p->scopebb());
 
     p->scope() = IRScope(condend, oldend);
-    return dvv;
+    if (dtype->ty != Tvoid)
+        return new DVarValue(type, DtoLoad(retPtr));
+    else
+        return new DConstValue(type, getNullValue(voidToI8(DtoType(dtype))));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
