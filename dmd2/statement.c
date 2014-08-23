@@ -3153,9 +3153,8 @@ SwitchStatement::SwitchStatement(Loc loc, Expression *c, Statement *b, bool isFi
     this->body = b;
     this->isFinal = isFinal;
     sdefault = NULL;
-#if !IN_LLVM
     tf = NULL;
-#else
+#if IN_LLVM
     enclosingScopeExit = NULL;
 #endif
     cases = NULL;
@@ -3174,12 +3173,9 @@ Statement *SwitchStatement::syntaxCopy()
 Statement *SwitchStatement::semantic(Scope *sc)
 {
     //printf("SwitchStatement::semantic(%p)\n", this);
+    tf = sc->tf;
     if (cases)
         return this;            // already run
-
-#if IN_LLVM
-    enclosingScopeExit = sc->enclosingScopeExit;
-#endif
 
     condition = condition->semantic(sc);
     condition = resolveProperties(sc, condition);
@@ -3355,13 +3351,6 @@ Statement *CaseStatement::semantic(Scope *sc)
     sc = sc->endCTFE();
     if (sw)
     {
-#if IN_LLVM
-        enclosingScopeExit = sc->enclosingScopeExit;
-        if (enclosingScopeExit != sw->enclosingScopeExit)
-        {
-            error("case must be inside the same try, synchronized or volatile level as switch");
-        }
-#endif
         exp = exp->implicitCastTo(sc, sw->condition->type);
         exp = exp->optimize(WANTvalue);
 
@@ -3417,10 +3406,8 @@ Statement *CaseStatement::semantic(Scope *sc)
                 sw->gotoCases.remove(i);        // remove from array
             }
         }
-#if IN_DMD
         if (sc->sw->tf != sc->tf)
             error("switch and case are in different finally blocks");
-#endif
     }
     else
         error("case not in switch statement");
@@ -3558,12 +3545,9 @@ Statement *DefaultStatement::semantic(Scope *sc)
         }
         sc->sw->sdefault = this;
 
-#if !IN_LLVM
         if (sc->sw->tf != sc->tf)
             error("switch and default are in different finally blocks");
-#else
-        enclosingScopeExit = sc->sw->enclosingScopeExit;
-#endif
+
         if (sc->sw->isFinal)
             error("default statement not allowed in final switch statement");
     }
@@ -4350,16 +4334,7 @@ Statement *SynchronizedStatement::semantic(Scope *sc)
     }
 Lbody:
     if (body)
-#if IN_LLVM
-    {
-        Statement* oldScopeExit = sc->enclosingScopeExit;
-        sc->enclosingScopeExit = this;
-#endif
         body = body->semantic(sc);
-#if IN_LLVM
-        sc->enclosingScopeExit = oldScopeExit;
-    }
-#endif
     if (body && body->isErrorStatement())
         return body;
     return this;
@@ -4682,14 +4657,7 @@ Statement *TryFinallyStatement::syntaxCopy()
 Statement *TryFinallyStatement::semantic(Scope *sc)
 {
     //printf("TryFinallyStatement::semantic()\n");
-#if IN_LLVM
-    Statement* oldScopeExit = sc->enclosingScopeExit;
-    sc->enclosingScopeExit = this;
-#endif
     body = body->semantic(sc);
-#if IN_LLVM
-    sc->enclosingScopeExit = oldScopeExit;
-#endif
     sc = sc->push();
     sc->tf = this;
     sc->sbreak = NULL;
@@ -4937,9 +4905,6 @@ Statement *GotoStatement::semantic(Scope *sc)
     this->fd = sc->func;
     tf = sc->tf;
     os = sc->os;
-#if IN_LLVM
-    enclosingScopeExit = sc->enclosingScopeExit;
-#endif
     label = fd->searchLabel(ident);
     if (!label->statement && sc->fes)
     {
@@ -5068,9 +5033,6 @@ Statement *LabelStatement::semantic(Scope *sc)
         ls->statement = this;
     tf = sc->tf;
     os = sc->os;
-#if IN_LLVM
-    enclosingScopeExit = sc->enclosingScopeExit;
-#endif
     sc = sc->push();
     sc->scopesym = sc->enclosing->scopesym;
     sc->callSuper |= CSXlabel;

@@ -104,6 +104,225 @@ static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
 
 //////////////////////////////////////////////////////////////////////////////
 
+/* A visitor to walk entire tree of statements.
+ */
+class StatementVisitor : public Visitor
+{
+    void visitStmt(Statement *s) { s->accept(this); }
+public:
+    void visit(ErrorStatement *s) {  }
+    void visit(PeelStatement *s)
+    {
+        if (s->s)
+            visitStmt(s->s);
+    }
+    void visit(ExpStatement *s) {  }
+    void visit(DtorExpStatement *s) {  }
+    void visit(CompileStatement *s) {  }
+    void visit(CompoundStatement *s)
+    {
+        if (s->statements && s->statements->dim)
+        {
+            for (size_t i = 0; i < s->statements->dim; i++)
+            {
+                if ((*s->statements)[i])
+                    visitStmt((*s->statements)[i]);
+            }
+        }
+    }
+    void visit(CompoundDeclarationStatement *s) { visit((CompoundStatement *)s); }
+    void visit(UnrolledLoopStatement *s)
+    {
+        if (s->statements && s->statements->dim)
+        {
+            for (size_t i = 0; i < s->statements->dim; i++)
+            {
+                if ((*s->statements)[i])
+                    visitStmt((*s->statements)[i]);
+            }
+        }
+    }
+    void visit(ScopeStatement *s)
+    {
+        if (s->statement)
+            visitStmt(s->statement);
+    }
+    void visit(WhileStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(DoStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(ForStatement *s)
+    {
+        if (s->init)
+            visitStmt(s->init);
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(ForeachStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(ForeachRangeStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(IfStatement *s)
+    {
+        if (s->ifbody)
+            visitStmt(s->ifbody);
+        if (s->elsebody)
+            visitStmt(s->elsebody);
+    }
+    void visit(ConditionalStatement *s) {  }
+    void visit(PragmaStatement *s) {  }
+    void visit(StaticAssertStatement *s) {  }
+    void visit(SwitchStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(CaseStatement *s)
+    {
+        if (s->statement)
+            visitStmt(s->statement);
+    }
+    void visit(CaseRangeStatement *s)
+    {
+        if (s->statement)
+            visitStmt(s->statement);
+    }
+    void visit(DefaultStatement *s)
+    {
+        if (s->statement)
+            visitStmt(s->statement);
+    }
+    void visit(GotoDefaultStatement *s) {  }
+    void visit(GotoCaseStatement *s) {  }
+    void visit(SwitchErrorStatement *s) {  }
+    void visit(ReturnStatement *s) {  }
+    void visit(BreakStatement *s) {  }
+    void visit(ContinueStatement *s) {  }
+    void visit(SynchronizedStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(WithStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(TryCatchStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+        if (s->catches && s->catches->dim)
+        {
+            for (size_t i = 0; i < s->catches->dim; i++)
+            {
+                Catch *c = (*s->catches)[i];
+                if (c && c->handler)
+                    visitStmt(c->handler);
+            }
+        }
+    }
+    void visit(TryFinallyStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+        if (s->finalbody)
+            visitStmt(s->finalbody);
+    }
+    void visit(OnScopeStatement *s) {  }
+    void visit(ThrowStatement *s) {  }
+    void visit(DebugStatement *s)
+    {
+        if (s->statement)
+            visitStmt(s->statement);
+    }
+    void visit(GotoStatement *s) {  }
+    void visit(LabelStatement *s)
+    {
+        if (s->statement)
+            visitStmt(s->statement);
+    }
+    void visit(AsmStatement *s) {  }
+    void visit(ImportStatement *s) {  }
+    void visit(AsmBlockStatement *s) {  }
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
+class FindEnclosingTryFinally : public StatementVisitor {
+    std::stack<TryFinallyStatement*> m_tryFinally;
+    std::stack<SwitchStatement*> m_switches;
+public:
+    TryFinallyStatement *enclosingTryFinally() const
+    {
+        return m_tryFinally.empty() ? 0 : m_tryFinally.top();
+    }
+
+    SwitchStatement *enclosingSwitch() const
+    {
+        return m_switches.empty() ? 0 : m_switches.top();
+    }
+
+    void visit(SwitchStatement *s)
+    {
+        m_switches.push(s);
+        s->enclosingScopeExit = enclosingTryFinally();
+        StatementVisitor::visit(s);
+        m_switches.pop();
+    }
+
+    void visit(CaseStatement *s)
+    {
+        s->enclosingScopeExit = enclosingTryFinally();
+        if (s->enclosingScopeExit != enclosingSwitch()->enclosingScopeExit)
+            s->error("switch and case are in different try blocks");
+        StatementVisitor::visit(s);
+    }
+
+    void visit(DefaultStatement *s)
+    {
+        s->enclosingScopeExit = enclosingTryFinally();
+        if (s->enclosingScopeExit != enclosingSwitch()->enclosingScopeExit)
+            s->error("switch and default case are in different try blocks");
+        StatementVisitor::visit(s);
+    }
+
+    void visit(TryFinallyStatement *s)
+    {
+        m_tryFinally.push(s);
+        s->body->accept(this);
+        m_tryFinally.pop();
+        s->finalbody->accept(this);
+    }
+
+    void visit(LabelStatement *s)
+    {
+        s->enclosingScopeExit = enclosingTryFinally();
+        StatementVisitor::visit(s);
+    }
+
+    void visit(GotoStatement *s)
+    {
+        s->enclosingScopeExit = enclosingTryFinally();
+        StatementVisitor::visit(s);
+    }
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
+
 class ToIRVisitor : public Visitor {
     IRState *irs;
 public:
@@ -1572,6 +1791,13 @@ public:
 };
 
 //////////////////////////////////////////////////////////////////////////////
+
+void codegenFunction(Statement *s, IRState *irs)
+{
+    FindEnclosingTryFinally v;
+    s->accept(&v);
+    Statement_toIR(s, irs);
+}
 
 void Statement_toIR(Statement *s, IRState *irs)
 {

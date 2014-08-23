@@ -1196,7 +1196,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 
     // output function body
-    Statement_toIR(fd->fbody, gIR);
+    codegenFunction(fd->fbody, gIR);
     irfunction->gen = 0;
 
     // TODO: clean up this mess

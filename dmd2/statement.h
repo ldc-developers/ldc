@@ -458,9 +458,7 @@ public:
     bool isFinal;
 
     DefaultStatement *sdefault;
-#if !IN_LLVM
     TryFinallyStatement *tf;
-#endif
     GotoCaseStatements gotoCases;  // array of unresolved GotoCaseStatement's
     CaseStatements *cases;         // array of CaseStatement's
     int hasNoDefault;           // !=0 if no default statement
