@@ -404,7 +404,7 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 
 #if LDC_LLVM_VER >= 303
     std::string errstr2 = "";
-#if LDC_LLVM_VER >= 303
+#if LDC_LLVM_VER >= 306
     llvm::Linker(gIR->module).linkInModule(m.get(), &errstr2);
 #else
     llvm::Linker(gIR->module).linkInModule(m, &errstr2);
