@@ -639,10 +639,6 @@ public:
     bool hasContinue();
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    llvm::Value* llsync;
-#endif
 };
 
 class WithStatement : public Statement

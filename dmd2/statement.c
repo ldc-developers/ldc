@@ -4228,12 +4228,6 @@ SynchronizedStatement::SynchronizedStatement(Loc loc, Expression *exp, Statement
 {
     this->exp = exp;
     this->body = body;
-#if IN_LLVM
-    this->llsync = NULL;
-#endif
-#if IN_LLVM
-    this->llsync = NULL;
-#endif
 }
 
 Statement *SynchronizedStatement::syntaxCopy()

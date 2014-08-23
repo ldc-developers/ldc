@@ -53,7 +53,7 @@ IRTargetScope::IRTargetScope()
 
 IRTargetScope::IRTargetScope(
     Statement* s,
-    EnclosingHandler* enclosinghandler,
+    EnclosingTryFinally* enclosinghandler,
     llvm::BasicBlock* continueTarget,
     llvm::BasicBlock* breakTarget,
     bool onlyLabeledBreak

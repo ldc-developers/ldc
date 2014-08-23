@@ -918,34 +918,6 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-    // void _d_criticalenter(D_CRITICAL_SECTION *dcs)
-    // void _d_criticalexit(D_CRITICAL_SECTION *dcs)
-    {
-        llvm::StringRef fname("_d_criticalenter");
-        llvm::StringRef fname2("_d_criticalexit");
-        LLType *types[] = { rt_ptr(DtoMutexType()) };
-        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
-    }
-
-    // void _d_monitorenter(Object h)
-    // void _d_monitorexit(Object h)
-    {
-        llvm::StringRef fname("_d_monitorenter");
-        llvm::StringRef fname2("_d_monitorexit");
-        LLType *types[] = { objectTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_1_NoCapture);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)
-            ->setAttributes(Attr_1_NoCapture);
-    }
-
-    /////////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////
-    /////////////////////////////////////////////////////////////////////////////////////
-
     // int _d_eh_personality(int ver, int actions, ulong eh_class, ptr eh_info, ptr context)
     {
         llvm::StringRef fname("_d_eh_personality");

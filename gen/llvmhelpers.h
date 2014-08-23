@@ -21,13 +21,8 @@
 #include "gen/dvalue.h"
 #include "gen/llvm.h"
 
-// this is used for tracking try-finally, synchronized and volatile scopes
-struct EnclosingHandler
-{
-    virtual ~EnclosingHandler() {}
-    virtual void emitCode(IRState* p) = 0;
-};
-struct EnclosingTryFinally : EnclosingHandler
+// this is used for tracking try-finally scopes
+struct EnclosingTryFinally
 {
     TryFinallyStatement* tf;
     llvm::BasicBlock* landingPad;
@@ -35,13 +30,6 @@ struct EnclosingTryFinally : EnclosingHandler
     EnclosingTryFinally(TryFinallyStatement* _tf, llvm::BasicBlock* _pad)
     : tf(_tf), landingPad(_pad) {}
 };
-struct EnclosingSynchro : EnclosingHandler
-{
-    SynchronizedStatement* s;
-    void emitCode(IRState* p);
-    EnclosingSynchro(SynchronizedStatement* _tf) : s(_tf) {}
-};
-
 
 // dynamic memory helpers
 LLValue* DtoNew(Loc& loc, Type* newtype);

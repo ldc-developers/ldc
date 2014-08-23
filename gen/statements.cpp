@@ -1517,50 +1517,6 @@ public:
 
     //////////////////////////////////////////////////////////////////////////
 
-    static LLConstant* generate_unique_critical_section()
-    {
-        llvm::Type *Mty = DtoMutexType();
-        return new llvm::GlobalVariable(*gIR->module, Mty, false, llvm::GlobalValue::InternalLinkage, LLConstant::getNullValue(Mty), ".uniqueCS");
-    }
-
-    void visit(SynchronizedStatement *stmt) LLVM_OVERRIDE {
-        IF_LOG Logger::println("SynchronizedStatement::toIR(): %s", stmt->loc.toChars());
-        LOG_SCOPE;
-
-        // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
-
-        // enter lock
-        if (stmt->exp)
-        {
-            stmt->llsync = stmt->exp->toElem(irs)->getRVal();
-            DtoEnterMonitor(stmt->loc, stmt->llsync);
-        }
-        else
-        {
-            stmt->llsync = generate_unique_critical_section();
-            DtoEnterCritical(stmt->loc, stmt->llsync);
-        }
-
-        // emit body
-        irs->func()->gen->targetScopes.push_back(IRTargetScope(stmt, new EnclosingSynchro(stmt), NULL, NULL));
-        gIR->DBuilder.EmitBlockStart(stmt->body->loc);
-        stmt->body->accept(this);
-        gIR->DBuilder.EmitBlockEnd();
-        irs->func()->gen->targetScopes.pop_back();
-
-        // exit lock
-        // no point in a unreachable unlock, terminating statements must insert this themselves.
-        if (irs->scopereturned())
-            return;
-        else if (stmt->exp)
-            DtoLeaveMonitor(stmt->loc, stmt->llsync);
-        else
-            DtoLeaveCritical(stmt->loc, stmt->llsync);
-    }
-
-    //////////////////////////////////////////////////////////////////////////
-
     void visit(SwitchErrorStatement *stmt) LLVM_OVERRIDE {
         IF_LOG Logger::println("SwitchErrorStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;

@@ -278,18 +278,8 @@ void DtoGoto(Loc& loc, Identifier* target, TryFinallyStatement* sourceFinally)
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
-// TRY-FINALLY AND SYNCHRONIZED HELPER
+// TRY-FINALLY
 ////////////////////////////////////////////////////////////////////////////////////////*/
-
-void EnclosingSynchro::emitCode(IRState * p)
-{
-    if (s->exp)
-        DtoLeaveMonitor(s->exp->loc, s->exp->toElem(p)->getRVal());
-    else
-        DtoLeaveCritical(s->loc, s->llsync);
-}
-
-////////////////////////////////////////////////////////////////////////////////////////
 
 void EnclosingTryFinally::emitCode(IRState * p)
 {
@@ -344,37 +334,6 @@ void DtoEnclosingHandlers(Loc& loc, Statement* target)
         ++it;
     }
     gIR->func()->gen->popLabelScope();
-}
-
-/****************************************************************************************/
-/*////////////////////////////////////////////////////////////////////////////////////////
-// SYNCHRONIZED SECTION HELPERS
-////////////////////////////////////////////////////////////////////////////////////////*/
-
-void DtoEnterCritical(Loc& loc, LLValue* g)
-{
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_criticalenter");
-    gIR->CreateCallOrInvoke(fn, g);
-}
-
-void DtoLeaveCritical(Loc& loc, LLValue* g)
-{
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_criticalexit");
-    gIR->CreateCallOrInvoke(fn, g);
-}
-
-void DtoEnterMonitor(Loc& loc, LLValue* v)
-{
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_monitorenter");
-    v = DtoBitCast(v, fn->getFunctionType()->getParamType(0));
-    gIR->CreateCallOrInvoke(fn, v);
-}
-
-void DtoLeaveMonitor(Loc& loc, LLValue* v)
-{
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_monitorexit");
-    v = DtoBitCast(v, fn->getFunctionType()->getParamType(0));
-    gIR->CreateCallOrInvoke(fn, v);
 }
 
 /****************************************************************************************/
