@@ -379,7 +379,11 @@ static int linkObjToBinaryWin(bool sharedLib)
 int linkObjToBinary(bool sharedLib)
 {
     int status;
+#if LDC_LLVM_VER >= 305
+    if (global.params.targetTriple.isWindowsMSVCEnvironment())
+#else
     if (global.params.targetTriple.getOS() == llvm::Triple::Win32)
+#endif
         status = linkObjToBinaryWin(sharedLib);
     else
         status = linkObjToBinaryGcc(sharedLib);
