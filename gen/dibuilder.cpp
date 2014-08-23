@@ -685,7 +685,7 @@ void ldc::DIBuilder::EmitBlockStart(Loc& loc)
             CreateFile(loc), // file
             loc.linnum, // line
             0 // column
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER == 305
             , 0 // DWARF path discriminator value
 #endif
             );

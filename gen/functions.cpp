@@ -379,7 +379,10 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 
     llvm::SMDiagnostic err;
 
-#if LDC_LLVM_VER >= 303 
+#if LDC_LLVM_VER >= 306
+    std::unique_ptr<llvm::Module> m = llvm::parseAssemblyString(
+        stream.str().c_str(), err, gIR->context());
+#elif LDC_LLVM_VER >= 303
     llvm::Module* m = llvm::ParseAssemblyString(
         stream.str().c_str(), NULL, err, gIR->context());
 #else
@@ -399,9 +402,13 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
             (std::string(err.getColumnNo(), ' ') + '^').c_str(),
             errstr.c_str(), stream.str().c_str());
 
-#if LDC_LLVM_VER >= 303 
+#if LDC_LLVM_VER >= 303
     std::string errstr2 = "";
+#if LDC_LLVM_VER >= 303
+    llvm::Linker(gIR->module).linkInModule(m.get(), &errstr2);
+#else
     llvm::Linker(gIR->module).linkInModule(m, &errstr2);
+#endif
     if(errstr2 != "")
         error(tinst->loc,
             "Error when linking in llvm inline ir: %s", errstr2.c_str());
