@@ -110,6 +110,9 @@ class StatementVisitor : public Visitor
 {
     void visitStmt(Statement *s) { s->accept(this); }
 public:
+    // Import all functions from class Visitor
+    using Visitor::visit;
+
     void visit(ErrorStatement *s) {  }
     void visit(PeelStatement *s)
     {
@@ -265,6 +268,9 @@ class FindEnclosingTryFinally : public StatementVisitor {
     std::stack<TryFinallyStatement*> m_tryFinally;
     std::stack<SwitchStatement*> m_switches;
 public:
+    // Import all functions from class StatementVisitor
+    using StatementVisitor::visit;
+
     TryFinallyStatement *enclosingTryFinally() const
     {
         return m_tryFinally.empty() ? 0 : m_tryFinally.top();

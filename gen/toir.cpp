@@ -72,6 +72,9 @@ class SearchVarsWithDestructors : public StoppableVisitor
 public:
     std::vector<Expression*> edtors;
 
+    // Import all functions from class StoppableVisitor
+    using StoppableVisitor::visit;
+
     virtual void visit(Expression *e)
     {
     }
