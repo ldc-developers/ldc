@@ -600,37 +600,68 @@ static Expression* findLvalue(IRState* irs, Expression* exp)
     return e;
 }
 
-#define BIN_ASSIGN(X) \
+template <typename Exp>
+static DValue *binAssign(BinAssignExp *be, IRState* p)
+{
+    // Evaluate the expression
+    Loc loc = be->loc;
+    Exp e3(loc, be->e1, be->e2);
+    e3.type = be->e1->type;
+    DValue* dst = findLvalue(p, be->e1)->toElem(p);
+    DValue* res = e3.toElem(p);
+
+    // Now that we are done with the expression, clear the cached lvalue
+    Expression* e = be->e1;
+    while(e->op == TOKcast)
+        e = static_cast<CastExp*>(e)->e1;
+    e->cachedLvalue = NULL;
+
+    // Assign the (casted) value and return it
+    DValue* stval = DtoCast(loc, res, dst->getType());
+    DtoAssign(loc, dst, stval);
+    return DtoCast(loc, res, be->type);
+}
+
+template <typename Exp>
+static DValue *binShiftAssign(BinAssignExp *be, IRState* p)
+{
+    Loc loc = be->loc;
+    // Find the lvalue for the expression
+    Expression *e1 = findLvalue(p, be->e1);
+
+    // Evaluate the expression
+    Exp e3(loc, e1, be->e2);
+    e3.type = e1->type;
+    DValue* dst = e1->toElem(p);
+    DValue* res = e3.toElem(p);
+
+    // Now that we are done with the expression, clear the cached lvalue
+    e1->cachedLvalue = NULL;
+
+    // Assign the value and return it
+    DtoAssign(loc, dst, res);
+    return DtoCast(loc, res, be->type);
+}
+
+#define BIN_ASSIGN(X, op) \
 DValue* X##AssignExp::toElem(IRState* p) \
 { \
     IF_LOG Logger::print(#X"AssignExp::toElem: %s @ %s\n", toChars(), type->toChars()); \
     LOG_SCOPE; \
-    X##Exp e3(loc, e1, e2); \
-    e3.type = e1->type; \
-    DValue* dst = findLvalue(p, e1)->toElem(p); \
-    DValue* res = e3.toElem(p); \
-    /* Now that we are done with the expression, clear the cached lvalue. */ \
-    Expression* e = e1; \
-    while(e->op == TOKcast) \
-        e = static_cast<CastExp*>(e)->e1; \
-    e->cachedLvalue = NULL; \
-    /* Assign the (casted) value and return it. */ \
-    DValue* stval = DtoCast(loc, res, dst->getType()); \
-    DtoAssign(loc, dst, stval); \
-    return DtoCast(loc, res, type); \
+    return op <X##Exp>(this, p);\
 }
 
-BIN_ASSIGN(Add)
-BIN_ASSIGN(Min)
-BIN_ASSIGN(Mul)
-BIN_ASSIGN(Div)
-BIN_ASSIGN(Mod)
-BIN_ASSIGN(And)
-BIN_ASSIGN(Or)
-BIN_ASSIGN(Xor)
-BIN_ASSIGN(Shl)
-BIN_ASSIGN(Shr)
-BIN_ASSIGN(Ushr)
+BIN_ASSIGN(Add,  binAssign)
+BIN_ASSIGN(Min,  binAssign)
+BIN_ASSIGN(Mul,  binAssign)
+BIN_ASSIGN(Div,  binAssign)
+BIN_ASSIGN(Mod,  binAssign)
+BIN_ASSIGN(And,  binAssign)
+BIN_ASSIGN(Or,   binAssign)
+BIN_ASSIGN(Xor,  binAssign)
+BIN_ASSIGN(Shl,  binShiftAssign)
+BIN_ASSIGN(Shr,  binShiftAssign)
+BIN_ASSIGN(Ushr, binShiftAssign)
 
 #undef BIN_ASSIGN
 
@@ -2533,6 +2564,7 @@ DValue* X##Exp::toElem(IRState* p) \
     DValue* u = e1->toElem(p); \
     DValue* v = e2->toElem(p); \
     errorOnIllegalArrayOp(this, e1, e2); \
+    v = DtoCast(loc, v, e1->type); \
     LLValue* x = llvm::BinaryOperator::Create(llvm::Instruction::Y, u->getRVal(), v->getRVal(), "tmp", p->scopebb()); \
     return new DImValue(type, x); \
 }
@@ -2549,6 +2581,7 @@ DValue* ShrExp::toElem(IRState* p)
     LOG_SCOPE;
     DValue* u = e1->toElem(p);
     DValue* v = e2->toElem(p);
+    v = DtoCast(loc, v, e1->type);
     LLValue* x;
     if (isLLVMUnsigned(e1->type))
         x = p->ir->CreateLShr(u->getRVal(), v->getRVal(), "tmp");

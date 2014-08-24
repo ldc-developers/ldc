@@ -6832,11 +6832,7 @@ Expression *BinAssignExp::semantic(Scope *sc)
     }
     if (shift)
     {
-#if IN_LLVM
-        e2 = e2->castTo(sc, e1->type);
-#else
         e2 = e2->castTo(sc, Type::tshiftcnt);
-#endif
     }
 
     // vectors
@@ -12901,11 +12897,7 @@ Expression *ShlExp::semantic(Scope *sc)
         return incompatibleTypes();
     }
     e1 = integralPromotions(e1, sc);
-#if IN_LLVM
-    e2 = e2->castTo(sc, e1->type);
-#else
     e2 = e2->castTo(sc, Type::tshiftcnt);
-#endif
     type = e1->type;
     return this;
 }
@@ -12936,11 +12928,7 @@ Expression *ShrExp::semantic(Scope *sc)
         return incompatibleTypes();
     }
     e1 = integralPromotions(e1, sc);
-#if IN_LLVM
-    e2 = e2->castTo(sc, e1->type);
-#else
     e2 = e2->castTo(sc, Type::tshiftcnt);
-#endif
     type = e1->type;
     return this;
 }
@@ -12972,11 +12960,7 @@ Expression *UshrExp::semantic(Scope *sc)
     }
 
     e1 = integralPromotions(e1, sc);
-#if IN_LLVM
-    e2 = e2->castTo(sc, e1->type);
-#else
     e2 = e2->castTo(sc, Type::tshiftcnt);
-#endif
     type = e1->type;
     return this;
 }
