@@ -456,6 +456,8 @@ void TypeInfoEnumDeclaration::llvmDefine()
             C = LLConstantInt::get(memty, defaultval->toInteger(), !isLLVMUnsigned(memtype));
         else if (memtype->isString())
             C = DtoConstString(static_cast<const char *>(defaultval->toStringExp()->string));
+        else if (memtype->isfloating())
+            C = LLConstantFP::get(memty, defaultval->toReal());
         else
             llvm_unreachable("Unsupported type");
 
