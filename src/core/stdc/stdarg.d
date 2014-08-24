@@ -301,7 +301,7 @@ version( X86 )
     /*********************
      * The argument pointer type.
      */
-    alias void* va_list;
+    alias va_list = char*;
 
     /**********
      * Initialize ap.
@@ -373,8 +373,8 @@ else version( ARM )
 {
     // FIXME: This isn't actually tested at all.
     // Really struct va_list { void* ptr; }, but for compatibility with
-    // x86-style code that uses void*, we just define it as the raw pointer.
-    alias va_list = void*;
+    // x86-style code that uses char*, we just define it as the raw pointer.
+    alias va_list = char*;
 
     version(LDC)
     {

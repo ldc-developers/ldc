@@ -21,7 +21,7 @@ version( LDC )
     /**
      * The base vararg list type.
      */
-    alias va_list = void*;
+    alias va_list = char*;
 
     /**
      * This function initializes the supplied argument pointer for subsequent
