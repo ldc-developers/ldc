@@ -399,11 +399,11 @@ cl::opt<unsigned, true> nestedTemplateDepth("template-depth",
     cl::init(500));
 
 cl::opt<bool, true> vcolumns("vcolumns",
-    cl::desc(" list all gc allocations including hidden ones"),
+    cl::desc("print character (column) numbers in diagnostics"),
     cl::location(global.params.showColumns));
 
 cl::opt<bool, true> vgc("vgc",
-    cl::desc(" list all gc allocations including hidden ones"),
+    cl::desc("list all gc allocations including hidden ones"),
     cl::location(global.params.vgc));
 
 
