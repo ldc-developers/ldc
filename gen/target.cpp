@@ -78,7 +78,7 @@ unsigned Target::critsecsize()
 
 Type *Target::va_listType()
 {
-    return Type::tvoidptr;
+    return Type::tchar->pointerTo();
 }
 
 /******************************
