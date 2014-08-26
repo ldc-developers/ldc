@@ -668,7 +668,7 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::Win32:
             VersionCondition::addPredefinedGlobalIdent("Windows");
             VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 305
             if (global.params.targetTriple.isWindowsGNUEnvironment())
             {
                 VersionCondition::addPredefinedGlobalIdent("mingw32"); // For backwards compatibility.

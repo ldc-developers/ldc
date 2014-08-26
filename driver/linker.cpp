@@ -199,7 +199,7 @@ static int linkObjToBinaryGcc(bool sharedLib)
         // solaris TODO
         break;
 
-#if LDC_LLVM_VER <= 305
+#if LDC_LLVM_VER < 305
     case llvm::Triple::MinGW32:
         // This is really more of a kludge, as linking in the Winsock functions
         // should be handled by the pragma(lib, ...) in std.socket, but it
@@ -214,7 +214,7 @@ static int linkObjToBinaryGcc(bool sharedLib)
         break;
     }
 
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 305
     if (global.params.targetTriple.isWindowsGNUEnvironment())
     {
         // This is really more of a kludge, as linking in the Winsock functions

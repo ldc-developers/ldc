@@ -388,7 +388,7 @@ public:
             StringExp *se = static_cast<StringExp *>(e);
 
             size_t nameLen = se->len;
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 305
             if (global.params.targetTriple.isWindowsGNUEnvironment())
 #else
             if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
