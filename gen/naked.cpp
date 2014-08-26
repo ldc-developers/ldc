@@ -461,7 +461,7 @@ DValue * DtoInlineAsmExpr(Loc& loc, FuncDeclaration * fd, Expressions * argument
     for (size_t i = 2; i < n; i++)
     {
         e = static_cast<Expression*>(arguments->data[i]);
-        args.push_back(e->toElem(gIR)->getRVal());
+        args.push_back(toElem(e)->getRVal());
         argtypes.push_back(args.back()->getType());
     }
 

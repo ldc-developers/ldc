@@ -160,6 +160,12 @@ Expression *interpret(Expression *e, InterState *istate, CtfeGoal goal);
 // Same as WANTvalue, but also expand variables as far as possible
 #define WANTexpand  8
 
+#if IN_LLVM
+DValue *toElem(Expression *e, IRState *p);
+DValue *toElemDtor(Expression *e, IRState *p);
+llvm::Constant *toConstElem(Expression *e, IRState *p);
+#endif
+
 class Expression : public RootObject
 {
 public:
@@ -270,18 +276,6 @@ public:
 #endif
     virtual void accept(Visitor *v) { v->visit(this); }
 #if IN_LLVM
-    /// Emits an LLVM constant corresponding to the expression.
-    ///
-    /// Due to the current implementation of AssocArrayLiteralExp::toElem,the
-    /// implementations have to be able to handle being called on expressions
-    /// that are not actually constant. In such a case, an LLVM undef of the
-    /// expected type should be returned (_not_ null).
-    virtual llvm::Constant *toConstElem(IRState *irs);
-
-    virtual DValue* toElem(IRState* irs);
-    DValue *toElemDtor(IRState *p);
-
-    virtual void cacheLvalue(IRState* irs);
     llvm::Value* cachedLvalue;
 
     virtual AssignExp* isAssignExp() { return NULL; }
@@ -309,11 +303,6 @@ public:
     void accept(Visitor *v) { v->visit(this); }
     dinteger_t getInteger() { return value; }
     void setInteger(dinteger_t value);
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-#endif
 private:
     void normalize();
 };
@@ -344,10 +333,6 @@ public:
     int isBool(int result);
     void toMangleBuffer(OutBuffer *buf);
     void accept(Visitor *v) { v->visit(this); }
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-#endif
 };
 
 class ComplexExp : public Expression
@@ -367,10 +352,6 @@ public:
     int isBool(int result);
     void toMangleBuffer(OutBuffer *buf);
     void accept(Visitor *v) { v->visit(this); }
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-#endif
 };
 
 class IdentifierExp : public Expression
@@ -422,10 +403,6 @@ public:
     Expression *modifiableLvalue(Scope *sc, Expression *e);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class SuperExp : public ThisExp
@@ -449,10 +426,6 @@ public:
     StringExp *toStringExp();
     void toMangleBuffer(OutBuffer *buf);
     void accept(Visitor *v) { v->visit(this); }
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-#endif
 };
 
 class StringExp : public Expression
@@ -483,10 +456,6 @@ public:
     unsigned charAt(uinteger_t i);
     void toMangleBuffer(OutBuffer *buf);
     void accept(Visitor *v) { v->visit(this); }
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-#endif
 };
 
 // Tuple
@@ -513,10 +482,6 @@ public:
     void checkEscape();
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class ArrayLiteralExp : public Expression
@@ -534,10 +499,6 @@ public:
     int isBool(int result);
     StringExp *toStringExp();
     void toMangleBuffer(OutBuffer *buf);
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -557,10 +518,6 @@ public:
     void toMangleBuffer(OutBuffer *buf);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 // scrubReturnValue is running
@@ -617,14 +574,11 @@ public:
     void toMangleBuffer(OutBuffer *buf);
     Expression *addDtorHook(Scope *sc);
 #if IN_LLVM
-    DValue* toElem(IRState* irs);
-
     // With the introduction of pointers returned from CTFE, struct literals can
     // now contain pointers to themselves. While in toElem, contains a pointer
     // to the memory used to build the literal for resolving such references.
     llvm::Value* inProgressMemory;
 
-    llvm::Constant *toConstElem(IRState *irs);
     // A global variable for taking the address of this struct literal constant,
     // if it already exists. Used to resolve self-references.
     llvm::GlobalVariable *globalVar;
@@ -652,10 +606,6 @@ public:
     Expression *semantic(Scope *sc);
     bool rvalue();
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class ScopeExp : public Expression
@@ -667,10 +617,6 @@ public:
     Expression *syntaxCopy();
     Expression *semantic(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class TemplateExp : public Expression
@@ -706,10 +652,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class NewAnonClassExp : public Expression
@@ -738,10 +680,6 @@ public:
     SymbolExp(Loc loc, TOK op, int size, Declaration *var, bool hasOverloads);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 // Offset from symbol
@@ -757,11 +695,6 @@ public:
     int isBool(int result);
 
     void accept(Visitor *v) { v->visit(this); }
-    
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant* toConstElem(IRState* irs);
-#endif
 };
 
 // Variable
@@ -781,11 +714,6 @@ public:
     int isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
     Expression *modifiableLvalue(Scope *sc, Expression *e);
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-    void cacheLvalue(IRState* irs);
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -820,10 +748,6 @@ public:
     Expression *semantic(Scope *sc, Expressions *arguments);
     MATCH matchType(Type *to, Scope *sc, FuncExp **pfe, int flag = 0);
     char *toChars();
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -843,10 +767,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class TypeidExp : public Expression
@@ -879,10 +799,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class IsExp : public Expression
@@ -992,10 +908,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class DotIdExp : public UnaExp
@@ -1035,11 +947,6 @@ public:
     Expression *toLvalue(Scope *sc, Expression *e);
     Expression *modifiableLvalue(Scope *sc, Expression *e);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    void cacheLvalue(IRState* irs);
-#endif
 };
 
 class DotTemplateInstanceExp : public UnaExp
@@ -1066,10 +973,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class DotTypeExp : public UnaExp
@@ -1080,10 +983,6 @@ public:
     DotTypeExp(Loc loc, Expression *e, Dsymbol *sym);
     Expression *semantic(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class CallExp : public UnaExp
@@ -1108,11 +1007,6 @@ public:
     Expression *addDtorHook(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    void cacheLvalue(IRState* p);
-#endif
 };
 
 class AddrExp : public UnaExp
@@ -1122,11 +1016,6 @@ public:
     Expression *semantic(Scope *sc);
     void checkEscape();
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-#endif
 };
 
 class PtrExp : public UnaExp
@@ -1142,11 +1031,6 @@ public:
     Expression *modifiableLvalue(Scope *sc, Expression *e);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    void cacheLvalue(IRState* irs);
-#endif
 };
 
 class NegExp : public UnaExp
@@ -1156,10 +1040,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class UAddExp : public UnaExp
@@ -1178,10 +1058,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class NotExp : public UnaExp
@@ -1190,10 +1066,6 @@ public:
     NotExp(Loc loc, Expression *e);
     Expression *semantic(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class BoolExp : public UnaExp
@@ -1202,10 +1074,6 @@ public:
     BoolExp(Loc loc, Expression *e, Type *type);
     Expression *semantic(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class DeleteExp : public UnaExp
@@ -1215,10 +1083,6 @@ public:
     Expression *semantic(Scope *sc);
     Expression *checkToBoolean(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class CastExp : public UnaExp
@@ -1235,11 +1099,6 @@ public:
     void checkEscape();
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-#endif
 };
 
 class VectorExp : public UnaExp
@@ -1252,11 +1111,6 @@ public:
     Expression *syntaxCopy();
     Expression *semantic(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState *irs);
-#endif
 };
 
 class SliceExp : public UnaExp
@@ -1278,10 +1132,6 @@ public:
     int isBool(int result);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class ArrayLengthExp : public UnaExp
@@ -1292,10 +1142,6 @@ public:
 
     static Expression *rewriteOpAssign(BinExp *exp);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class IntervalExp : public Expression
@@ -1318,10 +1164,6 @@ public:
     int isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class DelegateFuncptrExp : public UnaExp
@@ -1332,10 +1174,6 @@ public:
     int isLvalue();
     Expression *toLvalue(Scope *sc, Expression *e);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 // e1[a0,a1,a2,a3,...]
@@ -1380,11 +1218,6 @@ public:
     int isBool(int result);
     Expression *addDtorHook(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    void cacheLvalue(IRState* irs);
-#endif
 };
 
 class IndexExp : public BinExp
@@ -1403,11 +1236,6 @@ public:
     Expression *modifiableLvalue(Scope *sc, Expression *e);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    void cacheLvalue(IRState* irs);
-#endif
 };
 
 /* For both i++ and i--
@@ -1418,10 +1246,6 @@ public:
     PostExp(TOK op, Loc loc, Expression *e);
     Expression *semantic(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 /* For both ++i and --i
@@ -1446,11 +1270,6 @@ public:
     Expression *checkToBoolean(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    virtual AssignExp* isAssignExp() { return this; }
-#endif
 };
 
 class ConstructExp : public AssignExp
@@ -1472,10 +1291,6 @@ class AddAssignExp : public BinAssignExp
 public:
     AddAssignExp(Loc loc, Expression *e1, Expression *e2);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class MinAssignExp : public BinAssignExp
@@ -1483,10 +1298,6 @@ class MinAssignExp : public BinAssignExp
 public:
     MinAssignExp(Loc loc, Expression *e1, Expression *e2);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class MulAssignExp : public BinAssignExp
@@ -1494,10 +1305,6 @@ class MulAssignExp : public BinAssignExp
 public:
     MulAssignExp(Loc loc, Expression *e1, Expression *e2);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class DivAssignExp : public BinAssignExp
@@ -1505,10 +1312,6 @@ class DivAssignExp : public BinAssignExp
 public:
     DivAssignExp(Loc loc, Expression *e1, Expression *e2);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class ModAssignExp : public BinAssignExp
@@ -1516,10 +1319,6 @@ class ModAssignExp : public BinAssignExp
 public:
     ModAssignExp(Loc loc, Expression *e1, Expression *e2);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class AndAssignExp : public BinAssignExp
@@ -1527,10 +1326,6 @@ class AndAssignExp : public BinAssignExp
 public:
     AndAssignExp(Loc loc, Expression *e1, Expression *e2);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class OrAssignExp : public BinAssignExp
@@ -1538,10 +1333,6 @@ class OrAssignExp : public BinAssignExp
 public:
     OrAssignExp(Loc loc, Expression *e1, Expression *e2);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class XorAssignExp : public BinAssignExp
@@ -1549,10 +1340,6 @@ class XorAssignExp : public BinAssignExp
 public:
     XorAssignExp(Loc loc, Expression *e1, Expression *e2);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class PowAssignExp : public BinAssignExp
@@ -1561,10 +1348,6 @@ public:
     PowAssignExp(Loc loc, Expression *e1, Expression *e2);
     Expression *semantic(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class ShlAssignExp : public BinAssignExp
@@ -1572,10 +1355,6 @@ class ShlAssignExp : public BinAssignExp
 public:
     ShlAssignExp(Loc loc, Expression *e1, Expression *e2);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class ShrAssignExp : public BinAssignExp
@@ -1583,10 +1362,6 @@ class ShrAssignExp : public BinAssignExp
 public:
     ShrAssignExp(Loc loc, Expression *e1, Expression *e2);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class UshrAssignExp : public BinAssignExp
@@ -1594,10 +1369,6 @@ class UshrAssignExp : public BinAssignExp
 public:
     UshrAssignExp(Loc loc, Expression *e1, Expression *e2);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class CatAssignExp : public BinAssignExp
@@ -1606,10 +1377,6 @@ public:
     CatAssignExp(Loc loc, Expression *e1, Expression *e2);
     Expression *semantic(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class AddExp : public BinExp
@@ -1619,11 +1386,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState* p);
-#endif
 };
 
 class MinExp : public BinExp
@@ -1633,11 +1395,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant *toConstElem(IRState* p);
-#endif
 };
 
 class CatExp : public BinExp
@@ -1647,10 +1404,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class MulExp : public BinExp
@@ -1660,10 +1413,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class DivExp : public BinExp
@@ -1673,10 +1422,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class ModExp : public BinExp
@@ -1686,10 +1431,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class PowExp : public BinExp
@@ -1699,10 +1440,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class ShlExp : public BinExp
@@ -1712,10 +1449,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class ShrExp : public BinExp
@@ -1725,10 +1458,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class UshrExp : public BinExp
@@ -1738,10 +1467,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class AndExp : public BinExp
@@ -1751,10 +1476,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class OrExp : public BinExp
@@ -1764,10 +1485,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class XorExp : public BinExp
@@ -1777,10 +1494,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class OrOrExp : public BinExp
@@ -1790,10 +1503,6 @@ public:
     Expression *semantic(Scope *sc);
     Expression *checkToBoolean(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class AndAndExp : public BinExp
@@ -1803,10 +1512,6 @@ public:
     Expression *semantic(Scope *sc);
     Expression *checkToBoolean(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class CmpExp : public BinExp
@@ -1816,10 +1521,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class InExp : public BinExp
@@ -1829,10 +1530,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 class RemoveExp : public BinExp
@@ -1841,10 +1538,6 @@ public:
     RemoveExp(Loc loc, Expression *e1, Expression *e2);
     Expression *semantic(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 // == and !=
@@ -1856,10 +1549,6 @@ public:
     Expression *semantic(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 // is and !is
@@ -1870,10 +1559,6 @@ public:
     IdentityExp(TOK op, Loc loc, Expression *e1, Expression *e2);
     Expression *semantic(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 /****************************************************************/
@@ -1895,10 +1580,6 @@ public:
     Expression *checkToBoolean(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-#endif
 };
 
 /****************************************************************/

@@ -1086,12 +1086,12 @@ void DtoVarDeclaration(VarDeclaration* vd)
                     {
                         if (isSpecialRefVar(vd))
                         {
-                            LLValue* const val = ce->toElem(gIR)->getLVal();
+                            LLValue* const val = toElem(ce)->getLVal();
                             DtoStore(val, vd->ir.irLocal->value);
                         }
                         else
                         {
-                            DValue* fnval = ce->e1->toElem(gIR);
+                            DValue* fnval = toElem(ce->e1);
                             DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments, vd->ir.irLocal->value);
                         }
                         return;
@@ -1109,7 +1109,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
         {
             // TODO: Refactor this so that it doesn't look like toElem has no effect.
             Logger::println("expression initializer");
-            ex->exp->toElem(gIR);
+            toElem(ex->exp);
         }
     }
 }
@@ -1319,7 +1319,7 @@ LLConstant* DtoConstExpInit(Loc& loc, Type* targetType, Expression* exp)
         targetType->toChars(), exp->toChars());
     LOG_SCOPE
 
-    LLConstant* val = exp->toConstElem(gIR);
+    LLConstant* val = toConstElem(exp, gIR);
 
     // The situation here is a bit tricky: In an ideal world, we would always
     // have val->getType() == DtoType(targetType). But there are two reasons

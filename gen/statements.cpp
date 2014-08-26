@@ -93,7 +93,7 @@ static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
     }
     assert(table->getType() == fn->getFunctionType()->getParamType(0));
 
-    DValue* val = e->toElemDtor(gIR);
+    DValue* val = toElemDtor(e);
     LLValue* llval = val->getRVal();
     assert(llval->getType() == fn->getFunctionType()->getParamType(1));
 
@@ -381,7 +381,7 @@ public:
 
                 // get return pointer
                 DValue* rvar = new DVarValue(f->type->next, f->decl->ir.irFunc->retArg);
-                DValue* e = stmt->exp->toElemDtor(irs);
+                DValue* e = toElemDtor(stmt->exp);
                 // store return value
                 if (rvar->getLVal() != e->getRVal())
                     DtoAssign(stmt->loc, rvar, e);
@@ -411,11 +411,11 @@ public:
                     DValue* dval = 0;
                     // call postblit if necessary
                     if (!irs->func()->type->isref) {
-                        dval = stmt->exp->toElemDtor(irs);
+                        dval = toElemDtor(stmt->exp);
                         callPostblit(stmt->loc, stmt->exp, dval->getRVal());
                     } else {
                         Expression *ae = stmt->exp->addressOf();
-                        dval = ae->toElemDtor(irs);
+                        dval = toElemDtor(ae);
                     }
                     // do abi specific transformations on the return value
                     v = irs->func()->decl->irFty.putRet(stmt->exp->type, dval);
@@ -490,10 +490,10 @@ public:
             // a cast(void) around the expression is allowed, but doesn't require any code
             if (stmt->exp->op == TOKcast && stmt->exp->type == Type::tvoid) {
                 CastExp* cexp = static_cast<CastExp*>(stmt->exp);
-                e = cexp->e1->toElemDtor(irs);
+                e = toElemDtor(cexp->e1);
             }
             else
-                e = stmt->exp->toElemDtor(irs);
+                e = toElemDtor(stmt->exp);
             delete e;
         }
         /*elem* e = exp->toElem(irs);
@@ -513,7 +513,7 @@ public:
         if (stmt->match)
             DtoRawVarDeclaration(stmt->match);
 
-        DValue* cond_e = stmt->condition->toElemDtor(irs);
+        DValue* cond_e = toElemDtor(stmt->condition);
         LLValue* cond_val = cond_e->getRVal();
 
         llvm::BasicBlock* oldend = gIR->scopeend();
@@ -620,7 +620,7 @@ public:
         gIR->scope() = IRScope(whilebb, endbb);
 
         // create the condition
-        DValue* cond_e = stmt->condition->toElemDtor(irs);
+        DValue* cond_e = toElemDtor(stmt->condition);
         LLValue* cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
         delete cond_e;
 
@@ -680,7 +680,7 @@ public:
         gIR->scope() = IRScope(condbb,endbb);
 
         // create the condition
-        DValue* cond_e = stmt->condition->toElemDtor(irs);
+        DValue* cond_e = toElemDtor(stmt->condition);
         LLValue* cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
         delete cond_e;
 
@@ -736,7 +736,7 @@ public:
         llvm::Value* cond_val;
         if (stmt->condition)
         {
-            DValue* cond_e = stmt->condition->toElemDtor(irs);
+            DValue* cond_e = toElemDtor(stmt->condition);
             cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
             delete cond_e;
         }
@@ -763,7 +763,7 @@ public:
 
         // increment
         if (stmt->increment) {
-            DValue* inc = stmt->increment->toElemDtor(irs);
+            DValue* inc = toElemDtor(stmt->increment);
             delete inc;
         }
 
@@ -1071,7 +1071,7 @@ public:
         gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
 
         assert(stmt->exp);
-        DValue* e = stmt->exp->toElemDtor(irs);
+        DValue* e = toElemDtor(stmt->exp);
 
         gIR->DBuilder.EmitFuncEnd(gIR->func()->decl);
 
@@ -1123,7 +1123,7 @@ public:
             if (cs->exp->op == TOKvar)
                 vd = static_cast<VarExp*>(cs->exp)->var->isVarDeclaration();
             if (vd && (!vd->init || !vd->isConst())) {
-                cs->llvmIdx = cs->exp->toElemDtor(irs)->getRVal();
+                cs->llvmIdx = toElemDtor(cs->exp)->getRVal();
                 useSwitchInst = false;
             }
         }
@@ -1179,7 +1179,7 @@ public:
                     Case* c = static_cast<Case*>(caseArray.data[i]);
                     CaseStatement* cs = static_cast<CaseStatement*>(stmt->cases->data[c->index]);
                     cs->llvmIdx = DtoConstUint(i);
-                    inits[i] = c->str->toConstElem(irs);
+                    inits[i] = toConstElem(c->str, irs);
                 }
                 // build static array for ptr or final array
                 LLType* elemTy = DtoType(stmt->condition->type);
@@ -1201,7 +1201,7 @@ public:
             LLValue* condVal;
             // integral switch
             if (stmt->condition->type->isintegral()) {
-                DValue* cond = stmt->condition->toElemDtor(irs);
+                DValue* cond = toElemDtor(stmt->condition);
                 condVal = cond->getRVal();
             }
             // string switch
@@ -1221,7 +1221,7 @@ public:
         }
         else
         { // we can't use switch, so we will use a bunch of br instructions instead
-            DValue* cond = stmt->condition->toElemDtor(irs);
+            DValue* cond = toElemDtor(stmt->condition);
             LLValue *condVal = cond->getRVal();
 
             llvm::BasicBlock* nextbb = llvm::BasicBlock::Create(gIR->context(), "checkcase", irs->topfunc(), oldend);
@@ -1266,7 +1266,7 @@ public:
         stmt->bodyBB = nbb;
 
         if (stmt->llvmIdx == NULL) {
-            llvm::Constant *c = stmt->exp->toConstElem(irs);
+            llvm::Constant *c = toConstElem(stmt->exp, irs);
             stmt->llvmIdx = isaConstantInt(c);
         }
 
@@ -1418,7 +1418,7 @@ public:
         }
 
         // what to iterate
-        DValue* aggrval = stmt->aggr->toElemDtor(irs);
+        DValue* aggrval = toElemDtor(stmt->aggr);
 
         // get length and pointer
         LLValue* niters = DtoArrayLen(aggrval);
@@ -1520,9 +1520,9 @@ public:
 
         // evaluate lwr/upr
         assert(stmt->lwr->type->isintegral());
-        LLValue* lower = stmt->lwr->toElemDtor(irs)->getRVal();
+        LLValue* lower = toElemDtor(stmt->lwr)->getRVal();
         assert(stmt->upr->type->isintegral());
-        LLValue* upper = stmt->upr->toElemDtor(irs)->getRVal();
+        LLValue* upper = toElemDtor(stmt->upr)->getRVal();
 
         // handle key
         assert(stmt->key->type->isintegral());
@@ -1729,7 +1729,7 @@ public:
         // with(..) can either be used with expressions or with symbols
         // wthis == null indicates the symbol form
         if (stmt->wthis) {
-            DValue* e = stmt->exp->toElemDtor(irs);
+            DValue* e = toElemDtor(stmt->exp);
             LLValue* mem = DtoRawVarDeclaration(stmt->wthis);
             DtoStore(e->getRVal(), mem);
         }

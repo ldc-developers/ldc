@@ -235,4 +235,8 @@ FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic);
 void Declaration_codegen(Dsymbol *decl);
 void Declaration_codegen(Dsymbol *decl, IRState *irs);
 
+DValue *toElem(Expression *e);
+DValue *toElemDtor(Expression *e);
+LLConstant *toConstElem(Expression *e, IRState *p);
+
 #endif

@@ -1286,7 +1286,7 @@ DValue* DtoArgument(Parameter* fnarg, Expression* argexp)
     IF_LOG Logger::println("DtoArgument");
     LOG_SCOPE;
 
-    DValue* arg = argexp->toElem(gIR);
+    DValue* arg = toElem(argexp);
 
     // ref/out arg
     if (fnarg && (fnarg->storageClass & (STCref | STCout)))
@@ -1320,7 +1320,7 @@ void DtoVariadicArgument(Expression* argexp, LLValue* dst)
     IF_LOG Logger::println("DtoVariadicArgument");
     LOG_SCOPE;
     DVarValue vv(argexp->type, dst);
-    DtoAssign(argexp->loc, &vv, argexp->toElem(gIR));
+    DtoAssign(argexp->loc, &vv, toElem(argexp));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -684,7 +684,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     // The cases where getRTInfo is null are not quite here, but the code is
     // modelled after what DMD does.
     if (sd->getRTInfo)
-        b.push(sd->getRTInfo->toConstElem(gIR));
+        b.push(toConstElem(sd->getRTInfo, gIR));
     else if (!tc->hasPointers())
         b.push_size_as_vp(0);       // no pointers
     else
