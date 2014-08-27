@@ -257,8 +257,8 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
             # Building the std.range tests triggers an assertion error on
             # every LLVM release before 3.3. See PR15608.
             string(REPLACE "-O3" "-O1" cur_d_flags "${cur_d_flags}")
-        elseif(${LDC_LLVM_VER} LESS 304 AND "${input_d}" MATCHES "rt/util/container.d")
-            # Building the rt.util.container tests triggers a bug in the
+        elseif(${LDC_LLVM_VER} LESS 304 AND "${input_d}" MATCHES "rt/util/container/array.d")
+            # Building the rt.util.container.array tests triggers a bug in the
             # jump threading pass on every LLVM release before 3.4.
             # See PR17621.
             string(REPLACE "-O3" "-O1" cur_d_flags "${cur_d_flags}")
