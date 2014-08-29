@@ -9,6 +9,7 @@ endif()
 
 include(CheckIncludeFile)
 include(CheckLibraryExists)
+include(CheckCXXCompilerFlag)
 
 #
 # Locate LLVM.
@@ -118,6 +119,10 @@ if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
     #  * -Wpedantic warns on trailing commas in initializer lists and casting
     #    function pointers to void*.
     append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor -Wno-pedantic" LDC_CXXFLAGS)
+    check_cxx_compiler_flag("-Wno-pedantic" CXX_SUPPORTS_NO_PEDANTIC)
+    if(CXX_SUPPORTS_NO_PEDANTIC)
+        append("-Wno-pedantic" LDC_CXXFLAGS)
+    endif()
 endif()
 # Append -mminimal-toc for gcc 4.0.x - 4.5.x on ppc64
 if( CMAKE_COMPILER_IS_GNUCXX
