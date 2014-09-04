@@ -130,6 +130,9 @@ if( CMAKE_COMPILER_IS_GNUCXX
     AND CMAKE_C_COMPILER_VERSION MATCHES ".*4\\.[0-5].*" )
     append("-mminimal-toc" DMD_CXXFLAGS LDC_CXXFLAGS)
 endif()
+if(UNIX)
+    append("-DPOSIX" DMD_CXXFLAGS)
+endif()
 set(SANITIZE_CXXFLAGS)
 set(SANITIZE_LDFLAGS)
 if(SANITIZE)
@@ -324,10 +327,6 @@ add_definitions(
     -DLDC_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"
     -DLDC_LLVM_VER=${LDC_LLVM_VER}
 )
-
-if(UNIX)
-    add_definitions(-DPOSIX)
-endif()
 
 if(USE_BOEHM_GC)
     add_definitions(-DREDIRECT_MALLOC=GC_malloc -DIGNORE_FREE)
