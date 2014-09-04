@@ -550,8 +550,8 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
             else if (tempdecl->llvmInternal == LLVMintrinsic)
             {
                 Logger::println("overloaded intrinsic found");
-                fdecl->llvmInternal = LLVMintrinsic;
-                DtoOverloadedIntrinsicName(tinst, tempdecl, fdecl->intrinsicName);
+                assert(fdecl->llvmInternal == LLVMintrinsic);
+                assert(fdecl->mangleOverride);
             }
             else if (tempdecl->llvmInternal == LLVMinline_asm)
             {
@@ -788,11 +788,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     }
 
     // mangled name
-    std::string mangledName;
-    if (fdecl->llvmInternal == LLVMintrinsic)
-        mangledName = fdecl->intrinsicName;
-    else
-        mangledName = fdecl->mangleExact();
+    std::string mangledName(fdecl->mangleExact());
     mangledName = gABI->mangleForLLVM(mangledName, link);
 
     // construct function

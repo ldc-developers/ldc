@@ -34,6 +34,11 @@
 #include "id.h"
 #include "attrib.h"
 
+#if IN_LLVM
+#include "gen/pragma.h"
+void DtoOverloadedIntrinsicName(TemplateInstance* ti, TemplateDeclaration* td, std::string& name);
+#endif
+
 #define LOG     0
 
 #define IDX_NOTFOUND (0x12345678)               // index is not found
@@ -5575,7 +5580,12 @@ void TemplateInstance::semantic(Scope *sc, Expressions *fargs)
                 if (tempdecl->llvmInternal) {
                     s->llvmInternal = tempdecl->llvmInternal;
                     if (FuncDeclaration* fd = s->isFuncDeclaration()) {
-                        fd->intrinsicName = tempdecl->intrinsicName;
+                        if (fd->llvmInternal == LLVMintrinsic) {
+                            DtoOverloadedIntrinsicName(this, tempdecl, fd->intrinsicName);
+                            fd->mangleOverride = strdup(fd->intrinsicName.c_str());
+                        }
+                        else
+                            fd->intrinsicName = tempdecl->intrinsicName;
                     }
                 }
 #endif
