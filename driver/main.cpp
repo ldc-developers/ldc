@@ -62,7 +62,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#if POSIX
+#if LDC_POSIX
 #include <errno.h>
 #elif _WIN32
 #include <windows.h>
@@ -1074,7 +1074,7 @@ int main(int argc, char **argv)
         ext = FileName::ext(p);
         if (ext)
         {
-#if POSIX
+#if LDC_POSIX
             if (strcmp(ext, global.obj_ext) == 0 ||
                 strcmp(ext, global.bc_ext) == 0)
 #else
@@ -1087,7 +1087,7 @@ int main(int argc, char **argv)
                 continue;
             }
 
-#if POSIX
+#if LDC_POSIX
             if (strcmp(ext, "a") == 0)
 #elif __MINGW32__
             if (Port::stricmp(ext, "a") == 0)
@@ -1112,7 +1112,7 @@ int main(int argc, char **argv)
                 continue;
             }
 
-#if !POSIX
+#if !LDC_POSIX
             if (Port::stricmp(ext, "res") == 0)
             {
                 global.params.resfile = static_cast<const char *>(files.data[i]);
