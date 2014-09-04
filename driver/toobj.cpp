@@ -129,12 +129,13 @@ void writeModule(llvm::Module* m, std::string filename)
     // run optimizer
     ldc_optimize_module(m);
 
+#if LDC_LLVM_VER >= 305
+    // Starting with LLVM 3.5 the integrated assembler can be used with MinGW.
+    bool const assembleExternally = false;
+#else
     // We don't use the integrated assembler with MinGW as it does not support
     // emitting DW2 exception handling tables.
     bool const assembleExternally = global.params.output_o &&
-#if LDC_LLVM_VER >= 305
-        global.params.targetTriple.isWindowsGNUEnvironment();
-#else
         global.params.targetTriple.getOS() == llvm::Triple::MinGW32;
 #endif
 
