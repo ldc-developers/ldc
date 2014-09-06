@@ -233,7 +233,8 @@ Usage:\n\
 \n\
   files.d        D source files\n\
   @cmdfile       read arguments from cmdfile\n\
-  -c             do not link\n"
+  -c             do not link\n\
+  -color[=on|off]   force colored console output on or off\n"
 #if 0
 "  -cov           do code coverage analysis\n"
 #endif
@@ -380,6 +381,16 @@ void appendEnvVar(const char* envVarName, std::vector<char*>& args)
     }
 }
 
+struct Color
+{
+    enum Type
+    {
+        automatic,
+        on,
+        off
+    };
+};
+
 struct Debug
 {
     enum Type
@@ -460,6 +471,7 @@ struct Params
     char* defaultLibName;
     char* debugLibName;
     char* moduleDepsFile;
+    Color::Type color;
 
     bool hiddenDebugB;
     bool hiddenDebugC;
@@ -519,6 +531,7 @@ struct Params
     defaultLibName(0),
     debugLibName(0),
     moduleDepsFile(0),
+    color(Color::automatic),
     hiddenDebugB(false),
     hiddenDebugC(false),
     hiddenDebugF(false),
@@ -557,6 +570,22 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
                 result.allowDeprecated = true;
             else if (strcmp(p + 1, "c") == 0)
                 result.compileOnly = true;
+            else if (strncmp(p + 1, "color", 5) == 0)
+            {
+                result.color = Color::on;
+                // Parse:
+                //      -color
+                //      -color=on|off
+                if (p[6] == '=')
+                {
+                    if (strcmp(p + 7, "off") == 0)
+                        result.color = Color::off;
+                    else if (strcmp(p + 7, "on") != 0)
+                        goto Lerror;
+                }
+                else if (p[6])
+                    goto Lerror;
+            }
             else if (strcmp(p + 1, "cov") == 0)
                 result.coverage = true;
             else if (strcmp(p + 1, "shared") == 0
@@ -933,6 +962,8 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.defaultLibName) r.push_back(concat("-defaultlib=", p.defaultLibName));
     if (p.debugLibName) r.push_back(concat("-debuglib=", p.debugLibName));
     if (p.moduleDepsFile) r.push_back(concat("-deps=", p.moduleDepsFile));
+    if (p.color == Color::on) r.push_back("-enable-color");
+    if (p.color == Color::off) r.push_back("-disable-color");
     if (p.hiddenDebugB) r.push_back("-hidden-debug-b");
     if (p.hiddenDebugC) r.push_back("-hidden-debug-c");
     if (p.hiddenDebugF) r.push_back("-hidden-debug-f");

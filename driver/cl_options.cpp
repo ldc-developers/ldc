@@ -406,6 +406,9 @@ cl::opt<bool, true> vgc("vgc",
     cl::desc("list all gc allocations including hidden ones"),
     cl::location(global.params.vgc));
 
+cl::opt<bool, true, FlagParser> color("color",
+    cl::desc("Force colored console output"),
+    cl::location(global.params.color));
 
 static cl::extrahelp footer("\n"
 "-d-debug can also be specified without options, in which case it enables all\n"

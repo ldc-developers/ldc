@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "module.h"
+#include "color.h"
 #include "doc.h"
 #include "id.h"
 #include "hdrgen.h"
@@ -267,6 +268,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     // Set some default values.
     global.params.useSwitchError = 1;
     global.params.useArrayBounds = 2;
+    global.params.color = isConsoleColorSupported();
 
     global.params.linkswitches = new Strings();
     global.params.libfiles = new Strings();
