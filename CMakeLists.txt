@@ -118,7 +118,7 @@ if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
     #    and it triggers for the visitors we need in our glue code
     #  * -Wpedantic warns on trailing commas in initializer lists and casting
     #    function pointers to void*.
-    append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor -Wno-pedantic" LDC_CXXFLAGS)
+    append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor" LDC_CXXFLAGS)
     check_cxx_compiler_flag("-Wno-pedantic" CXX_SUPPORTS_NO_PEDANTIC)
     if(CXX_SUPPORTS_NO_PEDANTIC)
         append("-Wno-pedantic" LDC_CXXFLAGS)
