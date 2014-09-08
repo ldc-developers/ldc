@@ -53,7 +53,8 @@ IrDsymbol::~IrDsymbol()
     }
 
     std::vector<IrDsymbol*>::iterator it = std::find(list.rbegin(), list.rend(), this).base();
-    list.erase(it);
+    // base() returns the iterator _after_ the found position
+    list.erase(--it);
 }
 
 void IrDsymbol::reset()
