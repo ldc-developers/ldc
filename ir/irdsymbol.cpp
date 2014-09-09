@@ -12,60 +12,66 @@
 #include "ir/irdsymbol.h"
 #include "ir/irvar.h"
 
-std::set<IrDsymbol*> IrDsymbol::list;
+std::vector<IrDsymbol*> IrDsymbol::list;
 
 void IrDsymbol::resetAll()
 {
     Logger::println("resetting %zu Dsymbols", list.size());
-    std::set<IrDsymbol*>::iterator it;
-    for(it = list.begin(); it != list.end(); ++it)
+
+    for (std::vector<IrDsymbol*>::iterator it = list.begin(), end = list.end(); it != end; ++it)
         (*it)->reset();
 }
 
 IrDsymbol::IrDsymbol()
 {
-    bool incr = list.insert(this).second;
-    assert(incr);
+    list.push_back(this);
     reset();
 }
 
 IrDsymbol::IrDsymbol(const IrDsymbol& s)
 {
-    bool incr = list.insert(this).second;
-    assert(incr);
-    DModule = s.DModule;
+    list.push_back(this);
+    DModule  = s.DModule;
     irModule = s.irModule;
-    irAggr = s.irAggr;
-    irFunc = s.irFunc;
+    irAggr   = s.irAggr;
+    irFunc   = s.irFunc;
+    irGlobal = s.irGlobal;
+    irLocal  = s.irLocal;
+    irField  = s.irField;
     resolved = s.resolved;
     declared = s.declared;
     initialized = s.initialized;
-    defined = s.defined;
-    irGlobal = s.irGlobal;
-    irLocal = s.irLocal;
-    irField = s.irField;
+    defined  = s.defined;
 }
 
 IrDsymbol::~IrDsymbol()
 {
-    list.erase(this);
+    if (this == list.back())
+    {
+        list.pop_back();
+        return;
+    }
+
+    std::vector<IrDsymbol*>::iterator it = std::find(list.rbegin(), list.rend(), this).base();
+    // base() returns the iterator _after_ the found position
+    list.erase(--it);
 }
 
 void IrDsymbol::reset()
 {
-    DModule = NULL;
+    DModule  = NULL;
     irModule = NULL;
-    irAggr = NULL;
-    irFunc = NULL;
-    resolved = declared = initialized = defined = false;
+    irAggr   = NULL;
+    irFunc   = NULL;
     irGlobal = NULL;
-    irLocal = NULL;
-    irField = NULL;
+    irLocal  = NULL;
+    irField  = NULL;
+    resolved = declared = initialized = defined = false;
 }
 
 bool IrDsymbol::isSet()
 {
-    return (irAggr || irFunc || irGlobal || irLocal || irField);
+    return irAggr || irFunc || irGlobal || irLocal || irField;
 }
 
 IrVar* IrDsymbol::getIrVar()

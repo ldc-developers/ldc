@@ -14,7 +14,7 @@
 #ifndef LDC_IR_IRDSYMBOL_H
 #define LDC_IR_IRDSYMBOL_H
 
-#include <set>
+#include <vector>
 
 struct IrModule;
 struct IrFunction;
@@ -33,7 +33,7 @@ namespace llvm {
 
 struct IrDsymbol
 {
-    static std::set<IrDsymbol*> list;
+    static std::vector<IrDsymbol*> list;
     static void resetAll();
 
     // overload all of these to make sure
@@ -44,25 +44,21 @@ struct IrDsymbol
 
     void reset();
 
-    Module* DModule;
-
-    bool resolved;
-    bool declared;
-    bool initialized;
-    bool defined;
-
-    IrModule* irModule;
-
-    IrAggr* irAggr;
-
+    Module*     DModule;
+    IrModule*   irModule;
+    IrAggr*     irAggr;
     IrFunction* irFunc;
-
-    IrGlobal* irGlobal;
+    IrGlobal*   irGlobal;
     union {
         IrLocal* irLocal;
         IrParameter *irParam;
     };
     IrField* irField;
+    bool resolved;
+    bool declared;
+    bool initialized;
+    bool defined;
+
     IrVar* getIrVar();
     llvm::Value*& getIrValue();
 
