@@ -229,8 +229,6 @@ public:
 
     void toObjFile(bool multiobj);                       // compile to .obj file
 
-#if IN_DMD
-#endif
     TypedefDeclaration *isTypedefDeclaration() { return this; }
 
 #if IN_DMD
@@ -380,8 +378,6 @@ public:
 
     SymbolDeclaration(Loc loc, StructDeclaration *dsym);
 
-#if IN_DMD
-#endif
     // Eliminate need for dynamic_cast
     SymbolDeclaration *isSymbolDeclaration() { return (SymbolDeclaration *)this; }
     void accept(Visitor *v) { v->visit(this); }
@@ -395,9 +391,6 @@ public:
     ClassInfoDeclaration(ClassDeclaration *cd);
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
-
-#if IN_DMD
-#endif
 
     ClassInfoDeclaration* isClassInfoDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
@@ -431,9 +424,6 @@ public:
     TypeInfoStructDeclaration(Type *tinfo);
     static TypeInfoStructDeclaration *create(Type *tinfo);
 
-#if IN_DMD
-#endif
-
 #if IN_LLVM
     void llvmDefine();
 #endif
@@ -446,10 +436,6 @@ class TypeInfoClassDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoClassDeclaration(Type *tinfo);
     static TypeInfoClassDeclaration *create(Type *tinfo);
-
-#if IN_DMD
-    Symbol *toSymbol();
-#endif
 
 #if IN_LLVM
     // TypeInfoClassDeclaration instances are different; they describe
@@ -468,9 +454,6 @@ public:
     TypeInfoInterfaceDeclaration(Type *tinfo);
     static TypeInfoInterfaceDeclaration *create(Type *tinfo);
 
-#if IN_DMD
-#endif
-
 #if IN_LLVM
     void llvmDefine();
 #endif
@@ -483,9 +466,6 @@ class TypeInfoTypedefDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoTypedefDeclaration(Type *tinfo);
     static TypeInfoTypedefDeclaration *create(Type *tinfo);
-
-#if IN_DMD
-#endif
 
 #if IN_LLVM
     void llvmDefine();
@@ -500,9 +480,6 @@ public:
     TypeInfoPointerDeclaration(Type *tinfo);
     static TypeInfoPointerDeclaration *create(Type *tinfo);
 
-#if IN_DMD
-#endif
-
 #if IN_LLVM
     void llvmDefine();
 #endif
@@ -515,9 +492,6 @@ class TypeInfoArrayDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoArrayDeclaration(Type *tinfo);
     static TypeInfoArrayDeclaration *create(Type *tinfo);
-
-#if IN_DMD
-#endif
 
 #if IN_LLVM
     void llvmDefine();
@@ -532,9 +506,6 @@ public:
     TypeInfoStaticArrayDeclaration(Type *tinfo);
     static TypeInfoStaticArrayDeclaration *create(Type *tinfo);
 
-#if IN_DMD
-#endif
-
 #if IN_LLVM
     void llvmDefine();
 #endif
@@ -547,9 +518,6 @@ class TypeInfoAssociativeArrayDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoAssociativeArrayDeclaration(Type *tinfo);
     static TypeInfoAssociativeArrayDeclaration *create(Type *tinfo);
-
-#if IN_DMD
-#endif
 
 #if IN_LLVM
     void llvmDefine();
@@ -564,9 +532,6 @@ public:
     TypeInfoEnumDeclaration(Type *tinfo);
     static TypeInfoEnumDeclaration *create(Type *tinfo);
 
-#if IN_DMD
-#endif
-
 #if IN_LLVM
     void llvmDefine();
 #endif
@@ -579,9 +544,6 @@ class TypeInfoFunctionDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoFunctionDeclaration(Type *tinfo);
     static TypeInfoFunctionDeclaration *create(Type *tinfo);
-
-#if IN_DMD
-#endif
 
 #if IN_LLVM
     void llvmDefine();
@@ -596,9 +558,6 @@ public:
     TypeInfoDelegateDeclaration(Type *tinfo);
     static TypeInfoDelegateDeclaration *create(Type *tinfo);
 
-#if IN_DMD
-#endif
-
 #if IN_LLVM
     void llvmDefine();
 #endif
@@ -611,9 +570,6 @@ class TypeInfoTupleDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoTupleDeclaration(Type *tinfo);
     static TypeInfoTupleDeclaration *create(Type *tinfo);
-
-#if IN_DMD
-#endif
 
 #if IN_LLVM
     void llvmDefine();
@@ -628,9 +584,6 @@ public:
     TypeInfoConstDeclaration(Type *tinfo);
     static TypeInfoConstDeclaration *create(Type *tinfo);
 
-#if IN_DMD
-#endif
-
 #if IN_LLVM
     void llvmDefine();
 #endif
@@ -643,9 +596,6 @@ class TypeInfoInvariantDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoInvariantDeclaration(Type *tinfo);
     static TypeInfoInvariantDeclaration *create(Type *tinfo);
-
-#if IN_DMD
-#endif
 
 #if IN_LLVM
     void llvmDefine();
@@ -660,9 +610,6 @@ public:
     TypeInfoSharedDeclaration(Type *tinfo);
     static TypeInfoSharedDeclaration *create(Type *tinfo);
 
-#if IN_DMD
-#endif
-
 #if IN_LLVM
     void llvmDefine();
 #endif
@@ -676,9 +623,6 @@ public:
     TypeInfoWildDeclaration(Type *tinfo);
     static TypeInfoWildDeclaration *create(Type *tinfo);
 
-#if IN_DMD
-#endif
-
 #if IN_LLVM
     void llvmDefine();
 #endif
@@ -691,9 +635,6 @@ class TypeInfoVectorDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoVectorDeclaration(Type *tinfo);
     static TypeInfoVectorDeclaration *create(Type *tinfo);
-
-#if IN_DMD
-#endif
 
 #if IN_LLVM
     void llvmDefine();
@@ -825,8 +766,6 @@ public:
                                         // functions
     FuncDeclarations siblingCallers;    // Sibling nested functions which
                                         // called this one
-#if IN_DMD
-#endif
 
     unsigned flags;
 
@@ -957,8 +896,6 @@ public:
 
     FuncAliasDeclaration *isFuncAliasDeclaration() { return this; }
     const char *kind();
-#if IN_DMD
-#endif
 
     FuncDeclaration *toAliasFunc();
     void accept(Visitor *v) { v->visit(this); }

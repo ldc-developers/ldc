@@ -160,12 +160,6 @@ Expression *interpret(Expression *e, InterState *istate, CtfeGoal goal);
 // Same as WANTvalue, but also expand variables as far as possible
 #define WANTexpand  8
 
-#if IN_LLVM
-DValue *toElem(Expression *e, IRState *p);
-DValue *toElemDtor(Expression *e, IRState *p);
-llvm::Constant *toConstElem(Expression *e, IRState *p);
-#endif
-
 class Expression : public RootObject
 {
 public:
