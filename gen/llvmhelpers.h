@@ -147,9 +147,6 @@ bool hasUnalignedFields(Type* t);
 ///
 DValue* DtoInlineAsmExpr(Loc& loc, FuncDeclaration* fd, Expressions* arguments);
 
-/// Create the IrModule if necessary and returns it.
-IrModule* getIrModule(Module* M);
-
 /// Update an offset to make sure it follows both the D and LLVM alignments.
 /// Returns the offset rounded up to the closest safely aligned offset.
 size_t realignOffset(size_t offset, Type* type);

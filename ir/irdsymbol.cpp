@@ -22,7 +22,8 @@ void IrDsymbol::resetAll()
         (*it)->reset();
 }
 
-IrDsymbol::IrDsymbol()
+IrDsymbol::IrDsymbol() :
+    m_type(NotSet)
 {
     list.push_back(this);
     reset();
@@ -31,12 +32,8 @@ IrDsymbol::IrDsymbol()
 IrDsymbol::IrDsymbol(const IrDsymbol& s)
 {
     list.push_back(this);
-    irModule = s.irModule;
-    irAggr   = s.irAggr;
-    irFunc   = s.irFunc;
-    irGlobal = s.irGlobal;
-    irLocal  = s.irLocal;
-    irField  = s.irField;
+    irData   = s.irData;
+    m_type     = s.m_type;
     resolved = s.resolved;
     declared = s.declared;
     initialized = s.initialized;
@@ -58,24 +55,6 @@ IrDsymbol::~IrDsymbol()
 
 void IrDsymbol::reset()
 {
-    irModule = NULL;
-    irAggr   = NULL;
-    irFunc   = NULL;
-    irGlobal = NULL;
-    irLocal  = NULL;
-    irField  = NULL;
+    irData = NULL;
     resolved = declared = initialized = defined = false;
 }
-
-bool IrDsymbol::isSet()
-{
-    return irAggr || irFunc || irGlobal || irLocal || irField;
-}
-
-IrVar* IrDsymbol::getIrVar()
-{
-    assert(irGlobal || irLocal || irField);
-    return irGlobal ? static_cast<IrVar*>(irGlobal) : irLocal ? static_cast<IrVar*>(irLocal) : static_cast<IrVar*>(irField);
-}
-
-llvm::Value*& IrDsymbol::getIrValue() { return getIrVar()->value; }

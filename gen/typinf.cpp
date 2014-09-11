@@ -307,7 +307,7 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid)
         if (!meta) {
             // Construct the fields
             MDNodeField* mdVals[TD_NumFields];
-            mdVals[TD_TypeInfo] = llvm::cast<MDNodeField>(tid->ir.irGlobal->value);
+            mdVals[TD_TypeInfo] = llvm::cast<MDNodeField>(getIrGlobal(tid)->value);
             mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
 
             // Construct the metadata and insert it into the module.
@@ -342,8 +342,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p)
         Logger::println("typeinfo mangle: %s", mangled.c_str());
     }
 
-    IrGlobal* irg = new IrGlobal(decl);
-    decl->ir.irGlobal = irg;
+    IrGlobal* irg = getIrGlobal(decl, true);
     irg->value = gIR->module->getGlobalVariable(mangled);
     if (irg->value) {
         irg->type = irg->value->getType()->getContainedType(0);
@@ -378,7 +377,7 @@ void TypeInfoDeclaration::llvmDefine()
     LOG_SCOPE;
 
     RTTIBuilder b(Type::dtypeinfo);
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -416,7 +415,7 @@ void TypeInfoTypedefDeclaration::llvmDefine()
     }
 
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -463,7 +462,7 @@ void TypeInfoEnumDeclaration::llvmDefine()
     }
 
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -477,7 +476,7 @@ void TypeInfoPointerDeclaration::llvmDefine()
     // TypeInfo base
     b.push_typeinfo(tinfo->nextOf());
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -491,7 +490,7 @@ void TypeInfoArrayDeclaration::llvmDefine()
     // TypeInfo base
     b.push_typeinfo(tinfo->nextOf());
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -513,7 +512,7 @@ void TypeInfoStaticArrayDeclaration::llvmDefine()
     b.push(DtoConstSize_t(static_cast<size_t>(tc->dim->toUInteger())));
 
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -538,7 +537,7 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
     b.push_typeinfo(tc->getImpl()->type);
 
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -554,7 +553,7 @@ void TypeInfoFunctionDeclaration::llvmDefine()
     // string deco
     b.push_string(tinfo->deco);
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -573,7 +572,7 @@ void TypeInfoDelegateDeclaration::llvmDefine()
     // string deco
     b.push_string(tinfo->deco);
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -591,7 +590,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     // handle opaque structs
     if (!sd->members) {
         RTTIBuilder b(Type::typeinfostruct);
-        b.finalize(ir.irGlobal);
+        b.finalize(getIrGlobal(this));
         return;
     }
 
@@ -603,7 +602,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     }
 
     DtoResolveStruct(sd);
-    IrAggr* iraggr = sd->ir.irAggr;
+    IrAggr* iraggr = getIrAggr(sd);
 
     RTTIBuilder b(Type::typeinfostruct);
 
@@ -692,7 +691,7 @@ void TypeInfoStructDeclaration::llvmDefine()
         b.push_size_as_vp(1);       // has pointers
 
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -702,14 +701,13 @@ void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p)
     // For classes, the TypeInfo is in fact a ClassInfo instance and emitted
     // as a __ClassZ symbol. For interfaces, the __InterfaceZ symbol is
     // referenced as "info" member in a (normal) TypeInfo_Interface instance.
-    IrGlobal *irg = new IrGlobal(decl);
-    decl->ir.irGlobal = irg;
+    IrGlobal *irg = getIrGlobal(decl, true);
 
     assert(decl->tinfo->ty == Tclass);
     TypeClass *tc = static_cast<TypeClass *>(decl->tinfo);
     DtoResolveClass(tc->sym);
 
-    irg->value = tc->sym->ir.irAggr->getClassInfoSymbol();
+    irg->value = getIrAggr(tc->sym)->getClassInfoSymbol();
     irg->type = irg->value->getType()->getContainedType(0);
 
     if (!tc->sym->isInterfaceDeclaration())
@@ -742,7 +740,7 @@ void TypeInfoInterfaceDeclaration::llvmDefine()
     b.push_classinfo(tc->sym);
 
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -778,7 +776,7 @@ void TypeInfoTupleDeclaration::llvmDefine()
     b.push_array(arrC, dim, Type::dtypeinfo->type, NULL);
 
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -792,7 +790,7 @@ void TypeInfoConstDeclaration::llvmDefine()
     // TypeInfo base
     b.push_typeinfo(tinfo->mutableOf()->merge());
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -806,7 +804,7 @@ void TypeInfoInvariantDeclaration::llvmDefine()
     // TypeInfo base
     b.push_typeinfo(tinfo->mutableOf()->merge());
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -820,7 +818,7 @@ void TypeInfoSharedDeclaration::llvmDefine()
     // TypeInfo base
     b.push_typeinfo(tinfo->unSharedOf()->merge());
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -834,7 +832,7 @@ void TypeInfoWildDeclaration::llvmDefine()
     // TypeInfo base
     b.push_typeinfo(tinfo->mutableOf()->merge());
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }
 
 /* ========================================================================= */
@@ -851,5 +849,5 @@ void TypeInfoVectorDeclaration::llvmDefine()
     // TypeInfo base
     b.push_typeinfo(tv->basetype);
     // finish
-    b.finalize(ir.irGlobal);
+    b.finalize(getIrGlobal(this));
 }

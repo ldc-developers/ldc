@@ -18,6 +18,7 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "ir/iraggr.h"
+#include "irdsymbol.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
 #include <algorithm>
@@ -375,4 +376,23 @@ void IrAggr::addFieldInitializers(
             }
         }
     }
+}
+
+IrAggr *getIrAggr(AggregateDeclaration *decl, bool create)
+{
+    if (!isIrAggrCreated(decl) && create)
+    {
+        assert(decl->ir.irAggr == NULL);
+        decl->ir.irAggr = new IrAggr(decl);
+        decl->ir.m_type = IrDsymbol::AggrType;
+    }
+    assert(decl->ir.irAggr != NULL);
+    return decl->ir.irAggr;
+}
+
+bool isIrAggrCreated(AggregateDeclaration *decl)
+{
+    int t = decl->ir.type();
+    assert(t == IrDsymbol::AggrType || t == IrDsymbol::NotSet);
+    return t == IrDsymbol::AggrType;
 }

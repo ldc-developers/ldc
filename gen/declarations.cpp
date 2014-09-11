@@ -79,8 +79,9 @@ public:
             DtoTypeInfoOf(decl->type);
 
             // Define __InterfaceZ.
-            llvm::GlobalVariable *interfaceZ = decl->ir.irAggr->getClassInfoSymbol();
-            interfaceZ->setInitializer(decl->ir.irAggr->getClassInfoInit());
+            IrAggr *ir = getIrAggr(decl);
+            llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
+            interfaceZ->setInitializer(ir->getClassInfoInit());
             interfaceZ->setLinkage(DtoExternalLinkage(decl));
         }
     }
@@ -112,8 +113,9 @@ public:
             }
 
             // Define the __initZ symbol.
-            llvm::GlobalVariable *initZ = ir.irAggr->getInitSymbol();
-            initZ->setInitializer(ir.irAggr->getDefaultInit());
+            IrAggr *ir = getIrAggr(decl);
+            llvm::GlobalVariable *initZ = ir->getInitSymbol();
+            initZ->setInitializer(ir->getDefaultInit());
             initZ->setLinkage(DtoExternalLinkage(decl));
 
             // emit typeinfo
@@ -133,9 +135,8 @@ public:
         IF_LOG Logger::println("ClassDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        IrDsymbol &ir = decl->ir;
-        if (ir.defined) return;
-        ir.defined = true;
+        if (decl->ir.defined) return;
+        decl->ir.defined = true;
 
         if (decl->type->ty == Terror)
         {   error(decl->loc, "had semantic errors when compiling");
@@ -153,18 +154,19 @@ public:
                 (*I)->accept(this);
             }
 
+            IrAggr *ir = getIrAggr(decl);
             llvm::GlobalValue::LinkageTypes const linkage = DtoExternalLinkage(decl);
 
-            llvm::GlobalVariable *initZ = ir.irAggr->getInitSymbol();
-            initZ->setInitializer(ir.irAggr->getDefaultInit());
+            llvm::GlobalVariable *initZ = ir->getInitSymbol();
+            initZ->setInitializer(ir->getDefaultInit());
             initZ->setLinkage(linkage);
 
-            llvm::GlobalVariable *vtbl = ir.irAggr->getVtblSymbol();
-            vtbl->setInitializer(ir.irAggr->getVtblInit());
+            llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
+            vtbl->setInitializer(ir->getVtblInit());
             vtbl->setLinkage(linkage);
 
-            llvm::GlobalVariable *classZ = ir.irAggr->getClassInfoSymbol();
-            classZ->setInitializer(ir.irAggr->getClassInfoInit());
+            llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
+            classZ->setInitializer(ir->getClassInfoInit());
             classZ->setLinkage(linkage);
 
             // No need to do TypeInfo here, it is <name>__classZ for classes in D2.
@@ -227,8 +229,8 @@ public:
                 "manifest constant being codegen'd!");
         #endif
 
-            llvm::GlobalVariable *gvar = llvm::cast<llvm::GlobalVariable>(
-                decl->ir.irGlobal->value);
+            IrGlobal *irGlobal = getIrGlobal(decl);
+            llvm::GlobalVariable *gvar = llvm::cast<llvm::GlobalVariable>(irGlobal->value);
             assert(gvar && "DtoResolveVariable should have created value");
 
             const llvm::GlobalValue::LinkageTypes llLinkage = DtoLinkage(decl);
@@ -257,12 +259,12 @@ public:
 
                     gvar->eraseFromParent();
                     gvar = newGvar;
-                    decl->ir.irGlobal->value = newGvar;
+                    irGlobal->value = newGvar;
                 }
 
                 // Now, set the initializer.
-                assert(!decl->ir.irGlobal->constInit);
-                decl->ir.irGlobal->constInit = initVal;
+                assert(!irGlobal->constInit);
+                irGlobal->constInit = initVal;
                 gvar->setInitializer(initVal);
                 gvar->setLinkage(llLinkage);
 

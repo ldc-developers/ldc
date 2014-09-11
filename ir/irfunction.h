@@ -125,4 +125,7 @@ struct IrFunction
     std::stack<llvm::DILexicalBlock> diLexicalBlocks;
 };
 
+IrFunction *getIrFunc(FuncDeclaration *decl, bool create = false);
+bool isIrFuncCreated(FuncDeclaration *decl);
+
 #endif

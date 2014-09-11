@@ -186,7 +186,7 @@ static llvm::Function* build_module_function(const std::string &name, const std:
             return NULL;
 
         if (funcs.size() == 1)
-            return funcs.front()->ir.irFunc->func;
+            return getIrFunc(funcs.front())->func;
     }
 
     std::vector<LLType*> argsTy;
@@ -207,7 +207,7 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     // Call ctor's
     typedef std::list<FuncDeclaration*>::const_iterator FuncIterator;
     for (FuncIterator itr = funcs.begin(), end = funcs.end(); itr != end; ++itr) {
-        llvm::Function* f = (*itr)->ir.irFunc->func;
+        llvm::Function* f = getIrFunc(*itr)->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(gABI->callingConv(LINKd));
     }
@@ -215,8 +215,8 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     // Increment vgate's
     typedef std::list<VarDeclaration*>::const_iterator GatesIterator;
     for (GatesIterator itr = gates.begin(), end = gates.end(); itr != end; ++itr) {
-        assert((*itr)->ir.irGlobal);
-        llvm::Value* val = (*itr)->ir.irGlobal->value;
+        assert(getIrGlobal(*itr));
+        llvm::Value* val = getIrGlobal(*itr)->value;
         llvm::Value* rval = builder.CreateLoad(val, "vgate");
         llvm::Value* res = builder.CreateAdd(rval, DtoConstUint(1), "vgate");
         builder.CreateStore(res, val);
@@ -781,7 +781,7 @@ void Module::genmoduleinfo()
             continue;
         }
         IF_LOG Logger::println("class: %s", cd->toPrettyChars());
-        LLConstant *c = DtoBitCast(cd->ir.irAggr->getClassInfoSymbol(), classinfoTy);
+        LLConstant *c = DtoBitCast(getIrAggr(cd)->getClassInfoSymbol(), classinfoTy);
         classInits.push_back(c);
     }
     // has class array?

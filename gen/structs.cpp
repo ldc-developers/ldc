@@ -53,8 +53,7 @@ void DtoResolveStruct(StructDeclaration* sd, Loc& callerLoc)
     }
 
     // create the IrAggr
-    IrAggr* iraggr = new IrAggr(sd);
-    sd->ir.irAggr = iraggr;
+    getIrAggr(sd, true);
 
     // Set up our field metadata.
     for (VarDeclarations::iterator I = sd->fields.begin(),
@@ -62,8 +61,8 @@ void DtoResolveStruct(StructDeclaration* sd, Loc& callerLoc)
                                    I != E; ++I)
     {
         VarDeclaration *vd = *I;
-        assert(!vd->ir.irField);
-        (void)new IrField(vd);
+        assert(!isIrFieldCreated(vd));
+        getIrField(vd, true);
     }
 }
 
@@ -99,7 +98,7 @@ LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
     DtoResolveStruct(sd);
 
     // vd must be a field
-    IrField* field = vd->ir.irField;
+    IrField* field = getIrField(vd);
     assert(field);
 
     // get the start pointer
