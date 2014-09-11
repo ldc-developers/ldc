@@ -1028,9 +1028,9 @@ void DtoResolveVariable(VarDeclaration* vd)
     #endif
 
         // don't duplicate work
-        if (vd->ir.resolved) return;
-        vd->ir.resolved = true;
-        vd->ir.declared = true;
+        if (vd->ir.isResolved()) return;
+        vd->ir.setResolved();
+        vd->ir.setDeclared();
 
         getIrGlobal(vd, true);
 
@@ -1043,8 +1043,9 @@ void DtoResolveVariable(VarDeclaration* vd)
 
         const bool isLLConst = (vd->isConst() || vd->isImmutable()) && vd->init;
 
-        assert(!vd->ir.initialized);
-        vd->ir.initialized = gIR->dmodule;
+        assert(!vd->ir.isInitialized());
+        if (gIR->dmodule)
+            vd->ir.setInitialized();
         std::string llName(vd->mangle());
 
         // Since the type of a global must exactly match the type of its

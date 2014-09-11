@@ -48,6 +48,14 @@ struct IrDsymbol
         FieldType
     };
 
+    enum Flag
+    {
+        Resolved    = 0x1,
+        Declared    = 0x2,
+        Initialized = 0x4,
+        Defined     = 0x8
+    };
+
     static std::vector<IrDsymbol*> list;
     static void resetAll();
 
@@ -61,10 +69,15 @@ struct IrDsymbol
 
     Type type() const { return m_type; }
 
-    bool resolved;
-    bool declared;
-    bool initialized;
-    bool defined;
+    bool isResolved() const { return m_flags & Resolved; }
+    bool isDeclared() const { return m_flags & Declared; }
+    bool isInitialized() const { return m_flags & Initialized; }
+    bool isDefined() const { return m_flags & Defined; }
+
+    void setResolved() { m_flags |= Resolved; }
+    void setDeclared() { m_flags |= Declared; }
+    void setInitialized() { m_flags |= Initialized; }
+    void setDefined() { m_flags |= Defined; }
 private:
     friend IrModule* getIrModule(Module *m);
     friend IrAggr *getIrAggr(AggregateDeclaration *decl, bool create);
@@ -75,7 +88,6 @@ private:
     friend IrParameter *getIrParameter(VarDeclaration *decl, bool create);
     friend IrField *getIrField(VarDeclaration *decl, bool create);
 
-    Type m_type;
     union {
         void*        irData;
         IrModule*    irModule;
@@ -87,6 +99,8 @@ private:
         IrParameter* irParam;
         IrField*     irField;
     };
+    Type m_type;
+    int m_flags;
 };
 
 #endif

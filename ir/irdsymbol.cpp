@@ -32,12 +32,9 @@ IrDsymbol::IrDsymbol() :
 IrDsymbol::IrDsymbol(const IrDsymbol& s)
 {
     list.push_back(this);
-    irData   = s.irData;
-    m_type     = s.m_type;
-    resolved = s.resolved;
-    declared = s.declared;
-    initialized = s.initialized;
-    defined  = s.defined;
+    irData  = s.irData;
+    m_type  = s.m_type;
+    m_flags = s.m_flags;
 }
 
 IrDsymbol::~IrDsymbol()
@@ -55,6 +52,7 @@ IrDsymbol::~IrDsymbol()
 
 void IrDsymbol::reset()
 {
-    irData = NULL;
-    resolved = declared = initialized = defined = false;
+    irData  = NULL;
+    m_type  = NotSet;
+    m_flags = 0;
 }

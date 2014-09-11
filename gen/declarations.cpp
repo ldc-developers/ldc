@@ -55,8 +55,8 @@ public:
         IF_LOG Logger::println("InterfaceDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
 
         if (decl->type->ty == Terror)
         {   error(decl->loc, "had semantic errors when compiling");
@@ -92,9 +92,8 @@ public:
         IF_LOG Logger::println("StructDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        IrDsymbol &ir = decl->ir;
-        if (ir.defined) return;
-        ir.defined = true;
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
 
         if (decl->type->ty == Terror)
         {   error(decl->loc, "had semantic errors when compiling");
@@ -135,8 +134,8 @@ public:
         IF_LOG Logger::println("ClassDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
 
         if (decl->type->ty == Terror)
         {   error(decl->loc, "had semantic errors when compiling");
@@ -179,8 +178,8 @@ public:
         IF_LOG Logger::println("TupleDeclaration::codegen(): '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
 
         assert(decl->isexp);
         assert(decl->objects);
@@ -201,8 +200,8 @@ public:
         IF_LOG Logger::println("VarDeclaration::codegen(): '%s'", decl->toPrettyChars());
         LOG_SCOPE;
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
 
         if (decl->type->ty == Terror)
         {   error(decl->loc, "had semantic errors when compiling");
@@ -288,8 +287,8 @@ public:
         IF_LOG Logger::println("TypedefDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE;
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
 
         if (decl->type->ty == Terror)
         {   error(decl->loc, "had semantic errors when compiling");
@@ -327,8 +326,8 @@ public:
         IF_LOG Logger::println("TemplateInstance::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
 
         if (!decl->errors && decl->members)
         {
@@ -347,8 +346,8 @@ public:
         IF_LOG Logger::println("TemplateInstance::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
 
         if (!decl->errors && decl->members)
         {

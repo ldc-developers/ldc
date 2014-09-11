@@ -320,8 +320,8 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid)
 
 void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 {
-    if (tid->ir.resolved) return;
-    tid->ir.resolved = true;
+    if (tid->ir.isResolved()) return;
+    tid->ir.setResolved();
 
     // TypeInfo instances (except ClassInfo ones) are always emitted as weak
     // symbols when they are used.
@@ -333,8 +333,8 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p)
     IF_LOG Logger::println("TypeInfoDeclaration::codegen(%s)", decl->toPrettyChars());
     LOG_SCOPE;
 
-    if (decl->ir.defined) return;
-    decl->ir.defined = true;
+    if (decl->ir.isDefined()) return;
+    decl->ir.setDefined();
 
     std::string mangled(decl->mangle());
     IF_LOG {

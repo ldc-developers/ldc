@@ -514,8 +514,8 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
         return; // ignore declaration completely
     }
 
-    if (fdecl->ir.resolved) return;
-    fdecl->ir.resolved = true;
+    if (fdecl->ir.isResolved()) return;
+    fdecl->ir.setResolved();
 
     Type *type = fdecl->type;
     // If errors occurred compiling it, such as bugzilla 6118
@@ -536,10 +536,10 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
             {
                 Logger::println("magic va_arg found");
                 fdecl->llvmInternal = LLVMva_arg;
-                fdecl->ir.resolved = true;
-                fdecl->ir.declared = true;
-                fdecl->ir.initialized = true;
-                fdecl->ir.defined = true;
+                fdecl->ir.setResolved();
+                fdecl->ir.setDeclared();
+                fdecl->ir.setInitialized();
+                fdecl->ir.setDefined();
                 return; // this gets mapped to an instruction so a declaration makes no sence
             }
             else if (tempdecl->llvmInternal == LLVMva_start)
@@ -563,17 +563,17 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
                     fatal();
                 }
                 fdecl->llvmInternal = LLVMinline_asm;
-                fdecl->ir.resolved = true;
-                fdecl->ir.declared = true;
-                fdecl->ir.initialized = true;
-                fdecl->ir.defined = true;
+                fdecl->ir.setResolved();
+                fdecl->ir.setDeclared();
+                fdecl->ir.setInitialized();
+                fdecl->ir.setDefined();
                 return; // this gets mapped to a special inline asm call, no point in going on.
             }
             else if (tempdecl->llvmInternal == LLVMinline_ir)
             {
                 fdecl->llvmInternal = LLVMinline_ir;
                 fdecl->linkage = LINKc;
-                fdecl->ir.defined = true;
+                fdecl->ir.setDefined();
                 Type* type = fdecl->type;
                 assert(type->ty == Tfunction);
                 static_cast<TypeFunction*>(type)->linkage = LINKc;
@@ -743,8 +743,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 {
     DtoResolveFunction(fdecl);
 
-    if (fdecl->ir.declared) return;
-    fdecl->ir.declared = true;
+    if (fdecl->ir.isDeclared()) return;
+    fdecl->ir.setDeclared();
 
     IF_LOG Logger::println("DtoDeclareFunction(%s): %s", fdecl->toPrettyChars(), fdecl->loc.toChars());
     LOG_SCOPE;
@@ -932,21 +932,21 @@ void DtoDefineFunction(FuncDeclaration* fd)
     IF_LOG Logger::println("DtoDefineFunction(%s): %s", fd->toPrettyChars(), fd->loc.toChars());
     LOG_SCOPE;
 
-    if (fd->ir.defined) return;
+    if (fd->ir.isDefined()) return;
 
     if ((fd->type && fd->type->ty == Terror) ||
         (fd->type && fd->type->ty == Tfunction && static_cast<TypeFunction *>(fd->type)->next == NULL) ||
         (fd->type && fd->type->ty == Tfunction && static_cast<TypeFunction *>(fd->type)->next->ty == Terror))
     {
         IF_LOG Logger::println("Ignoring; has error type, no return type or returns error type");
-        fd->ir.defined = true;
+        fd->ir.setDefined();
         return;
     }
 
     if (fd->isUnitTestDeclaration() && !global.params.useUnitTests)
     {
         IF_LOG Logger::println("No code generation for unit test declaration %s", fd->toChars());
-        fd->ir.defined = true;
+        fd->ir.setDefined();
         return;
     }
 
@@ -957,7 +957,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
          * Try to reproduce those errors, and then fail.
          */
         error(fd->loc, "errors compiling function %s", fd->toPrettyChars());
-        fd->ir.defined = true;
+        fd->ir.setDefined();
         return;
     }
 
@@ -969,17 +969,17 @@ void DtoDefineFunction(FuncDeclaration* fd)
     if (!fd->needsCodegen())
     {
         IF_LOG Logger::println("No code generation for %s", fd->toChars());
-        fd->ir.defined = true;
+        fd->ir.setDefined();
         return;
     }
 
     DtoDeclareFunction(fd);
-    assert(fd->ir.declared);
+    assert(fd->ir.isDeclared());
 
     // DtoResolveFunction might also set the defined flag for functions we
     // should not touch.
-    if (fd->ir.defined) return;
-    fd->ir.defined = true;
+    if (fd->ir.isDefined()) return;
+    fd->ir.setDefined();
 
     // We cannot emit nested functions with parents that have not gone through
     // semantic analysis. This can happen as DMD leaks some template instances
