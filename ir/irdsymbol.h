@@ -44,7 +44,6 @@ struct IrDsymbol
 
     void reset();
 
-    Module*     DModule;
     IrModule*   irModule;
     IrAggr*     irAggr;
     IrFunction* irFunc;

@@ -1033,9 +1033,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     llvm::Function* func = fd->ir.irFunc->func;
 
-    // set module owner
-    fd->ir.DModule = gIR->dmodule;
-
     // is there a body?
     if (fd->fbody == NULL)
         return;

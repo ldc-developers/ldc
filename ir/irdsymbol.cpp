@@ -31,7 +31,6 @@ IrDsymbol::IrDsymbol()
 IrDsymbol::IrDsymbol(const IrDsymbol& s)
 {
     list.push_back(this);
-    DModule  = s.DModule;
     irModule = s.irModule;
     irAggr   = s.irAggr;
     irFunc   = s.irFunc;
@@ -59,7 +58,6 @@ IrDsymbol::~IrDsymbol()
 
 void IrDsymbol::reset()
 {
-    DModule  = NULL;
     irModule = NULL;
     irAggr   = NULL;
     irFunc   = NULL;
