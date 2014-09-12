@@ -31,17 +31,9 @@ IrDsymbol::IrDsymbol()
 IrDsymbol::IrDsymbol(const IrDsymbol& s)
 {
     list.push_back(this);
-    DModule  = s.DModule;
-    irModule = s.irModule;
-    irAggr   = s.irAggr;
-    irFunc   = s.irFunc;
-    irGlobal = s.irGlobal;
-    irLocal  = s.irLocal;
-    irField  = s.irField;
-    resolved = s.resolved;
-    declared = s.declared;
-    initialized = s.initialized;
-    defined  = s.defined;
+    irData  = s.irData;
+    m_type  = s.m_type;
+    m_state = s.m_state;
 }
 
 IrDsymbol::~IrDsymbol()
@@ -59,25 +51,31 @@ IrDsymbol::~IrDsymbol()
 
 void IrDsymbol::reset()
 {
-    DModule  = NULL;
-    irModule = NULL;
-    irAggr   = NULL;
-    irFunc   = NULL;
-    irGlobal = NULL;
-    irLocal  = NULL;
-    irField  = NULL;
-    resolved = declared = initialized = defined = false;
+    irData  = NULL;
+    m_type  = NotSet;
+    m_state = Initial;
 }
 
-bool IrDsymbol::isSet()
+void IrDsymbol::setResolved()
 {
-    return irAggr || irFunc || irGlobal || irLocal || irField;
+    if (m_state < Resolved)
+        m_state = Resolved;
 }
 
-IrVar* IrDsymbol::getIrVar()
+void IrDsymbol::setDeclared()
 {
-    assert(irGlobal || irLocal || irField);
-    return irGlobal ? static_cast<IrVar*>(irGlobal) : irLocal ? static_cast<IrVar*>(irLocal) : static_cast<IrVar*>(irField);
+    if (m_state < Declared)
+        m_state = Declared;
 }
 
-llvm::Value*& IrDsymbol::getIrValue() { return getIrVar()->value; }
+void IrDsymbol::setInitialized()
+{
+    if (m_state < Initialized)
+        m_state = Initialized;
+}
+
+void IrDsymbol::setDefined()
+{
+    if (m_state < Defined)
+        m_state = Defined;
+}

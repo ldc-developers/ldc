@@ -147,8 +147,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
     IF_LOG Logger::println("DtoDefineNakedFunction(%s)", fd->mangleExact());
     LOG_SCOPE;
 
-    assert(fd->ir.irFunc);
-    gIR->functions.push_back(fd->ir.irFunc);
+    gIR->functions.push_back(getIrFunc(fd));
 
     // we need to do special processing on the body, since we only want
     // to allow actual inline asm blocks to reach the final asm output

@@ -55,17 +55,19 @@ public:
         IF_LOG Logger::println("InterfaceDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
 
         if (decl->type->ty == Terror)
-        {   error(decl->loc, "had semantic errors when compiling");
+        {
+            error(decl->loc, "had semantic errors when compiling");
+            decl->ir.setDefined();
             return;
         }
 
         if (decl->members && decl->symtab)
         {
             DtoResolveClass(decl);
+            decl->ir.setDefined();
 
             // Emit any members (e.g. final functions).
             for (Dsymbols::iterator I = decl->members->begin(),
@@ -79,8 +81,9 @@ public:
             DtoTypeInfoOf(decl->type);
 
             // Define __InterfaceZ.
-            llvm::GlobalVariable *interfaceZ = decl->ir.irAggr->getClassInfoSymbol();
-            interfaceZ->setInitializer(decl->ir.irAggr->getClassInfoInit());
+            IrAggr *ir = getIrAggr(decl);
+            llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
+            interfaceZ->setInitializer(ir->getClassInfoInit());
             interfaceZ->setLinkage(DtoExternalLinkage(decl));
         }
     }
@@ -91,18 +94,19 @@ public:
         IF_LOG Logger::println("StructDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        IrDsymbol &ir = decl->ir;
-        if (ir.defined) return;
-        ir.defined = true;
+        if (decl->ir.isDefined()) return;
 
         if (decl->type->ty == Terror)
-        {   error(decl->loc, "had semantic errors when compiling");
+        {
+            error(decl->loc, "had semantic errors when compiling");
+            decl->ir.setDefined();
             return;
         }
 
         if (decl->members && decl->symtab)
         {
             DtoResolveStruct(decl);
+            decl->ir.setDefined();
 
             for (Dsymbols::iterator I = decl->members->begin(),
                                     E = decl->members->end();
@@ -112,8 +116,9 @@ public:
             }
 
             // Define the __initZ symbol.
-            llvm::GlobalVariable *initZ = ir.irAggr->getInitSymbol();
-            initZ->setInitializer(ir.irAggr->getDefaultInit());
+            IrAggr *ir = getIrAggr(decl);
+            llvm::GlobalVariable *initZ = ir->getInitSymbol();
+            initZ->setInitializer(ir->getDefaultInit());
             initZ->setLinkage(DtoExternalLinkage(decl));
 
             // emit typeinfo
@@ -133,18 +138,19 @@ public:
         IF_LOG Logger::println("ClassDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        IrDsymbol &ir = decl->ir;
-        if (ir.defined) return;
-        ir.defined = true;
+        if (decl->ir.isDefined()) return;
 
         if (decl->type->ty == Terror)
-        {   error(decl->loc, "had semantic errors when compiling");
+        {
+            error(decl->loc, "had semantic errors when compiling");
+            decl->ir.setDefined();
             return;
         }
 
         if (decl->members && decl->symtab)
         {
             DtoResolveClass(decl);
+            decl->ir.setDefined();
 
             for (Dsymbols::iterator I = decl->members->begin(),
                                     E = decl->members->end();
@@ -153,18 +159,19 @@ public:
                 (*I)->accept(this);
             }
 
+            IrAggr *ir = getIrAggr(decl);
             llvm::GlobalValue::LinkageTypes const linkage = DtoExternalLinkage(decl);
 
-            llvm::GlobalVariable *initZ = ir.irAggr->getInitSymbol();
-            initZ->setInitializer(ir.irAggr->getDefaultInit());
+            llvm::GlobalVariable *initZ = ir->getInitSymbol();
+            initZ->setInitializer(ir->getDefaultInit());
             initZ->setLinkage(linkage);
 
-            llvm::GlobalVariable *vtbl = ir.irAggr->getVtblSymbol();
-            vtbl->setInitializer(ir.irAggr->getVtblInit());
+            llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
+            vtbl->setInitializer(ir->getVtblInit());
             vtbl->setLinkage(linkage);
 
-            llvm::GlobalVariable *classZ = ir.irAggr->getClassInfoSymbol();
-            classZ->setInitializer(ir.irAggr->getClassInfoInit());
+            llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
+            classZ->setInitializer(ir->getClassInfoInit());
             classZ->setLinkage(linkage);
 
             // No need to do TypeInfo here, it is <name>__classZ for classes in D2.
@@ -177,8 +184,8 @@ public:
         IF_LOG Logger::println("TupleDeclaration::codegen(): '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
 
         assert(decl->isexp);
         assert(decl->objects);
@@ -199,15 +206,17 @@ public:
         IF_LOG Logger::println("VarDeclaration::codegen(): '%s'", decl->toPrettyChars());
         LOG_SCOPE;
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
 
         if (decl->type->ty == Terror)
-        {   error(decl->loc, "had semantic errors when compiling");
+        {
+            error(decl->loc, "had semantic errors when compiling");
+            decl->ir.setDefined();
             return;
         }
 
         DtoResolveVariable(decl);
+        decl->ir.setDefined();
 
         // just forward aliases
         if (decl->aliassym)
@@ -218,17 +227,15 @@ public:
         }
 
         // global variable
-        if (decl->isDataseg() || (decl->storage_class & (STCconst | STCimmutable) && decl->init))
+        if (decl->isDataseg())
         {
             Logger::println("data segment");
 
-        #if 0 // TODO:
             assert(!(decl->storage_class & STCmanifest) &&
-                "manifest constant being codegen'd!");
-        #endif
+                   "manifest constant being codegen'd!");
 
-            llvm::GlobalVariable *gvar = llvm::cast<llvm::GlobalVariable>(
-                decl->ir.irGlobal->value);
+            IrGlobal *irGlobal = getIrGlobal(decl);
+            llvm::GlobalVariable *gvar = llvm::cast<llvm::GlobalVariable>(irGlobal->value);
             assert(gvar && "DtoResolveVariable should have created value");
 
             const llvm::GlobalValue::LinkageTypes llLinkage = DtoLinkage(decl);
@@ -257,12 +264,12 @@ public:
 
                     gvar->eraseFromParent();
                     gvar = newGvar;
-                    decl->ir.irGlobal->value = newGvar;
+                    irGlobal->value = newGvar;
                 }
 
                 // Now, set the initializer.
-                assert(!decl->ir.irGlobal->constInit);
-                decl->ir.irGlobal->constInit = initVal;
+                assert(!irGlobal->constInit);
+                irGlobal->constInit = initVal;
                 gvar->setInitializer(initVal);
                 gvar->setLinkage(llLinkage);
 
@@ -286,8 +293,8 @@ public:
         IF_LOG Logger::println("TypedefDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE;
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
 
         if (decl->type->ty == Terror)
         {   error(decl->loc, "had semantic errors when compiling");
@@ -325,8 +332,8 @@ public:
         IF_LOG Logger::println("TemplateInstance::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
 
         if (!decl->errors && decl->members)
         {
@@ -345,8 +352,8 @@ public:
         IF_LOG Logger::println("TemplateInstance::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.defined) return;
-        decl->ir.defined = true;
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
 
         if (!decl->errors && decl->members)
         {
