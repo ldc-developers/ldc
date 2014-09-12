@@ -56,16 +56,18 @@ public:
         LOG_SCOPE
 
         if (decl->ir.isDefined()) return;
-        decl->ir.setDefined();
 
         if (decl->type->ty == Terror)
-        {   error(decl->loc, "had semantic errors when compiling");
+        {
+            error(decl->loc, "had semantic errors when compiling");
+            decl->ir.setDefined();
             return;
         }
 
         if (decl->members && decl->symtab)
         {
             DtoResolveClass(decl);
+            decl->ir.setDefined();
 
             // Emit any members (e.g. final functions).
             for (Dsymbols::iterator I = decl->members->begin(),
@@ -93,16 +95,18 @@ public:
         LOG_SCOPE
 
         if (decl->ir.isDefined()) return;
-        decl->ir.setDefined();
 
         if (decl->type->ty == Terror)
-        {   error(decl->loc, "had semantic errors when compiling");
+        {
+            error(decl->loc, "had semantic errors when compiling");
+            decl->ir.setDefined();
             return;
         }
 
         if (decl->members && decl->symtab)
         {
             DtoResolveStruct(decl);
+            decl->ir.setDefined();
 
             for (Dsymbols::iterator I = decl->members->begin(),
                                     E = decl->members->end();
@@ -135,16 +139,18 @@ public:
         LOG_SCOPE
 
         if (decl->ir.isDefined()) return;
-        decl->ir.setDefined();
 
         if (decl->type->ty == Terror)
-        {   error(decl->loc, "had semantic errors when compiling");
+        {
+            error(decl->loc, "had semantic errors when compiling");
+            decl->ir.setDefined();
             return;
         }
 
         if (decl->members && decl->symtab)
         {
             DtoResolveClass(decl);
+            decl->ir.setDefined();
 
             for (Dsymbols::iterator I = decl->members->begin(),
                                     E = decl->members->end();
@@ -201,14 +207,16 @@ public:
         LOG_SCOPE;
 
         if (decl->ir.isDefined()) return;
-        decl->ir.setDefined();
 
         if (decl->type->ty == Terror)
-        {   error(decl->loc, "had semantic errors when compiling");
+        {
+            error(decl->loc, "had semantic errors when compiling");
+            decl->ir.setDefined();
             return;
         }
 
         DtoResolveVariable(decl);
+        decl->ir.setDefined();
 
         // just forward aliases
         if (decl->aliassym)

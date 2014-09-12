@@ -1029,7 +1029,6 @@ void DtoResolveVariable(VarDeclaration* vd)
 
         // don't duplicate work
         if (vd->ir.isResolved()) return;
-        vd->ir.setResolved();
         vd->ir.setDeclared();
 
         getIrGlobal(vd, true);

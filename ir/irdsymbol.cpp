@@ -22,8 +22,7 @@ void IrDsymbol::resetAll()
         (*it)->reset();
 }
 
-IrDsymbol::IrDsymbol() :
-    m_type(NotSet)
+IrDsymbol::IrDsymbol()
 {
     list.push_back(this);
     reset();
@@ -34,7 +33,7 @@ IrDsymbol::IrDsymbol(const IrDsymbol& s)
     list.push_back(this);
     irData  = s.irData;
     m_type  = s.m_type;
-    m_flags = s.m_flags;
+    m_state = s.m_state;
 }
 
 IrDsymbol::~IrDsymbol()
@@ -54,5 +53,29 @@ void IrDsymbol::reset()
 {
     irData  = NULL;
     m_type  = NotSet;
-    m_flags = 0;
+    m_state = Initial;
+}
+
+void IrDsymbol::setResolved()
+{
+    if (m_state < Resolved)
+        m_state = Resolved;
+}
+
+void IrDsymbol::setDeclared()
+{
+    if (m_state < Declared)
+        m_state = Declared;
+}
+
+void IrDsymbol::setInitialized()
+{
+    if (m_state < Initialized)
+        m_state = Initialized;
+}
+
+void IrDsymbol::setDefined()
+{
+    if (m_state < Defined)
+        m_state = Defined;
 }

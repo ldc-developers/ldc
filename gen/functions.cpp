@@ -536,9 +536,6 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
             {
                 Logger::println("magic va_arg found");
                 fdecl->llvmInternal = LLVMva_arg;
-                fdecl->ir.setResolved();
-                fdecl->ir.setDeclared();
-                fdecl->ir.setInitialized();
                 fdecl->ir.setDefined();
                 return; // this gets mapped to an instruction so a declaration makes no sence
             }
@@ -563,20 +560,22 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
                     fatal();
                 }
                 fdecl->llvmInternal = LLVMinline_asm;
-                fdecl->ir.setResolved();
-                fdecl->ir.setDeclared();
-                fdecl->ir.setInitialized();
                 fdecl->ir.setDefined();
                 return; // this gets mapped to a special inline asm call, no point in going on.
             }
             else if (tempdecl->llvmInternal == LLVMinline_ir)
             {
+                Logger::println("magic inline ir found");
                 fdecl->llvmInternal = LLVMinline_ir;
                 fdecl->linkage = LINKc;
-                fdecl->ir.setDefined();
                 Type* type = fdecl->type;
                 assert(type->ty == Tfunction);
                 static_cast<TypeFunction*>(type)->linkage = LINKc;
+
+                DtoFunctionType(fdecl);
+                DtoDeclareFunction(fdecl);
+                fdecl->ir.setDefined();
+                return;
             }
         }
     }
@@ -943,13 +942,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
         return;
     }
 
-    if (fd->isUnitTestDeclaration() && !global.params.useUnitTests)
-    {
-        IF_LOG Logger::println("No code generation for unit test declaration %s", fd->toChars());
-        fd->ir.setDefined();
-        return;
-    }
-
     if (fd->semanticRun == PASSsemanticdone)
     {
         /* What happened is this function failed semantic3() with errors,
@@ -957,6 +949,15 @@ void DtoDefineFunction(FuncDeclaration* fd)
          * Try to reproduce those errors, and then fail.
          */
         error(fd->loc, "errors compiling function %s", fd->toPrettyChars());
+        fd->ir.setDefined();
+        return;
+    }
+
+    DtoResolveFunction(fd);
+
+    if (fd->isUnitTestDeclaration() && !global.params.useUnitTests)
+    {
+        IF_LOG Logger::println("No code generation for unit test declaration %s", fd->toChars());
         fd->ir.setDefined();
         return;
     }
