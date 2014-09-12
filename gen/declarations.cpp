@@ -227,14 +227,12 @@ public:
         }
 
         // global variable
-        if (decl->isDataseg() || (decl->storage_class & (STCconst | STCimmutable) && decl->init))
+        if (decl->isDataseg())
         {
             Logger::println("data segment");
 
-        #if 0 // TODO:
             assert(!(decl->storage_class & STCmanifest) &&
-                "manifest constant being codegen'd!");
-        #endif
+                   "manifest constant being codegen'd!");
 
             IrGlobal *irGlobal = getIrGlobal(decl);
             llvm::GlobalVariable *gvar = llvm::cast<llvm::GlobalVariable>(irGlobal->value);

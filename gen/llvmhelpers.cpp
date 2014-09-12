@@ -1018,14 +1018,12 @@ void DtoResolveVariable(VarDeclaration* vd)
         DtoResolveDsymbol(ad);
 
     // global variable
-    if (vd->isDataseg() || (vd->storage_class & (STCconst | STCimmutable) && vd->init))
+    if (vd->isDataseg())
     {
         Logger::println("data segment");
 
-    #if 0 // TODO:
-        assert(!(storage_class & STCmanifest) &&
+        assert(!(vd->storage_class & STCmanifest) &&
             "manifest constant being codegen'd!");
-    #endif
 
         // don't duplicate work
         if (vd->ir.isResolved()) return;
