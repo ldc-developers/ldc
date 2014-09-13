@@ -154,14 +154,14 @@ bool emit(raw_ostream& os, RecordKeeper& records)
     os << "; \n\nimport core.simd;\n\n";
 
 #if LDC_LLVM_VER >= 306
-    const RecordKeeper::RecordMap& defs = records.getDefs();
+    const auto &defs = records.getDefs();
 #else
     map<string, Record*> defs = records.getDefs();
 #endif
 
     for(
 #if LDC_LLVM_VER >= 306
-        RecordKeeper::RecordMap::const_iterator it = defs.cbegin();
+        auto it = defs.cbegin();
 #else
         map<string, Record* >::iterator it = defs.begin();
 #endif
