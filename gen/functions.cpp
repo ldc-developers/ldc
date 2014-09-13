@@ -962,16 +962,26 @@ void DtoDefineFunction(FuncDeclaration* fd)
         return;
     }
 
-    // Skip generating code for this part of a TemplateInstance if it has been
-    // instantiated by any non-root module (i.e. a module not listed on the
-    // command line).
-    // Check this before calling DtoDeclareFunction to avoid touching
-    // unanalyzed code.
-    if (!fd->needsCodegen())
+    if (fd->semanticRun != PASSsemantic3done || fd->ident == Id::empty)
     {
-        IF_LOG Logger::println("No code generation for %s", fd->toChars());
+        // We cannot ever generate code for this function. DMD would just filter
+        // it out by checking needsCodegen(), but we want to emit functions even
+        // if we do not need as available_exernally for inlining purposes.
+        assert(!fd->needsCodegen());
+
+        IF_LOG Logger::println("No code generation for incomplete function '%s'",
+            fd->toPrettyChars());
         fd->ir.setDefined();
         return;
+    }
+
+    // If we do not know already that we do not need to emit this because its
+    // from an extra inlining semantic, check whether we can omit it anyway.
+    if (!fd->availableExternally && !fd->needsCodegen())
+    {
+        IF_LOG Logger::println("Emitting '%s' as available_externally",
+            fd->toPrettyChars());
+        fd->availableExternally = true;
     }
 
     DtoDeclareFunction(fd);
