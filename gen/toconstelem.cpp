@@ -65,7 +65,7 @@ public:
             assert(sdecltype->ty == Tstruct);
             TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
             DtoResolveStruct(ts->sym);
-            result = ts->sym->ir.irAggr->getDefaultInit();
+            result = getIrAggr(ts->sym)->getDefaultInit();
             return;
         }
 
@@ -305,7 +305,7 @@ public:
             VarDeclaration *vd = static_cast<VarExp*>(e->e1)->var->isVarDeclaration();
             assert(vd);
             DtoResolveVariable(vd);
-            LLConstant *value = vd->ir.irGlobal ? isaConstant(vd->ir.irGlobal->value) : 0;
+            LLConstant *value = isIrGlobalCreated(vd) ? isaConstant(getIrGlobal(vd)->value) : 0;
             if (!value)
                goto Lerr;
             Type *type = vd->type->toBasetype();
@@ -420,7 +420,7 @@ public:
             assert(vd);
             assert(vd->type->toBasetype()->ty == Tsarray);
             DtoResolveVariable(vd);
-            assert(vd->ir.irGlobal);
+            assert(isIrGlobalCreated(vd));
 
             // get index
             LLConstant* index = toConstElem(iexp->e2);
@@ -428,7 +428,7 @@ public:
 
             // gep
             LLConstant* idxs[2] = { DtoConstSize_t(0), index };
-            LLConstant *val = isaConstant(vd->ir.irGlobal->value);
+            LLConstant *val = isaConstant(getIrGlobal(vd)->value);
             val = DtoBitCast(val, DtoType(vd->type->pointerTo()));
             LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(val, idxs, true);
 
@@ -513,9 +513,9 @@ public:
             // We need to actually codegen the function here, as literals are not added
             // to the module member list.
             Declaration_codegen(fd, p);
-            assert(fd->ir.irFunc->func);
+            assert(getIrFunc(fd)->func);
 
-            result = fd->ir.irFunc->func;
+            result = getIrFunc(fd)->func;
         }
     }
 
@@ -584,7 +584,7 @@ public:
             TypeStruct* ts = static_cast<TypeStruct*>(sdecltype);
             DtoResolveStruct(ts->sym);
 
-            result = ts->sym->ir.irAggr->getDefaultInit();
+            result = getIrAggr(ts->sym)->getDefaultInit();
         }
         else
         {
@@ -601,7 +601,7 @@ public:
                 }
             }
 
-            result = e->sd->ir.irAggr->createInitializerConstant(varInits);
+            result = getIrAggr(e->sd)->createInitializerConstant(varInits);
         }
     }
 
@@ -661,7 +661,7 @@ public:
                 assert(i == nexprs);
             }
 
-            llvm::Constant* constValue = origClass->ir.irAggr->createInitializerConstant(varInits);
+            llvm::Constant* constValue = getIrAggr(origClass)->createInitializerConstant(varInits);
 
             if (constValue->getType() != value->globalVar->getType()->getContainedType(0))
             {
