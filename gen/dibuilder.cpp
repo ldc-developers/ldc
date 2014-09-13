@@ -606,7 +606,7 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd)
         fd->loc.linnum, // FIXME: scope line
         0, // Flags
         false, // isOptimized
-        fd->ir.irFunc->func
+        getIrFunc(fd)->func
     );
 }
 
@@ -658,7 +658,7 @@ void ldc::DIBuilder::EmitFuncStart(FuncDeclaration *fd)
     Logger::println("D to dwarf funcstart");
     LOG_SCOPE;
 
-    assert(static_cast<llvm::MDNode *>(fd->ir.irFunc->diSubprogram) != 0);
+    assert(static_cast<llvm::MDNode *>(getIrFunc(fd)->diSubprogram) != 0);
     EmitStopPoint(fd->loc.linnum);
 }
 
@@ -670,7 +670,7 @@ void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd)
     Logger::println("D to dwarf funcend");
     LOG_SCOPE;
 
-    assert(static_cast<llvm::MDNode *>(fd->ir.irFunc->diSubprogram) != 0);
+    assert(static_cast<llvm::MDNode *>(getIrFunc(fd)->diSubprogram) != 0);
 }
 
 void ldc::DIBuilder::EmitBlockStart(Loc& loc)
@@ -686,7 +686,7 @@ void ldc::DIBuilder::EmitBlockStart(Loc& loc)
             CreateFile(loc), // file
             loc.linnum, // line
             0 // column
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER == 305
             , 0 // DWARF path discriminator value
 #endif
             );

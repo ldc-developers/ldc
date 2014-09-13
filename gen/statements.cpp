@@ -375,12 +375,12 @@ public:
             {
                 // sanity check
                 IrFunction* f = irs->func();
-                assert(f->decl->ir.irFunc->retArg);
+                assert(getIrFunc(f->decl)->retArg);
 
                 // FIXME: is there ever a case where a sret return needs to be rewritten for the ABI?
 
                 // get return pointer
-                DValue* rvar = new DVarValue(f->type->next, f->decl->ir.irFunc->retArg);
+                DValue* rvar = new DVarValue(f->type->next, getIrFunc(f->decl)->retArg);
                 DValue* e = toElemDtor(stmt->exp);
                 // store return value
                 if (rvar->getLVal() != e->getRVal())
@@ -1414,7 +1414,7 @@ public:
         if (!stmt->value->isRef() && !stmt->value->isOut()) {
             // Create a local variable to serve as the value.
             DtoRawVarDeclaration(stmt->value);
-            valvar = stmt->value->ir.irLocal->value;
+            valvar = getIrLocal(stmt->value)->value;
         }
 
         // what to iterate
@@ -1478,7 +1478,7 @@ public:
             DVarValue dst(stmt->value->type, valvar);
             DVarValue src(stmt->value->type, gep);
             DtoAssign(stmt->loc, &dst, &src);
-            stmt->value->ir.irLocal->value = valvar;
+            getIrLocal(stmt->value)->value = valvar;
         } else {
             // Use the GEP as the address of the value variable.
             DtoRawVarDeclaration(stmt->value, gep);

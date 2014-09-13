@@ -26,7 +26,7 @@ RTTIBuilder::RTTIBuilder(AggregateDeclaration* base_class)
     base = base_class;
     basetype = static_cast<TypeClass*>(base->type);
 
-    baseir = base->ir.irAggr;
+    baseir = getIrAggr(base);
     assert(baseir && "no IrStruct for TypeInfo base class");
 
     if (base->isClassDeclaration()) {
@@ -59,7 +59,7 @@ void RTTIBuilder::push_typeinfo(Type* t)
 
 void RTTIBuilder::push_classinfo(ClassDeclaration* cd)
 {
-    inits.push_back(cd->ir.irAggr->getClassInfoSymbol());
+    inits.push_back(getIrAggr(cd)->getClassInfoSymbol());
 }
 
 void RTTIBuilder::push_string(const char* str)
@@ -137,7 +137,7 @@ void RTTIBuilder::push_funcptr(FuncDeclaration* fd, Type* castto)
     if (fd)
     {
         DtoResolveFunction(fd);
-        LLConstant* F = fd->ir.irFunc->func;
+        LLConstant* F = getIrFunc(fd)->func;
         if (castto)
             F = DtoBitCast(F, DtoType(castto));
         inits.push_back(F);

@@ -91,4 +91,20 @@ protected:
     llvm::Constant* constInit;
 };
 
+IrVar *getIrVar(VarDeclaration *decl);
+llvm::Value *getIrValue(VarDeclaration *decl);
+bool isIrVarCreated(VarDeclaration *decl);
+
+IrGlobal *getIrGlobal(VarDeclaration *decl, bool create = false);
+bool isIrGlobalCreated(VarDeclaration *decl);
+
+IrLocal *getIrLocal(VarDeclaration *decl, bool create = false);
+bool isIrLocalCreated(VarDeclaration *decl);
+
+IrParameter *getIrParameter(VarDeclaration *decl, bool create = false);
+bool isIrParameterCreated(VarDeclaration *decl);
+
+IrField *getIrField(VarDeclaration *decl, bool create = false);
+bool isIrFieldCreated(VarDeclaration *decl);
+
 #endif

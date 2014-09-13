@@ -66,7 +66,7 @@
 #include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
-#if POSIX
+#if LDC_POSIX
 #include <errno.h>
 #elif _WIN32
 #include <windows.h>
@@ -517,7 +517,9 @@ static void initializePasses() {
     // For codegen passes, only passes that do IR to IR transformation are
     // supported. For now, just add CodeGenPrepare.
     initializeCodeGenPreparePass(Registry);
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER >= 306
+    initializeAtomicExpandPass(Registry);
+#elif LDC_LLVM_VER == 305
     initializeAtomicExpandLoadLinkedPass(Registry);
 #endif
 #endif
@@ -671,7 +673,7 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::Win32:
             VersionCondition::addPredefinedGlobalIdent("Windows");
             VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 305
             if (global.params.targetTriple.isWindowsGNUEnvironment())
             {
                 VersionCondition::addPredefinedGlobalIdent("mingw32"); // For backwards compatibility.
@@ -1081,7 +1083,7 @@ int main(int argc, char **argv)
         ext = FileName::ext(p);
         if (ext)
         {
-#if POSIX
+#if LDC_POSIX
             if (strcmp(ext, global.obj_ext) == 0 ||
                 strcmp(ext, global.bc_ext) == 0)
 #else
@@ -1094,7 +1096,7 @@ int main(int argc, char **argv)
                 continue;
             }
 
-#if POSIX
+#if LDC_POSIX
             if (strcmp(ext, "a") == 0)
 #elif __MINGW32__
             if (Port::stricmp(ext, "a") == 0)
@@ -1119,7 +1121,7 @@ int main(int argc, char **argv)
                 continue;
             }
 
-#if !POSIX
+#if !LDC_POSIX
             if (Port::stricmp(ext, "res") == 0)
             {
                 global.params.resfile = static_cast<const char *>(files.data[i]);

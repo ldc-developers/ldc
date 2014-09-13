@@ -324,6 +324,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
         {
             fd->llvmInternal = llvm_internal;
             fd->intrinsicName = arg1str;
+            fd->mangleOverride = strdup(fd->intrinsicName.c_str());
         }
         else if (TemplateDeclaration* td = s->isTemplateDeclaration())
         {

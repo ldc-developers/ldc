@@ -9,6 +9,7 @@ endif()
 
 include(CheckIncludeFile)
 include(CheckLibraryExists)
+include(CheckCXXCompilerFlag)
 
 #
 # Locate LLVM.
@@ -117,13 +118,21 @@ if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
     #    and it triggers for the visitors we need in our glue code
     #  * -Wpedantic warns on trailing commas in initializer lists and casting
     #    function pointers to void*.
-    append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor -Wno-pedantic" LDC_CXXFLAGS)
+    append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor" LDC_CXXFLAGS)
+    check_cxx_compiler_flag("-Wno-pedantic" CXX_SUPPORTS_NO_PEDANTIC)
+    if(CXX_SUPPORTS_NO_PEDANTIC)
+        append("-Wno-pedantic" LDC_CXXFLAGS)
+    endif()
 endif()
 # Append -mminimal-toc for gcc 4.0.x - 4.5.x on ppc64
 if( CMAKE_COMPILER_IS_GNUCXX
     AND CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|powerpc64"
     AND CMAKE_C_COMPILER_VERSION MATCHES ".*4\\.[0-5].*" )
     append("-mminimal-toc" DMD_CXXFLAGS LDC_CXXFLAGS)
+endif()
+if(UNIX)
+    append("-DPOSIX -DLDC_POSIX" DMD_CXXFLAGS)
+    append("-DLDC_POSIX" LDC_CXXFLAGS)
 endif()
 set(SANITIZE_CXXFLAGS)
 set(SANITIZE_LDFLAGS)
@@ -319,10 +328,6 @@ add_definitions(
     -DLDC_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"
     -DLDC_LLVM_VER=${LDC_LLVM_VER}
 )
-
-if(UNIX)
-    add_definitions(-DPOSIX)
-endif()
 
 if(USE_BOEHM_GC)
     add_definitions(-DREDIRECT_MALLOC=GC_malloc -DIGNORE_FREE)

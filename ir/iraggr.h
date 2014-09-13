@@ -150,4 +150,7 @@ private:
 
 //////////////////////////////////////////////////////////////////////////////
 
+IrAggr *getIrAggr(AggregateDeclaration *decl, bool create = false);
+bool isIrAggrCreated(AggregateDeclaration *decl);
+
 #endif

@@ -31,4 +31,6 @@ struct IrModule
     llvm::GlobalVariable* fileName;
 };
 
+IrModule *getIrModule(Module *m);
+
 #endif

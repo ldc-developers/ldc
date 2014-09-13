@@ -1191,7 +1191,7 @@ public:
             FuncDeclaration* fd = fv->func;
             assert(fd);
             DtoResolveFunction(fd);
-            result = new DFuncValue(fd, fd->ir.irFunc->func);
+            result = new DFuncValue(fd, getIrFunc(fd)->func);
             return;
         }
         else if (v->isIm()) {
@@ -1372,7 +1372,7 @@ public:
             }
             else
             {
-                funcval = fdecl->ir.irFunc->func;
+                funcval = getIrFunc(fdecl)->func;
             }
             assert(funcval);
 
@@ -1864,7 +1864,7 @@ public:
             {
                 // custom allocator
                 DtoResolveFunction(e->allocator);
-                DFuncValue dfn(e->allocator, e->allocator->ir.irFunc->func);
+                DFuncValue dfn(e->allocator, getIrFunc(e->allocator)->func);
                 DValue* res = DtoCallFunction(e->loc, NULL, &dfn, e->newargs);
                 mem = DtoBitCast(res->getRVal(), DtoType(ntype->pointerTo()), ".newstruct_custom");
             }
@@ -1890,7 +1890,7 @@ public:
                 else {
                     assert(ts->sym);
                     DtoResolveStruct(ts->sym, e->loc);
-                    DtoAggrCopy(mem, ts->sym->ir.irAggr->getInitSymbol());
+                    DtoAggrCopy(mem, getIrAggr(ts->sym)->getInitSymbol());
                 }
 
                 // set nested context
@@ -1903,7 +1903,7 @@ public:
                     IF_LOG Logger::println("Calling constructor");
                     assert(e->arguments != NULL);
                     DtoResolveFunction(e->member);
-                    DFuncValue dfn(e->member, e->member->ir.irFunc->func, mem);
+                    DFuncValue dfn(e->member, getIrFunc(e->member)->func, mem);
                     DtoCallFunction(e->loc, ts, &dfn, e->arguments);
                 }
             }
@@ -2076,7 +2076,7 @@ public:
         {
             Logger::print("calling struct invariant");
             DtoResolveFunction(invdecl);
-            DFuncValue invfunc(invdecl, invdecl->ir.irFunc->func, cond->getRVal());
+            DFuncValue invfunc(invdecl, getIrFunc(invdecl)->func, cond->getRVal());
             DtoCallFunction(e->loc, NULL, &invfunc, NULL);
         }
 
@@ -2317,7 +2317,7 @@ public:
                 }
             }
 
-            castfptr = e->func->ir.irFunc->func;
+            castfptr = getIrFunc(e->func)->func;
         }
 
         castfptr = DtoBitCast(castfptr, dgty->getContainedType(1));
@@ -2560,14 +2560,14 @@ public:
         // We need to actually codegen the function here, as literals are not added
         // to the module member list.
         Declaration_codegen(fd, p);
-        if (!fd->ir.irFunc)
+        if (!isIrFuncCreated(fd))
         {
             // See DtoDefineFunction for reasons why codegen was suppressed.
             // Instead just declare the function.
             DtoDeclareFunction(fd);
             assert(!fd->isNested());
         }
-        assert(fd->ir.irFunc->func);
+        assert(getIrFunc(fd)->func);
 
         if (fd->isNested()) {
             LLType* dgty = DtoType(e->type);
@@ -2591,19 +2591,19 @@ public:
                     cval = getNullPtr(getVoidPtrType());
                 } else {
                     cval = ad->isClassDeclaration() ? DtoLoad(irfn->thisArg) : irfn->thisArg;
-                    cval = DtoLoad(DtoGEPi(cval, 0,ad->vthis->ir.irField->index, ".vthis"));
+                    cval = DtoLoad(DtoGEPi(cval, 0, getIrField(ad->vthis)->index, ".vthis"));
                 }
             }
             else
                 cval = getNullPtr(getVoidPtrType());
             cval = DtoBitCast(cval, dgty->getContainedType(0));
 
-            LLValue* castfptr = DtoBitCast(fd->ir.irFunc->func, dgty->getContainedType(1));
+            LLValue* castfptr = DtoBitCast(getIrFunc(fd)->func, dgty->getContainedType(1));
 
             result = new DImValue(e->type, DtoAggrPair(cval, castfptr, ".func"));
 
         } else {
-            result = new DFuncValue(e->type, fd, fd->ir.irFunc->func);
+            result = new DFuncValue(e->type, fd, getIrFunc(fd)->func);
         }
     }
 
@@ -2687,7 +2687,7 @@ public:
             assert(ts->sym);
             DtoResolveStruct(ts->sym);
 
-            LLValue* initsym = ts->sym->ir.irAggr->getInitSymbol();
+            LLValue* initsym = getIrAggr(ts->sym)->getInitSymbol();
             initsym = DtoBitCast(initsym, DtoType(ts->pointerTo()));
             result = new DVarValue(e->type, initsym);
             return;

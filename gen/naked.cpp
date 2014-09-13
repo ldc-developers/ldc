@@ -147,8 +147,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
     IF_LOG Logger::println("DtoDefineNakedFunction(%s)", mangleExact(fd));
     LOG_SCOPE;
 
-    assert(fd->ir.irFunc);
-    gIR->functions.push_back(fd->ir.irFunc);
+    gIR->functions.push_back(getIrFunc(fd));
 
     // we need to do special processing on the body, since we only want
     // to allow actual inline asm blocks to reach the final asm output
@@ -191,7 +190,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
     else if (isWin)
     {
         std::string fullMangle;
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 305
         if (global.params.targetTriple.isWindowsGNUEnvironment())
 #else
         if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)

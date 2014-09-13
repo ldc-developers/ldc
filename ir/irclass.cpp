@@ -185,8 +185,8 @@ LLConstant * IrAggr::getVtblInit()
         else
         {
             DtoResolveFunction(fd);
-            assert(fd->ir.irFunc && "invalid vtbl function");
-            c = fd->ir.irFunc->func;
+            assert(isIrFuncCreated(fd) && "invalid vtbl function");
+            c = getIrFunc(fd)->func;
             if (cd->isFuncHidden(fd))
             {   /* fd is hidden from the view of this class.
                  * If fd overlaps with any function in the vtbl[], then
@@ -320,9 +320,9 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
             "null symbol in interface implementation vtable");
 
         DtoResolveFunction(fd);
-        assert(fd->ir.irFunc && "invalid vtbl function");
+        assert(isIrFuncCreated(fd) && "invalid vtbl function");
 
-        LLFunction *fn = fd->ir.irFunc->func;
+        LLFunction *fn = getIrFunc(fd)->func;
 
         // If the base is a cpp interface, 'this' parameter is a pointer to
         // the interface not the underlying object as expected. Instead of
@@ -444,7 +444,7 @@ LLConstant * IrAggr::getClassInfoInterfaces()
 
         IF_LOG Logger::println("Adding interface %s", it->base->toPrettyChars());
 
-        IrAggr* irinter = it->base->ir.irAggr;
+        IrAggr* irinter = getIrAggr(it->base);
         assert(irinter && "interface has null IrStruct");
         IrTypeClass* itc = stripModifiers(irinter->type)->irtype->isClass();
         assert(itc && "null interface IrTypeClass");

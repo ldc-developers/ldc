@@ -354,14 +354,12 @@ void builtin_init()
 
 #if IN_LLVM
     // intrinsic llvm.bswap.i16/i32/i64/i128
-    add_builtin("llvm.bswap.i#", &eval_bswap);
     add_builtin("llvm.bswap.i16", &eval_bswap);
     add_builtin("llvm.bswap.i32", &eval_bswap);
     add_builtin("llvm.bswap.i64", &eval_bswap);
     add_builtin("llvm.bswap.i128", &eval_bswap);
 
     // intrinsic llvm.cttz.i8/i16/i32/i64/i128
-    add_builtin("llvm.cttz.i#", &eval_cttz);
     add_builtin("llvm.cttz.i8", &eval_cttz);
     add_builtin("llvm.cttz.i16", &eval_cttz);
     add_builtin("llvm.cttz.i32", &eval_cttz);
@@ -369,7 +367,6 @@ void builtin_init()
     add_builtin("llvm.cttz.i128", &eval_cttz);
 
     // intrinsic llvm.ctlz.i8/i16/i32/i64/i128
-    add_builtin("llvm.ctlz.i#", &eval_ctlz);
     add_builtin("llvm.ctlz.i8", &eval_ctlz);
     add_builtin("llvm.ctlz.i16", &eval_ctlz);
     add_builtin("llvm.ctlz.i32", &eval_ctlz);
@@ -377,7 +374,6 @@ void builtin_init()
     add_builtin("llvm.ctlz.i128", &eval_ctlz);
 
     // intrinsic llvm.ctpop.i8/i16/i32/i64/i128
-    add_builtin("llvm.ctpop.i#", &eval_ctpop);
     add_builtin("llvm.ctpop.i8", &eval_ctpop);
     add_builtin("llvm.ctpop.i16", &eval_ctpop);
     add_builtin("llvm.ctpop.i32", &eval_ctpop);
@@ -406,14 +402,7 @@ BUILTIN isBuiltin(FuncDeclaration *fd)
 {
     if (fd->builtin == BUILTINunknown)
     {
-#if IN_LLVM
-        const char *name = fd->llvmInternal == LLVMintrinsic
-                ? fd->intrinsicName.c_str()
-                : mangleExact(fd);
-        builtin_fp fp = builtin_lookup(name);
-#else
         builtin_fp fp = builtin_lookup(mangleExact(fd));
-#endif
         fd->builtin = fp ? BUILTINyes : BUILTINno;
     }
     return fd->builtin;
@@ -428,14 +417,7 @@ Expression *eval_builtin(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 {
     if (fd->builtin == BUILTINyes)
     {
-#if IN_LLVM
-        const char *name = fd->llvmInternal == LLVMintrinsic
-                ? fd->intrinsicName.c_str()
-                : mangleExact(fd);
-        builtin_fp fp = builtin_lookup(name);
-#else
-        builtin_fp fp = builtin_lookup(fd->mangleExact(fd));
-#endif
+        builtin_fp fp = builtin_lookup(mangleExact(fd));
         assert(fp);
         return fp(loc, fd, arguments);
     }
