@@ -1194,10 +1194,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
     Statement_toIR(fd->fbody, gIR);
     irFunc->gen = 0;
 
-    // TODO: clean up this mess
-
-//     std::cout << *func << std::endl;
-
     llvm::BasicBlock* bb = gIR->scopebb();
     if (pred_begin(bb) == pred_end(bb) && bb != &bb->getParent()->getEntryBlock()) {
         // This block is trivially unreachable, so just delete it.
@@ -1227,8 +1223,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
             llvm::ReturnInst::Create(gIR->context(), LLConstant::getNullValue(func->getReturnType()), bb);
     }
 
-//     std::cout << *func << std::endl;
-
     // erase alloca point
     if (allocaPoint->getParent())
         allocaPoint->eraseFromParent();
@@ -1242,8 +1236,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
     func->getBasicBlockList().pop_back();
 
     gIR->functions.pop_back();
-
-//     std::cout << *func << std::endl;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
