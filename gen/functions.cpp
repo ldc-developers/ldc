@@ -1002,10 +1002,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     assert(fd->ident != Id::empty);
 
     if (fd->isUnitTestDeclaration()) {
-        if (global.params.useUnitTests)
-            gIR->unitTests.push_back(fd);
-        else
-            return;
+        gIR->unitTests.push_back(fd);
     } else if (fd->isSharedStaticCtorDeclaration()) {
         gIR->sharedCtors.push_back(fd);
     } else if (StaticDtorDeclaration *dtorDecl = fd->isSharedStaticDtorDeclaration()) {
