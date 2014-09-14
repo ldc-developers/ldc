@@ -973,10 +973,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
     if (fd->semanticRun != PASSsemantic3done || fd->ident == Id::empty)
     {
         // We cannot ever generate code for this function. DMD would just filter
-        // it out by checking needsCodegen(), but we want to emit functions even
-        // if we do not need as available_exernally for inlining purposes.
-        assert(!fd->needsCodegen());
-
+        // it out, but we want to emit functions even if we do not need to as
+        // available_exernally for inlining purposes.
         IF_LOG Logger::println("No code generation for incomplete function '%s'",
             fd->toPrettyChars());
         fd->ir.setDefined();
