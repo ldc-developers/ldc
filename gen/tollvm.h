@@ -86,7 +86,6 @@ LLConstantInt* DtoConstUbyte(unsigned char i);
 LLConstant* DtoConstFP(Type* t, longdouble value);
 
 LLConstant* DtoConstString(const char*);
-LLConstant* DtoConstStringPtr(const char* str, const char* section = 0);
 LLConstant* DtoConstBool(bool);
 
 // llvm wrappers

@@ -669,18 +669,6 @@ LLConstant* DtoConstString(const char* str)
     );
 }
 
-LLConstant* DtoConstStringPtr(const char* str, const char* section)
-{
-    llvm::StringRef s(str);
-    LLConstant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
-        *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
-    if (section) gvar->setSection(section);
-    gvar->setUnnamedAddr(true);
-    LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
-    return llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
-}
-
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLValue* DtoLoad(LLValue* src, const char* name)
