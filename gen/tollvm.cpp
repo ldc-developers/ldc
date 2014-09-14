@@ -604,24 +604,6 @@ void DtoAggrCopy(LLValue* dst, LLValue* src)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device)
-{
-    // FIXME: implement me
-    /*llvm::Function* fn = GET_INTRINSIC_DECL(memory_barrier);
-    assert(fn != NULL);
-
-    LLSmallVector<LLValue*, 5> llargs;
-    llargs.push_back(DtoConstBool(ll));
-    llargs.push_back(DtoConstBool(ls));
-    llargs.push_back(DtoConstBool(sl));
-    llargs.push_back(DtoConstBool(ss));
-    llargs.push_back(DtoConstBool(device));
-
-    llvm::CallInst::Create(fn, llargs, "", gIR->scopebb());*/
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 llvm::ConstantInt* DtoConstSize_t(uint64_t i)
 {
     return LLConstantInt::get(DtoSize_t(), i, false);
@@ -688,18 +670,6 @@ LLConstant* DtoConstString(const char* str)
         llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true),
         Type::tchar->arrayOf()
     );
-}
-
-LLConstant* DtoConstStringPtr(const char* str, const char* section)
-{
-    llvm::StringRef s(str);
-    LLConstant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
-        *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
-    if (section) gvar->setSection(section);
-    gvar->setUnnamedAddr(true);
-    LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
-    return llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -914,38 +884,6 @@ size_t getTypeAllocSize(LLType* t)
 unsigned char getABITypeAlign(LLType* t)
 {
     return gDataLayout->getABITypeAlignment(t);
-}
-
-unsigned char getPrefTypeAlign(LLType* t)
-{
-    return gDataLayout->getPrefTypeAlignment(t);
-}
-
-LLType* getBiggestType(LLType** begin, size_t n)
-{
-    LLType* bigTy = 0;
-    size_t bigSize = 0;
-    size_t bigAlign = 0;
-
-    LLType** end = begin+n;
-    while (begin != end)
-    {
-        LLType* T = *begin;
-
-        size_t sz = getTypePaddedSize(T);
-        size_t ali = getABITypeAlign(T);
-        if (sz > bigSize || (sz == bigSize && ali > bigAlign))
-        {
-            bigTy = T;
-            bigSize = sz;
-            bigAlign = ali;
-        }
-
-        ++begin;
-    }
-
-    // will be null for n==0
-    return bigTy;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

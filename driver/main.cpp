@@ -1285,7 +1285,7 @@ int main(int argc, char **argv)
     // user perspective.
     //
     // Thus, if a library contained some functions in version(unittest), for
-    // example the tests in std.concurrency, and we ended up inline-scannin
+    // example the tests in std.concurrency, and we ended up inline-scanning
     // these functions while doing an -unittest build of a client application,
     // we could end up referencing functions that we think are
     // availableExternally, but have never been touched when the library was built.

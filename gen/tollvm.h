@@ -86,7 +86,6 @@ LLConstantInt* DtoConstUbyte(unsigned char i);
 LLConstant* DtoConstFP(Type* t, longdouble value);
 
 LLConstant* DtoConstString(const char*);
-LLConstant* DtoConstStringPtr(const char* str, const char* section = 0);
 LLConstant* DtoConstBool(bool);
 
 // llvm wrappers
@@ -132,10 +131,6 @@ size_t getTypeAllocSize(LLType* t);
 
 // type alignments
 unsigned char getABITypeAlign(LLType* t);
-unsigned char getPrefTypeAlign(LLType* t);
-
-// get biggest type, for unions ...
-LLType* getBiggestType(LLType** begin, size_t n);
 
 // pair type helpers
 LLValue* DtoAggrPair(LLType* type, LLValue* V1, LLValue* V2, const char* name = 0);
@@ -184,15 +179,5 @@ void DtoAggrZeroInit(LLValue* v);
  * @param src Source memory.
  */
 void DtoAggrCopy(LLValue* dst, LLValue* src);
-
-/**
- * Generates a call to llvm.memory.barrier
- * @param ll load-load
- * @param ls load-store
- * @param sl store-load
- * @param ss store-store
- * @param device special device flag
- */
-void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device=false);
 
 #endif // LDC_GEN_TOLLVM_H

@@ -962,23 +962,34 @@ void DtoDefineFunction(FuncDeclaration* fd)
         return;
     }
 
-    // Skip generating code for this part of a TemplateInstance if it has been
-    // instantiated by any non-root module (i.e. a module not listed on the
-    // command line).
-    // Check this before calling DtoDeclareFunction to avoid touching
-    // unanalyzed code.
-    if (!fd->needsCodegen())
-    {
-        IF_LOG Logger::println("No code generation for %s", fd->toChars());
-        fd->ir.setDefined();
-        return;
-    }
-
     // Skip array ops implemented in druntime
     if (fd->isArrayOp && isDruntimeArrayOp(fd))
     {
         IF_LOG Logger::println("No code generation for array op %s implemented in druntime", fd->toChars());
+        fd->ir.setDefined();
         return;
+    }
+
+    if (fd->semanticRun != PASSsemantic3done || fd->ident == Id::empty)
+    {
+        // We cannot ever generate code for this function. DMD would just filter
+        // it out by checking needsCodegen(), but we want to emit functions even
+        // if we do not need as available_exernally for inlining purposes.
+        assert(!fd->needsCodegen());
+
+        IF_LOG Logger::println("No code generation for incomplete function '%s'",
+            fd->toPrettyChars());
+        fd->ir.setDefined();
+        return;
+    }
+
+    // If we do not know already that we do not need to emit this because its
+    // from an extra inlining semantic, check whether we can omit it anyway.
+    if (!fd->availableExternally && !fd->needsCodegen())
+    {
+        IF_LOG Logger::println("Emitting '%s' as available_externally",
+            fd->toPrettyChars());
+        fd->availableExternally = true;
     }
 
     DtoDeclareFunction(fd);
@@ -1009,10 +1020,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     assert(fd->ident != Id::empty);
 
     if (fd->isUnitTestDeclaration()) {
-        if (global.params.useUnitTests)
-            gIR->unitTests.push_back(fd);
-        else
-            return;
+        gIR->unitTests.push_back(fd);
     } else if (fd->isSharedStaticCtorDeclaration()) {
         gIR->sharedCtors.push_back(fd);
     } else if (StaticDtorDeclaration *dtorDecl = fd->isSharedStaticDtorDeclaration()) {
@@ -1204,10 +1212,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
     codegenFunction(fd->fbody, gIR);
     irFunc->gen = 0;
 
-    // TODO: clean up this mess
-
-//     std::cout << *func << std::endl;
-
     llvm::BasicBlock* bb = gIR->scopebb();
     if (pred_begin(bb) == pred_end(bb) && bb != &bb->getParent()->getEntryBlock()) {
         // This block is trivially unreachable, so just delete it.
@@ -1237,8 +1241,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
             llvm::ReturnInst::Create(gIR->context(), LLConstant::getNullValue(func->getReturnType()), bb);
     }
 
-//     std::cout << *func << std::endl;
-
     // erase alloca point
     if (allocaPoint->getParent())
         allocaPoint->eraseFromParent();
@@ -1252,8 +1254,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
     func->getBasicBlockList().pop_back();
 
     gIR->functions.pop_back();
-
-//     std::cout << *func << std::endl;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
