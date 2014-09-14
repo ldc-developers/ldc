@@ -601,24 +601,6 @@ void DtoAggrCopy(LLValue* dst, LLValue* src)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device)
-{
-    // FIXME: implement me
-    /*llvm::Function* fn = GET_INTRINSIC_DECL(memory_barrier);
-    assert(fn != NULL);
-
-    LLSmallVector<LLValue*, 5> llargs;
-    llargs.push_back(DtoConstBool(ll));
-    llargs.push_back(DtoConstBool(ls));
-    llargs.push_back(DtoConstBool(sl));
-    llargs.push_back(DtoConstBool(ss));
-    llargs.push_back(DtoConstBool(device));
-
-    llvm::CallInst::Create(fn, llargs, "", gIR->scopebb());*/
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 llvm::ConstantInt* DtoConstSize_t(uint64_t i)
 {
     return LLConstantInt::get(DtoSize_t(), i, false);

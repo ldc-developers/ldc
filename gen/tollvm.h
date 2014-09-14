@@ -185,14 +185,4 @@ void DtoAggrZeroInit(LLValue* v);
  */
 void DtoAggrCopy(LLValue* dst, LLValue* src);
 
-/**
- * Generates a call to llvm.memory.barrier
- * @param ll load-load
- * @param ls load-store
- * @param sl store-load
- * @param ss store-store
- * @param device special device flag
- */
-void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device=false);
-
 #endif // LDC_GEN_TOLLVM_H
