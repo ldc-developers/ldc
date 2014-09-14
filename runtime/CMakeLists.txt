@@ -34,6 +34,10 @@ else()
 endif()
 
 if(BUILD_SHARED_LIBS)
+    if(NOT ${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+        message(FATAL_ERROR "Shared libraries (BUILD_SHARED_LIBS) are only supported on Linux for the time being.")
+    endif()
+
     list(APPEND D_FLAGS -relocation-model=pic)
     set(D_LIBRARY_TYPE SHARED)
 else()
