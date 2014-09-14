@@ -273,7 +273,7 @@ public:
                 gvar->setInitializer(initVal);
                 gvar->setLinkage(llLinkage);
 
-                // Also set up the edbug info.
+                // Also set up the debug info.
                 irs->DBuilder.EmitGlobalVariable(gvar, decl);
             }
 
