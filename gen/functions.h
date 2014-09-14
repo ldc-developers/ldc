@@ -33,8 +33,6 @@ llvm::FunctionType* DtoFunctionType(Type* t, IrFuncTy &irFty, Type* thistype, Ty
                                     bool isMain = false, bool isCtor = false, bool isIntrinsic = false);
 llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl);
 
-llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl);
-
 void DtoResolveFunction(FuncDeclaration* fdecl);
 void DtoDeclareFunction(FuncDeclaration* fdecl);
 void DtoDefineFunction(FuncDeclaration* fd);

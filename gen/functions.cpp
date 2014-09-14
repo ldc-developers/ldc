@@ -1268,34 +1268,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl)
-{
-    Dsymbol* parent = fdecl->toParent();
-    ClassDeclaration* cd = parent->isClassDeclaration();
-    assert(cd);
-
-    FuncDeclaration* f = fdecl;
-
-    while (cd)
-    {
-        ClassDeclaration* base = cd->baseClass;
-        if (!base)
-            break;
-        FuncDeclaration* f2 = base->findFunc(fdecl->ident, static_cast<TypeFunction*>(fdecl->type));
-        if (f2) {
-            f = f2;
-            cd = base;
-        }
-        else
-            break;
-    }
-
-    DtoResolveFunction(f);
-    return llvm::cast<llvm::FunctionType>(DtoType(f->type));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* DtoArgument(Parameter* fnarg, Expression* argexp)
 {
     IF_LOG Logger::println("DtoArgument");
