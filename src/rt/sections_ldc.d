@@ -41,7 +41,7 @@ struct SectionGroup
         return dg(globalSectionGroup);
     }
 
-    @property inout(ModuleInfo*)[] modules() inout
+    @property immutable(ModuleInfo*)[] modules() const
     {
         return _moduleGroup.modules;
     }
@@ -59,7 +59,7 @@ struct SectionGroup
 private:
     ModuleGroup _moduleGroup;
 
-    import rt.util.container;
+    import rt.util.container.array;
     Array!(void[]) _gcRanges;
 }
 private __gshared SectionGroup globalSectionGroup;
@@ -267,7 +267,7 @@ void initSections()
 void finiSections()
 {
     import core.stdc.stdlib : free;
-    free(globalSectionGroup.modules.ptr);
+    free(cast(void*)globalSectionGroup.modules.ptr);
 }
 
 private
@@ -325,7 +325,7 @@ void finiTLSRanges(void[] rng)
 {
 }
 
-void scanTLSRanges(void[] rng, scope void delegate(void* pbeg, void* pend) dg)
+void scanTLSRanges(void[] rng, scope void delegate(void* pbeg, void* pend) nothrow dg) nothrow
 {
     if (rng) dg(rng.ptr, rng.ptr + rng.length);
 }
@@ -339,10 +339,16 @@ private:
 struct ModuleReference
 {
     ModuleReference* next;
-    ModuleInfo*      mod;
+    immutable(ModuleInfo)* mod;
 }
 
-ModuleInfo*[] getModuleInfos()
+immutable(ModuleInfo*)[] getModuleInfos()
+out (result)
+{
+    foreach(m; result)
+        assert(m !is null);
+}
+body
 {
     import core.stdc.stdlib : malloc;
 
@@ -350,7 +356,7 @@ ModuleInfo*[] getModuleInfos()
     for (auto mr = _Dmodule_ref; mr; mr = mr.next)
         len++;
 
-    auto result = (cast(ModuleInfo**)malloc(len * size_t.sizeof))[0 .. len];
+    auto result = (cast(immutable(ModuleInfo)**)malloc(len * size_t.sizeof))[0 .. len];
 
     auto tip = _Dmodule_ref;
     foreach (ref r; result)
@@ -359,5 +365,5 @@ ModuleInfo*[] getModuleInfos()
         tip = tip.next;
     }
 
-    return result;
+    return cast(immutable)result;
 }
