@@ -592,8 +592,6 @@ endforeach()
 # to the linking command instead so that all tests are pulled in.
 
 macro(build_test_runner name_suffix d_flags c_flags)
-    # TODO: Implement weaker optimization flags for older LLVM versions.
-
     set(flags "${D_FLAGS};${d_flags};-unittest")
     if(BUILD_SHARED_LIBS)
         set(unittest_libs "")
