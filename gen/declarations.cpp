@@ -337,6 +337,10 @@ public:
         if (decl->ir.isDefined()) return;
         decl->ir.setDefined();
 
+        // FIXME: This is #673 all over again. Probably need to apply a visitor
+        // that sets availableExternally for all members.
+        if (!decl->needsCodegen()) return;
+
         if (!decl->errors && decl->members)
         {
             for (Dsymbols::iterator I = decl->members->begin(),

@@ -103,10 +103,14 @@ namespace llvm
     class Value;
 }
 #endif
-#if IN_DMD
-// Back end
-struct Classsym;
-#endif
+
+struct Ungag
+{
+    unsigned oldgag;
+
+    Ungag(unsigned old) : oldgag(old) {}
+    ~Ungag() { global.gag = oldgag; }
+};
 
 const char *mangle(Dsymbol *s);
 const char *mangleExact(FuncDeclaration *fd);

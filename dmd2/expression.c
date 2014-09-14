@@ -3281,7 +3281,7 @@ Lagain:
 
             // Detect recursive initializers.
             // BUG: The check for speculative gagging is not correct
-            if (v->inuse && !global.isSpeculativeGagging())
+            if (v->inuse && !global.gag)
             {
                 e->error("circular initialization of %s", v->toChars());
                 return new ErrorExp();
@@ -5150,11 +5150,10 @@ Expression *NewAnonClassExp::semantic(Scope *sc)
 #endif
 
     Expression *d = new DeclarationExp(loc, cd);
-    sc = sc->startCTFE();       // just create new scope
+    sc = sc->push();            // just create new scope
     sc->flags &= ~SCOPEctfe;    // temporary stop CTFE
     d = d->semantic(sc);
-    sc->flags |=  SCOPEctfe;
-    sc = sc->endCTFE();
+    sc = sc->pop();
 
     Expression *n = new NewExp(loc, thisexp, newargs, cd->type, arguments);
 
@@ -5616,7 +5615,7 @@ Expression *FuncExp::semantic(Scope *sc)
 #endif
     Expression *e = this;
 
-    sc = sc->startCTFE();       // just create new scope
+    sc = sc->push();            // just create new scope
     sc->flags &= ~SCOPEctfe;    // temporary stop CTFE
     sc->protection = PROTpublic;    // Bugzilla 12506
 
@@ -5713,8 +5712,7 @@ Expression *FuncExp::semantic(Scope *sc)
         fd->tookAddressOf++;
     }
 Ldone:
-    sc->flags |=  SCOPEctfe;
-    sc = sc->endCTFE();
+    sc = sc->pop();
     return e;
 }
 
@@ -7455,12 +7453,21 @@ Expression *DotIdExp::semanticY(Scope *sc, int flag)
              ident != Id::init && ident != Id::__sizeof &&
              ident != Id::__xalignof && ident != Id::offsetof &&
              ident != Id::mangleof && ident != Id::stringof)
-    {   /* Rewrite:
+    {
+        Type *t1bn = t1b->nextOf();
+        if (flag)
+        {
+            AggregateDeclaration *ad = isAggregate(t1bn);
+            if (ad && !ad->members)   // Bugzilla 11312
+                return NULL;
+        }
+
+        /* Rewrite:
          *   p.ident
          * as:
          *   (*p).ident
          */
-        if (flag && t1b->nextOf()->ty == Tvoid)
+        if (flag && t1bn->ty == Tvoid)
             return NULL;
         e = new PtrExp(loc, e1);
         e = e->semantic(sc);
@@ -14068,13 +14075,9 @@ Expression *resolveOpDollar(Scope *sc, ArrayExp *ae, Expression **pe0)
             fargs->push(ie->upr);
 
             unsigned xerrors = global.startGagging();
-            unsigned oldspec = global.speculativeGag;
-            global.speculativeGag = global.gag;
             sc = sc->push();
-            sc->speculative = true;
             FuncDeclaration *fslice = resolveFuncCall(ae->loc, sc, slice, tiargs, ae->e1->type, fargs, 1);
             sc = sc->pop();
-            global.speculativeGag = oldspec;
             global.endGagging(xerrors);
             if (!fslice)
                 goto Lfallback;

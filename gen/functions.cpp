@@ -984,12 +984,24 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 
     // If we do not know already that we do not need to emit this because its
-    // from an extra inlining semantic, check whether we can omit it anyway.
-    if (!fd->availableExternally && !fd->needsCodegen())
+    // from an extra inlining semantic, check whether we can omit it anyway
+    // (see DMD's FuncDeclaration::toObjFile).
+    if (!fd->availableExternally)
     {
-        IF_LOG Logger::println("Emitting '%s' as available_externally",
-            fd->toPrettyChars());
-        fd->availableExternally = true;
+        for (FuncDeclaration *f = fd; f; )
+        {
+            if (!f->isInstantiated() && f->inNonRoot())
+            {
+                IF_LOG Logger::println("Emitting '%s' as available_externally",
+                    fd->toPrettyChars());
+                f->availableExternally = true;
+                break;
+            }
+            if (f->isNested())
+                f = f->toParent2()->isFuncDeclaration();
+            else
+                break;
+        }
     }
 
     DtoDeclareFunction(fd);
