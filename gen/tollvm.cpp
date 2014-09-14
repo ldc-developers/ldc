@@ -895,38 +895,6 @@ unsigned char getABITypeAlign(LLType* t)
     return gDataLayout->getABITypeAlignment(t);
 }
 
-unsigned char getPrefTypeAlign(LLType* t)
-{
-    return gDataLayout->getPrefTypeAlignment(t);
-}
-
-LLType* getBiggestType(LLType** begin, size_t n)
-{
-    LLType* bigTy = 0;
-    size_t bigSize = 0;
-    size_t bigAlign = 0;
-
-    LLType** end = begin+n;
-    while (begin != end)
-    {
-        LLType* T = *begin;
-
-        size_t sz = getTypePaddedSize(T);
-        size_t ali = getABITypeAlign(T);
-        if (sz > bigSize || (sz == bigSize && ali > bigAlign))
-        {
-            bigTy = T;
-            bigSize = sz;
-            bigAlign = ali;
-        }
-
-        ++begin;
-    }
-
-    // will be null for n==0
-    return bigTy;
-}
-
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLStructType* DtoInterfaceInfoType()

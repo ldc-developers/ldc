@@ -132,10 +132,6 @@ size_t getTypeAllocSize(LLType* t);
 
 // type alignments
 unsigned char getABITypeAlign(LLType* t);
-unsigned char getPrefTypeAlign(LLType* t);
-
-// get biggest type, for unions ...
-LLType* getBiggestType(LLType** begin, size_t n);
 
 // pair type helpers
 LLValue* DtoAggrPair(LLType* type, LLValue* V1, LLValue* V2, const char* name = 0);
