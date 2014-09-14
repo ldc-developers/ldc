@@ -10,7 +10,6 @@ set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERS
 
 set(MULTILIB              OFF                                       CACHE BOOL    "Build both 32/64 bit runtime libraries")
 set(BUILD_BC_LIBS         OFF                                       CACHE BOOL    "Build the runtime as LLVM bitcode libraries")
-set(LIB_SUFFIX            ""                                        CACHE STRING  "'64' to install libraries into ${PREFIX}/lib64")
 set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d         CACHE PATH    "Path to install D modules to")
 set(BUILD_SHARED_LIBS     OFF                                       CACHE BOOL    "Whether to build the runtime as a shared library")
 set(D_FLAGS               -w;-d                                     CACHE STRING  "Runtime build flags, separated by ;")
@@ -20,6 +19,10 @@ if(MSVC)
     set(LINK_WITH_MSVCRT  OFF                                       CACHE BOOL    "Link with MSVCRT.LIB instead of LIBCMT.LIB")
 endif()
 
+# Note: In the below building helpers, this is more fittingly called
+# ${path_suffix}. ${lib_suffix} refers to the library file suffix there
+# (e.g. -debug).
+set(LIB_SUFFIX "" CACHE STRING "'64' to install libraries into ${PREFIX}/lib64")
 
 set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
 
@@ -292,7 +295,9 @@ macro(get_target_suffix lib_suffix path_suffix target_suffix)
     if(NOT "${lib_suffix}" STREQUAL "")
         set(${target_suffix} "${lib_suffix}")
     endif()
-    if(NOT "${path_suffix}" STREQUAL "")
+
+    # If LIB_SUFFIX is set there is always a suffix; leave it off for simplicity.
+    if(NOT "${path_suffix}" STREQUAL "" AND NOT "${path_suffix}" STREQUAL "${LIB_SUFFIX}")
         set(${target_suffix} "${${target_suffix}}_${path_suffix}")
     endif()
 endmacro()
