@@ -974,16 +974,17 @@ void DtoDefineFunction(FuncDeclaration* fd)
     {
         // We cannot ever generate code for this function. DMD would just filter
         // it out, but we want to emit functions even if we do not need to as
-        // available_exernally for inlining purposes.
+        // available_externally for inlining purposes.
         IF_LOG Logger::println("No code generation for incomplete function '%s'",
             fd->toPrettyChars());
         fd->ir.setDefined();
         return;
     }
 
-    // If we do not know already that we do not need to emit this because its
-    // from an extra inlining semantic, check whether we can omit it anyway
-    // (see DMD's FuncDeclaration::toObjFile).
+    // If we do not know already that this function definition is also available
+    // in some other compiled module because it has been analyzed as part of an
+    // extra inlining semantic, check whether the frontend knows that is defined
+    // in some other module anyway (see DMD's FuncDeclaration::toObjFile).
     if (!fd->availableExternally)
     {
         for (FuncDeclaration *f = fd; f; )
