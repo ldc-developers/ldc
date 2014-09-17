@@ -16,7 +16,7 @@ include(CheckCXXCompilerFlag)
 #
 
 find_package(LLVM 3.1 REQUIRED
-    all-targets bitwriter linker ipo instrumentation backend support tablegen asmparser lto ${EXTRA_LLVM_MODULES})
+    all-targets bitwriter linker ipo instrumentation support tablegen asmparser lto ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 
 #

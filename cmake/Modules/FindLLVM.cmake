@@ -27,7 +27,8 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-3.5 llvm-config35
+set(llvm_config_names llvm-config-3.6 llvm-config36
+                      llvm-config-3.5 llvm-config35
                       llvm-config-3.4 llvm-config34
                       llvm-config-3.3 llvm-config33
                       llvm-config-3.2 llvm-config32
@@ -55,8 +56,8 @@ if (WIN32 OR NOT LLVM_CONFIG)
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "all-targets" index)
         list(APPEND LLVM_FIND_COMPONENTS ${LLVM_TARGETS_TO_BUILD})
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "backend" index)
-        if(${LLVM_VERSION_STRING} MATCHES "3.[0-4][A-Za-z]*")
-            # Versions below 3.5 do not supoort component lto
+        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
+            # Versions below 3.5 do not support component lto
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "lto" index)
         endif()
 
@@ -115,23 +116,13 @@ else()
     llvm_set(INCLUDE_DIRS includedir)
     llvm_set(ROOT_DIR prefix)
 
-    if(${LLVM_VERSION_STRING} MATCHES "3.[0-4][A-Za-z]*")
-        # Versions below 3.5 do not supoort component lto
+    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
+        # Versions below 3.5 do not support component lto
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "lto" index)
-    endif()
-    if(${LLVM_VERSION_STRING} MATCHES "3.0[A-Za-z]*")
-        # Version 3.0 does not support component all-targets
-        llvm_set(TARGETS_TO_BUILD targets-built)
-        string(REGEX MATCHALL "[^ ]+" LLVM_TARGETS_TO_BUILD ${LLVM_TARGETS_TO_BUILD})
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "all-targets" index)
-        list(APPEND LLVM_FIND_COMPONENTS ${LLVM_TARGETS_TO_BUILD})
-    else()
-        # Version 3.1+ does not supoort component backend
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "backend" index)
     endif()
 
     llvm_set(LDFLAGS ldflags)
-    if(NOT ${LLVM_VERSION_STRING} MATCHES "3.[0-4][A-Za-z]*")
+    if(NOT ${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
         # In LLVM 3.5+, the system library dependencies (e.g. "-lz") are accessed
         # using the separate "--system-libs" flag.
         llvm_set(SYSTEM_LIBS system-libs)
