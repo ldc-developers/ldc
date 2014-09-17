@@ -56,12 +56,22 @@ if (WIN32 OR NOT LLVM_CONFIG)
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "all-targets" index)
         list(APPEND LLVM_FIND_COMPONENTS ${LLVM_TARGETS_TO_BUILD})
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "backend" index)
+        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-2][\\.0-9A-Za-z]*")
+            # Versions below 3.3 do not support components objcarcopts, option
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "objcarcopts" index)
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "option" index)
+        endif()
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
-            # Versions below 3.5 do not support component lto
+            # Versions below 3.5 do not support components lto, profiledata
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "lto" index)
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "profiledata" index)
         endif()
 
-        llvm_map_components_to_libraries(tmplibs ${LLVM_FIND_COMPONENTS})
+        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
+            llvm_map_components_to_libraries(tmplibs ${LLVM_FIND_COMPONENTS})
+        else()
+            llvm_map_components_to_libnames(tmplibs ${LLVM_FIND_COMPONENTS})
+        endif()
         if(MSVC)
             foreach(lib ${tmplibs})
                 list(APPEND LLVM_LIBRARIES "${LLVM_LIBRARY_DIRS}/${CMAKE_STATIC_LIBRARY_PREFIX}${lib}${CMAKE_STATIC_LIBRARY_SUFFIX}")
@@ -116,9 +126,15 @@ else()
     llvm_set(INCLUDE_DIRS includedir)
     llvm_set(ROOT_DIR prefix)
 
+    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-2][\\.0-9A-Za-z]*")
+        # Versions below 3.3 do not support components objcarcopts, option
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "objcarcopts" index)
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "option" index)
+    endif()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
-        # Versions below 3.5 do not support component lto
+        # Versions below 3.5 do not support components lto, profiledata
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "lto" index)
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "profiledata" index)
     endif()
 
     llvm_set(LDFLAGS ldflags)
