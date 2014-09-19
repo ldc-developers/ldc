@@ -327,7 +327,9 @@ bool ldc_optimize_module(llvm::Module *M)
     mpm.add(tli);
 
     // Add an appropriate DataLayout instance for this module.
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER >= 306
+    mpm.add(new DataLayoutPass());
+#elif LDC_LLVM_VER == 305
     const DataLayout *DL = M->getDataLayout();
     assert(DL && "DataLayout not set at module");
     mpm.add(new DataLayoutPass(*DL));
@@ -344,7 +346,10 @@ bool ldc_optimize_module(llvm::Module *M)
 
     // Also set up a manager for the per-function passes.
     FunctionPassManager fpm(M);
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER >= 306
+    fpm.add(new DataLayoutPass());
+    gTargetMachine->addAnalysisPasses(fpm);
+#elif LDC_LLVM_VER == 305
     fpm.add(new DataLayoutPass(M));
     gTargetMachine->addAnalysisPasses(fpm);
 #elif LDC_LLVM_VER >= 302
