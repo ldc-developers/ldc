@@ -31,11 +31,11 @@ install:
       sudo ln -s /usr/lib/i386-linux-gnu/libstdc++.so.6 /usr/lib/i386-linux-gnu/libstdc++.so;
     fi
   -
-    if [[ "$LLVM_PACKAGE" == *3.5* ]] && [[ "$CXX" == "g++" ]]; then
+    if [[ "${LLVM_PACKAGE}" == *3\.[56]* ]] && [[ "${CXX}" == "g++" ]]; then
       sudo apt-get install -qq g++-4.8; export CXX="g++-4.8";
     fi
   -
-    if [[ "$LLVM_PACKAGE" == *3.5* ]] && [[ "$CXX" == "clang++" ]]; then
+    if [[ "${LLVM_PACKAGE}" == *3\.[56]* ]] && [[ "${CXX}" == "clang++" ]]; then
       sudo apt-get install --allow-unauthenticated -qq clang-3.4; export CXX="clang++-3.4";
     fi
 env:

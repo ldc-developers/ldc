@@ -65,10 +65,7 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
     PassManager Passes;
 
 #if LDC_LLVM_VER >= 306
-    if (const DataLayout *DL = Target.getSubtargetImpl()->getDataLayout())
-        Passes.add(new DataLayoutPass(*DL));
-    else
-        Passes.add(new DataLayoutPass(&m));
+    Passes.add(new DataLayoutPass());
 #elif LDC_LLVM_VER == 305
     if (const DataLayout *DL = Target.getDataLayout())
         Passes.add(new DataLayoutPass(*DL));
