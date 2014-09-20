@@ -220,13 +220,13 @@ Expression *eval_ctpop(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKint64);
     uinteger_t n = arg0->toInteger();
-    n = n - ((n >> 1) & 0x5555555555555555);
-    n = (n & 0x3333333333333333) + ((n >> 2) & 0x3333333333333333);
-    n = n  + ((n >> 4) & 0x0F0F0F0F0F0F0F0F);
-    n = n + (n >> 8);
-    n = n + (n >> 16);
-    n = n + (n >> 32);
-    return new IntegerExp(loc, n, type);
+    int cnt = 0;
+    while (n)
+    {
+        cnt += (n & 1);
+        n >>= 1;
+    }
+    return new IntegerExp(loc, cnt, arg0->type);
 }
 #else
 
