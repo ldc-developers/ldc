@@ -127,6 +127,38 @@ static inline int getBitsizeOfType(Loc loc, Type *type)
     return 32; // in case of error
 }
 
+Expression *eval_llvmsin(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKfloat64);
+    return new RealExp(loc, sinl(arg0->toReal()), type);
+}
+
+Expression *eval_llvmcos(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKfloat64);
+    return new RealExp(loc, cosl(arg0->toReal()), type);
+}
+
+Expression *eval_llvmsqrt(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKfloat64);
+    return new RealExp(loc, sqrtl(arg0->toReal()), type);
+}
+
+Expression *eval_llvmfabs(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKfloat64);
+    return new RealExp(loc, fabsl(arg0->toReal()), type);
+}
+
 Expression *eval_cttz(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 {
     Type* type = getTypeOfOverloadedIntrinsic(fd);
@@ -227,7 +259,7 @@ Expression *eval_ctpop(Loc loc, FuncDeclaration *fd, Expressions *arguments)
         cnt += (n & 1);
         n >>= 1;
     }
-    return new IntegerExp(loc, cnt, arg0->type);
+    return new IntegerExp(loc, cnt, type);
 }
 #else
 
@@ -285,7 +317,7 @@ Expression *eval_bswap(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 void builtin_init()
 {
 #if IN_LLVM
-    builtins._init(67); // Prime number like default value
+    builtins._init(89); // Prime number like default value
 #else
     builtins._init(45);
 #endif
@@ -353,6 +385,34 @@ void builtin_init()
     add_builtin("_D3std4math6rndtolFNaNbNiNfeZl", &eval_unimp);
 
 #if IN_LLVM
+    // intrinsic llvm.sin.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.sin.f32", &eval_llvmsin);
+    add_builtin("llvm.sin.f64", &eval_llvmsin);
+    add_builtin("llvm.sin.f80", &eval_llvmsin);
+    add_builtin("llvm.sin.f128", &eval_llvmsin);
+    add_builtin("llvm.sin.ppcf128", &eval_llvmsin);
+
+    // intrinsic llvm.cos.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.cos.f32", &eval_llvmcos);
+    add_builtin("llvm.cos.f64", &eval_llvmcos);
+    add_builtin("llvm.cos.f80", &eval_llvmcos);
+    add_builtin("llvm.cos.f128", &eval_llvmcos);
+    add_builtin("llvm.cos.ppcf128", &eval_llvmcos);
+
+    // intrinsic llvm.sqrt.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.sqrt.f32", &eval_llvmsqrt);
+    add_builtin("llvm.sqrt.f64", &eval_llvmsqrt);
+    add_builtin("llvm.sqrt.f80", &eval_llvmsqrt);
+    add_builtin("llvm.sqrt.f128", &eval_llvmsqrt);
+    add_builtin("llvm.sqrt.ppcf128", &eval_llvmsqrt);
+
+    // intrinsic llvm.fabs.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.fabs.f32", &eval_llvmfabs);
+    add_builtin("llvm.fabs.f64", &eval_llvmfabs);
+    add_builtin("llvm.fabs.f80", &eval_llvmfabs);
+    add_builtin("llvm.fabs.f128", &eval_llvmfabs);
+    add_builtin("llvm.fabs.ppcf128", &eval_llvmfabs);
+
     // intrinsic llvm.bswap.i16/i32/i64/i128
     add_builtin("llvm.bswap.i16", &eval_bswap);
     add_builtin("llvm.bswap.i32", &eval_bswap);
