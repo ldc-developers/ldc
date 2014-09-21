@@ -119,15 +119,14 @@ if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
     #  * -Wpedantic warns on trailing commas in initializer lists and casting
     #    function pointers to void*.
     append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor" LDC_CXXFLAGS)
-    check_cxx_compiler_flag("-Wno-pedantic" CXX_SUPPORTS_NO_PEDANTIC)
-    if(CXX_SUPPORTS_NO_PEDANTIC)
+    if(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_C_COMPILER_VERSION VERSION_LESS "4.7.0")
         append("-Wno-pedantic" LDC_CXXFLAGS)
     endif()
 endif()
 # Append -mminimal-toc for gcc 4.0.x - 4.5.x on ppc64
 if( CMAKE_COMPILER_IS_GNUCXX
     AND CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|powerpc64"
-    AND CMAKE_C_COMPILER_VERSION MATCHES ".*4\\.[0-5].*" )
+    AND CMAKE_C_COMPILER_VERSION VERSION_LESS "4.6.0" )
     append("-mminimal-toc" DMD_CXXFLAGS LDC_CXXFLAGS)
 endif()
 if(UNIX)
