@@ -48,16 +48,6 @@ cl::opt<bool, true> enforcePropertySyntax("property",
     cl::ZeroOrMore,
     cl::location(global.params.enforcePropertySyntax));
 
-static cl::opt<ubyte, true> useDv1(
-    cl::desc("Force language version:"),
-    cl::ZeroOrMore,
-    cl::values(
-        clEnumValN(1, "v1", "D language version 1.00"),
-        clEnumValEnd),
-    cl::location(global.params.Dversion),
-    cl::init(2),
-    cl::Hidden);
-
 cl::opt<bool> compileOnly("c",
     cl::desc("Do not link"),
     cl::ZeroOrMore);
@@ -166,7 +156,7 @@ cl::opt<std::string> ddocFile("Df",
 // Json options
 static cl::opt<bool, true> doJson("X",
     cl::desc("Generate JSON file"),
-    cl::location(global.params.doXGeneration));
+    cl::location(global.params.doJsonGeneration));
 
 cl::opt<std::string> jsonFile("Xf",
     cl::desc("Write JSON file to <filename>"),
@@ -335,8 +325,26 @@ static cl::opt<bool, true, FlagParser> asserts("asserts",
     cl::location(global.params.useAssert),
     cl::init(true));
 
-cl::opt<BoolOrDefaultAdapter, false, FlagParser> boundsChecks("boundscheck",
-    cl::desc("(*) Enable array bounds checks"));
+BoundsCheck boundsCheck = BC_Default;
+
+class BoundsChecksAdapter {
+public:
+    void operator=(bool val) {
+        boundsCheck = (val ? BC_On : BC_Off);
+    }
+};
+
+cl::opt<BoundsChecksAdapter, false, FlagParser> boundsChecksOld("boundscheck",
+    cl::desc("(*) Enable array bounds check (deprecated, use -boundscheck=on|off)"));
+
+cl::opt<BoundsCheck, true> boundsChecksNew("boundscheck",
+    cl::desc("(*) Enable array bounds check"),
+    cl::location(boundsCheck),
+    cl::values(
+        clEnumValN(BC_Off, "off", "no array bounds checks"),
+        clEnumValN(BC_SafeOnly, "safeonly", "array bounds checks for safe functions only"),
+        clEnumValN(BC_On, "on", "array bounds checks for all functions"),
+        clEnumValEnd));
 
 static cl::opt<bool, true, FlagParser> invariants("invariants",
     cl::desc("(*) Enable invariants"),
@@ -390,6 +398,17 @@ cl::opt<unsigned, true> nestedTemplateDepth("template-depth",
     cl::location(global.params.nestedTmpl),
     cl::init(500));
 
+cl::opt<bool, true> vcolumns("vcolumns",
+    cl::desc("print character (column) numbers in diagnostics"),
+    cl::location(global.params.showColumns));
+
+cl::opt<bool, true> vgc("vgc",
+    cl::desc("list all gc allocations including hidden ones"),
+    cl::location(global.params.vgc));
+
+cl::opt<bool, true, FlagParser> color("color",
+    cl::desc("Force colored console output"),
+    cl::location(global.params.color));
 
 static cl::extrahelp footer("\n"
 "-d-debug can also be specified without options, in which case it enables all\n"

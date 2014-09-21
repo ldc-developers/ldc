@@ -238,6 +238,7 @@ llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, const T &args, const
     }
 }
 
+void codegenFunction(Statement *s, IRState *irs);
 void Statement_toIR(Statement *s, IRState *irs);
 
 #endif // LDC_GEN_IRSTATE_H

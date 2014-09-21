@@ -1,11 +1,13 @@
 
-// Copyright (c) 1999-2006 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/macro.c
+ */
 
 /* Simple macro text processor.
  */
@@ -120,7 +122,7 @@ size_t extractArgN(const utf8_t *p, size_t end, const utf8_t **pmarg, size_t *pm
   Largstart:
 #if 1
     // Skip first space, if any, to find the start of the macro argument
-    if (v < end && isspace(p[v]))
+    if (n != 1 && v < end && isspace(p[v]))
         v++;
 #else
     // Skip past spaces to find the start of the macro argument
@@ -278,7 +280,13 @@ void Macro::expand(OutBuffer *buf, size_t start, size_t *pend,
 
             const utf8_t *marg;
             size_t marglen;
-            extractArgN(arg, arglen, &marg, &marglen, n);
+            if (n == 0)
+            {
+                marg = arg;
+                marglen = arglen;
+            }
+            else
+                extractArgN(arg, arglen, &marg, &marglen, n);
             if (marglen == 0)
             {   // Just remove macro invocation
                 //printf("Replacing '$%c' with '%.*s'\n", p[u + 1], marglen, marg);
@@ -346,7 +354,7 @@ void Macro::expand(OutBuffer *buf, size_t start, size_t *pend,
              * beginning of macro argument (marg).
              */
             for (v = u + 2; v < end; v+=utfStride(p+v))
-            {   utf8_t c = p[v];
+            {
 
                 if (!isIdTail(p+v))
                 {   // We've gone past the end of the macro name.

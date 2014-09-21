@@ -7,10 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "module.h"
+#include "color.h"
+#include "doc.h"
 #include "id.h"
+#include "hdrgen.h"
 #include "json.h"
 #include "mars.h"
-#include "module.h"
 #include "mtype.h"
 #include "parse.h"
 #include "rmem.h"
@@ -32,6 +35,7 @@
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
+#include "gen/abi.h"
 #if LDC_LLVM_VER >= 304
 #include "llvm/InitializePasses.h"
 #endif
@@ -70,6 +74,9 @@
 
 // Needs Type already declared.
 #include "cond.h"
+
+// in traits.c
+void initTraitsStringTable();
 
 using namespace opts;
 
@@ -261,6 +268,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     // Set some default values.
     global.params.useSwitchError = 1;
     global.params.useArrayBounds = 2;
+    global.params.color = isConsoleColorSupported();
 
     global.params.linkswitches = new Strings();
     global.params.libfiles = new Strings();
@@ -321,9 +329,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     global.params.doDocComments |=
         global.params.docdir || global.params.docname;
 
-    initFromString(global.params.xfilename, jsonFile);
-    if (global.params.xfilename)
-        global.params.doXGeneration = true;
+    initFromString(global.params.jsonfilename, jsonFile);
+    if (global.params.jsonfilename)
+        global.params.doJsonGeneration = true;
 
     initFromString(global.params.hdrdir, hdrDir);
     initFromString(global.params.hdrname, hdrFile);
@@ -415,13 +423,10 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     if (global.params.useUnitTests)
         global.params.useAssert = 1;
 
-    // Bounds checking is a bit peculiar: -enable/disable-boundscheck is an
-    // absolute decision. Only if no explicit option is specified, -release
-    // downgrades useArrayBounds 2 to 1 (only for safe functions).
-    if (opts::boundsChecks == cl::BOU_UNSET)
-        global.params.useArrayBounds = opts::nonSafeBoundsChecks ? 2 : 1;
-    else
-        global.params.useArrayBounds = (opts::boundsChecks == cl::BOU_TRUE) ? 2 : 0;
+    // -release downgrades default bounds checking level to BC_SafeOnly (only for safe functions).
+    global.params.useArrayBounds = opts::nonSafeBoundsChecks ? opts::BC_On : opts::BC_SafeOnly;
+    if (opts::boundsCheck != opts::BC_Default)
+        global.params.useArrayBounds = opts::boundsCheck;
 
     // LDC output determination
 
@@ -999,6 +1004,9 @@ int main(int argc, char **argv)
     gDataLayout = gTargetMachine->getTargetData();
 #endif
 
+    // allocate the target abi
+    gABI = TargetABI::getTarget();
+
     // Set predefined version identifiers.
     registerPredefinedVersions();
     dumpPredefinedVersions();
@@ -1019,6 +1027,7 @@ int main(int argc, char **argv)
     Expression::init();
     initPrecedence();
     builtin_init();
+    initTraitsStringTable();
 
     // Build import search path
     if (global.params.imppath)
@@ -1107,8 +1116,8 @@ int main(int argc, char **argv)
 
             if (FileName::equals(ext, global.json_ext))
             {
-                global.params.doXGeneration = 1;
-                global.params.xfilename = static_cast<const char *>(files.data[i]);
+                global.params.doJsonGeneration = 1;
+                global.params.jsonfilename = static_cast<const char *>(files.data[i]);
                 continue;
             }
 
@@ -1197,7 +1206,7 @@ int main(int argc, char **argv)
         m->deleteObjFile();
         if (m->isDocFile)
         {
-            m->gendocfile();
+            gendocfile(m);
 
             // Remove m from list of modules
             modules.remove(i);
@@ -1218,7 +1227,7 @@ int main(int argc, char **argv)
         {
             if (global.params.verbose)
                 fprintf(global.stdmsg, "import    %s\n", modules[i]->toChars());
-            modules[i]->genhdrfile();
+            genhdrfile(modules[i]);
         }
     }
     if (global.errors)
@@ -1354,7 +1363,7 @@ int main(int argc, char **argv)
             }
         }
         if (global.params.doDocComments)
-            m->gendocfile();
+            gendocfile(m);
     }
 
     // internal linking for singleobj
@@ -1411,13 +1420,13 @@ int main(int argc, char **argv)
     }
 
     // output json file
-    if (global.params.doXGeneration)
+    if (global.params.doJsonGeneration)
     {
         OutBuffer buf;
         json_generate(&buf, &modules);
 
         // Write buf to file
-        const char *name = global.params.xfilename;
+        const char *name = global.params.jsonfilename;
 
         if (name && name[0] == '-' && name[1] == 0)
         {   // Write to stdout; assume it succeeds

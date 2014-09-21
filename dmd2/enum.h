@@ -1,12 +1,13 @@
 
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2013 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/enum.h
+ */
 
 #ifndef DMD_ENUM_H
 #define DMD_ENUM_H
@@ -51,7 +52,7 @@ public:
 
     EnumDeclaration(Loc loc, Identifier *id, Type *memtype);
     Dsymbol *syntaxCopy(Dsymbol *s);
-    int addMember(Scope *sc, ScopeDsymbol *sd, int memnum);
+    int addMember(Scope *sc, ScopeDsymbol *sds, int memnum);
     void setScope(Scope *sc);
     void semantic(Scope *sc);
     bool oneMember(Dsymbol **ps, Identifier *ident);
@@ -65,15 +66,10 @@ public:
     Expression *getDefaultValue(Loc loc);
     Type *getMemtype(Loc loc);
 
-    void emitComment(Scope *sc);
-    void toDocBuffer(OutBuffer *buf, Scope *sc);
-
     EnumDeclaration *isEnumDeclaration() { return this; }
 
 #if IN_DMD
-    void toObjFile(int multiobj);                       // compile to .obj file
-    void toDebug();
-    int cvMember(unsigned char *p);
+    void toObjFile(bool multiobj);                       // compile to .obj file
 
     Symbol *sinit;
     Symbol *toInitializer();
@@ -92,6 +88,9 @@ public:
      *  3. type id = value
      */
     Expression *value;
+    Expression *origValue;  // A cast() is injected to 'value' after semantic(),
+                            // but 'origValue' will preserve the original value,
+                            // or previous value + 1 if none was specified.
     Type *type;
 
     EnumDeclaration *ed;
@@ -103,9 +102,6 @@ public:
     const char *kind();
     void semantic(Scope *sc);
     Expression *getVarExp(Loc loc, Scope *sc);
-
-    void emitComment(Scope *sc);
-    void toDocBuffer(OutBuffer *buf, Scope *sc);
 
     EnumMember *isEnumMember() { return this; }
     void accept(Visitor *v) { v->visit(this); }

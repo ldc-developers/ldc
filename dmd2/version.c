@@ -1,11 +1,13 @@
 
-// Copyright (c) 1999-2005 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/version.c
+ */
 
 #include <stdio.h>
 #include <assert.h>
@@ -46,14 +48,13 @@ Dsymbol *DebugSymbol::syntaxCopy(Dsymbol *s)
     return ds;
 }
 
-int DebugSymbol::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
+int DebugSymbol::addMember(Scope *sc, ScopeDsymbol *sds, int memnum)
 {
-    //printf("DebugSymbol::addMember('%s') %s\n", sd->toChars(), toChars());
-    Module *m;
+    //printf("DebugSymbol::addMember('%s') %s\n", sds->toChars(), toChars());
+    Module *m = sds->isModule();
 
     // Do not add the member to the symbol table,
     // just make sure subsequent debug declarations work.
-    m = sd->isModule();
     if (ident)
     {
         if (!m)
@@ -135,14 +136,13 @@ Dsymbol *VersionSymbol::syntaxCopy(Dsymbol *s)
     return ds;
 }
 
-int VersionSymbol::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
+int VersionSymbol::addMember(Scope *sc, ScopeDsymbol *sds, int memnum)
 {
-    //printf("VersionSymbol::addMember('%s') %s\n", sd->toChars(), toChars());
-    Module *m;
+    //printf("VersionSymbol::addMember('%s') %s\n", sds->toChars(), toChars());
+    Module *m = sds->isModule();
 
     // Do not add the member to the symbol table,
     // just make sure subsequent debug declarations work.
-    m = sd->isModule();
     if (ident)
     {
         VersionCondition::checkPredefined(loc, ident->toChars());

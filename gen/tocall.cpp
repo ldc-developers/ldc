@@ -75,7 +75,7 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
 
 DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg)
 {
-    DValue* expelem = valistArg->toElem(gIR);
+    DValue* expelem = toElem(valistArg);
     LLType* llt = DtoType(type);
     if (DtoIsPassedByRef(type))
         llt = getPtrToType(llt);
@@ -496,7 +496,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         for (size_t i=0; i<n_arguments; i++)
         {
             Expression* exp = static_cast<Expression*>(arguments->data[i]);
-            DValue* expelem = exp->toElem(gIR);
+            DValue* expelem = toElem(exp);
             // cast to va_list*
             LLValue* val = DtoBitCast(expelem->getLVal(), getVoidPtrType());
             ++argiter;

@@ -419,7 +419,7 @@ llvm::Constant* arrayLiteralToConst(IRState* p, ArrayLiteralExp* ale)
     vals.reserve(ale->elements->dim);
     for (unsigned i = 0; i < ale->elements->dim; ++i)
     {
-        llvm::Constant *val = (*ale->elements)[i]->toConstElem(p);
+        llvm::Constant *val = toConstElem((*ale->elements)[i], p);
         if (!elementType)
             elementType = val->getType();
         else
@@ -482,7 +482,7 @@ void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
         // Store the elements one by one.
         for (size_t i = 0; i < elemCount; ++i)
         {
-            DValue* e = (*ale->elements)[i]->toElem(p);
+            DValue* e = toElem((*ale->elements)[i]);
 
             LLValue* elemAddr = DtoGEPi(dstMem, 0, i, "tmp", p->scopebb());
             DVarValue* vv = new DVarValue(e->type, elemAddr);
@@ -617,7 +617,7 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
 
     const char* fnname = defaultInit ?
         (zeroInit ? "_d_newarrayT" : "_d_newarrayiT") :
-        "_d_newarrayvT";
+        "_d_newarrayU";
     LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, fnname);
 
     // call allocator
@@ -706,7 +706,7 @@ void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* e
 
     // Do not move exp->toElem call after creating _d_arrayappendcTX,
     // otherwise a ~= a[$-i] won't work correctly
-    DValue *expVal = exp->toElem(gIR);
+    DValue *expVal = toElem(exp);
 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arrayappendcTX");
     LLValue* args[] = {
@@ -740,7 +740,7 @@ DSliceValue* DtoCatAssignArray(Loc& loc, DValue* arr, Expression* exp)
     // byte[] *px
     args.push_back(DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(1)));
     // byte[] y
-    LLValue *y = DtoSlice(exp->toElem(gIR));
+    LLValue *y = DtoSlice(toElem(exp));
     y = DtoAggrPaint(y, fn->getFunctionType()->getParamType(2));
     args.push_back(y);
 
@@ -764,15 +764,15 @@ DSliceValue* DtoCatArrays(Loc& loc, Type* arrayType, Expression* exp1, Expressio
     { // handle multiple concat
         fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arraycatnT");
 
-        args.push_back(DtoSlicePtr(exp2->toElem(gIR)));
+        args.push_back(DtoSlicePtr(toElem(exp2)));
         CatExp *ce = static_cast<CatExp*>(exp1);
         do
         {
-            args.push_back(DtoSlicePtr(ce->e2->toElem(gIR)));
+            args.push_back(DtoSlicePtr(toElem(ce->e2)));
             ce = static_cast<CatExp *>(ce->e1);
 
         } while (ce->op == TOKcat);
-        args.push_back(DtoSlicePtr(ce->toElem(gIR)));
+        args.push_back(DtoSlicePtr(toElem(ce)));
         // uint n
         args.push_back(DtoConstUint(args.size()));
         // TypeInfo ti
@@ -787,11 +787,11 @@ DSliceValue* DtoCatArrays(Loc& loc, Type* arrayType, Expression* exp1, Expressio
         // TypeInfo ti
         args.push_back(DtoTypeInfoOf(arrayType));
         // byte[] x
-        LLValue *val = DtoLoad(DtoSlicePtr(exp1->toElem(gIR)));
+        LLValue *val = DtoLoad(DtoSlicePtr(toElem(exp1)));
         val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(1));
         args.push_back(val);
         // byte[] y
-        val = DtoLoad(DtoSlicePtr(exp2->toElem(gIR)));
+        val = DtoLoad(DtoSlicePtr(toElem(exp2)));
         val = DtoAggrPaint(val, fn->getFunctionType()->getParamType(2));
         args.push_back(val);
     }
@@ -805,7 +805,7 @@ DSliceValue* DtoCatArrays(Loc& loc, Type* arrayType, Expression* exp1, Expressio
 DSliceValue* DtoAppendDChar(Loc& loc, DValue* arr, Expression* exp, const char *func)
 {
     Type *arrayType = arr->getType();
-    DValue* valueToAppend = exp->toElem(gIR);
+    DValue* valueToAppend = toElem(exp);
 
     // Prepare arguments
     LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, func);
@@ -1167,18 +1167,16 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBoun
 
     std::vector<LLValue*> args;
 
+    // file param
     Module* funcmodule = gIR->func()->decl->getModule();
-    // module param
-    LLValue *moduleInfoSymbol = funcmodule->moduleInfoSymbol();
-    LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
-    args.push_back(DtoBitCast(moduleInfoSymbol, getPtrToType(moduleInfoType)));
+    args.push_back(DtoModuleFileName(funcmodule, loc));
 
     // line param
     LLConstant* c = DtoConstUint(loc.linnum);
     args.push_back(c);
 
     // call
-    llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_array_bounds");
+    llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arraybounds");
     gIR->CreateCallOrInvoke(errorfn, args);
 
     // the function does not return

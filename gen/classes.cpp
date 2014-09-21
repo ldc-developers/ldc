@@ -117,7 +117,7 @@ DValue* DtoNewClass(Loc& loc, TypeClass* tc, NewExp* newexp)
     {
         Logger::println("Resolving outer class");
         LOG_SCOPE;
-        DValue* thisval = newexp->thisexp->toElem(gIR);
+        DValue* thisval = toElem(newexp->thisexp);
         size_t idx = getIrField(tc->sym->vthis)->index;
         LLValue* src = thisval->getRVal();
         LLValue* dst = DtoGEPi(mem,0,idx,"tmp");
@@ -665,8 +665,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     }
     else
     {
-        LLType* cd_type = cdty->irtype->isClass()->getMemoryLLType();
-        size_t initsz = getTypePaddedSize(cd_type);
+        size_t initsz = cd->size(Loc());
         b.push_void_array(initsz, ir->getInitSymbol());
     }
 
@@ -747,7 +746,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     // The cases where getRTInfo is null are not quite here, but the code is
     // modelled after what DMD does.
     if (cd->getRTInfo)
-        b.push(cd->getRTInfo->toConstElem(gIR));
+        b.push(toConstElem(cd->getRTInfo, gIR));
     else if (flags & 2)
         b.push_size_as_vp(0);       // no pointers
     else

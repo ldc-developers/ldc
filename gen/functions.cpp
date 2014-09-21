@@ -328,7 +328,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
 
 LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 {
-    const char* mangled_name = fdecl->mangleExact();
+    const char* mangled_name = mangleExact(fdecl);
     TemplateInstance* tinst = fdecl->parent->isTemplateInstance();
     assert(tinst);
 
@@ -337,7 +337,7 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 
     Expression* a0 = isExpression(objs[0]);
     assert(a0);
-    StringExp* strexp = a0->toString();
+    StringExp* strexp = a0->toStringExp();
     assert(strexp);
     assert(strexp->sz == 1);
     std::string code(static_cast<char*>(strexp->string), strexp->len);
@@ -786,7 +786,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     }
 
     // mangled name
-    std::string mangledName(fdecl->mangleExact());
+    std::string mangledName(mangleExact(fdecl));
     mangledName = gABI->mangleForLLVM(mangledName, link);
 
     // construct function
@@ -805,7 +805,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
                 llvm::GlobalValue::ExternalLinkage, mangledName, gIR->module);
         }
     } else if (func->getFunctionType() != functype) {
-        error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", fdecl->mangleExact());
+        error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", mangleExact(fdecl));
         fatal();
     }
 
@@ -962,26 +962,45 @@ void DtoDefineFunction(FuncDeclaration* fd)
         return;
     }
 
+    // Skip array ops implemented in druntime
+    if (fd->isArrayOp && isDruntimeArrayOp(fd))
+    {
+        IF_LOG Logger::println("No code generation for array op %s implemented in druntime", fd->toChars());
+        fd->ir.setDefined();
+        return;
+    }
+
     if (fd->semanticRun != PASSsemantic3done || fd->ident == Id::empty)
     {
         // We cannot ever generate code for this function. DMD would just filter
-        // it out by checking needsCodegen(), but we want to emit functions even
-        // if we do not need as available_exernally for inlining purposes.
-        assert(!fd->needsCodegen());
-
+        // it out, but we want to emit functions even if we do not need to as
+        // available_externally for inlining purposes.
         IF_LOG Logger::println("No code generation for incomplete function '%s'",
             fd->toPrettyChars());
         fd->ir.setDefined();
         return;
     }
 
-    // If we do not know already that we do not need to emit this because its
-    // from an extra inlining semantic, check whether we can omit it anyway.
-    if (!fd->availableExternally && !fd->needsCodegen())
+    // If we do not know already that this function definition is also available
+    // in some other compiled module because it has been analyzed as part of an
+    // extra inlining semantic, check whether the frontend knows that is defined
+    // in some other module anyway (see DMD's FuncDeclaration::toObjFile).
+    if (!fd->availableExternally)
     {
-        IF_LOG Logger::println("Emitting '%s' as available_externally",
-            fd->toPrettyChars());
-        fd->availableExternally = true;
+        for (FuncDeclaration *f = fd; f; )
+        {
+            if (!f->isInstantiated() && f->inNonRoot())
+            {
+                IF_LOG Logger::println("Emitting '%s' as available_externally",
+                    fd->toPrettyChars());
+                f->availableExternally = true;
+                break;
+            }
+            if (f->isNested())
+                f = f->toParent2()->isFuncDeclaration();
+            else
+                break;
+        }
     }
 
     DtoDeclareFunction(fd);
@@ -1201,7 +1220,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 
     // output function body
-    Statement_toIR(fd->fbody, gIR);
+    codegenFunction(fd->fbody, gIR);
     irFunc->gen = 0;
 
     llvm::BasicBlock* bb = gIR->scopebb();
@@ -1250,40 +1269,12 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl)
-{
-    Dsymbol* parent = fdecl->toParent();
-    ClassDeclaration* cd = parent->isClassDeclaration();
-    assert(cd);
-
-    FuncDeclaration* f = fdecl;
-
-    while (cd)
-    {
-        ClassDeclaration* base = cd->baseClass;
-        if (!base)
-            break;
-        FuncDeclaration* f2 = base->findFunc(fdecl->ident, static_cast<TypeFunction*>(fdecl->type));
-        if (f2) {
-            f = f2;
-            cd = base;
-        }
-        else
-            break;
-    }
-
-    DtoResolveFunction(f);
-    return llvm::cast<llvm::FunctionType>(DtoType(f->type));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* DtoArgument(Parameter* fnarg, Expression* argexp)
 {
     IF_LOG Logger::println("DtoArgument");
     LOG_SCOPE;
 
-    DValue* arg = argexp->toElem(gIR);
+    DValue* arg = toElem(argexp);
 
     // ref/out arg
     if (fnarg && (fnarg->storageClass & (STCref | STCout)))
@@ -1317,7 +1308,7 @@ void DtoVariadicArgument(Expression* argexp, LLValue* dst)
     IF_LOG Logger::println("DtoVariadicArgument");
     LOG_SCOPE;
     DVarValue vv(argexp->type, dst);
-    DtoAssign(argexp->loc, &vv, argexp->toElem(gIR));
+    DtoAssign(argexp->loc, &vv, toElem(argexp));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1332,4 +1323,207 @@ bool FuncDeclaration::isVaIntrinsic()
     return (llvmInternal == LLVMva_start ||
             llvmInternal == LLVMva_copy ||
             llvmInternal == LLVMva_end);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+int binary(const char *p , const char **tab, int high)
+{
+    int i = 0, j = high, k, l;
+    do
+    {
+        k = (i + j) / 2;
+        l = strcmp(p, tab[k]);
+        if (!l)
+            return k;
+        else if (l < 0)
+            j = k;
+        else
+            i = k + 1;
+    }
+    while (i != j);
+    return -1;
+}
+
+int isDruntimeArrayOp(FuncDeclaration *fd)
+{
+    /* Some of the array op functions are written as library functions,
+     * presumably to optimize them with special CPU vector instructions.
+     * List those library functions here, in alpha order.
+     */
+    static const char *libArrayopFuncs[] =
+    {
+        "_arrayExpSliceAddass_a",
+        "_arrayExpSliceAddass_d",
+        "_arrayExpSliceAddass_f",           // T[]+=T
+        "_arrayExpSliceAddass_g",
+        "_arrayExpSliceAddass_h",
+        "_arrayExpSliceAddass_i",
+        "_arrayExpSliceAddass_k",
+        "_arrayExpSliceAddass_s",
+        "_arrayExpSliceAddass_t",
+        "_arrayExpSliceAddass_u",
+        "_arrayExpSliceAddass_w",
+
+        "_arrayExpSliceDivass_d",           // T[]/=T
+        "_arrayExpSliceDivass_f",           // T[]/=T
+
+        "_arrayExpSliceMinSliceAssign_a",
+        "_arrayExpSliceMinSliceAssign_d",   // T[]=T-T[]
+        "_arrayExpSliceMinSliceAssign_f",   // T[]=T-T[]
+        "_arrayExpSliceMinSliceAssign_g",
+        "_arrayExpSliceMinSliceAssign_h",
+        "_arrayExpSliceMinSliceAssign_i",
+        "_arrayExpSliceMinSliceAssign_k",
+        "_arrayExpSliceMinSliceAssign_s",
+        "_arrayExpSliceMinSliceAssign_t",
+        "_arrayExpSliceMinSliceAssign_u",
+        "_arrayExpSliceMinSliceAssign_w",
+
+        "_arrayExpSliceMinass_a",
+        "_arrayExpSliceMinass_d",           // T[]-=T
+        "_arrayExpSliceMinass_f",           // T[]-=T
+        "_arrayExpSliceMinass_g",
+        "_arrayExpSliceMinass_h",
+        "_arrayExpSliceMinass_i",
+        "_arrayExpSliceMinass_k",
+        "_arrayExpSliceMinass_s",
+        "_arrayExpSliceMinass_t",
+        "_arrayExpSliceMinass_u",
+        "_arrayExpSliceMinass_w",
+
+        "_arrayExpSliceMulass_d",           // T[]*=T
+        "_arrayExpSliceMulass_f",           // T[]*=T
+        "_arrayExpSliceMulass_i",
+        "_arrayExpSliceMulass_k",
+        "_arrayExpSliceMulass_s",
+        "_arrayExpSliceMulass_t",
+        "_arrayExpSliceMulass_u",
+        "_arrayExpSliceMulass_w",
+
+        "_arraySliceExpAddSliceAssign_a",
+        "_arraySliceExpAddSliceAssign_d",   // T[]=T[]+T
+        "_arraySliceExpAddSliceAssign_f",   // T[]=T[]+T
+        "_arraySliceExpAddSliceAssign_g",
+        "_arraySliceExpAddSliceAssign_h",
+        "_arraySliceExpAddSliceAssign_i",
+        "_arraySliceExpAddSliceAssign_k",
+        "_arraySliceExpAddSliceAssign_s",
+        "_arraySliceExpAddSliceAssign_t",
+        "_arraySliceExpAddSliceAssign_u",
+        "_arraySliceExpAddSliceAssign_w",
+
+        "_arraySliceExpDivSliceAssign_d",   // T[]=T[]/T
+        "_arraySliceExpDivSliceAssign_f",   // T[]=T[]/T
+
+        "_arraySliceExpMinSliceAssign_a",
+        "_arraySliceExpMinSliceAssign_d",   // T[]=T[]-T
+        "_arraySliceExpMinSliceAssign_f",   // T[]=T[]-T
+        "_arraySliceExpMinSliceAssign_g",
+        "_arraySliceExpMinSliceAssign_h",
+        "_arraySliceExpMinSliceAssign_i",
+        "_arraySliceExpMinSliceAssign_k",
+        "_arraySliceExpMinSliceAssign_s",
+        "_arraySliceExpMinSliceAssign_t",
+        "_arraySliceExpMinSliceAssign_u",
+        "_arraySliceExpMinSliceAssign_w",
+
+        "_arraySliceExpMulSliceAddass_d",   // T[] += T[]*T
+        "_arraySliceExpMulSliceAddass_f",
+        "_arraySliceExpMulSliceAddass_r",
+
+        "_arraySliceExpMulSliceAssign_d",   // T[]=T[]*T
+        "_arraySliceExpMulSliceAssign_f",   // T[]=T[]*T
+        "_arraySliceExpMulSliceAssign_i",
+        "_arraySliceExpMulSliceAssign_k",
+        "_arraySliceExpMulSliceAssign_s",
+        "_arraySliceExpMulSliceAssign_t",
+        "_arraySliceExpMulSliceAssign_u",
+        "_arraySliceExpMulSliceAssign_w",
+
+        "_arraySliceExpMulSliceMinass_d",   // T[] -= T[]*T
+        "_arraySliceExpMulSliceMinass_f",
+        "_arraySliceExpMulSliceMinass_r",
+
+        "_arraySliceSliceAddSliceAssign_a",
+        "_arraySliceSliceAddSliceAssign_d", // T[]=T[]+T[]
+        "_arraySliceSliceAddSliceAssign_f", // T[]=T[]+T[]
+        "_arraySliceSliceAddSliceAssign_g",
+        "_arraySliceSliceAddSliceAssign_h",
+        "_arraySliceSliceAddSliceAssign_i",
+        "_arraySliceSliceAddSliceAssign_k",
+        "_arraySliceSliceAddSliceAssign_r", // T[]=T[]+T[]
+        "_arraySliceSliceAddSliceAssign_s",
+        "_arraySliceSliceAddSliceAssign_t",
+        "_arraySliceSliceAddSliceAssign_u",
+        "_arraySliceSliceAddSliceAssign_w",
+
+        "_arraySliceSliceAddass_a",
+        "_arraySliceSliceAddass_d",         // T[]+=T[]
+        "_arraySliceSliceAddass_f",         // T[]+=T[]
+        "_arraySliceSliceAddass_g",
+        "_arraySliceSliceAddass_h",
+        "_arraySliceSliceAddass_i",
+        "_arraySliceSliceAddass_k",
+        "_arraySliceSliceAddass_s",
+        "_arraySliceSliceAddass_t",
+        "_arraySliceSliceAddass_u",
+        "_arraySliceSliceAddass_w",
+
+        "_arraySliceSliceMinSliceAssign_a",
+        "_arraySliceSliceMinSliceAssign_d", // T[]=T[]-T[]
+        "_arraySliceSliceMinSliceAssign_f", // T[]=T[]-T[]
+        "_arraySliceSliceMinSliceAssign_g",
+        "_arraySliceSliceMinSliceAssign_h",
+        "_arraySliceSliceMinSliceAssign_i",
+        "_arraySliceSliceMinSliceAssign_k",
+        "_arraySliceSliceMinSliceAssign_r", // T[]=T[]-T[]
+        "_arraySliceSliceMinSliceAssign_s",
+        "_arraySliceSliceMinSliceAssign_t",
+        "_arraySliceSliceMinSliceAssign_u",
+        "_arraySliceSliceMinSliceAssign_w",
+
+        "_arraySliceSliceMinass_a",
+        "_arraySliceSliceMinass_d",         // T[]-=T[]
+        "_arraySliceSliceMinass_f",         // T[]-=T[]
+        "_arraySliceSliceMinass_g",
+        "_arraySliceSliceMinass_h",
+        "_arraySliceSliceMinass_i",
+        "_arraySliceSliceMinass_k",
+        "_arraySliceSliceMinass_s",
+        "_arraySliceSliceMinass_t",
+        "_arraySliceSliceMinass_u",
+        "_arraySliceSliceMinass_w",
+
+        "_arraySliceSliceMulSliceAssign_d", // T[]=T[]*T[]
+        "_arraySliceSliceMulSliceAssign_f", // T[]=T[]*T[]
+        "_arraySliceSliceMulSliceAssign_i",
+        "_arraySliceSliceMulSliceAssign_k",
+        "_arraySliceSliceMulSliceAssign_s",
+        "_arraySliceSliceMulSliceAssign_t",
+        "_arraySliceSliceMulSliceAssign_u",
+        "_arraySliceSliceMulSliceAssign_w",
+
+        "_arraySliceSliceMulass_d",         // T[]*=T[]
+        "_arraySliceSliceMulass_f",         // T[]*=T[]
+        "_arraySliceSliceMulass_i",
+        "_arraySliceSliceMulass_k",
+        "_arraySliceSliceMulass_s",
+        "_arraySliceSliceMulass_t",
+        "_arraySliceSliceMulass_u",
+        "_arraySliceSliceMulass_w",
+    };
+    char *name = fd->ident->toChars();
+    int i = binary(name, libArrayopFuncs, sizeof(libArrayopFuncs) / sizeof(char *));
+    if (i != -1)
+        return 1;
+
+#ifdef DEBUG    // Make sure our array is alphabetized
+    for (i = 0; i < sizeof(libArrayopFuncs) / sizeof(char *); i++)
+    {
+        if (strcmp(name, libArrayopFuncs[i]) == 0)
+            assert(0);
+    }
+#endif
+    return 0;
 }

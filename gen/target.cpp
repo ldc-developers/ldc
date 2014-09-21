@@ -23,6 +23,7 @@ int Target::ptrsize;
 int Target::realsize;
 int Target::realpad;
 int Target::realalignsize;
+int Target::longsize;
 bool Target::reverseCppOverloads;
 
 void Target::init()
@@ -33,6 +34,7 @@ void Target::init()
     realsize = gDataLayout->getTypeAllocSize(real);
     realpad = realsize - gDataLayout->getTypeStoreSize(real);
     realalignsize = gDataLayout->getABITypeAlignment(real);
+    longsize = global.params.is64bit ? 8 : 4;
 
     reverseCppOverloads = false; // DMC is not supported.
 }
@@ -72,4 +74,74 @@ unsigned Target::critsecsize()
     else
         return sizeof(pthread_mutex_t);
 #endif
+}
+
+Type *Target::va_listType()
+{
+    return Type::tchar->pointerTo();
+}
+
+/******************************
+ * Encode the given expression, which is assumed to be an rvalue literal
+ * as another type for use in CTFE.
+ * This corresponds roughly to the idiom *(Type *)&e.
+ */
+
+Expression *Target::paintAsType(Expression *e, Type *type)
+{
+    union
+    {
+        d_int32 int32value;
+        d_int64 int64value;
+        float float32value;
+        double float64value;
+    } u;
+
+    assert(e->type->size() == type->size());
+
+    switch (e->type->ty)
+    {
+        case Tint32:
+        case Tuns32:
+            u.int32value = (d_int32)e->toInteger();
+            break;
+
+        case Tint64:
+        case Tuns64:
+            u.int64value = (d_int64)e->toInteger();
+            break;
+
+        case Tfloat32:
+            u.float32value = e->toReal();
+            break;
+
+        case Tfloat64:
+            u.float64value = e->toReal();
+            break;
+
+        default:
+            assert(0);
+    }
+
+    switch (type->ty)
+    {
+        case Tint32:
+        case Tuns32:
+            return new IntegerExp(e->loc, u.int32value, type);
+
+        case Tint64:
+        case Tuns64:
+            return new IntegerExp(e->loc, u.int64value, type);
+
+        case Tfloat32:
+            return new RealExp(e->loc, ldouble(u.float32value), type);
+
+        case Tfloat64:
+            return new RealExp(e->loc, ldouble(u.float64value), type);
+
+        default:
+            assert(0);
+    }
+
+    return NULL;    // avoid warning
 }

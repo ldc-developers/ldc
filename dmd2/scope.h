@@ -1,11 +1,13 @@
 
-// Copyright (c) 1999-2013 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/scope.h
+ */
 
 #ifndef DMD_SCOPE_H
 #define DMD_SCOPE_H
@@ -73,29 +75,25 @@ struct Scope
 
     Module *module;             // Root module
     ScopeDsymbol *scopesym;     // current symbol
-    ScopeDsymbol *sd;           // if in static if, and declaring new symbols,
-                                // sd gets the addMember()
+    ScopeDsymbol *sds;          // if in static if, and declaring new symbols,
+                                // sds gets the addMember()
     FuncDeclaration *func;      // function we are in
     Dsymbol *parent;            // parent to use
     LabelStatement *slabel;     // enclosing labelled statement
     SwitchStatement *sw;        // enclosing switch statement
     TryFinallyStatement *tf;    // enclosing try finally statement
+    OnScopeStatement *os;       // enclosing scope(xxx) statement
     TemplateInstance *tinst;    // enclosing template instance
     Statement *enclosingScopeExit; // enclosing statement that wants to do something on scope exit
     Statement *sbreak;          // enclosing statement that supports "break"
     Statement *scontinue;       // enclosing statement that supports "continue"
     ForeachStatement *fes;      // if nested function for ForeachStatement, this is it
     Scope *callsc;              // used for __FUNCTION__, __PRETTY_FUNCTION__ and __MODULE__
-    unsigned offset;            // next offset to use in aggregate
-                                // This really shouldn't be a part of Scope, because it requires
-                                // semantic() to be done in the lexical field order. It should be
-                                // set in a pass after semantic() on all fields so they can be
-                                // semantic'd in any order.
     int inunion;                // we're processing members of a union
     int nofree;                 // set if shouldn't free it
     int noctor;                 // set if constructor calls aren't allowed
     int intypeof;               // in typeof(exp)
-    bool speculative;            // in __traits(compiles) or typeof(exp)
+    bool speculative;           // in __traits(compiles) and so on
     VarDeclaration *lastVar;    // Previous symbol used to prevent goto-skips-init
 
     unsigned callSuper;         // primitive flow analysis for constructors
@@ -116,15 +114,17 @@ struct Scope
     UserAttributeDeclaration *userAttribDecl;   // user defined attributes
 
     DocComment *lastdc;         // documentation comment for last symbol at this scope
-    size_t lastoffset;        // offset in docbuf of where to insert next dec
+    size_t lastoffset;          // offset in docbuf of where to insert next dec (for ditto)
+    size_t lastoffset2;         // offset in docbuf of where to insert next dec (for unittest)
     OutBuffer *docbuf;          // buffer for documentation output
 
     static Scope *freelist;
-    static void *operator new(size_t sz);
+    static Scope *alloc();
     static Scope *createGlobal(Module *module);
 
     Scope();
-    Scope(Scope *enclosing);
+
+    Scope *copy();
 
     Scope *push();
     Scope *push(ScopeDsymbol *ss);

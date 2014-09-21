@@ -21,13 +21,8 @@
 #include "gen/dvalue.h"
 #include "gen/llvm.h"
 
-// this is used for tracking try-finally, synchronized and volatile scopes
-struct EnclosingHandler
-{
-    virtual ~EnclosingHandler() {}
-    virtual void emitCode(IRState* p) = 0;
-};
-struct EnclosingTryFinally : EnclosingHandler
+// this is used for tracking try-finally scopes
+struct EnclosingTryFinally
 {
     TryFinallyStatement* tf;
     llvm::BasicBlock* landingPad;
@@ -35,13 +30,6 @@ struct EnclosingTryFinally : EnclosingHandler
     EnclosingTryFinally(TryFinallyStatement* _tf, llvm::BasicBlock* _pad)
     : tf(_tf), landingPad(_pad) {}
 };
-struct EnclosingSynchro : EnclosingHandler
-{
-    SynchronizedStatement* s;
-    void emitCode(IRState* p);
-    EnclosingSynchro(SynchronizedStatement* _tf) : s(_tf) {}
-};
-
 
 // dynamic memory helpers
 LLValue* DtoNew(Loc& loc, Type* newtype);
@@ -58,6 +46,9 @@ LLValue* DtoGcMalloc(Loc& loc, LLType* lltype, const char* name = "");
 
 // assertion generator
 void DtoAssert(Module* M, Loc& loc, DValue* msg);
+
+// returns module file name
+LLValue* DtoModuleFileName(Module* M, const Loc& loc);
 
 // return the LabelStatement from the current function with the given identifier or NULL if not found
 LabelStatement* DtoLabelStatement(Identifier* ident);
@@ -87,7 +78,7 @@ DValue* DtoSymbolAddress(Loc& loc, Type* type, Declaration* decl);
 llvm::Constant* DtoConstSymbolAddress(Loc& loc,Declaration* decl);
 
 /// Create a null DValue.
-DValue* DtoNullValue(Type* t);
+DValue* DtoNullValue(Type* t, Loc loc = Loc());
 
 // casts
 DValue* DtoCastInt(Loc& loc, DValue* val, Type* to);
@@ -240,5 +231,9 @@ FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic);
 
 void Declaration_codegen(Dsymbol *decl);
 void Declaration_codegen(Dsymbol *decl, IRState *irs);
+
+DValue *toElem(Expression *e);
+DValue *toElemDtor(Expression *e);
+LLConstant *toConstElem(Expression *e, IRState *p);
 
 #endif

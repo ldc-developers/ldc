@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/dibuilder.h"
+#include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
@@ -33,7 +34,7 @@ Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s)
     // array operations as well
     else if (FuncDeclaration* fd = s->isFuncDeclaration())
     {
-        if (fd->isArrayOp == 1)
+        if (fd->isArrayOp && !isDruntimeArrayOp(fd))
             return IR->dmodule;
     }
     // otherwise use the symbol's module
@@ -392,7 +393,7 @@ llvm::DIType ldc::DIBuilder::CreateArrayType(Type *type)
 
     assert(t->ty == Tarray && "Only arrays allowed for debug info in DIBuilder::CreateArrayType");
 
-    Loc loc(IR->dmodule, 0);
+    Loc loc(IR->dmodule, 0, 0);
     llvm::DIFile file = CreateFile(loc);
 
     llvm::Value *elems[] = {
@@ -459,7 +460,7 @@ ldc::DIFunctionType ldc::DIBuilder::CreateFunctionType(Type *type)
     TypeFunction *t = static_cast<TypeFunction*>(type);
     Type *retType = t->next;
 
-    Loc loc(IR->dmodule, 0);
+    Loc loc(IR->dmodule, 0, 0);
     llvm::DIFile file = CreateFile(loc);
 
     // Create "dummy" subroutine type for the return type
@@ -478,7 +479,7 @@ ldc::DIFunctionType ldc::DIBuilder::CreateDelegateType(Type *type)
     // FIXME: Implement
     TypeDelegate *t = static_cast<TypeDelegate*>(type);
 
-    Loc loc(IR->dmodule, 0);
+    Loc loc(IR->dmodule, 0, 0);
     llvm::DIFile file = CreateFile(loc);
 
     // Create "dummy" subroutine type for the return type
@@ -596,7 +597,7 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd)
     return DBuilder.createFunction(
         CU, // context
         fd->toPrettyChars(), // name
-        fd->mangleExact(), // linkage name
+        mangleExact(fd), // linkage name
         file, // file
         fd->loc.linnum, // line no
         DIFnType, // type
@@ -618,7 +619,7 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgramInternal(llvm::StringRef pretty
     Logger::println("D to dwarf subprogram");
     LOG_SCOPE;
 
-    Loc loc(IR->dmodule, 0);
+    Loc loc(IR->dmodule, 0, 0);
     llvm::DIFile file(CreateFile(loc));
 
     // Create "dummy" subroutine type for the return type
@@ -792,7 +793,7 @@ llvm::DIGlobalVariable ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *
     return DBuilder.createGlobalVariable(
         vd->toChars(), // name
 #if LDC_LLVM_VER >= 303
-        vd->mangle(), // linkage name
+        mangle(vd), // linkage name
 #endif
         CreateFile(vd->loc), // file
         vd->loc.linnum, // line num

@@ -52,7 +52,7 @@ LLGlobalVariable * IrAggr::getInitSymbol()
 
     // create the initZ symbol
     std::string initname("_D");
-    initname.append(aggrdecl->mangle());
+    initname.append(mangle(aggrdecl));
     initname.append("6__initZ");
 
     init = getOrCreateGlobal(aggrdecl->loc,
@@ -216,7 +216,7 @@ llvm::Constant* IrAggr::createInitializerConstant(
     addFieldInitializers(constants, explicitInitializers, aggrdecl, offset);
 
     // tail padding?
-    const size_t structsize = type->size();
+    const size_t structsize = aggrdecl->size(Loc());
     if (offset < structsize)
     {
         add_zeros(constants, offset, structsize);
@@ -281,7 +281,15 @@ void IrAggr::addFieldInitializers(
         if (data[i].first) continue;
 
         VarDeclaration* vd = decl->fields[i];
-        if (vd->init && vd->init->isVoidInitializer())
+
+        /* Skip void initializers for unions. DMD bug 3991:
+            union X
+            {
+                int   a = void;
+                dchar b = 'a';
+            }
+        */
+        if (decl->isUnionDeclaration() && vd->init && vd->init->isVoidInitializer())
             continue;
 
         unsigned vd_begin = vd->offset;

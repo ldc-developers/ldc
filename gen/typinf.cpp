@@ -97,8 +97,8 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
         {   tid = new TypeInfoDeclaration(t, 1);
             internalTI[t->ty] = tid;
         }
-        e = new VarExp(Loc(), tid);
-        e = e->addressOf(sc);
+        e = VarExp::create(Loc(), tid);
+        e = e->addressOf();
         e->type = tid->type;        // do this so we don't get redundant dereference
         return e;
 
@@ -109,15 +109,13 @@ Expression *Type::getInternalTypeInfo(Scope *sc)
     return t->getTypeInfo(sc);
 }
 
-
-FuncDeclaration *search_toHash(StructDeclaration *sd);
 FuncDeclaration *search_toString(StructDeclaration *sd);
 
 /****************************************************
  * Get the exact TypeInfo.
  */
 
-Expression *Type::getTypeInfo(Scope *sc)
+void Type::genTypeInfo(Scope *sc)
 {
     IF_LOG Logger::println("Type::getTypeInfo(): %s", toChars());
     LOG_SCOPE
@@ -165,15 +163,17 @@ Expression *Type::getTypeInfo(Scope *sc)
     }
     if (!vtinfo)
         vtinfo = t->vtinfo;     // Types aren't merged, but we can share the vtinfo's
-    Expression *e = new VarExp(Loc(), t->vtinfo);
-    e = e->addressOf(sc);
-    e->type = t->vtinfo->type;          // do this so we don't get redundant dereference
-    return e;
+    assert(vtinfo);
 }
 
-enum RET TypeFunction::retStyle()
+Expression *Type::getTypeInfo(Scope *sc)
 {
-    return RETstack;
+    assert(ty != Terror);
+    genTypeInfo(sc);
+    Expression *e = VarExp::create(Loc(), vtinfo);
+    e = e->addressOf();
+    e->type = vtinfo->type;     // do this so we don't get redundant dereference
+    return e;
 }
 
 TypeInfoDeclaration *Type::getTypeInfoDeclaration()
@@ -301,7 +301,7 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid)
     if (t->ty < Terror && t->ty != Tvoid && t->ty != Tfunction && t->ty != Tident) {
         // Add some metadata for use by optimization passes.
         std::string metaname(TD_PREFIX);
-        metaname += tid->mangle();
+        metaname += mangle(tid);
         llvm::NamedMDNode* meta = gIR->module->getNamedMetadata(metaname);
 
         if (!meta) {
@@ -336,7 +336,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p)
     if (decl->ir.isDefined()) return;
     decl->ir.setDefined();
 
-    std::string mangled(decl->mangle());
+    std::string mangled(mangle(decl));
     IF_LOG {
         Logger::println("type = '%s'", decl->tinfo->toChars());
         Logger::println("typeinfo mangle: %s", mangled.c_str());
@@ -454,7 +454,9 @@ void TypeInfoEnumDeclaration::llvmDefine()
         if (memtype->isintegral())
             C = LLConstantInt::get(memty, defaultval->toInteger(), !isLLVMUnsigned(memtype));
         else if (memtype->isString())
-            C = DtoConstString(static_cast<const char *>(defaultval->toString()->string));
+            C = DtoConstString(static_cast<const char *>(defaultval->toStringExp()->string));
+        else if (memtype->isfloating())
+            C = LLConstantFP::get(memty, defaultval->toReal());
         else
             llvm_unreachable("Unsupported type");
 
@@ -532,9 +534,6 @@ void TypeInfoAssociativeArrayDeclaration::llvmDefine()
 
     // key typeinfo
     b.push_typeinfo(tc->index);
-
-    // impl typeinfo
-    b.push_typeinfo(tc->getImpl()->type);
 
     // finish
     b.finalize(getIrGlobal(this));
@@ -622,7 +621,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     // well use this module for all overload lookups
 
     // toHash
-    FuncDeclaration* fd = search_toHash(sd);
+    FuncDeclaration* fd = sd->xhash;
     b.push_funcptr(fd);
 
     // opEquals
@@ -665,18 +664,18 @@ void TypeInfoStructDeclaration::llvmDefine()
     {
         // TypeInfo m_arg1;
         // TypeInfo m_arg2;
-        TypeTuple *tup = tc->toArgTypes();
-        assert(tup->arguments->dim <= 2);
+        Type *t = sd->arg1type;
         for (unsigned i = 0; i < 2; i++)
         {
-            if (i < tup->arguments->dim)
+            if (t)
             {
-                Type *targ = static_cast<Parameter *>(tup->arguments->data[i])->type;
-                targ = targ->merge();
-                b.push_typeinfo(targ);
+                t = t->merge();
+                b.push_typeinfo(t);
             }
             else
                 b.push_null(Type::dtypeinfo->type);
+
+            t = sd->arg2type;
         }
     }
 
@@ -684,7 +683,7 @@ void TypeInfoStructDeclaration::llvmDefine()
     // The cases where getRTInfo is null are not quite here, but the code is
     // modelled after what DMD does.
     if (sd->getRTInfo)
-        b.push(sd->getRTInfo->toConstElem(gIR));
+        b.push(toConstElem(sd->getRTInfo, gIR));
     else if (!tc->hasPointers())
         b.push_size_as_vp(0);       // no pointers
     else

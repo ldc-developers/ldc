@@ -1,14 +1,17 @@
 
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2006 by Digital Mars
-// All Rights Reserved
-// initial header generation implementation by Dave Fladebo
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Dave Fladebo
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/expression.h
+ */
 
 #include <string.h>                     // memset()
+
+void genhdrfile(Module *m);
 
 struct HdrGenState
 {
@@ -24,6 +27,7 @@ struct HdrGenState
     int inArrExp;
     int emitInst;
     int autoMember;
+    bool fullQualification; // fully qualify types when printing
 
     struct
     {
@@ -34,3 +38,5 @@ struct HdrGenState
 
     HdrGenState() { memset(this, 0, sizeof(HdrGenState)); }
 };
+
+void functionToBufferFull(TypeFunction *tf, OutBuffer *buf, Identifier *ident, HdrGenState* hgs, TemplateDeclaration *td);

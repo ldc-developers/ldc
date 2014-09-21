@@ -188,18 +188,7 @@ void DtoAssert(Module* M, Loc& loc, DValue* msg)
     }
 
     // file param
-
-    // we might be generating for an imported template function
-    const char* cur_file = M->srcfile->name->toChars();
-    if (loc.filename && strcmp(loc.filename, cur_file) != 0)
-    {
-        args.push_back(DtoConstString(loc.filename));
-    }
-    else
-    {
-        IrModule* irmod = getIrModule(M);
-        args.push_back(DtoLoad(irmod->fileName));
-    }
+    args.push_back(DtoModuleFileName(M, loc));
 
     // line param
     args.push_back(DtoConstUint(loc.linnum));
@@ -214,6 +203,25 @@ void DtoAssert(Module* M, Loc& loc, DValue* msg)
     gIR->ir->CreateUnreachable();
 }
 
+/****************************************************************************************/
+/*////////////////////////////////////////////////////////////////////////////////////////
+// Module file name
+////////////////////////////////////////////////////////////////////////////////////////*/
+
+LLValue *DtoModuleFileName(Module* M, const Loc& loc)
+{
+    // we might be generating for an imported template function
+    const char* cur_file = M->srcfile->name->toChars();
+    if (loc.filename && strcmp(loc.filename, cur_file) != 0)
+    {
+        return DtoConstString(loc.filename);
+    }
+    else
+    {
+        IrModule* irmod = getIrModule(M);
+        return DtoLoad(irmod->fileName);
+    }
+}
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
@@ -270,18 +278,8 @@ void DtoGoto(Loc& loc, Identifier* target, TryFinallyStatement* sourceFinally)
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
-// TRY-FINALLY AND SYNCHRONIZED HELPER
+// TRY-FINALLY
 ////////////////////////////////////////////////////////////////////////////////////////*/
-
-void EnclosingSynchro::emitCode(IRState * p)
-{
-    if (s->exp)
-        DtoLeaveMonitor(s->exp->loc, s->exp->toElem(p)->getRVal());
-    else
-        DtoLeaveCritical(s->loc, s->llsync);
-}
-
-////////////////////////////////////////////////////////////////////////////////////////
 
 void EnclosingTryFinally::emitCode(IRState * p)
 {
@@ -336,37 +334,6 @@ void DtoEnclosingHandlers(Loc& loc, Statement* target)
         ++it;
     }
     gIR->func()->gen->popLabelScope();
-}
-
-/****************************************************************************************/
-/*////////////////////////////////////////////////////////////////////////////////////////
-// SYNCHRONIZED SECTION HELPERS
-////////////////////////////////////////////////////////////////////////////////////////*/
-
-void DtoEnterCritical(Loc& loc, LLValue* g)
-{
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_criticalenter");
-    gIR->CreateCallOrInvoke(fn, g);
-}
-
-void DtoLeaveCritical(Loc& loc, LLValue* g)
-{
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_criticalexit");
-    gIR->CreateCallOrInvoke(fn, g);
-}
-
-void DtoEnterMonitor(Loc& loc, LLValue* v)
-{
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_monitorenter");
-    v = DtoBitCast(v, fn->getFunctionType()->getParamType(0));
-    gIR->CreateCallOrInvoke(fn, v);
-}
-
-void DtoLeaveMonitor(Loc& loc, LLValue* v)
-{
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_monitorexit");
-    v = DtoBitCast(v, fn->getFunctionType()->getParamType(0));
-    gIR->CreateCallOrInvoke(fn, v);
 }
 
 /****************************************************************************************/
@@ -522,7 +489,7 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
 //      NULL VALUE HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-DValue* DtoNullValue(Type* type)
+DValue* DtoNullValue(Type* type, Loc loc)
 {
     Type* basetype = type->toBasetype();
     TY basety = basetype->ty;
@@ -535,8 +502,13 @@ DValue* DtoNullValue(Type* type)
         LLValue* res = DtoAggrPair(DtoType(type), LLConstant::getNullValue(basefp), LLConstant::getNullValue(basefp));
         return new DImValue(type, res);
     }
-    // integer, floating, pointer and class have no special representation
-    else if (basetype->isintegral() || basetype->isfloating() || basety == Tpointer || basety == Tclass)
+    // integer, floating, pointer, assoc array, delegate and class have no special representation
+    else if (basetype->isintegral() ||
+             basetype->isfloating() ||
+             basety == Tpointer ||
+             basety == Tclass ||
+             basety == Tdelegate ||
+             basety == Taarray)
     {
         return new DConstValue(type, LLConstant::getNullValue(lltype));
     }
@@ -547,13 +519,11 @@ DValue* DtoNullValue(Type* type)
         LLValue* ptr = getNullPtr(getPtrToType(DtoType(basetype->nextOf())));
         return new DSliceValue(type, len, ptr);
     }
-    // delegate
-    else if (basety == Tdelegate)
+    else
     {
-        return new DNullValue(type, LLConstant::getNullValue(lltype));
+        error(loc, "null not known for type '%s'", type->toChars());
+        fatal();
     }
-
-    llvm_unreachable("null not known for this type.");
 }
 
 
@@ -728,40 +698,6 @@ DValue* DtoCastDelegate(Loc& loc, DValue* val, Type* to)
     }
 }
 
-DValue* DtoCastNull(Loc& loc, DValue* val, Type* to)
-{
-    Type* totype = to->toBasetype();
-    LLType* tolltype = DtoType(to);
-
-    if (totype->ty == Tpointer || totype->ty == Tclass)
-    {
-        IF_LOG Logger::cout() << "cast null to pointer/class: " << *tolltype << '\n';
-        LLValue *rval = DtoBitCast(val->getRVal(), tolltype);
-        return new DImValue(to, rval);
-    }
-    if (totype->ty == Tarray)
-    {
-        IF_LOG Logger::cout() << "cast null to array: " << *tolltype << '\n';
-        LLValue *rval = val->getRVal();
-        rval = DtoBitCast(rval, DtoType(to->nextOf()->pointerTo()));
-        rval = DtoAggrPair(DtoConstSize_t(0), rval, "null_array");
-        return new DImValue(to, rval);
-    }
-    else if (totype->ty == Tbool)
-    {
-        // In theory, we could return 'false' as a constant here, but DMD
-        // treats non-null values casted to typeof(null) as true.
-        LLValue* rval = val->getRVal();
-        LLValue* zero = LLConstant::getNullValue(rval->getType());
-        return new DImValue(to, gIR->ir->CreateICmpNE(rval, zero, "tmp"));
-    }
-    else
-    {
-        error(loc, "invalid cast from null to '%s'", to->toChars());
-        fatal();
-    }
-}
-
 DValue* DtoCastVector(Loc& loc, DValue* val, Type* to)
 {
     assert(val->getType()->toBasetype()->ty == Tvector);
@@ -834,13 +770,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
             LLValue* zero = LLConstant::getNullValue(rval->getType());
             return new DImValue(to, gIR->ir->CreateICmpNE(rval, zero));
         }
-
-        // Else try dealing with the rewritten (struct) type.
-        fromtype = static_cast<TypeAArray*>(fromtype)->getImpl()->type;
     }
-
-    if (totype->ty == Taarray)
-        totype = static_cast<TypeAArray*>(totype)->getImpl()->type;
 
     if (fromtype->equals(totype))
         return val;
@@ -873,7 +803,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to)
         return DtoCastDelegate(loc, val, to);
     }
     else if (fromtype->ty == Tnull) {
-        return DtoCastNull(loc, val, to);
+        return DtoNullValue(to, loc);
     }
     else if (fromtype->ty == totype->ty) {
         return val;
@@ -1043,7 +973,7 @@ void DtoResolveVariable(VarDeclaration* vd)
         assert(!vd->ir.isInitialized());
         if (gIR->dmodule)
             vd->ir.setInitialized();
-        std::string llName(vd->mangle());
+        std::string llName(mangle(vd));
 
         // Since the type of a global must exactly match the type of its
         // initializer, we cannot know the type until after we have emitted the
@@ -1155,12 +1085,12 @@ void DtoVarDeclaration(VarDeclaration* vd)
                     {
                         if (isSpecialRefVar(vd))
                         {
-                            LLValue* const val = ce->toElem(gIR)->getLVal();
+                            LLValue* const val = toElem(ce)->getLVal();
                             DtoStore(val, irLocal->value);
                         }
                         else
                         {
-                            DValue* fnval = ce->e1->toElem(gIR);
+                            DValue* fnval = toElem(ce->e1);
                             DtoCallFunction(ce->loc, ce->type, fnval, ce->arguments, irLocal->value);
                         }
                         return;
@@ -1178,7 +1108,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
         {
             // TODO: Refactor this so that it doesn't look like toElem has no effect.
             Logger::println("expression initializer");
-            ex->exp->toElem(gIR);
+            toElem(ex->exp);
         }
     }
 }
@@ -1391,7 +1321,7 @@ LLConstant* DtoConstExpInit(Loc& loc, Type* targetType, Expression* exp)
         targetType->toChars(), exp->toChars());
     LOG_SCOPE
 
-    LLConstant* val = exp->toConstElem(gIR);
+    LLConstant* val = toConstElem(exp, gIR);
 
     // The situation here is a bit tricky: In an ideal world, we would always
     // have val->getType() == DtoType(targetType). But there are two reasons

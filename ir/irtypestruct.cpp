@@ -125,10 +125,13 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
             IF_LOG Logger::println("adding explicit initializer for struct field %s",
                 field->toChars());
 
-            data[index] = field;
-
+            size_t f_size = field->type->size();
             size_t f_begin = field->offset;
-            size_t f_end = f_begin + field->type->size();
+            size_t f_end = f_begin + f_size;
+            if (f_size == 0)
+                continue;
+
+            data[index] = field;
 
             // make sure there is no overlap
             for (size_t i = 0; i < index; i++)
@@ -161,8 +164,11 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
             continue;
         VarDeclaration *field = sd->fields[index];
 
+        size_t f_size = field->type->size();
         size_t f_begin = field->offset;
-        size_t f_end = f_begin + field->type->size();
+        size_t f_end = f_begin + f_size;
+        if (f_size == 0)
+            continue;
 
         // make sure it doesn't overlap anything explicit
         bool overlaps = false;

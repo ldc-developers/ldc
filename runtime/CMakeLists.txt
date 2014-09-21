@@ -133,7 +133,9 @@ if(PHOBOS2_DIR)
     endif()
 
     file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
+    file(GLOB PHOBOS2_D_CONTAINER ${PHOBOS2_DIR}/std/container/*.d)
     file(GLOB PHOBOS2_D_DIGEST ${PHOBOS2_DIR}/std/digest/*.d)
+    file(GLOB PHOBOS2_D_EXPERIMENTAL ${PHOBOS2_DIR}/std/experimental/*.d)
     file(GLOB PHOBOS2_D_NET ${PHOBOS2_DIR}/std/net/*.d)
     file(GLOB_RECURSE PHOBOS2_D_INTERNAL ${PHOBOS2_DIR}/std/internal/*.d)
     file(GLOB PHOBOS2_D_C ${PHOBOS2_DIR}/std/c/*.d)
@@ -157,7 +159,9 @@ if(PHOBOS2_DIR)
         file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)
     endif()
     list(APPEND PHOBOS2_D
+            ${PHOBOS2_D_CONTAINER}
             ${PHOBOS2_D_DIGEST}
+            ${PHOBOS2_D_EXPERIMENTAL}
             ${PHOBOS2_D_NET}
             ${PHOBOS2_D_INTERNAL}
             ${PHOBOS2_D_WIN}
@@ -260,8 +264,8 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
             # Building the std.range tests triggers an assertion error on
             # every LLVM release before 3.3. See PR15608.
             string(REPLACE "-O3" "-O1" cur_d_flags "${cur_d_flags}")
-        elseif(${LDC_LLVM_VER} LESS 304 AND "${input_d}" MATCHES "rt/util/container.d")
-            # Building the rt.util.container tests triggers a bug in the
+        elseif(${LDC_LLVM_VER} LESS 304 AND "${input_d}" MATCHES "rt/util/container/array.d")
+            # Building the rt.util.container.array tests triggers a bug in the
             # jump threading pass on every LLVM release before 3.4.
             # See PR17621.
             string(REPLACE "-O3" "-O1" cur_d_flags "${cur_d_flags}")
@@ -285,6 +289,10 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
                 ${GCCBUILTINS}
                 ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
     )
+
+    set(target ${output_root}${output_suffix})
+    string(REGEX REPLACE "/|\\\\|-" "_" target "${target}")
+    add_custom_target(${target} DEPENDS ${outfiles})
 endmacro()
 
 # Sets target_suffix to a purely cosmetical suffix for the CMake target names

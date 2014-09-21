@@ -33,8 +33,6 @@ llvm::FunctionType* DtoFunctionType(Type* t, IrFuncTy &irFty, Type* thistype, Ty
                                     bool isMain = false, bool isCtor = false, bool isIntrinsic = false);
 llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl);
 
-llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl);
-
 void DtoResolveFunction(FuncDeclaration* fdecl);
 void DtoDeclareFunction(FuncDeclaration* fdecl);
 void DtoDefineFunction(FuncDeclaration* fd);
@@ -44,5 +42,8 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc& loc, FuncDeclaration* fdecl
 
 DValue* DtoArgument(Parameter* fnarg, Expression* argexp);
 void DtoVariadicArgument(Expression* argexp, llvm::Value* dst);
+
+// Search for a druntime array op
+int isDruntimeArrayOp(FuncDeclaration *fd);
 
 #endif

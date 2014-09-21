@@ -93,7 +93,7 @@ static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
     }
     assert(table->getType() == fn->getFunctionType()->getParamType(0));
 
-    DValue* val = e->toElemDtor(gIR);
+    DValue* val = toElemDtor(e);
     LLValue* llval = val->getRVal();
     assert(llval->getType() == fn->getFunctionType()->getParamType(1));
 
@@ -103,6 +103,231 @@ static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
 }
 
 //////////////////////////////////////////////////////////////////////////////
+
+/* A visitor to walk entire tree of statements.
+ */
+class StatementVisitor : public Visitor
+{
+    void visitStmt(Statement *s) { s->accept(this); }
+public:
+    // Import all functions from class Visitor
+    using Visitor::visit;
+
+    void visit(ErrorStatement *s) {  }
+    void visit(PeelStatement *s)
+    {
+        if (s->s)
+            visitStmt(s->s);
+    }
+    void visit(ExpStatement *s) {  }
+    void visit(DtorExpStatement *s) {  }
+    void visit(CompileStatement *s) {  }
+    void visit(CompoundStatement *s)
+    {
+        if (s->statements && s->statements->dim)
+        {
+            for (size_t i = 0; i < s->statements->dim; i++)
+            {
+                if ((*s->statements)[i])
+                    visitStmt((*s->statements)[i]);
+            }
+        }
+    }
+    void visit(CompoundDeclarationStatement *s) { visit((CompoundStatement *)s); }
+    void visit(UnrolledLoopStatement *s)
+    {
+        if (s->statements && s->statements->dim)
+        {
+            for (size_t i = 0; i < s->statements->dim; i++)
+            {
+                if ((*s->statements)[i])
+                    visitStmt((*s->statements)[i]);
+            }
+        }
+    }
+    void visit(ScopeStatement *s)
+    {
+        if (s->statement)
+            visitStmt(s->statement);
+    }
+    void visit(WhileStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(DoStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(ForStatement *s)
+    {
+        if (s->init)
+            visitStmt(s->init);
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(ForeachStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(ForeachRangeStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(IfStatement *s)
+    {
+        if (s->ifbody)
+            visitStmt(s->ifbody);
+        if (s->elsebody)
+            visitStmt(s->elsebody);
+    }
+    void visit(ConditionalStatement *s) {  }
+    void visit(PragmaStatement *s) {  }
+    void visit(StaticAssertStatement *s) {  }
+    void visit(SwitchStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(CaseStatement *s)
+    {
+        if (s->statement)
+            visitStmt(s->statement);
+    }
+    void visit(CaseRangeStatement *s)
+    {
+        if (s->statement)
+            visitStmt(s->statement);
+    }
+    void visit(DefaultStatement *s)
+    {
+        if (s->statement)
+            visitStmt(s->statement);
+    }
+    void visit(GotoDefaultStatement *s) {  }
+    void visit(GotoCaseStatement *s) {  }
+    void visit(SwitchErrorStatement *s) {  }
+    void visit(ReturnStatement *s) {  }
+    void visit(BreakStatement *s) {  }
+    void visit(ContinueStatement *s) {  }
+    void visit(SynchronizedStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(WithStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+    }
+    void visit(TryCatchStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+        if (s->catches && s->catches->dim)
+        {
+            for (size_t i = 0; i < s->catches->dim; i++)
+            {
+                Catch *c = (*s->catches)[i];
+                if (c && c->handler)
+                    visitStmt(c->handler);
+            }
+        }
+    }
+    void visit(TryFinallyStatement *s)
+    {
+        if (s->body)
+            visitStmt(s->body);
+        if (s->finalbody)
+            visitStmt(s->finalbody);
+    }
+    void visit(OnScopeStatement *s) {  }
+    void visit(ThrowStatement *s) {  }
+    void visit(DebugStatement *s)
+    {
+        if (s->statement)
+            visitStmt(s->statement);
+    }
+    void visit(GotoStatement *s) {  }
+    void visit(LabelStatement *s)
+    {
+        if (s->statement)
+            visitStmt(s->statement);
+    }
+    void visit(AsmStatement *s) {  }
+    void visit(ImportStatement *s) {  }
+    void visit(AsmBlockStatement *s) {  }
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
+class FindEnclosingTryFinally : public StatementVisitor {
+    std::stack<TryFinallyStatement*> m_tryFinally;
+    std::stack<SwitchStatement*> m_switches;
+public:
+    // Import all functions from class StatementVisitor
+    using StatementVisitor::visit;
+
+    TryFinallyStatement *enclosingTryFinally() const
+    {
+        return m_tryFinally.empty() ? 0 : m_tryFinally.top();
+    }
+
+    SwitchStatement *enclosingSwitch() const
+    {
+        return m_switches.empty() ? 0 : m_switches.top();
+    }
+
+    void visit(SwitchStatement *s)
+    {
+        m_switches.push(s);
+        s->enclosingScopeExit = enclosingTryFinally();
+        StatementVisitor::visit(s);
+        m_switches.pop();
+    }
+
+    void visit(CaseStatement *s)
+    {
+        s->enclosingScopeExit = enclosingTryFinally();
+        if (s->enclosingScopeExit != enclosingSwitch()->enclosingScopeExit)
+            s->error("switch and case are in different try blocks");
+        StatementVisitor::visit(s);
+    }
+
+    void visit(DefaultStatement *s)
+    {
+        s->enclosingScopeExit = enclosingTryFinally();
+        if (s->enclosingScopeExit != enclosingSwitch()->enclosingScopeExit)
+            s->error("switch and default case are in different try blocks");
+        StatementVisitor::visit(s);
+    }
+
+    void visit(TryFinallyStatement *s)
+    {
+        m_tryFinally.push(s);
+        s->body->accept(this);
+        m_tryFinally.pop();
+        s->finalbody->accept(this);
+    }
+
+    void visit(LabelStatement *s)
+    {
+        s->enclosingScopeExit = enclosingTryFinally();
+        StatementVisitor::visit(s);
+    }
+
+    void visit(GotoStatement *s)
+    {
+        s->enclosingScopeExit = enclosingTryFinally();
+        StatementVisitor::visit(s);
+    }
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
 
 class ToIRVisitor : public Visitor {
     IRState *irs;
@@ -156,7 +381,7 @@ public:
 
                 // get return pointer
                 DValue* rvar = new DVarValue(f->type->next, getIrFunc(f->decl)->retArg);
-                DValue* e = stmt->exp->toElemDtor(irs);
+                DValue* e = toElemDtor(stmt->exp);
                 // store return value
                 if (rvar->getLVal() != e->getRVal())
                     DtoAssign(stmt->loc, rvar, e);
@@ -186,11 +411,11 @@ public:
                     DValue* dval = 0;
                     // call postblit if necessary
                     if (!irs->func()->type->isref) {
-                        dval = stmt->exp->toElemDtor(irs);
+                        dval = toElemDtor(stmt->exp);
                         callPostblit(stmt->loc, stmt->exp, dval->getRVal());
                     } else {
-                        Expression *ae = stmt->exp->addressOf(NULL);
-                        dval = ae->toElemDtor(irs);
+                        Expression *ae = stmt->exp->addressOf();
+                        dval = toElemDtor(ae);
                     }
                     // do abi specific transformations on the return value
                     v = irs->func()->decl->irFty.putRet(stmt->exp->type, dval);
@@ -265,34 +490,16 @@ public:
             // a cast(void) around the expression is allowed, but doesn't require any code
             if (stmt->exp->op == TOKcast && stmt->exp->type == Type::tvoid) {
                 CastExp* cexp = static_cast<CastExp*>(stmt->exp);
-                e = cexp->e1->toElemDtor(irs);
+                e = toElemDtor(cexp->e1);
             }
             else
-                e = stmt->exp->toElemDtor(irs);
+                e = toElemDtor(stmt->exp);
             delete e;
         }
         /*elem* e = exp->toElem(irs);
         p->buf.printf("%s", e->toChars());
         delete e;
         p->buf.writenl();*/
-    }
-
-    //////////////////////////////////////////////////////////////////////////
-
-    void visit(DtorExpStatement *stmt) LLVM_OVERRIDE {
-        assert(irs->func());
-        FuncDeclaration *fd = irs->func()->decl;
-        assert(fd);
-        if (fd->nrvo_can && fd->nrvo_var == stmt->var)
-            /* Do not call destructor, because var is returned as the nrvo variable.
-             * This is done at this stage because nrvo can be turned off at a
-             * very late stage in semantic analysis.
-             */
-            ;
-        else
-        {
-            visit(static_cast<ExpStatement *>(stmt));
-        }
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -306,7 +513,7 @@ public:
         if (stmt->match)
             DtoRawVarDeclaration(stmt->match);
 
-        DValue* cond_e = stmt->condition->toElemDtor(irs);
+        DValue* cond_e = toElemDtor(stmt->condition);
         LLValue* cond_val = cond_e->getRVal();
 
         llvm::BasicBlock* oldend = gIR->scopeend();
@@ -413,7 +620,7 @@ public:
         gIR->scope() = IRScope(whilebb, endbb);
 
         // create the condition
-        DValue* cond_e = stmt->condition->toElemDtor(irs);
+        DValue* cond_e = toElemDtor(stmt->condition);
         LLValue* cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
         delete cond_e;
 
@@ -473,7 +680,7 @@ public:
         gIR->scope() = IRScope(condbb,endbb);
 
         // create the condition
-        DValue* cond_e = stmt->condition->toElemDtor(irs);
+        DValue* cond_e = toElemDtor(stmt->condition);
         LLValue* cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
         delete cond_e;
 
@@ -529,7 +736,7 @@ public:
         llvm::Value* cond_val;
         if (stmt->condition)
         {
-            DValue* cond_e = stmt->condition->toElemDtor(irs);
+            DValue* cond_e = toElemDtor(stmt->condition);
             cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
             delete cond_e;
         }
@@ -556,7 +763,7 @@ public:
 
         // increment
         if (stmt->increment) {
-            DValue* inc = stmt->increment->toElemDtor(irs);
+            DValue* inc = toElemDtor(stmt->increment);
             delete inc;
         }
 
@@ -651,27 +858,29 @@ public:
         if (stmt->ident != 0) {
             IF_LOG Logger::println("ident = %s", stmt->ident->toChars());
 
-            DtoEnclosingHandlers(stmt->loc, stmt->target);
-
             // get the loop statement the label refers to
             Statement* targetLoopStatement = stmt->target->statement;
             ScopeStatement* tmp;
             while((tmp = targetLoopStatement->isScopeStatement()))
                 targetLoopStatement = tmp->statement;
 
-            // find the right continue block and jump there
+            // find the right continue block
             bool found = false;
             FuncGen::TargetScopeVec::reverse_iterator it = irs->func()->gen->targetScopes.rbegin();
             FuncGen::TargetScopeVec::reverse_iterator it_end = irs->func()->gen->targetScopes.rend();
             while (it != it_end) {
                 if (it->s == targetLoopStatement) {
-                    llvm::BranchInst::Create(it->continueTarget, gIR->scopebb());
                     found = true;
                     break;
                 }
                 ++it;
             }
+
             assert(found);
+            // emit destructors and finally statements
+            DtoEnclosingHandlers(stmt->loc, it->s);
+            // jump to the continue block
+            llvm::BranchInst::Create(it->continueTarget, gIR->scopebb());
         }
         else {
             // find closest scope with a continue target
@@ -862,7 +1071,7 @@ public:
         gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
 
         assert(stmt->exp);
-        DValue* e = stmt->exp->toElemDtor(irs);
+        DValue* e = toElemDtor(stmt->exp);
 
         gIR->DBuilder.EmitFuncEnd(gIR->func()->decl);
 
@@ -914,7 +1123,7 @@ public:
             if (cs->exp->op == TOKvar)
                 vd = static_cast<VarExp*>(cs->exp)->var->isVarDeclaration();
             if (vd && (!vd->init || !vd->isConst())) {
-                cs->llvmIdx = cs->exp->toElemDtor(irs)->getRVal();
+                cs->llvmIdx = toElemDtor(cs->exp)->getRVal();
                 useSwitchInst = false;
             }
         }
@@ -970,7 +1179,7 @@ public:
                     Case* c = static_cast<Case*>(caseArray.data[i]);
                     CaseStatement* cs = static_cast<CaseStatement*>(stmt->cases->data[c->index]);
                     cs->llvmIdx = DtoConstUint(i);
-                    inits[i] = c->str->toConstElem(irs);
+                    inits[i] = toConstElem(c->str, irs);
                 }
                 // build static array for ptr or final array
                 LLType* elemTy = DtoType(stmt->condition->type);
@@ -992,7 +1201,7 @@ public:
             LLValue* condVal;
             // integral switch
             if (stmt->condition->type->isintegral()) {
-                DValue* cond = stmt->condition->toElemDtor(irs);
+                DValue* cond = toElemDtor(stmt->condition);
                 condVal = cond->getRVal();
             }
             // string switch
@@ -1012,7 +1221,7 @@ public:
         }
         else
         { // we can't use switch, so we will use a bunch of br instructions instead
-            DValue* cond = stmt->condition->toElemDtor(irs);
+            DValue* cond = toElemDtor(stmt->condition);
             LLValue *condVal = cond->getRVal();
 
             llvm::BasicBlock* nextbb = llvm::BasicBlock::Create(gIR->context(), "checkcase", irs->topfunc(), oldend);
@@ -1057,7 +1266,7 @@ public:
         stmt->bodyBB = nbb;
 
         if (stmt->llvmIdx == NULL) {
-            llvm::Constant *c = stmt->exp->toConstElem(irs);
+            llvm::Constant *c = toConstElem(stmt->exp, irs);
             stmt->llvmIdx = isaConstantInt(c);
         }
 
@@ -1209,7 +1418,7 @@ public:
         }
 
         // what to iterate
-        DValue* aggrval = stmt->aggr->toElemDtor(irs);
+        DValue* aggrval = toElemDtor(stmt->aggr);
 
         // get length and pointer
         LLValue* niters = DtoArrayLen(aggrval);
@@ -1311,9 +1520,9 @@ public:
 
         // evaluate lwr/upr
         assert(stmt->lwr->type->isintegral());
-        LLValue* lower = stmt->lwr->toElemDtor(irs)->getRVal();
+        LLValue* lower = toElemDtor(stmt->lwr)->getRVal();
         assert(stmt->upr->type->isintegral());
-        LLValue* upper = stmt->upr->toElemDtor(irs)->getRVal();
+        LLValue* upper = toElemDtor(stmt->upr)->getRVal();
 
         // handle key
         assert(stmt->key->type->isintegral());
@@ -1414,7 +1623,7 @@ public:
         {
             IRAsmStmt* a = new IRAsmStmt;
             std::stringstream label;
-            printLabelName(label, irs->func()->decl->mangleExact(), stmt->ident->toChars());
+            printLabelName(label, mangleExact(irs->func()->decl), stmt->ident->toChars());
             label << ":";
             a->code = label.str();
             irs->asmBlock->s.push_back(a);
@@ -1520,7 +1729,7 @@ public:
         // with(..) can either be used with expressions or with symbols
         // wthis == null indicates the symbol form
         if (stmt->wthis) {
-            DValue* e = stmt->exp->toElemDtor(irs);
+            DValue* e = toElemDtor(stmt->exp);
             LLValue* mem = DtoRawVarDeclaration(stmt->wthis);
             DtoStore(e->getRVal(), mem);
         }
@@ -1529,50 +1738,6 @@ public:
             stmt->body->accept(this);
 
         gIR->DBuilder.EmitBlockEnd();
-    }
-
-    //////////////////////////////////////////////////////////////////////////
-
-    static LLConstant* generate_unique_critical_section()
-    {
-        llvm::Type *Mty = DtoMutexType();
-        return new llvm::GlobalVariable(*gIR->module, Mty, false, llvm::GlobalValue::InternalLinkage, LLConstant::getNullValue(Mty), ".uniqueCS");
-    }
-
-    void visit(SynchronizedStatement *stmt) LLVM_OVERRIDE {
-        IF_LOG Logger::println("SynchronizedStatement::toIR(): %s", stmt->loc.toChars());
-        LOG_SCOPE;
-
-        // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
-
-        // enter lock
-        if (stmt->exp)
-        {
-            stmt->llsync = stmt->exp->toElem(irs)->getRVal();
-            DtoEnterMonitor(stmt->loc, stmt->llsync);
-        }
-        else
-        {
-            stmt->llsync = generate_unique_critical_section();
-            DtoEnterCritical(stmt->loc, stmt->llsync);
-        }
-
-        // emit body
-        irs->func()->gen->targetScopes.push_back(IRTargetScope(stmt, new EnclosingSynchro(stmt), NULL, NULL));
-        gIR->DBuilder.EmitBlockStart(stmt->body->loc);
-        stmt->body->accept(this);
-        gIR->DBuilder.EmitBlockEnd();
-        irs->func()->gen->targetScopes.pop_back();
-
-        // exit lock
-        // no point in a unreachable unlock, terminating statements must insert this themselves.
-        if (irs->scopereturned())
-            return;
-        else if (stmt->exp)
-            DtoLeaveMonitor(stmt->loc, stmt->llsync);
-        else
-            DtoLeaveCritical(stmt->loc, stmt->llsync);
     }
 
     //////////////////////////////////////////////////////////////////////////
@@ -1632,6 +1797,13 @@ public:
 };
 
 //////////////////////////////////////////////////////////////////////////////
+
+void codegenFunction(Statement *s, IRState *irs)
+{
+    FindEnclosingTryFinally v;
+    s->accept(&v);
+    Statement_toIR(s, irs);
+}
 
 void Statement_toIR(Statement *s, IRState *irs)
 {

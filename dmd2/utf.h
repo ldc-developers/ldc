@@ -1,11 +1,13 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 2003-2010 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+
+/* Compiler implementation of the D programming language
+ * Copyright (c) 2003-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/utf.h
+ */
 
 #ifndef DMD_UTF_H
 #define DMD_UTF_H
@@ -64,7 +66,7 @@ static utf16_t const ALPHA_TABLE[ALPHA_TABLE_LENGTH][2] =
     { 0x0CE0, 0x0CE1 }, { 0x0CE6, 0x0CEF }, { 0x0D02, 0x0D03 }, { 0x0D05, 0x0D0C },
     { 0x0D0E, 0x0D10 }, { 0x0D12, 0x0D28 }, { 0x0D2A, 0x0D39 }, { 0x0D3E, 0x0D43 },
     { 0x0D46, 0x0D48 }, { 0x0D4A, 0x0D4D }, { 0x0D60, 0x0D61 }, { 0x0D66, 0x0D6F },
-    { 0x0E01, 0x0E3A }, { 0x0E40, 0x0E5B }, /* { 0x0E50, 0x0E59 }, */ { 0x0E81, 0x0E82 },
+    { 0x0E01, 0x0E3A }, { 0x0E40, 0x0E5B }, { 0x0E81, 0x0E82 },
     { 0x0E84, 0x0E84 }, { 0x0E87, 0x0E88 }, { 0x0E8A, 0x0E8A }, { 0x0E8D, 0x0E8D },
     { 0x0E94, 0x0E97 }, { 0x0E99, 0x0E9F }, { 0x0EA1, 0x0EA3 }, { 0x0EA5, 0x0EA5 },
     { 0x0EA7, 0x0EA7 }, { 0x0EAA, 0x0EAB }, { 0x0EAD, 0x0EAE }, { 0x0EB0, 0x0EB9 },

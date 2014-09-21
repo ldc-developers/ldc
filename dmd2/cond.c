@@ -1,12 +1,13 @@
 
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2012 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/cond.c
+ */
 
 #include <stdio.h>
 #include <assert.h>
@@ -105,7 +106,7 @@ void printDepsConditional(Scope *sc, DVCondition* condition, const char* depType
 }
 
 
-int DebugCondition::include(Scope *sc, ScopeDsymbol *s)
+int DebugCondition::include(Scope *sc, ScopeDsymbol *sds)
 {
     //printf("DebugCondition::include() level = %d, debuglevel = %d\n", level, global.params.debuglevel);
     if (inc == 0)
@@ -202,6 +203,8 @@ bool VersionCondition::isPredefined(const char *ident)
         "MIPS_EABI",
         "MIPS_SoftFloat",
         "MIPS_HardFloat",
+        "NVPTX",
+        "NVPTX64",
         "SPARC",
         "SPARC_V8Plus",
         "SPARC_SoftFloat",
@@ -271,7 +274,7 @@ VersionCondition::VersionCondition(Module *mod, unsigned level, Identifier *iden
 {
 }
 
-int VersionCondition::include(Scope *sc, ScopeDsymbol *s)
+int VersionCondition::include(Scope *sc, ScopeDsymbol *sds)
 {
     //printf("VersionCondition::include() level = %d, versionlevel = %d\n", level, global.params.versionlevel);
     //if (ident) printf("\tident = '%s'\n", ident->toChars());
@@ -326,13 +329,13 @@ Condition *StaticIfCondition::syntaxCopy()
     return new StaticIfCondition(loc, exp->syntaxCopy());
 }
 
-int StaticIfCondition::include(Scope *sc, ScopeDsymbol *s)
+int StaticIfCondition::include(Scope *sc, ScopeDsymbol *sds)
 {
 #if 0
-    printf("StaticIfCondition::include(sc = %p, s = %p) this=%p inc = %d\n", sc, s, this, inc);
-    if (s)
+    printf("StaticIfCondition::include(sc = %p, sds = %p) this=%p inc = %d\n", sc, sds, this, inc);
+    if (sds)
     {
-        printf("\ts = '%s', kind = %s\n", s->toChars(), s->kind());
+        printf("\ts = '%s', kind = %s\n", sds->toChars(), sds->kind());
     }
 #endif
     if (inc == 0)
@@ -353,7 +356,8 @@ int StaticIfCondition::include(Scope *sc, ScopeDsymbol *s)
 
         ++nest;
         sc = sc->push(sc->scopesym);
-        sc->sd = s;                     // s gets any addMember()
+        sc->sds = sds;                  // sds gets any addMember()
+        //sc->speculative = true;       // TODO: static if (is(T U)) { /* U is available */ }
         sc->flags |= SCOPEstaticif;
 
         sc = sc->startCTFE();

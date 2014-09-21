@@ -124,11 +124,13 @@ public:
             // emit typeinfo
             DtoTypeInfoOf(decl->type);
 
-            // Emit __xopEquals/__xopCmp.
+            // Emit __xopEquals/__xopCmp/__xtoHash.
             if (decl->xeq && decl->xeq != decl->xerreq)
                 decl->xeq->accept(this);
             if (decl->xcmp && decl->xcmp != decl->xerrcmp)
                 decl->xcmp->accept(this);
+            if (decl->xhash)
+                decl->xhash->accept(this);
         }
     }
 
@@ -334,6 +336,10 @@ public:
 
         if (decl->ir.isDefined()) return;
         decl->ir.setDefined();
+
+        // FIXME: This is #673 all over again. Probably need to apply a visitor
+        // that sets availableExternally for all members.
+        if (!decl->needsCodegen()) return;
 
         if (!decl->errors && decl->members)
         {

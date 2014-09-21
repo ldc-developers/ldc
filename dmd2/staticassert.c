@@ -1,11 +1,13 @@
 
-// Copyright (c) 1999-2012 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/staticassert.c
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -40,7 +42,7 @@ Dsymbol *StaticAssert::syntaxCopy(Dsymbol *s)
     return sa;
 }
 
-int StaticAssert::addMember(Scope *sc, ScopeDsymbol *sd, int memnum)
+int StaticAssert::addMember(Scope *sc, ScopeDsymbol *sds, int memnum)
 {
     return 0;           // we didn't add anything
 }
@@ -52,8 +54,9 @@ void StaticAssert::semantic(Scope *sc)
 void StaticAssert::semantic2(Scope *sc)
 {
     //printf("StaticAssert::semantic2() %s\n", toChars());
-    ScopeDsymbol *sd = new ScopeDsymbol();
-    sc = sc->push(sd);
+    ScopeDsymbol *sds = new ScopeDsymbol();
+    sc = sc->push(sds);
+    sc->speculative = true;
     sc->flags |= SCOPEstaticassert;
 
     sc = sc->startCTFE();
@@ -90,13 +93,13 @@ void StaticAssert::semantic2(Scope *sc)
             sc = sc->endCTFE();
             msg = msg->ctfeInterpret();
             hgs.console = 1;
-            StringExp * s = msg->toString();
+            StringExp * s = msg->toStringExp();
             if (s)
             {   s->postfix = 0; // Don't display a trailing 'c'
                 msg = s;
             }
             msg->toCBuffer(&buf, &hgs);
-            error("%s", buf.toChars());
+            error("%s", buf.peekString());
         }
         else
             error("(%s) is false", exp->toChars());
@@ -118,11 +121,7 @@ bool StaticAssert::oneMember(Dsymbol **ps, Identifier *ident)
     return true;
 }
 
-void StaticAssert::inlineScan()
-{
-}
-
-void StaticAssert::toObjFile(int multiobj)
+void StaticAssert::toObjFile(bool multiobj)
 {
 }
 

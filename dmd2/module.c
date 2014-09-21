@@ -1,12 +1,13 @@
 
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2013 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/module.c
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -59,9 +60,13 @@ Module::Module(const char *filename, Identifier *ident, int doDocComment, int do
     numlines = 0;
     members = NULL;
     isDocFile = 0;
+    isPackageFile = false;
     needmoduleinfo = 0;
     selfimports = 0;
     insearch = 0;
+    searchCacheIdent = NULL;
+    searchCacheSymbol = NULL;
+    searchCacheFlags = 0;
     decldefs = NULL;
 #if IN_DMD
     massert = NULL;
@@ -215,16 +220,14 @@ const char *Module::kind()
 }
 
 Module *Module::load(Loc loc, Identifiers *packages, Identifier *ident)
-{   Module *m;
-    char *filename;
-
+{
     //printf("Module::load(ident = '%s')\n", ident->toChars());
 
     // Build module filename by turning:
     //  foo.bar.baz
     // into:
     //  foo\bar\baz
-    filename = ident->toChars();
+    char *filename = ident->toChars();
     if (packages && packages->dim)
     {
         OutBuffer buf;
@@ -244,7 +247,7 @@ Module *Module::load(Loc loc, Identifiers *packages, Identifier *ident)
         filename = (char *)buf.extractData();
     }
 
-    m = new Module(filename, ident, 0, 0);
+    Module *m = new Module(filename, ident, 0, 0);
     m->loc = loc;
 
     /* Look for the source file
@@ -259,7 +262,8 @@ Module *Module::load(Loc loc, Identifiers *packages, Identifier *ident)
         if (packages)
         {
             for (size_t i = 0; i < packages->dim; i++)
-            {   Identifier *pid = (*packages)[i];
+            {
+                Identifier *pid = (*packages)[i];
                 fprintf(global.stdmsg, "%s.", pid->toChars());
             }
         }
@@ -409,6 +413,8 @@ void Module::parse()
 
     char *srcname = srcfile->name->toChars();
     //printf("Module::parse(srcname = '%s')\n", srcname);
+
+    isPackageFile = (strcmp(srcfile->name->name(), "package.d") == 0);
 
     utf8_t *buf = (utf8_t *)srcfile->buffer;
     size_t buflen = srcfile->len;
@@ -644,8 +650,7 @@ void Module::parse()
 
     // Insert module into the symbol table
     Dsymbol *s = this;
-    bool isPackageMod = strcmp(srcfile->name->name(), "package.d") == 0;
-    if (isPackageMod)
+    if (isPackageFile)
     {
         /* If the source tree is as follows:
          *     pkg/
@@ -681,7 +686,7 @@ void Module::parse()
         if (Module *mprev = prev->isModule())
         {
             if (strcmp(srcname, mprev->srcfile->toChars()) == 0)
-                error(loc, "from file %s must be imported as module '%s'",
+                error(loc, "from file %s must be imported with 'import %s;'",
                     srcname, toPrettyChars());
             else
                 error(loc, "from file %s conflicts with another module %s from file %s",
@@ -689,7 +694,7 @@ void Module::parse()
         }
         else if (Package *pkg = prev->isPackage())
         {
-            if (pkg->isPkgMod == PKGunknown && isPackageMod)
+            if (pkg->isPkgMod == PKGunknown && isPackageFile)
             {
                 /* If the previous inserted Package is not yet determined as package.d,
                  * link it to the actual module.
@@ -698,7 +703,7 @@ void Module::parse()
                 pkg->mod = this;
             }
             else
-                error(pkg->loc, "from file %s conflicts with package name %s",
+                error(md ? md->loc : loc, "from file %s conflicts with package name %s",
                     srcname, pkg->toChars());
         }
         else
@@ -748,7 +753,7 @@ void Module::importAll(Scope *prevsc)
         for (size_t i = 0; i < members->dim; i++)
         {
             Dsymbol *s = (*members)[i];
-            s->addMember(NULL, sc->scopesym, 1);
+            s->addMember(sc, sc->scopesym, 1);
         }
     }
     // anything else should be run after addMember, so version/debug symbols are defined
@@ -794,34 +799,6 @@ void Module::semantic()
 
     //printf("Module = %p, linkage = %d\n", sc->scopesym, sc->linkage);
 
-#if 0
-    // Add import of "object" if this module isn't "object"
-    if (ident != Id::object)
-    {
-        Import *im = new Import(0, NULL, Id::object, NULL, 0);
-        members->shift(im);
-    }
-
-    // Add all symbols into module's symbol table
-    symtab = new DsymbolTable();
-    for (size_t i = 0; i < members->dim; i++)
-    {
-        Dsymbol *s = (Dsymbol *)members->data[i];
-        s->addMember(NULL, sc->scopesym, 1);
-    }
-
-    /* Set scope for the symbols so that if we forward reference
-     * a symbol, it can possibly be resolved on the spot.
-     * If this works out well, it can be extended to all modules
-     * before any semantic() on any of them.
-     */
-    for (size_t i = 0; i < members->dim; i++)
-    {
-        Dsymbol *s = (Dsymbol *)members->data[i];
-        s->setScope(sc);
-    }
-#endif
-
     // Pass 1 semantic routines: do public side of the definition
     for (size_t i = 0; i < members->dim; i++)
     {
@@ -843,16 +820,6 @@ void Module::semantic()
 
 void Module::semantic2()
 {
-    if (deferred.dim)
-    {
-        for (size_t i = 0; i < deferred.dim; i++)
-        {
-            Dsymbol *sd = deferred[i];
-
-            sd->error("unable to resolve forward reference in definition");
-        }
-        return;
-    }
     //printf("Module::semantic2('%s'): parent = %p\n", toChars(), parent);
     if (semanticRun != PASSsemanticdone)       // semantic() not completed yet - could be recursive call
         return;
@@ -903,27 +870,6 @@ void Module::semantic3()
     semanticRun = PASSsemantic3done;
 }
 
-void Module::inlineScan()
-{
-    if (semanticRun != PASSsemantic3done)
-        return;
-    semanticRun = PASSinline;
-
-    // Note that modules get their own scope, from scratch.
-    // This is so regardless of where in the syntax a module
-    // gets imported, it is unaffected by context.
-    //printf("Module = %p\n", sc.scopesym);
-
-    for (size_t i = 0; i < members->dim; i++)
-    {
-        Dsymbol *s = (*members)[i];
-        //if (global.params.verbose)
-        //    fprintf(global.stdmsg, "inline scan symbol %s\n", s->toChars());
-        s->inlineScan();
-    }
-    semanticRun = PASSinlinedone;
-}
-
 /****************************************************
  */
 
@@ -971,16 +917,45 @@ Dsymbol *Module::search(Loc loc, Identifier *ident, int flags)
      */
 
     //printf("%s Module::search('%s', flags = %d) insearch = %d\n", toChars(), ident->toChars(), flags, insearch);
-    Dsymbol *s;
     if (insearch)
-        s = NULL;
-    else
+        return NULL;
+    if (searchCacheIdent == ident && searchCacheFlags == flags)
     {
-        insearch = 1;
-        s = ScopeDsymbol::search(loc, ident, flags);
-        insearch = 0;
+        //printf("%s Module::search('%s', flags = %d) insearch = %d searchCacheSymbol = %s\n",
+        //        toChars(), ident->toChars(), flags, insearch, searchCacheSymbol ? searchCacheSymbol->toChars() : "null");
+        return searchCacheSymbol;
+    }
+
+    unsigned int errors = global.errors;
+
+    insearch = 1;
+    Dsymbol *s = ScopeDsymbol::search(loc, ident, flags);
+    insearch = 0;
+
+    if (errors == global.errors)
+    {
+        // Bugzilla 10752: We can cache the result only when it does not cause
+        // access error so the side-effect should be reproduced in later search.
+        searchCacheIdent = ident;
+        searchCacheSymbol = s;
+        searchCacheFlags = flags;
     }
     return s;
+}
+
+Dsymbol *Module::symtabInsert(Dsymbol *s)
+{
+    searchCacheIdent = NULL;       // symbol is inserted, so invalidate cache
+    return Package::symtabInsert(s);
+}
+
+void Module::clearCache()
+{
+    for (size_t i = 0; i < amodules.dim; i++)
+    {
+        Module *m = amodules[i];
+        m->searchCacheIdent = NULL;
+    }
 }
 
 /*******************************************
@@ -1169,8 +1144,7 @@ char *ModuleDeclaration::toChars()
         }
     }
     buf.writestring(id->toChars());
-    buf.writeByte(0);
-    return (char *)buf.extractData();
+    return buf.extractString();
 }
 
 /* =========================== Package ===================== */
@@ -1186,6 +1160,15 @@ Package::Package(Identifier *ident)
 const char *Package::kind()
 {
     return "package";
+}
+
+Module *Package::isPackageMod()
+{
+    if (isPkgMod == PKGmodule)
+    {
+        return mod;
+    }
+    return NULL;
 }
 
 /****************************************************

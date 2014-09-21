@@ -1,12 +1,13 @@
 
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2013 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/mtype.h
+ */
 
 #ifndef DMD_MTYPE_H
 #define DMD_MTYPE_H
@@ -20,7 +21,7 @@
 
 #include "arraytypes.h"
 #include "expression.h"
-#include "visitor.h"
+//#include "visitor.h"
 
 #if IN_LLVM
 #include "../ir/irfuncty.h"
@@ -62,6 +63,9 @@ struct Symbol;
 class TypeTuple;
 
 void semanticTypeInfo(Scope *sc, Type *t);
+MATCH deduceType(RootObject *o, Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL, size_t inferStart = 0);
+Type *reliesOnTident(Type *t, TemplateParameters *tparams = NULL, size_t iStart = 0);
+StorageClass ModToStc(unsigned mod);
 
 enum ENUMTY
 {
@@ -122,20 +126,26 @@ extern int Tsize_t;
 extern int Tptrdiff_t;
 
 
-/* pick this order of numbers so switch statements work better
+/**
+ * type modifiers
+ * pick this order of numbers so switch statements work better
  */
-#define MODconst     1  // type is const
-#define MODimmutable 4  // type is immutable
-#define MODshared    2  // type is shared
-#define MODwild      8  // type is wild
-#define MODwildconst (MODwild | MODconst)  // type is wild const
-#define MODmutable   0x10       // type is mutable (only used in wildcard matching)
+enum MODFlags
+{
+    MODconst     = 1, // type is const
+    MODimmutable = 4, // type is immutable
+    MODshared    = 2, // type is shared
+    MODwild      = 8, // type is wild
+    MODwildconst = (MODwild | MODconst), // type is wild const
+    MODmutable   = 0x10       // type is mutable (only used in wildcard matching)
+};
+typedef unsigned char MOD;
 
 class Type : public RootObject
 {
 public:
     TY ty;
-    unsigned char mod;  // modifiers MODxxxx
+    MOD mod;  // modifiers MODxxxx
     char *deco;
 
     /* These are cached values that are lazily evaluated by constOf(), immutableOf(), etc.
@@ -224,7 +234,6 @@ public:
     static ClassDeclaration *typeinfoshared;
     static ClassDeclaration *typeinfowild;
 
-    static TemplateDeclaration *associativearray;
     static TemplateDeclaration *rtinfo;
 
     static Type *basic[TMAX];
@@ -246,9 +255,11 @@ public:
     Type *copy();
     virtual Type *syntaxCopy();
     bool equals(RootObject *o);
-    int dyncast() { return DYNCAST_TYPE; } // kludge for template.isType()
+    // kludge for template.isType()
+    int dyncast() { return DYNCAST_TYPE; }
     int covariant(Type *t, StorageClass *pstc = NULL);
     char *toChars();
+    char *toPrettyChars(bool QualifyTypes = false);
     static char needThisPrefix();
     static void init();
 
@@ -261,11 +272,14 @@ public:
     virtual void toDecoBuffer(OutBuffer *buf, int flag = 0);
     Type *merge();
     Type *merge2();
-    virtual void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
-    virtual void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
-    void toCBuffer3(OutBuffer *buf, HdrGenState *hgs, int mod);
+    void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
     void modToBuffer(OutBuffer *buf);
     char *modToChars();
+
+    /** For each active modifier (MODconst, MODimmutable, etc) call fp with a
+    void* for the work param and a string representation of the attribute. */
+    int modifiersApply(void *param, int (*fp)(void *, const char *));
+
     virtual bool isintegral();
     virtual bool isfloating();   // real, imaginary, or complex
     virtual bool isreal();
@@ -273,10 +287,10 @@ public:
     virtual bool iscomplex();
     virtual bool isscalar();
     virtual bool isunsigned();
-    virtual int isscope();
-    virtual int isString();
-    virtual int isAssignable();
-    virtual int checkBoolean(); // if can be converted to boolean value
+    virtual bool isscope();
+    virtual bool isString();
+    virtual bool isAssignable();
+    virtual bool checkBoolean(); // if can be converted to boolean value
     virtual void checkDeprecated(Loc loc, Scope *sc);
     bool isConst()       { return (mod & MODconst) != 0; }
     bool isImmutable()   { return (mod & MODimmutable) != 0; }
@@ -301,15 +315,15 @@ public:
     void fixTo(Type *t);
     void check();
     Type *addSTC(StorageClass stc);
-    Type *castMod(unsigned mod);
-    Type *addMod(unsigned mod);
+    Type *castMod(MOD mod);
+    Type *addMod(MOD mod);
     virtual Type *addStorageClass(StorageClass stc);
     Type *pointerTo();
     Type *referenceTo();
     Type *arrayOf();
     Type *sarrayOf(dinteger_t dim);
     Type *aliasthisOf();
-    int checkAliasThisRec();
+    bool checkAliasThisRec();
     virtual Type *makeConst();
     virtual Type *makeImmutable();
     virtual Type *makeShared();
@@ -324,7 +338,7 @@ public:
     virtual int isBaseOf(Type *t, int *poffset);
     virtual MATCH implicitConvTo(Type *to);
     virtual MATCH constConv(Type *to);
-    virtual unsigned deduceWild(Type *t, bool isRef);
+    virtual unsigned char deduceWild(Type *t, bool isRef);
     virtual Type *substWildTo(unsigned mod);
 
     Type *unqualify(unsigned m);
@@ -337,43 +351,25 @@ public:
     Expression *noMember(Scope *sc, Expression *e, Identifier *ident, int flag);
     virtual Expression *defaultInit(Loc loc = Loc());
     virtual Expression *defaultInitLiteral(Loc loc);
-    virtual Expression *voidInitLiteral(VarDeclaration *var);
-    virtual int isZeroInit(Loc loc = Loc());                // if initializer is 0
-#if IN_DMD
-    virtual dt_t **toDt(dt_t **pdt);
-#endif
+    virtual bool isZeroInit(Loc loc = Loc());                // if initializer is 0
     Identifier *getTypeInfoIdent(int internal);
-    virtual MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL);
     virtual void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Expression *getInternalTypeInfo(Scope *sc);
     Expression *getTypeInfo(Scope *sc);
     void genTypeInfo(Scope *sc);
     virtual TypeInfoDeclaration *getTypeInfoDeclaration();
     virtual int builtinTypeInfo();
-    virtual Type *reliesOnTident(TemplateParameters *tparams = NULL);
     virtual int hasWild();
     virtual Expression *toExpression();
     virtual int hasPointers();
-    virtual TypeTuple *toArgTypes();
     virtual Type *nextOf();
     Type *baseElemOf();
     uinteger_t sizemask();
-    virtual int needsDestruction();
+    virtual bool needsDestruction();
     virtual bool needsNested();
-
-    unsigned deduceWildHelper(Type **at, Type *tparam);
-    MATCH deduceTypeHelper(Type **at, Type *tparam);
 
     static void error(Loc loc, const char *format, ...) IS_PRINTF(2);
     static void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
-
-#if IN_DMD
-    // For backend
-    virtual unsigned totym();
-    virtual type *toCtype();
-    virtual type *toCParamtype();
-    virtual Symbol *toSymbol();
-#endif
 
     // For eliminating dynamic_cast
     virtual TypeBasic *isTypeBasic();
@@ -390,14 +386,11 @@ public:
     TypeError();
     Type *syntaxCopy();
 
-    void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
-
     d_uns64 size(Loc loc);
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
     Expression *defaultInitLiteral(Loc loc);
-    TypeTuple *toArgTypes();
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -409,7 +402,6 @@ public:
     TypeNext(TY ty, Type *next);
     void toDecoBuffer(OutBuffer *buf, int flag);
     void checkDeprecated(Loc loc, Scope *sc);
-    Type *reliesOnTident(TemplateParameters *tparams = NULL);
     int hasWild();
     Type *nextOf();
     Type *makeConst();
@@ -422,7 +414,7 @@ public:
     Type *makeSharedWildConst();
     Type *makeMutable();
     MATCH constConv(Type *to);
-    unsigned deduceWild(Type *t, bool isRef);
+    unsigned char deduceWild(Type *t, bool isRef);
     void transitive();
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -444,7 +436,6 @@ public:
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     char *toChars();
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     bool isintegral();
     bool isfloating();
     bool isreal();
@@ -454,9 +445,8 @@ public:
     bool isunsigned();
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
-    int isZeroInit(Loc loc);
+    bool isZeroInit(Loc loc);
     int builtinTypeInfo();
-    TypeTuple *toArgTypes();
 
     // For eliminating dynamic_cast
     TypeBasic *isTypeBasic();
@@ -477,28 +467,19 @@ public:
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     char *toChars();
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void toDecoBuffer(OutBuffer *buf, int flag);
-    MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL);
-    Type *reliesOnTident(TemplateParameters *tparams);
     bool isintegral();
     bool isfloating();
     bool isscalar();
     bool isunsigned();
-    int checkBoolean();
+    bool checkBoolean();
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
     Expression *defaultInitLiteral(Loc loc);
     TypeBasic *elementType();
-    int isZeroInit(Loc loc);
-    dt_t **toDt(dt_t **pdt);
+    bool isZeroInit(Loc loc);
     TypeInfoDeclaration *getTypeInfoDeclaration();
-    TypeTuple *toArgTypes();
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_DMD
-    type *toCtype();
-#endif
 };
 
 class TypeArray : public TypeNext
@@ -523,32 +504,20 @@ public:
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     void toDecoBuffer(OutBuffer *buf, int flag);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
-    int isString();
-    int isZeroInit(Loc loc);
+    bool isString();
+    bool isZeroInit(Loc loc);
     structalign_t alignment();
     MATCH constConv(Type *to);
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
     Expression *defaultInitLiteral(Loc loc);
-    Expression *voidInitLiteral(VarDeclaration *var);
-#if IN_DMD
-    dt_t **toDt(dt_t **pdt);
-    dt_t **toDtElem(dt_t **pdt, Expression *e);
-#endif
-    MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     Expression *toExpression();
     int hasPointers();
-    int needsDestruction();
+    bool needsDestruction();
     bool needsNested();
-    TypeTuple *toArgTypes();
 
-#if IN_DMD
-    type *toCtype();
-    type *toCParamtype();
-#endif
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -564,22 +533,16 @@ public:
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     void toDecoBuffer(OutBuffer *buf, int flag);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
-    int isString();
-    int isZeroInit(Loc loc);
-    int checkBoolean();
+    bool isString();
+    bool isZeroInit(Loc loc);
+    bool checkBoolean();
     MATCH implicitConvTo(Type *to);
     Expression *defaultInit(Loc loc);
     int builtinTypeInfo();
-    MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
-    TypeTuple *toArgTypes();
 
-#if IN_DMD
-    type *toCtype();
-#endif
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -590,36 +553,27 @@ public:
     Loc loc;
     Scope *sc;
 
-    StructDeclaration *impl;    // implementation
-
     TypeAArray(Type *t, Type *index);
     static TypeAArray *create(Type *t, Type *index);
     const char *kind();
     Type *syntaxCopy();
     d_uns64 size(Loc loc);
     Type *semantic(Loc loc, Scope *sc);
-    StructDeclaration *getImpl();
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     void toDecoBuffer(OutBuffer *buf, int flag);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
-    MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL);
-    int isZeroInit(Loc loc);
-    int checkBoolean();
+    bool isZeroInit(Loc loc);
+    bool checkBoolean();
     TypeInfoDeclaration *getTypeInfoDeclaration();
-    Type *reliesOnTident(TemplateParameters *tparams);
     Expression *toExpression();
     int hasPointers();
-    TypeTuple *toArgTypes();
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
 
 #if IN_DMD
     // Back end
     Symbol *aaGetSymbol(const char *func, int flags);
-
-    type *toCtype();
 #endif
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -632,19 +586,14 @@ public:
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     d_uns64 size(Loc loc);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
     bool isscalar();
     Expression *defaultInit(Loc loc);
-    int isZeroInit(Loc loc);
+    bool isZeroInit(Loc loc);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
-    TypeTuple *toArgTypes();
 
-#if IN_DMD
-    type *toCtype();
-#endif
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -656,10 +605,9 @@ public:
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     d_uns64 size(Loc loc);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
-    int isZeroInit(Loc loc);
+    bool isZeroInit(Loc loc);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -677,6 +625,16 @@ enum TRUST
     TRUSTsafe = 3,      // @safe
 };
 
+// in hdrgen.c
+void trustToBuffer(OutBuffer *buf, TRUST trust);
+const char *trustToChars(TRUST trust);
+
+enum TRUSTformat
+{
+    TRUSTformatDefault,  // do not emit @system when trust == TRUSTdefault
+    TRUSTformatSystem,   // emit @system when trust == TRUSTdefault
+};
+
 enum PURE
 {
     PUREimpure = 0,     // not pure at all
@@ -685,6 +643,8 @@ enum PURE
     PUREstrong = 3,     // parameters are values or immutable
     PUREfwdref = 4,     // it's pure, but not known which level yet
 };
+
+RET retStyle(TypeFunction *tf);
 
 class TypeFunction : public TypeNext
 {
@@ -695,6 +655,7 @@ public:
     int varargs;        // 1: T t, ...) style for variable number of arguments
                         // 2: T t ...) style for variable number of arguments
     bool isnothrow;     // true: nothrow
+    bool isnogc;        // true: is @nogc
     bool isproperty;    // can be called without parentheses
     bool isref;         // true: returns a reference
     LINK linkage;  // calling convention
@@ -712,36 +673,24 @@ public:
     Type *semantic(Loc loc, Scope *sc);
     void purityLevel();
     void toDecoBuffer(OutBuffer *buf, int flag);
-    void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
-    void toCBufferWithAttributes(OutBuffer *buf, Identifier *ident, HdrGenState* hgs, TypeFunction *attrs, TemplateDeclaration *td);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
-    void attributesToCBuffer(OutBuffer *buf, int mod);
-    MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL);
     TypeInfoDeclaration *getTypeInfoDeclaration();
-    Type *reliesOnTident(TemplateParameters *tparams = NULL);
     bool hasLazyParameters();
     bool parameterEscapes(Parameter *p);
     Type *addStorageClass(StorageClass stc);
 
+    /** For each active attribute (ref/const/nogc/etc) call fp with a void* for the
+    work param and a string representation of the attribute. */
+    int attributesApply(void *param, int (*fp)(void *, const char *), TRUSTformat trustFormat = TRUSTformatDefault);
+
     Type *substWildTo(unsigned mod);
     MATCH callMatch(Type *tthis, Expressions *toargs, int flag = 0);
-#if IN_DMD
-    type *toCtype();
-#endif
-
-    RET retStyle();
-
-#if IN_DMD
-    unsigned totym();
-#endif
 
     Expression *defaultInit(Loc loc);
+    void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
     IrFuncTy irFty;
 #endif
-
-    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeDelegate : public TypeNext
@@ -756,38 +705,32 @@ public:
     d_uns64 size(Loc loc);
     unsigned alignsize();
     MATCH implicitConvTo(Type *to);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *defaultInit(Loc loc);
-    int isZeroInit(Loc loc);
-    int checkBoolean();
+    bool isZeroInit(Loc loc);
+    bool checkBoolean();
     TypeInfoDeclaration *getTypeInfoDeclaration();
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     int hasPointers();
-    TypeTuple *toArgTypes();
 
-#if IN_DMD
-    type *toCtype();
-#endif
+    void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
     IrFuncTy irFty;
 #endif
-
-    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeQualified : public Type
 {
 public:
     Loc loc;
-    Objects idents;         // array of Identifier and TypeInstance,
-                            // representing ident.ident!tiargs.ident. ... etc.
+    // array of Identifier and TypeInstance,
+    // representing ident.ident!tiargs.ident. ... etc.
+    Objects idents;
 
     TypeQualified(TY ty, Loc loc);
     void syntaxCopyHelper(TypeQualified *t);
     void addIdent(Identifier *ident);
     void addInst(TemplateInstance *inst);
-    void toCBuffer2Helper(OutBuffer *buf, HdrGenState *hgs);
     d_uns64 size(Loc loc);
     void resolveHelper(Loc loc, Scope *sc, Dsymbol *s, Dsymbol *scopesym,
         Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
@@ -805,12 +748,9 @@ public:
     Type *syntaxCopy();
     //char *toChars();
     void toDecoBuffer(OutBuffer *buf, int flag);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Dsymbol *toDsymbol(Scope *sc);
     Type *semantic(Loc loc, Scope *sc);
-    MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL);
-    Type *reliesOnTident(TemplateParameters *tparams = NULL);
     Expression *toExpression();
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -827,12 +767,9 @@ public:
     Type *syntaxCopy();
     //char *toChars();
     //void toDecoBuffer(OutBuffer *buf, int flag);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    Type *reliesOnTident(TemplateParameters *tparams = NULL);
-    MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL);
     Expression *toExpression();
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -847,7 +784,6 @@ public:
     const char *kind();
     Type *syntaxCopy();
     Dsymbol *toDsymbol(Scope *sc);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Type *semantic(Loc loc, Scope *sc);
     d_uns64 size(Loc loc);
@@ -863,7 +799,6 @@ public:
     Dsymbol *toDsymbol(Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Type *semantic(Loc loc, Scope *sc);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -894,39 +829,30 @@ public:
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
     void toDecoBuffer(OutBuffer *buf, int flag);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     structalign_t alignment();
     Expression *defaultInit(Loc loc);
     Expression *defaultInitLiteral(Loc loc);
-    Expression *voidInitLiteral(VarDeclaration *var);
-    int isZeroInit(Loc loc);
-    int isAssignable();
-    int checkBoolean();
-    int needsDestruction();
+    bool isZeroInit(Loc loc);
+    bool isAssignable();
+    bool checkBoolean();
+    bool needsDestruction();
     bool needsNested();
-#if IN_DMD
-    dt_t **toDt(dt_t **pdt);
-#endif
-    MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
-    TypeTuple *toArgTypes();
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
-    unsigned deduceWild(Type *t, bool isRef);
+    unsigned char deduceWild(Type *t, bool isRef);
     Type *toHeadMutable();
 
-#if IN_DMD
-    type *toCtype();
-#elif IN_LLVM
+    void accept(Visitor *v) { v->visit(this); }
+
+#if IN_LLVM
     // LDC
     // cache the hasUnalignedFields check
     // 0 = not checked, 1 = aligned, 2 = unaligned
     int unaligned;
 #endif
-
-    void accept(Visitor *v) { v->visit(this); }
 };
 
 class TypeEnum : public Type
@@ -943,7 +869,6 @@ public:
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
     void toDecoBuffer(OutBuffer *buf, int flag);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     bool isintegral();
@@ -953,25 +878,19 @@ public:
     bool iscomplex();
     bool isscalar();
     bool isunsigned();
-    int checkBoolean();
-    int isString();
-    int isAssignable();
-    int needsDestruction();
+    bool checkBoolean();
+    bool isString();
+    bool isAssignable();
+    bool needsDestruction();
     bool needsNested();
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
     Type *toBasetype();
     Expression *defaultInit(Loc loc);
-    int isZeroInit(Loc loc);
-    MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL);
+    bool isZeroInit(Loc loc);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
-    TypeTuple *toArgTypes();
     Type *nextOf();
-
-#if IN_DMD
-    type *toCtype();
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -990,7 +909,6 @@ public:
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
     void toDecoBuffer(OutBuffer *buf, int flag);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     structalign_t alignment();
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
@@ -1001,9 +919,9 @@ public:
     bool iscomplex();
     bool isscalar();
     bool isunsigned();
-    int checkBoolean();
-    int isAssignable();
-    int needsDestruction();
+    bool checkBoolean();
+    bool isAssignable();
+    bool needsDestruction();
     bool needsNested();
     Type *toBasetype();
     MATCH implicitConvTo(Type *to);
@@ -1011,20 +929,10 @@ public:
     Type *toHeadMutable();
     Expression *defaultInit(Loc loc);
     Expression *defaultInitLiteral(Loc loc);
-    int isZeroInit(Loc loc);
-#if IN_DMD
-    dt_t **toDt(dt_t **pdt);
-#endif
-    MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL);
+    bool isZeroInit(Loc loc);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
-    TypeTuple *toArgTypes();
     int hasWild();
-
-#if IN_DMD
-    type *toCtype();
-    type *toCParamtype();
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -1043,29 +951,20 @@ public:
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
     void toDecoBuffer(OutBuffer *buf, int flag);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     ClassDeclaration *isClassHandle();
     int isBaseOf(Type *t, int *poffset);
     MATCH implicitConvTo(Type *to);
     MATCH constConv(Type *to);
-    unsigned deduceWild(Type *t, bool isRef);
+    unsigned char deduceWild(Type *t, bool isRef);
     Type *toHeadMutable();
     Expression *defaultInit(Loc loc);
-    int isZeroInit(Loc loc);
-    MATCH deduceType(Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL);
-    int isscope();
-    int checkBoolean();
+    bool isZeroInit(Loc loc);
+    bool isscope();
+    bool checkBoolean();
     TypeInfoDeclaration *getTypeInfoDeclaration();
     int hasPointers();
-    TypeTuple *toArgTypes();
     int builtinTypeInfo();
-
-#if IN_DMD
-    type *toCtype();
-
-    Symbol *toSymbol();
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -1085,8 +984,6 @@ public:
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     bool equals(RootObject *o);
-    Type *reliesOnTident(TemplateParameters *tparams = NULL);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void toDecoBuffer(OutBuffer *buf, int flag);
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
@@ -1105,7 +1002,6 @@ public:
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -1118,9 +1014,7 @@ public:
     Type *syntaxCopy();
     void toDecoBuffer(OutBuffer *buf, int flag);
     MATCH implicitConvTo(Type *to);
-    int checkBoolean();
-
-    void toCBuffer2(OutBuffer *buf, HdrGenState *hgs, int mod);
+    bool checkBoolean();
 
     d_uns64 size(Loc loc);
     Expression *defaultInit(Loc loc);
@@ -1145,7 +1039,8 @@ public:
     Parameter *syntaxCopy();
     Type *isLazyArray();
     void toDecoBuffer(OutBuffer *buf);
-    int dyncast() { return DYNCAST_PARAMETER; } // kludge for template.isType()
+    // kludge for template.isType()
+    int dyncast() { return DYNCAST_PARAMETER; }
     static Parameters *arraySyntaxCopy(Parameters *args);
     static char *argsTypesToChars(Parameters *args, int varargs);
     static void argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Parameters *arguments, int varargs);
@@ -1160,11 +1055,11 @@ public:
 
 int arrayTypeCompatible(Loc loc, Type *t1, Type *t2);
 int arrayTypeCompatibleWithoutCasting(Loc loc, Type *t1, Type *t2);
-void MODtoBuffer(OutBuffer *buf, unsigned char mod);
-char *MODtoChars(unsigned char mod);
-int MODimplicitConv(unsigned char modfrom, unsigned char modto);
-int MODmethodConv(unsigned char modfrom, unsigned char modto);
-unsigned char MODmerge(unsigned char mod1, unsigned char mod2);
+void MODtoBuffer(OutBuffer *buf, MOD mod);
+char *MODtoChars(MOD mod);
+bool MODimplicitConv(MOD modfrom, MOD modto);
+bool MODmethodConv(MOD modfrom, MOD modto);
+MOD MODmerge(MOD mod1, MOD mod2);
 void identifierToDocBuffer(Identifier* ident, OutBuffer *buf, HdrGenState *hgs);
 
 #endif /* DMD_MTYPE_H */

@@ -23,7 +23,7 @@
 #include <vector>
 
 class Statement;
-struct EnclosingHandler;
+struct EnclosingTryFinally;
 
 // scope statements that can be target of jumps
 // includes loops, switch, case, labels
@@ -32,8 +32,8 @@ struct IRTargetScope
     // generating statement
     Statement* s;
 
-    // the try of a TryFinally that encloses the loop
-    EnclosingHandler* enclosinghandler;
+    // the try-finally block that encloses the statement
+    EnclosingTryFinally* enclosinghandler;
 
     llvm::BasicBlock* breakTarget;
     llvm::BasicBlock* continueTarget;
@@ -45,7 +45,7 @@ struct IRTargetScope
     IRTargetScope();
     IRTargetScope(
         Statement* s,
-        EnclosingHandler* enclosinghandler,
+        EnclosingTryFinally* enclosinghandler,
         llvm::BasicBlock* continueTarget,
         llvm::BasicBlock* breakTarget,
         bool onlyLabeledBreak = false
