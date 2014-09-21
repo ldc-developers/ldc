@@ -412,10 +412,6 @@ public:
 #endif
     TypeInfoDeclaration *isTypeInfoDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    virtual void llvmDefine();
-#endif
 };
 
 class TypeInfoStructDeclaration : public TypeInfoDeclaration
@@ -423,10 +419,6 @@ class TypeInfoStructDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoStructDeclaration(Type *tinfo);
     static TypeInfoStructDeclaration *create(Type *tinfo);
-
-#if IN_LLVM
-    void llvmDefine();
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -437,14 +429,6 @@ public:
     TypeInfoClassDeclaration(Type *tinfo);
     static TypeInfoClassDeclaration *create(Type *tinfo);
 
-#if IN_LLVM
-    // TypeInfoClassDeclaration instances are different; they describe
-    // __ClassZ/__InterfaceZ symbols instead of a TypeInfo_….init one. DMD also
-    // generates them for SomeInterface.classinfo access, so we can't just
-    // distinguish between them using tinfo and thus need to override codegen().
-    void llvmDefine();
-#endif
-
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -453,10 +437,6 @@ class TypeInfoInterfaceDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoInterfaceDeclaration(Type *tinfo);
     static TypeInfoInterfaceDeclaration *create(Type *tinfo);
-
-#if IN_LLVM
-    void llvmDefine();
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -467,10 +447,6 @@ public:
     TypeInfoTypedefDeclaration(Type *tinfo);
     static TypeInfoTypedefDeclaration *create(Type *tinfo);
 
-#if IN_LLVM
-    void llvmDefine();
-#endif
-
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -479,10 +455,6 @@ class TypeInfoPointerDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoPointerDeclaration(Type *tinfo);
     static TypeInfoPointerDeclaration *create(Type *tinfo);
-
-#if IN_LLVM
-    void llvmDefine();
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -493,10 +465,6 @@ public:
     TypeInfoArrayDeclaration(Type *tinfo);
     static TypeInfoArrayDeclaration *create(Type *tinfo);
 
-#if IN_LLVM
-    void llvmDefine();
-#endif
-
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -505,10 +473,6 @@ class TypeInfoStaticArrayDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoStaticArrayDeclaration(Type *tinfo);
     static TypeInfoStaticArrayDeclaration *create(Type *tinfo);
-
-#if IN_LLVM
-    void llvmDefine();
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -519,10 +483,6 @@ public:
     TypeInfoAssociativeArrayDeclaration(Type *tinfo);
     static TypeInfoAssociativeArrayDeclaration *create(Type *tinfo);
 
-#if IN_LLVM
-    void llvmDefine();
-#endif
-
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -531,10 +491,6 @@ class TypeInfoEnumDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoEnumDeclaration(Type *tinfo);
     static TypeInfoEnumDeclaration *create(Type *tinfo);
-
-#if IN_LLVM
-    void llvmDefine();
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -545,10 +501,6 @@ public:
     TypeInfoFunctionDeclaration(Type *tinfo);
     static TypeInfoFunctionDeclaration *create(Type *tinfo);
 
-#if IN_LLVM
-    void llvmDefine();
-#endif
-
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -557,10 +509,6 @@ class TypeInfoDelegateDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoDelegateDeclaration(Type *tinfo);
     static TypeInfoDelegateDeclaration *create(Type *tinfo);
-
-#if IN_LLVM
-    void llvmDefine();
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -571,10 +519,6 @@ public:
     TypeInfoTupleDeclaration(Type *tinfo);
     static TypeInfoTupleDeclaration *create(Type *tinfo);
 
-#if IN_LLVM
-    void llvmDefine();
-#endif
-
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -583,10 +527,6 @@ class TypeInfoConstDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoConstDeclaration(Type *tinfo);
     static TypeInfoConstDeclaration *create(Type *tinfo);
-
-#if IN_LLVM
-    void llvmDefine();
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -597,10 +537,6 @@ public:
     TypeInfoInvariantDeclaration(Type *tinfo);
     static TypeInfoInvariantDeclaration *create(Type *tinfo);
 
-#if IN_LLVM
-    void llvmDefine();
-#endif
-
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -609,10 +545,6 @@ class TypeInfoSharedDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoSharedDeclaration(Type *tinfo);
     static TypeInfoSharedDeclaration *create(Type *tinfo);
-
-#if IN_LLVM
-    void llvmDefine();
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -623,10 +555,6 @@ public:
     TypeInfoWildDeclaration(Type *tinfo);
     static TypeInfoWildDeclaration *create(Type *tinfo);
 
-#if IN_LLVM
-    void llvmDefine();
-#endif
-
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -635,10 +563,6 @@ class TypeInfoVectorDeclaration : public TypeInfoDeclaration
 public:
     TypeInfoVectorDeclaration(Type *tinfo);
     static TypeInfoVectorDeclaration *create(Type *tinfo);
-
-#if IN_LLVM
-    void llvmDefine();
-#endif
 
     void accept(Visitor *v) { v->visit(this); }
 };
