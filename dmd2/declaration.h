@@ -756,9 +756,6 @@ public:
     std::string intrinsicName;
     uint32_t priority;
 
-    bool isIntrinsic();
-    bool isVaIntrinsic();
-
     // true if overridden with the pragma(LDC_allow_inline); stmt
     bool allowInlining;
 

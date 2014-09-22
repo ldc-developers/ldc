@@ -349,7 +349,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     bool intrinsic = (dfnval && dfnval->func && dfnval->func->llvmInternal == LLVMintrinsic);
 
     // handle special vararg intrinsics
-    bool va_intrinsic = (dfnval && dfnval->func && dfnval->func->isVaIntrinsic());
+    bool va_intrinsic = (dfnval && dfnval->func && DtoIsVaIntrinsic(dfnval->func));
 
     // get function type info
     IrFuncTy &irFty = DtoIrTypeFunction(fnval);

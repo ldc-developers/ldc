@@ -449,7 +449,7 @@ static llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 {
     // handle for C vararg intrinsics
-    if (fdecl->isVaIntrinsic())
+    if (DtoIsVaIntrinsic(fdecl))
         return DtoVaFunctionType(fdecl);
 
     Type *dthis=0, *dnest=0;
@@ -770,7 +770,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     IrFunction *irFunc = getIrFunc(fdecl, true);
 
     LLFunction* vafunc = 0;
-    if (fdecl->isVaIntrinsic())
+    if (DtoIsVaIntrinsic(fdecl))
         vafunc = DtoDeclareVaFunction(fdecl);
 
     // calling convention
@@ -817,7 +817,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     irFunc->func = func;
 
     // parameter attributes
-    if (!fdecl->isIntrinsic()) {
+    if (!DtoIsIntrinsic(fdecl)) {
         set_param_attrs(f, func, fdecl);
         if (global.params.disableRedZone) {
             func->addFnAttr(llvm::Attribute::NoRedZone);
@@ -1294,20 +1294,6 @@ void DtoVariadicArgument(Expression* argexp, LLValue* dst)
     LOG_SCOPE;
     DVarValue vv(argexp->type, dst);
     DtoAssign(argexp->loc, &vv, toElem(argexp));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-bool FuncDeclaration::isIntrinsic()
-{
-    return (llvmInternal == LLVMintrinsic || isVaIntrinsic());
-}
-
-bool FuncDeclaration::isVaIntrinsic()
-{
-    return (llvmInternal == LLVMva_start ||
-            llvmInternal == LLVMva_copy ||
-            llvmInternal == LLVMva_end);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
