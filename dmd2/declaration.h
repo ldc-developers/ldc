@@ -766,9 +766,6 @@ public:
 
     // true if set with the pragma(LDC_never_inline); stmt
     bool neverInline;
-
-    // true if has inline assembler
-    bool inlineAsm;
 #endif
 
     void accept(Visitor *v) { v->visit(this); }
