@@ -1362,9 +1362,6 @@ void FuncDeclaration::semantic3(Scope *sc)
         if (this->ident != Id::require && this->ident != Id::ensure)
             sc2->flags = sc->flags & ~SCOPEcontract;
         sc2->flags &= ~SCOPEcompile;
-#if IN_LLVM
-        sc2->enclosingScopeExit = NULL;
-#endif
         sc2->tf = NULL;
         sc2->os = NULL;
         sc2->noctor = 0;

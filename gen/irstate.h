@@ -23,6 +23,7 @@
 #include "gen/dibuilder.h"
 #include <deque>
 #include <list>
+#include <set>
 #include <sstream>
 #include <vector>
 

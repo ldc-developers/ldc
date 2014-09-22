@@ -49,10 +49,7 @@ public:
     /// Return index of the field, or -1 if not found
     /// Same as getFieldIndex, but checks for a direct match with the VarDeclaration
     int findFieldIndexByName(VarDeclaration *v);
-#if IN_LLVM
-    DValue* toElem(IRState* irs);
-    llvm::Constant* toConstElem(IRState *irs);
-#else
+#if IN_DMD
     Symbol* toSymbol();
 #endif
     void accept(Visitor *v) { v->visit(this); }

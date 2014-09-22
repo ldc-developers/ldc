@@ -324,6 +324,12 @@ public:
         s->enclosingScopeExit = enclosingTryFinally();
         StatementVisitor::visit(s);
     }
+
+    void visit(AsmBlockStatement *s)
+    {
+        s->enclosingScopeExit = enclosingTryFinally();
+        StatementVisitor::visit(s);
+    }
 };
 
 //////////////////////////////////////////////////////////////////////////////

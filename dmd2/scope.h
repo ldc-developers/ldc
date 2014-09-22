@@ -84,7 +84,6 @@ struct Scope
     TryFinallyStatement *tf;    // enclosing try finally statement
     OnScopeStatement *os;       // enclosing scope(xxx) statement
     TemplateInstance *tinst;    // enclosing template instance
-    Statement *enclosingScopeExit; // enclosing statement that wants to do something on scope exit
     Statement *sbreak;          // enclosing statement that supports "break"
     Statement *scontinue;       // enclosing statement that supports "continue"
     ForeachStatement *fes;      // if nested function for ForeachStatement, this is it

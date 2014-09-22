@@ -945,8 +945,6 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     rundtor = NULL;
     edtor = NULL;
     range = NULL;
-#if IN_LLVM
-#endif
 }
 
 Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)

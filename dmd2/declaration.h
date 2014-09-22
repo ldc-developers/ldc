@@ -17,7 +17,6 @@
 #endif /* __DMC__ */
 
 #if IN_LLVM
-#include <set>
 #include <string>
 #endif
 
@@ -37,10 +36,6 @@ class StructDeclaration;
 struct InterState;
 struct IRState;
 struct CompiledCtfeFunction;
-#if IN_LLVM
-class AnonDeclaration;
-class LabelStatement;
-#endif
 
 enum PROT;
 enum LINK;
@@ -339,9 +334,6 @@ public:
     // Eliminate need for dynamic_cast
     VarDeclaration *isVarDeclaration() { return (VarDeclaration *)this; }
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-#endif
 };
 
 /**************************************************************/

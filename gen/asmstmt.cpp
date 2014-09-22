@@ -793,7 +793,6 @@ Statement *AsmBlockStatement::syntaxCopy()
 Statement *AsmBlockStatement::semantic(Scope *sc)
 {
     enclosingFinally = sc->tf;
-    enclosingScopeExit = sc->enclosingScopeExit;
 
     return CompoundStatement::semantic(sc);
 }

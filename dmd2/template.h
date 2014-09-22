@@ -384,10 +384,6 @@ public:
 
     TemplateInstance *isTemplateInstance() { return this; }
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    void codegen(IRState*);
-#endif
 };
 
 class TemplateMixin : public TemplateInstance

@@ -61,9 +61,6 @@ Scope::Scope()
     this->sw = NULL;
     this->tf = NULL;
     this->os = NULL;
-#if IN_LLVM
-    this->enclosingScopeExit = NULL;
-#endif
     this->tinst = NULL;
     this->sbreak = NULL;
     this->scontinue = NULL;
