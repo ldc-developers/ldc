@@ -550,19 +550,19 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
 
     if (to->ty == Tbool) {
         LLValue* zero = LLConstantInt::get(rval->getType(), 0, false);
-        rval = gIR->ir->CreateICmpNE(rval, zero, "tmp");
+        rval = gIR->ir->CreateICmpNE(rval, zero);
     }
     else if (to->isintegral()) {
         if (fromsz < tosz || from->ty == Tbool) {
             IF_LOG Logger::cout() << "cast to: " << *tolltype << '\n';
             if (isLLVMUnsigned(from) || from->ty == Tbool) {
-                rval = new llvm::ZExtInst(rval, tolltype, "tmp", gIR->scopebb());
+                rval = new llvm::ZExtInst(rval, tolltype, "", gIR->scopebb());
             } else {
-                rval = new llvm::SExtInst(rval, tolltype, "tmp", gIR->scopebb());
+                rval = new llvm::SExtInst(rval, tolltype, "", gIR->scopebb());
             }
         }
         else if (fromsz > tosz) {
-            rval = new llvm::TruncInst(rval, tolltype, "tmp", gIR->scopebb());
+            rval = new llvm::TruncInst(rval, tolltype, "", gIR->scopebb());
         }
         else {
             rval = DtoBitCast(rval, tolltype);
@@ -573,15 +573,15 @@ DValue* DtoCastInt(Loc& loc, DValue* val, Type* _to)
     }
     else if (to->isfloating()) {
         if (from->isunsigned()) {
-            rval = new llvm::UIToFPInst(rval, tolltype, "tmp", gIR->scopebb());
+            rval = new llvm::UIToFPInst(rval, tolltype, "", gIR->scopebb());
         }
         else {
-            rval = new llvm::SIToFPInst(rval, tolltype, "tmp", gIR->scopebb());
+            rval = new llvm::SIToFPInst(rval, tolltype, "", gIR->scopebb());
         }
     }
     else if (to->ty == Tpointer) {
         IF_LOG Logger::cout() << "cast pointer: " << *tolltype << '\n';
-        rval = gIR->ir->CreateIntToPtr(rval, tolltype, "tmp");
+        rval = gIR->ir->CreateIntToPtr(rval, tolltype);
     }
     else {
         error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), _to->toChars());
@@ -612,10 +612,10 @@ DValue* DtoCastPtr(Loc& loc, DValue* val, Type* to)
     else if (totype->ty == Tbool) {
         LLValue* src = val->getRVal();
         LLValue* zero = LLConstant::getNullValue(src->getType());
-        rval = gIR->ir->CreateICmpNE(src, zero, "tmp");
+        rval = gIR->ir->CreateICmpNE(src, zero);
     }
     else if (totype->isintegral()) {
-        rval = new llvm::PtrToIntInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+        rval = new llvm::PtrToIntInst(val->getRVal(), tolltype, "", gIR->scopebb());
     }
     else {
         error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
@@ -644,7 +644,7 @@ DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to)
     if (totype->ty == Tbool) {
         rval = val->getRVal();
         LLValue* zero = LLConstant::getNullValue(rval->getType());
-        rval = gIR->ir->CreateFCmpUNE(rval, zero, "tmp");
+        rval = gIR->ir->CreateFCmpUNE(rval, zero);
     }
     else if (totype->iscomplex()) {
         return DtoComplex(loc, to, val);
@@ -655,10 +655,10 @@ DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to)
             assert(rval->getType() == tolltype);
         }
         else if (fromsz < tosz) {
-            rval = new llvm::FPExtInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+            rval = new llvm::FPExtInst(val->getRVal(), tolltype, "", gIR->scopebb());
         }
         else if (fromsz > tosz) {
-            rval = new llvm::FPTruncInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+            rval = new llvm::FPTruncInst(val->getRVal(), tolltype, "", gIR->scopebb());
         }
         else {
             error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(), to->toChars());
@@ -667,10 +667,10 @@ DValue* DtoCastFloat(Loc& loc, DValue* val, Type* to)
     }
     else if (totype->isintegral()) {
         if (totype->isunsigned()) {
-            rval = new llvm::FPToUIInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+            rval = new llvm::FPToUIInst(val->getRVal(), tolltype, "", gIR->scopebb());
         }
         else {
-            rval = new llvm::FPToSIInst(val->getRVal(), tolltype, "tmp", gIR->scopebb());
+            rval = new llvm::FPToSIInst(val->getRVal(), tolltype, "", gIR->scopebb());
         }
     }
     else {
@@ -841,7 +841,7 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
             len = DtoArrayLen(val);
             ptr = DtoArrayPtr(val);
             ptr = DtoBitCast(ptr, DtoType(elem));
-            return new DImValue(to, DtoAggrPair(len, ptr, "tmp"));
+            return new DImValue(to, DtoAggrPair(len, ptr));
         }
     }
     else if (from->ty == Tdelegate)
@@ -862,7 +862,7 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
             LLValue* context = gIR->ir->CreateExtractValue(dg, 0, ".context");
             LLValue* funcptr = gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
             funcptr = DtoBitCast(funcptr, DtoType(dgty)->getContainedType(1));
-            LLValue* aggr = DtoAggrPair(context, funcptr, "tmp");
+            LLValue* aggr = DtoAggrPair(context, funcptr);
             IF_LOG Logger::cout() << "dg: " << *aggr << '\n';
             return new DImValue(to, aggr);
         }
@@ -1746,7 +1746,7 @@ DValue* DtoSymbolAddress(Loc& loc, Type* type, Declaration* decl)
             LLType* vartype = DtoType(type);
             LLValue* m = getIrValue(tid);
             if (m->getType() != getPtrToType(vartype))
-                m = gIR->ir->CreateBitCast(m, vartype, "tmp");
+                m = gIR->ir->CreateBitCast(m, vartype);
             return new DImValue(type, m);
         }
         // nested variable

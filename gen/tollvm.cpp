@@ -293,16 +293,16 @@ LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs)
 
     LLValue* l = gIR->ir->CreateExtractValue(lhs, 0);
     LLValue* r = gIR->ir->CreateExtractValue(rhs, 0);
-    b1 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
+    b1 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r);
 
     l = gIR->ir->CreateExtractValue(lhs, 1);
     r = gIR->ir->CreateExtractValue(rhs, 1);
-    b2 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
+    b2 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r);
 
-    LLValue* b = gIR->ir->CreateAnd(b1,b2,"tmp");
+    LLValue* b = gIR->ir->CreateAnd(b1,b2);
 
     if (op == TOKnotequal || op == TOKnotidentity)
-        return gIR->ir->CreateNot(b,"tmp");
+        return gIR->ir->CreateNot(b);
 
     return b;
 }
@@ -500,7 +500,7 @@ LLIntegerType* DtoSize_t()
 
 LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var, llvm::BasicBlock* bb)
 {
-    return llvm::GetElementPtrInst::Create(ptr, i0, var?var:"tmp", bb?bb:gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, i0, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -508,14 +508,14 @@ LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var, llvm::BasicBlock* b
 LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::BasicBlock* bb)
 {
     LLValue* v[] = { i0, i1 };
-    return llvm::GetElementPtrInst::Create(ptr, v, var?var:"tmp", bb?bb:gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, v, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* bb)
 {
-    return llvm::GetElementPtrInst::Create(ptr, DtoConstUint(i), var?var:"tmp", bb?bb:gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, DtoConstUint(i), var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -523,7 +523,7 @@ LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* b
 LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::BasicBlock* bb)
 {
     LLValue* v[] = { DtoConstUint(i0), DtoConstUint(i1) };
-    return llvm::GetElementPtrInst::Create(ptr, v, var?var:"tmp", bb?bb:gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, v, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -583,7 +583,7 @@ LLValue* DtoMemCmp(LLValue* lhs, LLValue* rhs, LLValue* nbytes)
     lhs = DtoBitCast(lhs, VoidPtrTy);
     rhs = DtoBitCast(rhs, VoidPtrTy);
 
-    return gIR->ir->CreateCall3(fn, lhs, rhs, nbytes, "tmp");
+    return gIR->ir->CreateCall3(fn, lhs, rhs, nbytes);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -678,7 +678,7 @@ LLValue* DtoLoad(LLValue* src, const char* name)
 {
 //     if (Logger::enabled())
 //         Logger::cout() << "loading " << *src <<  '\n';
-    llvm::LoadInst* ld = gIR->ir->CreateLoad(src, name ? name : "tmp");
+    llvm::LoadInst* ld = gIR->ir->CreateLoad(src, name);
     //ld->setVolatile(gIR->func()->inVolatile);
     return ld;
 }
@@ -686,7 +686,7 @@ LLValue* DtoLoad(LLValue* src, const char* name)
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for the type.
 LLValue* DtoAlignedLoad(LLValue* src, const char* name)
 {
-    llvm::LoadInst* ld = gIR->ir->CreateLoad(src, name ? name : "tmp");
+    llvm::LoadInst* ld = gIR->ir->CreateLoad(src, name);
     ld->setAlignment(getABITypeAlign(ld->getType()));
     return ld;
 }
@@ -726,7 +726,7 @@ LLValue* DtoBitCast(LLValue* v, LLType* t, const char* name)
     if (v->getType() == t)
         return v;
     assert(!isaStruct(t));
-    return gIR->ir->CreateBitCast(v, t, name ? name : "tmp");
+    return gIR->ir->CreateBitCast(v, t, name);
 }
 
 LLConstant* DtoBitCast(LLConstant* v, LLType* t)
@@ -740,24 +740,24 @@ LLConstant* DtoBitCast(LLConstant* v, LLType* t)
 
 LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx, const char* name)
 {
-    return gIR->ir->CreateInsertValue(aggr, v, idx, name ? name : "tmp");
+    return gIR->ir->CreateInsertValue(aggr, v, idx, name);
 }
 
 LLValue* DtoExtractValue(LLValue* aggr, unsigned idx, const char* name)
 {
-    return gIR->ir->CreateExtractValue(aggr, idx, name ? name : "tmp");
+    return gIR->ir->CreateExtractValue(aggr, idx, name);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLValue* DtoInsertElement(LLValue* vec, LLValue* v, LLValue *idx, const char* name)
 {
-    return gIR->ir->CreateInsertElement(vec, v, idx, name ? name : "tmp");
+    return gIR->ir->CreateInsertElement(vec, v, idx, name);
 }
 
 LLValue* DtoExtractElement(LLValue* vec, LLValue *idx, const char* name)
 {
-    return gIR->ir->CreateExtractElement(vec, idx, name ? name : "tmp");
+    return gIR->ir->CreateExtractElement(vec, idx, name);
 }
 
 LLValue* DtoInsertElement(LLValue* vec, LLValue* v, unsigned idx, const char* name)
@@ -1013,8 +1013,8 @@ LLStructType* DtoModuleReferenceType()
 LLValue* DtoAggrPair(LLType* type, LLValue* V1, LLValue* V2, const char* name)
 {
     LLValue* res = llvm::UndefValue::get(type);
-    res = gIR->ir->CreateInsertValue(res, V1, 0, "tmp");
-    return gIR->ir->CreateInsertValue(res, V2, 1, name?name:"tmp");
+    res = gIR->ir->CreateInsertValue(res, V1, 0);
+    return gIR->ir->CreateInsertValue(res, V2, 1, name);
 }
 
 LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name)
@@ -1031,13 +1031,13 @@ LLValue* DtoAggrPaint(LLValue* aggr, LLType* as)
 
     LLValue* res = llvm::UndefValue::get(as);
 
-    LLValue* V = gIR->ir->CreateExtractValue(aggr, 0, "tmp");;
+    LLValue* V = gIR->ir->CreateExtractValue(aggr, 0);
     V = DtoBitCast(V, as->getContainedType(0));
-    res = gIR->ir->CreateInsertValue(res, V, 0, "tmp");
+    res = gIR->ir->CreateInsertValue(res, V, 0);
 
-    V = gIR->ir->CreateExtractValue(aggr, 1, "tmp");;
+    V = gIR->ir->CreateExtractValue(aggr, 1);
     V = DtoBitCast(V, as->getContainedType(1));
-    return gIR->ir->CreateInsertValue(res, V, 1, "tmp");
+    return gIR->ir->CreateInsertValue(res, V, 1);
 }
 
 LLValue* DtoAggrPairSwap(LLValue* aggr)

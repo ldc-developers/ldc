@@ -120,7 +120,7 @@ DValue* DtoNewClass(Loc& loc, TypeClass* tc, NewExp* newexp)
         DValue* thisval = toElem(newexp->thisexp);
         size_t idx = getIrField(tc->sym->vthis)->index;
         LLValue* src = thisval->getRVal();
-        LLValue* dst = DtoGEPi(mem,0,idx,"tmp");
+        LLValue* dst = DtoGEPi(mem, 0, idx);
         IF_LOG Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';
         DtoStore(src, DtoBitCast(dst, getPtrToType(src->getType())));
     }
@@ -171,12 +171,12 @@ void DtoInitClass(TypeClass* tc, LLValue* dst)
     if (dataBytes == 0)
         return;
 
-    LLValue* dstarr = DtoGEPi(dst, 0, firstDataIdx, "tmp");
+    LLValue* dstarr = DtoGEPi(dst, 0, firstDataIdx);
 
     // init symbols might not have valid types
     LLValue* initsym = getIrAggr(tc->sym)->getInitSymbol();
     initsym = DtoBitCast(initsym, DtoType(tc));
-    LLValue* srcarr = DtoGEPi(initsym, 0, firstDataIdx, "tmp");
+    LLValue* srcarr = DtoGEPi(initsym, 0, firstDataIdx);
 
     DtoMemCpy(dstarr, srcarr, DtoConstSize_t(dataBytes));
 }
@@ -216,7 +216,7 @@ DValue* DtoCastClass(Loc& loc, DValue* val, Type* _to)
         IF_LOG Logger::println("to bool");
         LLValue* llval = val->getRVal();
         LLValue* zero = LLConstant::getNullValue(llval->getType());
-        return new DImValue(_to, gIR->ir->CreateICmpNE(llval, zero, "tmp"));
+        return new DImValue(_to, gIR->ir->CreateICmpNE(llval, zero));
     }
     // class -> integer
     else if (to->isintegral()) {
@@ -340,7 +340,7 @@ DValue* DtoDynamicCastObject(Loc& loc, DValue* val, Type* _to)
     assert(funcTy->getParamType(1) == cinfo->getType());
 
     // call it
-    LLValue* ret = gIR->CreateCallOrInvoke2(func, obj, cinfo, "tmp").getInstruction();
+    LLValue* ret = gIR->CreateCallOrInvoke2(func, obj, cinfo).getInstruction();
 
     // cast return value
     ret = DtoBitCast(ret, DtoType(_to));
@@ -363,7 +363,7 @@ DValue* DtoCastInterfaceToObject(Loc& loc, DValue* val, Type* to)
     tmp = DtoBitCast(tmp, funcTy->getParamType(0));
 
     // call it
-    LLValue* ret = gIR->CreateCallOrInvoke(func, tmp, "tmp").getInstruction();
+    LLValue* ret = gIR->CreateCallOrInvoke(func, tmp).getInstruction();
 
     // cast return value
     if (to != NULL)
@@ -400,7 +400,7 @@ DValue* DtoDynamicCastInterface(Loc& loc, DValue* val, Type* _to)
     cinfo = DtoBitCast(cinfo, funcTy->getParamType(1));
 
     // call it
-    LLValue* ret = gIR->CreateCallOrInvoke2(func, ptr, cinfo, "tmp").getInstruction();
+    LLValue* ret = gIR->CreateCallOrInvoke2(func, ptr, cinfo).getInstruction();
 
     // cast return value
     ret = DtoBitCast(ret, DtoType(_to));
@@ -473,7 +473,7 @@ LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl, char* n
 
     LLValue* funcval = vthis;
     // get the vtbl for objects
-    funcval = DtoGEPi(funcval, 0, 0, "tmp");
+    funcval = DtoGEPi(funcval, 0, 0);
     // load vtbl ptr
     funcval = DtoLoad(funcval);
     // index vtbl

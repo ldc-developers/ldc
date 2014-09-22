@@ -214,9 +214,9 @@ LLValue* DtoAAEquals(Loc& loc, TOK op, DValue* l, DValue* r)
     LLValue* abval = DtoBitCast(r->getRVal(), funcTy->getParamType(2));
     LLValue* aaTypeInfo = DtoTypeInfoOf(t);
     LLValue* res = gIR->CreateCallOrInvoke3(func, aaTypeInfo, aaval, abval, "aaEqRes").getInstruction();
-    res = gIR->ir->CreateICmpNE(res, DtoConstInt(0), "tmp");
+    res = gIR->ir->CreateICmpNE(res, DtoConstInt(0));
     if (op == TOKnotequal)
-        res = gIR->ir->CreateNot(res, "tmp");
+        res = gIR->ir->CreateNot(res);
     return res;
 }
 

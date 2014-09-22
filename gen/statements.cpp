@@ -97,7 +97,7 @@ static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
     LLValue* llval = val->getRVal();
     assert(llval->getType() == fn->getFunctionType()->getParamType(1));
 
-    LLCallSite call = gIR->CreateCallOrInvoke2(fn, table, llval, "tmp");
+    LLCallSite call = gIR->CreateCallOrInvoke2(fn, table, llval);
 
     return call.getInstruction();
 }
@@ -449,7 +449,7 @@ public:
                     if (irs->topfunc() == irs->mainFunc)
                         v = LLConstant::getNullValue(irs->mainFunc->getReturnType());
                     else
-                        v = gIR->ir->CreateBitCast(v, irs->topfunc()->getReturnType(), "tmp");
+                        v = gIR->ir->CreateBitCast(v, irs->topfunc()->getReturnType());
 
                     IF_LOG Logger::cout() << "return value after cast: " << *v << '\n';
                 }
@@ -1457,11 +1457,11 @@ public:
         LLValue* done = 0;
         LLValue* load = DtoLoad(keyvar);
         if (stmt->op == TOKforeach) {
-            done = irs->ir->CreateICmpULT(load, niters, "tmp");
+            done = irs->ir->CreateICmpULT(load, niters);
         }
         else if (stmt->op == TOKforeach_reverse) {
-            done = irs->ir->CreateICmpUGT(load, zerokey, "tmp");
-            load = irs->ir->CreateSub(load, LLConstantInt::get(keytype, 1, false), "tmp");
+            done = irs->ir->CreateICmpUGT(load, zerokey);
+            load = irs->ir->CreateSub(load, LLConstantInt::get(keytype, 1, false));
             DtoStore(load, keyvar);
         }
         llvm::BranchInst::Create(bodybb, endbb, done, irs->scopebb());
@@ -1470,7 +1470,7 @@ public:
         irs->scope() = IRScope(bodybb, nextbb);
 
         // get value for this iteration
-        LLValue* loadedKey = irs->ir->CreateLoad(keyvar, "tmp");
+        LLValue* loadedKey = irs->ir->CreateLoad(keyvar);
         LLValue* gep = DtoGEP1(val, loadedKey);
 
         if (!stmt->value->isRef() && !stmt->value->isOut()) {
@@ -1497,7 +1497,7 @@ public:
         irs->scope() = IRScope(nextbb, endbb);
         if (stmt->op == TOKforeach) {
             LLValue* load = DtoLoad(keyvar);
-            load = irs->ir->CreateAdd(load, LLConstantInt::get(keytype, 1, false), "tmp");
+            load = irs->ir->CreateAdd(load, LLConstantInt::get(keytype, 1, false));
             DtoStore(load, keyvar);
         }
         llvm::BranchInst::Create(condbb, irs->scopebb());

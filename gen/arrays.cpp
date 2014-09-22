@@ -484,7 +484,7 @@ void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
         {
             DValue* e = toElem((*ale->elements)[i]);
 
-            LLValue* elemAddr = DtoGEPi(dstMem, 0, i, "tmp", p->scopebb());
+            LLValue* elemAddr = DtoGEPi(dstMem, 0, i, "", p->scopebb());
             DVarValue* vv = new DVarValue(e->type, elemAddr);
             DtoAssign(ale->loc, vv, e);
         }
@@ -496,7 +496,7 @@ static LLValue* get_slice_ptr(DSliceValue* e, LLValue*& sz)
 {
     assert(e->len != 0);
     LLType* t = e->ptr->getType()->getContainedType(0);
-    sz = gIR->ir->CreateMul(DtoConstSize_t(getTypePaddedSize(t)), e->len, "tmp");
+    sz = gIR->ir->CreateMul(DtoConstSize_t(getTypePaddedSize(t)), e->len);
     return DtoBitCast(e->ptr, getVoidPtrType());
 }
 
@@ -536,7 +536,7 @@ void DtoArrayCopyToSlice(Loc& loc, DSliceValue* dst, DValue* src)
 
     LLValue* srcarr = DtoBitCast(DtoArrayPtr(src), getVoidPtrType());
     LLType* arrayelemty = voidToI8(DtoType(src->getType()->nextOf()->toBasetype()));
-    LLValue* sz2 = gIR->ir->CreateMul(DtoConstSize_t(getTypePaddedSize(arrayelemty)), DtoArrayLen(src), "tmp");
+    LLValue* sz2 = gIR->ir->CreateMul(DtoConstSize_t(getTypePaddedSize(arrayelemty)), DtoArrayLen(src));
 
     copySlice(loc, dstarr, sz1, srcarr, sz2);
 }
@@ -869,7 +869,7 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
         args.push_back(DtoBitCast(tival, fn->getFunctionType()->getParamType(2)));
     }
 
-    LLCallSite call = gIR->CreateCallOrInvoke(fn, args, "tmp");
+    LLCallSite call = gIR->CreateCallOrInvoke(fn, args);
 
     return call.getInstruction();
 }
@@ -878,9 +878,9 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
 LLValue* DtoArrayEquals(Loc& loc, TOK op, DValue* l, DValue* r)
 {
     LLValue* res = DtoArrayEqCmp_impl(loc, _adEq, l, r, true);
-    res = gIR->ir->CreateICmpNE(res, DtoConstInt(0), "tmp");
+    res = gIR->ir->CreateICmpNE(res, DtoConstInt(0));
     if (op == TOKnotequal)
-        res = gIR->ir->CreateNot(res, "tmp");
+        res = gIR->ir->CreateNot(res);
 
     return res;
 }
@@ -899,7 +899,7 @@ LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r)
             res = DtoArrayEqCmp_impl(loc, "_adCmpChar", l, r, false);
         else
             res = DtoArrayEqCmp_impl(loc, _adCmp, l, r, true);
-        res = gIR->ir->CreateICmp(cmpop, res, DtoConstInt(0), "tmp");
+        res = gIR->ir->CreateICmp(cmpop, res, DtoConstInt(0));
     }
 
     assert(res);
@@ -928,7 +928,7 @@ LLValue* DtoArrayCastLength(Loc& loc, LLValue* len, LLType* elemty, LLType* newe
     };
 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_array_cast_len");
-    return gIR->CreateCallOrInvoke(fn, args, "tmp").getInstruction();
+    return gIR->CreateCallOrInvoke(fn, args).getInstruction();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -942,15 +942,15 @@ LLValue* DtoDynArrayIs(TOK op, DValue* l, DValue* r)
     // compare lengths
     len1 = DtoArrayLen(l);
     len2 = DtoArrayLen(r);
-    LLValue* b1 = gIR->ir->CreateICmpEQ(len1,len2,"tmp");
+    LLValue* b1 = gIR->ir->CreateICmpEQ(len1,len2);
 
     // compare pointers
     ptr1 = DtoArrayPtr(l);
     ptr2 = DtoArrayPtr(r);
-    LLValue* b2 = gIR->ir->CreateICmpEQ(ptr1,ptr2,"tmp");
+    LLValue* b2 = gIR->ir->CreateICmpEQ(ptr1,ptr2);
 
     // combine
-    LLValue* res = gIR->ir->CreateAnd(b1,b2,"tmp");
+    LLValue* res = gIR->ir->CreateAnd(b1,b2);
 
     // return result
     return (op == TOKnotidentity) ? gIR->ir->CreateNot(res) : res;
@@ -1032,7 +1032,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
         IF_LOG Logger::cout() << "to pointer" << '\n';
         rval = DtoArrayPtr(u);
         if (rval->getType() != tolltype)
-            rval = gIR->ir->CreateBitCast(rval, tolltype, "tmp");
+            rval = gIR->ir->CreateBitCast(rval, tolltype);
     }
     else if (totype->ty == Tarray) {
         IF_LOG Logger::cout() << "to array" << '\n';
@@ -1104,7 +1104,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
         // return (arr.ptr !is null)
         LLValue* ptr = DtoArrayPtr(u);
         LLConstant* nul = getNullPtr(ptr->getType());
-        rval = gIR->ir->CreateICmpNE(ptr, nul, "tmp");
+        rval = gIR->ir->CreateICmpNE(ptr, nul);
     }
     else {
         rval = DtoArrayPtr(u);

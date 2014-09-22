@@ -88,7 +88,7 @@ DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg)
         )
         warning(loc, "va_arg for C variadic functions is probably broken for anything but x86 and ppc64");
     // done
-    return new DImValue(type, gIR->ir->CreateVAArg(expelem->getLVal(), llt, "tmp"));
+    return new DImValue(type, gIR->ir->CreateVAArg(expelem->getLVal(), llt));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -308,7 +308,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     }
     ++argidx;
 
-    args.push_back(gIR->ir->CreateBitCast(mem, getPtrToType(LLType::getInt8Ty(gIR->context())), "tmp"));
+    args.push_back(gIR->ir->CreateBitCast(mem, getPtrToType(LLType::getInt8Ty(gIR->context()))));
     if (HAS_ATTRIBUTES(irFty.arg_argptr->attrs)) {
         addToAttributes(attrs, argidx, irFty.arg_argptr->attrs);
     }
