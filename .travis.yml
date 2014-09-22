@@ -76,13 +76,10 @@ script:
   -
     if [[ "${TEST_BITNESS}" == "32" ]]; then
       need_32="-32";
-      suffix_32="_32";
     elif [[ "${TEST_BITNESS}" == "64" ]]; then
       need_32="";
-      suffix_32="";
     else
       need_32="(-32)?";
-      suffix_32="";
     fi;
     if [[ -z "${TEST_DEBUG}" ]]; then
       export BUILD_SEL="-R (dmd-testsuite${need_32}$)|(build-(druntime|phobos2)-ldc-unittest${need_32}$)";
@@ -96,13 +93,6 @@ script:
       export BUILD_SEL="-R (dmd-testsuite-debug${need_32}$)|(build-(druntime|phobos2)-ldc-unittest-debug${need_32}$)";
       export RUN_SEL="-R debug${need_32}$ -E dmd-testsuite";
     fi;
-
-  # Compilation of std.algorithm takes up a lot of memory and barely fits
-  # in 3Gb limit, compile the file before everything else, so at least
-  # the memory would not have to be shared with other tasks.
-  # See issue 672
-  - make std_algorithm_unittest${suffix_32} std_algorithm_unittest_debug${suffix_32}
-
   - ctest -j2 --verbose ${BUILD_SEL}
   - ctest -j2 --output-on-failure ${RUN_SEL}
 

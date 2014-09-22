@@ -289,10 +289,6 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
                 ${GCCBUILTINS}
                 ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
     )
-
-    set(target ${output_root}${output_suffix})
-    string(REGEX REPLACE "/|\\\\|-" "_" target "${target}")
-    add_custom_target(${target} DEPENDS ${outfiles})
 endmacro()
 
 # Sets target_suffix to a purely cosmetical suffix for the CMake target names
