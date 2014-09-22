@@ -18,7 +18,6 @@
 
 #if IN_LLVM
 #include <set>
-#include <map>
 #include <string>
 #if LDC_LLVM_VER >= 305
 #include "llvm/IR/DebugInfo.h"
@@ -776,11 +775,6 @@ public:
 
     bool isIntrinsic();
     bool isVaIntrinsic();
-
-    // we keep our own table of label statements as LabelDsymbolS
-    // don't always carry their corresponding statement along ...
-    typedef std::map<const char*, LabelStatement*> LabelMap;
-    LabelMap labmap;
 
     // true if overridden with the pragma(LDC_allow_inline); stmt
     bool allowInlining;

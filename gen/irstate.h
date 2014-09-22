@@ -92,7 +92,7 @@ struct IRAsmStmt
     std::vector<LLValue*> in;
 
     // if this is nonzero, it contains the target label
-    Identifier* isBranchToLabel;
+    LabelDsymbol* isBranchToLabel;
 };
 
 struct IRAsmBlock
