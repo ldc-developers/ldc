@@ -286,7 +286,7 @@ public:
             // If this global is used from a naked function, we need to create an
             // artificial "use" for it, or it could be removed by the optimizer if
             // the only reference to it is in inline asm.
-            if (decl->nakedUse)
+            if (irGlobal->nakedUse)
                 irs->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
 
             IF_LOG Logger::cout() << *gvar << '\n';

@@ -2227,7 +2227,7 @@ namespace AsmParserx8664
 
                                 // print out the mangle
                                 insnTemplate << mangle(vd);
-                                vd->nakedUse = true;
+                                getIrGlobal(vd, true)->nakedUse = true;
                                 break;
                             }
                         }

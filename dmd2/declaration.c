@@ -946,7 +946,6 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     edtor = NULL;
     range = NULL;
 #if IN_LLVM
-    nakedUse = false;
 #endif
 }
 

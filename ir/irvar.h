@@ -51,12 +51,15 @@ struct IrVar
 struct IrGlobal : IrVar
 {
     IrGlobal(VarDeclaration* v)
-        : IrVar(v), type(0), constInit(0) { }
+        : IrVar(v), type(0), constInit(0), nakedUse(false) { }
     IrGlobal(VarDeclaration* v, llvm::Type *type, llvm::Constant* constInit = 0)
-        : IrVar(v), type(type), constInit(constInit) { }
+        : IrVar(v), type(type), constInit(constInit), nakedUse(false) { }
 
     llvm::Type *type;
     llvm::Constant* constInit;
+
+    // This var is used by a naked function.
+    bool nakedUse;
 };
 
 // represents a local variable variable
