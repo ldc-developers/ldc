@@ -285,7 +285,7 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
     // Use the actual type associated with the declaration, ignoring any
     // const/wrappers.
     LLType *T = DtoType(sd->type);
-    IrTypeAggr *ir = sd->type->irtype->isAggr();
+    IrTypeAggr *ir = sd->type->ctype->isAggr();
     assert(ir);
 
     if (static_cast<llvm::MDNode *>(ir->diCompositeType) != 0)

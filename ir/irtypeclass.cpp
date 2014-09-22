@@ -232,7 +232,7 @@ void IrTypeClass::addBaseClassData(
 IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
 {
     IrTypeClass* t = new IrTypeClass(cd);
-    cd->type->irtype = t;
+    cd->type->ctype = t;
 
     IF_LOG Logger::println("Building class type %s @ %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;

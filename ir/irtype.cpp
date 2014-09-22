@@ -32,7 +32,7 @@ IrType::IrType(Type* dt, LLType* lt)
 {
     assert(dt && "null D Type");
     assert(lt && "null LLVM Type");
-    assert(!dt->irtype && "already has IrType");
+    assert(!dt->ctype && "already has IrType");
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -49,7 +49,7 @@ IrTypeBasic::IrTypeBasic(Type * dt)
 IrTypeBasic* IrTypeBasic::get(Type* dt)
 {
     IrTypeBasic* t = new IrTypeBasic(dt);
-    dt->irtype = t;
+    dt->ctype = t;
     return t;
 }
 
@@ -156,7 +156,7 @@ IrTypePointer::IrTypePointer(Type* dt, LLType* lt)
 
 IrTypePointer* IrTypePointer::get(Type* dt)
 {
-    assert(!dt->irtype);
+    assert(!dt->ctype);
     assert((dt->ty == Tpointer || dt->ty == Tnull) && "not pointer/null type");
 
     LLType* elemType;
@@ -170,12 +170,12 @@ IrTypePointer* IrTypePointer::get(Type* dt)
 
         // DtoType could have already created the same type, e.g. for
         // dt == Node* in struct Node { Node* n; }.
-        if (dt->irtype)
-            return dt->irtype->isPointer();
+        if (dt->ctype)
+            return dt->ctype->isPointer();
     }
 
     IrTypePointer* t = new IrTypePointer(dt, llvm::PointerType::get(elemType, 0));
-    dt->irtype = t;
+    dt->ctype = t;
     return t;
 }
 
@@ -193,7 +193,7 @@ IrTypeSArray::IrTypeSArray(Type * dt)
 IrTypeSArray* IrTypeSArray::get(Type* dt)
 {
     IrTypeSArray* t = new IrTypeSArray(dt);
-    dt->irtype = t;
+    dt->ctype = t;
     return t;
 }
 
@@ -221,21 +221,21 @@ IrTypeArray::IrTypeArray(Type* dt, LLType* lt)
 
 IrTypeArray* IrTypeArray::get(Type* dt)
 {
-    assert(!dt->irtype);
+    assert(!dt->ctype);
     assert(dt->ty == Tarray && "not dynamic array type");
 
     LLType* elemType = i1ToI8(voidToI8(DtoType(dt->nextOf())));
 
     // Could have already built the type as part of a struct forward reference,
     // just as for pointers.
-    if (!dt->irtype)
+    if (!dt->ctype)
     {
         llvm::Type *types[] = { DtoSize_t(), llvm::PointerType::get(elemType, 0) };
         LLType* at = llvm::StructType::get(llvm::getGlobalContext(), types, false);
-        dt->irtype = new IrTypeArray(dt, at);
+        dt->ctype = new IrTypeArray(dt, at);
     }
 
-    return dt->irtype->isArray();
+    return dt->ctype->isArray();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -252,7 +252,7 @@ IrTypeVector::IrTypeVector(Type* dt)
 IrTypeVector* IrTypeVector::get(Type* dt)
 {
     IrTypeVector* t = new IrTypeVector(dt);
-    dt->irtype = t;
+    dt->ctype = t;
     return t;
 }
 

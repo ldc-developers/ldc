@@ -1047,7 +1047,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     Type* t = fd->type->toBasetype();
     TypeFunction* f = static_cast<TypeFunction*>(t);
-    // assert(f->irtype);
+    // assert(f->ctype);
 
     llvm::Function* func = irFunc->func;
 

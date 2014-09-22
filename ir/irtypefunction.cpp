@@ -27,15 +27,15 @@ IrTypeFunction::IrTypeFunction(Type* dt, LLType* lt)
 
 IrTypeFunction* IrTypeFunction::get(Type* dt, Type* nestedContextOverride)
 {
-    assert(!dt->irtype);
+    assert(!dt->ctype);
     assert(dt->ty == Tfunction);
 
     TypeFunction* tf = static_cast<TypeFunction*>(dt);
     llvm::Type* lt = DtoFunctionType(tf, tf->irFty, NULL, nestedContextOverride);
 
     if (!dt->irtype)
-        dt->irtype = new IrTypeFunction(dt, lt);
-    return dt->irtype->isFunction();
+        dt->ctype = new IrTypeFunction(dt, lt);
+    return dt->ctype->isFunction();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -47,13 +47,13 @@ IrTypeDelegate::IrTypeDelegate(Type * dt, LLType* lt)
 
 IrTypeDelegate* IrTypeDelegate::get(Type* t)
 {
-    assert(!t->irtype);
+    assert(!t->ctype);
     assert(t->ty == Tdelegate);
     assert(t->nextOf()->ty == Tfunction);
 
     TypeDelegate *dt = (TypeDelegate*)t;
 
-    if (!dt->irtype)
+    if (!dt->ctype)
     {
         TypeFunction* tf = static_cast<TypeFunction*>(dt->nextOf());
         llvm::Type* ltf = DtoFunctionType(tf, dt->irFty, NULL, Type::tvoid->pointerTo());
@@ -61,8 +61,8 @@ IrTypeDelegate* IrTypeDelegate::get(Type* t)
         llvm::Type *types[] = { getVoidPtrType(), 
                                 getPtrToType(ltf) };
         LLStructType* lt = LLStructType::get(gIR->context(), types, false);
-        dt->irtype = new IrTypeDelegate(dt, lt);
+        dt->ctype = new IrTypeDelegate(dt, lt);
     }
 
-    return dt->irtype->isDelegate();
+    return dt->ctype->isDelegate();
 }
