@@ -19,13 +19,6 @@
 #if IN_LLVM
 #include <set>
 #include <string>
-#if LDC_LLVM_VER >= 305
-#include "llvm/IR/DebugInfo.h"
-#elif LDC_LLVM_VER >= 302
-#include "llvm/DebugInfo.h"
-#else
-#include "llvm/Analysis/DebugInfo.h"
-#endif
 #endif
 
 #include "dsymbol.h"
@@ -350,10 +343,6 @@ public:
 #if IN_LLVM
     /// This var is used by a naked function.
     bool nakedUse;
-
-    // debug description
-    llvm::DIVariable debugVariable;
-    llvm::DISubprogram debugFunc;
 #endif
 };
 

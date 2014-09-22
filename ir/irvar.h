@@ -21,6 +21,14 @@
 #include "llvm/Type.h"
 #endif
 
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/DebugInfo.h"
+#elif LDC_LLVM_VER >= 302
+#include "llvm/DebugInfo.h"
+#else
+#include "llvm/Analysis/DebugInfo.h"
+#endif
+
 struct IrFuncTyArg;
 class VarDeclaration;
 
@@ -33,6 +41,10 @@ struct IrVar
 
     VarDeclaration* V;
     llvm::Value* value;
+
+    // debug description
+    llvm::DIVariable debugVariable;
+    llvm::DISubprogram debugFunc;
 };
 
 // represents a global variable

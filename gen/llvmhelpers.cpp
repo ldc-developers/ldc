@@ -1202,6 +1202,8 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
     {
         addr = DtoAlloca(var->type, var->toChars());
         // add debug info
+        if (!irLocal)
+            irLocal = getIrLocal(var, true);
         gIR->DBuilder.EmitLocalVariable(addr, var);
     }
 
@@ -1222,7 +1224,7 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
     else
     {
         // if this already has storage, it must've been handled already
-        if (irLocal && irLocal->value) {
+        if (irLocal->value) {
             if (addr && addr != irLocal->value) {
                 // This can happen, for example, in scope(exit) blocks which
                 // are translated to IR multiple times.
@@ -1240,8 +1242,6 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
         }
 
         assert(addr);
-        if (!irLocal)
-            irLocal = getIrLocal(var, true);
         irLocal->value = addr;
     }
 
