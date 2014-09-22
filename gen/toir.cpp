@@ -3041,38 +3041,39 @@ DValue *toElem(Expression *e)
 }
 
 // Search for temporaries for which the destructor must be called.
+// was in toElemDtor but that triggered bug 978911 in VS
 class SearchVarsWithDestructors : public StoppableVisitor
 {
 public:
-	std::vector<Expression*> edtors;
+    std::vector<Expression*> edtors;
 
-	// Import all functions from class StoppableVisitor
-	using StoppableVisitor::visit;
+    // Import all functions from class StoppableVisitor
+    using StoppableVisitor::visit;
 
-	virtual void visit(Expression *e)
-	{
-	}
+    virtual void visit(Expression* e)
+    {
+    }
 
-	virtual void visit(DeclarationExp *e)
-	{
-		VarDeclaration *vd = e->declaration->isVarDeclaration();
-		if (!vd)
-			return;
+    virtual void visit(DeclarationExp* e)
+    {
+        VarDeclaration* vd = e->declaration->isVarDeclaration();
+        if (!vd)
+            return;
 
-		while (vd->aliassym) {
-			vd = vd->aliassym->isVarDeclaration();
-			if (!vd)
-				return;
-		}
+        while (vd->aliassym) {
+            vd = vd->aliassym->isVarDeclaration();
+            if (!vd)
+                return;
+        }
 
-		if (vd->init) {
-			if (ExpInitializer *ex = vd->init->isExpInitializer())
-				walkPostorder(ex->exp, this);
-		}
+        if (vd->init) {
+            if (ExpInitializer* ex = vd->init->isExpInitializer())
+                walkPostorder(ex->exp, this);
+        }
 
-		if (!vd->isDataseg() && vd->edtor && !vd->noscope)
-			edtors.push_back(vd->edtor);
-	}
+        if (!vd->isDataseg() && vd->edtor && !vd->noscope)
+            edtors.push_back(vd->edtor);
+    }
 };
 
 // Evaluate Expression, then call destructors on any temporaries in it.
@@ -3090,7 +3091,7 @@ DValue *toElemDtor(Expression *e)
 
         const std::vector<Expression*> &edtors;
 
-        void toIR(LLValue */*eh_ptr*/ = 0)
+        void toIR(LLValue* /*eh_ptr*/ = NULL)
         {
             std::vector<Expression*>::const_reverse_iterator itr, end = edtors.rend();
             for (itr = edtors.rbegin(); itr != end; ++itr)
