@@ -23,7 +23,6 @@
 #include "expression.h"
 //#include "visitor.h"
 
-#include "../ir/irfuncty.h"
 struct Scope;
 class Identifier;
 class Expression;
@@ -677,10 +676,6 @@ public:
 
     Expression *defaultInit(Loc loc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    IrFuncTy irFty;
-#endif
 };
 
 class TypeDelegate : public TypeNext
@@ -703,10 +698,6 @@ public:
     int hasPointers();
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    IrFuncTy irFty;
-#endif
 };
 
 class TypeQualified : public Type

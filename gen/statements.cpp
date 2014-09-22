@@ -418,7 +418,7 @@ public:
                         dval = toElemDtor(ae);
                     }
                     // do abi specific transformations on the return value
-                    v = irs->func()->decl->irFty.putRet(stmt->exp->type, dval);
+                    v = getIrFunc(irs->func()->decl)->irFty.putRet(stmt->exp->type, dval);
                 }
 
                 IF_LOG Logger::cout() << "return value is '" <<*v << "'\n";

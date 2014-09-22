@@ -424,7 +424,7 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 
 static llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 {
-    IrFuncTy &irFty = fdecl->irFty;
+    IrFuncTy &irFty = getIrFunc(fdecl, true)->irFty;
     if (irFty.funcType) return irFty.funcType;
 
     irFty.ret = new IrFuncTyArg(Type::tvoid, false);
@@ -479,7 +479,7 @@ llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         dnest = Type::tvoid->pointerTo();
     }
 
-    LLFunctionType* functype = DtoFunctionType(fdecl->type, fdecl->irFty, dthis, dnest,
+    LLFunctionType* functype = DtoFunctionType(fdecl->type, getIrFunc(fdecl, true)->irFty, dthis, dnest,
                                                fdecl->isMain(), fdecl->isCtorDeclaration(),
                                                fdecl->llvmInternal == LLVMintrinsic);
 
@@ -597,7 +597,7 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 #if LDC_LLVM_VER >= 303
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
-    IrFuncTy &irFty = fdecl->irFty;
+    IrFuncTy &irFty = getIrFunc(fdecl)->irFty;
     llvm::AttributeSet old = func->getAttributes();
     llvm::AttributeSet existingAttrs[] = { old.getFnAttributes(), old.getRetAttributes() };
     llvm::AttributeSet newAttrs = llvm::AttributeSet::get(gIR->context(), existingAttrs);
@@ -645,7 +645,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
 #else
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
-    IrFuncTy &irFty = fdecl->irFty;
+    IrFuncTy &irFty = getIrFunc(fdecl)->irFty;
     LLSmallVector<llvm::AttributeWithIndex, 9> attrs;
 
     int idx = 0;
@@ -844,7 +844,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         AppendFunctionToLLVMGlobalCtorsDtors(func, fdecl->priority, fdecl->llvmInternal == LLVMglobal_crt_ctor);
     }
 
-    IrFuncTy &irFty = fdecl->irFty;
+    IrFuncTy &irFty = irFunc->irFty;
 
     // if (!declareOnly)
     {
@@ -1039,8 +1039,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
         return;
     }
 
-    IrFuncTy &irFty = fd->irFty;
     IrFunction *irFunc = getIrFunc(fd);
+    IrFuncTy &irFty = irFunc->irFty;
 
     // debug info
     irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);

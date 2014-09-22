@@ -20,6 +20,7 @@
 #include "statement.h"
 #include "gen/dvalue.h"
 #include "gen/llvm.h"
+#include "ir/irfuncty.h"
 
 // this is used for tracking try-finally scopes
 struct EnclosingTryFinally

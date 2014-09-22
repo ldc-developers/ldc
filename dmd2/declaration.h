@@ -751,8 +751,6 @@ public:
     virtual FuncDeclaration *toAliasFunc() { return this; }
 
 #if IN_LLVM
-    IrFuncTy irFty;
-
     std::string intrinsicName;
     uint32_t priority;
 

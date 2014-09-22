@@ -26,11 +26,16 @@ public:
     static IrTypeFunction* get(Type* dt, Type* nestedContextOverride = 0);
 
     ///
-    IrTypeFunction* isFunction()  { return this; }
+    IrTypeFunction* isFunction() { return this; }
+
+    ///
+    IrFuncTy &getIrFuncTy()      { return irFty; }
 
 protected:
     ///
-    IrTypeFunction(Type* dt, llvm::Type* lt);
+    IrTypeFunction(Type* dt, llvm::Type* lt, const IrFuncTy &irFty);
+    ///
+    IrFuncTy irFty;
 };
 
 ///
@@ -41,11 +46,16 @@ public:
     static IrTypeDelegate* get(Type* dt);
 
     ///
-    IrTypeDelegate* isDelegate()    { return this; }
+    IrTypeDelegate* isDelegate() { return this; }
+
+    ///
+    IrFuncTy &getIrFuncTy()      { return irFty; }
 
 protected:
     ///
-    IrTypeDelegate(Type* dt, llvm::Type* lt);
+    IrTypeDelegate(Type* dt, LLType* lt, const IrFuncTy &irFty);
+    ///
+    IrFuncTy irFty;
 };
 
 #endif
