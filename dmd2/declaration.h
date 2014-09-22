@@ -348,10 +348,6 @@ public:
     void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
-    /// Index into parent aggregate.
-    /// Set during type generation.
-    unsigned aggrIndex;
-
     /// This var is used by a naked function.
     bool nakedUse;
 

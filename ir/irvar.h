@@ -80,6 +80,7 @@ struct IrParameter : IrLocal
 struct IrField : IrVar
 {
     IrField(VarDeclaration* v);
+    void setAggrIndex(unsigned aggrIndex);
 
     unsigned index;
     unsigned unionOffset;

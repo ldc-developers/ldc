@@ -19,16 +19,14 @@
 
 IrField::IrField(VarDeclaration* v) : IrVar(v)
 {
-    if (v->aggrIndex)
-    {
-        index = v->aggrIndex;
-        unionOffset = 0;
-    }
-    else
-    {
-        index = 0;
-        unionOffset = v->offset;
-    }
+    index = 0;
+    unionOffset = V->offset;
+}
+
+void IrField::setAggrIndex(unsigned aggrIndex)
+{
+    index = aggrIndex;
+    unionOffset = 0;
 }
 
 extern LLConstant* get_default_initializer(VarDeclaration* vd, Initializer* init);

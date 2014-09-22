@@ -177,8 +177,8 @@ void IrTypeClass::addBaseClassData(
         // advance offset to right past this field
         offset = vd->offset + vd->type->size();
 
-        // create ir field
-        vd->aggrIndex = static_cast<unsigned>(field_index);
+        // set the field index
+        getIrField(vd, true)->setAggrIndex(static_cast<unsigned>(field_index));
         ++field_index;
     }
 

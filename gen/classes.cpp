@@ -60,11 +60,11 @@ void DtoResolveClass(ClassDeclaration* cd)
                                    I != E; ++I)
     {
         VarDeclaration* vd = *I;
-
-        if (!isIrFieldCreated(vd))
-            getIrField(vd, true);
-        else
-            IF_LOG Logger::println("class field already exists!!!");
+        IF_LOG {
+            if (isIrFieldCreated(vd))
+                Logger::println("class field already exists");
+        }
+        getIrField(vd, true);
     }
 
     // emit the interfaceInfosZ symbol if necessary
