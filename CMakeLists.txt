@@ -346,6 +346,15 @@ else()
     set(EXTRA_CXXFLAGS "-fexceptions")
 endif()
 
+# if llvm was built with assertions we have to do the same
+# as there are some headers with differing behavior based on NDEBUG
+if(LLVM_ENABLE_ASSERTIONS)
+    set(EXTRA_CXXFLAGS "${EXTRA_CXXFLAGS} -UNDEBUG")
+    # avoid msvc warning D9025
+    string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" " " CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+    string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" " " CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+endif()
+
 #
 # Check endianess.
 # There is no realiable way to delegate the work to the compiler.
