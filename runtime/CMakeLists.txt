@@ -11,6 +11,7 @@ set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERS
 set(MULTILIB              OFF                                       CACHE BOOL    "Build both 32/64 bit runtime libraries")
 set(BUILD_BC_LIBS         OFF                                       CACHE BOOL    "Build the runtime as LLVM bitcode libraries")
 set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d         CACHE PATH    "Path to install D modules to")
+set(PORTABLE_INSTALL      OFF                                       CACHE BOOL    "Enable portable installation")
 set(BUILD_SHARED_LIBS     OFF                                       CACHE BOOL    "Whether to build the runtime as a shared library")
 set(D_FLAGS               -w;-d                                     CACHE STRING  "Runtime build flags, separated by ;")
 set(D_FLAGS_DEBUG         -g                                        CACHE STRING  "Runtime build flags (debug libraries), separated by ;")
@@ -208,7 +209,15 @@ endif()
 
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
 # Prepare the config files we are going to install later in bin.
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+if(PORTABLE_INSTALL)
+    set(PINCLUDE_INSTALL_DIR "%%ldcbinarypath%%/../include/d")
+    set(PCMAKE_INSTALL_LIBDIR "%%ldcbinarypath%%/../lib")
+    configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+else()
+    set(PINCLUDE_INSTALL_DIR ${INCLUDE_INSTALL_DIR})
+    set(PCMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
+    configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+endif()
 
 #
 # druntime/Phobos compilation helpers.
