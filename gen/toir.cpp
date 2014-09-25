@@ -3040,46 +3040,46 @@ DValue *toElem(Expression *e)
     return v.getResult();
 }
 
+// Search for temporaries for which the destructor must be called.
+class SearchVarsWithDestructors : public StoppableVisitor
+{
+public:
+	std::vector<Expression*> edtors;
+
+	// Import all functions from class StoppableVisitor
+	using StoppableVisitor::visit;
+
+	virtual void visit(Expression *e)
+	{
+	}
+
+	virtual void visit(DeclarationExp *e)
+	{
+		VarDeclaration *vd = e->declaration->isVarDeclaration();
+		if (!vd)
+			return;
+
+		while (vd->aliassym) {
+			vd = vd->aliassym->isVarDeclaration();
+			if (!vd)
+				return;
+		}
+
+		if (vd->init) {
+			if (ExpInitializer *ex = vd->init->isExpInitializer())
+				walkPostorder(ex->exp, this);
+		}
+
+		if (!vd->isDataseg() && vd->edtor && !vd->noscope)
+			edtors.push_back(vd->edtor);
+	}
+};
+
 // Evaluate Expression, then call destructors on any temporaries in it.
 DValue *toElemDtor(Expression *e)
 {
     IF_LOG Logger::println("Expression::toElemDtor(): %s", e->toChars());
     LOG_SCOPE
-
-    // Search for temporaries for which the destructor must be called.
-    class SearchVarsWithDestructors : public StoppableVisitor
-    {
-    public:
-        std::vector<Expression*> edtors;
-
-        // Import all functions from class StoppableVisitor
-        using StoppableVisitor::visit;
-
-        virtual void visit(Expression *e)
-        {
-        }
-
-        virtual void visit(DeclarationExp *e)
-        {
-            VarDeclaration *vd = e->declaration->isVarDeclaration();
-            if (!vd)
-                return;
-
-            while (vd->aliassym) {
-                vd = vd->aliassym->isVarDeclaration();
-                if (!vd)
-                    return;
-            }
-
-            if (vd->init) {
-                if (ExpInitializer *ex = vd->init->isExpInitializer())
-                    walkPostorder(ex->exp, this);
-            }
-
-            if (!vd->isDataseg() && vd->edtor && !vd->noscope)
-                edtors.push_back(vd->edtor);
-        }
-    };
 
     class CallDestructors : public IRLandingPadCatchFinallyInfo
     {
