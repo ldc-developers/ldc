@@ -281,9 +281,9 @@ else
 }
 
 ///
-void feraiseexcept(int excepts);
+int feraiseexcept(int excepts);
 ///
-void feclearexcept(int excepts);
+int feclearexcept(int excepts);
 
 ///
 int fetestexcept(int excepts);
@@ -291,9 +291,9 @@ int fetestexcept(int excepts);
 int feholdexcept(fenv_t* envp);
 
 ///
-void fegetexceptflag(fexcept_t* flagp, int excepts);
+int fegetexceptflag(fexcept_t* flagp, int excepts);
 ///
-void fesetexceptflag(in fexcept_t* flagp, int excepts);
+int fesetexceptflag(in fexcept_t* flagp, int excepts);
 
 ///
 int fegetround();
@@ -301,8 +301,8 @@ int fegetround();
 int fesetround(int round);
 
 ///
-void fegetenv(fenv_t* envp);
+int fegetenv(fenv_t* envp);
 ///
-void fesetenv(in fenv_t* envp);
+int fesetenv(in fenv_t* envp);
 ///
-void feupdateenv(in fenv_t* envp);
+int feupdateenv(in fenv_t* envp);
