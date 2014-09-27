@@ -55,6 +55,11 @@ if (WIN32 OR NOT LLVM_CONFIG)
         set(LLVM_LDFLAGS "")
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "all-targets" index)
         list(APPEND LLVM_FIND_COMPONENTS ${LLVM_TARGETS_TO_BUILD})
+        # Work around LLVM bug 21016
+        list(FIND LLVM_TARGETS_TO_BUILD "X86" TARGET_X86)
+        if(TARGET_X86 GREATER -1)
+            list(APPEND LLVM_FIND_COMPONENTS x86utils)
+        endif()
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "backend" index)
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-2][\\.0-9A-Za-z]*")
             # Versions below 3.3 do not support components objcarcopts, option
