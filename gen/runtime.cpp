@@ -245,17 +245,18 @@ static void LLVM_D_BuildRuntimeModule()
     LLType* wstringTy = DtoType(Type::twchar->arrayOf());
     LLType* dstringTy = DtoType(Type::tdchar->arrayOf());
 
+    // Ensure that the declarations exist before creating llvm types for them.
     ensureDecl(ClassDeclaration::object, "Object");
-    LLType* objectTy = DtoType(ClassDeclaration::object->type);
     ensureDecl(Type::typeinfoclass, "TypeInfo_Class");
-    LLType* classInfoTy = DtoType(Type::typeinfoclass->type);
     ensureDecl(Type::dtypeinfo, "DTypeInfo");
-    LLType* typeInfoTy = DtoType(Type::dtypeinfo->type);
     ensureDecl(Type::typeinfoassociativearray, "TypeInfo_AssociativeArray");
-    LLType* aaTypeInfoTy = DtoType(Type::typeinfoassociativearray->type);
     ensureDecl(Module::moduleinfo, "ModuleInfo");
-    LLType* moduleInfoPtrTy = getPtrToType(DtoType(Module::moduleinfo->type));
 
+    LLType* objectTy = DtoType(ClassDeclaration::object->type);
+    LLType* classInfoTy = DtoType(Type::typeinfoclass->type);
+    LLType* typeInfoTy = DtoType(Type::dtypeinfo->type);
+    LLType* aaTypeInfoTy = DtoType(Type::typeinfoassociativearray->type);
+    LLType* moduleInfoPtrTy = getPtrToType(DtoType(Module::moduleinfo->type));
     LLType* aaTy = rt_ptr(LLStructType::get(gIR->context()));
 
     /////////////////////////////////////////////////////////////////////////////////////
