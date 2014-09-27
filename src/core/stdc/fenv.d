@@ -27,10 +27,6 @@ version( MinGW )
 version( linux )
     version = GNUFP;
 
-version( DigitalMars )
-    version( Win32 )
-        version = DMC_RUNTIME;
-
 version( GNUFP )
 {
     // https://sourceware.org/git/?p=glibc.git;a=blob;f=sysdeps/x86/fpu/bits/fenv.h
@@ -117,7 +113,7 @@ version( GNUFP )
         static assert(0, "Unimplemented architecture");
     }
 }
-else version( DMC_RUNTIME )
+else version( CRuntime_DigitalMars )
 {
     struct fenv_t
     {
@@ -128,9 +124,8 @@ else version( DMC_RUNTIME )
     }
     alias fexcept_t = int;
 }
-else version( Windows )
+else version( CRuntime_Microsoft )
 {
-    // MSVCRT
     struct fenv_t
     {
         uint ctl;
@@ -234,34 +229,22 @@ enum
     FE_TOWARDZERO   = 0xC00, ///
 }
 
-version( DMC_RUNTIME )
+version( GNUFP )
+{
+    ///
+    enum FE_DFL_ENV = cast(fenv_t*)(-1);
+}
+else version( CRuntime_DigitalMars )
 {
     private extern __gshared fenv_t _FE_DFL_ENV;
     ///
     enum fenv_t* FE_DFL_ENV = &_FE_DFL_ENV;
 }
-else version( Windows )
+else version( CRuntime_Microsoft )
 {
-    version( Win64 ) // requires MSVCRT >= 2013
-    {
-        private extern __gshared fenv_t _Fenv0;
-        fenv_t* FE_DFL_ENV = &_Fenv0;
-    }
-    else
-    version( MinGW )
-        ///
-        enum FE_DFL_ENV = cast(fenv_t*)(-1);
-    else
-    {
-        private immutable fenv_t _Fenv0 = {0, 0};
-        ///
-        enum FE_DFL_ENV = &_Fenv0;
-    }
-}
-else version( linux )
-{
+    private immutable fenv_t _Fenv0 = {0, 0};
     ///
-    enum FE_DFL_ENV = cast(fenv_t*)(-1);
+    enum FE_DFL_ENV = &_Fenv0;
 }
 else version( OSX )
 {
