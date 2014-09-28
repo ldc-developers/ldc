@@ -93,6 +93,9 @@ TargetABI * TargetABI::getTarget()
         else
             return getX86_64TargetABI();
     case llvm::Triple::ppc64:
+#if LDC_LLVM_VER >= 305
+    case llvm::Triple::ppc64le:
+#endif
         return getPPC64TargetABI();
     default:
         Logger::cout() << "WARNING: Unknown ABI, guessing...\n";
