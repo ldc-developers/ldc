@@ -31,13 +31,20 @@
 
 
     .text
-    .globl  _D4core6thread18callWithStackShellFMDFPvZvZv
+#if defined( __LITTLE_ENDIAN__ )
+    .abiversion 2
+#endif
+    .globl  _D4core6thread18callWithStackShellFNbMDFPvZvZv
     .align  2
-    .type _D4core6thread18callWithStackShellFMDFPvZvZv,@function
-    .section  .opd,"aw",@progbits
-_D4core6thread18callWithStackShellFMDFPvZvZv:
+    .type   _D4core6thread18callWithStackShellFNbMDFPvZvZv,@function
+#if defined( __LITTLE_ENDIAN__ )
+    .section .text._D4core6thread18callWithStackShellFNbMDFPvZvZv,"aw",@progbits
+#else
+    .section .opd,"aw",@progbits
+#endif
+_D4core6thread18callWithStackShellFNbMDFPvZvZv:
     .align  3
-    .quad .L._D4core6thread18callWithStackShellFMDFPvZvZv
+    .quad .L._D4core6thread18callWithStackShellFNbMDFPvZvZv
     .quad .TOC.@tocbase
     .quad 0
     .text
@@ -46,7 +53,7 @@ _D4core6thread18callWithStackShellFMDFPvZvZv:
  * r3: pointer context
  * r4: pointer to function
  */
-.L._D4core6thread18callWithStackShellFMDFPvZvZv:
+.L._D4core6thread18callWithStackShellFNbMDFPvZvZv:
     .cfi_startproc
     mflr    0
     std     0, 16(1)                    // save LR
@@ -142,7 +149,7 @@ _D4core6thread18callWithStackShellFMDFPvZvZv:
     .long 0
     .quad 0
 .Lend:
-    .size _D4core6thread18callWithStackShellFMDFPvZvZv, .Lend-.L._D4core6thread18callWithStackShellFMDFPvZvZv
+    .size _D4core6thread18callWithStackShellFNbMDFPvZvZv, .Lend-.L._D4core6thread18callWithStackShellFNbMDFPvZvZv
     .cfi_endproc
 
 #elif defined( __ppc__ ) || defined( __PPC__ ) || defined( __powerpc__ )
