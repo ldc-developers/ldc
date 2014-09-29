@@ -106,7 +106,7 @@ LLValue* DtoCallableValue(DValue* fn)
         {
             LLValue* dg = fn->getLVal();
             LLValue* funcptr = DtoGEPi(dg, 0, 1);
-            return DtoLoad(funcptr);
+            return DtoLoad(funcptr, ".funcptr");
         }
         else
         {
@@ -453,7 +453,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             LLValue* ctxarg;
             if (fnval->isLVal())
             {
-                ctxarg = DtoLoad(DtoGEPi(fnval->getLVal(), 0,0));
+                ctxarg = DtoLoad(DtoGEPi(fnval->getLVal(), 0, 0), ".ptr");
             }
             else
             {

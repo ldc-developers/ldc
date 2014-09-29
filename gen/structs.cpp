@@ -108,7 +108,8 @@ LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
     src = DtoBitCast(src, st);
 
     // gep to the index
-    LLValue* val = DtoGEPi(src, 0, field->index);
+    assert(vd->ident);
+    LLValue* val = DtoGEPi(src, 0, field->index, vd->ident->toChars());
 
     // do we need to offset further? (union area)
     if (field->unionOffset)

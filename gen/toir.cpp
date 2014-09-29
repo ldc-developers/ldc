@@ -1520,7 +1520,7 @@ public:
                 DtoArrayBoundsCheck(e->loc, v, up, lo);
 
             // offset by lower
-            eptr = DtoGEP1(eptr, vlo);
+            eptr = DtoGEP1(eptr, vlo, "lowerbound");
 
             // adjust length
             elen = p->ir->CreateSub(vup, vlo);

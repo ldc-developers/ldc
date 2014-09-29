@@ -1001,7 +1001,7 @@ LLValue* DtoArrayPtr(DValue* v)
     else if (t->ty == Tsarray) {
         assert(!v->isSlice());
         assert(!v->isNull());
-        return DtoGEPi(v->getRVal(), 0,0);
+        return DtoGEPi(v->getRVal(), 0, 0, "sarrayptr");
     }
 
     llvm_unreachable("Unexpected array type.");
