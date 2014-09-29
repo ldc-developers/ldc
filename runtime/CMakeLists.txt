@@ -618,7 +618,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
         # Only build the unittest libraries when running the tests. Unfortunately,
         # I couldn't find an easier way to make a test depend on a CMake target than
         # just invoking the build command through the CMake executable.
-        set_target_properties(${unittest_libs} PROPERTIES EXCLUDE_FROM_ALL ON)
+        set_target_properties(${unittest_libs} PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
         foreach(l ${unittest_libs})
             add_test(build-${l} "${CMAKE_COMMAND}" --build ${CMAKE_BINARY_DIR} --target ${l})
         endforeach()
@@ -666,7 +666,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
         )
 
         # See shared library case for explanation.
-        set_target_properties(${druntime-casm} PROPERTIES EXCLUDE_FROM_ALL ON)
+        set_target_properties(${druntime-casm} PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
         add_custom_target(druntime-ldc-unittest${name_suffix} DEPENDS ${druntime_o} ${druntime-casm})
         add_test(build-druntime-ldc-unittest${name_suffix} "${CMAKE_COMMAND}"
             --build ${CMAKE_BINARY_DIR} --target druntime-ldc-unittest${name_suffix})
@@ -697,7 +697,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
                 ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
             )
 
-            set_target_properties(${phobos2-casm} PROPERTIES EXCLUDE_FROM_ALL ON)
+            set_target_properties(${phobos2-casm} PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
             add_custom_target(phobos2-ldc-unittest${name_suffix} DEPENDS ${phobos2_o} ${phobos2-casm})
             add_test(build-phobos2-ldc-unittest${name_suffix} "${CMAKE_COMMAND}"
                 --build ${CMAKE_BINARY_DIR} --target phobos2-ldc-unittest${name_suffix})
