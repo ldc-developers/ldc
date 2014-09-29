@@ -242,7 +242,7 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
         set(output_root ${path}/${name})
     endif()
 
-    set(output_o ${PROJECT_BINARY_DIR}/${output_root}${output_suffix}${CMAKE_C_OUTPUT_EXTENSION})
+    set(output_o  ${PROJECT_BINARY_DIR}/${output_root}${output_suffix}${CMAKE_C_OUTPUT_EXTENSION})
     set(output_bc ${PROJECT_BINARY_DIR}/${output_root}${output_suffix}.bc)
     list(APPEND ${outlist_o} ${output_o})
     if(BUILD_BC_LIBS)
@@ -280,12 +280,14 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
         set(outfiles ${output_o})
         set(dc_flags --output-o)
     endif()
+
     add_custom_command(
         OUTPUT
             ${outfiles}
         COMMAND ${LDC_EXE} ${dc_flags} -c -I${RUNTIME_DIR}/src -I${RUNTIME_DIR}/src/gc ${input_d} -of${output_o} ${cur_d_flags}
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${input_d}
+                ${LDC_EXE}
                 ${GCCBUILTINS}
                 ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf
     )
