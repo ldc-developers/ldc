@@ -791,6 +791,9 @@ llvm::DIGlobalVariable ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *
     assert(vd->isDataseg() || (vd->storage_class & (STCconst | STCimmutable) && vd->init));
 
     return DBuilder.createGlobalVariable(
+#if LDC_LLVM_VER >= 306
+        GetCurrentScope(), // context
+#endif
         vd->toChars(), // name
 #if LDC_LLVM_VER >= 303
         mangle(vd), // linkage name
