@@ -155,7 +155,7 @@ endif()
 
 # On CMake builds of LLVM, the output of llvm-config --cxxflags does not
 # include -fno-rtti, leading to linker errors. Be sure to add it.
-if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
+if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
     if(NOT ${LLVM_CXXFLAGS} MATCHES "-fno-rtti")
         set(LLVM_CXXFLAGS "${LLVM_CXXFLAGS} -fno-rtti")
     endif()

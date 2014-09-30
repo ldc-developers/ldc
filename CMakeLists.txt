@@ -108,7 +108,7 @@ endfunction()
 # the output (LLVM_CXXFLAGS sometimes already includes -Wall).
 set(DMD_CXXFLAGS)
 set(LDC_CXXFLAGS)
-if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
+if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
     append("-w" DMD_CXXFLAGS)
 
     # Disable some noisy warnings:
