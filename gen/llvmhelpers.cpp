@@ -887,18 +887,13 @@ DValue* DtoPaintType(Loc& loc, DValue* val, Type* to)
 //      TEMPLATE HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
-TemplateInstance* DtoIsTemplateInstance(Dsymbol* s, bool checkLiteralOwner)
+TemplateInstance* DtoIsTemplateInstance(Dsymbol* s)
 {
     if (!s) return NULL;
     if (s->isTemplateInstance() && !s->isTemplateMixin())
         return s->isTemplateInstance();
-    if (FuncLiteralDeclaration* fld = s->isFuncLiteralDeclaration())
-    {
-        if (checkLiteralOwner && fld->owningTemplate)
-            return fld->owningTemplate;
-    }
     if (s->parent)
-        return DtoIsTemplateInstance(s->parent, checkLiteralOwner);
+        return DtoIsTemplateInstance(s->parent);
     return NULL;
 }
 
