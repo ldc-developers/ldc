@@ -949,8 +949,6 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     aggrIndex = 0;
 
     nakedUse = false;
-
-    availableExternally = true; // assume this unless proven otherwise
 #endif
 }
 
@@ -1902,10 +1900,6 @@ void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset,
 
 void VarDeclaration::semantic3(Scope *sc)
 {
-    // LDC
-    if (!global.inExtraInliningSemantic)
-        availableExternally = false;
-
     if (aliassym)
         aliassym->semantic3(sc);
 
@@ -2367,10 +2361,6 @@ Dsymbol *TypeInfoDeclaration::syntaxCopy(Dsymbol *s)
 void TypeInfoDeclaration::semantic(Scope *sc)
 {
     assert(linkage == LINKc);
-#if IN_LLVM
-    if (!global.inExtraInliningSemantic)
-        availableExternally = false;
-#endif
 }
 
 char *TypeInfoDeclaration::toChars()

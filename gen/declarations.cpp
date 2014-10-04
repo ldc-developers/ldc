@@ -32,6 +32,10 @@ void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p);
 
 //////////////////////////////////////////////////////////////////////////////
 
+
+
+//////////////////////////////////////////////////////////////////////////////
+
 class CodegenVisitor : public Visitor {
     IRState *irs;
 public:
@@ -337,8 +341,7 @@ public:
         if (decl->ir.isDefined()) return;
         decl->ir.setDefined();
 
-        // FIXME: This is #673 all over again. Probably need to apply a visitor
-        // that sets availableExternally for all members.
+        // FIXME: This is #673 all over again.
         if (!decl->needsCodegen()) return;
 
         if (!decl->errors && decl->members)

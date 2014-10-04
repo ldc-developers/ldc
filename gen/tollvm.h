@@ -62,7 +62,7 @@ LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs);
 // return linkage type for symbol using the current ir state for context
 LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym);
 LLGlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym);
-LLGlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym, bool checkInline = true);
+LLGlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym);
 
 // some types
 LLIntegerType* DtoSize_t();

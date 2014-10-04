@@ -389,7 +389,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
         *gIR->module,
         vtbl_constant->getType(),
         true,
-        DtoExternalLinkage(cd, false),
+        DtoExternalLinkage(cd),
         vtbl_constant,
         mangledName
     );
@@ -484,7 +484,7 @@ LLConstant * IrAggr::getClassInfoInterfaces()
     // create and apply initializer
     LLConstant* arr = LLConstantArray::get(array_type, constants);
     classInterfacesArray->setInitializer(arr);
-    classInterfacesArray->setLinkage(DtoExternalLinkage(cd, false));
+    classInterfacesArray->setLinkage(DtoExternalLinkage(cd));
 
     // return null, only baseclass provide interfaces
     if (cd->vtblInterfaces->dim == 0)

@@ -354,7 +354,6 @@ FuncDeclaration::FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageCla
     isArrayOp = false;
     allowInlining = false;
     neverInline = false;
-    availableExternally = true; // assume this unless proven otherwise
 #endif
 }
 
@@ -1304,11 +1303,6 @@ void FuncDeclaration::semantic3(Scope *sc)
         return;
     semanticRun = PASSsemantic3;
     semantic3Errors = false;
-
-#if IN_LLVM
-    if (!global.inExtraInliningSemantic)
-        availableExternally = false;
-#endif
 
     if (!type || type->ty != Tfunction)
         return;

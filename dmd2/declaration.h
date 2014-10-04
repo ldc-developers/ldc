@@ -353,8 +353,6 @@ public:
     /// Set during type generation.
     unsigned aggrIndex;
 
-    /// Variables that wouldn't have gotten semantic3'ed if we weren't inlining set this flag.
-    bool availableExternally;
     /// Override added to set above flag.
     void semantic3(Scope *sc);
 
@@ -786,9 +784,6 @@ public:
     // don't always carry their corresponding statement along ...
     typedef std::map<const char*, LabelStatement*> LabelMap;
     LabelMap labmap;
-
-    // Functions that wouldn't have gotten semantic3'ed if we weren't inlining set this flag.
-    bool availableExternally;
 
     // true if overridden with the pragma(LDC_allow_inline); stmt
     bool allowInlining;
