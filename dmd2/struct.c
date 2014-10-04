@@ -154,10 +154,6 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     noDefaultCtor = false;
     dtor = NULL;
     getRTInfo = NULL;
-
-#if IN_LLVM
-    availableExternally = true; // assume this unless proven otherwise
-#endif
 }
 
 PROT AggregateDeclaration::prot()
@@ -206,10 +202,6 @@ void AggregateDeclaration::semantic2(Scope *sc)
 
 void AggregateDeclaration::semantic3(Scope *sc)
 {
-#if IN_LLVM
-    if (!global.inExtraInliningSemantic)
-        availableExternally = false;
-#endif
     //printf("AggregateDeclaration::semantic3(%s) type = %s, errors = %d\n", toChars(), type->toChars(), errors);
     if (!members)
         return;

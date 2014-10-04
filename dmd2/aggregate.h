@@ -131,11 +131,6 @@ public:
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    // Aggregates that wouldn't have gotten semantic3'ed if we weren't inlining set this flag.
-    bool availableExternally;
-#endif
 };
 
 struct StructFlags
