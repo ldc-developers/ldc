@@ -91,7 +91,7 @@ DValue* DtoCast(Loc& loc, DValue* val, Type* to);
 DValue* DtoPaintType(Loc& loc, DValue* val, Type* to);
 
 // is template instance check, returns module where instantiated
-TemplateInstance* DtoIsTemplateInstance(Dsymbol* s, bool checkLiteralOwner = false);
+TemplateInstance* DtoIsTemplateInstance(Dsymbol* s);
 
 /// Makes sure the declarations corresponding to the given D symbol have been
 /// emitted to the currently processed LLVM module.

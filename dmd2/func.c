@@ -4568,10 +4568,6 @@ FuncLiteralDeclaration::FuncLiteralDeclaration(Loc loc, Loc endloc, Type *type,
     this->fes = fes;
     this->treq = NULL;
     //printf("FuncLiteralDeclaration() id = '%s', type = '%s'\n", this->ident->toChars(), type->toChars());
-
-#if IN_LLVM
-    this->owningTemplate = NULL;
-#endif
 }
 
 Dsymbol *FuncLiteralDeclaration::syntaxCopy(Dsymbol *s)

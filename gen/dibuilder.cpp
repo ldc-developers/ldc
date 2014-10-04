@@ -27,7 +27,7 @@
 Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s)
 {
     // templates are defined in current module
-    if (DtoIsTemplateInstance(s, true))
+    if (DtoIsTemplateInstance(s))
     {
         return IR->dmodule;
     }
