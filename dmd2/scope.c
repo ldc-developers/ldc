@@ -101,6 +101,7 @@ Scope *Scope::copy()
     /* Bugzilla 11777: The copied scope should not inherit fieldinit.
      */
     sc->fieldinit = NULL;
+
     return sc;
 }
 

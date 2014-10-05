@@ -75,10 +75,7 @@ struct elem;
 #if IN_LLVM
 struct IRState;
 namespace llvm {
-    class Constant;
-    class ConstantInt;
     class GlobalVariable;
-    class StructType;
     class Value;
 }
 #endif
@@ -271,8 +268,6 @@ public:
     virtual void accept(Visitor *v) { v->visit(this); }
 #if IN_LLVM
     llvm::Value* cachedLvalue;
-
-    virtual AssignExp* isAssignExp() { return NULL; }
 #endif
 };
 
@@ -297,6 +292,7 @@ public:
     void accept(Visitor *v) { v->visit(this); }
     dinteger_t getInteger() { return value; }
     void setInteger(dinteger_t value);
+
 private:
     void normalize();
 };

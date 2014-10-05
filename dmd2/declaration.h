@@ -353,9 +353,6 @@ public:
     /// Set during type generation.
     unsigned aggrIndex;
 
-    /// Override added to set above flag.
-    void semantic3(Scope *sc);
-
     /// This var is used by a naked function.
     bool nakedUse;
 

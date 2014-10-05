@@ -1840,8 +1840,6 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
 }
 
 /**************************************************
-#if !IN_LLVM
-#endif
  * Write out argument types to buf.
  */
 
@@ -8072,17 +8070,7 @@ Expression *DelegateExp::semantic(Scope *sc)
         return this;
 
     e1 = e1->semantic(sc);
-#if 0
-        // With 2.064 this code creates failures in runnable/funclit.d
-        // and runnable/functype.d. Without it, everything looks fine.
-        // LDC we need a copy as we store the LLVM type in TypeFunction,
-        // and delegate/members have different types for 'this'
-        Type *funcType = func->type->syntaxCopy();
-        funcType->deco = func->type->deco;
-        type = new TypeDelegate(funcType);
-#else
     type = new TypeDelegate(func->type);
-#endif
     type = type->semantic(loc, sc);
     AggregateDeclaration *ad = func->toParent()->isAggregateDeclaration();
     if (func->needThis())
@@ -12905,6 +12893,7 @@ Expression *ShlExp::semantic(Scope *sc)
     }
     e1 = integralPromotions(e1, sc);
     e2 = e2->castTo(sc, Type::tshiftcnt);
+
     type = e1->type;
     return this;
 }
@@ -12936,6 +12925,7 @@ Expression *ShrExp::semantic(Scope *sc)
     }
     e1 = integralPromotions(e1, sc);
     e2 = e2->castTo(sc, Type::tshiftcnt);
+
     type = e1->type;
     return this;
 }
@@ -12968,6 +12958,7 @@ Expression *UshrExp::semantic(Scope *sc)
 
     e1 = integralPromotions(e1, sc);
     e2 = e2->castTo(sc, Type::tshiftcnt);
+
     type = e1->type;
     return this;
 }

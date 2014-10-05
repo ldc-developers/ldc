@@ -1285,6 +1285,7 @@ Lnomatch:
                 if (sc->scopesym->members)
                     sc->scopesym->members->push(v);
             }
+
             Expression *e = new DsymbolExp(loc, v);
             (*exps)[i] = e;
         }
@@ -1896,15 +1897,6 @@ void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset,
 
     //printf(" addField '%s' to '%s' at offset %d, size = %d\n", toChars(), ad->toChars(), offset, memsize);
     ad->fields.push(this);
-}
-
-void VarDeclaration::semantic3(Scope *sc)
-{
-    if (aliassym)
-        aliassym->semantic3(sc);
-
-    // Preserve call chain
-    Declaration::semantic3(sc);
 }
 
 const char *VarDeclaration::kind()
