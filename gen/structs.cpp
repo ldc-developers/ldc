@@ -61,7 +61,10 @@ void DtoResolveStruct(StructDeclaration* sd, Loc& callerLoc)
                                    I != E; ++I)
     {
         VarDeclaration *vd = *I;
-        assert(!isIrFieldCreated(vd));
+        IF_LOG {
+            if (isIrFieldCreated(vd))
+                Logger::println("struct field already exists");
+        }
         getIrField(vd, true);
     }
 }

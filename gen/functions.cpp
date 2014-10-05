@@ -424,7 +424,7 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 
 static llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 {
-    IrFuncTy &irFty = fdecl->irFty;
+    IrFuncTy &irFty = getIrFunc(fdecl, true)->irFty;
     if (irFty.funcType) return irFty.funcType;
 
     irFty.ret = new IrFuncTyArg(Type::tvoid, false);
@@ -449,7 +449,7 @@ static llvm::FunctionType* DtoVaFunctionType(FuncDeclaration* fdecl)
 llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 {
     // handle for C vararg intrinsics
-    if (fdecl->isVaIntrinsic())
+    if (DtoIsVaIntrinsic(fdecl))
         return DtoVaFunctionType(fdecl);
 
     Type *dthis=0, *dnest=0;
@@ -479,7 +479,7 @@ llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
         dnest = Type::tvoid->pointerTo();
     }
 
-    LLFunctionType* functype = DtoFunctionType(fdecl->type, fdecl->irFty, dthis, dnest,
+    LLFunctionType* functype = DtoFunctionType(fdecl->type, getIrFunc(fdecl, true)->irFty, dthis, dnest,
                                                fdecl->isMain(), fdecl->isCtorDeclaration(),
                                                fdecl->llvmInternal == LLVMintrinsic);
 
@@ -597,7 +597,7 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 #if LDC_LLVM_VER >= 303
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
-    IrFuncTy &irFty = fdecl->irFty;
+    IrFuncTy &irFty = getIrFunc(fdecl)->irFty;
     llvm::AttributeSet old = func->getAttributes();
     llvm::AttributeSet existingAttrs[] = { old.getFnAttributes(), old.getRetAttributes() };
     llvm::AttributeSet newAttrs = llvm::AttributeSet::get(gIR->context(), existingAttrs);
@@ -645,7 +645,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
 #else
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
-    IrFuncTy &irFty = fdecl->irFty;
+    IrFuncTy &irFty = getIrFunc(fdecl)->irFty;
     LLSmallVector<llvm::AttributeWithIndex, 9> attrs;
 
     int idx = 0;
@@ -770,7 +770,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     IrFunction *irFunc = getIrFunc(fdecl, true);
 
     LLFunction* vafunc = 0;
-    if (fdecl->isVaIntrinsic())
+    if (DtoIsVaIntrinsic(fdecl))
         vafunc = DtoDeclareVaFunction(fdecl);
 
     // calling convention
@@ -817,7 +817,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     irFunc->func = func;
 
     // parameter attributes
-    if (!fdecl->isIntrinsic()) {
+    if (!DtoIsIntrinsic(fdecl)) {
         set_param_attrs(f, func, fdecl);
         if (global.params.disableRedZone) {
             func->addFnAttr(llvm::Attribute::NoRedZone);
@@ -844,7 +844,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         AppendFunctionToLLVMGlobalCtorsDtors(func, fdecl->priority, fdecl->llvmInternal == LLVMglobal_crt_ctor);
     }
 
-    IrFuncTy &irFty = fdecl->irFty;
+    IrFuncTy &irFty = irFunc->irFty;
 
     // if (!declareOnly)
     {
@@ -1039,15 +1039,15 @@ void DtoDefineFunction(FuncDeclaration* fd)
         return;
     }
 
-    IrFuncTy &irFty = fd->irFty;
     IrFunction *irFunc = getIrFunc(fd);
+    IrFuncTy &irFty = irFunc->irFty;
 
     // debug info
     irFunc->diSubprogram = gIR->DBuilder.EmitSubProgram(fd);
 
     Type* t = fd->type->toBasetype();
     TypeFunction* f = static_cast<TypeFunction*>(t);
-    // assert(f->irtype);
+    // assert(f->ctype);
 
     llvm::Function* func = irFunc->func;
 
@@ -1294,20 +1294,6 @@ void DtoVariadicArgument(Expression* argexp, LLValue* dst)
     LOG_SCOPE;
     DVarValue vv(argexp->type, dst);
     DtoAssign(argexp->loc, &vv, toElem(argexp));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-bool FuncDeclaration::isIntrinsic()
-{
-    return (llvmInternal == LLVMintrinsic || isVaIntrinsic());
-}
-
-bool FuncDeclaration::isVaIntrinsic()
-{
-    return (llvmInternal == LLVMva_start ||
-            llvmInternal == LLVMva_copy ||
-            llvmInternal == LLVMva_end);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

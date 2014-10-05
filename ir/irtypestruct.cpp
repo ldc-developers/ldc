@@ -96,7 +96,7 @@ bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2)
 IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
 {
     IrTypeStruct* t = new IrTypeStruct(sd);
-    sd->type->irtype = t;
+    sd->type->ctype = t;
 
     IF_LOG Logger::println("Building struct type %s @ %s",
         sd->toPrettyChars(), sd->loc.toChars());
@@ -241,7 +241,8 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
         offset = vd->offset + vd->type->size();
 
         // set the field index
-        vd->aggrIndex = (unsigned)field_index++;
+        getIrField(vd, true)->setAggrIndex(static_cast<unsigned>(field_index));
+        ++field_index;
     }
 
     // tail padding?

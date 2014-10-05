@@ -2227,7 +2227,7 @@ namespace AsmParserx8664
 
                                 // print out the mangle
                                 insnTemplate << mangle(vd);
-                                vd->nakedUse = true;
+                                getIrGlobal(vd, true)->nakedUse = true;
                                 break;
                             }
                         }
@@ -2888,7 +2888,7 @@ namespace AsmParserx8664
                                 else if ( e->op == TOKdsymbol )
                                 {
                                     LabelDsymbol * lbl = ( LabelDsymbol * ) ( ( DsymbolExp * ) e )->s;
-                                    stmt->isBranchToLabel = lbl->ident;
+                                    stmt->isBranchToLabel = lbl;
 
                                     use_star = false;
                                     addLabel ( lbl->ident->toChars() );

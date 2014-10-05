@@ -17,16 +17,7 @@
 #endif /* __DMC__ */
 
 #if IN_LLVM
-#include <set>
-#include <map>
 #include <string>
-#if LDC_LLVM_VER >= 305
-#include "llvm/IR/DebugInfo.h"
-#elif LDC_LLVM_VER >= 302
-#include "llvm/DebugInfo.h"
-#else
-#include "llvm/Analysis/DebugInfo.h"
-#endif
 #endif
 
 #include "dsymbol.h"
@@ -45,10 +36,6 @@ class StructDeclaration;
 struct InterState;
 struct IRState;
 struct CompiledCtfeFunction;
-#if IN_LLVM
-class AnonDeclaration;
-class LabelStatement;
-#endif
 
 enum PROT;
 enum LINK;
@@ -347,19 +334,6 @@ public:
     // Eliminate need for dynamic_cast
     VarDeclaration *isVarDeclaration() { return (VarDeclaration *)this; }
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    /// Index into parent aggregate.
-    /// Set during type generation.
-    unsigned aggrIndex;
-
-    /// This var is used by a naked function.
-    bool nakedUse;
-
-    // debug description
-    llvm::DIVariable debugVariable;
-    llvm::DISubprogram debugFunc;
-#endif
 };
 
 /**************************************************************/
@@ -769,27 +743,14 @@ public:
     virtual FuncDeclaration *toAliasFunc() { return this; }
 
 #if IN_LLVM
-    IrFuncTy irFty;
-
     std::string intrinsicName;
     uint32_t priority;
-
-    bool isIntrinsic();
-    bool isVaIntrinsic();
-
-    // we keep our own table of label statements as LabelDsymbolS
-    // don't always carry their corresponding statement along ...
-    typedef std::map<const char*, LabelStatement*> LabelMap;
-    LabelMap labmap;
 
     // true if overridden with the pragma(LDC_allow_inline); stmt
     bool allowInlining;
 
     // true if set with the pragma(LDC_never_inline); stmt
     bool neverInline;
-
-    // true if has inline assembler
-    bool inlineAsm;
 #endif
 
     void accept(Visitor *v) { v->visit(this); }

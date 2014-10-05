@@ -23,12 +23,6 @@
 #include "expression.h"
 //#include "visitor.h"
 
-#if IN_LLVM
-#include "../ir/irfuncty.h"
-namespace llvm { class Type; }
-class IrType;
-#endif
-
 struct Scope;
 class Identifier;
 class Expression;
@@ -52,6 +46,7 @@ class Parameter;
 #ifdef IN_GCC
 typedef union tree_node type;
 #elif IN_LLVM
+typedef class IrType type;
 #else
 typedef struct TYPE type;
 #endif
@@ -169,9 +164,7 @@ public:
     Type *arrayof;      // array of this type
     TypeInfoDeclaration *vtinfo;        // TypeInfo object for this Type
 
-#if IN_DMD
     type *ctype;        // for back end
-#endif
 
     static Type *tvoid;
     static Type *tint8;
@@ -374,10 +367,6 @@ public:
     // For eliminating dynamic_cast
     virtual TypeBasic *isTypeBasic();
     virtual void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    IrType* irtype;
-#endif
 };
 
 class TypeError : public Type
@@ -687,10 +676,6 @@ public:
 
     Expression *defaultInit(Loc loc);
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    IrFuncTy irFty;
-#endif
 };
 
 class TypeDelegate : public TypeNext
@@ -713,10 +698,6 @@ public:
     int hasPointers();
 
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    IrFuncTy irFty;
-#endif
 };
 
 class TypeQualified : public Type

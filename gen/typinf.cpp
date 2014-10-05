@@ -822,7 +822,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p)
         assert(irg->type->isStructTy());
     } else {
         if (decl->tinfo->builtinTypeInfo()) // this is a declaration of a builtin __initZ var
-            irg->type = Type::dtypeinfo->type->irtype->isClass()->getMemoryLLType();
+            irg->type = Type::dtypeinfo->type->ctype->isClass()->getMemoryLLType();
         else
             irg->type = LLStructType::create(gIR->context(), decl->toPrettyChars());
         irg->value = new llvm::GlobalVariable(*gIR->module, irg->type, true,

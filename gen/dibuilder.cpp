@@ -285,7 +285,7 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
     // Use the actual type associated with the declaration, ignoring any
     // const/wrappers.
     LLType *T = DtoType(sd->type);
-    IrTypeAggr *ir = sd->type->irtype->isAggr();
+    IrTypeAggr *ir = sd->type->ctype->isAggr();
     assert(ir);
 
     if (static_cast<llvm::MDNode *>(ir->diCompositeType) != 0)
@@ -720,10 +720,11 @@ void ldc::DIBuilder::EmitStopPoint(unsigned ln)
 
 void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd)
 {
-    if (!global.params.symdebug || !vd->debugVariable)
+    llvm::DIVariable debugVariable = getIrVar(vd)->debugVariable;
+    if (!global.params.symdebug || !debugVariable)
         return;
 
-    llvm::Instruction *instr = DBuilder.insertDbgValueIntrinsic(val, 0, vd->debugVariable, IR->scopebb());
+    llvm::Instruction *instr = DBuilder.insertDbgValueIntrinsic(val, 0, debugVariable, IR->scopebb());
     instr->setDebugLoc(IR->ir->getCurrentDebugLocation());
 }
 
@@ -736,7 +737,8 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     Logger::println("D to dwarf local variable");
     LOG_SCOPE;
 
-    if (IR->func()->diSubprogram == vd->debugFunc) // ensure that the debug variable is created only once
+    IrVar *irVar = getIrVar(vd);
+    if (IR->func()->diSubprogram == irVar->debugFunc) // ensure that the debug variable is created only once
         return;
 
     // get type description
@@ -754,7 +756,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
         tag = llvm::dwarf::DW_TAG_auto_variable;
 
     if (addr.empty()) {
-        vd->debugVariable = DBuilder.createLocalVariable(
+        irVar->debugVariable = DBuilder.createLocalVariable(
             tag, // tag
             GetCurrentScope(), // scope
             vd->toChars(), // name
@@ -764,7 +766,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
             true // preserve
         );
     } else {
-        vd->debugVariable = DBuilder.createComplexVariable(
+        irVar->debugVariable = DBuilder.createComplexVariable(
             tag, // tag
             GetCurrentScope(), // scope
             vd->toChars(), // name
@@ -774,10 +776,10 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
             addr
         );
     }
-    vd->debugFunc = IR->func()->diSubprogram;
+    irVar->debugFunc = IR->func()->diSubprogram;
 
     // declare
-    Declare(ll, vd->debugVariable);
+    Declare(ll, irVar->debugVariable);
 }
 
 llvm::DIGlobalVariable ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll, VarDeclaration *vd)

@@ -18,6 +18,7 @@
 
 #include "gen/llvm.h"
 #include "ir/irlandingpad.h"
+#include "ir/irfuncty.h"
 #include <map>
 #include <stack>
 #include <vector>
@@ -123,6 +124,8 @@ struct IrFunction
 
     llvm::DISubprogram diSubprogram;
     std::stack<llvm::DILexicalBlock> diLexicalBlocks;
+
+    IrFuncTy irFty;
 };
 
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create = false);

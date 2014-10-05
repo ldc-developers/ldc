@@ -961,13 +961,15 @@ static void LLVM_D_BuildRuntimeModule()
             gABI->mangleForLLVM("_D9invariant12_d_invariantFC6ObjectZv", LINKd),
             M
         );
+        assert(dty->ctype);
+        IrFuncTy &irFty = dty->ctype->getIrFuncTy();
         gABI->newFunctionType(dty);
-        gABI->rewriteFunctionType(dty, dty->irFty);
+        gABI->rewriteFunctionType(dty, irFty);
         gABI->doneWithFunctionType();
 #if LDC_LLVM_VER < 303
-        fn->addAttribute(1, dty->irFty.args[0]->attrs);
+        fn->addAttribute(1, irFty.args[0]->attrs);
 #else
-        fn->addAttributes(1, llvm::AttributeSet::get(gIR->context(), 1, dty->irFty.args[0]->attrs));
+        fn->addAttributes(1, llvm::AttributeSet::get(gIR->context(), 1, irFty.args[0]->attrs));
 #endif
         fn->setCallingConv(gABI->callingConv(LINKd));
     }

@@ -60,11 +60,11 @@ void DtoResolveClass(ClassDeclaration* cd)
                                    I != E; ++I)
     {
         VarDeclaration* vd = *I;
-
-        if (!isIrFieldCreated(vd))
-            getIrField(vd, true);
-        else
-            IF_LOG Logger::println("class field already exists!!!");
+        IF_LOG {
+            if (isIrFieldCreated(vd))
+                Logger::println("class field already exists");
+        }
+        getIrField(vd, true);
     }
 
     // emit the interfaceInfosZ symbol if necessary
@@ -254,7 +254,7 @@ DValue* DtoCastClass(Loc& loc, DValue* val, Type* _to)
             // get the from class
             ClassDeclaration* cd = fc->sym->isClassDeclaration();
             DtoResolveClass(cd); // add this
-            IrTypeClass* typeclass = stripModifiers(fc)->irtype->isClass();
+            IrTypeClass* typeclass = stripModifiers(fc)->ctype->isClass();
 
             // find interface impl
 

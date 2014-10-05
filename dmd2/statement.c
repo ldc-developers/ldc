@@ -5047,11 +5047,6 @@ Statement *LabelStatement::semantic(Scope *sc)
         statement = statement->semantic(sc);
     sc->pop();
 
-#if IN_LLVM
-    // LDC put in labmap
-    fd->labmap[ident->toChars()] = this;
-#endif
-
     return this;
 }
 

@@ -21,6 +21,7 @@
 #include "gen/logger.h"
 #include "gen/nested.h"
 #include "gen/tollvm.h"
+#include "ir/irtype.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -29,16 +30,13 @@ IrFuncTy &DtoIrTypeFunction(DValue* fnval)
     if (DFuncValue* dfnval = fnval->isFunc())
     {
         if (dfnval->func)
-            return dfnval->func->irFty;
+            return getIrFunc(dfnval->func)->irFty;
     }
 
     Type* type = stripModifiers(fnval->getType()->toBasetype());
-    if (type->ty == Tfunction)
-        return static_cast<TypeFunction*>(type)->irFty;
-    else if (type->ty == Tdelegate)
-        return static_cast<TypeDelegate*>(type)->irFty;
-
-    llvm_unreachable("Cannot get IrFuncTy from non lazy/function/delegate");
+    DtoType(type);
+    assert(type->ctype);
+    return type->ctype->getIrFuncTy();
 }
 
 TypeFunction* DtoTypeFunction(DValue* fnval)
@@ -349,7 +347,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     bool intrinsic = (dfnval && dfnval->func && dfnval->func->llvmInternal == LLVMintrinsic);
 
     // handle special vararg intrinsics
-    bool va_intrinsic = (dfnval && dfnval->func && dfnval->func->isVaIntrinsic());
+    bool va_intrinsic = (dfnval && dfnval->func && DtoIsVaIntrinsic(dfnval->func));
 
     // get function type info
     IrFuncTy &irFty = DtoIrTypeFunction(fnval);

@@ -324,6 +324,12 @@ public:
         s->enclosingScopeExit = enclosingTryFinally();
         StatementVisitor::visit(s);
     }
+
+    void visit(AsmBlockStatement *s)
+    {
+        s->enclosingScopeExit = enclosingTryFinally();
+        StatementVisitor::visit(s);
+    }
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -418,7 +424,7 @@ public:
                         dval = toElemDtor(ae);
                     }
                     // do abi specific transformations on the return value
-                    v = irs->func()->decl->irFty.putRet(stmt->exp->type, dval);
+                    v = getIrFunc(irs->func()->decl)->irFty.putRet(stmt->exp->type, dval);
                 }
 
                 IF_LOG Logger::cout() << "return value is '" <<*v << "'\n";
@@ -1668,7 +1674,7 @@ public:
         llvm::BasicBlock* oldend = gIR->scopeend();
         llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "aftergoto", irs->topfunc(), oldend);
 
-        DtoGoto(stmt->loc, stmt->label->ident, stmt->tf);
+        DtoGoto(stmt->loc, stmt->label, stmt->tf);
 
         irs->scope() = IRScope(bb, oldend);
     }

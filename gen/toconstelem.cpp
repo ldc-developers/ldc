@@ -324,7 +324,7 @@ public:
             if (InterfaceDeclaration* it = static_cast<TypeClass*>(tb)->sym->isInterfaceDeclaration()) {
                 assert(it->isBaseOf(cd, NULL));
 
-                IrTypeClass* typeclass = cd->type->irtype->isClass();
+                IrTypeClass* typeclass = cd->type->ctype->isClass();
 
                 // find interface impl
                 size_t i_index = typeclass->getInterfaceIndex(it);
@@ -624,7 +624,7 @@ public:
         else
         {
             value->globalVar = new llvm::GlobalVariable(*p->module,
-                origClass->type->irtype->isClass()->getMemoryLLType(),
+                origClass->type->ctype->isClass()->getMemoryLLType(),
                 false, llvm::GlobalValue::InternalLinkage, 0, ".classref");
 
             std::map<VarDeclaration*, llvm::Constant*> varInits;
@@ -683,7 +683,7 @@ public:
             if (InterfaceDeclaration* it = targetClass->isInterfaceDeclaration()) {
                 assert(it->isBaseOf(origClass, NULL));
 
-                IrTypeClass* typeclass = origClass->type->irtype->isClass();
+                IrTypeClass* typeclass = origClass->type->ctype->isClass();
 
                 // find interface impl
                 size_t i_index = typeclass->getInterfaceIndex(it);

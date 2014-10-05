@@ -521,7 +521,7 @@ void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
     // a post-asm switch
 
     // maps each goto destination to its special value
-    std::map<Identifier*, int> gotoToVal;
+    std::map<LabelDsymbol*, int> gotoToVal;
 
     // location of the special value determining the goto label
     // will be set if post-asm dispatcher block is needed
@@ -559,7 +559,7 @@ void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
             end = asmblock->internalLabels.end();
             bool skip = false;
             for(it = asmblock->internalLabels.begin(); it != end; ++it)
-                if((*it)->equals(a->isBranchToLabel))
+                if((*it)->equals(a->isBranchToLabel->ident))
                     skip = true;
             if(skip)
                 continue;
@@ -572,8 +572,8 @@ void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
             gotoToVal[a->isBranchToLabel] = n_goto;
 
             // provide an in-asm target for the branch and set value
-            IF_LOG Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->string);
-            printLabelName(code, fdmangle, a->isBranchToLabel->string);
+            IF_LOG Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->ident->string);
+            printLabelName(code, fdmangle, a->isBranchToLabel->ident->string);
             code << ":\n\t";
             code << "movl $<<in" << n_goto << ">>, $<<out0>>\n";
             //FIXME: Store the value -> label mapping somewhere, so it can be referenced later
@@ -754,7 +754,7 @@ void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
         llvm::SwitchInst* sw = p->ir->CreateSwitch(val, bb, gotoToVal.size());
 
         // add all cases
-        std::map<Identifier*, int>::iterator it, end = gotoToVal.end();
+        std::map<LabelDsymbol*, int>::iterator it, end = gotoToVal.end();
         for(it = gotoToVal.begin(); it != end; ++it)
         {
             llvm::BasicBlock* casebb = llvm::BasicBlock::Create(gIR->context(), "case", p->topfunc(), bb);
@@ -793,7 +793,6 @@ Statement *AsmBlockStatement::syntaxCopy()
 Statement *AsmBlockStatement::semantic(Scope *sc)
 {
     enclosingFinally = sc->tf;
-    enclosingScopeExit = sc->enclosingScopeExit;
 
     return CompoundStatement::semantic(sc);
 }

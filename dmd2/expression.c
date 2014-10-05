@@ -9249,11 +9249,11 @@ Expression *AddrExp::semantic(Scope *sc)
         if (f)
         {
 #if IN_LLVM
-                if (f->isIntrinsic())
-                {
-                    error("cannot take the address of intrinsic function %s", e1->toChars());
-                    return this;
-                }
+            if (DtoIsIntrinsic(f))
+            {
+                error("cannot take the address of intrinsic function %s", e1->toChars());
+                return this;
+            }
 #endif
 
             /* Because nested functions cannot be overloaded,

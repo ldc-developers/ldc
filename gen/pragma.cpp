@@ -560,3 +560,15 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
                 ident->toChars());
     }
 }
+
+bool DtoIsIntrinsic(FuncDeclaration *fd)
+{
+    return (fd->llvmInternal == LLVMintrinsic || DtoIsVaIntrinsic(fd));
+}
+
+bool DtoIsVaIntrinsic(FuncDeclaration *fd)
+{
+    return (fd->llvmInternal == LLVMva_start ||
+            fd->llvmInternal == LLVMva_copy ||
+            fd->llvmInternal == LLVMva_end);
+}

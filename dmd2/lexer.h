@@ -184,11 +184,6 @@ enum TOK
 
         TOKinterval,
 
-// LDC specific
-#if IN_LLVM
-        TOKgep,
-#endif
-
         TOKMAX
 };
 

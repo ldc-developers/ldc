@@ -822,8 +822,8 @@ public:
     void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
-    // non-zero if this is a branch, contains the target labels identifier
-    Identifier* isBranchToLabel;
+    // non-zero if this is a branch, contains the target label
+    LabelDsymbol* isBranchToLabel;
 #endif
 };
 

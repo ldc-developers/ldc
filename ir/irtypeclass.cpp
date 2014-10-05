@@ -177,8 +177,8 @@ void IrTypeClass::addBaseClassData(
         // advance offset to right past this field
         offset = vd->offset + vd->type->size();
 
-        // create ir field
-        vd->aggrIndex = static_cast<unsigned>(field_index);
+        // set the field index
+        getIrField(vd, true)->setAggrIndex(static_cast<unsigned>(field_index));
         ++field_index;
     }
 
@@ -232,7 +232,7 @@ void IrTypeClass::addBaseClassData(
 IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
 {
     IrTypeClass* t = new IrTypeClass(cd);
-    cd->type->irtype = t;
+    cd->type->ctype = t;
 
     IF_LOG Logger::println("Building class type %s @ %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;

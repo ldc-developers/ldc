@@ -225,41 +225,22 @@ LLValue *DtoModuleFileName(Module* M, const Loc& loc)
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
-// LABEL HELPER
-////////////////////////////////////////////////////////////////////////////////////////*/
-LabelStatement* DtoLabelStatement(Identifier* ident)
-{
-    FuncDeclaration* fd = gIR->func()->decl;
-    FuncDeclaration::LabelMap::iterator iter = fd->labmap.find(ident->toChars());
-    if (iter == fd->labmap.end())
-    {
-        if (fd->returnLabel && fd->returnLabel->ident->equals(ident))
-        {
-            assert(fd->returnLabel->statement);
-            return fd->returnLabel->statement;
-        }
-        return NULL;
-    }
-    return iter->second;
-}
-
-/****************************************************************************************/
-/*////////////////////////////////////////////////////////////////////////////////////////
 // GOTO HELPER
 ////////////////////////////////////////////////////////////////////////////////////////*/
-void DtoGoto(Loc& loc, Identifier* target, TryFinallyStatement* sourceFinally)
+void DtoGoto(Loc &loc, LabelDsymbol *target, TryFinallyStatement *sourceFinally)
 {
     assert(!gIR->scopereturned());
 
-    LabelStatement* lblstmt = DtoLabelStatement(target);
-    if(!lblstmt) {
-        error(loc, "the label %s does not exist", target->toChars());
+    LabelStatement *lblstmt = target->statement;
+    if (!lblstmt)
+    {
+        error(loc, "the label %s does not exist", target->ident->toChars());
         fatal();
     }
 
     // find target basic block
-    std::string labelname = gIR->func()->gen->getScopedLabelName(target->toChars());
-    llvm::BasicBlock*& targetBB = gIR->func()->gen->labelToBB[labelname];
+    std::string labelname = gIR->func()->gen->getScopedLabelName(target->ident->toChars());
+    llvm::BasicBlock* &targetBB = gIR->func()->gen->labelToBB[labelname];
     if (targetBB == NULL)
         targetBB = llvm::BasicBlock::Create(gIR->context(), "label_" + labelname, gIR->topfunc());
 
@@ -268,7 +249,8 @@ void DtoGoto(Loc& loc, Identifier* target, TryFinallyStatement* sourceFinally)
 
     // goto into finally blocks is forbidden by the spec
     // but should work fine
-    if(lblstmt->tf != sourceFinally) {
+    if (lblstmt->tf != sourceFinally)
+    {
         error(loc, "spec disallows goto into or out of finally block");
         fatal();
     }
@@ -1220,6 +1202,8 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
     {
         addr = DtoAlloca(var->type, var->toChars());
         // add debug info
+        if (!irLocal)
+            irLocal = getIrLocal(var, true);
         gIR->DBuilder.EmitLocalVariable(addr, var);
     }
 
@@ -1240,7 +1224,7 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
     else
     {
         // if this already has storage, it must've been handled already
-        if (irLocal && irLocal->value) {
+        if (irLocal->value) {
             if (addr && addr != irLocal->value) {
                 // This can happen, for example, in scope(exit) blocks which
                 // are translated to IR multiple times.
@@ -1258,8 +1242,6 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
         }
 
         assert(addr);
-        if (!irLocal)
-            irLocal = getIrLocal(var, true);
         irLocal->value = addr;
     }
 

@@ -719,8 +719,8 @@ void Module::genmoduleinfo()
     RTTIBuilder b(moduleinfo);
 
     // some types
-    LLType* moduleinfoTy = moduleinfo->type->irtype->getLLType();
-    LLType* classinfoTy = Type::typeinfoclass->type->irtype->getLLType();
+    LLType* moduleinfoTy = moduleinfo->type->ctype->getLLType();
+    LLType* classinfoTy = Type::typeinfoclass->type->ctype->getLLType();
 
     // importedModules[]
     std::vector<LLConstant*> importInits;

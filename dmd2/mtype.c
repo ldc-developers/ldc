@@ -147,13 +147,7 @@ Type::Type(TY ty)
     this->rto = NULL;
     this->arrayof = NULL;
     this->vtinfo = NULL;
-#if IN_DMD
     this->ctype = NULL;
-#endif
-
-#if IN_LLVM
-    this->irtype = NULL;
-#endif
 }
 
 const char *Type::kind()
@@ -419,9 +413,7 @@ Type *Type::nullAttributes()
     t->swto = NULL;
     t->swcto = NULL;
     t->vtinfo = NULL;
-#if !IN_LLVM
     t->ctype = NULL;
-#endif
     if (t->ty == Tstruct) ((TypeStruct *)t)->att = RECfwdref;
     if (t->ty == Tclass) ((TypeClass *)t)->att = RECfwdref;
     return t;
@@ -596,9 +588,7 @@ Type *Type::unSharedOf()
     {
         t = this->nullAttributes();
         t->mod = mod & ~MODshared;
-#if !IN_LLVM
         t->ctype = ctype;
-#endif
         t = t->merge();
 
         t->fixTo(this);

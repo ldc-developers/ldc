@@ -17,6 +17,7 @@
 #include <string>
 
 class PragmaDeclaration;
+class FuncDeclaration;
 class Dsymbol;
 struct Scope;
 
@@ -50,5 +51,7 @@ enum Pragma
 Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str);
 void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *sym,
                     Pragma llvm_internal, const std::string &arg1str);
+bool DtoIsIntrinsic(FuncDeclaration *fd);
+bool DtoIsVaIntrinsic(FuncDeclaration *fd);
 
 #endif // LDC_GEN_PRAGMA_H

@@ -107,9 +107,9 @@ LLType* DtoType(Type* t)
 {
     t = stripModifiers( t );
 
-    if (t->irtype)
+    if (t->ctype)
     {
-        return t->irtype->getLLType();
+        return t->ctype->getLLType();
     }
 
     IF_LOG Logger::println("Building type: %s", t->toChars());
@@ -168,26 +168,26 @@ LLType* DtoType(Type* t)
     case Tstruct:
     {
         TypeStruct* ts = static_cast<TypeStruct*>(t);
-        if (ts->sym->type->irtype)
+        if (ts->sym->type->ctype)
         {
             // This should not happen, but the frontend seems to be buggy. Not
             // sure if this is the best way to handle the situation, but we
-            // certainly don't want to override ts->sym->type->irtype.
+            // certainly don't want to override ts->sym->type->ctype.
             IF_LOG Logger::cout() << "Struct with multiple Types detected: " <<
                 ts->toChars() << " (" << ts->sym->locToChars() << ")" << std::endl;
-            return ts->sym->type->irtype->getLLType();
+            return ts->sym->type->ctype->getLLType();
         }
         return IrTypeStruct::get(ts->sym)->getLLType();
     }
     case Tclass:
     {
         TypeClass* tc = static_cast<TypeClass*>(t);
-        if (tc->sym->type->irtype)
+        if (tc->sym->type->ctype)
         {
             // See Tstruct case.
             IF_LOG Logger::cout() << "Class with multiple Types detected: " <<
                 tc->toChars() << " (" << tc->sym->locToChars() << ")" << std::endl;
-            return tc->sym->type->irtype->getLLType();
+            return tc->sym->type->ctype->getLLType();
         }
         return IrTypeClass::get(tc->sym)->getLLType();
     }
