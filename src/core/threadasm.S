@@ -21,7 +21,7 @@
  * dynamically load druntime on several Linux platforms where this is
  * forbidden due to security policies.
  */
-.section .note.GNU-stack,"",@progbits
+.section .note.GNU-stack,"",%progbits
 #endif
 
 /************************************************************************************

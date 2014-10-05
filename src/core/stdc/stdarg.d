@@ -401,9 +401,9 @@ else version( ARM )
         // Wait until everyone updates to get TypeInfo.talign
         //auto talign = ti.talign;
         //auto p = cast(void*)(cast(size_t)ap + talign - 1) & ~(talign - 1);
-        auto p = ap;
+        auto p = *cast(void**) &ap;
         auto tsize = ti.tsize;
-        ap = cast(void*)(cast(size_t)p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1)));
+        *cast(void**) &ap += ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1));
         parmn[0..tsize] = p[0..tsize];
     }
 
