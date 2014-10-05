@@ -8072,17 +8072,7 @@ Expression *DelegateExp::semantic(Scope *sc)
         return this;
 
     e1 = e1->semantic(sc);
-#if 0
-        // With 2.064 this code creates failures in runnable/funclit.d
-        // and runnable/functype.d. Without it, everything looks fine.
-        // LDC we need a copy as we store the LLVM type in TypeFunction,
-        // and delegate/members have different types for 'this'
-        Type *funcType = func->type->syntaxCopy();
-        funcType->deco = func->type->deco;
-        type = new TypeDelegate(funcType);
-#else
     type = new TypeDelegate(func->type);
-#endif
     type = type->semantic(loc, sc);
     AggregateDeclaration *ad = func->toParent()->isAggregateDeclaration();
     if (func->needThis())
