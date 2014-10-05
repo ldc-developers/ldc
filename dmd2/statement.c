@@ -3176,7 +3176,6 @@ Statement *SwitchStatement::semantic(Scope *sc)
     tf = sc->tf;
     if (cases)
         return this;            // already run
-
     condition = condition->semantic(sc);
     condition = resolveProperties(sc, condition);
     TypeEnum *te = NULL;
@@ -3406,6 +3405,7 @@ Statement *CaseStatement::semantic(Scope *sc)
                 sw->gotoCases.remove(i);        // remove from array
             }
         }
+
         if (sc->sw->tf != sc->tf)
             error("switch and case are in different finally blocks");
     }

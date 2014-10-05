@@ -28,7 +28,6 @@
 #include "aggregate.h"
 #include "target.h"
 
-
 /* Do mangling for C++ linkage.
  * No attempt is made to support mangling of templates, operator
  * overloading, or special functions.

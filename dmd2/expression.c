@@ -1840,8 +1840,6 @@ Type *functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
 }
 
 /**************************************************
-#if !IN_LLVM
-#endif
  * Write out argument types to buf.
  */
 
@@ -12895,6 +12893,7 @@ Expression *ShlExp::semantic(Scope *sc)
     }
     e1 = integralPromotions(e1, sc);
     e2 = e2->castTo(sc, Type::tshiftcnt);
+
     type = e1->type;
     return this;
 }
@@ -12926,6 +12925,7 @@ Expression *ShrExp::semantic(Scope *sc)
     }
     e1 = integralPromotions(e1, sc);
     e2 = e2->castTo(sc, Type::tshiftcnt);
+
     type = e1->type;
     return this;
 }
@@ -12958,6 +12958,7 @@ Expression *UshrExp::semantic(Scope *sc)
 
     e1 = integralPromotions(e1, sc);
     e2 = e2->castTo(sc, Type::tshiftcnt);
+
     type = e1->type;
     return this;
 }

@@ -297,6 +297,7 @@ public:
     void accept(Visitor *v) { v->visit(this); }
     dinteger_t getInteger() { return value; }
     void setInteger(dinteger_t value);
+
 private:
     void normalize();
 };

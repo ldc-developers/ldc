@@ -1285,6 +1285,7 @@ Lnomatch:
                 if (sc->scopesym->members)
                     sc->scopesym->members->push(v);
             }
+
             Expression *e = new DsymbolExp(loc, v);
             (*exps)[i] = e;
         }

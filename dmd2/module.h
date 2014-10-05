@@ -85,6 +85,7 @@ public:
 
     static AggregateDeclaration *moduleinfo;
 
+
     const char *arg;    // original argument name
     ModuleDeclaration *md; // if !NULL, the contents of the ModuleDeclaration declaration
     File *srcfile;      // input source file
@@ -92,7 +93,6 @@ public:
     File *hdrfile;      // 'header' file
     File *symfile;      // output symbol file
     File *docfile;      // output documentation file
-
     unsigned errors;    // if any errors in file
     unsigned numlines;  // number of lines in source file
     int isDocFile;      // if it is a documentation input file, not D source
