@@ -75,10 +75,7 @@ struct elem;
 #if IN_LLVM
 struct IRState;
 namespace llvm {
-    class Constant;
-    class ConstantInt;
     class GlobalVariable;
-    class StructType;
     class Value;
 }
 #endif
