@@ -268,8 +268,6 @@ public:
     virtual void accept(Visitor *v) { v->visit(this); }
 #if IN_LLVM
     llvm::Value* cachedLvalue;
-
-    virtual AssignExp* isAssignExp() { return NULL; }
 #endif
 };
 
