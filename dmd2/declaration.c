@@ -1899,15 +1899,6 @@ void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset,
     ad->fields.push(this);
 }
 
-void VarDeclaration::semantic3(Scope *sc)
-{
-    if (aliassym)
-        aliassym->semantic3(sc);
-
-    // Preserve call chain
-    Declaration::semantic3(sc);
-}
-
 const char *VarDeclaration::kind()
 {
     return "variable";
