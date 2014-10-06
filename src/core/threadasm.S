@@ -53,17 +53,18 @@
     .abiversion 2
 #endif
     .globl  _D4core6thread18callWithStackShellFNbMDFPvZvZv
+    .globl  _D4core6thread18callWithStackShellFNbMDFNbPvZvZv
     .align  2
-    .type   _D4core6thread18callWithStackShellFNbMDFPvZvZv,@function
+    .type   _D4core6thread18callWithStackShellFNbMDFNbPvZvZv,@function
 #if defined( USE_ABI_2 )
-    .section .text._D4core6thread18callWithStackShellFNbMDFPvZvZv,"aw",@progbits
+    .section .text._D4core6thread18callWithStackShellFNbMDFNbPvZvZv,"aw",@progbits
 #else
     .section .opd,"aw",@progbits
 #endif
-_D4core6thread18callWithStackShellFNbMDFPvZvZv:
+_D4core6thread18callWithStackShellFNbMDFNbPvZvZv:
 #if !defined( USE_ABI_2 )
     .align  3
-    .quad .L._D4core6thread18callWithStackShellFNbMDFPvZvZv
+    .quad .L._D4core6thread18callWithStackShellFNbMDFNbPvZvZv
     .quad .TOC.@tocbase
     .quad 0
 #endif
@@ -73,7 +74,7 @@ _D4core6thread18callWithStackShellFNbMDFPvZvZv:
  * r3: pointer context
  * r4: pointer to function
  */
-.L._D4core6thread18callWithStackShellFNbMDFPvZvZv:
+.L._D4core6thread18callWithStackShellFNbMDFNbPvZvZv:
     .cfi_startproc
     stdu    1, -STACK_SZ(1)
     mflr    0
@@ -169,7 +170,7 @@ _D4core6thread18callWithStackShellFNbMDFPvZvZv:
     .long 0
     .quad 0
 .Lend:
-    .size _D4core6thread18callWithStackShellFNbMDFPvZvZv, .Lend-.L._D4core6thread18callWithStackShellFNbMDFPvZvZv
+    .size _D4core6thread18callWithStackShellFNbMDFNbPvZvZv, .Lend-.L._D4core6thread18callWithStackShellFNbMDFNbPvZvZv
     .cfi_endproc
 
 #elif defined( __ppc__ ) || defined( __PPC__ ) || defined( __powerpc__ )
