@@ -218,7 +218,7 @@ Expression *eval_bswap(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     uinteger_t n = arg0->toInteger();
     #define BYTEMASK  0x00FF00FF00FF00FFLL
     #define SHORTMASK 0x0000FFFF0000FFFFLL
-    #define INTMASK 0x0000FFFF0000FFFFLL
+    #define INTMASK 0x00000000FFFFFFFFLL
     switch (type->toBasetype()->ty)
     {
       case Tint64:
