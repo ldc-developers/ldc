@@ -5046,7 +5046,6 @@ Statement *LabelStatement::semantic(Scope *sc)
     if (statement)
         statement = statement->semantic(sc);
     sc->pop();
-
     return this;
 }
 
