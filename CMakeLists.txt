@@ -61,10 +61,8 @@ set(PROGRAM_SUFFIX "" CACHE STRING "Appended to ldc/ldmd binary names")
 set(CONF_INST_DIR ${SYSCONF_INSTALL_DIR} CACHE PATH "Directory ldc.conf is installed to")
 
 # The following flags are currently not well tested, expect the build to fail.
-option(USE_BOEHM_GC "use the Boehm garbage collector internally")
 option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
-
-mark_as_advanced(USE_BOEHM_GC GENERATE_OFFTI)
+mark_as_advanced(GENERATE_OFFTI)
 
 if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
@@ -332,10 +330,6 @@ add_definitions(
     -DLDC_LLVM_VER=${LDC_LLVM_VER}
 )
 
-if(USE_BOEHM_GC)
-    add_definitions(-DREDIRECT_MALLOC=GC_malloc -DIGNORE_FREE)
-endif()
-
 if(GENERATE_OFFTI)
     add_definitions(-DGENERATE_OFFTI)
 endif()
@@ -426,10 +420,6 @@ if(WIN32)
     target_link_libraries(${LDC_LIB} imagehlp psapi)
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(${LDC_LIB} dl)
-endif()
-
-if(USE_BOEHM_GC)
-    target_link_libraries(${LDC_LIB} ${PROJECT_SOURCE_DIR}/libgc.a)
 endif()
 
 
