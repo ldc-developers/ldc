@@ -1876,8 +1876,6 @@ int main(int argc, const char *argv[])
     return status;
 }
 
-#endif // !IN_LLVM
-
 /***********************************
  * Parse and append contents of environment variable envvar
  * to argc and argv[].
@@ -1902,23 +1900,8 @@ void getenv_setargv(const char *envvar, size_t *pargc, const char** *pargv)
     Strings *argv = new Strings();
     argv->setDim(argc);
 
-    int argc_left = 0;
-    for (int i = 0; i < argc; i++) {
-        if (!strcmp((*pargv)[i], "-run") || !strcmp((*pargv)[i], "--run")) {
-            // HACK: set flag to indicate we saw '-run' here
-            global.params.run = true;
-            // Don't eat -run yet so the program arguments don't get changed
-            argc_left = argc - i;
-            argc = i;
-            *pargv = &(*pargv)[i];
-            argv->setDim(i);
-            break;
-        } else {
-        }
-    }
-    // HACK to stop required values from command line being drawn from DFLAGS
-    argv->push((char*)"");
-    argc++;
+    for (size_t i = 0; i < argc; i++)
+        (*argv)[i] = (*pargv)[i];
 
     size_t j = 1;               // leave argv[0] alone
     while (1)
@@ -1990,14 +1973,11 @@ void getenv_setargv(const char *envvar, size_t *pargc, const char** *pargv)
     }
 
 Ldone:
-    assert(argc == argv->dim);
-    argv->reserve(argc_left);
-    for (int i = 0; i < argc_left; i++)
-        (*argv)[argc++] = (*pargv)[i];
-
     *pargc = argc;
     *pargv = argv->tdata();
 }
+
+#endif // !IN_LLVM
 
 void escapePath(OutBuffer *buf, const char *fname)
 {
