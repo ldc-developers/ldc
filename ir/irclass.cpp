@@ -338,7 +338,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
             name.printf("%i", b->offset);
             name.writestring(mangleExact(fd));
             LLFunction *thunk = LLFunction::Create(isaFunction(fn->getType()->getContainedType(0)),
-                                                 DtoLinkage(fd), name.extractString(), gIR->module);
+                DtoLinkage(fd), name.extractString(), gIR->module);
 
             // create entry and end blocks
             llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "", thunk);
@@ -390,7 +390,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
         *gIR->module,
         vtbl_constant->getType(),
         true,
-        DtoExternalLinkage(cd),
+        DtoLinkage(cd),
         vtbl_constant,
         mangledName
     );
@@ -485,7 +485,7 @@ LLConstant * IrAggr::getClassInfoInterfaces()
     // create and apply initializer
     LLConstant* arr = LLConstantArray::get(array_type, constants);
     classInterfacesArray->setInitializer(arr);
-    classInterfacesArray->setLinkage(DtoExternalLinkage(cd));
+    classInterfacesArray->setLinkage(DtoLinkage(cd));
 
     // return null, only baseclass provide interfaces
     if (cd->vtblInterfaces->dim == 0)

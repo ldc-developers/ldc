@@ -21,6 +21,7 @@
 #include "gen/classes.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
+#include "gen/linkage.h"
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
@@ -924,7 +925,25 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-// FIXME: this isn't too pretty!
+static llvm::GlobalValue::LinkageTypes lowerFuncLinkage(FuncDeclaration* fdecl)
+{
+    // Intrinsics are always external.
+    if (fdecl->llvmInternal == LLVMintrinsic)
+        return llvm::GlobalValue::ExternalLinkage;
+
+    // Generated array op functions behave like templates in that they might be
+    // emitted into many different modules.
+    if (fdecl->isArrayOp && !isDruntimeArrayOp(fdecl))
+        return templateLinkage;
+
+    // A body-less declaration always needs to be marked as external in LLVM
+    // (also e.g. naked template functions which would otherwise be weak_odr,
+    // but where the definition is in module-level inline asm).
+    if (!fdecl->fbody || fdecl->naked)
+        return llvm::GlobalValue::ExternalLinkage;
+
+    return DtoLinkage(fdecl);
+}
 
 void DtoDefineFunction(FuncDeclaration* fd)
 {
@@ -1061,7 +1080,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     if (fd->isMain())
         gIR->emitMain = true;
 
-    func->setLinkage(DtoLinkage(fd));
+    func->setLinkage(lowerFuncLinkage(fd));
 
     // On x86_64, always set 'uwtable' for System V ABI compatibility.
     // TODO: Find a better place for this.

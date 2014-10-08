@@ -88,7 +88,7 @@ public:
             IrAggr *ir = getIrAggr(decl);
             llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
             interfaceZ->setInitializer(ir->getClassInfoInit());
-            interfaceZ->setLinkage(DtoExternalLinkage(decl));
+            interfaceZ->setLinkage(DtoLinkage(decl));
         }
     }
 
@@ -123,7 +123,7 @@ public:
             IrAggr *ir = getIrAggr(decl);
             llvm::GlobalVariable *initZ = ir->getInitSymbol();
             initZ->setInitializer(ir->getDefaultInit());
-            initZ->setLinkage(DtoExternalLinkage(decl));
+            initZ->setLinkage(DtoLinkage(decl));
 
             // emit typeinfo
             DtoTypeInfoOf(decl->type);
@@ -166,7 +166,7 @@ public:
             }
 
             IrAggr *ir = getIrAggr(decl);
-            llvm::GlobalValue::LinkageTypes const linkage = DtoExternalLinkage(decl);
+            llvm::GlobalValue::LinkageTypes const linkage = DtoLinkage(decl);
 
             llvm::GlobalVariable *initZ = ir->getInitSymbol();
             initZ->setInitializer(ir->getDefaultInit());

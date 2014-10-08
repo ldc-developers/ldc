@@ -548,13 +548,9 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, LLType* arrayT)
     LLArrayType* arrTy = llvm::ArrayType::get(arrayInits[0]->getType(), nvars);
     LLConstant* arrInit = LLConstantArray::get(arrTy, arrayInits);
 
-    // mangle
-    std::string name(cd->type->vtinfo->toChars());
-    name.append("__OffsetTypeInfos");
-
     // create symbol
     llvm::GlobalVariable* gvar = getOrCreateGlobal(cd->loc, *gIR->module, arrTy,
-        true,DtoInternalLinkage(cd),arrInit,name);
+        true, llvm::GlobalValue::InternalLinkage, arrInit, ".offti");
     ptr = DtoBitCast(gvar, getPtrToType(arrTy->getElementType()));
 
     return DtoConstSlice(size, ptr);
