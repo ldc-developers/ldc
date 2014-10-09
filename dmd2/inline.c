@@ -135,7 +135,6 @@ public:
 
     void visit(IfStatement *s)
     {
-#if !IN_LLVM
         /* Can't declare variables inside ?: expressions, so
          * we cannot inline if a variable is declared.
          */
@@ -144,11 +143,9 @@ public:
             cost = COST_MAX;
             return;
         }
-#endif
 
         expressionInlineCost(s->condition);
 
-#if !IN_LLVM
         /* Specifically allow:
          *  if (condition)
          *      return exp1;
@@ -166,7 +163,6 @@ public:
             //printf("cost = %d\n", cost);
         }
         else
-#endif
         {
             nested += 1;
             if (s->ifbody)
@@ -180,14 +176,12 @@ public:
 
     void visit(ReturnStatement *s)
     {
-#if !IN_LLVM
         // Can't handle return statements nested in if's
         if (nested)
         {
             cost = COST_MAX;
         }
         else
-#endif
         {
             expressionInlineCost(s->exp);
         }
@@ -280,7 +274,6 @@ public:
 
     void visit(ThisExp *e)
     {
-#if !IN_LLVM
         //printf("ThisExp::inlineCost3() %s\n", toChars());
         if (!fd)
         {
@@ -295,7 +288,6 @@ public:
                 return;
             }
         }
-#endif
         cost++;
     }
 
@@ -311,17 +303,12 @@ public:
     void visit(FuncExp *e)
     {
         //printf("FuncExp::inlineCost3()\n");
-
-    // This breaks on LDC too, since nested functions have internal linkage
-    // and thus can't be referenced from other objects.
         // Right now, this makes the function be output to the .obj file twice.
         cost = COST_MAX;
     }
 
     void visit(DelegateExp *e)
     {
-    // This breaks on LDC too, since nested functions have internal linkage
-    // and thus can't be referenced from other objects.
         //printf("DelegateExp::inlineCost3()\n");
         cost = COST_MAX;
     }
@@ -343,8 +330,6 @@ public:
                 cost = COST_MAX;
                 return;
             }
-        // This breaks on LDC too, since nested static variables have internal
-        // linkage and thus can't be referenced from other objects.
 
             if (vd->edtor)
             {
@@ -367,8 +352,6 @@ public:
         }
 
         // These can contain functions, which when copied, get output twice.
-        // These break on LDC too, since nested static variables and functions have
-        // internal linkage and thus can't be referenced from other objects.
         if (e->declaration->isStructDeclaration() ||
             e->declaration->isClassDeclaration() ||
             e->declaration->isFuncDeclaration() ||
@@ -391,6 +374,7 @@ public:
         if (e->e1->op == TOKdotvar && ((DotVarExp *)e->e1)->e1->op == TOKsuper)
             cost = COST_MAX;
 #if !IN_LLVM
+        // In LDC, we only use the inliner for default arguments anyway.
         else if (e->f && e->f->ident == Id::__alloca && e->f->linkage == LINKc && !allowAlloca)
             cost = COST_MAX; // inlining alloca may cause stack overflows
 #endif
@@ -1684,10 +1668,6 @@ int canInline(FuncDeclaration *fd, int hasthis, int hdrscan, int statementsToo)
     {
         assert(fd->type->ty == Tfunction);
         TypeFunction *tf = (TypeFunction *)fd->type;
-#if IN_LLVM
-        // LDC: Only extern(C) varargs count.
-        if (tf->linkage != LINKd)
-#endif
         if (tf->varargs == 1)   // no variadic parameter lists
             goto Lno;
 
@@ -1700,9 +1680,6 @@ int canInline(FuncDeclaration *fd, int hasthis, int hdrscan, int statementsToo)
             !hdrscan)
             goto Lno;
     }
-#if !IN_LLVM
-    // LDC: Only extern(C) varargs count, and ctors use extern(D).
-#endif
 
     // cannot inline constructor calls because we need to convert:
     //      return;
@@ -1752,10 +1729,8 @@ int canInline(FuncDeclaration *fd, int hasthis, int hdrscan, int statementsToo)
         else
             fd->inlineStatusExp = ILSyes;
 
-#if !IN_LLVM // TODO: why was it added in the first place?
         InlineScanVisitor v;
         fd->accept(&v);      // Don't scan recursively for header content scan
-#endif
 
         if (fd->inlineStatusExp == ILSuninitialized)
         {

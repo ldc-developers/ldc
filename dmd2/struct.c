@@ -206,7 +206,6 @@ void AggregateDeclaration::semantic3(Scope *sc)
     if (!members)
         return;
 
-
     StructDeclaration *sd = isStructDeclaration();
     if (!sc)    // from runDeferredSemantic3 for TypeInfo generation
     {

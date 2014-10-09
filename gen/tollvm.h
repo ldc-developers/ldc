@@ -59,10 +59,9 @@ llvm::Attributes DtoShouldExtend(Type* type);
 // delegate helpers
 LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs);
 
-// return linkage type for symbol using the current ir state for context
+// Returns the LLVM linkage to use for the definition of the given symbol,
+// based on whether it is a template or not.
 LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym);
-LLGlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym);
-LLGlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym);
 
 // some types
 LLIntegerType* DtoSize_t();

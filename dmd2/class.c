@@ -830,7 +830,6 @@ Lancestorsdone:
             alignsize = thissize;
     }
     structsize = offset;
-
     sizeok = SIZEOKdone;
 
     Module::dprogress++;
