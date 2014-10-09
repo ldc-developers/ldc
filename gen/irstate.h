@@ -143,11 +143,6 @@ struct IRState
     TypeFunction* topfunctype();
     llvm::Instruction* topallocapoint();
 
-    // structs
-    typedef std::vector<IrAggr*> StructVector;
-    StructVector structs;
-    IrAggr* topstruct();
-
     // D main function
     bool emitMain;
     llvm::Function* mainFunc;
@@ -196,7 +191,8 @@ struct IRState
     IRAsmBlock* asmBlock;
     std::ostringstream nakedAsm;
 
-    // 'used' array solely for keeping a reference to globals
+    // Globals to pin in the llvm.used array to make sure they are not
+    // eliminated.
     std::vector<LLConstant*> usedArray;
 
     /// Whether to emit array bounds checking in the current function.
