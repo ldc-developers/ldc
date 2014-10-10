@@ -23,52 +23,52 @@
 // Implements byval argument passing for scalar non-struct types.
 struct PPC64_byval_rewrite : ABIRewrite
 {
-	// Get instance from pointer.
-	LLValue* get(Type* dty, DValue* v)
-	{
-		LLValue* ptr = v->getRVal();
-		return DtoLoad(ptr); // *ptr
-	}
+    // Get instance from pointer.
+    LLValue* get(Type* dty, DValue* v)
+    {
+        LLValue* ptr = v->getRVal();
+        return DtoLoad(ptr); // *ptr
+    }
 
-	// Get instance from pointer, and store in the provided location.
-	void getL(Type* dty, DValue* v, llvm::Value* lval)
-	{
-		LLValue* ptr = v->getRVal();
-		DtoStore(DtoLoad(ptr), lval); // *lval = *ptr
-	}
+    // Get instance from pointer, and store in the provided location.
+    void getL(Type* dty, DValue* v, llvm::Value* lval)
+    {
+        LLValue* ptr = v->getRVal();
+        DtoStore(DtoLoad(ptr), lval); // *lval = *ptr
+    }
 
-	// Turn an instance into a pointer (to a private copy for the callee,
-	// allocated by the caller).
-	LLValue* put(Type* dty, DValue* v)
-	{
-		/* NOTE: probably not safe
-		// optimization: do not copy if parameter is not mutable
-		if (!dty->isMutable() && v->isLVal())
-		return v->getLVal();
-		*/
+    // Turn an instance into a pointer (to a private copy for the callee,
+    // allocated by the caller).
+    LLValue* put(Type* dty, DValue* v)
+    {
+        /* NOTE: probably not safe
+        // optimization: do not copy if parameter is not mutable
+        if (!dty->isMutable() && v->isLVal())
+        return v->getLVal();
+        */
 
-		LLValue* original = v->getRVal();
-		LLValue* copy = DtoRawAlloca(original->getType(), 16, "copy_for_callee");
-		DtoStore(original, copy); // *copy = *original
-		return copy;
-	}
+        LLValue* original = v->getRVal();
+        LLValue* copy = DtoRawAlloca(original->getType(), 16, "copy_for_callee");
+        DtoStore(original, copy); // *copy = *original
+        return copy;
+    }
 
-	/// should return the transformed type for this rewrite
-	LLType* type(Type* dty, LLType* t)
-	{
-		return getPtrToType(DtoType(dty));
-	}
+    /// should return the transformed type for this rewrite
+    LLType* type(Type* dty, LLType* t)
+    {
+        return getPtrToType(DtoType(dty));
+    }
 };
 
 struct PPC64TargetABI : TargetABI {
-	PPC64_byval_rewrite byval_rewrite;
-	CompositeToInt compositeToInt;
-	const bool Is64Bit;
+    PPC64_byval_rewrite byval_rewrite;
+    CompositeToInt compositeToInt;
+    const bool Is64Bit;
 
-	PPC64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit)
-	{ }
+    PPC64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit)
+    { }
 
-	llvm::CallingConv::ID callingConv(LINK l)
+    llvm::CallingConv::ID callingConv(LINK l)
     {
         switch (l)
         {
@@ -103,8 +103,8 @@ struct PPC64TargetABI : TargetABI {
 
     bool passByVal(Type* t)
     {
-		TY ty = t->toBasetype()->ty;
-		return ty == Tstruct || ty == Tsarray;
+        TY ty = t->toBasetype()->ty;
+        return ty == Tstruct || ty == Tsarray;
     }
 
     void doneWithFunctionType()
@@ -113,58 +113,58 @@ struct PPC64TargetABI : TargetABI {
 
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     {
-		// EXPLICIT PARAMETERS
+        // EXPLICIT PARAMETERS
 
-		for (IrFuncTy::ArgRIter I = fty.args.rbegin(), E = fty.args.rend(); I != E; ++I)
-		{
-			IrFuncTyArg& arg = **I;
+        for (IrFuncTy::ArgRIter I = fty.args.rbegin(), E = fty.args.rend(); I != E; ++I)
+        {
+            IrFuncTyArg& arg = **I;
 
-			if (arg.byref)
-				continue;
+            if (arg.byref)
+                continue;
 
-			Type* ty = arg.type->toBasetype();
+            Type* ty = arg.type->toBasetype();
 
-			if ((ty->ty == Tstruct || ty->ty == Tsarray))
-			{
-				if (canRewriteAsInt(ty))
-				{
-					arg.rewrite = &compositeToInt;
-					arg.ltype = compositeToInt.type(arg.type, arg.ltype);
-				}
-				else
-				{
-					// these types are passed byval:
-					// the caller allocates a copy and then passes a pointer to the copy
-					arg.rewrite = &byval_rewrite;
-					arg.ltype = byval_rewrite.type(arg.type, arg.ltype);
-				}
+            if ((ty->ty == Tstruct || ty->ty == Tsarray))
+            {
+                if (canRewriteAsInt(ty))
+                {
+                    arg.rewrite = &compositeToInt;
+                    arg.ltype = compositeToInt.type(arg.type, arg.ltype);
+                }
+                else
+                {
+                    // these types are passed byval:
+                    // the caller allocates a copy and then passes a pointer to the copy
+                    arg.rewrite = &byval_rewrite;
+                    arg.ltype = byval_rewrite.type(arg.type, arg.ltype);
+                }
 
-				// the copy is treated as a local variable of the callee
-				// hence add the NoAlias and NoCapture attributes
+                // the copy is treated as a local variable of the callee
+                // hence add the NoAlias and NoCapture attributes
 #if LDC_LLVM_VER >= 303
-				arg.attrs.clear();
-				arg.attrs.addAttribute(llvm::Attribute::NoAlias)
-					.addAttribute(llvm::Attribute::NoCapture);
+                arg.attrs.clear();
+                arg.attrs.addAttribute(llvm::Attribute::NoAlias)
+                    .addAttribute(llvm::Attribute::NoCapture);
 #elif LDC_LLVM_VER == 302
-				arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
-					.addAttribute(llvm::Attributes::NoCapture));
+                arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
+                    .addAttribute(llvm::Attributes::NoCapture));
 #else
-				arg.attrs = llvm::Attribute::NoAlias | llvm::Attribute::NoCapture;
+                arg.attrs = llvm::Attribute::NoAlias | llvm::Attribute::NoCapture;
 #endif
-			}
-		}
-	}
+            }
+        }
+    }
 
-	// Returns true if the D type can be bit-cast to an integer of the same size.
-	bool canRewriteAsInt(Type* t)
-	{
-		const unsigned size = t->size();
-		return size == 1 || size == 2 || size == 4 || (Is64Bit && size == 8);
-	}
+    // Returns true if the D type can be bit-cast to an integer of the same size.
+    bool canRewriteAsInt(Type* t)
+    {
+        const unsigned size = t->size();
+        return size == 1 || size == 2 || size == 4 || (Is64Bit && size == 8);
+    }
 };
 
 // The public getter for abi.cpp
 TargetABI* getPPC64TargetABI(bool Is64Bit)
 {
-	return new PPC64TargetABI(Is64Bit);
+    return new PPC64TargetABI(Is64Bit);
 }
