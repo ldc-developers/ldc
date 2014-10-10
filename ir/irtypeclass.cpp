@@ -65,7 +65,6 @@ void IrTypeClass::addBaseClassData(
     // mirror the sd->fields array but only fill in contributors
     const size_t n = base->fields.dim;
     LLSmallVector<VarDeclaration*, 16> data(n, NULL);
-    default_fields.reserve(n);
 
     // first fill in the fields with explicit initializers
     for (size_t index = 0; index < n; ++index)
@@ -157,10 +156,6 @@ void IrTypeClass::addBaseClassData(
             continue;
 
         assert(vd->offset >= offset && "it's a bug... most likely DMD bug 2481");
-
-        // add to default field list
-        if (cd == base)
-            default_fields.push_back(vd);
 
         // get next aligned offset for this type
         size_t alignedoffset = realignOffset(offset, vd->type);
