@@ -1902,19 +1902,32 @@ llvm::GlobalVariable* getOrCreateGlobal(Loc& loc, llvm::Module& module,
 #endif
 }
 
-FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic) {
+FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic)
+{
     if (!sym)
         return NULL;
+
     Dsymbol* parent = sym->parent;
     assert(parent);
-    while (parent && !parent->isFuncDeclaration()) {
-        if (stopOnStatic) {
-            Declaration* decl = sym->isDeclaration();
-            if (decl && decl->isStatic())
-                return NULL;
+
+    while (parent && !parent->isFuncDeclaration())
+    {
+        if (stopOnStatic)
+        {
+            // Fun fact: AggregateDeclarations are not Declarations.
+            if (FuncDeclaration* decl = parent->isFuncDeclaration())
+            {
+                if (decl->isStatic())
+                    return NULL;
+            }
+            else if (AggregateDeclaration* decl = parent->isAggregateDeclaration())
+            {
+                if (!decl->isNested())
+                    return NULL;
+            }
         }
         parent = parent->parent;
     }
 
-    return (parent ? parent->isFuncDeclaration() : NULL);
+    return parent ? parent->isFuncDeclaration() : NULL;
 }
