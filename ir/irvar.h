@@ -99,12 +99,6 @@ struct IrField : IrVar
 
     unsigned index;
     unsigned unionOffset;
-
-    llvm::Constant* getDefaultInit();
-
-protected:
-    /// FIXME: only used for StructLiteralsExps
-    llvm::Constant* constInit;
 };
 
 IrVar *getIrVar(VarDeclaration *decl);

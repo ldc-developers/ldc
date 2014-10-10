@@ -29,16 +29,6 @@ void IrField::setAggrIndex(unsigned aggrIndex)
     unionOffset = 0;
 }
 
-extern LLConstant* get_default_initializer(VarDeclaration* vd, Initializer* init);
-
-llvm::Constant* IrField::getDefaultInit()
-{
-    if (constInit)
-        return constInit;
-    constInit = get_default_initializer(V, V->init);
-    return constInit;
-}
-
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
