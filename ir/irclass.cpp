@@ -420,14 +420,14 @@ LLConstant * IrAggr::getClassInfoInterfaces()
     if (n == 0)
         return getNullValue(DtoType(interfaces_idx->type));
 
-// Build array of:
-//
-//     struct Interface
-//     {
-//         ClassInfo   classinfo;
-//         void*[]     vtbl;
-//         ptrdiff_t   offset;
-//     }
+    // Build array of:
+    //
+    // struct Interface
+    // {
+    //     ClassInfo   classinfo;
+    //     void*[]     vtbl;
+    //     ptrdiff_t   offset;
+    // }
 
     LLSmallVector<LLConstant*, 6> constants;
     constants.reserve(cd->vtblInterfaces->dim);
