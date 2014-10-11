@@ -162,7 +162,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd, E
         }
 
         // get a pointer to this field
-        DVarValue field(vd->type, vd, DtoIndexStruct(mem, sd, vd));
+        DVarValue field(vd->type, vd, DtoIndexAggregate(mem, sd, vd));
 
         // store the initializer there
         DtoAssign(loc, &field, val, TOKconstruct, true);
@@ -1303,17 +1303,17 @@ public:
             if (e1type->ty == Tpointer) {
                 assert(e1type->nextOf()->ty == Tstruct);
                 TypeStruct* ts = static_cast<TypeStruct*>(e1type->nextOf());
-                arrptr = DtoIndexStruct(l->getRVal(), ts->sym, vd);
+                arrptr = DtoIndexAggregate(l->getRVal(), ts->sym, vd);
             }
             // indexing normal struct
             else if (e1type->ty == Tstruct) {
                 TypeStruct* ts = static_cast<TypeStruct*>(e1type);
-                arrptr = DtoIndexStruct(l->getRVal(), ts->sym, vd);
+                arrptr = DtoIndexAggregate(l->getRVal(), ts->sym, vd);
             }
             // indexing class
             else if (e1type->ty == Tclass) {
                 TypeClass* tc = static_cast<TypeClass*>(e1type);
-                arrptr = DtoIndexClass(l->getRVal(), tc->sym, vd);
+                arrptr = DtoIndexAggregate(l->getRVal(), tc->sym, vd);
             }
             else
                 llvm_unreachable("Unknown DotVarExp type for VarDeclaration.");

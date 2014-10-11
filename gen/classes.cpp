@@ -410,54 +410,6 @@ DValue* DtoDynamicCastInterface(Loc& loc, DValue* val, Type* _to)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoIndexClass(LLValue* src, ClassDeclaration* cd, VarDeclaration* vd)
-{
-    IF_LOG Logger::println("indexing class field %s:", vd->toPrettyChars());
-    LOG_SCOPE;
-
-    IF_LOG Logger::cout() << "src: " << *src << '\n';
-
-    // make sure class is resolved
-    DtoResolveClass(cd);
-
-    // vd must be a field
-    IrField* field = getIrField(vd);
-    assert(field);
-
-    // get the start pointer
-    LLType* st = DtoType(cd->type);
-    // cast to the struct type
-    src = DtoBitCast(src, st);
-
-    // gep to the index
-#if 0
-    IF_LOG {
-        Logger::cout() << "src2: " << *src << '\n';
-        Logger::cout() << "index: " << field->index << '\n';
-        Logger::cout() << "srctype: " << *src->getType() << '\n';
-    }
-#endif
-    LLValue* val = DtoGEPi(src, 0, field->index);
-
-    // do we need to offset further? (union area)
-    if (field->unionOffset)
-    {
-        // cast to void*
-        val = DtoBitCast(val, getVoidPtrType());
-        // offset
-        val = DtoGEPi1(val, field->unionOffset);
-    }
-
-    // cast it to the right type
-    val = DtoBitCast(val, getPtrToType(i1ToI8(DtoType(vd->type))));
-
-    IF_LOG Logger::cout() << "value: " << *val << '\n';
-
-    return val;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 LLValue* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl, char* name)
 {
     // sanity checks

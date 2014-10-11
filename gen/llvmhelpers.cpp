@@ -1931,3 +1931,36 @@ FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic)
 
     return parent ? parent->isFuncDeclaration() : NULL;
 }
+
+LLValue* DtoIndexAggregate(LLValue* src, AggregateDeclaration* ad, VarDeclaration* vd)
+{
+    IF_LOG Logger::println("Indexing aggregate field %s:", vd->toPrettyChars());
+    LOG_SCOPE;
+
+    // Cast the pointer we got to the canonical struct type the indices are
+    // based on.
+    LLType* st = DtoType(ad->type);
+    if (ad->isStructDeclaration())
+        st = getPtrToType(st);
+    src = DtoBitCast(src, st);
+
+    // gep to the index
+    DtoResolveDsymbol(ad);
+    IrField* field = getIrField(vd);
+    LLValue* val = DtoGEPi(src, 0, field->index);
+
+    // do we need to offset further? (union area)
+    if (field->unionOffset)
+    {
+        // cast to void*
+        val = DtoBitCast(val, getVoidPtrType());
+        // offset
+        val = DtoGEPi1(val, field->unionOffset);
+    }
+
+    // cast it to the right type
+    val = DtoBitCast(val, getPtrToType(i1ToI8(DtoType(vd->type))));
+
+    IF_LOG Logger::cout() << "Value: " << *val << '\n';
+    return val;
+}
