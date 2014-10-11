@@ -94,17 +94,7 @@ struct IrParameter : IrLocal
 // represents an aggregate field variable
 struct IrField : IrVar
 {
-    IrField(VarDeclaration* v);
-    void setAggrIndex(unsigned aggrIndex);
-
-    unsigned index;
-    unsigned unionOffset;
-
-    llvm::Constant* getDefaultInit();
-
-protected:
-    /// FIXME: only used for StructLiteralsExps
-    llvm::Constant* constInit;
+    IrField(VarDeclaration* v) : IrVar(v) {};
 };
 
 IrVar *getIrVar(VarDeclaration *decl);

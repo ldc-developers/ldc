@@ -93,46 +93,6 @@ LLValue* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
-{
-    IF_LOG Logger::println("indexing struct field %s:", vd->toPrettyChars());
-    LOG_SCOPE;
-
-    DtoResolveStruct(sd);
-
-    // vd must be a field
-    IrField* field = getIrField(vd);
-    assert(field);
-
-    // get the start pointer
-    LLType* st = getPtrToType(DtoType(sd->type));
-
-    // cast to the formal struct type
-    src = DtoBitCast(src, st);
-
-    // gep to the index
-    assert(vd->ident);
-    LLValue* val = DtoGEPi(src, 0, field->index, vd->ident->toChars());
-
-    // do we need to offset further? (union area)
-    if (field->unionOffset)
-    {
-        // cast to void*
-        val = DtoBitCast(val, getVoidPtrType());
-        // offset
-        val = DtoGEPi1(val, field->unionOffset);
-    }
-
-    // cast it to the right type
-    val = DtoBitCast(val, getPtrToType(i1ToI8(DtoType(vd->type))));
-
-    IF_LOG Logger::cout() << "value: " << *val << '\n';
-
-    return val;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 /// Return the type returned by DtoUnpaddedStruct called on a value of the
 /// specified type.
 /// Union types will get expanded into a struct, with a type for each member.
@@ -178,7 +138,7 @@ LLValue* DtoUnpaddedStruct(Type* dty, LLValue* v) {
     LLValue* newval = llvm::UndefValue::get(DtoUnpaddedStructType(dty));
 
     for (unsigned i = 0; i < fields.dim; i++) {
-        LLValue* fieldptr = DtoIndexStruct(v, sty->sym, fields[i]);
+        LLValue* fieldptr = DtoIndexAggregate(v, sty->sym, fields[i]);
         LLValue* fieldval;
         if (fields[i]->type->ty == Tstruct) {
             // Nested structs are the only members that can contain padding
@@ -198,7 +158,7 @@ void DtoPaddedStruct(Type* dty, LLValue* v, LLValue* lval) {
     VarDeclarations& fields = sty->sym->fields;
 
     for (unsigned i = 0; i < fields.dim; i++) {
-        LLValue* fieldptr = DtoIndexStruct(lval, sty->sym, fields[i]);
+        LLValue* fieldptr = DtoIndexAggregate(lval, sty->sym, fields[i]);
         LLValue* fieldval = DtoExtractValue(v, i);
         if (fields[i]->type->ty == Tstruct) {
             // Nested structs are the only members that can contain padding

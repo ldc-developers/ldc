@@ -112,7 +112,6 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
     // mirror the sd->fields array but only fill in contributors
     const size_t n = sd->fields.dim;
     LLSmallVector<VarDeclaration*, 16> data(n, NULL);
-    t->default_fields.reserve(n);
 
     // first fill in the fields with explicit initializers
     for (size_t index = 0; index < n; ++index)
@@ -218,9 +217,6 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
 
         assert(vd->offset >= offset);
 
-        // add to default field list
-        t->default_fields.push_back(vd);
-
         // get next aligned offset for this type
         size_t alignedoffset = offset;
         if (!packed)
@@ -241,7 +237,7 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
         offset = vd->offset + vd->type->size();
 
         // set the field index
-        getIrField(vd, true)->setAggrIndex(static_cast<unsigned>(field_index));
+        t->varGEPIndices[vd] = field_index;
         ++field_index;
     }
 

@@ -30,6 +30,7 @@
 #include "gen/typeinf.h"
 #include "gen/abi.h"
 #include "ir/irmodule.h"
+#include "ir/irtypeaggr.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -1930,4 +1931,55 @@ FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic)
     }
 
     return parent ? parent->isFuncDeclaration() : NULL;
+}
+
+LLValue* DtoIndexAggregate(LLValue* src, AggregateDeclaration* ad, VarDeclaration* vd)
+{
+    IF_LOG Logger::println("Indexing aggregate field %s:", vd->toPrettyChars());
+    LOG_SCOPE;
+
+    // Make sure the aggregate is resolved, as subsequent code might expect
+    // isIrVarCreated(vd). This is a bit of a hack, we don't actually need this
+    // ourselves, DtoType below would be enough.
+    DtoResolveDsymbol(ad);
+
+    // Cast the pointer we got to the canonical struct type the indices are
+    // based on.
+    LLType* st = DtoType(ad->type);
+    if (ad->isStructDeclaration())
+        st = getPtrToType(st);
+    src = DtoBitCast(src, st);
+
+    // Look up field to index and any offset to apply.
+    unsigned fieldIndex;
+    unsigned byteOffset;
+    assert(ad->type->ctype->isAggr());
+    static_cast<IrTypeAggr*>(ad->type->ctype)->getMemberLocation(
+        vd, fieldIndex, byteOffset);
+
+    LLValue* val = DtoGEPi(src, 0, fieldIndex);
+
+    if (byteOffset)
+    {
+        // Cast to void* to apply byte-wise offset.
+        val = DtoBitCast(val, getVoidPtrType());
+        val = DtoGEPi1(val, byteOffset);
+    }
+
+    // Cast the (possibly void*) pointer to the canonical variable type.
+    val = DtoBitCast(val, getPtrToType(i1ToI8(DtoType(vd->type))));
+
+    IF_LOG Logger::cout() << "Value: " << *val << '\n';
+    return val;
+}
+
+unsigned getFieldGEPIndex(AggregateDeclaration* ad, VarDeclaration* vd)
+{
+    unsigned fieldIndex;
+    unsigned byteOffset;
+    assert(ad->type->ctype->isAggr());
+    static_cast<IrTypeAggr*>(ad->type->ctype)->getMemberLocation(
+        vd, fieldIndex, byteOffset);
+    assert(byteOffset == 0 && "Cannot address field by a simple GEP.");
+    return fieldIndex;
 }

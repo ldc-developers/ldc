@@ -37,15 +37,11 @@ public:
     ///
     IrTypeAggr* isAggr()            { return this; }
 
-    ///
-    typedef std::vector<VarDeclaration*>::iterator iterator;
-
-    ///
-    iterator def_begin()        { return default_fields.begin(); }
-
-    ///
-    iterator def_end()          { return default_fields.end(); }
-
+    /// Returns the index of the field in the LLVM struct type that corresponds
+    /// to the given member variable, plus the offset to the actual field start
+    /// due to overlapping (union) fields, if any.
+    void getMemberLocation(VarDeclaration* var, unsigned& fieldIndex,
+        unsigned& byteOffset) const;
 
     /// Composite type debug description. This is not only to cache, but also
     /// used for resolving forward references.
@@ -58,12 +54,15 @@ protected:
     /// AggregateDeclaration this type represents.
     AggregateDeclaration* aggr;
 
-    /// Sorted list of all default fields.
-    /// A default field is a field that contributes to the default initializer
-    /// and the default type, and thus it has it's own unique GEP index into
-    /// the aggregate.
-    /// For classes, field of any super classes are not included.
-    std::vector<VarDeclaration*> default_fields;
+    /// Stores the mapping from member variables to field indices in the actual
+    /// LLVM type. If a member variable is not present, this means that it does
+    /// not resolve to a "clean" GEP but extra offsetting due to overlapping
+    /// members is needed (i.e., a union).
+    ///
+    /// We need to keep track of this separately, because there is no way to get
+    /// the field index of a variable in the frontend, it only stores the byte
+    /// offset.
+    std::map<VarDeclaration*, unsigned> varGEPIndices;
 };
 
 #endif

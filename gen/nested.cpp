@@ -40,6 +40,11 @@ static void storeVariable(VarDeclaration *vd, LLValue *dst)
     DtoAlignedStore(value, dst);
 }
 
+static unsigned getVthisIdx(AggregateDeclaration* ad)
+{
+    return getFieldGEPIndex(ad, ad->vthis);
+}
+
 static void DtoCreateNestedContextType(FuncDeclaration* fd);
 
 DValue* DtoNestedVariable(Loc& loc, Type* astype, VarDeclaration* vd, bool byref)
@@ -89,7 +94,7 @@ DValue* DtoNestedVariable(Loc& loc, Type* astype, VarDeclaration* vd, bool byref
         LLValue* val = irfunc->thisArg;
         if (cd->isClassDeclaration())
             val = DtoLoad(val);
-        ctx = DtoLoad(DtoGEPi(val, 0, getIrField(cd->vthis)->index, ".vthis"));
+        ctx = DtoLoad(DtoGEPi(val, 0, getVthisIdx(cd), ".vthis"));
     } else {
         // Otherwise, this is a simple nested function, load from the context
         // argument.
@@ -183,7 +188,7 @@ void DtoResolveNestedContext(Loc& loc, AggregateDeclaration *decl, LLValue *valu
         // our codegen order.
         DtoResolveDsymbol(decl);
 
-        size_t idx = getIrField(decl->vthis)->index;
+        unsigned idx = getVthisIdx(decl);
         LLValue* gep = DtoGEPi(value,0,idx,".vthis");
         DtoStore(DtoBitCast(nest, gep->getType()->getContainedType(0)), gep);
     }
@@ -221,7 +226,7 @@ LLValue* DtoNestedContext(Loc& loc, Dsymbol* sym)
             // function (but without any variables in the nested context).
             return val;
         }
-        val = DtoLoad(DtoGEPi(val, 0, getIrField(ad->vthis)->index, ".vthis"));
+        val = DtoLoad(DtoGEPi(val, 0, getVthisIdx(ad), ".vthis"));
     }
     else
     {
@@ -431,9 +436,9 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                 assert(cd->vthis);
                 Logger::println("Indexing to 'this'");
                 if (cd->isStructDeclaration())
-                    src = DtoExtractValue(thisval, getIrField(cd->vthis)->index, ".vthis");
+                    src = DtoExtractValue(thisval, getVthisIdx(cd), ".vthis");
                 else
-                    src = DtoLoad(DtoGEPi(thisval, 0, getIrField(cd->vthis)->index, ".vthis"));
+                    src = DtoLoad(DtoGEPi(thisval, 0, getVthisIdx(cd), ".vthis"));
             } else {
                 src = DtoLoad(src);
             }

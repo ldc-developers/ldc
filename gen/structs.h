@@ -44,9 +44,6 @@ void DtoResolveStruct(StructDeclaration* sd, Loc& callerLoc);
 /// Returns a boolean=true if the two structs are equal.
 llvm::Value* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs);
 
-/// index a struct one level
-llvm::Value* DtoIndexStruct(llvm::Value* src, StructDeclaration* sd, VarDeclaration* vd);
-
 /// Return the type returned by DtoUnpaddedStruct called on a value of the
 /// specified type.
 /// Union types will get expanded into a struct, with a type for each member.
