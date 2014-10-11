@@ -41,9 +41,6 @@ struct IrAggr
     /// Aggregate D type.
     Type* type;
 
-    /// true only for: align(1) struct S { ... }
-    bool packed;
-
     //////////////////////////////////////////////////////////////////////////
 
     /// Create the __initZ symbol lazily.
@@ -137,6 +134,9 @@ protected:
 
     /// Create the Interface[] interfaces ClassInfo field initializer.
     LLConstant* getClassInfoInterfaces();
+
+    /// Returns true, if the LLVM struct type for the aggregate is declared as packed
+    bool isPacked() const;
 
 private:
     /// Recursively adds all the initializers for the given aggregate and, in
