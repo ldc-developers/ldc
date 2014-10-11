@@ -118,7 +118,7 @@ DValue* DtoNewClass(Loc& loc, TypeClass* tc, NewExp* newexp)
         Logger::println("Resolving outer class");
         LOG_SCOPE;
         DValue* thisval = toElem(newexp->thisexp);
-        size_t idx = getIrField(tc->sym->vthis)->index;
+        unsigned idx = getFieldGEPIndex(tc->sym, tc->sym->vthis);
         LLValue* src = thisval->getRVal();
         LLValue* dst = DtoGEPi(mem, 0, idx);
         IF_LOG Logger::cout() << "dst: " << *dst << "\nsrc: " << *src << '\n';

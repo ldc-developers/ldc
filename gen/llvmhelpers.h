@@ -138,6 +138,13 @@ bool hasUnalignedFields(Type* t);
 /// 'src' is a pointer to the start of the memory of an 'ad' instance.
 LLValue* DtoIndexAggregate(LLValue* src, AggregateDeclaration* ad, VarDeclaration* vd);
 
+/// Returns the index of a given member variable in the resulting LLVM type of
+/// an aggregate.
+///
+/// This is only a valid operation if the field is known to be non-overlapping,
+/// so that no byte-wise offset is needed.
+unsigned getFieldGEPIndex(AggregateDeclaration* ad, VarDeclaration* vd);
+
 ///
 DValue* DtoInlineAsmExpr(Loc& loc, FuncDeclaration* fd, Expressions* arguments);
 

@@ -27,3 +27,23 @@ IrTypeAggr::IrTypeAggr(AggregateDeclaration * ad)
     diCompositeType(NULL), aggr(ad)
 {
 }
+
+void IrTypeAggr::getMemberLocation(VarDeclaration* var, unsigned& fieldIndex,
+    unsigned& byteOffset) const
+{
+    // Note: The interface is a bit more general than what we actually return.
+    // Specifically, the frontend offset information we use for overlapping
+    // fields is always based at the object start.
+    std::map<VarDeclaration*, unsigned>::const_iterator it =
+        varGEPIndices.find(var);
+    if (it != varGEPIndices.end())
+    {
+        fieldIndex = it->second;
+        byteOffset = 0;
+    }
+    else
+    {
+        fieldIndex = 0;
+        byteOffset = var->offset;
+    }
+}

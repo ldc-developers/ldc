@@ -37,6 +37,12 @@ public:
     ///
     IrTypeAggr* isAggr()            { return this; }
 
+    /// Returns the index of the field in the LLVM struct type that corresponds
+    /// to the given member variable, plus the offset to the actual field start
+    /// due to overlapping (union) fields, if any.
+    void getMemberLocation(VarDeclaration* var, unsigned& fieldIndex,
+        unsigned& byteOffset) const;
+
     /// Composite type debug description. This is not only to cache, but also
     /// used for resolving forward references.
     llvm::DIType diCompositeType;
@@ -47,6 +53,16 @@ protected:
 
     /// AggregateDeclaration this type represents.
     AggregateDeclaration* aggr;
+
+    /// Stores the mapping from member variables to field indices in the actual
+    /// LLVM type. If a member variable is not present, this means that it does
+    /// not resolve to a "clean" GEP but extra offsetting due to overlapping
+    /// members is needed (i.e., a union).
+    ///
+    /// We need to keep track of this separately, because there is no way to get
+    /// the field index of a variable in the frontend, it only stores the byte
+    /// offset.
+    std::map<VarDeclaration*, unsigned> varGEPIndices;
 };
 
 #endif

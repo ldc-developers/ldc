@@ -30,6 +30,7 @@
 #include "gen/typeinf.h"
 #include "gen/abi.h"
 #include "ir/irmodule.h"
+#include "ir/irtypeaggr.h"
 #include "llvm/MC/MCAsmInfo.h"
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
@@ -1937,6 +1938,11 @@ LLValue* DtoIndexAggregate(LLValue* src, AggregateDeclaration* ad, VarDeclaratio
     IF_LOG Logger::println("Indexing aggregate field %s:", vd->toPrettyChars());
     LOG_SCOPE;
 
+    // Make sure the aggregate is resolved, as subsequent code might expect
+    // isIrVarCreated(vd). This is a bit of a hack, we don't actually need this
+    // ourselves, DtoType below would be enough.
+    DtoResolveDsymbol(ad);
+
     // Cast the pointer we got to the canonical struct type the indices are
     // based on.
     LLType* st = DtoType(ad->type);
@@ -1944,23 +1950,36 @@ LLValue* DtoIndexAggregate(LLValue* src, AggregateDeclaration* ad, VarDeclaratio
         st = getPtrToType(st);
     src = DtoBitCast(src, st);
 
-    // gep to the index
-    DtoResolveDsymbol(ad);
-    IrField* field = getIrField(vd);
-    LLValue* val = DtoGEPi(src, 0, field->index);
+    // Look up field to index and any offset to apply.
+    unsigned fieldIndex;
+    unsigned byteOffset;
+    assert(ad->type->ctype->isAggr());
+    static_cast<IrTypeAggr*>(ad->type->ctype)->getMemberLocation(
+        vd, fieldIndex, byteOffset);
 
-    // do we need to offset further? (union area)
-    if (field->unionOffset)
+    LLValue* val = DtoGEPi(src, 0, fieldIndex);
+
+    if (byteOffset)
     {
-        // cast to void*
+        // Cast to void* to apply byte-wise offset.
         val = DtoBitCast(val, getVoidPtrType());
-        // offset
-        val = DtoGEPi1(val, field->unionOffset);
+        val = DtoGEPi1(val, byteOffset);
     }
 
-    // cast it to the right type
+    // Cast the (possibly void*) pointer to the canonical variable type.
     val = DtoBitCast(val, getPtrToType(i1ToI8(DtoType(vd->type))));
 
     IF_LOG Logger::cout() << "Value: " << *val << '\n';
     return val;
+}
+
+unsigned getFieldGEPIndex(AggregateDeclaration* ad, VarDeclaration* vd)
+{
+    unsigned fieldIndex;
+    unsigned byteOffset;
+    assert(ad->type->ctype->isAggr());
+    static_cast<IrTypeAggr*>(ad->type->ctype)->getMemberLocation(
+        vd, fieldIndex, byteOffset);
+    assert(byteOffset == 0 && "Cannot address field by a simple GEP.");
+    return fieldIndex;
 }

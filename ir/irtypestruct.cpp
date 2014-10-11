@@ -237,7 +237,7 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
         offset = vd->offset + vd->type->size();
 
         // set the field index
-        getIrField(vd, true)->setAggrIndex(static_cast<unsigned>(field_index));
+        t->varGEPIndices[vd] = field_index;
         ++field_index;
     }
 

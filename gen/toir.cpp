@@ -2591,7 +2591,7 @@ public:
                     cval = getNullPtr(getVoidPtrType());
                 } else {
                     cval = ad->isClassDeclaration() ? DtoLoad(irfn->thisArg) : irfn->thisArg;
-                    cval = DtoLoad(DtoGEPi(cval, 0, getIrField(ad->vthis)->index, ".vthis"));
+                    cval = DtoLoad(DtoGEPi(cval, 0, getFieldGEPIndex(ad, ad->vthis), ".vthis"));
                 }
             }
             else
