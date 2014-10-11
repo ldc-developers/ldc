@@ -145,7 +145,8 @@ private:
         llvm::SmallVectorImpl<llvm::Constant*>& constants,
         const VarInitMap& explicitInitializers,
         AggregateDeclaration* decl,
-        unsigned& offset);
+        unsigned& offset,
+        bool populateInterfacesWithVtbls);
 };
 
 //////////////////////////////////////////////////////////////////////////////
