@@ -212,7 +212,12 @@ llvm::Constant* IrAggr::createInitializerConstant(
         offset = Target::ptrsize * 2;
     }
 
-    addFieldInitializers(constants, explicitInitializers, aggrdecl, offset);
+    // Add the initializers for the member fields. While we are traversing the
+    // class hierarchy, use the opportunity to populate interfacesWithVtbls if
+    // we haven't done so previously (due to e.g. ClassReferenceExp, we can
+    // have multiple initializer constants for a single class).
+    addFieldInitializers(constants, explicitInitializers, aggrdecl, offset,
+        interfacesWithVtbls.empty());
 
     // tail padding?
     const size_t structsize = aggrdecl->size(Loc());
@@ -246,14 +251,16 @@ void IrAggr::addFieldInitializers(
     llvm::SmallVectorImpl<llvm::Constant*>& constants,
     const VarInitMap& explicitInitializers,
     AggregateDeclaration* decl,
-    unsigned& offset)
+    unsigned& offset,
+    bool populateInterfacesWithVtbls
+    )
 {
     if (ClassDeclaration* cd = decl->isClassDeclaration())
     {
         if (cd->baseClass)
         {
             addFieldInitializers(constants, explicitInitializers,
-                cd->baseClass, offset);
+                cd->baseClass, offset, populateInterfacesWithVtbls);
         }
     }
 
@@ -372,10 +379,10 @@ void IrAggr::addFieldInitializers(
             {
                 constants.push_back(getInterfaceVtbl(*I, newinsts, inter_idx));
                 offset += Target::ptrsize;
-
-                // add to the interface list
-                interfacesWithVtbls.push_back(*I);
                 inter_idx++;
+
+                if (populateInterfacesWithVtbls)
+                    interfacesWithVtbls.push_back(*I);
             }
         }
     }
