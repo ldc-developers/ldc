@@ -50,11 +50,18 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
     if (sd->sizeok != SIZEOKdone)
         return t;
 
+    t->packed = sd->alignment == 1;
+    if (!t->packed)
+    {
+        // Unfortunately, the previous check is not enough in case the struct
+        // contains an align declaration. See issue 726.
+        t->packed = isPacked(sd);
+    }
 
-    AggrTypeBuilder builder(sd->alignment == 1);
+    AggrTypeBuilder builder(t->packed);
     builder.addAggregate(sd);
     builder.addTailPadding(sd->structsize);
-    isaStruct(t->type)->setBody(builder.defaultTypes(), sd->alignment == 1);
+    isaStruct(t->type)->setBody(builder.defaultTypes(), t->packed);
     t->varGEPIndices = builder.varGEPIndices();
 
     IF_LOG Logger::cout() << "final struct type: " << *t->type << std::endl;

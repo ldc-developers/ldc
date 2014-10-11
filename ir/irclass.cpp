@@ -401,6 +401,11 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
     return GV;
 }
 
+bool IrAggr::isPacked() const
+{
+    return static_cast<IrTypeAggr*>(type->ctype)->packed;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 LLConstant * IrAggr::getClassInfoInterfaces()

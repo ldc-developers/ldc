@@ -96,7 +96,14 @@ IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
     LOG_SCOPE;
     IF_LOG Logger::println("Instance size: %u", cd->structsize);
 
-    AggrTypeBuilder builder(false);
+    // This class may contain an align declaration. See issue 726.
+    t->packed = false;
+    for (ClassDeclaration *base = cd; base != 0 && !t->packed; base = base->baseClass)
+    {
+        t->packed = isPacked(base);
+    }
+
+    AggrTypeBuilder builder(t->packed);
 
     // add vtbl
     builder.addType(llvm::PointerType::get(t->vtbl_type, 0), Target::ptrsize);
@@ -127,7 +134,7 @@ IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
         fatal();
 
     // set struct body and copy GEP indices
-    isaStruct(t->type)->setBody(builder.defaultTypes(), false);
+    isaStruct(t->type)->setBody(builder.defaultTypes(), t->packed);
     t->varGEPIndices = builder.varGEPIndices();
 
     // VTBL

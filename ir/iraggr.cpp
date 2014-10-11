@@ -28,7 +28,6 @@
 IrAggr::IrAggr(AggregateDeclaration* aggr)
 :   aggrdecl(aggr),
     type(aggr->type),
-    packed((type->ty == Tstruct) ? type->alignsize() == 1 : false),
     // above still need to be looked at
     init(0),
     constInit(0),
@@ -231,9 +230,9 @@ llvm::Constant* IrAggr::createInitializerConstant(
         for (itr = constants.begin(); itr != end; ++itr)
             types.push_back((*itr)->getType());
         if (!initializerType)
-            initializerType = LLStructType::get(gIR->context(), types, packed);
+            initializerType = LLStructType::get(gIR->context(), types, isPacked());
         else
-            initializerType->setBody(types, packed);
+            initializerType->setBody(types, isPacked());
     }
 
     // build constant
@@ -257,10 +256,6 @@ void IrAggr::addFieldInitializers(
                 cd->baseClass, offset);
         }
     }
-
-    const bool packed = (type->ty == Tstruct)
-        ? type->alignsize() == 1
-        : false;
 
     // Build up vector with one-to-one mapping to field indices.
     const size_t n = decl->fields.dim;
@@ -342,7 +337,7 @@ void IrAggr::addFieldInitializers(
 
         // get next aligned offset for this field
         size_t alignedoffset = offset;
-        if (!packed)
+        if (!isPacked())
         {
             alignedoffset = realignOffset(alignedoffset, vd->type);
         }
