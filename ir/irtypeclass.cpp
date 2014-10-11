@@ -29,12 +29,6 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-extern size_t add_zeros(std::vector<llvm::Type*>& defaultTypes,
-    size_t startOffset, size_t endOffset);
-extern bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2);
-
-//////////////////////////////////////////////////////////////////////////////
-
 IrTypeClass::IrTypeClass(ClassDeclaration* cd)
 :   IrTypeAggr(cd),
     cd(cd),
@@ -49,133 +43,14 @@ IrTypeClass::IrTypeClass(ClassDeclaration* cd)
 
 //////////////////////////////////////////////////////////////////////////////
 
-void IrTypeClass::addBaseClassData(
-    std::vector<llvm::Type *> & defaultTypes,
-    ClassDeclaration * base,
-    size_t & offset,
-    size_t & field_index)
+void IrTypeClass::addBaseClassData(AggrTypeBuilder &builder, ClassDeclaration *base)
 {
     if (base->baseClass)
     {
-        addBaseClassData(defaultTypes, base->baseClass, offset, field_index);
+        addBaseClassData(builder, base->baseClass);
     }
 
-    // FIXME: merge code with structs in IrTypeAggr
-
-    // mirror the sd->fields array but only fill in contributors
-    const size_t n = base->fields.dim;
-    LLSmallVector<VarDeclaration*, 16> data(n, NULL);
-
-    // first fill in the fields with explicit initializers
-    for (size_t index = 0; index < n; ++index)
-    {
-        VarDeclaration *field = base->fields[index];
-
-        // init is !null for explicit inits
-        if (field->init != NULL)
-        {
-            IF_LOG Logger::println("adding explicit initializer for struct field %s",
-                field->toChars());
-
-            data[index] = field;
-
-            size_t f_begin = field->offset;
-            size_t f_end = f_begin + field->type->size();
-
-            // make sure there is no overlap
-            for (size_t i = 0; i < index; i++)
-            {
-                if (data[i] != NULL)
-                {
-                    VarDeclaration* vd = data[i];
-                    size_t v_begin = vd->offset;
-                    size_t v_end = v_begin + vd->type->size();
-
-                    if (v_begin >= f_end || v_end <= f_begin)
-                        continue;
-
-                    base->error(vd->loc, "has overlapping initialization for %s and %s",
-                        field->toChars(), vd->toChars());
-                }
-            }
-        }
-    }
-
-    if (global.errors)
-    {
-        fatal();
-    }
-
-    // fill in default initializers
-    for (size_t index = 0; index < n; ++index)
-    {
-        if (data[index])
-            continue;
-        VarDeclaration *field = base->fields[index];
-
-        size_t f_begin = field->offset;
-        size_t f_end = f_begin + field->type->size();
-
-        // make sure it doesn't overlap anything explicit
-        bool overlaps = false;
-        for (size_t i = 0; i < n; i++)
-        {
-            if (data[i])
-            {
-                size_t v_begin = data[i]->offset;
-                size_t v_end = v_begin + data[i]->type->size();
-
-                if (v_begin >= f_end || v_end <= f_begin)
-                    continue;
-
-                overlaps = true;
-                break;
-            }
-        }
-
-        // if no overlap was found, add the default initializer
-        if (!overlaps)
-        {
-            IF_LOG Logger::println("adding default initializer for struct field %s",
-                field->toChars());
-            data[index] = field;
-        }
-    }
-
-    // ok. now we can build a list of llvm types. and make sure zeros are inserted if necessary.
-
-    // first we sort the list by offset
-    std::sort(data.begin(), data.end(), var_offset_sort_cb);
-
-    // add types to list
-    for (size_t i = 0; i < n; i++)
-    {
-        VarDeclaration* vd = data[i];
-
-        if (vd == NULL)
-            continue;
-
-        assert(vd->offset >= offset && "it's a bug... most likely DMD bug 2481");
-
-        // get next aligned offset for this type
-        size_t alignedoffset = realignOffset(offset, vd->type);
-
-        // insert explicit padding?
-        if (alignedoffset < vd->offset)
-        {
-            field_index += add_zeros(defaultTypes, alignedoffset, vd->offset);
-        }
-
-        // add default type
-        defaultTypes.push_back(DtoType(vd->type)); // @@@ i1ToI8?!
-
-        // advance offset to right past this field
-        offset = vd->offset + vd->type->size();
-
-        // set the field index
-        varGEPIndices[vd] = field_index;
-        ++field_index;
-    }
+    builder.addAggregate(base);
 
     // any interface implementations?
     if (base->vtblInterfaces && base->vtblInterfaces->dim > 0)
@@ -186,7 +61,7 @@ void IrTypeClass::addBaseClassData(
         Type* first = interfaces_idx->type->nextOf()->pointerTo();
 
         // align offset
-        offset = (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
+        builder.alignCurrentOffset(Target::ptrsize);
 
         for (BaseClasses::iterator I = base->vtblInterfaces->begin(),
                                    E = base->vtblInterfaces->end();
@@ -198,28 +73,16 @@ void IrTypeClass::addBaseClassData(
             FuncDeclarations arr;
             b->fillVtbl(cd, &arr, new_instances);
 
-            llvm::Type* ivtbl_type = llvm::StructType::get(gIR->context(), buildVtblType(first, &arr));
-            defaultTypes.push_back(llvm::PointerType::get(ivtbl_type, 0));
-
-            offset += Target::ptrsize;
-
             // add to the interface map
-            addInterfaceToMap(b->base, field_index);
-            field_index++;
+            addInterfaceToMap(b->base, builder.currentFieldIndex());
+
+            llvm::Type* ivtbl_type = llvm::StructType::get(gIR->context(), buildVtblType(first, &arr));
+            builder.addType(llvm::PointerType::get(ivtbl_type, 0), Target::ptrsize);
 
             // inc count
             num_interface_vtbls++;
         }
     }
-
-#if 0
-    // tail padding?
-    if (offset < base->structsize)
-    {
-        field_index += add_zeros(defaultTypes, offset, base->structsize);
-        offset = base->structsize;
-    }
-#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -233,14 +96,10 @@ IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
     LOG_SCOPE;
     IF_LOG Logger::println("Instance size: %u", cd->structsize);
 
-    // find the fields that contribute to the default initializer.
-    // these will define the default type.
-
-    std::vector<llvm::Type*> defaultTypes;
-    defaultTypes.reserve(32);
+    AggrTypeBuilder builder(false);
 
     // add vtbl
-    defaultTypes.push_back(llvm::PointerType::get(t->vtbl_type, 0));
+    builder.addType(llvm::PointerType::get(t->vtbl_type, 0), Target::ptrsize);
 
     // interfaces are just a vtable
     if (cd->isInterfaceDeclaration())
@@ -250,40 +109,26 @@ IrTypeClass* IrTypeClass::get(ClassDeclaration* cd)
     // classes have monitor and fields
     else
     {
-        size_t offset;
-        size_t field_index;
-        if (!cd->isCPPclass() && !cd->isCPPinterface()) {
+        if (!cd->isCPPclass() && !cd->isCPPinterface())
+        {
             // add monitor
-            defaultTypes.push_back(llvm::PointerType::get(llvm::Type::getInt8Ty(gIR->context()), 0));
-
-            // we start right after the vtbl and monitor
-            offset = Target::ptrsize * 2;
-            field_index = 2;
-        } else {
-            // C++ classes does not have a monitor
-            offset = Target::ptrsize;
-            field_index = 1;
+            builder.addType(llvm::PointerType::get(llvm::Type::getInt8Ty(gIR->context()), 0), Target::ptrsize);
         }
 
         // add data members recursively
-        t->addBaseClassData(defaultTypes, cd, offset, field_index);
+        t->addBaseClassData(builder, cd);
 
-#if 1
-        // tail padding?
-        if (offset < cd->structsize)
-        {
-            field_index += add_zeros(defaultTypes, offset, cd->structsize);
-            offset = cd->structsize;
-        }
-#endif
+        // add tail padding
+        builder.addTailPadding(cd->structsize);
     }
 
     // errors are fatal during codegen
     if (global.errors)
         fatal();
 
-    // set struct body
-    isaStruct(t->type)->setBody(defaultTypes, false);
+    // set struct body and copy GEP indices
+    isaStruct(t->type)->setBody(builder.defaultTypes(), false);
+    t->varGEPIndices = builder.varGEPIndices();
 
     // VTBL
 

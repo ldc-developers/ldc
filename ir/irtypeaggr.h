@@ -30,6 +30,27 @@ namespace llvm {
 class AggregateDeclaration;
 class VarDeclaration;
 
+typedef std::map<VarDeclaration*, unsigned> VarGEPIndices;
+
+class AggrTypeBuilder
+{
+public:
+    AggrTypeBuilder(bool packed);
+    void addType(llvm::Type *type, unsigned size);
+    void addAggregate(AggregateDeclaration *ad);
+    void alignCurrentOffset(unsigned alignment);
+    void addTailPadding(unsigned aggregateSize);
+    unsigned currentFieldIndex() const { return m_fieldIndex; }
+    std::vector<llvm::Type*> defaultTypes() const { return m_defaultTypes; }
+    VarGEPIndices varGEPIndices() const { return m_varGEPIndices; }
+protected:
+    std::vector<llvm::Type*> m_defaultTypes;
+    VarGEPIndices m_varGEPIndices;
+    unsigned m_offset;
+    unsigned m_fieldIndex;
+    bool m_packed;
+};
+
 /// Base class of IrTypes for aggregate types.
 class IrTypeAggr : public IrType
 {
