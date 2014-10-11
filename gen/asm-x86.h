@@ -2178,6 +2178,14 @@ namespace AsmParserx8664
             return false;
         }
 
+        // OSX and 32-bit Windows need an extra leading underscore when mangling a symbol name.
+        static bool prependExtraUnderscore()
+        {
+            return global.params.targetTriple.getOS() == llvm::Triple::MacOSX
+                || global.params.targetTriple.getOS() == llvm::Triple::Darwin
+                || ( global.params.targetTriple.isOSWindows() && global.params.targetTriple.isArch32Bit() );
+        }
+
         void addOperand ( const char * fmt, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input )
         {
             if ( sc->func->naked )
@@ -2217,15 +2225,11 @@ namespace AsmParserx8664
                                     break;
                                 }
 
-                                // osx needs an extra underscore
-                                if ( global.params.targetTriple.getOS() == llvm::Triple::MacOSX ||
-                                    global.params.targetTriple.getOS() == llvm::Triple::Darwin ||
-                                    global.params.targetTriple.isOSWindows() )
+                                // print out the mangle
+                                if ( prependExtraUnderscore() )
                                 {
                                     insnTemplate << "_";
                                 }
-
-                                // print out the mangle
                                 insnTemplate << mangle(vd);
                                 getIrGlobal(vd, true)->nakedUse = true;
                                 break;
@@ -2897,10 +2901,7 @@ namespace AsmParserx8664
                                 {
                                     use_star = false;
                                     // simply write out the mangle
-                                    // on osx and windows, prepend extra _
-                                    if ( global.params.targetTriple.getOS() == llvm::Triple::MacOSX ||
-                                        global.params.targetTriple.getOS() == llvm::Triple::Darwin ||
-                                        global.params.targetTriple.isOSWindows() )
+                                    if ( prependExtraUnderscore() )
                                     {
                                         insnTemplate << "_";
                                     }
