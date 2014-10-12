@@ -70,15 +70,30 @@ LLType* IrTypeBasic::getComplexType(llvm::LLVMContext& ctx, LLType* type)
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::Type * IrTypeBasic::basic2llvm(Type* t)
+static inline llvm::Type* getReal80Type(llvm::LLVMContext& ctx)
 {
-    LLType* t2;
-
-    llvm::LLVMContext& ctx = llvm::getGlobalContext();
     llvm::Triple::ArchType const a = global.params.targetTriple.getArch();
     bool const anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
-    // Support for doubledouble has been dropped
-    //bool const anyPPC = (a == llvm::Triple::ppc) || (a == llvm::Triple::ppc64);
+
+    // only x86 has 80bit float - but no support with MS C Runtime!
+    if (anyX86 &&
+#if LDC_LLVM_VER >= 305
+        !global.params.targetTriple.isWindowsMSVCEnvironment()
+#else
+        !(global.params.targetTriple.getOS() == llvm::Triple::Win32)
+#endif
+        )
+
+        return llvm::Type::getX86_FP80Ty(ctx);
+
+    return llvm::Type::getDoubleTy(ctx);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::Type * IrTypeBasic::basic2llvm(Type* t)
+{
+    llvm::LLVMContext& ctx = llvm::getGlobalContext();
 
     switch(t->ty)
     {
@@ -120,30 +135,16 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
 
     case Tfloat80:
     case Timaginary80:
-        // only x86 has 80bit float
-        if (anyX86)
-            return llvm::Type::getX86_FP80Ty(ctx);
-        // Support for doubledouble has been dropped
-        // PPC has a special 128bit float
-        //else if (anyPPC)
-        //    return llvm::Type::getPPC_FP128Ty(ctx);
-        // other platforms use 64bit reals
-        else
-            return llvm::Type::getDoubleTy(ctx);
+            return getReal80Type(ctx);
 
-    case Tcomplex32: {
-        t2 = llvm::Type::getFloatTy(ctx);
-        return getComplexType(ctx, t2);
-    }
+    case Tcomplex32:
+        return getComplexType(ctx, llvm::Type::getFloatTy(ctx));
 
     case Tcomplex64:
-        t2 = llvm::Type::getDoubleTy(ctx);
-        return getComplexType(ctx, t2);
+        return getComplexType(ctx, llvm::Type::getDoubleTy(ctx));
 
     case Tcomplex80:
-        t2 = anyX86 ? llvm::Type::getX86_FP80Ty(ctx)
-                    : llvm::Type::getDoubleTy(ctx);
-        return getComplexType(ctx, t2);
+        return getComplexType(ctx, getReal80Type(ctx));
 
     case Tbool:
         return llvm::Type::getInt1Ty(ctx);
