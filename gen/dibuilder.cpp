@@ -64,9 +64,17 @@ llvm::DIDescriptor ldc::DIBuilder::GetCurrentScope()
     return fn->diLexicalBlocks.top();
 }
 
-void ldc::DIBuilder::Declare(llvm::Value *var, llvm::DIVariable divar)
+void ldc::DIBuilder::Declare(llvm::Value *var, llvm::DIVariable divar
+#if LDC_LLVM_VER >= 306
+    , llvm::DIExpression diexpr
+#endif
+    )
 {
-    llvm::Instruction *instr = DBuilder.insertDeclare(var, divar, IR->scopebb());
+    llvm::Instruction *instr = DBuilder.insertDeclare(var, divar,
+#if LDC_LLVM_VER >= 306
+        diexpr,
+#endif
+        IR->scopebb());
     instr->setDebugLoc(IR->ir->getCurrentDebugLocation());
 }
 
@@ -724,12 +732,21 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd)
     if (!global.params.symdebug || !debugVariable)
         return;
 
-    llvm::Instruction *instr = DBuilder.insertDbgValueIntrinsic(val, 0, debugVariable, IR->scopebb());
+    llvm::Instruction *instr = DBuilder.insertDbgValueIntrinsic(val, 0, debugVariable,
+#if LDC_LLVM_VER >= 306
+        DBuilder.createExpression(),
+#endif
+        IR->scopebb());
     instr->setDebugLoc(IR->ir->getCurrentDebugLocation());
 }
 
 void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
-                           llvm::ArrayRef<llvm::Value *> addr)
+#if LDC_LLVM_VER >= 306
+                           llvm::ArrayRef<int64_t> addr
+#else
+                           llvm::ArrayRef<llvm::Value *> addr
+#endif
+                           )
 {
     if (!global.params.symdebug)
         return;
@@ -755,7 +772,9 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     else
         tag = llvm::dwarf::DW_TAG_auto_variable;
 
+#if LDC_LLVM_VER < 306
     if (addr.empty()) {
+#endif
         irVar->debugVariable = DBuilder.createLocalVariable(
             tag, // tag
             GetCurrentScope(), // scope
@@ -765,7 +784,9 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
             TD, // type
             true // preserve
         );
-    } else {
+#if LDC_LLVM_VER < 306
+    }
+    else {
         irVar->debugVariable = DBuilder.createComplexVariable(
             tag, // tag
             GetCurrentScope(), // scope
@@ -777,9 +798,14 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
         );
     }
     irVar->debugFunc = IR->func()->diSubprogram;
+#endif
 
     // declare
+#if LDC_LLVM_VER >= 306
+    Declare(ll, irVar->debugVariable, addr.empty() ? DBuilder.createExpression() : DBuilder.createExpression(addr));
+#else
     Declare(ll, irVar->debugVariable);
+#endif
 }
 
 llvm::DIGlobalVariable ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll, VarDeclaration *vd)
@@ -794,7 +820,7 @@ llvm::DIGlobalVariable ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *
 
     return DBuilder.createGlobalVariable(
 #if LDC_LLVM_VER >= 306
-        GetCurrentScope(), // context
+        llvm::DICompileUnit(GetCU()), // context
 #endif
         vd->toChars(), // name
 #if LDC_LLVM_VER >= 303

@@ -127,7 +127,12 @@ public:
     /// \param vd       Variable declaration to emit debug info for.
     /// \param addr     An array of complex address operations.
     void EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
-                           llvm::ArrayRef<llvm::Value *> addr = llvm::ArrayRef<llvm::Value *>());
+#if LDC_LLVM_VER >= 306
+        llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>()
+#else
+        llvm::ArrayRef<llvm::Value *> addr  = llvm::ArrayRef<llvm::Value *>()
+#endif
+        );
 
     /// \brief Emits all things necessary for making debug info for a global variable vd.
     /// \param ll       LLVM global variable
@@ -140,7 +145,11 @@ private:
     llvm::LLVMContext &getContext();
     Module *getDefinedModule(Dsymbol *s);
     llvm::DIDescriptor GetCurrentScope();
-    void Declare(llvm::Value *var, llvm::DIVariable divar);
+    void Declare(llvm::Value *var, llvm::DIVariable divar
+#if LDC_LLVM_VER >= 306
+        , llvm::DIExpression diexpr
+#endif
+        );
     void AddBaseFields(ClassDeclaration *sd, llvm::DIFile file,
                          std::vector<llvm::Value*> &elems);
     llvm::DIFile CreateFile(Loc& loc);
@@ -165,9 +174,14 @@ public:
             return;
 
         uint64_t offset = gDataLayout->getStructLayout(type)->getElementOffset(index);
+#if LDC_LLVM_VER >= 306
+        addr.push_back(llvm::dwarf::DW_OP_plus);
+        addr.push_back(offset);
+#else
         llvm::Type *int64Ty = llvm::Type::getInt64Ty(getContext());
         addr.push_back(llvm::ConstantInt::get(int64Ty, llvm::DIBuilder::OpPlus));
         addr.push_back(llvm::ConstantInt::get(int64Ty, offset));
+#endif
     }
 
     template<typename T>
@@ -187,8 +201,12 @@ public:
         if (!global.params.symdebug)
             return;
 
+#if LDC_LLVM_VER >= 306
+        addr.push_back(llvm::dwarf::DW_OP_deref);
+#else
         llvm::Type *int64Ty = llvm::Type::getInt64Ty(getContext());
         addr.push_back(llvm::ConstantInt::get(int64Ty, llvm::DIBuilder::OpDeref));
+#endif
     }
 };
 
