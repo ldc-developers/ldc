@@ -79,7 +79,11 @@ DValue* DtoNestedVariable(Loc& loc, Type* astype, VarDeclaration* vd, bool byref
     }
 
     LLValue *dwarfValue = 0;
+#if LDC_LLVM_VER >= 306
+    std::vector<int64_t> dwarfAddr;
+#else
     std::vector<LLValue*> dwarfAddr;
+#endif
 
     // get the nested context
     LLValue* ctx = 0;
@@ -497,7 +501,11 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
             }
 
             if (global.params.symdebug) {
+#if LDC_LLVM_VER >= 306
+                LLSmallVector<int64_t, 2> addr;
+#else
                 LLSmallVector<LLValue*, 2> addr;
+#endif
                 gIR->DBuilder.OpOffset(addr, frameType, irLocal->nestedIndex);
                 gIR->DBuilder.EmitLocalVariable(frame, vd, addr);
             }
