@@ -57,7 +57,7 @@
     .align  2
     .type   _D4core6thread18callWithStackShellFNbMDFNbPvZvZv,@function
 #if defined( USE_ABI_2 )
-    .section .text._D4core6thread18callWithStackShellFNbMDFNbPvZvZv,"aw",@progbits
+    .section .text._D4core6thread18callWithStackShellFNbMDFNbPvZvZv,"a",@progbits
 #else
     .section .opd,"aw",@progbits
 #endif
