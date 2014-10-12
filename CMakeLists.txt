@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 2.8)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 if(MSVC)
-    set(LIBCONFIG_DLL OFF CACHE BOOL "Use libconfig++ DLL instead of static library")
+    set(LIBCONFIG_DLL OFF CACHE BOOL "Use libconfig DLL instead of static library")
 endif()
 
 include(CheckIncludeFile)
@@ -20,9 +20,9 @@ find_package(LLVM 3.1 REQUIRED
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 
 #
-# Locate libconfig++.
+# Locate libconfig.
 #
-find_package(LibConfig++ REQUIRED)
+find_package(LibConfig REQUIRED)
 
 #
 # Get info about used Linux distribution.
@@ -313,13 +313,13 @@ include_directories(
 )
 include_directories( SYSTEM
     ${LLVM_INCLUDE_DIRS}
-    ${LIBCONFIG++_INCLUDE_DIR}
+    ${LIBCONFIG_INCLUDE_DIR}
 )
 
 if(MSVC)
     include_directories(${PROJECT_SOURCE_DIR}/vcbuild)
     if(NOT LIBCONFIG_DLL)
-        add_definitions(-DLIBCONFIGXX_STATIC -DLIBCONFIG_STATIC)
+        add_definitions(-DLIBCONFIG_STATIC)
     endif()
 endif()
 
@@ -335,9 +335,15 @@ if(GENERATE_OFFTI)
 endif()
 
 if(MSVC)
-    set(EXTRA_CXXFLAGS "/W0 /wd4996 /GF /GR- /MP")
+    # Remove flags here, for exceptions and RTTI.
+    # CL.EXE complains to override flags like "/GR /GR-".
+    string(REGEX REPLACE "(^| ) */EH[-cs]+ *( |$)" "\\1 \\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REGEX REPLACE "(^| ) */GR-? *( |$)" "\\1 \\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+    add_definitions(-D_HAS_EXCEPTIONS=0)
+    set(EXTRA_CXXFLAGS "/W0 /wd4996 /GF /GR- /EHs-c- /MP")
 else()
-    set(EXTRA_CXXFLAGS "-fexceptions")
+    set(EXTRA_CXXFLAGS "")
 endif()
 
 # if llvm was built with assertions we have to do the same
@@ -431,7 +437,7 @@ set_target_properties(
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY} ${PTHREAD_LIBS} ${CMAKE_DL_LIBS} ${TERMINFO_LIBS})
+target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG_LIBRARY} ${PTHREAD_LIBS} ${CMAKE_DL_LIBS} ${TERMINFO_LIBS})
 
 if(MSVC_IDE)
     # the IDE generator is a multi-config one

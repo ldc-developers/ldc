@@ -17,11 +17,7 @@
 #include <string>
 #include <vector>
 #include "llvm/ADT/SmallString.h"
-
-namespace libconfig
-{
-    class Config;
-}
+#include "libconfig.h"
 
 class ConfigFile
 {
@@ -43,7 +39,7 @@ public:
 private:
     bool locate(llvm::SmallString<128> &path, const char* argv0, void* mainAddr, const char* filename);
 
-    libconfig::Config* cfg;
+    config_t* cfg;
     std::string pathstr;
 
     s_vector switches;
