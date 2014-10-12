@@ -60,6 +60,11 @@ if (WIN32 OR NOT LLVM_CONFIG)
         if(TARGET_X86 GREATER -1)
             list(APPEND LLVM_FIND_COMPONENTS x86utils)
         endif()
+        # Similar to the work around above, but for AArch64
+        list(FIND LLVM_TARGETS_TO_BUILD "AArch64" TARGET_AArch64)
+        if(TARGET_AArch64 GREATER -1)
+            list(APPEND LLVM_FIND_COMPONENTS AArch64Utils)
+        endif()
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "backend" index)
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-2][\\.0-9A-Za-z]*")
             # Versions below 3.3 do not support components objcarcopts, option
