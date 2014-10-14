@@ -9,7 +9,7 @@
 
 #include "driver/configfile.h"
 #include "mars.h"
-#include "libconfig.h++"
+#include "libconfig.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include <cassert>
@@ -88,7 +88,8 @@ static bool ReadPathFromRegistry(llvm::SmallString<128> &p)
 
 ConfigFile::ConfigFile()
 {
-    cfg = new libconfig::Config;
+    cfg = new config_t;
+    config_init(cfg);
 }
 
 ConfigFile::~ConfigFile()
@@ -202,62 +203,45 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
     // save config file path for -v output
     pathstr = p.str();
 
-    try
+    // read the cfg
+    if (!config_read_file(cfg, p.c_str()))
     {
-        // read the cfg
-        cfg->readFile(p.c_str());
-
-        // make sure there's a default group
-        if (!cfg->exists("default"))
-        {
-            std::cerr << "no default settings in configuration file" << std::endl;
-            return false;
-        }
-        libconfig::Setting& root = cfg->lookup("default");
-        if (!root.isGroup())
-        {
-            std::cerr << "default is not a group" << std::endl;
-            return false;
-        }
-
-        // handle switches
-        if (root.exists("switches"))
-        {
-            std::string binpathkey = "%%ldcbinarypath%%";
-
-            std::string binpath = sys::path::parent_path(getMainExecutable(argv0, mainAddr));
-
-            libconfig::Setting& arr = cfg->lookup("default.switches");
-            int len = arr.getLength();
-            for (int i=0; i<len; i++)
-            {
-                std::string v = arr[i].operator std::string();
-
-                // replace binpathkey with binpath
-                size_t p;
-                while (std::string::npos != (p = v.find(binpathkey)))
-                    v.replace(p, binpathkey.size(), binpath);
-
-                switches.push_back(strdup(v.c_str()));
-            }
-        }
-
-    }
-    catch(libconfig::FileIOException& fioe)
-    {
-        std::cerr << "Error reading configuration file: " << filename << std::endl;
+        std::cerr << "error reading configuration file" << std::endl;
         return false;
     }
-    catch(libconfig::ParseException& pe)
+
+    // make sure there's a default group
+    config_setting_t *root = config_lookup(cfg, "default");
+    if (!root)
     {
-        std::cerr << "Error parsing configuration file: " << filename
-            << "(" << pe.getLine() << "): " << pe.getError() << std::endl;
+        std::cerr << "no default settings in configuration file" << std::endl;
         return false;
     }
-    catch(...)
+    if (!config_setting_is_group(root))
     {
-        std::cerr << "Unknown exception caught!" << std::endl;
+        std::cerr << "default is not a group" << std::endl;
         return false;
+    }
+
+    // handle switches
+    if (config_setting_t *sw = config_setting_get_member(root, "switches"))
+    {
+        std::string binpathkey = "%%ldcbinarypath%%";
+
+        std::string binpath = sys::path::parent_path(getMainExecutable(argv0, mainAddr));
+
+        int len = config_setting_length(sw);
+        for (int i = 0; i < len; i++)
+        {
+            std::string v(config_setting_get_string(config_setting_get_elem(sw, i)));
+
+            // replace binpathkey with binpath
+            size_t p;
+            while (std::string::npos != (p = v.find(binpathkey)))
+                v.replace(p, binpathkey.size(), binpath);
+
+            switches.push_back(strdup(v.c_str()));
+        }
     }
 
     return true;
