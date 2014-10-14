@@ -360,7 +360,7 @@ extern(C) EXCEPTION_DISPOSITION _d_eh_personality(EXCEPTION_RECORD *ExceptionRec
         size_t catch_ci_ptr;
         get_encoded_value(classinfo_table - ti_offset * ci_size, catch_ci_ptr, classinfo_table_encoding /*, context*/);
         ClassInfo catch_ci = cast(ClassInfo)cast(void*)catch_ci_ptr;
-        debug(EH_personality) printf("Comparing catch %s to exception %s\n", catch_ci.name.ptr, exception_struct.exception_object.classinfo.name.ptr);
+        debug(EH_personality) printf("Comparing catch %s to exception %s\n", catch_ci.name.ptr, excobj.classinfo.name.ptr);
         if (_d_isbaseof(excobj.classinfo, catch_ci))
         {
             if (ExceptionRecord.ExceptionFlags & EXCEPTION_TARGET_UNWIND)
