@@ -2040,6 +2040,7 @@ shared static ~this()
 // Used for needLock below.
 private __gshared bool multiThreadedFlag = false;
 
+version (PPC)   version = ExternStackShell;
 version (PPC64) version = ExternStackShell;
 
 version (ExternStackShell)

@@ -11,6 +11,9 @@ private import core.stdc.stdarg;
 // debug = EH_personality;
 // debug = EH_personality_verbose;
 
+version (PPC)   version = PPC_Any;
+version (PPC64) version = PPC_Any;
+
 // current EH implementation works on x86
 // if it has a working unwind runtime
 version(X86)
@@ -39,7 +42,7 @@ version (AArch64)
 {
     version (linux) version = GCC_UNWIND;
 }
-version (PPC64)
+version (PPC_Any)
 {
     version (linux) version = GCC_UNWIND;
 }

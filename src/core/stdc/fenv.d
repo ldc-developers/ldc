@@ -17,6 +17,9 @@ extern (C):
 nothrow:
 @nogc:
 
+version (PPC)   version = PPC_Any;
+version (PPC64) version = PPC_Any;
+
 version( Windows )
 {
     struct fenv_t
@@ -105,7 +108,7 @@ else version( linux )
         alias fexcept_t = uint;
     }
     // https://sourceware.org/git/?p=glibc.git;a=blob;f=sysdeps/powerpc/bits/fenv.h
-    else version (PPC64)
+    else version (PPC_Any)
     {
         alias fenv_t = double;
         alias fexcept_t = uint;
