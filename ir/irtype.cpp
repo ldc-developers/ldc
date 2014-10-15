@@ -142,7 +142,7 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
 
     case Tcomplex80:
         t2 = anyX86 ? llvm::Type::getX86_FP80Ty(ctx)
-            : (anyPPC ? llvm::Type::getPPC_FP128Ty(ctx) : llvm::Type::getDoubleTy(ctx));
+                    : llvm::Type::getDoubleTy(ctx);
         return getComplexType(ctx, t2);
 
     case Tbool:
