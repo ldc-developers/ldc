@@ -77,7 +77,8 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
     llvm::LLVMContext& ctx = llvm::getGlobalContext();
     llvm::Triple::ArchType const a = global.params.targetTriple.getArch();
     bool const anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
-    bool const anyPPC = (a == llvm::Triple::ppc) || (a == llvm::Triple::ppc64);
+    // Support for doubledouble has been dropped
+    //bool const anyPPC = (a == llvm::Triple::ppc) || (a == llvm::Triple::ppc64);
 
     switch(t->ty)
     {
@@ -122,9 +123,10 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
         // only x86 has 80bit float
         if (anyX86)
             return llvm::Type::getX86_FP80Ty(ctx);
+        // Support for doubledouble has been dropped
         // PPC has a special 128bit float
-        else if (anyPPC)
-            return llvm::Type::getPPC_FP128Ty(ctx);
+        //else if (anyPPC)
+        //    return llvm::Type::getPPC_FP128Ty(ctx);
         // other platforms use 64bit reals
         else
             return llvm::Type::getDoubleTy(ctx);
