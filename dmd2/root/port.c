@@ -177,16 +177,24 @@ static PortInitializer portinitializer;
 
 PortInitializer::PortInitializer()
 {
+#if IN_LLVM
+    Port::nan = std::numeric_limits<double>::quiet_NaN();
+    Port::ldbl_nan = std::numeric_limits<double>::quiet_NaN();
+    Port::snan = std::numeric_limits<double>::signaling_NaN();
+    Port::infinity = std::numeric_limits<double>::infinity();
+    Port::ldbl_infinity = std::numeric_limits<double>::infinity();
+#else
     union {
         unsigned long ul[2];
         double d;
-    } nan = {{ 0, 0x7FF80000 }};
+    } nan = { { 0, 0x7FF80000 } };
 
     Port::nan = nan.d;
     Port::ldbl_nan = ld_qnan;
     Port::snan = ld_snan;
     Port::infinity = std::numeric_limits<double>::infinity();
     Port::ldbl_infinity = ld_inf;
+#endif
 }
 
 int Port::isNan(double r)
@@ -267,7 +275,11 @@ longdouble strtold_dm(const char *p,char **endp);
 
 longdouble Port::strtold(const char *p, char **endp)
 {
+#if IN_LLVM
+    return ::strtold(p, endp);
+#else
     return ::strtold_dm(p, endp);
+#endif
 }
 
 #endif
