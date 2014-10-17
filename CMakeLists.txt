@@ -248,26 +248,6 @@ list(REMOVE_ITEM FE_SRC
     ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
     ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
-# Add/remove files for MSVC
-if(MSVC)
-    list(APPEND FE_SRC
-        ${PROJECT_SOURCE_DIR}/vcbuild/strtold.c
-# See below why this don't work
-#        if(CMAKE_CL_64)
-#        ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
-#        endif()
-    )
-    if(CMAKE_CL_64)
-        # MASM support does not work yet!
-        add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
-                           COMMAND ${CMAKE_ASM_MASM_COMPILER} /c /Fo${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
-                           DEPENDS ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
-                           COMMENT "generate ldfpu.obj")
-        list(APPEND FE_SRC
-            ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
-    )
-    endif()
-endif()
 set(LDC_SOURCE_FILES
     ${LDC_GENERATED}
     ${FE_SRC}

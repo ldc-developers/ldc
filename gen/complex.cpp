@@ -31,20 +31,9 @@ LLType* DtoComplexBaseType(Type* t)
 {
     switch (t->toBasetype()->ty) {
     default: llvm_unreachable("Unexpected complex floating point type");
-    case Tcomplex32: return LLType::getFloatTy(gIR->context());
-    case Tcomplex64: return LLType::getDoubleTy(gIR->context());
-    case Tcomplex80:
-        llvm::Triple::ArchType const a = global.params.targetTriple.getArch();
-        if (a == llvm::Triple::x86 || a == llvm::Triple::x86_64)
-        {
-            return LLType::getX86_FP80Ty(gIR->context());
-        }
-        else if (a == llvm::Triple::ppc || a == llvm::Triple::ppc64)
-        {
-            return LLType::getPPC_FP128Ty(gIR->context());
-        }
-        else
-            return LLType::getDoubleTy(gIR->context());
+    case Tcomplex32: return DtoType(Type::basic[Tfloat32]);
+    case Tcomplex64: return DtoType(Type::basic[Tfloat64]);
+    case Tcomplex80: return DtoType(Type::basic[Tfloat80]);
     }
 }
 
