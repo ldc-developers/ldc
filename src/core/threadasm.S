@@ -175,6 +175,110 @@ _D4core6thread18callWithStackShellFNbMDFNbPvZvZv:
 
 #elif defined( __ppc__ ) || defined( __PPC__ ) || defined( __powerpc__ )
 
+    .section  ".text"
+
+/**
+ * callWithStackShell
+ *
+ * Called with:
+ * r3: pointer context
+ * r4: pointer to function
+ */
+    .align 2
+    .globl _D4core6thread18callWithStackShellFNbMDFNbPvZvZv
+    .type _D4core6thread18callWithStackShellFNbMDFNbPvZvZv, @function
+_D4core6thread18callWithStackShellFNbMDFNbPvZvZv:
+    mflr    0
+    stw     0, 8(1)                     // save LR
+    stwu    1, -256(1)                  // stack size: 18*8 + 112 = 256
+
+    /* Save r14-r31 in general register save area */
+    stw     14, (112 + 0 * 4)(1)
+    stw     15, (112 + 1 * 4)(1)
+    stw     16, (112 + 2 * 4)(1)
+    stw     17, (112 + 3 * 4)(1)
+    stw     18, (112 + 4 * 4)(1)
+    stw     19, (112 + 5 * 4)(1)
+    stw     20, (112 + 6 * 4)(1)
+    stw     21, (112 + 7 * 4)(1)
+    stw     22, (112 + 8 * 4)(1)
+    stw     23, (112 + 9 * 4)(1)
+    stw     24, (112 + 10 * 4)(1)
+    stw     25, (112 + 11 * 4)(1)
+    stw     26, (112 + 12 * 4)(1)
+    stw     27, (112 + 13 * 4)(1)
+    stw     28, (112 + 14 * 4)(1)
+    stw     29, (112 + 15 * 4)(1)
+    stw     30, (112 + 16 * 4)(1)
+    stw     31, (112 + 17 * 4)(1)
+
+    /* Save r3-r10 in parameter save area of caller */
+    stw     3, (256 + 48 + 0 * 4)(1)
+    stw     4, (256 + 48 + 1 * 4)(1)
+    stw     5, (256 + 48 + 2 * 4)(1)
+    stw     6, (256 + 48 + 3 * 4)(1)
+    stw     7, (256 + 48 + 4 * 4)(1)
+    stw     8, (256 + 48 + 5 * 4)(1)
+    stw     9, (256 + 48 + 6 * 4)(1)
+    stw     10, (256 + 48 + 7 * 4)(1)
+
+    /* Save r2 in TOC save area */
+    stw     2, 40(1)
+
+    /* Do not save r11, r12 and r13. */
+
+    /* Call delegate:
+     * r3: pointer to context
+     * r4: pointer to stack
+     */
+    mr      5, 4
+    mr      4, 1
+    lwz     6, 0(5)
+    lwz     11, 16(5)
+    lwz     2, 8(5)
+    mtctr   6
+    bctrl
+    nop
+
+    /* Restore r2 from TOC save area */
+    lwz     2, 40(1)
+
+    /* Restore r3-r10 from local variable space */
+    lwz     3, (256 + 48 + 0 * 4)(1)
+    lwz     4, (256 + 48 + 1 * 4)(1)
+    lwz     5, (256 + 48 + 2 * 4)(1)
+    lwz     6, (256 + 48 + 3 * 4)(1)
+    lwz     7, (256 + 48 + 4 * 4)(1)
+    lwz     8, (256 + 48 + 5 * 4)(1)
+    lwz     9, (256 + 48 + 6 * 4)(1)
+    lwz     10, (256 + 48 + 7 * 4)(1)
+
+    /* Restore r14-r31 from general register save area */
+    lwz     14, (112 + 0 * 4)(1)
+    lwz     15, (112 + 1 * 4)(1)
+    lwz     16, (112 + 2 * 4)(1)
+    lwz     17, (112 + 3 * 4)(1)
+    lwz     18, (112 + 4 * 4)(1)
+    lwz     19, (112 + 5 * 4)(1)
+    lwz     20, (112 + 6 * 4)(1)
+    lwz     21, (112 + 7 * 4)(1)
+    lwz     22, (112 + 8 * 4)(1)
+    lwz     23, (112 + 9 * 4)(1)
+    lwz     24, (112 + 10 * 4)(1)
+    lwz     25, (112 + 11 * 4)(1)
+    lwz     26, (112 + 12 * 4)(1)
+    lwz     27, (112 + 13 * 4)(1)
+    lwz     28, (112 + 14 * 4)(1)
+    lwz     29, (112 + 15 * 4)(1)
+    lwz     30, (112 + 16 * 4)(1)
+    lwz     31, (112 + 17 * 4)(1)
+
+    addi    1, 1, 256
+    lwz     0, 16(1)
+    mtlr    0
+    blr
+    .size  _D4core6thread18callWithStackShellFNbMDFNbPvZvZv,.-_D4core6thread18callWithStackShellFNbMDFNbPvZvZv
+
 
 /**
  * Performs a context switch.
@@ -183,11 +287,10 @@ _D4core6thread18callWithStackShellFNbMDFNbPvZvZv:
  * r4 - new context pointer
  *
  */
-.text
-.align 2
-.globl _fiber_switchContext
-_fiber_switchContext:
-
+    .align 2
+    .globl fiber_switchContext
+    .type   fiber_switchContext, @function
+fiber_switchContext:
     /* Save linkage area */
     mflr        0
     mfcr        5
@@ -298,6 +401,7 @@ _fiber_switchContext:
 
     /* Return and switch context */
     blr
+    .size  fiber_switchContext,.-fiber_switchContext
 
 #elif defined(__mips__) && _MIPS_SIM == _ABIO32
 /************************************************************************************
