@@ -77,9 +77,7 @@ real sin(real x) @safe pure nothrow;       /* intrinsic */
  */
 version (LDC)
 {
-    // FIXME: stdc.llroundl not available under Windows
-    version (Windows) long rndtol(real x) @safe pure nothrow { assert(0); }
-    else              long rndtol(real x) @safe pure nothrow { return stdc.llroundl(x); }
+    long rndtol(real x) @safe pure nothrow { return stdc.llroundl(x); }
 }
 else
 long rndtol(real x) @safe pure nothrow;    /* intrinsic */
@@ -208,8 +206,6 @@ version (LDC)
 
   version(HAS_INTRINSIC_RINT)
     real rint(real x) @safe pure nothrow { return llvm_rint(x); }
-  else version (Windows) // FIXME: stdc.rintl not available under Windows
-    real rint(real x) @safe pure nothrow { assert(0); }
   else
     real rint(real x) @safe pure nothrow { return stdc.rintl(x); }
 }
