@@ -309,7 +309,7 @@ extern(C) EXCEPTION_DISPOSITION _d_eh_personality(EXCEPTION_RECORD *ExceptionRec
         }
         else
         {
-            RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord, cast(PVOID) excobj, ContextRecord, dispatch.HistoryTable);
+            RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord, cast(PVOID) &excobj, ContextRecord, dispatch.HistoryTable);
             fatalerror("_d_eh_personality: RtlUnwindEx failed");
         }
     }
@@ -350,7 +350,7 @@ extern(C) EXCEPTION_DISPOSITION _d_eh_personality(EXCEPTION_RECORD *ExceptionRec
             }
             else
             {
-                RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord, cast(PVOID) excobj, ContextRecord, dispatch.HistoryTable);
+                RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord, cast(PVOID) &excobj, ContextRecord, dispatch.HistoryTable);
                 fatalerror("_d_eh_personality: RtlUnwindEx failed");
             }
         }
@@ -374,7 +374,7 @@ extern(C) EXCEPTION_DISPOSITION _d_eh_personality(EXCEPTION_RECORD *ExceptionRec
             }
             else
             {
-                RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord, cast(PVOID) excobj, ContextRecord, dispatch.HistoryTable);
+                RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord, cast(PVOID) &excobj, ContextRecord, dispatch.HistoryTable);
                 fatalerror("_d_eh_personality: RtlUnwindEx failed");
             }
         }
