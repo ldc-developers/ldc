@@ -106,9 +106,9 @@ extern (C) real rndtonl(real x);
 {
   version (LDC)
   {
-    extern(D) float  sqrt(float x)  { return llvm_sqrt(x); }
+    extern(D) float  sqrt(float  x) { return llvm_sqrt(x); }
     extern(D) double sqrt(double x) { return llvm_sqrt(x); }
-    extern(D) real   sqrt(real x)   { return llvm_sqrt(x); }
+    extern(D) real   sqrt(real   x) { return llvm_sqrt(x); }
   }
   else
   {
@@ -170,21 +170,7 @@ unittest {
  */
 version (LDC)
 {
-    @trusted pure nothrow real fabs(real x)
-    {
-        version (D_InlineAsm_X86)
-        {
-            asm
-            {
-                fld x;
-                fabs;
-            }
-        }
-        else
-        {
-            return stdc.fabsl(x);
-        }
-    }
+    real fabs(real x) @safe pure nothrow { return llvm_fabs(x); }
 }
 else
 real fabs(real x) @safe pure nothrow;      /* intrinsic */
