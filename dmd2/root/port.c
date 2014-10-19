@@ -178,11 +178,19 @@ static PortInitializer portinitializer;
 PortInitializer::PortInitializer()
 {
 #if IN_LLVM
-    Port::nan = std::numeric_limits<double>::quiet_NaN();
-    Port::ldbl_nan = std::numeric_limits<double>::quiet_NaN();
-    Port::snan = std::numeric_limits<double>::signaling_NaN();
-    Port::infinity = std::numeric_limits<double>::infinity();
-    Port::ldbl_infinity = std::numeric_limits<double>::infinity();
+    union {
+        unsigned long ul[2];
+        double d;
+    }
+    nan = { { 0, 0x7FF80000 } },
+    snan = { { 0, 0x7FFC0000 } },
+    inf = { { 0, 0x7FF00000 } };
+
+    Port::nan = nan.d;
+    Port::ldbl_nan = nan.d;
+    Port::snan = snan.d;
+    Port::infinity = inf.d;
+    Port::ldbl_infinity = inf.d;
 #else
     union {
         unsigned long ul[2];
