@@ -195,8 +195,16 @@ enum
 
 version( Windows )
 {
+  version( Win64 ) // requires MSVCRT >= 2013
+  {
+    private extern __gshared fenv_t _Fenv0;
+    fenv_t* FE_DFL_ENV = &_Fenv0;
+  }
+  else
+  {
     private extern __gshared fenv_t _FE_DFL_ENV;
     fenv_t* FE_DFL_ENV = &_FE_DFL_ENV;
+  }
 }
 else version( linux )
 {
