@@ -309,7 +309,7 @@ extern(C) EXCEPTION_DISPOSITION _d_eh_personality(EXCEPTION_RECORD *ExceptionRec
         }
         else
         {
-            RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord, cast(PVOID) &excobj, ContextRecord, dispatch.HistoryTable);
+            RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord, cast(PVOID) excobj, ContextRecord, dispatch.HistoryTable);
             fatalerror("_d_eh_personality: RtlUnwindEx failed");
         }
     }
@@ -350,7 +350,7 @@ extern(C) EXCEPTION_DISPOSITION _d_eh_personality(EXCEPTION_RECORD *ExceptionRec
             }
             else
             {
-                RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord, cast(PVOID) &excobj, ContextRecord, dispatch.HistoryTable);
+                RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord, cast(PVOID) excobj, ContextRecord, dispatch.HistoryTable);
                 fatalerror("_d_eh_personality: RtlUnwindEx failed");
             }
         }
@@ -374,7 +374,7 @@ extern(C) EXCEPTION_DISPOSITION _d_eh_personality(EXCEPTION_RECORD *ExceptionRec
             }
             else
             {
-                RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord, cast(PVOID) &excobj, ContextRecord, dispatch.HistoryTable);
+                RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord, cast(PVOID) excobj, ContextRecord, dispatch.HistoryTable);
                 fatalerror("_d_eh_personality: RtlUnwindEx failed");
             }
         }
@@ -440,10 +440,29 @@ extern(C) void _d_eh_resume_unwind(Object e)
     abort();
 }
 
-extern(C) void _d_eh_handle_collision(Object* exception_struct, Object* inflight_exception_struct)
+extern(C) void _d_eh_handle_collision(Object exc, Object inflight_exc)
 {
-    fprintf(stderr, "_d_eh_handle_collision: Not yet implemented");
-    abort();
+    debug(EH_personality) printf("Calling _d_eh_handle_collision = %p e = %p, inflight = %p\n", &_d_eh_handle_collision, exc, inflight_exc);
+    Throwable h = cast(Throwable)exc;
+    Throwable inflight = cast(Throwable)inflight_exc;
+
+    auto e = cast(Error)h;
+    if (e !is null && (cast(Error)inflight) is null)
+    {
+        debug(EH_personality) printf("new error %p bypassing inflight %p\n", h, inflight);
+        e.bypassedException = inflight;
+    }
+    else if (inflight != h)
+    {
+        debug(EH_personality) printf("replacing thrown %p with inflight %p\n", h, inflight);
+        auto n = inflight;
+        while (n.next)
+            n = n.next;
+        n.next = h;
+        exc = inflight_exc;
+    }
+
+    _d_eh_resume_unwind(exc);
 }
 
 /*----------------------------------------------------------------------------*/
