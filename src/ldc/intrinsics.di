@@ -240,7 +240,8 @@ pragma(LDC_intrinsic, "llvm.log.f#")
 pragma(LDC_intrinsic, "llvm.fma.f#")
     T llvm_fma(T)(T vala, T valb, T valc);
 
-
+version(INTRINSICS_FROM_302)
+{
 /// The 'llvm.fabs.*' intrinsics return the absolute value of the operand.
 
 pragma(LDC_intrinsic, "llvm.fabs.f#")
@@ -251,6 +252,7 @@ pragma(LDC_intrinsic, "llvm.fabs.f#")
 
 pragma(LDC_intrinsic, "llvm.floor.f#")
     T llvm_floor(T)(T val);
+}
 
 version(INTRINSICS_FROM_303)
 {
