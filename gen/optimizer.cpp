@@ -73,6 +73,7 @@ static cl::opt<signed char> optimizeLevel(
         clEnumValN(1, "O1", "Simple optimizations"),
         clEnumValN(2, "O2", "Good optimizations"),
         clEnumValN(3, "O3", "Aggressive optimizations"),
+        clEnumValN(6, "Ofast", "Additionally enables fast-math"),
         clEnumValN(4, "O4", "Link-time optimization"), // Not implemented yet.
         clEnumValN(5, "O5", "Link-time optimization"), // Not implemented yet.
         clEnumValN(-1, "Os", "Like -O2 with extra optimizations for size"),

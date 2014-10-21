@@ -322,7 +322,8 @@ LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::B
 
 LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* bb)
 {
-    return llvm::GetElementPtrInst::Create(ptr, DtoConstUint(i), var, bb ? bb : gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(ptr, DtoConstUint(i),
+                                           var ? var : ptr->getName() + "", bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -330,7 +331,9 @@ LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* b
 LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::BasicBlock* bb)
 {
     LLValue* v[] = { DtoConstUint(i0), DtoConstUint(i1) };
-    return llvm::GetElementPtrInst::Create(ptr, v, var, bb ? bb : gIR->scopebb());
+//	printf("DtoGEPi: ptrValName: %10s, passedName: %s\n", ptr->getName().data(), var);
+	return llvm::GetElementPtrInst::Create(ptr, v, *var ? ptr->getName() + "." + var : "", bb ? bb : gIR->scopebb());
+    //return llvm::GetElementPtrInst::Create(ptr, v, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

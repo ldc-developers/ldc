@@ -389,6 +389,10 @@ cl::opt<bool> disableLinkerStripDead("disable-linker-strip-dead",
     cl::desc("Do not try to remove unused symbols during linking"),
     cl::init(false));
 
+cl::opt<bool> ffastmath("ffast-math",
+    cl::desc("Enable unsafe floating-point math"),
+    cl::init(false));
+
 cl::opt<bool, true> allinst("allinst",
     cl::desc("generate code for all template instantiations"),
     cl::location(global.params.allInst));

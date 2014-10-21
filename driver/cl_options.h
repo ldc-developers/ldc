@@ -72,6 +72,7 @@ namespace opts {
     extern cl::opt<FloatABI::Type> mFloatABI;
     extern cl::opt<bool, true> singleObj;
     extern cl::opt<bool> linkonceTemplates;
+	extern cl::opt<bool> ffastmath;
     extern cl::opt<bool> disableLinkerStripDead;
 
     extern BoundsCheck boundsCheck;

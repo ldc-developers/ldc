@@ -54,23 +54,34 @@ LLValue* DVarValue::getLVal()
 {
     assert(val);
     if (var && isSpecialRefVar(var))
-        return DtoLoad(val);
+    {
+        assert(var->ident);
+        return DtoLoad(val, var->ident->toChars());
+    }
     return val;
 }
-
+#include <llvm/Support/Signals.h>
 LLValue* DVarValue::getRVal()
 {
     assert(val);
 
     llvm::Value* storage = val;
     if (var && isSpecialRefVar(var))
-        storage = DtoLoad(storage);
+    {
+        assert(var->ident);
+        storage = DtoLoad(storage, var->ident->toChars());
+    }
 
     if (DtoIsPassedByRef(type->toBasetype()))
         return storage;
 
-    llvm::Value* rawValue = DtoLoad(storage);
-
+    llvm::Value* rawValue = DtoLoad(storage, val->getName().data());
+/*	if (!var)
+	{
+		printf("DVarValue::getRVal: var is null, using name val = %s:\n", val->getName().data());
+		llvm::sys::PrintStackTrace(stdout);
+	}
+*/
     if (type->toBasetype()->ty == Tbool)
     {
         assert(rawValue->getType() == llvm::Type::getInt8Ty(gIR->context()));

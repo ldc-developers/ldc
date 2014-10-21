@@ -1,6 +1,8 @@
 project(ldc)
 cmake_minimum_required(VERSION 2.8)
 
+set_property(GLOBAL PROPERTY USE_FOLDERS ON)
+
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 if(MSVC)
@@ -318,6 +320,7 @@ if(GENERATE_OFFTI)
     add_definitions(-DGENERATE_OFFTI)
 endif()
 
+# TODO: /MT /MTd?
 if(MSVC)
     # Remove flags here, for exceptions and RTTI.
     # CL.EXE complains to override flags like "/GR /GR-".
@@ -325,7 +328,7 @@ if(MSVC)
     string(REGEX REPLACE "(^| ) */GR-? *( |$)" "\\1 \\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
     add_definitions(-D_HAS_EXCEPTIONS=0)
-    set(EXTRA_CXXFLAGS "/W0 /wd4996 /GF /GR- /EHs-c- /MP")
+    set(EXTRA_CXXFLAGS "/W3 /wd4996 /wd4267 /wd4244 /wd4800 /we4700 /w14701 /w14703 /GF /GR- /EHs-c- /MP")
 else()
     set(EXTRA_CXXFLAGS "")
 endif()
