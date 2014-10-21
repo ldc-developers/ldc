@@ -173,7 +173,10 @@ bool Win64TargetABI::returnInArg(TypeFunction* tf)
 bool Win64TargetABI::passByVal(Type* t)
 {
     t = t->toBasetype();
-    return isPassedWithByvalSemantics(t);
+
+    // FIXME: LLVM doesn't support ByVal on Win64 yet
+    //return isPassedWithByvalSemantics(t);
+    return false;
 }
 
 void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
