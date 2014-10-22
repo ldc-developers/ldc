@@ -170,7 +170,10 @@ unittest {
  */
 version (LDC)
 {
-    real fabs(real x) @safe pure nothrow { return llvm_fabs(x); }
+    static if (__traits(compiles, llvm_abs(3.14L)))
+        real fabs(real x) @safe pure nothrow { return llvm_fabs(x); }
+    else
+        real fabs(real x) @safe pure nothrow { return stdc.fabsl(x); }
 }
 else
 real fabs(real x) @safe pure nothrow;      /* intrinsic */
@@ -185,12 +188,7 @@ real fabs(real x) @safe pure nothrow;      /* intrinsic */
  */
 version (LDC)
 {
-  version(LDC_LLVM_303) version = HAS_INTRINSIC_RINT;
-  version(LDC_LLVM_304) version = HAS_INTRINSIC_RINT;
-  version(LDC_LLVM_305) version = HAS_INTRINSIC_RINT;
-  version(LDC_LLVM_306) version = HAS_INTRINSIC_RINT;
-
-  version(HAS_INTRINSIC_RINT)
+  static if (__traits(compiles, llvm_rint(3.14L)))
     real rint(real x) @safe pure nothrow { return llvm_rint(x); }
   else
     real rint(real x) @safe pure nothrow { return stdc.rintl(x); }

@@ -19,20 +19,28 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-version(LDC_LLVM_303) version = INTRINSICS_FROM_303;
+version(LDC_LLVM_302) version = INTRINSICS_FROM_302;
+version(LDC_LLVM_303)
+{
+    version = INTRINSICS_FROM_302;
+    version = INTRINSICS_FROM_303;
+}
 version(LDC_LLVM_304)
 {
+    version = INTRINSICS_FROM_302;
     version = INTRINSICS_FROM_303;
     version = INTRINSICS_FROM_304;
 }
 version(LDC_LLVM_305)
 {
+    version = INTRINSICS_FROM_302;
     version = INTRINSICS_FROM_303;
     version = INTRINSICS_FROM_304;
     version = INTRINSICS_FROM_305;
 }
 version(LDC_LLVM_306)
 {
+    version = INTRINSICS_FROM_302;
     version = INTRINSICS_FROM_303;
     version = INTRINSICS_FROM_304;
     version = INTRINSICS_FROM_305;
