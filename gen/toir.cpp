@@ -847,7 +847,10 @@ public:
                 if (LLValue *argptr = p->func()->_argptr) {
                     DtoStore(DtoLoad(argptr), DtoBitCast(arg, getPtrToType(getVoidPtrType())));
                     result = new DImValue(e->type, arg);
-                } else if (global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
+                }
+                else if (global.params.targetTriple.getArch() == llvm::Triple::x86_64 &&
+                    !global.params.targetTriple.isOSWindows()
+                ) {
                     // Since the user only created a __va_list* on the stack before
                     // invoking va_start, we first need to allocate the actual
                     // struct before invoking va_start.
@@ -861,7 +864,8 @@ public:
                 }
             }
             else if (fndecl->llvmInternal == LLVMva_copy &&
-                global.params.targetTriple.getArch() == llvm::Triple::x86_64
+                global.params.targetTriple.getArch() == llvm::Triple::x86_64 &&
+                !global.params.targetTriple.isOSWindows()
             ) {
                 if (e->arguments->dim != 2) {
                     e->error("va_copy instruction expects 2 arguments");
