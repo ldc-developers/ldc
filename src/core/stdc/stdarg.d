@@ -421,6 +421,55 @@ else version( ARM )
 }
 else version ( LDC_X86_64 )
 {
+  version ( Win64 )
+  {
+    alias char* va_list;
+
+    pragma(LDC_va_start)
+        void va_start(T)(va_list ap, ref T);
+
+    T va_arg(T)(ref va_list ap)
+    {
+        static if (T.sizeof > size_t.sizeof || (T.sizeof & (T.sizeof - 1)) != 0)
+            T arg = **cast(T**)ap;
+        else
+            T arg = *cast(T*)ap;
+        ap += size_t.sizeof;
+        return arg;
+    }
+
+    void va_arg(T)(ref va_list ap, ref T parmn)
+    {
+        static if (T.sizeof > size_t.sizeof || (T.sizeof & (T.sizeof - 1)) != 0)
+            parmn = **cast(T**)ap;
+        else
+            parmn = *cast(T*)ap;
+        ap += size_t.sizeof;
+    }
+
+    void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
+    {
+        // Wait until everyone updates to get TypeInfo.talign
+        //auto talign = ti.talign;
+        //auto p = (ap + talign - 1) & ~(talign - 1);
+        auto p = ap;
+        ap = p + size_t.sizeof;
+        auto tsize = ti.tsize;
+        void* q = (tsize > size_t.sizeof || (tsize & (tsize - 1)) != 0) ? *cast(void**)p : cast(void*)p;
+        parmn[0..tsize] = q[0..tsize];
+    }
+
+    void va_end(va_list ap)
+    {
+    }
+
+    void va_copy(out va_list dest, va_list src)
+    {
+        dest = src;
+    }
+  }
+  else
+  {
     // We absolutely need va_list to be something that causes the actual struct
     // to be passed by reference for compatibility with C function declarations.
     // Otherwise, e.g. "extern(C) int vprintf(const char*, va_list)" would fail
@@ -462,6 +511,7 @@ else version ( LDC_X86_64 )
 
     pragma(LDC_va_copy)
         void va_copy(out va_list dest, va_list src);
+  }
 }
 else version (Windows) // Win64
 {   /* Win64 is characterized by all arguments fitting into a register size.

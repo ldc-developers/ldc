@@ -16,7 +16,12 @@
  */
 module core.vararg;
 
-version( LDC )
+version(LDC)
+{
+    version(Win64) {} else version = LDC_NoWin64;
+}
+
+version( LDC_NoWin64 )
 {
     /**
      * The base vararg list type.
