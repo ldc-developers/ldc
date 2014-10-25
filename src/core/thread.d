@@ -2877,6 +2877,14 @@ private void* getStackTop() nothrow
         {
             return __asm!(void *)("movq %rsp, $0", "=r");
         }
+        else version (PPC)
+        {
+            return __asm!(void *)("mr $0, 1", "=r");
+        }
+        else version (PPC64)
+        {
+            return __asm!(void *)("mr $0, 1", "=r");
+        }
         else version (MIPS)
         {
             return __asm!(void *)("move $0, $$sp", "=r");
