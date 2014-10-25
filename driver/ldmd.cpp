@@ -268,7 +268,8 @@ Usage:\n\
 #if 0
 "  -map           generate linker .map file\n"
 #endif
-"  -noboundscheck turns off array bounds checking for all functions\n"
+"  -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n"
+"  -noboundscheck no array bounds checking (deprecated, use -boundscheck=off)\n"
 "  -nofloat       do not emit reference to floating point\n\
   -O             optimize\n\
   -o-            do not write object file\n\
@@ -381,6 +382,17 @@ void appendEnvVar(const char* envVarName, std::vector<char*>& args)
     }
 }
 
+struct BoundsCheck
+{
+    enum Type
+    {
+        defaultVal,
+        off,
+        safeOnly,
+        on
+    };
+};
+
 struct Color
 {
     enum Type
@@ -458,7 +470,7 @@ struct Params
     bool noFloat;
     bool quiet;
     bool release;
-    bool noBoundsChecks;
+    BoundsCheck::Type boundsChecks;
     bool emitUnitTests;
     std::vector<char*> modulePaths;
     std::vector<char*> importPaths;
@@ -523,7 +535,7 @@ struct Params
     noFloat(false),
     quiet(false),
     release(false),
-    noBoundsChecks(false),
+    boundsChecks(BoundsCheck::defaultVal),
     emitUnitTests(false),
     debugFlag(false),
     debugLevel(0),
@@ -746,7 +758,21 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
             else if (strcmp(p + 1, "release") == 0)
                 result.release = 1;
             else if (strcmp(p + 1, "noboundscheck") == 0)
-                result.noBoundsChecks = 1;
+                result.boundsChecks = BoundsCheck::off;
+            else if (memcmp(p + 1, "boundscheck", 11) == 0)
+            {
+                if (p[12] == '=')
+                {
+                    if (strcmp(p + 13, "on") == 0)
+                        result.boundsChecks = BoundsCheck::on;
+                    else if (strcmp(p + 13, "safeonly") == 0)
+                        result.boundsChecks = BoundsCheck::safeOnly;
+                    else if (strcmp(p + 13, "off") == 0)
+                        result.boundsChecks = BoundsCheck::off;
+                    else
+                        goto Lerror;
+                }
+            }
             else if (strcmp(p + 1, "unittest") == 0)
                 result.emitUnitTests = 1;
             else if (p[1] == 'I')
@@ -949,7 +975,9 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.noFloat) warning("-nofloat is ignored by LDC.");
     // -quiet is the default in (newer?) frontend versions, just ignore it.
     if (p.release) r.push_back("-release"); // Also disables boundscheck.
-    if (p.noBoundsChecks) r.push_back("-disable-boundscheck");
+    if (p.boundsChecks == BoundsCheck::on) r.push_back("-boundscheck=on");
+    if (p.boundsChecks == BoundsCheck::safeOnly) r.push_back("-boundscheck=safeonly");
+    if (p.boundsChecks == BoundsCheck::off) r.push_back("-boundscheck=off");
     if (p.emitUnitTests) r.push_back("-unittest");
     pushSwitches("-I=", p.modulePaths, r);
     pushSwitches("-J=", p.importPaths, r);
