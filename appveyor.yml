@@ -20,19 +20,22 @@ clone_folder: c:\projects\ldc
 install:
   - cmd: cd ..
   - cmd: md downloads
-  # Install CMake
-  - ps: (new-object net.webclient).DownloadFile('http://www.cmake.org/files/v3.0/cmake-3.0.2-win32-x86.zip', 'downloads/cmake-3.0.2-win32-x86.zip')
+  - cmd: cd downloads
+  # Download all required files
+  - ps: (new-object net.webclient).DownloadFile('http://www.cmake.org/files/v3.0/cmake-3.0.2-win32-x86.zip', 'cmake-3.0.2-win32-x86.zip')
+  - ps: (new-object net.webclient).DownloadFile('http://www.hyperrealm.com/libconfig/libconfig-1.4.9.tar.gz', 'libconfig-1.4.9.tar.gz')
+  - ps: (new-object net.webclient).DownloadFile('http://llvm.org/builds/downloads/LLVM-3.6.0-r219740-win32.exe', 'LLVM-3.6.0-r219740-win32.exe')
   - cmd: dir
-  - cmd: dir downloads
+  - cmd: cd ..
+  # Install CMake
+  - cmd: dir
   - cmd: 7z x downloads\cmake-3.0.2-win32-x86.zip
   - cmd: dir
   - cmd: set PATH=c:\projects\cmake-3.0.2-win32-x86\bin;%PATH
   # Install libconfig
-  - ps: (new-object net.webclient).DownloadFile('http://www.hyperrealm.com/libconfig/libconfig-1.4.9.tar.gz', 'downloads\libconfig.tar.gz')
-  - cmd: 7z x libconfig.tar.gz
+  - cmd: 7z x downloads\libconfig-1.4.9.tar.gz
   # Install LLVM snapshot
-  - ps: (new-object net.webclient).DownloadFile('http://llvm.org/builds/downloads/LLVM-3.6.0-r219740-win32.exe', 'LLVM-install.exe')
-  - cmd: LLVM-install.exe
+  - cmd: downloads\LLVM-3.6.0-r219740-win32.exe
   # Run CMake
   - cmd: md c:\projects\build-ldc
   - cmd: cd c:\projects\build-ldc
