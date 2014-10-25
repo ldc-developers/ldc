@@ -20,11 +20,10 @@ clone_folder: c:\projects\ldc
 install:
   - cmd: cd ..
   - cmd: md downloads
-  - cmd: cd downloads
   # Download all required files
-  - ps: (new-object net.webclient).DownloadFile('http://www.cmake.org/files/v3.0/cmake-3.0.2-win32-x86.zip', 'cmake-3.0.2-win32-x86.zip')
-  - ps: (new-object net.webclient).DownloadFile('http://www.hyperrealm.com/libconfig/libconfig-1.4.9.tar.gz', 'libconfig-1.4.9.tar.gz')
-  - ps: (new-object net.webclient).DownloadFile('http://llvm.org/builds/downloads/LLVM-3.6.0-r219740-win32.exe', 'LLVM-3.6.0-r219740-win32.exe')
+  - ps: (new-object net.webclient).DownloadFile('http://www.cmake.org/files/v3.0/cmake-3.0.2-win32-x86.zip', 'c:/projects/downloads/cmake-3.0.2-win32-x86.zip')
+  - ps: (new-object net.webclient).DownloadFile('http://www.hyperrealm.com/libconfig/libconfig-1.4.9.tar.gz', 'c:/projects/downloads/libconfig-1.4.9.tar.gz')
+  - ps: (new-object net.webclient).DownloadFile('http://llvm.org/builds/downloads/LLVM-3.6.0-r219740-win32.exe', 'c:/projects/downloads/LLVM-3.6.0-r219740-win32.exe')
   - cmd: dir
   - cmd: cd ..
   # Install CMake
