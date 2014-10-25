@@ -22,7 +22,10 @@ install:
   - cmd: md downloads
   # Install CMake
   - ps: (new-object net.webclient).DownloadFile('http://www.cmake.org/files/v3.0/cmake-3.0.2-win32-x86.zip', 'downloads\\cmake-3.0.2-win32-x86.zip')
+  - cmd: dir
+  - cmd: dir downloads
   - cmd: 7z x downloads\cmake-3.0.2-win32-x86.zip
+  - cmd: dir
   - cmd: set PATH=c:\projects\cmake-3.0.2-win32-x86\bin;%PATH
   # Install libconfig
   - ps: (new-object net.webclient).DownloadFile('http://www.hyperrealm.com/libconfig/libconfig-1.4.9.tar.gz', 'downloads\libconfig.tar.gz')
