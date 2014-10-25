@@ -915,11 +915,6 @@ static void emitEntryPointInto(llvm::Module* lm)
         emitSymbolAddrGlobal(*entryModule, "_end", "_d_execBssEndAddr");
     }
 
-#if LDC_LLVM_VER >= 306
-    // FIXME: A possible error message is written to the diagnostic context
-    //        Do we show these messages?
-    linker.linkInModule(entryModule);
-#else
     std::string linkError;
 #if LDC_LLVM_VER >= 303
     const bool hadError = linker.linkInModule(entryModule, &linkError);
@@ -929,7 +924,6 @@ static void emitEntryPointInto(llvm::Module* lm)
 #endif
     if (hadError)
         error(Loc(), "%s", linkError.c_str());
-#endif
 }
 
 
@@ -1370,16 +1364,12 @@ int main(int argc, char **argv)
         std::string errormsg;
         for (size_t i = 0; i < llvmModules.size(); i++)
         {
-#if LDC_LLVM_VER >= 306
-            linker.linkInModule(llvmModules[i], llvm::Linker::DestroySource);
-#else
 #if LDC_LLVM_VER >= 303
             if (linker.linkInModule(llvmModules[i], llvm::Linker::DestroySource, &errormsg))
 #else
             if (linker.LinkInModule(llvmModules[i], &errormsg))
 #endif
                 error(Loc(), "%s", errormsg.c_str());
-#endif
             delete llvmModules[i];
         }
 
