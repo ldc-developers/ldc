@@ -21,7 +21,7 @@ install:
   - cmd: cd ..
   - cmd: md downloads
   # Install CMake
-  - ps: (new-object net.webclient).DownloadFile('http://www.cmake.org/files/v3.0/cmake-3.0.2-win32-x86.zip', 'downloads\\cmake-3.0.2-win32-x86.zip')
+  - ps: (new-object net.webclient).DownloadFile('http://www.cmake.org/files/v3.0/cmake-3.0.2-win32-x86.zip', 'downloads/cmake-3.0.2-win32-x86.zip')
   - cmd: dir
   - cmd: dir downloads
   - cmd: 7z x downloads\cmake-3.0.2-win32-x86.zip
