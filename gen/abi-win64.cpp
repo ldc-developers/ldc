@@ -45,6 +45,15 @@ static bool isComposite(const Type* t)
     return t->ty == Tstruct || t->ty == Tsarray;
 }
 
+static bool realIs80bits()
+{
+#if LDC_LLVM_VER >= 305
+    return !global.params.targetTriple.isWindowsMSVCEnvironment();
+#else
+    return true;
+#endif
+}
+
 // Returns true if the D type is passed byval (the callee getting a pointer
 // to a dedicated hidden copy).
 static bool isPassedWithByvalSemantics(Type* t)
@@ -53,7 +62,7 @@ static bool isPassedWithByvalSemantics(Type* t)
         // * structs and static arrays which can NOT be rewritten as integers
         (isComposite(t) && !canRewriteAsInt(t)) ||
         // * 80-bit real and ireal
-        (t->ty == Tfloat80 || t->ty == Timaginary80) ||
+        ((t->ty == Tfloat80 || t->ty == Timaginary80) && realIs80bits()) ||
         // * cdouble and creal
         (t->ty == Tcomplex64 || t->ty == Tcomplex80);
 }
@@ -159,7 +168,7 @@ bool Win64TargetABI::returnInArg(TypeFunction* tf)
     // double) - except for cfloat
     // 80-bit real/ireal is returned on top of the x87 stack: ST(0)
     // complex numbers are returned in XMM0 & XMM1 (cfloat, cdouble)
-    // or ST(1) & ST(0) (creal)
+    // or ST(1) & ST(0) (80-bit creal)
     // all other structs and static arrays are returned by struct-return (sret)
     return isComposite(rt) && !canRewriteAsInt(rt);
 }
@@ -179,7 +188,7 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     if (!tf->isref)
     {
         Type* rt = fty.ret->type->toBasetype();
-        if (rt->ty == Tcomplex80)
+        if (rt->ty == Tcomplex80 && realIs80bits())
         {
             // LLVM returns a '{real re, ireal im}' via ST(0) = re and ST(1) = im
             // DMD does it the other way around: ST(0) = im and ST(1) = re
