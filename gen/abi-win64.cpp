@@ -36,7 +36,7 @@
 static bool canRewriteAsInt(Type* t)
 {
     unsigned size = t->size();
-    return size == 1 || size == 2 || size == 4 || size == 8;
+    return size <= 8 && (size & (size - 1)) == 0; // <= size_t and a power of 2
 }
 
 // Returns true if the D type is a composite (struct or static array).
@@ -66,13 +66,6 @@ struct Win64_byval_rewrite : ABIRewrite
     {
         LLValue* ptr = v->getRVal();
         return DtoLoad(ptr); // *ptr
-    }
-
-    // Get instance from pointer, and store in the provided location.
-    void getL(Type* dty, DValue* v, llvm::Value* lval)
-    {
-        LLValue* ptr = v->getRVal();
-        DtoStore(DtoLoad(ptr), lval); // *lval = *ptr
     }
 
     // Convert the caller's instance to a pointer for the callee.
@@ -142,12 +135,11 @@ llvm::CallingConv::ID Win64TargetABI::callingConv(LINK l)
     {
     case LINKc:
     case LINKcpp:
+    case LINKpascal:
     case LINKd:
     case LINKdefault:
     case LINKwindows:
         return llvm::CallingConv::C;
-    case LINKpascal:
-        return llvm::CallingConv::X86_StdCall;
     default:
         llvm_unreachable("Unhandled D linkage type.");
     }
@@ -181,12 +173,10 @@ bool Win64TargetABI::passByVal(Type* t)
 
 void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
 {
-    Type* rt = fty.ret->type->toBasetype();
-
     // RETURN VALUE
-
     if (!tf->isref)
     {
+        Type* rt = fty.ret->type->toBasetype();
         if (rt->ty == Tcomplex80)
         {
             // LLVM returns a '{real re, ireal im}' via ST(0) = re and ST(1) = im
@@ -202,10 +192,7 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
         }
     }
 
-    // IMPLICIT PARAMETERS
-
     // EXPLICIT PARAMETERS
-
     for (IrFuncTy::ArgRIter I = fty.args.rbegin(), E = fty.args.rend(); I != E; ++I)
     {
         IrFuncTyArg& arg = **I;
@@ -249,13 +236,5 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
             arg.attrs = llvm::Attribute::NoAlias | llvm::Attribute::NoCapture;
 #endif
         }
-    }
-
-    if (tf->linkage == LINKd)
-    {
-        // reverse parameter order
-        // for non variadics
-        if (fty.args.size() > 1 && tf->varargs != 1)
-            fty.reverseParams = true;
     }
 }
