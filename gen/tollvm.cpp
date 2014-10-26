@@ -44,9 +44,9 @@ bool DtoIsPassedByRef(Type* type)
 RET retStyle(TypeFunction *tf)
 {
     gABI->newFunctionType(tf);
-    bool retInArg = gABI->returnInArg(tf);
+    bool sret = gABI->returnInArg(tf);
     gABI->doneWithFunctionType();
-    return retInArg ? RETstack : RETregs;
+    return sret ? RETstack : RETregs;
 }
 
 bool DtoIsReturnInArg(CallExp *ce)

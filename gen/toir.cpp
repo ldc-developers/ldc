@@ -847,41 +847,10 @@ public:
                 if (LLValue *argptr = p->func()->_argptr) {
                     DtoStore(DtoLoad(argptr), DtoBitCast(arg, getPtrToType(getVoidPtrType())));
                     result = new DImValue(e->type, arg);
-                }
-                else if (global.params.targetTriple.getArch() == llvm::Triple::x86_64 &&
-                    !global.params.targetTriple.isOSWindows()
-                ) {
-                    // Since the user only created a __va_list* on the stack before
-                    // invoking va_start, we first need to allocate the actual
-                    // struct before invoking va_start.
-                    LLValue *va_list = DtoAlloca(exp->type->nextOf());
-                    DtoStore(va_list, arg);
-                    va_list = DtoBitCast(va_list, getVoidPtrType());
-                    result = new DImValue(e->type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), va_list, ""));
                 } else {
                     arg = DtoBitCast(arg, getVoidPtrType());
                     result = new DImValue(e->type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), arg, ""));
                 }
-            }
-            else if (fndecl->llvmInternal == LLVMva_copy &&
-                global.params.targetTriple.getArch() == llvm::Triple::x86_64 &&
-                !global.params.targetTriple.isOSWindows()
-            ) {
-                if (e->arguments->dim != 2) {
-                    e->error("va_copy instruction expects 2 arguments");
-                    fatal();
-                }
-
-                // Similar to va_start, we need to create a new struct on the stack
-                // first and set the target argument to it.
-                Expression* exp1 = (*e->arguments)[0];
-                LLValue* va_list = DtoAlloca(exp1->type->nextOf());
-                LLValue* arg1 = toElem(exp1)->getLVal();
-                DtoStore(va_list, arg1);
-
-                LLValue* arg2 = toElem((*e->arguments)[1])->getRVal();
-                DtoStore(DtoLoad(arg2), DtoLoad(arg1));
-                result = new DVarValue(e->type, arg1);
             }
             // va_arg instruction
             else if (fndecl->llvmInternal == LLVMva_arg) {

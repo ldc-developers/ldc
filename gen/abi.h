@@ -82,7 +82,9 @@ struct TargetABI
     /// Called if a new function type is resolved
     virtual void newFunctionType(TypeFunction* tf) {}
 
-    /// Returns true if the return value is passed in a register
+    /// Returns true if the function uses sret (struct return),
+    /// meaning that it gets a hidden pointer to a struct which has been pre-
+    /// allocated by the caller.
     virtual bool returnInArg(TypeFunction* tf) = 0;
 
     /// Returns true if the type is passed by value
@@ -90,6 +92,8 @@ struct TargetABI
 
     /// Called to give ABI the chance to rewrite the types
     virtual void rewriteFunctionType(TypeFunction* t, IrFuncTy &fty) = 0;
+
+    virtual void rewriteArgument(IrFuncTyArg& arg) {}
 
     /// Called if resolution of new function type is done
     virtual void doneWithFunctionType() {}

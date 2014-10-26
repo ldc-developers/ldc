@@ -120,6 +120,8 @@ struct Win64TargetABI : TargetABI
     bool passByVal(Type* t);
 
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty);
+
+    void rewriteArgument(IrFuncTyArg& arg);
 };
 
 
@@ -200,41 +202,46 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
         if (arg.byref)
             continue;
 
-        Type* ty = arg.type->toBasetype();
+        rewriteArgument(arg);
+    }
+}
 
-        if (ty->ty == Tcomplex32)
-        {
-            // {float,float} cannot be bit-cast to int64 (using CompositeToInt)
-            // FIXME: is there a way to force a bit-cast?
-            arg.rewrite = &cfloatToInt;
-            arg.ltype = cfloatToInt.type(arg.type, arg.ltype);
-        }
-        else if (isComposite(ty) && canRewriteAsInt(ty))
-        {
-            arg.rewrite = &compositeToInt;
-            arg.ltype = compositeToInt.type(arg.type, arg.ltype);
-        }
-        // FIXME: this should actually be handled by LLVM and the ByVal arg attribute
-        else if (isPassedWithByvalSemantics(ty))
-        {
-            // these types are passed byval:
-            // the caller allocates a copy and then passes a pointer to the copy
-            // FIXME: use tightly packed struct for creal like DMD?
-            arg.rewrite = &byval_rewrite;
-            arg.ltype = byval_rewrite.type(arg.type, arg.ltype);
+void Win64TargetABI::rewriteArgument(IrFuncTyArg& arg)
+{
+    Type* ty = arg.type->toBasetype();
 
-            // the copy is treated as a local variable of the callee
-            // hence add the NoAlias and NoCapture attributes
+    if (ty->ty == Tcomplex32)
+    {
+        // {float,float} cannot be bit-cast to int64 (using CompositeToInt)
+        // FIXME: is there a way to force a bit-cast?
+        arg.rewrite = &cfloatToInt;
+        arg.ltype = cfloatToInt.type(arg.type, arg.ltype);
+    }
+    else if (isComposite(ty) && canRewriteAsInt(ty))
+    {
+        arg.rewrite = &compositeToInt;
+        arg.ltype = compositeToInt.type(arg.type, arg.ltype);
+    }
+    // FIXME: this should actually be handled by LLVM and the ByVal arg attribute
+    else if (isPassedWithByvalSemantics(ty))
+    {
+        // these types are passed byval:
+        // the caller allocates a copy and then passes a pointer to the copy
+        // FIXME: use tightly packed struct for creal like DMD?
+        arg.rewrite = &byval_rewrite;
+        arg.ltype = byval_rewrite.type(arg.type, arg.ltype);
+
+        // the copy is treated as a local variable of the callee
+        // hence add the NoAlias and NoCapture attributes
 #if LDC_LLVM_VER >= 303
-            arg.attrs.clear();
-            arg.attrs.addAttribute(llvm::Attribute::NoAlias)
-                     .addAttribute(llvm::Attribute::NoCapture);
+        arg.attrs.clear();
+        arg.attrs.addAttribute(llvm::Attribute::NoAlias)
+                 .addAttribute(llvm::Attribute::NoCapture);
 #elif LDC_LLVM_VER == 302
-            arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
-                                                                                 .addAttribute(llvm::Attributes::NoCapture));
+        arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
+                                                                             .addAttribute(llvm::Attributes::NoCapture));
 #else
-            arg.attrs = llvm::Attribute::NoAlias | llvm::Attribute::NoCapture;
+        arg.attrs = llvm::Attribute::NoAlias | llvm::Attribute::NoCapture;
 #endif
-        }
     }
 }

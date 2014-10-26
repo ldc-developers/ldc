@@ -103,7 +103,6 @@ struct IrFuncTy
     IrFuncTyArg* arg_this;
     IrFuncTyArg* arg_nest;
     IrFuncTyArg* arg_arguments;
-    IrFuncTyArg* arg_argptr;
 
     // normal explicit arguments
 //    typedef llvm::SmallVector<IrFuncTyArg*, 4> ArgList;
@@ -131,7 +130,6 @@ struct IrFuncTy
         arg_this(NULL),
         arg_nest(NULL),
         arg_arguments(NULL),
-        arg_argptr(NULL),
         args(),
         c_vararg(false),
         reverseParams(false)

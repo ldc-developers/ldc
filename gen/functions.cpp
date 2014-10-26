@@ -179,28 +179,10 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
                 // _arguments
                 newIrFty.arg_arguments = new IrFuncTyArg(Type::dtypeinfo->type->arrayOf(), false);
                 lidx++;
-                // _argptr
-#if LDC_LLVM_VER >= 303
-                newIrFty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
-                                                 llvm::AttrBuilder().addAttribute(llvm::Attribute::NoAlias)
-                                                                    .addAttribute(llvm::Attribute::NoCapture));
-#elif LDC_LLVM_VER == 302
-                newIrFty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
-                                                 llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
-                                                                                                          .addAttribute(llvm::Attributes::NoCapture)));
-#else
-                newIrFty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
-                                                      llvm::Attribute::NoAlias | llvm::Attribute::NoCapture);
-#endif
-                lidx++;
             }
         }
-        else
-        {
-            // Default to C-style varargs for non-extern(D) variadic functions.
-            // This seems to be what DMD does.
-            newIrFty.c_vararg = true;
-        }
+
+        newIrFty.c_vararg = true;
     }
 
     // if this _Dmain() doesn't have an argument, we force it to have one
@@ -286,7 +268,6 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     if (irFty.arg_this) argtypes.push_back(irFty.arg_this->ltype);
     if (irFty.arg_nest) argtypes.push_back(irFty.arg_nest->ltype);
     if (irFty.arg_arguments) argtypes.push_back(irFty.arg_arguments->ltype);
-    if (irFty.arg_argptr) argtypes.push_back(irFty.arg_argptr->ltype);
 
     size_t beg = argtypes.size();
     size_t nargs2 = irFty.args.size();
@@ -615,7 +596,6 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     ADD_PA(arg_this)
     ADD_PA(arg_nest)
     ADD_PA(arg_arguments)
-    ADD_PA(arg_argptr)
 
     #undef ADD_PA
 
@@ -659,7 +639,6 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     ADD_PA(arg_this)
     ADD_PA(arg_nest)
     ADD_PA(arg_arguments)
-    ADD_PA(arg_argptr)
 
     #undef ADD_PA
 
@@ -877,12 +856,9 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             ++iarg;
         }
 
-        if (irFty.arg_argptr) {
+        if (irFty.arg_arguments) {
             iarg->setName("._arguments");
             irFunc->_arguments = iarg;
-            ++iarg;
-            iarg->setName("._argptr");
-            irFunc->_argptr = iarg;
             ++iarg;
         }
 
@@ -1077,6 +1053,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     // On x86_64, always set 'uwtable' for System V ABI compatibility.
     // TODO: Find a better place for this.
+    // TODO: Is this required for Win64 as well?
     if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
     {
         func->addFnAttr(llvm::Attribute::UWTable);
@@ -1202,15 +1179,15 @@ void DtoDefineFunction(FuncDeclaration* fd)
         DtoVarDeclaration(fd->vresult);
     }
 
-    // copy _argptr and _arguments to a memory location
+    // D varargs: prepare _argptr and _arguments
     if (f->linkage == LINKd && f->varargs == 1)
     {
-        // _argptr
-        LLValue* argptrmem = DtoRawAlloca(irFunc->_argptr->getType(), 0, "_argptr_mem");
-        new llvm::StoreInst(irFunc->_argptr, argptrmem, gIR->scopebb());
+        // allocate _argptr and initialize it by calling the LLVM va_start intrinsic
+        LLValue* argptrmem = DtoAlloca(Type::tvoidptr, "_argptr_mem");
+        llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), DtoBitCast(argptrmem, getVoidPtrType()), "", gIR->scopebb());
         irFunc->_argptr = argptrmem;
 
-        // _arguments
+        // copy _arguments to a memory location
         LLValue* argumentsmem = DtoRawAlloca(irFunc->_arguments->getType(), 0, "_arguments_mem");
         new llvm::StoreInst(irFunc->_arguments, argumentsmem, gIR->scopebb());
         irFunc->_arguments = argumentsmem;
