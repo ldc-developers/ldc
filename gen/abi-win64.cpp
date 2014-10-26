@@ -36,7 +36,7 @@
 static bool canRewriteAsInt(Type* t)
 {
     unsigned size = t->size();
-    return size <= 8 && (size & (size - 1)) == 0; // <= size_t and a power of 2
+    return size == 1 || size == 2 || size == 4 || size == 8;
 }
 
 // Returns true if the D type is a composite (struct or static array).
