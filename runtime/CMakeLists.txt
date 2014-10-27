@@ -434,7 +434,8 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
         list(APPEND ${outlist_targets} "phobos2-ldc${target_suffix}")
     endif()
 
-    if(BUILD_BC_LIBS)
+    # TODO: command is too long with ninja
+    if(BUILD_BC_LIBS AND NOT CMAKE_GENERATOR STREQUAL "Ninja")
         find_program(LLVM_AR_EXE llvm-ar
             HINTS ${LLVM_ROOT_DIR}/bin
             DOC "path to llvm-ar tool"
