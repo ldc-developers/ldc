@@ -56,9 +56,10 @@ set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "Phobos root directory")
 # Gather source files.
 #
 
-file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d )
-file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d )
-file(GLOB CORE_D_STDC ${RUNTIME_DIR}/src/core/stdc/*.d )
+file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d)
+file(GLOB_RECURSE CORE_D_INTERNAL ${RUNTIME_DIR}/src/core/internal/*.d)
+file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d)
+file(GLOB CORE_D_STDC ${RUNTIME_DIR}/src/core/stdc/*.d)
 file(GLOB_RECURSE GC_D ${RUNTIME_DIR}/src/gc/*.d)
 file(GLOB_RECURSE DCRT_D ${RUNTIME_DIR}/src/rt/*.d)
 file(GLOB_RECURSE LDC_D ${RUNTIME_DIR}/src/ldc/*.d)
@@ -121,7 +122,7 @@ elseif(WIN32)
     endif()
     list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/monitor.c)
 endif()
-list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
+list(APPEND CORE_D ${CORE_D_INTERNAL} ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
 list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
 file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
