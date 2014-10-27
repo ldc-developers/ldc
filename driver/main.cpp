@@ -417,7 +417,8 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     {
         // Parse comma-separated default library list.
         std::stringstream libNames(
-            global.params.symdebug ? debugLib : defaultLib);
+            // TODO: need better way to choose release mode
+            global.params.useInvariants ? debugLib : defaultLib);
         while (libNames.good())
         {
             std::string lib;
