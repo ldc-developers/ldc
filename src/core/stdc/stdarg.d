@@ -20,8 +20,6 @@ version ( PPC64 ) version = AnyPPC;
 
 version( X86_64 )
 {
-    version( LDC ) version = LDC_X86_64;
-
     // Determine if type is a vector type
     template isVectorType(T)
     {
@@ -295,7 +293,130 @@ version( X86_64 )
     }
 }
 
-version( X86 )
+version( LDC )
+{
+    // FIXME: This isn't actually tested at all for ARM.
+    // Really struct va_list { void* ptr; }, but for compatibility with
+    // x86-style code that uses char*, we just define it as the raw pointer.
+
+    version( AnyPPC )
+        alias void* va_list;
+    else version( MIPS64 )
+        alias void* va_list;
+    else
+        alias char* va_list;
+
+    pragma(LDC_va_start)
+        void va_start(T)(va_list ap, ref T);
+
+    private pragma(LDC_va_arg)
+        T va_arg_impl(T)(va_list ap);
+
+    T va_arg(T)(ref va_list ap)
+    {
+        version( Win64 )
+        {
+            static if (T.sizeof > size_t.sizeof || (T.sizeof & (T.sizeof - 1)) != 0)
+                T arg = **cast(T**)ap;
+            else
+                T arg = *cast(T*)ap;
+            ap += size_t.sizeof;
+            return arg;
+        }
+        else version( ARM )
+        {
+            T arg = *cast(T*)ap;
+            ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+            return arg;
+        }
+        else
+            return va_arg_impl!T(ap);
+    }
+
+    void va_arg(T)(ref va_list ap, ref T parmn)
+    {
+        version( Win64 )
+        {
+            static if (T.sizeof > size_t.sizeof || (T.sizeof & (T.sizeof - 1)) != 0)
+                parmn = **cast(T**)ap;
+            else
+                parmn = *cast(T*)ap;
+            ap += size_t.sizeof;
+        }
+        else version( ARM )
+        {
+            parmn = *cast(T*)ap;
+            ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+        }
+        else
+            parmn = va_arg!T(ap);
+    }
+
+    void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
+    {
+        auto tsize = ti.tsize;
+
+        version( X86 )
+        {
+            // Wait until everyone updates to get TypeInfo.talign
+            //auto talign = ti.talign;
+            //auto p = cast(va_list) ((cast(size_t)ap + talign - 1) & ~(talign - 1));
+            auto p = ap;
+            ap = p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1));
+        }
+        else version( Win64 )
+        {
+            // passed byval if > 64 bits or not a power of 2
+            auto p = (tsize > size_t.sizeof || (tsize & (tsize - 1)) != 0) ? *cast(char**)ap : ap;
+            ap += size_t.sizeof;
+        }
+        else version( X86_64 )
+        {
+            static assert(false, "core.stdc.stdarg.va_arg() not yet implemented for System V AMD64 ABI");
+        }
+        else version( ARM )
+        {
+            // Wait until everyone updates to get TypeInfo.talign
+            //auto talign = ti.talign;
+            //auto p = cast(va_list) ((cast(size_t)ap + talign - 1) & ~(talign - 1));
+            auto p = ap;
+            ap = p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1));
+        }
+        else version( AnyPPC )
+        {
+            /*
+             * The rules are described in the 64bit PowerPC ELF ABI Supplement 1.9,
+             * available here:
+             * http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi-1.9.html#PARAM-PASS
+             */
+
+            // This works for all types because only the rules for non-floating,
+            // non-vector types are used.
+            auto p = (tsize < size_t.sizeof ? ap + (size_t.sizeof - tsize) : ap);
+            ap += (tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+        }
+        else version( MIPS64 )
+        {
+            // This works for all types because only the rules for non-floating,
+            // non-vector types are used.
+            auto p = (tsize < size_t.sizeof ? ap + (size_t.sizeof - tsize) : ap);
+            ap += (tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+        }
+        else
+        {
+            static assert(false, "Unsupported platform");
+        }
+
+        parmn[0..tsize] = (cast(void*)p)[0..tsize];
+    }
+
+    pragma(LDC_va_end)
+        void va_end(va_list ap);
+
+    pragma(LDC_va_copy)
+        void va_copy(out va_list dest, va_list src);
+}
+else version( X86 )
 {
     /*********************
      * The argument pointer type.
@@ -307,17 +428,9 @@ version( X86 )
      * For 32 bit code, parmn should be the last named parameter.
      * For 64 bit code, parmn should be __va_argsave.
      */
-    version(LDC)
+    void va_start(T)(out va_list ap, ref T parmn)
     {
-        pragma(LDC_va_start)
-            void va_start(T)(va_list ap, ref T);
-    }
-    else
-    {
-        void va_start(T)(out va_list ap, ref T parmn)
-        {
-            ap = cast(va_list)( cast(void*) &parmn + ( ( T.sizeof + int.sizeof - 1 ) & ~( int.sizeof - 1 ) ) );
-        }
+        ap = cast(va_list)( cast(void*) &parmn + ( ( T.sizeof + int.sizeof - 1 ) & ~( int.sizeof - 1 ) ) );
     }
 
     /************
@@ -367,151 +480,6 @@ version( X86 )
     {
         dest = src;
     }
-}
-else version( ARM )
-{
-    // FIXME: This isn't actually tested at all.
-    // Really struct va_list { void* ptr; }, but for compatibility with
-    // x86-style code that uses char*, we just define it as the raw pointer.
-    alias va_list = char*;
-
-    version(LDC)
-    {
-        pragma(LDC_va_start)
-            void va_start(T)(va_list ap, ref T);
-    }
-    else static assert("Unsupported platform.");
-
-    /**
-     * Retrieve and return the next value that is type T.
-     * This is the preferred version.
-     */
-    void va_arg(T)(ref va_list ap, ref T parmn)
-    {
-        parmn = *cast(T*)ap;
-        ap = cast(va_list)(cast(void*)ap + ((T.sizeof + int.sizeof - 1) & ~(int.sizeof - 1)));
-    }
-
-    /**
-     * Retrieve and store through parmn the next value that is of TypeInfo ti.
-     * Used when the static type is not known.
-     */
-    void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
-    {
-        // Wait until everyone updates to get TypeInfo.talign
-        //auto talign = ti.talign;
-        //auto p = cast(void*)(cast(size_t)ap + talign - 1) & ~(talign - 1);
-        auto p = *cast(void**) &ap;
-        auto tsize = ti.tsize;
-        *cast(void**) &ap += ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1));
-        parmn[0..tsize] = p[0..tsize];
-    }
-
-    /**
-     * End use of ap.
-     */
-    void va_end(va_list ap)
-    {
-    }
-
-    void va_copy(out va_list dest, va_list src)
-    {
-        dest = src;
-    }
-}
-else version ( LDC_X86_64 )
-{
-  version ( Win64 )
-  {
-    alias char* va_list;
-
-    pragma(LDC_va_start)
-        void va_start(T)(va_list ap, ref T);
-
-    T va_arg(T)(ref va_list ap)
-    {
-        static if (T.sizeof > size_t.sizeof || (T.sizeof & (T.sizeof - 1)) != 0)
-            T arg = **cast(T**)ap;
-        else
-            T arg = *cast(T*)ap;
-        ap += size_t.sizeof;
-        return arg;
-    }
-
-    void va_arg(T)(ref va_list ap, ref T parmn)
-    {
-        static if (T.sizeof > size_t.sizeof || (T.sizeof & (T.sizeof - 1)) != 0)
-            parmn = **cast(T**)ap;
-        else
-            parmn = *cast(T*)ap;
-        ap += size_t.sizeof;
-    }
-
-    void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
-    {
-        // Wait until everyone updates to get TypeInfo.talign
-        //auto talign = ti.talign;
-        //auto p = (ap + talign - 1) & ~(talign - 1);
-        auto p = ap;
-        ap = p + size_t.sizeof;
-        auto tsize = ti.tsize;
-        void* q = (tsize > size_t.sizeof || (tsize & (tsize - 1)) != 0) ? *cast(void**)p : cast(void*)p;
-        parmn[0..tsize] = q[0..tsize];
-    }
-
-    void va_end(va_list ap)
-    {
-    }
-
-    void va_copy(out va_list dest, va_list src)
-    {
-        dest = src;
-    }
-  }
-  else
-  {
-    // We absolutely need va_list to be something that causes the actual struct
-    // to be passed by reference for compatibility with C function declarations.
-    // Otherwise, e.g. "extern(C) int vprintf(const char*, va_list)" would fail
-    // horribly. Now, with va_list = __va_list*, we can't properly implement
-    // va_copy without cheating, as it needs to save the struct contents
-    // somewhere (offset_regs, offset_fpregs), copying a pointer does not help.
-    //
-    // Currently, we just special-case va_start/va_copy when lowering the
-    // pragmas and make them allocate the struct on the caller's stack. This
-    // gets us 99% there for the common use cases. Eventually, the whole mess
-    // will have to be cleaned up (also in DMD), probably by making va_list a
-    // magic built-in type that on x86_64 decays to a reference like the actual
-    // definition in C (one-element array), or by giving va_copy a different
-    // signature.
-    alias va_list = __va_list*;
-
-    pragma(LDC_va_start)
-        void va_start(T)(out va_list ap, ref T);
-
-    T va_arg(T)(va_list ap)
-    {
-        T a;
-        va_arg(ap, a);
-        return a;
-    }
-
-    void va_arg(T)(va_list apx, ref T parmn)
-    {
-        va_arg_x86_64(apx, parmn);
-    }
-
-    void va_arg()(va_list apx, TypeInfo ti, void* parmn)
-    {
-        va_arg_x86_64(apx, ti, parmn);
-    }
-
-    pragma(LDC_va_end)
-        void va_end(va_list ap);
-
-    pragma(LDC_va_copy)
-        void va_copy(out va_list dest, va_list src);
-  }
 }
 else version (Windows) // Win64
 {   /* Win64 is characterized by all arguments fitting into a register size.
@@ -632,90 +600,6 @@ else version ( X86_64 )
     void va_copy(out va_list dest, va_list src)
     {
         dest = src;
-    }
-}
-else version ( AnyPPC )
-{
-    version ( LDC )
-    {
-        /*
-         * The rules are described in the 64bit PowerPC ELF ABI Supplement 1.9,
-         * available here:
-         * http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi-1.9.html#PARAM-PASS
-         */
-
-        alias void *va_list;
-
-        pragma(LDC_va_start)
-            void va_start(T)(va_list ap, ref T);
-
-        private pragma(LDC_va_arg)
-            T va_arg_impl(T)(va_list ap);
-
-        T va_arg(T)(ref va_list ap)
-        {
-            return va_arg_impl!T(ap);
-        }
-
-        void va_arg(T)(ref va_list ap, ref T parmn)
-        {
-            parmn = va_arg!T(ap);
-        }
-
-        void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
-        {
-            // This works for all types because only the rules for non-floating,
-            // non-vector types are used.
-            auto tsize = ti.tsize();
-            auto p = tsize < size_t.sizeof ? cast(void*)(cast(void*)ap + (size_t.sizeof - tsize)) : ap;
-            ap = cast(va_list)(cast(void*)ap + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1)));
-            parmn[0..tsize] = p[0..tsize];
-        }
-
-        pragma(LDC_va_end)
-            void va_end(va_list ap);
-
-        pragma(LDC_va_copy)
-            void va_copy(out va_list dest, va_list src);
-    }
-}
-else version ( MIPS64 )
-{
-    version ( LDC )
-    {
-        alias void *va_list;
-
-        pragma(LDC_va_start)
-            void va_start(T)(va_list ap, ref T);
-
-        private pragma(LDC_va_arg)
-            T va_arg_impl(T)(va_list ap);
-
-        T va_arg(T)(ref va_list ap)
-        {
-            return va_arg_impl!T(ap);
-        }
-
-        void va_arg(T)(ref va_list ap, ref T parmn)
-        {
-            parmn = va_arg!T(ap);
-        }
-
-        void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
-        {
-            // This works for all types because only the rules for non-floating,
-            // non-vector types are used.
-            auto tsize = ti.tsize();
-            auto p = tsize < size_t.sizeof ? cast(void*)(cast(void*)ap + (size_t.sizeof - tsize)) : ap;
-            ap = cast(va_list)(cast(void*)ap + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1)));
-            parmn[0..tsize] = p[0..tsize];
-        }
-
-        pragma(LDC_va_end)
-            void va_end(va_list ap);
-
-        pragma(LDC_va_copy)
-            void va_copy(out va_list dest, va_list src);
     }
 }
 else
