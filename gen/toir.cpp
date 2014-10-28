@@ -857,10 +857,10 @@ public:
                     LLValue *va_list = DtoAlloca(exp->type->nextOf());
                     DtoStore(va_list, arg);
                     va_list = DtoBitCast(va_list, getVoidPtrType());
-                    result = new DImValue(e->type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), va_list, ""));
+                    result = new DImValue(e->type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), va_list));
                 } else {
                     arg = DtoBitCast(arg, getVoidPtrType());
-                    result = new DImValue(e->type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), arg, ""));
+                    result = new DImValue(e->type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), arg));
                 }
             }
             else if (fndecl->llvmInternal == LLVMva_copy &&

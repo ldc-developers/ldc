@@ -158,11 +158,22 @@ bool willInline() {
 
 llvm::CodeGenOpt::Level codeGenOptLevel() {
     const int opt = optLevel();
-    // Use same appoach as clang (see lib/CodeGen/BackendUtil.cpp)
-    llvm::CodeGenOpt::Level codeGenOptLevel = llvm::CodeGenOpt::Default;
-    // Debug info doesn't work properly with CodeGenOpt <> None
-    if (global.params.symdebug || !opt) codeGenOptLevel = llvm::CodeGenOpt::None;
-    else if (opt >= 3) codeGenOptLevel = llvm::CodeGenOpt::Aggressive;
+    llvm::CodeGenOpt::Level codeGenOptLevel;
+    switch (opt)
+    {
+    case 0:
+        codeGenOptLevel = llvm::CodeGenOpt::None;
+        break;
+    case 1:
+        codeGenOptLevel = llvm::CodeGenOpt::Less;
+        break;
+    case 2:
+        codeGenOptLevel = llvm::CodeGenOpt::Default;
+        break;
+    default:
+        codeGenOptLevel = llvm::CodeGenOpt::Aggressive;
+        break;
+    }
     return codeGenOptLevel;
 }
 
