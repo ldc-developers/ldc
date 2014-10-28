@@ -15,7 +15,7 @@ set(PORTABLE_INSTALL      OFF                                       CACHE BOOL  
 set(BUILD_SHARED_LIBS     OFF                                       CACHE BOOL    "Whether to build the runtime as a shared library")
 set(D_FLAGS               -w;-d                                     CACHE STRING  "Runtime build flags, separated by ;")
 set(D_FLAGS_DEBUG         -g                                        CACHE STRING  "Runtime build flags (debug libraries), separated by ;")
-set(D_FLAGS_RELEASE       -O3;-release                              CACHE STRING  "Runtime build flags (release libraries), separated by ;")
+set(D_FLAGS_RELEASE       -O3;-release;-g                           CACHE STRING  "Runtime build flags (release libraries), separated by ;")
 if(MSVC)
     set(LINK_WITH_MSVCRT  OFF                                       CACHE BOOL    "Link with MSVCRT.LIB instead of LIBCMT.LIB")
 endif()
@@ -610,6 +610,12 @@ endforeach()
 #
 # Test targets.
 #
+
+# on Windows try to avoid the stupid curl.lib dependency
+if(WIN32)
+    list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_DIR}/etc/c/curl.d)
+    list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_DIR}/std/net/curl.d)
+endif()
 
 # Build the "test runner" executables containing the druntime and Phobos unit
 # tests. They are invoked with the modules to test later. When using a shared
