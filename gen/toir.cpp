@@ -850,7 +850,7 @@ public:
                 } else {
                     LLValue* vaStartArg = gABI->prepareVaStart(pAp);
                     result = new DImValue(e->type, gIR->ir->CreateCall(
-                        GET_INTRINSIC_DECL(vastart), vaStartArg, ""));
+                        GET_INTRINSIC_DECL(vastart), vaStartArg));
                 }
             }
             // va_copy instruction
