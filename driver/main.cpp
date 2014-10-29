@@ -1371,7 +1371,7 @@ int main(int argc, char **argv)
         for (size_t i = 0; i < llvmModules.size(); i++)
         {
 #if LDC_LLVM_VER >= 306
-            linker.linkInModule(llvmModules[i], llvm::Linker::DestroySource);
+            linker.linkInModule(llvmModules[i]);
 #else
 #if LDC_LLVM_VER >= 303
             if (linker.linkInModule(llvmModules[i], llvm::Linker::DestroySource, &errormsg))
