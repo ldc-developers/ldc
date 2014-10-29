@@ -584,7 +584,7 @@ static void registerPredefinedTargetVersions() {
 #endif
             VersionCondition::addPredefinedGlobalIdent("PPC64");
             registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
-            if (global.params.targetTriple.isOSLinux())
+            if (global.params.targetTriple.getOS() == llvm::Triple::Linux)
                 VersionCondition::addPredefinedGlobalIdent(global.params.targetTriple.getArch() == llvm::Triple::ppc64
                                                        ? "ELFv1" : "ELFv2");
             break;
