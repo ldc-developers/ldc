@@ -29,256 +29,295 @@
  ************************************************************************************/
 #if defined( __PPC64__ )
 
+/**
+ * Performs a context switch.
+ * r3: location where to store current stack pointer
+ * r4: new stack pointer
+ *
+ * The stack frame uses the standard layout except for floating point and
+ * vector registers.
+ *
+ * ELFv2:
+ * +------------------------+
+ * | TOC Pointer Doubleword | SP+24
+ * +------------------------+
+ * | LR Save Doubleword     | SP+16
+ * +------------------------+
+ * | Reserved               | SP+12
+ * +------------------------+
+ * | CR Save Word           | SP+8
+ * +------------------------+
+ * | Back Chain             | SP+176 <-- Previous function
+ * +------------------------+
+ * | GPR Save Area (14-31)  | SP+32
+ * +------------------------+
+ * | TOC Pointer Doubleword | SP+24
+ * +------------------------+
+ * | LR Save Doubleword     | SP+16
+ * +------------------------+
+ * | Reserved               | SP+12
+ * +------------------------+
+ * | CR Save Word           | SP+8
+ * +------------------------+
+ * | Back Chain             | SP+0   <-- Stored stack pointer
+ * +------------------------+
+ * | VR Save Area (20-31)   | SP-16
+ * +------------------------+
+ * | FPR Save Area (14-31)  | SP-200
+ * +------------------------+
+ *
+ * ELFv1:
+ * +------------------------+
+ * | Parameter Save Area    | SP+48
+ * +------------------------+
+ * | TOC Pointer Doubleword | SP+40
+ * +------------------------+
+ * | Link editor doubleword | SP+32
+ * +------------------------+
+ * | Compiler Doubleword    | SP+24
+ * +------------------------+
+ * | LR Save Doubleword     | SP+16
+ * +------------------------+
+ * | Reserved               | SP+12
+ * +------------------------+
+ * | CR Save Word           | SP+8
+ * +------------------------+
+ * | Back Chain             | SP+256 <-- Previous function
+ * +------------------------+
+ * | GPR Save Area (14-31)  | SP+112
+ * +------------------------+
+ * | Parameter Save Area    | SP+48
+ * +------------------------+
+ * | TOC Pointer Doubleword | SP+40
+ * +------------------------+
+ * | Link editor doubleword | SP+32
+ * +------------------------+
+ * | Compiler Doubleword    | SP+24
+ * +------------------------+
+ * | LR Save Doubleword     | SP+16
+ * +------------------------+
+ * | Reserved               | SP+12
+ * +------------------------+
+ * | CR Save Word           | SP+8
+ * +------------------------+
+ * | Back Chain             | SP+0   <-- Stored stack pointer
+ * +------------------------+
+ * | VR Save Area (20-31)   | SP-16
+ * +------------------------+
+ * | FPR Save Area (14-31)  | SP-200
+ * +------------------------+
+ */
+
 #if defined(_CALL_ELF) && _CALL_ELF == 2
 #define USE_ABI_2
 #define LINKAGE_SZ   32
+#define CR_OFS       8
 #define LR_OFS       16
 #define TOC_OFS      24
 #define GPR_OFS      32
-#define STACK_SZ     (LINKAGE_SZ + 26*8)
-#define OFS_R3_R10   GPR_OFS
-#define OFS_R14_R31  (GPR_OFS+8*8)
+#define STACK_SZ     (LINKAGE_SZ + 18*8)
 #else
 #define LINKAGE_SZ   48
+#define CR_OFS       8
 #define LR_OFS       16
 #define TOC_OFS      40
 #define GPR_OFS      112
 #define STACK_SZ     (LINKAGE_SZ + 8*8 + 18*8)
-#define OFS_R3_R10   (STACK_SZ+LINKAGE_SZ)
-#define OFS_R14_R31  GPR_OFS
 #endif
 
     .text
 #if defined( USE_ABI_2 )
     .abiversion 2
 #endif
-    .globl  _D4core6thread18callWithStackShellFNbMDFPvZvZv
-    .globl  _D4core6thread18callWithStackShellFNbMDFNbPvZvZv
-    .align  2
-    .type   _D4core6thread18callWithStackShellFNbMDFNbPvZvZv,@function
+    .align 2
+    .globl fiber_switchContext
+    .type  fiber_switchContext,@function
 #if defined( USE_ABI_2 )
-    .section .text._D4core6thread18callWithStackShellFNbMDFNbPvZvZv,"a",@progbits
+    .section .text.fiber_switchContext,"a",@progbits
 #else
     .section .opd,"aw",@progbits
 #endif
-_D4core6thread18callWithStackShellFNbMDFNbPvZvZv:
+fiber_switchContext:
 #if !defined( USE_ABI_2 )
     .align  3
-    .quad .L._D4core6thread18callWithStackShellFNbMDFNbPvZvZv
+    .quad .L.fiber_switchContext
     .quad .TOC.@tocbase
     .quad 0
-#endif
     .text
-/*
- * Called with:
- * r3: pointer context
- * r4: pointer to function
- */
-.L._D4core6thread18callWithStackShellFNbMDFNbPvZvZv:
+#endif
+.L.fiber_switchContext:
     .cfi_startproc
-    stdu    1, -STACK_SZ(1)
+#if defined( USE_ABI_2 )
+    addis 2, 12, .TOC.-.L.fiber_switchContext@ha
+    addi 2, 2, .TOC.-.L.fiber_switchContext@l
+    .localentry fiber_switchContext, .-.L.fiber_switchContext
+#endif
     mflr    0
     std     0, LR_OFS(1)
-    .cfi_def_cfa_offset 256
-    .cfi_offset lr, 16
+    stdu    1, -STACK_SZ(1)
+    .cfi_def_cfa_offset STACK_SZ
+    .cfi_offset lr, LR_OFS
 
-    /* Save r14-r31 in general register save area */
-    std     14, (OFS_R14_R31 + 0 * 8)(1)
-    std     15, (OFS_R14_R31 + 1 * 8)(1)
-    std     16, (OFS_R14_R31 + 2 * 8)(1)
-    std     17, (OFS_R14_R31 + 3 * 8)(1)
-    std     18, (OFS_R14_R31 + 4 * 8)(1)
-    std     19, (OFS_R14_R31 + 5 * 8)(1)
-    std     20, (OFS_R14_R31 + 6 * 8)(1)
-    std     21, (OFS_R14_R31 + 7 * 8)(1)
-    std     22, (OFS_R14_R31 + 8 * 8)(1)
-    std     23, (OFS_R14_R31 + 9 * 8)(1)
-    std     24, (OFS_R14_R31 + 10 * 8)(1)
-    std     25, (OFS_R14_R31 + 11 * 8)(1)
-    std     26, (OFS_R14_R31 + 12 * 8)(1)
-    std     27, (OFS_R14_R31 + 13 * 8)(1)
-    std     28, (OFS_R14_R31 + 14 * 8)(1)
-    std     29, (OFS_R14_R31 + 15 * 8)(1)
-    std     30, (OFS_R14_R31 + 16 * 8)(1)
-    std     31, (OFS_R14_R31 + 17 * 8)(1)
+    /* Update the old stack pointer */
+    std     1, 0(3)
 
-    /* Save r3-r10 in parameter save area of caller */
-    std     3, (OFS_R3_R10 + 0 * 8)(1)
-    std     4, (OFS_R3_R10 + 1 * 8)(1)
-    std     5, (OFS_R3_R10 + 2 * 8)(1)
-    std     6, (OFS_R3_R10 + 3 * 8)(1)
-    std     7, (OFS_R3_R10 + 4 * 8)(1)
-    std     8, (OFS_R3_R10 + 5 * 8)(1)
-    std     9, (OFS_R3_R10 + 6 * 8)(1)
-    std     10, (OFS_R3_R10 + 7 * 8)(1)
+    /* Save CC and TOC */
+    mfcr    0
+    sth     0,  (CR_OFS)(1)
+    std     2,  (TOC_OFS)(1)
 
-    /* Save r2 in TOC save area */
-    std     2, TOC_OFS(1)
+    /* Save GPRs */
+    std     14, (GPR_OFS +  0 * 8)(1)
+    std     15, (GPR_OFS +  1 * 8)(1)
+    std     16, (GPR_OFS +  2 * 8)(1)
+    std     17, (GPR_OFS +  3 * 8)(1)
+    std     18, (GPR_OFS +  4 * 8)(1)
+    std     19, (GPR_OFS +  5 * 8)(1)
+    std     20, (GPR_OFS +  6 * 8)(1)
+    std     21, (GPR_OFS +  7 * 8)(1)
+    std     22, (GPR_OFS +  8 * 8)(1)
+    std     23, (GPR_OFS +  9 * 8)(1)
+    std     24, (GPR_OFS + 10 * 8)(1)
+    std     25, (GPR_OFS + 11 * 8)(1)
+    std     26, (GPR_OFS + 12 * 8)(1)
+    std     27, (GPR_OFS + 13 * 8)(1)
+    std     28, (GPR_OFS + 14 * 8)(1)
+    std     29, (GPR_OFS + 15 * 8)(1)
+    std     30, (GPR_OFS + 16 * 8)(1)
+    std     31, (GPR_OFS + 17 * 8)(1)
 
-    /* Do not save r11, r12 and r13. */
+    /* Save VRs */
+    addi    0, 1, (- 1 * 16)
+    stvx    20, 0, 0
+    addi    0, 1, (- 2 * 16)
+    stvx    21, 0, 0
+    addi    0, 1, (- 3 * 16)
+    stvx    22, 0, 0
+    addi    0, 1, (- 4 * 16)
+    stvx    23, 0, 0
+    addi    0, 1, (- 5 * 16)
+    stvx    24, 0, 0
+    addi    0, 1, (- 6 * 16)
+    stvx    25, 0, 0
+    addi    0, 1, (- 7 * 16)
+    stvx    26, 0, 0
+    addi    0, 1, (- 8 * 16)
+    stvx    27, 0, 0
+    addi    0, 1, (- 9 * 16)
+    stvx    28, 0, 0
+    addi    0, 1, (-10 * 16)
+    stvx    29, 0, 0
+    addi    0, 1, (-11 * 16)
+    stvx    30, 0, 0
+    addi    0, 1, (-12 * 16)
+    stvx    31, 0, 0
 
-    /* Call delegate:
-     * r3: pointer to context
-     * r4: pointer to stack
-     */
-    mr      5, 4
-    mr      4, 1
-    ld      6, 0(5)
-    ld      11, 16(5)
-    ld      2, 8(5)
-    mtctr   6
-    bctrl
-    nop
+    /* Save FPRs */
+    stfd    14, ( -1 * 8 -12 * 16)(1)
+    stfd    15, ( -2 * 8 -12 * 16)(1)
+    stfd    16, ( -3 * 8 -12 * 16)(1)
+    stfd    17, ( -4 * 8 -12 * 16)(1)
+    stfd    18, ( -5 * 8 -12 * 16)(1)
+    stfd    19, ( -6 * 8 -12 * 16)(1)
+    stfd    20, ( -7 * 8 -12 * 16)(1)
+    stfd    21, ( -8 * 8 -12 * 16)(1)
+    stfd    22, ( -9 * 8 -12 * 16)(1)
+    stfd    23, (-10 * 8 -12 * 16)(1)
+    stfd    24, (-11 * 8 -12 * 16)(1)
+    stfd    25, (-12 * 8 -12 * 16)(1)
+    stfd    26, (-13 * 8 -12 * 16)(1)
+    stfd    27, (-14 * 8 -12 * 16)(1)
+    stfd    28, (-15 * 8 -12 * 16)(1)
+    stfd    29, (-16 * 8 -12 * 16)(1)
+    stfd    30, (-17 * 8 -12 * 16)(1)
+    stfd    31, (-18 * 8 -12 * 16)(1)
 
-    /* Restore r2 from TOC save area */
-    ld      2, TOC_OFS(1)
+    /* Set new stack pointer */
+    mr      1, 4
 
-    /* Restore r3-r10 from local variable space */
-    ld      3, (OFS_R3_R10 + 0 * 8)(1)
-    ld      4, (OFS_R3_R10 + 1 * 8)(1)
-    ld      5, (OFS_R3_R10 + 2 * 8)(1)
-    ld      6, (OFS_R3_R10 + 3 * 8)(1)
-    ld      7, (OFS_R3_R10 + 4 * 8)(1)
-    ld      8, (OFS_R3_R10 + 5 * 8)(1)
-    ld      9, (OFS_R3_R10 + 6 * 8)(1)
-    ld      10, (OFS_R3_R10 + 7 * 8)(1)
+    /* Restore GPRs */
+    ld     14, (GPR_OFS +  0 * 8)(1)
+    ld     15, (GPR_OFS +  1 * 8)(1)
+    ld     16, (GPR_OFS +  2 * 8)(1)
+    ld     17, (GPR_OFS +  3 * 8)(1)
+    ld     18, (GPR_OFS +  4 * 8)(1)
+    ld     19, (GPR_OFS +  5 * 8)(1)
+    ld     20, (GPR_OFS +  6 * 8)(1)
+    ld     21, (GPR_OFS +  7 * 8)(1)
+    ld     22, (GPR_OFS +  8 * 8)(1)
+    ld     23, (GPR_OFS +  9 * 8)(1)
+    ld     24, (GPR_OFS + 10 * 8)(1)
+    ld     25, (GPR_OFS + 11 * 8)(1)
+    ld     26, (GPR_OFS + 12 * 8)(1)
+    ld     27, (GPR_OFS + 13 * 8)(1)
+    ld     28, (GPR_OFS + 14 * 8)(1)
+    ld     29, (GPR_OFS + 15 * 8)(1)
+    ld     30, (GPR_OFS + 16 * 8)(1)
+    ld     31, (GPR_OFS + 17 * 8)(1)
 
-    /* Restore r14-r31 from general register save area */
-    ld      14, (OFS_R14_R31 + 0 * 8)(1)
-    ld      15, (OFS_R14_R31 + 1 * 8)(1)
-    ld      16, (OFS_R14_R31 + 2 * 8)(1)
-    ld      17, (OFS_R14_R31 + 3 * 8)(1)
-    ld      18, (OFS_R14_R31 + 4 * 8)(1)
-    ld      19, (OFS_R14_R31 + 5 * 8)(1)
-    ld      20, (OFS_R14_R31 + 6 * 8)(1)
-    ld      21, (OFS_R14_R31 + 7 * 8)(1)
-    ld      22, (OFS_R14_R31 + 8 * 8)(1)
-    ld      23, (OFS_R14_R31 + 9 * 8)(1)
-    ld      24, (OFS_R14_R31 + 10 * 8)(1)
-    ld      25, (OFS_R14_R31 + 11 * 8)(1)
-    ld      26, (OFS_R14_R31 + 12 * 8)(1)
-    ld      27, (OFS_R14_R31 + 13 * 8)(1)
-    ld      28, (OFS_R14_R31 + 14 * 8)(1)
-    ld      29, (OFS_R14_R31 + 15 * 8)(1)
-    ld      30, (OFS_R14_R31 + 16 * 8)(1)
-    ld      31, (OFS_R14_R31 + 17 * 8)(1)
+    /* Load VRs */
+    addi    0, 1, (- 1 * 16)
+    lvx     20, 0, 0
+    addi    0, 1, (- 2 * 16)
+    lvx     21, 0, 0
+    addi    0, 1, (- 3 * 16)
+    lvx     22, 0, 0
+    addi    0, 1, (- 4 * 16)
+    lvx     23, 0, 0
+    addi    0, 1, (- 5 * 16)
+    lvx     24, 0, 0
+    addi    0, 1, (- 6 * 16)
+    lvx     25, 0, 0
+    addi    0, 1, (- 7 * 16)
+    lvx     26, 0, 0
+    addi    0, 1, (- 8 * 16)
+    lvx     27, 0, 0
+    addi    0, 1, (- 9 * 16)
+    lvx     28, 0, 0
+    addi    0, 1, (-10 * 16)
+    lvx     29, 0, 0
+    addi    0, 1, (-11 * 16)
+    lvx     30, 0, 0
+    addi    0, 1, (-12 * 16)
+    lvx     31, 0, 0
 
+    /* Restore FPRs */
+    lfd     14, ( -1 * 8 -12 * 16)(1)
+    lfd     15, ( -2 * 8 -12 * 16)(1)
+    lfd     16, ( -3 * 8 -12 * 16)(1)
+    lfd     17, ( -4 * 8 -12 * 16)(1)
+    lfd     18, ( -5 * 8 -12 * 16)(1)
+    lfd     19, ( -6 * 8 -12 * 16)(1)
+    lfd     20, ( -7 * 8 -12 * 16)(1)
+    lfd     21, ( -8 * 8 -12 * 16)(1)
+    lfd     22, ( -9 * 8 -12 * 16)(1)
+    lfd     23, (-10 * 8 -12 * 16)(1)
+    lfd     24, (-11 * 8 -12 * 16)(1)
+    lfd     25, (-12 * 8 -12 * 16)(1)
+    lfd     26, (-13 * 8 -12 * 16)(1)
+    lfd     27, (-14 * 8 -12 * 16)(1)
+    lfd     28, (-15 * 8 -12 * 16)(1)
+    lfd     29, (-16 * 8 -12 * 16)(1)
+    lfd     30, (-17 * 8 -12 * 16)(1)
+    lfd     31, (-18 * 8 -12 * 16)(1)
+
+    /* Set condition and link register */
+    lhz     0, CR_OFS(1)
+    mtcr    0
+
+    /* Return and switch context */
+    addi    1, 1, STACK_SZ
     ld      0, LR_OFS(1)
     mtlr    0
-    addi    1, 1, STACK_SZ
     blr
     .long 0
     .quad 0
-.Lend:
-    .size _D4core6thread18callWithStackShellFNbMDFNbPvZvZv, .Lend-.L._D4core6thread18callWithStackShellFNbMDFNbPvZvZv
+    .size  fiber_switchContext,.-.L.fiber_switchContext
     .cfi_endproc
 
 #elif defined( __ppc__ ) || defined( __PPC__ ) || defined( __powerpc__ )
 
     .section  ".text"
-
-/**
- * callWithStackShell
- *
- * Called with:
- * r3: pointer context
- * r4: pointer to function
- */
-    .align 2
-    .globl _D4core6thread18callWithStackShellFNbMDFNbPvZvZv
-    .type _D4core6thread18callWithStackShellFNbMDFNbPvZvZv, @function
-_D4core6thread18callWithStackShellFNbMDFNbPvZvZv:
-    mflr    0
-    stw     0, 8(1)                     // save LR
-    stwu    1, -256(1)                  // stack size: 18*8 + 112 = 256
-
-    /* Save r14-r31 in general register save area */
-    stw     14, (112 + 0 * 4)(1)
-    stw     15, (112 + 1 * 4)(1)
-    stw     16, (112 + 2 * 4)(1)
-    stw     17, (112 + 3 * 4)(1)
-    stw     18, (112 + 4 * 4)(1)
-    stw     19, (112 + 5 * 4)(1)
-    stw     20, (112 + 6 * 4)(1)
-    stw     21, (112 + 7 * 4)(1)
-    stw     22, (112 + 8 * 4)(1)
-    stw     23, (112 + 9 * 4)(1)
-    stw     24, (112 + 10 * 4)(1)
-    stw     25, (112 + 11 * 4)(1)
-    stw     26, (112 + 12 * 4)(1)
-    stw     27, (112 + 13 * 4)(1)
-    stw     28, (112 + 14 * 4)(1)
-    stw     29, (112 + 15 * 4)(1)
-    stw     30, (112 + 16 * 4)(1)
-    stw     31, (112 + 17 * 4)(1)
-
-    /* Save r3-r10 in parameter save area of caller */
-    stw     3, (256 + 48 + 0 * 4)(1)
-    stw     4, (256 + 48 + 1 * 4)(1)
-    stw     5, (256 + 48 + 2 * 4)(1)
-    stw     6, (256 + 48 + 3 * 4)(1)
-    stw     7, (256 + 48 + 4 * 4)(1)
-    stw     8, (256 + 48 + 5 * 4)(1)
-    stw     9, (256 + 48 + 6 * 4)(1)
-    stw     10, (256 + 48 + 7 * 4)(1)
-
-    /* Save r2 in TOC save area */
-    stw     2, 40(1)
-
-    /* Do not save r11, r12 and r13. */
-
-    /* Call delegate:
-     * r3: pointer to context
-     * r4: pointer to stack
-     */
-    mr      5, 4
-    mr      4, 1
-    lwz     6, 0(5)
-    lwz     11, 16(5)
-    lwz     2, 8(5)
-    mtctr   6
-    bctrl
-    nop
-
-    /* Restore r2 from TOC save area */
-    lwz     2, 40(1)
-
-    /* Restore r3-r10 from local variable space */
-    lwz     3, (256 + 48 + 0 * 4)(1)
-    lwz     4, (256 + 48 + 1 * 4)(1)
-    lwz     5, (256 + 48 + 2 * 4)(1)
-    lwz     6, (256 + 48 + 3 * 4)(1)
-    lwz     7, (256 + 48 + 4 * 4)(1)
-    lwz     8, (256 + 48 + 5 * 4)(1)
-    lwz     9, (256 + 48 + 6 * 4)(1)
-    lwz     10, (256 + 48 + 7 * 4)(1)
-
-    /* Restore r14-r31 from general register save area */
-    lwz     14, (112 + 0 * 4)(1)
-    lwz     15, (112 + 1 * 4)(1)
-    lwz     16, (112 + 2 * 4)(1)
-    lwz     17, (112 + 3 * 4)(1)
-    lwz     18, (112 + 4 * 4)(1)
-    lwz     19, (112 + 5 * 4)(1)
-    lwz     20, (112 + 6 * 4)(1)
-    lwz     21, (112 + 7 * 4)(1)
-    lwz     22, (112 + 8 * 4)(1)
-    lwz     23, (112 + 9 * 4)(1)
-    lwz     24, (112 + 10 * 4)(1)
-    lwz     25, (112 + 11 * 4)(1)
-    lwz     26, (112 + 12 * 4)(1)
-    lwz     27, (112 + 13 * 4)(1)
-    lwz     28, (112 + 14 * 4)(1)
-    lwz     29, (112 + 15 * 4)(1)
-    lwz     30, (112 + 16 * 4)(1)
-    lwz     31, (112 + 17 * 4)(1)
-
-    addi    1, 1, 256
-    lwz     0, 16(1)
-    mtlr    0
-    blr
-    .size  _D4core6thread18callWithStackShellFNbMDFNbPvZvZv,.-_D4core6thread18callWithStackShellFNbMDFNbPvZvZv
-
 
 /**
  * Performs a context switch.

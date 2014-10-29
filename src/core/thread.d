@@ -2040,9 +2040,6 @@ shared static ~this()
 // Used for needLock below.
 private __gshared bool multiThreadedFlag = false;
 
-version (PPC)   version = ExternStackShell;
-version (PPC64) version = ExternStackShell;
-
 version (ExternStackShell)
 {
     extern(D) public void callWithStackShell(scope void delegate(void* sp) nothrow fn) nothrow;
@@ -2120,6 +2117,61 @@ else
 
                 mov sp[RBP], RSP;
             }
+        }
+        else version (PPC)
+        {
+            import ldc.llvmasm;
+
+            // Nonvolatile registers, according to:
+            // System V Application Binary Interface
+            // PowerPC Processor Supplement, September 1995
+            size_t[18] regs = void;
+            __asm("std  14, $0", "=*m", regs.ptr +  0);
+            __asm("std  15, $0", "=*m", regs.ptr +  1);
+            __asm("std  16, $0", "=*m", regs.ptr +  2);
+            __asm("std  17, $0", "=*m", regs.ptr +  3);
+            __asm("std  18, $0", "=*m", regs.ptr +  4);
+            __asm("std  19, $0", "=*m", regs.ptr +  5);
+            __asm("std  20, $0", "=*m", regs.ptr +  6);
+            __asm("std  21, $0", "=*m", regs.ptr +  7);
+            __asm("std  22, $0", "=*m", regs.ptr +  8);
+            __asm("std  23, $0", "=*m", regs.ptr +  9);
+            __asm("std  24, $0", "=*m", regs.ptr + 10);
+            __asm("std  25, $0", "=*m", regs.ptr + 11);
+            __asm("std  26, $0", "=*m", regs.ptr + 12);
+            __asm("std  27, $0", "=*m", regs.ptr + 13);
+            __asm("std  28, $0", "=*m", regs.ptr + 14);
+            __asm("std  29, $0", "=*m", regs.ptr + 15);
+            __asm("std  30, $0", "=*m", regs.ptr + 16);
+            __asm("std  31, $0", "=*m", regs.ptr + 17);
+        }
+        else version (PPC64)
+        {
+            import ldc.llvmasm;
+
+            // Nonvolatile registers, according to:
+            // ELFv1: 64-bit PowerPC ELF ABI Supplement 1.9, July 2004
+            // ELFv2: Power Architecture, 64-Bit ELV V2 ABI Specification,
+            //        OpenPOWER ABI for Linux Supplement, July 2014
+            size_t[18] regs = void;
+            __asm("std  14, $0", "=*m", regs.ptr +  0);
+            __asm("std  15, $0", "=*m", regs.ptr +  1);
+            __asm("std  16, $0", "=*m", regs.ptr +  2);
+            __asm("std  17, $0", "=*m", regs.ptr +  3);
+            __asm("std  18, $0", "=*m", regs.ptr +  4);
+            __asm("std  19, $0", "=*m", regs.ptr +  5);
+            __asm("std  20, $0", "=*m", regs.ptr +  6);
+            __asm("std  21, $0", "=*m", regs.ptr +  7);
+            __asm("std  22, $0", "=*m", regs.ptr +  8);
+            __asm("std  23, $0", "=*m", regs.ptr +  9);
+            __asm("std  24, $0", "=*m", regs.ptr + 10);
+            __asm("std  25, $0", "=*m", regs.ptr + 11);
+            __asm("std  26, $0", "=*m", regs.ptr + 12);
+            __asm("std  27, $0", "=*m", regs.ptr + 13);
+            __asm("std  28, $0", "=*m", regs.ptr + 14);
+            __asm("std  29, $0", "=*m", regs.ptr + 15);
+            __asm("std  30, $0", "=*m", regs.ptr + 16);
+            __asm("std  31, $0", "=*m", regs.ptr + 17);
         }
         else version (ARM)
         {
@@ -3233,6 +3285,8 @@ private
     {
         version( Posix )
         {
+            version = AsmPPC64_Posix;
+            version = AsmExternal;
             version = AlignFiberStackTo16Byte;
         }
     }
@@ -4468,6 +4522,120 @@ private:
                 pstack += int.sizeof * 20;
             }
 
+            assert( (cast(size_t) pstack & 0x0f) == 0 );
+        }
+        else version( AsmPPC64_Posix )
+        {
+            version( StackGrowsDown ) {}
+            else static assert(0);
+
+            /*
+             * The stack frame uses the standard layout except for floating
+             * point and vector registers.
+             *
+             * ELFv2:
+             * +------------------------+
+             * | TOC Pointer Doubleword | SP+24
+             * +------------------------+
+             * | LR Save Doubleword     | SP+16
+             * +------------------------+
+             * | Reserved               | SP+12
+             * +------------------------+
+             * | CR Save Word           | SP+8
+             * +------------------------+
+             * | Back Chain             | SP+176 <-- Previous function
+             * +------------------------+
+             * | GPR Save Area (14-31)  | SP+32
+             * +------------------------+
+             * | TOC Pointer Doubleword | SP+24
+             * +------------------------+
+             * | LR Save Doubleword     | SP+16
+             * +------------------------+
+             * | Reserved               | SP+12
+             * +------------------------+
+             * | CR Save Word           | SP+8
+             * +------------------------+
+             * | Back Chain             | SP+0   <-- Stored stack pointer
+             * +------------------------+
+             * | VR Save Area (20-31)   | SP-16
+             * +------------------------+
+             * | FPR Save Area (14-31)  | SP-200
+             * +------------------------+
+             *
+             * ELFv1:
+             * +------------------------+
+             * | Parameter Save Area    | SP+48
+             * +------------------------+
+             * | TOC Pointer Doubleword | SP+40
+             * +------------------------+
+             * | Link editor doubleword | SP+32
+             * +------------------------+
+             * | Compiler Doubleword    | SP+24
+             * +------------------------+
+             * | LR Save Doubleword     | SP+16
+             * +------------------------+
+             * | Reserved               | SP+12
+             * +------------------------+
+             * | CR Save Word           | SP+8
+             * +------------------------+
+             * | Back Chain             | SP+256 <-- Previous function
+             * +------------------------+
+             * | GPR Save Area (14-31)  | SP+112
+             * +------------------------+
+             * | Parameter Save Area    | SP+48
+             * +------------------------+
+             * | TOC Pointer Doubleword | SP+40
+             * +------------------------+
+             * | Link editor doubleword | SP+32
+             * +------------------------+
+             * | Compiler Doubleword    | SP+24
+             * +------------------------+
+             * | LR Save Doubleword     | SP+16
+             * +------------------------+
+             * | Reserved               | SP+12
+             * +------------------------+
+             * | CR Save Word           | SP+8
+             * +------------------------+
+             * | Back Chain             | SP+0   <-- Stored stack pointer
+             * +------------------------+
+             * | VR Save Area (20-31)   | SP-16
+             * +------------------------+
+             * | FPR Save Area (14-31)  | SP-200
+             * +------------------------+
+             */
+            assert( (cast(size_t) pstack & 0x0f) == 0 );
+            version( ELFv1 )
+            {
+                pstack -= size_t.sizeof * 8;                // Parameter Save Area
+                push( 0x00000000_00000000 );                // TOC Pointer Doubleword
+                push( 0x00000000_00000000 );                // Link editor doubleword
+                push( 0x00000000_00000000 );                // Compiler Doubleword
+                push( cast(size_t) &fiber_entryPoint );     // LR Save Doubleword
+                push( 0x00000000_00000000 );                // CR Save Word
+                push( 0x00000000_00000000 );                // Back Chain
+                size_t backchain = cast(size_t) pstack;     // Save back chain
+                pstack -= size_t.sizeof * 18;               // GPR Save Area
+                pstack -= size_t.sizeof * 8;                // Parameter Save Area
+                push( 0x00000000_00000000 );                // TOC Pointer Doubleword
+                push( 0x00000000_00000000 );                // Link editor doubleword
+                push( 0x00000000_00000000 );                // Compiler Doubleword
+                push( 0x00000000_00000000 );                // LR Save Doubleword
+                push( 0x00000000_00000000 );                // CR Save Word
+                push( backchain );                          // Back Chain
+            }
+            else
+            {
+                push( 0x00000000_00000000 );                // TOC Pointer Doubleword
+                push( cast(size_t) &fiber_entryPoint );     // LR Save Doubleword
+                push( 0x00000000_00000000 );                // CR Save Word
+                push( 0x00000000_00000000 );                // Back Chain
+                size_t backchain = cast(size_t) pstack;     // Save back chain
+                pstack -= size_t.sizeof * 18;               // GPR Save Area
+                push( 0x00000000_00000000 );                // TOC Pointer Doubleword
+                push( 0x00000000_00000000 );                // LR Save Doubleword
+                push( 0x00000000_00000000 );                // CR Save Word
+                push( backchain );                          // Back Chain
+            }
             assert( (cast(size_t) pstack & 0x0f) == 0 );
         }
         else version( AsmMIPS_O32_Posix )
