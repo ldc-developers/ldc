@@ -821,7 +821,7 @@ static void dumpPredefinedVersions()
                                E = global.params.versionids->end();
              I != E; ++I)
         {
-            int len = strlen(*I);
+            int len = strlen(*I) + 1;
             if (col + len > 80)
             {
                 col = 10;
