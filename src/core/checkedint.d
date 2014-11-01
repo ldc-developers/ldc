@@ -28,6 +28,8 @@
 
 module core.checkedint;
 
+version(LDC) import ldc.intrinsics;
+
 nothrow:
 @safe:
 @nogc:
@@ -48,10 +50,19 @@ pure:
 
 int adds(int x, int y, ref bool overflow)
 {
-    long r = cast(long)x + cast(long)y;
-    if (r < int.min || r > int.max)
-        overflow = true;
-    return cast(int)r;
+    version(LDC)
+    {
+        auto res = llvm_sadd_with_overflow(x, y);
+        overflow |= res.overflow;
+        return res.result;
+    }
+    else
+    {
+        long r = cast(long)x + cast(long)y;
+        if (r < int.min || r > int.max)
+            overflow = true;
+        return cast(int)r;
+    }
 }
 
 unittest
@@ -75,11 +86,20 @@ unittest
 /// ditto
 long adds(long x, long y, ref bool overflow)
 {
-    long r = cast(ulong)x + cast(ulong)y;
-    if (x <  0 && y <  0 && r >= 0 ||
-        x >= 0 && y >= 0 && r <  0)
-        overflow = true;
-    return r;
+    version(LDC)
+    {
+        auto res = llvm_sadd_with_overflow(x, y);
+        overflow |= res.overflow;
+        return res.result;
+    }
+    else
+    {
+        long r = cast(ulong)x + cast(ulong)y;
+        if (x <  0 && y <  0 && r >= 0 ||
+            x >= 0 && y >= 0 && r <  0)
+            overflow = true;
+        return r;
+    }
 }
 
 unittest
@@ -116,10 +136,19 @@ unittest
 
 uint addu(uint x, uint y, ref bool overflow)
 {
-    uint r = x + y;
-    if (r < x || r < y)
-        overflow = true;
-    return r;
+    version(LDC)
+    {
+        auto res = llvm_uadd_with_overflow(x, y);
+        overflow |= res.overflow;
+        return res.result;
+    }
+    else
+    {
+        uint r = x + y;
+        if (r < x || r < y)
+            overflow = true;
+        return r;
+    }
 }
 
 unittest
@@ -143,10 +172,19 @@ unittest
 /// ditto
 ulong addu(ulong x, ulong y, ref bool overflow)
 {
-    ulong r = x + y;
-    if (r < x || r < y)
-        overflow = true;
-    return r;
+    version(LDC)
+    {
+        auto res = llvm_uadd_with_overflow(x, y);
+        overflow |= res.overflow;
+        return res.result;
+    }
+    else
+    {
+        ulong r = x + y;
+        if (r < x || r < y)
+            overflow = true;
+        return r;
+    }
 }
 
 unittest
@@ -183,10 +221,19 @@ unittest
 
 int subs(int x, int y, ref bool overflow)
 {
-    long r = cast(long)x - cast(long)y;
-    if (r < int.min || r > int.max)
-        overflow = true;
-    return cast(int)r;
+    version(LDC)
+    {
+        auto res = llvm_ssub_with_overflow(x, y);
+        overflow |= res.overflow;
+        return res.result;
+    }
+    else
+    {
+        long r = cast(long)x - cast(long)y;
+        if (r < int.min || r > int.max)
+            overflow = true;
+        return cast(int)r;
+    }
 }
 
 unittest
@@ -210,12 +257,21 @@ unittest
 /// ditto
 long subs(long x, long y, ref bool overflow)
 {
-    long r = cast(ulong)x - cast(ulong)y;
-    if (x <  0 && y >= 0 && r >= 0 ||
-        x >= 0 && y <  0 && r <  0 ||
-        y == long.min)
-        overflow = true;
-    return r;
+    version(LDC)
+    {
+        auto res = llvm_ssub_with_overflow(x, y);
+        overflow |= res.overflow;
+        return res.result;
+    }
+    else
+    {
+        long r = cast(ulong)x - cast(ulong)y;
+        if (x <  0 && y >= 0 && r >= 0 ||
+            x >= 0 && y <  0 && r <  0 ||
+            y == long.min)
+            overflow = true;
+        return r;
+    }
 }
 
 unittest
@@ -251,9 +307,18 @@ unittest
 
 uint subu(uint x, uint y, ref bool overflow)
 {
-    if (x < y)
-        overflow = true;
-    return x - y;
+    version(LDC)
+    {
+        auto res = llvm_usub_with_overflow(x, y);
+        overflow |= res.overflow;
+        return res.result;
+    }
+    else
+    {
+        if (x < y)
+            overflow = true;
+        return x - y;
+    }
 }
 
 unittest
@@ -278,9 +343,18 @@ unittest
 /// ditto
 ulong subu(ulong x, ulong y, ref bool overflow)
 {
-    if (x < y)
-        overflow = true;
-    return x - y;
+    version(LDC)
+    {
+        auto res = llvm_usub_with_overflow(x, y);
+        overflow |= res.overflow;
+        return res.result;
+    }
+    else
+    {
+        if (x < y)
+            overflow = true;
+        return x - y;
+    }
 }
 
 unittest
@@ -373,10 +447,19 @@ unittest
 
 int muls(int x, int y, ref bool overflow)
 {
-    long r = cast(long)x * cast(long)y;
-    if (r < int.min || r > int.max)
-        overflow = true;
-    return cast(int)r;
+    version(LDC)
+    {
+        auto res = llvm_smul_with_overflow(x, y);
+        overflow |= res.overflow;
+        return res.result;
+    }
+    else
+    {
+        long r = cast(long)x * cast(long)y;
+        if (r < int.min || r > int.max)
+            overflow = true;
+        return cast(int)r;
+    }
 }
 
 unittest
@@ -402,10 +485,19 @@ unittest
 /// ditto
 long muls(long x, long y, ref bool overflow)
 {
-    long r = cast(ulong)x * cast(ulong)y;
-    if (x && (r / x) != y)
-        overflow = true;
-    return r;
+    version(LDC)
+    {
+        auto res = llvm_smul_with_overflow(x, y);
+        overflow |= res.overflow;
+        return res.result;
+    }
+    else
+    {
+        long r = cast(ulong)x * cast(ulong)y;
+        if (x && (r / x) != y)
+            overflow = true;
+        return r;
+    }
 }
 
 unittest
@@ -444,10 +536,19 @@ unittest
 
 uint mulu(uint x, uint y, ref bool overflow)
 {
-    ulong r = ulong(x) * ulong(y);
-    if (r > uint.max)
-        overflow = true;
-    return cast(uint)r;
+    version(LDC)
+    {
+        auto res = llvm_umul_with_overflow(x, y);
+        overflow |= res.overflow;
+        return res.result;
+    }
+    else
+    {
+        ulong r = ulong(x) * ulong(y);
+        if (r > uint.max)
+            overflow = true;
+        return cast(uint)r;
+    }
 }
 
 unittest
@@ -473,10 +574,19 @@ unittest
 /// ditto
 ulong mulu(ulong x, ulong y, ref bool overflow)
 {
-    ulong r = x * y;
-    if (x && (r / x) != y)
-        overflow = true;
-    return r;
+    version(LDC)
+    {
+        auto res = llvm_umul_with_overflow(x, y);
+        overflow |= res.overflow;
+        return res.result;
+    }
+    else
+    {
+        ulong r = x * y;
+        if (x && (r / x) != y)
+            overflow = true;
+        return r;
+    }
 }
 
 unittest
