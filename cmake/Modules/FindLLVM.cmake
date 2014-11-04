@@ -39,7 +39,7 @@ find_program(LLVM_CONFIG
     DOC "Path to llvm-config tool.")
 find_program(LLVM_CONFIG NAMES ${llvm_config_names})
 
-if (WIN32 OR NOT LLVM_CONFIG)
+if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
     if (WIN32)
         # A bit of a sanity check:
         if( NOT EXISTS ${LLVM_ROOT_DIR}/include/llvm )
@@ -115,6 +115,9 @@ else()
             OUTPUT_STRIP_TRAILING_WHITESPACE
             ${_quiet_arg}
         )
+        if(${ARGV2})
+            file(TO_CMAKE_PATH "${LLVM_${var}}" LLVM_${var})
+        endif()
     endmacro()
     macro(llvm_set_libs var flag prefix)
        if(LLVM_FIND_QUIETLY)
@@ -126,15 +129,16 @@ else()
             OUTPUT_STRIP_TRAILING_WHITESPACE
             ${_quiet_arg}
         )
-        string(REGEX REPLACE "([$^.[|*+?()]|])" "\\\\\\1" pattern ${prefix})
+        file(TO_CMAKE_PATH "${tmplibs}" tmplibs)
+        string(REGEX REPLACE "([$^.[|*+?()]|])" "\\\\\\1" pattern "${prefix}/")
         string(REGEX MATCHALL "${pattern}[^ ]+" LLVM_${var} ${tmplibs})
     endmacro()
 
     llvm_set(VERSION_STRING version)
     llvm_set(CXXFLAGS cxxflags)
     llvm_set(HOST_TARGET host-target)
-    llvm_set(INCLUDE_DIRS includedir)
-    llvm_set(ROOT_DIR prefix)
+    llvm_set(INCLUDE_DIRS includedir true)
+    llvm_set(ROOT_DIR prefix true)
 
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-2][\\.0-9A-Za-z]*")
         # Versions below 3.3 do not support components objcarcopts, option
@@ -154,8 +158,8 @@ else()
         llvm_set(SYSTEM_LIBS system-libs)
         string(REPLACE "\n" " " LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
     endif()
-    llvm_set(LIBRARY_DIRS libdir)
-    llvm_set_libs(LIBRARIES libfiles "${LLVM_LIBRARY_DIRS}/")
+    llvm_set(LIBRARY_DIRS libdir true)
+    llvm_set_libs(LIBRARIES libfiles "${LLVM_LIBRARY_DIRS}")
 endif()
 
 # On CMake builds of LLVM, the output of llvm-config --cxxflags does not
