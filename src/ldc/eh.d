@@ -156,10 +156,8 @@ else version(GCC_UNWIND)
     ptrdiff_t _Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr context);
     version (ARM)
     {
-        // FIXME: _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Control_Block*);
-        // FIXME: void _Unwind_Resume(_Unwind_Control_Block*);
-        _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
-        void _Unwind_Resume(_Unwind_Exception*);
+        _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Control_Block*);
+        void _Unwind_Resume(_Unwind_Control_Block*);
 
         // On ARM, these are macros resp. not visible (static inline). To avoid
         // an unmaintainable amount of dependencies on implementation details,
@@ -406,8 +404,7 @@ ptrdiff_t get_base_of_encoded_value(ubyte encoding, _Unwind_Context_Ptr context)
 struct _d_exception
 {
     Object exception_object;
-    //version (ARM)
-    version (none)
+    version (ARM)
     {
         _Unwind_Control_Block unwind_info;
     }
@@ -430,6 +427,122 @@ __gshared char[8] _d_exception_class = "LLDCD2\0\0";
 version(GCC_UNWIND)
 {
 
+version(ARM)
+{
+
+enum _Unwind_State
+{
+    VIRTUAL_UNWIND_FRAME = 0,
+    UNWIND_FRAME_STARTING = 1,
+    UNWIND_FRAME_RESUME = 2,
+    ACTION_MASK = 3,
+    FORCE_UNWIND = 8,
+    END_OF_STACK = 16
+}
+
+alias _uw = ptrdiff_t;
+
+struct _Unwind_Control_Block
+{
+    char[8] exception_class;
+    void function(_Unwind_Reason_Code, _Unwind_Control_Block *) exception_cleanup;
+
+    struct unwinder_cache_t
+    {
+        _uw reserved1;
+        _uw reserved2;
+        _uw reserved3;
+        _uw reserved4;
+        _uw reserved5;
+    }
+    unwinder_cache_t unwinder_cache;
+
+    struct barrier_cache_t
+    {
+        _uw sp;
+        _uw[5] bitpattern;
+    }
+    barrier_cache_t barrier_cache;
+
+    struct cleanup_cache_t
+    {
+        _uw[4] bitpattern;
+    }
+    cleanup_cache_t cleanup_cache;
+
+    struct pr_cache_t
+    {
+      _uw fnstart;
+      _uw *ehtp;
+      _uw additional;
+      _uw reserved1;
+    }
+    pr_cache_t pr_cache;
+}
+
+extern(C) _Unwind_Reason_Code __gnu_unwind_frame(_Unwind_Control_Block *, _Unwind_Context_Ptr);
+
+private _Unwind_Reason_Code continueUnwind(_Unwind_Control_Block* ucb, _Unwind_Context_Ptr context) {
+    if (__gnu_unwind_frame(ucb, context) != _Unwind_Reason_Code.NO_REASON)
+        return _Unwind_Reason_Code.FAILURE;
+    return _Unwind_Reason_Code.CONTINUE_UNWIND;
+}
+
+// Defined in unwind-arm.h.
+enum UNWIND_STACK_REG = 13;
+enum UNWIND_POINTER_REG = 12;
+
+auto toDException(_Unwind_Control_Block* ucb) {
+    return cast(_d_exception*)(cast(ubyte*)ucb - _d_exception.unwind_info.offsetof);
+}
+
+// the personality routine gets called by the unwind handler and is responsible for
+// reading the EH tables and deciding what to do
+extern(C) _Unwind_Reason_Code _d_eh_personality(_Unwind_State state, _Unwind_Control_Block* ucb, _Unwind_Context_Ptr context)
+{
+    debug(EH_personality_verbose) printf(" - entering personality function. state: %d; ucb: %p, context: %p\n", state, ucb, context);
+
+    _Unwind_Action actions;
+    with (_Unwind_State) with (_Unwind_Action) {
+        switch (state & _Unwind_State.ACTION_MASK) {
+            case _Unwind_State.VIRTUAL_UNWIND_FRAME:
+                actions = _Unwind_Action.SEARCH_PHASE;
+                break;
+            case _Unwind_State.UNWIND_FRAME_STARTING:
+                actions = _Unwind_Action.CLEANUP_PHASE;
+                if (!(state & _Unwind_State.FORCE_UNWIND) &&
+                    ucb.barrier_cache.sp == _Unwind_GetGR(context, UNWIND_STACK_REG)) {
+                    actions |= _Unwind_Action.HANDLER_FRAME;
+                }
+                break;
+            case _Unwind_State.UNWIND_FRAME_RESUME:
+                return continueUnwind(ucb, context);
+            default:
+                fatalerror("Unhandled ARM EABI unwind state.");
+          }
+        actions |= state & _Unwind_State.FORCE_UNWIND;
+    }
+
+    // The dwarf unwinder assumes the context structure holds things like the
+    // function and LSDA pointers.  The ARM implementation caches these in
+    // the exception header (UCB).  To avoid rewriting everything we make a
+    // virtual scratch register point at the UCB.
+    _Unwind_SetGR(context, UNWIND_POINTER_REG, cast(ptrdiff_t)ucb);
+
+    // check exceptionClass
+    //TODO: Treat foreign exceptions with more respect
+    if (ucb.exception_class != _d_exception_class)
+        return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
+    
+    _Unwind_Reason_Code rc = eh_personality_common(actions, ucb.toDException(), context);
+    if (rc == _Unwind_Reason_Code.CONTINUE_UNWIND)
+        return continueUnwind(ucb, context);
+    return rc;
+}
+}
+else
+{
+
 // the personality routine gets called by the unwind handler and is responsible for
 // reading the EH tables and deciding what to do
 extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions, ulong exception_class, _Unwind_Exception* exception_info, _Unwind_Context_Ptr context)
@@ -444,6 +557,15 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
     if ((cast(char*)&exception_class)[0..8] != _d_exception_class)
         return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
 
+    _d_exception* exception_struct = cast(_d_exception*)(cast(ubyte*)exception_info - _d_exception.unwind_info.offsetof);
+    return eh_personality_common(actions, exception_struct, context);
+}
+}
+
+// the personality routine gets called by the unwind handler and is responsible for
+// reading the EH tables and deciding what to do
+extern(C) _Unwind_Reason_Code eh_personality_common(_Unwind_Action actions, _d_exception* exception_struct, _Unwind_Context_Ptr context)
+{
     // find call site table, action table and classinfo table
     // Note: callsite and action tables do not contain static-length
     // data and will be parsed as needed
@@ -502,11 +624,6 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
 
     debug(EH_personality) printf("Found correct landing pad and actionOffset %d\n", action_offset);
 
-    // now we need the exception's classinfo to find a handler
-    // the exception_info is actually a member of a larger _d_exception struct
-    // the runtime allocated. get that now
-    _d_exception* exception_struct = cast(_d_exception*)(cast(ubyte*)exception_info - _d_exception.unwind_info.offsetof);
-
     // if there's no action offset and no landing pad, continue unwinding
     if (!action_offset && !landing_pad)
         return _Unwind_Reason_Code.CONTINUE_UNWIND;
@@ -521,11 +638,16 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
     ubyte* action_walker = action_table + action_offset - 1;
 
     size_t ci_size = get_size_of_encoded_value(classinfo_table_encoding);
+    debug(EH_personality) printf(" -- ci_size: %td, ci_encoding: %d\n", ci_size, classinfo_table_encoding);
+
+    size_t ttype_base = get_base_of_encoded_value(classinfo_table_encoding, context);
+    debug(EH_personality) printf(" -- ttype_base: 0x%tx\n", ttype_base);
 
     ptrdiff_t ti_offset, next_action_offset;
     while (true)
     {
         action_walker = get_sleb128(action_walker, ti_offset);
+        debug(EH_personality) printf(" -- ti_offset: %tx\n", ti_offset);
         // it is intentional that we not modify action_walker here
         // next_action_offset is from current action_walker position
         get_sleb128(action_walker, next_action_offset);
@@ -546,11 +668,13 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
         // exception structure is a base
         size_t catch_ci_ptr;
         get_encoded_value(classinfo_table - ti_offset * ci_size, catch_ci_ptr, classinfo_table_encoding, context);
+        debug(EH_personality) printf(" -- catch_ci_ptr: %p\n", catch_ci_ptr);
         ClassInfo catch_ci = cast(ClassInfo)cast(void*)catch_ci_ptr;
         debug(EH_personality) printf("Comparing catch %s to exception %s\n", catch_ci.name.ptr, exception_struct.exception_object.classinfo.name.ptr);
         if (_d_isbaseof(exception_struct.exception_object.classinfo, catch_ci))
             return _d_eh_install_catch_context(actions, ti_offset, landing_pad, exception_struct, context);
 
+        debug(EH_personality) printf(" -- Type mismatch, next action offset: %tx\n", next_action_offset);
         // we've walked through all actions and found nothing...
         if (next_action_offset == 0)
             return _Unwind_Reason_Code.CONTINUE_UNWIND;
@@ -594,6 +718,11 @@ else version (MIPS64)
 {
     private enum eh_exception_regno = 4;
     private enum eh_selector_regno = 5;
+}
+else version (ARM)
+{
+    private enum eh_exception_regno = 0;
+    private enum eh_selector_regno = 1;
 }
 else version (AArch64)
 {
@@ -640,17 +769,18 @@ private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions
     return _Unwind_Reason_Code.INSTALL_CONTEXT;
 }
 
-private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte* callsite, ref ubyte* action, ref ubyte* ci, ref ubyte ciEncoding)
+private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte* callsite, ref ubyte* action, ref ubyte* classinfo_table, ref ubyte ciEncoding)
 {
     ubyte* data = cast(ubyte*)_Unwind_GetLanguageSpecificData(context);
     if (data is null)
     {
-        //printf("language specific data was null\n");
+        debug(EH_personality) printf("language specific data was null\n");
         callsite = null;
         action = null;
-        ci = null;
+        classinfo_table = null;
         return;
     }
+    debug(EH_personality) printf(" -- LSDA: %p\n", data);
 
     //TODO: Do proper DWARF reading here
     if (*data++ != _DW_EH_Format.DW_EH_PE_omit)
@@ -659,10 +789,15 @@ private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte
     ciEncoding = *data++;
     if (ciEncoding == _DW_EH_Format.DW_EH_PE_omit)
         fatalerror("Language Specific Data does not contain Types Table");
+    version (ARM) version (linux) {
+        with (_DW_EH_Format) {
+            ciEncoding = DW_EH_PE_pcrel | DW_EH_PE_indirect;
+        }
+    }
 
     size_t cioffset;
     data = get_uleb128(data, cioffset);
-    ci = data + cioffset;
+    classinfo_table = data + cioffset;
 
     if (*data++ != _DW_EH_Format.DW_EH_PE_udata4)
         fatalerror("DWARF header has unexpected format 2");
@@ -671,6 +806,8 @@ private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte
     action = data + callsitelength;
 
     callsite = data;
+
+    debug(EH_personality) printf(" -- callsite: %p, action: %p, classinfo_table: %p, ciEncoding: %d\n", callsite, action, classinfo_table, ciEncoding);
 }
 
 } // end of x86 Linux specific implementation
@@ -681,11 +818,18 @@ extern(C) void _d_throw_exception(Object e)
     if (e !is null)
     {
         _d_exception* exc_struct = new _d_exception;
-        exc_struct.unwind_info.exception_class = *cast(ulong*)_d_exception_class.ptr;
+        version (ARM)
+        {
+            exc_struct.unwind_info.exception_class = _d_exception_class;
+        }
+        else
+        {
+            exc_struct.unwind_info.exception_class = *cast(ulong*)_d_exception_class.ptr;
+        }
         exc_struct.exception_object = e;
         debug(EH_personality) printf("throw exception %p\n", e);
         _Unwind_Reason_Code ret = _Unwind_RaiseException(&exc_struct.unwind_info);
-        fprintf(stderr, "_Unwind_RaiseException failed with reason code: %d\n");
+        fprintf(stderr, "_Unwind_RaiseException failed with reason code: %d\n", ret);
     }
     abort();
 }
