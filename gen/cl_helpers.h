@@ -18,6 +18,10 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
 
+#if LDC_LLVM_VER < 306
+#define LLVM_END_WITH_NULL END_WITH_NULL
+#endif
+
 template <typename TYPE> struct Array;
 typedef Array<const char *> Strings;
 
@@ -48,7 +52,7 @@ namespace opts {
         bool invert;
         MultiSetter(bool); //not implemented, disable auto-conversion
     public:
-        MultiSetter(bool invert, bool* p, ...) END_WITH_NULL;
+        MultiSetter(bool invert, bool* p, ...) LLVM_END_WITH_NULL;
 
         void operator=(bool val);
     };
