@@ -431,7 +431,11 @@ public:
     #if LDC_LLVM_VER >= 303
             // With LLVM 3.3 or later we can place the library name in the object
             // file. This seems to be supported only on Windows.
+#if LDC_LLVM_VER >= 305
+            if (global.params.targetTriple.isWindowsMSVCEnvironment())
+#else
             if (global.params.targetTriple.getOS() == llvm::Triple::Win32)
+#endif
             {
                 llvm::SmallString<24> LibName(llvm::StringRef(static_cast<const char *>(se->string), nameLen));
 
