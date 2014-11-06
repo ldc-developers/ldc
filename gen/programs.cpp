@@ -34,16 +34,17 @@ static cl::opt<std::string> mslib("ms-lib",
     cl::Hidden,
     cl::ZeroOrMore);
 
-#if LDC_LLVM_VER < 304
-namespace llvm {
-namespace sys {
-inline std::string FindProgramByName(const std::string& name)
+inline static std::string findProgramByName(const std::string& name)
 {
+#if LDC_LLVM_VER >= 306
+    llvm::ErrorOr<std::string> res = llvm::sys::findProgramByName(name);
+    return res ? res.get() : std::string();
+#elif LDC_LLVM_VER < 306
+    return llvm::sys::FindProgramByName(name).str();
+#elif LDC_LLVM_VER < 304
     return llvm::sys::Program::FindProgramByName(name).str();
-}
-} // namespace sys
-} // namespace llvm
 #endif
+}
 
 static std::string getProgram(const char *name, const cl::opt<std::string> &opt, const char *envVar = 0)
 {
@@ -51,13 +52,13 @@ static std::string getProgram(const char *name, const cl::opt<std::string> &opt,
     const char *prog = NULL;
 
     if (opt.getNumOccurrences() > 0 && opt.length() > 0 && (prog = opt.c_str()))
-        path = sys::FindProgramByName(prog);
+        path = findProgramByName(prog);
 
     if (path.empty() && envVar && (prog = getenv(envVar)))
-        path = sys::FindProgramByName(prog);
+        path = findProgramByName(prog);
 
     if (path.empty())
-        path = sys::FindProgramByName(name);
+        path = findProgramByName(name);
 
     if (path.empty()) {
         error(Loc(), "failed to locate %s", name);
