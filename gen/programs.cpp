@@ -39,9 +39,9 @@ inline static std::string findProgramByName(const std::string& name)
 #if LDC_LLVM_VER >= 306
     llvm::ErrorOr<std::string> res = llvm::sys::findProgramByName(name);
     return res ? res.get() : std::string();
-#elif LDC_LLVM_VER < 306
-    return llvm::sys::FindProgramByName(name).str();
-#elif LDC_LLVM_VER < 304
+#elif LDC_LLVM_VER >= 304
+    return llvm::sys::FindProgramByName(name);
+#else
     return llvm::sys::Program::FindProgramByName(name).str();
 #endif
 }
