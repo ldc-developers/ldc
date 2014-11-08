@@ -163,8 +163,8 @@ fiber_switchContext:
 
     /* Save CC and TOC */
     mfcr    0
-    sth     0,  (CR_OFS)(1)
-    std     2,  (TOC_OFS)(1)
+    sth     0,  CR_OFS(1)
+    std     2,  TOC_OFS(1)
 
     /* Save GPRs */
     std     14, (GPR_OFS +  0 * 8)(1)
@@ -301,9 +301,10 @@ fiber_switchContext:
     lfd     30, (-17 * 8 -12 * 16)(1)
     lfd     31, (-18 * 8 -12 * 16)(1)
 
-    /* Set condition and link register */
+    /* Set condition and TOC register */
     lhz     0, CR_OFS(1)
     mtcr    0
+    ld      2, TOC_OFS(1)
 
     /* Return and switch context */
     addi    1, 1, STACK_SZ
