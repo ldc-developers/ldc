@@ -860,6 +860,20 @@ struct tls_index
 
 extern(C) void* __tls_get_addr(tls_index* ti);
 
+/* The dynamic thread vector (DTV) pointers may point 0x8000 past the start of
+ * each TLS block. This is at least true for PowerPC and Mips platforms.
+ */
+version(PPC)
+    enum TLS_DTV_OFFSET = 0x8000;
+else version(PPC64)
+    enum TLS_DTV_OFFSET = 0x8000;
+else version(MIPS)
+    enum TLS_DTV_OFFSET = 0x8000;
+else version(MIPS64)
+    enum TLS_DTV_OFFSET = 0x8000;
+else
+    enum TLS_DTV_OFFSET = 0x;
+
 void[] getTLSRange(size_t mod, size_t sz)
 {
     if (mod == 0)
@@ -867,5 +881,5 @@ void[] getTLSRange(size_t mod, size_t sz)
 
     // base offset
     auto ti = tls_index(mod, 0);
-    return __tls_get_addr(&ti)[0 .. sz];
+    return (__tls_get_addr(&ti)-TLS_DTV_OFFSET)[0 .. sz];
 }
