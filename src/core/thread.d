@@ -2133,7 +2133,9 @@ else
             __asm("std  18, $0", "=*m", regs.ptr +  4);
             __asm("std  19, $0", "=*m", regs.ptr +  5);
             __asm("std  20, $0", "=*m", regs.ptr +  6);
-            __asm("std  21, $0", "=*m", regs.ptr +  7);
+            // Work around LLVM bug 21443 (http://llvm.org/bugs/show_bug.cgi?id=21443)
+            // Because we clobber r0 a different register is choosen
+            __asm("std  21, $0", "=*m,~{r0}", regs.ptr +  7);
             __asm("std  22, $0", "=*m", regs.ptr +  8);
             __asm("std  23, $0", "=*m", regs.ptr +  9);
             __asm("std  24, $0", "=*m", regs.ptr + 10);
@@ -2144,6 +2146,8 @@ else
             __asm("std  29, $0", "=*m", regs.ptr + 15);
             __asm("std  30, $0", "=*m", regs.ptr + 16);
             __asm("std  31, $0", "=*m", regs.ptr + 17);
+
+            __asm("std   1, $0", "=*m", &sp);
         }
         else version (PPC64)
         {
@@ -2161,7 +2165,9 @@ else
             __asm("std  18, $0", "=*m", regs.ptr +  4);
             __asm("std  19, $0", "=*m", regs.ptr +  5);
             __asm("std  20, $0", "=*m", regs.ptr +  6);
-            __asm("std  21, $0", "=*m", regs.ptr +  7);
+            // Work around LLVM bug 21443 (http://llvm.org/bugs/show_bug.cgi?id=21443)
+            // Because we clobber r0 a different register is choosen
+            __asm("std  21, $0", "=*m,~{r0}", regs.ptr +  7);
             __asm("std  22, $0", "=*m", regs.ptr +  8);
             __asm("std  23, $0", "=*m", regs.ptr +  9);
             __asm("std  24, $0", "=*m", regs.ptr + 10);
@@ -2172,6 +2178,8 @@ else
             __asm("std  29, $0", "=*m", regs.ptr + 15);
             __asm("std  30, $0", "=*m", regs.ptr + 16);
             __asm("std  31, $0", "=*m", regs.ptr + 17);
+
+            __asm("std   1, $0", "=*m", &sp);
         }
         else version (ARM)
         {
