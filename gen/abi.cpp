@@ -125,8 +125,11 @@ struct IntrinsicABI : TargetABI
         return false;
     }
 
-    void fixup(IrFuncTyArg& arg) {
-        assert(arg.type->ty == Tstruct);
+    void rewriteArgument(IrFuncTyArg& arg)
+    {
+        Type* ty = arg.type->toBasetype();
+        if (ty->ty != Tstruct)
+            return;
         // TODO: Check that no unions are passed in or returned.
 
         LLType* abiTy = DtoUnpaddedStructType(arg.type);
@@ -141,9 +144,9 @@ struct IntrinsicABI : TargetABI
     {
         if (!fty.arg_sret) {
             Type* rt = fty.ret->type->toBasetype();
-            if (rt->ty == Tstruct)  {
+            if (rt->ty == Tstruct) {
                 Logger::println("Intrinsic ABI: Transforming return type");
-                fixup(*fty.ret);
+                rewriteArgument(*fty.ret);
             }
         }
 
@@ -159,9 +162,7 @@ struct IntrinsicABI : TargetABI
             if (arg.byref)
                 continue;
 
-            Type* ty = arg.type->toBasetype();
-            if (ty->ty == Tstruct)
-                fixup(arg);
+            rewriteArgument(arg);
 
             IF_LOG Logger::cout() << "New arg type: " << *arg.ltype << '\n';
         }
