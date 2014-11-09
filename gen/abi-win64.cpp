@@ -120,7 +120,6 @@ struct Win64TargetABI : TargetABI
     Win64_byval_rewrite byval_rewrite;
     CompositeToInt compositeToInt;
     CfloatToInt cfloatToInt;
-    X87_complex_swap swapComplex;
 
     llvm::CallingConv::ID callingConv(LINK l);
 
@@ -188,15 +187,7 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     if (!tf->isref)
     {
         Type* rt = fty.ret->type->toBasetype();
-        if (rt->ty == Tcomplex80 && realIs80bits())
-        {
-            // LLVM returns a '{real re, ireal im}' via ST(0) = re and ST(1) = im
-            // DMD does it the other way around: ST(0) = im and ST(1) = re
-            // therefore swap the real/imaginary parts
-            // the other complex number types are returned via XMM0 = re and XMM1 = im
-            fty.ret->rewrite = &swapComplex;
-        }
-        else if (isComposite(rt) && canRewriteAsInt(rt))
+        if (isComposite(rt) && canRewriteAsInt(rt))
         {
             fty.ret->rewrite = &compositeToInt;
             fty.ret->ltype = compositeToInt.type(fty.ret->type, fty.ret->ltype);

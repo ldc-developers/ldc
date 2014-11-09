@@ -22,7 +22,6 @@
 
 struct X86TargetABI : TargetABI
 {
-    X87_complex_swap swapComplex;
     CfloatToInt cfloatToInt;
     CompositeToInt compositeToInt;
 
@@ -97,15 +96,6 @@ struct X86TargetABI : TargetABI
         // extern(D)
         if (tf->linkage == LINKd)
         {
-            // RETURN VALUE
-
-            // complex {re,im} -> {im,re}
-            if (rt->iscomplex())
-            {
-                Logger::println("Rewriting complex return value");
-                fty.ret->rewrite = &swapComplex;
-            }
-
             // IMPLICIT PARAMETERS
 
             // mark this/nested params inreg

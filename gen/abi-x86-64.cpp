@@ -360,7 +360,6 @@ struct RegCount {
 
 struct X86_64TargetABI : TargetABI {
     X86_64_C_struct_rewrite struct_rewrite;
-    X87_complex_swap swapComplex;
     CompositeToInt compositeToInt;
 
     llvm::CallingConv::ID callingConv(LINK l);
@@ -539,15 +538,6 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty) {
     Type* rt = fty.ret->type->toBasetype();
 
     if (tf->linkage == LINKd) {
-
-        // RETURN VALUE
-
-        // complex {re,im} -> {im,re}
-        if (rt->iscomplex())
-        {
-            Logger::println("Rewriting complex return value");
-            fty.ret->rewrite = &swapComplex;
-        }
 
         // IMPLICIT PARAMETERS
 
