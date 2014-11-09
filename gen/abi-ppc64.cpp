@@ -75,42 +75,47 @@ struct PPC64TargetABI : TargetABI {
     {
         // EXPLICIT PARAMETERS
 
-        for (IrFuncTy::ArgRIter I = fty.args.rbegin(), E = fty.args.rend(); I != E; ++I)
+        for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I)
         {
             IrFuncTyArg& arg = **I;
 
             if (arg.byref)
                 continue;
 
-            Type* ty = arg.type->toBasetype();
+            rewriteArgument(arg);
+        }
+    }
 
-            if ((ty->ty == Tstruct || ty->ty == Tsarray))
+    void rewriteArgument(IrFuncTyArg& arg)
+    {
+        Type* ty = arg.type->toBasetype();
+
+        if (ty->ty == Tstruct || ty->ty == Tsarray)
+        {
+            if (canRewriteAsInt(ty))
             {
-                if (canRewriteAsInt(ty))
-                {
-                    arg.rewrite = &compositeToInt;
-                    arg.ltype = compositeToInt.type(arg.type, arg.ltype);
-                }
-                else
-                {
-                    // these types are passed byval:
-                    // the caller allocates a copy and then passes a pointer to the copy
-                    arg.rewrite = &byvalRewrite;
-                    arg.ltype = byvalRewrite.type(arg.type, arg.ltype);
+                arg.rewrite = &compositeToInt;
+                arg.ltype = compositeToInt.type(arg.type, arg.ltype);
+            }
+            else
+            {
+                // these types are passed byval:
+                // the caller allocates a copy and then passes a pointer to the copy
+                arg.rewrite = &byvalRewrite;
+                arg.ltype = byvalRewrite.type(arg.type, arg.ltype);
 
-                    // the copy is treated as a local variable of the callee
-                    // hence add the NoAlias and NoCapture attributes
+                // the copy is treated as a local variable of the callee
+                // hence add the NoAlias and NoCapture attributes
 #if LDC_LLVM_VER >= 303
-                    arg.attrs.clear();
-                    arg.attrs.addAttribute(llvm::Attribute::NoAlias)
-                             .addAttribute(llvm::Attribute::NoCapture);
+                arg.attrs.clear();
+                arg.attrs.addAttribute(llvm::Attribute::NoAlias)
+                         .addAttribute(llvm::Attribute::NoCapture);
 #elif LDC_LLVM_VER == 302
-                    arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
-                                                                                         .addAttribute(llvm::Attributes::NoCapture));
+                arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
+                                                                                     .addAttribute(llvm::Attributes::NoCapture));
 #else
-                    arg.attrs = llvm::Attribute::NoAlias | llvm::Attribute::NoCapture;
+                arg.attrs = llvm::Attribute::NoAlias | llvm::Attribute::NoCapture;
 #endif
-                }
             }
         }
     }
