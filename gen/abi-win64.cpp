@@ -119,7 +119,6 @@ struct Win64TargetABI : TargetABI
 {
     Win64_byval_rewrite byval_rewrite;
     CompositeToInt compositeToInt;
-    CfloatToInt cfloatToInt;
 
     llvm::CallingConv::ID callingConv(LINK l);
 
@@ -210,14 +209,7 @@ void Win64TargetABI::rewriteArgument(IrFuncTyArg& arg)
 {
     Type* ty = arg.type->toBasetype();
 
-    if (ty->ty == Tcomplex32)
-    {
-        // {float,float} cannot be bit-cast to int64 (using CompositeToInt)
-        // FIXME: is there a way to force a bit-cast?
-        arg.rewrite = &cfloatToInt;
-        arg.ltype = cfloatToInt.type(arg.type, arg.ltype);
-    }
-    else if (isComposite(ty) && canRewriteAsInt(ty))
+    if (ty->ty == Tcomplex32 || (isComposite(ty) && canRewriteAsInt(ty)))
     {
         arg.rewrite = &compositeToInt;
         arg.ltype = compositeToInt.type(arg.type, arg.ltype);

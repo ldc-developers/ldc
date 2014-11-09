@@ -22,7 +22,6 @@
 
 struct X86TargetABI : TargetABI
 {
-    CfloatToInt cfloatToInt;
     CompositeToInt compositeToInt;
 
     llvm::CallingConv::ID callingConv(LINK l)
@@ -209,8 +208,8 @@ struct X86TargetABI : TargetABI
             // cfloat -> i64
             if (tf->next->toBasetype() == Type::tcomplex32)
             {
-                fty.ret->rewrite = &cfloatToInt;
-                fty.ret->ltype = LLType::getInt64Ty(gIR->context());
+                fty.ret->rewrite = &compositeToInt;
+                fty.ret->ltype = compositeToInt.type(fty.ret->type, fty.ret->ltype);
             }
 
             // IMPLICIT PARAMETERS

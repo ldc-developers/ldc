@@ -52,62 +52,6 @@ struct RemoveStructPadding : ABIRewrite {
 
 //////////////////////////////////////////////////////////////////////////////
 
-// Rewrites a cfloat (2x32 bits) as 64-bit integer.
-// Assumes a little-endian byte order.
-struct CfloatToInt : ABIRewrite
-{
-    // i64 -> {float,float}
-    LLValue* get(Type*, DValue* dv)
-    {
-        LLValue* in = dv->getRVal();
-
-        // extract real part
-        LLValue* rpart = gIR->ir->CreateTrunc(in, LLType::getInt32Ty(gIR->context()));
-        rpart = gIR->ir->CreateBitCast(rpart, LLType::getFloatTy(gIR->context()), ".re");
-
-        // extract imag part
-        LLValue* ipart = gIR->ir->CreateLShr(in, LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 32, false));
-        ipart = gIR->ir->CreateTrunc(ipart, LLType::getInt32Ty(gIR->context()));
-        ipart = gIR->ir->CreateBitCast(ipart, LLType::getFloatTy(gIR->context()), ".im");
-
-        // return {float,float} aggr pair with same bits
-        return DtoAggrPair(rpart, ipart, ".final_cfloat");
-    }
-
-    // {float,float} -> i64
-    LLValue* put(Type*, DValue* dv)
-    {
-        LLValue* v = dv->getRVal();
-
-        // extract real
-        LLValue* r = gIR->ir->CreateExtractValue(v, 0);
-        // cast to i32
-        r = gIR->ir->CreateBitCast(r, LLType::getInt32Ty(gIR->context()));
-        // zext to i64
-        r = gIR->ir->CreateZExt(r, LLType::getInt64Ty(gIR->context()));
-
-        // extract imag
-        LLValue* i = gIR->ir->CreateExtractValue(v, 1);
-        // cast to i32
-        i = gIR->ir->CreateBitCast(i, LLType::getInt32Ty(gIR->context()));
-        // zext to i64
-        i = gIR->ir->CreateZExt(i, LLType::getInt64Ty(gIR->context()));
-        // shift up
-        i = gIR->ir->CreateShl(i, LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 32, false));
-
-        // combine and return
-        return v = gIR->ir->CreateOr(r, i);
-    }
-
-    // {float,float} -> i64
-    LLType* type(Type*, LLType* t)
-    {
-        return LLType::getInt64Ty(gIR->context());
-    }
-};
-
-//////////////////////////////////////////////////////////////////////////////
-
 /**
  * Rewrites a composite type parameter to an integer of the same size.
  *
@@ -115,33 +59,51 @@ struct CfloatToInt : ABIRewrite
  * struct and static array parameters into registers, because the attribute has
  * slightly different semantics. For example, LLVM would store a [4 x i8] inreg
  * in four registers (zero-extended), instead of a single 32bit one.
- *
- * The LLVM value in dv is expected to be a pointer to the parameter, as
- * generated when lowering struct/static array paramters to LLVM byval.
  */
 struct CompositeToInt : ABIRewrite
 {
     LLValue* get(Type* dty, DValue* dv)
     {
         Logger::println("rewriting integer -> %s", dty->toChars());
-        LLValue* mem = DtoAlloca(dty, ".int_to_composite");
-        LLValue* v = dv->getRVal();
-        DtoStore(v, DtoBitCast(mem, getPtrToType(v->getType())));
-        return DtoLoad(mem);
+
+        LLValue* address = 0; // of passed Int
+
+        if (dv->isLVal()) {                                               // dv is already in memory:
+            address = dv->getLVal();                                      //   address = &<passed Int>
+        } else {                                                          // dump dv to memory:
+            LLValue* v = dv->getRVal();                                   //   v = <passed Int>
+            address = DtoRawAlloca(v->getType(), 0, ".int_to_composite"); //   address = new Int
+            DtoStore(v, address);                                         //   *address = v
+        }
+
+        LLType* pTy = getPtrToType(DtoType(dty));
+        return DtoLoad(DtoBitCast(address, pTy), "get-result");           // *(Type*)address
     }
 
-    void getL(Type* dty, DValue* dv, llvm::Value* lval)
+    void getL(Type* dty, DValue* dv, LLValue* lval)
     {
         Logger::println("rewriting integer -> %s", dty->toChars());
-        LLValue* v = dv->getRVal();
-        DtoStore(v, DtoBitCast(lval, getPtrToType(v->getType())));
+        LLValue* v = dv->getRVal();                                 // v = <passed Int>
+        DtoStore(v, DtoBitCast(lval, getPtrToType(v->getType())));  // *(Int*)lval = v
     }
 
     LLValue* put(Type* dty, DValue* dv)
     {
         Logger::println("rewriting %s -> integer", dty->toChars());
-        LLType* t = LLIntegerType::get(gIR->context(), dty->size() * 8);
-        return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
+
+        LLValue* address = 0; // of original parameter dv
+
+        if (dv->getRVal()->getType()->isPointerTy()) {     // dv has been lowered to a pointer to the struct/static array:
+            address = dv->getRVal();                       //   address = dv
+        } else if (dv->isLVal()) {                         // dv is already in memory:
+            address = dv->getLVal();                       //   address = &dv
+        } else {                                           // dump dv to memory:
+            address = DtoAlloca(dty, ".composite_to_int"); //   address = new Type
+            DtoStore(dv->getRVal(), address);              //   *address = dv
+        }
+
+        LLType* intType = type(dty, 0);
+        return DtoLoad(DtoBitCast(address, getPtrToType(intType)), "put-result"); // *(Int*)address
     }
 
     LLType* type(Type* t, LLType*)
