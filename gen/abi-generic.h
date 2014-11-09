@@ -113,4 +113,58 @@ struct CompositeToInt : ABIRewrite
     }
 };
 
+//////////////////////////////////////////////////////////////////////////////
+
+// FIXME: This should actually be handled by LLVM and the ByVal arg attribute.
+struct ByvalRewrite : ABIRewrite
+{
+    const size_t alignment;
+
+    ByvalRewrite(size_t alignment = 16) : alignment(alignment)
+    { }
+
+    // Load the callee's copy from the passed pointer.
+    LLValue* get(Type* dty, DValue* v)
+    {
+        LLValue* ptr = v->getRVal();
+        return DtoLoad(ptr); // *ptr
+    }
+
+    // Convert the caller's instance to a pointer for the callee.
+    // The pointer points to a dedicated bit-copy for the callee
+    // which is allocated on the caller's stack.
+    LLValue* put(Type* dty, DValue* v)
+    {
+        /* NOTE: probably not safe
+        // optimization: do not copy if parameter is not mutable
+        if (!dty->isMutable() && v->isLVal())
+            return v->getLVal();
+        */
+
+        LLValue* original = v->getRVal();
+        LLValue* copy;
+
+        LLType* type = original->getType();
+        if (type->isPointerTy())
+        {
+            type = type->getPointerElementType();
+            copy = DtoRawAlloca(type, alignment, "copy_for_callee");
+            DtoStore(DtoLoad(original), copy); // *copy = *original
+        }
+        else
+        {
+            copy = DtoRawAlloca(type, alignment, "copy_for_callee");
+            DtoStore(original, copy);          // *copy = original
+        }
+
+        return copy;
+    }
+
+    // T => T*
+    LLType* type(Type* dty, LLType* t)
+    {
+        return getPtrToType(DtoType(dty));
+    }
+};
+
 #endif

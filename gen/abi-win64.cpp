@@ -67,57 +67,10 @@ static bool isPassedWithByvalSemantics(Type* t)
         (t->ty == Tcomplex64 || t->ty == Tcomplex80);
 }
 
-// FIXME: This should actually be handled by LLVM and the ByVal arg attribute.
-struct Win64_byval_rewrite : ABIRewrite
-{
-    // Get instance from pointer.
-    LLValue* get(Type* dty, DValue* v)
-    {
-        LLValue* ptr = v->getRVal();
-        return DtoLoad(ptr); // *ptr
-    }
-
-    // Convert the caller's instance to a pointer for the callee.
-    // The pointer points to a dedicated copy for the callee which
-    // is allocated by the caller.
-    LLValue* put(Type* dty, DValue* v)
-    {
-        /* NOTE: probably not safe
-        // optimization: do not copy if parameter is not mutable
-        if (!dty->isMutable() && v->isLVal())
-            return v->getLVal();
-        */
-
-        LLValue* original = v->getRVal();
-        LLValue* copy;
-
-        llvm::Type* type = original->getType();
-        if (type->isPointerTy())
-        {
-            type = type->getPointerElementType();
-            copy = DtoRawAlloca(type, 16, "copy_for_callee");
-            DtoStore(DtoLoad(original), copy); // *copy = *original
-        }
-        else
-        {
-            copy = DtoRawAlloca(type, 16, "copy_for_callee");
-            DtoStore(original, copy);          // *copy = original
-        }
-
-        return copy;
-    }
-
-    // T => T*
-    LLType* type(Type* dty, LLType* t)
-    {
-        return getPtrToType(DtoType(dty));
-    }
-};
-
 
 struct Win64TargetABI : TargetABI
 {
-    Win64_byval_rewrite byval_rewrite;
+    ByvalRewrite byvalRewrite;
     CompositeToInt compositeToInt;
 
     llvm::CallingConv::ID callingConv(LINK l);
@@ -219,9 +172,8 @@ void Win64TargetABI::rewriteArgument(IrFuncTyArg& arg)
     {
         // these types are passed byval:
         // the caller allocates a copy and then passes a pointer to the copy
-        // FIXME: use tightly packed struct for creal like DMD?
-        arg.rewrite = &byval_rewrite;
-        arg.ltype = byval_rewrite.type(arg.type, arg.ltype);
+        arg.rewrite = &byvalRewrite;
+        arg.ltype = byvalRewrite.type(arg.type, arg.ltype);
 
         // the copy is treated as a local variable of the callee
         // hence add the NoAlias and NoCapture attributes
