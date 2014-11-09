@@ -31,43 +31,6 @@
 #include <string>
 #include <utility>
 
-
-// Returns true if the D type can be bit-cast to an integer of the same size.
-static bool canRewriteAsInt(Type* t)
-{
-    unsigned size = t->size();
-    return size == 1 || size == 2 || size == 4 || size == 8;
-}
-
-// Returns true if the D type is a composite (struct or static array).
-static bool isComposite(const Type* t)
-{
-    return t->ty == Tstruct || t->ty == Tsarray;
-}
-
-static bool realIs80bits()
-{
-#if LDC_LLVM_VER >= 305
-    return !global.params.targetTriple.isWindowsMSVCEnvironment();
-#else
-    return true;
-#endif
-}
-
-// Returns true if the D type is passed byval (the callee getting a pointer
-// to a dedicated hidden copy).
-static bool isPassedWithByvalSemantics(Type* t)
-{
-    return
-        // * structs and static arrays which can NOT be rewritten as integers
-        (isComposite(t) && !canRewriteAsInt(t)) ||
-        // * 80-bit real and ireal
-        ((t->ty == Tfloat80 || t->ty == Timaginary80) && realIs80bits()) ||
-        // * cdouble and creal
-        (t->ty == Tcomplex64 || t->ty == Tcomplex80);
-}
-
-
 struct Win64TargetABI : TargetABI
 {
     ByvalRewrite byvalRewrite;
@@ -82,6 +45,41 @@ struct Win64TargetABI : TargetABI
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty);
 
     void rewriteArgument(IrFuncTyArg& arg);
+
+private:
+    // Returns true if the D type is a composite (struct/static array/complex number).
+    bool isComposite(Type* t)
+    {
+        return t->ty == Tstruct || t->ty == Tsarray
+            || t->iscomplex(); // treat complex numbers as structs too
+    }
+
+    // Returns true if the D type can be bit-cast to an integer of the same size.
+    bool canRewriteAsInt(Type* t)
+    {
+        unsigned size = t->size();
+        return size == 1 || size == 2 || size == 4 || size == 8;
+    }
+
+    bool realIs80bits()
+    {
+#if LDC_LLVM_VER >= 305
+        return !global.params.targetTriple.isWindowsMSVCEnvironment();
+#else
+        return true;
+#endif
+    }
+
+    // Returns true if the D type is passed byval (the callee getting a pointer
+    // to a dedicated hidden copy).
+    bool isPassedWithByvalSemantics(Type* t)
+    {
+        return
+            // * structs/static arrays/complex numbers which can NOT be rewritten as integers
+            (isComposite(t) && !canRewriteAsInt(t)) ||
+            // * 80-bit real and ireal
+            ((t->ty == Tfloat80 || t->ty == Timaginary80) && realIs80bits());
+    }
 };
 
 
@@ -90,6 +88,7 @@ TargetABI* getWin64TargetABI()
 {
     return new Win64TargetABI;
 }
+
 
 llvm::CallingConv::ID Win64TargetABI::callingConv(LINK l)
 {
@@ -114,14 +113,12 @@ bool Win64TargetABI::returnInArg(TypeFunction* tf)
 
     Type* rt = tf->next->toBasetype();
 
-    // everything <= 64 bits and of a size that is a power of 2
-    // is returned in a register (RAX, or XMM0 for single float/
-    // double) - except for cfloat
-    // 80-bit real/ireal is returned on top of the x87 stack: ST(0)
-    // complex numbers are returned in XMM0 & XMM1 (cfloat, cdouble)
-    // or ST(1) & ST(0) (80-bit creal)
-    // all other structs and static arrays are returned by struct-return (sret)
-    return isComposite(rt) && !canRewriteAsInt(rt);
+    // * everything <= 64 bits and of a size that is a power of 2
+    //   (incl. 2x32-bit cfloat) is returned in a register (RAX, or
+    //   XMM0 for single float/ifloat/double/idouble)
+    // * all other structs/static arrays/complex numbers and 80-bit
+    //   real/ireal are returned via struct-return (sret)
+    return isPassedWithByvalSemantics(rt);
 }
 
 bool Win64TargetABI::passByVal(Type* t)
@@ -147,7 +144,7 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     }
 
     // EXPLICIT PARAMETERS
-    for (IrFuncTy::ArgRIter I = fty.args.rbegin(), E = fty.args.rend(); I != E; ++I)
+    for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I)
     {
         IrFuncTyArg& arg = **I;
 
@@ -162,7 +159,7 @@ void Win64TargetABI::rewriteArgument(IrFuncTyArg& arg)
 {
     Type* ty = arg.type->toBasetype();
 
-    if (ty->ty == Tcomplex32 || (isComposite(ty) && canRewriteAsInt(ty)))
+    if (isComposite(ty) && canRewriteAsInt(ty))
     {
         arg.rewrite = &compositeToInt;
         arg.ltype = compositeToInt.type(arg.type, arg.ltype);
