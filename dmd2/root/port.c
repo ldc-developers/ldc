@@ -156,6 +156,7 @@ longdouble Port::strtold(const char *buffer, char **endp)
 #include <wchar.h>
 #include <stdlib.h>
 #include <limits> // for std::numeric_limits
+#include "target.h"
 
 double Port::nan;
 longdouble Port::ldbl_nan;
@@ -250,7 +251,7 @@ int Port::fequal(longdouble x, longdouble y)
     /* In some cases, the REALPAD bytes get garbage in them,
      * so be sure and ignore them.
      */
-    return memcmp(&x, &y, 10) == 0;
+    return memcmp(&x, &y, Target::realsize - Target::realpad) == 0;
 }
 
 char *Port::strupr(char *s)
@@ -492,6 +493,7 @@ longdouble Port::strtold(const char *p, char **endp)
 #include <wchar.h>
 #include <float.h>
 #include <assert.h>
+#include "target.h"
 
 double Port::nan;
 longdouble Port::ldbl_nan;
@@ -689,7 +691,7 @@ int Port::fequal(longdouble x, longdouble y)
     /* In some cases, the REALPAD bytes get garbage in them,
      * so be sure and ignore them.
      */
-    return memcmp(&x, &y, 10) == 0;
+    return memcmp(&x, &y, Target::realsize - Target::realpad) == 0;
 }
 
 char *Port::strupr(char *s)
