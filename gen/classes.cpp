@@ -522,18 +522,34 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
     return llvm::ConstantExpr::getBitCast(getIrFunc(dtor)->func, getPtrToType(LLType::getInt8Ty(gIR->context())));
 }
 
+//! needs to match object_.d
+struct ClassInfoFlags
+{
+    enum
+    {
+        isCOMclass = 0x1,
+        noPointers = 0x2,
+        hasOffTi   = 0x4,
+        hasCtor    = 0x8,
+        hasGetMembers = 0x10,
+        hasTypeInfo = 0x20,
+        isAbstract  = 0x40,
+        isCPPclass  = 0x80
+    };
+};
+
 static unsigned build_classinfo_flags(ClassDeclaration* cd)
 {
     // adapted from original dmd code
     unsigned flags = 0;
-    flags |= cd->isCOMclass(); // IUnknown
+    flags |= (unsigned) cd->isCOMclass(); // IUnknown
     bool hasOffTi = false;
     if (cd->ctor)
-        flags |= 8;
+        flags |= ClassInfoFlags::hasCtor;
     if (cd->isabstract)
-        flags |= 64;
+        flags |= ClassInfoFlags::isAbstract;
     if (cd->isCPPclass())
-        flags |= 128;
+        flags |= ClassInfoFlags::isCPPclass;
     for (ClassDeclaration *cd2 = cd; cd2; cd2 = cd2->baseClass)
     {
         if (!cd2->members)
@@ -548,14 +564,14 @@ static unsigned build_classinfo_flags(ClassDeclaration* cd)
                 goto L2;
         }
     }
-    flags |= 2;         // no pointers
+    flags |= ClassInfoFlags::noPointers;
 L2:
     if (hasOffTi)
-        flags |= 4;
+        flags |= ClassInfoFlags::hasOffTi;
 
     // always define the typeinfo field.
     // why would ever not do this?
-    flags |= 32;
+    flags |= ClassInfoFlags::hasTypeInfo;
 
     return flags;
 }
@@ -577,11 +593,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 //         void *deallocator;
 //         OffsetTypeInfo[] offTi;
 //         void *defaultConstructor;
-//         version(D_Version2)
-//              immutable(void)* m_RTInfo;
-//         else
-//              TypeInfo typeinfo; // since dmd 1.045
-//        }
+//         immutable(void)* m_RTInfo;
 
     IF_LOG Logger::println("DtoDefineClassInfo(%s)", cd->toChars());
     LOG_SCOPE;
@@ -662,7 +674,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     // uint flags
     unsigned flags;
     if (cd->isInterfaceDeclaration())
-        flags = 4 | cd->isCOMinterface() | 32;
+        flags = ClassInfoFlags::hasOffTi | (unsigned) cd->isCOMinterface() | ClassInfoFlags::hasTypeInfo;
     else
         flags = build_classinfo_flags(cd);
     b.push_uint(flags);
@@ -695,7 +707,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     // modelled after what DMD does.
     if (cd->getRTInfo)
         b.push(toConstElem(cd->getRTInfo, gIR));
-    else if (flags & 2)
+    else if (flags & ClassInfoFlags::noPointers)
         b.push_size_as_vp(0);       // no pointers
     else
         b.push_size_as_vp(1);       // has pointers
