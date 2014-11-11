@@ -381,6 +381,11 @@ public:
         return tmp.init(v);
     }
 
+    static bool fequal(const longdouble &x, const longdouble &y)
+    {
+        return x.value()->bitwiseIsEqual(*(y.value()));
+    }
+
     int format(char *buf) const;
     int formatHex(char *buf, bool upper) const;
 };

@@ -74,7 +74,7 @@ longdouble Port::sqrt(longdouble x)
 
 int Port::fequal(longdouble x, longdouble y)
 {
-    return x == y;
+    return longdouble::fequal(x, y);
 }
 
 int Port::memicmp(const char *s1, const char *s2, int n)
