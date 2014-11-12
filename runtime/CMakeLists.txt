@@ -57,6 +57,7 @@ set(PHOBOS2_DIR ${PROJECT_SOURCE_DIR}/phobos CACHE PATH "Phobos root directory")
 #
 
 file(GLOB CORE_D ${RUNTIME_DIR}/src/core/*.d )
+file(GLOB CORE_D_INTERNAL ${RUNTIME_DIR}/src/core/internal/*.d )
 file(GLOB CORE_D_SYNC ${RUNTIME_DIR}/src/core/sync/*.d )
 file(GLOB CORE_D_STDC ${RUNTIME_DIR}/src/core/stdc/*.d )
 file(GLOB_RECURSE GC_D ${RUNTIME_DIR}/src/gc/*.d)
@@ -121,7 +122,7 @@ elseif(WIN32)
     endif()
     list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/monitor.c)
 endif()
-list(APPEND CORE_D ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
+list(APPEND CORE_D ${CORE_D_INTERNAL} ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
 list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
 file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
@@ -742,14 +743,18 @@ endmacro()
 
 function(add_tests d_files runner name_suffix)
     foreach(file ${d_files})
-        file_to_module_name(${file} module)
-        add_test(NAME "${module}${name_suffix}"
-            WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
-            COMMAND ${runner}-test-runner${name_suffix} ${module}
-        )
-        set_tests_properties("${module}${name_suffix}" PROPERTIES
-            DEPENDS build-${runner}-test-runner${name_suffix}
-        )
+        if ("${file}" MATCHES ".*/core/internal/convert.d$")
+            # Exclude all tests for this file
+        else()
+            file_to_module_name(${file} module)
+            add_test(NAME "${module}${name_suffix}"
+                WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
+                COMMAND ${runner}-test-runner${name_suffix} ${module}
+            )
+            set_tests_properties("${module}${name_suffix}" PROPERTIES
+                DEPENDS build-${runner}-test-runner${name_suffix}
+            )
+        endif()
     endforeach()
 endfunction()
 function(add_runtime_tests name_suffix)
