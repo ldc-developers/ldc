@@ -323,6 +323,29 @@ pragma(LDC_intrinsic, "llvm.fmuladd.f#")
     T llvm_fmuladd(T)(T vala, T valb, T valc);
 
 
+version(INTRINSICS_FROM_306)
+{
+// The ‘llvm.minnum.*‘ intrinsics return the minimum of the two arguments.
+// Follows the IEEE-754 semantics for minNum, which also match for libm’s fmin.
+// If either operand is a NaN, returns the other non-NaN operand. Returns NaN
+// only if both operands are NaN. If the operands compare equal, returns a value
+// that compares equal to both operands. This means that fmin(+/-0.0, +/-0.0)
+// could return either -0.0 or 0.0.
+
+pragma(LDC_intrinsic, "llvm.minnum.f#")
+	T llvm_minnum(T)(T vala, T valb);
+
+// The ‘llvm.maxnum.*‘ intrinsics return the maximum of the two arguments.
+// Follows the IEEE-754 semantics for maxNum, which also match for libm’s fmax.
+// If either operand is a NaN, returns the other non-NaN operand. Returns NaN
+// only if both operands are NaN. If the operands compare equal, returns a value
+// that compares equal to both operands. This means that fmax(+/-0.0, +/-0.0)
+// could return either -0.0 or 0.0.
+
+pragma(LDC_intrinsic, "llvm.maxnum.f#")
+	T llvm_maxnum(T)(T vala, T valb);
+}
+
 //
 // BIT MANIPULATION INTRINSICS
 //
