@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/functions.h"
+#include "gen/attribute.h"
 #include "aggregate.h"
 #include "declaration.h"
 #include "id.h"
@@ -848,6 +849,8 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     {
         AppendFunctionToLLVMGlobalCtorsDtors(func, fdecl->priority, fdecl->llvmInternal == LLVMglobal_crt_ctor);
     }
+
+    DtoFuncDeclarationAttribute(fdecl, func);
 
     IrFuncTy &irFty = irFunc->irFty;
 
