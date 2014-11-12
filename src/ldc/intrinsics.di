@@ -1,4 +1,4 @@
-/*
+﻿/*
  * This module holds declarations to LLVM intrinsics.
  *
  * See the LLVM language reference for more information:
@@ -325,22 +325,22 @@ pragma(LDC_intrinsic, "llvm.fmuladd.f#")
 
 version(INTRINSICS_FROM_306)
 {
-// The ‘llvm.minnum.*‘ intrinsics return the minimum of the two arguments.
-// Follows the IEEE-754 semantics for minNum, which also match for libm’s fmin.
-// If either operand is a NaN, returns the other non-NaN operand. Returns NaN
-// only if both operands are NaN. If the operands compare equal, returns a value
-// that compares equal to both operands. This means that fmin(+/-0.0, +/-0.0)
-// could return either -0.0 or 0.0.
+/// The ‘llvm.minnum.*‘ intrinsics return the minimum of the two arguments.
+/// Follows the IEEE-754 semantics for minNum, which also match for libm’s fmin.
+/// If either operand is a NaN, returns the other non-NaN operand. Returns NaN
+/// only if both operands are NaN. If the operands compare equal, returns a value
+/// that compares equal to both operands. This means that fmin(+/-0.0, +/-0.0)
+/// could return either -0.0 or 0.0.
 
 pragma(LDC_intrinsic, "llvm.minnum.f#")
 	T llvm_minnum(T)(T vala, T valb);
 
-// The ‘llvm.maxnum.*‘ intrinsics return the maximum of the two arguments.
-// Follows the IEEE-754 semantics for maxNum, which also match for libm’s fmax.
-// If either operand is a NaN, returns the other non-NaN operand. Returns NaN
-// only if both operands are NaN. If the operands compare equal, returns a value
-// that compares equal to both operands. This means that fmax(+/-0.0, +/-0.0)
-// could return either -0.0 or 0.0.
+/// The ‘llvm.maxnum.*‘ intrinsics return the maximum of the two arguments.
+/// Follows the IEEE-754 semantics for maxNum, which also match for libm’s fmax.
+/// If either operand is a NaN, returns the other non-NaN operand. Returns NaN
+/// only if both operands are NaN. If the operands compare equal, returns a value
+/// that compares equal to both operands. This means that fmax(+/-0.0, +/-0.0)
+/// could return either -0.0 or 0.0.
 
 pragma(LDC_intrinsic, "llvm.maxnum.f#")
 	T llvm_maxnum(T)(T vala, T valb);
@@ -517,3 +517,20 @@ pragma(LDC_intrinsic, "llvm.umul.with.overflow.i#")
 
 pragma(LDC_intrinsic, "llvm.trap")
     void llvm_trap();
+
+version(INTRINSICS_FROM_302)
+{
+/// This intrinsic is lowered to code which is intended to cause an execution
+/// trap with the intention of requesting the attention of a debugger.
+pragma(LDC_intrinsic, "llvm.debugtrap")
+    void llvm_debugtrap();
+}
+
+/// The llvm.expect intrinsic provides information about expected (the most
+/// probable) value of val, which can be used by optimizers.
+/// The llvm.expect intrinsic takes two arguments. The first argument is a
+/// value. The second argument is an expected value, this needs to be a
+/// constant value, variables are not allowed.
+
+pragma(LDC_intrinsic, "llvm.expect.i#")
+    T llvm_expect(T)(T val, T expected_val);
