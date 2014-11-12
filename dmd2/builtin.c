@@ -159,6 +159,58 @@ Expression *eval_llvmfabs(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     return new RealExp(loc, fabsl(arg0->toReal()), type);
 }
 
+Expression *eval_llvmminnum(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKfloat64);
+    Expression *arg1 = (*arguments)[1];
+    assert(arg1->op == TOKfloat64);
+    return new RealExp(loc, fmin(arg0->toReal(), arg1->toReal()), type);
+}
+
+Expression *eval_llvmmaxnum(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKfloat64);
+    Expression *arg1 = (*arguments)[1];
+    assert(arg1->op == TOKfloat64);
+    return new RealExp(loc, fmax(arg0->toReal(), arg1->toReal()), type);
+}
+
+Expression *eval_llvmfloor(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKfloat64);
+    return new RealExp(loc, floor(arg0->toReal()), type);
+}
+
+Expression *eval_llvmceil(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKfloat64);
+    return new RealExp(loc, ceil(arg0->toReal()), type);
+}
+
+Expression *eval_llvmtrunc(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKfloat64);
+    return new RealExp(loc, trunc(arg0->toReal()), type);
+}
+
+Expression *eval_llvmround(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+    Type* type = getTypeOfOverloadedIntrinsic(fd);
+    Expression *arg0 = (*arguments)[0];
+    assert(arg0->op == TOKfloat64);
+    return new RealExp(loc, round(arg0->toReal()), type);
+}
+
 Expression *eval_cttz(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 {
     Type* type = getTypeOfOverloadedIntrinsic(fd);
@@ -317,7 +369,7 @@ Expression *eval_bswap(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 void builtin_init()
 {
 #if IN_LLVM
-    builtins._init(89); // Prime number like default value
+    builtins._init(127); // Prime number like default value
 #else
     builtins._init(45);
 #endif
@@ -412,6 +464,48 @@ void builtin_init()
     add_builtin("llvm.fabs.f80", &eval_llvmfabs);
     add_builtin("llvm.fabs.f128", &eval_llvmfabs);
     add_builtin("llvm.fabs.ppcf128", &eval_llvmfabs);
+
+    // intrinsic llvm.minnum.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.minnum.f32", &eval_llvmminnum);
+    add_builtin("llvm.minnum.f64", &eval_llvmminnum);
+    add_builtin("llvm.minnum.f80", &eval_llvmminnum);
+    add_builtin("llvm.minnum.f128", &eval_llvmminnum);
+    add_builtin("llvm.minnum.ppcf128", &eval_llvmminnum);
+
+    // intrinsic llvm.maxnum.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.maxnum.f32", &eval_llvmmaxnum);
+    add_builtin("llvm.maxnum.f64", &eval_llvmmaxnum);
+    add_builtin("llvm.maxnum.f80", &eval_llvmmaxnum);
+    add_builtin("llvm.maxnum.f128", &eval_llvmmaxnum);
+    add_builtin("llvm.maxnum.ppcf128", &eval_llvmmaxnum);
+
+    // intrinsic llvm.floor.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.floor.f32", &eval_llvmfloor);
+    add_builtin("llvm.floor.f64", &eval_llvmfloor);
+    add_builtin("llvm.floor.f80", &eval_llvmfloor);
+    add_builtin("llvm.floor.f128", &eval_llvmfloor);
+    add_builtin("llvm.floor.ppcf128", &eval_llvmfloor);
+
+    // intrinsic llvm.ceil.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.ceil.f32", &eval_llvmceil);
+    add_builtin("llvm.ceil.f64", &eval_llvmceil);
+    add_builtin("llvm.ceil.f80", &eval_llvmceil);
+    add_builtin("llvm.ceil.f128", &eval_llvmceil);
+    add_builtin("llvm.ceil.ppcf128", &eval_llvmceil);
+
+    // intrinsic llvm.trunc.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.trunc.f32", &eval_llvmtrunc);
+    add_builtin("llvm.trunc.f64", &eval_llvmtrunc);
+    add_builtin("llvm.trunc.f80", &eval_llvmtrunc);
+    add_builtin("llvm.trunc.f128", &eval_llvmtrunc);
+    add_builtin("llvm.trunc.ppcf128", &eval_llvmtrunc);
+
+    // intrinsic llvm.round.f32/f64/f80/f128/ppcf128
+    add_builtin("llvm.round.f32", &eval_llvmround);
+    add_builtin("llvm.round.f64", &eval_llvmround);
+    add_builtin("llvm.round.f80", &eval_llvmround);
+    add_builtin("llvm.round.f128", &eval_llvmround);
+    add_builtin("llvm.round.ppcf128", &eval_llvmround);
 
     // intrinsic llvm.bswap.i16/i32/i64/i128
     add_builtin("llvm.bswap.i16", &eval_bswap);
