@@ -528,7 +528,7 @@ bool X86_64TargetABI::passByVal(Type* t) {
 void X86_64TargetABI::fixup(IrFuncTyArg& arg) {
     LLType* abiTy = getAbiType(arg.type);
 
-    if (abiTy && abiTy != arg.ltype) {
+    if (abiTy && abiTy != arg.ltype && !arg.byref) {
         assert(arg.type == Type::tcomplex32 || arg.type->ty == Tstruct);
         arg.ltype = abiTy;
         arg.rewrite = &struct_rewrite;
