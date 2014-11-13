@@ -55,7 +55,12 @@ llvm::TargetMachine* createTargetMachine(
     llvm::CodeModel::Model codeModel,
     llvm::CodeGenOpt::Level codeGenOptLevel,
     bool noFramePointerElim,
-    bool noLinkerStripDead
+    bool noLinkerStripDead,
+    bool enableFPMAD,
+    bool enableUnsafeFPMath,
+    bool enableNoInfsFPMath,
+    bool enableNoNaNsFPMath,
+    bool enableHonorSignDependentRoundingFPMath
     );
 
 #endif // LDC_DRIVER_TARGET_H

@@ -989,7 +989,9 @@ int main(int argc, char **argv)
 
     gTargetMachine = createTargetMachine(mTargetTriple, mArch, mCPU, mAttrs,
         bitness, mFloatABI, mRelocModel, mCodeModel, codeGenOptLevel(),
-        global.params.symdebug || disableFpElim, disableLinkerStripDead);
+        global.params.symdebug || disableFpElim, disableLinkerStripDead,
+        enableFPMAD, enableUnsafeFPMath, enableNoInfsFPMath,
+        enableNoNaNsFPMath, enableHonorSignDependentRoundingFPMath);
 
     {
         llvm::Triple triple = llvm::Triple(gTargetMachine->getTargetTriple());

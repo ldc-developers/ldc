@@ -315,6 +315,27 @@ cl::opt<FloatABI::Type> mFloatABI("float-abi",
         clEnumValN(FloatABI::Hard, "hard", "Hardware floating-point ABI and instructions"),
         clEnumValEnd));
 
+cl::opt<bool> enableFPMAD("enable-fp-mad",
+    cl::desc("Enable less precise MAD instructions to be generated"),
+    cl::init(false));
+
+cl::opt<bool> enableUnsafeFPMath("enable-unsafe-fp-math",
+    cl::desc("Enable optimizations that may decrease FP precision"),
+    cl::init(false));
+
+cl::opt<bool> enableNoInfsFPMath("enable-no-infs-fp-math",
+    cl::desc("Enable FP math optimizations that assume no +-Infs"),
+    cl::init(false));
+
+cl::opt<bool> enableNoNaNsFPMath("enable-no-nans-fp-math",
+    cl::desc("Enable FP math optimizations that assume no NaNs"),
+    cl::init(false));
+
+cl::opt<bool> enableHonorSignDependentRoundingFPMath("enable-sign-dependent-rounding-fp-math",
+    cl::Hidden,
+    cl::desc("Force codegen to assume rounding mode can change dynamically"),
+    cl::init(false));
+
 cl::opt<bool> disableFpElim("disable-fp-elim",
               cl::desc("Disable frame pointer elimination optimization"),
               cl::init(false));

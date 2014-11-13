@@ -70,6 +70,11 @@ namespace opts {
     extern cl::opt<llvm::CodeModel::Model> mCodeModel;
     extern cl::opt<bool> disableFpElim;
     extern cl::opt<FloatABI::Type> mFloatABI;
+    extern cl::opt<bool> enableFPMAD;
+    extern cl::opt<bool> enableUnsafeFPMath;
+    extern cl::opt<bool> enableNoInfsFPMath;
+    extern cl::opt<bool> enableNoNaNsFPMath;
+    extern cl::opt<bool> enableHonorSignDependentRoundingFPMath;
     extern cl::opt<bool, true> singleObj;
     extern cl::opt<bool> linkonceTemplates;
     extern cl::opt<bool> disableLinkerStripDead;

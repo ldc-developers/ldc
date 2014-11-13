@@ -304,7 +304,12 @@ llvm::TargetMachine* createTargetMachine(
     llvm::CodeModel::Model codeModel,
     llvm::CodeGenOpt::Level codeGenOptLevel,
     bool noFramePointerElim,
-    bool noLinkerStripDead)
+    bool noLinkerStripDead,
+    bool enableFPMAD,
+    bool enableUnsafeFPMath,
+    bool enableNoInfsFPMath,
+    bool enableNoNaNsFPMath,
+    bool enableHonorSignDependentRoundingFPMath)
 {
     // Determine target triple. If the user didn't explicitly specify one, use
     // the one set at LLVM configure time.
@@ -433,6 +438,14 @@ llvm::TargetMachine* createTargetMachine(
         targetOptions.FloatABIType = llvm::FloatABI::Hard;
         break;
     }
+
+    // Initialize various math options.
+    targetOptions.LessPreciseFPMADOption = enableFPMAD;
+    targetOptions.UnsafeFPMath = enableUnsafeFPMath;
+    targetOptions.NoInfsFPMath = enableNoInfsFPMath;
+    targetOptions.NoNaNsFPMath = enableNoNaNsFPMath;
+    targetOptions.HonorSignDependentRoundingFPMathOption = enableHonorSignDependentRoundingFPMath;
+
 
     // Right now, we only support linker-level dead code elimination on Linux
     // using the GNU toolchain (based on ld's --gc-sections flag). The Apple ld
