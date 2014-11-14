@@ -240,10 +240,16 @@ int Statement::blockExit(FuncDeclaration *func, bool mustNotThrow)
 
         void visit(Statement *s)
         {
+#if IN_LLVM
+            std::string msg("Statement::blockExit: ");
+            msg.append(s->toChars());
+            llvm_unreachable(msg.c_str());
+#else
             printf("Statement::blockExit(%p)\n", s);
             printf("%s\n", s->toChars());
             assert(0);
             result = BEany;
+#endif
         }
 
         void visit(ErrorStatement *s)
@@ -697,6 +703,14 @@ int Statement::blockExit(FuncDeclaration *func, bool mustNotThrow)
             // Assume the worst
             result = BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt;
         }
+
+#if IN_LLVM
+        void visit(AsmBlockStatement *s)
+        {
+            // Assume the worst
+            result = BEany;
+        }
+#endif
 
         void visit(ImportStatement *s)
         {
