@@ -125,12 +125,13 @@ void Module::buildTargetFiles(bool singleObj)
 
     // LDC
     // another safety check to make sure we don't overwrite previous output files
-    if (!singleObj)
+    if (!singleObj && global.params.obj)
         check_and_add_output_file(this, objfile->name->str);
     if (docfile)
         check_and_add_output_file(this, docfile->name->str);
-    if (hdrfile)
-        check_and_add_output_file(this, hdrfile->name->str);
+    //FIXME: DMD overwrites header files. This should be done only in a DMD mode.
+    //if (hdrfile)
+    //    check_and_add_output_file(this, hdrfile->name->str);
 }
 
 File* Module::buildFilePath(const char* forcename, const char* path, const char* ext)

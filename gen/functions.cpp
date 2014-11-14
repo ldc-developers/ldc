@@ -149,17 +149,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     {
 #if LDC_LLVM_VER >= 303
         llvm::AttrBuilder attrBuilder;
-// Issue 624: In case of a ctor 'this' is passed to the function and is also
-// the return value. This could be a perfect case for the 'Returned' attribute.
-// However the 'this' type and the return type are transformed in different
-// ways, making them bitcast incompatible.
-// Example: extern(C): struct Value { this(string) {} string s; }
-// return type: { i64, i64 }
-// this type:   %ldc_github_624.Value*
-// FIXME: (1) Investigate why the types are handled in different ways
-//        (2) The attributes are cleared by some abi implementations
-//        if (isCtor)
-//            attrBuilder.addAttribute(llvm::Attribute::Returned);
+        if (isCtor)
+            attrBuilder.addAttribute(llvm::Attribute::Returned);
 #endif
         newIrFty.arg_this = new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct
 #if LDC_LLVM_VER >= 303
@@ -403,6 +394,9 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
             (std::string(err.getColumnNo(), ' ') + '^').c_str(),
             errstr.c_str(), stream.str().c_str());
 
+#if LDC_LLVM_VER >= 306
+    llvm::Linker(gIR->module).linkInModule(m.get());
+#else
 #if LDC_LLVM_VER >= 303
     std::string errstr2 = "";
 #if LDC_LLVM_VER >= 306
@@ -413,6 +407,7 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
     if(errstr2 != "")
         error(tinst->loc,
             "Error when linking in llvm inline ir: %s", errstr2.c_str());
+#endif
 #endif
 
     LLFunction* fun = gIR->module->getFunction(mangled_name);

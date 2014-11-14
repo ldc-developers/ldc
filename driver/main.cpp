@@ -584,6 +584,9 @@ static void registerPredefinedTargetVersions() {
 #endif
             VersionCondition::addPredefinedGlobalIdent("PPC64");
             registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
+            if (global.params.targetTriple.getOS() == llvm::Triple::Linux)
+                VersionCondition::addPredefinedGlobalIdent(global.params.targetTriple.getArch() == llvm::Triple::ppc64
+                                                       ? "ELFv1" : "ELFv2");
             break;
         case llvm::Triple::arm:
 #if LDC_LLVM_VER >= 305
@@ -818,7 +821,7 @@ static void dumpPredefinedVersions()
                                E = global.params.versionids->end();
              I != E; ++I)
         {
-            int len = strlen(*I);
+            int len = strlen(*I) + 1;
             if (col + len > 80)
             {
                 col = 10;
@@ -915,6 +918,11 @@ static void emitEntryPointInto(llvm::Module* lm)
         emitSymbolAddrGlobal(*entryModule, "_end", "_d_execBssEndAddr");
     }
 
+#if LDC_LLVM_VER >= 306
+    // FIXME: A possible error message is written to the diagnostic context
+    //        Do we show these messages?
+    linker.linkInModule(entryModule);
+#else
     std::string linkError;
 #if LDC_LLVM_VER >= 303
     const bool hadError = linker.linkInModule(entryModule, &linkError);
@@ -924,6 +932,7 @@ static void emitEntryPointInto(llvm::Module* lm)
 #endif
     if (hadError)
         error(Loc(), "%s", linkError.c_str());
+#endif
 }
 
 
@@ -1364,12 +1373,16 @@ int main(int argc, char **argv)
         std::string errormsg;
         for (size_t i = 0; i < llvmModules.size(); i++)
         {
+#if LDC_LLVM_VER >= 306
+            linker.linkInModule(llvmModules[i]);
+#else
 #if LDC_LLVM_VER >= 303
             if (linker.linkInModule(llvmModules[i], llvm::Linker::DestroySource, &errormsg))
 #else
             if (linker.LinkInModule(llvmModules[i], &errormsg))
 #endif
                 error(Loc(), "%s", errormsg.c_str());
+#endif
             delete llvmModules[i];
         }
 

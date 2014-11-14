@@ -183,11 +183,23 @@ void IRLandingPad::constructLandingPad(IRLandingPadScope scope)
         for (; catchItr != catchItrEnd; ++catchItr) {
             // if it is a first catch and some catch allocated storage, store exception object
             if (isFirstCatch && catch_var) {
-                // eh_ptr is a pointer to _d_exception, which has a reference
-                // to the Throwable object at offset 0.
-                LLType *objectPtrTy = DtoType(ClassDeclaration::object->type->pointerTo());
-                LLValue *objectPtr = gIR->ir->CreateBitCast(eh_ptr, objectPtrTy);
-                gIR->ir->CreateStore(gIR->ir->CreateLoad(objectPtr), catch_var);
+#if LDC_LLVM_VER >= 305
+                if (global.params.targetTriple.isWindowsMSVCEnvironment())
+                {
+                    // eh_ptr is a pointer to the Throwable object.
+                    LLType *objectTy = DtoType(ClassDeclaration::object->type);
+                    LLValue *object = gIR->ir->CreateBitCast(eh_ptr, objectTy);
+                    gIR->ir->CreateStore(object, catch_var);
+                }
+                else
+#endif
+                {
+                    // eh_ptr is a pointer to _d_exception, which has a reference
+                    // to the Throwable object at offset 0.
+                    LLType *objectPtrTy = DtoType(ClassDeclaration::object->type->pointerTo());
+                    LLValue *objectPtr = gIR->ir->CreateBitCast(eh_ptr, objectPtrTy);
+                    gIR->ir->CreateStore(gIR->ir->CreateLoad(objectPtr), catch_var);
+                }
                 isFirstCatch = false;
             }
 

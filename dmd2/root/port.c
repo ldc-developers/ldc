@@ -156,6 +156,7 @@ longdouble Port::strtold(const char *buffer, char **endp)
 #include <wchar.h>
 #include <stdlib.h>
 #include <limits> // for std::numeric_limits
+#include "target.h"
 
 double Port::nan;
 longdouble Port::ldbl_nan;
@@ -178,11 +179,19 @@ static PortInitializer portinitializer;
 PortInitializer::PortInitializer()
 {
 #if IN_LLVM
-    Port::nan = std::numeric_limits<double>::quiet_NaN();
-    Port::ldbl_nan = std::numeric_limits<double>::quiet_NaN();
-    Port::snan = std::numeric_limits<double>::signaling_NaN();
-    Port::infinity = std::numeric_limits<double>::infinity();
-    Port::ldbl_infinity = std::numeric_limits<double>::infinity();
+    union {
+        unsigned long ul[2];
+        double d;
+    }
+    nan = { { 0, 0x7FF80000 } },
+    snan = { { 0, 0x7FFC0000 } },
+    inf = { { 0, 0x7FF00000 } };
+
+    Port::nan = nan.d;
+    Port::ldbl_nan = nan.d;
+    Port::snan = snan.d;
+    Port::infinity = inf.d;
+    Port::ldbl_infinity = inf.d;
 #else
     union {
         unsigned long ul[2];
@@ -242,7 +251,7 @@ int Port::fequal(longdouble x, longdouble y)
     /* In some cases, the REALPAD bytes get garbage in them,
      * so be sure and ignore them.
      */
-    return memcmp(&x, &y, 10) == 0;
+    return memcmp(&x, &y, Target::realsize - Target::realpad) == 0;
 }
 
 char *Port::strupr(char *s)
@@ -484,6 +493,7 @@ longdouble Port::strtold(const char *p, char **endp)
 #include <wchar.h>
 #include <float.h>
 #include <assert.h>
+#include "target.h"
 
 double Port::nan;
 longdouble Port::ldbl_nan;
@@ -681,7 +691,7 @@ int Port::fequal(longdouble x, longdouble y)
     /* In some cases, the REALPAD bytes get garbage in them,
      * so be sure and ignore them.
      */
-    return memcmp(&x, &y, 10) == 0;
+    return memcmp(&x, &y, Target::realsize - Target::realpad) == 0;
 }
 
 char *Port::strupr(char *s)

@@ -995,7 +995,7 @@ void DtoVarDeclaration(VarDeclaration* vd)
     assert(!vd->isDataseg() && "Statics/globals are handled in DtoDeclarationExp.");
     assert(!vd->aliassym && "Aliases are handled in DtoDeclarationExp.");
 
-    IF_LOG Logger::println("vdtype = %s", vd->type->toChars());
+    IF_LOG Logger::println("DtoVarDeclaration(vdtype = %s)", vd->type->toChars());
     LOG_SCOPE
 
     if (vd->nestedrefs.dim)
@@ -1106,6 +1106,12 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         // as a TupleDecl that contains a bunch of individual VarDecls
         if (vd->aliassym)
             return DtoDeclarationExp(vd->aliassym);
+
+        if (vd->storage_class & STCmanifest)
+        {
+            IF_LOG Logger::println("Manifest constant, nothing to do.");
+            return 0;
+        }
 
         // static
         if (vd->isDataseg())
