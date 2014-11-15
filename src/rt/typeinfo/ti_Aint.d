@@ -2,7 +2,7 @@
  * TypeInfo support code.
  *
  * Copyright: Copyright Digital Mars 2004 - 2009.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Walter Bright
  */
 
@@ -16,6 +16,8 @@ module rt.typeinfo.ti_Aint;
 private import core.stdc.string;
 private import rt.util.hash;
 
+extern (C) void[] _adSort(void[] a, TypeInfo ti);
+
 // int[]
 
 class TypeInfo_Ai : TypeInfo_Array
@@ -27,7 +29,7 @@ class TypeInfo_Ai : TypeInfo_Array
     override size_t getHash(in void* p) @trusted const
     {
         int[] s = *cast(int[]*)p;
-        return hashOf(s.ptr, s.length * int.sizeof);
+        return rt.util.hash.hashOf(s.ptr, s.length * int.sizeof);
     }
 
     override bool equals(in void* p1, in void* p2) const
@@ -49,9 +51,10 @@ class TypeInfo_Ai : TypeInfo_Array
             len = s2.length;
         for (size_t u = 0; u < len; u++)
         {
-            int result = s1[u] - s2[u];
-            if (result)
-                return result;
+            if (s1[u] < s2[u])
+                return -1;
+            else if (s1[u] > s2[u])
+                return 1;
         }
         if (s1.length < s2.length)
             return -1;
@@ -69,12 +72,22 @@ class TypeInfo_Ai : TypeInfo_Array
 unittest
 {
     int[][] a = [[5,3,8,7], [2,5,3,8,7]];
-    a.sort;
+    _adSort(*cast(void[]*)&a, typeid(a[0]));
     assert(a == [[2,5,3,8,7], [5,3,8,7]]);
 
     a = [[5,3,8,7], [5,3,8]];
-    a.sort;
+    _adSort(*cast(void[]*)&a, typeid(a[0]));
     assert(a == [[5,3,8], [5,3,8,7]]);
+}
+
+unittest
+{
+    // Issue 13073: original code uses int subtraction which is susceptible to
+    // integer overflow, causing the following case to fail.
+    int[] a = [int.max, int.max];
+    int[] b = [int.min, int.min];
+    assert(a > b);
+    assert(b < a);
 }
 
 // uint[]
@@ -93,9 +106,10 @@ class TypeInfo_Ak : TypeInfo_Ai
             len = s2.length;
         for (size_t u = 0; u < len; u++)
         {
-            int result = s1[u] - s2[u];
-            if (result)
-                return result;
+            if (s1[u] < s2[u])
+                return -1;
+            else if (s1[u] > s2[u])
+                return 1;
         }
         if (s1.length < s2.length)
             return -1;
@@ -108,6 +122,20 @@ class TypeInfo_Ak : TypeInfo_Ai
     {
         return cast(inout)typeid(uint);
     }
+}
+
+unittest
+{
+    // Original test case from issue 13073
+    uint x = 0x22_DF_FF_FF;
+    uint y = 0xA2_DF_FF_FF;
+    assert(!(x < y && y < x));
+    uint[] a = [x];
+    uint[] b = [y];
+    assert(!(a < b && b < a)); // Original failing case
+    uint[1] a1 = [x];
+    uint[1] b1 = [y];
+    assert(!(a1 < b1 && b1 < a1)); // Original failing case
 }
 
 // dchar[]

@@ -2,7 +2,7 @@
  * Contains the implementation for object monitors.
  *
  * Copyright: Copyright Digital Mars 2000 - 2011.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Walter Bright, Sean Kelly
  */
 
@@ -49,8 +49,15 @@ private
 
     version( Windows )
     {
-        version (DigitalMars) version (Win32)
+        version (CRuntime_DigitalMars)
+        {
             pragma(lib, "snn.lib");
+        }
+        else version (CRuntime_Microsoft)
+        {
+            pragma(lib, "libcmt.lib");
+            pragma(lib, "oldnames.lib");
+        }
         import core.sys.windows.windows;
 
         struct Monitor

@@ -31,6 +31,8 @@ private
     alias bool function(Object) CollectHandler;
     __gshared CollectHandler collectHandler = null;
 
+    extern (C) void _d_monitordelete(Object h, bool det);
+
     enum : size_t
     {
         PAGESIZE = 4096,
@@ -89,10 +91,11 @@ extern (C) Object _d_newclass(const ClassInfo ci)
     else
     {
         // TODO: should this be + 1 to avoid having pointers to the next block?
-        BlkAttr attr = BlkAttr.FINALIZE;
+        BlkAttr attr = BlkAttr.NONE;
         // extern(C++) classes don't have a classinfo pointer in their vtable so the GC can't finalize them
-        if (ci.m_flags & TypeInfo_Class.ClassFlags.isCPPclass)
-            attr &= ~BlkAttr.FINALIZE;
+        if (ci.m_flags & TypeInfo_Class.ClassFlags.hasDtor
+            && !(ci.m_flags & TypeInfo_Class.ClassFlags.isCPPclass))
+            attr |= BlkAttr.FINALIZE;
         if (ci.m_flags & TypeInfo_Class.ClassFlags.noPointers)
             attr |= BlkAttr.NO_SCAN;
         p = GC.malloc(ci.init.length, attr, ci);
@@ -170,6 +173,24 @@ extern (C) void _d_delclass(Object* p)
             rt_finalize(cast(void*) *p);
         }
         GC.free(cast(void*) *p);
+        *p = null;
+    }
+}
+
+/**
+ * This is called for a delete statement where the value
+ * being deleted is a pointer to a struct with a destructor
+ * but doesn't have an overloaded delete operator.
+ */
+extern (C) void _d_delstruct(void** p, TypeInfo_Struct inf)
+{
+    if (*p)
+    {
+        debug(PRINTF) printf("_d_delstruct(%p, %p)\n", *p, cast(void*)inf);
+
+        inf.xdtor(*p);
+
+        GC.free(*p);
         *p = null;
     }
 }
@@ -782,7 +803,7 @@ extern (C) void[] _d_newarrayU(const TypeInfo ti, size_t length) pure nothrow
 
     version (D_InlineAsm_X86)
     {
-        asm
+        asm pure nothrow @nogc
         {
             mov     EAX,size        ;
             mul     EAX,length      ;
@@ -792,7 +813,7 @@ extern (C) void[] _d_newarrayU(const TypeInfo ti, size_t length) pure nothrow
     }
     else version(D_InlineAsm_X86_64)
     {
-        asm
+        asm pure nothrow @nogc
         {
             mov     RAX,size        ;
             mul     RAX,length      ;
@@ -1033,9 +1054,7 @@ extern (C) void[] _d_newarraymiT(const TypeInfo ti, size_t ndims, ...)
 
 extern (C) void* _d_newitemT(TypeInfo ti)
 {
-    // BUG ti is actually still the array typeinfo.  Not that this is a
-    // difficult thing to workaround...
-    auto size = ti.next.tsize;                  // array element size
+    auto size = ti.tsize;                  // array element size
 
     debug(PRINTF) printf("_d_newitemT(size = %d)\n", size);
     /* not sure if we need this...
@@ -1044,7 +1063,7 @@ extern (C) void* _d_newitemT(TypeInfo ti)
     else
     {*/
         // allocate a block to hold this item
-        auto ptr = GC.malloc(size, !(ti.next.flags & 1) ? BlkAttr.NO_SCAN : 0, ti);
+        auto ptr = GC.malloc(size, !(ti.flags & 1) ? BlkAttr.NO_SCAN : 0, ti);
         debug(PRINTF) printf(" p = %p\n", ptr);
         if(size == ubyte.sizeof)
             *cast(ubyte*)ptr = 0;
@@ -1061,9 +1080,7 @@ extern (C) void* _d_newitemT(TypeInfo ti)
 
 extern (C) void* _d_newitemiT(TypeInfo ti)
 {
-    // BUG ti is actually still the array typeinfo.  Not that this is a
-    // difficult thing to workaround...
-    auto size = ti.next.tsize;                  // array element size
+    auto size = ti.tsize;                  // array element size
 
     debug(PRINTF) printf("_d_newitemiT(size = %d)\n", size);
 
@@ -1071,11 +1088,11 @@ extern (C) void* _d_newitemiT(TypeInfo ti)
         result = null;
     else
     {*/
-        auto initializer = ti.next.init();
+        auto initializer = ti.init();
         auto isize = initializer.length;
         auto q = initializer.ptr;
 
-        auto ptr = GC.malloc(size, !(ti.next.flags & 1) ? BlkAttr.NO_SCAN : 0, ti);
+        auto ptr = GC.malloc(size, !(ti.flags & 1) ? BlkAttr.NO_SCAN : 0, ti);
         debug(PRINTF) printf(" p = %p\n", ptr);
         if (isize == 1)
             *cast(ubyte*)ptr =  *cast(ubyte*)q;
@@ -1320,7 +1337,7 @@ body
         {
             size_t newsize = void;
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov EAX, newlength;
                 mul EAX, sizeelem;
@@ -1332,7 +1349,7 @@ body
         {
             size_t newsize = void;
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, newlength;
                 mul RAX, sizeelem;
@@ -2354,7 +2371,8 @@ unittest
         }
     }
     auto sarr = new S[1];
-    assert(sarr.capacity == 1);
+    debug(SENTINEL) {} else
+        assert(sarr.capacity == 1);
 
     // length extend
     auto sarr2 = sarr;
@@ -2430,7 +2448,8 @@ unittest
     auto s3 = new S3(1);
     assert(s3.x == [1,1,1,1]);
     assert(GC.getAttr(s3) == BlkAttr.NO_SCAN);
-    assert(GC.sizeOf(s3) == 16);
+    debug(SENTINEL) {} else
+        assert(GC.sizeOf(s3) == 16);
 
     auto s4 = new S4;
     assert(s4.x == null);

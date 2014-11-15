@@ -15,10 +15,6 @@ module core.demangle;
 
 debug(trace) import core.stdc.stdio : printf;
 debug(info) import core.stdc.stdio : printf;
-import core.stdc.stdio : snprintf;
-import core.stdc.string : memmove;
-import core.stdc.stdlib : strtold;
-
 
 private struct Demangle
 {
@@ -231,7 +227,7 @@ private struct Demangle
 
     char[] putAsHex( size_t val, int width = 0 )
     {
-        char tmp[20];
+        char[20] tmp;
         int  pos = tmp.length;
 
         while( val )
@@ -438,7 +434,9 @@ private struct Demangle
 
         tbuf[tlen] = 0;
         debug(info) printf( "got (%s)\n", tbuf.ptr );
+        import core.stdc.stdlib : strtold;
         val = strtold( tbuf.ptr, null );
+        import core.stdc.stdio : snprintf;
         tlen = snprintf( tbuf.ptr, tbuf.length, "%#Lg", val );
         debug(info) printf( "converted (%.*s)\n", cast(int) tlen, tbuf.ptr );
         put( tbuf[0 .. tlen] );
@@ -494,7 +492,7 @@ private struct Demangle
         Immutable
         Wild
         TypeArray
-        TypeNewArray
+        TypeVector
         TypeStaticArray
         TypeAssocArray
         TypePointer
@@ -545,8 +543,8 @@ private struct Demangle
     TypeArray:
         A Type
 
-    TypeNewArray:
-        Ne Type
+    TypeVector:
+        Nh Type
 
     TypeStaticArray:
         G Number Type
@@ -717,10 +715,11 @@ private struct Demangle
                 parseType();
                 put( ")" );
                 return dst[beg .. len];
-            case 'e': // TypeNewArray (Ne Type)
+            case 'h': // TypeVector (Nh Type)
                 next();
-                // TODO: Anything needed here?
+                put( "__vector(" );
                 parseType();
+                put( ")" );
                 return dst[beg .. len];
             default:
                 error();
@@ -779,6 +778,16 @@ private struct Demangle
         case 'B': // TypeTuple (B Number Arguments)
             next();
             // TODO: Handle this.
+            return dst[beg .. len];
+        case 'Z': // Internal symbol
+            // This 'type' is used for untyped internal symbols, i.e.:
+            // __array
+            // __init
+            // __vtbl
+            // __Class
+            // __Interface
+            // __ModuleInfo
+            next();
             return dst[beg .. len];
         default:
             if (t >= 'a' && t <= 'w')
@@ -921,9 +930,11 @@ private struct Demangle
                 put( "@safe " );
                 continue;
             case 'g':
-                // NOTE: The inout parameter type is represented as "Ng",
-                //       which makes it look like a FuncAttr.  So if we
-                //       see an "Ng" FuncAttr we know we're really in
+            case 'h':
+                // NOTE: The inout parameter type is represented as "Ng".
+                //       The vector parameter type is represented as "Nh".
+                //       These make it look like a FuncAttr, but infact
+                //       if we see these, then we know we're really in
                 //       the parameter list.  Rewind and break.
                 pos--;
                 break breakFuncAttrs;
@@ -1325,12 +1336,57 @@ private struct Demangle
             case 'S':
                 next();
                 if( n ) put( ", " );
+
+                if ( mayBeMangledNameArg() )
+                {
+                    auto l = len;
+                    auto p = pos;
+
+                    try
+                    {
+                        debug(trace) printf( "may be mangled name arg\n" );
+                        parseMangledNameArg();
+                        continue;
+                    }
+                    catch( ParseException e )
+                    {
+                        len = l;
+                        pos = p;
+                        debug(trace) printf( "not a mangled name arg\n" );
+                    }
+                }
+
                 parseQualifiedName();
                 continue;
             default:
                 return;
             }
         }
+    }
+
+
+    bool mayBeMangledNameArg()
+    {
+        debug(trace) printf( "mayBeMangledNameArg+\n" );
+        debug(trace) scope(success) printf( "mayBeMangledNameArg-\n" );
+
+        auto p = pos;
+        scope(exit) pos = p;
+        auto n = decodeNumber();
+        return n >= 4 &&
+           pos < buf.length && '_' == buf[pos++] &&
+           pos < buf.length && 'D' == buf[pos++] &&
+           isDigit(buf[pos]);
+    }
+
+
+    void parseMangledNameArg()
+    {
+        debug(trace) printf( "parseMangledNameArg+\n" );
+        debug(trace) scope(success) printf( "parseMangledNameArg-\n" );
+
+        auto n = decodeNumber();
+        parseMangledName( n );
     }
 
 
@@ -1469,11 +1525,13 @@ private struct Demangle
         _D QualifiedName Type
         _D QualifiedName M Type
     */
-    void parseMangledName()
+    void parseMangledName(size_t n = 0)
     {
         debug(trace) printf( "parseMangledName+\n" );
         debug(trace) scope(success) printf( "parseMangledName-\n" );
         char[] name = null;
+
+        auto end = pos + n;
 
         eat( '_' );
         match( 'D' );
@@ -1485,7 +1543,7 @@ private struct Demangle
                 next(); // has 'this' pointer
             if( AddType.yes == addType )
                 parseType( name );
-            if( pos >= buf.length )
+            if( pos >= buf.length || (n != 0 && pos >= end) )
                 return;
             put( "." );
         } while( true );
@@ -1806,6 +1864,22 @@ version(unittest)
         ["_D8serenity9persister6Sqlite70__T15SqlitePersisterTS8serenity9persister6Sqlite11__unittest6FZv4TestZ15SqlitePersister12__T7opIndexZ7opIndexMFmZS8serenity9persister6Sqlite11__unittest6FZv4Test",
          "serenity.persister.Sqlite.__unittest6().Test serenity.persister.Sqlite.SqlitePersister!(serenity.persister.Sqlite.__unittest6().Test).SqlitePersister.opIndex!().opIndex(ulong)"],
         ["_D8bug100274mainFZv5localMFZi","int bug10027.main().local()"],
+        ["_D8demangle4testFNhG16gZv", "void demangle.test(__vector(byte[16]))"],
+        ["_D8demangle4testFNhG8sZv", "void demangle.test(__vector(short[8]))"],
+        ["_D8demangle4testFNhG4iZv", "void demangle.test(__vector(int[4]))"],
+        ["_D8demangle4testFNhG2lZv", "void demangle.test(__vector(long[2]))"],
+        ["_D8demangle4testFNhG4fZv", "void demangle.test(__vector(float[4]))"],
+        ["_D8demangle4testFNhG2dZv", "void demangle.test(__vector(double[2]))"],
+        ["_D8demangle4testFNhG4fNhG4fZv", "void demangle.test(__vector(float[4]), __vector(float[4]))"],
+        ["_D8bug1119234__T3fooS23_D8bug111924mainFZ3bariZ3fooMFZv","void bug11192.foo!(int bug11192.main().bar).foo()"],
+        ["_D13libd_demangle12__ModuleInfoZ", "libd_demangle.__ModuleInfo"],
+        ["_D15TypeInfo_Struct6__vtblZ", "TypeInfo_Struct.__vtbl"],
+        ["_D3std5stdio12__ModuleInfoZ", "std.stdio.__ModuleInfo"],
+        ["_D3std6traits15__T8DemangleTkZ8Demangle6__initZ", "std.traits.Demangle!(uint).Demangle.__init"],
+        ["_D3foo3Bar7__ClassZ", "foo.Bar.__Class"],
+        ["_D3foo3Bar6__vtblZ", "foo.Bar.__vtbl"],
+        ["_D3foo3Bar11__interfaceZ", "foo.Bar.__interface"],
+        ["_D3foo7__arrayZ", "foo.__array"],
     ];
 
     template staticIota(int x)

@@ -2,7 +2,7 @@
  * Implementation of associative arrays.
  *
  * Copyright: Copyright Digital Mars 2000 - 2010.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Walter Bright, Sean Kelly
  */
 
@@ -69,11 +69,30 @@ struct Impl
 {
     Entry*[] buckets;
     size_t nodes;       // total number of entries
+    size_t firstUsedBucket; // starting index for first used bucket.
     TypeInfo _keyti;
     Entry*[4] binit;    // initial value of buckets[]
 
     @property const(TypeInfo) keyti() const @safe pure nothrow @nogc
     { return _keyti; }
+
+    // helper function to determine first used bucket, and update implementation's cache for it
+    // NOTE: will not work with immutable AA in ROM, but that doesn't exist yet.
+    size_t firstUsedBucketCache() @safe pure nothrow @nogc
+    in
+    {
+        assert(firstUsedBucket < buckets.length);
+        foreach(i; 0 .. firstUsedBucket)
+            assert(buckets[i] is null);
+    }
+    body
+    {
+        size_t i;
+        for(i = firstUsedBucket; i < buckets.length; ++i)
+            if(buckets[i] !is null)
+                break;
+        return firstUsedBucket = i;
+    }
 }
 
 /* This is the type actually seen by the programmer, although
@@ -162,6 +181,7 @@ body
     if (aa.impl is null)
     {   aa.impl = new Impl();
         aa.impl.buckets = aa.impl.binit[];
+        aa.impl.firstUsedBucket = aa.impl.buckets.length;
     }
     //printf("aa = %p\n", aa);
     //printf("aa.a = %p\n", aa.a);
@@ -199,6 +219,11 @@ body
         {
             //printf("rehash\n");
             _aaRehash(aa,keyti);
+        }
+        else
+        {
+            // update cache if necessary
+            if (i < aa.impl.firstUsedBucket) aa.impl.firstUsedBucket = i;
         }
     }
 
@@ -304,7 +329,9 @@ bool _aaDelX(AA aa, in TypeInfo keyti, in void* pkey)
                 if (keyti.equals(pkey, e + 1))
                 {
                     *pe = e.next;
-                    aa.impl.nodes--;
+                    if(!(--aa.impl.nodes))
+                        // reset cache, we know there are no nodes in the aa.
+                        aa.impl.firstUsedBucket = aa.impl.buckets.length;
                     GC.free(e);
                     return true;
                 }
@@ -332,7 +359,7 @@ inout(ArrayRet_t) _aaValues(inout AA aa, in size_t keysize, in size_t valuesize)
         a.ptr = cast(byte*) GC.malloc(a.length * valuesize,
                                       valuesize < (void*).sizeof ? GC.BlkAttr.NO_SCAN : 0);
         resi = 0;
-        foreach (inout(Entry)* e; aa.impl.buckets)
+        foreach (inout(Entry)* e; aa.impl.buckets[aa.impl.firstUsedBucket..$])
         {
             while (e)
             {
@@ -380,8 +407,9 @@ body
             }
             len = prime_list[i];
             newImpl.buckets = newBuckets(len);
+            newImpl.firstUsedBucket = newImpl.buckets.length;
 
-            foreach (e; oldImpl.buckets)
+            foreach (e; oldImpl.buckets[oldImpl.firstUsedBucket..$])
             {
                 while (e)
                 {   auto enext = e.next;
@@ -389,6 +417,8 @@ body
                     e.next = newImpl.buckets[j];
                     newImpl.buckets[j] = e;
                     e = enext;
+                    if(j < newImpl.firstUsedBucket)
+                        newImpl.firstUsedBucket = j;
                 }
             }
             if (oldImpl.buckets.ptr == oldImpl.binit.ptr)
@@ -406,9 +436,10 @@ body
             if (paa.impl.buckets.ptr != paa.impl.binit.ptr)
                 GC.free(paa.impl.buckets.ptr);
             paa.impl.buckets = paa.impl.binit[];
+            paa.impl.firstUsedBucket = paa.impl.buckets.length; // start out with the cache at the end
         }
     }
-    return (*paa).impl;
+    return paa.impl;
 }
 
 /********************************************
@@ -424,7 +455,8 @@ inout(ArrayRet_t) _aaKeys(inout AA aa, in size_t keysize) pure nothrow
     auto res = (cast(byte*) GC.malloc(len * keysize, blkAttr))[0 .. len * keysize];
 
     size_t resi = 0;
-    foreach (inout(Entry)* e; aa.impl.buckets)
+    // note, can't use firstUsedBucketCache here, aa is inout
+    foreach (inout(Entry)* e; aa.impl.buckets[aa.impl.firstUsedBucket..$])
     {
         while (e)
         {
@@ -515,7 +547,7 @@ int _aaApply(AA aa, in size_t keysize, dg_t dg)
     immutable alignsize = aligntsize(keysize);
     //printf("_aaApply(aa = x%llx, keysize = %d, dg = x%llx)\n", aa.impl, keysize, dg);
 
-    foreach (e; aa.impl.buckets)
+    foreach (e; aa.impl.buckets[aa.impl.firstUsedBucketCache .. $])
     {
         while (e)
         {
@@ -542,7 +574,7 @@ int _aaApply2(AA aa, in size_t keysize, dg2_t dg)
 
     immutable alignsize = aligntsize(keysize);
 
-    foreach (e; aa.impl.buckets)
+    foreach (e; aa.impl.buckets[aa.impl.firstUsedBucketCache..$])
     {
         while (e)
         {
@@ -588,6 +620,7 @@ Impl* _d_assocarrayliteralTX(const TypeInfo_AssociativeArray ti, void[] keys, vo
         }
         auto len = prime_list[i];
         result.buckets = newBuckets(len);
+        result.firstUsedBucket = result.buckets.length;
 
         size_t keytsize = aligntsize(keysize);
 
@@ -599,6 +632,7 @@ Impl* _d_assocarrayliteralTX(const TypeInfo_AssociativeArray ti, void[] keys, vo
             auto key_hash = keyti.getHash(pkey);
             //printf("hash = %d\n", key_hash);
             i = key_hash % len;
+            if (i < result.firstUsedBucket) result.firstUsedBucket = i;
             auto pe = &result.buckets[i];
             while (1)
             {
@@ -742,7 +776,8 @@ int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
         return 1;                       // this subtree matches
     }
 
-    foreach (e; e1.impl.buckets)
+    // note, cannot use firstUsedBucketCache here, e1 is const
+    foreach (e; e1.impl.buckets[e1.impl.firstUsedBucket..$])
     {
         if (e)
         {   if (_aaKeys_x(e) == 0)
@@ -764,7 +799,7 @@ hash_t _aaGetHash(in AA* aa, in TypeInfo tiRaw) nothrow
     import rt.util.hash;
 
     if (aa.impl is null)
-    	return 0;
+        return 0;
 
     hash_t h = 0;
     const TypeInfo_AssociativeArray ti = _aaUnwrapTypeInfo(tiRaw);
@@ -772,29 +807,30 @@ hash_t _aaGetHash(in AA* aa, in TypeInfo tiRaw) nothrow
     const valueti = ti.next;
     const keysize = aligntsize(keyti.tsize);
 
-    foreach (const(Entry)* e; aa.impl.buckets)
+    // note, can't use firstUsedBucketCache here, aa is const
+    foreach (const(Entry)* e; aa.impl.buckets[aa.impl.firstUsedBucket..$])
     {
-	while (e)
-	{
-	    auto pkey = cast(void*)(e + 1);
-	    auto pvalue = pkey + keysize;
+        while (e)
+        {
+            auto pkey = cast(void*)(e + 1);
+            auto pvalue = pkey + keysize;
 
-	    // Compute a hash for the key/value pair by hashing their
-	    // respective hash values.
-	    hash_t[2] hpair;
-	    hpair[0] = e.hash;
-	    hpair[1] = valueti.getHash(pvalue);
+            // Compute a hash for the key/value pair by hashing their
+            // respective hash values.
+            hash_t[2] hpair;
+            hpair[0] = e.hash;
+            hpair[1] = valueti.getHash(pvalue);
 
-	    // Combine the hash of the key/value pair with the running hash
-	    // value using an associative operator (+) so that the resulting
-	    // hash value is independent of the actual order the pairs are
-	    // stored in (important to ensure equality of hash value for two
-	    // AA's containing identical pairs but with different hashtable
-	    // sizes).
-	    h += hashOf(hpair.ptr, hpair.length * hash_t.sizeof);
+            // Combine the hash of the key/value pair with the running hash
+            // value using an associative operator (+) so that the resulting
+            // hash value is independent of the actual order the pairs are
+            // stored in (important to ensure equality of hash value for two
+            // AA's containing identical pairs but with different hashtable
+            // sizes).
+            h += hashOf(hpair.ptr, hpair.length * hash_t.sizeof);
 
-	    e = e.next;
-	}
+            e = e.next;
+        }
     }
 
     return h;
@@ -874,7 +910,7 @@ Range _aaRange(AA aa) pure nothrow @nogc
         return res;
 
     res.impl = aa.impl;
-    foreach (entry; aa.impl.buckets)
+    foreach (entry; aa.impl.buckets[aa.impl.firstUsedBucketCache .. $] )
     {
         if (entry !is null)
         {

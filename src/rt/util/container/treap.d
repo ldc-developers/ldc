@@ -2,12 +2,13 @@
  * Treap container for internal usage.
  *
  * Copyright: Copyright Digital Mars 2014 - 2014.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  */
 module rt.util.container.treap;
 
 static import common = rt.util.container.common;
 import rt.util.random;
+import rt.qsort;
 
 struct Treap(E)
 {
@@ -28,7 +29,7 @@ nothrow:
 
     void initialize()
     {
-	    rand48.defaultSeed();
+        rand48.defaultSeed();
     }
 
     void insert(E element)
@@ -203,7 +204,7 @@ static:
     void removeAll(Node* node)
     {
         if (!node)
-			return;
+            return;
         removeAll(node.left);
         removeAll(node.right);
         freeNode(node);
@@ -277,7 +278,7 @@ initialLoop:
                 continue initialLoop;
             }
     }
-    data.sort;
+    _adSort(*cast(void[]*)&data, typeid(data[0]));
     assert(treap == data);
     assert(treap.valid());
 

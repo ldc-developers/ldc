@@ -2,7 +2,7 @@
  * Contains SSE2 and MMX versions of certain operations for real.
  *
  * Copyright: Copyright Digital Mars 2008 - 2010.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Walter Bright, based on code originally written by Burton Radons
  */
 
@@ -25,6 +25,8 @@ version (unittest)
      */
     int cpuid;
     const int CPUID_MAX = 1;
+
+nothrow:
     @property bool mmx()      { return cpuid == 1 && core.cpuid.mmx; }
     @property bool sse()      { return cpuid == 2 && core.cpuid.sse; }
     @property bool sse2()     { return cpuid == 3 && core.cpuid.sse2; }

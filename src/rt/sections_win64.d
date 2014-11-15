@@ -13,7 +13,7 @@
 module rt.sections_win64;
 
 version (LDC) {} else
-version(Win64):
+version(CRuntime_Microsoft):
 
 // debug = PRINTF;
 debug(PRINTF) import core.stdc.stdio;
@@ -42,6 +42,7 @@ struct SectionGroup
         return _moduleGroup;
     }
 
+    version(Win64)
     @property immutable(FuncTable)[] ehTables() const
     {
         auto pbeg = cast(immutable(FuncTable)*)&_deh_beg;

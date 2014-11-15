@@ -122,7 +122,7 @@ int bt(in size_t* p, size_t bitnum) pure @system
 ///
 @system pure unittest
 {
-    size_t array[2];
+    size_t[2] array;
 
     array[0] = 2;
     array[1] = 0x100;
@@ -180,7 +180,7 @@ int bts(size_t* p, size_t bitnum) pure @system;
 ///
 @system pure unittest
 {
-    size_t array[2];
+    size_t[2] array;
 
     array[0] = 2;
     array[1] = 0x100;
@@ -327,6 +327,58 @@ version(LDC) @system // not pure
     }
 }
 
+version (AnyX86)
+{
+    /**
+     * Calculates the number of set bits in a 32-bit integer
+     * using the X86 SSE4 POPCNT instruction.
+     * POPCNT is not available on all X86 CPUs.
+     */
+    ushort _popcnt( ushort x ) pure;
+    /// ditto
+    int _popcnt( uint x ) pure;
+    version (X86_64)
+    {
+        /// ditto
+        int _popcnt( ulong x ) pure;
+    }
+
+    unittest
+    {
+        // Not everyone has SSE4 instructions
+        import core.cpuid;
+        if (!hasPopcnt)
+            return;
+
+        static int popcnt_x(ulong u) nothrow @nogc
+        {
+            int c;
+            while (u)
+            {
+                c += u & 1;
+                u >>= 1;
+            }
+            return c;
+        }
+
+        for (uint u = 0; u < 0x1_0000; ++u)
+        {
+            //writefln("%x %x %x", u,   _popcnt(cast(ushort)u), popcnt_x(cast(ushort)u));
+            assert(_popcnt(cast(ushort)u) == popcnt_x(cast(ushort)u));
+
+            assert(_popcnt(cast(uint)u) == popcnt_x(cast(uint)u));
+            uint ui = u * 0x3_0001;
+            assert(_popcnt(ui) == popcnt_x(ui));
+
+            version (X86_64)
+            {
+                assert(_popcnt(cast(ulong)u) == popcnt_x(cast(ulong)u));
+                ulong ul = u * 0x3_0003_0001;
+                assert(_popcnt(ul) == popcnt_x(ul));
+            }
+        }
+    }
+}
 
 /**
  *  Calculates the number of set bits in a 32-bit integer.
@@ -393,17 +445,17 @@ unittest
 {
     version (AsmX86)
     {
-        asm { naked; }
+        asm pure nothrow @nogc { naked; }
 
         version (D_InlineAsm_X86_64)
         {
             version (Win64)
-                asm { mov EAX, ECX; }
+                asm pure nothrow @nogc { mov EAX, ECX; }
             else
-                asm { mov EAX, EDI; }
+                asm pure nothrow @nogc { mov EAX, EDI; }
         }
 
-        asm
+        asm pure nothrow @nogc
         {
             // Author: Tiago Gasiba.
             mov EDX, EAX;

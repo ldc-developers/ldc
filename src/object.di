@@ -2,7 +2,7 @@
  * Contains all implicitly declared types and variables.
  *
  * Copyright: Copyright Digital Mars 2000 - 2011.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Walter Bright, Sean Kelly
  *
  *          Copyright Digital Mars 2000 - 2011.
@@ -171,6 +171,7 @@ class TypeInfo_Class : TypeInfo
         hasTypeInfo = 0x20,
         isAbstract = 0x40,
         isCPPclass = 0x80,
+        hasDtor = 0x100,
     }
     ClassFlags m_flags;
     void*       deallocator;
@@ -382,6 +383,46 @@ extern (C)
     void* _aaRangeFrontKey(AARange r) pure nothrow @nogc;
     void* _aaRangeFrontValue(AARange r) pure nothrow @nogc;
     void _aaRangePopFront(ref AARange r) pure nothrow @nogc;
+
+    /*
+        _d_assocarrayliteralTX marked as pure, because aaLiteral can be called from pure code.
+        This is a typesystem hole, however this is existing hole.
+        Early compiler didn't check purity of toHash or postblit functions, if key is a UDT thus
+        copiler allowed to create AA literal with keys, which have impure unsafe toHash methods.
+    */
+    void* _d_assocarrayliteralTX(const TypeInfo_AssociativeArray ti, void[] keys, void[] values) pure;
+}
+
+auto aaLiteral(Key, Value, T...)(auto ref T args) if (T.length % 2 == 0)
+{
+    static if(!T.length) 
+    {
+        return cast(void*)null;
+    }
+    else
+    {
+        import core.internal.traits;
+        Key[] keys;
+        Value[] values;
+        keys.reserve(T.length / 2);
+        values.reserve(T.length / 2);
+
+        foreach (i; staticIota!(0, args.length / 2))
+        {
+            keys ~= args[2*i];
+            values ~= args[2*i + 1];
+        }   
+
+        void[] key_slice;
+        void[] value_slice;
+        void *ret;
+        () @trusted {
+            key_slice = *cast(void[]*)&keys;
+            value_slice = *cast(void[]*)&values;
+            ret = _d_assocarrayliteralTX(typeid(Value[Key]), key_slice, value_slice);
+        }();
+        return ret;
+    }
 }
 
 alias AssociativeArray(Key, Value) = Value[Key];
@@ -447,7 +488,7 @@ auto byKey(T : Value[Key], Value, Key)(T aa) pure nothrow @nogc
         @property bool empty() { return _aaRangeEmpty(r); }
         @property ref Key front() { return *cast(Key*)_aaRangeFrontKey(r); }
         void popFront() { _aaRangePopFront(r); }
-        Result save() { return this; }
+        @property Result save() { return this; }
     }
 
     return Result(_aaRange(cast(void*)aa));
@@ -468,7 +509,7 @@ auto byValue(T : Value[Key], Value, Key)(T aa) pure nothrow @nogc
         @property bool empty() { return _aaRangeEmpty(r); }
         @property ref Value front() { return *cast(Value*)_aaRangeFrontValue(r); }
         void popFront() { _aaRangePopFront(r); }
-        Result save() { return this; }
+        @property Result save() { return this; }
     }
 
     return Result(_aaRange(cast(void*)aa));
@@ -512,9 +553,7 @@ inout(V) get(K, V)(inout(V[K])* aa, K key, lazy inout(V) defaultValue)
     return (*aa).get(key, defaultValue);
 }
 
-// Originally scheduled for deprecation in December 2012.
-// Marked 'deprecated' in April 2014.  Rescheduled for final deprecation in October 2014.
-// Please use destroy instead of clear.
+// Explicitly undocumented. It will be removed in March 2015.
 deprecated("Please use destroy instead.")
 alias clear = destroy;
 
@@ -591,6 +630,34 @@ bool _ArrayEq(T1, T2)(T1[] a1, T2[] a2)
             return false;
     }
     return true;
+}
+
+/**
+Calculates the hash value of $(D arg) with $(D seed) initial value.
+Result may be non-equals with $(D typeid(T).getHash(&arg))
+The $(D seed) value may be used for hash chaining:
+----
+struct Test
+{
+    int a;
+    string b;
+    MyObject c;
+
+    size_t toHash() const @safe pure nothrow
+    {
+        size_t hash = a.hashOf();
+        hash = b.hashOf(hash);
+        size_t h1 = c.myMegaHash();
+        hash = h1.hashOf(hash); //Mix two hash values
+        return hash;
+    }
+}
+----
+*/
+size_t hashOf(T)(auto ref T arg, size_t seed = 0)
+{
+    import core.internal.hash;
+    return core.internal.hash.hashOf(arg, seed);
 }
 
 bool _xopEquals(in void* ptr, in void* ptr);

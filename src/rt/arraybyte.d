@@ -3,7 +3,7 @@
  * ubyte ('a', 'g' and 'h' suffixes).
  *
  * Copyright: Copyright Digital Mars 2008 - 2010.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Walter Bright, based on code originally written by Burton Radons,
  *            Brian Schott (64-bit operations)
  */
@@ -27,6 +27,8 @@ version (unittest)
      */
     int cpuid;
     const int CPUID_MAX = 4;
+
+nothrow:
     @property bool mmx()      { return cpuid == 1 && core.cpuid.mmx; }
     @property bool sse()      { return cpuid == 2 && core.cpuid.sse; }
     @property bool sse2()     { return cpuid == 3 && core.cpuid.sse2; }
@@ -84,7 +86,7 @@ T[] _arraySliceExpAddSliceAssign_g(T[] a, T value, T[] b)
 
             if (((cast(uint) aptr | cast(uint) bptr) & 15) != 0)
             {
-                asm // unaligned case
+                asm pure nothrow @nogc // unaligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -117,7 +119,7 @@ T[] _arraySliceExpAddSliceAssign_g(T[] a, T value, T[] b)
             }
             else
             {
-                asm // aligned case
+                asm pure nothrow @nogc // aligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -157,7 +159,7 @@ T[] _arraySliceExpAddSliceAssign_g(T[] a, T value, T[] b)
 
             uint l = cast(ubyte)value * 0x0101;
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
@@ -198,7 +200,7 @@ T[] _arraySliceExpAddSliceAssign_g(T[] a, T value, T[] b)
         {
 
             auto n = aptr + (a.length & ~3);
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
@@ -232,7 +234,7 @@ T[] _arraySliceExpAddSliceAssign_g(T[] a, T value, T[] b)
         if (a.length >= 128)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~127);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -280,7 +282,7 @@ T[] _arraySliceExpAddSliceAssign_g(T[] a, T value, T[] b)
         if ((aend - aptr) >= 16)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~15);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -384,7 +386,7 @@ T[] _arraySliceSliceAddSliceAssign_g(T[] a, T[] c, T[] b)
             if (((cast(uint) aptr | cast(uint) bptr | cast(uint) cptr) & 15) != 0)
             {
                 version (log) printf("\tsse2 unaligned\n");
-                asm // unaligned case
+                asm pure nothrow @nogc // unaligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -423,7 +425,7 @@ T[] _arraySliceSliceAddSliceAssign_g(T[] a, T[] c, T[] b)
             else
             {
                 version (log) printf("\tsse2 aligned\n");
-                asm // aligned case
+                asm pure nothrow @nogc // aligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -467,7 +469,7 @@ T[] _arraySliceSliceAddSliceAssign_g(T[] a, T[] c, T[] b)
             version (log) printf("\tmmx\n");
             auto n = aptr + (a.length & ~31);
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
@@ -510,7 +512,7 @@ T[] _arraySliceSliceAddSliceAssign_g(T[] a, T[] c, T[] b)
         if (a.length >= 128)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~127);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -572,7 +574,7 @@ T[] _arraySliceSliceAddSliceAssign_g(T[] a, T[] c, T[] b)
         if ((aend - aptr) >= 16)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~15);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -675,7 +677,7 @@ T[] _arrayExpSliceAddass_g(T[] a, T value)
 
             if (((cast(uint) aptr) & 15) != 0)
             {
-                asm // unaligned case
+                asm pure nothrow @nogc // unaligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -705,7 +707,7 @@ T[] _arrayExpSliceAddass_g(T[] a, T value)
             }
             else
             {
-                asm // aligned case
+                asm pure nothrow @nogc // aligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -743,7 +745,7 @@ T[] _arrayExpSliceAddass_g(T[] a, T value)
 
             uint l = cast(ubyte)value * 0x0101;
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
@@ -779,7 +781,7 @@ T[] _arrayExpSliceAddass_g(T[] a, T value)
         if (aend - aptr >= 128)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~127);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RDI, simdEnd;
@@ -819,7 +821,7 @@ T[] _arrayExpSliceAddass_g(T[] a, T value)
         if (aend - aptr >= 16)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~15);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RDI, simdEnd;
@@ -918,7 +920,7 @@ T[] _arraySliceSliceAddass_g(T[] a, T[] b)
 
             if (((cast(uint) aptr | cast(uint) bptr) & 15) != 0)
             {
-                asm // unaligned case
+                asm pure nothrow @nogc // unaligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -953,7 +955,7 @@ T[] _arraySliceSliceAddass_g(T[] a, T[] b)
             }
             else
             {
-                asm // aligned case
+                asm pure nothrow @nogc // aligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -994,7 +996,7 @@ T[] _arraySliceSliceAddass_g(T[] a, T[] b)
 
             auto n = aptr + (a.length & ~31);
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
@@ -1034,7 +1036,7 @@ T[] _arraySliceSliceAddass_g(T[] a, T[] b)
         if (a.length >= 128)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~127);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -1093,7 +1095,7 @@ T[] _arraySliceSliceAddass_g(T[] a, T[] b)
         if ((aend - aptr) >= 16)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~15);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -1197,7 +1199,7 @@ T[] _arraySliceExpMinSliceAssign_g(T[] a, T value, T[] b)
 
             if (((cast(uint) aptr | cast(uint) bptr) & 15) != 0)
             {
-                asm // unaligned case
+                asm pure nothrow @nogc // unaligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -1230,7 +1232,7 @@ T[] _arraySliceExpMinSliceAssign_g(T[] a, T value, T[] b)
             }
             else
             {
-                asm // aligned case
+                asm pure nothrow @nogc // aligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -1270,7 +1272,7 @@ T[] _arraySliceExpMinSliceAssign_g(T[] a, T value, T[] b)
 
             uint l = cast(ubyte)value * 0x0101;
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
@@ -1307,7 +1309,7 @@ T[] _arraySliceExpMinSliceAssign_g(T[] a, T value, T[] b)
         if (a.length >= 4)
         {
             auto n = aptr + (a.length & ~3);
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
@@ -1340,7 +1342,7 @@ T[] _arraySliceExpMinSliceAssign_g(T[] a, T value, T[] b)
         if (a.length >= 128)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~127);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -1388,7 +1390,7 @@ T[] _arraySliceExpMinSliceAssign_g(T[] a, T value, T[] b)
         if ((aend - aptr) >= 16)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~15);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -1492,7 +1494,7 @@ T[] _arrayExpSliceMinSliceAssign_g(T[] a, T[] b, T value)
 
             if (((cast(uint) aptr | cast(uint) bptr) & 15) != 0)
             {
-                asm // unaligned case
+                asm pure nothrow @nogc // unaligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -1529,7 +1531,7 @@ T[] _arrayExpSliceMinSliceAssign_g(T[] a, T[] b, T value)
             }
             else
             {
-                asm // aligned case
+                asm pure nothrow @nogc // aligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -1573,7 +1575,7 @@ T[] _arrayExpSliceMinSliceAssign_g(T[] a, T[] b, T value)
 
             uint l = cast(ubyte)value * 0x0101;
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
@@ -1616,7 +1618,7 @@ T[] _arrayExpSliceMinSliceAssign_g(T[] a, T[] b, T value)
         if (a.length >= 128)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~127);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -1672,7 +1674,7 @@ T[] _arrayExpSliceMinSliceAssign_g(T[] a, T[] b, T value)
         if ((aend - aptr) >= 16)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~15);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -1775,7 +1777,7 @@ T[] _arraySliceSliceMinSliceAssign_g(T[] a, T[] c, T[] b)
 
             if (((cast(uint) aptr | cast(uint) bptr | cast(uint) cptr) & 15) != 0)
             {
-                asm // unaligned case
+                asm pure nothrow @nogc // unaligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -1813,7 +1815,7 @@ T[] _arraySliceSliceMinSliceAssign_g(T[] a, T[] c, T[] b)
             }
             else
             {
-                asm // aligned case
+                asm pure nothrow @nogc // aligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -1856,7 +1858,7 @@ T[] _arraySliceSliceMinSliceAssign_g(T[] a, T[] c, T[] b)
         {
             auto n = aptr + (a.length & ~31);
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
@@ -1899,7 +1901,7 @@ T[] _arraySliceSliceMinSliceAssign_g(T[] a, T[] c, T[] b)
         if (a.length >= 128)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~127);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -1961,7 +1963,7 @@ T[] _arraySliceSliceMinSliceAssign_g(T[] a, T[] c, T[] b)
         if ((aend - aptr) >= 16)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~15);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -2063,7 +2065,7 @@ T[] _arrayExpSliceMinass_g(T[] a, T value)
 
             if (((cast(uint) aptr) & 15) != 0)
             {
-                asm // unaligned case
+                asm pure nothrow @nogc // unaligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -2093,7 +2095,7 @@ T[] _arrayExpSliceMinass_g(T[] a, T value)
             }
             else
             {
-                asm // aligned case
+                asm pure nothrow @nogc // aligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -2131,7 +2133,7 @@ T[] _arrayExpSliceMinass_g(T[] a, T value)
 
             uint l = cast(ubyte)value * 0x0101;
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
@@ -2167,7 +2169,7 @@ T[] _arrayExpSliceMinass_g(T[] a, T value)
         if (aend - aptr >= 128)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~127);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RDI, simdEnd;
@@ -2208,7 +2210,7 @@ T[] _arrayExpSliceMinass_g(T[] a, T value)
         if (aend - aptr >= 16)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~15);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RDI, simdEnd;
@@ -2307,7 +2309,7 @@ T[] _arraySliceSliceMinass_g(T[] a, T[] b)
 
             if (((cast(uint) aptr | cast(uint) bptr) & 15) != 0)
             {
-                asm // unaligned case
+                asm pure nothrow @nogc // unaligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -2342,7 +2344,7 @@ T[] _arraySliceSliceMinass_g(T[] a, T[] b)
             }
             else
             {
-                asm // aligned case
+                asm pure nothrow @nogc // aligned case
                 {
                     mov ESI, aptr;
                     mov EDI, n;
@@ -2383,7 +2385,7 @@ T[] _arraySliceSliceMinass_g(T[] a, T[] b)
 
             auto n = aptr + (a.length & ~31);
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
@@ -2423,7 +2425,7 @@ T[] _arraySliceSliceMinass_g(T[] a, T[] b)
         if (a.length >= 128)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~127);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;
@@ -2482,7 +2484,7 @@ T[] _arraySliceSliceMinass_g(T[] a, T[] b)
         if ((aend - aptr) >= 16)
         {
             size_t simdEnd = (cast(size_t) aptr) + (a.length & ~15);
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, aptr;
                 mov RBX, bptr;

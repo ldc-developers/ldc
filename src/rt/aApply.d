@@ -4,7 +4,7 @@
  * of those.
  *
  * Copyright: Copyright Digital Mars 2004 - 2010.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Walter Bright
  */
 
@@ -590,8 +590,8 @@ unittest
         {
             case 0:     assert(k == 0); assert(d == 'a'); break;
             case 1:     assert(k == 1); assert(d == '\u1234'); break;
-	    case 2:     assert(k == 2); assert(d == '\U000A0456'); break;
-	    case 3:     assert(k == 4); assert(d == 'b'); break;
+            case 2:     assert(k == 2); assert(d == '\U000A0456'); break;
+            case 3:     assert(k == 4); assert(d == 'b'); break;
             default:    assert(0);
         }
         i++;

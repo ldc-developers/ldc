@@ -35,7 +35,7 @@ extern (C):
 nothrow:
 @nogc:
 
-version( Win32 )
+version( CRuntime_DigitalMars )
 {
     enum
     {
@@ -52,7 +52,7 @@ version( Win32 )
     enum wstring _wP_tmpdir = "\\"; // non-standard
     enum int     L_tmpnam   = _P_tmpdir.length + 12;
 }
-else version( Win64 )
+else version( CRuntime_Microsoft )
 {
     enum
     {
@@ -178,7 +178,7 @@ enum
     SEEK_END
 }
 
-version( Win32 )
+version( CRuntime_DigitalMars )
 {
     alias int fpos_t; //check this
 
@@ -196,7 +196,7 @@ version( Win32 )
 
     alias shared(_iobuf) FILE;
 }
-else version( Win64 )
+else version( CRuntime_Microsoft )
 {
     alias int fpos_t; //check this
 
@@ -401,7 +401,7 @@ enum
     _F_TERM = 0x0200, // non-standard
 }
 
-version( Win32 )
+version( CRuntime_DigitalMars )
 {
     enum
     {
@@ -429,7 +429,7 @@ version( Win32 )
     shared stdaux = &_iob[3];
     shared stdprn = &_iob[4];
 }
-else version( Win64 )
+else version( CRuntime_Microsoft )
 {
     enum
     {
@@ -678,7 +678,7 @@ version( MinGW )
     intptr_t _get_osfhandle(int fd);
     int _open_osfhandle(intptr_t osfhandle, int flags);
 }
-else version( Win32 )
+else version( CRuntime_DigitalMars )
 {
   // No unsafe pointer manipulation.
   extern (D) @trusted
@@ -694,7 +694,7 @@ else version( Win32 )
     int   _vsnprintf(char* s, size_t n, in char* format, va_list arg);
     alias _vsnprintf vsnprintf;
 }
-else version( Win64 )
+else version( CRuntime_Microsoft )
 {
   // No unsafe pointer manipulation.
   extern (D) @trusted
@@ -831,7 +831,7 @@ else
 
 void perror(in char* s);
 
-version (DigitalMars) version (Win32)
+version(CRuntime_DigitalMars)
 {
     import core.sys.windows.windows;
 
@@ -847,11 +847,11 @@ version (DigitalMars) version (Win32)
     private enum _MAX_SEMAPHORES = 10 + _NFILE;
     private enum _semIO = 3;
 
-    private extern __gshared short _iSemLockCtrs[_MAX_SEMAPHORES];
-    private extern __gshared int _iSemThreadIds[_MAX_SEMAPHORES];
-    private extern __gshared int _iSemNestCount[_MAX_SEMAPHORES];
+    private extern __gshared short[_MAX_SEMAPHORES] _iSemLockCtrs;
+    private extern __gshared int[_MAX_SEMAPHORES] _iSemThreadIds;
+    private extern __gshared int[_MAX_SEMAPHORES] _iSemNestCount;
     private extern __gshared HANDLE[_NFILE] _osfhnd;
-    private extern __gshared ubyte[_NFILE] __fhnd_info;
+    extern shared ubyte[_NFILE] __fhnd_info;
 
     private void _WaitSemaphore(int iSemaphore);
     private void _ReleaseSemaphore(int iSemaphore);
@@ -859,7 +859,7 @@ version (DigitalMars) version (Win32)
     // this is copied from semlock.h in DMC's runtime.
     private void LockSemaphore(uint num)
     {
-        asm
+        asm nothrow @nogc
         {
             mov EDX, num;
             lock;
@@ -876,7 +876,7 @@ version (DigitalMars) version (Win32)
     // this is copied from semlock.h in DMC's runtime.
     private void UnlockSemaphore(uint num)
     {
-        asm
+        asm nothrow @nogc
         {
             mov EDX, num;
             lock;

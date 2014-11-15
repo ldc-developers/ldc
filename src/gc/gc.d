@@ -2,7 +2,7 @@
  * Contains the garbage collector implementation.
  *
  * Copyright: Copyright Digital Mars 2001 - 2013.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Walter Bright, David Friedman, Sean Kelly
  */
 
@@ -25,7 +25,6 @@ module gc.gc;
 //debug = SENTINEL;             // add underrun/overrrun protection
 //debug = PTRCHECK;             // more pointer checking
 //debug = PTRCHECK2;            // thorough but slow pointer checking
-//debug = PROFILING;            // measure performance of various steps.
 //debug = INVARIANT;            // enable invariants
 //debug = CACHE_HITRATE;        // enable hit rate measure
 
@@ -40,6 +39,7 @@ version = STACKGROWSDOWN;       // growing the stack means subtracting from the 
 import gc.bits;
 import gc.stats;
 import gc.os;
+import gc.config;
 
 import rt.util.container.treap;
 
@@ -47,7 +47,6 @@ import cstdlib = core.stdc.stdlib : calloc, free, malloc, realloc;
 import core.stdc.string : memcpy, memset, memmove;
 import core.bitop;
 import core.sync.mutex;
-import core.exception : onOutOfMemoryError, onInvalidMemoryOperationError;
 import core.thread;
 static import core.memory;
 private alias BlkAttr = core.memory.GC.BlkAttr;
@@ -55,26 +54,37 @@ private alias BlkInfo = core.memory.GC.BlkInfo;
 
 version (GNU) import gcc.builtins;
 
-     debug (PRINTF_TO_FILE) import core.stdc.stdio : fprintf, fopen, fflush, FILE;
-else debug (PRINTF) import core.stdc.stdio : printf;
-else debug (CACHE_HITRATE) import core.stdc.stdio : printf;
-else debug (COLLECT_PRINTF) import core.stdc.stdio : printf;
-debug private import core.stdc.stdio;
+debug (PRINTF_TO_FILE) import core.stdc.stdio : fprintf, fopen, fflush, FILE;
+else                   import core.stdc.stdio : printf; // needed to output profiling results
+
+import core.time;
+alias currTime = MonoTime.currTime;
 
 debug(PRINTF_TO_FILE)
 {
-    import core.time;
-
-    private __gshared TickDuration gcStartTick;
+    private __gshared MonoTime gcStartTick;
     private __gshared FILE* gcx_fh;
 
     private int printf(ARGS...)(const char* fmt, ARGS args) nothrow
     {
-        if (gcStartTick == TickDuration.zero)
-            gcStartTick = TickDuration.currSystemTick;
         if (!gcx_fh)
             gcx_fh = fopen("gcx.log", "w");
-        int len = fprintf(gcx_fh, "%10.6lf: ", (TickDuration.currSystemTick - gcStartTick).to!("seconds", double));
+        if (!gcx_fh)
+            return 0;
+        
+        int len;
+        if (MonoTime.ticksPerSecond == 0)
+        {
+            len = fprintf(gcx_fh, "before init: ");
+        }
+        else
+        {
+            if (gcStartTick == MonoTime.init)
+                gcStartTick = MonoTime.currTime;
+            immutable timeElapsed = MonoTime.currTime - gcStartTick;
+            immutable secondsAsDouble = timeElapsed.total!"hnsecs" / cast(double)convert!("seconds", "hnsecs")(1);
+            len = fprintf(gcx_fh, "%10.6lf: ", secondsAsDouble);
+        }
         len += fprintf(gcx_fh, fmt, args);
         fflush(gcx_fh);
         return len;
@@ -91,16 +101,13 @@ debug(PRINTF) void printFreeInfo(Pool* pool) nothrow
     printf("Pool %p:  %d really free, %d supposedly free\n", pool, nReallyFree, pool.freepages);
 }
 
-debug(PROFILING)
-{
-    // Track total time spent preparing for GC,
-    // marking, sweeping and recovering pages.
-    import core.stdc.stdio, core.stdc.time;
-    __gshared long prepTime;
-    __gshared long markTime;
-    __gshared long sweepTime;
-    __gshared long recoverTime;
-}
+// Track total time spent preparing for GC,
+// marking, sweeping and recovering pages.
+__gshared Duration prepTime;
+__gshared Duration markTime;
+__gshared Duration sweepTime;
+__gshared Duration recoverTime;
+__gshared size_t maxPoolMemory;
 
 private
 {
@@ -109,15 +116,26 @@ private
     // The maximum number of recursions of mark() before transitioning to
     // multiple heap traversals to avoid consuming O(D) stack space where
     // D is the depth of the heap graph.
-    enum MAX_MARK_RECURSIONS = 64;
+    version(Win64)
+        enum MAX_MARK_RECURSIONS = 32; // stack overflow in fibers
+    else
+        enum MAX_MARK_RECURSIONS = 64;
 }
 
 private
 {
-    // to allow compilation of this module without access to the rt package,
-    //  make these functions available from rt.lifetime
-    extern (C) void rt_finalize2(void* p, bool det, bool resetMemory) nothrow;
-    extern (C) int rt_hasFinalizerInSegment(void* p, in void[] segment) nothrow;
+    extern (C)
+    {
+        // to allow compilation of this module without access to the rt package,
+        //  make these functions available from rt.lifetime
+        void rt_finalize2(void* p, bool det, bool resetMemory) nothrow;
+        int rt_hasFinalizerInSegment(void* p, in void[] segment) nothrow;
+
+        // Declared as an extern instead of importing core.exception
+        // to avoid inlining - see issue 13725.
+        void onInvalidMemoryOperationError() nothrow;
+        void onOutOfMemoryError() nothrow;
+    }
 
     enum
     {
@@ -260,8 +278,12 @@ class GC
     __gshared GCMutex gcLock;    // global lock
     __gshared byte[__traits(classInstanceSize, GCMutex)] mutexStorage;
 
+    __gshared Config config;
+
     void initialize()
     {
+        config.initialize();
+
         mutexStorage[] = typeid(GCMutex).init[];
         gcLock = cast(GCMutex) mutexStorage.ptr;
         gcLock.__ctor();
@@ -269,6 +291,11 @@ class GC
         if (!gcx)
             onOutOfMemoryError();
         gcx.initialize();
+
+        if (config.initReserve)
+            gcx.reserve(config.initReserve << 20);
+        if (config.disable)
+            gcx.disabled++;
     }
 
 
@@ -329,6 +356,7 @@ class GC
 
             if (pool)
             {
+                p = sentinel_sub(p);
                 auto biti = cast(size_t)(p - pool.baseAddr) >> pool.shiftBy;
 
                 oldb = gcx.getBits(pool, biti);
@@ -360,6 +388,7 @@ class GC
 
             if (pool)
             {
+                p = sentinel_sub(p);
                 auto biti = cast(size_t)(p - pool.baseAddr) >> pool.shiftBy;
 
                 oldb = gcx.getBits(pool, biti);
@@ -392,6 +421,7 @@ class GC
 
             if (pool)
             {
+                p = sentinel_sub(p);
                 auto biti = cast(size_t)(p - pool.baseAddr) >> pool.shiftBy;
 
                 oldb = gcx.getBits(pool, biti);
@@ -525,7 +555,7 @@ class GC
 
         if (bits)
         {
-            gcx.setBits(pool, cast(size_t)(p - pool.baseAddr) >> pool.shiftBy, bits);
+            gcx.setBits(pool, cast(size_t)(sentinel_sub(p) - pool.baseAddr) >> pool.shiftBy, bits);
         }
         return p;
     }
@@ -593,9 +623,9 @@ class GC
 
 
     //
+    // bits will be set to the resulting bits of the new block
     //
-    //
-    private void *reallocNoSync(void *p, size_t size, uint bits, ref size_t alloc_size, const TypeInfo ti = null) nothrow
+    private void *reallocNoSync(void *p, size_t size, ref uint bits, ref size_t alloc_size, const TypeInfo ti = null) nothrow
     {
         if (gcx.running)
             onInvalidMemoryOperationError();
@@ -628,7 +658,7 @@ class GC
 
                         if (pool)
                         {
-                            auto biti = cast(size_t)(p - pool.baseAddr) >> pool.shiftBy;
+                            auto biti = cast(size_t)(sentinel_sub(p) - pool.baseAddr) >> pool.shiftBy;
 
                             if (bits)
                             {
@@ -866,17 +896,27 @@ class GC
         pool = gcx.findPool(p);
         if (!pool)                              // if not one of ours
             return;                             // ignore
-        sentinel_Invariant(p);
-        p = sentinel_sub(p);
+
         pagenum = pool.pagenumOf(p);
 
         debug(PRINTF) printf("pool base = %p, PAGENUM = %d of %d, bin = %d\n", pool.baseAddr, pagenum, pool.npages, pool.pagetable[pagenum]);
         debug(PRINTF) if(pool.isLargeObject) printf("Block size = %d\n", pool.bPageOffsets[pagenum]);
+
+        bin = cast(Bins)pool.pagetable[pagenum];
+
+        // Verify that the pointer is at the beginning of a block,
+        //  no action should be taken if p is an interior pointer
+        if (bin > B_PAGE) // B_PAGEPLUS or B_FREE
+            return;
+        if ((sentinel_sub(p) - pool.baseAddr) & (binsize[bin] - 1))
+            return;
+
+        sentinel_Invariant(p);
+        p = sentinel_sub(p);
         biti = cast(size_t)(p - pool.baseAddr) >> pool.shiftBy;
 
         gcx.clrBits(pool, biti, ~BlkAttr.NONE);
 
-        bin = cast(Bins)pool.pagetable[pagenum];
         if (bin == B_PAGE)              // if large alloc
         {   size_t npages;
 
@@ -928,7 +968,10 @@ class GC
             return null;
         }
 
-        return gcx.findBase(p);
+        auto q = gcx.findBase(p);
+        if (q)
+            q = sentinel_add(q);
+        return q;
     }
 
 
@@ -1011,7 +1054,16 @@ class GC
     {
         assert(p);
 
-        return gcx.getInfo(p);
+        BlkInfo info = gcx.getInfo(p);
+        debug(SENTINEL)
+        {
+            if (info.base)
+            {
+                info.base = sentinel_add(info.base);
+                info.size = *sentinel_size(info.base);
+            }
+        }
+        return info;
     }
 
 
@@ -1354,8 +1406,8 @@ struct Root
 }
 
 
-immutable uint binsize[B_MAX] = [ 16,32,64,128,256,512,1024,2048,4096 ];
-immutable size_t notbinsize[B_MAX] = [ ~(16-1),~(32-1),~(64-1),~(128-1),~(256-1),
+immutable uint[B_MAX] binsize = [ 16,32,64,128,256,512,1024,2048,4096 ];
+immutable size_t[B_MAX] notbinsize = [ ~(16-1),~(32-1),~(64-1),~(128-1),~(256-1),
                                 ~(512-1),~(1024-1),~(2048-1),~(4096-1) ];
 
 /* ============================ Gcx =============================== */
@@ -1388,7 +1440,7 @@ struct Gcx
     size_t npools;
     Pool **pooltable;
 
-    List *bucket[B_MAX];        // free list for each size
+    List*[B_MAX]bucket;        // free list for each size
 
 
     void initialize()
@@ -1405,19 +1457,21 @@ struct Gcx
 
     void Dtor()
     {
-        debug(PROFILING)
+        if (GC.config.profile)
         {
-            printf("\tTotal GC prep time:  %d milliseconds\n",
-                prepTime * 1000 / CLOCKS_PER_SEC);
-            printf("\tTotal mark time:  %d milliseconds\n",
-                markTime * 1000 / CLOCKS_PER_SEC);
-            printf("\tTotal sweep time:  %d milliseconds\n",
-                sweepTime * 1000 / CLOCKS_PER_SEC);
-            printf("\tTotal page recovery time:  %d milliseconds\n",
-                recoverTime * 1000 / CLOCKS_PER_SEC);
-            printf("\tGrand total GC time:  %d milliseconds\n",
-                1000 * (recoverTime + sweepTime + markTime + prepTime)
-                / CLOCKS_PER_SEC);
+            printf("\tTotal GC prep time:  %lld milliseconds\n",
+                   prepTime.total!("msecs"));
+            printf("\tTotal mark time:  %lld milliseconds\n",
+                   markTime.total!("msecs"));
+            printf("\tTotal sweep time:  %lld milliseconds\n",
+                   sweepTime.total!("msecs"));
+            printf("\tTotal page recovery time:  %lld milliseconds\n",
+                   recoverTime.total!("msecs"));
+            long gcTime = (recoverTime + sweepTime + markTime + prepTime).total!("msecs");
+            printf("\tGrand total GC time:  %lld milliseconds\n", gcTime);
+            long pauseTime = (markTime + prepTime).total!("msecs");
+            printf("maxPoolMemory = %lld MB, pause time = %lld ms\n", 
+                   cast(long) maxPoolMemory >> 20, pauseTime);
         }
 
         debug(CACHE_HITRATE)
@@ -1999,13 +2053,7 @@ struct Gcx
         usePools();
 
         {
-            version (Bug7068_FIXED)
-                Pool*[NPOOLS] opools = gcx.pooltable[0 .. NPOOLS];
-            else
-            {
-                Pool*[NPOOLS] opools = void;
-                memcpy(opools.ptr, gcx.pooltable, (Pool*).sizeof * NPOOLS);
-            }
+            Pool*[NPOOLS] opools = gcx.pooltable[0 .. NPOOLS];
             gcx.pooltable[2].freepages = NPAGES;
 
             gcx.minimize();
@@ -2189,9 +2237,10 @@ struct Gcx
         //debug(PRINTF) printf("************Gcx::newPool(npages = %d)****************\n", npages);
 
         // Minimum of POOLSIZE
-        if (npages < POOLSIZE/PAGESIZE)
-            npages = POOLSIZE/PAGESIZE;
-        else if (npages > POOLSIZE/PAGESIZE)
+        size_t minPages = (GC.config.minPoolSize << 20) / PAGESIZE;
+        if (npages < minPages)
+            npages = minPages;
+        else if (npages > minPages)
         {   // Give us 150% of requested size, so there's room to extend
             auto n = npages + (npages >> 1);
             if (n < size_t.max/PAGESIZE)
@@ -2202,12 +2251,10 @@ struct Gcx
         if (npools)
         {   size_t n;
 
-            n = npools;
-            if (n > 32)
-                n = 32;                 // cap pool size at 32 megs
-            else if (n > 8)
-                n = 16;
-            n *= (POOLSIZE / PAGESIZE);
+            n = GC.config.minPoolSize + GC.config.incPoolSize * npools;
+            if (n > GC.config.maxPoolSize)
+                n = GC.config.maxPoolSize;                 // cap pool size
+            n *= (1 << 20) / PAGESIZE;                     // convert MB to pages
             if (npages < n)
                 npages = n;
         }
@@ -2240,6 +2287,15 @@ struct Gcx
 
             minAddr = pooltable[0].baseAddr;
             maxAddr = pooltable[npools - 1].topAddr;
+        }
+
+        if (GC.config.profile)
+        {
+            size_t gcmem = 0;
+            for(i = 0; i < npools; i++)
+                gcmem += pooltable[i].topAddr - pooltable[i].baseAddr;
+            if(gcmem > maxPoolMemory)
+                maxPoolMemory = gcmem;
         }
         return pool;
 
@@ -2353,7 +2409,7 @@ struct Gcx
                     {
                         auto offsetBase = offset & notbinsize[bin];
                         base = pool.baseAddr + offsetBase;
-                        pointsToBase = offsetBase == offset;
+                        pointsToBase = (base == sentinel_sub(p));
                         biti = offsetBase >> pool.shiftBy;
                         //debug(PRINTF) printf("\t\tbiti = x%x\n", biti);
 
@@ -2424,11 +2480,11 @@ struct Gcx
     {
         size_t n;
         Pool*  pool;
+        MonoTime start, stop;
 
-        debug(PROFILING)
+        if (GC.config.profile)
         {
-            clock_t start, stop;
-            start = clock();
+            start = currTime();
         }
 
         debug(COLLECT_PRINTF) printf("Gcx.fullcollect()\n");
@@ -2474,9 +2530,9 @@ struct Gcx
             }
         }
 
-        debug(PROFILING)
+        if (GC.config.profile)
         {
-            stop = clock();
+            stop = currTime();
             prepTime += (stop - start);
             start = stop;
         }
@@ -2569,9 +2625,9 @@ struct Gcx
         thread_processGCMarks(&isMarked);
         thread_resumeAll();
 
-        debug(PROFILING)
+        if (GC.config.profile)
         {
-            stop = clock();
+            stop = currTime();
             markTime += (stop - start);
             start = stop;
         }
@@ -2690,9 +2746,9 @@ struct Gcx
             }
         }
 
-        debug(PROFILING)
+        if (GC.config.profile)
         {
-            stop = clock();
+            stop = currTime();
             sweepTime += (stop - start);
             start = stop;
         }
@@ -2751,9 +2807,9 @@ struct Gcx
             }
         }
 
-        debug(PROFILING)
+        if (GC.config.profile)
         {
-            stop = clock();
+            stop = currTime();
             recoverTime += (stop - start);
         }
 
@@ -3376,8 +3432,13 @@ debug (SENTINEL)
 
     void sentinel_Invariant(const void *p) nothrow
     {
-        assert(*sentinel_pre(p) == SENTINEL_PRE);
-        assert(*sentinel_post(p) == SENTINEL_POST);
+        debug
+        {
+            assert(*sentinel_pre(p) == SENTINEL_PRE);
+            assert(*sentinel_post(p) == SENTINEL_POST);
+        }
+        else if(*sentinel_pre(p) != SENTINEL_PRE || *sentinel_post(p) != SENTINEL_POST)
+            onInvalidMemoryOperationError(); // also trigger in release build
     }
 
 

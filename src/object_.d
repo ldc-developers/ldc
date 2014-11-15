@@ -6,7 +6,7 @@
  *      WIKI = Object
  *
  * Copyright: Copyright Digital Mars 2000 - 2011.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Walter Bright, Sean Kelly
  */
 
@@ -29,7 +29,6 @@ private
     import rt.util.string;
     debug(PRINTF) import core.stdc.stdio;
 
-    extern (C) void onOutOfMemoryError(void* pretend_sideffect = null) @trusted pure nothrow; /* dmd @@@BUG11461@@@ */
     extern (C) Object _d_newclass(const TypeInfo_Class ci);
     extern (C) void _d_arrayshrinkfit(const TypeInfo ti, void[] arr) nothrow;
     extern (C) size_t _d_arraysetcapacity(const TypeInfo ti, size_t newcapacity, void[]* arrptr) pure nothrow;
@@ -222,7 +221,7 @@ class TypeInfo
         try
         {
             auto data = this.toString();
-            return hashOf(data.ptr, data.length);
+            return rt.util.hash.hashOf(data.ptr, data.length);
         }
         catch (Throwable)
         {
@@ -847,6 +846,7 @@ class TypeInfo_Class : TypeInfo
         hasTypeInfo = 0x20,
         isAbstract = 0x40,
         isCPPclass = 0x80,
+        hasDtor = 0x100,
     }
     ClassFlags m_flags;
     void*       deallocator;
@@ -982,7 +982,7 @@ class TypeInfo_Struct : TypeInfo
         }
         else
         {
-            return hashOf(p, init().length);
+            return rt.util.hash.hashOf(p, init().length);
         }
     }
 
@@ -1084,7 +1084,7 @@ unittest
 {
     struct S
     {
-        const bool opEquals(ref const S rhs)
+        bool opEquals(ref const S rhs) const
         {
             return false;
         }
@@ -1923,6 +1923,7 @@ extern (C) void rt_attachDisposeEvent(Object h, DEvent e)
         auto len = m.devt.length + 4; // grow by 4 elements
         auto pos = m.devt.length;     // insert position
         auto p = realloc(m.devt.ptr, DEvent.sizeof * len);
+        import core.exception : onOutOfMemoryError;
         if (!p)
             onOutOfMemoryError();
         m.devt = (cast(DEvent*)p)[0 .. len];
@@ -1978,6 +1979,46 @@ extern (C)
 
     int _aaEqual(in TypeInfo tiRaw, in void* e1, in void* e2);
     hash_t _aaGetHash(in void* aa, in TypeInfo tiRaw) nothrow;
+
+    /*
+        _d_assocarrayliteralTX marked as pure, because aaLiteral can be called from pure code.
+        This is a typesystem hole, however this is existing hole.
+        Early compiler didn't check purity of toHash or postblit functions, if key is a UDT thus
+        copiler allowed to create AA literal with keys, which have impure unsafe toHash methods.
+    */
+    void* _d_assocarrayliteralTX(const TypeInfo_AssociativeArray ti, void[] keys, void[] values) pure;
+}
+
+auto aaLiteral(Key, Value, T...)(auto ref T args) if (T.length % 2 == 0)
+{
+    static if(!T.length)
+    {
+        return cast(void*)null;
+    }
+    else
+    {
+        import core.internal.traits;
+        Key[] keys;
+        Value[] values;
+        keys.reserve(T.length / 2);
+        values.reserve(T.length / 2);
+
+        foreach (i; staticIota!(0, args.length / 2))
+        {
+            keys ~= args[2*i];
+            values ~= args[2*i + 1];
+        }
+
+        void[] key_slice;
+        void[] value_slice;
+        void *ret;
+        () @trusted {
+            key_slice = *cast(void[]*)&keys;
+            value_slice = *cast(void[]*)&values;
+            ret = _d_assocarrayliteralTX(typeid(Value[Key]), key_slice, value_slice);
+        }();
+        return ret;
+    }
 }
 
 alias AssociativeArray(Key, Value) = Value[Key];
@@ -2043,7 +2084,7 @@ auto byKey(T : Value[Key], Value, Key)(T aa) pure nothrow @nogc
         @property bool empty() { return _aaRangeEmpty(r); }
         @property ref Key front() { return *cast(Key*)_aaRangeFrontKey(r); }
         void popFront() { _aaRangePopFront(r); }
-        Result save() { return this; }
+        @property Result save() { return this; }
     }
 
     return Result(_aaRange(cast(void*)aa));
@@ -2064,7 +2105,7 @@ auto byValue(T : Value[Key], Value, Key)(T aa) pure nothrow @nogc
         @property bool empty() { return _aaRangeEmpty(r); }
         @property ref Value front() { return *cast(Value*)_aaRangeFrontValue(r); }
         void popFront() { _aaRangePopFront(r); }
-        Result save() { return this; }
+        @property Result save() { return this; }
     }
 
     return Result(_aaRange(cast(void*)aa));
@@ -2135,10 +2176,9 @@ pure /*nothrow @@@BUG5555@@@*/ unittest
     }
 
     assert(c.length == 3);
-    c.sort;
-    assert(c[0] == 1);
-    assert(c[1] == 2);
-    assert(c[2] == 3);
+    assert(c[0] == 1 || c[1] == 1 || c[2] == 1);
+    assert(c[0] == 2 || c[1] == 2 || c[2] == 2);
+    assert(c[0] == 3 || c[1] == 3 || c[2] == 3);
 }
 
 pure nothrow unittest
@@ -2302,6 +2342,33 @@ pure nothrow unittest
     map.rehash;
 }
 
+pure nothrow unittest
+{
+    // bug 11761: test forward range functionality
+    auto aa = ["a": 1];
+
+    void testFwdRange(R, T)(R fwdRange, T testValue)
+    {
+        assert(!fwdRange.empty);
+        assert(fwdRange.front == testValue);
+        static assert(is(typeof(fwdRange.save) == typeof(fwdRange)));
+
+        auto saved = fwdRange.save;
+        fwdRange.popFront();
+        assert(fwdRange.empty);
+
+        assert(!saved.empty);
+        assert(saved.front == testValue);
+        saved.popFront();
+        assert(saved.empty);
+    }
+
+    testFwdRange(aa.byKey, "a");
+    testFwdRange(aa.byValue, 1);
+    //testFwdRange(aa.byPair, tuple("a", 1));
+}
+
+// Explicitly undocumented. It will be removed in March 2015.
 deprecated("Please use destroy instead of clear.")
 alias destroy clear;
 
@@ -2520,8 +2587,11 @@ unittest
     int[] a = [1, 2, 3, 4];
     int[] b = a[1 .. $];
     int[] c = a[1 .. $ - 1];
-    assert(a.capacity != 0);
-    assert(a.capacity == b.capacity + 1); //both a and b share the same tail
+    debug(SENTINEL) {} else // non-zero capacity very much depends on the array and GC implementation
+    {
+        assert(a.capacity != 0);
+        assert(a.capacity == b.capacity + 1); //both a and b share the same tail
+    }
     assert(c.capacity == 0);              //an append to c must relocate c.
 }
 
@@ -2595,10 +2665,13 @@ unittest
     b ~= 5;
     assert(a.ptr != b.ptr);
 
-    // With assumeSafeAppend. Appending overwrites.
-    int[] c = a [0 .. 3];
-    c.assumeSafeAppend() ~= 5;
-    assert(a.ptr == c.ptr);
+    debug(SENTINEL) {} else
+    {
+        // With assumeSafeAppend. Appending overwrites.
+        int[] c = a [0 .. 3];
+        c.assumeSafeAppend() ~= 5;
+        assert(a.ptr == c.ptr);
+    }
 }
 
 unittest
@@ -2697,6 +2770,12 @@ bool _ArrayEq(T1, T2)(T1[] a1, T2[] a2)
 }
 
 
+size_t hashOf(T)(auto ref T arg, size_t seed = 0)
+{
+    import core.internal.hash;
+    return core.internal.hash.hashOf(arg, seed);
+}
+
 bool _xopEquals(in void*, in void*)
 {
     throw new Error("TypeInfo.equals is not implemented");
@@ -2763,7 +2842,7 @@ size_t getArrayHash(in TypeInfo element, in void* ptr, in size_t count) @trusted
     }
 
     if(!hasCustomToHash(element))
-        return hashOf(ptr, elementSize * count);
+        return rt.util.hash.hashOf(ptr, elementSize * count);
 
     size_t hash = 0;
     foreach(size_t i; 0 .. count)
@@ -3019,7 +3098,8 @@ unittest
 {
     auto a = [1, 2, 3];
     auto b = a.dup;
-    assert(b.capacity >= 3);
+    debug(SENTINEL) {} else
+        assert(b.capacity >= 3);
 }
 
 unittest

@@ -19,7 +19,7 @@
  *      GT = &gt;
  *
  * Copyright: Copyright Digital Mars 2000 - 2011.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   $(WEB digitalmars.com, Walter Bright),
  *                        Don Clugston
  */
@@ -155,8 +155,19 @@ else
 real ldexp(real n, int exp) @safe pure nothrow;    /* intrinsic */
 
 unittest {
-    assert(ldexp(1, -16384) == 0x1p-16384L);
-    assert(ldexp(1, -16382) == 0x1p-16382L);
+    static if (real.mant_dig == 64)
+    {
+        assert(ldexp(1, -16384) == 0x1p-16384L);
+        assert(ldexp(1, -16382) == 0x1p-16382L);
+    }
+    else static if (real.mant_dig == 53)
+    {
+        assert(ldexp(1,  1023) == 0x1p1023L);
+        assert(ldexp(1, -1022) == 0x1p-1022L);
+        assert(ldexp(1, -1021) == 0x1p-1021L);
+    }
+    else
+        assert(false, "Only 80bit and 64bit reals expected here");
 }
 
 /*******************************

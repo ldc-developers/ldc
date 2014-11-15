@@ -2,7 +2,7 @@
  * D header file for POSIX.
  *
  * Copyright: Copyright Sean Kelly 2005 - 2009.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Sean Kelly
  * Standards: The Open Group Base Specifications Issue 6, IEEE Std 1003.1, 2004 Edition
  */
@@ -19,7 +19,7 @@ public import core.sys.posix.sys.types; // for pid_t, time_t, key_t, size_t
 public import core.sys.posix.sys.ipc;
 
 version (Posix):
-extern (C):
+extern (C) nothrow @nogc:
 
 //
 // XOpen (XSI)

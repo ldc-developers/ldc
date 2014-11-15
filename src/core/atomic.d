@@ -68,7 +68,7 @@ version( CoreDdoc )
      * Returns:
      *  The result of the operation.
      */
-    HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod ) nothrow
+    HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod ) pure nothrow @nogc
         if( __traits( compiles, mixin( "*cast(T*)&val" ~ op ~ "mod" ) ) )
     {
         return HeadUnshared!(T).init;
@@ -110,7 +110,7 @@ version( CoreDdoc )
      * Returns:
      *  The value of 'val'.
      */
-    HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq,T)( ref const shared T val ) nothrow
+    HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq,T)( ref const shared T val ) pure nothrow @nogc
     {
         return HeadUnshared!(T).init;
     }
@@ -124,7 +124,7 @@ version( CoreDdoc )
      *  val    = The target variable.
      *  newval = The value to store.
      */
-    void atomicStore(MemoryOrder ms = MemoryOrder.seq,T,V1)( ref shared T val, V1 newval ) nothrow
+    void atomicStore(MemoryOrder ms = MemoryOrder.seq,T,V1)( ref shared T val, V1 newval ) pure nothrow @nogc
         if( __traits( compiles, { val = newval; } ) )
     {
 
@@ -150,7 +150,7 @@ version( CoreDdoc )
      * that all loads and stores before a call to this function are executed before any
      * loads and stores after the call.
      */
-    void atomicFence() nothrow;
+    void atomicFence() nothrow @nogc;
 }
 else version( LDC )
 {
@@ -330,7 +330,7 @@ else version( LDC )
 }
 else version( AsmX86_32 )
 {
-    HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod ) nothrow
+    HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod ) pure nothrow @nogc
         if( __traits( compiles, mixin( "*cast(T*)&val" ~ op ~ "mod" ) ) )
     in
     {
@@ -418,7 +418,7 @@ else version( AsmX86_32 )
             // 1 Byte CAS
             //////////////////////////////////////////////////////////////////
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov DL, writeThis;
                 mov AL, ifThis;
@@ -434,7 +434,7 @@ else version( AsmX86_32 )
             // 2 Byte CAS
             //////////////////////////////////////////////////////////////////
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov DX, writeThis;
                 mov AX, ifThis;
@@ -450,7 +450,7 @@ else version( AsmX86_32 )
             // 4 Byte CAS
             //////////////////////////////////////////////////////////////////
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov EDX, writeThis;
                 mov EAX, ifThis;
@@ -466,7 +466,7 @@ else version( AsmX86_32 )
             // 8 Byte CAS on a 32-Bit Processor
             //////////////////////////////////////////////////////////////////
 
-            asm
+            asm pure nothrow @nogc
             {
                 push EDI;
                 push EBX;
@@ -538,7 +538,7 @@ else version( AsmX86_32 )
     }
 
 
-    HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val ) nothrow
+    HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val ) pure nothrow @nogc
     if(!__traits(isFloating, T))
     {
         static if (!__traits(isPOD, T))
@@ -553,7 +553,7 @@ else version( AsmX86_32 )
 
             static if( needsLoadBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov DL, 0;
                     mov AL, 0;
@@ -564,7 +564,7 @@ else version( AsmX86_32 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov EAX, val;
                     mov AL, [EAX];
@@ -579,7 +579,7 @@ else version( AsmX86_32 )
 
             static if( needsLoadBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov DX, 0;
                     mov AX, 0;
@@ -590,7 +590,7 @@ else version( AsmX86_32 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov EAX, val;
                     mov AX, [EAX];
@@ -605,7 +605,7 @@ else version( AsmX86_32 )
 
             static if( needsLoadBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov EDX, 0;
                     mov EAX, 0;
@@ -616,7 +616,7 @@ else version( AsmX86_32 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov EAX, val;
                     mov EAX, [EAX];
@@ -629,7 +629,7 @@ else version( AsmX86_32 )
             // 8 Byte Load on a 32-Bit Processor
             //////////////////////////////////////////////////////////////////
 
-            asm
+            asm pure nothrow @nogc
             {
                 push EDI;
                 push EBX;
@@ -650,7 +650,7 @@ else version( AsmX86_32 )
         }
     }
 
-    void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval ) nothrow
+    void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval ) pure nothrow @nogc
         if( __traits( compiles, { val = newval; } ) )
     {
         static if( T.sizeof == byte.sizeof )
@@ -661,7 +661,7 @@ else version( AsmX86_32 )
 
             static if( needsStoreBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov EAX, val;
                     mov DL, newval;
@@ -671,7 +671,7 @@ else version( AsmX86_32 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov EAX, val;
                     mov DL, newval;
@@ -687,7 +687,7 @@ else version( AsmX86_32 )
 
             static if( needsStoreBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov EAX, val;
                     mov DX, newval;
@@ -697,7 +697,7 @@ else version( AsmX86_32 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov EAX, val;
                     mov DX, newval;
@@ -713,7 +713,7 @@ else version( AsmX86_32 )
 
             static if( needsStoreBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov EAX, val;
                     mov EDX, newval;
@@ -723,7 +723,7 @@ else version( AsmX86_32 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov EAX, val;
                     mov EDX, newval;
@@ -737,7 +737,7 @@ else version( AsmX86_32 )
             // 8 Byte Store on a 32-Bit Processor
             //////////////////////////////////////////////////////////////////
 
-            asm
+            asm pure nothrow @nogc
             {
                 push EDI;
                 push EBX;
@@ -765,7 +765,7 @@ else version( AsmX86_32 )
     {
         import core.cpuid;
 
-        asm
+        asm pure nothrow @nogc
         {
             naked;
 
@@ -798,7 +798,7 @@ else version( AsmX86_32 )
 }
 else version( AsmX86_64 )
 {
-    HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod ) nothrow
+    HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod ) pure nothrow @nogc
         if( __traits( compiles, mixin( "*cast(T*)&val" ~ op ~ "mod" ) ) )
     in
     {
@@ -887,7 +887,7 @@ else version( AsmX86_64 )
             // 1 Byte CAS
             //////////////////////////////////////////////////////////////////
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov DL, writeThis;
                 mov AL, ifThis;
@@ -903,7 +903,7 @@ else version( AsmX86_64 )
             // 2 Byte CAS
             //////////////////////////////////////////////////////////////////
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov DX, writeThis;
                 mov AX, ifThis;
@@ -919,7 +919,7 @@ else version( AsmX86_64 )
             // 4 Byte CAS
             //////////////////////////////////////////////////////////////////
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov EDX, writeThis;
                 mov EAX, ifThis;
@@ -935,7 +935,7 @@ else version( AsmX86_64 )
             // 8 Byte CAS on a 64-Bit Processor
             //////////////////////////////////////////////////////////////////
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov RDX, writeThis;
                 mov RAX, ifThis;
@@ -999,7 +999,7 @@ else version( AsmX86_64 )
     }
 
 
-    HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val ) nothrow
+    HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val ) pure nothrow @nogc
     if(!__traits(isFloating, T)) {
         static if( T.sizeof == byte.sizeof )
         {
@@ -1009,7 +1009,7 @@ else version( AsmX86_64 )
 
             static if( needsLoadBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov DL, 0;
                     mov AL, 0;
@@ -1020,7 +1020,7 @@ else version( AsmX86_64 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RAX, val;
                     mov AL, [RAX];
@@ -1035,7 +1035,7 @@ else version( AsmX86_64 )
 
             static if( needsLoadBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov DX, 0;
                     mov AX, 0;
@@ -1046,7 +1046,7 @@ else version( AsmX86_64 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RAX, val;
                     mov AX, [RAX];
@@ -1061,7 +1061,7 @@ else version( AsmX86_64 )
 
             static if( needsLoadBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov EDX, 0;
                     mov EAX, 0;
@@ -1072,7 +1072,7 @@ else version( AsmX86_64 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RAX, val;
                     mov EAX, [RAX];
@@ -1087,7 +1087,7 @@ else version( AsmX86_64 )
 
             static if( needsLoadBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RDX, 0;
                     mov RAX, 0;
@@ -1098,7 +1098,7 @@ else version( AsmX86_64 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RAX, val;
                     mov RAX, [RAX];
@@ -1112,7 +1112,7 @@ else version( AsmX86_64 )
     }
 
 
-    void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval ) nothrow
+    void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval ) pure nothrow @nogc
         if( __traits( compiles, { val = newval; } ) )
     {
         static if( T.sizeof == byte.sizeof )
@@ -1123,7 +1123,7 @@ else version( AsmX86_64 )
 
             static if( needsStoreBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RAX, val;
                     mov DL, newval;
@@ -1133,7 +1133,7 @@ else version( AsmX86_64 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RAX, val;
                     mov DL, newval;
@@ -1149,7 +1149,7 @@ else version( AsmX86_64 )
 
             static if( needsStoreBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RAX, val;
                     mov DX, newval;
@@ -1159,7 +1159,7 @@ else version( AsmX86_64 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RAX, val;
                     mov DX, newval;
@@ -1175,7 +1175,7 @@ else version( AsmX86_64 )
 
             static if( needsStoreBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RAX, val;
                     mov EDX, newval;
@@ -1185,7 +1185,7 @@ else version( AsmX86_64 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RAX, val;
                     mov EDX, newval;
@@ -1201,7 +1201,7 @@ else version( AsmX86_64 )
 
             static if( needsStoreBarrier!(ms) )
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RAX, val;
                     mov RDX, newval;
@@ -1211,7 +1211,7 @@ else version( AsmX86_64 )
             }
             else
             {
-                asm
+                asm pure nothrow @nogc
                 {
                     mov RAX, val;
                     mov RDX, newval;
@@ -1226,10 +1226,10 @@ else version( AsmX86_64 )
     }
 
 
-    void atomicFence() nothrow
+    void atomicFence() nothrow @nogc
     {
         // SSE2 is always present in 64-bit x86 chips.
-        asm
+        asm nothrow @nogc
         {
             naked;
 
@@ -1243,7 +1243,7 @@ else version( AsmX86_64 )
 // floats and doubles to ints and longs, atomically loads them, then puns
 // them back.  This is necessary so that they get returned in floating
 // point instead of integer registers.
-HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val ) nothrow
+HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val ) pure nothrow @nogc
 if(__traits(isFloating, T))
 {
     static if(T.sizeof == int.sizeof)

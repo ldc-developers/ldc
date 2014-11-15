@@ -2,7 +2,7 @@
  * D header file for POSIX.
  *
  * Copyright: Copyright Sean Kelly 2005 - 2009.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Sean Kelly
  * Standards: The Open Group Base Specifications Issue 6, IEEE Std 1003.1, 2004 Edition
  */
@@ -20,7 +20,7 @@ public import core.sys.posix.arpa.inet;
 public import core.sys.posix.sys.socket; // for sa_family_t
 
 version (Posix):
-extern (C):
+extern (C) nothrow @nogc:
 
 //
 // Required
@@ -91,12 +91,23 @@ version( linux )
     {
         IPPROTO_IP   = 0,
         IPPROTO_ICMP = 1,
+        IPPROTO_IGMP = 2,
+        IPPROTO_GGP  = 3,
         IPPROTO_TCP  = 6,
-        IPPROTO_UDP  = 17
+        IPPROTO_PUP  = 12,
+        IPPROTO_UDP  = 17,
+        IPPROTO_IDP  = 22,
+        IPPROTO_ND   = 77,
+        IPPROTO_MAX  = 256
     }
 
-    enum uint INADDR_ANY       = 0x00000000;
-    enum uint INADDR_BROADCAST = 0xffffffff;
+    enum : uint
+    {
+        INADDR_ANY       = 0x00000000,
+        INADDR_BROADCAST = 0xffffffff,
+        INADDR_LOOPBACK  = 0x7F000001,
+        INADDR_NONE      = 0xFFFFFFFF
+    }
 
     //enum INET_ADDRSTRLEN       = 16;
 }
@@ -125,12 +136,23 @@ else version( OSX )
     {
         IPPROTO_IP   = 0,
         IPPROTO_ICMP = 1,
+        IPPROTO_IGMP = 2,
+        IPPROTO_GGP  = 3,
         IPPROTO_TCP  = 6,
-        IPPROTO_UDP  = 17
+        IPPROTO_PUP  = 12,
+        IPPROTO_UDP  = 17,
+        IPPROTO_IDP  = 22,
+        IPPROTO_ND   = 77,
+        IPPROTO_MAX  = 256
     }
 
-    enum uint INADDR_ANY       = 0x00000000;
-    enum uint INADDR_BROADCAST = 0xffffffff;
+    enum : uint
+    {
+        INADDR_ANY       = 0x00000000,
+        INADDR_BROADCAST = 0xffffffff,
+        INADDR_LOOPBACK  = 0x7F000001,
+        INADDR_NONE      = 0xFFFFFFFF
+    }
 
     //enum INET_ADDRSTRLEN       = 16;
 }
@@ -157,12 +179,23 @@ else version( FreeBSD )
     {
         IPPROTO_IP   = 0,
         IPPROTO_ICMP = 1,
+        IPPROTO_IGMP = 2,
+        IPPROTO_GGP  = 3,
         IPPROTO_TCP  = 6,
-        IPPROTO_UDP  = 17
+        IPPROTO_PUP  = 12,
+        IPPROTO_UDP  = 17,
+        IPPROTO_IDP  = 22,
+        IPPROTO_ND   = 77,
+        IPPROTO_MAX  = 256
     }
 
-    enum uint INADDR_ANY       = 0x00000000;
-    enum uint INADDR_BROADCAST = 0xffffffff;
+    enum : uint
+    {
+        INADDR_ANY       = 0x00000000,
+        INADDR_BROADCAST = 0xffffffff,
+        INADDR_LOOPBACK  = 0x7f000001,
+        INADDR_NONE      = 0xffffffff
+    }
 
     //enum INET_ADDRSTRLEN       = 16;
 }
@@ -185,12 +218,19 @@ else version( Android )
     {
         IPPROTO_IP   = 0,
         IPPROTO_ICMP = 1,
+        IPPROTO_IGMP = 2,
         IPPROTO_TCP  = 6,
-        IPPROTO_UDP  = 17
+        IPPROTO_PUP  = 12,
+        IPPROTO_UDP  = 17,
+        IPPROTO_IDP  = 22
     }
 
-    enum c_ulong INADDR_ANY       = 0x00000000;
-    enum c_ulong INADDR_BROADCAST = 0xffffffff;
+    enum : c_ulong
+    {
+        INADDR_ANY       = 0x00000000,
+        INADDR_BROADCAST = 0xffffffff,
+        INADDR_NONE      = 0xFFFFFFFF
+    }
 }
 
 
@@ -297,7 +337,7 @@ version ( linux )
     }
 
     // macros
-    extern (D) int IN6_IS_ADDR_UNSPECIFIED( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_UNSPECIFIED( in6_addr* addr ) pure
     {
         return (cast(uint32_t*) addr)[0] == 0 &&
                (cast(uint32_t*) addr)[1] == 0 &&
@@ -305,7 +345,7 @@ version ( linux )
                (cast(uint32_t*) addr)[3] == 0;
     }
 
-    extern (D) int IN6_IS_ADDR_LOOPBACK( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_LOOPBACK( in6_addr* addr ) pure
     {
         return (cast(uint32_t*) addr)[0] == 0  &&
                (cast(uint32_t*) addr)[1] == 0  &&
@@ -313,29 +353,29 @@ version ( linux )
                (cast(uint32_t*) addr)[3] == htonl( 1 );
     }
 
-    extern (D) int IN6_IS_ADDR_MULTICAST( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_MULTICAST( in6_addr* addr ) pure
     {
         return (cast(uint8_t*) addr)[0] == 0xff;
     }
 
-    extern (D) int IN6_IS_ADDR_LINKLOCAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_LINKLOCAL( in6_addr* addr ) pure
     {
         return ((cast(uint32_t*) addr)[0] & htonl( 0xffc00000 )) == htonl( 0xfe800000 );
     }
 
-    extern (D) int IN6_IS_ADDR_SITELOCAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_SITELOCAL( in6_addr* addr ) pure
     {
         return ((cast(uint32_t*) addr)[0] & htonl( 0xffc00000 )) == htonl( 0xfec00000 );
     }
 
-    extern (D) int IN6_IS_ADDR_V4MAPPED( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_V4MAPPED( in6_addr* addr ) pure
     {
         return (cast(uint32_t*) addr)[0] == 0 &&
                (cast(uint32_t*) addr)[1] == 0 &&
                (cast(uint32_t*) addr)[2] == htonl( 0xffff );
     }
 
-    extern (D) int IN6_IS_ADDR_V4COMPAT( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_V4COMPAT( in6_addr* addr ) pure
     {
         return (cast(uint32_t*) addr)[0] == 0 &&
                (cast(uint32_t*) addr)[1] == 0 &&
@@ -343,31 +383,31 @@ version ( linux )
                ntohl( (cast(uint32_t*) addr)[3] ) > 1;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_NODELOCAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_MC_NODELOCAL( in6_addr* addr ) pure
     {
         return IN6_IS_ADDR_MULTICAST( addr ) &&
                ((cast(uint8_t*) addr)[1] & 0xf) == 0x1;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_LINKLOCAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_MC_LINKLOCAL( in6_addr* addr ) pure
     {
         return IN6_IS_ADDR_MULTICAST( addr ) &&
                ((cast(uint8_t*) addr)[1] & 0xf) == 0x2;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_SITELOCAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_MC_SITELOCAL( in6_addr* addr ) pure
     {
         return IN6_IS_ADDR_MULTICAST(addr) &&
                ((cast(uint8_t*) addr)[1] & 0xf) == 0x5;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_ORGLOCAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_MC_ORGLOCAL( in6_addr* addr ) pure
     {
         return IN6_IS_ADDR_MULTICAST( addr) &&
                ((cast(uint8_t*) addr)[1] & 0xf) == 0x8;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_GLOBAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_MC_GLOBAL( in6_addr* addr ) pure
     {
         return IN6_IS_ADDR_MULTICAST( addr ) &&
                ((cast(uint8_t*) addr)[1] & 0xf) == 0xe;
@@ -420,7 +460,7 @@ else version( OSX )
     }
 
     // macros
-    extern (D) int IN6_IS_ADDR_UNSPECIFIED( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_UNSPECIFIED( in6_addr* addr ) pure
     {
         return (cast(uint32_t*) addr)[0] == 0 &&
                (cast(uint32_t*) addr)[1] == 0 &&
@@ -428,7 +468,7 @@ else version( OSX )
                (cast(uint32_t*) addr)[3] == 0;
     }
 
-    extern (D) int IN6_IS_ADDR_LOOPBACK( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_LOOPBACK( in6_addr* addr ) pure
     {
         return (cast(uint32_t*) addr)[0] == 0  &&
                (cast(uint32_t*) addr)[1] == 0  &&
@@ -436,29 +476,29 @@ else version( OSX )
                (cast(uint32_t*) addr)[3] == ntohl( 1 );
     }
 
-    extern (D) int IN6_IS_ADDR_MULTICAST( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_MULTICAST( in6_addr* addr ) pure
     {
         return addr.s6_addr[0] == 0xff;
     }
 
-    extern (D) int IN6_IS_ADDR_LINKLOCAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_LINKLOCAL( in6_addr* addr ) pure
     {
         return addr.s6_addr[0] == 0xfe && (addr.s6_addr[1] & 0xc0) == 0x80;
     }
 
-    extern (D) int IN6_IS_ADDR_SITELOCAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_SITELOCAL( in6_addr* addr ) pure
     {
         return addr.s6_addr[0] == 0xfe && (addr.s6_addr[1] & 0xc0) == 0xc0;
     }
 
-    extern (D) int IN6_IS_ADDR_V4MAPPED( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_V4MAPPED( in6_addr* addr ) pure
     {
         return (cast(uint32_t*) addr)[0] == 0 &&
                (cast(uint32_t*) addr)[1] == 0 &&
                (cast(uint32_t*) addr)[2] == ntohl( 0x0000ffff );
     }
 
-    extern (D) int IN6_IS_ADDR_V4COMPAT( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_V4COMPAT( in6_addr* addr ) pure
     {
         return (cast(uint32_t*) addr)[0] == 0 &&
                (cast(uint32_t*) addr)[1] == 0 &&
@@ -467,31 +507,31 @@ else version( OSX )
                (cast(uint32_t*) addr)[3] != ntohl( 1 );
     }
 
-    extern (D) int IN6_IS_ADDR_MC_NODELOCAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_MC_NODELOCAL( in6_addr* addr ) pure
     {
         return IN6_IS_ADDR_MULTICAST( addr ) &&
                ((cast(uint8_t*) addr)[1] & 0xf) == 0x1;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_LINKLOCAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_MC_LINKLOCAL( in6_addr* addr ) pure
     {
         return IN6_IS_ADDR_MULTICAST( addr ) &&
                ((cast(uint8_t*) addr)[1] & 0xf) == 0x2;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_SITELOCAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_MC_SITELOCAL( in6_addr* addr ) pure
     {
         return IN6_IS_ADDR_MULTICAST(addr) &&
                ((cast(uint8_t*) addr)[1] & 0xf) == 0x5;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_ORGLOCAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_MC_ORGLOCAL( in6_addr* addr ) pure
     {
         return IN6_IS_ADDR_MULTICAST( addr) &&
                ((cast(uint8_t*) addr)[1] & 0xf) == 0x8;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_GLOBAL( in6_addr* addr )
+    extern (D) int IN6_IS_ADDR_MC_GLOBAL( in6_addr* addr ) pure
     {
         return IN6_IS_ADDR_MULTICAST( addr ) &&
                ((cast(uint8_t*) addr)[1] & 0xf) == 0xe;
@@ -554,7 +594,7 @@ else version( FreeBSD )
     }
 
     // macros
-    extern (D) int IN6_IS_ADDR_UNSPECIFIED( in in6_addr* a )
+    extern (D) int IN6_IS_ADDR_UNSPECIFIED( in in6_addr* a ) pure
     {
         return (*cast(const uint32_t*) cast(const void*) (&a.s6_addr[0]) == 0) &&
                (*cast(const uint32_t*) cast(const void*) (&a.s6_addr[4]) == 0) &&
@@ -562,7 +602,7 @@ else version( FreeBSD )
                (*cast(const uint32_t*) cast(const void*) (&a.s6_addr[12]) == 0);
     }
 
-    extern (D) int IN6_IS_ADDR_LOOPBACK( in in6_addr* a )
+    extern (D) int IN6_IS_ADDR_LOOPBACK( in in6_addr* a ) pure
     {
         return (*cast(const uint32_t*) cast(const void*) (&a.s6_addr[0]) == 0) &&
                (*cast(const uint32_t*) cast(const void*) (&a.s6_addr[4]) == 0) &&
@@ -570,7 +610,7 @@ else version( FreeBSD )
                (*cast(const uint32_t*) cast(const void*) (&a.s6_addr[12]) == ntohl(1));
     }
 
-    extern (D) int IN6_IS_ADDR_V4COMPAT( in in6_addr* a )
+    extern (D) int IN6_IS_ADDR_V4COMPAT( in in6_addr* a ) pure
     {
         return (*cast(const uint32_t*) cast(const void*) (&a.s6_addr[0]) == 0) &&
                (*cast(const uint32_t*) cast(const void*) (&a.s6_addr[4]) == 0) &&
@@ -579,58 +619,58 @@ else version( FreeBSD )
                (*cast(const uint32_t*) cast(const void*) (&a.s6_addr[12]) != ntohl(1));
     }
 
-    extern (D) int IN6_IS_ADDR_V4MAPPED( in in6_addr* a )
+    extern (D) int IN6_IS_ADDR_V4MAPPED( in in6_addr* a ) pure
     {
         return (*cast(const uint32_t*) cast(const void*) (&a.s6_addr[0]) == 0) &&
                (*cast(const uint32_t*) cast(const void*) (&a.s6_addr[4]) == 0) &&
                (*cast(const uint32_t*) cast(const void*) (&a.s6_addr[8]) == ntohl(0x0000ffff));
     }
 
-    extern (D) int IN6_IS_ADDR_LINKLOCAL( in in6_addr* a )
+    extern (D) int IN6_IS_ADDR_LINKLOCAL( in in6_addr* a ) pure
     {
         return a.s6_addr[0] == 0xfe && (a.s6_addr[1] & 0xc0) == 0x80;
     }
 
-    extern (D) int IN6_IS_ADDR_SITELOCAL( in in6_addr* a )
+    extern (D) int IN6_IS_ADDR_SITELOCAL( in in6_addr* a ) pure
     {
         return a.s6_addr[0] == 0xfe && (a.s6_addr[1] & 0xc0) == 0xc0;
     }
 
-    extern (D) int IN6_IS_ADDR_MULTICAST( in in6_addr* a )
+    extern (D) int IN6_IS_ADDR_MULTICAST( in in6_addr* a ) pure
     {
         return a.s6_addr[0] == 0xff;
     }
 
-    extern (D) uint8_t __IPV6_ADDR_MC_SCOPE( in in6_addr* a )
+    extern (D) uint8_t __IPV6_ADDR_MC_SCOPE( in in6_addr* a ) pure
     {
         return a.s6_addr[1] & 0x0f;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_NODELOCAL( in in6_addr* a )
+    extern (D) int IN6_IS_ADDR_MC_NODELOCAL( in in6_addr* a ) pure
     {
         return IN6_IS_ADDR_MULTICAST(a) &&
                __IPV6_ADDR_MC_SCOPE(a) == __IPV6_ADDR_SCOPE_NODELOCAL;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_LINKLOCAL( in in6_addr* a )
+    extern (D) int IN6_IS_ADDR_MC_LINKLOCAL( in in6_addr* a ) pure
     {
         return IN6_IS_ADDR_MULTICAST(a) &&
                __IPV6_ADDR_MC_SCOPE(a) == __IPV6_ADDR_SCOPE_LINKLOCAL;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_SITELOCAL( in in6_addr* a )
+    extern (D) int IN6_IS_ADDR_MC_SITELOCAL( in in6_addr* a ) pure
     {
         return IN6_IS_ADDR_MULTICAST(a) &&
                __IPV6_ADDR_MC_SCOPE(a) == __IPV6_ADDR_SCOPE_SITELOCAL;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_ORGLOCAL( in in6_addr* a )
+    extern (D) int IN6_IS_ADDR_MC_ORGLOCAL( in in6_addr* a ) pure
     {
         return IN6_IS_ADDR_MULTICAST(a) &&
                __IPV6_ADDR_MC_SCOPE(a) == __IPV6_ADDR_SCOPE_ORGLOCAL;
     }
 
-    extern (D) int IN6_IS_ADDR_MC_GLOBAL( in in6_addr* a )
+    extern (D) int IN6_IS_ADDR_MC_GLOBAL( in in6_addr* a ) pure
     {
         return IN6_IS_ADDR_MULTICAST(a) &&
                __IPV6_ADDR_MC_SCOPE(a) == __IPV6_ADDR_SCOPE_GLOBAL;
@@ -689,7 +729,7 @@ else version( Android )
         IPV6_ADDR_SCOPE_GLOBAL        = 0x0e,
     }
 
-    extern (D)
+    extern (D) pure
     {
         bool IN6_IS_ADDR_UNSPECIFIED( in in6_addr* a )
         {

@@ -47,26 +47,6 @@ private
 
     extern (C) string[] rt_args();
     extern (C) CArgs rt_cArgs();
-
-    // backtrace
-    version( linux )
-        import core.sys.linux.execinfo;
-    else version( OSX )
-        import core.sys.osx.execinfo;
-    else version( FreeBSD )
-        import core.sys.freebsd.execinfo;
-    else version( Windows )
-        import core.sys.windows.stacktrace;
-
-    // For runModuleUnitTests error reporting.
-    version( Windows )
-    {
-        import core.sys.windows.windows;
-    }
-    else version( Posix )
-    {
-        import core.sys.posix.unistd;
-    }
 }
 
 
@@ -105,7 +85,7 @@ struct Runtime
      * standard program initialization process is not executed.  This is most
      * often in shared libraries or in libraries linked to a C program.
      * If the runtime was already successfully initialized this returns true.
-     * Each call to initialize must be paired by a call to $(LREF, terminate).
+     * Each call to initialize must be paired by a call to $(LREF terminate).
      *
      * Returns:
      *  true if initialization succeeded or false if initialization failed.
@@ -250,7 +230,7 @@ struct Runtime
 
 
     /**
-     * Overrides the default trace mechanism with s user-supplied version.  A
+     * Overrides the default trace mechanism with a user-supplied version.  A
      * trace represents the context from which an exception was thrown, and the
      * trace handler will be called when this occurs.  The pointer supplied to
      * this routine indicates the base address from which tracing should occur.
@@ -355,6 +335,18 @@ private:
  */
 extern (C) bool runModuleUnitTests()
 {
+    // backtrace
+    version( linux )
+        import core.sys.linux.execinfo;
+    else version( OSX )
+        import core.sys.osx.execinfo;
+    else version( FreeBSD )
+        import core.sys.freebsd.execinfo;
+    else version( Windows )
+        import core.sys.windows.stacktrace;
+    else version( Solaris )
+        import core.sys.solaris.execinfo;
+
     static if( __traits( compiles, backtrace ) )
     {
         import core.sys.posix.signal; // segv handler
@@ -390,7 +382,8 @@ extern (C) bool runModuleUnitTests()
     {
         void printErr(in char[] buf)
         {
-            .fprintf(.stderr, "%.*s", cast(int)buf.length, buf.ptr);
+            import core.stdc.stdio : fprintf, stderr;
+            fprintf(stderr, "%.*s", cast(int)buf.length, buf.ptr);
         }
 
         size_t failed = 0;
@@ -428,9 +421,20 @@ extern (C) bool runModuleUnitTests()
 /**
  *
  */
-import core.stdc.stdio;
 Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
 {
+    // backtrace
+    version( linux )
+        import core.sys.linux.execinfo;
+    else version( OSX )
+        import core.sys.osx.execinfo;
+    else version( FreeBSD )
+        import core.sys.freebsd.execinfo;
+    else version( Windows )
+        import core.sys.windows.stacktrace;
+    else version( Solaris )
+        import core.sys.solaris.execinfo;
+
     //printf("runtime.defaultTraceHandler()\n");
     static if( __traits( compiles, backtrace ) )
     {
@@ -587,6 +591,18 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
                         symEnd = eptr - buf.ptr;
                     }
                 }
+                else version( Solaris )
+                {
+                    // format is object'symbol+offset [pc]
+                    auto bptr = cast(char*) memchr( buf.ptr, '\'', buf.length );
+                    auto eptr = cast(char*) memchr( buf.ptr, '+', buf.length );
+
+                    if( bptr++ && eptr )
+                    {
+                        symBeg = bptr - buf.ptr;
+                        symEnd = eptr - buf.ptr;
+                    }
+                }
                 else
                 {
                     // fallthrough
@@ -639,6 +655,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
         {
             static enum FIRSTFRAME = 0;
         }
+        import core.sys.windows.windows : CONTEXT;
         auto s = new StackTrace(FIRSTFRAME, cast(CONTEXT*)ptr);
         return s;
     }

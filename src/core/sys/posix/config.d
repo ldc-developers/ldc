@@ -2,7 +2,7 @@
  * D header file for POSIX.
  *
  * Copyright: Copyright Sean Kelly 2005 - 2009.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Sean Kelly,
               Alex Rønne Petersen
  * Standards: The Open Group Base Specifications Issue 6, IEEE Std 1003.1, 2004 Edition
@@ -18,7 +18,7 @@ module core.sys.posix.config;
 public import core.stdc.config;
 
 version (Posix):
-extern (C):
+extern (C) nothrow @nogc:
 
 enum _XOPEN_SOURCE     = 600;
 enum _POSIX_SOURCE     = true;

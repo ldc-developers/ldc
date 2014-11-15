@@ -2,7 +2,7 @@
  * D header file for POSIX.
  *
  * Copyright: Copyright Sean Kelly 2005 - 2009.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Sean Kelly
  * Standards: The Open Group Base Specifications Issue 6, IEEE Std 1003.1, 2004 Edition
  */
@@ -16,6 +16,7 @@ module core.sys.posix.ucontext;
 
 private import core.sys.posix.config;
 public import core.sys.posix.signal; // for sigset_t, stack_t
+private import core.stdc.stdint : uintptr_t;
 
 version (Posix):
 extern (C):
@@ -522,12 +523,12 @@ version( linux )
         struct sigcontext {
             ulong           fault_address;
             /* AArch64 registers */
-            ulong           regs[31];
+            ulong[31]       regs;
             ulong           sp;
             ulong           pc;
             ulong           pstate;
             /* 4K reserved for FP/SIMD state and future expansion */
-            align(16) ubyte __reserved[4096];
+            align(16) ubyte[4096] __reserved;
         }
 
         alias sigcontext mcontext_t;
@@ -590,12 +591,12 @@ else version( FreeBSD )
        long    mc_ownedfp;
 
        align(16)
-       long    mc_fpstate[64];
+       long[64]    mc_fpstate;
 
        __register_t    mc_fsbase;
        __register_t    mc_gsbase;
 
-       long    mc_spare[6];
+       long[6]    mc_spare;
       }
     }
     else version( X86 )
@@ -654,6 +655,100 @@ else version( FreeBSD )
         int[4]          __spare__;
     }
 }
+else version ( Solaris )
+{
+    alias uint[4] upad128_t;
+
+    version ( X86_64 )
+    {
+        enum _NGREG = 28;
+        alias long greg_t;
+    }
+    else version ( X86 )
+    {
+        enum _NGREG = 19;
+        alias int greg_t;
+    }
+
+    alias greg_t[_NGREG] gregset_t;
+
+    version ( X86_64 )
+    {
+        union _u_st
+        {
+            ushort[5]   fpr_16;
+            upad128_t   __fpr_pad;
+        }
+
+        struct fpregset_t
+        {
+            union fp_reg_set
+            {
+                struct fpchip_state
+                {
+                    ushort          cw;
+                    ushort          sw;
+                    ubyte           fctw;
+                    ubyte           __fx_rsvd;
+                    ushort          fop;
+                    ulong           rip;
+                    ulong           rdp;
+                    uint            mxcsr;
+                    uint            mxcsr_mask;
+                    _u_st[8]        st;
+                    upad128_t[16]   xmm;
+                    upad128_t[6]    __fx_ign2;
+                    uint            status;
+                    uint            xstatus;
+                }
+                uint[130]   f_fpregs;
+            }
+        }
+    }
+    else version ( X86 )
+    {
+        struct fpregset_t
+        {
+            union u_fp_reg_set
+            {
+                struct s_fpchip_state
+                {
+                    uint[27]        state;
+                    uint            status;
+                    uint            mxcsr;
+                    uint            xstatus;
+                    uint[2]         __pad;
+                    upad128_t[8]    xmm;
+                }
+                s_fpchip_state    fpchip_state;
+
+                struct s_fp_emul_space
+                {
+                    ubyte[246]  fp_emul;
+                    ubyte[2]    fp_epad;
+                }
+                s_fp_emul_space   fp_emul_space;
+                uint[95]        f_fpregs;
+            }
+        u_fp_reg_set fp_reg_set;
+        }
+    }
+    struct mcontext_t
+    {
+        gregset_t   gregs;
+        fpregset_t  fpregs;
+    }
+
+    struct ucontext_t
+    {
+        c_ulong      uc_flags;
+        ucontext_t  *uc_link;
+        sigset_t    uc_sigmask;
+        stack_t     uc_stack;
+        mcontext_t  uc_mcontext;
+        c_long[5]   uc_filler;
+    }
+}
 
 //
 // Obsolescent (OB)
@@ -672,3 +767,11 @@ static if( is( ucontext_t ) )
     int  setcontext(in ucontext_t*);
     int  swapcontext(ucontext_t*, in ucontext_t*);
 }
+
+version (Solaris)
+{
+    int walkcontext(in ucontext_t*, int function(uintptr_t, int, void*), void*);
+    int addrtosymstr(uintptr_t, char*, int);
+    int printstack(int);
+}
+

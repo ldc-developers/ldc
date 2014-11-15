@@ -412,7 +412,7 @@ unittest
         }
 
         immutable ModuleInfo mi;
-        size_t pad[8];
+        size_t[8] pad;
         alias mi this;
     }
 
@@ -573,7 +573,7 @@ unittest
     }
 }
 
-version (Win64)
+version (CRuntime_Microsoft)
 {
     // Dummy so Win32 code can still call it
     extern(C) void _minit() { }

@@ -2,7 +2,7 @@
  * D header file for FreeBSD.
  *
  * Copyright: Copyright Martin Nowak 2012.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Martin Nowak
  */
 module core.sys.freebsd.dlfcn;
@@ -81,7 +81,7 @@ static if (__BSD_VISIBLE)
     struct Dl_serinfo {
         size_t          dls_size;       /* total buffer size */
         uint            dls_cnt;        /* number of path entries */
-        Dl_serpath      dls_serpath[1]; /* there may be more than one */
+        Dl_serpath[1]   dls_serpath;    /* there may be more than one */
     };
 }
 

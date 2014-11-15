@@ -3,7 +3,7 @@
  * This module provides Android-specific support for sections.
  *
  * Copyright: Copyright Martin Nowak 2012-2013.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Martin Nowak
  * Source: $(DRUNTIMESRC src/rt/_sections_android.d)
  */
@@ -82,13 +82,27 @@ void[]* initTLSRanges()
 
 void finiTLSRanges(void[]* rng)
 {
+    .free(rng.ptr);
+    .free(rng);
 }
 
-void scanTLSRanges(void[]* rng, scope void delegate(void* pbeg, void* pend) dg)
+void scanTLSRanges(void[]* rng, scope void delegate(void* pbeg, void* pend) nothrow dg) nothrow
 {
     dg(rng.ptr, rng.ptr + rng.length);
 }
 
+/* NOTE: The Bionic C library does not allow storing thread-local data
+ *       in the normal .tbss/.tdata ELF sections. So instead we roll our
+ *       own by simply putting tls into the non-tls .data/.bss sections
+ *       and using the _tlsstart/_tlsend symbols as delimiters of the tls
+ *       data.
+ *
+ *       This function is called by the code emitted by the compiler.  It
+ *       is expected to translate an address in the TLS static data to
+ *       the corresponding address in the TLS dynamic per-thread data.
+ */
+
+// NB: the compiler mangles this function as '___tls_get_addr' even though it is extern(D)
 extern(D) void* ___tls_get_addr( void* p )
 {
     debug(PRINTF) printf("  ___tls_get_addr input - %p\n", p);

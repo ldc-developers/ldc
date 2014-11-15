@@ -2,7 +2,7 @@
  * Contains SSE2 and MMX versions of certain operations for float.
  *
  * Copyright: Copyright Digital Mars 2008 - 2010.
- * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
+ * License:   $(WEB www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
  * Authors:   Walter Bright, based on code originally written by Burton Radons
  */
 
@@ -25,6 +25,8 @@ version (unittest)
      */
     int cpuid;
     const int CPUID_MAX = 5;
+
+nothrow:
     @property bool mmx()      { return cpuid == 1 && core.cpuid.mmx; }
     @property bool sse()      { return cpuid == 2 && core.cpuid.sse; }
     @property bool sse2()     { return cpuid == 3 && core.cpuid.sse2; }
@@ -67,7 +69,7 @@ private template CodeGenSliceSliceOp(string opD, string opSSE, string op3DNow)
             auto n = aptr + (b.length & ~15);
 
             // Unaligned case
-            asm
+            asm pure nothrow @nogc
             {
                 mov EAX, bptr; // left operand
                 mov ECX, cptr; // right operand
@@ -109,7 +111,7 @@ private template CodeGenSliceSliceOp(string opD, string opSSE, string op3DNow)
         {
             auto n = aptr + (b.length & ~7);
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr; // destination operand
                 mov EDI, n;    // end comparison
@@ -151,7 +153,7 @@ private template CodeGenSliceSliceOp(string opD, string opSSE, string op3DNow)
             auto n = aptr + (b.length & ~15);
 
             // Unaligned case
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, bptr; // left operand
                 mov RCX, cptr; // right operand
@@ -386,7 +388,7 @@ private template CodeGenExpSliceOpAssign(string opD, string opSSE, string op3DNo
                     *aptr++ ` ~ opD ~ ` value;
 
                 // process aligned slice with fast SSE operations
-                asm
+                asm pure nothrow @nogc
                 {
                     mov ESI, aabeg;
                     mov EDI, aaend;
@@ -423,7 +425,7 @@ private template CodeGenExpSliceOpAssign(string opD, string opSSE, string op3DNo
             ulong w = *cast(uint *) &value;
             ulong v = w | (w << 32L);
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, dword ptr [aptr];
                 mov EDI, dword ptr [n];
@@ -460,7 +462,7 @@ private template CodeGenExpSliceOpAssign(string opD, string opSSE, string op3DNo
             auto n = aptr + (a.length & ~15);
             if (aptr < n)
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov RSI, aptr;
                 mov RDI, n;
@@ -719,7 +721,7 @@ private template CodeGenSliceExpOp(string opD, string opSSE, string op3DNow)
             auto n = aptr + (a.length & ~15);
 
             // Unaligned case
-            asm
+            asm pure nothrow @nogc
             {
                 mov EAX, bptr;
                 mov ESI, aptr;
@@ -759,7 +761,7 @@ private template CodeGenSliceExpOp(string opD, string opSSE, string op3DNow)
             ulong w = *cast(uint *) &value;
             ulong v = w | (w << 32L);
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
@@ -799,7 +801,7 @@ private template CodeGenSliceExpOp(string opD, string opSSE, string op3DNow)
             auto n = aptr + (a.length & ~15);
 
             // Unaligned case
-            asm
+            asm pure nothrow @nogc
             {
                 mov RAX, bptr;
                 mov RSI, aptr;
@@ -1062,7 +1064,7 @@ private template CodeGenSliceOpAssign(string opD, string opSSE, string op3DNow)
             auto n = aptr + (a.length & ~15);
 
             // Unaligned case
-            asm
+            asm pure nothrow @nogc
             {
                 mov ECX, bptr; // right operand
                 mov ESI, aptr; // destination operand
@@ -1101,7 +1103,7 @@ private template CodeGenSliceOpAssign(string opD, string opSSE, string op3DNow)
         {
             auto n = aptr + (a.length & ~7);
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, dword ptr [aptr]; // destination operand
                 mov EDI, dword ptr [n];    // end comparison
@@ -1140,7 +1142,7 @@ private template CodeGenSliceOpAssign(string opD, string opSSE, string op3DNow)
             auto n = aptr + (a.length & ~15);
 
             // Unaligned case
-            asm
+            asm pure nothrow @nogc
             {
                 mov RCX, bptr; // right operand
                 mov RSI, aptr; // destination operand
@@ -1362,7 +1364,7 @@ T[] _arrayExpSliceMinSliceAssign_f(T[] a, T[] b, T value)
             auto n = aptr + (a.length & ~15);
 
             // Unaligned case
-            asm
+            asm pure nothrow @nogc
             {
                 mov EAX, bptr;
                 mov ESI, aptr;
@@ -1406,7 +1408,7 @@ T[] _arrayExpSliceMinSliceAssign_f(T[] a, T[] b, T value)
             ulong w = *cast(uint *) &value;
             ulong v = w | (w << 32L);
 
-            asm
+            asm pure nothrow @nogc
             {
                 mov ESI, aptr;
                 mov EDI, n;
