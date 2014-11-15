@@ -90,8 +90,13 @@ public:
         IF_LOG Logger::println("ExpStatement::toNakedIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
+        // This happens only if there is a ; at the end:
+        // asm { naked; ... };
+        // Is this a legal AST?
+        if (!stmt->exp) return;
+
         // only expstmt supported in declarations
-        if (stmt->exp->op != TOKdeclaration)
+        if (!stmt->exp || stmt->exp->op != TOKdeclaration)
         {
             visit(static_cast<Statement *>(stmt));
             return;
