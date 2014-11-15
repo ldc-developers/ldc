@@ -153,6 +153,10 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
 
         rewriteArgument(arg);
     }
+
+    // extern(D): reverse parameter order for non variadics, for DMD-compliance
+    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1)
+        fty.reverseParams = true;
 }
 
 void Win64TargetABI::rewriteArgument(IrFuncTyArg& arg)

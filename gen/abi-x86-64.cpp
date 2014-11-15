@@ -315,4 +315,8 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty) {
         rewriteArgument(arg);
         IF_LOG Logger::cout() << "New arg type: " << *arg.ltype << '\n';
     }
+
+    // extern(D): reverse parameter order for non variadics, for DMD-compliance
+    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1)
+        fty.reverseParams = true;
 }
