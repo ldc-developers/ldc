@@ -296,15 +296,22 @@ version( X86_64 )
 version( LDC )
 {
     // FIXME: This isn't actually tested at all for ARM.
-    // Really struct va_list { void* ptr; }, but for compatibility with
-    // x86-style code that uses char*, we just define it as the raw pointer.
 
-    version( AnyPPC )
-        alias void* va_list;
-    else version( MIPS64 )
-        alias void* va_list;
-    else
-        alias char* va_list;
+    version( X86_64 )
+    {
+        version( Win64 ) {}
+        else version = SystemV_AMD64;
+    }
+
+    // Type va_list:
+    // On most platforms, really struct va_list { void* ptr; },
+    // but for compatibility with x86-style code that uses char*,
+    // we just define it as the raw pointer.
+    // For System V AMD64 ABI, really __va_list[1], i.e., a 24-bytes
+    // struct passed by reference. We define va_list as a raw pointer
+    // (to the actual struct) for the byref semantics and allocate
+    // the struct in LDC's va_start and va_copy intrinsics.
+    alias char* va_list;
 
     pragma(LDC_va_start)
         void va_start(T)(va_list ap, ref T);
@@ -316,6 +323,7 @@ version( LDC )
     {
         version( Win64 )
         {
+            // passed by reference if > 64 bits or of a size that is not a power of 2
             static if (T.sizeof > size_t.sizeof || (T.sizeof & (T.sizeof - 1)) != 0)
                 T arg = **cast(T**)ap;
             else
@@ -354,6 +362,12 @@ version( LDC )
 
     void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
     {
+      version( SystemV_AMD64 )
+      {
+        va_arg_x86_64(cast(__va_list*)ap, ti, parmn);
+      }
+      else
+      {
         auto tsize = ti.tsize;
 
         version( X86 )
@@ -366,13 +380,8 @@ version( LDC )
         }
         else version( Win64 )
         {
-            // passed byval if > 64 bits or not a power of 2
             auto p = (tsize > size_t.sizeof || (tsize & (tsize - 1)) != 0) ? *cast(char**)ap : ap;
             ap += size_t.sizeof;
-        }
-        else version( X86_64 )
-        {
-            static assert(false, "core.stdc.stdarg.va_arg() not yet implemented for System V AMD64 ABI");
         }
         else version( ARM )
         {
@@ -408,6 +417,7 @@ version( LDC )
         }
 
         parmn[0..tsize] = (cast(void*)p)[0..tsize];
+      }
     }
 
     pragma(LDC_va_end)
