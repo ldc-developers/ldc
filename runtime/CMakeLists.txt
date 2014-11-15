@@ -199,7 +199,7 @@ if(MULTILIB AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
 endif()
 
 if(BUILD_SHARED_LIBS AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
-    set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib\",")
+    set(SHARED_LIBS_RPATH "\n        \"-L-Xlinker -L-rpath=${CMAKE_BINARY_DIR}/lib\",")
 endif()
 
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
@@ -639,7 +639,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
             add_test(NAME build-phobos2-test-runner${name_suffix}
                 COMMAND ${LDC_EXE}
                     -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                    -L--no-as-needed -defaultlib=${libarg} -debuglib=${libarg}
+                    -LXlinker -L--no-as-needed -defaultlib=${libarg} -debuglib=${libarg}
                     -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
             )
             set_tests_properties(build-phobos2-test-runner${name_suffix} PROPERTIES
