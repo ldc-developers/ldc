@@ -194,8 +194,8 @@ endif()
 # DMD and GDC do). OS X doesn't need extra configuration due to the use of
 # fat binaries. Other Posixen might need to be added here.
 if(MULTILIB AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
-    set(MULTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
-    set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
+    set(MULTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",\n        \"-L-Xlinker -L--no-warn-search-mismatch\",")
+    set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L-Xlinker -L--no-warn-search-mismatch\",")
 endif()
 
 if(BUILD_SHARED_LIBS AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
