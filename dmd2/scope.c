@@ -62,6 +62,7 @@ Scope::Scope()
     this->tf = NULL;
     this->os = NULL;
     this->tinst = NULL;
+    this->minst = NULL;
     this->sbreak = NULL;
     this->scontinue = NULL;
     this->fes = NULL;
@@ -70,7 +71,7 @@ Scope::Scope()
     this->func = NULL;
     this->slabel = NULL;
     this->linkage = LINKd;
-    this->protection = PROTpublic;
+    this->protection = Prot(PROTpublic);
     this->explicitProtection = 0;
     this->stc = 0;
     this->depmsg = NULL;
@@ -78,7 +79,6 @@ Scope::Scope()
     this->nofree = 0;
     this->noctor = 0;
     this->intypeof = 0;
-    this->speculative = false;
     this->lastVar = NULL;
     this->callSuper = 0;
     this->fieldinit = NULL;
@@ -87,6 +87,8 @@ Scope::Scope()
     this->lastdc = NULL;
     this->lastoffset = 0;
     this->docbuf = NULL;
+    this->anchorCounts = NULL;
+    this->prevAnchor = NULL;
     this->userAttribDecl = NULL;
 }
 
@@ -104,15 +106,18 @@ Scope *Scope::copy()
 
 Scope *Scope::createGlobal(Module *module)
 {
-    Scope *sc;
-
-    sc = Scope::alloc();
+    Scope *sc = Scope::alloc();
     memset(sc, 0, sizeof(Scope));
+
     sc->structalign = STRUCTALIGN_DEFAULT;
     sc->linkage = LINKd;
-    sc->protection = PROTpublic;
+    sc->protection = Prot(PROTpublic);
 
     sc->module = module;
+
+    sc->tinst = NULL;
+    sc->minst = module;
+
     sc->scopesym = new ScopeDsymbol();
     sc->scopesym->symtab = new DsymbolTable();
 
@@ -150,7 +155,7 @@ Scope *Scope::push()
     s->slabel = NULL;
     s->nofree = 0;
     s->fieldinit = saveFieldInit();
-    s->flags = (flags & (SCOPEcontract | SCOPEdebug | SCOPEctfe | SCOPEcompile));
+    s->flags = (flags & (SCOPEcontract | SCOPEdebug | SCOPEctfe | SCOPEcompile | SCOPEconstraint));
     s->lastdc = NULL;
     s->lastoffset = 0;
 
@@ -187,7 +192,8 @@ Scope *Scope::pop()
     }
 
     if (!nofree)
-    {   enclosing = freelist;
+    {
+        enclosing = freelist;
         freelist = this;
         flags |= SCOPEfree;
     }
@@ -216,7 +222,8 @@ Scope *Scope::startCTFE()
 
     // If a template is instantiated from CT evaluated expression,
     // compiler can elide its code generation.
-    sc->speculative = true;
+    sc->tinst = NULL;
+    sc->minst = NULL;
 #endif
     return sc;
 }
@@ -235,7 +242,8 @@ void Scope::mergeCallSuper(Loc loc, unsigned cs)
     // The two paths are callSuper and cs; the result is merged into callSuper.
 
     if (cs != callSuper)
-    {   // Have ALL branches called a constructor?
+    {
+        // Have ALL branches called a constructor?
         int aAll = (cs        & (CSXthis_ctor | CSXsuper_ctor)) != 0;
         int bAll = (callSuper & (CSXthis_ctor | CSXsuper_ctor)) != 0;
 
@@ -268,7 +276,8 @@ void Scope::mergeCallSuper(Loc loc, unsigned cs)
             callSuper = cs | (callSuper & (CSXany_ctor | CSXlabel));
         }
         else
-        {   // Both branches must have called ctors, or both not.
+        {
+            // Both branches must have called ctors, or both not.
             ok = (aAll == bAll);
             // If one returned without a ctor, we must remember that
             // (Don't bother if we've already found an error)
@@ -302,7 +311,6 @@ bool mergeFieldInit(Loc loc, unsigned &fieldInit, unsigned fi, bool mustInit)
 {
     if (fi != fieldInit)
     {
-
         // Have any branches returned?
         bool aRet = (fi        & CSXreturn) != 0;
         bool bRet = (fieldInit & CSXreturn) != 0;
@@ -355,59 +363,54 @@ void Scope::mergeFieldInit(Loc loc, unsigned *fies)
 
 Module *Scope::instantiatingModule()
 {
-    if (tinst && tinst->instantiatingModule)
-        return tinst->instantiatingModule;
-    return module;
+    // TODO: in speculative context, returning 'module' is correct?
+    return minst ? minst : module;
 }
 
 Dsymbol *Scope::search(Loc loc, Identifier *ident, Dsymbol **pscopesym)
-{   Dsymbol *s;
-    Scope *sc;
-
+{
     //printf("Scope::search(%p, '%s')\n", this, ident->toChars());
     if (ident == Id::empty)
     {
         // Look for module scope
-        for (sc = this; sc; sc = sc->enclosing)
+        for (Scope *sc = this; sc; sc = sc->enclosing)
         {
             assert(sc != sc->enclosing);
-            if (sc->scopesym)
+            if (!sc->scopesym)
+                continue;
+
+            if (Dsymbol *s = sc->scopesym->isModule())
             {
-                s = sc->scopesym->isModule();
-                if (s)
-                {
-                    //printf("\tfound %s.%s\n", s->parent ? s->parent->toChars() : "", s->toChars());
-                    if (pscopesym)
-                        *pscopesym = sc->scopesym;
-                    return s;
-                }
+                //printf("\tfound %s.%s\n", s->parent ? s->parent->toChars() : "", s->toChars());
+                if (pscopesym)
+                    *pscopesym = sc->scopesym;
+                return s;
             }
         }
         return NULL;
     }
 
-    for (sc = this; sc; sc = sc->enclosing)
+    for (Scope *sc = this; sc; sc = sc->enclosing)
     {
         assert(sc != sc->enclosing);
-        if (sc->scopesym)
-        {
-            //printf("\tlooking in scopesym '%s', kind = '%s'\n", sc->scopesym->toChars(), sc->scopesym->kind());
-            s = sc->scopesym->search(loc, ident);
-            if (s)
-            {
-                if (ident == Id::length &&
-                    sc->scopesym->isArrayScopeSymbol() &&
-                    sc->enclosing &&
-                    sc->enclosing->search(loc, ident, NULL))
-                {
-                    warning(s->loc, "array 'length' hides other 'length' name in outer scope");
-                }
+        if (!sc->scopesym)
+            continue;
 
-                //printf("\tfound %s.%s, kind = '%s'\n", s->parent ? s->parent->toChars() : "", s->toChars(), s->kind());
-                if (pscopesym)
-                    *pscopesym = sc->scopesym;
-                return s;
+        //printf("\tlooking in scopesym '%s', kind = '%s'\n", sc->scopesym->toChars(), sc->scopesym->kind());
+        if (Dsymbol *s = sc->scopesym->search(loc, ident))
+        {
+            if (ident == Id::length &&
+                sc->scopesym->isArrayScopeSymbol() &&
+                sc->enclosing &&
+                sc->enclosing->search(loc, ident, NULL))
+            {
+                warning(s->loc, "array 'length' hides other 'length' name in outer scope");
             }
+
+            //printf("\tfound %s.%s, kind = '%s'\n", s->parent ? s->parent->toChars() : "", s->toChars(), s->kind());
+            if (pscopesym)
+                *pscopesym = sc->scopesym;
+            return s;
         }
     }
 
@@ -452,18 +455,15 @@ Dsymbol *Scope::insert(Dsymbol *s)
  */
 
 ClassDeclaration *Scope::getClassScope()
-{   Scope *sc;
-
-    for (sc = this; sc; sc = sc->enclosing)
+{
+    for (Scope *sc = this; sc; sc = sc->enclosing)
     {
-        ClassDeclaration *cd;
+        if (!sc->scopesym)
+            continue;
 
-        if (sc->scopesym)
-        {
-            cd = sc->scopesym->isClassDeclaration();
-            if (cd)
-                return cd;
-        }
+        ClassDeclaration *cd = sc->scopesym->isClassDeclaration();
+        if (cd)
+            return cd;
     }
     return NULL;
 }
@@ -473,23 +473,18 @@ ClassDeclaration *Scope::getClassScope()
  */
 
 AggregateDeclaration *Scope::getStructClassScope()
-{   Scope *sc;
-
-    for (sc = this; sc; sc = sc->enclosing)
+{
+    for (Scope *sc = this; sc; sc = sc->enclosing)
     {
-        AggregateDeclaration *ad;
+        if (!sc->scopesym)
+            continue;
 
-        if (sc->scopesym)
-        {
-            ad = sc->scopesym->isClassDeclaration();
-            if (ad)
-                return ad;
-            else
-            {   ad = sc->scopesym->isStructDeclaration();
-                if (ad)
-                    return ad;
-            }
-        }
+        AggregateDeclaration *ad = sc->scopesym->isClassDeclaration();
+        if (ad)
+            return ad;
+        ad = sc->scopesym->isStructDeclaration();
+        if (ad)
+            return ad;
     }
     return NULL;
 }
@@ -501,11 +496,11 @@ AggregateDeclaration *Scope::getStructClassScope()
  */
 
 void Scope::setNoFree()
-{   Scope *sc;
+{
     //int i = 0;
 
     //printf("Scope::setNoFree(this = %p)\n", this);
-    for (sc = this; sc; sc = sc->enclosing)
+    for (Scope *sc = this; sc; sc = sc->enclosing)
     {
         //printf("\tsc = %p\n", sc);
         sc->nofree = 1;
@@ -517,7 +512,6 @@ void Scope::setNoFree()
             //assert(0);
     }
 }
-
 
 /************************************************
  * Given the failed search attempt, try to find

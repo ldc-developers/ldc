@@ -204,7 +204,7 @@ LLConstant * IrAggr::getVtblInit()
                         if (tf->ty == Tfunction)
                             cd->deprecation("use of %s%s hidden by %s is deprecated; use 'alias %s = %s.%s;' to introduce base class overload set",
                                             fd->toPrettyChars(),
-                                            Parameter::argsTypesToChars(tf->parameters, tf->varargs),
+                                            "?FIXME?", //Parameter::argsTypesToChars(tf->parameters, tf->varargs),
                                             cd->toChars(),
 
                                             fd->toChars(),

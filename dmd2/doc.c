@@ -20,6 +20,7 @@
 #include "rmem.h"
 #include "root.h"
 #include "port.h"
+#include "aav.h"
 
 #include "attrib.h"
 #include "cond.h"
@@ -127,6 +128,14 @@ bool isCVariadicParameter(Dsymbol *s, const utf8_t *p, size_t len)
 {
     TypeFunction *tf = isTypeFunction(s);
     return tf && tf->varargs == 1 && cmp("...", p, len) == 0;
+}
+
+static TemplateDeclaration *getEponymousParentTemplate(Dsymbol *s)
+{
+    if (!s->parent)
+        return NULL;
+    TemplateDeclaration *td = s->parent->isTemplateDeclaration();
+    return (td && td->onemember == s) ? td : NULL;
 }
 
 static const char ddoc_default[] = "\
@@ -522,39 +531,59 @@ static bool emitAnchorName(OutBuffer *buf, Dsymbol *s, Scope *sc)
     if (!s || s->isPackage() || s->isModule())
         return false;
 
-    TemplateDeclaration *td;
-    bool dot = false;
-
     // Add parent names first
+    bool dot = false;
     if (s->parent)
         dot = emitAnchorName(buf, s->parent, sc);
     else if (sc)
         dot = emitAnchorName(buf, sc->scopesym, skipNonQualScopes(sc->enclosing));
 
     // Eponymous template members can share the parent anchor name
-    if (s->parent && (td = s->parent->isTemplateDeclaration()) != NULL &&
-        td->onemember == s)
+    if (getEponymousParentTemplate(s))
         return dot;
     if (dot)
         buf->writeByte('.');
+    
     // Use "this" not "__ctor"
+    TemplateDeclaration *td;
     if (s->isCtorDeclaration() || ((td = s->isTemplateDeclaration()) != NULL &&
         td->onemember && td->onemember->isCtorDeclaration()))
+    {
         buf->writestring("this");
+    }
     else
     {
         /* We just want the identifier, not overloads like TemplateDeclaration::toChars.
          * We don't want the template parameter list and constraints. */
         buf->writestring(s->Dsymbol::toChars());
     }
-
     return true;
 }
 
 static void emitAnchor(OutBuffer *buf, Dsymbol *s, Scope *sc)
 {
+    Identifier *ident;
+    {
+        OutBuffer anc;
+        emitAnchorName(&anc, s, skipNonQualScopes(sc));
+        ident = Lexer::idPool(anc.peekString());
+    }
+    size_t *count = (size_t*)dmd_aaGet(&sc->anchorCounts, (void *)ident);
+    TemplateDeclaration *td = getEponymousParentTemplate(s);
+    // don't write an anchor for matching consecutive ditto symbols
+    if (*count > 0 && sc->prevAnchor == ident &&
+        sc->lastdc && (isDitto(s->comment) || (td && isDitto(td->comment))))
+        return;
+
+    (*count)++;
+    // cache anchor name
+    sc->prevAnchor = ident;
+
     buf->writestring("$(DDOC_ANCHOR ");
-    emitAnchorName(buf, s, skipNonQualScopes(sc));
+    buf->writestring(ident->string);
+    // only append count once there's a duplicate
+    if (*count != 1)
+        buf->printf(".%u", *count);
     buf->writeByte(')');
 }
 
@@ -563,7 +592,7 @@ static void emitAnchor(OutBuffer *buf, Dsymbol *s, Scope *sc)
 /** Get leading indentation from 'src' which represents lines of code. */
 static size_t getCodeIndent(const char *src)
 {
-    while (src && *src == '\n')
+    while (src && (*src == '\r' || *src == '\n'))
         ++src;  // skip until we find the first non-empty line
 
     size_t codeIndent = 0;
@@ -581,7 +610,7 @@ void emitUnittestComment(Scope *sc, Dsymbol *s, size_t ofs)
 
     for (UnitTestDeclaration *utd = s->ddocUnittest; utd; utd = utd->ddocUnittest)
     {
-        if (utd->protection == PROTprivate || !utd->comment || !utd->fbody)
+        if (utd->protection.kind == PROTprivate || !utd->comment || !utd->fbody)
             continue;
 
         // Strip whitespaces to avoid showing empty summary
@@ -627,13 +656,7 @@ void emitDitto(Dsymbol *s, Scope *sc)
     /* If 'this' is a function template, then highlightCode() was
      * already run by FuncDeclaration::toDocbuffer().
      */
-    TemplateDeclaration *td;
-    if (s->parent &&
-        (td = s->parent->isTemplateDeclaration()) != NULL &&
-        td->onemember == s)
-    {
-    }
-    else
+    if (!getEponymousParentTemplate(s))
         highlightCode(sc, s, &b, o);
     b.writeByte(')');
     buf->spread(sc->lastoffset, b.offset);
@@ -713,11 +736,13 @@ void emitMemberComments(ScopeDsymbol *sds, Scope *sc)
     }
 }
 
-void emitProtection(OutBuffer *buf, PROT prot)
+void emitProtection(OutBuffer *buf, Prot prot)
 {
-    const char *p = (prot == PROTpublic) ? NULL : protectionToChars(prot);
-    if (p)
-        buf->printf("%s ", p);
+    if (prot.kind != PROTundefined && prot.kind != PROTpublic)
+    {
+        protectionToBuffer(buf, prot);
+        buf->writeByte(' ');
+    }
 }
 
 void emitComment(Dsymbol *s, Scope *sc)
@@ -747,7 +772,7 @@ void emitComment(Dsymbol *s, Scope *sc)
             //printf("Declaration::emitComment(%p '%s'), comment = '%s'\n", d, d->toChars(), d->comment);
             //printf("type = %p\n", d->type);
 
-            if (d->protection == PROTprivate || sc->protection == PROTprivate ||
+            if (d->protection.kind == PROTprivate || sc->protection.kind == PROTprivate ||
                 !d->ident || (!d->type && !d->isCtorDeclaration() && !d->isAliasDeclaration()))
                 return;
             if (!d->comment)
@@ -778,7 +803,7 @@ void emitComment(Dsymbol *s, Scope *sc)
         void visit(AggregateDeclaration *ad)
         {
             //printf("AggregateDeclaration::emitComment() '%s'\n", ad->toChars());
-            if (ad->prot() == PROTprivate || sc->protection == PROTprivate)
+            if (ad->prot().kind == PROTprivate || sc->protection.kind == PROTprivate)
                 return;
             if (!ad->comment)
                 return;
@@ -809,7 +834,7 @@ void emitComment(Dsymbol *s, Scope *sc)
         void visit(TemplateDeclaration *td)
         {
             //printf("TemplateDeclaration::emitComment() '%s', kind = %s\n", td->toChars(), td->kind());
-            if (td->prot() == PROTprivate || sc->protection == PROTprivate)
+            if (td->prot().kind == PROTprivate || sc->protection.kind == PROTprivate)
                 return;
 
             const utf8_t *com = td->comment;
@@ -865,7 +890,7 @@ void emitComment(Dsymbol *s, Scope *sc)
 
         void visit(EnumDeclaration *ed)
         {
-            if (ed->prot() == PROTprivate || sc->protection == PROTprivate)
+            if (ed->prot().kind == PROTprivate || sc->protection.kind == PROTprivate)
                 return;
             if (ed->isAnonymous() && ed->members)
             {
@@ -907,7 +932,7 @@ void emitComment(Dsymbol *s, Scope *sc)
         void visit(EnumMember *em)
         {
             //printf("EnumMember::emitComment(%p '%s'), comment = '%s'\n", em, em->toChars(), em->comment);
-            if (em->prot() == PROTprivate || sc->protection == PROTprivate)
+            if (em->prot().kind == PROTprivate || sc->protection.kind == PROTprivate)
                 return;
             if (!em->comment)
                 return;
@@ -1015,8 +1040,8 @@ void toDocBuffer(Dsymbol *s, OutBuffer *buf, Scope *sc)
         {
             //printf("Dsymbol::toDocbuffer() %s\n", s->toChars());
             HdrGenState hgs;
-            hgs.ddoc = 1;
-            s->toCBuffer(buf, &hgs);
+            hgs.ddoc = true;
+            ::toCBuffer(s, buf, &hgs);
         }
 
         void prefix(Dsymbol *s)
@@ -1060,14 +1085,14 @@ void toDocBuffer(Dsymbol *s, OutBuffer *buf, Scope *sc)
                 if (decl->type)
                 {
                     HdrGenState hgs;
-                    hgs.ddoc = 1;
+                    hgs.ddoc = true;
                     Type *origType = decl->originalType ? decl->originalType : decl->type;
                     if (origType->ty == Tfunction)
                     {
                         functionToBufferFull((TypeFunction *)origType, buf, decl->ident, &hgs, td);
                     }
                     else
-                        origType->toCBuffer(buf, decl->ident, &hgs);
+                        ::toCBuffer(origType, buf, decl->ident, &hgs);
                 }
                 else
                     buf->writestring(decl->ident->toChars());
@@ -1076,9 +1101,9 @@ void toDocBuffer(Dsymbol *s, OutBuffer *buf, Scope *sc)
                 if (td && td->constraint)
                 {
                     HdrGenState hgs;
-                    hgs.ddoc = 1;
+                    hgs.ddoc = true;
                     buf->writestring(" if (");
-                    td->constraint->toCBuffer(buf, &hgs);
+                    ::toCBuffer(td->constraint, buf, &hgs);
                     buf->writeByte(')');
                 }
 
@@ -1177,37 +1202,19 @@ void toDocBuffer(Dsymbol *s, OutBuffer *buf, Scope *sc)
             }
         }
 
-        void visit(TypedefDeclaration *d)
-        {
-            if (d->ident)
-            {
-                if (d->isDeprecated())
-                    buf->writestring("deprecated ");
-
-                emitProtection(buf, d->protection);
-                buf->writestring("typedef ");
-                buf->writestring(d->toChars());
-                buf->writestring(";\n");
-            }
-        }
-
         void visit(FuncDeclaration *fd)
         {
             //printf("FuncDeclaration::toDocbuffer() %s\n", fd->toChars());
             if (fd->ident)
             {
-                TemplateDeclaration *td;
+                TemplateDeclaration *td = getEponymousParentTemplate(fd);
 
-                if (fd->parent &&
-                    (td = fd->parent->isTemplateDeclaration()) != NULL &&
-                    td->onemember == fd)
+                if (td)
                 {
                     /* It's a function template
                      */
                     size_t o = buf->offset;
-
                     declarationToDocBuffer(fd, td);
-
                     highlightCode(sc, fd, buf, o);
                 }
                 else
@@ -1237,11 +1244,9 @@ void toDocBuffer(Dsymbol *s, OutBuffer *buf, Scope *sc)
         #if 0
                 emitProtection(buf, sd->protection);
         #endif
-                TemplateDeclaration *td;
+                TemplateDeclaration *td = getEponymousParentTemplate(sd);
 
-                if (sd->parent &&
-                    (td = sd->parent->isTemplateDeclaration()) != NULL &&
-                    td->onemember == sd)
+                if (td)
                 {
                     size_t o = buf->offset;
                     toDocBuffer(td, buf, sc);
@@ -1263,11 +1268,9 @@ void toDocBuffer(Dsymbol *s, OutBuffer *buf, Scope *sc)
         #if 0
                 emitProtection(buf, cd->protection);
         #endif
-                TemplateDeclaration *td;
+                TemplateDeclaration *td = getEponymousParentTemplate(cd);
 
-                if (cd->parent &&
-                    (td = cd->parent->isTemplateDeclaration()) != NULL &&
-                    td->onemember == cd)
+                if (td)
                 {
                     size_t o = buf->offset;
                     toDocBuffer(td, buf, sc);
@@ -1284,7 +1287,7 @@ void toDocBuffer(Dsymbol *s, OutBuffer *buf, Scope *sc)
                 {
                     BaseClass *bc = (*cd->baseclasses)[i];
 
-                    if (bc->protection == PROTprivate)
+                    if (bc->protection.kind == PROTprivate)
                         continue;
                     if (bc->base && bc->base->ident == Id::Object)
                         continue;
@@ -1304,7 +1307,7 @@ void toDocBuffer(Dsymbol *s, OutBuffer *buf, Scope *sc)
                     else
                     {
                         HdrGenState hgs;
-                        bc->type->toCBuffer(buf, NULL, &hgs);
+                        ::toCBuffer(bc->type, buf, NULL, &hgs);
                     }
                 }
                 buf->writestring(";\n");
@@ -1320,7 +1323,7 @@ void toDocBuffer(Dsymbol *s, OutBuffer *buf, Scope *sc)
                 {
                     buf->writestring(": $(DDOC_ENUM_BASETYPE ");
                     HdrGenState hgs;
-                    ed->memtype->toCBuffer(buf, NULL, &hgs);
+                    ::toCBuffer(ed->memtype, buf, NULL, &hgs);
                     buf->writestring(")");
                 }
                 buf->writestring(";\n");
@@ -1423,7 +1426,7 @@ void DocComment::parseSections(const utf8_t *comment)
                     p++;
                 }
                 // BUG: handle UTF PS and LS too
-                if (!*p || *p == '\r' || *p == '\n' && numdash >= 3)
+                if ((!*p || *p == '\r' || *p == '\n') && numdash >= 3)
                     inCode ^= 1;
                 pend = p;
             }
@@ -1666,7 +1669,7 @@ void ParamSection::write(DocComment *dc, Scope *sc, Dsymbol *s, OutBuffer *buf)
                     }
                     else if (arg && arg->type && arg->ident)
                     {
-                        arg->type->toCBuffer(buf, arg->ident, &hgs);
+                        ::toCBuffer(arg->type, buf, arg->ident, &hgs);
                     }
                     else
                     {
@@ -1779,6 +1782,7 @@ void DocComment::parseMacros(Escape **pescapetable, Macro **pmacrotable, const u
                     p++;
                     continue;
 
+                case '\r':
                 case '\n':
                     p++;
                     goto Lcont;
@@ -1843,13 +1847,9 @@ void DocComment::parseMacros(Escape **pescapetable, Macro **pmacrotable, const u
         textstart = p;
 
       Ltext:
-        while (p < pend && *p != '\n')
+        while (p < pend && *p != '\r' && *p != '\n')
             p++;
         textlen = p - textstart;
-
-        // Remove trailing \r if there is one
-        if (p > m && p[-1] == '\r')
-            textlen--;
 
         p++;
         //printf("p = %p, pend = %p\n", p, pend);
@@ -1859,8 +1859,8 @@ void DocComment::parseMacros(Escape **pescapetable, Macro **pmacrotable, const u
 
      Lskipline:
         // Ignore this line
-        while (p < pend && *p++ != '\n')
-            ;
+        while (p < pend && *p != '\r' && *p != '\n')
+            p++;
     }
 Ldone:
     if (namelen)
@@ -1893,7 +1893,7 @@ void DocComment::parseEscapes(Escape **pescapetable, const utf8_t *textstart, si
         {
             if (p + 4 >= pend)
                 return;
-            if (!(*p == ' ' || *p == '\t' || *p == '\n' || *p == ','))
+            if (!(*p == ' ' || *p == '\t' || *p == '\r' || *p == '\n' || *p == ','))
                 break;
             p++;
         }
@@ -2440,7 +2440,7 @@ void highlightText(Scope *sc, Dsymbol *s, OutBuffer *buf, size_t offset)
                         }
 
                         // leading '_' means no highlight unless it's a reserved symbol name
-                        if (buf->data[i] == '_' &&
+                        if (buf->data[i] == '_' && (i == 0 || !isdigit(buf->data[i-1])) &&
                             (i == buf->size-1 || !isReservedName((utf8_t *)(buf->data + i), j - i)))
                         {
                             buf->remove(i, 1);

@@ -23,7 +23,8 @@ int Target::ptrsize;
 int Target::realsize;
 int Target::realpad;
 int Target::realalignsize;
-int Target::longsize;
+int Target::c_longsize;
+int Target::c_long_doublesize;
 bool Target::reverseCppOverloads;
 
 void Target::init()
@@ -34,7 +35,8 @@ void Target::init()
     realsize = gDataLayout->getTypeAllocSize(real);
     realpad = realsize - gDataLayout->getTypeStoreSize(real);
     realalignsize = gDataLayout->getABITypeAlignment(real);
-    longsize = global.params.is64bit ? 8 : 4;
+    c_longsize = global.params.is64bit ? 8 : 4;
+    c_long_doublesize = realsize;
 
     reverseCppOverloads = false; // DMC is not supported.
 }
@@ -145,3 +147,18 @@ Expression *Target::paintAsType(Expression *e, Type *type)
 
     return NULL;    // avoid warning
 }
+
+/******************************
+* Check if the given type is supported for this target
+* 0: supported
+* 1: not supported
+* 2: wrong size
+* 3: wrong base type
+*/
+
+int Target::checkVectorType(int sz, Type *type)
+{
+    // FIXME: It is possible to query the LLVM target about supported vectors?
+    return 0;
+}
+

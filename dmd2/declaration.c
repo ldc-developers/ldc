@@ -24,7 +24,6 @@
 #include "id.h"
 #include "expression.h"
 #include "statement.h"
-#include "hdrgen.h"
 #include "ctfe.h"
 #include "target.h"
 
@@ -85,7 +84,7 @@ Declaration::Declaration(Identifier *id)
     type = NULL;
     originalType = NULL;
     storage_class = STCundefined;
-    protection = PROTundefined;
+    protection = Prot(PROTundefined);
     linkage = LINKdefault;
     inuse = 0;
     sem = SemanticStart;
@@ -127,7 +126,7 @@ bool Declaration::isCodeseg()
     return false;
 }
 
-PROT Declaration::prot()
+Prot Declaration::prot()
 {
     return protection;
 }
@@ -296,146 +295,6 @@ void TupleDeclaration::semantic3(Scope *sc)
 
 #endif
 
-/********************************* TypedefDeclaration ****************************/
-
-TypedefDeclaration::TypedefDeclaration(Loc loc, Identifier *id, Type *basetype, Initializer *init)
-    : Declaration(id)
-{
-    this->type = new TypeTypedef(this);
-    this->basetype = basetype->toBasetype();
-    this->init = init;
-    this->htype = NULL;
-    this->hbasetype = NULL;
-    this->loc = loc;
-#if IN_DMD
-    this->sinit = NULL;
-#endif
-}
-
-Dsymbol *TypedefDeclaration::syntaxCopy(Dsymbol *s)
-{
-    Type *basetype = this->basetype->syntaxCopy();
-
-    Initializer *init = NULL;
-    if (this->init)
-        init = this->init->syntaxCopy();
-
-    assert(!s);
-    TypedefDeclaration *st;
-    st = new TypedefDeclaration(loc, ident, basetype, init);
-
-    // Syntax copy for header file
-    if (!htype)      // Don't overwrite original
-    {   if (type)    // Make copy for both old and new instances
-        {   htype = type->syntaxCopy();
-            st->htype = type->syntaxCopy();
-        }
-    }
-    else            // Make copy of original for new instance
-        st->htype = htype->syntaxCopy();
-    if (!hbasetype)
-    {   if (basetype)
-        {   hbasetype = basetype->syntaxCopy();
-            st->hbasetype = basetype->syntaxCopy();
-        }
-    }
-    else
-        st->hbasetype = hbasetype->syntaxCopy();
-
-    return st;
-}
-
-void TypedefDeclaration::semantic(Scope *sc)
-{
-    //printf("TypedefDeclaration::semantic(%s) sem = %d\n", toChars(), sem);
-    if (sem == SemanticStart)
-    {
-        sem = SemanticIn;
-        parent = sc->parent;
-        unsigned int errors = global.errors;
-        Type *savedbasetype = basetype;
-        basetype = basetype->semantic(loc, sc);
-        if (errors != global.errors)
-        {
-            basetype = savedbasetype;
-            sem = SemanticStart;
-            return;
-        }
-        sem = SemanticDone;
-        type = type->addStorageClass(storage_class);
-        Type *savedtype = type;
-        type = type->semantic(loc, sc);
-        if (sc->parent->isFuncDeclaration() && init)
-            semantic2(sc);
-        if (errors != global.errors)
-        {
-            basetype = savedbasetype;
-            type = savedtype;
-            sem = SemanticStart;
-            return;
-        }
-        storage_class |= sc->stc & STCdeprecated;
-        userAttribDecl = sc->userAttribDecl;
-    }
-    else if (sem == SemanticIn)
-    {
-        error("circular definition");
-        basetype = Type::terror;
-        errors = true;
-    }
-}
-
-void TypedefDeclaration::semantic2(Scope *sc)
-{
-    //printf("TypedefDeclaration::semantic2(%s) sem = %d\n", toChars(), sem);
-    if (sem == SemanticDone)
-    {
-        sem = Semantic2Done;
-        basetype->alignment();          // used to detect circular typedef declarations
-        if (init)
-        {
-            Initializer *savedinit = init;
-            unsigned int errors = global.errors;
-            init = init->semantic(sc, basetype, INITinterpret);
-            if (errors != global.errors || init->isErrorInitializer())
-            {
-                init = savedinit;
-                return;
-            }
-
-            ExpInitializer *ie = init->isExpInitializer();
-            if (ie)
-            {
-                if (ie->exp->type == basetype)
-                    ie->exp->type = type;
-            }
-        }
-    }
-}
-
-const char *TypedefDeclaration::kind()
-{
-    return "typedef";
-}
-
-Type *TypedefDeclaration::getType()
-{
-    return type;
-}
-
-void TypedefDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    buf->writestring("typedef ");
-    basetype->toCBuffer(buf, ident, hgs);
-    if (init)
-    {
-        buf->writestring(" = ");
-        init->toCBuffer(buf, hgs);
-    }
-    buf->writeByte(';');
-    buf->writenl();
-}
-
 /********************************* AliasDeclaration ****************************/
 
 AliasDeclaration::AliasDeclaration(Loc loc, Identifier *id, Type *type)
@@ -447,8 +306,6 @@ AliasDeclaration::AliasDeclaration(Loc loc, Identifier *id, Type *type)
     this->type = type;
     this->aliassym = NULL;
     this->import = NULL;
-    this->htype = NULL;
-    this->haliassym = NULL;
     this->overnext = NULL;
     this->inSemantic = 0;
     assert(type);
@@ -463,8 +320,6 @@ AliasDeclaration::AliasDeclaration(Loc loc, Identifier *id, Dsymbol *s)
     this->type = NULL;
     this->aliassym = s;
     this->import = NULL;
-    this->htype = NULL;
-    this->haliassym = NULL;
     this->overnext = NULL;
     this->inSemantic = 0;
     assert(s);
@@ -474,31 +329,10 @@ Dsymbol *AliasDeclaration::syntaxCopy(Dsymbol *s)
 {
     //printf("AliasDeclaration::syntaxCopy()\n");
     assert(!s);
-    AliasDeclaration *sa;
-    if (type)
-        sa = new AliasDeclaration(loc, ident, type->syntaxCopy());
-    else
-        sa = new AliasDeclaration(loc, ident, aliassym->syntaxCopy(NULL));
+    AliasDeclaration *sa =
+        type ? new AliasDeclaration(loc, ident, type->syntaxCopy())
+             : new AliasDeclaration(loc, ident, aliassym->syntaxCopy(NULL));
     sa->storage_class = storage_class;
-
-    // Syntax copy for header file
-    if (!htype)     // Don't overwrite original
-    {   if (type)       // Make copy for both old and new instances
-        {   htype = type->syntaxCopy();
-            sa->htype = type->syntaxCopy();
-        }
-    }
-    else                        // Make copy of original for new instance
-        sa->htype = htype->syntaxCopy();
-    if (!haliassym)
-    {   if (aliassym)
-        {   haliassym = aliassym->syntaxCopy(s);
-            sa->haliassym = aliassym->syntaxCopy(s);
-        }
-    }
-    else
-        sa->haliassym = haliassym->syntaxCopy(s);
-
     return sa;
 }
 
@@ -777,25 +611,6 @@ Dsymbol *AliasDeclaration::toAlias()
     return s;
 }
 
-void AliasDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    buf->writestring("alias ");
-    if (aliassym)
-    {
-#if IN_LLVM
-        buf->writestring(aliassym->toChars());
-#else
-        aliassym->toCBuffer(buf, hgs);
-#endif
-        buf->writeByte(' ');
-        buf->writestring(ident->toChars());
-    }
-    else
-        type->toCBuffer(buf, ident, hgs);
-    buf->writeByte(';');
-    buf->writenl();
-}
-
 /****************************** OverDeclaration **************************/
 
 OverDeclaration::OverDeclaration(Dsymbol *s, bool hasOverloads)
@@ -928,8 +743,6 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
     assert(type || init);
     this->type = type;
     this->init = init;
-    this->htype = NULL;
-    this->hinit = NULL;
     this->loc = loc;
     offset = 0;
     noscope = 0;
@@ -950,48 +763,19 @@ VarDeclaration::VarDeclaration(Loc loc, Type *type, Identifier *id, Initializer 
 Dsymbol *VarDeclaration::syntaxCopy(Dsymbol *s)
 {
     //printf("VarDeclaration::syntaxCopy(%s)\n", toChars());
-
-    VarDeclaration *sv;
-    if (s)
-    {   sv = (VarDeclaration *)s;
-    }
-    else
-    {
-        Initializer *init = NULL;
-        if (this->init)
-        {   init = this->init->syntaxCopy();
-            //init->isExpInitializer()->exp->print();
-        }
-
-        sv = new VarDeclaration(loc, type ? type->syntaxCopy() : NULL, ident, init);
-        sv->storage_class = storage_class;
-    }
-
-    // Syntax copy for header file
-    if (!htype)      // Don't overwrite original
-    {   if (type)    // Make copy for both old and new instances
-        {   htype = type->syntaxCopy();
-            sv->htype = type->syntaxCopy();
-        }
-    }
-    else            // Make copy of original for new instance
-        sv->htype = htype->syntaxCopy();
-    if (!hinit)
-    {   if (init)
-        {   hinit = init->syntaxCopy();
-            sv->hinit = init->syntaxCopy();
-        }
-    }
-    else
-        sv->hinit = hinit->syntaxCopy();
-
-    return sv;
+    assert(!s);
+    VarDeclaration *v = new VarDeclaration(loc,
+            type ? type->syntaxCopy() : NULL,
+            ident,
+            init ? init->syntaxCopy() : NULL);
+    v->storage_class = storage_class;
+    return v;
 }
 
 void VarDeclaration::semantic(Scope *sc)
 {
 #if 0
-    printf("VarDeclaration::semantic('%s', parent = '%s')\n", toChars(), sc->parent->toChars());
+    printf("VarDeclaration::semantic('%s', parent = '%s') sem = %d\n", toChars(), sc->parent ? sc->parent->toChars() : NULL, sem);
     printf(" type = %s\n", type ? type->toChars() : "null");
     printf(" stc = x%x\n", sc->stc);
     printf(" storage_class = x%llx\n", storage_class);
@@ -1057,9 +841,18 @@ void VarDeclaration::semantic(Scope *sc)
     {
         if (!originalType)
             originalType = type->syntaxCopy();
+
+        /* Prefix function attributes of variable declaration can affect
+         * its type:
+         *      pure nothrow void function() fp;
+         *      static assert(is(typeof(fp) == void function() pure nothrow));
+         */
+        Scope *sc2 = sc->push();
+        sc2->stc |= (storage_class & STC_FUNCATTR);
         inuse++;
-        type = type->semantic(loc, sc);
+        type = type->semantic(loc, sc2);
         inuse--;
+        sc2->pop();
     }
     //printf(" semantic type = %s\n", type ? type->toChars() : "null");
 
@@ -1338,22 +1131,18 @@ Lnomatch:
         AggregateDeclaration *aad = parent->isAggregateDeclaration();
         if (aad)
         {
-            if (storage_class & (STCconst | STCimmutable) && init && !init->isVoidInitializer())
+            if (global.params.vfield &&
+                storage_class & (STCconst | STCimmutable) && init && !init->isVoidInitializer())
             {
-                StorageClass stc = storage_class & (STCconst | STCimmutable);
-                deprecation(loc, "%s field with initializer should be static, __gshared, or an enum",
-                    StorageClassDeclaration::stcToChars(NULL, stc));
-                if (!tb->isTypeBasic())
-                    storage_class |= STCstatic;
+                const char *p = loc.toChars();
+                const char *s = (storage_class & STCimmutable) ? "immutable" : "const";
+                fprintf(global.stdmsg, "%s: %s.%s is %s field\n", p ? p : "", ad->toPrettyChars(), toChars(), s);
             }
-            else
+            storage_class |= STCfield;
+            if (tbn->ty == Tstruct && ((TypeStruct *)tbn)->sym->noDefaultCtor)
             {
-                storage_class |= STCfield;
-                if ((tbn->ty == Tstruct && ((TypeStruct *)tbn)->sym->noDefaultCtor))
-                {
-                    if (!isThisDeclaration() && !init)
-                        aad->noDefaultCtor = true;
-                }
+                if (!isThisDeclaration() && !init)
+                    aad->noDefaultCtor = true;
             }
         }
 
@@ -1509,20 +1298,6 @@ Lnomatch:
             init = new ExpInitializer(loc, e);
             goto Ldtor;
         }
-        else if (type->ty == Ttypedef)
-        {
-            TypeTypedef *td = (TypeTypedef *)type;
-            if (td->sym->init)
-            {
-                init = td->sym->init;
-                ExpInitializer *ie = init->isExpInitializer();
-                if (ie)
-                    // Make copy so we can modify it
-                    init = new ExpInitializer(ie->loc, ie->exp);
-            }
-            else
-                init = getExpInitializer();
-        }
         else if (type->baseElemOf()->ty == Tvoid)
         {
             error("%s does not have a default initializer", type->toChars());
@@ -1598,7 +1373,7 @@ Lnomatch:
                     {
                         // See if initializer is a NewExp that can be allocated on the stack
                         NewExp *ne = (NewExp *)ex;
-                        if (!(ne->newargs && ne->newargs->dim) && type->toBasetype()->ty == Tclass)
+                        if (!(ne->newargs && ne->newargs->dim > 1) && type->toBasetype()->ty == Tclass)
                         {
                             ne->onstack = 1;
                             onstack = 1;
@@ -1721,6 +1496,9 @@ Ldtor:
 
 void VarDeclaration::semantic2(Scope *sc)
 {
+    if (sem < SemanticDone && inuse)
+        return;
+
     //printf("VarDeclaration::semantic2('%s')\n", toChars());
         // Inside unions, default to void initializers
     if (!init && sc->inunion && !toParent()->isFuncDeclaration())
@@ -1818,11 +1596,13 @@ void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset,
     //printf("VarDeclaration::setFieldOffset(ad = %s) %s\n", ad->toChars(), toChars());
 
     if (aliassym)
-    {   // If this variable was really a tuple, set the offsets for the tuple fields
+    {
+        // If this variable was really a tuple, set the offsets for the tuple fields
         TupleDeclaration *v2 = aliassym->isTupleDeclaration();
         assert(v2);
         for (size_t i = 0; i < v2->objects->dim; i++)
-        {   RootObject *o = (*v2->objects)[i];
+        {
+            RootObject *o = (*v2->objects)[i];
             assert(o->dyncast() == DYNCAST_EXPRESSION);
             Expression *e = (Expression *)o;
             assert(e->op == TOKdsymbol);
@@ -1840,17 +1620,26 @@ void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset,
      * as members. That means ignore them if they are already a field.
      */
     if (offset)
-        return;         // already a field
+    {
+        // already a field
+        *poffset = ad->structsize;  // Bugzilla 13613
+        return;
+    }
     for (size_t i = 0; i < ad->fields.dim; i++)
     {
         if (ad->fields[i] == this)
-            return;     // already a field
+        {
+            // already a field
+            *poffset = ad->structsize;  // Bugzilla 13613
+            return;
+        }
     }
 
     // Check for forward referenced types which will fail the size() call
     Type *t = type->toBasetype();
     if (storage_class & STCref)
-    {   // References are the size of a pointer
+    {
+        // References are the size of a pointer
         t = Type::tvoidptr;
     }
     if (t->ty == Tstruct || t->ty == Tsarray)
@@ -1888,7 +1677,7 @@ void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset,
     offset = AggregateDeclaration::placeField(poffset, memsize, memalignsize, alignment,
                 &ad->structsize, &ad->alignsize, isunion);
 
-    //printf("\t%s: alignsize = %d\n", toChars(), alignsize);
+    //printf("\t%s: memalignsize = %d\n", toChars(), memalignsize);
 
     //printf(" addField '%s' to '%s' at offset %d, size = %d\n", toChars(), ad->toChars(), offset, memsize);
     ad->fields.push(this);
@@ -1907,29 +1696,6 @@ Dsymbol *VarDeclaration::toAlias()
     return s;
 }
 
-void VarDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    StorageClassDeclaration::stcToCBuffer(buf, storage_class);
-
-    /* If changing, be sure and fix CompoundDeclarationStatement::toCBuffer()
-     * too.
-     */
-    if (type)
-        type->toCBuffer(buf, ident, hgs);
-    else
-        buf->writestring(ident->toChars());
-    if (init)
-    {   buf->writestring(" = ");
-        ExpInitializer *ie = init->isExpInitializer();
-        if (ie && (ie->exp->op == TOKconstruct || ie->exp->op == TOKblit))
-            ((AssignExp *)ie->exp)->e2->toCBuffer(buf, hgs);
-        else
-            init->toCBuffer(buf, hgs);
-    }
-    buf->writeByte(';');
-    buf->writenl();
-}
-
 AggregateDeclaration *VarDeclaration::isThis()
 {
     AggregateDeclaration *ad = NULL;
@@ -1937,8 +1703,6 @@ AggregateDeclaration *VarDeclaration::isThis()
     if (!(storage_class & (STCstatic | STCextern | STCmanifest | STCtemplateparameter |
                            STCtls | STCgshared | STCctfe)))
     {
-        if ((storage_class & (STCconst | STCimmutable | STCwild)) && init)
-            return NULL;
         for (Dsymbol *s = this; s; s = s->parent)
         {
             ad = s->isMember();
@@ -1958,12 +1722,12 @@ bool VarDeclaration::needThis()
 
 bool VarDeclaration::isExport()
 {
-    return protection == PROTexport;
+    return protection.kind == PROTexport;
 }
 
 bool VarDeclaration::isImportedSymbol()
 {
-    if (protection == PROTexport && !init &&
+    if (protection.kind == PROTexport && !init &&
         (storage_class & STCstatic || parent->isModule()))
         return true;
     return false;
@@ -2026,7 +1790,7 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
                     if (FuncLiteralDeclaration *fld = s->isFuncLiteralDeclaration())
                     {
                         fld->tok = TOKdelegate;
-
+#if 0
                         /* This is necessary to avoid breaking tests for 8751 & 8793.
                          * See: compilable/testInference.d
                          */
@@ -2039,6 +1803,7 @@ void VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
                         {
                             fld->setImpure();   // Bugzilla 9415
                         }
+#endif
                     }
                 }
 
@@ -2330,7 +2095,7 @@ TypeInfoDeclaration::TypeInfoDeclaration(Type *tinfo, int internal)
 {
     this->tinfo = tinfo;
     storage_class = STCstatic | STCgshared;
-    protection = PROTpublic;
+    protection = Prot(PROTpublic);
     linkage = LINKc;
 }
 
@@ -2477,23 +2242,6 @@ TypeInfoInterfaceDeclaration::TypeInfoInterfaceDeclaration(Type *tinfo)
 TypeInfoInterfaceDeclaration *TypeInfoInterfaceDeclaration::create(Type *tinfo)
 {
     return new TypeInfoInterfaceDeclaration(tinfo);
-}
-
-/***************************** TypeInfoTypedefDeclaration *********************/
-
-TypeInfoTypedefDeclaration::TypeInfoTypedefDeclaration(Type *tinfo)
-    : TypeInfoDeclaration(tinfo, 0)
-{
-    if (!Type::typeinfotypedef)
-    {
-        ObjectNotFound(Id::TypeInfo_Typedef);
-    }
-    type = Type::typeinfotypedef->type;
-}
-
-TypeInfoTypedefDeclaration *TypeInfoTypedefDeclaration::create(Type *tinfo)
-{
-    return new TypeInfoTypedefDeclaration(tinfo);
 }
 
 /***************************** TypeInfoPointerDeclaration *********************/

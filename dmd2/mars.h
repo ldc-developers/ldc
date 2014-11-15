@@ -94,7 +94,6 @@ struct OutBuffer;
 
 // Can't include arraytypes.h here, need to declare these directly.
 template <typename TYPE> struct Array;
-typedef Array<class Identifier *> Identifiers;
 typedef Array<const char *> Strings;
 
 #if IN_LLVM
@@ -139,7 +138,12 @@ struct Param
     bool isFreeBSD;     // generate code for FreeBSD
     bool isOpenBSD;     // generate code for OpenBSD
     bool isSolaris;     // generate code for Solaris
+#if !IN_LLVM
+    bool mscoff;        // for Win32: write COFF object files instead of OMF
+    char useDeprecated; // 0: don't allow use of deprecated features
+#else
     ubyte useDeprecated; // 0: don't allow use of deprecated features
+#endif
                         // 1: silently allow use of deprecated features
                         // 2: warn about the use of deprecated features
     bool useAssert;     // generate runtime code for assert()'s
@@ -215,12 +219,10 @@ struct Param
 
 #if !IN_LLVM
     // Hidden debug switches
-    bool debuga;
     bool debugb;
     bool debugc;
     bool debugf;
     bool debugr;
-    bool debugw;
     bool debugx;
     bool debugy;
 #endif
@@ -274,8 +276,8 @@ typedef unsigned structalign_t;
 
 struct Global
 {
+    const char *inifilename;
     const char *mars_ext;
-    const char *sym_ext;
     const char *obj_ext;
 #if IN_LLVM
     const char *obj_ext_alt;
@@ -405,10 +407,6 @@ enum LINK
     LINKpascal,
 };
 
-// in hdrgen.c
-void linkageToBuffer(OutBuffer *buf, LINK linkage);
-const char *linkageToChars(LINK linkage);
-
 enum DYNCAST
 {
     DYNCAST_OBJECT,
@@ -428,40 +426,9 @@ enum MATCH
     MATCHexact          // exact match
 };
 
-typedef uint64_t StorageClass;
+typedef uinteger_t StorageClass;
 
-
-void warning(Loc loc, const char *format, ...);
-void deprecation(Loc loc, const char *format, ...);
-void error(Loc loc, const char *format, ...);
-void errorSupplemental(Loc loc, const char *format, ...);
-void verror(Loc loc, const char *format, va_list ap, const char *p1 = NULL, const char *p2 = NULL, const char *header = "Error: ");
-void vwarning(Loc loc, const char *format, va_list);
-void verrorSupplemental(Loc loc, const char *format, va_list ap);
-void verrorPrint(Loc loc, const char *header, const char *format, va_list ap, const char *p1 = NULL, const char *p2 = NULL);
-void vdeprecation(Loc loc, const char *format, va_list ap, const char *p1 = NULL, const char *p2 = NULL);
-
-#if defined(__GNUC__) || defined(__clang__)
-__attribute__((noreturn))
-void fatal();
-#elif _MSC_VER
-__declspec(noreturn)
-void fatal();
-#else
-void fatal();
-#endif
-
-void err_nomem();
-#if IN_LLVM
-void error(const char *format, ...)  IS_PRINTF(1);
-void warning(const char *format, ...)  IS_PRINTF(1);
-#else
-int runLINK();
-void deleteExeFile();
-int runProgram();
-const char *inifile(const char *argv0, const char *inifile, const char* envsectionname);
-#endif
-void halt();
+#include "errors.h"
 
 #if !IN_LLVM
 class Dsymbol;

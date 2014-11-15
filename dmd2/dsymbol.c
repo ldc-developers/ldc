@@ -528,11 +528,6 @@ bool Dsymbol::overloadInsert(Dsymbol *s)
     return false;
 }
 
-void Dsymbol::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    buf->writestring(toChars());
-}
-
 unsigned Dsymbol::size(Loc loc)
 {
     error("Dsymbol '%s' has no size", toChars());
@@ -786,15 +781,14 @@ Module *Dsymbol::getAccessModule()
 /*************************************
  */
 
-PROT Dsymbol::prot()
+Prot Dsymbol::prot()
 {
-    return PROTpublic;
+    return Prot(PROTpublic);
 }
 
 /*************************************
  * Do syntax copy of an array of Dsymbol's.
  */
-
 
 Dsymbols *Dsymbol::arraySyntaxCopy(Dsymbols *a)
 {
@@ -805,15 +799,11 @@ Dsymbols *Dsymbol::arraySyntaxCopy(Dsymbols *a)
         b = a->copy();
         for (size_t i = 0; i < b->dim; i++)
         {
-            Dsymbol *s = (*b)[i];
-
-            s = s->syntaxCopy(NULL);
-            (*b)[i] = s;
+            (*b)[i] = (*b)[i]->syntaxCopy(NULL);
         }
     }
     return b;
 }
-
 
 /****************************************
  * Add documentation comment to Dsymbol.
@@ -846,7 +836,7 @@ bool Dsymbol::inNonRoot()
         {
             if (ti->isTemplateMixin())
                 continue;
-            if (!ti->instantiatingModule || !ti->instantiatingModule->isRoot())
+            if (!ti->minst || !ti->minst->isRoot())
                 return true;
             return false;
         }
@@ -901,12 +891,7 @@ ScopeDsymbol::ScopeDsymbol(Identifier *id)
 Dsymbol *ScopeDsymbol::syntaxCopy(Dsymbol *s)
 {
     //printf("ScopeDsymbol::syntaxCopy('%s')\n", toChars());
-
-    ScopeDsymbol *sds;
-    if (s)
-        sds = (ScopeDsymbol *)s;
-    else
-        sds = new ScopeDsymbol(ident);
+    ScopeDsymbol *sds = s ? (ScopeDsymbol *)s : new ScopeDsymbol(ident);
     sds->members = arraySyntaxCopy(members);
     return sds;
 }
@@ -965,7 +950,7 @@ Dsymbol *ScopeDsymbol::search(Loc loc, Identifier *ident, int flags)
                      * the other.
                      */
                     if (s->isDeprecated() ||
-                        s2->prot() > s->prot() && s2->prot() != PROTnone)
+                        s->prot().isMoreRestrictiveThan(s2->prot()) && s2->prot().kind != PROTnone)
                         s = s2;
                 }
                 else
@@ -1021,7 +1006,7 @@ Dsymbol *ScopeDsymbol::search(Loc loc, Identifier *ident, int flags)
                 s = a;
             }
 
-            if (!(flags & IgnoreErrors) && s->prot() == PROTprivate && !s->parent->isTemplateMixin())
+            if (!(flags & IgnoreErrors) && s->prot().kind == PROTprivate && !s->parent->isTemplateMixin())
             {
                 if (!s->isImport())
                     error(loc, "%s %s is private", s->kind(), s->toPrettyChars());
@@ -1068,7 +1053,8 @@ OverloadSet *ScopeDsymbol::mergeOverloadSet(OverloadSet *os, Dsymbol *s)
             if (s->toAlias() == s2->toAlias())
             {
                 if (s2->isDeprecated() ||
-                    s->prot() > s2->prot() && s->prot() != PROTnone)
+                    (s2->prot().isMoreRestrictiveThan(s->prot()) &&
+                     s->prot().kind != PROTnone))
                 {
                     os->a[j] = s;
                 }
@@ -1082,7 +1068,7 @@ OverloadSet *ScopeDsymbol::mergeOverloadSet(OverloadSet *os, Dsymbol *s)
     return os;
 }
 
-void ScopeDsymbol::importScope(Dsymbol *s, PROT protection)
+void ScopeDsymbol::importScope(Dsymbol *s, Prot protection)
 {
     //printf("%s->ScopeDsymbol::importScope(%s, %d)\n", toChars(), s->toChars(), protection);
 
@@ -1098,15 +1084,15 @@ void ScopeDsymbol::importScope(Dsymbol *s, PROT protection)
                 Dsymbol *ss = (*imports)[i];
                 if (ss == s)                    // if already imported
                 {
-                    if (protection > prots[i])
-                        prots[i] = protection;  // upgrade access
+                    if (protection.kind > prots[i])
+                        prots[i] = protection.kind;  // upgrade access
                     return;
                 }
             }
         }
         imports->push(s);
-        prots = (PROT *)mem.realloc(prots, imports->dim * sizeof(prots[0]));
-        prots[imports->dim - 1] = protection;
+        prots = (PROTKIND *)mem.realloc(prots, imports->dim * sizeof(prots[0]));
+        prots[imports->dim - 1] = protection.kind;
     }
 }
 
@@ -1519,7 +1505,7 @@ Dsymbol *ArrayScopeSymbol::search(Loc loc, Identifier *ident, int flags)
                 if (t && t->ty == Tfunction)
                     e = new CallExp(e->loc, e);
                 v = new VarDeclaration(loc, NULL, Id::dollar, new ExpInitializer(Loc(), e));
-                v->storage_class |= STCtemp | STCctfe;
+                v->storage_class |= STCtemp | STCctfe | STCrvalue;
             }
             else
             {
@@ -1582,4 +1568,69 @@ Dsymbol *DsymbolTable::update(Dsymbol *s)
     Dsymbol **ps = (Dsymbol **)dmd_aaGet(&tab, (void *)ident);
     *ps = s;
     return s;
+}
+
+/****************************** Prot ******************************/
+
+Prot::Prot()
+{
+    this->kind = PROTundefined;
+    this->pkg = NULL;
+}
+
+Prot::Prot(PROTKIND kind)
+{
+    this->kind = kind;
+    this->pkg = NULL;
+}
+
+/**
+ * Checks if `this` is superset of `other` restrictions.
+ * For example, "protected" is more restrictive than "public".
+ */
+bool Prot::isMoreRestrictiveThan(Prot other)
+{
+    return this->kind < other.kind;
+}
+
+/**
+ * Checks if `this` is absolutely identical protection attribute to `other`
+ */
+bool Prot::operator==(Prot other)
+{
+    if (this->kind == other.kind)
+    {
+        if (this->kind == PROTpackage)
+            return this->pkg == other.pkg;
+        return true;
+    }
+    return false;
+}
+
+/**
+ * Checks if parent defines different access restrictions than this one.
+ *
+ * Params:
+ *  parent = protection attribute for scope that hosts this one
+ *
+ * Returns:
+ *  'true' if parent is already more restrictive than this one and thus
+ *  no differentiation is needed.
+ */
+bool Prot::isSubsetOf(Prot parent)
+{
+    if (this->kind != parent.kind)
+        return false;
+
+    if (this->kind == PROTpackage)
+    {
+        if (!this->pkg)
+            return true;
+        if (!parent.pkg)
+            return false;
+        if (parent.pkg->isAncestorPackageOf(this->pkg))
+            return true;
+    }
+
+    return true;
 }

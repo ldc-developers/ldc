@@ -17,7 +17,6 @@
 #include "staticassert.h"
 #include "expression.h"
 #include "id.h"
-#include "hdrgen.h"
 #include "scope.h"
 #include "template.h"
 #include "declaration.h"
@@ -35,11 +34,8 @@ StaticAssert::StaticAssert(Loc loc, Expression *exp, Expression *msg)
 
 Dsymbol *StaticAssert::syntaxCopy(Dsymbol *s)
 {
-    StaticAssert *sa;
-
     assert(!s);
-    sa = new StaticAssert(loc, exp->syntaxCopy(), msg ? msg->syntaxCopy() : NULL);
-    return sa;
+    return new StaticAssert(loc, exp->syntaxCopy(), msg ? msg->syntaxCopy() : NULL);
 }
 
 int StaticAssert::addMember(Scope *sc, ScopeDsymbol *sds, int memnum)
@@ -56,8 +52,9 @@ void StaticAssert::semantic2(Scope *sc)
     //printf("StaticAssert::semantic2() %s\n", toChars());
     ScopeDsymbol *sds = new ScopeDsymbol();
     sc = sc->push(sds);
-    sc->speculative = true;
-    sc->flags |= SCOPEstaticassert;
+    sc->tinst = NULL;
+    sc->minst = NULL;
+    sc->flags |= SCOPEcondition;
 
     sc = sc->startCTFE();
     Expression *e = exp->semantic(sc);
@@ -84,22 +81,19 @@ void StaticAssert::semantic2(Scope *sc)
     {
         if (msg)
         {
-            HdrGenState hgs;
-            OutBuffer buf;
-
             sc = sc->startCTFE();
             msg = msg->semantic(sc);
             msg = resolveProperties(sc, msg);
             sc = sc->endCTFE();
             msg = msg->ctfeInterpret();
-            hgs.console = 1;
-            StringExp * s = msg->toStringExp();
-            if (s)
-            {   s->postfix = 0; // Don't display a trailing 'c'
-                msg = s;
+            if (StringExp * se = msg->toStringExp())
+            {
+                // same with pragma(msg)
+                se = se->toUTF8(sc);
+                error("\"%.*s\"", (int)se->len, (char *)se->string);
             }
-            msg->toCBuffer(&buf, &hgs);
-            error("%s", buf.peekString());
+            else
+                error("%s", msg->toChars());
         }
         else
             error("(%s) is false", exp->toChars());
@@ -128,18 +122,4 @@ void StaticAssert::toObjFile(bool multiobj)
 const char *StaticAssert::kind()
 {
     return "static assert";
-}
-
-void StaticAssert::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    buf->writestring(kind());
-    buf->writeByte('(');
-    exp->toCBuffer(buf, hgs);
-    if (msg)
-    {
-        buf->writestring(", ");
-        msg->toCBuffer(buf, hgs);
-    }
-    buf->writestring(");");
-    buf->writenl();
 }

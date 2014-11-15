@@ -208,7 +208,6 @@ LLType* DtoType(Type* t)
     // enum
 
     // FIXME: maybe just call toBasetype first ?
-    case Ttypedef:
     case Tenum:
     {
         Type* bt = t->toBasetype();

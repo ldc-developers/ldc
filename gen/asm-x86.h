@@ -2970,7 +2970,7 @@ namespace AsmParserx8664
         }
         bool isDollar ( Expression * exp )
         {
-            return exp->op == TOKidentifier && ( ( IdentifierExp * ) exp )->ident == Id::__dollar;
+            return exp->op == TOKidentifier && ( ( IdentifierExp * ) exp )->ident == Id::dollar;
         }
 
         Expression * newRegExp ( int regno )
@@ -3491,7 +3491,7 @@ namespace AsmParserx8664
                     {
                         return new IdentifierExp ( stmt->loc, ident );
                     }
-                    else if ( ident == Id::__dollar )
+                    else if ( ident == Id::dollar )
                     {
                     do_dollar:
                         return new IdentifierExp ( stmt->loc, ident );
@@ -3608,7 +3608,7 @@ namespace AsmParserx8664
                 break;
                 case TOKdollar:
                     nextToken();
-                    ident = Id::__dollar;
+                    ident = Id::dollar;
                     goto do_dollar;
                     break;
                 default:

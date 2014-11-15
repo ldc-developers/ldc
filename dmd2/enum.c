@@ -38,7 +38,7 @@ EnumDeclaration::EnumDeclaration(Loc loc, Identifier *id, Type *memtype)
     sinit = NULL;
 #endif
     isdeprecated = false;
-    protection = PROTundefined;
+    protection = Prot(PROTundefined);
     parent = NULL;
     added = false;
     inuse = 0;
@@ -46,27 +46,10 @@ EnumDeclaration::EnumDeclaration(Loc loc, Identifier *id, Type *memtype)
 
 Dsymbol *EnumDeclaration::syntaxCopy(Dsymbol *s)
 {
-    Type *t = NULL;
-    if (memtype)
-        t = memtype->syntaxCopy();
-
-    EnumDeclaration *ed;
-    if (s)
-    {   ed = (EnumDeclaration *)s;
-        ed->memtype = t;
-    }
-    else
-        ed = new EnumDeclaration(loc, ident, t);
-    ScopeDsymbol::syntaxCopy(ed);
-    if (isAnonymous())
-    {
-        for (size_t i = 0; i < members->dim; i++)
-        {
-            EnumMember *em = (*members)[i]->isEnumMember();
-            em->ed = ed;
-        }
-    }
-    return ed;
+    assert(!s);
+    EnumDeclaration *ed = new EnumDeclaration(loc, ident,
+        memtype ? memtype->syntaxCopy() : NULL);
+    return ScopeDsymbol::syntaxCopy(ed);
 }
 
 void EnumDeclaration::setScope(Scope *sc)
@@ -445,42 +428,6 @@ bool EnumDeclaration::oneMember(Dsymbol **ps, Identifier *ident)
     return Dsymbol::oneMember(ps, ident);
 }
 
-void EnumDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    buf->writestring("enum ");
-    if (ident)
-    {   buf->writestring(ident->toChars());
-        buf->writeByte(' ');
-    }
-    if (memtype)
-    {
-        buf->writestring(": ");
-        memtype->toCBuffer(buf, NULL, hgs);
-    }
-    if (!members)
-    {
-        buf->writeByte(';');
-        buf->writenl();
-        return;
-    }
-    buf->writenl();
-    buf->writeByte('{');
-    buf->writenl();
-    buf->level++;
-    for (size_t i = 0; i < members->dim; i++)
-    {
-        EnumMember *em = (*members)[i]->isEnumMember();
-        if (!em)
-            continue;
-        em->toCBuffer(buf, hgs);
-        buf->writeByte(',');
-        buf->writenl();
-    }
-    buf->level--;
-    buf->writeByte('}');
-    buf->writenl();
-}
-
 Type *EnumDeclaration::getType()
 {
     return type;
@@ -496,7 +443,7 @@ bool EnumDeclaration::isDeprecated()
     return isdeprecated;
 }
 
-PROT EnumDeclaration::prot()
+Prot EnumDeclaration::prot()
 {
     return protection;
 }
@@ -534,41 +481,10 @@ EnumMember::EnumMember(Loc loc, Identifier *id, Expression *value, Type *type)
 
 Dsymbol *EnumMember::syntaxCopy(Dsymbol *s)
 {
-    Expression *e = NULL;
-    if (value)
-        e = value->syntaxCopy();
-
-    Type *t = NULL;
-    if (type)
-        t = type->syntaxCopy();
-
-    EnumMember *em;
-    if (s)
-    {   em = (EnumMember *)s;
-        em->loc = loc;
-        em->value = e;
-        em->type = t;
-        em->origValue = origValue ? origValue->syntaxCopy() : NULL;
-    }
-    else
-    {
-        em = new EnumMember(loc, ident, e, t);
-        em->origValue = origValue ? origValue->syntaxCopy() : NULL;
-    }
-    return em;
-}
-
-void EnumMember::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    if (type)
-        type->toCBuffer(buf, ident, hgs);
-    else
-        buf->writestring(ident->toChars());
-    if (value)
-    {
-        buf->writestring(" = ");
-        value->toCBuffer(buf, hgs);
-    }
+    assert(!s);
+    return new EnumMember(loc, ident,
+        value ? value->syntaxCopy() : NULL,
+        type ? type->syntaxCopy() : NULL);
 }
 
 const char *EnumMember::kind()
@@ -763,10 +679,11 @@ Expression *EnumMember::getVarExp(Loc loc, Scope *sc)
         vd->storage_class = STCmanifest;
         vd->semantic(sc);
 
-        vd->protection = ed->isAnonymous() ? ed->protection : PROTpublic;
+        vd->protection = ed->isAnonymous() ? ed->protection : Prot(PROTpublic);
         vd->parent = ed->isAnonymous() ? ed->parent : ed;
         vd->userAttribDecl = ed->isAnonymous() ? ed->userAttribDecl : NULL;
     }
+    accessCheck(loc, sc, NULL, vd);
     Expression *e = new VarExp(loc, vd);
     return e->semantic(sc);
 }

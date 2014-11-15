@@ -43,25 +43,27 @@
 #include "declaration.h"
 #include "hdrgen.h"
 #include "doc.h"
-#include "color.h"
 
 #if !IN_LLVM
 bool response_expand(size_t *pargc, const char ***pargv);
+
 void browse(const char *url);
 void getenv_setargv(const char *envvar, size_t *pargc, const char** *pargv);
-
-void obj_start(char *srcfile);
-void obj_end(Library *library, File *objfile);
 #endif
 
 void printCtfePerformanceStats();
 
-static bool parse_arch(size_t argc, const char** argv, bool is64bit);
+static const char* parse_arch(size_t argc, const char** argv, const char* arch);
 
 void inlineScan(Module *m);
 
 // in traits.c
 void initTraitsStringTable();
+
+int runLINK();
+void deleteExeFile();
+int runProgram();
+const char *inifile(const char *argv0, const char *inifile, const char* envsectionname);
 
 /** Normalize path by turning forward slashes into backslashes */
 const char * toWinPath(const char *src)
@@ -84,8 +86,8 @@ Global global;
 
 void Global::init()
 {
+    inifilename = NULL;
     mars_ext = "d";
-    sym_ext  = "d";
     hdr_ext  = "di";
     doc_ext  = "html";
     ddoc_ext = "ddoc";
@@ -204,133 +206,6 @@ bool Loc::equals(const Loc& loc)
         linnum == loc.linnum && FileName::equals(filename, loc.filename);
 }
 
-/**************************************
- * Print error message
- */
-
-void error(Loc loc, const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    verror(loc, format, ap);
-    va_end( ap );
-}
-
-void error(const char *filename, unsigned linnum, unsigned charnum, const char *format, ...)
-{   Loc loc;
-    loc.filename = (char *)filename;
-    loc.linnum = linnum;
-    loc.charnum = charnum;
-    va_list ap;
-    va_start(ap, format);
-    verror(loc, format, ap);
-    va_end( ap );
-}
-
-void warning(Loc loc, const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vwarning(loc, format, ap);
-    va_end( ap );
-}
-
-/**************************************
- * Print supplementary message about the last error
- * Used for backtraces, etc
- */
-void errorSupplemental(Loc loc, const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    verrorSupplemental(loc, format, ap);
-    va_end( ap );
-}
-
-void deprecation(Loc loc, const char *format, ...)
-{
-    va_list ap;
-    va_start(ap, format);
-    vdeprecation(loc, format, ap);
-
-    va_end( ap );
-}
-
-// Just print, doesn't care about gagging
-void verrorPrint(Loc loc, const char *header, const char *format, va_list ap,
-                const char *p1, const char *p2)
-{
-    char *p = loc.toChars();
-
-    if (global.params.color)
-        setConsoleColorBright();
-    if (*p)
-        fprintf(stderr, "%s: ", p);
-    mem.free(p);
-
-    if (global.params.color)
-        setConsoleColorError();
-    fputs(header, stderr);
-    if (global.params.color)
-        resetConsoleColor();
-    if (p1)
-        fprintf(stderr, "%s ", p1);
-    if (p2)
-        fprintf(stderr, "%s ", p2);
-    OutBuffer tmp;
-    tmp.vprintf(format, ap);
-    fprintf(stderr, "%s\n", tmp.peekString());
-    fflush(stderr);
-}
-
-// header is "Error: " by default (see mars.h)
-void verror(Loc loc, const char *format, va_list ap,
-                const char *p1, const char *p2, const char *header)
-{
-    if (!global.gag)
-    {
-        verrorPrint(loc, header, format, ap, p1, p2);
-        if (global.errors >= 20)        // moderate blizzard of cascading messages
-                fatal();
-//halt();
-    }
-    else
-    {
-        //fprintf(stderr, "(gag:%d) ", global.gag);
-        //verrorPrint(loc, header, format, ap, p1, p2);
-        global.gaggedErrors++;
-    }
-    global.errors++;
-}
-
-// Doesn't increase error count, doesn't print "Error:".
-void verrorSupplemental(Loc loc, const char *format, va_list ap)
-{
-    if (!global.gag)
-        verrorPrint(loc, "       ", format, ap);
-}
-
-void vwarning(Loc loc, const char *format, va_list ap)
-{
-    if (global.params.warnings && !global.gag)
-    {
-        verrorPrint(loc, "Warning: ", format, ap);
-//halt();
-        if (global.params.warnings == 1)
-            global.warnings++;  // warnings don't count if gagged
-    }
-}
-
-void vdeprecation(Loc loc, const char *format, va_list ap,
-                const char *p1, const char *p2)
-{
-    static const char *header = "Deprecation: ";
-    if (global.params.useDeprecated == 0)
-        verror(loc, format, ap, p1, p2, header);
-    else if (global.params.useDeprecated == 2 && !global.gag)
-        verrorPrint(loc, header, format, ap, p1, p2);
-}
-
 void readFile(Loc loc, File *f)
 {
     if (f->read())
@@ -363,29 +238,14 @@ void ensurePathToNameExists(Loc loc, const char *name)
     FileName::free(pt);
 }
 
+extern void backend_init();
+extern void backend_term();
 
-/***************************************
- * Call this after printing out fatal error messages to clean up and exit
- * the compiler.
- */
-
-void fatal()
+static void logo()
 {
-#if 0
-    halt();
-#endif
-    exit(EXIT_FAILURE);
-}
-
-/**************************************
- * Try to stop forgetting to remove the breakpoints from
- * release builds.
- */
-void halt()
-{
-#ifdef DEBUG
-    *(volatile char*)0=0;
-#endif
+    printf("DMD%llu D Compiler %s\n%s %s\n",
+           (unsigned long long) sizeof(size_t) * 8,
+        global.version, global.copyright, global.written);
 }
 
 #if !IN_LLVM
@@ -393,7 +253,7 @@ void halt()
 extern void backend_init();
 extern void backend_term();
 
-void usage()
+static void usage()
 {
 #if TARGET_LINUX
     const char fpic[] ="\
@@ -402,11 +262,10 @@ void usage()
 #else
     const char fpic[] = "";
 #endif
-    printf("DMD%llu D Compiler %s\n%s %s\n",
-           (unsigned long long) sizeof(size_t) * 8,
-        global.version, global.copyright, global.written);
+    logo();
     printf("\
 Documentation: http://dlang.org/\n\
+Config file: %s\n\
 Usage:\n\
   dmd files.d ... { -switch }\n\
 \n\
@@ -437,7 +296,7 @@ Usage:\n\
   -H             generate 'header' file\n\
   -Hddirectory   write 'header' file to directory\n\
   -Hffilename    write 'header' file to filename\n\
-  --help         print help\n\
+  --help         print help and exit\n\
   -Ipath         where to look for imports\n\
   -ignore        ignore unsupported pragmas\n\
   -inline        do function inlining\n\
@@ -466,6 +325,7 @@ Usage:\n\
   -unittest      compile in unit tests\n\
   -v             verbose\n\
   -vcolumns      print character (column) numbers in diagnostics\n\
+  --version      print compiler version and exit\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n\
   -vtls          list all variables going into thread local storage\n\
@@ -474,7 +334,7 @@ Usage:\n\
   -wi            warnings as messages (compilation will continue)\n\
   -X             generate JSON file\n\
   -Xffilename    write JSON file to filename\n\
-", fpic);
+", FileName::canonicalName(global.inifilename), fpic);
 }
 
 extern signed char tyalignsize[];
@@ -513,6 +373,7 @@ void genCmain(Scope *sc)
     p.nextToken();
     m->members = p.parseModule();
     assert(p.token.value == TOKeof);
+    assert(!p.errors);                  // shouldn't have failed to parse it
 
     bool v = global.params.verbose;
     global.params.verbose = false;
@@ -538,7 +399,6 @@ int tryMain(size_t argc, const char *argv[])
 #if TARGET_WINDOS
     bool setdefaultlib = false;
 #endif
-    const char *inifilename = NULL;
     global.init();
 
 #ifdef DEBUG
@@ -589,6 +449,7 @@ int tryMain(size_t argc, const char *argv[])
     global.params.is64bit = (sizeof(size_t) == 8);
 
 #if TARGET_WINDOS
+    global.params.mscoff = false;
     global.params.is64bit = false;
     global.params.defaultlibname = "phobos";
 #elif TARGET_LINUX
@@ -608,10 +469,12 @@ int tryMain(size_t argc, const char *argv[])
 #elif TARGET_LINUX
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("linux");
+    VersionCondition::addPredefinedGlobalIdent("ELFv1");
     global.params.isLinux = true;
 #elif TARGET_OSX
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("OSX");
+    VersionCondition::addPredefinedGlobalIdent("ELFv1");
     global.params.isOSX = true;
 
     // For legacy compatibility
@@ -619,14 +482,17 @@ int tryMain(size_t argc, const char *argv[])
 #elif TARGET_FREEBSD
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("FreeBSD");
+    VersionCondition::addPredefinedGlobalIdent("ELFv1");
     global.params.isFreeBSD = true;
 #elif TARGET_OPENBSD
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("OpenBSD");
+    VersionCondition::addPredefinedGlobalIdent("ELFv1");
     global.params.isFreeBSD = true;
 #elif TARGET_SOLARIS
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("Solaris");
+    VersionCondition::addPredefinedGlobalIdent("ELFv1");
     global.params.isSolaris = true;
 #else
 #error "fix this"
@@ -637,9 +503,9 @@ int tryMain(size_t argc, const char *argv[])
     VersionCondition::addPredefinedGlobalIdent("all");
 
 #if _WIN32
-    inifilename = inifile(argv[0], "sc.ini", "Environment");
+    global.inifilename = inifile(argv[0], "sc.ini", "Environment");
 #elif __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
-    inifilename = inifile(argv[0], "dmd.conf", "Environment");
+    global.inifilename = inifile(argv[0], "dmd.conf", "Environment");
 #else
 #error "fix this"
 #endif
@@ -648,13 +514,14 @@ int tryMain(size_t argc, const char *argv[])
     const char** dflags_argv = NULL;
     getenv_setargv("DFLAGS", &dflags_argc, &dflags_argv);
 
-    bool is64bit = global.params.is64bit; // use default
-    is64bit = parse_arch(argc, argv, is64bit);
-    is64bit = parse_arch(dflags_argc, dflags_argv, is64bit);
-    global.params.is64bit = is64bit;
+    const char *arch = global.params.is64bit ? "64" : "32"; // use default
+    arch = parse_arch(argc, argv, arch);
+    arch = parse_arch(dflags_argc, dflags_argv, arch);
+    bool is64bit = arch[0] == '6';
 
-    const char *envsec = is64bit ? "Environment64" : "Environment32";
-    inifile(argv[0], inifilename, envsec);
+    char envsection[80];
+    sprintf(envsection, "Environment%s", arch);
+    inifile(argv[0], global.inifilename, envsection);
 
     getenv_setargv("DFLAGS", &argc, &argv);
 
@@ -755,9 +622,24 @@ int tryMain(size_t argc, const char *argv[])
                 global.params.trace = true;
             }
             else if (strcmp(p + 1, "m32") == 0)
+            {
                 global.params.is64bit = false;
+                global.params.mscoff = false;
+            }
             else if (strcmp(p + 1, "m64") == 0)
+            {
                 global.params.is64bit = true;
+                global.params.mscoff = true;
+            }
+            else if (strcmp(p + 1, "m32mscoff") == 0)
+            {
+            #if TARGET_WINDOS
+                global.params.is64bit = 0;
+                global.params.mscoff = true;
+            #else
+                error(Loc(), "-m32mscoff can only be used on windows");
+            #endif
+            }
             else if (strcmp(p + 1, "profile") == 0)
                 global.params.trace = true;
             else if (strcmp(p + 1, "v") == 0)
@@ -778,7 +660,8 @@ int tryMain(size_t argc, const char *argv[])
                     {
                         printf("\
 Language changes listed by -transition=id:\n\
-  =tls           do list all variables going into thread local storage\n\
+  =field,3449    list all non-mutable fields which occupy an object instance\n\
+  =tls           list all variables going into thread local storage\n\
 ");
                         return EXIT_FAILURE;
                     }
@@ -803,6 +686,8 @@ Language changes listed by -transition=id:\n\
                     {
                         if (strcmp(p + 12, "tls") == 0)
                             global.params.vtls = 1;
+                        if (strcmp(p + 12, "field") == 0)
+                            global.params.vfield = 1;
                     }
                     else
                         goto Lerror;
@@ -1051,6 +936,10 @@ Language changes listed by -transition=id:\n\
             }
             else if (strcmp(p + 1, "-r") == 0)
                 global.params.debugr = true;
+            else if (strcmp(p + 1, "-version") == 0)
+            {   logo();
+                exit(EXIT_SUCCESS);
+            }
             else if (strcmp(p + 1, "-x") == 0)
                 global.params.debugx = true;
             else if (strcmp(p + 1, "-y") == 0)
@@ -1166,7 +1055,7 @@ Language changes listed by -transition=id:\n\
 
     if(global.params.is64bit != is64bit)
         error(Loc(), "the architecture must not be changed in the %s section of %s",
-              envsec, inifilename);
+              envsection, global.inifilename);
 
     // Target uses 64bit pointers.
     global.params.isLP64 = global.params.is64bit;
@@ -1277,8 +1166,22 @@ Language changes listed by -transition=id:\n\
 #endif
 #if TARGET_WINDOS
         VersionCondition::addPredefinedGlobalIdent("Win32");
+        if (!setdefaultlib && global.params.mscoff)
+        {
+            global.params.defaultlibname = "phobos32mscoff";
+            if (!setdebuglib)
+                global.params.debuglibname = global.params.defaultlibname;
+        }
 #endif
     }
+#if TARGET_WINDOS
+    if (global.params.mscoff)
+        VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
+    else
+        VersionCondition::addPredefinedGlobalIdent("CRuntime_DigitalMars");
+#else
+    VersionCondition::addPredefinedGlobalIdent("CRuntime_GNU");
+#endif
     if (global.params.isLP64)
         VersionCondition::addPredefinedGlobalIdent("D_LP64");
     if (global.params.doDocComments)
@@ -1309,7 +1212,8 @@ Language changes listed by -transition=id:\n\
     if (global.params.verbose)
     {   fprintf(global.stdmsg, "binary    %s\n", argv[0]);
         fprintf(global.stdmsg, "version   %s\n", global.version);
-        fprintf(global.stdmsg, "config    %s\n", inifilename ? inifilename : "(none)");
+        fprintf(global.stdmsg, "config    %s\n", global.inifilename ? global.inifilename
+                                                                    : "(none)");
     }
 
     //printf("%d source files\n",files.dim);
@@ -2005,21 +1909,19 @@ void escapePath(OutBuffer *buf, const char *fname)
  * to detect the desired architecture.
  */
 
-static bool parse_arch(size_t argc, const char** argv, bool is64bit)
+static const char* parse_arch(size_t argc, const char** argv, const char* arch)
 {
     for (size_t i = 0; i < argc; ++i)
     {   const char* p = argv[i];
         if (p[0] == '-')
         {
-            if (strcmp(p + 1, "m32") == 0)
-                is64bit = false;
-            else if (strcmp(p + 1, "m64") == 0)
-                is64bit = true;
+            if (strcmp(p + 1, "m32") == 0 || strcmp(p + 1, "m32mscoff") == 0 || strcmp(p + 1, "m64") == 0)
+                arch = p + 2;
             else if (strcmp(p + 1, "run") == 0)
                 break;
         }
     }
-    return is64bit;
+    return arch;
 }
 
 Dsymbols *Dsymbols_create() { return new Dsymbols(); }

@@ -127,8 +127,14 @@ Strings *FileName::splitPath(const char *path)
 
 #if POSIX
                     case '~':
-                        buf.writestring(getenv("HOME"));
+                    {
+                        char *home = getenv("HOME");
+                        if (home)
+                            buf.writestring(home);
+                        else
+                            buf.writestring("~");
                         continue;
+                    }
 #endif
 
 #if 0
@@ -600,7 +606,7 @@ int FileName::ensurePathExists(const char *path)
                 int r = _mkdir(path);
 #endif
 #if POSIX
-                int r = mkdir(path, 0777);
+                int r = mkdir(path, (7 << 6) | (7 << 3) | 7);
 #endif
                 if (r)
                 {

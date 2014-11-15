@@ -569,13 +569,6 @@ static bool isInitialized(Type* et) {
         et = bt->nextOf();
         bt = et->toBasetype();
     }
-    // If it's a typedef with "= void" initializer then don't initialize.
-    if (et->ty == Ttypedef) {
-        IF_LOG Logger::println("Typedef: %s", et->toChars());
-        TypedefDeclaration* tdd = static_cast<TypeTypedef*>(et)->sym;
-        if (tdd && tdd->init && tdd->init->isVoidInitializer())
-            return false;
-    }
     // Otherwise, it's always initialized.
     return true;
 }

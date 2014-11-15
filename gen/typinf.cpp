@@ -182,11 +182,6 @@ TypeInfoDeclaration *Type::getTypeInfoDeclaration()
     return new TypeInfoDeclaration(this, 0);
 }
 
-TypeInfoDeclaration *TypeTypedef::getTypeInfoDeclaration()
-{
-    return new TypeInfoTypedefDeclaration(this);
-}
-
 TypeInfoDeclaration *TypePointer::getTypeInfoDeclaration()
 {
     return new TypeInfoPointerDeclaration(this);
@@ -344,44 +339,6 @@ public:
         LOG_SCOPE;
 
         RTTIBuilder b(Type::dtypeinfo);
-        b.finalize(getIrGlobal(decl));
-    }
-
-    /* ========================================================================= */
-
-    void visit(TypeInfoTypedefDeclaration *decl)
-    {
-        IF_LOG Logger::println("TypeInfoTypedefDeclaration::llvmDefine() %s", decl->toChars());
-        LOG_SCOPE;
-
-        RTTIBuilder b(Type::typeinfotypedef);
-
-        assert(decl->tinfo->ty == Ttypedef);
-        TypeTypedef *tc = static_cast<TypeTypedef *>(decl->tinfo);
-        TypedefDeclaration *sd = tc->sym;
-
-        // TypeInfo base
-        sd->basetype = sd->basetype->merge(); // dmd does it ... why?
-        b.push_typeinfo(sd->basetype);
-
-        // char[] name
-        b.push_string(sd->toPrettyChars());
-
-        // void[] init
-        // emit null array if we should use the basetype, or if the basetype
-        // uses default initialization.
-        if (decl->tinfo->isZeroInit(Loc()) || !sd->init)
-        {
-            b.push_null_void_array();
-        }
-        // otherwise emit a void[] with the default initializer
-        else
-        {
-            LLConstant* C = DtoConstInitializer(sd->loc, sd->basetype, sd->init);
-            b.push_void_array(C, sd->basetype, sd);
-        }
-
-        // finish
         b.finalize(getIrGlobal(decl));
     }
 

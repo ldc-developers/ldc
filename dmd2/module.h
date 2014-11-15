@@ -26,23 +26,14 @@ struct Escape;
 class VarDeclaration;
 class Library;
 
-// Back end
 #if IN_LLVM
 class DValue;
-typedef DValue elem;
 namespace llvm {
     class LLVMContext;
     class Module;
     class GlobalVariable;
     class StructType;
 }
-#else
-
-#ifdef IN_GCC
-typedef union tree_node elem;
-#else
-struct elem;
-#endif
 #endif
 
 enum PKG
@@ -64,6 +55,8 @@ public:
     static DsymbolTable *resolve(Identifiers *packages, Dsymbol **pparent, Package **ppkg);
 
     Package *isPackage() { return this; }
+
+    bool isAncestorPackageOf(Package *pkg);
 
     void semantic(Scope *sc) { }
     Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
@@ -91,7 +84,6 @@ public:
     File *srcfile;      // input source file
     File *objfile;      // output .obj file
     File *hdrfile;      // 'header' file
-    File *symfile;      // output symbol file
     File *docfile;      // output documentation file
     unsigned errors;    // if any errors in file
     unsigned numlines;  // number of lines in source file
@@ -100,7 +92,10 @@ public:
     int needmoduleinfo;
 
     int selfimports;            // 0: don't know, 1: does not, 2: does
-    int selfImports();          // returns !=0 if module imports itself
+    bool selfImports();         // returns true if module imports itself
+
+    int rootimports;            // 0: don't know, 1: does not, 2: does
+    bool rootImports();         // returns true if module imports root module
 
     int insearch;
     Identifier *searchCacheIdent;
@@ -156,9 +151,6 @@ public:
     void semantic3();   // pass 3 semantic analysis
     void genobjfile(bool multiobj);
     void genhelpers(bool iscomdat);
-#if IN_DMD
-    void gensymfile();
-#endif
     int needModuleInfo();
     Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
     Dsymbol *symtabInsert(Dsymbol *s);

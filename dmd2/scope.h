@@ -30,7 +30,10 @@ class AggregateDeclaration;
 class FuncDeclaration;
 class UserAttributeDeclaration;
 struct DocComment;
+struct AA;
 class TemplateInstance;
+
+#include "dsymbol.h"
 
 #if IN_LLVM
 struct EnclosingHandler;
@@ -38,12 +41,10 @@ class AnonDeclaration;
 #endif
 
 #if __GNUC__
-// Requires a full definition for PROT and LINK
-#include "dsymbol.h"
+// Requires a full definition for LINK
 #include "mars.h"
 #else
 enum LINK;
-enum PROT;
 #endif
 
 #define CSXthis_ctor    1       // called this()
@@ -54,20 +55,22 @@ enum PROT;
 #define CSXreturn       0x20    // seen a return statement
 #define CSXany_ctor     0x40    // either this() or super() was called
 
+// Flags that would not be inherited beyond scope nesting
 #define SCOPEctor           0x0001  // constructor type
-#define SCOPEstaticif       0x0002  // inside static if
-#define SCOPEfree           0x0004  // is on free list
-#define SCOPEstaticassert   0x0008  // inside static assert
-#define SCOPEdebug          0x0010  // inside debug conditional
+#define SCOPEnoaccesscheck  0x0002  // don't do access checks
+#define SCOPEcondition      0x0004  // inside static if/assert condition
+#define SCOPEdebug          0x0008  // inside debug conditional
 
+// Flags that would be inherited beyond scope nesting
+#define SCOPEconstraint     0x0010  // inside template constraint
 #define SCOPEinvariant      0x0020  // inside invariant code
 #define SCOPErequire        0x0040  // inside in contract code
 #define SCOPEensure         0x0060  // inside out contract code
 #define SCOPEcontract       0x0060  // [mask] we're inside contract code
-
 #define SCOPEctfe           0x0080  // inside a ctfe-only expression
-#define SCOPEnoaccesscheck  0x0100  // don't do access checks
-#define SCOPEcompile        0x0200  // inside __traits(compile)
+#define SCOPEcompile        0x0100  // inside __traits(compile)
+
+#define SCOPEfree           0x8000  // is on free list
 
 struct Scope
 {
@@ -83,7 +86,6 @@ struct Scope
     SwitchStatement *sw;        // enclosing switch statement
     TryFinallyStatement *tf;    // enclosing try finally statement
     OnScopeStatement *os;       // enclosing scope(xxx) statement
-    TemplateInstance *tinst;    // enclosing template instance
     Statement *sbreak;          // enclosing statement that supports "break"
     Statement *scontinue;       // enclosing statement that supports "continue"
     ForeachStatement *fes;      // if nested function for ForeachStatement, this is it
@@ -92,8 +94,15 @@ struct Scope
     int nofree;                 // set if shouldn't free it
     int noctor;                 // set if constructor calls aren't allowed
     int intypeof;               // in typeof(exp)
-    bool speculative;           // in __traits(compiles) and so on
     VarDeclaration *lastVar;    // Previous symbol used to prevent goto-skips-init
+
+    /* If  minst && !tinst, it's in definitely non-speculative scope (eg. module member scope).
+     * If !minst && !tinst, it's in definitely speculative scope (eg. template constraint).
+     * If  minst &&  tinst, it's in instantiated code scope without speculation.
+     * If !minst &&  tinst, it's in instantiated code scope with speculation.
+     */
+    Module *minst;              // root module where the instantiated templates should belong to
+    TemplateInstance *tinst;    // enclosing template instance
 
     unsigned callSuper;         // primitive flow analysis for constructors
     unsigned *fieldinit;
@@ -102,7 +111,7 @@ struct Scope
     structalign_t structalign;       // alignment for struct members
     LINK linkage;          // linkage for external functions
 
-    PROT protection;       // protection for class members
+    Prot protection;       // protection for class members
     int explicitProtection;     // set if in an explicit protection attribute
 
     StorageClass stc;           // storage class
@@ -116,6 +125,8 @@ struct Scope
     size_t lastoffset;          // offset in docbuf of where to insert next dec (for ditto)
     size_t lastoffset2;         // offset in docbuf of where to insert next dec (for unittest)
     OutBuffer *docbuf;          // buffer for documentation output
+    AA *anchorCounts;           // lookup duplicate anchor name count
+    Identifier *prevAnchor;     // qualified symbol name of last doc anchor
 
     static Scope *freelist;
     static Scope *alloc();

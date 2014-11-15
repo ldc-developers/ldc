@@ -295,24 +295,6 @@ public:
 
     //////////////////////////////////////////////////////////////////////////
 
-    void visit(TypedefDeclaration *decl) LLVM_OVERRIDE {
-        IF_LOG Logger::println("TypedefDeclaration::codegen: '%s'", decl->toPrettyChars());
-        LOG_SCOPE;
-
-        if (decl->ir.isDefined()) return;
-        decl->ir.setDefined();
-
-        if (decl->type->ty == Terror)
-        {   error(decl->loc, "had semantic errors when compiling");
-            return;
-        }
-
-        // generate typeinfo
-        DtoTypeInfoOf(decl->type, false);
-    }
-
-    //////////////////////////////////////////////////////////////////////////
-
     void visit(EnumDeclaration *decl) LLVM_OVERRIDE {
         IF_LOG Logger::println("Ignoring EnumDeclaration::codegen: '%s'", decl->toPrettyChars());
 

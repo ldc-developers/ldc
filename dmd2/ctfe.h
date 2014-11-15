@@ -96,6 +96,24 @@ public:
     void accept(Visitor *v) { v->visit(this); }
 };
 
+/****************************************************************/
+
+// This type is only used by the interpreter.
+
+class CTFEExp : public Expression
+{
+public:
+    CTFEExp(TOK tok);
+
+    // Handy instances to share
+    static CTFEExp* voidexp;
+    static CTFEExp* breakexp;
+    static CTFEExp* continueexp;
+    static CTFEExp* gotoexp;
+};
+
+/****************************************************************/
+
 
 /// True if 'e' is EXP_CANT_INTERPRET, or an exception
 bool exceptionOrCantInterpret(Expression *e);

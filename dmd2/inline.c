@@ -355,7 +355,6 @@ public:
         if (e->declaration->isStructDeclaration() ||
             e->declaration->isClassDeclaration() ||
             e->declaration->isFuncDeclaration() ||
-            e->declaration->isTypedefDeclaration() ||
             e->declaration->isAttribDeclaration() ||
             e->declaration->isTemplateMixin())
         {
@@ -1364,7 +1363,7 @@ public:
         if (e->op == TOKconstruct && e->e2->op == TOKcall)
         {
             CallExp *ce = (CallExp *)e->e2;
-            if (ce->f && ce->f->nrvo_var)   // NRVO
+            if (ce->f && ce->f->nrvo_can && ce->f->nrvo_var)   // NRVO
             {
                 if (e->e1->op == TOKvar)
                 {
@@ -1783,7 +1782,7 @@ static Expression *expandInline(FuncDeclaration *fd, FuncDeclaration *parent,
     TypeFunction *tf = (TypeFunction*)fd->type;
 
 #if LOG || CANINLINE_LOG
-    printf("FuncDeclaration::expandInline('%s')\n", toChars());
+    printf("FuncDeclaration::expandInline('%s')\n", fd->toChars());
 #endif
 
     memset(&ids, 0, sizeof(ids));

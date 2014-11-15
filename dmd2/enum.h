@@ -22,7 +22,6 @@
 class Identifier;
 class Type;
 class Expression;
-struct HdrGenState;
 class VarDeclaration;
 
 class EnumDeclaration : public ScopeDsymbol
@@ -38,7 +37,7 @@ public:
      */
     Type *type;                 // the TypeEnum
     Type *memtype;              // type of the members
-    PROT protection;
+    Prot protection;
 
 private:
     Expression *maxval;
@@ -56,12 +55,11 @@ public:
     void setScope(Scope *sc);
     void semantic(Scope *sc);
     bool oneMember(Dsymbol **ps, Identifier *ident);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     Type *getType();
     const char *kind();
     Dsymbol *search(Loc, Identifier *ident, int flags = IgnoreNone);
     bool isDeprecated();                // is Dsymbol deprecated?
-    PROT prot();
+    Prot prot();
     Expression *getMaxMinValue(Loc loc, Identifier *id);
     Expression *getDefaultValue(Loc loc);
     Type *getMemtype(Loc loc);
@@ -98,7 +96,6 @@ public:
 
     EnumMember(Loc loc, Identifier *id, Expression *value, Type *type);
     Dsymbol *syntaxCopy(Dsymbol *s);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
     void semantic(Scope *sc);
     Expression *getVarExp(Loc loc, Scope *sc);

@@ -1335,7 +1335,7 @@ public:
             // Also, private methods are always not virtual.
             const bool nonFinal = !fdecl->isFinalFunc() &&
                 (fdecl->isAbstract() || fdecl->isVirtual()) &&
-                fdecl->prot() != PROTprivate;
+                fdecl->prot().kind != PROTprivate;
 
             // If we are calling a non-final interface function, we need to get
             // the pointer to the underlying object instead of passing the

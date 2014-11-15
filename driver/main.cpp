@@ -8,7 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "module.h"
-#include "color.h"
+#include "errors.h"
 #include "doc.h"
 #include "id.h"
 #include "hdrgen.h"

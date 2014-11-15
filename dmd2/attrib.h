@@ -24,7 +24,6 @@ class LabelDsymbol;
 class Initializer;
 class Module;
 class Condition;
-struct HdrGenState;
 
 /**************************************************************/
 
@@ -37,7 +36,7 @@ public:
     virtual Dsymbols *include(Scope *sc, ScopeDsymbol *sds);
     int apply(Dsymbol_apply_ft_t fp, void *param);
     static Scope *createNewScope(Scope *sc,
-        StorageClass newstc, LINK linkage, PROT protection, int explictProtection,
+        StorageClass newstc, LINK linkage, Prot protection, int explictProtection,
         structalign_t structalign);
     virtual Scope *newScope(Scope *sc);
     int addMember(Scope *sc, ScopeDsymbol *sds, int memnum);
@@ -54,7 +53,6 @@ public:
     bool hasStaticCtorOrDtor();
     void checkCtorConstInit();
     void addLocalClass(ClassDeclarations *);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     AttribDeclaration *isAttribDeclaration() { return this; }
 
 #if IN_DMD
@@ -73,7 +71,6 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
     bool oneMember(Dsymbol **ps, Identifier *ident);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     static const char *stcToChars(char tmp[], StorageClass& stc);
     static void stcToCBuffer(OutBuffer *buf, StorageClass stc);
@@ -88,7 +85,6 @@ public:
     DeprecatedDeclaration(Expression *msg, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     void setScope(Scope *sc);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -100,7 +96,6 @@ public:
     LinkDeclaration(LINK p, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     char *toChars();
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -108,12 +103,17 @@ public:
 class ProtDeclaration : public AttribDeclaration
 {
 public:
-    PROT protection;
+    Prot protection;
+    Identifiers* pkg_identifiers;
 
-    ProtDeclaration(PROT p, Dsymbols *decl);
+    ProtDeclaration(Loc loc, Prot p, Dsymbols *decl);
+    ProtDeclaration(Loc loc, Identifiers* pkg_identifiers, Dsymbols *decl);
+
     Dsymbol *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
+    int addMember(Scope *sc, ScopeDsymbol *sds, int memnum);
+    const char *kind();
+    const char *toPrettyChars(bool unused);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -125,7 +125,6 @@ public:
     AlignDeclaration(unsigned sa, Dsymbols *decl);
     Dsymbol *syntaxCopy(Dsymbol *s);
     Scope *newScope(Scope *sc);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -140,7 +139,6 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -154,7 +152,6 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *s);
     void semantic(Scope *sc);
     void setScope(Scope *sc);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
     
 #if IN_DMD
@@ -175,7 +172,6 @@ public:
     bool oneMember(Dsymbol **ps, Identifier *ident);
     Dsymbols *include(Scope *sc, ScopeDsymbol *sds);
     void addComment(const utf8_t *comment);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     void setScope(Scope *sc);
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -213,14 +209,13 @@ public:
     void setScope(Scope *sc);
     void compileIt(Scope *sc);
     void semantic(Scope *sc);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
     void accept(Visitor *v) { v->visit(this); }
 };
 
 /**
  * User defined attributes look like:
- *      [ args, ... ]
+ *      @(args, ...)
  */
 class UserAttributeDeclaration : public AttribDeclaration
 {
@@ -235,7 +230,6 @@ public:
     void setScope(Scope *sc);
     static Expressions *concat(Expressions *udas1, Expressions *udas2);
     Expressions *getAttributes();
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     const char *kind();
     void accept(Visitor *v) { v->visit(this); }
 };

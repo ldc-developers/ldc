@@ -136,14 +136,6 @@ int DebugCondition::include(Scope *sc, ScopeDsymbol *sds)
     return (inc == 1);
 }
 
-void DebugCondition::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    if (ident)
-        buf->printf("debug (%s)", ident->toChars());
-    else
-        buf->printf("debug (%u)", level);
-}
-
 /* ============================================================ */
 
 void VersionCondition::setGlobalLevel(unsigned level)
@@ -221,6 +213,8 @@ bool VersionCondition::isPredefined(const char *ident)
         "Alpha_HardFloat",
         "LittleEndian",
         "BigEndian",
+        "ELFv1",
+        "ELFv2",
         "D_Coverage",
         "D_Ddoc",
         "D_InlineAsm_X86",
@@ -306,15 +300,6 @@ int VersionCondition::include(Scope *sc, ScopeDsymbol *sds)
     return (inc == 1);
 }
 
-void VersionCondition::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    if (ident)
-        buf->printf("version (%s)", ident->toChars());
-    else
-        buf->printf("version (%u)", level);
-}
-
-
 /**************************** StaticIfCondition *******************************/
 
 StaticIfCondition::StaticIfCondition(Loc loc, Expression *exp)
@@ -358,7 +343,7 @@ int StaticIfCondition::include(Scope *sc, ScopeDsymbol *sds)
         sc = sc->push(sc->scopesym);
         sc->sds = sds;                  // sds gets any addMember()
         //sc->speculative = true;       // TODO: static if (is(T U)) { /* U is available */ }
-        sc->flags |= SCOPEstaticif;
+        sc->flags |= SCOPEcondition;
 
         sc = sc->startCTFE();
         Expression *e = exp->semantic(sc);
@@ -395,11 +380,4 @@ Lerror:
     if (!global.gag)
         inc = 2;                // so we don't see the error message again
     return 0;
-}
-
-void StaticIfCondition::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    buf->writestring("static if (");
-    exp->toCBuffer(buf, hgs);
-    buf->writeByte(')');
 }

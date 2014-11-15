@@ -46,6 +46,9 @@ struct Port
     static double dbl_min;
     static longdouble ldbl_max;
 
+    static bool yl2x_supported;
+    static bool yl2xp1_supported;
+
     static int isNan(double);
     static int isNan(longdouble);
 
@@ -57,6 +60,9 @@ struct Port
     static longdouble fmodl(longdouble x, longdouble y);
     static longdouble sqrt(longdouble x);
     static int fequal(longdouble x, longdouble y);
+
+    static void yl2x_impl(longdouble* x, longdouble* y, longdouble* res);
+    static void yl2xp1_impl(longdouble* x, longdouble* y, longdouble* res);
 
     static char *strupr(char *);
 

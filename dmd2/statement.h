@@ -51,7 +51,6 @@ class TryFinallyStatement;
 class CaseStatement;
 class DefaultStatement;
 class LabelStatement;
-struct HdrGenState;
 struct InterState;
 struct CompiledCtfeFunction;
 #if IN_LLVM
@@ -104,8 +103,6 @@ enum BE
     BEerrthrow = 0x80,
     BEany = (BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt),
 };
-
-void toCBuffer(Statement *s, OutBuffer *buf, HdrGenState *hgs);
 
 class Statement : public RootObject
 {
@@ -580,7 +577,7 @@ class ReturnStatement : public Statement
 {
 public:
     Expression *exp;
-    bool implicit0;             // this is an implicit "return 0;"
+    size_t caseDim;
 
     ReturnStatement(Loc loc, Expression *exp);
     Statement *syntaxCopy();
@@ -752,7 +749,6 @@ public:
     Statement* enclosingScopeExit;
 #endif
     VarDeclaration *lastVar;
-    FuncDeclaration *fd;
 
     GotoStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
@@ -772,10 +768,10 @@ public:
 #if IN_LLVM
     Statement* enclosingScopeExit;
 #endif
-    Statement *gotoTarget;      // interpret
     VarDeclaration *lastVar;
-    block *lblock;              // back end
+    Statement *gotoTarget;      // interpret
 
+    block *lblock;              // back end
     Blocks *fwdrefs;            // forward references to this LabelStatement
 
     LabelStatement(Loc loc, Identifier *ident, Statement *statement);
@@ -825,6 +821,20 @@ public:
     // non-zero if this is a branch, contains the target label
     LabelDsymbol* isBranchToLabel;
 #endif
+};
+
+// a complete asm {} block
+class CompoundAsmStatement : public CompoundStatement
+{
+public:
+    StorageClass stc; // postfix attributes like nothrow/pure/@trusted
+
+    CompoundAsmStatement(Loc loc, Statements *s, StorageClass stc);
+    CompoundAsmStatement *syntaxCopy();
+    CompoundAsmStatement *semantic(Scope *sc);
+    Statements *flatten(Scope *sc);
+
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 class ImportStatement : public Statement

@@ -34,7 +34,6 @@
 #include "dsymbol.h"
 #include "module.h"
 #include "attrib.h"
-#include "hdrgen.h"
 #include "parse.h"
 #include "speller.h"
 
@@ -262,9 +261,9 @@ StringTable traitsStringTable;
 
 void initTraitsStringTable()
 {
-    traitsStringTable._init();
+    traitsStringTable._init(40);
 
-    for (size_t idx = 0; ; idx++)
+    for (size_t idx = 0;; idx++)
     {
         const char *s = traits[idx];
         if (!s) break;
@@ -282,6 +281,38 @@ void *trait_search_fp(void *arg, const char *seed)
 
     StringValue *sv = traitsStringTable.lookup(seed, len);
     return sv ? (void*)sv->ptrvalue : NULL;
+}
+
+static int fpisTemplate(void *param, Dsymbol *s)
+{
+    if (s->isTemplateDeclaration())
+        return 1;
+
+    return 0;
+}
+
+bool isTemplate(Dsymbol *s)
+{
+    if (!s->toAlias()->isOverloadable())
+        return false;
+
+    return overloadApply(s, NULL, &fpisTemplate) != 0;
+}
+
+Expression *isSymbolX(TraitsExp *e, bool (*fp)(Dsymbol *s))
+{
+    int result = 0;
+    if (!e->args || !e->args->dim)
+        goto Lfalse;
+    for (size_t i = 0; i < e->args->dim; i++)
+    {
+        Dsymbol *s = getDsymbol((*e->args)[i]);
+        if (!s || !fp(s))
+            goto Lfalse;
+    }
+    result = 1;
+Lfalse:
+    return new IntegerExp(e->loc, result, Type::tbool);
 }
 
 Expression *semanticTraits(TraitsExp *e, Scope *sc)
@@ -332,6 +363,10 @@ Expression *semanticTraits(TraitsExp *e, Scope *sc)
     else if (e->ident == Id::isFinalClass)
     {
         return isTypeX(e, &isTypeFinalClass);
+    }
+    else if (e->ident == Id::isTemplate)
+    {
+        return isSymbolX(e, &isTemplate);
     }
     else if (e->ident == Id::isPOD)
     {
@@ -477,7 +512,7 @@ Expression *semanticTraits(TraitsExp *e, Scope *sc)
         if (s->scope)
             s->semantic(s->scope);
 
-        const char *protName = protectionToChars(s->prot());
+        const char *protName = protectionToChars(s->prot().kind);   // TODO: How about package(names)
         assert(protName);
         StringExp *se = new StringExp(e->loc, (char *) protName);
         return se->semantic(sc);
@@ -700,6 +735,10 @@ Expression *semanticTraits(TraitsExp *e, Scope *sc)
             e->error("first argument is not a symbol");
             goto Lfalse;
         }
+        if (s->isImport())
+        {
+            s = s->isImport()->mod;
+        }
         //printf("getAttributes %s, attrs = %p, scope = %p\n", s->toChars(), s->userAttribDecl, s->scope);
         UserAttributeDeclaration *udad = s->userAttribDecl;
         TupleExp *tup = new TupleExp(e->loc, udad ? udad->getAttributes() : new Expressions());
@@ -797,7 +836,8 @@ Expression *semanticTraits(TraitsExp *e, Scope *sc)
                     /* Skip if already present in idents[]
                      */
                     for (size_t j = 0; j < idents->dim; j++)
-                    {   Identifier *id = (*idents)[j];
+                    {
+                        Identifier *id = (*idents)[j];
                         if (id == sm->ident)
                             return 0;
 #ifdef DEBUG
@@ -827,6 +867,9 @@ Expression *semanticTraits(TraitsExp *e, Scope *sc)
         ClassDeclaration *cd = sds->isClassDeclaration();
         if (cd && e->ident == Id::allMembers)
         {
+            if (cd->scope)
+                cd->semantic(NULL);    // Bugzilla 13668: Try to resolve forward reference
+
             struct PushBaseMembers
             {
                 static void dg(ClassDeclaration *cd, Identifiers *idents)
@@ -834,6 +877,7 @@ Expression *semanticTraits(TraitsExp *e, Scope *sc)
                     for (size_t i = 0; i < cd->baseclasses->dim; i++)
                     {
                         ClassDeclaration *cb = (*cd->baseclasses)[i]->base;
+                        assert(cb);
                         ScopeDsymbol::foreach(NULL, cb->members, &PushIdentsDg::dg, idents);
                         if (cb->baseclasses->dim)
                             dg(cb, idents);
@@ -873,8 +917,9 @@ Expression *semanticTraits(TraitsExp *e, Scope *sc)
         {
             unsigned errors = global.startGagging();
             Scope *sc2 = sc->push();
-            sc2->speculative = true;
-            sc2->flags = (sc->flags & ~SCOPEctfe) | SCOPEcompile;
+            sc2->tinst = NULL;
+            sc2->minst = NULL;
+            sc2->flags = (sc->flags & ~(SCOPEctfe | SCOPEcondition)) | SCOPEcompile;
             bool err = false;
 
             RootObject *o = (*e->args)[i];

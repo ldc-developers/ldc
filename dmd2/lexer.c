@@ -68,7 +68,7 @@ static void cmtable_init()
     {
         if ('0' <= c && c <= '7')
             cmtable[c] |= CMoctal;
-        if (isdigit(c) || ('a' <= c && c <= 'f') || ('A' <= c && c <= 'F'))
+        if (isxdigit(c))
             cmtable[c] |= CMhex;
         if (isalnum(c) || c == '_')
             cmtable[c] |= CMidchar;
@@ -269,6 +269,7 @@ Lexer::Lexer(Module *mod,
     this->doDocComment = doDocComment;
     this->anyToken = 0;
     this->commentToken = commentToken;
+    this->errors = false;
     //initKeywords();
 
     /* If first line starts with '#!', ignore the line
@@ -329,6 +330,7 @@ void Lexer::error(const char *format, ...)
     va_start(ap, format);
     ::verror(token.loc, format, ap);
     va_end(ap);
+    errors = true;
 }
 
 void Lexer::error(Loc loc, const char *format, ...)
@@ -337,6 +339,7 @@ void Lexer::error(Loc loc, const char *format, ...)
     va_start(ap, format);
     ::verror(loc, format, ap);
     va_end(ap);
+    errors = true;
 }
 
 void Lexer::deprecation(const char *format, ...)
@@ -345,6 +348,8 @@ void Lexer::deprecation(const char *format, ...)
     va_start(ap, format);
     ::vdeprecation(token.loc, format, ap);
     va_end(ap);
+    if (global.params.useDeprecated == 0)
+        errors = true;
 }
 
 TOK Lexer::nextToken()
@@ -568,39 +573,6 @@ void Lexer::scan(Token *t)
             case '"':
                 t->value = escapeStringConstant(t,0);
                 return;
-
-            case '\\':                  // escaped string literal
-            {   unsigned c;
-                const utf8_t *pstart = p;
-
-                stringbuffer.reset();
-                do
-                {
-                    p++;
-                    switch (*p)
-                    {
-                        case 'u':
-                        case 'U':
-                        case '&':
-                            c = escapeSequence();
-                            stringbuffer.writeUTF8(c);
-                            break;
-
-                        default:
-                            c = escapeSequence();
-                            stringbuffer.writeByte(c);
-                            break;
-                    }
-                } while (*p == '\\');
-                t->len = (unsigned)stringbuffer.offset;
-                stringbuffer.writeByte(0);
-                t->ustring = (utf8_t *)mem.malloc(stringbuffer.offset);
-                memcpy(t->ustring, stringbuffer.data, stringbuffer.offset);
-                t->postfix = 0;
-                t->value = TOKstring;
-                error("Escape String literal %.*s is deprecated, use double quoted string literal \"%.*s\" instead", p - pstart, pstart, p - pstart, pstart);
-                return;
-            }
 
             case 'a':   case 'b':   case 'c':   case 'd':   case 'e':
             case 'f':   case 'g':   case 'h':   case 'i':   case 'j':
@@ -1204,9 +1176,9 @@ void Lexer::scan(Token *t)
                     }
                 }
                 if (c < 0x80 && isprint(c))
-                    error("unsupported char '%c'", c);
+                    error("character '%c' is not a valid token", c);
                 else
-                    error("unsupported char 0x%02x", c);
+                    error("character 0x%02x is not a valid token", c);
                 p++;
                 continue;
             }
@@ -2085,7 +2057,7 @@ Ldone:
     }
 
     if (base == 8 && n >= 8)
-        deprecation("octal literals 0%llo%.*s are deprecated, use std.conv.octal!%llo%.*s instead",
+        error("octal literals 0%llo%.*s are no longer supported, use std.conv.octal!%llo%.*s instead",
                 n, p - psuffix, psuffix, n, p - psuffix, psuffix);
 
     TOK result;
@@ -2864,7 +2836,7 @@ int Token::isKeyword()
 
 void Lexer::initKeywords()
 {
-    stringtable._init(6151);
+    stringtable._init(28000);
 
     cmtable_init();
 

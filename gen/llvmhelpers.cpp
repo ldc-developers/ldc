@@ -1142,12 +1142,6 @@ DValue* DtoDeclarationExp(Dsymbol* declaration)
         Logger::println("ClassDeclaration");
         Declaration_codegen(e);
     }
-    // typedef
-    else if (TypedefDeclaration* tdef = declaration->isTypedefDeclaration())
-    {
-        Logger::println("TypedefDeclaration");
-        DtoTypeInfoOf(tdef->type, false);
-    }
     // attribute declaration
     else if (AttribDeclaration* a = declaration->isAttribDeclaration())
     {
@@ -1268,8 +1262,6 @@ LLConstant* DtoConstInitializer(Loc& loc, Type* type, Initializer* init)
     {
         IF_LOG Logger::println("const default initializer for %s", type->toChars());
         Expression *initExp = type->defaultInit();
-        if (type->ty == Ttypedef)
-            initExp->type = type; // This carries the typedef type into toConstElem.
         _init = DtoConstExpInit(loc, type, initExp);
     }
     else if (ExpInitializer* ex = init->isExpInitializer())

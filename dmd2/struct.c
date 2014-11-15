@@ -130,7 +130,7 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     this->loc = loc;
 
     storage_class = 0;
-    protection = PROTpublic;
+    protection = Prot(PROTpublic);
     type = NULL;
     structsize = 0;             // size of struct
     alignsize = 0;              // size of struct for alignment purposes
@@ -156,7 +156,7 @@ AggregateDeclaration::AggregateDeclaration(Loc loc, Identifier *id)
     getRTInfo = NULL;
 }
 
-PROT AggregateDeclaration::prot()
+Prot AggregateDeclaration::prot()
 {
     return protection;
 }
@@ -174,6 +174,8 @@ void AggregateDeclaration::semantic2(Scope *sc)
     if (!members)
         return;
 
+    if (scope && sizeok == SIZEOKfwd)   // Bugzilla 12531
+        semantic(NULL);
     if (scope)
     {
         error("has forward references");
@@ -185,7 +187,7 @@ void AggregateDeclaration::semantic2(Scope *sc)
     sc2->parent = this;
     //if (isUnionDeclaration())     // TODO
     //    sc2->inunion = 1;
-    sc2->protection = PROTpublic;
+    sc2->protection = Prot(PROTpublic);
     sc2->explicitProtection = 0;
     sc2->structalign = STRUCTALIGN_DEFAULT;
     sc2->userAttribDecl = NULL;
@@ -219,7 +221,7 @@ void AggregateDeclaration::semantic3(Scope *sc)
     sc2->parent = this;
     if (isUnionDeclaration())
         sc2->inunion = 1;
-    sc2->protection = PROTpublic;
+    sc2->protection = Prot(PROTpublic);
     sc2->explicitProtection = 0;
     sc2->structalign = STRUCTALIGN_DEFAULT;
     sc2->userAttribDecl = NULL;
@@ -386,7 +388,7 @@ bool AggregateDeclaration::isDeprecated()
 
 bool AggregateDeclaration::isExport()
 {
-    return protection == PROTexport;
+    return protection.kind == PROTexport;
 }
 
 /****************************
@@ -642,14 +644,10 @@ StructDeclaration::StructDeclaration(Loc loc, Identifier *id)
 
 Dsymbol *StructDeclaration::syntaxCopy(Dsymbol *s)
 {
-    StructDeclaration *sd;
-
-    if (s)
-        sd = (StructDeclaration *)s;
-    else
-        sd = new StructDeclaration(loc, ident);
-    ScopeDsymbol::syntaxCopy(sd);
-    return sd;
+    StructDeclaration *sd =
+        s ? (StructDeclaration *)s
+          : new StructDeclaration(loc, ident);
+    return ScopeDsymbol::syntaxCopy(sd);
 }
 
 void StructDeclaration::semantic(Scope *sc)
@@ -736,7 +734,7 @@ void StructDeclaration::semantic(Scope *sc)
     sc2->parent = this;
     if (isUnionDeclaration())
         sc2->inunion = 1;
-    sc2->protection = PROTpublic;
+    sc2->protection = Prot(PROTpublic);
     sc2->explicitProtection = 0;
     sc2->structalign = STRUCTALIGN_DEFAULT;
     sc2->userAttribDecl = NULL;
@@ -863,7 +861,8 @@ void StructDeclaration::semantic(Scope *sc)
         {
             unsigned xerrors = global.startGagging();
             sc = sc->push();
-            sc->speculative = true;
+            sc->tinst = NULL;
+            sc->minst = NULL;
             FuncDeclaration *fcall = resolveFuncCall(loc, sc, scall, NULL, NULL, NULL, 1);
             sc = sc->pop();
             global.endGagging(xerrors);
@@ -1222,32 +1221,6 @@ bool StructDeclaration::isPOD()
     return (ispod == ISPODyes);
 }
 
-void StructDeclaration::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    buf->printf("%s ", kind());
-    if (!isAnonymous())
-        buf->writestring(toChars());
-    if (!members)
-    {
-        buf->writeByte(';');
-        buf->writenl();
-        return;
-    }
-    buf->writenl();
-    buf->writeByte('{');
-    buf->writenl();
-    buf->level++;
-    for (size_t i = 0; i < members->dim; i++)
-    {
-        Dsymbol *s = (*members)[i];
-        s->toCBuffer(buf, hgs);
-    }
-    buf->level--;
-    buf->writeByte('}');
-    buf->writenl();
-}
-
-
 const char *StructDeclaration::kind()
 {
     return "struct";
@@ -1262,16 +1235,10 @@ UnionDeclaration::UnionDeclaration(Loc loc, Identifier *id)
 
 Dsymbol *UnionDeclaration::syntaxCopy(Dsymbol *s)
 {
-    UnionDeclaration *ud;
-
-    if (s)
-        ud = (UnionDeclaration *)s;
-    else
-        ud = new UnionDeclaration(loc, ident);
-    StructDeclaration::syntaxCopy(ud);
-    return ud;
+    assert(!s);
+    UnionDeclaration *ud = new UnionDeclaration(loc, ident);
+    return StructDeclaration::syntaxCopy(ud);
 }
-
 
 const char *UnionDeclaration::kind()
 {

@@ -21,11 +21,9 @@
 
 class Identifier;
 struct Scope;
-struct OutBuffer;
 class Module;
 class Package;
 class AliasDeclaration;
-struct HdrGenState;
 
 class Import : public Dsymbol
 {
@@ -37,7 +35,7 @@ public:
     Identifier *id;             // module Identifier
     Identifier *aliasId;
     int isstatic;               // !=0 if static import
-    PROT protection;
+    PROTKIND protection;
 
     // Pairs of alias=name to bind into current namespace
     Identifiers names;
@@ -52,7 +50,7 @@ public:
         int isstatic);
     void addAlias(Identifier *name, Identifier *alias);
     const char *kind();
-    PROT prot();
+    Prot prot();
     Dsymbol *syntaxCopy(Dsymbol *s);    // copy only syntax trees
     void load(Scope *sc);
     void importAll(Scope *sc);
@@ -62,7 +60,6 @@ public:
     int addMember(Scope *sc, ScopeDsymbol *sds, int memnum);
     Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
     bool overloadInsert(Dsymbol *s);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
 
     Import *isImport() { return this; }
     void accept(Visitor *v) { v->visit(this); }

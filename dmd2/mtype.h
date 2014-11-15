@@ -28,18 +28,14 @@ class Identifier;
 class Expression;
 class StructDeclaration;
 class ClassDeclaration;
-class VarDeclaration;
 class EnumDeclaration;
-class TypedefDeclaration;
 class TypeInfoDeclaration;
 class Dsymbol;
 class TemplateInstance;
-struct CppMangleState;
 class TemplateDeclaration;
 enum LINK;
 
 class TypeBasic;
-struct HdrGenState;
 class Parameter;
 
 // Back end
@@ -54,8 +50,6 @@ typedef struct TYPE type;
 #if IN_DMD
 struct Symbol;
 #endif
-
-class TypeTuple;
 
 void semanticTypeInfo(Scope *sc, Type *t);
 MATCH deduceType(RootObject *o, Scope *sc, Type *tparam, TemplateParameters *parameters, Objects *dedtypes, unsigned *wm = NULL, size_t inferStart = 0);
@@ -75,7 +69,6 @@ enum ENUMTY
     Tstruct,
     Tenum,
 
-    Ttypedef,
     Tdelegate,
     Tnone,
     Tvoid,
@@ -85,8 +78,8 @@ enum ENUMTY
     Tuns16,
     Tint32,
     Tuns32,
-
     Tint64,
+
     Tuns64,
     Tfloat32,
     Tfloat64,
@@ -96,8 +89,8 @@ enum ENUMTY
     Timaginary80,
     Tcomplex32,
     Tcomplex64,
-
     Tcomplex80,
+
     Tbool,
     Tchar,
     Twchar,
@@ -107,8 +100,8 @@ enum ENUMTY
     Ttypeof,
     Ttuple,
     Tslice,
-
     Treturn,
+
     Tnull,
     Tvector,
     Tint128,
@@ -212,7 +205,6 @@ public:
     static ClassDeclaration *typeinfoclass;
     static ClassDeclaration *typeinfointerface;
     static ClassDeclaration *typeinfostruct;
-    static ClassDeclaration *typeinfotypedef;
     static ClassDeclaration *typeinfopointer;
     static ClassDeclaration *typeinfoarray;
     static ClassDeclaration *typeinfostaticarray;
@@ -230,8 +222,7 @@ public:
     static TemplateDeclaration *rtinfo;
 
     static Type *basic[TMAX];
-    static unsigned char mangleChar[TMAX];
-    static unsigned short sizeTy[TMAX];
+    static unsigned char sizeTy[TMAX];
     static StringTable stringtable;
 
     // These tables are for implicit conversion of binary ops;
@@ -248,6 +239,7 @@ public:
     Type *copy();
     virtual Type *syntaxCopy();
     bool equals(RootObject *o);
+    bool equivalent(Type *t);
     // kludge for template.isType()
     int dyncast() { return DYNCAST_TYPE; }
     int covariant(Type *t, StorageClass *pstc = NULL);
@@ -262,10 +254,8 @@ public:
     virtual unsigned alignsize();
     virtual Type *semantic(Loc loc, Scope *sc);
     Type *trySemantic(Loc loc, Scope *sc);
-    virtual void toDecoBuffer(OutBuffer *buf, int flag = 0);
     Type *merge();
     Type *merge2();
-    void toCBuffer(OutBuffer *buf, Identifier *ident, HdrGenState *hgs);
     void modToBuffer(OutBuffer *buf);
     char *modToChars();
 
@@ -389,7 +379,6 @@ public:
     Type *next;
 
     TypeNext(TY ty, Type *next);
-    void toDecoBuffer(OutBuffer *buf, int flag);
     void checkDeprecated(Loc loc, Scope *sc);
     int hasWild();
     Type *nextOf();
@@ -456,7 +445,6 @@ public:
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     char *toChars();
-    void toDecoBuffer(OutBuffer *buf, int flag);
     bool isintegral();
     bool isfloating();
     bool isscalar();
@@ -492,7 +480,6 @@ public:
     unsigned alignsize();
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
-    void toDecoBuffer(OutBuffer *buf, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     bool isString();
     bool isZeroInit(Loc loc);
@@ -521,7 +508,6 @@ public:
     unsigned alignsize();
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
-    void toDecoBuffer(OutBuffer *buf, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     bool isString();
     bool isZeroInit(Loc loc);
@@ -549,7 +535,6 @@ public:
     d_uns64 size(Loc loc);
     Type *semantic(Loc loc, Scope *sc);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
-    void toDecoBuffer(OutBuffer *buf, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
     bool isZeroInit(Loc loc);
@@ -661,7 +646,6 @@ public:
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     void purityLevel();
-    void toDecoBuffer(OutBuffer *buf, int flag);
     TypeInfoDeclaration *getTypeInfoDeclaration();
     bool hasLazyParameters();
     bool parameterEscapes(Parameter *p);
@@ -728,7 +712,6 @@ public:
     const char *kind();
     Type *syntaxCopy();
     //char *toChars();
-    void toDecoBuffer(OutBuffer *buf, int flag);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Dsymbol *toDsymbol(Scope *sc);
     Type *semantic(Loc loc, Scope *sc);
@@ -747,7 +730,6 @@ public:
     const char *kind();
     Type *syntaxCopy();
     //char *toChars();
-    //void toDecoBuffer(OutBuffer *buf, int flag);
     void resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid = false);
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
@@ -809,7 +791,6 @@ public:
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     structalign_t alignment();
     Expression *defaultInit(Loc loc);
@@ -849,7 +830,6 @@ public:
     char *toChars();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     bool isintegral();
@@ -876,48 +856,6 @@ public:
     void accept(Visitor *v) { v->visit(this); }
 };
 
-class TypeTypedef : public Type
-{
-public:
-    TypedefDeclaration *sym;
-
-    TypeTypedef(TypedefDeclaration *sym);
-    const char *kind();
-    Type *syntaxCopy();
-    d_uns64 size(Loc loc);
-    unsigned alignsize();
-    char *toChars();
-    Type *semantic(Loc loc, Scope *sc);
-    Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag);
-    Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
-    structalign_t alignment();
-    Expression *getProperty(Loc loc, Identifier *ident, int flag);
-    bool isintegral();
-    bool isfloating();
-    bool isreal();
-    bool isimaginary();
-    bool iscomplex();
-    bool isscalar();
-    bool isunsigned();
-    bool checkBoolean();
-    bool isAssignable();
-    bool needsDestruction();
-    bool needsNested();
-    Type *toBasetype();
-    MATCH implicitConvTo(Type *to);
-    MATCH constConv(Type *to);
-    Type *toHeadMutable();
-    Expression *defaultInit(Loc loc);
-    Expression *defaultInitLiteral(Loc loc);
-    bool isZeroInit(Loc loc);
-    TypeInfoDeclaration *getTypeInfoDeclaration();
-    int hasPointers();
-    int hasWild();
-
-    void accept(Visitor *v) { v->visit(this); }
-};
-
 class TypeClass : public Type
 {
 public:
@@ -931,7 +869,6 @@ public:
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     Dsymbol *toDsymbol(Scope *sc);
-    void toDecoBuffer(OutBuffer *buf, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     ClassDeclaration *isClassHandle();
     int isBaseOf(Type *t, int *poffset);
@@ -965,7 +902,6 @@ public:
     Type *syntaxCopy();
     Type *semantic(Loc loc, Scope *sc);
     bool equals(RootObject *o);
-    void toDecoBuffer(OutBuffer *buf, int flag);
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *defaultInit(Loc loc);
     TypeInfoDeclaration *getTypeInfoDeclaration();
@@ -993,7 +929,6 @@ public:
     const char *kind();
 
     Type *syntaxCopy();
-    void toDecoBuffer(OutBuffer *buf, int flag);
     MATCH implicitConvTo(Type *to);
     bool checkBoolean();
 
@@ -1019,13 +954,11 @@ public:
     static Parameter *create(StorageClass storageClass, Type *type, Identifier *ident, Expression *defaultArg);
     Parameter *syntaxCopy();
     Type *isLazyArray();
-    void toDecoBuffer(OutBuffer *buf);
     // kludge for template.isType()
     int dyncast() { return DYNCAST_PARAMETER; }
+    virtual void accept(Visitor *v) { v->visit(this); }
+
     static Parameters *arraySyntaxCopy(Parameters *args);
-    static char *argsTypesToChars(Parameters *args, int varargs);
-    static void argsToCBuffer(OutBuffer *buf, HdrGenState *hgs, Parameters *arguments, int varargs);
-    static void argsToDecoBuffer(OutBuffer *buf, Parameters *arguments);
     static int isTPL(Parameters *arguments);
     static size_t dim(Parameters *arguments);
     static Parameter *getNth(Parameters *arguments, size_t nth, size_t *pn = NULL);
@@ -1041,6 +974,5 @@ char *MODtoChars(MOD mod);
 bool MODimplicitConv(MOD modfrom, MOD modto);
 bool MODmethodConv(MOD modfrom, MOD modto);
 MOD MODmerge(MOD mod1, MOD mod2);
-void identifierToDocBuffer(Identifier* ident, OutBuffer *buf, HdrGenState *hgs);
 
 #endif /* DMD_MTYPE_H */

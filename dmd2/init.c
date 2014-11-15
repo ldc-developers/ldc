@@ -40,21 +40,16 @@ Initializers *Initializer::arraySyntaxCopy(Initializers *ai)
         a = new Initializers();
         a->setDim(ai->dim);
         for (size_t i = 0; i < a->dim; i++)
-        {
-            Initializer *e = (*ai)[i];
-            e = e->syntaxCopy();
-            (*a)[i] = e;
-        }
+            (*a)[i] = (*ai)[i]->syntaxCopy();
     }
     return a;
 }
 
 char *Initializer::toChars()
 {
-    HdrGenState hgs;
-
     OutBuffer buf;
-    toCBuffer(&buf, &hgs);
+    HdrGenState hgs;
+    ::toCBuffer(this, &buf, &hgs);
     return buf.extractString();
 }
 
@@ -84,11 +79,6 @@ Initializer *ErrorInitializer::semantic(Scope *sc, Type *t, NeedInterpret needIn
 Expression *ErrorInitializer::toExpression(Type *t)
 {
     return new ErrorExp();
-}
-
-void ErrorInitializer::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    buf->writestring("__error__");
 }
 
 /********************************** VoidInitializer ***************************/
@@ -122,11 +112,6 @@ Expression *VoidInitializer::toExpression(Type *t)
     return NULL;
 }
 
-void VoidInitializer::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    buf->writestring("void");
-}
-
 /********************************** StructInitializer *************************/
 
 StructInitializer::StructInitializer(Loc loc)
@@ -137,17 +122,13 @@ StructInitializer::StructInitializer(Loc loc)
 Initializer *StructInitializer::syntaxCopy()
 {
     StructInitializer *ai = new StructInitializer(loc);
-
     assert(field.dim == value.dim);
     ai->field.setDim(field.dim);
     ai->value.setDim(value.dim);
     for (size_t i = 0; i < field.dim; i++)
     {
         ai->field[i] = field[i];
-
-        Initializer *iz = value[i];
-        iz = iz->syntaxCopy();
-        ai->value[i] = iz;
+        ai->value[i] = value[i]->syntaxCopy();
     }
     return ai;
 }
@@ -306,27 +287,6 @@ Expression *StructInitializer::toExpression(Type *t)
     return NULL;
 }
 
-void StructInitializer::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    //printf("StructInitializer::toCBuffer()\n");
-    buf->writeByte('{');
-    for (size_t i = 0; i < field.dim; i++)
-    {
-        if (i > 0)
-            buf->writestring(", ");
-        Identifier *id = field[i];
-        if (id)
-        {
-            buf->writestring(id->toChars());
-            buf->writeByte(':');
-        }
-        Initializer *iz = value[i];
-        if (iz)
-            iz->toCBuffer(buf, hgs);
-    }
-    buf->writeByte('}');
-}
-
 /********************************** ArrayInitializer ************************************/
 
 ArrayInitializer::ArrayInitializer(Loc loc)
@@ -340,22 +300,14 @@ ArrayInitializer::ArrayInitializer(Loc loc)
 Initializer *ArrayInitializer::syntaxCopy()
 {
     //printf("ArrayInitializer::syntaxCopy()\n");
-
     ArrayInitializer *ai = new ArrayInitializer(loc);
-
     assert(index.dim == value.dim);
     ai->index.setDim(index.dim);
     ai->value.setDim(value.dim);
     for (size_t i = 0; i < ai->value.dim; i++)
     {
-        Expression *e = index[i];
-        if (e)
-            e = e->syntaxCopy();
-        ai->index[i] = e;
-
-        Initializer *iz = value[i];
-        iz = iz->syntaxCopy();
-        ai->value[i] = iz;
+        ai->index[i] = index[i] ? index[i]->syntaxCopy() : NULL;
+        ai->value[i] = value[i]->syntaxCopy();
     }
     return ai;
 }
@@ -719,26 +671,6 @@ Lno:
     return new ErrorExp();
 }
 
-void ArrayInitializer::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    buf->writeByte('[');
-    for (size_t i = 0; i < index.dim; i++)
-    {
-        if (i > 0)
-            buf->writestring(", ");
-        Expression *ex = index[i];
-        if (ex)
-        {
-            ex->toCBuffer(buf, hgs);
-            buf->writeByte(':');
-        }
-        Initializer *iz = value[i];
-        if (iz)
-            iz->toCBuffer(buf, hgs);
-    }
-    buf->writeByte(']');
-}
-
 /********************************** ExpInitializer ************************************/
 
 ExpInitializer::ExpInitializer(Loc loc, Expression *exp)
@@ -1050,9 +982,4 @@ Expression *ExpInitializer::toExpression(Type *t)
         }
     }
     return exp;
-}
-
-void ExpInitializer::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    exp->toCBuffer(buf, hgs);
 }

@@ -21,9 +21,9 @@
 #include "id.h"
 #include "import.h"
 #include "dsymbol.h"
-#include "hdrgen.h"
 #include "expression.h"
 #include "lexer.h"
+#include "attrib.h"
 
 #ifdef IN_GCC
 #include "d-dmd-gcc.h"
@@ -50,9 +50,6 @@ Module::Module(const char *filename, Identifier *ident, int doDocComment, int do
         : Package(ident)
 {
     const char *srcfilename;
-#if IN_DMD
-    const char *symfilename;
-#endif
 
 //    printf("Module::Module(filename = '%s', ident = '%s')\n", filename, ident->toChars());
     this->arg = filename;
@@ -64,6 +61,7 @@ Module::Module(const char *filename, Identifier *ident, int doDocComment, int do
     isPackageFile = false;
     needmoduleinfo = 0;
     selfimports = 0;
+    rootimports = 0;
     insearch = 0;
     searchCacheIdent = NULL;
     searchCacheSymbol = NULL;
@@ -128,8 +126,6 @@ Module::Module(const char *filename, Identifier *ident, int doDocComment, int do
 #if IN_DMD
     objfile = setOutfile(global.params.objname, global.params.objdir, filename, global.obj_ext);
 
-    symfilename = FileName::forceExt(filename, global.sym_ext);
-
     if (doDocComment)
         setDocfile();
 
@@ -137,7 +133,6 @@ Module::Module(const char *filename, Identifier *ident, int doDocComment, int do
         hdrfile = setOutfile(global.params.hdrname, global.params.hdrdir, arg, global.hdr_ext);
 
     //objfile = new File(objfilename);
-    symfile = new File(symfilename);
 #endif
 #if IN_LLVM
     // LDC
@@ -296,7 +291,7 @@ bool Module::read(Loc loc)
             errorSupplemental(loc, "Please check your ldc2.conf configuration file.");
             errorSupplemental(loc, "Installation instructions can be found at http://wiki.dlang.org/LDC.");
 #else
-            errorSupplemental(loc, "dmd might not be correctly installed. Run 'dmd -man' for installation instructions.");
+            errorSupplemental(loc, "config file: %s", FileName::canonicalName(global.inifilename));
 #endif
         }
         else
@@ -606,6 +601,8 @@ void Module::parse()
         members = p.parseModule();
         md = p.md;
         numlines = p.scanloc.linnum;
+        if (p.errors)
+            ++global.errors;
     }
 
     if (srcfile->ref == 0)
@@ -686,12 +683,15 @@ void Module::parse()
         assert(prev);
         if (Module *mprev = prev->isModule())
         {
-            if (strcmp(srcname, mprev->srcfile->toChars()) == 0)
-                error(loc, "from file %s must be imported with 'import %s;'",
-                    srcname, toPrettyChars());
-            else
+            if (FileName::compare(srcname, mprev->srcfile->toChars()) != 0)
                 error(loc, "from file %s conflicts with another module %s from file %s",
                     srcname, mprev->toChars(), mprev->srcfile->toChars());
+            else if (isRoot() && mprev->isRoot())
+                error(loc, "from file %s is specified twice on the command line",
+                    srcname);
+            else
+                error(loc, "from file %s must be imported with 'import %s;'",
+                    srcname, toPrettyChars());
         }
         else if (Package *pkg = prev->isPackage())
         {
@@ -818,6 +818,11 @@ void Module::semantic()
         runDeferredSemantic();
     }
 
+    if (userAttribDecl)
+    {
+        userAttribDecl->semantic(sc);
+    }
+
     if (!scope)
     {
         sc = sc->pop();
@@ -847,6 +852,11 @@ void Module::semantic2()
         s->semantic2(sc);
     }
 
+    if (userAttribDecl)
+    {
+        userAttribDecl->semantic2(sc);
+    }
+
     sc = sc->pop();
     sc->pop();
     semanticRun = PASSsemantic2done;
@@ -874,38 +884,15 @@ void Module::semantic3()
         s->semantic3(sc);
     }
 
+    if (userAttribDecl)
+    {
+        userAttribDecl->semantic3(sc);
+    }
+
     sc = sc->pop();
     sc->pop();
     semanticRun = PASSsemantic3done;
 }
-
-/****************************************************
- */
-
-#if IN_DMD
-void Module::gensymfile()
-{
-    OutBuffer buf;
-    HdrGenState hgs;
-
-    //printf("Module::gensymfile()\n");
-
-    buf.printf("// Sym file generated from '%s'", srcfile->toChars());
-    buf.writenl();
-
-    for (size_t i = 0; i < members->dim; i++)
-    {
-        Dsymbol *s = (*members)[i];
-        s->toCBuffer(&buf, &hgs);
-    }
-
-    // Transfer image to file
-    symfile->setbuffer(buf.data, buf.offset);
-    buf.data = NULL;
-
-    writeFile(loc, symfile);
-}
-#endif
 
 /**********************************
  * Determine if we need to generate an instance of ModuleInfo
@@ -1101,33 +1088,53 @@ int Module::imports(Module *m)
 }
 
 /*************************************
- * Return !=0 if module imports itself.
+ * Return true if module imports itself.
  */
 
-int Module::selfImports()
+bool Module::selfImports()
 {
     //printf("Module::selfImports() %s\n", toChars());
-    if (!selfimports)
+    if (selfimports == 0)
     {
         for (size_t i = 0; i < amodules.dim; i++)
-        {
-            Module *mi = amodules[i];
-            //printf("\t[%d] %s\n", i, mi->toChars());
-            mi->insearch = 0;
-        }
+            amodules[i]->insearch = 0;
 
         selfimports = imports(this) + 1;
 
         for (size_t i = 0; i < amodules.dim; i++)
-        {
-            Module *mi = amodules[i];
-            //printf("\t[%d] %s\n", i, mi->toChars());
-            mi->insearch = 0;
-        }
+            amodules[i]->insearch = 0;
     }
-    return selfimports - 1;
+    return selfimports == 2;
 }
 
+/*************************************
+ * Return true if module imports root module.
+ */
+
+bool Module::rootImports()
+{
+    //printf("Module::rootImports() %s\n", toChars());
+    if (rootimports == 0)
+    {
+        for (size_t i = 0; i < amodules.dim; i++)
+            amodules[i]->insearch = 0;
+
+        rootimports = 1;
+        for (size_t i = 0; i < amodules.dim; ++i)
+        {
+            Module *m = amodules[i];
+            if (m->isRoot() && imports(m))
+            {
+                rootimports = 2;
+                break;
+            }
+        }
+
+        for (size_t i = 0; i < amodules.dim; i++)
+            amodules[i]->insearch = 0;
+    }
+    return rootimports == 2;
+}
 
 /* =========================== ModuleDeclaration ===================== */
 
@@ -1180,6 +1187,35 @@ Module *Package::isPackageMod()
         return mod;
     }
     return NULL;
+}
+
+/**
+ * Checks if pkg is a sub-package of this
+ *
+ * For example, if this qualifies to 'a1.a2' and pkg - to 'a1.a2.a3',
+ * this function returns 'true'. If it is other way around or qualified
+ * package paths conflict function returns 'false'.
+ *
+ * Params:
+ *  pkg = possible subpackage
+ *
+ * Returns:
+ *  see description
+ */
+bool Package::isAncestorPackageOf(Package* pkg)
+{
+    while (pkg)
+    {
+        if (this == pkg)
+            return true;
+
+        if (!pkg->parent)
+            break;
+
+        pkg = pkg->parent->isPackage();
+    }
+
+    return false;
 }
 
 /****************************************************
@@ -1334,3 +1370,5 @@ const char *lookForSourceFile(const char *filename)
     }
     return NULL;
 }
+
+
