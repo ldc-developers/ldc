@@ -433,7 +433,7 @@ DValue * DtoInlineAsmExpr(Loc& loc, FuncDeclaration * fd, Expressions * argument
     assert(arguments->dim >= 2 && "invalid __asm call");
 
     // get code param
-    Expression* e = static_cast<Expression*>(arguments->data[0]);
+    Expression* e = (*arguments)[0];
     IF_LOG Logger::println("code exp: %s", e->toChars());
     StringExp* se = static_cast<StringExp*>(e);
     if (e->op != TOKstring || se->sz != 1)
@@ -444,7 +444,7 @@ DValue * DtoInlineAsmExpr(Loc& loc, FuncDeclaration * fd, Expressions * argument
     std::string code(static_cast<char*>(se->string), se->len);
 
     // get constraints param
-    e = static_cast<Expression*>(arguments->data[1]);
+    e = (*arguments)[1];
     IF_LOG Logger::println("constraint exp: %s", e->toChars());
     se = static_cast<StringExp*>(e);
     if (e->op != TOKstring || se->sz != 1)
@@ -464,8 +464,7 @@ DValue * DtoInlineAsmExpr(Loc& loc, FuncDeclaration * fd, Expressions * argument
 
     for (size_t i = 2; i < n; i++)
     {
-        e = static_cast<Expression*>(arguments->data[i]);
-        args.push_back(toElem(e)->getRVal());
+        args.push_back(toElem((*arguments)[i])->getRVal());
         argtypes.push_back(args.back()->getType());
     }
 
