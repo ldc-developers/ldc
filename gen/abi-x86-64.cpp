@@ -104,21 +104,25 @@ namespace {
         if (ty->size() == 0)
             return 0;
 
-        // Okay, we may need to transform. Figure out a canonical type:
-
         TypeTuple* argTypes = toArgTypes(ty);
         if (argTypes->arguments->empty()) // cannot be passed in registers
             return 0;
 
-        // Single part?
-        if (argTypes->arguments->size() == 1)
-            return DtoType((*argTypes->arguments->begin())->type);
+        // Okay, we may need to transform. Figure out a canonical type:
 
-        // Multiple parts => LLVM struct
-        std::vector<LLType*> parts;
-        for (Array<Parameter*>::iterator I = argTypes->arguments->begin(), E = argTypes->arguments->end(); I != E; ++I)
-            parts.push_back(DtoType((*I)->type));
-        return LLStructType::get(gIR->context(), parts);
+        LLType* abiTy = 0;
+        if (argTypes->arguments->size() == 1) { // single part
+            abiTy = DtoType((*argTypes->arguments->begin())->type);
+        } else {                                // multiple parts => LLVM struct
+            std::vector<LLType*> parts;
+            for (Array<Parameter*>::iterator I = argTypes->arguments->begin(), E = argTypes->arguments->end(); I != E; ++I)
+                parts.push_back(DtoType((*I)->type));
+            abiTy = LLStructType::get(gIR->context(), parts);
+        }
+
+        //IF_LOG Logger::cout() << "getAbiType(" << ty->toChars() << "): " << *abiTy << '\n';
+
+        return abiTy;
     }
 }
 
@@ -233,7 +237,7 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
         return false;
 
     Type* rt = tf->next->toBasetype();
-    return passByVal(rt);
+    return rt->ty != Tvoid && passByVal(rt);
 }
 
 bool X86_64TargetABI::passByVal(Type* t) {
@@ -243,7 +247,17 @@ bool X86_64TargetABI::passByVal(Type* t) {
         return false;
 
     TypeTuple* argTypes = toArgTypes(t);
-    return argTypes->arguments->empty(); // empty => cannot be passed in registers
+    if (!argTypes) {
+        IF_LOG Logger::cout() << "X86_64TargetABI::passByVal(): no argTypes for " << t->toChars() << "!\n";
+        return false; // TODO: verify
+    }
+
+    bool onStack = argTypes->arguments->empty(); // empty => cannot be passed in registers
+
+    //if (onStack)
+    //    IF_LOG Logger::cout() << "Passed byval: " << t->toChars() << '\n';
+
+    return onStack;
 }
 
 void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg) {
@@ -257,9 +271,12 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg) {
 
     LLType* abiTy = getAbiType(t);
     if (abiTy && abiTy != arg.ltype) {
-        assert(arg.type->ty == Tcomplex32 || arg.type->ty == Tstruct);
+        assert(t->ty == Tcomplex32 || t->ty == Tstruct);
+
         arg.rewrite = &struct_rewrite;
         arg.ltype = abiTy;
+
+        IF_LOG Logger::cout() << "Rewriting argument: " << t->toChars() << " => " << *abiTy << '\n';
     }
 }
 
