@@ -317,11 +317,17 @@ version( LDC )
         void va_start(T)(va_list ap, ref T);
 
     private pragma(LDC_va_arg)
-        T va_arg_impl(T)(va_list ap);
+        T va_arg_intrinsic(T)(va_list ap);
 
     T va_arg(T)(ref va_list ap)
     {
-        version( Win64 )
+        version( SystemV_AMD64 )
+        {
+            T arg;
+            va_arg(ap, arg);
+            return arg;
+        }
+        else version( Win64 )
         {
             // passed by reference if > 64 bits or of a size that is not a power of 2
             static if (T.sizeof > size_t.sizeof || (T.sizeof & (T.sizeof - 1)) != 0)
@@ -338,12 +344,16 @@ version( LDC )
             return arg;
         }
         else
-            return va_arg_impl!T(ap);
+            return va_arg_intrinsic!T(ap);
     }
 
     void va_arg(T)(ref va_list ap, ref T parmn)
     {
-        version( Win64 )
+        version( SystemV_AMD64 )
+        {
+            va_arg_x86_64(cast(__va_list*)ap, parmn);
+        }
+        else version( Win64 )
         {
             static if (T.sizeof > size_t.sizeof || (T.sizeof & (T.sizeof - 1)) != 0)
                 parmn = **cast(T**)ap;
