@@ -185,10 +185,6 @@ struct X86_64TargetABI : TargetABI {
 
     llvm::CallingConv::ID callingConv(LINK l);
 
-    void newFunctionType(TypeFunction* tf) {
-        linkageStack.push_back(tf->linkage);
-    }
-
     bool returnInArg(TypeFunction* tf);
 
     bool passByVal(Type* t);
@@ -197,36 +193,13 @@ struct X86_64TargetABI : TargetABI {
 
     void rewriteArgument(IrFuncTyArg& arg);
 
-    void doneWithFunctionType() {
-        linkageStack.pop_back();
-    }
-
 private:
-    std::vector<LINK> linkageStack;
-
-    LINK linkage() {
-        assert(linkageStack.size() != 0);
-        return linkageStack.back();
-    }
-
-    /**
-     * D linkage: Rewrite static arrays <= 64 bit and of a size that is a power of 2
-     *            to an integer of the same size.
-     *
-     * Structs are handled by getAbiType() and X86_64_C_struct_rewrite for both C and
-     * D linkages.
-     */
+    // Rewrite structs and static arrays <= 64 bit and of a size that is a power of 2
+    // to an integer of the same size.
     bool canRewriteAsInt(Type* t) {
-        // TODO: experiment!
-        // I fear the linkageStack isn't up-to-date when preparing a call in tocall.cpp
-        // and attempting to transform varargs.
-        // We should try to get rid of that stack anyway.
-        // So for now: rewrite static arrays for extern(C) too.
-        if (false && linkage() != LINKd)
-            return false;
-
+        t = t->toBasetype();
         unsigned size = t->size();
-        return t->toBasetype()->ty == Tsarray
+        return (t->ty == Tstruct || t->ty == Tsarray)
             && (size == 1 || size == 2 || size == 4 || size == 8);
     }
 };
@@ -256,8 +229,6 @@ llvm::CallingConv::ID X86_64TargetABI::callingConv(LINK l)
 }
 
 bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
-    assert(linkage() == tf->linkage);
-
     if (tf->isref)
         return false;
 
