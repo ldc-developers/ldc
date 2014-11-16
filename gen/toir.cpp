@@ -832,7 +832,7 @@ public:
             {
                 if (fndecl->linkage == LINKc && strcmp(fndecl->ident->string, "printf") == 0)
                 {
-                    warnInvalidPrintfCall(e->loc, static_cast<Expression*>(e->arguments->data[0]), e->arguments->dim);
+                    warnInvalidPrintfCall(e->loc, (*e->arguments)[0], e->arguments->dim);
                 }
             }
 
@@ -889,7 +889,7 @@ public:
                     e->error("va_arg instruction expects 1 arguments");
                     fatal();
                 }
-                result = DtoVaArg(e->loc, e->type, static_cast<Expression*>(e->arguments->data[0]));
+                result = DtoVaArg(e->loc, e->type, (*e->arguments)[0]);
             }
             // C alloca
             else if (fndecl->llvmInternal == LLVMalloca) {
@@ -897,7 +897,7 @@ public:
                     e->error("alloca expects 1 arguments");
                     fatal();
                 }
-                Expression* exp = static_cast<Expression*>(e->arguments->data[0]);
+                Expression* exp = (*e->arguments)[0];
                 DValue* expv = toElem(exp);
                 if (expv->getType()->toBasetype()->ty != Tint32)
                     expv = DtoCast(e->loc, expv, Type::tint32);
@@ -909,7 +909,7 @@ public:
                     e->error("fence instruction expects 1 arguments");
                     fatal();
                 }
-                gIR->ir->CreateFence(llvm::AtomicOrdering(static_cast<Expression*>(e->arguments->data[0])->toInteger()));
+                gIR->ir->CreateFence(llvm::AtomicOrdering((*e->arguments)[0]->toInteger()));
                 return;
             }
             // atomic store instruction
@@ -918,9 +918,9 @@ public:
                     e->error("atomic store instruction expects 3 arguments");
                     fatal();
                 }
-                Expression* exp1 = static_cast<Expression*>(e->arguments->data[0]);
-                Expression* exp2 = static_cast<Expression*>(e->arguments->data[1]);
-                int atomicOrdering = static_cast<Expression*>(e->arguments->data[2])->toInteger();
+                Expression* exp1 = (*e->arguments)[0];
+                Expression* exp2 = (*e->arguments)[1];
+                int atomicOrdering = (*e->arguments)[2]->toInteger();
                 LLValue* val = toElem(exp1)->getRVal();
                 LLValue* ptr = toElem(exp2)->getRVal();
 
@@ -941,8 +941,8 @@ public:
                     fatal();
                 }
 
-                Expression* exp = static_cast<Expression*>(e->arguments->data[0]);
-                int atomicOrdering = static_cast<Expression*>(e->arguments->data[1])->toInteger();
+                Expression* exp = (*e->arguments)[0];
+                int atomicOrdering = (*e->arguments)[1]->toInteger();
 
                 LLValue* ptr = toElem(exp)->getRVal();
                 Type* retType = exp->type->nextOf();
@@ -963,10 +963,10 @@ public:
                     e->error("cmpxchg instruction expects 4 arguments");
                     fatal();
                 }
-                Expression* exp1 = static_cast<Expression*>(e->arguments->data[0]);
-                Expression* exp2 = static_cast<Expression*>(e->arguments->data[1]);
-                Expression* exp3 = static_cast<Expression*>(e->arguments->data[2]);
-                int atomicOrdering = static_cast<Expression*>(e->arguments->data[3])->toInteger();
+                Expression* exp1 = (*e->arguments)[0];
+                Expression* exp2 = (*e->arguments)[1];
+                Expression* exp3 = (*e->arguments)[2];
+                int atomicOrdering = (*e->arguments)[3]->toInteger();
                 LLValue* ptr = toElem(exp1)->getRVal();
                 LLValue* cmp = toElem(exp2)->getRVal();
                 LLValue* val = toElem(exp3)->getRVal();
@@ -1011,9 +1011,9 @@ public:
                         break;
                 }
 
-                Expression* exp1 = static_cast<Expression*>(e->arguments->data[0]);
-                Expression* exp2 = static_cast<Expression*>(e->arguments->data[1]);
-                int atomicOrdering = static_cast<Expression*>(e->arguments->data[2])->toInteger();
+                Expression* exp1 = (*e->arguments)[0];
+                Expression* exp2 = (*e->arguments)[1];
+                int atomicOrdering = (*e->arguments)[2]->toInteger();
                 LLValue* ptr = toElem(exp1)->getRVal();
                 LLValue* val = toElem(exp2)->getRVal();
                 LLValue* ret = gIR->ir->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp(op), ptr, val,
@@ -1031,8 +1031,8 @@ public:
                     fatal();
                 }
 
-                Expression* exp1 = static_cast<Expression*>(e->arguments->data[0]);
-                Expression* exp2 = static_cast<Expression*>(e->arguments->data[1]);
+                Expression* exp1 = (*e->arguments)[0];
+                Expression* exp2 = (*e->arguments)[1];
                 LLValue* ptr = toElem(exp1)->getRVal();
                 LLValue* bitnum = toElem(exp2)->getRVal();
 
@@ -1839,7 +1839,7 @@ public:
             assert(e->arguments->dim >= 1);
             if (e->arguments->dim == 1)
             {
-                DValue* sz = toElem(static_cast<Expression*>(e->arguments->data[0]));
+                DValue* sz = toElem((*e->arguments)[0]);
                 // allocate & init
                 result = DtoNewDynArray(e->loc, e->newtype, sz, true);
             }
@@ -1849,7 +1849,7 @@ public:
                 std::vector<DValue*> dims;
                 dims.reserve(ndims);
                 for (size_t i=0; i<ndims; ++i)
-                    dims.push_back(toElem(static_cast<Expression*>(e->arguments->data[i])));
+                    dims.push_back(toElem((*e->arguments)[i]));
                 result = DtoNewMulDimDynArray(e->loc, e->newtype, &dims[0], ndims, true);
             }
         }
@@ -2873,8 +2873,8 @@ public:
         const size_t n = e->keys->dim;
         for (size_t i = 0; i<n; ++i)
         {
-            Expression* ekey = static_cast<Expression*>(e->keys->data[i]);
-            Expression* eval = static_cast<Expression*>(e->values->data[i]);
+            Expression* ekey = (*e->keys)[i];
+            Expression* eval = (*e->values)[i];
 
             IF_LOG Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
 
@@ -2960,13 +2960,12 @@ public:
         types.reserve(e->exps->dim);
         for (size_t i = 0; i < e->exps->dim; i++)
         {
-            Expression *el = static_cast<Expression *>(e->exps->data[i]);
-            types.push_back(i1ToI8(voidToI8(DtoType(el->type))));
+            types.push_back(i1ToI8(voidToI8(DtoType((*e->exps)[i]->type))));
         }
         LLValue *val = DtoRawAlloca(LLStructType::get(gIR->context(), types),0, "tuple");
         for (size_t i = 0; i < e->exps->dim; i++)
         {
-            Expression *el = static_cast<Expression *>(e->exps->data[i]);
+            Expression *el = (*e->exps)[i];
             DValue* ep = toElem(el);
             LLValue *gep = DtoGEPi(val,0,i);
             if (el->type->ty == Tstruct)

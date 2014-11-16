@@ -509,7 +509,7 @@ void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
     // do asm statements
     for (unsigned i=0; i < stmt->statements->dim; i++)
     {
-        Statement* s = static_cast<Statement*>(stmt->statements->data[i]);
+        Statement* s = (*stmt->statements)[i];
         if (s) {
             Statement_toIR(s, p);
         }
@@ -780,7 +780,7 @@ Statement *AsmBlockStatement::syntaxCopy()
     a->setDim(statements->dim);
     for (size_t i = 0; i < statements->dim; i++)
     {
-        Statement *s = static_cast<Statement *>(statements->data[i]);
+        Statement *s = (*statements)[i];
         if (s)
             s = s->syntaxCopy();
         a->data[i] = s;
@@ -811,7 +811,7 @@ AsmBlockStatement* CompoundStatement::endsWithAsm()
     if (statements && statements->dim)
     {
         unsigned last = statements->dim - 1;
-        Statement* s = static_cast<Statement*>(statements->data[last]);
+        Statement* s = (*statements)[last];
         if (s) return s->endsWithAsm();
     }
     return NULL;
