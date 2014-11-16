@@ -44,10 +44,6 @@ struct PPC64TargetABI : TargetABI {
         }
     }
 
-    void newFunctionType(TypeFunction* tf)
-    {
-    }
-
     bool returnInArg(TypeFunction* tf)
     {
         if (tf->isref)
@@ -65,10 +61,6 @@ struct PPC64TargetABI : TargetABI {
     {
         TY ty = t->toBasetype()->ty;
         return ty == Tstruct || ty == Tsarray;
-    }
-
-    void doneWithFunctionType()
-    {
     }
 
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)

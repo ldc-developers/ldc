@@ -79,9 +79,6 @@ struct TargetABI
     /// disabling the LLVM-internal name mangling/postprocessing is required.
     virtual std::string mangleForLLVM(llvm::StringRef name, LINK l) { return name; }
 
-    /// Called if a new function type is resolved
-    virtual void newFunctionType(TypeFunction* tf) {}
-
     /// Returns true if the function uses sret (struct return),
     /// meaning that it gets a hidden pointer to a struct which has been pre-
     /// allocated by the caller.
@@ -94,9 +91,6 @@ struct TargetABI
     virtual void rewriteFunctionType(TypeFunction* t, IrFuncTy &fty) = 0;
 
     virtual void rewriteArgument(IrFuncTyArg& arg) {}
-
-    /// Called if resolution of new function type is done
-    virtual void doneWithFunctionType() {}
 };
 
 #endif

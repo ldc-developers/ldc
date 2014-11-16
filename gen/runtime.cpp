@@ -963,9 +963,7 @@ static void LLVM_D_BuildRuntimeModule()
         );
         assert(dty->ctype);
         IrFuncTy &irFty = dty->ctype->getIrFuncTy();
-        gABI->newFunctionType(dty);
         gABI->rewriteFunctionType(dty, irFty);
-        gABI->doneWithFunctionType();
 #if LDC_LLVM_VER < 303
         fn->addAttribute(1, irFty.args[0]->attrs);
 #else

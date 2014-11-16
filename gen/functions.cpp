@@ -71,8 +71,6 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     if (irFty.funcType) return irFty.funcType;
 
     TargetABI* abi = (isIntrinsic ? TargetABI::getIntrinsic() : gABI);
-    // Tell the ABI we're resolving a new function type
-    abi->newFunctionType(f);
 
     // Do not modify irFty yet; this function may be called recursively if any
     // of the argument types refer to this type.
@@ -254,9 +252,6 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
 
     // let the abi rewrite the types as necesary
     abi->rewriteFunctionType(f, newIrFty);
-
-    // Tell the ABI we're done with this function type
-    abi->doneWithFunctionType();
 
     // Now we can modify irFty safely.
     irFty = llvm_move(newIrFty);
