@@ -59,7 +59,7 @@
 #endif
 #endif
 
-#ifdef __sun
+#if _AIX || __sun
 #include <alloca.h>
 #endif
 
