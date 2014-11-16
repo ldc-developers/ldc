@@ -19,6 +19,7 @@
 #include "template.h"
 #include "gen/aa.h"
 #include "gen/abi.h"
+#include "gen/abi-x86-64.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
@@ -827,6 +828,16 @@ public:
         {
             FuncDeclaration* fndecl = dfnval->func;
 
+            // The System V AMD64 ABI used for all x86-64 targets except for Windows
+            // uses a special native va_list type - a 24-bytes struct passed by reference.
+            // In druntime, the struct is defined as core.stdc.stdarg.__va_list;
+            // the actually used core.stdc.stdarg.va_list type is a raw char* pointer
+            // though to achieve byref semantics.
+            // This requires a little bit of compiler magic here in the following
+            // implementations of LDC's va_start and va_copy intrinsics.
+            const bool isSystemVTarget = isSystemVAMD64Target();
+            LLType* systemVValistType = getSystemVAMD64NativeValistType();
+
             // as requested by bearophile, see if it's a C printf call and that it's valid.
             if (global.params.warnings && checkPrintf)
             {
@@ -843,14 +854,56 @@ public:
                     fatal();
                 }
                 Expression* exp = (*e->arguments)[0];
-                LLValue* arg = toElem(exp)->getLVal();
-                if (LLValue *argptr = p->func()->_argptr) {
-                    DtoStore(DtoLoad(argptr), DtoBitCast(arg, getPtrToType(getVoidPtrType())));
+                LLValue* arg = toElem(exp)->getLVal();                   // arg = &<passed ap>   [va_list*]
+                if (LLValue* argptr = p->func()->_argptr) {              // variadic extern(D) function with hidden _argptr:
+                    DtoStore(DtoLoad(argptr), arg);                      //   *arg = *_argptr_mem
+                                                                         //     => <passed ap> = _argptr
                     result = new DImValue(e->type, arg);
-                } else {
-                    arg = DtoBitCast(arg, getVoidPtrType());
-                    result = new DImValue(e->type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), arg, ""));
+                } else if (isSystemVTarget) {                            // System V AMD64 ABI:
+                    // Since the user only created a char* pointer on the stack before invoking va_start, we first
+                    // need to allocate the actual __va_list struct and set the passed pointer to its address
+                    // before invoking va_start.
+                    LLValue* valistmem = DtoRawAlloca(systemVValistType,
+                        0, "__va_list_mem");                             //   __va_list_mem = new __va_list
+                    valistmem = DtoBitCast(valistmem, getVoidPtrType()); //   valistmem = (char*)__va_list_mem
+                    DtoStore(valistmem, arg);                            //   *arg = valistmem
+                                                                         //     => <passed ap> = (char*)__va_list_mem
+                    result = new DImValue(e->type, gIR->ir->CreateCall(  //   llvm.va_start(valistmem)
+                        GET_INTRINSIC_DECL(vastart), valistmem, ""));    //     => llvm.va_start(<passed ap>)
+                } else {                                                 // all other ABIs:
+                    arg = DtoBitCast(arg, getVoidPtrType());             //   arg = (char*)arg
+                    result = new DImValue(e->type, gIR->ir->CreateCall(  //   llvm.va_start(arg)
+                        GET_INTRINSIC_DECL(vastart), arg, ""));          //     => llvm.va_start((char*)&<passed ap>)
                 }
+            }
+            // va_copy instruction
+            else if (fndecl->llvmInternal == LLVMva_copy) {
+                if (e->arguments->dim != 2) {
+                    e->error("va_copy instruction expects 2 arguments");
+                    fatal();
+                }
+
+                LLValue* arg1 = toElem((*e->arguments)[0])->getLVal();   // arg1 = &<passed dest>   [va_list*]
+                LLValue* arg2 = toElem((*e->arguments)[1])->getRVal();   // arg2 = <passed src>     [va_list]
+
+                if (isSystemVTarget) {
+                    // Similar to va_start, we need to allocate a new __va_list struct on the stack first
+                    // and set the passed destination char* pointer to its address.
+                    LLValue* valistmem = DtoRawAlloca(systemVValistType,
+                        0, "__va_list_mem");                             // __va_list_mem = new __va_list
+                    DtoStore(DtoBitCast(valistmem, getVoidPtrType()),    // *arg1 = (char*)__va_list_mem
+                        arg1);                                           //   => <passed dest> = (char*)__va_list_mem
+
+                    // Now simply bitcopy the source struct over the destination struct.
+                    arg2 = DtoBitCast(arg2, valistmem->getType());       // arg2 = (__va_list*)arg2
+                    DtoStore(DtoLoad(arg2), valistmem);                  // *__va_list_mem = *arg2
+                                                                         //   => *(__va_list*)<passed dest> = *(__va_list*)<passed src>
+                } else { // all other ABIs:
+                    DtoStore(arg2, arg1);                                // *arg1 = arg2
+                                                                         //   => <passed dest> = <passed src>
+                }
+
+                result = new DVarValue(e->type, arg1);
             }
             // va_arg instruction
             else if (fndecl->llvmInternal == LLVMva_arg) {

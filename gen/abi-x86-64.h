@@ -7,7 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// The ABI implementation used for 64 bit x86 (i.e. x86_64/AMD64/x64) targets.
+// The System V AMD64 ABI implementation used on all x86-64 platforms except
+// for Windows.
 //
 //===----------------------------------------------------------------------===//
 
@@ -15,7 +16,12 @@
 #define LDC_GEN_ABI_X86_64_H
 
 struct TargetABI;
+namespace llvm { class Type; }
 
 TargetABI* getX86_64TargetABI();
+
+bool isSystemVAMD64Target();
+
+llvm::Type* getSystemVAMD64NativeValistType();
 
 #endif

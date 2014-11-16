@@ -320,3 +320,21 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty) {
     if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1)
         fty.reverseParams = true;
 }
+
+bool isSystemVAMD64Target() {
+    return global.params.targetTriple.getArch() == llvm::Triple::x86_64
+        && !global.params.targetTriple.isOSWindows();
+}
+
+LLType* getSystemVAMD64NativeValistType() {
+    LLType* uintType = LLType::getInt32Ty(gIR->context());
+    LLType* voidPointerType = getVoidPtrType();
+
+    std::vector<LLType*> parts;       // struct __va_list {
+    parts.push_back(uintType);        //   uint gp_offset;
+    parts.push_back(uintType);        //   uint fp_offset;
+    parts.push_back(voidPointerType); //   void* overflow_arg_area;
+    parts.push_back(voidPointerType); //   void* reg_save_area; }
+
+    return LLStructType::get(gIR->context(), parts, "__va_list");
+}

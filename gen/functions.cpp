@@ -17,6 +17,7 @@
 #include "statement.h"
 #include "template.h"
 #include "gen/abi.h"
+#include "gen/abi-x86-64.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
@@ -1182,14 +1183,31 @@ void DtoDefineFunction(FuncDeclaration* fd)
     // D varargs: prepare _argptr and _arguments
     if (f->linkage == LINKd && f->varargs == 1)
     {
-        // allocate _argptr and initialize it by calling the LLVM va_start intrinsic
-        LLValue* argptrmem = DtoAlloca(Type::tvoidptr, "_argptr_mem");
-        llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), DtoBitCast(argptrmem, getVoidPtrType()), "", gIR->scopebb());
+        // allocate _argptr (of type core.stdc.stdarg.va_list)
+        LLValue* argptrmem = DtoAlloca(Type::tvalist, "_argptr_mem"); // _argptr_mem = new va_list   [most likely char**]
         irFunc->_argptr = argptrmem;
 
+        // initialize _argptr
+        if (isSystemVAMD64Target()) {                            // System V AMD64 ABI:
+            LLType* nativeValistType = getSystemVAMD64NativeValistType();
+            LLValue* valistmem = DtoRawAlloca(nativeValistType,
+                0, "__va_list_mem");                             //   __va_list_mem = new __va_list
+            valistmem = DtoBitCast(valistmem, getVoidPtrType()); //   valistmem = (char*)__va_list_mem
+            DtoStore(valistmem, argptrmem);                      //   *argptrmem = valistmem
+                                                                 //     => _argptr = (char*)__va_list_mem
+            llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart),  //   llvm.va_start(valistmem)
+                valistmem, "", gIR->scopebb());                  //     => llvm.va_start(_argptr)
+        } else {                                                 // all other ABIs:
+            llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart),  //   llvm.va_start((char*)&_argptr)
+                DtoBitCast(argptrmem, getVoidPtrType()), "", gIR->scopebb());
+        }
+
         // copy _arguments to a memory location
-        LLValue* argumentsmem = DtoRawAlloca(irFunc->_arguments->getType(), 0, "_arguments_mem");
-        new llvm::StoreInst(irFunc->_arguments, argumentsmem, gIR->scopebb());
+        LLType* argumentsType = irFunc->_arguments->getType();
+        LLValue* argumentsmem = DtoRawAlloca(argumentsType,
+            0, "_arguments_mem");                                // _arguments_mem = new TypeInfo[]
+        new llvm::StoreInst(irFunc->_arguments, argumentsmem,    // *_arguments_mem = <passed _arguments>
+            gIR->scopebb());
         irFunc->_arguments = argumentsmem;
     }
 

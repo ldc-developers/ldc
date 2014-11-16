@@ -86,6 +86,7 @@ DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg)
         llt = getPtrToType(llt);
     // issue a warning for broken va_arg instruction.
     if (global.params.targetTriple.getArch() != llvm::Triple::x86
+        && global.params.targetTriple.getArch() != llvm::Triple::x86_64
         && global.params.targetTriple.getArch() != llvm::Triple::ppc64
 #if LDC_LLVM_VER >= 305
         && global.params.targetTriple.getArch() != llvm::Triple::ppc64le
