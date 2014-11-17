@@ -2054,7 +2054,11 @@ public:
         // call assert runtime functions
         p->scope() = IRScope(assertbb, endbb);
 
-        DtoAssert(p->func()->decl->getModule(), e->loc, e->msg ? toElem(e->msg) : NULL);
+        /* DMD Bugzilla 8360: If the condition is evalated to true,
+         * msg is not evaluated at all. So should use toElemDtor()
+         * instead of toElem().
+         */
+        DtoAssert(p->func()->decl->getModule(), e->loc, e->msg ? toElemDtor(e->msg) : NULL);
 
         // rewrite the scope
         p->scope() = IRScope(endbb, oldend);
@@ -3045,16 +3049,132 @@ DValue *toElem(Expression *e)
 
 // Search for temporaries for which the destructor must be called.
 // was in toElemDtor but that triggered bug 978911 in VS
-class SearchVarsWithDestructors : public StoppableVisitor
+class SearchVarsWithDestructors : public Visitor
 {
 public:
     std::vector<Expression*> edtors;
 
-    // Import all functions from class StoppableVisitor
-    using StoppableVisitor::visit;
+    // Import all functions from class Visitor
+    using Visitor::visit;
+
+    void applyTo(Expression *e)
+    {
+        if (e)
+            e->accept(this);
+    }
+
+    void applyTo(Expressions *e)
+    {
+        if (!e)
+            return;
+        for (size_t i = 0; i < e->dim; i++)
+            applyTo((*e)[i]);
+    }
 
     virtual void visit(Expression* e)
     {
+    }
+
+    virtual void visit(NewExp *e)
+    {
+        applyTo(e->thisexp);
+        applyTo(e->newargs);
+        applyTo(e->arguments);
+    }
+
+    virtual void visit(NewAnonClassExp *e)
+    {
+        applyTo(e->thisexp);
+        applyTo(e->newargs);
+        applyTo(e->arguments);
+    }
+
+    virtual void visit(UnaExp *e)
+    {
+        applyTo(e->e1);
+    }
+
+    virtual void visit(BinExp *e)
+    {
+        applyTo(e->e1);
+        applyTo(e->e2);
+    }
+
+    virtual void visit(CallExp *e)
+    {
+        applyTo(e->e1);
+        applyTo(e->arguments);
+    }
+
+    virtual void visit(ArrayExp *e)
+    {
+        applyTo(e->e1);
+        applyTo(e->arguments);
+    }
+
+    virtual void visit(SliceExp *e)
+    {
+        applyTo(e->e1);
+        applyTo(e->lwr);
+        applyTo(e->upr);
+    }
+
+    virtual void visit(ArrayLiteralExp *e)
+    {
+        applyTo(e->elements);
+    }
+
+    virtual void visit(AssocArrayLiteralExp *e)
+    {
+        applyTo(e->keys);
+        applyTo(e->values);
+    }
+
+    virtual void visit(StructLiteralExp *e)
+    {
+        if (e->stageflags & stageApply) return;
+        int old = e->stageflags;
+        e->stageflags |= stageApply;
+        applyTo(e->elements);
+        e->stageflags = old;
+    }
+
+    virtual void visit(TupleExp *e)
+    {
+        applyTo(e->e0);
+        applyTo(e->exps);
+    }
+
+    virtual void visit(AndAndExp *e)
+    {
+        applyTo(e->e1);
+        // Don't visit the expression, because later ToElemVisitor will
+        // call toElemDtor on it. Otherwise, there will be multiple
+        // destructor calls on any temporary created by the expression.
+        // See issue #795.
+        //applyTo(e->e2);
+    }
+
+    virtual void visit(OrOrExp *e)
+    {
+        applyTo(e->e1);
+        // same as above
+        //applyTo(e->e2);
+    }
+
+    virtual void visit(CondExp *e)
+    {
+        applyTo(e->econd);
+        // same as above
+        //applyTo(e->e1);
+        //applyTo(e->e2);
+    }
+
+    virtual void visit(AssertExp *e)
+    {
+        applyTo(e->e1);
+        // same as above
+        // applyTo(e->msg);
     }
 
     virtual void visit(DeclarationExp* e)
@@ -3071,7 +3191,7 @@ public:
 
         if (vd->init) {
             if (ExpInitializer* ex = vd->init->isExpInitializer())
-                walkPostorder(ex->exp, this);
+                applyTo(ex->exp);
         }
 
         if (!vd->isDataseg() && vd->edtor && !vd->noscope)
@@ -3104,7 +3224,7 @@ DValue *toElemDtor(Expression *e)
 
     // find destructors that must be called
     SearchVarsWithDestructors visitor;
-    walkPostorder(e, &visitor);
+    visitor.applyTo(e);
 
     if (!visitor.edtors.empty()) {
         if (e->op == TOKcall || e->op == TOKassert) {
@@ -3129,9 +3249,7 @@ DValue *toElemDtor(Expression *e)
 
             gIR->scope() = IRScope(oldbb, oldend);
 
-            // call the destructors but not for AssertExp
-            if (e->op == TOKcall)
-                callDestructors->toIR();
+            callDestructors->toIR();
             delete callDestructors;
             return val;
         } else {
