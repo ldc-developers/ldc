@@ -26,11 +26,27 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-void ABIRewrite::getL(Type* dty, DValue* v, llvm::Value* lval)
+void ABIRewrite::getL(Type* dty, DValue* v, LLValue* lval)
 {
     LLValue* rval = get(dty, v);
     assert(rval->getType() == lval->getType()->getContainedType(0));
     DtoStore(rval, lval);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+LLValue* TargetABI::prepareVaStart(LLValue* pAp)
+{
+    // pass a void* pointer to ap to LLVM's va_start intrinsic
+    return DtoBitCast(pAp, getVoidPtrType());
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void TargetABI::vaCopy(LLValue* pDest, LLValue* src)
+{
+    // simply bitcopy src over dest
+    DtoStore(src, pDest);
 }
 
 //////////////////////////////////////////////////////////////////////////////

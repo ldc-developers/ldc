@@ -20,8 +20,4 @@ namespace llvm { class Type; }
 
 TargetABI* getX86_64TargetABI();
 
-bool isSystemVAMD64Target();
-
-llvm::Type* getSystemVAMD64NativeValistType();
-
 #endif
