@@ -1290,16 +1290,6 @@ DValue* DtoArgument(Parameter* fnarg, Expression* argexp)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void DtoVariadicArgument(Expression* argexp, LLValue* dst)
-{
-    IF_LOG Logger::println("DtoVariadicArgument");
-    LOG_SCOPE;
-    DVarValue vv(argexp->type, dst);
-    DtoAssign(argexp->loc, &vv, toElem(argexp));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 int binary(const char *p , const char **tab, int high)
 {
     int i = 0, j = high, k, l;
