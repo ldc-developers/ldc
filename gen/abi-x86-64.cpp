@@ -428,7 +428,6 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
 
 struct X86_64TargetABI : TargetABI {
     X86_64_C_struct_rewrite struct_rewrite;
-    CompositeToInt compositeToInt;
 
     llvm::CallingConv::ID callingConv(LINK l);
 
@@ -446,15 +445,6 @@ struct X86_64TargetABI : TargetABI {
 
 private:
     LLType* getValistType();
-
-    // Rewrite structs and static arrays <= 64 bit and of a size that is a power of 2
-    // to an integer of the same size.
-    bool canRewriteAsInt(Type* t) {
-        t = t->toBasetype();
-        unsigned size = t->size();
-        return (t->ty == Tstruct || t->ty == Tsarray)
-            && (size == 1 || size == 2 || size == 4 || size == 8);
-    }
 };
 
 
@@ -492,7 +482,7 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
 bool X86_64TargetABI::passByVal(Type* t) {
     t = t->toBasetype();
 
-    if (t->size() == 0 || keepUnchanged(t) || canRewriteAsInt(t))
+    if (t->size() == 0 || keepUnchanged(t))
         return false;
 
     bool byval = false;
@@ -518,12 +508,6 @@ bool X86_64TargetABI::passByVal(Type* t) {
 
 void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg) {
     Type* t = arg.type->toBasetype();
-
-    if (canRewriteAsInt(t)) {
-        arg.rewrite = &compositeToInt;
-        arg.ltype = compositeToInt.type(arg.type, arg.ltype);
-        return;
-    }
 
     LLType* abiTy = getAbiType(t);
     if (abiTy && abiTy != arg.ltype) {
