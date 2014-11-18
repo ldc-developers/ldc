@@ -143,7 +143,9 @@ namespace {
 
         ty = ty->toBasetype();
 
-        if (ty->isintegral() || ty->ty == Tpointer) {
+        if (ty->size() == 0) {
+            return;
+        } else if (ty->isintegral() || ty->ty == Tpointer || ty->ty == Tvoid) {
             accum.addField(offset, Integer);
         } else if (ty->ty == Tfloat80 || ty->ty == Timaginary80) {
             accum.addField(offset, X87);
@@ -179,7 +181,9 @@ namespace {
             }
         } else if (ty->ty == Tstruct) {
             VarDeclarations& fields = static_cast<TypeStruct*>(ty)->sym->fields;
-            for (size_t i = 0; i < fields.dim; i++) {
+            if (fields.dim == 0) { // no fields, but size > 0? treat as void
+                classifyType(accum, Type::tvoid, offset);
+            } else for (size_t i = 0; i < fields.dim; i++) {
                 classifyType(accum, fields[i]->type, offset + fields[i]->offset);
             }
         } else {
@@ -502,9 +506,6 @@ bool X86_64TargetABI::passByVal(Type* t) {
             t->toChars(), byval ? "true" : "false", ldcResult ? "true" : "false");
     }
     //assert(byval == ldcResult && "passByVal() mismatch between toArgTypes() and LDC!");
-
-    IF_LOG if (byval)
-        Logger::println("Passed byval: %s", t->toChars());
 
     return byval;
 }
