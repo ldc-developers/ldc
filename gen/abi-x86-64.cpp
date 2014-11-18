@@ -324,6 +324,9 @@ namespace {
         LLType* abiTy = 0;
         if (argTypes->arguments->size() == 1) { // single part
             abiTy = DtoType((*argTypes->arguments->begin())->type);
+            // don't rewrite to a single bit (assertions in tollvm.cpp)
+            if (abiTy == LLType::getInt1Ty(gIR->context()))
+                return 0;
         } else {                                // multiple parts => LLVM struct
             std::vector<LLType*> parts;
             for (Array<Parameter*>::iterator I = argTypes->arguments->begin(), E = argTypes->arguments->end(); I != E; ++I)
