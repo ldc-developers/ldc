@@ -20,7 +20,7 @@ version(X86)
 {
     version(linux) version=GCC_UNWIND;
     version(darwin) version=GCC_UNWIND;
-    version(solaris) version=GCC_UNWIND;
+    version(Solaris) version=GCC_UNWIND;
     version(FreeBSD) version=GCC_UNWIND;
     version(MinGW) version=GCC_UNWIND;
 }
@@ -28,7 +28,7 @@ version(X86_64)
 {
     version(linux) version=GCC_UNWIND;
     version(darwin) version=GCC_UNWIND;
-    version(solaris) version=GCC_UNWIND;
+    version(Solaris) version=GCC_UNWIND;
     version(FreeBSD) version=GCC_UNWIND;
     version(MinGW) version=GCC_UNWIND;
 }
