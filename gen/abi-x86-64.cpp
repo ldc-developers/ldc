@@ -408,12 +408,15 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
     // Turn a struct into an ABI-mangled representation
     LLValue* put(Type* dty, DValue* v)
     {
+        LLValue* rval = v->getRVal();
         LLValue* lval;
-        if (v->isLVal()) {
+        // already lowered to a pointer to the struct/static array?
+        if (rval->getType()->isPointerTy()) {
+            lval = rval;
+        } else if (v->isLVal()) {
             lval = v->getLVal();
         } else {
             // No memory location, create one.
-            LLValue* rval = v->getRVal();
             lval = DtoRawAlloca(rval->getType(), 0);
             DtoStore(rval, lval);
         }

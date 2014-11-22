@@ -53,7 +53,7 @@ struct RemoveStructPadding : ABIRewrite {
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * Rewrites a composite type parameter to an integer of the same size.
+ * Rewrites any parameter to an integer of the same or next bigger size.
  *
  * This is needed in order to be able to use LLVM's inreg attribute to put
  * struct and static array parameters into registers, because the attribute has
@@ -91,15 +91,16 @@ struct CompositeToInt : ABIRewrite
     {
         Logger::println("rewriting %s -> integer", dty->toChars());
 
+        LLValue* rval = dv->getRVal();
         LLValue* address = 0; // of original parameter dv
 
-        if (dv->getRVal()->getType()->isPointerTy()) {     // dv has been lowered to a pointer to the struct/static array:
-            address = dv->getRVal();                       //   address = dv
+        if (rval->getType()->isPointerTy()) {              // dv has been lowered to a pointer to the struct/static array:
+            address = rval;                                //   address = dv
         } else if (dv->isLVal()) {                         // dv is already in memory:
             address = dv->getLVal();                       //   address = &dv
         } else {                                           // dump dv to memory:
             address = DtoAlloca(dty, ".composite_to_int"); //   address = new Type
-            DtoStore(dv->getRVal(), address);              //   *address = dv
+            DtoStore(rval, address);                       //   *address = dv
         }
 
         LLType* intType = type(dty, 0);
@@ -108,8 +109,23 @@ struct CompositeToInt : ABIRewrite
 
     LLType* type(Type* t, LLType*)
     {
-        size_t sz = t->size() * 8;
-        return LLIntegerType::get(gIR->context(), sz);
+        unsigned size = t->size();
+        switch (size) {
+          case 0:
+            size = 1;
+            break;
+          case 3:
+            size = 4;
+            break;
+          case 5:
+          case 6:
+          case 7:
+            size = 8;
+            break;
+          default:
+            break;
+        }
+        return LLIntegerType::get(gIR->context(), size * 8);
     }
 };
 
@@ -145,6 +161,7 @@ struct ByvalRewrite : ABIRewrite
         LLValue* copy;
 
         LLType* type = original->getType();
+        // already lowered to a pointer to the struct/static array?
         if (type->isPointerTy())
         {
             type = type->getPointerElementType();
