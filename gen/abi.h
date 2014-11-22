@@ -100,6 +100,11 @@ struct TargetABI
     // Implements the va_copy intrinsic.
     // Input: pointer to dest argument (va_list*) and src argument (va_list)
     virtual void vaCopy(llvm::Value* pDest, llvm::Value* src);
+
+    // Prepares a va_arg intrinsic call.
+    // Input:  pointer to passed ap argument (va_list*)
+    // Output: value to be passed to LLVM's va_arg intrinsic (void*)
+    virtual llvm::Value* prepareVaArg(llvm::Value* pAp);
 };
 
 #endif

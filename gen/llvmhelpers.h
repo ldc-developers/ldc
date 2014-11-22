@@ -189,9 +189,6 @@ IrFuncTy &DtoIrTypeFunction(DValue* fnval);
 TypeFunction* DtoTypeFunction(DValue* fnval);
 
 ///
-DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg);
-
-///
 LLValue* DtoCallableValue(DValue* fn);
 
 ///

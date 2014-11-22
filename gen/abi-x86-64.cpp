@@ -446,9 +446,11 @@ struct X86_64TargetABI : TargetABI {
 
     void rewriteArgument(IrFuncTyArg& arg);
 
-    LLValue* prepareVaStart(LLValue* addressOfAp);
+    LLValue* prepareVaStart(LLValue* pAp);
 
-    void vaCopy(LLValue* addressOfDest, LLValue* src);
+    void vaCopy(LLValue* pDest, LLValue* src);
+
+    LLValue* prepareVaArg(LLValue* pAp);
 
 private:
     LLType* getValistType();
@@ -595,4 +597,10 @@ void X86_64TargetABI::vaCopy(LLValue* pDest, LLValue* src) {
     // Now bitcopy the source struct over the destination struct.
     src = DtoBitCast(src, valistmem->getType());
     DtoStore(DtoLoad(src), valistmem); // *(__va_list*)dest = *(__va_list*)src
+}
+
+LLValue* X86_64TargetABI::prepareVaArg(LLValue* pAp)
+{
+    // pass a void* pointer to the actual __va_list struct to LLVM's va_arg intrinsic
+    return DtoLoad(pAp);
 }

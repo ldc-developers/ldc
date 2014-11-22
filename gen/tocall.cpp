@@ -78,27 +78,6 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg)
-{
-    DValue* expelem = toElem(valistArg);
-    LLType* llt = DtoType(type);
-    if (DtoIsPassedByRef(type))
-        llt = getPtrToType(llt);
-    // issue a warning for broken va_arg instruction.
-    if (global.params.targetTriple.getArch() != llvm::Triple::x86
-        && global.params.targetTriple.getArch() != llvm::Triple::x86_64
-        && global.params.targetTriple.getArch() != llvm::Triple::ppc64
-#if LDC_LLVM_VER >= 305
-        && global.params.targetTriple.getArch() != llvm::Triple::ppc64le
-#endif
-        )
-        warning(loc, "va_arg for C variadic functions is probably broken for anything but x86 and ppc64");
-    // done
-    return new DImValue(type, gIR->ir->CreateVAArg(expelem->getLVal(), llt));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 LLValue* DtoCallableValue(DValue* fn)
 {
     Type* type = fn->getType()->toBasetype();

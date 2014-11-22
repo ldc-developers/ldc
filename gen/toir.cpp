@@ -842,8 +842,7 @@ public:
                     e->error("va_start instruction expects 1 (or 2) arguments");
                     fatal();
                 }
-                Expression* exp = (*e->arguments)[0];
-                LLValue* pAp = toElem(exp)->getLVal(); // va_list*
+                LLValue* pAp = toElem((*e->arguments)[0])->getLVal(); // va_list*
                 // variadic extern(D) function with implicit _argptr?
                 if (LLValue* pArgptr = p->func()->_argptr) {
                     DtoStore(DtoLoad(pArgptr), pAp); // ap = _argptr
@@ -868,10 +867,15 @@ public:
             // va_arg instruction
             else if (fndecl->llvmInternal == LLVMva_arg) {
                 if (e->arguments->dim != 1) {
-                    e->error("va_arg instruction expects 1 arguments");
+                    e->error("va_arg instruction expects 1 argument");
                     fatal();
                 }
-                result = DtoVaArg(e->loc, e->type, (*e->arguments)[0]);
+                LLValue* pAp = toElem((*e->arguments)[0])->getLVal(); // va_list*
+                LLValue* vaArgArg = gABI->prepareVaArg(pAp);
+                LLType* llType = DtoType(e->type);
+                if (DtoIsPassedByRef(e->type))
+                    llType = getPtrToType(llType);
+                result = new DImValue(e->type, gIR->ir->CreateVAArg(vaArgArg, llType));
             }
             // C alloca
             else if (fndecl->llvmInternal == LLVMalloca) {

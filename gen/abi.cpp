@@ -51,6 +51,14 @@ void TargetABI::vaCopy(LLValue* pDest, LLValue* src)
 
 //////////////////////////////////////////////////////////////////////////////
 
+LLValue* TargetABI::prepareVaArg(LLValue* pAp)
+{
+    // pass a void* pointer to ap to LLVM's va_arg intrinsic
+    return DtoBitCast(pAp, getVoidPtrType());
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 // Some reasonable defaults for when we don't know what ABI to use.
 struct UnknownTargetABI : TargetABI
 {
