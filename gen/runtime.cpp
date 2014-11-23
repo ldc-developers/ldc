@@ -964,10 +964,12 @@ static void LLVM_D_BuildRuntimeModule()
         assert(dty->ctype);
         IrFuncTy &irFty = dty->ctype->getIrFuncTy();
         gABI->rewriteFunctionType(dty, irFty);
-#if LDC_LLVM_VER < 303
-        fn->addAttribute(1, irFty.args[0]->attrs);
+#if LDC_LLVM_VER >= 303
+        fn->addAttributes(1, llvm::AttributeSet::get(gIR->context(), 1, irFty.args[0]->attrs.attrs));
+#elif LDC_LLVM_VER == 302
+        fn->addAttribute(1, llvm::Attributes::get(gIR->context(), irFty.args[0]->attrs.attrs));
 #else
-        fn->addAttributes(1, llvm::AttributeSet::get(gIR->context(), 1, irFty.args[0]->attrs));
+        fn->addAttribute(1, irFty.args[0]->attrs.attrs);
 #endif
         fn->setCallingConv(gABI->callingConv(LINKd));
     }

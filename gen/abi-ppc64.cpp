@@ -98,16 +98,9 @@ struct PPC64TargetABI : TargetABI {
 
                 // the copy is treated as a local variable of the callee
                 // hence add the NoAlias and NoCapture attributes
-#if LDC_LLVM_VER >= 303
-                arg.attrs.clear();
-                arg.attrs.addAttribute(llvm::Attribute::NoAlias)
-                         .addAttribute(llvm::Attribute::NoCapture);
-#elif LDC_LLVM_VER == 302
-                arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
-                                                                                     .addAttribute(llvm::Attributes::NoCapture));
-#else
-                arg.attrs = llvm::Attribute::NoAlias | llvm::Attribute::NoCapture;
-#endif
+                arg.attrs.clear()
+                         .add(LDC_ATTRIBUTE(NoAlias))
+                         .add(LDC_ATTRIBUTE(NoCapture));
             }
         }
     }
