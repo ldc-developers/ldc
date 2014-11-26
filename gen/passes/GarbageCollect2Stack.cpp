@@ -708,7 +708,13 @@ static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, Dominato
             // haven't seen this block yet, and it's dominated by the def
             // (meaning paths through it could lead to users), add the block and
             // the first non-phi to the worklist.
-            if (!SeenDef && Visited.insert(Succ) && DT.dominates(DefBlock, Succ))
+            if (!SeenDef
+#if LDC_LLVM_VER >= 306
+                && Visited.insert(Succ).second
+#else
+                && Visited.insert(Succ)
+#endif
+                && DT.dominates(DefBlock, Succ))
                 Worklist.push_back(StartPoint(Succ, BBI));
         }
     }
@@ -879,7 +885,11 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
 #else
         Use *U = &UI.getUse();
 #endif
+#if LDC_LLVM_VER >= 306
+        if (Visited.insert(U).second)
+#else
         if (Visited.insert(U))
+#endif
           Worklist.push_back(U);
       }
       break;
