@@ -1210,7 +1210,7 @@ class Thread
             PRIORITY_DEFAULT = THREAD_PRIORITY_NORMAL;
             PRIORITY_MAX = THREAD_PRIORITY_TIME_CRITICAL;
         }
-        else version( Solaris )
+        else version( none /*Solaris*/ )
         {
             int nclass;
             int myClass;
