@@ -511,7 +511,9 @@ static void initializePasses() {
     // Initialize passes
     PassRegistry &Registry = *PassRegistry::getPassRegistry();
     initializeCore(Registry);
+#if LDC_LLVM_VER < 306
     initializeDebugIRPass(Registry);
+#endif
     initializeScalarOpts(Registry);
     initializeVectorization(Registry);
     initializeIPO(Registry);
@@ -526,6 +528,7 @@ static void initializePasses() {
     initializeCodeGenPreparePass(Registry);
 #if LDC_LLVM_VER >= 306
     initializeAtomicExpandPass(Registry);
+    initializeRewriteSymbolsPass(Registry);
 #elif LDC_LLVM_VER == 305
     initializeAtomicExpandLoadLinkedPass(Registry);
 #endif
