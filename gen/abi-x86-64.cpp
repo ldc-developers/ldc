@@ -73,10 +73,15 @@ namespace {
      * is both less work and makes printf("%.*s", o.toString()) work)
      */
     inline bool keepUnchanged(Type* t) {
+        if (t->size() == 0)
+            return true;
+
         switch (t->ty) {
             case Tarray:    // dynamic array
             case Taarray:   // assoc array
             case Tdelegate:
+            case Tvoid:
+            case Tnull:
                 return true;
 
             default:
@@ -84,7 +89,7 @@ namespace {
         }
     }
 
-    namespace ldc {
+  namespace ldc_abi {
     enum ArgClass {
         Integer, Sse, SseUp, X87, X87Up, ComplexX87, NoClass, Memory
     };
@@ -98,29 +103,20 @@ namespace {
             classes[1] = NoClass;
         }
 
-        void addField(unsigned offset, ArgClass cl) {
-            if (isMemory)
-                return;
+        explicit Classification(Type* ty) : isMemory(false) {
+            classes[0] = NoClass;
+            classes[1] = NoClass;
 
-            // Note that we don't need to bother checking if it crosses 8 bytes.
-            // We don't get here with unaligned fields, and anything that can be
-            // big enough to cross 8 bytes (cdoubles, reals, structs and arrays)
-            // is special-cased in classifyType()
-            int idx = (offset < 8 ? 0 : 1);
+            classify(ty, 0);
 
-            ArgClass nw = merge(classes[idx], cl);
-            if (nw != classes[idx]) {
-                classes[idx] = nw;
+            finalize();
 
-                if (nw == Memory) {
-                    classes[1-idx] = Memory;
-                    isMemory = true;
-                }
-            }
+            static const char* classNames[] = { "Integer", "Sse", "SseUp", "X87", "X87Up", "ComplexX87", "NoClass", "Memory" };
+            IF_LOG Logger::println("classify(%s): <%s, %s>", ty->toChars(), classNames[classes[0]], classNames[classes[1]]);
         }
 
     private:
-        ArgClass merge(ArgClass accum, ArgClass cl) {
+        static ArgClass merge(ArgClass accum, ArgClass cl) {
             if (accum == cl)
                 return accum;
             if (accum == NoClass)
@@ -136,69 +132,110 @@ namespace {
                 return Memory;
             return Sse;
         }
-    };
 
-    void classifyType(Classification& accum, Type* ty, d_uns64 offset) {
-        IF_LOG Logger::cout() << "Classifying " << ty->toChars() << " @ " << offset << '\n';
+        void addField(unsigned offset, ArgClass cl) {
+            if (isMemory)
+                return;
 
-        ty = ty->toBasetype();
+            // Note that we don't need to bother checking if it crosses 8 bytes.
+            // We don't get here with unaligned fields, and anything that can be
+            // big enough to cross 8 bytes is special-cased in classify()
+            int idx = (offset < 8 ? 0 : 1);
 
-        if (ty->size() == 0) {
-            return;
-        } else if (ty->isintegral() || ty->ty == Tpointer || ty->ty == Tvoid) {
-            accum.addField(offset, Integer);
-        } else if (ty->ty == Tfloat80 || ty->ty == Timaginary80) {
-            accum.addField(offset, X87);
-            accum.addField(offset+8, X87Up);
-        } else if (ty->ty == Tcomplex80) {
-            accum.addField(offset, ComplexX87);
-            // make sure other half knows about it too:
-            accum.addField(offset+16, ComplexX87);
-        } else if (ty->ty == Tcomplex64) {
-            accum.addField(offset, Sse);
-            accum.addField(offset+8, Sse);
-        } else if (ty->ty == Tcomplex32) {
-            accum.addField(offset, Sse);
-            accum.addField(offset+4, Sse);
-        } else if (ty->isfloating()) {
-            accum.addField(offset, Sse);
-        } else if (ty->size() > 16 || hasUnalignedFields(ty)) {
-            // This isn't creal, yet is > 16 bytes, so pass in memory.
-            // Must be after creal case but before arrays and structs,
-            // the other types that can get bigger than 16 bytes
-            accum.addField(offset, Memory);
-        } else if (ty->ty == Tsarray) {
-            Type* eltType = ty->nextOf();
-            d_uns64 eltsize = eltType->size();
-            if (eltsize > 0) {
-                d_uns64 dim = ty->size() / eltsize;
-                assert(dim <= 16
-                        && "Array of non-empty type <= 16 bytes but > 16 elements?");
-                for (d_uns64 i = 0; i < dim; i++) {
-                    classifyType(accum, eltType, offset);
-                    offset += eltsize;
+            ArgClass nw = merge(classes[idx], cl);
+            if (nw != classes[idx]) {
+                classes[idx] = nw;
+
+                if (nw == Memory) {
+                    classes[1-idx] = Memory;
+                    isMemory = true;
                 }
             }
-        } else if (ty->ty == Tstruct) {
-            VarDeclarations& fields = static_cast<TypeStruct*>(ty)->sym->fields;
-            if (fields.dim == 0) { // no fields, but size > 0? treat as void
-                classifyType(accum, Type::tvoid, offset);
-            } else for (size_t i = 0; i < fields.dim; i++) {
-                classifyType(accum, fields[i]->type, offset + fields[i]->offset);
-            }
-        } else {
-            IF_LOG Logger::cout() << "x86-64 ABI: Implicitly handled type: "
-                               << ty->toChars() << '\n';
-            // arrays, delegates, etc. (pointer-sized fields, <= 16 bytes)
-            assert((offset == 0 || offset == 8)
-                    && "must be aligned and doesn't fit otherwise");
-            assert(ty->size() % 8 == 0 && "Not a multiple of pointer size?");
-
-            accum.addField(offset, Integer);
-            if (ty->size() > 8)
-                accum.addField(offset+8, Integer);
         }
-    }
+
+        void classify(Type* ty, d_uns64 offset) {
+            IF_LOG Logger::cout() << "Classifying " << ty->toChars() << " @ " << offset << '\n';
+
+            ty = ty->toBasetype();
+            const d_uns64 size = ty->size();
+
+            if (ty->ty == Tvoid) {
+                if (size > 0) {
+                    // treat as byte
+                    assert(size == 1);
+                    addField(offset, Integer);
+                }
+            } else if (ty->isintegral() || ty->ty == Tpointer) {
+                addField(offset, Integer);
+            } else if (ty->ty == Tfloat80 || ty->ty == Timaginary80) {
+                addField(offset, X87);
+                addField(offset+8, X87Up);
+            } else if (ty->ty == Tcomplex80) {
+                addField(offset, ComplexX87);
+                // make sure other half knows about it too:
+                addField(offset+16, ComplexX87);
+            } else if (ty->ty == Tcomplex64) {
+                addField(offset, Sse);
+                addField(offset+8, Sse);
+            } else if (ty->ty == Tcomplex32) {
+                addField(offset, Sse);
+                addField(offset+4, Sse);
+            } else if (ty->isfloating()) {
+                addField(offset, Sse);
+            } else if (size > 16 || hasUnalignedFields(ty)) {
+                // This isn't creal, yet is > 16 bytes, so pass in memory.
+                // Must be after creal case but before arrays and structs,
+                // the other types that can get bigger than 16 bytes
+                addField(offset, Memory);
+            } else if (ty->ty == Tsarray) {
+                // treat a static array as struct
+                Type* eltType = ty->nextOf();
+                d_uns64 eltsize = eltType->size();
+                if (size == 0 || eltsize == 0) {
+                    // no and/or empty elements? treat as void
+                    classify(Type::tvoid, offset);
+                } else {
+                    d_uns64 dim = size / eltsize;
+                    assert(dim <= 16
+                            && "Array of non-empty type <= 16 bytes but > 16 elements?");
+                    for (d_uns64 i = 0; i < dim; i++) {
+                        classify(eltType, offset + i*eltsize);
+                    }
+                }
+            } else if (ty->ty == Tstruct) {
+                VarDeclarations& fields = static_cast<TypeStruct*>(ty)->sym->fields;
+                if (fields.dim == 0) {
+                    // no fields? treat as void
+                    classify(Type::tvoid, offset);
+                } else for (size_t i = 0; i < fields.dim; i++) {
+                    classify(fields[i]->type, offset + fields[i]->offset);
+                }
+            } else {
+                IF_LOG Logger::println("x86-64 ABI: Implicitly handled type: %s", ty->toChars());
+                // class references, dynamic and associative arrays, delegates, typeof(null)...
+                // simply assume 1 or 2 pointer-sized fields passed in GP registers
+                assert((size == 8 || size == 16)
+                        && "Not a multiple of pointer size?");
+                assert((offset % 8 == 0 && offset + size <= 16)
+                        && "Must be aligned and fit into 16 bytes");
+
+                addField(offset, Integer);
+                if (size > 8)
+                    addField(offset+8, Integer);
+            }
+        }
+
+        void finalize() {
+            if (isMemory)
+                return;
+
+            if (classes[1] == X87Up && classes[0] != X87) {
+                classes[0] = Memory;
+                classes[1] = Memory;
+                isMemory = true;
+            }
+        }
+    };
 
     Classification classify(Type* ty) {
         typedef std::map<Type*, Classification> ClassMap;
@@ -208,26 +245,33 @@ namespace {
         if (it != cache.end()) {
             return it->second;
         } else {
-            Classification cl;
-            classifyType(cl, ty, 0);
+            Classification cl(ty);
             cache[ty] = cl;
             return cl;
         }
     }
 
-    /// Returns the type to pass as, or null if no transformation is needed.
-    LLType* getAbiType(Type* ty) {
-        ty = ty->toBasetype();
+    LLType* getFittingIntegerType(unsigned size) {
+        assert(size <= 8);
 
+        if (size == 0)
+            size = 1;
+        else if (size == 3)
+            size = 4;
+        else if (size > 4 && size < 8)
+            size = 8;
+
+        return LLIntegerType::get(gIR->context(), size * 8);
+    }
+
+    // Returns the type to pass as, or null if no transformation is needed.
+    LLType* getAbiType(Type* ty) {
         // First, check if there's any need of a transformation:
 
-        if (keepUnchanged(ty))
-            return 0;
+        if (!(ty->ty == Tcomplex32 || ty->ty == Tstruct || ty->ty == Tsarray))
+            return 0; // Nothing to do
 
-        if (ty->ty != Tcomplex32 && ty->ty != Tstruct)
-            return 0; // Nothing to do,
-
-        Classification cl = classify(ty);
+        const Classification cl = classify(ty);
         assert(!cl.isMemory);
 
         if (cl.classes[0] == NoClass) {
@@ -239,14 +283,12 @@ namespace {
 
         std::vector<LLType*> parts;
 
-        unsigned size = ty->size();
+        const unsigned size = ty->size();
 
         switch (cl.classes[0]) {
-            case Integer: {
-                unsigned bits = (size >= 8 ? 64 : (size * 8));
-                parts.push_back(LLIntegerType::get(gIR->context(), bits));
+            case Integer:
+                parts.push_back(getFittingIntegerType(std::min(size, 8u)));
                 break;
-            }
 
             case Sse:
                 parts.push_back(size <= 4 ? LLType::getFloatTy(gIR->context()) : LLType::getDoubleTy(gIR->context()));
@@ -254,125 +296,114 @@ namespace {
 
             case X87:
                 assert(cl.classes[1] == X87Up && "Upper half of real not X87Up?");
-                /// The type only contains a single real/ireal field,
-                /// so just use that type.
-                return const_cast<LLType*>(LLType::getX86_FP80Ty(gIR->context()));
+                // The type only contains a single real/ireal field,
+                // so just use that type.
+                return LLType::getX86_FP80Ty(gIR->context());
+
+            case ComplexX87:
+                assert(cl.classes[1] == ComplexX87 && "Upper half of creal not ComplexX87?");
+                parts.resize(2, LLType::getX86_FP80Ty(gIR->context()));
+                return LLStructType::get(gIR->context(), parts);
 
             default:
                 llvm_unreachable("Unanticipated argument class.");
         }
 
-        switch(cl.classes[1]) {
-            case NoClass:
-                assert(parts.size() == 1);
-                // No need to use a single-element struct type.
-                // Just use the element type instead.
-                return const_cast<LLType*>(parts[0]);
+        if (cl.classes[1] == NoClass) {
+            assert(size <= 8);
+            // No need to use a single-element struct type.
+            // Just use the element type instead.
+            return parts[0];
+        }
+
+        assert(size > 8);
+        switch (cl.classes[1]) {
+            case Integer:
+                parts.push_back(getFittingIntegerType(size - 8));
                 break;
 
-            case Integer: {
-                assert(size > 8);
-                unsigned bits = (size - 8) * 8;
-                parts.push_back(LLIntegerType::get(gIR->context(), bits));
-                break;
-            }
             case Sse:
-                parts.push_back(size <= 12 ? LLType::getFloatTy(gIR->context()) : LLType::getDoubleTy(gIR->context()));
-                break;
-
-            case X87Up:
-                if(cl.classes[0] == X87) {
-                    // This won't happen: it was short-circuited while
-                    // processing the first half.
-                } else {
-                    // I can't find this anywhere in the ABI documentation,
-                    // but this is what gcc does (both regular and llvm-gcc).
-                    // (This triggers for types like union { real r; byte b; })
-                    parts.push_back(LLType::getDoubleTy(gIR->context()));
-                }
+                parts.push_back(size - 8 <= 4 ? LLType::getFloatTy(gIR->context()) : LLType::getDoubleTy(gIR->context()));
                 break;
 
             default:
                 llvm_unreachable("Unanticipated argument class for second half.");
         }
+
         return LLStructType::get(gIR->context(), parts);
     }
-    } // ldc namespace
 
-    /**
-     * Structs (and cfloats) may be rewritten to exploit registers.
-     * This function returns the rewritten type, or null if no transformation is needed.
-     */
-    LLType* getAbiType_argTypes(Type* ty) {
-        ty = ty->toBasetype();
+    bool passByVal(Type* ty) {
+        Classification cl = classify(ty);
+        return cl.isMemory;
+    }
+  } // namespace ldc_abi
 
+  namespace dmd_abi {
+    // Structs, static arrays and cfloats may be rewritten to exploit registers.
+    // This function returns the rewritten type, or null if no transformation is needed.
+    LLType* getAbiType(Type* ty) {
         // First, check if there's any need of a transformation:
-
-        if (keepUnchanged(ty))
-            return 0;
-
-        // Only consider rewriting cfloats and structs
-        if (!(ty->ty == Tcomplex32 || ty->ty == Tstruct))
+        if (!(ty->ty == Tcomplex32 || ty->ty == Tstruct || ty->ty == Tsarray))
             return 0; // Nothing to do
-
-        // Empty structs should also be handled correctly by LLVM
-        if (ty->size() == 0)
-            return 0;
-
-        TypeTuple* argTypes = toArgTypes(ty);
-        if (argTypes->arguments->empty()) // cannot be passed in registers
-            return 0;
 
         // Okay, we may need to transform. Figure out a canonical type:
 
+        TypeTuple* argTypes = toArgTypes(ty);
+        if (!argTypes) // ty is void, typeof(null) or possibly another exotic type:
+            return 0;  // don't rewrite
+
+        assert(!argTypes->arguments->empty()); // !empty => can be passed in registers
+
         LLType* abiTy = 0;
-        if (argTypes->arguments->size() == 1) { // single part
+        if (argTypes->arguments->size() == 1) {
             abiTy = DtoType((*argTypes->arguments->begin())->type);
-            // don't rewrite to a single bit (assertions in tollvm.cpp)
+            // don't rewrite to a single bit (assertions in tollvm.cpp), choose a byte instead
             if (abiTy == LLType::getInt1Ty(gIR->context()))
-                return 0;
-        } else {                                // multiple parts => LLVM struct
+                abiTy = LLType::getInt8Ty(gIR->context());
+        } else {
             std::vector<LLType*> parts;
             for (Array<Parameter*>::iterator I = argTypes->arguments->begin(), E = argTypes->arguments->end(); I != E; ++I)
                 parts.push_back(DtoType((*I)->type));
             abiTy = LLStructType::get(gIR->context(), parts);
         }
 
-        //IF_LOG Logger::cout() << "getAbiType(" << ty->toChars() << "): " << *abiTy << '\n';
-
         return abiTy;
     }
 
-    // Temporary implementation validating the new toArgTypes()-based version
-    // against the previous LDC-specific version.
-    LLType* getAbiType(Type* ty) {
-        LLType* argTypesType = getAbiType_argTypes(ty);
-        IF_LOG Logger::println("ldc::getAbiType(%s)...", ty->toChars());
-        LLType* ldcType = ldc::getAbiType(ty);
+    bool passByVal(Type* ty) {
+        TypeTuple* argTypes = toArgTypes(ty);
+        if (!argTypes)
+            return false;
 
-        IF_LOG if (argTypesType != ldcType) {
+        return argTypes->arguments->empty(); // empty => cannot be passed in registers
+    }
+  } // namespace dmd_abi
+
+    // Temporary implementation validating the new toArgTypes()-based version against the LDC implementation.
+    LLType* getAbiType(Type* ty) {
+        ty = ty->toBasetype();
+
+        LLType* dmdType = dmd_abi::getAbiType(ty);
+        LLType* ldcType = ldc_abi::getAbiType(ty);
+
+        IF_LOG if (dmdType != ldcType) {
             Logger::print("getAbiType(%s) mismatch: ", ty->toChars());
-            if (!argTypesType)
-                Logger::print("(null)");
+            if (!dmdType)
+                Logger::print("<null>");
             else
-                Logger::cout() << *argTypesType;
-            Logger::print(" (toArgTypes) vs. ");
+                Logger::cout() << *dmdType;
+            Logger::print(" (DMD) vs. ");
             if (!ldcType)
-                Logger::print("(null)");
+                Logger::print("<null>");
             else
                 Logger::cout() << *ldcType;
             Logger::println(" (LDC)");
         }
-        //assert(argTypesType == ldcType && "getAbiType() mismatch between toArgTypes() and LDC!");
 
-        return argTypesType;
-    }
+        //assert(dmdType == ldcType && "getAbiType() mismatch between DMD and LDC!");
 
-    // Returns true if the previous LDC-specific version classifies the type
-    // as being passed on the stack.
-    bool ldcWouldPassByVal(Type* ty) {
-        IF_LOG Logger::println("ldc::classify(%s)...", ty->toChars());
-        return ldc::classify(ty).isMemory;
+        return dmdType;
     }
 }
 
@@ -406,8 +437,7 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
     }
 
     // Turn a struct into an ABI-mangled representation
-    LLValue* put(Type* dty, DValue* v)
-    {
+    LLValue* put(Type* dty, DValue* v) {
         LLValue* rval = v->getRVal();
         LLValue* lval;
         // already lowered to a pointer to the struct/static array?
@@ -428,9 +458,8 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
         return DtoLoad(DtoBitCast(lval, pTy), "put-result");
     }
 
-    /// should return the transformed type for this rewrite
-    LLType* type(Type* dty, LLType* t)
-    {
+    // Return the transformed type for this rewrite
+    LLType* type(Type* dty, LLType* t) {
         return getAbiType(dty);
     }
 };
@@ -466,20 +495,17 @@ TargetABI* getX86_64TargetABI() {
 }
 
 
-llvm::CallingConv::ID X86_64TargetABI::callingConv(LINK l)
-{
-    switch (l)
-    {
-    case LINKc:
-    case LINKcpp:
-    case LINKd:
-    case LINKdefault:
-        return llvm::CallingConv::C;
-    case LINKpascal:
-    case LINKwindows: // Doesn't really make sense, user should use Win64 target.
-        return llvm::CallingConv::X86_StdCall;
-    default:
-        llvm_unreachable("Unhandled D linkage type.");
+llvm::CallingConv::ID X86_64TargetABI::callingConv(LINK l) {
+    switch (l) {
+        case LINKc:
+        case LINKcpp:
+        case LINKpascal:
+        case LINKwindows: // Doesn't really make sense, user should use Win64 target.
+        case LINKd:
+        case LINKdefault:
+            return llvm::CallingConv::C;
+        default:
+            llvm_unreachable("Unhandled D linkage type.");
     }
 }
 
@@ -487,70 +513,68 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
     if (tf->isref)
         return false;
 
-    Type* rt = tf->next->toBasetype();
-    return rt->ty != Tvoid && passByVal(rt);
+    Type* rt = tf->next;
+    return passByVal(rt);
 }
 
 bool X86_64TargetABI::passByVal(Type* t) {
     t = t->toBasetype();
 
-    if (t->size() == 0 || keepUnchanged(t))
+    if (keepUnchanged(t))
         return false;
 
-    bool byval = false;
+    bool dmdResult = dmd_abi::passByVal(t);
+    bool ldcResult = ldc_abi::passByVal(t);
 
-    TypeTuple* argTypes = toArgTypes(t);
-    if (!argTypes) {
-        IF_LOG Logger::println("passByVal(%s): toArgTypes() returned null!", t->toChars());
-    } else
-        byval = argTypes->arguments->empty(); // empty => cannot be passed in registers
-
-    bool ldcResult = ldcWouldPassByVal(t);
-    IF_LOG if (byval != ldcResult) {
-        Logger::println("passByVal(%s) mismatch: %s (toArgTypes) vs. %s (LDC)",
-            t->toChars(), byval ? "true" : "false", ldcResult ? "true" : "false");
+    IF_LOG if (dmdResult != ldcResult) {
+        Logger::println("passByVal(%s) mismatch: %s (DMD) vs. %s (LDC)", t->toChars(),
+            dmdResult ? "true" : "false", ldcResult ? "true" : "false");
     }
-    //assert(byval == ldcResult && "passByVal() mismatch between toArgTypes() and LDC!");
 
-    return byval;
+    //assert(dmdResult == ldcResult && "passByVal() mismatch between DMD and LDC!");
+
+    return dmdResult;
 }
 
 void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg) {
     Type* t = arg.type->toBasetype();
 
+    if (keepUnchanged(t))
+        return;
+
     LLType* abiTy = getAbiType(t);
     if (abiTy && abiTy != arg.ltype) {
-        assert(t->ty == Tcomplex32 || t->ty == Tstruct);
+        IF_LOG {
+            Logger::println("Rewriting argument type %s", t->toChars());
+            LOG_SCOPE;
+            Logger::cout() << *arg.ltype << " => " << *abiTy << '\n';
+        }
 
         arg.rewrite = &struct_rewrite;
         arg.ltype = abiTy;
-
-        IF_LOG Logger::cout() << "Rewriting argument: " << t->toChars() << " => " << *abiTy << '\n';
     }
 }
 
 void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty) {
     // RETURN VALUE
-    if (!tf->isref) {
+    if (!tf->isref && !fty.arg_sret) {
         Logger::println("x86-64 ABI: Transforming return type");
+        LOG_SCOPE;
         rewriteArgument(*fty.ret);
     }
 
     // EXPLICIT PARAMETERS
-    Logger::println("x86-64 ABI: Transforming arguments");
+    Logger::println("x86-64 ABI: Transforming argument types");
     LOG_SCOPE;
 
     for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I) {
         IrFuncTyArg& arg = **I;
-
-        IF_LOG Logger::cout() << "Arg: " << arg.type->toChars() << '\n';
 
         // Arguments that are in memory are of no interest to us.
         if (arg.byref)
             continue;
 
         rewriteArgument(arg);
-        IF_LOG Logger::cout() << "New arg type: " << *arg.ltype << '\n';
     }
 
     // extern(D): reverse parameter order for non variadics, for DMD-compliance
