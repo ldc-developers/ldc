@@ -149,9 +149,10 @@ append("${SANITIZE_CXXFLAGS}" DMD_CXXFLAGS)
 append("${SANITIZE_CXXFLAGS}" LDC_CXXFLAGS)
 # LLVM_CXXFLAGS may contain -Werror which causes compile errors with dmd source
 string(REPLACE "-Werror " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
-# LLVM_LDFLAGS may contain -l-lld which is a wrong library reference (AIX)
-string(REPLACE "-l-lld " "-lld " LLVM_LDFLAGS ${LLVM_LDFLAGS})
-
+if (UNIX AND NOT "${LLVM_LDFLAGS}" STREQUAL "")
+    # LLVM_LDFLAGS may contain -l-lld which is a wrong library reference (AIX)
+    string(REPLACE "-l-lld " "-lld " LLVM_LDFLAGS ${LLVM_LDFLAGS})
+endif()
 
 #
 # Run idgen and impcnvgen.
