@@ -59,7 +59,7 @@
 #endif
 #endif
 
-#ifdef __sun
+#if _AIX || __sun
 #include <alloca.h>
 #endif
 
@@ -562,7 +562,7 @@ static void codegenModule(Module* m)
 
     // process module members
     for (unsigned k=0; k < m->members->dim; k++) {
-        Dsymbol* dsym = static_cast<Dsymbol*>(m->members->data[k]);
+        Dsymbol* dsym = (*m->members)[k];
         assert(dsym);
         Declaration_codegen(dsym);
     }
@@ -755,11 +755,7 @@ void Module::genmoduleinfo()
     //printf("members->dim = %d\n", members->dim);
     for (size_t i = 0; i < members->dim; i++)
     {
-        Dsymbol *member;
-
-        member = static_cast<Dsymbol *>(members->data[i]);
-        //printf("\tmember '%s'\n", member->toChars());
-        member->addLocalClass(&aclasses);
+        (*members)[i]->addLocalClass(&aclasses);
     }
     // fill inits
     std::vector<LLConstant*> classInits;

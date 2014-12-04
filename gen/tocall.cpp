@@ -227,7 +227,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     // build struct with argument types (non variadic args)
     for (size_t i=begin; i<n_arguments; i++)
     {
-        Expression* argexp = static_cast<Expression*>(arguments->data[i]);
+        Expression* argexp = (*arguments)[i];
         assert(argexp->type->ty != Ttuple);
         vtypes.push_back(DtoType(argexp->type));
         size_t sz = getTypePaddedSize(vtypes.back());
@@ -263,7 +263,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     // store arguments in the struct
     for (size_t i=begin,k=0; i<n_arguments; i++,k++)
     {
-        Expression* argexp = static_cast<Expression*>(arguments->data[i]);
+        Expression* argexp = (*arguments)[i];
         LLValue* argdst = DtoGEPi(mem,0,k);
         argdst = DtoBitCast(argdst, getPtrToType(i1ToI8(DtoType(argexp->type))));
         DtoVariadicArgument(argexp, argdst);
@@ -281,8 +281,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     vtypeinfos.reserve(n_arguments);
     for (size_t i=begin; i<n_arguments; i++)
     {
-        Expression* argexp = static_cast<Expression*>(arguments->data[i]);
-        vtypeinfos.push_back(DtoTypeInfoOf(argexp->type));
+        vtypeinfos.push_back(DtoTypeInfoOf((*arguments)[i]->type));
     }
 
     // apply initializer
@@ -315,7 +314,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     for (int i=0; i<begin; i++)
     {
         Parameter* fnarg = Parameter::getNth(tf->parameters, i);
-        DValue* argval = DtoArgument(fnarg, static_cast<Expression*>(arguments->data[i]));
+        DValue* argval = DtoArgument(fnarg, (*arguments)[i]);
         args.push_back(fixArgument(argval, irFty, callableTy->getParamType(argidx++), i));
 
         if (HAS_ATTRIBUTES(irFty.args[i]->attrs))
@@ -497,8 +496,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     {
         for (size_t i=0; i<n_arguments; i++)
         {
-            Expression* exp = static_cast<Expression*>(arguments->data[i]);
-            DValue* expelem = toElem(exp);
+            DValue* expelem = toElem((*arguments)[i]);
             // cast to va_list*
             LLValue* val = DtoBitCast(expelem->getLVal(), getVoidPtrType());
             ++argiter;
@@ -539,14 +537,14 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             for (int i=n-1; i>=0; --i) {
                 Parameter* fnarg = Parameter::getNth(tf->parameters, i);
                 assert(fnarg);
-                DValue* argval = DtoArgument(fnarg, static_cast<Expression*>(arguments->data[i]));
+                DValue* argval = DtoArgument(fnarg, (*arguments)[i]);
                 argvals.insert(argvals.begin(), argval);
             }
         } else {
             for (size_t i=0; i<n; ++i) {
                 Parameter* fnarg = Parameter::getNth(tf->parameters, i);
                 assert(fnarg);
-                DValue* argval = DtoArgument(fnarg, static_cast<Expression*>(arguments->data[i]));
+                DValue* argval = DtoArgument(fnarg, (*arguments)[i]);
                 argvals.push_back(argval);
             }
         }
@@ -599,7 +597,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             for (size_t i=n; i<n_arguments; i++)
             {
                 Parameter* fnarg = Parameter::getNth(tf->parameters, i);
-                DValue* argval = DtoArgument(fnarg, static_cast<Expression*>(arguments->data[i]));
+                DValue* argval = DtoArgument(fnarg, (*arguments)[i]);
                 LLValue* arg = argval->getRVal();
 
                 // FIXME: do we need any param attrs here ?

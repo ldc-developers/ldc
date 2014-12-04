@@ -127,9 +127,12 @@ void writeModule(llvm::Module* m, std::string filename)
     ldc_optimize_module(m);
 
 #if LDC_LLVM_VER >= 305
+    // There is no integrated assembler on AIX because XCOFF is not supported.
     // Starting with LLVM 3.5 the integrated assembler can be used with MinGW.
-    bool const assembleExternally = false;
+    bool const assembleExternally = global.params.output_o &&
+        global.params.targetTriple.getOS() == llvm::Triple::AIX;
 #else
+    // (We require LLVM 3.5 with AIX.)
     // We don't use the integrated assembler with MinGW as it does not support
     // emitting DW2 exception handling tables.
     bool const assembleExternally = global.params.output_o &&
