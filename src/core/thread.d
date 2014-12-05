@@ -98,24 +98,6 @@ class ThreadError : Error
     }
 }
 
-
-/**
- * Base class for fiber exceptions.
- */
-class FiberException : Exception
-{
-    @safe pure nothrow this(string msg, string file = __FILE__, size_t line = __LINE__, Throwable next = null)
-    {
-        super(msg, file, line, next);
-    }
-
-    @safe pure nothrow this(string msg, Throwable next, string file = __FILE__, size_t line = __LINE__)
-    {
-        super(msg, file, line, next);
-    }
-}
-
-
 private
 {
     import core.sync.mutex;
@@ -1096,7 +1078,7 @@ class Thread
     /**
      * Forces a context switch to occur away from the calling thread.
      */
-    static void yield()
+    static void yield() nothrow
     {
         version( Windows )
             SwitchToThread();
@@ -1605,7 +1587,7 @@ private:
     //
     // Add a context to the global context list.
     //
-    static void add( Context* c )
+    static void add( Context* c ) nothrow
     in
     {
         assert( c );
@@ -1676,7 +1658,7 @@ private:
     //
     // Add a thread to the global thread list.
     //
-    static void add( Thread t )
+    static void add( Thread t ) nothrow
     in
     {
         assert( t );
@@ -3607,9 +3589,9 @@ private
 
   // Look above the definition of 'class Fiber' for some information about the implementation of this routine
   version( AsmExternal )
-    extern (C) void fiber_switchContext( void** oldp, void* newp );
+    extern (C) void fiber_switchContext( void** oldp, void* newp ) nothrow;
   else
-    extern (C) void fiber_switchContext( void** oldp, void* newp )
+    extern (C) void fiber_switchContext( void** oldp, void* newp ) nothrow
     {
         // NOTE: The data pushed and popped in this routine must match the
         //       default stack created by Fiber.initStack or the initial
@@ -4012,7 +3994,7 @@ class Fiber
      * In:
      *  fn must not be null.
      */
-    this( void function() fn, size_t sz = PAGESIZE*4 )
+    this( void function() fn, size_t sz = PAGESIZE*4 ) nothrow
     in
     {
         assert( fn );
@@ -4035,7 +4017,7 @@ class Fiber
      * In:
      *  dg must not be null.
      */
-    this( void delegate() dg, size_t sz = PAGESIZE*4 )
+    this( void delegate() dg, size_t sz = PAGESIZE*4 ) nothrow
     in
     {
         assert( dg );
@@ -4050,7 +4032,7 @@ class Fiber
     /**
      * Cleans up any remaining resources used by this object.
      */
-    ~this()
+    ~this() nothrow
     {
         // NOTE: A live reference to this object will exist on its associated
         //       stack from the first time its call() method has been called
@@ -4092,7 +4074,35 @@ class Fiber
      *  Any exception not handled by this fiber if rethrow = false, null
      *  otherwise.
      */
-    final Throwable call( bool rethrow = true )
+    final Throwable call( Rethrow rethrow = Rethrow.yes )
+    {
+        return rethrow ? call!(Rethrow.yes)() : call!(Rethrow.no);
+    }
+
+    /// ditto
+    final Throwable call( Rethrow rethrow )()
+    {
+        callImpl();
+        if( m_unhandled )
+        {
+            Throwable t = m_unhandled;
+            m_unhandled = null;
+            static if( rethrow )
+                throw t;
+            else
+                return t;
+        }
+        return null;
+    }
+
+    /// ditto
+    deprecated("Please pass Fiber.Rethrow.yes or .no instead of a boolean.")
+    final Throwable call( bool rethrow )
+    {
+        return rethrow ? call!(Rethrow.yes)() : call!(Rethrow.no);
+    }
+
+    private void callImpl() nothrow
     in
     {
         assert( m_state == State.HOLD );
@@ -4122,17 +4132,10 @@ class Fiber
         {
             m_ctxt.tstack = m_ctxt.bstack;
         }
-        if( m_unhandled )
-        {
-            Throwable t = m_unhandled;
-            m_unhandled = null;
-            if( rethrow )
-                throw t;
-            return t;
-        }
-        return null;
     }
 
+    /// Flag to control rethrow behavior of $(D $(LREF call))
+    enum Rethrow : bool { no, yes }
 
     /**
      * Resets this fiber so that it may be re-used, optionally with a
@@ -4145,7 +4148,7 @@ class Fiber
      * In:
      *  This fiber must be in state TERM.
      */
-    final void reset()
+    final void reset() nothrow
     in
     {
         assert( m_state == State.TERM || m_state == State.HOLD );
@@ -4159,7 +4162,7 @@ class Fiber
     }
 
     /// ditto
-    final void reset( void function() fn )
+    final void reset( void function() fn ) nothrow
     {
         reset();
         m_fn    = fn;
@@ -4167,7 +4170,7 @@ class Fiber
     }
 
     /// ditto
-    final void reset( void delegate() dg )
+    final void reset( void delegate() dg ) nothrow
     {
         reset();
         m_dg    = dg;
@@ -4200,7 +4203,7 @@ class Fiber
      * Returns:
      *  The state of this fiber as an enumerated value.
      */
-    final @property State state() const
+    final @property State state() const nothrow
     {
         return m_state;
     }
@@ -4214,7 +4217,7 @@ class Fiber
     /**
      * Forces a context switch to occur away from the calling fiber.
      */
-    static void yield()
+    static void yield() nothrow
     {
         Fiber   cur = getThis();
         assert( cur, "Fiber.yield() called with no active fiber" );
@@ -4239,7 +4242,7 @@ class Fiber
      * In:
      *  t must not be null.
      */
-    static void yieldAndThrow( Throwable t )
+    static void yieldAndThrow( Throwable t ) nothrow
     in
     {
         assert( t );
@@ -4273,7 +4276,7 @@ class Fiber
      *  The fiber object representing the calling fiber or null if no fiber
      *  is currently active within this thread. The result of deleting this object is undefined.
      */
-    static Fiber getThis()
+    static Fiber getThis() nothrow
     {
         return sm_this;
     }
@@ -4300,7 +4303,7 @@ private:
     //
     // Initializes a fiber object which has no associated executable function.
     //
-    this()
+    this() nothrow
     {
         m_call = Call.NO;
     }
@@ -4361,7 +4364,7 @@ private:
     //
     // Allocate a new stack for this fiber.
     //
-    final void allocStack( size_t sz )
+    final void allocStack( size_t sz ) nothrow
     in
     {
         assert( !m_pmem && !m_ctxt );
@@ -4390,9 +4393,7 @@ private:
                                    MEM_RESERVE,
                                    PAGE_NOACCESS );
             if( !m_pmem )
-            {
-                throw new FiberException( "Unable to reserve memory for stack" );
-            }
+                onOutOfMemoryError();
 
             version( StackGrowsDown )
             {
@@ -4413,9 +4414,7 @@ private:
                                   MEM_COMMIT,
                                   PAGE_READWRITE );
             if( !stack )
-            {
-                throw new FiberException( "Unable to allocate memory for stack" );
-            }
+                onOutOfMemoryError();
 
             // allocate reserved guard page
             guard = VirtualAlloc( guard,
@@ -4423,9 +4422,7 @@ private:
                                   MEM_COMMIT,
                                   PAGE_READWRITE | PAGE_GUARD );
             if( !guard )
-            {
-                throw new FiberException( "Unable to create guard page for stack" );
-            }
+                onOutOfMemoryError();
 
             m_ctxt.bstack = pbase;
             m_ctxt.tstack = pbase;
@@ -4461,9 +4458,7 @@ private:
             }
 
             if( !m_pmem )
-            {
-                throw new FiberException( "Unable to allocate memory for stack" );
-            }
+                onOutOfMemoryError();
 
             version( StackGrowsDown )
             {
@@ -4485,7 +4480,7 @@ private:
     //
     // Free this fiber's stack.
     //
-    final void freeStack()
+    final void freeStack() nothrow
     in
     {
         assert( m_pmem && m_ctxt );
@@ -4527,7 +4522,7 @@ private:
     // Initialize the allocated stack.
     // Look above the definition of 'class Fiber' for some information about the implementation of this routine
     //
-    final void initStack()
+    final void initStack() nothrow
     in
     {
         assert( m_ctxt.tstack && m_ctxt.tstack == m_ctxt.bstack );
@@ -4538,7 +4533,7 @@ private:
         void* pstack = m_ctxt.tstack;
         scope( exit )  m_ctxt.tstack = pstack;
 
-        void push( size_t val )
+        void push( size_t val ) nothrow
         {
             version( StackGrowsDown )
             {
@@ -4605,7 +4600,7 @@ private:
             __gshared static fp_t finalHandler = null;
             if ( finalHandler is null )
             {
-                static EXCEPTION_REGISTRATION* fs0()
+                static EXCEPTION_REGISTRATION* fs0() nothrow
                 {
                     asm pure nothrow @nogc
                     {
@@ -4970,7 +4965,7 @@ private:
     //
     // Sets a thread-local reference to the current fiber object.
     //
-    static void setThis( Fiber f )
+    static void setThis( Fiber f ) nothrow
     {
         sm_this = f;
     }
@@ -4987,7 +4982,7 @@ private:
     //
     // Switches into the stack held by this fiber.
     //
-    final void switchIn()
+    final void switchIn() nothrow
     {
         Thread  tobj = Thread.getThis();
         void**  oldp = &tobj.m_curr.tstack;
@@ -5021,7 +5016,7 @@ private:
     //
     // Switches out of the current stack and into the enclosing stack.
     //
-    final void switchOut()
+    final void switchOut() nothrow
     {
         Thread  tobj = Thread.getThis();
         void**  oldp = &m_ctxt.tstack;
@@ -5200,6 +5195,22 @@ unittest
     assert( x == 1 );
 }
 
+nothrow unittest
+{
+    new Fiber({}).call!(Fiber.Rethrow.no)();
+}
+
+unittest
+{
+    new Fiber({}).call(Fiber.Rethrow.yes);
+    new Fiber({}).call(Fiber.Rethrow.no);
+}
+
+deprecated unittest
+{
+    new Fiber({}).call(true);
+    new Fiber({}).call(false);
+}
 
 unittest
 {
