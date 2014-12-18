@@ -568,6 +568,9 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m)
     llvm::sys::fs::make_absolute(srcpath);
 
 #if LDC_LLVM_VER >= 304
+    // Metadata without a correct version will be stripped by UpgradeDebugInfo.
+    gIR->module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
+
     CUNode =
 #endif
     DBuilder.createCompileUnit(
