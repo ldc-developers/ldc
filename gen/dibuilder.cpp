@@ -156,7 +156,11 @@ llvm::DIType ldc::DIBuilder::CreateEnumType(Type *type)
 
     assert(type->ty == Tenum && "only enums allowed for debug info in dwarfEnumType");
     TypeEnum *te = static_cast<TypeEnum *>(type);
+#if LDC_LLVM_VER >= 306
+    llvm::SmallVector<llvm::Metadata *, 8> subscripts;
+#else
     llvm::SmallVector<llvm::Value *, 8> subscripts;
+#endif
     for (Dsymbols::iterator I = te->sym->members->begin(),
                             E = te->sym->members->end();
                             I != E; ++I)
@@ -164,7 +168,11 @@ llvm::DIType ldc::DIBuilder::CreateEnumType(Type *type)
         EnumMember *em = (*I)->isEnumMember();
         llvm::StringRef Name(em->toChars());
         uint64_t Val = em->value->toInteger();
+#if LDC_LLVM_VER >= 306
+        llvm::Metadata *Subscript = DBuilder.createEnumerator(Name, Val);
+#else
         llvm::Value *Subscript = DBuilder.createEnumerator(Name, Val);
+#endif
         subscripts.push_back(Subscript);
     }
 
@@ -214,7 +222,11 @@ llvm::DIType ldc::DIBuilder::CreateVectorType(Type *type)
     TypeVector *tv = static_cast<TypeVector *>(t);
     Type *te = tv->elementType();
     int64_t Dim = tv->size(Loc()) / te->size(Loc());
+#if LDC_LLVM_VER >= 306
+    llvm::Metadata *subscripts[] =
+#else
     llvm::Value *subscripts[] =
+#endif
     {
         DBuilder.getOrCreateSubrange(0, Dim)
     };
@@ -254,7 +266,12 @@ llvm::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
 }
 
 void ldc::DIBuilder::AddBaseFields(ClassDeclaration *sd, llvm::DIFile file,
-                                     std::vector<llvm::Value*> &elems)
+#if LDC_LLVM_VER >= 306
+                                   std::vector<llvm::Metadata*> &elems
+#else
+                                   std::vector<llvm::Value*> &elems
+#endif
+                                   )
 {
     if (sd->baseClass)
     {
@@ -309,7 +326,11 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
 #endif
 
     // elements
+#if LDC_LLVM_VER >= 306
+    std::vector<llvm::Metadata *> elems;
+#else
     std::vector<llvm::Value *> elems;
+#endif
 
     // defaults
     llvm::StringRef name = sd->toChars();
@@ -404,7 +425,12 @@ llvm::DIType ldc::DIBuilder::CreateArrayType(Type *type)
     Loc loc(IR->dmodule, 0, 0);
     llvm::DIFile file = CreateFile(loc);
 
-    llvm::Value *elems[] = {
+#if LDC_LLVM_VER >= 306
+    llvm::Metadata *elems[] =
+#else
+    llvm::Value *elems[] =
+#endif
+    {
         CreateMemberType(0, Type::tsize_t, file, "length", 0),
         CreateMemberType(0, t->nextOf()->pointerTo(), file, "ptr",
                          global.params.is64bit ? 8 : 4)
@@ -432,12 +458,20 @@ llvm::DIType ldc::DIBuilder::CreateSArrayType(Type *type)
     Type *t = type->toBasetype();
 
     // find base type
+#if LDC_LLVM_VER >= 306
+    llvm::SmallVector<llvm::Metadata *, 8> subscripts;
+#else
     llvm::SmallVector<llvm::Value *, 8> subscripts;
+#endif
     while (t->ty == Tsarray)
     {
         TypeSArray *tsa = static_cast<TypeSArray *>(t);
         int64_t Count = tsa->dim->toInteger();
+#if LDC_LLVM_VER >= 306
+        llvm::Metadata *subscript = DBuilder.getOrCreateSubrange(0, Count - 1);
+#else
         llvm::Value *subscript = DBuilder.getOrCreateSubrange(0, Count-1);
+#endif
         subscripts.push_back(subscript);
         t = t->nextOf();
     }
@@ -472,7 +506,11 @@ ldc::DIFunctionType ldc::DIBuilder::CreateFunctionType(Type *type)
     llvm::DIFile file = CreateFile(loc);
 
     // Create "dummy" subroutine type for the return type
+#if LDC_LLVM_VER >= 306
+    llvm::SmallVector<llvm::Metadata*, 16> Elts;
+#else
     llvm::SmallVector<llvm::Value*, 16> Elts;
+#endif
     Elts.push_back(CreateTypeDescription(retType, NULL, true));
 #if LDC_LLVM_VER >= 306
     llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
@@ -491,7 +529,11 @@ ldc::DIFunctionType ldc::DIBuilder::CreateDelegateType(Type *type)
     llvm::DIFile file = CreateFile(loc);
 
     // Create "dummy" subroutine type for the return type
+#if LDC_LLVM_VER >= 306
+    llvm::SmallVector<llvm::Metadata*, 16> Elts;
+#else
     llvm::SmallVector<llvm::Value*, 16> Elts;
+#endif
     Elts.push_back(
 #if LDC_LLVM_VER >= 304
         DBuilder.createUnspecifiedType(type->toChars())
@@ -631,7 +673,11 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgramInternal(llvm::StringRef pretty
     llvm::DIFile file(CreateFile(loc));
 
     // Create "dummy" subroutine type for the return type
+#if LDC_LLVM_VER >= 306
+    llvm::SmallVector<llvm::Metadata *, 1> Elts;
+#else
     llvm::SmallVector<llvm::Value *, 1> Elts;
+#endif
 #if LDC_LLVM_VER >= 304
     Elts.push_back(DBuilder.createUnspecifiedType(prettyname));
 #else

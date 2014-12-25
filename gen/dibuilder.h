@@ -151,7 +151,12 @@ private:
 #endif
         );
     void AddBaseFields(ClassDeclaration *sd, llvm::DIFile file,
-                         std::vector<llvm::Value*> &elems);
+#if LDC_LLVM_VER >= 306
+                       std::vector<llvm::Metadata*> &elems
+#else
+                       std::vector<llvm::Value*> &elems
+#endif
+                         );
     llvm::DIFile CreateFile(Loc& loc);
     llvm::DIType CreateBasicType(Type *type);
     llvm::DIType CreateEnumType(Type *type);
