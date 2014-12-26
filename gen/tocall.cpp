@@ -234,7 +234,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
         size_t asz = (sz + Target::ptrsize - 1) & ~(Target::ptrsize -1);
         if (sz != asz)
         {
-            if (sz < Target::ptrsize)
+            if (sz < static_cast<size_t>(Target::ptrsize))
             {
                 vtypes.back() = DtoSize_t();
             }

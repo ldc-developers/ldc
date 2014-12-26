@@ -2030,7 +2030,7 @@ public:
         {
             LLValue* thisarg = p->func()->thisArg;
             assert(thisarg && "null thisarg, but we're in assert(this) exp;");
-            LLValue* thisptr = DtoLoad(p->func()->thisArg);
+            LLValue* thisptr = DtoLoad(thisarg);
             condty = e->e1->type->toBasetype();
             cond = new DImValue(condty, thisptr);
         }
@@ -2935,8 +2935,7 @@ public:
         IF_LOG Logger::print("DotTypeExp::toElem: %s @ %s\n", e->toChars(), e->type->toChars());
         LOG_SCOPE;
 
-        Type* t = e->sym->getType();
-        assert(t);
+        assert(e->sym->getType());
         result = toElem(e->e1);
     }
 

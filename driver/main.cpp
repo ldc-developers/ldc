@@ -1212,7 +1212,7 @@ int main(int argc, char **argv)
         if (strcmp(m->srcfile->name->str, global.main_d) == 0)
         {
             static const char buf[] = "void main(){}";
-            m->srcfile->setbuffer((void *)buf, sizeof(buf));
+            m->srcfile->setbuffer(const_cast<char *>(buf), sizeof(buf));
             m->srcfile->ref = 1;
         }
         else
