@@ -623,8 +623,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     size_t n = Parameter::dim(f->parameters);
     for (size_t k = 0; k < n; k++)
     {
-        Parameter* fnarg = Parameter::getNth(f->parameters, k);
-        assert(fnarg);
+        assert(Parameter::getNth(f->parameters, k));
 
         llvm::AttrBuilder a = irFty.args[k]->attrs;
         if (a.hasAttributes())
@@ -674,8 +673,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
 
     for (size_t k = 0; k < n; ++k)
     {
-        Parameter* fnarg = Parameter::getNth(f->parameters, k);
-        assert(fnarg);
+        assert(Parameter::getNth(f->parameters, k));
 
         attrptr[k] = irFty.args[k]->attrs;
     }

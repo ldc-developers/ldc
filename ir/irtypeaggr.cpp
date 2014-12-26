@@ -98,7 +98,7 @@ void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad)
     const size_t n = ad->fields.dim;
     LLSmallVector<VarDeclaration*, 16> data(n, NULL);
 
-    int errors = global.errors;
+    unsigned int errors = global.errors;
 
     // first fill in the fields with explicit initializers
     for (size_t index = 0; index < n; ++index)
