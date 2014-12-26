@@ -2971,7 +2971,7 @@ public:
             Expression *el = (*e->exps)[i];
             DValue* ep = toElem(el);
             LLValue *gep = DtoGEPi(val,0,i);
-            if (el->type->ty == Tstruct)
+            if (DtoIsPassedByRef(el->type))
                 DtoStore(DtoLoad(ep->getRVal()), gep);
             else if (el->type->ty != Tvoid)
                 DtoStoreZextI8(ep->getRVal(), gep);
