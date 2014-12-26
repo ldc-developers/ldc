@@ -591,7 +591,12 @@ static void codegenModule(Module* m)
         llvm::NamedMDNode *IdentMetadata = gIR->module->getOrInsertNamedMetadata("llvm.ident");
         std::string Version("ldc version ");
         Version.append(global.ldc_version);
-        llvm::Value *IdentNode[] = {
+#if LDC_LLVM_VER >= 306
+        llvm::Metadata *IdentNode[] =
+#else
+        llvm::Value *IdentNode[] =
+#endif
+        {
             llvm::MDString::get(gIR->context(), Version)
         };
         IdentMetadata->addOperand(llvm::MDNode::get(gIR->context(), IdentNode));

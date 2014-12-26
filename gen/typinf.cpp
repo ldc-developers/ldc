@@ -306,9 +306,15 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid)
 
         if (!meta) {
             // Construct the fields
+#if LDC_LLVM_VER >= 306
+            llvm::Metadata* mdVals[TD_NumFields];
+            mdVals[TD_TypeInfo] = llvm::ValueAsMetadata::get(getIrGlobal(tid)->value);
+            mdVals[TD_Type] = llvm::ConstantAsMetadata::get(llvm::UndefValue::get(DtoType(tid->tinfo)));
+#else
             MDNodeField* mdVals[TD_NumFields];
             mdVals[TD_TypeInfo] = llvm::cast<MDNodeField>(getIrGlobal(tid)->value);
             mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
+#endif
 
             // Construct the metadata and insert it into the module.
             llvm::NamedMDNode* node = gIR->module->getOrInsertNamedMetadata(metaname);

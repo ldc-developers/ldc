@@ -294,11 +294,19 @@ namespace {
 
             // Inserting destructor calls is not implemented yet, so classes
             // with destructors are ignored for now.
+#if LDC_LLVM_VER >= 306
+            auto hasDestructor = mdconst::dyn_extract<Constant>(node->getOperand(CD_Finalize));
+#else
             Constant* hasDestructor = dyn_cast<Constant>(node->getOperand(CD_Finalize));
+#endif
             // We can't stack-allocate if the class has a custom deallocator
             // (Custom allocators don't get turned into this runtime call, so
             // those can be ignored)
+#if LDC_LLVM_VER >= 306
+            auto hasCustomDelete = mdconst::dyn_extract<Constant>(node->getOperand(CD_CustomDelete));
+#else
             Constant* hasCustomDelete = dyn_cast<Constant>(node->getOperand(CD_CustomDelete));
+#endif
             if (hasDestructor == NULL || hasCustomDelete == NULL)
                 return false;
 
@@ -306,7 +314,11 @@ namespace {
                     != ConstantInt::getFalse(A.M.getContext()))
                 return false;
 
-            Ty =node->getOperand(CD_BodyType)->getType();
+#if LDC_LLVM_VER >= 306
+            Ty = mdconst::dyn_extract<Constant>(node->getOperand(CD_BodyType))->getType();
+#else
+            Ty = node->getOperand(CD_BodyType)->getType();
+#endif
             return A.DL.getTypeAllocSize(Ty) < SizeLimit;
         }
 
@@ -579,11 +591,19 @@ Type* Analysis::getTypeFor(Value* typeinfo) const {
     if (node->getNumOperands() != TD_NumFields)
         return NULL;
 
+#if LDC_LLVM_VER >= 306
+    Value* ti = llvm::MetadataAsValue::get(node->getContext(), node->getOperand(TD_TypeInfo));
+#else
     Value* ti = node->getOperand(TD_TypeInfo);
+#endif
     if (!ti || ti->stripPointerCasts() != ti_global)
         return NULL;
 
+#if LDC_LLVM_VER >= 306
+    return llvm::MetadataAsValue::get(node->getContext(), node->getOperand(TD_Type))->getType();
+#else
     return node->getOperand(TD_Type)->getType();
+#endif
 }
 
 /// Returns whether Def is used by any instruction that is reachable from Alloc
