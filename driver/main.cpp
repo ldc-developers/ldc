@@ -989,9 +989,8 @@ int main(int argc, char **argv)
     if (m64bits)
     {
         if (bitness != ExplicitBitness::None)
-        {
             error(Loc(), "cannot use both -m32 and -m64 options");
-        }
+        bitness = ExplicitBitness::M64;
     }
 
     if (global.errors)
