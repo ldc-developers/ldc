@@ -113,7 +113,7 @@ LLFunctionType* DtoExtractFunctionType(LLType* type)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static LLValue *fixArgument(DValue *argval, IrFuncTy &irFty, LLType *callableArgType, size_t argIndex)
+static LLValue* fixArgument(DValue* argval, IrFuncTy& irFty, LLType* callableArgType, size_t argIndex)
 {
 #if 0
     IF_LOG {

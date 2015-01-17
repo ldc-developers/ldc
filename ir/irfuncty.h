@@ -110,6 +110,9 @@ struct IrFuncTy
     // range of normal parameters to reverse
     bool reverseParams;
 
+    // reserved for ABI-specific data
+    void* tag;
+
     IrFuncTy()
     :   funcType(0),
         ret(NULL),
@@ -119,7 +122,8 @@ struct IrFuncTy
         arg_arguments(NULL),
         args(),
         c_vararg(false),
-        reverseParams(false)
+        reverseParams(false),
+        tag(NULL)
     {}
 
     llvm::Value* putRet(Type* dty, DValue* dval);

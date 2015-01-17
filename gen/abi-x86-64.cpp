@@ -405,6 +405,60 @@ namespace {
 
         return dmdType;
     }
+
+    struct RegCount {
+        char int_regs, sse_regs;
+
+        RegCount() : int_regs(6), sse_regs(8) {}
+
+        explicit RegCount(LLType* ty) : int_regs(0), sse_regs(0) {
+            std::vector<LLType*> types;
+
+            if (ty->isStructTy()) {
+                assert(ty->getStructNumElements() == 2);
+                for (unsigned i = 0; i < ty->getStructNumElements(); ++i)
+                    types.push_back(ty->getStructElementType(i));
+            } else {
+                types.push_back(ty);
+            }
+
+            for (unsigned i = 0; i < types.size(); ++i) {
+                ty = types[i];
+                if (ty->isIntegerTy() || ty->isPointerTy()) {
+                    ++int_regs;
+                } else if (ty->isFloatingPointTy() || ty->isVectorTy()) {
+                    ++sse_regs;
+                } else {
+                    IF_LOG Logger::cout() << "x86_64 RegCount: assuming 1 GPR for type " << *ty << '\n';
+                    ++int_regs;
+                }
+            }
+        }
+
+        enum SubtractionResult {
+            ArgumentFitsIn,
+            ArgumentWouldFitInPartially,
+            ArgumentDoesntFitIn
+        };
+
+        SubtractionResult trySubtract(const IrFuncTyArg& arg) {
+            const RegCount wanted(arg.ltype);
+
+            const bool anyRegAvailable = (wanted.int_regs > 0 && int_regs > 0) ||
+                                         (wanted.sse_regs > 0 && sse_regs > 0);
+            if (!anyRegAvailable)
+                return ArgumentDoesntFitIn;
+
+            const bool allowPartialPassing = keepUnchanged(arg.type->toBasetype());
+            if (!allowPartialPassing && (int_regs < wanted.int_regs || sse_regs < wanted.sse_regs))
+                return ArgumentWouldFitInPartially;
+
+            int_regs = std::max(0, int_regs - wanted.int_regs);
+            sse_regs = std::max(0, sse_regs - wanted.sse_regs);
+
+            return ArgumentFitsIn;
+        }
+    };
 }
 
 /**
@@ -464,9 +518,37 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
     }
 };
 
+/**
+ * This type is used to force LLVM to pass a struct in memory.
+ * This is achieved by passing the struct's address and using
+ * the ByVal LLVM attribute.
+ * We need this to prevent LLVM from passing a struct partially
+ * in registers, partially in memory.
+ */
+struct ExplicitByvalRewrite : ABIRewrite {
+    LLValue* get(Type* dty, DValue* v) {
+        LLValue* ptr = v->getRVal();
+        return DtoLoad(ptr);
+    }
+
+    LLValue* put(Type* dty, DValue* v) {
+        if (v->isLVal())
+            return v->getLVal();
+
+        LLValue* rval = v->getRVal();
+        LLValue* address = DtoRawAlloca(rval->getType(), 0, ".explicit_byval_rewrite");
+        DtoStore(rval, address);
+        return address;
+    }
+
+    LLType* type(Type* dty, LLType* t) {
+        return getPtrToType(DtoType(dty));
+    }
+};
 
 struct X86_64TargetABI : TargetABI {
     X86_64_C_struct_rewrite struct_rewrite;
+    ExplicitByvalRewrite explicitByvalRewrite;
 
     llvm::CallingConv::ID callingConv(LINK l);
 
@@ -556,6 +638,9 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg) {
 }
 
 void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty) {
+    RegCount& regCount = reinterpret_cast<RegCount&>(fty.tag);
+    regCount = RegCount();
+
     // RETURN VALUE
     if (!tf->isref && !fty.arg_sret) {
         Logger::println("x86-64 ABI: Transforming return type");
@@ -563,23 +648,51 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty) {
         rewriteArgument(*fty.ret);
     }
 
+    // IMPLICIT PARAMETERS
+    if (fty.arg_sret)
+        regCount.int_regs--;
+    if (fty.arg_this || fty.arg_nest)
+        regCount.int_regs--;
+    if (fty.arg_arguments)
+        regCount.int_regs -= 2; // dynamic array
+
     // EXPLICIT PARAMETERS
     Logger::println("x86-64 ABI: Transforming argument types");
     LOG_SCOPE;
 
-    for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I) {
-        IrFuncTyArg& arg = **I;
-
-        // Arguments that are in memory are of no interest to us.
-        if (arg.byref)
-            continue;
-
-        rewriteArgument(arg);
-    }
-
     // extern(D): reverse parameter order for non variadics, for DMD-compliance
     if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1)
         fty.reverseParams = true;
+
+    int begin = 0, end = fty.args.size(), step = 1;
+    if (fty.reverseParams) {
+        begin = end - 1;
+        end = -1;
+        step = -1;
+    }
+    for (int i = begin; i != end; i += step) {
+        IrFuncTyArg& arg = *fty.args[i];
+
+        if (arg.byref) {
+            if (!arg.isByVal())
+                regCount.trySubtract(arg);
+
+            continue;
+        }
+
+        LLType* originalLType = arg.ltype;
+        rewriteArgument(arg);
+
+        if (regCount.trySubtract(arg) == RegCount::ArgumentWouldFitInPartially) {
+            // pass structs explicitly byval, otherwise LLVM passes
+            // them partially in registers, partially on the stack
+            assert(originalLType->isStructTy());
+            IF_LOG Logger::cout() << "Passing explicitly ByVal: " << arg.type->toChars() << " (" << *originalLType << ")\n";
+            arg.rewrite = &explicitByvalRewrite;
+            arg.ltype = originalLType->getPointerTo();
+            arg.attrs.add(LDC_ATTRIBUTE(ByVal));
+        }
+    }
 }
 
 
