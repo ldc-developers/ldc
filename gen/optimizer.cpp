@@ -31,7 +31,11 @@
 #else
 #include "llvm/Analysis/Verifier.h"
 #endif
+#if LDC_LLVM_VER >= 307
+#include "llvm/Analysis/TargetLibraryInfo.h"
+#else
 #include "llvm/Target/TargetLibraryInfo.h"
+#endif
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Support/CommandLine.h"
 #if LDC_LLVM_VER >= 305
@@ -324,7 +328,11 @@ bool ldc_optimize_module(llvm::Module *M)
     if (disableSimplifyLibCalls)
         tli->disableAllFunctions();
 
+#if LDC_LLVM_VER >= 307
+    mpm.add(new TargetLibraryInfoWrapperPass(*tli));
+#else
     mpm.add(tli);
+#endif
 
     // Add an appropriate DataLayout instance for this module.
 #if LDC_LLVM_VER >= 306
