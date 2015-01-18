@@ -51,10 +51,15 @@ llvm::Value* IrFuncTy::getRet(Type* dty, DValue* val)
 llvm::Value* IrFuncTy::putParam(Type* dty, size_t idx, DValue* val)
 {
     assert(idx < args.size() && "invalid putParam");
-    if (args[idx]->rewrite) {
+    return putParam(dty, *args[idx], val);
+}
+
+llvm::Value* IrFuncTy::putParam(Type* dty, const IrFuncTyArg& arg, DValue* val)
+{
+    if (arg.rewrite) {
         Logger::println("Rewrite: putParam");
         LOG_SCOPE
-        return args[idx]->rewrite->put(dty, val);
+        return arg.rewrite->put(dty, val);
     }
     return val->getRVal();
 }

@@ -35,6 +35,14 @@ void ABIRewrite::getL(Type* dty, DValue* v, LLValue* lval)
 
 //////////////////////////////////////////////////////////////////////////////
 
+void TargetABI::rewriteVarargs(IrFuncTy& fty, std::vector<IrFuncTyArg*>& args)
+{
+    for (unsigned i = 0; i < args.size(); ++i)
+        rewriteArgument(fty, *args[i]);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 LLValue* TargetABI::prepareVaStart(LLValue* pAp)
 {
     // pass a void* pointer to ap to LLVM's va_start intrinsic
@@ -149,7 +157,7 @@ struct IntrinsicABI : TargetABI
         return false;
     }
 
-    void rewriteArgument(IrFuncTyArg& arg)
+    void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
     {
         Type* ty = arg.type->toBasetype();
         if (ty->ty != Tstruct)
@@ -170,7 +178,7 @@ struct IntrinsicABI : TargetABI
             Type* rt = fty.ret->type->toBasetype();
             if (rt->ty == Tstruct) {
                 Logger::println("Intrinsic ABI: Transforming return type");
-                rewriteArgument(*fty.ret);
+                rewriteArgument(fty, *fty.ret);
             }
         }
 
@@ -186,7 +194,7 @@ struct IntrinsicABI : TargetABI
             if (arg.byref)
                 continue;
 
-            rewriteArgument(arg);
+            rewriteArgument(fty, arg);
 
             IF_LOG Logger::cout() << "New arg type: " << *arg.ltype << '\n';
         }

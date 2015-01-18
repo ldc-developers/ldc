@@ -44,7 +44,7 @@ struct Win64TargetABI : TargetABI
 
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty);
 
-    void rewriteArgument(IrFuncTyArg& arg);
+    void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg);
 
 private:
     // Returns true if the D type is a composite (struct/static array/complex number).
@@ -151,7 +151,7 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
         if (arg.byref)
             continue;
 
-        rewriteArgument(arg);
+        rewriteArgument(fty, arg);
     }
 
     // extern(D): reverse parameter order for non variadics, for DMD-compliance
@@ -159,7 +159,7 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
         fty.reverseParams = true;
 }
 
-void Win64TargetABI::rewriteArgument(IrFuncTyArg& arg)
+void Win64TargetABI::rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
 {
     Type* ty = arg.type->toBasetype();
 

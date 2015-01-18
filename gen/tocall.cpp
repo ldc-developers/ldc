@@ -113,91 +113,83 @@ LLFunctionType* DtoExtractFunctionType(LLType* type)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static LLValue* fixArgument(DValue* argval, IrFuncTy& irFty, LLType* callableArgType, size_t argIndex)
+static void addExplicitArguments(std::vector<LLValue*>& args, AttrSet& attrs,
+    IrFuncTy& irFty, LLFunctionType* callableTy, const std::vector<DValue*>& argvals, int numFormalParams)
 {
-#if 0
-    IF_LOG {
-        Logger::cout() << "Argument before ABI: " << *argval->getRVal() << '\n';
-        Logger::cout() << "Argument type before ABI: " << *DtoType(argval->getType()) << '\n';
-    }
-#endif
+    const int numImplicitArgs = args.size();
+    const int numExplicitArgs = argvals.size();
 
-    // give the ABI a say
-    LLValue* arg = irFty.putParam(argval->getType(), argIndex, argval);
+    args.resize(numImplicitArgs + numExplicitArgs, static_cast<LLValue*>(0));
 
-#if 0
-    IF_LOG {
-        Logger::cout() << "Argument after ABI: " << *arg << '\n';
-        Logger::cout() << "Argument type after ABI: " << *arg->getType() << '\n';
-    }
-#endif
+    // construct and initialize an IrFuncTyArg object for each vararg
+    std::vector<IrFuncTyArg*> optionalIrArgs;
+    for (int i = numFormalParams; i < numExplicitArgs; i++) {
+        Type* argType = argvals[i]->getType();
 
-    // Hack around LDC assuming structs and static arrays are in memory:
-    // If the function wants a struct, and the argument value is a
-    // pointer to a struct, load from it before passing it in.
-    int ty = argval->getType()->toBasetype()->ty;
-    if (isaPointer(arg) && !isaPointer(callableArgType) &&
-        (ty == Tstruct || ty == Tsarray))
-    {
-        Logger::println("Loading struct type for function argument");
-        arg = DtoLoad(arg);
-    }
-
-    // parameter type mismatch, this is hard to get rid of
-    if (arg->getType() != callableArgType)
-    {
-    #if 1
-        IF_LOG {
-            Logger::cout() << "arg:     " << *arg << '\n';
-            Logger::cout() << "of type: " << *arg->getType() << '\n';
-            Logger::cout() << "expects: " << *callableArgType << '\n';
-        }
-    #endif
-        if (isaStruct(arg))
-            arg = DtoAggrPaint(arg, callableArgType);
+        AttrBuilder initialAttrs;
+        if (gABI->passByVal(argType))
+            initialAttrs.add(LDC_ATTRIBUTE(ByVal));
         else
-            arg = DtoBitCast(arg, callableArgType);
-    }
-    return arg;
-}
+            initialAttrs.add(DtoShouldExtend(argType));
 
-static LLValue* fixOptionalArgument(DValue* argval, AttrBuilder& attrs)
-{
-    Type* type = argval->getType();
-
-#if 0
-    IF_LOG{
-        Logger::cout() << "Optional argument before ABI: " << *argval->getRVal() << '\n';
-        Logger::cout() << "Optional argument type before ABI: " << *DtoType(type) << '\n';
+        optionalIrArgs.push_back(new IrFuncTyArg(argType, false, initialAttrs));
     }
+
+    // let the ABI rewrite the IrFuncTyArg objects
+    gABI->rewriteVarargs(irFty, optionalIrArgs);
+
+    for (int i = 0; i < numExplicitArgs; i++)
+    {
+        int j = numImplicitArgs + (irFty.reverseParams ? numExplicitArgs - i - 1 : i);
+
+        DValue* argval = argvals[i];
+        Type* argType = argval->getType();
+
+        // vararg?
+        if (i >= numFormalParams) {
+            IrFuncTyArg* optionalIrArg = optionalIrArgs[i - numFormalParams];
+
+            args[j] = irFty.putParam(argType, *optionalIrArg, argval);
+            attrs.add(j + 1, optionalIrArg->attrs);
+            delete optionalIrArg;
+
+            continue;
+        }
+
+        // formal arg
+        LLValue* arg = irFty.putParam(argType, i, argval);
+        LLType* callableArgType = callableTy->getParamType(j);
+
+        // Hack around LDC assuming structs and static arrays are in memory:
+        // If the function wants a struct, and the argument value is a
+        // pointer to a struct, load from it before passing it in.
+        TY ty = argType->toBasetype()->ty;
+        if (isaPointer(arg) && !isaPointer(callableArgType) &&
+            (ty == Tstruct || ty == Tsarray))
+        {
+            Logger::println("Loading struct type for function argument");
+            arg = DtoLoad(arg);
+        }
+
+        // parameter type mismatch, this is hard to get rid of
+        if (arg->getType() != callableArgType)
+        {
+#if 1
+            IF_LOG {
+                Logger::cout() << "arg:     " << *arg << '\n';
+                Logger::cout() << "of type: " << *arg->getType() << '\n';
+                Logger::cout() << "expects: " << *callableArgType << '\n';
+            }
 #endif
+            if (isaStruct(arg))
+                arg = DtoAggrPaint(arg, callableArgType);
+            else
+                arg = DtoBitCast(arg, callableArgType);
+        }
 
-    AttrBuilder initialAttrs;
-
-    // byval
-    if (gABI->passByVal(type))
-        initialAttrs.add(LDC_ATTRIBUTE(ByVal));
-    // sext/zext
-    else
-        initialAttrs.add(DtoShouldExtend(type));
-
-    // give the ABI a say
-    IrFuncTyArg irArg(type, false, initialAttrs);
-    gABI->rewriteArgument(irArg);
-
-    LLValue* arg = (irArg.rewrite
-        ? irArg.rewrite->put(type, argval)
-        : argval->getRVal());
-    attrs = irArg.attrs;
-
-#if 0
-    IF_LOG{
-        Logger::cout() << "Optional argument after ABI: " << *arg << '\n';
-        Logger::cout() << "Optional argument type after ABI: " << *arg->getType() << '\n';
+        args[j] = arg;
+        attrs.add(j + 1, irFty.args[i]->attrs);
     }
-#endif
-
-    return arg;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -404,7 +396,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         //Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
     }
 
-    std::vector<DValue*> argvals(numFormalParams, static_cast<DValue*>(0));
+    std::vector<DValue*> argvals(n_arguments, static_cast<DValue*>(0));
     if (dfnval && dfnval->func->isArrayOp) {
         // For array ops, the druntime implementation signatures are crafted
         // specifically such that the evaluation order is as expected with
@@ -424,29 +416,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             argvals[i] = argval;
         }
     }
+    // add varargs
+    for (int i = numFormalParams; i < n_arguments; ++i)
+        argvals[i] = DtoArgument(0, (*arguments)[i]);
 
-    // do formal params
-    const int formalParamsBegin = args.size();
-    args.resize(formalParamsBegin + n_arguments, static_cast<LLValue*>(0));
-    for (int i = 0; i < numFormalParams; i++)
-    {
-        int j = formalParamsBegin + (irFty.reverseParams ? numFormalParams - i - 1 : i);
-        LLValue* arg = fixArgument(argvals[i], irFty, callableTy->getParamType(j), i);
-        args[j] = arg;
-        attrs.add(j + 1, irFty.args[i]->attrs);
-    }
-
-    // do C varargs
-    for (int i = numFormalParams; i < n_arguments; i++)
-    {
-        DValue* argval = DtoArgument(0, (*arguments)[i]);
-
-        AttrBuilder argAttrs;
-        LLValue* arg = fixOptionalArgument(argval, argAttrs);
-
-        args[formalParamsBegin + i] = arg;
-        attrs.add(formalParamsBegin + i + 1, argAttrs);
-    }
+    addExplicitArguments(args, attrs, irFty, callableTy, argvals, numFormalParams);
 
 #if 0
     IF_LOG {

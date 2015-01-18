@@ -74,11 +74,11 @@ struct PPC64TargetABI : TargetABI {
             if (arg.byref)
                 continue;
 
-            rewriteArgument(arg);
+            rewriteArgument(fty, arg);
         }
     }
 
-    void rewriteArgument(IrFuncTyArg& arg)
+    void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
     {
         Type* ty = arg.type->toBasetype();
 

@@ -556,9 +556,10 @@ struct X86_64TargetABI : TargetABI {
 
     bool passByVal(Type* t);
 
-    void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty);
-
-    void rewriteArgument(IrFuncTyArg& arg);
+    void rewriteFunctionType(TypeFunction* tf, IrFuncTy& fty);
+    void rewriteVarargs(IrFuncTy& fty, std::vector<IrFuncTyArg*>& args);
+    void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg);
+    void rewriteArgument(IrFuncTyArg& arg, RegCount& regCount);
 
     LLValue* prepareVaStart(LLValue* pAp);
 
@@ -568,6 +569,7 @@ struct X86_64TargetABI : TargetABI {
 
 private:
     LLType* getValistType();
+    RegCount& getRegCount(IrFuncTy& fty) { return reinterpret_cast<RegCount&>(fty.tag); }
 };
 
 
@@ -618,34 +620,47 @@ bool X86_64TargetABI::passByVal(Type* t) {
     return dmdResult;
 }
 
-void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg) {
+void X86_64TargetABI::rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg) {
+    llvm_unreachable("Please use the other overload explicitly.");
+}
+
+void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg, RegCount& regCount) {
+    LLType* originalLType = arg.ltype;
     Type* t = arg.type->toBasetype();
 
-    if (keepUnchanged(t))
-        return;
-
-    LLType* abiTy = getAbiType(t);
-    if (abiTy && abiTy != arg.ltype) {
+    LLType* abiTy = (keepUnchanged(t) ? 0 : getAbiType(t));
+    if (abiTy && abiTy != originalLType) {
         IF_LOG {
             Logger::println("Rewriting argument type %s", t->toChars());
             LOG_SCOPE;
-            Logger::cout() << *arg.ltype << " => " << *abiTy << '\n';
+            Logger::cout() << *originalLType << " => " << *abiTy << '\n';
         }
 
         arg.rewrite = &struct_rewrite;
         arg.ltype = abiTy;
     }
+
+    if (regCount.trySubtract(arg) == RegCount::ArgumentWouldFitInPartially) {
+        // pass structs explicitly byval, otherwise LLVM passes
+        // them partially in registers, partially on the stack
+        assert(originalLType->isStructTy());
+        IF_LOG Logger::cout() << "Passing explicitly ByVal: " << arg.type->toChars() << " (" << *originalLType << ")\n";
+        arg.rewrite = &explicitByvalRewrite;
+        arg.ltype = originalLType->getPointerTo();
+        arg.attrs.add(LDC_ATTRIBUTE(ByVal));
+    }
 }
 
 void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty) {
-    RegCount& regCount = reinterpret_cast<RegCount&>(fty.tag);
-    regCount = RegCount();
+    RegCount& regCount = getRegCount(fty);
+    regCount = RegCount(); // initialize
 
     // RETURN VALUE
     if (!tf->isref && !fty.arg_sret) {
         Logger::println("x86-64 ABI: Transforming return type");
         LOG_SCOPE;
-        rewriteArgument(*fty.ret);
+        RegCount dummy;
+        rewriteArgument(*fty.ret, dummy);
     }
 
     // IMPLICIT PARAMETERS
@@ -674,25 +689,26 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty) {
         IrFuncTyArg& arg = *fty.args[i];
 
         if (arg.byref) {
-            if (!arg.isByVal())
-                regCount.trySubtract(arg);
+            if (!arg.isByVal() && regCount.int_regs > 0)
+                regCount.int_regs--;
 
             continue;
         }
 
-        LLType* originalLType = arg.ltype;
-        rewriteArgument(arg);
-
-        if (regCount.trySubtract(arg) == RegCount::ArgumentWouldFitInPartially) {
-            // pass structs explicitly byval, otherwise LLVM passes
-            // them partially in registers, partially on the stack
-            assert(originalLType->isStructTy());
-            IF_LOG Logger::cout() << "Passing explicitly ByVal: " << arg.type->toChars() << " (" << *originalLType << ")\n";
-            arg.rewrite = &explicitByvalRewrite;
-            arg.ltype = originalLType->getPointerTo();
-            arg.attrs.add(LDC_ATTRIBUTE(ByVal));
-        }
+        rewriteArgument(arg, regCount);
     }
+
+    // regCount (fty.tag) is now in the state after all implicit & formal args,
+    // ready to serve as initial state for each vararg call site, see below
+}
+
+void X86_64TargetABI::rewriteVarargs(IrFuncTy& fty, std::vector<IrFuncTyArg*>& args)
+{
+    // use a dedicated RegCount copy for each call site and initialize it with fty.tag
+    RegCount regCount = getRegCount(fty);
+
+    for (unsigned i = 0; i < args.size(); ++i)
+        rewriteArgument(*args[i], regCount);
 }
 
 

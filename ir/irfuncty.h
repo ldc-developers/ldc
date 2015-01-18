@@ -130,6 +130,7 @@ struct IrFuncTy
     llvm::Value* getRet(Type* dty, DValue* dval);
 
     llvm::Value* putParam(Type* dty, size_t idx, DValue* dval);
+    llvm::Value* putParam(Type* dty, const IrFuncTyArg& arg, DValue* dval);
     llvm::Value* getParam(Type* dty, size_t idx, DValue* dval);
     void getParam(Type* dty, size_t idx, DValue* dval, llvm::Value* lval);
 };
