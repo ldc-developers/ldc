@@ -629,6 +629,45 @@ else version ( AnyPPC )
             void va_copy(out va_list dest, va_list src);
     }
 }
+else version ( MIPS64 )
+{
+    version ( LDC )
+    {
+        alias void *va_list;
+
+        pragma(LDC_va_start)
+            void va_start(T)(va_list ap, ref T);
+
+        private pragma(LDC_va_arg)
+            T va_arg_impl(T)(va_list ap);
+
+        T va_arg(T)(ref va_list ap)
+        {
+            return va_arg_impl!T(ap);
+        }
+
+        void va_arg(T)(ref va_list ap, ref T parmn)
+        {
+            parmn = va_arg!T(ap);
+        }
+
+        void va_arg()(ref va_list ap, TypeInfo ti, void* parmn)
+        {
+            // This works for all types because only the rules for non-floating,
+            // non-vector types are used.
+            auto tsize = ti.tsize();
+            auto p = tsize < size_t.sizeof ? cast(void*)(cast(void*)ap + (size_t.sizeof - tsize)) : ap;
+            ap = cast(va_list)(cast(void*)ap + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1)));
+            parmn[0..tsize] = p[0..tsize];
+        }
+
+        pragma(LDC_va_end)
+            void va_end(va_list ap);
+
+        pragma(LDC_va_copy)
+            void va_copy(out va_list dest, va_list src);
+    }
+}
 else
 {
     static assert(false, "Unsupported platform");

@@ -919,6 +919,11 @@ void[] _d_newarrayOpT(alias op)(const TypeInfo ti, size_t ndims, va_list q)
                     va_list ap2;
                     va_copy(ap2, ap);
                 }
+                else version(MIPS64)
+                {
+                    va_list ap2;
+                    va_copy(ap2, ap);
+                }
                 else version(Win64)
                 {
                     va_list ap2;
