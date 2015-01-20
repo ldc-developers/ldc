@@ -62,6 +62,8 @@
 #include <string>
 #include <utility>
 
+//#define VALIDATE_AGAINST_OLD_LDC_VERSION
+
 TypeTuple* toArgTypes(Type* t); // in dmd2/argtypes.c
 
 namespace {
@@ -89,6 +91,7 @@ namespace {
         }
     }
 
+#ifdef VALIDATE_AGAINST_OLD_LDC_VERSION
   namespace ldc_abi {
     enum ArgClass {
         Integer, Sse, SseUp, X87, X87Up, ComplexX87, NoClass, Memory
@@ -338,6 +341,7 @@ namespace {
         return cl.isMemory;
     }
   } // namespace ldc_abi
+#endif
 
   namespace dmd_abi {
     // Structs, static arrays and cfloats may be rewritten to exploit registers.
@@ -385,6 +389,8 @@ namespace {
         ty = ty->toBasetype();
 
         LLType* dmdType = dmd_abi::getAbiType(ty);
+
+#ifdef VALIDATE_AGAINST_OLD_LDC_VERSION
         LLType* ldcType = ldc_abi::getAbiType(ty);
 
         IF_LOG if (dmdType != ldcType) {
@@ -402,6 +408,7 @@ namespace {
         }
 
         //assert(dmdType == ldcType && "getAbiType() mismatch between DMD and LDC!");
+#endif
 
         return dmdType;
     }
@@ -608,6 +615,8 @@ bool X86_64TargetABI::passByVal(Type* t) {
         return false;
 
     bool dmdResult = dmd_abi::passByVal(t);
+
+#ifdef VALIDATE_AGAINST_OLD_LDC_VERSION
     bool ldcResult = ldc_abi::passByVal(t);
 
     IF_LOG if (dmdResult != ldcResult) {
@@ -616,6 +625,7 @@ bool X86_64TargetABI::passByVal(Type* t) {
     }
 
     //assert(dmdResult == ldcResult && "passByVal() mismatch between DMD and LDC!");
+#endif
 
     return dmdResult;
 }
