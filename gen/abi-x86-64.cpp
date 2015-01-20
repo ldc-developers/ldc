@@ -67,6 +67,8 @@
 TypeTuple* toArgTypes(Type* t); // in dmd2/argtypes.c
 
 namespace {
+#ifdef VALIDATE_AGAINST_OLD_LDC_VERSION
+  namespace ldc_abi {
     /**
      * This function helps filter out things that look like structs to C,
      * but should be passed to C in separate arguments anyway.
@@ -91,8 +93,6 @@ namespace {
         }
     }
 
-#ifdef VALIDATE_AGAINST_OLD_LDC_VERSION
-  namespace ldc_abi {
     enum ArgClass {
         Integer, Sse, SseUp, X87, X87Up, ComplexX87, NoClass, Memory
     };
@@ -337,6 +337,9 @@ namespace {
     }
 
     bool passByVal(Type* ty) {
+        if (keepUnchanged(ty))
+            return false;
+
         Classification cl = classify(ty);
         return cl.isMemory;
     }
@@ -354,10 +357,8 @@ namespace {
         // Okay, we may need to transform. Figure out a canonical type:
 
         TypeTuple* argTypes = toArgTypes(ty);
-        if (!argTypes) // ty is void, typeof(null) or possibly another exotic type:
+        if (!argTypes || argTypes->arguments->empty())
             return 0;  // don't rewrite
-
-        assert(!argTypes->arguments->empty()); // !empty => can be passed in registers
 
         LLType* abiTy = 0;
         if (argTypes->arguments->size() == 1) {
@@ -434,9 +435,12 @@ namespace {
                 if (ty->isIntegerTy() || ty->isPointerTy()) {
                     ++int_regs;
                 } else if (ty->isFloatingPointTy() || ty->isVectorTy()) {
-                    ++sse_regs;
+                    // X87 reals are passed on the stack
+                    if (!ty->isX86_FP80Ty())
+                        ++sse_regs;
                 } else {
-                    IF_LOG Logger::cout() << "x86_64 RegCount: assuming 1 GPR for type " << *ty << '\n';
+                    IF_LOG Logger::cout() << "SysV RegCount: assuming 1 GP register for type " << *ty << '\n';
+                    assert(ty->getPrimitiveSizeInBits() <= 64);
                     ++int_regs;
                 }
             }
@@ -456,7 +460,9 @@ namespace {
             if (!anyRegAvailable)
                 return ArgumentDoesntFitIn;
 
-            const bool allowPartialPassing = keepUnchanged(arg.type->toBasetype());
+            TY ty = arg.type->toBasetype()->ty;
+            // TODO: check what is really allowed to be passed partially
+            const bool allowPartialPassing = (/* ty == Tarray || ty == Taarray || */ ty == Tdelegate);
             if (!allowPartialPassing && (int_regs < wanted.int_regs || sse_regs < wanted.sse_regs))
                 return ArgumentWouldFitInPartially;
 
@@ -611,9 +617,6 @@ bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
 bool X86_64TargetABI::passByVal(Type* t) {
     t = t->toBasetype();
 
-    if (keepUnchanged(t))
-        return false;
-
     bool dmdResult = dmd_abi::passByVal(t);
 
 #ifdef VALIDATE_AGAINST_OLD_LDC_VERSION
@@ -638,7 +641,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg, RegCount& regCount) {
     LLType* originalLType = arg.ltype;
     Type* t = arg.type->toBasetype();
 
-    LLType* abiTy = (keepUnchanged(t) ? 0 : getAbiType(t));
+    LLType* abiTy = getAbiType(t);
     if (abiTy && abiTy != originalLType) {
         IF_LOG {
             Logger::println("Rewriting argument type %s", t->toChars());
@@ -666,7 +669,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty) {
     regCount = RegCount(); // initialize
 
     // RETURN VALUE
-    if (!tf->isref && !fty.arg_sret) {
+    if (!tf->isref && !fty.arg_sret && tf->next->toBasetype()->ty != Tvoid) {
         Logger::println("x86-64 ABI: Transforming return type");
         LOG_SCOPE;
         RegCount dummy;
