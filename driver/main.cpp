@@ -1014,7 +1014,9 @@ int main(int argc, char **argv)
         global.params.is64bit      = triple.isArch64Bit();
     }
 
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 307
+    gDataLayout = gTargetMachine->getDataLayout();
+#elif LDC_LLVM_VER >= 306
     gDataLayout = gTargetMachine->getSubtargetImpl()->getDataLayout();
 #elif LDC_LLVM_VER >= 302
     gDataLayout = gTargetMachine->getDataLayout();

@@ -321,16 +321,23 @@ bool ldc_optimize_module(llvm::Module *M)
     // per-module passes we are about to build.
     PassManager mpm;
 
+#if LDC_LLVM_VER >= 307
+    // Add an appropriate TargetLibraryInfo pass for the module's triple.
+    TargetLibraryInfoImpl *tlii = new TargetLibraryInfoImpl(Triple(M->getTargetTriple()));
+
+    // The -disable-simplify-libcalls flag actually disables all builtin optzns.
+    if (disableSimplifyLibCalls)
+      tlii->disableAllFunctions();
+
+    mpm.add(new TargetLibraryInfoWrapperPass(*tlii));
+#else
     // Add an appropriate TargetLibraryInfo pass for the module's triple.
     TargetLibraryInfo *tli = new TargetLibraryInfo(Triple(M->getTargetTriple()));
 
     // The -disable-simplify-libcalls flag actually disables all builtin optzns.
     if (disableSimplifyLibCalls)
-        tli->disableAllFunctions();
+      tli->disableAllFunctions();
 
-#if LDC_LLVM_VER >= 307
-    mpm.add(new TargetLibraryInfoWrapperPass(*tli));
-#else
     mpm.add(tli);
 #endif
 
