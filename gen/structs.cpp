@@ -21,7 +21,7 @@
 #include "gen/logger.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
-#include "ir/iraggr.h"
+#include "ir/irmetadata.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <algorithm>
@@ -36,8 +36,10 @@ void DtoResolveStruct(StructDeclaration* sd)
 void DtoResolveStruct(StructDeclaration* sd, Loc& callerLoc)
 {
     // Make sure to resolve each struct type exactly once.
-    if (sd->ir.isResolved()) return;
-    sd->ir.setResolved();
+    IrMetadata* irm = getIrMetadata(sd);
+    if (irm->isResolved())
+        return;
+    irm->setResolved();
 
     IF_LOG Logger::println("Resolving struct type: %s (%s)", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;

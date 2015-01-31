@@ -105,7 +105,7 @@ endfunction()
 # as enabling warnings on the DMD frontend only leads to a lot of clutter in
 # the output (LLVM_CXXFLAGS sometimes already includes -Wall).
 set(DMD_CXXFLAGS)
-set(LDC_CXXFLAGS)
+set(LDC_CXXFLAGS "-std=c++0x")
 if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
     append("-w" DMD_CXXFLAGS)
 

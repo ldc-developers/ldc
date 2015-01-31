@@ -29,6 +29,7 @@
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
 #include "gen/abi.h"
+#include "ir/irmetadata.h"
 #include "ir/irmodule.h"
 #include "ir/irtypeaggr.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -934,10 +935,12 @@ void DtoResolveVariable(VarDeclaration* vd)
             "manifest constant being codegen'd!");
 
         // don't duplicate work
-        if (vd->ir.isResolved()) return;
-        vd->ir.setDeclared();
+        IrMetadata* irm = getIrMetadata(vd);
+        if (irm->isResolved())
+            return;
+        irm->setDeclared();
 
-        getIrGlobal(vd, true);
+        IrGlobal *irGlobal = getIrGlobal(vd, true);
 
         IF_LOG {
             if (vd->parent)
@@ -948,9 +951,9 @@ void DtoResolveVariable(VarDeclaration* vd)
 
         const bool isLLConst = (vd->isConst() || vd->isImmutable()) && vd->init;
 
-        assert(!vd->ir.isInitialized());
+        assert(!irm->isInitialized());
         if (gIR->dmodule)
-            vd->ir.setInitialized();
+            irm->setInitialized();
         std::string llName(mangle(vd));
 
         // Since the type of a global must exactly match the type of its
@@ -972,7 +975,7 @@ void DtoResolveVariable(VarDeclaration* vd)
         llvm::GlobalVariable* gvar = getOrCreateGlobal(vd->loc, *gIR->module,
             i1ToI8(DtoType(vd->type)), isLLConst, linkage, 0, llName,
             vd->isThreadlocal());
-        getIrGlobal(vd)->value = gvar;
+        irGlobal->value = gvar;
 
         // Set the alignment (it is important not to use type->alignsize because
         // VarDeclarations can have an align() attribute independent of the type

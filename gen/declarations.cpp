@@ -22,7 +22,7 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "ir/irtype.h"
-#include "ir/irvar.h"
+#include "ir/irmetadata.h"
 #include "llvm/ADT/SmallString.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -59,19 +59,21 @@ public:
         IF_LOG Logger::println("InterfaceDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.isDefined()) return;
+        IrMetadata *irm = getIrMetadata(decl);
+        if (irm->isDefined())
+            return;
 
         if (decl->type->ty == Terror)
         {
             error(decl->loc, "had semantic errors when compiling");
-            decl->ir.setDefined();
+            irm->setDefined();
             return;
         }
 
         if (decl->members && decl->symtab)
         {
             DtoResolveClass(decl);
-            decl->ir.setDefined();
+            irm->setDefined();
 
             // Emit any members (e.g. final functions).
             for (Dsymbols::iterator I = decl->members->begin(),
@@ -98,19 +100,21 @@ public:
         IF_LOG Logger::println("StructDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.isDefined()) return;
+        IrMetadata *irm = getIrMetadata(decl);
+        if (irm->isDefined())
+            return;
 
         if (decl->type->ty == Terror)
         {
             error(decl->loc, "had semantic errors when compiling");
-            decl->ir.setDefined();
+            irm->setDefined();
             return;
         }
 
         if (decl->members && decl->symtab)
         {
             DtoResolveStruct(decl);
-            decl->ir.setDefined();
+            irm->setDefined();
 
             for (Dsymbols::iterator I = decl->members->begin(),
                                     E = decl->members->end();
@@ -144,19 +148,21 @@ public:
         IF_LOG Logger::println("ClassDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.isDefined()) return;
+        IrMetadata *irm = getIrMetadata(decl);
+        if (irm->isDefined())
+            return;
 
         if (decl->type->ty == Terror)
         {
             error(decl->loc, "had semantic errors when compiling");
-            decl->ir.setDefined();
+            irm->setDefined();
             return;
         }
 
         if (decl->members && decl->symtab)
         {
             DtoResolveClass(decl);
-            decl->ir.setDefined();
+            irm->setDefined();
 
             for (Dsymbols::iterator I = decl->members->begin(),
                                     E = decl->members->end();
@@ -190,8 +196,10 @@ public:
         IF_LOG Logger::println("TupleDeclaration::codegen(): '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.isDefined()) return;
-        decl->ir.setDefined();
+        IrMetadata *irm = getIrMetadata(decl);
+        if (irm->isDefined())
+            return;
+        irm->setDefined();
 
         assert(decl->isexp);
         assert(decl->objects);
@@ -212,17 +220,19 @@ public:
         IF_LOG Logger::println("VarDeclaration::codegen(): '%s'", decl->toPrettyChars());
         LOG_SCOPE;
 
-        if (decl->ir.isDefined()) return;
+        IrMetadata *irm = getIrMetadata(decl);
+        if (irm->isDefined())
+            return;
 
         if (decl->type->ty == Terror)
         {
             error(decl->loc, "had semantic errors when compiling");
-            decl->ir.setDefined();
+            irm->setDefined();
             return;
         }
 
         DtoResolveVariable(decl);
-        decl->ir.setDefined();
+        irm->setDefined();
 
         // just forward aliases
         if (decl->aliassym)
@@ -249,7 +259,7 @@ public:
             // Check if we are defining or just declaring the global in this module.
             if (!(decl->storage_class & STCextern))
             {
-                // Build the initializer. Might use this->ir.irGlobal->value!
+                // Build the initializer. Might use getIrGlobal(this)->value!
                 LLConstant *initVal = DtoConstInitializer(decl->loc, decl->type, decl->init);
 
                 // In case of type mismatch, swap out the variable.
@@ -299,8 +309,10 @@ public:
         IF_LOG Logger::println("TypedefDeclaration::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE;
 
-        if (decl->ir.isDefined()) return;
-        decl->ir.setDefined();
+        IrMetadata *irm = getIrMetadata(decl);
+        if (irm->isDefined())
+            return;
+        irm->setDefined();
 
         if (decl->type->ty == Terror)
         {   error(decl->loc, "had semantic errors when compiling");
@@ -338,8 +350,10 @@ public:
         IF_LOG Logger::println("TemplateInstance::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.isDefined()) return;
-        decl->ir.setDefined();
+        IrMetadata *irm = getIrMetadata(decl);
+        if (irm->isDefined())
+            return;
+        irm->setDefined();
 
         // FIXME: This is #673 all over again.
         if (!decl->needsCodegen()) return;
@@ -361,8 +375,10 @@ public:
         IF_LOG Logger::println("TemplateInstance::codegen: '%s'", decl->toPrettyChars());
         LOG_SCOPE
 
-        if (decl->ir.isDefined()) return;
-        decl->ir.setDefined();
+        IrMetadata *irm = getIrMetadata(decl);
+        if (irm->isDefined())
+            return;
+        irm->setDefined();
 
         if (!decl->errors && decl->members)
         {

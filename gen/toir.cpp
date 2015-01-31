@@ -36,6 +36,7 @@
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
 #include "gen/warnings.h"
+#include "ir/irmetadata.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
 #include "ir/irlandingpad.h"

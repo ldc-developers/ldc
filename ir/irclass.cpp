@@ -30,7 +30,7 @@
 #include "gen/runtime.h"
 #include "gen/functions.h"
 
-#include "ir/iraggr.h"
+#include "ir/irmetadata.h"
 #include "ir/irtypeclass.h"
 
 //////////////////////////////////////////////////////////////////////////////
