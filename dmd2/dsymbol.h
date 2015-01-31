@@ -23,12 +23,9 @@
 #include "arraytypes.h"
 #include "visitor.h"
 
-#if IN_LLVM
-#if defined(_MSC_VER)
+#if IN_LLVM && defined(_MSC_VER)
 #undef min
 #undef max
-#endif
-#include "../ir/irdsymbol.h"
 #endif
 
 class Identifier;
@@ -308,8 +305,6 @@ public:
 
     // llvm stuff
     int llvmInternal;
-
-    IrDsymbol ir;
 #endif
 };
 

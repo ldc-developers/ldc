@@ -25,7 +25,7 @@
 #include "gen/runtime.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
-#include "ir/iraggr.h"
+#include "ir/irmetadata.h"
 #include "ir/irtypeclass.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -34,8 +34,10 @@
 
 void DtoResolveClass(ClassDeclaration* cd)
 {
-    if (cd->ir.isResolved()) return;
-    cd->ir.setResolved();
+    IrMetadata* irm = getIrMetadata(cd);
+    if (irm->isResolved())
+        return;
+    irm->setResolved();
 
     IF_LOG Logger::println("DtoResolveClass(%s): %s", cd->toPrettyChars(), cd->loc.toChars());
     LOG_SCOPE;

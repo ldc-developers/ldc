@@ -128,7 +128,4 @@ struct IrFunction
     IrFuncTy irFty;
 };
 
-IrFunction *getIrFunc(FuncDeclaration *decl, bool create = false);
-bool isIrFuncCreated(FuncDeclaration *decl);
-
 #endif

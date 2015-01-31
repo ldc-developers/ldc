@@ -23,7 +23,7 @@
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "ir/irlandingpad.h"
-#include "ir/irmodule.h"
+#include "ir/irmetadata.h"
 #if LDC_LLVM_VER >= 305
 #include "llvm/IR/CFG.h"
 #else

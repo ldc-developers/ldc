@@ -15,6 +15,7 @@
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "ir/irlandingpad.h"
+#include "ir/irmetadata.h"
 
 // creates new landing pad
 static llvm::LandingPadInst *createLandingPadInst()

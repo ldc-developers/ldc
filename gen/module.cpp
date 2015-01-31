@@ -35,7 +35,7 @@
 #include "gen/runtime.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
-#include "ir/irdsymbol.h"
+#include "ir/irmetadata.h"
 #include "ir/irmodule.h"
 #include "ir/irtype.h"
 #include "ir/irvar.h"
@@ -646,7 +646,7 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
     ir.dmodule = this;
 
     // reset all IR data stored in Dsymbols
-    IrDsymbol::resetAll();
+    IrMetadata::resetAll();
 
     // set target triple
     ir.module->setTargetTriple(global.params.targetTriple.str());

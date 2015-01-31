@@ -1,4 +1,4 @@
-//===-- ir/irdsymbol.h - Codegen state for D symbols ------------*- C++ -*-===//
+//===-- ir/irmetadata.h - Codegen state for D symbols ------------*- C++ -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -11,10 +11,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_IR_IRDSYMBOL_H
-#define LDC_IR_IRDSYMBOL_H
-
-#include <vector>
+#ifndef LDC_IR_IRMETAD_H
+#define LDC_IR_IRMETAD_H
 
 struct IrModule;
 struct IrFunction;
@@ -34,7 +32,7 @@ namespace llvm {
     class Value;
 }
 
-struct IrDsymbol
+struct IrMetadata
 {
     enum Type
     {
@@ -57,14 +55,9 @@ struct IrDsymbol
         Defined
     };
 
-    static std::vector<IrDsymbol*> list;
-    static void resetAll();
+    IrMetadata();
 
-    // overload all of these to make sure
-    // the static list is up to date
-    IrDsymbol();
-    IrDsymbol(const IrDsymbol& s);
-    ~IrDsymbol();
+    static void resetAll();
 
     void reset();
 
@@ -81,14 +74,14 @@ struct IrDsymbol
     void setInitialized();
     void setDefined();
 private:
-    friend IrModule* getIrModule(Module *m);
-    friend IrAggr *getIrAggr(AggregateDeclaration *decl, bool create);
-    friend IrFunction *getIrFunc(FuncDeclaration *decl, bool create);
-    friend IrVar *getIrVar(VarDeclaration *decl);
-    friend IrGlobal *getIrGlobal(VarDeclaration *decl, bool create);
-    friend IrLocal *getIrLocal(VarDeclaration *decl, bool create);
-    friend IrParameter *getIrParameter(VarDeclaration *decl, bool create);
-    friend IrField *getIrField(VarDeclaration *decl, bool create);
+    friend IrVar *getIrVar(VarDeclaration *);
+    friend IrGlobal *getIrGlobal(VarDeclaration *, bool);
+    friend IrLocal *getIrLocal(VarDeclaration *, bool);
+    friend IrParameter *getIrParameter(VarDeclaration *, bool);
+    friend IrField *getIrField(VarDeclaration *, bool);
+    friend IrFunction *getIrFunc(FuncDeclaration *, bool);
+    friend IrAggr *getIrAggr(AggregateDeclaration *, bool);
+    friend IrModule* getIrModule(Module *);
 
     union {
         void*        irData;
@@ -105,4 +98,29 @@ private:
     State m_state;
 };
 
-#endif
+IrMetadata *getIrMetadata(Dsymbol *sym);
+
+IrVar *getIrVar(VarDeclaration *decl);
+bool isIrVarCreated(VarDeclaration *decl);
+
+IrGlobal *getIrGlobal(VarDeclaration *decl, bool create = false);
+bool isIrGlobalCreated(VarDeclaration *decl);
+
+IrLocal *getIrLocal(VarDeclaration *decl, bool create = false);
+bool isIrLocalCreated(VarDeclaration *decl);
+
+IrParameter *getIrParameter(VarDeclaration *decl, bool create = false);
+bool isIrParameterCreated(VarDeclaration *decl);
+
+IrField *getIrField(VarDeclaration *decl, bool create = false);
+bool isIrFieldCreated(VarDeclaration *decl);
+
+IrFunction *getIrFunc(FuncDeclaration *decl, bool create = false);
+bool isIrFuncCreated(FuncDeclaration *decl);
+
+IrAggr *getIrAggr(AggregateDeclaration *decl, bool create = false);
+bool isIrAggrCreated(AggregateDeclaration *decl);
+
+IrModule *getIrModule(Module *m);
+
+#endif // LDC_IR_IRMETAD_H

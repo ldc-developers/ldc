@@ -46,7 +46,7 @@
 #include "gen/structs.h"
 #include "gen/tollvm.h"
 #include "ir/irtype.h"
-#include "ir/irvar.h"
+#include "ir/irmetadata.h"
 #include <cassert>
 #include <cstdio>
 #include <ir/irtypeclass.h>
@@ -326,8 +326,10 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid)
 
 void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
 {
-    if (tid->ir.isResolved()) return;
-    tid->ir.setResolved();
+    IrMetadata* irm = getIrMetadata(tid);
+    if (irm->isResolved())
+        return;
+    irm->setResolved();
 
     // TypeInfo instances (except ClassInfo ones) are always emitted as weak
     // symbols when they are used.
@@ -810,8 +812,10 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p)
     IF_LOG Logger::println("TypeInfoDeclaration::codegen(%s)", decl->toPrettyChars());
     LOG_SCOPE;
 
-    if (decl->ir.isDefined()) return;
-    decl->ir.setDefined();
+    IrMetadata *irm = getIrMetadata(decl);
+    if (irm->isDefined())
+        return;
+    irm->setDefined();
 
     std::string mangled(mangle(decl));
     IF_LOG {
