@@ -191,7 +191,11 @@ static void hide(llvm::StringMap<cl::Option *>& map, const char* name) {
 /// to be useful for end users from the -help output.
 static void hideLLVMOptions() {
     llvm::StringMap<cl::Option *> map;
+#if LDC_LLVM_VER >= 307
+    map = cl::getRegisteredOptions();
+#else
     cl::getRegisteredOptions(map);
+#endif
     hide(map, "bounds-checking-single-trap");
     hide(map, "disable-debug-info-verifier");
     hide(map, "disable-spill-fusing");
