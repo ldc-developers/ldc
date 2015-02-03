@@ -16,7 +16,7 @@ include(CheckCXXCompilerFlag)
 #
 
 find_package(LLVM 3.1 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfo instcombine ipa ipo instrumentation linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfodwarf instcombine ipa ipo instrumentation linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 
 #
