@@ -26,6 +26,9 @@
 #endif
 #endif
 #include "llvm/ADT/Triple.h"
+#if LDC_LLVM_VER >= 307
+#include "llvm/Analysis/TargetTransformInfo.h"
+#endif
 #if LDC_LLVM_VER >= 305
 #include "llvm/IR/Verifier.h"
 #else
@@ -354,14 +357,20 @@ bool ldc_optimize_module(llvm::Module *M)
     mpm.add(new TargetData(M));
 #endif
 
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER >= 307
+    // Add internal analysis passes from the target machine.
+    mpm.add(createTargetTransformInfoWrapperPass(gTargetMachine->getTargetIRAnalysis()));
+#elif LDC_LLVM_VER >= 305
     // Add internal analysis passes from the target machine.
     gTargetMachine->addAnalysisPasses(mpm);
 #endif
 
     // Also set up a manager for the per-function passes.
     FunctionPassManager fpm(M);
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 307
+    // Add internal analysis passes from the target machine.
+    fpm.add(createTargetTransformInfoWrapperPass(gTargetMachine->getTargetIRAnalysis()));
+#elif LDC_LLVM_VER >= 306
     fpm.add(new DataLayoutPass());
     gTargetMachine->addAnalysisPasses(fpm);
 #elif LDC_LLVM_VER == 305
