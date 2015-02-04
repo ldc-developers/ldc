@@ -28,6 +28,9 @@
 #include "llvm/Support/PathV1.h"
 #endif
 #include "llvm/Target/TargetMachine.h"
+#if LDC_LLVM_VER >= 307
+#include "llvm/Analysis/TargetTransformInfo.h"
+#endif
 #if LDC_LLVM_VER >= 306
 #include "llvm/Target/TargetSubtargetInfo.h"
 #endif
@@ -83,7 +86,10 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
         Passes.add(new TargetData(&m));
 #endif
 
-#if LDC_LLVM_VER >= 303
+#if LDC_LLVM_VER >= 307
+    // Add internal analysis passes from the target machine.
+    Passes.add(createTargetTransformInfoWrapperPass(Target.getTargetIRAnalysis()));
+#elif LDC_LLVM_VER >= 303
     Target.addAnalysisPasses(Passes);
 #endif
 
