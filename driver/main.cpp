@@ -190,10 +190,10 @@ static void hide(llvm::StringMap<cl::Option *>& map, const char* name) {
 /// Removes command line options exposed from within LLVM that are unlikely
 /// to be useful for end users from the -help output.
 static void hideLLVMOptions() {
-    llvm::StringMap<cl::Option *> map;
 #if LDC_LLVM_VER >= 307
-    map = cl::getRegisteredOptions();
+    llvm::StringMap<cl::Option *>& map = cl::getRegisteredOptions();
 #else
+    llvm::StringMap<cl::Option *> map;
     cl::getRegisteredOptions(map);
 #endif
     hide(map, "bounds-checking-single-trap");
