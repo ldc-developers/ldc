@@ -27,24 +27,12 @@ module gc.gc;
 
 private
 {
-   import core.stdc.stdlib;
-   import core.stdc.stdio;
+    import core.stdc.stdlib;
+    import core.stdc.stdio;
 
-   enum BlkAttr : uint
-    {
-        FINALIZE    = 0b0000_0001,
-        NO_SCAN     = 0b0000_0010,
-        NO_MOVE     = 0b0000_0100,
-        APPENDABLE  = 0b0000_1000,
-        ALL_BITS    = 0b1111_1111
-    }
-
-    struct BlkInfo
-    {
-        void*  base;
-        size_t size;
-        uint   attr;
-    }
+    static import core.memory;
+    private alias BlkAttr = core.memory.GC.BlkAttr;
+    private alias BlkInfo = core.memory.GC.BlkInfo;
 
     extern (C) void thread_init();
     extern (C) void onOutOfMemoryError(void* pretend_sideffect = null) @trusted pure nothrow @nogc; /* dmd @@@BUG11461@@@ */
@@ -78,6 +66,7 @@ private
 
         extern (C) void function(void*) gc_removeRoot;
         extern (C) void function(void*) gc_removeRange;
+        extern (C) void function(in void[]) gc_runFinalizers;
     }
 
     __gshared Proxy  pthis;
@@ -112,6 +101,7 @@ private
 
         pthis.gc_removeRoot = &gc_removeRoot;
         pthis.gc_removeRange = &gc_removeRange;
+        pthis.gc_runFinalizers = &gc_runFinalizers;
     }
 
     __gshared void** roots  = null;
@@ -351,6 +341,12 @@ extern (C) void gc_removeRange( void *p )
         assert( false );
     }
     return proxy.gc_removeRange( p );
+}
+
+extern (C) void gc_runFinalizers( in void[] segment )
+{
+    if( proxy !is null )
+        proxy.gc_runFinalizers( segment );
 }
 
 extern (C) Proxy* gc_getProxy()

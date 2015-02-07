@@ -47,6 +47,7 @@ else
 class Mutex :
     Object.Monitor
 {
+nothrow:
     ////////////////////////////////////////////////////////////////////////////
     // Initialization
     ////////////////////////////////////////////////////////////////////////////
@@ -56,7 +57,7 @@ class Mutex :
      * Initializes a mutex object.
      *
      * Throws:
-     *  SyncException on error.
+     *  SyncError on error.
      */
     this() @trusted
     {
@@ -69,14 +70,14 @@ class Mutex :
             pthread_mutexattr_t attr = void;
 
             if( pthread_mutexattr_init( &attr ) )
-                throw new SyncException( "Unable to initialize mutex" );
+                throw new SyncError( "Unable to initialize mutex" );
             scope(exit) pthread_mutexattr_destroy( &attr );
 
             if( pthread_mutexattr_settype( &attr, PTHREAD_MUTEX_RECURSIVE ) )
-                throw new SyncException( "Unable to initialize mutex" );
+                throw new SyncError( "Unable to initialize mutex" );
 
             if( pthread_mutex_init( &m_hndl, &attr ) )
-                throw new SyncException( "Unable to initialize mutex" );
+                throw new SyncError( "Unable to initialize mutex" );
         }
         m_proxy.link = this;
         this.__monitor = &m_proxy;
@@ -126,18 +127,9 @@ class Mutex :
      * then the internal counter is incremented by one.
      *
      * Throws:
-     *  SyncException on error.
+     *  SyncError on error.
      */
     @trusted void lock()
-    {
-        lock_impl!SyncException();
-    }
-
-    @trusted void lock_nothrow() nothrow
-    {
-        lock_impl!Error();
-    }
-    private @trusted void lock_impl(Exc)()
     {
         version( Windows )
         {
@@ -147,28 +139,22 @@ class Mutex :
         {
             int rc = pthread_mutex_lock( &m_hndl );
             if( rc )
-                throw new Exc( "Unable to lock mutex" );
+                throw new SyncError( "Unable to lock mutex" );
         }
     }
+
+    // TBD in 2.067
+    // deprecated("Please use lock instead")
+    alias lock_nothrow = lock;
 
     /**
      * Decrements the internal lock count by one.  If this brings the count to
      * zero, the lock is released.
      *
      * Throws:
-     *  SyncException on error.
+     *  SyncError on error.
      */
     @trusted void unlock()
-    {
-        unlock_impl!SyncException();
-    }
-
-    @trusted void unlock_nothrow() nothrow
-    {
-        unlock_impl!Error();
-    }
-
-    private @trusted void unlock_impl(Exc)()
     {
         version( Windows )
         {
@@ -178,9 +164,13 @@ class Mutex :
         {
             int rc = pthread_mutex_unlock( &m_hndl );
             if( rc )
-                throw new Exc( "Unable to unlock mutex" );
+                throw new SyncError( "Unable to unlock mutex" );
         }
     }
+
+    // TBD in 2.067
+    // deprecated("Please use unlock instead")
+    alias unlock_nothrow = unlock;
 
     /**
      * If the lock is held by another caller, the method returns.  Otherwise,
@@ -188,7 +178,7 @@ class Mutex :
      * counter is incremented by one.
      *
      * Throws:
-     *  SyncException on error.
+     *  SyncError on error.
      *
      * Returns:
      *  true if the lock was acquired and false if not.

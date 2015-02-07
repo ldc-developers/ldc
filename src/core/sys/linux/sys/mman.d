@@ -216,7 +216,7 @@ else version (X86_64)
     }
 }
 // http://sourceware.org/git/?p=glibc.git;a=blob;f=ports/sysdeps/unix/sysv/linux/aarch64/bits/mman.h
-else version (AARCH64)
+else version (AArch64)
 {
     static if (__USE_MISC) enum
     {
@@ -649,20 +649,10 @@ else
     static if (__USE_MISC) enum
     {
         MAP_FILE = 0,
-        //MAP_ANONYMOUS = __MAP_ANONYMOUS,
-        //MAP_ANON = MAP_ANONYMOUS,
-        MAP_HUGE_SHIFT = 26,
-        MAP_HUGE_MASK = 0x3f,
-    }
-
-    /* This should be behind the static if (__USE_MISC), but it runs into
-     * trouble with the alias declaration for MAP_ANON in core.sys.posix.sys.mman
-     * due to forward reference problems. See Bugzilla 11301 for a fuller explanation.
-     */
-    enum
-    {
         MAP_ANONYMOUS = __MAP_ANONYMOUS,
         MAP_ANON = MAP_ANONYMOUS,
+        MAP_HUGE_SHIFT = 26,
+        MAP_HUGE_MASK = 0x3f,
     }
 
     // in core.sys.posix.sys.mman

@@ -34,19 +34,48 @@ class Object
     string   toString();
     size_t   toHash() @trusted nothrow;
     int      opCmp(Object o);
-    bool     opEquals(Object o);
+
+    bool opEquals(Object o)
+    {
+        return this is o;
+    }
 
     interface Monitor
     {
-        void lock();
-        void unlock();
+        void lock() nothrow;
+        void unlock() nothrow;
     }
 
     static Object factory(string classname);
 }
 
-bool opEquals(const Object lhs, const Object rhs);
-bool opEquals(Object lhs, Object rhs);
+bool opEquals(const Object lhs, const Object rhs)
+{
+    // A hack for the moment.
+    return opEquals(cast()lhs, cast()rhs);
+}
+
+bool opEquals(Object lhs, Object rhs)
+{
+    // If aliased to the same object or both null => equal
+    if (lhs is rhs) return true;
+
+    // If either is null => non-equal
+    if (lhs is null || rhs is null) return false;
+
+    // If same exact type => one call to method opEquals
+    if (typeid(lhs) is typeid(rhs) ||
+        !__ctfe && typeid(lhs).opEquals(typeid(rhs)))
+            /* CTFE doesn't like typeid much. 'is' works, but opEquals doesn't
+            (issue 7147). But CTFE also guarantees that equal TypeInfos are
+            always identical. So, no opEquals needed during CTFE. */
+    {
+        return lhs.opEquals(rhs);
+    }
+
+    // General case => symmetric calls to method opEquals
+    return lhs.opEquals(rhs) && rhs.opEquals(lhs);
+}
 
 void setSameMutex(shared Object ownee, shared Object owner);
 
@@ -367,8 +396,8 @@ extern (C)
     // size_t _aaLen(in void* p) pure nothrow @nogc;
     private void* _aaGetX(void** paa, const TypeInfo keyti, in size_t valuesize, in void* pkey) pure nothrow;
     // inout(void)* _aaGetRvalueX(inout void* p, in TypeInfo keyti, in size_t valuesize, in void* pkey);
-    inout(void)[] _aaValues(inout void* p, in size_t keysize, in size_t valuesize) pure nothrow;
-    inout(void)[] _aaKeys(inout void* p, in size_t keysize) pure nothrow;
+    inout(void)[] _aaValues(inout void* p, in size_t keysize, in size_t valuesize, const TypeInfo tiValArray) pure nothrow;
+    inout(void)[] _aaKeys(inout void* p, in size_t keysize, const TypeInfo tiKeyArray) pure nothrow;
     void* _aaRehash(void** pp, in TypeInfo keyti) pure nothrow;
 
     // alias _dg_t = extern(D) int delegate(void*);
@@ -507,7 +536,7 @@ auto byValue(T : Value[Key], Value, Key)(T *aa) pure nothrow @nogc
 
 Key[] keys(T : Value[Key], Value, Key)(T aa) @property
 {
-    auto a = cast(void[])_aaKeys(cast(inout(void)*)aa, Key.sizeof);
+    auto a = cast(void[])_aaKeys(cast(inout(void)*)aa, Key.sizeof, typeid(Key[]));
     return *cast(Key[]*)&a;
 }
 
@@ -518,13 +547,41 @@ Key[] keys(T : Value[Key], Value, Key)(T *aa) @property
 
 Value[] values(T : Value[Key], Value, Key)(T aa) @property
 {
-    auto a = cast(void[])_aaValues(cast(inout(void)*)aa, Key.sizeof, Value.sizeof);
+    auto a = cast(void[])_aaValues(cast(inout(void)*)aa, Key.sizeof, Value.sizeof, typeid(Value[]));
     return *cast(Value[]*)&a;
 }
 
 Value[] values(T : Value[Key], Value, Key)(T *aa) @property
 {
     return (*aa).values;
+}
+
+auto byKeyValue(T : Value[Key], Value, Key)(T aa) pure nothrow @nogc @property
+{
+    static struct Result
+    {
+        AARange r;
+
+      pure nothrow @nogc:
+        @property bool empty() { return _aaRangeEmpty(r); }
+        @property auto front() @trusted
+        {
+            static struct Pair
+            {
+                private Key* keyp;
+                private Value* valp;
+
+                @property ref inout(Key) key() inout { return *keyp; }
+                @property ref inout(Value) value() inout { return *valp; }
+            }
+            return Pair(cast(Key*)_aaRangeFrontKey(r),
+                        cast(Value*)_aaRangeFrontValue(r));
+        }
+        void popFront() { _aaRangePopFront(r); }
+        @property Result save() { return this; }
+    }
+
+    return Result(_aaRange(cast(void*)aa));
 }
 
 inout(V) get(K, V)(inout(V[K]) aa, K key, lazy inout(V) defaultValue)
@@ -741,7 +798,7 @@ private inout(T)[] _rawDup(T)(inout(T)[] a)
     return *cast(inout(T)[]*)&arr;
 }
 
-template _PostBlitType(T)
+private template _PostBlitType(T)
 {
     // assume that ref T and void* are equivalent in abi level.
     static if (is(T == struct))

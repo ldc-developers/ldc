@@ -13,9 +13,9 @@ module rt.sections;
 version (LDC)
     public import rt.sections_ldc;
 version (linux)
-    public import rt.sections_linux;
+    public import rt.sections_elf_shared;
 else version (FreeBSD)
-    public import rt.sections_freebsd;
+    public import rt.sections_elf_shared;
 else version (Solaris)
     public import rt.sections_solaris;
 else version (OSX)
@@ -51,8 +51,8 @@ static assert(is(typeof(&initTLSRanges) RT == return) &&
 
 version (Shared)
 {
-    static assert(is(typeof(&pinLoadedLibraries) == void* function()));
-    static assert(is(typeof(&unpinLoadedLibraries) == void function(void*)));
+    static assert(is(typeof(&pinLoadedLibraries) == void* function() nothrow));
+    static assert(is(typeof(&unpinLoadedLibraries) == void function(void*) nothrow));
     static assert(is(typeof(&inheritLoadedLibraries) == void function(void*)));
     static assert(is(typeof(&cleanupLoadedLibraries) == void function()));
 }
