@@ -414,6 +414,23 @@ namespace {
         return dmdType;
     }
 
+    bool typesAreEquivalent(LLType* a, LLType* b)
+    {
+        if (a == b)
+            return true;
+
+        LLStructType* structA;
+        while ((structA = isaStruct(a)) && structA->getNumElements() == 1)
+            a = structA->getElementType(0);
+
+        LLStructType* structB;
+        while ((structB = isaStruct(b)) && structB->getNumElements() == 1)
+            b = structB->getElementType(0);
+
+        return a == b
+            || (structA && structB && structA->isLayoutIdentical(structB));
+    }
+
     struct RegCount {
         char int_regs, sse_regs;
 
@@ -423,8 +440,9 @@ namespace {
             std::vector<LLType*> types;
 
             if (ty->isStructTy()) {
-                assert(ty->getStructNumElements() == 2);
-                for (unsigned i = 0; i < ty->getStructNumElements(); ++i)
+                unsigned numElements = ty->getStructNumElements();
+                assert(numElements == 1 || numElements == 2);
+                for (unsigned i = 0; i < numElements; ++i)
                     types.push_back(ty->getStructElementType(i));
             } else {
                 types.push_back(ty);
@@ -439,8 +457,10 @@ namespace {
                     if (!ty->isX86_FP80Ty())
                         ++sse_regs;
                 } else {
-                    IF_LOG Logger::cout() << "SysV RegCount: assuming 1 GP register for type " << *ty << '\n';
-                    assert(ty->getPrimitiveSizeInBits() <= 64);
+                    unsigned sizeInBits = ty->getPrimitiveSizeInBits();
+                    IF_LOG Logger::cout() << "SysV RegCount: assuming 1 GP register for type " << *ty
+                        << " (" << sizeInBits << " bits)\n";
+                    assert(sizeInBits <= 64);
                     ++int_regs;
                 }
             }
@@ -642,7 +662,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg, RegCount& regCount) {
     Type* t = arg.type->toBasetype();
 
     LLType* abiTy = getAbiType(t);
-    if (abiTy && abiTy != originalLType) {
+    if (abiTy && !typesAreEquivalent(abiTy, originalLType)) {
         IF_LOG {
             Logger::println("Rewriting argument type %s", t->toChars());
             LOG_SCOPE;
