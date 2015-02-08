@@ -125,14 +125,15 @@ static void addExplicitArguments(std::vector<LLValue*>& args, AttrSet& attrs,
     std::vector<IrFuncTyArg*> optionalIrArgs;
     for (int i = numFormalParams; i < numExplicitArgs; i++) {
         Type* argType = argvals[i]->getType();
+        bool passByVal = gABI->passByVal(argType);
 
         AttrBuilder initialAttrs;
-        if (gABI->passByVal(argType))
+        if (passByVal)
             initialAttrs.add(LDC_ATTRIBUTE(ByVal));
         else
             initialAttrs.add(DtoShouldExtend(argType));
 
-        optionalIrArgs.push_back(new IrFuncTyArg(argType, false, initialAttrs));
+        optionalIrArgs.push_back(new IrFuncTyArg(argType, passByVal, initialAttrs));
     }
 
     // let the ABI rewrite the IrFuncTyArg objects

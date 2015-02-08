@@ -38,7 +38,11 @@ void ABIRewrite::getL(Type* dty, DValue* v, LLValue* lval)
 void TargetABI::rewriteVarargs(IrFuncTy& fty, std::vector<IrFuncTyArg*>& args)
 {
     for (unsigned i = 0; i < args.size(); ++i)
-        rewriteArgument(fty, *args[i]);
+    {
+        IrFuncTyArg& arg = *args[i];
+        if (!arg.byref) // don't rewrite ByVal arguments
+            rewriteArgument(fty, arg);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////

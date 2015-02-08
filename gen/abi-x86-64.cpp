@@ -741,7 +741,11 @@ void X86_64TargetABI::rewriteVarargs(IrFuncTy& fty, std::vector<IrFuncTyArg*>& a
     RegCount regCount = getRegCount(fty);
 
     for (unsigned i = 0; i < args.size(); ++i)
-        rewriteArgument(*args[i], regCount);
+    {
+        IrFuncTyArg& arg = *args[i];
+        if (!arg.byref) // don't rewrite ByVal arguments
+            rewriteArgument(arg, regCount);
+    }
 }
 
 

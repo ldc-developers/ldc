@@ -168,18 +168,20 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
             TypeDelegate *ltd = new TypeDelegate(ltf);
             argtype = ltd;
         }
-        // byval
-        else if (abi->passByVal(byref ? argtype->pointerTo() : argtype))
-        {
-            if (!byref)
-                attrBuilder.add(LDC_ATTRIBUTE(ByVal));
-            // set byref, because byval requires a pointed LLVM type
-            byref = true;
-        }
-        // sext/zext
         else if (!byref)
         {
-            attrBuilder.add(DtoShouldExtend(argtype));
+            // byval
+            if (abi->passByVal(argtype))
+            {
+                attrBuilder.add(LDC_ATTRIBUTE(ByVal));
+                // set byref, because byval requires a pointed LLVM type
+                byref = true;
+            }
+            // sext/zext
+            else
+            {
+                attrBuilder.add(DtoShouldExtend(argtype));
+            }
         }
         newIrFty.args.push_back(new IrFuncTyArg(argtype, byref, attrBuilder));
         lidx++;
