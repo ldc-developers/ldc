@@ -243,13 +243,31 @@ llvm::DIType ldc::DIBuilder::CreateVectorType(Type *type)
 llvm::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
                                                 llvm::DIFile file,
                                                 const char* c_name,
-                                                unsigned offset)
+                                                unsigned offset,
+                                                PROT prot)
 {
     llvm::Type *T = DtoType(type);
     Type *t = type->toBasetype();
 
     // find base type
     llvm::DIType basetype = CreateTypeDescription(t, NULL, true);
+
+    unsigned Flags = 0;
+    switch (prot) {
+        case PROTprivate:
+            Flags = llvm::DIDescriptor::FlagPrivate;
+            break;
+        case PROTprotected:
+            Flags = llvm::DIDescriptor::FlagProtected;
+            break;
+#if LDC_LLVM_VER >= 306
+        case PROTpublic:
+            Flags = llvm::DIDescriptor::FlagPublic;
+            break;
+#endif
+        default:
+            break;
+    }
 
     return DBuilder.createMemberType(
         llvm::DICompileUnit(GetCU()),
@@ -259,8 +277,7 @@ llvm::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
         getTypeBitSize(T), // size (bits)
         getABITypeAlign(T)*8, // align (bits)
         offset*8, // offset (bits)
-//FIXME: need flags?
-        0, // flags
+        Flags, // flags
         basetype // derived from
     );
 }
@@ -285,7 +302,7 @@ void ldc::DIBuilder::AddBaseFields(ClassDeclaration *sd, llvm::DIFile file,
                                    I != E; ++I)
     {
         VarDeclaration* vd = *I;
-        elems.push_back(CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset));
+        elems.push_back(CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset, vd->prot()));
     }
 }
 
@@ -364,7 +381,7 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
                                            I != E; ++I)
             {
                 VarDeclaration* vd = *I;
-                llvm::DIType dt = CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset);
+                llvm::DIType dt = CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset, vd->prot());
                 elems.push_back(dt);
             }
         }
@@ -389,7 +406,7 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
            getTypeBitSize(T), // size in bits
            getABITypeAlign(T)*8, // alignment in bits
            0, // offset in bits,
-           llvm::DIType::FlagFwdDecl, // flags
+           llvm::DIDescriptor::FlagFwdDecl, // flags
            derivedFrom, // DerivedFrom
            elemsArray
         );
@@ -401,7 +418,7 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
            linnum, // line number where defined
            getTypeBitSize(T), // size in bits
            getABITypeAlign(T)*8, // alignment in bits
-           llvm::DIType::FlagFwdDecl, // flags
+           llvm::DIDescriptor::FlagFwdDecl, // flags
 #if LDC_LLVM_VER >= 303
            derivedFrom, // DerivedFrom
 #endif
@@ -431,9 +448,9 @@ llvm::DIType ldc::DIBuilder::CreateArrayType(Type *type)
     llvm::Value *elems[] =
 #endif
     {
-        CreateMemberType(0, Type::tsize_t, file, "length", 0),
+        CreateMemberType(0, Type::tsize_t, file, "length", 0, PROTpublic),
         CreateMemberType(0, t->nextOf()->pointerTo(), file, "ptr",
-                         global.params.is64bit ? 8 : 4)
+                         global.params.is64bit ? 8 : 4, PROTpublic)
     };
 
     return DBuilder.createStructType
