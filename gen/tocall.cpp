@@ -146,34 +146,36 @@ static void addExplicitArguments(std::vector<LLValue*>& args, AttrSet& attrs,
         DValue* argval = argvals[i];
         Type* argType = argval->getType();
 
-        // vararg?
-        if (i >= numFormalParams) {
-            IrFuncTyArg* optionalIrArg = optionalIrArgs[i - numFormalParams];
+        const bool isVararg = (i >= numFormalParams);
+        IrFuncTyArg* irArg = NULL;
+        LLValue* arg = NULL;
 
-            args[j] = irFty.putParam(argType, *optionalIrArg, argval);
-            attrs.add(j + 1, optionalIrArg->attrs);
-            delete optionalIrArg;
-
-            continue;
+        if (!isVararg)
+        {
+            irArg = irFty.args[i];
+            arg = irFty.putParam(argType, i, argval);
+        }
+        else
+        {
+            irArg = optionalIrArgs[i - numFormalParams];
+            arg = irFty.putParam(argType, *irArg, argval);
         }
 
-        // formal arg
-        LLValue* arg = irFty.putParam(argType, i, argval);
-        LLType* callableArgType = callableTy->getParamType(j);
+        LLType* callableArgType = (isVararg ? NULL : callableTy->getParamType(j));
 
         // Hack around LDC assuming structs and static arrays are in memory:
         // If the function wants a struct, and the argument value is a
         // pointer to a struct, load from it before passing it in.
-        TY ty = argType->toBasetype()->ty;
-        if (isaPointer(arg) && !isaPointer(callableArgType) &&
-            (ty == Tstruct || ty == Tsarray))
+        if (isaPointer(arg) && DtoIsPassedByRef(argType) &&
+            ( (!isVararg && !isaPointer(callableArgType)) ||
+              (isVararg && !irArg->byref && !irArg->isByVal()) ) )
         {
             Logger::println("Loading struct type for function argument");
             arg = DtoLoad(arg);
         }
 
         // parameter type mismatch, this is hard to get rid of
-        if (arg->getType() != callableArgType)
+        if (!isVararg && arg->getType() != callableArgType)
         {
 #if 1
             IF_LOG {
@@ -189,7 +191,10 @@ static void addExplicitArguments(std::vector<LLValue*>& args, AttrSet& attrs,
         }
 
         args[j] = arg;
-        attrs.add(j + 1, irFty.args[i]->attrs);
+        attrs.add(j + 1, irArg->attrs);
+
+        if (isVararg)
+            delete irArg;
     }
 }
 
@@ -418,7 +423,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         }
     }
     // add varargs
-    for (int i = numFormalParams; i < n_arguments; ++i)
+    for (size_t i = numFormalParams; i < n_arguments; ++i)
         argvals[i] = DtoArgument(0, (*arguments)[i]);
 
     addExplicitArguments(args, attrs, irFty, callableTy, argvals, numFormalParams);
