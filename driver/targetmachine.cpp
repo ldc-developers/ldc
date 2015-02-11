@@ -390,12 +390,8 @@ llvm::TargetMachine* createTargetMachine(
             floatABI = FloatABI::Hard;
             break;
         case llvm::Triple::arm:
-            floatABI = getARMFloatABI(triple, getLLVMArchSuffixForARM(cpu));
-            break;
         case llvm::Triple::thumb:
-            // TODO: Not sure this is generally true. clang arm-apple-darwin seems
-            // to default to thumb and softfp.  Need to look into it.
-            floatABI = FloatABI::Soft;
+            floatABI = getARMFloatABI(triple, getLLVMArchSuffixForARM(cpu));
             break;
         }
     }
