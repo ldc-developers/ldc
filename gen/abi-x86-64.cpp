@@ -593,13 +593,20 @@ struct ExplicitByvalRewrite : ABIRewrite {
     }
 
     LLValue* put(Type* dty, DValue* v) {
-        if (v->isLVal())
-            return v->getLVal();
-
         LLValue* rval = v->getRVal();
-        LLValue* address = DtoRawAlloca(rval->getType(), 0, ".explicit_byval_rewrite");
-        DtoStore(rval, address);
-        return address;
+        LLValue* lval;
+        // already lowered to a pointer to the struct/static array?
+        if (rval->getType()->isPointerTy()) {
+            lval = rval;
+        } else if (v->isLVal()) {
+            lval = v->getLVal();
+        } else {
+            // No memory location, create one.
+            lval = DtoRawAlloca(rval->getType(), 0, ".explicit_byval_rewrite");
+            DtoStore(rval, lval);
+        }
+
+        return lval;
     }
 
     LLType* type(Type* dty, LLType* t) {
