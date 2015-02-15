@@ -352,15 +352,20 @@ namespace {
     LLType* getAbiType(Type* ty) {
         // First, check if there's any need of a transformation:
         if (!(ty->ty == Tcomplex32 || ty->ty == Tstruct || ty->ty == Tsarray))
-            return 0; // Nothing to do
+            return NULL; // Nothing to do
 
         // Okay, we may need to transform. Figure out a canonical type:
 
         TypeTuple* argTypes = toArgTypes(ty);
-        if (!argTypes || argTypes->arguments->empty())
-            return 0;  // don't rewrite
+        if (!argTypes) { // void[1] => dummy byte
+            assert(ty->ty == Tsarray && ty->nextOf()->toBasetype()->ty == Tvoid
+                   && static_cast<TypeSArray*>(ty)->dim->toInteger() == 1);
+            return LLType::getInt8Ty(gIR->context());
+        }
+        if (argTypes->arguments->empty())
+            return NULL; // don't rewrite
 
-        LLType* abiTy = 0;
+        LLType* abiTy = NULL;
         if (argTypes->arguments->size() == 1) {
             abiTy = DtoType((*argTypes->arguments->begin())->type);
             // don't rewrite to a single bit (assertions in tollvm.cpp), choose a byte instead
@@ -435,8 +440,21 @@ namespace {
         while ((structB = isaStruct(b)) && structB->getNumElements() == 1)
             b = structB->getElementType(0);
 
-        return a == b
-            || (structA && structB && structA->isLayoutIdentical(structB));
+        if (a == b || (a->isPointerTy() && b->isPointerTy()))
+            return true;
+
+        if (!(structA && structB) ||
+            structA->isPacked() != structB->isPacked() ||
+            structA->getNumElements() != structB->getNumElements()) {
+            return false;
+        }
+
+        for (unsigned i = 0; i < structA->getNumElements(); ++i) {
+            if (!typesAreEquivalent(structA->getElementType(i), structB->getElementType(i)))
+                return false;
+        }
+
+        return true;
     }
 
     struct RegCount {
@@ -445,19 +463,16 @@ namespace {
         RegCount() : int_regs(6), sse_regs(8) {}
 
         explicit RegCount(LLType* ty) : int_regs(0), sse_regs(0) {
-            std::vector<LLType*> types;
+            if (LLStructType* structTy = isaStruct(ty)) {
+                for (unsigned i = 0; i < structTy->getNumElements(); ++i)
+                {
+                    RegCount elementRegCount(structTy->getElementType(i));
+                    int_regs += elementRegCount.int_regs;
+                    sse_regs += elementRegCount.sse_regs;
+                }
 
-            if (ty->isStructTy()) {
-                unsigned numElements = ty->getStructNumElements();
-                assert(numElements == 1 || numElements == 2);
-                for (unsigned i = 0; i < numElements; ++i)
-                    types.push_back(ty->getStructElementType(i));
-            } else {
-                types.push_back(ty);
-            }
-
-            for (unsigned i = 0; i < types.size(); ++i) {
-                ty = types[i];
+                assert(int_regs + sse_regs <= 2);
+            } else { // not a struct
                 if (ty->isIntegerTy() || ty->isPointerTy()) {
                     ++int_regs;
                 } else if (ty->isFloatingPointTy() || ty->isVectorTy()) {
@@ -468,7 +483,7 @@ namespace {
                     unsigned sizeInBits = ty->getPrimitiveSizeInBits();
                     IF_LOG Logger::cout() << "SysV RegCount: assuming 1 GP register for type " << *ty
                         << " (" << sizeInBits << " bits)\n";
-                    assert(sizeInBits <= 64);
+                    assert(sizeInBits > 0 && sizeInBits <= 64);
                     ++int_regs;
                 }
             }
