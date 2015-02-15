@@ -453,22 +453,39 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // get return value
     LLValue* retllval = (retinptr) ? args[0] : call.getInstruction();
 
-    // Ignore ABI for intrinsics
-    if (!intrinsic && !retinptr)
-    {
-        // do abi specific return value fixups
-        DImValue dretval(tf->next, retllval);
-        retllval = irFty.getRet(tf->next, &dretval);
-    }
-
     // Hack around LDC assuming structs and static arrays are in memory:
     // If the function returns a struct or a static array, and the return
     // value is not a pointer to a struct or a static array, store it to
     // a stack slot before continuing.
-    int ty = tf->next->toBasetype()->ty;
-    if ((ty == Tstruct && !isaPointer(retllval))
-        || (ty == Tsarray && isaArray(retllval))
-        )
+    Type* dReturnType = tf->next;
+    TY returnTy = dReturnType->toBasetype()->ty;
+    bool storeReturnValueOnStack =
+        (returnTy == Tstruct && !isaPointer(retllval)) ||
+        (returnTy == Tsarray && isaArray(retllval));
+
+    // Ignore ABI for intrinsics
+    if (!intrinsic && !retinptr)
+    {
+        // do abi specific return value fixups
+        DImValue dretval(dReturnType, retllval);
+        if (storeReturnValueOnStack)
+        {
+            Logger::println("Storing return value to stack slot");
+            LLValue* mem = DtoRawAlloca(DtoType(dReturnType), 0);
+            irFty.getRet(dReturnType, &dretval, mem);
+            retllval = mem;
+            storeReturnValueOnStack = false;
+        }
+        else
+        {
+            retllval = irFty.getRet(dReturnType, &dretval);
+            storeReturnValueOnStack =
+                (returnTy == Tstruct && !isaPointer(retllval)) ||
+                (returnTy == Tsarray && isaArray(retllval));
+        }
+    }
+
+    if (storeReturnValueOnStack)
     {
         Logger::println("Storing return value to stack slot");
         LLValue* mem = DtoRawAlloca(retllval->getType(), 0);

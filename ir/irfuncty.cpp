@@ -48,6 +48,19 @@ llvm::Value* IrFuncTy::getRet(Type* dty, DValue* val)
     return val->getRVal();
 }
 
+void IrFuncTy::getRet(Type* dty, DValue* val, llvm::Value* lval)
+{
+    assert(!arg_sret);
+    if (ret->rewrite) {
+        Logger::println("Rewrite: getRet (getL)");
+        LOG_SCOPE
+        ret->rewrite->getL(dty, val, lval);
+        return;
+    }
+
+    DtoStoreZextI8(val->getRVal(), lval);
+}
+
 llvm::Value* IrFuncTy::putParam(Type* dty, size_t idx, DValue* val)
 {
     assert(idx < args.size() && "invalid putParam");
