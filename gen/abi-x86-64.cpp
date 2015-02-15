@@ -364,12 +364,20 @@ namespace {
         if (argTypes->arguments->size() == 1) {
             abiTy = DtoType((*argTypes->arguments->begin())->type);
             // don't rewrite to a single bit (assertions in tollvm.cpp), choose a byte instead
-            if (abiTy == LLType::getInt1Ty(gIR->context()))
-                abiTy = LLType::getInt8Ty(gIR->context());
+            abiTy = i1ToI8(abiTy);
         } else {
             std::vector<LLType*> parts;
-            for (Array<Parameter*>::iterator I = argTypes->arguments->begin(), E = argTypes->arguments->end(); I != E; ++I)
-                parts.push_back(DtoType((*I)->type));
+            for (Array<Parameter*>::iterator I = argTypes->arguments->begin(), E = argTypes->arguments->end(); I != E; ++I) {
+                LLType* partType = DtoType((*I)->type);
+                // round up the DMD argtype for an eightbyte of a struct to a corresponding 64-bit type
+                // this makes sure that 64 bits of the chosen register are used and thus
+                // makes sure all potential padding bytes of a struct are copied
+                if (partType->isIntegerTy())
+                    partType = LLType::getInt64Ty(gIR->context());
+                else if (partType->isFloatTy())
+                    partType = LLType::getDoubleTy(gIR->context());
+                parts.push_back(partType);
+            }
             abiTy = LLStructType::get(gIR->context(), parts);
         }
 
@@ -517,7 +525,7 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
     }
 
     // Get struct from ABI-mangled representation, and store in the provided location.
-    void getL(Type* dty, DValue* v, llvm::Value* lval) {
+    void getL(Type* dty, DValue* v, LLValue* lval) {
         LLValue* rval = v->getRVal();
         LLType* pTy = getPtrToType(rval->getType());
         DtoStore(rval, DtoBitCast(lval, pTy));
@@ -562,6 +570,11 @@ struct ExplicitByvalRewrite : ABIRewrite {
     LLValue* get(Type* dty, DValue* v) {
         LLValue* ptr = v->getRVal();
         return DtoLoad(ptr);
+    }
+
+    void getL(Type* dty, DValue* v, LLValue* lval) {
+        LLValue* ptr = v->getRVal();
+        DtoAggrCopy(lval, ptr);
     }
 
     LLValue* put(Type* dty, DValue* v) {
