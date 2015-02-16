@@ -393,39 +393,14 @@ namespace {
     }
   } // namespace dmd_abi
 
-    // Temporary implementation validating the new toArgTypes()-based version against the LDC implementation.
-    LLType* getAbiType(Type* ty) {
-        ty = ty->toBasetype();
-
-        LLType* dmdType = dmd_abi::getAbiType(ty);
-
-#ifdef VALIDATE_AGAINST_OLD_LDC_VERSION
-        LLType* ldcType = ldc_abi::getAbiType(ty);
-
-        IF_LOG if (dmdType != ldcType) {
-            Logger::print("getAbiType(%s) mismatch: ", ty->toChars());
-            if (!dmdType)
-                Logger::print("<null>");
-            else
-                Logger::cout() << *dmdType;
-            Logger::print(" (DMD) vs. ");
-            if (!ldcType)
-                Logger::print("<null>");
-            else
-                Logger::cout() << *ldcType;
-            Logger::println(" (LDC)");
-        }
-
-        //assert(dmdType == ldcType && "getAbiType() mismatch between DMD and LDC!");
-#endif
-
-        return dmdType;
-    }
-
+    // Checks two LLVM types for memory-layout equivalency.
+    // A pointer type is equivalent to any other pointer type.
     bool typesAreEquivalent(LLType* a, LLType* b)
     {
         if (a == b)
             return true;
+        if (!a || !b)
+            return false;
 
         LLStructType* structA;
         while ((structA = isaStruct(a)) && structA->getNumElements() == 1)
@@ -450,6 +425,36 @@ namespace {
         }
 
         return true;
+    }
+
+    // Temporary implementation validating the new toArgTypes()-based version against the LDC implementation.
+    LLType* getAbiType(Type* ty) {
+        ty = ty->toBasetype();
+
+        LLType* dmdType = dmd_abi::getAbiType(ty);
+
+#ifdef VALIDATE_AGAINST_OLD_LDC_VERSION
+        LLType* ldcType = ldc_abi::getAbiType(ty);
+        bool areEquivalent = typesAreEquivalent(dmdType, ldcType);
+
+        IF_LOG if (!areEquivalent) {
+            Logger::print("getAbiType(%s) mismatch: ", ty->toChars());
+            if (!dmdType)
+                Logger::print("<null>");
+            else
+                Logger::cout() << *dmdType;
+            Logger::print(" (DMD) vs. ");
+            if (!ldcType)
+                Logger::print("<null>");
+            else
+                Logger::cout() << *ldcType;
+            Logger::println(" (LDC)");
+        }
+
+        //assert(areEquivalent && "getAbiType() mismatch between DMD and LDC!");
+#endif
+
+        return dmdType;
     }
 
     struct RegCount {
