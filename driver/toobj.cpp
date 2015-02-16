@@ -21,7 +21,7 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #if LDC_LLVM_VER >= 307
 #include "llvm/IR/LegacyPassManager.h"
-#elif
+#else
 #include "llvm/PassManager.h"
 #endif
 #include "llvm/Support/CommandLine.h"

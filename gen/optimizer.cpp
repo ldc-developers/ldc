@@ -239,7 +239,7 @@ static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
  */
 #if LDC_LLVM_VER >= 307
 static void addOptimizationPasses(legacy::PassManagerBase &mpm, legacy::FunctionPassManager &fpm,
-#elif
+#else
 static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm,
 #endif
                                   unsigned optLevel, unsigned sizeLevel) {
