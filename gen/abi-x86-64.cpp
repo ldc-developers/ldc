@@ -357,12 +357,7 @@ namespace {
         // Okay, we may need to transform. Figure out a canonical type:
 
         TypeTuple* argTypes = toArgTypes(ty);
-        if (!argTypes) { // void[1] => dummy byte
-            assert(ty->ty == Tsarray && ty->nextOf()->toBasetype()->ty == Tvoid
-                   && static_cast<TypeSArray*>(ty)->dim->toInteger() == 1);
-            return LLType::getInt8Ty(gIR->context());
-        }
-        if (argTypes->arguments->empty())
+        if (!argTypes || argTypes->arguments->empty())
             return NULL; // don't rewrite
 
         LLType* abiTy = NULL;
@@ -480,7 +475,7 @@ namespace {
                     if (!ty->isX86_FP80Ty())
                         ++sse_regs;
                 } else {
-                    unsigned sizeInBits = ty->getPrimitiveSizeInBits();
+                    unsigned sizeInBits = gDataLayout->getTypeSizeInBits(ty);
                     IF_LOG Logger::cout() << "SysV RegCount: assuming 1 GP register for type " << *ty
                         << " (" << sizeInBits << " bits)\n";
                     assert(sizeInBits > 0 && sizeInBits <= 64);
@@ -542,8 +537,16 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
     // Get struct from ABI-mangled representation, and store in the provided location.
     void getL(Type* dty, DValue* v, LLValue* lval) {
         LLValue* rval = v->getRVal();
-        LLType* pTy = getPtrToType(rval->getType());
-        DtoStore(rval, DtoBitCast(lval, pTy));
+        LLType* rvalType = rval->getType();
+        unsigned rvalSize = gDataLayout->getTypeStoreSize(rvalType);
+        unsigned lvalMaxSize = gDataLayout->getTypeAllocSize(lval->getType()->getPointerElementType());
+        if (lvalMaxSize >= rvalSize) {
+            DtoStore(rval, DtoBitCast(lval, getPtrToType(rvalType)));
+        } else {
+            LLValue* paddedMem = DtoRawAlloca(rvalType, 0, "padded-get-result");
+            DtoStore(rval, paddedMem);
+            DtoAggrCopy(lval, paddedMem);
+        }
     }
 
     // Turn a struct into an ABI-mangled representation
