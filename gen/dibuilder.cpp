@@ -360,7 +360,9 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
     // set diCompositeType to handle recursive types properly
     unsigned tag = (t->ty == Tstruct) ? llvm::dwarf::DW_TAG_structure_type
                                         : llvm::dwarf::DW_TAG_class_type;
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER >= 307
+    ir->diCompositeType = DBuilder.createReplaceableCompositeType(
+#elif LDC_LLVM_VER >= 305
     ir->diCompositeType = DBuilder.createReplaceableForwardDecl(
 #else
     ir->diCompositeType = DBuilder.createForwardDecl(

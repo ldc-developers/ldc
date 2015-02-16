@@ -19,7 +19,11 @@
 #include "llvm/Analysis/Verifier.h"
 #endif
 #include "llvm/Bitcode/ReaderWriter.h"
+#if LDC_LLVM_VER >= 307
+#include "llvm/IR/LegacyPassManager.h"
+#elif
 #include "llvm/PassManager.h"
+#endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
@@ -65,6 +69,9 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
 
     // Create a PassManager to hold and optimize the collection of passes we are
     // about to build.
+#if LDC_LLVM_VER >= 307
+    legacy::
+#endif
     PassManager Passes;
 
 #if LDC_LLVM_VER >= 306

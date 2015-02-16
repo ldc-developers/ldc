@@ -13,7 +13,11 @@
 #include "gen/logger.h"
 #include "gen/passes/Passes.h"
 #include "llvm/LinkAllPasses.h"
+#if LDC_LLVM_VER >= 307
+#include "llvm/IR/LegacyPassManager.h"
+#else
 #include "llvm/PassManager.h"
+#endif
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DataLayout.h"
@@ -233,7 +237,11 @@ static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
  * The selection mirrors Clang behavior and is based on LLVM's
  * PassManagerBuilder.
  */
+#if LDC_LLVM_VER >= 307
+static void addOptimizationPasses(legacy::PassManagerBase &mpm, legacy::FunctionPassManager &fpm,
+#elif
 static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm,
+#endif
                                   unsigned optLevel, unsigned sizeLevel) {
     fpm.add(createVerifierPass());                  // Verify that input is correct
 
@@ -322,7 +330,11 @@ bool ldc_optimize_module(llvm::Module *M)
 {
     // Create a PassManager to hold and optimize the collection of
     // per-module passes we are about to build.
+#if LDC_LLVM_VER >= 307
+    legacy::
+#endif
     PassManager mpm;
+
 
 #if LDC_LLVM_VER >= 307
     // Add an appropriate TargetLibraryInfo pass for the module's triple.
@@ -366,7 +378,11 @@ bool ldc_optimize_module(llvm::Module *M)
 #endif
 
     // Also set up a manager for the per-function passes.
+#if LDC_LLVM_VER >= 307
+    legacy::
+#endif
     FunctionPassManager fpm(M);
+
 #if LDC_LLVM_VER >= 307
     // Add internal analysis passes from the target machine.
     fpm.add(createTargetTransformInfoWrapperPass(gTargetMachine->getTargetIRAnalysis()));
