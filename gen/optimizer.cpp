@@ -335,7 +335,6 @@ bool ldc_optimize_module(llvm::Module *M)
 #endif
     PassManager mpm;
 
-
 #if LDC_LLVM_VER >= 307
     // Add an appropriate TargetLibraryInfo pass for the module's triple.
     TargetLibraryInfoImpl *tlii = new TargetLibraryInfoImpl(Triple(M->getTargetTriple()));
