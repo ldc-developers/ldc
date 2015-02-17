@@ -91,7 +91,7 @@ version( CoreDdoc )
      * Returns:
      *  true if the store occurred, false if not.
      */
-    bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis ) nothrow
+    bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, V2 writeThis ) nothrow
         if( !is(T == class) && !is(T U : U*) && __traits( compiles, { *here = writeThis; } ) );
 
     /// Ditto
@@ -385,7 +385,7 @@ else version( AsmX86_32 )
         }
     }
 
-    bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis ) nothrow
+    bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, V2 writeThis ) nothrow
         if( !is(T == class) && !is(T U : U*) && __traits( compiles, { *here = writeThis; } ) )
     {
         return casImpl(here, ifThis, writeThis);
@@ -857,7 +857,7 @@ else version( AsmX86_64 )
     }
 
 
-    bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis ) nothrow
+    bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, V2 writeThis ) nothrow
         if( !is(T == class) && !is(T U : U*) &&  __traits( compiles, { *here = writeThis; } ) )
     {
         return casImpl(here, ifThis, writeThis);
@@ -1507,6 +1507,24 @@ version( unittest )
 
             align(16) DoubleValue b = atomicLoad(a);
             assert(b.value1 == 3 && b.value2 ==4);
+        }
+
+        version (D_LP64)
+        {
+            enum hasDWCAS = has128BitCAS;
+        }
+        else
+        {
+            enum hasDWCAS = has64BitCAS;
+        }
+
+        static if (hasDWCAS)
+        {
+            static struct List { size_t gen; List* next; }
+            shared(List) head;
+            assert(cas(&head, shared(List)(0, null), shared(List)(1, cast(List*)1)));
+            assert(head.gen == 1);
+            assert(cast(size_t)head.next == 1);
         }
 
         shared(size_t) i;
