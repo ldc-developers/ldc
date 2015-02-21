@@ -513,11 +513,14 @@ endif()
 install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(BASH_COMPLETION_INST_DIR "${CONF_INST_DIR}/bash_completion.d")
-    if(LINUX_DISTRIBUTION_IS_GENTOO)
-        set(BASH_COMPLETION_INST_DIR "/usr/share/bash-completion")
+    find_package(bash-completion)
+    if(NOT BASH_COMPLETION_FOUND)
+        set(BASH_COMPLETION_COMPLETIONSDIR "${CONF_INST_DIR}/bash_completion.d")
+        if(LINUX_DISTRIBUTION_IS_GENTOO)
+            set(BASH_COMPLETION_COMPLETIONSDIR "/usr/share/bash-completion")
+        endif()
     endif()
-    install(DIRECTORY bash_completion.d/ DESTINATION ${BASH_COMPLETION_INST_DIR})
+    install(DIRECTORY bash_completion.d/ DESTINATION ${BASH_COMPLETION_COMPLETIONSDIR})
 endif()
 
 #
