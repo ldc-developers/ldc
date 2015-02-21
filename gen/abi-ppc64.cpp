@@ -21,8 +21,8 @@
 #include "gen/tollvm.h"
 
 struct PPC64TargetABI : TargetABI {
-    ByvalRewrite byvalRewrite;
-    CompositeToInt compositeToInt;
+    ExplicitByvalRewrite byvalRewrite;
+    IntegerRewrite integerRewrite;
     const bool Is64Bit;
 
     PPC64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit)
@@ -86,8 +86,8 @@ struct PPC64TargetABI : TargetABI {
         {
             if (canRewriteAsInt(ty))
             {
-                arg.rewrite = &compositeToInt;
-                arg.ltype = compositeToInt.type(arg.type, arg.ltype);
+                arg.rewrite = &integerRewrite;
+                arg.ltype = integerRewrite.type(arg.type, arg.ltype);
             }
             else
             {

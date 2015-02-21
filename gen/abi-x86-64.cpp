@@ -7,16 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// BIG RED TODO NOTE: On x86_64, the C ABI should also be used for extern(D)
-// functions, as mandated by the language standard and required for DMD
-// compatibility. The below description and implementation dates back to the
-// time where x86_64 was still an exotic target for D. Also, the frontend
-// toArgTypes() machinery should be used for doing the type classification to
-// reduce code duplication and make sure the va_arg implementation is always
-// up to date with the code we emit.
-//
-//===----------------------------------------------------------------------===//
-//
 // extern(C) implements the C calling convention for x86-64, as found in
 // http://www.x86-64.org/documentation/abi-0.99.pdf
 //
@@ -25,21 +15,13 @@
 //   llvm-gcc behavior was used for compatibility (after it was verified that
 //   regular gcc has the same behavior).
 //
-// LLVM gets it right for most types, but complex numbers and structs need some
-// help. To make sure it gets those right we essentially bitcast small structs
-// to a type to which LLVM assigns the appropriate registers, and pass that
-// instead. Structs that are required to be passed in memory are explicitly
-// marked with the ByVal attribute to ensure no part of them ends up in
-// registers when only a subset of the desired registers are available.
-//
-// We don't perform the same transformation for D-specific types that contain
-// multiple parts, such as dynamic arrays and delegates. They're passed as if
-// the parts were passed as separate parameters. This helps make things like
-// printf("%.*s", o.toString()) work as expected; if we didn't do this that
-// wouldn't work if there were 4 other integer/pointer arguments before the
-// toString() call because the string got bumped to memory with one integer
-// register still free. Keeping it untransformed puts the length in a register
-// and the pointer in memory, as printf expects it.
+// LLVM gets it right for most types, but complex numbers, structs and static
+// arrays need some help. To make sure it gets those right we essentially
+// bitcast these types to a type to which LLVM assigns the appropriate
+// registers (using DMD's toArgTypes() machinery), and pass that instead.
+// Structs that are required to be passed in memory are marked with the ByVal
+// attribute to ensure no part of them ends up in registers when only a subset
+// of the desired registers are available.
 //
 //===----------------------------------------------------------------------===//
 
@@ -522,99 +504,54 @@ namespace {
  * memory so that it's then readable as the other type (i.e., bit-casting).
  */
 struct X86_64_C_struct_rewrite : ABIRewrite {
-    // Get struct from ABI-mangled representation
     LLValue* get(Type* dty, DValue* v)
     {
-        LLValue* lval;
-        if (v->isLVal()) {
-            lval = v->getLVal();
-        } else {
-            // No memory location, create one.
-            LLValue* rval = v->getRVal();
-            lval = DtoRawAlloca(rval->getType(), 0);
-            DtoStore(rval, lval);
-        }
-
-        LLType* pTy = getPtrToType(DtoType(dty));
-        return DtoLoad(DtoBitCast(lval, pTy), "get-result");
+        LLValue* address = storeToMemory(v->getRVal(), 0, ".X86_64_C_struct_rewrite_dump");
+        LLType* type = DtoType(dty);
+        return loadFromMemory(address, type, ".X86_64_C_struct_rewrite_getResult");
     }
 
-    // Get struct from ABI-mangled representation, and store in the provided location.
     void getL(Type* dty, DValue* v, LLValue* lval) {
-        LLValue* rval = v->getRVal();
-        LLType* rvalType = rval->getType();
-        unsigned rvalSize = gDataLayout->getTypeStoreSize(rvalType);
-        unsigned lvalMaxSize = gDataLayout->getTypeAllocSize(lval->getType()->getPointerElementType());
-        if (lvalMaxSize >= rvalSize) {
-            DtoStore(rval, DtoBitCast(lval, getPtrToType(rvalType)));
-        } else {
-            LLValue* paddedMem = DtoRawAlloca(rvalType, 0, "padded-get-result");
-            DtoStore(rval, paddedMem);
-            DtoAggrCopy(lval, paddedMem);
-        }
+        storeToMemory(v->getRVal(), lval);
     }
 
-    // Turn a struct into an ABI-mangled representation
     LLValue* put(Type* dty, DValue* v) {
-        LLValue* rval = v->getRVal();
-        LLValue* lval;
-        // already lowered to a pointer to the struct/static array?
-        if (rval->getType()->isPointerTy()) {
-            lval = rval;
-        } else if (v->isLVal()) {
-            lval = v->getLVal();
-        } else {
-            // No memory location, create one.
-            lval = DtoRawAlloca(rval->getType(), 0);
-            DtoStore(rval, lval);
-        }
+        assert(dty == v->getType());
+        LLValue* address = getAddressOf(v);
 
         LLType* abiTy = getAbiType(dty);
         assert(abiTy && "Why are we rewriting a non-rewritten type?");
 
-        LLType* pTy = getPtrToType(abiTy);
-        return DtoLoad(DtoBitCast(lval, pTy), "put-result");
+        return loadFromMemory(address, abiTy, ".X86_64_C_struct_rewrite_putResult");
     }
 
-    // Return the transformed type for this rewrite
     LLType* type(Type* dty, LLType* t) {
         return getAbiType(dty);
     }
 };
 
 /**
- * This type is used to force LLVM to pass a struct in memory.
- * This is achieved by passing the struct's address and using
+ * This type is used to force LLVM to pass a LL struct in memory,
+ * on the function arguments stack. We need this to prevent LLVM
+ * from passing a LL struct partially in registers, partially in
+ * memory.
+ * This is achieved by passing a pointer to the struct and using
  * the ByVal LLVM attribute.
- * We need this to prevent LLVM from passing a struct partially
- * in registers, partially in memory.
  */
-struct ExplicitByvalRewrite : ABIRewrite {
+struct ImplicitByvalRewrite : ABIRewrite {
     LLValue* get(Type* dty, DValue* v) {
-        LLValue* ptr = v->getRVal();
-        return DtoLoad(ptr);
+        LLValue* pointer = v->getRVal();
+        return DtoLoad(pointer, ".ImplicitByvalRewrite_getResult");
     }
 
     void getL(Type* dty, DValue* v, LLValue* lval) {
-        LLValue* ptr = v->getRVal();
-        DtoAggrCopy(lval, ptr);
+        LLValue* pointer = v->getRVal();
+        DtoAggrCopy(lval, pointer);
     }
 
     LLValue* put(Type* dty, DValue* v) {
-        LLValue* rval = v->getRVal();
-        LLValue* lval;
-        // already lowered to a pointer to the struct/static array?
-        if (rval->getType()->isPointerTy()) {
-            lval = rval;
-        } else if (v->isLVal()) {
-            lval = v->getLVal();
-        } else {
-            // No memory location, create one.
-            lval = DtoRawAlloca(rval->getType(), 0, ".explicit_byval_rewrite");
-            DtoStore(rval, lval);
-        }
-
-        return lval;
+        assert(dty == v->getType());
+        return getAddressOf(v);
     }
 
     LLType* type(Type* dty, LLType* t) {
@@ -624,7 +561,7 @@ struct ExplicitByvalRewrite : ABIRewrite {
 
 struct X86_64TargetABI : TargetABI {
     X86_64_C_struct_rewrite struct_rewrite;
-    ExplicitByvalRewrite explicitByvalRewrite;
+    ImplicitByvalRewrite byvalRewrite;
 
     llvm::CallingConv::ID callingConv(LINK l);
 
@@ -717,11 +654,11 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg, RegCount& regCount) {
     }
 
     if (regCount.trySubtract(arg) == RegCount::ArgumentWouldFitInPartially) {
-        // pass structs explicitly byval, otherwise LLVM passes
-        // them partially in registers, partially on the stack
+        // pass LL structs implicitly ByVal, otherwise LLVM passes
+        // them partially in registers, partially in memory
         assert(originalLType->isStructTy());
-        IF_LOG Logger::cout() << "Passing explicitly ByVal: " << arg.type->toChars() << " (" << *originalLType << ")\n";
-        arg.rewrite = &explicitByvalRewrite;
+        IF_LOG Logger::cout() << "Passing implicitly ByVal: " << arg.type->toChars() << " (" << *originalLType << ")\n";
+        arg.rewrite = &byvalRewrite;
         arg.ltype = originalLType->getPointerTo();
         arg.attrs.add(LDC_ATTRIBUTE(ByVal));
     }

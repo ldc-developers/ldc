@@ -22,7 +22,7 @@
 
 struct X86TargetABI : TargetABI
 {
-    CompositeToInt compositeToInt;
+    IntegerRewrite integerRewrite;
 
     llvm::CallingConv::ID callingConv(LINK l)
     {
@@ -90,8 +90,6 @@ struct X86TargetABI : TargetABI
 
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     {
-        Type* rt = fty.ret->type->toBasetype();
-
         // extern(D)
         if (tf->linkage == LINKd)
         {
@@ -139,8 +137,8 @@ struct X86TargetABI : TargetABI
                     // rewrite the struct into an integer to make inreg work
                     if (lastTy->ty == Tstruct || lastTy->ty == Tsarray)
                     {
-                        last->rewrite = &compositeToInt;
-                        last->ltype = compositeToInt.type(last->type, last->ltype);
+                        last->rewrite = &integerRewrite;
+                        last->ltype = integerRewrite.type(last->type, last->ltype);
                         last->byref = false;
                         // erase previous attributes
                         last->attrs.clear();
@@ -170,8 +168,8 @@ struct X86TargetABI : TargetABI
             // cfloat -> i64
             if (tf->next->toBasetype() == Type::tcomplex32)
             {
-                fty.ret->rewrite = &compositeToInt;
-                fty.ret->ltype = compositeToInt.type(fty.ret->type, fty.ret->ltype);
+                fty.ret->rewrite = &integerRewrite;
+                fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
             }
 
             // IMPLICIT PARAMETERS

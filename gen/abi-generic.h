@@ -53,58 +53,32 @@ struct RemoveStructPadding : ABIRewrite {
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * Rewrites any parameter to an integer of the same or next bigger size.
- *
- * This is needed in order to be able to use LLVM's inreg attribute to put
- * struct and static array parameters into registers, because the attribute has
- * slightly different semantics. For example, LLVM would store a [4 x i8] inreg
- * in four registers (zero-extended), instead of a single 32bit one.
+ * Rewrites any parameter to an integer of the same or next bigger size via
+ * bit-casting.
  */
-struct CompositeToInt : ABIRewrite
+struct IntegerRewrite : ABIRewrite
 {
     LLValue* get(Type* dty, DValue* dv)
     {
-        Logger::println("rewriting integer -> %s", dty->toChars());
+        LLValue* integer = dv->getRVal();
+        LLValue* integerDump = storeToMemory(integer, 0, ".IntegerRewrite_dump");
 
-        LLValue* address = 0; // of passed Int
-
-        if (dv->isLVal()) {                                               // dv is already in memory:
-            address = dv->getLVal();                                      //   address = &<passed Int>
-        } else {                                                          // dump dv to memory:
-            LLValue* v = dv->getRVal();                                   //   v = <passed Int>
-            address = DtoRawAlloca(v->getType(), 0, ".int_to_composite"); //   address = new Int
-            DtoStore(v, address);                                         //   *address = v
-        }
-
-        LLType* pTy = getPtrToType(DtoType(dty));
-        return DtoLoad(DtoBitCast(address, pTy), "get-result");           // *(Type*)address
+        LLType* type = DtoType(dty);
+        return loadFromMemory(integerDump, type, ".IntegerRewrite_getResult");
     }
 
     void getL(Type* dty, DValue* dv, LLValue* lval)
     {
-        Logger::println("rewriting integer -> %s", dty->toChars());
-        LLValue* v = dv->getRVal();                                 // v = <passed Int>
-        DtoStore(v, DtoBitCast(lval, getPtrToType(v->getType())));  // *(Int*)lval = v
+        LLValue* integer = dv->getRVal();
+        storeToMemory(integer, lval);
     }
 
     LLValue* put(Type* dty, DValue* dv)
     {
-        Logger::println("rewriting %s -> integer", dty->toChars());
-
-        LLValue* rval = dv->getRVal();
-        LLValue* address = 0; // of original parameter dv
-
-        if (rval->getType()->isPointerTy()) {              // dv has been lowered to a pointer to the struct/static array:
-            address = rval;                                //   address = dv
-        } else if (dv->isLVal()) {                         // dv is already in memory:
-            address = dv->getLVal();                       //   address = &dv
-        } else {                                           // dump dv to memory:
-            address = DtoAlloca(dty, ".composite_to_int"); //   address = new Type
-            DtoStore(rval, address);                       //   *address = dv
-        }
-
-        LLType* intType = type(dty, 0);
-        return DtoLoad(DtoBitCast(address, getPtrToType(intType)), "put-result"); // *(Int*)address
+        assert(dty == dv->getType());
+        LLValue* address = getAddressOf(dv);
+        LLType* integerType = type(dty, NULL);
+        return loadFromMemory(address, integerType, ".IntegerRewrite_putResult");
     }
 
     LLType* type(Type* t, LLType*)
@@ -131,53 +105,54 @@ struct CompositeToInt : ABIRewrite
 
 //////////////////////////////////////////////////////////////////////////////
 
-// FIXME: This should actually be handled by LLVM and the ByVal arg attribute.
-struct ByvalRewrite : ABIRewrite
+/**
+ * Implements explicit ByVal semantics defined like this:
+ * Instead of passing a copy of the original argument directly to the callee,
+ * the caller makes a bit-copy on its stack first and then passes a pointer
+ * to that copy to the callee.
+ * The pointer is passed as regular parameter and hence occupies either a
+ * register or a function arguments stack slot.
+ *
+ * This differs from LLVM's ByVal attribute for pointer parameters.
+ * The ByVal attribute instructs LLVM to pass the pointed-to argument directly
+ * as a copy on the function arguments stack. In this case, there's no need to
+ * pass an explicit pointer; the address is implicit.
+ */
+struct ExplicitByvalRewrite : ABIRewrite
 {
     const size_t alignment;
 
-    ByvalRewrite(size_t alignment = 16) : alignment(alignment)
+    ExplicitByvalRewrite(size_t alignment = 16) : alignment(alignment)
     { }
 
-    // Load the callee's copy from the passed pointer.
     LLValue* get(Type* dty, DValue* v)
     {
-        LLValue* ptr = v->getRVal();
-        return DtoLoad(ptr); // *ptr
+        LLValue* pointer = v->getRVal();
+        return DtoLoad(pointer, ".ExplicitByvalRewrite_getResult");
     }
 
-    // Convert the caller's instance to a pointer for the callee.
-    // The pointer points to a dedicated bit-copy for the callee
-    // which is allocated on the caller's stack.
+    void getL(Type* dty, DValue* v, LLValue* lval)
+    {
+        LLValue* pointer = v->getRVal();
+        DtoAggrCopy(lval, pointer);
+    }
+
     LLValue* put(Type* dty, DValue* v)
     {
-        /* NOTE: probably not safe
-        // optimization: do not copy if parameter is not mutable
-        if (!dty->isMutable() && v->isLVal())
-            return v->getLVal();
-        */
-
-        LLValue* original = v->getRVal();
-        LLValue* copy;
-
-        LLType* type = original->getType();
-        // already lowered to a pointer to the struct/static array?
-        if (type->isPointerTy())
+        if (DtoIsPassedByRef(dty))
         {
-            type = type->getPointerElementType();
-            copy = DtoRawAlloca(type, alignment, "copy_for_callee");
-            DtoStore(DtoLoad(original), copy); // *copy = *original
-        }
-        else
-        {
-            copy = DtoRawAlloca(type, alignment, "copy_for_callee");
-            DtoStore(original, copy);          // *copy = original
+            LLValue* originalPointer = v->getRVal();
+            LLType* type = originalPointer->getType()->getPointerElementType();
+            LLValue* copyForCallee = DtoRawAlloca(type, alignment, ".ExplicitByvalRewrite_putResult");
+            DtoAggrCopy(copyForCallee, originalPointer);
+            return copyForCallee;
         }
 
-        return copy;
+        LLValue* originalValue = v->getRVal();
+        LLValue* copyForCallee = storeToMemory(originalValue, alignment, ".ExplicitByvalRewrite_putResult");
+        return copyForCallee;
     }
 
-    // T => T*
     LLType* type(Type* dty, LLType* t)
     {
         return getPtrToType(DtoType(dty));

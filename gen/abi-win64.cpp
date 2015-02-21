@@ -33,8 +33,8 @@
 
 struct Win64TargetABI : TargetABI
 {
-    ByvalRewrite byvalRewrite;
-    CompositeToInt compositeToInt;
+    ExplicitByvalRewrite byvalRewrite;
+    IntegerRewrite integerRewrite;
 
     llvm::CallingConv::ID callingConv(LINK l);
 
@@ -138,8 +138,8 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
         Type* rt = fty.ret->type->toBasetype();
         if (isComposite(rt) && canRewriteAsInt(rt))
         {
-            fty.ret->rewrite = &compositeToInt;
-            fty.ret->ltype = compositeToInt.type(fty.ret->type, fty.ret->ltype);
+            fty.ret->rewrite = &integerRewrite;
+            fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
         }
     }
 
@@ -165,8 +165,8 @@ void Win64TargetABI::rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
 
     if (isComposite(ty) && canRewriteAsInt(ty))
     {
-        arg.rewrite = &compositeToInt;
-        arg.ltype = compositeToInt.type(arg.type, arg.ltype);
+        arg.rewrite = &integerRewrite;
+        arg.ltype = integerRewrite.type(arg.type, arg.ltype);
     }
     // FIXME: this should actually be handled by LLVM and the ByVal arg attribute
     else if (isPassedWithByvalSemantics(ty))

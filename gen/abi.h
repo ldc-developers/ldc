@@ -54,6 +54,25 @@ struct ABIRewrite
 
     /// should return the transformed type for this rewrite
     virtual llvm::Type* type(Type* dty, llvm::Type* t) = 0;
+
+protected:
+    /***** Static Helpers *****/
+
+    // Returns the address of a D value, storing it to memory first if need be.
+    static llvm::Value* getAddressOf(DValue* v);
+
+    // Stores a LL value to memory and returns its address.
+    static llvm::Value* storeToMemory(llvm::Value* rval, size_t alignment = 0,
+        const char* name = ".store_result");
+
+    // Stores a LL value to a specified memory address. The element type of the provided
+    // pointer doesn't need to match the value type (=> suited for bit-casting).
+    static void storeToMemory(llvm::Value* rval, llvm::Value* address);
+
+    // Loads a LL value of a specified type from memory. The element type of the provided
+    // pointer doesn't need to match the value type (=> suited for bit-casting).
+    static llvm::Value* loadFromMemory(llvm::Value* address, llvm::Type* asType,
+        const char* name = ".bitcast_result");
 };
 
 // interface called by codegen

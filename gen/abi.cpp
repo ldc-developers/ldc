@@ -35,6 +35,72 @@ void ABIRewrite::getL(Type* dty, DValue* v, LLValue* lval)
 
 //////////////////////////////////////////////////////////////////////////////
 
+LLValue* ABIRewrite::getAddressOf(DValue* v)
+{
+    Type* dty = v->getType();
+    if (DtoIsPassedByRef(dty))
+    {
+        // v is lowered to a LL pointer to the struct/static array
+        return v->getRVal();
+    }
+
+    if (v->isLVal())
+        return v->getLVal();
+
+    return storeToMemory(v->getRVal(), 0, ".getAddressOf_dump");
+}
+
+LLValue* ABIRewrite::storeToMemory(LLValue* rval, size_t alignment, const char* name)
+{
+    LLValue* address = DtoRawAlloca(rval->getType(), alignment, name);
+    DtoStore(rval, address);
+    return address;
+}
+
+void ABIRewrite::storeToMemory(LLValue* rval, LLValue* address)
+{
+    LLType* pointerType = address->getType();
+    assert(pointerType->isPointerTy());
+    LLType* pointerElementType = pointerType->getPointerElementType();
+
+    LLType* rvalType = rval->getType();
+    if (rvalType != pointerElementType)
+    {
+        if (gDataLayout->getTypeStoreSize(rvalType) > gDataLayout->getTypeAllocSize(pointerElementType))
+        {
+            // not enough allocated memory
+            LLValue* paddedDump = storeToMemory(rval, 0, ".storeToMemory_paddedDump");
+            DtoAggrCopy(address, paddedDump);
+            return;
+        }
+
+        address = DtoBitCast(address, getPtrToType(rvalType), ".storeToMemory_bitCastAddress");
+    }
+
+    DtoStore(rval, address);
+}
+
+LLValue* ABIRewrite::loadFromMemory(LLValue* address, LLType* asType, const char* name)
+{
+    LLType* pointerType = address->getType();
+    assert(pointerType->isPointerTy());
+    LLType* pointerElementType = pointerType->getPointerElementType();
+
+    if (asType == pointerElementType)
+        return DtoLoad(address, name);
+
+    IF_LOG if (gDataLayout->getTypeStoreSize(asType) > gDataLayout->getTypeAllocSize(pointerElementType))
+    {
+        Logger::cout() << "Warning: reading undefined bytes while bit-casting type " << *pointerElementType
+                       << " to " << *asType << '\n';
+    }
+
+    address = DtoBitCast(address, getPtrToType(asType), ".loadFromMemory_bitCastAddress");
+    return DtoLoad(address, name);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 void TargetABI::rewriteVarargs(IrFuncTy& fty, std::vector<IrFuncTyArg*>& args)
 {
     for (unsigned i = 0; i < args.size(); ++i)
