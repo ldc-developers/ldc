@@ -250,7 +250,7 @@ llvm::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
     Type *t = type->toBasetype();
 
     // find base type
-    llvm::DIType basetype = CreateTypeDescription(t, NULL, true);
+    llvm::DIType basetype = CreateTypeDescription(t, true);
 
     unsigned Flags = 0;
     switch (prot) {
@@ -530,7 +530,7 @@ ldc::DIFunctionType ldc::DIBuilder::CreateFunctionType(Type *type)
 #else
     llvm::SmallVector<llvm::Value*, 16> Elts;
 #endif
-    Elts.push_back(CreateTypeDescription(retType, NULL, true));
+    Elts.push_back(CreateTypeDescription(retType, true));
 #if LDC_LLVM_VER >= 306
     llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
 #else
@@ -571,7 +571,6 @@ ldc::DIFunctionType ldc::DIBuilder::CreateDelegateType(Type *type)
 ////////////////////////////////////////////////////////////////////////////////
 
 llvm::DIType ldc::DIBuilder::CreateTypeDescription(Type* type,
-                                                   const char* c_name,
                                                    bool derefclass)
 {
     Type *t = type->toBasetype();
@@ -682,14 +681,17 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd)
     );
 }
 
-llvm::DISubprogram ldc::DIBuilder::EmitSubProgramInternal(llvm::StringRef prettyname,
-                                                            llvm::StringRef mangledname)
+llvm::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function* Fn,
+                                                  llvm::StringRef prettyname)
 {
     if (!global.params.symdebug)
         return llvm::DISubprogram();
 
     Logger::println("D to dwarf subprogram");
     LOG_SCOPE;
+
+    llvm::DICompileUnit CU(GetCU());
+    assert(CU && CU.Verify() && "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
     Loc loc(IR->dmodule, 0, 0);
     llvm::DIFile file(CreateFile(loc));
@@ -700,11 +702,7 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgramInternal(llvm::StringRef pretty
 #else
     llvm::SmallVector<llvm::Value *, 1> Elts;
 #endif
-#if LDC_LLVM_VER >= 304
-    Elts.push_back(DBuilder.createUnspecifiedType(prettyname));
-#else
-    Elts.push_back(llvm::DIType(NULL));
-#endif
+    Elts.push_back(CreateTypeDescription(Type::tvoid, true));
 #if LDC_LLVM_VER >= 306
     llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
 #else
@@ -714,15 +712,17 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgramInternal(llvm::StringRef pretty
 
     // FIXME: duplicates ?
     return DBuilder.createFunction(
-        llvm::DIDescriptor(file), // context
+        CU, // context
         prettyname, // name
-        mangledname, // linkage name
+        Fn->getName(), // linkage name
         file, // file
         0, // line no
         DIFnType, // return type. TODO: fill it up
         true, // is local to unit
         true, // isdefinition
-        0 // FIXME: scope line
+        0, // FIXME: scope line
+        false, // FIXME: isOptimized
+        Fn
     );
 }
 
@@ -827,7 +827,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
         return;
 
     // get type description
-    llvm::DIType TD = CreateTypeDescription(vd->type, NULL, true);
+    llvm::DIType TD = CreateTypeDescription(vd->type, true);
     if (static_cast<llvm::MDNode *>(TD) == 0)
         return; // unsupported
 
