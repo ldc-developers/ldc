@@ -196,7 +196,8 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
     {
         std::string fullMangle;
 #if LDC_LLVM_VER >= 305
-        if (global.params.targetTriple.isWindowsGNUEnvironment())
+        if ( global.params.targetTriple.isWindowsGNUEnvironment() 
+             && !global.params.targetTriple.isArch64Bit() )
 #else
         if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
 #endif
