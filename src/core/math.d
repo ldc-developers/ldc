@@ -138,13 +138,13 @@ version (LDC)
                 asm
                 {
                     naked;
-                    push RCX;                // push exp (8 bytes)
+                    push RCX;                // push exp (8 bytes), passed in ECX
                     fild int ptr [RSP];      // push exp onto FPU stack
-                    fld real ptr [RSP+8];    // push n   onto FPU stack
+                    pop RCX;                 // return stack to initial state
+                    fld real ptr [RDX];      // push n   onto FPU stack, passed in [RDX]
                     fscale;                  // ST(0) = ST(0) * 2^ST(1)
                     fstp ST(1);              // pop stack maintaining top value => function return value
-                    pop RCX;                 // return stack to initial state
-                    ret 12;                  // argument sizes: exp=0 (in RAX), n=12bytes
+                    ret;                     // no arguments passed via stack
                 }
             }
             else
