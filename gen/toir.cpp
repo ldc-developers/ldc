@@ -143,7 +143,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd, E
         DConstValue cv(vd->type, NULL); // Only used in one branch; value is set beforehand
         if (expr)
         {
-            IF_LOG Logger::println("expr %zu = %s", index, expr->toChars());
+            IF_LOG Logger::println("expr %llu = %s", static_cast<unsigned long long>(index), expr->toChars());
             val = toElem(expr);
         }
         else if (vd == sd->vthis) {
@@ -2819,7 +2819,7 @@ public:
             {
                 Expression* ekey = e->keys->tdata()[i];
                 Expression* eval = e->values->tdata()[i];
-                IF_LOG Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
+                IF_LOG Logger::println("(%llu) aa[%s] = %s", static_cast<unsigned long long>(i), ekey->toChars(), eval->toChars());
                 unsigned errors = global.startGagging();
                 LLConstant *ekeyConst = toConstElem(ekey, p);
                 LLConstant *evalConst = toConstElem(eval, p);
@@ -2880,7 +2880,7 @@ public:
             Expression* ekey = (*e->keys)[i];
             Expression* eval = (*e->values)[i];
 
-            IF_LOG Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
+            IF_LOG Logger::println("(%llu) aa[%s] = %s", static_cast<unsigned long long>(i), ekey->toChars(), eval->toChars());
 
             // index
             DValue* key = toElem(ekey);
