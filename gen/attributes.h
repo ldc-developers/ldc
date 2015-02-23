@@ -12,7 +12,7 @@
 
 #include "gen/llvm.h"
 
-#include <vector>
+#include <map>
 
 struct AttrBuilder
 {
@@ -42,10 +42,9 @@ struct AttrBuilder
 
 struct AttrSet
 {
-    std::vector<AttrBuilder> entries;
+    std::map<unsigned, AttrBuilder> entries;
 
-    void reserve(size_t length);
-    AttrSet& add(size_t index, const AttrBuilder& builder);
+    AttrSet& add(unsigned index, AttrBuilder builder);
 
 #if LDC_LLVM_VER >= 303
     llvm::AttributeSet toNativeSet() const;

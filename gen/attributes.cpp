@@ -60,16 +60,9 @@ AttrBuilder& AttrBuilder::remove(A attribute) {
 }
 
 
-void AttrSet::reserve(size_t length) {
-    entries.reserve(length);
-}
-
-AttrSet& AttrSet::add(size_t index, const AttrBuilder& builder) {
-    if (builder.hasAttributes()) {
-        if (index >= entries.size())
-            entries.resize(index + 1);
+AttrSet& AttrSet::add(unsigned index, AttrBuilder builder) {
+    if (builder.hasAttributes())
         entries[index] = builder;
-    }
     return *this;
 }
 
@@ -77,31 +70,46 @@ AttrSet& AttrSet::add(size_t index, const AttrBuilder& builder) {
 
 llvm::AttributeSet AttrSet::toNativeSet() const {
     llvm::AttributeSet set;
-    for (size_t i = 0; i < entries.size(); ++i) {
-        if (entries[i].hasAttributes()) {
-            AttrBuilder a = entries[i];
-            set = set.addAttributes(gIR->context(), i, llvm::AttributeSet::get(gIR->context(), i, a.attrs));
-        }
+
+    typedef std::map<unsigned, AttrBuilder>::const_iterator I;
+    for (I it = entries.begin(); it != entries.end(); ++it) {
+        unsigned index = it->first;
+        AttrBuilder builder = it->second;
+        if (!builder.hasAttributes())
+            continue;
+
+        llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(),
+            index, builder.attrs);
+        set = set.addAttributes(gIR->context(), index, as);
     }
+
     return set;
 }
 
 #else
 
 llvm::AttrListPtr AttrSet::toNativeSet() const {
+    if (entries.empty())
+        return llvm::AttrListPtr();
+
     std::vector<llvm::AttributeWithIndex> attrsWithIndex;
     attrsWithIndex.reserve(entries.size());
-    for (size_t i = 0; i < entries.size(); ++i) {
-        if (entries[i].hasAttributes()) {
+
+    typedef std::map<unsigned, AttrBuilder>::const_iterator I;
+    for (I it = entries.begin(); it != entries.end(); ++it) {
+        unsigned index = it->first;
+        AttrBuilder builder = it->second;
+        if (!builder.hasAttributes())
+            continue;
+
 #if LDC_LLVM_VER == 302
-            AttrBuilder a = entries[i];
-            attrsWithIndex.push_back(llvm::AttributeWithIndex::get(i,
-                llvm::Attributes::get(gIR->context(), a.attrs)));
+        attrsWithIndex.push_back(llvm::AttributeWithIndex::get(index,
+            llvm::Attributes::get(gIR->context(), builder.attrs)));
 #else
-            attrsWithIndex.push_back(llvm::AttributeWithIndex::get(i, entries[i].attrs));
+        attrsWithIndex.push_back(llvm::AttributeWithIndex::get(index, builder.attrs));
 #endif
-        }
     }
+
 #if LDC_LLVM_VER == 302
     return llvm::AttrListPtr::get(gIR->context(), llvm::ArrayRef<llvm::AttributeWithIndex>(attrsWithIndex));
 #else

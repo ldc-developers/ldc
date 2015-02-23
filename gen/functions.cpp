@@ -538,11 +538,11 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     {
         assert(Parameter::getNth(f->parameters, k));
 
-        AttrBuilder a = irFty.args[k]->attrs;
-        if (a.hasAttributes())
+        AttrBuilder builder = irFty.args[k]->attrs;
+        if (builder.hasAttributes())
         {
             unsigned i = idx + (irFty.reverseParams ? n-k-1 : k);
-            llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(), i, a.attrs);
+            llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(), i, builder.attrs);
             newAttrs = newAttrs.addAttributes(gIR->context(), i, as);
         }
     }
@@ -554,14 +554,15 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
     IrFuncTy &irFty = getIrFunc(fdecl)->irFty;
-    AttrSet attrs;
+    AttrSet set;
 
     int idx = 0;
 
     // handle implicit args
     #define ADD_PA(X) \
     if (irFty.X) { \
-        attrs.add(idx, irFty.X->attrs); \
+        if (irFty.X->attrs.hasAttributes()) \
+            set.add(idx, irFty.X->attrs); \
         idx++; \
     }
 
@@ -579,25 +580,29 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     {
         assert(Parameter::getNth(f->parameters, k));
 
-        unsigned i = idx + (irFty.reverseParams ? n-k-1 : k);
-        attrs.add(i, irFty.args[k]->attrs);
+        AttrBuilder builder = irFty.args[k]->attrs;
+        if (builder.hasAttributes())
+        {
+            unsigned i = idx + (irFty.reverseParams ? n-k-1 : k);
+            set.add(i, builder);
+        }
     }
 
     // Merge in any old attributes (attributes for the function itself are
     // also stored in a list slot).
     llvm::AttrListPtr oldAttrs = func->getAttributes();
-    for (size_t i = 0; i < oldAttrs.getNumSlots(); ++i) {
-        llvm::AttributeWithIndex curr = oldAttrs.getSlot(i);
-        if (curr.Index >= attrs.entries.size())
-            attrs.entries.resize(curr.Index + 1);
+    for (unsigned i = 0; i < oldAttrs.getNumSlots(); ++i)
+    {
+        const llvm::AttributeWithIndex& curr = oldAttrs.getSlot(i);
+        AttrBuilder& builder = set.entries[curr.Index];
 #if LDC_LLVM_VER == 302
-        attrs.entries[curr.Index].attrs.addAttributes(curr.Attrs);
+        builder.attrs.addAttributes(curr.Attrs);
 #else
-        attrs.entries[curr.Index].attrs |= curr.Attrs;
+        builder.attrs |= curr.Attrs;
 #endif
     }
 
-    func->setAttributes(attrs.toNativeSet());
+    func->setAttributes(set.toNativeSet());
 }
 #endif
 

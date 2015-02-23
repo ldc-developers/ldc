@@ -294,8 +294,6 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
     // parameter attributes
     AttrSet attrs;
-    // return attributes + attributes for max 3 implicit args (sret, context, _arguments) & all explicit args
-    attrs.reserve(1 + 3 + n_arguments);
 
     // return attrs
     attrs.add(0, irFty.ret->attrs);
