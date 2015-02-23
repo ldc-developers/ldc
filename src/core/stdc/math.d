@@ -113,7 +113,8 @@ version( DigitalMars )
 
 version( LDC )
 {
-    version( Win64 )
+    version( MinGW ) { }
+    else version( Win64 ) 
         version = MSVC_RUNTIME;
 
 }
