@@ -337,6 +337,12 @@ version( LDC )
             ap += size_t.sizeof;
             return arg;
         }
+        else version( X86 )
+        {
+            T arg = *cast(T*)ap;
+            ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+            return arg;
+        }
         else version( ARM )
         {
             T arg = *cast(T*)ap;
@@ -360,6 +366,11 @@ version( LDC )
             else
                 parmn = *cast(T*)ap;
             ap += size_t.sizeof;
+        }
+        else version( X86 )
+        {
+            parmn = *cast(T*)ap;
+            ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
         }
         else version( ARM )
         {
