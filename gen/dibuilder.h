@@ -98,13 +98,13 @@ public:
     /// \returns        the Dwarf subprogram global.
     llvm::DISubprogram EmitSubProgram(FuncDeclaration *fd); // FIXME
 
-    /// \brief Emit the Dwarf subprogram global for a internal function.
+    /// \brief Emit the Dwarf subprogram global for a module ctor.
     /// This is used for generated functions like moduleinfoctors,
     /// module ctors/dtors and unittests.
+    /// \param Fn           llvm::Function pointer.
     /// \param prettyname   The name as seen in the source.
-    /// \param mangledname  The mangled name in the object file.
     /// \returns       the Dwarf subprogram global.
-    llvm::DISubprogram EmitSubProgramInternal(llvm::StringRef prettyname, llvm::StringRef mangledname);  // FIXME
+    llvm::DISubprogram EmitModuleCTor(llvm::Function* Fn, llvm::StringRef prettyname);  // FIXME
 
     /// \brief Emits debug info for function start
     void EmitFuncStart(FuncDeclaration *fd);
@@ -169,7 +169,7 @@ private:
     llvm::DIType CreateAArrayType(Type *type);
     DIFunctionType CreateFunctionType(Type *type);
     DIFunctionType CreateDelegateType(Type *type);
-    llvm::DIType CreateTypeDescription(Type* type, const char* c_name, bool derefclass = false);
+    llvm::DIType CreateTypeDescription(Type* type, bool derefclass = false);
 
 public:
     template<typename T>
