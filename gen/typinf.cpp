@@ -301,9 +301,15 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid)
 
         if (!meta) {
             // Construct the fields
+#if LDC_LLVM_VER >= 306
+            llvm::Metadata* mdVals[TD_NumFields];
+            mdVals[TD_TypeInfo] = llvm::ValueAsMetadata::get(getIrGlobal(tid)->value);
+            mdVals[TD_Type] = llvm::ConstantAsMetadata::get(llvm::UndefValue::get(DtoType(tid->tinfo)));
+#else
             MDNodeField* mdVals[TD_NumFields];
             mdVals[TD_TypeInfo] = llvm::cast<MDNodeField>(getIrGlobal(tid)->value);
             mdVals[TD_Type] = llvm::UndefValue::get(DtoType(tid->tinfo));
+#endif
 
             // Construct the metadata and insert it into the module.
             llvm::NamedMDNode* node = gIR->module->getOrInsertNamedMetadata(metaname);
@@ -564,13 +570,11 @@ public:
         unsigned hasptrs = tc->hasPointers() ? 1 : 0;
         b.push_uint(hasptrs);
 
-        ClassDeclaration* tscd = Type::typeinfostruct;
-
         // On x86_64, class TypeInfo_Struct contains 2 additional fields
         // (m_arg1/m_arg2) which are used for the X86_64 System V ABI varargs
         // implementation. They are not present on any other cpu/os.
-        assert((global.params.targetTriple.getArch() != llvm::Triple::x86_64 && tscd->fields.dim == 11) ||
-               (global.params.targetTriple.getArch() == llvm::Triple::x86_64 && tscd->fields.dim == 13));
+        assert((global.params.targetTriple.getArch() != llvm::Triple::x86_64 && Type::typeinfostruct->fields.dim == 11) ||
+               (global.params.targetTriple.getArch() == llvm::Triple::x86_64 && Type::typeinfostruct->fields.dim == 13));
 
         //void function(void*)                    xdtor;
         b.push_funcptr(sd->dtor);

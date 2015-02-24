@@ -396,7 +396,11 @@ void createStaticLibrary()
 {
     Logger::println("*** Creating static library ***");
 
+#if LDC_LLVM_VER >= 305
+    const bool isTargetWindows = global.params.targetTriple.isWindowsMSVCEnvironment();
+#else
     const bool isTargetWindows = global.params.targetTriple.getOS() == llvm::Triple::Win32;
+#endif
 
     // find archiver
     std::string tool(isTargetWindows ? getLib() : getArchiver());

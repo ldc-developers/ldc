@@ -27,7 +27,8 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-3.6 llvm-config36
+set(llvm_config_names llvm-config-3.7 llvm-config37
+                      llvm-config-3.6 llvm-config36
                       llvm-config-3.5 llvm-config35
                       llvm-config-3.4 llvm-config34
                       llvm-config-3.3 llvm-config33
@@ -75,6 +76,12 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
             # Versions below 3.5 do not support components lto, profiledata
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "lto" index)
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "profiledata" index)
+        endif()
+        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
+            # Versions below 3.7 do not support components debuginfodwarf
+            # Only debuginfo is available
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
+            list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
         endif()
 
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
@@ -149,6 +156,12 @@ else()
         # Versions below 3.5 do not support components lto, profiledata
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "lto" index)
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "profiledata" index)
+    endif()
+    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
+        # Versions below 3.7 do not support components debuginfodwarf
+        # Only debuginfo is available
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
+        list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
     endif()
 
     llvm_set(LDFLAGS ldflags)

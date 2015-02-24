@@ -12,7 +12,7 @@
 #include <stdlib.h>
 #include <assert.h>
 
-#if __sun || _MSC_VER
+#if _AIX || __sun || _MSC_VER
 #include <alloca.h>
 #elif __MINGW32__
 #include <malloc.h>

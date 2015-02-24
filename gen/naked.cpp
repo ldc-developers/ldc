@@ -90,8 +90,13 @@ public:
         IF_LOG Logger::println("ExpStatement::toNakedIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
+        // This happens only if there is a ; at the end:
+        // asm { naked; ... };
+        // Is this a legal AST?
+        if (!stmt->exp) return;
+
         // only expstmt supported in declarations
-        if (stmt->exp->op != TOKdeclaration)
+        if (!stmt->exp || stmt->exp->op != TOKdeclaration)
         {
             visit(static_cast<Statement *>(stmt));
             return;
@@ -191,7 +196,8 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
     {
         std::string fullMangle;
 #if LDC_LLVM_VER >= 305
-        if (global.params.targetTriple.isWindowsGNUEnvironment())
+        if ( global.params.targetTriple.isWindowsGNUEnvironment() 
+             && !global.params.targetTriple.isArch64Bit() )
 #else
         if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
 #endif
@@ -428,7 +434,7 @@ DValue * DtoInlineAsmExpr(Loc& loc, FuncDeclaration * fd, Expressions * argument
     assert(arguments->dim >= 2 && "invalid __asm call");
 
     // get code param
-    Expression* e = static_cast<Expression*>(arguments->data[0]);
+    Expression* e = (*arguments)[0];
     IF_LOG Logger::println("code exp: %s", e->toChars());
     StringExp* se = static_cast<StringExp*>(e);
     if (e->op != TOKstring || se->sz != 1)
@@ -439,7 +445,7 @@ DValue * DtoInlineAsmExpr(Loc& loc, FuncDeclaration * fd, Expressions * argument
     std::string code(static_cast<char*>(se->string), se->len);
 
     // get constraints param
-    e = static_cast<Expression*>(arguments->data[1]);
+    e = (*arguments)[1];
     IF_LOG Logger::println("constraint exp: %s", e->toChars());
     se = static_cast<StringExp*>(e);
     if (e->op != TOKstring || se->sz != 1)
@@ -459,8 +465,7 @@ DValue * DtoInlineAsmExpr(Loc& loc, FuncDeclaration * fd, Expressions * argument
 
     for (size_t i = 2; i < n; i++)
     {
-        e = static_cast<Expression*>(arguments->data[i]);
-        args.push_back(toElem(e)->getRVal());
+        args.push_back(toElem((*arguments)[i])->getRVal());
         argtypes.push_back(args.back()->getType());
     }
 

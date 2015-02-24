@@ -252,7 +252,7 @@ LLType* DtoStructTypeFromArguments(Arguments* arguments)
     std::vector<LLType*> types;
     for (size_t i = 0; i < arguments->dim; i++)
     {
-        Argument *arg = static_cast<Argument *>(arguments->data[i]);
+        Argument *arg = (*arguments)[i];
         assert(arg && arg->type);
 
         types.push_back(DtoType(arg->type));

@@ -1,6 +1,5 @@
 # bash completion for ldc2
 
-have ldc2 &&{
     function elementExists(){
         local i isRunning result
         i=0
@@ -160,7 +159,6 @@ have ldc2 &&{
         fi
     }
     complete -o nospace -F _ldc ldc2
-}
 
 # Local variables:
 # mode: shell-script

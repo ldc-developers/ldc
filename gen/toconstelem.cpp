@@ -371,7 +371,7 @@ public:
             const unsigned elemSize = gDataLayout->getTypeStoreSize(
                 base->getType()->getContainedType(0));
 
-            IF_LOG Logger::println("adding offset: %u (elem size: %u)", e->offset, elemSize);
+            IF_LOG Logger::println("adding offset: %llu (elem size: %u)", static_cast<unsigned long long>(e->offset), elemSize);
 
             if (e->offset % elemSize == 0)
             {

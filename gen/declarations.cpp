@@ -432,8 +432,13 @@ public:
                 LibName = tmp;
 
                 // Embedd library name as linker option in object file
+#if LDC_LLVM_VER >= 306
+                llvm::Metadata *Value = llvm::MDString::get(gIR->context(), LibName);
+                gIR->LinkerMetadataArgs.push_back(llvm::MDNode::get(gIR->context(), Value));
+#else
                 llvm::Value *Value = llvm::MDString::get(gIR->context(), LibName);
                 gIR->LinkerMetadataArgs.push_back(llvm::MDNode::get(gIR->context(), Value));
+#endif
             }
             else
     #endif

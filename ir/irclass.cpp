@@ -97,10 +97,17 @@ LLGlobalVariable * IrAggr::getClassInfoSymbol()
         bool hasDestructor = (classdecl->dtor != NULL);
         bool hasCustomDelete = (classdecl->aggDelete != NULL);
         // Construct the fields
+#if LDC_LLVM_VER >= 306
+        llvm::Metadata* mdVals[CD_NumFields];
+        mdVals[CD_BodyType] = llvm::ConstantAsMetadata::get(llvm::UndefValue::get(bodyType));
+        mdVals[CD_Finalize] = llvm::ConstantAsMetadata::get(LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor));
+        mdVals[CD_CustomDelete] = llvm::ConstantAsMetadata::get(LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasCustomDelete));
+#else
         MDNodeField* mdVals[CD_NumFields];
         mdVals[CD_BodyType] = llvm::UndefValue::get(bodyType);
         mdVals[CD_Finalize] = LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor);
         mdVals[CD_CustomDelete] = LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasCustomDelete);
+#endif
         // Construct the metadata and insert it into the module.
         llvm::SmallString<64> name;
         llvm::NamedMDNode* node = gIR->module->getOrInsertNamedMetadata(

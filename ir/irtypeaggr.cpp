@@ -98,6 +98,8 @@ void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad)
     const size_t n = ad->fields.dim;
     LLSmallVector<VarDeclaration*, 16> data(n, NULL);
 
+    unsigned int errors = global.errors;
+
     // first fill in the fields with explicit initializers
     for (size_t index = 0; index < n; ++index)
     {
@@ -136,8 +138,11 @@ void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad)
         }
     }
 
-    if (global.errors)
+    if (errors != global.errors)
     {
+        // There was an overlapping initialization.
+        // Return if errors are gagged otherwise abort.
+        if (global.gag) return;
         fatal();
     }
 

@@ -190,8 +190,12 @@ static void hide(llvm::StringMap<cl::Option *>& map, const char* name) {
 /// Removes command line options exposed from within LLVM that are unlikely
 /// to be useful for end users from the -help output.
 static void hideLLVMOptions() {
+#if LDC_LLVM_VER >= 307
+    llvm::StringMap<cl::Option *>& map = cl::getRegisteredOptions();
+#else
     llvm::StringMap<cl::Option *> map;
     cl::getRegisteredOptions(map);
+#endif
     hide(map, "bounds-checking-single-trap");
     hide(map, "disable-debug-info-verifier");
     hide(map, "disable-spill-fusing");
@@ -200,16 +204,20 @@ static void hideLLVMOptions() {
     hide(map, "cppgen");
     hide(map, "enable-correct-eh-support");
     hide(map, "enable-load-pre");
+    hide(map, "enable-misched");
     hide(map, "enable-objc-arc-opts");
     hide(map, "enable-tbaa");
+    hide(map, "exhaustive-register-search");
     hide(map, "fatal-assembler-warnings");
     hide(map, "internalize-public-api-file");
     hide(map, "internalize-public-api-list");
     hide(map, "join-liveintervals");
     hide(map, "limit-float-precision");
     hide(map, "mc-x86-disable-arith-relaxation");
+    hide(map, "mlsm");
     hide(map, "mno-ldc1-sdc1");
     hide(map, "nvptx-sched4reg");
+    hide(map, "no-discriminators");
     hide(map, "pre-RA-sched");
     hide(map, "print-after-all");
     hide(map, "print-before-all");
@@ -220,13 +228,16 @@ static void hideLLVMOptions() {
     hide(map, "profile-info-file");
     hide(map, "profile-verifier-noassert");
     hide(map, "regalloc");
+    hide(map, "sample-profile-max-propagate-iterations");
     hide(map, "shrink-wrap");
     hide(map, "spiller");
+    hide(map, "stackmap-version");
     hide(map, "stats");
     hide(map, "strip-debug");
     hide(map, "struct-path-tbaa");
     hide(map, "time-passes");
     hide(map, "unit-at-a-time");
+    hide(map, "verify-debug-info");
     hide(map, "verify-dom-info");
     hide(map, "verify-loop-info");
     hide(map, "verify-regalloc");
@@ -504,7 +515,9 @@ static void initializePasses() {
     // Initialize passes
     PassRegistry &Registry = *PassRegistry::getPassRegistry();
     initializeCore(Registry);
+#if LDC_LLVM_VER < 306
     initializeDebugIRPass(Registry);
+#endif
     initializeScalarOpts(Registry);
     initializeVectorization(Registry);
     initializeIPO(Registry);
@@ -519,6 +532,7 @@ static void initializePasses() {
     initializeCodeGenPreparePass(Registry);
 #if LDC_LLVM_VER >= 306
     initializeAtomicExpandPass(Registry);
+    initializeRewriteSymbolsPass(Registry);
 #elif LDC_LLVM_VER == 305
     initializeAtomicExpandLoadLinkedPass(Registry);
 #endif
@@ -979,9 +993,8 @@ int main(int argc, char **argv)
     if (m64bits)
     {
         if (bitness != ExplicitBitness::None)
-        {
             error(Loc(), "cannot use both -m32 and -m64 options");
-        }
+        bitness = ExplicitBitness::M64;
     }
 
     if (global.errors)
@@ -1005,7 +1018,9 @@ int main(int argc, char **argv)
         global.params.is64bit      = triple.isArch64Bit();
     }
 
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 307
+    gDataLayout = gTargetMachine->getDataLayout();
+#elif LDC_LLVM_VER >= 306
     gDataLayout = gTargetMachine->getSubtargetImpl()->getDataLayout();
 #elif LDC_LLVM_VER >= 302
     gDataLayout = gTargetMachine->getDataLayout();
@@ -1202,7 +1217,7 @@ int main(int argc, char **argv)
         if (strcmp(m->srcfile->name->str, global.main_d) == 0)
         {
             static const char buf[] = "void main(){}";
-            m->srcfile->setbuffer((void *)buf, sizeof(buf));
+            m->srcfile->setbuffer(const_cast<char *>(buf), sizeof(buf));
             m->srcfile->ref = 1;
         }
         else
