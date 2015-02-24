@@ -63,7 +63,7 @@ void StaticAssert::semantic2(Scope *sc)
     sc = sc->pop();
 
     // Simplify expression, to make error messages nicer if CTFE fails
-    e = e->optimize(0);
+    e = e->optimize(WANTvalue);
 
     if (!e->type->checkBoolean())
     {
@@ -113,10 +113,6 @@ bool StaticAssert::oneMember(Dsymbol **ps, Identifier *ident)
     //printf("StaticAssert::oneMember())\n");
     *ps = NULL;
     return true;
-}
-
-void StaticAssert::toObjFile(bool multiobj)
-{
 }
 
 const char *StaticAssert::kind()

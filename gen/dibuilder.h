@@ -162,7 +162,7 @@ private:
     llvm::DIType CreateEnumType(Type *type);
     llvm::DIType CreatePointerType(Type *type);
     llvm::DIType CreateVectorType(Type *type);
-    llvm::DIType CreateMemberType(unsigned linnum, Type *type, llvm::DIFile file, const char* c_name, unsigned offset, PROT);
+    llvm::DIType CreateMemberType(unsigned linnum, Type *type, llvm::DIFile file, const char* c_name, unsigned offset, PROTKIND);
     llvm::DIType CreateCompositeType(Type *type);
     llvm::DIType CreateArrayType(Type *type);
     llvm::DIType CreateSArrayType(Type *type);

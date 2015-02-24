@@ -244,7 +244,7 @@ llvm::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
                                                 llvm::DIFile file,
                                                 const char* c_name,
                                                 unsigned offset,
-                                                PROT prot)
+                                                PROTKIND prot)
 {
     llvm::Type *T = DtoType(type);
     Type *t = type->toBasetype();
@@ -302,7 +302,7 @@ void ldc::DIBuilder::AddBaseFields(ClassDeclaration *sd, llvm::DIFile file,
                                    I != E; ++I)
     {
         VarDeclaration* vd = *I;
-        elems.push_back(CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset, vd->prot()));
+        elems.push_back(CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset, vd->prot().kind));
     }
 }
 
@@ -383,7 +383,7 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
                                            I != E; ++I)
             {
                 VarDeclaration* vd = *I;
-                llvm::DIType dt = CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset, vd->prot());
+                llvm::DIType dt = CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset, vd->prot().kind);
                 elems.push_back(dt);
             }
         }
@@ -441,7 +441,7 @@ llvm::DIType ldc::DIBuilder::CreateArrayType(Type *type)
 
     assert(t->ty == Tarray && "Only arrays allowed for debug info in DIBuilder::CreateArrayType");
 
-    Loc loc(IR->dmodule, 0, 0);
+    Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
     llvm::DIFile file = CreateFile(loc);
 
 #if LDC_LLVM_VER >= 306
@@ -521,7 +521,7 @@ ldc::DIFunctionType ldc::DIBuilder::CreateFunctionType(Type *type)
     TypeFunction *t = static_cast<TypeFunction*>(type);
     Type *retType = t->next;
 
-    Loc loc(IR->dmodule, 0, 0);
+    Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
     llvm::DIFile file = CreateFile(loc);
 
     // Create "dummy" subroutine type for the return type
@@ -544,7 +544,7 @@ ldc::DIFunctionType ldc::DIBuilder::CreateDelegateType(Type *type)
     // FIXME: Implement
     TypeDelegate *t = static_cast<TypeDelegate*>(type);
 
-    Loc loc(IR->dmodule, 0, 0);
+    Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
     llvm::DIFile file = CreateFile(loc);
 
     // Create "dummy" subroutine type for the return type
@@ -693,7 +693,7 @@ llvm::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function* Fn,
     llvm::DICompileUnit CU(GetCU());
     assert(CU && CU.Verify() && "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
-    Loc loc(IR->dmodule, 0, 0);
+    Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
     llvm::DIFile file(CreateFile(loc));
 
     // Create "dummy" subroutine type for the return type

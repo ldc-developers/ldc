@@ -18,6 +18,7 @@
 
 #include "aggregate.h"
 #include "declaration.h"
+#include "hdrgen.h" // for parametersTypeToChars()
 #include "mtype.h"
 #include "target.h"
 
@@ -211,7 +212,7 @@ LLConstant * IrAggr::getVtblInit()
                         if (tf->ty == Tfunction)
                             cd->deprecation("use of %s%s hidden by %s is deprecated; use 'alias %s = %s.%s;' to introduce base class overload set",
                                             fd->toPrettyChars(),
-                                            "?FIXME?", //Parameter::argsTypesToChars(tf->parameters, tf->varargs),
+                                            parametersTypeToChars(tf->parameters, tf->varargs),
                                             cd->toChars(),
 
                                             fd->toChars(),

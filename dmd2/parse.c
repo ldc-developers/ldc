@@ -56,9 +56,10 @@
 #define CARRAYDECL      1
 
 Parser::Parser(Module *module, const utf8_t *base, size_t length, int doDocComment)
-    : Lexer(module, base, 0, length, doDocComment, 0)
+    : Lexer(module ? module->srcfile->toChars() : NULL, base, 0, length, doDocComment, 0)
 {
     //printf("Parser::Parser()\n");
+    mod = module;
     md = NULL;
     linkage = LINKd;
     endloc = Loc();
@@ -73,7 +74,7 @@ Parser::Parser(Module *module, const utf8_t *base, size_t length, int doDocComme
  *      loc     location in source file of mixin
  */
 Parser::Parser(Loc loc, Module *module, const utf8_t *base, size_t length, int doDocComment)
-    : Lexer(module, base, 0, length, doDocComment, 0)
+    : Lexer(module ? module->srcfile->toChars() : NULL, base, 0, length, doDocComment, 0)
 {
     //printf("Parser::Parser()\n");
     scanloc = loc;
@@ -83,11 +84,12 @@ Parser::Parser(Loc loc, Module *module, const utf8_t *base, size_t length, int d
         /* Create a pseudo-filename for the mixin string, as it may not even exist
          * in the source file.
          */
-        char *filename = (char *)mem.malloc(strlen(loc.filename) + 7 + sizeof(loc.linnum) * 3 + 1);
+        char *filename = (char *)mem.xmalloc(strlen(loc.filename) + 7 + sizeof(loc.linnum) * 3 + 1);
         sprintf(filename, "%s-mixin-%d", loc.filename, (int)loc.linnum);
         scanloc.filename = filename;
     }
 
+    mod = module;
     md = NULL;
     linkage = LINKd;
     endloc = Loc();
@@ -170,32 +172,11 @@ Dsymbols *Parser::parseModule()
     if (token.value == TOKmodule)
     {
         Loc loc = token.loc;
-        bool safe = false;
 
         nextToken();
-#if 0
-        if (token.value == TOKlparen)
-        {
-            nextToken();
-            if (token.value != TOKidentifier)
-            {
-                error("module (system) identifier expected");
-                goto Lerr;
-            }
-            Identifier *id = token.ident;
-
-            if (id == Id::system)
-                safe = true;
-            else
-                error("(safe) expected, not %s", id->toChars());
-            nextToken();
-            check(TOKrparen);
-        }
-#endif
-
         if (token.value != TOKidentifier)
         {
-            error("Identifier expected following module");
+            error("identifier expected following module");
             goto Lerr;
         }
         else
@@ -212,13 +193,13 @@ Dsymbols *Parser::parseModule()
                 nextToken();
                 if (token.value != TOKidentifier)
                 {
-                    error("Identifier expected following package");
+                    error("identifier expected following package");
                     goto Lerr;
                 }
                 id = token.ident;
             }
 
-            md = new ModuleDeclaration(loc, a, id, safe);
+            md = new ModuleDeclaration(loc, a, id);
             md->isdeprecated = isdeprecated;
             md->msg = msg;
 
@@ -429,13 +410,13 @@ Dsymbols *Parser::parseDeclDefs(int once, Dsymbol **pLastDecl, PrefixAttributes 
 
             case TOKcolon:
             case TOKlcurly:
-                error("Declaration expected, not '%s'",token.toChars());
+                error("declaration expected, not '%s'",token.toChars());
                 goto Lerror;
 
             case TOKrcurly:
             case TOKeof:
                 if (once)
-                    error("Declaration expected, not '%s'", token.toChars());
+                    error("declaration expected, not '%s'", token.toChars());
                 return decldefs;
 
             case TOKstatic:
@@ -920,7 +901,7 @@ Dsymbols *Parser::parseDeclDefs(int once, Dsymbol **pLastDecl, PrefixAttributes 
                 continue;
 
             default:
-                error("Declaration expected, not '%s'",token.toChars());
+                error("declaration expected, not '%s'",token.toChars());
             Lerror:
                 while (token.value != TOKsemicolon && token.value != TOKeof)
                     nextToken();
@@ -1075,6 +1056,7 @@ StorageClass Parser::parsePostfix(StorageClass storageClass, Expressions **pudas
             case TOKwild:       stc = STCwild;          break;
             case TOKnothrow:    stc = STCnothrow;       break;
             case TOKpure:       stc = STCpure;          break;
+            case TOKreturn:     stc = STCreturn;        break;
             case TOKat:
             {
                 Expressions *udas = NULL;
@@ -1406,9 +1388,9 @@ Condition *Parser::parseVersionCondition()
         else if (token.value == TOKint32v || token.value == TOKint64v)
             level = (unsigned)token.uns64value;
         else if (token.value == TOKunittest)
-            id = Lexer::idPool(Token::toChars(TOKunittest));
+            id = Identifier::idPool(Token::toChars(TOKunittest));
         else if (token.value == TOKassert)
-            id = Lexer::idPool(Token::toChars(TOKassert));
+            id = Identifier::idPool(Token::toChars(TOKassert));
         else
             error("identifier or integer expected, not %s", token.toChars());
         nextToken();
@@ -1814,7 +1796,7 @@ Dsymbol *Parser::parseUnitTest(PrefixAttributes *pAttrs)
         size_t len = endPtr - begPtr;
         if (len > 0)
         {
-            docline = (char *)mem.malloc(len + 2);
+            docline = (char *)mem.xmalloc(len + 2);
             memcpy(docline, begPtr, len);
             docline[len  ] = '\n';  // Terminate all lines by LF
             docline[len+1] = '\0';
@@ -1830,7 +1812,7 @@ Dsymbol *Parser::parseUnitTest(PrefixAttributes *pAttrs)
 
 /*****************************************
  * Parse a new definition:
- *      new(arguments) { body }
+ *      new(parameters) { body }
  * Current token is 'new'.
  */
 
@@ -1842,8 +1824,8 @@ Dsymbol *Parser::parseNew(PrefixAttributes *pAttrs)
     nextToken();
 
     int varargs;
-    Parameters *arguments = parseParameters(&varargs);
-    NewDeclaration *f = new NewDeclaration(loc, Loc(), stc, arguments, varargs);
+    Parameters *parameters = parseParameters(&varargs);
+    NewDeclaration *f = new NewDeclaration(loc, Loc(), stc, parameters, varargs);
     if (pAttrs)
         pAttrs->storageClass = STCundefined;
     Dsymbol *s = parseContracts(f);
@@ -1852,7 +1834,7 @@ Dsymbol *Parser::parseNew(PrefixAttributes *pAttrs)
 
 /*****************************************
  * Parse a delete definition:
- *      delete(arguments) { body }
+ *      delete(parameters) { body }
  * Current token is 'delete'.
  */
 
@@ -1864,10 +1846,10 @@ Dsymbol *Parser::parseDelete(PrefixAttributes *pAttrs)
     nextToken();
 
     int varargs;
-    Parameters *arguments = parseParameters(&varargs);
+    Parameters *parameters = parseParameters(&varargs);
     if (varargs)
         error("... not allowed in delete function parameter list");
-    DeleteDeclaration *f = new DeleteDeclaration(loc, Loc(), stc, arguments);
+    DeleteDeclaration *f = new DeleteDeclaration(loc, Loc(), stc, parameters);
     if (pAttrs)
         pAttrs->storageClass = STCundefined;
     Dsymbol *s = parseContracts(f);
@@ -1880,7 +1862,7 @@ Dsymbol *Parser::parseDelete(PrefixAttributes *pAttrs)
 
 Parameters *Parser::parseParameters(int *pvarargs, TemplateParameters **tpl)
 {
-    Parameters *arguments = new Parameters();
+    Parameters *parameters = new Parameters();
     int varargs = 0;
     int hasdefault = 0;
 
@@ -1889,7 +1871,6 @@ Parameters *Parser::parseParameters(int *pvarargs, TemplateParameters **tpl)
     {
         Identifier *ai = NULL;
         Type *at;
-        Parameter *a;
         StorageClass storageClass = 0;
         StorageClass stc;
         Expression *ae;
@@ -1937,6 +1918,7 @@ Parameters *Parser::parseParameters(int *pvarargs, TemplateParameters **tpl)
                 case TOKscope:     stc = STCscope;      goto L2;
                 case TOKfinal:     stc = STCfinal;      goto L2;
                 case TOKauto:      stc = STCauto;       goto L2;
+                case TOKreturn:    stc = STCreturn;     goto L2;
                 L2:
                     storageClass = appendStorageClass(storageClass, stc);
                     continue;
@@ -1984,7 +1966,7 @@ Parameters *Parser::parseParameters(int *pvarargs, TemplateParameters **tpl)
                                             t->value == TOKrparen ||
                                             t->value == TOKdotdotdot)))
                     {
-                        Identifier *id = Lexer::uniqueId("__T");
+                        Identifier *id = Identifier::generateId("__T");
                         Loc loc = token.loc;
                         at = new TypeIdentifier(loc, id);
                         if (!*tpl)
@@ -1997,7 +1979,6 @@ Parameters *Parser::parseParameters(int *pvarargs, TemplateParameters **tpl)
                     }
                     else
                         at = parseType(&ai);
-
                     ae = NULL;
                     if (token.value == TOKassign)       // = defaultArg
                     {   nextToken();
@@ -2017,13 +1998,11 @@ Parameters *Parser::parseParameters(int *pvarargs, TemplateParameters **tpl)
                         if (storageClass & (STCout | STCref))
                             error("variadic argument cannot be out or ref");
                         varargs = 2;
-                        a = new Parameter(storageClass, at, ai, ae);
-                        arguments->push(a);
+                        parameters->push(new Parameter(storageClass, at, ai, ae));
                         nextToken();
                         break;
                     }
-                    a = new Parameter(storageClass, at, ai, ae);
-                    arguments->push(a);
+                    parameters->push(new Parameter(storageClass, at, ai, ae));
                     if (token.value == TOKcomma)
                     {   nextToken();
                         goto L1;
@@ -2039,7 +2018,7 @@ Parameters *Parser::parseParameters(int *pvarargs, TemplateParameters **tpl)
     }
     check(TOKrparen);
     *pvarargs = varargs;
-    return arguments;
+    return parameters;
 }
 
 
@@ -2369,7 +2348,7 @@ TemplateDeclaration *Parser::parseTemplateDeclaration(bool ismixin)
     nextToken();
     if (token.value != TOKidentifier)
     {
-        error("TemplateIdentifier expected following template");
+        error("identifier expected following template");
         goto Lerr;
     }
     id = token.ident;
@@ -2855,7 +2834,8 @@ Dsymbols *Parser::parseImport()
      L1:
         nextToken();
         if (token.value != TOKidentifier)
-        {   error("Identifier expected following import");
+        {
+            error("identifier expected following import");
             break;
         }
 
@@ -2875,7 +2855,8 @@ Dsymbols *Parser::parseImport()
             a->push(id);
             nextToken();
             if (token.value != TOKidentifier)
-            {   error("identifier expected following package");
+            {
+                error("identifier expected following package");
                 break;
             }
             id = token.ident;
@@ -2892,27 +2873,30 @@ Dsymbols *Parser::parseImport()
         if (token.value == TOKcolon)
         {
             do
-            {   Identifier *name;
-
+            {
                 nextToken();
                 if (token.value != TOKidentifier)
-                {   error("Identifier expected following :");
+                {
+                    error("identifier expected following :");
                     break;
                 }
                 Identifier *alias = token.ident;
+                Identifier *name;
                 nextToken();
                 if (token.value == TOKassign)
                 {
                     nextToken();
                     if (token.value != TOKidentifier)
-                    {   error("Identifier expected following %s=", alias->toChars());
+                    {
+                        error("identifier expected following %s=", alias->toChars());
                         break;
                     }
                     name = token.ident;
                     nextToken();
                 }
                 else
-                {   name = alias;
+                {
+                    name = alias;
                     alias = NULL;
                 }
                 s->addAlias(name, alias);
@@ -3197,19 +3181,18 @@ Type *Parser::parseBasicType2(Type *t)
                 // Handle delegate declaration:
                 //      t delegate(parameter list) nothrow pure
                 //      t function(parameter list) nothrow pure
-                Parameters *arguments;
-                int varargs;
                 TOK save = token.value;
-
                 nextToken();
-                arguments = parseParameters(&varargs);
+
+                int varargs;
+                Parameters *parameters = parseParameters(&varargs);
 
                 StorageClass stc = parsePostfix(STCundefined, NULL);
-                TypeFunction *tf = new TypeFunction(arguments, t, varargs, linkage, stc);
-                if (stc & (STCconst | STCimmutable | STCshared | STCwild))
+                TypeFunction *tf = new TypeFunction(parameters, t, varargs, linkage, stc);
+                if (stc & (STCconst | STCimmutable | STCshared | STCwild | STCreturn))
                 {
                     if (save == TOKfunction)
-                        error("const/immutable/shared/inout attributes are only valid for non-static member functions");
+                        error("const/immutable/shared/inout/return attributes are only valid for non-static member functions");
                     else
                         tf = (TypeFunction *)tf->addSTC(stc);
                 }
@@ -3369,13 +3352,13 @@ Type *Parser::parseDeclarator(Type *t, int *palt, Identifier **pident,
                 }
 
                 int varargs;
-                Parameters *arguments = parseParameters(&varargs);
+                Parameters *parameters = parseParameters(&varargs);
 
-                /* Parse const/immutable/shared/inout/nothrow/pure postfix
+                /* Parse const/immutable/shared/inout/nothrow/pure/return postfix
                  */
                 StorageClass stc = parsePostfix(storageClass, pudas);
                                         // merge prefix storage classes
-                Type *tf = new TypeFunction(arguments, t, varargs, linkage, stc);
+                Type *tf = new TypeFunction(parameters, t, varargs, linkage, stc);
                 tf = tf->addSTC(stc);
                 if (pdisable)
                     *pdisable = stc & STCdisable ? 1 : 0;
@@ -3632,7 +3615,7 @@ Dsymbols *Parser::parseDeclarations(bool autodecl, PrefixAttributes *pAttrs, con
                             addComment(s, comment);
                             if (token.value != TOKidentifier)
                             {
-                                error("Identifier expected following comma, not %s", token.toChars());
+                                error("identifier expected following comma, not %s", token.toChars());
                                 break;
                             }
                             if (peekNext() != TOKassign && peekNext() != TOKlparen)
@@ -3800,7 +3783,7 @@ L2:
                 if (init)
                 {
                     if (isThis)
-                        error("Cannot use syntax 'alias this = %s', use 'alias %s this' instead",
+                        error("cannot use syntax 'alias this = %s', use 'alias %s this' instead",
                            init->toChars(), init->toChars());
                     else
                         error("alias cannot have initializer");
@@ -3971,6 +3954,7 @@ L2:
 
 Dsymbols *Parser::parseAutoDeclarations(StorageClass storageClass, const utf8_t *comment)
 {
+    //printf("parseAutoDeclarations\n");
     Token *tk;
     Dsymbols *a = new Dsymbols;
 
@@ -4013,7 +3997,7 @@ Dsymbols *Parser::parseAutoDeclarations(StorageClass storageClass, const utf8_t 
                       skipParensIf(peek(&token), &tk) &&
                       tk->value == TOKassign))
                 {
-                    error("Identifier expected following comma");
+                    error("identifier expected following comma");
                     break;
                 }
                 addComment(s, comment);
@@ -4434,9 +4418,11 @@ void Parser::checkCstyleTypeSyntax(Loc loc, Type *t, int alt, Identifier *ident)
 /*****************************************
  * Input:
  *      flags   PSxxxx
+ * Output:
+ *      pEndloc if { ... statements ... }, store location of closing brace
  */
 
-Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
+Statement *Parser::parseStatement(int flags, const utf8_t** endPtr, Loc *pEndloc)
 {
     Statement *s;
     Condition *cond;
@@ -4695,6 +4681,8 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
             }
             if (endPtr) *endPtr = token.ptr;
             endloc = token.loc;
+            if (pEndloc)
+                *pEndloc = token.loc;
             s = new CompoundStatement(loc, statements);
             if (flags & (PSscope | PScurlyscope))
                 s = new ScopeStatement(loc, s);
@@ -4704,15 +4692,14 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
         }
 
         case TOKwhile:
-        {   Expression *condition;
-            Statement *body;
-
+        {
             nextToken();
             check(TOKlparen);
-            condition = parseExpression();
+            Expression *condition = parseExpression();
             check(TOKrparen);
-            body = parseStatement(PSscope);
-            s = new WhileStatement(loc, condition, body);
+            Loc endloc;
+            Statement *body = parseStatement(PSscope, NULL, &endloc);
+            s = new WhileStatement(loc, condition, body, endloc);
             break;
         }
 
@@ -4754,7 +4741,6 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
             Statement *init;
             Expression *condition;
             Expression *increment;
-            Statement *body;
 
             nextToken();
             check(TOKlparen);
@@ -4787,8 +4773,9 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
             {   increment = parseExpression();
                 check(TOKrparen);
             }
-            body = parseStatement(PSscope);
-            s = new ForStatement(loc, init, condition, increment, body);
+            Loc endloc;
+            Statement *body = parseStatement(PSscope, NULL, &endloc);
+            s = new ForStatement(loc, init, condition, increment, body, endloc);
             break;
         }
 
@@ -4800,7 +4787,7 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
             nextToken();
             check(TOKlparen);
 
-            Parameters *arguments = new Parameters();
+            Parameters *parameters = new Parameters();
 
             while (1)
             {
@@ -4866,8 +4853,8 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
                 if (!ai)
                     error("no identifier for declarator %s", at->toChars());
               Larg:
-                Parameter *a = new Parameter(storageClass, at, ai, NULL);
-                arguments->push(a);
+                Parameter *p = new Parameter(storageClass, at, ai, NULL);
+                parameters->push(p);
                 if (token.value == TOKcomma)
                 {   nextToken();
                     continue;
@@ -4877,28 +4864,30 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
             check(TOKsemicolon);
 
             Expression *aggr = parseExpression();
-            if (token.value == TOKslice && arguments->dim == 1)
+            if (token.value == TOKslice && parameters->dim == 1)
             {
-                Parameter *a = (*arguments)[0];
-                delete arguments;
+                Parameter *p = (*parameters)[0];
+                delete parameters;
                 nextToken();
                 Expression *upr = parseExpression();
                 check(TOKrparen);
-                Statement *body = parseStatement(0);
-                s = new ForeachRangeStatement(loc, op, a, aggr, upr, body);
+                Loc endloc;
+                Statement *body = parseStatement(0, NULL, &endloc);
+                s = new ForeachRangeStatement(loc, op, p, aggr, upr, body, endloc);
             }
             else
             {
                 check(TOKrparen);
-                Statement *body = parseStatement(0);
-                s = new ForeachStatement(loc, op, arguments, aggr, body);
+                Loc endloc;
+                Statement *body = parseStatement(0, NULL, &endloc);
+                s = new ForeachStatement(loc, op, parameters, aggr, body, endloc);
             }
             break;
         }
 
         case TOKif:
         {
-            Parameter *arg = NULL;
+            Parameter *param = NULL;
             Expression *condition;
 
             nextToken();
@@ -4957,27 +4946,27 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
                 peek(&token)->value == TOKassign)
             {
                 Identifier *ai = token.ident;
-                Type *at = NULL;        // infer argument type
+                Type *at = NULL;        // infer parameter type
                 nextToken();
                 check(TOKassign);
-                arg = new Parameter(storageClass, at, ai, NULL);
+                param = new Parameter(storageClass, at, ai, NULL);
             }
             else if (storageClass == 0 &&
                      token.value == TOKidentifier &&
                      peek(&token)->value == TOKsemicolon)
             {
                 // Check for " ident;"
-                arg = new Parameter(0, NULL, token.ident, NULL);
+                param = new Parameter(0, NULL, token.ident, NULL);
                 nextToken();
                 nextToken();
-                error("if (v; e) is deprecated, use if (auto v = e)");
+                error("use 'if (auto v = e)' instead of 'if (v; e)'");
             }
             else if (isDeclaration(&token, 2, TOKassign, NULL))
             {
                 Identifier *ai;
                 Type *at = parseType(&ai);
                 check(TOKassign);
-                arg = new Parameter(storageClass, at, ai, NULL);
+                param = new Parameter(storageClass, at, ai, NULL);
             }
 
             condition = parseExpression();
@@ -5000,7 +4989,7 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
             else
                 elsebody = NULL;
             if (condition && ifbody)
-                s = new IfStatement(loc, arg, condition, ifbody, elsebody);
+                s = new IfStatement(loc, param, condition, ifbody, elsebody);
             else
                 s = NULL;               // don't propagate parsing errors
             break;
@@ -5041,8 +5030,7 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
                 error("debug conditions can only be declared at module scope");
                 nextToken();
                 nextToken();
-                check(TOKsemicolon);
-                break;
+                goto Lerror;
             }
             cond = parseDebugCondition();
             goto Lcondition;
@@ -5054,8 +5042,7 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
                 error("version conditions can only be declared at module scope");
                 nextToken();
                 nextToken();
-                check(TOKsemicolon);
-                break;
+                goto Lerror;
             }
             cond = parseVersionCondition();
             goto Lcondition;
@@ -5269,11 +5256,13 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr)
             else
             {
                 if (token.value != TOKidentifier)
-                {   error("Identifier expected following goto");
+                {
+                    error("identifier expected following goto");
                     ident = NULL;
                 }
                 else
-                {   ident = token.ident;
+                {
+                    ident = token.ident;
                     nextToken();
                 }
                 s = new GotoStatement(loc, ident);
@@ -5558,7 +5547,7 @@ void Parser::checkParens(TOK value, Expression *e)
  *      if *pt is not NULL, it is set to the ending token, which would be endtok
  */
 
-int Parser::isDeclaration(Token *t, int needId, TOK endtok, Token **pt)
+bool Parser::isDeclaration(Token *t, int needId, TOK endtok, Token **pt)
 {
     //printf("isDeclaration(needId = %d)\n", needId);
     int haveId = 0;
@@ -5609,7 +5598,7 @@ Lisnot:
     return false;
 }
 
-int Parser::isBasicType(Token **pt)
+bool Parser::isBasicType(Token **pt)
 {
     // This code parallels parseBasicType()
     Token *t = *pt;
@@ -5750,7 +5739,7 @@ Lfalse:
     return false;
 }
 
-int Parser::isDeclarator(Token **pt, int *haveId, int *haveTpl, TOK endtok)
+bool Parser::isDeclarator(Token **pt, int *haveId, int *haveTpl, TOK endtok)
 {   // This code parallels parseDeclarator()
     Token *t = *pt;
     int parens;
@@ -5899,6 +5888,7 @@ int Parser::isDeclarator(Token **pt, int *haveId, int *haveTpl, TOK endtok)
                         case TOKwild:
                         case TOKpure:
                         case TOKnothrow:
+                        case TOKreturn:
                             t = peek(t);
                             continue;
                         case TOKat:
@@ -5939,7 +5929,7 @@ int Parser::isDeclarator(Token **pt, int *haveId, int *haveTpl, TOK endtok)
 }
 
 
-int Parser::isParameters(Token **pt)
+bool Parser::isParameters(Token **pt)
 {   // This code parallels parseParameters()
     Token *t = *pt;
 
@@ -6034,7 +6024,7 @@ int Parser::isParameters(Token **pt)
     return true;
 }
 
-int Parser::isExpression(Token **pt)
+bool Parser::isExpression(Token **pt)
 {
     // This is supposed to determine if something is an expression.
     // What it actually does is scan until a closing right bracket
@@ -6111,14 +6101,14 @@ int Parser::isExpression(Token **pt)
  * Output:
  *      *pt is set to closing token, which is ')' on success
  * Returns:
- *      !=0     successful
- *      0       some parsing error
+ *      true    successful
+ *      false   some parsing error
  */
 
-int Parser::skipParens(Token *t, Token **pt)
+bool Parser::skipParens(Token *t, Token **pt)
 {
     if (t->value != TOKlparen)
-        return 0;
+        return false;
 
     int parens = 0;
 
@@ -6150,19 +6140,19 @@ int Parser::skipParens(Token *t, Token **pt)
   Ldone:
     if (pt)
         *pt = peek(t);  // skip found rparen
-    return 1;
+    return true;
 
   Lfalse:
-    return 0;
+    return false;
 }
 
-int Parser::skipParensIf(Token *t, Token **pt)
+bool Parser::skipParensIf(Token *t, Token **pt)
 {
     if (t->value != TOKlparen)
     {
         if (pt)
             *pt = t;
-        return 1;
+        return true;
     }
     return skipParens(t, pt);
 }
@@ -6174,11 +6164,11 @@ int Parser::skipParensIf(Token *t, Token **pt)
  * Output:
  *      *pt is set to first non-attribute token on success
  * Returns:
- *      !=0     successful
- *      0       some parsing error
+ *      true    successful
+ *      false   some parsing error
  */
 
-int Parser::skipAttributes(Token *t, Token **pt)
+bool Parser::skipAttributes(Token *t, Token **pt)
 {
     while (1)
     {
@@ -6209,6 +6199,7 @@ int Parser::skipAttributes(Token *t, Token **pt)
             case TOKpure:
             case TOKref:
             case TOKgshared:
+            case TOKreturn:
             //case TOKmanifest:
                 break;
             case TOKat:
@@ -6281,10 +6272,10 @@ int Parser::skipAttributes(Token *t, Token **pt)
   Ldone:
     if (pt)
         *pt = t;
-    return 1;
+    return true;
 
   Lerror:
-    return 0;
+    return false;
 }
 
 /********************************* Expression Parser ***************************/
@@ -6472,7 +6463,7 @@ Expression *Parser::parsePrimaryExp()
                     size_t len1 = len;
                     size_t len2 = token.len;
                     len = len1 + len2;
-                    utf8_t *s2 = (utf8_t *)mem.malloc((len + 1) * sizeof(utf8_t));
+                    utf8_t *s2 = (utf8_t *)mem.xmalloc((len + 1) * sizeof(utf8_t));
                     memcpy(s2, s, len1 * sizeof(utf8_t));
                     memcpy(s2 + len1, token.ustring, (len2 + 1) * sizeof(utf8_t));
                     s = s2;
@@ -6805,7 +6796,7 @@ Expression *Parser::parsePrimaryExp()
                 {
                     // identifier => expression
                     parameters = new Parameters();
-                    id = Lexer::uniqueId("__T");
+                    id = Identifier::generateId("__T");
                     t = new TypeIdentifier(loc, id);
                     parameters->push(new Parameter(0, t, token.ident, NULL));
 
@@ -7086,7 +7077,7 @@ Expression *Parser::parseUnaryExp()
                 nextToken();
                 if (token.value != TOKidentifier)
                 {
-                    error("Identifier expected following (type).");
+                    error("identifier expected following (type).");
                     return NULL;
                 }
                 e = typeDotIdExp(loc, t, token.ident);

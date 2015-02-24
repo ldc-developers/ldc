@@ -162,3 +162,13 @@ int Target::checkVectorType(int sz, Type *type)
     return 0;
 }
 
+/******************************
+* For the given module, perform any post parsing analysis.
+* Certain compiler backends (ie: GDC) have special placeholder
+* modules whose source are empty, but code gets injected
+* immediately after loading.
+*/
+void Target::loadModule(Module *m)
+{
+}
+

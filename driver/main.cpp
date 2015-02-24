@@ -157,7 +157,7 @@ static void processVersions(std::vector<std::string>& list, const char* type,
                 setLevel((unsigned)level);
             }
         } else {
-            char* cstr = mem.strdup(value);
+            char* cstr = mem.xstrdup(value);
             if (Lexer::isValidIdentifier(cstr)) {
                 addIdent(cstr);
                 continue;
@@ -174,7 +174,7 @@ static void initFromString(const char*& dest, const cl::opt<std::string>& src) {
     if (src.getNumOccurrences() != 0) {
         if (src.empty())
             error(Loc(), "Expected argument to '-%s'", src.ArgStr);
-        dest = mem.strdup(src.c_str());
+        dest = mem.xstrdup(src.c_str());
     }
 }
 
@@ -393,7 +393,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
                 error(Loc(), "-run must be followed by a source file, not '%s'", name);
             }
 
-            sourceFiles.push(mem.strdup(name));
+            sourceFiles.push(mem.xstrdup(name));
             runargs.erase(runargs.begin());
         } else {
             global.params.run = false;
@@ -405,7 +405,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     typedef std::vector<std::string>::iterator It;
     for(It I = fileList.begin(), E = fileList.end(); I != E; ++I)
         if (!I->empty())
-            sourceFiles.push(mem.strdup(I->c_str()));
+            sourceFiles.push(mem.xstrdup(I->c_str()));
 
     if (noDefaultLib)
     {
@@ -424,7 +424,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
             std::getline(libNames, lib, ',');
             if (lib.empty()) continue;
 
-            char *arg = static_cast<char *>(mem.malloc(lib.size() + 3));
+            char *arg = static_cast<char *>(mem.xmalloc(lib.size() + 3));
             strcpy(arg, "-l");
             strcpy(arg+2, lib.c_str());
             global.params.linkswitches->push(arg);
@@ -462,7 +462,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
         } else {
             // append dot, so forceExt won't change existing name even if it contains dots
             size_t len = strlen(global.params.objname);
-            char* s = static_cast<char *>(mem.malloc(len + 1 + 1));
+            char* s = static_cast<char *>(mem.xmalloc(len + 1 + 1));
             memcpy(s, global.params.objname, len);
             s[len] = '.';
             s[len+1] = 0;
@@ -1171,7 +1171,7 @@ int main(int argc, char **argv)
             {
                 ext--;          // skip onto '.'
                 assert(*ext == '.');
-                char *tmp = static_cast<char *>(mem.malloc((ext - p) + 1));
+                char *tmp = static_cast<char *>(mem.xmalloc((ext - p) + 1));
                 memcpy(tmp, p, ext - p);
                 tmp[ext - p] = 0;      // strip extension
                 name = tmp;
@@ -1199,7 +1199,7 @@ int main(int argc, char **argv)
             name = p;
         }
 
-        id = Lexer::idPool(name);
+        id = Identifier::idPool(name);
         Module *m = new Module(static_cast<const char *>(files.data[i]), id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
     }

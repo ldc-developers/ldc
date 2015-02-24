@@ -51,82 +51,27 @@
 #include <cstdio>
 #include <ir/irtypeclass.h>
 
-/*******************************************
- * Get a canonicalized form of the TypeInfo for use with the internal
- * runtime library routines. Canonicalized in that static arrays are
- * represented as dynamic arrays, enums are represented by their
- * underlying type, etc. This reduces the number of TypeInfo's needed,
- * so we can use the custom internal ones more.
- */
-
-Expression *Type::getInternalTypeInfo(Scope *sc)
-{   TypeInfoDeclaration *tid;
-    Expression *e;
-    Type *t;
-    static TypeInfoDeclaration *internalTI[TMAX];
-
-    //printf("Type::getInternalTypeInfo() %s\n", toChars());
-    t = toBasetype();
-    switch (t->ty)
-    {
-    case Tsarray:
-#if 0
-        // convert to corresponding dynamic array type
-        t = t->nextOf()->mutableOf()->arrayOf();
-#endif
-        break;
-
-    case Tclass:
-        if (((TypeClass *)t)->sym->isInterfaceDeclaration())
-            break;
-        goto Linternal;
-
-    case Tarray:
-        // convert to corresponding dynamic array type
-        t = t->nextOf()->mutableOf()->arrayOf();
-        if (t->nextOf()->ty != Tclass)
-            break;
-        goto Linternal;
-
-    case Tfunction:
-    case Tdelegate:
-    case Tpointer:
-    Linternal:
-        tid = internalTI[t->ty];
-        if (!tid)
-        {   tid = new TypeInfoDeclaration(t, 1);
-            internalTI[t->ty] = tid;
-        }
-        e = VarExp::create(Loc(), tid);
-        e = e->addressOf();
-        e->type = tid->type;        // do this so we don't get redundant dereference
-        return e;
-
-    default:
-        break;
-    }
-    //printf("\tcalling getTypeInfo() %s\n", t->toChars());
-    return t->getTypeInfo(sc);
-}
-
+Expression *getTypeInfo(Type *t, Scope *sc);
+TypeInfoDeclaration *getTypeInfoDeclaration(Type *t);
+static bool builtinTypeInfo(Type *t);
 FuncDeclaration *search_toString(StructDeclaration *sd);
 
 /****************************************************
  * Get the exact TypeInfo.
  */
 
-void Type::genTypeInfo(Scope *sc)
+void genTypeInfo(Type *torig, Scope *sc)
 {
-    IF_LOG Logger::println("Type::getTypeInfo(): %s", toChars());
+    IF_LOG Logger::println("Type::getTypeInfo(): %s", torig->toChars());
     LOG_SCOPE
 
     if (!Type::dtypeinfo)
     {
-        error(Loc(), "TypeInfo not found. object.d may be incorrectly installed or corrupt, compile with -v switch");
+        torig->error(Loc(), "TypeInfo not found. object.d may be incorrectly installed or corrupt, compile with -v switch");
         fatal();
     }
 
-    Type *t = merge2(); // do this since not all Type's are merge'd
+    Type *t = torig->merge2(); // do this since not all Type's are merge'd
     if (!t->vtinfo)
     {
         if (t->isShared())      // does both 'shared' and 'shared const'
@@ -138,14 +83,14 @@ void Type::genTypeInfo(Scope *sc)
         else if (t->isWild())
             t->vtinfo = new TypeInfoWildDeclaration(t);
         else
-            t->vtinfo = t->getTypeInfoDeclaration();
+            t->vtinfo = getTypeInfoDeclaration(t);
         assert(t->vtinfo);
-        vtinfo = t->vtinfo;
+        torig->vtinfo = t->vtinfo;
 
         /* If this has a custom implementation in std/typeinfo, then
          * do not generate a COMDAT for it.
          */
-        if (!t->builtinTypeInfo())
+        if (!builtinTypeInfo(t))
         {   // Generate COMDAT
             if (sc)                     // if in semantic() pass
             {
@@ -161,121 +106,65 @@ void Type::genTypeInfo(Scope *sc)
             }
         }
     }
-    if (!vtinfo)
-        vtinfo = t->vtinfo;     // Types aren't merged, but we can share the vtinfo's
-    assert(vtinfo);
+    if (!torig->vtinfo)
+        torig->vtinfo = t->vtinfo;     // Types aren't merged, but we can share the vtinfo's
+    assert(torig->vtinfo);
 }
 
-Expression *Type::getTypeInfo(Scope *sc)
+Expression *getTypeInfo(Type *t, Scope *sc)
 {
-    assert(ty != Terror);
-    genTypeInfo(sc);
-    Expression *e = VarExp::create(Loc(), vtinfo);
+    assert(t->ty != Terror);
+    genTypeInfo(t, sc);
+    Expression *e = VarExp::create(Loc(), t->vtinfo);
     e = e->addressOf();
-    e->type = vtinfo->type;     // do this so we don't get redundant dereference
+    e->type = t->vtinfo->type;     // do this so we don't get redundant dereference
     return e;
 }
 
-TypeInfoDeclaration *Type::getTypeInfoDeclaration()
+TypeInfoDeclaration *getTypeInfoDeclaration(Type *t)
 {
-    //printf("Type::getTypeInfoDeclaration() %s\n", toChars());
-    return new TypeInfoDeclaration(this, 0);
-}
-
-TypeInfoDeclaration *TypePointer::getTypeInfoDeclaration()
-{
-    return new TypeInfoPointerDeclaration(this);
-}
-
-TypeInfoDeclaration *TypeDArray::getTypeInfoDeclaration()
-{
-    return new TypeInfoArrayDeclaration(this);
-}
-
-TypeInfoDeclaration *TypeSArray::getTypeInfoDeclaration()
-{
-    return new TypeInfoStaticArrayDeclaration(this);
-}
-
-TypeInfoDeclaration *TypeAArray::getTypeInfoDeclaration()
-{
-    return new TypeInfoAssociativeArrayDeclaration(this);
-}
-
-TypeInfoDeclaration *TypeStruct::getTypeInfoDeclaration()
-{
-    return new TypeInfoStructDeclaration(this);
-}
-
-TypeInfoDeclaration *TypeClass::getTypeInfoDeclaration()
-{
-    if (sym->isInterfaceDeclaration())
-        return new TypeInfoInterfaceDeclaration(this);
-    else
-        return new TypeInfoClassDeclaration(this);
-}
-
-TypeInfoDeclaration *TypeVector::getTypeInfoDeclaration()
-{
-    return new TypeInfoVectorDeclaration(this);
-}
-
-TypeInfoDeclaration *TypeEnum::getTypeInfoDeclaration()
-{
-    return new TypeInfoEnumDeclaration(this);
-}
-
-TypeInfoDeclaration *TypeFunction::getTypeInfoDeclaration()
-{
-    return new TypeInfoFunctionDeclaration(this);
-}
-
-TypeInfoDeclaration *TypeDelegate::getTypeInfoDeclaration()
-{
-    return new TypeInfoDelegateDeclaration(this);
-}
-
-TypeInfoDeclaration *TypeTuple::getTypeInfoDeclaration()
-{
-    return new TypeInfoTupleDeclaration(this);
+    //printf("Type::getTypeInfoDeclaration() %s\n", t->toChars());
+    switch (t->ty)
+    {
+        case Tpointer:  return TypeInfoPointerDeclaration::create(t);
+        case Tarray:    return TypeInfoArrayDeclaration::create(t);
+        case Tsarray:   return TypeInfoStaticArrayDeclaration::create(t);
+        case Taarray:   return TypeInfoAssociativeArrayDeclaration::create(t);
+        case Tstruct:   return TypeInfoStructDeclaration::create(t);
+        case Tvector:   return TypeInfoVectorDeclaration::create(t);
+        case Tenum:     return TypeInfoEnumDeclaration::create(t);
+        case Tfunction: return TypeInfoFunctionDeclaration::create(t);
+        case Tdelegate: return TypeInfoDelegateDeclaration::create(t);
+        case Ttuple:    return TypeInfoTupleDeclaration::create(t);
+        case Tclass:
+            if (((TypeClass *)t)->sym->isInterfaceDeclaration())
+                return TypeInfoInterfaceDeclaration::create(t);
+            else
+                return TypeInfoClassDeclaration::create(t);
+        default:
+            return TypeInfoDeclaration::create(t, 0);
+    }
 }
 
 /* ========================================================================= */
 
 /* These decide if there's an instance for them already in std.typeinfo,
- * because then the compiler doesn't need to build one.
- */
+* because then the compiler doesn't need to build one.
+*/
 
-int Type::builtinTypeInfo()
+static bool builtinTypeInfo(Type *t)
 {
-    return 0;
-}
-
-int TypeBasic::builtinTypeInfo()
-{
-    return mod ? 0 : 1;
-}
-
-int TypeDArray::builtinTypeInfo()
-{
-    return !mod && ((next->isTypeBasic() != NULL && !next->mod) ||
-        // strings are so common, make them builtin
-        (next->ty == Tchar && next->mod == MODimmutable) ||
-        (next->ty == Tchar && next->mod == MODconst));
-}
-
-int TypeClass::builtinTypeInfo()
-{
-    /* This is statically put out with the ClassInfo, so
-     * claim it is built in so it isn't regenerated by each module.
-     */
-#if IN_DMD
-    return mod ? 0 : 1;
-#elif IN_LLVM
-    // FIXME if I enable this, the way LDC does typeinfo will cause a bunch
-    // of linker errors to missing class typeinfo definitions.
-    return 0;
-#endif
+    if (t->isTypeBasic() || t->ty == Tclass)
+        return !t->mod;
+    if (t->ty == Tarray)
+    {
+        Type *next = t->nextOf();
+        return !t->mod && (next->isTypeBasic() != NULL && !next->mod ||
+            // strings are so common, make them builtin
+            next->ty == Tchar && next->mod == MODimmutable ||
+            next->ty == Tchar && next->mod == MODconst);
+    }
+    return false;
 }
 
 /* ========================================================================= */
@@ -782,7 +671,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p)
         irg->type = irg->value->getType()->getContainedType(0);
         assert(irg->type->isStructTy());
     } else {
-        if (decl->tinfo->builtinTypeInfo()) // this is a declaration of a builtin __initZ var
+        if (builtinTypeInfo(decl->tinfo)) // this is a declaration of a builtin __initZ var
             irg->type = Type::dtypeinfo->type->ctype->isClass()->getMemoryLLType();
         else
             irg->type = LLStructType::create(gIR->context(), decl->toPrettyChars());
@@ -793,7 +682,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p)
     emitTypeMetadata(decl);
 
     // this is a declaration of a builtin __initZ var
-    if (decl->tinfo->builtinTypeInfo()) {
+    if (builtinTypeInfo(decl->tinfo)) {
         LLGlobalVariable* g = isaGlobalVar(irg->value);
         g->setLinkage(llvm::GlobalValue::ExternalLinkage);
         return;

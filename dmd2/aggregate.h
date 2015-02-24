@@ -56,7 +56,6 @@ FuncDeclaration *buildOpEquals(StructDeclaration *sd, Scope *sc);
 FuncDeclaration *buildXopEquals(StructDeclaration *sd, Scope *sc);
 FuncDeclaration *buildXopCmp(StructDeclaration *sd, Scope *sc);
 FuncDeclaration *buildXtoHash(StructDeclaration *ad, Scope *sc);
-FuncDeclaration *buildCpCtor(StructDeclaration *sd, Scope *sc);
 FuncDeclaration *buildPostBlit(StructDeclaration *sd, Scope *sc);
 FuncDeclaration *buildDtor(AggregateDeclaration *ad, Scope *sc);
 FuncDeclaration *buildInv(AggregateDeclaration *ad, Scope *sc);
@@ -73,6 +72,7 @@ public:
     Sizeok sizeok;         // set when structsize contains valid data
     Dsymbol *deferred;          // any deferred semantic2() or semantic3() symbol
     bool isdeprecated;          // true if deprecated
+    bool mutedeprecation;       // true while analysing RTInfo to avoid deprecation message
 
     Dsymbol *enclosing;         /* !=NULL if is nested
                                  * pointing to the dsymbol that directly enclosing it.
@@ -112,6 +112,7 @@ public:
     int firstFieldInUnion(int indx); // first field in union that includes indx
     int numFieldsInUnion(int firstIndex); // #fields in union starting at index
     bool isDeprecated();         // is aggregate deprecated?
+    bool muteDeprecationMessage(); // disable deprecation message on Dsymbol?
     bool isNested();
     void makeNested();
     bool isExport();
@@ -125,7 +126,6 @@ public:
     // Back end
     Symbol *stag;               // tag symbol for debug data
     Symbol *sinit;
-    Symbol *toInitializer();
 #endif
 
     AggregateDeclaration *isAggregateDeclaration() { return this; }
@@ -147,7 +147,6 @@ public:
     int zeroInit;               // !=0 if initialize with 0 fill
     bool hasIdentityAssign;     // true if has identity opAssign
     bool hasIdentityEquals;     // true if has identity opEquals
-    FuncDeclaration *cpctor;    // generated copy-constructor, if any
     FuncDeclarations postblits; // Array of postblit functions
     FuncDeclaration *postblit;  // aggregate postblit
 
@@ -174,10 +173,6 @@ public:
     bool fit(Loc loc, Scope *sc, Expressions *elements, Type *stype);
     bool fill(Loc loc, Expressions *elements, bool ctorinit);
     bool isPOD();
-
-#if IN_DMD
-    void toObjFile(bool multiobj);                       // compile to .obj file
-#endif
 
     StructDeclaration *isStructDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
@@ -296,10 +291,6 @@ public:
 
 #if IN_DMD
     // Back end
-    void toObjFile(bool multiobj);                       // compile to .obj file
-    unsigned baseVtblOffset(BaseClass *bc);
-    Symbol *toVtblSymbol();
-
     Symbol *vtblsym;
 #endif
 
@@ -319,10 +310,6 @@ public:
     int vtblOffset();
     bool isCPPinterface();
     bool isCOMinterface();
-
-#if IN_DMD
-    void toObjFile(bool multiobj);                       // compile to .obj file
-#endif
 
     InterfaceDeclaration *isInterfaceDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }

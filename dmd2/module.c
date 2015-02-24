@@ -24,10 +24,7 @@
 #include "expression.h"
 #include "lexer.h"
 #include "attrib.h"
-
-#ifdef IN_GCC
-#include "d-dmd-gcc.h"
-#endif
+#include "target.h"
 
 AggregateDeclaration *Module::moduleinfo;
 
@@ -95,7 +92,6 @@ Module::Module(const char *filename, Identifier *ident, int doDocComment, int do
     macrotable = NULL;
     escapetable = NULL;
 #if IN_DMD
-    safe = false;
     doppelganger = 0;
     cov = NULL;
     covb = NULL;
@@ -192,7 +188,8 @@ File *Module::setOutfile(const char *name, const char *dir, const char *arg, con
     }
 
     if (FileName::equals(docfilename, srcfile->name->str))
-    {   error("Source file and output file have same name '%s'", srcfile->name->str);
+    {
+        error("source file and output file have same name '%s'", srcfile->name->str);
         fatal();
     }
 
@@ -252,6 +249,9 @@ Module *Module::load(Loc loc, Identifiers *packages, Identifier *ident)
     if (result)
         m->srcfile = new File(result);
 
+    if (!m->read(loc))
+        return NULL;
+
     if (global.params.verbose)
     {
         fprintf(global.stdmsg, "import    ");
@@ -266,14 +266,9 @@ Module *Module::load(Loc loc, Identifiers *packages, Identifier *ident)
         fprintf(global.stdmsg, "%s\t(%s)\n", ident->toChars(), m->srcfile->toChars());
     }
 
-    if (!m->read(loc))
-        return NULL;
-
     m->parse();
 
-#ifdef IN_GCC
-    d_gcc_magic_module(m);
-#endif
+    Target::loadModule(m);
 
     return m;
 }
@@ -308,7 +303,8 @@ bool Module::read(Loc loc)
         }
 
         if (!global.gag)
-        {   /* Print path
+        {
+            /* Print path
              */
             if (global.path)
             {
@@ -621,7 +617,6 @@ void Module::parse()
          * the name of this module.
          */
         this->ident = md->id;
-        this->safe = md->safe;
         Package *ppack = NULL;
         dst = Package::resolve(md->packages, &this->parent, &ppack);
         assert(dst);
@@ -1138,12 +1133,11 @@ bool Module::rootImports()
 
 /* =========================== ModuleDeclaration ===================== */
 
-ModuleDeclaration::ModuleDeclaration(Loc loc, Identifiers *packages, Identifier *id, bool safe)
+ModuleDeclaration::ModuleDeclaration(Loc loc, Identifiers *packages, Identifier *id)
 {
     this->loc = loc;
     this->packages = packages;
     this->id = id;
-    this->safe = safe;
     this->isdeprecated = false;
     this->msg = NULL;
 }

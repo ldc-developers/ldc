@@ -55,10 +55,6 @@ public:
     void addLocalClass(ClassDeclarations *);
     AttribDeclaration *isAttribDeclaration() { return this; }
 
-#if IN_DMD
-    void toObjFile(bool multiobj);                       // compile to .obj file
-#endif
-
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -153,11 +149,6 @@ public:
     void semantic(Scope *sc);
     void setScope(Scope *sc);
     const char *kind();
-    
-#if IN_DMD
-    void toObjFile(bool multiobj);                       // compile to .obj file
-#endif
-
     void accept(Visitor *v) { v->visit(this); }
 };
 

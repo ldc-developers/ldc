@@ -148,8 +148,6 @@ public:
      */
     bool dependent;
 
-    Declaration *sparam;
-
     TemplateParameter(Loc loc, Identifier *ident);
 
     virtual TemplateTypeParameter  *isTemplateTypeParameter();
@@ -159,20 +157,16 @@ public:
     virtual TemplateTupleParameter *isTemplateTupleParameter();
 
     virtual TemplateParameter *syntaxCopy() = 0;
-    virtual void declareParameter(Scope *sc) = 0;
-    virtual void semantic(Scope *sc, TemplateParameters *parameters) = 0;
+    virtual bool declareParameter(Scope *sc) = 0;
+    virtual bool semantic(Scope *sc, TemplateParameters *parameters) = 0;
     virtual void print(RootObject *oarg, RootObject *oded) = 0;
     virtual RootObject *specialization() = 0;
-    virtual RootObject *defaultArg(Loc loc, Scope *sc) = 0;
+    virtual RootObject *defaultArg(Loc instLoc, Scope *sc) = 0;
     virtual bool hasDefaultArg() = 0;
-
-    /* If TemplateParameter's match as far as overloading goes.
-     */
-    virtual int overloadMatch(TemplateParameter *) = 0;
 
     /* Match actual argument against parameter.
      */
-    virtual MATCH matchArg(Loc loc, Scope *sc, Objects *tiargs, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam);
+    virtual MATCH matchArg(Loc instLoc, Scope *sc, Objects *tiargs, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam);
     virtual MATCH matchArg(Scope *sc, RootObject *oarg, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam) = 0;
 
     /* Create dummy argument based on parameter.
@@ -196,13 +190,12 @@ public:
 
     TemplateTypeParameter *isTemplateTypeParameter();
     TemplateParameter *syntaxCopy();
-    void declareParameter(Scope *sc);
-    void semantic(Scope *sc, TemplateParameters *parameters);
+    bool declareParameter(Scope *sc);
+    bool semantic(Scope *sc, TemplateParameters *parameters);
     void print(RootObject *oarg, RootObject *oded);
     RootObject *specialization();
-    RootObject *defaultArg(Loc loc, Scope *sc);
+    RootObject *defaultArg(Loc instLoc, Scope *sc);
     bool hasDefaultArg();
-    int overloadMatch(TemplateParameter *);
     MATCH matchArg(Scope *sc, RootObject *oarg, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam);
     void *dummyArg();
     void accept(Visitor *v) { v->visit(this); }
@@ -237,13 +230,12 @@ public:
 
     TemplateValueParameter *isTemplateValueParameter();
     TemplateParameter *syntaxCopy();
-    void declareParameter(Scope *sc);
-    void semantic(Scope *sc, TemplateParameters *parameters);
+    bool declareParameter(Scope *sc);
+    bool semantic(Scope *sc, TemplateParameters *parameters);
     void print(RootObject *oarg, RootObject *oded);
     RootObject *specialization();
-    RootObject *defaultArg(Loc loc, Scope *sc);
+    RootObject *defaultArg(Loc instLoc, Scope *sc);
     bool hasDefaultArg();
-    int overloadMatch(TemplateParameter *);
     MATCH matchArg(Scope *sc, RootObject *oarg, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam);
     void *dummyArg();
     void accept(Visitor *v) { v->visit(this); }
@@ -265,13 +257,12 @@ public:
 
     TemplateAliasParameter *isTemplateAliasParameter();
     TemplateParameter *syntaxCopy();
-    void declareParameter(Scope *sc);
-    void semantic(Scope *sc, TemplateParameters *parameters);
+    bool declareParameter(Scope *sc);
+    bool semantic(Scope *sc, TemplateParameters *parameters);
     void print(RootObject *oarg, RootObject *oded);
     RootObject *specialization();
-    RootObject *defaultArg(Loc loc, Scope *sc);
+    RootObject *defaultArg(Loc instLoc, Scope *sc);
     bool hasDefaultArg();
-    int overloadMatch(TemplateParameter *);
     MATCH matchArg(Scope *sc, RootObject *oarg, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam);
     void *dummyArg();
     void accept(Visitor *v) { v->visit(this); }
@@ -287,13 +278,12 @@ public:
 
     TemplateTupleParameter *isTemplateTupleParameter();
     TemplateParameter *syntaxCopy();
-    void declareParameter(Scope *sc);
-    void semantic(Scope *sc, TemplateParameters *parameters);
+    bool declareParameter(Scope *sc);
+    bool semantic(Scope *sc, TemplateParameters *parameters);
     void print(RootObject *oarg, RootObject *oded);
     RootObject *specialization();
-    RootObject *defaultArg(Loc loc, Scope *sc);
+    RootObject *defaultArg(Loc instLoc, Scope *sc);
     bool hasDefaultArg();
-    int overloadMatch(TemplateParameter *);
     MATCH matchArg(Loc loc, Scope *sc, Objects *tiargs, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam);
     MATCH matchArg(Scope *sc, RootObject *oarg, size_t i, TemplateParameters *parameters, Objects *dedtypes, Declaration **psparam);
     void *dummyArg();
@@ -358,9 +348,6 @@ public:
     hash_t hashCode();
 
     bool needsCodegen();
-#if IN_DMD
-    void toObjFile(bool multiobj);                       // compile to .obj file
-#endif
 
     // Internal
     bool findTempDecl(Scope *sc, WithScopeSymbol **pwithsym);
@@ -397,10 +384,6 @@ public:
     void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
     char *toChars();
 
-#if IN_DMD
-    void toObjFile(bool multiobj);                       // compile to .obj file
-#endif
-
     bool findTempDecl(Scope *sc);
 
     TemplateMixin *isTemplateMixin() { return this; }
@@ -412,8 +395,8 @@ Dsymbol *isDsymbol(RootObject *o);
 Type *isType(RootObject *o);
 Tuple *isTuple(RootObject *o);
 Parameter *isParameter(RootObject *o);
-int arrayObjectIsError(Objects *args);
-int isError(RootObject *o);
+bool arrayObjectIsError(Objects *args);
+bool isError(RootObject *o);
 Type *getType(RootObject *o);
 Dsymbol *getDsymbol(RootObject *o);
 

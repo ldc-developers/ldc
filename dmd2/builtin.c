@@ -25,6 +25,7 @@
 #include "id.h"
 #include "module.h"
 #include "root/port.h"
+#include "tokens.h"
 #if IN_LLVM
 #include "template.h"
 #include "gen/pragma.h"

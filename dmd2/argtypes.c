@@ -307,7 +307,7 @@ TypeTuple *toArgTypes(Type *t)
         void visit(TypeStruct *t)
         {
             //printf("TypeStruct::toArgTypes() %s\n", t->toChars());
-            if (!t->sym->isPOD())
+            if (!t->sym->isPOD() || t->sym->fields.dim == 0)
             {
             Lmemory:
                 //printf("\ttoArgTypes() %s => [ ]\n", t->toChars());
@@ -429,7 +429,8 @@ TypeTuple *toArgTypes(Type *t)
                 {
                     if (t1->isfloating() && t2->isfloating())
                     {
-                        if (t1->ty == Tfloat64 && t2->ty == Tfloat64)
+                        if ((t1->ty == Tfloat32 || t1->ty == Tfloat64) &&
+                            (t2->ty == Tfloat32 || t2->ty == Tfloat64))
                             ;
                         else
                             goto Lmemory;

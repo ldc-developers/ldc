@@ -33,7 +33,7 @@ static uint32_t calcHash(const char *key, size_t len)
 
     // Initialize the hash to a 'random' value
 
-    uint32_t h = len;
+    uint32_t h = (uint32_t)len;
 
     // Mix 4 bytes at a time into the hash
 
@@ -41,11 +41,7 @@ static uint32_t calcHash(const char *key, size_t len)
 
     while(len >= 4)
     {
-#if defined _M_I86 || defined _M_AMD64 || defined __i386 || defined __x86_64
-        uint32_t k = *(uint32_t *)data; // possibly unaligned load
-#else
         uint32_t k = data[3] << 24 | data[2] << 16 | data[1] << 8 | data[0];
-#endif
 
         k *= m;
         k ^= k >> r;
@@ -80,7 +76,8 @@ static uint32_t calcHash(const char *key, size_t len)
 
 struct StringEntry
 {
-    uint32_t hash, vptr;
+    uint32_t hash;
+    uint32_t vptr;
 };
 
 uint32_t StringTable::allocValue(const char *s, size_t length)
@@ -89,18 +86,18 @@ uint32_t StringTable::allocValue(const char *s, size_t length)
 
     if (!npools || nfill + nbytes > POOL_SIZE)
     {
-        pools = (uint8_t **)mem.realloc(pools, ++npools * sizeof(pools[0]));
-        pools[npools - 1] = (uint8_t *)mem.malloc(nbytes > POOL_SIZE ? nbytes : POOL_SIZE);
+        pools = (uint8_t **)mem.xrealloc(pools, ++npools * sizeof(pools[0]));
+        pools[npools - 1] = (uint8_t *)mem.xmalloc(nbytes > POOL_SIZE ? nbytes : POOL_SIZE);
         nfill = 0;
     }
 
     StringValue *sv = (StringValue *)&pools[npools - 1][nfill];
     sv->ptrvalue = NULL;
     sv->length = length;
-    ::memcpy(sv->lstring, s, length);
-    sv->lstring[length] = 0;
+    ::memcpy(sv->lstring(), s, length);
+    sv->lstring()[length] = 0;
 
-    const uint32_t vptr = npools << POOL_BITS | nfill;
+    const uint32_t vptr = (uint32_t)(npools << POOL_BITS | nfill);
     nfill += nbytes + (-nbytes & 7); // align to 8 bytes
     return vptr;
 }
@@ -128,20 +125,32 @@ void StringTable::_init(size_t size)
 {
     size = nextpow2((size_t)(size / loadFactor));
     if (size < 32) size = 32;
-    table = (StringEntry *)mem.calloc(size, sizeof(table[0]));
+    table = (StringEntry *)mem.xcalloc(size, sizeof(table[0]));
     tabledim = size;
     pools = NULL;
     npools = nfill = 0;
     count = 0;
 }
 
+void StringTable::reset(size_t size)
+{
+    for (size_t i = 0; i < npools; ++i)
+        mem.xfree(pools[i]);
+
+    mem.xfree(table);
+    mem.xfree(pools);
+    table = NULL;
+    pools = NULL;
+    _init(size);
+}
+
 StringTable::~StringTable()
 {
     for (size_t i = 0; i < npools; ++i)
-        mem.free(pools[i]);
+        mem.xfree(pools[i]);
 
-    mem.free(table);
-    mem.free(pools);
+    mem.xfree(table);
+    mem.xfree(pools);
     table = NULL;
     pools = NULL;
 }
@@ -156,7 +165,7 @@ size_t StringTable::findSlot(hash_t hash, const char *s, size_t length)
         if (!table[i].vptr ||
             table[i].hash == hash &&
             (sv = getValue(table[i].vptr))->length == length &&
-            ::memcmp(s, sv->lstring, length) == 0)
+            ::memcmp(s, sv->lstring(), length) == 0)
             return i;
         i = (i + j) & (tabledim - 1);
     }
@@ -210,14 +219,14 @@ void StringTable::grow()
     const size_t odim = tabledim;
     StringEntry *otab = table;
     tabledim *= 2;
-    table = (StringEntry *)mem.calloc(tabledim, sizeof(table[0]));
+    table = (StringEntry *)mem.xcalloc(tabledim, sizeof(table[0]));
 
     for (size_t i = 0; i < odim; ++i)
     {
-        StringEntry &se = otab[i];
-        if (!se.vptr) continue;
-        StringValue *sv = getValue(se.vptr);
-        table[findSlot(se.hash, sv->lstring, sv->length)] = se;
+        StringEntry *se = &otab[i];
+        if (!se->vptr) continue;
+        StringValue *sv = getValue(se->vptr);
+        table[findSlot(se->hash, sv->lstring(), sv->length)] = *se;
     }
-    mem.free(otab);
+    mem.xfree(otab);
 }

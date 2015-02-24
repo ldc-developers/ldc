@@ -65,6 +65,7 @@ enum ParseStatementFlags
 class Parser : public Lexer
 {
 public:
+    Module *mod;
     ModuleDeclaration *md;
     LINK linkage;
     Loc endloc;                 // set to location of last right curly
@@ -123,21 +124,21 @@ public:
     void checkDanglingElse(Loc elseloc);
     void checkCstyleTypeSyntax(Loc loc, Type *t, int alt, Identifier *ident);
     /** endPtr used for documented unittests */
-    Statement *parseStatement(int flags, const utf8_t** endPtr = NULL);
+    Statement *parseStatement(int flags, const utf8_t** endPtr = NULL, Loc *pEndloc = NULL);
     Initializer *parseInitializer();
     Expression *parseDefaultInitExp();
     void check(Loc loc, TOK value);
     void check(TOK value);
     void check(TOK value, const char *string);
     void checkParens(TOK value, Expression *e);
-    int isDeclaration(Token *t, int needId, TOK endtok, Token **pt);
-    int isBasicType(Token **pt);
-    int isDeclarator(Token **pt, int *haveId, int *haveTpl, TOK endtok);
-    int isParameters(Token **pt);
-    int isExpression(Token **pt);
-    int skipParens(Token *t, Token **pt);
-    int skipParensIf(Token *t, Token **pt);
-    int skipAttributes(Token *t, Token **pt);
+    bool isDeclaration(Token *t, int needId, TOK endtok, Token **pt);
+    bool isBasicType(Token **pt);
+    bool isDeclarator(Token **pt, int *haveId, int *haveTpl, TOK endtok);
+    bool isParameters(Token **pt);
+    bool isExpression(Token **pt);
+    bool skipParens(Token *t, Token **pt);
+    bool skipParensIf(Token *t, Token **pt);
+    bool skipAttributes(Token *t, Token **pt);
 
     Expression *parseExpression();
     Expression *parsePrimaryExp();

@@ -53,7 +53,8 @@ void getenv_setargv(const char *envvar, size_t *pargc, const char** *pargv);
 
 void printCtfePerformanceStats();
 
-static const char* parse_arch(size_t argc, const char** argv, const char* arch);
+static const char* parse_arch_arg(size_t argc, const char** argv, const char* arch);
+static const char* parse_conf_arg(size_t argc, const char** argv);
 
 void inlineScan(Module *m);
 
@@ -63,7 +64,11 @@ void initTraitsStringTable();
 int runLINK();
 void deleteExeFile();
 int runProgram();
-const char *inifile(const char *argv0, const char *inifile, const char* envsectionname);
+const char *findConfFile(const char *argv0, const char *inifile);
+void parseConfFile(const char *filename, const char* envsectionname);
+
+void genObjFile(Module *m, bool multiobj);
+void genhelpers(Module *m, bool iscomdat);
 
 /** Normalize path by turning forward slashes into backslashes */
 const char * toWinPath(const char *src)
@@ -80,130 +85,6 @@ const char * toWinPath(const char *src)
         p++;
     }
     return result;
-}
-
-Global global;
-
-void Global::init()
-{
-    inifilename = NULL;
-    mars_ext = "d";
-    hdr_ext  = "di";
-    doc_ext  = "html";
-    ddoc_ext = "ddoc";
-    json_ext = "json";
-    map_ext  = "map";
-
-#if IN_LLVM
-    ll_ext  = "ll";
-    bc_ext  = "bc";
-    s_ext   = "s";
-    obj_ext = "o";
-    obj_ext_alt = "obj";
-#else
-#if TARGET_WINDOS
-    obj_ext  = "obj";
-#elif TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
-    obj_ext  = "o";
-#else
-#error "fix this"
-#endif
-
-#if TARGET_WINDOS
-    lib_ext  = "lib";
-#elif TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
-    lib_ext  = "a";
-#else
-#error "fix this"
-#endif
-
-#if TARGET_WINDOS
-    run_noext = false;
-#elif TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
-    // Allow 'script' D source files to have no extension.
-    run_noext = true;
-#else
-#error "fix this"
-#endif
-#endif
-
-    copyright = "Copyright (c) 1999-2014 by Digital Mars";
-    written = "written by Walter Bright";
-#if IN_LLVM
-    compiler.vendor = "LDC";
-#else
-    version = "v"
-#include "verstr.h"
-    ;
-    compiler.vendor = "Digital Mars D";
-#endif
-    stdmsg = stdout;
-
-    main_d = "__main.d";
-
-    // This should only be used as a global, so the other fields are
-    // automatically initialized to zero when the program is loaded.
-    // In particular, DO NOT zero-initialize .params here (like DMD
-    // does) because command-line options initialize some of those
-    // fields to non-zero defaults, and do so from constructors that
-    // may run before this one.
-}
-
-unsigned Global::startGagging()
-{
-    ++gag;
-    return gaggedErrors;
-}
-
-bool Global::endGagging(unsigned oldGagged)
-{
-    bool anyErrs = (gaggedErrors != oldGagged);
-    --gag;
-    // Restore the original state of gagged errors; set total errors
-    // to be original errors + new ungagged errors.
-    errors -= (gaggedErrors - oldGagged);
-    gaggedErrors = oldGagged;
-    return anyErrs;
-}
-
-void Global::increaseErrorCount()
-{
-    if (gag)
-        ++gaggedErrors;
-    ++errors;
-}
-
-
-char *Loc::toChars()
-{
-    OutBuffer buf;
-
-    if (filename)
-    {
-        buf.printf("%s", filename);
-    }
-
-    if (linnum)
-    {
-        buf.printf("(%d", linnum);
-        if (global.params.showColumns && charnum)
-            buf.printf(",%d", charnum);
-        buf.writeByte(')');
-    }
-    return buf.extractString();
-}
-
-Loc::Loc(Module *mod, unsigned linnum, unsigned charnum)
-{
-    this->linnum = linnum;
-    this->charnum = charnum;
-    this->filename = mod ? mod->srcfile->toChars() : NULL;
-}
-
-bool Loc::equals(const Loc& loc)
-{
-    return (!global.params.showColumns || charnum == loc.charnum) &&
-        linnum == loc.linnum && FileName::equals(filename, loc.filename);
 }
 
 void readFile(Loc loc, File *f)
@@ -274,6 +155,7 @@ Usage:\n\
   -allinst       generate code for all template instantiations\n\
   -c             do not link\n\
   -color[=on|off]   force colored console output on or off\n\
+  -conf=path     use config file at path\n\
   -cov           do code coverage analysis\n\
   -cov=nnn       require at least nnn%% code coverage\n\
   -D             generate documentation\n\
@@ -289,6 +171,7 @@ Usage:\n\
   -defaultlib=name  set default library to name\n\
   -deps          print module dependencies (imports/file/version/debug/lib)\n\
   -deps=filename write module dependencies to filename (only imports)\n%s\
+  -dip25         implement http://wiki.dlang.org/DIP25 (experimental)\n\
   -g             add symbolic debug info\n\
   -gc            add symbolic debug info, optimize for non D debuggers\n\
   -gs            always emit stack frame\n\
@@ -330,6 +213,7 @@ Usage:\n\
   -version=ident compile in version code identified by ident\n\
   -vtls          list all variables going into thread local storage\n\
   -vgc           list all gc allocations including hidden ones\n\
+  -verrors=num   limit the number of error messages (0 means unlimited)\n\
   -w             warnings as errors (compilation will halt)\n\
   -wi            warnings as messages (compilation will continue)\n\
   -X             generate JSON file\n\
@@ -502,26 +386,37 @@ int tryMain(size_t argc, const char *argv[])
     VersionCondition::addPredefinedGlobalIdent("D_Version2");
     VersionCondition::addPredefinedGlobalIdent("all");
 
+    global.inifilename = parse_conf_arg(argc, argv);
+    if (global.inifilename)
+    {
+        // can be empty as in -conf=
+        if (strlen(global.inifilename) && !FileName::exists(global.inifilename))
+            error(Loc(), "Config file '%s' does not exist.", global.inifilename);
+    }
+    else
+    {
 #if _WIN32
-    global.inifilename = inifile(argv[0], "sc.ini", "Environment");
+        global.inifilename = findConfFile(argv[0], "sc.ini");
 #elif __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
-    global.inifilename = inifile(argv[0], "dmd.conf", "Environment");
+        global.inifilename = findConfFile(argv[0], "dmd.conf");
 #else
 #error "fix this"
 #endif
+    }
+    parseConfFile(global.inifilename, "Environment");
 
     size_t dflags_argc = 0;
     const char** dflags_argv = NULL;
     getenv_setargv("DFLAGS", &dflags_argc, &dflags_argv);
 
     const char *arch = global.params.is64bit ? "64" : "32"; // use default
-    arch = parse_arch(argc, argv, arch);
-    arch = parse_arch(dflags_argc, dflags_argv, arch);
+    arch = parse_arch_arg(argc, argv, arch);
+    arch = parse_arch_arg(dflags_argc, dflags_argv, arch);
     bool is64bit = arch[0] == '6';
 
     char envsection[80];
     sprintf(envsection, "Environment%s", arch);
-    inifile(argv[0], global.inifilename, envsection);
+    parseConfFile(global.inifilename, envsection);
 
     getenv_setargv("DFLAGS", &argc, &argv);
 
@@ -562,6 +457,10 @@ int tryMain(size_t argc, const char *argv[])
                 }
                 else if (p[6])
                     goto Lerror;
+            }
+            else if (memcmp(p + 1, "conf=", 5) == 0)
+            {
+                // ignore, already handled above
             }
             else if (memcmp(p + 1, "cov", 3) == 0)
             {
@@ -650,6 +549,21 @@ int tryMain(size_t argc, const char *argv[])
                 global.params.showColumns = true;
             else if (strcmp(p + 1, "vgc") == 0)
                 global.params.vgc = true;
+            else if (memcmp(p + 1, "verrors", 7) == 0)
+            {
+                if (p[8] == '=' && isdigit((utf8_t)p[9]))
+                {
+                    long num;
+                    errno = 0;
+                    num = strtol(p + 9, (char **)&p, 10);
+                    if (*p || errno || num > INT_MAX)
+                        goto Lerror;
+                    // Bugzilla issue number
+                    global.errorLimit = (unsigned) num;
+                }
+                else
+                    goto Lerror;
+            }
             else if (memcmp(p + 1, "transition", 10) == 0)
             {
                 // Parse:
@@ -815,6 +729,8 @@ Language changes listed by -transition=id:\n\
                 global.params.enforcePropertySyntax = true;
             else if (strcmp(p + 1, "inline") == 0)
                 global.params.useInline = true;
+            else if (strcmp(p + 1, "dip25") == 0)
+                global.params.useDIP25 = true;
             else if (strcmp(p + 1, "lib") == 0)
                 global.params.lib = true;
             else if (strcmp(p + 1, "nofloat") == 0)
@@ -1158,7 +1074,7 @@ Language changes listed by -transition=id:\n\
     }
     else
     {
-        VersionCondition::addPredefinedGlobalIdent("D_InlineAsm");
+        VersionCondition::addPredefinedGlobalIdent("D_InlineAsm"); //legacy
         VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86");
         VersionCondition::addPredefinedGlobalIdent("X86");
 #if TARGET_OSX
@@ -1179,8 +1095,8 @@ Language changes listed by -transition=id:\n\
         VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
     else
         VersionCondition::addPredefinedGlobalIdent("CRuntime_DigitalMars");
-#else
-    VersionCondition::addPredefinedGlobalIdent("CRuntime_GNU");
+#elif TARGET_LINUX
+    VersionCondition::addPredefinedGlobalIdent("CRuntime_Glibc");
 #endif
     if (global.params.isLP64)
         VersionCondition::addPredefinedGlobalIdent("D_LP64");
@@ -1200,6 +1116,7 @@ Language changes listed by -transition=id:\n\
     VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
 
     // Initialization
+    Lexer::initLexer();
     Type::init();
     Id::initialize();
     Module::init();
@@ -1347,7 +1264,7 @@ Language changes listed by -transition=id:\n\
             {
                 ext--;                  // skip onto '.'
                 assert(*ext == '.');
-                newname = (char *)mem.malloc((ext - p) + 1);
+                newname = (char *)mem.xmalloc((ext - p) + 1);
                 memcpy(newname, p, ext - p);
                 newname[ext - p] = 0;              // strip extension
                 name = newname;
@@ -1376,7 +1293,7 @@ Language changes listed by -transition=id:\n\
          * its path and extension.
          */
 
-        Identifier *id = Lexer::idPool(name);
+        Identifier *id = Identifier::idPool(name);
         Module *m = new Module(files[i], id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
 
@@ -1554,40 +1471,9 @@ Language changes listed by -transition=id:\n\
             fprintf(global.stdmsg, "semantic3 %s\n", m->toChars());
         m->semantic3();
     }
-    if (global.errors)
-        fatal();
-    if (global.params.useInline)
-    {
-        /* Do pass 3 semantic analysis on all imported modules,
-         * since otherwise functions in them cannot be inlined
-         * We must do this BEFORE generating the .deps file!
-         */
-        for (size_t i = 0; i < Module::amodules.dim; i++)
-        {
-            Module *m = Module::amodules[i];
-            if (global.params.verbose)
-                fprintf(global.stdmsg, "semantic3 %s\n", m->toChars());
-            m->semantic3();
-        }
-        if (global.errors)
-            fatal();
-    }
     Module::runDeferredSemantic3();
     if (global.errors)
         fatal();
-
-    if (global.params.moduleDeps)
-    {
-        OutBuffer* ob = global.params.moduleDeps;
-        if (global.params.moduleDepsFile)
-        {
-            File deps(global.params.moduleDepsFile);
-            deps.setbuffer((void*)ob->data, ob->offset);
-            writeFile(Loc(), &deps);
-        }
-        else
-            printf("%.*s", (int)ob->offset, ob->data);
-    }
 
     // Scan for functions to inline
     if (global.params.useInline)
@@ -1604,6 +1490,21 @@ Language changes listed by -transition=id:\n\
     // Do not attempt to generate output files if errors or warnings occurred
     if (global.errors || global.warnings)
         fatal();
+
+    // inlineScan incrementally run semantic3 of each expanded functions.
+    // So deps file generation should be moved after the inlinig stage.
+    if (global.params.moduleDeps)
+    {
+        OutBuffer* ob = global.params.moduleDeps;
+        if (global.params.moduleDepsFile)
+        {
+            File deps(global.params.moduleDepsFile);
+            deps.setbuffer((void*)ob->data, ob->offset);
+            writeFile(Loc(), &deps);
+        }
+        else
+            printf("%.*s", (int)ob->offset, ob->data);
+    }
 
     printCtfePerformanceStats();
 
@@ -1690,15 +1591,15 @@ Language changes listed by -transition=id:\n\
             Module *m = modules[i];
             if (global.params.verbose)
                 fprintf(global.stdmsg, "code      %s\n", m->toChars());
-            m->genobjfile(0);
+            genObjFile(m, false);
             if (entrypoint && m == rootHasMain)
-                entrypoint->genobjfile(0);
+                genObjFile(entrypoint, false);
         }
         for (size_t i = 0; i < Module::amodules.dim; i++)
         {
             Module *m = Module::amodules[i];
             if (!m->isRoot() && (m->marray || m->massert || m->munittest))
-                m->genhelpers(true);
+                genhelpers(m, true);
         }
         if (!global.errors && modules.dim)
         {
@@ -1714,14 +1615,14 @@ Language changes listed by -transition=id:\n\
                 fprintf(global.stdmsg, "code      %s\n", m->toChars());
 
             obj_start(m->srcfile->toChars());
-            m->genobjfile(global.params.multiobj);
+            genObjFile(m, global.params.multiobj);
             if (entrypoint && m == rootHasMain)
-                entrypoint->genobjfile(global.params.multiobj);
+                genObjFile(entrypoint, global.params.multiobj);
             for (size_t j = 0; j < Module::amodules.dim; j++)
             {
                 Module *mx = Module::amodules[j];
                 if (mx != m && mx->importedFrom == m && (mx->marray || mx->massert || mx->munittest))
-                    mx->genhelpers(true);
+                    genhelpers(mx, true);
             }
             obj_end(library, m->objfile);
             obj_write_deferred(library);
@@ -1798,7 +1699,7 @@ void getenv_setargv(const char *envvar, size_t *pargc, const char** *pargv)
     if (!env)
         return;
 
-    env = mem.strdup(env);      // create our own writable copy
+    env = mem.xstrdup(env);      // create our own writable copy
 
     size_t argc = *pargc;
     Strings *argv = new Strings();
@@ -1909,10 +1810,11 @@ void escapePath(OutBuffer *buf, const char *fname)
  * to detect the desired architecture.
  */
 
-static const char* parse_arch(size_t argc, const char** argv, const char* arch)
+static const char* parse_arch_arg(size_t argc, const char** argv, const char* arch)
 {
     for (size_t i = 0; i < argc; ++i)
-    {   const char* p = argv[i];
+    {
+        const char* p = argv[i];
         if (p[0] == '-')
         {
             if (strcmp(p + 1, "m32") == 0 || strcmp(p + 1, "m32mscoff") == 0 || strcmp(p + 1, "m64") == 0)
@@ -1922,6 +1824,27 @@ static const char* parse_arch(size_t argc, const char** argv, const char* arch)
         }
     }
     return arch;
+}
+
+/***********************************
+ * Parse command line arguments for -conf=path.
+ */
+
+static const char* parse_conf_arg(size_t argc, const char** argv)
+{
+    const char *conf=NULL;
+    for (size_t i = 0; i < argc; ++i)
+    {
+        const char* p = argv[i];
+        if (p[0] == '-')
+        {
+            if (strncmp(p + 1, "conf=", 5) == 0)
+                conf = p + 6;
+            else if (strcmp(p + 1, "run") == 0)
+                break;
+        }
+    }
+    return conf;
 }
 
 Dsymbols *Dsymbols_create() { return new Dsymbols(); }

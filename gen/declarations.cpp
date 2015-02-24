@@ -444,7 +444,7 @@ public:
     #endif
             {
                 size_t const n = nameLen + 3;
-                char *arg = static_cast<char *>(mem.malloc(n));
+                char *arg = static_cast<char *>(mem.xmalloc(n));
                 arg[0] = '-';
                 arg[1] = 'l';
                 memcpy(arg + 2, se->string, nameLen);

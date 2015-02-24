@@ -239,6 +239,7 @@ public:
     virtual bool isExport();                    // is Dsymbol exported?
     virtual bool isImportedSymbol();            // is Dsymbol imported?
     virtual bool isDeprecated();                // is Dsymbol deprecated?
+    virtual bool muteDeprecationMessage();      // disable deprecation message on Dsymbol?
     virtual bool isOverloadable();
     virtual bool hasOverloads();
     virtual LabelDsymbol *isLabel();            // is this a LabelDsymbol?
@@ -258,16 +259,6 @@ public:
     virtual void addComment(const utf8_t *comment);
 
     bool inNonRoot();
-
-#if IN_DMD
-    // Backend
-    virtual void toObjFile(bool multiobj);                       // compile to .obj file
-
-    Symbol *toImport();                         // to backend import symbol
-    static Symbol *toImport(Symbol *s);         // to backend import symbol
-
-    Symbol *toSymbolX(const char *prefix, int sclass, TYPE *t, const char *suffix);     // helper
-#endif
 
     // Eliminate need for dynamic_cast
     virtual Package *isPackage() { return NULL; }

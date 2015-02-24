@@ -77,7 +77,7 @@ void StringsAdapter::push_back(const char* cstr) {
 
     if (!*arrp)
         *arrp = new Strings;
-    (*arrp)->push(mem.strdup(cstr));
+    (*arrp)->push(mem.xstrdup(cstr));
 }
 
 } // namespace opts

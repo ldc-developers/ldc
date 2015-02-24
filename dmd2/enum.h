@@ -18,6 +18,7 @@
 
 #include "root.h"
 #include "dsymbol.h"
+#include "tokens.h"
 
 class Identifier;
 class Type;
@@ -39,12 +40,10 @@ public:
     Type *memtype;              // type of the members
     Prot protection;
 
-private:
     Expression *maxval;
     Expression *minval;
     Expression *defaultval;     // default initializer
 
-public:
     bool isdeprecated;
     bool added;
     int inuse;
@@ -67,10 +66,7 @@ public:
     EnumDeclaration *isEnumDeclaration() { return this; }
 
 #if IN_DMD
-    void toObjFile(bool multiobj);                       // compile to .obj file
-
     Symbol *sinit;
-    Symbol *toInitializer();
 #endif
 
     void accept(Visitor *v) { v->visit(this); }

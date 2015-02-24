@@ -1913,15 +1913,15 @@ namespace AsmParserx8664
                         *p = std::tolower ( *p );
                     regInfo[i].gccName = std::string ( buf, p - buf );
                     if ( ( i <= Reg_ST || i > Reg_ST7 ) && i != Reg_EFLAGS )
-                        regInfo[i].ident = Lexer::idPool ( regInfo[i].name );
+                        regInfo[i].ident = Identifier::idPool ( regInfo[i].name );
                 }
 
                 for ( int i = 0; i < N_PtrNames; i++ )
-                    ptrTypeIdentTable[i] = Lexer::idPool ( ptrTypeNameTable[i] );
+                  ptrTypeIdentTable[i] = Identifier::idPool(ptrTypeNameTable[i]);
 
                 Handled = new Expression ( Loc(), TOKvoid, sizeof ( Expression ) );
 
-                ident_seg = Lexer::idPool ( "seg" );
+                ident_seg = Identifier::idPool("seg");
 
                 eof_tok.value = TOKeof;
                 eof_tok.next = 0;

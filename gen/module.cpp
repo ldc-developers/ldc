@@ -555,6 +555,8 @@ static void build_llvm_used_array(IRState* p)
     llvmUsed->setSection("llvm.metadata");
 }
 
+static void genModuleInfo(Module *m);
+
 static void codegenModule(Module* m)
 {
     // debug info
@@ -573,7 +575,7 @@ static void codegenModule(Module* m)
     if (!m->noModuleInfo)
     {
         // generate ModuleInfo
-        m->genmoduleinfo();
+        genModuleInfo(m);
 
         build_llvm_used_array(gIR);
 
@@ -702,45 +704,45 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
 }
 
 // Put out instance of ModuleInfo for this Module
-void Module::genmoduleinfo()
+static void genModuleInfo(Module *m)
 {
     // resolve ModuleInfo
-    if (!moduleinfo)
+    if (!Module::moduleinfo)
     {
-        error("object.d is missing the ModuleInfo struct");
+        m->error("object.d is missing the ModuleInfo struct");
         fatal();
     }
     // check for patch
     else
     {
         // The base struct should consist only of _flags/_index.
-        if (moduleinfo->structsize != 4 + 4)
+        if (Module::moduleinfo->structsize != 4 + 4)
         {
-            error("object.d ModuleInfo class is incorrect");
+            m->error("object.d ModuleInfo class is incorrect");
             fatal();
         }
     }
 
     // use the RTTIBuilder
-    RTTIBuilder b(moduleinfo);
+    RTTIBuilder b(Module::moduleinfo);
 
     // some types
-    LLType* moduleinfoTy = moduleinfo->type->ctype->getLLType();
+    LLType* moduleinfoTy = Module::moduleinfo->type->ctype->getLLType();
     LLType* classinfoTy = Type::typeinfoclass->type->ctype->getLLType();
 
     // importedModules[]
     std::vector<LLConstant*> importInits;
     LLConstant* importedModules = 0;
     llvm::ArrayType* importedModulesTy = 0;
-    for (size_t i = 0; i < aimports.dim; i++)
+    for (size_t i = 0; i < m->aimports.dim; i++)
     {
-        Module *m = static_cast<Module *>(aimports.data[i]);
-        if (!m->needModuleInfo() || m == this)
+        Module *mod = static_cast<Module *>(m->aimports.data[i]);
+        if (!mod->needModuleInfo() || mod == m)
             continue;
 
         // declare the imported module info
         std::string m_name("_D");
-        m_name.append(mangle(m));
+        m_name.append(mangle(mod));
         m_name.append("12__ModuleInfoZ");
         llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
         if (!m_gvar) m_gvar = new llvm::GlobalVariable(*gIR->module, moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, m_name);
@@ -758,9 +760,9 @@ void Module::genmoduleinfo()
     llvm::ArrayType* localClassesTy = 0;
     ClassDeclarations aclasses;
     //printf("members->dim = %d\n", members->dim);
-    for (size_t i = 0; i < members->dim; i++)
+    for (size_t i = 0; i < m->members->dim; i++)
     {
-        (*members)[i]->addLocalClass(&aclasses);
+        (*m->members)[i]->addLocalClass(&aclasses);
     }
     // fill inits
     std::vector<LLConstant*> classInits;
@@ -831,7 +833,7 @@ void Module::genmoduleinfo()
     if (localClasses)
         flags |= MIlocalClasses;
 
-    if (!needmoduleinfo)
+    if (!m->needmoduleinfo)
         flags |= MIstandalone;
 
     b.push_uint(flags); // flags
@@ -863,14 +865,14 @@ void Module::genmoduleinfo()
     }
 
     // Put out module name as a 0-terminated string.
-    const char *name = toPrettyChars();
+    const char *name = m->toPrettyChars();
     const size_t len = strlen(name) + 1;
     llvm::IntegerType *it = llvm::IntegerType::getInt8Ty(gIR->context());
     llvm::ArrayType *at = llvm::ArrayType::get(it, len);
     b.push(toConstantArray(it, at, name, len, false));
 
     // create and set initializer
-    LLGlobalVariable *moduleInfoSym = moduleInfoSymbol();
+    LLGlobalVariable *moduleInfoSym = m->moduleInfoSymbol();
     b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
     moduleInfoSym->setLinkage(llvm::GlobalValue::ExternalLinkage);
 

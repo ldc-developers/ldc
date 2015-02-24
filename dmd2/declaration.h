@@ -21,7 +21,6 @@
 #endif
 
 #include "dsymbol.h"
-#include "lexer.h"
 #include "mtype.h"
 
 class Expression;
@@ -60,7 +59,7 @@ enum PURE;
 #define STCvariadic     0x10000LL       // variadic function argument
 #define STCctorinit     0x20000LL       // can only be set inside constructor
 #define STCtemplateparameter  0x40000LL // template parameter
-#define STCscope        0x80000LL       // template parameter
+#define STCscope        0x80000LL
 #define STCimmutable    0x100000LL
 #define STCref          0x200000LL
 #define STCinit         0x400000LL      // has explicit initializer
@@ -89,6 +88,7 @@ enum PURE;
 #define STCrvalue        0x20000000000LL // force rvalue for variables
 #define STCnogc          0x40000000000LL // @nogc
 #define STCvolatile      0x80000000000LL // destined for volatile in the back end
+#define STCreturn        0x100000000000LL // 'return ref' for function parameters
 
 const StorageClass STCStorageClass = (STCauto | STCscope | STCstatic | STCextern | STCconst | STCfinal |
     STCabstract | STCsynchronized | STCdeprecated | STCoverride | STClazy | STCalias |
@@ -288,11 +288,8 @@ public:
     ExpInitializer *getExpInitializer();
     Expression *getConstInitializer(bool needFullType = true);
     void checkCtorConstInit();
-    void checkNestedReference(Scope *sc, Loc loc);
+    bool checkNestedReference(Scope *sc, Loc loc);
     Dsymbol *toAlias();
-#if IN_DMD
-    void toObjFile(bool multiobj);                       // compile to .obj file
-#endif
     // Eliminate need for dynamic_cast
     VarDeclaration *isVarDeclaration() { return (VarDeclaration *)this; }
     void accept(Visitor *v) { v->visit(this); }
@@ -338,9 +335,6 @@ public:
     void semantic(Scope *sc);
     char *toChars();
 
-#if IN_DMD
-    void toObjFile(bool multiobj);                       // compile to .obj file
-#endif
     TypeInfoDeclaration *isTypeInfoDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
 };
@@ -523,10 +517,11 @@ typedef Expression *(*builtin_fp)(Loc loc, FuncDeclaration *fd, Expressions *arg
 void add_builtin(const char *mangle, builtin_fp fp);
 void builtin_init();
 
-#define FUNCFLAGpurityInprocess 1   // working on determining purity
-#define FUNCFLAGsafetyInprocess 2   // working on determining safety
-#define FUNCFLAGnothrowInprocess 4  // working on determining nothrow
-#define FUNCFLAGnogcInprocess 8     // working on determining @nogc
+#define FUNCFLAGpurityInprocess    1    // working on determining purity
+#define FUNCFLAGsafetyInprocess    2    // working on determining safety
+#define FUNCFLAGnothrowInprocess   4    // working on determining nothrow
+#define FUNCFLAGnogcInprocess      8    // working on determining @nogc
+#define FUNCFLAGreturnInprocess 0x10    // working on inferring 'return' for parameters
 
 class FuncDeclaration : public Declaration
 {
@@ -613,7 +608,7 @@ public:
     FuncDeclarations siblingCallers;    // Sibling nested functions which
                                         // called this one
 
-    unsigned flags;
+    unsigned flags;                     // FUNCFLAGxxxxx
 
     FuncDeclaration(Loc loc, Loc endloc, Identifier *id, StorageClass storage_class, Type *type);
     Dsymbol *syntaxCopy(Dsymbol *);
@@ -649,7 +644,6 @@ public:
     bool hasOverloads();
     PURE isPure();
     PURE isPureBypassingInference();
-    bool isPureBypassingInferenceX();
     bool setImpure();
     bool isSafe();
     bool isSafeBypassingInference();
@@ -672,7 +666,7 @@ public:
     virtual bool addPostInvariant();
     const char *kind();
     FuncDeclaration *isUnique();
-    void checkNestedReference(Scope *sc, Loc loc);
+    bool checkNestedReference(Scope *sc, Loc loc);
     bool needsClosure();
     bool hasNestedFrameRefs();
     void buildResultVar(Scope *sc, Type *tret);
@@ -683,10 +677,6 @@ public:
     static FuncDeclaration *genCfunc(Parameters *args, Type *treturn, const char *name, StorageClass stc=0);
     static FuncDeclaration *genCfunc(Parameters *args, Type *treturn, Identifier *id, StorageClass stc=0);
 
-#if IN_DMD
-    Symbol *toThunkSymbol(int offset);  // thunk version
-    void toObjFile(bool multiobj);                       // compile to .obj file
-#endif
     FuncDeclaration *isFuncDeclaration() { return this; }
 
     virtual FuncDeclaration *toAliasFunc() { return this; }
@@ -890,7 +880,7 @@ public:
 class NewDeclaration : public FuncDeclaration
 {
 public:
-    Parameters *arguments;
+    Parameters *parameters;
     int varargs;
 
     NewDeclaration(Loc loc, Loc endloc, StorageClass stc, Parameters *arguments, int varargs);
@@ -909,7 +899,7 @@ public:
 class DeleteDeclaration : public FuncDeclaration
 {
 public:
-    Parameters *arguments;
+    Parameters *parameters;
 
     DeleteDeclaration(Loc loc, Loc endloc, StorageClass stc, Parameters *arguments);
     Dsymbol *syntaxCopy(Dsymbol *);

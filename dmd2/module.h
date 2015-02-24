@@ -120,7 +120,6 @@ public:
 
     Macro *macrotable;          // document comment macros
     Escape *escapetable;        // document comment escapes
-    bool safe;                  // true if module is marked as 'safe'
 
     size_t nameoffset;          // offset of module name from start of ModuleInfo
     size_t namelen;             // length of module name in characters
@@ -149,8 +148,6 @@ public:
     void semantic();    // semantic analysis
     void semantic2();   // pass 2 semantic analysis
     void semantic3();   // pass 3 semantic analysis
-    void genobjfile(bool multiobj);
-    void genhelpers(bool iscomdat);
     int needModuleInfo();
     Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
     Dsymbol *symtabInsert(Dsymbol *s);
@@ -182,16 +179,9 @@ public:
     Symbol *sfilename;          // symbol for filename
 
     Symbol *massert;            // module assert function
-    Symbol *toModuleAssert();   // get module assert function
-
     Symbol *munittest;          // module unittest failure function
-    Symbol *toModuleUnittest(); // get module unittest failure function
-
     Symbol *marray;             // module array bounds function
-    Symbol *toModuleArray();    // get module array bounds function
-
 #endif
-    void genmoduleinfo();
 
 #if IN_LLVM
     // LDC
@@ -218,11 +208,10 @@ struct ModuleDeclaration
     Loc loc;
     Identifier *id;
     Identifiers *packages;            // array of Identifier's representing packages
-    bool safe;
     bool isdeprecated;  // if it is a deprecated module
     Expression *msg;
 
-    ModuleDeclaration(Loc loc, Identifiers *packages, Identifier *id, bool safe);
+    ModuleDeclaration(Loc loc, Identifiers *packages, Identifier *id);
 
     char *toChars();
 };

@@ -33,6 +33,7 @@
 #include "template.h"
 #include "attrib.h"
 #include "enum.h"
+#include "lexer.h"
 
 #if IN_LLVM
 #include "../gen/pragma.h"
@@ -241,7 +242,7 @@ const char *Dsymbol::toPrettyChars(bool QualifyTypes)
     for (p = this; p; p = p->parent)
         len += strlen(QualifyTypes ? p->toPrettyCharsHelper() : p->toChars()) + 1;
 
-    s = (char *)mem.malloc(len);
+    s = (char *)mem.xmalloc(len);
     q = s + len - 1;
     *q = 0;
     for (p = this; p; p = p->parent)
@@ -429,7 +430,7 @@ Dsymbol *Dsymbol::search(Loc loc, Identifier *ident, int flags)
  * Search for symbol with correct spelling.
  */
 
-void *symbol_search_fp(void *arg, const char *seed)
+void *symbol_search_fp(void *arg, const char *seed, int* cost)
 {
     /* If not in the lexer's string table, it certainly isn't in the symbol table.
      * Doing this first is a lot faster.
@@ -437,15 +438,14 @@ void *symbol_search_fp(void *arg, const char *seed)
     size_t len = strlen(seed);
     if (!len)
         return NULL;
-    StringValue *sv = Lexer::stringtable.lookup(seed, len);
-    if (!sv)
+    Identifier *id = Identifier::lookup(seed, len);
+    if (!id)
         return NULL;
-    Identifier *id = (Identifier *)sv->ptrvalue;
-    assert(id);
 
+    *cost = 0;
     Dsymbol *s = (Dsymbol *)arg;
     Module::clearCache();
-    return (void *)s->search(Loc(), id, IgnoreErrors | IgnoreAmbiguous);
+    return (void *)s->search(Loc(), id, IgnoreErrors);
 }
 
 Dsymbol *Dsymbol::search_correct(Identifier *ident)
@@ -581,6 +581,11 @@ bool Dsymbol::isDeprecated()
     return false;
 }
 
+bool Dsymbol::muteDeprecationMessage()
+{
+    return false;
+}
+
 bool Dsymbol::isOverloadable()
 {
     return false;
@@ -679,7 +684,7 @@ void Dsymbol::deprecation(const char *format, ...)
 
 void Dsymbol::checkDeprecated(Loc loc, Scope *sc)
 {
-    if (global.params.useDeprecated != 1 && isDeprecated())
+    if (global.params.useDeprecated != 1 && isDeprecated() && !muteDeprecationMessage())
     {
         // Don't complain if we're inside a deprecated symbol's scope
         for (Dsymbol *sp = sc->parent; sp; sp = sp->parent)
@@ -717,7 +722,7 @@ void Dsymbol::checkDeprecated(Loc loc, Scope *sc)
     {
         if (!(sc->func && sc->func->storage_class & STCdisable))
         {
-            if (d->ident == Id::cpctor && d->toParent())
+            if (d->toParent() && d->isPostBlitDeclaration())
                 d->toParent()->error(loc, "is not copyable because it is annotated with @disable");
             else
                 error(loc, "is not callable because it is annotated with @disable");
@@ -824,23 +829,18 @@ void Dsymbol::addComment(const utf8_t *comment)
 }
 
 /****************************************
- * Returns true if this symbol is defined in non-root module.
+ * Returns true if this symbol is defined in a non-root module without instantiation.
  */
-
 bool Dsymbol::inNonRoot()
 {
     Dsymbol *s = parent;
-    for (; s; s = s->parent)
+    for (; s; s = s->toParent())
     {
         if (TemplateInstance *ti = s->isTemplateInstance())
         {
-            if (ti->isTemplateMixin())
-                continue;
-            if (!ti->minst || !ti->minst->isRoot())
-                return true;
             return false;
         }
-        else if (Module *m = s->isModule())
+        if (Module *m = s->isModule())
         {
             if (!m->isRoot())
                 return true;
@@ -919,6 +919,7 @@ Dsymbol *ScopeDsymbol::search(Loc loc, Identifier *ident, int flags)
     {
         Dsymbol *s = NULL;
         OverloadSet *a = NULL;
+        int sflags = flags & (IgnoreErrors | IgnoreAmbiguous); // remember these in recursive searches
 
         // Look in imported modules
         for (size_t i = 0; i < imports->dim; i++)
@@ -932,7 +933,7 @@ Dsymbol *ScopeDsymbol::search(Loc loc, Identifier *ident, int flags)
             //printf("\tscanning import '%s', prots = %d, isModule = %p, isImport = %p\n", ss->toChars(), prots[i], ss->isModule(), ss->isImport());
             /* Don't find private members if ss is a module
              */
-            Dsymbol *s2 = ss->search(loc, ident, ss->isModule() ? IgnorePrivateMembers : IgnoreNone);
+            Dsymbol *s2 = ss->search(loc, ident, sflags | (ss->isModule() ? IgnorePrivateMembers : IgnoreNone));
             if (!s)
             {
                 s = s2;
@@ -1091,7 +1092,7 @@ void ScopeDsymbol::importScope(Dsymbol *s, Prot protection)
             }
         }
         imports->push(s);
-        prots = (PROTKIND *)mem.realloc(prots, imports->dim * sizeof(prots[0]));
+        prots = (PROTKIND *)mem.xrealloc(prots, imports->dim * sizeof(prots[0]));
         prots[imports->dim - 1] = protection.kind;
     }
 }
@@ -1258,12 +1259,12 @@ FuncDeclaration *ScopeDsymbol::findGetMembers()
     if (!tfgetmembers)
     {
         Scope sc;
-        Parameters *arguments = new Parameters;
-        Parameters *arg = new Parameter(STCin, Type::tchar->constOf()->arrayOf(), NULL, NULL);
-        arguments->push(arg);
+        Parameters *parameters = new Parameters;
+        Parameters *p = new Parameter(STCin, Type::tchar->constOf()->arrayOf(), NULL, NULL);
+        parameters->push(p);
 
         Type *tret = NULL;
-        tfgetmembers = new TypeFunction(arguments, tret, 0, LINKd);
+        tfgetmembers = new TypeFunction(parameters, tret, 0, LINKd);
         tfgetmembers = (TypeFunction *)tfgetmembers->semantic(Loc(), &sc);
     }
     if (fdx)

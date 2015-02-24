@@ -1456,12 +1456,12 @@ public:
             arrptr = DtoGEP1(l->getRVal(),r->getRVal());
         }
         else if (e1type->ty == Tsarray) {
-            if (p->emitArrayBoundsChecks() && !e->skipboundscheck)
+            if (p->emitArrayBoundsChecks() && !e->indexIsInBounds)
                 DtoArrayBoundsCheck(e->loc, l, r);
             arrptr = DtoGEP(l->getRVal(), zero, r->getRVal());
         }
         else if (e1type->ty == Tarray) {
-            if (p->emitArrayBoundsChecks() && !e->skipboundscheck)
+            if (p->emitArrayBoundsChecks() && !e->indexIsInBounds)
                 DtoArrayBoundsCheck(e->loc, l, r);
             arrptr = DtoArrayPtr(l);
             arrptr = DtoGEP1(arrptr,r->getRVal());
@@ -3259,4 +3259,22 @@ DValue *toElemDtor(Expression *e)
     }
 
     return toElem(e);
+}
+
+// FIXME: Implement & place in right module
+Symbol *toModuleAssert(Module *m)
+{
+    return NULL;
+}
+
+// FIXME: Implement & place in right module
+Symbol *toModuleUnittest(Module *m)
+{
+    return NULL;
+}
+
+// FIXME: Implement & place in right module
+Symbol *toModuleArray(Module *m)
+{
+    return NULL;
 }
