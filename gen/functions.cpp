@@ -504,23 +504,17 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#if LDC_LLVM_VER >= 303
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
     IrFuncTy &irFty = getIrFunc(fdecl)->irFty;
-    llvm::AttributeSet old = func->getAttributes();
-    llvm::AttributeSet existingAttrs[] = { old.getFnAttributes(), old.getRetAttributes() };
-    llvm::AttributeSet newAttrs = llvm::AttributeSet::get(gIR->context(), existingAttrs);
+    AttrSet newAttrs = AttrSet::extractFunctionAndReturnAttributes(func);
 
     int idx = 0;
 
     // handle implicit args
     #define ADD_PA(X) \
     if (irFty.X) { \
-        if (irFty.X->attrs.hasAttributes()) { \
-            llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(), idx, irFty.X->attrs.attrs); \
-            newAttrs = newAttrs.addAttributes(gIR->context(), idx, as); \
-        } \
+        newAttrs.add(idx, irFty.X->attrs); \
         idx++; \
     }
 
@@ -538,73 +532,13 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     {
         assert(Parameter::getNth(f->parameters, k));
 
-        AttrBuilder builder = irFty.args[k]->attrs;
-        if (builder.hasAttributes())
-        {
-            unsigned i = idx + (irFty.reverseParams ? n-k-1 : k);
-            llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(), i, builder.attrs);
-            newAttrs = newAttrs.addAttributes(gIR->context(), i, as);
-        }
+        unsigned i = idx + (irFty.reverseParams ? n-k-1 : k);
+        newAttrs.add(i, irFty.args[k]->attrs);
     }
 
     // Store the final attribute set
-    func->setAttributes(newAttrs);
+    func->setAttributes(newAttrs.toNativeSet());
 }
-#else
-static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
-{
-    IrFuncTy &irFty = getIrFunc(fdecl)->irFty;
-    AttrSet set;
-
-    int idx = 0;
-
-    // handle implicit args
-    #define ADD_PA(X) \
-    if (irFty.X) { \
-        if (irFty.X->attrs.hasAttributes()) \
-            set.add(idx, irFty.X->attrs); \
-        idx++; \
-    }
-
-    ADD_PA(ret)
-    ADD_PA(arg_sret)
-    ADD_PA(arg_this)
-    ADD_PA(arg_nest)
-    ADD_PA(arg_arguments)
-
-    #undef ADD_PA
-
-    // set attrs on the rest of the arguments
-    size_t n = Parameter::dim(f->parameters);
-    for (size_t k = 0; k < n; k++)
-    {
-        assert(Parameter::getNth(f->parameters, k));
-
-        AttrBuilder builder = irFty.args[k]->attrs;
-        if (builder.hasAttributes())
-        {
-            unsigned i = idx + (irFty.reverseParams ? n-k-1 : k);
-            set.add(i, builder);
-        }
-    }
-
-    // Merge in any old attributes (attributes for the function itself are
-    // also stored in a list slot).
-    llvm::AttrListPtr oldAttrs = func->getAttributes();
-    for (unsigned i = 0; i < oldAttrs.getNumSlots(); ++i)
-    {
-        const llvm::AttributeWithIndex& curr = oldAttrs.getSlot(i);
-        AttrBuilder& builder = set.entries[curr.Index];
-#if LDC_LLVM_VER == 302
-        builder.attrs.addAttributes(curr.Attrs);
-#else
-        builder.attrs |= curr.Attrs;
-#endif
-    }
-
-    func->setAttributes(set.toNativeSet());
-}
-#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
