@@ -66,7 +66,7 @@ void ABIRewrite::storeToMemory(LLValue* rval, LLValue* address)
     LLType* rvalType = rval->getType();
     if (rvalType != pointerElementType)
     {
-        if (gDataLayout->getTypeStoreSize(rvalType) > gDataLayout->getTypeAllocSize(pointerElementType))
+        if (getTypeStoreSize(rvalType) > getTypeAllocSize(pointerElementType))
         {
             // not enough allocated memory
             LLValue* paddedDump = storeToMemory(rval, 0, ".storeToMemory_paddedDump");
@@ -89,10 +89,12 @@ LLValue* ABIRewrite::loadFromMemory(LLValue* address, LLType* asType, const char
     if (asType == pointerElementType)
         return DtoLoad(address, name);
 
-    IF_LOG if (gDataLayout->getTypeStoreSize(asType) > gDataLayout->getTypeAllocSize(pointerElementType))
+    if (getTypeStoreSize(asType) > getTypeAllocSize(pointerElementType))
     {
-        Logger::cout() << "Warning: reading undefined bytes while bit-casting type " << *pointerElementType
-                       << " to " << *asType << '\n';
+        // not enough allocated memory
+        LLValue* paddedDump = DtoRawAlloca(asType, 0, ".loadFromMemory_paddedDump");
+        DtoMemCpy(paddedDump, address, DtoConstSize_t(getTypeAllocSize(pointerElementType)));
+        return DtoLoad(paddedDump, name);
     }
 
     address = DtoBitCast(address, getPtrToType(asType), ".loadFromMemory_bitCastAddress");
