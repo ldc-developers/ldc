@@ -24,7 +24,7 @@
 /// Removes padding fields for (non-union-containing!) structs
 struct RemoveStructPadding : ABIRewrite {
     /// get a rewritten value back to its original form
-    virtual LLValue* get(Type* dty, DValue* v) {
+    LLValue* get(Type* dty, DValue* v) {
         LLValue* lval = DtoAlloca(dty, ".rewritetmp");
         getL(dty, v, lval);
         return lval;
@@ -32,7 +32,7 @@ struct RemoveStructPadding : ABIRewrite {
 
     /// get a rewritten value back to its original form and store result in provided lvalue
     /// this one is optional and defaults to calling the one above
-    virtual void getL(Type* dty, DValue* v, llvm::Value* lval) {
+    void getL(Type* dty, DValue* v, LLValue* lval) {
         // Make sure the padding is zero, so struct comparisons work.
         // TODO: Only do this if there's padding, and/or only initialize padding.
         DtoMemSetZero(lval, DtoConstSize_t(getTypePaddedSize(DtoType(dty))));
@@ -40,133 +40,122 @@ struct RemoveStructPadding : ABIRewrite {
     }
 
     /// put out rewritten value
-    virtual LLValue* put(Type* dty, DValue* v) {
+    LLValue* put(Type* dty, DValue* v) {
         return DtoUnpaddedStruct(dty->toBasetype(), v->getRVal());
     }
 
     /// return the transformed type for this rewrite
-    virtual LLType* type(Type* dty, LLType* t) {
+    LLType* type(Type* dty, LLType* t) {
         return DtoUnpaddedStructType(dty->toBasetype());
     }
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
-// simply swap of real/imag parts for proper x87 complex abi
-struct X87_complex_swap : ABIRewrite
+/**
+ * Rewrites any parameter to an integer of the same or next bigger size via
+ * bit-casting.
+ */
+struct IntegerRewrite : ABIRewrite
 {
-    LLValue* get(Type*, DValue* v)
+    LLValue* get(Type* dty, DValue* dv)
     {
-        return DtoAggrPairSwap(v->getRVal());
-    }
-    LLValue* put(Type*, DValue* v)
-    {
-        return DtoAggrPairSwap(v->getRVal());
-    }
-    LLType* type(Type*, LLType* t)
-    {
-        return t;
-    }
-};
+        LLValue* integer = dv->getRVal();
+        LLValue* integerDump = storeToMemory(integer, 0, ".IntegerRewrite_dump");
 
-//////////////////////////////////////////////////////////////////////////////
-
-// Rewrites a cfloat (2x32 bits) as 64-bit integer.
-// Assumes a little-endian byte order.
-struct CfloatToInt : ABIRewrite
-{
-    // i64 -> {float,float}
-    LLValue* get(Type*, DValue* dv)
-    {
-        LLValue* in = dv->getRVal();
-
-        // extract real part
-        LLValue* rpart = gIR->ir->CreateTrunc(in, LLType::getInt32Ty(gIR->context()));
-        rpart = gIR->ir->CreateBitCast(rpart, LLType::getFloatTy(gIR->context()), ".re");
-
-        // extract imag part
-        LLValue* ipart = gIR->ir->CreateLShr(in, LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 32, false));
-        ipart = gIR->ir->CreateTrunc(ipart, LLType::getInt32Ty(gIR->context()));
-        ipart = gIR->ir->CreateBitCast(ipart, LLType::getFloatTy(gIR->context()), ".im");
-
-        // return {float,float} aggr pair with same bits
-        return DtoAggrPair(rpart, ipart, ".final_cfloat");
+        LLType* type = DtoType(dty);
+        return loadFromMemory(integerDump, type, ".IntegerRewrite_getResult");
     }
 
-    // {float,float} -> i64
-    LLValue* put(Type*, DValue* dv)
+    void getL(Type* dty, DValue* dv, LLValue* lval)
     {
-        LLValue* v = dv->getRVal();
-
-        // extract real
-        LLValue* r = gIR->ir->CreateExtractValue(v, 0);
-        // cast to i32
-        r = gIR->ir->CreateBitCast(r, LLType::getInt32Ty(gIR->context()));
-        // zext to i64
-        r = gIR->ir->CreateZExt(r, LLType::getInt64Ty(gIR->context()));
-
-        // extract imag
-        LLValue* i = gIR->ir->CreateExtractValue(v, 1);
-        // cast to i32
-        i = gIR->ir->CreateBitCast(i, LLType::getInt32Ty(gIR->context()));
-        // zext to i64
-        i = gIR->ir->CreateZExt(i, LLType::getInt64Ty(gIR->context()));
-        // shift up
-        i = gIR->ir->CreateShl(i, LLConstantInt::get(LLType::getInt64Ty(gIR->context()), 32, false));
-
-        // combine and return
-        return v = gIR->ir->CreateOr(r, i);
+        LLValue* integer = dv->getRVal();
+        storeToMemory(integer, lval);
     }
 
-    // {float,float} -> i64
-    LLType* type(Type*, LLType* t)
+    LLValue* put(Type* dty, DValue* dv)
     {
-        return LLType::getInt64Ty(gIR->context());
+        assert(dty == dv->getType());
+        LLValue* address = getAddressOf(dv);
+        LLType* integerType = type(dty, NULL);
+        return loadFromMemory(address, integerType, ".IntegerRewrite_putResult");
+    }
+
+    LLType* type(Type* t, LLType*)
+    {
+        unsigned size = t->size();
+        switch (size) {
+          case 0:
+            size = 1;
+            break;
+          case 3:
+            size = 4;
+            break;
+          case 5:
+          case 6:
+          case 7:
+            size = 8;
+            break;
+          default:
+            break;
+        }
+        return LLIntegerType::get(gIR->context(), size * 8);
     }
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
 /**
- * Rewrites a composite type parameter to an integer of the same size.
+ * Implements explicit ByVal semantics defined like this:
+ * Instead of passing a copy of the original argument directly to the callee,
+ * the caller makes a bit-copy on its stack first and then passes a pointer
+ * to that copy to the callee.
+ * The pointer is passed as regular parameter and hence occupies either a
+ * register or a function arguments stack slot.
  *
- * This is needed in order to be able to use LLVM's inreg attribute to put
- * struct and static array parameters into registers, because the attribute has
- * slightly different semantics. For example, LLVM would store a [4 x i8] inreg
- * in four registers (zero-extended), instead of a single 32bit one.
- *
- * The LLVM value in dv is expected to be a pointer to the parameter, as
- * generated when lowering struct/static array paramters to LLVM byval.
+ * This differs from LLVM's ByVal attribute for pointer parameters.
+ * The ByVal attribute instructs LLVM to pass the pointed-to argument directly
+ * as a copy on the function arguments stack. In this case, there's no need to
+ * pass an explicit pointer; the address is implicit.
  */
-struct CompositeToInt : ABIRewrite
+struct ExplicitByvalRewrite : ABIRewrite
 {
-    LLValue* get(Type* dty, DValue* dv)
+    const size_t alignment;
+
+    ExplicitByvalRewrite(size_t alignment = 16) : alignment(alignment)
+    { }
+
+    LLValue* get(Type* dty, DValue* v)
     {
-        Logger::println("rewriting integer -> %s", dty->toChars());
-        LLValue* mem = DtoAlloca(dty, ".int_to_composite");
-        LLValue* v = dv->getRVal();
-        DtoStore(v, DtoBitCast(mem, getPtrToType(v->getType())));
-        return DtoLoad(mem);
+        LLValue* pointer = v->getRVal();
+        return DtoLoad(pointer, ".ExplicitByvalRewrite_getResult");
     }
 
-    void getL(Type* dty, DValue* dv, llvm::Value* lval)
+    void getL(Type* dty, DValue* v, LLValue* lval)
     {
-        Logger::println("rewriting integer -> %s", dty->toChars());
-        LLValue* v = dv->getRVal();
-        DtoStore(v, DtoBitCast(lval, getPtrToType(v->getType())));
+        LLValue* pointer = v->getRVal();
+        DtoAggrCopy(lval, pointer);
     }
 
-    LLValue* put(Type* dty, DValue* dv)
+    LLValue* put(Type* dty, DValue* v)
     {
-        Logger::println("rewriting %s -> integer", dty->toChars());
-        LLType* t = LLIntegerType::get(gIR->context(), dty->size() * 8);
-        return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
+        if (DtoIsPassedByRef(dty))
+        {
+            LLValue* originalPointer = v->getRVal();
+            LLType* type = originalPointer->getType()->getPointerElementType();
+            LLValue* copyForCallee = DtoRawAlloca(type, alignment, ".ExplicitByvalRewrite_putResult");
+            DtoAggrCopy(copyForCallee, originalPointer);
+            return copyForCallee;
+        }
+
+        LLValue* originalValue = v->getRVal();
+        LLValue* copyForCallee = storeToMemory(originalValue, alignment, ".ExplicitByvalRewrite_putResult");
+        return copyForCallee;
     }
 
-    LLType* type(Type* t, LLType*)
+    LLType* type(Type* dty, LLType* t)
     {
-        size_t sz = t->size() * 8;
-        return LLIntegerType::get(gIR->context(), sz);
+        return getPtrToType(DtoType(dty));
     }
 };
 

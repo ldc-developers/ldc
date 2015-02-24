@@ -14,6 +14,7 @@
 
 #include "gen/runtime.h"
 #include "gen/metadata.h"
+#include "gen/attributes.h"
 
 #define DEBUG_TYPE "dgc2stack"
 
@@ -855,15 +856,7 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
       CallSite::arg_iterator B = CS.arg_begin(), E = CS.arg_end();
       for (CallSite::arg_iterator A = B; A != E; ++A)
         if (A->get() == V) {
-          if (!CS.paramHasAttr(A - B + 1,
-#if LDC_LLVM_VER >= 303
-              Attribute::NoCapture
-#elif LDC_LLVM_VER == 302
-              Attributes::NoCapture
-#else
-              Attribute::NoCapture
-#endif
-          )) {
+          if (!CS.paramHasAttr(A - B + 1, LDC_ATTRIBUTE(NoCapture))) {
             // The parameter is not marked 'nocapture' - captured.
             return false;
           }

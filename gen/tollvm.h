@@ -22,6 +22,7 @@
 #include "mtype.h"
 #include "gen/llvm.h"
 #include "gen/structs.h"
+#include "gen/attributes.h"
 
 // D->LLVM type handling stuff
 
@@ -44,13 +45,7 @@ bool DtoIsPassedByRef(Type* type);
 bool DtoIsReturnInArg(CallExp *ce);
 
 // should argument be zero or sign extended
-#if LDC_LLVM_VER >= 303
-llvm::Attribute::AttrKind DtoShouldExtend(Type* type);
-#elif LDC_LLVM_VER == 302
-llvm::Attributes::AttrVal DtoShouldExtend(Type* type);
-#else
-llvm::Attributes DtoShouldExtend(Type* type);
-#endif
+AttrBuilder::A DtoShouldExtend(Type* type);
 
 // tuple helper
 // takes a arguments list and makes a struct type out of them

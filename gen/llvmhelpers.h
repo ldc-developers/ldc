@@ -189,20 +189,10 @@ IrFuncTy &DtoIrTypeFunction(DValue* fnval);
 TypeFunction* DtoTypeFunction(DValue* fnval);
 
 ///
-DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg);
-
-///
 LLValue* DtoCallableValue(DValue* fn);
 
 ///
 LLFunctionType* DtoExtractFunctionType(LLType* type);
-
-///
-#if LDC_LLVM_VER >= 303
-void DtoBuildDVarArgList(std::vector<LLValue*>& args, llvm::AttributeSet& palist, TypeFunction* tf, Expressions* arguments, size_t argidx);
-#else
-void DtoBuildDVarArgList(std::vector<LLValue*>& args, std::vector<llvm::AttributeWithIndex>& palist, TypeFunction* tf, Expressions* arguments, size_t argidx);
-#endif
 
 ///
 DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments, LLValue* retvar = 0);

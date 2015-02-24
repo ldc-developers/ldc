@@ -20,49 +20,9 @@
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
 
-// Implements byval argument passing for scalar non-struct types.
-struct PPC64_byval_rewrite : ABIRewrite
-{
-    // Get instance from pointer.
-    LLValue* get(Type* dty, DValue* v)
-    {
-        LLValue* ptr = v->getRVal();
-        return DtoLoad(ptr); // *ptr
-    }
-
-    // Get instance from pointer, and store in the provided location.
-    void getL(Type* dty, DValue* v, llvm::Value* lval)
-    {
-        LLValue* ptr = v->getRVal();
-        DtoStore(DtoLoad(ptr), lval); // *lval = *ptr
-    }
-
-    // Turn an instance into a pointer (to a private copy for the callee,
-    // allocated by the caller).
-    LLValue* put(Type* dty, DValue* v)
-    {
-        /* NOTE: probably not safe
-        // optimization: do not copy if parameter is not mutable
-        if (!dty->isMutable() && v->isLVal())
-        return v->getLVal();
-        */
-
-        LLValue* original = v->getRVal();
-        LLValue* copy = DtoRawAlloca(original->getType(), 16, "copy_for_callee");
-        DtoStore(original, copy); // *copy = *original
-        return copy;
-    }
-
-    /// should return the transformed type for this rewrite
-    LLType* type(Type* dty, LLType* t)
-    {
-        return getPtrToType(DtoType(dty));
-    }
-};
-
 struct PPC64TargetABI : TargetABI {
-    PPC64_byval_rewrite byval_rewrite;
-    CompositeToInt compositeToInt;
+    ExplicitByvalRewrite byvalRewrite;
+    IntegerRewrite integerRewrite;
     const bool Is64Bit;
 
     PPC64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit)
@@ -84,10 +44,6 @@ struct PPC64TargetABI : TargetABI {
         }
     }
 
-    void newFunctionType(TypeFunction* tf)
-    {
-    }
-
     bool returnInArg(TypeFunction* tf)
     {
         if (tf->isref)
@@ -107,50 +63,44 @@ struct PPC64TargetABI : TargetABI {
         return ty == Tstruct || ty == Tsarray;
     }
 
-    void doneWithFunctionType()
-    {
-    }
-
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     {
         // EXPLICIT PARAMETERS
 
-        for (IrFuncTy::ArgRIter I = fty.args.rbegin(), E = fty.args.rend(); I != E; ++I)
+        for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I)
         {
             IrFuncTyArg& arg = **I;
 
             if (arg.byref)
                 continue;
 
-            Type* ty = arg.type->toBasetype();
+            rewriteArgument(fty, arg);
+        }
+    }
 
-            if ((ty->ty == Tstruct || ty->ty == Tsarray))
+    void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
+    {
+        Type* ty = arg.type->toBasetype();
+
+        if (ty->ty == Tstruct || ty->ty == Tsarray)
+        {
+            if (canRewriteAsInt(ty))
             {
-                if (canRewriteAsInt(ty))
-                {
-                    arg.rewrite = &compositeToInt;
-                    arg.ltype = compositeToInt.type(arg.type, arg.ltype);
-                }
-                else
-                {
-                    // these types are passed byval:
-                    // the caller allocates a copy and then passes a pointer to the copy
-                    arg.rewrite = &byval_rewrite;
-                    arg.ltype = byval_rewrite.type(arg.type, arg.ltype);
-                }
+                arg.rewrite = &integerRewrite;
+                arg.ltype = integerRewrite.type(arg.type, arg.ltype);
+            }
+            else
+            {
+                // these types are passed byval:
+                // the caller allocates a copy and then passes a pointer to the copy
+                arg.rewrite = &byvalRewrite;
+                arg.ltype = byvalRewrite.type(arg.type, arg.ltype);
 
                 // the copy is treated as a local variable of the callee
                 // hence add the NoAlias and NoCapture attributes
-#if LDC_LLVM_VER >= 303
-                arg.attrs.clear();
-                arg.attrs.addAttribute(llvm::Attribute::NoAlias)
-                    .addAttribute(llvm::Attribute::NoCapture);
-#elif LDC_LLVM_VER == 302
-                arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
-                    .addAttribute(llvm::Attributes::NoCapture));
-#else
-                arg.attrs = llvm::Attribute::NoAlias | llvm::Attribute::NoCapture;
-#endif
+                arg.attrs.clear()
+                         .add(LDC_ATTRIBUTE(NoAlias))
+                         .add(LDC_ATTRIBUTE(NoCapture));
             }
         }
     }
