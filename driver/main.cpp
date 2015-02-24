@@ -1044,6 +1044,7 @@ int main(int argc, char **argv)
     }
 
     // Initialization
+    Lexer::initLexer();
     Type::init();
     Id::initialize();
     Module::init();
