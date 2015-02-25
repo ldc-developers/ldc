@@ -846,11 +846,3 @@ LLValue* DtoAggrPaint(LLValue* aggr, LLType* as)
     V = DtoBitCast(V, as->getContainedType(1));
     return gIR->ir->CreateInsertValue(res, V, 1);
 }
-
-LLValue* DtoAggrPairSwap(LLValue* aggr)
-{
-    Logger::println("swapping aggr pair");
-    LLValue* r = gIR->ir->CreateExtractValue(aggr, 0);
-    LLValue* i = gIR->ir->CreateExtractValue(aggr, 1);
-    return DtoAggrPair(i, r, "swapped");
-}
