@@ -262,7 +262,7 @@ struct Array
     Array(Array<TYPE> &&a)
     {
         if (data != &smallarray[0])
-            mem.free(data);
+            mem.xfree(data);
         dim = a.dim;
         allocdim = a.allocdim;
         if (a.data == &a.smallarray[0])
@@ -282,7 +282,7 @@ struct Array
     Array &operator=(Array<TYPE> &&a)
     {
         if (data != &smallarray[0])
-            mem.free(data);
+            mem.xfree(data);
         dim = a.dim;
         allocdim = a.allocdim;
         if (a.data == &a.smallarray[0])
