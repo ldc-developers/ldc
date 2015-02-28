@@ -21,6 +21,64 @@
 #include "gen/structs.h"
 #include "gen/tollvm.h"
 
+struct LLTypeMemoryLayout
+{
+    // Structs and static arrays are folded recursively to scalars or anonymous structs.
+    // Pointer types are folded to an integer type.
+    static LLType* fold(LLType* type)
+    {
+        // T* => integer
+        if (type->isPointerTy())
+            return LLIntegerType::get(gIR->context(), getTypeBitSize(type));
+
+        if (LLStructType* structType = isaStruct(type))
+        {
+            unsigned numElements = structType->getNumElements();
+
+            // fold each element
+            std::vector<LLType*> elements;
+            elements.reserve(numElements);
+            for (unsigned i = 0; i < numElements; ++i)
+                elements.push_back(fold(structType->getElementType(i)));
+
+            // single element? then discard wrapping struct
+            if (numElements == 1)
+                return elements[0];
+
+            return LLStructType::get(gIR->context(), elements, structType->isPacked());
+        }
+
+        if (LLArrayType* arrayType = isaArray(type))
+        {
+            unsigned numElements = arrayType->getNumElements();
+            LLType* foldedElementType = fold(arrayType->getElementType());
+
+            // single element? then fold to scalar
+            if (numElements == 1)
+                return foldedElementType;
+
+            // otherwise: convert to struct of N folded elements
+            std::vector<LLType*> elements(numElements, foldedElementType);
+            return LLStructType::get(gIR->context(), elements);
+        }
+
+        return type;
+    }
+
+    // Checks two LLVM types for memory-layout equivalency.
+    static bool typesAreEquivalent(LLType* a, LLType* b)
+    {
+        if (a == b)
+            return true;
+        if (!a || !b)
+            return false;
+
+        return fold(a) == fold(b);
+    }
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
 /// Removes padding fields for (non-union-containing!) structs
 struct RemoveStructPadding : ABIRewrite {
     /// get a rewritten value back to its original form
@@ -58,6 +116,44 @@ struct RemoveStructPadding : ABIRewrite {
  */
 struct IntegerRewrite : ABIRewrite
 {
+    static LLType* getIntegerType(unsigned minSizeInBytes)
+    {
+        if (minSizeInBytes > 8)
+            return NULL;
+
+        unsigned size = minSizeInBytes;
+        switch (minSizeInBytes) {
+          case 0:
+            size = 1;
+            break;
+          case 3:
+            size = 4;
+            break;
+          case 5:
+          case 6:
+          case 7:
+            size = 8;
+            break;
+          default:
+            break;
+        }
+
+        return LLIntegerType::get(gIR->context(), size * 8);
+    }
+
+    static bool isObsoleteFor(LLType* llType)
+    {
+        if (!llType->isSized()) // e.g., opaque types
+        {
+            IF_LOG Logger::cout() << "IntegerRewrite: not rewriting non-sized type "
+                << *llType << '\n';
+            return true;
+        }
+
+        LLType* integerType = getIntegerType(getTypeStoreSize(llType));
+        return LLTypeMemoryLayout::typesAreEquivalent(llType, integerType);
+    }
+
     LLValue* get(Type* dty, DValue* dv)
     {
         LLValue* integer = dv->getRVal();
@@ -77,29 +173,13 @@ struct IntegerRewrite : ABIRewrite
     {
         assert(dty == dv->getType());
         LLValue* address = getAddressOf(dv);
-        LLType* integerType = type(dty, NULL);
+        LLType* integerType = getIntegerType(dty->size());
         return loadFromMemory(address, integerType, ".IntegerRewrite_putResult");
     }
 
     LLType* type(Type* t, LLType*)
     {
-        unsigned size = t->size();
-        switch (size) {
-          case 0:
-            size = 1;
-            break;
-          case 3:
-            size = 4;
-            break;
-          case 5:
-          case 6:
-          case 7:
-            size = 8;
-            break;
-          default:
-            break;
-        }
-        return LLIntegerType::get(gIR->context(), size * 8);
+        return getIntegerType(t->size());
     }
 };
 

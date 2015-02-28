@@ -94,39 +94,6 @@ namespace {
     }
   } // namespace dmd_abi
 
-    // Checks two LLVM types for memory-layout equivalency.
-    // A pointer type is equivalent to any other pointer type.
-    bool typesAreEquivalent(LLType* a, LLType* b) {
-        if (a == b)
-            return true;
-        if (!a || !b)
-            return false;
-
-        LLStructType* structA;
-        while ((structA = isaStruct(a)) && structA->getNumElements() == 1)
-            a = structA->getElementType(0);
-
-        LLStructType* structB;
-        while ((structB = isaStruct(b)) && structB->getNumElements() == 1)
-            b = structB->getElementType(0);
-
-        if (a == b || (a->isPointerTy() && b->isPointerTy()))
-            return true;
-
-        if (!(structA && structB) ||
-            structA->isPacked() != structB->isPacked() ||
-            structA->getNumElements() != structB->getNumElements()) {
-            return false;
-        }
-
-        for (unsigned i = 0; i < structA->getNumElements(); ++i) {
-            if (!typesAreEquivalent(structA->getElementType(i), structB->getElementType(i)))
-                return false;
-        }
-
-        return true;
-    }
-
     LLType* getAbiType(Type* ty) {
         return dmd_abi::getAbiType(ty->toBasetype());
     }
@@ -319,7 +286,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg, RegCount& regCount) {
     Type* t = arg.type->toBasetype();
 
     LLType* abiTy = getAbiType(t);
-    if (abiTy && !typesAreEquivalent(abiTy, originalLType)) {
+    if (abiTy && !LLTypeMemoryLayout::typesAreEquivalent(abiTy, originalLType)) {
         IF_LOG {
             Logger::println("Rewriting argument type %s", t->toChars());
             LOG_SCOPE;
@@ -346,7 +313,7 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty) {
     regCount = RegCount(); // initialize
 
     // RETURN VALUE
-    if (!tf->isref && !fty.arg_sret && tf->next->toBasetype()->ty != Tvoid) {
+    if (!fty.ret->byref && fty.ret->type->toBasetype()->ty != Tvoid) {
         Logger::println("x86-64 ABI: Transforming return type");
         LOG_SCOPE;
         RegCount dummy;
