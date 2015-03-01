@@ -236,19 +236,18 @@ enum
 
 version( DMC_RUNTIME )
 {
-  version( Win64 ) // requires MSVCRT >= 2013
-  {
-    private extern __gshared fenv_t _Fenv0;
-    fenv_t* FE_DFL_ENV = &_Fenv0;
-  }
-  else
-  {
     private extern __gshared fenv_t _FE_DFL_ENV;
     ///
     enum fenv_t* FE_DFL_ENV = &_FE_DFL_ENV;
 }
 else version( Windows )
 {
+    version( Win64 ) // requires MSVCRT >= 2013
+    {
+        private extern __gshared fenv_t _Fenv0;
+        fenv_t* FE_DFL_ENV = &_Fenv0;
+    }
+    else
     version( MinGW )
         ///
         enum FE_DFL_ENV = cast(fenv_t*)(-1);
