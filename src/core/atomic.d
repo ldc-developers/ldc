@@ -251,7 +251,7 @@ else version( LDC )
                 cast(size_t)cast(void*)writeThis
             );
         }
-        else static if (T.sizeof == bool.sizeof)
+        else static if (is(T : bool))
         {
             res = llvm_atomic_cmp_swap!(ubyte)(cast(shared ubyte*)here, ifThis ? 1 : 0, writeThis ? 1 : 0) ? 1 : 0;
         }
