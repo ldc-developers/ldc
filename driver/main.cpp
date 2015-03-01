@@ -697,6 +697,14 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("Windows");
             VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
 #if LDC_LLVM_VER >= 305
+            if (global.params.targetTriple.isKnownWindowsMSVCEnvironment())
+            {
+                VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
+            }
+#else
+            VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
+#endif
+#if LDC_LLVM_VER >= 305
             if (global.params.targetTriple.isWindowsGNUEnvironment())
             {
                 VersionCondition::addPredefinedGlobalIdent("mingw32"); // For backwards compatibility.
