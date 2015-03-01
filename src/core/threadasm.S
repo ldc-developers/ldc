@@ -2,7 +2,7 @@
  * Support code for mutithreading.
  *
  * Copyright: Copyright Mikola Lysenko 2005 - 2012.
- * License:   $(WEB http://www.boost.org/LICENSE_1_0.txt, Boost License 1.0).
+ * License:   <a href="http://www.boost.org/LICENSE_1_0.txt">Boost License 1.0</a>.
  * Authors:   Mikola Lysenko, Martin Nowak, Kai Nacke
  */
 
@@ -143,7 +143,6 @@ fiber_switchContext:
     .quad .L.fiber_switchContext
     .quad .TOC.@tocbase
     .quad 0
-#endif
     .text
 #endif
 .L.fiber_switchContext:
@@ -311,7 +310,6 @@ fiber_switchContext:
     addi    1, 1, STACK_SZ
     ld      0, LR_OFS(1)
     mtlr    0
-    addi    1, 1, STACK_SZ
     blr
     .long 0
     .quad 0
