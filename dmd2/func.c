@@ -193,9 +193,6 @@ public:
     }
     void visit(AsmStatement *s) {  }
     void visit(ImportStatement *s) {  }
-#if IN_LLVM
-    void visit(AsmBlockStatement *s) {  }
-#endif
 };
 
 /* Tweak all return statements and dtor call for nrvo_var, for correct NRVO.

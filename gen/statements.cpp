@@ -259,7 +259,6 @@ public:
     }
     void visit(AsmStatement *s) {  }
     void visit(ImportStatement *s) {  }
-    void visit(AsmBlockStatement *s) {  }
 };
 
 //////////////////////////////////////////////////////////////////////////////

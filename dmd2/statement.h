@@ -41,9 +41,6 @@ class CompoundStatement;
 class Parameter;
 class StaticAssert;
 class AsmStatement;
-#if IN_LLVM
-class AsmBlockStatement;
-#endif
 class GotoStatement;
 class ScopeStatement;
 class TryCatchStatement;

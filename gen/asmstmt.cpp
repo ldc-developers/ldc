@@ -482,7 +482,7 @@ static void remap_inargs(std::string& insnt, size_t nargs, size_t idx)
 
 void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState* p)
 {
-    IF_LOG Logger::println("AsmBlockStatement::toIR(): %s", stmt->loc.toChars());
+    IF_LOG Logger::println("CompoundAsmStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
     // disable inlining by default

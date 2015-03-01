@@ -52,9 +52,6 @@ class DebugStatement;
 class GotoStatement;
 class LabelStatement;
 class AsmStatement;
-#if IN_LLVM
-class AsmBlockStatement;
-#endif
 class CompoundAsmStatement;
 class ImportStatement;
 

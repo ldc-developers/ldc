@@ -681,16 +681,6 @@ public:
         // we can't compile asm statements
     }
 
-#if IN_LLVM
-    void visit(AsmBlockStatement *s)
-    {
-#if LOGCOMPILE
-        printf("%s AsmBlockStatement::ctfeCompile\n", s->loc.toChars());
-#endif
-        // we can't compile asm statements
-    }
-#endif
-
     void ctfeCompile(Statement *s)
     {
         s->accept(this);
