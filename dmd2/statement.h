@@ -142,8 +142,8 @@ public:
     virtual void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
-    virtual AsmBlockStatement *isAsmBlockStatement() { return NULL; }
-    virtual AsmBlockStatement* endsWithAsm();
+    virtual CompoundAsmStatement *isCompoundAsmBlockStatement() { return NULL; }
+    virtual CompoundAsmStatement* endsWithAsm();
 #endif
 };
 
@@ -233,7 +233,7 @@ public:
     void accept(Visitor *v) { v->visit(this); }
 
 #if IN_LLVM
-    virtual AsmBlockStatement* endsWithAsm();
+    virtual CompoundAsmStatement* endsWithAsm();
 #endif
 };
 
@@ -824,6 +824,10 @@ class CompoundAsmStatement : public CompoundStatement
 {
 public:
     StorageClass stc; // postfix attributes like nothrow/pure/@trusted
+#if IN_LLVM
+    TryFinallyStatement* enclosingFinally;
+    Statement* enclosingScopeExit;
+#endif
 
     CompoundAsmStatement(Loc loc, Statements *s, StorageClass stc);
     CompoundAsmStatement *syntaxCopy();
@@ -831,6 +835,13 @@ public:
     Statements *flatten(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
+#if IN_LLVM
+    CompoundStatement *isCompoundStatement() { return NULL; }
+    CompoundAsmStatement *isCompoundAsmBlockStatement() { return this; }
+
+    CompoundAsmStatement* endsWithAsm();
+    llvm::Value* abiret;
+#endif
 };
 
 class ImportStatement : public Statement
@@ -844,27 +855,5 @@ public:
 
     void accept(Visitor *v) { v->visit(this); }
 };
-
-#if IN_LLVM
-class AsmBlockStatement : public CompoundStatement
-{
-public:
-    TryFinallyStatement* enclosingFinally;
-    Statement* enclosingScopeExit;
-
-    AsmBlockStatement(Loc loc, Statements *s);
-    Statements *flatten(Scope *sc);
-    Statement *syntaxCopy();
-    Statement *semantic(Scope *sc);
-
-    CompoundStatement *isCompoundStatement() { return NULL; }
-    AsmBlockStatement *isAsmBlockStatement() { return this; }
-    void accept(Visitor *v) { v->visit(this); }
-
-    AsmBlockStatement* endsWithAsm();
-
-    llvm::Value* abiret;
-};
-#endif
 
 #endif /* DMD_STATEMENT_H */

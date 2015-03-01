@@ -430,15 +430,6 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
 
 //////////////////////////////////////////////////////////////////////////////
 
-AsmBlockStatement::AsmBlockStatement(Loc loc, Statements* s)
-:   CompoundStatement(loc, s)
-{
-    enclosingFinally = NULL;
-    enclosingScopeExit = NULL;
-
-    abiret = NULL;
-}
-
 // rewrite argument indices to the block scope indices
 static void remap_outargs(std::string& insnt, size_t nargs, size_t idx)
 {
@@ -489,7 +480,7 @@ static void remap_inargs(std::string& insnt, size_t nargs, size_t idx)
     }
 }
 
-void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
+void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState* p)
 {
     IF_LOG Logger::println("AsmBlockStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
@@ -766,44 +757,15 @@ void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
     }
 }
 
-// the whole idea of this statement is to avoid the flattening
-Statements* AsmBlockStatement::flatten(Scope* sc)
-{
-    return NULL;
-}
-
-Statement *AsmBlockStatement::syntaxCopy()
-{
-    Statements *a = new Statements();
-    a->setDim(statements->dim);
-    for (size_t i = 0; i < statements->dim; i++)
-    {
-        Statement *s = (*statements)[i];
-        if (s)
-            s = s->syntaxCopy();
-        a->data[i] = s;
-    }
-    AsmBlockStatement *cs = new AsmBlockStatement(loc, a);
-    return cs;
-}
-
-// necessary for in-asm branches
-Statement *AsmBlockStatement::semantic(Scope *sc)
-{
-    enclosingFinally = sc->tf;
-
-    return CompoundStatement::semantic(sc);
-}
-
 //////////////////////////////////////////////////////////////////////////////
 
-AsmBlockStatement* Statement::endsWithAsm()
+CompoundAsmStatement* Statement::endsWithAsm()
 {
     // does not end with inline asm
     return NULL;
 }
 
-AsmBlockStatement* CompoundStatement::endsWithAsm()
+CompoundAsmStatement* CompoundStatement::endsWithAsm()
 {
     // make the last inner statement decide
     if (statements && statements->dim)
@@ -815,7 +777,7 @@ AsmBlockStatement* CompoundStatement::endsWithAsm()
     return NULL;
 }
 
-AsmBlockStatement* AsmBlockStatement::endsWithAsm()
+CompoundAsmStatement* CompoundAsmStatement::endsWithAsm()
 {
     // yes this is inline asm
     return this;

@@ -105,13 +105,13 @@ struct IRAsmBlock
     // stores the labels within the asm block
     std::vector<Identifier*> internalLabels;
 
-    AsmBlockStatement* asmBlock;
+    CompoundAsmStatement* asmBlock;
     LLType* retty;
     unsigned retn;
     bool retemu; // emulate abi ret with a temporary
     LLValue* (*retfixup)(IRBuilderHelper b, LLValue* orig); // Modifies retval
 
-    IRAsmBlock(AsmBlockStatement* b)
+    IRAsmBlock(CompoundAsmStatement* b)
         : outputcount(0), asmBlock(b), retty(NULL), retn(0), retemu(false),
         retfixup(NULL)
     {}

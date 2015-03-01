@@ -55,21 +55,6 @@ public:
 
     //////////////////////////////////////////////////////////////////////////
 
-    void visit(AsmBlockStatement *stmt) LLVM_OVERRIDE {
-        IF_LOG Logger::println("AsmBlockStatement::toNakedIR(): %s", stmt->loc.toChars());
-        LOG_SCOPE;
-
-        for (Statements::iterator I = stmt->statements->begin(),
-                                  E = stmt->statements->end();
-                                  I != E; ++I)
-        {
-            Statement *s = *I;
-            if (s) s->accept(this);
-        }
-    }
-
-    //////////////////////////////////////////////////////////////////////////
-
     void visit(CompoundStatement *stmt) LLVM_OVERRIDE {
         IF_LOG Logger::println("CompoundStatement::toNakedIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;

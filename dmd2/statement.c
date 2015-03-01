@@ -702,14 +702,6 @@ int Statement::blockExit(FuncDeclaration *func, bool mustNotThrow)
             if (!(s->stc & STCnothrow)) result |= BEthrow;
         }
 
-#if IN_LLVM
-        void visit(AsmBlockStatement *s)
-        {
-            // Assume the worst
-            result = BEany;
-        }
-#endif
-
         void visit(ImportStatement *s)
         {
             result = BEfallthru;
@@ -1170,7 +1162,7 @@ Statement *CompoundStatement::semantic(Scope *sc)
     }
     if (statements->dim == 1
 #if IN_LLVM
-        && !isAsmBlockStatement()
+        && !isCompoundAsmBlockStatement()
 #endif
     )
     {
@@ -5157,6 +5149,12 @@ CompoundAsmStatement::CompoundAsmStatement(Loc loc, Statements *s, StorageClass 
     : CompoundStatement(loc, s)
 {
     this->stc = stc;
+#if IN_LLVM
+    enclosingFinally = NULL;
+    enclosingScopeExit = NULL;
+
+    abiret = NULL;
+#endif
 }
 
 CompoundAsmStatement *CompoundAsmStatement::syntaxCopy()
@@ -5178,6 +5176,9 @@ Statements *CompoundAsmStatement::flatten(Scope *sc)
 
 CompoundAsmStatement *CompoundAsmStatement::semantic(Scope *sc)
 {
+#if IN_LLVM
+    enclosingFinally = sc->tf;
+#endif
     for (size_t i = 0; i < statements->dim; i++)
     {
         Statement *s = (*statements)[i];

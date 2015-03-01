@@ -1048,7 +1048,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
             llvm::ReturnInst::Create(gIR->context(), gIR->scopebb());
         }
         else if (!fd->isMain()) {
-            AsmBlockStatement* asmb = fd->fbody->endsWithAsm();
+            CompoundAsmStatement* asmb = fd->fbody->endsWithAsm();
             if (asmb) {
                 assert(asmb->abiret);
                 llvm::ReturnInst::Create(gIR->context(), asmb->abiret, bb);

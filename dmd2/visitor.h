@@ -342,9 +342,6 @@ public:
     virtual void visit(GotoStatement *s) { visit((Statement *)s); }
     virtual void visit(LabelStatement *s) { visit((Statement *)s); }
     virtual void visit(AsmStatement *s) { visit((Statement *)s); }
-#if IN_LLVM
-    virtual void visit(AsmBlockStatement *s) { visit((Statement *)s); }
-#endif
     virtual void visit(CompoundAsmStatement *s) { visit((CompoundStatement *)s); }
     virtual void visit(ImportStatement *s) { visit((Statement *)s); }
 

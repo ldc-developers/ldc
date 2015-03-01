@@ -45,7 +45,7 @@
 //////////////////////////////////////////////////////////////////////////////
 // FIXME: Integrate these functions
 void AsmStatement_toIR(AsmStatement *stmt, IRState * irs);
-void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p);
+void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState* p);
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -325,7 +325,7 @@ public:
         StatementVisitor::visit(s);
     }
 
-    void visit(AsmBlockStatement *s)
+    void visit(CompoundAsmStatement *s)
     {
         s->enclosingScopeExit = enclosingTryFinally();
         StatementVisitor::visit(s);
@@ -1777,8 +1777,8 @@ public:
 
     //////////////////////////////////////////////////////////////////////////
 
-    void visit(AsmBlockStatement *stmt) LLVM_OVERRIDE {
-        AsmBlockStatement_toIR(stmt, irs);
+    void visit(CompoundAsmStatement *stmt) LLVM_OVERRIDE{
+        CompoundAsmStatement_toIR(stmt, irs);
     }
 
     //////////////////////////////////////////////////////////////////////////
