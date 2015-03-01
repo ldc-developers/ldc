@@ -257,7 +257,7 @@ class TypeInfo_Tuple : TypeInfo
 
 class TypeInfo_Const : TypeInfo
 {
-    TypeInfo next;
+    TypeInfo base;
 }
 
 class TypeInfo_Invariant : TypeInfo_Const
