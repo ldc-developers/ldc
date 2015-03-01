@@ -560,7 +560,7 @@ static void registerPredefinedFloatABI(const char *soft, const char *hard, const
     // Use target floating point unit instead of s/w float routines
     bool useFPU = !gTargetMachine->Options.UseSoftFloat;
     VersionCondition::addPredefinedGlobalIdent(useFPU ? "D_HardFloat" : "D_SoftFloat");
-    
+
     if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft)
     {
         VersionCondition::addPredefinedGlobalIdent(useFPU && softfp ? softfp : soft);
