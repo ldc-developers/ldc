@@ -390,10 +390,8 @@ llvm::TargetMachine* createTargetMachine(
             floatABI = FloatABI::Hard;
             break;
         case llvm::Triple::arm:
-            floatABI = getARMFloatABI(triple, getLLVMArchSuffixForARM(cpu));
-            break;
         case llvm::Triple::thumb:
-            floatABI = FloatABI::Soft;
+            floatABI = getARMFloatABI(triple, getLLVMArchSuffixForARM(cpu));
             break;
         }
     }
