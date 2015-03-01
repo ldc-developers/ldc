@@ -2420,9 +2420,13 @@ void Expression::checkPurity(Scope *sc, FuncDeclaration *f)
     {
         // The attributes of outerfunc should be inferred from the call of f.
     }
+    else if (f->isInstantiated())
+    {
+        // The attributes of f are inferred from its body.
+    }
     else if (f->isFuncLiteralDeclaration())
     {
-        // The attributes of f is always inferred in its declared place.
+        // The attributes of f are always inferred in its declared place.
     }
     else
     {
@@ -2511,11 +2515,35 @@ void Expression::checkPurity(Scope *sc, VarDeclaration *v)
          * Therefore, this function and all its immediately enclosing
          * functions must be pure.
          */
-        FuncDeclaration *ff = sc->func;
-        if (sc->flags & SCOPEcompile ? ff->isPureBypassingInference() >= PUREweak : ff->setImpure())
+        /* Today, static local functions are impure by default, but they cannot
+         * violate purity of enclosing functions.
+         *
+         *  auto foo() pure {      // non instantiated funciton
+         *    static auto bar() {  // static, without pure attribute
+         *      globalData++;      // impure access
+         *      // Although globalData is accessed inside bar,
+         *      // it is not accessible inside pure foo.
+         *    }
+         *  }
+         */
+        for (Dsymbol *s = sc->func; s; s = s->toParent2())
         {
-            error("pure function '%s' cannot access mutable static data '%s'",
-                ff->toPrettyChars(), v->toChars());
+            FuncDeclaration *ff = s->isFuncDeclaration();
+            if (!ff)
+                break;
+            if (sc->flags & SCOPEcompile ? ff->isPureBypassingInference() >= PUREweak : ff->setImpure())
+            {
+                error("pure function '%s' cannot access mutable static data '%s'",
+                    ff->toPrettyChars(), v->toChars());
+                break;
+            }
+            /* If the enclosing is an instantiated function or a lambda, its
+             * attribute inference result is preferred.
+             */
+            if (ff->isInstantiated())
+                break;
+            if (ff->isFuncLiteralDeclaration())
+                break;
         }
     }
     else
