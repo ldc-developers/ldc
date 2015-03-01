@@ -18,7 +18,6 @@ private import core.stdc.config;
 extern (C):
 @trusted: // All functions here operate on floating point and integer values only.
 nothrow:
-pure:
 @nogc:
 
 ///
@@ -218,6 +217,26 @@ version( CRuntime_DigitalMars )
 }
 else version( CRuntime_Microsoft )
 {
+    version( LDC )
+    {
+        enum
+        {
+            FP_SUBNORMAL = -2,
+            FP_NORMAL    = -1,
+            FP_ZERO      =  0,
+            FP_INFINITE  =  1,
+            FP_NAN       =  2,
+        }
+
+        private short _fdclass(float x);
+        private short _dclass(double x);
+
+        private int _fdsign(float x);
+        private int _dsign(double x);
+    }
+
+  deprecated("Please use the standard C99 functions instead.")
+  {
     enum
     {
         ///
@@ -265,37 +284,49 @@ else version( CRuntime_Microsoft )
     int _fpclass(double x);
   }
 
-  extern(D)
-  {
-    //int fpclassify(real-floating x);
-    int fpclassify(float x)     { return _fdclass(x); }
-    int fpclassify(double x)    { return _dclass(x);  }
-    int fpclassify(real x)      { static if (real.sizeof == double.sizeof) return _dclass(x); else assert(0); }
+    version(LDC)
+    {
+        extern(D)
+        {
+            //int fpclassify(real-floating x);
+            int fpclassify(float x)     { return _fdclass(x); }
+            int fpclassify(double x)    { return _dclass(x);  }
+            int fpclassify(real x)      { static if (real.sizeof == double.sizeof) return _dclass(x); else assert(0); }
 
-    //int isfinite(real-floating x);
-    int isfinite(float x)       { return fpclassify(x) <= 0; }
-    int isfinite(double x)      { return fpclassify(x) <= 0; }
-    int isfinite(real x)        { return fpclassify(x) <= 0; }
+            //int isfinite(real-floating x);
+            int isfinite(float x)       { return fpclassify(x) <= 0; }
+            int isfinite(double x)      { return fpclassify(x) <= 0; }
+            int isfinite(real x)        { return fpclassify(x) <= 0; }
 
-    //int isinf(real-floating x);
-    int isinf(float x)          { return fpclassify(x) == FP_INFINITE; }
-    int isinf(double x)         { return fpclassify(x) == FP_INFINITE; }
-    int isinf(real x)           { return fpclassify(x) == FP_INFINITE; }
+            //int isinf(real-floating x);
+            int isinf(float x)          { return fpclassify(x) == FP_INFINITE; }
+            int isinf(double x)         { return fpclassify(x) == FP_INFINITE; }
+            int isinf(real x)           { return fpclassify(x) == FP_INFINITE; }
 
-    //int isnan(real-floating x);
-    int isnan(float x)          { return fpclassify(x) == FP_NAN; }
-    int isnan(double x)         { return fpclassify(x) == FP_NAN; }
-    int isnan(real x)           { return fpclassify(x) == FP_NAN; }
+            //int isnan(real-floating x);
+            int isnan(float x)          { return fpclassify(x) == FP_NAN; }
+            int isnan(double x)         { return fpclassify(x) == FP_NAN; }
+            int isnan(real x)           { return fpclassify(x) == FP_NAN; }
 
-    //int isnormal(real-floating x);
-    int isnormal(float x)       { return fpclassify(x) == FP_NORMAL; }
-    int isnormal(double x)      { return fpclassify(x) == FP_NORMAL; }
-    int isnormal(real x)        { return fpclassify(x) == FP_NORMAL; }
+            //int isnormal(real-floating x);
+            int isnormal(float x)       { return fpclassify(x) == FP_NORMAL; }
+            int isnormal(double x)      { return fpclassify(x) == FP_NORMAL; }
+            int isnormal(real x)        { return fpclassify(x) == FP_NORMAL; }
 
-    //int signbit(real-floating x);
-    int signbit(float x)     { return _fdsign(x); }
-    int signbit(double x)    { return _dsign(x);  }
-    int signbit(real x)
+            //int signbit(real-floating x);
+            int signbit(float x)     { return _fdsign(x); }
+            int signbit(double x)    { return _dsign(x);  }
+            int signbit(real x)
+            {
+                return (real.sizeof == double.sizeof)
+                    ? (cast(short*)&(x))[3] & 0x8000
+                    : (cast(short*)&(x))[4] & 0x8000;
+            }
+        }
+    }
+    else
+    {
+    extern(D)
     {
         ///
         version(Win64) int isnan(float x)          { return _isnanf(x);   }
@@ -306,7 +337,7 @@ else version( CRuntime_Microsoft )
         ///
         int isnan(real x)           { return _isnan(x);   }
     }
-  }
+    }
 }
 else version( linux )
 {
@@ -913,7 +944,7 @@ extern (D)
  * internally with reduced 64-bit precision.
  * This also enables relaxing real to 64-bit double.
  */
-version( MSVC_RUNTIME ) // requires MSVCRT >= 2013
+version( CRuntime_Microsoft ) // requires MSVCRT >= 2013
 {
                    double acos (double x);
     version(Win64) float  acosf(float  x);
