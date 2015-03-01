@@ -16,7 +16,7 @@
 
 #if _WIN32
 
-#ifdef _MSC_VER
+#if _MSC_VER || __MINGW64__
 
 #include <Windows.h>
 #include <string.h>

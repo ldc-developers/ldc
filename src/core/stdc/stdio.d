@@ -909,6 +909,9 @@ version( MinGW )
     ///
     alias __mingw_vsnprintf vsnprintf;
 
+    uint _set_output_format(uint format);
+    enum _TWO_DIGIT_EXPONENT = 1;
+
     intptr_t _get_osfhandle(int fd);
     int _open_osfhandle(intptr_t osfhandle, int flags);
 }

@@ -288,6 +288,11 @@ else version( Solaris )
     ///
     enum FE_DFL_ENV = &__fenv_def_env;
 }
+else version( Solaris )
+{
+    private extern const fenv_t __fenv_def_env;
+    const fenv_t* FE_DFL_ENV = &__fenv_def_env;
+}
 else
 {
     static assert( false, "Unsupported platform" );

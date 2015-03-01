@@ -133,16 +133,33 @@ version (LDC)
             // it doesn't seem to reliably possible to express the fscale
             // semantics (two FP stack inputs/returns) in an inline asm
             // expression clobber list.
-            asm
+            version (D_InlineAsm_X86_64)
             {
-                naked;
-                push EAX;
-                fild int ptr [ESP];
-                fld real ptr [ESP+8];
-                fscale;
-                fstp ST(1);
-                pop EAX;
-                ret 12;
+                asm
+                {
+                    naked;
+                    push RCX;                // push exp (8 bytes), passed in ECX
+                    fild int ptr [RSP];      // push exp onto FPU stack
+                    pop RCX;                 // return stack to initial state
+                    fld real ptr [RDX];      // push n   onto FPU stack, passed in [RDX]
+                    fscale;                  // ST(0) = ST(0) * 2^ST(1)
+                    fstp ST(1);              // pop stack maintaining top value => function return value
+                    ret;                     // no arguments passed via stack
+                }
+            }
+            else
+            {
+                asm
+                {
+                    naked;
+                    push EAX;
+                    fild int ptr [ESP];
+                    fld real ptr [ESP+8];
+                    fscale;
+                    fstp ST(1);
+                    pop EAX;
+                    ret 12;
+                }
             }
         }
         else

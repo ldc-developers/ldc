@@ -38,6 +38,12 @@ version( Solaris )
     import core.sys.solaris.sys.types;
 }
 
+version( Solaris )
+{
+    import core.sys.solaris.sys.priocntl;
+    import core.sys.solaris.sys.types;
+}
+
 // this should be true for most architectures
 version = StackGrowsDown;
 
