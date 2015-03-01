@@ -919,11 +919,32 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-    // int _d_eh_personality(int ver, int actions, ulong eh_class, ptr eh_info, ptr context)
+    // int _d_eh_personality(...)
     {
+        LLFunctionType* fty = NULL;
+#if LDC_LLVM_VER >= 305
+        if (global.params.targetTriple.isWindowsMSVCEnvironment())
+        {
+            // int _d_eh_personality(ptr ExceptionRecord, ptr EstablisherFrame, ptr ContextRecord, ptr DispatcherContext)
+            LLType *types[] = { voidPtrTy, voidPtrTy, voidPtrTy, voidPtrTy };
+            fty = llvm::FunctionType::get(intTy, types, false);
+        }
+        else
+#endif
+        if (global.params.targetTriple.getArch() == llvm::Triple::arm)
+        {
+            // int _d_eh_personality(int state, ptr ucb, ptr context)
+            LLType *types[] = { intTy, voidPtrTy, voidPtrTy };
+            fty = llvm::FunctionType::get(intTy, types, false);
+        }
+        else
+        {
+            // int _d_eh_personality(int ver, int actions, ulong eh_class, ptr eh_info, ptr context)
+            LLType *types[] = { intTy, intTy, longTy, voidPtrTy, voidPtrTy };
+            fty = llvm::FunctionType::get(intTy, types, false);
+        }
+
         llvm::StringRef fname("_d_eh_personality");
-        LLType *types[] = { intTy, intTy, longTy, voidPtrTy, voidPtrTy };
-        LLFunctionType* fty = llvm::FunctionType::get(intTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
@@ -963,13 +984,13 @@ static void LLVM_D_BuildRuntimeModule()
         );
         assert(dty->ctype);
         IrFuncTy &irFty = dty->ctype->getIrFuncTy();
-        gABI->newFunctionType(dty);
         gABI->rewriteFunctionType(dty, irFty);
-        gABI->doneWithFunctionType();
-#if LDC_LLVM_VER < 303
-        fn->addAttribute(1, irFty.args[0]->attrs);
+#if LDC_LLVM_VER >= 303
+        fn->addAttributes(1, llvm::AttributeSet::get(gIR->context(), 1, irFty.args[0]->attrs.attrs));
+#elif LDC_LLVM_VER == 302
+        fn->addAttribute(1, llvm::Attributes::get(gIR->context(), irFty.args[0]->attrs.attrs));
 #else
-        fn->addAttributes(1, llvm::AttributeSet::get(gIR->context(), 1, irFty.args[0]->attrs));
+        fn->addAttribute(1, irFty.args[0]->attrs.attrs);
 #endif
         fn->setCallingConv(gABI->callingConv(LINKd));
     }

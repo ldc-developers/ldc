@@ -489,8 +489,6 @@ static void remap_inargs(std::string& insnt, size_t nargs, size_t idx)
     }
 }
 
-LLValue* DtoAggrPairSwap(LLValue* aggr);
-
 void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
 {
     IF_LOG Logger::println("AsmBlockStatement::toIR(): %s", stmt->loc.toChars());

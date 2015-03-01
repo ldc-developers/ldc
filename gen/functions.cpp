@@ -47,13 +47,6 @@
 #endif
 #include <iostream>
 
-#if LDC_LLVM_VER == 302
-namespace llvm
-{
-    typedef llvm::Attributes Attribute;
-}
-#endif
-
 llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype, Type* nesttype,
                                     bool isMain, bool isCtor, bool isIntrinsic)
 {
@@ -70,8 +63,6 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     if (irFty.funcType) return irFty.funcType;
 
     TargetABI* abi = (isIntrinsic ? TargetABI::getIntrinsic() : gABI);
-    // Tell the ABI we're resolving a new function type
-    abi->newFunctionType(f);
 
     // Do not modify irFty yet; this function may be called recursively if any
     // of the argument types refer to this type.
@@ -89,33 +80,13 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     else
     {
         Type* rt = f->next;
-#if LDC_LLVM_VER >= 302
-        llvm::AttrBuilder attrBuilder;
-#else
-        llvm::Attributes a = llvm::Attribute::None;
-#endif
+        AttrBuilder attrBuilder;
 
         // sret return
         if (abi->returnInArg(f))
         {
-#if LDC_LLVM_VER >= 302
-#if LDC_LLVM_VER >= 303
             newIrFty.arg_sret = new IrFuncTyArg(rt, true,
-                llvm::AttrBuilder().addAttribute(llvm::Attribute::StructRet)
-                .addAttribute(llvm::Attribute::NoAlias)
-#else
-            newIrFty.arg_sret = new IrFuncTyArg(rt, true, llvm::Attributes::get(gIR->context(),
-                llvm::AttrBuilder().addAttribute(llvm::Attributes::StructRet)
-                .addAttribute(llvm::Attributes::NoAlias)
-#endif
-#if LDC_LLVM_VER == 302
-            )
-#endif
-            );
-#else
-            newIrFty.arg_sret = new IrFuncTyArg(rt, true,
-                                                llvm::Attribute::StructRet | llvm::Attribute::NoAlias);
-#endif
+                AttrBuilder().add(LDC_ATTRIBUTE(StructRet)).add(LDC_ATTRIBUTE(NoAlias)));
             rt = Type::tvoid;
             lidx++;
         }
@@ -125,38 +96,21 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
             Type *t = rt;
             if (f->isref)
                 t = t->pointerTo();
-#if LDC_LLVM_VER >= 303
-            if (llvm::Attribute::AttrKind a = DtoShouldExtend(t))
-                attrBuilder.addAttribute(a);
-#elif LDC_LLVM_VER == 302
-            if (llvm::Attributes::AttrVal a = DtoShouldExtend(t))
-                attrBuilder.addAttribute(a);
-#else
-            a = DtoShouldExtend(t);
-#endif
+            attrBuilder.add(DtoShouldExtend(t));
         }
-#if LDC_LLVM_VER >= 303
-        llvm::AttrBuilder a = attrBuilder;
-#elif LDC_LLVM_VER == 302
-        llvm::Attributes a = llvm::Attributes::get(gIR->context(), attrBuilder);
-#endif
-        newIrFty.ret = new IrFuncTyArg(rt, f->isref, a);
+        newIrFty.ret = new IrFuncTyArg(rt, f->isref, attrBuilder);
     }
     lidx++;
 
     // member functions
     if (thistype)
     {
+        AttrBuilder attrBuilder;
 #if LDC_LLVM_VER >= 303
-        llvm::AttrBuilder attrBuilder;
         if (isCtor)
-            attrBuilder.addAttribute(llvm::Attribute::Returned);
+            attrBuilder.add(LDC_ATTRIBUTE(Returned));
 #endif
-        newIrFty.arg_this = new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct
-#if LDC_LLVM_VER >= 303
-                                       , attrBuilder
-#endif
-                                       );
+        newIrFty.arg_this = new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct, attrBuilder);
         lidx++;
     }
 
@@ -179,28 +133,10 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
                 // _arguments
                 newIrFty.arg_arguments = new IrFuncTyArg(Type::dtypeinfo->type->arrayOf(), false);
                 lidx++;
-                // _argptr
-#if LDC_LLVM_VER >= 303
-                newIrFty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
-                                                 llvm::AttrBuilder().addAttribute(llvm::Attribute::NoAlias)
-                                                                    .addAttribute(llvm::Attribute::NoCapture));
-#elif LDC_LLVM_VER == 302
-                newIrFty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
-                                                 llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
-                                                                                                          .addAttribute(llvm::Attributes::NoCapture)));
-#else
-                newIrFty.arg_argptr = new IrFuncTyArg(Type::tvoid->pointerTo(), false,
-                                                      llvm::Attribute::NoAlias | llvm::Attribute::NoCapture);
-#endif
-                lidx++;
             }
         }
-        else
-        {
-            // Default to C-style varargs for non-extern(D) variadic functions.
-            // This seems to be what DMD does.
-            newIrFty.c_vararg = true;
-        }
+
+        newIrFty.c_vararg = true;
     }
 
     // if this _Dmain() doesn't have an argument, we force it to have one
@@ -222,11 +158,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
         bool byref = arg->storageClass & (STCref|STCout);
 
         Type* argtype = arg->type;
-#if LDC_LLVM_VER >= 302
-        llvm::AttrBuilder attrBuilder;
-#else
-        llvm::Attributes a = llvm::Attribute::None;
-#endif
+        AttrBuilder attrBuilder;
 
         // handle lazy args
         if (arg->storageClass & STClazy)
@@ -236,44 +168,27 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
             TypeDelegate *ltd = new TypeDelegate(ltf);
             argtype = ltd;
         }
-        // byval
-        else if (abi->passByVal(byref ? argtype->pointerTo() : argtype))
-        {
-#if LDC_LLVM_VER >= 302
-            if (!byref) attrBuilder.addAttribute(llvm::Attribute::ByVal);
-#else
-            if (!byref) a |= llvm::Attribute::ByVal;
-#endif
-            // set byref, because byval requires a pointed LLVM type
-            byref = true;
-        }
-        // sext/zext
         else if (!byref)
         {
-#if LDC_LLVM_VER >= 303
-            if (llvm::Attribute::AttrKind a = DtoShouldExtend(argtype))
-                attrBuilder.addAttribute(a);
-#elif LDC_LLVM_VER == 302
-            if (llvm::Attributes::AttrVal a = DtoShouldExtend(argtype))
-                attrBuilder.addAttribute(a);
-#else
-            a |= DtoShouldExtend(argtype);
-#endif
+            // byval
+            if (abi->passByVal(argtype))
+            {
+                attrBuilder.add(LDC_ATTRIBUTE(ByVal));
+                // set byref, because byval requires a pointed LLVM type
+                byref = true;
+            }
+            // sext/zext
+            else
+            {
+                attrBuilder.add(DtoShouldExtend(argtype));
+            }
         }
-#if LDC_LLVM_VER >= 303
-        llvm::AttrBuilder a = attrBuilder;
-#elif LDC_LLVM_VER == 302
-        llvm::Attributes a = llvm::Attributes::get(gIR->context(), attrBuilder);
-#endif
-        newIrFty.args.push_back(new IrFuncTyArg(argtype, byref, a));
+        newIrFty.args.push_back(new IrFuncTyArg(argtype, byref, attrBuilder));
         lidx++;
     }
 
     // let the abi rewrite the types as necesary
     abi->rewriteFunctionType(f, newIrFty);
-
-    // Tell the ABI we're done with this function type
-    abi->doneWithFunctionType();
 
     // Now we can modify irFty safely.
     irFty = llvm_move(newIrFty);
@@ -286,7 +201,6 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     if (irFty.arg_this) argtypes.push_back(irFty.arg_this->ltype);
     if (irFty.arg_nest) argtypes.push_back(irFty.arg_nest->ltype);
     if (irFty.arg_arguments) argtypes.push_back(irFty.arg_arguments->ltype);
-    if (irFty.arg_argptr) argtypes.push_back(irFty.arg_argptr->ltype);
 
     size_t beg = argtypes.size();
     size_t nargs2 = irFty.args.size();
@@ -412,7 +326,7 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 
     LLFunction* fun = gIR->module->getFunction(mangled_name);
     fun->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
-    fun->addFnAttr(llvm::Attribute::AlwaysInline);
+    fun->addFnAttr(LDC_ATTRIBUTE(AlwaysInline));
     return fun;
 }
 
@@ -590,23 +504,17 @@ void DtoResolveFunction(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#if LDC_LLVM_VER >= 303
 static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
 {
     IrFuncTy &irFty = getIrFunc(fdecl)->irFty;
-    llvm::AttributeSet old = func->getAttributes();
-    llvm::AttributeSet existingAttrs[] = { old.getFnAttributes(), old.getRetAttributes() };
-    llvm::AttributeSet newAttrs = llvm::AttributeSet::get(gIR->context(), existingAttrs);
+    AttrSet newAttrs = AttrSet::extractFunctionAndReturnAttributes(func);
 
     int idx = 0;
 
     // handle implicit args
     #define ADD_PA(X) \
     if (irFty.X) { \
-        if (irFty.X->attrs.hasAttributes()) { \
-            llvm::AttributeSet a = llvm::AttributeSet::get(gIR->context(), idx, irFty.X->attrs); \
-            newAttrs = newAttrs.addAttributes(gIR->context(), idx, a); \
-        } \
+        newAttrs.add(idx, irFty.X->attrs); \
         idx++; \
     }
 
@@ -615,7 +523,6 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     ADD_PA(arg_this)
     ADD_PA(arg_nest)
     ADD_PA(arg_arguments)
-    ADD_PA(arg_argptr)
 
     #undef ADD_PA
 
@@ -625,110 +532,13 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     {
         assert(Parameter::getNth(f->parameters, k));
 
-        llvm::AttrBuilder a = irFty.args[k]->attrs;
-        if (a.hasAttributes())
-        {
-            unsigned i = idx + (irFty.reverseParams ? n-k-1 : k);
-            llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(), i, a);
-            newAttrs = newAttrs.addAttributes(gIR->context(), i, as);
-        }
+        unsigned i = idx + (irFty.reverseParams ? n-k-1 : k);
+        newAttrs.add(i, irFty.args[k]->attrs);
     }
 
     // Store the final attribute set
-    func->setAttributes(newAttrs);
+    func->setAttributes(newAttrs.toNativeSet());
 }
-#else
-static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclaration* fdecl)
-{
-    IrFuncTy &irFty = getIrFunc(fdecl)->irFty;
-    LLSmallVector<llvm::AttributeWithIndex, 9> attrs;
-
-    int idx = 0;
-
-    // handle implicit args
-    #define ADD_PA(X) \
-    if (irFty.X) { \
-        if (HAS_ATTRIBUTES(irFty.X->attrs)) { \
-            attrs.push_back(llvm::AttributeWithIndex::get(idx, irFty.X->attrs)); \
-        } \
-        idx++; \
-    }
-
-    ADD_PA(ret)
-    ADD_PA(arg_sret)
-    ADD_PA(arg_this)
-    ADD_PA(arg_nest)
-    ADD_PA(arg_arguments)
-    ADD_PA(arg_argptr)
-
-    #undef ADD_PA
-
-    // set attrs on the rest of the arguments
-    size_t n = Parameter::dim(f->parameters);
-#if LDC_LLVM_VER == 302
-    LLSmallVector<llvm::Attributes, 8> attrptr(n, llvm::Attributes());
-#else
-    LLSmallVector<llvm::Attributes, 8> attrptr(n, llvm::Attribute::None);
-#endif
-
-    for (size_t k = 0; k < n; ++k)
-    {
-        assert(Parameter::getNth(f->parameters, k));
-
-        attrptr[k] = irFty.args[k]->attrs;
-    }
-
-    // reverse params?
-    if (irFty.reverseParams)
-    {
-        std::reverse(attrptr.begin(), attrptr.end());
-    }
-
-    // build rest of attrs list
-    for (size_t i = 0; i < n; i++)
-    {
-        if (HAS_ATTRIBUTES(attrptr[i]))
-        {
-            attrs.push_back(llvm::AttributeWithIndex::get(idx + i, attrptr[i]));
-        }
-    }
-
-    // Merge in any old attributes (attributes for the function itself are
-    // also stored in a list slot).
-    const size_t newSize = attrs.size();
-    llvm::AttrListPtr oldAttrs = func->getAttributes();
-    for (size_t i = 0; i < oldAttrs.getNumSlots(); ++i) {
-        llvm::AttributeWithIndex curr = oldAttrs.getSlot(i);
-
-        bool found = false;
-        for (size_t j = 0; j < newSize; ++j) {
-            if (attrs[j].Index == curr.Index) {
-#if LDC_LLVM_VER == 302
-                attrs[j].Attrs = llvm::Attributes::get(
-                    gIR->context(),
-                    llvm::AttrBuilder(attrs[j].Attrs).addAttributes(curr.Attrs));
-#else
-                attrs[j].Attrs |= curr.Attrs;
-#endif
-                found = true;
-                break;
-            }
-        }
-
-        if (!found) {
-            attrs.push_back(curr);
-        }
-    }
-
-#if LDC_LLVM_VER >= 302
-	llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(gIR->context(),
-        llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
-#else
-    llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(attrs.begin(), attrs.end());
-#endif
-    func->setAttributes(attrlist);
-}
-#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -814,7 +624,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     if (!DtoIsIntrinsic(fdecl)) {
         set_param_attrs(f, func, fdecl);
         if (global.params.disableRedZone) {
-            func->addFnAttr(llvm::Attribute::NoRedZone);
+            func->addFnAttr(LDC_ATTRIBUTE(NoRedZone));
         }
     }
 
@@ -877,12 +687,9 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             ++iarg;
         }
 
-        if (irFty.arg_argptr) {
+        if (irFty.arg_arguments) {
             iarg->setName("._arguments");
             irFunc->_arguments = iarg;
-            ++iarg;
-            iarg->setName("._argptr");
-            irFunc->_argptr = iarg;
             ++iarg;
         }
 
@@ -1077,23 +884,24 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     // On x86_64, always set 'uwtable' for System V ABI compatibility.
     // TODO: Find a better place for this.
+    // TODO: Is this required for Win64 as well?
     if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
     {
-        func->addFnAttr(llvm::Attribute::UWTable);
+        func->addFnAttr(LDC_ATTRIBUTE(UWTable));
     }
 #if LDC_LLVM_VER >= 303
     if (opts::sanitize != opts::None) {
         // Set the required sanitizer attribute.
         if (opts::sanitize == opts::AddressSanitizer) {
-            func->addFnAttr(llvm::Attribute::SanitizeAddress);
+            func->addFnAttr(LDC_ATTRIBUTE(SanitizeAddress));
         }
 
         if (opts::sanitize == opts::MemorySanitizer) {
-            func->addFnAttr(llvm::Attribute::SanitizeMemory);
+            func->addFnAttr(LDC_ATTRIBUTE(SanitizeMemory));
         }
 
         if (opts::sanitize == opts::ThreadSanitizer) {
-            func->addFnAttr(llvm::Attribute::SanitizeThread);
+            func->addFnAttr(LDC_ATTRIBUTE(SanitizeThread));
         }
     }
 #endif
@@ -1202,16 +1010,20 @@ void DtoDefineFunction(FuncDeclaration* fd)
         DtoVarDeclaration(fd->vresult);
     }
 
-    // copy _argptr and _arguments to a memory location
+    // D varargs: prepare _argptr and _arguments
     if (f->linkage == LINKd && f->varargs == 1)
     {
-        // _argptr
-        LLValue* argptrmem = DtoRawAlloca(irFunc->_argptr->getType(), 0, "_argptr_mem");
-        new llvm::StoreInst(irFunc->_argptr, argptrmem, gIR->scopebb());
+        // allocate _argptr (of type core.stdc.stdarg.va_list)
+        LLValue* argptrmem = DtoAlloca(Type::tvalist, "_argptr_mem");
         irFunc->_argptr = argptrmem;
 
-        // _arguments
-        LLValue* argumentsmem = DtoRawAlloca(irFunc->_arguments->getType(), 0, "_arguments_mem");
+        // initialize _argptr with a call to the va_start intrinsic
+        LLValue* vaStartArg = gABI->prepareVaStart(argptrmem);
+        llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), vaStartArg, "", gIR->scopebb());
+
+        // copy _arguments to a memory location
+        LLType* argumentsType = irFunc->_arguments->getType();
+        LLValue* argumentsmem = DtoRawAlloca(argumentsType, 0, "_arguments_mem");
         new llvm::StoreInst(irFunc->_arguments, argumentsmem, gIR->scopebb());
         irFunc->_arguments = argumentsmem;
     }
@@ -1296,16 +1108,6 @@ DValue* DtoArgument(Parameter* fnarg, Expression* argexp)
     }
 
     return arg;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoVariadicArgument(Expression* argexp, LLValue* dst)
-{
-    IF_LOG Logger::println("DtoVariadicArgument");
-    LOG_SCOPE;
-    DVarValue vv(argexp->type, dst);
-    DtoAssign(argexp->loc, &vv, toElem(argexp));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

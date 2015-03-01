@@ -554,18 +554,25 @@ static void registerMipsABI()
 }
 
 /// Register the float ABI.
-/// Also defines D_SoftFloat or D_HardFloat depending on ABI type.
-static void registerPredefinedFloatABI(const char *soft, const char *hard)
+/// Also defines D_HardFloat or D_SoftFloat depending if FPU should be used
+static void registerPredefinedFloatABI(const char *soft, const char *hard, const char *softfp=NULL)
 {
+    // Use target floating point unit instead of s/w float routines
+    bool useFPU = !gTargetMachine->Options.UseSoftFloat;
+    VersionCondition::addPredefinedGlobalIdent(useFPU ? "D_HardFloat" : "D_SoftFloat");
+
     if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft)
     {
-        VersionCondition::addPredefinedGlobalIdent(soft);
-        VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
+        VersionCondition::addPredefinedGlobalIdent(useFPU && softfp ? softfp : soft);
     }
-    if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Hard)
+    else if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Hard)
     {
+        assert(useFPU && "Should be using the FPU if using float-abi=hard");
         VersionCondition::addPredefinedGlobalIdent(hard);
-        VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+    }
+    else
+    {
+        assert(0 && "FloatABIType neither Soft or Hard");
     }
 }
 
@@ -607,14 +614,13 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::armeb:
 #endif
             VersionCondition::addPredefinedGlobalIdent("ARM");
-            // FIXME: What about ARM_SoftFP?.
-            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
+            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat", "ARM_SoftFP");
             break;
         case llvm::Triple::thumb:
             VersionCondition::addPredefinedGlobalIdent("ARM");
             VersionCondition::addPredefinedGlobalIdent("Thumb"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("ARM_Thumb");
-            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
+            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat", "ARM_SoftFP");
             break;
 #if LDC_LLVM_VER == 305
         case llvm::Triple::arm64:
@@ -626,7 +632,7 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::aarch64_be:
 #endif
             VersionCondition::addPredefinedGlobalIdent("AArch64");
-            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
+            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat", "ARM_SoftFP");
             break;
 #endif
         case llvm::Triple::mips:

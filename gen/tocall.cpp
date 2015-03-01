@@ -71,26 +71,6 @@ TypeFunction* DtoTypeFunction(DValue* fnval)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoVaArg(Loc& loc, Type* type, Expression* valistArg)
-{
-    DValue* expelem = toElem(valistArg);
-    LLType* llt = DtoType(type);
-    if (DtoIsPassedByRef(type))
-        llt = getPtrToType(llt);
-    // issue a warning for broken va_arg instruction.
-    if (global.params.targetTriple.getArch() != llvm::Triple::x86
-        && global.params.targetTriple.getArch() != llvm::Triple::ppc64
-#if LDC_LLVM_VER >= 305
-        && global.params.targetTriple.getArch() != llvm::Triple::ppc64le
-#endif
-        )
-        warning(loc, "va_arg for C variadic functions is probably broken for anything but x86 and ppc64");
-    // done
-    return new DImValue(type, gIR->ir->CreateVAArg(expelem->getLVal(), llt));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 LLValue* DtoCallableValue(DValue* fn)
 {
     Type* type = fn->getType()->toBasetype();
@@ -133,145 +113,109 @@ LLFunctionType* DtoExtractFunctionType(LLType* type)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static LLValue *fixArgument(DValue *argval, IrFuncTy &irFty, LLType *callableArgType, size_t argIndex)
+static void addExplicitArguments(std::vector<LLValue*>& args, AttrSet& attrs,
+    IrFuncTy& irFty, LLFunctionType* callableTy, const std::vector<DValue*>& argvals, int numFormalParams)
 {
-#if 0
-    IF_LOG {
-        Logger::cout() << "Argument before ABI: " << *argval->getRVal() << '\n';
-        Logger::cout() << "Argument type before ABI: " << *DtoType(argval->getType()) << '\n';
-    }
-#endif
+    const int numImplicitArgs = args.size();
+    const int numExplicitArgs = argvals.size();
 
-    // give the ABI a say
-    LLValue* arg = irFty.putParam(argval->getType(), argIndex, argval);
+    args.resize(numImplicitArgs + numExplicitArgs, static_cast<LLValue*>(0));
 
-#if 0
-    IF_LOG {
-        Logger::cout() << "Argument after ABI: " << *arg << '\n';
-        Logger::cout() << "Argument type after ABI: " << *arg->getType() << '\n';
-    }
-#endif
+    // construct and initialize an IrFuncTyArg object for each vararg
+    std::vector<IrFuncTyArg*> optionalIrArgs;
+    for (int i = numFormalParams; i < numExplicitArgs; i++) {
+        Type* argType = argvals[i]->getType();
+        bool passByVal = gABI->passByVal(argType);
 
-    // Hack around LDC assuming structs and static arrays are in memory:
-    // If the function wants a struct, and the argument value is a
-    // pointer to a struct, load from it before passing it in.
-    int ty = argval->getType()->toBasetype()->ty;
-    if (isaPointer(arg) && !isaPointer(callableArgType) &&
-        (ty == Tstruct || ty == Tsarray))
-    {
-        Logger::println("Loading struct type for function argument");
-        arg = DtoLoad(arg);
-    }
-
-    // parameter type mismatch, this is hard to get rid of
-    if (arg->getType() != callableArgType)
-    {
-    #if 1
-        IF_LOG {
-            Logger::cout() << "arg:     " << *arg << '\n';
-            Logger::cout() << "of type: " << *arg->getType() << '\n';
-            Logger::cout() << "expects: " << *callableArgType << '\n';
-        }
-    #endif
-        if (isaStruct(arg))
-            arg = DtoAggrPaint(arg, callableArgType);
+        AttrBuilder initialAttrs;
+        if (passByVal)
+            initialAttrs.add(LDC_ATTRIBUTE(ByVal));
         else
-            arg = DtoBitCast(arg, callableArgType);
+            initialAttrs.add(DtoShouldExtend(argType));
+
+        optionalIrArgs.push_back(new IrFuncTyArg(argType, passByVal, initialAttrs));
     }
-    return arg;
+
+    // let the ABI rewrite the IrFuncTyArg objects
+    gABI->rewriteVarargs(irFty, optionalIrArgs);
+
+    for (int i = 0; i < numExplicitArgs; i++)
+    {
+        int j = numImplicitArgs + (irFty.reverseParams ? numExplicitArgs - i - 1 : i);
+
+        DValue* argval = argvals[i];
+        Type* argType = argval->getType();
+
+        const bool isVararg = (i >= numFormalParams);
+        IrFuncTyArg* irArg = NULL;
+        LLValue* arg = NULL;
+
+        if (!isVararg)
+        {
+            irArg = irFty.args[i];
+            arg = irFty.putParam(argType, i, argval);
+        }
+        else
+        {
+            irArg = optionalIrArgs[i - numFormalParams];
+            arg = irFty.putParam(argType, *irArg, argval);
+        }
+
+        LLType* callableArgType = (isVararg ? NULL : callableTy->getParamType(j));
+
+        // Hack around LDC assuming structs and static arrays are in memory:
+        // If the function wants a struct, and the argument value is a
+        // pointer to a struct, load from it before passing it in.
+        if (isaPointer(arg) && DtoIsPassedByRef(argType) &&
+            ( (!isVararg && !isaPointer(callableArgType)) ||
+              (isVararg && !irArg->byref && !irArg->isByVal()) ) )
+        {
+            Logger::println("Loading struct type for function argument");
+            arg = DtoLoad(arg);
+        }
+
+        // parameter type mismatch, this is hard to get rid of
+        if (!isVararg && arg->getType() != callableArgType)
+        {
+#if 1
+            IF_LOG {
+                Logger::cout() << "arg:     " << *arg << '\n';
+                Logger::cout() << "of type: " << *arg->getType() << '\n';
+                Logger::cout() << "expects: " << *callableArgType << '\n';
+            }
+#endif
+            if (isaStruct(arg))
+                arg = DtoAggrPaint(arg, callableArgType);
+            else
+                arg = DtoBitCast(arg, callableArgType);
+        }
+
+        args[j] = arg;
+        attrs.add(j + 1, irArg->attrs);
+
+        if (isVararg)
+            delete irArg;
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#if LDC_LLVM_VER >= 303
-static inline void addToAttributes(llvm::AttributeSet &Attrs,
-                                   unsigned Idx, llvm::AttrBuilder B)
-{
-    llvm::AttrBuilder Builder(B);
-    Attrs = Attrs.addAttributes(gIR->context(), Idx,
-                                llvm::AttributeSet::get(gIR->context(), Idx, Builder));
-}
-#else
-static inline void addToAttributes(std::vector<llvm::AttributeWithIndex> &attrs,
-                                   unsigned Idx, llvm::Attributes Attr)
-{
-    attrs.push_back(llvm::AttributeWithIndex::get(Idx, Attr));
-}
-#endif
-
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoBuildDVarArgList(std::vector<LLValue*>& args,
-#if LDC_LLVM_VER >= 303
-                         llvm::AttributeSet &attrs,
-#else
-                         std::vector<llvm::AttributeWithIndex> &attrs,
-#endif
-                         TypeFunction* tf, IrFuncTy &irFty,
-                         Expressions* arguments, size_t argidx,
-                         LLFunctionType* callableTy)
+static LLValue* getTypeinfoArrayArgumentForDVarArg(Expressions* arguments, int begin)
 {
     IF_LOG Logger::println("doing d-style variadic arguments");
     LOG_SCOPE
 
-    std::vector<LLType*> vtypes;
-
     // number of non variadic args
-    int begin = Parameter::dim(tf->parameters);
     IF_LOG Logger::println("num non vararg params = %d", begin);
 
     // get n args in arguments list
     size_t n_arguments = arguments ? arguments->dim : 0;
 
-    // build struct with argument types (non variadic args)
-    for (size_t i=begin; i<n_arguments; i++)
-    {
-        Expression* argexp = (*arguments)[i];
-        assert(argexp->type->ty != Ttuple);
-        vtypes.push_back(DtoType(argexp->type));
-        size_t sz = getTypePaddedSize(vtypes.back());
-        size_t asz = (sz + Target::ptrsize - 1) & ~(Target::ptrsize -1);
-        if (sz != asz)
-        {
-            if (sz < static_cast<size_t>(Target::ptrsize))
-            {
-                vtypes.back() = DtoSize_t();
-            }
-            else
-            {
-                // ok then... so we build some type that is big enough
-                // and aligned to Target::ptrsize
-                std::vector<LLType*> gah;
-                gah.reserve(asz/Target::ptrsize);
-                size_t gah_sz = 0;
-                while (gah_sz < asz)
-                {
-                    gah.push_back(DtoSize_t());
-                    gah_sz += Target::ptrsize;
-                }
-                vtypes.back() = LLStructType::get(gIR->context(), gah, true);
-            }
-        }
-    }
-    LLStructType* vtype = LLStructType::get(gIR->context(), vtypes);
-
-    IF_LOG Logger::cout() << "d-variadic argument struct type:\n" << *vtype << '\n';
-
-    LLValue* mem = DtoRawAlloca(vtype, 0, "_argptr_storage");
-
-    // store arguments in the struct
-    for (size_t i=begin,k=0; i<n_arguments; i++,k++)
-    {
-        Expression* argexp = (*arguments)[i];
-        LLValue* argdst = DtoGEPi(mem,0,k);
-        argdst = DtoBitCast(argdst, getPtrToType(i1ToI8(DtoType(argexp->type))));
-        DtoVariadicArgument(argexp, argdst);
-    }
+    const size_t numVariadicArgs = n_arguments - begin;
 
     // build type info array
     LLType* typeinfotype = DtoType(Type::dtypeinfo->type);
-    LLArrayType* typeinfoarraytype = LLArrayType::get(typeinfotype,vtype->getNumElements());
+    LLArrayType* typeinfoarraytype = LLArrayType::get(typeinfotype, numVariadicArgs);
 
     llvm::GlobalVariable* typeinfomem =
         new llvm::GlobalVariable(*gIR->module, typeinfoarraytype, true, llvm::GlobalValue::InternalLinkage, NULL, "._arguments.storage");
@@ -290,7 +234,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
 
     // put data in d-array
     LLConstant* pinits[] = {
-        DtoConstSize_t(vtype->getNumElements()),
+        DtoConstSize_t(numVariadicArgs),
         llvm::ConstantExpr::getBitCast(typeinfomem, getPtrToType(typeinfotype))
     };
     LLType* tiarrty = DtoType(Type::dtypeinfo->type->arrayOf());
@@ -298,30 +242,7 @@ void DtoBuildDVarArgList(std::vector<LLValue*>& args,
     LLValue* typeinfoarrayparam = new llvm::GlobalVariable(*gIR->module, tiarrty,
         true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array");
 
-    // specify arguments
-    args.push_back(DtoLoad(typeinfoarrayparam));
-    if (HAS_ATTRIBUTES(irFty.arg_arguments->attrs)) {
-        addToAttributes(attrs, argidx, irFty.arg_arguments->attrs);
-    }
-    ++argidx;
-
-    args.push_back(gIR->ir->CreateBitCast(mem, getPtrToType(LLType::getInt8Ty(gIR->context()))));
-    if (HAS_ATTRIBUTES(irFty.arg_argptr->attrs)) {
-        addToAttributes(attrs, argidx, irFty.arg_argptr->attrs);
-    }
-
-    // pass non variadic args
-    for (int i=0; i<begin; i++)
-    {
-        Parameter* fnarg = Parameter::getNth(tf->parameters, i);
-        DValue* argval = DtoArgument(fnarg, (*arguments)[i]);
-        args.push_back(fixArgument(argval, irFty, callableTy->getParamType(argidx++), i));
-
-        if (HAS_ATTRIBUTES(irFty.args[i]->attrs))
-        {
-            addToAttributes(attrs, argidx, irFty.args[i]->attrs);
-        }
-    }
+    return DtoLoad(typeinfoarrayparam);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -345,9 +266,6 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // handle intrinsics
     bool intrinsic = (dfnval && dfnval->func && dfnval->func->llvmInternal == LLVMintrinsic);
 
-    // handle special vararg intrinsics
-    bool va_intrinsic = (dfnval && dfnval->func && DtoIsVaIntrinsic(dfnval->func));
-
     // get function type info
     IrFuncTy &irFty = DtoIrTypeFunction(fnval);
     TypeFunction* tf = DtoTypeFunction(fnval);
@@ -357,7 +275,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     bool thiscall = irFty.arg_this;
     bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
     bool nestedcall = irFty.arg_nest;
-    bool dvarargs = (tf->linkage == LINKd && tf->varargs == 1);
+    bool dvarargs = irFty.arg_arguments;
 
     llvm::CallingConv::ID callconv = gABI->callingConv(tf->linkage);
 
@@ -368,25 +286,17 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
 //     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
 
-    // get n arguments
+    // get number of explicit arguments
     size_t n_arguments = arguments ? arguments->dim : 0;
 
     // get llvm argument iterator, for types
-    LLFunctionType::param_iterator argbegin = callableTy->param_begin();
-    LLFunctionType::param_iterator argiter = argbegin;
+    LLFunctionType::param_iterator argTypesBegin = callableTy->param_begin();
 
     // parameter attributes
-#if LDC_LLVM_VER >= 303
-    llvm::AttributeSet attrs;
-#else
-    std::vector<llvm::AttributeWithIndex> attrs;
-#endif
+    AttrSet attrs;
 
     // return attrs
-    if (HAS_ATTRIBUTES(irFty.ret->attrs))
-    {
-        addToAttributes(attrs, 0, irFty.ret->attrs);
-    }
+    attrs.add(0, irFty.ret->attrs);
 
     // handle implicit arguments
     std::vector<LLValue*> args;
@@ -396,36 +306,25 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     if (retinptr)
     {
         if (!retvar)
-            retvar = DtoRawAlloca((*argiter)->getContainedType(0), resulttype->alignsize(), ".rettmp");
-        ++argiter;
+            retvar = DtoRawAlloca((*argTypesBegin)->getContainedType(0), resulttype->alignsize(), ".rettmp");
         args.push_back(retvar);
 
         // add attrs for hidden ptr
-#if LDC_LLVM_VER >= 303
-        const unsigned Index = 1;
-        llvm::AttrBuilder builder(irFty.arg_sret->attrs);
-        assert((builder.contains(llvm::Attribute::StructRet) || builder.contains(llvm::Attribute::InReg))
+        // after adding the argument to args, args.size() is the index for the
+        // related attributes since attrs[0] are the return value's attributes
+        attrs.add(args.size(), irFty.arg_sret->attrs);
+
+        // verify that sret and/or inreg attributes are set
+        const AttrBuilder& sretAttrs = irFty.arg_sret->attrs;
+        assert((sretAttrs.contains(LDC_ATTRIBUTE(StructRet)) || sretAttrs.contains(LDC_ATTRIBUTE(InReg)))
             && "Sret arg not sret or inreg?");
-        llvm::AttributeSet as = llvm::AttributeSet::get(gIR->context(), Index, builder);
-        attrs = attrs.addAttributes(gIR->context(), Index, as);
-#else
-        llvm::AttributeWithIndex Attr;
-        Attr.Index = 1;
-        Attr.Attrs = irFty.arg_sret->attrs;
-#if LDC_LLVM_VER == 302
-        assert((Attr.Attrs.hasAttribute(llvm::Attributes::StructRet) || Attr.Attrs.hasAttribute(llvm::Attributes::InReg))
-            && "Sret arg not sret or inreg?");
-#else
-        assert((Attr.Attrs & (llvm::Attribute::StructRet | llvm::Attribute::InReg))
-            && "Sret arg not sret or inreg?");
-#endif
-        attrs.push_back(Attr);
-#endif
     }
 
     // then comes a context argument...
     if(thiscall || delegatecall || nestedcall)
     {
+        LLType* contextArgType = *(argTypesBegin + args.size());
+
         if (dfnval && (dfnval->func->ident == Id::ensure || dfnval->func->ident == Id::require)) {
             // ... which can be the this "context" argument for a contract
             // invocation (in D2, we do not generate a full nested contexts
@@ -433,31 +332,24 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             // explicitly, while in D1, the normal nested function handling
             // mechanisms are used)
             LLValue* thisarg = DtoBitCast(DtoLoad(gIR->func()->thisArg), getVoidPtrType());
-            ++argiter;
             args.push_back(thisarg);
         }
-        else
-        if (thiscall && dfnval && dfnval->vthis)
+        else if (thiscall && dfnval && dfnval->vthis)
         {
             // ... or a normal 'this' argument
-            LLValue* thisarg = DtoBitCast(dfnval->vthis, *argiter);
-            ++argiter;
+            LLValue* thisarg = DtoBitCast(dfnval->vthis, contextArgType);
             args.push_back(thisarg);
         }
         else if (delegatecall)
         {
             // ... or a delegate context arg
             LLValue* ctxarg;
-            if (fnval->isLVal())
-            {
+            if (fnval->isLVal()) {
                 ctxarg = DtoLoad(DtoGEPi(fnval->getLVal(), 0, 0), ".ptr");
-            }
-            else
-            {
+            } else {
                 ctxarg = gIR->ir->CreateExtractValue(fnval->getRVal(), 0, ".ptr");
             }
-            ctxarg = DtoBitCast(ctxarg, *argiter);
-            ++argiter;
+            ctxarg = DtoBitCast(ctxarg, contextArgType);
             args.push_back(ctxarg);
         }
         else if (nestedcall)
@@ -470,7 +362,6 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             } else {
                 args.push_back(llvm::UndefValue::get(getVoidPtrType()));
             }
-            ++argiter;
         }
         else
         {
@@ -479,134 +370,61 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         }
 
         // add attributes for context argument
-        if (irFty.arg_this && HAS_ATTRIBUTES(irFty.arg_this->attrs))
-        {
-            addToAttributes(attrs, retinptr ? 2 : 1, irFty.arg_this->attrs);
-        }
-        else if (irFty.arg_nest && HAS_ATTRIBUTES(irFty.arg_nest->attrs))
-        {
-            addToAttributes(attrs, retinptr ? 2 : 1, irFty.arg_nest->attrs);
+        if (irFty.arg_this) {
+            attrs.add(args.size(), irFty.arg_this->attrs);
+        } else if (irFty.arg_nest) {
+            attrs.add(args.size(), irFty.arg_nest->attrs);
         }
     }
 
-    // handle the rest of the arguments based on param passing style
+    const int numFormalParams = Parameter::dim(tf->parameters); // excl. variadics
 
-    // variadic intrinsics need some custom casts
-    if (va_intrinsic)
-    {
-        for (size_t i=0; i<n_arguments; i++)
-        {
-            DValue* expelem = toElem((*arguments)[i]);
-            // cast to va_list*
-            LLValue* val = DtoBitCast(expelem->getLVal(), getVoidPtrType());
-            ++argiter;
-            args.push_back(val);
-        }
+    // D vararg functions need an additional "TypeInfo[] _arguments" argument
+    if (dvarargs) {
+        LLValue* argumentsArg = getTypeinfoArrayArgumentForDVarArg(arguments, numFormalParams);
+        args.push_back(argumentsArg);
+        attrs.add(args.size(), irFty.arg_arguments->attrs);
     }
 
-    // d style varargs needs a few more hidden arguments as well as special passing
-    else if (dvarargs)
-    {
-        DtoBuildDVarArgList(args, attrs, tf, irFty, arguments, argiter-argbegin+1, callableTy);
+    // handle explicit arguments
+
+    Logger::println("doing normal arguments");
+    IF_LOG {
+        Logger::println("Arguments so far: (%d)", static_cast<int>(args.size()));
+        Logger::indent();
+        for (size_t i = 0; i < args.size(); i++) {
+            Logger::cout() << *args[i] << '\n';
+        }
+        Logger::undent();
+        Logger::cout() << "Function type: " << tf->toChars() << '\n';
+        //Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
     }
 
-    // otherwise we're looking at a normal function call
-    // or a C style vararg call
-    else
-    {
-        Logger::println("doing normal arguments");
-        IF_LOG {
-            Logger::println("Arguments so far: (%d)", static_cast<int>(args.size()));
-            Logger::indent();
-            for (size_t i = 0; i < args.size(); i++) {
-                Logger::cout() << *args[i] << '\n';
-            }
-            Logger::undent();
-            Logger::cout() << "Function type: " << tf->toChars() << '\n';
-            //Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
+    std::vector<DValue*> argvals(n_arguments, static_cast<DValue*>(0));
+    if (dfnval && dfnval->func->isArrayOp) {
+        // For array ops, the druntime implementation signatures are crafted
+        // specifically such that the evaluation order is as expected with
+        // the strange DMD reverse parameter passing order. Thus, we need
+        // to actually build the arguments right-to-left for them.
+        for (int i = numFormalParams - 1; i >= 0; --i) {
+            Parameter* fnarg = Parameter::getNth(tf->parameters, i);
+            assert(fnarg);
+            DValue* argval = DtoArgument(fnarg, (*arguments)[i]);
+            argvals[i] = argval;
         }
-
-        size_t n = Parameter::dim(tf->parameters);
-        std::vector<DValue*> argvals;
-        argvals.reserve(n);
-        if (dfnval && dfnval->func->isArrayOp) {
-            // For array ops, the druntime implementation signatures are crafted
-            // specifically such that the evaluation order is as expected with
-            // the strange DMD reverse parameter passing order. Thus, we need
-            // to actually build the arguments right-to-left for them.
-            for (int i=n-1; i>=0; --i) {
-                Parameter* fnarg = Parameter::getNth(tf->parameters, i);
-                assert(fnarg);
-                DValue* argval = DtoArgument(fnarg, (*arguments)[i]);
-                argvals.insert(argvals.begin(), argval);
-            }
-        } else {
-            for (size_t i=0; i<n; ++i) {
-                Parameter* fnarg = Parameter::getNth(tf->parameters, i);
-                assert(fnarg);
-                DValue* argval = DtoArgument(fnarg, (*arguments)[i]);
-                argvals.push_back(argval);
-            }
-        }
-
-#if LDC_LLVM_VER == 302
-        LLSmallVector<llvm::Attributes, 10> attrptr(n, llvm::Attributes());
-#elif LDC_LLVM_VER < 302
-        LLSmallVector<llvm::Attributes, 10> attrptr(n, llvm::Attribute::None);
-#endif
-        // do formal params
-        int beg = argiter-argbegin;
-        for (size_t i=0; i<n; i++)
-        {
-            DValue* argval = argvals.at(i);
-
-            int j = irFty.reverseParams ? beg + n - i - 1 : beg + i;
-            LLValue *arg = fixArgument(argval, irFty, callableTy->getParamType(j), i);
-            args.push_back(arg);
-
-#if LDC_LLVM_VER >= 303
-            addToAttributes(attrs, beg + 1 + (irFty.reverseParams ? n-i-1: i), irFty.args[i]->attrs);
-#else
-            attrptr[i] = irFty.args[i]->attrs;
-#endif
-            ++argiter;
-        }
-
-        // reverse the relevant params as well as the param attrs
-        if (irFty.reverseParams)
-        {
-            std::reverse(args.begin() + beg, args.end());
-#if LDC_LLVM_VER < 303
-            std::reverse(attrptr.begin(), attrptr.end());
-#endif
-        }
-
-#if LDC_LLVM_VER < 303
-        // add attributes
-        for (size_t i = 0; i < n; i++)
-        {
-            if (HAS_ATTRIBUTES(attrptr[i]))
-            {
-                addToAttributes(attrs, beg + i + 1, attrptr[i]);
-            }
-        }
-#endif
-        // do C varargs
-        if (n_arguments > n)
-        {
-            for (size_t i=n; i<n_arguments; i++)
-            {
-                Parameter* fnarg = Parameter::getNth(tf->parameters, i);
-                DValue* argval = DtoArgument(fnarg, (*arguments)[i]);
-                LLValue* arg = argval->getRVal();
-
-                // FIXME: do we need any param attrs here ?
-
-                ++argiter;
-                args.push_back(arg);
-            }
+    } else {
+        for (int i = 0; i < numFormalParams; ++i) {
+            Parameter* fnarg = Parameter::getNth(tf->parameters, i);
+            assert(fnarg);
+            DValue* argval = DtoArgument(fnarg, (*arguments)[i]);
+            argvals[i] = argval;
         }
     }
+    // add varargs
+    for (size_t i = numFormalParams; i < n_arguments; ++i)
+        argvals[i] = DtoArgument(0, (*arguments)[i]);
+
+    addExplicitArguments(args, attrs, irFty, callableTy, argvals, numFormalParams);
 
 #if 0
     IF_LOG {
@@ -633,22 +451,39 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // get return value
     LLValue* retllval = (retinptr) ? args[0] : call.getInstruction();
 
-    // Ignore ABI for intrinsics
-    if (!intrinsic && !retinptr)
-    {
-        // do abi specific return value fixups
-        DImValue dretval(tf->next, retllval);
-        retllval = irFty.getRet(tf->next, &dretval);
-    }
-
     // Hack around LDC assuming structs and static arrays are in memory:
     // If the function returns a struct or a static array, and the return
     // value is not a pointer to a struct or a static array, store it to
     // a stack slot before continuing.
-    int ty = tf->next->toBasetype()->ty;
-    if ((ty == Tstruct && !isaPointer(retllval))
-        || (ty == Tsarray && isaArray(retllval))
-        )
+    Type* dReturnType = tf->next;
+    TY returnTy = dReturnType->toBasetype()->ty;
+    bool storeReturnValueOnStack =
+        (returnTy == Tstruct && !isaPointer(retllval)) ||
+        (returnTy == Tsarray && isaArray(retllval));
+
+    // Ignore ABI for intrinsics
+    if (!intrinsic && !retinptr)
+    {
+        // do abi specific return value fixups
+        DImValue dretval(dReturnType, retllval);
+        if (storeReturnValueOnStack)
+        {
+            Logger::println("Storing return value to stack slot");
+            LLValue* mem = DtoRawAlloca(DtoType(dReturnType), 0);
+            irFty.getRet(dReturnType, &dretval, mem);
+            retllval = mem;
+            storeReturnValueOnStack = false;
+        }
+        else
+        {
+            retllval = irFty.getRet(dReturnType, &dretval);
+            storeReturnValueOnStack =
+                (returnTy == Tstruct && !isaPointer(retllval)) ||
+                (returnTy == Tsarray && isaArray(retllval));
+        }
+    }
+
+    if (storeReturnValueOnStack)
     {
         Logger::println("Storing return value to stack slot");
         LLValue* mem = DtoRawAlloca(retllval->getType(), 0);
@@ -747,12 +582,9 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
     // set calling convention and parameter attributes
 #if LDC_LLVM_VER >= 303
-	llvm::AttributeSet attrlist = attrs;
-#elif LDC_LLVM_VER == 302
-	llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(gIR->context(),
-        llvm::ArrayRef<llvm::AttributeWithIndex>(attrs));
+    llvm::AttributeSet attrlist = attrs.toNativeSet();
 #else
-    llvm::AttrListPtr attrlist = llvm::AttrListPtr::get(attrs.begin(), attrs.end());
+    llvm::AttrListPtr attrlist = attrs.toNativeSet();
 #endif
     if (dfnval && dfnval->func)
     {

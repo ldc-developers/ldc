@@ -17,11 +17,8 @@
 #define LDC_IR_IRFUNCTY_H
 
 #include "llvm/ADT/SmallVector.h"
-#if LDC_LLVM_VER >= 303
-#include "llvm/IR/Attributes.h"
-#else
-#include "llvm/Attributes.h"
-#endif
+
+#include "gen/attributes.h"
 
 #if defined(_MSC_VER)
 #include "array.h"
@@ -53,11 +50,7 @@ struct IrFuncTyArg
 
     /** These are the final LLVM attributes used for the function.
      *  Must be valid for the LLVM Type and byref setting */
-#if LDC_LLVM_VER >= 303
-    llvm::AttrBuilder attrs;
-#else
-    llvm::Attributes attrs;
-#endif
+    AttrBuilder attrs;
 
     /** 'true' if the final LLVM argument is a LLVM reference type.
      *  Must be true when the D Type is a value type, but the final
@@ -80,13 +73,7 @@ struct IrFuncTyArg
      *  @param byref Initial value for the 'byref' field. If true the initial
      *               LLVM Type will be of DtoType(type->pointerTo()), instead
      *               of just DtoType(type) */
-#if LDC_LLVM_VER >= 303
-    IrFuncTyArg(Type* t, bool byref, llvm::AttrBuilder b = llvm::AttrBuilder());
-#elif LDC_LLVM_VER == 302
-    IrFuncTyArg(Type* t, bool byref, llvm::Attributes a = llvm::Attributes());
-#else
-    IrFuncTyArg(Type* t, bool byref, llvm::Attributes a = llvm::Attribute::None);
-#endif
+    IrFuncTyArg(Type* t, bool byref, const AttrBuilder& attrs = AttrBuilder());
 };
 
 // represents a function type
@@ -103,7 +90,6 @@ struct IrFuncTy
     IrFuncTyArg* arg_this;
     IrFuncTyArg* arg_nest;
     IrFuncTyArg* arg_arguments;
-    IrFuncTyArg* arg_argptr;
 
     // normal explicit arguments
 //    typedef llvm::SmallVector<IrFuncTyArg*, 4> ArgList;
@@ -124,6 +110,9 @@ struct IrFuncTy
     // range of normal parameters to reverse
     bool reverseParams;
 
+    // reserved for ABI-specific data
+    void* tag;
+
     IrFuncTy()
     :   funcType(0),
         ret(NULL),
@@ -131,17 +120,18 @@ struct IrFuncTy
         arg_this(NULL),
         arg_nest(NULL),
         arg_arguments(NULL),
-        arg_argptr(NULL),
         args(),
         c_vararg(false),
-        reverseParams(false)
+        reverseParams(false),
+        tag(NULL)
     {}
 
     llvm::Value* putRet(Type* dty, DValue* dval);
     llvm::Value* getRet(Type* dty, DValue* dval);
+    void getRet(Type* dty, DValue* dval, llvm::Value* lval);
 
     llvm::Value* putParam(Type* dty, size_t idx, DValue* dval);
-    llvm::Value* getParam(Type* dty, size_t idx, DValue* dval);
+    llvm::Value* putParam(Type* dty, const IrFuncTyArg& arg, DValue* dval);
     void getParam(Type* dty, size_t idx, DValue* dval, llvm::Value* lval);
 };
 
