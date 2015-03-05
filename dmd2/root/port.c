@@ -282,10 +282,11 @@ double Port::strtod(const char *p, char **endp)
 // from backend/strtold.c, renamed to avoid clash with decl in stdlib.h
 longdouble strtold_dm(const char *p,char **endp);
 
+
 #if _MSC_VER <= 1800
-// from strtod_hex.c, parses *only* hexadecimal 64bit-float literals
-longdouble strtod_hex(const char* p, char** endp);
+extern "C"  double strtod_davidgay(const char *p, char **endp);
 #endif
+
 
 longdouble Port::strtold(const char *p, char **endp)
 {
@@ -293,12 +294,8 @@ longdouble Port::strtold(const char *p, char **endp)
 # if _MSC_VER > 1800
     return ::strtold(p, endp);
 # else
-    // older MSVC versions do not support hexadecimal floating point values, so we have to implement our own conversion
-    longdouble val = ::strtold(p, endp);
-    if (!val) { // if val is zero, try parsing as hex float
-        val = strtod_hex(p, endp);
-    }
-    return val;
+    // older MSVC versions do not support hexadecimal floating point values, use dtoa.c
+    return strtod_davidgay(p, endp);
 # endif
 #else
     return ::strtold_dm(p, endp);
