@@ -282,10 +282,21 @@ double Port::strtod(const char *p, char **endp)
 // from backend/strtold.c, renamed to avoid clash with decl in stdlib.h
 longdouble strtold_dm(const char *p,char **endp);
 
+
+#if _MSC_VER <= 1800
+extern "C"  double strtod_davidgay(const char *p, char **endp);
+#endif
+
+
 longdouble Port::strtold(const char *p, char **endp)
 {
 #if IN_LLVM
+# if _MSC_VER > 1800
     return ::strtold(p, endp);
+# else
+    // older MSVC versions do not support hexadecimal floating point values, use dtoa.c
+    return strtod_davidgay(p, endp);
+# endif
 #else
     return ::strtold_dm(p, endp);
 #endif
