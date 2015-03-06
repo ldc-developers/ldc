@@ -147,6 +147,8 @@ longdouble Port::strtold(const char *buffer, char **endp)
 // Disable useless warnings about unreferenced functions
 #pragma warning (disable : 4514)
 
+#include <llvm/ADT/APFloat.h>
+#include <llvm/ADT/StringRef.h>
 #include <math.h>
 #include <float.h>  // for _isnan
 #include <time.h>
@@ -285,7 +287,11 @@ longdouble strtold_dm(const char *p,char **endp);
 longdouble Port::strtold(const char *p, char **endp)
 {
 #if IN_LLVM
-    return ::strtold(p, endp);
+    // MSVC strtold() does not support hex float strings. Just use
+    // the function provided by LLVM because we going to use it anyway.
+    llvm::APFloat val(llvm::APFloat::IEEEdouble, llvm::APFloat::uninitialized);
+    val.convertFromString(llvm::StringRef(p), llvm::APFloat::rmNearestTiesToEven);
+    return val.convertToDouble();
 #else
     return ::strtold_dm(p, endp);
 #endif
