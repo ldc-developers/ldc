@@ -175,6 +175,66 @@ ldc::longdouble ldc::longdouble::tan() const
 	return ldouble(d);
 }
 
+ldc::longdouble ldc::longdouble::floor() const
+{
+    // matches man floor(3) description
+    //   floor(+-0) returns +-0.
+    //   floor(+-infinity) returns +-infinity.
+    longdouble tmp;
+    tmp.init(*this).value()->roundToIntegral(llvm::APFloat::rmTowardNegative);
+    return tmp;
+}
+
+ldc::longdouble ldc::longdouble::ceil() const
+{
+    // matches man ceil(3) special values
+    //   ceil(+-0) returns +-0.
+    //   ceil(+-infinity) returns +-infinity.
+    longdouble tmp;
+    tmp.init(*this).value()->roundToIntegral(llvm::APFloat::rmTowardPositive);
+    return tmp;
+}
+
+ldc::longdouble ldc::longdouble::trunc() const
+{
+    // matches man trunc(3) special values
+    //   trunc(+-0) returns +-0.
+    //   trunc(+-infinity) returns +-infinity.
+    longdouble tmp;
+    tmp.init(*this).value()->roundToIntegral(llvm::APFloat::rmTowardZero);
+    return tmp;
+}
+
+ldc::longdouble ldc::longdouble::round() const
+{
+    // matches man round(3) special values
+    //   round(+-0) returns +-0.
+    //   round(+-infinity) returns +-infinity.
+    longdouble tmp;
+    tmp.init(*this).value()->roundToIntegral(llvm::APFloat::rmNearestTiesToAway);
+    return tmp;
+}
+
+ldc::longdouble ldc::longdouble::fmin(longdouble x, longdouble y)
+{
+    // matches man fmin(3) special values and -0,+0 ordering
+    //   If exactly one argument is a NaN, fmin() returns the other
+    //   argument. If both arguments are NaNs, fmin() returns a NaN.
+    return (x.isNaN() ? y :
+            y.isNaN() ? x :
+            x <= y ? x : y);
+}
+
+ldc::longdouble ldc::longdouble::fmax(longdouble x, longdouble y)
+{
+    // matches man fmax(3) special values and -0,+0 ordering
+    //   If exactly one argument is a NaN, fmax() returns the other
+    //   argument. If both arguments are NaNs, fmax() returns a NaN.
+    return (x.isNaN() ? y :
+            y.isNaN() ? x :
+            x >= y ? x : y);
+}
+
 ldc::longdouble ldc::longdouble::fmod(ldc::longdouble x, ldc::longdouble y)
 {
     llvm::APFloat f(*x.value());

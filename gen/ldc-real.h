@@ -279,6 +279,13 @@ public:
         return init(v);
     }
 
+    // Apple sdk on osx defines uint64_t as unsigned long long, so long types
+    // are also needed to play with mars.h typedefs (dinteger_t and sinteger_t).
+#if defined(__APPLE__) && defined(__LP64__)
+    longdouble &set(long i) { return set((int64_t)i); }
+    longdouble &set(unsigned long i) { return set((uint64_t)i); }
+#endif
+
 #if defined(_MSC_VER)
     longdouble &set(unsigned long i)
     {
@@ -370,6 +377,14 @@ public:
     longdouble cos() const;
     longdouble tan() const;
 
+    longdouble floor() const;
+    longdouble ceil() const;
+    longdouble trunc() const;
+    longdouble round() const;
+
+    static longdouble fmin(longdouble x, longdouble y);
+    static longdouble fmax(longdouble x, longdouble y);
+
     static longdouble fmod(longdouble x, longdouble y);
     static longdouble ldexp(longdouble ldval, int exp);
 
@@ -439,12 +454,24 @@ inline longdouble sqrtl(longdouble ld) { return ld.sqrt(); }
 inline longdouble sinl (longdouble ld) { return ld.sin(); }
 inline longdouble cosl (longdouble ld) { return ld.cos(); }
 inline longdouble tanl (longdouble ld) { return ld.tan(); }
+inline longdouble floorl (longdouble ld) { return ld.floor(); }
+inline longdouble ceill (longdouble ld) { return ld.ceil(); }
+inline longdouble truncl (longdouble ld) { return ld.trunc(); }
+inline longdouble roundl (longdouble ld) { return ld.round(); }
 
+inline longdouble fminl(longdouble x, longdouble y) { return ldc::longdouble::fmin(x, y); }
+inline longdouble fmaxl(longdouble x, longdouble y) { return ldc::longdouble::fmax(x, y); }
 inline longdouble fmodl(longdouble x, longdouble y) { return ldc::longdouble::fmod(x, y); }
 inline longdouble ldexpl(longdouble ldval, int exp) { return ldc::longdouble::ldexp(ldval, exp); }
 
 inline longdouble fabs (longdouble ld) { return fabsl(ld); }
 inline longdouble sqrt (longdouble ld) { return sqrtl(ld); }
+inline longdouble floor (longdouble ld) { return floorl(ld); }
+inline longdouble ceil (longdouble ld) { return ceill(ld); }
+inline longdouble trunc (longdouble ld) { return truncl(ld); }
+inline longdouble round (longdouble ld) { return roundl(ld); }
+inline longdouble fmin(longdouble x, longdouble y) { return fminl(x,y); }
+inline longdouble fmax(longdouble x, longdouble y) { return fmaxl(x,y); }
 
 inline size_t
 ld_sprint(char* str, int fmt, longdouble x)
