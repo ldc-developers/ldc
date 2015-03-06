@@ -74,7 +74,12 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
 #endif
     PassManager Passes;
 
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 307
+    // The DataLayout is already set at the module (in module.cpp,
+    // method Module::genLLVMModule())
+    // FIXME: Introduce new command line switch default-data-layout to
+    // override the module data layout
+#elif LDC_LLVM_VER == 306
     Passes.add(new DataLayoutPass());
 #elif LDC_LLVM_VER == 305
     if (const DataLayout *DL = Target.getDataLayout())
