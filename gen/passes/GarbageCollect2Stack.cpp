@@ -416,7 +416,9 @@ namespace {
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
 #if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER < 307
             AU.addRequired<DataLayoutPass>();
+#endif
             AU.addRequired<DominatorTreeWrapperPass>();
             AU.addPreserved<CallGraphWrapperPass>();
 #else
@@ -480,7 +482,12 @@ static bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& D
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
     DEBUG(errs() << "\nRunning -dgc2stack on function " << F.getName() << '\n');
 
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER >= 307
+    const DataLayout &DL = F.getParent()->getDataLayout();
+    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
+    CallGraph *CG = CGPass ? &CGPass->getCallGraph() : 0;
+#elif LDC_LLVM_VER >= 305
     DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
     assert(DLP && "required DataLayoutPass is null");
     const DataLayout &DL = DLP->getDataLayout();
