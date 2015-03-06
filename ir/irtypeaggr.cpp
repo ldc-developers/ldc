@@ -246,7 +246,7 @@ void AggrTypeBuilder::addTailPadding(unsigned aggregateSize)
 
 IrTypeAggr::IrTypeAggr(AggregateDeclaration * ad)
 :   IrType(ad->type, LLStructType::create(gIR->context(), ad->toPrettyChars())),
-    diCompositeType(NULL), aggr(ad)
+    diCompositeType(), aggr(ad)
 {
 }
 
