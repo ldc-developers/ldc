@@ -77,6 +77,8 @@ static inline llvm::Type* getReal80Type(llvm::LLVMContext& ctx)
 
     // only x86 has 80bit float - but no support with MS C Runtime!
     if (anyX86 &&
+        // Check if x87DoubleExtended (64-bit mantissa) selected
+        (APFloat::semanticsPrecision(ldc::longdouble::getFltSemantics()) == 64) &&
 #if LDC_LLVM_VER >= 305
         !global.params.targetTriple.isWindowsMSVCEnvironment()
 #else
