@@ -18,6 +18,7 @@
 #else
 #include "llvm/Analysis/Verifier.h"
 #endif
+#include "llvm/IR/AssemblyAnnotationWriter.h"
 #include "llvm/Bitcode/ReaderWriter.h"
 #if LDC_LLVM_VER >= 307
 #include "llvm/IR/LegacyPassManager.h"
@@ -139,6 +140,98 @@ static void assemble(const std::string &asmpath, const std::string &objpath)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+namespace
+{
+    using namespace llvm;
+    static void printDebugLoc(const DebugLoc& debugLoc, formatted_raw_ostream& os)
+    {
+        os << debugLoc.getLine() << ":" << debugLoc.getCol();
+        if (MDNode *N = debugLoc.getInlinedAt(getGlobalContext()))
+        {
+            DebugLoc IDL = DebugLoc::getFromDILocation(N);
+            if (!IDL.isUnknown())
+            {
+                os << "@";
+                printDebugLoc(IDL, os);
+            }
+        }
+    }
+    class AssemblyAnnotator : public AssemblyAnnotationWriter
+    {
+    public:
+        void emitFunctionAnnot(const Function* F, formatted_raw_ostream& os) override
+        {
+            //os << "; [#uses=" << F->getNumUses() << ']' << '\n';
+
+            // show demangled name
+            // TODO: the string does not contain parameters
+            StringRef funcName = llvm::getDISubprogram(F).getDisplayName();
+            if (!funcName.empty())
+                os << "; " << funcName << '\n';
+        }
+        void printInfoComment(const Value& val, formatted_raw_ostream& os) override
+        {
+            bool padding = false;
+            if (!val.getType()->isVoidTy())
+            {
+                os.PadToColumn(50);
+                padding = true;
+                os << "; [#uses=" << val.getNumUses() << " type=" << *val.getType() << ']';
+            }
+
+            const Instruction* instr = dyn_cast<Instruction>(&val);
+            if (!instr)
+                return;
+
+            const DebugLoc& debugLoc = instr->getDebugLoc();
+            if (!debugLoc.isUnknown())
+            {
+                if (!padding)
+                {
+                    os.PadToColumn(50);
+                    padding = true;
+                    os << ';';
+                }
+                os << " [debug line = ";
+                printDebugLoc(debugLoc, os);
+                os << ']';
+            }
+            if (const DbgDeclareInst* DDI = dyn_cast<DbgDeclareInst>(instr))
+            {
+                DIVariable Var(DDI->getVariable());
+                if (!padding)
+                {
+                    os.PadToColumn(50);
+                    os << ";";
+                }
+                os << " [debug variable = " << Var.getName() << ']';
+            }
+            else if (const DbgValueInst* DVI = dyn_cast<DbgValueInst>(instr))
+            {
+                DIVariable Var(DVI->getVariable());
+                if (!padding)
+                {
+                    os.PadToColumn(50);
+                    os << ";";
+                }
+                os << " [debug variable = " << Var.getName() << ']';
+            }
+            // normal call
+            else if (const CallInst* callinstr = dyn_cast<CallInst>(&val))
+            {
+                const Function* callee = callinstr->getCalledFunction();
+                if (!callee)
+                    return;
+
+                StringRef funcName = llvm::getDISubprogram(callee).getDisplayName();
+                if (!funcName.empty())
+                    os << " [" << funcName << ']';
+            }
+            //InvokeInst ?
+        }
+    };
+} // end of anonymous namespace
+
 void writeModule(llvm::Module* m, std::string filename)
 {
     // run optimizer
@@ -219,7 +312,8 @@ void writeModule(llvm::Module* m, std::string filename)
             );
             fatal();
         }
-        m->print(aos, NULL);
+        AssemblyAnnotator annotator;
+        m->print(aos, &annotator);
     }
 
     // write native assembly

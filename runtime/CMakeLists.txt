@@ -11,10 +11,11 @@ set(DMDFE_VERSION         ${D_VERSION}.${DMDFE_MINOR_VERSION}.${DMDFE_PATCH_VERS
 set(MULTILIB              OFF                                       CACHE BOOL    "Build both 32/64 bit runtime libraries")
 set(BUILD_BC_LIBS         OFF                                       CACHE BOOL    "Build the runtime as LLVM bitcode libraries")
 set(INCLUDE_INSTALL_DIR   ${CMAKE_INSTALL_PREFIX}/include/d         CACHE PATH    "Path to install D modules to")
+set(PORTABLE_INSTALL      OFF                                       CACHE BOOL    "Enable portable installation")
 set(BUILD_SHARED_LIBS     OFF                                       CACHE BOOL    "Whether to build the runtime as a shared library")
-set(D_FLAGS               -w;-d                                     CACHE STRING  "Runtime build flags, separated by ;")
+set(D_FLAGS               -w;-d                                     CACHE STRING  "Runtime build flags, separated by ;" FORCE)
 set(D_FLAGS_DEBUG         -g                                        CACHE STRING  "Runtime build flags (debug libraries), separated by ;")
-set(D_FLAGS_RELEASE       -O3;-release                              CACHE STRING  "Runtime build flags (release libraries), separated by ;")
+set(D_FLAGS_RELEASE       -O3;-release;-g                           CACHE STRING  "Runtime build flags (release libraries), separated by ;")
 if(MSVC)
     set(LINK_WITH_MSVCRT  OFF                                       CACHE BOOL    "Link with MSVCRT.LIB instead of LIBCMT.LIB")
 endif()
@@ -208,7 +209,15 @@ endif()
 
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
 # Prepare the config files we are going to install later in bin.
-configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+if(PORTABLE_INSTALL)
+    set(PINCLUDE_INSTALL_DIR "%%ldcbinarypath%%/../include/d")
+    set(PCMAKE_INSTALL_LIBDIR "%%ldcbinarypath%%/../lib")
+    configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+else()
+    set(PINCLUDE_INSTALL_DIR ${INCLUDE_INSTALL_DIR})
+    set(PCMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_LIBDIR})
+    configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+endif()
 
 #
 # druntime/Phobos compilation helpers.
@@ -434,7 +443,8 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
         list(APPEND ${outlist_targets} "phobos2-ldc${target_suffix}")
     endif()
 
-    if(BUILD_BC_LIBS)
+    # TODO: command is too long with ninja
+    if(BUILD_BC_LIBS AND NOT CMAKE_GENERATOR STREQUAL "Ninja")
         find_program(LLVM_AR_EXE llvm-ar
             HINTS ${LLVM_ROOT_DIR}/bin
             DOC "path to llvm-ar tool"
@@ -488,9 +498,9 @@ endmacro()
 
 if(MSVC)
     if (LINK_WITH_MSVCRT)
-        set(RT_CFLAGS "/MDd")
+        set(RT_CFLAGS "/MD /wd4996")
     else()
-        set(RT_CFLAGS "/MTd")
+        set(RT_CFLAGS "/MT /wd4996")
     endif()
 else()
     set(RT_CFLAGS "")
@@ -601,6 +611,12 @@ endforeach()
 # Test targets.
 #
 
+# on Windows try to avoid the stupid curl.lib dependency
+if(WIN32)
+    list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_DIR}/etc/c/curl.d)
+    list(REMOVE_ITEM PHOBOS2_D ${PHOBOS2_DIR}/std/net/curl.d)
+endif()
+
 # Build the "test runner" executables containing the druntime and Phobos unit
 # tests. They are invoked with the modules to test later. When using a shared
 # runtime, we just build another copy of the two libraries with -unittest
@@ -632,7 +648,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
         add_test(NAME build-druntime-test-runner${name_suffix}
             COMMAND ${LDC_EXE}
                 -of${PROJECT_BINARY_DIR}/druntime-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                -defaultlib=${libarg} -debuglib=${libarg}
+                -disable-linker-strip-dead -defaultlib=${libarg} -debuglib=${libarg}
                 -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
         )
         set_tests_properties(build-druntime-test-runner${name_suffix} PROPERTIES
@@ -643,9 +659,10 @@ macro(build_test_runner name_suffix d_flags c_flags)
             add_test(NAME build-phobos2-test-runner${name_suffix}
                 COMMAND ${LDC_EXE}
                     -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                    -L--no-as-needed -defaultlib=${libarg} -debuglib=${libarg}
+                    -disable-linker-strip-dead -defaultlib=${libarg} -debuglib=${libarg}
                     -singleobj ${flags} ${RUNTIME_DIR}/src/test_runner.d
             )
+
             set_tests_properties(build-phobos2-test-runner${name_suffix} PROPERTIES
                 DEPENDS build-phobos2-ldc-unittest${name_suffix})
         endif()
@@ -679,7 +696,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
         add_test(NAME build-druntime-test-runner${name_suffix}
             COMMAND ${LDC_EXE}
                 -of${PROJECT_BINARY_DIR}/druntime-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                -defaultlib=${druntime-casm} -debuglib=${druntime-casm}
+                -disable-linker-strip-dead -defaultlib=${druntime-casm} -debuglib=${druntime-casm}
                 -singleobj ${flags} ${druntime_o} ${RUNTIME_DIR}/src/test_runner.d
         )
         set_tests_properties(build-druntime-test-runner${name_suffix} PROPERTIES
@@ -710,8 +727,8 @@ macro(build_test_runner name_suffix d_flags c_flags)
             add_test(NAME build-phobos2-test-runner${name_suffix}
                 COMMAND ${LDC_EXE}
                     -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                    -defaultlib=druntime-ldc,${phobos2-casm} -debuglib=druntime-ldc,${phobos2-casm}
-                    -singleobj -L-lcurl ${flags} ${phobos2_o} ${RUNTIME_DIR}/src/test_runner.d
+                    -disable-linker-strip-dead -defaultlib=druntime-ldc,${phobos2-casm} -debuglib=druntime-ldc,${phobos2-casm}
+                    -singleobj ${flags} ${phobos2_o} ${RUNTIME_DIR}/src/test_runner.d
             )
             set_tests_properties(build-phobos2-test-runner${name_suffix} PROPERTIES
                 DEPENDS build-phobos2-ldc-unittest${name_suffix}

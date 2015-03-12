@@ -437,16 +437,16 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 #endif
 
     // void returns cannot not be named
-    const char* varname = "";
-    if (callableTy->getReturnType() != LLType::getVoidTy(gIR->context()))
-        varname = "tmp";
+//    const char* varname = "";
+//    if (callableTy->getReturnType() != LLType::getVoidTy(gIR->context()))
+//        varname = retvar->getName().data();
 
 #if 0
     IF_LOG Logger::cout() << "Calling: " << *callable << '\n';
 #endif
 
     // call the function
-    LLCallSite call = gIR->CreateCallOrInvoke(callable, args, varname);
+    LLCallSite call = gIR->CreateCallOrInvoke(callable, args);
 
     // get return value
     LLValue* retllval = (retinptr) ? args[0] : call.getInstruction();

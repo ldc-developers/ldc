@@ -73,6 +73,7 @@ static cl::opt<signed char> optimizeLevel(
         clEnumValN(1, "O1", "Simple optimizations"),
         clEnumValN(2, "O2", "Good optimizations"),
         clEnumValN(3, "O3", "Aggressive optimizations"),
+        clEnumValN(6, "Ofast", "Additionally enables fast-math"),
         clEnumValN(4, "O4", "Link-time optimization"), // Not implemented yet.
         clEnumValN(5, "O5", "Link-time optimization"), // Not implemented yet.
         clEnumValN(-1, "Os", "Like -O2 with extra optimizations for size"),
@@ -169,11 +170,22 @@ bool willInline() {
 
 llvm::CodeGenOpt::Level codeGenOptLevel() {
     const int opt = optLevel();
-    // Use same appoach as clang (see lib/CodeGen/BackendUtil.cpp)
-    llvm::CodeGenOpt::Level codeGenOptLevel = llvm::CodeGenOpt::Default;
-    // Debug info doesn't work properly with CodeGenOpt <> None
-    if (global.params.symdebug || !opt) codeGenOptLevel = llvm::CodeGenOpt::None;
-    else if (opt >= 3) codeGenOptLevel = llvm::CodeGenOpt::Aggressive;
+    llvm::CodeGenOpt::Level codeGenOptLevel;
+    switch (opt)
+    {
+    case 0:
+        codeGenOptLevel = llvm::CodeGenOpt::None;
+        break;
+    case 1:
+        codeGenOptLevel = llvm::CodeGenOpt::Less;
+        break;
+    case 2:
+        codeGenOptLevel = llvm::CodeGenOpt::Default;
+        break;
+    default:
+        codeGenOptLevel = llvm::CodeGenOpt::Aggressive;
+        break;
+    }
     return codeGenOptLevel;
 }
 

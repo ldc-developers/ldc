@@ -850,7 +850,7 @@ public:
                 } else {
                     LLValue* vaStartArg = gABI->prepareVaStart(pAp);
                     result = new DImValue(e->type, gIR->ir->CreateCall(
-                        GET_INTRINSIC_DECL(vastart), vaStartArg, ""));
+                        GET_INTRINSIC_DECL(vastart), vaStartArg));
                 }
             }
             // va_copy instruction
@@ -2005,7 +2005,16 @@ public:
         LOG_SCOPE;
 
         if (!global.params.useAssert)
-            return;
+		{
+/*
+			DValue* cond = toElem(e->e1);
+			Type* condty = e->e1->type->toBasetype();
+
+			// test condition
+			LLValue* condval = DtoCast(e->loc, cond, Type::tbool)->getRVal();
+			result = new DImValue(Type::tvoid, gIR->ir->CreateCall(GET_INTRINSIC_DECL(assume), condval));
+*/			return;
+		}
 
         // condition
         DValue* cond;

@@ -417,7 +417,8 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     {
         // Parse comma-separated default library list.
         std::stringstream libNames(
-            global.params.symdebug ? debugLib : defaultLib);
+            // TODO: need better way to choose release mode
+            global.params.useInvariants ? debugLib : defaultLib);
         while (libNames.good())
         {
             std::string lib;
@@ -958,6 +959,9 @@ static void emitEntryPointInto(llvm::Module* lm)
 
 int main(int argc, char **argv)
 {
+//	_CrtSetReportFile(_CRT_ASSERT, _CRTDBG_FILE_STDERR);
+//	_set_abort_behavior(0, _WRITE_ABORT_MSG);
+
     // stack trace on signals
     llvm::sys::PrintStackTraceOnErrorSignal();
 
@@ -1009,6 +1013,12 @@ int main(int argc, char **argv)
     gTargetMachine = createTargetMachine(mTargetTriple, mArch, mCPU, mAttrs,
         bitness, mFloatABI, mRelocModel, mCodeModel, codeGenOptLevel(),
         global.params.symdebug || disableFpElim, disableLinkerStripDead);
+
+	if (ffastmath)
+		printf("fastmath: %d\n", ffastmath.operator bool());
+//	printf("gTargetMachine->Options.UnsafeFPMath: %d\n", gTargetMachine->Options.UnsafeFPMath);
+	gTargetMachine->Options.UnsafeFPMath = ffastmath;
+//	printf("gTargetMachine->Options.UnsafeFPMath: %d\n", gTargetMachine->Options.UnsafeFPMath);
 
     {
         llvm::Triple triple = llvm::Triple(gTargetMachine->getTargetTriple());

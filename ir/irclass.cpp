@@ -362,7 +362,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
             LLValue* &thisArg = args[(irFunc->irFty.arg_sret == 0) ? 0 : 1];
             LLType* thisType = thisArg->getType();
             thisArg = DtoBitCast(thisArg, getVoidPtrType());
-            thisArg = DtoGEP1(thisArg, DtoConstInt(-b->offset));
+            thisArg = DtoGEP1(thisArg, DtoConstInt(-(int)b->offset)); // correct??
             thisArg = DtoBitCast(thisArg, thisType);
 
             // call the real vtbl function.

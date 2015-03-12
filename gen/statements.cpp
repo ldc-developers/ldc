@@ -753,7 +753,8 @@ public:
 
         // conditional branch
         assert(!gIR->scopereturned());
-        llvm::BranchInst::Create(forbodybb, endbb, cond_val, gIR->scopebb());
+        llvm::BranchInst* jmpStart = llvm::BranchInst::Create(forbodybb, endbb, cond_val, gIR->scopebb());
+        jmpStart->setDebugLoc(gIR->ir->getCurrentDebugLocation());
 
         // rewrite scope
         gIR->scope() = IRScope(forbodybb, forincbb);

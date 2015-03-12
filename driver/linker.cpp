@@ -291,6 +291,7 @@ static int linkObjToBinaryWin(bool sharedLib)
     if (global.params.symdebug)
     {
         args.push_back("/DEBUG");
+        args.push_back("/INCREMENTAL:NO");
     }
 
     // remove dead code and fold identical COMDATs
