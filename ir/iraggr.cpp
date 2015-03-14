@@ -297,6 +297,14 @@ void IrAggr::addFieldInitializers(
         unsigned vd_begin = vd->offset;
         unsigned vd_end = vd_begin + vd->type->size();
 
+        /* Skip zero size fields like zero-length static arrays, LDC issue 812:
+            class B {
+                ubyte[0] test;
+            }
+        */
+        if (vd_begin == vd_end)
+            continue;
+
         // make sure it doesn't overlap any explicit initializers.
         bool overlaps = false;
         if (type->ty == Tstruct)
