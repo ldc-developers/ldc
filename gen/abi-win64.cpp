@@ -47,11 +47,16 @@ struct Win64TargetABI : TargetABI
     void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg);
 
 private:
-    // Returns true if the D type is a composite (struct/static array/complex number).
-    bool isComposite(Type* t)
+    // Returns true if the D type is an aggregate:
+    // * struct
+    // * static/dynamic array
+    // * delegate
+    // * complex number
+    bool isAggregate(Type* t)
     {
-        return t->ty == Tstruct || t->ty == Tsarray
-            || t->iscomplex(); // treat complex numbers as structs too
+        TY ty = t->ty;
+        return ty == Tstruct || ty == Tsarray || ty == Tarray || ty == Tdelegate
+            || t->iscomplex();
     }
 
     // Returns true if the D type can be bit-cast to an integer of the same size.
@@ -75,8 +80,9 @@ private:
     bool isPassedWithByvalSemantics(Type* t)
     {
         return
-            // * structs/static arrays/complex numbers which can NOT be rewritten as integers
-            (isComposite(t) && !canRewriteAsInt(t)) ||
+            // * aggregates which can NOT be rewritten as integers
+            //   (size > 64 bits or not a power of 2)
+            (isAggregate(t) && !canRewriteAsInt(t)) ||
             // * 80-bit real and ireal
             (realIs80bits() && (t->ty == Tfloat80 || t->ty == Timaginary80));
     }
@@ -116,8 +122,7 @@ bool Win64TargetABI::returnInArg(TypeFunction* tf)
     // * all POD types <= 64 bits and of a size that is a power of 2
     //   (incl. 2x32-bit cfloat) are returned in a register (RAX, or
     //   XMM0 for single float/ifloat/double/idouble)
-    // * all other structs/static arrays/complex numbers and 80-bit
-    //   real/ireal are returned via struct-return (sret)
+    // * all other types are returned via struct-return (sret)
     return (rt->ty == Tstruct && !((TypeStruct*)rt)->sym->isPOD())
         || isPassedWithByvalSemantics(rt);
 }
@@ -165,7 +170,7 @@ void Win64TargetABI::rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
                  .add(LDC_ATTRIBUTE(NoAlias))
                  .add(LDC_ATTRIBUTE(NoCapture));
     }
-    else if (isComposite(t) && canRewriteAsInt(t) && !IntegerRewrite::isObsoleteFor(originalLType))
+    else if (isAggregate(t) && canRewriteAsInt(t) && !IntegerRewrite::isObsoleteFor(originalLType))
     {
         arg.rewrite = &integerRewrite;
         arg.ltype = integerRewrite.type(arg.type, arg.ltype);
