@@ -160,7 +160,9 @@ namespace {
             APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
             Mask.flipAllBits();
             APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER >= 307
+            computeKnownBits(Val, KnownZero, KnownOne, A.DL);
+#elif LDC_LLVM_VER >= 305
             computeKnownBits(Val, KnownZero, KnownOne, &A.DL);
 #else
             ComputeMaskedBits(Val, KnownZero, KnownOne, &A.DL);
