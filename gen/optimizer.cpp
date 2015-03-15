@@ -356,7 +356,12 @@ bool ldc_optimize_module(llvm::Module *M)
 #endif
 
     // Add an appropriate DataLayout instance for this module.
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 307
+    // The DataLayout is already set at the module (in module.cpp,
+    // method Module::genLLVMModule())
+    // FIXME: Introduce new command line switch default-data-layout to
+    // override the module data layout
+#elif LDC_LLVM_VER == 306
     mpm.add(new DataLayoutPass());
 #elif LDC_LLVM_VER == 305
     const DataLayout *DL = M->getDataLayout();

@@ -978,12 +978,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
             if (!refout && (!irparam->arg->byref || lazy))
             {
                 // alloca a stack slot for this first class value arg
-                LLType* argt;
-                if (lazy)
-                    argt = irparam->value->getType();
-                else
-                    argt = i1ToI8(DtoType(vd->type));
-                LLValue* mem = DtoRawAlloca(argt, 0, vd->ident->toChars());
+                LLValue* mem = DtoAlloca(irparam->arg->type, vd->ident->toChars());
 
                 // let the abi transform the argument back first
                 DImValue arg_dval(vd->type, irparam->value);

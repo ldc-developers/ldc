@@ -18,6 +18,7 @@
 
 namespace opts {
 
+#if LDC_LLVM_VER < 307
 bool FlagParser::parse(cl::Option &O, llvm::StringRef ArgName, llvm::StringRef Arg, bool &Val) {
     // Make a std::string out of it to make comparisons easier
     // (and avoid repeated conversion)
@@ -48,7 +49,7 @@ void FlagParser::getExtraOptionNames(llvm::SmallVectorImpl<const char*> &Names) 
         Names.push_back(I->first.data());
     }
 }
-
+#endif
 
 MultiSetter::MultiSetter(bool invert, bool* p, ...) {
     this->invert = invert;

@@ -1778,10 +1778,16 @@ public:
         else if (e1type->ty == Tpointer)
         {
             assert(e->e2->op == TOKint64);
-            LLConstant* minusone = LLConstantInt::get(DtoSize_t(), static_cast<uint64_t>(-1), true);
-            LLConstant* plusone = LLConstantInt::get(DtoSize_t(), static_cast<uint64_t>(1), false);
-            LLConstant* whichone = (e->op == TOKplusplus) ? plusone : minusone;
-            post = llvm::GetElementPtrInst::Create(val, whichone, "",  p->scopebb());
+            LLConstant *offset;
+            if (e->op == TOKplusplus)
+                offset = LLConstantInt::get(DtoSize_t(), static_cast<uint64_t>(1), false);
+            else
+                offset = LLConstantInt::get(DtoSize_t(), static_cast<uint64_t>(-1), true);
+            post = llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+                val->getType(),
+#endif
+                val, offset, "",  p->scopebb());
         }
         else if (e1type->isfloating())
         {

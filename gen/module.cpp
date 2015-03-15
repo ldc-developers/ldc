@@ -655,7 +655,11 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
 
     // set final data layout
     ir.module->setDataLayout(gDataLayout->getStringRepresentation());
+#if LDC_LLVM_VER >= 307
+    IF_LOG Logger::cout() << "Final data layout: " << ir.module->getDataLayout().getStringRepresentation() << '\n';
+#else
     IF_LOG Logger::cout() << "Final data layout: " << ir.module->getDataLayout() << '\n';
+#endif
 
     // handle invalid 'objectø module
     if (!ClassDeclaration::object) {
