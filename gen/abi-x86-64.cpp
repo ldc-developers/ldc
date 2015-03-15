@@ -177,14 +177,11 @@ namespace {
             if (!anyRegAvailable)
                 return ArgumentDoesntFitIn;
 
-            TY ty = arg.type->toBasetype()->ty;
-            // TODO: check what is really allowed to be passed partially
-            const bool allowPartialPassing = (/* ty == Tarray || ty == Taarray || */ ty == Tdelegate);
-            if (!allowPartialPassing && (int_regs < wanted.int_regs || sse_regs < wanted.sse_regs))
+            if (int_regs < wanted.int_regs || sse_regs < wanted.sse_regs)
                 return ArgumentWouldFitInPartially;
 
-            int_regs = std::max(0, int_regs - wanted.int_regs);
-            sse_regs = std::max(0, sse_regs - wanted.sse_regs);
+            int_regs -= wanted.int_regs;
+            sse_regs -= wanted.sse_regs;
 
             return ArgumentFitsIn;
         }
