@@ -315,29 +315,16 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) {
   Logger::println("x86-64 ABI: Transforming argument types");
   LOG_SCOPE;
 
-  // extern(D): reverse parameter order for non variadics, for DMD-compliance
-  if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
-    fty.reverseParams = true;
-  }
-
-  int begin = 0, end = fty.args.size(), step = 1;
-  if (fty.reverseParams) {
-    begin = end - 1;
-    end = -1;
-    step = -1;
-  }
-  for (int i = begin; i != end; i += step) {
+  for (size_t i = 0; i < fty.args.size(); ++i) {
     IrFuncTyArg &arg = *fty.args[i];
 
     if (arg.byref) {
       if (!arg.isByVal() && regCount.int_regs > 0) {
         regCount.int_regs--;
       }
-
-      continue;
+    } else {
+      rewriteArgument(arg, regCount);
     }
-
-    rewriteArgument(arg, regCount);
   }
 
   // regCount (fty.tag) is now in the state after all implicit & formal args,
