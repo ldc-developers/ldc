@@ -307,7 +307,11 @@ LLIntegerType* DtoSize_t()
 
 LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var, llvm::BasicBlock* bb)
 {
-    return llvm::GetElementPtrInst::Create(ptr, i0, var, bb ? bb : gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+        ptr->getType(),
+#endif
+        ptr, i0, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -315,14 +319,22 @@ LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var, llvm::BasicBlock* b
 LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::BasicBlock* bb)
 {
     LLValue* v[] = { i0, i1 };
-    return llvm::GetElementPtrInst::Create(ptr, v, var, bb ? bb : gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+        ptr->getType(),
+#endif
+        ptr, v, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* bb)
 {
-    return llvm::GetElementPtrInst::Create(ptr, DtoConstUint(i), var, bb ? bb : gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+        ptr->getType(),
+#endif
+        ptr, DtoConstUint(i), var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -330,7 +342,11 @@ LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* b
 LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::BasicBlock* bb)
 {
     LLValue* v[] = { DtoConstUint(i0), DtoConstUint(i1) };
-    return llvm::GetElementPtrInst::Create(ptr, v, var, bb ? bb : gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+        ptr->getType(),
+#endif
+        ptr, v, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
