@@ -28,6 +28,9 @@ typedef Array<const char *> Strings;
 namespace opts {
     namespace cl = llvm::cl;
 
+#if LDC_LLVM_VER >= 307
+typedef cl::parser<bool> FlagParser;
+#else
     /// Helper class for fancier options
     class FlagParser : public cl::parser<bool> {
 #if LDC_LLVM_VER >= 307
@@ -64,6 +67,7 @@ namespace opts {
 
         void getExtraOptionNames(llvm::SmallVectorImpl<const char*> &Names);
     };
+#endif
 
     /// Helper class for options that set multiple flags
     class MultiSetter {
