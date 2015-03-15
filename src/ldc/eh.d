@@ -812,11 +812,17 @@ private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte
 
 } // end of x86 Linux specific implementation
 
-
+extern(C) Throwable.TraceInfo _d_traceContext(void* ptr = null);
 extern(C) void _d_throw_exception(Object e)
 {
     if (e !is null)
     {
+        auto t = cast(Throwable) e;
+
+        if (t.info is null && cast(byte*) t !is typeid(t).init.ptr)
+        {
+            t.info = _d_traceContext();
+        }
         _d_exception* exc_struct = new _d_exception;
         version (ARM)
         {
