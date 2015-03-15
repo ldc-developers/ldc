@@ -119,6 +119,10 @@ bool Win64TargetABI::returnInArg(TypeFunction* tf)
 
     Type* rt = tf->next->toBasetype();
 
+    // * let LLVM return 80-bit real/ireal on the x87 stack, for DMD compliance
+    if (realIs80bits() && (rt->ty == Tfloat80 || rt->ty == Timaginary80))
+        return false;
+
     // * all POD types <= 64 bits and of a size that is a power of 2
     //   (incl. 2x32-bit cfloat) are returned in a register (RAX, or
     //   XMM0 for single float/ifloat/double/idouble)
