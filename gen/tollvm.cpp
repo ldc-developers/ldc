@@ -43,10 +43,8 @@ bool DtoIsPassedByRef(Type* type)
 
 RET retStyle(TypeFunction *tf)
 {
-    gABI->newFunctionType(tf);
-    bool retInArg = gABI->returnInArg(tf);
-    gABI->doneWithFunctionType();
-    return retInArg ? RETstack : RETregs;
+    bool sret = gABI->returnInArg(tf);
+    return sret ? RETstack : RETregs;
 }
 
 bool DtoIsReturnInArg(CallExp *ce)
@@ -57,13 +55,7 @@ bool DtoIsReturnInArg(CallExp *ce)
     return false;
 }
 
-#if LDC_LLVM_VER >= 303
-llvm::Attribute::AttrKind DtoShouldExtend(Type* type)
-#elif LDC_LLVM_VER == 302
-llvm::Attributes::AttrVal DtoShouldExtend(Type* type)
-#else
-llvm::Attributes DtoShouldExtend(Type* type)
-#endif
+AttrBuilder::A DtoShouldExtend(Type* type)
 {
     type = type->toBasetype();
     if (type->isintegral())
@@ -72,35 +64,19 @@ llvm::Attributes DtoShouldExtend(Type* type)
         {
         case Tint8:
         case Tint16:
-#if LDC_LLVM_VER >= 303
-            return llvm::Attribute::SExt;
-#elif LDC_LLVM_VER == 302
-            return llvm::Attributes::SExt;
-#else
-            return llvm::Attribute::SExt;
-#endif
+            return LDC_ATTRIBUTE(SExt);
 
         case Tuns8:
         case Tuns16:
-#if LDC_LLVM_VER >= 303
-            return llvm::Attribute::ZExt;
-#elif LDC_LLVM_VER == 302
-            return llvm::Attributes::ZExt;
-#else
-            return llvm::Attribute::ZExt;
-#endif
+            return LDC_ATTRIBUTE(ZExt);
+
         default:
             // Do not extend.
             break;
         }
     }
-#if LDC_LLVM_VER >= 303
-    return llvm::Attribute::None;
-#elif LDC_LLVM_VER == 302
-    return llvm::Attributes::None;
-#else
-    return llvm::Attribute::None;
-#endif
+
+    return LDC_ATTRIBUTE(None);
 }
 
 LLType* DtoType(Type* t)
@@ -331,7 +307,11 @@ LLIntegerType* DtoSize_t()
 
 LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var, llvm::BasicBlock* bb)
 {
-    return llvm::GetElementPtrInst::Create(ptr, i0, var, bb ? bb : gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+        ptr->getType(),
+#endif
+        ptr, i0, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -339,14 +319,22 @@ LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var, llvm::BasicBlock* b
 LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::BasicBlock* bb)
 {
     LLValue* v[] = { i0, i1 };
-    return llvm::GetElementPtrInst::Create(ptr, v, var, bb ? bb : gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+        ptr->getType(),
+#endif
+        ptr, v, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* bb)
 {
-    return llvm::GetElementPtrInst::Create(ptr, DtoConstUint(i), var, bb ? bb : gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+        ptr->getType(),
+#endif
+        ptr, DtoConstUint(i), var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -354,7 +342,11 @@ LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* b
 LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::BasicBlock* bb)
 {
     LLValue* v[] = { DtoConstUint(i0), DtoConstUint(i1) };
-    return llvm::GetElementPtrInst::Create(ptr, v, var, bb ? bb : gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+        ptr->getType(),
+#endif
+        ptr, v, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -869,12 +861,4 @@ LLValue* DtoAggrPaint(LLValue* aggr, LLType* as)
     V = gIR->ir->CreateExtractValue(aggr, 1);
     V = DtoBitCast(V, as->getContainedType(1));
     return gIR->ir->CreateInsertValue(res, V, 1);
-}
-
-LLValue* DtoAggrPairSwap(LLValue* aggr)
-{
-    Logger::println("swapping aggr pair");
-    LLValue* r = gIR->ir->CreateExtractValue(aggr, 0);
-    LLValue* i = gIR->ir->CreateExtractValue(aggr, 1);
-    return DtoAggrPair(i, r, "swapped");
 }

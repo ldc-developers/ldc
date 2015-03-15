@@ -200,7 +200,11 @@ struct IRState
 
 #if LDC_LLVM_VER >= 303
     /// Vector of options passed to the linker as metadata in object file.
+#if LDC_LLVM_VER >= 306
+    llvm::SmallVector<llvm::Metadata *, 5> LinkerMetadataArgs;
+#else
     llvm::SmallVector<llvm::Value *, 5> LinkerMetadataArgs;
+#endif
 #endif
 };
 

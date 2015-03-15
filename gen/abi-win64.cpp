@@ -31,94 +31,10 @@
 #include <string>
 #include <utility>
 
-
-// Returns true if the D type can be bit-cast to an integer of the same size.
-static bool canRewriteAsInt(Type* t)
-{
-    unsigned size = t->size();
-    return size == 1 || size == 2 || size == 4 || size == 8;
-}
-
-// Returns true if the D type is a composite (struct or static array).
-static bool isComposite(const Type* t)
-{
-    return t->ty == Tstruct || t->ty == Tsarray;
-}
-
-// Returns true if the D type is passed byval (the callee getting a pointer
-// to a dedicated hidden copy).
-static bool isPassedWithByvalSemantics(Type* t)
-{
-    return
-        // * structs and static arrays which can NOT be rewritten as integers
-        (isComposite(t) && !canRewriteAsInt(t)) ||
-        // * 80-bit real and ireal
-        (t->ty == Tfloat80 || t->ty == Timaginary80) ||
-        // * cdouble and creal
-        (t->ty == Tcomplex64 || t->ty == Tcomplex80);
-}
-
-// FIXME: This should actually be handled by LLVM and the ByVal arg attribute.
-struct Win64_byval_rewrite : ABIRewrite
-{
-    // Get instance from pointer.
-    LLValue* get(Type* dty, DValue* v)
-    {
-        LLValue* ptr = v->getRVal();
-        return DtoLoad(ptr); // *ptr
-    }
-
-    // Get instance from pointer, and store in the provided location.
-    void getL(Type* dty, DValue* v, llvm::Value* lval)
-    {
-        LLValue* ptr = v->getRVal();
-        DtoStore(DtoLoad(ptr), lval); // *lval = *ptr
-    }
-
-    // Convert the caller's instance to a pointer for the callee.
-    // The pointer points to a dedicated copy for the callee which
-    // is allocated by the caller.
-    LLValue* put(Type* dty, DValue* v)
-    {
-        /* NOTE: probably not safe
-        // optimization: do not copy if parameter is not mutable
-        if (!dty->isMutable() && v->isLVal())
-            return v->getLVal();
-        */
-
-        LLValue* original = v->getRVal();
-        LLValue* copy;
-
-        llvm::Type* type = original->getType();
-        if (type->isPointerTy())
-        {
-            type = type->getPointerElementType();
-            copy = DtoRawAlloca(type, 16, "copy_for_callee");
-            DtoStore(DtoLoad(original), copy); // *copy = *original
-        }
-        else
-        {
-            copy = DtoRawAlloca(type, 16, "copy_for_callee");
-            DtoStore(original, copy);          // *copy = original
-        }
-
-        return copy;
-    }
-
-    // T => T*
-    LLType* type(Type* dty, LLType* t)
-    {
-        return getPtrToType(DtoType(dty));
-    }
-};
-
-
 struct Win64TargetABI : TargetABI
 {
-    Win64_byval_rewrite byval_rewrite;
-    CompositeToInt compositeToInt;
-    CfloatToInt cfloatToInt;
-    X87_complex_swap swapComplex;
+    ExplicitByvalRewrite byvalRewrite;
+    IntegerRewrite integerRewrite;
 
     llvm::CallingConv::ID callingConv(LINK l);
 
@@ -127,6 +43,43 @@ struct Win64TargetABI : TargetABI
     bool passByVal(Type* t);
 
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty);
+
+    void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg);
+
+private:
+    // Returns true if the D type is a composite (struct/static array/complex number).
+    bool isComposite(Type* t)
+    {
+        return t->ty == Tstruct || t->ty == Tsarray
+            || t->iscomplex(); // treat complex numbers as structs too
+    }
+
+    // Returns true if the D type can be bit-cast to an integer of the same size.
+    bool canRewriteAsInt(Type* t)
+    {
+        unsigned size = t->size();
+        return size == 1 || size == 2 || size == 4 || size == 8;
+    }
+
+    bool realIs80bits()
+    {
+#if LDC_LLVM_VER >= 305
+        return !global.params.targetTriple.isWindowsMSVCEnvironment();
+#else
+        return true;
+#endif
+    }
+
+    // Returns true if the D type is passed byval (the callee getting a pointer
+    // to a dedicated hidden copy).
+    bool isPassedWithByvalSemantics(Type* t)
+    {
+        return
+            // * structs/static arrays/complex numbers which can NOT be rewritten as integers
+            (isComposite(t) && !canRewriteAsInt(t)) ||
+            // * 80-bit real and ireal
+            ((t->ty == Tfloat80 || t->ty == Timaginary80) && realIs80bits());
+    }
 };
 
 
@@ -136,18 +89,18 @@ TargetABI* getWin64TargetABI()
     return new Win64TargetABI;
 }
 
+
 llvm::CallingConv::ID Win64TargetABI::callingConv(LINK l)
 {
     switch (l)
     {
     case LINKc:
     case LINKcpp:
+    case LINKpascal:
     case LINKd:
     case LINKdefault:
     case LINKwindows:
         return llvm::CallingConv::C;
-    case LINKpascal:
-        return llvm::CallingConv::X86_StdCall;
     default:
         llvm_unreachable("Unhandled D linkage type.");
     }
@@ -160,14 +113,12 @@ bool Win64TargetABI::returnInArg(TypeFunction* tf)
 
     Type* rt = tf->next->toBasetype();
 
-    // everything <= 64 bits and of a size that is a power of 2
-    // is returned in a register (RAX, or XMM0 for single float/
-    // double) - except for cfloat
-    // 80-bit real/ireal is returned on top of the x87 stack: ST(0)
-    // complex numbers are returned in XMM0 & XMM1 (cfloat, cdouble)
-    // or ST(1) & ST(0) (creal)
-    // all other structs and static arrays are returned by struct-return (sret)
-    return isComposite(rt) && !canRewriteAsInt(rt);
+    // * everything <= 64 bits and of a size that is a power of 2
+    //   (incl. 2x32-bit cfloat) is returned in a register (RAX, or
+    //   XMM0 for single float/ifloat/double/idouble)
+    // * all other structs/static arrays/complex numbers and 80-bit
+    //   real/ireal are returned via struct-return (sret)
+    return isPassedWithByvalSemantics(rt);
 }
 
 bool Win64TargetABI::passByVal(Type* t)
@@ -181,81 +132,54 @@ bool Win64TargetABI::passByVal(Type* t)
 
 void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
 {
-    Type* rt = fty.ret->type->toBasetype();
-
     // RETURN VALUE
-
     if (!tf->isref)
     {
-        if (rt->ty == Tcomplex80)
+        Type* rt = fty.ret->type->toBasetype();
+        if (isComposite(rt) && canRewriteAsInt(rt))
         {
-            // LLVM returns a '{real re, ireal im}' via ST(0) = re and ST(1) = im
-            // DMD does it the other way around: ST(0) = im and ST(1) = re
-            // therefore swap the real/imaginary parts
-            // the other complex number types are returned via XMM0 = re and XMM1 = im
-            fty.ret->rewrite = &swapComplex;
-        }
-        else if (isComposite(rt) && canRewriteAsInt(rt))
-        {
-            fty.ret->rewrite = &compositeToInt;
-            fty.ret->ltype = compositeToInt.type(fty.ret->type, fty.ret->ltype);
+            fty.ret->rewrite = &integerRewrite;
+            fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
         }
     }
 
-    // IMPLICIT PARAMETERS
-
     // EXPLICIT PARAMETERS
-
-    for (IrFuncTy::ArgRIter I = fty.args.rbegin(), E = fty.args.rend(); I != E; ++I)
+    for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I)
     {
         IrFuncTyArg& arg = **I;
 
         if (arg.byref)
             continue;
 
-        Type* ty = arg.type->toBasetype();
-
-        if (ty->ty == Tcomplex32)
-        {
-            // {float,float} cannot be bit-cast to int64 (using CompositeToInt)
-            // FIXME: is there a way to force a bit-cast?
-            arg.rewrite = &cfloatToInt;
-            arg.ltype = cfloatToInt.type(arg.type, arg.ltype);
-        }
-        else if (isComposite(ty) && canRewriteAsInt(ty))
-        {
-            arg.rewrite = &compositeToInt;
-            arg.ltype = compositeToInt.type(arg.type, arg.ltype);
-        }
-        // FIXME: this should actually be handled by LLVM and the ByVal arg attribute
-        else if (isPassedWithByvalSemantics(ty))
-        {
-            // these types are passed byval:
-            // the caller allocates a copy and then passes a pointer to the copy
-            // FIXME: use tightly packed struct for creal like DMD?
-            arg.rewrite = &byval_rewrite;
-            arg.ltype = byval_rewrite.type(arg.type, arg.ltype);
-
-            // the copy is treated as a local variable of the callee
-            // hence add the NoAlias and NoCapture attributes
-#if LDC_LLVM_VER >= 303
-            arg.attrs.clear();
-            arg.attrs.addAttribute(llvm::Attribute::NoAlias)
-                     .addAttribute(llvm::Attribute::NoCapture);
-#elif LDC_LLVM_VER == 302
-            arg.attrs = llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias)
-                                                                                 .addAttribute(llvm::Attributes::NoCapture));
-#else
-            arg.attrs = llvm::Attribute::NoAlias | llvm::Attribute::NoCapture;
-#endif
-        }
+        rewriteArgument(fty, arg);
     }
 
-    if (tf->linkage == LINKd)
+    // extern(D): reverse parameter order for non variadics, for DMD-compliance
+    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1)
+        fty.reverseParams = true;
+}
+
+void Win64TargetABI::rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
+{
+    Type* ty = arg.type->toBasetype();
+
+    if (isComposite(ty) && canRewriteAsInt(ty))
     {
-        // reverse parameter order
-        // for non variadics
-        if (fty.args.size() > 1 && tf->varargs != 1)
-            fty.reverseParams = true;
+        arg.rewrite = &integerRewrite;
+        arg.ltype = integerRewrite.type(arg.type, arg.ltype);
+    }
+    // FIXME: this should actually be handled by LLVM and the ByVal arg attribute
+    else if (isPassedWithByvalSemantics(ty))
+    {
+        // these types are passed byval:
+        // the caller allocates a copy and then passes a pointer to the copy
+        arg.rewrite = &byvalRewrite;
+        arg.ltype = byvalRewrite.type(arg.type, arg.ltype);
+
+        // the copy is treated as a local variable of the callee
+        // hence add the NoAlias and NoCapture attributes
+        arg.attrs.clear()
+                 .add(LDC_ATTRIBUTE(NoAlias))
+                 .add(LDC_ATTRIBUTE(NoCapture));
     }
 }

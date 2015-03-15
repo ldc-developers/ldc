@@ -190,8 +190,12 @@ static void hide(llvm::StringMap<cl::Option *>& map, const char* name) {
 /// Removes command line options exposed from within LLVM that are unlikely
 /// to be useful for end users from the -help output.
 static void hideLLVMOptions() {
+#if LDC_LLVM_VER >= 307
+    llvm::StringMap<cl::Option *>& map = cl::getRegisteredOptions();
+#else
     llvm::StringMap<cl::Option *> map;
     cl::getRegisteredOptions(map);
+#endif
     hide(map, "bounds-checking-single-trap");
     hide(map, "disable-debug-info-verifier");
     hide(map, "disable-spill-fusing");
@@ -550,18 +554,25 @@ static void registerMipsABI()
 }
 
 /// Register the float ABI.
-/// Also defines D_SoftFloat or D_HardFloat depending on ABI type.
-static void registerPredefinedFloatABI(const char *soft, const char *hard)
+/// Also defines D_HardFloat or D_SoftFloat depending if FPU should be used
+static void registerPredefinedFloatABI(const char *soft, const char *hard, const char *softfp=NULL)
 {
+    // Use target floating point unit instead of s/w float routines
+    bool useFPU = !gTargetMachine->Options.UseSoftFloat;
+    VersionCondition::addPredefinedGlobalIdent(useFPU ? "D_HardFloat" : "D_SoftFloat");
+
     if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft)
     {
-        VersionCondition::addPredefinedGlobalIdent(soft);
-        VersionCondition::addPredefinedGlobalIdent("D_SoftFloat");
+        VersionCondition::addPredefinedGlobalIdent(useFPU && softfp ? softfp : soft);
     }
-    if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Hard)
+    else if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Hard)
     {
+        assert(useFPU && "Should be using the FPU if using float-abi=hard");
         VersionCondition::addPredefinedGlobalIdent(hard);
-        VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+    }
+    else
+    {
+        assert(0 && "FloatABIType neither Soft or Hard");
     }
 }
 
@@ -603,14 +614,13 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::armeb:
 #endif
             VersionCondition::addPredefinedGlobalIdent("ARM");
-            // FIXME: What about ARM_SoftFP?.
-            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
+            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat", "ARM_SoftFP");
             break;
         case llvm::Triple::thumb:
             VersionCondition::addPredefinedGlobalIdent("ARM");
             VersionCondition::addPredefinedGlobalIdent("Thumb"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("ARM_Thumb");
-            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
+            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat", "ARM_SoftFP");
             break;
 #if LDC_LLVM_VER == 305
         case llvm::Triple::arm64:
@@ -622,7 +632,7 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::aarch64_be:
 #endif
             VersionCondition::addPredefinedGlobalIdent("AArch64");
-            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat");
+            registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat", "ARM_SoftFP");
             break;
 #endif
         case llvm::Triple::mips:
@@ -989,9 +999,8 @@ int main(int argc, char **argv)
     if (m64bits)
     {
         if (bitness != ExplicitBitness::None)
-        {
             error(Loc(), "cannot use both -m32 and -m64 options");
-        }
+        bitness = ExplicitBitness::M64;
     }
 
     if (global.errors)
@@ -1015,7 +1024,9 @@ int main(int argc, char **argv)
         global.params.is64bit      = triple.isArch64Bit();
     }
 
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 307
+    gDataLayout = gTargetMachine->getDataLayout();
+#elif LDC_LLVM_VER >= 306
     gDataLayout = gTargetMachine->getSubtargetImpl()->getDataLayout();
 #elif LDC_LLVM_VER >= 302
     gDataLayout = gTargetMachine->getDataLayout();
@@ -1212,7 +1223,7 @@ int main(int argc, char **argv)
         if (strcmp(m->srcfile->name->str, global.main_d) == 0)
         {
             static const char buf[] = "void main(){}";
-            m->srcfile->setbuffer((void *)buf, sizeof(buf));
+            m->srcfile->setbuffer(const_cast<char *>(buf), sizeof(buf));
             m->srcfile->ref = 1;
         }
         else

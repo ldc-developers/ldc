@@ -945,7 +945,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     else if (p.debugInfo == Debug::pretendC) r.push_back("-gc");
     if (p.alwaysStackFrame) r.push_back("-disable-fp-elim");
     if (p.targetModel == Model::m32) r.push_back("-m32");
-    else if (p.targetModel == Model::m32) r.push_back("-m64");
+    else if (p.targetModel == Model::m64) r.push_back("-m64");
     if (p.profile) warning("CPU profile generation not yet supported by LDC.");
     if (p.verbose) r.push_back("-v");
     if (p.logTlsUse) warning("-vtls not yet supported by LDC.");

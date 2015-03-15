@@ -14,6 +14,7 @@
 
 #include "gen/runtime.h"
 #include "gen/metadata.h"
+#include "gen/attributes.h"
 
 #define DEBUG_TYPE "dgc2stack"
 
@@ -159,7 +160,9 @@ namespace {
             APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
             Mask.flipAllBits();
             APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER >= 307
+            computeKnownBits(Val, KnownZero, KnownOne, A.DL);
+#elif LDC_LLVM_VER >= 305
             computeKnownBits(Val, KnownZero, KnownOne, &A.DL);
 #else
             ComputeMaskedBits(Val, KnownZero, KnownOne, &A.DL);
@@ -294,11 +297,19 @@ namespace {
 
             // Inserting destructor calls is not implemented yet, so classes
             // with destructors are ignored for now.
+#if LDC_LLVM_VER >= 306
+            auto hasDestructor = mdconst::dyn_extract<Constant>(node->getOperand(CD_Finalize));
+#else
             Constant* hasDestructor = dyn_cast<Constant>(node->getOperand(CD_Finalize));
+#endif
             // We can't stack-allocate if the class has a custom deallocator
             // (Custom allocators don't get turned into this runtime call, so
             // those can be ignored)
+#if LDC_LLVM_VER >= 306
+            auto hasCustomDelete = mdconst::dyn_extract<Constant>(node->getOperand(CD_CustomDelete));
+#else
             Constant* hasCustomDelete = dyn_cast<Constant>(node->getOperand(CD_CustomDelete));
+#endif
             if (hasDestructor == NULL || hasCustomDelete == NULL)
                 return false;
 
@@ -306,7 +317,11 @@ namespace {
                     != ConstantInt::getFalse(A.M.getContext()))
                 return false;
 
-            Ty =node->getOperand(CD_BodyType)->getType();
+#if LDC_LLVM_VER >= 306
+            Ty = mdconst::dyn_extract<Constant>(node->getOperand(CD_BodyType))->getType();
+#else
+            Ty = node->getOperand(CD_BodyType)->getType();
+#endif
             return A.DL.getTypeAllocSize(Ty) < SizeLimit;
         }
 
@@ -403,7 +418,9 @@ namespace {
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
 #if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER < 307
             AU.addRequired<DataLayoutPass>();
+#endif
             AU.addRequired<DominatorTreeWrapperPass>();
             AU.addPreserved<CallGraphWrapperPass>();
 #else
@@ -467,7 +484,12 @@ static bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& D
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
     DEBUG(errs() << "\nRunning -dgc2stack on function " << F.getName() << '\n');
 
-#if LDC_LLVM_VER >= 305
+#if LDC_LLVM_VER >= 307
+    const DataLayout &DL = F.getParent()->getDataLayout();
+    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
+    CallGraph *CG = CGPass ? &CGPass->getCallGraph() : 0;
+#elif LDC_LLVM_VER >= 305
     DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
     assert(DLP && "required DataLayoutPass is null");
     const DataLayout &DL = DLP->getDataLayout();
@@ -579,11 +601,19 @@ Type* Analysis::getTypeFor(Value* typeinfo) const {
     if (node->getNumOperands() != TD_NumFields)
         return NULL;
 
+#if LDC_LLVM_VER >= 306
+    Value* ti = llvm::MetadataAsValue::get(node->getContext(), node->getOperand(TD_TypeInfo));
+#else
     Value* ti = node->getOperand(TD_TypeInfo);
+#endif
     if (!ti || ti->stripPointerCasts() != ti_global)
         return NULL;
 
+#if LDC_LLVM_VER >= 306
+    return llvm::MetadataAsValue::get(node->getContext(), node->getOperand(TD_Type))->getType();
+#else
     return node->getOperand(TD_Type)->getType();
+#endif
 }
 
 /// Returns whether Def is used by any instruction that is reachable from Alloc
@@ -835,15 +865,7 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
       CallSite::arg_iterator B = CS.arg_begin(), E = CS.arg_end();
       for (CallSite::arg_iterator A = B; A != E; ++A)
         if (A->get() == V) {
-          if (!CS.paramHasAttr(A - B + 1,
-#if LDC_LLVM_VER >= 303
-              Attribute::NoCapture
-#elif LDC_LLVM_VER == 302
-              Attributes::NoCapture
-#else
-              Attribute::NoCapture
-#endif
-          )) {
+          if (!CS.paramHasAttr(A - B + 1, LDC_ATTRIBUTE(NoCapture))) {
             // The parameter is not marked 'nocapture' - captured.
             return false;
           }

@@ -599,7 +599,6 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     LOG_SCOPE;
 
     assert(cd->type->ty == Tclass);
-    TypeClass* cdty = static_cast<TypeClass*>(cd->type);
 
     IrAggr* ir = getIrAggr(cd);
     ClassDeclaration* cinfo = Type::typeinfoclass;

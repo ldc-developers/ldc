@@ -16,7 +16,7 @@ include(CheckCXXCompilerFlag)
 #
 
 find_package(LLVM 3.1 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfo instcombine ipa ipo instrumentation linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfodwarf instcombine ipa ipo instrumentation linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 
 #
@@ -34,7 +34,7 @@ include(GetLinuxDistribution)
 #
 
 # Version information
-set(LDC_VERSION "0.15.0") # May be overridden by git hash tag
+set(LDC_VERSION "0.15.2") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
 set(DMDFE_PATCH_VERSION   66)
@@ -513,11 +513,14 @@ endif()
 install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(BASH_COMPLETION_INST_DIR "${CONF_INST_DIR}/bash_completion.d")
-    if(LINUX_DISTRIBUTION_IS_GENTOO)
-        set(BASH_COMPLETION_INST_DIR "/usr/share/bash-completion")
+    find_package(bash-completion QUIET)
+    if(NOT BASH_COMPLETION_FOUND)
+        set(BASH_COMPLETION_COMPLETIONSDIR "${CONF_INST_DIR}/bash_completion.d")
+        if(LINUX_DISTRIBUTION_IS_GENTOO)
+            set(BASH_COMPLETION_COMPLETIONSDIR "/usr/share/bash-completion")
+        endif()
     endif()
-    install(DIRECTORY bash_completion.d/ DESTINATION ${BASH_COMPLETION_INST_DIR})
+    install(DIRECTORY bash_completion.d/ DESTINATION ${BASH_COMPLETION_COMPLETIONSDIR})
 endif()
 
 #

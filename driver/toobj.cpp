@@ -19,7 +19,11 @@
 #include "llvm/Analysis/Verifier.h"
 #endif
 #include "llvm/Bitcode/ReaderWriter.h"
+#if LDC_LLVM_VER >= 307
+#include "llvm/IR/LegacyPassManager.h"
+#else
 #include "llvm/PassManager.h"
+#endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/FormattedStream.h"
@@ -28,6 +32,9 @@
 #include "llvm/Support/PathV1.h"
 #endif
 #include "llvm/Target/TargetMachine.h"
+#if LDC_LLVM_VER >= 307
+#include "llvm/Analysis/TargetTransformInfo.h"
+#endif
 #if LDC_LLVM_VER >= 306
 #include "llvm/Target/TargetSubtargetInfo.h"
 #endif
@@ -62,9 +69,17 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
 
     // Create a PassManager to hold and optimize the collection of passes we are
     // about to build.
+#if LDC_LLVM_VER >= 307
+    legacy::
+#endif
     PassManager Passes;
 
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 307
+    // The DataLayout is already set at the module (in module.cpp,
+    // method Module::genLLVMModule())
+    // FIXME: Introduce new command line switch default-data-layout to
+    // override the module data layout
+#elif LDC_LLVM_VER == 306
     Passes.add(new DataLayoutPass());
 #elif LDC_LLVM_VER == 305
     if (const DataLayout *DL = Target.getDataLayout())
@@ -83,7 +98,10 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
         Passes.add(new TargetData(&m));
 #endif
 
-#if LDC_LLVM_VER >= 303
+#if LDC_LLVM_VER >= 307
+    // Add internal analysis passes from the target machine.
+    Passes.add(createTargetTransformInfoWrapperPass(Target.getTargetIRAnalysis()));
+#elif LDC_LLVM_VER >= 303
     Target.addAnalysisPasses(Passes);
 #endif
 

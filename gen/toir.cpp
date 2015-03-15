@@ -143,7 +143,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd, E
         DConstValue cv(vd->type, NULL); // Only used in one branch; value is set beforehand
         if (expr)
         {
-            IF_LOG Logger::println("expr %zu = %s", index, expr->toChars());
+            IF_LOG Logger::println("expr %llu = %s", static_cast<unsigned long long>(index), expr->toChars());
             val = toElem(expr);
         }
         else if (vd == sd->vthis) {
@@ -838,58 +838,44 @@ public:
 
             // va_start instruction
             if (fndecl->llvmInternal == LLVMva_start) {
-                if (e->arguments->dim != 2) {
-                    e->error("va_start instruction expects 2 arguments");
+                if (e->arguments->dim < 1 || e->arguments->dim > 2) {
+                    e->error("va_start instruction expects 1 (or 2) arguments");
                     fatal();
                 }
-                Expression* exp = (*e->arguments)[0];
-                LLValue* arg = toElem(exp)->getLVal();
-                if (LLValue *argptr = p->func()->_argptr) {
-                    DtoStore(DtoLoad(argptr), DtoBitCast(arg, getPtrToType(getVoidPtrType())));
-                    result = new DImValue(e->type, arg);
-                }
-                else if (global.params.targetTriple.getArch() == llvm::Triple::x86_64 &&
-                    !global.params.targetTriple.isOSWindows()
-                ) {
-                    // Since the user only created a __va_list* on the stack before
-                    // invoking va_start, we first need to allocate the actual
-                    // struct before invoking va_start.
-                    LLValue *va_list = DtoAlloca(exp->type->nextOf());
-                    DtoStore(va_list, arg);
-                    va_list = DtoBitCast(va_list, getVoidPtrType());
-                    result = new DImValue(e->type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), va_list, ""));
+                LLValue* pAp = toElem((*e->arguments)[0])->getLVal(); // va_list*
+                // variadic extern(D) function with implicit _argptr?
+                if (LLValue* pArgptr = p->func()->_argptr) {
+                    DtoStore(DtoLoad(pArgptr), pAp); // ap = _argptr
+                    result = new DImValue(e->type, pAp);
                 } else {
-                    arg = DtoBitCast(arg, getVoidPtrType());
-                    result = new DImValue(e->type, gIR->ir->CreateCall(GET_INTRINSIC_DECL(vastart), arg, ""));
+                    LLValue* vaStartArg = gABI->prepareVaStart(pAp);
+                    result = new DImValue(e->type, gIR->ir->CreateCall(
+                        GET_INTRINSIC_DECL(vastart), vaStartArg, ""));
                 }
             }
-            else if (fndecl->llvmInternal == LLVMva_copy &&
-                global.params.targetTriple.getArch() == llvm::Triple::x86_64 &&
-                !global.params.targetTriple.isOSWindows()
-            ) {
+            // va_copy instruction
+            else if (fndecl->llvmInternal == LLVMva_copy) {
                 if (e->arguments->dim != 2) {
                     e->error("va_copy instruction expects 2 arguments");
                     fatal();
                 }
-
-                // Similar to va_start, we need to create a new struct on the stack
-                // first and set the target argument to it.
-                Expression* exp1 = (*e->arguments)[0];
-                LLValue* va_list = DtoAlloca(exp1->type->nextOf());
-                LLValue* arg1 = toElem(exp1)->getLVal();
-                DtoStore(va_list, arg1);
-
-                LLValue* arg2 = toElem((*e->arguments)[1])->getRVal();
-                DtoStore(DtoLoad(arg2), DtoLoad(arg1));
-                result = new DVarValue(e->type, arg1);
+                LLValue* pDest = toElem((*e->arguments)[0])->getLVal(); // va_list*
+                LLValue* src   = toElem((*e->arguments)[1])->getRVal(); // va_list
+                gABI->vaCopy(pDest, src);
+                result = new DVarValue(e->type, pDest);
             }
             // va_arg instruction
             else if (fndecl->llvmInternal == LLVMva_arg) {
                 if (e->arguments->dim != 1) {
-                    e->error("va_arg instruction expects 1 arguments");
+                    e->error("va_arg instruction expects 1 argument");
                     fatal();
                 }
-                result = DtoVaArg(e->loc, e->type, (*e->arguments)[0]);
+                LLValue* pAp = toElem((*e->arguments)[0])->getLVal(); // va_list*
+                LLValue* vaArgArg = gABI->prepareVaArg(pAp);
+                LLType* llType = DtoType(e->type);
+                if (DtoIsPassedByRef(e->type))
+                    llType = getPtrToType(llType);
+                result = new DImValue(e->type, gIR->ir->CreateVAArg(vaArgArg, llType));
             }
             // C alloca
             else if (fndecl->llvmInternal == LLVMalloca) {
@@ -1792,10 +1778,16 @@ public:
         else if (e1type->ty == Tpointer)
         {
             assert(e->e2->op == TOKint64);
-            LLConstant* minusone = LLConstantInt::get(DtoSize_t(), static_cast<uint64_t>(-1), true);
-            LLConstant* plusone = LLConstantInt::get(DtoSize_t(), static_cast<uint64_t>(1), false);
-            LLConstant* whichone = (e->op == TOKplusplus) ? plusone : minusone;
-            post = llvm::GetElementPtrInst::Create(val, whichone, "",  p->scopebb());
+            LLConstant *offset;
+            if (e->op == TOKplusplus)
+                offset = LLConstantInt::get(DtoSize_t(), static_cast<uint64_t>(1), false);
+            else
+                offset = LLConstantInt::get(DtoSize_t(), static_cast<uint64_t>(-1), true);
+            post = llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+                val->getType(),
+#endif
+                val, offset, "",  p->scopebb());
         }
         else if (e1type->isfloating())
         {
@@ -2030,7 +2022,7 @@ public:
         {
             LLValue* thisarg = p->func()->thisArg;
             assert(thisarg && "null thisarg, but we're in assert(this) exp;");
-            LLValue* thisptr = DtoLoad(p->func()->thisArg);
+            LLValue* thisptr = DtoLoad(thisarg);
             condty = e->e1->type->toBasetype();
             cond = new DImValue(condty, thisptr);
         }
@@ -2819,7 +2811,7 @@ public:
             {
                 Expression* ekey = e->keys->tdata()[i];
                 Expression* eval = e->values->tdata()[i];
-                IF_LOG Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
+                IF_LOG Logger::println("(%llu) aa[%s] = %s", static_cast<unsigned long long>(i), ekey->toChars(), eval->toChars());
                 unsigned errors = global.startGagging();
                 LLConstant *ekeyConst = toConstElem(ekey, p);
                 LLConstant *evalConst = toConstElem(eval, p);
@@ -2880,7 +2872,7 @@ public:
             Expression* ekey = (*e->keys)[i];
             Expression* eval = (*e->values)[i];
 
-            IF_LOG Logger::println("(%zu) aa[%s] = %s", i, ekey->toChars(), eval->toChars());
+            IF_LOG Logger::println("(%llu) aa[%s] = %s", static_cast<unsigned long long>(i), ekey->toChars(), eval->toChars());
 
             // index
             DValue* key = toElem(ekey);
@@ -2935,8 +2927,7 @@ public:
         IF_LOG Logger::print("DotTypeExp::toElem: %s @ %s\n", e->toChars(), e->type->toChars());
         LOG_SCOPE;
 
-        Type* t = e->sym->getType();
-        assert(t);
+        assert(e->sym->getType());
         result = toElem(e->e1);
     }
 
@@ -2972,7 +2963,7 @@ public:
             Expression *el = (*e->exps)[i];
             DValue* ep = toElem(el);
             LLValue *gep = DtoGEPi(val,0,i);
-            if (el->type->ty == Tstruct)
+            if (DtoIsPassedByRef(el->type))
                 DtoStore(DtoLoad(ep->getRVal()), gep);
             else if (el->type->ty != Tvoid)
                 DtoStoreZextI8(ep->getRVal(), gep);

@@ -190,8 +190,8 @@ static llvm::Function* build_module_function(const std::string &name, const std:
             return getIrFunc(funcs.front())->func;
     }
 
-    std::vector<LLType*> argsTy;
-    LLFunctionType* fnTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
+    // build ctor type
+    LLFunctionType* fnTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false);
 
     std::string const symbolName = gABI->mangleForLLVM(name, LINKd);
     assert(gIR->module->getFunction(symbolName) == NULL);
@@ -203,7 +203,7 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     IRBuilder<> builder(bb);
 
     // debug info
-    gIR->DBuilder.EmitSubProgramInternal(name.c_str(), symbolName.c_str());
+    gIR->DBuilder.EmitModuleCTor(fn, name.c_str());
 
     // Call ctor's
     typedef std::list<FuncDeclaration*>::const_iterator FuncIterator;
@@ -319,7 +319,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     IRBuilder<> builder(bb);
 
     // debug info
-    gIR->DBuilder.EmitSubProgramInternal(fname.c_str(), fname.c_str());
+    gIR->DBuilder.EmitModuleCTor(ctor, fname.c_str());
 
     // get current beginning
     LLValue* curbeg = builder.CreateLoad(mref, "current");
@@ -569,9 +569,6 @@ static void codegenModule(Module* m)
 
     if (global.errors) return;
 
-    // finalize debug info
-    gIR->DBuilder.EmitModuleEnd();
-
     // Skip emission of all the additional module metadata if requested by the user.
     if (!m->noModuleInfo)
     {
@@ -591,12 +588,20 @@ static void codegenModule(Module* m)
         llvm::NamedMDNode *IdentMetadata = gIR->module->getOrInsertNamedMetadata("llvm.ident");
         std::string Version("ldc version ");
         Version.append(global.ldc_version);
-        llvm::Value *IdentNode[] = {
+#if LDC_LLVM_VER >= 306
+        llvm::Metadata *IdentNode[] =
+#else
+        llvm::Value *IdentNode[] =
+#endif
+        {
             llvm::MDString::get(gIR->context(), Version)
         };
         IdentMetadata->addOperand(llvm::MDNode::get(gIR->context(), IdentNode));
     #endif
     }
+
+    // finalize debug info
+    gIR->DBuilder.EmitModuleEnd();
 
     // verify the llvm
     verifyModule(*gIR->module);
@@ -648,7 +653,11 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
 
     // set final data layout
     ir.module->setDataLayout(gDataLayout->getStringRepresentation());
+#if LDC_LLVM_VER >= 307
+    IF_LOG Logger::cout() << "Final data layout: " << ir.module->getDataLayout().getStringRepresentation() << '\n';
+#else
     IF_LOG Logger::cout() << "Final data layout: " << ir.module->getDataLayout() << '\n';
+#endif
 
     // handle invalid 'objectø module
     if (!ClassDeclaration::object) {

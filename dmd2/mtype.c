@@ -217,6 +217,9 @@ void Type::init()
     sizeTy[Treturn] = sizeof(TypeReturn);
     sizeTy[Terror] = sizeof(TypeError);
     sizeTy[Tnull] = sizeof(TypeNull);
+#if IN_LLVM  // Backport from DMD 2.067, pull request #4436
+    sizeTy[Tvector] = sizeof(TypeVector);
+#endif
 
     mangleChar[Tarray] = 'A';
     mangleChar[Tsarray] = 'G';

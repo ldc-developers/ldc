@@ -16,7 +16,7 @@ std::vector<IrDsymbol*> IrDsymbol::list;
 
 void IrDsymbol::resetAll()
 {
-    Logger::println("resetting %zu Dsymbols", list.size());
+    Logger::println("resetting %llu Dsymbols", static_cast<unsigned long long>(list.size()));
 
     for (std::vector<IrDsymbol*>::iterator it = list.begin(), end = list.end(); it != end; ++it)
         (*it)->reset();

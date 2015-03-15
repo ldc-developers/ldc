@@ -86,10 +86,9 @@ llvm::Constant * IrAggr::getDefaultInit()
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-static bool isAligned(llvm::Type* type, size_t offset) {
-    if (offset == 0)
-        return true;
-    return gDataLayout->getABITypeAlignment(type) % offset == 0;
+static bool isAligned(llvm::Type* type, size_t Offset) {
+    unsigned TyAlign = gDataLayout->getABITypeAlignment(type);
+    return (Offset & (TyAlign-1)) == 0;
 }
 
 // helper function that adds zero bytes to a vector of constants
@@ -98,9 +97,11 @@ size_t add_zeros(llvm::SmallVectorImpl<llvm::Constant*>& constants,
 {
     size_t const oldLength = constants.size();
 
-    llvm::Type* const eightByte = llvm::Type::getInt64Ty(gIR->context());
-    llvm::Type* const fourByte = llvm::Type::getInt32Ty(gIR->context());
-    llvm::Type* const twoByte = llvm::Type::getInt16Ty(gIR->context());
+    llvm::LLVMContext& context = gIR->context();
+    llvm::Type* const eightByte = llvm::Type::getInt64Ty(context);
+    llvm::Type* const fourByte = llvm::Type::getInt32Ty(context);
+    llvm::Type* const twoByte = llvm::Type::getInt16Ty(context);
+    llvm::Type* const oneByte = llvm::Type::getInt8Ty(context);
 
     assert(startOffset <= endOffset);
     size_t paddingLeft = endOffset - startOffset;
@@ -123,8 +124,7 @@ size_t add_zeros(llvm::SmallVectorImpl<llvm::Constant*>& constants,
         }
         else
         {
-            constants.push_back(llvm::Constant::getNullValue(
-                llvm::Type::getInt8Ty(gIR->context())));
+            constants.push_back(llvm::Constant::getNullValue(oneByte));
             startOffset += 1;
         }
 
@@ -296,6 +296,14 @@ void IrAggr::addFieldInitializers(
 
         unsigned vd_begin = vd->offset;
         unsigned vd_end = vd_begin + vd->type->size();
+
+        /* Skip zero size fields like zero-length static arrays, LDC issue 812:
+            class B {
+                ubyte[0] test;
+            }
+        */
+        if (vd_begin == vd_end)
+            continue;
 
         // make sure it doesn't overlap any explicit initializers.
         bool overlaps = false;
