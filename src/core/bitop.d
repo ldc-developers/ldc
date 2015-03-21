@@ -15,6 +15,10 @@ nothrow:
 @safe:
 @nogc:
 
+version (LDC) {
+    // Do not use the DMD inline assembler.
+}
+else {
 version( D_InlineAsm_X86_64 )
     version = AsmX86;
 else version( D_InlineAsm_X86 )
@@ -24,6 +28,7 @@ version (X86_64)
     version = AnyX86;
 else version (X86)
     version = AnyX86;
+}
 
 /**
  * Scans the bits in v starting with bit 0, looking
@@ -327,6 +332,52 @@ version(LDC) @system // not pure
     }
 }
 
+version (LDC)
+{
+    ushort _popcnt( ushort x ) pure
+    {
+        return ctpop(x);
+    }
+
+    int _popcnt( uint x ) pure
+    {
+        return cast(int) ctpop(x);
+    }
+
+    int _popcnt( ulong x ) pure
+    {
+        return cast(int) ctpop(x);
+    }
+
+    unittest
+    {
+        static int popcnt_x(ulong u) nothrow @nogc
+        {
+            int c;
+            while (u)
+            {
+                c += u & 1;
+                u >>= 1;
+            }
+            return c;
+        }
+
+        for (uint u = 0; u < 0x1_0000; ++u)
+        {
+            //writefln("%x %x %x", u,   _popcnt(cast(ushort)u), popcnt_x(cast(ushort)u));
+            assert(_popcnt(cast(ushort)u) == popcnt_x(cast(ushort)u));
+
+            assert(_popcnt(cast(uint)u) == popcnt_x(cast(uint)u));
+            uint ui = u * 0x3_0001;
+            assert(_popcnt(ui) == popcnt_x(ui));
+
+            assert(_popcnt(cast(ulong)u) == popcnt_x(cast(ulong)u));
+            ulong ul = u * 0x3_0003_0001;
+            assert(_popcnt(ul) == popcnt_x(ul));
+        }
+    }
+}
+else
 version (AnyX86)
 {
     /**
