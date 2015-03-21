@@ -45,6 +45,8 @@ enum Pragma
     LLVMbitop_btc,
     LLVMbitop_btr,
     LLVMbitop_bts,
+    LLVMbitop_vld,
+    LLVMbitop_vst,
     LLVMextern_weak
 };
 

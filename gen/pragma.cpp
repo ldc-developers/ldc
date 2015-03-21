@@ -70,6 +70,8 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
             { "bitop.btc", LLVMbitop_btc },
             { "bitop.btr", LLVMbitop_btr },
             { "bitop.bts", LLVMbitop_bts },
+            { "bitop.vld", LLVMbitop_vld },
+            { "bitop.vst", LLVMbitop_vst },
         };
 
         static std::string prefix = "ldc.";
@@ -422,6 +424,8 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
     case LLVMbitop_btc:
     case LLVMbitop_btr:
     case LLVMbitop_bts:
+    case LLVMbitop_vld:
+    case LLVMbitop_vst:
         if (FuncDeclaration* fd = s->isFuncDeclaration())
         {
             fd->llvmInternal = llvm_internal;

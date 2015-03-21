@@ -1061,6 +1061,33 @@ public:
 
                 result = new DImValue(e->type, ret);
             }
+            else if (fndecl->llvmInternal == LLVMbitop_vld)
+            {
+                if (e->arguments->dim != 1) {
+                    e->error("bitop.vld intrinsic expects 1 argument");
+                    fatal();
+                }
+                // TODO: Check types
+
+                Expression* exp1 = (*e->arguments)[0];
+                LLValue* ptr = toElem(exp1)->getRVal();
+                result = new DImValue(exp1->type, DtoVolatileLoad(ptr));
+            }
+            else if (fndecl->llvmInternal == LLVMbitop_vst)
+            {
+                if (e->arguments->dim != 2) {
+                    e->error("bitop.vst intrinsic expects 2 arguments");
+                    fatal();
+                }
+                // TODO: Check types
+
+                Expression* exp1 = (*e->arguments)[0];
+                Expression* exp2 = (*e->arguments)[1];
+                LLValue* ptr = toElem(exp1)->getRVal();
+                LLValue* val = toElem(exp2)->getRVal();
+                DtoVolatileStore(val, ptr);
+                return;
+            }
         }
 
         if (!result)

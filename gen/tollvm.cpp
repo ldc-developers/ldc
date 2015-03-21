@@ -513,12 +513,26 @@ LLValue* DtoAlignedLoad(LLValue* src, const char* name)
     return ld;
 }
 
+LLValue* DtoVolatileLoad(LLValue* src, const char* name)
+{
+    llvm::LoadInst* ld = gIR->ir->CreateLoad(src, name);
+    ld->setVolatile(true);
+    return ld;
+}
+
 
 void DtoStore(LLValue* src, LLValue* dst)
 {
     assert(src->getType() != llvm::Type::getInt1Ty(gIR->context()) &&
         "Should store bools as i8 instead of i1.");
     gIR->ir->CreateStore(src,dst);
+}
+
+void DtoVolatileStore(LLValue* src, LLValue* dst)
+{
+    assert(src->getType() != llvm::Type::getInt1Ty(gIR->context()) &&
+        "Should store bools as i8 instead of i1.");
+    gIR->ir->CreateStore(src, dst)->setVolatile(true);
 }
 
 void DtoStoreZextI8(LLValue* src, LLValue* dst)
