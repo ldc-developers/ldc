@@ -787,8 +787,7 @@ DSliceValue* DtoCatArrays(Loc& loc, Type* arrayType, Expression* exp1, Expressio
         LLValue* array2 = DtoRawAlloca(type2, 0, ".array");
         DtoStore(DtoConstSize_t(arrs.size()), DtoGEPi(array2, 0, 0, ".len"));
         DtoStore(DtoBitCast(array, ptrarraytype), DtoGEPi(array2, 0, 1, ".ptr"));
-        //LLValue* val = DtoLoad(array2);
-        LLValue* val = DtoBitCast(DtoLoad(array2), DtoArrayType(DtoArrayType(LLType::getInt8Ty(gIR->context()))));
+        LLValue* val = DtoLoad(DtoBitCast(array2, getPtrToType(DtoArrayType(DtoArrayType(LLType::getInt8Ty(gIR->context()))))));
 
         // TypeInfo ti
         args.push_back(DtoTypeInfoOf(arrayType));
