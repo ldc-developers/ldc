@@ -75,7 +75,7 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name)
             "_d_arrayappendcd",
             "_d_arrayappendwd",
             "_d_arraycatT",
-            "_d_arraycatnT",
+            "_d_arraycatnTX",
             "_d_arraysetlengthT",
             "_d_arraysetlengthiT",
             "_d_assocarrayliteralTX",
@@ -483,10 +483,10 @@ static void LLVM_D_BuildRuntimeModule()
         LLFunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
-    // byte[] _d_arraycatnT(TypeInfo ti, uint n, ...)
+    // void[] _d_arraycatnTX(const TypeInfo ti, byte[][] arrs)
     {
-        llvm::StringRef fname("_d_arraycatnT");
-        LLType *types[] = { typeInfoTy };
+        llvm::StringRef fname("_d_arraycatnTX");
+        LLType *types[] = { typeInfoTy, rt_array(voidArrayTy) };
         LLFunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, true);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }

@@ -757,23 +757,43 @@ DSliceValue* DtoCatArrays(Loc& loc, Type* arrayType, Expression* exp1, Expressio
 
     if (exp1->op == TOKcat)
     { // handle multiple concat
-        fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arraycatnT");
+        fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arraycatnTX");
 
-        args.push_back(DtoSlicePtr(toElem(exp2)));
+        // Create array of slices
+        std::vector<LLValue*> arrs;
+        arrs.push_back(DtoSlicePtr(toElem(exp2)));
         CatExp *ce = static_cast<CatExp*>(exp1);
         do
         {
-            args.push_back(DtoSlicePtr(toElem(ce->e2)));
+            arrs.push_back(DtoSlicePtr(toElem(ce->e2)));
             ce = static_cast<CatExp *>(ce->e1);
-
         } while (ce->op == TOKcat);
-        args.push_back(DtoSlicePtr(toElem(ce)));
-        // uint n
-        args.push_back(DtoConstUint(args.size()));
+        arrs.push_back(DtoSlicePtr(toElem(ce)));
+
+        // Create static array from slices
+        LLPointerType* ptrarraytype = isaPointer(arrs[0]->getType());
+        assert(ptrarraytype && "Expected pointer type");
+        LLStructType* arraytype = isaStruct(ptrarraytype->getElementType());
+        assert(arraytype && "Expected struct type");
+        LLArrayType* type = LLArrayType::get(arraytype, arrs.size());
+        LLValue* array = DtoRawAlloca(type, 0, ".slicearray");
+        unsigned int i = 0;
+        for (std::vector<LLValue*>::iterator I = arrs.begin(), E = arrs.end(); I != E; ++I)
+        {
+            DtoStore(DtoLoad(*I), DtoGEPi(array, 0, i++, ".slice"));
+        }
+
+        LLStructType* type2 = DtoArrayType(arraytype);
+        LLValue* array2 = DtoRawAlloca(type2, 0, ".array");
+        DtoStore(DtoConstSize_t(arrs.size()), DtoGEPi(array2, 0, 0, ".len"));
+        DtoStore(DtoBitCast(array, ptrarraytype), DtoGEPi(array2, 0, 1, ".ptr"));
+        //LLValue* val = DtoLoad(array2);
+        LLValue* val = DtoBitCast(DtoLoad(array2), DtoArrayType(DtoArrayType(LLType::getInt8Ty(gIR->context()))));
+
         // TypeInfo ti
         args.push_back(DtoTypeInfoOf(arrayType));
-
-        std::reverse(args.begin(), args.end());
+        // byte[][] arrs
+        args.push_back(val);
     }
     else
     {

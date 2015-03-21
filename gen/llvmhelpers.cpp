@@ -136,9 +136,7 @@ void DtoDeleteArray(Loc& loc, DValue* arr)
 llvm::AllocaInst* DtoAlloca(Type* type, const char* name)
 {
     LLType* lltype = i1ToI8(DtoType(type));
-    llvm::AllocaInst* ai = new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
-    ai->setAlignment(type->alignsize());
-    return ai;
+    return DtoRawAlloca(lltype, type->alignsize(), name);
 }
 
 llvm::AllocaInst* DtoArrayAlloca(Type* type, unsigned arraysize, const char* name)
