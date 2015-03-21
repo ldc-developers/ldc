@@ -15,6 +15,12 @@
  */
 module core.atomic;
 
+version (LDC)
+{
+    enum has64BitCAS = true;
+    enum has128BitCAS = false;
+}
+else
 version( D_InlineAsm_X86 )
 {
     version = AsmX86;
