@@ -778,7 +778,7 @@ DSliceValue* DtoCatArrays(Loc& loc, Type* arrayType, Expression* exp1, Expressio
         LLArrayType* type = LLArrayType::get(arraytype, arrs.size());
         LLValue* array = DtoRawAlloca(type, 0, ".slicearray");
         unsigned int i = 0;
-        for (std::vector<LLValue*>::iterator I = arrs.begin(), E = arrs.end(); I != E; ++I)
+        for (std::vector<LLValue*>::reverse_iterator I = arrs.rbegin(), E = arrs.rend(); I != E; ++I)
         {
             DtoStore(DtoLoad(*I), DtoGEPi(array, 0, i++, ".slice"));
         }
