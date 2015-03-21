@@ -174,8 +174,13 @@ struct Array
     #endif
             Array_sort_compare(const void *x, const void *y)
             {
+#if IN_LLVM
+                RootObject *ox = *static_cast<RootObject **>(const_cast<void *>(x));
+                RootObject *oy = *static_cast<RootObject **>(const_cast<void *>(y));
+#else
                 RootObject *ox = *(RootObject **)x;
                 RootObject *oy = *(RootObject **)y;
+#endif
 
                 return ox->compare(oy);
             }

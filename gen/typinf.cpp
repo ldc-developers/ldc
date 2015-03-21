@@ -159,10 +159,10 @@ static bool builtinTypeInfo(Type *t)
     if (t->ty == Tarray)
     {
         Type *next = t->nextOf();
-        return !t->mod && (next->isTypeBasic() != NULL && !next->mod ||
+        return !t->mod && ((next->isTypeBasic() != NULL && !next->mod) ||
             // strings are so common, make them builtin
-            next->ty == Tchar && next->mod == MODimmutable ||
-            next->ty == Tchar && next->mod == MODconst);
+            (next->ty == Tchar && next->mod == MODimmutable) ||
+            (next->ty == Tchar && next->mod == MODconst));
     }
     return false;
 }

@@ -27,7 +27,11 @@ struct StringValue
     char *lstring() { return (char *)(this + 1); }
 
     size_t len() const { return length; }
+#if IN_LLVM
+    const char *toDchars() const { return reinterpret_cast<const char *>(this + 1); }
+#else
     const char *toDchars() const { return (char *)(this + 1); }
+#endif
 
     StringValue();  // not constructible
 };
