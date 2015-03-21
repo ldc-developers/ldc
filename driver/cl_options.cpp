@@ -334,8 +334,10 @@ public:
     }
 };
 
+#if LDC_LLVM_VER < 307
 cl::opt<BoundsChecksAdapter, false, FlagParser> boundsChecksOld("boundscheck",
     cl::desc("(*) Enable array bounds check (deprecated, use -boundscheck=on|off)"));
+#endif
 
 cl::opt<BoundsCheck, true> boundsChecksNew("boundscheck",
     cl::desc("(*) Enable array bounds check"),
