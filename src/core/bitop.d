@@ -460,6 +460,28 @@ version (AnyX86)
  * They may be used to guarantee a write or read cycle occurs at a specified address.
  */
 
+version (LDC)
+{
+    private pragma(LDC_intrinsic, "ldc.bitop.vld")
+        ubyte volatileLoad(ubyte* ptr);
+    private pragma(LDC_intrinsic, "ldc.bitop.vld")
+        ushort volatileLoad(ushort* ptr);
+    private pragma(LDC_intrinsic, "ldc.bitop.vld")
+        uint volatileLoad(uint* ptr);
+    private pragma(LDC_intrinsic, "ldc.bitop.vld")
+        ulong volatileLoad(ulong* ptr);
+
+    private pragma(LDC_intrinsic, "ldc.bitop.vst")
+        void volatileStore(ubyte* ptr, ubyte value);
+    private pragma(LDC_intrinsic, "ldc.bitop.vst")
+        void volatileStore(ushort* ptr, ushort value);
+    private pragma(LDC_intrinsic, "ldc.bitop.vst")
+        void volatileStore(uint* ptr, uint value);
+    private pragma(LDC_intrinsic, "ldc.bitop.vst")
+        void volatileStore(ulong* ptr, ulong value);
+}
+else
+{
 ubyte  volatileLoad(ubyte * ptr);
 ushort volatileLoad(ushort* ptr);  /// ditto
 uint   volatileLoad(uint  * ptr);  /// ditto
@@ -469,6 +491,7 @@ void volatileStore(ubyte * ptr, ubyte  value);   /// ditto
 void volatileStore(ushort* ptr, ushort value);   /// ditto
 void volatileStore(uint  * ptr, uint   value);   /// ditto
 void volatileStore(ulong * ptr, ulong  value);   /// ditto
+}
 
 @system unittest
 {
