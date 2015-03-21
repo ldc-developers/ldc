@@ -357,12 +357,31 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-    // void _d_assert( char[] file, uint line )
-    // void _d_arraybounds(ModuleInfo* m, uint line)
+    // void _d_assert(string file, uint line)
+    // void _d_arraybounds(string file, uint line)
     {
         llvm::StringRef fname("_d_assert");
         llvm::StringRef fname2("_d_arraybounds");
         LLType *types[] = { stringTy, intTy };
+        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
+    }
+
+    // void _d_assert_msg(string msg, string file, uint line)
+    {
+        llvm::StringRef fname("_d_assert_msg");
+        LLType *types[] = { stringTy, stringTy, intTy };
+        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // void _d_assertm(immutable(ModuleInfo)* m, uint line)
+    // void _d_array_bounds(immutable(ModuleInfo)* m, uint line)
+    {
+        llvm::StringRef fname("_d_assertm");
+        llvm::StringRef fname2("_d_array_bounds");
+        LLType *types[] = { moduleInfoPtrTy, intTy };
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
@@ -510,16 +529,21 @@ static void LLVM_D_BuildRuntimeModule()
 
     // void _d_delmemory(void **p)
     // void _d_delinterface(void **p)
-    // void _d_callfinalizer(void *p)
     {
         llvm::StringRef fname("_d_delmemory");
         llvm::StringRef fname2("_d_delinterface");
-        llvm::StringRef fname3("_d_callfinalizer");
-        LLType *types[] = { voidPtrTy };
+        LLType *types[] = { rt_ptr(voidPtrTy) };
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M);
+    }
+
+    // void _d_callfinalizer(void *p)
+    {
+        llvm::StringRef fname("_d_callfinalizer");
+        LLType *types[] = { voidPtrTy };
+        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
     // D2: void _d_delclass(Object* p)

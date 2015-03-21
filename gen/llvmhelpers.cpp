@@ -79,7 +79,7 @@ void DtoDeleteMemory(Loc& loc, LLValue* ptr)
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delmemory");
     // build args
-    LLValue* arg[] = { DtoBitCast(ptr, getVoidPtrType(), ".tmp") };
+    LLValue* arg[] = { DtoBitCast(ptr, getPtrToType(getVoidPtrType()), ".tmp") };
     // call
     gIR->CreateCallOrInvoke(fn, arg);
 }
