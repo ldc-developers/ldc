@@ -257,7 +257,7 @@ static void LLVM_D_BuildRuntimeModule()
     LLType* typeInfoTy = DtoType(Type::dtypeinfo->type);
     LLType* aaTypeInfoTy = DtoType(Type::typeinfoassociativearray->type);
     LLType* moduleInfoPtrTy = getPtrToType(DtoType(Module::moduleinfo->type));
-    LLType* aaTy = rt_ptr(LLStructType::get(gIR->context()));
+    LLType* aaTy = voidPtrTy;
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
@@ -505,8 +505,8 @@ static void LLVM_D_BuildRuntimeModule()
     // void[] _d_arraycatnTX(const TypeInfo ti, byte[][] arrs)
     {
         llvm::StringRef fname("_d_arraycatnTX");
-        LLType *types[] = { typeInfoTy, rt_array(voidArrayTy) };
-        LLFunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, true);
+        LLType* types[] = { typeInfoTy, rt_array(voidArrayTy) };
+        LLFunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
