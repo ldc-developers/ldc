@@ -752,7 +752,7 @@ DSliceValue* DtoCatArrays(Loc& loc, Type* arrayType, Expression* exp1, Expressio
     IF_LOG Logger::println("DtoCatAssignArray");
     LOG_SCOPE;
 
-    std::vector<LLValue*> args;
+    llvm::SmallVector<llvm::Value*, 3> args;
     LLFunction* fn = 0;
 
     if (exp1->op == TOKcat)
@@ -760,7 +760,8 @@ DSliceValue* DtoCatArrays(Loc& loc, Type* arrayType, Expression* exp1, Expressio
         fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arraycatnTX");
 
         // Create array of slices
-        std::vector<LLValue*> arrs;
+        typedef llvm::SmallVector<llvm::Value*, 16> ArgVector;
+        ArgVector arrs;
         arrs.push_back(DtoSlicePtr(toElem(exp2)));
         CatExp *ce = static_cast<CatExp*>(exp1);
         do
@@ -778,7 +779,7 @@ DSliceValue* DtoCatArrays(Loc& loc, Type* arrayType, Expression* exp1, Expressio
         LLArrayType* type = LLArrayType::get(arraytype, arrs.size());
         LLValue* array = DtoRawAlloca(type, 0, ".slicearray");
         unsigned int i = 0;
-        for (std::vector<LLValue*>::reverse_iterator I = arrs.rbegin(), E = arrs.rend(); I != E; ++I)
+        for (ArgVector::reverse_iterator I = arrs.rbegin(), E = arrs.rend(); I != E; ++I)
         {
             DtoStore(DtoLoad(*I), DtoGEPi(array, 0, i++, ".slice"));
         }
