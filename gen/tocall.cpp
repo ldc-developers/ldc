@@ -605,9 +605,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // if we are returning through a pointer arg
     // or if we are returning a reference
     // make sure we provide a lvalue back!
-    if (retinptr
-        || tf->isref
-        )
+    if (retinptr || (tf->isref && returnTy != Tvoid))
         return new DVarValue(resulttype, retllval);
 
     return new DImValue(resulttype, retllval);
