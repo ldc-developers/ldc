@@ -307,9 +307,11 @@ LLIntegerType* DtoSize_t()
 
 LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var, llvm::BasicBlock* bb)
 {
+    LLPointerType* p = isaPointer(ptr);
+    assert(p && "GEP expects a pointer type");
     return llvm::GetElementPtrInst::Create(
 #if LDC_LLVM_VER >= 307
-        ptr->getType(),
+        p->getElementType(),
 #endif
         ptr, i0, var, bb ? bb : gIR->scopebb());
 }
@@ -318,10 +320,12 @@ LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var, llvm::BasicBlock* b
 
 LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::BasicBlock* bb)
 {
+    LLPointerType* p = isaPointer(ptr);
+    assert(p && "GEP expects a pointer type");
     LLValue* v[] = { i0, i1 };
     return llvm::GetElementPtrInst::Create(
 #if LDC_LLVM_VER >= 307
-        ptr->getType(),
+        p->getElementType(),
 #endif
         ptr, v, var, bb ? bb : gIR->scopebb());
 }
@@ -330,9 +334,11 @@ LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::B
 
 LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* bb)
 {
+    LLPointerType* p = isaPointer(ptr);
+    assert(p && "GEP expects a pointer type");
     return llvm::GetElementPtrInst::Create(
 #if LDC_LLVM_VER >= 307
-        ptr->getType(),
+        p->getElementType(),
 #endif
         ptr, DtoConstUint(i), var, bb ? bb : gIR->scopebb());
 }
@@ -341,10 +347,12 @@ LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* b
 
 LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::BasicBlock* bb)
 {
+    LLPointerType* p = isaPointer(ptr);
+    assert(p && "GEP expects a pointer type");
     LLValue* v[] = { DtoConstUint(i0), DtoConstUint(i1) };
     return llvm::GetElementPtrInst::Create(
 #if LDC_LLVM_VER >= 307
-        ptr->getType(),
+        p->getElementType(),
 #endif
         ptr, v, var, bb ? bb : gIR->scopebb());
 }
