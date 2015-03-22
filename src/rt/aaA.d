@@ -99,10 +99,7 @@ struct Impl
 /* This is the type actually seen by the programmer, although
  * it is completely opaque.
  */
-struct AA
-{
-    Impl* impl;
-}
+alias void* AA;
 
 /**********************************
  * Align to next pointer boundary, so that
@@ -135,9 +132,10 @@ out (result)
 {
     size_t len = 0;
 
-    if (aa.impl)
+    auto impl = cast(const(Impl*)) aa;
+    if (impl)
     {
-        foreach (const(Entry)* e; aa.impl.buckets)
+        foreach (const(Entry)* e; impl.buckets)
         {
             while (e)
             {
@@ -152,7 +150,8 @@ out (result)
 }
 body
 {
-    return aa.impl ? aa.impl.nodes : 0;
+    auto impl = cast(const(Impl*)) aa;
+    return impl ? impl.nodes : 0;
 }
 
 
@@ -167,24 +166,26 @@ in
 }
 body
 {
-    if (aa.impl is null)
+    if (*aa is null)
     {
-        aa.impl = new Impl();
-        aa.impl.buckets = aa.impl.binit[];
-        aa.impl.firstUsedBucket = aa.impl.buckets.length;
-        aa.impl._keyti = cast() keyti;
+        auto impl = new Impl();
+        impl.buckets = impl.binit[];
+        impl.firstUsedBucket = impl.buckets.length;
+        impl._keyti = cast() keyti;
+        *aa = impl;
     }
     return _aaGetImpl(aa, keyti, valuesize, pkey);
 }
 
 void* _aaGetY(AA* aa, const TypeInfo_AssociativeArray ti, in size_t valuesize, in void* pkey)
 {
-    if (aa.impl is null)
+    if (*aa is null)
     {
-        aa.impl = new Impl();
-        aa.impl.buckets = aa.impl.binit[];
-        aa.impl.firstUsedBucket = aa.impl.buckets.length;
-        aa.impl._keyti = cast() ti.key;
+        auto impl = new Impl();
+        impl.buckets = impl.binit[];
+        impl.firstUsedBucket = impl.buckets.length;
+        impl._keyti = cast() ti.key;
+        *aa = impl;
     }
     return _aaGetImpl(aa, ti.key, valuesize, pkey);
 }
@@ -193,8 +194,9 @@ void* _aaGetImpl(AA* aa, const TypeInfo keyti, in size_t valuesize, in void* pke
 out (result)
 {
     assert(result);
-    assert(aa.impl !is null);
-    assert(aa.impl.buckets.length);
+    auto impl = cast(Impl*) *aa;
+    assert(impl !is null);
+    assert(impl.buckets.length);
     //assert(_aaInAh(*aa.a, key));
 }
 body
@@ -202,12 +204,14 @@ body
     //printf("keyti = %p\n", keyti);
     //printf("aa = %p\n", aa);
 
-    if (aa.impl is null)
+    auto impl = cast(Impl*) *aa;
+    if (impl is null)
     {
-        aa.impl = new Impl();
-        aa.impl.buckets = aa.impl.binit[];
-        aa.impl.firstUsedBucket = aa.impl.buckets.length;
-        aa.impl._keyti = cast() keyti;
+        impl = new Impl();
+        impl.buckets = impl.binit[];
+        impl.firstUsedBucket = impl.buckets.length;
+        impl._keyti = cast() keyti;
+        *aa = impl;
     }
     //printf("aa = %p\n", aa);
     //printf("aa.a = %p\n", aa.a);
@@ -215,10 +219,10 @@ body
     immutable keytitsize = keyti.tsize;
 
     immutable key_hash = keyti.getHash(pkey);
-    immutable i = key_hash % aa.impl.buckets.length;
+    immutable i = key_hash % impl.buckets.length;
     //printf("hash = %d\n", key_hash);
 
-    Entry** pe = &aa.impl.buckets[i];
+    Entry** pe = &impl.buckets[i];
     Entry* e;
     while ((e = *pe) !is null)
     {
@@ -242,13 +246,13 @@ body
         memset(ptail + aligntsize(keytitsize), 0, valuesize); // zero value
         *pe = e;
 
-        auto nodes = ++aa.impl.nodes;
+        auto nodes = ++impl.nodes;
         //printf("length = %d, nodes = %d\n", aa.a.buckets.length, nodes);
 
         // update cache if necessary
-        if (i < aa.impl.firstUsedBucket)
-                aa.impl.firstUsedBucket = i;
-        if (nodes > aa.impl.buckets.length * 4)
+        if (i < impl.firstUsedBucket)
+                impl.firstUsedBucket = i;
+        if (nodes > impl.buckets.length * 4)
         {
             //printf("rehash\n");
             _aaRehash(aa,keyti);
@@ -310,17 +314,18 @@ out (result)
 }
 body
 {
-    if (aa.impl is null)
+    auto impl = cast(inout(Impl*)) aa;
+    if (impl is null)
         return null;
 
     //printf("_aaIn(), .length = %d, .ptr = %x\n", aa.a.length, cast(uint)aa.a.ptr);
-    if (immutable len = aa.impl.buckets.length)
+    if (immutable len = impl.buckets.length)
     {
         immutable key_hash = keyti.getHash(pkey);
         immutable i = key_hash % len;
         //printf("hash = %d\n", key_hash);
 
-        inout(Entry)* e = aa.impl.buckets[i];
+        inout(Entry)* e = impl.buckets[i];
         while (e !is null)
         {
             if (key_hash == e.hash)
@@ -342,20 +347,21 @@ body
  */
 bool _aaDelX(AA aa, in TypeInfo keyti, in void* pkey)
 {
-    if (!aa.impl || !aa.impl.buckets.length)
+    auto impl = cast(Impl*) aa;
+    if (!impl || !impl.buckets.length)
         return false;
     auto key_hash = keyti.getHash(pkey);
     //printf("hash = %d\n", key_hash);
-    immutable size_t i = key_hash % aa.impl.buckets.length;
-    auto pe = &aa.impl.buckets[i];
+    immutable size_t i = key_hash % impl.buckets.length;
+    auto pe = &impl.buckets[i];
     for (Entry *e = void; (e = *pe) !is null; pe = &e.next)
     {
         if (key_hash != e.hash || !keyti.equals(pkey, e + 1))
             continue;
         *pe = e.next;
-        if (!(--aa.impl.nodes))
+        if (!(--impl.nodes))
             // reset cache, we know there are no nodes in the aa.
-            aa.impl.firstUsedBucket = aa.impl.buckets.length;
+            impl.firstUsedBucket = impl.buckets.length;
         // ee could be freed here, but user code may 
         // hold pointers to it
         return true;
@@ -374,12 +380,13 @@ inout(ArrayRet_t) _aaValues(inout AA aa, in size_t keysize, in size_t valuesize,
 
     auto alignsize = aligntsize(keysize);
 
-    if (aa.impl !is null)
+    auto impl = cast(inout(Impl*)) aa;
+    if (impl !is null)
     {
         a.length = _aaLen(aa);
         a.ptr = cast(byte*) _d_newarrayU(tiValueArray, a.length).ptr;
         resi = 0;
-        foreach (inout(Entry)* e; aa.impl.buckets[aa.impl.firstUsedBucket..$])
+        foreach (inout(Entry)* e; impl.buckets[impl.firstUsedBucket..$])
         {
             while (e)
             {
@@ -412,13 +419,13 @@ out (result)
 body
 {
     //printf("Rehash\n");
-    if (paa.impl !is null)
+    auto impl = cast(Impl*) *paa;
+    if (impl !is null)
     {
         auto len = _aaLen(*paa);
         if (len)
         {
             Impl newImpl;
-            Impl* oldImpl = paa.impl;
 
             size_t i;
             for (i = 0; i < prime_list.length - 1; i++)
@@ -430,7 +437,7 @@ body
             newImpl.buckets = newBuckets(len);
             newImpl.firstUsedBucket = newImpl.buckets.length;
 
-            foreach (e; oldImpl.buckets[oldImpl.firstUsedBucket..$])
+            foreach (e; impl.buckets[impl.firstUsedBucket..$])
             {
                 while (e)
                 {
@@ -443,25 +450,25 @@ body
                         newImpl.firstUsedBucket = j;
                 }
             }
-            if (oldImpl.buckets.ptr == oldImpl.binit.ptr)
-                oldImpl.binit[] = null;
+            if (impl.buckets.ptr == impl.binit.ptr)
+                impl.binit[] = null;
             else
-                GC.free(oldImpl.buckets.ptr);
+                GC.free(impl.buckets.ptr);
 
-            newImpl.nodes = oldImpl.nodes;
-            newImpl._keyti = oldImpl._keyti;
+            newImpl.nodes = impl.nodes;
+            newImpl._keyti = impl._keyti;
 
-            *paa.impl = newImpl;
+            *impl = newImpl;
         }
         else
         {
-            if (paa.impl.buckets.ptr != paa.impl.binit.ptr)
-                GC.free(paa.impl.buckets.ptr);
-            paa.impl.buckets = paa.impl.binit[];
-            paa.impl.firstUsedBucket = paa.impl.buckets.length; // start out with the cache at the end
+            if (impl.buckets.ptr != impl.binit.ptr)
+                GC.free(impl.buckets.ptr);
+            impl.buckets = impl.binit[];
+            impl.firstUsedBucket = impl.buckets.length; // start out with the cache at the end
         }
     }
-    return paa.impl;
+    return impl;
 }
 
 /********************************************
@@ -475,9 +482,10 @@ inout(ArrayRet_t) _aaKeys(inout AA aa, in size_t keysize, const TypeInfo tiKeyAr
 
     void* res = _d_newarrayU(tiKeyArray, len).ptr;
 
+    auto impl = cast(inout(Impl*)) aa;
     size_t resi = 0;
     // note, can't use firstUsedBucketCache here, aa is inout
-    foreach (inout(Entry)* e; aa.impl.buckets[aa.impl.firstUsedBucket..$])
+    foreach (inout(Entry)* e; impl.buckets[impl.firstUsedBucket..$])
     {
         while (e)
         {
@@ -495,7 +503,6 @@ inout(ArrayRet_t) _aaKeys(inout AA aa, in size_t keysize, const TypeInfo tiKeyAr
     return *cast(inout ArrayRet_t*)(&a);
 }
 
-version (LDC) {/*FIXME*/} else // the test crashes but only in this file
 pure nothrow unittest
 {
     int[string] aa;
@@ -540,7 +547,6 @@ pure nothrow unittest
     }
 }
 
-version (LDC) {/*FIXME*/} else
 unittest // Test for Issue 10381
 {
     alias II = int[int];
@@ -561,7 +567,8 @@ extern (D) alias int delegate(void *) dg_t;
 
 int _aaApply(AA aa, in size_t keysize, dg_t dg)
 {
-    if (aa.impl is null)
+    auto impl = cast(Impl*) aa;
+    if (impl is null)
     {
         return 0;
     }
@@ -569,7 +576,7 @@ int _aaApply(AA aa, in size_t keysize, dg_t dg)
     immutable alignsize = aligntsize(keysize);
     //printf("_aaApply(aa = x%llx, keysize = %d, dg = x%llx)\n", aa.impl, keysize, dg);
 
-    foreach (e; aa.impl.buckets[aa.impl.firstUsedBucketCache .. $])
+    foreach (e; impl.buckets[impl.firstUsedBucketCache .. $])
     {
         while (e)
         {
@@ -587,7 +594,8 @@ extern (D) alias int delegate(void *, void *) dg2_t;
 
 int _aaApply2(AA aa, in size_t keysize, dg2_t dg)
 {
-    if (aa.impl is null)
+    auto impl = cast(Impl*) aa;
+    if (impl is null)
     {
         return 0;
     }
@@ -596,7 +604,7 @@ int _aaApply2(AA aa, in size_t keysize, dg2_t dg)
 
     immutable alignsize = aligntsize(keysize);
 
-    foreach (e; aa.impl.buckets[aa.impl.firstUsedBucketCache..$])
+    foreach (e; impl.buckets[impl.firstUsedBucketCache..$])
     {
         while (e)
         {
@@ -615,7 +623,7 @@ int _aaApply2(AA aa, in size_t keysize, dg2_t dg)
  * Construct an associative array of type ti from
  * length pairs of key/value pairs.
  */
-Impl* _d_assocarrayliteralTX(const TypeInfo_AssociativeArray ti, void[] keys, void[] values)
+AA _d_assocarrayliteralTX(const TypeInfo_AssociativeArray ti, void[] keys, void[] values)
 {
     const valuesize = ti.next.tsize;             // value size
     const keyti = ti.key;
@@ -726,7 +734,9 @@ int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
     //printf("keyti = %.*s\n", typeid(ti.key).name);
     //printf("valueti = %.*s\n", typeid(ti.next).name);
 
-    if (e1.impl is e2.impl)
+    auto impl1 = cast(const(Impl*)) e1;
+    auto impl2 = cast(const(Impl*)) e2;
+    if (impl1 is impl2)
         return 1;
 
     size_t len = _aaLen(e1);
@@ -736,7 +746,7 @@ int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
     // Bug 9852: at this point, e1 and e2 have the same length, so if one is
     // null, the other must either also be null or have zero entries, so they
     // must be equal. We check this here to avoid dereferencing null later on.
-    if (e1.impl is null || e2.impl is null)
+    if (impl1 is null || impl2 is null)
         return 1;
 
     // Check for Bug 5925. ti_raw could be a TypeInfo_Const, we need to unwrap
@@ -753,8 +763,8 @@ int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
     const valueti = ti.next;
     const keysize = aligntsize(keyti.tsize);
 
-    assert(e2.impl !is null);
-    const len2 = e2.impl.buckets.length;
+    assert(impl2 !is null);
+    const len2 = impl2.buckets.length;
 
     int _aaKeys_x(const(Entry)* e)
     {
@@ -769,7 +779,7 @@ int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
             auto key_hash = keyti.getHash(pkey);
             //printf("hash = %d\n", key_hash);
             const i = key_hash % len2;
-            const(Entry)* f = e2.impl.buckets[i];
+            const(Entry)* f = impl2.buckets[i];
             while (1)
             {
                 //printf("f is %p\n", f);
@@ -802,7 +812,7 @@ int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
     }
 
     // note, cannot use firstUsedBucketCache here, e1 is const
-    foreach (e; e1.impl.buckets[e1.impl.firstUsedBucket..$])
+    foreach (e; impl1.buckets[impl1.firstUsedBucket..$])
     {
         if (e)
         {
@@ -824,7 +834,8 @@ hash_t _aaGetHash(in AA* aa, in TypeInfo tiRaw) nothrow
 {
     import rt.util.hash;
 
-    if (aa.impl is null)
+    auto impl = cast(const(Impl*)) *aa;
+    if (impl is null)
         return 0;
 
     hash_t h = 0;
@@ -834,7 +845,7 @@ hash_t _aaGetHash(in AA* aa, in TypeInfo tiRaw) nothrow
     const keysize = aligntsize(keyti.tsize);
 
     // note, can't use firstUsedBucketCache here, aa is const
-    foreach (const(Entry)* e; aa.impl.buckets[aa.impl.firstUsedBucket..$])
+    foreach (const(Entry)* e; impl.buckets[impl.firstUsedBucket..$])
     {
         while (e)
         {
@@ -862,13 +873,6 @@ hash_t _aaGetHash(in AA* aa, in TypeInfo tiRaw) nothrow
     return h;
 }
 
-version (LDC)
-{
-    // We cannot run this unit test here because the mismatch between the
-    // void* parameters of _aaLen et al. in object.di and the AA type in the
-    // corresponding function definitions here would cause problems.
-}
-else
 pure nothrow unittest
 {
     string[int] key1 = [1: "true", 2: "false"];
@@ -896,7 +900,6 @@ pure nothrow unittest
 }
 
 // Issue 9852
-version (LDC) {/*FIXME*/} else
 pure nothrow unittest
 {
     // Original test case (revised, original assert was wrong)
@@ -932,11 +935,12 @@ struct Range
 Range _aaRange(AA aa) pure nothrow @nogc
 {
     typeof(return) res;
-    if (aa.impl is null)
+    auto impl = cast(Impl*) aa;
+    if (impl is null)
         return res;
 
-    res.impl = aa.impl;
-    foreach (entry; aa.impl.buckets[aa.impl.firstUsedBucketCache .. $] )
+    res.impl = impl;
+    foreach (entry; impl.buckets[impl.firstUsedBucketCache .. $] )
     {
         if (entry !is null)
         {
