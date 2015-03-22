@@ -839,10 +839,10 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-    // void[] _aaKeys(AA aa, size_t keysize)
+    // void[] _aaKeys(inout void* p, in size_t keysize, const TypeInfo tiKeyArray)
     {
         llvm::StringRef fname("_aaKeys");
-        LLType *types[] = { aaTy, sizeTy };
+        LLType *types[] = { aaTy, sizeTy, typeInfoTy };
         LLFunctionType* fty = llvm::FunctionType::get(rt_array(byteTy), types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
             ->setAttributes(Attr_NoAlias_1_NoCapture);
