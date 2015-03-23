@@ -167,10 +167,13 @@ if(PHOBOS2_DIR)
         file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)
     endif()
     list(APPEND PHOBOS2_D
+            ${PHOBOS2_D_ALGORITHM}
             ${PHOBOS2_D_CONTAINER}
             ${PHOBOS2_D_DIGEST}
             ${PHOBOS2_D_EXPERIMENTAL}
             ${PHOBOS2_D_NET}
+            ${PHOBOS2_D_RANGE}
+            ${PHOBOS2_D_REGEX}
             ${PHOBOS2_D_INTERNAL}
             ${PHOBOS2_D_WIN}
             ${PHOBOS2_D_C}
