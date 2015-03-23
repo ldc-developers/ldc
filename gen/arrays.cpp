@@ -781,7 +781,8 @@ DSliceValue* DtoCatArrays(Loc& loc, Type* arrayType, Expression* exp1, Expressio
         unsigned int i = 0;
         for (ArgVector::reverse_iterator I = arrs.rbegin(), E = arrs.rend(); I != E; ++I)
         {
-            DtoStore(DtoLoad(*I), DtoGEPi(array, 0, i++, ".slice"));
+            LLValue* v = DtoLoad(DtoBitCast(*I, ptrarraytype));
+            DtoStore(v, DtoGEPi(array, 0, i++, ".slice"));
         }
 
         LLStructType* type2 = DtoArrayType(arraytype);
