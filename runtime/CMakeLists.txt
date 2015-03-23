@@ -138,10 +138,13 @@ if(PHOBOS2_DIR)
     endif()
 
     file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
+    file(GLOB PHOBOS2_D_ALGORITHM ${PHOBOS2_DIR}/std/algorithm/*.d)
     file(GLOB PHOBOS2_D_CONTAINER ${PHOBOS2_DIR}/std/container/*.d)
     file(GLOB PHOBOS2_D_DIGEST ${PHOBOS2_DIR}/std/digest/*.d)
-    file(GLOB PHOBOS2_D_EXPERIMENTAL ${PHOBOS2_DIR}/std/experimental/*.d)
+    file(GLOB_RECURSE PHOBOS2_D_EXPERIMENTAL ${PHOBOS2_DIR}/std/experimental/*.d)
     file(GLOB PHOBOS2_D_NET ${PHOBOS2_DIR}/std/net/*.d)
+    file(GLOB PHOBOS2_D_RANGE ${PHOBOS2_DIR}/std/range/*.d)
+    file(GLOB_RECURSE PHOBOS2_D_REGEX ${PHOBOS2_DIR}/std/regex/*.d)
     file(GLOB_RECURSE PHOBOS2_D_INTERNAL ${PHOBOS2_DIR}/std/internal/*.d)
     file(GLOB PHOBOS2_D_C ${PHOBOS2_DIR}/std/c/*.d)
     file(GLOB PHOBOS2_ETC ${PHOBOS2_DIR}/etc/c/*.d)
@@ -164,10 +167,13 @@ if(PHOBOS2_DIR)
         file(GLOB PHOBOS2_D_WIN ${PHOBOS2_DIR}/std/windows/*.d)
     endif()
     list(APPEND PHOBOS2_D
+            ${PHOBOS2_D_ALGORITHM}
             ${PHOBOS2_D_CONTAINER}
             ${PHOBOS2_D_DIGEST}
             ${PHOBOS2_D_EXPERIMENTAL}
             ${PHOBOS2_D_NET}
+            ${PHOBOS2_D_RANGE}
+            ${PHOBOS2_D_REGEX}
             ${PHOBOS2_D_INTERNAL}
             ${PHOBOS2_D_WIN}
             ${PHOBOS2_D_C}
