@@ -234,7 +234,8 @@ Usage:\n\
   files.d        D source files\n\
   @cmdfile       read arguments from cmdfile\n\
   -c             do not link\n\
-  -color[=on|off]   force colored console output on or off\n"
+  -color[=on|off]   force colored console output on or off\n\
+  -conf=path     use config file at path (NOT YET IMPLEMENTED)\n"
 #if 0
 "  -cov           do code coverage analysis\n"
 #endif
@@ -598,6 +599,8 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
                 else if (p[6])
                     goto Lerror;
             }
+            else if (strncmp(p + 1, "conf", 4) == 0)
+                /* NOT YET IMPLEMENTED */;
             else if (strcmp(p + 1, "cov") == 0)
                 result.coverage = true;
             else if (strcmp(p + 1, "shared") == 0
