@@ -234,8 +234,13 @@ void DtoArraySetAssign(Loc& loc, DValue *array, DValue *value, int op)
     assert(array && value);
     assert(op != TOKblit);
 
-    LLValue *ptr = DtoArrayPtr(array);
-    LLValue *len = DtoArrayLen(array);
+    LLValue* ptr = DtoArrayPtr(array);
+    LLValue* len = DtoArrayLen(array);
+    // The count parameter is of type int but len is of type size_t.
+    // If size_t is not int then truncated the value.
+    LLType* intType = LLType::getInt32Ty(gIR->context());
+    if (len->getType() != intType)
+        len = gIR->ir->CreateTrunc(len, intType);
 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, op == TOKconstruct ? "_d_arraysetctor" : "_d_arraysetassign");
     LLValue* args[] = {

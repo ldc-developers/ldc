@@ -629,7 +629,7 @@ static void LLVM_D_BuildRuntimeModule()
     }
 
     // void* _d_arraysetassign(void* p, void* value, int count, TypeInfo ti)
-    // void* _d_arraysetctor(void* p, void* value, size_t count, TypeInfo ti)
+    // void* _d_arraysetctor(void* p, void* value, int count, TypeInfo ti)
     {
         llvm::StringRef fname("_d_arraysetassign");
         llvm::StringRef fname2("_d_arraysetctor");
