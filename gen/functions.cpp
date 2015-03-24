@@ -80,6 +80,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     else
     {
         Type* rt = f->next;
+        const bool byref = f->isref && rt->toBasetype()->ty != Tvoid;
         AttrBuilder attrBuilder;
 
         // sret return
@@ -93,12 +94,9 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
         // sext/zext return
         else
         {
-            Type *t = rt;
-            if (f->isref)
-                t = t->pointerTo();
-            attrBuilder.add(DtoShouldExtend(t));
+            attrBuilder.add(DtoShouldExtend(byref ? rt->pointerTo() : rt));
         }
-        newIrFty.ret = new IrFuncTyArg(rt, f->isref, attrBuilder);
+        newIrFty.ret = new IrFuncTyArg(rt, byref, attrBuilder);
     }
     lidx++;
 
