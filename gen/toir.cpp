@@ -2443,7 +2443,7 @@ public:
         LOG_SCOPE;
 
         Type* dtype = e->type->toBasetype();
-        LLValue *retPtr = 0;
+        LLValue* retPtr = 0;
         if (dtype->ty != Tvoid) {
             // allocate a temporary for pointer to the final result.
             retPtr = DtoAlloca(dtype->pointerTo(), "condtmp");
@@ -2456,22 +2456,26 @@ public:
 
         DValue* c = toElem(e->econd);
         LLValue* cond_val = DtoCast(e->loc, c, Type::tbool)->getRVal();
-        llvm::BranchInst::Create(condtrue,condfalse,cond_val,p->scopebb());
+        llvm::BranchInst::Create(condtrue, condfalse, cond_val, p->scopebb());
 
         p->scope() = IRScope(condtrue, condfalse);
         DValue* u = toElemDtor(e->e1);
-        if (dtype->ty != Tvoid)
-            DtoStore(makeLValue(e->loc, u), retPtr);
+        if (retPtr) {
+            LLValue* lval = makeLValue(e->loc, u);
+            DtoStore(lval, DtoBitCast(retPtr, lval->getType()->getPointerTo()));
+        }
         llvm::BranchInst::Create(condend, p->scopebb());
 
         p->scope() = IRScope(condfalse, condend);
         DValue* v = toElemDtor(e->e2);
-        if (dtype->ty != Tvoid)
-            DtoStore(makeLValue(e->loc, v), retPtr);
+        if (retPtr) {
+            LLValue* lval = makeLValue(e->loc, v);
+            DtoStore(lval, DtoBitCast(retPtr, lval->getType()->getPointerTo()));
+        }
         llvm::BranchInst::Create(condend, p->scopebb());
 
         p->scope() = IRScope(condend, oldend);
-        if (dtype->ty != Tvoid)
+        if (retPtr)
             result = new DVarValue(e->type, DtoLoad(retPtr));
         else
             result = new DConstValue(e->type, getNullValue(voidToI8(DtoType(dtype))));
