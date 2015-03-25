@@ -31,6 +31,9 @@
 #if LDC_LLVM_VER < 304
 #include "llvm/Support/PathV1.h"
 #endif
+#if LDC_LLVM_VER >= 307
+#include "llvm/Support/Path.h"
+#endif
 #include "llvm/Target/TargetMachine.h"
 #if LDC_LLVM_VER >= 307
 #include "llvm/Analysis/TargetTransformInfo.h"
