@@ -170,8 +170,6 @@ struct Param
 #else
     bool pic;           // generate position-independent-code for shared libs
     bool color;         // use ANSI colors in console output
-    bool cov;           // generate code coverage data
-    unsigned char covPercent;   // 0..100 code coverage percentage required
     bool nofloat;       // code should not pull in floating point support
     bool ignoreUnsupportedPragmas;      // rather than error on them
     bool enforcePropertySyntax;
@@ -179,6 +177,9 @@ struct Param
     bool addMain;       // add a default main() function
     bool allInst;       // generate code for all template instantiations
 #endif
+
+    bool cov;           // generate code coverage data
+    unsigned char covPercent;   // 0..100 code coverage percentage required
 
     const char *argv0;    // program name
     Strings *imppath;     // array of char*'s of where to look for import modules

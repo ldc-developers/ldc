@@ -555,6 +555,119 @@ static void build_llvm_used_array(IRState* p)
     llvmUsed->setSection("llvm.metadata");
 }
 
+// Add module-private variables and functions for coverage analysis.
+static void addCoverageAnalysis(Module* m)
+{
+    IF_LOG {
+        Logger::println("Adding coverage analysis for module %s (%d lines)", m->srcfile->toChars(), m->numlines);
+        Logger::indent();
+    }
+
+    // size_t[# source lines / # bits in sizeTy] _d_cover_valid
+    LLValue* d_cover_valid_slice = NULL;
+    {
+        unsigned Dsizet_bits = gDataLayout->getTypeSizeInBits(DtoSize_t());
+        size_t array_size = (m->numlines + (Dsizet_bits-1)) / Dsizet_bits; // ceil
+
+        // Work around a bug in the interface of druntime's _d_cover_register2
+        // https://issues.dlang.org/show_bug.cgi?id=14417
+        // For safety, make the array large enough such that the slice passed to _d_cover_register2 is completely valid.
+        array_size = m->numlines;
+
+        IF_LOG Logger::println("Build private variable: size_t[%d] _d_cover_valid", array_size);
+
+        llvm::ArrayType* type = llvm::ArrayType::get(DtoSize_t(), array_size);
+        llvm::ConstantAggregateZero* zeroinitializer = llvm::ConstantAggregateZero::get(type);
+        m->d_cover_valid = new llvm::GlobalVariable(*gIR->module, type, true, LLGlobalValue::InternalLinkage, zeroinitializer, "_d_cover_valid");
+        LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
+        d_cover_valid_slice = DtoConstSlice( DtoConstSize_t(type->getArrayNumElements()), 
+                                             llvm::ConstantExpr::getGetElementPtr(m->d_cover_valid, idxs, true) );
+
+        // Assert that initializer array elements have enough bits
+        assert(sizeof(m->d_cover_valid_init[0])*8 >= gDataLayout->getTypeSizeInBits(DtoSize_t()));
+        m->d_cover_valid_init.resize(array_size);
+    }
+
+    // uint[# source lines] _d_cover_data
+    LLValue* d_cover_data_slice = NULL;
+    {
+        IF_LOG Logger::println("Build private variable: uint[%d] _d_cover_data", m->numlines);
+
+        LLArrayType* type = LLArrayType::get(LLType::getInt32Ty(gIR->context()), m->numlines);
+        llvm::ConstantAggregateZero* zeroinitializer = llvm::ConstantAggregateZero::get(type);
+        m->d_cover_data = new llvm::GlobalVariable(*gIR->module, type, false, LLGlobalValue::InternalLinkage, zeroinitializer, "_d_cover_data");
+        LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
+        d_cover_data_slice = DtoConstSlice( DtoConstSize_t(type->getArrayNumElements()), 
+                                            llvm::ConstantExpr::getGetElementPtr(m->d_cover_data, idxs, true) );
+    }
+
+    // Create "static constructor" that calls _d_cover_register2(string filename, size_t[] valid, uint[] data, ubyte minPercent)
+    // Build ctor name
+    LLFunction* ctor = NULL;
+    std::string ctorname = "_D";
+    ctorname += mangle(gIR->dmodule);
+    ctorname += "12_coverageanalysisCtor1FZv";
+    {
+        IF_LOG Logger::println("Build Coverage Analysis constructor: %s", ctorname.c_str());
+
+        LLFunctionType* ctorTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false);
+        ctor = LLFunction::Create(ctorTy, LLGlobalValue::InternalLinkage, ctorname, gIR->module);
+        ctor->setCallingConv(gABI->callingConv(LINKd));
+        // Set function attributes. See functions.cpp:DtoDefineFunction()
+        if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
+        {
+            ctor->addFnAttr(LDC_ATTRIBUTE(UWTable));
+        }
+
+        llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "", ctor);
+        IRBuilder<> builder(bb);
+
+        // Set up call to _d_cover_register2
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_cover_register2");
+        LLValue* args[] = {
+            getIrModule(m)->fileName->getInitializer(),
+            d_cover_valid_slice,
+            d_cover_data_slice,
+            DtoConstUbyte(global.params.covPercent)
+        };
+        // Check if argument types are correct
+        for (unsigned i = 0; i < 4; ++i) {
+            assert(args[i]->getType() == fn->getFunctionType()->getParamType(i));
+        }
+
+        llvm::CallInst* call = builder.CreateCall(fn, args);
+
+        builder.CreateRetVoid();
+    }
+
+    // Add the ctor to the module's static ctors list. TODO: This is quite the hack.
+    {
+        IF_LOG Logger::println("Add %s to module's shared static constructor list", ctorname.c_str());
+        FuncDeclaration* fd = FuncDeclaration::genCfunc(NULL, Type::tvoid, ctorname.c_str());
+        fd->linkage = LINKd;
+        IrFunction* irfunc = getIrFunc(fd, true);
+        irfunc->func = ctor;
+        gIR->sharedCtors.push_back(fd);
+    }
+
+    IF_LOG Logger::undent();
+}
+
+// Initialize _d_cover_valid for coverage analysis
+static void addCoverageAnalysisInitializer(Module* m) {
+    IF_LOG Logger::println("Adding coverage analysis _d_cover_valid initializer");
+
+    size_t array_size = m->d_cover_valid_init.size();
+
+    llvm::ArrayType* type = llvm::ArrayType::get(DtoSize_t(), array_size);
+    std::vector<LLConstant*> arrayInits(array_size);
+    for (size_t i=0; i<array_size; i++)
+    {
+        arrayInits[i] = DtoConstSize_t(m->d_cover_valid_init[i]);
+    }
+    m->d_cover_valid->setInitializer(llvm::ConstantArray::get(type, arrayInits));
+}
+
 static void codegenModule(Module* m)
 {
     // debug info
@@ -667,7 +780,18 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
 
     LLVM_D_InitRuntime();
 
+    // Note, skip pseudo-modules for coverage analysis
+    if ( global.params.cov && !mname.equals("__entrypoint.d") && !mname.equals("__main.d") )
+    {
+        addCoverageAnalysis(this);
+    }
+
     codegenModule(this); 
+
+    if ( gIR->dmodule->d_cover_valid )
+    {
+        addCoverageAnalysisInitializer(this);
+    }
 
     gIR = NULL;
 

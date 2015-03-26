@@ -1021,4 +1021,21 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, params, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
+
+    // extern (C) void _d_cover_register2(string filename, size_t[] valid, uint[] data, ubyte minPercent)
+    // as defined in druntime/rt/cover.d.
+    if (global.params.cov) {
+        llvm::StringRef fname("_d_cover_register2");
+
+        LLType* params[] = {
+            stringTy,
+            rt_array(sizeTy),
+            rt_array(intTy),
+            byteTy
+        };
+
+        LLFunctionType* fty = LLFunctionType::get(voidTy, params, false);
+        llvm::Function* fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, fname, M);
+        fn->setCallingConv(gABI->callingConv(LINKc));
+    }
 }
