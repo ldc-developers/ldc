@@ -188,6 +188,80 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd, E
 
 //////////////////////////////////////////////////////////////////////////////////////////////
 
+// Tries to find the proper lvalue subexpression of an assign/binassign expression.
+// Returns null if none is found.
+static Expression* findLvalueExp(Expression* e)
+{
+    class FindLvalueVisitor : public Visitor
+    {
+    public:
+        Expression* result;
+
+        FindLvalueVisitor() : result(NULL) {}
+
+        // Import all functions from class Visitor
+        using Visitor::visit;
+
+        void visit(Expression* e) {}
+
+    #define FORWARD(TYPE)   void visit(TYPE* e) { e->e1->accept(this); }
+        FORWARD(AssignExp)
+        FORWARD(BinAssignExp)
+        FORWARD(CastExp)
+    #undef FORWARD
+
+    #define IMPLEMENT(TYPE) void visit(TYPE* e) { result = e; }
+        IMPLEMENT(VarExp)
+        IMPLEMENT(CallExp)
+        IMPLEMENT(PtrExp)
+        IMPLEMENT(DotVarExp)
+        IMPLEMENT(IndexExp)
+        IMPLEMENT(CommaExp)
+    #undef IMPLEMENT
+    };
+
+    FindLvalueVisitor v;
+    e->accept(&v);
+    return v.result;
+}
+
+// Evaluates an lvalue expression e and prevents further
+// evaluations as long as e->cachedLvalue isn't reset to null.
+static DValue* toElemAndCacheLvalue(Expression* e)
+{
+    DValue* value = toElem(e);
+    e->cachedLvalue = value->getLVal();
+    return value;
+}
+
+// Evaluates e and returns
+// * the (casted) nested lvalue if one is found, otherwise
+// * the expression's result.
+static DValue* toElemAndTryGetLvalue(Expression* e)
+{
+    Expression* lvalExp = findLvalueExp(e); // may be null
+    Expression* nestedLvalExp = (lvalExp == e ? NULL : lvalExp);
+
+    DValue* nestedLval = NULL;
+    if (nestedLvalExp)
+    {
+        IF_LOG Logger::println("Caching l-value of %s => %s",
+            e->toChars(), nestedLvalExp->toChars());
+
+        LOG_SCOPE;
+        nestedLval = toElemAndCacheLvalue(nestedLvalExp);
+    }
+
+    DValue* value = toElem(e);
+
+    if (nestedLvalExp)
+        nestedLvalExp->cachedLvalue = NULL;
+
+    return !nestedLval ? value : DtoCast(e->loc, nestedLval, e->type);
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////
+
 class ToElemVisitor : public Visitor
 {
     IRState *p;
@@ -202,46 +276,6 @@ public:
     // Import all functions from class Visitor
     using Visitor::visit;
 
-    //////////////////////////////////////////////////////////////////////////////////////////
-
-    class CacheLValueVisitor : public Visitor
-    {
-    public:
-        // Import all functions from class Visitor
-        using Visitor::visit;
-
-        template<typename T>
-        void cacheLvalue(T *e)
-        {
-            IF_LOG Logger::println("Caching l-value of %s", e->toChars());
-            LOG_SCOPE;
-            e->cachedLvalue = toElem(e)->getLVal();
-        }
-
-        void visit(Expression *e)
-        {
-            e->error("expression %s does not mask any l-value", e->toChars());
-            fatal();
-        }
-
-    #define IMPLEMENT(TYPE) void visit(TYPE *e) { cacheLvalue(e); }
-
-        IMPLEMENT(VarExp)
-        IMPLEMENT(CallExp)
-        IMPLEMENT(PtrExp)
-        IMPLEMENT(DotVarExp)
-        IMPLEMENT(IndexExp)
-        IMPLEMENT(CommaExp)
-
-    #undef IMPLEMENT
-    };
-
-    void cacheLvalue(Expression *e)
-    {
-        CacheLValueVisitor v;
-        e->accept(&v);
-    }
-\
     //////////////////////////////////////////////////////////////////////////////////////////
 
     void visit(DeclarationExp *e)
@@ -457,7 +491,7 @@ public:
             }
         }
 
-        DValue* l = toElem(e->e1);
+        DValue* l = toElemAndTryGetLvalue(e->e1);
 
         // NRVO for object field initialization in constructor
         if (l->isVar() && e->op == TOKconstruct && e->e2->op == TOKcall)
@@ -503,85 +537,68 @@ public:
 
     //////////////////////////////////////////////////////////////////////////////////////////
 
-    /// Finds the proper lvalue for a binassign expressions.
-    /// Makes sure the given LHS expression is only evaluated once.
-    Expression* findLvalue(Expression* exp)
+    template <typename BinExp, bool useLvalForBinExpLhs>
+    static DValue* binAssign(BinAssignExp* e)
     {
-        Expression* e = exp;
+        Loc loc = e->loc;
 
-        // skip past any casts
-        while(e->op == TOKcast)
-            e = static_cast<CastExp*>(e)->e1;
+        // find the lhs' lvalue expression
+        Expression* lvalExp = findLvalueExp(e->e1);
+        if (!lvalExp)
+        {
+            e->error("expression %s does not mask any l-value", e->e1->toChars());
+            fatal();
+        }
 
-        // cache lvalue and return
-        cacheLvalue(e);
-        return e;
+        // pre-evaluate and cache the lvalue subexpression
+        DValue* lval = NULL;
+        {
+            IF_LOG Logger::println("Caching l-value of %s => %s",
+                e->toChars(), lvalExp->toChars());
+
+            LOG_SCOPE;
+            lval = toElemAndCacheLvalue(lvalExp);
+        }
+
+        // evaluate the underlying binary expression
+        Expression* lhsForBinExp = (useLvalForBinExpLhs ? lvalExp : e->e1);
+        BinExp binExp(loc, lhsForBinExp, e->e2);
+        binExp.type = lhsForBinExp->type;
+        DValue* result = toElem(&binExp);
+
+        lvalExp->cachedLvalue = NULL;
+
+        // assign the (casted) result to lval
+        DValue* assignedResult = DtoCast(loc, result, lval->type);
+        DtoAssign(loc, lval, assignedResult);
+
+        // return the (casted) result
+        return e->type == assignedResult->type
+            ? assignedResult
+            : DtoCast(loc, result, e->type);
     }
 
-    template <typename Exp>
-    DValue *binAssign(BinAssignExp *be)
-    {
-        // Evaluate the expression
-        Loc loc = be->loc;
-        Exp e3(loc, be->e1, be->e2);
-        e3.type = be->e1->type;
-        DValue* dst = toElem(findLvalue(be->e1));
-        DValue* res = toElem(&e3);
-
-        // Now that we are done with the expression, clear the cached lvalue
-        Expression* e = be->e1;
-        while(e->op == TOKcast)
-            e = static_cast<CastExp*>(e)->e1;
-        e->cachedLvalue = NULL;
-
-        // Assign the (casted) value and return it
-        DValue* stval = DtoCast(loc, res, dst->getType());
-        DtoAssign(loc, dst, stval);
-        return DtoCast(loc, res, be->type);
-    }
-
-    template <typename Exp>
-    DValue *binShiftAssign(BinAssignExp *be)
-    {
-        Loc loc = be->loc;
-        // Find the lvalue for the expression
-        Expression *e1 = findLvalue(be->e1);
-
-        // Evaluate the expression
-        Exp e3(loc, e1, be->e2);
-        e3.type = e1->type;
-        DValue* dst = toElem(e1);
-        DValue* res = toElem(&e3);
-
-        // Now that we are done with the expression, clear the cached lvalue
-        e1->cachedLvalue = NULL;
-
-        // Assign the value and return it
-        DtoAssign(loc, dst, res);
-        return DtoCast(loc, res, be->type);
-    }
-
-    #define BIN_ASSIGN(X, op) \
-    void visit(X##AssignExp *e) \
+#define BIN_ASSIGN(Op, useLvalForBinExpLhs) \
+    void visit(Op##AssignExp *e) \
     { \
-        IF_LOG Logger::print(#X"AssignExp::toElem: %s @ %s\n", e->toChars(), e->type->toChars()); \
+        IF_LOG Logger::print(#Op"AssignExp::toElem: %s @ %s\n", e->toChars(), e->type->toChars()); \
         LOG_SCOPE; \
-        result = op <X##Exp>(e);\
+        result = binAssign<Op##Exp, useLvalForBinExpLhs>(e); \
     }
 
-    BIN_ASSIGN(Add,  binAssign)
-    BIN_ASSIGN(Min,  binAssign)
-    BIN_ASSIGN(Mul,  binAssign)
-    BIN_ASSIGN(Div,  binAssign)
-    BIN_ASSIGN(Mod,  binAssign)
-    BIN_ASSIGN(And,  binAssign)
-    BIN_ASSIGN(Or,   binAssign)
-    BIN_ASSIGN(Xor,  binAssign)
-    BIN_ASSIGN(Shl,  binShiftAssign)
-    BIN_ASSIGN(Shr,  binShiftAssign)
-    BIN_ASSIGN(Ushr, binShiftAssign)
+    BIN_ASSIGN(Add,  false)
+    BIN_ASSIGN(Min,  false)
+    BIN_ASSIGN(Mul,  false)
+    BIN_ASSIGN(Div,  false)
+    BIN_ASSIGN(Mod,  false)
+    BIN_ASSIGN(And,  false)
+    BIN_ASSIGN(Or,   false)
+    BIN_ASSIGN(Xor,  false)
+    BIN_ASSIGN(Shl,  true)
+    BIN_ASSIGN(Shr,  true)
+    BIN_ASSIGN(Ushr, true)
 
-    #undef BIN_ASSIGN
+#undef BIN_ASSIGN
 
     //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -1196,7 +1213,7 @@ public:
             }
         }
 
-        DValue* v = toElem(e->e1);
+        DValue* v = toElemAndTryGetLvalue(e->e1);
         if (v->isField()) {
             Logger::println("is field");
             result = v;
