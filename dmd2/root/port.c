@@ -1094,6 +1094,7 @@ void Port::yl2xp1_impl(long double* x, long double* y, long double* res)
                      :                          // output: empty
                      :"r"(x), "r"(y), "r"(res)  // input: x => %0, y => %1, res => %2
                      :"%eax", "%ebx", "%ecx");  // clobbered register: eax, ebc, ecx
+}
 #elif __x86_64__
 void Port::yl2x_impl(long double* x, long double* y, long double* res)
 {
