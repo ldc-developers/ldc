@@ -154,8 +154,16 @@ TypeInfoDeclaration *getTypeInfoDeclaration(Type *t)
 
 static bool builtinTypeInfo(Type *t)
 {
+#if 0
+    // FIXME if I enable for Tclass, the way LDC does typeinfo will cause a
+    // bunch of linker errors to missing class typeinfo definitions.
     if (t->isTypeBasic() || t->ty == Tclass)
         return !t->mod;
+#else
+    if (t->isTypeBasic())
+        return !t->mod;
+#endif
+
     if (t->ty == Tarray)
     {
         Type *next = t->nextOf();
