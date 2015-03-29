@@ -1068,6 +1068,36 @@ int Port::fequal(longdouble x, longdouble y)
     return memcmp(&x, &y, 10) == 0;
 }
 #if __i386
+#if IN_LLVM
+// There seems to be an issue with register usage if compiled as PIC.
+void Port::yl2x_impl(long double* x, long double* y, long double* res)
+{
+    __asm__ volatile("movl %0, %%eax;"    // move x, y, res to registers
+                     "movl %1, %%ecx;"
+                     "fldt (%%edx);"      // push *y and *x to the FPU stack
+                     "fldt (%%eax);"      // "t" suffix means tbyte
+                     "movl %2, %%eax;"
+                     "fyl2x;"             // do operation and wait
+                     "fstpt (%%eax)"      // pop result to a *res
+                     :                          // output: empty
+                     :"r"(x), "r"(y), "r"(res)  // input: x => %0, y => %1, res => %2
+                     :"%eax", "%ecx", "%eax");  // clobbered register: eax, ecx, eax
+}
+
+void Port::yl2xp1_impl(long double* x, long double* y, long double* res)
+{
+    __asm__ volatile("movl %0, %%eax;"    // move x, y, res to registers
+                     "movl %1, %%ecx;"
+                     "fldt (%%ecx);"      // push *y and *x to the FPU stack
+                     "fldt (%%eax);"      // "t" suffix means tbyte
+                     "movl %2, %%eax;"
+                     "fyl2xp1;"            // do operation and wait
+                     "fstpt (%%eax)"      // pop result to a *res
+                     :                          // output: empty
+                     :"r"(x), "r"(y), "r"(res)  // input: x => %0, y => %1, res => %2
+                     :"%eax", "%ecx", "%eax");  // clobbered register: eax, ecx, eax
+}
+#else
 void Port::yl2x_impl(long double* x, long double* y, long double* res)
 {
     __asm__ volatile("movl %0, %%eax;"    // move x, y, res to registers
@@ -1095,6 +1125,7 @@ void Port::yl2xp1_impl(long double* x, long double* y, long double* res)
                      :"r"(x), "r"(y), "r"(res)  // input: x => %0, y => %1, res => %2
                      :"%eax", "%ebx", "%ecx");  // clobbered register: eax, ebc, ecx
 }
+#endif
 #elif __x86_64__
 void Port::yl2x_impl(long double* x, long double* y, long double* res)
 {
