@@ -1992,7 +1992,7 @@ public:
         if (et->ty == Tpointer)
         {
             Type* elementType = et->nextOf()->toBasetype();
-            if (elementType->ty == Tstruct && static_cast<TypeStruct*>(elementType)->sym->dtor)
+            if (elementType->ty == Tstruct && elementType->needsDestruction())
                 DtoDeleteStruct(e->loc, dval);
             else
                 DtoDeleteMemory(e->loc, dval);
