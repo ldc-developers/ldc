@@ -199,18 +199,15 @@ static Expression* findLvalueExp(Expression* e)
 
         FindLvalueVisitor() : result(NULL) {}
 
-        // Import all functions from class Visitor
-        using Visitor::visit;
+        void visit(Expression* e) LLVM_OVERRIDE{}
 
-        void visit(Expression* e) {}
-
-    #define FORWARD(TYPE)   void visit(TYPE* e) { e->e1->accept(this); }
+    #define FORWARD(TYPE)   void visit(TYPE* e) LLVM_OVERRIDE { e->e1->accept(this); }
         FORWARD(AssignExp)
         FORWARD(BinAssignExp)
         FORWARD(CastExp)
     #undef FORWARD
 
-    #define IMPLEMENT(TYPE) void visit(TYPE* e) { result = e; }
+    #define IMPLEMENT(TYPE) void visit(TYPE* e) LLVM_OVERRIDE { result = e; }
         IMPLEMENT(VarExp)
         IMPLEMENT(CallExp)
         IMPLEMENT(PtrExp)
