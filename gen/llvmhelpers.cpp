@@ -74,56 +74,52 @@ LLValue* DtoNew(Loc& loc, Type* newtype)
     return DtoBitCast(mem, getPtrToType(i1ToI8(DtoType(newtype))), ".gc_mem");
 }
 
-void DtoDeleteMemory(Loc& loc, LLValue* ptr)
+void DtoDeleteMemory(Loc& loc, DValue* ptr)
 {
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delmemory");
     // build args
-    LLValue* arg[] = { DtoBitCast(ptr, getPtrToType(getVoidPtrType()), ".tmp") };
+    LLValue* lval = (ptr->isLVal() ? ptr->getLVal() : makeLValue(loc, ptr));
+    LLValue* arg[] = { DtoBitCast(lval, fn->getFunctionType()->getParamType(0)) };
     // call
     gIR->CreateCallOrInvoke(fn, arg);
 }
 
-void DtoDeleteClass(Loc& loc, LLValue* inst)
+void DtoDeleteStruct(Loc& loc, DValue* ptr)
 {
-    // get runtime function
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delstruct");
+    LLValue* lval = (ptr->isLVal() ? ptr->getLVal() : makeLValue(loc, ptr));
+    LLValue* arg[] = {
+        DtoBitCast(lval, fn->getFunctionType()->getParamType(0)),
+        DtoBitCast(DtoTypeInfoOf(ptr->type->nextOf()), fn->getFunctionType()->getParamType(1))
+    };
+    gIR->CreateCallOrInvoke(fn, arg);
+}
+
+void DtoDeleteClass(Loc& loc, DValue* inst)
+{
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delclass");
-    // druntime wants a pointer to object
-    LLValue *ptr = DtoRawAlloca(inst->getType(), 0, "objectPtr");
-    DtoStore(inst, ptr);
-    inst = ptr;
-    // build args
-    LLValue* arg[] = {
-        DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp")
-    };
-    // call
+    LLValue* lval = (inst->isLVal() ? inst->getLVal() : makeLValue(loc, inst));
+    LLValue* arg[] = { DtoBitCast(lval, fn->getFunctionType()->getParamType(0)) };
     gIR->CreateCallOrInvoke(fn, arg);
 }
 
-void DtoDeleteInterface(Loc& loc, LLValue* inst)
+void DtoDeleteInterface(Loc& loc, DValue* inst)
 {
-    // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delinterface");
-    // build args
-    LLValue* arg[] = {
-        DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp")
-    };
-    // call
+    LLValue* lval = (inst->isLVal() ? inst->getLVal() : makeLValue(loc, inst));
+    LLValue* arg[] = { DtoBitCast(lval, fn->getFunctionType()->getParamType(0)) };
     gIR->CreateCallOrInvoke(fn, arg);
 }
 
 void DtoDeleteArray(Loc& loc, DValue* arr)
 {
-    // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delarray_t");
-
-    // build args
+    llvm::FunctionType* fty = fn->getFunctionType();
     LLValue* arg[] = {
-        DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(0)),
-        DtoBitCast(DtoTypeInfoOf(arr->type->nextOf()), fn->getFunctionType()->getParamType(1))
+        DtoBitCast(arr->getLVal(), fty->getParamType(0)),
+        DtoBitCast(DtoTypeInfoOf(arr->type->nextOf()), fty->getParamType(1))
     };
-
-    // call
     gIR->CreateCallOrInvoke(fn, arg);
 }
 
@@ -131,7 +127,6 @@ void DtoDeleteArray(Loc& loc, DValue* arr)
 /*////////////////////////////////////////////////////////////////////////////////////////
 // ALLOCA HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
-
 
 llvm::AllocaInst* DtoAlloca(Type* type, const char* name)
 {

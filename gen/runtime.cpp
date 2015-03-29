@@ -82,6 +82,7 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name)
             "_d_callfinalizer",
             "_d_delarray_t",
             "_d_delclass",
+            "_d_delstruct",
             "_d_delinterface",
             "_d_delmemory",
             "_d_newarrayT",
@@ -535,6 +536,14 @@ static void LLVM_D_BuildRuntimeModule()
     {
         llvm::StringRef fname("_d_delclass");
         LLType *types[] = { rt_ptr(objectTy) };
+        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // void _d_delstruct(void** p, TypeInfo_Struct inf)
+    {
+        llvm::StringRef fname("_d_delstruct");
+        LLType *types[] = { rt_ptr(voidPtrTy), DtoType(Type::typeinfostruct->type) };
         LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
