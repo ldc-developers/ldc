@@ -1991,10 +1991,14 @@ public:
         DValue* dval = toElem(e->e1);
         Type* et = e->e1->type->toBasetype();
 
-        // simple pointer
+        // pointer
         if (et->ty == Tpointer)
         {
-            DtoDeleteMemory(e->loc, dval->isLVal() ? dval->getLVal() : makeLValue(e->loc, dval));
+            Type* elementType = et->nextOf()->toBasetype();
+            if (elementType->ty == Tstruct && static_cast<TypeStruct*>(elementType)->sym->dtor)
+                DtoDeleteStruct(e->loc, dval);
+            else
+                DtoDeleteMemory(e->loc, dval);
         }
         // class
         else if (et->ty == Tclass)
@@ -2003,8 +2007,7 @@ public:
             TypeClass* tc = static_cast<TypeClass*>(et);
             if (tc->sym->isInterfaceDeclaration())
             {
-                LLValue *val = dval->getLVal();
-                DtoDeleteInterface(e->loc, val);
+                DtoDeleteInterface(e->loc, dval);
                 onstack = true;
             }
             else if (DVarValue* vv = dval->isVar()) {
@@ -2013,11 +2016,10 @@ public:
                     onstack = true;
                 }
             }
-            if (!onstack) {
-                LLValue* rval = dval->getRVal();
-                DtoDeleteClass(e->loc, rval);
-            }
-            if (dval->isVar()) {
+
+            if (!onstack)
+                DtoDeleteClass(e->loc, dval); // sets dval to null
+            else if (dval->isVar()) {
                 LLValue* lval = dval->getLVal();
                 DtoStore(LLConstant::getNullValue(lval->getType()->getContainedType(0)), lval);
             }

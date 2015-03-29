@@ -34,9 +34,10 @@ struct EnclosingTryFinally
 
 // dynamic memory helpers
 LLValue* DtoNew(Loc& loc, Type* newtype);
-void DtoDeleteMemory(Loc& loc, LLValue* ptr);
-void DtoDeleteClass(Loc& loc, LLValue* inst);
-void DtoDeleteInterface(Loc& loc, LLValue* inst);
+void DtoDeleteMemory(Loc& loc, DValue* ptr);
+void DtoDeleteStruct(Loc& loc, DValue* ptr);
+void DtoDeleteClass(Loc& loc, DValue* inst);
+void DtoDeleteInterface(Loc& loc, DValue* inst);
 void DtoDeleteArray(Loc& loc, DValue* arr);
 
 // emit an alloca
