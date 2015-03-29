@@ -16,19 +16,12 @@
 
 module rt.sections_ldc;
 
-version (linux) {} else version(LDC):
+version (linux) {} else version (FreeBSD) {} else version(LDC):
 
 import core.stdc.stdlib : alloca;
 import rt.minfo;
 debug(PRINTF) import core.stdc.stdio : printf;
 
-version (FreeBSD)
-{
-    version = UseELF;
-
-    import core.sys.freebsd.sys.elf;
-    import core.sys.freebsd.sys.link_elf;
-}
 version (Solaris)
 {
     version = UseELF;
