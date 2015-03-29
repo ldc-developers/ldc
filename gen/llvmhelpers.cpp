@@ -116,9 +116,16 @@ void DtoDeleteArray(Loc& loc, DValue* arr)
 {
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delarray_t");
     llvm::FunctionType* fty = fn->getFunctionType();
+
+    // the TypeInfo argument must be null if the type has no dtor
+    Type* elementType = arr->type->nextOf();
+    bool hasDtor = (elementType->toBasetype()->ty == Tstruct && elementType->needsDestruction());
+    LLValue* typeInfo = (!hasDtor ? getNullPtr(fty->getParamType(1)) : DtoTypeInfoOf(elementType));
+
+    LLValue* lval = (arr->isLVal() ? arr->getLVal() : makeLValue(loc, arr));
     LLValue* arg[] = {
-        DtoBitCast(arr->getLVal(), fty->getParamType(0)),
-        DtoBitCast(DtoTypeInfoOf(arr->type->nextOf()), fty->getParamType(1))
+        DtoBitCast(lval, fty->getParamType(0)),
+        DtoBitCast(typeInfo, fty->getParamType(1))
     };
     gIR->CreateCallOrInvoke(fn, arg);
 }
