@@ -462,22 +462,22 @@ version (AnyX86)
 
 version (LDC)
 {
-    private pragma(LDC_intrinsic, "ldc.bitop.vld")
+    pragma(LDC_intrinsic, "ldc.bitop.vld")
         ubyte volatileLoad(ubyte* ptr);
-    private pragma(LDC_intrinsic, "ldc.bitop.vld")
+    pragma(LDC_intrinsic, "ldc.bitop.vld")
         ushort volatileLoad(ushort* ptr);
-    private pragma(LDC_intrinsic, "ldc.bitop.vld")
+    pragma(LDC_intrinsic, "ldc.bitop.vld")
         uint volatileLoad(uint* ptr);
-    private pragma(LDC_intrinsic, "ldc.bitop.vld")
+    pragma(LDC_intrinsic, "ldc.bitop.vld")
         ulong volatileLoad(ulong* ptr);
 
-    private pragma(LDC_intrinsic, "ldc.bitop.vst")
+    pragma(LDC_intrinsic, "ldc.bitop.vst")
         void volatileStore(ubyte* ptr, ubyte value);
-    private pragma(LDC_intrinsic, "ldc.bitop.vst")
+    pragma(LDC_intrinsic, "ldc.bitop.vst")
         void volatileStore(ushort* ptr, ushort value);
-    private pragma(LDC_intrinsic, "ldc.bitop.vst")
+    pragma(LDC_intrinsic, "ldc.bitop.vst")
         void volatileStore(uint* ptr, uint value);
-    private pragma(LDC_intrinsic, "ldc.bitop.vst")
+    pragma(LDC_intrinsic, "ldc.bitop.vst")
         void volatileStore(ulong* ptr, ulong value);
 }
 else
