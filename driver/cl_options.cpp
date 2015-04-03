@@ -347,7 +347,7 @@ cl::opt<bool> disableFpElim("disable-fp-elim",
               cl::desc("Disable frame pointer elimination optimization"),
               cl::init(false));
 
-static cl::opt<bool, true, FlagParser> asserts("asserts",
+static cl::opt<bool, true, FlagParser<bool> > asserts("asserts",
     cl::desc("(*) Enable assertions"),
     cl::value_desc("bool"),
     cl::location(global.params.useAssert),
@@ -376,25 +376,24 @@ cl::opt<BoundsCheck, true> boundsChecksNew("boundscheck",
         clEnumValN(BC_On, "on", "array bounds checks for all functions"),
         clEnumValEnd));
 
-static cl::opt<bool, true, FlagParser> invariants("invariants",
+static cl::opt<bool, true, FlagParser<bool> > invariants("invariants",
     cl::desc("(*) Enable invariants"),
     cl::location(global.params.useInvariants),
     cl::init(true));
 
-static cl::opt<bool, true, FlagParser> preconditions("preconditions",
+static cl::opt<bool, true, FlagParser<bool> > preconditions("preconditions",
     cl::desc("(*) Enable function preconditions"),
     cl::location(global.params.useIn),
     cl::init(true));
 
-static cl::opt<bool, true, FlagParser> postconditions("postconditions",
+static cl::opt<bool, true, FlagParser<bool> > postconditions("postconditions",
     cl::desc("(*) Enable function postconditions"),
     cl::location(global.params.useOut),
     cl::init(true));
 
-
 static MultiSetter ContractsSetter(false,
     &global.params.useIn, &global.params.useOut, NULL);
-static cl::opt<MultiSetter, true, FlagParser> contracts("contracts",
+static cl::opt<MultiSetter, true, FlagParser<bool> > contracts("contracts",
     cl::desc("(*) Enable function pre- and post-conditions"),
     cl::location(ContractsSetter));
 
@@ -402,7 +401,7 @@ bool nonSafeBoundsChecks = true;
 static MultiSetter ReleaseSetter(true, &global.params.useAssert,
     &nonSafeBoundsChecks, &global.params.useInvariants,
     &global.params.useOut, &global.params.useIn, NULL);
-static cl::opt<MultiSetter, true, cl::parser<bool> > release("release",
+static cl::opt<MultiSetter, true, FlagParser<bool> > release("release",
     cl::desc("Disables asserts, invariants, contracts and boundscheck"),
     cl::location(ReleaseSetter),
     cl::ValueDisallowed);
@@ -436,7 +435,7 @@ cl::opt<bool, true> vgc("vgc",
     cl::desc("list all gc allocations including hidden ones"),
     cl::location(global.params.vgc));
 
-cl::opt<bool, true, FlagParser> color("color",
+cl::opt<bool, true, FlagParser<bool> > color("color",
     cl::desc("Force colored console output"),
     cl::location(global.params.color));
 
