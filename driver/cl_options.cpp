@@ -319,11 +319,14 @@ cl::opt<bool> disableFpElim("disable-fp-elim",
               cl::desc("Disable frame pointer elimination optimization"),
               cl::init(false));
 
-static cl::opt<bool, true, FlagParser> asserts("asserts",
+static cl::opt<bool, true> asserts("enable-asserts",
     cl::desc("(*) Enable assertions"),
     cl::value_desc("bool"),
     cl::location(global.params.useAssert),
     cl::init(true));
+static cl::opt<bool, true> disableAsserts("disable-asserts",
+    cl::location(global.params.useAssert),
+    cl::ReallyHidden);
 
 BoundsCheck boundsCheck = BC_Default;
 
@@ -340,7 +343,7 @@ cl::opt<BoundsChecksAdapter, false, FlagParser> boundsChecksOld("boundscheck",
 #endif
 
 cl::opt<BoundsCheck, true> boundsChecksNew("boundscheck",
-    cl::desc("(*) Enable array bounds check"),
+    cl::desc("Enable array bounds check"),
     cl::location(boundsCheck),
     cl::values(
         clEnumValN(BC_Off, "off", "no array bounds checks"),
@@ -348,27 +351,39 @@ cl::opt<BoundsCheck, true> boundsChecksNew("boundscheck",
         clEnumValN(BC_On, "on", "array bounds checks for all functions"),
         clEnumValEnd));
 
-static cl::opt<bool, true, FlagParser> invariants("invariants",
+static cl::opt<bool, true> invariants("enable-invariants",
     cl::desc("(*) Enable invariants"),
     cl::location(global.params.useInvariants),
     cl::init(true));
+static cl::opt<bool, true> disableInvariants("disable-invariants",
+    cl::location(global.params.useInvariants),
+    cl::ReallyHidden);
 
-static cl::opt<bool, true, FlagParser> preconditions("preconditions",
+static cl::opt<bool, true> preconditions("enable-preconditions",
     cl::desc("(*) Enable function preconditions"),
     cl::location(global.params.useIn),
     cl::init(true));
+static cl::opt<bool, true> disablePreconditions("disable-preconditions",
+    cl::location(global.params.useIn),
+    cl::ReallyHidden);
 
-static cl::opt<bool, true, FlagParser> postconditions("postconditions",
+static cl::opt<bool, true> postconditions("enable-postconditions",
     cl::desc("(*) Enable function postconditions"),
     cl::location(global.params.useOut),
     cl::init(true));
+static cl::opt<bool, true> disablePostconditions("disable-postconditions",
+    cl::location(global.params.useOut),
+    cl::ReallyHidden);
 
 
 static MultiSetter ContractsSetter(false,
     &global.params.useIn, &global.params.useOut, NULL);
-static cl::opt<MultiSetter, true, FlagParser> contracts("contracts",
+static cl::opt<MultiSetter, true, cl::parser<bool> > contracts("enable-contracts",
     cl::desc("(*) Enable function pre- and post-conditions"),
     cl::location(ContractsSetter));
+static cl::opt<MultiSetter, true, cl::parser<bool> > disableContracts("disable-contracts",
+    cl::location(ContractsSetter),
+    cl::ReallyHidden);
 
 bool nonSafeBoundsChecks = true;
 static MultiSetter ReleaseSetter(true, &global.params.useAssert,
@@ -408,9 +423,12 @@ cl::opt<bool, true> vgc("vgc",
     cl::desc("list all gc allocations including hidden ones"),
     cl::location(global.params.vgc));
 
-cl::opt<bool, true, FlagParser> color("color",
+cl::opt<bool, true> color("enable-color",
     cl::desc("Force colored console output"),
     cl::location(global.params.color));
+cl::opt<bool, true> disableColor("disable-color",
+    cl::location(global.params.color),
+    cl::ReallyHidden);
 
 static cl::extrahelp footer("\n"
 "-d-debug can also be specified without options, in which case it enables all\n"
