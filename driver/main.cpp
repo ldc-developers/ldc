@@ -1384,21 +1384,39 @@ int main(int argc, char **argv)
         char* moduleName = m->toChars();
 #endif
 
-#if LDC_LLVM_VER >= 303
-        llvm::Module *dest = new llvm::Module(moduleName, context);
-        llvm::Linker linker(dest);
+#if LDC_LLVM_VER >= 305
+        llvm::Linker linker(llvmModules[0]);
+#elif LDC_LLVM_VER >= 303
+        llvm::Linker linker(new llvm::Module(moduleName, context));
 #else
         llvm::Linker linker("ldc", moduleName, context);
 #endif
 
         std::string errormsg;
+#if LDC_LLVM_VER >= 306
+        for (size_t i = 1; i < llvmModules.size(); i++)
+#else
         for (size_t i = 0; i < llvmModules.size(); i++)
+#endif
         {
 #if LDC_LLVM_VER >= 306
-            linker.linkInModule(llvmModules[i]);
+            // Issue #855: There seems to be a problem with identified structs.
+            // If a module imports a class or struct from another module and
+            // both modules are compiled together then both modules use the
+            // same type object. The error happens if the type is already
+            // remapped in one module and then the other module is linked.
+            // The workaround seems to be to do the linking twice, always
+            // uniquing all identified structs.
+            // This replaces the line:
+            //   linker.linkInModule(llvmModules[i]);
+            // TODO: Check LLVM bug database if this is a bug.
+            llvm::Linker dummy(new llvm::Module("dummy module", context));
+            dummy.linkInModule(llvmModules[i]);
+            linker.linkInModule(dummy.getModule());
+            dummy.deleteModule();
 #else
 #if LDC_LLVM_VER >= 303
-            if (linker.linkInModule(llvmModules[i], llvm::Linker::DestroySource, &errormsg))
+            if (linker.linkInModule(llvmModules[i], &errormsg))
 #else
             if (linker.LinkInModule(llvmModules[i], &errormsg))
 #endif
@@ -1411,8 +1429,10 @@ int main(int argc, char **argv)
         writeModule(linker.getModule(), filename);
         global.params.objfiles->push(const_cast<char*>(filename));
 
-#if LDC_LLVM_VER >= 303
-        delete dest;
+#if LDC_LLVM_VER >= 304
+        linker.deleteModule();
+#elif LDC_LLVM_VER == 303
+        delete linker.getModule();
 #endif
     }
 
