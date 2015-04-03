@@ -301,6 +301,9 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
 
         llvm::GlobalVariable* interfaceInfosZ = getInterfaceArraySymbol();
         llvm::Constant* c = llvm::ConstantExpr::getGetElementPtr(
+#if LDC_LLVM_VER >= 307
+            isaPointer(interfaceInfosZ)->getElementType(),
+#endif
             interfaceInfosZ, idxs, true);
 
         constants.push_back(c);
@@ -513,6 +516,9 @@ LLConstant * IrAggr::getClassInfoInterfaces()
     };
 
     LLConstant* ptr = llvm::ConstantExpr::getGetElementPtr(
+#if LDC_LLVM_VER >= 307
+        isaPointer(classInterfacesArray)->getElementType(),
+#endif
         classInterfacesArray, idxs, true);
 
     // return as a slice
