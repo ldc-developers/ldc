@@ -91,6 +91,8 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name)
             "_d_newarraymiT",
             "_d_newarrayU",
             "_d_newclass",
+            "_d_newitemT",
+            "_d_newitemiT",
         };
 
         if (binary_search(&GCNAMES[0], &GCNAMES[sizeof(GCNAMES) / sizeof(std::string)], name))
@@ -502,6 +504,19 @@ static void LLVM_D_BuildRuntimeModule()
         LLType *types[] = { classInfoTy };
         LLFunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
+            ->setAttributes(Attr_NoAlias);
+    }
+
+    // void* _d_newitemT (TypeInfo ti)
+    // void* _d_newitemiT(TypeInfo ti)
+    {
+        llvm::StringRef fname ("_d_newitemT");
+        llvm::StringRef fname2("_d_newitemiT");
+        LLType *types[] = { typeInfoTy };
+        LLFunctionType* fty = llvm::FunctionType::get(voidPtrTy, types, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
+            ->setAttributes(Attr_NoAlias);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M)
             ->setAttributes(Attr_NoAlias);
     }
 

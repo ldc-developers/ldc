@@ -74,6 +74,15 @@ LLValue* DtoNew(Loc& loc, Type* newtype)
     return DtoBitCast(mem, getPtrToType(i1ToI8(DtoType(newtype))), ".gc_mem");
 }
 
+LLValue* DtoNewStruct(Loc& loc, TypeStruct* newtype)
+{
+    llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module,
+        newtype->isZeroInit(newtype->sym->loc) ? "_d_newitemT" : "_d_newitemiT");
+    LLConstant* ti = DtoTypeInfoOf(newtype);
+    LLValue* mem = gIR->CreateCallOrInvoke(fn, ti, ".gc_struct").getInstruction();
+    return DtoBitCast(mem, getPtrToType(i1ToI8(DtoType(newtype))), ".gc_struct");
+}
+
 void DtoDeleteMemory(Loc& loc, DValue* ptr)
 {
     // get runtime function
