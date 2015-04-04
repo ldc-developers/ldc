@@ -1393,7 +1393,7 @@ int main(int argc, char **argv)
 #endif
 
         std::string errormsg;
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 305
         for (size_t i = 1; i < llvmModules.size(); i++)
 #else
         for (size_t i = 0; i < llvmModules.size(); i++)
