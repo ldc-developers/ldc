@@ -1895,6 +1895,9 @@ public:
         else if (ntype->ty == Tstruct)
         {
             IF_LOG Logger::println("new struct on heap: %s\n", e->newtype->toChars());
+
+            TypeStruct* ts = static_cast<TypeStruct*>(ntype);
+
             // allocate
             LLValue* mem = 0;
             if (e->allocator)
@@ -1908,10 +1911,8 @@ public:
             else
             {
                 // default allocator
-                mem = DtoNew(e->loc, e->newtype);
+                mem = DtoNewStruct(e->loc, ts);
             }
-
-            TypeStruct* ts = static_cast<TypeStruct*>(ntype);
 
             if (!e->member && e->arguments)
             {
@@ -1920,16 +1921,6 @@ public:
             }
             else
             {
-                // init
-                if (ts->isZeroInit(ts->sym->loc)) {
-                    DtoAggrZeroInit(mem);
-                }
-                else {
-                    assert(ts->sym);
-                    DtoResolveStruct(ts->sym, e->loc);
-                    DtoAggrCopy(mem, getIrAggr(ts->sym)->getInitSymbol());
-                }
-
                 // set nested context
                 if (ts->sym->isNested() && ts->sym->vthis)
                     DtoResolveNestedContext(e->loc, ts->sym, mem);

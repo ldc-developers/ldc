@@ -34,6 +34,7 @@ struct EnclosingTryFinally
 
 // dynamic memory helpers
 LLValue* DtoNew(Loc& loc, Type* newtype);
+LLValue* DtoNewStruct(Loc& loc, TypeStruct* newtype);
 void DtoDeleteMemory(Loc& loc, DValue* ptr);
 void DtoDeleteStruct(Loc& loc, DValue* ptr);
 void DtoDeleteClass(Loc& loc, DValue* inst);
