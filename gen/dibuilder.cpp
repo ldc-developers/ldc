@@ -189,7 +189,7 @@ llvm::DIType ldc::DIBuilder::CreateEnumType(Type *type)
         getABITypeAlign(T)*8, // align (bits)
         DBuilder.getOrCreateArray(subscripts) // subscripts
 #if LDC_LLVM_VER >= 302
-        , CreateTypeDescription(te->sym->memtype, NULL)
+        , CreateTypeDescription(te->sym->memtype, false)
 #endif
     );
 }
@@ -203,7 +203,7 @@ llvm::DIType ldc::DIBuilder::CreatePointerType(Type *type)
 
     // find base type
     Type *nt = t->nextOf();
-    llvm::DIType basetype = CreateTypeDescription(nt, NULL);
+    llvm::DIType basetype = CreateTypeDescription(nt, false);
 
     return DBuilder.createPointerType(
         basetype,
@@ -230,7 +230,7 @@ llvm::DIType ldc::DIBuilder::CreateVectorType(Type *type)
     {
         DBuilder.getOrCreateSubrange(0, Dim)
     };
-    llvm::DIType basetype = CreateTypeDescription(te, NULL);
+    llvm::DIType basetype = CreateTypeDescription(te, false);
 
     return DBuilder.createVectorType(
         getTypeBitSize(T), // size (bits)
@@ -494,7 +494,7 @@ llvm::DIType ldc::DIBuilder::CreateSArrayType(Type *type)
         subscripts.push_back(subscript);
         t = t->nextOf();
     }
-    llvm::DIType basetype = CreateTypeDescription(t, NULL);
+    llvm::DIType basetype = CreateTypeDescription(t, false);
 
     return DBuilder.createArrayType(
         getTypeBitSize(T), // size (bits)
@@ -896,7 +896,7 @@ llvm::DIGlobalVariable ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *
 #endif
         CreateFile(vd->loc), // file
         vd->loc.linnum, // line num
-        CreateTypeDescription(vd->type, NULL), // type
+        CreateTypeDescription(vd->type, false), // type
         vd->protection == PROTprivate, // is local to unit
         ll // value
     );
