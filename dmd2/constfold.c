@@ -648,6 +648,16 @@ UnionExp Shr(Type *type, Expression *e1, Expression *e2)
                 value = (d_uns64)(value) >> count;
                 break;
 
+#if WANT_CENT
+        case Tint128:
+                value = (d_int128)(value) >> count;
+                break;
+
+        case Tuns128:
+                value = (d_uns128)(value) >> count;
+                break;
+#endif
+
         case Terror:
                 new(&ue) ErrorExp();
                 return ue;
@@ -690,10 +700,22 @@ UnionExp Ushr(Type *type, Expression *e1, Expression *e2)
                 value = (value & 0xFFFFFFFF) >> count;
                 break;
 
+#if WANT_CENT
+        case Tint64:
+        case Tuns64:
+                value = (value & 0xFFFFFFFFFFFFFFFF) >> count;
+                break;
+
+        case Tint128:
+        case Tuns128:
+                value = (d_uns128)(value) >> count;
+                break;
+#else
         case Tint64:
         case Tuns64:
                 value = (d_uns64)(value) >> count;
                 break;
+#endif
 
         case Terror:
                 new(&ue) ErrorExp();
@@ -1257,6 +1279,10 @@ L1:
                 case Tuns32:    result = (d_uns32)r;    break;
                 case Tint64:    result = (d_int64)r;    break;
                 case Tuns64:    result = (d_uns64)r;    break;
+#if WANT_CENT
+                case Tint128:   result = (d_int128)r;   break;
+                case Tuns128:   result = (d_uns128)r;   break;
+#endif
                 default:
                     assert(0);
             }
@@ -1378,7 +1404,11 @@ UnionExp Index(Type *type, Expression *e1, Expression *e2)
 
         if (i >= es1->len)
         {
+#if WANT_CENT
+            e1->error("string index %llu is out of bounds [0 .. %llu]", (ulonglong)i, (ulonglong)es1->len);
+#else
             e1->error("string index %llu is out of bounds [0 .. %llu]", i, (ulonglong)es1->len);
+#endif
             new(&ue) ErrorExp();
         }
         else
@@ -1394,7 +1424,11 @@ UnionExp Index(Type *type, Expression *e1, Expression *e2)
 
         if (i >= length)
         {
+#if WANT_CENT
+            e1->error("array index %llu is out of bounds %s[0 .. %llu]", (ulonglong)i, e1->toChars(), (ulonglong)length);
+#else
             e1->error("array index %llu is out of bounds %s[0 .. %llu]", i, e1->toChars(), length);
+#endif
             new(&ue) ErrorExp();
         }
         else if (e1->op == TOKarrayliteral)
@@ -1420,7 +1454,11 @@ UnionExp Index(Type *type, Expression *e1, Expression *e2)
             ArrayLiteralExp *ale = (ArrayLiteralExp *)e1;
             if (i >= ale->elements->dim)
             {
+#if WANT_CENT
+                e1->error("array index %llu is out of bounds %s[0 .. %llu]", (ulonglong)i, e1->toChars(), (ulonglong)ale->elements->dim);
+#else
                 e1->error("array index %llu is out of bounds %s[0 .. %u]", i, e1->toChars(), ale->elements->dim);
+#endif
                 new(&ue) ErrorExp();
             }
             else
@@ -1492,7 +1530,11 @@ UnionExp Slice(Type *type, Expression *e1, Expression *lwr, Expression *upr)
 
         if (iupr > es1->len || ilwr > iupr)
         {
+#if WANT_CENT
+            e1->error("string slice [%llu .. %llu] is out of bounds", (ulonglong)ilwr, (ulonglong)iupr);
+#else
             e1->error("string slice [%llu .. %llu] is out of bounds", ilwr, iupr);
+#endif
             new(&ue) ErrorExp();
         }
         else
@@ -1521,7 +1563,11 @@ UnionExp Slice(Type *type, Expression *e1, Expression *lwr, Expression *upr)
 
         if (iupr > es1->elements->dim || ilwr > iupr)
         {
+#if WANT_CENT
+            e1->error("array slice [%llu .. %llu] is out of bounds", (ulonglong)ilwr, (ulonglong)iupr);
+#else
             e1->error("array slice [%llu .. %llu] is out of bounds", ilwr, iupr);
+#endif
             new(&ue) ErrorExp();
         }
         else

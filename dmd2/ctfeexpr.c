@@ -1127,6 +1127,17 @@ void intBinary(TOK op, IntegerExp *dest, Type *type, IntegerExp *e1, IntegerExp 
             case Tuns64:
                 result = (d_uns64)(value) >> count;
                 break;
+
+#if WANT_CENT
+            case Tint128:
+                result = (d_int128)(value) >> count;
+                break;
+
+            case Tuns128:
+                result = (d_uns128)(value) >> count;
+                break;
+#endif
+
             default:
                 assert(0);
         }
@@ -1160,10 +1171,22 @@ void intBinary(TOK op, IntegerExp *dest, Type *type, IntegerExp *e1, IntegerExp 
                 result = (value & 0xFFFFFFFF) >> count;
                 break;
 
+#if WANT_CENT
+            case Tint64:
+            case Tuns64:
+                result = (value & 0xFFFFFFFFFFFFFFFF) >> count;
+                break;
+
+            case Tint128:
+            case Tuns128:
+                result = (d_uns128)(value) >> count;
+                break;
+#else
             case Tint64:
             case Tuns64:
                 result = (d_uns64)(value) >> count;
                 break;
+#endif
 
             default:
                 assert(0);
@@ -1853,7 +1876,11 @@ Expression *ctfeIndex(Loc loc, Type *type, Expression *e1, uinteger_t indx)
         StringExp *es1 = (StringExp *)e1;
         if (indx >= es1->len)
         {
+#if WANT_CENT
+            error(loc, "string index %llu is out of bounds [0 .. %llu]", (ulonglong)indx, (ulonglong)es1->len);
+#else
             error(loc, "string index %llu is out of bounds [0 .. %llu]", indx, (ulonglong)es1->len);
+#endif
             return CTFEExp::cantexp;
         }
         return new IntegerExp(loc, es1->charAt(indx), type);
@@ -1863,7 +1890,11 @@ Expression *ctfeIndex(Loc loc, Type *type, Expression *e1, uinteger_t indx)
         ArrayLiteralExp *ale = (ArrayLiteralExp *)e1;
         if (indx >= ale->elements->dim)
         {
+#if WANT_CENT
+            error(loc, "array index %llu is out of bounds %s[0 .. %llu]", (ulonglong)indx, e1->toChars(), (ulonglong)ale->elements->dim);
+#else
             error(loc, "array index %llu is out of bounds %s[0 .. %llu]", indx, e1->toChars(), (ulonglong)ale->elements->dim);
+#endif
             return CTFEExp::cantexp;
         }
         Expression *e = (*ale->elements)[(size_t)indx];
