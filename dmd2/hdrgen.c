@@ -2133,6 +2133,24 @@ public:
                     buf->printf("%lluLU", v);
                     break;
 
+#if WANT_CENT
+                case Tint128: {
+                    char buffer[42];
+                    sprintf_i128(buffer, v);
+                    assert(strlen(buffer) < sizeof(buffer));
+                    buf->writestring(buffer);
+                    }
+                    break;
+
+                case Tuns128: {
+                    char buffer[42];
+                    sprintf_u128(buffer, v);
+                    assert(strlen(buffer) < sizeof(buffer));
+                    buf->writestring(buffer);
+                    }
+                    break;
+#endif
+
                 case Tbool:
                     buf->writestring(v ? "true" : "false");
                     break;

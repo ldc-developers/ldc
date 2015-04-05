@@ -648,6 +648,16 @@ UnionExp Shr(Type *type, Expression *e1, Expression *e2)
                 value = (d_uns64)(value) >> count;
                 break;
 
+#if WANT_CENT
+        case Tint128:
+                value = (d_int128)(value) >> count;
+                break;
+
+        case Tuns128:
+                value = (d_uns128)(value) >> count;
+                break;
+#endif
+
         case Terror:
                 new(&ue) ErrorExp();
                 return ue;
@@ -690,10 +700,22 @@ UnionExp Ushr(Type *type, Expression *e1, Expression *e2)
                 value = (value & 0xFFFFFFFF) >> count;
                 break;
 
+#if WANT_CENT
+        case Tint64:
+        case Tuns64:
+                value = (value & 0xFFFFFFFFFFFFFFFF) >> count;
+                break;
+
+        case Tint128:
+        case Tuns128:
+                value = (d_uns128)(value) >> count;
+                break;
+#else
         case Tint64:
         case Tuns64:
                 value = (d_uns64)(value) >> count;
                 break;
+#endif
 
         case Terror:
                 new(&ue) ErrorExp();
@@ -1258,6 +1280,10 @@ L1:
                 case Tuns32:    result = (d_uns32)r;    break;
                 case Tint64:    result = (d_int64)r;    break;
                 case Tuns64:    result = (d_uns64)r;    break;
+#if WANT_CENT
+                case Tint128:   result = (d_int128)r;   break;
+                case Tuns128:   result = (d_uns128)r;   break;
+#endif
                 default:
                     assert(0);
             }

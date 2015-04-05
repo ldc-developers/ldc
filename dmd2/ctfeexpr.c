@@ -1119,6 +1119,17 @@ void intBinary(TOK op, IntegerExp *dest, Type *type, IntegerExp *e1, IntegerExp 
             case Tuns64:
                 result = (d_uns64)(value) >> count;
                 break;
+
+#if WANT_CENT
+            case Tint128:
+                result = (d_int128)(value) >> count;
+                break;
+
+            case Tuns128:
+                result = (d_uns128)(value) >> count;
+                break;
+#endif
+
             default:
                 assert(0);
         }
@@ -1152,10 +1163,22 @@ void intBinary(TOK op, IntegerExp *dest, Type *type, IntegerExp *e1, IntegerExp 
                 result = (value & 0xFFFFFFFF) >> count;
                 break;
 
+#if WANT_CENT
+            case Tint64:
+            case Tuns64:
+                result = (value & 0xFFFFFFFFFFFFFFFF) >> count;
+                break;
+
+            case Tint128:
+            case Tuns128:
+                result = (d_uns128)(value) >> count;
+                break;
+#else
             case Tint64:
             case Tuns64:
                 result = (d_uns64)(value) >> count;
                 break;
+#endif
 
             default:
                 assert(0);

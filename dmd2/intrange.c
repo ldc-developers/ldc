@@ -25,15 +25,23 @@ static uinteger_t copySign(uinteger_t x, bool sign)
     return (x - (uinteger_t)sign) ^ -(uinteger_t)sign;
 }
 
+#if WANT_CENT
+#define UINT128_MAX UINT128C(0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL)
+#else
 #ifndef UINT64_MAX
 #define UINT64_MAX 0xFFFFFFFFFFFFFFFFULL
+#endif
 #endif
 
 //==================== SignExtendedNumber ======================================
 
 SignExtendedNumber SignExtendedNumber::fromInteger(uinteger_t value_)
 {
+#if WANT_CENT
+    return SignExtendedNumber(value_, value_ >> 128);
+#else
     return SignExtendedNumber(value_, value_ >> 63);
+#endif
 }
 
 bool SignExtendedNumber::operator==(const SignExtendedNumber& a) const
@@ -54,7 +62,11 @@ SignExtendedNumber SignExtendedNumber::extreme(bool minimum)
 
 SignExtendedNumber SignExtendedNumber::max()
 {
+#if WANT_CENT
+    return SignExtendedNumber(UINT128_MAX, false);
+#else
     return SignExtendedNumber(UINT64_MAX, false);
+#endif
 }
 
 SignExtendedNumber SignExtendedNumber::operator-() const
@@ -74,7 +86,11 @@ SignExtendedNumber SignExtendedNumber::operator+(const SignExtendedNumber& a) co
     else if (negative)
         return SignExtendedNumber(carry ? sum : 0, true);
     else
+#if WANT_CENT
+        return SignExtendedNumber(carry ? UINT128_MAX : sum, false);
+#else
         return SignExtendedNumber(carry ? UINT64_MAX : sum, false);
+#endif
 }
 
 SignExtendedNumber SignExtendedNumber::operator-(const SignExtendedNumber& a) const
@@ -114,7 +130,11 @@ SignExtendedNumber SignExtendedNumber::operator*(const SignExtendedNumber& a) co
     uinteger_t tAbs = copySign(value, negative);
     uinteger_t aAbs = copySign(a.value, a.negative);
     rv.negative = negative != a.negative;
+#if WANT_CENT
+    if (UINT128_MAX / tAbs < aAbs)
+#else
     if (UINT64_MAX / tAbs < aAbs)
+#endif
         rv.value = rv.negative-1;
     else
         rv.value = copySign(tAbs * aAbs, rv.negative);
@@ -145,7 +165,11 @@ SignExtendedNumber SignExtendedNumber::operator/(const SignExtendedNumber& a) co
     // Special handling for INT65_MIN
     //  if the denominator is not a power of 2, it is same as UINT64_MAX / x.
     else if (aAbs & (aAbs-1))
+#if WANT_CENT
+        rvVal = UINT128_MAX / aAbs;
+#else
         rvVal = UINT64_MAX / aAbs;
+#endif
     // otherwise, it's the same as reversing the bits of x.
     else
     {
@@ -153,12 +177,22 @@ SignExtendedNumber SignExtendedNumber::operator/(const SignExtendedNumber& a) co
             return extreme(!a.negative);
         rvVal = 1ULL << 63;
         aAbs >>= 1;
+#if WANT_CENT
+        if (aAbs & UINT128C(0xAAAAAAAAAAAAAAAAULL, 0xAAAAAAAAAAAAAAAA)) rvVal >>= 1;
+        if (aAbs & UINT128C(0xCCCCCCCCCCCCCCCCULL, 0xCCCCCCCCCCCCCCCC)) rvVal >>= 2;
+        if (aAbs & UINT128C(0xF0F0F0F0F0F0F0F0ULL, 0xF0F0F0F0F0F0F0F0)) rvVal >>= 4;
+        if (aAbs & UINT128C(0xFF00FF00FF00FF00ULL, 0xFF00FF00FF00FF00)) rvVal >>= 8;
+        if (aAbs & UINT128C(0xFFFF0000FFFF0000ULL, 0xFFFF0000FFFF0000)) rvVal >>= 16;
+        if (aAbs & UINT128C(0xFFFFFFFF00000000ULL, 0xFFFFFFFF00000000)) rvVal >>= 32;
+        if (aAbs & UINT128C(0xFFFFFFFFFFFFFFFFULL, 0x0000000000000000)) rvVal >>= 64;
+#else
         if (aAbs & 0xAAAAAAAAAAAAAAAAULL) rvVal >>= 1;
         if (aAbs & 0xCCCCCCCCCCCCCCCCULL) rvVal >>= 2;
         if (aAbs & 0xF0F0F0F0F0F0F0F0ULL) rvVal >>= 4;
         if (aAbs & 0xFF00FF00FF00FF00ULL) rvVal >>= 8;
         if (aAbs & 0xFFFF0000FFFF0000ULL) rvVal >>= 16;
         if (aAbs & 0xFFFFFFFF00000000ULL) rvVal >>= 32;
+#endif
     }
     bool rvNeg = negative != a.negative;
     rvVal = copySign(rvVal, rvNeg);
@@ -180,7 +214,11 @@ SignExtendedNumber SignExtendedNumber::operator%(const SignExtendedNumber& a) co
     // Special handling for INT65_MIN
     //  if the denominator is not a power of 2, it is same as UINT64_MAX%x + 1.
     else if (aAbs & (aAbs - 1))
+#if WANT_CENT
+        rvVal = UINT128_MAX % aAbs + 1;
+#else
         rvVal = UINT64_MAX % aAbs + 1;
+#endif
     //  otherwise, the modulus is trivially zero.
     else
         rvVal = 0;
@@ -191,7 +229,11 @@ SignExtendedNumber SignExtendedNumber::operator%(const SignExtendedNumber& a) co
 
 SignExtendedNumber& SignExtendedNumber::operator++()
 {
+#if WANT_CENT
+    if (value != UINT128_MAX)
+#else
     if (value != UINT64_MAX)
+#endif
         ++ value;
     else if (negative)
     {
@@ -218,14 +260,23 @@ SignExtendedNumber SignExtendedNumber::operator<<(const SignExtendedNumber& a) c
     // Why is this a size_t? Looks like a bug.
     size_t r, s;
 
+#if WANT_CENT
+    r = (v > 0xFFFFFFFFFFFFFFFFULL) << 6; v >>= r;
+    r = (v > 0xFFFFFFFFULL) << 5; v >>= r; r |= s;
+#else
     r = (v > 0xFFFFFFFFULL) << 5; v >>= r;
+#endif
     s = (v > 0xFFFFULL    ) << 4; v >>= s; r |= s;
     s = (v > 0xFFULL      ) << 3; v >>= s; r |= s;
     s = (v > 0xFULL       ) << 2; v >>= s; r |= s;
     s = (v > 0x3ULL       ) << 1; v >>= s; r |= s;
                                            r |= (v >> 1);
 
+#if WANT_CEMT
+    uinteger_t allowableShift = 127 - r;
+#else
     uinteger_t allowableShift = 63 - r;
+#endif
     if (a.value > allowableShift)
         return extreme(negative);
     else
@@ -234,10 +285,17 @@ SignExtendedNumber SignExtendedNumber::operator<<(const SignExtendedNumber& a) c
 
 SignExtendedNumber SignExtendedNumber::operator>>(const SignExtendedNumber& a) const
 {
+#if WANT_CENT
+    if (a.negative || a.value > 128)
+        return negative ? SignExtendedNumber(-1, true) : SignExtendedNumber(0);
+    else if (isMinimum())
+        return a.value == 0 ? *this : SignExtendedNumber(-1ULL << (128-a.value), true);
+#else
     if (a.negative || a.value > 64)
         return negative ? SignExtendedNumber(-1, true) : SignExtendedNumber(0);
     else if (isMinimum())
         return a.value == 0 ? *this : SignExtendedNumber(-1ULL << (64-a.value), true);
+#endif
 
     uinteger_t x = value ^ -negative;
     x >>= a.value;
@@ -400,8 +458,13 @@ IntRange& IntRange::cast(Type *type)
 
 IntRange& IntRange::castUnsigned(Type *type)
 {
+#if WANT_CENT
+    if (!type->isintegral())
+        return castUnsigned(UINT128_MAX);
+#else
     if (!type->isintegral())
         return castUnsigned(UINT64_MAX);
+#endif
     else if (type->toBasetype()->ty == Tdchar)
         return castDchar();
     else

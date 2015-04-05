@@ -495,7 +495,11 @@ void Lexer::scan(Token *t)
                                 break;
                         }
                         t->value = TOKint64v;
+#if WANT_CENT
+                        t->uns128value = major * 1000 + minor;
+#else
                         t->uns64value = major * 1000 + minor;
+#endif
                     }
                     else if (id == Id::EOFX)
                     {
@@ -1575,6 +1579,22 @@ TOK Lexer::charConstant(Token *t, int wide)
         case '\\':
             switch (*p)
             {
+#if WANT_CENT
+                case 'u':
+                    t->uns128value = escapeSequence();
+                    tk = TOKwcharv;
+                    break;
+
+                case 'U':
+                case '&':
+                    t->uns128value = escapeSequence();
+                    tk = TOKdcharv;
+                    break;
+
+                default:
+                    t->uns128value = escapeSequence();
+                    break;
+#else
                 case 'u':
                     t->uns64value = escapeSequence();
                     tk = TOKwcharv;
@@ -1589,6 +1609,7 @@ TOK Lexer::charConstant(Token *t, int wide)
                 default:
                     t->uns64value = escapeSequence();
                     break;
+#endif
             }
             break;
         case '\n':
@@ -1599,7 +1620,11 @@ TOK Lexer::charConstant(Token *t, int wide)
         case 0x1A:
         case '\'':
             error("unterminated character constant");
+#if WANT_CENT
+            t->uns128value = '?';
+#else
             t->uns64value = '?';
+#endif
             return tk;
 
         default:
@@ -1615,14 +1640,22 @@ TOK Lexer::charConstant(Token *t, int wide)
                 else
                     tk = TOKdcharv;
             }
+#if WANT_CENT
+            t->uns128value = c;
+#else
             t->uns64value = c;
+#endif
             break;
     }
 
     if (*p != '\'')
     {
         error("unterminated character constant");
+#if WANT_CENT
+        t->uns128value = '?';
+#else
         t->uns64value = '?';
+#endif
         return tk;
     }
     p++;
@@ -1808,12 +1841,21 @@ TOK Lexer::number(Token *t)
         }
         n = n2 + d;
 
+#if WANT_CENT
+        // if n needs more than 128 bits
+        if (sizeof(n) > 16 &&
+            n > UINT128C(0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL))
+        {
+            overflow = true;
+        }
+#else
         // if n needs more than 64 bits
         if (sizeof(n) > 8 &&
             n > 0xFFFFFFFFFFFFFFFFULL)
         {
             overflow = true;
         }
+#endif
     }
 
 Ldone:
@@ -1879,6 +1921,13 @@ Ldone:
             /* Octal or Hexadecimal constant.
              * First that fits: int, uint, long, ulong
              */
+#if WANT_CENT
+            if (n & UINT128C(0x8000000000000000LL, 0x0LL))
+                result = TOKuns128v;
+            else if (n & UINT128C(0xFFFFFFFFFFFFFFFFLL, 0x0LL))
+                result = TOKint128v;
+            else
+#endif
             if (n & 0x8000000000000000LL)
                 result = TOKuns64v;
             else if (n & 0xFFFFFFFF00000000LL)
@@ -1892,6 +1941,19 @@ Ldone:
         case FLAGS_decimal:
             /* First that fits: int, long, long long
              */
+#if WANT_CENT
+            if (n & UINT128C(0x8000000000000000LL, 0x0LL))
+            {
+                if (!err)
+                {
+                    error("signed integer overflow");
+                    err = true;
+                }
+                result = TOKuns128v;
+            }
+            else if (n & UINT128C(0xFFFFFFFFFFFFFFFF, 0x8000000000000000LL))
+                result = TOKint128v;
+#else
             if (n & 0x8000000000000000LL)
             {
                 if (!err)
@@ -1901,6 +1963,7 @@ Ldone:
                 }
                 result = TOKuns64v;
             }
+#endif
             else if (n & 0xFFFFFFFF80000000LL)
                 result = TOKint64v;
             else
@@ -1911,6 +1974,11 @@ Ldone:
         case FLAGS_decimal | FLAGS_unsigned:
             /* First that fits: uint, ulong
              */
+#if WANT_CENT
+            if (n & UINT128C(0xFFFFFFFFFFFFFFFFLL, 0x0LL))
+                result = TOKuns128v;
+            else
+#endif
             if (n & 0xFFFFFFFF00000000LL)
                 result = TOKuns64v;
             else
@@ -1918,6 +1986,19 @@ Ldone:
             break;
 
         case FLAGS_decimal | FLAGS_long:
+#if WANT_CENT
+            if (n & UINT128C(0x8000000000000000LL, 0x0LL))
+            {
+                if (!err)
+                {
+                    error("signed integer overflow");
+                    err = true;
+                }
+                result = TOKuns128v;
+            }
+            else if (n & UINT128C(0xFFFFFFFFFFFFFFFF, 0x8000000000000000LL))
+                result = TOKint128v;
+#else
             if (n & 0x8000000000000000LL)
             {
                 if (!err)
@@ -1927,11 +2008,19 @@ Ldone:
                 }
                 result = TOKuns64v;
             }
+#endif
             else
                 result = TOKint64v;
             break;
 
         case FLAGS_long:
+#if WANT_CENT
+            if (n & UINT128C(0x8000000000000000LL, 0x0LL))
+                result = TOKuns128v;
+            else if (n & UINT128C(0xFFFFFFFFFFFFFFFFLL, 0x0LL))
+                result = TOKint128v;
+            else
+#endif
             if (n & 0x8000000000000000LL)
                 result = TOKuns64v;
             else
@@ -1940,6 +2029,11 @@ Ldone:
 
         case FLAGS_unsigned | FLAGS_long:
         case FLAGS_decimal | FLAGS_unsigned | FLAGS_long:
+#if WANT_CENT
+            if (n & UINT128C(0xFFFFFFFFFFFFFFFFLL, 0x0LL))
+                result = TOKuns128v;
+            else
+#endif
             result = TOKuns64v;
             break;
 
@@ -1949,7 +2043,11 @@ Ldone:
             #endif
             assert(0);
     }
+#if WANT_CENT
+    t->uns128value = n;
+#else
     t->uns64value = n;
+#endif
     return result;
 }
 
@@ -2133,6 +2231,16 @@ void Lexer::poundLine()
     Loc loc = this->loc();
 
     scan(&tok);
+#if WANT_CENT
+    if (tok.value == TOKint32v || tok.value == TOKint64v || tok.value == TOKint128v)
+    {
+        int lin = (int)(tok.uns128value - 1);
+        if (lin != tok.uns128value - 1)
+            error("line number %lld out of range", (unsigned long long)tok.uns128value);
+        else
+            linnum = lin;
+    }
+#else
     if (tok.value == TOKint32v || tok.value == TOKint64v)
     {
         int lin = (int)(tok.uns64value - 1);
@@ -2141,6 +2249,7 @@ void Lexer::poundLine()
         else
             linnum = lin;
     }
+#endif
     else if (tok.value == TOKline)
     {
     }

@@ -2866,6 +2866,10 @@ void IntegerExp::normalize()
         case Tuns32:        value = (d_uns32) value;        break;
         case Tint64:        value = (d_int64) value;        break;
         case Tuns64:        value = (d_uns64) value;        break;
+#if WANT_CENT
+        case Tint128:       value = (d_int128) value;       break;
+        case Tuns128:       value = (d_uns128) value;       break;
+#endif
         case Tpointer:
             if (Target::ptrsize == 4)
                 value = (d_uns32) value;

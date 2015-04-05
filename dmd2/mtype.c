@@ -318,11 +318,13 @@ unsigned Type::alignsize()
 
 Type *Type::semantic(Loc loc, Scope *sc)
 {
+#if !WANT_CENT
     if (ty == Tint128 || ty == Tuns128)
     {
         error(loc, "cent and ucent types not implemented");
         return terror;
     }
+#endif
 
     return merge();
 }
@@ -2447,6 +2449,10 @@ uinteger_t Type::sizemask()
         case Tuns32:    m = 0xFFFFFFFFUL;               break;
         case Tint64:
         case Tuns64:    m = 0xFFFFFFFFFFFFFFFFULL;      break;
+#if WANT_CENT
+        case Tint128:
+        case Tuns128:   m = UINT128C(0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFFFFULL); break;
+#endif
         default:
                 assert(0);
     }
@@ -2986,6 +2992,10 @@ Expression *TypeBasic::getProperty(Loc loc, Identifier *ident, int flag)
             case Tuns32:        ivalue = 0xFFFFFFFFUL;  goto Livalue;
             case Tint64:        ivalue = 0x7FFFFFFFFFFFFFFFLL;  goto Livalue;
             case Tuns64:        ivalue = 0xFFFFFFFFFFFFFFFFULL; goto Livalue;
+#if WANT_CENT
+            case Tint128:       ivalue = INT128C(0x7FFFFFFFFFFFFFFFLL, 0xFFFFFFFFFFFFFFFFULL);   goto Livalue;
+            case Tuns128:       ivalue = UINT128C(0xFFFFFFFFFFFFFFFFULL, 0xFFFFFFFFFFFFFFFFULL); goto Livalue;
+#endif
             case Tbool:         ivalue = 1;             goto Livalue;
             case Tchar:         ivalue = 0xFF;          goto Livalue;
             case Twchar:        ivalue = 0xFFFFUL;      goto Livalue;
@@ -3014,6 +3024,10 @@ Expression *TypeBasic::getProperty(Loc loc, Identifier *ident, int flag)
             case Tuns32:        ivalue = 0;                     goto Livalue;
             case Tint64:        ivalue = (-9223372036854775807LL-1LL);  goto Livalue;
             case Tuns64:        ivalue = 0;             goto Livalue;
+#if WANT_CENT
+            case Tint128:       ivalue = INT128C(0x8000000000000000LL, 0x0LL); goto Livalue;
+            case Tuns128:       ivalue = 0;             goto Livalue;
+#endif
             case Tbool:         ivalue = 0;             goto Livalue;
             case Tchar:         ivalue = 0;             goto Livalue;
             case Twchar:        ivalue = 0;             goto Livalue;

@@ -201,8 +201,13 @@ struct Token
     union
     {
         // Integers
+#if WANT_CENT
+        d_int128 int128value;
+        d_uns128 uns128value;
+#else
         d_int64 int64value;
         d_uns64 uns64value;
+#endif
 
         // Floats
         d_float80 float80value;

@@ -2193,6 +2193,16 @@ namespace AsmParserx8664
                 switch ( type )
                 {
                     case Arg_Integer:
+#if WANT_CENT
+                        if ( e->type->isunsigned() )
+                            insnTemplate << "$" << static_cast<uint64_t>(e->toUInteger());
+                        else
+#ifndef ASM_X86_64
+                            insnTemplate << "$" << static_cast<int64_t>(e->toInteger());
+#else
+                            insnTemplate << "$" << static_cast<int64_t>(e->toInteger());
+#endif
+#else
                         if ( e->type->isunsigned() )
                             insnTemplate << "$" << e->toUInteger();
                         else
@@ -2200,6 +2210,7 @@ namespace AsmParserx8664
                             insnTemplate << "$" << (sinteger_t)e->toInteger();
 #else
                             insnTemplate << "$" << e->toInteger();
+#endif
 #endif
                         break;
 
@@ -2808,7 +2819,11 @@ namespace AsmParserx8664
                             LOG_SCOPE
                             Logger::cout() << "baseReg: " << operand->baseReg << '\n';
                             Logger::cout() << "segmentPrefix: " << operand->segmentPrefix << '\n';
+#if WANT_CENT
+                            Logger::cout() << "constDisplacement: " << static_cast<int64_t>(operand->constDisplacement) << '\n';
+#else
                             Logger::cout() << "constDisplacement: " << operand->constDisplacement << '\n';
+#endif
                             for (unsigned i = 0; i < operand->symbolDisplacement.dim; i++) {
                                 Expression* expr = static_cast<Expression*>(operand->symbolDisplacement.data[i]);
                                 Logger::cout() << "symbolDisplacement[" << i << "] = " << expr->toChars() << '\n';
@@ -2827,7 +2842,11 @@ namespace AsmParserx8664
                         if ( (operand->segmentPrefix != Reg_Invalid && operand->symbolDisplacement.dim == 0)
                             || operand->constDisplacement )
                         {
+#if WANT_CENT
+                            insnTemplate << static_cast<int64_t>(operand->constDisplacement);
+#else
                             insnTemplate << operand->constDisplacement;
+#endif
                             if ( operand->symbolDisplacement.dim )
                             {
                                 insnTemplate << '+';
@@ -3648,11 +3667,22 @@ namespace AsmParserx8664
                 case TOKint64v:
                 case TOKuns64v:
                     // semantic here?
+#if WANT_CENT
+                case TOKint128v:
+                case TOKuns128v:
+#ifndef ASM_X86_64
+                    // %% for tok64 really should use 64bit type
+                    e = new IntegerExp ( stmt->loc, token->uns128value, Type::tint32 );
+#else
+                    e = new IntegerExp ( stmt->loc, token->uns128value, Type::tint64 );
+#endif
+#else
 #ifndef ASM_X86_64
                     // %% for tok64 really should use 64bit type
                     e = new IntegerExp ( stmt->loc, token->uns64value, Type::tint32 );
 #else
                     e = new IntegerExp ( stmt->loc, token->uns64value, Type::tint64 );
+#endif
 #endif
                     nextToken();
                     break;
@@ -3717,8 +3747,14 @@ namespace AsmParserx8664
                                     {
                                     case TOKint32v: case TOKuns32v:
                                     case TOKint64v: case TOKuns64v:
+#if WANT_CENT
+                                    case TOKint128v: case TOKuns128v:
+                                            if ( token->uns128value < 8 )
+                                                e = newRegExp ( ( Reg ) ( Reg_ST + token->uns128value ) );
+#else
                                             if ( token->uns64value < 8 )
                                                 e = newRegExp ( ( Reg ) ( Reg_ST + token->uns64value ) );
+#endif
                                             else
                                             {
                                                 stmt->error ( "invalid floating point register index" );
@@ -3822,10 +3858,18 @@ namespace AsmParserx8664
             {
                 //FIXME: This printf is not portable. The use of `align` varies from system to system;
                 // on i386 using a.out, .align `n` will align on a 2^`n` boundary instead of an `n` boundary
+#if WANT_CENT
+#ifdef HAVE_GAS_BALIGN_AND_P2ALIGN
+                insnTemplate << ".balign\t" << static_cast<uint64_t>(align);
+#else
+                insnTemplate << ".align\t" << static_cast<uint64_t>(align);
+#endif
+#else
 #ifdef HAVE_GAS_BALIGN_AND_P2ALIGN
                 insnTemplate << ".balign\t" << align;
 #else
                 insnTemplate << ".align\t" << align;
+#endif
 #endif
             }
             else
@@ -3873,6 +3917,20 @@ namespace AsmParserx8664
                     case Op_ds:
                     case Op_di:
                     case Op_dl:
+#if WANT_CENT
+                    if (token->value == TOKint32v || token->value == TOKuns32v ||
+                        token->value == TOKint64v || token->value == TOKuns64v ||
+                        token->value == TOKint128v || token->value == TOKuns128v) {
+                        // As per usual with GNU, assume at least 32-bit host
+                        if (op != Op_dl)
+                        insnTemplate->printf("%u", (d_uns32) token->uns128value);
+                        else {
+                        // Output two .longS.  GAS has .quad, but would have to rely on 'L' format ..
+                        // just need to use HOST_WIDE_INT_PRINT_DEC
+                        insnTemplate->printf("%u,%u",
+                            (d_uns32) token->uns64value, (d_uns32) (token->uns128value >> 32));
+                        }
+#else
                     if (token->value == TOKint32v || token->value == TOKuns32v ||
                         token->value == TOKint64v || token->value == TOKuns64v) {
                         // As per usual with GNU, assume at least 32-bit host
@@ -3884,6 +3942,7 @@ namespace AsmParserx8664
                         insnTemplate->printf("%u,%u",
                             (d_uns32) token->uns64value, (d_uns32) (token->uns64value >> 32));
                         }
+#endif
                     } else {
                         stmt->error("expected integer constant");
                     }

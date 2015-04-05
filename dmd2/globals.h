@@ -17,6 +17,7 @@
 #endif
 
 #include "longdouble.h"
+#include "int128.h"
 #include "outbuffer.h"
 
 // Can't include arraytypes.h here, need to declare these directly.
@@ -282,6 +283,11 @@ struct Global
 
 extern Global global;
 
+#if WANT_CENT
+typedef uint128_t dinteger_t;
+typedef int128_t sinteger_t;
+typedef uint128_t uinteger_t;
+#else
 // Because int64_t and friends may be any integral type of the
 // correct size, we have to explicitly ask for the correct
 // integer type to get the correct mangling with ddmd
@@ -298,6 +304,7 @@ typedef unsigned long long dinteger_t;
 typedef long long sinteger_t;
 typedef unsigned long long uinteger_t;
 #endif
+#endif
 
 typedef int8_t                  d_int8;
 typedef uint8_t                 d_uns8;
@@ -307,6 +314,10 @@ typedef int32_t                 d_int32;
 typedef uint32_t                d_uns32;
 typedef int64_t                 d_int64;
 typedef uint64_t                d_uns64;
+#if WANT_CENT
+typedef int128_t                d_int128;
+typedef uint128_t               d_uns128;
+#endif
 
 typedef float                   d_float32;
 typedef double                  d_float64;

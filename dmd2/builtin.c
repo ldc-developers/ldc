@@ -120,8 +120,12 @@ static inline int getBitsizeOfType(Loc loc, Type *type)
       case Tuns16: return 16;
       case Tint128:
       case Tuns128:
+#if WANT_CENT
+        return 128;
+#else
           error(loc, "cent/ucent not supported");
           break;
+#endif
       default:
           error(loc, "unsupported type");
           break;
@@ -273,8 +277,20 @@ Expression *eval_bswap(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     #define BYTEMASK  0x00FF00FF00FF00FFLL
     #define SHORTMASK 0x0000FFFF0000FFFFLL
     #define INTMASK 0x00000000FFFFFFFFLL
+#if WANT_CENT
+    #define LONGMASK 0xFFFFFFFFFFFFFFFFLL
+#endif
     switch (type->toBasetype()->ty)
     {
+      case Tint128:
+      case Tuns128:
+#if WANT_CENT
+          // swap high and low uints
+          n = ((n >> 64) & LONGMASK) | ((n & LONGMASK) << 64);
+#else
+          error(loc, "cent/ucent not supported");
+          break;
+#endif
       case Tint64:
       case Tuns64:
           // swap high and low uints
@@ -287,10 +303,6 @@ Expression *eval_bswap(Loc loc, FuncDeclaration *fd, Expressions *arguments)
       case Tuns16:
           // swap adjacent ubytes
           n = ((n >> 8 ) & BYTEMASK)  | ((n & BYTEMASK) << 8 );
-          break;
-      case Tint128:
-      case Tuns128:
-          error(loc, "cent/ucent not supported");
           break;
       default:
           error(loc, "unsupported type");

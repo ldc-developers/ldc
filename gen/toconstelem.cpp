@@ -119,6 +119,15 @@ public:
         else
         {
             assert(llvm::isa<LLIntegerType>(t));
+#if WANT_CENT
+            if (t->getPrimitiveSizeInBits() == 128)
+            {
+                int128_t i128 = e->getInteger();
+                llvm::APInt v128(128, llvm::ArrayRef<uint64_t>(reinterpret_cast<uint64_t*>(&i128), 2));
+                result = LLConstantInt::get(t, v128);
+            }
+            else
+#endif
             result = LLConstantInt::get(t, (uint64_t)e->getInteger(), !e->type->isunsigned());
             assert(result);
             IF_LOG Logger::cout() << "value = " << *result << '\n';

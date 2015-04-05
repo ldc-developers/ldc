@@ -747,12 +747,21 @@ Dsymbols *Parser::parseDeclDefs(int once, Dsymbol **pLastDecl, PrefixAttributes 
                 if (token.value == TOKlparen)
                 {
                     nextToken();
+#if WANT_CENT
+                    if (token.value == TOKint32v && token.uns128value > 0)
+                    {
+                        if (token.uns128value & (token.uns128value - 1))
+                            error("align(%s) must be a power of 2", token.toChars());
+                        n = (unsigned)token.uns128value;
+                    }
+#else
                     if (token.value == TOKint32v && token.uns64value > 0)
                     {
                         if (token.uns64value & (token.uns64value - 1))
                             error("align(%s) must be a power of 2", token.toChars());
                         n = (unsigned)token.uns64value;
                     }
+#endif
                     else
                     {
                         error("positive integer expected, not %s", token.toChars());
@@ -831,8 +840,13 @@ Dsymbols *Parser::parseDeclDefs(int once, Dsymbol **pLastDecl, PrefixAttributes 
                     nextToken();
                     if (token.value == TOKidentifier)
                         s = new DebugSymbol(token.loc, token.ident);
+#if WANT_CENT
+                    else if (token.value == TOKint32v || token.value == TOKint64v || token.value == TOKint128v)
+                        s = new DebugSymbol(token.loc, (unsigned)token.uns128value);
+#else
                     else if (token.value == TOKint32v || token.value == TOKint64v)
                         s = new DebugSymbol(token.loc, (unsigned)token.uns64value);
+#endif
                     else
                     {
                         error("identifier or integer expected, not %s", token.toChars());
@@ -855,8 +869,13 @@ Dsymbols *Parser::parseDeclDefs(int once, Dsymbol **pLastDecl, PrefixAttributes 
                     nextToken();
                     if (token.value == TOKidentifier)
                         s = new VersionSymbol(token.loc, token.ident);
+#if WANT_CENT
+                    else if (token.value == TOKint32v || token.value == TOKint64v || token.value == TOKint128v)
+                        s = new VersionSymbol(token.loc, (unsigned)token.uns128value);
+#else
                     else if (token.value == TOKint32v || token.value == TOKint64v)
                         s = new VersionSymbol(token.loc, (unsigned)token.uns64value);
+#endif
                     else
                     {
                         error("identifier or integer expected, not %s", token.toChars());
@@ -1357,8 +1376,13 @@ Condition *Parser::parseDebugCondition()
 
         if (token.value == TOKidentifier)
             id = token.ident;
+#if WANT_CENT
+        else if (token.value == TOKint32v || token.value == TOKint64v || token.value == TOKint128v)
+            level = (unsigned)token.uns128value;
+#else
         else if (token.value == TOKint32v || token.value == TOKint64v)
             level = (unsigned)token.uns64value;
+#endif
         else
             error("identifier or integer expected, not %s", token.toChars());
         nextToken();
@@ -1391,8 +1415,13 @@ Condition *Parser::parseVersionCondition()
          */
         if (token.value == TOKidentifier)
             id = token.ident;
+#if WANT_CENT
+        else if (token.value == TOKint32v || token.value == TOKint64v || token.value == TOKint128v)
+            level = (unsigned)token.uns128value;
+#else
         else if (token.value == TOKint32v || token.value == TOKint64v)
             level = (unsigned)token.uns64value;
+#endif
         else if (token.value == TOKunittest)
             id = Identifier::idPool(Token::toChars(TOKunittest));
         else if (token.value == TOKassert)
@@ -3475,8 +3504,13 @@ void Parser::parseStorageClasses(StorageClass &storage_class, LINK &link, unsign
                 if (token.value == TOKlparen)
                 {
                     nextToken();
+#if WANT_CENT
+                    if (token.value == TOKint32v && token.uns128value > 0)
+                        structalign = (unsigned)token.uns128value;
+#else
                     if (token.value == TOKint32v && token.uns64value > 0)
                         structalign = (unsigned)token.uns64value;
+#endif
                     else
                     {
                         error("positive integer expected, not %s", token.toChars());
@@ -6343,6 +6377,37 @@ Expression *Parser::parsePrimaryExp()
             nextToken();
             break;
 
+#if WANT_CENT
+        case TOKint32v:
+	    e = new IntegerExp(loc, (d_int32)token.int128value, Type::tint32);
+            nextToken();
+            break;
+
+        case TOKuns32v:
+	    e = new IntegerExp(loc, (d_uns32)token.uns128value, Type::tuns32);
+            nextToken();
+            break;
+
+        case TOKint64v:
+            e = new IntegerExp(loc, (d_int64)token.int128value, Type::tint64);
+            nextToken();
+            break;
+
+        case TOKuns64v:
+            e = new IntegerExp(loc, (d_uns64)token.uns128value, Type::tuns64);
+            nextToken();
+            break;
+
+        case TOKint128v:
+            e = new IntegerExp(loc, token.int128value, Type::tint128);
+            nextToken();
+            break;
+
+        case TOKuns128v:
+            e = new IntegerExp(loc, token.uns128value, Type::tuns128);
+            nextToken();
+            break;
+#else
         case TOKint32v:
 	    e = new IntegerExp(loc, (d_int32)token.int64value, Type::tint32);
             nextToken();
@@ -6362,6 +6427,7 @@ Expression *Parser::parsePrimaryExp()
             e = new IntegerExp(loc, token.uns64value, Type::tuns64);
             nextToken();
             break;
+#endif
 
         case TOKfloat32v:
             e = new RealExp(loc, token.float80value, Type::tfloat32);
@@ -6438,6 +6504,22 @@ Expression *Parser::parsePrimaryExp()
             nextToken();
             break;
 
+#if WANT_CENT
+        case TOKcharv:
+	    e = new IntegerExp(loc, (d_uns8)token.uns128value, Type::tchar);
+            nextToken();
+            break;
+
+        case TOKwcharv:
+	    e = new IntegerExp(loc, (d_uns16)token.uns128value, Type::twchar);
+            nextToken();
+            break;
+
+        case TOKdcharv:
+	    e = new IntegerExp(loc, (d_uns32)token.uns128value, Type::tdchar);
+            nextToken();
+            break;
+#else
         case TOKcharv:
 	    e = new IntegerExp(loc, (d_uns8)token.uns64value, Type::tchar);
             nextToken();
@@ -6452,6 +6534,7 @@ Expression *Parser::parsePrimaryExp()
 	    e = new IntegerExp(loc, (d_uns32)token.uns64value, Type::tdchar);
             nextToken();
             break;
+#endif
 
         case TOKstring:
         case TOKxstring:
