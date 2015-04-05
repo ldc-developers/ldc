@@ -389,7 +389,11 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
 
+#if LDC_LLVM_VER >= 307
+    LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(isaPointer(gvar)->getElementType(), gvar, idxs, true);
+#else
     LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
+#endif
     gep = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llelemty));
 
     return DtoConstSlice(DtoConstSize_t(arrlen), gep, arrty);

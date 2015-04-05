@@ -205,7 +205,11 @@ public:
 
         llvm::ConstantInt* zero = LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
         LLConstant* idxs[2] = { zero, zero };
+#if LDC_LLVM_VER >= 307
+        LLConstant* arrptr = llvm::ConstantExpr::getGetElementPtr(isaPointer(gvar)->getElementType(), gvar, idxs, true);
+#else
         LLConstant* arrptr = llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
+#endif
 
         if (t->ty == Tpointer)
         {
@@ -235,7 +239,11 @@ public:
         {
             llvm::Constant* ptr = toConstElem(e->e1);
             dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
+#if LDC_LLVM_VER >= 307
+            result = llvm::ConstantExpr::getGetElementPtr(isaPointer(ptr)->getElementType(), ptr, DtoConstSize_t(idx));
+#else
             result = llvm::ConstantExpr::getGetElementPtr(ptr, DtoConstSize_t(idx));
+#endif
         }
         else
         {
@@ -257,7 +265,11 @@ public:
             dinteger_t idx = undoStrideMul(e->loc, t1b, e->e2->toInteger());
 
             llvm::Constant* negIdx = llvm::ConstantExpr::getNeg(DtoConstSize_t(idx));
+#if LDC_LLVM_VER >= 307
+            result = llvm::ConstantExpr::getGetElementPtr(isaPointer(ptr)->getElementType(), ptr, negIdx);
+#else
             result = llvm::ConstantExpr::getGetElementPtr(ptr, negIdx);
+#endif
         }
         else
         {
@@ -311,7 +323,11 @@ public:
             Type *type = vd->type->toBasetype();
             if (type->ty == Tarray || type->ty == Tdelegate) {
                 LLConstant* idxs[2] = { DtoConstSize_t(0), DtoConstSize_t(1) };
+#if LDC_LLVM_VER >= 307
+                value = llvm::ConstantExpr::getGetElementPtr(isaPointer(value)->getElementType(), value, idxs, true);
+#else
                 value = llvm::ConstantExpr::getGetElementPtr(value, idxs, true);
+#endif
             }
             result = DtoBitCast(value, DtoType(tb));
         }
@@ -376,7 +392,11 @@ public:
             if (e->offset % elemSize == 0)
             {
                 // We can turn this into a "nice" GEP.
-                result = llvm::ConstantExpr::getGetElementPtr(base,
+                result = llvm::ConstantExpr::getGetElementPtr(
+#if LDC_LLVM_VER >= 307
+                    LLType::getInt8Ty(gIR->context()),
+#endif
+                    base,
                     DtoConstSize_t(e->offset / elemSize));
             }
             else
@@ -384,6 +404,9 @@ public:
                 // Offset isn't a multiple of base type size, just cast to i8* and
                 // apply the byte offset.
                 result = llvm::ConstantExpr::getGetElementPtr(
+#if LDC_LLVM_VER >= 307
+                    getVoidPtrType(),
+#endif
                     DtoBitCast(base, getVoidPtrType()),
                     DtoConstSize_t(e->offset));
             }
@@ -430,7 +453,11 @@ public:
             LLConstant* idxs[2] = { DtoConstSize_t(0), index };
             LLConstant *val = isaConstant(getIrGlobal(vd)->value);
             val = DtoBitCast(val, DtoType(vd->type->pointerTo()));
+#if LDC_LLVM_VER >= 307
+            LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(isaPointer(val)->getElementType(), val, idxs, true);
+#else
             LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(val, idxs, true);
+#endif
 
             // bitcast to requested type
             assert(e->type->toBasetype()->ty == Tpointer);
@@ -561,7 +588,11 @@ public:
 
         // build a constant dynamic array reference with the .ptr field pointing into store
         LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
+#if LDC_LLVM_VER >= 307
+        LLConstant* globalstorePtr = llvm::ConstantExpr::getGetElementPtr(isaPointer(store)->getElementType(), store, idxs, true);
+#else
         LLConstant* globalstorePtr = llvm::ConstantExpr::getGetElementPtr(store, idxs, true);
+#endif
 
         result = DtoConstSlice(DtoConstSize_t(e->elements->dim), globalstorePtr);
     }

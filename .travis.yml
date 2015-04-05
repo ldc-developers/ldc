@@ -45,8 +45,6 @@ env:
   - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TEST_DEBUG=1
   - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev"
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TEST_DEBUG=1
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=32
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=64
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TEST_DEBUG=1 OPTS="-DBUILD_SHARED_LIBS=ON"
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DBUILD_SHARED_LIBS=ON"
   - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TEST_DEBUG=1
@@ -57,6 +55,8 @@ env:
   - LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev"
 matrix:
   allow_failures:
+  - env: LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=32
+  - env: LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=64
   - env: LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev" TEST_DEBUG=1
   - env: LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev"
   - env: LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev" TEST_DEBUG=1

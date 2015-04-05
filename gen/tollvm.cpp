@@ -360,8 +360,14 @@ LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::
 
 LLConstant* DtoGEPi(LLConstant* ptr, unsigned i0, unsigned i1)
 {
+    LLPointerType* p = isaPointer(ptr);
+    assert(p && "GEP expects a pointer type");
     LLValue* v[] = { DtoConstUint(i0), DtoConstUint(i1) };
-    return llvm::ConstantExpr::getGetElementPtr(ptr, v, true);
+    return llvm::ConstantExpr::getGetElementPtr(
+#if LDC_LLVM_VER >= 307
+        p->getElementType(),
+#endif
+        ptr, v, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -490,14 +496,18 @@ LLConstant* DtoConstFP(Type* t, longdouble value)
 LLConstant* DtoConstString(const char* str)
 {
     llvm::StringRef s(str ? str : "");
-    LLConstant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
+    llvm::Constant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
     llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
         *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
     gvar->setUnnamedAddr(true);
     LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
     return DtoConstSlice(
         DtoConstSize_t(s.size()),
-        llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true),
+        llvm::ConstantExpr::getGetElementPtr(
+#if LDC_LLVM_VER >= 307
+            init->getType(),
+#endif
+            gvar, idxs, true),
         Type::tchar->arrayOf()
     );
 }
