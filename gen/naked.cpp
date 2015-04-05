@@ -486,14 +486,3 @@ DValue * DtoInlineAsmExpr(Loc& loc, FuncDeclaration * fd, Expressions * argument
     // return call as im value
     return new DImValue(fd->type->nextOf(), rv);
 }
-
-
-
-
-
-
-
-
-
-
-
