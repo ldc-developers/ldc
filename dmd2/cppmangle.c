@@ -406,7 +406,11 @@ class CppMangleVisitor : public Visitor
         Dsymbol *p = d->toParent();
         if (p && !p->isModule()) //for example: char Namespace1::beta[6] should be mangled as "_ZN10Namespace14betaE"
         {
+#if IN_LLVM
+            buf.writestring("_ZN");
+#else
             buf.writestring(global.params.isOSX ? "__ZN" : "_ZN");      // "__Z" for OSX, "_Z" for other
+#endif
             prefix_name(p);
             source_name(d);
             buf.writeByte('E');
@@ -415,13 +419,19 @@ class CppMangleVisitor : public Visitor
         {
             if (!is_temp_arg_ref)
             {
+#if !IN_LLVM
                 if (global.params.isOSX)
                     buf.writeByte('_');
+#endif
                 buf.writestring(d->ident->toChars());
             }
             else
             {
+#if IN_LLVM
+                buf.writestring("_Z");
+#else
                 buf.writestring(global.params.isOSX ? "__Z" : "_Z");
+#endif
                 source_name(d);
             }
         }
@@ -438,7 +448,11 @@ class CppMangleVisitor : public Visitor
          */
         TypeFunction *tf = (TypeFunction *)d->type;
 
+#if IN_LLVM
+        buf.writestring("_Z");
+#else
         buf.writestring(global.params.isOSX ? "__Z" : "_Z");      // "__Z" for OSX, "_Z" for other
+#endif
         Dsymbol *p = d->toParent();
         if (p && !p->isModule() && tf->linkage == LINKcpp)
         {
