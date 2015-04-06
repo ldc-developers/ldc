@@ -70,6 +70,10 @@ static cl::opt<bool, true> verbose_cg("v-cg",
     cl::ZeroOrMore,
     cl::location(global.params.verbose_cg));
 
+static cl::opt<unsigned, true> errorLimit("verrors",
+    cl::desc("limit the number of error messages (0 means unlimited)"),
+    cl::location(global.errorLimit));
+
 static cl::opt<ubyte, true> warnings(
     cl::desc("Warnings:"),
     cl::ZeroOrMore,
