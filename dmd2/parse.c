@@ -2786,6 +2786,8 @@ Objects *Parser::parseTemplateSingleArgument()
         case TOKuns32v:
         case TOKint64v:
         case TOKuns64v:
+        case TOKint128v:
+        case TOKuns128v:
         case TOKfloat32v:
         case TOKfloat64v:
         case TOKfloat80v:
@@ -4476,6 +4478,8 @@ Statement *Parser::parseStatement(int flags, const utf8_t** endPtr, Loc *pEndloc
         case TOKuns32v:
         case TOKint64v:
         case TOKuns64v:
+        case TOKint128v:
+        case TOKuns128v:
         case TOKfloat32v:
         case TOKfloat64v:
         case TOKfloat80v:
@@ -5670,6 +5674,8 @@ bool Parser::isBasicType(Token **pt)
                         case TOKuns32v:
                         case TOKint64v:
                         case TOKuns64v:
+                        case TOKint128v:
+                        case TOKuns128v:
                         case TOKfloat32v:
                         case TOKfloat64v:
                         case TOKfloat80v:
@@ -7123,6 +7129,8 @@ Expression *Parser::parseUnaryExp()
                     case TOKuns32v:
                     case TOKint64v:
                     case TOKuns64v:
+                    case TOKint128v:
+                    case TOKuns128v:
                     case TOKfloat32v:
                     case TOKfloat64v:
                     case TOKfloat80v:
