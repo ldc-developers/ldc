@@ -297,7 +297,8 @@ Usage:\n\
 #if 0
 "  -vtls          list all variables going into thread local storage\n"
 #endif
-"  -w             enable warnings\n\
+"  -verrors=num   limit the number of error messages (0 means unlimited)\n\
+  -w             enable warnings\n\
   -wi            enable informational warnings\n\
   -X             generate JSON file\n\
   -Xffilename    write JSON file to filename\n\n", argv0
@@ -450,6 +451,8 @@ struct Params
     bool verbose;
     bool vdmd;
     bool logTlsUse;
+    unsigned errorLimit;
+    bool errorLimitSet;
     Warnings::Type warnings;
     bool optimize;
     bool noObj;
@@ -515,6 +518,8 @@ struct Params
     verbose(false),
     vdmd(false),
     logTlsUse(false),
+    errorLimit(0),
+    errorLimitSet(false),
     warnings(Warnings::none),
     optimize(false),
     noObj(false),
@@ -640,6 +645,23 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
             {
                 error("use DMD 1.0 series compilers for -v1 switch");
                 break;
+            }
+            else if (memcmp(p + 1, "verrors", 7) == 0)
+            {
+                if (p[8] == '=' && isdigit((unsigned char)p[9]))
+                {
+                    long num;
+                    char* endp;
+                    errno = 0;
+                    num = strtol(p + 9, &endp, 10);
+                    if (*endp || errno || num > INT_MAX)
+                        goto Lerror;
+                    // Bugzilla issue number
+                    result.errorLimit = (unsigned) num;
+                    result.errorLimitSet = true;
+                }
+                else
+                    goto Lerror;
             }
             else if (strcmp(p + 1, "w") == 0)
                 result.warnings = Warnings::asErrors;
@@ -952,6 +974,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.profile) warning("CPU profile generation not yet supported by LDC.");
     if (p.verbose) r.push_back("-v");
     if (p.logTlsUse) warning("-vtls not yet supported by LDC.");
+    if (p.errorLimitSet) r.push_back(concat("-verrors=", p.errorLimit));
     if (p.warnings == Warnings::asErrors) r.push_back("-w");
     else if (p.warnings == Warnings::informational) r.push_back("-wi");
     if (p.optimize) r.push_back("-O3");
