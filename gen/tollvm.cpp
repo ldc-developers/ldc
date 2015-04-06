@@ -104,6 +104,8 @@ LLType* DtoType(Type* t)
     case Tuns32:
     case Tint64:
     case Tuns64:
+    case Tint128:
+    case Tuns128:
     case Tfloat32:
     case Tfloat64:
     case Tfloat80:

@@ -119,11 +119,9 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
     case Tuns64:
         return llvm::Type::getInt64Ty(ctx);
 
-    /*
     case Tint128:
     case Tuns128:
-        return llvm::IntegerType::get(llvm::getGlobalContext(), 128);
-    */
+        return llvm::IntegerType::get(ctx, 128);
 
     case Tfloat32:
     case Timaginary32:
