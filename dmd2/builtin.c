@@ -168,7 +168,7 @@ Expression *eval_llvmminnum(Loc loc, FuncDeclaration *fd, Expressions *arguments
     assert(arg0->op == TOKfloat64);
     Expression *arg1 = (*arguments)[1];
     assert(arg1->op == TOKfloat64);
-    return new RealExp(loc, fmin(arg0->toReal(), arg1->toReal()), type);
+    return new RealExp(loc, fminl(arg0->toReal(), arg1->toReal()), type);
 }
 
 Expression *eval_llvmmaxnum(Loc loc, FuncDeclaration *fd, Expressions *arguments)
@@ -178,7 +178,7 @@ Expression *eval_llvmmaxnum(Loc loc, FuncDeclaration *fd, Expressions *arguments
     assert(arg0->op == TOKfloat64);
     Expression *arg1 = (*arguments)[1];
     assert(arg1->op == TOKfloat64);
-    return new RealExp(loc, fmax(arg0->toReal(), arg1->toReal()), type);
+    return new RealExp(loc, fmaxl(arg0->toReal(), arg1->toReal()), type);
 }
 
 Expression *eval_llvmfloor(Loc loc, FuncDeclaration *fd, Expressions *arguments)
