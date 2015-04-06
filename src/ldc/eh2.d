@@ -182,7 +182,7 @@ struct UNWIND_HISTORY_TABLE
     UCHAR Search;
     ULONG64 LowAddress;
     ULONG64 HighAddress;
-    UNWIND_HISTORY_TABLE_ENTRY Entry[UNWIND_HISTORY_TABLE_SIZE];
+    UNWIND_HISTORY_TABLE_ENTRY[UNWIND_HISTORY_TABLE_SIZE] Entry;
 }
 
 extern(Windows) void RtlUnwindEx(PVOID TargetFrame,
