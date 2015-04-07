@@ -513,6 +513,8 @@ private struct Demangle
         TypeUint
         TypeLong
         TypeUlong
+        TypeCent
+        TypeUcent
         TypeFloat
         TypeDouble
         TypeReal
@@ -605,6 +607,12 @@ private struct Demangle
 
     TypeUlong:
         m
+
+    TypeCent
+        zi
+
+    TypeUcent
+        zk
 
     TypeFloat:
         f
@@ -796,6 +804,26 @@ private struct Demangle
                 put( primitives[cast(size_t)(t - 'a')] );
                 pad( name );
                 return dst[beg .. len];
+            }
+            else if (t == 'z')
+            {
+                next();
+                switch( tok() )
+                {
+                case 'i':
+                    next();
+                    put( "cent" );
+                    pad( name );
+                    return dst[beg .. len];
+                case 'k':
+                    next();
+                    put( "ucent" );
+                    pad( name );
+                    return dst[beg .. len];
+                default:
+                    error();
+                    assert( 0 );
+                }
             }
             error();
             return null;
@@ -1918,6 +1946,7 @@ version(unittest)
         ["_D3foo7__arrayZ", "foo.__array"],
         ["_D8link657428__T3fooVE8link65746Methodi0Z3fooFZi", "int link6574.foo!(0).foo()"],
         ["_D8link657429__T3fooHVE8link65746Methodi0Z3fooFZi", "int link6574.foo!(0).foo()"],
+        ["_D3foo3barFzkZzi", "cent foo.bar(ucent)"],
     ];
 
     template staticIota(int x)
