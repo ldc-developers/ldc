@@ -196,6 +196,11 @@ public:
 
     // array ops emitted in this module already
     AA *arrayfuncs;
+
+    // Coverage analysis
+    llvm::GlobalVariable* d_cover_valid;  // private immutable size_t[] _d_cover_valid;
+    llvm::GlobalVariable* d_cover_data;   // private uint[] _d_cover_data;
+    std::vector<size_t> d_cover_valid_init; // initializer for _d_cover_valid
 #endif
 
     Module *isModule() { return this; }

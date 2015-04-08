@@ -138,6 +138,8 @@ Module::Module(const char *filename, Identifier *ident, int doDocComment, int do
     this->doDocComment = doDocComment;
     this->doHdrGen = doHdrGen;
     this->arrayfuncs = 0;
+    d_cover_valid = NULL;
+    d_cover_data = NULL;
 #endif
 }
 

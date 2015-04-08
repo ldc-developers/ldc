@@ -235,11 +235,10 @@ Usage:\n\
   @cmdfile       read arguments from cmdfile\n\
   -c             do not link\n\
   -color[=on|off]   force colored console output on or off\n\
-  -conf=path     use config file at path (NOT YET IMPLEMENTED)\n"
-#if 0
-"  -cov           do code coverage analysis\n"
-#endif
-"  -D             generate documentation\n\
+  -conf=path     use config file at path (NOT YET IMPLEMENTED)\n
+  -cov           do code coverage analysis\n\
+  -cov=nnn       require at least nnn%% code coverage\n\
+  -D             generate documentation\n\
   -Dddocdir      write documentation file to docdir directory\n\
   -Dffilename    write documentation file to filename\n\
   -d             allow deprecated features\n\
@@ -607,7 +606,10 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
             else if (strncmp(p + 1, "conf", 4) == 0)
                 /* NOT YET IMPLEMENTED */;
             else if (strcmp(p + 1, "cov") == 0)
-                result.coverage = true;
+                // For "-cov=...", the whole cmdline switch is forwarded to LDC.
+                // For plain "-cov", the cmdline switch must be explicitly forwarded
+                // and result.coverage must be set to true to that effect.
+                result.coverage = (p[4] != '=');
             else if (strcmp(p + 1, "shared") == 0
                 // backwards compatibility with old switch
                 || strcmp(p + 1, "dylib") == 0
@@ -960,7 +962,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
 {
     if (p.allowDeprecated) r.push_back("-d");
     if (p.compileOnly) r.push_back("-c");
-    if (p.coverage) warning("Coverage report generation not yet supported by LDC.");
+    if (p.coverage) r.push_back("-cov");
     if (p.emitSharedLib) r.push_back("-shared");
     if (p.pic) r.push_back("-relocation-model=pic");
     if (p.emitMap) warning("Map file generation not yet supported by LDC.");

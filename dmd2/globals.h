@@ -110,6 +110,8 @@ struct Param
 
 #if IN_LLVM
     bool color;         // use ANSI colors in console output
+    bool cov;           // generate code coverage data
+    unsigned char covPercent;   // 0..100 code coverage percentage required
     bool ignoreUnsupportedPragmas;      // rather than error on them
     bool enforcePropertySyntax;
     bool addMain; // LDC_FIXME: Implement.

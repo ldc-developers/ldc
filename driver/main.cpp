@@ -373,6 +373,8 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     global.params.output_ll = opts::output_ll ? OUTPUTFLAGset : OUTPUTFLAGno;
     global.params.output_s  = opts::output_s  ? OUTPUTFLAGset : OUTPUTFLAGno;
 
+    global.params.cov = (global.params.covPercent <= 100);
+
     templateLinkage =
         opts::linkonceTemplates ? LLGlobalValue::LinkOnceODRLinkage
                                 : LLGlobalValue::WeakODRLinkage;
