@@ -22,6 +22,7 @@
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
+#include "gen/coverage.h"
 #include "gen/dvalue.h"
 #include "gen/functions.h"
 #include "gen/irstate.h"
@@ -2125,6 +2126,7 @@ public:
         llvm::BranchInst::Create(andand, andandend, ubool, p->scopebb());
 
         p->scope() = IRScope(andand, andandend);
+        emitCoverageLinecountInc(e->e2->loc);
         DValue* v = toElemDtor(e->e2);
 
         LLValue* vbool = 0;
@@ -2172,6 +2174,7 @@ public:
         llvm::BranchInst::Create(ororend,oror,ubool,p->scopebb());
 
         p->scope() = IRScope(oror, ororend);
+        emitCoverageLinecountInc(e->e2->loc);
         DValue* v = toElemDtor(e->e2);
 
         LLValue* vbool = 0;
