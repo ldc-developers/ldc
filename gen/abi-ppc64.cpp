@@ -66,15 +66,12 @@ struct PPC64TargetABI : TargetABI {
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     {
         // EXPLICIT PARAMETERS
-
         for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I)
         {
             IrFuncTyArg& arg = **I;
 
-            if (arg.byref)
-                continue;
-
-            rewriteArgument(fty, arg);
+            if (!arg.byref)
+                rewriteArgument(fty, arg);
         }
     }
 
@@ -86,8 +83,11 @@ struct PPC64TargetABI : TargetABI {
         {
             if (canRewriteAsInt(ty))
             {
-                arg.rewrite = &integerRewrite;
-                arg.ltype = integerRewrite.type(arg.type, arg.ltype);
+                if (!IntegerRewrite::isObsoleteFor(arg.ltype))
+                {
+                    arg.rewrite = &integerRewrite;
+                    arg.ltype = integerRewrite.type(arg.type, arg.ltype);
+                }
             }
             else
             {
