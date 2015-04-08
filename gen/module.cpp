@@ -574,13 +574,13 @@ static void addCoverageAnalysis(Module* m)
         // For safety, make the array large enough such that the slice passed to _d_cover_register2 is completely valid.
         array_size = m->numlines;
 
-        IF_LOG Logger::println("Build private variable: size_t[%d] _d_cover_valid", array_size);
+        IF_LOG Logger::println("Build private variable: size_t[%llu] _d_cover_valid", static_cast<unsigned long long>(array_size));
 
         llvm::ArrayType* type = llvm::ArrayType::get(DtoSize_t(), array_size);
         llvm::ConstantAggregateZero* zeroinitializer = llvm::ConstantAggregateZero::get(type);
         m->d_cover_valid = new llvm::GlobalVariable(*gIR->module, type, true, LLGlobalValue::InternalLinkage, zeroinitializer, "_d_cover_valid");
         LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
-        d_cover_valid_slice = DtoConstSlice( DtoConstSize_t(type->getArrayNumElements()), 
+        d_cover_valid_slice = DtoConstSlice( DtoConstSize_t(type->getArrayNumElements()),
                                              llvm::ConstantExpr::getGetElementPtr(m->d_cover_valid, idxs, true) );
 
         // Assert that initializer array elements have enough bits
@@ -635,7 +635,7 @@ static void addCoverageAnalysis(Module* m)
             assert(args[i]->getType() == fn->getFunctionType()->getParamType(i));
         }
 
-        llvm::CallInst* call = builder.CreateCall(fn, args);
+        builder.CreateCall(fn, args);
 
         builder.CreateRetVoid();
     }
