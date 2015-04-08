@@ -235,7 +235,7 @@ Usage:\n\
   @cmdfile       read arguments from cmdfile\n\
   -c             do not link\n\
   -color[=on|off]   force colored console output on or off\n\
-  -conf=path     use config file at path (NOT YET IMPLEMENTED)\n
+  -conf=path     use config file at path (NOT YET IMPLEMENTED)\n\
   -cov           do code coverage analysis\n\
   -cov=nnn       require at least nnn%% code coverage\n\
   -D             generate documentation\n\
