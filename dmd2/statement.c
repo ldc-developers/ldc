@@ -3674,11 +3674,11 @@ Statement *GotoCaseStatement::semantic(Scope *sc)
         return new ErrorStatement();
     }
 
+#if IN_LLVM
+    sw = sc->sw;
+#endif
     if (exp)
     {
-#if IN_LLVM
-        sw = sc->sw;
-#endif
         exp = exp->semantic(sc);
         exp = exp->implicitCastTo(sc, sc->sw->condition->type);
         exp = exp->optimize(WANTvalue);
