@@ -446,7 +446,7 @@ cl::opt<bool, true, FlagParser> color("color",
     cl::desc("Force colored console output"),
     cl::location(global.params.color));
 
-cl::opt<bool, true> color("dip25",
+cl::opt<bool, true> useDIP25("dip25",
     cl::desc("implement http://wiki.dlang.org/DIP25 (experimental)"),
     cl::location(global.params.useDIP25));
 
