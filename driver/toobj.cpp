@@ -172,7 +172,11 @@ namespace
     class AssemblyAnnotator : public AssemblyAnnotationWriter
     {
         // Find the MDNode which corresponds to the DISubprogram data that described F.
+#if LDC_LLVM_VER >= 307
+        static MDSubprogram* FindSubprogram(const Function *F, DebugInfoFinder &Finder)
+#else
         static MDNode* FindSubprogram(const Function *F, DebugInfoFinder &Finder)
+#endif
         {
 #if LDC_LLVM_VER >= 305
             for (DISubprogram Subprogram : Finder.subprograms()) {
@@ -199,7 +203,11 @@ namespace
 #else
             Finder.processModule(const_cast<llvm::Module&>(*F->getParent()));
 #endif
+#if LDC_LLVM_VER >= 307
+            if (MDSubprogram* N = FindSubprogram(F, Finder))
+#else
             if (MDNode* N = FindSubprogram(F, Finder))
+#endif
             {
                 llvm::DISubprogram sub(N);
                 return sub.getDisplayName();
