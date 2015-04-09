@@ -251,6 +251,7 @@ Usage:\n\
   -debuglib=name    set symbolic debug library to name\n\
   -defaultlib=name  set default library to name\n\
   -deps=filename write module dependencies to filename\n\
+  -dip25         implement http://wiki.dlang.org/DIP25 (experimental)\n\
   -fPIC          generate position independent code\n\
   -g             add symbolic debug info\n\
   -gc            add symbolic debug info, pretend to be C\n\
@@ -503,6 +504,7 @@ struct Params
     char* debugLibName;
     char* moduleDepsFile;
     Color::Type color;
+    bool useDIP25;
 
     bool hiddenDebugB;
     bool hiddenDebugC;
@@ -567,6 +569,7 @@ struct Params
     debugLibName(0),
     moduleDepsFile(0),
     color(Color::automatic),
+    useDIP25(false),
     hiddenDebugB(false),
     hiddenDebugC(false),
     hiddenDebugF(false),
@@ -634,6 +637,8 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
                 // For plain "-cov", the cmdline switch must be explicitly forwarded
                 // and result.coverage must be set to true to that effect.
                 result.coverage = (p[4] != '=');
+            else if (strcmp(p + 1, "dip25") == 0)
+                result.useDIP25 = true;
             else if (strcmp(p + 1, "shared") == 0
                 // backwards compatibility with old switch
                 || strcmp(p + 1, "dylib") == 0
@@ -1049,6 +1054,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.moduleDepsFile) r.push_back(concat("-deps=", p.moduleDepsFile));
     if (p.color == Color::on) r.push_back("-enable-color");
     if (p.color == Color::off) r.push_back("-disable-color");
+    if (p.useDIP25) r.push_back("-dip25");
     if (p.hiddenDebugB) r.push_back("-hidden-debug-b");
     if (p.hiddenDebugC) r.push_back("-hidden-debug-c");
     if (p.hiddenDebugF) r.push_back("-hidden-debug-f");

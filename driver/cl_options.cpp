@@ -446,6 +446,10 @@ cl::opt<bool, true, FlagParser> color("color",
     cl::desc("Force colored console output"),
     cl::location(global.params.color));
 
+cl::opt<bool, true> color("dip25",
+    cl::desc("implement http://wiki.dlang.org/DIP25 (experimental)"),
+    cl::location(global.params.useDIP25));
+
 cl::opt<unsigned char, true, CoverageParser> coverageAnalysis("cov",
     cl::desc("Compile-in code coverage analysis\n(use -cov=n for n% minimum required coverage)"),
     cl::location(global.params.covPercent),
