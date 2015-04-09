@@ -49,6 +49,13 @@ private
 
     version( Windows )
     {
+        version (LDC)
+        {
+            // LDC implicitly links to these libraries. The explicit
+            // mention of libcmt (non-debug) conflicts with the implicit
+            // libcmtd (debug) link.
+        }
+        else
         version (CRuntime_DigitalMars)
         {
             pragma(lib, "snn.lib");
