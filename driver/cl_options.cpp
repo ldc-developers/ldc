@@ -93,6 +93,16 @@ static cl::opt<bool, true> verbose("v",
     cl::ZeroOrMore,
     cl::location(global.params.verbose));
 
+static cl::opt<bool, true> verbose("vcolumns",
+    cl::desc("print character (column) numbers in diagnostics"),
+    cl::ZeroOrMore,
+    cl::location(global.params.showColumns));
+
+static cl::opt<bool, true> verbose("vgc",
+    cl::desc("list all gc allocations including hidden ones"),
+    cl::ZeroOrMore,
+    cl::location(global.params.vgc));
+
 static cl::opt<bool, true> verbose_cg("v-cg",
     cl::desc("Verbose codegen"),
     cl::ZeroOrMore,
