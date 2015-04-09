@@ -242,7 +242,9 @@ Usage:\n\
   -D             generate documentation\n\
   -Dddocdir      write documentation file to docdir directory\n\
   -Dffilename    write documentation file to filename\n\
-  -d             allow deprecated features\n\
+  -d             silently allow deprecated features\n\
+  -dw            show use of deprecated features as warnings (default)\n\
+  -de            show use of deprecated features as errors (halt compilation)\n\
   -debug         compile in debug code\n\
   -debug=level   compile in debug code <= level\n\
   -debug=ident   compile in debug code identified by ident\n\
@@ -269,9 +271,8 @@ Usage:\n\
 #if 0
 "  -map           generate linker .map file\n"
 #endif
-"  -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n"
-"  -noboundscheck no array bounds checking (deprecated, use -boundscheck=off)\n"
-"  -nofloat       do not emit reference to floating point\n\
+"  -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
+  -noboundscheck no array bounds checking (deprecated, use -boundscheck=off)\n\
   -O             optimize\n\
   -o-            do not write object file\n\
   -odobjdir      write object & library files to directory objdir\n\
@@ -291,13 +292,15 @@ Usage:\n\
 #endif
 "  -unittest      compile in unit tests\n\
   -v             verbose\n\
+  -vcolumns      print character (column) numbers in diagnostics\n\
   -vdmd          print the command used to invoke the underlying compiler\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n"
 #if 0
 "  -vtls          list all variables going into thread local storage\n"
 #endif
-"  -verrors=num   limit the number of error messages (0 means unlimited)\n\
+"  -vgc           list all gc allocations including hidden ones\n\
+  -verrors=num   limit the number of error messages (0 means unlimited)\n\
   -w             enable warnings\n\
   -wi            enable informational warnings\n\
   -X             generate JSON file\n\
@@ -460,7 +463,9 @@ struct Params
     Model::Type targetModel;
     bool profile;
     bool verbose;
+    bool vcolumns;
     bool vdmd;
+    bool vgc;
     bool logTlsUse;
     unsigned errorLimit;
     bool errorLimitSet;
@@ -482,7 +487,6 @@ struct Params
     bool enforcePropertySyntax;
     bool enableInline;
     bool emitStaticLib;
-    bool noFloat;
     bool quiet;
     bool release;
     BoundsCheck::Type boundsChecks;
@@ -528,7 +532,9 @@ struct Params
     targetModel(Model::automatic),
     profile(false),
     verbose(false),
+    vcolumns(false),
     vdmd(false),
+    vgc(false),
     logTlsUse(false),
     errorLimit(0),
     errorLimitSet(false),
@@ -550,7 +556,6 @@ struct Params
     enforcePropertySyntax(false),
     enableInline(false),
     emitStaticLib(false),
-    noFloat(false),
     quiet(false),
     release(false),
     boundsChecks(BoundsCheck::defaultVal),
@@ -658,8 +663,12 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
                 warning("-transition not yet supported by LDC.");
             else if (strcmp(p + 1, "v") == 0)
                 result.verbose = true;
+            else if (strcmp(p + 1, "vcolumns") == 0)
+                result.vcolumns = true;
             else if (strcmp(p + 1, "vdmd") == 0)
                 result.vdmd = true;
+            else if (strcmp(p + 1, "vgc") == 0)
+                result.vgc = true;
             else if (strcmp(p + 1, "vtls") == 0)
                 result.logTlsUse = true;
             else if (strcmp(p + 1, "v1") == 0)
@@ -797,8 +806,6 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
                 result.enableInline = true;
             else if (strcmp(p + 1, "lib") == 0)
                 result.emitStaticLib = true;
-            else if (strcmp(p + 1, "nofloat") == 0)
-                result.noFloat = 1;
             else if (strcmp(p + 1, "quiet") == 0)
                 result.quiet = 1;
             else if (strcmp(p + 1, "release") == 0)
@@ -996,6 +1003,8 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     else if (p.targetModel == Model::m64) r.push_back("-m64");
     if (p.profile) warning("CPU profile generation not yet supported by LDC.");
     if (p.verbose) r.push_back("-v");
+    if (p.vcolumns) r.push_back("-vcolumns");
+    if (p.vgc) r.push_back("-vgc");
     if (p.logTlsUse) warning("-vtls not yet supported by LDC.");
     if (p.errorLimitSet) r.push_back(concat("-verrors=", p.errorLimit));
     if (p.warnings == Warnings::asErrors) r.push_back("-w");
@@ -1021,7 +1030,6 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
         r.push_back("-Hkeep-all-bodies");
     }
     if (p.emitStaticLib) r.push_back("-lib");
-    if (p.noFloat) warning("-nofloat is ignored by LDC.");
     // -quiet is the default in (newer?) frontend versions, just ignore it.
     if (p.release) r.push_back("-release"); // Also disables boundscheck.
     if (p.boundsChecks == BoundsCheck::on) r.push_back("-boundscheck=on");
