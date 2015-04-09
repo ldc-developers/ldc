@@ -233,6 +233,7 @@ Usage:\n\
 \n\
   files.d        D source files\n\
   @cmdfile       read arguments from cmdfile\n\
+  -allinst       generate code for all template instantiations\n\
   -c             do not link\n\
   -color[=on|off]   force colored console output on or off\n\
   -conf=path     use config file at path (NOT YET IMPLEMENTED)\n\
@@ -414,6 +415,16 @@ struct Debug
     };
 };
 
+struct Deprecated
+{
+    enum Type
+    {
+        allow,
+        warn,
+        error
+    };
+};
+
 struct Model
 {
     enum Type
@@ -436,7 +447,8 @@ struct Warnings
 
 struct Params
 {
-    bool allowDeprecated;
+    bool allinst;
+    Deprecated::Type useDeprecated;
     bool compileOnly;
     bool coverage;
     bool emitSharedLib;
@@ -503,7 +515,8 @@ struct Params
 
   Params()
     :
-    allowDeprecated(false),
+    allinst(false),
+    useDeprecated(Deprecated::warn),
     compileOnly(false),
     coverage(false),
     emitSharedLib(false),
@@ -583,8 +596,14 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
         char* p = args[i];
         if (*p == '-')
         {
-            if (strcmp(p + 1, "d") == 0)
-                result.allowDeprecated = true;
+            if (strcmp(p + 1, "allinst") == 0)
+                result.allinst = true;
+            else if (strcmp(p + 1, "de") == 0)
+                result.useDeprecated = Deprecated::error;
+            else if (strcmp(p + 1, "d") == 0)
+                result.useDeprecated = Deprecated::allow;
+            else if (strcmp(p + 1, "dw") == 0)
+                result.useDeprecated = Deprecated::warn;
             else if (strcmp(p + 1, "c") == 0)
                 result.compileOnly = true;
             else if (strncmp(p + 1, "color", 5) == 0)
@@ -960,7 +979,9 @@ void pushSwitches(const char* prefix, const std::vector<char*>& vals, std::vecto
  */
 void buildCommandLine(std::vector<const char*>& r, const Params& p)
 {
-    if (p.allowDeprecated) r.push_back("-d");
+    if (p.allinst) r.push_back("-allinst");
+    if (p.useDeprecated == Deprecated::allow) r.push_back("-d");
+    if (p.useDeprecated == Deprecated::error) r.push_back("-de");
     if (p.compileOnly) r.push_back("-c");
     if (p.coverage) r.push_back("-cov");
     if (p.emitSharedLib) r.push_back("-shared");
