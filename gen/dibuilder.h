@@ -78,13 +78,23 @@ typedef llvm::DIType DIFunctionType;
 class DIBuilder
 {
     IRState *const IR;
-    const llvm::MDNode *CUNode;
     llvm::DIBuilder DBuilder;
+
+#if LDC_LLVM_VER >= 307
+    const llvm::MDCompileUnit *CUNode;
+
+    const llvm::MDCompileUnit *GetCU()
+    {
+        return CUNode;
+    }
+#else
+    const llvm::MDNode *CUNode;
 
     const llvm::MDNode *GetCU()
     {
         return CUNode;
     }
+#endif
 
 public:
     DIBuilder(IRState *const IR, llvm::Module &M);

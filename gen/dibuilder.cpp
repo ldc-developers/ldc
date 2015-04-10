@@ -353,7 +353,7 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
     llvm::StringRef name = sd->toChars();
     unsigned linnum = sd->loc.linnum;
     llvm::DICompileUnit CU(GetCU());
-    assert(CU && CU.Verify() && "Compilation unit missing or corrupted");
+    assert(CU && "Compilation unit missing or corrupted");
     llvm::DIFile file = CreateFile(sd->loc);
     llvm::DIType derivedFrom;
 
@@ -657,7 +657,7 @@ llvm::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd)
     LOG_SCOPE;
 
     llvm::DICompileUnit CU(GetCU());
-    assert(CU && CU.Verify() && "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
+    assert(CU && "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
     llvm::DIFile file = CreateFile(fd->loc);
 
@@ -691,7 +691,7 @@ llvm::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function* Fn,
     LOG_SCOPE;
 
     llvm::DICompileUnit CU(GetCU());
-    assert(CU && CU.Verify() && "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
+    assert(CU && "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
     Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
     llvm::DIFile file(CreateFile(loc));

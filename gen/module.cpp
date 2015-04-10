@@ -325,7 +325,11 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     LLValue* curbeg = builder.CreateLoad(mref, "current");
 
     // put current beginning as the next of this one
-    LLValue* gep = builder.CreateStructGEP(thismref, 0, "next");
+    LLValue* gep = builder.CreateStructGEP(
+#if LDC_LLVM_VER >= 307
+        modulerefTy,
+#endif
+        thismref, 0, "next");
     builder.CreateStore(curbeg, gep);
 
     // replace beginning
@@ -385,13 +389,21 @@ static void build_dso_ctor_dtor_body(
             minfoEnd->getType(),
             minfoUsedPointer->getType()
         };
-        llvm::Value* record = b.CreateAlloca(
-            llvm::StructType::get(gIR->context(), memberTypes, false));
+        llvm::StructType* stype = llvm::StructType::get(gIR->context(), memberTypes, false);
+        llvm::Value* record = b.CreateAlloca(stype);
+#if LDC_LLVM_VER >= 307
+        b.CreateStore(version, b.CreateStructGEP(stype, record, 0)); // version
+        b.CreateStore(dsoSlot, b.CreateStructGEP(stype, record, 1)); // slot
+        b.CreateStore(minfoBeg, b.CreateStructGEP(stype, record, 2));
+        b.CreateStore(minfoEnd, b.CreateStructGEP(stype, record, 3));
+        b.CreateStore(minfoUsedPointer, b.CreateStructGEP(stype, record, 4));
+#else
         b.CreateStore(version, b.CreateStructGEP(record, 0)); // version
         b.CreateStore(dsoSlot, b.CreateStructGEP(record, 1)); // slot
         b.CreateStore(minfoBeg, b.CreateStructGEP(record, 2));
         b.CreateStore(minfoEnd, b.CreateStructGEP(record, 3));
         b.CreateStore(minfoUsedPointer, b.CreateStructGEP(record, 4));
+#endif
 
         b.CreateCall(dsoRegistry, b.CreateBitCast(record, recordPtrTy));
         b.CreateBr(endBB);
@@ -581,7 +593,11 @@ static void addCoverageAnalysis(Module* m)
         m->d_cover_valid = new llvm::GlobalVariable(*gIR->module, type, true, LLGlobalValue::InternalLinkage, zeroinitializer, "_d_cover_valid");
         LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
         d_cover_valid_slice = DtoConstSlice( DtoConstSize_t(type->getArrayNumElements()),
-                                             llvm::ConstantExpr::getGetElementPtr(m->d_cover_valid, idxs, true) );
+                                             llvm::ConstantExpr::getGetElementPtr(
+#if LDC_LLVM_VER >= 307
+                                             DtoSize_t(),
+#endif
+                                             m->d_cover_valid, idxs, true) );
 
         // Assert that initializer array elements have enough bits
         assert(sizeof(m->d_cover_valid_init[0])*8 >= gDataLayout->getTypeSizeInBits(DtoSize_t()));
@@ -597,8 +613,12 @@ static void addCoverageAnalysis(Module* m)
         llvm::ConstantAggregateZero* zeroinitializer = llvm::ConstantAggregateZero::get(type);
         m->d_cover_data = new llvm::GlobalVariable(*gIR->module, type, false, LLGlobalValue::InternalLinkage, zeroinitializer, "_d_cover_data");
         LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
-        d_cover_data_slice = DtoConstSlice( DtoConstSize_t(type->getArrayNumElements()), 
-                                            llvm::ConstantExpr::getGetElementPtr(m->d_cover_data, idxs, true) );
+        d_cover_data_slice = DtoConstSlice( DtoConstSize_t(type->getArrayNumElements()),
+                                            llvm::ConstantExpr::getGetElementPtr(
+#if LDC_LLVM_VER >= 307
+                                            LLType::getInt32Ty(gIR->context()),
+#endif
+                                            m->d_cover_data, idxs, true) );
     }
 
     // Create "static constructor" that calls _d_cover_register2(string filename, size_t[] valid, uint[] data, ubyte minPercent)
