@@ -134,9 +134,6 @@ static void replace_func_name(IRState* p, std::string& insnt)
 
 Statement* asmSemantic(AsmStatement *s, Scope *sc)
 {
-    if (sc->func && sc->func->isSafe())
-        s->error("inline assembler not allowed in @safe function %s", sc->func->toChars());
-
     bool err = false;
     llvm::Triple const t = global.params.targetTriple;
     if (!(t.getArch() == llvm::Triple::x86 || t.getArch() == llvm::Triple::x86_64))
