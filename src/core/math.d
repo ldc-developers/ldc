@@ -229,6 +229,9 @@ real rint(real x) @safe pure nothrow;      /* intrinsic */
  * translate to a single x87 instruction.
  */
 
+version (LDC) {}
+else
+{
 real yl2x(real x, real y)   @safe pure nothrow;       // y * log2(x)
 real yl2xp1(real x, real y) @safe pure nothrow;       // y * log2(x + 1)
 
@@ -240,4 +243,4 @@ unittest
         assert(yl2xp1(1023, 1) == 10);
     }
 }
-
+}
