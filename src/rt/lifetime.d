@@ -208,6 +208,71 @@ extern (C) void _d_delstruct(void** p, TypeInfo_Struct inf)
 // strip const/immutable/shared/inout from type info
 inout(TypeInfo) unqualify(inout(TypeInfo) cti) pure nothrow @nogc
 {
+    version (LDC)
+    {
+        /* Fix for object_.d/object.di madness.
+         *
+         * If object.di is imported (standard case):
+         *   - there is no field base
+         *   - field next returns the next typeinfo
+         *
+         * If object_.d is imported (compile all module at once)
+         *   - field base is defined and returns next typeinfo
+         *   - virtual property next returns next-after-next typeinfo
+         *
+         * Solution:
+         * If TypeInfo_Const is defined the use the original code.
+         * Otherwise check if the typeinfo is TypeInfo_Array. If yes
+         * then skip it. Then follow the original algorithm using next
+         * instead of base.
+         *
+         * Related to DMD bugs 3806 and 8656.
+         */
+        static if (__traits(compiles, (cast(TypeInfo_Const)ti).base ))
+        {
+            TypeInfo ti = cast() cti;
+            while (ti)
+            {
+                // avoid dynamic type casts
+                auto tti = typeid(ti);
+                if (tti is typeid(TypeInfo_Const))
+                    ti = (cast(TypeInfo_Const)cast(void*)ti).base;
+                else if (tti is typeid(TypeInfo_Invariant))
+                    ti = (cast(TypeInfo_Invariant)cast(void*)ti).base;
+                else if (tti is typeid(TypeInfo_Shared))
+                    ti = (cast(TypeInfo_Shared)cast(void*)ti).base;
+                else if (tti is typeid(TypeInfo_Inout))
+                    ti = (cast(TypeInfo_Inout)cast(void*)ti).base;
+                else
+                    break;
+            }
+            return ti;
+        }
+        else
+        {
+            TypeInfo ti = cast() cti;
+            if (typeid(ti) is typeid(TypeInfo_Array))
+                ti = (cast(TypeInfo_Array)cast(void*)ti).value;
+            while (ti)
+            {
+                // avoid dynamic type casts
+                auto tti = typeid(ti);
+                if (tti is typeid(TypeInfo_Const))
+                    ti = (cast(TypeInfo_Const)cast(void*)ti).next;
+                else if (tti is typeid(TypeInfo_Invariant))
+                    ti = (cast(TypeInfo_Invariant)cast(void*)ti).next;
+                else if (tti is typeid(TypeInfo_Shared))
+                    ti = (cast(TypeInfo_Shared)cast(void*)ti).next;
+                else if (tti is typeid(TypeInfo_Inout))
+                    ti = (cast(TypeInfo_Inout)cast(void*)ti).next;
+                else
+                    break;
+            }
+            return ti;
+        }
+    }
+    else
+    {
     TypeInfo ti = cast() cti;
     while (ti)
     {
@@ -225,6 +290,7 @@ inout(TypeInfo) unqualify(inout(TypeInfo) cti) pure nothrow @nogc
             break;
     }
     return ti;
+    }
 }
 
 // size used to store the TypeInfo at the end of an allocation for structs that have a destructor
