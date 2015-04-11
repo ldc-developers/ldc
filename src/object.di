@@ -258,6 +258,8 @@ class TypeInfo_Tuple : TypeInfo
 class TypeInfo_Const : TypeInfo
 {
     TypeInfo next;
+    // See comment in rt.lifetime.unqualify()
+    version(LDC) alias base = next;
 }
 
 class TypeInfo_Invariant : TypeInfo_Const

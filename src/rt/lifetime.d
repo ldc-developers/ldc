@@ -221,58 +221,19 @@ inout(TypeInfo) unqualify(inout(TypeInfo) cti) pure nothrow @nogc
          *   - virtual property next returns next-after-next typeinfo
          *
          * Solution:
-         * If TypeInfo_Const is defined the use the original code.
-         * Otherwise check if the typeinfo is TypeInfo_Array. If yes
-         * then skip it. Then follow the original algorithm using next
-         * instead of base.
+         * A new alias base is added to object.di.
+         * Each caller of unqualify() is changed from
+         *     unqualify(ti.next)
+         * to
+         *     unqualify(unqualify(ti).next)
+         * This ensures that the array is unqualified and then the base type of
+         * the array is unqualified.
+         *
+         * Depending on the import the field base or the alias base is used.
          *
          * Related to DMD bugs 3806 and 8656.
          */
-        static if (__traits(compiles, (cast(TypeInfo_Const)ti).base ))
-        {
-            TypeInfo ti = cast() cti;
-            while (ti)
-            {
-                // avoid dynamic type casts
-                auto tti = typeid(ti);
-                if (tti is typeid(TypeInfo_Const))
-                    ti = (cast(TypeInfo_Const)cast(void*)ti).base;
-                else if (tti is typeid(TypeInfo_Invariant))
-                    ti = (cast(TypeInfo_Invariant)cast(void*)ti).base;
-                else if (tti is typeid(TypeInfo_Shared))
-                    ti = (cast(TypeInfo_Shared)cast(void*)ti).base;
-                else if (tti is typeid(TypeInfo_Inout))
-                    ti = (cast(TypeInfo_Inout)cast(void*)ti).base;
-                else
-                    break;
-            }
-            return ti;
-        }
-        else
-        {
-            TypeInfo ti = cast() cti;
-            if (typeid(ti) is typeid(TypeInfo_Array))
-                ti = (cast(TypeInfo_Array)cast(void*)ti).value;
-            while (ti)
-            {
-                // avoid dynamic type casts
-                auto tti = typeid(ti);
-                if (tti is typeid(TypeInfo_Const))
-                    ti = (cast(TypeInfo_Const)cast(void*)ti).next;
-                else if (tti is typeid(TypeInfo_Invariant))
-                    ti = (cast(TypeInfo_Invariant)cast(void*)ti).next;
-                else if (tti is typeid(TypeInfo_Shared))
-                    ti = (cast(TypeInfo_Shared)cast(void*)ti).next;
-                else if (tti is typeid(TypeInfo_Inout))
-                    ti = (cast(TypeInfo_Inout)cast(void*)ti).next;
-                else
-                    break;
-            }
-            return ti;
-        }
     }
-    else
-    {
     TypeInfo ti = cast() cti;
     while (ti)
     {
@@ -290,7 +251,6 @@ inout(TypeInfo) unqualify(inout(TypeInfo) cti) pure nothrow @nogc
             break;
     }
     return ti;
-    }
 }
 
 // size used to store the TypeInfo at the end of an allocation for structs that have a destructor
@@ -737,6 +697,7 @@ extern(C) void _d_arrayshrinkfit(const TypeInfo ti, void[] arr) /+nothrow+/
     // note, we do not care about shared.  We are setting the length no matter
     // what, so no lock is required.
     debug(PRINTF) printf("_d_arrayshrinkfit, elemsize = %d, arr.ptr = x%x arr.length = %d\n", ti.next.tsize, arr.ptr, arr.length);
+    version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
     auto size = tinext.tsize;                  // array element size
     auto cursize = arr.length * size;
@@ -819,7 +780,9 @@ body
     auto isshared = typeid(ti) is typeid(TypeInfo_Shared);
     auto bic = !isshared ? __getBlkInfo((*p).ptr) : null;
     auto info = bic ? *bic : GC.query((*p).ptr);
+    version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
+
     auto size = tinext.tsize;
     version (D_InlineAsm_X86)
     {
@@ -977,7 +940,9 @@ Lcontinue:
  */
 extern (C) void[] _d_newarrayU(const TypeInfo ti, size_t length) pure nothrow
 {
+    version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
+
     auto size = tinext.tsize;
 
     debug(PRINTF) printf("_d_newarrayU(length = x%x, size = %d)\n", length, size);
@@ -1037,7 +1002,9 @@ Lcontinue:
 extern (C) void[] _d_newarrayT(const TypeInfo ti, size_t length) pure nothrow
 {
     void[] result = _d_newarrayU(ti, length);
+    version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
+
     auto size = tinext.tsize;
 
     memset(result.ptr, 0, size * length);
@@ -1052,7 +1019,9 @@ extern (C) void[] _d_newarrayiT(const TypeInfo ti, size_t length) pure nothrow
     import core.internal.traits : TypeTuple;
 
     void[] result = _d_newarrayU(ti, length);
+    version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
+
     auto size = tinext.tsize;
 
     auto init = tinext.init();
@@ -1088,7 +1057,9 @@ void[] _d_newarrayOpT(alias op)(const TypeInfo ti, size_t[] dims)
 
     void[] foo(const TypeInfo ti, size_t[] dims)
     {
+        version(LDC) auto tinext = unqualify(unqualify(ti).next); else
         auto tinext = unqualify(ti.next);
+
         auto dim = dims[0];
 
         debug(PRINTF) printf("foo(ti = %p, ti.next = %p, dim = %d, ndims = %d\n", ti, ti.next, dim, dims.length);
@@ -1570,7 +1541,9 @@ body
             newdata = (*p).ptr;
             return newdata[0 .. newlength];
         }
+        version(LDC) auto tinext = unqualify(unqualify(ti).next); else
         auto tinext = unqualify(ti.next);
+
         size_t sizeelem = tinext.tsize;
         version (D_InlineAsm_X86)
         {
@@ -1736,7 +1709,9 @@ in
 body
 {
     void* newdata;
+    version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
+
     auto sizeelem = tinext.tsize;
     auto initializer = tinext.init();
     auto initsize = initializer.length;
@@ -1926,7 +1901,9 @@ Loverflow:
 extern (C) void[] _d_arrayappendT(const TypeInfo ti, ref byte[] x, byte[] y)
 {
     auto length = x.length;
+    version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
+
     auto sizeelem = tinext.tsize;              // array element size
     _d_arrayappendcTX(ti, x, y.length);
     memcpy(x.ptr + length * sizeelem, y.ptr, y.length * sizeelem);
@@ -2028,7 +2005,9 @@ byte[] _d_arrayappendcTX(const TypeInfo ti, ref byte[] px, size_t n)
     // This is a cut&paste job from _d_arrayappendT(). Should be refactored.
 
     // only optimize array append where ti is not a shared type
+    version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
+
     auto sizeelem = tinext.tsize;              // array element size
     auto isshared = typeid(ti) is typeid(TypeInfo_Shared);
     auto bic = !isshared ? __getBlkInfo(px.ptr) : null;
@@ -2208,7 +2187,9 @@ extern (C) void[] _d_arrayappendwd(ref byte[] x, dchar c)
 extern (C) byte[] _d_arraycatT(const TypeInfo ti, byte[] x, byte[] y)
 out (result)
 {
+    version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
+
     auto sizeelem = tinext.tsize;              // array element size
     debug(PRINTF) printf("_d_arraycatT(%d,%p ~ %d,%p sizeelem = %d => %d,%p)\n", x.length, x.ptr, y.length, y.ptr, sizeelem, result.length, result.ptr);
     assert(result.length == x.length + y.length);
@@ -2244,7 +2225,9 @@ body
             return y;
     }
 
+    version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
+
     auto sizeelem = tinext.tsize;              // array element size
     debug(PRINTF) printf("_d_arraycatT(%d,%p ~ %d,%p sizeelem = %d)\n", x.length, x.ptr, y.length, y.ptr, sizeelem);
     size_t xlen = x.length * sizeelem;
@@ -2274,7 +2257,9 @@ body
 extern (C) void[] _d_arraycatnTX(const TypeInfo ti, byte[][] arrs)
 {
     size_t length;
+    version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
+
     auto size = tinext.tsize;   // array element size
 
     foreach(b; arrs)
@@ -2312,7 +2297,9 @@ extern (C) void[] _d_arraycatnTX(const TypeInfo ti, byte[][] arrs)
 extern (C)
 void* _d_arrayliteralTX(const TypeInfo ti, size_t length)
 {
+    version(LDC) auto tinext = unqualify(unqualify(ti).next); else
     auto tinext = unqualify(ti.next);
+
     auto sizeelem = tinext.tsize;              // array element size
     void* result;
 
@@ -2357,7 +2344,9 @@ body
 
     if (a.length)
     {
+        version(LDC) auto tinext = unqualify(unqualify(ti).next); else
         auto tinext = unqualify(ti.next);
+
         auto sizeelem = tinext.tsize;                  // array element size
         auto size = a.length * sizeelem;
         auto info = __arrayAlloc(size, ti, tinext);
