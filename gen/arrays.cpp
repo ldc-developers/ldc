@@ -677,7 +677,6 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
         // Build static array for dimensions
         LLArrayType* type = LLArrayType::get(DtoSize_t(), ndims);
         array = DtoRawAlloca(type, 0, ".dimarray");
-        unsigned int i = 0;
         for (size_t i = 0; i < ndims; ++i)
             DtoStore(dims[i]->getRVal(), DtoGEPi(array, 0, i, ".ndim"));
     }
