@@ -355,6 +355,7 @@ extern(C) void _d_dso_registry(CompilerDSOData* data)
         version (Shared)
         {
             // the first loaded DSO is druntime itself
+            version (LDC) {} else
             assert(!_loadedDSOs.empty ||
                    /* We need a local symbol (rt_get_bss_start) or the function
                     * pointer might be a PLT address in the executable.
