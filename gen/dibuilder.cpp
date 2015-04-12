@@ -428,7 +428,11 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
         );
     }
 
+#if LDC_LLVM_VER >= 307
+    ir->diCompositeType = DBuilder.replaceTemporary(llvm::TempMDType(ir->diCompositeType), static_cast<llvm::MDCompositeType*>(ret.get()));
+#else
     ir->diCompositeType.replaceAllUsesWith(ret);
+#endif
     ir->diCompositeType = ret;
 
     return ret;
