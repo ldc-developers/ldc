@@ -631,7 +631,7 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size_t ndims, bool defaultInit)
+DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size_t ndims)
 {
     IF_LOG Logger::println("DtoNewMulDimDynArray : %s", arrayType->toChars());
     LOG_SCOPE;
@@ -641,26 +641,56 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
 
     // get value type
     Type* vtype = arrayType->toBasetype();
-    for (size_t i=0; i<ndims; ++i)
+    for (size_t i = 0; i < ndims; ++i)
         vtype = vtype->nextOf();
 
     // get runtime function
-    bool zeroInit = vtype->isZeroInit();
-    if (defaultInit && !isInitialized(vtype))
-        defaultInit = false;
-
-    const char* fnname = zeroInit ? "_d_newarraymT" : "_d_newarraymiT";
-
+    const char* fnname = vtype->isZeroInit() ? "_d_newarraymTX" : "_d_newarraymiTX";
     LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, fnname);
 
-    std::vector<LLValue*> args;
-    args.reserve(ndims+2);
-    args.push_back(arrayTypeInfo);
-    args.push_back(DtoConstSize_t(ndims));
+    // Check if constant
+    bool allDimsConst = true;
+    for (size_t i = 0; i < ndims; ++i)
+    {
+        if (!isaConstant(dims[i]->getRVal()))
+            allDimsConst = false;
+    }
 
     // build dims
-    for (size_t i=0; i<ndims; ++i)
-        args.push_back(dims[i]->getRVal());
+    LLValue* array;
+    if (allDimsConst)
+    {
+        // Build constant array for dimensions
+        std::vector<LLConstant*> argsdims;
+        argsdims.reserve(ndims);
+        for (size_t i = 0; i < ndims; ++i)
+        {
+            argsdims.push_back(isaConstant(dims[i]->getRVal()));
+        }
+
+        llvm::Constant* dims = llvm::ConstantArray::get(llvm::ArrayType::get(DtoSize_t(), ndims), argsdims);
+        LLGlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module, dims->getType(), true, LLGlobalValue::InternalLinkage, dims, ".dimsarray");
+        array = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(dims->getType()));
+    }
+    else
+    {
+        // Build static array for dimensions
+        LLArrayType* type = LLArrayType::get(DtoSize_t(), ndims);
+        array = DtoRawAlloca(type, 0, ".dimarray");
+        unsigned int i = 0;
+        for (size_t i = 0; i < ndims; ++i)
+            DtoStore(dims[i]->getRVal(), DtoGEPi(array, 0, i, ".ndim"));
+    }
+
+    LLStructType* dtype = DtoArrayType(DtoSize_t());
+    LLValue* darray = DtoRawAlloca(dtype, 0, ".array");
+    DtoStore(DtoConstSize_t(ndims), DtoGEPi(darray, 0, 0, ".len"));
+    DtoStore(DtoBitCast(array, getPtrToType(DtoSize_t())), DtoGEPi(darray, 0, 1, ".ptr"));
+
+    llvm::Value* args[] = {
+        arrayTypeInfo,
+        DtoLoad(darray)
+    };
 
     // call allocator
     LLValue* newptr = gIR->CreateCallOrInvoke(fn, args, ".gc_mem").getInstruction();

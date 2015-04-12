@@ -87,8 +87,8 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name)
             "_d_delmemory",
             "_d_newarrayT",
             "_d_newarrayiT",
-            "_d_newarraymT",
-            "_d_newarraymiT",
+            "_d_newarraymTX",
+            "_d_newarraymiTX",
             "_d_newarrayU",
             "_d_newclass",
             "_d_newitemT",
@@ -433,13 +433,13 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname3, M);
     }
-    // void[] _d_newarraymT (const TypeInfo ti, size_t[] dims)
-    // void[] _d_newarraymiT(const TypeInfo ti, size_t[] dims)
+    // void[] _d_newarraymTX (const TypeInfo ti, size_t[] dims)
+    // void[] _d_newarraymiTX(const TypeInfo ti, size_t[] dims)
     {
-        llvm::StringRef fname ("_d_newarraymT");
-        llvm::StringRef fname2("_d_newarraymiT");
+        llvm::StringRef fname ("_d_newarraymTX");
+        llvm::StringRef fname2("_d_newarraymiTX");
         LLType *types[] = { typeInfoTy, rt_array(sizeTy) };
-        LLFunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, true);
+        LLFunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname2, M);
     }

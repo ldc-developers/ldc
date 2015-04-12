@@ -1888,7 +1888,7 @@ public:
                 dims.reserve(ndims);
                 for (size_t i=0; i<ndims; ++i)
                     dims.push_back(toElem((*e->arguments)[i]));
-                result = DtoNewMulDimDynArray(e->loc, e->newtype, &dims[0], ndims, true);
+                result = DtoNewMulDimDynArray(e->loc, e->newtype, &dims[0], ndims);
             }
         }
         // new static array

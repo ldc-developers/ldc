@@ -57,7 +57,7 @@ void DtoSetArray(DValue* array, LLValue* dim, LLValue* ptr);
 void DtoSetArrayToNull(LLValue* v);
 
 DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool defaultInit=true);
-DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size_t ndims, bool defaultInit=true);
+DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size_t ndims);
 DSliceValue* DtoResizeDynArray(Loc& loc, Type* arrayType, DValue* array, llvm::Value* newdim);
 
 void DtoCatAssignElement(Loc& loc, Type* type, DValue* arr, Expression* exp);
