@@ -145,6 +145,11 @@ public:
     void parse();       // syntactic parse
 #endif
     void importAll(Scope *sc);
+#if IN_LLVM
+    using Package::semantic;
+    using Dsymbol::semantic2;
+    using Dsymbol::semantic3;
+#endif
     void semantic();    // semantic analysis
     void semantic2();   // pass 2 semantic analysis
     void semantic3();   // pass 3 semantic analysis

@@ -498,16 +498,23 @@ LLConstant* DtoConstFP(Type* t, longdouble value)
 LLConstant* DtoConstString(const char* str)
 {
     llvm::StringRef s(str ? str : "");
-    llvm::Constant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
-        *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
-    gvar->setUnnamedAddr(true);
+    llvm::GlobalVariable* gvar = (gIR->stringLiteral1ByteCache.find(s) ==
+                                  gIR->stringLiteral1ByteCache.end())
+                                 ? 0 : gIR->stringLiteral1ByteCache[s];
+    if (gvar == 0)
+    {
+        llvm::Constant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
+        gvar = new llvm::GlobalVariable(*gIR->module, init->getType(), true,
+                                        llvm::GlobalValue::PrivateLinkage, init, ".str");
+        gvar->setUnnamedAddr(true);
+        gIR->stringLiteral1ByteCache[s] = gvar;
+    }
     LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
     return DtoConstSlice(
         DtoConstSize_t(s.size()),
         llvm::ConstantExpr::getGetElementPtr(
 #if LDC_LLVM_VER >= 307
-            init->getType(),
+            gvar->getInitializer()->getType(),
 #endif
             gvar, idxs, true),
         Type::tchar->arrayOf()

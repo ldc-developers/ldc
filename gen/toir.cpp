@@ -371,6 +371,11 @@ public:
         LLType* ct = voidToI8(DtoType(cty));
         LLArrayType* at = LLArrayType::get(ct, e->len+1);
 
+#if LDC_LLVM_VER >= 305
+        llvm::StringMap<llvm::GlobalVariable*>* stringLiteralCache = 0;
+#else
+        std::map<llvm::StringRef, llvm::GlobalVariable*>* stringLiteralCache = 0;
+#endif
         LLConstant* _init;
         switch (cty->size())
         {
@@ -378,22 +383,33 @@ public:
             llvm_unreachable("Unknown char type");
         case 1:
             _init = toConstantArray(ct, at, static_cast<uint8_t *>(e->string), e->len);
+            stringLiteralCache = &(gIR->stringLiteral1ByteCache);
             break;
         case 2:
             _init = toConstantArray(ct, at, static_cast<uint16_t *>(e->string), e->len);
+            stringLiteralCache = &(gIR->stringLiteral2ByteCache);
             break;
         case 4:
             _init = toConstantArray(ct, at, static_cast<uint32_t *>(e->string), e->len);
+            stringLiteralCache = &(gIR->stringLiteral4ByteCache);
             break;
         }
 
-        llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::InternalLinkage;
-        IF_LOG {
-            Logger::cout() << "type: " << *at << '\n';
-            Logger::cout() << "init: " << *_init << '\n';
+        llvm::StringRef key(e->toChars());
+        llvm::GlobalVariable* gvar = (stringLiteralCache->find(key) ==
+                                      stringLiteralCache->end())
+                                     ? 0 : (*stringLiteralCache)[key];
+        if (gvar == 0)
+        {
+            llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::PrivateLinkage;
+            IF_LOG {
+                Logger::cout() << "type: " << *at << '\n';
+                Logger::cout() << "init: " << *_init << '\n';
+            }
+            gvar = new llvm::GlobalVariable(*gIR->module, at, true, _linkage, _init, ".str");
+            gvar->setUnnamedAddr(true);
+            (*stringLiteralCache)[key] = gvar;
         }
-        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module, at, true, _linkage, _init, ".str");
-        gvar->setUnnamedAddr(true);
 
         llvm::ConstantInt* zero = LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
         LLConstant* idxs[2] = { zero, zero };

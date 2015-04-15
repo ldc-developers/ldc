@@ -55,7 +55,7 @@ private:
     bool isAggregate(Type* t)
     {
         TY ty = t->ty;
-        return ty == Tstruct || ty == Tsarray || ty == Tarray || ty == Tdelegate
+        return ty == Tstruct || ty == Tsarray || /*ty == Tarray ||*/ ty == Tdelegate
             || t->iscomplex();
     }
 
