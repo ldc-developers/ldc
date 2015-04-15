@@ -110,8 +110,12 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
     Target.addAnalysisPasses(Passes);
 #endif
 
+#if LDC_LLVM_VER >= 307
+    if (Target.addPassesToEmitFile(Passes, out, fileType, codeGenOptLevel()))
+#else
     llvm::formatted_raw_ostream fout(out);
     if (Target.addPassesToEmitFile(Passes, fout, fileType, codeGenOptLevel()))
+#endif
         llvm_unreachable("no support for asm output");
 
     Passes.run(m);
@@ -186,7 +190,12 @@ namespace
                                            I != E; ++I) {
                 DISubprogram Subprogram(*I);
 #endif
-                if (Subprogram.describes(F)) return Subprogram;
+#if LDC_LLVM_VER >= 307
+                if (Subprogram->describes(F))
+#else
+                if (Subprogram.describes(F))
+#endif
+                    return Subprogram;
             }
 #if LDC_LLVM_VER >= 305
             return nullptr;
@@ -205,13 +214,17 @@ namespace
 #endif
 #if LDC_LLVM_VER >= 307
             if (MDSubprogram* N = FindSubprogram(F, Finder))
+            {
+                llvm::DISubprogram sub(N);
+                return sub->getDisplayName();
+            }
 #else
             if (MDNode* N = FindSubprogram(F, Finder))
-#endif
             {
                 llvm::DISubprogram sub(N);
                 return sub.getDisplayName();
             }
+#endif
             return "";
         }
 
@@ -267,7 +280,11 @@ namespace
                     os.PadToColumn(50);
                     os << ";";
                 }
+#if LDC_LLVM_VER >= 307
+                os << " [debug variable = " << Var->getName() << ']';
+#else
                 os << " [debug variable = " << Var.getName() << ']';
+#endif
             }
             else if (const DbgValueInst* DVI = dyn_cast<DbgValueInst>(instr))
             {
@@ -277,7 +294,11 @@ namespace
                     os.PadToColumn(50);
                     os << ";";
                 }
+#if LDC_LLVM_VER >= 307
+                os << " [debug variable = " << Var->getName() << ']';
+#else
                 os << " [debug variable = " << Var.getName() << ']';
+#endif
             }
             else if (const CallInst* callinstr = dyn_cast<CallInst>(instr))
             {
