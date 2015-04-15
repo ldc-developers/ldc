@@ -38,7 +38,7 @@ struct Win64TargetABI : TargetABI
 
     llvm::CallingConv::ID callingConv(LINK l);
 
-    bool returnInArg(TypeFunction* tf);
+    bool returnInArg(Type* rt, LINK linkage);
 
     bool passByVal(Type* t);
 
@@ -112,13 +112,8 @@ llvm::CallingConv::ID Win64TargetABI::callingConv(LINK l)
     }
 }
 
-bool Win64TargetABI::returnInArg(TypeFunction* tf)
+bool Win64TargetABI::returnInArg(Type* rt, LINK /*linkage*/)
 {
-    if (tf->isref)
-        return false;
-
-    Type* rt = tf->next->toBasetype();
-
     // * let LLVM return 80-bit real/ireal on the x87 stack, for DMD compliance
     if (realIs80bits() && (rt->ty == Tfloat80 || rt->ty == Timaginary80))
         return false;
