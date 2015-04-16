@@ -110,8 +110,16 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
     Target.addAnalysisPasses(Passes);
 #endif
 
+#if LDC_LLVM_VER < 307
     llvm::formatted_raw_ostream fout(out);
-    if (Target.addPassesToEmitFile(Passes, fout, fileType, codeGenOptLevel()))
+#endif
+    if (Target.addPassesToEmitFile(Passes,
+#if LDC_LLVM_VER >= 307
+            out,
+#else
+            fout,
+#endif
+            fileType, codeGenOptLevel()))
         llvm_unreachable("no support for asm output");
 
     Passes.run(m);
@@ -178,19 +186,21 @@ namespace
         static MDNode* FindSubprogram(const Function *F, DebugInfoFinder &Finder)
 #endif
         {
-#if LDC_LLVM_VER >= 305
-            for (DISubprogram Subprogram : Finder.subprograms()) {
+#if LDC_LLVM_VER >= 307
+            for (DISubprogram Subprogram : Finder.subprograms())
+                if (Subprogram->describes(F)) return Subprogram;
+            return nullptr;
+#elif LDC_LLVM_VER >= 305
+            for (DISubprogram Subprogram : Finder.subprograms())
+                if (Subprogram.describes(F)) return Subprogram;
+            return nullptr;
 #else
             for (DebugInfoFinder::iterator I = Finder.subprogram_begin(),
                                            E = Finder.subprogram_end();
                                            I != E; ++I) {
                 DISubprogram Subprogram(*I);
-#endif
                 if (Subprogram.describes(F)) return Subprogram;
             }
-#if LDC_LLVM_VER >= 305
-            return nullptr;
-#else
             return 0;
 #endif
         }
@@ -209,8 +219,12 @@ namespace
             if (MDNode* N = FindSubprogram(F, Finder))
 #endif
             {
+#if LDC_LLVM_VER >= 307
+                return N->getDisplayName();
+#else
                 llvm::DISubprogram sub(N);
                 return sub.getDisplayName();
+#endif
             }
             return "";
         }
@@ -267,7 +281,11 @@ namespace
                     os.PadToColumn(50);
                     os << ";";
                 }
+#if LDC_LLVM_VER >= 307
+                os << " [debug variable = " << Var->getName() << ']';
+#else
                 os << " [debug variable = " << Var.getName() << ']';
+#endif
             }
             else if (const DbgValueInst* DVI = dyn_cast<DbgValueInst>(instr))
             {
@@ -277,7 +295,11 @@ namespace
                     os.PadToColumn(50);
                     os << ";";
                 }
+#if LDC_LLVM_VER >= 307
+                os << " [debug variable = " << Var->getName() << ']';
+#else
                 os << " [debug variable = " << Var.getName() << ']';
+#endif
             }
             else if (const CallInst* callinstr = dyn_cast<CallInst>(instr))
             {

@@ -1532,11 +1532,15 @@ size_t realignOffset(size_t offset, Type* type)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-Type * stripModifiers( Type * type )
+Type * stripModifiers(Type * type, bool transitive)
 {
     if (type->ty == Tfunction)
         return type;
-    return type->castMod(0);
+    
+    if (transitive)
+        return type->unqualify(MODimmutable | MODconst | MODwild);
+    else
+        return type->castMod(0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
