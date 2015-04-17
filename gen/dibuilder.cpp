@@ -23,6 +23,14 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
+#if LDC_LLVM_VER >= 307
+typedef llvm::DebugNode Access;
+#else
+typedef llvm::DIDescriptor Access;
+#endif
+
+////////////////////////////////////////////////////////////////////////////////
+
 // get the module the symbol is in, or - for template instances - the current module
 Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s)
 {
@@ -255,14 +263,14 @@ llvm::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
     unsigned Flags = 0;
     switch (prot) {
         case PROTprivate:
-            Flags = llvm::DIDescriptor::FlagPrivate;
+            Flags = Access::FlagPrivate;
             break;
         case PROTprotected:
-            Flags = llvm::DIDescriptor::FlagProtected;
+            Flags = Access::FlagProtected;
             break;
 #if LDC_LLVM_VER >= 306
         case PROTpublic:
-            Flags = llvm::DIDescriptor::FlagPublic;
+            Flags = Access::FlagPublic;
             break;
 #endif
         default:
@@ -408,7 +416,7 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
            getTypeBitSize(T), // size in bits
            getABITypeAlign(T)*8, // alignment in bits
            0, // offset in bits,
-           llvm::DIDescriptor::FlagFwdDecl, // flags
+           Access::FlagFwdDecl, // flags
            derivedFrom, // DerivedFrom
            elemsArray
         );
@@ -420,7 +428,7 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
            linnum, // line number where defined
            getTypeBitSize(T), // size in bits
            getABITypeAlign(T)*8, // alignment in bits
-           llvm::DIDescriptor::FlagFwdDecl, // flags
+           Access::FlagFwdDecl, // flags
 #if LDC_LLVM_VER >= 303
            derivedFrom, // DerivedFrom
 #endif

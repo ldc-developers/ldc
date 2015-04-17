@@ -69,7 +69,9 @@ extern const llvm::TargetData* gDataLayout;
 
 namespace ldc {
 
-#if LDC_LLVM_VER >= 304
+#if LDC_LLVM_VER >= 307
+typedef llvm::MDSubroutineType* DIFunctionType;
+#elif LDC_LLVM_VER >= 304
 typedef llvm::DICompositeType DIFunctionType;
 #else
 typedef llvm::DIType DIFunctionType;
