@@ -156,7 +156,11 @@ public:
 private:
     llvm::LLVMContext &getContext();
     Module *getDefinedModule(Dsymbol *s);
+#if LDC_LLVM_VER >= 307
+    llvm::MDScope* GetCurrentScope();
+#else
     llvm::DIDescriptor GetCurrentScope();
+#endif
     void Declare(llvm::Value *var, llvm::DIVariable divar
 #if LDC_LLVM_VER >= 306
         , llvm::DIExpression diexpr
