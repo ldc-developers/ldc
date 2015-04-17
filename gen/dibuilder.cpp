@@ -61,7 +61,11 @@ llvm::LLVMContext &ldc::DIBuilder::getContext()
     return IR->context();
 }
 
+#if LDC_LLVM_VER >= 307
+llvm::MDScope* ldc::DIBuilder::GetCurrentScope()
+#else
 llvm::DIDescriptor ldc::DIBuilder::GetCurrentScope()
+#endif
 {
     IrFunction *fn = IR->func();
     if (fn->diLexicalBlocks.empty())
@@ -81,6 +85,9 @@ void ldc::DIBuilder::Declare(llvm::Value *var, llvm::DIVariable divar
     llvm::Instruction *instr = DBuilder.insertDeclare(var, divar,
 #if LDC_LLVM_VER >= 306
         diexpr,
+#endif
+#if LDC_LLVM_VER >= 307
+        IR->ir->getCurrentDebugLocation(),
 #endif
         IR->scopebb());
     instr->setDebugLoc(IR->ir->getCurrentDebugLocation());
@@ -437,7 +444,7 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
     }
 
 #if LDC_LLVM_VER >= 307
-    ir->diCompositeType = DBuilder.replaceTemporary(llvm::TempMDType(ir->diCompositeType), static_cast<llvm::MDCompositeType*>(ret.get()));
+    ir->diCompositeType = DBuilder.replaceTemporary(llvm::TempMDType(ir->diCompositeType), static_cast<llvm::MDType*>(ret));
 #else
     ir->diCompositeType.replaceAllUsesWith(ret);
 #endif
@@ -815,6 +822,9 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd)
     llvm::Instruction *instr = DBuilder.insertDbgValueIntrinsic(val, 0, debugVariable,
 #if LDC_LLVM_VER >= 306
         DBuilder.createExpression(),
+#endif
+#if LDC_LLVM_VER >= 307
+        IR->ir->getCurrentDebugLocation(),
 #endif
         IR->scopebb());
     instr->setDebugLoc(IR->ir->getCurrentDebugLocation());
