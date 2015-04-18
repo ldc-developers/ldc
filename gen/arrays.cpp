@@ -870,9 +870,7 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
         args.push_back(DtoBitCast(tival, fn->getFunctionType()->getParamType(arg_offset + 2)));
     }
 
-    LLCallSite call = LLVM_D_CallRuntimeFunction(loc, func, args);
-
-    return call.getInstruction();
+    return LLVM_D_CallRuntimeFunction(loc, func, args);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
