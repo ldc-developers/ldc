@@ -19,9 +19,12 @@ namespace llvm
     class Function;
     class GlobalVariable;
     class Module;
+    class Value;
 }
 
 struct Loc;
+
+#include "llvm/ADT/ArrayRef.h"
 
 // D runtime support helpers
 
@@ -29,6 +32,8 @@ bool LLVM_D_InitRuntime();
 void LLVM_D_FreeRuntime();
 
 llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, const char* name);
+llvm::Value* LLVM_D_CallRuntimeFunction(const Loc &loc, const char* name,
+                                        llvm::ArrayRef<llvm::Value*> args, const char* invokename = NULL);
 
 llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(const Loc &loc, llvm::Module* target, const char* name);
 

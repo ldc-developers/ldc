@@ -101,8 +101,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
         };
 
         // call
-        llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arraybounds");
-        gIR->CreateCallOrInvoke(errorfn, args);
+        LLVM_D_CallRuntimeFunction(loc, "_d_arraybounds", args);
 
         // the function does not return
         gIR->ir->CreateUnreachable();

@@ -140,8 +140,6 @@ llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, 
 
     fn = M->getFunction(name);
 
-    std::cout << name << std::endl;
-
     assert(fn && "Runtime function not found.");
 
     LLFunctionType* fnty = fn->getFunctionType();
@@ -149,6 +147,31 @@ llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, 
     resfn->setAttributes(fn->getAttributes());
     resfn->setCallingConv(fn->getCallingConv());
     return resfn;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////////////
+
+LLValue* LLVM_D_CallRuntimeFunction(const Loc &loc, const char* name,
+                                    llvm::ArrayRef<LLValue*> args, const char* invokename)
+{
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, name);
+
+    bool sret = fn->hasStructRetAttr();
+    if (sret) {
+        size_t alignsize = 8; // FIXME: alignment size of return type
+        LLValue* sret_storage = DtoRawAlloca(fn->getArgumentList().front().getType()->getPointerElementType(),
+                                             alignsize, invokename ? invokename : ".srettmp");
+        
+        llvm::SmallVector<LLValue*, 5> vec;
+        vec.push_back(sret_storage);
+        vec.insert(vec.end(), args.begin(), args.end());
+
+        gIR->CreateCallOrInvoke(fn, vec);
+
+        return DtoLoad(sret_storage);
+    } else {
+        return gIR->CreateCallOrInvoke(fn, args, invokename ? invokename : "").getInstruction();
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -231,7 +254,7 @@ static void ensureDecl(DECL *decl, const char *msg)
 
 static LLFunction *LLVM_D_BuildFunctionFwdDecl(Type *returntype,
                                                llvm::StringRef fname,
-                                               std::vector<LLType *> params,
+                                               llvm::ArrayRef<LLType*> params,
                                                bool isVarArg,
                                                llvm::Module *M,
                                                LINK linkage = LINKc)
@@ -241,9 +264,11 @@ static LLFunction *LLVM_D_BuildFunctionFwdDecl(Type *returntype,
     LLFunctionType *fty; // Initialized below
     if (sret)
     {
-        params.insert(params.begin(), rt->getPointerTo());
+        llvm::SmallVector<LLType*, 5> vec;
+        vec.push_back(rt->getPointerTo());
+        vec.insert(vec.end(), params.begin(), params.end());
         LLType* voidTy = DtoType(Type::tvoid);
-        fty = LLFunctionType::get(voidTy, params, isVarArg);
+        fty = LLFunctionType::get(voidTy, vec, isVarArg);
     }
     else if (!params.empty())
     {
@@ -396,14 +421,23 @@ static void LLVM_D_BuildRuntimeModule()
 
     // void _d_assert(string file, uint line)
     // void _d_arraybounds(string file, uint line)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_assert",      { stringTy, intTy }, false, M);
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_arraybounds", { stringTy, intTy }, false, M);
+    {
+        LLType* args[] = { stringTy, intTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_assert",      args, false, M);
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_arraybounds", args, false, M);
+    }
 
     // void _d_switch_error(ModuleInfo* m, uint line)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_switch_error", { moduleInfoPtrTy, intTy }, false, M);
-
+    {
+        LLType* args[] = { moduleInfoPtrTy, intTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_switch_error", args, false, M);
+    }
+    
     // void _d_assert_msg(string msg, string file, uint line)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_assert_msg", { stringTy, stringTy, intTy }, false, M);
+    {
+        LLType* args[] = { stringTy, stringTy, intTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_assert_msg", args, false, M);
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
@@ -411,71 +445,88 @@ static void LLVM_D_BuildRuntimeModule()
 
 
     // void* _d_allocmemory(size_t sz)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_d_allocmemory",  { sizeTy }, false, M)
+    LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_d_allocmemory", sizeTy, false, M)
         ->setAttributes(Attr_NoAlias);
 
     // void* _d_allocmemoryT(TypeInfo ti)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_d_allocmemoryT",  { typeInfoTy }, false, M)
+    LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_d_allocmemoryT", typeInfoTy, false, M)
         ->setAttributes(Attr_NoAlias);
 
     // void[] _d_newarrayT(TypeInfo ti, size_t length)
     // void[] _d_newarrayiT(TypeInfo ti, size_t length)
     // void[] _d_newarrayU(TypeInfo ti, size_t length)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_newarrayT",  { typeInfoTy, sizeTy }, false, M);
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_newarrayiT", { typeInfoTy, sizeTy }, false, M);
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_newarrayU",  { typeInfoTy, sizeTy }, false, M);
+    {
+        LLType* args[] = { typeInfoTy, sizeTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_newarrayT",  args, false, M);
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_newarrayiT", args, false, M);
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_newarrayU",  args, false, M);
 
     // void[] _d_newarraymT(TypeInfo ti, size_t length, size_t* dims)
     // void[] _d_newarraymiT(TypeInfo ti, size_t length, size_t* dims)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_newarraymT",  { typeInfoTy, sizeTy }, true, M);
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_newarraymiT", { typeInfoTy, sizeTy }, true, M);
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_newarraymT",  args, true, M);
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_newarraymiT", args, true, M);
+    }
 
     // void[] _d_arraysetlengthT(TypeInfo ti, size_t newlength, void[] *array)
     // void[] _d_arraysetlengthiT(TypeInfo ti, size_t newlength, void[] *array)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arraysetlengthT", 
-        { typeInfoTy, sizeTy, voidArrayPtrTy }, false, M);
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arraysetlengthiT", 
-        { typeInfoTy, sizeTy, voidArrayPtrTy }, false, M);
+    {
+        LLType* args[] = { typeInfoTy, sizeTy, voidArrayPtrTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arraysetlengthT",  args, false, M);
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arraysetlengthiT", args, false, M);
+    }
 
     // byte[] _d_arrayappendcTX(TypeInfo ti, ref byte[] px, size_t n)
-    LLVM_D_BuildFunctionFwdDecl(Type::tint8->arrayOf(), "_d_arrayappendcTX", 
-        { typeInfoTy, voidArrayPtrTy, sizeTy }, false, M);
+    {
+        LLType* args[] = { typeInfoTy, voidArrayPtrTy, sizeTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tint8->arrayOf(), "_d_arrayappendcTX", args, false, M);
+    }
 
     // void[] _d_arrayappendT(TypeInfo ti, byte[]* px, byte[] y)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arrayappendT", 
-        { typeInfoTy, voidArrayPtrTy, voidArrayTy }, false, M);
+    {
+        LLType* args[] = { typeInfoTy, voidArrayPtrTy, voidArrayTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arrayappendT", args, false, M);
+    }
 
     // void[] _d_arrayappendcd(ref char[] x, dchar c)
+    {
+        LLType* args[] = { getPtrToType(stringTy), intTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arrayappendcd", args, false, M);
+    }
+
     // void[] _d_arrayappendwd(ref wchar[] x, dchar c)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arrayappendcd", 
-        { getPtrToType(stringTy), intTy }, false, M);
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arrayappendwd", 
-        { getPtrToType(wstringTy), intTy }, false, M);
+    {
+        LLType* args[] = { getPtrToType(wstringTy), intTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arrayappendwd", args, false, M);
+    }
 
     // byte[] _d_arraycatT(TypeInfo ti, byte[] x, byte[] y)
-    LLVM_D_BuildFunctionFwdDecl(Type::tint8->arrayOf(), "_d_arraycatT", 
-        { typeInfoTy, voidArrayTy, voidArrayTy }, false, M);
+    {
+        LLType* args[] = { typeInfoTy, voidArrayTy, voidArrayTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tint8->arrayOf(), "_d_arraycatT", args, false, M);
+    }
 
     // byte[] _d_arraycatnT(TypeInfo ti, uint n, ...)
-    LLVM_D_BuildFunctionFwdDecl(Type::tint8->arrayOf(), "_d_arraycatnT", { typeInfoTy }, true, M);
+    LLVM_D_BuildFunctionFwdDecl(Type::tint8->arrayOf(), "_d_arraycatnT", typeInfoTy, true, M);
 
     // Object _d_newclass(const ClassInfo ci)
-    LLVM_D_BuildFunctionFwdDecl(ClassDeclaration::object->type, "_d_newclass",
-        { classInfoTy }, false, M)
+    LLVM_D_BuildFunctionFwdDecl(ClassDeclaration::object->type, "_d_newclass", classInfoTy, false, M)
         ->setAttributes(Attr_NoAlias);
 
     // void _d_delarray_t(Array *p, TypeInfo ti)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_delarray_t", { voidArrayPtrTy, typeInfoTy }, false, M);
+    {
+        LLType* args[] = { voidArrayPtrTy, typeInfoTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_delarray_t", args, false, M);
+    }
 
     // void _d_delmemory(void **p)
     // void _d_delinterface(void **p)
     // void _d_callfinalizer(void *p)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_delmemory",     { voidPtrTy }, false, M);
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_delinterface",  { voidPtrTy }, false, M);
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_callfinalizer", { voidPtrTy }, false, M);
+    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_delmemory",     voidPtrTy, false, M);
+    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_delinterface",  voidPtrTy, false, M);
+    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_callfinalizer", voidPtrTy, false, M);
 
     // void _d_delclass(Object* p)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_delclass", { rt_ptr(objectTy) }, false, M);
+    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_delclass", rt_ptr(objectTy), false, M);
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
@@ -483,9 +534,11 @@ static void LLVM_D_BuildRuntimeModule()
 
     // array slice copy when assertions are on!
     // void _d_array_slice_copy(void* dst, size_t dstlen, void* src, size_t srclen)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_array_slice_copy",
-        { voidPtrTy, sizeTy, voidPtrTy, sizeTy }, false, M)
-        ->setAttributes(Attr_1_3_NoCapture);
+    {
+        LLType* args[] = { voidPtrTy, sizeTy, voidPtrTy, sizeTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_array_slice_copy", args, false, M)
+            ->setAttributes(Attr_1_3_NoCapture);
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
@@ -494,8 +547,9 @@ static void LLVM_D_BuildRuntimeModule()
     // int _aApplycd1(char[] aa, dg_t dg)
     #define STR_APPLY1(TY,a,b) \
     { \
-        LLVM_D_BuildFunctionFwdDecl(Type::tint32, a, { TY, rt_dg1() }, false, M); \
-        LLVM_D_BuildFunctionFwdDecl(Type::tint32, b, { TY, rt_dg1() }, false, M); \
+        LLType* args[] = { TY, rt_dg1() }; \
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, a, args, false, M); \
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, b, args, false, M); \
     }
     STR_APPLY1(stringTy, "_aApplycw1", "_aApplycd1")
     STR_APPLY1(wstringTy, "_aApplywc1", "_aApplywd1")
@@ -505,8 +559,9 @@ static void LLVM_D_BuildRuntimeModule()
     // int _aApplycd2(char[] aa, dg2_t dg)
     #define STR_APPLY2(TY,a,b) \
     { \
-        LLVM_D_BuildFunctionFwdDecl(Type::tint32, a, { TY, rt_dg2() }, false, M); \
-        LLVM_D_BuildFunctionFwdDecl(Type::tint32, b, { TY, rt_dg2() }, false, M); \
+        LLType* args[] = { TY, rt_dg2() }; \
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, a, args, false, M); \
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, b, args, false, M); \
     }
     STR_APPLY2(stringTy, "_aApplycw2", "_aApplycd2")
     STR_APPLY2(wstringTy, "_aApplywc2", "_aApplywd2")
@@ -515,8 +570,9 @@ static void LLVM_D_BuildRuntimeModule()
 
     #define STR_APPLY_R1(TY,a,b) \
     { \
-        LLVM_D_BuildFunctionFwdDecl(Type::tint32, a, { TY, rt_dg1() }, false, M); \
-        LLVM_D_BuildFunctionFwdDecl(Type::tint32, b, { TY, rt_dg1() }, false, M); \
+        LLType* args[] = { TY, rt_dg1() }; \
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, a, args, false, M); \
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, b, args, false, M); \
     }
     STR_APPLY_R1(stringTy, "_aApplyRcw1", "_aApplyRcd1")
     STR_APPLY_R1(wstringTy, "_aApplyRwc1", "_aApplyRwd1")
@@ -525,8 +581,9 @@ static void LLVM_D_BuildRuntimeModule()
 
     #define STR_APPLY_R2(TY,a,b) \
     { \
-        LLVM_D_BuildFunctionFwdDecl(Type::tint32, a, { TY, rt_dg2() }, false, M); \
-        LLVM_D_BuildFunctionFwdDecl(Type::tint32, b, { TY, rt_dg2() }, false, M); \
+        LLType* args[] = { TY, rt_dg2() }; \
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, a, args, false, M); \
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, b, args, false, M); \
     }
     STR_APPLY_R2(stringTy, "_aApplyRcw2", "_aApplyRcd2")
     STR_APPLY_R2(wstringTy, "_aApplyRwc2", "_aApplyRwd2")
@@ -539,8 +596,11 @@ static void LLVM_D_BuildRuntimeModule()
 
     // fixes the length for dynamic array casts
     // size_t _d_array_cast_len(size_t len, size_t elemsz, size_t newelemsz)
-    LLVM_D_BuildFunctionFwdDecl(Type::tsize_t, "_d_array_cast_len", { sizeTy, sizeTy, sizeTy }, false, M)
-        ->setAttributes(Attr_ReadNone);
+    {
+        LLType* args[] = { sizeTy, sizeTy, sizeTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tsize_t, "_d_array_cast_len", args, false, M)
+            ->setAttributes(Attr_ReadNone);
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
@@ -548,19 +608,21 @@ static void LLVM_D_BuildRuntimeModule()
 
     // void[] _d_arrayassign(TypeInfo ti, void[] from, void[] to)
     // void[] _d_arrayctor(TypeInfo ti, void[] from, void[] to)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arrayassign",
-                                { typeInfoTy, voidArrayTy, voidArrayTy }, false, M);
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arrayctor",
-                                { typeInfoTy, voidArrayTy, voidArrayTy }, false, M);
+    {
+        LLType* args[] = { typeInfoTy, voidArrayTy, voidArrayTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arrayassign", args, false, M);
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_d_arrayctor", args, false, M);
+    }
 
     // void* _d_arraysetassign(void* p, void* value, size_t count, TypeInfo ti)
     // void* _d_arraysetctor(void* p, void* value, size_t count, TypeInfo ti)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_d_arraysetassign",
-                                { voidPtrTy, voidPtrTy, sizeTy, typeInfoTy }, false, M)
-        ->setAttributes(Attr_NoAlias);
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_d_arraysetctor",
-                                { voidPtrTy, voidPtrTy, sizeTy, typeInfoTy }, false, M)
-        ->setAttributes(Attr_NoAlias);
+    {
+        LLType* args[] = { voidPtrTy, voidPtrTy, sizeTy, typeInfoTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_d_arraysetassign", args, false, M)
+            ->setAttributes(Attr_NoAlias);
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_d_arraysetctor", args, false, M)
+            ->setAttributes(Attr_NoAlias);
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
@@ -568,20 +630,24 @@ static void LLVM_D_BuildRuntimeModule()
 
     // cast to object
     // Object _d_toObject(void* p)
-    LLVM_D_BuildFunctionFwdDecl(ClassDeclaration::object->type, "_d_toObject", { voidPtrTy }, false, M)
+    LLVM_D_BuildFunctionFwdDecl(ClassDeclaration::object->type, "_d_toObject", voidPtrTy, false, M)
         ->setAttributes(Attr_ReadOnly_NoUnwind);
 
     // cast interface
     // Object _d_interface_cast(void* p, ClassInfo c)
-    LLVM_D_BuildFunctionFwdDecl(ClassDeclaration::object->type, "_d_interface_cast",
-                                { voidPtrTy, classInfoTy }, false, M)
-        ->setAttributes(Attr_ReadOnly_NoUnwind);
+    {
+        LLType* args[] = { voidPtrTy, classInfoTy };
+        LLVM_D_BuildFunctionFwdDecl(ClassDeclaration::object->type, "_d_interface_cast", args, false, M)
+            ->setAttributes(Attr_ReadOnly_NoUnwind);
+    }
 
     // dynamic cast
     // Object _d_dynamic_cast(Object o, ClassInfo c)
-    LLVM_D_BuildFunctionFwdDecl(ClassDeclaration::object->type, "_d_dynamic_cast",
-                                { objectTy, classInfoTy }, false, M)
-        ->setAttributes(Attr_ReadOnly_NoUnwind);
+    {
+        LLType* args[] = { objectTy, classInfoTy };
+        LLVM_D_BuildFunctionFwdDecl(ClassDeclaration::object->type, "_d_dynamic_cast", args, false, M)
+            ->setAttributes(Attr_ReadOnly_NoUnwind);
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
@@ -589,95 +655,122 @@ static void LLVM_D_BuildRuntimeModule()
 
     // char[] _adReverseChar(char[] a)
     // char[] _adSortChar(char[] a)
-    LLVM_D_BuildFunctionFwdDecl(Type::tchar->arrayOf(), "_adReverseChar", { stringTy }, false, M);
-    LLVM_D_BuildFunctionFwdDecl(Type::tchar->arrayOf(), "_adSortChar",    { stringTy }, false, M);
+    LLVM_D_BuildFunctionFwdDecl(Type::tchar->arrayOf(), "_adReverseChar", stringTy, false, M);
+    LLVM_D_BuildFunctionFwdDecl(Type::tchar->arrayOf(), "_adSortChar",    stringTy, false, M);
 
     // wchar[] _adReverseWchar(wchar[] a)
     // wchar[] _adSortWchar(wchar[] a)
-    LLVM_D_BuildFunctionFwdDecl(Type::twchar->arrayOf(), "_adReverseWchar", { wstringTy }, false, M);
-    LLVM_D_BuildFunctionFwdDecl(Type::twchar->arrayOf(), "_adSortWChar",    { wstringTy }, false, M);
+    LLVM_D_BuildFunctionFwdDecl(Type::twchar->arrayOf(), "_adReverseWchar", wstringTy, false, M);
+    LLVM_D_BuildFunctionFwdDecl(Type::twchar->arrayOf(), "_adSortWChar",    wstringTy, false, M);
 
     // void[] _adReverse(void[] a, size_t szelem)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_adReverse",
-                                { rt_array(byteTy), sizeTy }, false, M)
-        ->setAttributes(Attr_NoUnwind);
+    {
+        LLType* args[] = { rt_array(byteTy), sizeTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_adReverse", args, false, M)
+            ->setAttributes(Attr_NoUnwind);
+    }
 
     // void[] _adDupT(TypeInfo ti, void[] a)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_adDupT",
-                                { typeInfoTy, rt_array(byteTy) }, false, M);
+    {
+        LLType* args[] = { typeInfoTy, rt_array(byteTy) };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_adDupT", args, false, M);
+    }
 
     // int _adEq(void[] a1, void[] a2, TypeInfo ti)
     // int _adCmp(void[] a1, void[] a2, TypeInfo ti)
-    LLVM_D_BuildFunctionFwdDecl(Type::tint32, _adEq,
-                                { rt_array(byteTy), rt_array(byteTy), typeInfoTy }, false, M)
-        ->setAttributes(Attr_ReadOnly);
-    LLVM_D_BuildFunctionFwdDecl(Type::tint32, _adCmp,
-                                { rt_array(byteTy), rt_array(byteTy), typeInfoTy }, false, M)
-        ->setAttributes(Attr_ReadOnly);
+    {
+        LLType* args[] = { rt_array(byteTy), rt_array(byteTy), typeInfoTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, _adEq, args, false, M)
+            ->setAttributes(Attr_ReadOnly);
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, _adCmp, args, false, M)
+            ->setAttributes(Attr_ReadOnly);
+    }
 
     // int _adCmpChar(void[] a1, void[] a2)
-    LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_adCmpChar",
-                                {rt_array(byteTy), rt_array(byteTy)}, false,M)
-        ->setAttributes(Attr_ReadOnly_NoUnwind);
+    {
+        LLType* args[] = { rt_array(byteTy), rt_array(byteTy) } ;
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_adCmpChar", args, false,M)
+            ->setAttributes(Attr_ReadOnly_NoUnwind);
+    }
 
     // void[] _adSort(void[] a, TypeInfo ti)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_adSort",
-        { rt_array(byteTy), typeInfoTy }, false, M);
+    {
+        LLType* args[] = { rt_array(byteTy), typeInfoTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_adSort", args, false, M);
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
     // size_t _aaLen(AA aa)
-    LLVM_D_BuildFunctionFwdDecl(Type::tsize_t, "_aaLen", { aaTy }, false, M)
+    LLVM_D_BuildFunctionFwdDecl(Type::tsize_t, "_aaLen", aaTy, false, M)
         ->setAttributes(Attr_ReadOnly_NoUnwind_1_NoCapture);
 
     // void* _aaGetX(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_aaGetX",
-                                { aaTy, typeInfoTy, sizeTy, voidPtrTy }, false, M)
-        ->setAttributes(Attr_1_4_NoCapture);
+    {
+        LLType* args[] = { aaTy, typeInfoTy, sizeTy, voidPtrTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_aaGetX", args, false, M)
+            ->setAttributes(Attr_1_4_NoCapture);
+    }
 
     // void* _aaInX(AA aa, TypeInfo keyti, void* pkey)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_aaInX",
-                                { aaTy, typeInfoTy, voidPtrTy }, false, M)
-        ->setAttributes(Attr_ReadOnly_1_3_NoCapture);
+    {
+        LLType* args[] = { aaTy, typeInfoTy, voidPtrTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_aaInX", args, false, M)
+            ->setAttributes(Attr_ReadOnly_1_3_NoCapture);
 
     // bool _aaDelX(AA aa, TypeInfo keyti, void* pkey)
-    LLVM_D_BuildFunctionFwdDecl(Type::tbool, "_aaDelX",
-                                { aaTy, typeInfoTy, voidPtrTy }, false, M)
-        ->setAttributes(Attr_1_3_NoCapture);
+        LLVM_D_BuildFunctionFwdDecl(Type::tbool, "_aaDelX", args, false, M)
+            ->setAttributes(Attr_1_3_NoCapture);
+    }
 
     // void[] _aaValues(AA aa, size_t keysize, size_t valuesize)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_aaValues",
-                                { aaTy, sizeTy, sizeTy }, false, M)
-        ->setAttributes(Attr_NoAlias_1_NoCapture);
+    {
+        LLType* args[] = { aaTy, sizeTy, sizeTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_aaValues", args, false, M)
+            ->setAttributes(Attr_NoAlias_1_NoCapture);
+    }
 
     // void* _aaRehash(AA* paa, TypeInfo keyti)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_aaRehash", { aaTy, typeInfoTy }, false, M);
+    {
+        LLType* args[] = { aaTy, typeInfoTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_aaRehash", args, false, M);
+    }
 
     // void[] _aaKeys(AA aa, size_t keysize)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_aaKeys",
-                                { aaTy, sizeTy }, false, M)
-        ->setAttributes(Attr_NoAlias_1_NoCapture);
+    {
+        LLType* args[] = { aaTy, sizeTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid->arrayOf(), "_aaKeys", args, false, M)
+            ->setAttributes(Attr_NoAlias_1_NoCapture);
+    }
 
     // int _aaApply(AA aa, size_t keysize, dg_t dg)
-    LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_aaApply",
-                                { aaTy, sizeTy, rt_dg1() }, false, M)
-        ->setAttributes(Attr_1_NoCapture);
+    {
+        LLType* args[] = { aaTy, sizeTy, rt_dg1() };
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_aaApply", args, false, M)
+            ->setAttributes(Attr_1_NoCapture);
+    }
 
     // int _aaApply2(AA aa, size_t keysize, dg2_t dg)
-    LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_aaApply2",
-                                { aaTy, sizeTy, rt_dg2() }, false, M)
-        ->setAttributes(Attr_1_NoCapture);
+    {
+        LLType* args[] = { aaTy, sizeTy, rt_dg2() };
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_aaApply2", args, false, M)
+            ->setAttributes(Attr_1_NoCapture);
+    }
 
     // int _aaEqual(in TypeInfo tiRaw, in AA e1, in AA e2)
-    LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_aaEqual",
-                                { typeInfoTy, aaTy, aaTy }, false, M)
-        ->setAttributes(Attr_1_2_NoCapture);
+    {
+        LLType* args[] = { typeInfoTy, aaTy, aaTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_aaEqual", args, false, M)
+            ->setAttributes(Attr_1_2_NoCapture);
+    }
 
     // BB* _d_assocarrayliteralTX(TypeInfo_AssociativeArray ti, void[] keys, void[] values)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_d_assocarrayliteralTX",
-                                { aaTypeInfoTy, voidArrayTy, voidArrayTy }, false, M);
+    {
+        LLType* args[] = { aaTypeInfoTy, voidArrayTy, voidArrayTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoidptr, "_d_assocarrayliteralTX", args, false, M);
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
@@ -693,26 +786,32 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
 
     // void _d_throw_exception(Object e)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_throw_exception", { objectTy }, false, M);
+    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_throw_exception", objectTy, false, M);
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
     // int _d_switch_string(char[][] table, char[] ca)
-    LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_d_switch_string",
-                                { rt_array(stringTy), stringTy }, false, M)
-        ->setAttributes(Attr_ReadOnly);
+    {
+        LLType* args[] = { rt_array(stringTy), stringTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_d_switch_string", args, false, M)
+            ->setAttributes(Attr_ReadOnly);
+    }
 
     // int _d_switch_ustring(wchar[][] table, wchar[] ca)
-    LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_d_switch_ustring",
-                                { rt_array(wstringTy), wstringTy }, false, M)
-        ->setAttributes(Attr_ReadOnly);
+    {
+        LLType* args[] = { rt_array(wstringTy), wstringTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_d_switch_ustring", args, false, M)
+            ->setAttributes(Attr_ReadOnly);
+    }
 
     // int _d_switch_dstring(dchar[][] table, dchar[] ca)
-    LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_d_switch_dstring",
-                                { rt_array(dstringTy), dstringTy }, false, M)
-        ->setAttributes(Attr_ReadOnly);
+    {
+        LLType* args[] = { rt_array(dstringTy), dstringTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tint32, "_d_switch_dstring", args, false, M)
+            ->setAttributes(Attr_ReadOnly);
+    }
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
@@ -748,19 +847,12 @@ static void LLVM_D_BuildRuntimeModule()
     }
 
     // void _d_eh_resume_unwind(ptr exc_struct)
-    {
-        llvm::StringRef fname("_d_eh_resume_unwind");
-        LLType *types[] = { voidPtrTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
-    }
+    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_eh_resume_unwind", voidPtrTy, false, M);
 
     // void _d_eh_handle_collision(ptr exc_struct, ptr exc_struct)
     {
-        llvm::StringRef fname("_d_eh_handle_collision");
-        LLType *types[] = { voidPtrTy, voidPtrTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        LLType* args[] = { voidPtrTy, voidPtrTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_eh_handle_collision", args, false, M);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////
@@ -795,7 +887,7 @@ static void LLVM_D_BuildRuntimeModule()
     }
 
     // void _d_hidden_func(Object o)
-    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_hidden_func", { voidPtrTy }, false, M);
+    LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_hidden_func", voidPtrTy, false, M);
 
     // void _d_dso_registry(CompilerDSOData* data)
     if (global.params.isLinux) {
@@ -806,12 +898,12 @@ static void LLVM_D_BuildRuntimeModule()
             getPtrToType(moduleInfoPtrTy), // _minfo_end
             NULL
         );
-        LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_dso_registry", { getPtrToType(dsoDataTy) }, false, M);
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_dso_registry", getPtrToType(dsoDataTy), false, M);
     }
 
     // void _d_cover_register2(string filename, size_t[] valid, uint[] data, ubyte minPercent)
     if (global.params.cov) {
-        LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_cover_register2",
-                                    { stringTy, rt_array(sizeTy), rt_array(intTy), byteTy }, false, M);
+        LLType* args[] = { stringTy, rt_array(sizeTy), rt_array(intTy), byteTy };
+        LLVM_D_BuildFunctionFwdDecl(Type::tvoid, "_d_cover_register2", args, false, M);
     }
 }

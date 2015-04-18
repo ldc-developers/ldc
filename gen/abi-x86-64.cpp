@@ -221,7 +221,7 @@ struct X86_64TargetABI : TargetABI {
 
     llvm::CallingConv::ID callingConv(LINK l);
 
-    bool returnInArg(Type* tf, LINK linkage);
+    bool returnInArg(Type* rt, LINK linkage);
 
     bool passByVal(Type* t);
 
