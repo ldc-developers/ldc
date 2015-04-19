@@ -111,9 +111,14 @@ disableGCToStack("disable-gc2stack",
     cl::desc("Disable promotion of GC allocations to stack memory"),
     cl::ZeroOrMore);
 
-static cl::opt<opts::BoolOrDefaultAdapter, false, opts::FlagParser>
-enableInlining("inlining",
+static cl::opt<opts::BoolOrDefaultAdapter, false>
+enableInlining("enable-inlining",
     cl::desc("Enable function inlining (default in -O2 and higher)"),
+    cl::ZeroOrMore);
+static cl::opt<opts::BoolOrDefaultAdapter, true>
+disableInlining("disable-inlining",
+    cl::location(enableInlining),
+    cl::ReallyHidden,
     cl::ZeroOrMore);
 
 static cl::opt<bool>
