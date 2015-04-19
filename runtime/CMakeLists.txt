@@ -322,7 +322,12 @@ macro(compile_druntime d_flags lib_suffix path_suffix outlist_o outlist_bc)
     # Always disable invariants for debug builds of core.* and gc.* (there
     # are/were some broken invariants around; druntime is always built in
     # release mode in upstream builds).
-    set(rt_flags "${d_flags};-disable-invariants")
+    if(${LDC_LLVM_VER} LESS 307)
+        set(rt_flags "${d_flags};-disable-invariants")
+    else ()
+        set(rt_flags "${d_flags};-invariants=false")
+    endif()
+
     if(BUILD_SHARED_LIBS)
         set(shared ";-d-version=Shared")
     else()
