@@ -382,6 +382,19 @@ if( NOT WIN32 OR CYGWIN )
 endif()
 
 #
+# Enable instrumentation for code coverage analysis
+#
+set(TEST_COVERAGE OFF CACHE BOOL "instrument compiler for code coverage analysis")
+if(TEST_COVERAGE)
+    if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
+        append("-O0 -g -fprofile-arcs -ftest-coverage" EXTRA_CXXFLAGS)
+        append("--coverage" LLVM_LDFLAGS)
+    else()
+        message(WARNING "Coverage testing is not available.")
+    endif()
+endif()
+
+#
 # Set up the main ldc/ldc2 target.
 #
 if(BUILD_SHARED)
