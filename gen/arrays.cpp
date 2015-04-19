@@ -756,7 +756,6 @@ DSliceValue* DtoCatArrays(Loc& loc, Type* arrayType, Expression* exp1, Expressio
     LOG_SCOPE;
 
     std::vector<LLValue*> args;
-    LLFunction* fn = 0;
     const char* fname = NULL;
 
     if (exp1->op == TOKcat)

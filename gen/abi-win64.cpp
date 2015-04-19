@@ -55,7 +55,7 @@ private:
     bool isAggregate(Type* t)
     {
         TY ty = t->ty;
-        return ty == Tstruct || ty == Tsarray || ty == Tarray || ty == Tdelegate
+        return ty == Tstruct || ty == Tsarray || /*ty == Tarray ||*/ ty == Tdelegate
             || t->iscomplex();
     }
 
@@ -123,7 +123,7 @@ bool Win64TargetABI::returnInArg(Type* rt, LINK /*linkage*/)
     //   XMM0 for single float/ifloat/double/idouble)
     // * all other types are returned via struct-return (sret)
     return (rt->ty == Tstruct && !((TypeStruct*)rt)->sym->isPOD())
-        || isPassedWithByvalSemantics(rt);
+        || isPassedWithByvalSemantics(rt) || (rt->ty == Tarray);
 }
 
 bool Win64TargetABI::passByVal(Type* t)
