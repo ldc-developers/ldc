@@ -1387,7 +1387,8 @@ int main(int argc, char **argv)
 #endif
 
 #if LDC_LLVM_VER >= 306
-        llvm::Linker linker(llvmModules[0]);
+        llvm::Linker linker(new llvm::Module("ldc link module", context));
+        linker.linkInModule(llvmModules[0]);
 #elif LDC_LLVM_VER >= 303
         llvm::Linker linker(new llvm::Module(moduleName, context));
 #else
