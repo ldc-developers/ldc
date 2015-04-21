@@ -65,7 +65,7 @@ private:
     Statement *finallyBody;
 };
 
-// holds information about a single try-catch-inally block
+// holds information about a single try-catch-finally block
 struct IRLandingPadScope
 {
     explicit IRLandingPadScope(llvm::BasicBlock *target_ = NULL) :
