@@ -187,7 +187,7 @@ namespace
 #endif
         {
 #if LDC_LLVM_VER >= 307
-            for (DISubprogram Subprogram : Finder.subprograms())
+            for (MDSubprogram* Subprogram : Finder.subprograms())
                 if (Subprogram->describes(F)) return Subprogram;
             return nullptr;
 #elif LDC_LLVM_VER >= 305

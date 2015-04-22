@@ -67,6 +67,32 @@ extern const llvm::DataLayout* gDataLayout;
 extern const llvm::TargetData* gDataLayout;
 #endif
 
+// LLVM 3.7: no more DIFoo wrappers for MDFoo* pointers
+// Let's define primitive wrappers for backward compatibility,
+// primarily for proper initialization with null.
+#if LDC_LLVM_VER >= 307
+namespace llvm {
+    template <class T>
+    class DIWrapper
+    {
+        T* ptr;
+    public:
+        DIWrapper(T* ptr = nullptr) : ptr(ptr) {}
+        operator T*() { return ptr; }
+        T* operator ->() { return ptr; }
+    };
+
+    using DICompileUnit = DIWrapper<MDCompileUnit>;
+    using DIExpression = DIWrapper<MDExpression>;
+    using DIFile = DIWrapper<MDFile>;
+    using DIGlobalVariable = DIWrapper<MDGlobalVariable>;
+    using DILexicalBlock = DIWrapper<MDLexicalBlock>;
+    using DISubprogram = DIWrapper<MDSubprogram>;
+    using DIType = DIWrapper<MDType>;
+    using DIVariable = DIWrapper<MDLocalVariable>;
+}
+#endif
+
 namespace ldc {
 
 #if LDC_LLVM_VER >= 307
@@ -83,9 +109,9 @@ class DIBuilder
     llvm::DIBuilder DBuilder;
 
 #if LDC_LLVM_VER >= 307
-    const llvm::MDCompileUnit *CUNode;
+    llvm::MDCompileUnit *CUNode;
 
-    const llvm::MDCompileUnit *GetCU()
+    llvm::MDCompileUnit *GetCU()
     {
         return CUNode;
     }

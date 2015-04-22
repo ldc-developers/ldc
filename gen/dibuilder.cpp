@@ -411,7 +411,11 @@ llvm::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
         }
     }
 
+#if LDC_LLVM_VER >= 307
+    llvm::DebugNodeArray elemsArray = DBuilder.getOrCreateArray(elems);
+#else
     llvm::DIArray elemsArray = DBuilder.getOrCreateArray(elems);
+#endif
 
     llvm::DIType ret;
     if (t->ty == Tclass) {
@@ -550,7 +554,9 @@ ldc::DIFunctionType ldc::DIBuilder::CreateFunctionType(Type *type)
     llvm::SmallVector<llvm::Value*, 16> Elts;
 #endif
     Elts.push_back(CreateTypeDescription(retType, true));
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 307
+    llvm::MDTypeRefArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
+#elif LDC_LLVM_VER >= 306
     llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
 #else
     llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
@@ -579,7 +585,9 @@ ldc::DIFunctionType ldc::DIBuilder::CreateDelegateType(Type *type)
         llvm::DIType(NULL)
 #endif
     );
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 307
+    llvm::MDTypeRefArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
+#elif LDC_LLVM_VER >= 306
     llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
 #else
     llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
@@ -722,7 +730,9 @@ llvm::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function* Fn,
     llvm::SmallVector<llvm::Value *, 1> Elts;
 #endif
     Elts.push_back(CreateTypeDescription(Type::tvoid, true));
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 307
+    llvm::MDTypeRefArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
+#elif LDC_LLVM_VER >= 306
     llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
 #else
     llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
