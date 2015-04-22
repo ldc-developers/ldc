@@ -23,7 +23,6 @@
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
 #include "gen/logger.h"
-#include "gen/utils.h"
 #include "gen/llvmhelpers.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -38,66 +37,10 @@ IrTypeStruct::IrTypeStruct(StructDeclaration * sd)
 
 //////////////////////////////////////////////////////////////////////////////
 
-static bool isAligned(llvm::Type* type, size_t offset) {
-    return gDataLayout->getABITypeAlignment(type) % offset == 0;
-}
-
-size_t add_zeros(std::vector<llvm::Type*>& defaultTypes,
-    size_t startOffset, size_t endOffset)
-{
-    size_t const oldLength = defaultTypes.size();
-
-    llvm::Type* const eightByte = llvm::Type::getInt64Ty(gIR->context());
-    llvm::Type* const fourByte = llvm::Type::getInt32Ty(gIR->context());
-    llvm::Type* const twoByte = llvm::Type::getInt16Ty(gIR->context());
-
-    assert(startOffset <= endOffset);
-    size_t paddingLeft = endOffset - startOffset;
-    while (paddingLeft)
-    {
-        if (global.params.is64bit && paddingLeft >= 8 && isAligned(eightByte, startOffset))
-        {
-            defaultTypes.push_back(eightByte);
-            startOffset += 8;
-        }
-        else if (paddingLeft >= 4 && isAligned(fourByte, startOffset))
-        {
-            defaultTypes.push_back(fourByte);
-            startOffset += 4;
-        }
-        else if (paddingLeft >= 2 && isAligned(twoByte, startOffset))
-        {
-            defaultTypes.push_back(twoByte);
-            startOffset += 2;
-        }
-        else
-        {
-            defaultTypes.push_back(llvm::Type::getInt8Ty(gIR->context()));
-            startOffset += 1;
-        }
-
-        paddingLeft = endOffset - startOffset;
-    }
-
-    return defaultTypes.size() - oldLength;
-}
-
-
-bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2)
-{
-    if (v1 && v2)
-        return v1->offset < v2->offset;
-    // sort NULL pointers towards the end
-    return v1 && !v2;
-}
-
-// this is pretty much the exact same thing we need to do for fields in each
-// base class of a class
-
 IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
 {
     IrTypeStruct* t = new IrTypeStruct(sd);
-    sd->type->irtype = t;
+    sd->type->ctype = t;
 
     IF_LOG Logger::println("Building struct type %s @ %s",
         sd->toPrettyChars(), sd->loc.toChars());
@@ -107,145 +50,19 @@ IrTypeStruct* IrTypeStruct::get(StructDeclaration* sd)
     if (sd->sizeok != SIZEOKdone)
         return t;
 
-    // TODO:: Somehow merge this with IrAggr::createInitializerConstant, or
-    // replace it by just taking the type of the default initializer.
-
-    // mirror the sd->fields array but only fill in contributors
-    size_t n = sd->fields.dim;
-    LLSmallVector<VarDeclaration*, 16> data(n, NULL);
-    t->default_fields.reserve(n);
-
-    // first fill in the fields with explicit initializers
-    VarDeclarationIter field_it(sd->fields);
-    for (; field_it.more(); field_it.next())
+    t->packed = sd->alignment == 1;
+    if (!t->packed)
     {
-        // init is !null for explicit inits
-        if (field_it->init != NULL && !field_it->init->isVoidInitializer())
-        {
-            IF_LOG Logger::println("adding explicit initializer for struct field %s",
-                field_it->toChars());
-
-            data[field_it.index] = *field_it;
-
-            size_t f_begin = field_it->offset;
-            size_t f_end = f_begin + field_it->type->size();
-
-            // make sure there is no overlap
-            for (size_t i = 0; i < field_it.index; i++)
-            {
-                if (data[i] != NULL)
-                {
-                    VarDeclaration* vd = data[i];
-                    size_t v_begin = vd->offset;
-                    size_t v_end = v_begin + vd->type->size();
-
-                    if (v_begin >= f_end || v_end <= f_begin)
-                        continue;
-
-                    sd->error(vd->loc, "has overlapping initialization for %s and %s",
-                        field_it->toChars(), vd->toChars());
-                }
-            }
-        }
+        // Unfortunately, the previous check is not enough in case the struct
+        // contains an align declaration. See issue 726.
+        t->packed = isPacked(sd);
     }
 
-    if (global.errors)
-    {
-        fatal();
-    }
-
-    // fill in default initializers
-    field_it = VarDeclarationIter(sd->fields);
-    for (;field_it.more(); field_it.next())
-    {
-        if (data[field_it.index])
-            continue;
-
-        size_t f_begin = field_it->offset;
-        size_t f_end = f_begin + field_it->type->size();
-
-        // make sure it doesn't overlap anything explicit
-        bool overlaps = false;
-        for (size_t i = 0; i < n; i++)
-        {
-            if (data[i])
-            {
-                size_t v_begin = data[i]->offset;
-                size_t v_end = v_begin + data[i]->type->size();
-
-                if (v_begin >= f_end || v_end <= f_begin)
-                    continue;
-
-                overlaps = true;
-                break;
-            }
-        }
-
-        // if no overlap was found, add the default initializer
-        if (!overlaps)
-        {
-            IF_LOG Logger::println("adding default initializer for struct field %s",
-                field_it->toChars());
-            data[field_it.index] = *field_it;
-        }
-    }
-
-    // ok. now we can build a list of llvm types. and make sure zeros are inserted if necessary.
-    std::vector<LLType*> defaultTypes;
-    defaultTypes.reserve(16);
-
-    size_t offset = 0;
-    size_t field_index = 0;
-
-    bool packed = (sd->alignment == 1);
-
-    // first we sort the list by offset
-    std::sort(data.begin(), data.end(), var_offset_sort_cb);
-
-    // add types to list
-    for (size_t i = 0; i < n; i++)
-    {
-        VarDeclaration* vd = data[i];
-
-        if (vd == NULL)
-            continue;
-
-        assert(vd->offset >= offset);
-
-        // add to default field list
-        t->default_fields.push_back(vd);
-
-        // get next aligned offset for this type
-        size_t alignedoffset = offset;
-        if (!packed)
-        {
-            alignedoffset = realignOffset(alignedoffset, vd->type);
-        }
-
-        // insert explicit padding?
-        if (alignedoffset < vd->offset)
-        {
-            field_index += add_zeros(defaultTypes, alignedoffset, vd->offset);
-        }
-
-        // add default type
-        defaultTypes.push_back(DtoType(vd->type));
-
-        // advance offset to right past this field
-        offset = vd->offset + vd->type->size();
-
-        // set the field index
-        vd->aggrIndex = (unsigned)field_index++;
-    }
-
-    // tail padding?
-    if (offset < sd->structsize)
-    {
-        add_zeros(defaultTypes, offset, sd->structsize);
-    }
-
-    // set struct body
-    isaStruct(t->type)->setBody(defaultTypes, packed);
+    AggrTypeBuilder builder(t->packed);
+    builder.addAggregate(sd);
+    builder.addTailPadding(sd->structsize);
+    isaStruct(t->type)->setBody(builder.defaultTypes(), t->packed);
+    t->varGEPIndices = builder.varGEPIndices();
 
     IF_LOG Logger::cout() << "final struct type: " << *t->type << std::endl;
 

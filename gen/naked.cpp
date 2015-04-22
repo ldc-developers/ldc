@@ -25,93 +25,134 @@
 #include <cassert>
 
 //////////////////////////////////////////////////////////////////////////////////////////
-
-void Statement::toNakedIR(IRState *p)
-{
-    error("statement not allowed in naked function");
-}
+// FIXME: Integrate these functions
+void AsmStatement_toNakedIR(AsmStatement *stmt, IRState *irs);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void CompoundStatement::toNakedIR(IRState *p)
-{
-    Logger::println("CompoundStatement::toNakedIR(): %s", loc.toChars());
-    LOG_SCOPE;
+class ToNakedIRVisitor : public Visitor {
+    IRState *irs;
+public:
 
-    if (statements)
-    for (unsigned i = 0; i < statements->dim; i++)
-    {
-        Statement* s = static_cast<Statement*>(statements->data[i]);
-        if (s) s->toNakedIR(p);
-    }
-}
+    ToNakedIRVisitor(IRState *irs) : irs(irs) { }
 
-//////////////////////////////////////////////////////////////////////////////////////////
+    //////////////////////////////////////////////////////////////////////////
 
-void ExpStatement::toNakedIR(IRState *p)
-{
-    Logger::println("ExpStatement::toNakedIR(): %s", loc.toChars());
-    LOG_SCOPE;
+    // Import all functions from class Visitor
+    using Visitor::visit;
 
-    // only expstmt supported in declarations
-    if (exp->op != TOKdeclaration)
-    {
-        Statement::toNakedIR(p);
-        return;
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(Statement *stmt) LLVM_OVERRIDE {
+        error(Loc(), "Statement not allowed in naked function");
     }
 
-    DeclarationExp* d = static_cast<DeclarationExp*>(exp);
-    VarDeclaration* vd = d->declaration->isVarDeclaration();
-    FuncDeclaration* fd = d->declaration->isFuncDeclaration();
-    EnumDeclaration* ed = d->declaration->isEnumDeclaration();
+    //////////////////////////////////////////////////////////////////////////
 
-    // and only static variable/function declaration
-    // no locals or nested stuffies!
-    if (!vd && !fd && !ed)
-    {
-        Statement::toNakedIR(p);
-        return;
+    void visit(AsmStatement *stmt) LLVM_OVERRIDE {
+        AsmStatement_toNakedIR(stmt, irs);
     }
-    else if (vd && !(vd->storage_class & (STCstatic | STCmanifest)))
-    {
-        error("non-static variable '%s' not allowed in naked function", vd->toChars());
-        return;
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(AsmBlockStatement *stmt) LLVM_OVERRIDE {
+        IF_LOG Logger::println("AsmBlockStatement::toNakedIR(): %s", stmt->loc.toChars());
+        LOG_SCOPE;
+
+        for (Statements::iterator I = stmt->statements->begin(),
+                                  E = stmt->statements->end();
+                                  I != E; ++I)
+        {
+            Statement *s = *I;
+            if (s) s->accept(this);
+        }
     }
-    else if (fd && !fd->isStatic())
-    {
-        error("non-static nested function '%s' not allowed in naked function", fd->toChars());
-        return;
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(CompoundStatement *stmt) LLVM_OVERRIDE {
+        IF_LOG Logger::println("CompoundStatement::toNakedIR(): %s", stmt->loc.toChars());
+        LOG_SCOPE;
+
+        if (stmt->statements)
+            for (Statements::iterator I = stmt->statements->begin(),
+                                      E = stmt->statements->end();
+                                      I != E; ++I)
+            {
+                Statement *s = *I;
+                if (s) s->accept(this);
+            }
     }
-    // enum decls should always be safe
 
-    // make sure the symbols gets processed
-    // TODO: codegen() here is likely incorrect
-    d->declaration->codegen(p);
-}
+    //////////////////////////////////////////////////////////////////////////
 
-//////////////////////////////////////////////////////////////////////////////////////////
+    void visit(ExpStatement *stmt) LLVM_OVERRIDE {
+        IF_LOG Logger::println("ExpStatement::toNakedIR(): %s", stmt->loc.toChars());
+        LOG_SCOPE;
 
-void LabelStatement::toNakedIR(IRState *p)
-{
-    Logger::println("LabelStatement::toNakedIR(): %s", loc.toChars());
-    LOG_SCOPE;
+        // This happens only if there is a ; at the end:
+        // asm { naked; ... };
+        // Is this a legal AST?
+        if (!stmt->exp) return;
 
-    printLabelName(p->nakedAsm, p->func()->decl->mangle(), ident->toChars());
-    p->nakedAsm << ":";
+        // only expstmt supported in declarations
+        if (!stmt->exp || stmt->exp->op != TOKdeclaration)
+        {
+            visit(static_cast<Statement *>(stmt));
+            return;
+        }
 
-    if (statement)
-        statement->toNakedIR(p);
-}
+        DeclarationExp* d = static_cast<DeclarationExp*>(stmt->exp);
+        VarDeclaration* vd = d->declaration->isVarDeclaration();
+        FuncDeclaration* fd = d->declaration->isFuncDeclaration();
+        EnumDeclaration* ed = d->declaration->isEnumDeclaration();
+
+        // and only static variable/function declaration
+        // no locals or nested stuffies!
+        if (!vd && !fd && !ed)
+        {
+            visit(static_cast<Statement *>(stmt));
+            return;
+        }
+        else if (vd && !(vd->storage_class & (STCstatic | STCmanifest)))
+        {
+            error(vd->loc, "non-static variable '%s' not allowed in naked function", vd->toChars());
+            return;
+        }
+        else if (fd && !fd->isStatic())
+        {
+            error(fd->loc, "non-static nested function '%s' not allowed in naked function", fd->toChars());
+            return;
+        }
+        // enum decls should always be safe
+
+        // make sure the symbols gets processed
+        // TODO: codegen() here is likely incorrect
+        Declaration_codegen(d->declaration, irs);
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(LabelStatement *stmt) LLVM_OVERRIDE {
+        IF_LOG Logger::println("LabelStatement::toNakedIR(): %s", stmt->loc.toChars());
+        LOG_SCOPE;
+
+        printLabelName(irs->nakedAsm, mangleExact(irs->func()->decl), stmt->ident->toChars());
+        irs->nakedAsm << ":";
+
+        if (stmt->statement)
+            stmt->statement->accept(this);
+    }
+};
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 void DtoDefineNakedFunction(FuncDeclaration* fd)
 {
-    Logger::println("DtoDefineNakedFunction(%s)", fd->mangle());
+    IF_LOG Logger::println("DtoDefineNakedFunction(%s)", mangleExact(fd));
     LOG_SCOPE;
 
-    assert(fd->ir.irFunc);
-    gIR->functions.push_back(fd->ir.irFunc);
+    gIR->functions.push_back(getIrFunc(fd));
 
     // we need to do special processing on the body, since we only want
     // to allow actual inline asm blocks to reach the final asm output
@@ -122,7 +163,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
     // FIXME: could we perhaps use llvm asmwriter to give us these details ?
 
-    const char* mangle = fd->mangle();
+    const char* mangle = mangleExact(fd);
     std::ostringstream tmpstr;
 
     bool const isWin = global.params.targetTriple.isOSWindows();
@@ -142,7 +183,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
             weak = true;
         }
         asmstr << "\t." << section << std::endl;
-        asmstr << "\t.align\t4,0x90" << std::endl;
+        asmstr << "\t.align\t4, 0x90" << std::endl;
         asmstr << "\t.globl\t_" << mangle << std::endl;
         if (weak)
         {
@@ -150,48 +191,60 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         }
         asmstr << "_" << mangle << ":" << std::endl;
     }
-    else
+    // Windows is different
+    else if (isWin)
     {
         std::string fullMangle;
-        if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32 ||
-            global.params.targetTriple.getOS() == llvm::Triple::Win32)
+#if LDC_LLVM_VER >= 305
+        if ( global.params.targetTriple.isWindowsGNUEnvironment() 
+             && !global.params.targetTriple.isArch64Bit() )
+#else
+        if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
+#endif
         {
             fullMangle = "_";
         }
         fullMangle += mangle;
 
-        const char* linkage = "globl";
-        std::string section = "text";
+        asmstr << "\t.def\t" << fullMangle << ";" << std::endl;
+        // hard code these two numbers for now since gas ignores .scl and llvm
+        // is defaulting to .type 32 for everything I have seen
+        asmstr << "\t.scl 2;" << std::endl;
+        asmstr << "\t.type 32;" << std::endl;
+        asmstr << "\t.endef" << std::endl;
+
         if (DtoIsTemplateInstance(fd))
         {
-            linkage = "weak";
-            tmpstr << "section\t.gnu.linkonce.t." << fullMangle << ",\"ax\"";
-            if (!isWin)
-                tmpstr << ",@progbits";
-            section = tmpstr.str();
+            asmstr << "\t.section\t.text$" << fullMangle << ",\"xr\"" << std::endl;
+            asmstr << "\t.linkonce\tdiscard" << std::endl;
         }
-        asmstr << "\t." << section << std::endl;
-        asmstr << "\t.align\t16" << std::endl;
-
-        if (isWin)
+        else
+            asmstr << "\t.text" << std::endl;
+        asmstr << "\t.globl\t" << fullMangle << std::endl;
+        asmstr << "\t.align\t16, 0x90" << std::endl;
+        asmstr << fullMangle << ":" << std::endl;
+    }
+    else
+    {
+        if (DtoIsTemplateInstance(fd))
         {
-            asmstr << "\t.def\t" << fullMangle << ";";
-            // hard code these two numbers for now since gas ignores .scl and llvm
-            // is defaulting to .type 32 for everything I have seen
-            asmstr << "\t.scl 2; .type 32;\t.endef" << std::endl;
+            asmstr << "\t.section\t.text." << mangle << ",\"axG\",@progbits,"
+                   << mangle << ",comdat" << std::endl;
+            asmstr << "\t.weak\t" << mangle << std::endl;
         }
         else
         {
-            asmstr << "\t.type\t" << fullMangle << ",@function" << std::endl;
+            asmstr << "\t.text" << std::endl;
+            asmstr << "\t.globl\t" << mangle << std::endl;
         }
-
-        asmstr << "\t." << linkage << "\t" << fullMangle << std::endl;
-        asmstr << fullMangle << ":" << std::endl;
-
+        asmstr << "\t.align\t16, 0x90" << std::endl;
+        asmstr << "\t.type\t" << mangle << ",@function" << std::endl;
+        asmstr << mangle << ":" << std::endl;
     }
 
     // emit body
-    fd->fbody->toNakedIR(gIR);
+    ToNakedIRVisitor v(gIR);
+    fd->fbody->accept(&v);
 
     // We could have generated new errors in toNakedIR(), but we are in codegen
     // already so we have to abort here.
@@ -213,9 +266,9 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
+void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc& loc, FuncDeclaration* fdecl)
 {
-    Logger::println("emitABIReturnAsmStmt(%s)", fdecl->mangle());
+    IF_LOG Logger::println("emitABIReturnAsmStmt(%s)", mangleExact(fdecl));
     LOG_SCOPE;
 
     IRAsmStmt* as = new IRAsmStmt;
@@ -370,9 +423,9 @@ void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl)
 
 // sort of kinda related to naked ...
 
-DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments)
+DValue * DtoInlineAsmExpr(Loc& loc, FuncDeclaration * fd, Expressions * arguments)
 {
-    Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
+    IF_LOG Logger::println("DtoInlineAsmExpr @ %s", loc.toChars());
     LOG_SCOPE;
 
     TemplateInstance* ti = fd->toParent()->isTemplateInstance();
@@ -381,8 +434,8 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
     assert(arguments->dim >= 2 && "invalid __asm call");
 
     // get code param
-    Expression* e = static_cast<Expression*>(arguments->data[0]);
-    Logger::println("code exp: %s", e->toChars());
+    Expression* e = (*arguments)[0];
+    IF_LOG Logger::println("code exp: %s", e->toChars());
     StringExp* se = static_cast<StringExp*>(e);
     if (e->op != TOKstring || se->sz != 1)
     {
@@ -392,8 +445,8 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
     std::string code(static_cast<char*>(se->string), se->len);
 
     // get constraints param
-    e = static_cast<Expression*>(arguments->data[1]);
-    Logger::println("constraint exp: %s", e->toChars());
+    e = (*arguments)[1];
+    IF_LOG Logger::println("constraint exp: %s", e->toChars());
     se = static_cast<StringExp*>(e);
     if (e->op != TOKstring || se->sz != 1)
     {
@@ -412,8 +465,7 @@ DValue * DtoInlineAsmExpr(Loc loc, FuncDeclaration * fd, Expressions * arguments
 
     for (size_t i = 2; i < n; i++)
     {
-        e = static_cast<Expression*>(arguments->data[i]);
-        args.push_back(e->toElem(gIR)->getRVal());
+        args.push_back(toElem((*arguments)[i])->getRVal());
         argtypes.push_back(args.back()->getType());
     }
 

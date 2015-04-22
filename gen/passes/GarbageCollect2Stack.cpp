@@ -14,6 +14,7 @@
 
 #include "gen/runtime.h"
 #include "gen/metadata.h"
+#include "gen/attributes.h"
 
 #define DEBUG_TYPE "dgc2stack"
 
@@ -38,10 +39,18 @@
 #include "llvm/Target/TargetData.h"
 #endif
 #endif
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/CallSite.h"
+#else
 #include "llvm/Support/CallSite.h"
+#endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/CallGraph.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/Dominators.h"
+#else
 #include "llvm/Analysis/Dominators.h"
+#endif
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -70,7 +79,7 @@ SizeLimit("dgc2stack-size-limit", cl::init(1024), cl::Hidden,
 
 namespace {
     struct Analysis {
-        DataLayout& DL;
+        const DataLayout& DL;
         const Module& M;
         CallGraph* CG;
         CallGraphNode* CGNode;
@@ -151,7 +160,13 @@ namespace {
             APInt Mask = APInt::getLowBitsSet(Bits, BitsLimit);
             Mask.flipAllBits();
             APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
+#if LDC_LLVM_VER >= 307
+            computeKnownBits(Val, KnownZero, KnownOne, A.DL);
+#elif LDC_LLVM_VER >= 305
+            computeKnownBits(Val, KnownZero, KnownOne, &A.DL);
+#else
             ComputeMaskedBits(Val, KnownZero, KnownOne, &A.DL);
+#endif
 
             if ((KnownZero & Mask) != Mask)
                 return false;
@@ -282,11 +297,19 @@ namespace {
 
             // Inserting destructor calls is not implemented yet, so classes
             // with destructors are ignored for now.
+#if LDC_LLVM_VER >= 306
+            auto hasDestructor = mdconst::dyn_extract<Constant>(node->getOperand(CD_Finalize));
+#else
             Constant* hasDestructor = dyn_cast<Constant>(node->getOperand(CD_Finalize));
+#endif
             // We can't stack-allocate if the class has a custom deallocator
             // (Custom allocators don't get turned into this runtime call, so
             // those can be ignored)
+#if LDC_LLVM_VER >= 306
+            auto hasCustomDelete = mdconst::dyn_extract<Constant>(node->getOperand(CD_CustomDelete));
+#else
             Constant* hasCustomDelete = dyn_cast<Constant>(node->getOperand(CD_CustomDelete));
+#endif
             if (hasDestructor == NULL || hasCustomDelete == NULL)
                 return false;
 
@@ -294,7 +317,11 @@ namespace {
                     != ConstantInt::getFalse(A.M.getContext()))
                 return false;
 
-            Ty =node->getOperand(CD_BodyType)->getType();
+#if LDC_LLVM_VER >= 306
+            Ty = mdconst::dyn_extract<Constant>(node->getOperand(CD_BodyType))->getType();
+#else
+            Ty = node->getOperand(CD_BodyType)->getType();
+#endif
             return A.DL.getTypeAllocSize(Ty) < SizeLimit;
         }
 
@@ -373,7 +400,7 @@ namespace {
         Module* M;
 
         TypeInfoFI AllocMemoryT;
-        ArrayFI NewArrayVT;
+        ArrayFI NewArrayU;
         ArrayFI NewArrayT;
         AllocClassFI AllocClass;
         UntypedMemoryFI AllocMemory;
@@ -390,13 +417,16 @@ namespace {
         bool runOnFunction(Function &F);
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-          AU.addRequired<DataLayout>();
-          AU.addRequired<DominatorTree>();
-
 #if LDC_LLVM_VER >= 305
-          AU.addPreserved<CallGraphWrapperPass>();
+#if LDC_LLVM_VER < 307
+            AU.addRequired<DataLayoutPass>();
+#endif
+            AU.addRequired<DominatorTreeWrapperPass>();
+            AU.addPreserved<CallGraphWrapperPass>();
 #else
-          AU.addPreserved<CallGraph>();
+            AU.addRequired<DataLayout>();
+            AU.addRequired<DominatorTree>();
+            AU.addPreserved<CallGraph>();
 #endif
         }
     };
@@ -414,12 +444,12 @@ FunctionPass *createGarbageCollect2Stack() {
 GarbageCollect2Stack::GarbageCollect2Stack()
 : FunctionPass(ID),
   AllocMemoryT(ReturnType::Pointer, 0),
-  NewArrayVT(ReturnType::Array, 0, 1, false),
+  NewArrayU(ReturnType::Array, 0, 1, false),
   NewArrayT(ReturnType::Array, 0, 1, true),
   AllocMemory(0)
 {
     KnownFunctions["_d_allocmemoryT"] = &AllocMemoryT;
-    KnownFunctions["_d_newarrayvT"] = &NewArrayVT;
+    KnownFunctions["_d_newarrayU"] = &NewArrayU;
     KnownFunctions["_d_newarrayT"] = &NewArrayT;
     KnownFunctions["_d_newclass"] = &AllocClass;
     KnownFunctions["_d_allocmemory"] = &AllocMemory;
@@ -454,15 +484,24 @@ static bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& D
 bool GarbageCollect2Stack::runOnFunction(Function &F) {
     DEBUG(errs() << "\nRunning -dgc2stack on function " << F.getName() << '\n');
 
-    DataLayout& DL = getAnalysis<DataLayout>();
-    DominatorTree& DT = getAnalysis<DominatorTree>();
-#if LDC_LLVM_VER >= 305
-    CallGraphWrapperPass* CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
-    CallGraph* CG = CGPass ? &CGPass->getCallGraph() : 0;
+#if LDC_LLVM_VER >= 307
+    const DataLayout &DL = F.getParent()->getDataLayout();
+    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
+    CallGraph *CG = CGPass ? &CGPass->getCallGraph() : 0;
+#elif LDC_LLVM_VER >= 305
+    DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+    assert(DLP && "required DataLayoutPass is null");
+    const DataLayout &DL = DLP->getDataLayout();
+    DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
+    CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
+    CallGraph *CG = CGPass ? &CGPass->getCallGraph() : 0;
 #else
-    CallGraph* CG = getAnalysisIfAvailable<CallGraph>();
+    DataLayout &DL = getAnalysis<DataLayout>();
+    DominatorTree &DT = getAnalysis<DominatorTree>();
+    CallGraph *CG = getAnalysisIfAvailable<CallGraph>();
 #endif
-    CallGraphNode* CGNode = CG ? (*CG)[&F] : NULL;
+    CallGraphNode *CGNode = CG ? (*CG)[&F] : NULL;
 
     Analysis A = { DL, *M, CG, CGNode };
 
@@ -482,7 +521,11 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
             // Ignore indirect calls and calls to non-external functions.
             Function *Callee = CS.getCalledFunction();
             if (Callee == 0 || !Callee->isDeclaration() ||
-                    !(Callee->hasExternalLinkage() || Callee->hasDLLImportLinkage()))
+                    !(Callee->hasExternalLinkage()
+#if LDC_LLVM_VER < 305
+                    || Callee->hasDLLImportLinkage()
+#endif
+                    ))
                 continue;
 
             // Ignore unknown calls.
@@ -558,11 +601,19 @@ Type* Analysis::getTypeFor(Value* typeinfo) const {
     if (node->getNumOperands() != TD_NumFields)
         return NULL;
 
+#if LDC_LLVM_VER >= 306
+    Value* ti = llvm::MetadataAsValue::get(node->getContext(), node->getOperand(TD_TypeInfo));
+#else
     Value* ti = node->getOperand(TD_TypeInfo);
+#endif
     if (!ti || ti->stripPointerCasts() != ti_global)
         return NULL;
 
+#if LDC_LLVM_VER >= 306
+    return llvm::MetadataAsValue::get(node->getContext(), node->getOperand(TD_Type))->getType();
+#else
     return node->getOperand(TD_Type)->getType();
+#endif
 }
 
 /// Returns whether Def is used by any instruction that is reachable from Alloc
@@ -687,7 +738,13 @@ static bool mayBeUsedAfterRealloc(Instruction* Def, Instruction* Alloc, Dominato
             // haven't seen this block yet, and it's dominated by the def
             // (meaning paths through it could lead to users), add the block and
             // the first non-phi to the worklist.
-            if (!SeenDef && Visited.insert(Succ) && DT.dominates(DefBlock, Succ))
+            if (!SeenDef
+#if LDC_LLVM_VER >= 306
+                && Visited.insert(Succ).second
+#else
+                && Visited.insert(Succ)
+#endif
+                && DT.dominates(DefBlock, Succ))
                 Worklist.push_back(StartPoint(Succ, BBI));
         }
     }
@@ -773,7 +830,11 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
 
   for (Value::use_iterator UI = V->use_begin(), UE = V->use_end();
        UI != UE; ++UI) {
+#if LDC_LLVM_VER >= 305
+    Use *U = &(*UI);
+#else
     Use *U = &UI.getUse();
+#endif
     Visited.insert(U);
     Worklist.push_back(U);
   }
@@ -804,15 +865,7 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
       CallSite::arg_iterator B = CS.arg_begin(), E = CS.arg_end();
       for (CallSite::arg_iterator A = B; A != E; ++A)
         if (A->get() == V) {
-          if (!CS.paramHasAttr(A - B + 1,
-#if LDC_LLVM_VER >= 303
-              Attribute::NoCapture
-#elif LDC_LLVM_VER == 302
-              Attributes::NoCapture
-#else
-              Attribute::NoCapture
-#endif
-          )) {
+          if (!CS.paramHasAttr(A - B + 1, LDC_ATTRIBUTE(NoCapture))) {
             // The parameter is not marked 'nocapture' - captured.
             return false;
           }
@@ -849,8 +902,16 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
       // The original value is not captured via this if the new value isn't.
       for (Instruction::use_iterator UI = I->use_begin(), UE = I->use_end();
            UI != UE; ++UI) {
+#if LDC_LLVM_VER >= 305
+        Use *U = &(*UI);
+#else
         Use *U = &UI.getUse();
+#endif
+#if LDC_LLVM_VER >= 306
+        if (Visited.insert(U).second)
+#else
         if (Visited.insert(U))
+#endif
           Worklist.push_back(U);
       }
       break;

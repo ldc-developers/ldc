@@ -32,7 +32,14 @@ IrType::IrType(Type* dt, LLType* lt)
 {
     assert(dt && "null D Type");
     assert(lt && "null LLVM Type");
-    assert(!dt->irtype && "already has IrType");
+    assert(!dt->ctype && "already has IrType");
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+IrFuncTy &IrType::getIrFuncTy()
+{
+    llvm_unreachable("cannot get IrFuncTy from non lazy/function/delegate");
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -49,7 +56,7 @@ IrTypeBasic::IrTypeBasic(Type * dt)
 IrTypeBasic* IrTypeBasic::get(Type* dt)
 {
     IrTypeBasic* t = new IrTypeBasic(dt);
-    dt->irtype = t;
+    dt->ctype = t;
     return t;
 }
 
@@ -63,14 +70,30 @@ LLType* IrTypeBasic::getComplexType(llvm::LLVMContext& ctx, LLType* type)
 
 //////////////////////////////////////////////////////////////////////////////
 
-llvm::Type * IrTypeBasic::basic2llvm(Type* t)
+static inline llvm::Type* getReal80Type(llvm::LLVMContext& ctx)
 {
-    LLType* t2;
-
-    llvm::LLVMContext& ctx = llvm::getGlobalContext();
     llvm::Triple::ArchType const a = global.params.targetTriple.getArch();
     bool const anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
-    bool const anyPPC = (a == llvm::Triple::ppc) || (a == llvm::Triple::ppc64);
+
+    // only x86 has 80bit float - but no support with MS C Runtime!
+    if (anyX86 &&
+#if LDC_LLVM_VER >= 305
+        !global.params.targetTriple.isWindowsMSVCEnvironment()
+#else
+        !(global.params.targetTriple.getOS() == llvm::Triple::Win32)
+#endif
+        )
+
+        return llvm::Type::getX86_FP80Ty(ctx);
+
+    return llvm::Type::getDoubleTy(ctx);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+llvm::Type * IrTypeBasic::basic2llvm(Type* t)
+{
+    llvm::LLVMContext& ctx = llvm::getGlobalContext();
 
     switch(t->ty)
     {
@@ -112,29 +135,16 @@ llvm::Type * IrTypeBasic::basic2llvm(Type* t)
 
     case Tfloat80:
     case Timaginary80:
-        // only x86 has 80bit float
-        if (anyX86)
-            return llvm::Type::getX86_FP80Ty(ctx);
-        // PPC has a special 128bit float
-        else if (anyPPC)
-            return llvm::Type::getPPC_FP128Ty(ctx);
-        // other platforms use 64bit reals
-        else
-            return llvm::Type::getDoubleTy(ctx);
+            return getReal80Type(ctx);
 
-    case Tcomplex32: {
-        t2 = llvm::Type::getFloatTy(ctx);
-        return getComplexType(ctx, t2);
-    }
+    case Tcomplex32:
+        return getComplexType(ctx, llvm::Type::getFloatTy(ctx));
 
     case Tcomplex64:
-        t2 = llvm::Type::getDoubleTy(ctx);
-        return getComplexType(ctx, t2);
+        return getComplexType(ctx, llvm::Type::getDoubleTy(ctx));
 
     case Tcomplex80:
-        t2 = anyX86 ? llvm::Type::getX86_FP80Ty(ctx)
-            : (anyPPC ? llvm::Type::getPPC_FP128Ty(ctx) : llvm::Type::getDoubleTy(ctx));
-        return getComplexType(ctx, t2);
+        return getComplexType(ctx, getReal80Type(ctx));
 
     case Tbool:
         return llvm::Type::getInt1Ty(ctx);
@@ -156,7 +166,7 @@ IrTypePointer::IrTypePointer(Type* dt, LLType* lt)
 
 IrTypePointer* IrTypePointer::get(Type* dt)
 {
-    assert(!dt->irtype);
+    assert(!dt->ctype);
     assert((dt->ty == Tpointer || dt->ty == Tnull) && "not pointer/null type");
 
     LLType* elemType;
@@ -170,12 +180,12 @@ IrTypePointer* IrTypePointer::get(Type* dt)
 
         // DtoType could have already created the same type, e.g. for
         // dt == Node* in struct Node { Node* n; }.
-        if (dt->irtype)
-            return dt->irtype->isPointer();
+        if (dt->ctype)
+            return dt->ctype->isPointer();
     }
 
     IrTypePointer* t = new IrTypePointer(dt, llvm::PointerType::get(elemType, 0));
-    dt->irtype = t;
+    dt->ctype = t;
     return t;
 }
 
@@ -193,7 +203,7 @@ IrTypeSArray::IrTypeSArray(Type * dt)
 IrTypeSArray* IrTypeSArray::get(Type* dt)
 {
     IrTypeSArray* t = new IrTypeSArray(dt);
-    dt->irtype = t;
+    dt->ctype = t;
     return t;
 }
 
@@ -221,21 +231,21 @@ IrTypeArray::IrTypeArray(Type* dt, LLType* lt)
 
 IrTypeArray* IrTypeArray::get(Type* dt)
 {
-    assert(!dt->irtype);
+    assert(!dt->ctype);
     assert(dt->ty == Tarray && "not dynamic array type");
 
     LLType* elemType = i1ToI8(voidToI8(DtoType(dt->nextOf())));
 
     // Could have already built the type as part of a struct forward reference,
     // just as for pointers.
-    if (!dt->irtype)
+    if (!dt->ctype)
     {
         llvm::Type *types[] = { DtoSize_t(), llvm::PointerType::get(elemType, 0) };
         LLType* at = llvm::StructType::get(llvm::getGlobalContext(), types, false);
-        dt->irtype = new IrTypeArray(dt, at);
+        dt->ctype = new IrTypeArray(dt, at);
     }
 
-    return dt->irtype->isArray();
+    return dt->ctype->isArray();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -252,7 +262,7 @@ IrTypeVector::IrTypeVector(Type* dt)
 IrTypeVector* IrTypeVector::get(Type* dt)
 {
     IrTypeVector* t = new IrTypeVector(dt);
-    dt->irtype = t;
+    dt->ctype = t;
     return t;
 }
 

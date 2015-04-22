@@ -1,11 +1,13 @@
 
-// Copyright (c) 1999-2012 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/scope.h
+ */
 
 #ifndef DMD_SCOPE_H
 #define DMD_SCOPE_H
@@ -14,30 +16,31 @@
 #pragma once
 #endif
 
-struct Dsymbol;
-struct ScopeDsymbol;
-struct Identifier;
-struct Module;
-struct Statement;
-struct SwitchStatement;
-struct TryFinallyStatement;
-struct LabelStatement;
-struct ForeachStatement;
-struct ClassDeclaration;
-struct AggregateDeclaration;
-struct FuncDeclaration;
+class Dsymbol;
+class ScopeDsymbol;
+class Identifier;
+class Module;
+class Statement;
+class SwitchStatement;
+class TryFinallyStatement;
+class LabelStatement;
+class ForeachStatement;
+class ClassDeclaration;
+class AggregateDeclaration;
+class FuncDeclaration;
+class UserAttributeDeclaration;
 struct DocComment;
-struct TemplateInstance;
+class TemplateInstance;
 
 #if IN_LLVM
 struct EnclosingHandler;
-struct AnonDeclaration;
+class AnonDeclaration;
 #endif
 
 #if __GNUC__
 // Requires a full definition for PROT and LINK
-#include "dsymbol.h"    // PROT
-#include "mars.h"       // LINK
+#include "dsymbol.h"
+#include "mars.h"
 #else
 enum LINK;
 enum PROT;
@@ -51,16 +54,20 @@ enum PROT;
 #define CSXreturn       0x20    // seen a return statement
 #define CSXany_ctor     0x40    // either this() or super() was called
 
-#define SCOPEctor       1       // constructor type
-#define SCOPEstaticif   2       // inside static if
-#define SCOPEfree       4       // is on free list
-#define SCOPEstaticassert 8     // inside static assert
-#define SCOPEdebug      0x10    // inside debug conditional
+#define SCOPEctor           0x0001  // constructor type
+#define SCOPEstaticif       0x0002  // inside static if
+#define SCOPEfree           0x0004  // is on free list
+#define SCOPEstaticassert   0x0008  // inside static assert
+#define SCOPEdebug          0x0010  // inside debug conditional
 
-#define SCOPEinvariant  0x20    // inside invariant code
-#define SCOPErequire    0x40    // inside in contract code
-#define SCOPEensure     0x60    // inside out contract code
-#define SCOPEcontract   0x60    // [mask] we're inside contract code
+#define SCOPEinvariant      0x0020  // inside invariant code
+#define SCOPErequire        0x0040  // inside in contract code
+#define SCOPEensure         0x0060  // inside out contract code
+#define SCOPEcontract       0x0060  // [mask] we're inside contract code
+
+#define SCOPEctfe           0x0080  // inside a ctfe-only expression
+#define SCOPEnoaccesscheck  0x0100  // don't do access checks
+#define SCOPEcompile        0x0200  // inside __traits(compile)
 
 struct Scope
 {
@@ -68,43 +75,34 @@ struct Scope
 
     Module *module;             // Root module
     ScopeDsymbol *scopesym;     // current symbol
-    ScopeDsymbol *sd;           // if in static if, and declaring new symbols,
-                                // sd gets the addMember()
+    ScopeDsymbol *sds;          // if in static if, and declaring new symbols,
+                                // sds gets the addMember()
     FuncDeclaration *func;      // function we are in
     Dsymbol *parent;            // parent to use
     LabelStatement *slabel;     // enclosing labelled statement
     SwitchStatement *sw;        // enclosing switch statement
-    TryFinallyStatement *enclosingFinally;	// enclosing try finally statement; set inside its finally block
+    TryFinallyStatement *tf;    // enclosing try finally statement
+    OnScopeStatement *os;       // enclosing scope(xxx) statement
     TemplateInstance *tinst;    // enclosing template instance
-    Statement *enclosingScopeExit; // enclosing statement that wants to do something on scope exit
     Statement *sbreak;          // enclosing statement that supports "break"
     Statement *scontinue;       // enclosing statement that supports "continue"
     ForeachStatement *fes;      // if nested function for ForeachStatement, this is it
     Scope *callsc;              // used for __FUNCTION__, __PRETTY_FUNCTION__ and __MODULE__
-    unsigned offset;            // next offset to use in aggregate
-                                // This really shouldn't be a part of Scope, because it requires
-                                // semantic() to be done in the lexical field order. It should be
-                                // set in a pass after semantic() on all fields so they can be
-                                // semantic'd in any order.
     int inunion;                // we're processing members of a union
     int nofree;                 // set if shouldn't free it
     int noctor;                 // set if constructor calls aren't allowed
     int intypeof;               // in typeof(exp)
-    bool speculative;            // in __traits(compiles) or typeof(exp)
-    int parameterSpecialization; // if in template parameter specialization
-    int noaccesscheck;          // don't do access checks
-    int needctfe;               // inside a ctfe-only expression
-
-#if IN_LLVM
-    int ignoreTemplates;        // set if newly instantiated templates should be ignored when codegen'ing
-#endif
+    bool speculative;           // in __traits(compiles) and so on
+    VarDeclaration *lastVar;    // Previous symbol used to prevent goto-skips-init
 
     unsigned callSuper;         // primitive flow analysis for constructors
+    unsigned *fieldinit;
+    size_t fieldinit_dim;
 
     structalign_t structalign;       // alignment for struct members
-    enum LINK linkage;          // linkage for external functions
+    LINK linkage;          // linkage for external functions
 
-    enum PROT protection;       // protection for class members
+    PROT protection;       // protection for class members
     int explicitProtection;     // set if in an explicit protection attribute
 
     StorageClass stc;           // storage class
@@ -112,24 +110,34 @@ struct Scope
 
     unsigned flags;
 
-    Expressions *userAttributes;        // user defined attributes
+    UserAttributeDeclaration *userAttribDecl;   // user defined attributes
 
     DocComment *lastdc;         // documentation comment for last symbol at this scope
-    unsigned lastoffset;        // offset in docbuf of where to insert next dec
+    size_t lastoffset;          // offset in docbuf of where to insert next dec (for ditto)
+    size_t lastoffset2;         // offset in docbuf of where to insert next dec (for unittest)
     OutBuffer *docbuf;          // buffer for documentation output
 
     static Scope *freelist;
-    static void *operator new(size_t sz);
+    static Scope *alloc();
     static Scope *createGlobal(Module *module);
 
     Scope();
-    Scope(Scope *enclosing);
+
+    Scope *copy();
 
     Scope *push();
     Scope *push(ScopeDsymbol *ss);
     Scope *pop();
 
+    Scope *startCTFE();
+    Scope *endCTFE();
+
     void mergeCallSuper(Loc loc, unsigned cs);
+
+    unsigned *saveFieldInit();
+    void mergeFieldInit(Loc loc, unsigned *cses);
+
+    Module *instantiatingModule();
 
     Dsymbol *search(Loc loc, Identifier *ident, Dsymbol **pscopesym);
     Dsymbol *search_correct(Identifier *ident);

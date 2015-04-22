@@ -17,14 +17,14 @@
 #include "lexer.h"
 #include "gen/llvm.h"
 
-struct ArrayInitializer;
-struct ArrayLiteralExp;
+class ArrayInitializer;
+class ArrayLiteralExp;
 class DSliceValue;
 class DValue;
-struct Expression;
+class Expression;
 struct IRState;
 struct Loc;
-struct Type;
+class Type;
 
 llvm::StructType* DtoArrayType(Type* arrayTy);
 llvm::StructType* DtoArrayType(LLType* elemTy);
@@ -45,26 +45,26 @@ llvm::Constant* arrayLiteralToConst(IRState* p, ArrayLiteralExp* ale);
 /// dstMem is expected to be a pointer to the array allocation.
 void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem);
 
-void DtoArrayCopySlices(DSliceValue* dst, DSliceValue* src);
-void DtoArrayCopyToSlice(DSliceValue* dst, DValue* src);
+void DtoArrayCopySlices(Loc& loc, DSliceValue* dst, DSliceValue* src);
+void DtoArrayCopyToSlice(Loc& loc, DSliceValue* dst, DValue* src);
 
 void DtoArrayInit(Loc& loc, DValue* array, DValue* value, int op);
 Type *DtoArrayElementType(Type *arrayType);
 bool arrayNeedsPostblit(Type *t);
-void DtoArrayAssign(DValue *from, DValue *to, int op);
-void DtoArraySetAssign(Loc &loc, DValue *array, DValue *value, int op);
+void DtoArrayAssign(Loc& loc, DValue *from, DValue *to, int op);
+void DtoArraySetAssign(Loc& loc, DValue *array, DValue *value, int op);
 void DtoSetArray(DValue* array, LLValue* dim, LLValue* ptr);
 void DtoSetArrayToNull(LLValue* v);
 
 DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool defaultInit=true);
 DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size_t ndims, bool defaultInit=true);
-DSliceValue* DtoResizeDynArray(Type* arrayType, DValue* array, llvm::Value* newdim);
+DSliceValue* DtoResizeDynArray(Loc& loc, Type* arrayType, DValue* array, llvm::Value* newdim);
 
 void DtoCatAssignElement(Loc& loc, Type* type, DValue* arr, Expression* exp);
-DSliceValue* DtoCatAssignArray(DValue* arr, Expression* exp);
-DSliceValue* DtoCatArrays(Type* type, Expression* e1, Expression* e2);
-DSliceValue* DtoAppendDCharToString(DValue* arr, Expression* exp);
-DSliceValue* DtoAppendDCharToUnicodeString(DValue* arr, Expression* exp);
+DSliceValue* DtoCatAssignArray(Loc& loc, DValue* arr, Expression* exp);
+DSliceValue* DtoCatArrays(Loc& loc, Type* type, Expression* e1, Expression* e2);
+DSliceValue* DtoAppendDCharToString(Loc& loc, DValue* arr, Expression* exp);
+DSliceValue* DtoAppendDCharToUnicodeString(Loc& loc, DValue* arr, Expression* exp);
 
 void DtoStaticArrayCopy(LLValue* dst, LLValue* src);
 
@@ -73,7 +73,7 @@ LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r);
 
 LLValue* DtoDynArrayIs(TOK op, DValue* l, DValue* r);
 
-LLValue* DtoArrayCastLength(LLValue* len, LLType* elemty, LLType* newelemty);
+LLValue* DtoArrayCastLength(Loc& loc, LLValue* len, LLType* elemty, LLType* newelemty);
 
 LLValue* DtoArrayLen(DValue* v);
 LLValue* DtoArrayPtr(DValue* v);

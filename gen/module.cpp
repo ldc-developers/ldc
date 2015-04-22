@@ -40,8 +40,13 @@
 #include "ir/irtype.h"
 #include "ir/irvar.h"
 #include "llvm/Support/CommandLine.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/Verifier.h"
+#else
 #include "llvm/Analysis/Verifier.h"
+#endif
 #include "llvm/LinkAllPasses.h"
+#include "llvm/Transforms/Utils/ModuleUtils.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DataLayout.h"
@@ -52,6 +57,10 @@
 #else
 #include "llvm/Target/TargetData.h"
 #endif
+#endif
+
+#if _AIX || __sun
+#include <alloca.h>
 #endif
 
 static llvm::cl::opt<bool> preservePaths("op",
@@ -101,27 +110,28 @@ void Module::buildTargetFiles(bool singleObj)
         hdrfile = Module::buildFilePath(global.params.hdrname, global.params.hdrdir, global.hdr_ext);
 
     // safety check: never allow obj, doc or hdr file to have the source file's name
-    if (Port::stricmp(FileName::name(objfile->name->str), FileName::name((char*)this->arg)) == 0) {
+    if (Port::stricmp(FileName::name(objfile->name->str), FileName::name(this->arg)) == 0) {
         error("Output object files with the same name as the source file are forbidden");
         fatal();
     }
-    if (docfile && Port::stricmp(FileName::name(docfile->name->str), FileName::name((char*)this->arg)) == 0) {
+    if (docfile && Port::stricmp(FileName::name(docfile->name->str), FileName::name(this->arg)) == 0) {
         error("Output doc files with the same name as the source file are forbidden");
         fatal();
     }
-    if (hdrfile && Port::stricmp(FileName::name(hdrfile->name->str), FileName::name((char*)this->arg)) == 0) {
+    if (hdrfile && Port::stricmp(FileName::name(hdrfile->name->str), FileName::name(this->arg)) == 0) {
         error("Output header files with the same name as the source file are forbidden");
         fatal();
     }
 
     // LDC
     // another safety check to make sure we don't overwrite previous output files
-    if (!singleObj)
+    if (!singleObj && global.params.obj)
         check_and_add_output_file(this, objfile->name->str);
     if (docfile)
         check_and_add_output_file(this, docfile->name->str);
-    if (hdrfile)
-        check_and_add_output_file(this, hdrfile->name->str);
+    //FIXME: DMD overwrites header files. This should be done only in a DMD mode.
+    //if (hdrfile)
+    //    check_and_add_output_file(this, hdrfile->name->str);
 }
 
 File* Module::buildFilePath(const char* forcename, const char* path, const char* ext)
@@ -131,13 +141,13 @@ File* Module::buildFilePath(const char* forcename, const char* path, const char*
         argobj = forcename;
     } else {
         if (preservePaths)
-            argobj = (char*)this->arg;
+            argobj = this->arg;
         else
-            argobj = FileName::name((char*)this->arg);
+            argobj = FileName::name(this->arg);
 
         if (fqnNames) {
             char *name = md ? md->toChars() : toChars();
-            argobj = FileName::replaceName((char*)argobj, name);
+            argobj = FileName::replaceName(argobj, name);
 
             // add ext, otherwise forceExt will make nested.module into nested.bc
             size_t len = strlen(argobj);
@@ -177,11 +187,11 @@ static llvm::Function* build_module_function(const std::string &name, const std:
             return NULL;
 
         if (funcs.size() == 1)
-            return funcs.front()->ir.irFunc->func;
+            return getIrFunc(funcs.front())->func;
     }
 
-    std::vector<LLType*> argsTy;
-    LLFunctionType* fnTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()),argsTy,false);
+    // build ctor type
+    LLFunctionType* fnTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false);
 
     std::string const symbolName = gABI->mangleForLLVM(name, LINKd);
     assert(gIR->module->getFunction(symbolName) == NULL);
@@ -189,16 +199,16 @@ static llvm::Function* build_module_function(const std::string &name, const std:
         llvm::GlobalValue::InternalLinkage, symbolName, gIR->module);
     fn->setCallingConv(gABI->callingConv(LINKd));
 
-    llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "entry", fn);
+    llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "", fn);
     IRBuilder<> builder(bb);
 
     // debug info
-    gIR->DBuilder.EmitSubProgramInternal(name.c_str(), symbolName.c_str());
+    gIR->DBuilder.EmitModuleCTor(fn, name.c_str());
 
     // Call ctor's
     typedef std::list<FuncDeclaration*>::const_iterator FuncIterator;
     for (FuncIterator itr = funcs.begin(), end = funcs.end(); itr != end; ++itr) {
-        llvm::Function* f = (*itr)->ir.irFunc->func;
+        llvm::Function* f = getIrFunc(*itr)->func;
         llvm::CallInst* call = builder.CreateCall(f,"");
         call->setCallingConv(gABI->callingConv(LINKd));
     }
@@ -206,8 +216,8 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     // Increment vgate's
     typedef std::list<VarDeclaration*>::const_iterator GatesIterator;
     for (GatesIterator itr = gates.begin(), end = gates.end(); itr != end; ++itr) {
-        assert((*itr)->ir.irGlobal);
-        llvm::Value* val = (*itr)->ir.irGlobal->value;
+        assert(getIrGlobal(*itr));
+        llvm::Value* val = getIrGlobal(*itr)->value;
         llvm::Value* rval = builder.CreateLoad(val, "vgate");
         llvm::Value* res = builder.CreateAdd(rval, DtoConstUint(1), "vgate");
         builder.CreateStore(res, val);
@@ -222,7 +232,7 @@ static llvm::Function* build_module_function(const std::string &name, const std:
 llvm::Function* build_module_ctor()
 {
     std::string name("_D");
-    name.append(gIR->dmodule->mangle());
+    name.append(mangle(gIR->dmodule));
     name.append("6__ctorZ");
     return build_module_function(name, gIR->ctors, gIR->gates);
 }
@@ -232,7 +242,7 @@ llvm::Function* build_module_ctor()
 static llvm::Function* build_module_dtor()
 {
     std::string name("_D");
-    name.append(gIR->dmodule->mangle());
+    name.append(mangle(gIR->dmodule));
     name.append("6__dtorZ");
     return build_module_function(name, gIR->dtors);
 }
@@ -242,7 +252,7 @@ static llvm::Function* build_module_dtor()
 static llvm::Function* build_module_unittest()
 {
     std::string name("_D");
-    name.append(gIR->dmodule->mangle());
+    name.append(mangle(gIR->dmodule));
     name.append("10__unittestZ");
     return build_module_function(name, gIR->unitTests);
 }
@@ -252,7 +262,7 @@ static llvm::Function* build_module_unittest()
 llvm::Function* build_module_shared_ctor()
 {
     std::string name("_D");
-    name.append(gIR->dmodule->mangle());
+    name.append(mangle(gIR->dmodule));
     name.append("13__shared_ctorZ");
     return build_module_function(name, gIR->sharedCtors, gIR->sharedGates);
 }
@@ -262,7 +272,7 @@ llvm::Function* build_module_shared_ctor()
 static llvm::Function* build_module_shared_dtor()
 {
     std::string name("_D");
-    name.append(gIR->dmodule->mangle());
+    name.append(mangle(gIR->dmodule));
     name.append("13__shared_dtorZ");
     return build_module_function(name, gIR->sharedDtors);
 }
@@ -275,7 +285,7 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 
     // build ctor name
     std::string fname = "_D";
-    fname += gIR->dmodule->mangle();
+    fname += mangle(gIR->dmodule);
     fname += "16__moduleinfoCtorZ";
 
     // build a function that registers the moduleinfo in the global moduleinfo linked list
@@ -291,9 +301,10 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
 
     // create the ModuleReference node for this module
     std::string thismrefname = "_D";
-    thismrefname += gIR->dmodule->mangle();
+    thismrefname += mangle(gIR->dmodule);
     thismrefname += "11__moduleRefZ";
-    LLGlobalVariable* thismref = getOrCreateGlobal(Loc(), *gIR->module,
+    Loc loc;
+    LLGlobalVariable* thismref = getOrCreateGlobal(loc, *gIR->module,
         modulerefTy, false, LLGlobalValue::InternalLinkage, thismrefinit,
         thismrefname);
     // make sure _Dmodule_ref is declared
@@ -308,13 +319,17 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     IRBuilder<> builder(bb);
 
     // debug info
-    gIR->DBuilder.EmitSubProgramInternal(fname.c_str(), fname.c_str());
+    gIR->DBuilder.EmitModuleCTor(ctor, fname.c_str());
 
     // get current beginning
     LLValue* curbeg = builder.CreateLoad(mref, "current");
 
     // put current beginning as the next of this one
-    LLValue* gep = builder.CreateStructGEP(thismref, 0, "next");
+    LLValue* gep = builder.CreateStructGEP(
+#if LDC_LLVM_VER >= 307
+        modulerefTy,
+#endif
+        thismref, 0, "next");
     builder.CreateStore(curbeg, gep);
 
     // replace beginning
@@ -326,6 +341,405 @@ static LLFunction* build_module_reference_and_ctor(LLConstant* moduleinfo)
     return ctor;
 }
 
+/// Builds the body for the ldc.dso_ctor and ldc.dso_dtor functions.
+///
+/// Pseudocode:
+/// if (dsoInitialized == executeWhenInitialized) {
+///     dsoInitialized = !executeWhenInitialized;
+///     auto record = {1, dsoSlot, minfoBeg, minfoEnd, minfoUsedPointer};
+///     _d_dso_registry(cast(CompilerDSOData*)&record);
+/// }
+static void build_dso_ctor_dtor_body(
+    llvm::Function* targetFunc,
+    llvm::Value* dsoInitialized,
+    llvm::Value* dsoSlot,
+    llvm::Value* minfoBeg,
+    llvm::Value* minfoEnd,
+    llvm::Value* minfoUsedPointer,
+    bool executeWhenInitialized
+) {
+    llvm::Function* const dsoRegistry = LLVM_D_GetRuntimeFunction(Loc(),
+        gIR->module, "_d_dso_registry");
+    llvm::Type* const recordPtrTy = dsoRegistry->getFunctionType()->getContainedType(1);
+
+    llvm::BasicBlock* const entryBB =
+        llvm::BasicBlock::Create(gIR->context(), "", targetFunc);
+    llvm::BasicBlock* const initBB =
+        llvm::BasicBlock::Create(gIR->context(), "init", targetFunc);
+    llvm::BasicBlock* const endBB =
+        llvm::BasicBlock::Create(gIR->context(), "end", targetFunc);
+
+    {
+        IRBuilder<> b(entryBB);
+        llvm::Value* condEval = b.CreateICmp(executeWhenInitialized ? llvm::ICmpInst::ICMP_NE
+                                                                    : llvm::ICmpInst::ICMP_EQ,
+                                             b.CreateLoad(dsoInitialized),
+                                             b.getInt8(0));
+        b.CreateCondBr(condEval, initBB, endBB);
+    }
+    {
+        IRBuilder<> b(initBB);
+        b.CreateStore(b.getInt8(!executeWhenInitialized), dsoInitialized);
+
+        llvm::Constant* version = DtoConstSize_t(1);
+        llvm::Type* memberTypes[] = {
+            version->getType(),
+            dsoSlot->getType(),
+            minfoBeg->getType(),
+            minfoEnd->getType(),
+            minfoUsedPointer->getType()
+        };
+        llvm::StructType* stype = llvm::StructType::get(gIR->context(), memberTypes, false);
+        llvm::Value* record = b.CreateAlloca(stype);
+#if LDC_LLVM_VER >= 307
+        b.CreateStore(version, b.CreateStructGEP(stype, record, 0)); // version
+        b.CreateStore(dsoSlot, b.CreateStructGEP(stype, record, 1)); // slot
+        b.CreateStore(minfoBeg, b.CreateStructGEP(stype, record, 2));
+        b.CreateStore(minfoEnd, b.CreateStructGEP(stype, record, 3));
+        b.CreateStore(minfoUsedPointer, b.CreateStructGEP(stype, record, 4));
+#else
+        b.CreateStore(version, b.CreateStructGEP(record, 0)); // version
+        b.CreateStore(dsoSlot, b.CreateStructGEP(record, 1)); // slot
+        b.CreateStore(minfoBeg, b.CreateStructGEP(record, 2));
+        b.CreateStore(minfoEnd, b.CreateStructGEP(record, 3));
+        b.CreateStore(minfoUsedPointer, b.CreateStructGEP(record, 4));
+#endif
+
+        b.CreateCall(dsoRegistry, b.CreateBitCast(record, recordPtrTy));
+        b.CreateBr(endBB);
+    }
+    {
+        IRBuilder<> b(endBB);
+        b.CreateRetVoid();
+    }
+}
+
+static void build_dso_registry_calls(llvm::Constant* thisModuleInfo)
+{
+    // Build the ModuleInfo reference and bracketing symbols.
+    llvm::Type* const moduleInfoPtrTy =
+        getPtrToType(DtoType(Module::moduleinfo->type));
+
+    // Order is important here: We must create the symbols in the
+    // bracketing sections right before/after the ModuleInfo reference
+    // so that they end up in the correct order in the object file.
+    llvm::GlobalVariable* minfoBeg = new llvm::GlobalVariable(
+        *gIR->module,
+        moduleInfoPtrTy,
+        false, // FIXME: mRelocModel != llvm::Reloc::PIC_
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        getNullPtr(moduleInfoPtrTy),
+        "_minfo_beg"
+    );
+    minfoBeg->setSection(".minfo_beg");
+    minfoBeg->setVisibility(llvm::GlobalValue::HiddenVisibility);
+
+    std::string thismrefname = "_D";
+    thismrefname += mangle(gIR->dmodule);
+    thismrefname += "11__moduleRefZ";
+    llvm::GlobalVariable* thismref = new llvm::GlobalVariable(
+        *gIR->module,
+        moduleInfoPtrTy,
+        false, // FIXME: mRelocModel != llvm::Reloc::PIC_
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        DtoBitCast(thisModuleInfo, moduleInfoPtrTy),
+        thismrefname
+    );
+    thismref->setSection(".minfo");
+    gIR->usedArray.push_back(thismref);
+
+    llvm::GlobalVariable* minfoEnd = new llvm::GlobalVariable(
+        *gIR->module,
+        moduleInfoPtrTy,
+        false, // FIXME: mRelocModel != llvm::Reloc::PIC_
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        getNullPtr(moduleInfoPtrTy),
+        "_minfo_end"
+    );
+    minfoEnd->setSection(".minfo_end");
+    minfoEnd->setVisibility(llvm::GlobalValue::HiddenVisibility);
+
+    // Build the ctor to invoke _d_dso_registry.
+
+    // This is the DSO slot for use by the druntime implementation.
+    llvm::GlobalVariable* dsoSlot = new llvm::GlobalVariable(
+        *gIR->module,
+        getVoidPtrType(),
+        false,
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        getNullPtr(getVoidPtrType()),
+        "ldc.dso_slot"
+    );
+    dsoSlot->setVisibility(llvm::GlobalValue::HiddenVisibility);
+
+    // Okay, so the theory is easy: We want to have one global constructor and
+    // destructor per object (i.e. executable/shared library) that calls
+    // _d_dso_registry with the respective DSO record. However, there are a
+    // couple of issues that make this harder than necessary:
+    //
+    //  1) The natural way to implement the "one-per-image" part would be to
+    //     emit a weak reference to a weak function into a .ctors.<somename>
+    //     section (llvm.global_ctors doesn't support the necessary
+    //     functionality, so we'd use our knowledge of the linker script to work
+    //     around that). But as of LLVM 3.4, emitting a symbol both as weak and
+    //     into a custom section is not supported by the MC layer. Thus, we have
+    //     to use a normal ctor/dtor and manually ensure that we only perform
+    //     the call once. This is done by introducing ldc.dso_initialized.
+    //
+    //  2) To make sure the .minfo section isn't removed by the linker when
+    //     using --gc-sections, we need to keep a reference to it around in
+    //     _every_ object file (as --gc-sections works per object file). The
+    //     natural place for this is the ctor, where we just load a reference
+    //     on the stack after the DSO record (to ensure LLVM doesn't optimize
+    //     it out). However, this way, we need to have at least one ctor
+    //     instance per object file be pulled into the final executable. We
+    //     do this here by making the module mangle string part of its name,
+    //     even thoguht this is slightly wasteful on -singleobj builds.
+    //
+    // It might be a better idea to simply use a custom linker script (using
+    // INSERT AFTER… so as to still keep the default one) to avoid all these
+    // problems. This would mean that it is no longer safe to link D objects
+    // directly using e.g. "g++ dcode.o cppcode.o", though.
+
+    llvm::GlobalVariable* dsoInitialized = new llvm::GlobalVariable(
+        *gIR->module,
+        llvm::Type::getInt8Ty(gIR->context()),
+        false,
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        llvm::ConstantInt::get(llvm::Type::getInt8Ty(gIR->context()), 0),
+        "ldc.dso_initialized"
+    );
+    dsoInitialized->setVisibility(llvm::GlobalValue::HiddenVisibility);
+
+    // There is no reason for this cast to void*, other than that removing it
+    // seems to trigger a bug in the llvm::Linker (at least on LLVM 3.4)
+    // causing it to not merge the %object.ModuleInfo types properly. This
+    // manifests itself in a type mismatch assertion being triggered on the
+    // minfoUsedPointer store in the ctor as soon as the optimizer runs.
+    llvm::Value* minfoRefPtr = DtoBitCast(thismref, getVoidPtrType());
+
+    std::string ctorName = "ldc.dso_ctor.";
+    ctorName += mangle(gIR->dmodule);
+    llvm::Function* dsoCtor = llvm::Function::Create(
+        llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        ctorName,
+        gIR->module
+    );
+    dsoCtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
+    build_dso_ctor_dtor_body(dsoCtor, dsoInitialized, dsoSlot, minfoBeg, minfoEnd, minfoRefPtr, false);
+    llvm::appendToGlobalCtors(*gIR->module, dsoCtor, 65535);
+
+    llvm::Function* dsoDtor = llvm::Function::Create(
+        llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        "ldc.dso_dtor",
+        gIR->module
+    );
+    dsoDtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
+    build_dso_ctor_dtor_body(dsoDtor, dsoInitialized, dsoSlot, minfoBeg, minfoEnd, minfoRefPtr, true);
+    llvm::appendToGlobalDtors(*gIR->module, dsoDtor, 65535);
+}
+
+static void build_llvm_used_array(IRState* p)
+{
+    if (p->usedArray.empty()) return;
+
+    std::vector<llvm::Constant*> usedVoidPtrs;
+    usedVoidPtrs.reserve(p->usedArray.size());
+
+    for (std::vector<llvm::Constant*>::iterator it = p->usedArray.begin(),
+        end = p->usedArray.end(); it != end; ++it)
+    {
+        usedVoidPtrs.push_back(DtoBitCast(*it, getVoidPtrType()));
+    }
+
+    llvm::ArrayType *arrayType = llvm::ArrayType::get(
+        getVoidPtrType(), usedVoidPtrs.size());
+    llvm::GlobalVariable* llvmUsed = new llvm::GlobalVariable(
+        *p->module,
+        arrayType,
+        false,
+        llvm::GlobalValue::AppendingLinkage,
+        llvm::ConstantArray::get(arrayType, usedVoidPtrs),
+        "llvm.used"
+    );
+    llvmUsed->setSection("llvm.metadata");
+}
+
+// Add module-private variables and functions for coverage analysis.
+static void addCoverageAnalysis(Module* m)
+{
+    IF_LOG {
+        Logger::println("Adding coverage analysis for module %s (%d lines)", m->srcfile->toChars(), m->numlines);
+        Logger::indent();
+    }
+
+    // size_t[# source lines / # bits in sizeTy] _d_cover_valid
+    LLValue* d_cover_valid_slice = NULL;
+    {
+        unsigned Dsizet_bits = gDataLayout->getTypeSizeInBits(DtoSize_t());
+        size_t array_size = (m->numlines + (Dsizet_bits-1)) / Dsizet_bits; // ceil
+
+        // Work around a bug in the interface of druntime's _d_cover_register2
+        // https://issues.dlang.org/show_bug.cgi?id=14417
+        // For safety, make the array large enough such that the slice passed to _d_cover_register2 is completely valid.
+        array_size = m->numlines;
+
+        IF_LOG Logger::println("Build private variable: size_t[%d] _d_cover_valid", array_size);
+
+        llvm::ArrayType* type = llvm::ArrayType::get(DtoSize_t(), array_size);
+        llvm::ConstantAggregateZero* zeroinitializer = llvm::ConstantAggregateZero::get(type);
+        m->d_cover_valid = new llvm::GlobalVariable(*gIR->module, type, true, LLGlobalValue::InternalLinkage, zeroinitializer, "_d_cover_valid");
+        LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
+        d_cover_valid_slice = DtoConstSlice( DtoConstSize_t(type->getArrayNumElements()),
+                                             llvm::ConstantExpr::getGetElementPtr(
+#if LDC_LLVM_VER >= 307
+                                             DtoSize_t(),
+#endif
+                                             m->d_cover_valid, idxs, true) );
+
+        // Assert that initializer array elements have enough bits
+        assert(sizeof(m->d_cover_valid_init[0])*8 >= gDataLayout->getTypeSizeInBits(DtoSize_t()));
+        m->d_cover_valid_init.resize(array_size);
+    }
+
+    // uint[# source lines] _d_cover_data
+    LLValue* d_cover_data_slice = NULL;
+    {
+        IF_LOG Logger::println("Build private variable: uint[%d] _d_cover_data", m->numlines);
+
+        LLArrayType* type = LLArrayType::get(LLType::getInt32Ty(gIR->context()), m->numlines);
+        llvm::ConstantAggregateZero* zeroinitializer = llvm::ConstantAggregateZero::get(type);
+        m->d_cover_data = new llvm::GlobalVariable(*gIR->module, type, false, LLGlobalValue::InternalLinkage, zeroinitializer, "_d_cover_data");
+        LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
+        d_cover_data_slice = DtoConstSlice( DtoConstSize_t(type->getArrayNumElements()),
+                                            llvm::ConstantExpr::getGetElementPtr(
+#if LDC_LLVM_VER >= 307
+                                            LLType::getInt32Ty(gIR->context()),
+#endif
+                                            m->d_cover_data, idxs, true) );
+    }
+
+    // Create "static constructor" that calls _d_cover_register2(string filename, size_t[] valid, uint[] data, ubyte minPercent)
+    // Build ctor name
+    LLFunction* ctor = NULL;
+    std::string ctorname = "_D";
+    ctorname += mangle(gIR->dmodule);
+    ctorname += "12_coverageanalysisCtor1FZv";
+    {
+        IF_LOG Logger::println("Build Coverage Analysis constructor: %s", ctorname.c_str());
+
+        LLFunctionType* ctorTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false);
+        ctor = LLFunction::Create(ctorTy, LLGlobalValue::InternalLinkage, ctorname, gIR->module);
+        ctor->setCallingConv(gABI->callingConv(LINKd));
+        // Set function attributes. See functions.cpp:DtoDefineFunction()
+        if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
+        {
+            ctor->addFnAttr(LDC_ATTRIBUTE(UWTable));
+        }
+
+        llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "", ctor);
+        IRBuilder<> builder(bb);
+
+        // Set up call to _d_cover_register2
+        llvm::Function* fn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_cover_register2");
+        LLValue* args[] = {
+            getIrModule(m)->fileName->getInitializer(),
+            d_cover_valid_slice,
+            d_cover_data_slice,
+            DtoConstUbyte(global.params.covPercent)
+        };
+        // Check if argument types are correct
+        for (unsigned i = 0; i < 4; ++i) {
+            assert(args[i]->getType() == fn->getFunctionType()->getParamType(i));
+        }
+
+        llvm::CallInst* call = builder.CreateCall(fn, args);
+
+        builder.CreateRetVoid();
+    }
+
+    // Add the ctor to the module's static ctors list. TODO: This is quite the hack.
+    {
+        IF_LOG Logger::println("Add %s to module's shared static constructor list", ctorname.c_str());
+        FuncDeclaration* fd = FuncDeclaration::genCfunc(NULL, Type::tvoid, ctorname.c_str());
+        fd->linkage = LINKd;
+        IrFunction* irfunc = getIrFunc(fd, true);
+        irfunc->func = ctor;
+        gIR->sharedCtors.push_back(fd);
+    }
+
+    IF_LOG Logger::undent();
+}
+
+// Initialize _d_cover_valid for coverage analysis
+static void addCoverageAnalysisInitializer(Module* m) {
+    IF_LOG Logger::println("Adding coverage analysis _d_cover_valid initializer");
+
+    size_t array_size = m->d_cover_valid_init.size();
+
+    llvm::ArrayType* type = llvm::ArrayType::get(DtoSize_t(), array_size);
+    std::vector<LLConstant*> arrayInits(array_size);
+    for (size_t i=0; i<array_size; i++)
+    {
+        arrayInits[i] = DtoConstSize_t(m->d_cover_valid_init[i]);
+    }
+    m->d_cover_valid->setInitializer(llvm::ConstantArray::get(type, arrayInits));
+}
+
+static void codegenModule(Module* m)
+{
+    // debug info
+    gIR->DBuilder.EmitCompileUnit(m);
+
+    // process module members
+    for (unsigned k=0; k < m->members->dim; k++) {
+        Dsymbol* dsym = (*m->members)[k];
+        assert(dsym);
+        Declaration_codegen(dsym);
+    }
+
+    if (global.errors) return;
+
+    // Skip emission of all the additional module metadata if requested by the user.
+    if (!m->noModuleInfo)
+    {
+        // generate ModuleInfo
+        m->genmoduleinfo();
+
+        build_llvm_used_array(gIR);
+
+    #if LDC_LLVM_VER >= 303
+        // Add the linker options metadata flag.
+        gIR->module->addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
+            llvm::MDNode::get(gIR->context(), gIR->LinkerMetadataArgs));
+    #endif
+
+    #if LDC_LLVM_VER >= 304
+        // Emit ldc version as llvm.ident metadata.
+        llvm::NamedMDNode *IdentMetadata = gIR->module->getOrInsertNamedMetadata("llvm.ident");
+        std::string Version("ldc version ");
+        Version.append(global.ldc_version);
+#if LDC_LLVM_VER >= 306
+        llvm::Metadata *IdentNode[] =
+#else
+        llvm::Value *IdentNode[] =
+#endif
+        {
+            llvm::MDString::get(gIR->context(), Version)
+        };
+        IdentMetadata->addOperand(llvm::MDNode::get(gIR->context(), IdentNode));
+    #endif
+    }
+
+    // finalize debug info
+    gIR->DBuilder.EmitModuleEnd();
+
+    // verify the llvm
+    verifyModule(*gIR->module);
+}
+
 llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
 {
     bool logenabled = Logger::enabled();
@@ -334,13 +748,17 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
         Logger::enable();
     }
 
-    Logger::println("Generating module: %s", (md ? md->toChars() : toChars()));
+    IF_LOG Logger::println("Generating module: %s", (md ? md->toChars() : toChars()));
     LOG_SCOPE;
 
     if (global.params.verbose_cg)
         printf("codegen: %s (%s)\n", toPrettyChars(), srcfile->toChars());
 
-    assert(!global.errors);
+    if (global.errors)
+    {
+        Logger::println("Aborting because of errors");
+        fatal();
+    }
 
     // name the module
 #if 1
@@ -368,60 +786,32 @@ llvm::Module* Module::genLLVMModule(llvm::LLVMContext& context)
 
     // set final data layout
     ir.module->setDataLayout(gDataLayout->getStringRepresentation());
-    if (Logger::enabled())
-        Logger::cout() << "Final data layout: " << ir.module->getDataLayout() << '\n';
-
-    // allocate the target abi
-    gABI = TargetABI::getTarget();
-
-    // debug info
-    gIR->DBuilder.EmitCompileUnit(this);
+#if LDC_LLVM_VER >= 307
+    IF_LOG Logger::cout() << "Final data layout: " << ir.module->getDataLayout().getStringRepresentation() << '\n';
+#else
+    IF_LOG Logger::cout() << "Final data layout: " << ir.module->getDataLayout() << '\n';
+#endif
 
     // handle invalid 'objectø module
     if (!ClassDeclaration::object) {
         error("is missing 'class Object'");
         fatal();
     }
-    if (!ClassDeclaration::classinfo) {
-        error("is missing 'class ClassInfo'");
-        fatal();
-    }
 
     LLVM_D_InitRuntime();
 
-    // process module members
-    for (unsigned k=0; k < members->dim; k++) {
-        Dsymbol* dsym = static_cast<Dsymbol*>(members->data[k]);
-        assert(dsym);
-        dsym->codegen(&ir);
-    }
-
-    // for singleobj-compilation, fully emit all seen template instances
-    if (global.params.singleObj)
+    // Note, skip pseudo-modules for coverage analysis
+    if ( global.params.cov && !mname.equals("__entrypoint.d") && !mname.equals("__main.d") )
     {
-        while (!ir.seenTemplateInstances.empty())
-        {
-            IRState::TemplateInstanceSet::iterator it, end = ir.seenTemplateInstances.end();
-            for (it = ir.seenTemplateInstances.begin(); it != end; ++it)
-                (*it)->codegen(&ir);
-            ir.seenTemplateInstances.clear();
-        }
+        addCoverageAnalysis(this);
     }
 
-    // finalize debug info
-    gIR->DBuilder.EmitModuleEnd();
+    codegenModule(this); 
 
-    // generate ModuleInfo
-    genmoduleinfo();
-
-#if LDC_LLVM_VER >= 303
-    // Add the linker options metadata flag.
-    ir.module->addModuleFlag(llvm::Module::AppendUnique, "Linker Options",
-                             llvm::MDNode::get(ir.context(), ir.LinkerMetadataArgs));
-#endif
-
-    // verify the llvm
-    verifyModule(*ir.module);
+    if ( gIR->dmodule->d_cover_valid )
+    {
+        addCoverageAnalysisInitializer(this);
+    }
 
     gIR = NULL;
 
@@ -437,7 +827,7 @@ llvm::GlobalVariable* Module::moduleInfoSymbol()
 {
     // create name
     std::string MIname("_D");
-    MIname.append(mangle());
+    MIname.append(mangle(this));
     MIname.append("12__ModuleInfoZ");
 
     if (gIR->dmodule != this) {
@@ -471,8 +861,8 @@ void Module::genmoduleinfo()
     // check for patch
     else
     {
-        unsigned sizeof_ModuleInfo = 16 * Target::ptrsize;
-        if (sizeof_ModuleInfo != moduleinfo->structsize)
+        // The base struct should consist only of _flags/_index.
+        if (moduleinfo->structsize != 4 + 4)
         {
             error("object.d ModuleInfo class is incorrect");
             fatal();
@@ -483,8 +873,8 @@ void Module::genmoduleinfo()
     RTTIBuilder b(moduleinfo);
 
     // some types
-    LLType* moduleinfoTy = moduleinfo->type->irtype->getLLType();
-    LLType* classinfoTy = ClassDeclaration::classinfo->type->irtype->getLLType();
+    LLType* moduleinfoTy = moduleinfo->type->ctype->getLLType();
+    LLType* classinfoTy = Type::typeinfoclass->type->ctype->getLLType();
 
     // importedModules[]
     std::vector<LLConstant*> importInits;
@@ -498,7 +888,7 @@ void Module::genmoduleinfo()
 
         // declare the imported module info
         std::string m_name("_D");
-        m_name.append(m->mangle());
+        m_name.append(mangle(m));
         m_name.append("12__ModuleInfoZ");
         llvm::GlobalVariable* m_gvar = gIR->module->getGlobalVariable(m_name);
         if (!m_gvar) m_gvar = new llvm::GlobalVariable(*gIR->module, moduleinfoTy, false, llvm::GlobalValue::ExternalLinkage, NULL, m_name);
@@ -518,11 +908,7 @@ void Module::genmoduleinfo()
     //printf("members->dim = %d\n", members->dim);
     for (size_t i = 0; i < members->dim; i++)
     {
-        Dsymbol *member;
-
-        member = static_cast<Dsymbol *>(members->data[i]);
-        //printf("\tmember '%s'\n", member->toChars());
-        member->addLocalClass(&aclasses);
+        (*members)[i]->addLocalClass(&aclasses);
     }
     // fill inits
     std::vector<LLConstant*> classInits;
@@ -533,16 +919,16 @@ void Module::genmoduleinfo()
 
         if (cd->isInterfaceDeclaration())
         {
-            Logger::println("skipping interface '%s' in moduleinfo", cd->toPrettyChars());
+            IF_LOG Logger::println("skipping interface '%s' in moduleinfo", cd->toPrettyChars());
             continue;
         }
         else if (cd->sizeok != SIZEOKdone)
         {
-            Logger::println("skipping opaque class declaration '%s' in moduleinfo", cd->toPrettyChars());
+            IF_LOG Logger::println("skipping opaque class declaration '%s' in moduleinfo", cd->toPrettyChars());
             continue;
         }
-        Logger::println("class: %s", cd->toPrettyChars());
-        LLConstant *c = DtoBitCast(cd->ir.irAggr->getClassInfoSymbol(), classinfoTy);
+        IF_LOG Logger::println("class: %s", cd->toPrettyChars());
+        LLConstant *c = DtoBitCast(getIrAggr(cd)->getClassInfoSymbol(), classinfoTy);
         classInits.push_back(c);
     }
     // has class array?
@@ -636,8 +1022,11 @@ void Module::genmoduleinfo()
     b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
     moduleInfoSym->setLinkage(llvm::GlobalValue::ExternalLinkage);
 
-    // build the modulereference and ctor for registering it
-    LLFunction* mictor = build_module_reference_and_ctor(moduleInfoSym);
-
-    AppendFunctionToLLVMGlobalCtorsDtors(mictor, 65535, true);
+    if (global.params.isLinux) {
+        build_dso_registry_calls(moduleInfoSym);
+    } else {
+        // build the modulereference and ctor for registering it
+        LLFunction* mictor = build_module_reference_and_ctor(moduleInfoSym);
+        AppendFunctionToLLVMGlobalCtorsDtors(mictor, 65535, true);
+    }
 }

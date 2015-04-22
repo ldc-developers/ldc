@@ -29,9 +29,9 @@ int executeToolAndWait(const std::string &tool, std::vector<std::string> const &
     {
         // Print it
         for (size_t i = 0; i < realargs.size()-1; i++)
-            printf("%s ", realargs[i]);
-        printf("\n");
-        fflush(stdout);
+            fprintf(global.stdmsg, "%s ", realargs[i]);
+        fprintf(global.stdmsg, "\n");
+        fflush(global.stdmsg);
     }
 
     // Execute tool.
@@ -43,9 +43,9 @@ int executeToolAndWait(const std::string &tool, std::vector<std::string> const &
     if (int status = llvm::sys::Program::ExecuteAndWait(toolpath, &realargs[0], NULL, NULL, 0, 0, &errstr))
 #endif
     {
-        error("%s failed with status: %d", tool.c_str(), status);
+        error(Loc(), "%s failed with status: %d", tool.c_str(), status);
         if (!errstr.empty())
-            error("message: %s", errstr.c_str());
+            error(Loc(), "message: %s", errstr.c_str());
         return status;
     }
     return 0;

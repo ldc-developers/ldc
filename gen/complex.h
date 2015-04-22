@@ -19,7 +19,7 @@
 
 class DValue;
 struct Loc;
-struct Type;
+class Type;
 namespace llvm
 {
     class Constant;

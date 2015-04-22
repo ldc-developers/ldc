@@ -16,8 +16,9 @@
 
 #include <string>
 
-struct PragmaDeclaration;
-struct Dsymbol;
+class PragmaDeclaration;
+class FuncDeclaration;
+class Dsymbol;
 struct Scope;
 
 enum Pragma
@@ -28,7 +29,6 @@ enum Pragma
     LLVMglobal_crt_ctor,
     LLVMglobal_crt_dtor,
     LLVMno_typeinfo,
-    LLVMno_moduleinfo,
     LLVMalloca,
     LLVMva_start,
     LLVMva_copy,
@@ -44,11 +44,14 @@ enum Pragma
     LLVMbitop_bt,
     LLVMbitop_btc,
     LLVMbitop_btr,
-    LLVMbitop_bts
+    LLVMbitop_bts,
+    LLVMextern_weak
 };
 
 Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str);
 void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *sym,
                     Pragma llvm_internal, const std::string &arg1str);
+bool DtoIsIntrinsic(FuncDeclaration *fd);
+bool DtoIsVaIntrinsic(FuncDeclaration *fd);
 
 #endif // LDC_GEN_PRAGMA_H

@@ -1,12 +1,13 @@
 
-// Compiler implementation of the D programming language
-// Copyright (c) 2009-2009 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 2009-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/aliasthis.h
+ */
 
 #ifndef DMD_ALIASTHIS_H
 #define DMD_ALIASTHIS_H
@@ -20,10 +21,9 @@
 
 /**************************************************************/
 
-#if DMDV2
-
-struct AliasThis : Dsymbol
+class AliasThis : public Dsymbol
 {
+public:
    // alias Identifier this;
     Identifier *ident;
 
@@ -34,8 +34,7 @@ struct AliasThis : Dsymbol
     const char *kind();
     void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     AliasThis *isAliasThis() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
-
-#endif
 
 #endif

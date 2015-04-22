@@ -1,12 +1,13 @@
 
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2012 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/dsymbol.h
+ */
 
 #ifndef DMD_DSYMBOL_H
 #define DMD_DSYMBOL_H
@@ -20,6 +21,7 @@
 
 #include "mars.h"
 #include "arraytypes.h"
+#include "visitor.h"
 
 #if IN_LLVM
 #if defined(_MSC_VER)
@@ -29,66 +31,66 @@
 #include "../ir/irdsymbol.h"
 #endif
 
-struct Identifier;
+class Identifier;
 struct Scope;
-struct DsymbolTable;
-struct Declaration;
-struct ThisDeclaration;
-struct TupleDeclaration;
-struct TypedefDeclaration;
-struct AliasDeclaration;
-struct AggregateDeclaration;
-struct EnumDeclaration;
-struct ClassDeclaration;
-struct InterfaceDeclaration;
-struct StructDeclaration;
-struct UnionDeclaration;
-struct FuncDeclaration;
-struct FuncAliasDeclaration;
-struct FuncLiteralDeclaration;
-struct CtorDeclaration;
-struct PostBlitDeclaration;
-struct DtorDeclaration;
-struct StaticCtorDeclaration;
-struct StaticDtorDeclaration;
-struct SharedStaticCtorDeclaration;
-struct SharedStaticDtorDeclaration;
-struct InvariantDeclaration;
-struct UnitTestDeclaration;
-struct NewDeclaration;
-struct VarDeclaration;
-struct AttribDeclaration;
+class DsymbolTable;
+class Declaration;
+class ThisDeclaration;
+class TypeInfoDeclaration;
+class TupleDeclaration;
+class TypedefDeclaration;
+class AliasDeclaration;
+class AggregateDeclaration;
+class EnumDeclaration;
+class ClassDeclaration;
+class InterfaceDeclaration;
+class StructDeclaration;
+class UnionDeclaration;
+class FuncDeclaration;
+class FuncAliasDeclaration;
+class OverDeclaration;
+class FuncLiteralDeclaration;
+class CtorDeclaration;
+class PostBlitDeclaration;
+class DtorDeclaration;
+class StaticCtorDeclaration;
+class StaticDtorDeclaration;
+class SharedStaticCtorDeclaration;
+class SharedStaticDtorDeclaration;
+class InvariantDeclaration;
+class UnitTestDeclaration;
+class NewDeclaration;
+class VarDeclaration;
+class AttribDeclaration;
 #if IN_DMD
 struct Symbol;
 #endif
-struct Package;
-struct Module;
-struct Import;
-struct Type;
-struct TypeTuple;
-struct WithStatement;
-struct LabelDsymbol;
-struct ScopeDsymbol;
-struct TemplateDeclaration;
-struct TemplateInstance;
-struct TemplateMixin;
-struct EnumMember;
-struct ScopeDsymbol;
-struct WithScopeSymbol;
-struct ArrayScopeSymbol;
-struct SymbolDeclaration;
-struct Expression;
-struct DeleteDeclaration;
+class Package;
+class Module;
+class Import;
+class Type;
+class TypeTuple;
+class WithStatement;
+class LabelDsymbol;
+class ScopeDsymbol;
+class TemplateDeclaration;
+class TemplateInstance;
+class TemplateMixin;
+class Nspace;
+class EnumMember;
+class WithScopeSymbol;
+class ArrayScopeSymbol;
+class SymbolDeclaration;
+class Expression;
+class DeleteDeclaration;
 struct HdrGenState;
-struct OverloadSet;
+class OverloadSet;
 struct AA;
-struct JsonOut;
 #if IN_LLVM
-struct TypeInfoDeclaration;
-struct ClassInfoDeclaration;
+class TypeInfoDeclaration;
+class ClassInfoDeclaration;
 #endif
 #ifdef IN_GCC
-union tree_node;
 typedef union tree_node TYPE;
 #else
 struct TYPE;
@@ -101,10 +103,17 @@ namespace llvm
     class Value;
 }
 #endif
-#if IN_DMD
-// Back end
-struct Classsym;
-#endif
+
+struct Ungag
+{
+    unsigned oldgag;
+
+    Ungag(unsigned old) : oldgag(old) {}
+    ~Ungag() { global.gag = oldgag; }
+};
+
+const char *mangle(Dsymbol *s);
+const char *mangleExact(FuncDeclaration *fd);
 
 enum PROT
 {
@@ -117,8 +126,9 @@ enum PROT
     PROTexport,
 };
 
-// this is used for printing the protection in json, traits, docs, etc.
-extern const char* Pprotectionnames[];
+// in hdrgen.c
+void protectionToBuffer(OutBuffer *buf, PROT prot);
+const char *protectionToChars(PROT prot);
 
 /* State of symbol in winding its way through the passes of the compiler
  */
@@ -127,37 +137,54 @@ enum PASS
     PASSinit,           // initial state
     PASSsemantic,       // semantic() started
     PASSsemanticdone,   // semantic() done
-    PASSsemantic2,      // semantic2() run
+    PASSsemantic2,      // semantic2() started
+    PASSsemantic2done,  // semantic2() done
     PASSsemantic3,      // semantic3() started
     PASSsemantic3done,  // semantic3() done
+    PASSinline,         // inline started
+    PASSinlinedone,     // inline done
     PASSobj,            // toObjFile() run
+};
+
+/* Flags for symbol search
+ */
+enum
+{
+    IgnoreNone              = 0x00, // default
+    IgnorePrivateMembers    = 0x01, // don't find private members
+    IgnoreErrors            = 0x02, // don't give error messages
+    IgnoreAmbiguous         = 0x04, // return NULL if ambiguous
 };
 
 typedef int (*Dsymbol_apply_ft_t)(Dsymbol *, void *);
 
-struct Dsymbol : Object
+class Dsymbol : public RootObject
 {
+public:
     Identifier *ident;
     Dsymbol *parent;
 #if IN_DMD
     Symbol *csym;               // symbol for code generator
     Symbol *isym;               // import version of csym
 #endif
-    unsigned char *comment;     // documentation comment for this Dsymbol
+    const utf8_t *comment;     // documentation comment for this Dsymbol
     Loc loc;                    // where defined
     Scope *scope;               // !=NULL means context to use for semantic()
     bool errors;                // this symbol failed to pass semantic()
+    PASS semanticRun;
     char *depmsg;               // customized deprecation message
-    Expressions *userAttributes;        // user defined attributes from UserAttributeDeclaration
-    UnitTestDeclaration *unittest; // !=NULL means there's a unittest associated with this symbol
+    UserAttributeDeclaration *userAttribDecl;   // user defined attributes
+    UnitTestDeclaration *ddocUnittest; // !=NULL means there's a ddoc unittest associated with this symbol (only use this with ddoc)
 
     Dsymbol();
     Dsymbol(Identifier *);
+    static Dsymbol *create(Identifier *);
     char *toChars();
+    virtual char *toPrettyCharsHelper(); // helper to print fully qualified (template) arguments
     Loc& getLoc();
     char *locToChars();
-    int equals(Object *o);
-    int isAnonymous();
+    bool equals(RootObject *o);
+    bool isAnonymous();
     void error(Loc loc, const char *format, ...);
     void error(const char *format, ...);
     void deprecation(Loc loc, const char *format, ...);
@@ -168,73 +195,63 @@ struct Dsymbol : Object
     Dsymbol *pastMixin();
     Dsymbol *toParent();
     Dsymbol *toParent2();
-    TemplateInstance *inTemplateInstance();
+    TemplateInstance *isInstantiated();
     TemplateInstance *isSpeculative();
+    Ungag ungagSpeculative();
 
-    int dyncast() { return DYNCAST_DSYMBOL; }   // kludge for template.isSymbol()
+    // kludge for template.isSymbol()
+    int dyncast() { return DYNCAST_DSYMBOL; }
 
     static Dsymbols *arraySyntaxCopy(Dsymbols *a);
 
-    virtual const char *toPrettyChars();
+    virtual Identifier *getIdent();
+    virtual const char *toPrettyChars(bool QualifyTypes = false);
     virtual const char *kind();
     virtual Dsymbol *toAlias();                 // resolve real symbol
     virtual int apply(Dsymbol_apply_ft_t fp, void *param);
-    virtual int addMember(Scope *sc, ScopeDsymbol *s, int memnum);
+    virtual int addMember(Scope *sc, ScopeDsymbol *sds, int memnum);
     virtual void setScope(Scope *sc);
     virtual void importAll(Scope *sc);
-    virtual void semantic0(Scope *sc);
     virtual void semantic(Scope *sc);
     virtual void semantic2(Scope *sc);
     virtual void semantic3(Scope *sc);
-    virtual void inlineScan();
-    virtual Dsymbol *search(Loc loc, Identifier *ident, int flags);
+    virtual Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
     Dsymbol *search_correct(Identifier *id);
-    Dsymbol *searchX(Loc loc, Scope *sc, Object *id);
-    virtual int overloadInsert(Dsymbol *s);
-    virtual void toHBuffer(OutBuffer *buf, HdrGenState *hgs);
+    Dsymbol *searchX(Loc loc, Scope *sc, RootObject *id);
+    virtual bool overloadInsert(Dsymbol *s);
     virtual void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
-    virtual void toDocBuffer(OutBuffer *buf, Scope *sc);
-    virtual void toJson(JsonOut *json);
-    virtual void jsonProperties(JsonOut *json);
     virtual unsigned size(Loc loc);
-    virtual int isforwardRef();
-    virtual void defineRef(Dsymbol *s);
+    virtual bool isforwardRef();
     virtual AggregateDeclaration *isThis();     // is a 'this' required to access the member
     AggregateDeclaration *isAggregateMember();  // are we a member of an aggregate?
     AggregateDeclaration *isAggregateMember2(); // are we a member of an aggregate?
     ClassDeclaration *isClassMember();          // are we a member of a class?
-    virtual int isExport();                     // is Dsymbol exported?
-    virtual int isImportedSymbol();             // is Dsymbol imported?
+    virtual bool isExport();                    // is Dsymbol exported?
+    virtual bool isImportedSymbol();            // is Dsymbol imported?
     virtual bool isDeprecated();                // is Dsymbol deprecated?
-#if DMDV2
-    virtual int isOverloadable();
-    virtual int hasOverloads();
-#endif
+    virtual bool isOverloadable();
+    virtual bool hasOverloads();
     virtual LabelDsymbol *isLabel();            // is this a LabelDsymbol?
     virtual AggregateDeclaration *isMember();   // is this symbol a member of an AggregateDeclaration?
     virtual Type *getType();                    // is this a type?
-    virtual const char *mangle(bool isv = false);
-    virtual int needThis();                     // need a 'this' pointer?
-    virtual enum PROT prot();
+    virtual bool needThis();                    // need a 'this' pointer?
+    virtual PROT prot();
     virtual Dsymbol *syntaxCopy(Dsymbol *s);    // copy only syntax trees
-    virtual int oneMember(Dsymbol **ps, Identifier *ident);
-    static int oneMembers(Dsymbols *members, Dsymbol **ps, Identifier *ident = NULL);
+    virtual bool oneMember(Dsymbol **ps, Identifier *ident);
+    static bool oneMembers(Dsymbols *members, Dsymbol **ps, Identifier *ident);
     virtual void setFieldOffset(AggregateDeclaration *ad, unsigned *poffset, bool isunion);
-    virtual int hasPointers();
+    virtual bool hasPointers();
     virtual bool hasStaticCtorOrDtor();
     virtual void addLocalClass(ClassDeclarations *) { }
     virtual void checkCtorConstInit() { }
 
-    virtual void addComment(unsigned char *comment);
-    virtual void emitComment(Scope *sc);
-    void emitDitto(Scope *sc);
+    virtual void addComment(const utf8_t *comment);
+
+    bool inNonRoot();
 
 #if IN_DMD
     // Backend
-
-    virtual Symbol *toSymbol();                 // to backend symbol
-    virtual void toObjFile(int multiobj);                       // compile to .obj file
-    virtual int cvMember(unsigned char *p);     // emit cv debug info for member
+    virtual void toObjFile(bool multiobj);                       // compile to .obj file
 
     Symbol *toImport();                         // to backend import symbol
     static Symbol *toImport(Symbol *s);         // to backend import symbol
@@ -249,14 +266,17 @@ struct Dsymbol : Object
     virtual TemplateDeclaration *isTemplateDeclaration() { return NULL; }
     virtual TemplateInstance *isTemplateInstance() { return NULL; }
     virtual TemplateMixin *isTemplateMixin() { return NULL; }
+    virtual Nspace *isNspace() { return NULL; }
     virtual Declaration *isDeclaration() { return NULL; }
     virtual ThisDeclaration *isThisDeclaration() { return NULL; }
+    virtual TypeInfoDeclaration *isTypeInfoDeclaration() { return NULL; }
     virtual TupleDeclaration *isTupleDeclaration() { return NULL; }
     virtual TypedefDeclaration *isTypedefDeclaration() { return NULL; }
     virtual AliasDeclaration *isAliasDeclaration() { return NULL; }
     virtual AggregateDeclaration *isAggregateDeclaration() { return NULL; }
     virtual FuncDeclaration *isFuncDeclaration() { return NULL; }
     virtual FuncAliasDeclaration *isFuncAliasDeclaration() { return NULL; }
+    virtual OverDeclaration *isOverDeclaration() { return NULL; }
     virtual FuncLiteralDeclaration *isFuncLiteralDeclaration() { return NULL; }
     virtual CtorDeclaration *isCtorDeclaration() { return NULL; }
     virtual PostBlitDeclaration *isPostBlitDeclaration() { return NULL; }
@@ -282,12 +302,9 @@ struct Dsymbol : Object
     virtual SymbolDeclaration *isSymbolDeclaration() { return NULL; }
     virtual AttribDeclaration *isAttribDeclaration() { return NULL; }
     virtual OverloadSet *isOverloadSet() { return NULL; }
+    virtual void accept(Visitor *v) { v->visit(this); }
 #if IN_LLVM
-    virtual TypeInfoDeclaration* isTypeInfoDeclaration() { return NULL; }
     virtual ClassInfoDeclaration* isClassInfoDeclaration() { return NULL; }
-
-    /// Codegen traversal
-    virtual void codegen(IRState* p);
 
     // llvm stuff
     int llvmInternal;
@@ -298,29 +315,29 @@ struct Dsymbol : Object
 
 // Dsymbol that generates a scope
 
-struct ScopeDsymbol : Dsymbol
+class ScopeDsymbol : public Dsymbol
 {
+public:
     Dsymbols *members;          // all Dsymbol's in this scope
     DsymbolTable *symtab;       // members[] sorted into table
 
+private:
     Dsymbols *imports;          // imported Dsymbol's
-    unsigned char *prots;       // array of PROT, one for each import
+    PROT *prots;                // array of PROT, one for each import
 
+public:
     ScopeDsymbol();
     ScopeDsymbol(Identifier *id);
     Dsymbol *syntaxCopy(Dsymbol *s);
-    Dsymbol *search(Loc loc, Identifier *ident, int flags);
-    void importScope(Dsymbol *s, enum PROT protection);
-    int isforwardRef();
-    void defineRef(Dsymbol *s);
+    Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
+    OverloadSet *mergeOverloadSet(OverloadSet *os, Dsymbol *s);
+    void importScope(Dsymbol *s, PROT protection);
+    bool isforwardRef();
     static void multiplyDefined(Loc loc, Dsymbol *s1, Dsymbol *s2);
-    Dsymbol *nameCollision(Dsymbol *s);
     const char *kind();
     FuncDeclaration *findGetMembers();
     virtual Dsymbol *symtabInsert(Dsymbol *s);
     bool hasStaticCtorOrDtor();
-
-    void emitMemberComments(Scope *sc);
 
     static size_t dim(Dsymbols *members);
     static Dsymbol *getNth(Dsymbols *members, size_t nth, size_t *pn = NULL);
@@ -329,24 +346,28 @@ struct ScopeDsymbol : Dsymbol
     static int foreach(Scope *sc, Dsymbols *members, ForeachDg dg, void *ctx, size_t *pn=NULL);
 
     ScopeDsymbol *isScopeDsymbol() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 // With statement scope
 
-struct WithScopeSymbol : ScopeDsymbol
+class WithScopeSymbol : public ScopeDsymbol
 {
+public:
     WithStatement *withstate;
 
     WithScopeSymbol(WithStatement *withstate);
-    Dsymbol *search(Loc loc, Identifier *ident, int flags);
+    Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
 
     WithScopeSymbol *isWithScopeSymbol() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 // Array Index/Slice scope
 
-struct ArrayScopeSymbol : ScopeDsymbol
+class ArrayScopeSymbol : public ScopeDsymbol
 {
+public:
     Expression *exp;    // IndexExp or SliceExp
     TypeTuple *type;    // for tuple[length]
     TupleDeclaration *td;       // for tuples of objects
@@ -355,33 +376,34 @@ struct ArrayScopeSymbol : ScopeDsymbol
     ArrayScopeSymbol(Scope *sc, Expression *e);
     ArrayScopeSymbol(Scope *sc, TypeTuple *t);
     ArrayScopeSymbol(Scope *sc, TupleDeclaration *td);
-    Dsymbol *search(Loc loc, Identifier *ident, int flags);
+    Dsymbol *search(Loc loc, Identifier *ident, int flags = IgnoreNone);
 
     ArrayScopeSymbol *isArrayScopeSymbol() { return this; }
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 // Overload Sets
 
-#if DMDV2
-struct OverloadSet : Dsymbol
+class OverloadSet : public Dsymbol
 {
+public:
     Dsymbols a;         // array of Dsymbols
 
     OverloadSet(Identifier *ident);
     void push(Dsymbol *s);
     OverloadSet *isOverloadSet() { return this; }
     const char *kind();
+    void accept(Visitor *v) { v->visit(this); }
 };
-#endif
 
 // Table of Dsymbol's
 
-struct DsymbolTable : Object
+class DsymbolTable : public RootObject
 {
+public:
     AA *tab;
 
     DsymbolTable();
-    ~DsymbolTable();
 
     // Look up Identifier. Return Dsymbol if found, NULL if not.
     Dsymbol *lookup(Identifier *ident);

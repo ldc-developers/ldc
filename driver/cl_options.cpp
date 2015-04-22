@@ -23,6 +23,34 @@
 
 namespace opts {
 
+/* Option parser that defaults to zero when no explicit number is given.
+ * i.e.:  -cov    --> value = 0
+ *        -cov=9  --> value = 9
+ *        -cov=101 --> error, value must be in range [0..100]
+ */ 
+struct CoverageParser : public cl::parser<unsigned char> {
+#if LDC_LLVM_VER >= 307
+    CoverageParser(cl::Option &O) : cl::parser<unsigned char>(O) {}
+#endif
+
+    bool parse(cl::Option &O, llvm::StringRef ArgName, llvm::StringRef Arg, unsigned char &Val)
+    {
+        if (Arg == "") {
+            Val = 0;
+            return false;
+        }
+
+        if (Arg.getAsInteger(0, Val))
+            return O.error("'" + Arg + "' value invalid for required coverage percentage");
+
+        if (Val > 100) {
+            return O.error("Required coverage percentage must be <= 100");
+        }
+        return false;
+    }
+};
+
+
 // Positional options first, in order:
 cl::list<std::string> fileList(
     cl::Positional, cl::desc("files"));
@@ -47,16 +75,6 @@ cl::opt<bool, true> enforcePropertySyntax("property",
     cl::desc("Enforce property syntax"),
     cl::ZeroOrMore,
     cl::location(global.params.enforcePropertySyntax));
-
-static cl::opt<ubyte, true> useDv1(
-    cl::desc("Force language version:"),
-    cl::ZeroOrMore,
-    cl::values(
-        clEnumValN(1, "v1", "D language version 1.00"),
-        clEnumValEnd),
-    cl::location(global.params.Dversion),
-    cl::init(2),
-    cl::Hidden);
 
 cl::opt<bool> compileOnly("c",
     cl::desc("Do not link"),
@@ -166,7 +184,7 @@ cl::opt<std::string> ddocFile("Df",
 // Json options
 static cl::opt<bool, true> doJson("X",
     cl::desc("Generate JSON file"),
-    cl::location(global.params.doXGeneration));
+    cl::location(global.params.doJsonGeneration));
 
 cl::opt<std::string> jsonFile("Xf",
     cl::desc("Write JSON file to <filename>"),
@@ -335,8 +353,28 @@ static cl::opt<bool, true, FlagParser> asserts("asserts",
     cl::location(global.params.useAssert),
     cl::init(true));
 
-cl::opt<BoolOrDefaultAdapter, false, FlagParser> boundsChecks("boundscheck",
-    cl::desc("(*) Enable array bounds checks"));
+BoundsCheck boundsCheck = BC_Default;
+
+class BoundsChecksAdapter {
+public:
+    void operator=(bool val) {
+        boundsCheck = (val ? BC_On : BC_Off);
+    }
+};
+
+#if LDC_LLVM_VER < 307
+cl::opt<BoundsChecksAdapter, false, FlagParser> boundsChecksOld("boundscheck",
+    cl::desc("(*) Enable array bounds check (deprecated, use -boundscheck=on|off)"));
+#endif
+
+cl::opt<BoundsCheck, true> boundsChecksNew("boundscheck",
+    cl::desc("(*) Enable array bounds check"),
+    cl::location(boundsCheck),
+    cl::values(
+        clEnumValN(BC_Off, "off", "no array bounds checks"),
+        clEnumValN(BC_SafeOnly, "safeonly", "array bounds checks for safe functions only"),
+        clEnumValN(BC_On, "on", "array bounds checks for all functions"),
+        clEnumValEnd));
 
 static cl::opt<bool, true, FlagParser> invariants("invariants",
     cl::desc("(*) Enable invariants"),
@@ -376,6 +414,37 @@ cl::opt<bool, true> singleObj("singleobj",
 cl::opt<bool> linkonceTemplates("linkonce-templates",
     cl::desc("Use linkonce_odr linkage for template symbols instead of weak_odr"),
     cl::ZeroOrMore);
+
+cl::opt<bool> disableLinkerStripDead("disable-linker-strip-dead",
+    cl::desc("Do not try to remove unused symbols during linking"),
+    cl::init(false));
+
+cl::opt<bool, true> allinst("allinst",
+    cl::desc("generate code for all template instantiations"),
+    cl::location(global.params.allInst));
+
+cl::opt<unsigned, true> nestedTemplateDepth("template-depth",
+    cl::desc("(experimental) set maximum number of nested template instantiations"),
+    cl::location(global.params.nestedTmpl),
+    cl::init(500));
+
+cl::opt<bool, true> vcolumns("vcolumns",
+    cl::desc("print character (column) numbers in diagnostics"),
+    cl::location(global.params.showColumns));
+
+cl::opt<bool, true> vgc("vgc",
+    cl::desc("list all gc allocations including hidden ones"),
+    cl::location(global.params.vgc));
+
+cl::opt<bool, true, FlagParser> color("color",
+    cl::desc("Force colored console output"),
+    cl::location(global.params.color));
+
+cl::opt<unsigned char, true, CoverageParser> coverageAnalysis("cov",
+    cl::desc("Compile-in code coverage analysis\n(use -cov=n for n% minimum required coverage)"),
+    cl::location(global.params.covPercent),
+    cl::ValueOptional,
+    cl::init(127));
 
 static cl::extrahelp footer("\n"
 "-d-debug can also be specified without options, in which case it enables all\n"

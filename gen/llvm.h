@@ -31,7 +31,11 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IRBuilder.h"
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/DebugInfo.h"
+#else
 #include "llvm/DebugInfo.h"
+#endif
 #else
 #include "llvm/Type.h"
 #include "llvm/DerivedTypes.h"
@@ -57,12 +61,13 @@
 
 #include "gen/llvmcompat.h"
 
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/CallSite.h"
+#else
 #include "llvm/Support/CallSite.h"
+#endif
 
 using llvm::IRBuilder;
-
-// for WriteTypeSymbolic
-#include "llvm/Assembly/Writer.h"
 
 #define GET_INTRINSIC_DECL(_X) (llvm::Intrinsic::getDeclaration(gIR->module, llvm::Intrinsic:: _X ))
 

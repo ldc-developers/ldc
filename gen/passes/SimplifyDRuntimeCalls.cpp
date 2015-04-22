@@ -18,6 +18,9 @@
 
 #include "Passes.h"
 #include "llvm/Pass.h"
+#if LDC_LLVM_VER >= 307
+#include "llvm/IR/Module.h"
+#endif
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
@@ -62,7 +65,7 @@ namespace {
     class LLVM_LIBRARY_VISIBILITY LibCallOptimization {
     protected:
         Function *Caller;
-        bool* Changed;
+        bool *Changed;
         const DataLayout *DL;
         AliasAnalysis *AA;
         LLVMContext *Context;
@@ -85,11 +88,11 @@ namespace {
         /// delete CI.
         virtual Value *CallOptimizer(Function *Callee, CallInst *CI, IRBuilder<> &B)=0;
 
-        Value *OptimizeCall(CallInst *CI, bool& Changed, const DataLayout &DL,
+        Value *OptimizeCall(CallInst *CI, bool& Changed, const DataLayout *DL,
                 AliasAnalysis& AA, IRBuilder<> &B) {
             Caller = CI->getParent()->getParent();
             this->Changed = &Changed;
-            this->DL = &DL;
+            this->DL = DL;
             this->AA = &AA;
             if (CI->getCalledFunction())
                 Context = &CI->getCalledFunction()->getContext();
@@ -300,10 +303,16 @@ namespace {
         void InitOptimizations();
         bool runOnFunction(Function &F);
 
-        bool runOnce(Function &F, const DataLayout& DL, AliasAnalysis& AA);
+        bool runOnce(Function &F, const DataLayout *DL, AliasAnalysis& AA);
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+#if LDC_LLVM_VER >= 307
+          // The DataLayoutPass is removed.
+#elif LDC_LLVM_VER >= 305
+          AU.addRequired<DataLayoutPass>();
+#else
           AU.addRequired<DataLayout>();
+#endif
           AU.addRequired<AliasAnalysis>();
         }
     };
@@ -339,7 +348,7 @@ void SimplifyDRuntimeCalls::InitOptimizations() {
     Optimizations["_d_allocmemoryT"] = &Allocation;
     Optimizations["_d_newarrayT"] = &Allocation;
     Optimizations["_d_newarrayiT"] = &Allocation;
-    Optimizations["_d_newarrayvT"] = &Allocation;
+    Optimizations["_d_newarrayU"] = &Allocation;
     Optimizations["_d_newarraymT"] = &Allocation;
     Optimizations["_d_newarraymiT"] = &Allocation;
     Optimizations["_d_newarraymvT"] = &Allocation;
@@ -353,7 +362,14 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     if (Optimizations.empty())
         InitOptimizations();
 
-    const DataLayout &DL = getAnalysis<DataLayout>();
+#if LDC_LLVM_VER >= 307
+    const DataLayout *DL = &F.getParent()->getDataLayout();
+#elif LDC_LLVM_VER >= 305
+    DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
+    const DataLayout *DL = DLP ? &DLP->getDataLayout() : 0;
+#else
+    const DataLayout *DL = &getAnalysis<DataLayout>();
+#endif
     AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
 
     // Iterate to catch opportunities opened up by other optimizations,
@@ -371,7 +387,7 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     return EverChanged;
 }
 
-bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout& DL, AliasAnalysis& AA) {
+bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL, AliasAnalysis& AA) {
     IRBuilder<> Builder(F.getContext());
 
     bool Changed = false;
@@ -384,7 +400,11 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout& DL, AliasAnal
             // Ignore indirect calls and calls to non-external functions.
             Function *Callee = CI->getCalledFunction();
             if (Callee == 0 || !Callee->isDeclaration() ||
-                    !(Callee->hasExternalLinkage() || Callee->hasDLLImportLinkage()))
+                    !(Callee->hasExternalLinkage()
+#if LDC_LLVM_VER < 305
+                    || Callee->hasDLLImportLinkage()
+#endif
+                    ))
                 continue;
 
             // Ignore unknown calls.

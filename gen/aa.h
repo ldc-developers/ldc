@@ -19,7 +19,7 @@
 enum TOK;
 class DValue;
 struct Loc;
-struct Type;
+class Type;
 namespace llvm { class Value; }
 
 DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue);

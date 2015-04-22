@@ -16,6 +16,7 @@
 #define LDC_GEN_LOGGER_H
 
 #include <iosfwd>
+#include <iostream>
 
 namespace llvm {
     class Type;
@@ -94,14 +95,16 @@ private:
 
 namespace Logger
 {
+    extern bool _enabled;
+
     void indent();
     void undent();
     Stream cout();
     void println(const char* fmt, ...) IS_PRINTF(1);
     void print(const char* fmt, ...) IS_PRINTF(1);
-    void enable();
-    void disable();
-    bool enabled();
+    inline void enable() { _enabled = true; }
+    inline void disable() { _enabled = false; }
+    inline bool enabled() { return _enabled; }
 
     void attention(Loc loc, const char* fmt, ...) IS_PRINTF(2);
 

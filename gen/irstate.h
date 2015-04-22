@@ -23,10 +23,16 @@
 #include "gen/dibuilder.h"
 #include <deque>
 #include <list>
+#include <set>
 #include <sstream>
 #include <vector>
 
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/CallSite.h"
+#else
+#include <map>
 #include "llvm/Support/CallSite.h"
+#endif
 
 namespace llvm {
     class LLVMContext;
@@ -46,14 +52,14 @@ extern const llvm::TargetData* gDataLayout;
 #endif
 extern TargetABI* gABI;
 
-struct TypeFunction;
-struct TypeStruct;
-struct ClassDeclaration;
-struct FuncDeclaration;
-struct Module;
-struct TypeStruct;
+class TypeFunction;
+class TypeStruct;
+class ClassDeclaration;
+class FuncDeclaration;
+class Module;
+class TypeStruct;
 struct BaseClass;
-struct AnonDeclaration;
+class AnonDeclaration;
 
 struct IrModule;
 
@@ -88,7 +94,7 @@ struct IRAsmStmt
     std::vector<LLValue*> in;
 
     // if this is nonzero, it contains the target label
-    Identifier* isBranchToLabel;
+    LabelDsymbol* isBranchToLabel;
 };
 
 struct IRAsmBlock
@@ -138,11 +144,6 @@ struct IRState
     TypeFunction* topfunctype();
     llvm::Instruction* topallocapoint();
 
-    // structs
-    typedef std::vector<IrAggr*> StructVector;
-    StructVector structs;
-    IrAggr* topstruct();
-
     // D main function
     bool emitMain;
     llvm::Function* mainFunc;
@@ -187,26 +188,38 @@ struct IRState
     GatesList sharedGates;
     FuncDeclList unitTests;
 
-    // all template instances that had members emitted
-    // currently only filled for singleobj
-    // used to make sure the complete template instance gets emitted in the
-    // first file that touches a member, see #318
-    typedef std::set<TemplateInstance*> TemplateInstanceSet;
-    TemplateInstanceSet seenTemplateInstances;
-
     // for inline asm
     IRAsmBlock* asmBlock;
     std::ostringstream nakedAsm;
 
-    // 'used' array solely for keeping a reference to globals
+    // Globals to pin in the llvm.used array to make sure they are not
+    // eliminated.
     std::vector<LLConstant*> usedArray;
 
     /// Whether to emit array bounds checking in the current function.
     bool emitArrayBoundsChecks();
 
+    // Global variables bound to string literals.  Once created such a
+    // variable is reused whenever the same string literal is
+    // referenced in the module.  Caching them per module prevents the
+    // duplication of identical literals.
+#if LDC_LLVM_VER >= 305
+    llvm::StringMap<llvm::GlobalVariable*> stringLiteral1ByteCache;
+    llvm::StringMap<llvm::GlobalVariable*> stringLiteral2ByteCache;
+    llvm::StringMap<llvm::GlobalVariable*> stringLiteral4ByteCache;
+#else
+    std::map<llvm::StringRef, llvm::GlobalVariable*> stringLiteral1ByteCache;
+    std::map<llvm::StringRef, llvm::GlobalVariable*> stringLiteral2ByteCache;
+    std::map<llvm::StringRef, llvm::GlobalVariable*> stringLiteral4ByteCache;
+#endif
+
 #if LDC_LLVM_VER >= 303
     /// Vector of options passed to the linker as metadata in object file.
+#if LDC_LLVM_VER >= 306
+    llvm::SmallVector<llvm::Metadata *, 5> LinkerMetadataArgs;
+#else
     llvm::SmallVector<llvm::Value *, 5> LinkerMetadataArgs;
+#endif
 #endif
 };
 
@@ -240,5 +253,8 @@ llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, const T &args, const
         return call;
     }
 }
+
+void codegenFunction(Statement *s, IRState *irs);
+void Statement_toIR(Statement *s, IRState *irs);
 
 #endif // LDC_GEN_IRSTATE_H

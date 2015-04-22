@@ -17,8 +17,8 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
-#include "gen/utils.h"
 #include "ir/iraggr.h"
+#include "irdsymbol.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
 #include <algorithm>
@@ -28,7 +28,6 @@
 IrAggr::IrAggr(AggregateDeclaration* aggr)
 :   aggrdecl(aggr),
     type(aggr->type),
-    packed((type->ty == Tstruct) ? type->alignsize() == 1 : false),
     // above still need to be looked at
     init(0),
     constInit(0),
@@ -52,7 +51,7 @@ LLGlobalVariable * IrAggr::getInitSymbol()
 
     // create the initZ symbol
     std::string initname("_D");
-    initname.append(aggrdecl->mangle());
+    initname.append(mangle(aggrdecl));
     initname.append("6__initZ");
 
     init = getOrCreateGlobal(aggrdecl->loc,
@@ -87,8 +86,9 @@ llvm::Constant * IrAggr::getDefaultInit()
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-static bool isAligned(llvm::Type* type, size_t offset) {
-    return gDataLayout->getABITypeAlignment(type) % offset == 0;
+static bool isAligned(llvm::Type* type, size_t Offset) {
+    unsigned TyAlign = gDataLayout->getABITypeAlignment(type);
+    return (Offset & (TyAlign-1)) == 0;
 }
 
 // helper function that adds zero bytes to a vector of constants
@@ -97,9 +97,11 @@ size_t add_zeros(llvm::SmallVectorImpl<llvm::Constant*>& constants,
 {
     size_t const oldLength = constants.size();
 
-    llvm::Type* const eightByte = llvm::Type::getInt64Ty(gIR->context());
-    llvm::Type* const fourByte = llvm::Type::getInt32Ty(gIR->context());
-    llvm::Type* const twoByte = llvm::Type::getInt16Ty(gIR->context());
+    llvm::LLVMContext& context = gIR->context();
+    llvm::Type* const eightByte = llvm::Type::getInt64Ty(context);
+    llvm::Type* const fourByte = llvm::Type::getInt32Ty(context);
+    llvm::Type* const twoByte = llvm::Type::getInt16Ty(context);
+    llvm::Type* const oneByte = llvm::Type::getInt8Ty(context);
 
     assert(startOffset <= endOffset);
     size_t paddingLeft = endOffset - startOffset;
@@ -122,8 +124,7 @@ size_t add_zeros(llvm::SmallVectorImpl<llvm::Constant*>& constants,
         }
         else
         {
-            constants.push_back(llvm::Constant::getNullValue(
-                llvm::Type::getInt8Ty(gIR->context())));
+            constants.push_back(llvm::Constant::getNullValue(oneByte));
             startOffset += 1;
         }
 
@@ -135,68 +136,6 @@ size_t add_zeros(llvm::SmallVectorImpl<llvm::Constant*>& constants,
 
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-
-LLConstant * IrAggr::createStructInitializer(StructInitializer * si)
-{
-    IF_LOG Logger::println("Building StructInitializer of type %s", si->ad->toPrettyChars());
-    LOG_SCOPE;
-
-    // sanity check
-    assert(si->ad == aggrdecl && "struct type mismatch");
-    assert(si->vars.dim == si->value.dim && "inconsistent StructInitializer");
-
-    // array of things to build
-    VarInitMap initConsts;
-
-    // fill in explicit initializers
-    const size_t n = si->vars.dim;
-    for (size_t i = 0; i < n; i++)
-    {
-        VarDeclaration* vd = si->vars[i];
-        Initializer* ini = si->value[i];
-        if (!ini)
-        {
-            // Unclear when this occurs - createInitializerConstant will just
-            // fill in default initializer.
-            continue;
-        }
-
-        VarInitMap::iterator it, end = initConsts.end();
-        for (it = initConsts.begin(); it != end; ++it)
-        {
-            if (it->first == vd)
-            {
-                error(ini->loc, "duplicate initialization of %s", vd->toChars());
-                continue;
-            }
-
-            const unsigned f_begin = it->first->offset;
-            const unsigned f_end = f_begin + it->first->type->size();
-
-            if (vd->offset < f_end && (vd->offset + vd->type->size()) > f_begin)
-            {
-                error(ini->loc, "initializer for %s overlaps previous initialization of %s",
-                      vd->toChars(), it->first->toChars());
-            }
-        }
-
-        IF_LOG Logger::println("Explicit initializer: %s @+%u", vd->toChars(), vd->offset);
-        LOG_SCOPE;
-
-        initConsts[vd] = DtoConstInitializer(ini->loc, vd->type, ini);
-    }
-    // stop if there were errors
-    if (global.errors)
-    {
-        fatal();
-    }
-
-    llvm::Constant* init = createInitializerConstant(initConsts, si->ltype);
-    si->ltype = static_cast<llvm::StructType*>(init->getType());
-    return init;
-}
-
 //////////////////////////////////////////////////////////////////////////////
 
 typedef std::pair<VarDeclaration*, llvm::Constant*> VarInitConst;
@@ -273,10 +212,15 @@ llvm::Constant* IrAggr::createInitializerConstant(
         offset = Target::ptrsize * 2;
     }
 
-    addFieldInitializers(constants, explicitInitializers, aggrdecl, offset);
+    // Add the initializers for the member fields. While we are traversing the
+    // class hierarchy, use the opportunity to populate interfacesWithVtbls if
+    // we haven't done so previously (due to e.g. ClassReferenceExp, we can
+    // have multiple initializer constants for a single class).
+    addFieldInitializers(constants, explicitInitializers, aggrdecl, offset,
+        interfacesWithVtbls.empty());
 
     // tail padding?
-    const size_t structsize = type->size();
+    const size_t structsize = aggrdecl->size(Loc());
     if (offset < structsize)
     {
         add_zeros(constants, offset, structsize);
@@ -291,9 +235,9 @@ llvm::Constant* IrAggr::createInitializerConstant(
         for (itr = constants.begin(); itr != end; ++itr)
             types.push_back((*itr)->getType());
         if (!initializerType)
-            initializerType = LLStructType::get(gIR->context(), types, packed);
+            initializerType = LLStructType::get(gIR->context(), types, isPacked());
         else
-            initializerType->setBody(types, packed);
+            initializerType->setBody(types, isPacked());
     }
 
     // build constant
@@ -307,20 +251,18 @@ void IrAggr::addFieldInitializers(
     llvm::SmallVectorImpl<llvm::Constant*>& constants,
     const VarInitMap& explicitInitializers,
     AggregateDeclaration* decl,
-    unsigned& offset)
+    unsigned& offset,
+    bool populateInterfacesWithVtbls
+    )
 {
     if (ClassDeclaration* cd = decl->isClassDeclaration())
     {
         if (cd->baseClass)
         {
             addFieldInitializers(constants, explicitInitializers,
-                cd->baseClass, offset);
+                cd->baseClass, offset, populateInterfacesWithVtbls);
         }
     }
-
-    const bool packed = (type->ty == Tstruct)
-        ? type->alignsize() == 1
-        : false;
 
     // Build up vector with one-to-one mapping to field indices.
     const size_t n = decl->fields.dim;
@@ -342,8 +284,26 @@ void IrAggr::addFieldInitializers(
 
         VarDeclaration* vd = decl->fields[i];
 
+        /* Skip void initializers for unions. DMD bug 3991:
+            union X
+            {
+                int   a = void;
+                dchar b = 'a';
+            }
+        */
+        if (decl->isUnionDeclaration() && vd->init && vd->init->isVoidInitializer())
+            continue;
+
         unsigned vd_begin = vd->offset;
         unsigned vd_end = vd_begin + vd->type->size();
+
+        /* Skip zero size fields like zero-length static arrays, LDC issue 812:
+            class B {
+                ubyte[0] test;
+            }
+        */
+        if (vd_begin == vd_end)
+            continue;
 
         // make sure it doesn't overlap any explicit initializers.
         bool overlaps = false;
@@ -392,7 +352,7 @@ void IrAggr::addFieldInitializers(
 
         // get next aligned offset for this field
         size_t alignedoffset = offset;
-        if (!packed)
+        if (!isPacked())
         {
             alignedoffset = realignOffset(alignedoffset, vd->type);
         }
@@ -421,17 +381,36 @@ void IrAggr::addFieldInitializers(
 
             offset = (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
 
-            ArrayIter<BaseClass> it2(*cd->vtblInterfaces);
-            for (; !it2.done(); it2.next())
+            for (BaseClasses::iterator I = cd->vtblInterfaces->begin(),
+                                       E = cd->vtblInterfaces->end();
+                                       I != E; ++I)
             {
-                BaseClass* b = it2.get();
-                constants.push_back(getInterfaceVtbl(b, newinsts, inter_idx));
+                constants.push_back(getInterfaceVtbl(*I, newinsts, inter_idx));
                 offset += Target::ptrsize;
-
-                // add to the interface list
-                interfacesWithVtbls.push_back(b);
                 inter_idx++;
+
+                if (populateInterfacesWithVtbls)
+                    interfacesWithVtbls.push_back(*I);
             }
         }
     }
+}
+
+IrAggr *getIrAggr(AggregateDeclaration *decl, bool create)
+{
+    if (!isIrAggrCreated(decl) && create)
+    {
+        assert(decl->ir.irAggr == NULL);
+        decl->ir.irAggr = new IrAggr(decl);
+        decl->ir.m_type = IrDsymbol::AggrType;
+    }
+    assert(decl->ir.irAggr != NULL);
+    return decl->ir.irAggr;
+}
+
+bool isIrAggrCreated(AggregateDeclaration *decl)
+{
+    int t = decl->ir.type();
+    assert(t == IrDsymbol::AggrType || t == IrDsymbol::NotSet);
+    return t == IrDsymbol::AggrType;
 }

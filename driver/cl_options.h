@@ -25,6 +25,13 @@
 namespace opts {
     namespace cl = llvm::cl;
 
+    enum BoundsCheck {
+        BC_Off,
+        BC_SafeOnly,
+        BC_On,
+        BC_Default
+    };
+
     /* Mostly generated with the following command:
        egrep -e '^(cl::|#if|#e)' gen/cl_options.cpp \
         | sed -re 's/^(cl::.*)\(.*$/    extern \1;/'
@@ -65,9 +72,12 @@ namespace opts {
     extern cl::opt<FloatABI::Type> mFloatABI;
     extern cl::opt<bool, true> singleObj;
     extern cl::opt<bool> linkonceTemplates;
+    extern cl::opt<bool> disableLinkerStripDead;
 
-    extern cl::opt<BoolOrDefaultAdapter, false, FlagParser> boundsChecks;
+    extern BoundsCheck boundsCheck;
     extern bool nonSafeBoundsChecks;
+
+    extern cl::opt<unsigned, true> nestedTemplateDepth;
 
     // Arguments to -d-debug
     extern std::vector<std::string> debugArgs;

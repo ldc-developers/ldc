@@ -99,38 +99,6 @@ Statement *AsmStatement::syntaxCopy()
     return a_s;
 }
 
-void AsmStatement::toCBuffer(OutBuffer *buf, HdrGenState *hgs)
-{
-    bool sep = 0, nsep = 0;
-    buf->writestring("asm { ");
-
-    for (Token * t = tokens; t; t = t->next) {
-        switch (t->value) {
-        case TOKlparen:
-        case TOKrparen:
-        case TOKlbracket:
-        case TOKrbracket:
-        case TOKcolon:
-        case TOKsemicolon:
-        case TOKcomma:
-        case TOKstring:
-        case TOKcharv:
-        case TOKwcharv:
-        case TOKdcharv:
-            nsep = 0;
-            break;
-        default:
-            nsep = 1;
-        }
-        if (sep + nsep == 2)
-                buf->writeByte(' ');
-        sep = nsep;
-        buf->writestring(t->toChars());
-    }
-    buf->writestring("; }");
-    buf->writenl();
-}
-
 struct AsmParserCommon
 {
     virtual ~AsmParserCommon() {}
@@ -160,26 +128,26 @@ static void replace_func_name(IRState* p, std::string& insnt)
     while (std::string::npos != (pos = insnt.find(needle)))
     {
         // This will only happen for few instructions, and only once for those.
-        insnt.replace(pos, needle.size(), p->func()->decl->mangle(false));
+        insnt.replace(pos, needle.size(), mangle(p->func()->decl));
     }
 }
 
-Statement *AsmStatement::semantic(Scope *sc)
+Statement* asmSemantic(AsmStatement *s, Scope *sc)
 {
     if (sc->func && sc->func->isSafe())
-        error("inline assembler not allowed in @safe function %s", sc->func->toChars());
+        s->error("inline assembler not allowed in @safe function %s", sc->func->toChars());
 
     bool err = false;
     llvm::Triple const t = global.params.targetTriple;
     if (!(t.getArch() == llvm::Triple::x86 || t.getArch() == llvm::Triple::x86_64))
     {
-        error("inline asm is not supported for the \"%s\" architecture",
+        s->error("inline asm is not supported for the \"%s\" architecture",
             t.getArchName().str().c_str());
         err = true;
     }
     if (!global.params.useInlineAsm)
     {
-        error("inline asm is not allowed when the -noasm switch is used");
+        s->error("inline asm is not allowed when the -noasm switch is used");
         err = true;
     }
     if (err)
@@ -190,8 +158,8 @@ Statement *AsmStatement::semantic(Scope *sc)
     sc->func->hasReturnExp |= 8;
 
     // empty statement -- still do the above things because they might be expected?
-    if (! tokens)
-        return this;
+    if (!s->tokens)
+        return s;
 
     if (!asmparser)
     {
@@ -201,24 +169,14 @@ Statement *AsmStatement::semantic(Scope *sc)
             asmparser = new AsmParserx8664::AsmParser;
     }
 
-    asmparser->run(sc, this);
+    asmparser->run(sc, s);
 
-    return this;
+    return s;
 }
 
-int AsmStatement::blockExit(bool mustNotThrow)
+void AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
 {
-    //printf("AsmStatement::blockExit(%p)\n", this);
-    if (mustNotThrow)
-        error("asm statements are assumed to throw");
-    // Assume the worst
-    return BEfallthru | BEthrow | BEreturn | BEgoto | BEhalt;
-}
-
-void
-AsmStatement::toIR(IRState * irs)
-{
-    Logger::println("AsmStatement::toIR(): %s", loc.toChars());
+    IF_LOG Logger::println("AsmStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
     // sanity check
@@ -229,9 +187,9 @@ AsmStatement::toIR(IRState * irs)
     assert(asmblock);
 
     // debug info
-    gIR->DBuilder.EmitStopPoint(loc.linnum);
+    gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
 
-    if (!asmcode)
+    if (!stmt->asmcode)
         return;
 
     static std::string i_cns = "i";
@@ -241,7 +199,7 @@ AsmStatement::toIR(IRState * irs)
     static std::string mrw_cns = "+*m";
     static std::string memory_name = "memory";
 
-    AsmCode * code = (AsmCode *) asmcode;
+    AsmCode *code = static_cast<AsmCode *>(stmt->asmcode);
     std::vector<LLValue*> input_values;
     std::vector<std::string> input_constraints;
     std::vector<LLValue*> output_values;
@@ -266,18 +224,18 @@ AsmStatement::toIR(IRState * irs)
 
         switch (arg->type) {
         case Arg_Integer:
-            arg_val = arg->expr->toElem(irs)->getRVal();
+            arg_val = toElem(arg->expr)->getRVal();
         do_integer:
             cns = i_cns;
             break;
         case Arg_Pointer:
-        assert(arg->expr->op == TOKvar);
-        arg_val = arg->expr->toElem(irs)->getRVal();
-        cns = p_cns;
+            assert(arg->expr->op == TOKvar);
+            arg_val = toElem(arg->expr)->getRVal();
+            cns = p_cns;
 
             break;
         case Arg_Memory:
-        arg_val = arg->expr->toElem(irs)->getRVal();
+            arg_val = toElem(arg->expr)->getRVal();
 
             switch (arg->mode) {
             case Mode_Input:  cns = m_cns; break;
@@ -369,7 +327,7 @@ AsmStatement::toIR(IRState * irs)
     }
 
     typedef std::vector<std::string>::iterator It;
-    if (Logger::enabled()) {
+    IF_LOG {
         Logger::cout() << "final asm: " << code->insnTemplate << '\n';
         std::ostringstream ss;
 
@@ -435,7 +393,7 @@ AsmStatement::toIR(IRState * irs)
         asmblock->clobs.insert(clobstr);
     }
 
-    if (Logger::enabled()) {
+    IF_LOG {
         typedef std::vector<LLValue*>::iterator It;
         {
             Logger::println("Output values:");
@@ -466,7 +424,7 @@ AsmStatement::toIR(IRState * irs)
     asmStmt->in_c = llvmInConstraints;
     asmStmt->out.insert(asmStmt->out.begin(), output_values.begin(), output_values.end());
     asmStmt->in.insert(asmStmt->in.begin(), input_values.begin(), input_values.end());
-    asmStmt->isBranchToLabel = isBranchToLabel;
+    asmStmt->isBranchToLabel = stmt->isBranchToLabel;
     asmblock->s.push_back(asmStmt);
 }
 
@@ -531,11 +489,9 @@ static void remap_inargs(std::string& insnt, size_t nargs, size_t idx)
     }
 }
 
-LLValue* DtoAggrPairSwap(LLValue* aggr);
-
-void AsmBlockStatement::toIR(IRState* p)
+void AsmBlockStatement_toIR(AsmBlockStatement *stmt, IRState* p)
 {
-    Logger::println("AsmBlockStatement::toIR(): %s", loc.toChars());
+    IF_LOG Logger::println("AsmBlockStatement::toIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
     // disable inlining by default
@@ -544,16 +500,16 @@ void AsmBlockStatement::toIR(IRState* p)
 
     // create asm block structure
     assert(!p->asmBlock);
-    IRAsmBlock* asmblock = new IRAsmBlock(this);
+    IRAsmBlock* asmblock = new IRAsmBlock(stmt);
     assert(asmblock);
     p->asmBlock = asmblock;
 
     // do asm statements
-    for (unsigned i=0; i<statements->dim; i++)
+    for (unsigned i=0; i < stmt->statements->dim; i++)
     {
-        Statement* s = static_cast<Statement*>(statements->data[i]);
+        Statement* s = (*stmt->statements)[i];
         if (s) {
-            s->toIR(p);
+            Statement_toIR(s, p);
         }
     }
 
@@ -563,7 +519,7 @@ void AsmBlockStatement::toIR(IRState* p)
     // a post-asm switch
 
     // maps each goto destination to its special value
-    std::map<Identifier*, int> gotoToVal;
+    std::map<LabelDsymbol*, int> gotoToVal;
 
     // location of the special value determining the goto label
     // will be set if post-asm dispatcher block is needed
@@ -571,7 +527,7 @@ void AsmBlockStatement::toIR(IRState* p)
 
     {
         FuncDeclaration* fd = gIR->func()->decl;
-        const char* fdmangle = fd->mangle();
+        const char* fdmangle = mangle(fd);
 
         // we use a simple static counter to make sure the new end labels are unique
         static size_t uniqueLabelsId = 0;
@@ -601,7 +557,7 @@ void AsmBlockStatement::toIR(IRState* p)
             end = asmblock->internalLabels.end();
             bool skip = false;
             for(it = asmblock->internalLabels.begin(); it != end; ++it)
-                if((*it)->equals(a->isBranchToLabel))
+                if((*it)->equals(a->isBranchToLabel->ident))
                     skip = true;
             if(skip)
                 continue;
@@ -614,8 +570,8 @@ void AsmBlockStatement::toIR(IRState* p)
             gotoToVal[a->isBranchToLabel] = n_goto;
 
             // provide an in-asm target for the branch and set value
-            Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->string);
-            printLabelName(code, fdmangle, a->isBranchToLabel->string);
+            IF_LOG Logger::println("statement '%s' references outer label '%s': creating forwarder", a->code.c_str(), a->isBranchToLabel->ident->string);
+            printLabelName(code, fdmangle, a->isBranchToLabel->ident->string);
             code << ":\n\t";
             code << "movl $<<in" << n_goto << ">>, $<<out0>>\n";
             //FIXME: Store the value -> label mapping somewhere, so it can be referenced later
@@ -650,11 +606,11 @@ void AsmBlockStatement::toIR(IRState* p)
     FuncDeclaration* thisfunc = p->func()->decl;
     bool useabiret = false;
     p->asmBlock->asmBlock->abiret = NULL;
-    if (thisfunc->fbody->endsWithAsm() == this && thisfunc->type->nextOf()->ty != Tvoid)
+    if (thisfunc->fbody->endsWithAsm() == stmt && thisfunc->type->nextOf()->ty != Tvoid)
     {
         // there can't be goto forwarders in this case
         assert(gotoToVal.empty());
-        emitABIReturnAsmStmt(asmblock, loc, thisfunc);
+        emitABIReturnAsmStmt(asmblock, stmt->loc, thisfunc);
         useabiret = true;
     }
 
@@ -727,8 +683,10 @@ void AsmBlockStatement::toIR(IRState* p)
     if (!out_c.empty())
         out_c.resize(out_c.size()-1);
 
-    Logger::println("code = \"%s\"", code.c_str());
-    Logger::println("constraints = \"%s\"", out_c.c_str());
+    IF_LOG {
+        Logger::println("code = \"%s\"", code.c_str());
+        Logger::println("constraints = \"%s\"", out_c.c_str());
+    }
 
     // build return types
     LLType* retty;
@@ -742,14 +700,13 @@ void AsmBlockStatement::toIR(IRState* p)
     types.insert(types.end(), outtypes.begin(), outtypes.end());
     types.insert(types.end(), intypes.begin(), intypes.end());
     llvm::FunctionType* fty = llvm::FunctionType::get(retty, types, false);
-    if (Logger::enabled())
-        Logger::cout() << "function type = " << *fty << '\n';
+    IF_LOG Logger::cout() << "function type = " << *fty << '\n';
 
     std::vector<LLValue*> args;
     args.insert(args.end(), outargs.begin(), outargs.end());
     args.insert(args.end(), inargs.begin(), inargs.end());
 
-    if (Logger::enabled()) {
+    IF_LOG {
         Logger::cout() << "Arguments:" << '\n';
         Logger::indent();
         for (std::vector<LLValue*>::iterator b = args.begin(), i = b, e = args.end(); i != e; ++i) {
@@ -766,8 +723,7 @@ void AsmBlockStatement::toIR(IRState* p)
     llvm::CallInst* call = p->ir->CreateCall(ia, args,
         retty == LLType::getVoidTy(gIR->context()) ? "" : "asm");
 
-    if (Logger::enabled())
-        Logger::cout() << "Complete asm statement: " << *call << '\n';
+    IF_LOG Logger::cout() << "Complete asm statement: " << *call << '\n';
 
     // capture abi return value
     if (useabiret)
@@ -796,14 +752,14 @@ void AsmBlockStatement::toIR(IRState* p)
         llvm::SwitchInst* sw = p->ir->CreateSwitch(val, bb, gotoToVal.size());
 
         // add all cases
-        std::map<Identifier*, int>::iterator it, end = gotoToVal.end();
+        std::map<LabelDsymbol*, int>::iterator it, end = gotoToVal.end();
         for(it = gotoToVal.begin(); it != end; ++it)
         {
             llvm::BasicBlock* casebb = llvm::BasicBlock::Create(gIR->context(), "case", p->topfunc(), bb);
             sw->addCase(LLConstantInt::get(llvm::IntegerType::get(gIR->context(), 32), it->second), casebb);
 
             p->scope() = IRScope(casebb,bb);
-            DtoGoto(loc, it->first, enclosingFinally);
+            DtoGoto(stmt->loc, it->first, stmt->enclosingFinally);
         }
 
         p->scope() = IRScope(bb,oldend);
@@ -822,7 +778,7 @@ Statement *AsmBlockStatement::syntaxCopy()
     a->setDim(statements->dim);
     for (size_t i = 0; i < statements->dim; i++)
     {
-        Statement *s = static_cast<Statement *>(statements->data[i]);
+        Statement *s = (*statements)[i];
         if (s)
             s = s->syntaxCopy();
         a->data[i] = s;
@@ -834,38 +790,50 @@ Statement *AsmBlockStatement::syntaxCopy()
 // necessary for in-asm branches
 Statement *AsmBlockStatement::semantic(Scope *sc)
 {
-    enclosingFinally = sc->enclosingFinally;
-    enclosingScopeExit = sc->enclosingScopeExit;
+    enclosingFinally = sc->tf;
 
     return CompoundStatement::semantic(sc);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-void AsmStatement::toNakedIR(IRState *p)
+AsmBlockStatement* Statement::endsWithAsm()
 {
-    Logger::println("AsmStatement::toNakedIR(): %s", loc.toChars());
+    // does not end with inline asm
+    return NULL;
+}
+
+AsmBlockStatement* CompoundStatement::endsWithAsm()
+{
+    // make the last inner statement decide
+    if (statements && statements->dim)
+    {
+        unsigned last = statements->dim - 1;
+        Statement* s = (*statements)[last];
+        if (s) return s->endsWithAsm();
+    }
+    return NULL;
+}
+
+AsmBlockStatement* AsmBlockStatement::endsWithAsm()
+{
+    // yes this is inline asm
+    return this;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void AsmStatement_toNakedIR(AsmStatement *stmt, IRState *irs)
+{
+    IF_LOG Logger::println("AsmStatement::toNakedIR(): %s", stmt->loc.toChars());
     LOG_SCOPE;
 
     // is there code?
-    if (!asmcode)
+    if (!stmt->asmcode)
         return;
-    AsmCode * code = (AsmCode *) asmcode;
+    AsmCode * code = static_cast<AsmCode *>(stmt->asmcode);
 
     // build asm stmt
-    replace_func_name(p, code->insnTemplate);
-    p->nakedAsm << "\t" << code->insnTemplate << std::endl;
-}
-
-void AsmBlockStatement::toNakedIR(IRState *p)
-{
-    Logger::println("AsmBlockStatement::toNakedIR(): %s", loc.toChars());
-    LOG_SCOPE;
-
-    // do asm statements
-    for (unsigned i=0; i<statements->dim; i++)
-    {
-        Statement* s = static_cast<Statement*>(statements->data[i]);
-        if (s) s->toNakedIR(p);
-    }
+    replace_func_name(irs, code->insnTemplate);
+    irs->nakedAsm << "\t" << code->insnTemplate << std::endl;
 }

@@ -21,6 +21,9 @@
 #include "llvm/DerivedTypes.h"
 #endif
 
+template <typename TYPE> struct Array;
+typedef Array<class FuncDeclaration *> FuncDeclarations;
+
 ///
 class IrTypeClass : public IrTypeAggr
 {
@@ -82,14 +85,10 @@ protected:
 
     /// Builds a vtable type given the type of the first entry and an array
     /// of all entries.
-   std::vector<llvm::Type*> buildVtblType(Type* first, Array* vtbl_array);
+   std::vector<llvm::Type*> buildVtblType(Type* first, FuncDeclarations* vtbl_array);
 
     ///
-    void addBaseClassData(
-        std::vector<llvm::Type*>& defaultTypes,
-        ClassDeclaration* base,
-        size_t& offset,
-        size_t& field_index);
+    void addBaseClassData(AggrTypeBuilder &builder, ClassDeclaration *base);
 
     /// Adds the interface and all it's base interface to the interface
     /// to index map.

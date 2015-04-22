@@ -19,7 +19,7 @@
 // creates new landing pad
 static llvm::LandingPadInst *createLandingPadInst()
 {
-    llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_personality");
+    llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_personality");
     LLType *retType = LLStructType::get(LLType::getInt8PtrTy(gIR->context()),
                                         LLType::getInt32Ty(gIR->context()),
                                         NULL);
@@ -27,7 +27,7 @@ static llvm::LandingPadInst *createLandingPadInst()
 }
 
 IRLandingPadCatchInfo::IRLandingPadCatchInfo(Catch* catchstmt_, llvm::BasicBlock* end_) :
-    catchStmt(catchstmt_), end(end_)
+    end(end_), catchStmt(catchstmt_)
 {
     target = llvm::BasicBlock::Create(gIR->context(), "catch", gIR->topfunc(), end);
 
@@ -56,26 +56,24 @@ void IRLandingPadCatchInfo::toIR()
         // use the same storage for all exceptions that are not accessed in
         // nested functions
         if (!catchStmt->var->nestedrefs.dim) {
-            assert(!catchStmt->var->ir.irLocal);
-            catchStmt->var->ir.irLocal = new IrLocal(catchStmt->var);
+            assert(!isIrLocalCreated(catchStmt->var));
+            IrLocal *irLocal = getIrLocal(catchStmt->var, true);
             LLValue* catch_var = gIR->func()->gen->landingPadInfo.getExceptionStorage();
-            catchStmt->var->ir.irLocal->value = gIR->ir->CreateBitCast(catch_var, getPtrToType(DtoType(catchStmt->var->type)));
-        }
+            irLocal->value = gIR->ir->CreateBitCast(catch_var, getPtrToType(DtoType(catchStmt->var->type)));
+        } else {
+            // this will alloca if we haven't already and take care of nested refs
+            DtoDeclarationExp(catchStmt->var);
 
-        // this will alloca if we haven't already and take care of nested refs
-        DtoDeclarationExp(catchStmt->var);
-
-        // the exception will only be stored in catch_var. copy it over if necessary
-        if (catchStmt->var->ir.irLocal->value != gIR->func()->gen->landingPadInfo.getExceptionStorage()) {
+            // the exception will only be stored in catch_var. copy it over if necessary
             LLValue* exc = gIR->ir->CreateBitCast(DtoLoad(gIR->func()->gen->landingPadInfo.getExceptionStorage()), DtoType(catchStmt->var->type));
-            DtoStore(exc, catchStmt->var->ir.irLocal->value);
+            DtoStore(exc, getIrLocal(catchStmt->var)->value);
         }
     }
 
     // emit handler, if there is one
     // handler is zero for instance for 'catch { debug foo(); }'
     if (catchStmt->handler)
-        catchStmt->handler->toIR(gIR);
+        Statement_toIR(catchStmt->handler, gIR);
 
     if (!gIR->scopereturned())
         gIR->ir->CreateBr(end);
@@ -100,7 +98,7 @@ void IRLandingPadFinallyStatementInfo::toIR(LLValue *eh_ptr)
     llvm::LandingPadInst *collisionLandingPad = createLandingPadInst();
     LLValue* collision_eh_ptr = DtoExtractValue(collisionLandingPad, 0);
     collisionLandingPad->setCleanup(true);
-    llvm::Function* collision_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_handle_collision");
+    llvm::Function* collision_fn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_handle_collision");
     gIR->CreateCallOrInvoke2(collision_fn, collision_eh_ptr, eh_ptr);
     gIR->ir->CreateUnreachable();
     gIR->scope() = IRScope(bb, gIR->scopeend());
@@ -109,7 +107,7 @@ void IRLandingPadFinallyStatementInfo::toIR(LLValue *eh_ptr)
     gIR->DBuilder.EmitBlockStart(finallyBody->loc);
     padInfo.scopeStack.push(IRLandingPadScope(collision));
     pad = collision;
-    finallyBody->toIR(gIR);
+    Statement_toIR(finallyBody, gIR);
     padInfo.scopeStack.pop();
     pad = padInfo.get();
     gIR->DBuilder.EmitBlockEnd();
@@ -185,20 +183,32 @@ void IRLandingPad::constructLandingPad(IRLandingPadScope scope)
         for (; catchItr != catchItrEnd; ++catchItr) {
             // if it is a first catch and some catch allocated storage, store exception object
             if (isFirstCatch && catch_var) {
-                // eh_ptr is a pointer to _d_exception, which has a reference
-                // to the Throwable object at offset 0.
-                LLType *objectPtrTy = DtoType(ClassDeclaration::object->type->pointerTo());
-                LLValue *objectPtr = gIR->ir->CreateBitCast(eh_ptr, objectPtrTy);
-                gIR->ir->CreateStore(gIR->ir->CreateLoad(objectPtr), catch_var);
+#if LDC_LLVM_VER >= 305
+                if (global.params.targetTriple.isWindowsMSVCEnvironment())
+                {
+                    // eh_ptr is a pointer to the Throwable object.
+                    LLType *objectTy = DtoType(ClassDeclaration::object->type);
+                    LLValue *object = gIR->ir->CreateBitCast(eh_ptr, objectTy);
+                    gIR->ir->CreateStore(object, catch_var);
+                }
+                else
+#endif
+                {
+                    // eh_ptr is a pointer to _d_exception, which has a reference
+                    // to the Throwable object at offset 0.
+                    LLType *objectPtrTy = DtoType(ClassDeclaration::object->type->pointerTo());
+                    LLValue *objectPtr = gIR->ir->CreateBitCast(eh_ptr, objectPtrTy);
+                    gIR->ir->CreateStore(gIR->ir->CreateLoad(objectPtr), catch_var);
+                }
                 isFirstCatch = false;
             }
 
             // create next block
             llvm::BasicBlock *next = llvm::BasicBlock::Create(gIR->context(), "eh.next", gIR->topfunc(), gIR->scopeend());
             // get class info symbol
-            LLValue *classInfo = catchItr->catchType->ir.irAggr->getClassInfoSymbol();
+            LLValue *classInfo = getIrAggr(catchItr->catchType)->getClassInfoSymbol();
             // add that symbol as landing pad clause
-            landingPad->addClause(classInfo);
+            landingPad->addClause(llvm::cast<llvm::Constant>(classInfo));
             // call llvm.eh.typeid.for to get class info index in the exception table
             classInfo = DtoBitCast(classInfo, getPtrToType(DtoType(Type::tint8)));
             LLValue *eh_id = gIR->ir->CreateCall(eh_typeid_for_fn, classInfo);
@@ -224,7 +234,7 @@ void IRLandingPad::constructLandingPad(IRLandingPadScope scope)
     gIR->func()->gen->landingPad = get();
 
     // no catch matched and all finallys executed - resume unwind
-    llvm::Function* unwind_resume_fn = LLVM_D_GetRuntimeFunction(gIR->module, "_d_eh_resume_unwind");
+    llvm::Function* unwind_resume_fn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_resume_unwind");
     gIR->ir->CreateCall(unwind_resume_fn, eh_ptr);
     gIR->ir->CreateUnreachable();
 

@@ -1870,7 +1870,7 @@ namespace AsmParserx8664
             Reg segmentPrefix;
             Reg reg;
             sinteger_t constDisplacement; // use to build up.. should be int constant in the end..
-            Array      symbolDisplacement; // array of expressions or..
+            Expressions symbolDisplacement; // array of expressions or..
             Reg baseReg;
             Reg indexReg;
             int scale;
@@ -2047,9 +2047,9 @@ namespace AsmParserx8664
 
             if ( token->value == TOKeof && op == Op_FMath0 )
             {
-                // FIXME: verify - no iteration for x86 vs. single iteration for x64
+                // no iteration for x86 vs. single iteration for x64
 #ifndef ASM_X86_64
-                for (operand_i = 0; operand_i < 0; operand_i++)
+                while (false)
 #else
                 for (operand_i = 0; operand_i < 1; operand_i++)
 #endif
@@ -2178,6 +2178,14 @@ namespace AsmParserx8664
             return false;
         }
 
+        // OSX and 32-bit Windows need an extra leading underscore when mangling a symbol name.
+        static bool prependExtraUnderscore()
+        {
+            return global.params.targetTriple.getOS() == llvm::Triple::MacOSX
+                || global.params.targetTriple.getOS() == llvm::Triple::Darwin
+                || ( global.params.targetTriple.isOSWindows() && global.params.targetTriple.isArch32Bit() );
+        }
+
         void addOperand ( const char * fmt, AsmArgType type, Expression * e, AsmCode * asmcode, AsmArgMode mode = Mode_Input )
         {
             if ( sc->func->naked )
@@ -2217,17 +2225,13 @@ namespace AsmParserx8664
                                     break;
                                 }
 
-                                // osx needs an extra underscore
-                                if ( global.params.targetTriple.getOS() == llvm::Triple::MacOSX ||
-                                    global.params.targetTriple.getOS() == llvm::Triple::Darwin ||
-                                    global.params.targetTriple.isOSWindows() )
+                                // print out the mangle
+                                if ( prependExtraUnderscore() )
                                 {
                                     insnTemplate << "_";
                                 }
-
-                                // print out the mangle
-                                insnTemplate << vd->mangle();
-                                vd->nakedUse = true;
+                                insnTemplate << mangle(vd);
+                                getIrGlobal(vd, true)->nakedUse = true;
                                 break;
                             }
                         }
@@ -2888,7 +2892,7 @@ namespace AsmParserx8664
                                 else if ( e->op == TOKdsymbol )
                                 {
                                     LabelDsymbol * lbl = ( LabelDsymbol * ) ( ( DsymbolExp * ) e )->s;
-                                    stmt->isBranchToLabel = lbl->ident;
+                                    stmt->isBranchToLabel = lbl;
 
                                     use_star = false;
                                     addLabel ( lbl->ident->toChars() );
@@ -2897,14 +2901,11 @@ namespace AsmParserx8664
                                 {
                                     use_star = false;
                                     // simply write out the mangle
-                                    // on osx and windows, prepend extra _
-                                    if ( global.params.targetTriple.getOS() == llvm::Triple::MacOSX ||
-                                        global.params.targetTriple.getOS() == llvm::Triple::Darwin ||
-                                        global.params.targetTriple.isOSWindows() )
+                                    if ( prependExtraUnderscore() )
                                     {
                                         insnTemplate << "_";
                                     }
-                                    insnTemplate << decl->mangle();
+                                    insnTemplate << mangle(decl);
 //              addOperand2("${", ":c}", Arg_Pointer, e, asmcode);
                                 }
                                 else
@@ -3158,7 +3159,7 @@ namespace AsmParserx8664
                         llvm_unreachable("Unknown integer operation.");
                 }
                 e = e->semantic ( sc );
-                return e->optimize ( WANTvalue | WANTinterpret );
+                return e->ctfeInterpret();
             }
             else
             {
@@ -3626,7 +3627,7 @@ namespace AsmParserx8664
 
             // parse primary: DMD allows 'MyAlign' (const int) but not '2+2'
             // GAS is padding with NOPs last time I checked.
-            Expression * e = parseAsmExp()->optimize ( WANTvalue | WANTinterpret );
+            Expression * e = parseAsmExp()->ctfeInterpret();
             uinteger_t align = e->toUInteger();
 
             if ( ( align & ( align - 1 ) ) == 0 )

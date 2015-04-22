@@ -21,404 +21,483 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
-#include "gen/utils.h"
 #include "ir/irtype.h"
 #include "ir/irvar.h"
 #include "llvm/ADT/SmallString.h"
 
-/* ================================================================== */
+//////////////////////////////////////////////////////////////////////////////
+// FIXME: Integrate these functions
+void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p);
+void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p);
 
-void Dsymbol::codegen(IRState *)
-{
-    IF_LOG Logger::println("Ignoring Dsymbol::codegen for %s", toPrettyChars());
-}
+//////////////////////////////////////////////////////////////////////////////
 
-/* ================================================================== */
 
-void InterfaceDeclaration::codegen(IRState *p)
-{
-    IF_LOG Logger::println("InterfaceDeclaration::codegen: '%s'", toPrettyChars());
-    LOG_SCOPE
 
-    if (ir.defined) return;
-    ir.defined = true;
+//////////////////////////////////////////////////////////////////////////////
 
-    if (type->ty == Terror)
-    {   error("had semantic errors when compiling");
-        return;
+class CodegenVisitor : public Visitor {
+    IRState *irs;
+public:
+
+    CodegenVisitor(IRState *irs) : irs(irs) { }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    // Import all functions from class Visitor
+    using Visitor::visit;
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(Dsymbol *sym) LLVM_OVERRIDE {
+        IF_LOG Logger::println("Ignoring Dsymbol::codegen for %s", sym->toPrettyChars());
     }
 
-    if (members && symtab)
-    {
-        DtoResolveClass(this);
+    //////////////////////////////////////////////////////////////////////////
 
-        // Emit any members (e.g. final functions).
-        for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())
+    void visit(InterfaceDeclaration *decl) LLVM_OVERRIDE {
+        IF_LOG Logger::println("InterfaceDeclaration::codegen: '%s'", decl->toPrettyChars());
+        LOG_SCOPE
+
+        if (decl->ir.isDefined()) return;
+
+        if (decl->type->ty == Terror)
         {
-            it->codegen(p);
+            error(decl->loc, "had semantic errors when compiling");
+            decl->ir.setDefined();
+            return;
         }
 
-        // Emit TypeInfo.
-        DtoTypeInfoOf(type);
-
-        // Define __InterfaceZ.
-        llvm::GlobalVariable *interfaceZ = ir.irAggr->getClassInfoSymbol();
-        interfaceZ->setInitializer(ir.irAggr->getClassInfoInit());
-        interfaceZ->setLinkage(DtoExternalLinkage(this));
-    }
-}
-
-/* ================================================================== */
-
-void StructDeclaration::codegen(IRState *p)
-{
-    IF_LOG Logger::println("StructDeclaration::codegen: '%s'", toPrettyChars());
-    LOG_SCOPE
-
-    if (ir.defined) return;
-    ir.defined = true;
-
-    if (type->ty == Terror)
-    {   error("had semantic errors when compiling");
-        return;
-    }
-
-    if (members && symtab)
-    {
-        DtoResolveStruct(this);
-
-        for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())
+        if (decl->members && decl->symtab)
         {
-            it->codegen(p);
-        }
+            DtoResolveClass(decl);
+            decl->ir.setDefined();
 
-        // Define the __initZ symbol.
-        llvm::GlobalVariable *initZ = ir.irAggr->getInitSymbol();
-        initZ->setInitializer(ir.irAggr->getDefaultInit());
-        initZ->setLinkage(DtoExternalLinkage(this));
-
-        // emit typeinfo
-        DtoTypeInfoOf(type);
-    }
-}
-
-/* ================================================================== */
-
-void ClassDeclaration::codegen(IRState *p)
-{
-    IF_LOG Logger::println("ClassDeclaration::codegen: '%s'", toPrettyChars());
-    LOG_SCOPE
-
-    if (ir.defined) return;
-    ir.defined = true;
-
-    if (type->ty == Terror)
-    {   error("had semantic errors when compiling");
-        return;
-    }
-
-    if (members && symtab)
-    {
-        DtoResolveClass(this);
-
-        for (ArrayIter<Dsymbol> it(members); !it.done(); it.next())
-        {
-            it->codegen(p);
-        }
-
-        llvm::GlobalValue::LinkageTypes const linkage = DtoExternalLinkage(this);
-
-        llvm::GlobalVariable *initZ = ir.irAggr->getInitSymbol();
-        initZ->setInitializer(ir.irAggr->getDefaultInit());
-        initZ->setLinkage(linkage);
-
-        llvm::GlobalVariable *vtbl = ir.irAggr->getVtblSymbol();
-        vtbl->setInitializer(ir.irAggr->getVtblInit());
-        vtbl->setLinkage(linkage);
-
-        llvm::GlobalVariable *classZ = ir.irAggr->getClassInfoSymbol();
-        classZ->setInitializer(ir.irAggr->getClassInfoInit());
-        classZ->setLinkage(linkage);
-
-        // No need to do TypeInfo here, it is <name>__classZ for classes in D2.
-    }
-}
-
-/* ================================================================== */
-
-void TupleDeclaration::codegen(IRState *p)
-{
-    IF_LOG Logger::println("TupleDeclaration::codegen(): '%s'", toPrettyChars());
-    LOG_SCOPE
-
-    if (ir.defined) return;
-    ir.defined = true;
-
-    assert(isexp);
-    assert(objects);
-
-    int n = objects->dim;
-
-    for (int i=0; i < n; ++i)
-    {
-        DsymbolExp* exp = static_cast<DsymbolExp*>(objects->data[i]);
-        assert(exp->op == TOKdsymbol);
-        exp->s->codegen(p);
-    }
-}
-
-/* ================================================================== */
-
-void VarDeclaration::codegen(IRState *p)
-{
-    IF_LOG Logger::println("VarDeclaration::codegen(): '%s'", toPrettyChars());
-    LOG_SCOPE;
-
-    if (ir.defined) return;
-    ir.defined = true;
-
-    if (type->ty == Terror)
-    {   error("had semantic errors when compiling");
-        return;
-    }
-
-    DtoResolveVariable(this);
-
-    // just forward aliases
-    if (aliassym)
-    {
-        Logger::println("alias sym");
-        toAlias()->codegen(p);
-        return;
-    }
-
-    // global variable
-    if (isDataseg() || (storage_class & (STCconst | STCimmutable) && init))
-    {
-        Logger::println("data segment");
-
-    #if 0 // TODO:
-        assert(!(storage_class & STCmanifest) &&
-            "manifest constant being codegen'd!");
-    #endif
-
-        llvm::GlobalVariable *gvar = llvm::cast<llvm::GlobalVariable>(
-            this->ir.irGlobal->value);
-        assert(gvar && "DtoResolveVariable should have created value");
-
-        const llvm::GlobalValue::LinkageTypes llLinkage = DtoLinkage(this);
-
-        // Check if we are defining or just declaring the global in this module.
-        if (!(storage_class & STCextern))
-        {
-            // Build the initializer. Might use this->ir.irGlobal->value!
-            LLConstant *initVal = DtoConstInitializer(loc, type, init);
-
-            // In case of type mismatch, swap out the variable.
-            if (initVal->getType() != gvar->getType()->getElementType())
+            // Emit any members (e.g. final functions).
+            for (Dsymbols::iterator I = decl->members->begin(),
+                                    E = decl->members->end();
+                                    I != E; ++I)
             {
-                llvm::GlobalVariable* newGvar = getOrCreateGlobal(loc,
-                    *p->module, initVal->getType(), gvar->isConstant(),
-                    llLinkage, 0,
-                    "", // We take on the name of the old global below.
-                    gvar->isThreadLocal());
-
-                newGvar->setAlignment(gvar->getAlignment());
-                newGvar->takeName(gvar);
-
-                llvm::Constant* newValue =
-                    llvm::ConstantExpr::getBitCast(newGvar, gvar->getType());
-                gvar->replaceAllUsesWith(newValue);
-
-                gvar->eraseFromParent();
-                gvar = newGvar;
-                this->ir.irGlobal->value = newGvar;
+                (*I)->accept(this);
             }
 
-            // Now, set the initializer.
-            assert(!ir.irGlobal->constInit);
-            ir.irGlobal->constInit = initVal;
-            gvar->setInitializer(initVal);
-            gvar->setLinkage(llLinkage);
+            // Emit TypeInfo.
+            DtoTypeInfoOf(decl->type);
 
-            // Also set up the edbug info.
-            p->DBuilder.EmitGlobalVariable(gvar, this);
+            // Define __InterfaceZ.
+            IrAggr *ir = getIrAggr(decl);
+            llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
+            interfaceZ->setInitializer(ir->getClassInfoInit());
+            interfaceZ->setLinkage(DtoLinkage(decl));
         }
-
-        // If this global is used from a naked function, we need to create an
-        // artificial "use" for it, or it could be removed by the optimizer if
-        // the only reference to it is in inline asm.
-        if (nakedUse)
-            p->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
-
-        if (Logger::enabled())
-            Logger::cout() << *gvar << '\n';
-    }
-}
-
-/* ================================================================== */
-
-void TypedefDeclaration::codegen(IRState *)
-{
-    IF_LOG Logger::println("TypedefDeclaration::codegen: '%s'", toPrettyChars());
-    LOG_SCOPE;
-
-    if (ir.defined) return;
-    ir.defined = true;
-
-    if (type->ty == Terror)
-    {   error("had semantic errors when compiling");
-        return;
     }
 
-    // generate typeinfo
-    DtoTypeInfoOf(type, false);
-}
+    //////////////////////////////////////////////////////////////////////////
 
-/* ================================================================== */
+    void visit(StructDeclaration *decl) LLVM_OVERRIDE {
+        IF_LOG Logger::println("StructDeclaration::codegen: '%s'", decl->toPrettyChars());
+        LOG_SCOPE
 
-void EnumDeclaration::codegen(IRState *)
-{
-    IF_LOG Logger::println("Ignoring EnumDeclaration::codegen: '%s'", toPrettyChars());
+        if (decl->ir.isDefined()) return;
 
-    if (type->ty == Terror)
-    {   error("had semantic errors when compiling");
-        return;
-    }
-}
-
-/* ================================================================== */
-
-void FuncDeclaration::codegen(IRState *p)
-{
-    // don't touch function aliases, they don't contribute any new symbols
-    if (!isFuncAliasDeclaration())
-    {
-        DtoDefineFunction(this);
-    }
-}
-
-/* ================================================================== */
-
-void TemplateInstance::codegen(IRState *p)
-{
-    IF_LOG Logger::println("TemplateInstance::codegen: '%s'", toPrettyChars());
-    LOG_SCOPE
-
-    if (ir.defined) return;
-    ir.defined = true;
-
-    if (!errors && members)
-    {
-        for (unsigned i = 0; i < members->dim; i++)
+        if (decl->type->ty == Terror)
         {
-            (*members)[i]->codegen(p);
+            error(decl->loc, "had semantic errors when compiling");
+            decl->ir.setDefined();
+            return;
         }
-    }
-}
 
-/* ================================================================== */
-
-void TemplateMixin::codegen(IRState *p)
-{
-    IF_LOG Logger::println("TemplateInstance::codegen: '%s'", toPrettyChars());
-    LOG_SCOPE
-
-    if (ir.defined) return;
-    ir.defined = true;
-
-    if (!errors && members)
-    {
-        for (unsigned i = 0; i < members->dim; i++)
+        if (decl->members && decl->symtab)
         {
-            (*members)[i]->codegen(p);
-        }
-    }
-}
+            DtoResolveStruct(decl);
+            decl->ir.setDefined();
 
-/* ================================================================== */
-
-void AttribDeclaration::codegen(IRState *p)
-{
-    Array *d = include(NULL, NULL);
-
-    if (d)
-    {
-        for (unsigned i = 0; i < d->dim; i++)
-        {   Dsymbol *s = static_cast<Dsymbol *>(d->data[i]);
-            s->codegen(p);
-        }
-    }
-}
-
-/* ================================================================== */
-
-void PragmaDeclaration::codegen(IRState *p)
-{
-    if (ident == Id::lib)
-    {
-        assert(args && args->dim == 1);
-
-        Expression *e = static_cast<Expression *>(args->data[0]);
-
-        assert(e->op == TOKstring);
-        StringExp *se = static_cast<StringExp *>(e);
-
-        size_t nameLen = se->len;
-        if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
-        {
-            if (nameLen > 4 &&
-                !memcmp(static_cast<char*>(se->string) + nameLen - 4, ".lib", 4))
+            for (Dsymbols::iterator I = decl->members->begin(),
+                                    E = decl->members->end();
+                                    I != E; ++I)
             {
-                // On MinGW, strip the .lib suffix, if any, to improve
-                // compatibility with code written for DMD (we pass the name to GCC
-                // via -l, just as on Posix).
-                nameLen -= 4;
+                (*I)->accept(this);
             }
 
-            if (nameLen >= 7 && !memcmp(se->string, "shell32", 7))
+            // Define the __initZ symbol.
+            IrAggr *ir = getIrAggr(decl);
+            llvm::GlobalVariable *initZ = ir->getInitSymbol();
+            initZ->setInitializer(ir->getDefaultInit());
+            initZ->setLinkage(DtoLinkage(decl));
+
+            // emit typeinfo
+            DtoTypeInfoOf(decl->type);
+
+            // Emit __xopEquals/__xopCmp/__xtoHash.
+            if (decl->xeq && decl->xeq != decl->xerreq)
+                decl->xeq->accept(this);
+            if (decl->xcmp && decl->xcmp != decl->xerrcmp)
+                decl->xcmp->accept(this);
+            if (decl->xhash)
+                decl->xhash->accept(this);
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(ClassDeclaration *decl) LLVM_OVERRIDE {
+        IF_LOG Logger::println("ClassDeclaration::codegen: '%s'", decl->toPrettyChars());
+        LOG_SCOPE
+
+        if (decl->ir.isDefined()) return;
+
+        if (decl->type->ty == Terror)
+        {
+            error(decl->loc, "had semantic errors when compiling");
+            decl->ir.setDefined();
+            return;
+        }
+
+        if (decl->members && decl->symtab)
+        {
+            DtoResolveClass(decl);
+            decl->ir.setDefined();
+
+            for (Dsymbols::iterator I = decl->members->begin(),
+                                    E = decl->members->end();
+                                    I != E; ++I)
             {
-                // Another DMD compatibility kludge: Ignore
-                // pragma(lib, "shell32.lib"), it is implicitly provided by
-                // MinGW.
-                return;
+                (*I)->accept(this);
+            }
+
+            IrAggr *ir = getIrAggr(decl);
+            llvm::GlobalValue::LinkageTypes const linkage = DtoLinkage(decl);
+
+            llvm::GlobalVariable *initZ = ir->getInitSymbol();
+            initZ->setInitializer(ir->getDefaultInit());
+            initZ->setLinkage(linkage);
+
+            llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
+            vtbl->setInitializer(ir->getVtblInit());
+            vtbl->setLinkage(linkage);
+
+            llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
+            classZ->setInitializer(ir->getClassInfoInit());
+            classZ->setLinkage(linkage);
+
+            // No need to do TypeInfo here, it is <name>__classZ for classes in D2.
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(TupleDeclaration *decl) LLVM_OVERRIDE {
+        IF_LOG Logger::println("TupleDeclaration::codegen(): '%s'", decl->toPrettyChars());
+        LOG_SCOPE
+
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
+
+        assert(decl->isexp);
+        assert(decl->objects);
+
+        for (Objects::iterator I = decl->objects->begin(),
+                               E = decl->objects->end();
+                               I != E; ++I)
+        {
+            DsymbolExp *exp = static_cast<DsymbolExp *>(*I);
+            assert(exp->op == TOKdsymbol);
+            exp->s->accept(this);
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(VarDeclaration *decl) LLVM_OVERRIDE {
+        IF_LOG Logger::println("VarDeclaration::codegen(): '%s'", decl->toPrettyChars());
+        LOG_SCOPE;
+
+        if (decl->ir.isDefined()) return;
+
+        if (decl->type->ty == Terror)
+        {
+            error(decl->loc, "had semantic errors when compiling");
+            decl->ir.setDefined();
+            return;
+        }
+
+        DtoResolveVariable(decl);
+        decl->ir.setDefined();
+
+        // just forward aliases
+        if (decl->aliassym)
+        {
+            Logger::println("alias sym");
+            decl->toAlias()->accept(this);
+            return;
+        }
+
+        // global variable
+        if (decl->isDataseg())
+        {
+            Logger::println("data segment");
+
+            assert(!(decl->storage_class & STCmanifest) &&
+                   "manifest constant being codegen'd!");
+
+            IrGlobal *irGlobal = getIrGlobal(decl);
+            llvm::GlobalVariable *gvar = llvm::cast<llvm::GlobalVariable>(irGlobal->value);
+            assert(gvar && "DtoResolveVariable should have created value");
+
+            const llvm::GlobalValue::LinkageTypes llLinkage = DtoLinkage(decl);
+
+            // Check if we are defining or just declaring the global in this module.
+            if (!(decl->storage_class & STCextern))
+            {
+                // Build the initializer. Might use this->ir.irGlobal->value!
+                LLConstant *initVal = DtoConstInitializer(decl->loc, decl->type, decl->init);
+
+                // In case of type mismatch, swap out the variable.
+                if (initVal->getType() != gvar->getType()->getElementType())
+                {
+                    llvm::GlobalVariable* newGvar = getOrCreateGlobal(decl->loc,
+                        *irs->module, initVal->getType(), gvar->isConstant(),
+                        llLinkage, 0,
+                        "", // We take on the name of the old global below.
+                        gvar->isThreadLocal());
+
+                    newGvar->setAlignment(gvar->getAlignment());
+                    newGvar->takeName(gvar);
+
+                    llvm::Constant* newValue =
+                        llvm::ConstantExpr::getBitCast(newGvar, gvar->getType());
+                    gvar->replaceAllUsesWith(newValue);
+
+                    gvar->eraseFromParent();
+                    gvar = newGvar;
+                    irGlobal->value = newGvar;
+                }
+
+                // Now, set the initializer.
+                assert(!irGlobal->constInit);
+                irGlobal->constInit = initVal;
+                gvar->setInitializer(initVal);
+                gvar->setLinkage(llLinkage);
+
+                // Also set up the debug info.
+                irs->DBuilder.EmitGlobalVariable(gvar, decl);
+            }
+
+            // If this global is used from a naked function, we need to create an
+            // artificial "use" for it, or it could be removed by the optimizer if
+            // the only reference to it is in inline asm.
+            if (irGlobal->nakedUse)
+                irs->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
+
+            IF_LOG Logger::cout() << *gvar << '\n';
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(TypedefDeclaration *decl) LLVM_OVERRIDE {
+        IF_LOG Logger::println("TypedefDeclaration::codegen: '%s'", decl->toPrettyChars());
+        LOG_SCOPE;
+
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
+
+        if (decl->type->ty == Terror)
+        {   error(decl->loc, "had semantic errors when compiling");
+            return;
+        }
+
+        // generate typeinfo
+        DtoTypeInfoOf(decl->type, false);
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(EnumDeclaration *decl) LLVM_OVERRIDE {
+        IF_LOG Logger::println("Ignoring EnumDeclaration::codegen: '%s'", decl->toPrettyChars());
+
+        if (decl->type->ty == Terror)
+        {   error(decl->loc, "had semantic errors when compiling");
+            return;
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(FuncDeclaration *decl) LLVM_OVERRIDE {
+        // don't touch function aliases, they don't contribute any new symbols
+        if (!decl->isFuncAliasDeclaration())
+        {
+            DtoDefineFunction(decl);
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(TemplateInstance *decl) LLVM_OVERRIDE {
+        IF_LOG Logger::println("TemplateInstance::codegen: '%s'", decl->toPrettyChars());
+        LOG_SCOPE
+
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
+
+        // FIXME: This is #673 all over again.
+        if (!decl->needsCodegen()) return;
+
+        if (!decl->errors && decl->members)
+        {
+            for (Dsymbols::iterator I = decl->members->begin(),
+                                    E = decl->members->end();
+                                    I != E; ++I)
+            {
+                (*I)->accept(this);
             }
         }
+    }
 
-#if LDC_LLVM_VER >= 303
-        // With LLVM 3.3 or later we can place the library name in the object
-        // file. This seems to be supported only on Windows.
-        if (global.params.targetTriple.getOS() == llvm::Triple::Win32)
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(TemplateMixin *decl) LLVM_OVERRIDE {
+        IF_LOG Logger::println("TemplateInstance::codegen: '%s'", decl->toPrettyChars());
+        LOG_SCOPE
+
+        if (decl->ir.isDefined()) return;
+        decl->ir.setDefined();
+
+        if (!decl->errors && decl->members)
         {
-            llvm::SmallString<24> LibName(llvm::StringRef(static_cast<const char *>(se->string), nameLen));
-
-            // Win32: /DEFAULTLIB:"curl"
-            if (LibName.endswith(".a"))
-                LibName = LibName.substr(0, LibName.size()-2);
-            if (LibName.endswith(".lib"))
-                LibName = LibName.substr(0, LibName.size()-4);
-            llvm::SmallString<24> tmp("/DEFAULTLIB:\""); 
-            tmp.append(LibName);
-            tmp.append("\"");
-            LibName = tmp;
-
-            // Embedd library name as linker option in object file
-            llvm::Value *Value = llvm::MDString::get(gIR->context(), LibName);
-            gIR->LinkerMetadataArgs.push_back(llvm::MDNode::get(gIR->context(), Value));
+            for (Dsymbols::iterator I = decl->members->begin(),
+                                    E = decl->members->end();
+                                    I != E; ++I)
+            {
+                (*I)->accept(this);
+            }
         }
-        else
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(AttribDeclaration *decl) LLVM_OVERRIDE {
+        Dsymbols *d = decl->include(NULL, NULL);
+
+        if (d)
+        {
+            for (Dsymbols::iterator I = d->begin(),
+                                    E = d->end();
+                                    I != E; ++I)
+            {
+                (*I)->accept(this);
+            }
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(PragmaDeclaration *decl) LLVM_OVERRIDE {
+        if (decl->ident == Id::lib)
+        {
+            assert(decl->args && decl->args->dim == 1);
+
+            Expression *e = static_cast<Expression *>(decl->args->data[0]);
+
+            assert(e->op == TOKstring);
+            StringExp *se = static_cast<StringExp *>(e);
+
+            size_t nameLen = se->len;
+#if LDC_LLVM_VER >= 305
+            if (global.params.targetTriple.isWindowsGNUEnvironment())
+#else
+            if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
 #endif
-        {
-            size_t const n = nameLen + 3;
-            char *arg = static_cast<char *>(mem.malloc(n));
-            arg[0] = '-';
-            arg[1] = 'l';
-            memcpy(arg + 2, se->string, nameLen);
-            arg[n-1] = 0;
-            global.params.linkswitches->push(arg);
+            {
+                if (nameLen > 4 &&
+                    !memcmp(static_cast<char*>(se->string) + nameLen - 4, ".lib", 4))
+                {
+                    // On MinGW, strip the .lib suffix, if any, to improve
+                    // compatibility with code written for DMD (we pass the name to GCC
+                    // via -l, just as on Posix).
+                    nameLen -= 4;
+                }
+
+                if (nameLen >= 7 && !memcmp(se->string, "shell32", 7))
+                {
+                    // Another DMD compatibility kludge: Ignore
+                    // pragma(lib, "shell32.lib"), it is implicitly provided by
+                    // MinGW.
+                    return;
+                }
+            }
+
+    #if LDC_LLVM_VER >= 303
+            // With LLVM 3.3 or later we can place the library name in the object
+            // file. This seems to be supported only on Windows.
+#if LDC_LLVM_VER >= 305
+            if (global.params.targetTriple.isWindowsMSVCEnvironment())
+#else
+            if (global.params.targetTriple.getOS() == llvm::Triple::Win32)
+#endif
+            {
+                llvm::SmallString<24> LibName(llvm::StringRef(static_cast<const char *>(se->string), nameLen));
+
+                // Win32: /DEFAULTLIB:"curl"
+                if (LibName.endswith(".a"))
+                    LibName = LibName.substr(0, LibName.size()-2);
+                if (LibName.endswith(".lib"))
+                    LibName = LibName.substr(0, LibName.size()-4);
+                llvm::SmallString<24> tmp("/DEFAULTLIB:\""); 
+                tmp.append(LibName);
+                tmp.append("\"");
+                LibName = tmp;
+
+                // Embedd library name as linker option in object file
+#if LDC_LLVM_VER >= 306
+                llvm::Metadata *Value = llvm::MDString::get(gIR->context(), LibName);
+                gIR->LinkerMetadataArgs.push_back(llvm::MDNode::get(gIR->context(), Value));
+#else
+                llvm::Value *Value = llvm::MDString::get(gIR->context(), LibName);
+                gIR->LinkerMetadataArgs.push_back(llvm::MDNode::get(gIR->context(), Value));
+#endif
+            }
+            else
+    #endif
+            {
+                size_t const n = nameLen + 3;
+                char *arg = static_cast<char *>(mem.malloc(n));
+                arg[0] = '-';
+                arg[1] = 'l';
+                memcpy(arg + 2, se->string, nameLen);
+                arg[n-1] = 0;
+                global.params.linkswitches->push(arg);
+            }
         }
+        visit(static_cast<AttribDeclaration *>(decl));
     }
-    AttribDeclaration::codegen(p);
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(TypeInfoDeclaration *decl) LLVM_OVERRIDE {
+        TypeInfoDeclaration_codegen(decl, irs);
+    }
+
+    //////////////////////////////////////////////////////////////////////////
+
+    void visit(TypeInfoClassDeclaration *decl) LLVM_OVERRIDE {
+        TypeInfoClassDeclaration_codegen(decl, irs);
+    }
+};
+
+//////////////////////////////////////////////////////////////////////////////
+
+void Declaration_codegen(Dsymbol *decl)
+{
+    CodegenVisitor v(gIR);
+    decl->accept(&v);
 }
 
-/* ================================================================== */
+void Declaration_codegen(Dsymbol *decl, IRState *irs)
+{
+    CodegenVisitor v(irs);
+    decl->accept(&v);
+}
+
+//////////////////////////////////////////////////////////////////////////////

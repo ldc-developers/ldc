@@ -53,7 +53,7 @@ IRTargetScope::IRTargetScope()
 
 IRTargetScope::IRTargetScope(
     Statement* s,
-    EnclosingHandler* enclosinghandler,
+    EnclosingTryFinally* enclosinghandler,
     llvm::BasicBlock* continueTarget,
     llvm::BasicBlock* breakTarget,
     bool onlyLabeledBreak
@@ -103,12 +103,6 @@ llvm::Instruction* IRState::topallocapoint()
 {
     assert(!functions.empty() && "AllocaPoint stack is empty!");
     return functions.back()->allocapoint;
-}
-
-IrAggr* IRState::topstruct()
-{
-    assert(!structs.empty() && "Struct vector is empty!");
-    return structs.back();
 }
 
 IRScope& IRState::scope()

@@ -1,12 +1,13 @@
 
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2011 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/macro.h
+ */
 
 #ifndef DMD_MACRO_H
 #define DMD_MACRO_H 1
@@ -24,22 +25,22 @@ struct Macro
   private:
     Macro *next;                // next in list
 
-    unsigned char *name;        // macro name
+    const utf8_t *name;        // macro name
     size_t namelen;             // length of macro name
 
-    unsigned char *text;        // macro replacement text
+    const utf8_t *text;        // macro replacement text
     size_t textlen;             // length of replacement text
 
     int inuse;                  // macro is in use (don't expand)
 
-    Macro(unsigned char *name, size_t namelen, unsigned char *text, size_t textlen);
-    Macro *search(unsigned char *name, size_t namelen);
+    Macro(const utf8_t *name, size_t namelen, const utf8_t *text, size_t textlen);
+    Macro *search(const utf8_t *name, size_t namelen);
 
   public:
-    static Macro *define(Macro **ptable, unsigned char *name, size_t namelen, unsigned char *text, size_t textlen);
+    static Macro *define(Macro **ptable, const utf8_t *name, size_t namelen, const utf8_t *text, size_t textlen);
 
     void expand(OutBuffer *buf, size_t start, size_t *pend,
-        unsigned char *arg, size_t arglen);
+        const utf8_t *arg, size_t arglen);
 };
 
 #endif

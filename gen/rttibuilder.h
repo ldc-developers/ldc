@@ -22,14 +22,14 @@
 #include "llvm/Constant.h"
 #endif
 
-struct AggregateDeclaration;
-struct ClassDeclaration;
-struct Dsymbol;
-struct FuncDeclaration;
+class AggregateDeclaration;
+class ClassDeclaration;
+class Dsymbol;
+class FuncDeclaration;
 struct IrGlobal;
 struct IrAggr;
-struct Type;
-struct TypeClass;
+class Type;
+class TypeClass;
 namespace llvm { class StructType; }
 
 struct RTTIBuilder

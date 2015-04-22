@@ -10,6 +10,7 @@
 #include "aggregate.h"
 #include "declaration.h"
 #include "init.h"
+#include "module.h"
 #include "mtype.h"
 #include "gen/arrays.h"
 #include "gen/dvalue.h"
@@ -20,7 +21,6 @@
 #include "gen/logger.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
-#include "gen/utils.h"
 #include "ir/iraggr.h"
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -30,11 +30,16 @@
 
 void DtoResolveStruct(StructDeclaration* sd)
 {
-    // Make sure to resolve each struct type exactly once.
-    if (sd->ir.resolved) return;
-    sd->ir.resolved = true;
+    DtoResolveStruct(sd, sd->loc);
+}
 
-    Logger::println("Resolving struct type: %s (%s)", sd->toChars(), sd->loc.toChars());
+void DtoResolveStruct(StructDeclaration* sd, Loc& callerLoc)
+{
+    // Make sure to resolve each struct type exactly once.
+    if (sd->ir.isResolved()) return;
+    sd->ir.setResolved();
+
+    IF_LOG Logger::println("Resolving struct type: %s (%s)", sd->toChars(), sd->loc.toChars());
     LOG_SCOPE;
 
     // make sure type exists
@@ -42,18 +47,25 @@ void DtoResolveStruct(StructDeclaration* sd)
 
     // if it's a forward declaration, all bets are off. The type should be enough
     if (sd->sizeok != SIZEOKdone)
-        return;
+    {
+        error(callerLoc, "struct %s.%s unknown size", sd->getModule()->toChars(), sd->toChars());
+        fatal();
+    }
 
     // create the IrAggr
-    IrAggr* iraggr = new IrAggr(sd);
-    sd->ir.irAggr = iraggr;
+    getIrAggr(sd, true);
 
     // Set up our field metadata.
-    for (ArrayIter<VarDeclaration> it(sd->fields); !it.done(); it.next())
+    for (VarDeclarations::iterator I = sd->fields.begin(),
+                                   E = sd->fields.end();
+                                   I != E; ++I)
     {
-        VarDeclaration* vd = it.get();
-        assert(!vd->ir.irField);
-        (void)new IrField(vd);
+        VarDeclaration *vd = *I;
+        IF_LOG {
+            if (isIrFieldCreated(vd))
+                Logger::println("struct field already exists");
+        }
+        getIrField(vd, true);
     }
 }
 
@@ -76,47 +88,7 @@ LLValue* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs)
     // call memcmp
     size_t sz = getTypePaddedSize(DtoType(t));
     LLValue* val = DtoMemCmp(lhs->getRVal(), rhs->getRVal(), DtoConstSize_t(sz));
-    return gIR->ir->CreateICmp(cmpop, val, LLConstantInt::get(val->getType(), 0, false), "tmp");
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-LLValue* DtoIndexStruct(LLValue* src, StructDeclaration* sd, VarDeclaration* vd)
-{
-    Logger::println("indexing struct field %s:", vd->toPrettyChars());
-    LOG_SCOPE;
-
-    DtoResolveStruct(sd);
-
-    // vd must be a field
-    IrField* field = vd->ir.irField;
-    assert(field);
-
-    // get the start pointer
-    LLType* st = getPtrToType(DtoType(sd->type));
-
-    // cast to the formal struct type
-    src = DtoBitCast(src, st);
-
-    // gep to the index
-    LLValue* val = DtoGEPi(src, 0, field->index);
-
-    // do we need to offset further? (union area)
-    if (field->unionOffset)
-    {
-        // cast to void*
-        val = DtoBitCast(val, getVoidPtrType());
-        // offset
-        val = DtoGEPi1(val, field->unionOffset);
-    }
-
-    // cast it to the right type
-    val = DtoBitCast(val, getPtrToType(i1ToI8(DtoType(vd->type))));
-
-    if (Logger::enabled())
-        Logger::cout() << "value: " << *val << '\n';
-
-    return val;
+    return gIR->ir->CreateICmp(cmpop, val, LLConstantInt::get(val->getType(), 0, false));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -134,19 +106,18 @@ LLType* DtoUnpaddedStructType(Type* dty) {
         return it->second;
 
     TypeStruct* sty = static_cast<TypeStruct*>(dty);
-    Array& fields = sty->sym->fields;
+    VarDeclarations& fields = sty->sym->fields;
 
     std::vector<LLType*> types;
     types.reserve(fields.dim);
 
     for (unsigned i = 0; i < fields.dim; i++) {
-        VarDeclaration* vd = static_cast<VarDeclaration*>(fields.data[i]);
         LLType* fty;
-        if (vd->type->ty == Tstruct) {
+        if (fields[i]->type->ty == Tstruct) {
             // Nested structs are the only members that can contain padding
-            fty = DtoUnpaddedStructType(vd->type);
+            fty = DtoUnpaddedStructType(fields[i]->type);
         } else {
-            fty = DtoType(vd->type);
+            fty = DtoType(fields[i]->type);
         }
         types.push_back(fty);
     }
@@ -162,17 +133,16 @@ LLType* DtoUnpaddedStructType(Type* dty) {
 LLValue* DtoUnpaddedStruct(Type* dty, LLValue* v) {
     assert(dty->ty == Tstruct);
     TypeStruct* sty = static_cast<TypeStruct*>(dty);
-    Array& fields = sty->sym->fields;
+    VarDeclarations& fields = sty->sym->fields;
 
     LLValue* newval = llvm::UndefValue::get(DtoUnpaddedStructType(dty));
 
     for (unsigned i = 0; i < fields.dim; i++) {
-        VarDeclaration* vd = static_cast<VarDeclaration*>(fields.data[i]);
-        LLValue* fieldptr = DtoIndexStruct(v, sty->sym, vd);
+        LLValue* fieldptr = DtoIndexAggregate(v, sty->sym, fields[i]);
         LLValue* fieldval;
-        if (vd->type->ty == Tstruct) {
+        if (fields[i]->type->ty == Tstruct) {
             // Nested structs are the only members that can contain padding
-            fieldval = DtoUnpaddedStruct(vd->type, fieldptr);
+            fieldval = DtoUnpaddedStruct(fields[i]->type, fieldptr);
         } else {
             fieldval = DtoLoad(fieldptr);
         }
@@ -185,15 +155,14 @@ LLValue* DtoUnpaddedStruct(Type* dty, LLValue* v) {
 void DtoPaddedStruct(Type* dty, LLValue* v, LLValue* lval) {
     assert(dty->ty == Tstruct);
     TypeStruct* sty = static_cast<TypeStruct*>(dty);
-    Array& fields = sty->sym->fields;
+    VarDeclarations& fields = sty->sym->fields;
 
     for (unsigned i = 0; i < fields.dim; i++) {
-        VarDeclaration* vd = static_cast<VarDeclaration*>(fields.data[i]);
-        LLValue* fieldptr = DtoIndexStruct(lval, sty->sym, vd);
+        LLValue* fieldptr = DtoIndexAggregate(lval, sty->sym, fields[i]);
         LLValue* fieldval = DtoExtractValue(v, i);
-        if (vd->type->ty == Tstruct) {
+        if (fields[i]->type->ty == Tstruct) {
             // Nested structs are the only members that can contain padding
-            DtoPaddedStruct(vd->type, fieldval, fieldptr);
+            DtoPaddedStruct(fields[i]->type, fieldval, fieldptr);
         } else {
             DtoStore(fieldval, fieldptr);
         }

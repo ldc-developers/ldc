@@ -16,6 +16,8 @@
 #ifndef __LDC_IR_IRTYPE_H__
 #define __LDC_IR_IRTYPE_H__
 
+#include "ir/irfuncty.h"
+
 //////////////////////////////////////////////////////////////////////////////
 
 // forward declarations
@@ -26,7 +28,7 @@ namespace llvm
     class Type;
 }
 
-struct Type;
+class Type;
 
 class IrTypeAggr;
 class IrTypeArray;
@@ -87,6 +89,9 @@ public:
     Type* getDType()                    { return dtype; }
     ///
     virtual llvm::Type* getLLType()     { return type; }
+
+    ///
+    virtual IrFuncTy &getIrFuncTy();
 
 protected:
     ///

@@ -14,6 +14,7 @@
 #include "id.h"
 #include "init.h"
 #include "module.h"
+#include "gen/abi.h"
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/complex.h"
@@ -40,13 +41,21 @@ bool DtoIsPassedByRef(Type* type)
     return (t == Tstruct || t == Tsarray);
 }
 
-#if LDC_LLVM_VER >= 303
-llvm::Attribute::AttrKind DtoShouldExtend(Type* type)
-#elif LDC_LLVM_VER == 302
-llvm::Attributes::AttrVal DtoShouldExtend(Type* type)
-#else
-llvm::Attributes DtoShouldExtend(Type* type)
-#endif
+RET retStyle(TypeFunction *tf)
+{
+    bool sret = gABI->returnInArg(tf);
+    return sret ? RETstack : RETregs;
+}
+
+bool DtoIsReturnInArg(CallExp *ce)
+{
+    TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
+    if (tf->ty == Tfunction && (!ce->f || ce->f->llvmInternal != LLVMintrinsic))
+        return retStyle(tf) == RETstack;
+    return false;
+}
+
+AttrBuilder::A DtoShouldExtend(Type* type)
 {
     type = type->toBasetype();
     if (type->isintegral())
@@ -55,44 +64,28 @@ llvm::Attributes DtoShouldExtend(Type* type)
         {
         case Tint8:
         case Tint16:
-#if LDC_LLVM_VER >= 303
-            return llvm::Attribute::SExt;
-#elif LDC_LLVM_VER == 302
-            return llvm::Attributes::SExt;
-#else
-            return llvm::Attribute::SExt;
-#endif
+            return LDC_ATTRIBUTE(SExt);
 
         case Tuns8:
         case Tuns16:
-#if LDC_LLVM_VER >= 303
-            return llvm::Attribute::ZExt;
-#elif LDC_LLVM_VER == 302
-            return llvm::Attributes::ZExt;
-#else
-            return llvm::Attribute::ZExt;
-#endif
+            return LDC_ATTRIBUTE(ZExt);
+
         default:
             // Do not extend.
             break;
         }
     }
-#if LDC_LLVM_VER >= 303
-    return llvm::Attribute::None;
-#elif LDC_LLVM_VER == 302
-    return llvm::Attributes::None;
-#else
-    return llvm::Attribute::None;
-#endif
+
+    return LDC_ATTRIBUTE(None);
 }
 
 LLType* DtoType(Type* t)
 {
     t = stripModifiers( t );
 
-    if (t->irtype)
+    if (t->ctype)
     {
-        return t->irtype->getLLType();
+        return t->ctype->getLLType();
     }
 
     IF_LOG Logger::println("Building type: %s", t->toChars());
@@ -151,26 +144,26 @@ LLType* DtoType(Type* t)
     case Tstruct:
     {
         TypeStruct* ts = static_cast<TypeStruct*>(t);
-        if (ts->sym->type->irtype)
+        if (ts->sym->type->ctype)
         {
             // This should not happen, but the frontend seems to be buggy. Not
             // sure if this is the best way to handle the situation, but we
-            // certainly don't want to override ts->sym->type->irtype.
+            // certainly don't want to override ts->sym->type->ctype.
             IF_LOG Logger::cout() << "Struct with multiple Types detected: " <<
                 ts->toChars() << " (" << ts->sym->locToChars() << ")" << std::endl;
-            return ts->sym->type->irtype->getLLType();
+            return ts->sym->type->ctype->getLLType();
         }
         return IrTypeStruct::get(ts->sym)->getLLType();
     }
     case Tclass:
     {
         TypeClass* tc = static_cast<TypeClass*>(t);
-        if (tc->sym->type->irtype)
+        if (tc->sym->type->ctype)
         {
             // See Tstruct case.
             IF_LOG Logger::cout() << "Class with multiple Types detected: " <<
                 tc->toChars() << " (" << tc->sym->locToChars() << ")" << std::endl;
-            return tc->sym->type->irtype->getLLType();
+            return tc->sym->type->ctype->getLLType();
         }
         return IrTypeClass::get(tc->sym)->getLLType();
     }
@@ -236,7 +229,7 @@ LLType* DtoStructTypeFromArguments(Arguments* arguments)
     std::vector<LLType*> types;
     for (size_t i = 0; i < arguments->dim; i++)
     {
-        Argument *arg = static_cast<Argument *>(arguments->data[i]);
+        Argument *arg = (*arguments)[i];
         assert(arg && arg->type);
 
         types.push_back(DtoType(arg->type));
@@ -276,196 +269,27 @@ LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs)
 
     LLValue* l = gIR->ir->CreateExtractValue(lhs, 0);
     LLValue* r = gIR->ir->CreateExtractValue(rhs, 0);
-    b1 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
+    b1 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r);
 
     l = gIR->ir->CreateExtractValue(lhs, 1);
     r = gIR->ir->CreateExtractValue(rhs, 1);
-    b2 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r,"tmp");
+    b2 = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ,l,r);
 
-    LLValue* b = gIR->ir->CreateAnd(b1,b2,"tmp");
+    LLValue* b = gIR->ir->CreateAnd(b1,b2);
 
     if (op == TOKnotequal || op == TOKnotidentity)
-        return gIR->ir->CreateNot(b,"tmp");
+        return gIR->ir->CreateNot(b);
 
     return b;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
-{
-    // global/static variable
-    if (VarDeclaration* vd = sym->isVarDeclaration())
-    {
-        IF_LOG Logger::println("Variable %savailable externally: %s",
-            (vd->availableExternally ? "" : "not "), vd->toChars());
-
-        // generated by inlining semantics run
-        if (vd->availableExternally)
-            return llvm::GlobalValue::AvailableExternallyLinkage;
-        // template
-        if (DtoIsTemplateInstance(sym))
-            return templateLinkage;
-
-        // Currently, we have to consider all variables, even function-local
-        // statics, to be external, as CTFE might cause template functions
-        // instances to be semantic3'd that occur within the body of a function
-        // from an imported module. Consequently, a copy of them is codegen'd
-        // in the importing module, even if they might reference a static in a
-        // function in the imported module (e.g. via an alias parameter).
-        //
-        // A fix for this would be to track instantiations/semantic3 runs made
-        // solely for CTFE purposes in a way similar to how the extra inlining
-        // semantic runs are handled.
-        //
-        // LDC_FIXME: Can this also occur for functions? Find a better solution.
-        if (true || vd->storage_class & STCextern)
-            return llvm::GlobalValue::ExternalLinkage;
-
-    }
-    else if (FuncDeclaration* fdecl = sym->isFuncDeclaration())
-    {
-        IF_LOG Logger::println("Function %savailable externally: %s",
-            (fdecl->availableExternally ? "" : "not "), fdecl->toChars());
-
-        assert(fdecl->type->ty == Tfunction);
-        TypeFunction* ft = static_cast<TypeFunction*>(fdecl->type);
-
-        // intrinsics are always external
-        if (fdecl->llvmInternal == LLVMintrinsic)
-            return llvm::GlobalValue::ExternalLinkage;
-
-        // Mark functions generated by an inlining semantic run as
-        // available_externally. Naked functions are turned into module-level
-        // inline asm and are thus declaration-only as far as the LLVM IR level
-        // is concerned.
-        if (fdecl->availableExternally && !fdecl->naked)
-            return llvm::GlobalValue::AvailableExternallyLinkage;
-
-        // array operations are always template linkage
-        if (fdecl->isArrayOp == 1)
-            return templateLinkage;
-
-        // template instances should have weak linkage
-        // but only if there's a body, and it's not naked
-        // otherwise we make it external
-        if (DtoIsTemplateInstance(fdecl) && fdecl->fbody && !fdecl->naked)
-            return templateLinkage;
-
-        // extern(C) functions are always external
-        if (ft->linkage == LINKc)
-            return llvm::GlobalValue::ExternalLinkage;
-
-        // If a function without a body is nested in another
-        // function, we cannot use internal linkage for that
-        // function (see below about nested functions)
-        // FIXME: maybe there is a better way without emission
-        // of needless symbols?
-        if (!fdecl->fbody)
-            return llvm::GlobalValue::ExternalLinkage;
-    }
-    // class
-    else if (ClassDeclaration* cd = sym->isClassDeclaration())
-    {
-        IF_LOG Logger::println("Class %savailable externally: %s",
-            (cd->availableExternally ? "" : "not "), vd->toChars());
-
-        // generated by inlining semantics run
-        if (cd->availableExternally)
-            return llvm::GlobalValue::AvailableExternallyLinkage;
-        // template
-        if (DtoIsTemplateInstance(cd))
-            return templateLinkage;
-    }
-    else
-    {
-        llvm_unreachable("not global/function");
-    }
-
-    // The logic here should be sound in theory, but as long as the frontend
-    // keeps inserting templates into wrong modules, this yields to linking
-    // errors (see e.g. GitHub issue #558).
-#if 0
-    // Check if sym is a nested function and we can declare it as internal.
-    //
-    // Nested naked functions and the implicitly generated __require/__ensure
-    // functions for in/out contracts cannot be internalized. The reason
-    // for the latter is that contract functions, despite being nested, can be
-    // referenced from other D modules e.g. in the case of contracts on
-    // interface methods (where __require/__ensure are emitted to the module
-    // where the interface is declared, but an actual interface implementation
-    // can be in a completely different place).
-    FuncDeclaration* fd = sym->isFuncDeclaration();
-    if (!fd || (!fd->naked && fd->ident != Id::require && fd->ident != Id::ensure))
-    {
-        // Any symbol nested in a function that cannot be inlined can't be
-        // referenced directly from outside that function, so we can give
-        // such symbols internal linkage. This holds even if nested indirectly,
-        // such as member functions of aggregates nested in functions.
-        //
-        // Note: This must be checked after things like template member-ness or
-        // symbols nested in templates would get duplicated for each module,
-        // breaking things like
-        // ---
-        // int counter(T)() { static int i; return i++; }"
-        // ---
-        // if instances get emitted in multiple object files because they'd use
-        // different instances of 'i'.
-        // TODO: Check if we are giving away too much inlining potential due to
-        // canInline being overly conservative here.
-        for (Dsymbol* parent = sym->parent; parent ; parent = parent->parent)
-        {
-            FuncDeclaration *parentFd = parent->isFuncDeclaration();
-            if (parentFd && !parentFd->canInline(parentFd->needThis(), false, false))
-            {
-                // We also cannot internalize nested functions which are
-                // leaked to the outside via a templated return type, because
-                // that type will also be codegen'd in any caller modules (see
-                // GitHub issue #131).
-                // Since we can't easily determine if this is really the case
-                // here, just don't internalize it if the parent returns a
-                // template at all, to be safe.
-                TypeFunction* tf = static_cast<TypeFunction*>(parentFd->type);
-                if (!DtoIsTemplateInstance(tf->next->toDsymbol(parentFd->scope)))
-                    return llvm::GlobalValue::InternalLinkage;
-            }
-        }
-    }
-#endif
-    // default to external linkage
-    return llvm::GlobalValue::ExternalLinkage;
-}
-
-static bool isAvailableExternally(Dsymbol* sym)
-{
-    if (VarDeclaration* vd = sym->isVarDeclaration())
-        return vd->availableExternally;
-    if (FuncDeclaration* fd = sym->isFuncDeclaration())
-        return fd->availableExternally;
-    if (AggregateDeclaration* ad = sym->isAggregateDeclaration())
-        return ad->availableExternally;
-    return false;
-}
-
-llvm::GlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym)
-{
-    if (DtoIsTemplateInstance(sym)) {
-        if (isAvailableExternally(sym))
-            return llvm::GlobalValue::AvailableExternallyLinkage;
-        return templateLinkage;
-    }
-    else
-        return llvm::GlobalValue::InternalLinkage;
-}
-
-llvm::GlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym, bool checkInline)
+llvm::GlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
 {
     if (DtoIsTemplateInstance(sym))
         return templateLinkage;
-    else if (checkInline && isAvailableExternally(sym))
-        return llvm::GlobalValue::AvailableExternallyLinkage;
-    else
-        return llvm::GlobalValue::ExternalLinkage;
+    return llvm::GlobalValue::ExternalLinkage;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -483,38 +307,68 @@ LLIntegerType* DtoSize_t()
 
 LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var, llvm::BasicBlock* bb)
 {
-    return llvm::GetElementPtrInst::Create(ptr, i0, var?var:"tmp", bb?bb:gIR->scopebb());
+    LLPointerType* p = isaPointer(ptr);
+    assert(p && "GEP expects a pointer type");
+    return llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+        p->getElementType(),
+#endif
+        ptr, i0, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var, llvm::BasicBlock* bb)
 {
+    LLPointerType* p = isaPointer(ptr);
+    assert(p && "GEP expects a pointer type");
     LLValue* v[] = { i0, i1 };
-    return llvm::GetElementPtrInst::Create(ptr, v, var?var:"tmp", bb?bb:gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+        p->getElementType(),
+#endif
+        ptr, v, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLValue* DtoGEPi1(LLValue* ptr, unsigned i, const char* var, llvm::BasicBlock* bb)
 {
-    return llvm::GetElementPtrInst::Create(ptr, DtoConstUint(i), var?var:"tmp", bb?bb:gIR->scopebb());
+    LLPointerType* p = isaPointer(ptr);
+    assert(p && "GEP expects a pointer type");
+    return llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+        p->getElementType(),
+#endif
+        ptr, DtoConstUint(i), var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var, llvm::BasicBlock* bb)
 {
+    LLPointerType* p = isaPointer(ptr);
+    assert(p && "GEP expects a pointer type");
     LLValue* v[] = { DtoConstUint(i0), DtoConstUint(i1) };
-    return llvm::GetElementPtrInst::Create(ptr, v, var?var:"tmp", bb?bb:gIR->scopebb());
+    return llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+        p->getElementType(),
+#endif
+        ptr, v, var, bb ? bb : gIR->scopebb());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLConstant* DtoGEPi(LLConstant* ptr, unsigned i0, unsigned i1)
 {
+    LLPointerType* p = isaPointer(ptr);
+    assert(p && "GEP expects a pointer type");
     LLValue* v[] = { DtoConstUint(i0), DtoConstUint(i1) };
-    return llvm::ConstantExpr::getGetElementPtr(ptr, v, true);
+    return llvm::ConstantExpr::getGetElementPtr(
+#if LDC_LLVM_VER >= 307
+        p->getElementType(),
+#endif
+        ptr, v, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -566,7 +420,7 @@ LLValue* DtoMemCmp(LLValue* lhs, LLValue* rhs, LLValue* nbytes)
     lhs = DtoBitCast(lhs, VoidPtrTy);
     rhs = DtoBitCast(rhs, VoidPtrTy);
 
-    return gIR->ir->CreateCall3(fn, lhs, rhs, nbytes, "tmp");
+    return gIR->ir->CreateCall3(fn, lhs, rhs, nbytes);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -583,24 +437,6 @@ void DtoAggrCopy(LLValue* dst, LLValue* src)
 {
     uint64_t n = getTypeStoreSize(dst->getType()->getContainedType(0));
     DtoMemCpy(dst, src, DtoConstSize_t(n));
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device)
-{
-    // FIXME: implement me
-    /*llvm::Function* fn = GET_INTRINSIC_DECL(memory_barrier);
-    assert(fn != NULL);
-
-    LLSmallVector<LLValue*, 5> llargs;
-    llargs.push_back(DtoConstBool(ll));
-    llargs.push_back(DtoConstBool(ls));
-    llargs.push_back(DtoConstBool(sl));
-    llargs.push_back(DtoConstBool(ss));
-    llargs.push_back(DtoConstBool(device));
-
-    llvm::CallInst::Create(fn, llargs, "", gIR->scopebb());*/
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -661,28 +497,27 @@ LLConstant* DtoConstFP(Type* t, longdouble value)
 LLConstant* DtoConstString(const char* str)
 {
     llvm::StringRef s(str ? str : "");
-    LLConstant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
-        *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
-    gvar->setUnnamedAddr(true);
+    llvm::GlobalVariable* gvar = (gIR->stringLiteral1ByteCache.find(s) ==
+                                  gIR->stringLiteral1ByteCache.end())
+                                 ? 0 : gIR->stringLiteral1ByteCache[s];
+    if (gvar == 0)
+    {
+        llvm::Constant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
+        gvar = new llvm::GlobalVariable(*gIR->module, init->getType(), true,
+                                        llvm::GlobalValue::PrivateLinkage, init, ".str");
+        gvar->setUnnamedAddr(true);
+        gIR->stringLiteral1ByteCache[s] = gvar;
+    }
     LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
     return DtoConstSlice(
         DtoConstSize_t(s.size()),
-        llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true),
+        llvm::ConstantExpr::getGetElementPtr(
+#if LDC_LLVM_VER >= 307
+            gvar->getInitializer()->getType(),
+#endif
+            gvar, idxs, true),
         Type::tchar->arrayOf()
     );
-}
-
-LLConstant* DtoConstStringPtr(const char* str, const char* section)
-{
-    llvm::StringRef s(str);
-    LLConstant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
-    llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
-        *gIR->module, init->getType(), true, llvm::GlobalValue::InternalLinkage, init, ".str");
-    if (section) gvar->setSection(section);
-    gvar->setUnnamedAddr(true);
-    LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(0) };
-    return llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -691,7 +526,7 @@ LLValue* DtoLoad(LLValue* src, const char* name)
 {
 //     if (Logger::enabled())
 //         Logger::cout() << "loading " << *src <<  '\n';
-    llvm::LoadInst* ld = gIR->ir->CreateLoad(src, name ? name : "tmp");
+    llvm::LoadInst* ld = gIR->ir->CreateLoad(src, name);
     //ld->setVolatile(gIR->func()->inVolatile);
     return ld;
 }
@@ -699,7 +534,7 @@ LLValue* DtoLoad(LLValue* src, const char* name)
 // Like DtoLoad, but the pointer is guaranteed to be aligned appropriately for the type.
 LLValue* DtoAlignedLoad(LLValue* src, const char* name)
 {
-    llvm::LoadInst* ld = gIR->ir->CreateLoad(src, name ? name : "tmp");
+    llvm::LoadInst* ld = gIR->ir->CreateLoad(src, name);
     ld->setAlignment(getABITypeAlign(ld->getType()));
     return ld;
 }
@@ -739,7 +574,7 @@ LLValue* DtoBitCast(LLValue* v, LLType* t, const char* name)
     if (v->getType() == t)
         return v;
     assert(!isaStruct(t));
-    return gIR->ir->CreateBitCast(v, t, name ? name : "tmp");
+    return gIR->ir->CreateBitCast(v, t, name);
 }
 
 LLConstant* DtoBitCast(LLConstant* v, LLType* t)
@@ -753,24 +588,24 @@ LLConstant* DtoBitCast(LLConstant* v, LLType* t)
 
 LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx, const char* name)
 {
-    return gIR->ir->CreateInsertValue(aggr, v, idx, name ? name : "tmp");
+    return gIR->ir->CreateInsertValue(aggr, v, idx, name);
 }
 
 LLValue* DtoExtractValue(LLValue* aggr, unsigned idx, const char* name)
 {
-    return gIR->ir->CreateExtractValue(aggr, idx, name ? name : "tmp");
+    return gIR->ir->CreateExtractValue(aggr, idx, name);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLValue* DtoInsertElement(LLValue* vec, LLValue* v, LLValue *idx, const char* name)
 {
-    return gIR->ir->CreateInsertElement(vec, v, idx, name ? name : "tmp");
+    return gIR->ir->CreateInsertElement(vec, v, idx, name);
 }
 
 LLValue* DtoExtractElement(LLValue* vec, LLValue *idx, const char* name)
 {
-    return gIR->ir->CreateExtractElement(vec, idx, name ? name : "tmp");
+    return gIR->ir->CreateExtractElement(vec, idx, name);
 }
 
 LLValue* DtoInsertElement(LLValue* vec, LLValue* v, unsigned idx, const char* name)
@@ -899,38 +734,6 @@ unsigned char getABITypeAlign(LLType* t)
     return gDataLayout->getABITypeAlignment(t);
 }
 
-unsigned char getPrefTypeAlign(LLType* t)
-{
-    return gDataLayout->getPrefTypeAlignment(t);
-}
-
-LLType* getBiggestType(LLType** begin, size_t n)
-{
-    LLType* bigTy = 0;
-    size_t bigSize = 0;
-    size_t bigAlign = 0;
-
-    LLType** end = begin+n;
-    while (begin != end)
-    {
-        LLType* T = *begin;
-
-        size_t sz = getTypePaddedSize(T);
-        size_t ali = getABITypeAlign(T);
-        if (sz > bigSize || (sz == bigSize && ali > bigAlign))
-        {
-            bigTy = T;
-            bigSize = sz;
-            bigAlign = ali;
-        }
-
-        ++begin;
-    }
-
-    // will be null for n==0
-    return bigTy;
-}
-
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLStructType* DtoInterfaceInfoType()
@@ -941,7 +744,7 @@ LLStructType* DtoInterfaceInfoType()
     // build interface info type
     LLSmallVector<LLType*, 3> types;
     // ClassInfo classinfo
-    ClassDeclaration* cd2 = ClassDeclaration::classinfo;
+    ClassDeclaration* cd2 = Type::typeinfoclass;
     DtoResolveClass(cd2);
     types.push_back(DtoType(cd2->type));
     // void*[] vtbl
@@ -1058,8 +861,8 @@ LLStructType* DtoModuleReferenceType()
 LLValue* DtoAggrPair(LLType* type, LLValue* V1, LLValue* V2, const char* name)
 {
     LLValue* res = llvm::UndefValue::get(type);
-    res = gIR->ir->CreateInsertValue(res, V1, 0, "tmp");
-    return gIR->ir->CreateInsertValue(res, V2, 1, name?name:"tmp");
+    res = gIR->ir->CreateInsertValue(res, V1, 0);
+    return gIR->ir->CreateInsertValue(res, V2, 1, name);
 }
 
 LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name)
@@ -1076,19 +879,11 @@ LLValue* DtoAggrPaint(LLValue* aggr, LLType* as)
 
     LLValue* res = llvm::UndefValue::get(as);
 
-    LLValue* V = gIR->ir->CreateExtractValue(aggr, 0, "tmp");;
+    LLValue* V = gIR->ir->CreateExtractValue(aggr, 0);
     V = DtoBitCast(V, as->getContainedType(0));
-    res = gIR->ir->CreateInsertValue(res, V, 0, "tmp");
+    res = gIR->ir->CreateInsertValue(res, V, 0);
 
-    V = gIR->ir->CreateExtractValue(aggr, 1, "tmp");;
+    V = gIR->ir->CreateExtractValue(aggr, 1);
     V = DtoBitCast(V, as->getContainedType(1));
-    return gIR->ir->CreateInsertValue(res, V, 1, "tmp");
-}
-
-LLValue* DtoAggrPairSwap(LLValue* aggr)
-{
-    Logger::println("swapping aggr pair");
-    LLValue* r = gIR->ir->CreateExtractValue(aggr, 0);
-    LLValue* i = gIR->ir->CreateExtractValue(aggr, 1);
-    return DtoAggrPair(i, r, "swapped");
+    return gIR->ir->CreateInsertValue(res, V, 1);
 }

@@ -17,11 +17,11 @@
 
 #include "gen/structs.h"
 
-struct ClassDeclaration;
-struct CtorDeclaration;
-struct FuncDeclaration;
-struct NewExp;
-struct TypeClass;
+class ClassDeclaration;
+class CtorDeclaration;
+class FuncDeclaration;
+class NewExp;
+class TypeClass;
 
 /// Resolves the llvm type for a class declaration
 void DtoResolveClass(ClassDeclaration* cd);
@@ -39,18 +39,15 @@ void DtoDefineClass(ClassDeclaration* cd);
 /// FIXME: this should be put into IrStruct and eventually IrClass.
 llvm::Constant* DtoDefineClassInfo(ClassDeclaration* cd);
 
-DValue* DtoNewClass(Loc loc, TypeClass* type, NewExp* newexp);
+DValue* DtoNewClass(Loc& loc, TypeClass* type, NewExp* newexp);
 void DtoInitClass(TypeClass* tc, llvm::Value* dst);
-DValue* DtoCallClassCtor(TypeClass* type, CtorDeclaration* ctor, Array* arguments, llvm::Value* mem);
-void DtoFinalizeClass(llvm::Value* inst);
+void DtoFinalizeClass(Loc& loc, llvm::Value* inst);
 
-DValue* DtoCastClass(DValue* val, Type* to);
-DValue* DtoDynamicCastObject(DValue* val, Type* to);
+DValue* DtoCastClass(Loc& loc, DValue* val, Type* to);
+DValue* DtoDynamicCastObject(Loc& loc, DValue* val, Type* to);
 
-DValue* DtoCastInterfaceToObject(DValue* val, Type* to);
-DValue* DtoDynamicCastInterface(DValue* val, Type* to);
-
-llvm::Value* DtoIndexClass(llvm::Value* src, ClassDeclaration* sd, VarDeclaration* vd);
+DValue* DtoCastInterfaceToObject(Loc& loc, DValue* val, Type* to);
+DValue* DtoDynamicCastInterface(Loc& loc, DValue* val, Type* to);
 
 llvm::Value* DtoVirtualFunctionPointer(DValue* inst, FuncDeclaration* fdecl, char* name);
 

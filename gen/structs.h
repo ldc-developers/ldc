@@ -18,10 +18,10 @@
 #include <vector>
 
 class DValue;
-struct StructDeclaration;
-struct StructInitializer;
-struct Type;
-struct VarDeclaration;
+class StructDeclaration;
+class StructInitializer;
+class Type;
+class VarDeclaration;
 namespace llvm
 {
     class Constant;
@@ -33,14 +33,16 @@ namespace llvm
  * Sets up codegen metadata and emits global data (.init, etc.), if needed.
  *
  * Has no effect on already resolved struct declarations.
+ *
+ * callerLoc is the location of the expression which requires the struct type
+ * (only for better diagnosis)
  */
 void DtoResolveStruct(StructDeclaration* sd);
+void DtoResolveStruct(StructDeclaration* sd, Loc& callerLoc);
+
 
 /// Returns a boolean=true if the two structs are equal.
 llvm::Value* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs);
-
-/// index a struct one level
-llvm::Value* DtoIndexStruct(llvm::Value* src, StructDeclaration* sd, VarDeclaration* vd);
 
 /// Return the type returned by DtoUnpaddedStruct called on a value of the
 /// specified type.

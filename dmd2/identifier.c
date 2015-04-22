@@ -1,12 +1,13 @@
 
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2006 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/identifier.c
+ */
 
 #include <stdio.h>
 #include <string.h>
@@ -25,19 +26,19 @@ Identifier::Identifier(const char *string, int value)
     this->len = strlen(string);
 }
 
-hash_t Identifier::hashCode()
+Identifier *Identifier::create(const char *string, int value)
 {
-    return String::calcHash(string);
+    return new Identifier(string, value);
 }
 
-int Identifier::equals(Object *o)
+bool Identifier::equals(RootObject *o)
 {
-    return this == o || memcmp(string,o->toChars(),len+1) == 0;
+    return this == o || strncmp(string,o->toChars(),len+1) == 0;
 }
 
-int Identifier::compare(Object *o)
+int Identifier::compare(RootObject *o)
 {
-    return memcmp(string, o->toChars(), len + 1);
+    return strncmp(string, o->toChars(), len + 1);
 }
 
 char *Identifier::toChars()
@@ -60,11 +61,11 @@ const char *Identifier::toHChars2()
     {   p = toChars();
         if (*p == '_')
         {
-            if (memcmp(p, "_staticCtor", 11) == 0)
+            if (strncmp(p, "_staticCtor", 11) == 0)
                 p = "static this";
-            else if (memcmp(p, "_staticDtor", 11) == 0)
+            else if (strncmp(p, "_staticDtor", 11) == 0)
                 p = "static ~this";
-            else if (memcmp(p, "__invariant", 11) == 0)
+            else if (strncmp(p, "__invariant", 11) == 0)
                 p = "invariant";
         }
     }
@@ -97,7 +98,6 @@ Identifier *Identifier::generateId(const char *prefix, size_t i)
     buf.writestring(prefix);
     buf.printf("%llu", (ulonglong)i);
 
-    char *id = buf.toChars();
-    buf.data = NULL;
+    char *id = buf.peekString();
     return Lexer::idPool(id);
 }

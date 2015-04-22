@@ -18,12 +18,13 @@
 
 #include "gen/llvm.h"
 #include "ir/irlandingpad.h"
+#include "ir/irfuncty.h"
 #include <map>
 #include <stack>
 #include <vector>
 
-struct Statement;
-struct EnclosingHandler;
+class Statement;
+struct EnclosingTryFinally;
 
 // scope statements that can be target of jumps
 // includes loops, switch, case, labels
@@ -32,8 +33,8 @@ struct IRTargetScope
     // generating statement
     Statement* s;
 
-    // the try of a TryFinally that encloses the loop
-    EnclosingHandler* enclosinghandler;
+    // the try-finally block that encloses the statement
+    EnclosingTryFinally* enclosinghandler;
 
     llvm::BasicBlock* breakTarget;
     llvm::BasicBlock* continueTarget;
@@ -45,7 +46,7 @@ struct IRTargetScope
     IRTargetScope();
     IRTargetScope(
         Statement* s,
-        EnclosingHandler* enclosinghandler,
+        EnclosingTryFinally* enclosinghandler,
         llvm::BasicBlock* continueTarget,
         llvm::BasicBlock* breakTarget,
         bool onlyLabeledBreak = false
@@ -123,6 +124,11 @@ struct IrFunction
 
     llvm::DISubprogram diSubprogram;
     std::stack<llvm::DILexicalBlock> diLexicalBlocks;
+
+    IrFuncTy irFty;
 };
+
+IrFunction *getIrFunc(FuncDeclaration *decl, bool create = false);
+bool isIrFuncCreated(FuncDeclaration *decl);
 
 #endif

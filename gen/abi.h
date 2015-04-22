@@ -25,8 +25,8 @@
 #endif
 #include <vector>
 
-struct Type;
-struct TypeFunction;
+class Type;
+class TypeFunction;
 struct IrFuncTy;
 struct IrFuncTyArg;
 class DValue;
@@ -54,6 +54,25 @@ struct ABIRewrite
 
     /// should return the transformed type for this rewrite
     virtual llvm::Type* type(Type* dty, llvm::Type* t) = 0;
+
+protected:
+    /***** Static Helpers *****/
+
+    // Returns the address of a D value, storing it to memory first if need be.
+    static llvm::Value* getAddressOf(DValue* v);
+
+    // Stores a LL value to memory and returns its address.
+    static llvm::Value* storeToMemory(llvm::Value* rval, size_t alignment = 0,
+        const char* name = ".store_result");
+
+    // Stores a LL value to a specified memory address. The element type of the provided
+    // pointer doesn't need to match the value type (=> suited for bit-casting).
+    static void storeToMemory(llvm::Value* rval, llvm::Value* address);
+
+    // Loads a LL value of a specified type from memory. The element type of the provided
+    // pointer doesn't need to match the value type (=> suited for bit-casting).
+    static llvm::Value* loadFromMemory(llvm::Value* address, llvm::Type* asType,
+        const char* name = ".bitcast_result");
 };
 
 // interface called by codegen
@@ -79,20 +98,32 @@ struct TargetABI
     /// disabling the LLVM-internal name mangling/postprocessing is required.
     virtual std::string mangleForLLVM(llvm::StringRef name, LINK l) { return name; }
 
-    /// Called if a new function type is resolved
-    virtual void newFunctionType(TypeFunction* tf) {}
-
-    /// Returns true if the return value is passed in a register
+    /// Returns true if the function uses sret (struct return),
+    /// meaning that it gets a hidden pointer to a struct which has been pre-
+    /// allocated by the caller.
     virtual bool returnInArg(TypeFunction* tf) = 0;
 
     /// Returns true if the type is passed by value
     virtual bool passByVal(Type* t) = 0;
 
     /// Called to give ABI the chance to rewrite the types
-    virtual void rewriteFunctionType(TypeFunction* t, IrFuncTy &fty) = 0;
+    virtual void rewriteFunctionType(TypeFunction* t, IrFuncTy& fty) = 0;
+    virtual void rewriteVarargs(IrFuncTy& fty, std::vector<IrFuncTyArg*>& args);
+    virtual void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg) {}
 
-    /// Called if resolution of new function type is done
-    virtual void doneWithFunctionType() {}
+    // Prepares a va_start intrinsic call.
+    // Input:  pointer to passed ap argument (va_list*)
+    // Output: value to be passed to LLVM's va_start intrinsic (void*)
+    virtual llvm::Value* prepareVaStart(llvm::Value* pAp);
+
+    // Implements the va_copy intrinsic.
+    // Input: pointer to dest argument (va_list*) and src argument (va_list)
+    virtual void vaCopy(llvm::Value* pDest, llvm::Value* src);
+
+    // Prepares a va_arg intrinsic call.
+    // Input:  pointer to passed ap argument (va_list*)
+    // Output: value to be passed to LLVM's va_arg intrinsic (void*)
+    virtual llvm::Value* prepareVaArg(llvm::Value* pAp);
 };
 
 #endif

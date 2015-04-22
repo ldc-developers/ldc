@@ -22,6 +22,7 @@
 #include "mtype.h"
 #include "gen/llvm.h"
 #include "gen/structs.h"
+#include "gen/attributes.h"
 
 // D->LLVM type handling stuff
 
@@ -39,14 +40,12 @@ LLType* i1ToI8(LLType* t);
 // returns true if the type must be passed by pointer
 bool DtoIsPassedByRef(Type* type);
 
+// returns true if the return value of the call expression
+// is passed in a register
+bool DtoIsReturnInArg(CallExp *ce);
+
 // should argument be zero or sign extended
-#if LDC_LLVM_VER >= 303
-llvm::Attribute::AttrKind DtoShouldExtend(Type* type);
-#elif LDC_LLVM_VER == 302
-llvm::Attributes::AttrVal DtoShouldExtend(Type* type);
-#else
-llvm::Attributes DtoShouldExtend(Type* type);
-#endif
+AttrBuilder::A DtoShouldExtend(Type* type);
 
 // tuple helper
 // takes a arguments list and makes a struct type out of them
@@ -55,10 +54,9 @@ llvm::Attributes DtoShouldExtend(Type* type);
 // delegate helpers
 LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs);
 
-// return linkage type for symbol using the current ir state for context
+// Returns the LLVM linkage to use for the definition of the given symbol,
+// based on whether it is a template or not.
 LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym);
-LLGlobalValue::LinkageTypes DtoInternalLinkage(Dsymbol* sym);
-LLGlobalValue::LinkageTypes DtoExternalLinkage(Dsymbol* sym, bool checkInline = true);
 
 // some types
 LLIntegerType* DtoSize_t();
@@ -67,11 +65,11 @@ LLStructType* DtoMutexType();
 LLStructType* DtoModuleReferenceType();
 
 // getelementptr helpers
-LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* var=0, llvm::BasicBlock* bb=NULL);
-LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* var=0, llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEP1(LLValue* ptr, LLValue* i0, const char* name = "", llvm::BasicBlock* bb = NULL);
+LLValue* DtoGEP(LLValue* ptr, LLValue* i0, LLValue* i1, const char* name = "", llvm::BasicBlock* bb = NULL);
 
-LLValue* DtoGEPi1(LLValue* ptr, unsigned i0, const char* var=0, llvm::BasicBlock* bb=NULL);
-LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* var=0, llvm::BasicBlock* bb=NULL);
+LLValue* DtoGEPi1(LLValue* ptr, unsigned i0, const char* name = "", llvm::BasicBlock* bb = NULL);
+LLValue* DtoGEPi(LLValue* ptr, unsigned i0, unsigned i1, const char* name = "", llvm::BasicBlock* bb = NULL);
 LLConstant* DtoGEPi(LLConstant* ptr, unsigned i0, unsigned i1);
 
 // to constant helpers
@@ -82,23 +80,22 @@ LLConstantInt* DtoConstUbyte(unsigned char i);
 LLConstant* DtoConstFP(Type* t, longdouble value);
 
 LLConstant* DtoConstString(const char*);
-LLConstant* DtoConstStringPtr(const char* str, const char* section = 0);
 LLConstant* DtoConstBool(bool);
 
 // llvm wrappers
-LLValue* DtoLoad(LLValue* src, const char* name=0);
-LLValue* DtoAlignedLoad(LLValue* src, const char* name=0);
+LLValue* DtoLoad(LLValue* src, const char* name = "");
+LLValue* DtoAlignedLoad(LLValue* src, const char* name = "");
 void DtoStore(LLValue* src, LLValue* dst);
 void DtoStoreZextI8(LLValue* src, LLValue* dst);
 void DtoAlignedStore(LLValue* src, LLValue* dst);
-LLValue* DtoBitCast(LLValue* v, LLType* t, const char* name=0);
+LLValue* DtoBitCast(LLValue* v, LLType* t, const char* name = "");
 LLConstant* DtoBitCast(LLConstant* v, LLType* t);
-LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx, const char* name=0);
-LLValue* DtoExtractValue(LLValue* aggr, unsigned idx, const char* name=0);
-LLValue* DtoInsertElement(LLValue* vec, LLValue* v, LLValue *idx, const char* name=0);
-LLValue* DtoExtractElement(LLValue* vec, LLValue *idx, const char* name=0);
-LLValue* DtoInsertElement(LLValue* vec, LLValue* v, unsigned idx, const char* name=0);
-LLValue* DtoExtractElement(LLValue* vec, unsigned idx, const char* name=0);
+LLValue* DtoInsertValue(LLValue* aggr, LLValue* v, unsigned idx, const char* name = "");
+LLValue* DtoExtractValue(LLValue* aggr, unsigned idx, const char* name = "");
+LLValue* DtoInsertElement(LLValue* vec, LLValue* v, LLValue *idx, const char* name = "");
+LLValue* DtoExtractElement(LLValue* vec, LLValue *idx, const char* name = "");
+LLValue* DtoInsertElement(LLValue* vec, LLValue* v, unsigned idx, const char* name = "");
+LLValue* DtoExtractElement(LLValue* vec, unsigned idx, const char* name = "");
 
 // llvm::dyn_cast wrappers
 LLPointerType* isaPointer(LLValue* v);
@@ -128,16 +125,11 @@ size_t getTypeAllocSize(LLType* t);
 
 // type alignments
 unsigned char getABITypeAlign(LLType* t);
-unsigned char getPrefTypeAlign(LLType* t);
-
-// get biggest type, for unions ...
-LLType* getBiggestType(LLType** begin, size_t n);
 
 // pair type helpers
-LLValue* DtoAggrPair(LLType* type, LLValue* V1, LLValue* V2, const char* name = 0);
-LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name = 0);
+LLValue* DtoAggrPair(LLType* type, LLValue* V1, LLValue* V2, const char* name = "");
+LLValue* DtoAggrPair(LLValue* V1, LLValue* V2, const char* name = "");
 LLValue* DtoAggrPaint(LLValue* aggr, LLType* as);
-LLValue* DtoAggrPairSwap(LLValue* aggr);
 
 /**
  * Generates a call to llvm.memset.i32 (or i64 depending on architecture).
@@ -180,15 +172,5 @@ void DtoAggrZeroInit(LLValue* v);
  * @param src Source memory.
  */
 void DtoAggrCopy(LLValue* dst, LLValue* src);
-
-/**
- * Generates a call to llvm.memory.barrier
- * @param ll load-load
- * @param ls load-store
- * @param sl store-load
- * @param ss store-store
- * @param device special device flag
- */
-void DtoMemoryBarrier(bool ll, bool ls, bool sl, bool ss, bool device=false);
 
 #endif // LDC_GEN_TOLLVM_H

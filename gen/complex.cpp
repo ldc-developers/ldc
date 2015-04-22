@@ -31,20 +31,9 @@ LLType* DtoComplexBaseType(Type* t)
 {
     switch (t->toBasetype()->ty) {
     default: llvm_unreachable("Unexpected complex floating point type");
-    case Tcomplex32: return LLType::getFloatTy(gIR->context());
-    case Tcomplex64: return LLType::getDoubleTy(gIR->context());
-    case Tcomplex80:
-        llvm::Triple::ArchType const a = global.params.targetTriple.getArch();
-        if (a == llvm::Triple::x86 || a == llvm::Triple::x86_64)
-        {
-            return LLType::getX86_FP80Ty(gIR->context());
-        }
-        else if (a == llvm::Triple::ppc || a == llvm::Triple::ppc64)
-        {
-            return LLType::getPPC_FP128Ty(gIR->context());
-        }
-        else
-            return LLType::getDoubleTy(gIR->context());
+    case Tcomplex32: return DtoType(Type::basic[Tfloat32]);
+    case Tcomplex64: return DtoType(Type::basic[Tfloat64]);
+    case Tcomplex80: return DtoType(Type::basic[Tfloat80]);
     }
 }
 
@@ -107,8 +96,8 @@ DValue* DtoComplex(Loc& loc, Type* to, DValue* val)
 
 void DtoComplexSet(LLValue* c, LLValue* re, LLValue* im)
 {
-    DtoStore(re, DtoGEPi(c, 0, 0, "tmp"));
-    DtoStore(im, DtoGEPi(c, 0, 1, "tmp"));
+    DtoStore(re, DtoGEPi(c, 0, 0));
+    DtoStore(im, DtoGEPi(c, 0, 1));
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -192,14 +181,14 @@ DValue* DtoComplexAdd(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
 
     // add up
     if(lhs_re && rhs_re)
-        res_re = gIR->ir->CreateFAdd(lhs_re, rhs_re, "tmp");
+        res_re = gIR->ir->CreateFAdd(lhs_re, rhs_re);
     else if(lhs_re)
         res_re = lhs_re;
     else // either rhs_re or no re at all (then use any)
         res_re = rhs_re;
 
     if(lhs_im && rhs_im)
-        res_im = gIR->ir->CreateFAdd(lhs_im, rhs_im, "tmp");
+        res_im = gIR->ir->CreateFAdd(lhs_im, rhs_im);
     else if(lhs_im)
         res_im = lhs_im;
     else // either rhs_im or no im at all (then use any)
@@ -222,14 +211,14 @@ DValue* DtoComplexSub(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
 
     // add up
     if(lhs_re && rhs_re)
-        res_re = gIR->ir->CreateFSub(lhs_re, rhs_re, "tmp");
+        res_re = gIR->ir->CreateFSub(lhs_re, rhs_re);
     else if(lhs_re)
         res_re = lhs_re;
     else // either rhs_re or no re at all (then use any)
         res_re = gIR->ir->CreateFNeg(rhs_re, "neg");
 
     if(lhs_im && rhs_im)
-        res_im = gIR->ir->CreateFSub(lhs_im, rhs_im, "tmp");
+        res_im = gIR->ir->CreateFSub(lhs_im, rhs_im);
     else if(lhs_im)
         res_im = lhs_im;
     else // either rhs_im or no im at all (then use any)
@@ -373,8 +362,8 @@ DValue* DtoComplexRem(Loc& loc, Type* type, DValue* lhs, DValue* rhs)
     assert((rhs_re != 0) ^ (rhs_im != 0));
 
     divisor = rhs_re ? rhs_re : rhs_im;
-    res_re = lhs_re ? gIR->ir->CreateFRem(lhs_re, divisor, "tmp") : lhs_re;
-    res_im = lhs_re ? gIR->ir->CreateFRem(lhs_im, divisor, "tmp") : lhs_im;
+    res_re = lhs_re ? gIR->ir->CreateFRem(lhs_re, divisor) : lhs_re;
+    res_im = lhs_re ? gIR->ir->CreateFRem(lhs_im, divisor) : lhs_im;
 
     LLValue* res = DtoAggrPair(DtoType(type), res_re, res_im);
     return new DImValue(type, res);
@@ -391,8 +380,8 @@ DValue* DtoComplexNeg(Loc& loc, Type* type, DValue* val)
 
     // neg up
     assert(a && b);
-    re = gIR->ir->CreateFNeg(a, "tmp");
-    im = gIR->ir->CreateFNeg(b, "tmp");
+    re = gIR->ir->CreateFNeg(a);
+    im = gIR->ir->CreateFNeg(b);
 
     LLValue* res = DtoAggrPair(DtoType(type), re, im);
     return new DImValue(type, res);
@@ -416,9 +405,9 @@ LLValue* DtoComplexEquals(Loc& loc, TOK op, DValue* lhs, DValue* rhs)
     LLValue* b2 = DtoBinFloatsEquals(loc, lhs_im, rhs_im, op);
 
     if (op == TOKequal)
-        return gIR->ir->CreateAnd(b1, b2, "tmp");
+        return gIR->ir->CreateAnd(b1, b2);
     else
-        return gIR->ir->CreateOr(b1, b2, "tmp");
+        return gIR->ir->CreateOr(b1, b2);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -436,12 +425,12 @@ DValue* DtoCastComplex(Loc& loc, DValue* val, Type* _to)
         LLType* toty = DtoComplexBaseType(to);
 
         if (to->size() < vty->size()) {
-            re = gIR->ir->CreateFPTrunc(re, toty, "tmp");
-            im = gIR->ir->CreateFPTrunc(im, toty, "tmp");
+            re = gIR->ir->CreateFPTrunc(re, toty);
+            im = gIR->ir->CreateFPTrunc(im, toty);
         }
         else {
-            re = gIR->ir->CreateFPExt(re, toty, "tmp");
-            im = gIR->ir->CreateFPExt(im, toty, "tmp");
+            re = gIR->ir->CreateFPExt(re, toty);
+            im = gIR->ir->CreateFPExt(im, toty);
         }
 
         LLValue* pair = DtoAggrPair(DtoType(_to), re, im);

@@ -26,11 +26,115 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-void ABIRewrite::getL(Type* dty, DValue* v, llvm::Value* lval)
+void ABIRewrite::getL(Type* dty, DValue* v, LLValue* lval)
 {
     LLValue* rval = get(dty, v);
     assert(rval->getType() == lval->getType()->getContainedType(0));
     DtoStore(rval, lval);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+LLValue* ABIRewrite::getAddressOf(DValue* v)
+{
+    Type* dty = v->getType();
+    if (DtoIsPassedByRef(dty))
+    {
+        // v is lowered to a LL pointer to the struct/static array
+        return v->getRVal();
+    }
+
+    if (v->isLVal())
+        return v->getLVal();
+
+    return storeToMemory(v->getRVal(), 0, ".getAddressOf_dump");
+}
+
+LLValue* ABIRewrite::storeToMemory(LLValue* rval, size_t alignment, const char* name)
+{
+    LLValue* address = DtoRawAlloca(rval->getType(), alignment, name);
+    DtoStore(rval, address);
+    return address;
+}
+
+void ABIRewrite::storeToMemory(LLValue* rval, LLValue* address)
+{
+    LLType* pointerType = address->getType();
+    assert(pointerType->isPointerTy());
+    LLType* pointerElementType = pointerType->getPointerElementType();
+
+    LLType* rvalType = rval->getType();
+    if (rvalType != pointerElementType)
+    {
+        if (getTypeStoreSize(rvalType) > getTypeAllocSize(pointerElementType))
+        {
+            // not enough allocated memory
+            LLValue* paddedDump = storeToMemory(rval, 0, ".storeToMemory_paddedDump");
+            DtoAggrCopy(address, paddedDump);
+            return;
+        }
+
+        address = DtoBitCast(address, getPtrToType(rvalType), ".storeToMemory_bitCastAddress");
+    }
+
+    DtoStore(rval, address);
+}
+
+LLValue* ABIRewrite::loadFromMemory(LLValue* address, LLType* asType, const char* name)
+{
+    LLType* pointerType = address->getType();
+    assert(pointerType->isPointerTy());
+    LLType* pointerElementType = pointerType->getPointerElementType();
+
+    if (asType == pointerElementType)
+        return DtoLoad(address, name);
+
+    if (getTypeStoreSize(asType) > getTypeAllocSize(pointerElementType))
+    {
+        // not enough allocated memory
+        LLValue* paddedDump = DtoRawAlloca(asType, 0, ".loadFromMemory_paddedDump");
+        DtoMemCpy(paddedDump, address, DtoConstSize_t(getTypeAllocSize(pointerElementType)));
+        return DtoLoad(paddedDump, name);
+    }
+
+    address = DtoBitCast(address, getPtrToType(asType), ".loadFromMemory_bitCastAddress");
+    return DtoLoad(address, name);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void TargetABI::rewriteVarargs(IrFuncTy& fty, std::vector<IrFuncTyArg*>& args)
+{
+    for (unsigned i = 0; i < args.size(); ++i)
+    {
+        IrFuncTyArg& arg = *args[i];
+        if (!arg.byref) // don't rewrite ByVal arguments
+            rewriteArgument(fty, arg);
+    }
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+LLValue* TargetABI::prepareVaStart(LLValue* pAp)
+{
+    // pass a void* pointer to ap to LLVM's va_start intrinsic
+    return DtoBitCast(pAp, getVoidPtrType());
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+void TargetABI::vaCopy(LLValue* pDest, LLValue* src)
+{
+    // simply bitcopy src over dest
+    DtoStore(src, pDest);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+LLValue* TargetABI::prepareVaArg(LLValue* pAp)
+{
+    // pass a void* pointer to ap to LLVM's va_arg intrinsic
+    return DtoBitCast(pAp, getVoidPtrType());
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -44,7 +148,6 @@ struct UnknownTargetABI : TargetABI
         {
         case LINKc:
         case LINKcpp:
-        case LINKintrinsic:
         case LINKpascal:
         case LINKwindows:
             return llvm::CallingConv::C;
@@ -94,7 +197,10 @@ TargetABI * TargetABI::getTarget()
         else
             return getX86_64TargetABI();
     case llvm::Triple::ppc64:
-        return getPPC64TargetABI();
+#if LDC_LLVM_VER >= 305
+    case llvm::Triple::ppc64le:
+#endif
+        return getPPC64TargetABI(global.params.targetTriple.isArch64Bit());
     default:
         Logger::cout() << "WARNING: Unknown ABI, guessing...\n";
         return new UnknownTargetABI;
@@ -123,8 +229,11 @@ struct IntrinsicABI : TargetABI
         return false;
     }
 
-    void fixup(IrFuncTyArg& arg) {
-        assert(arg.type->ty == Tstruct);
+    void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
+    {
+        Type* ty = arg.type->toBasetype();
+        if (ty->ty != Tstruct)
+            return;
         // TODO: Check that no unions are passed in or returned.
 
         LLType* abiTy = DtoUnpaddedStructType(arg.type);
@@ -137,13 +246,11 @@ struct IntrinsicABI : TargetABI
 
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     {
-        assert(tf->linkage == LINKintrinsic);
-
         if (!fty.arg_sret) {
             Type* rt = fty.ret->type->toBasetype();
-            if (rt->ty == Tstruct)  {
+            if (rt->ty == Tstruct) {
                 Logger::println("Intrinsic ABI: Transforming return type");
-                fixup(*fty.ret);
+                rewriteArgument(fty, *fty.ret);
             }
         }
 
@@ -153,19 +260,15 @@ struct IntrinsicABI : TargetABI
         for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I) {
             IrFuncTyArg& arg = **I;
 
-            if (Logger::enabled())
-                Logger::cout() << "Arg: " << arg.type->toChars() << '\n';
+            IF_LOG Logger::cout() << "Arg: " << arg.type->toChars() << '\n';
 
             // Arguments that are in memory are of no interest to us.
             if (arg.byref)
                 continue;
 
-            Type* ty = arg.type->toBasetype();
-            if (ty->ty == Tstruct)
-                fixup(arg);
+            rewriteArgument(fty, arg);
 
-            if (Logger::enabled())
-                Logger::cout() << "New arg type: " << *arg.ltype << '\n';
+            IF_LOG Logger::cout() << "New arg type: " << *arg.ltype << '\n';
         }
     }
 };

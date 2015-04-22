@@ -233,11 +233,11 @@ Usage:\n\
 \n\
   files.d        D source files\n\
   @cmdfile       read arguments from cmdfile\n\
-  -c             do not link\n"
-#if 0
-"  -cov           do code coverage analysis\n"
-#endif
-"  -D             generate documentation\n\
+  -c             do not link\n\
+  -color[=on|off]   force colored console output on or off\n\
+  -cov           do code coverage analysis\n\
+  -cov=nnn       require at least nnn%% code coverage\n\
+  -D             generate documentation\n\
   -Dddocdir      write documentation file to docdir directory\n\
   -Dffilename    write documentation file to filename\n\
   -d             allow deprecated features\n\
@@ -267,7 +267,8 @@ Usage:\n\
 #if 0
 "  -map           generate linker .map file\n"
 #endif
-"  -noboundscheck turns off array bounds checking for all functions\n"
+"  -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n"
+"  -noboundscheck no array bounds checking (deprecated, use -boundscheck=off)\n"
 "  -nofloat       do not emit reference to floating point\n\
   -O             optimize\n\
   -o-            do not write object file\n\
@@ -380,6 +381,27 @@ void appendEnvVar(const char* envVarName, std::vector<char*>& args)
     }
 }
 
+struct BoundsCheck
+{
+    enum Type
+    {
+        defaultVal,
+        off,
+        safeOnly,
+        on
+    };
+};
+
+struct Color
+{
+    enum Type
+    {
+        automatic,
+        on,
+        off
+    };
+};
+
 struct Debug
 {
     enum Type
@@ -447,7 +469,7 @@ struct Params
     bool noFloat;
     bool quiet;
     bool release;
-    bool noBoundsChecks;
+    BoundsCheck::Type boundsChecks;
     bool emitUnitTests;
     std::vector<char*> modulePaths;
     std::vector<char*> importPaths;
@@ -460,6 +482,7 @@ struct Params
     char* defaultLibName;
     char* debugLibName;
     char* moduleDepsFile;
+    Color::Type color;
 
     bool hiddenDebugB;
     bool hiddenDebugC;
@@ -511,7 +534,7 @@ struct Params
     noFloat(false),
     quiet(false),
     release(false),
-    noBoundsChecks(false),
+    boundsChecks(BoundsCheck::defaultVal),
     emitUnitTests(false),
     debugFlag(false),
     debugLevel(0),
@@ -519,6 +542,7 @@ struct Params
     defaultLibName(0),
     debugLibName(0),
     moduleDepsFile(0),
+    color(Color::automatic),
     hiddenDebugB(false),
     hiddenDebugC(false),
     hiddenDebugF(false),
@@ -557,8 +581,27 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
                 result.allowDeprecated = true;
             else if (strcmp(p + 1, "c") == 0)
                 result.compileOnly = true;
+            else if (strncmp(p + 1, "color", 5) == 0)
+            {
+                result.color = Color::on;
+                // Parse:
+                //      -color
+                //      -color=on|off
+                if (p[6] == '=')
+                {
+                    if (strcmp(p + 7, "off") == 0)
+                        result.color = Color::off;
+                    else if (strcmp(p + 7, "on") != 0)
+                        goto Lerror;
+                }
+                else if (p[6])
+                    goto Lerror;
+            }
             else if (strcmp(p + 1, "cov") == 0)
-                result.coverage = true;
+                // For "-cov=...", the whole cmdline switch is forwarded to LDC.
+                // For plain "-cov", the cmdline switch must be explicitly forwarded
+                // and result.coverage must be set to true to that effect.
+                result.coverage = (p[4] != '=');
             else if (strcmp(p + 1, "shared") == 0
                 // backwards compatibility with old switch
                 || strcmp(p + 1, "dylib") == 0
@@ -717,7 +760,21 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
             else if (strcmp(p + 1, "release") == 0)
                 result.release = 1;
             else if (strcmp(p + 1, "noboundscheck") == 0)
-                result.noBoundsChecks = 1;
+                result.boundsChecks = BoundsCheck::off;
+            else if (memcmp(p + 1, "boundscheck", 11) == 0)
+            {
+                if (p[12] == '=')
+                {
+                    if (strcmp(p + 13, "on") == 0)
+                        result.boundsChecks = BoundsCheck::on;
+                    else if (strcmp(p + 13, "safeonly") == 0)
+                        result.boundsChecks = BoundsCheck::safeOnly;
+                    else if (strcmp(p + 13, "off") == 0)
+                        result.boundsChecks = BoundsCheck::off;
+                    else
+                        goto Lerror;
+                }
+            }
             else if (strcmp(p + 1, "unittest") == 0)
                 result.emitUnitTests = 1;
             else if (p[1] == 'I')
@@ -880,16 +937,17 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
 {
     if (p.allowDeprecated) r.push_back("-d");
     if (p.compileOnly) r.push_back("-c");
-    if (p.coverage) warning("Coverage report generation not yet supported by LDC.");
+    if (p.coverage) r.push_back("-cov");
     if (p.emitSharedLib) r.push_back("-shared");
     if (p.pic) r.push_back("-relocation-model=pic");
     if (p.emitMap) warning("Map file generation not yet supported by LDC.");
-    if ((!p.multiObj && !p.compileOnly) || p.objName) r.push_back("-singleobj");
+    if (!p.emitStaticLib && ((!p.multiObj && !p.compileOnly) || p.objName))
+        r.push_back("-singleobj");
     if (p.debugInfo == Debug::normal) r.push_back("-g");
     else if (p.debugInfo == Debug::pretendC) r.push_back("-gc");
     if (p.alwaysStackFrame) r.push_back("-disable-fp-elim");
     if (p.targetModel == Model::m32) r.push_back("-m32");
-    else if (p.targetModel == Model::m32) r.push_back("-m64");
+    else if (p.targetModel == Model::m64) r.push_back("-m64");
     if (p.profile) warning("CPU profile generation not yet supported by LDC.");
     if (p.verbose) r.push_back("-v");
     if (p.logTlsUse) warning("-vtls not yet supported by LDC.");
@@ -919,7 +977,9 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.noFloat) warning("-nofloat is ignored by LDC.");
     // -quiet is the default in (newer?) frontend versions, just ignore it.
     if (p.release) r.push_back("-release"); // Also disables boundscheck.
-    if (p.noBoundsChecks) r.push_back("-disable-boundscheck");
+    if (p.boundsChecks == BoundsCheck::on) r.push_back("-boundscheck=on");
+    if (p.boundsChecks == BoundsCheck::safeOnly) r.push_back("-boundscheck=safeonly");
+    if (p.boundsChecks == BoundsCheck::off) r.push_back("-boundscheck=off");
     if (p.emitUnitTests) r.push_back("-unittest");
     pushSwitches("-I=", p.modulePaths, r);
     pushSwitches("-J=", p.importPaths, r);
@@ -932,6 +992,8 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.defaultLibName) r.push_back(concat("-defaultlib=", p.defaultLibName));
     if (p.debugLibName) r.push_back(concat("-debuglib=", p.debugLibName));
     if (p.moduleDepsFile) r.push_back(concat("-deps=", p.moduleDepsFile));
+    if (p.color == Color::on) r.push_back("-enable-color");
+    if (p.color == Color::off) r.push_back("-disable-color");
     if (p.hiddenDebugB) r.push_back("-hidden-debug-b");
     if (p.hiddenDebugC) r.push_back("-hidden-debug-c");
     if (p.hiddenDebugF) r.push_back("-hidden-debug-f");
@@ -973,7 +1035,10 @@ std::string locateBinary(std::string exeName, const char* argv0)
         argv0, (void*)&locateBinary);
     if (ls::fs::can_execute(path)) return path;
 
-#if LDC_LLVM_VER >= 304
+#if LDC_LLVM_VER >= 306
+    llvm::ErrorOr<std::string> res = ls::findProgramByName(exeName);
+    path = res ? res.get() : std::string();
+#elif LDC_LLVM_VER >= 304
     path = ls::FindProgramByName(exeName);
 #else
     path = ls::Program::FindProgramByName(exeName).str();
@@ -987,8 +1052,12 @@ std::string locateBinary(std::string exeName, const char* argv0)
  * Makes sure the given directory (absolute or relative) exists on disk.
  */
 static void createOutputDir(const char* dir) {
+#if LDC_LLVM_VER >= 305
+    if (ls::fs::create_directories(dir))
+#else
     bool dirExisted; // ignored
     if (ls::fs::create_directories(dir, dirExisted) != llvm::errc::success)
+#endif
         error("Could not create output directory '%s'.", dir);
 }
 
@@ -1003,7 +1072,7 @@ int main(int argc, char *argv[])
     std::string ldcPath = locateBinary(LDC_EXE_NAME, argv[0]);
     if (ldcPath.empty())
     {
-        error("Could not locate "LDC_EXE_NAME" executable.");
+        error("Could not locate " LDC_EXE_NAME " executable.");
     }
 
     // We need to manually set up argv[0] and the terminating NULL.
@@ -1041,8 +1110,7 @@ int main(int argc, char *argv[])
     {
         int rspFd;
         llvm::SmallString<128> rspPath;
-        if (ls::fs::createUniqueFile("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath) !=
-            llvm::errc::success)
+        if (ls::fs::createUniqueFile("ldmd-%%-%%-%%-%%.rsp", rspFd, rspPath))
         {
             error("Could not open temporary response file.");
         }
@@ -1066,9 +1134,13 @@ int main(int argc, char *argv[])
 
         int rc = execute(ldcPath, &newArgs[0]);
 
+#if LDC_LLVM_VER >= 305
+        if (ls::fs::remove(rspPath.str()))
+#else
         bool couldRemove;
         if (ls::fs::remove(rspPath.str(), couldRemove) != llvm::errc::success ||
             !couldRemove)
+#endif
         {
             warning("Could not remove response file.");
         }

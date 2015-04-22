@@ -21,8 +21,16 @@
 #include "llvm/Type.h"
 #endif
 
+#if LDC_LLVM_VER >= 305
+#include "llvm/IR/DebugInfo.h"
+#elif LDC_LLVM_VER >= 302
+#include "llvm/DebugInfo.h"
+#else
+#include "llvm/Analysis/DebugInfo.h"
+#endif
+
 struct IrFuncTyArg;
-struct VarDeclaration;
+class VarDeclaration;
 
 struct IrVar
 {
@@ -33,18 +41,25 @@ struct IrVar
 
     VarDeclaration* V;
     llvm::Value* value;
+
+    // debug description
+    llvm::DIVariable debugVariable;
+    llvm::DISubprogram debugFunc;
 };
 
 // represents a global variable
 struct IrGlobal : IrVar
 {
     IrGlobal(VarDeclaration* v)
-        : IrVar(v), type(0), constInit(0) { }
+        : IrVar(v), type(0), constInit(0), nakedUse(false) { }
     IrGlobal(VarDeclaration* v, llvm::Type *type, llvm::Constant* constInit = 0)
-        : IrVar(v), type(type), constInit(constInit) { }
+        : IrVar(v), type(type), constInit(constInit), nakedUse(false) { }
 
     llvm::Type *type;
     llvm::Constant* constInit;
+
+    // This var is used by a naked function.
+    bool nakedUse;
 };
 
 // represents a local variable variable
@@ -79,16 +94,23 @@ struct IrParameter : IrLocal
 // represents an aggregate field variable
 struct IrField : IrVar
 {
-    IrField(VarDeclaration* v);
-
-    unsigned index;
-    unsigned unionOffset;
-
-    llvm::Constant* getDefaultInit();
-
-protected:
-    /// FIXME: only used for StructLiteralsExps
-    llvm::Constant* constInit;
+    IrField(VarDeclaration* v) : IrVar(v) {};
 };
+
+IrVar *getIrVar(VarDeclaration *decl);
+llvm::Value *getIrValue(VarDeclaration *decl);
+bool isIrVarCreated(VarDeclaration *decl);
+
+IrGlobal *getIrGlobal(VarDeclaration *decl, bool create = false);
+bool isIrGlobalCreated(VarDeclaration *decl);
+
+IrLocal *getIrLocal(VarDeclaration *decl, bool create = false);
+bool isIrLocalCreated(VarDeclaration *decl);
+
+IrParameter *getIrParameter(VarDeclaration *decl, bool create = false);
+bool isIrParameterCreated(VarDeclaration *decl);
+
+IrField *getIrField(VarDeclaration *decl, bool create = false);
+bool isIrFieldCreated(VarDeclaration *decl);
 
 #endif

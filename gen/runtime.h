@@ -21,14 +21,16 @@ namespace llvm
     class Module;
 }
 
+struct Loc;
+
 // D runtime support helpers
 
 bool LLVM_D_InitRuntime();
 void LLVM_D_FreeRuntime();
 
-llvm::Function* LLVM_D_GetRuntimeFunction(llvm::Module* target, const char* name);
+llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, const char* name);
 
-llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(llvm::Module* target, const char* name);
+llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(const Loc &loc, llvm::Module* target, const char* name);
 
 #define _adEq "_adEq2"
 #define _adCmp "_adCmp2"

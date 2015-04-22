@@ -17,31 +17,32 @@
 #include "mars.h"
 
 class DValue;
-struct Expression;
-struct FuncDeclaration;
+class Expression;
+class FuncDeclaration;
 struct IRAsmBlock;
 struct IrFuncTy;
-struct Parameter;
-struct Type;
+class Parameter;
+class Type;
 namespace llvm
 {
     class FunctionType;
     class Value;
 }
 
-llvm::FunctionType* DtoFunctionType(Type* t, IrFuncTy &irFty, Type* thistype, Type* nesttype, bool isMain = false, bool isCtor = false);
+llvm::FunctionType* DtoFunctionType(Type* t, IrFuncTy &irFty, Type* thistype, Type* nesttype,
+                                    bool isMain = false, bool isCtor = false, bool isIntrinsic = false);
 llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl);
-
-llvm::FunctionType* DtoBaseFunctionType(FuncDeclaration* fdecl);
 
 void DtoResolveFunction(FuncDeclaration* fdecl);
 void DtoDeclareFunction(FuncDeclaration* fdecl);
 void DtoDefineFunction(FuncDeclaration* fd);
 
 void DtoDefineNakedFunction(FuncDeclaration* fd);
-void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc loc, FuncDeclaration* fdecl);
+void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc& loc, FuncDeclaration* fdecl);
 
 DValue* DtoArgument(Parameter* fnarg, Expression* argexp);
-void DtoVariadicArgument(Expression* argexp, llvm::Value* dst);
+
+// Search for a druntime array op
+int isDruntimeArrayOp(FuncDeclaration *fd);
 
 #endif

@@ -18,6 +18,7 @@
 
 namespace opts {
 
+#if LDC_LLVM_VER < 307
 bool FlagParser::parse(cl::Option &O, llvm::StringRef ArgName, llvm::StringRef Arg, bool &Val) {
     // Make a std::string out of it to make comparisons easier
     // (and avoid repeated conversion)
@@ -48,7 +49,7 @@ void FlagParser::getExtraOptionNames(llvm::SmallVectorImpl<const char*> &Names) 
         Names.push_back(I->first.data());
     }
 }
-
+#endif
 
 MultiSetter::MultiSetter(bool invert, bool* p, ...) {
     this->invert = invert;
@@ -59,6 +60,7 @@ MultiSetter::MultiSetter(bool invert, bool* p, ...) {
         while ((p = va_arg(va, bool*))) {
             locations.push_back(p);
         }
+        va_end(va);
     }
 }
 
@@ -72,7 +74,7 @@ void MultiSetter::operator=(bool val) {
 
 void StringsAdapter::push_back(const char* cstr) {
     if (!cstr || !*cstr)
-        error("Expected argument to '-%s'", name);
+        error(Loc(), "Expected argument to '-%s'", name);
 
     if (!*arrp)
         *arrp = new Strings;

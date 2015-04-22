@@ -1,12 +1,13 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2013 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// https://github.com/D-Programming-Language/dmd/blob/master/src/mars.c
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/mars.c
+ */
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -16,7 +17,7 @@
 #include <string>
 #include <cstdarg>
 
-#if linux || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
+#if __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
 #include <errno.h>
 #endif
 
@@ -29,25 +30,25 @@
 
 #include "mars.h"
 #include "module.h"
+#include "scope.h"
 #include "mtype.h"
 #include "id.h"
 #include "cond.h"
 #include "expression.h"
-#include "lexer.h"
 #if !IN_LLVM
+#include "parse.h"
 #include "lib.h"
 #include "json.h"
 #endif
-
-#if WINDOWS_SEH
-#include <windows.h>
-long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep);
-#endif
+#include "declaration.h"
+#include "hdrgen.h"
+#include "doc.h"
+#include "color.h"
 
 #if !IN_LLVM
-int response_expand(size_t *pargc, char ***pargv);
+bool response_expand(size_t *pargc, const char ***pargv);
 void browse(const char *url);
-void getenv_setargv(const char *envvar, size_t *pargc, char** *pargv);
+void getenv_setargv(const char *envvar, size_t *pargc, const char** *pargv);
 
 void obj_start(char *srcfile);
 void obj_end(Library *library, File *objfile);
@@ -55,7 +56,29 @@ void obj_end(Library *library, File *objfile);
 
 void printCtfePerformanceStats();
 
-static bool parse_arch(size_t argc, char** argv, bool is64bit);
+static bool parse_arch(size_t argc, const char** argv, bool is64bit);
+
+void inlineScan(Module *m);
+
+// in traits.c
+void initTraitsStringTable();
+
+/** Normalize path by turning forward slashes into backslashes */
+const char * toWinPath(const char *src)
+{
+    if (src == NULL)
+        return NULL;
+
+    char *result = strdup(src);
+    char *p = result;
+    while (*p != '\0')
+    {
+        if (*p == '/')
+            *p = '\\';
+        p++;
+    }
+    return result;
+}
 
 Global global;
 
@@ -91,19 +114,28 @@ void Global::init()
 #else
 #error "fix this"
 #endif
+
+#if TARGET_WINDOS
+    run_noext = false;
+#elif TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
+    // Allow 'script' D source files to have no extension.
+    run_noext = true;
+#else
+#error "fix this"
+#endif
 #endif
 
-    copyright = "Copyright (c) 1999-2013 by Digital Mars";
+    copyright = "Copyright (c) 1999-2014 by Digital Mars";
     written = "written by Walter Bright";
-#if IN_DMD
+#if IN_LLVM
+    compiler.vendor = "LDC";
+#else
     version = "v"
 #include "verstr.h"
     ;
     compiler.vendor = "Digital Mars D";
 #endif
-#if IN_LLVM
-    compiler.vendor = "LDC";
-#endif
+    stdmsg = stdout;
 
     main_d = "__main.d";
 
@@ -132,9 +164,11 @@ bool Global::endGagging(unsigned oldGagged)
     return anyErrs;
 }
 
-bool Global::isSpeculativeGagging()
+void Global::increaseErrorCount()
 {
-    return gag && gag == speculativeGag;
+    if (gag)
+        ++gaggedErrors;
+    ++errors;
 }
 
 
@@ -148,20 +182,26 @@ char *Loc::toChars()
     }
 
     if (linnum)
-        buf.printf("(%d)", linnum);
-    buf.writeByte(0);
-    return (char *)buf.extractData();
+    {
+        buf.printf("(%d", linnum);
+        if (global.params.showColumns && charnum)
+            buf.printf(",%d", charnum);
+        buf.writeByte(')');
+    }
+    return buf.extractString();
 }
 
-Loc::Loc(Module *mod, unsigned linnum)
+Loc::Loc(Module *mod, unsigned linnum, unsigned charnum)
 {
     this->linnum = linnum;
+    this->charnum = charnum;
     this->filename = mod ? mod->srcfile->toChars() : NULL;
 }
 
 bool Loc::equals(const Loc& loc)
 {
-    return linnum == loc.linnum && FileName::equals(filename, loc.filename);
+    return (!global.params.showColumns || charnum == loc.charnum) &&
+        linnum == loc.linnum && FileName::equals(filename, loc.filename);
 }
 
 /**************************************
@@ -170,6 +210,17 @@ bool Loc::equals(const Loc& loc)
 
 void error(Loc loc, const char *format, ...)
 {
+    va_list ap;
+    va_start(ap, format);
+    verror(loc, format, ap);
+    va_end( ap );
+}
+
+void error(const char *filename, unsigned linnum, unsigned charnum, const char *format, ...)
+{   Loc loc;
+    loc.filename = (char *)filename;
+    loc.linnum = linnum;
+    loc.charnum = charnum;
     va_list ap;
     va_start(ap, format);
     verror(loc, format, ap);
@@ -211,24 +262,24 @@ void verrorPrint(Loc loc, const char *header, const char *format, va_list ap,
 {
     char *p = loc.toChars();
 
+    if (global.params.color)
+        setConsoleColorBright();
     if (*p)
         fprintf(stderr, "%s: ", p);
     mem.free(p);
 
+    if (global.params.color)
+        setConsoleColorError();
     fputs(header, stderr);
+    if (global.params.color)
+        resetConsoleColor();
     if (p1)
         fprintf(stderr, "%s ", p1);
     if (p2)
         fprintf(stderr, "%s ", p2);
-#if _MSC_VER
-    // MS doesn't recognize %zu format
     OutBuffer tmp;
     tmp.vprintf(format, ap);
-    fprintf(stderr, "%s", tmp.toChars());
-#else
-    vfprintf(stderr, format, ap);
-#endif
-    fprintf(stderr, "\n");
+    fprintf(stderr, "%s\n", tmp.peekString());
     fflush(stderr);
 }
 
@@ -245,6 +296,8 @@ void verror(Loc loc, const char *format, va_list ap,
     }
     else
     {
+        //fprintf(stderr, "(gag:%d) ", global.gag);
+        //verrorPrint(loc, header, format, ap, p1, p2);
         global.gaggedErrors++;
     }
     global.errors++;
@@ -277,6 +330,39 @@ void vdeprecation(Loc loc, const char *format, va_list ap,
     else if (global.params.useDeprecated == 2 && !global.gag)
         verrorPrint(loc, header, format, ap, p1, p2);
 }
+
+void readFile(Loc loc, File *f)
+{
+    if (f->read())
+    {
+        error(loc, "Error reading file '%s'", f->name->toChars());
+        fatal();
+    }
+}
+
+void writeFile(Loc loc, File *f)
+{
+    if (f->write())
+    {
+        error(loc, "Error writing file '%s'", f->name->toChars());
+        fatal();
+    }
+}
+
+void ensurePathToNameExists(Loc loc, const char *name)
+{
+    const char *pt = FileName::path(name);
+    if (*pt)
+    {
+        if (FileName::ensurePathExists(pt))
+        {
+            error(loc, "cannot create directory %s", pt);
+            fatal();
+        }
+    }
+    FileName::free(pt);
+}
+
 
 /***************************************
  * Call this after printing out fatal error messages to clean up and exit
@@ -326,9 +412,11 @@ Usage:\n\
 \n\
   files.d        D source files\n\
   @cmdfile       read arguments from cmdfile\n\
+  -allinst       generate code for all template instantiations\n\
   -c             do not link\n\
+  -color[=on|off]   force colored console output on or off\n\
   -cov           do code coverage analysis\n\
-  -cov=nnn       require at least %%nnn code coverage\n\
+  -cov=nnn       require at least nnn%% code coverage\n\
   -D             generate documentation\n\
   -Dddocdir      write documentation file to docdir directory\n\
   -Dffilename    write documentation file to filename\n\
@@ -340,9 +428,10 @@ Usage:\n\
   -debug=ident   compile in debug code identified by ident\n\
   -debuglib=name    set symbolic debug library to name\n\
   -defaultlib=name  set default library to name\n\
-  -deps=filename write module dependencies to filename\n%s"
-"  -g             add symbolic debug info\n\
-  -gc            add symbolic debug info, pretend to be C\n\
+  -deps          print module dependencies (imports/file/version/debug/lib)\n\
+  -deps=filename write module dependencies to filename (only imports)\n%s\
+  -g             add symbolic debug info\n\
+  -gc            add symbolic debug info, optimize for non D debuggers\n\
   -gs            always emit stack frame\n\
   -gx            add stack stomp code\n\
   -H             generate 'header' file\n\
@@ -354,15 +443,14 @@ Usage:\n\
   -inline        do function inlining\n\
   -Jpath         where to look for string imports\n\
   -Llinkerflag   pass linkerflag to link\n\
-  -lib           generate library rather than object files\n"
-#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
-"  -m32           generate 32 bit code\n\
-  -m64           generate 64 bit code\n"
-#endif
-"  -main          add default main() (e.g. for unittesting)\n\
+  -lib           generate library rather than object files\n\
+  -m32           generate 32 bit code\n\
+  -m64           generate 64 bit code\n\
+  -main          add default main() (e.g. for unittesting)\n\
   -man           open web browser on manual page\n\
   -map           generate linker .map file\n\
-  -noboundscheck turns off array bounds checking for all functions\n\
+  -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
+  -noboundscheck no array bounds checking (deprecated, use -boundscheck=off)\n\
   -O             optimize\n\
   -o-            do not write object file\n\
   -odobjdir      write object & library files to directory objdir\n\
@@ -370,7 +458,6 @@ Usage:\n\
   -op            preserve source path for output files\n\
   -profile       profile runtime performance of generated code\n\
   -property      enforce property syntax\n\
-  -quiet         suppress unnecessary messages\n\
   -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
   -shared        generate shared library (DLL)\n\
@@ -378,9 +465,11 @@ Usage:\n\
   -transition=?  list all language changes\n\
   -unittest      compile in unit tests\n\
   -v             verbose\n\
+  -vcolumns      print character (column) numbers in diagnostics\n\
   -version=level compile in version code >= level\n\
   -version=ident compile in version code identified by ident\n\
   -vtls          list all variables going into thread local storage\n\
+  -vgc           list all gc allocations including hidden ones\n\
   -w             warnings as errors (compilation will halt)\n\
   -wi            warnings as messages (compilation will continue)\n\
   -X             generate JSON file\n\
@@ -390,30 +479,65 @@ Usage:\n\
 
 extern signed char tyalignsize[];
 
-#if _WIN32 && __DMC__
-extern "C"
+static Module *entrypoint = NULL;
+static Module *rootHasMain = NULL;
+
+/************************************
+ * Generate C main() in response to seeing D main().
+ * This used to be in druntime, but contained a reference to _Dmain
+ * which didn't work when druntime was made into a dll and was linked
+ * to a program, such as a C++ program, that didn't have a _Dmain.
+ */
+
+void genCmain(Scope *sc)
 {
-    extern int _xi_a;
-    extern int _end;
+    if (entrypoint)
+        return;
+
+    /* The D code to be generated is provided as D source code in the form of a string.
+     * Note that Solaris, for unknown reasons, requires both a main() and an _main()
+     */
+    static const utf8_t cmaincode[] = "extern(C) {\n\
+        int _d_run_main(int argc, char **argv, void* mainFunc);\n\
+        int _Dmain(char[][] args);\n\
+        int main(int argc, char **argv) { return _d_run_main(argc, argv, &_Dmain); }\n\
+        version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }\n\
+        }\n\
+        ";
+
+    Identifier *id = Id::entrypoint;
+    Module *m = new Module("__entrypoint.d", id, 0, 0);
+
+    Parser p(m, cmaincode, strlen((const char *)cmaincode), 0);
+    p.scanloc = Loc();
+    p.nextToken();
+    m->members = p.parseModule();
+    assert(p.token.value == TOKeof);
+
+    bool v = global.params.verbose;
+    global.params.verbose = false;
+    m->importedFrom = m;
+    m->importAll(NULL);
+    m->semantic();
+    m->semantic2();
+    m->semantic3();
+    global.params.verbose = v;
+
+    entrypoint = m;
+    rootHasMain = sc->module;
 }
-#endif
 
-int tryMain(size_t argc, char *argv[])
+int tryMain(size_t argc, const char *argv[])
 {
-    mem.init();                         // initialize storage allocator
-    mem.setStackBottom(&argv);
-#if _WIN32 && __DMC__
-    mem.addroots((char *)&_xi_a, (char *)&_end);
-#endif
-
     Strings files;
     Strings libmodules;
-    char *p;
-    Module *m;
     size_t argcstart = argc;
-    int setdebuglib = 0;
-    char noboundscheck = 0;
-        int setdefaultlib = 0;
+    bool setdebuglib = false;
+    bool setboundscheck = false;
+    char boundscheck = 2;
+#if TARGET_WINDOS
+    bool setdefaultlib = false;
+#endif
     const char *inifilename = NULL;
     global.init();
 
@@ -443,21 +567,21 @@ int tryMain(size_t argc, char *argv[])
 
     // Set default values
     global.params.argv0 = argv[0];
-    global.params.link = 1;
-    global.params.useAssert = 1;
-    global.params.useInvariants = 1;
-    global.params.useIn = 1;
-    global.params.useOut = 1;
+    global.params.color = isConsoleColorSupported();
+    global.params.link = true;
+    global.params.useAssert = true;
+    global.params.useInvariants = true;
+    global.params.useIn = true;
+    global.params.useOut = true;
     global.params.useArrayBounds = 2;   // default to all functions
-    global.params.useSwitchError = 1;
-    global.params.useInline = 0;
-    global.params.obj = 1;
-    global.params.Dversion = 2;
-    global.params.quiet = 1;
+    global.params.useSwitchError = true;
+    global.params.useInline = false;
+    global.params.obj = true;
     global.params.useDeprecated = 2;
 
     global.params.linkswitches = new Strings();
     global.params.libfiles = new Strings();
+    global.params.dllfiles = new Strings();
     global.params.objfiles = new Strings();
     global.params.ddocfiles = new Strings();
 
@@ -465,7 +589,7 @@ int tryMain(size_t argc, char *argv[])
     global.params.is64bit = (sizeof(size_t) == 8);
 
 #if TARGET_WINDOS
-    global.params.is64bit = 0;
+    global.params.is64bit = false;
     global.params.defaultlibname = "phobos";
 #elif TARGET_LINUX
     global.params.defaultlibname = "libphobos2.a";
@@ -480,51 +604,48 @@ int tryMain(size_t argc, char *argv[])
 
 #if TARGET_WINDOS
     VersionCondition::addPredefinedGlobalIdent("Windows");
-    global.params.isWindows = 1;
+    global.params.isWindows = true;
 #elif TARGET_LINUX
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("linux");
-    global.params.isLinux = 1;
+    global.params.isLinux = true;
 #elif TARGET_OSX
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("OSX");
-    global.params.isOSX = 1;
+    global.params.isOSX = true;
 
     // For legacy compatibility
     VersionCondition::addPredefinedGlobalIdent("darwin");
 #elif TARGET_FREEBSD
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("FreeBSD");
-    global.params.isFreeBSD = 1;
+    global.params.isFreeBSD = true;
 #elif TARGET_OPENBSD
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("OpenBSD");
-    global.params.isFreeBSD = 1;
+    global.params.isFreeBSD = true;
 #elif TARGET_SOLARIS
     VersionCondition::addPredefinedGlobalIdent("Posix");
     VersionCondition::addPredefinedGlobalIdent("Solaris");
-    global.params.isSolaris = 1;
+    global.params.isSolaris = true;
 #else
 #error "fix this"
 #endif
 
     VersionCondition::addPredefinedGlobalIdent("LittleEndian");
-    //VersionCondition::addPredefinedGlobalIdent("D_Bits");
-#if DMDV2
     VersionCondition::addPredefinedGlobalIdent("D_Version2");
-#endif
     VersionCondition::addPredefinedGlobalIdent("all");
 
 #if _WIN32
     inifilename = inifile(argv[0], "sc.ini", "Environment");
-#elif linux || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
+#elif __linux__ || __APPLE__ || __FreeBSD__ || __OpenBSD__ || __sun
     inifilename = inifile(argv[0], "dmd.conf", "Environment");
 #else
 #error "fix this"
 #endif
 
     size_t dflags_argc = 0;
-    char** dflags_argv = NULL;
+    const char** dflags_argv = NULL;
     getenv_setargv("DFLAGS", &dflags_argc, &dflags_argv);
 
     bool is64bit = global.params.is64bit; // use default
@@ -532,7 +653,8 @@ int tryMain(size_t argc, char *argv[])
     is64bit = parse_arch(dflags_argc, dflags_argv, is64bit);
     global.params.is64bit = is64bit;
 
-    inifile(argv[0], inifilename, is64bit ? "Environment64" : "Environment32");
+    const char *envsec = is64bit ? "Environment64" : "Environment32";
+    inifile(argv[0], inifilename, envsec);
 
     getenv_setargv("DFLAGS", &argc, &argv);
 
@@ -545,17 +667,35 @@ int tryMain(size_t argc, char *argv[])
 
     for (size_t i = 1; i < argc; i++)
     {
-        p = argv[i];
+        const char *p = argv[i];
         if (*p == '-')
         {
-            if (strcmp(p + 1, "de") == 0)
+            if (strcmp(p + 1, "allinst") == 0)
+                global.params.allInst = true;
+            else if (strcmp(p + 1, "de") == 0)
                 global.params.useDeprecated = 0;
             else if (strcmp(p + 1, "d") == 0)
                 global.params.useDeprecated = 1;
             else if (strcmp(p + 1, "dw") == 0)
                 global.params.useDeprecated = 2;
             else if (strcmp(p + 1, "c") == 0)
-                global.params.link = 0;
+                global.params.link = false;
+            else if (memcmp(p + 1, "color", 5) == 0)
+            {
+                global.params.color = true;
+                // Parse:
+                //      -color
+                //      -color=on|off
+                if (p[6] == '=')
+                {
+                    if (strcmp(p + 7, "off") == 0)
+                        global.params.color = false;
+                    else if (strcmp(p + 7, "on") != 0)
+                        goto Lerror;
+                }
+                else if (p[6])
+                    goto Lerror;
+            }
             else if (memcmp(p + 1, "cov", 3) == 0)
             {
                 global.params.cov = true;
@@ -564,14 +704,14 @@ int tryMain(size_t argc, char *argv[])
                 //      -cov=nnn
                 if (p[4] == '=')
                 {
-                    if (isdigit((unsigned char)p[5]))
+                    if (isdigit((utf8_t)p[5]))
                     {   long percent;
 
                         errno = 0;
-                        percent = strtol(p + 5, &p, 10);
+                        percent = strtol(p + 5, (char **)&p, 10);
                         if (*p || errno || percent > 100)
                             goto Lerror;
-                        global.params.covPercent = percent;
+                        global.params.covPercent = (unsigned char)percent;
                     }
                     else
                         goto Lerror;
@@ -579,44 +719,55 @@ int tryMain(size_t argc, char *argv[])
                 else if (p[4])
                     goto Lerror;
             }
-            else if (strcmp(p + 1, "shared") == 0
+            else if (strcmp(p + 1, "shared") == 0)
+                global.params.dll = true;
+            else if (strcmp(p + 1, "dylib") == 0)
+            {
 #if TARGET_OSX
-                // backwards compatibility with old switch
-                || strcmp(p + 1, "dylib") == 0
+                warning(Loc(), "use -shared instead of -dylib");
+                global.params.dll = true;
+#else
+                goto Lerror;
 #endif
-                )
-                global.params.dll = 1;
-#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
+            }
             else if (strcmp(p + 1, "fPIC") == 0)
+            {
+#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
                 global.params.pic = 1;
+#else
+                goto Lerror;
 #endif
+            }
             else if (strcmp(p + 1, "map") == 0)
-                global.params.map = 1;
+                global.params.map = true;
             else if (strcmp(p + 1, "multiobj") == 0)
-                global.params.multiobj = 1;
+                global.params.multiobj = true;
             else if (strcmp(p + 1, "g") == 0)
                 global.params.symdebug = 1;
             else if (strcmp(p + 1, "gc") == 0)
                 global.params.symdebug = 2;
             else if (strcmp(p + 1, "gs") == 0)
-                global.params.alwaysframe = 1;
+                global.params.alwaysframe = true;
             else if (strcmp(p + 1, "gx") == 0)
                 global.params.stackstomp = true;
             else if (strcmp(p + 1, "gt") == 0)
             {   error(Loc(), "use -profile instead of -gt");
-                global.params.trace = 1;
+                global.params.trace = true;
             }
             else if (strcmp(p + 1, "m32") == 0)
-                global.params.is64bit = 0;
+                global.params.is64bit = false;
             else if (strcmp(p + 1, "m64") == 0)
-                global.params.is64bit = 1;
+                global.params.is64bit = true;
             else if (strcmp(p + 1, "profile") == 0)
-                global.params.trace = 1;
+                global.params.trace = true;
             else if (strcmp(p + 1, "v") == 0)
-                global.params.verbose = 1;
-#if DMDV2
+                global.params.verbose = true;
             else if (strcmp(p + 1, "vtls") == 0)
-                global.params.vtls = 1;
+                global.params.vtls = true;
+            else if (strcmp(p + 1, "vcolumns") == 0)
+                global.params.showColumns = true;
+            else if (strcmp(p + 1, "vgc") == 0)
+                global.params.vgc = true;
             else if (memcmp(p + 1, "transition", 10) == 0)
             {
                 // Parse:
@@ -625,31 +776,24 @@ int tryMain(size_t argc, char *argv[])
                 {
                     if (strcmp(p + 12, "?") == 0)
                     {
-#if PULL93
-                        printf("\
-Language changes listed by -transition=id:\n\
-  =field,3449    do list all non-mutable fields occupies object instance\n\
-  =tls           do list all variables going into thread local storage\n\
-");
-#else
                         printf("\
 Language changes listed by -transition=id:\n\
   =tls           do list all variables going into thread local storage\n\
 ");
-#endif
                         return EXIT_FAILURE;
                     }
-                    if (isdigit((unsigned char)p[12]))
+                    if (isdigit((utf8_t)p[12]))
                     {   long num;
 
                         errno = 0;
-                        num = strtol(p + 12, &p, 10);
+                        num = strtol(p + 12, (char **)&p, 10);
                         if (*p || errno || num > INT_MAX)
                             goto Lerror;
-                        switch (num)    // Bugzilla issue number
+                        // Bugzilla issue number
+                        switch (num)
                         {
                             case 3449:
-                                global.params.vfield = 1;
+                                global.params.vfield = true;
                                 break;
                             default:
                                 goto Lerror;
@@ -659,10 +803,6 @@ Language changes listed by -transition=id:\n\
                     {
                         if (strcmp(p + 12, "tls") == 0)
                             global.params.vtls = 1;
-#if PULL93
-                        else if (strcmp(p + 12, "field") == 0)
-                            global.params.vfield = 1;
-#endif
                     }
                     else
                         goto Lerror;
@@ -670,46 +810,45 @@ Language changes listed by -transition=id:\n\
                 else
                     goto Lerror;
             }
-#endif
-            else if (strcmp(p + 1, "v1") == 0)
-            {
-#if DMDV1
-                global.params.Dversion = 1;
-#else
-                error(Loc(), "use DMD 1.0 series compilers for -v1 switch");
-                break;
-#endif
-            }
             else if (strcmp(p + 1, "w") == 0)
                 global.params.warnings = 1;
             else if (strcmp(p + 1, "wi") == 0)
                 global.params.warnings = 2;
             else if (strcmp(p + 1, "O") == 0)
-                global.params.optimize = 1;
+                global.params.optimize = true;
             else if (p[1] == 'o')
             {
+                const char *path;
                 switch (p[2])
                 {
                     case '-':
-                        global.params.obj = 0;
+                        global.params.obj = false;
                         break;
 
                     case 'd':
                         if (!p[3])
                             goto Lnoarg;
-                        global.params.objdir = p + 3;
+                        path = p + 3;
+#if _WIN32
+                        path = toWinPath(path);
+#endif
+                        global.params.objdir = path;
                         break;
 
                     case 'f':
                         if (!p[3])
                             goto Lnoarg;
-                        global.params.objname = p + 3;
+                        path = p + 3;
+#if _WIN32
+                        path = toWinPath(path);
+#endif
+                        global.params.objname = path;
                         break;
 
                     case 'p':
                         if (p[3])
                             goto Lerror;
-                        global.params.preservePaths = 1;
+                        global.params.preservePaths = true;
                         break;
 
                     case 0:
@@ -721,7 +860,8 @@ Language changes listed by -transition=id:\n\
                 }
             }
             else if (p[1] == 'D')
-            {   global.params.doDocComments = 1;
+            {
+                global.params.doDocComments = true;
                 switch (p[2])
                 {
                     case 'd':
@@ -743,7 +883,8 @@ Language changes listed by -transition=id:\n\
                 }
             }
             else if (p[1] == 'H')
-            {   global.params.doHdrGeneration = 1;
+            {
+                global.params.doHdrGeneration = true;
                 switch (p[2])
                 {
                     case 'd':
@@ -766,13 +907,14 @@ Language changes listed by -transition=id:\n\
                 }
             }
             else if (p[1] == 'X')
-            {   global.params.doXGeneration = 1;
+            {
+                global.params.doJsonGeneration = true;
                 switch (p[2])
                 {
                     case 'f':
                         if (!p[3])
                             goto Lnoarg;
-                        global.params.xfilename = p + 3;
+                        global.params.jsonfilename = p + 3;
                         break;
 
                     case 0:
@@ -783,27 +925,57 @@ Language changes listed by -transition=id:\n\
                 }
             }
             else if (strcmp(p + 1, "ignore") == 0)
-                global.params.ignoreUnsupportedPragmas = 1;
+                global.params.ignoreUnsupportedPragmas = true;
             else if (strcmp(p + 1, "property") == 0)
-                global.params.enforcePropertySyntax = 1;
+                global.params.enforcePropertySyntax = true;
             else if (strcmp(p + 1, "inline") == 0)
-                global.params.useInline = 1;
+                global.params.useInline = true;
             else if (strcmp(p + 1, "lib") == 0)
-                global.params.lib = 1;
+                global.params.lib = true;
             else if (strcmp(p + 1, "nofloat") == 0)
-                global.params.nofloat = 1;
+                global.params.nofloat = true;
             else if (strcmp(p + 1, "quiet") == 0)
-                global.params.quiet = 1;
+            {
+                // Ignore
+            }
             else if (strcmp(p + 1, "release") == 0)
-                global.params.release = 1;
+                global.params.release = true;
             else if (strcmp(p + 1, "betterC") == 0)
-                global.params.betterC = 1;
-#if DMDV2
+                global.params.betterC = true;
             else if (strcmp(p + 1, "noboundscheck") == 0)
-                noboundscheck = 1;
-#endif
+            {
+                setboundscheck = true;
+                boundscheck = 0;
+            }
+            else if (memcmp(p + 1, "boundscheck", 11) == 0)
+            {
+                // Parse:
+                //      -boundscheck=[on|safeonly|off]
+                if (p[12] == '=')
+                {
+                    if (strcmp(p + 13, "on") == 0)
+                    {
+                        setboundscheck = true;
+                        boundscheck = 2;
+                    }
+                    else if (strcmp(p + 13, "safeonly") == 0)
+                    {
+                        setboundscheck = true;
+                        boundscheck = 1;
+                    }
+                    else if (strcmp(p + 13, "off") == 0)
+                    {
+                        setboundscheck = true;
+                        boundscheck = 0;
+                    }
+                    else
+                        goto Lerror;
+                }
+                else
+                    goto Lerror;
+            }
             else if (strcmp(p + 1, "unittest") == 0)
-                global.params.useUnitTests = 1;
+                global.params.useUnitTests = true;
             else if (p[1] == 'I')
             {
                 if (!global.params.imppath)
@@ -824,11 +996,11 @@ Language changes listed by -transition=id:\n\
                 //      -debug=identifier
                 if (p[6] == '=')
                 {
-                    if (isdigit((unsigned char)p[7]))
+                    if (isdigit((utf8_t)p[7]))
                     {   long level;
 
                         errno = 0;
-                        level = strtol(p + 7, &p, 10);
+                        level = strtol(p + 7, (char **)&p, 10);
                         if (*p || errno || level > INT_MAX)
                             goto Lerror;
                         DebugCondition::setGlobalLevel((int)level);
@@ -850,11 +1022,11 @@ Language changes listed by -transition=id:\n\
                 //      -version=identifier
                 if (p[8] == '=')
                 {
-                    if (isdigit((unsigned char)p[9]))
+                    if (isdigit((utf8_t)p[9]))
                     {   long level;
 
                         errno = 0;
-                        level = strtol(p + 9, &p, 10);
+                        level = strtol(p + 9, (char **)&p, 10);
                         if (*p || errno || level > INT_MAX)
                             goto Lerror;
                         VersionCondition::setGlobalLevel((int)level);
@@ -868,40 +1040,55 @@ Language changes listed by -transition=id:\n\
                     goto Lerror;
             }
             else if (strcmp(p + 1, "-b") == 0)
-                global.params.debugb = 1;
+                global.params.debugb = true;
             else if (strcmp(p + 1, "-c") == 0)
-                global.params.debugc = 1;
+                global.params.debugc = true;
             else if (strcmp(p + 1, "-f") == 0)
-                global.params.debugf = 1;
+                global.params.debugf = true;
             else if (strcmp(p + 1, "-help") == 0)
             {   usage();
                 exit(EXIT_SUCCESS);
             }
             else if (strcmp(p + 1, "-r") == 0)
-                global.params.debugr = 1;
+                global.params.debugr = true;
             else if (strcmp(p + 1, "-x") == 0)
-                global.params.debugx = 1;
+                global.params.debugx = true;
             else if (strcmp(p + 1, "-y") == 0)
-                global.params.debugy = 1;
+                global.params.debugy = true;
             else if (p[1] == 'L')
             {
                 global.params.linkswitches->push(p + 2);
             }
             else if (memcmp(p + 1, "defaultlib=", 11) == 0)
             {
-                setdefaultlib = 1;
+#if TARGET_WINDOS
+                setdefaultlib = true;
+#endif
                 global.params.defaultlibname = p + 1 + 11;
             }
             else if (memcmp(p + 1, "debuglib=", 9) == 0)
             {
-                setdebuglib = 1;
+                setdebuglib = true;
                 global.params.debuglibname = p + 1 + 9;
             }
-            else if (memcmp(p + 1, "deps=", 5) == 0)
+            else if (memcmp(p + 1, "deps", 4) == 0)
             {
-                global.params.moduleDepsFile = p + 1 + 5;
-                if (!global.params.moduleDepsFile[0])
-                    goto Lnoarg;
+                if(global.params.moduleDeps)
+                {
+                    error(Loc(), "-deps[=file] can only be provided once!");
+                    break;
+                }
+                if (p[5] == '=')
+                {
+                    global.params.moduleDepsFile = p + 1 + 5;
+                    if (!global.params.moduleDepsFile[0])
+                        goto Lnoarg;
+                }
+                else if (p[5]!='\0')
+                {
+                    // Else output to stdout.
+                    goto Lerror;
+                }
                 global.params.moduleDeps = new OutBuffer;
             }
             else if (strcmp(p + 1, "main") == 0)
@@ -911,44 +1098,25 @@ Language changes listed by -transition=id:\n\
             else if (memcmp(p + 1, "man", 3) == 0)
             {
 #if _WIN32
-#if DMDV1
-                browse("http://www.digitalmars.com/d/1.0/dmd-windows.html");
-#else
                 browse("http://dlang.org/dmd-windows.html");
 #endif
-#endif
-#if linux
-#if DMDV1
-                browse("http://www.digitalmars.com/d/1.0/dmd-linux.html");
-#else
+#if __linux__
                 browse("http://dlang.org/dmd-linux.html");
 #endif
-#endif
 #if __APPLE__
-#if DMDV1
-                browse("http://www.digitalmars.com/d/1.0/dmd-osx.html");
-#else
                 browse("http://dlang.org/dmd-osx.html");
 #endif
-#endif
 #if __FreeBSD__
-#if DMDV1
-                browse("http://www.digitalmars.com/d/1.0/dmd-freebsd.html");
-#else
                 browse("http://dlang.org/dmd-freebsd.html");
 #endif
-#endif
 #if __OpenBSD__
-#if DMDV1
-                browse("http://www.digitalmars.com/d/1.0/dmd-openbsd.html");
-#else
                 browse("http://dlang.org/dmd-openbsd.html");
-#endif
 #endif
                 exit(EXIT_SUCCESS);
             }
             else if (strcmp(p + 1, "run") == 0)
-            {   global.params.run = 1;
+            {
+                global.params.run = true;
                 global.params.runargs_length = ((i >= argcstart) ? argc : argcstart) - i - 1;
                 if (global.params.runargs_length)
                 {
@@ -966,7 +1134,8 @@ Language changes listed by -transition=id:\n\
                     global.params.runargs_length--;
                 }
                 else
-                {   global.params.run = 0;
+                {
+                    global.params.run = false;
                     goto Lnoarg;
                 }
             }
@@ -997,7 +1166,10 @@ Language changes listed by -transition=id:\n\
 
     if(global.params.is64bit != is64bit)
         error(Loc(), "the architecture must not be changed in the %s section of %s",
-              is64bit ? "Environment64" : "Environment32", inifilename);
+              envsec, inifilename);
+
+    // Target uses 64bit pointers.
+    global.params.isLP64 = global.params.is64bit;
 
     if (global.errors)
     {
@@ -1021,29 +1193,27 @@ Language changes listed by -transition=id:\n\
 #endif
 
     if (global.params.release)
-    {   global.params.useInvariants = 0;
-        global.params.useIn = 0;
-        global.params.useOut = 0;
-        global.params.useAssert = 0;
+    {
+        global.params.useInvariants = false;
+        global.params.useIn = false;
+        global.params.useOut = false;
+        global.params.useAssert = false;
         global.params.useArrayBounds = 1;
-        global.params.useSwitchError = 0;
+        global.params.useSwitchError = false;
     }
-    if (noboundscheck)
-        global.params.useArrayBounds = 0;
-
-    if (global.params.run)
-        global.params.quiet = 1;
+    if (setboundscheck)
+        global.params.useArrayBounds = boundscheck;
 
     if (global.params.useUnitTests)
-        global.params.useAssert = 1;
+        global.params.useAssert = true;
 
     if (!global.params.obj || global.params.lib)
-        global.params.link = 0;
+        global.params.link = false;
 
     if (global.params.link)
     {
         global.params.exefile = global.params.objname;
-        global.params.oneobj = 1;
+        global.params.oneobj = true;
         if (global.params.objname)
         {
             /* Use this to name the one object file with the same
@@ -1060,33 +1230,25 @@ Language changes listed by -transition=id:\n\
             }
         }
     }
+    else if (global.params.run)
+    {
+        error(Loc(), "flags conflict with -run");
+        fatal();
+    }
     else if (global.params.lib)
     {
         global.params.libname = global.params.objname;
         global.params.objname = NULL;
 
         // Haven't investigated handling these options with multiobj
-        if (!global.params.cov && !global.params.trace
-#if 0 && TARGET_WINDOS
-            /* multiobj causes class/struct debug info to be attached to init-data,
-             * but this will not be linked into the executable, so this info is lost.
-             * Bugzilla 4014
-             */
-            && !global.params.symdebug
-#endif
-           )
-            global.params.multiobj = 1;
-    }
-    else if (global.params.run)
-    {
-        error(Loc(), "flags conflict with -run");
-        fatal();
+        if (!global.params.cov && !global.params.trace)
+            global.params.multiobj = true;
     }
     else
     {
         if (global.params.objname && files.dim > 1)
         {
-            global.params.oneobj = 1;
+            global.params.oneobj = true;
             //error("multiple source files, but only one .obj name");
             //fatal();
         }
@@ -1095,7 +1257,6 @@ Language changes listed by -transition=id:\n\
     {
         VersionCondition::addPredefinedGlobalIdent("D_InlineAsm_X86_64");
         VersionCondition::addPredefinedGlobalIdent("X86_64");
-        VersionCondition::addPredefinedGlobalIdent("D_LP64");
         VersionCondition::addPredefinedGlobalIdent("D_SIMD");
 #if TARGET_WINDOS
         VersionCondition::addPredefinedGlobalIdent("Win64");
@@ -1118,20 +1279,20 @@ Language changes listed by -transition=id:\n\
         VersionCondition::addPredefinedGlobalIdent("Win32");
 #endif
     }
+    if (global.params.isLP64)
+        VersionCondition::addPredefinedGlobalIdent("D_LP64");
     if (global.params.doDocComments)
         VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
     if (global.params.cov)
         VersionCondition::addPredefinedGlobalIdent("D_Coverage");
     if (global.params.pic)
         VersionCondition::addPredefinedGlobalIdent("D_PIC");
-#if DMDV2
     if (global.params.useUnitTests)
         VersionCondition::addPredefinedGlobalIdent("unittest");
     if (global.params.useAssert)
         VersionCondition::addPredefinedGlobalIdent("assert");
-    if (noboundscheck)
+    if (boundscheck == 0)
         VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
-#endif
 
     VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
 
@@ -1142,11 +1303,13 @@ Language changes listed by -transition=id:\n\
     Target::init();
     Expression::init();
     initPrecedence();
+    builtin_init();
+    initTraitsStringTable();
 
     if (global.params.verbose)
-    {   printf("binary    %s\n", argv[0]);
-        printf("version   %s\n", global.version);
-        printf("config    %s\n", inifilename ? inifilename : "(none)");
+    {   fprintf(global.stdmsg, "binary    %s\n", argv[0]);
+        fprintf(global.stdmsg, "version   %s\n", global.version);
+        fprintf(global.stdmsg, "config    %s\n", inifilename ? inifilename : "(none)");
     }
 
     //printf("%d source files\n",files.dim);
@@ -1156,7 +1319,7 @@ Language changes listed by -transition=id:\n\
     {
         for (size_t i = 0; i < global.params.imppath->dim; i++)
         {
-            char *path = (*global.params.imppath)[i];
+            const char *path = (*global.params.imppath)[i];
             Strings *a = FileName::splitPath(path);
 
             if (a)
@@ -1173,7 +1336,7 @@ Language changes listed by -transition=id:\n\
     {
         for (size_t i = 0; i < global.params.fileImppath->dim; i++)
         {
-            char *path = (*global.params.fileImppath)[i];
+            const char *path = (*global.params.fileImppath)[i];
             Strings *a = FileName::splitPath(path);
 
             if (a)
@@ -1196,22 +1359,17 @@ Language changes listed by -transition=id:\n\
     bool firstmodule = true;
     for (size_t i = 0; i < files.dim; i++)
     {
-        const char *ext;
-        char *name;
-
-        p = files[i];
+        const char *name;
 
 #if _WIN32
-        // Convert / to \ so linker will work
-        for (size_t j = 0; p[j]; j++)
-        {
-            if (p[j] == '/')
-                p[j] = '\\';
-        }
+        files[i] = toWinPath(files[i]);
 #endif
 
-        p = (char *)FileName::name(p);          // strip path
-        ext = FileName::ext(p);
+        const char *p = files[i];
+
+        p = FileName::name(p);          // strip path
+        const char *ext = FileName::ext(p);
+        char *newname;
         if (ext)
         {   /* Deduce what to do with a file based on its extension
              */
@@ -1229,6 +1387,15 @@ Language changes listed by -transition=id:\n\
                 continue;
             }
 
+#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
+            if (FileName::equals(ext, global.dll_ext))
+            {
+                global.params.dllfiles->push(files[i]);
+                libmodules.push(files[i]);
+                continue;
+            }
+#endif
+
             if (strcmp(ext, global.ddoc_ext) == 0)
             {
                 global.params.ddocfiles->push(files[i]);
@@ -1237,8 +1404,8 @@ Language changes listed by -transition=id:\n\
 
             if (FileName::equals(ext, global.json_ext))
             {
-                global.params.doXGeneration = 1;
-                global.params.xfilename = files[i];
+                global.params.doJsonGeneration = true;
+                global.params.jsonfilename = files[i];
                 continue;
             }
 
@@ -1276,9 +1443,10 @@ Language changes listed by -transition=id:\n\
             {
                 ext--;                  // skip onto '.'
                 assert(*ext == '.');
-                name = (char *)mem.malloc((ext - p) + 1);
-                memcpy(name, p, ext - p);
-                name[ext - p] = 0;              // strip extension
+                newname = (char *)mem.malloc((ext - p) + 1);
+                memcpy(newname, p, ext - p);
+                newname[ext - p] = 0;              // strip extension
+                name = newname;
 
                 if (name[0] == 0 ||
                     strcmp(name, "..") == 0 ||
@@ -1305,11 +1473,11 @@ Language changes listed by -transition=id:\n\
          */
 
         Identifier *id = Lexer::idPool(name);
-        m = new Module(files[i], id, global.params.doDocComments, global.params.doHdrGeneration);
+        Module *m = new Module(files[i], id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
 
         if (firstmodule)
-        {   global.params.objfiles->push((char *)m->objfile->name->str);
+        {   global.params.objfiles->push(m->objfile->name->str);
             firstmodule = false;
         }
     }
@@ -1340,7 +1508,7 @@ Language changes listed by -transition=id:\n\
     AsyncRead *aw = AsyncRead::create(modules.dim);
     for (size_t i = 0; i < modules.dim; i++)
     {
-        m = modules[i];
+        Module *m = modules[i];
         aw->addFile(m->srcfile);
     }
     aw->start();
@@ -1348,8 +1516,8 @@ Language changes listed by -transition=id:\n\
     // Single threaded
     for (size_t i = 0; i < modules.dim; i++)
     {
-        m = modules[i];
-        m->read(0);
+        Module *m = modules[i];
+        m->read(Loc());
     }
 #endif
 
@@ -1358,12 +1526,12 @@ Language changes listed by -transition=id:\n\
     size_t filecount = modules.dim;
     for (size_t filei = 0, modi = 0; filei < filecount; filei++, modi++)
     {
-        m = modules[modi];
+        Module *m = modules[modi];
         if (global.params.verbose)
-            printf("parse     %s\n", m->toChars());
+            fprintf(global.stdmsg, "parse     %s\n", m->toChars());
         if (!Module::rootModule)
             Module::rootModule = m;
-        m->importedFrom = m;
+        m->importedFrom = m;    // m->isRoot() == true
         if (!global.params.oneobj || modi == 0 || m->isDocFile)
             m->deleteObjFile();
 #if ASYNCREAD
@@ -1377,7 +1545,7 @@ Language changes listed by -transition=id:\n\
         if (m->isDocFile)
         {
             anydocfiles = true;
-            m->gendocfile();
+            gendocfile(m);
 
             // Remove m from list of modules
             modules.remove(modi);
@@ -1394,7 +1562,7 @@ Language changes listed by -transition=id:\n\
             }
 
             if (global.params.objfiles->dim == 0)
-                global.params.link = 0;
+                global.params.link = false;
         }
     }
 #if ASYNCREAD
@@ -1418,10 +1586,10 @@ Language changes listed by -transition=id:\n\
          */
         for (size_t i = 0; i < modules.dim; i++)
         {
-            m = modules[i];
+            Module *m = modules[i];
             if (global.params.verbose)
-                printf("import    %s\n", m->toChars());
-            m->genhdrfile();
+                fprintf(global.stdmsg, "import    %s\n", m->toChars());
+            genhdrfile(m);
         }
     }
     if (global.errors)
@@ -1430,9 +1598,9 @@ Language changes listed by -transition=id:\n\
     // load all unconditional imports for better symbol resolving
     for (size_t i = 0; i < modules.dim; i++)
     {
-       m = modules[i];
+       Module *m = modules[i];
        if (global.params.verbose)
-           printf("importall %s\n", m->toChars());
+           fprintf(global.stdmsg, "importall %s\n", m->toChars());
        m->importAll(NULL);
     }
     if (global.errors)
@@ -1443,9 +1611,9 @@ Language changes listed by -transition=id:\n\
     // Do semantic analysis
     for (size_t i = 0; i < modules.dim; i++)
     {
-        m = modules[i];
+        Module *m = modules[i];
         if (global.params.verbose)
-            printf("semantic  %s\n", m->toChars());
+            fprintf(global.stdmsg, "semantic  %s\n", m->toChars());
         m->semantic();
     }
     if (global.errors)
@@ -1453,13 +1621,22 @@ Language changes listed by -transition=id:\n\
 
     Module::dprogress = 1;
     Module::runDeferredSemantic();
+    if (Module::deferred.dim)
+    {
+        for (size_t i = 0; i < Module::deferred.dim; i++)
+        {
+            Dsymbol *sd = Module::deferred[i];
+            sd->error("unable to resolve forward reference in definition");
+        }
+        fatal();
+    }
 
     // Do pass 2 semantic analysis
     for (size_t i = 0; i < modules.dim; i++)
     {
-        m = modules[i];
+        Module *m = modules[i];
         if (global.params.verbose)
-            printf("semantic2 %s\n", m->toChars());
+            fprintf(global.stdmsg, "semantic2 %s\n", m->toChars());
         m->semantic2();
     }
     if (global.errors)
@@ -1468,46 +1645,44 @@ Language changes listed by -transition=id:\n\
     // Do pass 3 semantic analysis
     for (size_t i = 0; i < modules.dim; i++)
     {
-        m = modules[i];
+        Module *m = modules[i];
         if (global.params.verbose)
-            printf("semantic3 %s\n", m->toChars());
+            fprintf(global.stdmsg, "semantic3 %s\n", m->toChars());
         m->semantic3();
     }
     if (global.errors)
         fatal();
-
     if (global.params.useInline)
     {
-        /* The problem with useArrayBounds and useAssert is that the
-         * module being linked to may not have generated them, so if
-         * we inline functions from those modules, the symbols for them will
-         * not be found at link time.
+        /* Do pass 3 semantic analysis on all imported modules,
+         * since otherwise functions in them cannot be inlined
          * We must do this BEFORE generating the .deps file!
          */
-        if (!global.params.useArrayBounds && !global.params.useAssert)
+        for (size_t i = 0; i < Module::amodules.dim; i++)
         {
-            // Do pass 3 semantic analysis on all imported modules,
-            // since otherwise functions in them cannot be inlined
-            for (size_t i = 0; i < Module::amodules.dim; i++)
-            {
-                m = Module::amodules[i];
-                if (global.params.verbose)
-                    printf("semantic3 %s\n", m->toChars());
-                m->semantic3();
-            }
-            if (global.errors)
-                fatal();
+            Module *m = Module::amodules[i];
+            if (global.params.verbose)
+                fprintf(global.stdmsg, "semantic3 %s\n", m->toChars());
+            m->semantic3();
         }
+        if (global.errors)
+            fatal();
     }
+    Module::runDeferredSemantic3();
+    if (global.errors)
+        fatal();
 
-    if (global.params.moduleDeps != NULL)
+    if (global.params.moduleDeps)
     {
-        assert(global.params.moduleDepsFile != NULL);
-
-        File deps(global.params.moduleDepsFile);
         OutBuffer* ob = global.params.moduleDeps;
-        deps.setbuffer((void*)ob->data, ob->offset);
-        deps.writev();
+        if (global.params.moduleDepsFile)
+        {
+            File deps(global.params.moduleDepsFile);
+            deps.setbuffer((void*)ob->data, ob->offset);
+            writeFile(Loc(), &deps);
+        }
+        else
+            printf("%.*s", (int)ob->offset, ob->data);
     }
 
     // Scan for functions to inline
@@ -1515,10 +1690,10 @@ Language changes listed by -transition=id:\n\
     {
         for (size_t i = 0; i < modules.dim; i++)
         {
-            m = modules[i];
+            Module *m = modules[i];
             if (global.params.verbose)
-                printf("inline scan %s\n", m->toChars());
-            m->inlineScan();
+                fprintf(global.stdmsg, "inline scan %s\n", m->toChars());
+            inlineScan(m);
         }
     }
 
@@ -1537,24 +1712,24 @@ Language changes listed by -transition=id:\n\
         // Add input object and input library files to output library
         for (size_t i = 0; i < libmodules.dim; i++)
         {
-            char *p = libmodules[i];
+            const char *p = libmodules[i];
             library->addObject(p, NULL, 0);
         }
     }
 
     // Generate output files
 
-    if (global.params.doXGeneration)
+    if (global.params.doJsonGeneration)
     {
         OutBuffer buf;
         json_generate(&buf, &modules);
 
         // Write buf to file
-        const char *name = global.params.xfilename;
+        const char *name = global.params.jsonfilename;
 
         if (name && name[0] == '-' && name[1] == 0)
         {   // Write to stdout; assume it succeeds
-            int n = fwrite(buf.data, 1, buf.offset, stdout);
+            size_t n = fwrite(buf.data, 1, buf.offset, stdout);
             assert(n == buf.offset);        // keep gcc happy about return values
         }
         else
@@ -1580,28 +1755,46 @@ Language changes listed by -transition=id:\n\
                 jsonfilename = FileName::forceExt(n, global.json_ext);
             }
 
-            FileName::ensurePathToNameExists(jsonfilename);
+            ensurePathToNameExists(Loc(), jsonfilename);
 
             File *jsonfile = new File(jsonfilename);
 
             jsonfile->setbuffer(buf.data, buf.offset);
             jsonfile->ref = 1;
-            jsonfile->writev();
+            writeFile(Loc(), jsonfile);
         }
     }
 
-    if (global.params.oneobj)
+    if (!global.errors && global.params.doDocComments)
     {
         for (size_t i = 0; i < modules.dim; i++)
         {
-            m = modules[i];
+            Module *m = modules[i];
+            gendocfile(m);
+        }
+    }
+
+    if (!global.params.obj)
+    {
+    }
+    else if (global.params.oneobj)
+    {
+        if (modules.dim)
+            obj_start(modules[0]->srcfile->toChars());
+        for (size_t i = 0; i < modules.dim; i++)
+        {
+            Module *m = modules[i];
             if (global.params.verbose)
-                printf("code      %s\n", m->toChars());
-            if (i == 0)
-                obj_start(m->srcfile->toChars());
+                fprintf(global.stdmsg, "code      %s\n", m->toChars());
             m->genobjfile(0);
-            if (!global.errors && global.params.doDocComments)
-                m->gendocfile();
+            if (entrypoint && m == rootHasMain)
+                entrypoint->genobjfile(0);
+        }
+        for (size_t i = 0; i < Module::amodules.dim; i++)
+        {
+            Module *m = Module::amodules[i];
+            if (!m->isRoot() && (m->marray || m->massert || m->munittest))
+                m->genhelpers(true);
         }
         if (!global.errors && modules.dim)
         {
@@ -1612,25 +1805,25 @@ Language changes listed by -transition=id:\n\
     {
         for (size_t i = 0; i < modules.dim; i++)
         {
-            m = modules[i];
+            Module *m = modules[i];
             if (global.params.verbose)
-                printf("code      %s\n", m->toChars());
-            if (global.params.obj)
-            {   obj_start(m->srcfile->toChars());
-                m->genobjfile(global.params.multiobj);
-                obj_end(library, m->objfile);
-                obj_write_deferred(library);
-            }
-            if (global.errors)
+                fprintf(global.stdmsg, "code      %s\n", m->toChars());
+
+            obj_start(m->srcfile->toChars());
+            m->genobjfile(global.params.multiobj);
+            if (entrypoint && m == rootHasMain)
+                entrypoint->genobjfile(global.params.multiobj);
+            for (size_t j = 0; j < Module::amodules.dim; j++)
             {
-                if (!global.params.lib)
-                    m->deleteObjFile();
+                Module *mx = Module::amodules[j];
+                if (mx != m && mx->importedFrom == m && (mx->marray || mx->massert || mx->munittest))
+                    mx->genhelpers(true);
             }
-            else
-            {
-                if (global.params.doDocComments)
-                    m->gendocfile();
-            }
+            obj_end(library, m->objfile);
+            obj_write_deferred(library);
+
+            if (global.errors && !global.params.lib)
+                m->deleteObjFile();
         }
     }
 
@@ -1662,8 +1855,7 @@ Language changes listed by -transition=id:\n\
                  */
                 for (size_t i = 0; i < modules.dim; i++)
                 {
-                    Module *m = modules[i];
-                    m->deleteObjFile();
+                    modules[i]->deleteObjFile();
                     if (global.params.oneobj)
                         break;
                 }
@@ -1675,26 +1867,14 @@ Language changes listed by -transition=id:\n\
     return status;
 }
 
-int main(int argc, char *argv[])
+int main(int argc, const char *argv[])
 {
     int status = -1;
-#if WINDOWS_SEH
-  __try
-  {
+
     status = tryMain(argc, argv);
-  }
-  __except (__ehfilter(GetExceptionInformation()))
-  {
-    printf("Stack overflow\n");
-    fatal();
-  }
-#else
-  status = tryMain(argc, argv);
-#endif
+
     return status;
 }
-
-#endif // !IN_LLVM
 
 /***********************************
  * Parse and append contents of environment variable envvar
@@ -1702,7 +1882,7 @@ int main(int argc, char *argv[])
  * The string is separated into arguments, processing \ and ".
  */
 
-void getenv_setargv(const char *envvar, size_t *pargc, char** *pargv)
+void getenv_setargv(const char *envvar, size_t *pargc, const char** *pargv)
 {
     char *p;
 
@@ -1720,28 +1900,12 @@ void getenv_setargv(const char *envvar, size_t *pargc, char** *pargv)
     Strings *argv = new Strings();
     argv->setDim(argc);
 
-    int argc_left = 0;
-    for (int i = 0; i < argc; i++) {
-        if (!strcmp((*pargv)[i], "-run") || !strcmp((*pargv)[i], "--run")) {
-            // HACK: set flag to indicate we saw '-run' here
-            global.params.run = true;
-            // Don't eat -run yet so the program arguments don't get changed
-            argc_left = argc - i;
-            argc = i;
-            *pargv = &(*pargv)[i];
-            argv->setDim(i);
-            break;
-        } else {
-        }
-    }
-    // HACK to stop required values from command line being drawn from DFLAGS
-    argv->push((char*)"");
-    argc++;
+    for (size_t i = 0; i < argc; i++)
+        (*argv)[i] = (*pargv)[i];
 
     size_t j = 1;               // leave argv[0] alone
     while (1)
     {
-        int wildcard = 1;       // do wildcard expansion
         switch (*env)
         {
             case ' ':
@@ -1752,8 +1916,6 @@ void getenv_setargv(const char *envvar, size_t *pargc, char** *pargv)
             case 0:
                 goto Ldone;
 
-            case '"':
-                wildcard = 0;
             default:
                 argv->push(env);                // append
                 //argv->insert(j, env);         // insert at position j
@@ -1811,30 +1973,48 @@ void getenv_setargv(const char *envvar, size_t *pargc, char** *pargv)
     }
 
 Ldone:
-    assert(argc == argv->dim);
-    argv->reserve(argc_left);
-    for (int i = 0; i < argc_left; i++)
-        argv->data[argc++] = (void *)(*pargv)[i];
-
     *pargc = argc;
     *pargv = argv->tdata();
 }
+
+#endif // !IN_LLVM
+
+void escapePath(OutBuffer *buf, const char *fname)
+{
+    while (1)
+    {
+        switch (*fname)
+        {
+            case 0:
+                return;
+            case '(':
+            case ')':
+            case '\\':
+                buf->writeByte('\\');
+            default:
+                buf->writeByte(*fname);
+                break;
+        }
+        fname++;
+    }
+}
+
 
 /***********************************
  * Parse command line arguments for -m32 or -m64
  * to detect the desired architecture.
  */
 
-static bool parse_arch(size_t argc, char** argv, bool is64bit)
+static bool parse_arch(size_t argc, const char** argv, bool is64bit)
 {
     for (size_t i = 0; i < argc; ++i)
-    {   char* p = argv[i];
+    {   const char* p = argv[i];
         if (p[0] == '-')
         {
             if (strcmp(p + 1, "m32") == 0)
-                is64bit = 0;
+                is64bit = false;
             else if (strcmp(p + 1, "m64") == 0)
-                is64bit = 1;
+                is64bit = true;
             else if (strcmp(p + 1, "run") == 0)
                 break;
         }
@@ -1842,18 +2022,8 @@ static bool parse_arch(size_t argc, char** argv, bool is64bit)
     return is64bit;
 }
 
-#if WINDOWS_SEH
-
-long __cdecl __ehfilter(LPEXCEPTION_POINTERS ep)
-{
-    //printf("%x\n", ep->ExceptionRecord->ExceptionCode);
-    if (ep->ExceptionRecord->ExceptionCode == STATUS_STACK_OVERFLOW)
-    {
-#if 1 //ndef DEBUG
-        return EXCEPTION_EXECUTE_HANDLER;
-#endif
-    }
-    return EXCEPTION_CONTINUE_SEARCH;
-}
-
-#endif
+Dsymbols *Dsymbols_create() { return new Dsymbols(); }
+Symbols *Symbols_create() { return new Symbols(); }
+VarDeclarations *VarDeclarations_create() { return new VarDeclarations(); }
+Blocks *Blocks_create() { return new Blocks(); }
+Expressions *Expressions_create() { return new Expressions(); }

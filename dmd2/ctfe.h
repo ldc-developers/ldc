@@ -1,11 +1,13 @@
-// Compiler implementation of the D programming language
-// Copyright (c) 1999-2012 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
+
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/ctfe.h
+ */
 
 #ifndef DMD_CTFE_H
 #define DMD_CTFE_H
@@ -30,22 +32,15 @@ struct CtfeStatus
     static int numAssignments; // total number of assignments executed
 };
 
-
-/** Expression subclasses which only exist in CTFE */
-
-#define TOKclassreference ((TOK)(TOKMAX+1))
-#define TOKthrownexception ((TOK)(TOKMAX+2))
-
 /**
   A reference to a class, or an interface. We need this when we
   point to a base class (we must record what the type is).
  */
-struct ClassReferenceExp : Expression
+class ClassReferenceExp : public Expression
 {
+public:
     StructLiteralExp *value;
     ClassReferenceExp(Loc loc, StructLiteralExp *lit, Type *type);
-    Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
-    void toCBuffer(OutBuffer *buf, HdrGenState *hgs);
     ClassDeclaration *originalClass();
     VarDeclaration *getFieldAt(unsigned index);
 
@@ -54,17 +49,18 @@ struct ClassReferenceExp : Expression
     /// Return index of the field, or -1 if not found
     /// Same as getFieldIndex, but checks for a direct match with the VarDeclaration
     int findFieldIndexByName(VarDeclaration *v);
-#if IN_LLVM
-    llvm::Constant* toConstElem(IRState *irs);
-#else
-    dt_t **toDt(dt_t **pdt);
-    dt_t **toDtI(dt_t **pdt, int offset);
+#if IN_DMD
     Symbol* toSymbol();
-    dt_t **toInstanceDt(dt_t **pdt);
-    dt_t **toDt2(dt_t **pdt, ClassDeclaration *cd, Dts *dts);
-    elem *toElem(IRState *irs);
 #endif
+    void accept(Visitor *v) { v->visit(this); }
 };
+
+// The various functions are used only to detect compiler CTFE bugs
+Expression *getValue(VarDeclaration *vd);
+bool hasValue(VarDeclaration *vd);
+void setValueNull(VarDeclaration *vd);
+void setValueWithoutChecking(VarDeclaration *vd, Expression *newval);
+void setValue(VarDeclaration *vd, Expression *newval);
 
 /// Return index of the field, or -1 if not found
 /// Same as getFieldIndex, but checks for a direct match with the VarDeclaration
@@ -73,27 +69,31 @@ int findFieldIndexByName(StructDeclaration *sd, VarDeclaration *v);
 
 /** An uninitialized value
  */
-struct VoidInitExp : Expression
+class VoidInitExp : public Expression
 {
+public:
     VarDeclaration *var;
 
     VoidInitExp(VarDeclaration *var, Type *type);
     char *toChars();
-    Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
+    void accept(Visitor *v) { v->visit(this); }
 };
 
+// Create an appropriate void initializer
+Expression *voidInitLiteral(Type *t, VarDeclaration *var);
 
 /** Fake class which holds the thrown exception.
     Used for implementing exception handling.
 */
-struct ThrownExceptionExp : Expression
+class ThrownExceptionExp : public Expression
 {
+public:
     ClassReferenceExp *thrown; // the thing being tossed
     ThrownExceptionExp(Loc loc, ClassReferenceExp *victim);
-    Expression *interpret(InterState *istate, CtfeGoal goal = ctfeNeedRvalue);
     char *toChars();
     /// Generate an error message when this exception is not caught
     void generateUncaughtError();
+    void accept(Visitor *v) { v->visit(this); }
 };
 
 
@@ -130,7 +130,7 @@ ArrayLiteralExp *createBlockDuplicatedArrayLiteral(Loc loc, Type *type,
 
 /// Create a string literal consisting of 'value' duplicated 'dim' times.
 StringExp *createBlockDuplicatedStringLiteral(Loc loc, Type *type,
-        unsigned value, size_t dim, int sz);
+        unsigned value, size_t dim, unsigned char sz);
 
 
 /* Set dest = src, where both dest and src are container value literals
@@ -186,11 +186,11 @@ Expression *pointerDifference(Loc loc, Type *type, Expression *e1, Expression *e
 
 /// Return 1 if true, 0 if false
 /// -1 if comparison is illegal because they point to non-comparable memory blocks
-int comparePointers(Loc loc, enum TOK op, Type *type, Expression *agg1, dinteger_t ofs1, Expression *agg2, dinteger_t ofs2);
+int comparePointers(Loc loc, TOK op, Type *type, Expression *agg1, dinteger_t ofs1, Expression *agg2, dinteger_t ofs2);
 
 // Return eptr op e2, where eptr is a pointer, e2 is an integer,
 // and op is TOKadd or TOKmin
-Expression *pointerArithmetic(Loc loc, enum TOK op, Type *type,
+Expression *pointerArithmetic(Loc loc, TOK op, Type *type,
     Expression *eptr, Expression *e2);
 
 // True if conversion from type 'from' to 'to' involves a reinterpret_cast
@@ -200,7 +200,7 @@ bool isFloatIntPaint(Type *to, Type *from);
 // Reinterpret float/int value 'fromVal' as a float/integer of type 'to'.
 Expression *paintFloatInt(Expression *fromVal, Type *to);
 
-/// Return true if t is an AA, or AssociativeArray!(key, value)
+/// Return true if t is an AA
 bool isAssocArray(Type *t);
 
 /// Given a template AA type, extract the corresponding built-in AA type
@@ -235,13 +235,13 @@ void intBinary(TOK op, IntegerExp *dest, Type *type, IntegerExp *e1, IntegerExp 
 bool isCtfeComparable(Expression *e);
 
 /// Evaluate ==, !=.  Resolves slices before comparing. Returns 0 or 1
-int ctfeEqual(Loc loc, enum TOK op, Expression *e1, Expression *e2);
+int ctfeEqual(Loc loc, TOK op, Expression *e1, Expression *e2);
 
 /// Evaluate is, !is.  Resolves slices before comparing. Returns 0 or 1
-int ctfeIdentity(Loc loc, enum TOK op, Expression *e1, Expression *e2);
+int ctfeIdentity(Loc loc, TOK op, Expression *e1, Expression *e2);
 
 /// Evaluate >,<=, etc. Resolves slices before comparing. Returns 0 or 1
-int ctfeCmp(Loc loc, enum TOK op, Expression *e1, Expression *e2);
+int ctfeCmp(Loc loc, TOK op, Expression *e1, Expression *e2);
 
 /// Returns e1 ~ e2. Resolves slices before concatenation.
 Expression *ctfeCat(Type *type, Expression *e1, Expression *e2);

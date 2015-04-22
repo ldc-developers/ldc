@@ -14,7 +14,7 @@
 #ifndef LDC_IR_IRDSYMBOL_H
 #define LDC_IR_IRDSYMBOL_H
 
-#include <set>
+#include <vector>
 
 struct IrModule;
 struct IrFunction;
@@ -24,8 +24,11 @@ struct IrLocal;
 struct IrParameter;
 struct IrField;
 struct IrVar;
-struct Dsymbol;
-struct Module;
+class Dsymbol;
+class AggregateDeclaration;
+class FuncDeclaration;
+class VarDeclaration;
+class Module;
 
 namespace llvm {
     class Value;
@@ -33,7 +36,28 @@ namespace llvm {
 
 struct IrDsymbol
 {
-    static std::set<IrDsymbol*> list;
+    enum Type
+    {
+        NotSet,
+        ModuleType,
+        AggrType,
+        FuncType,
+        GlobalType,
+        LocalType,
+        ParamterType,
+        FieldType
+    };
+
+    enum State
+    {
+        Initial,
+        Resolved,
+        Declared,
+        Initialized,
+        Defined
+    };
+
+    static std::vector<IrDsymbol*> list;
     static void resetAll();
 
     // overload all of these to make sure
@@ -44,29 +68,41 @@ struct IrDsymbol
 
     void reset();
 
-    Module* DModule;
+    Type type() const { return m_type; }
+    State state() const { return m_state; }
 
-    bool resolved;
-    bool declared;
-    bool initialized;
-    bool defined;
+    bool isResolved() const { return m_state >= Resolved; }
+    bool isDeclared() const { return m_state >= Declared; }
+    bool isInitialized() const { return m_state >= Initialized; }
+    bool isDefined() const { return m_state >= Defined; }
 
-    IrModule* irModule;
+    void setResolved();
+    void setDeclared();
+    void setInitialized();
+    void setDefined();
+private:
+    friend IrModule* getIrModule(Module *m);
+    friend IrAggr *getIrAggr(AggregateDeclaration *decl, bool create);
+    friend IrFunction *getIrFunc(FuncDeclaration *decl, bool create);
+    friend IrVar *getIrVar(VarDeclaration *decl);
+    friend IrGlobal *getIrGlobal(VarDeclaration *decl, bool create);
+    friend IrLocal *getIrLocal(VarDeclaration *decl, bool create);
+    friend IrParameter *getIrParameter(VarDeclaration *decl, bool create);
+    friend IrField *getIrField(VarDeclaration *decl, bool create);
 
-    IrAggr* irAggr;
-
-    IrFunction* irFunc;
-
-    IrGlobal* irGlobal;
     union {
-        IrLocal* irLocal;
-        IrParameter *irParam;
+        void*        irData;
+        IrModule*    irModule;
+        IrAggr*      irAggr;
+        IrFunction*  irFunc;
+        IrVar*       irVar;
+        IrGlobal*    irGlobal;
+        IrLocal*     irLocal;
+        IrParameter* irParam;
+        IrField*     irField;
     };
-    IrField* irField;
-    IrVar* getIrVar();
-    llvm::Value*& getIrValue();
-
-    bool isSet();
+    Type m_type;
+    State m_state;
 };
 
 #endif

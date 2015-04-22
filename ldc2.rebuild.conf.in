@@ -1,2 +1,0 @@
-[Environment]
-DFLAGS=-I-I@INCLUDE_INSTALL_DIR@/ldc -I@INCLUDE_INSTALL_DIR@ -L-L@CMAKE_INSTALL_LIBDIR@ -defaultlib=@RUNTIME_AIO@ -debuglib=@RUNTIME_AIO@-debug

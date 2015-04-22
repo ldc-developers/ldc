@@ -9,6 +9,7 @@
 
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
+#include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
 #include <sstream>
 
@@ -95,4 +96,23 @@ void IrFunction::setAlwaysInline()
     assert(!func->hasFnAttr(llvm::Attribute::NoInline) && "function can't be never- and always-inline at the same time");
     func->addFnAttr(llvm::Attribute::AlwaysInline);
 #endif
+}
+
+IrFunction *getIrFunc(FuncDeclaration *decl, bool create)
+{
+    if (!isIrFuncCreated(decl) && create)
+    {
+        assert(decl->ir.irFunc == NULL);
+        decl->ir.irFunc = new IrFunction(decl);
+        decl->ir.m_type = IrDsymbol::FuncType;
+    }
+    assert(decl->ir.irFunc != NULL);
+    return decl->ir.irFunc;
+}
+
+bool isIrFuncCreated(FuncDeclaration *decl)
+{
+    int t = decl->ir.type();
+    assert(t == IrDsymbol::FuncType || t == IrDsymbol::NotSet);
+    return t == IrDsymbol::FuncType;
 }

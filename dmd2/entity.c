@@ -1,15 +1,18 @@
 
-// Copyright (c) 1999-2012 by Digital Mars
-// All Rights Reserved
-// written by Walter Bright
-// http://www.digitalmars.com
-// License for redistribution is by either the Artistic License
-// in artistic.txt, or the GNU General Public License in gnu.txt.
-// See the included readme.txt for details.
-
+/* Compiler implementation of the D programming language
+ * Copyright (c) 1999-2014 by Digital Mars
+ * All Rights Reserved
+ * written by Walter Bright
+ * http://www.digitalmars.com
+ * Distributed under the Boost Software License, Version 1.0.
+ * http://www.boost.org/LICENSE_1_0.txt
+ * https://github.com/D-Programming-Language/dmd/blob/master/src/entity.c
+ */
 
 #include <string.h>
 #include <ctype.h>
+
+#include "port.h"
 
 /*********************************************
  * Convert from named entity to its encoding.
@@ -2372,7 +2375,7 @@ static NameId* namesTable[] = {
         namesS, namesT, namesU, namesV, namesW, namesX, namesY, namesZ, NULL
 };
 
-int HtmlNamedEntity(unsigned char *p, size_t length)
+int HtmlNamedEntity(const utf8_t *p, size_t length)
 {
     int tableIndex = tolower(*p) - 'a';
     if (tableIndex >= 0 && tableIndex < 26)

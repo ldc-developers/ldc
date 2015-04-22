@@ -17,18 +17,42 @@
 
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Compiler.h"
-#include <string>
 
-template <typename TYPE> struct ArrayBase;
-typedef ArrayBase<char> Strings;
+#if LDC_LLVM_VER < 306
+#define LLVM_END_WITH_NULL END_WITH_NULL
+#endif
+
+template <typename TYPE> struct Array;
+typedef Array<const char *> Strings;
 
 namespace opts {
     namespace cl = llvm::cl;
 
+#if LDC_LLVM_VER >= 307
+typedef cl::parser<bool> FlagParser;
+#else
     /// Helper class for fancier options
     class FlagParser : public cl::parser<bool> {
-        std::vector<std::pair<std::string, bool> > switches;
+#if LDC_LLVM_VER >= 307
+      cl::Option &Opt;
+#endif
+      std::vector<std::pair<std::string, bool> > switches;
     public:
+#if LDC_LLVM_VER >= 307
+      FlagParser(cl::Option &O) : parser(O), Opt(O) { }
+
+      void initialize() {
+        std::string Name(Opt.ArgStr);
+        switches.push_back(make_pair("enable-" + Name, true));
+        switches.push_back(make_pair("disable-" + Name, false));
+        // Replace <foo> with -enable-<foo> and register -disable-<foo>
+        // A literal option can only registered if the argstr is empty -
+        // just do this first.
+        Opt.setArgStr("");
+        AddLiteralOption(Opt, strdup(switches[1].first.data()));
+        Opt.setArgStr(switches[0].first.data());
+      }
+#else
         template <class Opt>
         void initialize(Opt &O) {
             std::string Name = O.ArgStr;
@@ -37,11 +61,13 @@ namespace opts {
             // Replace <foo> with -enable-<foo>
             O.ArgStr = switches[0].first.data();
         }
+#endif
 
         bool parse(cl::Option &O, llvm::StringRef ArgName, llvm::StringRef ArgValue, bool &Val);
 
         void getExtraOptionNames(llvm::SmallVectorImpl<const char*> &Names);
     };
+#endif
 
     /// Helper class for options that set multiple flags
     class MultiSetter {
@@ -49,7 +75,7 @@ namespace opts {
         bool invert;
         MultiSetter(bool); //not implemented, disable auto-conversion
     public:
-        MultiSetter(bool invert, bool* p, ...) END_WITH_NULL;
+        MultiSetter(bool invert, bool* p, ...) LLVM_END_WITH_NULL;
 
         void operator=(bool val);
     };

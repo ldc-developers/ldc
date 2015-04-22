@@ -4,24 +4,25 @@ cmake_minimum_required(VERSION 2.8)
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
 if(MSVC)
-    set(LIBCONFIG_DLL OFF CACHE BOOL "Use libconfig++ DLL instead of static library")
+    set(LIBCONFIG_DLL OFF CACHE BOOL "Use libconfig DLL instead of static library")
 endif()
 
 include(CheckIncludeFile)
 include(CheckLibraryExists)
+include(CheckCXXCompilerFlag)
 
 #
 # Locate LLVM.
 #
 
 find_package(LLVM 3.1 REQUIRED
-    all-targets bitwriter linker ipo instrumentation backend support tablegen asmparser lto ${EXTRA_LLVM_MODULES})
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfodwarf instcombine ipa ipo instrumentation linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 
 #
-# Locate libconfig++.
+# Locate libconfig.
 #
-find_package(LibConfig++ REQUIRED)
+find_package(LibConfig REQUIRED)
 
 #
 # Get info about used Linux distribution.
@@ -33,11 +34,11 @@ include(GetLinuxDistribution)
 #
 
 # Version information
-set(LDC_VERSION "0.12.0") # May be overridden by git hash tag
+set(LDC_VERSION "0.15.2") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   63)
-set(DMDFE_FIX_LEVEL       2) # Comment out if not used
+set(DMDFE_PATCH_VERSION   66)
+set(DMDFE_FIX_LEVEL       1) # Comment out if not used
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)
@@ -60,10 +61,8 @@ set(PROGRAM_SUFFIX "" CACHE STRING "Appended to ldc/ldmd binary names")
 set(CONF_INST_DIR ${SYSCONF_INSTALL_DIR} CACHE PATH "Directory ldc.conf is installed to")
 
 # The following flags are currently not well tested, expect the build to fail.
-option(USE_BOEHM_GC "use the Boehm garbage collector internally")
 option(GENERATE_OFFTI "generate complete ClassInfo.offTi arrays")
-
-mark_as_advanced(USE_BOEHM_GC GENERATE_OFFTI)
+mark_as_advanced(GENERATE_OFFTI)
 
 if(D_VERSION EQUAL 1)
     message(FATAL_ERROR "D version 1 is no longer supported.
@@ -107,19 +106,34 @@ endfunction()
 # the output (LLVM_CXXFLAGS sometimes already includes -Wall).
 set(DMD_CXXFLAGS)
 set(LDC_CXXFLAGS)
-if(CMAKE_COMPILER_IS_GNUCXX OR ("${CMAKE_CXX_COMPILER_ID}" STREQUAL "Clang"))
+if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
     append("-w" DMD_CXXFLAGS)
 
-    # -Wunused-parameter triggers for LLVM headers, and
-    # -Wmissing-field-initializer leads to reams of warnings in
-    # gen/asm-*.h
-    append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers" LDC_CXXFLAGS)
+    # Disable some noisy warnings:
+    #  * -Wunused-parameter triggers for LLVM headers
+    #  * -Wmissing-field-initializer leads to reams of warnings in gen/asm-*.h
+    #  * -Wnon-virtual-dtor is something Walter has declined to let us fix upstream
+    #    and it triggers for the visitors we need in our glue code
+    #  * -Wpedantic warns on trailing commas in initializer lists and casting
+    #    function pointers to void*.
+    append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor" LDC_CXXFLAGS)
+    if(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_C_COMPILER_VERSION VERSION_LESS "4.7.0")
+        append("-Wno-pedantic" LDC_CXXFLAGS)
+    endif()
 endif()
 # Append -mminimal-toc for gcc 4.0.x - 4.5.x on ppc64
 if( CMAKE_COMPILER_IS_GNUCXX
     AND CMAKE_SYSTEM_PROCESSOR MATCHES "ppc64|powerpc64"
-    AND CMAKE_C_COMPILER_VERSION MATCHES ".*4\\.[0-5].*" )
+    AND CMAKE_C_COMPILER_VERSION VERSION_LESS "4.6.0" )
     append("-mminimal-toc" DMD_CXXFLAGS LDC_CXXFLAGS)
+endif()
+# Do not use doubledouble on ppc
+if( CMAKE_SYSTEM_PROCESSOR MATCHES "ppc|powerpc")
+    append("-mlong-double-64" DMD_CXXFLAGS LDC_CXXFLAGS)
+endif()
+if(UNIX)
+    append("-DPOSIX -DLDC_POSIX" DMD_CXXFLAGS)
+    append("-DLDC_POSIX" LDC_CXXFLAGS)
 endif()
 set(SANITIZE_CXXFLAGS)
 set(SANITIZE_LDFLAGS)
@@ -134,7 +148,11 @@ endif()
 append("${SANITIZE_CXXFLAGS}" DMD_CXXFLAGS)
 append("${SANITIZE_CXXFLAGS}" LDC_CXXFLAGS)
 # LLVM_CXXFLAGS may contain -Werror which causes compile errors with dmd source
-string(REPLACE "-Werror" "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+string(REPLACE "-Werror " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+if (UNIX AND NOT "${LLVM_LDFLAGS}" STREQUAL "")
+    # LLVM_LDFLAGS may contain -l-lld which is a wrong library reference (AIX)
+    string(REPLACE "-l-lld " "-lld " LLVM_LDFLAGS ${LLVM_LDFLAGS})
+endif()
 
 #
 # Run idgen and impcnvgen.
@@ -154,24 +172,18 @@ set_target_properties(
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${DMD_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-get_target_property(IDGEN_LOC idgen LOCATION)
-get_target_property(IMPCNVGEN_LOC impcnvgen LOCATION)
-#
+
 add_custom_command(
     OUTPUT
         ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
         ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
-    # 2.4
-    COMMAND ${IDGEN_LOC}
-    #COMMAND idgen
+    COMMAND idgen
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     DEPENDS idgen
 )
 add_custom_command(
     OUTPUT ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
-    # 2.4
-    COMMAND ${IMPCNVGEN_LOC}
-    #COMMAND impcnvgen
+    COMMAND impcnvgen
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     DEPENDS impcnvgen
 )
@@ -240,28 +252,6 @@ list(REMOVE_ITEM FE_SRC
     ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
     ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
-# Add/remove files for MSVC
-if(MSVC)
-    list(APPEND FE_SRC
-        ${PROJECT_SOURCE_DIR}/vcbuild/strtold.c
-# See below why this don't work
-#        if(CMAKE_CL_64)
-#        ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
-#        endif()
-    )
-    if(CMAKE_CL_64)
-        # MASM support does not work yet!
-        add_custom_command(OUTPUT ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
-                           COMMAND ${CMAKE_ASM_MASM_COMPILER} /c /Fo${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
-                           DEPENDS ${PROJECT_SOURCE_DIR}/vcbuild/ldfpu.asm
-                           COMMENT "generate ldfpu.obj")
-        list(APPEND FE_SRC
-            ${CMAKE_CURRENT_BINARY_DIR}/ldfpu.obj
-    )
-    endif()
-endif()
-# disable dmd gc
-list(REMOVE_ITEM FE_SRC ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/root/dmgcmem.c)
 set(LDC_SOURCE_FILES
     ${LDC_GENERATED}
     ${FE_SRC}
@@ -304,14 +294,16 @@ include_directories(
     ${DMDFE_PATH}/root
     ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
     ${PROJECT_SOURCE_DIR}
+)
+include_directories( SYSTEM
     ${LLVM_INCLUDE_DIRS}
-    ${LIBCONFIG++_INCLUDE_DIR}
+    ${LIBCONFIG_INCLUDE_DIR}
 )
 
 if(MSVC)
     include_directories(${PROJECT_SOURCE_DIR}/vcbuild)
     if(NOT LIBCONFIG_DLL)
-        add_definitions(-DLIBCONFIGXX_STATIC -DLIBCONFIG_STATIC)
+        add_definitions(-DLIBCONFIG_STATIC)
     endif()
 endif()
 
@@ -322,22 +314,29 @@ add_definitions(
     -DLDC_LLVM_VER=${LDC_LLVM_VER}
 )
 
-if(UNIX)
-    add_definitions(-DPOSIX)
-endif()
-
-if(USE_BOEHM_GC)
-    add_definitions(-DREDIRECT_MALLOC=GC_malloc -DIGNORE_FREE)
-endif()
-
 if(GENERATE_OFFTI)
     add_definitions(-DGENERATE_OFFTI)
 endif()
 
 if(MSVC)
-    set(EXTRA_CXXFLAGS "/W0 /wd4996 /GF /GR- /RTC1")
+    # Remove flags here, for exceptions and RTTI.
+    # CL.EXE complains to override flags like "/GR /GR-".
+    string(REGEX REPLACE "(^| ) */EH[-cs]+ *( |$)" "\\1 \\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REGEX REPLACE "(^| ) */GR-? *( |$)" "\\1 \\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+
+    add_definitions(-D_HAS_EXCEPTIONS=0)
+    set(EXTRA_CXXFLAGS "/W0 /wd4996 /GF /GR- /EHs-c- /MP")
 else()
-    set(EXTRA_CXXFLAGS "-fexceptions")
+    set(EXTRA_CXXFLAGS "")
+endif()
+
+# if llvm was built with assertions we have to do the same
+# as there are some headers with differing behavior based on NDEBUG
+if(LLVM_ENABLE_ASSERTIONS)
+    set(EXTRA_CXXFLAGS "${EXTRA_CXXFLAGS} -UNDEBUG")
+    # avoid msvc warning D9025
+    string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" " " CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+    string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" " " CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 endif()
 
 #
@@ -383,6 +382,19 @@ if( NOT WIN32 OR CYGWIN )
 endif()
 
 #
+# Enable instrumentation for code coverage analysis
+#
+set(TEST_COVERAGE OFF CACHE BOOL "instrument compiler for code coverage analysis")
+if(TEST_COVERAGE)
+    if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
+        append("-O0 -g -fprofile-arcs -ftest-coverage" EXTRA_CXXFLAGS)
+        append("--coverage" LLVM_LDFLAGS)
+    else()
+        message(WARNING "Coverage testing is not available.")
+    endif()
+endif()
+
+#
 # Set up the main ldc/ldc2 target.
 #
 if(BUILD_SHARED)
@@ -413,10 +425,6 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(${LDC_LIB} dl)
 endif()
 
-if(USE_BOEHM_GC)
-    target_link_libraries(${LDC_LIB} ${PROJECT_SOURCE_DIR}/libgc.a)
-endif()
-
 
 add_executable(${LDC_EXE} ${DRV_SRC} ${DRV_HDR})
 set_target_properties(
@@ -426,14 +434,14 @@ set_target_properties(
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG++_LIBRARY} ${PTHREAD_LIBS} ${CMAKE_DL_LIBS} ${TERMINFO_LIBS})
-if(MSVC)
-    # Add a post build event in Visual Studio to copy the config file into Debug/Release folder
+target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG_LIBRARY} ${PTHREAD_LIBS} ${CMAKE_DL_LIBS} ${TERMINFO_LIBS})
+
+if(MSVC_IDE)
+    # the IDE generator is a multi-config one
+    # so copy the config file into the correct bin subfolder
     add_custom_command(TARGET ${LDC_EXE} POST_BUILD COMMAND ${CMAKE_COMMAND} -E copy ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}.conf $<TARGET_FILE_DIR:${LDC_EXE}> COMMENT "Copy config file ${LDC_EXE}.conf")
 endif()
 
-# For use by the druntime/Phobos build system.
-get_target_property(LDC_LOC ${LDC_EXE} LOCATION)
 
 #
 # Intrinsics module generation tools.
@@ -468,8 +476,6 @@ target_link_libraries(gen_gccbuiltins ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMIN
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
-
-get_target_property(GEN_GCCBUILTINS_LOC gen_gccbuiltins LOCATION)
 
 #
 # LDMD
@@ -518,12 +524,21 @@ if(${BUILD_SHARED})
     install(TARGETS ${LDC_LIB} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
-install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.rebuild.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.rebuild.conf)
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
-    set(BASH_COMPLETION_INST_DIR "${CONF_INST_DIR}/bash_completion.d")
-    if(LINUX_DISTRIBUTION_IS_GENTOO)
-        set(BASH_COMPLETION_INST_DIR "/usr/share/bash-completion")
+    find_package(bash-completion QUIET)
+    if(NOT BASH_COMPLETION_FOUND)
+        set(BASH_COMPLETION_COMPLETIONSDIR "${CONF_INST_DIR}/bash_completion.d")
+        if(LINUX_DISTRIBUTION_IS_GENTOO)
+            set(BASH_COMPLETION_COMPLETIONSDIR "/usr/share/bash-completion")
+        endif()
     endif()
-    install(DIRECTORY bash_completion.d/ DESTINATION ${BASH_COMPLETION_INST_DIR})
+    install(DIRECTORY bash_completion.d/ DESTINATION ${BASH_COMPLETION_COMPLETIONSDIR})
 endif()
+
+#
+# Packaging
+#
+
+include (CMakeCPack.cmake)
+include (CPack)

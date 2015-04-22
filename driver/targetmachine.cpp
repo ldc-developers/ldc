@@ -153,6 +153,7 @@ static const char *getLLVMArchSuffixForARM(llvm::StringRef CPU)
         .Case("cortex-a9-mp", "v7f")
         .Case("swift", "v7s")
         .Case("cortex-a53", "v8")
+        .Case("krait", "v7")
         .Default("");
 }
 
@@ -196,6 +197,46 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
             return FloatABI::Soft;
         }
     }
+}
+
+/// Sanitizes the MIPS ABI in the feature string.
+static void addMipsABI(const llvm::Triple &triple, std::vector<std::string> &attrs)
+{
+    enum ABI { O32 = 1<<0, N32 = 1<<1, N64 = 1<<2, EABI = 1<<3 };
+    const bool is64Bit = triple.getArch() == llvm::Triple::mips64 ||
+                         triple.getArch() == llvm::Triple::mips64el;
+    const uint32_t defaultABI = is64Bit ? N64 : O32;
+    uint32_t bits = defaultABI;
+    std::vector<std::string>::iterator I = attrs.begin();
+    while (I != attrs.end())
+    {
+        std::string str = *I;
+        bool enabled = str[0] == '+';
+        std::string flag = (str[0] == '+' || str[0] == '-') ? str.substr(1) : str;
+        uint32_t newBit = 0;
+        if (flag == "o32") newBit = O32;
+        if (flag == "n32") newBit = N32;
+        if (flag == "n64") newBit = N64;
+        if (flag == "eabi") newBit = EABI;
+        if (newBit)
+        {
+            I = attrs.erase(I);
+            if (enabled) bits |= newBit;
+            else bits &= ~newBit;
+        }
+        else
+            ++I;
+    }
+    switch (bits)
+    {
+        case O32: attrs.push_back("+o32"); break;
+        case N32: attrs.push_back("+n32"); break;
+        case N64: attrs.push_back("+n64"); break;
+        case EABI: attrs.push_back("+eabi"); break;
+        default: error(Loc(), "Only one ABI argument is supported"); fatal();
+    }
+    if (bits != defaultABI)
+        attrs.push_back(is64Bit ? "-n64" : "-o32");
 }
 
 /// Looks up a target based on an arch name and a target triple.
@@ -262,7 +303,8 @@ llvm::TargetMachine* createTargetMachine(
     llvm::Reloc::Model relocModel,
     llvm::CodeModel::Model codeModel,
     llvm::CodeGenOpt::Level codeGenOptLevel,
-    bool noFramePointerElim)
+    bool noFramePointerElim,
+    bool noLinkerStripDead)
 {
     // Determine target triple. If the user didn't explicitly specify one, use
     // the one set at LLVM configure time.
@@ -292,7 +334,7 @@ llvm::TargetMachine* createTargetMachine(
     const llvm::Target *target = lookupTarget(arch, triple, errMsg);
     if (target == 0)
     {
-        error("%s", errMsg.c_str());
+        error(Loc(), "%s", errMsg.c_str());
         fatal();
     }
 
@@ -307,9 +349,18 @@ llvm::TargetMachine* createTargetMachine(
             llvm::StringMapConstIterator<bool> i = hostFeatures.begin(),
                 end = hostFeatures.end();
             for (; i != end; ++i)
+#if LDC_LLVM_VER >= 305
+                features.AddFeature(std::string((i->second ? "+" : "-")).append(i->first()));
+#else
                 features.AddFeature(i->first(), i->second);
+#endif
         }
     }
+    if (triple.getArch() == llvm::Triple::mips ||
+        triple.getArch() == llvm::Triple::mipsel ||
+        triple.getArch() == llvm::Triple::mips64 ||
+        triple.getArch() == llvm::Triple::mips64el)
+        addMipsABI(triple, attrs);
     for (unsigned i = 0; i < attrs.size(); ++i)
         features.AddFeature(attrs[i]);
 
@@ -339,15 +390,14 @@ llvm::TargetMachine* createTargetMachine(
             floatABI = FloatABI::Hard;
             break;
         case llvm::Triple::arm:
-            floatABI = getARMFloatABI(triple, getLLVMArchSuffixForARM(cpu));
-            break;
         case llvm::Triple::thumb:
-            floatABI = FloatABI::Soft;
+            floatABI = getARMFloatABI(triple, getLLVMArchSuffixForARM(cpu));
             break;
         }
     }
 
-    if (triple.getArch() == llvm::Triple::arm)
+#if LDC_LLVM_VER < 305
+    if (triple.getArch() == llvm::Triple::arm && !triple.isOSDarwin())
     {
         // On ARM, we want to use EHABI exception handling, as we don't support
         // SJLJ EH in druntime. Unfortunately, it is still in a partly
@@ -360,6 +410,7 @@ llvm::TargetMachine* createTargetMachine(
         };
         llvm::cl::ParseCommandLineOptions(3, backendArgs);
     }
+#endif
 
     llvm::TargetOptions targetOptions;
     targetOptions.NoFramePointerElim = noFramePointerElim;
@@ -379,6 +430,23 @@ llvm::TargetMachine* createTargetMachine(
         targetOptions.UseSoftFloat = false;
         targetOptions.FloatABIType = llvm::FloatABI::Hard;
         break;
+    }
+
+    // Right now, we only support linker-level dead code elimination on Linux
+    // using the GNU toolchain (based on ld's --gc-sections flag). The Apple ld
+    // on OS X supports a similar flag (-dead_strip) that doesn't require
+    // emitting the symbols into different sections. The MinGW ld doesn't seem
+    // to support --gc-sections at all, and FreeBSD needs more investigation.
+    if (!noLinkerStripDead &&
+        (triple.getOS() == llvm::Triple::Linux || triple.getOS() == llvm::Triple::Win32))
+    {
+#if LDC_LLVM_VER < 305
+        llvm::TargetMachine::setDataSections(true);
+        llvm::TargetMachine::setFunctionSections(true);
+#else
+        targetOptions.FunctionSections = true;
+        targetOptions.DataSections = true;
+#endif
     }
 
     return target->createTargetMachine(
