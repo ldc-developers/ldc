@@ -43,8 +43,13 @@ struct IrVar
     llvm::Value* value;
 
     // debug description
+#if LDC_LLVM_VER >= 307
+    llvm::MDLocalVariable* debugVariable = nullptr;
+    llvm::MDSubprogram* debugFunc = nullptr;
+#else
     llvm::DIVariable debugVariable;
     llvm::DISubprogram debugFunc;
+#endif
 };
 
 // represents a global variable

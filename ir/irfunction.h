@@ -122,8 +122,13 @@ struct IrFunction
     llvm::Value* _arguments;
     llvm::Value* _argptr;
 
+#if LDC_LLVM_VER >= 307
+    llvm::MDSubprogram* diSubprogram = nullptr;
+    std::stack<llvm::MDLexicalBlock*> diLexicalBlocks;
+#else
     llvm::DISubprogram diSubprogram;
     std::stack<llvm::DILexicalBlock> diLexicalBlocks;
+#endif
 
     IrFuncTy irFty;
 };
