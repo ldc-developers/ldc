@@ -172,6 +172,11 @@ static int linkObjToBinaryGcc(bool sharedLib)
     bool addSoname = false;
     switch (global.params.targetTriple.getOS()) {
     case llvm::Triple::Linux:
+        if (global.params.symdebug) {
+            // this option is needed for backtrace_symbols to work correctly,
+            // otherwise stacktrace does not show symbols.
+            args.push_back("-rdynamic");
+        }
         addSoname = true;
         args.push_back("-lrt");
         if (!opts::disableLinkerStripDead) {
