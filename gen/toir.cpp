@@ -232,11 +232,14 @@ static DValue* toElemAndCacheLvalue(Expression* e)
     return value;
 }
 
-// Evaluates e and returns
-// * the (casted) nested lvalue if one is found, otherwise
-// * the expression's result.
-static DValue* toElemAndTryGetLvalue(Expression* e)
+// Evaluates e and, if tryGetLvalue is true, returns the
+// (casted) nested lvalue if one is found.
+// Otherwise simply returns the expression's result.
+DValue* toElem(Expression* e, bool tryGetLvalue)
 {
+    if (!tryGetLvalue)
+        return toElem(e);
+
     Expression* lvalExp = findLvalueExp(e); // may be null
     Expression* nestedLvalExp = (lvalExp == e ? NULL : lvalExp);
 
@@ -278,7 +281,8 @@ public:
 
     void visit(DeclarationExp *e)
     {
-        IF_LOG Logger::print("DeclarationExp::toElem: %s | T=%s\n", e->toChars(), e->type->toChars());
+        IF_LOG Logger::print("DeclarationExp::toElem: %s | T=%s\n", e->toChars(),
+            e->type ? e->type->toChars() : "(null)");
         LOG_SCOPE;
 
         result = DtoDeclarationExp(e->declaration);
@@ -509,7 +513,7 @@ public:
             }
         }
 
-        DValue* l = toElemAndTryGetLvalue(e->e1);
+        DValue* l = toElem(e->e1, true);
 
         // NRVO for object field initialization in constructor
         if (l->isVar() && e->op == TOKconstruct && e->e2->op == TOKcall)
@@ -1231,7 +1235,7 @@ public:
             }
         }
 
-        DValue* v = toElemAndTryGetLvalue(e->e1);
+        DValue* v = toElem(e->e1, true);
         if (v->isField()) {
             Logger::println("is field");
             result = v;
