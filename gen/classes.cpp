@@ -522,56 +522,47 @@ static LLConstant* build_class_dtor(ClassDeclaration* cd)
     return llvm::ConstantExpr::getBitCast(getIrFunc(dtor)->func, getPtrToType(LLType::getInt8Ty(gIR->context())));
 }
 
-//! needs to match object_.d
-struct ClassInfoFlags
+static ClassFlags::Type build_classinfo_flags(ClassDeclaration* cd)
 {
-    enum
-    {
-        isCOMclass = 0x1,
-        noPointers = 0x2,
-        hasOffTi   = 0x4,
-        hasCtor    = 0x8,
-        hasGetMembers = 0x10,
-        hasTypeInfo = 0x20,
-        isAbstract  = 0x40,
-        isCPPclass  = 0x80
-    };
-};
+    // adapted from original dmd code:
+    // toobj.c: ToObjFile::visit(ClassDeclaration*) and ToObjFile::visit(InterfaceDeclaration*)
 
-static unsigned build_classinfo_flags(ClassDeclaration* cd)
-{
-    // adapted from original dmd code
-    unsigned flags = 0;
-    flags |= (unsigned) cd->isCOMclass(); // IUnknown
-    bool hasOffTi = false;
-    if (cd->ctor)
-        flags |= ClassInfoFlags::hasCtor;
-    if (cd->isabstract)
-        flags |= ClassInfoFlags::isAbstract;
-    if (cd->isCPPclass())
-        flags |= ClassInfoFlags::isCPPclass;
-    for (ClassDeclaration *cd2 = cd; cd2; cd2 = cd2->baseClass)
+    ClassFlags::Type flags = ClassFlags::hasOffTi | ClassFlags::hasTypeInfo;
+    if (cd->isInterfaceDeclaration())
     {
-        if (!cd2->members)
-            continue;
-        for (size_t i = 0; i < cd2->members->dim; i++)
+        if (cd->isCOMinterface()) flags |= ClassFlags::isCOMclass;
+        return flags;
+    }
+
+    if (cd->isCOMclass()) flags |= ClassFlags::isCOMclass;
+    if (cd->isCPPclass()) flags |= ClassFlags::isCPPclass;
+    flags |= ClassFlags::hasGetMembers;
+    if (cd->ctor)
+        flags |= ClassFlags::hasCtor;
+    for (ClassDeclaration *pc = cd; pc; pc = pc->baseClass)
+    {
+        if (pc->dtor)
         {
-            Dsymbol *sm = static_cast<Dsymbol *>(cd2->members->data[i]);
-            if (sm->isVarDeclaration() && !sm->isVarDeclaration()->isDataseg()) // is this enough?
-                hasOffTi = true;
-            //printf("sm = %s %s\n", sm->kind(), sm->toChars());
-            if (sm->hasPointers())
-                goto L2;
+            flags |= ClassFlags::hasDtor;
+            break;
         }
     }
-    flags |= ClassInfoFlags::noPointers;
-L2:
-    if (hasOffTi)
-        flags |= ClassInfoFlags::hasOffTi;
-
-    // always define the typeinfo field.
-    // why would ever not do this?
-    flags |= ClassInfoFlags::hasTypeInfo;
+    if (cd->isabstract)
+        flags |= ClassFlags::isAbstract;
+    for (ClassDeclaration *pc = cd; pc; pc = pc->baseClass)
+    {
+        if (pc->members)
+        {
+            for (size_t i = 0; i < pc->members->dim; i++)
+            {
+                Dsymbol *sm = (*pc->members)[i];
+                //printf("sm = %s %s\n", sm->kind(), sm->toChars());
+                if (sm->hasPointers())
+                    return flags;
+            }
+        }
+    }
+    flags |= ClassFlags::noPointers;
 
     return flags;
 }
@@ -579,21 +570,22 @@ L2:
 LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 {
 //     The layout is:
-//        {
+//       {
 //         void **vptr;
 //         monitor_t monitor;
-//         byte[] initializer;     // static initialization data
-//         char[] name;        // class name
-//         void *[] vtbl;
+//         byte[] init;
+//         string name;
+//         void*[] vtbl;
 //         Interface[] interfaces;
-//         ClassInfo *base;        // base class
+//         TypeInfo_Class base;
 //         void *destructor;
-//         void *invariant;        // class invariant
-//         uint flags;
-//         void *deallocator;
-//         OffsetTypeInfo[] offTi;
-//         void *defaultConstructor;
+//         void function(Object) classInvariant;
+//         ClassFlags m_flags;
+//         void* deallocator;
+//         OffsetTypeInfo[] m_offTi;
+//         void function(Object) defaultConstructor;
 //         immutable(void)* m_RTInfo;
+//       }
 
     IF_LOG Logger::println("DtoDefineClassInfo(%s)", cd->toChars());
     LOG_SCOPE;
@@ -617,7 +609,8 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     LLType* voidPtr = getVoidPtrType();
     LLType* voidPtrPtr = getPtrToType(voidPtr);
 
-    // byte[] init
+    // adapted from original dmd code
+    // init[]
     if (cd->isInterfaceDeclaration())
     {
         b.push_null_void_array();
@@ -628,8 +621,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
         b.push_void_array(initsz, ir->getInitSymbol());
     }
 
-    // class name
-    // code from dmd
+    // name[]
     const char *name = cd->ident->toChars();
     size_t namelen = strlen(name);
     if (!(namelen > 9 && memcmp(name, "TypeInfo_", 9) == 0))
@@ -639,7 +631,7 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
     }
     b.push_string(name);
 
-    // vtbl array
+    // vtbl[]
     if (cd->isInterfaceDeclaration())
     {
         b.push_array(0, getNullValue(voidPtrPtr));
@@ -650,11 +642,11 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
         b.push_array(cd->vtbl.dim, c);
     }
 
-    // interfaces array
+    // interfaces[]
     b.push(ir->getClassInfoInterfaces());
 
-    // base classinfo
-    // interfaces never get a base , just the interfaces[]
+    // base
+    // interfaces never get a base, just the interfaces[]
     if (cd->baseClass && !cd->isInterfaceDeclaration())
         b.push_classinfo(cd->baseClass);
     else
@@ -667,46 +659,37 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
         b.push(build_class_dtor(cd));
 
     // invariant
-    VarDeclaration* invVar = static_cast<VarDeclaration*>(cinfo->fields.data[6]);
+    VarDeclaration* invVar = cinfo->fields[6];
     b.push_funcptr(cd->inv, invVar->type);
 
-    // uint flags
-    unsigned flags;
-    if (cd->isInterfaceDeclaration())
-        flags = ClassInfoFlags::hasOffTi | (unsigned) cd->isCOMinterface() | ClassInfoFlags::hasTypeInfo;
-    else
-        flags = build_classinfo_flags(cd);
+    // flags
+    ClassFlags::Type flags = build_classinfo_flags(cd);
     b.push_uint(flags);
 
     // deallocator
     b.push_funcptr(cd->aggDelete, Type::tvoid->pointerTo());
 
     // offset typeinfo
-    VarDeclaration* offTiVar = static_cast<VarDeclaration*>(cinfo->fields.data[9]);
-
+    VarDeclaration* offTiVar = cinfo->fields[9];
 #if GENERATE_OFFTI
-
     if (cd->isInterfaceDeclaration())
         b.push_null(offTiVar->type);
     else
         b.push(build_offti_array(cd, DtoType(offTiVar->type)));
-
-#else // GENERATE_OFFTI
-
+#else
     b.push_null(offTiVar->type);
+#endif
 
-#endif // GENERATE_OFFTI
-
-    // default constructor
-    VarDeclaration* defConstructorVar = static_cast<VarDeclaration*>(cinfo->fields.data[10]);
+    // defaultConstructor
+    VarDeclaration* defConstructorVar = cinfo->fields.data[10];
     b.push_funcptr(cd->defaultCtor, defConstructorVar->type);
 
-    // immutable(void)* m_RTInfo;
+    // m_RTInfo
     // The cases where getRTInfo is null are not quite here, but the code is
     // modelled after what DMD does.
     if (cd->getRTInfo)
         b.push(toConstElem(cd->getRTInfo, gIR));
-    else if (flags & ClassInfoFlags::noPointers)
+    else if (flags & ClassFlags::noPointers)
         b.push_size_as_vp(0);       // no pointers
     else
         b.push_size_as_vp(1);       // has pointers
