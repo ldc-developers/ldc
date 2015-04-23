@@ -18,38 +18,13 @@
 
 namespace opts {
 
-#if LDC_LLVM_VER < 307
-bool FlagParser::parse(cl::Option &O, llvm::StringRef ArgName, llvm::StringRef Arg, bool &Val) {
-    // Make a std::string out of it to make comparisons easier
-    // (and avoid repeated conversion)
-    llvm::StringRef argname = ArgName;
+TEMPLATE_INSTANTIATION(class FlagParser<bool>);
+TEMPLATE_INSTANTIATION(class FlagParser<cl::boolOrDefault>);
 
-    typedef std::vector<std::pair<std::string, bool> >::iterator It;
-    for (It I = switches.begin(), E = switches.end(); I != E; ++I) {
-        llvm::StringRef name = I->first;
-        if (name == argname
-                || (name.size() < argname.size()
-                    && argname.substr(0, name.size()) == name
-                    && argname[name.size()] == '=')) {
-
-            if (!cl::parser<bool>::parse(O, ArgName, Arg, Val)) {
-                Val = (Val == I->second);
-                return false;
-            }
-            // Invalid option value
-            break;
-        }
-    }
-    return true;
-}
-
-void FlagParser::getExtraOptionNames(llvm::SmallVectorImpl<const char*> &Names) {
-    typedef std::vector<std::pair<std::string, bool> >::iterator It;
-    for (It I = switches.begin() + 1, E = switches.end(); I != E; ++I) {
-        Names.push_back(I->first.data());
-    }
-}
-#endif
+template<>
+void FlagParser<bool>::anchor() {}
+template<>
+void FlagParser<cl::boolOrDefault>::anchor() {}
 
 MultiSetter::MultiSetter(bool invert, bool* p, ...) {
     this->invert = invert;
