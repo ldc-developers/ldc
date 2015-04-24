@@ -1076,23 +1076,26 @@ DValue* DtoArgument(Parameter* fnarg, Expression* argexp)
     IF_LOG Logger::println("DtoArgument");
     LOG_SCOPE;
 
-    DValue* arg = toElem(argexp);
-
     // ref/out arg
     if (fnarg && (fnarg->storageClass & (STCref | STCout)))
     {
         Loc loc;
-        arg = new DImValue(argexp->type, makeLValue(loc, arg));
+        DValue* arg = toElem(argexp, true);
+        return new DImValue(argexp->type, arg->isLVal() ? arg->getLVal() : makeLValue(loc, arg));
     }
+
+    DValue* arg = toElem(argexp);
+
     // lazy arg
-    else if (fnarg && (fnarg->storageClass & STClazy))
+    if (fnarg && (fnarg->storageClass & STClazy))
     {
         assert(argexp->type->toBasetype()->ty == Tdelegate);
         assert(!arg->isLVal());
         return arg;
     }
+
     // byval arg, but expr has no storage yet
-    else if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isNull()))
+    if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isNull()))
     {
         LLValue* alloc = DtoAlloca(argexp->type, ".tmp_arg");
         DVarValue* vv = new DVarValue(argexp->type, alloc);
