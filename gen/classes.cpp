@@ -85,6 +85,8 @@ DValue* DtoNewClass(Loc& loc, TypeClass* tc, NewExp* newexp)
     // resolve type
     DtoResolveClass(tc->sym);
 
+    bool initialize = true;
+
     // allocate
     LLValue* mem;
     if (newexp->onstack)
@@ -107,10 +109,11 @@ DValue* DtoNewClass(Loc& loc, TypeClass* tc, NewExp* newexp)
         LLConstant* ci = DtoBitCast(getIrAggr(tc->sym)->getClassInfoSymbol(), DtoType(Type::typeinfoclass->type));
         mem = gIR->CreateCallOrInvoke(fn, ci, ".newclass_gc_alloc").getInstruction();
         mem = DtoBitCast(mem, DtoType(tc), ".newclass_gc");
+        initialize = false;
     }
 
-    // init
-    DtoInitClass(tc, mem);
+    if (initialize)
+        DtoInitClass(tc, mem);
 
     // init inner-class outer reference
     if (newexp->thisexp)
