@@ -685,7 +685,10 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 
     // defaultConstructor
     VarDeclaration* defConstructorVar = cinfo->fields.data[10];
-    b.push_funcptr(cd->defaultCtor, defConstructorVar->type);
+    CtorDeclaration* defConstructor = cd->defaultCtor;
+    if (defConstructor && (defConstructor->storage_class & STCdisable))
+        defConstructor = NULL;
+    b.push_funcptr(defConstructor, defConstructorVar->type);
 
     // m_RTInfo
     // The cases where getRTInfo is null are not quite here, but the code is
