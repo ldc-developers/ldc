@@ -1880,6 +1880,14 @@ public:
         IF_LOG Logger::print("NewExp::toElem: %s @ %s\n", e->toChars(), e->type->toChars());
         LOG_SCOPE;
 
+        if (e->argprefix)
+        {
+            // replace expression arg0 by `argprefix, arg0`
+            assert(e->arguments && e->arguments->dim > 0);
+            Expressions& arguments = *e->arguments;
+            arguments[0] = Expression::combine(e->argprefix, arguments[0]);
+        }
+
         assert(e->newtype);
         Type* ntype = e->newtype->toBasetype();
 
