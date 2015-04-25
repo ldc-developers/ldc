@@ -27,7 +27,7 @@ namespace opts {
  * i.e.:  -cov    --> value = 0
  *        -cov=9  --> value = 9
  *        -cov=101 --> error, value must be in range [0..100]
- */ 
+ */
 struct CoverageParser : public cl::parser<unsigned char> {
 #if LDC_LLVM_VER >= 307
     CoverageParser(cl::Option &O) : cl::parser<unsigned char>(O) {}
@@ -367,19 +367,7 @@ static cl::opt<bool, true, FlagParser<bool> > asserts("asserts",
     cl::location(global.params.useAssert),
     cl::init(true));
 
-BoundsCheck boundsCheck = BC_Default;
-
-class BoundsChecksAdapter {
-public:
-    void operator=(bool val) {
-        boundsCheck = (val ? BC_On : BC_Off);
-    }
-};
-
-cl::opt<BoundsChecksAdapter, false, FlagParser<bool> > boundsChecksOld("boundscheck",
-    cl::desc("(*) Enable array bounds check (deprecated, use -boundscheck=on|off)"));
-
-cl::opt<BoundsCheck, true> boundsChecksNew("boundscheck",
+cl::opt<BoundsCheck, true> boundsChecks("boundscheck",
     cl::desc("Enable array bounds check"),
     cl::location(boundsCheck),
     cl::values(
