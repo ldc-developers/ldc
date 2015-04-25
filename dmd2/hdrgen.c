@@ -1732,7 +1732,13 @@ public:
                 bodyToBuffer(f);
                 hgs->autoMember--;
             }
-            else if (hgs->tpltMember == 0 && !global.params.useInline)
+            else if (hgs->tpltMember == 0 &&
+#if IN_LLVM
+                     !global.params.hdrKeepAllBodies
+#else
+                     !global.params.useInline
+#endif
+                    )
             {
                 buf->writeByte(';');
                 buf->writenl();
@@ -1746,7 +1752,13 @@ public:
 
     void bodyToBuffer(FuncDeclaration *f)
     {
-        if (!f->fbody || (hgs->hdrgen && !global.params.useInline && !hgs->autoMember && !hgs->tpltMember))
+        if (!f->fbody || (hgs->hdrgen &&
+#if IN_LLVM
+                          !global.params.hdrKeepAllBodies
+#else
+                          !global.params.useInline
+#endif
+                          && !hgs->autoMember && !hgs->tpltMember))
         {
             buf->writeByte(';');
             buf->writenl();
