@@ -74,7 +74,7 @@ namespace opts {
     extern cl::opt<bool> linkonceTemplates;
     extern cl::opt<bool> disableLinkerStripDead;
 
-    extern BoundsCheck boundsCheck;
+    extern cl::opt<BoundsCheck> boundsCheck;
     extern bool nonSafeBoundsChecks;
 
     extern cl::opt<unsigned, true> nestedTemplateDepth;

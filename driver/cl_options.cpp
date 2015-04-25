@@ -367,14 +367,14 @@ static cl::opt<bool, true, FlagParser<bool> > asserts("asserts",
     cl::location(global.params.useAssert),
     cl::init(true));
 
-cl::opt<BoundsCheck, true> boundsChecks("boundscheck",
+cl::opt<BoundsCheck> boundsCheck("boundscheck",
     cl::desc("Enable array bounds check"),
-    cl::location(boundsCheck),
     cl::values(
         clEnumValN(BC_Off, "off", "no array bounds checks"),
         clEnumValN(BC_SafeOnly, "safeonly", "array bounds checks for safe functions only"),
         clEnumValN(BC_On, "on", "array bounds checks for all functions"),
-        clEnumValEnd));
+        clEnumValEnd),
+    cl::init(BC_Default));
 
 static cl::opt<bool, true, FlagParser<bool> > invariants("invariants",
     cl::desc("(*) Enable invariants"),
@@ -427,14 +427,6 @@ cl::opt<unsigned, true> nestedTemplateDepth("template-depth",
     cl::desc("(experimental) set maximum number of nested template instantiations"),
     cl::location(global.params.nestedTmpl),
     cl::init(500));
-
-cl::opt<bool, true> vcolumns("vcolumns",
-    cl::desc("print character (column) numbers in diagnostics"),
-    cl::location(global.params.showColumns));
-
-cl::opt<bool, true> vgc("vgc",
-    cl::desc("list all gc allocations including hidden ones"),
-    cl::location(global.params.vgc));
 
 cl::opt<bool, true, FlagParser<bool> > color("color",
     cl::desc("Force colored console output"),
