@@ -1880,14 +1880,6 @@ public:
         IF_LOG Logger::print("NewExp::toElem: %s @ %s\n", e->toChars(), e->type->toChars());
         LOG_SCOPE;
 
-        if (e->argprefix)
-        {
-            // replace expression arg0 by `argprefix, arg0`
-            assert(e->arguments && e->arguments->dim > 0);
-            Expressions& arguments = *e->arguments;
-            arguments[0] = Expression::combine(e->argprefix, arguments[0]);
-        }
-
         assert(e->newtype);
         Type* ntype = e->newtype->toBasetype();
 
@@ -1900,6 +1892,7 @@ public:
         else if (ntype->ty == Tarray)
         {
             IF_LOG Logger::println("new dynamic array: %s", e->newtype->toChars());
+            assert(e->argprefix == NULL);
             // get dim
             assert(e->arguments);
             assert(e->arguments->dim >= 1);
@@ -1947,6 +1940,8 @@ public:
                 mem = DtoNewStruct(e->loc, ts);
             }
 
+            bool isArgprefixHandled = false;
+
             if (!e->member && e->arguments)
             {
                 IF_LOG Logger::println("Constructing using literal");
@@ -1961,6 +1956,13 @@ public:
                 // call constructor
                 if (e->member)
                 {
+                    // evaluate argprefix
+                    if (e->argprefix)
+                    {
+                        toElemDtor(e->argprefix, DestructOnThrowOnly);
+                        isArgprefixHandled = true;
+                    }
+
                     IF_LOG Logger::println("Calling constructor");
                     assert(e->arguments != NULL);
                     DtoResolveFunction(e->member);
@@ -1969,12 +1971,15 @@ public:
                 }
             }
 
+            assert(e->argprefix == NULL || isArgprefixHandled);
+
             result = new DImValue(e->type, mem);
         }
         // new basic type
         else
         {
             IF_LOG Logger::println("basic type on heap: %s\n", e->newtype->toChars());
+            assert(e->argprefix == NULL);
 
             // allocate
             LLValue* mem = DtoNew(e->loc, e->newtype);
@@ -3281,11 +3286,17 @@ public:
     }
 };
 
-// Evaluate Expression, then call destructors on any temporaries in it.
-DValue *toElemDtor(Expression *e)
+DValue *toElemDtor(Expression *e, DestructionMode mode)
 {
-    IF_LOG Logger::println("Expression::toElemDtor(): %s", e->toChars());
+    IF_LOG Logger::println("Expression::toElemDtor(mode = %d): %s", mode, e->toChars());
     LOG_SCOPE
+
+    // find destructors that must be called
+    SearchVarsWithDestructors visitor;
+    visitor.applyTo(e);
+
+    if (visitor.edtors.empty() || /* FIXME */ mode == DestructOnThrowOnly)
+        return toElem(e);
 
     class CallDestructors : public IRLandingPadCatchFinallyInfo
     {
@@ -3304,44 +3315,45 @@ DValue *toElemDtor(Expression *e)
         }
     };
 
-    // find destructors that must be called
-    SearchVarsWithDestructors visitor;
-    visitor.applyTo(e);
+    CallDestructors callDestructors(visitor.edtors);
 
-    if (!visitor.edtors.empty()) {
-        if (e->op == TOKcall || e->op == TOKassert) {
-            // create finally block that calls destructors on temporaries
-            CallDestructors *callDestructors = new CallDestructors(visitor.edtors);
-
-            // create landing pad
-            llvm::BasicBlock *oldend = gIR->scopeend();
-            llvm::BasicBlock *landingpadbb = llvm::BasicBlock::Create(gIR->context(), "landingpad", gIR->topfunc(), oldend);
-
-            // set up the landing pad
-            IRLandingPad &pad = gIR->func()->gen->landingPadInfo;
-            pad.addFinally(callDestructors);
-            pad.push(landingpadbb);
-
-            // evaluate the expression
-            DValue *val = toElem(e);
-
-            // build the landing pad
-            llvm::BasicBlock *oldbb = gIR->scopebb();
-            pad.pop();
-
-            gIR->scope() = IRScope(oldbb, oldend);
-
-            callDestructors->toIR();
-            delete callDestructors;
-            return val;
-        } else {
-            DValue *val = toElem(e);
-            CallDestructors(visitor.edtors).toIR();
-            return val;
-        }
+    if (mode == DestructNormally)
+    {
+        DValue *val = toElem(e);
+        callDestructors.toIR();
+        return val;
     }
 
-    return toElem(e);
+    assert(mode == DestructInFinally);
+
+    // create landing pad
+    llvm::BasicBlock *oldend = gIR->scopeend();
+    llvm::BasicBlock *landingpadbb = llvm::BasicBlock::Create(gIR->context(), "landingpad", gIR->topfunc(), oldend);
+
+    // set up the landing pad
+    IRLandingPad &pad = gIR->func()->gen->landingPadInfo;
+    pad.addFinally(&callDestructors);
+    pad.push(landingpadbb);
+
+    // evaluate the expression
+    DValue *val = toElem(e);
+
+    // build the landing pad
+    llvm::BasicBlock *oldbb = gIR->scopebb();
+    pad.pop();
+
+    gIR->scope() = IRScope(oldbb, oldend);
+
+    callDestructors.toIR();
+    return val;
+}
+
+// Evaluate Expression, then call destructors on any temporaries in it.
+DValue *toElemDtor(Expression *e)
+{
+    DestructionMode mode = (e->op == TOKcall || e->op == TOKassert
+        ? DestructInFinally : DestructNormally);
+    return toElemDtor(e, mode);
 }
 
 // FIXME: Implement & place in right module

@@ -130,15 +130,26 @@ DValue* DtoNewClass(Loc& loc, TypeClass* tc, NewExp* newexp)
         DtoResolveNestedContext(loc, tc->sym, mem);
     }
 
+    bool isArgprefixHandled = false;
+
     // call constructor
     if (newexp->member)
     {
+        // evaluate argprefix
+        if (newexp->argprefix)
+        {
+            toElemDtor(newexp->argprefix, DestructOnThrowOnly);
+            isArgprefixHandled = true;
+        }
+
         Logger::println("Calling constructor");
         assert(newexp->arguments != NULL);
         DtoResolveFunction(newexp->member);
         DFuncValue dfn(newexp->member, getIrFunc(newexp->member)->func, mem);
         return DtoCallFunction(newexp->loc, tc, &dfn, newexp->arguments);
     }
+
+    assert(newexp->argprefix == NULL || isArgprefixHandled);
 
     // return default constructed class
     return new DImValue(tc, mem);
