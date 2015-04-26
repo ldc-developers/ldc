@@ -1145,9 +1145,15 @@ public:
         ld_sprint(buffer, 'g', value);
         assert(strlen(buffer) < BUFFER_LEN);
 
-        real_t r = Port::strtold(buffer, NULL);
-        if (r != value)                     // if exact duplication
-            ld_sprint(buffer, 'a', value);
+        #if _MSC_VER
+        // MSVC: LLVM's APFloat is used for strtold, which asserts for certain special float inputs
+        if (!Port::isNan(value) && !Port::isInfinity(value))
+        #endif
+        {
+            real_t r = Port::strtold(buffer, NULL);
+            if (r != value)                     // if exact duplication
+                ld_sprint(buffer, 'a', value);
+        }
         buf->writestring(buffer);
 
         if (type)
