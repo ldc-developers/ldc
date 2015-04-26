@@ -29,6 +29,8 @@
 #include "llvm/Analysis/DebugInfo.h"
 #endif
 
+#include <map>
+
 struct IrFuncTyArg;
 class VarDeclaration;
 
@@ -42,14 +44,29 @@ struct IrVar
     VarDeclaration* V;
     llvm::Value* value;
 
-    // debug description
+    // Debug description of variable.
+    // A variable can be accessed from nested functions.
+    // Each function has a debug description for the variable but with
+    // different address expression.
 #if LDC_LLVM_VER >= 307
-    llvm::MDLocalVariable* debugVariable = nullptr;
-    llvm::MDSubprogram* debugFunc = nullptr;
+    struct MDSubprogramLess : public std::binary_function <const llvm::MDSubprogram*, const llvm::MDSubprogram*, bool > {
+        bool operator()(const llvm::MDSubprogram* a, const llvm::MDSubprogram* b) const
+        {
+            return a->getLinkageName() < b->getLinkageName();
+        }
+    };
+
+    typedef std::map<llvm::MDSubprogram*, llvm::MDLocalVariable*, MDSubprogramLess> DebugMap;
 #else
-    llvm::DIVariable debugVariable;
-    llvm::DISubprogram debugFunc;
+    struct DISubprogramLess : public std::binary_function <const llvm::DISubprogram&, const llvm::DISubprogram&, bool > {
+        bool operator()(const llvm::DISubprogram& a, const llvm::DISubprogram& b) const
+        {
+            return a.getLinkageName() < b.getLinkageName();
+        }
+};
+    typedef std::map<llvm::DISubprogram, llvm::DIVariable, DISubprogramLess> DebugMap;
 #endif
+    DebugMap debug;
 };
 
 // represents a global variable
