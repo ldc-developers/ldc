@@ -404,10 +404,10 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
     }
     else if (t->ty == Tsarray) {
         // T[n] = T
-        if (t->nextOf()->toBasetype()->equals(t2)) {
-            DtoArrayInit(loc, lhs, rhs, op);
-        }
-        else if (DtoArrayElementType(t)->equals(stripModifiers(t2))) {
+        if (t->nextOf()->toBasetype()->equals(t2) ||
+            DtoArrayElementType(t)->equals(stripModifiers(t2)) ||
+            (t->nextOf()->toBasetype()->ty == Tvoid && t2->ty == Tuns8)
+        ) {
             DtoArrayInit(loc, lhs, rhs, op);
         }
         else if (op != -1 && op != TOKblit && !canSkipPostblit &&
@@ -1342,12 +1342,9 @@ LLConstant* DtoConstExpInit(Loc& loc, Type* targetType, Expression* exp)
 
     if (targetBase->ty == Tsarray)
     {
-        if (targetBase->nextOf()->toBasetype()->ty == Tvoid) {
-           error(loc, "static arrays of voids have no default initializer");
-           fatal();
-        }
         Logger::println("Building constant array initializer to single value.");
 
+        assert(expBase->size() > 0);
         d_uns64 elemCount = targetBase->size() / expBase->size();
         assert(targetBase->size() % expBase->size() == 0);
 
