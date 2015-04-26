@@ -351,14 +351,17 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
         DtoStoreZextI8(rhs->getRVal(), lhs->getLVal());
     }
     else if (t->ty == Tstruct) {
-        llvm::Value* src = rhs->getRVal();
-        llvm::Value* dst = lhs->getLVal();
+        // don't copy anything to empty structs
+        if (static_cast<TypeStruct*>(t)->sym->fields.dim > 0) {
+            llvm::Value* src = rhs->getRVal();
+            llvm::Value* dst = lhs->getLVal();
 
-        // Check whether source and destination values are the same at compile
-        // time as to not emit an invalid (overlapping) memcpy on trivial
-        // struct self-assignments like 'A a; a = a;'.
-        if (src != dst)
-            DtoAggrCopy(dst, src);
+            // Check whether source and destination values are the same at compile
+            // time as to not emit an invalid (overlapping) memcpy on trivial
+            // struct self-assignments like 'A a; a = a;'.
+            if (src != dst)
+                DtoAggrCopy(dst, src);
+        }
     }
     else if (t->ty == Tarray) {
         // lhs is slice
