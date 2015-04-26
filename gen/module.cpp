@@ -586,7 +586,7 @@ static void addCoverageAnalysis(Module* m)
         // For safety, make the array large enough such that the slice passed to _d_cover_register2 is completely valid.
         array_size = m->numlines;
 
-        IF_LOG Logger::println("Build private variable: size_t[%d] _d_cover_valid", array_size);
+        IF_LOG Logger::println("Build private variable: size_t[%llu] _d_cover_valid", (ulonglong) array_size);
 
         llvm::ArrayType* type = llvm::ArrayType::get(DtoSize_t(), array_size);
         llvm::ConstantAggregateZero* zeroinitializer = llvm::ConstantAggregateZero::get(type);
