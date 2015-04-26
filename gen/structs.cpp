@@ -85,6 +85,10 @@ LLValue* DtoStructEquals(TOK op, DValue* lhs, DValue* rhs)
     else
         cmpop = llvm::ICmpInst::ICMP_NE;
 
+    // empty struct? EQ always true, NE always false
+    if (static_cast<TypeStruct*>(t)->sym->fields.dim == 0)
+        return DtoConstBool(cmpop == llvm::ICmpInst::ICMP_EQ);
+
     // call memcmp
     size_t sz = getTypePaddedSize(DtoType(t));
     LLValue* val = DtoMemCmp(lhs->getRVal(), rhs->getRVal(), DtoConstSize_t(sz));
