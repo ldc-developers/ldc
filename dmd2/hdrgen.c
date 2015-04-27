@@ -2184,6 +2184,12 @@ public:
         ld_sprint(buffer, 'g', value);
         assert(strlen(buffer) < BUFFER_LEN);
 
+#if IN_LLVM
+#if _MSC_VER
+        // MSVC: LLVM's APFloat is used for strtold, which asserts for certain special float inputs
+        if (!Port::isNan(value) && !Port::isInfinity(value))
+#endif
+#endif
         if (hgs->hdrgen)
         {
             real_t r = Port::strtold(buffer, NULL);

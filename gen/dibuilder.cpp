@@ -20,6 +20,7 @@
 #include "enum.h"
 #include "module.h"
 #include "mtype.h"
+#include <map>
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -825,7 +826,11 @@ void ldc::DIBuilder::EmitStopPoint(unsigned ln)
 
 void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd)
 {
-    llvm::DIVariable debugVariable = getIrVar(vd)->debugVariable;
+    IrVar::DebugMap::iterator sub = getIrVar(vd)->debug.find(IR->func()->diSubprogram);
+    if (sub == getIrVar(vd)->debug.end())
+        return;
+
+    llvm::DIVariable debugVariable = sub->second;
     if (!global.params.symdebug || !debugVariable)
         return;
 
@@ -855,8 +860,9 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     LOG_SCOPE;
 
     IrVar *irVar = getIrVar(vd);
-    if (IR->func()->diSubprogram == irVar->debugFunc) // ensure that the debug variable is created only once
-        return;
+    IrVar::DebugMap::iterator sub = irVar->debug.find(IR->func()->diSubprogram);
+    if (sub != irVar->debug.end())
+        return; // ensure that the debug variable is created only once
 
     // get type description
     llvm::DIType TD = CreateTypeDescription(vd->type, true);
@@ -872,10 +878,16 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     else
         tag = llvm::dwarf::DW_TAG_auto_variable;
 
+#if LDC_LLVM_VER >= 307
+    llvm::MDLocalVariable* debugVariable;
+#else
+    llvm::DIVariable debugVariable;
+#endif
+
 #if LDC_LLVM_VER < 306
     if (addr.empty()) {
 #endif
-        irVar->debugVariable = DBuilder.createLocalVariable(
+        debugVariable = DBuilder.createLocalVariable(
             tag, // tag
             GetCurrentScope(), // scope
             vd->toChars(), // name
@@ -887,7 +899,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 #if LDC_LLVM_VER < 306
     }
     else {
-        irVar->debugVariable = DBuilder.createComplexVariable(
+        debugVariable = DBuilder.createComplexVariable(
             tag, // tag
             GetCurrentScope(), // scope
             vd->toChars(), // name
@@ -897,14 +909,14 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
             addr
         );
     }
-    irVar->debugFunc = IR->func()->diSubprogram;
 #endif
+    irVar->debug[IR->func()->diSubprogram] = debugVariable;
 
     // declare
 #if LDC_LLVM_VER >= 306
-    Declare(ll, irVar->debugVariable, addr.empty() ? DBuilder.createExpression() : DBuilder.createExpression(addr));
+    Declare(ll, debugVariable, addr.empty() ? DBuilder.createExpression() : DBuilder.createExpression(addr));
 #else
-    Declare(ll, irVar->debugVariable);
+    Declare(ll, debugVariable);
 #endif
 }
 

@@ -19,16 +19,11 @@ function(add_testsuite config_name dflags model)
         set(dflags "${dflags} -defaultlib=phobos2-ldc,druntime-ldc,curl -debuglib=phobos2-ldc-debug,druntime-ldc-debug,curl")
     endif()
 
-    set(MAKE_IGNORE "")
-    if(DEFINED ENV{TRAVIS})
-        set(MAKE_IGNORE "-i")
-    endif()
-
     # The DFLAGS environment variable read by LDMD is used because the DMD
     # testsuite build system provides no way to run the test cases with a
     # given set of flags without trying all combinations of them.
     add_test(NAME ${name}
-        COMMAND make ${MAKE_IGNORE} -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=$<TARGET_FILE:ldmd2> DFLAGS=${dflags} MODEL=${model} quick
+        COMMAND make -k -C ${PROJECT_SOURCE_DIR}/tests/d2/dmd-testsuite RESULTS_DIR=${outdir} DMD=$<TARGET_FILE:ldmd2> DFLAGS=${dflags} MODEL=${model} quick
     )
     set_tests_properties(${name} PROPERTIES DEPENDS clean-${name})
 endfunction()
