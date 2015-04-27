@@ -1880,6 +1880,8 @@ public:
         IF_LOG Logger::print("NewExp::toElem: %s @ %s\n", e->toChars(), e->type->toChars());
         LOG_SCOPE;
 
+        bool isArgprefixHandled = false;
+
         assert(e->newtype);
         Type* ntype = e->newtype->toBasetype();
 
@@ -1887,6 +1889,7 @@ public:
         if (ntype->ty == Tclass) {
             Logger::println("new class");
             result = DtoNewClass(e->loc, static_cast<TypeClass*>(ntype), e);
+            isArgprefixHandled = true; // by DtoNewClass()
         }
         // new dynamic array
         else if (ntype->ty == Tarray)
@@ -1940,8 +1943,6 @@ public:
                 mem = DtoNewStruct(e->loc, ts);
             }
 
-            bool isArgprefixHandled = false;
-
             if (!e->member && e->arguments)
             {
                 IF_LOG Logger::println("Constructing using literal");
@@ -1959,7 +1960,7 @@ public:
                     // evaluate argprefix
                     if (e->argprefix)
                     {
-                        toElemDtor(e->argprefix, DestructOnThrowOnly);
+                        toElemDtor(e->argprefix, DestructInFinally);
                         isArgprefixHandled = true;
                     }
 
@@ -1970,8 +1971,6 @@ public:
                     DtoCallFunction(e->loc, ts, &dfn, e->arguments);
                 }
             }
-
-            assert(e->argprefix == NULL || isArgprefixHandled);
 
             result = new DImValue(e->type, mem);
         }
@@ -2005,6 +2004,8 @@ public:
             // return as pointer-to
             result = new DImValue(e->type, mem);
         }
+
+        assert(e->argprefix == NULL || isArgprefixHandled);
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////
@@ -3295,7 +3296,7 @@ DValue *toElemDtor(Expression *e, DestructionMode mode)
     SearchVarsWithDestructors visitor;
     visitor.applyTo(e);
 
-    if (visitor.edtors.empty() || /* FIXME */ mode == DestructOnThrowOnly)
+    if (visitor.edtors.empty())
         return toElem(e);
 
     class CallDestructors : public IRLandingPadCatchFinallyInfo

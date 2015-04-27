@@ -237,8 +237,7 @@ void Declaration_codegen(Dsymbol *decl, IRState *irs);
 enum DestructionMode
 {
     DestructNormally,
-    DestructInFinally,
-    DestructOnThrowOnly
+    DestructInFinally
 };
 
 DValue *toElem(Expression *e);
