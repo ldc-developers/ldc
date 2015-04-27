@@ -20,7 +20,6 @@
 #include "enum.h"
 #include "module.h"
 #include "mtype.h"
-#include <map>
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -826,8 +825,8 @@ void ldc::DIBuilder::EmitStopPoint(unsigned ln)
 
 void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd)
 {
-    IrVar::DebugMap::iterator sub = getIrVar(vd)->debug.find(IR->func()->diSubprogram);
-    if (sub == getIrVar(vd)->debug.end())
+    IrFunction::VariableMap::iterator sub = IR->func()->variableMap.find(vd);
+    if (sub == IR->func()->variableMap.end())
         return;
 
     llvm::DIVariable debugVariable = sub->second;
@@ -859,9 +858,9 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     Logger::println("D to dwarf local variable");
     LOG_SCOPE;
 
-    IrVar *irVar = getIrVar(vd);
-    IrVar::DebugMap::iterator sub = irVar->debug.find(IR->func()->diSubprogram);
-    if (sub != irVar->debug.end())
+    IrFunction::VariableMap& variableMap = IR->func()->variableMap;
+    IrFunction::VariableMap::iterator sub = variableMap.find(vd);
+    if (sub != variableMap.end())
         return; // ensure that the debug variable is created only once
 
     // get type description
@@ -910,7 +909,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
         );
     }
 #endif
-    irVar->debug[IR->func()->diSubprogram] = debugVariable;
+    variableMap[vd] = debugVariable;
 
     // declare
 #if LDC_LLVM_VER >= 306
