@@ -29,7 +29,7 @@ void emitCoverageLinecountInc(Loc &loc) {
             LLConstant* idxs[] = { DtoConstUint(0), DtoConstUint(line) };
             LLValue* ptr = llvm::ConstantExpr::getGetElementPtr(
 #if LDC_LLVM_VER >= 307
-                LLType::getInt32Ty(gIR->context()),
+                LLArrayType::get(LLType::getInt32Ty(gIR->context()), gIR->dmodule->numlines),
 #endif
                 gIR->dmodule->d_cover_data, idxs, true);
 
