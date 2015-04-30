@@ -125,9 +125,9 @@ struct IrFunction
     llvm::Value* _argptr;
 
 #if LDC_LLVM_VER >= 307
-    llvm::MDSubprogram* diSubprogram = nullptr;
-    std::stack<llvm::MDLexicalBlock*> diLexicalBlocks;
-    typedef llvm::DenseMap<VarDeclaration*, llvm::MDLocalVariable*> VariableMap;
+    llvm::DISubprogram* diSubprogram = nullptr;
+    std::stack<llvm::DILexicalBlock*> diLexicalBlocks;
+    typedef llvm::DenseMap<VarDeclaration*, llvm::DILocalVariable*> VariableMap;
 #else
     llvm::DISubprogram diSubprogram;
     std::stack<llvm::DILexicalBlock> diLexicalBlocks;
