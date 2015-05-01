@@ -67,7 +67,7 @@ public:
     /// Composite type debug description. This is not only to cache, but also
     /// used for resolving forward references.
 #if LDC_LLVM_VER >= 307
-    llvm::MDType* diCompositeType = nullptr;
+    llvm::DIType* diCompositeType = nullptr;
 #else
     llvm::DIType diCompositeType;
 #endif

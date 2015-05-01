@@ -595,7 +595,7 @@ static void addCoverageAnalysis(Module* m)
         d_cover_valid_slice = DtoConstSlice( DtoConstSize_t(type->getArrayNumElements()),
                                              llvm::ConstantExpr::getGetElementPtr(
 #if LDC_LLVM_VER >= 307
-                                             DtoSize_t(),
+                                             type,
 #endif
                                              m->d_cover_valid, idxs, true) );
 
@@ -616,7 +616,7 @@ static void addCoverageAnalysis(Module* m)
         d_cover_data_slice = DtoConstSlice( DtoConstSize_t(type->getArrayNumElements()),
                                             llvm::ConstantExpr::getGetElementPtr(
 #if LDC_LLVM_VER >= 307
-                                            LLType::getInt32Ty(gIR->context()),
+                                            type,
 #endif
                                             m->d_cover_data, idxs, true) );
     }
