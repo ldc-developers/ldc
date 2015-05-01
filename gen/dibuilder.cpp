@@ -398,11 +398,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
                                            I != E; ++I)
             {
                 VarDeclaration* vd = *I;
-<<<<<<< HEAD
-                llvm::DIType dt = CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset, vd->prot().kind);
-=======
-                ldc::DIType dt = CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset, vd->prot());
->>>>>>> master
+                ldc::DIType dt = CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset, vd->prot().kind);
                 elems.push_back(dt);
             }
         }
@@ -468,13 +464,8 @@ ldc::DIType ldc::DIBuilder::CreateArrayType(Type *type)
 
     assert(t->ty == Tarray && "Only arrays allowed for debug info in DIBuilder::CreateArrayType");
 
-<<<<<<< HEAD
     Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
-    llvm::DIFile file = CreateFile(loc);
-=======
-    Loc loc(IR->dmodule, 0, 0);
     ldc::DIFile file(CreateFile(loc));
->>>>>>> master
 
 #if LDC_LLVM_VER >= 306
     llvm::Metadata *elems[] =
@@ -555,13 +546,8 @@ ldc::DISubroutineType ldc::DIBuilder::CreateFunctionType(Type *type)
     TypeFunction *t = static_cast<TypeFunction*>(type);
     Type *retType = t->next;
 
-<<<<<<< HEAD
     Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
-    llvm::DIFile file = CreateFile(loc);
-=======
-    Loc loc(IR->dmodule, 0, 0);
     ldc::DIFile file(CreateFile(loc));
->>>>>>> master
 
     // Create "dummy" subroutine type for the return type
 #if LDC_LLVM_VER >= 306
@@ -585,13 +571,8 @@ ldc::DISubroutineType ldc::DIBuilder::CreateDelegateType(Type *type)
     // FIXME: Implement
     TypeDelegate *t = static_cast<TypeDelegate*>(type);
 
-<<<<<<< HEAD
     Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
-    llvm::DIFile file = CreateFile(loc);
-=======
-    Loc loc(IR->dmodule, 0, 0);
     ldc::DIFile file(CreateFile(loc));
->>>>>>> master
 
     // Create "dummy" subroutine type for the return type
 #if LDC_LLVM_VER >= 306
@@ -749,13 +730,8 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function* Fn,
     ldc::DICompileUnit CU(GetCU());
     assert(CU && "Compilation unit missing or corrupted in DIBuilder::EmitSubProgram");
 
-<<<<<<< HEAD
     Loc loc(IR->dmodule->srcfile->toChars(), 0, 0);
-    llvm::DIFile file(CreateFile(loc));
-=======
-    Loc loc(IR->dmodule, 0, 0);
     ldc::DIFile file(CreateFile(loc));
->>>>>>> master
 
     // Create "dummy" subroutine type for the return type
 #if LDC_LLVM_VER >= 306
