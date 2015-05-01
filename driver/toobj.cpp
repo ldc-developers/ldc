@@ -159,7 +159,7 @@ namespace
     {
         os << debugLoc.getLine() << ":" << debugLoc.getCol();
 #if LDC_LLVM_VER >= 307
-        if (MDLocation *IDL = debugLoc.getInlinedAt())
+        if (DILocation *IDL = debugLoc.getInlinedAt())
         {
             os << "@";
             printDebugLoc(IDL, os);
@@ -181,13 +181,13 @@ namespace
     {
         // Find the MDNode which corresponds to the DISubprogram data that described F.
 #if LDC_LLVM_VER >= 307
-        static MDSubprogram* FindSubprogram(const Function *F, DebugInfoFinder &Finder)
+        static DISubprogram* FindSubprogram(const Function *F, DebugInfoFinder &Finder)
 #else
         static MDNode* FindSubprogram(const Function *F, DebugInfoFinder &Finder)
 #endif
         {
 #if LDC_LLVM_VER >= 307
-            for (MDSubprogram* Subprogram : Finder.subprograms())
+            for (DISubprogram* Subprogram : Finder.subprograms())
                 if (Subprogram->describes(F)) return Subprogram;
             return nullptr;
 #elif LDC_LLVM_VER >= 305
@@ -214,7 +214,7 @@ namespace
             Finder.processModule(const_cast<llvm::Module&>(*F->getParent()));
 #endif
 #if LDC_LLVM_VER >= 307
-            if (MDSubprogram* N = FindSubprogram(F, Finder))
+            if (DISubprogram* N = FindSubprogram(F, Finder))
 #else
             if (MDNode* N = FindSubprogram(F, Finder))
 #endif
@@ -275,7 +275,11 @@ namespace
             }
             if (const DbgDeclareInst* DDI = dyn_cast<DbgDeclareInst>(instr))
             {
+#if LDC_LLVM_VER >= 307
+                DILocalVariable* Var(DDI->getVariable());
+#else
                 DIVariable Var(DDI->getVariable());
+#endif
                 if (!padding)
                 {
                     os.PadToColumn(50);
@@ -289,7 +293,11 @@ namespace
             }
             else if (const DbgValueInst* DVI = dyn_cast<DbgValueInst>(instr))
             {
+#if LDC_LLVM_VER >= 307
+                DILocalVariable* Var(DVI->getVariable());
+#else
                 DIVariable Var(DVI->getVariable());
+#endif
                 if (!padding)
                 {
                     os.PadToColumn(50);
