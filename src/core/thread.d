@@ -2416,6 +2416,28 @@ else
 
             __asm("std   1, $0", "=*m", &sp);
         }
+        else version (AArch64)
+        {
+            import ldc.llvmasm;
+
+            // Callee-save registers, according to AAPCS64, section 5.1.1.
+            // FIXME: As loads/stores are explicit on ARM, the code generated for
+            // this is horrible. Better write the entire function in ASM.
+            size_t[11] regs = void;
+            __asm("str x19, $0", "=*m", regs.ptr + 0);
+            __asm("str x20, $0", "=*m", regs.ptr + 1);
+            __asm("str x21, $0", "=*m", regs.ptr + 2);
+            __asm("str x22, $0", "=*m", regs.ptr + 3);
+            __asm("str x23, $0", "=*m", regs.ptr + 4);
+            __asm("str x24, $0", "=*m", regs.ptr + 5);
+            __asm("str x25, $0", "=*m", regs.ptr + 6);
+            __asm("str x26, $0", "=*m", regs.ptr + 7);
+            __asm("str x27, $0", "=*m", regs.ptr + 8);
+            __asm("str x28, $0", "=*m", regs.ptr + 9);
+            __asm("str x29, $0", "=*m", regs.ptr + 10);
+
+            __asm("str x31, $0", "=*m", &sp);
+        }
         else version (ARM)
         {
             import ldc.llvmasm;
@@ -3168,6 +3190,14 @@ private void* getStackTop() nothrow
         else version (X86_64)
         {
             return __asm!(void *)("movq %rsp, $0", "=r");
+        }
+        else version (AArch64)
+        {
+            return __asm!(void *)("mov $0, sp", "=r");
+        }
+        else version (ARM)
+        {
+            return __asm!(void *)("mov $0, r13", "=r");
         }
         else version (PPC)
         {
