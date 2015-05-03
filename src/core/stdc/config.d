@@ -130,6 +130,22 @@ else version( LDC )
         alias real c_long_double;
     else version( X86_64 )
         alias real c_long_double;
+    else version( AArch64 )
+        alias real c_long_double;
+    else version( ARM )
+        alias real c_long_double;
+    else version( MIPS )
+        alias real c_long_double;
+    else version( MIPS64 )
+        alias real c_long_double;
+    else version( PPC )
+        alias real c_long_double;
+    else version( PPC64 )
+        alias real c_long_double;
+    else version( SPARC )
+        alias real c_long_double;
+    else version( SPARC64 )
+        alias real c_long_double;
 }
 else version( SDC )
 {
