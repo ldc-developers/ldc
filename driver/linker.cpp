@@ -227,6 +227,8 @@ static int linkObjToBinaryGcc(bool sharedLib)
     // Only specify -m32/-m64 for architectures where the two variants actually
     // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
     if (global.params.targetTriple.get64BitArchVariant().getArch() !=
+        llvm::Triple::UnknownArch &&
+        global.params.targetTriple.get32BitArchVariant().getArch() !=
         llvm::Triple::UnknownArch
     ) {
         if (global.params.is64bit)
