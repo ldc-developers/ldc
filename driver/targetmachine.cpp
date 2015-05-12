@@ -256,12 +256,18 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
     const llvm::Target *target = 0;
     if (!arch.empty())
     {
+#if LDC_LLVM_VER >= 307
+        for (const llvm::Target &T : llvm::TargetRegistry::targets())
+        {
+#else
         for (llvm::TargetRegistry::iterator it = llvm::TargetRegistry::begin(),
             ie = llvm::TargetRegistry::end(); it != ie; ++it)
         {
-            if (arch == it->getName())
+            const llvm::Target& T = *it;
+#endif
+            if (arch == T.getName())
             {
-                target = &*it;
+                target = &T;
                 break;
             }
         }
