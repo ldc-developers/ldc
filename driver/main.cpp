@@ -560,7 +560,12 @@ static void registerMipsABI()
 static void registerPredefinedFloatABI(const char *soft, const char *hard, const char *softfp=NULL)
 {
     // Use target floating point unit instead of s/w float routines
+#if LDC_LLVM_VER >= 307
+    // FIXME: This is a semantic change!
+    bool useFPU = gTargetMachine->Options.FloatABIType = llvm::FloatABI::Hard;
+#else
     bool useFPU = !gTargetMachine->Options.UseSoftFloat;
+#endif
     VersionCondition::addPredefinedGlobalIdent(useFPU ? "D_HardFloat" : "D_SoftFloat");
 
     if (gTargetMachine->Options.FloatABIType == llvm::FloatABI::Soft)
