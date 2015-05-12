@@ -425,15 +425,21 @@ llvm::TargetMachine* createTargetMachine(
     {
     default: llvm_unreachable("Floating point ABI type unknown.");
     case FloatABI::Soft:
+#if LDC_LLVM_VER < 307
         targetOptions.UseSoftFloat = true;
+#endif
         targetOptions.FloatABIType = llvm::FloatABI::Soft;
         break;
     case FloatABI::SoftFP:
+#if LDC_LLVM_VER < 307
         targetOptions.UseSoftFloat = false;
+#endif
         targetOptions.FloatABIType = llvm::FloatABI::Soft;
         break;
     case FloatABI::Hard:
+#if LDC_LLVM_VER < 307
         targetOptions.UseSoftFloat = false;
+#endif
         targetOptions.FloatABIType = llvm::FloatABI::Hard;
         break;
     }
