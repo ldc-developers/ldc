@@ -549,10 +549,10 @@ static void registerMipsABI()
     auto dl = gTargetMachine->getDataLayout();
     if (dl->getPointerSizeInBits() == 64)
         VersionCondition::addPredefinedGlobalIdent("MIPS_N64");
-    else if (dl->getStackAlignment() <= 64)
-        VersionCondition::addPredefinedGlobalIdent("MIPS_O32");
-    else
+    else if (dl->getLargestLegalIntTypeSize() == 64)
         VersionCondition::addPredefinedGlobalIdent("MIPS_N32");
+    else
+        VersionCondition::addPredefinedGlobalIdent("MIPS_O32");
 #else
     llvm::StringRef features = gTargetMachine->getTargetFeatureString();
     if (features.find("+o32") != std::string::npos)
