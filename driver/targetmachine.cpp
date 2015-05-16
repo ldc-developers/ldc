@@ -199,6 +199,7 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
     }
 }
 
+#if LDC_LLVM_VER < 307
 /// Sanitizes the MIPS ABI in the feature string.
 static void addMipsABI(const llvm::Triple &triple, std::vector<std::string> &attrs)
 {
@@ -238,6 +239,7 @@ static void addMipsABI(const llvm::Triple &triple, std::vector<std::string> &att
     if (bits != defaultABI)
         attrs.push_back(is64Bit ? "-n64" : "-o32");
 }
+#endif
 
 /// Looks up a target based on an arch name and a target triple.
 ///
@@ -362,11 +364,13 @@ llvm::TargetMachine* createTargetMachine(
 #endif
         }
     }
+#if LDC_LLVM_VER < 307
     if (triple.getArch() == llvm::Triple::mips ||
         triple.getArch() == llvm::Triple::mipsel ||
         triple.getArch() == llvm::Triple::mips64 ||
         triple.getArch() == llvm::Triple::mips64el)
         addMipsABI(triple, attrs);
+#endif
     for (unsigned i = 0; i < attrs.size(); ++i)
         features.AddFeature(attrs[i]);
 

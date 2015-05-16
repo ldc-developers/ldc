@@ -544,6 +544,16 @@ static void initializePasses() {
 /// Register the MIPS ABI.
 static void registerMipsABI()
 {
+#if LDC_LLVM_VER >= 307
+    // FIXME: EABI?
+    auto dl = gTargetMachine->getDataLayout();
+    if (dl->getPointerSizeInBits() == 64)
+        VersionCondition::addPredefinedGlobalIdent("MIPS_N64");
+    else if (dl->getStackAlignment() <= 64)
+        VersionCondition::addPredefinedGlobalIdent("MIPS_O32");
+    else
+        VersionCondition::addPredefinedGlobalIdent("MIPS_N32");
+#else
     llvm::StringRef features = gTargetMachine->getTargetFeatureString();
     if (features.find("+o32") != std::string::npos)
         VersionCondition::addPredefinedGlobalIdent("MIPS_O32");
@@ -553,6 +563,7 @@ static void registerMipsABI()
         VersionCondition::addPredefinedGlobalIdent("MIPS_N64");
     if (features.find("+eabi") != std::string::npos)
         VersionCondition::addPredefinedGlobalIdent("MIPS_EABI");
+#endif
 }
 
 /// Register the float ABI.
