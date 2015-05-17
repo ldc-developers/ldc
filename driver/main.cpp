@@ -698,7 +698,7 @@ static void registerPredefinedTargetVersions() {
     }
 
     // a generic 64bit version
-    if (global.params.is64bit) {
+    if (global.params.isLP64) {
         VersionCondition::addPredefinedGlobalIdent("D_LP64");
     }
 
@@ -1028,20 +1028,6 @@ int main(int argc, char **argv)
         bitness, mFloatABI, mRelocModel, mCodeModel, codeGenOptLevel(),
         global.params.symdebug || disableFpElim, disableLinkerStripDead);
 
-    {
-        llvm::Triple triple = llvm::Triple(gTargetMachine->getTargetTriple());
-        global.params.targetTriple = triple;
-        global.params.isLinux      = triple.getOS() == llvm::Triple::Linux;
-        global.params.isOSX        = triple.isMacOSX();
-        global.params.isWindows    = triple.isOSWindows();
-        global.params.isFreeBSD    = triple.getOS() == llvm::Triple::FreeBSD;
-        global.params.isOpenBSD    = triple.getOS() == llvm::Triple::OpenBSD;
-        global.params.isSolaris    = triple.getOS() == llvm::Triple::Solaris;
-        // FIXME: Correctly handle the x32 ABI (AMD64 ILP32) here.
-        global.params.isLP64       = triple.isArch64Bit();
-        global.params.is64bit      = triple.isArch64Bit();
-    }
-
 #if LDC_LLVM_VER >= 307
     gDataLayout = gTargetMachine->getDataLayout();
 #elif LDC_LLVM_VER >= 306
@@ -1051,6 +1037,19 @@ int main(int argc, char **argv)
 #else
     gDataLayout = gTargetMachine->getTargetData();
 #endif
+
+    {
+        llvm::Triple triple = llvm::Triple(gTargetMachine->getTargetTriple());
+        global.params.targetTriple = triple;
+        global.params.isLinux      = triple.getOS() == llvm::Triple::Linux;
+        global.params.isOSX        = triple.isMacOSX();
+        global.params.isWindows    = triple.isOSWindows();
+        global.params.isFreeBSD    = triple.getOS() == llvm::Triple::FreeBSD;
+        global.params.isOpenBSD    = triple.getOS() == llvm::Triple::OpenBSD;
+        global.params.isSolaris    = triple.getOS() == llvm::Triple::Solaris;
+        global.params.isLP64       = gDataLayout->getPointerSizeInBits() == 64;
+        global.params.is64bit      = triple.isArch64Bit();
+    }
 
     // allocate the target abi
     gABI = TargetABI::getTarget();
