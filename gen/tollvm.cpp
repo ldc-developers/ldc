@@ -300,7 +300,7 @@ LLIntegerType* DtoSize_t()
     // the type of size_t does not change once set
     static LLIntegerType* t = NULL;
     if (t == NULL)
-        t = (global.params.is64bit) ? LLType::getInt64Ty(gIR->context()) : LLType::getInt32Ty(gIR->context());
+        t = (global.params.isLP64) ? LLType::getInt64Ty(gIR->context()) : LLType::getInt32Ty(gIR->context());
     return t;
 }
 
