@@ -573,7 +573,7 @@ static void registerPredefinedFloatABI(const char *soft, const char *hard, const
     // Use target floating point unit instead of s/w float routines
 #if LDC_LLVM_VER >= 307
     // FIXME: This is a semantic change!
-    bool useFPU = gTargetMachine->Options.FloatABIType = llvm::FloatABI::Hard;
+    bool useFPU = gTargetMachine->Options.FloatABIType == llvm::FloatABI::Hard;
 #else
     bool useFPU = !gTargetMachine->Options.UseSoftFloat;
 #endif
