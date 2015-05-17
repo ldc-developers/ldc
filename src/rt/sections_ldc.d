@@ -373,10 +373,10 @@ void initSections()
     }
     else version (Win64)
     {
-        pushRange(&_data_start__, &_data_end__);
+        pushRange(_data_start__, _data_end__);
         if (_bss_start__ != null)
         {
-            pushRange(&_bss_start__, &_bss_end__);
+            pushRange(_bss_start__, _bss_end__);
         }
     }
     else version (Windows)
