@@ -349,6 +349,18 @@ version( LDC )
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
             return arg;
         }
+        else version( AnyPPC )
+        {
+            T arg = *cast(T*)ap;
+            ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+            return arg;
+        }
+        else version( MIPS64 )
+        {
+            T arg = *cast(T*)ap;
+            ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+            return arg;
+        }
         else
             return va_arg_intrinsic!T(ap);
     }
