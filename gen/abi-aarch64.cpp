@@ -54,7 +54,76 @@ struct AArch64TargetABI : TargetABI
 
     void rewriteFunctionType(TypeFunction* t, IrFuncTy &fty)
     {
-        // why?
+        for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I)
+        {
+            IrFuncTyArg& arg = **I;
+
+            if (!arg.byref)
+                rewriteArgument(fty, arg);
+        }
+    }
+
+    void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
+    {
+        // FIXME
+    }
+
+    /**
+    * The AACPS64 uses a special native va_list type:
+    *
+    * typedef struct __va_list {
+    *     void *__stack; // next stack param
+    *     void *__gr_top; // end of GP arg reg save area
+    *     void *__vr_top; // end of FP/SIMD arg reg save area
+    *     int __gr_offs; // offset from __gr_top to next GP register arg
+    *     int __vr_offs; // offset from __vr_top to next FP/SIMD register arg
+    * } va_list;
+    *
+    * In druntime, the struct is defined as core.stdc.stdarg.__va_list; the actually used
+    * core.stdc.stdarg.va_list type is a raw char* pointer though to achieve byref semantics.
+    * This requires a little bit of compiler magic in the following implementations.
+    */
+
+    LLType* getValistType() {
+        LLType* intType = LLType::getInt32Ty(gIR->context());
+        LLType* voidPointerType = getVoidPtrType();
+
+        std::vector<LLType*> parts;       // struct __va_list {
+        parts.push_back(voidPointerType); //   void *__stack;
+        parts.push_back(voidPointerType); //   void *__gr_top;
+        parts.push_back(voidPointerType); //   void *__vr_top;
+        parts.push_back(intType);         //   int __gr_offs;
+        parts.push_back(intType);         //   int __vr_offs; };
+
+        return LLStructType::get(gIR->context(), parts);
+    }
+
+    LLValue* prepareVaStart(LLValue* pAp) {
+        // Since the user only created a char* pointer (ap) on the stack before invoking va_start,
+        // we first need to allocate the actual __va_list struct and set 'ap' to its address.
+        LLValue* valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
+        valistmem = DtoBitCast(valistmem, getVoidPtrType());
+        DtoStore(valistmem, pAp); // ap = (void*)__va_list_mem
+
+        // pass a void* pointer to the actual struct to LLVM's va_start intrinsic
+        return valistmem;
+    }
+
+    void vaCopy(LLValue* pDest, LLValue* src) {
+        // Analog to va_start, we need to allocate a __va_list struct on the stack first
+        // and set the passed 'dest' char* pointer to its address.
+        LLValue* valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
+        DtoStore(DtoBitCast(valistmem, getVoidPtrType()), pDest);
+
+        // Now bitcopy the source struct over the destination struct.
+        src = DtoBitCast(src, valistmem->getType());
+        DtoStore(DtoLoad(src), valistmem); // *(__va_list*)dest = *(__va_list*)src
+    }
+
+    LLValue* prepareVaArg(LLValue* pAp)
+    {
+        // pass a void* pointer to the actual __va_list struct to LLVM's va_arg intrinsic
+        return DtoLoad(pAp);
     }
 };
 
