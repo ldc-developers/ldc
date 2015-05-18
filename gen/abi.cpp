@@ -11,6 +11,7 @@
 #include "mars.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-aarch64.h"
+#include "gen/abi-mips64.h"
 #include "gen/abi-ppc64.h"
 #include "gen/abi-win64.h"
 #include "gen/abi-x86-64.h"
@@ -197,6 +198,11 @@ TargetABI * TargetABI::getTarget()
             return getWin64TargetABI();
         else
             return getX86_64TargetABI();
+    case llvm::Triple::mips:
+    case llvm::Triple::mipsel:
+    case llvm::Triple::mips64:
+    case llvm::Triple::mips64el:
+        return getMIPS64TargetABI(global.params.is64bit);
     case llvm::Triple::ppc64:
 #if LDC_LLVM_VER >= 305
     case llvm::Triple::ppc64le:
