@@ -926,7 +926,11 @@ void DtoDefineFunction(FuncDeclaration* fd)
     {
         // emit a call to llvm_eh_unwind_init
         LLFunction* hack = GET_INTRINSIC_DECL(eh_unwind_init);
+#if LDC_LLVM_VER >= 307
+        gIR->ir->CreateCall(hack, {});
+#else
         gIR->ir->CreateCall(hack, "");
+#endif
     }
 
     // give the 'this' argument storage and debug info

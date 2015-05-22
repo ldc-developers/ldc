@@ -420,7 +420,11 @@ LLValue* DtoMemCmp(LLValue* lhs, LLValue* rhs, LLValue* nbytes)
     lhs = DtoBitCast(lhs, VoidPtrTy);
     rhs = DtoBitCast(rhs, VoidPtrTy);
 
+#if LDC_LLVM_VER >= 307
+    return gIR->ir->CreateCall(fn, { lhs, rhs, nbytes });
+#else
     return gIR->ir->CreateCall3(fn, lhs, rhs, nbytes);
+#endif
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
