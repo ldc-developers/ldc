@@ -78,9 +78,10 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "profiledata" index)
         endif()
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
-            # Versions below 3.7 do not support components debuginfodwarf
+            # Versions below 3.7 do not support components debuginfodwarf, mir
             # Only debuginfo is available
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "mir" index)
             list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
         endif()
 
@@ -158,9 +159,10 @@ else()
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "profiledata" index)
     endif()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
-        # Versions below 3.7 do not support components debuginfodwarf
+        # Versions below 3.7 do not support components debuginfodwarf, mir
         # Only debuginfo is available
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "mir" index)
         list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
     endif()
 

@@ -2300,7 +2300,11 @@ public:
         IF_LOG Logger::print("HaltExp::toElem: %s\n", e->toChars());
         LOG_SCOPE;
 
+#if LDC_LLVM_VER >= 307
+        p->ir->CreateCall(GET_INTRINSIC_DECL(trap), {});
+#else
         p->ir->CreateCall(GET_INTRINSIC_DECL(trap), "");
+#endif
         p->ir->CreateUnreachable();
 
         // this terminated the basicblock, start a new one

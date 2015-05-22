@@ -209,7 +209,11 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     typedef std::list<FuncDeclaration*>::const_iterator FuncIterator;
     for (FuncIterator itr = funcs.begin(), end = funcs.end(); itr != end; ++itr) {
         llvm::Function* f = getIrFunc(*itr)->func;
-        llvm::CallInst* call = builder.CreateCall(f,"");
+#if LDC_LLVM_VER >= 307
+        llvm::CallInst* call = builder.CreateCall(f, {});
+#else
+        llvm::CallInst* call = builder.CreateCall(f, "");
+#endif
         call->setCallingConv(gABI->callingConv(LINKd));
     }
 
