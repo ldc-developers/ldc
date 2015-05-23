@@ -1135,6 +1135,11 @@ class Thread
             auto t = cast(Thread) pthread_getspecific( sm_this );
             return t;
         }
+        else version( Windows )
+        {
+            auto t = cast(Thread) TlsGetValue( sm_this );
+            return t;
+        }
         else
         {
             return sm_this;
@@ -1374,6 +1379,11 @@ private:
         // when using shared libraries, see issue 11981.
         __gshared pthread_key_t sm_this;
     }
+    else version( Windows )
+    {
+        // TLS index returned by TlsAlloc()
+        __gshared uint sm_this;
+    }
     else
     {
         static Thread       sm_this;
@@ -1443,6 +1453,10 @@ private:
         else version( Posix )
         {
             pthread_setspecific( sm_this, cast(void*) t );
+        }
+        else version( Windows )
+        {
+            TlsSetValue( sm_this, cast(void*) t );
         }
         else
         {
@@ -1975,6 +1989,12 @@ extern (C) void thread_init()
         status = pthread_key_create( &Thread.sm_this, null );
         assert( status == 0 );
     }
+    else version( Windows )
+    {
+        enum TLS_OUT_OF_INDEXES = 0xFFFF_FFFFu;
+        Thread.sm_this = TlsAlloc();
+        assert( Thread.sm_this != TLS_OUT_OF_INDEXES );
+    }
     Thread.sm_main = thread_attachThis();
 }
 
@@ -1993,6 +2013,10 @@ extern (C) void thread_term()
     else version( Posix )
     {
         pthread_key_delete( Thread.sm_this );
+    }
+    else version( Windows )
+    {
+        TlsFree( Thread.sm_this );
     }
 }
 
