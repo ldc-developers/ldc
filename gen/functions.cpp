@@ -733,7 +733,7 @@ static llvm::GlobalValue::LinkageTypes lowerFuncLinkage(FuncDeclaration* fdecl)
 
     // Generated array op functions behave like templates in that they might be
     // emitted into many different modules.
-    if (fdecl->isArrayOp && !isDruntimeArrayOp(fdecl))
+    if (fdecl->isArrayOp && (willInline() || !isDruntimeArrayOp(fdecl)))
         return templateLinkage;
 
     // A body-less declaration always needs to be marked as external in LLVM
@@ -782,7 +782,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 
     // Skip array ops implemented in druntime
-    if (fd->isArrayOp && isDruntimeArrayOp(fd))
+    if (fd->isArrayOp && !willInline() && isDruntimeArrayOp(fd))
     {
         IF_LOG Logger::println("No code generation for array op %s implemented in druntime", fd->toChars());
         fd->ir.setDefined();
