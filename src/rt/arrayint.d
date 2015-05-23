@@ -2449,7 +2449,6 @@ T[] _arraySliceExpMulSliceAssign_i(T[] a, T value, T[] b)
     auto aend = aptr + a.length;
     auto bptr = b.ptr;
 
-    version (LDC) {} else // LDC_FIXME: Support for SSE 4.1 missing.
     version (D_InlineAsm_X86)
     {
         if (sse41)
@@ -2560,7 +2559,6 @@ T[] _arraySliceExpMulSliceAssign_i(T[] a, T value, T[] b)
             }
         }
     }
-    version (LDC) {} else // LDC_FIXME: Support for SSE 4.1 missing.
     version (D_InlineAsm_X86_64)
     {
         if (sse41)
@@ -2742,7 +2740,6 @@ T[] _arraySliceSliceMulSliceAssign_i(T[] a, T[] c, T[] b)
     auto bptr = b.ptr;
     auto cptr = c.ptr;
 
-    version (LDC) {} else // LDC_FIXME: Support for SSE 4.1 missing.
     version (D_InlineAsm_X86)
     {
         if (sse41)
@@ -2863,7 +2860,6 @@ T[] _arraySliceSliceMulSliceAssign_i(T[] a, T[] c, T[] b)
             }
         }
     }
-    version (LDC) {} else // LDC_FIXME: Support for SSE 4.1 missing.
     version (D_InlineAsm_X86_64)
     {
         if (sse41)
@@ -3056,7 +3052,6 @@ T[] _arrayExpSliceMulass_i(T[] a, T value)
     auto aptr = a.ptr;
     auto aend = aptr + a.length;
 
-    version (LDC) {} else // LDC_FIXME: Support for SSE 4.1 missing.
     version (D_InlineAsm_X86)
     {
         if (sse41)
@@ -3153,7 +3148,6 @@ T[] _arrayExpSliceMulass_i(T[] a, T value)
             }
         }
     }
-    version (LDC) {} else // LDC_FIXME: Support for SSE 4.1 missing.
     version (D_InlineAsm_X86_64)
     {
         if (sse41)
@@ -3323,7 +3317,6 @@ T[] _arraySliceSliceMulass_i(T[] a, T[] b)
     auto aend = aptr + a.length;
     auto bptr = b.ptr;
 
-    version (LDC) {} else // LDC_FIXME: Support for SSE 4.1 missing.
     version (D_InlineAsm_X86)
     {
         if (sse41)
@@ -3434,7 +3427,6 @@ T[] _arraySliceSliceMulass_i(T[] a, T[] b)
             }
         }
     }
-    version (LDC) {} else // LDC_FIXME: Support for SSE 4.1 missing.
     version (D_InlineAsm_X86_64)
     {
         if (sse41)
