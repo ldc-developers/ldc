@@ -26,6 +26,87 @@
 #include "mars.h"
 #include "gen/logger.h"
 
+#if LDC_LLVM_VER >= 307
+#include "driver/cl_options.h"
+
+static const llvm::StringRef getABI(const llvm::Triple &triple)
+{
+    llvm::StringRef ABIName(opts::mABI);
+    if (ABIName != "")
+    {
+        switch (triple.getArch())
+        {
+            case llvm::Triple::arm:
+            case llvm::Triple::armeb:
+                if (ABIName.startswith("aapcs")) return "aapcs";
+                if (ABIName.startswith("eabi")) return "apcs";
+                break;
+            case llvm::Triple::mips:
+            case llvm::Triple::mipsel:
+            case llvm::Triple::mips64:
+            case llvm::Triple::mips64el:
+                if (ABIName.startswith("o32")) return "o32";
+                if (ABIName.startswith("n32")) return "n32";
+                if (ABIName.startswith("n64")) return "n64";
+                if (ABIName.startswith("eabi")) return "eabi";
+                break;
+            case llvm::Triple::ppc64:
+            case llvm::Triple::ppc64le:
+                if (ABIName.startswith("elfv1")) return "elfv1";
+                if (ABIName.startswith("elfv2")) return "elfv2";
+                break;
+            default:
+                break;
+        }
+        warning(Loc(), "Unknown ABI %s - using default ABI instead", ABIName.str().c_str());
+    }
+
+    switch (triple.getArch())
+    {
+        case llvm::Triple::mips64:
+        case llvm::Triple::mips64el:
+            return "n32";
+        case llvm::Triple::ppc64:
+            return "elfv1";
+        case llvm::Triple::ppc64le:
+            return "elfv2";
+        default:
+            return 0;
+    }
+}
+#endif
+
+extern llvm::TargetMachine* gTargetMachine;
+
+MipsABI::Type getMipsABI()
+{
+#if LDC_LLVM_VER >= 307
+    // eabi can only be set on the commandline
+    if (strncmp(opts::mABI.c_str(), "eabi", 4) == 0)
+        return MipsABI::EABI;
+    else
+    {
+        auto dl = gTargetMachine->getDataLayout();
+        if (dl->getPointerSizeInBits() == 64)
+            return MipsABI::N64;
+        else if (dl->getLargestLegalIntTypeSize() == 64)
+            return MipsABI::N32;
+        else
+            return MipsABI::O32;
+    }
+#else
+    llvm::StringRef features = gTargetMachine->getTargetFeatureString();
+    if (features.find("+o32") != std::string::npos)
+        return MipsABI::O32;
+    if (features.find("+n32") != std::string::npos)
+        return MipsABI::N32;
+    if (features.find("+n64") != std::string::npos)
+        return MipsABI::N32;
+    if (features.find("+eabi") != std::string::npos)
+        return MipsABI::EABI;
+    return MipsABI::Unknown;
+#endif
+}
 
 static std::string getX86TargetCPU(const llvm::Triple &triple)
 {
@@ -424,6 +505,9 @@ llvm::TargetMachine* createTargetMachine(
 
     llvm::TargetOptions targetOptions;
     targetOptions.NoFramePointerElim = noFramePointerElim;
+#if LDC_LLVM_VER >= 307
+    targetOptions.MCOptions.ABIName = getABI(triple);
+#endif
 
     switch (floatABI)
     {

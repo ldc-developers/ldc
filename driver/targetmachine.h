@@ -36,6 +36,16 @@ namespace FloatABI {
     };
 }
 
+namespace MipsABI {
+    enum Type {
+        Unknown,
+        O32,
+        N32,
+        N64,
+        EABI
+    };
+}
+
 namespace llvm { class TargetMachine; }
 
 /**
@@ -57,5 +67,14 @@ llvm::TargetMachine* createTargetMachine(
     bool noFramePointerElim,
     bool noLinkerStripDead
     );
+
+/**
+ * Returns the Mips ABI which is used for code generation.
+ *
+ * Function may only be called after the target machine is created.
+ * Returns MipsABI::Unknown in case the ABI is not known (e.g. not compiling
+ * for Mips).
+ */
+MipsABI::Type getMipsABI();
 
 #endif // LDC_DRIVER_TARGET_H
