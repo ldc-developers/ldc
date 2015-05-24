@@ -66,6 +66,9 @@ namespace opts {
     extern cl::opt<std::string> mCPU;
     extern cl::list<std::string> mAttrs;
     extern cl::opt<std::string> mTargetTriple;
+#if LDC_LLVM_VER >= 307
+    extern cl::opt<std::string> mABI;
+#endif
     extern cl::opt<llvm::Reloc::Model> mRelocModel;
     extern cl::opt<llvm::CodeModel::Model> mCodeModel;
     extern cl::opt<bool> disableFpElim;

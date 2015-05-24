@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/toobj.h"
+#include "driver/targetmachine.h"
 #include "driver/tool.h"
 #include "gen/irstate.h"
 #include "gen/logger.h"
@@ -130,15 +131,47 @@ static void assemble(const std::string &asmpath, const std::string &objpath)
     std::vector<std::string> args;
     args.push_back("-O3");
     args.push_back("-c");
-    args.push_back("-xassembler");
+    args.push_back("-x assembler");
     args.push_back(asmpath);
     args.push_back("-o");
     args.push_back(objpath);
 
-    if (global.params.is64bit)
-        args.push_back("-m64");
-    else
-        args.push_back("-m32");
+    // Only specify -m32/-m64 for architectures where the two variants actually
+    // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
+    // MIPS does not have -m32/-m64 but requires -mabi=.
+    if (global.params.targetTriple.get64BitArchVariant().getArch() !=
+        llvm::Triple::UnknownArch &&
+        global.params.targetTriple.get32BitArchVariant().getArch() !=
+        llvm::Triple::UnknownArch) {
+        if (global.params.targetTriple.get64BitArchVariant().getArch() ==
+            llvm::Triple::mips64 ||
+            global.params.targetTriple.get64BitArchVariant().getArch() ==
+            llvm::Triple::mips64el) {
+            switch (getMipsABI())
+            {
+                case MipsABI::EABI:
+                    args.push_back("-mabi=eabi");
+                    break;
+                case MipsABI::O32:
+                    args.push_back("-mabi=32");
+                    break;
+                case MipsABI::N32:
+                    args.push_back("-mabi=n32");
+                    break;
+                case MipsABI::N64:
+                    args.push_back("-mabi=64");
+                    break;
+                case MipsABI::Unknown:
+                    break;
+            }
+        }
+        else {
+            if (global.params.is64bit)
+                args.push_back("-m64");
+            else
+                args.push_back("-m32");
+        }
+    }
 
     // Run the compiler to assembly the program.
     std::string gcc(getGcc());

@@ -322,6 +322,13 @@ cl::list<std::string> mAttrs("mattr",
 cl::opt<std::string> mTargetTriple("mtriple",
     cl::desc("Override target triple"));
 
+#if LDC_LLVM_VER >= 307
+cl::opt<std::string> mABI("mabi",
+    cl::desc("The name of the ABI to be targeted from the backend"),
+    cl::Hidden,
+    cl::init(""));
+#endif
+
 cl::opt<llvm::Reloc::Model> mRelocModel("relocation-model",
     cl::desc("Relocation model"),
     cl::init(llvm::Reloc::Default),

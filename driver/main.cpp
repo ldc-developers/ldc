@@ -544,26 +544,23 @@ static void initializePasses() {
 /// Register the MIPS ABI.
 static void registerMipsABI()
 {
-#if LDC_LLVM_VER >= 307
-    // FIXME: EABI?
-    auto dl = gTargetMachine->getDataLayout();
-    if (dl->getPointerSizeInBits() == 64)
-        VersionCondition::addPredefinedGlobalIdent("MIPS_N64");
-    else if (dl->getLargestLegalIntTypeSize() == 64)
-        VersionCondition::addPredefinedGlobalIdent("MIPS_N32");
-    else
-        VersionCondition::addPredefinedGlobalIdent("MIPS_O32");
-#else
-    llvm::StringRef features = gTargetMachine->getTargetFeatureString();
-    if (features.find("+o32") != std::string::npos)
-        VersionCondition::addPredefinedGlobalIdent("MIPS_O32");
-    if (features.find("+n32") != std::string::npos)
-        VersionCondition::addPredefinedGlobalIdent("MIPS_N32");
-    if (features.find("+n64") != std::string::npos)
-        VersionCondition::addPredefinedGlobalIdent("MIPS_N64");
-    if (features.find("+eabi") != std::string::npos)
-        VersionCondition::addPredefinedGlobalIdent("MIPS_EABI");
-#endif
+    switch (getMipsABI())
+    {
+        case MipsABI::EABI:
+            VersionCondition::addPredefinedGlobalIdent("MIPS_EABI");
+            break;
+        case MipsABI::O32:
+            VersionCondition::addPredefinedGlobalIdent("MIPS_O32");
+            break;
+        case MipsABI::N32:
+            VersionCondition::addPredefinedGlobalIdent("MIPS_N32");
+            break;
+        case MipsABI::N64:
+            VersionCondition::addPredefinedGlobalIdent("MIPS_N64");
+            break;
+        case MipsABI::Unknown:
+            break;
+    }
 }
 
 /// Register the float ABI.
