@@ -19,6 +19,7 @@ import core.bitop;
 import core.memory;
 debug(PRINTF) import core.stdc.stdio;
 static import rt.tlsgc;
+version(LDC) import ldc.intrinsics;
 
 alias BlkInfo = GC.BlkInfo;
 alias BlkAttr = GC.BlkAttr;
@@ -617,6 +618,14 @@ body
     auto bic = !isshared ? __getBlkInfo((*p).ptr) : null;
     auto info = bic ? *bic : GC.query((*p).ptr);
     auto size = ti.next.tsize;
+    version (LDC)
+    {
+        auto umul = llvm_umul_with_overflow!size_t(size, newcapacity);
+        size_t reqsize = umul.result;
+
+        if (!umul.overflow)
+            goto Lcontinue;
+    } else
     version (D_InlineAsm_X86)
     {
         size_t reqsize = void;
@@ -780,6 +789,13 @@ extern (C) void[] _d_newarrayU(const TypeInfo ti, size_t length) pure nothrow
     if (length == 0 || size == 0)
         return null;
 
+    version (LDC)
+    {
+        auto umul = llvm_umul_with_overflow!size_t(size, length);
+        size = umul.result;
+        if (!umul.overflow)
+            goto Lcontinue;
+    } else
     version (D_InlineAsm_X86)
     {
         asm
@@ -1321,6 +1337,13 @@ body
             return newdata[0 .. newlength];
         }
         size_t sizeelem = ti.next.tsize;
+        version (LDC)
+        {
+            auto umul = llvm_umul_with_overflow!size_t(newlength, sizeelem);
+            size_t newsize = umul.result;
+            if (umul.overflow)
+                goto Loverflow;
+        } else
         version (D_InlineAsm_X86)
         {
             size_t newsize = void;
@@ -1500,6 +1523,13 @@ body
 
     if (newlength)
     {
+        version (LDC)
+        {
+            auto umul = llvm_umul_with_overflow!size_t(newlength, sizeelem);
+            size_t newsize = umul.result;
+            if (umul.overflow)
+                goto Loverflow;
+        } else
         version (D_InlineAsm_X86)
         {
             size_t newsize = void;
