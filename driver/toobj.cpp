@@ -131,7 +131,7 @@ static void assemble(const std::string &asmpath, const std::string &objpath)
     std::vector<std::string> args;
     args.push_back("-O3");
     args.push_back("-c");
-    args.push_back("-x assembler");
+    args.push_back("-xassembler");
     args.push_back(asmpath);
     args.push_back("-o");
     args.push_back(objpath);
