@@ -29,7 +29,7 @@
 #if LDC_LLVM_VER >= 307
 #include "driver/cl_options.h"
 
-static const llvm::StringRef getABI(const llvm::Triple &triple)
+static const char* getABI(const llvm::Triple &triple)
 {
     llvm::StringRef ABIName(opts::mABI);
     if (ABIName != "")
@@ -71,7 +71,7 @@ static const llvm::StringRef getABI(const llvm::Triple &triple)
         case llvm::Triple::ppc64le:
             return "elfv2";
         default:
-            return 0;
+            return "";
     }
 }
 #endif
