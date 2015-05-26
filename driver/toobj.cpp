@@ -67,6 +67,10 @@ enum OpenFlags {
 }
 #endif
 
+static llvm::cl::opt<bool>
+NoIntegratedAssembler("no-integrated-as", llvm::cl::Hidden,
+                      llvm::cl::desc("Disable integrated assembler"));
+
 // based on llc code, University of Illinois Open Source License
 static void codegenModule(llvm::TargetMachine &Target, llvm::Module& m,
     llvm::raw_fd_ostream& out, llvm::TargetMachine::CodeGenFileType fileType)
@@ -151,15 +155,19 @@ static void assemble(const std::string &asmpath, const std::string &objpath)
             {
                 case MipsABI::EABI:
                     args.push_back("-mabi=eabi");
+                    args.push_back("-march=mips32r2");
                     break;
                 case MipsABI::O32:
                     args.push_back("-mabi=32");
+                    args.push_back("-march=mips32r2");
                     break;
                 case MipsABI::N32:
                     args.push_back("-mabi=n32");
+                    args.push_back("-march=mips64r2");
                     break;
                 case MipsABI::N64:
                     args.push_back("-mabi=64");
+                    args.push_back("-march=mips64r2");
                     break;
                 case MipsABI::Unknown:
                     break;
@@ -389,13 +397,15 @@ void writeModule(llvm::Module* m, std::string filename)
     // There is no integrated assembler on AIX because XCOFF is not supported.
     // Starting with LLVM 3.5 the integrated assembler can be used with MinGW.
     bool const assembleExternally = global.params.output_o &&
-        global.params.targetTriple.getOS() == llvm::Triple::AIX;
+        (NoIntegratedAssembler ||
+        global.params.targetTriple.getOS() == llvm::Triple::AIX);
 #else
     // (We require LLVM 3.5 with AIX.)
     // We don't use the integrated assembler with MinGW as it does not support
     // emitting DW2 exception handling tables.
     bool const assembleExternally = global.params.output_o &&
-        global.params.targetTriple.getOS() == llvm::Triple::MinGW32;
+        (NoIntegratedAssembler ||
+        global.params.targetTriple.getOS() == llvm::Triple::MinGW32);
 #endif
 
     // eventually do our own path stuff, dmd's is a bit strange.
