@@ -460,11 +460,6 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
         }
         gIR->ir->CreateStore(r, l);
     }
-
-    DVarValue *var = lhs->isVar();
-    VarDeclaration *vd = var ? var->var : 0;
-    if (vd)
-        gIR->DBuilder.EmitValue(DtoLoad(var->getLVal()), vd);
 }
 
 /****************************************************************************************/
