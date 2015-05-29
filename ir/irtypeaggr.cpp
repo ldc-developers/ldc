@@ -27,7 +27,7 @@
 
 static bool isAligned(llvm::Type* type, size_t offset)
 {
-    return gDataLayout->getABITypeAlignment(type) % offset == 0;
+    return (offset % gDataLayout->getABITypeAlignment(type)) == 0;
 }
 
 size_t add_zeros(std::vector<llvm::Type*>& defaultTypes,
