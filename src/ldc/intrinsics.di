@@ -542,4 +542,4 @@ pragma(LDC_intrinsic, "llvm.debugtrap")
 /// constant value, variables are not allowed.
 
 pragma(LDC_intrinsic, "llvm.expect.i#")
-    T llvm_expect(T)(T val, T expected_val);
+    T llvm_expect(T)(T val, T expected_val) if (__traits(isIntegral, T));
