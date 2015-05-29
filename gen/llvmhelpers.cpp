@@ -1713,13 +1713,6 @@ DValue* DtoSymbolAddress(Loc& loc, Type* type, Declaration* decl)
             val = DtoArrayLen(gIR->arrays.back());
             return new DImValue(type, val);
         }
-        // classinfo
-        else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
-        {
-            Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
-            DtoResolveClass(cid->cd);
-            return new DVarValue(type, vd, getIrAggr(cid->cd)->getClassInfoSymbol());
-        }
         // typeinfo
         else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())
         {
