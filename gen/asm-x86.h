@@ -2103,7 +2103,7 @@ namespace AsmParserx8664
                 }
                 else if ( token->value != TOKeof )
                 {
-                    stmt->error ( "expected comma after operand" );
+                    stmt->error ( "end of instruction expected, not '%s'", token->toChars() );
                     return;
                 }
             }
@@ -3155,6 +3155,31 @@ namespace AsmParserx8664
                     case TOKtilde:
                         e = new ComExp ( stmt->loc, e1 );
                         break;
+                    case TOKoror:
+                        e = new OrOrExp(stmt->loc, e1, e2);
+                        break;
+                    case TOKandand:
+                        e = new AndAndExp(stmt->loc, e1, e2);
+                        break;
+                    case TOKor:
+                        e = new OrExp(stmt->loc, e1, e2);
+                        break;
+                    case TOKand:
+                        e = new AndExp(stmt->loc, e1, e2);
+                        break;
+                    case TOKxor:
+                        e = new XorExp(stmt->loc, e1, e2);
+                        break;
+                    case TOKequal:
+                    case TOKnotequal:
+                        e = new EqualExp(op, stmt->loc, e1, e2);
+                        break;
+                    case TOKgt:
+                    case TOKge:
+                    case TOKlt:
+                    case TOKle:
+                        e = new CmpExp(op, stmt->loc, e1, e2);
+                        break;
                     default:
                         llvm_unreachable("Unknown integer operation.");
                 }
@@ -3178,7 +3203,150 @@ namespace AsmParserx8664
 
         Expression * parseAsmExp()
         {
-            return parseShiftExp();
+            return parseCondExp();
+        }
+
+        Expression * parseCondExp()
+        {
+            Expression * exp = parseLogOrExp();
+            if (token->value == TOKquestion)
+            {
+                nextToken();
+                Expression * exp2 = parseCondExp();
+                if (token->value != TOKcolon)
+                    return exp;
+                nextToken();
+                Expression * exp3 = parseCondExp();
+                exp = exp->toUInteger() ? exp2 : exp3;
+            }
+            return exp;
+        }
+
+        Expression * parseLogOrExp()
+        {
+            Expression * exp = parseLogAndExp();
+            while (token->value == TOKoror)
+            {
+                nextToken();
+                Expression * exp2 = parseLogAndExp();
+                if (isIntExp(exp) && isIntExp(exp2))
+                    exp = intOp(TOKandand, exp, exp2);
+                else
+                    stmt->error("bad integral operand");
+            }
+            return exp;
+        }
+
+        Expression * parseLogAndExp()
+        {
+            Expression * exp = parseIncOrExp();
+            while (token->value == TOKoror)
+            {
+                nextToken();
+                Expression * exp2 = parseIncOrExp();
+                if (isIntExp(exp) && isIntExp(exp2))
+                    exp = intOp(TOKoror, exp, exp2);
+                else
+                    stmt->error("bad integral operand");
+            }
+            return exp;
+        }
+
+        Expression * parseIncOrExp()
+        {
+            Expression * exp = parseXOrExp();
+            while (token->value == TOKor)
+            {
+                nextToken();
+                Expression * exp2 = parseXOrExp();
+                if (isIntExp(exp) && isIntExp(exp2))
+                    exp = intOp(TOKor, exp, exp2);
+                else
+                    stmt->error("bad integral operand");
+            }
+            return exp;
+        }
+
+        Expression * parseXOrExp()
+        {
+            Expression * exp = parseAndExp();
+            while (token->value == TOKxor)
+            {
+                nextToken();
+                Expression * exp2 = parseAndExp();
+                if (isIntExp(exp) && isIntExp(exp2))
+                    exp = intOp(TOKxor, exp, exp2);
+                else
+                    stmt->error("bad integral operand");
+            }
+            return exp;
+        }
+
+        Expression * parseAndExp()
+        {
+            Expression * exp = parseEqualExp();
+            while (token->value == TOKand)
+            {
+                nextToken();
+                Expression * exp2 = parseEqualExp();
+                if (isIntExp(exp) && isIntExp(exp2))
+                    exp = intOp(TOKand, exp, exp2);
+                else
+                    stmt->error("bad integral operand");
+            }
+            return exp;
+        }
+
+        Expression * parseEqualExp()
+        {
+            Expression * exp = parseRelExp();
+            while (1)
+            {
+                switch (token->value)
+                {
+                    case TOKequal:
+                    case TOKnotequal:
+                    {
+                        TOK tok = token->value;
+                        nextToken();
+                        Expression * exp2 = parseRelExp();
+                        if (isIntExp(exp) && isIntExp(exp2))
+                            exp = intOp(tok, exp, exp2);
+                        else
+                            stmt->error("bad integral operand");
+                    }
+                    default:
+                        return exp;
+                }
+            }
+            return exp;
+        }
+
+        Expression * parseRelExp()
+        {
+            Expression * exp = parseShiftExp();
+            while (1)
+            {
+                switch (token->value)
+                {
+                    case TOKgt:
+                    case TOKge:
+                    case TOKlt:
+                    case TOKle:
+                    {
+                        TOK tok = token->value;
+                        nextToken();
+                        Expression * exp2 = parseShiftExp();
+                        if (isIntExp(exp) && isIntExp(exp2))
+                            exp = intOp(tok, exp, exp2);
+                        else
+                            stmt->error("bad integral operand");
+                    }
+                    default:
+                        return exp;
+                }
+            }
+            return exp;
         }
 
         Expression * parseShiftExp()
@@ -3614,7 +3782,8 @@ namespace AsmParserx8664
                 default:
                     if ( op == Op_FMath0 || op == Op_FdST0ST1 || op == Op_FMath )
                         return Handled;
-                    invalidExpression();
+                    // DMD does not emit an error message here.
+                    // invalidExpression();
                     return Handled;
             }
             return e;
