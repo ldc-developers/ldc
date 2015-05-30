@@ -5320,9 +5320,6 @@ void UnitTestDeclaration::semantic(Scope *sc)
 
     protection = sc->protection;
 
-    if (inNonRoot())
-        return;
-
     if (global.params.useUnitTests)
     {
         if (!type)
