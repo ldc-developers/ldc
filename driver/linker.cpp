@@ -458,19 +458,11 @@ void createStaticLibrary()
         else
             libName = "a.out";
     }
+    if (!FileName::absolute(libName.c_str()))
+        libName = FileName::combine(global.params.objdir, libName.c_str());
     std::string libExt = std::string(".") + global.lib_ext;
     if (!endsWith(libName, libExt))
-    {
-        if (!isTargetWindows)
-        {
-            libName = llvm::sys::path::parent_path(libName).str()
-                    + "/lib"
-                    + llvm::sys::path::filename(libName).str()
-                    + libExt;
-        }
-        else
-            libName.append(libExt);
-    }
+        libName.append(libExt);
     if (isTargetWindows)
         args.push_back("/OUT:" + libName);
     else
