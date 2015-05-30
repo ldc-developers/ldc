@@ -2808,8 +2808,13 @@ namespace AsmParserx8664
                         }
                         if ( operand->segmentPrefix != Reg_Invalid )
                         {
-                            writeReg ( operand->segmentPrefix );
-                            insnTemplate << ':';
+                            if (op != Op_Branch)
+                            {
+                                writeReg(operand->segmentPrefix);
+                                insnTemplate << ':';
+                            }
+                            else
+                                stmt->error("Cannot generate a segment prefix for a branching instruction");
                         }
                         if ( (operand->segmentPrefix != Reg_Invalid && operand->symbolDisplacement.dim == 0)
                             || operand->constDisplacement )
