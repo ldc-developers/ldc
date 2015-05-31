@@ -2067,7 +2067,7 @@ public:
         // call assert runtime functions
         p->scope() = IRScope(assertbb, endbb);
 
-        /* DMD Bugzilla 8360: If the condition is evalated to true,
+        /* DMD Bugzilla 8360: If the condition is evaluated to true,
          * msg is not evaluated at all. So should use toElemDtor()
          * instead of toElem().
          */
@@ -3198,7 +3198,12 @@ public:
 
     virtual void visit(AssertExp *e)
     {
-        applyTo(e->e1);
+        // If assertions are turned off e.g. in release mode then
+        // the expression is ignored. Only search for destructors
+        // inside the assert expression if assertions are turned on.
+        // See GitHub issue #953.
+        if (global.params.useAssert)
+            applyTo(e->e1);
         // same as above
         // applyTo(e->msg);
     }
