@@ -320,7 +320,6 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *);
     void semantic(Scope *sc);
 
-    ClassInfoDeclaration* isClassInfoDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
 };
 

@@ -304,8 +304,6 @@ public:
     virtual OverloadSet *isOverloadSet() { return NULL; }
     virtual void accept(Visitor *v) { v->visit(this); }
 #if IN_LLVM
-    virtual ClassInfoDeclaration* isClassInfoDeclaration() { return NULL; }
-
     // llvm stuff
     int llvmInternal;
 
