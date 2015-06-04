@@ -669,7 +669,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m)
         llvm::sys::path::filename(srcpath),
         llvm::sys::path::parent_path(srcpath),
         "LDC (http://wiki.dlang.org/LDC)",
-        false, // isOptimized TODO
+        isOptimizationEnabled(), // isOptimized
         llvm::StringRef(), // Flags TODO
         1 // Runtime Version TODO
     );
@@ -710,7 +710,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd)
         IR->dmodule == getDefinedModule(fd), // isdefinition
         fd->loc.linnum, // FIXME: scope line
         0, // Flags
-        false, // isOptimized
+        isOptimizationEnabled(), // isOptimized
         getIrFunc(fd)->func
     );
 }
@@ -761,7 +761,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function* Fn,
         true, // is local to unit
         true, // isdefinition
         0, // FIXME: scope line
-        false, // FIXME: isOptimized
+        isOptimizationEnabled(), // isOptimized
         Fn
     );
 }

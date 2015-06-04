@@ -167,6 +167,10 @@ bool willInline() {
         (enableInlining == cl::BOU_UNSET && optLevel() > 1);
 }
 
+bool isOptimizationEnabled() {
+    return optimizeLevel != 0;
+}
+
 llvm::CodeGenOpt::Level codeGenOptLevel() {
     const int opt = optLevel();
     // Use same appoach as clang (see lib/CodeGen/BackendUtil.cpp)
