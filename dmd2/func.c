@@ -2181,7 +2181,12 @@ void FuncDeclaration::semantic3(Scope *sc)
             if (isMain() && f->next->ty == Tvoid)
             {
                 // Add a return 0; statement
+#if IN_LLVM
+                // The return statement is put at the end. Give it the end location.
+                Statement *s = new ReturnStatement(endloc, new IntegerExp(0));
+#else
                 Statement *s = new ReturnStatement(Loc(), new IntegerExp(0));
+#endif
                 a->push(s);
             }
 
