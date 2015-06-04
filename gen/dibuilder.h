@@ -158,7 +158,7 @@ public:
     /// \brief Emits debug info for block end
     void EmitBlockEnd();
 
-    void EmitStopPoint(unsigned ln);
+    void EmitStopPoint(Loc& loc);
 
     void EmitValue(llvm::Value *val, VarDeclaration* vd);
 

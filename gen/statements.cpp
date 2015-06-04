@@ -371,7 +371,7 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         emitCoverageLinecountInc(stmt->loc);
 
@@ -492,7 +492,7 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         emitCoverageLinecountInc(stmt->loc);
 
@@ -809,7 +809,7 @@ public:
             return;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         emitCoverageLinecountInc(stmt->loc);
 
@@ -872,7 +872,7 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         emitCoverageLinecountInc(stmt->loc);
 
@@ -940,7 +940,7 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         // if there's no finalbody or no body, things are simple
         if (!stmt->finalbody) {
@@ -1032,7 +1032,7 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         // create basic blocks
         llvm::BasicBlock* oldend = irs->scopeend();
@@ -1089,7 +1089,7 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         emitCoverageLinecountInc(stmt->loc);
 
@@ -1118,7 +1118,7 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         emitCoverageLinecountInc(stmt->loc);
 
@@ -1690,7 +1690,7 @@ public:
         IF_LOG Logger::println("GotoStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         emitCoverageLinecountInc(stmt->loc);
 
@@ -1708,7 +1708,7 @@ public:
         IF_LOG Logger::println("GotoDefaultStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         emitCoverageLinecountInc(stmt->loc);
 
@@ -1730,7 +1730,7 @@ public:
         IF_LOG Logger::println("GotoCaseStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         emitCoverageLinecountInc(stmt->loc);
 

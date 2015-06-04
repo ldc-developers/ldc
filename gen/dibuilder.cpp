@@ -776,7 +776,7 @@ void ldc::DIBuilder::EmitFuncStart(FuncDeclaration *fd)
     LOG_SCOPE;
 
     assert(static_cast<llvm::MDNode *>(getIrFunc(fd)->diSubprogram) != 0);
-    EmitStopPoint(fd->loc.linnum);
+    EmitStopPoint(fd->loc);
 }
 
 void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd)
@@ -788,7 +788,7 @@ void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd)
     LOG_SCOPE;
 
     assert(static_cast<llvm::MDNode *>(getIrFunc(fd)->diSubprogram) != 0);
-    EmitStopPoint(fd->endloc.linnum);
+    EmitStopPoint(fd->endloc);
 }
 
 void ldc::DIBuilder::EmitBlockStart(Loc& loc)
@@ -809,7 +809,7 @@ void ldc::DIBuilder::EmitBlockStart(Loc& loc)
 #endif
             );
     IR->func()->diLexicalBlocks.push(block);
-    EmitStopPoint(loc.linnum);
+    EmitStopPoint(loc);
 }
 
 void ldc::DIBuilder::EmitBlockEnd()
@@ -825,15 +825,14 @@ void ldc::DIBuilder::EmitBlockEnd()
     fn->diLexicalBlocks.pop();
 }
 
-void ldc::DIBuilder::EmitStopPoint(unsigned ln)
+void ldc::DIBuilder::EmitStopPoint(Loc& loc)
 {
     if (!global.params.symdebug)
         return;
 
-    Logger::println("D to dwarf stoppoint at line %u", ln);
+    Logger::println("D to dwarf stoppoint at line %u, column %u", loc.linnum, loc.charnum);
     LOG_SCOPE;
-    llvm::DebugLoc loc = llvm::DebugLoc::get(ln, 0, GetCurrentScope());
-    IR->ir->SetCurrentDebugLocation(loc);
+    IR->ir->SetCurrentDebugLocation(llvm::DebugLoc::get(loc.linnum, loc.charnum, GetCurrentScope()));
 }
 
 void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd)
