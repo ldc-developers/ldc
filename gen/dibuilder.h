@@ -189,7 +189,7 @@ private:
     llvm::LLVMContext &getContext();
     Module *getDefinedModule(Dsymbol *s);
     DIScope GetCurrentScope();
-    void Declare(llvm::Value *var, ldc::DILocalVariable divar
+    void Declare(const Loc &loc, llvm::Value *var, ldc::DILocalVariable divar
 #if LDC_LLVM_VER >= 306
         , ldc::DIExpression diexpr
 #endif
