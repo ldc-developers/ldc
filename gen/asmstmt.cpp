@@ -187,7 +187,7 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
     assert(asmblock);
 
     // debug info
-    gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+    gIR->DBuilder.EmitStopPoint(stmt->loc);
 
     if (!stmt->asmcode)
         return;
