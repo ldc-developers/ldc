@@ -403,7 +403,7 @@ public:
                 DtoEnclosingHandlers(stmt->loc, NULL);
 
                 // emit ret
-                llvm::ReturnInst::Create(gIR->context(), irs->scopebb());
+                gIR->ir->CreateRetVoid();
             }
             // the return type is not void, so this is a normal "register" return
             else
@@ -463,7 +463,7 @@ public:
                 // emit scopes
                 DtoEnclosingHandlers(stmt->loc, NULL);
 
-                llvm::ReturnInst::Create(gIR->context(), v, irs->scopebb());
+                gIR->ir->CreateRet(v);
             }
         }
         // no return value expression means it's a void function
@@ -471,7 +471,7 @@ public:
         {
             assert(irs->topfunc()->getReturnType() == LLType::getVoidTy(gIR->context()));
             DtoEnclosingHandlers(stmt->loc, NULL);
-            llvm::ReturnInst::Create(gIR->context(), irs->scopebb());
+            gIR->ir->CreateRetVoid();
         }
 
         // the return terminated this basicblock, start a new one
