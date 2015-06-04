@@ -504,7 +504,9 @@ llvm::TargetMachine* createTargetMachine(
 #endif
 
     llvm::TargetOptions targetOptions;
+#if LDC_LLVM_VER < 307
     targetOptions.NoFramePointerElim = noFramePointerElim;
+#endif
 #if LDC_LLVM_VER >= 307
     targetOptions.MCOptions.ABIName = getABI(triple);
 #endif
