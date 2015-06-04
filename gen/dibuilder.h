@@ -165,8 +165,12 @@ public:
     /// \brief Emits all things necessary for making debug info for a local variable vd.
     /// \param ll       LLVM Value of the variable.
     /// \param vd       Variable declaration to emit debug info for.
+    /// \param type     Type of parameter if diferent from vd->type
+    /// \param isArtificial Parameter is artificial, e.g. this
     /// \param addr     An array of complex address operations.
     void EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
+        Type *type = 0,
+        bool isArtificial = false,
 #if LDC_LLVM_VER >= 306
         llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>()
 #else

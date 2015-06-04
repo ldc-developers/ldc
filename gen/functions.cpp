@@ -948,7 +948,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         assert(getIrParameter(fd->vthis)->value == thisvar);
         getIrParameter(fd->vthis)->value = thismem;
 
-        gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis);
+        gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, 0, true);
     }
 
     // give the 'nestArg' storage
@@ -977,7 +977,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
             bool refout = vd->storage_class & (STCref | STCout);
             bool lazy = vd->storage_class & STClazy;
-            if (!refout && (!irparam->arg->byref || lazy))
+            bool firstClassVal = !refout && (!irparam->arg->byref || lazy);
+            if (firstClassVal)
             {
                 // alloca a stack slot for this first class value arg
                 LLValue* mem = DtoAlloca(irparam->arg->type, vd->ident->toChars());
@@ -991,7 +992,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
             }
 
             if (global.params.symdebug && !(isaArgument(irparam->value) && isaArgument(irparam->value)->hasByValAttr()) && !refout)
-                gIR->DBuilder.EmitLocalVariable(irparam->value, vd);
+                gIR->DBuilder.EmitLocalVariable(irparam->value, vd, firstClassVal ? irparam->arg->type : 0);
         }
     }
 

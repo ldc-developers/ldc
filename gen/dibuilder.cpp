@@ -787,6 +787,7 @@ void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd)
     LOG_SCOPE;
 
     assert(static_cast<llvm::MDNode *>(getIrFunc(fd)->diSubprogram) != 0);
+    EmitStopPoint(fd->endloc.linnum);
 }
 
 void ldc::DIBuilder::EmitBlockStart(Loc& loc)
@@ -856,10 +857,11 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd)
 }
 
 void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
+                                       Type *type, bool isArtificial,
 #if LDC_LLVM_VER >= 306
-                           llvm::ArrayRef<int64_t> addr
+                                       llvm::ArrayRef<int64_t> addr
 #else
-                           llvm::ArrayRef<llvm::Value *> addr
+                                       llvm::ArrayRef<llvm::Value *> addr
 #endif
                            )
 {
@@ -875,7 +877,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
         return; // ensure that the debug variable is created only once
 
     // get type description
-    ldc::DIType TD = CreateTypeDescription(vd->type, true);
+    ldc::DIType TD = CreateTypeDescription(type ? type : vd->type, true);
     if (static_cast<llvm::MDNode *>(TD) == 0)
         return; // unsupported
 
@@ -900,7 +902,8 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
             CreateFile(vd->loc), // file
             vd->loc.linnum, // line num
             TD, // type
-            true // preserve
+            true, // preserve
+            isArtificial ? llvm::dwarf::DW_AT_artificial : 0
         );
 #if LDC_LLVM_VER < 306
     }
