@@ -1045,20 +1045,20 @@ void DtoDefineFunction(FuncDeclaration* fd)
         // pass the previous block into this block
         gIR->DBuilder.EmitStopPoint(fd->endloc);
         if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
-            llvm::ReturnInst::Create(gIR->context(), gIR->scopebb());
+            gIR->ir->CreateRetVoid();
         }
         else if (!fd->isMain()) {
             AsmBlockStatement* asmb = fd->fbody->endsWithAsm();
             if (asmb) {
                 assert(asmb->abiret);
-                llvm::ReturnInst::Create(gIR->context(), asmb->abiret, bb);
+                gIR->ir->CreateRet(asmb->abiret);
             }
             else {
-                llvm::ReturnInst::Create(gIR->context(), llvm::UndefValue::get(func->getReturnType()), bb);
+                gIR->ir->CreateRet(llvm::UndefValue::get(func->getReturnType()));
             }
         }
         else
-            llvm::ReturnInst::Create(gIR->context(), LLConstant::getNullValue(func->getReturnType()), bb);
+            gIR->ir->CreateRet(LLConstant::getNullValue(func->getReturnType()));
     }
     gIR->DBuilder.EmitFuncEnd(fd);
 
