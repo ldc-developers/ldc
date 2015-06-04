@@ -73,7 +73,7 @@ ldc::DIScope ldc::DIBuilder::GetCurrentScope()
     return fn->diLexicalBlocks.top();
 }
 
-void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *var, ldc::DILocalVariable divar
+void ldc::DIBuilder::Declare(llvm::Value *var, ldc::DILocalVariable divar
 #if LDC_LLVM_VER >= 306
     , ldc::DIExpression diexpr
 #endif
@@ -84,12 +84,10 @@ void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *var, ldc::DILocalVaria
         diexpr,
 #endif
 #if LDC_LLVM_VER >= 307
-        llvm::DebugLoc::get(loc.linnum, loc.charnum, GetCurrentScope()),
+        IR->ir->getCurrentDebugLocation(),
 #endif
         IR->scopebb());
-#if LDC_LLVM_VER < 307
-    instr->setDebugLoc(llvm::DebugLoc::get(loc.linnum, loc.charnum, GetCurrentScope()));
-#endif
+    instr->setDebugLoc(IR->ir->getCurrentDebugLocation());
 }
 
 ldc::DIFile ldc::DIBuilder::CreateFile(Loc& loc)
@@ -934,9 +932,9 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
     // declare
 #if LDC_LLVM_VER >= 306
-    Declare(vd->loc, ll, debugVariable, addr.empty() ? DBuilder.createExpression() : DBuilder.createExpression(addr));
+    Declare(ll, debugVariable, addr.empty() ? DBuilder.createExpression() : DBuilder.createExpression(addr));
 #else
-    Declare(vd->loc, ll, debugVariable);
+    Declare(ll, debugVariable);
 #endif
 }
 
