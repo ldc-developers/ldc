@@ -787,6 +787,7 @@ void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd)
     LOG_SCOPE;
 
     assert(static_cast<llvm::MDNode *>(getIrFunc(fd)->diSubprogram) != 0);
+    EmitStopPoint(fd->endloc.linnum);
 }
 
 void ldc::DIBuilder::EmitBlockStart(Loc& loc)
