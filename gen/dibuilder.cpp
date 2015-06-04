@@ -25,9 +25,9 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 #if LDC_LLVM_VER >= 307
-typedef llvm::DINode Access;
+typedef llvm::DINode DIFlags;
 #else
-typedef llvm::DIDescriptor Access;
+typedef llvm::DIDescriptor DIFlags;
 #endif
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -267,14 +267,14 @@ ldc::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
     unsigned Flags = 0;
     switch (prot) {
         case PROTprivate:
-            Flags = Access::FlagPrivate;
+            Flags = DIFlags::FlagPrivate;
             break;
         case PROTprotected:
-            Flags = Access::FlagProtected;
+            Flags = DIFlags::FlagProtected;
             break;
 #if LDC_LLVM_VER >= 306
         case PROTpublic:
-            Flags = Access::FlagPublic;
+            Flags = DIFlags::FlagPublic;
             break;
 #endif
         default:
@@ -428,7 +428,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
            getTypeBitSize(T), // size in bits
            getABITypeAlign(T)*8, // alignment in bits
            0, // offset in bits,
-           Access::FlagFwdDecl, // flags
+           DIFlags::FlagFwdDecl, // flags
            derivedFrom, // DerivedFrom
            elemsArray
         );
@@ -440,7 +440,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
            linnum, // line number where defined
            getTypeBitSize(T), // size in bits
            getABITypeAlign(T)*8, // alignment in bits
-           Access::FlagFwdDecl, // flags
+           DIFlags::FlagFwdDecl, // flags
 #if LDC_LLVM_VER >= 303
            derivedFrom, // DerivedFrom
 #endif
@@ -709,7 +709,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd)
         fd->protection == PROTprivate, // is local to unit
         IR->dmodule == getDefinedModule(fd), // isdefinition
         fd->loc.linnum, // FIXME: scope line
-        0, // Flags
+        DIFlags::FlagPrototyped, // Flags
         isOptimizationEnabled(), // isOptimized
         getIrFunc(fd)->func
     );
@@ -761,6 +761,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function* Fn,
         true, // is local to unit
         true, // isdefinition
         0, // FIXME: scope line
+        DIFlags::FlagPrototyped | DIFlags::FlagArtificial,
         isOptimizationEnabled(), // isOptimized
         Fn
     );
@@ -802,7 +803,7 @@ void ldc::DIBuilder::EmitBlockStart(Loc& loc)
             GetCurrentScope(), // scope
             CreateFile(loc), // file
             loc.linnum, // line
-            0 // column
+            loc.charnum // column
 #if LDC_LLVM_VER == 305
             , 0 // DWARF path discriminator value
 #endif
@@ -857,7 +858,7 @@ void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd)
 }
 
 void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
-                                       Type *type, bool isArtificial,
+                                       Type *type, bool isThisPtr,
 #if LDC_LLVM_VER >= 306
                                        llvm::ArrayRef<int64_t> addr
 #else
@@ -891,6 +892,15 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
         tag = llvm::dwarf::DW_TAG_auto_variable;
 
     ldc::DILocalVariable debugVariable;
+    unsigned Flags = 0;
+    if (isThisPtr)
+    {
+#if LDC_LLVM_VER >= 302
+        Flags |= DIFlags::FlagArtificial | DIFlags::FlagObjectPointer;
+#else
+        Flags |= DIFlags::FlagArtificial;
+#endif
+    }
 
 #if LDC_LLVM_VER < 306
     if (addr.empty()) {
@@ -903,7 +913,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
             vd->loc.linnum, // line num
             TD, // type
             true, // preserve
-            isArtificial ? llvm::dwarf::DW_AT_artificial : 0
+            Flags // flags
         );
 #if LDC_LLVM_VER < 306
     }
