@@ -1041,7 +1041,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         // in automatically, so we do it here.
 
         // pass the previous block into this block
-        gIR->DBuilder.EmitFuncEnd(fd);
+        gIR->DBuilder.EmitStopPoint(fd->endloc);
         if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
             llvm::ReturnInst::Create(gIR->context(), gIR->scopebb());
         }
@@ -1058,6 +1058,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         else
             llvm::ReturnInst::Create(gIR->context(), LLConstant::getNullValue(func->getReturnType()), bb);
     }
+    gIR->DBuilder.EmitFuncEnd(fd);
 
     // erase alloca point
     if (allocaPoint->getParent())

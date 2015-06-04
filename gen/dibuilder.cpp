@@ -827,7 +827,7 @@ void ldc::DIBuilder::EmitBlockEnd()
 
 void ldc::DIBuilder::EmitStopPoint(Loc& loc)
 {
-    if (!global.params.symdebug)
+    if (!global.params.symdebug || !loc.linnum)
         return;
 
     Logger::println("D to dwarf stoppoint at line %u, column %u", loc.linnum, loc.charnum);

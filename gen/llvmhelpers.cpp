@@ -208,9 +208,6 @@ void DtoAssert(Module* M, Loc& loc, DValue* msg)
     // call
     gIR->CreateCallOrInvoke(fn, args);
 
-    // end debug info
-    gIR->DBuilder.EmitFuncEnd(gIR->func()->decl);
-
     // after assert is always unreachable
     gIR->ir->CreateUnreachable();
 }

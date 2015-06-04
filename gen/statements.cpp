@@ -402,9 +402,6 @@ public:
                 // emit scopes
                 DtoEnclosingHandlers(stmt->loc, NULL);
 
-                // emit dbg end function
-                gIR->DBuilder.EmitFuncEnd(f->decl);
-
                 // emit ret
                 llvm::ReturnInst::Create(gIR->context(), irs->scopebb());
             }
@@ -466,7 +463,6 @@ public:
                 // emit scopes
                 DtoEnclosingHandlers(stmt->loc, NULL);
 
-                gIR->DBuilder.EmitFuncEnd(irs->func()->decl);
                 llvm::ReturnInst::Create(gIR->context(), v, irs->scopebb());
             }
         }
@@ -475,7 +471,6 @@ public:
         {
             assert(irs->topfunc()->getReturnType() == LLType::getVoidTy(gIR->context()));
             DtoEnclosingHandlers(stmt->loc, NULL);
-            gIR->DBuilder.EmitFuncEnd(irs->func()->decl);
             llvm::ReturnInst::Create(gIR->context(), irs->scopebb());
         }
 
@@ -1095,8 +1090,6 @@ public:
 
         assert(stmt->exp);
         DValue* e = toElemDtor(stmt->exp);
-
-        gIR->DBuilder.EmitFuncEnd(gIR->func()->decl);
 
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(stmt->loc, gIR->module, "_d_throw_exception");
         //Logger::cout() << "calling: " << *fn << '\n';
