@@ -463,6 +463,12 @@ public:
                 // emit scopes
                 DtoEnclosingHandlers(stmt->loc, NULL);
 
+                // Hack: the frontend generates 'return 0;' as last statement of
+                // 'void main()'. But the debug location is missing. Use the end
+                // of function as debug location.
+                if (f->decl->isMain() && !stmt->loc.linnum)
+                    gIR->DBuilder.EmitStopPoint(f->decl->endloc);
+
                 gIR->ir->CreateRet(v);
             }
         }
