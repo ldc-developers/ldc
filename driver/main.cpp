@@ -426,9 +426,15 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
             std::getline(libNames, lib, ',');
             if (lib.empty()) continue;
 
-            char *arg = static_cast<char *>(mem.xmalloc(lib.size() + 3));
-            strcpy(arg, "-l");
-            strcpy(arg+2, lib.c_str());
+            // Use "-l:libname.a" if the library name is complete
+            size_t slen = lib.size();
+            bool complete = slen > 3 + 2 &&
+                memcmp(lib.c_str(), "lib", 3) == 0 &&
+                (memcmp(lib.c_str() + slen - 2, ".a", 2) == 0 ||
+                memcmp(lib.c_str() + slen - 3, ".so", 3) == 0);
+            char *arg = static_cast<char *>(mem.xmalloc(slen + (complete ? 4 : 3)));
+            strcpy(arg, "-l:"); // the : may get overridden
+            strcpy(arg + (complete ? 3 : 2), lib.c_str());
             global.params.linkswitches->push(arg);
         }
     }
