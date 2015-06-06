@@ -2185,24 +2185,18 @@ Expression *Type::dotExp(Scope *sc, Expression *e, Identifier *ident, int flag)
         }
         else if (ident == Id::init)
         {
-#if IN_LLVM
-            // LDC_FIXME: Port the below (from 2.061).
-            if (toBasetype()->ty == Tstruct &&
-                ((TypeStruct *)toBasetype())->sym->isNested())
-            {
-                e = defaultInit(e->loc);
-            }
-            else
-                e = defaultInitLiteral(e->loc);
-#else
             Type *tb = toBasetype();
             e = defaultInitLiteral(e->loc);
             if (tb->ty == Tstruct && tb->needsNested())
             {
                 StructLiteralExp *se = (StructLiteralExp *)e;
+#if IN_LLVM
+                se->sinit = (SymbolDeclaration*)
+                    (((VarExp*)defaultInit(e->loc))->var);
+#else
                 se->sinit = toInitializer(se->sd);
-            }
 #endif
+            }
             goto Lreturn;
         }
     }

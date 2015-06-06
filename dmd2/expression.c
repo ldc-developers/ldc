@@ -8384,14 +8384,11 @@ Lagain:
                 StructLiteralExp *sle = new StructLiteralExp(loc, sd, NULL, e1->type);
                 if (!sd->fill(loc, sle->elements, true))
                     return new ErrorExp();
-
+#if IN_DMD
                 /* Copy from the initializer symbol for larger symbols,
                  * otherwise the literals expressed as code get excessively large.
                  */
                 if (sd->size(loc) > Target::ptrsize * 4 && !t1->needsNested())
-#if IN_LLVM
-                    ; // FIXME!!!
-#else
                     sle->sinit = toInitializer(sd);
 #endif
                 sle->type = type;
