@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "target.h"
+#include "gen/abi.h"
 #include "gen/irstate.h"
 #include "mars.h"
 #include "mtype.h"
@@ -80,7 +81,7 @@ unsigned Target::critsecsize()
 
 Type *Target::va_listType()
 {
-    return Type::tchar->pointerTo();
+    return gABI->vaListType();
 }
 
 /******************************
