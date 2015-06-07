@@ -31,14 +31,6 @@ version( X86_64 )
         enum isVectorType = true;
     }
 
-    // Layout of this struct must match __gnuc_va_list for C ABI compatibility
-    struct __va_list_tag
-    {
-        uint offset_regs = 6 * 8;            // no regs
-        uint offset_fpregs = 6 * 8 + 8 * 16; // no fp regs
-        void* stack_args;
-        void* reg_args;
-    }
     alias __va_list = __va_list_tag;
 
     void va_arg_x86_64(T)(__va_list *ap, ref T parmn)
@@ -311,7 +303,14 @@ version( LDC )
     // struct passed by reference. We define va_list as a raw pointer
     // (to the actual struct) for the byref semantics and allocate
     // the struct in LDC's va_start and va_copy intrinsics.
-    alias char* va_list;
+    version (SystemV_AMD64)
+    {
+        alias va_list = __va_list_tag*;
+    }
+    else
+    {
+        alias va_list = char*;
+    }
 
     pragma(LDC_va_start)
         void va_start(T)(va_list ap, ref T);

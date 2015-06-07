@@ -61,6 +61,21 @@ alias immutable(char)[]  string;
 alias immutable(wchar)[] wstring;
 alias immutable(dchar)[] dstring;
 
+version (LDC) version (X86_64)
+{
+    // Layout of this struct must match __gnuc_va_list for C ABI compatibility.
+    // Defined here for LDC as it is referenced from implicitly generated code
+    // for D-style variadics, etc., and we do not require people to manually
+    // import core.vararg like DMD does.
+    struct __va_list_tag
+    {
+        uint offset_regs = 6 * 8;
+        uint offset_fpregs = 6 * 8 + 8 * 16;
+        void* stack_args;
+        void* reg_args;
+    }
+}
+
 /**
  * All D class objects inherit from Object.
  */
