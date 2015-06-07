@@ -141,6 +141,14 @@ LLValue* TargetABI::prepareVaArg(LLValue* pAp)
 
 //////////////////////////////////////////////////////////////////////////////
 
+Type* TargetABI::vaListType()
+{
+    // char* is used by default in druntime.
+    return Type::tchar->pointerTo();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 // Some reasonable defaults for when we don't know what ABI to use.
 struct UnknownTargetABI : TargetABI
 {

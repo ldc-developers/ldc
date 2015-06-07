@@ -124,6 +124,11 @@ struct TargetABI
     // Input:  pointer to passed ap argument (va_list*)
     // Output: value to be passed to LLVM's va_arg intrinsic (void*)
     virtual llvm::Value* prepareVaArg(llvm::Value* pAp);
+
+    /// Returns the D type to be used for va_list.
+    ///
+    /// Must match the alias in druntime.
+    virtual Type* vaListType();
 };
 
 #endif
