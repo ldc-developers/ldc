@@ -7,10 +7,9 @@ before_install:
   # the official Clang binary package from the llvm.org download page.
   - echo yes | sudo add-apt-repository ppa:h-rayflood/llvm
 
-  # LLVM 3.4 / 3.5 / 3.6 / snapshots
+  # LLVM 3.4 / 3.5 / snapshots
   - sudo sh -c "echo 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise-3.4 main' >> /etc/apt/sources.list"
   - sudo sh -c "echo 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise-3.5 main' >> /etc/apt/sources.list"
-  - sudo sh -c "echo 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise-3.6-binaries main' >> /etc/apt/sources.list"
   - sudo sh -c "echo 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise main' >> /etc/apt/sources.list"
   - wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key | sudo apt-key add -
 
@@ -54,16 +53,12 @@ env:
   - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TEST_DEBUG=1
   - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev"
   - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" OPTS="-DTEST_COVERAGE=ON"
-  - LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev" TEST_DEBUG=1
-  - LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev"
   - LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev" TEST_DEBUG=1
   - LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev"
 matrix:
   allow_failures:
   - env: LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=32
   - env: LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=64
-  - env: LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev" TEST_DEBUG=1
-  - env: LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev"
   - env: LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev" TEST_DEBUG=1
   - env: LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev"
 script:

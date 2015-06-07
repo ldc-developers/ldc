@@ -16,7 +16,15 @@ include(CheckCXXCompilerFlag)
 #
 
 find_package(LLVM 3.1 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfodwarf instcombine ipa ipo instrumentation linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core
+    debuginfodwarf instcombine ipa ipo instrumentation linker lto mc
+    mcdisassembler mcparser objcarcopts object option profiledata scalaropts
+    selectiondag support tablegen target transformutils vectorize
+    ${EXTRA_LLVM_MODULES})
+if(LLVM_VERSION_MAJOR EQUAL 3 AND LLVM_VERSION_MINOR EQUAL 6)
+    message(FATAL_ERROR "LDC built against LLVM 3.6 is broken due to a critical "
+        "bug in the latter (see GitHub #904). Please use a different LLVM version.")
+endif()
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 
 #
