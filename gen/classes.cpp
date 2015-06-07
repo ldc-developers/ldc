@@ -239,6 +239,12 @@ DValue* DtoCastClass(Loc& loc, DValue* val, Type* _to)
     Type* from = val->getType()->toBasetype();
     TypeClass* fc = static_cast<TypeClass*>(from);
 
+    if (fc->sym->isCPPclass()) {
+        IF_LOG Logger::println("C++ class/interface, just bitcasting");
+        LLValue* rval = DtoBitCast(val->getRVal(), DtoType(_to));
+        return new DImValue(_to, rval);
+    }
+
     // x -> interface
     if (InterfaceDeclaration* it = tc->sym->isInterfaceDeclaration()) {
         Logger::println("to interface");
