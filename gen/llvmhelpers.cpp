@@ -219,17 +219,8 @@ void DtoAssert(Module* M, Loc& loc, DValue* msg)
 
 LLValue *DtoModuleFileName(Module* M, const Loc& loc)
 {
-    // we might be generating for an imported template function
-    const char* cur_file = M->srcfile->name->toChars();
-    if (loc.filename && strcmp(loc.filename, cur_file) != 0)
-    {
-        return DtoConstString(loc.filename);
-    }
-    else
-    {
-        IrModule* irmod = getIrModule(M);
-        return DtoLoad(irmod->fileName);
-    }
+    return DtoConstString(loc.filename ? loc.filename :
+        M->srcfile->name->toChars());
 }
 
 /****************************************************************************************/

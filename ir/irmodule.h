@@ -27,8 +27,6 @@ struct IrModule
     virtual ~IrModule();
 
     Module* M;
-
-    llvm::GlobalVariable* fileName;
 };
 
 IrModule *getIrModule(Module *m);

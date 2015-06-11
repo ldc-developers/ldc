@@ -17,10 +17,6 @@
 IrModule::IrModule(Module* module, const char* srcfilename)
 {
     M = module;
-
-    LLConstant* slice = DtoConstString(srcfilename);
-    fileName = new llvm::GlobalVariable(
-        *gIR->module, slice->getType(), true, LLGlobalValue::InternalLinkage, slice, ".modulefilename");
 }
 
 IrModule::~IrModule()
