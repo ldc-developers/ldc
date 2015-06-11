@@ -127,8 +127,6 @@ struct IRState
     Module* dmodule;
     llvm::Module* module;
 
-    // interface info type, used in DtoInterfaceInfoType
-    LLStructType* interfaceInfoType;
     LLStructType* mutexType;
     LLStructType* moduleRefType;
 

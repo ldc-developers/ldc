@@ -70,7 +70,6 @@ IRTargetScope::IRTargetScope(
 IRState::IRState(llvm::Module* m)
     : module(m), DBuilder(this, *m)
 {
-    interfaceInfoType = NULL;
     mutexType = NULL;
     moduleRefType = NULL;
 

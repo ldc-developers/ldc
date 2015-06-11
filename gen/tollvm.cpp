@@ -755,33 +755,6 @@ unsigned char getABITypeAlign(LLType* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLStructType* DtoInterfaceInfoType()
-{
-    if (gIR->interfaceInfoType)
-        return gIR->interfaceInfoType;
-
-    // build interface info type
-    LLSmallVector<LLType*, 3> types;
-    // ClassInfo classinfo
-    ClassDeclaration* cd2 = Type::typeinfoclass;
-    DtoResolveClass(cd2);
-    types.push_back(DtoType(cd2->type));
-    // void*[] vtbl
-    LLSmallVector<LLType*, 2> vtbltypes;
-    vtbltypes.push_back(DtoSize_t());
-    LLType* byteptrptrty = getPtrToType(getPtrToType(LLType::getInt8Ty(gIR->context())));
-    vtbltypes.push_back(byteptrptrty);
-    types.push_back(LLStructType::get(gIR->context(), vtbltypes));
-    // int offset
-    types.push_back(LLType::getInt32Ty(gIR->context()));
-    // create type
-    gIR->interfaceInfoType = LLStructType::get(gIR->context(), types);
-
-    return gIR->interfaceInfoType;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 LLStructType* DtoMutexType()
 {
     if (gIR->mutexType)
