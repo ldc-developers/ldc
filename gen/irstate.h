@@ -144,8 +144,8 @@ struct IRState
     TypeFunction* topfunctype();
     llvm::Instruction* topallocapoint();
 
-    // D main function
-    bool emitMain;
+    // The function containing the D main() body, if any (not the actual main()
+    // implicitly emitted).
     llvm::Function* mainFunc;
 
     // basic block scopes

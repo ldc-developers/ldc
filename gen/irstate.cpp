@@ -75,7 +75,6 @@ IRState::IRState(llvm::Module* m)
     moduleRefType = NULL;
 
     dmodule = 0;
-    emitMain = false;
     mainFunc = 0;
     ir.state = this;
     asmBlock = NULL;

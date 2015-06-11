@@ -875,9 +875,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
     IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
     gIR->functions.push_back(irFunc);
 
-    if (fd->isMain())
-        gIR->emitMain = true;
-
     func->setLinkage(lowerFuncLinkage(fd));
 
     // On x86_64, always set 'uwtable' for System V ABI compatibility.
