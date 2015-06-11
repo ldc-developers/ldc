@@ -141,7 +141,6 @@ struct IRState
     IrFunction* func();
 
     llvm::Function* topfunc();
-    TypeFunction* topfunctype();
     llvm::Instruction* topallocapoint();
 
     // The function containing the D main() body, if any (not the actual main()

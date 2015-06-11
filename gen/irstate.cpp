@@ -92,12 +92,6 @@ llvm::Function* IRState::topfunc()
     return functions.back()->func;
 }
 
-TypeFunction* IRState::topfunctype()
-{
-    assert(!functions.empty() && "Function stack is empty!");
-    return functions.back()->type;
-}
-
 llvm::Instruction* IRState::topallocapoint()
 {
     assert(!functions.empty() && "AllocaPoint stack is empty!");
