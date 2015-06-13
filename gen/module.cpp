@@ -233,52 +233,54 @@ static llvm::Function* build_module_function(const std::string &name, const std:
 
 // build module ctor
 
-llvm::Function* build_module_ctor()
+static llvm::Function* build_module_ctor(Module *m)
 {
     std::string name("_D");
-    name.append(mangle(gIR->dmodule));
+    name.append(mangle(m));
     name.append("6__ctorZ");
-    return build_module_function(name, gIR->ctors, gIR->gates);
+    IrModule *irm = getIrModule(m);
+    return build_module_function(name, irm->ctors, irm->gates);
 }
 
 // build module dtor
 
-static llvm::Function* build_module_dtor()
+static llvm::Function* build_module_dtor(Module *m)
 {
     std::string name("_D");
-    name.append(mangle(gIR->dmodule));
+    name.append(mangle(m));
     name.append("6__dtorZ");
-    return build_module_function(name, gIR->dtors);
+    return build_module_function(name, getIrModule(m)->dtors);
 }
 
 // build module unittest
 
-static llvm::Function* build_module_unittest()
+static llvm::Function* build_module_unittest(Module *m)
 {
     std::string name("_D");
-    name.append(mangle(gIR->dmodule));
+    name.append(mangle(m));
     name.append("10__unittestZ");
-    return build_module_function(name, gIR->unitTests);
+    return build_module_function(name, getIrModule(m)->unitTests);
 }
 
 // build module shared ctor
 
-llvm::Function* build_module_shared_ctor()
+static llvm::Function* build_module_shared_ctor(Module *m)
 {
     std::string name("_D");
-    name.append(mangle(gIR->dmodule));
+    name.append(mangle(m));
     name.append("13__shared_ctorZ");
-    return build_module_function(name, gIR->sharedCtors, gIR->sharedGates);
+    IrModule *irm = getIrModule(m);
+    return build_module_function(name, irm->sharedCtors, irm->sharedGates);
 }
 
 // build module shared dtor
 
-static llvm::Function* build_module_shared_dtor()
+static llvm::Function* build_module_shared_dtor(Module *m)
 {
     std::string name("_D");
-    name.append(mangle(gIR->dmodule));
+    name.append(mangle(m));
     name.append("13__shared_dtorZ");
-    return build_module_function(name, gIR->sharedDtors);
+    return build_module_function(name, getIrModule(m)->sharedDtors);
 }
 
 // build ModuleReference and register function, to register the module info in the global linked list
@@ -649,7 +651,7 @@ static void addCoverageAnalysis(Module* m)
         // Set up call to _d_cover_register2
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_cover_register2");
         LLValue* args[] = {
-            getIrModule(m)->fileName->getInitializer(),
+            DtoConstString(m->srcfile->name->toChars()),
             d_cover_valid_slice,
             d_cover_data_slice,
             DtoConstUbyte(global.params.covPercent)
@@ -671,7 +673,7 @@ static void addCoverageAnalysis(Module* m)
         fd->linkage = LINKd;
         IrFunction* irfunc = getIrFunc(fd, true);
         irfunc->func = ctor;
-        gIR->sharedCtors.push_back(fd);
+        getIrModule(m)->sharedCtors.push_back(fd);
     }
 
     IF_LOG Logger::undent();
@@ -957,11 +959,11 @@ static void genModuleInfo(Module *m)
     #define MIlocalClasses    0x800
     #define MInew             0x80000000   // it's the "new" layout
 
-    llvm::Function* fsharedctor = build_module_shared_ctor();
-    llvm::Function* fshareddtor = build_module_shared_dtor();
-    llvm::Function* funittest = build_module_unittest();
-    llvm::Function* fctor = build_module_ctor();
-    llvm::Function* fdtor = build_module_dtor();
+    llvm::Function* fsharedctor = build_module_shared_ctor(m);
+    llvm::Function* fshareddtor = build_module_shared_dtor(m);
+    llvm::Function* funittest = build_module_unittest(m);
+    llvm::Function* fctor = build_module_ctor(m);
+    llvm::Function* fdtor = build_module_dtor(m);
 
     unsigned flags = MInew;
     if (fctor)

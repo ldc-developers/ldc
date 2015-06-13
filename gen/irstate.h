@@ -174,17 +174,6 @@ struct IRState
     // debug info helper
     ldc::DIBuilder DBuilder;
 
-    // static ctors/dtors/unittests
-    typedef std::list<FuncDeclaration*> FuncDeclList;
-    typedef std::list<VarDeclaration*> GatesList;
-    FuncDeclList ctors;
-    FuncDeclList dtors;
-    FuncDeclList sharedCtors;
-    FuncDeclList sharedDtors;
-    GatesList gates;
-    GatesList sharedGates;
-    FuncDeclList unitTests;
-
     // for inline asm
     IRAsmBlock* asmBlock;
     std::ostringstream nakedAsm;

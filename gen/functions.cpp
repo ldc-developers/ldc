@@ -30,6 +30,7 @@
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "ir/irmodule.h"
 #if LDC_LLVM_VER >= 305
 #include "llvm/Linker/Linker.h"
 #else
@@ -833,19 +834,21 @@ void DtoDefineFunction(FuncDeclaration* fd)
     assert(fd->ident != Id::empty);
 
     if (fd->isUnitTestDeclaration()) {
-        gIR->unitTests.push_back(fd);
+        getIrModule(gIR->dmodule)->unitTests.push_back(fd);
     } else if (fd->isSharedStaticCtorDeclaration()) {
-        gIR->sharedCtors.push_back(fd);
+        getIrModule(gIR->dmodule)->sharedCtors.push_back(fd);
     } else if (StaticDtorDeclaration *dtorDecl = fd->isSharedStaticDtorDeclaration()) {
-        gIR->sharedDtors.push_front(fd);
-        if (dtorDecl->vgate)
-            gIR->sharedGates.push_front(dtorDecl->vgate);
+        getIrModule(gIR->dmodule)->sharedDtors.push_front(fd);
+        if (dtorDecl->vgate) {
+            getIrModule(gIR->dmodule)->sharedGates.push_front(dtorDecl->vgate);
+        }
     } else if (fd->isStaticCtorDeclaration()) {
-        gIR->ctors.push_back(fd);
+        getIrModule(gIR->dmodule)->ctors.push_back(fd);
     } else if (StaticDtorDeclaration *dtorDecl = fd->isStaticDtorDeclaration()) {
-        gIR->dtors.push_front(fd);
-        if (dtorDecl->vgate)
-            gIR->gates.push_front(dtorDecl->vgate);
+        getIrModule(gIR->dmodule)->dtors.push_front(fd);
+        if (dtorDecl->vgate) {
+            getIrModule(gIR->dmodule)->gates.push_front(dtorDecl->vgate);
+        }
     }
 
 

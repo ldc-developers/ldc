@@ -7,8 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Represents the state of a D module on its way through code generation. Also
-// see the TODO in gen/module.cpp – parts of IRState really belong here.
+// Represents the state of a D module on its way through code generation.
 //
 //===----------------------------------------------------------------------===//
 
@@ -27,6 +26,17 @@ struct IrModule
     virtual ~IrModule();
 
     Module* M;
+
+    // static ctors/dtors/unittests
+    typedef std::list<FuncDeclaration*> FuncDeclList;
+    typedef std::list<VarDeclaration*> GatesList;
+    FuncDeclList ctors;
+    FuncDeclList dtors;
+    FuncDeclList sharedCtors;
+    FuncDeclList sharedDtors;
+    GatesList gates;
+    GatesList sharedGates;
+    FuncDeclList unitTests;
 };
 
 IrModule *getIrModule(Module *m);
