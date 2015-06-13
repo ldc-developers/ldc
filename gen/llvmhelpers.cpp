@@ -966,7 +966,7 @@ void DtoResolveVariable(VarDeclaration* vd)
             linkage = llvm::GlobalValue::ExternalWeakLinkage;
         }
 
-        llvm::GlobalVariable* gvar = getOrCreateGlobal(vd->loc, *gIR->module,
+        llvm::GlobalVariable* gvar = getOrCreateGlobal(vd->loc, gIR->module,
             i1ToI8(DtoType(vd->type)), isLLConst, linkage, 0, llName,
             vd->isThreadlocal());
         getIrGlobal(vd)->value = gvar;
@@ -1610,9 +1610,9 @@ void printLabelName(std::ostream& target, const char* func_mangle, const char* l
 void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function* func, const uint32_t priority, const bool isCtor)
 {
     if (isCtor)
-        llvm::appendToGlobalCtors(*gIR->module, func, priority);
+        llvm::appendToGlobalCtors(gIR->module, func, priority);
     else
-        llvm::appendToGlobalDtors(*gIR->module, func, priority);
+        llvm::appendToGlobalDtors(gIR->module, func, priority);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

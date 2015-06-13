@@ -67,8 +67,8 @@ IRTargetScope::IRTargetScope(
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-IRState::IRState(llvm::Module* m)
-    : module(m), DBuilder(this, *m)
+IRState::IRState(const char *name, llvm::LLVMContext &context)
+    : module(name, context), DBuilder(this)
 {
     mutexType = NULL;
     moduleRefType = NULL;

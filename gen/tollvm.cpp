@@ -409,13 +409,13 @@ LLValue* DtoMemCmp(LLValue* lhs, LLValue* rhs, LLValue* nbytes)
     // int memcmp ( const void * ptr1, const void * ptr2, size_t num );
 
     LLType* VoidPtrTy = getVoidPtrType();
-    LLFunction* fn = gIR->module->getFunction("memcmp");
+    LLFunction* fn = gIR->module.getFunction("memcmp");
     if (!fn)
     {
         LLType* Tys[] = { VoidPtrTy, VoidPtrTy, DtoSize_t() };
         LLFunctionType* fty = LLFunctionType::get(LLType::getInt32Ty(gIR->context()),
                                                   Tys, false);
-        fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, "memcmp", gIR->module);
+        fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, "memcmp", &gIR->module);
     }
 
     lhs = DtoBitCast(lhs, VoidPtrTy);
@@ -508,7 +508,7 @@ LLConstant* DtoConstString(const char* str)
     if (gvar == 0)
     {
         llvm::Constant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
-        gvar = new llvm::GlobalVariable(*gIR->module, init->getType(), true,
+        gvar = new llvm::GlobalVariable(gIR->module, init->getType(), true,
                                         llvm::GlobalValue::PrivateLinkage, init, ".str");
         gvar->setUnnamedAddr(true);
         gIR->stringLiteral1ByteCache[s] = gvar;

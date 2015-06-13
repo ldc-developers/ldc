@@ -121,17 +121,15 @@ struct IRAsmBlock
 // represents the module
 struct IRState
 {
-    IRState(llvm::Module* m);
+    IRState(const char *name, llvm::LLVMContext &context);
 
-    // module
-    Module* dmodule;
-    llvm::Module* module;
+    llvm::Module module;
+    llvm::LLVMContext& context() const { return module.getContext(); }
+
+    Module *dmodule;
 
     LLStructType* mutexType;
     LLStructType* moduleRefType;
-
-    // helper to get the LLVMContext of the module
-    llvm::LLVMContext& context() const { return module->getContext(); }
 
     // functions
     typedef std::vector<IrFunction*> FunctionVector;

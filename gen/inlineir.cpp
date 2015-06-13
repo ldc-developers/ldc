@@ -75,7 +75,7 @@ llvm::Function* DtoInlineIRFunction(FuncDeclaration* fdecl)
         stream.str().c_str(), NULL, err, gIR->context());
 #else
     llvm::ParseAssemblyString(
-        stream.str().c_str(), gIR->module, err, gIR->context());
+        stream.str().c_str(), &gIR->module, err, gIR->context());
 #endif
 
     std::string errstr = err.getMessage();
@@ -91,16 +91,16 @@ llvm::Function* DtoInlineIRFunction(FuncDeclaration* fdecl)
             errstr.c_str(), stream.str().c_str());
 
 #if LDC_LLVM_VER >= 306
-    llvm::Linker(gIR->module).linkInModule(m.get());
+    llvm::Linker(&gIR->module).linkInModule(m.get());
 #elif LDC_LLVM_VER >= 303
     std::string errstr2 = "";
-    llvm::Linker(gIR->module).linkInModule(m, &errstr2);
+    llvm::Linker(&gIR->module).linkInModule(m, &errstr2);
     if(errstr2 != "")
         error(tinst->loc,
             "Error when linking in llvm inline ir: %s", errstr2.c_str());
 #endif
 
-    LLFunction* fun = gIR->module->getFunction(mangled_name);
+    LLFunction* fun = gIR->module.getFunction(mangled_name);
     fun->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
     fun->addFnAttr(LDC_ATTRIBUTE(AlwaysInline));
     return fun;

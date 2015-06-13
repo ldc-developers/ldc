@@ -21,11 +21,11 @@
 #include "scope.h"
 #include "dmd2/target.h"
 #include "driver/cl_options.h"
+#include "driver/codegenerator.h"
 #include "driver/configfile.h"
 #include "driver/ldc-version.h"
 #include "driver/linker.h"
 #include "driver/targetmachine.h"
-#include "driver/toobj.h"
 #include "gen/cl_helpers.h"
 #include "gen/irstate.h"
 #include "gen/linkage.h"
@@ -40,11 +40,6 @@
 #include "llvm/InitializePasses.h"
 #endif
 #include "llvm/LinkAllPasses.h"
-#if LDC_LLVM_VER >= 305
-#include "llvm/Linker/Linker.h"
-#else
-#include "llvm/Linker.h"
-#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
 #include "llvm/Support/ManagedStatic.h"
@@ -877,105 +872,52 @@ static void dumpPredefinedVersions()
     }
 }
 
-static Module *entrypoint = NULL;
-static Module *rootHasMain = NULL;
-
-/// Callback to generate a C main() function, invoked by the frontend.
-void genCmain(Scope *sc)
+/// Emits the .json AST description file.
+///
+/// This (ugly) piece of code has been taken from DMD's mars.c and should be
+/// kept in sync with the former.
+static void emitJson(Modules &modules)
 {
-    if (entrypoint)
-        return;
+    OutBuffer buf;
+    json_generate(&buf, &modules);
 
-    /* The D code to be generated is provided as D source code in the form of a string.
-     * Note that Solaris, for unknown reasons, requires both a main() and an _main()
-     */
-    static utf8_t code[] = "extern(C) {\n\
-        int _d_run_main(int argc, char **argv, void* mainFunc);\n\
-        int _Dmain(char[][] args);\n\
-        int main(int argc, char **argv) { return _d_run_main(argc, argv, &_Dmain); }\n\
-        version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }\n\
-        }\n\
-        pragma(LDC_no_moduleinfo);\n\
-        ";
+    // Write buf to file
+    const char *name = global.params.jsonfilename;
 
-    Identifier *id = Id::entrypoint;
-    Module *m = new Module("__entrypoint.d", id, 0, 0);
-
-    Parser p(m, code, sizeof(code) / sizeof(code[0]), 0);
-    p.scanloc = Loc();
-    p.nextToken();
-    m->members = p.parseModule();
-    assert(p.token.value == TOKeof);
-
-    char v = global.params.verbose;
-    global.params.verbose = 0;
-    m->importedFrom = m;
-    m->importAll(NULL);
-    m->semantic();
-    m->semantic2();
-    m->semantic3();
-    global.params.verbose = v;
-
-    entrypoint = m;
-    rootHasMain = sc->module;
-}
-
-/// Emits a declaration for the given symbol, which is assumed to be of type
-/// i8*, and defines a second globally visible i8* that contains the address
-/// of the first symbol.
-static void emitSymbolAddrGlobal(llvm::Module& lm, const char* symbolName,
-    const char* addrName)
-{
-    llvm::Type* voidPtr = llvm::PointerType::get(
-        llvm::Type::getInt8Ty(lm.getContext()), 0);
-    llvm::GlobalVariable* targetSymbol = new llvm::GlobalVariable(
-        lm, voidPtr, false, llvm::GlobalValue::ExternalWeakLinkage,
-        NULL, symbolName
-    );
-    new llvm::GlobalVariable(lm, voidPtr, false,
-        llvm::GlobalValue::ExternalLinkage,
-        llvm::ConstantExpr::getBitCast(targetSymbol, voidPtr),
-        addrName
-    );
-}
-
-/// Adds the __entrypoint module and related support code into the given LLVM
-/// module. This assumes that genCmain() has already been called.
-static void emitEntryPointInto(llvm::Module* lm)
-{
-    assert(entrypoint && "Entry point Dmodule has not been generated.");
-#if LDC_LLVM_VER >= 303
-    llvm::Linker linker(lm);
-#else
-    llvm::Linker linker("ldc", lm);
-#endif
-
-    llvm::LLVMContext& context = lm->getContext();
-    llvm::Module* entryModule = entrypoint->genLLVMModule(context);
-
-    // On Linux, strongly define the excecutabe BSS bracketing symbols in the
-    // main module for druntime use (see rt.sections_linux).
-    if (global.params.isLinux)
-    {
-        emitSymbolAddrGlobal(*entryModule, "__bss_start", "_d_execBssBegAddr");
-        emitSymbolAddrGlobal(*entryModule, "_end", "_d_execBssEndAddr");
+    if (name && name[0] == '-' && name[1] == 0)
+    {   // Write to stdout; assume it succeeds
+        (void)fwrite(buf.data, 1, buf.offset, stdout);
     }
+    else
+    {
+        /* The filename generation code here should be harmonized with Module::setOutfile()
+         */
+        const char *jsonfilename;
 
-#if LDC_LLVM_VER >= 306
-    // FIXME: A possible error message is written to the diagnostic context
-    //        Do we show these messages?
-    linker.linkInModule(entryModule);
-#else
-    std::string linkError;
-#if LDC_LLVM_VER >= 303
-    const bool hadError = linker.linkInModule(entryModule, &linkError);
-#else
-    const bool hadError = linker.LinkInModule(entryModule, &linkError);
-    linker.releaseModule();
-#endif
-    if (hadError)
-        error(Loc(), "%s", linkError.c_str());
-#endif
+        if (name && *name)
+        {
+            jsonfilename = FileName::defaultExt(name, global.json_ext);
+        }
+        else
+        {
+            // Generate json file name from first obj name
+            const char *n = (*global.params.objfiles)[0];
+            n = FileName::name(n);
+
+            //if (!FileName::absolute(name))
+                //name = FileName::combine(dir, name);
+
+            jsonfilename = FileName::forceExt(n, global.json_ext);
+        }
+
+        ensurePathToNameExists(Loc(), jsonfilename);
+
+        File *jsonfile = new File(jsonfilename);
+
+        jsonfile->setbuffer(buf.data, buf.offset);
+        jsonfile->ref = 1;
+        writeFile(Loc(), jsonfile);
+    }
 }
 
 
@@ -1338,175 +1280,42 @@ int main(int argc, char **argv)
     // the user requested it.
     if (global.params.moduleDepsFile != NULL)
     {
-        assert (global.params.moduleDepsFile != NULL);
-
         File deps(global.params.moduleDepsFile);
         OutBuffer* ob = global.params.moduleDeps;
         deps.setbuffer(static_cast<void*>(ob->data), ob->offset);
         deps.write();
     }
 
-    // collects llvm modules to be linked if singleobj is passed
-    std::vector<llvm::Module*> llvmModules;
-    llvm::LLVMContext& context = llvm::getGlobalContext();
-
-    // Generate output files
-    for (unsigned i = 0; i < modules.dim; i++)
+    // Generate one or more object/IR/bitcode files.
+    if (global.params.obj && !modules.empty())
     {
-        Module *m = modules[i];
-        if (global.params.verbose)
-            fprintf(global.stdmsg, "code      %s\n", m->toChars());
-        if (global.params.obj)
+        ldc::CodeGenerator cg(llvm::getGlobalContext(), singleObj);
+
+        for (unsigned i = 0; i < modules.dim; i++)
         {
-            llvm::Module* lm = m->genLLVMModule(context);
+            Module * const m = modules[i];
+            if (global.params.verbose)
+                fprintf(global.stdmsg, "code      %s\n", m->toChars());
+
+            cg.emit(m);
 
             if (global.errors)
                 fatal();
-
-            if (entrypoint && rootHasMain == m)
-                emitEntryPointInto(lm);
-
-            if (!singleObj)
-            {
-                m->deleteObjFile();
-                writeModule(lm, m->objfile->name->str);
-                global.params.objfiles->push(const_cast<char*>(m->objfile->name->str));
-                delete lm;
-            }
-            else
-            {
-                llvmModules.push_back(lm);
-            }
         }
-        if (global.params.doDocComments)
-            gendocfile(m);
     }
 
-    // internal linking for singleobj
-    if (singleObj && llvmModules.size() > 0)
+    // Generate DDoc output files.
+    if (global.params.doDocComments)
     {
-        Module *m = modules[0];
-
-        const char* oname;
-        const char* filename;
-        if ((oname = global.params.exefile) || (oname = global.params.objname))
+        for (unsigned i = 0; i < modules.dim; i++)
         {
-            filename = FileName::forceExt(oname, global.obj_ext);
-            if (global.params.objdir)
-            {
-                filename = FileName::combine(global.params.objdir, FileName::name(filename));
-            }
+            gendocfile(modules[i]);
         }
-        else
-            filename = m->objfile->name->str;
-
-#if 1
-        // Temporary workaround for http://llvm.org/bugs/show_bug.cgi?id=11479.
-        char* moduleName = const_cast<char*>(filename);
-#else
-        char* moduleName = m->toChars();
-#endif
-
-#if LDC_LLVM_VER >= 306
-        llvm::Linker linker(llvmModules[0]);
-#elif LDC_LLVM_VER >= 303
-        llvm::Linker linker(new llvm::Module(moduleName, context));
-#else
-        llvm::Linker linker("ldc", moduleName, context);
-#endif
-
-        std::string errormsg;
-#if LDC_LLVM_VER >= 306
-        for (size_t i = 1; i < llvmModules.size(); i++)
-#else
-        for (size_t i = 0; i < llvmModules.size(); i++)
-#endif
-        {
-#if LDC_LLVM_VER >= 306
-            // Issue #855: There seems to be a problem with identified structs.
-            // If a module imports a class or struct from another module and
-            // both modules are compiled together then both modules use the
-            // same type object. The error happens if the type is already
-            // remapped in one module and then the other module is linked.
-            // The workaround seems to be to do the linking twice, always
-            // uniquing all identified structs.
-            //
-            // This replaces the line:
-            //   linker.linkInModule(llvmModules[i]);
-            //
-            // TODO: Check LLVM bug database if this is a bug.
-            llvm::Linker dummy(new llvm::Module("dummy module", context));
-            dummy.linkInModule(llvmModules[i]);
-            linker.linkInModule(dummy.getModule());
-            dummy.deleteModule();
-#else
-#if LDC_LLVM_VER >= 303
-            if (linker.linkInModule(llvmModules[i], &errormsg))
-#else
-            if (linker.LinkInModule(llvmModules[i], &errormsg))
-#endif
-                error(Loc(), "%s", errormsg.c_str());
-#endif
-            delete llvmModules[i];
-        }
-
-        m->deleteObjFile();
-        writeModule(linker.getModule(), filename);
-        global.params.objfiles->push(const_cast<char*>(filename));
-
-#if LDC_LLVM_VER >= 304
-        linker.deleteModule();
-#elif LDC_LLVM_VER == 303
-        delete linker.getModule();
-#endif
     }
 
-    // output json file
+    // Generate the AST-describing JSON file.
     if (global.params.doJsonGeneration)
-    {
-        OutBuffer buf;
-        json_generate(&buf, &modules);
-
-        // Write buf to file
-        const char *name = global.params.jsonfilename;
-
-        if (name && name[0] == '-' && name[1] == 0)
-        {   // Write to stdout; assume it succeeds
-            (void)fwrite(buf.data, 1, buf.offset, stdout);
-        }
-        else
-        {
-            /* The filename generation code here should be harmonized with Module::setOutfile()
-             */
-
-            const char *jsonfilename;
-
-            if (name && *name)
-            {
-                jsonfilename = FileName::defaultExt(name, global.json_ext);
-            }
-            else
-            {
-                // Generate json file name from first obj name
-                const char *n = (*global.params.objfiles)[0];
-                n = FileName::name(n);
-
-                //if (!FileName::absolute(name))
-                    //name = FileName::combine(dir, name);
-
-                jsonfilename = FileName::forceExt(n, global.json_ext);
-            }
-
-            ensurePathToNameExists(Loc(), jsonfilename);
-
-            File *jsonfile = new File(jsonfilename);
-
-            jsonfile->setbuffer(buf.data, buf.offset);
-            jsonfile->ref = 1;
-            writeFile(Loc(), jsonfile);
-        }
-    }
-
+        emitJson(modules);
 
     LLVM_D_FreeRuntime();
     llvm::llvm_shutdown();
@@ -1514,6 +1323,8 @@ int main(int argc, char **argv)
     if (global.errors)
         fatal();
 
+    // Finally, produce the final executable/archive and run it, if we are
+    // supposed to.
     int status = EXIT_SUCCESS;
     if (!global.params.objfiles->dim)
     {
@@ -1533,8 +1344,7 @@ int main(int argc, char **argv)
         {
             status = runExecutable();
 
-            /* Delete .obj files and .exe file
-                */
+            /// Delete .obj files and .exe file.
             for (unsigned i = 0; i < modules.dim; i++)
             {
                 modules[i]->deleteObjFile();

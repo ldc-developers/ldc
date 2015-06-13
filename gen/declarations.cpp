@@ -256,7 +256,7 @@ public:
                 if (initVal->getType() != gvar->getType()->getElementType())
                 {
                     llvm::GlobalVariable* newGvar = getOrCreateGlobal(decl->loc,
-                        *irs->module, initVal->getType(), gvar->isConstant(),
+                        irs->module, initVal->getType(), gvar->isConstant(),
                         llLinkage, 0,
                         "", // We take on the name of the old global below.
                         gvar->isThreadLocal());

@@ -129,7 +129,7 @@ void LLVM_D_FreeRuntime()
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, const char* name)
+llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module& target, const char* name)
 {
     checkForImplicitGCCall(loc, name);
 
@@ -137,7 +137,7 @@ llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, 
         LLVM_D_InitRuntime();
     }
 
-    LLFunction* fn = target->getFunction(name);
+    LLFunction* fn = target.getFunction(name);
     if (fn)
         return fn;
 
@@ -145,7 +145,7 @@ llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, 
     assert(fn && "Runtime function not found.");
 
     LLFunctionType* fnty = fn->getFunctionType();
-    LLFunction* resfn = llvm::cast<llvm::Function>(target->getOrInsertFunction(name, fnty));
+    LLFunction* resfn = llvm::cast<llvm::Function>(target.getOrInsertFunction(name, fnty));
     resfn->setAttributes(fn->getAttributes());
     resfn->setCallingConv(fn->getCallingConv());
     return resfn;
@@ -153,9 +153,9 @@ llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(Loc& loc, llvm::Module* target, const char* name)
+llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(Loc& loc, llvm::Module& target, const char* name)
 {
-    LLGlobalVariable* gv = target->getNamedGlobal(name);
+    LLGlobalVariable* gv = target.getNamedGlobal(name);
     if (gv) {
         return gv;
     }
@@ -174,7 +174,7 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(Loc& loc, llvm::Module* target, co
     }
 
     LLPointerType* t = g->getType();
-    return getOrCreateGlobal(loc, *target, t->getElementType(), g->isConstant(),
+    return getOrCreateGlobal(loc, target, t->getElementType(), g->isConstant(),
                              g->getLinkage(), NULL, g->getName());
 }
 

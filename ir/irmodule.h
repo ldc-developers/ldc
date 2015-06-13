@@ -15,21 +15,21 @@
 #define LDC_IR_IRMODULE_H
 
 class Module;
-namespace llvm
-{
-    class GlobalVariable;
+namespace llvm {
+class GlobalVariable;
 }
 
-struct IrModule
-{
-    IrModule(Module* module, const char* srcfilename);
+struct IrModule {
+    IrModule(Module *module, const char *srcfilename);
     virtual ~IrModule();
 
-    Module* M;
+    Module *const M;
+
+    llvm::GlobalVariable *moduleInfoSymbol();
 
     // static ctors/dtors/unittests
-    typedef std::list<FuncDeclaration*> FuncDeclList;
-    typedef std::list<VarDeclaration*> GatesList;
+    typedef std::list<FuncDeclaration *> FuncDeclList;
+    typedef std::list<VarDeclaration *> GatesList;
     FuncDeclList ctors;
     FuncDeclList dtors;
     FuncDeclList sharedCtors;
@@ -37,6 +37,9 @@ struct IrModule
     GatesList gates;
     GatesList sharedGates;
     FuncDeclList unitTests;
+
+private:
+    llvm::GlobalVariable *moduleInfoVar_;
 };
 
 IrModule *getIrModule(Module *m);

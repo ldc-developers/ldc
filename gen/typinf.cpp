@@ -194,7 +194,7 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid)
         // Add some metadata for use by optimization passes.
         std::string metaname(TD_PREFIX);
         metaname += mangle(tid);
-        llvm::NamedMDNode* meta = gIR->module->getNamedMetadata(metaname);
+        llvm::NamedMDNode* meta = gIR->module.getNamedMetadata(metaname);
 
         if (!meta) {
             // Construct the fields
@@ -209,7 +209,7 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid)
 #endif
 
             // Construct the metadata and insert it into the module.
-            llvm::NamedMDNode* node = gIR->module->getOrInsertNamedMetadata(metaname);
+            llvm::NamedMDNode* node = gIR->module.getOrInsertNamedMetadata(metaname);
             node->addOperand(llvm::MDNode::get(gIR->context(),
                 llvm::makeArrayRef(mdVals, TD_NumFields)));
         }
@@ -674,7 +674,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p)
     }
 
     IrGlobal* irg = getIrGlobal(decl, true);
-    irg->value = gIR->module->getGlobalVariable(mangled);
+    irg->value = gIR->module.getGlobalVariable(mangled);
     if (irg->value) {
         irg->type = irg->value->getType()->getContainedType(0);
         assert(irg->type->isStructTy());
@@ -683,7 +683,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p)
             irg->type = Type::dtypeinfo->type->ctype->isClass()->getMemoryLLType();
         else
             irg->type = LLStructType::create(gIR->context(), decl->toPrettyChars());
-        irg->value = new llvm::GlobalVariable(*gIR->module, irg->type, true,
+        irg->value = new llvm::GlobalVariable(gIR->module, irg->type, true,
             llvm::GlobalValue::ExternalLinkage, NULL, mangled);
     }
 

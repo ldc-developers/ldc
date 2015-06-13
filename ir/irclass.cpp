@@ -55,7 +55,7 @@ LLGlobalVariable * IrAggr::getVtblSymbol()
     LLType* vtblTy = stripModifiers(type)->ctype->isClass()->getVtbl();
 
     vtbl = getOrCreateGlobal(aggrdecl->loc,
-        *gIR->module, vtblTy, true, llvm::GlobalValue::ExternalLinkage, NULL, initname);
+        gIR->module, vtblTy, true, llvm::GlobalValue::ExternalLinkage, NULL, initname);
 
     return vtbl;
 }
@@ -86,7 +86,7 @@ LLGlobalVariable * IrAggr::getClassInfoSymbol()
 
     // classinfos cannot be constants since they're used as locks for synchronized
     classInfo = getOrCreateGlobal(aggrdecl->loc,
-        *gIR->module, tc->getMemoryLLType(), false,
+        gIR->module, tc->getMemoryLLType(), false,
         llvm::GlobalValue::ExternalLinkage, NULL, initname);
 
     // Generate some metadata on this ClassInfo if it's for a class.
@@ -111,7 +111,7 @@ LLGlobalVariable * IrAggr::getClassInfoSymbol()
 #endif
         // Construct the metadata and insert it into the module.
         llvm::SmallString<64> name;
-        llvm::NamedMDNode* node = gIR->module->getOrInsertNamedMetadata(
+        llvm::NamedMDNode* node = gIR->module.getOrInsertNamedMetadata(
             llvm::Twine(CD_PREFIX, initname).toStringRef(name));
         node->addOperand(llvm::MDNode::get(gIR->context(),
             llvm::makeArrayRef(mdVals, CD_NumFields)));
@@ -145,7 +145,7 @@ LLGlobalVariable * IrAggr::getInterfaceArraySymbol()
 
     // We keep this as external for now and only consider template linkage if
     // we emit the initializer later.
-    classInterfacesArray = getOrCreateGlobal(cd->loc, *gIR->module,
+    classInterfacesArray = getOrCreateGlobal(cd->loc, gIR->module,
         array_type, true, llvm::GlobalValue::ExternalLinkage, NULL, name);
 
     return classInterfacesArray;
@@ -349,7 +349,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
             name.printf("%i", b->offset);
             name.writestring(mangleExact(fd));
             LLFunction *thunk = LLFunction::Create(isaFunction(fn->getType()->getContainedType(0)),
-                DtoLinkage(fd), name.extractString(), gIR->module);
+                DtoLinkage(fd), name.extractString(), &gIR->module);
 
             // create entry and end blocks
             llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "", thunk);
@@ -398,7 +398,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
     mangledName.append("6__vtblZ");
 
     llvm::GlobalVariable* GV = getOrCreateGlobal(cd->loc,
-        *gIR->module,
+        gIR->module,
         vtbl_constant->getType(),
         true,
         DtoLinkage(cd),

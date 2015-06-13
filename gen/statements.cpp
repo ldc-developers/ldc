@@ -1209,7 +1209,7 @@ public:
                 LLType* elemTy = DtoType(stmt->condition->type);
                 LLArrayType* arrTy = llvm::ArrayType::get(elemTy, inits.size());
                 LLConstant* arrInit = LLConstantArray::get(arrTy, inits);
-                LLGlobalVariable* arr = new llvm::GlobalVariable(*gIR->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, ".string_switch_table_data");
+                LLGlobalVariable* arr = new llvm::GlobalVariable(gIR->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, ".string_switch_table_data");
 
                 LLType* elemPtrTy = getPtrToType(elemTy);
                 LLConstant* arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
@@ -1780,7 +1780,7 @@ public:
 
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(stmt->loc, gIR->module, "_d_switch_error");
 
-        LLValue *moduleInfoSymbol = gIR->func()->decl->getModule()->moduleInfoSymbol();
+        LLValue *moduleInfoSymbol = getIrModule(gIR->func()->decl->getModule())->moduleInfoSymbol();
         LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
 
         LLValue* args[] = {

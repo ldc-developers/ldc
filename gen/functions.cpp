@@ -483,7 +483,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     // construct function
     LLFunctionType* functype = DtoFunctionType(fdecl);
-    LLFunction* func = vafunc ? vafunc : gIR->module->getFunction(mangledName);
+    LLFunction* func = vafunc ? vafunc : gIR->module.getFunction(mangledName);
     if (!func) {
         if(fdecl->llvmInternal == LLVMinline_ir)
         {
@@ -494,7 +494,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             // All function declarations are "external" - any other linkage type
             // is set when actually defining the function.
             func = LLFunction::Create(functype,
-                llvm::GlobalValue::ExternalLinkage, mangledName, gIR->module);
+                llvm::GlobalValue::ExternalLinkage, mangledName, &gIR->module);
         }
     } else if (func->getFunctionType() != functype) {
         error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", mangleExact(fdecl));
