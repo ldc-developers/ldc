@@ -309,18 +309,12 @@ LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
 
 #if LDC_LLVM_VER >= 306
     llvm::Linker(gIR->module).linkInModule(m.get());
-#else
-#if LDC_LLVM_VER >= 303
+#elif LDC_LLVM_VER >= 303
     std::string errstr2 = "";
-#if LDC_LLVM_VER >= 306
-    llvm::Linker(gIR->module).linkInModule(m.get(), &errstr2);
-#else
     llvm::Linker(gIR->module).linkInModule(m, &errstr2);
-#endif
     if(errstr2 != "")
         error(tinst->loc,
             "Error when linking in llvm inline ir: %s", errstr2.c_str());
-#endif
 #endif
 
     LLFunction* fun = gIR->module->getFunction(mangled_name);
