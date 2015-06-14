@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/dibuilder.h"
+
 #include "gen/functions.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
@@ -709,7 +710,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd)
         fd->loc.linnum, // line no
         DIFnType, // type
         fd->protection == PROTprivate, // is local to unit
-        IR->dmodule == getDefinedModule(fd), // isdefinition
+        true, // isdefinition
         fd->loc.linnum, // FIXME: scope line
         DIFlags::FlagPrototyped, // Flags
         isOptimizationEnabled(), // isOptimized
