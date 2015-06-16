@@ -14,7 +14,7 @@ default:
         "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@/Debug",
         "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@/Release",
         "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@/RelWithDebInfo",
-        "-defaultlib=phobos2-ldc,druntime-ldc",
-        "-debuglib=phobos2-ldc-debug,druntime-ldc-debug"
+        "-defaultlib=phobos2-ldc,curl,druntime-ldc",
+        "-debuglib=phobos2-ldc-debug,curl,druntime-ldc-debug"
     ];
 };
