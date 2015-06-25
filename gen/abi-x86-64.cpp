@@ -221,7 +221,7 @@ struct X86_64TargetABI : TargetABI {
 
     llvm::CallingConv::ID callingConv(LINK l);
 
-    bool returnInArg(TypeFunction* tf);
+    bool returnInArg(Type* rt, LINK linkage);
 
     bool passByVal(Type* t);
 
@@ -262,11 +262,7 @@ llvm::CallingConv::ID X86_64TargetABI::callingConv(LINK l) {
     }
 }
 
-bool X86_64TargetABI::returnInArg(TypeFunction* tf) {
-    if (tf->isref)
-        return false;
-
-    Type* rt = tf->next;
+bool X86_64TargetABI::returnInArg(Type* rt, LINK /*linkage*/) {
     return passByVal(rt);
 }
 

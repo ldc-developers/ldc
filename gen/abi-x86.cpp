@@ -83,6 +83,21 @@ struct X86TargetABI : TargetABI
             return (rt->ty == Tstruct || rt->ty == Tcomplex64 || rt->ty == Tcomplex80);
     }
 
+    bool returnInArg(Type* rt, LINK linkage)
+    {
+        // D only returns structs on the stack
+        if (linkage == LINKd)
+        {
+            return rt->ty == Tstruct
+                || rt->ty == Tsarray
+            ;
+        }
+        // other ABI's follow C, which is cdouble and creal returned on the stack
+        // as well as structs
+        else
+            return (rt->ty == Tstruct || rt->ty == Tcomplex64 || rt->ty == Tcomplex80);
+    }
+
     bool passByVal(Type* t)
     {
         return t->toBasetype()->ty == Tstruct || t->toBasetype()->ty == Tsarray;

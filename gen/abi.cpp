@@ -104,6 +104,16 @@ LLValue* ABIRewrite::loadFromMemory(LLValue* address, LLType* asType, const char
 
 //////////////////////////////////////////////////////////////////////////////
 
+bool TargetABI::returnInArg(TypeFunction* tf)
+{
+    if (tf->isref)
+        return false;
+
+    return returnInArg(tf->next->toBasetype(), tf->linkage);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 void TargetABI::rewriteVarargs(IrFuncTy& fty, std::vector<IrFuncTyArg*>& args)
 {
     for (unsigned i = 0; i < args.size(); ++i)
@@ -160,16 +170,12 @@ struct UnknownTargetABI : TargetABI
         }
     }
 
-    bool returnInArg(TypeFunction* tf)
+    bool returnInArg(Type* rt, LINK /*linkage*/)
     {
-        if (tf->isref)
-            return false;
-
         // Return structs and static arrays on the stack. The latter is needed
         // because otherwise LLVM tries to actually return the array in a number
         // of physical registers, which leads, depending on the target, to
         // either horrendous codegen or backend crashes.
-        Type* rt = tf->next->toBasetype();
         return (rt->ty == Tstruct || rt->ty == Tsarray);
     }
 
@@ -226,6 +232,11 @@ struct IntrinsicABI : TargetABI
     }
 
     bool returnInArg(TypeFunction* tf)
+    {
+        return false;
+    }
+
+    bool returnInArg(Type* /*t*/, LINK /*linkage*/)
     {
         return false;
     }

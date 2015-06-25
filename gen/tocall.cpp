@@ -502,10 +502,10 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             switch(rbase->ty)
             {
             case Tarray:
-                if (tf->isref)
+                if (tf->isref || retinptr)
                     retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
                 else
-                retllval = DtoAggrPaint(retllval, DtoType(rbase));
+                    retllval = DtoAggrPaint(retllval, DtoType(rbase));
                 break;
 
             case Tsarray:
@@ -515,14 +515,14 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             case Tclass:
             case Taarray:
             case Tpointer:
-                if (tf->isref)
+                if (tf->isref || retinptr)
                     retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
                 else
-                retllval = DtoBitCast(retllval, DtoType(rbase));
+                    retllval = DtoBitCast(retllval, DtoType(rbase));
                 break;
 
             case Tstruct:
-                if (nextbase->ty == Taarray && !tf->isref)
+                if (nextbase->ty == Taarray && !(tf->isref || retinptr))
                 {
                     // In the D2 frontend, the associative array type and its
                     // object.AssociativeArray representation are used

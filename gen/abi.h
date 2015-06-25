@@ -101,7 +101,8 @@ struct TargetABI
     /// Returns true if the function uses sret (struct return),
     /// meaning that it gets a hidden pointer to a struct which has been pre-
     /// allocated by the caller.
-    virtual bool returnInArg(TypeFunction* tf) = 0;
+    virtual bool returnInArg(TypeFunction* tf);
+    virtual bool returnInArg(Type* returntype, LINK linkage) = 0;
 
     /// Returns true if the type is passed by value
     virtual bool passByVal(Type* t) = 0;
