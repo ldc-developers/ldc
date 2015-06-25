@@ -496,11 +496,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
         error(Loc(), "flags conflict with -run");
     }
     else if (global.params.objname && sourceFiles.dim > 1) {
-        if (createStaticLib || createSharedLib)
-        {
-            singleObj = true;
-        }
-        if (!singleObj)
+        if (!(createStaticLib || createSharedLib) && !singleObj)
         {
             error(Loc(), "multiple source files, but only one .obj name");
         }
@@ -1246,7 +1242,7 @@ int main(int argc, char **argv)
         }
 
         m->parse(global.params.doDocComments);
-        m->buildTargetFiles(singleObj);
+        m->buildTargetFiles(singleObj, createSharedLib || createStaticLib);
         m->deleteObjFile();
         if (m->isDocFile)
         {
