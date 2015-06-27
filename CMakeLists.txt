@@ -252,6 +252,12 @@ list(REMOVE_ITEM FE_SRC
     ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
     ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
 )
+# Add special LLVM fixes
+if(LLVM_VERSION_MAJOR EQUAL 3 AND LLVM_VERSION_MINOR EQUAL 6)
+    message(STATUS "Adding fix for LLVM 3.6")
+    set(LLVM_FIX llvm_fix/LinkModules_36.cpp)
+endif()
+
 set(LDC_SOURCE_FILES
     ${LDC_GENERATED}
     ${FE_SRC}
@@ -260,6 +266,7 @@ set(LDC_SOURCE_FILES
     ${GEN_HDR}
     ${IR_SRC}
     ${IR_HDR}
+    ${LLVM_FIX}
 )
 
 # DMD source files have a .c extension, but are actually C++ code.

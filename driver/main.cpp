@@ -1387,11 +1387,13 @@ int main(int argc, char **argv)
         else
             filename = m->objfile->name->str;
 
+#if LDC_LLVM_VER < 306
 #if 1
         // Temporary workaround for http://llvm.org/bugs/show_bug.cgi?id=11479.
         char* moduleName = const_cast<char*>(filename);
 #else
         char* moduleName = m->toChars();
+#endif
 #endif
 
 #if LDC_LLVM_VER >= 306
@@ -1410,22 +1412,7 @@ int main(int argc, char **argv)
 #endif
         {
 #if LDC_LLVM_VER >= 306
-            // Issue #855: There seems to be a problem with identified structs.
-            // If a module imports a class or struct from another module and
-            // both modules are compiled together then both modules use the
-            // same type object. The error happens if the type is already
-            // remapped in one module and then the other module is linked.
-            // The workaround seems to be to do the linking twice, always
-            // uniquing all identified structs.
-            //
-            // This replaces the line:
-            //   linker.linkInModule(llvmModules[i]);
-            //
-            // TODO: Check LLVM bug database if this is a bug.
-            llvm::Linker dummy(new llvm::Module("dummy module", context));
-            dummy.linkInModule(llvmModules[i]);
-            linker.linkInModule(dummy.getModule());
-            dummy.deleteModule();
+            linker.linkInModule(llvmModules[i]);
 #else
 #if LDC_LLVM_VER >= 303
             if (linker.linkInModule(llvmModules[i], &errormsg))
