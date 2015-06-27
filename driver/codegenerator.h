@@ -36,6 +36,7 @@ private:
     void writeAndFreeLLModule(const char *filename);
 
     llvm::LLVMContext &context_;
+    int moduleCount_;
     bool const singleObj_;
     IRState *ir_;
     const char *firstModuleObjfileName_;

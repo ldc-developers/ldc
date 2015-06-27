@@ -94,7 +94,7 @@ void Module::buildTargetFiles(bool singleObj, bool library)
         return;
 
     if (!objfile) {
-		const char *objname = library ? 0 : global.params.objname;
+        const char *objname = library ? 0 : global.params.objname;
         if (global.params.output_o)
             objfile = Module::buildFilePath(objname, global.params.objdir,
                 global.params.targetTriple.isOSWindows() ? global.obj_ext_alt : global.obj_ext);
@@ -168,10 +168,10 @@ File* Module::buildFilePath(const char* forcename, const char* path, const char*
     FileName::ensurePathExists(FileName::path(argobj));
 
     // always append the extension! otherwise hard to make output switches consistent
-    //    if (forcename)
-    //  return new File(argobj);
-    //    else
-        // allow for .o and .obj on windows
+    //   if (forcename)
+    //     return new File(argobj);
+    //   else
+    //     allow for .o and .obj on windows
 #if _WIN32
     if (ext == global.params.objdir && FileName::ext(argobj)
         && Port::stricmp(FileName::ext(argobj), global.obj_ext_alt) == 0)
@@ -421,6 +421,27 @@ static void build_dso_ctor_dtor_body(
     }
 }
 
+static void build_module_ref(std::string moduleMangle, llvm::Constant* thisModuleInfo)
+{
+    // Build the ModuleInfo reference and bracketing symbols.
+    llvm::Type* const moduleInfoPtrTy =
+        getPtrToType(DtoType(Module::moduleinfo->type));
+
+    std::string thismrefname = "_D";
+    thismrefname += moduleMangle;
+    thismrefname += "11__moduleRefZ";
+    llvm::GlobalVariable* thismref = new llvm::GlobalVariable(
+        gIR->module,
+        moduleInfoPtrTy,
+        false, // FIXME: mRelocModel != llvm::Reloc::PIC_
+        llvm::GlobalValue::LinkOnceODRLinkage,
+        DtoBitCast(thisModuleInfo, moduleInfoPtrTy),
+        thismrefname
+    );
+    thismref->setSection(".minfo");
+    gIR->usedArray.push_back(thismref);
+}
+
 static void build_dso_registry_calls(std::string moduleMangle, llvm::Constant* thisModuleInfo)
 {
     // Build the ModuleInfo reference and bracketing symbols.
@@ -537,10 +558,12 @@ static void build_dso_registry_calls(std::string moduleMangle, llvm::Constant* t
     build_dso_ctor_dtor_body(dsoCtor, dsoInitialized, dsoSlot, minfoBeg, minfoEnd, minfoRefPtr, false);
     llvm::appendToGlobalCtors(gIR->module, dsoCtor, 65535);
 
+    std::string dtorName = "ldc.dso_dtor.";
+    dtorName += moduleMangle;
     llvm::Function* dsoDtor = llvm::Function::Create(
         llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
         llvm::GlobalValue::LinkOnceODRLinkage,
-        "ldc.dso_dtor",
+        dtorName,
         &gIR->module
     );
     dsoDtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
@@ -695,9 +718,9 @@ static void addCoverageAnalysisInitializer(Module* m) {
     m->d_cover_valid->setInitializer(llvm::ConstantArray::get(type, arrayInits));
 }
 
-static void genModuleInfo(Module *m);
+static void genModuleInfo(Module *m, bool emitFullModuleInfo);
 
-void codegenModule(IRState *irs, Module* m)
+void codegenModule(IRState *irs, Module* m, bool emitFullModuleInfo)
 {
     assert(!irs->dmodule && "irs->module not null, codegen already in progress?!");
     irs->dmodule = m;
@@ -727,7 +750,7 @@ void codegenModule(IRState *irs, Module* m)
     if (!m->noModuleInfo)
     {
         // generate ModuleInfo
-        genModuleInfo(m);
+        genModuleInfo(m, emitFullModuleInfo);
 
         build_llvm_used_array(irs);
     }
@@ -742,7 +765,7 @@ void codegenModule(IRState *irs, Module* m)
 }
 
 // Put out instance of ModuleInfo for this Module
-static void genModuleInfo(Module *m)
+static void genModuleInfo(Module *m, bool emitFullModuleInfo)
 {
     // resolve ModuleInfo
     if (!Module::moduleinfo)
@@ -910,7 +933,10 @@ static void genModuleInfo(Module *m)
     moduleInfoSym->setLinkage(llvm::GlobalValue::ExternalLinkage);
 
     if (global.params.isLinux) {
-        build_dso_registry_calls(mangle(m), moduleInfoSym);
+        if (emitFullModuleInfo)
+            build_dso_registry_calls(mangle(m), moduleInfoSym);
+        else
+            build_module_ref(mangle(m), moduleInfoSym);
     } else {
         // build the modulereference and ctor for registering it
         LLFunction* mictor = build_module_reference_and_ctor(mangle(m), moduleInfoSym);

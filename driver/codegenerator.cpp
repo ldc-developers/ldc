@@ -18,7 +18,7 @@
 #include "gen/logger.h"
 #include "gen/runtime.h"
 
-void codegenModule(IRState *irs, Module *m);
+void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo);
 
 namespace {
 Module *g_entrypointModule = 0;
@@ -84,7 +84,7 @@ void emitSymbolAddrGlobal(llvm::Module &lm, const char *symbolName,
 
 namespace ldc {
 CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
-    : context_(context), singleObj_(singleObj), ir_(0),
+    : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(0),
       firstModuleObjfileName_(0) {
     if (!ClassDeclaration::object) {
         error(Loc(), "declaration for class Object not found; druntime not "
@@ -116,6 +116,7 @@ void CodeGenerator::prepareLLModule(Module *m) {
     if (!firstModuleObjfileName_) {
         firstModuleObjfileName_ = m->objfile->name->str;
     }
+    ++moduleCount_;
 
     if (singleObj_ && ir_) return;
 
@@ -193,9 +194,14 @@ void CodeGenerator::emit(Module *m) {
 
     prepareLLModule(m);
 
-    codegenModule(ir_, m);
+    // If we are compiling to a single object file then only the first module needs
+    // to generate a call to _d_dso_registry(). All other modules only add a module
+    // reference.
+    // FIXME Find better name.
+    const bool emitFullModuleInfo = !singleObj_ || (singleObj_ && moduleCount_ == 1);
+    codegenModule(ir_, m, emitFullModuleInfo);
     if (m == g_dMainModule) {
-        codegenModule(ir_, g_entrypointModule);
+        codegenModule(ir_, g_entrypointModule, emitFullModuleInfo);
 
         // On Linux, strongly define the excecutabe BSS bracketing symbols in
         // the main module for druntime use (see rt.sections_linux).
