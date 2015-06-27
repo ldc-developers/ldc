@@ -127,7 +127,7 @@ class DIBuilder
     }
 
 public:
-    DIBuilder(IRState *const IR, llvm::Module &M);
+    DIBuilder(IRState *const IR);
 
     /// \brief Emit the Dwarf compile_unit global for a Module m.
     /// \param m        Module to emit as compile unit.
@@ -183,7 +183,7 @@ public:
     /// \param vd       Variable declaration to emit debug info for.
     DIGlobalVariable EmitGlobalVariable(llvm::GlobalVariable *ll, VarDeclaration *vd); // FIXME
 
-    void EmitModuleEnd();
+    void Finalize();
 
 private:
     llvm::LLVMContext &getContext();

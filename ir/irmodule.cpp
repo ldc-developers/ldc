@@ -14,29 +14,33 @@
 #include "ir/irdsymbol.h"
 #include "ir/irmodule.h"
 
-IrModule::IrModule(Module* module, const char* srcfilename)
-{
-    M = module;
+IrModule::IrModule(Module *module, const char *srcfilename)
+    : M(module), moduleInfoVar_(0) {}
 
-    LLConstant* slice = DtoConstString(srcfilename);
-    fileName = new llvm::GlobalVariable(
-        *gIR->module, slice->getType(), true, LLGlobalValue::InternalLinkage, slice, ".modulefilename");
+IrModule::~IrModule() {}
+
+llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
+    if (moduleInfoVar_) return moduleInfoVar_;
+
+    std::string name("_D");
+    name.append(mangle(M));
+    name.append("12__ModuleInfoZ");
+
+    moduleInfoVar_ = new llvm::GlobalVariable(
+        gIR->module, llvm::StructType::create(gIR->context()), false,
+        llvm::GlobalValue::ExternalLinkage, NULL, name);
+    return moduleInfoVar_;
 }
 
-IrModule::~IrModule()
-{
-}
+IrModule *getIrModule(Module *m) {
+    if (!m) m = gIR->func()->decl->getModule();
 
-IrModule *getIrModule(Module *m)
-{
-    if (m == NULL)
-        m = gIR->func()->decl->getModule();
     assert(m && "null module");
-    if (m->ir.m_type == IrDsymbol::NotSet)
-    {
+    if (m->ir.m_type == IrDsymbol::NotSet) {
         m->ir.irModule = new IrModule(m, m->srcfile->toChars());
         m->ir.m_type = IrDsymbol::ModuleType;
     }
+
     assert(m->ir.m_type == IrDsymbol::ModuleType);
     return m->ir.irModule;
 }

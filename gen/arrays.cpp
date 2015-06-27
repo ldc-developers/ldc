@@ -376,7 +376,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     // we need to make a global with the data, so we have a pointer to the array
     // Important: don't make the gvar constant, since this const initializer might
     // be used as an initializer for a static T[] - where modifying contents is allowed.
-    LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, constarr->getType(), false, LLGlobalValue::InternalLinkage, constarr, ".constarray");
+    LLGlobalVariable* gvar = new LLGlobalVariable(gIR->module, constarr->getType(), false, LLGlobalValue::InternalLinkage, constarr, ".constarray");
 
     if (arrty->ty == Tpointer)
         // we need to return pointer to the static array.
@@ -472,7 +472,7 @@ void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
         else
         {
             llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
-                *gIR->module,
+                gIR->module,
                 constarr->getType(),
                 true,
                 LLGlobalValue::InternalLinkage,
