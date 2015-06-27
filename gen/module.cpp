@@ -86,7 +86,7 @@ static void check_and_add_output_file(Module* NewMod, const std::string& str)
     files.insert(std::make_pair(str, NewMod));
 }
 
-void Module::buildTargetFiles(bool singleObj)
+void Module::buildTargetFiles(bool singleObj, bool library)
 {
     if (objfile &&
        (!doDocComment || docfile) &&
@@ -94,15 +94,16 @@ void Module::buildTargetFiles(bool singleObj)
         return;
 
     if (!objfile) {
+		const char *objname = library ? 0 : global.params.objname;
         if (global.params.output_o)
-            objfile = Module::buildFilePath(global.params.objname, global.params.objdir,
+            objfile = Module::buildFilePath(objname, global.params.objdir,
                 global.params.targetTriple.isOSWindows() ? global.obj_ext_alt : global.obj_ext);
         else if (global.params.output_bc)
-            objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.bc_ext);
+            objfile = Module::buildFilePath(objname, global.params.objdir, global.bc_ext);
         else if (global.params.output_ll)
-            objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.ll_ext);
+            objfile = Module::buildFilePath(objname, global.params.objdir, global.ll_ext);
         else if (global.params.output_s)
-            objfile = Module::buildFilePath(global.params.objname, global.params.objdir, global.s_ext);
+            objfile = Module::buildFilePath(objname, global.params.objdir, global.s_ext);
     }
     if (doDocComment && !docfile)
         docfile = Module::buildFilePath(global.params.docname, global.params.docdir, global.doc_ext);

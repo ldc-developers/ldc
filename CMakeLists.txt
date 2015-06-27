@@ -325,7 +325,7 @@ if(MSVC)
     string(REGEX REPLACE "(^| ) */GR-? *( |$)" "\\1 \\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
     add_definitions(-D_HAS_EXCEPTIONS=0)
-    set(EXTRA_CXXFLAGS "/W0 /wd4996 /GF /GR- /EHs-c- /MP")
+    set(EXTRA_CXXFLAGS "/GF /GR- /EHs-c- /MP")
 else()
     set(EXTRA_CXXFLAGS "")
 endif()

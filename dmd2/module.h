@@ -191,7 +191,7 @@ public:
 #if IN_LLVM
     // LDC
     llvm::Module* genLLVMModule(llvm::LLVMContext& context);
-    void buildTargetFiles(bool singleObj);
+    void buildTargetFiles(bool singleObj, bool library);
     File* buildFilePath(const char* forcename, const char* path, const char* ext);
     llvm::GlobalVariable* moduleInfoSymbol();
 
