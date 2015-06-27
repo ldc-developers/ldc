@@ -18,11 +18,6 @@
 #include "gen/optimizer.h"
 #include "gen/programs.h"
 #include "llvm/ADT/Triple.h"
-#if LDC_LLVM_VER >= 305
-#include "llvm/Linker/Linker.h"
-#else
-#include "llvm/Linker.h"
-#endif
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Path.h"

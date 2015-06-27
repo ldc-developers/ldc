@@ -228,6 +228,7 @@ file(GLOB IR_SRC ir/*.cpp)
 file(GLOB IR_HDR ir/*.h)
 set(DRV_SRC
     driver/cl_options.cpp
+    driver/codegenerator.cpp
     driver/configfile.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
@@ -239,6 +240,7 @@ set(DRV_SRC
 set(DRV_HDR
     driver/linker.h
     driver/cl_options.h
+    driver/codegenerator.h
     driver/configfile.h
     driver/ldc-version.h
     driver/targetmachine.h

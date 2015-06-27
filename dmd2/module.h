@@ -211,11 +211,9 @@ public:
     llvm::Module* genLLVMModule(llvm::LLVMContext& context);
     void buildTargetFiles(bool singleObj, bool library);
     File* buildFilePath(const char* forcename, const char* path, const char* ext);
-    llvm::GlobalVariable* moduleInfoSymbol();
 
     bool llvmForceLogging;
     bool noModuleInfo; /// Do not emit any module metadata.
-    llvm::GlobalVariable* moduleInfoVar;
 
     // array ops emitted in this module already
     AA *arrayfuncs;
