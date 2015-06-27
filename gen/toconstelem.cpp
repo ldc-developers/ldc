@@ -214,7 +214,7 @@ public:
         if (gvar == 0)
         {
             llvm::GlobalValue::LinkageTypes _linkage = llvm::GlobalValue::PrivateLinkage;
-            gvar = new llvm::GlobalVariable(*gIR->module, _init->getType(), true, _linkage, _init, ".str");
+            gvar = new llvm::GlobalVariable(gIR->module, _init->getType(), true, _linkage, _init, ".str");
             gvar->setUnnamedAddr(true);
             (*stringLiteralCache)[key] = gvar;
         }
@@ -490,7 +490,7 @@ public:
                 return;
             }
 
-            se->globalVar = new llvm::GlobalVariable(*p->module,
+            se->globalVar = new llvm::GlobalVariable(p->module,
                 DtoType(e->e1->type), false, llvm::GlobalValue::InternalLinkage, 0,
                 ".structliteral");
 
@@ -498,7 +498,7 @@ public:
             if (constValue->getType() != se->globalVar->getType()->getContainedType(0))
             {
                 llvm::GlobalVariable* finalGlobalVar = new llvm::GlobalVariable(
-                    *p->module, constValue->getType(), false,
+                    p->module, constValue->getType(), false,
                     llvm::GlobalValue::InternalLinkage, 0, ".structliteral");
                 se->globalVar->replaceAllUsesWith(
                     DtoBitCast(finalGlobalVar, se->globalVar->getType()));
@@ -589,7 +589,7 @@ public:
         }
 
         bool canBeConst = e->type->isConst() || e->type->isImmutable();
-        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(*gIR->module,
+        llvm::GlobalVariable* gvar = new llvm::GlobalVariable(gIR->module,
             initval->getType(), canBeConst, llvm::GlobalValue::InternalLinkage, initval,
             ".dynarrayStorage");
         gvar->setUnnamedAddr(canBeConst);
@@ -670,7 +670,7 @@ public:
         }
         else
         {
-            value->globalVar = new llvm::GlobalVariable(*p->module,
+            value->globalVar = new llvm::GlobalVariable(p->module,
                 origClass->type->ctype->isClass()->getMemoryLLType(),
                 false, llvm::GlobalValue::InternalLinkage, 0, ".classref");
 
@@ -713,7 +713,7 @@ public:
             if (constValue->getType() != value->globalVar->getType()->getContainedType(0))
             {
                 llvm::GlobalVariable* finalGlobalVar = new llvm::GlobalVariable(
-                    *p->module, constValue->getType(), false,
+                    p->module, constValue->getType(), false,
                     llvm::GlobalValue::InternalLinkage, 0, ".classref");
                 value->globalVar->replaceAllUsesWith(
                     DtoBitCast(finalGlobalVar, value->globalVar->getType()));

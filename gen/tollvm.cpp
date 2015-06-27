@@ -408,13 +408,13 @@ LLValue* DtoMemCmp(LLValue* lhs, LLValue* rhs, LLValue* nbytes)
     // int memcmp ( const void * ptr1, const void * ptr2, size_t num );
 
     LLType* VoidPtrTy = getVoidPtrType();
-    LLFunction* fn = gIR->module->getFunction("memcmp");
+    LLFunction* fn = gIR->module.getFunction("memcmp");
     if (!fn)
     {
         LLType* Tys[] = { VoidPtrTy, VoidPtrTy, DtoSize_t() };
         LLFunctionType* fty = LLFunctionType::get(LLType::getInt32Ty(gIR->context()),
                                                   Tys, false);
-        fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, "memcmp", gIR->module);
+        fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, "memcmp", &gIR->module);
     }
 
     lhs = DtoBitCast(lhs, VoidPtrTy);
@@ -507,7 +507,7 @@ LLConstant* DtoConstString(const char* str)
     if (gvar == 0)
     {
         llvm::Constant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
-        gvar = new llvm::GlobalVariable(*gIR->module, init->getType(), true,
+        gvar = new llvm::GlobalVariable(gIR->module, init->getType(), true,
                                         llvm::GlobalValue::PrivateLinkage, init, ".str");
         gvar->setUnnamedAddr(true);
         gIR->stringLiteral1ByteCache[s] = gvar;
@@ -736,33 +736,6 @@ size_t getTypeAllocSize(LLType* t)
 unsigned char getABITypeAlign(LLType* t)
 {
     return gDataLayout->getABITypeAlignment(t);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-LLStructType* DtoInterfaceInfoType()
-{
-    if (gIR->interfaceInfoType)
-        return gIR->interfaceInfoType;
-
-    // build interface info type
-    LLSmallVector<LLType*, 3> types;
-    // ClassInfo classinfo
-    ClassDeclaration* cd2 = Type::typeinfoclass;
-    DtoResolveClass(cd2);
-    types.push_back(DtoType(cd2->type));
-    // void*[] vtbl
-    LLSmallVector<LLType*, 2> vtbltypes;
-    vtbltypes.push_back(DtoSize_t());
-    LLType* byteptrptrty = getPtrToType(getPtrToType(LLType::getInt8Ty(gIR->context())));
-    vtbltypes.push_back(byteptrptrty);
-    types.push_back(LLStructType::get(gIR->context(), vtbltypes));
-    // int offset
-    types.push_back(LLType::getInt32Ty(gIR->context()));
-    // create type
-    gIR->interfaceInfoType = LLStructType::get(gIR->context(), types);
-
-    return gIR->interfaceInfoType;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

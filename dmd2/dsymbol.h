@@ -86,22 +86,10 @@ class DeleteDeclaration;
 struct HdrGenState;
 class OverloadSet;
 struct AA;
-#if IN_LLVM
-class TypeInfoDeclaration;
-class ClassInfoDeclaration;
-#endif
 #ifdef IN_GCC
 typedef union tree_node TYPE;
 #else
 struct TYPE;
-#endif
-
-#if IN_LLVM
-struct IRState;
-namespace llvm
-{
-    class Value;
-}
 #endif
 
 struct Ungag

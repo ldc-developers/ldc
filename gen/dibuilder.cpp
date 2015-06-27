@@ -53,8 +53,8 @@ Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s)
 
 ////////////////////////////////////////////////////////////////////////////////
 
-ldc::DIBuilder::DIBuilder(IRState *const IR, llvm::Module &M)
-    : IR(IR), DBuilder(M)
+ldc::DIBuilder::DIBuilder(IRState *const IR)
+    : IR(IR), DBuilder(IR->module), CUNode(0)
 {
 }
 
@@ -656,13 +656,16 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m)
     Logger::println("D to dwarf compile_unit");
     LOG_SCOPE;
 
+    assert(!CUNode &&
+           "Already created compile unit for this DIBuilder instance");
+
     // prepare srcpath
     llvm::SmallString<128> srcpath(m->srcfile->name->toChars());
     llvm::sys::fs::make_absolute(srcpath);
 
 #if LDC_LLVM_VER >= 304
     // Metadata without a correct version will be stripped by UpgradeDebugInfo.
-    gIR->module->addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
+    IR->module.addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
 
     CUNode =
 #endif
@@ -971,7 +974,7 @@ ldc::DIGlobalVariable ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *l
     );
 }
 
-void ldc::DIBuilder::EmitModuleEnd()
+void ldc::DIBuilder::Finalize()
 {
     if (!global.params.symdebug)
         return;
