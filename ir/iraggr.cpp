@@ -55,7 +55,7 @@ LLGlobalVariable * IrAggr::getInitSymbol()
     initname.append("6__initZ");
 
     init = getOrCreateGlobal(aggrdecl->loc,
-        *gIR->module, init_type, true, llvm::GlobalValue::ExternalLinkage, NULL, initname);
+        gIR->module, init_type, true, llvm::GlobalValue::ExternalLinkage, NULL, initname);
 
     // set alignment
     init->setAlignment(type->alignsize());

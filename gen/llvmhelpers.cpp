@@ -208,17 +208,8 @@ void DtoAssert(Module* M, Loc& loc, DValue* msg)
 
 LLValue *DtoModuleFileName(Module* M, const Loc& loc)
 {
-    // we might be generating for an imported template function
-    const char* cur_file = M->srcfile->name->toChars();
-    if (loc.filename && strcmp(loc.filename, cur_file) != 0)
-    {
-        return DtoConstString(loc.filename);
-    }
-    else
-    {
-        IrModule* irmod = getIrModule(M);
-        return DtoLoad(irmod->fileName);
-    }
+    return DtoConstString(loc.filename ? loc.filename :
+        M->srcfile->name->toChars());
 }
 
 /****************************************************************************************/
@@ -961,7 +952,7 @@ void DtoResolveVariable(VarDeclaration* vd)
             linkage = llvm::GlobalValue::ExternalWeakLinkage;
         }
 
-        llvm::GlobalVariable* gvar = getOrCreateGlobal(vd->loc, *gIR->module,
+        llvm::GlobalVariable* gvar = getOrCreateGlobal(vd->loc, gIR->module,
             i1ToI8(DtoType(vd->type)), isLLConst, linkage, 0, llName,
             vd->isThreadlocal());
         getIrGlobal(vd)->value = gvar;
@@ -1616,9 +1607,9 @@ void printLabelName(std::ostream& target, const char* func_mangle, const char* l
 void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function* func, const uint32_t priority, const bool isCtor)
 {
     if (isCtor)
-        llvm::appendToGlobalCtors(*gIR->module, func, priority);
+        llvm::appendToGlobalCtors(gIR->module, func, priority);
     else
-        llvm::appendToGlobalDtors(*gIR->module, func, priority);
+        llvm::appendToGlobalDtors(gIR->module, func, priority);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

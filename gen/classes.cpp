@@ -501,7 +501,7 @@ static LLConstant* build_offti_array(ClassDeclaration* cd, LLType* arrayT)
     LLConstant* arrInit = LLConstantArray::get(arrTy, arrayInits);
 
     // create symbol
-    llvm::GlobalVariable* gvar = getOrCreateGlobal(cd->loc, *gIR->module, arrTy,
+    llvm::GlobalVariable* gvar = getOrCreateGlobal(cd->loc, gIR->module, arrTy,
         true, llvm::GlobalValue::InternalLinkage, arrInit, ".offti");
     ptr = DtoBitCast(gvar, getPtrToType(arrTy->getElementType()));
 
