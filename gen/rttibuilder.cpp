@@ -87,7 +87,7 @@ void RTTIBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* ma
     initname.append(".rtti.voidarr.data");
 
     LLGlobalVariable* G = new LLGlobalVariable(
-        *gIR->module, CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname);
+        gIR->module, CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname);
     G->setAlignment(valtype->alignsize());
 
     push_void_array(getTypePaddedSize(CI->getType()), G);
@@ -106,7 +106,7 @@ void RTTIBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtype, D
     initname.append(".data");
 
     LLGlobalVariable* G = new LLGlobalVariable(
-        *gIR->module, CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname);
+        gIR->module, CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname);
     G->setAlignment(valtype->alignsize());
 
     push_array(dim, DtoBitCast(G, DtoType(valtype->pointerTo())));

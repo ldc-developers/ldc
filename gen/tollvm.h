@@ -60,7 +60,6 @@ LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym);
 
 // some types
 LLIntegerType* DtoSize_t();
-LLStructType* DtoInterfaceInfoType();
 LLStructType* DtoMutexType();
 LLStructType* DtoModuleReferenceType();
 

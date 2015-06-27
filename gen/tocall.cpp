@@ -218,7 +218,7 @@ static LLValue* getTypeinfoArrayArgumentForDVarArg(Expressions* arguments, int b
     LLArrayType* typeinfoarraytype = LLArrayType::get(typeinfotype, numVariadicArgs);
 
     llvm::GlobalVariable* typeinfomem =
-        new llvm::GlobalVariable(*gIR->module, typeinfoarraytype, true, llvm::GlobalValue::InternalLinkage, NULL, "._arguments.storage");
+        new llvm::GlobalVariable(gIR->module, typeinfoarraytype, true, llvm::GlobalValue::InternalLinkage, NULL, "._arguments.storage");
     IF_LOG Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
 
     std::vector<LLConstant*> vtypeinfos;
@@ -239,7 +239,7 @@ static LLValue* getTypeinfoArrayArgumentForDVarArg(Expressions* arguments, int b
     };
     LLType* tiarrty = DtoType(Type::dtypeinfo->type->arrayOf());
     tiinits = LLConstantStruct::get(isaStruct(tiarrty), llvm::ArrayRef<LLConstant*>(pinits));
-    LLValue* typeinfoarrayparam = new llvm::GlobalVariable(*gIR->module, tiarrty,
+    LLValue* typeinfoarrayparam = new llvm::GlobalVariable(gIR->module, tiarrty,
         true, llvm::GlobalValue::InternalLinkage, tiinits, "._arguments.array");
 
     return DtoLoad(typeinfoarrayparam);

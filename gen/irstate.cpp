@@ -67,15 +67,13 @@ IRTargetScope::IRTargetScope(
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-IRState::IRState(llvm::Module* m)
-    : module(m), DBuilder(this, *m)
+IRState::IRState(const char *name, llvm::LLVMContext &context)
+    : module(name, context), DBuilder(this)
 {
-    interfaceInfoType = NULL;
     mutexType = NULL;
     moduleRefType = NULL;
 
     dmodule = 0;
-    emitMain = false;
     mainFunc = 0;
     ir.state = this;
     asmBlock = NULL;
@@ -91,12 +89,6 @@ llvm::Function* IRState::topfunc()
 {
     assert(!functions.empty() && "Function stack is empty!");
     return functions.back()->func;
-}
-
-TypeFunction* IRState::topfunctype()
-{
-    assert(!functions.empty() && "Function stack is empty!");
-    return functions.back()->type;
 }
 
 llvm::Instruction* IRState::topallocapoint()

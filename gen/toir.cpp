@@ -410,7 +410,7 @@ public:
                 Logger::cout() << "type: " << *at << '\n';
                 Logger::cout() << "init: " << *_init << '\n';
             }
-            gvar = new llvm::GlobalVariable(*gIR->module, at, true, _linkage, _init, ".str");
+            gvar = new llvm::GlobalVariable(gIR->module, at, true, _linkage, _init, ".str");
             gvar->setUnnamedAddr(true);
             (*stringLiteralCache)[key] = gvar;
         }
@@ -2714,7 +2714,7 @@ public:
             {
                 llvm::Constant* init = arrayLiteralToConst(p, e);
                 llvm::GlobalVariable* global = new llvm::GlobalVariable(
-                    *gIR->module,
+                    gIR->module,
                     init->getType(),
                     true,
                     llvm::GlobalValue::InternalLinkage,
@@ -2904,7 +2904,7 @@ public:
             LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
 
             LLConstant* initval = arrayConst(keysInits, indexType);
-            LLConstant* globalstore = new LLGlobalVariable(*gIR->module, initval->getType(),
+            LLConstant* globalstore = new LLGlobalVariable(gIR->module, initval->getType(),
                 false, LLGlobalValue::InternalLinkage, initval, ".aaKeysStorage");
 #if LDC_LLVM_VER >= 307
             LLConstant* slice = llvm::ConstantExpr::getGetElementPtr(isaPointer(globalstore)->getElementType(), globalstore, idxs, true);
@@ -2915,7 +2915,7 @@ public:
             LLValue* keysArray = DtoAggrPaint(slice, funcTy->getParamType(1));
 
             initval = arrayConst(valuesInits, vtype);
-            globalstore = new LLGlobalVariable(*gIR->module, initval->getType(),
+            globalstore = new LLGlobalVariable(gIR->module, initval->getType(),
                 false, LLGlobalValue::InternalLinkage, initval, ".aaValuesStorage");
 #if LDC_LLVM_VER >= 307
             slice = llvm::ConstantExpr::getGetElementPtr(isaPointer(globalstore)->getElementType(), globalstore, idxs, true);
