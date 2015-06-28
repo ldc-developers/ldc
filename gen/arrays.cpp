@@ -376,7 +376,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     // we need to make a global with the data, so we have a pointer to the array
     // Important: don't make the gvar constant, since this const initializer might
     // be used as an initializer for a static T[] - where modifying contents is allowed.
-    LLGlobalVariable* gvar = new LLGlobalVariable(*gIR->module, constarr->getType(), false, LLGlobalValue::InternalLinkage, constarr, ".constarray");
+    LLGlobalVariable* gvar = new LLGlobalVariable(gIR->module, constarr->getType(), false, LLGlobalValue::InternalLinkage, constarr, ".constarray");
 
     if (arrty->ty == Tpointer)
         // we need to return pointer to the static array.
@@ -384,7 +384,11 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
 
     LLConstant* idxs[2] = { DtoConstUint(0), DtoConstUint(0) };
 
+#if LDC_LLVM_VER >= 307
+    LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(isaPointer(gvar)->getElementType(), gvar, idxs, true);
+#else
     LLConstant* gep = llvm::ConstantExpr::getGetElementPtr(gvar, idxs, true);
+#endif
     gep = llvm::ConstantExpr::getBitCast(gvar, getPtrToType(llelemty));
 
     return DtoConstSlice(DtoConstSize_t(arrlen), gep, arrty);
@@ -468,7 +472,7 @@ void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
         else
         {
             llvm::GlobalVariable* gvar = new llvm::GlobalVariable(
-                *gIR->module,
+                gIR->module,
                 constarr->getType(),
                 true,
                 LLGlobalValue::InternalLinkage,

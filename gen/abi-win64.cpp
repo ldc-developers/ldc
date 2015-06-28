@@ -47,11 +47,16 @@ struct Win64TargetABI : TargetABI
     void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg);
 
 private:
-    // Returns true if the D type is a composite (struct/static array/complex number).
-    bool isComposite(Type* t)
+    // Returns true if the D type is an aggregate:
+    // * struct
+    // * static/dynamic array
+    // * delegate
+    // * complex number
+    bool isAggregate(Type* t)
     {
-        return t->ty == Tstruct || t->ty == Tsarray
-            || t->iscomplex(); // treat complex numbers as structs too
+        TY ty = t->ty;
+        return ty == Tstruct || ty == Tsarray || /*ty == Tarray ||*/ ty == Tdelegate
+            || t->iscomplex();
     }
 
     // Returns true if the D type can be bit-cast to an integer of the same size.
@@ -75,10 +80,11 @@ private:
     bool isPassedWithByvalSemantics(Type* t)
     {
         return
-            // * structs/static arrays/complex numbers which can NOT be rewritten as integers
-            (isComposite(t) && !canRewriteAsInt(t)) ||
+            // * aggregates which can NOT be rewritten as integers
+            //   (size > 64 bits or not a power of 2)
+            (isAggregate(t) && !canRewriteAsInt(t)) ||
             // * 80-bit real and ireal
-            ((t->ty == Tfloat80 || t->ty == Timaginary80) && realIs80bits());
+            (realIs80bits() && (t->ty == Tfloat80 || t->ty == Timaginary80));
     }
 };
 
@@ -113,45 +119,36 @@ bool Win64TargetABI::returnInArg(TypeFunction* tf)
 
     Type* rt = tf->next->toBasetype();
 
-    // * everything <= 64 bits and of a size that is a power of 2
-    //   (incl. 2x32-bit cfloat) is returned in a register (RAX, or
+    // * let LLVM return 80-bit real/ireal on the x87 stack, for DMD compliance
+    if (realIs80bits() && (rt->ty == Tfloat80 || rt->ty == Timaginary80))
+        return false;
+
+    // * all POD types <= 64 bits and of a size that is a power of 2
+    //   (incl. 2x32-bit cfloat) are returned in a register (RAX, or
     //   XMM0 for single float/ifloat/double/idouble)
-    // * all other structs/static arrays/complex numbers and 80-bit
-    //   real/ireal are returned via struct-return (sret)
-    return isPassedWithByvalSemantics(rt);
+    // * all other types are returned via struct-return (sret)
+    return (rt->ty == Tstruct && !((TypeStruct*)rt)->sym->isPOD())
+        || isPassedWithByvalSemantics(rt);
 }
 
 bool Win64TargetABI::passByVal(Type* t)
 {
-    t = t->toBasetype();
-
-    // FIXME: LLVM doesn't support ByVal on Win64 yet
-    //return isPassedWithByvalSemantics(t);
     return false;
 }
 
 void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
 {
     // RETURN VALUE
-    if (!tf->isref)
-    {
-        Type* rt = fty.ret->type->toBasetype();
-        if (isComposite(rt) && canRewriteAsInt(rt))
-        {
-            fty.ret->rewrite = &integerRewrite;
-            fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
-        }
-    }
+    if (!fty.ret->byref && fty.ret->type->toBasetype()->ty != Tvoid)
+        rewriteArgument(fty, *fty.ret);
 
     // EXPLICIT PARAMETERS
     for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I)
     {
         IrFuncTyArg& arg = **I;
 
-        if (arg.byref)
-            continue;
-
-        rewriteArgument(fty, arg);
+        if (!arg.byref)
+            rewriteArgument(fty, arg);
     }
 
     // extern(D): reverse parameter order for non variadics, for DMD-compliance
@@ -161,15 +158,10 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
 
 void Win64TargetABI::rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
 {
-    Type* ty = arg.type->toBasetype();
+    LLType* originalLType = arg.ltype;
+    Type* t = arg.type->toBasetype();
 
-    if (isComposite(ty) && canRewriteAsInt(ty))
-    {
-        arg.rewrite = &integerRewrite;
-        arg.ltype = integerRewrite.type(arg.type, arg.ltype);
-    }
-    // FIXME: this should actually be handled by LLVM and the ByVal arg attribute
-    else if (isPassedWithByvalSemantics(ty))
+    if (isPassedWithByvalSemantics(t))
     {
         // these types are passed byval:
         // the caller allocates a copy and then passes a pointer to the copy
@@ -181,5 +173,17 @@ void Win64TargetABI::rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
         arg.attrs.clear()
                  .add(LDC_ATTRIBUTE(NoAlias))
                  .add(LDC_ATTRIBUTE(NoCapture));
+    }
+    else if (isAggregate(t) && canRewriteAsInt(t) && !IntegerRewrite::isObsoleteFor(originalLType))
+    {
+        arg.rewrite = &integerRewrite;
+        arg.ltype = integerRewrite.type(arg.type, arg.ltype);
+    }
+
+    IF_LOG if (arg.rewrite)
+    {
+        Logger::println("Rewriting argument type %s", t->toChars());
+        LOG_SCOPE;
+        Logger::cout() << *originalLType << " => " << *arg.ltype << '\n';
     }
 }

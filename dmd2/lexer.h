@@ -200,8 +200,10 @@ struct Token
     union
     {
         // Integers
+#if !IN_LLVM
         d_int32 int32value;
         d_uns32 uns32value;
+#endif
         d_int64 int64value;
         d_uns64 uns64value;
 

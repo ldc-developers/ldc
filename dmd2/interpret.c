@@ -4520,7 +4520,7 @@ public:
             firstIndex = lowerbound + ofs;
             if (firstIndex < 0 || hi > dim)
             {
-               originalExp->error("slice [lld..%lld] exceeds memory block bounds [0..%lld]",
+               originalExp->error("slice [%lld..%lld] exceeds memory block bounds [0..%lld]",
                     firstIndex, hi,  dim);
                 return EXP_CANT_INTERPRET;
             }

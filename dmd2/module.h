@@ -151,6 +151,11 @@ public:
     void parse();       // syntactic parse
 #endif
     void importAll(Scope *sc);
+#if IN_LLVM
+    using Package::semantic;
+    using Dsymbol::semantic2;
+    using Dsymbol::semantic3;
+#endif
     void semantic();    // semantic analysis
     void semantic2();   // pass 2 semantic analysis
     void semantic3();   // pass 3 semantic analysis
@@ -204,16 +209,19 @@ public:
 #if IN_LLVM
     // LDC
     llvm::Module* genLLVMModule(llvm::LLVMContext& context);
-    void buildTargetFiles(bool singleObj);
+    void buildTargetFiles(bool singleObj, bool library);
     File* buildFilePath(const char* forcename, const char* path, const char* ext);
-    llvm::GlobalVariable* moduleInfoSymbol();
 
     bool llvmForceLogging;
     bool noModuleInfo; /// Do not emit any module metadata.
-    llvm::GlobalVariable* moduleInfoVar;
 
     // array ops emitted in this module already
     AA *arrayfuncs;
+
+    // Coverage analysis
+    llvm::GlobalVariable* d_cover_valid;  // private immutable size_t[] _d_cover_valid;
+    llvm::GlobalVariable* d_cover_data;   // private uint[] _d_cover_data;
+    std::vector<size_t> d_cover_valid_init; // initializer for _d_cover_valid
 #endif
 
     Module *isModule() { return this; }

@@ -169,7 +169,7 @@ DValue* DtoNestedVariable(Loc& loc, Type* astype, VarDeclaration* vd, bool byref
     }
 
     if (dwarfValue && global.params.symdebug)
-        gIR->DBuilder.EmitLocalVariable(dwarfValue, vd, dwarfAddr);
+        gIR->DBuilder.EmitLocalVariable(dwarfValue, vd, 0, false, dwarfAddr);
 
     return new DVarValue(astype, vd, val);
 }
@@ -507,7 +507,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                 LLSmallVector<LLValue*, 2> addr;
 #endif
                 gIR->DBuilder.OpOffset(addr, frameType, irLocal->nestedIndex);
-                gIR->DBuilder.EmitLocalVariable(frame, vd, addr);
+                gIR->DBuilder.EmitLocalVariable(frame, vd, 0, false, addr);
             }
         }
     }

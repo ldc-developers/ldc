@@ -228,6 +228,7 @@ file(GLOB IR_SRC ir/*.cpp)
 file(GLOB IR_HDR ir/*.h)
 set(DRV_SRC
     driver/cl_options.cpp
+    driver/codegenerator.cpp
     driver/configfile.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
@@ -239,6 +240,7 @@ set(DRV_SRC
 set(DRV_HDR
     driver/linker.h
     driver/cl_options.h
+    driver/codegenerator.h
     driver/configfile.h
     driver/ldc-version.h
     driver/targetmachine.h
@@ -325,7 +327,7 @@ if(MSVC)
     string(REGEX REPLACE "(^| ) */GR-? *( |$)" "\\1 \\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
     add_definitions(-D_HAS_EXCEPTIONS=0)
-    set(EXTRA_CXXFLAGS "/W0 /wd4996 /GF /GR- /EHs-c- /MP")
+    set(EXTRA_CXXFLAGS "/GF /GR- /EHs-c- /MP")
 else()
     set(EXTRA_CXXFLAGS "")
 endif()
@@ -379,6 +381,19 @@ if( NOT WIN32 OR CYGWIN )
         break()
         endif()
     endforeach()
+endif()
+
+#
+# Enable instrumentation for code coverage analysis
+#
+set(TEST_COVERAGE OFF CACHE BOOL "instrument compiler for code coverage analysis")
+if(TEST_COVERAGE)
+    if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
+        append("-O0 -g -fprofile-arcs -ftest-coverage" EXTRA_CXXFLAGS)
+        append("--coverage" LLVM_LDFLAGS)
+    else()
+        message(WARNING "Coverage testing is not available.")
+    endif()
 endif()
 
 #

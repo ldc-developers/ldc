@@ -30,6 +30,7 @@
 #if LDC_LLVM_VER >= 305
 #include "llvm/IR/CallSite.h"
 #else
+#include <map>
 #include "llvm/Support/CallSite.h"
 #endif
 
@@ -120,19 +121,15 @@ struct IRAsmBlock
 // represents the module
 struct IRState
 {
-    IRState(llvm::Module* m);
+    IRState(const char *name, llvm::LLVMContext &context);
 
-    // module
-    Module* dmodule;
-    llvm::Module* module;
+    llvm::Module module;
+    llvm::LLVMContext& context() const { return module.getContext(); }
 
-    // interface info type, used in DtoInterfaceInfoType
-    LLStructType* interfaceInfoType;
+    Module *dmodule;
+
     LLStructType* mutexType;
     LLStructType* moduleRefType;
-
-    // helper to get the LLVMContext of the module
-    llvm::LLVMContext& context() const { return module->getContext(); }
 
     // functions
     typedef std::vector<IrFunction*> FunctionVector;
@@ -140,11 +137,10 @@ struct IRState
     IrFunction* func();
 
     llvm::Function* topfunc();
-    TypeFunction* topfunctype();
     llvm::Instruction* topallocapoint();
 
-    // D main function
-    bool emitMain;
+    // The function containing the D main() body, if any (not the actual main()
+    // implicitly emitted).
     llvm::Function* mainFunc;
 
     // basic block scopes
@@ -176,17 +172,6 @@ struct IRState
     // debug info helper
     ldc::DIBuilder DBuilder;
 
-    // static ctors/dtors/unittests
-    typedef std::list<FuncDeclaration*> FuncDeclList;
-    typedef std::list<VarDeclaration*> GatesList;
-    FuncDeclList ctors;
-    FuncDeclList dtors;
-    FuncDeclList sharedCtors;
-    FuncDeclList sharedDtors;
-    GatesList gates;
-    GatesList sharedGates;
-    FuncDeclList unitTests;
-
     // for inline asm
     IRAsmBlock* asmBlock;
     std::ostringstream nakedAsm;
@@ -197,6 +182,20 @@ struct IRState
 
     /// Whether to emit array bounds checking in the current function.
     bool emitArrayBoundsChecks();
+
+    // Global variables bound to string literals.  Once created such a
+    // variable is reused whenever the same string literal is
+    // referenced in the module.  Caching them per module prevents the
+    // duplication of identical literals.
+#if LDC_LLVM_VER >= 305
+    llvm::StringMap<llvm::GlobalVariable*> stringLiteral1ByteCache;
+    llvm::StringMap<llvm::GlobalVariable*> stringLiteral2ByteCache;
+    llvm::StringMap<llvm::GlobalVariable*> stringLiteral4ByteCache;
+#else
+    std::map<llvm::StringRef, llvm::GlobalVariable*> stringLiteral1ByteCache;
+    std::map<llvm::StringRef, llvm::GlobalVariable*> stringLiteral2ByteCache;
+    std::map<llvm::StringRef, llvm::GlobalVariable*> stringLiteral4ByteCache;
+#endif
 
 #if LDC_LLVM_VER >= 303
     /// Vector of options passed to the linker as metadata in object file.

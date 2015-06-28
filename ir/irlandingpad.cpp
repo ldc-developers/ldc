@@ -19,11 +19,20 @@
 // creates new landing pad
 static llvm::LandingPadInst *createLandingPadInst()
 {
-    llvm::Function* personality_fn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_personality");
-    LLType *retType = LLStructType::get(LLType::getInt8PtrTy(gIR->context()),
+    LLType* retType = LLStructType::get(LLType::getInt8PtrTy(gIR->context()),
                                         LLType::getInt32Ty(gIR->context()),
                                         NULL);
-    return gIR->ir->CreateLandingPad(retType, personality_fn, 0, "landing_pad");
+#if LDC_LLVM_VER >= 307
+    LLFunction* currentFunction = gIR->func()->func;
+    if (!currentFunction->hasPersonalityFn()) {
+        LLFunction* personalityFn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_personality");
+        currentFunction->setPersonalityFn(personalityFn);
+    }
+    return gIR->ir->CreateLandingPad(retType, 0, "landing_pad");
+#else
+    LLFunction* personalityFn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_personality");
+    return gIR->ir->CreateLandingPad(retType, personalityFn, 0, "landing_pad");
+#endif
 }
 
 IRLandingPadCatchInfo::IRLandingPadCatchInfo(Catch* catchstmt_, llvm::BasicBlock* end_) :

@@ -39,26 +39,29 @@ install:
     if [[ "${LLVM_PACKAGE}" == *3\.[567]* ]] && [[ "${CXX}" == "clang++" ]]; then
       sudo apt-get install --allow-unauthenticated -qq clang-3.4; export CXX="clang++-3.4";
     fi
+  -
+    if [[ "${OPTS}" == *TEST_COVERAGE*ON* ]]; then
+      sudo pip install cpp-coveralls;
+    fi
 env:
   - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev"
   - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev"
   - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TEST_DEBUG=1
   - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev"
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TEST_DEBUG=1
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=32
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=64
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TEST_DEBUG=1 OPTS="-DBUILD_SHARED_LIBS=ON"
   - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DBUILD_SHARED_LIBS=ON"
   - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TEST_DEBUG=1
   - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev"
+  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" OPTS="-DTEST_COVERAGE=ON"
   - LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev" TEST_DEBUG=1
-  - LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev"
+  - LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=32
+  - LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=64
   - LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev" TEST_DEBUG=1
   - LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev"
 matrix:
   allow_failures:
-  - env: LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev" TEST_DEBUG=1
-  - env: LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev"
+  - env: LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=32
   - env: LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev" TEST_DEBUG=1
   - env: LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev"
 script:
@@ -100,6 +103,12 @@ script:
     fi;
   - ctest -j2 --verbose ${BUILD_SEL}
   - ctest -j2 --output-on-failure ${RUN_SEL}
+
+after_success:
+  -
+    if [[ "${OPTS}" == *TEST_COVERAGE*ON* ]]; then
+      coveralls -e runtime -e tests -e vcbuild --gcov gcov-4.9 --gcov-options '\-lp' > /dev/null 2>&1;
+    fi
 
 notifications:
   # Temporarily disabled due to time limit problems.

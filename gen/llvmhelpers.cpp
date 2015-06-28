@@ -197,9 +197,6 @@ void DtoAssert(Module* M, Loc& loc, DValue* msg)
     // call
     gIR->CreateCallOrInvoke(fn, args);
 
-    // end debug info
-    gIR->DBuilder.EmitFuncEnd(gIR->func()->decl);
-
     // after assert is always unreachable
     gIR->ir->CreateUnreachable();
 }
@@ -211,17 +208,8 @@ void DtoAssert(Module* M, Loc& loc, DValue* msg)
 
 LLValue *DtoModuleFileName(Module* M, const Loc& loc)
 {
-    // we might be generating for an imported template function
-    const char* cur_file = M->srcfile->name->toChars();
-    if (loc.filename && strcmp(loc.filename, cur_file) != 0)
-    {
-        return DtoConstString(loc.filename);
-    }
-    else
-    {
-        IrModule* irmod = getIrModule(M);
-        return DtoLoad(irmod->fileName);
-    }
+    return DtoConstString(loc.filename ? loc.filename :
+        M->srcfile->name->toChars());
 }
 
 /****************************************************************************************/
@@ -460,11 +448,6 @@ void DtoAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPostblit)
         }
         gIR->ir->CreateStore(r, l);
     }
-
-    DVarValue *var = lhs->isVar();
-    VarDeclaration *vd = var ? var->var : 0;
-    if (vd)
-        gIR->DBuilder.EmitValue(DtoLoad(var->getLVal()), vd);
 }
 
 /****************************************************************************************/
@@ -969,7 +952,7 @@ void DtoResolveVariable(VarDeclaration* vd)
             linkage = llvm::GlobalValue::ExternalWeakLinkage;
         }
 
-        llvm::GlobalVariable* gvar = getOrCreateGlobal(vd->loc, *gIR->module,
+        llvm::GlobalVariable* gvar = getOrCreateGlobal(vd->loc, gIR->module,
             i1ToI8(DtoType(vd->type)), isLLConst, linkage, 0, llName,
             vd->isThreadlocal());
         getIrGlobal(vd)->value = gvar;
@@ -1529,11 +1512,15 @@ size_t realignOffset(size_t offset, Type* type)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-Type * stripModifiers( Type * type )
+Type * stripModifiers(Type * type, bool transitive)
 {
     if (type->ty == Tfunction)
         return type;
-    return type->castMod(0);
+    
+    if (transitive)
+        return type->unqualify(MODimmutable | MODconst | MODwild);
+    else
+        return type->castMod(0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1620,9 +1607,9 @@ void printLabelName(std::ostream& target, const char* func_mangle, const char* l
 void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function* func, const uint32_t priority, const bool isCtor)
 {
     if (isCtor)
-        llvm::appendToGlobalCtors(*gIR->module, func, priority);
+        llvm::appendToGlobalCtors(gIR->module, func, priority);
     else
-        llvm::appendToGlobalDtors(*gIR->module, func, priority);
+        llvm::appendToGlobalDtors(gIR->module, func, priority);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1713,13 +1700,6 @@ DValue* DtoSymbolAddress(Loc& loc, Type* type, Declaration* decl)
             assert(!gIR->arrays.empty());
             val = DtoArrayLen(gIR->arrays.back());
             return new DImValue(type, val);
-        }
-        // classinfo
-        else if (ClassInfoDeclaration* cid = vd->isClassInfoDeclaration())
-        {
-            Logger::println("ClassInfoDeclaration: %s", cid->cd->toChars());
-            DtoResolveClass(cid->cd);
-            return new DVarValue(type, vd, getIrAggr(cid->cd)->getClassInfoSymbol());
         }
         // typeinfo
         else if (TypeInfoDeclaration* tid = vd->isTypeInfoDeclaration())

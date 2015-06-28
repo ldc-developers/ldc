@@ -187,7 +187,7 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
     assert(asmblock);
 
     // debug info
-    gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+    gIR->DBuilder.EmitStopPoint(stmt->loc);
 
     if (!stmt->asmcode)
         return;
@@ -458,7 +458,7 @@ static void remap_outargs(std::string& insnt, size_t nargs, size_t idx)
         needle = prefix + digits[i] + suffix;
         size_t pos = insnt.find(needle);
         if(std::string::npos != pos)
-            sprintf(buf, "%lu", idx++);
+            sprintf(buf, "%llu", static_cast<unsigned long long>(idx++));
         while(std::string::npos != (pos = insnt.find(needle)))
             insnt.replace(pos, needle.size(), buf);
     }
@@ -483,7 +483,7 @@ static void remap_inargs(std::string& insnt, size_t nargs, size_t idx)
         needle = prefix + digits[i] + suffix;
         size_t pos = insnt.find(needle);
         if(std::string::npos != pos)
-            sprintf(buf, "%lu", idx++);
+            sprintf(buf, "%llu", static_cast<unsigned long long>(idx++));
         while(std::string::npos != (pos = insnt.find(needle)))
             insnt.replace(pos, needle.size(), buf);
     }

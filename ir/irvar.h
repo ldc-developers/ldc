@@ -41,10 +41,6 @@ struct IrVar
 
     VarDeclaration* V;
     llvm::Value* value;
-
-    // debug description
-    llvm::DIVariable debugVariable;
-    llvm::DISubprogram debugFunc;
 };
 
 // represents a global variable

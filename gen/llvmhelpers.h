@@ -197,7 +197,7 @@ LLFunctionType* DtoExtractFunctionType(LLType* type);
 ///
 DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments, LLValue* retvar = 0);
 
-Type* stripModifiers(Type* type);
+Type* stripModifiers(Type* type, bool transitive = false);
 
 void printLabelName(std::ostream& target, const char* func_mangle, const char* label_name);
 

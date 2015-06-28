@@ -221,17 +221,14 @@ add_custom_command(
 )
 
 # Always build zlib and other C parts of the runtime in release mode, regardless
-# of what the user chose for LDC itself. We can't easily do this on MSVC builds
-# due to incompatible switches.
-if(NOT MSVC)
-    set(cfiles "${CORE_C};${DCRT_C}")
-    if(PHOBOS2_DIR)
-        list(APPEND cfiles "${ZLIB_C}")
-    endif()
-    set_source_files_properties(${cfiles} PROPERTIES
-        COMPILE_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELEASE}"
-    )
+# of what the user chose for LDC itself.
+set(cfiles "${CORE_C};${DCRT_C}")
+if(PHOBOS2_DIR)
+    list(APPEND cfiles "${ZLIB_C}")
 endif()
+set_source_files_properties(${cfiles} PROPERTIES
+    COMPILE_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELEASE}"
+)
 
 # Compiles the given D module into an object file, and if enabled, a bitcode
 # file. The ouput is written to a path based on output_dir. The paths of the
@@ -323,6 +320,7 @@ macro(compile_druntime d_flags lib_suffix path_suffix outlist_o outlist_bc)
     # are/were some broken invariants around; druntime is always built in
     # release mode in upstream builds).
     set(rt_flags "${d_flags};-disable-invariants")
+
     if(BUILD_SHARED_LIBS)
         set(shared ";-d-version=Shared")
     else()
@@ -487,10 +485,11 @@ endmacro()
 #
 
 if(MSVC)
+    # /wd4996: suppress deprecation warnings about zlib using POSIX names
     if (LINK_WITH_MSVCRT)
-        set(RT_CFLAGS "/MDd")
+        set(RT_CFLAGS "/wd4996 /MD")
     else()
-        set(RT_CFLAGS "/MTd")
+        set(RT_CFLAGS "/wd4996 /MT")
     endif()
 else()
     set(RT_CFLAGS "")

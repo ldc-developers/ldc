@@ -14,6 +14,7 @@
 #include "port.h"
 #include "gen/abi.h"
 #include "gen/arrays.h"
+#include "gen/coverage.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -101,6 +102,7 @@ static LLValue* call_string_switch_runtime(llvm::Value* table, Expression* e)
 
     return call.getInstruction();
 }
+
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -370,7 +372,9 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
+
+        emitCoverageLinecountInc(stmt->loc);
 
         // is there a return value expression?
         if (stmt->exp || (!stmt->exp && (irs->topfunc() == irs->mainFunc)) )
@@ -399,11 +403,8 @@ public:
                 // emit scopes
                 DtoEnclosingHandlers(stmt->loc, NULL);
 
-                // emit dbg end function
-                gIR->DBuilder.EmitFuncEnd(f->decl);
-
                 // emit ret
-                llvm::ReturnInst::Create(gIR->context(), irs->scopebb());
+                gIR->ir->CreateRetVoid();
             }
             // the return type is not void, so this is a normal "register" return
             else
@@ -463,8 +464,13 @@ public:
                 // emit scopes
                 DtoEnclosingHandlers(stmt->loc, NULL);
 
-                gIR->DBuilder.EmitFuncEnd(irs->func()->decl);
-                llvm::ReturnInst::Create(gIR->context(), v, irs->scopebb());
+                // Hack: the frontend generates 'return 0;' as last statement of
+                // 'void main()'. But the debug location is missing. Use the end
+                // of function as debug location.
+                if (f->decl->isMain() && !stmt->loc.linnum)
+                    gIR->DBuilder.EmitStopPoint(f->decl->endloc);
+
+                gIR->ir->CreateRet(v);
             }
         }
         // no return value expression means it's a void function
@@ -472,8 +478,7 @@ public:
         {
             assert(irs->topfunc()->getReturnType() == LLType::getVoidTy(gIR->context()));
             DtoEnclosingHandlers(stmt->loc, NULL);
-            gIR->DBuilder.EmitFuncEnd(irs->func()->decl);
-            llvm::ReturnInst::Create(gIR->context(), irs->scopebb());
+            gIR->ir->CreateRetVoid();
         }
 
         // the return terminated this basicblock, start a new one
@@ -489,7 +494,9 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
+
+        emitCoverageLinecountInc(stmt->loc);
 
         if (stmt->exp) {
             elem* e;
@@ -516,6 +523,8 @@ public:
 
         // start a dwarf lexical block
         gIR->DBuilder.EmitBlockStart(stmt->loc);
+        emitCoverageLinecountInc(stmt->loc);
+
         if (stmt->match)
             DtoRawVarDeclaration(stmt->match);
 
@@ -626,6 +635,7 @@ public:
         gIR->scope() = IRScope(whilebb, endbb);
 
         // create the condition
+        emitCoverageLinecountInc(stmt->condition->loc);
         DValue* cond_e = toElemDtor(stmt->condition);
         LLValue* cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
         delete cond_e;
@@ -686,6 +696,7 @@ public:
         gIR->scope() = IRScope(condbb,endbb);
 
         // create the condition
+        emitCoverageLinecountInc(stmt->condition->loc);
         DValue* cond_e = toElemDtor(stmt->condition);
         LLValue* cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
         delete cond_e;
@@ -742,6 +753,7 @@ public:
         llvm::Value* cond_val;
         if (stmt->condition)
         {
+            emitCoverageLinecountInc(stmt->condition->loc);
             DValue* cond_e = toElemDtor(stmt->condition);
             cond_val = DtoCast(stmt->loc, cond_e, Type::tbool)->getRVal();
             delete cond_e;
@@ -769,6 +781,7 @@ public:
 
         // increment
         if (stmt->increment) {
+            emitCoverageLinecountInc(stmt->increment->loc);
             DValue* inc = toElemDtor(stmt->increment);
             delete inc;
         }
@@ -798,7 +811,9 @@ public:
             return;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
+
+        emitCoverageLinecountInc(stmt->loc);
 
         if (stmt->ident != 0) {
             IF_LOG Logger::println("ident = %s", stmt->ident->toChars());
@@ -859,7 +874,9 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
+
+        emitCoverageLinecountInc(stmt->loc);
 
         if (stmt->ident != 0) {
             IF_LOG Logger::println("ident = %s", stmt->ident->toChars());
@@ -925,7 +942,7 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         // if there's no finalbody or no body, things are simple
         if (!stmt->finalbody) {
@@ -1017,7 +1034,7 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
 
         // create basic blocks
         llvm::BasicBlock* oldend = irs->scopeend();
@@ -1074,12 +1091,12 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
+
+        emitCoverageLinecountInc(stmt->loc);
 
         assert(stmt->exp);
         DValue* e = toElemDtor(stmt->exp);
-
-        gIR->DBuilder.EmitFuncEnd(gIR->func()->decl);
 
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(stmt->loc, gIR->module, "_d_throw_exception");
         //Logger::cout() << "calling: " << *fn << '\n';
@@ -1101,7 +1118,9 @@ public:
         LOG_SCOPE;
 
         // emit dwarf stop point
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
+
+        emitCoverageLinecountInc(stmt->loc);
 
         llvm::BasicBlock* oldbb = gIR->scopebb();
         llvm::BasicBlock* oldend = gIR->scopeend();
@@ -1191,7 +1210,7 @@ public:
                 LLType* elemTy = DtoType(stmt->condition->type);
                 LLArrayType* arrTy = llvm::ArrayType::get(elemTy, inits.size());
                 LLConstant* arrInit = LLConstantArray::get(arrTy, inits);
-                LLGlobalVariable* arr = new llvm::GlobalVariable(*gIR->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, ".string_switch_table_data");
+                LLGlobalVariable* arr = new llvm::GlobalVariable(gIR->module, arrTy, true, llvm::GlobalValue::InternalLinkage, arrInit, ".string_switch_table_data");
 
                 LLType* elemPtrTy = getPtrToType(elemTy);
                 LLConstant* arrPtr = llvm::ConstantExpr::getBitCast(arr, elemPtrTy);
@@ -1283,6 +1302,7 @@ public:
 
         assert(stmt->statement);
         gIR->DBuilder.EmitBlockStart(stmt->statement->loc);
+        emitCoverageLinecountInc(stmt->loc);
         stmt->statement->accept(this);
         gIR->DBuilder.EmitBlockEnd();
     }
@@ -1310,6 +1330,7 @@ public:
 
         assert(stmt->statement);
         gIR->DBuilder.EmitBlockStart(stmt->statement->loc);
+        emitCoverageLinecountInc(stmt->loc);
         stmt->statement->accept(this);
         gIR->DBuilder.EmitBlockEnd();
     }
@@ -1669,7 +1690,9 @@ public:
         IF_LOG Logger::println("GotoStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
+
+        emitCoverageLinecountInc(stmt->loc);
 
         llvm::BasicBlock* oldend = gIR->scopeend();
         llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "aftergoto", irs->topfunc(), oldend);
@@ -1685,7 +1708,9 @@ public:
         IF_LOG Logger::println("GotoDefaultStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
+
+        emitCoverageLinecountInc(stmt->loc);
 
         llvm::BasicBlock* oldend = gIR->scopeend();
         llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "aftergotodefault", irs->topfunc(), oldend);
@@ -1705,7 +1730,9 @@ public:
         IF_LOG Logger::println("GotoCaseStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
-        gIR->DBuilder.EmitStopPoint(stmt->loc.linnum);
+        gIR->DBuilder.EmitStopPoint(stmt->loc);
+
+        emitCoverageLinecountInc(stmt->loc);
 
         llvm::BasicBlock* oldend = gIR->scopeend();
         llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "aftergotocase", irs->topfunc(), oldend);
@@ -1754,7 +1781,7 @@ public:
 
         llvm::Function* fn = LLVM_D_GetRuntimeFunction(stmt->loc, gIR->module, "_d_switch_error");
 
-        LLValue *moduleInfoSymbol = gIR->func()->decl->getModule()->moduleInfoSymbol();
+        LLValue *moduleInfoSymbol = getIrModule(gIR->func()->decl->getModule())->moduleInfoSymbol();
         LLType *moduleInfoType = DtoType(Module::moduleinfo->type);
 
         LLValue* args[] = {

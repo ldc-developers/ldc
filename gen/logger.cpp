@@ -45,9 +45,9 @@ void Stream::writeValue(std::ostream& OS, const llvm::Value& V) {
     llvm::raw_os_ostream raw(OS);
     if (llvm::isa<llvm::Constant>(V) && !llvm::isa<llvm::GlobalValue>(V))
 #if LDC_LLVM_VER >= 305
-        V.printAsOperand(raw, true, gIR->module);
+        V.printAsOperand(raw, true, &gIR->module);
 #else
-        llvm::WriteAsOperand(raw, &V, true, gIR->module);
+        llvm::WriteAsOperand(raw, &V, true, &gIR->module);
 #endif
     else
         V.print(raw);

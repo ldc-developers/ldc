@@ -111,7 +111,7 @@ disableGCToStack("disable-gc2stack",
     cl::desc("Disable promotion of GC allocations to stack memory"),
     cl::ZeroOrMore);
 
-static cl::opt<opts::BoolOrDefaultAdapter, false, opts::FlagParser>
+static cl::opt<cl::boolOrDefault, false, opts::FlagParser<cl::boolOrDefault> >
 enableInlining("inlining",
     cl::desc("Enable function inlining (default in -O2 and higher)"),
     cl::ZeroOrMore);
@@ -165,6 +165,10 @@ static unsigned sizeLevel() {
 bool willInline() {
     return enableInlining == cl::BOU_TRUE ||
         (enableInlining == cl::BOU_UNSET && optLevel() > 1);
+}
+
+bool isOptimizationEnabled() {
+    return optimizeLevel != 0;
 }
 
 llvm::CodeGenOpt::Level codeGenOptLevel() {

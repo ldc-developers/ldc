@@ -1,31 +1,31 @@
-//===-- abi-ppc64.cpp -----------------------------------------------------===//
+//===-- gen/abi-mips64.cpp - MIPS64 ABI description ------------*- C++ -*-===//
 //
-//                         LDC ? the LLVM D compiler
+//                         LDC – the LLVM D compiler
 //
 // This file is distributed under the BSD-style LDC license. See the LICENSE
 // file for details.
 //
 //===----------------------------------------------------------------------===//
 //
-// The PowerOpen 64bit ABI can be found here:
-// http://refspecs.linuxfoundation.org/ELF/ppc64/PPC-elf64abi-1.9.html
+// The MIPS64 N32 and N64 ABI can be found here:
+// http://techpubs.sgi.com/library/dynaweb_docs/0640/SGI_Developer/books/Mpro_n32_ABI/sgi_html/index.html
 //
 //===----------------------------------------------------------------------===//
 
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
-#include "gen/abi-ppc64.h"
+#include "gen/abi-mips64.h"
 #include "gen/dvalue.h"
 #include "gen/irstate.h"
 #include "gen/llvmhelpers.h"
 #include "gen/tollvm.h"
 
-struct PPC64TargetABI : TargetABI {
+struct MIPS64TargetABI : TargetABI {
     ExplicitByvalRewrite byvalRewrite;
     IntegerRewrite integerRewrite;
     const bool Is64Bit;
 
-    PPC64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit)
+    MIPS64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit)
     { }
 
     llvm::CallingConv::ID callingConv(LINK l)
@@ -65,7 +65,6 @@ struct PPC64TargetABI : TargetABI {
 
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     {
-        // EXPLICIT PARAMETERS
         for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I)
         {
             IrFuncTyArg& arg = **I;
@@ -77,32 +76,7 @@ struct PPC64TargetABI : TargetABI {
 
     void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
     {
-        Type* ty = arg.type->toBasetype();
-
-        if (ty->ty == Tstruct || ty->ty == Tsarray)
-        {
-            if (canRewriteAsInt(ty))
-            {
-                if (!IntegerRewrite::isObsoleteFor(arg.ltype))
-                {
-                    arg.rewrite = &integerRewrite;
-                    arg.ltype = integerRewrite.type(arg.type, arg.ltype);
-                }
-            }
-            else
-            {
-                // these types are passed byval:
-                // the caller allocates a copy and then passes a pointer to the copy
-                arg.rewrite = &byvalRewrite;
-                arg.ltype = byvalRewrite.type(arg.type, arg.ltype);
-
-                // the copy is treated as a local variable of the callee
-                // hence add the NoAlias and NoCapture attributes
-                arg.attrs.clear()
-                         .add(LDC_ATTRIBUTE(NoAlias))
-                         .add(LDC_ATTRIBUTE(NoCapture));
-            }
-        }
+        // FIXME
     }
 
     // Returns true if the D type can be bit-cast to an integer of the same size.
@@ -114,7 +88,7 @@ struct PPC64TargetABI : TargetABI {
 };
 
 // The public getter for abi.cpp
-TargetABI* getPPC64TargetABI(bool Is64Bit)
+TargetABI* getMIPS64TargetABI(bool Is64Bit)
 {
-    return new PPC64TargetABI(Is64Bit);
+    return new MIPS64TargetABI(Is64Bit);
 }

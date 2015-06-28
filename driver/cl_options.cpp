@@ -23,6 +23,34 @@
 
 namespace opts {
 
+/* Option parser that defaults to zero when no explicit number is given.
+ * i.e.:  -cov    --> value = 0
+ *        -cov=9  --> value = 9
+ *        -cov=101 --> error, value must be in range [0..100]
+ */ 
+struct CoverageParser : public cl::parser<unsigned char> {
+#if LDC_LLVM_VER >= 307
+    CoverageParser(cl::Option &O) : cl::parser<unsigned char>(O) {}
+#endif
+
+    bool parse(cl::Option &O, llvm::StringRef ArgName, llvm::StringRef Arg, unsigned char &Val)
+    {
+        if (Arg == "") {
+            Val = 0;
+            return false;
+        }
+
+        if (Arg.getAsInteger(0, Val))
+            return O.error("'" + Arg + "' value invalid for required coverage percentage");
+
+        if (Val > 100) {
+            return O.error("Required coverage percentage must be <= 100");
+        }
+        return false;
+    }
+};
+
+
 // Positional options first, in order:
 cl::list<std::string> fileList(
     cl::Positional, cl::desc("files"));
@@ -280,6 +308,13 @@ cl::list<std::string> mAttrs("mattr",
 cl::opt<std::string> mTargetTriple("mtriple",
     cl::desc("Override target triple"));
 
+#if LDC_LLVM_VER >= 307
+cl::opt<std::string> mABI("mabi",
+    cl::desc("The name of the ABI to be targeted from the backend"),
+    cl::Hidden,
+    cl::init(""));
+#endif
+
 cl::opt<llvm::Reloc::Model> mRelocModel("relocation-model",
     cl::desc("Relocation model"),
     cl::init(llvm::Reloc::Default),
@@ -319,7 +354,7 @@ cl::opt<bool> disableFpElim("disable-fp-elim",
               cl::desc("Disable frame pointer elimination optimization"),
               cl::init(false));
 
-static cl::opt<bool, true, FlagParser> asserts("asserts",
+static cl::opt<bool, true, FlagParser<bool> > asserts("asserts",
     cl::desc("(*) Enable assertions"),
     cl::value_desc("bool"),
     cl::location(global.params.useAssert),
@@ -334,11 +369,11 @@ public:
     }
 };
 
-cl::opt<BoundsChecksAdapter, false, FlagParser> boundsChecksOld("boundscheck",
+cl::opt<BoundsChecksAdapter, false, FlagParser<bool> > boundsChecksOld("boundscheck",
     cl::desc("(*) Enable array bounds check (deprecated, use -boundscheck=on|off)"));
 
 cl::opt<BoundsCheck, true> boundsChecksNew("boundscheck",
-    cl::desc("(*) Enable array bounds check"),
+    cl::desc("Enable array bounds check"),
     cl::location(boundsCheck),
     cl::values(
         clEnumValN(BC_Off, "off", "no array bounds checks"),
@@ -346,17 +381,17 @@ cl::opt<BoundsCheck, true> boundsChecksNew("boundscheck",
         clEnumValN(BC_On, "on", "array bounds checks for all functions"),
         clEnumValEnd));
 
-static cl::opt<bool, true, FlagParser> invariants("invariants",
+static cl::opt<bool, true, FlagParser<bool> > invariants("invariants",
     cl::desc("(*) Enable invariants"),
     cl::location(global.params.useInvariants),
     cl::init(true));
 
-static cl::opt<bool, true, FlagParser> preconditions("preconditions",
+static cl::opt<bool, true, FlagParser<bool> > preconditions("preconditions",
     cl::desc("(*) Enable function preconditions"),
     cl::location(global.params.useIn),
     cl::init(true));
 
-static cl::opt<bool, true, FlagParser> postconditions("postconditions",
+static cl::opt<bool, true, FlagParser<bool> > postconditions("postconditions",
     cl::desc("(*) Enable function postconditions"),
     cl::location(global.params.useOut),
     cl::init(true));
@@ -364,7 +399,7 @@ static cl::opt<bool, true, FlagParser> postconditions("postconditions",
 
 static MultiSetter ContractsSetter(false,
     &global.params.useIn, &global.params.useOut, NULL);
-static cl::opt<MultiSetter, true, FlagParser> contracts("contracts",
+static cl::opt<MultiSetter, true, FlagParser<bool> > contracts("contracts",
     cl::desc("(*) Enable function pre- and post-conditions"),
     cl::location(ContractsSetter));
 
@@ -406,9 +441,15 @@ cl::opt<bool, true> vgc("vgc",
     cl::desc("list all gc allocations including hidden ones"),
     cl::location(global.params.vgc));
 
-cl::opt<bool, true, FlagParser> color("color",
+cl::opt<bool, true, FlagParser<bool> > color("color",
     cl::desc("Force colored console output"),
     cl::location(global.params.color));
+
+cl::opt<unsigned char, true, CoverageParser> coverageAnalysis("cov",
+    cl::desc("Compile-in code coverage analysis\n(use -cov=n for n% minimum required coverage)"),
+    cl::location(global.params.covPercent),
+    cl::ValueOptional,
+    cl::init(127));
 
 static cl::extrahelp footer("\n"
 "-d-debug can also be specified without options, in which case it enables all\n"

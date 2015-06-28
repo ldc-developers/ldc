@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/functions.h"
+
 #include "aggregate.h"
 #include "declaration.h"
 #include "id.h"
@@ -20,6 +21,7 @@
 #include "gen/arrays.h"
 #include "gen/classes.h"
 #include "gen/dvalue.h"
+#include "gen/inlineir.h"
 #include "gen/irstate.h"
 #include "gen/linkage.h"
 #include "gen/llvm.h"
@@ -30,11 +32,7 @@
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
-#if LDC_LLVM_VER >= 305
-#include "llvm/Linker/Linker.h"
-#else
-#include "llvm/Linker.h"
-#endif
+#include "ir/irmodule.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Intrinsics.h"
 #else
@@ -220,114 +218,6 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     IF_LOG Logger::cout() << "Final function type: " << *irFty.funcType << "\n";
 
     return irFty.funcType;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-#include "llvm/Support/raw_ostream.h"
-#include "llvm/Support/SourceMgr.h"
-#if LDC_LLVM_VER >= 305
-#include "llvm/AsmParser/Parser.h"
-#else
-#include "llvm/Assembly/Parser.h"
-#endif
-
-LLFunction* DtoInlineIRFunction(FuncDeclaration* fdecl)
-{
-    const char* mangled_name = mangleExact(fdecl);
-    TemplateInstance* tinst = fdecl->parent->isTemplateInstance();
-    assert(tinst);
-
-    Objects& objs = tinst->tdtypes;
-    assert(objs.dim == 3);
-
-    Expression* a0 = isExpression(objs[0]);
-    assert(a0);
-    StringExp* strexp = a0->toStringExp();
-    assert(strexp);
-    assert(strexp->sz == 1);
-    std::string code(static_cast<char*>(strexp->string), strexp->len);
-
-    Type* ret = isType(objs[1]);
-    assert(ret);
-
-    Tuple* a2 = isTuple(objs[2]);
-    assert(a2);
-    Objects& arg_types = a2->objects;
-
-    std::string str;
-    llvm::raw_string_ostream stream(str);
-    stream << "define " << *DtoType(ret) << " @" << mangled_name << "(";
-
-    for(size_t i = 0; ;)
-    {
-        Type* ty = isType(arg_types[i]);
-        //assert(ty);
-        if(!ty)
-        {
-            error(tinst->loc,
-                "All parameters of a template defined with pragma llvm_inline_ir, except for the first one, should be types");
-            fatal();
-        }
-        stream << *DtoType(ty);
-
-        i++;
-        if(i >= arg_types.dim)
-            break;
-
-        stream << ", ";
-    }
-
-    if(ret->ty == Tvoid)
-        code.append("\nret void");
-
-    stream << ")\n{\n" << code <<  "\n}";
-
-    llvm::SMDiagnostic err;
-
-#if LDC_LLVM_VER >= 306
-    std::unique_ptr<llvm::Module> m = llvm::parseAssemblyString(
-        stream.str().c_str(), err, gIR->context());
-#elif LDC_LLVM_VER >= 303
-    llvm::Module* m = llvm::ParseAssemblyString(
-        stream.str().c_str(), NULL, err, gIR->context());
-#else
-    llvm::ParseAssemblyString(
-        stream.str().c_str(), gIR->module, err, gIR->context());
-#endif
-
-    std::string errstr = err.getMessage();
-    if(errstr != "")
-        error(tinst->loc,
-            "can't parse inline LLVM IR:\n%s\n%s\n%s\nThe input string was: \n%s",
-#if LDC_LLVM_VER >= 303
-            err.getLineContents().str().c_str(),
-#else
-            err.getLineContents().c_str(),
-#endif
-            (std::string(err.getColumnNo(), ' ') + '^').c_str(),
-            errstr.c_str(), stream.str().c_str());
-
-#if LDC_LLVM_VER >= 306
-    llvm::Linker(gIR->module).linkInModule(m.get());
-#else
-#if LDC_LLVM_VER >= 303
-    std::string errstr2 = "";
-#if LDC_LLVM_VER >= 306
-    llvm::Linker(gIR->module).linkInModule(m.get(), &errstr2);
-#else
-    llvm::Linker(gIR->module).linkInModule(m, &errstr2);
-#endif
-    if(errstr2 != "")
-        error(tinst->loc,
-            "Error when linking in llvm inline ir: %s", errstr2.c_str());
-#endif
-#endif
-
-    LLFunction* fun = gIR->module->getFunction(mangled_name);
-    fun->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
-    fun->addFnAttr(LDC_ATTRIBUTE(AlwaysInline));
-    return fun;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -595,7 +485,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     // construct function
     LLFunctionType* functype = DtoFunctionType(fdecl);
-    LLFunction* func = vafunc ? vafunc : gIR->module->getFunction(mangledName);
+    LLFunction* func = vafunc ? vafunc : gIR->module.getFunction(mangledName);
     if (!func) {
         if(fdecl->llvmInternal == LLVMinline_ir)
         {
@@ -606,7 +496,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
             // All function declarations are "external" - any other linkage type
             // is set when actually defining the function.
             func = LLFunction::Create(functype,
-                llvm::GlobalValue::ExternalLinkage, mangledName, gIR->module);
+                llvm::GlobalValue::ExternalLinkage, mangledName, &gIR->module);
         }
     } else if (func->getFunctionType() != functype) {
         error(fdecl->loc, "Function type does not match previously declared function with the same mangled name: %s", mangleExact(fdecl));
@@ -733,7 +623,7 @@ static llvm::GlobalValue::LinkageTypes lowerFuncLinkage(FuncDeclaration* fdecl)
 
     // Generated array op functions behave like templates in that they might be
     // emitted into many different modules.
-    if (fdecl->isArrayOp && !isDruntimeArrayOp(fdecl))
+    if (fdecl->isArrayOp && (willInline() || !isDruntimeArrayOp(fdecl)))
         return templateLinkage;
 
     // A body-less declaration always needs to be marked as external in LLVM
@@ -782,7 +672,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     }
 
     // Skip array ops implemented in druntime
-    if (fd->isArrayOp && isDruntimeArrayOp(fd))
+    if (fd->isArrayOp && !willInline() && isDruntimeArrayOp(fd))
     {
         IF_LOG Logger::println("No code generation for array op %s implemented in druntime", fd->toChars());
         fd->ir.setDefined();
@@ -835,19 +725,21 @@ void DtoDefineFunction(FuncDeclaration* fd)
     assert(fd->ident != Id::empty);
 
     if (fd->isUnitTestDeclaration()) {
-        gIR->unitTests.push_back(fd);
+        getIrModule(gIR->dmodule)->unitTests.push_back(fd);
     } else if (fd->isSharedStaticCtorDeclaration()) {
-        gIR->sharedCtors.push_back(fd);
+        getIrModule(gIR->dmodule)->sharedCtors.push_back(fd);
     } else if (StaticDtorDeclaration *dtorDecl = fd->isSharedStaticDtorDeclaration()) {
-        gIR->sharedDtors.push_front(fd);
-        if (dtorDecl->vgate)
-            gIR->sharedGates.push_front(dtorDecl->vgate);
+        getIrModule(gIR->dmodule)->sharedDtors.push_front(fd);
+        if (dtorDecl->vgate) {
+            getIrModule(gIR->dmodule)->sharedGates.push_front(dtorDecl->vgate);
+        }
     } else if (fd->isStaticCtorDeclaration()) {
-        gIR->ctors.push_back(fd);
+        getIrModule(gIR->dmodule)->ctors.push_back(fd);
     } else if (StaticDtorDeclaration *dtorDecl = fd->isStaticDtorDeclaration()) {
-        gIR->dtors.push_front(fd);
-        if (dtorDecl->vgate)
-            gIR->gates.push_front(dtorDecl->vgate);
+        getIrModule(gIR->dmodule)->dtors.push_front(fd);
+        if (dtorDecl->vgate) {
+            getIrModule(gIR->dmodule)->gates.push_front(dtorDecl->vgate);
+        }
     }
 
 
@@ -876,9 +768,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
     gIR->functions.push_back(irFunc);
-
-    if (fd->isMain())
-        gIR->emitMain = true;
 
     func->setLinkage(lowerFuncLinkage(fd));
 
@@ -926,7 +815,11 @@ void DtoDefineFunction(FuncDeclaration* fd)
     {
         // emit a call to llvm_eh_unwind_init
         LLFunction* hack = GET_INTRINSIC_DECL(eh_unwind_init);
+#if LDC_LLVM_VER >= 307
+        gIR->ir->CreateCall(hack, {});
+#else
         gIR->ir->CreateCall(hack, "");
+#endif
     }
 
     // give the 'this' argument storage and debug info
@@ -946,7 +839,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         assert(getIrParameter(fd->vthis)->value == thisvar);
         getIrParameter(fd->vthis)->value = thismem;
 
-        gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis);
+        gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, 0, true);
     }
 
     // give the 'nestArg' storage
@@ -975,7 +868,8 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
             bool refout = vd->storage_class & (STCref | STCout);
             bool lazy = vd->storage_class & STClazy;
-            if (!refout && (!irparam->arg->byref || lazy))
+            bool firstClassVal = !refout && (!irparam->arg->byref || lazy);
+            if (firstClassVal)
             {
                 // alloca a stack slot for this first class value arg
                 LLValue* mem = DtoAlloca(irparam->arg->type, vd->ident->toChars());
@@ -989,7 +883,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
             }
 
             if (global.params.symdebug && !(isaArgument(irparam->value) && isaArgument(irparam->value)->hasByValAttr()) && !refout)
-                gIR->DBuilder.EmitLocalVariable(irparam->value, vd);
+                gIR->DBuilder.EmitLocalVariable(irparam->value, vd, firstClassVal ? irparam->arg->type : 0);
         }
     }
 
@@ -1038,23 +932,24 @@ void DtoDefineFunction(FuncDeclaration* fd)
         // in automatically, so we do it here.
 
         // pass the previous block into this block
-        gIR->DBuilder.EmitFuncEnd(fd);
+        gIR->DBuilder.EmitStopPoint(fd->endloc);
         if (func->getReturnType() == LLType::getVoidTy(gIR->context())) {
-            llvm::ReturnInst::Create(gIR->context(), gIR->scopebb());
+            gIR->ir->CreateRetVoid();
         }
         else if (!fd->isMain()) {
             AsmBlockStatement* asmb = fd->fbody->endsWithAsm();
             if (asmb) {
                 assert(asmb->abiret);
-                llvm::ReturnInst::Create(gIR->context(), asmb->abiret, bb);
+                gIR->ir->CreateRet(asmb->abiret);
             }
             else {
-                llvm::ReturnInst::Create(gIR->context(), llvm::UndefValue::get(func->getReturnType()), bb);
+                gIR->ir->CreateRet(llvm::UndefValue::get(func->getReturnType()));
             }
         }
         else
-            llvm::ReturnInst::Create(gIR->context(), LLConstant::getNullValue(func->getReturnType()), bb);
+            gIR->ir->CreateRet(LLConstant::getNullValue(func->getReturnType()));
     }
+    gIR->DBuilder.EmitFuncEnd(fd);
 
     // erase alloca point
     if (allocaPoint->getParent())

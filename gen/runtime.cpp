@@ -126,7 +126,7 @@ void LLVM_D_FreeRuntime()
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, const char* name)
+llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module& target, const char* name)
 {
     checkForImplicitGCCall(loc, name);
 
@@ -134,7 +134,7 @@ llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, 
         LLVM_D_InitRuntime();
     }
 
-    LLFunction* fn = target->getFunction(name);
+    LLFunction* fn = target.getFunction(name);
     if (fn)
         return fn;
 
@@ -142,7 +142,7 @@ llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, 
     assert(fn && "Runtime function not found.");
 
     LLFunctionType* fnty = fn->getFunctionType();
-    LLFunction* resfn = llvm::cast<llvm::Function>(target->getOrInsertFunction(name, fnty));
+    LLFunction* resfn = llvm::cast<llvm::Function>(target.getOrInsertFunction(name, fnty));
     resfn->setAttributes(fn->getAttributes());
     resfn->setCallingConv(fn->getCallingConv());
     return resfn;
@@ -150,9 +150,9 @@ llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module* target, 
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(Loc& loc, llvm::Module* target, const char* name)
+llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(Loc& loc, llvm::Module& target, const char* name)
 {
-    LLGlobalVariable* gv = target->getNamedGlobal(name);
+    LLGlobalVariable* gv = target.getNamedGlobal(name);
     if (gv) {
         return gv;
     }
@@ -171,7 +171,7 @@ llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(Loc& loc, llvm::Module* target, co
     }
 
     LLPointerType* t = g->getType();
-    return getOrCreateGlobal(loc, *target, t->getElementType(), g->isConstant(),
+    return getOrCreateGlobal(loc, target, t->getElementType(), g->isConstant(),
                              g->getLinkage(), NULL, g->getName());
 }
 
@@ -1020,5 +1020,22 @@ static void LLVM_D_BuildRuntimeModule()
         };
         llvm::FunctionType* fty = llvm::FunctionType::get(voidTy, params, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+
+    // extern (C) void _d_cover_register2(string filename, size_t[] valid, uint[] data, ubyte minPercent)
+    // as defined in druntime/rt/cover.d.
+    if (global.params.cov) {
+        llvm::StringRef fname("_d_cover_register2");
+
+        LLType* params[] = {
+            stringTy,
+            rt_array(sizeTy),
+            rt_array(intTy),
+            byteTy
+        };
+
+        LLFunctionType* fty = LLFunctionType::get(voidTy, params, false);
+        llvm::Function* fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, fname, M);
+        fn->setCallingConv(gABI->callingConv(LINKc));
     }
 }

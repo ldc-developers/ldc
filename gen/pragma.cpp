@@ -116,7 +116,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str)
         else
             priority = 65535;
         char buf[8];
-        sprintf(buf, "%lu", priority);
+        sprintf(buf, "%llu", static_cast<unsigned long long>(priority));
         arg1str = std::string(buf);
         return ident == Id::LDC_global_crt_ctor ? LLVMglobal_crt_ctor : LLVMglobal_crt_dtor;
     }

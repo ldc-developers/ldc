@@ -258,7 +258,7 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
         asmstr << "\t.size\t" << mangle << ", .-" << mangle << std::endl << std::endl;
     }
 
-    gIR->module->appendModuleInlineAsm(asmstr.str());
+    gIR->module.appendModuleInlineAsm(asmstr.str());
     asmstr.str("");
 
     gIR->functions.pop_back();

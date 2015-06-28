@@ -69,25 +69,65 @@ extern const llvm::TargetData* gDataLayout;
 
 namespace ldc {
 
-#if LDC_LLVM_VER >= 304
-typedef llvm::DICompositeType DIFunctionType;
+// Define some basic types
+#if LDC_LLVM_VER >= 307
+typedef llvm::DIType* DIType;
+typedef llvm::DIFile* DIFile;
+typedef llvm::DIGlobalVariable* DIGlobalVariable;
+typedef llvm::DILocalVariable* DILocalVariable;
+typedef llvm::DIExpression* DIExpression;
+typedef llvm::DILexicalBlock* DILexicalBlock;
+typedef llvm::DIScope* DIScope;
+typedef llvm::DISubroutineType* DISubroutineType;
+typedef llvm::DISubprogram* DISubprogram;
+typedef llvm::DICompileUnit* DICompileUnit;
+#elif LDC_LLVM_VER >= 304
+typedef llvm::DIType DIType;
+typedef llvm::DIFile DIFile;
+typedef llvm::DIGlobalVariable DIGlobalVariable;
+typedef llvm::DIVariable DILocalVariable;
+typedef llvm::DILexicalBlock DILexicalBlock;
+typedef llvm::DIDescriptor DIScope;
+typedef llvm::DICompositeType DISubroutineType;
+typedef llvm::DISubprogram DISubprogram;
+typedef llvm::DICompileUnit DICompileUnit;
 #else
-typedef llvm::DIType DIFunctionType;
+typedef llvm::DIType DIType;
+typedef llvm::DIFile DIFile;
+typedef llvm::DIGlobalVariable DIGlobalVariable;
+typedef llvm::DIVariable DILocalVariable;
+typedef llvm::DILexicalBlock DILexicalBlock;
+typedef llvm::DIDescriptor DIScope;
+typedef llvm::DISubprogram DISubprogram;
+typedef llvm::DIType DISubroutineType;
+typedef llvm::DICompileUnit DICompileUnit;
+#endif
+#if LDC_LLVM_VER == 306
+typedef llvm::DIExpression DIExpression;
 #endif
 
 class DIBuilder
 {
     IRState *const IR;
-    const llvm::MDNode *CUNode;
     llvm::DIBuilder DBuilder;
 
-    const llvm::MDNode *GetCU()
+#if LDC_LLVM_VER >= 307
+    DICompileUnit CUNode;
+#else
+    const llvm::MDNode *CUNode;
+#endif
+
+    DICompileUnit GetCU()
     {
+#if LDC_LLVM_VER >= 307
         return CUNode;
+#else
+        return llvm::DICompileUnit(CUNode);
+#endif
     }
 
 public:
-    DIBuilder(IRState *const IR, llvm::Module &M);
+    DIBuilder(IRState *const IR);
 
     /// \brief Emit the Dwarf compile_unit global for a Module m.
     /// \param m        Module to emit as compile unit.
@@ -96,7 +136,7 @@ public:
     /// \brief Emit the Dwarf subprogram global for a function declaration fd.
     /// \param fd       Function declaration to emit as subprogram.
     /// \returns        the Dwarf subprogram global.
-    llvm::DISubprogram EmitSubProgram(FuncDeclaration *fd); // FIXME
+    DISubprogram EmitSubProgram(FuncDeclaration *fd); // FIXME
 
     /// \brief Emit the Dwarf subprogram global for a module ctor.
     /// This is used for generated functions like moduleinfoctors,
@@ -104,7 +144,7 @@ public:
     /// \param Fn           llvm::Function pointer.
     /// \param prettyname   The name as seen in the source.
     /// \returns       the Dwarf subprogram global.
-    llvm::DISubprogram EmitModuleCTor(llvm::Function* Fn, llvm::StringRef prettyname);  // FIXME
+    DISubprogram EmitModuleCTor(llvm::Function* Fn, llvm::StringRef prettyname);  // FIXME
 
     /// \brief Emits debug info for function start
     void EmitFuncStart(FuncDeclaration *fd);
@@ -118,15 +158,19 @@ public:
     /// \brief Emits debug info for block end
     void EmitBlockEnd();
 
-    void EmitStopPoint(unsigned ln);
+    void EmitStopPoint(Loc& loc);
 
     void EmitValue(llvm::Value *val, VarDeclaration* vd);
 
     /// \brief Emits all things necessary for making debug info for a local variable vd.
     /// \param ll       LLVM Value of the variable.
     /// \param vd       Variable declaration to emit debug info for.
+    /// \param type     Type of parameter if diferent from vd->type
+    /// \param isThisPtr Parameter is hidden this pointer
     /// \param addr     An array of complex address operations.
     void EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
+        Type *type = 0,
+        bool isThisPtr = false,
 #if LDC_LLVM_VER >= 306
         llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>()
 #else
@@ -137,39 +181,39 @@ public:
     /// \brief Emits all things necessary for making debug info for a global variable vd.
     /// \param ll       LLVM global variable
     /// \param vd       Variable declaration to emit debug info for.
-    llvm::DIGlobalVariable EmitGlobalVariable(llvm::GlobalVariable *ll, VarDeclaration *vd); // FIXME
+    DIGlobalVariable EmitGlobalVariable(llvm::GlobalVariable *ll, VarDeclaration *vd); // FIXME
 
-    void EmitModuleEnd();
+    void Finalize();
 
 private:
     llvm::LLVMContext &getContext();
     Module *getDefinedModule(Dsymbol *s);
-    llvm::DIDescriptor GetCurrentScope();
-    void Declare(llvm::Value *var, llvm::DIVariable divar
+    DIScope GetCurrentScope();
+    void Declare(const Loc &loc, llvm::Value *var, ldc::DILocalVariable divar
 #if LDC_LLVM_VER >= 306
-        , llvm::DIExpression diexpr
+        , ldc::DIExpression diexpr
 #endif
         );
-    void AddBaseFields(ClassDeclaration *sd, llvm::DIFile file,
+    void AddBaseFields(ClassDeclaration *sd, ldc::DIFile file,
 #if LDC_LLVM_VER >= 306
                        std::vector<llvm::Metadata*> &elems
 #else
                        std::vector<llvm::Value*> &elems
 #endif
                          );
-    llvm::DIFile CreateFile(Loc& loc);
-    llvm::DIType CreateBasicType(Type *type);
-    llvm::DIType CreateEnumType(Type *type);
-    llvm::DIType CreatePointerType(Type *type);
-    llvm::DIType CreateVectorType(Type *type);
-    llvm::DIType CreateMemberType(unsigned linnum, Type *type, llvm::DIFile file, const char* c_name, unsigned offset, PROT);
-    llvm::DIType CreateCompositeType(Type *type);
-    llvm::DIType CreateArrayType(Type *type);
-    llvm::DIType CreateSArrayType(Type *type);
-    llvm::DIType CreateAArrayType(Type *type);
-    DIFunctionType CreateFunctionType(Type *type);
-    DIFunctionType CreateDelegateType(Type *type);
-    llvm::DIType CreateTypeDescription(Type* type, bool derefclass = false);
+    DIFile CreateFile(Loc& loc);
+    DIType CreateBasicType(Type *type);
+    DIType CreateEnumType(Type *type);
+    DIType CreatePointerType(Type *type);
+    DIType CreateVectorType(Type *type);
+    DIType CreateMemberType(unsigned linnum, Type *type, DIFile file, const char* c_name, unsigned offset, PROT);
+    DIType CreateCompositeType(Type *type);
+    DIType CreateArrayType(Type *type);
+    DIType CreateSArrayType(Type *type);
+    DIType CreateAArrayType(Type *type);
+    DISubroutineType CreateFunctionType(Type *type);
+    DISubroutineType CreateDelegateType(Type *type);
+    DIType CreateTypeDescription(Type* type, bool derefclass = false);
 
 public:
     template<typename T>

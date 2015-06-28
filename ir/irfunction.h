@@ -16,6 +16,8 @@
 #ifndef LDC_IR_IRFUNCTION_H
 #define LDC_IR_IRFUNCTION_H
 
+#include "llvm/ADT/DenseMap.h"
+#include "llvm/ADT/DenseMapInfo.h"
 #include "gen/llvm.h"
 #include "ir/irlandingpad.h"
 #include "ir/irfuncty.h"
@@ -122,8 +124,17 @@ struct IrFunction
     llvm::Value* _arguments;
     llvm::Value* _argptr;
 
+#if LDC_LLVM_VER >= 307
+    llvm::DISubprogram* diSubprogram = nullptr;
+    std::stack<llvm::DILexicalBlock*> diLexicalBlocks;
+    typedef llvm::DenseMap<VarDeclaration*, llvm::DILocalVariable*> VariableMap;
+#else
     llvm::DISubprogram diSubprogram;
     std::stack<llvm::DILexicalBlock> diLexicalBlocks;
+    typedef llvm::DenseMap<VarDeclaration*, llvm::DIVariable> VariableMap;
+#endif
+    // Debug info for all variables
+    VariableMap variableMap;
 
     IrFuncTy irFty;
 };

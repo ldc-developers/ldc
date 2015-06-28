@@ -66,7 +66,11 @@ public:
 
     /// Composite type debug description. This is not only to cache, but also
     /// used for resolving forward references.
+#if LDC_LLVM_VER >= 307
+    llvm::DIType* diCompositeType = nullptr;
+#else
     llvm::DIType diCompositeType;
+#endif
 
     /// true, if the LLVM struct type for the aggregate is declared as packed
     bool packed;
