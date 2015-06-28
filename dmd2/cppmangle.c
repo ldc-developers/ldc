@@ -38,7 +38,9 @@
  * so nothing would be compatible anyway.
  */
 
-#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS || IN_LLVM
+#if !IN_LLVM
+//#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
+#endif
 
 /*
  * Follows Itanium C++ ABI 1.86
@@ -742,13 +744,17 @@ public:
     }
 };
 
+#if !IN_LLVM
 char *toCppMangle(Dsymbol *s)
 {
     CppMangleVisitor v;
     return v.mangleOf(s);
 }
+#endif
 
-#elif TARGET_WINDOS
+#if !IN_LLVM
+//#elif TARGET_WINDOS
+#endif
 
 // Windows DMC and Microsoft Visual C++ mangling
 #define VC_SAVED_TYPE_CNT 10
@@ -1731,12 +1737,35 @@ private:
     }
 };
 
+#if IN_LLVM
+char *toCppMangle(Dsymbol *s)
+{
+#if LDC_LLVM_VER >= 305
+	const bool isTargetWindowsMSVC = global.params.targetTriple.isWindowsMSVCEnvironment();
+#else
+	const bool isTargetWindowsMSVC = global.params.targetTriple.getOS() == llvm::Triple::Win32;
+#endif
+    if (isTargetWindowsMSVC)
+    {
+        VisualCPPMangler v(!global.params.is64bit);
+        return v.mangleOf(s);
+    }
+    else
+    {
+        CppMangleVisitor v;
+        return v.mangleOf(s);
+    }
+}
+#else
 char *toCppMangle(Dsymbol *s)
 {
     VisualCPPMangler v(!global.params.is64bit);
     return v.mangleOf(s);
 }
+#endif
 
-#else
-#error "fix this"
+#if !IN_LLVM
+//#else
+//#error "fix this"
+//#endif
 #endif
