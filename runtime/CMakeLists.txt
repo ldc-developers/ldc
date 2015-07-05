@@ -125,6 +125,7 @@ elseif(WIN32)
         list(REMOVE_ITEM LDC_D ${RUNTIME_DIR}/src/ldc/eh2.d)
     endif()
     list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/monitor.c)
+    list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/bss_section.c)
 endif()
 list(APPEND CORE_D ${CORE_D_INTERNAL} ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
 list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
@@ -219,6 +220,29 @@ add_custom_command(
     OUTPUT ${GCCBUILTINS}
     COMMAND gen_gccbuiltins ${GCCBUILTINS} "x86"
 )
+
+if(MSVC)
+    if(NOT LINK_WITH_MSVCRT)
+        set(variables
+            CMAKE_C_FLAGS_DEBUG
+            CMAKE_C_FLAGS_MINSIZEREL
+            CMAKE_C_FLAGS_RELEASE
+            CMAKE_C_FLAGS_RELWITHDEBINFO
+            CMAKE_CXX_FLAGS_DEBUG
+            CMAKE_CXX_FLAGS_MINSIZEREL
+            CMAKE_CXX_FLAGS_RELEASE
+            CMAKE_CXX_FLAGS_RELWITHDEBINFO
+        )
+        foreach(variable ${variables})
+          if(${variable} MATCHES "/MT")
+            string(REGEX REPLACE "/MT" "/MD" ${variable} "${${variable}}")
+          endif()
+        endforeach()
+    endif()
+    # /wd4996: suppress deprecation warnings about zlib using POSIX names
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
+    set(CMAKE_C_FLAGS_DEBUG "")
+endif()
 
 # Always build zlib and other C parts of the runtime in release mode, regardless
 # of what the user chose for LDC itself.
@@ -484,17 +508,7 @@ endmacro()
 # Set up build targets.
 #
 
-if(MSVC)
-    # /wd4996: suppress deprecation warnings about zlib using POSIX names
-    if (LINK_WITH_MSVCRT)
-        set(RT_CFLAGS "/wd4996 /MD")
-    else()
-        set(RT_CFLAGS "/wd4996 /MT")
-    endif()
-else()
-    set(RT_CFLAGS "")
-endif()
-
+set(RT_CFLAGS "")
 
 # This is a bit of a mess as we need to join the two libraries together on
 # OS X before installing them. After this has run, LIBS_TO_INSTALL contains
