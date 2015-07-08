@@ -929,7 +929,11 @@ void DtoResolveVariable(VarDeclaration* vd)
                 Logger::println("parent: null");
         }
 
-        const bool isLLConst = (vd->isConst() || vd->isImmutable()) && vd->init;
+        // If a const/immutable value has a proper initializer (not "= void"),
+        // it cannot be assigned again in a static constructor. Thus, we can
+        // emit it as read-only data.
+        const bool isLLConst = (vd->isConst() || vd->isImmutable()) &&
+            vd->init && !vd->init->isVoidInitializer();
 
         assert(!vd->ir.isInitialized());
         if (gIR->dmodule)
