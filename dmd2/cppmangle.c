@@ -38,7 +38,9 @@
  * so nothing would be compatible anyway.
  */
 
-#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS || IN_LLVM
+#if !IN_LLVM
+//#if TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS
+#endif
 
 /*
  * Follows Itanium C++ ABI 1.86
@@ -176,7 +178,11 @@ class CppMangleVisitor : public Visitor
                     else
                     {
                         s->error("Internal Compiler Error: C++ %s template value parameter is not supported", tv->valType->toChars());
+#if IN_LLVM
+                        fatal();
+#else
                         assert(0);
+#endif
                     }
                 }
                 else if (!tp || tp->isTemplateTypeParameter())
@@ -192,7 +198,11 @@ class CppMangleVisitor : public Visitor
                     if (!d && !e)
                     {
                         s->error("Internal Compiler Error: %s is unsupported parameter for C++ template: (%s)", o->toChars());
+#if IN_LLVM
+                        fatal();
+#else
                         assert(0);
+#endif
                     }
                     if (d && d->isFuncDeclaration())
                     {
@@ -220,14 +230,22 @@ class CppMangleVisitor : public Visitor
                     else
                     {
                         s->error("Internal Compiler Error: %s is unsupported parameter for C++ template", o->toChars());
+#if IN_LLVM
+                        fatal();
+#else
                         assert(0);
+#endif
                     }
 
                 }
                 else
                 {
                     s->error("Internal Compiler Error: C++ templates support only integral value, type parameters, alias templates and alias function parameters");
+#if IN_LLVM
+                    fatal();
+#else
                     assert(0);
+#endif
                 }
             }
             if (is_var_arg)
@@ -400,7 +418,11 @@ class CppMangleVisitor : public Visitor
         if (!(d->storage_class & (STCextern | STCgshared)))
         {
             d->error("Internal Compiler Error: C++ static non- __gshared non-extern variables not supported");
+#if IN_LLVM
+            fatal();
+#else
             assert(0);
+#endif
         }
 
         Dsymbol *p = d->toParent();
@@ -525,7 +547,11 @@ class CppMangleVisitor : public Visitor
             // Mangle static arrays as pointers
             t->error(Loc(), "Internal Compiler Error: unable to pass static array to extern(C++) function.");
             t->error(Loc(), "Use pointer instead.");
+#if IN_LLVM
+            fatal();
+#else
             assert(0);
+#endif
             //t = t->nextOf()->pointerTo();
         }
 
@@ -587,7 +613,11 @@ public:
         {
             t->error(Loc(), "Internal Compiler Error: unsupported type %s\n", t->toChars());
         }
+#if IN_LLVM
+        fatal();
+#else
         assert(0); //Assert, because this error should be handled in frontend
+#endif
     }
 
     void visit(TypeBasic *t)
@@ -892,14 +922,18 @@ public:
     }
 };
 
+#if !IN_LLVM
 char *toCppMangle(Dsymbol *s)
 {
     //printf("toCppMangle(%s)\n", s->toChars());
     CppMangleVisitor v;
     return v.mangleOf(s);
 }
+#endif
 
-#elif TARGET_WINDOS
+#if !IN_LLVM
+//#elif TARGET_WINDOS
+#endif
 
 // Windows DMC and Microsoft Visual C++ mangling
 #define VC_SAVED_TYPE_CNT 10
@@ -960,7 +994,11 @@ public:
         {
             type->error(Loc(), "Internal Compiler Error: unsupported type %s\n", type->toChars());
         }
+#if IN_LLVM
+        fatal();
+#else
         assert(0); // Assert, because this error should be handled in frontend
+#endif
     }
 
     void visit(TypeBasic *type)
@@ -1375,7 +1413,11 @@ private:
         if (!(d->storage_class & (STCextern | STCgshared)))
         {
             d->error("Internal Compiler Error: C++ static non- __gshared non-extern variables not supported");
+#if IN_LLVM
+            fatal();
+#else
             assert(0);
+#endif
         }
         buf.writeByte('?');
         mangleIdent(d);
@@ -1513,7 +1555,11 @@ private:
                     else
                     {
                         sym->error("Internal Compiler Error: C++ %s template value parameter is not supported", tv->valType->toChars());
+#if IN_LLVM
+                        fatal();
+#else
                         assert(0);
+#endif
                     }
                 }
                 else if (!tp || tp->isTemplateTypeParameter())
@@ -1529,7 +1575,11 @@ private:
                     if (!d && !e)
                     {
                         sym->error("Internal Compiler Error: %s is unsupported parameter for C++ template", o->toChars());
+#if IN_LLVM
+                        fatal();
+#else
                         assert(0);
+#endif
                     }
                     if (d && d->isFuncDeclaration())
                     {
@@ -1571,7 +1621,11 @@ private:
                             else
                             {
                                 sym->error("Internal Compiler Error: C++ templates support only integral value, type parameters, alias templates and alias function parameters");
+#if IN_LLVM
+                                fatal();
+#else
                                 assert(0);
+#endif
                             }
                         }
                         tmp.mangleIdent(d);
@@ -1579,14 +1633,22 @@ private:
                     else
                     {
                         sym->error("Internal Compiler Error: %s is unsupported parameter for C++ template: (%s)", o->toChars());
+#if IN_LLVM
+                        fatal();
+#else
                         assert(0);
+#endif
                     }
 
                 }
                 else
                 {
                     sym->error("Internal Compiler Error: C++ templates support only integral value, type parameters, alias templates and alias function parameters");
+#if IN_LLVM
+                    fatal();
+#else
                     assert(0);
+#endif
                 }
             }
             name = tmp.buf.extractString();
@@ -1884,7 +1946,11 @@ private:
         {
             t->error(Loc(), "Internal Compiler Error: unable to pass static array to extern(C++) function.");
             t->error(Loc(), "Use pointer instead.");
+#if IN_LLVM
+            fatal();
+#else
             assert(0);
+#endif
         }
         flags &= ~IS_NOT_TOP_TYPE;
         flags &= ~IGNORE_CONST;
@@ -1892,12 +1958,35 @@ private:
     }
 };
 
+#if IN_LLVM
+char *toCppMangle(Dsymbol *s)
+{
+#if LDC_LLVM_VER >= 305
+	const bool isTargetWindowsMSVC = global.params.targetTriple.isWindowsMSVCEnvironment();
+#else
+	const bool isTargetWindowsMSVC = global.params.targetTriple.getOS() == llvm::Triple::Win32;
+#endif
+    if (isTargetWindowsMSVC)
+    {
+        VisualCPPMangler v(!global.params.is64bit);
+        return v.mangleOf(s);
+    }
+    else
+    {
+        CppMangleVisitor v;
+        return v.mangleOf(s);
+    }
+}
+#else
 char *toCppMangle(Dsymbol *s)
 {
     VisualCPPMangler v(!global.params.mscoff);
     return v.mangleOf(s);
 }
+#endif
 
-#else
-#error "fix this"
+#if !IN_LLVM
+//#else
+//#error "fix this"
+//#endif
 #endif
