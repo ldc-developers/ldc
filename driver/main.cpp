@@ -188,6 +188,7 @@ static void hideLLVMOptions() {
 #endif
     hide(map, "bounds-checking-single-trap");
     hide(map, "disable-debug-info-verifier");
+    hide(map, "disable-objc-arc-checkforcfghazards");
     hide(map, "disable-spill-fusing");
     hide(map, "cppfname");
     hide(map, "cppfor");
@@ -195,7 +196,9 @@ static void hideLLVMOptions() {
     hide(map, "enable-correct-eh-support");
     hide(map, "enable-load-pre");
     hide(map, "enable-misched");
+    hide(map, "enable-objc-arc-annotations");
     hide(map, "enable-objc-arc-opts");
+    hide(map, "enable-scoped-noalias");
     hide(map, "enable-tbaa");
     hide(map, "exhaustive-register-search");
     hide(map, "fatal-assembler-warnings");
@@ -204,10 +207,13 @@ static void hideLLVMOptions() {
     hide(map, "join-liveintervals");
     hide(map, "limit-float-precision");
     hide(map, "mc-x86-disable-arith-relaxation");
+    hide(map, "mips16-constant-islands");
+    hide(map, "mips16-hard-float");
     hide(map, "mlsm");
     hide(map, "mno-ldc1-sdc1");
     hide(map, "nvptx-sched4reg");
     hide(map, "no-discriminators");
+    hide(map, "objc-arc-annotation-target-identifier"),
     hide(map, "pre-RA-sched");
     hide(map, "print-after-all");
     hide(map, "print-before-all");
@@ -218,6 +224,8 @@ static void hideLLVMOptions() {
     hide(map, "profile-info-file");
     hide(map, "profile-verifier-noassert");
     hide(map, "regalloc");
+    hide(map, "rewrite-map-file");
+    hide(map, "rng-seed");
     hide(map, "sample-profile-max-propagate-iterations");
     hide(map, "shrink-wrap");
     hide(map, "spiller");
@@ -235,6 +243,7 @@ static void hideLLVMOptions() {
     hide(map, "verify-scev");
     hide(map, "x86-early-ifcvt");
     hide(map, "x86-use-vzeroupper");
+    hide(map, "x86-recip-refinement-steps");
 
     // We enable -fdata-sections/-ffunction-sections by default where it makes
     // sense for reducing code size, so hide them to avoid confusion.
