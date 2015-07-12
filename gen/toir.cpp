@@ -265,12 +265,64 @@ DValue* toElem(Expression* e, bool tryGetLvalue)
 
 class ToElemVisitor : public Visitor
 {
+    // stack of declared temporaries which have yet to be destructed
+    // static because toElem() calls are re-entrant
+    static VarDeclarations temporariesWithDtor;
+    static Array<ToElemVisitor*> visitors;
+
     IRState *p;
     DValue *result;
+    //DValue *lvalue;
+
+    //////////////////////////////////////////////////////////////////////////////////////////
+
+    static void destructTemporaries(int numToKeep)
+    {
+        if (temporariesWithDtor.empty())
+            return;
+
+        // pop one temporary after the other from the temporariesWithDtor stack
+        // and evaluate its destructor expression
+        // so when an exception occurs in a destructor expression, all older
+        // temporaries (excl. the one which threw in its destructor) will be
+        // destructed in a landing pad
+        for (int i = temporariesWithDtor.size() - 1; i >= numToKeep; --i)
+        {
+            VarDeclaration* vd = temporariesWithDtor.pop();
+            toElem(vd->edtor);
+        }
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////
+
 public:
-    ToElemVisitor(IRState *p_) : p(p_), result(0) { }
+    ToElemVisitor(IRState *p_) : p(p_), result(NULL)
+    {
+        visitors.push(this);
+    }
+
+    ~ToElemVisitor()
+    {
+        if (visitors.size() == 1) // outer-most toElem() call only
+            destructTemporaries(0);
+        visitors.pop();
+    }
 
     DValue *getResult() { return result; }
+
+    //////////////////////////////////////////////////////////////////////////////////////////
+
+    static bool hasTemporariesToDestruct() { return !temporariesWithDtor.empty(); }
+
+    static void destructAllTemporariesAndRestoreStack()
+    {
+        if (temporariesWithDtor.empty())
+            return;
+
+        VarDeclarations original = temporariesWithDtor;
+        destructTemporaries(0);
+        temporariesWithDtor = original;
+    }
 
     //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -286,6 +338,16 @@ public:
         LOG_SCOPE;
 
         result = DtoDeclarationExp(e->declaration);
+
+        if (result)
+        {
+            if (DVarValue* varValue = result->isVar())
+            {
+                VarDeclaration* vd = varValue->var;
+                if (!vd->isDataseg() && vd->edtor && !vd->noscope)
+                    temporariesWithDtor.push(vd);
+            }
+        }
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////
@@ -1960,7 +2022,7 @@ public:
                     // evaluate argprefix
                     if (e->argprefix)
                     {
-                        toElemDtor(e->argprefix, DestructInFinally);
+                        toElemDtor(e->argprefix);
                         isArgprefixHandled = true;
                     }
 
@@ -2107,17 +2169,17 @@ public:
 
         // create basic blocks
         llvm::BasicBlock* oldend = p->scopeend();
-        llvm::BasicBlock* assertbb = llvm::BasicBlock::Create(gIR->context(), "assert", p->topfunc(), oldend);
-        llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "noassert", p->topfunc(), oldend);
+        llvm::BasicBlock* passedbb = llvm::BasicBlock::Create(gIR->context(), "assertPassed", p->topfunc(), oldend);
+        llvm::BasicBlock* failedbb = llvm::BasicBlock::Create(gIR->context(), "assertFailed", p->topfunc(), oldend);
 
         // test condition
         LLValue* condval = DtoCast(e->loc, cond, Type::tbool)->getRVal();
 
         // branch
-        llvm::BranchInst::Create(endbb, assertbb, condval, p->scopebb());
+        llvm::BranchInst::Create(passedbb, failedbb, condval, p->scopebb());
 
-        // call assert runtime functions
-        p->scope() = IRScope(assertbb, endbb);
+        // failed: call assert runtime function
+        p->scope() = IRScope(failedbb, oldend);
 
         /* DMD Bugzilla 8360: If the condition is evaluated to true,
          * msg is not evaluated at all. So should use toElemDtor()
@@ -2125,8 +2187,8 @@ public:
          */
         DtoAssert(p->func()->decl->getModule(), e->loc, e->msg ? toElemDtor(e->msg) : NULL);
 
-        // rewrite the scope
-        p->scope() = IRScope(endbb, oldend);
+        // passed:
+        p->scope() = IRScope(passedbb, failedbb);
 
         FuncDeclaration* invdecl;
         // class invariants
@@ -3121,6 +3183,9 @@ public:
     STUB(PowAssignExp)
 };
 
+VarDeclarations ToElemVisitor::temporariesWithDtor;
+Array<ToElemVisitor*> ToElemVisitor::visitors;
+
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 DValue *toElem(Expression *e)
@@ -3130,231 +3195,40 @@ DValue *toElem(Expression *e)
     return v.getResult();
 }
 
-// Search for temporaries for which the destructor must be called.
-// was in toElemDtor but that triggered bug 978911 in VS
-class SearchVarsWithDestructors : public Visitor
+DValue *toElemDtor(Expression *e)
 {
-public:
-    std::vector<Expression*> edtors;
+    return toElem(e);
+}
 
-    // Import all functions from class Visitor
-    using Visitor::visit;
-
-    void applyTo(Expression *e)
-    {
-        if (e)
-            e->accept(this);
-    }
-
-    void applyTo(Expressions *e)
-    {
-        if (!e)
-            return;
-        for (size_t i = 0; i < e->dim; i++)
-            applyTo((*e)[i]);
-    }
-
-    virtual void visit(Expression* e)
-    {
-    }
-
-    virtual void visit(NewExp *e)
-    {
-        applyTo(e->thisexp);
-        applyTo(e->newargs);
-        applyTo(e->arguments);
-    }
-
-    virtual void visit(NewAnonClassExp *e)
-    {
-        applyTo(e->thisexp);
-        applyTo(e->newargs);
-        applyTo(e->arguments);
-    }
-
-    virtual void visit(UnaExp *e)
-    {
-        applyTo(e->e1);
-    }
-
-    virtual void visit(BinExp *e)
-    {
-        applyTo(e->e1);
-        applyTo(e->e2);
-    }
-
-    virtual void visit(CallExp *e)
-    {
-        applyTo(e->e1);
-        applyTo(e->arguments);
-    }
-
-    virtual void visit(ArrayExp *e)
-    {
-        applyTo(e->e1);
-        applyTo(e->arguments);
-    }
-
-    virtual void visit(SliceExp *e)
-    {
-        applyTo(e->e1);
-        applyTo(e->lwr);
-        applyTo(e->upr);
-    }
-
-    virtual void visit(ArrayLiteralExp *e)
-    {
-        applyTo(e->elements);
-    }
-
-    virtual void visit(AssocArrayLiteralExp *e)
-    {
-        applyTo(e->keys);
-        applyTo(e->values);
-    }
-
-    virtual void visit(StructLiteralExp *e)
-    {
-        if (e->stageflags & stageApply) return;
-        int old = e->stageflags;
-        e->stageflags |= stageApply;
-        applyTo(e->elements);
-        e->stageflags = old;
-    }
-
-    virtual void visit(TupleExp *e)
-    {
-        applyTo(e->e0);
-        applyTo(e->exps);
-    }
-
-    virtual void visit(AndAndExp *e)
-    {
-        applyTo(e->e1);
-        // Don't visit the expression, because later ToElemVisitor will
-        // call toElemDtor on it. Otherwise, there will be multiple
-        // destructor calls on any temporary created by the expression.
-        // See issue #795.
-        //applyTo(e->e2);
-    }
-
-    virtual void visit(OrOrExp *e)
-    {
-        applyTo(e->e1);
-        // same as above
-        //applyTo(e->e2);
-    }
-
-    virtual void visit(CondExp *e)
-    {
-        applyTo(e->econd);
-        // same as above
-        //applyTo(e->e1);
-        //applyTo(e->e2);
-    }
-
-    virtual void visit(AssertExp *e)
-    {
-        // If assertions are turned off e.g. in release mode then
-        // the expression is ignored. Only search for destructors
-        // inside the assert expression if assertions are turned on.
-        // See GitHub issue #953.
-        if (global.params.useAssert)
-            applyTo(e->e1);
-        // same as above
-        // applyTo(e->msg);
-    }
-
-    virtual void visit(DeclarationExp* e)
-    {
-        VarDeclaration* vd = e->declaration->isVarDeclaration();
-        if (!vd)
-            return;
-
-        while (vd->aliassym) {
-            vd = vd->aliassym->isVarDeclaration();
-            if (!vd)
-                return;
-        }
-
-        if (vd->init) {
-            if (ExpInitializer* ex = vd->init->isExpInitializer())
-                applyTo(ex->exp);
-        }
-
-        if (!vd->isDataseg() && vd->edtor && !vd->noscope)
-            edtors.push_back(vd->edtor);
-    }
-};
-
-DValue *toElemDtor(Expression *e, DestructionMode mode)
+bool haveTemporariesToDestruct()
 {
-    IF_LOG Logger::println("Expression::toElemDtor(mode = %d): %s", mode, e->toChars());
-    LOG_SCOPE
+    return ToElemVisitor::hasTemporariesToDestruct();
+}
 
-    // find destructors that must be called
-    SearchVarsWithDestructors visitor;
-    visitor.applyTo(e);
-
-    if (visitor.edtors.empty())
-        return toElem(e);
+void prepareToDestructAllTemporariesOnThrow()
+{
+    if (!haveTemporariesToDestruct())
+        return;
 
     class CallDestructors : public IRLandingPadCatchFinallyInfo
     {
     public:
-        CallDestructors(const std::vector<Expression*> &edtors_)
-            : edtors(edtors_)
-        {}
-
-        const std::vector<Expression*> &edtors;
-
         void toIR(LLValue* /*eh_ptr*/ = NULL)
         {
-            std::vector<Expression*>::const_reverse_iterator itr, end = edtors.rend();
-            for (itr = edtors.rbegin(); itr != end; ++itr)
-                toElem(*itr);
+            ToElemVisitor::destructAllTemporariesAndRestoreStack();
         }
     };
 
-    CallDestructors callDestructors(visitor.edtors);
-
-    if (mode == DestructNormally)
-    {
-        DValue *val = toElem(e);
-        callDestructors.toIR();
-        return val;
-    }
-
-    assert(mode == DestructInFinally);
+    CallDestructors* callDestructors = new CallDestructors(); // leaks
 
     // create landing pad
-    llvm::BasicBlock *oldend = gIR->scopeend();
-    llvm::BasicBlock *landingpadbb = llvm::BasicBlock::Create(gIR->context(), "landingpad", gIR->topfunc(), oldend);
+    llvm::BasicBlock* landingpadbb = llvm::BasicBlock::Create(gIR->context(),
+        "temporariesLandingPad", gIR->topfunc(), gIR->scopeend());
 
     // set up the landing pad
-    IRLandingPad &pad = gIR->func()->gen->landingPadInfo;
-    pad.addFinally(&callDestructors);
+    IRLandingPad& pad = gIR->func()->gen->landingPadInfo;
+    pad.addFinally(callDestructors);
     pad.push(landingpadbb);
-
-    // evaluate the expression
-    DValue *val = toElem(e);
-
-    // build the landing pad
-    llvm::BasicBlock *oldbb = gIR->scopebb();
-    pad.pop();
-
-    gIR->scope() = IRScope(oldbb, oldend);
-
-    callDestructors.toIR();
-    return val;
-}
-
-// Evaluate Expression, then call destructors on any temporaries in it.
-DValue *toElemDtor(Expression *e)
-{
-    DestructionMode mode = (e->op == TOKcall || e->op == TOKassert
-        ? DestructInFinally : DestructNormally);
-    return toElemDtor(e, mode);
 }
 
 // FIXME: Implement & place in right module

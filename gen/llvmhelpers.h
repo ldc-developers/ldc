@@ -234,16 +234,12 @@ FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic);
 void Declaration_codegen(Dsymbol *decl);
 void Declaration_codegen(Dsymbol *decl, IRState *irs);
 
-enum DestructionMode
-{
-    DestructNormally,
-    DestructInFinally
-};
-
 DValue *toElem(Expression *e);
 DValue *toElem(Expression *e, bool tryGetLvalue);
 DValue *toElemDtor(Expression *e);
-DValue *toElemDtor(Expression *e, DestructionMode mode);
 LLConstant *toConstElem(Expression *e, IRState *p);
+
+bool haveTemporariesToDestruct();
+void prepareToDestructAllTemporariesOnThrow();
 
 #endif

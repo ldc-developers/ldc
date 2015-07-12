@@ -21,6 +21,7 @@
 #include "ir/iraggr.h"
 #include "ir/irvar.h"
 #include "gen/dibuilder.h"
+#include "gen/llvmhelpers.h"
 #include <deque>
 #include <list>
 #include <set>
@@ -210,32 +211,35 @@ struct IRState
 template <typename T>
 llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, const T &args, const char* Name)
 {
-    llvm::BasicBlock* pad = func()->gen->landingPad;
-    if(pad)
-    {
-        // intrinsics don't support invoking and 'nounwind' functions don't need it.
-        LLFunction* funcval = llvm::dyn_cast<LLFunction>(Callee);
-        if (funcval && (funcval->isIntrinsic() || funcval->doesNotThrow()))
-        {
-            llvm::CallInst* call = ir->CreateCall(Callee, args, Name);
-            call->setAttributes(funcval->getAttributes());
-            return call;
-        }
+    FuncGen& funcGen = *func()->gen;
+    LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee);
 
-        llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create(gIR->context(), "postinvoke", topfunc(), scopeend());
-        llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, pad, args, Name);
-        if (LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee))
-            invoke->setAttributes(fn->getAttributes());
-        scope() = IRScope(postinvoke, scopeend());
-        return invoke;
-    }
-    else
+    const bool haveTemporaries = haveTemporariesToDestruct();
+    // intrinsics don't support invoking and 'nounwind' functions don't need it.
+    const bool doesNotThrow = (fn && (fn->isIntrinsic() || fn->doesNotThrow()));
+
+    if (doesNotThrow || (!haveTemporaries && funcGen.landingPad == NULL))
     {
         llvm::CallInst* call = ir->CreateCall(Callee, args, Name);
-        if (LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee))
+        if (fn)
             call->setAttributes(fn->getAttributes());
         return call;
     }
+
+    if (haveTemporaries)
+        prepareToDestructAllTemporariesOnThrow();
+
+    llvm::BasicBlock* oldend = scopeend();
+    llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create(gIR->context(), "postinvoke", topfunc(), oldend);
+    llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, funcGen.landingPad, args, Name);
+    if (fn)
+        invoke->setAttributes(fn->getAttributes());
+
+    if (haveTemporaries)
+        funcGen.landingPadInfo.pop();
+
+    scope() = IRScope(postinvoke, oldend);
+    return invoke;
 }
 
 void codegenFunction(Statement *s, IRState *irs);

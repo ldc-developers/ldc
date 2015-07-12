@@ -135,7 +135,7 @@ DValue* DtoNewClass(Loc& loc, TypeClass* tc, NewExp* newexp)
     {
         // evaluate argprefix
         if (newexp->argprefix)
-            toElemDtor(newexp->argprefix, DestructInFinally);
+            toElemDtor(newexp->argprefix);
 
         Logger::println("Calling constructor");
         assert(newexp->arguments != NULL);
