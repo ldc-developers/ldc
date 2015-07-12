@@ -272,16 +272,19 @@ else version( LDC )
 
     template _ordering(MemoryOrder ms)
     {
-        static if (ms == MemoryOrder.acq)
+        static if (ms == MemoryOrder.acq) {
             enum _ordering = AtomicOrdering.Acquire;
-        else static if (ms == MemoryOrder.rel)
+        } else static if (ms == MemoryOrder.rel) {
             enum _ordering = AtomicOrdering.Release;
-        else static if (ms == MemoryOrder.seq)
+        } else static if (ms == MemoryOrder.seq) {
             enum _ordering = AtomicOrdering.SequentiallyConsistent;
-        else static if (ms == MemoryOrder.raw)
-            enum _ordering = AtomicOrdering.NotAtomic;
-        else
+        } else static if (ms == MemoryOrder.raw) {
+            // Note that C/C++ 'relaxed' is not the same as NoAtomic/Unordered,
+            // but Monotonic.
+            enum _ordering = AtomicOrdering.Monotonic;
+        } else {
             static assert(0);
+        }
     }
 
     private template _AtomicType(T)
