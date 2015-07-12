@@ -86,52 +86,20 @@ llvm::Constant * IrAggr::getDefaultInit()
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-static bool isAligned(llvm::Type* type, size_t Offset) {
-    unsigned TyAlign = gDataLayout->getABITypeAlignment(type);
-    return (Offset & (TyAlign-1)) == 0;
-}
-
 // helper function that adds zero bytes to a vector of constants
+// FIXME A similar function is in ir/irtypeaggr.cpp
+static inline
 size_t add_zeros(llvm::SmallVectorImpl<llvm::Constant*>& constants,
     size_t startOffset, size_t endOffset)
 {
-    size_t const oldLength = constants.size();
-
-    llvm::LLVMContext& context = gIR->context();
-    llvm::Type* const eightByte = llvm::Type::getInt64Ty(context);
-    llvm::Type* const fourByte = llvm::Type::getInt32Ty(context);
-    llvm::Type* const twoByte = llvm::Type::getInt16Ty(context);
-    llvm::Type* const oneByte = llvm::Type::getInt8Ty(context);
-
     assert(startOffset <= endOffset);
-    size_t paddingLeft = endOffset - startOffset;
-    while (paddingLeft)
+    const size_t paddingSize = endOffset - startOffset;
+    if (paddingSize)
     {
-        if (global.params.is64bit && paddingLeft >= 8 && isAligned(eightByte, startOffset))
-        {
-            constants.push_back(llvm::Constant::getNullValue(eightByte));
-            startOffset += 8;
-        }
-        else if (paddingLeft >= 4 && isAligned(fourByte, startOffset))
-        {
-            constants.push_back(llvm::Constant::getNullValue(fourByte));
-            startOffset += 4;
-        }
-        else if (paddingLeft >= 2 && isAligned(twoByte, startOffset))
-        {
-            constants.push_back(llvm::Constant::getNullValue(twoByte));
-            startOffset += 2;
-        }
-        else
-        {
-            constants.push_back(llvm::Constant::getNullValue(oneByte));
-            startOffset += 1;
-        }
-
-        paddingLeft = endOffset - startOffset;
+        llvm::ArrayType* pad = llvm::ArrayType::get(llvm::Type::getInt8Ty(gIR->context()), paddingSize);
+        constants.push_back(llvm::Constant::getNullValue(pad));
     }
-
-    return constants.size() - oldLength;
+    return paddingSize ? 1 : 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////
