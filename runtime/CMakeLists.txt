@@ -194,6 +194,11 @@ endif()
 #
 # Create configuration files.
 #
+if(MSVC)
+    set(LIB_PATH "\"-L-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/${CMAKE_BUILD_TYPE}\",")
+else()
+    set(LIB_PATH "\"-L-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
+endif()
 
 # Add extra paths on Linux and disable linker arch mismatch warnings (like
 # DMD and GDC do). OS X doesn't need extra configuration due to the use of

@@ -9,10 +9,7 @@ default:
     switches = [
         "-I@PROJECT_BINARY_DIR@/../import",
         "-I@RUNTIME_DIR@/src", // Needed for gc.*/rt.* unit tests.
-        "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@",@MULTILIB_ADDITIONAL_PATH@@SHARED_LIBS_RPATH@
-        "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@/Debug",
-        "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@/Release",
-        "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@/RelWithDebInfo",
+        @LIB_PATH@@MULTILIB_ADDITIONAL_PATH@@SHARED_LIBS_RPATH@
         "-defaultlib=druntime-ldc",
         "-debuglib=druntime-ldc-debug"
     ];
