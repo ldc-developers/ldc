@@ -309,9 +309,7 @@ else version( LDC )
         if(!__traits(isFloating, T))
     {
         alias Int = _AtomicType!T;
-        enum ordering = _ordering!(ms == MemoryOrder.acq ? MemoryOrder.seq : ms);
-
-        auto asInt = llvm_atomic_load!Int(cast(shared(Int)*)cast(void*)&val, ordering);
+        auto asInt = llvm_atomic_load!Int(cast(shared(Int)*)cast(void*)&val, _ordering!(ms));
         return *cast(HeadUnshared!T*)&asInt;
     }
 
@@ -319,11 +317,9 @@ else version( LDC )
         if(__traits(compiles, mixin("val = newval")))
     {
         alias Int = _AtomicType!T;
-        enum ordering = _ordering!(ms == MemoryOrder.rel ? MemoryOrder.seq : ms);
-
         auto target = cast(shared(Int)*)cast(void*)&val;
         auto newPtr = cast(Int*)&newval;
-        llvm_atomic_store!Int(*newPtr, target, ordering);
+        llvm_atomic_store!Int(*newPtr, target, _ordering!(ms));
     }
 
     void atomicFence() nothrow
