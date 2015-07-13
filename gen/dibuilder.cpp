@@ -833,7 +833,13 @@ void ldc::DIBuilder::EmitBlockEnd()
 
 void ldc::DIBuilder::EmitStopPoint(Loc& loc)
 {
-    if (!global.params.symdebug || !loc.linnum)
+    if (!global.params.symdebug)
+        return;
+
+    // If we already have a location set and the current loc is invalid
+    // (line 0), then we can just ignore it (see GitHub issue #998 for why we
+    // cannot do this in all cases).
+    if (!loc.linnum && !IR->ir->getCurrentDebugLocation().isUnknown())
         return;
 
     Logger::println("D to dwarf stoppoint at line %u, column %u", loc.linnum, loc.charnum);
