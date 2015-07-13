@@ -204,7 +204,11 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     IRBuilder<> builder(bb);
 
     // debug info
-    gIR->DBuilder.EmitModuleCTor(fn, name.c_str());
+    llvm::DISubprogram dis = gIR->DBuilder.EmitModuleCTor(fn, name.c_str());
+    if (global.params.symdebug) {
+        // Need _some_ debug info to avoid inliner bug, see GitHub issue #998.
+        builder.SetCurrentDebugLocation(llvm::DebugLoc::get(0, 0, dis));
+    }
 
     // Call ctor's
     typedef std::list<FuncDeclaration*>::const_iterator FuncIterator;
