@@ -265,64 +265,13 @@ DValue* toElem(Expression* e, bool tryGetLvalue)
 
 class ToElemVisitor : public Visitor
 {
-    // stack of declared temporaries which have yet to be destructed
-    // static because toElem() calls are re-entrant
-    static VarDeclarations temporariesWithDtor;
-    static Array<ToElemVisitor*> visitors;
-
     IRState *p;
     DValue *result;
-    //DValue *lvalue;
-
-    //////////////////////////////////////////////////////////////////////////////////////////
-
-    static void destructTemporaries(int numToKeep)
-    {
-        if (temporariesWithDtor.empty())
-            return;
-
-        // pop one temporary after the other from the temporariesWithDtor stack
-        // and evaluate its destructor expression
-        // so when an exception occurs in a destructor expression, all older
-        // temporaries (excl. the one which threw in its destructor) will be
-        // destructed in a landing pad
-        for (int i = temporariesWithDtor.size() - 1; i >= numToKeep; --i)
-        {
-            VarDeclaration* vd = temporariesWithDtor.pop();
-            toElem(vd->edtor);
-        }
-    }
-
-    //////////////////////////////////////////////////////////////////////////////////////////
-
 public:
-    ToElemVisitor(IRState *p_) : p(p_), result(NULL)
-    {
-        visitors.push(this);
-    }
-
-    ~ToElemVisitor()
-    {
-        if (visitors.size() == 1) // outer-most toElem() call only
-            destructTemporaries(0);
-        visitors.pop();
-    }
+    ToElemVisitor(IRState *p_) : p(p_), result(NULL) { p->func()->gen->pushToElemScope(); }
+    ~ToElemVisitor() { p->func()->gen->popToElemScope(); }
 
     DValue *getResult() { return result; }
-
-    //////////////////////////////////////////////////////////////////////////////////////////
-
-    static bool hasTemporariesToDestruct() { return !temporariesWithDtor.empty(); }
-
-    static void destructAllTemporariesAndRestoreStack()
-    {
-        if (temporariesWithDtor.empty())
-            return;
-
-        VarDeclarations original = temporariesWithDtor;
-        destructTemporaries(0);
-        temporariesWithDtor = original;
-    }
 
     //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -345,7 +294,7 @@ public:
             {
                 VarDeclaration* vd = varValue->var;
                 if (!vd->isDataseg() && vd->edtor && !vd->noscope)
-                    temporariesWithDtor.push(vd);
+                    p->func()->gen->pushTemporaryToDestruct(vd);
             }
         }
     }
@@ -3183,9 +3132,6 @@ public:
     STUB(PowAssignExp)
 };
 
-VarDeclarations ToElemVisitor::temporariesWithDtor;
-Array<ToElemVisitor*> ToElemVisitor::visitors;
-
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 DValue *toElem(Expression *e)
@@ -3198,37 +3144,6 @@ DValue *toElem(Expression *e)
 DValue *toElemDtor(Expression *e)
 {
     return toElem(e);
-}
-
-bool haveTemporariesToDestruct()
-{
-    return ToElemVisitor::hasTemporariesToDestruct();
-}
-
-void prepareToDestructAllTemporariesOnThrow()
-{
-    if (!haveTemporariesToDestruct())
-        return;
-
-    class CallDestructors : public IRLandingPadCatchFinallyInfo
-    {
-    public:
-        void toIR(LLValue* /*eh_ptr*/ = NULL)
-        {
-            ToElemVisitor::destructAllTemporariesAndRestoreStack();
-        }
-    };
-
-    CallDestructors* callDestructors = new CallDestructors(); // leaks
-
-    // create landing pad
-    llvm::BasicBlock* landingpadbb = llvm::BasicBlock::Create(gIR->context(),
-        "temporariesLandingPad", gIR->topfunc(), gIR->scopeend());
-
-    // set up the landing pad
-    IRLandingPad& pad = gIR->func()->gen->landingPadInfo;
-    pad.addFinally(callDestructors);
-    pad.push(landingpadbb);
 }
 
 // FIXME: Implement & place in right module

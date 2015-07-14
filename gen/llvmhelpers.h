@@ -239,7 +239,4 @@ DValue *toElem(Expression *e, bool tryGetLvalue);
 DValue *toElemDtor(Expression *e);
 LLConstant *toConstElem(Expression *e, IRState *p);
 
-bool haveTemporariesToDestruct();
-void prepareToDestructAllTemporariesOnThrow();
-
 #endif

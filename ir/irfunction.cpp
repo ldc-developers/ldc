@@ -8,6 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/irstate.h"
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
@@ -17,6 +19,7 @@ FuncGen::FuncGen()
 {
     landingPad = NULL;
     nextUnique.push(0);
+    toElemScopeCounter = 0;
 }
 
 std::string FuncGen::getScopedLabelName(const char* ident)
@@ -43,6 +46,64 @@ void FuncGen::popLabelScope()
     labelScopes.pop_back();
     nextUnique.pop();
 }
+
+void FuncGen::pushToElemScope() { ++toElemScopeCounter; }
+void FuncGen::popToElemScope()
+{
+    assert(toElemScopeCounter > 0);
+    if (toElemScopeCounter == 1) // popping outer-most toElem() scope?
+        destructAllTemporaries();
+    --toElemScopeCounter;
+}
+
+void FuncGen::pushTemporaryToDestruct(VarDeclaration* vd) { temporariesToDestruct.push(vd); }
+bool FuncGen::hasTemporariesToDestruct() { return !temporariesToDestruct.empty(); }
+
+void FuncGen::destructAllTemporaries()
+{
+    // pop one temporary after the other from the temporariesToDestruct stack
+    // and evaluate its destructor expression
+    // so when an exception occurs in a destructor expression, all older
+    // temporaries (excl. the one which threw in its destructor) will be
+    // destructed in a landing pad
+    while (!temporariesToDestruct.empty())
+    {
+        VarDeclaration* vd = temporariesToDestruct.pop();
+        toElem(vd->edtor);
+    }
+}
+
+void FuncGen::destructAllTemporariesAndRestoreStack()
+{
+    VarDeclarations original = temporariesToDestruct;
+    destructAllTemporaries();
+    temporariesToDestruct = original;
+}
+
+void FuncGen::prepareToDestructAllTemporariesOnThrow(IRState* irState)
+{
+    class CallDestructors : public IRLandingPadCatchFinallyInfo
+    {
+    public:
+        FuncGen& funcGen;
+        CallDestructors(FuncGen& funcGen) : funcGen(funcGen) {}
+        void toIR(LLValue*)
+        {
+            funcGen.destructAllTemporariesAndRestoreStack();
+        }
+    };
+
+    CallDestructors* callDestructors = new CallDestructors(*this); // will leak
+
+    // create landing pad
+    llvm::BasicBlock* landingpadbb = llvm::BasicBlock::Create(irState->context(),
+        "temporariesLandingPad", irState->topfunc(), irState->scopeend());
+
+    // set up the landing pad
+    landingPadInfo.addFinally(callDestructors);
+    landingPadInfo.push(landingpadbb);
+}
+
 
 IrFunction::IrFunction(FuncDeclaration* fd)
 {

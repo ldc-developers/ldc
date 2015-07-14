@@ -27,6 +27,7 @@
 
 class Statement;
 struct EnclosingTryFinally;
+struct IRState;
 
 // scope statements that can be target of jumps
 // includes loops, switch, case, labels
@@ -81,6 +82,17 @@ struct FuncGen
     IRLandingPad landingPadInfo;
     llvm::BasicBlock* landingPad;
 
+    void pushToElemScope();
+    void popToElemScope();
+
+    void pushTemporaryToDestruct(VarDeclaration* vd);
+    bool hasTemporariesToDestruct();
+    void destructAllTemporaries();
+    void destructAllTemporariesAndRestoreStack();
+    // pushes a landing pad which needs to be popped after the
+    // following invoke instruction
+    void prepareToDestructAllTemporariesOnThrow(IRState* irState);
+
 private:
     // prefix for labels and gotos
     // used for allowing labels to be emitted twice
@@ -88,6 +100,9 @@ private:
 
     // next unique id stack
     std::stack<int> nextUnique;
+
+    int toElemScopeCounter;
+    VarDeclarations temporariesToDestruct;
 };
 
 // represents a function
