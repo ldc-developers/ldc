@@ -198,7 +198,7 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     assert(gIR->module.getFunction(symbolName) == NULL);
     llvm::Function* fn = llvm::Function::Create(fnTy,
         llvm::GlobalValue::InternalLinkage, symbolName, &gIR->module);
-    fn->setCallingConv(gABI->callingConv(LINKd));
+    fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), LINKd));
 
     llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "", fn);
     IRBuilder<> builder(bb);
@@ -219,7 +219,11 @@ static llvm::Function* build_module_function(const std::string &name, const std:
 #else
         llvm::CallInst* call = builder.CreateCall(f, "");
 #endif
-        call->setCallingConv(gABI->callingConv(LINKd));
+        call->setCallingConv(gABI->callingConv(call->
+#if LDC_LLVM_VER < 307
+                             getCalledFunction()->
+#endif
+                             getFunctionType(), LINKd));
     }
 
     // Increment vgate's
@@ -666,7 +670,7 @@ static void addCoverageAnalysis(Module* m)
 
         LLFunctionType* ctorTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()), std::vector<LLType*>(), false);
         ctor = LLFunction::Create(ctorTy, LLGlobalValue::InternalLinkage, ctorname, &gIR->module);
-        ctor->setCallingConv(gABI->callingConv(LINKd));
+        ctor->setCallingConv(gABI->callingConv(ctor->getFunctionType(), LINKd));
         // Set function attributes. See functions.cpp:DtoDefineFunction()
         if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
         {
