@@ -36,8 +36,6 @@ struct Win64TargetABI : TargetABI
     ExplicitByvalRewrite byvalRewrite;
     IntegerRewrite integerRewrite;
 
-    llvm::CallingConv::ID callingConv(LINK l);
-
     bool returnInArg(TypeFunction* tf);
 
     bool passByVal(Type* t);
@@ -93,23 +91,6 @@ private:
 TargetABI* getWin64TargetABI()
 {
     return new Win64TargetABI;
-}
-
-
-llvm::CallingConv::ID Win64TargetABI::callingConv(LINK l)
-{
-    switch (l)
-    {
-    case LINKc:
-    case LINKcpp:
-    case LINKpascal:
-    case LINKd:
-    case LINKdefault:
-    case LINKwindows:
-        return llvm::CallingConv::C;
-    default:
-        llvm_unreachable("Unhandled D linkage type.");
-    }
 }
 
 bool Win64TargetABI::returnInArg(TypeFunction* tf)
