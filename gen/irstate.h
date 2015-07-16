@@ -228,16 +228,16 @@ llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, const T &args, const
     if (hasTemporaries)
         funcGen.prepareToDestructAllTemporariesOnThrow(this);
 
-    llvm::BasicBlock* oldend = scopeend();
-    llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create(context(), "postinvoke", topfunc(), oldend);
-    llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, funcGen.landingPad, args, Name);
+    llvm::BasicBlock* landingPad = funcGen.landingPad;
+    llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create(context(), "postinvoke", topfunc(), landingPad);
+    llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, landingPad, args, Name);
     if (fn)
         invoke->setAttributes(fn->getAttributes());
 
     if (hasTemporaries)
         funcGen.landingPadInfo.pop();
 
-    scope() = IRScope(postinvoke, oldend);
+    scope() = IRScope(postinvoke, landingPad);
     return invoke;
 }
 
