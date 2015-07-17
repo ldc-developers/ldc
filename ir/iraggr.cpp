@@ -318,23 +318,18 @@ void IrAggr::addFieldInitializers(
         if (vd == NULL)
             continue;
 
-        // get next aligned offset for this field
-        size_t alignedoffset = offset;
-        if (!isPacked())
+        // Explicitly zero the padding as per TDPL §7.1.1. Otherwise, it would
+        // be left uninitialized by LLVM.
+        if (offset < vd->offset)
         {
-            alignedoffset = realignOffset(alignedoffset, vd->type);
-        }
-
-        // insert explicit padding?
-        if (alignedoffset < vd->offset)
-        {
-            add_zeros(constants, alignedoffset, vd->offset);
+            add_zeros(constants, offset, vd->offset);
+            offset = vd->offset;
         }
 
         IF_LOG Logger::println("adding field %s", vd->toChars());
 
         constants.push_back(FillSArrayDims(vd->type, data[i].second));
-        offset = vd->offset + vd->type->size();
+        offset += getMemberSize(vd->type);
     }
 
     if (ClassDeclaration* cd = decl->isClassDeclaration())

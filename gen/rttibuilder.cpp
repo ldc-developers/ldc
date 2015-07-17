@@ -29,9 +29,11 @@ RTTIBuilder::RTTIBuilder(AggregateDeclaration* base_class)
     baseir = getIrAggr(base);
     assert(baseir && "no IrStruct for TypeInfo base class");
 
+    prevFieldEnd = 0;
+
     if (base->isClassDeclaration()) {
         // just start with adding the vtbl
-        inits.push_back(baseir->getVtblSymbol());
+        push(baseir->getVtblSymbol());
         // and monitor
         push_null_vp();
     }
@@ -39,43 +41,54 @@ RTTIBuilder::RTTIBuilder(AggregateDeclaration* base_class)
 
 void RTTIBuilder::push(llvm::Constant* C)
 {
+    // We need to explicitly zero any padding bytes as per TDPL §7.1.1 (and
+    // also match the struct type lowering code here).
+    const uint64_t fieldStart = llvm::RoundUpToAlignment(prevFieldEnd,
+        gDataLayout->getABITypeAlignment(C->getType()));
+    const uint64_t paddingBytes = fieldStart - prevFieldEnd;
+    if (paddingBytes) {
+        llvm::Type *const padding = llvm::ArrayType::get(
+            llvm::Type::getInt8Ty(gIR->context()), paddingBytes);
+        inits.push_back(llvm::Constant::getNullValue(padding));
+    }
     inits.push_back(C);
+    prevFieldEnd = fieldStart + gDataLayout->getTypeStoreSize(C->getType());
 }
 
 void RTTIBuilder::push_null(Type* T)
 {
-    inits.push_back(getNullValue(DtoType(T)));
+    push(getNullValue(DtoType(T)));
 }
 
 void RTTIBuilder::push_null_vp()
 {
-    inits.push_back(getNullValue(getVoidPtrType()));
+    push(getNullValue(getVoidPtrType()));
 }
 
 void RTTIBuilder::push_typeinfo(Type* t)
 {
-    inits.push_back(DtoTypeInfoOf(t, true));
+    push(DtoTypeInfoOf(t, true));
 }
 
 void RTTIBuilder::push_classinfo(ClassDeclaration* cd)
 {
-    inits.push_back(getIrAggr(cd)->getClassInfoSymbol());
+    push(getIrAggr(cd)->getClassInfoSymbol());
 }
 
 void RTTIBuilder::push_string(const char* str)
 {
-    inits.push_back(DtoConstString(str));
+    push(DtoConstString(str));
 }
 
 void RTTIBuilder::push_null_void_array()
 {
     LLType* T = DtoType(Type::tvoid->arrayOf());
-    inits.push_back(getNullValue(T));
+    push(getNullValue(T));
 }
 
 void RTTIBuilder::push_void_array(uint64_t dim, llvm::Constant* ptr)
 {
-    inits.push_back(DtoConstSlice(
+    push(DtoConstSlice(
         DtoConstSize_t(dim),
         DtoBitCast(ptr, getVoidPtrType())
         ));
@@ -114,22 +127,22 @@ void RTTIBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtype, D
 
 void RTTIBuilder::push_array(uint64_t dim, llvm::Constant * ptr)
 {
-    inits.push_back(DtoConstSlice(DtoConstSize_t(dim), ptr));
+    push(DtoConstSlice(DtoConstSize_t(dim), ptr));
 }
 
 void RTTIBuilder::push_uint(unsigned u)
 {
-    inits.push_back(DtoConstUint(u));
+    push(DtoConstUint(u));
 }
 
 void RTTIBuilder::push_size(uint64_t s)
 {
-    inits.push_back(DtoConstSize_t(s));
+    push(DtoConstSize_t(s));
 }
 
 void RTTIBuilder::push_size_as_vp(uint64_t s)
 {
-    inits.push_back(llvm::ConstantExpr::getIntToPtr(DtoConstSize_t(s), getVoidPtrType()));
+    push(llvm::ConstantExpr::getIntToPtr(DtoConstSize_t(s), getVoidPtrType()));
 }
 
 void RTTIBuilder::push_funcptr(FuncDeclaration* fd, Type* castto)
@@ -140,7 +153,7 @@ void RTTIBuilder::push_funcptr(FuncDeclaration* fd, Type* castto)
         LLConstant* F = getIrFunc(fd)->func;
         if (castto)
             F = DtoBitCast(F, DtoType(castto));
-        inits.push_back(F);
+        push(F);
     }
     else if (castto)
     {
