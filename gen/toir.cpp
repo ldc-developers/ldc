@@ -266,10 +266,16 @@ DValue* toElem(Expression* e, bool tryGetLvalue)
 class ToElemVisitor : public Visitor
 {
     IRState *p;
+    bool destructTemporaries;
     DValue *result;
 public:
-    ToElemVisitor(IRState *p_) : p(p_), result(NULL) { p->func()->gen->pushToElemScope(); }
-    ~ToElemVisitor() { p->func()->gen->popToElemScope(); }
+    ToElemVisitor(IRState *p_, bool destructTemporaries_)
+        : p(p_), destructTemporaries(destructTemporaries_), result(NULL)
+    {
+        p->func()->gen->pushToElemScope();
+    }
+
+    ~ToElemVisitor() { p->func()->gen->popToElemScope(destructTemporaries); }
 
     DValue *getResult() { return result; }
 
@@ -3136,14 +3142,16 @@ public:
 
 DValue *toElem(Expression *e)
 {
-    ToElemVisitor v(gIR);
+    ToElemVisitor v(gIR, false);
     e->accept(&v);
     return v.getResult();
 }
 
 DValue *toElemDtor(Expression *e)
 {
-    return toElem(e);
+    ToElemVisitor v(gIR, true);
+    e->accept(&v);
+    return v.getResult();
 }
 
 // FIXME: Implement & place in right module

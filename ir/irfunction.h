@@ -83,11 +83,10 @@ struct FuncGen
     llvm::BasicBlock* landingPad;
 
     void pushToElemScope();
-    void popToElemScope();
+    void popToElemScope(bool destructTemporaries);
 
     void pushTemporaryToDestruct(VarDeclaration* vd);
     bool hasTemporariesToDestruct();
-    void destructAllTemporaries();
     void destructAllTemporariesAndRestoreStack();
     // pushes a landing pad which needs to be popped after the
     // following invoke instruction
@@ -101,8 +100,10 @@ private:
     // next unique id stack
     std::stack<int> nextUnique;
 
-    int toElemScopeCounter;
+    Array<unsigned> toElemScopes; // number of initial temporaries
     VarDeclarations temporariesToDestruct;
+
+    void destructTemporaries(unsigned numToKeep);
 };
 
 // represents a function

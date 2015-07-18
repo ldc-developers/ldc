@@ -19,7 +19,6 @@ FuncGen::FuncGen()
 {
     landingPad = NULL;
     nextUnique.push(0);
-    toElemScopeCounter = 0;
 }
 
 std::string FuncGen::getScopedLabelName(const char* ident)
@@ -47,36 +46,54 @@ void FuncGen::popLabelScope()
     nextUnique.pop();
 }
 
-void FuncGen::pushToElemScope() { ++toElemScopeCounter; }
-void FuncGen::popToElemScope()
+void FuncGen::pushToElemScope()
 {
-    assert(toElemScopeCounter > 0);
-    if (toElemScopeCounter == 1) // popping outer-most toElem() scope?
-        destructAllTemporaries();
-    --toElemScopeCounter;
+    toElemScopes.push(static_cast<unsigned>(temporariesToDestruct.size()));
 }
 
-void FuncGen::pushTemporaryToDestruct(VarDeclaration* vd) { temporariesToDestruct.push(vd); }
-bool FuncGen::hasTemporariesToDestruct() { return !temporariesToDestruct.empty(); }
+void FuncGen::popToElemScope(bool destructTemporaries)
+{
+    assert(!toElemScopes.empty());
 
-void FuncGen::destructAllTemporaries()
+    const bool isOuterMost = (toElemScopes.size() == 1);
+    if (destructTemporaries || isOuterMost)
+    {
+        int numInitialTemporaries = toElemScopes.back();
+        assert(!isOuterMost || numInitialTemporaries == 0);
+        this->destructTemporaries(numInitialTemporaries);
+    }
+
+    toElemScopes.pop();
+}
+
+void FuncGen::pushTemporaryToDestruct(VarDeclaration* vd)
+{
+    temporariesToDestruct.push(vd);
+}
+
+bool FuncGen::hasTemporariesToDestruct()
+{
+    return !temporariesToDestruct.empty();
+}
+
+void FuncGen::destructTemporaries(unsigned numToKeep)
 {
     // pop one temporary after the other from the temporariesToDestruct stack
     // and evaluate its destructor expression
     // so when an exception occurs in a destructor expression, all older
     // temporaries (excl. the one which threw in its destructor) will be
     // destructed in a landing pad
-    while (!temporariesToDestruct.empty())
+    while (temporariesToDestruct.size() > numToKeep)
     {
         VarDeclaration* vd = temporariesToDestruct.pop();
-        toElem(vd->edtor);
+        toElemDtor(vd->edtor);
     }
 }
 
 void FuncGen::destructAllTemporariesAndRestoreStack()
 {
     VarDeclarations original = temporariesToDestruct;
-    destructAllTemporaries();
+    destructTemporaries(0);
     temporariesToDestruct = original;
 }
 
