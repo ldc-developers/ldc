@@ -277,12 +277,11 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     bool nestedcall = irFty.arg_nest;
     bool dvarargs = irFty.arg_arguments;
 
-    llvm::CallingConv::ID callconv = gABI->callingConv(tf->linkage);
-
     // get callee llvm value
     LLValue* callable = DtoCallableValue(fnval);
     LLFunctionType* callableTy = DtoExtractFunctionType(callable->getType());
     assert(callableTy);
+    llvm::CallingConv::ID callconv = gABI->callingConv(callableTy, tf->linkage);
 
 //     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
 

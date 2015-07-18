@@ -35,6 +35,7 @@ namespace llvm
 {
     class Type;
     class Value;
+    class FunctionType;
 }
 
 // return rewrite rule
@@ -87,8 +88,11 @@ struct TargetABI
     static TargetABI* getIntrinsic();
 
     /// Returns the LLVM calling convention to be used for the given D linkage
-    /// type on the target.
-    virtual llvm::CallingConv::ID callingConv(LINK l) = 0;
+    /// type on the target. Defaults to the C calling convention.
+    virtual llvm::CallingConv::ID callingConv(llvm::FunctionType* ft, LINK l)
+    {
+        return llvm::CallingConv::C;
+    }
 
     /// Applies any rewrites that might be required to accurately reproduce the
     /// passed function name on LLVM given a specific calling convention.

@@ -1006,7 +1006,7 @@ static void LLVM_D_BuildRuntimeModule()
 #else
         fn->addAttribute(1, irFty.args[0]->attrs.attrs);
 #endif
-        fn->setCallingConv(gABI->callingConv(LINKd));
+        fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), LINKd));
     }
 
     // void _d_hidden_func(Object o)
@@ -1048,6 +1048,6 @@ static void LLVM_D_BuildRuntimeModule()
 
         LLFunctionType* fty = LLFunctionType::get(voidTy, params, false);
         llvm::Function* fn = LLFunction::Create(fty, LLGlobalValue::ExternalLinkage, fname, M);
-        fn->setCallingConv(gABI->callingConv(LINKc));
+        fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), LINKc));
     }
 }

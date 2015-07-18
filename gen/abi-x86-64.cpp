@@ -219,8 +219,6 @@ struct X86_64TargetABI : TargetABI {
     X86_64_C_struct_rewrite struct_rewrite;
     ImplicitByvalRewrite byvalRewrite;
 
-    llvm::CallingConv::ID callingConv(LINK l);
-
     bool returnInArg(TypeFunction* tf);
 
     bool passByVal(Type* t);
@@ -247,21 +245,6 @@ private:
 // The public getter for abi.cpp
 TargetABI* getX86_64TargetABI() {
     return new X86_64TargetABI;
-}
-
-
-llvm::CallingConv::ID X86_64TargetABI::callingConv(LINK l) {
-    switch (l) {
-        case LINKc:
-        case LINKcpp:
-        case LINKpascal:
-        case LINKwindows: // Doesn't really make sense, user should use Win64 target.
-        case LINKd:
-        case LINKdefault:
-            return llvm::CallingConv::C;
-        default:
-            llvm_unreachable("Unhandled D linkage type.");
-    }
 }
 
 bool X86_64TargetABI::returnInArg(TypeFunction* tf) {

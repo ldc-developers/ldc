@@ -28,22 +28,6 @@ struct PPC64TargetABI : TargetABI {
     PPC64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit)
     { }
 
-    llvm::CallingConv::ID callingConv(LINK l)
-    {
-        switch (l)
-        {
-        case LINKc:
-        case LINKcpp:
-        case LINKpascal:
-        case LINKwindows:
-        case LINKd:
-        case LINKdefault:
-            return llvm::CallingConv::C;
-        default:
-            llvm_unreachable("Unhandled D linkage type.");
-        }
-    }
-
     bool returnInArg(TypeFunction* tf)
     {
         if (tf->isref)
