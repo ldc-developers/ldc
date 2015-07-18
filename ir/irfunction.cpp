@@ -76,6 +76,11 @@ bool FuncGen::hasTemporariesToDestruct()
     return !temporariesToDestruct.empty();
 }
 
+VarDeclarations& FuncGen::getTemporariesToDestruct()
+{
+    return temporariesToDestruct;
+}
+
 void FuncGen::destructTemporaries(unsigned numToKeep)
 {
     // pop one temporary after the other from the temporariesToDestruct stack

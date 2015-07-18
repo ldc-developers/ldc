@@ -87,6 +87,8 @@ struct FuncGen
 
     void pushTemporaryToDestruct(VarDeclaration* vd);
     bool hasTemporariesToDestruct();
+    VarDeclarations& getTemporariesToDestruct();
+
     void destructAllTemporariesAndRestoreStack();
     // pushes a landing pad which needs to be popped after the
     // following invoke instruction

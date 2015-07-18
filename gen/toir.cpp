@@ -1146,8 +1146,47 @@ public:
             }
         }
 
-        if (!result)
-            result = DtoCallFunction(e->loc, e->type, fnval, e->arguments);
+        if (result)
+            return;
+
+        VarDeclarations& temporaries = gIR->func()->gen->getTemporariesToDestruct();
+
+        // check if we are about to construct a just declared temporary:
+        //   MyStruct(myArgs) => (MyStruct tmp; tmp).this(myArgs)
+        bool constructingTemporary = false;
+        if (!temporaries.empty() &&
+            dfnval && dfnval->func && dfnval->func->isCtorDeclaration())
+        {
+            DotVarExp* dve = static_cast<DotVarExp*>(e->e1);
+            if (dve->e1->op == TOKcomma)
+            {
+                CommaExp* ce = static_cast<CommaExp*>(dve->e1);
+                if (ce->e1->op == TOKdeclaration && ce->e2->op == TOKvar)
+                {
+                    VarExp* ve = static_cast<VarExp*>(ce->e2);
+                    if (temporaries.back()->equals(ve->var->isVarDeclaration()))
+                        constructingTemporary = true;
+                }
+            }
+        }
+
+        // in that case, we have just pushed a new temporary due
+        // to the DeclarationExp nested in e->e1, but we don't want it
+        // to be destructed as long as it's not fully constructed yet;
+        // i.e., don't destruct the temporary if its constructor throws
+        // (DMD issue 13095)
+        // => remember position in stack and pop temporarily
+        int indexOfTemporary      = (!constructingTemporary ? -1
+            : static_cast<int>(temporaries.size()) - 1);
+        VarDeclaration* temporary = (!constructingTemporary ? NULL
+            : temporaries.pop());
+
+        result = DtoCallFunction(e->loc, e->type, fnval, e->arguments);
+
+        // insert the now fully constructed temporary at the original index;
+        // i.e., before any new temporaries pushed by DtoCallFunction()
+        if (constructingTemporary)
+            temporaries.insert(indexOfTemporary, temporary);
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////
