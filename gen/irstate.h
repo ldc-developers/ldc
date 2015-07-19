@@ -210,32 +210,35 @@ struct IRState
 template <typename T>
 llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, const T &args, const char* Name)
 {
-    llvm::BasicBlock* pad = func()->gen->landingPad;
-    if(pad)
-    {
-        // intrinsics don't support invoking and 'nounwind' functions don't need it.
-        LLFunction* funcval = llvm::dyn_cast<LLFunction>(Callee);
-        if (funcval && (funcval->isIntrinsic() || funcval->doesNotThrow()))
-        {
-            llvm::CallInst* call = ir->CreateCall(Callee, args, Name);
-            call->setAttributes(funcval->getAttributes());
-            return call;
-        }
+    FuncGen& funcGen = *func()->gen;
+    LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee);
 
-        llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create(gIR->context(), "postinvoke", topfunc(), scopeend());
-        llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, pad, args, Name);
-        if (LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee))
-            invoke->setAttributes(fn->getAttributes());
-        scope() = IRScope(postinvoke, scopeend());
-        return invoke;
-    }
-    else
+    const bool hasTemporaries = funcGen.hasTemporariesToDestruct();
+    // intrinsics don't support invoking and 'nounwind' functions don't need it.
+    const bool doesNotThrow = (fn && (fn->isIntrinsic() || fn->doesNotThrow()));
+
+    if (doesNotThrow || (!hasTemporaries && funcGen.landingPad == NULL))
     {
         llvm::CallInst* call = ir->CreateCall(Callee, args, Name);
-        if (LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee))
+        if (fn)
             call->setAttributes(fn->getAttributes());
         return call;
     }
+
+    if (hasTemporaries)
+        funcGen.prepareToDestructAllTemporariesOnThrow(this);
+
+    llvm::BasicBlock* landingPad = funcGen.landingPad;
+    llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create(context(), "postinvoke", topfunc(), landingPad);
+    llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, landingPad, args, Name);
+    if (fn)
+        invoke->setAttributes(fn->getAttributes());
+
+    if (hasTemporaries)
+        funcGen.landingPadInfo.pop();
+
+    scope() = IRScope(postinvoke, landingPad);
+    return invoke;
 }
 
 void codegenFunction(Statement *s, IRState *irs);

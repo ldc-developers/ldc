@@ -8,6 +8,8 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvm.h"
+#include "gen/llvmhelpers.h"
+#include "gen/irstate.h"
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
@@ -43,6 +45,87 @@ void FuncGen::popLabelScope()
     labelScopes.pop_back();
     nextUnique.pop();
 }
+
+void FuncGen::pushToElemScope()
+{
+    toElemScopes.push(static_cast<unsigned>(temporariesToDestruct.size()));
+}
+
+void FuncGen::popToElemScope(bool destructTemporaries)
+{
+    assert(!toElemScopes.empty());
+
+    const bool isOuterMost = (toElemScopes.size() == 1);
+    if (destructTemporaries || isOuterMost)
+    {
+        int numInitialTemporaries = toElemScopes.back();
+        assert(!isOuterMost || numInitialTemporaries == 0);
+        this->destructTemporaries(numInitialTemporaries);
+    }
+
+    toElemScopes.pop();
+}
+
+void FuncGen::pushTemporaryToDestruct(VarDeclaration* vd)
+{
+    temporariesToDestruct.push(vd);
+}
+
+bool FuncGen::hasTemporariesToDestruct()
+{
+    return !temporariesToDestruct.empty();
+}
+
+VarDeclarations& FuncGen::getTemporariesToDestruct()
+{
+    return temporariesToDestruct;
+}
+
+void FuncGen::destructTemporaries(unsigned numToKeep)
+{
+    // pop one temporary after the other from the temporariesToDestruct stack
+    // and evaluate its destructor expression
+    // so when an exception occurs in a destructor expression, all older
+    // temporaries (excl. the one which threw in its destructor) will be
+    // destructed in a landing pad
+    while (temporariesToDestruct.size() > numToKeep)
+    {
+        VarDeclaration* vd = temporariesToDestruct.pop();
+        toElemDtor(vd->edtor);
+    }
+}
+
+void FuncGen::destructAllTemporariesAndRestoreStack()
+{
+    VarDeclarations original = temporariesToDestruct;
+    destructTemporaries(0);
+    temporariesToDestruct = original;
+}
+
+void FuncGen::prepareToDestructAllTemporariesOnThrow(IRState* irState)
+{
+    class CallDestructors : public IRLandingPadCatchFinallyInfo
+    {
+    public:
+        FuncGen& funcGen;
+        CallDestructors(FuncGen& funcGen) : funcGen(funcGen) {}
+        void toIR(LLValue*)
+        {
+            funcGen.destructAllTemporariesAndRestoreStack();
+        }
+    };
+
+    CallDestructors* callDestructors = new CallDestructors(*this); // will leak
+
+    // create landing pad
+    llvm::BasicBlock* landingpadbb = llvm::BasicBlock::Create(irState->context(),
+        "temporariesLandingPad", irState->topfunc(), irState->scopeend());
+
+    // set up the landing pad
+    landingPadInfo.addFinally(callDestructors);
+    landingPadInfo.push(landingpadbb);
+}
+
 
 IrFunction::IrFunction(FuncDeclaration* fd)
 {
