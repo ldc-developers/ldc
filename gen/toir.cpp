@@ -560,12 +560,12 @@ public:
             return;
         }
 
-        bool canSkipPostblit = false;
-        if (!(e->e2->op == TOKslice && ((UnaExp *)e->e2)->e1->isLvalue()) &&
-            !(e->e2->op == TOKcast && ((UnaExp *)e->e2)->e1->isLvalue()) &&
-            (e->e2->op == TOKslice || !e->e2->isLvalue()))
+        bool canSkipPostblit = true;
+        if ( (e->e2->op != TOKslice && e->e2->isLvalue()) ||
+             (e->e2->op == TOKslice && static_cast<UnaExp*>(e->e2)->e1->isLvalue()) ||
+             (e->e2->op == TOKcast  && static_cast<UnaExp*>(e->e2)->e1->isLvalue()) )
         {
-            canSkipPostblit = true;
+            canSkipPostblit = false;
         }
 
         Logger::println("performing normal assignment (canSkipPostblit = %d)", canSkipPostblit);
