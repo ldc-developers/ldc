@@ -96,7 +96,8 @@ struct IRLandingPad
     // add finally statement, will be used in next call to push
     void addFinally(Statement* finallyStmt);
     // add finally information, will be used in next call to push
-    void addFinally(IRLandingPadCatchFinallyInfo *finallyInfo);
+    void addFinally(IRLandingPadCatchFinallyInfo *finallyInfo,
+        bool deleteOnPop = false);
 
     // builds the most recently constructed landing pad
     // and the catch blocks, then pops the landing pad bb

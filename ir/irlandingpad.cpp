@@ -132,15 +132,15 @@ void IRLandingPad::addCatch(Catch* catchstmt, llvm::BasicBlock* end)
 
 void IRLandingPad::addFinally(Statement* finallyStmt)
 {
-    assert(unpushedScope.finally == NULL && "only one finally per try-finally block");
-    unpushedScope.finally = new IRLandingPadFinallyStatementInfo(finallyStmt);
-    unpushedScope.isFinallyCreatedInternally = true;
+    addFinally(new IRLandingPadFinallyStatementInfo(finallyStmt), true);
 }
 
-void IRLandingPad::addFinally(IRLandingPadCatchFinallyInfo *finallyInfo)
+void IRLandingPad::addFinally(IRLandingPadCatchFinallyInfo *finallyInfo,
+    bool deleteOnPop)
 {
     assert(unpushedScope.finally == NULL && "only one finally per try-finally block");
     unpushedScope.finally = finallyInfo;
+    unpushedScope.isFinallyCreatedInternally = deleteOnPop;
 }
 
 void IRLandingPad::push(llvm::BasicBlock* inBB)
