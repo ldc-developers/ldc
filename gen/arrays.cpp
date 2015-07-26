@@ -25,7 +25,6 @@
 #include "ir/irmodule.h"
 
 static void DtoSetArray(DValue* array, LLValue* dim, LLValue* ptr);
-static void copySlice(Loc& loc, LLValue* dstarr, LLValue* sz1, LLValue* srcarr, LLValue* sz2);
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
@@ -198,6 +197,24 @@ static Type *DtoArrayElementType(Type *arrayType)
     while (t->ty == Tsarray)
         t = t->nextOf()->toBasetype();
     return t;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+static void copySlice(Loc& loc, LLValue* dstarr, LLValue* sz1, LLValue* srcarr, LLValue* sz2)
+{
+    if (global.params.useAssert || gIR->emitArrayBoundsChecks())
+    {
+        LLValue* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_array_slice_copy");
+        gIR->CreateCallOrInvoke4(fn, dstarr, sz1, srcarr, sz2);
+    }
+    else
+    {
+        // We might have dstarr == srcarr at compile time, but as long as
+        // sz1 == 0 at runtime, this would probably still be legal (the C spec
+        // is unclear here).
+        DtoMemCpy(dstarr, srcarr, sz1);
+    }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -560,24 +577,6 @@ void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
             DVarValue* vv = new DVarValue(e->type, elemAddr);
             DtoAssign(ale->loc, vv, e);
         }
-    }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-static void copySlice(Loc& loc, LLValue* dstarr, LLValue* sz1, LLValue* srcarr, LLValue* sz2)
-{
-    if (global.params.useAssert || gIR->emitArrayBoundsChecks())
-    {
-        LLValue* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_array_slice_copy");
-        gIR->CreateCallOrInvoke4(fn, dstarr, sz1, srcarr, sz2);
-    }
-    else
-    {
-        // We might have dstarr == srcarr at compile time, but as long as
-        // sz1 == 0 at runtime, this would probably still be legal (the C spec
-        // is unclear here).
-        DtoMemCpy(dstarr, srcarr, sz1);
     }
 }
 
