@@ -238,7 +238,6 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
     Type* t = lhs->type->toBasetype();
     Type* t2 = rhs->type->toBasetype();
     assert(t->nextOf());
-    Type* elemType = t->nextOf()->toBasetype();
 
     // reference assignment for dynamic array?
     if (t->ty == Tarray && !lhs->isSlice())
@@ -251,6 +250,7 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
         return;
     }
 
+    Type* const elemType = t->nextOf()->toBasetype();
     const bool isConstructing = (op == TOKconstruct); // TODO: TOKblit?
     const bool needsDestruction = (!isConstructing && elemType->needsDestruction());
     const bool needsPostblit = (!canSkipPostblit && arrayNeedsPostblit(t));
@@ -304,16 +304,16 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
         // scalar rhs:
         // T[]  = T     T[n][]  = T
         // T[n] = T     T[n][m] = T
-        LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(i1ToI8(voidToI8(DtoType(elemType)))));
-        LLValue* lhsSize = gIR->ir->CreateMul(elemSize, lhsLength);
-        LLType* rhsType = i1ToI8(voidToI8(DtoType(t2)));
-        LLValue* rhsSize = DtoConstSize_t(getTypePaddedSize(rhsType));
-        LLValue* actualLength = gIR->ir->CreateExactUDiv(lhsSize, rhsSize);
-        LLValue* actualPtr = DtoBitCast(lhsPtr, rhsType->getPointerTo());
-
         if (!needsDestruction && !needsPostblit)
         {
             // fast version
+            LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(i1ToI8(voidToI8(DtoType(elemType)))));
+            LLValue* lhsSize = gIR->ir->CreateMul(elemSize, lhsLength);
+            LLType* rhsType = i1ToI8(voidToI8(DtoType(t2)));
+            LLValue* rhsSize = DtoConstSize_t(getTypePaddedSize(rhsType));
+            LLValue* actualLength = gIR->ir->CreateExactUDiv(lhsSize, rhsSize);
+
+            LLValue* actualPtr = DtoBitCast(lhsPtr, rhsType->getPointerTo());
             DtoArrayInit(loc, actualPtr, actualLength, rhs, op);
         }
         else
