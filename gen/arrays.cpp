@@ -270,8 +270,16 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
             // fast version
             LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(voidToI8(DtoType(elemType))));
             LLValue* lhsSize = gIR->ir->CreateMul(elemSize, lhsLength);
-            LLValue* rhsSize = gIR->ir->CreateMul(elemSize, rhsLength);
-            copySlice(loc, lhsPtr, lhsSize, rhsPtr, rhsSize);
+
+            if (rhs->isNull())
+            {
+                DtoMemSetZero(lhsPtr, lhsSize);
+            }
+            else
+            {
+                LLValue* rhsSize = gIR->ir->CreateMul(elemSize, rhsLength);
+                copySlice(loc, lhsPtr, lhsSize, rhsPtr, rhsSize);
+            }
         }
         else if (isConstructing)
         {
