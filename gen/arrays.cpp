@@ -787,8 +787,8 @@ void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* e
     appendedArray = DtoAggrPaint(appendedArray, DtoType(arrayType));
 
     LLValue* val = DtoArrayPtr(array);
-    val = DtoGEP1(val, oldLength, "lastElem");
-    DtoAssign(loc, new DVarValue(arrayType->nextOf(), val), expVal);
+    val = DtoGEP1(val, oldLength, ".lastElem");
+    DtoAssign(loc, new DVarValue(arrayType->nextOf(), val), expVal, TOKblit);
     callPostblit(loc, exp, val);
 }
 
