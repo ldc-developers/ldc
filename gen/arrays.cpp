@@ -280,7 +280,9 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
             else
             {
                 LLValue* rhsSize = gIR->ir->CreateMul(elemSize, rhsLength);
-                copySlice(loc, lhsPtr, lhsSize, rhsPtr, rhsSize, isConstructing);
+                const bool knownInBounds = isConstructing ||
+                    (t->ty == Tsarray && t2->ty == Tsarray);
+                copySlice(loc, lhsPtr, lhsSize, rhsPtr, rhsSize, knownInBounds);
             }
         }
         else if (isConstructing)
