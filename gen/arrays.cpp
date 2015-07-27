@@ -201,9 +201,10 @@ static Type *DtoArrayElementType(Type *arrayType)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static void copySlice(Loc& loc, LLValue* dstarr, LLValue* sz1, LLValue* srcarr, LLValue* sz2)
+static void copySlice(Loc& loc, LLValue* dstarr, LLValue* sz1, LLValue* srcarr, LLValue* sz2, bool knownInBounds)
 {
-    if (global.params.useAssert || gIR->emitArrayBoundsChecks())
+    const bool checksEnabled = global.params.useAssert || gIR->emitArrayBoundsChecks();
+    if (checksEnabled && !knownInBounds)
     {
         LLValue* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_array_slice_copy");
         gIR->CreateCallOrInvoke4(fn, dstarr, sz1, srcarr, sz2);
@@ -278,7 +279,7 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
             else
             {
                 LLValue* rhsSize = gIR->ir->CreateMul(elemSize, rhsLength);
-                copySlice(loc, lhsPtr, lhsSize, rhsPtr, rhsSize);
+                copySlice(loc, lhsPtr, lhsSize, rhsPtr, rhsSize, isConstructing);
             }
         }
         else if (isConstructing)
