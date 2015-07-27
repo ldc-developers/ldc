@@ -257,7 +257,7 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
 
     Type* const elemType = t->nextOf()->toBasetype();
     const bool needsDestruction = (!isConstructing && elemType->needsDestruction());
-    const bool needsPostblit = (!canSkipPostblit && arrayNeedsPostblit(t));
+    const bool needsPostblit = (op != TOKblit && !canSkipPostblit && arrayNeedsPostblit(t));
 
     LLValue* lhsPtr = DtoBitCast(DtoArrayPtr(lhs), getVoidPtrType());
     LLValue* lhsLength = DtoArrayLen(lhs);
