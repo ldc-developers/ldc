@@ -259,8 +259,12 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
     const bool needsDestruction = (!isConstructing && elemType->needsDestruction());
     const bool needsPostblit = (op != TOKblit && !canSkipPostblit && arrayNeedsPostblit(t));
 
-    LLValue* lhsPtr = DtoBitCast(DtoArrayPtr(lhs), getVoidPtrType());
+    LLValue* realLhsPtr = DtoArrayPtr(lhs);
+    LLValue* lhsPtr = DtoBitCast(realLhsPtr, getVoidPtrType());
     LLValue* lhsLength = DtoArrayLen(lhs);
+
+    LLValue* realRhsArrayPtr =
+        (t2->ty == Tarray || t2->ty == Tsarray ? DtoArrayPtr(rhs) : NULL);
 
     // TODO: This should use AssignExp::ismemset.
     // Disallow void array block assignment (DMD issue 7493).
@@ -274,11 +278,12 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
         }
         canBeBlockAssignment = leafElemType->ty != Tvoid;
     }
-    if (!t2->implicitConvTo(t->nextOf()) || !canBeBlockAssignment)
+    if ((realRhsArrayPtr && realLhsPtr->getType() == realRhsArrayPtr->getType()) ||
+        !canBeBlockAssignment)
     {
         // T[]  = T[]      T[]  = T[n]
         // T[n] = T[n]     T[n] = T[]
-        LLValue* rhsPtr = DtoBitCast(DtoArrayPtr(rhs), getVoidPtrType());
+        LLValue* rhsPtr = DtoBitCast(realRhsArrayPtr, getVoidPtrType());
         LLValue* rhsLength = DtoArrayLen(rhs);
 
         if (!needsDestruction && !needsPostblit)
@@ -333,13 +338,12 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
         if (!needsDestruction && !needsPostblit)
         {
             // fast version
-            LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(i1ToI8(voidToI8(DtoType(elemType)))));
+            LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(realLhsPtr->getType()->getContainedType(0)));
             LLValue* lhsSize = gIR->ir->CreateMul(elemSize, lhsLength);
             LLType* rhsType = i1ToI8(voidToI8(DtoType(t2)));
             LLValue* rhsSize = DtoConstSize_t(getTypePaddedSize(rhsType));
-            LLValue* actualLength = gIR->ir->CreateExactUDiv(lhsSize, rhsSize);
-
             LLValue* actualPtr = DtoBitCast(lhsPtr, rhsType->getPointerTo());
+            LLValue* actualLength = gIR->ir->CreateExactUDiv(lhsSize, rhsSize);
             DtoArrayInit(loc, actualPtr, actualLength, rhs, op);
         }
         else
