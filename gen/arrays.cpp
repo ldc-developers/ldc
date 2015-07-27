@@ -259,7 +259,8 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
     LLValue* lhsPtr = DtoBitCast(DtoArrayPtr(lhs), getVoidPtrType());
     LLValue* lhsLength = DtoArrayLen(lhs);
 
-    if (t2->ty == Tarray || t2->ty == Tsarray)
+    // TODO: This should use AssignExp::ismemset.
+    if (!t2->implicitConvTo(t->nextOf()))
     {
         // T[]  = T[]      T[]  = T[n]
         // T[n] = T[n]     T[n] = T[]
