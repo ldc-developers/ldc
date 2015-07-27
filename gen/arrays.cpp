@@ -263,7 +263,18 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
     LLValue* lhsLength = DtoArrayLen(lhs);
 
     // TODO: This should use AssignExp::ismemset.
-    if (!t2->implicitConvTo(t->nextOf()))
+    // Disallow void array block assignment (DMD issue 7493).
+    bool canBeBlockAssignment = true;
+    if (!rhs->isNull())
+    {
+        Type *leafElemType = elemType;
+        while (leafElemType->ty == Tarray)
+        {
+            leafElemType = leafElemType->nextOf();
+        }
+        canBeBlockAssignment = leafElemType->ty != Tvoid;
+    }
+    if (!t2->implicitConvTo(t->nextOf()) || !canBeBlockAssignment)
     {
         // T[]  = T[]      T[]  = T[n]
         // T[n] = T[n]     T[n] = T[]
