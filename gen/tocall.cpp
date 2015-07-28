@@ -425,27 +425,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
     addExplicitArguments(args, attrs, irFty, callableTy, argvals, numFormalParams);
 
-#if 0
-    IF_LOG {
-        Logger::println("%lu params passed", args.size());
-        for (int i=0; i<args.size(); ++i) {
-            assert(args[i]);
-            Logger::cout() << "arg["<<i<<"] = " << *args[i] << '\n';
-        }
-    }
-#endif
-
-    // void returns cannot not be named
-    const char* varname = "";
-    if (callableTy->getReturnType() != LLType::getVoidTy(gIR->context()))
-        varname = "tmp";
-
-#if 0
-    IF_LOG Logger::cout() << "Calling: " << *callable << '\n';
-#endif
-
     // call the function
-    LLCallSite call = gIR->CreateCallOrInvoke(callable, args, varname);
+    LLCallSite call = gIR->CreateCallOrInvoke(callable, args);
 
     // get return value
     LLValue* retllval = (retinptr) ? args[0] : call.getInstruction();
