@@ -605,7 +605,7 @@ void initializeArrayLiteral(IRState* p, ArrayLiteralExp* ale, LLValue* dstMem)
 
             LLValue* elemAddr = DtoGEPi(dstMem, 0, i, "", p->scopebb());
             DVarValue* vv = new DVarValue(e->type, elemAddr);
-            DtoAssign(ale->loc, vv, e);
+            DtoAssign(ale->loc, vv, e, TOKconstruct, true);
         }
     }
 }
