@@ -1280,18 +1280,13 @@ public:
         // for that instead of re-codegening the literal.
         if (e->e1->op == TOKstructliteral)
         {
-            IF_LOG Logger::println("is struct literal");
-            StructLiteralExp* se = static_cast<StructLiteralExp*>(e->e1);
-
-            // DMD uses origin here as well, necessary to handle messed-up AST on
-            // forward references.
-            if (se->origin->globalVar)
-            {
-                IF_LOG Logger::cout() << "returning address of global: " <<
-                    *se->globalVar << '\n';
-                result = new DImValue(e->type, DtoBitCast(se->origin->globalVar, DtoType(e->type)));
-                return;
-            }
+            // lvalue literal must be a global, hence we can just use
+            // toConstElem on the AddrExp to get the address.
+            LLConstant *addr = toConstElem(e, p);
+            IF_LOG Logger::cout() << "returning address of struct literal global: " <<
+                addr << '\n';
+            result = new DImValue(e->type, DtoBitCast(addr, DtoType(e->type)));
+            return;
         }
 
         DValue* v = toElem(e->e1, true);
