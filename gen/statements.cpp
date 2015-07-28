@@ -393,7 +393,9 @@ public:
                 DValue* e = toElemDtor(stmt->exp);
                 // store return value
                 if (rvar->getLVal() != e->getRVal())
-                    DtoAssign(stmt->loc, rvar, e);
+                {
+                    DtoAssign(stmt->loc, rvar, e, TOKblit);
+                }
 
                 // call postblit if necessary
                 if (!irs->func()->type->isref && !(f->decl->nrvo_can && f->decl->nrvo_var))

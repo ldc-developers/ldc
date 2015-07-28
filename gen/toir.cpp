@@ -560,16 +560,19 @@ public:
             return;
         }
 
-        bool canSkipPostblit = false;
-        if (!(e->e2->op == TOKslice && ((UnaExp *)e->e2)->e1->isLvalue()) &&
-            !(e->e2->op == TOKcast && ((UnaExp *)e->e2)->e1->isLvalue()) &&
-            (e->e2->op == TOKslice || !e->e2->isLvalue()))
+        // This matches the logic in AssignExp::semantic.
+        // TODO: Should be cached in the frontend to avoid issues with the code
+        // getting out of sync?
+        bool lvalueElem = false;
+        if ((e->e2->op == TOKslice && static_cast<UnaExp*>(e->e2)->e1->isLvalue()) ||
+            (e->e2->op == TOKcast  && static_cast<UnaExp*>(e->e2)->e1->isLvalue()) ||
+            (e->e2->op != TOKslice && e->e2->isLvalue()))
         {
-            canSkipPostblit = true;
+            lvalueElem = true;
         }
 
-        Logger::println("performing normal assignment (canSkipPostblit = %d)", canSkipPostblit);
-        DtoAssign(e->loc, l, r, e->op, canSkipPostblit);
+        Logger::println("performing normal assignment (rhs has lvalue elems = %d)", lvalueElem);
+        DtoAssign(e->loc, l, r, e->op, !lvalueElem);
 
         result = l;
     }
