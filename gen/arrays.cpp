@@ -263,23 +263,12 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
     LLValue* lhsPtr = DtoBitCast(realLhsPtr, getVoidPtrType());
     LLValue* lhsLength = DtoArrayLen(lhs);
 
+    // Be careful to handle void arrays correctly when modifying this (see tests
+    // for DMD issue 7493).
+    // TODO: This should use AssignExp::ismemset.
     LLValue* realRhsArrayPtr =
         (t2->ty == Tarray || t2->ty == Tsarray ? DtoArrayPtr(rhs) : NULL);
-
-    // TODO: This should use AssignExp::ismemset.
-    // Disallow void array block assignment (DMD issue 7493).
-    bool canBeBlockAssignment = true;
-    if (!rhs->isNull())
-    {
-        Type *leafElemType = elemType;
-        while (leafElemType->ty == Tarray)
-        {
-            leafElemType = leafElemType->nextOf();
-        }
-        canBeBlockAssignment = leafElemType->ty != Tvoid;
-    }
-    if ((realRhsArrayPtr && realLhsPtr->getType() == realRhsArrayPtr->getType()) ||
-        !canBeBlockAssignment)
+    if (realRhsArrayPtr && realRhsArrayPtr->getType() == realLhsPtr->getType())
     {
         // T[]  = T[]      T[]  = T[n]
         // T[n] = T[n]     T[n] = T[]
