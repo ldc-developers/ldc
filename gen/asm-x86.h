@@ -3755,15 +3755,21 @@ namespace AsmParserx8664
                         }
                     }
 
-                    if ( opTakesLabel() && e->op == TOKidentifier )
+                    if ( e->op == TOKidentifier )
                     {
                         // DMD uses labels secondarily to other symbols, so check
                         // if IdentifierExp::semantic won't find anything.
                         Dsymbol *scopesym;
-
                         if ( ! sc->search ( stmt->loc, ident, & scopesym ) )
-                            return new DsymbolExp ( stmt->loc,
-                                                    sc->func->searchLabel ( ident ) );
+                        {
+                            if ( LabelDsymbol *labelsym = sc->func->searchLabel ( ident ) )
+                            {
+                                e = new DsymbolExp ( stmt->loc, labelsym );
+                                if ( opTakesLabel() )
+                                    return e;
+                                return new AddrExp ( stmt->loc, e );
+                            }
+                        }
                     }
 
                     e = e->semantic ( sc );
