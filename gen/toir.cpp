@@ -1248,7 +1248,7 @@ public:
         }
         else
         {
-            uint64_t elemSize = gDataLayout->getTypeStoreSize(
+            uint64_t elemSize = gDataLayout->getTypeAllocSize(
                 baseValue->getType()->getContainedType(0));
             if (e->offset % elemSize == 0)
             {

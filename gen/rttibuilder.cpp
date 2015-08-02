@@ -52,7 +52,7 @@ void RTTIBuilder::push(llvm::Constant* C)
         inits.push_back(llvm::Constant::getNullValue(padding));
     }
     inits.push_back(C);
-    prevFieldEnd = fieldStart + gDataLayout->getTypeStoreSize(C->getType());
+    prevFieldEnd = fieldStart + gDataLayout->getTypeAllocSize(C->getType());
 }
 
 void RTTIBuilder::push_null(Type* T)

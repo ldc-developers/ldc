@@ -1434,7 +1434,7 @@ size_t getMemberSize(Type* type)
         return dSize;
     }
 
-    const uint64_t llSize = gDataLayout->getTypeStoreSize(llType);
+    const uint64_t llSize = gDataLayout->getTypeAllocSize(llType);
     assert(llSize <= dSize && "LLVM type is bigger than the corresponding D type, "
         "might lead to aggregate layout mismatch.");
 
