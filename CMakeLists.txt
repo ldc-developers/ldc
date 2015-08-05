@@ -120,6 +120,24 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
     if(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_C_COMPILER_VERSION VERSION_LESS "4.7.0")
         append("-Wno-pedantic" LDC_CXXFLAGS)
     endif()
+elseif(MSVC)
+    # Remove flags here, for exceptions and RTTI.
+    # CL.EXE complains to override flags like "/GR /GR-".
+    string(REGEX REPLACE "(^| )[/-]EH[-cs]*( |$)" "\\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    string(REGEX REPLACE "(^| )[/-]GR-?( |$)" "\\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
+    append("/GR- /EHs-c-" CMAKE_CXX_FLAGS)
+    add_definitions(/D_HAS_EXCEPTIONS=0)
+
+    # warning C4018: signed/unsigned mismatch
+    # warning C4101: unreferenced local variable
+    # warning C4102: unreferenced label
+    # warning C4146: unary minus operator applied to unsigned type, result still unsigned
+    # warnings C4244 and C4267: conversion from '...' to '...', possible loss of data
+    # warnings C4456-4459: declaration of '...' hides ...
+    # warning C4624: destructor was implicitly defined as deleted because a base class destructor is inaccessible or deleted
+    # warning C4800: forcing value to bool 'true' or 'false' (performance warning)
+    # warning C4996: we're not using Microsoft's secure stringOp_s() functions
+    append("/wd4018 /wd4101 /wd4102 /wd4146 /wd4244 /wd4267 /wd4456 /wd4457 /wd4458 /wd4459 /wd4624 /wd4800 /wd4996" DMD_CXXFLAGS LDC_CXXFLAGS)
 endif()
 # Append -mminimal-toc for gcc 4.0.x - 4.5.x on ppc64
 if( CMAKE_COMPILER_IS_GNUCXX
@@ -320,23 +338,14 @@ if(GENERATE_OFFTI)
     add_definitions(-DGENERATE_OFFTI)
 endif()
 
-if(MSVC)
-    # Remove flags here, for exceptions and RTTI.
-    # CL.EXE complains to override flags like "/GR /GR-".
-    string(REGEX REPLACE "(^| ) */EH[-cs]+ *( |$)" "\\1 \\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-    string(REGEX REPLACE "(^| ) */GR-? *( |$)" "\\1 \\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
-
-    add_definitions(-D_HAS_EXCEPTIONS=0)
-    set(EXTRA_CXXFLAGS "${EXTRA_CXXFLAGS} /GF /GR- /EHs-c- /MP")
-endif()
-
 # if llvm was built with assertions we have to do the same
 # as there are some headers with differing behavior based on NDEBUG
 if(LLVM_ENABLE_ASSERTIONS)
-    set(EXTRA_CXXFLAGS "${EXTRA_CXXFLAGS} -UNDEBUG")
-    # avoid msvc warning D9025
-    string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" " " CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
-    string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" " " CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+    append("-UNDEBUG" EXTRA_CXXFLAGS)
+    # avoid MSVC warning D9025 about "-DNDEBUG ... -UNDEBUG"
+    string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" "\\1-UNDEBUG\\2" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+    string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" "\\1-UNDEBUG\\2" CMAKE_CXX_FLAGS_MINSIZEREL "${CMAKE_CXX_FLAGS_MINSIZEREL}")
+    string(REGEX REPLACE "(^| )[/-]D *NDEBUG( |$)" "\\1-UNDEBUG\\2" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
 endif()
 
 #
