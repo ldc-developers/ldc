@@ -18,6 +18,9 @@ module core.atomic;
 version (LDC)
 {
     enum has64BitCAS = true;
+
+    // LDC_FIXME: Need either ucent support or an inline IR implementation to
+    // support 16 byte CAS integer repainting.
     enum has128BitCAS = false;
 }
 else
@@ -207,7 +210,7 @@ else version( LDC )
         }
     }
 
-    bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, const V2 writeThis )
+    bool cas(T,V1,V2)( shared(T)* here, const V1 ifThis, V2 writeThis )
         if( !is(T == class) && !is(T U : U*) && __traits( compiles, { *here = writeThis; } ) )
     {
         return casImpl(here, ifThis, writeThis);
@@ -225,7 +228,21 @@ else version( LDC )
         return casImpl(here, ifThis, writeThis);
     }
 
+    // We need to repaint struct values to integers before calling the LLVM intrinsic.
     private bool casImpl(T,V1,V2)( shared(T)* here, V1 ifThis, V2 writeThis )
+        if ( is(T == struct) )
+    {
+        static assert(is(V1 == struct) && "All operands must be struct for struct cas");
+        static assert(is(V2 == struct) && "All operands must be struct for struct cas");
+        return casImpl(
+            cast(shared(_AtomicType!T)*)here,
+            *cast(shared(_AtomicType!V1)*) &ifThis,
+            *cast(shared(_AtomicType!V2)*) &writeThis
+        );
+    }
+
+    private bool casImpl(T,V1,V2)( shared(T)* here, V1 ifThis, V2 writeThis )
+        if ( !is(T == struct) )
     {
         T res = void;
         static if (__traits(isFloating, T))
