@@ -15,6 +15,9 @@
 #include "llvm/DerivedTypes.h"
 #endif
 #include "llvm/ADT/SmallString.h"
+#ifndef NDEBUG
+#include "llvm/Support/raw_ostream.h"
+#endif
 
 #include "aggregate.h"
 #include "declaration.h"
@@ -231,29 +234,22 @@ LLConstant * IrAggr::getVtblInit()
 
     // build the constant struct
     LLType* vtblTy = stripModifiers(type)->ctype->isClass()->getVtbl();
-    constVtbl = LLConstantStruct::get(isaStruct(vtblTy), constants);
-
-#if 0
-   IF_LOG Logger::cout() << "constVtbl type: " << *constVtbl->getType() << std::endl;
-   IF_LOG Logger::cout() << "vtbl type: " << *stripModifiers(type)->ctype->isClass()->getVtbl() << std::endl;
-#endif
-
-#if 0
-
+#ifndef NDEBUG
     size_t nc = constants.size();
 
     for (size_t i = 0; i < nc; ++i)
     {
-        if (constVtbl->getOperand(i)->getType() != vtblTy->getContainedType(i))
+        if (constants[i]->getType() != vtblTy->getContainedType(i))
         {
-            Logger::cout() << "type mismatch for entry # " << i << " in vtbl initializer" << std::endl;
+            llvm::errs() << "type mismatch for entry # " << i << " in vtbl initializer\n";
 
-            constVtbl->getOperand(i)->dump();
+            constants[i]->getType()->dump();
             vtblTy->getContainedType(i)->dump();
         }
     }
 
 #endif
+    constVtbl = LLConstantStruct::get(isaStruct(vtblTy), constants);
 
     assert(constVtbl->getType() == stripModifiers(type)->ctype->isClass()->getVtbl() &&
         "vtbl initializer type mismatch");
