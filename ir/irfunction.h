@@ -46,7 +46,6 @@ struct IRTargetScope
     /// specified (via s), and not for unqualified "break;" statements.
     bool onlyLabeledBreak;
 
-    IRTargetScope();
     IRTargetScope(
         Statement* s,
         EnclosingTryFinally* enclosinghandler,
