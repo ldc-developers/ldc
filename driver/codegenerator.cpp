@@ -99,7 +99,7 @@ CodeGenerator::~CodeGenerator() {
         const char *filename;
         if ((oname = global.params.exefile) ||
             (oname = global.params.objname)) {
-            filename = FileName::forceExt(oname, global.obj_ext);
+            filename = FileName::forceExt(oname, global.params.targetTriple.isOSWindows() ? global.obj_ext_alt : global.obj_ext);
             if (global.params.objdir) {
                 filename = FileName::combine(global.params.objdir,
                                              FileName::name(filename));
