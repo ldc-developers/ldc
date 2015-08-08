@@ -89,7 +89,7 @@ MipsABI::Type getMipsABI()
 #if LDC_LLVM_VER >= 308
         const llvm::DataLayout dl = gTargetMachine->createDataLayout();
 #else
-        const llvm::DataLayout& dl = gTargetMachine->getDataLayout();
+        const llvm::DataLayout& dl = *gTargetMachine->getDataLayout();
 #endif
         if (dl.getPointerSizeInBits() == 64)
             return MipsABI::N64;
