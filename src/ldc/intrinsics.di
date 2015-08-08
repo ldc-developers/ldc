@@ -55,6 +55,16 @@ version(LDC_LLVM_307)
     version = INTRINSICS_FROM_306;
     version = INTRINSICS_FROM_307;
 }
+version(LDC_LLVM_308)
+{
+    version = INTRINSICS_FROM_302;
+    version = INTRINSICS_FROM_303;
+    version = INTRINSICS_FROM_304;
+    version = INTRINSICS_FROM_305;
+    version = INTRINSICS_FROM_306;
+    version = INTRINSICS_FROM_307;
+    version = INTRINSICS_FROM_308;
+}
 
 // All intrinsics are nothrow and @nogc. The codegen intrinsics are not categorized
 // any further (they probably could), the rest is pure (aborting is fine by
