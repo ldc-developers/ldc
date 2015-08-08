@@ -3100,7 +3100,7 @@ unsigned TypeBasic::alignsize()
 unsigned TypeBasic::alignment()
 {
     if (global.params.targetTriple.getArch() == llvm::Triple::x86_64 &&
-        (ty == Tfloat80 || ty == Timaginary80))
+        (ty == Tfloat80 || ty == Timaginary80) && size(Loc()) > 8)
     {
         return 16;
     }
