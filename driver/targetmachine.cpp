@@ -86,10 +86,14 @@ MipsABI::Type getMipsABI()
         return MipsABI::EABI;
     else
     {
-        auto dl = gTargetMachine->getDataLayout();
-        if (dl->getPointerSizeInBits() == 64)
+#if LDC_LLVM_VER >= 308
+        const llvm::DataLayout dl = gTargetMachine->createDataLayout();
+#else
+        const llvm::DataLayout& dl = *gTargetMachine->getDataLayout();
+#endif
+        if (dl.getPointerSizeInBits() == 64)
             return MipsABI::N64;
-        else if (dl->getLargestLegalIntTypeSize() == 64)
+        else if (dl.getLargestLegalIntTypeSize() == 64)
             return MipsABI::N32;
         else
             return MipsABI::O32;

@@ -430,10 +430,14 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL, AliasAnal
             if (Result == CI) {
                 assert(CI->use_empty());
                 ++NumDeleted;
+#if LDC_LLVM_VER < 308
                 AA.deleteValue(CI);
+#endif
             } else {
                 ++NumSimplified;
+#if LDC_LLVM_VER < 308
                 AA.replaceWithNewValue(CI, Result);
+#endif
 
                 if (!CI->use_empty())
                     CI->replaceAllUsesWith(Result);
