@@ -47,9 +47,6 @@ const IRScope& IRScope::operator=(const IRScope& rhs)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-IRTargetScope::IRTargetScope()
-{
-}
 
 IRTargetScope::IRTargetScope(
     Statement* s,

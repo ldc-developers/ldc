@@ -284,17 +284,20 @@ void DtoEnclosingHandlers(Loc& loc, Statement* target)
     if (lblstmt)
         target = lblstmt->enclosingScopeExit;
 
-    // figure out up until what handler we need to emit
-    FuncGen::TargetScopeVec::reverse_iterator targetit = gIR->func()->gen->targetScopes.rbegin();
-    FuncGen::TargetScopeVec::reverse_iterator it_end = gIR->func()->gen->targetScopes.rend();
-    while(targetit != it_end) {
-        if (targetit->s == target) {
+    // Figure out up until what handler we need to emit. Note that we need to
+    // use use indices instead of iterators in the loop where we actually emit
+    // them, as emitCode() might itself push/pop from the vector if it contains
+    // control flow and and thus invalidate the latter.
+    FuncGen::TargetScopeVec& scopes =  gIR->func()->gen->targetScopes;
+    size_t remainingScopes = scopes.size();
+    while (remainingScopes != 0) {
+        if (scopes[remainingScopes - 1].s == target) {
             break;
         }
-        ++targetit;
+        --remainingScopes;
     }
 
-    if (target && targetit == it_end) {
+    if (target && !remainingScopes) {
         if (lblstmt)
             error(loc, "cannot goto into try, volatile or synchronized statement at %s", target->loc.toChars());
         else
@@ -309,12 +312,12 @@ void DtoEnclosingHandlers(Loc& loc, Statement* target)
     // since the labelstatements possibly inside are private
     // and might already exist push a label scope
     gIR->func()->gen->pushUniqueLabelScope("enclosing");
-    FuncGen::TargetScopeVec::reverse_iterator it = gIR->func()->gen->targetScopes.rbegin();
-    while (it != targetit) {
-        if (it->enclosinghandler)
-            it->enclosinghandler->emitCode(gIR);
-        ++it;
+    
+    for (size_t i = scopes.size(); i > remainingScopes; --i) {
+        EnclosingTryFinally *tf = scopes[i - 1].enclosinghandler;
+        if (tf) tf->emitCode(gIR);
     }
+
     gIR->func()->gen->popLabelScope();
 }
 
