@@ -150,9 +150,9 @@ unsigned getFieldGEPIndex(AggregateDeclaration* ad, VarDeclaration* vd);
 ///
 DValue* DtoInlineAsmExpr(Loc& loc, FuncDeclaration* fd, Expressions* arguments);
 
-/// Update an offset to make sure it follows both the D and LLVM alignments.
-/// Returns the offset rounded up to the closest safely aligned offset.
-size_t realignOffset(size_t offset, Type* type);
+/// Returns the size the LLVM type for a member variable of the given type will
+/// take up in a struct (in bytes). This does not include padding in any way.
+size_t getMemberSize(Type* type);
 
 /// Returns the llvm::Value of the passed DValue, making sure that it is an
 /// lvalue (has a memory address), so it can be passed to the D runtime

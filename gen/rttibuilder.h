@@ -32,15 +32,18 @@ class Type;
 class TypeClass;
 namespace llvm { class StructType; }
 
-struct RTTIBuilder
+class RTTIBuilder
 {
     AggregateDeclaration* base;
     TypeClass* basetype;
     IrAggr* baseir;
 
-    // 10 is enough for any D1 TypeInfo
-    // 14 is enough for any D1 ClassInfo
-    llvm::SmallVector<llvm::Constant*, 14> inits;
+    /// The offset (in bytes) at which the previously pushed field ended.
+    uint64_t prevFieldEnd;
+
+public:
+    // 15 is enough for any D2 ClassInfo including 64 bit pointer alignment padding
+    llvm::SmallVector<llvm::Constant*, 15> inits;
 
     RTTIBuilder(AggregateDeclaration* base_class);
 

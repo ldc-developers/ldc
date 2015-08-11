@@ -1425,41 +1425,20 @@ bool hasUnalignedFields(Type* t)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-size_t realignOffset(size_t offset, Type* type)
+size_t getMemberSize(Type* type)
 {
-    size_t alignsize = type->alignsize();
-    size_t alignedoffset = (offset + alignsize - 1) & ~(alignsize - 1);
-
-    // if the aligned offset already matches the input offset
-    // don't waste time checking things are ok!
-    if (alignedoffset == offset)
-        return alignedoffset;
-
-    // we cannot get the llvm alignment if the type is still opaque, this can happen in some
-    // forward reference situations, so when this happens we fall back to manual padding.
-    // also handle arbitrary "by-value" opaques nested inside aggregates.
-    LLType* T = DtoType(type);
-    if (!T->isSized())
-    {
-        return offset;
+    const dinteger_t dSize = type->size();
+    llvm::Type * const llType = DtoType(type);
+    if (!llType->isSized()) {
+        // Forward reference in a cycle or similar, we need to trust the D type.
+        return dSize;
     }
 
-    // then we check against the llvm alignment
-    size_t alignsize2 = gDataLayout->getABITypeAlignment(T);
+    const uint64_t llSize = gDataLayout->getTypeAllocSize(llType);
+    assert(llSize <= dSize && "LLVM type is bigger than the corresponding D type, "
+        "might lead to aggregate layout mismatch.");
 
-    // if it differs we need to insert manual padding as well
-    if (alignsize != alignsize2)
-    {
-        // FIXME: this assert fails on std.typecons
-        //assert(alignsize > alignsize2 && "this is not good, the D and LLVM "
-        //    "type alignments differ, but LLVM's is bigger! This will break "
-        //    "aggregate type mapping");
-        // don't try and align the offset, and let the mappers pad 100% manually
-        return offset;
-    }
-
-    // ok, we're good, llvm will align properly!
-    return alignedoffset;
+    return llSize;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
