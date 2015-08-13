@@ -4,9 +4,10 @@
  */
 module ldc.eh;
 
-private import core.stdc.stdio;
-private import core.stdc.stdlib;
-private import core.stdc.stdarg;
+import core.memory : GC;
+import core.stdc.stdio;
+import core.stdc.stdlib;
+import core.stdc.stdarg;
 
 // debug = EH_personality;
 // debug = EH_personality_verbose;
@@ -23,6 +24,7 @@ version(X86)
     version(Solaris) version=GCC_UNWIND;
     version(FreeBSD) version=GCC_UNWIND;
     version(MinGW) version=GCC_UNWIND;
+    enum stackGrowsDown = true;
 }
 version(X86_64)
 {
@@ -31,31 +33,35 @@ version(X86_64)
     version(Solaris) version=GCC_UNWIND;
     version(FreeBSD) version=GCC_UNWIND;
     version(MinGW) version=GCC_UNWIND;
+    enum stackGrowsDown = true;
 }
 version (ARM)
 {
     // FIXME: Almost certainly wrong.
     version (linux) version = GCC_UNWIND;
     version (FreeBSD) version = GCC_UNWIND;
+    enum stackGrowsDown = true;
 }
 version (AArch64)
 {
     version (linux) version = GCC_UNWIND;
+    enum stackGrowsDown = true;
 }
 version (PPC_Any)
 {
     version (linux) version = GCC_UNWIND;
+    enum stackGrowsDown = true;
 }
 version (MIPS)
 {
     version (linux) version = GCC_UNWIND;
+    enum stackGrowsDown = true;
 }
 version (MIPS64)
 {
     version (linux) version = GCC_UNWIND;
+    enum stackGrowsDown = true;
 }
-
-//version = HP_LIBUNWIND;
 
 // D runtime functions
 extern(C)
@@ -65,6 +71,8 @@ extern(C)
 
 // libunwind headers
 extern(C)
+{
+version (GCC_UNWIND)
 {
     // FIXME: Some of these do not actually exist on ARM.
     enum _Unwind_Reason_Code : int
@@ -124,36 +132,8 @@ extern(C)
         ptrdiff_t private_2;
     }
 
-// interface to HP's libunwind from http://www.nongnu.org/libunwind/
-version(HP_LIBUNWIND)
-{
-    void __libunwind_Unwind_Resume(_Unwind_Exception *);
-    _Unwind_Reason_Code __libunwind_Unwind_RaiseException(_Unwind_Exception *);
-    ptrdiff_t __libunwind_Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr
-            context);
-    ptrdiff_t __libunwind_Unwind_GetIP(_Unwind_Context_Ptr context);
-    ptrdiff_t __libunwind_Unwind_SetIP(_Unwind_Context_Ptr context,
-            ptrdiff_t new_value);
-    ptrdiff_t __libunwind_Unwind_SetGR(_Unwind_Context_Ptr context, int index,
-            ptrdiff_t new_value);
-    ptrdiff_t __libunwind_Unwind_GetRegionStart(_Unwind_Context_Ptr context);
-    ptrdiff_t __libunwind_Unwind_GetTextRelBase(_Unwind_Context_Ptr context);
-    ptrdiff_t __libunwind_Unwind_GetDataRelBase(_Unwind_Context_Ptr context);
-
-    alias __libunwind_Unwind_Resume _Unwind_Resume;
-    alias __libunwind_Unwind_RaiseException _Unwind_RaiseException;
-    alias __libunwind_Unwind_GetLanguageSpecificData
-        _Unwind_GetLanguageSpecificData;
-    alias __libunwind_Unwind_GetIP _Unwind_GetIP;
-    alias __libunwind_Unwind_SetIP _Unwind_SetIP;
-    alias __libunwind_Unwind_SetGR _Unwind_SetGR;
-    alias __libunwind_Unwind_GetRegionStart _Unwind_GetRegionStart;
-    alias __libunwind_Unwind_GetTextRelBase _Unwind_GetTextRelBase;
-    alias __libunwind_Unwind_GetDataRelBase _Unwind_GetDataRelBase;
-}
-else version(GCC_UNWIND)
-{
     ptrdiff_t _Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr context);
+    ptrdiff_t _Unwind_GetCFA(_Unwind_Context_Ptr context);
     version (ARM)
     {
         _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Control_Block*);
@@ -208,9 +188,9 @@ extern(C) private void fatalerror(in char* format, ...)
 {
     va_list args;
     va_start(args, format);
-    printf("Fatal error in EH code: ");
-    vprintf(format, args);
-    printf("\n");
+    fprintf(stderr, "Fatal error in EH code: ");
+    vfprintf(stderr, format, args);
+    fprintf(stderr, "\n");
     abort();
 }
 
@@ -399,8 +379,8 @@ ptrdiff_t get_base_of_encoded_value(ubyte encoding, _Unwind_Context_Ptr context)
 // routine is then able to get the whole struct by looking at the data
 // surrounding the unwind info.
 //
-// Note that the compiler-generated landing pad code also relies on the
-// exception object reference being stored at offset 0.
+// Note that the code we generate for the landing pads also relies on the
+// throwable object being stored at offset 0.
 struct _d_exception
 {
     Object exception_object;
@@ -418,6 +398,55 @@ struct _d_exception
 // the first 4 are for vendor, the second 4 for language
 //TODO: This may be the wrong way around
 __gshared char[8] _d_exception_class = "LLDCD2\0\0";
+
+struct ActiveCleanupBlock {
+    /// Link to the next active finally block.
+    ActiveCleanupBlock* outerBlock;
+
+    /// The exception that caused this cleanup block to be entered.
+    Object dObject;
+
+    /// The CFA (stack address, roughly) when this cleanup block was entered, as
+    /// reported by libunwind.
+    ///
+    /// Used to determine when this pad is reached again when unwinding from
+    /// somewhere within it. Note that this must somehow be related to the
+    /// stack, not the instruction pointer, to properly support recursive
+    /// chaining.
+    ptrdiff_t cfaAddr;
+}
+
+/// Stack of active finally blocks (i.e. cleanup landing pads) that were entered
+/// because of exception unwinding. Used for exception chaining.
+///
+/// Note that sometimes a landing pad is both a catch and a cleanup. This
+/// happens for example when there is a try/finally nested inside a try/catch
+/// in the same function, or has been inlined into one. Whether a catch will
+/// actually execute (which terminates this strand of unwinding) or not is
+/// determined by the program code and cannot be known inside the personality
+/// routine. Thus, we always push such a block even before entering a catch(),
+/// and have the user code call _d_eh_enter_catch() once the (possible) cleanup
+/// part is done so we can pop it again. In theory, this could be optimized a
+/// bit, because we only need to do it for landing pads which have this double
+/// function, which we could possibly figure out form the DWARF tables. However,
+/// since this makes generating the code for popping it non-trivial, this is not
+/// currently done.
+ActiveCleanupBlock* innermostCleanupBlock = null;
+
+/// During the search phase of unwinding, points to the currently active cleanup
+/// block (i.e. somewhere in the innermostCleanupBlock linked list, but possibly
+/// not at the beginning if the search for the catch block has already continued
+/// past that).
+///
+/// Note that this and searchPhaseCurrentCleanupBlock can just be a single
+/// variable because there can never be more than one search phase running per
+/// thread.
+ActiveCleanupBlock* searchPhaseCurrentCleanupBlock = null;
+
+/// During the search phase, keeps track of the type of the dynamic type of the
+/// currently thrown exception (might change according to exception chaining
+/// rules).
+ClassInfo searchPhaseClassInfo = null;
 
 
 //
@@ -533,7 +562,7 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(_Unwind_State state, _Unwind_Con
     //TODO: Treat foreign exceptions with more respect
     if (ucb.exception_class != _d_exception_class)
         return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
-    
+
     _Unwind_Reason_Code rc = eh_personality_common(actions, ucb.toDException(), context);
     if (rc == _Unwind_Reason_Code.CONTINUE_UNWIND)
         return continueUnwind(ucb, context);
@@ -547,7 +576,12 @@ else
 // reading the EH tables and deciding what to do
 extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions, ulong exception_class, _Unwind_Exception* exception_info, _Unwind_Context_Ptr context)
 {
-    debug(EH_personality_verbose) printf("entering personality function. context: %p\n", context);
+    debug(EH_personality_verbose)
+    {
+        printf(" %s Entering personality function. context: %p\n",
+            (actions & _Unwind_Action.SEARCH_PHASE) ? "[S]".ptr : "[U]".ptr, context);
+    }
+
     // check ver: the C++ Itanium ABI only allows ver == 1
     if (ver != 1)
         return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
@@ -562,55 +596,74 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
 }
 }
 
-// the personality routine gets called by the unwind handler and is responsible for
-// reading the EH tables and deciding what to do
-extern(C) _Unwind_Reason_Code eh_personality_common(_Unwind_Action actions, _d_exception* exception_struct, _Unwind_Context_Ptr context)
+
+
+/// This is the implementation of the personality function, which is called by
+/// libunwind twice per frame (search phase, unwind phase).
+///
+/// It is responsible to figure out whether we need to stop unwinding because of
+/// a catch block or if there is a finally block to execute by reading the DWARF
+/// EH tables.
+extern(C) _Unwind_Reason_Code eh_personality_common(_Unwind_Action actions,
+    _d_exception* exception_struct, _Unwind_Context_Ptr context)
 {
-    // find call site table, action table and classinfo table
-    // Note: callsite and action tables do not contain static-length
-    // data and will be parsed as needed
-    // Note: classinfo_table points past the end of the table
+    //
+    // First, we need to find the Language-Specific Data table for this frame
+    // and extract our information tables (the "language-specific" part is a bit
+    // of a misnomer, in reality this is generated by LLVM).
+    //
+    // The callsite and action tables do not contain static-length data and will
+    // be parsed as needed.
+    //
+
     ubyte* callsite_table;
     ubyte* action_table;
+
+    // Points points past the end of the table.
     ubyte* classinfo_table;
     ubyte classinfo_table_encoding;
     _d_getLanguageSpecificTables(context, callsite_table, action_table, classinfo_table, classinfo_table_encoding);
-    if (callsite_table is null)
+
+    if (!callsite_table)
         return _Unwind_Reason_Code.CONTINUE_UNWIND;
 
-    /*
-      find landing pad and action table index belonging to ip by walking
-      the callsite_table
-    */
+    //
+    // Now, we need to figure out if the address of the current instruction
+    // in this frame corresponds to a block which has an associated landing pad.
+    //
+
+    // The instruction pointer (ip) will point to the next instruction after
+    // whatever made execution leave this frame, so substract 1 for the range
+    // comparison below.
+    immutable ip = _Unwind_GetIP(context) - 1;
+
+    // The table entries are all relative to the start address of the region.
+    immutable region_start = _Unwind_GetRegionStart(context);
+
+    // The address of the landing pad to jump to (null if no match).
+    ptrdiff_t landingPadAddr;
+
+    // The offset in the action table corresponding to the first action for this
+    // landing pad (will be zero if there are none).
+    size_t actionTableStartOffset;
+
     ubyte* callsite_walker = callsite_table;
-
-    // get the instruction pointer
-    // will be used to find the right entry in the callsite_table
-    // -1 because it will point past the last instruction
-    ptrdiff_t ip = _Unwind_GetIP(context) - 1;
-
-    // address block_start is relative to
-    ptrdiff_t region_start = _Unwind_GetRegionStart(context);
-
-    // table entries
-    uint block_start_offset, block_size;
-    ptrdiff_t landing_pad;
-    size_t action_offset;
-
     while (true)
     {
         // if we've gone through the list and found nothing...
         if (callsite_walker >= action_table)
             return _Unwind_Reason_Code.CONTINUE_UNWIND;
 
-        block_start_offset = *cast(uint*)callsite_walker;
-        block_size = *(cast(uint*)callsite_walker + 1);
-        landing_pad = *(cast(uint*)callsite_walker + 2);
-        if (landing_pad)
-            landing_pad += region_start;
-        callsite_walker = get_uleb128(callsite_walker + 3*uint.sizeof, action_offset);
+        immutable block_start_offset = *cast(uint*)callsite_walker;
+        immutable block_size = *(cast(uint*)callsite_walker + 1);
+        landingPadAddr = *(cast(uint*)callsite_walker + 2);
+        callsite_walker = get_uleb128(callsite_walker + 3 * uint.sizeof, actionTableStartOffset);
 
-        debug(EH_personality_verbose) printf("ip=%llx %d %d %llx\n", ip, block_start_offset, block_size, landing_pad);
+        debug(EH_personality_verbose)
+        {
+            printf("  - ip=%llx %d %d %llx\n", ip, block_start_offset,
+                block_size, landingPadAddr);
+        }
 
         // since the list is sorted, as soon as we're past the ip
         // there's no handler to be found
@@ -622,34 +675,159 @@ extern(C) _Unwind_Reason_Code eh_personality_common(_Unwind_Action actions, _d_e
             break;
     }
 
-    debug(EH_personality) printf("Found correct landing pad and actionOffset %d\n", action_offset);
+    debug(EH_personality)
+    {
+        printf("  - Found correct landing pad and actionTableStartOffset %d\n",
+            actionTableStartOffset);
+    }
 
-    // if there's no action offset and no landing pad, continue unwinding
-    if (!action_offset && !landing_pad)
+    // There is no landing pad for this part of the frame, continue with the next level.
+    if (!landingPadAddr)
         return _Unwind_Reason_Code.CONTINUE_UNWIND;
 
-    // if there's no action offset but a landing pad, this is a cleanup handler
-    else if(!action_offset && landing_pad)
-        return _d_eh_install_finally_context(actions, landing_pad, exception_struct, context);
+    // We have a landing pad, adjust by region start address.
+    landingPadAddr += region_start;
 
-    /*
-     walk action table chain, comparing classinfos using _d_isbaseof
-    */
-    ubyte* action_walker = action_table + action_offset - 1;
+    immutable isSearchPhase = actions & _Unwind_Action.SEARCH_PHASE;
 
-    size_t ci_size = get_size_of_encoded_value(classinfo_table_encoding);
-    debug(EH_personality) printf(" -- ci_size: %td, ci_encoding: %d\n", ci_size, classinfo_table_encoding);
+    //
+    // We have at least a finally landing pad in this scope. First, check if we
+    // have arrived at the scope a previous exception was thrown in. In this
+    // case, we need to chain exception_struct.exception_object to it or replace
+    // it with the former.
+    //
+    immutable currentCfaAddr = _Unwind_GetCFA(context);
+    ref ActiveCleanupBlock* acb()
+    {
+        return isSearchPhase ? searchPhaseCurrentCleanupBlock : innermostCleanupBlock;
+    }
 
-    size_t ttype_base = get_base_of_encoded_value(classinfo_table_encoding, context);
-    debug(EH_personality) printf(" -- ttype_base: 0x%tx\n", ttype_base);
+    while (acb)
+    {
+        debug(EH_personality)
+        {
+            printf("  - Current CFA: %p, Previous CFA: %p\n",
+                _Unwind_GetCFA(context), acb.cfaAddr);
+        }
 
-    ptrdiff_t ti_offset, next_action_offset;
+        // If the next active cleanup block is somewhere further up the stack,
+        // there is nothing to do/check.
+        static assert(stackGrowsDown);
+        if (currentCfaAddr < acb.cfaAddr)
+            break;
+
+        auto currentClassInfo = isSearchPhase ? searchPhaseClassInfo :
+            exception_struct.exception_object.classinfo;
+        if (_d_isbaseof(currentClassInfo, Error.classinfo) && !cast(Error)acb.dObject)
+        {
+            // The currently unwound Throwable is an Error but the previous one
+            // is not, so replace the latter with the former.
+            debug(EH_personality)
+            {
+                printf(" ++ Replacing %p (%s) by %p (%s)\n",
+                    acb.dObject,
+                    acb.dObject.classinfo.name.ptr,
+                    exception_struct.exception_object,
+                    exception_struct.exception_object.classinfo.name.ptr);
+            }
+
+            if (!isSearchPhase)
+            {
+                (cast(Error)exception_struct.exception_object).bypassedException =
+                    cast(Throwable)acb.dObject;
+            }
+        }
+        else
+        {
+            // We are just unwinding an Exception or there was already an Error,
+            // so append this Throwable to the end of the previous chain.
+            if (isSearchPhase)
+            {
+                debug(EH_personality)
+                {
+                    printf(" ++ Setting up classinfo to chain %s to %p (%s, classinfo at %p)\n",
+                        searchPhaseClassInfo.name.ptr, acb.dObject,
+                        acb.dObject.classinfo.name.ptr, acb.dObject.classinfo);
+                }
+                searchPhaseClassInfo = acb.dObject.classinfo;
+            }
+            else
+            {
+                auto lastChainElem = cast(Throwable)acb.dObject;
+                while (lastChainElem.next)
+                {
+                    lastChainElem = lastChainElem.next;
+                }
+
+                auto thisThrowable = cast(Throwable)exception_struct.exception_object;
+                if (lastChainElem is thisThrowable)
+                {
+                    // We would need to chain an exception to itself. This can
+                    // happen if somebody throws the same exception object twice.
+                    // It is questionable whether this is supposed to work in the
+                    // first place, but core.demangle does it when generating the
+                    // backtrace for its internal exceptions during demangling a
+                    // symbol as part of the default trace handler (it uses the
+                    // .init value for the exception class instead of allocating
+                    // new instances).
+                    debug(EH_personality)
+                    {
+                        printf(" ++ Not chaining %p (%s) to itself\n",
+                            thisThrowable, thisThrowable.classinfo.name.ptr);
+                    }
+                }
+                else
+                {
+                    debug(EH_personality)
+                    {
+                        printf(" ++ Chaining %p (%s) to %p (%s)\n",
+                            thisThrowable, thisThrowable.classinfo.name.ptr,
+                            lastChainElem, lastChainElem.classinfo.name.ptr);
+                    }
+                    lastChainElem.next = thisThrowable;
+                }
+
+                exception_struct.exception_object = acb.dObject;
+            }
+        }
+
+        // In both cases, we've executed one level of chaining.
+        auto outer = acb.outerBlock;
+        if (!isSearchPhase)
+        {
+            GC.removeRoot(cast(void*)acb.dObject);
+            free(acb);
+        }
+        acb = outer;
+    }
+
+    //
+    // Exception chaining is now done. Let's figure out what we have to do in
+    // this frame.
+    //
+
+    // If there are no actions, this is a cleanup landing pad.
+    if (!actionTableStartOffset)
+    {
+        return installFinallyContext(actions, landingPadAddr,
+            exception_struct, context);
+    }
+
+    // We have at least some attached actions. Figure out whether any of them
+    // match the type of the current exception.
+    immutable ci_size = get_size_of_encoded_value(classinfo_table_encoding);
+    debug(EH_personality) printf("  - ci_size: %td, ci_encoding: %d\n", ci_size, classinfo_table_encoding);
+
+    ubyte* action_walker = action_table + actionTableStartOffset - 1;
     while (true)
     {
+        ptrdiff_t ti_offset;
         action_walker = get_sleb128(action_walker, ti_offset);
-        debug(EH_personality) printf(" -- ti_offset: %tx\n", ti_offset);
+        debug(EH_personality) printf("  - ti_offset: %tx\n", ti_offset);
+
         // it is intentional that we not modify action_walker here
         // next_action_offset is from current action_walker position
+        ptrdiff_t next_action_offset;
         get_sleb128(action_walker, next_action_offset);
 
         // negative are 'filters' which we don't use
@@ -661,25 +839,55 @@ extern(C) _Unwind_Reason_Code eh_personality_common(_Unwind_Action actions, _d_e
         {
             if (!(next_action_offset == 0))
                 fatalerror("Cleanup action must be last in chain");
-            return _d_eh_install_finally_context(actions, landing_pad, exception_struct, context);
+            return installFinallyContext(actions, landingPadAddr,
+                exception_struct, context);
         }
 
-        // get classinfo for action and check if the one in the
-        // exception structure is a base
-        size_t catch_ci_ptr;
-        get_encoded_value(classinfo_table - ti_offset * ci_size, catch_ci_ptr, classinfo_table_encoding, context);
-        debug(EH_personality) printf(" -- catch_ci_ptr: %p\n", catch_ci_ptr);
-        ClassInfo catch_ci = cast(ClassInfo)cast(void*)catch_ci_ptr;
-        debug(EH_personality) printf("Comparing catch %s to exception %s\n", catch_ci.name.ptr, exception_struct.exception_object.classinfo.name.ptr);
-        if (_d_isbaseof(exception_struct.exception_object.classinfo, catch_ci))
-            return _d_eh_install_catch_context(actions, ti_offset, landing_pad, exception_struct, context);
+        // For catch clauses, now figure out whether the types match.
+        //
+        // Optimization: After the search phase, libunwind lets us know whether
+        // we have found a handler in this frame the first time around. We can
+        // thus skip further the comparisons if the HANDLER_FRAME flag is not
+        // set.
+        //
+        // As a further optimization step, we could look into caching that
+        // result inside _d_exception.
+        if (isSearchPhase || (actions & _Unwind_Action.HANDLER_FRAME))
+        {
+            size_t catchClassInfoAddr;
+            get_encoded_value(
+                classinfo_table - ti_offset * ci_size,
+                catchClassInfoAddr,
+                classinfo_table_encoding,
+                context
+            );
 
-        debug(EH_personality) printf(" -- Type mismatch, next action offset: %tx\n", next_action_offset);
-        // we've walked through all actions and found nothing...
+            auto exceptionClassInfo = isSearchPhase ?
+                searchPhaseClassInfo :
+                exception_struct.exception_object.classinfo;
+            auto catchClassInfo = cast(ClassInfo)cast(void*)catchClassInfoAddr;
+            debug(EH_personality)
+            {
+                printf("  - Comparing catch %s to exception %s\n",
+                    catchClassInfo.name.ptr, exceptionClassInfo.name.ptr);
+            }
+            if (_d_isbaseof(exceptionClassInfo, catchClassInfo))
+            {
+                return installCatchContext(
+                    actions,
+                    ti_offset,
+                    landingPadAddr,
+                    exception_struct,
+                    context
+                );
+            }
+        }
+
+        debug(EH_personality) printf("  - Type mismatch, next action offset: %tx\n", next_action_offset);
+
         if (next_action_offset == 0)
             return _Unwind_Reason_Code.CONTINUE_UNWIND;
-        else
-            action_walker += next_action_offset;
+        action_walker += next_action_offset;
     }
 }
 
@@ -735,33 +943,88 @@ else
     private enum eh_selector_regno = 2;
 }
 
-private _Unwind_Reason_Code _d_eh_install_catch_context(_Unwind_Action actions, ptrdiff_t switchval, ptrdiff_t landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
+private void pushCleanupBlockRecord(_Unwind_Context_Ptr context,
+    _d_exception* exception_struct)
 {
-    debug(EH_personality) printf("Found catch clause!\n");
+    auto acb = cast(ActiveCleanupBlock*)malloc(ActiveCleanupBlock.sizeof);
+    if (!acb)
+    {
+        // TODO: Allocate some statically to avoid problem with unwinding out of
+        // memory errors. A fairly small amount of memory should suffice for
+        // most applications unless people want to unwind through very deeply
+        // recursive code with many finallly blocks.
+        fatalerror("Could not allocate memory for exception chaining.");
+    }
+    acb.cfaAddr = _Unwind_GetCFA(context);
+    acb.dObject = exception_struct.exception_object;
+    acb.outerBlock = innermostCleanupBlock;
+    innermostCleanupBlock = acb;
+
+    // We need to be sure that an in-flight exception is kept alive while
+    // executing a finally block. This is not automatically the case if the
+    // finally block always throws, because the compiler then does not need to
+    // keep a reference to the object extracted from the landing pad around as
+    // there is no _d_eh_resume_unwind() call.
+    GC.addRoot(cast(void*)exception_struct.exception_object);
+}
+
+void popCleanupBlockRecord()
+{
+    if (!innermostCleanupBlock)
+    {
+        fatalerror("No cleanup block record found, should have been pushed " ~
+            "before entering the finally block.");
+    }
+    // Remove the cleanup block we installed for this handler.
+    auto acb = innermostCleanupBlock;
+    GC.removeRoot(cast(void*)acb.dObject);
+    innermostCleanupBlock = acb.outerBlock;
+    free(acb);
+}
+
+private _Unwind_Reason_Code installCatchContext(_Unwind_Action actions,
+    ptrdiff_t switchval, ptrdiff_t landing_pad, _d_exception* exception_struct,
+    _Unwind_Context_Ptr context)
+{
+    debug(EH_personality) printf("  - Found catch clause for %p\n", exception_struct);
 
     if (actions & _Unwind_Action.SEARCH_PHASE)
         return _Unwind_Reason_Code.HANDLER_FOUND;
 
-    else if (actions & _Unwind_Action.CLEANUP_PHASE)
+    if (!(actions & _Unwind_Action.CLEANUP_PHASE))
+        fatalerror("Unknown phase");
+
+    pushCleanupBlockRecord(context, exception_struct);
+
+    debug(EH_personality)
     {
-        debug(EH_personality) printf("Setting switch value to: %d!\n", switchval);
-        _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)exception_struct);
-        _Unwind_SetGR(context, eh_selector_regno, cast(ptrdiff_t)switchval);
-        _Unwind_SetIP(context, landing_pad);
-        return _Unwind_Reason_Code.INSTALL_CONTEXT;
+        printf("  - Calling catch block for %p (struct at %p)\n",
+            exception_struct.exception_object, exception_struct);
     }
 
-    fatalerror("reached unreachable");
-    return _Unwind_Reason_Code.FATAL_PHASE2_ERROR;
+    debug(EH_personality_verbose) printf("  - Setting switch value to: %d\n", switchval);
+    _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)exception_struct);
+    _Unwind_SetGR(context, eh_selector_regno, cast(ptrdiff_t)switchval);
+
+    debug(EH_personality_verbose) printf("  - Setting landing pad to: %p\n", landing_pad);
+    _Unwind_SetIP(context, landing_pad);
+
+    return _Unwind_Reason_Code.INSTALL_CONTEXT;
 }
 
-private _Unwind_Reason_Code _d_eh_install_finally_context(_Unwind_Action actions, ptrdiff_t landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
+private _Unwind_Reason_Code installFinallyContext(_Unwind_Action actions,
+    ptrdiff_t landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
 {
-    // if we're merely in search phase, continue
     if (actions & _Unwind_Action.SEARCH_PHASE)
         return _Unwind_Reason_Code.CONTINUE_UNWIND;
 
-    debug(EH_personality) printf("Calling cleanup routine...\n");
+    pushCleanupBlockRecord(context, exception_struct);
+
+    debug(EH_personality)
+    {
+        printf("  - Calling cleanup block for %p (struct at %p)\n",
+            exception_struct.exception_object, exception_struct);
+    }
 
     _Unwind_SetGR(context, eh_exception_regno, cast(ptrdiff_t)exception_struct);
     _Unwind_SetGR(context, eh_selector_regno, 0);
@@ -780,7 +1043,7 @@ private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte
         classinfo_table = null;
         return;
     }
-    debug(EH_personality) printf(" -- LSDA: %p\n", data);
+    debug(EH_personality) printf("  - LSDA: %p\n", data);
 
     //TODO: Do proper DWARF reading here
     if (*data++ != _DW_EH_Format.DW_EH_PE_omit)
@@ -807,64 +1070,74 @@ private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte
 
     callsite = data;
 
-    debug(EH_personality) printf(" -- callsite: %p, action: %p, classinfo_table: %p, ciEncoding: %d\n", callsite, action, classinfo_table, ciEncoding);
+    debug(EH_personality) printf("  - callsite: %p, action: %p, classinfo_table: %p, ciEncoding: %d\n", callsite, action, classinfo_table, ciEncoding);
 }
 
-} // end of x86 Linux specific implementation
+}
 
 extern(C) Throwable.TraceInfo _d_traceContext(void* ptr = null);
+
+/// Called by our compiler-generated code to throw an exception.
 extern(C) void _d_throw_exception(Object e)
 {
-    if (e !is null)
+    if (e is null)
     {
-        auto t = cast(Throwable) e;
-
-        if (t.info is null && cast(byte*) t !is typeid(t).init.ptr)
-        {
-            t.info = _d_traceContext();
-        }
-        _d_exception* exc_struct = new _d_exception;
-        version (ARM)
-        {
-            exc_struct.unwind_info.exception_class = _d_exception_class;
-        }
-        else
-        {
-            exc_struct.unwind_info.exception_class = *cast(ulong*)_d_exception_class.ptr;
-        }
-        exc_struct.exception_object = e;
-        debug(EH_personality) printf("throw exception %p\n", e);
-        _Unwind_Reason_Code ret = _Unwind_RaiseException(&exc_struct.unwind_info);
-        fprintf(stderr, "_Unwind_RaiseException failed with reason code: %d\n", ret);
+        fatalerror("Cannot throw null exception");
     }
-    abort();
+
+    if (e.classinfo is null)
+    {
+        fatalerror("Cannot throw corrupt exception object with null classinfo");
+    }
+
+    auto throwable = cast(Throwable) e;
+
+    if (throwable.info is null && cast(byte*)throwable !is typeid(throwable).init.ptr)
+    {
+        throwable.info = _d_traceContext();
+    }
+
+    auto exc_struct = new _d_exception;
+    version (ARM)
+    {
+        exc_struct.unwind_info.exception_class = _d_exception_class;
+    }
+    else
+    {
+        exc_struct.unwind_info.exception_class = *cast(ulong*)_d_exception_class.ptr;
+    }
+    exc_struct.exception_object = e;
+
+    debug(EH_personality)
+    {
+        printf("= Throwing new exception of type %s: %p (struct at %p, classinfo at %p)\n",
+            e.classinfo.name.ptr, e, exc_struct, e.classinfo);
+    }
+
+    searchPhaseClassInfo = e.classinfo;
+    searchPhaseCurrentCleanupBlock = innermostCleanupBlock;
+
+    // _Unwind_RaiseException should never return unless something went really
+    // wrong with unwinding.
+    immutable ret = _Unwind_RaiseException(&exc_struct.unwind_info);
+    fatalerror("_Unwind_RaiseException failed with reason code: %d", ret);
 }
 
+/// Called by our compiler-generate code to resume unwinding after a finally
+/// block (or dtor destruction block) has been run.
 extern(C) void _d_eh_resume_unwind(_d_exception* exception_struct)
 {
+    debug(EH_personality)
+    {
+        printf("= Returning from cleanup block for %p (struct at %p)\n",
+            exception_struct.exception_object, exception_struct);
+    }
+
+    popCleanupBlockRecord();
     _Unwind_Resume(&exception_struct.unwind_info);
 }
 
-extern(C) void _d_eh_handle_collision(_d_exception* exception_struct, _d_exception* inflight_exception_struct)
+extern(C) void _d_eh_enter_catch()
 {
-    Throwable h = cast(Throwable)exception_struct.exception_object;
-    Throwable inflight = cast(Throwable)inflight_exception_struct.exception_object;
-
-    auto e = cast(Error)h;
-    if (e !is null && (cast(Error)inflight) is null)
-    {
-        debug(EH_personality) printf("new error %p bypassing inflight %p\n", h, inflight);
-        e.bypassedException = inflight;
-    }
-    else if (inflight != h)
-    {
-        debug(EH_personality) printf("replacing thrown %p with inflight %p\n", h, inflight);
-        auto n = inflight;
-        while (n.next)
-            n = n.next;
-        n.next = h;
-        exception_struct = inflight_exception_struct;
-    }
-
-    _d_eh_resume_unwind(exception_struct);
+    popCleanupBlockRecord();
 }
