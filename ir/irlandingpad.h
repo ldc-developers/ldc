@@ -24,7 +24,6 @@ namespace llvm {
     class Value;
     class BasicBlock;
     class Function;
-    class LandingPadInst;
 }
 
 // holds information about a single catch

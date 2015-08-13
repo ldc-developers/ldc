@@ -978,12 +978,12 @@ static void LLVM_D_BuildRuntimeModule()
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
-    // void _d_eh_handle_collision(ptr exc_struct, ptr exc_struct)
+    // void _d_eh_enter_catch()
     {
-        llvm::StringRef fname("_d_eh_handle_collision");
-        LLType *types[] = { voidPtrTy, voidPtrTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+        llvm::StringRef fname("_d_eh_enter_catch");
+        LLFunctionType* fty = llvm::FunctionType::get(voidTy, false);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)->
+            setAttributes(Attr_NoUnwind);
     }
 
     /////////////////////////////////////////////////////////////////////////////////////
