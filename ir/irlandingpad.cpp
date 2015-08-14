@@ -60,6 +60,10 @@ void IRLandingPadCatchInfo::toIR()
     gIR->scope() = IRScope(target, target);
     gIR->DBuilder.EmitBlockStart(catchStmt->loc);
 
+    LLFunction* enterCatchFn =
+        LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_enter_catch");
+    gIR->ir->CreateCall(enterCatchFn);
+
     // assign storage to catch var
     if (catchStmt->var) {
         LLType* llCatchVarType = DtoType(catchStmt->var->type); // e.g., Throwable*
@@ -103,27 +107,11 @@ void IRLandingPadFinallyStatementInfo::toIR(LLValue *eh_ptr)
     IRLandingPad &padInfo = gIR->func()->gen->landingPadInfo;
     llvm::BasicBlock* &pad = gIR->func()->gen->landingPad;
 
-    // create collision landing pad that handles exceptions thrown inside the finally block
-    llvm::BasicBlock *collision = llvm::BasicBlock::Create(gIR->context(), "eh.collision", gIR->topfunc(), gIR->scopeend());
-    llvm::BasicBlock *bb = gIR->scopebb();
-    gIR->scope() = IRScope(collision, gIR->scopeend());
-    llvm::LandingPadInst *collisionLandingPad = createLandingPadInst();
-    LLValue* collision_eh_ptr = DtoExtractValue(collisionLandingPad, 0);
-    collisionLandingPad->setCleanup(true);
-    llvm::Function* collision_fn = LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_handle_collision");
-    gIR->CreateCallOrInvoke2(collision_fn, collision_eh_ptr, eh_ptr);
-    gIR->ir->CreateUnreachable();
-    gIR->scope() = IRScope(bb, gIR->scopeend());
-
-    // set collision landing pad as unwind target and emit the body of the finally
     gIR->DBuilder.EmitBlockStart(finallyBody->loc);
-    padInfo.scopeStack.push(IRLandingPadScope(collision));
-    pad = collision;
     Statement_toIR(finallyBody, gIR);
-    padInfo.scopeStack.pop();
-    pad = padInfo.get();
     gIR->DBuilder.EmitBlockEnd();
 }
+
 
 void IRLandingPad::addCatch(Catch* catchstmt, llvm::BasicBlock* end)
 {
@@ -186,6 +174,7 @@ void IRLandingPad::constructLandingPad(IRLandingPadScope scope)
 
     // add landingpad clauses, emit finallys and 'if' chain to catch the exception
     llvm::Function* eh_typeid_for_fn = GET_INTRINSIC_DECL(eh_typeid_for);
+
     bool isFirstCatch = true;
     std::stack<IRLandingPadScope> savedScopeStack = scopeStack;
     std::deque<IRLandingPadCatchInfo>::iterator catchItr, catchItrEnd;
