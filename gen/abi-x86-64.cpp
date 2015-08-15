@@ -268,7 +268,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg, RegCount& regCount) {
     Type* t = arg.type->toBasetype();
 
     LLType* abiTy = getAbiType(t);
-    if (abiTy && !LLTypeMemoryLayout::typesAreEquivalent(abiTy, originalLType)) {
+    if (abiTy) {
         IF_LOG {
             Logger::println("Rewriting argument type %s", t->toChars());
             LOG_SCOPE;
