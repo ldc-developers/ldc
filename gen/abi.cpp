@@ -10,6 +10,7 @@
 #include "gen/abi.h"
 #include "mars.h"
 #include "gen/abi-generic.h"
+#include "gen/abi-aarch64.h"
 #include "gen/abi-mips64.h"
 #include "gen/abi-ppc64.h"
 #include "gen/abi-win64.h"
@@ -140,6 +141,14 @@ LLValue* TargetABI::prepareVaArg(LLValue* pAp)
 
 //////////////////////////////////////////////////////////////////////////////
 
+Type* TargetABI::vaListType()
+{
+    // char* is used by default in druntime.
+    return Type::tchar->pointerTo();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 // Some reasonable defaults for when we don't know what ABI to use.
 struct UnknownTargetABI : TargetABI
 {
@@ -190,6 +199,17 @@ TargetABI * TargetABI::getTarget()
     case llvm::Triple::ppc64le:
 #endif
         return getPPC64TargetABI(global.params.targetTriple.isArch64Bit());
+#if LDC_LLVM_VER == 305
+    case llvm::Triple::arm64:
+    case llvm::Triple::arm64_be:
+#endif
+#if LDC_LLVM_VER >= 303
+    case llvm::Triple::aarch64:
+#if LDC_LLVM_VER >= 305
+    case llvm::Triple::aarch64_be:
+#endif
+        return getAArch64TargetABI();
+#endif
     default:
         Logger::cout() << "WARNING: Unknown ABI, guessing...\n";
         return new UnknownTargetABI;
