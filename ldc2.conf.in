@@ -11,6 +11,6 @@ default:
         "-I@RUNTIME_DIR@/src", // Needed for gc.*/rt.* unit tests.
         @LIB_PATH@@MULTILIB_ADDITIONAL_PATH@@SHARED_LIBS_RPATH@
         "-defaultlib=druntime-ldc",
-        "-debuglib=druntime-ldc-debug"
+        "-debuglib=druntime-ldc-debug"@ADDITIONAL_DEFAULT_LDC_SWITCHES@
     ];
 };

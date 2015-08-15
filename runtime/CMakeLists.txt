@@ -196,6 +196,7 @@ endif()
 #
 if(MSVC)
     set(LIB_PATH "\"-L-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/${CMAKE_BUILD_TYPE}\",")
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-L/LARGEADDRESSAWARE:NO\"")
 else()
     set(LIB_PATH "\"-L-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
 endif()
