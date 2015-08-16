@@ -510,10 +510,6 @@ public:
                 e = toElemDtor(stmt->exp);
             delete e;
         }
-        /*elem* e = exp->toElem(irs);
-        p->buf.printf("%s", e->toChars());
-        delete e;
-        p->buf.writenl();*/
     }
 
     //////////////////////////////////////////////////////////////////////////
