@@ -57,7 +57,7 @@ void IRLandingPadCatchInfo::toIR()
     if (!catchStmt)
         return;
 
-    gIR->scope() = IRScope(target, target);
+    gIR->scope() = IRScope(target);
     gIR->DBuilder.EmitBlockStart(catchStmt->loc);
 
     LLFunction* enterCatchFn =
@@ -165,7 +165,7 @@ void IRLandingPad::constructLandingPad(IRLandingPadScope scope)
 {
     // save and rewrite scope
     IRScope savedIRScope = gIR->scope();
-    gIR->scope() = IRScope(scope.target, savedIRScope.end);
+    gIR->scope() = IRScope(scope.target);
 
     // create landingpad
     llvm::LandingPadInst *landingPad = createLandingPadInst();
@@ -205,7 +205,7 @@ void IRLandingPad::constructLandingPad(IRLandingPadScope scope)
             }
 
             // create next block
-            llvm::BasicBlock *next = llvm::BasicBlock::Create(gIR->context(), "eh.next", gIR->topfunc(), gIR->scopeend());
+            llvm::BasicBlock *next = llvm::BasicBlock::Create(gIR->context(), "eh.next", gIR->topfunc());
             // get class info symbol
             LLValue *classInfo = getIrAggr(catchItr->catchType)->getClassInfoSymbol();
             // add that symbol as landing pad clause
@@ -215,7 +215,7 @@ void IRLandingPad::constructLandingPad(IRLandingPadScope scope)
             LLValue *eh_id = gIR->ir->CreateCall(eh_typeid_for_fn, classInfo);
             // check exception selector (eh_sel) against the class info index
             gIR->ir->CreateCondBr(gIR->ir->CreateICmpEQ(eh_sel, eh_id), catchItr->target, next);
-            gIR->scope() = IRScope(next, gIR->scopeend());
+            gIR->scope() = IRScope(next);
         }
 
         if (scope.finally) {

@@ -141,13 +141,12 @@ static void DtoArrayInit(Loc& loc, LLValue* ptr, LLValue* length, DValue* dvalue
     }
 
     // create blocks
-    llvm::BasicBlock* oldend = gIR->scopeend();
     llvm::BasicBlock* condbb = llvm::BasicBlock::Create(gIR->context(), "arrayinit.cond",
-                                                        gIR->topfunc(), oldend);
+                                                        gIR->topfunc());
     llvm::BasicBlock* bodybb = llvm::BasicBlock::Create(gIR->context(), "arrayinit.body",
-                                                        gIR->topfunc(), oldend);
+                                                        gIR->topfunc());
     llvm::BasicBlock* endbb  = llvm::BasicBlock::Create(gIR->context(), "arrayinit.end",
-                                                        gIR->topfunc(), oldend);
+                                                        gIR->topfunc());
 
     // initialize iterator
     LLValue *itr = DtoAlloca(Type::tsize_t, "arrayinit.itr");
@@ -158,7 +157,7 @@ static void DtoArrayInit(Loc& loc, LLValue* ptr, LLValue* length, DValue* dvalue
     llvm::BranchInst::Create(condbb, gIR->scopebb());
 
     // replace current scope
-    gIR->scope() = IRScope(condbb,bodybb);
+    gIR->scope() = IRScope(condbb);
 
     // create the condition
     LLValue* cond_val = gIR->ir->CreateICmpNE(DtoLoad(itr), length, "arrayinit.condition");
@@ -168,7 +167,7 @@ static void DtoArrayInit(Loc& loc, LLValue* ptr, LLValue* length, DValue* dvalue
     llvm::BranchInst::Create(bodybb, endbb, cond_val, gIR->scopebb());
 
     // rewrite scope
-    gIR->scope() = IRScope(bodybb, endbb);
+    gIR->scope() = IRScope(bodybb);
 
     LLValue* itr_val = DtoLoad(itr);
     /* bitcopy element
@@ -185,7 +184,7 @@ static void DtoArrayInit(Loc& loc, LLValue* ptr, LLValue* length, DValue* dvalue
     llvm::BranchInst::Create(condbb, gIR->scopebb());
 
     // rewrite the scope
-    gIR->scope() = IRScope(endbb, oldend);
+    gIR->scope() = IRScope(endbb);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1213,9 +1212,8 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBoun
 
     bool lengthUnknown = arrty->ty == Tpointer;
 
-    llvm::BasicBlock* oldend = gIR->scopeend();
-    llvm::BasicBlock* failbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundscheckfail", gIR->topfunc(), oldend);
-    llvm::BasicBlock* okbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundsok", gIR->topfunc(), oldend);
+    llvm::BasicBlock* failbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundscheckfail", gIR->topfunc());
+    llvm::BasicBlock* okbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundsok", gIR->topfunc());
     LLValue* cond = 0;
 
     if (!lengthUnknown) {
@@ -1230,9 +1228,9 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBoun
         gIR->ir->CreateCondBr(cond, okbb, failbb);
     } else {
         if (!lengthUnknown) {
-            llvm::BasicBlock* locheckbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundschecklowerbound", gIR->topfunc(), oldend);
+            llvm::BasicBlock* locheckbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundschecklowerbound", gIR->topfunc());
             gIR->ir->CreateCondBr(cond, locheckbb, failbb);
-            gIR->scope() = IRScope(locheckbb, failbb);
+            gIR->scope() = IRScope(locheckbb);
         }
         // check for lower bound
         cond = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_ULE, lowerBound->getRVal(), index->getRVal(), "boundscheck");
@@ -1241,7 +1239,7 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBoun
 
     // set up failbb to call the array bounds error runtime function
 
-    gIR->scope() = IRScope(failbb, okbb);
+    gIR->scope() = IRScope(failbb);
 
     std::vector<LLValue*> args;
 
@@ -1261,5 +1259,5 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBoun
     gIR->ir->CreateUnreachable();
 
     // if ok, proceed in okbb
-    gIR->scope() = IRScope(okbb, oldend);
+    gIR->scope() = IRScope(okbb);
 }

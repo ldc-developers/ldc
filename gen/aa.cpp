@@ -81,9 +81,8 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     // Only check bounds for rvalues ('aa[key]').
     // Lvalue use ('aa[key] = value') auto-adds an element.
     if (!lvalue && gIR->emitArrayBoundsChecks()) {
-        llvm::BasicBlock* oldend = gIR->scopeend();
-        llvm::BasicBlock* failbb = llvm::BasicBlock::Create(gIR->context(), "aaboundscheckfail", gIR->topfunc(), oldend);
-        llvm::BasicBlock* okbb = llvm::BasicBlock::Create(gIR->context(), "aaboundsok", gIR->topfunc(), oldend);
+        llvm::BasicBlock* failbb = llvm::BasicBlock::Create(gIR->context(), "aaboundscheckfail", gIR->topfunc());
+        llvm::BasicBlock* okbb = llvm::BasicBlock::Create(gIR->context(), "aaboundsok", gIR->topfunc());
 
         LLValue* nullaa = LLConstant::getNullValue(ret->getType());
         LLValue* cond = gIR->ir->CreateICmpNE(nullaa, ret, "aaboundscheck");
@@ -91,7 +90,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
 
         // set up failbb to call the array bounds error runtime function
 
-        gIR->scope() = IRScope(failbb, okbb);
+        gIR->scope() = IRScope(failbb);
 
         LLValue* args[] = {
             // file param
@@ -108,7 +107,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
         gIR->ir->CreateUnreachable();
 
         // if ok, proceed in okbb
-        gIR->scope() = IRScope(okbb, oldend);
+        gIR->scope() = IRScope(okbb);
     }
     return new DVarValue(type, ret);
 }

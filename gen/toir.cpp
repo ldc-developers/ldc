@@ -1749,13 +1749,12 @@ public:
                 llvm::Value* lhs = l->getRVal();
                 llvm::Value* rhs = r->getRVal();
 
-                llvm::BasicBlock* oldend = p->scopeend();
                 llvm::BasicBlock* fptreq = llvm::BasicBlock::Create(
-                    gIR->context(), "fptreq", gIR->topfunc(), oldend);
+                    gIR->context(), "fptreq", gIR->topfunc());
                 llvm::BasicBlock* fptrneq = llvm::BasicBlock::Create(
-                    gIR->context(), "fptrneq", gIR->topfunc(), oldend);
+                    gIR->context(), "fptrneq", gIR->topfunc());
                 llvm::BasicBlock* dgcmpend = llvm::BasicBlock::Create(
-                    gIR->context(), "dgcmpend", gIR->topfunc(), oldend);
+                    gIR->context(), "dgcmpend", gIR->topfunc());
 
                 llvm::Value* lfptr = p->ir->CreateExtractValue(lhs, 1, ".lfptr");
                 llvm::Value* rfptr = p->ir->CreateExtractValue(rhs, 1, ".rfptr");
@@ -1764,17 +1763,17 @@ public:
                     lfptr, rfptr, ".fptreqcmp");
                 llvm::BranchInst::Create(fptreq, fptrneq, fptreqcmp, p->scopebb());
 
-                p->scope() = IRScope(fptreq, fptrneq);
+                p->scope() = IRScope(fptreq);
                 llvm::Value* lctx = p->ir->CreateExtractValue(lhs, 0, ".lctx");
                 llvm::Value* rctx = p->ir->CreateExtractValue(rhs, 0, ".rctx");
                 llvm::Value* ctxcmp = p->ir->CreateICmp(icmpPred, lctx, rctx, ".ctxcmp");
                 llvm::BranchInst::Create(dgcmpend,p->scopebb());
 
-                p->scope() = IRScope(fptrneq, dgcmpend);
+                p->scope() = IRScope(fptrneq);
                 llvm::Value* fptrcmp = p->ir->CreateICmp(icmpPred, lfptr, rfptr, ".fptrcmp");
                 llvm::BranchInst::Create(dgcmpend,p->scopebb());
 
-                p->scope() = IRScope(dgcmpend, oldend);
+                p->scope() = IRScope(dgcmpend);
                 llvm::PHINode* phi = p->ir->CreatePHI(ctxcmp->getType(), 2, ".dgcmp");
                 phi->addIncoming(ctxcmp, fptreq);
                 phi->addIncoming(fptrcmp, fptrneq);
@@ -2156,9 +2155,8 @@ public:
         }
 
         // create basic blocks
-        llvm::BasicBlock* oldend = p->scopeend();
-        llvm::BasicBlock* passedbb = llvm::BasicBlock::Create(gIR->context(), "assertPassed", p->topfunc(), oldend);
-        llvm::BasicBlock* failedbb = llvm::BasicBlock::Create(gIR->context(), "assertFailed", p->topfunc(), oldend);
+        llvm::BasicBlock* passedbb = llvm::BasicBlock::Create(gIR->context(), "assertPassed", p->topfunc());
+        llvm::BasicBlock* failedbb = llvm::BasicBlock::Create(gIR->context(), "assertFailed", p->topfunc());
 
         // test condition
         LLValue* condval = DtoCast(e->loc, cond, Type::tbool)->getRVal();
@@ -2167,7 +2165,7 @@ public:
         llvm::BranchInst::Create(passedbb, failedbb, condval, p->scopebb());
 
         // failed: call assert runtime function
-        p->scope() = IRScope(failedbb, oldend);
+        p->scope() = IRScope(failedbb);
 
         /* DMD Bugzilla 8360: If the condition is evaluated to true,
          * msg is not evaluated at all. So should use toElemDtor()
@@ -2176,7 +2174,7 @@ public:
         DtoAssert(p->func()->decl->getModule(), e->loc, e->msg ? toElemDtor(e->msg) : NULL);
 
         // passed:
-        p->scope() = IRScope(passedbb, failedbb);
+        p->scope() = IRScope(passedbb);
 
         FuncDeclaration* invdecl;
         // class invariants
@@ -2235,16 +2233,15 @@ public:
 
         DValue* u = toElem(e->e1);
 
-        llvm::BasicBlock* oldend = p->scopeend();
-        llvm::BasicBlock* andand = llvm::BasicBlock::Create(gIR->context(), "andand", gIR->topfunc(), oldend);
-        llvm::BasicBlock* andandend = llvm::BasicBlock::Create(gIR->context(), "andandend", gIR->topfunc(), oldend);
+        llvm::BasicBlock* andand = llvm::BasicBlock::Create(gIR->context(), "andand", gIR->topfunc());
+        llvm::BasicBlock* andandend = llvm::BasicBlock::Create(gIR->context(), "andandend", gIR->topfunc());
 
         LLValue* ubool = DtoCast(e->loc, u, Type::tbool)->getRVal();
 
         llvm::BasicBlock* oldblock = p->scopebb();
         llvm::BranchInst::Create(andand, andandend, ubool, p->scopebb());
 
-        p->scope() = IRScope(andand, andandend);
+        p->scope() = IRScope(andand);
         emitCoverageLinecountInc(e->e2->loc);
         DValue* v = toElemDtor(e->e2);
 
@@ -2256,7 +2253,7 @@ public:
 
         llvm::BasicBlock* newblock = p->scopebb();
         llvm::BranchInst::Create(andandend,p->scopebb());
-        p->scope() = IRScope(andandend, oldend);
+        p->scope() = IRScope(andandend);
 
         LLValue* resval = 0;
         if (ubool == vbool || !vbool) {
@@ -2283,16 +2280,15 @@ public:
 
         DValue* u = toElem(e->e1);
 
-        llvm::BasicBlock* oldend = p->scopeend();
-        llvm::BasicBlock* oror = llvm::BasicBlock::Create(gIR->context(), "oror", gIR->topfunc(), oldend);
-        llvm::BasicBlock* ororend = llvm::BasicBlock::Create(gIR->context(), "ororend", gIR->topfunc(), oldend);
+        llvm::BasicBlock* oror = llvm::BasicBlock::Create(gIR->context(), "oror", gIR->topfunc());
+        llvm::BasicBlock* ororend = llvm::BasicBlock::Create(gIR->context(), "ororend", gIR->topfunc());
 
         LLValue* ubool = DtoCast(e->loc, u, Type::tbool)->getRVal();
 
         llvm::BasicBlock* oldblock = p->scopebb();
         llvm::BranchInst::Create(ororend,oror,ubool,p->scopebb());
 
-        p->scope() = IRScope(oror, ororend);
+        p->scope() = IRScope(oror);
         emitCoverageLinecountInc(e->e2->loc);
         DValue* v = toElemDtor(e->e2);
 
@@ -2304,7 +2300,7 @@ public:
 
         llvm::BasicBlock* newblock = p->scopebb();
         llvm::BranchInst::Create(ororend,p->scopebb());
-        p->scope() = IRScope(ororend, oldend);
+        p->scope() = IRScope(ororend);
 
         LLValue* resval = 0;
         if (ubool == vbool || !vbool) {
@@ -2375,9 +2371,8 @@ public:
         // this terminated the basicblock, start a new one
         // this is sensible, since someone might goto behind the assert
         // and prevents compiler errors if a terminator follows the assert
-        llvm::BasicBlock* oldend = gIR->scopeend();
-        llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "afterhalt", p->topfunc(), oldend);
-        p->scope() = IRScope(bb,oldend);
+        llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "afterhalt", p->topfunc());
+        p->scope() = IRScope(bb);
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////
@@ -2552,16 +2547,15 @@ public:
             retPtr = DtoAlloca(dtype->pointerTo(), "condtmp");
         }
 
-        llvm::BasicBlock* oldend = p->scopeend();
-        llvm::BasicBlock* condtrue = llvm::BasicBlock::Create(gIR->context(), "condtrue", gIR->topfunc(), oldend);
-        llvm::BasicBlock* condfalse = llvm::BasicBlock::Create(gIR->context(), "condfalse", gIR->topfunc(), oldend);
-        llvm::BasicBlock* condend = llvm::BasicBlock::Create(gIR->context(), "condend", gIR->topfunc(), oldend);
+        llvm::BasicBlock* condtrue = llvm::BasicBlock::Create(gIR->context(), "condtrue", gIR->topfunc());
+        llvm::BasicBlock* condfalse = llvm::BasicBlock::Create(gIR->context(), "condfalse", gIR->topfunc());
+        llvm::BasicBlock* condend = llvm::BasicBlock::Create(gIR->context(), "condend", gIR->topfunc());
 
         DValue* c = toElem(e->econd);
         LLValue* cond_val = DtoCast(e->loc, c, Type::tbool)->getRVal();
         llvm::BranchInst::Create(condtrue, condfalse, cond_val, p->scopebb());
 
-        p->scope() = IRScope(condtrue, condfalse);
+        p->scope() = IRScope(condtrue);
         DValue* u = toElemDtor(e->e1);
         if (retPtr) {
             LLValue* lval = makeLValue(e->loc, u);
@@ -2569,7 +2563,7 @@ public:
         }
         llvm::BranchInst::Create(condend, p->scopebb());
 
-        p->scope() = IRScope(condfalse, condend);
+        p->scope() = IRScope(condfalse);
         DValue* v = toElemDtor(e->e2);
         if (retPtr) {
             LLValue* lval = makeLValue(e->loc, v);
@@ -2577,7 +2571,7 @@ public:
         }
         llvm::BranchInst::Create(condend, p->scopebb());
 
-        p->scope() = IRScope(condend, oldend);
+        p->scope() = IRScope(condend);
         if (retPtr)
             result = new DVarValue(e->type, DtoLoad(retPtr));
         else

@@ -66,11 +66,10 @@ struct IrModule;
 struct IRScope
 {
     llvm::BasicBlock* begin;
-    llvm::BasicBlock* end;
     IRBuilder<> builder;
 
     IRScope();
-    IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
+    explicit IRScope(llvm::BasicBlock* b);
 
     const IRScope& operator=(const IRScope& rhs);
 };
@@ -146,7 +145,6 @@ struct IRState
     std::vector<IRScope> scopes;
     IRScope& scope();
     llvm::BasicBlock* scopebb();
-    llvm::BasicBlock* scopeend();
     bool scopereturned();
 
     // create a call or invoke, depending on the landing pad info
@@ -230,7 +228,7 @@ llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, const T &args, const
     if (hasTemporaries)
         funcGen.landingPadInfo.pop();
 
-    scope() = IRScope(postinvoke, landingPad);
+    scope() = IRScope(postinvoke);
     return invoke;
 }
 

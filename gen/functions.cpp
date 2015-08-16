@@ -794,10 +794,9 @@ void DtoDefineFunction(FuncDeclaration* fd)
 #endif
 
     llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "", func);
-    llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "endentry", func);
 
     //assert(gIR->scopes.empty());
-    gIR->scopes.push_back(IRScope(beginbb, endbb));
+    gIR->scopes.push_back(IRScope(beginbb));
 
     // create alloca point
     // this gets erased when the function is complete, so alignment etc does not matter at all
@@ -956,10 +955,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
     gIR->func()->allocapoint = 0;
 
     gIR->scopes.pop_back();
-
-    // get rid of the endentry block, it's never used
-    assert(!func->getBasicBlockList().empty());
-    func->getBasicBlockList().pop_back();
 
     gIR->functions.pop_back();
 }

@@ -119,7 +119,7 @@ void FuncGen::prepareToDestructAllTemporariesOnThrow(IRState* irState)
 
     // create landing pad
     llvm::BasicBlock* landingpadbb = llvm::BasicBlock::Create(irState->context(),
-        "temporariesLandingPad", irState->topfunc(), irState->scopeend());
+        "temporariesLandingPad", irState->topfunc());
 
     // set up the landing pad
     landingPadInfo.addFinally(callDestructors, /* deleteOnPop = */ true);

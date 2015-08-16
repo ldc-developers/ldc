@@ -28,20 +28,15 @@ TargetABI* gABI = 0;
 IRScope::IRScope()
     : builder(gIR->context())
 {
-    begin = end = NULL;
+    begin = NULL;
 }
 
-IRScope::IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e)
-    : builder(b)
-{
-    begin = b;
-    end = e;
-}
+IRScope::IRScope(llvm::BasicBlock* b)
+    : begin(b), builder(b) {}
 
 const IRScope& IRScope::operator=(const IRScope& rhs)
 {
     begin = rhs.begin;
-    end = rhs.end;
     builder.SetInsertPoint(begin);
     return *this;
 }
@@ -106,12 +101,7 @@ llvm::BasicBlock* IRState::scopebb()
     assert(s.begin);
     return s.begin;
 }
-llvm::BasicBlock* IRState::scopeend()
-{
-    IRScope& s = scope();
-    assert(s.end);
-    return s.end;
-}
+
 bool IRState::scopereturned()
 {
     //return scope().returned;
