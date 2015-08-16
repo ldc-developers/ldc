@@ -26,11 +26,10 @@
 #include <set>
 #include <sstream>
 #include <vector>
-
+#include "llvm/ADT/StringMap.h"
 #if LDC_LLVM_VER >= 305
 #include "llvm/IR/CallSite.h"
 #else
-#include <map>
 #include "llvm/Support/CallSite.h"
 #endif
 
@@ -187,15 +186,9 @@ struct IRState
     // variable is reused whenever the same string literal is
     // referenced in the module.  Caching them per module prevents the
     // duplication of identical literals.
-#if LDC_LLVM_VER >= 305
     llvm::StringMap<llvm::GlobalVariable*> stringLiteral1ByteCache;
     llvm::StringMap<llvm::GlobalVariable*> stringLiteral2ByteCache;
     llvm::StringMap<llvm::GlobalVariable*> stringLiteral4ByteCache;
-#else
-    std::map<llvm::StringRef, llvm::GlobalVariable*> stringLiteral1ByteCache;
-    std::map<llvm::StringRef, llvm::GlobalVariable*> stringLiteral2ByteCache;
-    std::map<llvm::StringRef, llvm::GlobalVariable*> stringLiteral4ByteCache;
-#endif
 
 #if LDC_LLVM_VER >= 303
     /// Vector of options passed to the linker as metadata in object file.

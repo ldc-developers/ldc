@@ -177,11 +177,7 @@ public:
         LLType* ct = voidToI8(DtoType(cty));
         LLArrayType* at = LLArrayType::get(ct,endlen);
 
-#if LDC_LLVM_VER >= 305
         llvm::StringMap<llvm::GlobalVariable*>* stringLiteralCache = 0;
-#else
-        std::map<llvm::StringRef, llvm::GlobalVariable*>* stringLiteralCache = 0;
-#endif
         LLConstant* _init;
         switch (cty->size())
         {
