@@ -236,6 +236,11 @@ DValue* DtoCastClass(Loc& loc, DValue* val, Type* _to)
         DImValue im(Type::tsize_t, v);
         return DtoCastInt(loc, &im, _to);
     }
+    // class -> typeof(null)
+    else if (to->ty == Tnull) {
+        IF_LOG Logger::println("to %s", to->toChars());
+        return new DImValue(_to, LLConstant::getNullValue(DtoType(_to)));
+    }
 
     // must be class/interface
     assert(to->ty == Tclass);
