@@ -410,7 +410,7 @@ public:
                 // We can turn this into a "nice" GEP.
                 result = llvm::ConstantExpr::getGetElementPtr(
 #if LDC_LLVM_VER >= 307
-                    LLType::getInt8Ty(gIR->context()),
+                    NULL,
 #endif
                     base,
                     DtoConstSize_t(e->offset / elemSize));
@@ -421,7 +421,7 @@ public:
                 // apply the byte offset.
                 result = llvm::ConstantExpr::getGetElementPtr(
 #if LDC_LLVM_VER >= 307
-                    getVoidPtrType(),
+                    NULL,
 #endif
                     DtoBitCast(base, getVoidPtrType()),
                     DtoConstSize_t(e->offset));
