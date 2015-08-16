@@ -925,11 +925,8 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(OnScopeStatement *stmt) LLVM_OVERRIDE {
-        IF_LOG Logger::println("OnScopeStatement::toIR(): %s", stmt->loc.toChars());
-        LOG_SCOPE;
-
-        assert(stmt->statement);
-        //statement->toIR(p); // this seems to be redundant
+        stmt->error("Internal Compiler Error: OnScopeStatement should have been lowered by frontend.");
+        fatal();
     }
 
     //////////////////////////////////////////////////////////////////////////
