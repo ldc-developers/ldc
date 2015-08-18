@@ -22,16 +22,6 @@
 #include "gen/llvm.h"
 #include "ir/irfuncty.h"
 
-// this is used for tracking try-finally scopes
-struct EnclosingTryFinally
-{
-    TryFinallyStatement* tf;
-    llvm::BasicBlock* landingPad;
-    void emitCode(IRState* p);
-    EnclosingTryFinally(TryFinallyStatement* _tf, llvm::BasicBlock* _pad)
-    : tf(_tf), landingPad(_pad) {}
-};
-
 // dynamic memory helpers
 LLValue* DtoNew(Loc& loc, Type* newtype);
 LLValue* DtoNewStruct(Loc& loc, TypeStruct* newtype);
@@ -54,12 +44,7 @@ void DtoAssert(Module* M, Loc& loc, DValue* msg);
 LLValue* DtoModuleFileName(Module* M, const Loc& loc);
 
 /// emits goto to LabelStatement with the target identifier
-/// the sourceFinally is only used for error checking
-void DtoGoto(Loc &loc, LabelDsymbol *target, TryFinallyStatement *sourceFinally);
-
-// Generates IR for enclosing handlers between the current state and
-// the scope created by the 'target' statement.
-void DtoEnclosingHandlers(Loc& loc, Statement* target);
+void DtoGoto(Loc &loc, LabelDsymbol *target);
 
 /// Enters a critical section.
 void DtoEnterCritical(Loc& loc, LLValue* g);

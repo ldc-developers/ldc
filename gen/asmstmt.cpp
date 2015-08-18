@@ -746,7 +746,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState* p)
             sw->addCase(LLConstantInt::get(llvm::IntegerType::get(gIR->context(), 32), it->second), casebb);
 
             p->scope() = IRScope(casebb);
-            DtoGoto(stmt->loc, it->first, stmt->enclosingFinally);
+            DtoGoto(stmt->loc, it->first);
         }
 
         p->scope() = IRScope(bb);

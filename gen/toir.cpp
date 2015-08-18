@@ -39,7 +39,6 @@
 #include "gen/warnings.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
-#include "ir/irlandingpad.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include <fstream>
@@ -267,15 +266,26 @@ class ToElemVisitor : public Visitor
 {
     IRState *p;
     bool destructTemporaries;
+    CleanupCursor initialCleanupScope;
     DValue *result;
 public:
     ToElemVisitor(IRState *p_, bool destructTemporaries_)
         : p(p_), destructTemporaries(destructTemporaries_), result(NULL)
     {
-        p->func()->gen->pushToElemScope();
+        initialCleanupScope = p->func()->scopes->currentCleanupScope();
     }
 
-    ~ToElemVisitor() { p->func()->gen->popToElemScope(destructTemporaries); }
+    ~ToElemVisitor()
+    {
+        if (destructTemporaries && p->func()->scopes->currentCleanupScope() != initialCleanupScope)
+        {
+            llvm::BasicBlock* endbb = llvm::BasicBlock::Create(
+                p->context(), "toElem.success", p->topfunc());
+            p->func()->scopes->runCleanups(initialCleanupScope, endbb);
+            p->func()->scopes->popCleanups(initialCleanupScope);
+            p->scope() = IRScope(endbb);
+        }
+    }
 
     DValue *getResult() { return result; }
 
@@ -300,7 +310,17 @@ public:
             {
                 VarDeclaration* vd = varValue->var;
                 if (!vd->isDataseg() && vd->edtor && !vd->noscope)
-                    p->func()->gen->pushTemporaryToDestruct(vd);
+                {
+                    llvm::BasicBlock* cleanupbb = llvm::BasicBlock::Create(
+                        p->context(), llvm::Twine("dtor.") + vd->toChars(), p->topfunc());
+
+                    // TODO: Clean this up with push/pop insertion point methods.
+                    IRScope oldScope = p->scope();
+                    p->scope() = IRScope(cleanupbb);
+                    toElemDtor(vd->edtor);
+                    p->func()->scopes->pushCleanup(cleanupbb, p->scopebb());
+                    p->scope() = oldScope;
+                }
             }
         }
     }
@@ -1148,13 +1168,13 @@ public:
         if (result)
             return;
 
-        VarDeclarations& temporaries = gIR->func()->gen->getTemporariesToDestruct();
-
+#if 0
         // check if we are about to construct a just declared temporary:
         //   MyStruct(myArgs) => (MyStruct tmp; tmp).this(myArgs)
+        const CleanupCursor temporaryScope = p->func()->scopes->currentCleanupScope();
         bool constructingTemporary = false;
-        if (!temporaries.empty() &&
-            dfnval && dfnval->func && dfnval->func->isCtorDeclaration())
+        if (temporaryScope != 0 && dfnval && dfnval->func &&
+            dfnval->func->isCtorDeclaration())
         {
             DotVarExp* dve = static_cast<DotVarExp*>(e->e1);
             if (dve->e1->op == TOKcomma)
@@ -1175,17 +1195,19 @@ public:
         // i.e., don't destruct the temporary if its constructor throws
         // (DMD issue 13095)
         // => remember position in stack and pop temporarily
-        int indexOfTemporary      = (!constructingTemporary ? -1
-            : static_cast<int>(temporaries.size()) - 1);
-        VarDeclaration* temporary = (!constructingTemporary ? NULL
-            : temporaries.pop());
-
+        if (constructingTemporary) {
+            p->func()->scopes->suspendCleanup(temporaryScope);
+        }
+#endif
         result = DtoCallFunction(e->loc, e->type, fnval, e->arguments);
 
+#if 0
         // insert the now fully constructed temporary at the original index;
         // i.e., before any new temporaries pushed by DtoCallFunction()
-        if (constructingTemporary)
-            temporaries.insert(indexOfTemporary, temporary);
+        if (constructingTemporary) {
+            p->func()->scopes->resumeCleanup(temporaryScope);
+        }
+#endif
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////

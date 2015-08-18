@@ -42,23 +42,6 @@ const IRScope& IRScope::operator=(const IRScope& rhs)
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
-
-IRTargetScope::IRTargetScope(
-    Statement* s,
-    EnclosingTryFinally* enclosinghandler,
-    llvm::BasicBlock* continueTarget,
-    llvm::BasicBlock* breakTarget,
-    bool onlyLabeledBreak
-)
-{
-    this->s = s;
-    this->enclosinghandler = enclosinghandler;
-    this->breakTarget = breakTarget;
-    this->continueTarget = continueTarget;
-    this->onlyLabeledBreak = onlyLabeledBreak;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
 IRState::IRState(const char *name, llvm::LLVMContext &context)
     : module(name, context), DBuilder(this)
 {

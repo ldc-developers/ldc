@@ -201,20 +201,20 @@ struct IRState
 template <typename T>
 llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, const T &args, const char* Name)
 {
-    FuncGen& funcGen = *func()->gen;
+    //ScopeStack& funcGen = *func()->scopes;
     LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee);
 
-    const bool hasTemporaries = funcGen.hasTemporariesToDestruct();
+    /*const bool hasTemporaries = funcGen.hasTemporariesToDestruct();
     // intrinsics don't support invoking and 'nounwind' functions don't need it.
     const bool doesNotThrow = (fn && (fn->isIntrinsic() || fn->doesNotThrow()));
 
     if (doesNotThrow || (!hasTemporaries && funcGen.landingPad == NULL))
-    {
+    {*/
         llvm::CallInst* call = ir->CreateCall(Callee, args, Name);
         if (fn)
             call->setAttributes(fn->getAttributes());
         return call;
-    }
+    /*}
 
     if (hasTemporaries)
         funcGen.prepareToDestructAllTemporariesOnThrow(this);
@@ -229,10 +229,9 @@ llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, const T &args, const
         funcGen.landingPadInfo.pop();
 
     scope() = IRScope(postinvoke);
-    return invoke;
+    return invoke;*/
 }
 
-void codegenFunction(Statement *s, IRState *irs);
 void Statement_toIR(Statement *s, IRState *irs);
 
 #endif // LDC_GEN_IRSTATE_H
