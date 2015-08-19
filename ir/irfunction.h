@@ -105,7 +105,7 @@ public:
         beginBlock(beginBlock), endBlock(endBlock), branchSelector(0) {}
 
     /// The basic block to branch to for running the cleanup.
-    llvm::BasicBlock* const beginBlock;
+    llvm::BasicBlock* beginBlock;
 
     /// The basic block that contains the end of the cleanuip code (is different
     /// from beginBlock if the cleanup contains control flow).
