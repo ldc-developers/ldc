@@ -276,19 +276,32 @@ public:
         initialCleanupScope = p->func()->scopes->currentCleanupScope();
     }
 
-    ~ToElemVisitor()
-    {
-        if (destructTemporaries && p->func()->scopes->currentCleanupScope() != initialCleanupScope)
-        {
+    DValue *getResult() {
+        if (destructTemporaries &&
+            p->func()->scopes->currentCleanupScope() != initialCleanupScope
+        ) {
+            // If the results is an (LLVM) r-value, temporarily store it in an
+            // alloca slot to avoid running into instruction dominance issues
+            // if we share the cleanups with another exit path (e.g. unwinding).
+            if (result && result->getType()->ty != Tvoid &&
+                (result->isIm() || result->isSlice())
+            ) {
+                llvm::AllocaInst* alloca = DtoAlloca(result->getType());
+                DtoStoreZextI8(result->getRVal(), alloca);
+                result = new DVarValue(result->getType(), alloca);
+            }
+
             llvm::BasicBlock* endbb = llvm::BasicBlock::Create(
                 p->context(), "toElem.success", p->topfunc());
             p->func()->scopes->runCleanups(initialCleanupScope, endbb);
             p->func()->scopes->popCleanups(initialCleanupScope);
             p->scope() = IRScope(endbb);
-        }
-    }
 
-    DValue *getResult() { return result; }
+            destructTemporaries = false;
+        }
+
+        return result;
+    }
 
     //////////////////////////////////////////////////////////////////////////////////////////
 
