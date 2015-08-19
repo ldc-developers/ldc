@@ -19,6 +19,7 @@
 #include "llvm/ADT/DenseMap.h"
 #include "llvm/ADT/DenseMapInfo.h"
 #include "gen/llvm.h"
+#include "gen/irstate.h"
 #include "ir/irfuncty.h"
 #include <map>
 #include <stack>
@@ -26,7 +27,6 @@
 
 class Identifier;
 class Statement;
-struct IRState;
 
 /// Represents a position on the stack of currently active cleanup scopes.
 ///
@@ -105,7 +105,7 @@ public:
         beginBlock(beginBlock), endBlock(endBlock), branchSelector(0) {}
 
     /// The basic block to branch to for running the cleanup.
-    llvm::BasicBlock* beginBlock;
+    llvm::BasicBlock* const beginBlock;
 
     /// The basic block that contains the end of the cleanuip code (is different
     /// from beginBlock if the cleanup contains control flow).
@@ -123,6 +123,24 @@ public:
     /// have not found the label yet (because it occurs lexically later in the
     /// function).
     std::vector<GotoJump> unresolvedGotos;
+
+    /// Caches landing pads generated for catches at this cleanup scope level
+    /// (null if not yet emitted, one element is pushed to/popped from the back
+    /// on entering/leaving a catch block).
+    std::vector<llvm::BasicBlock*> landingPads;
+};
+
+///
+struct CatchScope {
+    /// The ClassInfo reference corresponding to the type to match the
+    /// exception object against.
+    llvm::Constant* classInfoPtr;
+
+    /// The block to branch to if the exception type matches.
+    llvm::BasicBlock* bodyBlock;
+
+    /// The cleanup scope level corresponding to this catch.
+    CleanupCursor cleanupScope;
 };
 
 /// Contains transitory information about the current scope, etc. while
@@ -140,20 +158,24 @@ public:
     void pushCleanup(llvm::BasicBlock* beginBlock, llvm::BasicBlock* endBlock);
 
     /// Terminates the current IRScope with a branch to the cleanups needed for
-    /// leaving the given scope and continuing execution at the target scope
+    /// leaving the current scope and continuing execution at the target scope
     /// stack level.
     ///
     /// After running them, execution will branch to the given basic block.
-    void runCleanups(CleanupCursor targetScope, llvm::BasicBlock* continueWith);
+    void runCleanups(CleanupCursor targetScope, llvm::BasicBlock* continueWith) {
+        runCleanups(currentCleanupScope(), targetScope, continueWith);
+    }
 
     /// Like #runCleanups(), but runs all of them.
     void runAllCleanups(llvm::BasicBlock* continueWith);
 
     /// Pops all the cleanups between the current scope and the target cursor.
+    ///
+    /// This does not insert any cleanup calls, use #runCleanups() beforehand.
     void popCleanups(CleanupCursor targetScope);
 
     /// Returns a cursor that identifies the curernt cleanup scope, to be later
-    /// userd with #popCleanups() et al.
+    /// userd with #runCleanups() et al.
     ///
     /// Note that this cursor is only valid as long as the current scope is not
     /// popped.
@@ -166,11 +188,16 @@ public:
 #endif
 
     ///
-    void pushCatch(llvm::Value* classInfoPtr, llvm::Value* exceptionVar,
-        llvm::BasicBlock* bodyBlock) {}
+    void pushCatch(llvm::Constant* classInfoPtr, llvm::BasicBlock* bodyBlock);
 
     ///
-    void popCatch() {}
+    void popCatch();
+
+    /// Emits a call or invoke to the given callee, depending on whether there
+    /// are catches/cleanups active or not.
+    template <typename T>
+    llvm::CallSite callOrInvoke(llvm::Value* callee, const T &args,
+        const char* name = "");
 
     ///
     void pushLoopTarget(Statement* loopStatement, llvm::BasicBlock* continueTarget,
@@ -213,12 +240,26 @@ public:
     }
 
 private:
+    /// Internal version that allows specifying the scope at which to start
+    /// emitting the cleanups.
+    void runCleanups(CleanupCursor sourceScope, CleanupCursor targetScope,
+        llvm::BasicBlock* continueWith);
+
     std::vector<GotoJump>& currentUnresolvedGotos();
 
+    std::vector<llvm::BasicBlock*>& currentLandingPads();
+
+    /// Emits a landing pad to honor all the active cleanups and catches.
+    llvm::BasicBlock* emitLandingPad();
+
+    /// Unified implementation for labeled break/continue.
     void jumpToStatement(std::vector<JumpTarget>& targets, Statement* loopOrSwitchStatement);
 
+    /// Unified implementation for unlabeled break/continue.
     void jumpToClosest(std::vector<JumpTarget>& targets);
 
+    /// The ambient IRState. For legacy reasons, there is currently a cyclic
+    /// dependency between the two.
     IRState *irs;
 
     typedef llvm::DenseMap<Identifier*, JumpTarget> LabelTargetMap;
@@ -235,11 +276,19 @@ private:
     ///
     std::vector<CleanupScope> cleanupScopes;
 
+    ///
+    std::vector<CatchScope> catchScopes;
+
     /// Gotos which we were not able to resolve to any cleanup scope, but which
     /// might still be defined later in the function at top level. If there are
     /// any left on function exit, it is an error (e.g. because the user tried
     /// to goto into a finally block, etc.).
     std::vector<GotoJump> topLevelUnresolvedGotos;
+
+    /// Caches landing pads generated for catches without any cleanups to run
+    /// (null if not yet emitted, one element is pushed to/popped from the back
+    /// on entering/leaving a catch block).
+    std::vector<llvm::BasicBlock*> topLevelLandingPads;
 
 #if 0
     /// To be able to handle the broken AST the frontend produces in some cases
@@ -251,6 +300,49 @@ private:
 #endif
 };
 
+template <typename T>
+llvm::CallSite ScopeStack::callOrInvoke(llvm::Value* callee, const T &args,
+    const char* name
+) {
+    // If this is a direct call, we might be able to use the callee attributes
+    // to our advantage.
+    llvm::Function* calleeFn = llvm::dyn_cast<llvm::Function>(callee);
+
+    // Intrinsics don't support invoking and 'nounwind' functions don't need it.
+    const bool doesNotThrow = calleeFn &&
+        (calleeFn->isIntrinsic() || calleeFn->doesNotThrow());
+
+    if (doesNotThrow || (cleanupScopes.empty() && catchScopes.empty())) {
+        llvm::CallInst* call = irs->ir->CreateCall(callee, args, name);
+        if (calleeFn) {
+            call->setAttributes(calleeFn->getAttributes());
+        }
+        return call;
+    }
+
+    if (currentLandingPads().empty()) {
+        // Have not encountered.
+        currentLandingPads().push_back(0);
+    }
+
+    llvm::BasicBlock*& landingPad = currentLandingPads().back();
+    if (!landingPad) {
+        landingPad = emitLandingPad();
+    }
+
+    llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create(irs->context(),
+        "postinvoke", irs->topfunc(), landingPad);
+    llvm::InvokeInst* invoke = irs->ir->CreateInvoke(callee, postinvoke,
+        landingPad, args, name);
+
+    if (calleeFn) {
+        invoke->setAttributes(calleeFn->getAttributes());
+    }
+
+    irs->scope() = IRScope(postinvoke);
+    return invoke;
+}
+
 // represents a function
 struct IrFunction {
     // constructor
@@ -259,6 +351,8 @@ struct IrFunction {
     // annotations
     void setNeverInline();
     void setAlwaysInline();
+
+    llvm::AllocaInst* getOrCreateEhPtrSlot();
 
     llvm::Function* func;
     llvm::Instruction* allocapoint;
@@ -284,10 +378,25 @@ struct IrFunction {
     llvm::Value* _arguments;
     llvm::Value* _argptr;
 
-    // A stack slot containing the return value, for functions that return by value.
+    /// A stack slot containing the return value, for functions that return by value.
     llvm::AllocaInst* retValSlot;
-    // The basic block with the return instruction.
+    /// The basic block with the return instruction.
     llvm::BasicBlock* retBlock;
+
+    /// A stack slot containing the exception object pointer while a landing pad
+    /// is active. Need this because the instruction must dominate all uses as a
+    /// _d_eh_resume_unwind parameter, but if we take a select at the end on a
+    /// cleanup on the way there, it also must dominate all other precedessors
+    /// of the cleanup. Thus, we just create an alloca at the start of the
+    /// function.
+    llvm::AllocaInst* ehPtrSlot;
+    /// The basic block with the return instruction. Because of
+    /// ehPtrSlot, we do not need more than one, so might as well
+    /// cache it.
+    llvm::BasicBlock* resumeUnwindBlock;
+
+    /// Similar story to ehPtrSlot, but for the selector value.
+    llvm::AllocaInst* ehSelectorSlot;
 
 #if LDC_LLVM_VER >= 307
     llvm::DISubprogram* diSubprogram = nullptr;

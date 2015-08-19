@@ -35,6 +35,7 @@
 #include "gen/functions.h"
 
 #include "ir/iraggr.h"
+#include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 
 //////////////////////////////////////////////////////////////////////////////

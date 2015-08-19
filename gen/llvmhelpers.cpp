@@ -29,6 +29,7 @@
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
 #include "gen/abi.h"
+#include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "ir/irtypeaggr.h"
 #include "llvm/MC/MCAsmInfo.h"
@@ -85,40 +86,34 @@ LLValue* DtoNewStruct(Loc& loc, TypeStruct* newtype)
 
 void DtoDeleteMemory(Loc& loc, DValue* ptr)
 {
-    // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delmemory");
-    // build args
     LLValue* lval = (ptr->isLVal() ? ptr->getLVal() : makeLValue(loc, ptr));
-    LLValue* arg[] = { DtoBitCast(lval, fn->getFunctionType()->getParamType(0)) };
-    // call
-    gIR->CreateCallOrInvoke(fn, arg);
+    gIR->CreateCallOrInvoke(fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
 void DtoDeleteStruct(Loc& loc, DValue* ptr)
 {
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delstruct");
     LLValue* lval = (ptr->isLVal() ? ptr->getLVal() : makeLValue(loc, ptr));
-    LLValue* arg[] = {
+    gIR->CreateCallOrInvoke(
+        fn,
         DtoBitCast(lval, fn->getFunctionType()->getParamType(0)),
         DtoBitCast(DtoTypeInfoOf(ptr->type->nextOf()), fn->getFunctionType()->getParamType(1))
-    };
-    gIR->CreateCallOrInvoke(fn, arg);
+    );
 }
 
 void DtoDeleteClass(Loc& loc, DValue* inst)
 {
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delclass");
     LLValue* lval = (inst->isLVal() ? inst->getLVal() : makeLValue(loc, inst));
-    LLValue* arg[] = { DtoBitCast(lval, fn->getFunctionType()->getParamType(0)) };
-    gIR->CreateCallOrInvoke(fn, arg);
+    gIR->CreateCallOrInvoke(fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
 void DtoDeleteInterface(Loc& loc, DValue* inst)
 {
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delinterface");
     LLValue* lval = (inst->isLVal() ? inst->getLVal() : makeLValue(loc, inst));
-    LLValue* arg[] = { DtoBitCast(lval, fn->getFunctionType()->getParamType(0)) };
-    gIR->CreateCallOrInvoke(fn, arg);
+    gIR->CreateCallOrInvoke(fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
 void DtoDeleteArray(Loc& loc, DValue* arr)
@@ -132,11 +127,11 @@ void DtoDeleteArray(Loc& loc, DValue* arr)
     LLValue* typeInfo = (!hasDtor ? getNullPtr(fty->getParamType(1)) : DtoTypeInfoOf(elementType));
 
     LLValue* lval = (arr->isLVal() ? arr->getLVal() : makeLValue(loc, arr));
-    LLValue* arg[] = {
+    gIR->CreateCallOrInvoke(
+        fn,
         DtoBitCast(lval, fty->getParamType(0)),
         DtoBitCast(typeInfo, fty->getParamType(1))
-    };
-    gIR->CreateCallOrInvoke(fn, arg);
+    );
 }
 
 /****************************************************************************************/
@@ -206,7 +201,7 @@ void DtoAssert(Module* M, Loc& loc, DValue* msg)
     args.push_back(DtoConstUint(loc.linnum));
 
     // call
-    gIR->CreateCallOrInvoke(fn, args);
+    gIR->func()->scopes->callOrInvoke(fn, args);
 
     // after assert is always unreachable
     gIR->ir->CreateUnreachable();

@@ -15,6 +15,7 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "gen/optimizer.h"
+#include "ir/irfunction.h"
 #include "ir/irtypeaggr.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"

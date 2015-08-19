@@ -14,6 +14,10 @@
 #ifndef LDC_IR_IRMODULE_H
 #define LDC_IR_IRMODULE_H
 
+#include <list>
+
+class FuncDeclaration;
+class VarDeclaration;
 class Module;
 namespace llvm {
 class GlobalVariable;

@@ -22,6 +22,7 @@
 #include "gen/logger.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #include "ir/irmodule.h"
 
 static void DtoSetArray(DValue* array, LLValue* dim, LLValue* ptr);
@@ -206,7 +207,7 @@ static void copySlice(Loc& loc, LLValue* dstarr, LLValue* sz1, LLValue* srcarr, 
     if (checksEnabled && !knownInBounds)
     {
         LLValue* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_array_slice_copy");
-        gIR->CreateCallOrInvoke4(fn, dstarr, sz1, srcarr, sz2);
+        gIR->CreateCallOrInvoke(fn, dstarr, sz1, srcarr, sz2);
     }
     else
     {
@@ -295,12 +296,12 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
         else if (isConstructing)
         {
             LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arrayctor");
-            LLValue* args[] = {
+            LLCallSite call = gIR->CreateCallOrInvoke(
+                fn,
                 DtoTypeInfoOf(elemType),
                 DtoSlice(rhsPtr, rhsLength),
                 DtoSlice(lhsPtr, lhsLength)
-            };
-            LLCallSite call = gIR->CreateCallOrInvoke(fn, args);
+            );
             call.setCallingConv(llvm::CallingConv::C);
         }
         else // assigning
@@ -308,13 +309,13 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
             LLValue* tmpSwap = DtoAlloca(elemType, "arrayAssign.tmpSwap");
             LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module,
                 !canSkipPostblit ? "_d_arrayassign_l" : "_d_arrayassign_r");
-            LLValue* args[] = {
+            LLCallSite call = gIR->CreateCallOrInvoke(
+                fn,
                 DtoTypeInfoOf(elemType),
                 DtoSlice(rhsPtr, rhsLength),
                 DtoSlice(lhsPtr, lhsLength),
                 DtoBitCast(tmpSwap, getVoidPtrType())
-            };
-            LLCallSite call = gIR->CreateCallOrInvoke(fn, args);
+            );
             call.setCallingConv(llvm::CallingConv::C);
         }
     }
@@ -338,13 +339,13 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
         {
             LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module,
                 isConstructing ? "_d_arraysetctor" : "_d_arraysetassign");
-            LLValue* args[] = {
+            LLCallSite call = gIR->CreateCallOrInvoke(
+                fn,
                 lhsPtr,
                 DtoBitCast(makeLValue(loc, rhs), getVoidPtrType()),
                 gIR->ir->CreateTruncOrBitCast(lhsLength, LLType::getInt32Ty(gIR->context())),
                 DtoTypeInfoOf(stripModifiers(t2))
-            };
-            LLCallSite call = gIR->CreateCallOrInvoke(fn, args);
+            );
             call.setCallingConv(llvm::CallingConv::C);
         }
     }
@@ -648,7 +649,7 @@ DSliceValue* DtoNewDynArray(Loc& loc, Type* arrayType, DValue* dim, bool default
     LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, fnname);
 
     // call allocator
-    LLValue* newArray = gIR->CreateCallOrInvoke2(fn, arrayTypeInfo, arrayLen, ".gc_mem").getInstruction();
+    LLValue* newArray = gIR->CreateCallOrInvoke(fn, arrayTypeInfo, arrayLen, ".gc_mem").getInstruction();
 
     return getSlice(arrayType, newArray);
 }
@@ -709,13 +710,12 @@ DSliceValue* DtoNewMulDimDynArray(Loc& loc, Type* arrayType, DValue** dims, size
     DtoStore(DtoConstSize_t(ndims), DtoGEPi(darray, 0, 0, ".len"));
     DtoStore(DtoBitCast(array, getPtrToType(DtoSize_t())), DtoGEPi(darray, 0, 1, ".ptr"));
 
-    llvm::Value* args[] = {
-        arrayTypeInfo,
-        DtoLoad(darray)
-    };
-
     // call allocator
-    LLValue* newptr = gIR->CreateCallOrInvoke(fn, args, ".gc_mem").getInstruction();
+    LLValue* newptr = gIR->CreateCallOrInvoke(fn,
+        arrayTypeInfo,
+        DtoLoad(darray),
+        ".gc_mem"
+    ).getInstruction();
 
     IF_LOG Logger::cout() << "final ptr = " << *newptr << '\n';
 
@@ -739,12 +739,13 @@ DSliceValue* DtoResizeDynArray(Loc& loc, Type* arrayType, DValue* array, LLValue
     // call runtime
     LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, zeroInit ? "_d_arraysetlengthT" : "_d_arraysetlengthiT" );
 
-    LLValue* args[] = {
+    LLValue* newArray = gIR->CreateCallOrInvoke(
+        fn,
         DtoTypeInfoOf(arrayType),
         newdim,
-        DtoBitCast(array->getLVal(), fn->getFunctionType()->getParamType(2))
-    };
-    LLValue* newArray = gIR->CreateCallOrInvoke(fn, args, ".gc_mem").getInstruction();
+        DtoBitCast(array->getLVal(), fn->getFunctionType()->getParamType(2)),
+        ".gc_mem")
+    .getInstruction();
 
     return getSlice(arrayType, newArray);
 }
@@ -765,13 +766,13 @@ void DtoCatAssignElement(Loc& loc, Type* arrayType, DValue* array, Expression* e
     DValue *expVal = toElem(exp);
 
     LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arrayappendcTX");
-    LLValue* args[] = {
+    LLValue* appendedArray = gIR->CreateCallOrInvoke(
+        fn,
         DtoTypeInfoOf(arrayType),
         DtoBitCast(array->getLVal(), fn->getFunctionType()->getParamType(1)),
-        DtoConstSize_t(1)
-    };
-
-    LLValue* appendedArray = gIR->CreateCallOrInvoke(fn, args, ".appendedArray").getInstruction();
+        DtoConstSize_t(1),
+        ".appendedArray"
+    ).getInstruction();
     appendedArray = DtoAggrPaint(appendedArray, DtoType(arrayType));
 
     LLValue* val = DtoArrayPtr(array);
@@ -788,20 +789,15 @@ DSliceValue* DtoCatAssignArray(Loc& loc, DValue* arr, Expression* exp)
     LOG_SCOPE;
     Type *arrayType = arr->getType();
 
-    // Prepare arguments
     LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arrayappendT");
-    LLSmallVector<LLValue*,3> args;
-    // TypeInfo ti
-    args.push_back(DtoTypeInfoOf(arrayType));
-    // byte[] *px
-    args.push_back(DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(1)));
-    // byte[] y
-    LLValue *y = DtoSlice(toElem(exp));
-    y = DtoAggrPaint(y, fn->getFunctionType()->getParamType(2));
-    args.push_back(y);
-
-    // Call _d_arrayappendT
-    LLValue* newArray = gIR->CreateCallOrInvoke(fn, args, ".appendedArray").getInstruction();
+    // Call _d_arrayappendT(TypeInfo ti, byte[] *px, byte[] y)
+    LLValue* newArray = gIR->CreateCallOrInvoke(
+        fn,
+        DtoTypeInfoOf(arrayType),
+        DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(1)),
+        DtoAggrPaint(DtoSlice(toElem(exp)), fn->getFunctionType()->getParamType(2)),
+        ".appendedArray"
+    ).getInstruction();
 
     return getSlice(arrayType, newArray);
 }
@@ -873,7 +869,7 @@ DSliceValue* DtoCatArrays(Loc& loc, Type* arrayType, Expression* exp1, Expressio
         args.push_back(val);
     }
 
-    LLValue *newArray = gIR->CreateCallOrInvoke(fn, args, ".appendedArray").getInstruction();
+    LLValue *newArray = gIR->func()->scopes->callOrInvoke(fn, args, ".appendedArray").getInstruction();
     return getSlice(arrayType, newArray);
 }
 
@@ -886,15 +882,13 @@ DSliceValue* DtoAppendDChar(Loc& loc, DValue* arr, Expression* exp, const char *
 
     // Prepare arguments
     LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, func);
-    LLValue* args[] = {
-        // ref string x
-        DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(0)),
-        // dchar c
-        DtoBitCast(valueToAppend->getRVal(), fn->getFunctionType()->getParamType(1))
-    };
 
-    // Call function
-    LLValue* newArray = gIR->CreateCallOrInvoke(fn, args, ".appendedArray").getInstruction();
+    // Call function (ref string x, dchar c)
+    LLValue* newArray = gIR->CreateCallOrInvoke(fn,
+        DtoBitCast(arr->getLVal(), fn->getFunctionType()->getParamType(0)),
+        DtoBitCast(valueToAppend->getRVal(), fn->getFunctionType()->getParamType(1)),
+        ".appendedArray"
+    ).getInstruction();
 
     return getSlice(arrayType, newArray);
 }
@@ -946,9 +940,7 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
         args.push_back(DtoBitCast(tival, fn->getFunctionType()->getParamType(2)));
     }
 
-    LLCallSite call = gIR->CreateCallOrInvoke(fn, args);
-
-    return call.getInstruction();
+    return gIR->func()->scopes->callOrInvoke(fn, args).getInstruction();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -998,14 +990,13 @@ LLValue* DtoArrayCastLength(Loc& loc, LLValue* len, LLType* elemty, LLType* newe
     if (esz == nsz)
         return len;
 
-    LLValue* args[] = {
+    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_array_cast_len");
+    return gIR->CreateCallOrInvoke(
+        fn,
         len,
         LLConstantInt::get(DtoSize_t(), esz, false),
         LLConstantInt::get(DtoSize_t(), nsz, false)
-    };
-
-    LLFunction* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_array_cast_len");
-    return gIR->CreateCallOrInvoke(fn, args).getInstruction();
+    ).getInstruction();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1241,19 +1232,12 @@ void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBoun
 
     gIR->scope() = IRScope(failbb);
 
-    std::vector<LLValue*> args;
-
-    // file param
-    Module* funcmodule = gIR->func()->decl->getModule();
-    args.push_back(DtoModuleFileName(funcmodule, loc));
-
-    // line param
-    LLConstant* c = DtoConstUint(loc.linnum);
-    args.push_back(c);
-
-    // call
     llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arraybounds");
-    gIR->CreateCallOrInvoke(errorfn, args);
+    gIR->CreateCallOrInvoke(
+        errorfn,
+        DtoModuleFileName(gIR->func()->decl->getModule(), loc),
+        DtoConstUint(loc.linnum)
+    );
 
     // the function does not return
     gIR->ir->CreateUnreachable();

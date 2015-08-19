@@ -10,6 +10,7 @@
 #include "gen/llvm.h"
 #include "gen/llvmhelpers.h"
 #include "gen/irstate.h"
+#include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
@@ -32,7 +33,7 @@ void executeCleanup(IRState *irs, CleanupScope& scope,
             scope.exitTargets.push_back(CleanupExitTarget(continueWith));
             llvm::BranchInst::Create(continueWith, scope.endBlock);
         }
-        scope.exitTargets.front().sourceBlocks.push_back(sourceBlock);       
+        scope.exitTargets.front().sourceBlocks.push_back(sourceBlock);
         return;
     }
 
@@ -120,15 +121,17 @@ void ScopeStack::pushCleanup(llvm::BasicBlock* beginBlock, llvm::BasicBlock* end
     cleanupScopes.push_back(CleanupScope(beginBlock, endBlock));
 }
 
-void ScopeStack::runCleanups(CleanupCursor targetScope,
+void ScopeStack::runCleanups(
+    CleanupCursor sourceScope,
+    CleanupCursor targetScope,
     llvm::BasicBlock* continueWith
 ) {
-    assert(targetScope <= currentCleanupScope());
+    assert(targetScope <= sourceScope);
 
-    if (targetScope == currentCleanupScope()) {
+    if (targetScope == sourceScope) {
         // No cleanups to run, just branch to the next block.
         llvm::BranchInst::Create(continueWith, irs->scopebb());
-        return;   
+        return;
     }
 
     // Insert the unconditional branch to the first cleanup block.
@@ -136,7 +139,7 @@ void ScopeStack::runCleanups(CleanupCursor targetScope,
 
     // Update all the control flow in the cleanups to make sure we end up where
     // we want.
-    for (CleanupCursor i = currentCleanupScope(); i-- > targetScope;) {
+    for (CleanupCursor i = sourceScope; i-- > targetScope;) {
         llvm::BasicBlock *nextBlock = (i > targetScope) ?
             cleanupScopes[i - 1].beginBlock : continueWith;
         executeCleanup(irs, cleanupScopes[i], irs->scopebb(), nextBlock);
@@ -175,6 +178,18 @@ void ScopeStack::popCleanups(CleanupCursor targetScope) {
 
         cleanupScopes.pop_back();
     }
+}
+
+void ScopeStack::pushCatch(llvm::Constant* classInfoPtr,
+    llvm::BasicBlock* bodyBlock
+) {
+    catchScopes.push_back({classInfoPtr, bodyBlock, currentCleanupScope()});
+    currentLandingPads().push_back(0);
+}
+
+void ScopeStack::popCatch() {
+    catchScopes.pop_back();
+    currentLandingPads().pop_back();
 }
 
 void ScopeStack::pushLoopTarget(Statement* loopStatement, llvm::BasicBlock* continueTarget,
@@ -258,8 +273,129 @@ void ScopeStack::jumpToClosest(std::vector<JumpTarget>& targets) {
 std::vector<GotoJump>& ScopeStack::currentUnresolvedGotos() {
     return cleanupScopes.empty() ?
         topLevelUnresolvedGotos :
-        cleanupScopes.back().unresolvedGotos;  
-} 
+        cleanupScopes.back().unresolvedGotos;
+}
+
+std::vector<llvm::BasicBlock*>& ScopeStack::currentLandingPads() {
+    return cleanupScopes.empty() ?
+        topLevelLandingPads :
+        cleanupScopes.back().landingPads;
+}
+
+namespace {
+llvm::LandingPadInst* createLandingPadInst(IRState *irs) {
+    LLType* retType = LLStructType::get(LLType::getInt8PtrTy(irs->context()),
+                                        LLType::getInt32Ty(irs->context()),
+                                        NULL);
+#if LDC_LLVM_VER >= 307
+    LLFunction* currentFunction = irs->func()->func;
+    if (!currentFunction->hasPersonalityFn()) {
+        LLFunction* personalityFn = LLVM_D_GetRuntimeFunction(Loc(), irs->module, "_d_eh_personality");
+        currentFunction->setPersonalityFn(personalityFn);
+    }
+    return irs->ir->CreateLandingPad(retType, 0);
+#else
+    LLFunction* personalityFn = LLVM_D_GetRuntimeFunction(Loc(), irs->module, "_d_eh_personality");
+    return irs->ir->CreateLandingPad(retType, personalityFn, 0);
+#endif
+}
+}
+
+llvm::BasicBlock* ScopeStack::emitLandingPad() {
+    // save and rewrite scope
+    IRScope savedIRScope = irs->scope();
+
+    llvm::BasicBlock *beginBB = llvm::BasicBlock::Create(irs->context(),
+        "landingPad", irs->topfunc());
+    irs->scope() = IRScope(beginBB);
+
+    llvm::LandingPadInst *landingPad = createLandingPadInst(irs);
+
+    // Stash away the exception object pointer and selector value into their
+    // stack slots.
+    llvm::Value* ehPtr = DtoExtractValue(landingPad, 0);
+    if (!irs->func()->resumeUnwindBlock) {
+        irs->func()->resumeUnwindBlock = llvm::BasicBlock::Create(
+            irs->context(),
+            "unwind.resume",
+            irs->topfunc()
+        );
+
+        llvm::BasicBlock *oldBB = irs->scopebb();
+        irs->scope() = IRScope(irs->func()->resumeUnwindBlock);
+
+        llvm::Function* resumeFn = LLVM_D_GetRuntimeFunction(Loc(),
+            irs->module, "_d_eh_resume_unwind");
+        irs->ir->CreateCall(resumeFn,
+            irs->ir->CreateLoad(irs->func()->getOrCreateEhPtrSlot()));
+        irs->ir->CreateUnreachable();
+
+        irs->scope() = IRScope(oldBB);
+    }
+    irs->ir->CreateStore(ehPtr, irs->func()->getOrCreateEhPtrSlot());
+
+    llvm::Value* ehSelector = DtoExtractValue(landingPad, 1);
+    if (!irs->func()->ehSelectorSlot) {
+        irs->func()->ehSelectorSlot =
+            DtoRawAlloca(ehSelector->getType(), 0, "eh.selector");
+    }
+    irs->ir->CreateStore(ehSelector, irs->func()->ehSelectorSlot);
+
+    // Add landingpad clauses, emit finallys and 'if' chain to catch the exception,
+    CleanupCursor lastCleanup = currentCleanupScope();
+    for (std::vector<CatchScope>::reverse_iterator it = catchScopes.rbegin(),
+                                                   end = catchScopes.rend();
+        it != end; ++it
+    ) {
+        // Insert any cleanups in between the last catch we ran and this one.
+        if (lastCleanup > it->cleanupScope) {
+            landingPad->setCleanup(true);
+            llvm::BasicBlock* afterCleanupBB = llvm::BasicBlock::Create(
+                irs->context(),
+                beginBB->getName() + llvm::Twine(".after.cleanup"),
+                irs->topfunc()
+            );
+            runCleanups(lastCleanup, it->cleanupScope, afterCleanupBB);
+            irs->scope() = IRScope(afterCleanupBB);
+            lastCleanup = it->cleanupScope;
+        }
+
+        // Add the ClassInfo reference to the landingpad instruction so it is
+        // emitted to the EH tables.
+        landingPad->addClause(it->classInfoPtr);
+
+        llvm::BasicBlock *mismatchBB = llvm::BasicBlock::Create(
+            irs->context(),
+            beginBB->getName() + llvm::Twine(".mismatch"),
+            irs->topfunc()
+        );
+
+        // "Call" llvm.eh.typeid.for, which gives us the eh selector value to compare with
+        llvm::Value *ehTypeId = irs->ir->CreateCall(GET_INTRINSIC_DECL(eh_typeid_for),
+            DtoBitCast(it->classInfoPtr, getVoidPtrType()));
+
+        // Compare the selector value from the unwinder against the expected
+        // one and branch accordingly.
+        irs->ir->CreateCondBr(
+            irs->ir->CreateICmpEQ(
+                irs->ir->CreateLoad(irs->func()->ehSelectorSlot), ehTypeId),
+            it->bodyBlock,
+            mismatchBB
+        );
+        irs->scope() = IRScope(mismatchBB);
+    }
+
+    // No catch matched. Execute all finallys and resume unwinding.
+    if (lastCleanup > 0) {
+        landingPad->setCleanup(true);
+        runCleanups(lastCleanup, 0, irs->func()->resumeUnwindBlock);
+    } else {
+        irs->ir->CreateBr(irs->func()->resumeUnwindBlock);
+    }
+
+    irs->scope() = savedIRScope;
+    return beginBB;
+}
 
 IrFunction::IrFunction(FuncDeclaration* fd)
 {
@@ -288,6 +424,10 @@ IrFunction::IrFunction(FuncDeclaration* fd)
 
     retValSlot = NULL;
     retBlock = NULL;
+
+    ehPtrSlot = NULL;
+    resumeUnwindBlock = NULL;
+    ehSelectorSlot = NULL;
 }
 
 void IrFunction::setNeverInline()
@@ -316,6 +456,13 @@ void IrFunction::setAlwaysInline()
     assert(!func->hasFnAttr(llvm::Attribute::NoInline) && "function can't be never- and always-inline at the same time");
     func->addFnAttr(llvm::Attribute::AlwaysInline);
 #endif
+}
+
+llvm::AllocaInst* IrFunction::getOrCreateEhPtrSlot() {
+    if (!ehPtrSlot) {
+        ehPtrSlot = DtoRawAlloca(getVoidPtrType(), 0, "eh.ptr");
+    }
+    return ehPtrSlot;
 }
 
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create)

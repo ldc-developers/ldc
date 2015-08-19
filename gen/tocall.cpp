@@ -21,6 +21,7 @@
 #include "gen/logger.h"
 #include "gen/nested.h"
 #include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #include "ir/irtype.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -426,7 +427,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     addExplicitArguments(args, attrs, irFty, callableTy, argvals, numFormalParams);
 
     // call the function
-    LLCallSite call = gIR->CreateCallOrInvoke(callable, args);
+    LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args);
 
     // get return value
     LLValue* retllval = (retinptr) ? args[0] : call.getInstruction();

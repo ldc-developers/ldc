@@ -37,6 +37,7 @@
 #include "gen/logger.h"
 #include "gen/llvmhelpers.h"
 #include "gen/functions.h"
+#include "ir/irfunction.h"
 
 typedef enum {
     Arg_Integer,

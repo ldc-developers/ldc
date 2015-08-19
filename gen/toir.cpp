@@ -37,6 +37,7 @@
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
 #include "gen/warnings.h"
+#include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
 #include "llvm/Support/CommandLine.h"
@@ -3005,7 +3006,7 @@ public:
             slice = DtoConstSlice(DtoConstSize_t(e->keys->dim), slice);
             LLValue* valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 
-            LLValue* aa = gIR->CreateCallOrInvoke3(func, aaTypeInfo, keysArray, valuesArray, "aa").getInstruction();
+            LLValue* aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, keysArray, valuesArray, "aa").getInstruction();
             if (basetype->ty != Taarray) {
                 LLValue *tmp = DtoAlloca(e->type, "aaliteral");
                 DtoStore(aa, DtoGEPi(tmp, 0, 0));

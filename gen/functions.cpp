@@ -32,6 +32,7 @@
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Intrinsics.h"
