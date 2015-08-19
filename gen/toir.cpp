@@ -2886,7 +2886,7 @@ public:
         {
             types.push_back(i1ToI8(voidToI8(DtoType((*e->exps)[i]->type))));
         }
-        LLValue *val = DtoRawAlloca(LLStructType::get(gIR->context(), types),0, "tuple");
+        LLValue *val = DtoRawAlloca(LLStructType::get(gIR->context(), types), 0, ".tuple");
         for (size_t i = 0; i < e->exps->dim; i++)
         {
             Expression *el = (*e->exps)[i];
@@ -2899,7 +2899,7 @@ public:
             else
                 DtoStore(LLConstantInt::get(LLType::getInt8Ty(p->context()), 0, false), gep);
         }
-        result = new DImValue(e->type, val);
+        result = new DVarValue(e->type, val);
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////
