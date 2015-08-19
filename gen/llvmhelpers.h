@@ -181,6 +181,12 @@ LLValue* DtoCallableValue(DValue* fn);
 ///
 LLFunctionType* DtoExtractFunctionType(LLType* type);
 
+/// Checks whether fndecl is an intrinsic that requires special lowering. If so,
+/// emits the code for it and returns true, settings result to the resulting
+/// DValue (if any). If the call does not correspond to a "magic" intrinsic,
+/// i.e. should be turned into a normal function call, returns false.
+bool DtoLowerMagicIntrinsic(IRState* p, FuncDeclaration* fndecl, CallExp *e, DValue*& result);
+
 ///
 DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments, LLValue* retvar = 0);
 
