@@ -453,10 +453,6 @@ public:
     int hasNoDefault;           // !=0 if no default statement
     int hasVars;                // !=0 if has variable case values
 
-#if IN_LLVM
-    Statement *enclosingScopeExit;
-#endif
-
     SwitchStatement(Loc loc, Expression *c, Statement *b, bool isFinal);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
@@ -473,10 +469,6 @@ public:
 
     int index;          // which case it is (since we sort this)
     block *cblock;      // back end: label for the block
-
-#if IN_LLVM
-    Statement *enclosingScopeExit;
-#endif
 
     CaseStatement(Loc loc, Expression *exp, Statement *s);
     Statement *syntaxCopy();
@@ -513,10 +505,6 @@ public:
     Statement *statement;
 #ifdef IN_GCC
     block *cblock;      // back end: label for the block
-#endif
-
-#if IN_LLVM
-    Statement *enclosingScopeExit;
 #endif
 
     DefaultStatement(Loc loc, Statement *s);
@@ -737,9 +725,6 @@ public:
     LabelDsymbol *label;
     TryFinallyStatement *tf;
     OnScopeStatement *os;
-#if IN_LLVM
-    Statement* enclosingScopeExit;
-#endif
     VarDeclaration *lastVar;
 
     GotoStatement(Loc loc, Identifier *ident);
@@ -757,9 +742,6 @@ public:
     Statement *statement;
     TryFinallyStatement *tf;
     OnScopeStatement *os;
-#if IN_LLVM
-    Statement* enclosingScopeExit;
-#endif
     VarDeclaration *lastVar;
     Statement *gotoTarget;      // interpret
 
@@ -821,10 +803,6 @@ class CompoundAsmStatement : public CompoundStatement
 {
 public:
     StorageClass stc; // postfix attributes like nothrow/pure/@trusted
-#if IN_LLVM
-    TryFinallyStatement* enclosingFinally;
-    Statement* enclosingScopeExit;
-#endif
 
     CompoundAsmStatement(Loc loc, Statements *s, StorageClass stc);
     CompoundAsmStatement *syntaxCopy();
