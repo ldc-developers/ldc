@@ -181,12 +181,6 @@ public:
     /// popped.
     CleanupCursor currentCleanupScope() { return cleanupScopes.size(); }
 
-#if 0
-    void suspendCleanup(CleanupCursor target);
-
-    void resumeCleanup(CleanupCursor target);
-#endif
-
     ///
     void pushCatch(llvm::Constant* classInfoPtr, llvm::BasicBlock* bodyBlock);
 
@@ -289,15 +283,6 @@ private:
     /// (null if not yet emitted, one element is pushed to/popped from the back
     /// on entering/leaving a catch block).
     std::vector<llvm::BasicBlock*> topLevelLandingPads;
-
-#if 0
-    /// To be able to handle the broken AST the frontend produces in some cases
-    /// for temporary constructor calls, we need to be able to temporarily
-    /// suspend a cleanup from being run without removing it from the stack.
-    // FIXME: Make sure this does not break our usual assumption that all
-    // temporaries are run all the time.
-    std::vector<CleanupCursor> suspendedCleanups;
-#endif
 };
 
 template <typename T>

@@ -187,6 +187,22 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd, E
         voidptr = write_zeroes(voidptr, offset, sd->structsize);
 }
 
+namespace
+{
+void pushVarDtorCleanup(IRState* p, VarDeclaration* vd)
+{
+    llvm::BasicBlock *beginBB = llvm::BasicBlock::Create(
+        p->context(), llvm::Twine("dtor.") + vd->toChars(), p->topfunc());
+
+    // TODO: Clean this up with push/pop insertion point methods.
+    IRScope oldScope = p->scope();
+    p->scope() = IRScope(beginBB);
+    toElemDtor(vd->edtor);
+    p->func()->scopes->pushCleanup(beginBB, p->scopebb());
+    p->scope() = oldScope;
+}
+}
+
 //////////////////////////////////////////////////////////////////////////////////////////////
 
 // Tries to find the proper lvalue subexpression of an assign/binassign expression.
@@ -325,15 +341,7 @@ public:
                 VarDeclaration* vd = varValue->var;
                 if (!vd->isDataseg() && vd->edtor && !vd->noscope)
                 {
-                    llvm::BasicBlock* cleanupbb = llvm::BasicBlock::Create(
-                        p->context(), llvm::Twine("dtor.") + vd->toChars(), p->topfunc());
-
-                    // TODO: Clean this up with push/pop insertion point methods.
-                    IRScope oldScope = p->scope();
-                    p->scope() = IRScope(cleanupbb);
-                    toElemDtor(vd->edtor);
-                    p->func()->scopes->pushCleanup(cleanupbb, p->scopebb());
-                    p->scope() = oldScope;
+                    pushVarDtorCleanup(p, vd);
                 }
             }
         }
@@ -905,6 +913,41 @@ public:
             }
         }
 
+        // Check if we are about to construct a just declared temporary. DMD
+        // unfortunately rewrites this as
+        //   MyStruct(myArgs) => (MyStruct tmp; tmp).this(myArgs),
+        // which would lead us to invoke the dtor even if the ctor throws. To
+        // work around this, we hold on to the cleanup and push it only after
+        // making the function call.
+        //
+        // The correct fix for this (DMD issue 13095) would have been to adapt
+        // the AST, but we are stuck with this as DMD also patched over it with
+        // a similar hack.
+        VarDeclaration* delayedDtorVar = NULL;
+        Expression* delayedDtorExp = NULL;
+        if (e->f && e->f->isCtorDeclaration() && e->e1->op == TOKdotvar)
+        {
+            DotVarExp* dve = static_cast<DotVarExp*>(e->e1);
+            if (dve->e1->op == TOKcomma)
+            {
+                CommaExp* ce = static_cast<CommaExp*>(dve->e1);
+                if (ce->e1->op == TOKdeclaration && ce->e2->op == TOKvar)
+                {
+                    VarExp* ve = static_cast<VarExp*>(ce->e2);
+                    if (VarDeclaration* vd = ve->var->isVarDeclaration())
+                    {
+                        if (vd->edtor && !vd->noscope)
+                        {
+                            Logger::println("Delaying edtor");
+                            delayedDtorVar = vd;
+                            delayedDtorExp = vd->edtor;
+                            vd->edtor = NULL;
+                        }
+                    }
+                }
+            }
+        }
+
         // get the callee value
         DValue* fnval = toElem(e->e1);
 
@@ -1182,46 +1225,13 @@ public:
         if (result)
             return;
 
-#if 0
-        // check if we are about to construct a just declared temporary:
-        //   MyStruct(myArgs) => (MyStruct tmp; tmp).this(myArgs)
-        const CleanupCursor temporaryScope = p->func()->scopes->currentCleanupScope();
-        bool constructingTemporary = false;
-        if (temporaryScope != 0 && dfnval && dfnval->func &&
-            dfnval->func->isCtorDeclaration())
-        {
-            DotVarExp* dve = static_cast<DotVarExp*>(e->e1);
-            if (dve->e1->op == TOKcomma)
-            {
-                CommaExp* ce = static_cast<CommaExp*>(dve->e1);
-                if (ce->e1->op == TOKdeclaration && ce->e2->op == TOKvar)
-                {
-                    VarExp* ve = static_cast<VarExp*>(ce->e2);
-                    if (temporaries.back()->equals(ve->var->isVarDeclaration()))
-                        constructingTemporary = true;
-                }
-            }
-        }
-
-        // in that case, we have just pushed a new temporary due
-        // to the DeclarationExp nested in e->e1, but we don't want it
-        // to be destructed as long as it's not fully constructed yet;
-        // i.e., don't destruct the temporary if its constructor throws
-        // (DMD issue 13095)
-        // => remember position in stack and pop temporarily
-        if (constructingTemporary) {
-            p->func()->scopes->suspendCleanup(temporaryScope);
-        }
-#endif
         result = DtoCallFunction(e->loc, e->type, fnval, e->arguments);
 
-#if 0
-        // insert the now fully constructed temporary at the original index;
-        // i.e., before any new temporaries pushed by DtoCallFunction()
-        if (constructingTemporary) {
-            p->func()->scopes->resumeCleanup(temporaryScope);
+        if (delayedDtorVar)
+        {
+            delayedDtorVar->edtor = delayedDtorExp;
+            pushVarDtorCleanup(p, delayedDtorVar);
         }
-#endif
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////
