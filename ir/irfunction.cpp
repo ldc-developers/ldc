@@ -341,7 +341,7 @@ llvm::BasicBlock* ScopeStack::emitLandingPad() {
     }
     irs->ir->CreateStore(ehSelector, irs->func()->ehSelectorSlot);
 
-    // Add landingpad clauses, emit finallys and 'if' chain to catch the exception,
+    // Add landingpad clauses, emit finallys and 'if' chain to catch the exception.
     CleanupCursor lastCleanup = currentCleanupScope();
     for (std::vector<CatchScope>::reverse_iterator it = catchScopes.rbegin(),
                                                    end = catchScopes.rend();
@@ -389,6 +389,11 @@ llvm::BasicBlock* ScopeStack::emitLandingPad() {
     if (lastCleanup > 0) {
         landingPad->setCleanup(true);
         runCleanups(lastCleanup, 0, irs->func()->resumeUnwindBlock);
+    } else if (!catchScopes.empty()) {
+        // Directly convert the last mismatch branch into a branch to the
+        // unwind resume block.
+        irs->scopebb()->replaceAllUsesWith(irs->func()->resumeUnwindBlock);
+        irs->scopebb()->eraseFromParent();
     } else {
         irs->ir->CreateBr(irs->func()->resumeUnwindBlock);
     }
