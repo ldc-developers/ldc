@@ -3167,9 +3167,6 @@ SwitchStatement::SwitchStatement(Loc loc, Expression *c, Statement *b, bool isFi
     this->isFinal = isFinal;
     sdefault = NULL;
     tf = NULL;
-#if IN_LLVM
-    enclosingScopeExit = NULL;
-#endif
     cases = NULL;
     hasNoDefault = 0;
     hasVars = 0;
@@ -3354,7 +3351,6 @@ CaseStatement::CaseStatement(Loc loc, Expression *exp, Statement *s)
 #if IN_LLVM
     bodyBB = NULL;
     llvmIdx = NULL;
-    enclosingScopeExit = NULL;
 #endif
 }
 
@@ -3581,7 +3577,6 @@ DefaultStatement::DefaultStatement(Loc loc, Statement *s)
     cblock = NULL;
 #elif IN_LLVM
     bodyBB = NULL;
-    enclosingScopeExit = NULL;
 #endif
 }
 
@@ -4899,9 +4894,6 @@ GotoStatement::GotoStatement(Loc loc, Identifier *ident)
     this->label = NULL;
     this->tf = NULL;
     this->os = NULL;
-#if IN_LLVM
-    this->enclosingScopeExit = NULL;
-#endif
     this->lastVar = NULL;
 }
 
@@ -5015,9 +5007,6 @@ LabelStatement::LabelStatement(Loc loc, Identifier *ident, Statement *statement)
     this->statement = statement;
     this->tf = NULL;
     this->os = NULL;
-#if IN_LLVM
-    this->enclosingScopeExit = NULL;
-#endif
     this->lastVar = NULL;
     this->gotoTarget = NULL;
     this->breaks = false;
@@ -5150,9 +5139,6 @@ CompoundAsmStatement::CompoundAsmStatement(Loc loc, Statements *s, StorageClass 
 {
     this->stc = stc;
 #if IN_LLVM
-    enclosingFinally = NULL;
-    enclosingScopeExit = NULL;
-
     abiret = NULL;
 #endif
 }
@@ -5176,9 +5162,6 @@ Statements *CompoundAsmStatement::flatten(Scope *sc)
 
 CompoundAsmStatement *CompoundAsmStatement::semantic(Scope *sc)
 {
-#if IN_LLVM
-    enclosingFinally = sc->tf;
-#endif
     for (size_t i = 0; i < statements->dim; i++)
     {
         Statement *s = (*statements)[i];

@@ -7,12 +7,13 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "ir/irmodule.h"
 #include "module.h"
 #include "gen/llvm.h"
 #include "gen/irstate.h"
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
-#include "ir/irmodule.h"
+#include "ir/irfunction.h"
 
 IrModule::IrModule(Module *module, const char *srcfilename)
     : M(module), moduleInfoVar_(0) {}

@@ -17,6 +17,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/InlineAsm.h"
 #else

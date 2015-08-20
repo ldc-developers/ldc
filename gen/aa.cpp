@@ -19,6 +19,7 @@
 #include "gen/logger.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #include "ir/irmodule.h"
 
 // returns the keytype typeinfo
@@ -68,9 +69,9 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
         // valuesize param
         LLValue* valsize = DtoConstSize_t(getTypePaddedSize(DtoType(type)));
 
-        ret = gIR->CreateCallOrInvoke4(func, aaval, keyti, valsize, pkey, "aa.index").getInstruction();
+        ret = gIR->CreateCallOrInvoke(func, aaval, keyti, valsize, pkey, "aa.index").getInstruction();
     } else {
-        ret = gIR->CreateCallOrInvoke3(func, aaval, keyti, pkey, "aa.index").getInstruction();
+        ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.index").getInstruction();
     }
 
     // cast return value
@@ -81,9 +82,8 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     // Only check bounds for rvalues ('aa[key]').
     // Lvalue use ('aa[key] = value') auto-adds an element.
     if (!lvalue && gIR->emitArrayBoundsChecks()) {
-        llvm::BasicBlock* oldend = gIR->scopeend();
-        llvm::BasicBlock* failbb = llvm::BasicBlock::Create(gIR->context(), "aaboundscheckfail", gIR->topfunc(), oldend);
-        llvm::BasicBlock* okbb = llvm::BasicBlock::Create(gIR->context(), "aaboundsok", gIR->topfunc(), oldend);
+        llvm::BasicBlock* failbb = llvm::BasicBlock::Create(gIR->context(), "aaboundscheckfail", gIR->topfunc());
+        llvm::BasicBlock* okbb = llvm::BasicBlock::Create(gIR->context(), "aaboundsok", gIR->topfunc());
 
         LLValue* nullaa = LLConstant::getNullValue(ret->getType());
         LLValue* cond = gIR->ir->CreateICmpNE(nullaa, ret, "aaboundscheck");
@@ -91,24 +91,20 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
 
         // set up failbb to call the array bounds error runtime function
 
-        gIR->scope() = IRScope(failbb, okbb);
+        gIR->scope() = IRScope(failbb);
 
-        LLValue* args[] = {
-            // file param
-            DtoModuleFileName(gIR->func()->decl->getModule(), loc),
-            // line param
-            DtoConstUint(loc.linnum)
-        };
-
-        // call
         llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arraybounds");
-        gIR->CreateCallOrInvoke(errorfn, args);
+        gIR->CreateCallOrInvoke(
+            errorfn,
+            DtoModuleFileName(gIR->func()->decl->getModule(), loc),
+            DtoConstUint(loc.linnum)
+        );
 
         // the function does not return
         gIR->ir->CreateUnreachable();
 
         // if ok, proceed in okbb
-        gIR->scope() = IRScope(okbb, oldend);
+        gIR->scope() = IRScope(okbb);
     }
     return new DVarValue(type, ret);
 }
@@ -148,7 +144,7 @@ DValue* DtoAAIn(Loc& loc, Type* type, DValue* aa, DValue* key)
     pkey = DtoBitCast(pkey, getVoidPtrType());
 
     // call runtime
-    LLValue* ret = gIR->CreateCallOrInvoke3(func, aaval, keyti, pkey, "aa.in").getInstruction();
+    LLValue* ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.in").getInstruction();
 
     // cast return value
     LLType* targettype = DtoType(type);
@@ -192,11 +188,8 @@ DValue *DtoAARemove(Loc& loc, DValue* aa, DValue* key)
     LLValue* pkey = makeLValue(loc, key);
     pkey = DtoBitCast(pkey, funcTy->getParamType(2));
 
-    // build arg vector
-    LLValue* args[] = { aaval, keyti, pkey };
-
     // call runtime
-    LLCallSite call = gIR->CreateCallOrInvoke(func, args);
+    LLCallSite call = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey);
 
     return new DImValue(Type::tbool, call.getInstruction());
 }
@@ -213,7 +206,7 @@ LLValue* DtoAAEquals(Loc& loc, TOK op, DValue* l, DValue* r)
     LLValue* aaval = DtoBitCast(l->getRVal(), funcTy->getParamType(1));
     LLValue* abval = DtoBitCast(r->getRVal(), funcTy->getParamType(2));
     LLValue* aaTypeInfo = DtoTypeInfoOf(t);
-    LLValue* res = gIR->CreateCallOrInvoke3(func, aaTypeInfo, aaval, abval, "aaEqRes").getInstruction();
+    LLValue* res = gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval, "aaEqRes").getInstruction();
     res = gIR->ir->CreateICmpNE(res, DtoConstInt(0));
     if (op == TOKnotequal)
         res = gIR->ir->CreateNot(res);

@@ -13,6 +13,7 @@
 #include "statement.h"
 #include "gen/llvm.h"
 #include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #include <cstdarg>
 
 IRState* gIR = 0;
@@ -28,39 +29,17 @@ TargetABI* gABI = 0;
 IRScope::IRScope()
     : builder(gIR->context())
 {
-    begin = end = NULL;
+    begin = NULL;
 }
 
-IRScope::IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e)
-    : builder(b)
-{
-    begin = b;
-    end = e;
-}
+IRScope::IRScope(llvm::BasicBlock* b)
+    : begin(b), builder(b) {}
 
 const IRScope& IRScope::operator=(const IRScope& rhs)
 {
     begin = rhs.begin;
-    end = rhs.end;
     builder.SetInsertPoint(begin);
     return *this;
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
-IRTargetScope::IRTargetScope(
-    Statement* s,
-    EnclosingTryFinally* enclosinghandler,
-    llvm::BasicBlock* continueTarget,
-    llvm::BasicBlock* breakTarget,
-    bool onlyLabeledBreak
-)
-{
-    this->s = s;
-    this->enclosinghandler = enclosinghandler;
-    this->breakTarget = breakTarget;
-    this->continueTarget = continueTarget;
-    this->onlyLabeledBreak = onlyLabeledBreak;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -106,12 +85,7 @@ llvm::BasicBlock* IRState::scopebb()
     assert(s.begin);
     return s.begin;
 }
-llvm::BasicBlock* IRState::scopeend()
-{
-    IRScope& s = scope();
-    assert(s.end);
-    return s.end;
-}
+
 bool IRState::scopereturned()
 {
     //return scope().returned;
@@ -121,31 +95,31 @@ bool IRState::scopereturned()
 LLCallSite IRState::CreateCallOrInvoke(LLValue* Callee, const char* Name)
 {
     LLSmallVector<LLValue*, 1> args;
-    return CreateCallOrInvoke(Callee, args, Name);
+    return func()->scopes->callOrInvoke(Callee, args, Name);
 }
 
 LLCallSite IRState::CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, const char* Name)
 {
     LLValue* args[] = { Arg1 };
-    return CreateCallOrInvoke(Callee, args, Name);
+    return func()->scopes->callOrInvoke(Callee, args, Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke2(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, const char* Name)
+LLCallSite IRState::CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, const char* Name)
 {
     LLValue* args[] = { Arg1, Arg2 };
-    return CreateCallOrInvoke(Callee, args, Name);
+    return func()->scopes->callOrInvoke(Callee, args, Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke3(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, LLValue* Arg3, const char* Name)
+LLCallSite IRState::CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, LLValue* Arg3, const char* Name)
 {
     LLValue* args[] = { Arg1, Arg2, Arg3 };
-    return CreateCallOrInvoke(Callee, args, Name);
+    return func()->scopes->callOrInvoke(Callee, args, Name);
 }
 
-LLCallSite IRState::CreateCallOrInvoke4(LLValue* Callee, LLValue* Arg1, LLValue* Arg2,  LLValue* Arg3, LLValue* Arg4, const char* Name)
+LLCallSite IRState::CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, LLValue* Arg2,  LLValue* Arg3, LLValue* Arg4, const char* Name)
 {
     LLValue* args[] = { Arg1, Arg2, Arg3, Arg4 };
-    return CreateCallOrInvoke(Callee, args, Name);
+    return func()->scopes->callOrInvoke(Callee, args, Name);
 }
 
 bool IRState::emitArrayBoundsChecks()

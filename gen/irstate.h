@@ -17,7 +17,6 @@
 
 #include "aggregate.h"
 #include "root.h"
-#include "ir/irfunction.h"
 #include "ir/iraggr.h"
 #include "ir/irvar.h"
 #include "gen/dibuilder.h"
@@ -26,11 +25,10 @@
 #include <set>
 #include <sstream>
 #include <vector>
-
+#include "llvm/ADT/StringMap.h"
 #if LDC_LLVM_VER >= 305
 #include "llvm/IR/CallSite.h"
 #else
-#include <map>
 #include "llvm/Support/CallSite.h"
 #endif
 
@@ -61,17 +59,17 @@ class TypeStruct;
 struct BaseClass;
 class AnonDeclaration;
 
+struct IrFunction;
 struct IrModule;
 
 // represents a scope
 struct IRScope
 {
     llvm::BasicBlock* begin;
-    llvm::BasicBlock* end;
     IRBuilder<> builder;
 
     IRScope();
-    IRScope(llvm::BasicBlock* b, llvm::BasicBlock* e);
+    explicit IRScope(llvm::BasicBlock* b);
 
     const IRScope& operator=(const IRScope& rhs);
 };
@@ -147,18 +145,14 @@ struct IRState
     std::vector<IRScope> scopes;
     IRScope& scope();
     llvm::BasicBlock* scopebb();
-    llvm::BasicBlock* scopeend();
     bool scopereturned();
 
     // create a call or invoke, depending on the landing pad info
-    // the template function is defined further down in this file
-    template <typename T>
-    llvm::CallSite CreateCallOrInvoke(LLValue* Callee, const T& args, const char* Name="");
     llvm::CallSite CreateCallOrInvoke(LLValue* Callee, const char* Name="");
     llvm::CallSite CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, const char* Name="");
-    llvm::CallSite CreateCallOrInvoke2(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, const char* Name="");
-    llvm::CallSite CreateCallOrInvoke3(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, LLValue* Arg3, const char* Name="");
-    llvm::CallSite CreateCallOrInvoke4(LLValue* Callee, LLValue* Arg1, LLValue* Arg2,  LLValue* Arg3, LLValue* Arg4, const char* Name="");
+    llvm::CallSite CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, const char* Name="");
+    llvm::CallSite CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, LLValue* Arg2, LLValue* Arg3, const char* Name="");
+    llvm::CallSite CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, LLValue* Arg2,  LLValue* Arg3, LLValue* Arg4, const char* Name="");
 
     // this holds the array being indexed or sliced so $ will work
     // might be a better way but it works. problem is I only get a
@@ -187,15 +181,9 @@ struct IRState
     // variable is reused whenever the same string literal is
     // referenced in the module.  Caching them per module prevents the
     // duplication of identical literals.
-#if LDC_LLVM_VER >= 305
     llvm::StringMap<llvm::GlobalVariable*> stringLiteral1ByteCache;
     llvm::StringMap<llvm::GlobalVariable*> stringLiteral2ByteCache;
     llvm::StringMap<llvm::GlobalVariable*> stringLiteral4ByteCache;
-#else
-    std::map<llvm::StringRef, llvm::GlobalVariable*> stringLiteral1ByteCache;
-    std::map<llvm::StringRef, llvm::GlobalVariable*> stringLiteral2ByteCache;
-    std::map<llvm::StringRef, llvm::GlobalVariable*> stringLiteral4ByteCache;
-#endif
 
 #if LDC_LLVM_VER >= 303
     /// Vector of options passed to the linker as metadata in object file.
@@ -207,41 +195,6 @@ struct IRState
 #endif
 };
 
-template <typename T>
-llvm::CallSite IRState::CreateCallOrInvoke(LLValue* Callee, const T &args, const char* Name)
-{
-    FuncGen& funcGen = *func()->gen;
-    LLFunction* fn = llvm::dyn_cast<LLFunction>(Callee);
-
-    const bool hasTemporaries = funcGen.hasTemporariesToDestruct();
-    // intrinsics don't support invoking and 'nounwind' functions don't need it.
-    const bool doesNotThrow = (fn && (fn->isIntrinsic() || fn->doesNotThrow()));
-
-    if (doesNotThrow || (!hasTemporaries && funcGen.landingPad == NULL))
-    {
-        llvm::CallInst* call = ir->CreateCall(Callee, args, Name);
-        if (fn)
-            call->setAttributes(fn->getAttributes());
-        return call;
-    }
-
-    if (hasTemporaries)
-        funcGen.prepareToDestructAllTemporariesOnThrow(this);
-
-    llvm::BasicBlock* landingPad = funcGen.landingPad;
-    llvm::BasicBlock* postinvoke = llvm::BasicBlock::Create(context(), "postinvoke", topfunc(), landingPad);
-    llvm::InvokeInst* invoke = ir->CreateInvoke(Callee, postinvoke, landingPad, args, Name);
-    if (fn)
-        invoke->setAttributes(fn->getAttributes());
-
-    if (hasTemporaries)
-        funcGen.landingPadInfo.pop();
-
-    scope() = IRScope(postinvoke, landingPad);
-    return invoke;
-}
-
-void codegenFunction(Statement *s, IRState *irs);
 void Statement_toIR(Statement *s, IRState *irs);
 
 #endif // LDC_GEN_IRSTATE_H

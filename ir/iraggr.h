@@ -22,6 +22,11 @@
 // DMD forward declarations
 class StructInitializer;
 
+namespace llvm {
+    class Constant;
+    class StructType;
+}
+
 //////////////////////////////////////////////////////////////////////////////
 
 // represents a struct or class
@@ -44,22 +49,22 @@ struct IrAggr
     //////////////////////////////////////////////////////////////////////////
 
     /// Create the __initZ symbol lazily.
-    LLGlobalVariable* getInitSymbol();
+    llvm::GlobalVariable* getInitSymbol();
     /// Builds the __initZ initializer constant lazily.
-    LLConstant* getDefaultInit();
+    llvm::Constant* getDefaultInit();
 
     /// Create the __vtblZ symbol lazily.
-    LLGlobalVariable* getVtblSymbol();
+    llvm::GlobalVariable* getVtblSymbol();
     /// Builds the __vtblZ initializer constant lazily.
-    LLConstant* getVtblInit();
+    llvm::Constant* getVtblInit();
 
     /// Create the __ClassZ/__InterfaceZ symbol lazily.
-    LLGlobalVariable* getClassInfoSymbol();
+    llvm::GlobalVariable* getClassInfoSymbol();
     /// Builds the __ClassZ/__InterfaceZ initializer constant lazily.
-    LLConstant* getClassInfoInit();
+    llvm::Constant* getClassInfoInit();
 
     /// Create the __interfaceInfos symbol lazily.
-    LLGlobalVariable* getInterfaceArraySymbol();
+    llvm::GlobalVariable* getInterfaceArraySymbol();
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -87,21 +92,21 @@ struct IrAggr
 
 protected:
     /// Static default initializer global.
-    LLGlobalVariable* init;
+    llvm::GlobalVariable* init;
     /// Static default initializer constant.
-    LLConstant* constInit;
+    llvm::Constant* constInit;
     /// Static default initialier type.
-    LLStructType* init_type;
+    llvm::StructType* init_type;
 
     /// Vtbl global.
-    LLGlobalVariable* vtbl;
+    llvm::GlobalVariable* vtbl;
     /// Vtbl initializer constant.
-    LLConstant* constVtbl;
+    llvm::Constant* constVtbl;
 
     /// ClassInfo global.
-    LLGlobalVariable* classInfo;
+    llvm::GlobalVariable* classInfo;
     /// ClassInfo initializer constant.
-    LLConstant* constClassInfo;
+    llvm::Constant* constClassInfo;
 
     /// Map for mapping ClassDeclaration* to LLVM GlobalVariable.
     typedef std::map<ClassDeclaration*, llvm::GlobalVariable*> ClassGlobalMap;
@@ -130,10 +135,10 @@ protected:
         size_t interfaces_index);
 
     // FIXME make this a member instead
-    friend LLConstant* DtoDefineClassInfo(ClassDeclaration* cd);
+    friend llvm::Constant* DtoDefineClassInfo(ClassDeclaration* cd);
 
     /// Create the Interface[] interfaces ClassInfo field initializer.
-    LLConstant* getClassInfoInterfaces();
+    llvm::Constant* getClassInfoInterfaces();
 
     /// Returns true, if the LLVM struct type for the aggregate is declared as packed
     bool isPacked() const;

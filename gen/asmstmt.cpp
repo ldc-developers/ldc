@@ -37,6 +37,7 @@
 #include "gen/logger.h"
 #include "gen/llvmhelpers.h"
 #include "gen/functions.h"
+#include "ir/irfunction.h"
 
 typedef enum {
     Arg_Integer,
@@ -733,8 +734,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState* p)
         assert(jump_target);
 
         // make new blocks
-        llvm::BasicBlock* oldend = gIR->scopeend();
-        llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "afterasmgotoforwarder", p->topfunc(), oldend);
+        llvm::BasicBlock* bb = llvm::BasicBlock::Create(gIR->context(), "afterasmgotoforwarder", p->topfunc());
 
         llvm::LoadInst* val = p->ir->CreateLoad(jump_target, "__llvm_jump_target_value");
         llvm::SwitchInst* sw = p->ir->CreateSwitch(val, bb, gotoToVal.size());
@@ -746,11 +746,11 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState* p)
             llvm::BasicBlock* casebb = llvm::BasicBlock::Create(gIR->context(), "case", p->topfunc(), bb);
             sw->addCase(LLConstantInt::get(llvm::IntegerType::get(gIR->context(), 32), it->second), casebb);
 
-            p->scope() = IRScope(casebb,bb);
-            DtoGoto(stmt->loc, it->first, stmt->enclosingFinally);
+            p->scope() = IRScope(casebb);
+            DtoGoto(stmt->loc, it->first);
         }
 
-        p->scope() = IRScope(bb,oldend);
+        p->scope() = IRScope(bb);
     }
 }
 

@@ -36,6 +36,7 @@
 #include "gen/structs.h"
 #include "gen/tollvm.h"
 #include "ir/irdsymbol.h"
+#include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "ir/irtype.h"
 #include "ir/irvar.h"

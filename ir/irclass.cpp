@@ -35,6 +35,7 @@
 #include "gen/functions.h"
 
 #include "ir/iraggr.h"
+#include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 
 //////////////////////////////////////////////////////////////////////////////
@@ -349,8 +350,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
 
             // create entry and end blocks
             llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "", thunk);
-            llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "endentry", thunk);
-            gIR->scopes.push_back(IRScope(beginbb, endbb));
+            gIR->scopes.push_back(IRScope(beginbb));
 
             // copy the function parameters, so later we can pass them to the real function
             std::vector<LLValue*> args;
@@ -376,7 +376,6 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
 
             // clean up
             gIR->scopes.pop_back();
-            thunk->getBasicBlockList().pop_back();
 
             fn = thunk;
         }

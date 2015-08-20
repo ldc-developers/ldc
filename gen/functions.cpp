@@ -32,6 +32,7 @@
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #if LDC_LLVM_VER >= 303
 #include "llvm/IR/Intrinsics.h"
@@ -794,10 +795,9 @@ void DtoDefineFunction(FuncDeclaration* fd)
 #endif
 
     llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "", func);
-    llvm::BasicBlock* endbb = llvm::BasicBlock::Create(gIR->context(), "endentry", func);
 
     //assert(gIR->scopes.empty());
-    gIR->scopes.push_back(IRScope(beginbb, endbb));
+    gIR->scopes.push_back(IRScope(beginbb));
 
     // create alloca point
     // this gets erased when the function is complete, so alignment etc does not matter at all
@@ -885,39 +885,40 @@ void DtoDefineFunction(FuncDeclaration* fd)
         }
     }
 
-    FuncGen fg;
-    irFunc->gen = &fg;
-
-    DtoCreateNestedContext(fd);
-
-    if (fd->vresult && !
-        fd->vresult->nestedrefs.dim // FIXME: not sure here :/
-    )
     {
-        DtoVarDeclaration(fd->vresult);
+        ScopeStack scopeStack(gIR);
+        irFunc->scopes = &scopeStack;
+
+        DtoCreateNestedContext(fd);
+
+        if (fd->vresult && !fd->vresult->nestedrefs.dim) // FIXME: not sure here :/
+        {
+            DtoVarDeclaration(fd->vresult);
+        }
+
+        // D varargs: prepare _argptr and _arguments
+        if (f->linkage == LINKd && f->varargs == 1)
+        {
+            // allocate _argptr (of type core.stdc.stdarg.va_list)
+            LLValue* argptrmem = DtoAlloca(Type::tvalist, "_argptr_mem");
+            irFunc->_argptr = argptrmem;
+
+            // initialize _argptr with a call to the va_start intrinsic
+            LLValue* vaStartArg = gABI->prepareVaStart(argptrmem);
+            llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), vaStartArg, "", gIR->scopebb());
+
+            // copy _arguments to a memory location
+            LLType* argumentsType = irFunc->_arguments->getType();
+            LLValue* argumentsmem = DtoRawAlloca(argumentsType, 0, "_arguments_mem");
+            new llvm::StoreInst(irFunc->_arguments, argumentsmem, gIR->scopebb());
+            irFunc->_arguments = argumentsmem;
+        }
+
+        // output function body
+        Statement_toIR(fd->fbody, gIR);
+
+        irFunc->scopes = 0;
     }
-
-    // D varargs: prepare _argptr and _arguments
-    if (f->linkage == LINKd && f->varargs == 1)
-    {
-        // allocate _argptr (of type core.stdc.stdarg.va_list)
-        LLValue* argptrmem = DtoAlloca(Type::tvalist, "_argptr_mem");
-        irFunc->_argptr = argptrmem;
-
-        // initialize _argptr with a call to the va_start intrinsic
-        LLValue* vaStartArg = gABI->prepareVaStart(argptrmem);
-        llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), vaStartArg, "", gIR->scopebb());
-
-        // copy _arguments to a memory location
-        LLType* argumentsType = irFunc->_arguments->getType();
-        LLValue* argumentsmem = DtoRawAlloca(argumentsType, 0, "_arguments_mem");
-        new llvm::StoreInst(irFunc->_arguments, argumentsmem, gIR->scopebb());
-        irFunc->_arguments = argumentsmem;
-    }
-
-    // output function body
-    codegenFunction(fd->fbody, gIR);
-    irFunc->gen = 0;
 
     llvm::BasicBlock* bb = gIR->scopebb();
     if (pred_begin(bb) == pred_end(bb) && bb != &bb->getParent()->getEntryBlock()) {
@@ -956,10 +957,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
     gIR->func()->allocapoint = 0;
 
     gIR->scopes.pop_back();
-
-    // get rid of the endentry block, it's never used
-    assert(!func->getBasicBlockList().empty());
-    func->getBasicBlockList().pop_back();
 
     gIR->functions.pop_back();
 }

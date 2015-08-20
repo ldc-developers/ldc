@@ -21,6 +21,7 @@
 #include "gen/logger.h"
 #include "gen/nested.h"
 #include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #include "ir/irtype.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -247,6 +248,287 @@ static LLValue* getTypeinfoArrayArgumentForDVarArg(Expressions* arguments, int b
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
+bool DtoLowerMagicIntrinsic(IRState* p, FuncDeclaration* fndecl, CallExp *e, DValue*& result)
+{
+    // va_start instruction
+    if (fndecl->llvmInternal == LLVMva_start) {
+        if (e->arguments->dim < 1 || e->arguments->dim > 2) {
+            e->error("va_start instruction expects 1 (or 2) arguments");
+            fatal();
+        }
+        LLValue* pAp = toElem((*e->arguments)[0])->getLVal(); // va_list*
+        // variadic extern(D) function with implicit _argptr?
+        if (LLValue* pArgptr = p->func()->_argptr) {
+            DtoStore(DtoLoad(pArgptr), pAp); // ap = _argptr
+            result = new DImValue(e->type, pAp);
+        } else {
+            LLValue* vaStartArg = gABI->prepareVaStart(pAp);
+            result = new DImValue(e->type, p->ir->CreateCall(
+                GET_INTRINSIC_DECL(vastart), vaStartArg, ""));
+        }
+        return true;
+    }
+
+    // va_copy instruction
+    if (fndecl->llvmInternal == LLVMva_copy) {
+        if (e->arguments->dim != 2) {
+            e->error("va_copy instruction expects 2 arguments");
+            fatal();
+        }
+        LLValue* pDest = toElem((*e->arguments)[0])->getLVal(); // va_list*
+        LLValue* src   = toElem((*e->arguments)[1])->getRVal(); // va_list
+        gABI->vaCopy(pDest, src);
+        result = new DVarValue(e->type, pDest);
+        return true;
+    }
+
+    // va_arg instruction
+    if (fndecl->llvmInternal == LLVMva_arg) {
+        if (e->arguments->dim != 1) {
+            e->error("va_arg instruction expects 1 argument");
+            fatal();
+        }
+        LLValue* pAp = toElem((*e->arguments)[0])->getLVal(); // va_list*
+        LLValue* vaArgArg = gABI->prepareVaArg(pAp);
+        LLType* llType = DtoType(e->type);
+        if (DtoIsPassedByRef(e->type))
+            llType = getPtrToType(llType);
+        result = new DImValue(e->type, p->ir->CreateVAArg(vaArgArg, llType));
+        return true;
+    }
+
+    // C alloca
+    if (fndecl->llvmInternal == LLVMalloca) {
+        if (e->arguments->dim != 1) {
+            e->error("alloca expects 1 arguments");
+            fatal();
+        }
+        Expression* exp = (*e->arguments)[0];
+        DValue* expv = toElem(exp);
+        if (expv->getType()->toBasetype()->ty != Tint32)
+            expv = DtoCast(e->loc, expv, Type::tint32);
+        result = new DImValue(e->type, p->ir->CreateAlloca(
+            LLType::getInt8Ty(p->context()), expv->getRVal(), ".alloca"));
+        return true;
+    }
+
+    // fence instruction
+    if (fndecl->llvmInternal == LLVMfence) {
+        if (e->arguments->dim != 1) {
+            e->error("fence instruction expects 1 arguments");
+            fatal();
+        }
+        p->ir->CreateFence(llvm::AtomicOrdering((*e->arguments)[0]->toInteger()));
+        return true;
+    }
+
+    // atomic store instruction
+    if (fndecl->llvmInternal == LLVMatomic_store) {
+        if (e->arguments->dim != 3) {
+            e->error("atomic store instruction expects 3 arguments");
+            fatal();
+        }
+        Expression* exp1 = (*e->arguments)[0];
+        Expression* exp2 = (*e->arguments)[1];
+        int atomicOrdering = (*e->arguments)[2]->toInteger();
+        LLValue* val = toElem(exp1)->getRVal();
+        LLValue* ptr = toElem(exp2)->getRVal();
+
+        if (!val->getType()->isIntegerTy()) {
+            e->error("atomic store only supports integer types, not '%s'", exp1->type->toChars());
+            fatal();
+        }
+
+        llvm::StoreInst* ret = p->ir->CreateStore(val, ptr);
+        ret->setAtomic(llvm::AtomicOrdering(atomicOrdering));
+        ret->setAlignment(getTypeAllocSize(val->getType()));
+        return true;
+    }
+
+    // atomic load instruction
+    if (fndecl->llvmInternal == LLVMatomic_load) {
+        if (e->arguments->dim != 2) {
+            e->error("atomic load instruction expects 2 arguments");
+            fatal();
+        }
+
+        Expression* exp = (*e->arguments)[0];
+        int atomicOrdering = (*e->arguments)[1]->toInteger();
+
+        LLValue* ptr = toElem(exp)->getRVal();
+        Type* retType = exp->type->nextOf();
+
+        if (!ptr->getType()->getContainedType(0)->isIntegerTy()) {
+            e->error("atomic load only supports integer types, not '%s'", retType->toChars());
+            fatal();
+        }
+
+        llvm::LoadInst* val = p->ir->CreateLoad(ptr);
+        val->setAlignment(getTypeAllocSize(val->getType()));
+        val->setAtomic(llvm::AtomicOrdering(atomicOrdering));
+        result = new DImValue(retType, val);
+        return true;
+    }
+
+    // cmpxchg instruction
+    if (fndecl->llvmInternal == LLVMatomic_cmp_xchg) {
+        if (e->arguments->dim != 4) {
+            e->error("cmpxchg instruction expects 4 arguments");
+            fatal();
+        }
+        Expression* exp1 = (*e->arguments)[0];
+        Expression* exp2 = (*e->arguments)[1];
+        Expression* exp3 = (*e->arguments)[2];
+        int atomicOrdering = (*e->arguments)[3]->toInteger();
+        LLValue* ptr = toElem(exp1)->getRVal();
+        LLValue* cmp = toElem(exp2)->getRVal();
+        LLValue* val = toElem(exp3)->getRVal();
+#if LDC_LLVM_VER >= 305
+        LLValue* ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, llvm::AtomicOrdering(atomicOrdering), llvm::AtomicOrdering(atomicOrdering));
+        // Use the same quickfix as for dragonegg - see r210956
+        ret = p->ir->CreateExtractValue(ret, 0);
+#else
+        LLValue* ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, llvm::AtomicOrdering(atomicOrdering));
+#endif
+        result = new DImValue(exp3->type, ret);
+        return true;
+    }
+
+    // atomicrmw instruction
+    if (fndecl->llvmInternal == LLVMatomic_rmw) {
+        if (e->arguments->dim != 3) {
+            e->error("atomic_rmw instruction expects 3 arguments");
+            fatal();
+        }
+
+        static const char *ops[] = {
+            "xchg",
+            "add",
+            "sub",
+            "and",
+            "nand",
+            "or",
+            "xor",
+            "max",
+            "min",
+            "umax",
+            "umin",
+            0
+        };
+
+        int op = 0;
+        for (; ; ++op) {
+            if (ops[op] == 0) {
+                e->error("unknown atomic_rmw operation %s", fndecl->intrinsicName.c_str());
+                fatal();
+            }
+            if (fndecl->intrinsicName == ops[op])
+                break;
+        }
+
+        Expression* exp1 = (*e->arguments)[0];
+        Expression* exp2 = (*e->arguments)[1];
+        int atomicOrdering = (*e->arguments)[2]->toInteger();
+        LLValue* ptr = toElem(exp1)->getRVal();
+        LLValue* val = toElem(exp2)->getRVal();
+        LLValue* ret = p->ir->CreateAtomicRMW(llvm::AtomicRMWInst::BinOp(op), ptr, val,
+                                                llvm::AtomicOrdering(atomicOrdering));
+        result = new DImValue(exp2->type, ret);
+        return true;
+    }
+
+    // bitop
+    if (fndecl->llvmInternal == LLVMbitop_bt ||
+       fndecl->llvmInternal == LLVMbitop_btr||
+       fndecl->llvmInternal == LLVMbitop_btc||
+       fndecl->llvmInternal == LLVMbitop_bts)
+    {
+        if (e->arguments->dim != 2) {
+            e->error("bitop intrinsic expects 2 arguments");
+            fatal();
+        }
+
+        Expression* exp1 = (*e->arguments)[0];
+        Expression* exp2 = (*e->arguments)[1];
+        LLValue* ptr = toElem(exp1)->getRVal();
+        LLValue* bitnum = toElem(exp2)->getRVal();
+
+        unsigned bitmask = DtoSize_t()->getBitWidth() - 1;
+        assert(bitmask == 31 || bitmask == 63);
+        // auto q = cast(size_t*)ptr + (bitnum >> (64bit ? 6 : 5));
+        LLValue* q = DtoBitCast(ptr, DtoSize_t()->getPointerTo());
+        q = DtoGEP1(q, p->ir->CreateLShr(bitnum, bitmask == 63 ? 6 : 5), "bitop.q");
+
+        // auto mask = 1 << (bitnum & bitmask);
+        LLValue* mask = p->ir->CreateAnd(bitnum, DtoConstSize_t(bitmask), "bitop.tmp");
+        mask = p->ir->CreateShl(DtoConstSize_t(1), mask, "bitop.mask");
+
+        // auto result = (*q & mask) ? -1 : 0;
+        LLValue* val = p->ir->CreateZExt(DtoLoad(q, "bitop.tmp"), DtoSize_t(), "bitop.val");
+        LLValue* ret = p->ir->CreateAnd(val, mask, "bitop.tmp");
+        ret = p->ir->CreateICmpNE(ret, DtoConstSize_t(0), "bitop.tmp");
+        ret = p->ir->CreateSelect(ret, DtoConstInt(-1), DtoConstInt(0), "bitop.result");
+
+        if (fndecl->llvmInternal != LLVMbitop_bt) {
+            llvm::Instruction::BinaryOps op;
+            if (fndecl->llvmInternal == LLVMbitop_btc) {
+                // *q ^= mask;
+                op = llvm::Instruction::Xor;
+            } else if (fndecl->llvmInternal == LLVMbitop_btr) {
+                // *q &= ~mask;
+                mask = p->ir->CreateNot(mask);
+                op = llvm::Instruction::And;
+            } else if (fndecl->llvmInternal == LLVMbitop_bts) {
+                // *q |= mask;
+                op = llvm::Instruction::Or;
+            } else {
+                llvm_unreachable("Unrecognized bitop intrinsic.");
+            }
+
+            LLValue *newVal = p->ir->CreateBinOp(op, val, mask, "bitop.new_val");
+            newVal = p->ir->CreateTrunc(newVal, DtoSize_t(), "bitop.tmp");
+            DtoStore(newVal, q);
+        }
+
+        result = new DImValue(e->type, ret);
+        return true;
+    }
+
+    if (fndecl->llvmInternal == LLVMbitop_vld)
+    {
+        if (e->arguments->dim != 1) {
+            e->error("bitop.vld intrinsic expects 1 argument");
+            fatal();
+        }
+        // TODO: Check types
+
+        Expression* exp1 = (*e->arguments)[0];
+        LLValue* ptr = toElem(exp1)->getRVal();
+        result = new DImValue(exp1->type, DtoVolatileLoad(ptr));
+        return true;
+    }
+
+    if (fndecl->llvmInternal == LLVMbitop_vst)
+    {
+        if (e->arguments->dim != 2) {
+            e->error("bitop.vst intrinsic expects 2 arguments");
+            fatal();
+        }
+        // TODO: Check types
+
+        Expression* exp1 = (*e->arguments)[0];
+        Expression* exp2 = (*e->arguments)[1];
+        LLValue* ptr = toElem(exp1)->getRVal();
+        LLValue* val = toElem(exp2)->getRVal();
+        DtoVolatileStore(val, ptr);
+        return true;
+    }
+
+    return false;
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
 // FIXME: this function is a mess !
 
 DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments, llvm::Value *retvar)
@@ -426,7 +708,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     addExplicitArguments(args, attrs, irFty, callableTy, argvals, numFormalParams);
 
     // call the function
-    LLCallSite call = gIR->CreateCallOrInvoke(callable, args);
+    LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args);
 
     // get return value
     LLValue* retllval = (retinptr) ? args[0] : call.getInstruction();

@@ -15,9 +15,8 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #include "llvm/Analysis/ValueTracking.h"
-#include "llvm/Support/CommandLine.h"
-namespace cl = llvm::cl;
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////

@@ -26,6 +26,7 @@
 #include "gen/structs.h"
 #include "gen/tollvm.h"
 #include "ir/iraggr.h"
+#include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -193,12 +194,9 @@ void DtoFinalizeClass(Loc& loc, LLValue* inst)
 {
     // get runtime function
     llvm::Function* fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_callfinalizer");
-    // build args
-    LLValue* arg[] = {
-        DtoBitCast(inst, fn->getFunctionType()->getParamType(0), ".tmp")
-    };
-    // call
-    gIR->CreateCallOrInvoke(fn, arg, "");
+
+    gIR->CreateCallOrInvoke(fn,
+        DtoBitCast(inst, fn->getFunctionType()->getParamType(0)), "");
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -357,7 +355,7 @@ DValue* DtoDynamicCastObject(Loc& loc, DValue* val, Type* _to)
     assert(funcTy->getParamType(1) == cinfo->getType());
 
     // call it
-    LLValue* ret = gIR->CreateCallOrInvoke2(func, obj, cinfo).getInstruction();
+    LLValue* ret = gIR->CreateCallOrInvoke(func, obj, cinfo).getInstruction();
 
     // cast return value
     ret = DtoBitCast(ret, DtoType(_to));
@@ -417,7 +415,7 @@ DValue* DtoDynamicCastInterface(Loc& loc, DValue* val, Type* _to)
     cinfo = DtoBitCast(cinfo, funcTy->getParamType(1));
 
     // call it
-    LLValue* ret = gIR->CreateCallOrInvoke2(func, ptr, cinfo).getInstruction();
+    LLValue* ret = gIR->CreateCallOrInvoke(func, ptr, cinfo).getInstruction();
 
     // cast return value
     ret = DtoBitCast(ret, DtoType(_to));
