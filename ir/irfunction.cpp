@@ -17,8 +17,8 @@
 #include <sstream>
 
 namespace {
-void executeCleanup(IRState *irs, CleanupScope& scope,
-    llvm::BasicBlock *sourceBlock, llvm::BasicBlock* continueWith
+void executeCleanup(IRState* irs, CleanupScope& scope,
+    llvm::BasicBlock* sourceBlock, llvm::BasicBlock* continueWith
 ) {
     if (scope.exitTargets.empty() || (
         scope.exitTargets.size() == 1 &&
@@ -59,7 +59,7 @@ void executeCleanup(IRState *irs, CleanupScope& scope,
         // And convert the BranchInst to the existing branch target to a
         // SelectInst so we can append the other cases to it.
         scope.endBlock->getTerminator()->eraseFromParent();
-        llvm::Value *sel = new llvm::LoadInst(scope.branchSelector, "",
+        llvm::Value* sel = new llvm::LoadInst(scope.branchSelector, "",
             scope.endBlock);
         llvm::SwitchInst::Create(
             sel,
@@ -90,7 +90,7 @@ void executeCleanup(IRState *irs, CleanupScope& scope,
     }
 
     // We don't know this branch target yet, so add it to the SwitchInst...
-    llvm::ConstantInt * const selectorVal = DtoConstUint(scope.exitTargets.size());
+    llvm::ConstantInt* const selectorVal = DtoConstUint(scope.exitTargets.size());
     llvm::cast<llvm::SwitchInst>(scope.endBlock->getTerminator())->addCase(
         selectorVal, continueWith);
 
@@ -106,6 +106,9 @@ void executeCleanup(IRState *irs, CleanupScope& scope,
 }
 
 ScopeStack::~ScopeStack() {
+    // If there are still unresolved gotos left, it means that they were either
+    // down or "sideways" (i.e. down another branch) of the tree of all
+    // cleanup scopes, both of which are not allowed in D.
     if (!topLevelUnresolvedGotos.empty()) {
         for (std::vector<GotoJump>::iterator it = topLevelUnresolvedGotos.begin(),
                                              end = topLevelUnresolvedGotos.end();
@@ -130,7 +133,7 @@ void ScopeStack::runCleanups(
 
     if (targetScope == sourceScope) {
         // No cleanups to run, just branch to the next block.
-        llvm::BranchInst::Create(continueWith, irs->scopebb());
+        irs->ir->CreateBr(continueWith);
         return;
     }
 
@@ -140,7 +143,7 @@ void ScopeStack::runCleanups(
     // Update all the control flow in the cleanups to make sure we end up where
     // we want.
     for (CleanupCursor i = sourceScope; i-- > targetScope;) {
-        llvm::BasicBlock *nextBlock = (i > targetScope) ?
+        llvm::BasicBlock* nextBlock = (i > targetScope) ?
             cleanupScopes[i - 1].beginBlock : continueWith;
         executeCleanup(irs, cleanupScopes[i], irs->scopebb(), nextBlock);
     }
@@ -151,15 +154,18 @@ void ScopeStack::runAllCleanups(llvm::BasicBlock* continueWith) {
 }
 
 void ScopeStack::popCleanups(CleanupCursor targetScope) {
+    assert(targetScope <= currentCleanupScope());
     if (targetScope == currentCleanupScope()) return;
 
     for (CleanupCursor i = currentCleanupScope(); i-- > targetScope;) {
+        // Any gotos that are still unresolved necessarily leave this scope.
+        // Thus, the cleanup needs to be executed.
         for (std::vector<GotoJump>::iterator it = currentUnresolvedGotos().begin(),
                                              end = currentUnresolvedGotos().end();
             it != end; ++it
         ) {
             // Make the source resp. last cleanup branch to this one.
-            llvm::BasicBlock *tentative = it->tentativeTarget;
+            llvm::BasicBlock* tentative = it->tentativeTarget;
             tentative->replaceAllUsesWith(cleanupScopes[i].beginBlock);
 
             // And continue execution with the tentative target (we simply reuse
@@ -219,6 +225,8 @@ void ScopeStack::addLabelTarget(Identifier* labelName,
 ) {
     labelTargets[labelName] = {targetBlock, currentCleanupScope(), 0};
 
+    // See whether any of the unresolved gotos target this label, and resolve
+    // those that do.
     std::vector<GotoJump>& unresolved = currentUnresolvedGotos();
     size_t i = 0;
     while (i < unresolved.size()) {
@@ -242,7 +250,7 @@ void ScopeStack::jumpToLabel(Loc loc, Identifier* labelName) {
         return;
     }
 
-    llvm::BasicBlock *target =
+    llvm::BasicBlock* target =
         llvm::BasicBlock::Create(irs->context(), "goto.unresolved", irs->topfunc());
     irs->ir->CreateBr(target);
     currentUnresolvedGotos().push_back({loc, irs->scopebb(), target, labelName});
@@ -283,7 +291,7 @@ std::vector<llvm::BasicBlock*>& ScopeStack::currentLandingPads() {
 }
 
 namespace {
-llvm::LandingPadInst* createLandingPadInst(IRState *irs) {
+llvm::LandingPadInst* createLandingPadInst(IRState* irs) {
     LLType* retType = LLStructType::get(LLType::getInt8PtrTy(irs->context()),
                                         LLType::getInt32Ty(irs->context()),
                                         NULL);
@@ -305,23 +313,20 @@ llvm::BasicBlock* ScopeStack::emitLandingPad() {
     // save and rewrite scope
     IRScope savedIRScope = irs->scope();
 
-    llvm::BasicBlock *beginBB = llvm::BasicBlock::Create(irs->context(),
+    llvm::BasicBlock* beginBB = llvm::BasicBlock::Create(irs->context(),
         "landingPad", irs->topfunc());
     irs->scope() = IRScope(beginBB);
 
-    llvm::LandingPadInst *landingPad = createLandingPadInst(irs);
+    llvm::LandingPadInst* landingPad = createLandingPadInst(irs);
 
     // Stash away the exception object pointer and selector value into their
     // stack slots.
     llvm::Value* ehPtr = DtoExtractValue(landingPad, 0);
     if (!irs->func()->resumeUnwindBlock) {
         irs->func()->resumeUnwindBlock = llvm::BasicBlock::Create(
-            irs->context(),
-            "unwind.resume",
-            irs->topfunc()
-        );
+            irs->context(), "unwind.resume", irs->topfunc());
 
-        llvm::BasicBlock *oldBB = irs->scopebb();
+        llvm::BasicBlock* oldBB = irs->scopebb();
         irs->scope() = IRScope(irs->func()->resumeUnwindBlock);
 
         llvm::Function* resumeFn = LLVM_D_GetRuntimeFunction(Loc(),
@@ -364,14 +369,14 @@ llvm::BasicBlock* ScopeStack::emitLandingPad() {
         // emitted to the EH tables.
         landingPad->addClause(it->classInfoPtr);
 
-        llvm::BasicBlock *mismatchBB = llvm::BasicBlock::Create(
+        llvm::BasicBlock* mismatchBB = llvm::BasicBlock::Create(
             irs->context(),
             beginBB->getName() + llvm::Twine(".mismatch"),
             irs->topfunc()
         );
 
         // "Call" llvm.eh.typeid.for, which gives us the eh selector value to compare with
-        llvm::Value *ehTypeId = irs->ir->CreateCall(GET_INTRINSIC_DECL(eh_typeid_for),
+        llvm::Value* ehTypeId = irs->ir->CreateCall(GET_INTRINSIC_DECL(eh_typeid_for),
             DtoBitCast(it->classInfoPtr, getVoidPtrType()));
 
         // Compare the selector value from the unwinder against the expected
@@ -402,8 +407,7 @@ llvm::BasicBlock* ScopeStack::emitLandingPad() {
     return beginBB;
 }
 
-IrFunction::IrFunction(FuncDeclaration* fd)
-{
+IrFunction::IrFunction(FuncDeclaration* fd) {
     decl = fd;
 
     Type* t = fd->type->toBasetype();
@@ -435,8 +439,7 @@ IrFunction::IrFunction(FuncDeclaration* fd)
     ehSelectorSlot = NULL;
 }
 
-void IrFunction::setNeverInline()
-{
+void IrFunction::setNeverInline() {
 #if LDC_LLVM_VER >= 303
     assert(!func->getAttributes().hasAttribute(llvm::AttributeSet::FunctionIndex, llvm::Attribute::AlwaysInline) && "function can't be never- and always-inline at the same time");
     func->addFnAttr(llvm::Attribute::NoInline);
@@ -449,8 +452,7 @@ void IrFunction::setNeverInline()
 #endif
 }
 
-void IrFunction::setAlwaysInline()
-{
+void IrFunction::setAlwaysInline() {
 #if LDC_LLVM_VER >= 303
     assert(!func->getAttributes().hasAttribute(llvm::AttributeSet::FunctionIndex, llvm::Attribute::NoInline) && "function can't be never- and always-inline at the same time");
     func->addFnAttr(llvm::Attribute::AlwaysInline);
@@ -470,10 +472,9 @@ llvm::AllocaInst* IrFunction::getOrCreateEhPtrSlot() {
     return ehPtrSlot;
 }
 
-IrFunction *getIrFunc(FuncDeclaration *decl, bool create)
+IrFunction* getIrFunc(FuncDeclaration* decl, bool create)
 {
-    if (!isIrFuncCreated(decl) && create)
-    {
+    if (!isIrFuncCreated(decl) && create) {
         assert(decl->ir.irFunc == NULL);
         decl->ir.irFunc = new IrFunction(decl);
         decl->ir.m_type = IrDsymbol::FuncType;
@@ -482,8 +483,7 @@ IrFunction *getIrFunc(FuncDeclaration *decl, bool create)
     return decl->ir.irFunc;
 }
 
-bool isIrFuncCreated(FuncDeclaration *decl)
-{
+bool isIrFuncCreated(FuncDeclaration* decl) {
     int t = decl->ir.type();
     assert(t == IrDsymbol::FuncType || t == IrDsymbol::NotSet);
     return t == IrDsymbol::FuncType;
