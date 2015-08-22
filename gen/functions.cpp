@@ -535,75 +535,72 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     IrFuncTy &irFty = irFunc->irFty;
 
-    // if (!declareOnly)
+    // name parameters
+    llvm::Function::arg_iterator iarg = func->arg_begin();
+
+    if (irFty.arg_sret) {
+        iarg->setName(".sret_arg");
+        irFunc->retArg = iarg;
+        ++iarg;
+    }
+
+    if (irFty.arg_this) {
+        iarg->setName(".this_arg");
+        irFunc->thisArg = iarg;
+
+        VarDeclaration* v = fdecl->vthis;
+        if (v) {
+            // We already build the this argument here if we will need it
+            // later for codegen'ing the function, just as normal
+            // parameters below, because it can be referred to in nested
+            // context types. Will be given storage in DtoDefineFunction.
+            assert(!isIrParameterCreated(v));
+            IrParameter *irParam = getIrParameter(v, true);
+            irParam->value = iarg;
+            irParam->arg = irFty.arg_this;
+            irParam->isVthis = true;
+        }
+
+        ++iarg;
+    }
+    else if (irFty.arg_nest) {
+        iarg->setName(".nest_arg");
+        irFunc->nestArg = iarg;
+        assert(irFunc->nestArg);
+        ++iarg;
+    }
+
+    if (irFty.arg_arguments) {
+        iarg->setName("._arguments");
+        irFunc->_arguments = iarg;
+        ++iarg;
+    }
+
+    // we never reference parameters of function prototypes
+    unsigned int k = 0;
+    for (; iarg != func->arg_end(); ++iarg)
     {
-        // name parameters
-        llvm::Function::arg_iterator iarg = func->arg_begin();
-
-        if (irFty.arg_sret) {
-            iarg->setName(".sret_arg");
-            irFunc->retArg = iarg;
-            ++iarg;
-        }
-
-        if (irFty.arg_this) {
-            iarg->setName(".this_arg");
-            irFunc->thisArg = iarg;
-
-            VarDeclaration* v = fdecl->vthis;
-            if (v) {
-                // We already build the this argument here if we will need it
-                // later for codegen'ing the function, just as normal
-                // parameters below, because it can be referred to in nested
-                // context types. Will be given storage in DtoDefineFunction.
-                assert(!isIrParameterCreated(v));
-                IrParameter *irParam = getIrParameter(v, true);
-                irParam->value = iarg;
-                irParam->arg = irFty.arg_this;
-                irParam->isVthis = true;
-            }
-
-            ++iarg;
-        }
-        else if (irFty.arg_nest) {
-            iarg->setName(".nest_arg");
-            irFunc->nestArg = iarg;
-            assert(irFunc->nestArg);
-            ++iarg;
-        }
-
-        if (irFty.arg_arguments) {
-            iarg->setName("._arguments");
-            irFunc->_arguments = iarg;
-            ++iarg;
-        }
-
-        // we never reference parameters of function prototypes
-        unsigned int k = 0;
-        for (; iarg != func->arg_end(); ++iarg)
+        if (fdecl->parameters && fdecl->parameters->dim > k)
         {
-            if (fdecl->parameters && fdecl->parameters->dim > k)
-            {
-                int paramIndex = irFty.reverseParams ? fdecl->parameters->dim-k-1 : k;
-                Dsymbol* argsym = static_cast<Dsymbol*>(fdecl->parameters->data[paramIndex]);
+            int paramIndex = irFty.reverseParams ? fdecl->parameters->dim-k-1 : k;
+            Dsymbol* argsym = static_cast<Dsymbol*>(fdecl->parameters->data[paramIndex]);
 
-                VarDeclaration* argvd = argsym->isVarDeclaration();
-                assert(argvd);
-                assert(!isIrLocalCreated(argvd));
-                std::string str(argvd->ident->toChars());
-                str.append("_arg");
-                iarg->setName(str);
+            VarDeclaration* argvd = argsym->isVarDeclaration();
+            assert(argvd);
+            assert(!isIrLocalCreated(argvd));
+            std::string str(argvd->ident->toChars());
+            str.append("_arg");
+            iarg->setName(str);
 
-                IrParameter *irParam = getIrParameter(argvd, true);
-                irParam->value = iarg;
-                irParam->arg = irFty.args[paramIndex];
+            IrParameter *irParam = getIrParameter(argvd, true);
+            irParam->value = iarg;
+            irParam->arg = irFty.args[paramIndex];
 
-                k++;
-            }
-            else
-            {
-                iarg->setName("unnamed");
-            }
+            k++;
+        }
+        else
+        {
+            iarg->setName("unnamed");
         }
     }
 }
