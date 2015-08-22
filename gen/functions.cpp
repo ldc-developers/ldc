@@ -135,16 +135,16 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     }
 
     // if this _Dmain() doesn't have an argument, we force it to have one
-    size_t nargs = Parameter::dim(f->parameters);
+    const size_t numExplicitDArgs = Parameter::dim(f->parameters);
 
-    if (isMain && nargs == 0)
+    if (isMain && numExplicitDArgs == 0)
     {
         Type* mainargs = Type::tchar->arrayOf()->arrayOf();
         newIrFty.args.push_back(new IrFuncTyArg(mainargs, false));
         ++nextLLArgIdx;
     }
 
-    for (size_t i = 0; i < nargs; ++i)
+    for (size_t i = 0; i < numExplicitDArgs; ++i)
     {
         Parameter* arg = Parameter::getNth(f->parameters, i);
 
@@ -187,7 +187,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     irFty = llvm_move(newIrFty);
 
     // Finally build the actual LLVM function type.
-    std::vector<LLType*> argtypes;
+    llvm::SmallVector<llvm::Type*, 16> argtypes;
     argtypes.reserve(nextLLArgIdx);
 
     if (irFty.arg_sret) argtypes.push_back(irFty.arg_sret->ltype);
@@ -196,14 +196,14 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     if (irFty.arg_arguments) argtypes.push_back(irFty.arg_arguments->ltype);
 
     const size_t firstExplicitArg = argtypes.size();
-    const size_t numExplicitArgs = irFty.args.size();
-    for (size_t i = 0; i < numExplicitArgs; i++)
+    const size_t numExplicitLLArgs = irFty.args.size();
+    for (size_t i = 0; i < numExplicitLLArgs; i++)
     {
         argtypes.push_back(irFty.args[i]->ltype);
     }
 
     // reverse params?
-    if (irFty.reverseParams && numExplicitArgs > 1)
+    if (irFty.reverseParams && numExplicitLLArgs > 1)
     {
         std::reverse(argtypes.begin() + firstExplicitArg, argtypes.end());
     }
