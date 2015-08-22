@@ -37,13 +37,20 @@ namespace llvm {
     class FunctionType;
 }
 
-// represents a function type argument
-// both explicit and implicit as well as return values
+/// Represents a function type argument (both explicit and implicit as well as
+/// return values).
+///
+/// Instances of this only exist for arguments that are actually lowered to an
+/// LLVM parameter (e.g. not for empty structs).
 struct IrFuncTyArg
 {
     /** This is the original D type as the frontend knows it
      *  May NOT be rewritten!!! */
     Type* const type;
+
+    /// The index of the declaration in the FuncDeclaration::parameters array
+    /// corresponding to this argument.
+    size_t parametersIdx;
 
     /// This is the final LLVM Type used for the parameter/return value type
     llvm::Type* ltype;
