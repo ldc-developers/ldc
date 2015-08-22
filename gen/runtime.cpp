@@ -753,8 +753,8 @@ static void LLVM_D_BuildRuntimeModule()
     // int _adEq(void[] a1, void[] a2, TypeInfo ti)
     // int _adCmp(void[] a1, void[] a2, TypeInfo ti)
     {
-        llvm::StringRef fname(_adEq);
-        llvm::StringRef fname2(_adCmp);
+        llvm::StringRef fname("_adEq2");
+        llvm::StringRef fname2("_adCmp2");
         LLType *types[] = { voidArrayTy, voidArrayTy, typeInfoTy };
         LLFunctionType* fty = llvm::FunctionType::get(intTy, types, false);
         llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)

@@ -946,7 +946,7 @@ static LLValue* DtoArrayEqCmp_impl(Loc& loc, const char* func, DValue* l, DValue
 //////////////////////////////////////////////////////////////////////////////////////////
 LLValue* DtoArrayEquals(Loc& loc, TOK op, DValue* l, DValue* r)
 {
-    LLValue* res = DtoArrayEqCmp_impl(loc, _adEq, l, r, true);
+    LLValue* res = DtoArrayEqCmp_impl(loc, "_adEq2", l, r, true);
     res = gIR->ir->CreateICmpNE(res, DtoConstInt(0));
     if (op == TOKnotequal)
         res = gIR->ir->CreateNot(res);
@@ -967,7 +967,7 @@ LLValue* DtoArrayCompare(Loc& loc, TOK op, DValue* l, DValue* r)
         if (t->ty == Tchar)
             res = DtoArrayEqCmp_impl(loc, "_adCmpChar", l, r, false);
         else
-            res = DtoArrayEqCmp_impl(loc, _adCmp, l, r, true);
+            res = DtoArrayEqCmp_impl(loc, "_adCmp2", l, r, true);
         res = gIR->ir->CreateICmp(cmpop, res, DtoConstInt(0));
     }
 

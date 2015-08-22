@@ -32,7 +32,4 @@ llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module& target, 
 
 llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(const Loc &loc, llvm::Module& target, const char* name);
 
-#define _adEq "_adEq2"
-#define _adCmp "_adCmp2"
-
 #endif // LDC_GEN_RUNTIME_H
