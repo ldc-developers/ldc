@@ -144,7 +144,184 @@ version (GCC_UNWIND)
     ptrdiff_t _Unwind_GetTextRelBase(_Unwind_Context_Ptr context);
     ptrdiff_t _Unwind_GetDataRelBase(_Unwind_Context_Ptr context);
 }
-else // !GCC_UNWIND
+else version (Win64)
+{
+    import core.sys.windows.windows;
+
+    // Missing in core.sys.windows.windows
+    alias ulong ULONG64;
+
+    extern(Windows) void RaiseException(DWORD dwExceptionCode,
+                                        DWORD dwExceptionFlags,
+                                        DWORD nNumberOfArguments,
+                                        ULONG_PTR *lpArguments);
+
+    // Exception disposition return values
+    enum EXCEPTION_DISPOSITION
+    {
+        ExceptionContinueExecution,
+        ExceptionContinueSearch,
+        ExceptionNestedException,
+        ExceptionCollidedUnwind
+    }
+
+    enum : DWORD
+    {
+        STATUS_WAIT_0                      = 0,
+        STATUS_ABANDONED_WAIT_0            = 0x00000080,
+        STATUS_USER_APC                    = 0x000000C0,
+        STATUS_TIMEOUT                     = 0x00000102,
+        STATUS_PENDING                     = 0x00000103,
+
+        STATUS_SEGMENT_NOTIFICATION        = 0x40000005,
+        STATUS_GUARD_PAGE_VIOLATION        = 0x80000001,
+        STATUS_DATATYPE_MISALIGNMENT       = 0x80000002,
+        STATUS_BREAKPOINT                  = 0x80000003,
+        STATUS_SINGLE_STEP                 = 0x80000004,
+
+        STATUS_ACCESS_VIOLATION            = 0xC0000005,
+        STATUS_IN_PAGE_ERROR               = 0xC0000006,
+        STATUS_INVALID_HANDLE              = 0xC0000008,
+
+        STATUS_NO_MEMORY                   = 0xC0000017,
+        STATUS_ILLEGAL_INSTRUCTION         = 0xC000001D,
+        STATUS_NONCONTINUABLE_EXCEPTION    = 0xC0000025,
+        STATUS_INVALID_DISPOSITION         = 0xC0000026,
+        STATUS_ARRAY_BOUNDS_EXCEEDED       = 0xC000008C,
+        STATUS_FLOAT_DENORMAL_OPERAND      = 0xC000008D,
+        STATUS_FLOAT_DIVIDE_BY_ZERO        = 0xC000008E,
+        STATUS_FLOAT_INEXACT_RESULT        = 0xC000008F,
+        STATUS_FLOAT_INVALID_OPERATION     = 0xC0000090,
+        STATUS_FLOAT_OVERFLOW              = 0xC0000091,
+        STATUS_FLOAT_STACK_CHECK           = 0xC0000092,
+        STATUS_FLOAT_UNDERFLOW             = 0xC0000093,
+        STATUS_INTEGER_DIVIDE_BY_ZERO      = 0xC0000094,
+        STATUS_INTEGER_OVERFLOW            = 0xC0000095,
+        STATUS_PRIVILEGED_INSTRUCTION      = 0xC0000096,
+        STATUS_STACK_OVERFLOW              = 0xC00000FD,
+        STATUS_CONTROL_C_EXIT              = 0xC000013A,
+        STATUS_DLL_INIT_FAILED             = 0xC0000142,
+        STATUS_DLL_INIT_FAILED_LOGOFF      = 0xC000026B,
+
+        CONTROL_C_EXIT                     = STATUS_CONTROL_C_EXIT,
+
+        EXCEPTION_ACCESS_VIOLATION         = STATUS_ACCESS_VIOLATION,
+        EXCEPTION_DATATYPE_MISALIGNMENT    = STATUS_DATATYPE_MISALIGNMENT,
+        EXCEPTION_BREAKPOINT               = STATUS_BREAKPOINT,
+        EXCEPTION_SINGLE_STEP              = STATUS_SINGLE_STEP,
+        EXCEPTION_ARRAY_BOUNDS_EXCEEDED    = STATUS_ARRAY_BOUNDS_EXCEEDED,
+        EXCEPTION_FLT_DENORMAL_OPERAND     = STATUS_FLOAT_DENORMAL_OPERAND,
+        EXCEPTION_FLT_DIVIDE_BY_ZERO       = STATUS_FLOAT_DIVIDE_BY_ZERO,
+        EXCEPTION_FLT_INEXACT_RESULT       = STATUS_FLOAT_INEXACT_RESULT,
+        EXCEPTION_FLT_INVALID_OPERATION    = STATUS_FLOAT_INVALID_OPERATION,
+        EXCEPTION_FLT_OVERFLOW             = STATUS_FLOAT_OVERFLOW,
+        EXCEPTION_FLT_STACK_CHECK          = STATUS_FLOAT_STACK_CHECK,
+        EXCEPTION_FLT_UNDERFLOW            = STATUS_FLOAT_UNDERFLOW,
+        EXCEPTION_INT_DIVIDE_BY_ZERO       = STATUS_INTEGER_DIVIDE_BY_ZERO,
+        EXCEPTION_INT_OVERFLOW             = STATUS_INTEGER_OVERFLOW,
+        EXCEPTION_PRIV_INSTRUCTION         = STATUS_PRIVILEGED_INSTRUCTION,
+        EXCEPTION_IN_PAGE_ERROR            = STATUS_IN_PAGE_ERROR,
+        EXCEPTION_ILLEGAL_INSTRUCTION      = STATUS_ILLEGAL_INSTRUCTION,
+        EXCEPTION_NONCONTINUABLE_EXCEPTION = STATUS_NONCONTINUABLE_EXCEPTION,
+        EXCEPTION_STACK_OVERFLOW           = STATUS_STACK_OVERFLOW,
+        EXCEPTION_INVALID_DISPOSITION      = STATUS_INVALID_DISPOSITION,
+        EXCEPTION_GUARD_PAGE               = STATUS_GUARD_PAGE_VIOLATION,
+        EXCEPTION_INVALID_HANDLE           = STATUS_INVALID_HANDLE
+    }
+
+    // Exception record flag
+    enum : DWORD
+    {
+        EXCEPTION_NONCONTINUABLE           = 0x01,
+        EXCEPTION_UNWINDING                = 0x02,
+        EXCEPTION_EXIT_UNWIND              = 0x04,
+        EXCEPTION_STACK_INVALID            = 0x08,
+        EXCEPTION_NESTED_CALL              = 0x10,
+        EXCEPTION_TARGET_UNWIND            = 0x20,
+        EXCEPTION_COLLIDED_UNWIND          = 0x40,
+
+        EXCEPTION_UNWIND                   = EXCEPTION_UNWINDING
+                                             | EXCEPTION_EXIT_UNWIND
+                                             | EXCEPTION_TARGET_UNWIND
+                                             | EXCEPTION_COLLIDED_UNWIND
+    }
+
+    // Maximum number of exception parameters
+    enum size_t EXCEPTION_MAXIMUM_PARAMETERS = 15;
+
+    struct EXCEPTION_RECORD
+    {
+        DWORD ExceptionCode;
+        DWORD ExceptionFlags;
+        EXCEPTION_RECORD* ExceptionRecord;
+        PVOID ExceptionAddress;
+        DWORD NumberParameters;
+        version(Win64)
+        {
+            DWORD __unusedAlignment;
+        }
+        ULONG_PTR[EXCEPTION_MAXIMUM_PARAMETERS] ExceptionInformation;
+    }
+
+    struct DISPATCHER_CONTEXT
+    {
+        PVOID ControlPc;
+        PVOID ImageBase;
+        RUNTIME_FUNCTION *FunctionEntry;
+        PVOID EstablisherFrame;
+        PVOID TargetIp;
+        CONTEXT *ContextRecord;
+        EXCEPTION_ROUTINE *LanguageHandler;
+        PVOID HandlerData;
+        UNWIND_HISTORY_TABLE *HistoryTable;
+    }
+
+    struct RUNTIME_FUNCTION
+    {
+        DWORD BeginAddress;
+        DWORD EndAddress;
+        DWORD UnwindData;
+    }
+
+    alias extern(C) EXCEPTION_DISPOSITION function(EXCEPTION_RECORD *ExceptionRecord,
+                                                   void *EstablisherFrame,
+                                                   CONTEXT *ContextRecord,
+                                                   DISPATCHER_CONTEXT *DispatcherContext) EXCEPTION_ROUTINE;
+
+    // Make our own exception code
+    enum int STATUS_LDC_D_EXCEPTION = (3 << 30) // Severity = error
+                                      | (1 << 29) // User defined exception
+                                      | (0 << 28) // Reserved
+                                      | ('L' << 16)
+                                      | ('D' << 8)
+                                      | ('C' << 0);
+
+    struct UNWIND_HISTORY_TABLE_ENTRY
+    {
+        ULONG64 ImageBase;
+        RUNTIME_FUNCTION *FunctionEntry;
+    }
+
+    enum size_t UNWIND_HISTORY_TABLE_SIZE = 12;
+
+    struct UNWIND_HISTORY_TABLE
+    {
+        ULONG Count;
+        UCHAR Search;
+        ULONG64 LowAddress;
+        ULONG64 HighAddress;
+        UNWIND_HISTORY_TABLE_ENTRY[UNWIND_HISTORY_TABLE_SIZE] Entry;
+    }
+
+    extern(Windows) void RtlUnwindEx(PVOID TargetFrame,
+                                     PVOID TargetIp,
+                                     EXCEPTION_RECORD *ExceptionRecord,
+                                     PVOID ReturnValue,
+                                     CONTEXT *OriginalContext,
+                                     UNWIND_HISTORY_TABLE *HistoryTable);
+    extern(Windows) void RtlRaiseException(EXCEPTION_RECORD *ExceptionRecord);
+}
+else // !GCC_UNWIND && !Win64
 {
     static assert(0, "Not implemented on this platform");
 }
@@ -1069,7 +1246,251 @@ _Unwind_Reason_Code installFinallyContext(_Unwind_Action actions,
     return _Unwind_Reason_Code.INSTALL_CONTEXT;
 }
 
-} // GCC_UNWIND
+}
+else version (Win64)
+{
+
+/*
+ * The interaction between the language, the LDC API and the OS is as follows:
+ *
+ * The exception is raised with the throw statement. The throw statement is
+ * translated to a call to _d_throw_exception. This method translate the D
+ * exception into an OS exception with a call to RtlRaiseException.
+ *
+ * The OS now searches for an exception handler. The next frame with a
+ * registered exception handler (flag UNW_EHANDLER) is located with the help of
+ * RtlVirtualUnwind. Then this exception handler is called. If the return value
+ * is ExceptionContinueSearch then this process is repeated with the next
+ * exception handler.
+ * If the exception handler wants to handle the exception (a catch clause in D)
+ * then he calls RtlUnwindEx with the address of the catch clause as target.
+ * RtlUnwindEx unwinds the stack, calling all registered termination handlers
+ * (flag UNW_UHANDLER) and finally realizing the target context.
+ *
+ * In order to use the OS functionality for D finally clauses we do always stop
+ * at the first catch or cleanup (finally, scope) found and realize this
+ * context. If the target was a catch then we are done. Otherwise,
+ * _d_eh_resume_unwind is called. The function then re-raises the original
+ * exception to continue the unwind.
+ *
+ * In general, this is a simple approach with the nice property that no
+ * additional dynamic memory is consumed. On the downside chained exceptions are
+ * not handled and the possible multiple raising of an exception may be not too
+ * efficient.
+ */
+
+extern(C) EXCEPTION_DISPOSITION _d_eh_personality(EXCEPTION_RECORD* ExceptionRecord,
+                                                  void* EstablisherFrame,
+                                                  CONTEXT* ContextRecord,
+                                                  DISPATCHER_CONTEXT* dispatch)
+{
+    //
+    // First, we need to find the Language-Specific Data table for this frame
+    // and extract our information tables (the "language-specific" part is a bit
+    // of a misnomer, in reality this is generated by LLVM).
+    //
+    // The callsite and action tables do not contain static-length data and will
+    // be parsed as needed.
+    //
+
+    ubyte* callsite_table;
+    ubyte* action_table;
+
+    // Points points past the end of the table.
+    ubyte* classinfo_table;
+    ubyte classinfo_table_encoding;
+    _d_getLanguageSpecificTables(cast(ubyte*) dispatch.HandlerData, callsite_table, action_table, classinfo_table, classinfo_table_encoding);
+
+    if (!callsite_table)
+        return EXCEPTION_DISPOSITION.ExceptionContinueSearch;
+
+    //
+    // Now, we need to figure out if the address of the current instruction
+    // in this frame corresponds to a block which has an associated landing pad.
+    //
+
+    // The instruction pointer (ip) will point to the next instruction after
+    // whatever made execution leave this frame, so substract 1 for the range
+    // comparison below.
+    immutable ip = cast(ptrdiff_t)(dispatch.ControlPc - 1);
+
+    // The table entries are all relative to the start address of the region.
+    immutable region_start = cast(ptrdiff_t)dispatch.ImageBase +
+                             dispatch.FunctionEntry.BeginAddress;
+
+    // The address of the landing pad to jump to (null if no match).
+    ptrdiff_t landingPadAddr;
+
+    // The offset in the action table corresponding to the first action for this
+    // landing pad (will be zero if there are none).
+    size_t actionTableStartOffset;
+
+    ubyte* callsite_walker = callsite_table;
+    while (true)
+    {
+        // if we've gone through the list and found nothing...
+        if (callsite_walker >= action_table)
+            return EXCEPTION_DISPOSITION.ExceptionContinueSearch;
+
+        immutable block_start_offset = *cast(uint*)callsite_walker;
+        immutable block_size = *(cast(uint*)callsite_walker + 1);
+        landingPadAddr = *(cast(uint*)callsite_walker + 2);
+        callsite_walker = get_uleb128(callsite_walker + 3 * uint.sizeof, actionTableStartOffset);
+
+        debug(EH_personality_verbose)
+        {
+            printf("  - ip=%llx %d %d %llx\n", ip, block_start_offset,
+                block_size, landingPadAddr);
+        }
+
+        // since the list is sorted, as soon as we're past the ip
+        // there's no handler to be found
+        if (ip < region_start + block_start_offset)
+            return EXCEPTION_DISPOSITION.ExceptionContinueSearch;
+
+        // if we've found our block, exit
+        if (ip < region_start + block_start_offset + block_size)
+            break;
+    }
+
+    debug(EH_personality)
+    {
+        printf("  - Found correct landing pad and actionTableStartOffset %d\n",
+            actionTableStartOffset);
+    }
+
+    // There is no landing pad for this part of the frame, continue with the next level.
+    if (!landingPadAddr)
+    {
+        if (actionTableStartOffset)
+            fatalerror("No landing pad but actionTableStartOffset");
+        return EXCEPTION_DISPOSITION.ExceptionContinueSearch;
+    }
+
+    // We have a landing pad, adjust by region start address.
+    landingPadAddr += region_start;
+
+    immutable isSearchPhase = ExceptionRecord.ExceptionFlags & EXCEPTION_TARGET_UNWIND;
+
+    // TODO: exception chaining
+
+    // If there are no actions, this is a cleanup landing pad.
+    if (!actionTableStartOffset)
+    {
+        return installFinallyContext(landingPadAddr, ExceptionRecord, EstablisherFrame,
+            ContextRecord, dispatch);
+    }
+
+    // We have at least some attached actions. Figure out whether any of them
+    // match the type of the current exception.
+    immutable ci_size = get_size_of_encoded_value(classinfo_table_encoding);
+    debug(EH_personality) printf("  - ci_size: %td, ci_encoding: %d\n", ci_size, classinfo_table_encoding);
+
+    ubyte* action_walker = action_table + actionTableStartOffset - 1;
+    while (true)
+    {
+        ptrdiff_t ti_offset;
+        action_walker = get_sleb128(action_walker, ti_offset);
+        debug(EH_personality) printf("  - ti_offset: %tx\n", ti_offset);
+
+        // it is intentional that we not modify action_walker here
+        // next_action_offset is from current action_walker position
+        ptrdiff_t next_action_offset;
+        get_sleb128(action_walker, next_action_offset);
+
+        // negative are 'filters' which we don't use
+        if (!(ti_offset >= 0))
+            fatalerror("Filter actions are unsupported");
+
+        // zero means cleanup, which we require to be the last action
+        if (ti_offset == 0)
+        {
+            if (!(next_action_offset == 0))
+                fatalerror("Cleanup action must be last in chain");
+            return installFinallyContext(landingPadAddr, ExceptionRecord, EstablisherFrame,
+                ContextRecord, dispatch);
+        }
+
+        // For catch clauses, now figure out whether the types match.
+        if (true)
+        {
+            size_t catchClassInfoAddr;
+            get_encoded_value(
+                classinfo_table - ti_offset * ci_size,
+                catchClassInfoAddr,
+                classinfo_table_encoding,
+                null
+            );
+
+            auto exceptionClassInfo = (cast(Object)cast(void*)ExceptionRecord.ExceptionInformation[0]).classinfo;
+            auto catchClassInfo = cast(ClassInfo)cast(void*)catchClassInfoAddr;
+            debug(EH_personality)
+            {
+                printf("  - Comparing catch %s to exception %s\n",
+                    catchClassInfo.name.ptr, exceptionClassInfo.name.ptr);
+            }
+            if (_d_isbaseof(exceptionClassInfo, catchClassInfo))
+            {
+                return installCatchContext(ti_offset, landingPadAddr,
+                    ExceptionRecord, EstablisherFrame, ContextRecord, dispatch);
+            }
+        }
+
+        debug(EH_personality) printf("  - Type mismatch, next action offset: %tx\n", next_action_offset);
+
+        if (next_action_offset == 0)
+            return EXCEPTION_DISPOSITION.ExceptionContinueSearch;
+        action_walker += next_action_offset;
+    }
+}
+
+EXCEPTION_DISPOSITION installCatchContext(ptrdiff_t ti_offset, ptrdiff_t landing_pad,
+                                          EXCEPTION_RECORD* ExceptionRecord, void* EstablisherFrame,
+                                          CONTEXT* ContextRecord, DISPATCHER_CONTEXT* dispatch)
+{
+    if (ExceptionRecord.ExceptionFlags & EXCEPTION_TARGET_UNWIND)
+    {
+        ContextRecord.Rdx = ti_offset; // Selector value for cleanup
+        return EXCEPTION_DISPOSITION.ExceptionContinueSearch;
+    }
+    else if (ExceptionRecord.ExceptionFlags & EXCEPTION_UNWIND)
+    {
+        fatalerror("EXCEPTION_UNWIND and catch");
+    }
+    else
+    {
+        RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord,
+            cast(PVOID) ExceptionRecord.ExceptionInformation[0], ContextRecord,
+            dispatch.HistoryTable);
+        fatalerror("RtlUnwindEx failed");
+    }
+    return EXCEPTION_DISPOSITION.ExceptionContinueSearch;
+}
+
+EXCEPTION_DISPOSITION installFinallyContext(ptrdiff_t landing_pad,
+                                            EXCEPTION_RECORD* ExceptionRecord, void* EstablisherFrame,
+                                            CONTEXT* ContextRecord, DISPATCHER_CONTEXT* dispatch)
+{
+    if (ExceptionRecord.ExceptionFlags & EXCEPTION_TARGET_UNWIND)
+    {
+        ContextRecord.Rdx = 0; // Selector value for cleanup
+        return EXCEPTION_DISPOSITION.ExceptionContinueSearch;
+    }
+    else if (ExceptionRecord.ExceptionFlags & EXCEPTION_UNWIND)
+    {
+        fatalerror("EXCEPTION_UNWIND and cleanup");
+    }
+    else
+    {
+        RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord,
+            cast(PVOID) ExceptionRecord.ExceptionInformation[0], ContextRecord,
+            dispatch.HistoryTable);
+        fatalerror("RtlUnwindEx failed");
+    }
+    return EXCEPTION_DISPOSITION.ExceptionContinueSearch;
+}
+
+} // Win64
 
 
 
@@ -1145,4 +1566,88 @@ void _d_eh_enter_catch()
     popCleanupBlockRecord();
 }
 
-} // GCC_UNWIND
+}
+else version (Win64)
+{
+
+void _d_throw_exception(Object e)
+{
+    debug(EH_personality) printf("Calling _d_throw_exception = %p e = %p\n", &_d_throw_exception, e);
+    if (e !is null)
+    {
+        EXCEPTION_RECORD ExceptionRecord;
+
+        // Initialize exception information
+        ExceptionRecord.ExceptionCode = STATUS_LDC_D_EXCEPTION;
+        ExceptionRecord.ExceptionFlags = EXCEPTION_NONCONTINUABLE;
+        ExceptionRecord.ExceptionAddress = &_d_throw_exception;
+        ExceptionRecord.NumberParameters = 1;
+        ExceptionRecord.ExceptionInformation[0] = cast(ULONG_PTR) cast(void*) e;
+
+        // Raise exception
+        RtlRaiseException(&ExceptionRecord);
+
+        // This is only reached in case we did something seriously wrong
+        fprintf(stderr, "_d_throw_exception: RtlRaiseException failed");
+    }
+    else
+        fprintf(stderr, "_d_throw_exception: No exception object provided");
+    abort();
+}
+
+void _d_eh_resume_unwind(Object e)
+{
+    debug(EH_personality) printf("Calling _d_eh_resume_unwind = %p e = %p\n", &_d_eh_resume_unwind, e);
+    if (e !is null)
+    {
+        EXCEPTION_RECORD ExceptionRecord;
+
+        // Initialize exception information
+        ExceptionRecord.ExceptionCode = STATUS_LDC_D_EXCEPTION;
+        ExceptionRecord.ExceptionFlags = EXCEPTION_NONCONTINUABLE;
+        ExceptionRecord.ExceptionAddress = &_d_eh_resume_unwind;
+        ExceptionRecord.NumberParameters = 1;
+        ExceptionRecord.ExceptionInformation[0] = cast(ULONG_PTR) cast(void*) e;
+
+        // Raise exception
+        RtlRaiseException(&ExceptionRecord);
+
+        // This is only reached in case we did something seriously wrong
+        fprintf(stderr, "_d_eh_resume_unwind: RtlRaiseException failed");
+    }
+    else
+        fprintf(stderr, "_d_eh_resume_unwind: No exception object provided");
+    abort();
+}
+
+void _d_eh_enter_catch()
+{
+    // TODO: popCleanupBlockRecord();
+}
+
+void _d_eh_handle_collision(Object exc, Object inflight_exc)
+{
+    debug(EH_personality) printf("Calling _d_eh_handle_collision = %p e = %p, inflight = %p\n", &_d_eh_handle_collision, exc, inflight_exc);
+    Throwable h = cast(Throwable)exc;
+    Throwable inflight = cast(Throwable)inflight_exc;
+
+    auto e = cast(Error)h;
+    if (e !is null && (cast(Error)inflight) is null)
+    {
+        debug(EH_personality) printf("new error %p bypassing inflight %p\n", h, inflight);
+        e.bypassedException = inflight;
+    }
+    else if (inflight != h)
+    {
+        debug(EH_personality) printf("replacing thrown %p with inflight %p\n", h, inflight);
+        auto n = inflight;
+        while (n.next)
+            n = n.next;
+        n.next = h;
+        exc = inflight_exc;
+    }
+
+    _d_eh_resume_unwind(exc);
+}
+
+} // Win64
