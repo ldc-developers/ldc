@@ -20,7 +20,7 @@
 
 #include "ir/irtypefunction.h"
 
-IrTypeFunction::IrTypeFunction(Type* dt, LLType* lt, const IrFuncTy &irFty_)
+IrTypeFunction::IrTypeFunction(Type* dt, llvm::Type* lt, const IrFuncTy& irFty_)
 :   IrType(dt, lt), irFty(irFty_)
 {
 }
@@ -31,17 +31,16 @@ IrTypeFunction* IrTypeFunction::get(Type* dt, Type* nestedContextOverride)
     assert(dt->ty == Tfunction);
 
     IrFuncTy irFty;
-    TypeFunction* tf = static_cast<TypeFunction*>(dt);
-    llvm::Type* lt = DtoFunctionType(tf, irFty, NULL, nestedContextOverride);
+    llvm::Type* lt = DtoFunctionType(dt, irFty, NULL, nestedContextOverride);
 
-    if (!dt->ctype)
-        dt->ctype = new IrTypeFunction(dt, lt, irFty);
-    return dt->ctype->isFunction();
+    IrTypeFunction* result = new IrTypeFunction(dt, lt, irFty);
+    dt->ctype = result;
+    return result;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-IrTypeDelegate::IrTypeDelegate(Type * dt, LLType* lt, const IrFuncTy &irFty_)
+IrTypeDelegate::IrTypeDelegate(Type* dt, llvm::Type* lt, const IrFuncTy& irFty_)
 :   IrType(dt, lt), irFty(irFty_)
 {
 }
@@ -52,19 +51,13 @@ IrTypeDelegate* IrTypeDelegate::get(Type* t)
     assert(t->ty == Tdelegate);
     assert(t->nextOf()->ty == Tfunction);
 
-    TypeDelegate *dt = (TypeDelegate*)t;
+    IrFuncTy irFty;
+    llvm::Type* ltf = DtoFunctionType(t->nextOf(), irFty, NULL,
+        Type::tvoid->pointerTo());
+    llvm::Type *types[] = { getVoidPtrType(), getPtrToType(ltf) };
+    LLStructType* lt = LLStructType::get(gIR->context(), types, false);
 
-    if (!dt->ctype)
-    {
-        TypeFunction* tf = static_cast<TypeFunction*>(dt->nextOf());
-        IrFuncTy irFty;
-        llvm::Type* ltf = DtoFunctionType(tf, irFty, NULL, Type::tvoid->pointerTo());
-
-        llvm::Type *types[] = { getVoidPtrType(), 
-                                getPtrToType(ltf) };
-        LLStructType* lt = LLStructType::get(gIR->context(), types, false);
-        dt->ctype = new IrTypeDelegate(dt, lt, irFty);
-    }
-
-    return dt->ctype->isDelegate();
+    IrTypeDelegate* result = new IrTypeDelegate(t, lt, irFty);
+    t->ctype = result;
+    return result;
 }
