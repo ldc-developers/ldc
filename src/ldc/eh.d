@@ -4,6 +4,8 @@
  */
 module ldc.eh;
 
+private:
+
 import core.memory : GC;
 import core.stdc.stdio;
 import core.stdc.stdlib;
@@ -17,7 +19,7 @@ version (PPC64) version = PPC_Any;
 
 // current EH implementation works on x86
 // if it has a working unwind runtime
-version(X86)
+version (X86)
 {
     version(linux) version=GCC_UNWIND;
     version(darwin) version=GCC_UNWIND;
@@ -26,7 +28,7 @@ version(X86)
     version(MinGW) version=GCC_UNWIND;
     enum stackGrowsDown = true;
 }
-version(X86_64)
+version (X86_64)
 {
     version(linux) version=GCC_UNWIND;
     version(darwin) version=GCC_UNWIND;
@@ -64,14 +66,12 @@ version (MIPS64)
 }
 
 // D runtime functions
-extern(C)
-{
-    int _d_isbaseof(ClassInfo oc, ClassInfo c);
-}
+extern(C) int _d_isbaseof(ClassInfo oc, ClassInfo c);
 
-// libunwind headers
+// platform-specific C headers
 extern(C)
 {
+
 version (GCC_UNWIND)
 {
     // FIXME: Some of these do not actually exist on ARM.
@@ -95,29 +95,6 @@ version (GCC_UNWIND)
         CLEANUP_PHASE = 2,
         HANDLER_FRAME = 4,
         FORCE_UNWIND = 8
-    }
-
-    enum _DW_EH_Format : int
-    {
-        DW_EH_PE_absptr  = 0x00,  // The Value is a literal pointer whose size is determined by the architecture.
-        DW_EH_PE_uleb128 = 0x01,  // Unsigned value is encoded using the Little Endian Base 128 (LEB128)
-        DW_EH_PE_udata2  = 0x02,  // A 2 bytes unsigned value.
-        DW_EH_PE_udata4  = 0x03,  // A 4 bytes unsigned value.
-        DW_EH_PE_udata8  = 0x04,  // An 8 bytes unsigned value.
-        DW_EH_PE_sleb128 = 0x09,  // Signed value is encoded using the Little Endian Base 128 (LEB128)
-        DW_EH_PE_sdata2  = 0x0A,  // A 2 bytes signed value.
-        DW_EH_PE_sdata4  = 0x0B,  // A 4 bytes signed value.
-        DW_EH_PE_sdata8  = 0x0C,  // An 8 bytes signed value.
-
-        DW_EH_PE_pcrel   = 0x10,  // Value is relative to the current program counter.
-        DW_EH_PE_textrel = 0x20,  // Value is relative to the beginning of the .text section.
-        DW_EH_PE_datarel = 0x30,  // Value is relative to the beginning of the .got or .eh_frame_hdr section.
-        DW_EH_PE_funcrel = 0x40,  // Value is relative to the beginning of the function.
-        DW_EH_PE_aligned = 0x50,  // Value is aligned to an address unit sized boundary.
-
-        DW_EH_PE_indirect = 0x80,
-
-        DW_EH_PE_omit    = 0xff   // Indicates that no value is present.
     }
 
     alias void* _Unwind_Context_Ptr;
@@ -167,24 +144,15 @@ version (GCC_UNWIND)
     ptrdiff_t _Unwind_GetTextRelBase(_Unwind_Context_Ptr context);
     ptrdiff_t _Unwind_GetDataRelBase(_Unwind_Context_Ptr context);
 }
-else
+else // !GCC_UNWIND
 {
-    // runtime calls these directly
-    void _Unwind_Resume(_Unwind_Exception*)
-    {
-        fprintf(stderr, "_Unwind_Resume is not implemented on this platform.\n");
-    }
-    _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*)
-    {
-        fprintf(stderr, "_Unwind_RaiseException is not implemented on this platform.\n");
-        return _Unwind_Reason_Code.FATAL_PHASE1_ERROR;
-    }
+    static assert(0, "Not implemented on this platform");
 }
 
-}
+} // extern(C)
 
 // error and exit
-extern(C) private void fatalerror(in char* format, ...)
+extern(C) void fatalerror(in char* format, ...)
 {
     va_list args;
     va_start(args, format);
@@ -196,7 +164,30 @@ extern(C) private void fatalerror(in char* format, ...)
 
 
 // helpers for reading certain DWARF data
-private ubyte* get_uleb128(ubyte* addr, ref size_t res)
+enum _DW_EH_Format : int
+{
+    DW_EH_PE_absptr  = 0x00,  // The Value is a literal pointer whose size is determined by the architecture.
+    DW_EH_PE_uleb128 = 0x01,  // Unsigned value is encoded using the Little Endian Base 128 (LEB128)
+    DW_EH_PE_udata2  = 0x02,  // A 2 bytes unsigned value.
+    DW_EH_PE_udata4  = 0x03,  // A 4 bytes unsigned value.
+    DW_EH_PE_udata8  = 0x04,  // An 8 bytes unsigned value.
+    DW_EH_PE_sleb128 = 0x09,  // Signed value is encoded using the Little Endian Base 128 (LEB128)
+    DW_EH_PE_sdata2  = 0x0A,  // A 2 bytes signed value.
+    DW_EH_PE_sdata4  = 0x0B,  // A 4 bytes signed value.
+    DW_EH_PE_sdata8  = 0x0C,  // An 8 bytes signed value.
+
+    DW_EH_PE_pcrel   = 0x10,  // Value is relative to the current program counter.
+    DW_EH_PE_textrel = 0x20,  // Value is relative to the beginning of the .text section.
+    DW_EH_PE_datarel = 0x30,  // Value is relative to the beginning of the .got or .eh_frame_hdr section.
+    DW_EH_PE_funcrel = 0x40,  // Value is relative to the beginning of the function.
+    DW_EH_PE_aligned = 0x50,  // Value is aligned to an address unit sized boundary.
+
+    DW_EH_PE_indirect = 0x80,
+
+    DW_EH_PE_omit    = 0xff   // Indicates that no value is present.
+}
+
+ubyte* get_uleb128(ubyte* addr, ref size_t res)
 {
     res = 0;
     size_t bitsize = 0;
@@ -218,7 +209,7 @@ private ubyte* get_uleb128(ubyte* addr, ref size_t res)
     return addr + 1;
 }
 
-private ubyte* get_sleb128(ubyte* addr, ref ptrdiff_t res)
+ubyte* get_sleb128(ubyte* addr, ref ptrdiff_t res)
 {
     res = 0;
     size_t bitsize = 0;
@@ -244,7 +235,7 @@ private ubyte* get_sleb128(ubyte* addr, ref ptrdiff_t res)
     return addr + 1;
 }
 
-private size_t get_size_of_encoded_value(ubyte encoding)
+size_t get_size_of_encoded_value(ubyte encoding)
 {
     if (encoding == _DW_EH_Format.DW_EH_PE_omit)
         return 0;
@@ -265,7 +256,7 @@ private size_t get_size_of_encoded_value(ubyte encoding)
     assert(0);
 }
 
-private ubyte* get_encoded_value(ubyte* addr, ref size_t res, ubyte encoding, _Unwind_Context_Ptr context)
+ubyte* get_encoded_value(ubyte* addr, ref size_t res, ubyte encoding, void* context)
 {
     ubyte *old_addr = addr;
 
@@ -327,12 +318,15 @@ private ubyte* get_encoded_value(ubyte* addr, ref size_t res, ubyte encoding, _U
             res += cast(size_t)old_addr;
             break;
         case _DW_EH_Format.DW_EH_PE_funcrel:
+            version(Win64) fatalerror("Not yet implemented."); else
             res += cast(size_t)_Unwind_GetRegionStart(context);
             break;
         case _DW_EH_Format.DW_EH_PE_textrel:
+            version(Win64) fatalerror("Not yet implemented."); else
             res += cast(size_t)_Unwind_GetTextRelBase(context);
             break;
         case _DW_EH_Format.DW_EH_PE_datarel:
+            version(Win64) fatalerror("Not yet implemented."); else
             res += cast(size_t)_Unwind_GetDataRelBase(context);
             break;
         default:
@@ -349,7 +343,7 @@ Lerr:
     return addr;
 }
 
-ptrdiff_t get_base_of_encoded_value(ubyte encoding, _Unwind_Context_Ptr context)
+ptrdiff_t get_base_of_encoded_value(ubyte encoding, void* context)
 {
     if (encoding == _DW_EH_Format.DW_EH_PE_omit)
         return 0;
@@ -360,12 +354,15 @@ ptrdiff_t get_base_of_encoded_value(ubyte encoding, _Unwind_Context_Ptr context)
         case DW_EH_PE_aligned:
             return 0;
 
+      version(Win64) {} else
+      {
         case DW_EH_PE_textrel:
             return _Unwind_GetTextRelBase (context);
         case DW_EH_PE_datarel:
             return _Unwind_GetDataRelBase (context);
         case DW_EH_PE_funcrel:
             return _Unwind_GetRegionStart (context);
+      }
 
         default:
             fatalerror("Unsupported encoding type to get base from.");
@@ -373,31 +370,46 @@ ptrdiff_t get_base_of_encoded_value(ubyte encoding, _Unwind_Context_Ptr context)
     }
 }
 
-// exception struct used by the runtime.
-// _d_throw allocates a new instance and passes the address of its
-// _Unwind_Exception member to the unwind call. The personality
-// routine is then able to get the whole struct by looking at the data
-// surrounding the unwind info.
-//
-// Note that the code we generate for the landing pads also relies on the
-// throwable object being stored at offset 0.
-struct _d_exception
+void _d_getLanguageSpecificTables(ubyte* data, ref ubyte* callsite, ref ubyte* action, ref ubyte* classinfo_table, ref ubyte ciEncoding)
 {
-    Object exception_object;
-    version (ARM)
+    if (data is null)
     {
-        _Unwind_Control_Block unwind_info;
+        debug(EH_personality) printf("language specific data was null\n");
+        callsite = null;
+        action = null;
+        classinfo_table = null;
+        return;
     }
-    else
-    {
-        _Unwind_Exception unwind_info;
+    debug(EH_personality) printf("  - LSDA: %p\n", data);
+
+    //TODO: Do proper DWARF reading here
+    if (*data++ != _DW_EH_Format.DW_EH_PE_omit)
+        fatalerror("DWARF header has unexpected format 1");
+
+    ciEncoding = *data++;
+    if (ciEncoding == _DW_EH_Format.DW_EH_PE_omit)
+        fatalerror("Language Specific Data does not contain Types Table");
+    version (ARM) version (linux) {
+        with (_DW_EH_Format) {
+            ciEncoding = DW_EH_PE_pcrel | DW_EH_PE_indirect;
+        }
     }
+
+    size_t cioffset;
+    data = get_uleb128(data, cioffset);
+    classinfo_table = data + cioffset;
+
+    if (*data++ != _DW_EH_Format.DW_EH_PE_udata4)
+        fatalerror("DWARF header has unexpected format 2");
+    size_t callsitelength;
+    data = get_uleb128(data, callsitelength);
+    action = data + callsitelength;
+
+    callsite = data;
+
+    debug(EH_personality) printf("  - callsite: %p, action: %p, classinfo_table: %p, ciEncoding: %d\n", callsite, action, classinfo_table, ciEncoding);
 }
 
-// the 8-byte string identifying the type of exception
-// the first 4 are for vendor, the second 4 for language
-//TODO: This may be the wrong way around
-__gshared char[8] _d_exception_class = "LLDCD2\0\0";
 
 struct ActiveCleanupBlock {
     /// Link to the next active finally block.
@@ -448,13 +460,76 @@ ActiveCleanupBlock* searchPhaseCurrentCleanupBlock = null;
 /// rules).
 ClassInfo searchPhaseClassInfo = null;
 
+void pushCleanupBlockRecord(ptrdiff_t cfaAddr, Object dObject)
+{
+    auto acb = cast(ActiveCleanupBlock*)malloc(ActiveCleanupBlock.sizeof);
+    if (!acb)
+    {
+        // TODO: Allocate some statically to avoid problem with unwinding out of
+        // memory errors. A fairly small amount of memory should suffice for
+        // most applications unless people want to unwind through very deeply
+        // recursive code with many finally blocks.
+        fatalerror("Could not allocate memory for exception chaining.");
+    }
+    acb.cfaAddr = cfaAddr;
+    acb.dObject = dObject;
+    acb.outerBlock = innermostCleanupBlock;
+    innermostCleanupBlock = acb;
+
+    // We need to be sure that an in-flight exception is kept alive while
+    // executing a finally block. This is not automatically the case if the
+    // finally block always throws, because the compiler then does not need to
+    // keep a reference to the object extracted from the landing pad around as
+    // there is no _d_eh_resume_unwind() call.
+    GC.addRoot(cast(void*)dObject);
+}
+
+void popCleanupBlockRecord()
+{
+    if (!innermostCleanupBlock)
+    {
+        fatalerror("No cleanup block record found, should have been pushed " ~
+            "before entering the finally block.");
+    }
+    // Remove the cleanup block we installed for this handler.
+    auto acb = innermostCleanupBlock;
+    GC.removeRoot(cast(void*)acb.dObject);
+    innermostCleanupBlock = acb.outerBlock;
+    free(acb);
+}
+
 
 //
-// x86 unwind specific implementation of personality function
-// and helpers
+// implementation of personality function and helpers
 //
-version(GCC_UNWIND)
+version (GCC_UNWIND)
 {
+
+// exception struct used by the runtime.
+// _d_throw allocates a new instance and passes the address of its
+// _Unwind_Exception member to the unwind call. The personality
+// routine is then able to get the whole struct by looking at the data
+// surrounding the unwind info.
+//
+// Note that the code we generate for the landing pads also relies on the
+// throwable object being stored at offset 0.
+struct _d_exception
+{
+    Object exception_object;
+    version (ARM)
+    {
+        _Unwind_Control_Block unwind_info;
+    }
+    else
+    {
+        _Unwind_Exception unwind_info;
+    }
+}
+
+// the 8-byte string identifying the type of exception
+// the first 4 are for vendor, the second 4 for language
+//TODO: This may be the wrong way around
+__gshared char[8] _d_exception_class = "LLDCD2\0\0";
 
 version(ARM)
 {
@@ -511,7 +586,7 @@ struct _Unwind_Control_Block
 
 extern(C) _Unwind_Reason_Code __gnu_unwind_frame(_Unwind_Control_Block *, _Unwind_Context_Ptr);
 
-private _Unwind_Reason_Code continueUnwind(_Unwind_Control_Block* ucb, _Unwind_Context_Ptr context) {
+_Unwind_Reason_Code continueUnwind(_Unwind_Control_Block* ucb, _Unwind_Context_Ptr context) {
     if (__gnu_unwind_frame(ucb, context) != _Unwind_Reason_Code.NO_REASON)
         return _Unwind_Reason_Code.FAILURE;
     return _Unwind_Reason_Code.CONTINUE_UNWIND;
@@ -569,7 +644,7 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(_Unwind_State state, _Unwind_Con
     return rc;
 }
 }
-else
+else // !ARM
 {
 
 // the personality routine gets called by the unwind handler and is responsible for
@@ -594,8 +669,8 @@ extern(C) _Unwind_Reason_Code _d_eh_personality(int ver, _Unwind_Action actions,
     _d_exception* exception_struct = cast(_d_exception*)(cast(ubyte*)exception_info - _d_exception.unwind_info.offsetof);
     return eh_personality_common(actions, exception_struct, context);
 }
-}
 
+} // !ARM
 
 
 /// This is the implementation of the personality function, which is called by
@@ -622,7 +697,8 @@ extern(C) _Unwind_Reason_Code eh_personality_common(_Unwind_Action actions,
     // Points points past the end of the table.
     ubyte* classinfo_table;
     ubyte classinfo_table_encoding;
-    _d_getLanguageSpecificTables(context, callsite_table, action_table, classinfo_table, classinfo_table_encoding);
+    ubyte* data = cast(ubyte*)_Unwind_GetLanguageSpecificData(context);
+    _d_getLanguageSpecificTables(data, callsite_table, action_table, classinfo_table, classinfo_table_encoding);
 
     if (!callsite_table)
         return _Unwind_Reason_Code.CONTINUE_UNWIND;
@@ -909,80 +985,41 @@ extern(C) _Unwind_Reason_Code eh_personality_common(_Unwind_Action actions,
 // }
 version (X86_64)
 {
-    private enum eh_exception_regno = 0;
-    private enum eh_selector_regno = 1;
+    enum eh_exception_regno = 0;
+    enum eh_selector_regno = 1;
 }
 else version (PPC64)
 {
-    private enum eh_exception_regno = 3;
-    private enum eh_selector_regno = 4;
+    enum eh_exception_regno = 3;
+    enum eh_selector_regno = 4;
 }
 else version (PPC)
 {
-    private enum eh_exception_regno = 3;
-    private enum eh_selector_regno = 4;
+    enum eh_exception_regno = 3;
+    enum eh_selector_regno = 4;
 }
 else version (MIPS64)
 {
-    private enum eh_exception_regno = 4;
-    private enum eh_selector_regno = 5;
+    enum eh_exception_regno = 4;
+    enum eh_selector_regno = 5;
 }
 else version (ARM)
 {
-    private enum eh_exception_regno = 0;
-    private enum eh_selector_regno = 1;
+    enum eh_exception_regno = 0;
+    enum eh_selector_regno = 1;
 }
 else version (AArch64)
 {
-    private enum eh_exception_regno = 0;
-    private enum eh_selector_regno = 1;
+    enum eh_exception_regno = 0;
+    enum eh_selector_regno = 1;
 }
 else
 {
-    private enum eh_exception_regno = 0;
-    private enum eh_selector_regno = 2;
+    enum eh_exception_regno = 0;
+    enum eh_selector_regno = 2;
 }
 
-private void pushCleanupBlockRecord(_Unwind_Context_Ptr context,
-    _d_exception* exception_struct)
-{
-    auto acb = cast(ActiveCleanupBlock*)malloc(ActiveCleanupBlock.sizeof);
-    if (!acb)
-    {
-        // TODO: Allocate some statically to avoid problem with unwinding out of
-        // memory errors. A fairly small amount of memory should suffice for
-        // most applications unless people want to unwind through very deeply
-        // recursive code with many finallly blocks.
-        fatalerror("Could not allocate memory for exception chaining.");
-    }
-    acb.cfaAddr = _Unwind_GetCFA(context);
-    acb.dObject = exception_struct.exception_object;
-    acb.outerBlock = innermostCleanupBlock;
-    innermostCleanupBlock = acb;
-
-    // We need to be sure that an in-flight exception is kept alive while
-    // executing a finally block. This is not automatically the case if the
-    // finally block always throws, because the compiler then does not need to
-    // keep a reference to the object extracted from the landing pad around as
-    // there is no _d_eh_resume_unwind() call.
-    GC.addRoot(cast(void*)exception_struct.exception_object);
-}
-
-void popCleanupBlockRecord()
-{
-    if (!innermostCleanupBlock)
-    {
-        fatalerror("No cleanup block record found, should have been pushed " ~
-            "before entering the finally block.");
-    }
-    // Remove the cleanup block we installed for this handler.
-    auto acb = innermostCleanupBlock;
-    GC.removeRoot(cast(void*)acb.dObject);
-    innermostCleanupBlock = acb.outerBlock;
-    free(acb);
-}
-
-private _Unwind_Reason_Code installCatchContext(_Unwind_Action actions,
+_Unwind_Reason_Code installCatchContext(_Unwind_Action actions,
     ptrdiff_t switchval, ptrdiff_t landing_pad, _d_exception* exception_struct,
     _Unwind_Context_Ptr context)
 {
@@ -994,7 +1031,7 @@ private _Unwind_Reason_Code installCatchContext(_Unwind_Action actions,
     if (!(actions & _Unwind_Action.CLEANUP_PHASE))
         fatalerror("Unknown phase");
 
-    pushCleanupBlockRecord(context, exception_struct);
+    pushCleanupBlockRecord(_Unwind_GetCFA(context), exception_struct.exception_object);
 
     debug(EH_personality)
     {
@@ -1012,13 +1049,13 @@ private _Unwind_Reason_Code installCatchContext(_Unwind_Action actions,
     return _Unwind_Reason_Code.INSTALL_CONTEXT;
 }
 
-private _Unwind_Reason_Code installFinallyContext(_Unwind_Action actions,
+_Unwind_Reason_Code installFinallyContext(_Unwind_Action actions,
     ptrdiff_t landing_pad, _d_exception* exception_struct, _Unwind_Context_Ptr context)
 {
     if (actions & _Unwind_Action.SEARCH_PHASE)
         return _Unwind_Reason_Code.CONTINUE_UNWIND;
 
-    pushCleanupBlockRecord(context, exception_struct);
+    pushCleanupBlockRecord(_Unwind_GetCFA(context), exception_struct.exception_object);
 
     debug(EH_personality)
     {
@@ -1032,53 +1069,19 @@ private _Unwind_Reason_Code installFinallyContext(_Unwind_Action actions,
     return _Unwind_Reason_Code.INSTALL_CONTEXT;
 }
 
-private void _d_getLanguageSpecificTables(_Unwind_Context_Ptr context, ref ubyte* callsite, ref ubyte* action, ref ubyte* classinfo_table, ref ubyte ciEncoding)
+} // GCC_UNWIND
+
+
+
+public: extern(C):
+
+version (GCC_UNWIND)
 {
-    ubyte* data = cast(ubyte*)_Unwind_GetLanguageSpecificData(context);
-    if (data is null)
-    {
-        debug(EH_personality) printf("language specific data was null\n");
-        callsite = null;
-        action = null;
-        classinfo_table = null;
-        return;
-    }
-    debug(EH_personality) printf("  - LSDA: %p\n", data);
 
-    //TODO: Do proper DWARF reading here
-    if (*data++ != _DW_EH_Format.DW_EH_PE_omit)
-        fatalerror("DWARF header has unexpected format 1");
-
-    ciEncoding = *data++;
-    if (ciEncoding == _DW_EH_Format.DW_EH_PE_omit)
-        fatalerror("Language Specific Data does not contain Types Table");
-    version (ARM) version (linux) {
-        with (_DW_EH_Format) {
-            ciEncoding = DW_EH_PE_pcrel | DW_EH_PE_indirect;
-        }
-    }
-
-    size_t cioffset;
-    data = get_uleb128(data, cioffset);
-    classinfo_table = data + cioffset;
-
-    if (*data++ != _DW_EH_Format.DW_EH_PE_udata4)
-        fatalerror("DWARF header has unexpected format 2");
-    size_t callsitelength;
-    data = get_uleb128(data, callsitelength);
-    action = data + callsitelength;
-
-    callsite = data;
-
-    debug(EH_personality) printf("  - callsite: %p, action: %p, classinfo_table: %p, ciEncoding: %d\n", callsite, action, classinfo_table, ciEncoding);
-}
-
-}
-
-extern(C) Throwable.TraceInfo _d_traceContext(void* ptr = null);
+Throwable.TraceInfo _d_traceContext(void* ptr = null);
 
 /// Called by our compiler-generated code to throw an exception.
-extern(C) void _d_throw_exception(Object e)
+void _d_throw_exception(Object e)
 {
     if (e is null)
     {
@@ -1125,7 +1128,7 @@ extern(C) void _d_throw_exception(Object e)
 
 /// Called by our compiler-generate code to resume unwinding after a finally
 /// block (or dtor destruction block) has been run.
-extern(C) void _d_eh_resume_unwind(_d_exception* exception_struct)
+void _d_eh_resume_unwind(_d_exception* exception_struct)
 {
     debug(EH_personality)
     {
@@ -1137,7 +1140,9 @@ extern(C) void _d_eh_resume_unwind(_d_exception* exception_struct)
     _Unwind_Resume(&exception_struct.unwind_info);
 }
 
-extern(C) void _d_eh_enter_catch()
+void _d_eh_enter_catch()
 {
     popCleanupBlockRecord();
 }
+
+} // GCC_UNWIND
