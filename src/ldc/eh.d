@@ -960,7 +960,7 @@ extern(C) _Unwind_Reason_Code eh_personality_common(_Unwind_Action actions,
         debug(EH_personality)
         {
             printf("  - Current CFA: %p, Previous CFA: %p\n",
-                _Unwind_GetCFA(context), acb.cfaAddr);
+                currentCfaAddr, acb.cfaAddr);
         }
 
         // If the next active cleanup block is somewhere further up the stack,
@@ -1372,7 +1372,123 @@ extern(C) EXCEPTION_DISPOSITION _d_eh_personality(EXCEPTION_RECORD* ExceptionRec
 
     immutable isSearchPhase = ExceptionRecord.ExceptionFlags & EXCEPTION_TARGET_UNWIND;
 
-    // TODO: exception chaining
+    //
+    // We have at least a finally landing pad in this scope. First, check if we
+    // have arrived at the scope a previous exception was thrown in. In this
+    // case, we need to chain exception_struct.exception_object to it or replace
+    // it with the former.
+    //
+    immutable currentCfaAddr = cast(ptrdiff_t)EstablisherFrame;
+    ref ActiveCleanupBlock* acb()
+    {
+        return isSearchPhase ? searchPhaseCurrentCleanupBlock : innermostCleanupBlock;
+    }
+
+    while (acb)
+    {
+        debug(EH_personality)
+        {
+            printf("  - Current CFA: %p, Previous CFA: %p\n",
+                currentCfaAddr, acb.cfaAddr);
+        }
+
+        // If the next active cleanup block is somewhere further up the stack,
+        // there is nothing to do/check.
+        static assert(stackGrowsDown);
+        if (currentCfaAddr < acb.cfaAddr)
+            break;
+
+        auto dObject = cast(Object)cast(void*)ExceptionRecord.ExceptionInformation[0];
+
+        auto currentClassInfo = isSearchPhase ? searchPhaseClassInfo :
+            dObject.classinfo;
+        if (_d_isbaseof(currentClassInfo, Error.classinfo) && !cast(Error)acb.dObject)
+        {
+            // The currently unwound Throwable is an Error but the previous one
+            // is not, so replace the latter with the former.
+            debug(EH_personality)
+            {
+                printf(" ++ Replacing %p (%s) by %p (%s)\n",
+                    acb.dObject,
+                    acb.dObject.classinfo.name.ptr,
+                    dObject,
+                    dObject.classinfo.name.ptr);
+            }
+
+            if (!isSearchPhase)
+            {
+                (cast(Error)dObject).bypassedException =
+                    cast(Throwable)acb.dObject;
+            }
+        }
+        else
+        {
+            // We are just unwinding an Exception or there was already an Error,
+            // so append this Throwable to the end of the previous chain.
+            if (isSearchPhase)
+            {
+                debug(EH_personality)
+                {
+                    printf(" ++ Setting up classinfo to chain %s to %p (%s, classinfo at %p)\n",
+                        searchPhaseClassInfo.name.ptr, acb.dObject,
+                        acb.dObject.classinfo.name.ptr, acb.dObject.classinfo);
+                }
+                searchPhaseClassInfo = acb.dObject.classinfo;
+            }
+            else
+            {
+                auto lastChainElem = cast(Throwable)acb.dObject;
+                while (lastChainElem.next)
+                {
+                    lastChainElem = lastChainElem.next;
+                }
+
+                auto thisThrowable = cast(Throwable)dObject;
+                if (lastChainElem is thisThrowable)
+                {
+                    // We would need to chain an exception to itself. This can
+                    // happen if somebody throws the same exception object twice.
+                    // It is questionable whether this is supposed to work in the
+                    // first place, but core.demangle does it when generating the
+                    // backtrace for its internal exceptions during demangling a
+                    // symbol as part of the default trace handler (it uses the
+                    // .init value for the exception class instead of allocating
+                    // new instances).
+                    debug(EH_personality)
+                    {
+                        printf(" ++ Not chaining %p (%s) to itself\n",
+                            thisThrowable, thisThrowable.classinfo.name.ptr);
+                    }
+                }
+                else
+                {
+                    debug(EH_personality)
+                    {
+                        printf(" ++ Chaining %p (%s) to %p (%s)\n",
+                            thisThrowable, thisThrowable.classinfo.name.ptr,
+                            lastChainElem, lastChainElem.classinfo.name.ptr);
+                    }
+                    lastChainElem.next = thisThrowable;
+                }
+
+                ExceptionRecord.ExceptionInformation[0] = cast(ULONG_PTR)cast(void*)acb.dObject;
+            }
+        }
+
+        // In both cases, we've executed one level of chaining.
+        auto outer = acb.outerBlock;
+        if (!isSearchPhase)
+        {
+            GC.removeRoot(cast(void*)acb.dObject);
+            free(acb);
+        }
+        acb = outer;
+    }
+
+    //
+    // Exception chaining is now done. Let's figure out what we have to do in
+    // this frame.
+    //
 
     // If there are no actions, this is a cleanup landing pad.
     if (!actionTableStartOffset)
@@ -1459,6 +1575,9 @@ EXCEPTION_DISPOSITION installCatchContext(ptrdiff_t ti_offset, ptrdiff_t landing
     }
     else
     {
+        pushCleanupBlockRecord(cast(ptrdiff_t)EstablisherFrame,
+            cast(Object)cast(void*)ExceptionRecord.ExceptionInformation[0]);
+
         RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord,
             cast(PVOID) ExceptionRecord.ExceptionInformation[0], ContextRecord,
             dispatch.HistoryTable);
@@ -1482,6 +1601,9 @@ EXCEPTION_DISPOSITION installFinallyContext(ptrdiff_t landing_pad,
     }
     else
     {
+        pushCleanupBlockRecord(cast(ptrdiff_t)EstablisherFrame,
+            cast(Object)cast(void*)ExceptionRecord.ExceptionInformation[0]);
+
         RtlUnwindEx(EstablisherFrame, cast(PVOID) landing_pad, ExceptionRecord,
             cast(PVOID) ExceptionRecord.ExceptionInformation[0], ContextRecord,
             dispatch.HistoryTable);
@@ -1622,32 +1744,7 @@ void _d_eh_resume_unwind(Object e)
 
 void _d_eh_enter_catch()
 {
-    // TODO: popCleanupBlockRecord();
-}
-
-void _d_eh_handle_collision(Object exc, Object inflight_exc)
-{
-    debug(EH_personality) printf("Calling _d_eh_handle_collision = %p e = %p, inflight = %p\n", &_d_eh_handle_collision, exc, inflight_exc);
-    Throwable h = cast(Throwable)exc;
-    Throwable inflight = cast(Throwable)inflight_exc;
-
-    auto e = cast(Error)h;
-    if (e !is null && (cast(Error)inflight) is null)
-    {
-        debug(EH_personality) printf("new error %p bypassing inflight %p\n", h, inflight);
-        e.bypassedException = inflight;
-    }
-    else if (inflight != h)
-    {
-        debug(EH_personality) printf("replacing thrown %p with inflight %p\n", h, inflight);
-        auto n = inflight;
-        while (n.next)
-            n = n.next;
-        n.next = h;
-        exc = inflight_exc;
-    }
-
-    _d_eh_resume_unwind(exc);
+    popCleanupBlockRecord();
 }
 
 } // Win64
