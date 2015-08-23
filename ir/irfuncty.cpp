@@ -16,7 +16,7 @@
 #include "gen/tollvm.h"
 
 IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, const AttrBuilder& a)
-    : type(t),
+    : type(t), parametersIdx(0),
       ltype(t != Type::tvoid && bref ? DtoType(t->pointerTo()) : DtoType(t)),
       attrs(a), byref(bref), rewrite(0)
 {

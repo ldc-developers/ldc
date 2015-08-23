@@ -158,7 +158,7 @@ DValue* DtoNestedVariable(Loc& loc, Type* astype, VarDeclaration* vd, bool byref
         Logger::cout() << "Addr: " << *val << '\n';
         Logger::cout() << "of type: " << *val->getType() << '\n';
     }
-    if (byref || (vd->isParameter() && getIrParameter(vd)->arg->byref)) {
+    if (byref || (vd->isParameter() && getIrParameter(vd)->arg && getIrParameter(vd)->arg->byref)) {
         val = DtoAlignedLoad(val);
         //dwarfOpDeref(dwarfAddr);
         IF_LOG {
@@ -364,9 +364,11 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
             irLocal->nestedIndex = types.size();
             irLocal->nestedDepth = depth;
 
-            if (vd->isParameter()) {
-                // Parameters will have storage associated with them (to handle byref etc.),
-                // so handle those cases specially by storing a pointer instead of a value.
+            if (vd->isParameter() && getIrParameter(vd)->arg) {
+                // Parameters that are part of the LLVM signature will have
+                // storage associated with them (to handle byref etc.), so
+                // handle those cases specially by storing a pointer instead
+                // of a value.
                 const IrParameter* irparam = getIrParameter(vd);
                 const bool refout = vd->storage_class & (STCref | STCout);
                 const bool lazy = vd->storage_class & STClazy;
@@ -479,7 +481,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                 LOG_SCOPE
                 IrParameter* parm = getIrParameter(vd);
 
-                if (parm->arg->byref)
+                if (parm->arg && parm->arg->byref)
                 {
                     storeVariable(vd, gep);
                 }

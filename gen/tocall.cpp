@@ -117,14 +117,20 @@ LLFunctionType* DtoExtractFunctionType(LLType* type)
 static void addExplicitArguments(std::vector<LLValue*>& args, AttrSet& attrs,
     IrFuncTy& irFty, LLFunctionType* callableTy, const std::vector<DValue*>& argvals, int numFormalParams)
 {
-    const int numImplicitArgs = args.size();
-    const int numExplicitArgs = argvals.size();
+    // Number of arguments added to the LLVM type that are implicit on the
+    // frontend side of things (this, context pointers, etc.)
+    const size_t implicitLLArgCount = args.size();
 
-    args.resize(numImplicitArgs + numExplicitArgs, static_cast<LLValue*>(0));
+    // Number of formal arguments in the LLVM type (i.e. excluding varargs).
+    const size_t formalLLArgCount = irFty.args.size();
+
+    // The number of explicit arguments in the D call expression (including
+    // varargs), not all of which necessarily generate a LLVM argument.
+    const size_t explicitDArgCount = argvals.size();
 
     // construct and initialize an IrFuncTyArg object for each vararg
     std::vector<IrFuncTyArg*> optionalIrArgs;
-    for (int i = numFormalParams; i < numExplicitArgs; i++) {
+    for (size_t i = numFormalParams; i < explicitDArgCount; i++) {
         Type* argType = argvals[i]->getType();
         bool passByVal = gABI->passByVal(argType);
 
@@ -135,64 +141,68 @@ static void addExplicitArguments(std::vector<LLValue*>& args, AttrSet& attrs,
             initialAttrs.add(DtoShouldExtend(argType));
 
         optionalIrArgs.push_back(new IrFuncTyArg(argType, passByVal, initialAttrs));
+        optionalIrArgs.back()->parametersIdx = i;
     }
 
     // let the ABI rewrite the IrFuncTyArg objects
     gABI->rewriteVarargs(irFty, optionalIrArgs);
 
-    for (int i = 0; i < numExplicitArgs; i++)
+    const size_t explicitLLArgCount = formalLLArgCount + optionalIrArgs.size();
+    args.resize(implicitLLArgCount + explicitLLArgCount, static_cast<llvm::Value*>(0));
+
+    // Iterate the explicit arguments from left to right in the D source,
+    // which is the reverse of the LLVM order if irFty.reverseParams is true.
+    for (size_t i = 0; i < explicitLLArgCount; ++i)
     {
-        int j = numImplicitArgs + (irFty.reverseParams ? numExplicitArgs - i - 1 : i);
-
-        DValue* argval = argvals[i];
-        Type* argType = argval->getType();
-
-        const bool isVararg = (i >= numFormalParams);
+        const bool isVararg = (i >= irFty.args.size());
         IrFuncTyArg* irArg = NULL;
-        LLValue* arg = NULL;
-
-        if (!isVararg)
-        {
-            irArg = irFty.args[i];
-            arg = irFty.putParam(argType, i, argval);
-        }
-        else
-        {
+        if (isVararg)
             irArg = optionalIrArgs[i - numFormalParams];
-            arg = irFty.putParam(argType, *irArg, argval);
-        }
+        else
+            irArg = irFty.args[i];
 
-        LLType* callableArgType = (isVararg ? NULL : callableTy->getParamType(j));
+        DValue* const argval = argvals[irArg->parametersIdx];
+        Type* const argType = argval->getType();
+
+        llvm::Value* llVal = NULL;
+        if (isVararg)
+            llVal = irFty.putParam(argType, *irArg, argval);
+        else
+            llVal = irFty.putParam(argType, i, argval);
+
+        const size_t llArgIdx = implicitLLArgCount +
+            (irFty.reverseParams ? explicitLLArgCount - i - 1 : i);
+        llvm::Type* const callableArgType =
+            (isVararg ? NULL : callableTy->getParamType(llArgIdx));
 
         // Hack around LDC assuming structs and static arrays are in memory:
         // If the function wants a struct, and the argument value is a
         // pointer to a struct, load from it before passing it in.
-        if (isaPointer(arg) && DtoIsPassedByRef(argType) &&
-            ( (!isVararg && !isaPointer(callableArgType)) ||
-              (isVararg && !irArg->byref && !irArg->isByVal()) ) )
+        if (isaPointer(llVal) && DtoIsPassedByRef(argType) &&
+            ((!isVararg && !isaPointer(callableArgType)) ||
+             (isVararg && !irArg->byref && !irArg->isByVal())))
         {
             Logger::println("Loading struct type for function argument");
-            arg = DtoLoad(arg);
+            llVal = DtoLoad(llVal);
         }
 
         // parameter type mismatch, this is hard to get rid of
-        if (!isVararg && arg->getType() != callableArgType)
+        if (!isVararg && llVal->getType() != callableArgType)
         {
-#if 1
-            IF_LOG {
-                Logger::cout() << "arg:     " << *arg << '\n';
-                Logger::cout() << "of type: " << *arg->getType() << '\n';
+            IF_LOG
+            {
+                Logger::cout() << "arg:     " << *llVal << '\n';
                 Logger::cout() << "expects: " << *callableArgType << '\n';
             }
-#endif
-            if (isaStruct(arg))
-                arg = DtoAggrPaint(arg, callableArgType);
+            if (isaStruct(llVal))
+                llVal = DtoAggrPaint(llVal, callableArgType);
             else
-                arg = DtoBitCast(arg, callableArgType);
+                llVal = DtoBitCast(llVal, callableArgType);
         }
 
-        args[j] = arg;
-        attrs.add(j + 1, irArg->attrs);
+        args[llArgIdx] = llVal;
+        // +1 as index 0 contains the function attributes.
+        attrs.add(llArgIdx + 1, irArg->attrs);
 
         if (isVararg)
             delete irArg;
