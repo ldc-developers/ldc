@@ -16,7 +16,7 @@ set(D_FLAGS               -w;-d                                     CACHE STRING
 set(D_FLAGS_DEBUG         -g                                        CACHE STRING  "Runtime build flags (debug libraries), separated by ;")
 set(D_FLAGS_RELEASE       -O3;-release                              CACHE STRING  "Runtime build flags (release libraries), separated by ;")
 if(MSVC)
-    set(LINK_WITH_MSVCRT  OFF                                       CACHE BOOL    "Link with MSVCRT.LIB instead of LIBCMT.LIB")
+    set(LINK_WITH_MSVCRT  ON                                        CACHE BOOL    "Link with MSVCRT.lib (DLL) instead of LIBCMT.lib (static)")
 endif()
 
 # Note: In the below building helpers, this is more fittingly called
@@ -45,7 +45,6 @@ if(BUILD_SHARED_LIBS)
     set(D_LIBRARY_TYPE SHARED)
 else()
     set(D_LIBRARY_TYPE STATIC)
-    set(CXX_COMPILE_FLAGS " ")
 endif()
 
 get_directory_property(PROJECT_PARENT_DIR DIRECTORY ${PROJECT_SOURCE_DIR} PARENT_DIRECTORY)
@@ -195,10 +194,7 @@ endif()
 # Create configuration files.
 #
 if(MSVC)
-    set(LIB_PATH "\"-L-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}/${CMAKE_BUILD_TYPE}\",")
     set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-L/LARGEADDRESSAWARE:NO\"")
-else()
-    set(LIB_PATH "\"-L-L${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX}\",")
 endif()
 
 # Add extra paths on Linux and disable linker arch mismatch warnings (like
@@ -227,38 +223,28 @@ add_custom_command(
     COMMAND gen_gccbuiltins ${GCCBUILTINS} "x86"
 )
 
-if(MSVC)
-    if(NOT LINK_WITH_MSVCRT)
-        set(variables
-            CMAKE_C_FLAGS_DEBUG
-            CMAKE_C_FLAGS_MINSIZEREL
-            CMAKE_C_FLAGS_RELEASE
-            CMAKE_C_FLAGS_RELWITHDEBINFO
-            CMAKE_CXX_FLAGS_DEBUG
-            CMAKE_CXX_FLAGS_MINSIZEREL
-            CMAKE_CXX_FLAGS_RELEASE
-            CMAKE_CXX_FLAGS_RELWITHDEBINFO
-        )
-        foreach(variable ${variables})
-          if(${variable} MATCHES "/MT")
-            string(REGEX REPLACE "/MT" "/MD" ${variable} "${${variable}}")
-          endif()
-        endforeach()
-    endif()
-    # /wd4996: suppress deprecation warnings about zlib using POSIX names
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} /wd4996")
-    set(CMAKE_C_FLAGS_DEBUG "")
-endif()
-
 # Always build zlib and other C parts of the runtime in release mode, regardless
 # of what the user chose for LDC itself.
-set(cfiles "${CORE_C};${DCRT_C}")
-if(PHOBOS2_DIR)
-    list(APPEND cfiles "${ZLIB_C}")
+# 1) Set up CMAKE_C_FLAGS_RELEASE
+if(MSVC)
+    if(NOT LINK_WITH_MSVCRT)
+        string(REGEX REPLACE "(^| )[/-]MD( |$)" "\\2" CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE}")
+        if(NOT CMAKE_C_FLAGS_RELEASE MATCHES "(^| )[/-]MT( |$)")
+            append("/MT" CMAKE_C_FLAGS_RELEASE)
+        endif()
+    endif()
+    # warning C4996: zlib uses 'deprecated' POSIX names
+    append("/wd4996" CMAKE_C_FLAGS_RELEASE)
 endif()
-set_source_files_properties(${cfiles} PROPERTIES
-    COMPILE_FLAGS "${CMAKE_C_FLAGS} ${CMAKE_C_FLAGS_RELEASE}"
+# 2) Set all other CMAKE_C_FLAGS variants to CMAKE_C_FLAGS_RELEASE
+set(variables
+    CMAKE_C_FLAGS_DEBUG
+    CMAKE_C_FLAGS_MINSIZEREL
+    CMAKE_C_FLAGS_RELWITHDEBINFO
 )
+foreach(variable ${variables})
+    set(${variable} "${CMAKE_C_FLAGS_RELEASE}")
+endforeach()
 
 # Compiles the given D module into an object file, and if enabled, a bitcode
 # file. The ouput is written to a path based on output_dir. The paths of the
