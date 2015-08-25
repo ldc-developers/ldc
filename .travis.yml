@@ -44,12 +44,13 @@ matrix:
   - env: LLVM_CONFIG="llvm-config-3.7"
 script:
   - cmake -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
-  - make -j3
+  - time make -j3
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
-  - ctest -j1 --verbose -R "(build-|dmd-testsuite)" -E "-test-runner"
-  - ctest -j2 --output-on-failure -E "(build-|dmd-testsuite|-test-runner)"
+  - ctest -j1 --verbose -R "build-phobos2-" -E "-test-runner"
+  - ctest -j3 --verbose -R "(build-|dmd-testsuite)" -E "(build-phobos2-|-test-runner)"
+  - ctest -j3 --output-on-failure -E "dmd-testsuite"
 
 after_success:
   -
