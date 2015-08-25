@@ -9,9 +9,11 @@ addons:
     - ubuntu-toolchain-r-test
     packages:
     - libconfig++8-dev
+    - gcc-4.9
     - g++-4.9
     - gcc-4.9-multilib
     - g++-4.9-multilib
+    - linux-libc-dev:i386
     - libedit2
     - libedit-dev
     - llvm-3.1
@@ -46,8 +48,7 @@ env:
   - LLVM_CONFIG="llvm-config-3.7"
 matrix:
   allow_failures:
-  - env: LLVM_CONFIG="llvm-config-3.6" OPTS="-DMULTILIB=ON" TEST_BITNESS=32
-  - env: LLVM_CONFIG="llvm-config-3.7" TEST_DEBUG=1
+  - env: LLVM_CONFIG="llvm-config-3.6" OPTS="-DMULTILIB=ON"
   - env: LLVM_CONFIG="llvm-config-3.7"
 script:
   - cmake -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
