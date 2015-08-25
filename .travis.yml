@@ -48,8 +48,8 @@ script:
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
-  - ctest -j2 --verbose -R (build-|dmd-testsuite) -E -test-runner
-  - ctest -j2 --output-on-failure -E (build-|dmd-testsuite|-test-runner)
+  - ctest -j2 --verbose -R "(build-|dmd-testsuite)" -E "-test-runner"
+  - ctest -j2 --output-on-failure -E "(build-|dmd-testsuite|-test-runner)"
 
 after_success:
   -
