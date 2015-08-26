@@ -465,8 +465,15 @@ public:
         // On x86_64, class TypeInfo_Struct contains 2 additional fields
         // (m_arg1/m_arg2) which are used for the X86_64 System V ABI varargs
         // implementation. They are not present on any other cpu/os.
-        assert((global.params.targetTriple.getArch() != llvm::Triple::x86_64 && Type::typeinfostruct->fields.dim == 11) ||
-               (global.params.targetTriple.getArch() == llvm::Triple::x86_64 && Type::typeinfostruct->fields.dim == 13));
+        unsigned expectedFields = 12;
+        if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
+            expectedFields += 2;
+        if (Type::typeinfostruct->fields.dim != expectedFields)
+        {
+            error(Loc(), "Unexpected number of TypeInfo_Struct fields; "
+                "druntime version does not match compiler");
+            fatal();
+        }
 
         //void function(void*)                    xdtor;
         b.push_funcptr(sd->dtor);
