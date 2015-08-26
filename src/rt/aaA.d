@@ -672,6 +672,11 @@ extern (C) pure nothrow @nogc
 // Unittests
 //------------------------------------------------------------------------------
 
+// LDC_FIXME: Cannot compile these tests in this module (and this module only)
+// because the public signatures of the various functions are different from
+// the ones used here (AA vs. void*).
+version (LDC) {} else
+{
 pure nothrow unittest
 {
     int[string] aa;
@@ -926,4 +931,5 @@ unittest
     aa3 = null;
     GC.runFinalizers((cast(char*)(&entryDtor))[0 .. 1]);
     assert(T.dtor == 6 && T.postblit == 2);
+}
 }
