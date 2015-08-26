@@ -2069,7 +2069,7 @@ public:
         DValue* v = toElemDtor(e->e2);
 
         LLValue* vbool = 0;
-        if (!v->isFunc() && v->getType() != Type::tvoid)
+        if (v && !v->isFunc() && v->getType() != Type::tvoid)
         {
             vbool = DtoCast(e->loc, v, Type::tbool)->getRVal();
         }
