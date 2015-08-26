@@ -2772,7 +2772,7 @@ version (unittest)
 private
 {
     extern (C) void _d_arrayshrinkfit(const TypeInfo ti, void[] arr) nothrow;
-    extern (C) size_t _d_arraysetcapacity(const TypeInfo ti, size_t newcapacity, void *arrptr) pure nothrow;
+    extern (C) size_t _d_arraysetcapacity(const TypeInfo ti, size_t newcapacity, void[]* arrptr) pure nothrow;
 }
 
 /**
