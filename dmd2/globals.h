@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2014 by Digital Mars
+ * Copyright (c) 1999-2015 by Digital Mars
  * All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
@@ -18,6 +18,7 @@
 
 #include "longdouble.h"
 #include "outbuffer.h"
+#include "filename.h"
 
 // Can't include arraytypes.h here, need to declare these directly.
 template <typename TYPE> struct Array;
@@ -35,6 +36,15 @@ enum OUTPUTFLAG
 typedef unsigned char ubyte;
 #endif
 
+// The state of array bounds checking
+enum BOUNDSCHECK
+{
+    BOUNDSCHECKdefault, // initial value
+    BOUNDSCHECKoff,     // never do bounds checking
+    BOUNDSCHECKon,      // always do bounds checking
+    BOUNDSCHECKsafeonly // do bounds checking only in @safe functions
+};
+
 // Put command line switches in here
 struct Param
 {
@@ -47,6 +57,7 @@ struct Param
     bool oneobj;        // write one object file instead of multiple ones
 #endif
     bool trace;         // insert profiling hooks
+    bool tracegc;       // instrument calls to 'new'
     bool verbose;       // verbose compile
     bool showColumns;   // print character (column) numbers in diagnostics
     bool vtls;          // identify thread local variables
@@ -56,6 +67,7 @@ struct Param
     bool vgc;           // identify gc usage
 #endif
     bool vfield;        // identify non-mutable field variables
+    bool vcomplex;      // identify complex/imaginary type usage
 #if !IN_LLVM
     char symdebug;      // insert debug symbolic information
 #else
@@ -88,9 +100,6 @@ struct Param
     bool useInvariants; // generate class invariant checks
     bool useIn;         // generate precondition checks
     bool useOut;        // generate postcondition checks
-    char useArrayBounds; // 0: no array bounds checks
-                         // 1: array bounds checks for safe functions only
-                         // 2: array bounds checks for all functions
     bool stackstomp;    // add stack stomping code
     bool useSwitchError; // check for switches without a default
     bool useUnitTests;  // generate unittest code
@@ -129,6 +138,8 @@ struct Param
     bool addMain;       // add a default main() function
     bool allInst;       // generate code for all template instantiations
 #endif
+
+    BOUNDSCHECK useArrayBounds;
 
     const char *argv0;    // program name
     Array<const char *> *imppath;     // array of char*'s of where to look for import modules
@@ -175,8 +186,7 @@ struct Param
 
     bool run;           // run resulting executable
 #if !IN_LLVM
-    size_t runargs_length;
-    const char** runargs; // arguments for executable
+    Strings runargs;    // arguments for executable
 #endif
 
     // Linker stuff
@@ -365,6 +375,13 @@ enum MATCH
     MATCHconvert,       // match with conversions
     MATCHconst,         // match with conversion to const
     MATCHexact          // exact match
+};
+
+enum PINLINE
+{
+    PINLINEdefault,      // as specified on the command line
+    PINLINEnever,        // never inline
+    PINLINEalways        // always inline
 };
 
 typedef uinteger_t StorageClass;

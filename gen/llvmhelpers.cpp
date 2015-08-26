@@ -55,7 +55,7 @@ llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel("fthread-mode
         clEnumValEnd));
 #endif
 
-Expression *getTypeInfo(Type *t, Scope *sc);
+Type *getTypeInfoType(Type *t, Scope *sc);
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
@@ -1244,7 +1244,7 @@ LLConstant* DtoTypeInfoOf(Type* type, bool base)
     LOG_SCOPE
 
     type = type->merge2(); // needed.. getTypeInfo does the same
-    getTypeInfo(type, NULL);
+    getTypeInfoType(type, NULL);
     TypeInfoDeclaration* tidecl = type->vtinfo;
     assert(tidecl);
     Declaration_codegen(tidecl);

@@ -111,14 +111,11 @@ void genTypeInfo(Type *torig, Scope *sc)
     assert(torig->vtinfo);
 }
 
-Expression *getTypeInfo(Type *t, Scope *sc)
+Type *getTypeInfoType(Type *t, Scope *sc)
 {
     assert(t->ty != Terror);
     genTypeInfo(t, sc);
-    Expression *e = VarExp::create(Loc(), t->vtinfo);
-    e = e->addressOf();
-    e->type = t->vtinfo->type;     // do this so we don't get redundant dereference
-    return e;
+    return t->vtinfo->type;
 }
 
 TypeInfoDeclaration *getTypeInfoDeclaration(Type *t)

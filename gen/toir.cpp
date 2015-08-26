@@ -2981,7 +2981,7 @@ public:
 
     //////////////////////////////////////////////////////////////////////////////////////////
 
-    #define STUB(x) void visit(x * e) { e->error("Exp type "#x" not implemented: %s", e->toChars()); fatal(); }
+    #define STUB(x) void visit(x * e) { e->error("Internal compiler error: Type "#x" not implemented: %s", e->toChars()); fatal(); }
     STUB(Expression)
     STUB(ScopeExp)
     STUB(SymbolExp)

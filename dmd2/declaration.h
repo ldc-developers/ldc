@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2014 by Digital Mars
+ * Copyright (c) 1999-2015 by Digital Mars
  * All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
@@ -39,6 +39,7 @@ enum LINK;
 enum TOK;
 enum MATCH;
 enum PURE;
+enum PINLINE;
 
 #define STCundefined    0LL
 #define STCstatic       1LL
@@ -184,6 +185,7 @@ public:
     Dsymbol *syntaxCopy(Dsymbol *);
     const char *kind();
     Type *getType();
+    Dsymbol *toAlias2();
     bool needThis();
 
     TupleDeclaration *isTupleDeclaration() { return this; }
@@ -202,7 +204,6 @@ public:
     Dsymbol *aliassym;
     Dsymbol *overnext;          // next in overload list
     Dsymbol *import;            // !=NULL if unresolved internal alias for selective import
-    int inSemantic;
 
     AliasDeclaration(Loc loc, Identifier *ident, Type *type);
     AliasDeclaration(Loc loc, Identifier *ident, Dsymbol *s);
@@ -212,6 +213,7 @@ public:
     const char *kind();
     Type *getType();
     Dsymbol *toAlias();
+    Dsymbol *toAlias2();
 
     AliasDeclaration *isAliasDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
@@ -308,18 +310,6 @@ public:
 
     // Eliminate need for dynamic_cast
     SymbolDeclaration *isSymbolDeclaration() { return (SymbolDeclaration *)this; }
-    void accept(Visitor *v) { v->visit(this); }
-};
-
-class ClassInfoDeclaration : public VarDeclaration
-{
-public:
-    ClassDeclaration *cd;
-
-    ClassInfoDeclaration(ClassDeclaration *cd);
-    Dsymbol *syntaxCopy(Dsymbol *);
-    void semantic(Scope *sc);
-
     void accept(Visitor *v) { v->visit(this); }
 };
 
@@ -534,6 +524,8 @@ public:
     FuncDeclaration *fdrequire;         // function that does the in contract
     FuncDeclaration *fdensure;          // function that does the out contract
 
+    const char *mangleString;           // mangled symbol created from mangleExact()
+
 #if IN_LLVM
     // Argument lists for the __require/__ensure calls. NULL if not a virtual
     // function with contracts.
@@ -550,7 +542,6 @@ public:
     VarDeclaration *vthis;              // 'this' parameter (member and nested)
     VarDeclaration *v_arguments;        // '_arguments' parameter
 #ifdef IN_GCC
-    VarDeclaration *v_arguments_var;    // '_arguments' variable
     VarDeclaration *v_argptr;           // '_argptr' variable
 #endif
     VarDeclaration *v_argsave;          // save area for args passed in registers for variadic functions
@@ -563,6 +554,7 @@ public:
     bool naked;                         // true if naked
     ILS inlineStatusStmt;
     ILS inlineStatusExp;
+    PINLINE inlining;
 
     CompiledCtfeFunction *ctfeCode;     // Compiled code for interpreter
     int inlineNest;                     // !=0 if nested inline
@@ -635,6 +627,7 @@ public:
     const char *toPrettyChars(bool QualifyTypes = false);
     const char *toFullSignature();  // for diagnostics, e.g. 'int foo(int x, int y) pure'
     bool isMain();
+    bool isCMain();
     bool isWinMain();
     bool isDllMain();
     bool isExport();

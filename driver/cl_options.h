@@ -22,15 +22,11 @@
 #include <deque>
 #include <vector>
 
+// FIXME: Just for the BOUDNSCHECK enum; this is not pretty
+#include "globals.h"
+
 namespace opts {
     namespace cl = llvm::cl;
-
-    enum BoundsCheck {
-        BC_Off,
-        BC_SafeOnly,
-        BC_On,
-        BC_Default
-    };
 
     /* Mostly generated with the following command:
        egrep -e '^(cl::|#if|#e)' gen/cl_options.cpp \
@@ -77,7 +73,7 @@ namespace opts {
     extern cl::opt<bool> linkonceTemplates;
     extern cl::opt<bool> disableLinkerStripDead;
 
-    extern cl::opt<BoundsCheck> boundsCheck;
+    extern cl::opt<BOUNDSCHECK> boundsCheck;
     extern bool nonSafeBoundsChecks;
 
     extern cl::opt<unsigned, true> nestedTemplateDepth;
