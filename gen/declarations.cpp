@@ -326,7 +326,7 @@ public:
         // FIXME: This is #673 all over again.
         if (!decl->needsCodegen()) return;
 
-        if (!decl->errors && decl->members)
+        if (!isError(decl) && decl->members)
         {
             for (Dsymbols::iterator I = decl->members->begin(),
                                     E = decl->members->end();
@@ -346,7 +346,7 @@ public:
         if (decl->ir.isDefined()) return;
         decl->ir.setDefined();
 
-        if (!decl->errors && decl->members)
+        if (!isError(decl) && decl->members)
         {
             for (Dsymbols::iterator I = decl->members->begin(),
                                     E = decl->members->end();
