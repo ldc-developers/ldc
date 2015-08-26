@@ -65,7 +65,6 @@ static void checkForImplicitGCCall(const Loc &loc, const char *name)
             "_aaKeys",
             "_aaRehash",
             "_aaValues",
-            "_adDupT",
             "_d_allocmemory",
             "_d_allocmemoryT",
             "_d_array_cast_len",
@@ -742,14 +741,6 @@ static void LLVM_D_BuildRuntimeModule()
             ->setAttributes(Attr_NoUnwind);
     }
 
-    // void[] _adDupT(const TypeInfo ti, void[] a)
-    {
-        llvm::StringRef fname("_adDupT");
-        LLType *types[] = { typeInfoTy, voidArrayTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidArrayTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
-    }
-
     // int _adEq(void[] a1, void[] a2, TypeInfo ti)
     // int _adCmp(void[] a1, void[] a2, TypeInfo ti)
     {
@@ -1015,14 +1006,6 @@ static void LLVM_D_BuildRuntimeModule()
         fn->addAttribute(1, irFty.args[0]->attrs.attrs);
 #endif
         fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), LINKd));
-    }
-
-    // void _d_hidden_func(Object o)
-    {
-        llvm::StringRef fname("_d_hidden_func");
-        LLType *types[] = { objectTy };
-        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
     }
 
     // void _d_dso_registry(CompilerDSOData* data)
