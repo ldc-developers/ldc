@@ -36,16 +36,6 @@ else version (X86)
  * Returns:
  *      The bit number of the first bit set.
  *      The return value is undefined if v is zero.
- * Example:
- * ---
- * import core.bitop;
- *
- * int main()
- * {
- *     assert(bsf(0x21) == 0);
- *     return 0;
- * }
- * ---
  */
 version (LDC)
 {
@@ -61,6 +51,7 @@ else
     int bsf(size_t v) pure;
 }
 
+///
 unittest
 {
     assert(bsf(0x21) == 0);
@@ -73,16 +64,6 @@ unittest
  * Returns:
  *      The bit number of the first bit set.
  *      The return value is undefined if v is zero.
- * Example:
- * ---
- * import core.bitop;
- *
- * int main()
- * {
- *     assert(bsr(0x21) == 5);
- *     return 0;
- * }
- * ---
  */
 version (LDC)
 {
@@ -97,6 +78,7 @@ else
     int bsr(size_t v) pure;
 }
 
+///
 unittest
 {
     assert(bsr(0x21) == 5);

@@ -10,10 +10,10 @@
 
 module rt.sections;
 
-version (LDC)
-    public import rt.sections_ldc;
-version (linux)
+version (CRuntime_Glibc)
     public import rt.sections_elf_shared;
+else version (LDC)
+    public import rt.sections_ldc;
 else version (FreeBSD)
     public import rt.sections_elf_shared;
 else version (Solaris)
@@ -24,7 +24,7 @@ else version (CRuntime_DigitalMars)
     public import rt.sections_win32;
 else version (CRuntime_Microsoft)
     public import rt.sections_win64;
-else version (Android)
+else version (CRuntime_Bionic)
     public import rt.sections_android;
 else
     static assert(0, "unimplemented");

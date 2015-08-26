@@ -48,7 +48,7 @@ struct lconv
     byte  int_n_sign_posn;
 }
 
-version(linux)
+version(CRuntime_Glibc)
 {
     ///
     enum LC_CTYPE          = 0;
@@ -136,7 +136,7 @@ else version(Solaris)
     enum LC_MESSAGES       = 5;
     enum LC_ALL            = 6;
 }
-else version(Android)
+else version(CRuntime_Bionic)
 {
     enum
     {

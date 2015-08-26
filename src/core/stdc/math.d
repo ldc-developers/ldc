@@ -38,10 +38,27 @@ enum float INFINITY       = float.infinity;
 ///
 enum float NAN            = float.nan;
 
-///
-enum int FP_ILOGB0        = int.min;
-///
-enum int FP_ILOGBNAN      = int.min;
+version (FreeBSD)
+{
+    ///
+    enum int FP_ILOGB0        = -int.max;
+    ///
+    enum int FP_ILOGBNAN      = int.max;
+}
+else version (CRuntime_Bionic)
+{
+    ///
+    enum int FP_ILOGB0        = -int.max;
+    ///
+    enum int FP_ILOGBNAN      = int.max;
+}
+else
+{
+    ///
+    enum int FP_ILOGB0        = int.min;
+    ///
+    enum int FP_ILOGBNAN      = int.min;
+}
 
 ///
 enum int MATH_ERRNO       = 1;
@@ -363,7 +380,7 @@ else version( CRuntime_Microsoft ) // fully supported since MSVCRT 12 (VS 2013) 
     }
   }
 }
-else version( linux )
+else version( CRuntime_Glibc )
 {
     enum
     {
@@ -818,7 +835,7 @@ else version( Solaris )
     }
   }
 }
-else version( Android )
+else version( CRuntime_Bionic )
 {
     enum
     {
@@ -1833,9 +1850,9 @@ else version( FreeBSD )
     ///
     float   fmaf(float x, float y, float z);
 }
-else version(Android)
+else version(CRuntime_Bionic)
 {
-    // Android defines long double as 64 bits, same as double, so several long
+    // Bionic defines long double as 64 bits, same as double, so several long
     // double functions are missing.  nexttoward was modified to reflect this.
     ///
     double  acos(double x);

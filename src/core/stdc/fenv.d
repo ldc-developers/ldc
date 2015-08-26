@@ -24,7 +24,7 @@ version (PPC64) version = PPC_Any;
 
 version( MinGW )
     version = GNUFP;
-version( linux )
+version( CRuntime_Glibc )
     version = GNUFP;
 
 version( GNUFP )
@@ -179,7 +179,7 @@ else version ( FreeBSD )
 
     alias ushort fexcept_t;
 }
-else version( Android )
+else version( CRuntime_Bionic )
 {
     version(X86)
     {
@@ -194,6 +194,11 @@ else version( Android )
         }
 
         alias ushort fexcept_t;
+    }
+    else version(ARM)
+    {
+        alias uint fenv_t;
+        alias uint fexcept_t;
     }
     else
     {
@@ -288,7 +293,7 @@ else version( FreeBSD )
     ///
     enum FE_DFL_ENV = &__fe_dfl_env;
 }
-else version( Android )
+else version( CRuntime_Bionic )
 {
     private extern const fenv_t __fe_dfl_env;
     ///

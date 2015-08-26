@@ -53,6 +53,38 @@ template Unqual(T)
     }
 }
 
+// Substitute all `inout` qualifiers that appears in T to `const`
+template substInout(T)
+{
+    static if (is(T == immutable))
+    {
+        alias substInout = T;
+    }
+    else static if (is(T : shared const U, U) || is(T : const U, U))
+    {
+        // U is top-unqualified
+        mixin("alias substInout = "
+            ~ (is(T == shared) ? "shared " : "")
+            ~ (is(T == const) || is(T == inout) ? "const " : "")    // substitute inout to const
+            ~ "substInoutForm!U;");
+    }
+    else
+        static assert(0);
+}
+
+private template substInoutForm(T)
+{
+    static if (is(T == struct) || is(T == class) || is(T == union) || is(T == interface))
+    {
+        alias substInoutForm = T;   // prevent matching to the form of alias-this-ed type
+    }
+    else static if (is(T : V[K], K, V))        alias substInoutForm = substInout!V[substInout!K];
+    else static if (is(T : U[n], U, size_t n)) alias substInoutForm = substInout!U[n];
+    else static if (is(T : U[], U))            alias substInoutForm = substInout!U[];
+    else static if (is(T : U*, U))             alias substInoutForm = substInout!U*;
+    else                                       alias substInoutForm = T;
+}
+
 /// used to declare an extern(D) function that is defined in a different module
 template externDFunc(string fqn, T:FT*, FT) if(is(FT == function))
 {
@@ -94,4 +126,64 @@ template staticIota(int beg, int end)
 template dtorIsNothrow(T)
 {
     enum dtorIsNothrow = is(typeof(function{T t=void;}) : void function() nothrow);
+}
+
+template anySatisfy(alias F, T...)
+{
+    static if (T.length == 0)
+    {
+        enum anySatisfy = false;
+    }
+    else static if (T.length == 1)
+    {
+        enum anySatisfy = F!(T[0]);
+    }
+    else
+    {
+        enum anySatisfy =
+            anySatisfy!(F, T[ 0  .. $/2]) ||
+            anySatisfy!(F, T[$/2 ..  $ ]);
+    }
+}
+
+// Somehow fails for non-static nested structs without support for aliases
+template hasElaborateDestructor(T...)
+{
+    static if (is(T[0]))
+        alias S = T[0];
+    else
+        alias S = typeof(T[0]);
+
+    static if (is(S : E[n], E, size_t n) && S.length)
+    {
+        enum bool hasElaborateDestructor = hasElaborateDestructor!E;
+    }
+    else static if (is(S == struct))
+    {
+        enum hasElaborateDestructor = __traits(hasMember, S, "__dtor")
+            || anySatisfy!(.hasElaborateDestructor, S.tupleof);
+    }
+    else
+        enum bool hasElaborateDestructor = false;
+}
+
+// Somehow fails for non-static nested structs without support for aliases
+template hasElaborateCopyConstructor(T...)
+{
+    static if (is(T[0]))
+        alias S = T[0];
+    else
+        alias S = typeof(T[0]);
+
+    static if (is(S : E[n], E, size_t n) && S.length)
+    {
+        enum bool hasElaborateCopyConstructor = hasElaborateCopyConstructor!E;
+    }
+    else static if (is(S == struct))
+    {
+        enum hasElaborateCopyConstructor = __traits(hasMember, S, "__postblit")
+            || anySatisfy!(.hasElaborateCopyConstructor, S.tupleof);
+    }
+    else
+        enum bool hasElaborateCopyConstructor = false;
 }
