@@ -17,6 +17,6 @@
 
 class TypeInfoDeclaration;
 void DtoResolveTypeInfo(TypeInfoDeclaration* tid);
-void DtoConstInitTypeInfo(TypeInfoDeclaration* tid);
+TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *t, Scope *sc);
 
 #endif

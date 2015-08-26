@@ -2981,6 +2981,46 @@ public:
 
     //////////////////////////////////////////////////////////////////////////////////////////
 
+    void visit(TypeidExp *e)
+    {
+        if (Type *t = isType(e->obj))
+        {
+            result = DtoSymbolAddress(e->loc, e->type,
+                getOrCreateTypeInfoDeclaration(t, NULL));
+            return;
+        }
+        if (Expression *ex = isExpression(e->obj))
+        {
+            Type *t = ex->type->toBasetype();
+            assert(t->ty == Tclass);
+
+            DValue *val = toElem(ex);
+
+            // Get and load vtbl pointer.
+            llvm::Value *vtbl = DtoLoad(DtoGEPi(val->getRVal(), 0, 0));
+
+            // TypeInfo ptr is first vtbl entry.
+            llvm::Value *typinf = DtoGEPi(vtbl, 0, 0);
+
+            Type *resultType = Type::typeinfoclass->type;
+            if (static_cast<TypeClass*>(t)->sym->isInterfaceDeclaration())
+            {
+                // For interfaces, the first entry in the vtbl is actually a pointer
+                // to an Interface instance, which has the type info as its first
+                // member, so we have to add an extra layer of indirection.
+                resultType = Type::typeinfointerface->type;
+                typinf = DtoLoad(DtoBitCast(typinf,
+                    DtoType(resultType->pointerTo()->pointerTo())));
+            }
+
+            result = new DVarValue(resultType, typinf);
+            return;
+        }
+        llvm_unreachable("Unknown TypeidExp argument kind");
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////
+
     #define STUB(x) void visit(x * e) { e->error("Internal compiler error: Type "#x" not implemented: %s", e->toChars()); fatal(); }
     STUB(Expression)
     STUB(ScopeExp)

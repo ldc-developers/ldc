@@ -51,16 +51,38 @@
 #include <cstdio>
 #include <ir/irtypeclass.h>
 
-Expression *getTypeInfo(Type *t, Scope *sc);
-TypeInfoDeclaration *getTypeInfoDeclaration(Type *t);
 static bool builtinTypeInfo(Type *t);
 FuncDeclaration *search_toString(StructDeclaration *sd);
 
-/****************************************************
- * Get the exact TypeInfo.
- */
+namespace
+{
+TypeInfoDeclaration *createUnqualified(Type *t)
+{
+    switch (t->ty)
+    {
+        case Tpointer:  return TypeInfoPointerDeclaration::create(t);
+        case Tarray:    return TypeInfoArrayDeclaration::create(t);
+        case Tsarray:   return TypeInfoStaticArrayDeclaration::create(t);
+        case Taarray:   return TypeInfoAssociativeArrayDeclaration::create(t);
+        case Tstruct:   return TypeInfoStructDeclaration::create(t);
+        case Tvector:   return TypeInfoVectorDeclaration::create(t);
+        case Tenum:     return TypeInfoEnumDeclaration::create(t);
+        case Tfunction: return TypeInfoFunctionDeclaration::create(t);
+        case Tdelegate: return TypeInfoDelegateDeclaration::create(t);
+        case Ttuple:    return TypeInfoTupleDeclaration::create(t);
+        case Tclass:
+            if (((TypeClass *)t)->sym->isInterfaceDeclaration())
+                return TypeInfoInterfaceDeclaration::create(t);
+            else
+                return TypeInfoClassDeclaration::create(t);
+        default:
+            return TypeInfoDeclaration::create(t, 0);
+    }
+}
+}
 
-void genTypeInfo(Type *torig, Scope *sc)
+
+TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *torig, Scope *sc)
 {
     IF_LOG Logger::println("Type::getTypeInfo(): %s", torig->toChars());
     LOG_SCOPE
@@ -83,7 +105,7 @@ void genTypeInfo(Type *torig, Scope *sc)
         else if (t->isWild())
             t->vtinfo = new TypeInfoWildDeclaration(t);
         else
-            t->vtinfo = getTypeInfoDeclaration(t);
+            t->vtinfo = createUnqualified(t);
         assert(t->vtinfo);
         torig->vtinfo = t->vtinfo;
 
@@ -109,38 +131,14 @@ void genTypeInfo(Type *torig, Scope *sc)
     if (!torig->vtinfo)
         torig->vtinfo = t->vtinfo;     // Types aren't merged, but we can share the vtinfo's
     assert(torig->vtinfo);
+    return torig->vtinfo;
 }
 
 Type *getTypeInfoType(Type *t, Scope *sc)
 {
     assert(t->ty != Terror);
-    genTypeInfo(t, sc);
+    getOrCreateTypeInfoDeclaration(t, sc);
     return t->vtinfo->type;
-}
-
-TypeInfoDeclaration *getTypeInfoDeclaration(Type *t)
-{
-    //printf("Type::getTypeInfoDeclaration() %s\n", t->toChars());
-    switch (t->ty)
-    {
-        case Tpointer:  return TypeInfoPointerDeclaration::create(t);
-        case Tarray:    return TypeInfoArrayDeclaration::create(t);
-        case Tsarray:   return TypeInfoStaticArrayDeclaration::create(t);
-        case Taarray:   return TypeInfoAssociativeArrayDeclaration::create(t);
-        case Tstruct:   return TypeInfoStructDeclaration::create(t);
-        case Tvector:   return TypeInfoVectorDeclaration::create(t);
-        case Tenum:     return TypeInfoEnumDeclaration::create(t);
-        case Tfunction: return TypeInfoFunctionDeclaration::create(t);
-        case Tdelegate: return TypeInfoDelegateDeclaration::create(t);
-        case Ttuple:    return TypeInfoTupleDeclaration::create(t);
-        case Tclass:
-            if (((TypeClass *)t)->sym->isInterfaceDeclaration())
-                return TypeInfoInterfaceDeclaration::create(t);
-            else
-                return TypeInfoClassDeclaration::create(t);
-        default:
-            return TypeInfoDeclaration::create(t, 0);
-    }
 }
 
 /* ========================================================================= */

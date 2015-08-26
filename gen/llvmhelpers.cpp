@@ -752,8 +752,8 @@ void DtoResolveDsymbol(Dsymbol* dsym)
     else if (FuncDeclaration* fd = dsym->isFuncDeclaration()) {
         DtoResolveFunction(fd);
     }
-    else if (TypeInfoDeclaration* fd = dsym->isTypeInfoDeclaration()) {
-        DtoResolveTypeInfo(fd);
+    else if (TypeInfoDeclaration* tid = dsym->isTypeInfoDeclaration()) {
+        DtoResolveTypeInfo(tid);
     }
     else if (VarDeclaration* vd = dsym->isVarDeclaration()) {
         DtoResolveVariable(vd);
