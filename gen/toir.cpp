@@ -949,7 +949,21 @@ public:
         }
 
         // get the callee value
-        DValue* fnval = toElem(e->e1);
+        DValue* fnval;
+        if (e->directcall)
+        {
+            // TODO: Do this as an extra parameter to DotVarExp implementation.
+            assert(e->e1->op == TOKdotvar);
+            DotVarExp* dve = static_cast<DotVarExp*>(e->e1);
+            FuncDeclaration* fdecl = dve->var->isFuncDeclaration();
+            assert(fdecl);
+            DtoResolveFunction(fdecl);
+            fnval = new DFuncValue(fdecl, getIrFunc(fdecl)->func, toElem(dve->e1)->getRVal());
+        }
+        else
+        {
+            fnval = toElem(e->e1);
+        }
 
         // get func value if any
         DFuncValue* dfnval = fnval->isFunc();
@@ -1247,24 +1261,9 @@ public:
             LLValue* vthis = l->getRVal();
             if (!passedThis) passedThis = vthis;
 
-            // Decide whether this function needs to be looked up in the vtable.
-            // Even virtual functions are looked up directly if super or DotTypeExp
-            // are used, thus we need to walk through the this expression and check.
-            bool vtbllookup = nonFinal;
-            Expression* exp = e->e1;
-            while (exp && vtbllookup)
-            {
-                if (exp->op == TOKsuper || exp->op == TOKdottype)
-                    vtbllookup = false;
-                else if (exp->op == TOKcast)
-                    exp = static_cast<CastExp*>(exp)->e1;
-                else
-                    break;
-            }
-
             // Get the actual function value to call.
             LLValue* funcval = 0;
-            if (vtbllookup)
+            if (nonFinal)
             {
                 DImValue thisVal(e1type, vthis);
                 funcval = DtoVirtualFunctionPointer(&thisVal, fdecl, e->toChars());
