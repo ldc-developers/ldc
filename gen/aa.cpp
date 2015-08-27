@@ -56,9 +56,10 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     // call runtime
     LLValue* ret;
     if (lvalue) {
-        LLValue* aati = DtoBitCast(DtoTypeInfoOf(aa->type, false), funcTy->getParamType(1));
+        LLValue* rawAATI = DtoTypeInfoOf(aa->type->unSharedOf()->mutableOf(), false);
+        LLValue* castedAATI = DtoBitCast(rawAATI, funcTy->getParamType(1));
         LLValue* valsize = DtoConstSize_t(getTypePaddedSize(DtoType(type)));
-        ret = gIR->CreateCallOrInvoke(func, aaval, aati, valsize, pkey, "aa.index").getInstruction();
+        ret = gIR->CreateCallOrInvoke(func, aaval, castedAATI, valsize, pkey, "aa.index").getInstruction();
     } else {
         LLValue* keyti = DtoBitCast(to_keyti(aa), funcTy->getParamType(1));
         ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.index").getInstruction();
