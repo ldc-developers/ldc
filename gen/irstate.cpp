@@ -124,10 +124,10 @@ LLCallSite IRState::CreateCallOrInvoke(LLValue* Callee, LLValue* Arg1, LLValue* 
 
 bool IRState::emitArrayBoundsChecks()
 {
-    int p = global.params.useArrayBounds;
-
-    // 0 or 2 are absolute decisions.
-    if (p != 1) return p != 0;
+    if (global.params.useArrayBounds != BOUNDSCHECKsafeonly)
+    {
+        return global.params.useArrayBounds == BOUNDSCHECKon;
+    }
 
     // Safe functions only.
     if (functions.empty()) return false;
