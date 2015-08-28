@@ -234,6 +234,8 @@ struct X86_64TargetABI : TargetABI {
 
     LLValue* prepareVaArg(LLValue* pAp);
 
+    Type *vaListType();
+
 private:
     LLType* getValistType();
     RegCount& getRegCount(IrFuncTy& fty) { return reinterpret_cast<RegCount&>(fty.tag); }
@@ -266,7 +268,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg, RegCount& regCount) {
     Type* t = arg.type->toBasetype();
 
     LLType* abiTy = getAbiType(t);
-    if (abiTy && !LLTypeMemoryLayout::typesAreEquivalent(abiTy, originalLType)) {
+    if (abiTy) {
         IF_LOG {
             Logger::println("Rewriting argument type %s", t->toChars());
             LOG_SCOPE;
@@ -379,7 +381,7 @@ LLValue* X86_64TargetABI::prepareVaStart(LLValue* pAp) {
     // we first need to allocate the actual __va_list struct and set 'ap' to its address.
     LLValue* valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
     valistmem = DtoBitCast(valistmem, getVoidPtrType());
-    DtoStore(valistmem, pAp); // ap = (void*)__va_list_mem
+    DtoStore(valistmem, DtoBitCast(pAp, getPtrToType(getVoidPtrType())));
 
     // pass a void* pointer to the actual struct to LLVM's va_start intrinsic
     return valistmem;
@@ -389,7 +391,8 @@ void X86_64TargetABI::vaCopy(LLValue* pDest, LLValue* src) {
     // Analog to va_start, we need to allocate a __va_list struct on the stack first
     // and set the passed 'dest' char* pointer to its address.
     LLValue* valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
-    DtoStore(DtoBitCast(valistmem, getVoidPtrType()), pDest);
+    DtoStore(DtoBitCast(valistmem, getVoidPtrType()),
+        DtoBitCast(pDest, getPtrToType(getVoidPtrType())));
 
     // Now bitcopy the source struct over the destination struct.
     src = DtoBitCast(src, valistmem->getType());
@@ -400,4 +403,13 @@ LLValue* X86_64TargetABI::prepareVaArg(LLValue* pAp)
 {
     // pass a void* pointer to the actual __va_list struct to LLVM's va_arg intrinsic
     return DtoLoad(pAp);
+}
+
+Type* X86_64TargetABI::vaListType() {
+    // We need to pass the actual va_list type for correct mangling. Simply
+    // using TypeIdentifier here is a bit wonky but works, as long as the name
+    // is actually available in the scope (this is what DMD does, so if a better
+    // solution is found there, this should be adapted).
+    return (new TypeIdentifier(Loc(),
+        Lexer::idPool("__va_list_tag")))->pointerTo();
 }
