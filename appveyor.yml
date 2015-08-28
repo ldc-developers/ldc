@@ -16,16 +16,16 @@ skip_tags: true
 #---------------------------------#
 
 # Operating system (build VM template)
-#os: Windows Server 2012
+os: Visual Studio 2015
 
 # scripts that are called at very beginning, before repo cloning
 init:
   - git config --global core.autocrlf input
+  - '"c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64'
   - msbuild /version
+  - cl
   - cmake --version
   - python --version
-
-clone_folder: c:\projects\ldc
 
 # fetch repository as zip archive
 shallow_clone: true
@@ -35,19 +35,18 @@ install:
   - cd c:\projects
   # Clone libconfig
   - git clone https://github.com/hyperrealm/libconfig.git libconfig
-  # Download Ninja and LLVM
-  - md downloads
-  - ps: (new-object net.webclient).DownloadFile('https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip', 'c:/projects/downloads/ninja.zip')
-  - ps: (new-object net.webclient).DownloadFile('http://llvm.org/releases/3.6.2/LLVM-3.6.2-win32.exe', 'c:/projects/downloads/llvm.exe')
-  # Install Ninja
+  # Download and extract LLVM source
+  - ps: (new-object net.webclient).DownloadFile('http://llvm.org/pre-releases/3.7.0/rc3/llvm-3.7.0rc3.src.tar.xz', 'c:/projects/llvm.src.tar.xz')
+  - 7z x llvm.src.tar.xz -so | 7z x -si -ttar > nul
+  - ren llvm-3.7.0rc3.src llvm
+  # Download and install Ninja
+  - ps: (new-object net.webclient).DownloadFile('https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip', 'c:/projects/ninja.zip')
   - md ninja
   - cd ninja
-  - 7z x ..\downloads\ninja.zip
+  - 7z x ..\ninja.zip
   - set PATH=c:\projects\ninja;%PATH%
   - cd ..
   - ninja --version
-  # Install LLVM
-  - downloads\llvm.exe
 
 #---------------------------------#
 #       build configuration       #
@@ -55,17 +54,21 @@ install:
 
 before_build:
   - cd c:\projects
-  # Generate msbuild files for LDC
-  - md msbuild-ldc
-  - cd msbuild-ldc
-  - cmake -G "Visual Studio 2015 x64" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc
+  # Build libconfig
+  - msbuild libconfig\lib\libconfig.vcxproj /p:Configuration=ReleaseStatic /p:Platform=x64
+  # Generate build files for LLVM and build & install
+  - md ninja-llvm
+  - cd ninja-llvm
+  - cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\llvm-x64 -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_APPEND_VC_REV=ON ..\llvm
+  - ninja install
 
 build_script:
   - cd c:\projects
-  # Build libconfig
-  - msbuild libconfig\lib\libconfig.vcxproj /p:Configuration=ReleaseStatic /p:Platform=x64
-  # Build LDC
-  - msbuild msbuild-ldc\ALL_BUILD.vcxproj
+  # Generate build files for LDC and build
+  - md ninja-ldc
+  - cd ninja-ldc
+  - cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_ROOT_DIR=c:/projects/llvm-x64 -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc
+  - ninja all
 
 after_build:
 
