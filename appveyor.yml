@@ -4,9 +4,9 @@
 
 #version: 1.0.{build}-{branch}
 
-branches:
-  only:
-    - appveyor
+#branches:
+#  only:
+#    - appveyor
 
 # Do not build on tags (GitHub only)
 skip_tags: true
@@ -47,7 +47,6 @@ install:
   #- ren llvm-3.7.0rc3.src llvm
   # Download a pre-built LLVM if not cached & extract
   - ps: If (-Not (Test-Path llvm-x64.7z)) { Start-FileDownload 'https://dl.dropboxusercontent.com/s/xfbl0u0sfa7ifx5/llvm-x64.7z?dl=0' -FileName 'llvm-x64.7z' -Timeout 600000 }
-  - dir
   - 7z x llvm-x64.7z > nul
   # Download & install Ninja
   - ps: Start-FileDownload 'https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
@@ -107,7 +106,7 @@ test_script:
   # Just compile, link & execute a hello-world program for now
   - cd c:\projects
   - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
-  - ldc2 hello.d -Llegacy_stdio_definitions.lib
+  - ninja-ldc\bin\ldc2 hello.d -Llegacy_stdio_definitions.lib
   - hello.exe
 
 after_test:
