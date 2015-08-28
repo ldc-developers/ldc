@@ -32,12 +32,13 @@ init:
   - cmake --version
   - python --version
 
-# fetch repository as zip archive
-shallow_clone: true
-
 # scripts that run after cloning repository
 install:
   - cd c:\projects
+  # Fetch submodules
+  - cd ldc
+  - git submodule update --init --recursive
+  - cd ..
   # Clone libconfig
   - git clone https://github.com/hyperrealm/libconfig.git libconfig
   ## Download & extract LLVM source
@@ -47,7 +48,7 @@ install:
   # Download a pre-built LLVM if not cached & extract
   - ps: If (-Not (Test-Path llvm-x64.7z)) { Start-FileDownload 'https://dl.dropboxusercontent.com/s/xfbl0u0sfa7ifx5/llvm-x64.7z?dl=0' -FileName 'llvm-x64.7z' -Timeout 600000 }
   - dir
-  - 7z x llvm-x64.7z
+  - 7z x llvm-x64.7z > nul
   # Download & install Ninja
   - ps: Start-FileDownload 'https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
   - md ninja
