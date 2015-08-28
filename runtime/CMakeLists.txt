@@ -110,6 +110,7 @@ if(UNIX)
         list(APPEND CORE_D_SYS ${CORE_D_OSX})
     endif()
     list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/msvc.c)
+    list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/stdio_msvc.c)
 
     # Using CMAKE_SYSTEM_PROCESSOR might be inacurrate when somebody is
     # cross-compiling by just setting the tool executbles to a cross toolchain,
@@ -119,6 +120,9 @@ elseif(WIN32)
     list(APPEND CORE_D_SYS ${CORE_D_WIN})
     list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/monitor.c)
     list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/bss_section.c)
+    if(NOT MSVC)
+        list(REMOVE_ITEM DCRT_C ${RUNTIME_DIR}/src/rt/stdio_msvc.c)
+    endif()
 endif()
 list(APPEND CORE_D ${CORE_D_INTERNAL} ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
 list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
