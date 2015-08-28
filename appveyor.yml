@@ -18,6 +18,11 @@ skip_tags: true
 # Operating system (build VM template)
 os: Visual Studio 2015
 
+cache:
+  # Cache the compressed pre-built LLVM for as long as this
+  # Appveyor configuration isn't changed
+  - c:\projects\llvm-x64.7z -> appveyor.yml
+
 # scripts that are called at very beginning, before repo cloning
 init:
   - git config --global core.autocrlf input
@@ -35,22 +40,37 @@ install:
   - cd c:\projects
   # Clone libconfig
   - git clone https://github.com/hyperrealm/libconfig.git libconfig
-  ## Download and extract LLVM source
-  #- ps: (new-object net.webclient).DownloadFile('http://llvm.org/pre-releases/3.7.0/rc3/llvm-3.7.0rc3.src.tar.xz', 'c:/projects/llvm.src.tar.xz')
+  ## Download & extract LLVM source
+  #- ps: Start-FileDownload 'http://llvm.org/pre-releases/3.7.0/rc3/llvm-3.7.0rc3.src.tar.xz' -FileName 'llvm.src.tar.xz'
   #- 7z x llvm.src.tar.xz -so | 7z x -si -ttar > nul
   #- ren llvm-3.7.0rc3.src llvm
-  # Download and install LLVM
-  - ps: (new-object net.webclient).DownloadFile('http://llvm.org/pre-releases/3.7.0/rc3/LLVM-3.7.0-rc3-win64.exe', 'c:/projects/llvm.exe')
-  - llvm.exe /S /D=c:\projects\llvm-x64
-  - dir llvm-x64 || echo No llvm-x64 directory!
-  # Download and install Ninja
-  - ps: (new-object net.webclient).DownloadFile('https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip', 'c:/projects/ninja.zip')
+  # Download a pre-built LLVM if not cached & extract
+  - ps: If (-Not (Test-Path llvm-x64.7z)) { Start-FileDownload 'https://dl.dropboxusercontent.com/s/xfbl0u0sfa7ifx5/llvm-x64.7z?dl=0' -FileName 'llvm-x64.7z' -Timeout 600000 }
+  - dir
+  - 7z x llvm-x64.7z
+  # Download & install Ninja
+  - ps: Start-FileDownload 'https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
   - md ninja
   - cd ninja
   - 7z x ..\ninja.zip
-  - set PATH=c:\projects\ninja;%PATH%
   - cd ..
+  - set PATH=c:\projects\ninja;%PATH%
   - ninja --version
+  # Download & extract libcurl
+  - ps: Start-FileDownload 'http://d.darktech.org/libcurl-7.43.0-WinSSL-zlib-x86-x64.zip' -FileName 'libcurl.zip'
+  - md libcurl
+  - cd libcurl
+  - 7z x ..\libcurl.zip
+  - cd ..
+  # Copy libcurl.dll to final LDC installation directory and add to PATH
+  - md ldc-x64
+  - md ldc-x64\bin
+  - copy libcurl\dmd2\windows\bin64\libcurl.dll ldc-x64\bin
+  - set PATH=c:\projects\ldc-x64\bin;%PATH%
+  # Copy curl.lib to final LDC installation directory and add to LIB
+  - md ldc-x64\lib
+  - copy libcurl\dmd2\windows\lib64\curl.lib ldc-x64\lib
+  - set LIB=c:\projects\ldc-x64\lib;%LIB%
 
 #---------------------------------#
 #       build configuration       #
@@ -60,7 +80,7 @@ before_build:
   - cd c:\projects
   # Build libconfig
   - msbuild libconfig\lib\libconfig.vcxproj /p:Configuration=ReleaseStatic /p:Platform=x64
-  # Generate build files for LLVM and build & install
+  ## Generate build files for LLVM, build & install
   #- md ninja-llvm
   #- cd ninja-llvm
   #- cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\llvm-x64 -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_APPEND_VC_REV=ON ..\llvm
@@ -68,11 +88,11 @@ before_build:
 
 build_script:
   - cd c:\projects
-  # Generate build files for LDC and build
+  # Generate build files for LDC & build
   - md ninja-ldc
   - cd ninja-ldc
-  - cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLLVM_ROOT_DIR=c:/projects/llvm-x64 -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc
-  - ninja all
+  - cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x64 -DLLVM_ROOT_DIR=c:/projects/llvm-x64 -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc
+  - ninja
 
 after_build:
 
@@ -83,5 +103,21 @@ after_build:
 before_test:
 
 test_script:
+  # Just compile, link & execute a hello-world program for now
+  - cd c:\projects
+  - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
+  - ldc2 hello.d -Llegacy_stdio_definitions.lib
+  - hello.exe
 
 after_test:
+  # Install LDC
+  - cd c:\projects\ninja-ldc
+  - ninja install
+
+#---------------------------------#
+#      artifacts configuration    #
+#---------------------------------#
+
+artifacts:
+  # Push entire LDC installation directory as a zip archive
+  - path: ..\ldc-x64
