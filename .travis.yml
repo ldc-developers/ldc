@@ -31,13 +31,13 @@ addons:
 install:
   - if [[ "${LLVM_CONFIG}" == *3\.[567]* ]]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
 env:
-  - LLVM_CONFIG="llvm-config-3.1"
-  - LLVM_CONFIG="llvm-config-3.2"
-  - LLVM_CONFIG="llvm-config-3.3"
-  - LLVM_CONFIG="llvm-config-3.4" OPTS="-DTEST_COVERAGE=ON"
-  - LLVM_CONFIG="llvm-config-3.5" OPTS="-DBUILD_SHARED_LIBS=ON"
-  - LLVM_CONFIG="llvm-config-3.6" OPTS="-DMULTILIB=ON"
   - LLVM_CONFIG="llvm-config-3.7"
+  - LLVM_CONFIG="llvm-config-3.6" OPTS="-DMULTILIB=ON"
+  - LLVM_CONFIG="llvm-config-3.5" OPTS="-DBUILD_SHARED_LIBS=ON"
+  - LLVM_CONFIG="llvm-config-3.4" OPTS="-DTEST_COVERAGE=ON"
+  - LLVM_CONFIG="llvm-config-3.3"
+  - LLVM_CONFIG="llvm-config-3.2"
+  - LLVM_CONFIG="llvm-config-3.1"
 matrix:
   allow_failures:
   - env: LLVM_CONFIG="llvm-config-3.7"
