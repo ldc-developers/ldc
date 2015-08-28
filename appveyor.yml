@@ -22,6 +22,7 @@ skip_tags: true
 init:
   - git config --global core.autocrlf input
   - msbuild /version
+  - cmake --version
   - python --version
 
 clone_folder: c:\projects\ldc
@@ -34,14 +35,17 @@ install:
   - cd c:\projects
   # Clone libconfig
   - git clone https://github.com/hyperrealm/libconfig.git libconfig
-  # Download CMake and LLVM
+  # Download Ninja and LLVM
   - md downloads
-  - ps: (new-object net.webclient).DownloadFile('http://www.cmake.org/files/v3.3/cmake-3.3.1-win32-x86.zip', 'c:/projects/downloads/cmake.zip')
+  - ps: (new-object net.webclient).DownloadFile('https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip', 'c:/projects/downloads/ninja.zip')
   - ps: (new-object net.webclient).DownloadFile('http://llvm.org/releases/3.6.2/LLVM-3.6.2-win32.exe', 'c:/projects/downloads/llvm.exe')
-  # Install CMake
-  - 7z x downloads\cmake.zip
-  - set PATH=c:\projects\cmake\bin;%PATH%
-  - cmake --version
+  # Install Ninja
+  - md ninja
+  - cd ninja
+  - 7z x ..\downloads\ninja.zip
+  - set PATH=c:\projects\ninja;%PATH%
+  - cd ..
+  - ninja --version
   # Install LLVM
   - downloads\llvm.exe
 
@@ -54,7 +58,7 @@ before_build:
   # Generate msbuild files for LDC
   - md msbuild-ldc
   - cd msbuild-ldc
-  - cmake -G "Visual Studio 2013 x64" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc
+  - cmake -G "Visual Studio 2015 x64" -DCMAKE_BUILD_TYPE=RelWithDebInfo -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc
 
 build_script:
   - cd c:\projects
