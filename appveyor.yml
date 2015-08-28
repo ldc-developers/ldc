@@ -35,10 +35,14 @@ install:
   - cd c:\projects
   # Clone libconfig
   - git clone https://github.com/hyperrealm/libconfig.git libconfig
-  # Download and extract LLVM source
-  - ps: (new-object net.webclient).DownloadFile('http://llvm.org/pre-releases/3.7.0/rc3/llvm-3.7.0rc3.src.tar.xz', 'c:/projects/llvm.src.tar.xz')
-  - 7z x llvm.src.tar.xz -so | 7z x -si -ttar > nul
-  - ren llvm-3.7.0rc3.src llvm
+  ## Download and extract LLVM source
+  #- ps: (new-object net.webclient).DownloadFile('http://llvm.org/pre-releases/3.7.0/rc3/llvm-3.7.0rc3.src.tar.xz', 'c:/projects/llvm.src.tar.xz')
+  #- 7z x llvm.src.tar.xz -so | 7z x -si -ttar > nul
+  #- ren llvm-3.7.0rc3.src llvm
+  # Download and install LLVM
+  - ps: (new-object net.webclient).DownloadFile('http://llvm.org/pre-releases/3.7.0/rc3/LLVM-3.7.0-rc3-win64.exe', 'c:/projects/llvm.exe')
+  - llvm.exe /S /D=c:\projects\llvm-x64
+  - dir llvm-x64 || echo No llvm-x64 directory!
   # Download and install Ninja
   - ps: (new-object net.webclient).DownloadFile('https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip', 'c:/projects/ninja.zip')
   - md ninja
@@ -57,10 +61,10 @@ before_build:
   # Build libconfig
   - msbuild libconfig\lib\libconfig.vcxproj /p:Configuration=ReleaseStatic /p:Platform=x64
   # Generate build files for LLVM and build & install
-  - md ninja-llvm
-  - cd ninja-llvm
-  - cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\llvm-x64 -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_APPEND_VC_REV=ON ..\llvm
-  - ninja install
+  #- md ninja-llvm
+  #- cd ninja-llvm
+  #- cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\llvm-x64 -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_APPEND_VC_REV=ON ..\llvm
+  #- ninja install
 
 build_script:
   - cd c:\projects
