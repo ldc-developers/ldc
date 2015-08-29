@@ -798,7 +798,7 @@ if(BUILD_SHARED_LIBS)
     add_test(NAME druntime-test-shared
         COMMAND make -C ${PROJECT_SOURCE_DIR}/druntime/test/shared
             ROOT=${outdir} DMD=${ldmd_path} MODEL=default DRUNTIMESO=${druntime_path}
-            CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib
+            CFLAGS=-Wall\ -Wl,-rpath,${CMAKE_BINARY_DIR}/lib LINKDL=-L-ldl
     )
     set_tests_properties(druntime-test-shared PROPERTIES DEPENDS clean-druntime-test-shared)
 endif()
