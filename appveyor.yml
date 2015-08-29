@@ -1,0 +1,44 @@
+# version format
+version: 1.0.{build}
+
+# branches to build
+branches:
+  # whitelist
+  only:
+    - appveyor
+
+# Do not build on tags (GitHub only)
+skip_tags: true
+
+# Operating system (build VM template)
+os: Windows Server 2012
+
+# clone directory
+clone_folder: c:\projects\myproject
+
+# scripts that run after cloning repository
+install:
+  # Install CMake
+  - ps: (new-object net.webclient).DownloadFile('http://www.cmake.org/files/v3.0/cmake-3.0.2-win32-x86.exe', 'cmake-install.exe')
+  - cmd: cmake-install.exe
+  # Install libconfig
+  - ps: (new-object net.webclient).DownloadFile('http://www.hyperrealm.com/libconfig/libconfig-1.4.9.tar.gz', 'libconfig.tar.gz')
+  - cmd: 
+  # Install LLVM snapshot
+  - ps: (new-object net.webclient).DownloadFile('http://llvm.org/builds/downloads/LLVM-3.6.0-r219740-win32.exe', 'LLVM-install.exe')
+  - cmd: LLVM-install.exe
+  # Run CMake
+  - cmd: md c:\projects\build-ldc
+  - cmd: cd c:\projects\build-ldc
+  - cmd: cmake ..\ldc
+
+# build platform, i.e. x86, x64, Any CPU. This setting is optional.
+platform:
+  - x64
+
+# build Configuration, i.e. Debug, Release, etc.
+configuration:
+  - Debug
+
+build:
+  project: ..\build-ldc\INSTALL.sln
