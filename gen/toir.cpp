@@ -168,7 +168,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd, E
         // store the initializer there
         DtoAssign(loc, &field, val, TOKconstruct, true);
 
-        if (expr)
+        if (expr && expr->isLvalue())
             callPostblit(loc, expr, field.getLVal());
 
         // Also zero out padding bytes counted as being part of the type in DMD
