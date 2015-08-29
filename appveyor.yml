@@ -23,6 +23,15 @@ cache:
   # Appveyor configuration isn't changed
   - c:\projects\llvm-x64.7z -> appveyor.yml
 
+environment:
+  matrix:
+    - APPVEYOR_JOB_CONFIG: Debug
+    - APPVEYOR_JOB_CONFIG: Release
+
+matrix:
+  allow_failures:
+    - APPVEYOR_JOB_CONFIG: Release
+
 # scripts that are called at very beginning, before repo cloning
 init:
   - git config --global core.autocrlf input
@@ -114,11 +123,16 @@ test_script:
   - bin\ldc2 -version
   # Compile, link & execute a hello-world program
   - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
-  - bin\ldc2 hello.d
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( bin\ldc2 -g hello.d ) else ( bin\ldc2 hello.d )
   - hello.exe
-  # Compile and execute the druntime & phobos unit tests, but exclude dmd-testsuite for now
-  - ninja druntime-ldc-unittest-debug druntime-ldc-unittest phobos2-ldc-unittest-debug phobos2-ldc-unittest
-  - ctest -E testsuite
+  # Compile the druntime & phobos unit tests
+  - set TEST_LIB_SUFFIX=unittest
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_LIB_SUFFIX=unittest-debug)
+  - ninja druntime-ldc-%TEST_LIB_SUFFIX% phobos2-ldc-%TEST_LIB_SUFFIX%
+  # Execute the unit tests; exclude dmd-testsuite for now
+  - set CTEST_SUFFIX=-E -debug
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug)
+  - ctest --output-on-failure -E testsuite %CTEST_SUFFIX%
 
 after_test:
   # Install LDC
