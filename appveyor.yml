@@ -128,7 +128,7 @@ test_script:
   # Compile the druntime & phobos unit tests
   - set TEST_LIB_SUFFIX=unittest
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_LIB_SUFFIX=unittest-debug)
-  - ninja druntime-ldc-%TEST_LIB_SUFFIX% phobos2-ldc-%TEST_LIB_SUFFIX%
+  - ninja -j 1 druntime-ldc-%TEST_LIB_SUFFIX% phobos2-ldc-%TEST_LIB_SUFFIX%
   # Execute the unit tests; exclude dmd-testsuite for now
   - set CTEST_SUFFIX=-E -debug
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug)
