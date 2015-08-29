@@ -1145,24 +1145,13 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
 
         if (fromtype->ty == Tsarray) {
             LLValue* uval = u->getRVal();
-
             IF_LOG Logger::cout() << "uvalTy = " << *uval->getType() << '\n';
-
-            assert(isaPointer(uval->getType()));
-
-            /*LLArrayType* arrty = isaArray(uval->getType()->getContainedType(0));
-            if(arrty->getNumElements()*fromtype->nextOf()->size() != tosize*totype->nextOf()->size())
-            {
-                error(loc, "invalid cast from '%s' to '%s', the sizes are not the same", fromtype->toChars(), totype->toChars());
-                fatal();
-            }*/
-
             rval = DtoBitCast(uval, getPtrToType(tolltype));
         }
         else {
             size_t i = (tosize * totype->nextOf()->size() - 1) / fromtype->nextOf()->size();
             DConstValue index(Type::tsize_t, DtoConstSize_t(i));
-            DtoArrayBoundsCheck(loc, u, &index);
+            DtoIndexBoundsCheck(loc, u, &index);
 
             rval = DtoArrayPtr(u);
             rval = DtoBitCast(rval, getPtrToType(tolltype));
@@ -1189,59 +1178,50 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
     return new DImValue(to, rval);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
-void DtoArrayBoundsCheck(Loc& loc, DValue* arr, DValue* index, DValue* lowerBound)
+void DtoIndexBoundsCheck(Loc& loc, DValue* arr, DValue* index)
 {
     Type* arrty = arr->getType()->toBasetype();
     assert((arrty->ty == Tsarray || arrty->ty == Tarray || arrty->ty == Tpointer) &&
         "Can only array bounds check for static or dynamic arrays");
 
-    // We do not check if the bounds check can be omitted. This is the
-    // responsibility of the caller and performed in IndexExp::toElem().
-
-    // runtime check
-
-    bool lengthUnknown = arrty->ty == Tpointer;
-
-    llvm::BasicBlock* failbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundscheckfail", gIR->topfunc());
-    llvm::BasicBlock* okbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundsok", gIR->topfunc());
-    LLValue* cond = 0;
-
-    if (!lengthUnknown) {
-        // if lowerBound is not NULL, we're checking slice
-        llvm::ICmpInst::Predicate cmpop = lowerBound ? llvm::ICmpInst::ICMP_ULE : llvm::ICmpInst::ICMP_ULT;
-        // check for upper bound
-        cond = gIR->ir->CreateICmp(cmpop, index->getRVal(), DtoArrayLen(arr), "boundscheck");
+    if (!index) {
+        // Caller supplied no index, known in-bounds.
+        return;
     }
 
-    if (!lowerBound) {
-        assert(cond);
-        gIR->ir->CreateCondBr(cond, okbb, failbb);
-    } else {
-        if (!lengthUnknown) {
-            llvm::BasicBlock* locheckbb = llvm::BasicBlock::Create(gIR->context(), "arrayboundschecklowerbound", gIR->topfunc());
-            gIR->ir->CreateCondBr(cond, locheckbb, failbb);
-            gIR->scope() = IRScope(locheckbb);
-        }
-        // check for lower bound
-        cond = gIR->ir->CreateICmp(llvm::ICmpInst::ICMP_ULE, lowerBound->getRVal(), index->getRVal(), "boundscheck");
-        gIR->ir->CreateCondBr(cond, okbb, failbb);
+    if (arrty->ty == Tpointer) {
+        // Length of pointers is unknown, ingore.
+        return;
     }
+
+    llvm::ICmpInst::Predicate cmpop = llvm::ICmpInst::ICMP_ULT;
+    llvm::Value* cond = gIR->ir->CreateICmp(cmpop, index->getRVal(),
+        DtoArrayLen(arr), "bounds.cmp");
+
+    llvm::BasicBlock* failbb = llvm::BasicBlock::Create(gIR->context(),
+        "bounds.fail", gIR->topfunc());
+    llvm::BasicBlock* okbb = llvm::BasicBlock::Create(gIR->context(),
+        "bounds.ok", gIR->topfunc());
+    gIR->ir->CreateCondBr(cond, okbb, failbb);
 
     // set up failbb to call the array bounds error runtime function
-
     gIR->scope() = IRScope(failbb);
 
-    llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_arraybounds");
-    gIR->CreateCallOrInvoke(
+    DtoBoundsCheckFailCall(gIR, loc);
+
+    // if ok, proceed in okbb
+    gIR->scope() = IRScope(okbb);
+}
+
+void DtoBoundsCheckFailCall(IRState *irs, Loc &loc)
+{
+    llvm::Function* errorfn = LLVM_D_GetRuntimeFunction(loc, irs->module, "_d_arraybounds");
+    irs->CreateCallOrInvoke(
         errorfn,
-        DtoModuleFileName(gIR->func()->decl->getModule(), loc),
+        DtoModuleFileName(irs->func()->decl->getModule(), loc),
         DtoConstUint(loc.linnum)
     );
 
     // the function does not return
-    gIR->ir->CreateUnreachable();
-
-    // if ok, proceed in okbb
-    gIR->scope() = IRScope(okbb);
+    irs->ir->CreateUnreachable();
 }

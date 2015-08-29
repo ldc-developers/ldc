@@ -1352,12 +1352,12 @@ public:
         }
         else if (e1type->ty == Tsarray) {
             if (p->emitArrayBoundsChecks() && !e->indexIsInBounds)
-                DtoArrayBoundsCheck(e->loc, l, r);
+                DtoIndexBoundsCheck(e->loc, l, r);
             arrptr = DtoGEP(l->getRVal(), zero, r->getRVal());
         }
         else if (e1type->ty == Tarray) {
             if (p->emitArrayBoundsChecks() && !e->indexIsInBounds)
-                DtoArrayBoundsCheck(e->loc, l, r);
+                DtoIndexBoundsCheck(e->loc, l, r);
             arrptr = DtoArrayPtr(l);
             arrptr = DtoGEP1(arrptr,r->getRVal());
         }
@@ -1415,8 +1415,38 @@ public:
             LLValue* vlo = lo->getRVal();
             LLValue* vup = up->getRVal();
 
-            if (gIR->emitArrayBoundsChecks())
-                DtoArrayBoundsCheck(e->loc, v, up, lo);
+            const bool needCheckUpper = (etype->ty != Tpointer) &&
+                !e->upperIsInBounds;
+            const bool needCheckLower = !e->lowerIsLessThanUpper;
+            if (p->emitArrayBoundsChecks() && (needCheckUpper || needCheckLower))
+            {
+                llvm::BasicBlock* failbb = llvm::BasicBlock::Create(p->context(),
+                    "bounds.fail", p->topfunc());
+                llvm::BasicBlock* okbb = llvm::BasicBlock::Create(p->context(),
+                    "bounds.ok", p->topfunc());
+
+                llvm::Value *okCond = NULL;
+                if (needCheckUpper)
+                {
+                    okCond = p->ir->CreateICmp(llvm::ICmpInst::ICMP_ULE, vup,
+                        DtoArrayLen(v), "bounds.cmp.lo");
+                }
+
+                if (needCheckLower)
+                {
+                    llvm::Value *cmp = p->ir->CreateICmp(llvm::ICmpInst::ICMP_ULE,
+                        vlo, vup, "bounds.cmp.up");
+                    if (okCond) okCond = p->ir->CreateAnd(okCond, cmp);
+                    else okCond = cmp;
+                }
+
+                p->ir->CreateCondBr(okCond, okbb, failbb);
+
+                p->scope() = IRScope(failbb);
+                DtoBoundsCheckFailCall(p, e->loc);
+
+                p->scope() = IRScope(okbb);
+            }
 
             // offset by lower
             eptr = DtoGEP1(eptr, vlo, "lowerbound");
