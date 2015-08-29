@@ -106,7 +106,7 @@ test_script:
   # Just compile, link & execute a hello-world program for now
   - cd c:\projects
   - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
-  - ninja-ldc\bin\ldc2 hello.d -Llegacy_stdio_definitions.lib
+  - ninja-ldc\bin\ldc2 hello.d -Llegacy_stdio_definitions.lib -L/FORCE:MULTIPLE
   - hello.exe
 
 after_test:
