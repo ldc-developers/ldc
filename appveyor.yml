@@ -4,9 +4,9 @@
 
 #version: 1.0.{build}-{branch}
 
-#branches:
-#  only:
-#    - appveyor
+branches:
+  only:
+    - merge-2.067
 
 # Do not build on tags (GitHub only)
 skip_tags: true
