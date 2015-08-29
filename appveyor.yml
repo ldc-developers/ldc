@@ -120,4 +120,4 @@ after_test:
 
 artifacts:
   # Push entire LDC installation directory as a zip archive
-  - path: ..\ldc-x64
+  - path: ldc-x64
