@@ -13,12 +13,6 @@ function(add_testsuite config_name dflags model)
     add_test(NAME clean-${name}
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${outdir})
 
-    # FIXME: Link in libcurl even though dmd-testsuite does not depend on it
-    # to avoid linking issues as described in GitHub #683.
-    if(NOT BUILD_SHARED_LIBS)
-        set(dflags "${dflags} -defaultlib=phobos2-ldc,druntime-ldc,curl -debuglib=phobos2-ldc-debug,druntime-ldc-debug,curl")
-    endif()
-
     # The DFLAGS environment variable read by LDMD is used because the DMD
     # testsuite build system provides no way to run the test cases with a
     # given set of flags without trying all combinations of them.
