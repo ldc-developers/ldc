@@ -88,10 +88,17 @@ before_build:
 
 build_script:
   - cd c:\projects
-  # Generate build files for LDC & build
+  # Work around LDC issue #988 and add a lib required in combination with VS 2015
+  - ps: (gc ldc\ldc2.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-L/FORCE:MULTIPLE", "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2.conf.in
+  - ps: (gc ldc\ldc2_install.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-L/FORCE:MULTIPLE", "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2_install.conf.in
+  - ps: (gc ldc\ldc2_phobos.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-L/FORCE:MULTIPLE", "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2_phobos.conf.in
+  # Generate build files for LDC
   - md ninja-ldc
   - cd ninja-ldc
   - cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x64 -DLLVM_ROOT_DIR=c:/projects/llvm-x64 -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc
+  # Work around LDC issue #930
+  - ps: (gc build.ninja).replace('runtime/std/string-unittest-debug.obj -w -d -g -unittest', 'runtime/std/string-unittest-debug.obj -w -d -unittest') | sc build.ninja
+  # Build LDC, druntime and phobos
   - ninja
 
 after_build:
@@ -103,11 +110,15 @@ after_build:
 before_test:
 
 test_script:
-  # Just compile, link & execute a hello-world program for now
-  - cd c:\projects
+  - cd c:\projects\ninja-ldc
+  - bin\ldc2 -version
+  # Compile, link & execute a hello-world program
   - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
-  - ninja-ldc\bin\ldc2 hello.d -Llegacy_stdio_definitions.lib -L/FORCE:MULTIPLE
+  - bin\ldc2 hello.d
   - hello.exe
+  # Compile and execute the druntime & phobos unit tests, but exclude dmd-testsuite for now
+  - ninja druntime-ldc-unittest-debug druntime-ldc-unittest phobos2-ldc-unittest-debug phobos2-ldc-unittest
+  - ctest -E testsuite
 
 after_test:
   # Install LDC
