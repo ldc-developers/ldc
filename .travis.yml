@@ -13,6 +13,8 @@ addons:
     - g++-4.9
     - gcc-4.9-multilib
     - g++-4.9-multilib
+    - gcc-multilib
+    - g++-multilib
     - linux-libc-dev:i386
     - libcurl3:i386
     - libedit2
@@ -50,8 +52,8 @@ script:
   - bin/ldc2 -version || exit 1
   - MAKEOPTS=-j2 ctest -j1 --verbose -R "build-phobos2-" -E "-test-runner"
   - ctest -j3 --verbose -R "(build-)" -E "(build-phobos2-|-test-runner)"
-  - MAKEOPTS=-j4 ctest -j1 --verbose -R "dmd-testsuite" -E "-debug"
-  - MAKEOPTS=-j4 ctest -j1 --verbose -R "dmd-testsuite-debug"
+  - CC="" MAKEOPTS=-j4 ctest -j1 --verbose -R "dmd-testsuite" -E "-debug"
+  - CC="" MAKEOPTS=-j4 ctest -j1 --verbose -R "dmd-testsuite-debug"
   - ctest -j4 --output-on-failure -E "dmd-testsuite"
 
 after_success:
