@@ -104,7 +104,7 @@ build_script:
   # Work around LDC issue #930
   - ps: (gc build.ninja).replace('runtime/std/string-unittest-debug.obj -w -d -g -unittest', 'runtime/std/string-unittest-debug.obj -w -d -unittest') | sc build.ninja
   # Build LDC, druntime and phobos
-  - ninja
+  - ninja -j2
 
 after_build:
 
@@ -125,8 +125,8 @@ test_script:
   - set TEST_SUFFIX=unittest
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_SUFFIX=unittest-debug)
   # pre-build some modules serially - those known to require lots of memory
-  - ninja -j 1 runtime\std\algorithm\searching-%TEST_SUFFIX%.obj runtime\std\algorithm\setops-%TEST_SUFFIX%.obj runtime\std\array-%TEST_SUFFIX%.obj runtime\std\conv-%TEST_SUFFIX%.obj runtime\std\datetime-%TEST_SUFFIX%.obj runtime\std\range\package-%TEST_SUFFIX%.obj runtime\std\range\primitives-%TEST_SUFFIX%.obj runtime\std\regex\internal\tests-%TEST_SUFFIX%.obj runtime\std\string-%TEST_SUFFIX%.obj runtime\std\traits-%TEST_SUFFIX%.obj
-  - ninja druntime-ldc-%TEST_SUFFIX% phobos2-ldc-%TEST_SUFFIX%
+  - ninja -j1 runtime\std\algorithm\searching-%TEST_SUFFIX%.obj runtime\std\algorithm\setops-%TEST_SUFFIX%.obj runtime\std\array-%TEST_SUFFIX%.obj runtime\std\conv-%TEST_SUFFIX%.obj runtime\std\datetime-%TEST_SUFFIX%.obj runtime\std\range\package-%TEST_SUFFIX%.obj runtime\std\range\primitives-%TEST_SUFFIX%.obj runtime\std\regex\internal\tests-%TEST_SUFFIX%.obj runtime\std\string-%TEST_SUFFIX%.obj runtime\std\traits-%TEST_SUFFIX%.obj
+  - ninja -j2 druntime-ldc-%TEST_SUFFIX% phobos2-ldc-%TEST_SUFFIX%
   # Execute the unit tests; exclude dmd-testsuite for now
   - set CTEST_SUFFIX=-E "-debug|testsuite"
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E testsuite)
