@@ -55,7 +55,7 @@ install:
   #- 7z x llvm.src.tar.xz -so | 7z x -si -ttar > nul
   #- ren llvm-3.7.0rc3.src llvm
   # Download a pre-built LLVM if not cached & extract
-  - ps: If (-Not (Test-Path llvm-x64.7z)) { Start-FileDownload 'https://dl.dropboxusercontent.com/s/xfbl0u0sfa7ifx5/llvm-x64.7z?dl=0' -FileName 'llvm-x64.7z' -Timeout 600000 }
+  - ps: If (-Not (Test-Path llvm-x64.7z)) { echo 'Downloading LLVM...'; Start-FileDownload 'https://dl.dropboxusercontent.com/s/xfbl0u0sfa7ifx5/llvm-x64.7z?dl=0' -FileName 'llvm-x64.7z' }
   - 7z x llvm-x64.7z > nul
   # Download & install Ninja
   - ps: Start-FileDownload 'https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
@@ -125,7 +125,7 @@ test_script:
   - set TEST_SUFFIX=unittest
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_SUFFIX=unittest-debug)
   # pre-build some modules serially - those known to require lots of memory
-  - ninja -j 1 runtime\std\algorithm\searching-%TEST_SUFFIX%.obj runtime\std\array-%TEST_SUFFIX%.obj runtime\std\conv-%TEST_SUFFIX%.obj runtime\std\datetime-%TEST_SUFFIX%.obj runtime\std\range\package-%TEST_SUFFIX%.obj runtime\std\range\primitives-%TEST_SUFFIX%.obj runtime\std\regex\internal\tests-%TEST_SUFFIX%.obj runtime\std\string-%TEST_SUFFIX%.obj
+  - ninja -j 1 runtime\std\algorithm\searching-%TEST_SUFFIX%.obj runtime\std\algorithm\setops-%TEST_SUFFIX%.obj runtime\std\array-%TEST_SUFFIX%.obj runtime\std\conv-%TEST_SUFFIX%.obj runtime\std\datetime-%TEST_SUFFIX%.obj runtime\std\range\package-%TEST_SUFFIX%.obj runtime\std\range\primitives-%TEST_SUFFIX%.obj runtime\std\regex\internal\tests-%TEST_SUFFIX%.obj runtime\std\string-%TEST_SUFFIX%.obj runtime\std\traits-%TEST_SUFFIX%.obj
   - ninja druntime-ldc-%TEST_SUFFIX% phobos2-ldc-%TEST_SUFFIX%
   # Execute the unit tests; exclude dmd-testsuite for now
   - set CTEST_SUFFIX=-E "-debug|testsuite"
