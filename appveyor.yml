@@ -61,7 +61,7 @@ install:
   - ps: Start-FileDownload 'https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
   - md ninja
   - cd ninja
-  - 7z x ..\ninja.zip
+  - 7z x ..\ninja.zip > nul
   - cd ..
   - set PATH=c:\projects\ninja;%PATH%
   - ninja --version
@@ -69,17 +69,13 @@ install:
   - ps: Start-FileDownload 'http://d.darktech.org/libcurl-7.43.0-WinSSL-zlib-x86-x64.zip' -FileName 'libcurl.zip'
   - md libcurl
   - cd libcurl
-  - 7z x ..\libcurl.zip
+  - 7z x ..\libcurl.zip > nul
   - cd ..
   # Copy libcurl.dll to final LDC installation directory and add to PATH
   - md ldc-x64
   - md ldc-x64\bin
   - copy libcurl\dmd2\windows\bin64\libcurl.dll ldc-x64\bin
   - set PATH=c:\projects\ldc-x64\bin;%PATH%
-  # Copy curl.lib to final LDC installation directory and add to LIB
-  - md ldc-x64\lib
-  - copy libcurl\dmd2\windows\lib64\curl.lib ldc-x64\lib
-  - set LIB=c:\projects\ldc-x64\lib;%LIB%
 
 #---------------------------------#
 #       build configuration       #
@@ -127,22 +123,27 @@ test_script:
   - hello.exe
   # Compile the druntime & phobos unit tests
   - set TEST_LIB_SUFFIX=unittest
-  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_LIB_SUFFIX=unittest-debug)
-  - ninja -j 1 druntime-ldc-%TEST_LIB_SUFFIX% phobos2-ldc-%TEST_LIB_SUFFIX%
+  - set NUM_JOBS=2
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_LIB_SUFFIX=unittest-debug&& set NUM_JOBS=1)
+  - ninja -j %NUM_JOBS% druntime-ldc-%TEST_LIB_SUFFIX% phobos2-ldc-%TEST_LIB_SUFFIX%
   # Execute the unit tests; exclude dmd-testsuite for now
-  - set CTEST_SUFFIX=-E -debug
-  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug)
-  - ctest --output-on-failure -E testsuite %CTEST_SUFFIX%
+  - set CTEST_SUFFIX=-E "-debug|testsuite"
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E testsuite)
+  - ctest --output-on-failure %CTEST_SUFFIX%
 
 after_test:
   # Install LDC
   - cd c:\projects\ninja-ldc
   - ninja install
+  - cd ..
+  # Compress
+  - 7z a ldc-x64.7z ldc-x64\* > nul
 
 #---------------------------------#
 #      artifacts configuration    #
 #---------------------------------#
 
 artifacts:
-  # Push entire LDC installation directory as a zip archive
-  - path: ldc-x64
+  # Publish LDC installation directory as a .7z archive
+  - path: ..\ldc-x64.7z
+    name: LDC-x64
