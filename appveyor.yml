@@ -145,6 +145,12 @@ after_test:
 #---------------------------------#
 
 artifacts:
-  # Publish LDC installation directory as a .7z archive
+  # Publish LDC installation directory as a .7z archive...
   - path: ..\ldc-x64.7z
     name: LDC-x64
+
+deploy_script:
+  # ... for 10 minutes ;)
+  - ps: |
+        $url = $artifacts['LDC-x64'].url
+        echo "Download link (valid for 10 minutes): $url"
