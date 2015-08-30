@@ -12,6 +12,7 @@ addons:
     - gcc-4.9
     - g++-4.9
     - gcc-4.9-multilib
+    - g++-4.9-multilib
     - linux-libc-dev:i386
     - libcurl3:i386
     - libedit2
