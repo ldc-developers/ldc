@@ -122,10 +122,11 @@ test_script:
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( bin\ldc2 -g hello.d ) else ( bin\ldc2 hello.d )
   - hello.exe
   # Compile the druntime & phobos unit tests
-  - set TEST_LIB_SUFFIX=unittest
-  - set NUM_JOBS=2
-  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_LIB_SUFFIX=unittest-debug&& set NUM_JOBS=1)
-  - ninja -j %NUM_JOBS% druntime-ldc-%TEST_LIB_SUFFIX% phobos2-ldc-%TEST_LIB_SUFFIX%
+  - set TEST_SUFFIX=unittest
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_SUFFIX=unittest-debug)
+  # pre-build some modules serially - those known to require lots of memory
+  - ninja -j 1 std/algorithm/searching-%TEST_SUFFIX%.obj std/array-%TEST_SUFFIX%.obj std/conv-%TEST_SUFFIX%.obj std/datetime-%TEST_SUFFIX%.obj std/range/package-%TEST_SUFFIX%.obj std/range/primitives-%TEST_SUFFIX%.obj std/regex/internal/tests-%TEST_SUFFIX%.obj std/string-%TEST_SUFFIX%.obj
+  - ninja druntime-ldc-%TEST_SUFFIX% phobos2-ldc-%TEST_SUFFIX%
   # Execute the unit tests; exclude dmd-testsuite for now
   - set CTEST_SUFFIX=-E "-debug|testsuite"
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E testsuite)
