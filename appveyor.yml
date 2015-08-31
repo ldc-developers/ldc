@@ -18,11 +18,6 @@ skip_tags: true
 # Operating system (build VM template)
 os: Visual Studio 2015
 
-cache:
-  # Cache the compressed pre-built LLVM for as long as this
-  # Appveyor configuration isn't changed
-  - c:\projects\llvm-x64.7z -> appveyor.yml
-
 environment:
   matrix:
     - APPVEYOR_JOB_CONFIG: Debug
@@ -54,9 +49,12 @@ install:
   #- ps: Start-FileDownload 'http://llvm.org/pre-releases/3.7.0/rc3/llvm-3.7.0rc3.src.tar.xz' -FileName 'llvm.src.tar.xz'
   #- 7z x llvm.src.tar.xz -so | 7z x -si -ttar > nul
   #- ren llvm-3.7.0rc3.src llvm
-  # Download a pre-built LLVM if not cached & extract
-  - ps: If (-Not (Test-Path llvm-x64.7z)) { echo 'Downloading LLVM...'; Start-FileDownload 'https://dl.dropboxusercontent.com/s/xfbl0u0sfa7ifx5/llvm-x64.7z?dl=0' -FileName 'llvm-x64.7z' }
-  - 7z x llvm-x64.7z > nul
+  # Download a pre-built LLVM & extract
+  - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/s1tk6134mku3ei8/llvm-x64-debuginfo.7z?dl=0' -FileName 'llvm-x64.7z' }
+  - md llvm-x64
+  - cd llvm-x64
+  - 7z x ..\llvm-x64.7z > nul
+  - cd ..
   # Download & install Ninja
   - ps: Start-FileDownload 'https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
   - md ninja
