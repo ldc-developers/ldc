@@ -50,7 +50,7 @@ install:
   #- 7z x llvm.src.tar.xz -so | 7z x -si -ttar > nul
   #- ren llvm-3.7.0rc3.src llvm
   # Download a pre-built LLVM & extract
-  - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/s1tk6134mku3ei8/llvm-x64-debuginfo.7z?dl=0' -FileName 'llvm-x64.7z' }
+  - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/s1tk6134mku3ei8/llvm-x64-debuginfo.7z?dl=0' -FileName 'llvm-x64.7z'
   - md llvm-x64
   - cd llvm-x64
   - 7z x ..\llvm-x64.7z > nul
