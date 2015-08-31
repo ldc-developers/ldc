@@ -322,7 +322,8 @@ private:
     ///
     std::vector<JumpTarget> continueTargets;
 
-    ///
+    /// cleanupScopes[i] contains the information to go from
+    /// currentCleanupScope() == i + 1 to currentCleanupScope() == i.
     std::vector<CleanupScope> cleanupScopes;
 
     ///
@@ -361,7 +362,9 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value* callee, const T &args,
     }
 
     if (currentLandingPads().empty()) {
-        // Have not encountered.
+        // Have not encountered any catches (for which we would push a scope) or
+        // calls to throwing functions (where we would have already executed
+        // this if) in this cleanup scope yet.
         currentLandingPads().push_back(0);
     }
 
@@ -401,9 +404,6 @@ struct IrFunction {
 
     /// Points to the associated scope stack while emitting code for the function.
     ScopeStack* scopes;
-
-    bool queued;
-    bool defined;
 
     llvm::Value* retArg; // return in ptr arg
     llvm::Value* thisArg; // class/struct 'this' arg
