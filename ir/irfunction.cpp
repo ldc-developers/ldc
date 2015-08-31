@@ -138,7 +138,7 @@ void ScopeStack::runCleanups(
     }
 
     // Insert the unconditional branch to the first cleanup block.
-    irs->ir->CreateBr(cleanupScopes.back().beginBlock);
+    irs->ir->CreateBr(cleanupScopes[sourceScope - 1].beginBlock);
 
     // Update all the control flow in the cleanups to make sure we end up where
     // we want.
@@ -353,6 +353,7 @@ llvm::BasicBlock* ScopeStack::emitLandingPad() {
         it != end; ++it
     ) {
         // Insert any cleanups in between the last catch we ran and this one.
+        assert(lastCleanup >= it->cleanupScope);
         if (lastCleanup > it->cleanupScope) {
             landingPad->setCleanup(true);
             llvm::BasicBlock* afterCleanupBB = llvm::BasicBlock::Create(
