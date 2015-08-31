@@ -417,9 +417,6 @@ IrFunction::IrFunction(FuncDeclaration* fd) {
     func = NULL;
     allocapoint = NULL;
 
-    queued = false;
-    defined = false;
-
     retArg = NULL;
     thisArg = NULL;
     nestArg = NULL;

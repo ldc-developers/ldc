@@ -405,9 +405,6 @@ struct IrFunction {
     /// Points to the associated scope stack while emitting code for the function.
     ScopeStack* scopes;
 
-    bool queued;
-    bool defined;
-
     llvm::Value* retArg; // return in ptr arg
     llvm::Value* thisArg; // class/struct 'this' arg
     llvm::Value* nestArg; // nested function 'this' arg
