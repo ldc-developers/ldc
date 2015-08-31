@@ -107,12 +107,21 @@ build_script:
   - ninja -j2
 
 after_build:
+  # Debug job: install LDC, compress & publish as artifact
+  - ps: |
+        If ($Env:APPVEYOR_JOB_CONFIG -eq 'Debug') {
+            echo 'Preparing artifact...'
+            cd c:\projects\ninja-ldc
+            ninja install
+            cd ..\ldc-x64
+            7z a ..\ldc-x64.7z * > $null
+            cd ..
+            Push-AppveyorArtifact ldc-x64.7z
+        }
 
 #---------------------------------#
 #       test configuration        #
 #---------------------------------#
-
-before_test:
 
 test_script:
   - cd c:\projects\ninja-ldc
@@ -131,26 +140,3 @@ test_script:
   - set CTEST_SUFFIX=-E "-debug|testsuite"
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E testsuite)
   - ctest --output-on-failure %CTEST_SUFFIX%
-
-after_test:
-  # Install LDC
-  - cd c:\projects\ninja-ldc
-  - ninja install
-  - cd ..
-  # Compress
-  - 7z a ldc-x64.7z ldc-x64\* > nul
-
-#---------------------------------#
-#      artifacts configuration    #
-#---------------------------------#
-
-artifacts:
-  # Publish LDC installation directory as a .7z archive...
-  - path: ..\ldc-x64.7z
-    name: LDC-x64
-
-deploy_script:
-  # ... for 10 minutes ;)
-  - ps: |
-        $url = $artifacts['LDC-x64'].url
-        echo "Download link (valid for 10 minutes): $url"
