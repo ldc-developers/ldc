@@ -323,6 +323,16 @@ else version( LDC )
             alias _AtomicType = uint;
         else static if (T.sizeof == ulong.sizeof)
             alias _AtomicType = ulong;
+        else static if (T.sizeof == 2*ulong.sizeof)
+        {
+            struct UCent
+            {
+                ulong value1;
+                ulong value2;
+            }
+
+            alias _AtomicType = UCent;
+        }
         else
             static assert(is(_AtomicType!T),
                 "Cannot atomically load/store type of size " ~ T.sizeof.stringof);
