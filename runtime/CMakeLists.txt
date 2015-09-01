@@ -711,6 +711,10 @@ macro(build_test_runner name_suffix d_flags c_flags)
             set(phobos2_bc "")
             compile_phobos2("${flags}" "-unittest${name_suffix}" "" phobos2_o phobos2_bc)
 
+            # We need an actual druntime library for the Phobos test runner.
+            add_test(build-druntime-ldc${name_suffix} "${CMAKE_COMMAND}"
+                --build ${CMAKE_BINARY_DIR} --target druntime-ldc${name_suffix})
+
             set(phobos2-casm phobos2-ldc-casm${name_suffix})
             add_library(${phobos2-casm} STATIC ${ZLIB_C})
             set_target_properties(
@@ -729,11 +733,12 @@ macro(build_test_runner name_suffix d_flags c_flags)
             add_test(NAME build-phobos2-test-runner${name_suffix}
                 COMMAND ${LDC_EXE}
                     -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
-                    -defaultlib=druntime-ldc,${phobos2-casm} -debuglib=druntime-ldc,${phobos2-casm}
+                    -defaultlib=druntime-ldc${name_suffix},${phobos2-casm}
+                    -debuglib=druntime-ldc${name_suffix},${phobos2-casm}
                     -singleobj -L-lcurl ${flags} ${phobos2_o} ${RUNTIME_DIR}/src/test_runner.d
             )
             set_tests_properties(build-phobos2-test-runner${name_suffix} PROPERTIES
-                DEPENDS build-phobos2-ldc-unittest${name_suffix}
+                DEPENDS "build-druntime-ldc${name_suffix};build-phobos2-ldc-unittest${name_suffix}"
             )
         endif()
     endif()
