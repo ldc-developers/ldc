@@ -722,6 +722,13 @@ macro(build_test_runner name_suffix d_flags c_flags)
         endif()
     endif()
 endmacro()
+
+# output_path was last left to an arch specific lib by build_runtime, need to
+# change so all lib casms ends up in correct lib dir for linking
+if(APPLE AND MULTILIB)
+    set(output_path ${CMAKE_BINARY_DIR}/lib${LIB_SUFFIX})
+endif()
+
 build_test_runner("" "${D_FLAGS_RELEASE}" "")
 build_test_runner("-debug" "${D_FLAGS_DEBUG}" "")
 if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
