@@ -572,7 +572,7 @@ endforeach()
 # enabled. When linking statically, we have to directly pass the object files
 # to the linking command instead so that all tests are pulled in.
 
-macro(build_test_runner name_suffix d_flags c_flags)
+function(build_test_runner name_suffix d_flags c_flags lib_suffix)
     set(flags "${D_FLAGS};${d_flags};-unittest")
     if(BUILD_SHARED_LIBS)
         set(unittest_libs "")
@@ -624,6 +624,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
         # compiling the main libraries. If we could require CMake 2.8.8, we
         # would be able to just build the files once (resp. twice for multilib)
         # for both the runtime debug/release builds and the tests. Oh well.
+	set(testlib_output_path ${CMAKE_BINARY_DIR}/lib${lib_suffix})
         set(druntime-casm druntime-ldc-casm${name_suffix})
         add_library(${druntime-casm} STATIC
             ${CORE_C} ${DCRT_C} ${DCRT_ASM})
@@ -632,7 +633,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
             LINKER_LANGUAGE             C
             COMPILE_FLAGS               "${RT_CFLAGS} ${c_flags}"
             LINK_FLAGS                  "${LD_FLAGS} ${ld_flags}"
-            ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
+            ARCHIVE_OUTPUT_DIRECTORY    ${testlib_output_path}
         )
 
         # See shared library case for explanation.
@@ -664,7 +665,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
                 LINKER_LANGUAGE             C
                 COMPILE_FLAGS               "${RT_CFLAGS} ${c_flags}"
                 LINK_FLAGS                  "${LD_FLAGS} ${ld_flags}"
-                ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
+                ARCHIVE_OUTPUT_DIRECTORY    ${testlib_output_path}
             )
 
             set_target_properties(${phobos2-casm} PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
@@ -683,12 +684,12 @@ macro(build_test_runner name_suffix d_flags c_flags)
             )
         endif()
     endif()
-endmacro()
-build_test_runner("" "${D_FLAGS_RELEASE}" "")
-build_test_runner("-debug" "${D_FLAGS_DEBUG}" "")
+endfunction()
+build_test_runner("" "${D_FLAGS_RELEASE}" "" "${LIB_SUFFIX}")
+build_test_runner("-debug" "${D_FLAGS_DEBUG}" "" "${LIB_SUFFIX}")
 if(MULTILIB AND ${HOST_BITNESS} EQUAL 64)
-    build_test_runner("-32" "${D_FLAGS_RELEASE};-m32" "-m32")
-    build_test_runner("-debug-32" "${D_FLAGS_DEBUG};-m32" "-m32")
+    build_test_runner("-32" "${D_FLAGS_RELEASE};-m32" "-m32" "${LIB_SUFFIX}")
+    build_test_runner("-debug-32" "${D_FLAGS_DEBUG};-m32" "-m32" "${LIB_SUFFIX}")
 endif()
 
 # Add the druntime/Phobos test runner invocations for all the different modules.
