@@ -331,56 +331,67 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
         assert(isIrFuncCreated(fd) && "invalid vtbl function");
 
         IrFunction *irFunc = getIrFunc(fd);
-        LLFunction *fn = getIrFunc(fd)->func;
 
-        // If the base is a cpp interface, 'this' parameter is a pointer to
-        // the interface not the underlying object as expected. Instead of
-        // the function, we place into the vtable a small wrapper, called thunk,
-        // that casts 'this' to the object and then pass it to the real function.
-        if (b->base->isCPPinterface()) {
-            assert(irFunc->irFty.arg_this);
+        assert(irFunc->irFty.arg_this);
 
-            // create the thunk function
-            OutBuffer name;
-            name.writestring("Th");
-            name.printf("%i", b->offset);
-            name.writestring(mangleExact(fd));
-            LLFunction *thunk = LLFunction::Create(isaFunction(fn->getType()->getContainedType(0)),
-                DtoLinkage(fd), name.extractString(), &gIR->module);
+        // Create the thunk function if it does not already exist in this
+        // module.
+        OutBuffer nameBuf;
+        nameBuf.writestring("Th");
+        nameBuf.printf("%i", b->offset);
+        nameBuf.writestring(mangleExact(fd));
+        const char *thunkName = nameBuf.extractString();
+        llvm::Function *thunk = gIR->module.getFunction(thunkName);
+        if (!thunk)
+        {
+            thunk = LLFunction::Create(
+                isaFunction(irFunc->func->getType()->getContainedType(0)),
+                llvm::GlobalValue::LinkOnceODRLinkage, thunkName,
+                &gIR->module);
+            thunk->copyAttributesFrom(irFunc->func);
+
+            // Thunks themselves don't have an identity, only the target
+            // function has.
+            thunk->setUnnamedAddr(true);
 
             // create entry and end blocks
             llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "", thunk);
             gIR->scopes.push_back(IRScope(beginbb));
 
-            // copy the function parameters, so later we can pass them to the real function
+            // Copy the function parameters, so later we can pass them to the
+            // real function and set their names from the original function (the
+            // latter being just for IR readablilty).
             std::vector<LLValue*> args;
-            llvm::Function::arg_iterator iarg = thunk->arg_begin();
-            for (; iarg != thunk->arg_end(); ++iarg)
-                args.push_back(iarg);
+            llvm::Function::arg_iterator thunkArg = thunk->arg_begin();
+            llvm::Function::arg_iterator origArg = irFunc->func->arg_begin();
+            for (; thunkArg != thunk->arg_end(); ++thunkArg, ++origArg)
+            {
+                thunkArg->setName(origArg->getName());
+                args.push_back(thunkArg);
+            }
 
             // cast 'this' to Object
-            LLValue* &thisArg = args[(irFunc->irFty.arg_sret == 0) ? 0 : 1];
-            LLType* thisType = thisArg->getType();
+            LLValue* &thisArg = args[(!irFunc->irFty.arg_sret) ? 0 : 1];
+            LLType* targetThisType = thisArg->getType();
             thisArg = DtoBitCast(thisArg, getVoidPtrType());
             thisArg = DtoGEP1(thisArg, DtoConstInt(-b->offset));
-            thisArg = DtoBitCast(thisArg, thisType);
+            thisArg = DtoBitCast(thisArg, targetThisType);
 
             // call the real vtbl function.
-            LLValue *retVal = gIR->ir->CreateCall(fn, args);
+            llvm::CallSite call = gIR->ir->CreateCall(irFunc->func, args);
+            call.setCallingConv(irFunc->func->getCallingConv());
 
             // return from the thunk
             if (thunk->getReturnType() == LLType::getVoidTy(gIR->context()))
                 llvm::ReturnInst::Create(gIR->context(), beginbb);
             else
-                llvm::ReturnInst::Create(gIR->context(), retVal, beginbb);
+                llvm::ReturnInst::Create(gIR->context(), call.getInstruction(), beginbb);
 
             // clean up
             gIR->scopes.pop_back();
-
-            fn = thunk;
         }
 
-        constants.push_back(fn);
+        constants.push_back(thunk);
     }
 
     // build the vtbl constant
