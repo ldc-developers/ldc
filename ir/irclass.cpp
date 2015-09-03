@@ -331,22 +331,24 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
         assert(isIrFuncCreated(fd) && "invalid vtbl function");
 
         IrFunction *irFunc = getIrFunc(fd);
-        LLFunction *fn = getIrFunc(fd)->func;
 
-        // If the base is a cpp interface, 'this' parameter is a pointer to
-        // the interface not the underlying object as expected. Instead of
-        // the function, we place into the vtable a small wrapper, called thunk,
-        // that casts 'this' to the object and then pass it to the real function.
-        if (b->base->isCPPinterface()) {
-            assert(irFunc->irFty.arg_this);
+        assert(irFunc->irFty.arg_this);
 
-            // create the thunk function
-            OutBuffer name;
-            name.writestring("Th");
-            name.printf("%i", b->offset);
-            name.writestring(mangleExact(fd));
-            LLFunction *thunk = LLFunction::Create(isaFunction(fn->getType()->getContainedType(0)),
-                DtoLinkage(fd), name.extractString(), &gIR->module);
+        // Create the thunk function if it does not already exist in this
+        // module.
+        OutBuffer nameBuf;
+        nameBuf.writestring("Th");
+        nameBuf.printf("%i", b->offset);
+        nameBuf.writestring(mangleExact(fd));
+        const char *thunkName = nameBuf.extractString();
+        llvm::Function *thunk = gIR->module.getFunction(thunkName);
+        if (!thunk)
+        {
+            thunk = LLFunction::Create(
+                isaFunction(irFunc->func->getType()->getContainedType(0)),
+                llvm::GlobalValue::LinkOnceODRLinkage, thunkName,
+                &gIR->module);
+            thunk->copyAttributesFrom(irFunc->func);
 
             // create entry and end blocks
             llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "", thunk);
@@ -359,14 +361,14 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
                 args.push_back(iarg);
 
             // cast 'this' to Object
-            LLValue* &thisArg = args[(irFunc->irFty.arg_sret == 0) ? 0 : 1];
-            LLType* thisType = thisArg->getType();
+            LLValue* &thisArg = args[!irFunc->irFty.arg_sret ? 0 : 1];
+            LLType* targetThisType = thisArg->getType();
             thisArg = DtoBitCast(thisArg, getVoidPtrType());
             thisArg = DtoGEP1(thisArg, DtoConstInt(-b->offset));
-            thisArg = DtoBitCast(thisArg, thisType);
+            thisArg = DtoBitCast(thisArg, targetThisType);
 
             // call the real vtbl function.
-            LLValue *retVal = gIR->ir->CreateCall(fn, args);
+            LLValue *retVal = gIR->ir->CreateCall(irFunc->func, args);
 
             // return from the thunk
             if (thunk->getReturnType() == LLType::getVoidTy(gIR->context()))
@@ -376,11 +378,9 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
 
             // clean up
             gIR->scopes.pop_back();
-
-            fn = thunk;
         }
 
-        constants.push_back(fn);
+        constants.push_back(thunk);
     }
 
     // build the vtbl constant

@@ -1232,21 +1232,6 @@ public:
                 (fdecl->isAbstract() || fdecl->isVirtual()) &&
                 fdecl->prot().kind != PROTprivate;
 
-            // If we are calling a non-final interface function, we need to get
-            // the pointer to the underlying object instead of passing the
-            // interface pointer directly.
-            // Unless it is a cpp interface, in that case, we have to match
-            // C++ behavior and pass the interface pointer.
-            LLValue* passedThis = 0;
-            if (e1type->ty == Tclass)
-            {
-                TypeClass* tc = static_cast<TypeClass*>(e1type);
-                if (tc->sym->isInterfaceDeclaration() && nonFinal && !tc->sym->isCPPinterface())
-                    passedThis = DtoCastInterfaceToObject(e->loc, l, NULL)->getRVal();
-            }
-            LLValue* vthis = l->getRVal();
-            if (!passedThis) passedThis = vthis;
-
             // Decide whether this function needs to be looked up in the vtable.
             // Even virtual functions are looked up directly if super or DotTypeExp
             // are used, thus we need to walk through the this expression and check.
@@ -1266,7 +1251,7 @@ public:
             LLValue* funcval = 0;
             if (vtbllookup)
             {
-                DImValue thisVal(e1type, vthis);
+                DImValue thisVal(e1type, l->getRVal());
                 funcval = DtoVirtualFunctionPointer(&thisVal, fdecl, e->toChars());
             }
             else
@@ -1275,7 +1260,7 @@ public:
             }
             assert(funcval);
 
-            result = new DFuncValue(fdecl, funcval, passedThis);
+            result = new DFuncValue(fdecl, funcval, l->getRVal());
         } else {
             llvm_unreachable("Unknown target for VarDeclaration.");
         }
@@ -2221,17 +2206,7 @@ public:
             uval = DtoBitCast(contextptr, getVoidPtrType());
         }
         else {
-            DValue* src = u;
-            if (ClassDeclaration* cd = u->getType()->isClassHandle())
-            {
-                Logger::println("context type is class handle");
-                if (cd->isInterfaceDeclaration())
-                {
-                    Logger::println("context type is interface");
-                    src = DtoCastInterfaceToObject(e->loc, u, ClassDeclaration::object->type);
-                }
-            }
-            uval = src->getRVal();
+            uval = u->getRVal();
         }
 
         IF_LOG Logger::cout() << "context = " << *uval << '\n';
