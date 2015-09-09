@@ -1824,3 +1824,10 @@ unsigned getFieldGEPIndex(AggregateDeclaration* ad, VarDeclaration* vd)
     assert(byteOffset == 0 && "Cannot address field by a simple GEP.");
     return fieldIndex;
 }
+
+#if LDC_LLVM_VER >= 307
+bool supportsCOMDAT()
+{
+    return !global.params.targetTriple.isOSBinFormatMachO();
+}
+#endif

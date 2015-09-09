@@ -1,4 +1,5 @@
 #include "gen/inlineir.h"
+#include "gen/llvmhelpers.h"
 
 #include "declaration.h"
 #include "template.h"
@@ -102,6 +103,7 @@ llvm::Function* DtoInlineIRFunction(FuncDeclaration* fdecl)
 
     LLFunction* fun = gIR->module.getFunction(mangled_name);
     fun->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
+    SET_COMDAT(fun, gIR->module);
     fun->addFnAttr(LDC_ATTRIBUTE(AlwaysInline));
     return fun;
 }
