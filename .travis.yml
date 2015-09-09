@@ -6,6 +6,7 @@ addons:
     - llvm-toolchain-precise
     - llvm-toolchain-precise-3.5
     - llvm-toolchain-precise-3.6
+    - llvm-toolchain-precise-3.7
     - ubuntu-toolchain-r-test
     packages:
     - libconfig++8-dev
@@ -31,6 +32,8 @@ addons:
     - llvm-3.5-dev
     - llvm-3.6
     - llvm-3.6-dev
+    - llvm-3.7
+    - llvm-3.7-dev
 install:
   - if [[ "${LLVM_CONFIG}" == *3\.[567]* ]]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
 env:
@@ -43,7 +46,7 @@ env:
   - LLVM_CONFIG="llvm-config-3.1"
 matrix:
   allow_failures:
-  - env: LLVM_CONFIG="llvm-config-3.7"
+  - env: LLVM_CONFIG="llvm-config-3.8"
 script:
   - cmake -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
   - make -j3
