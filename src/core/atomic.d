@@ -19,9 +19,22 @@ version (LDC)
 {
     enum has64BitCAS = true;
 
-    // LDC_FIXME: Need either ucent support or an inline IR implementation to
-    // support 16 byte CAS integer repainting.
-    enum has128BitCAS = false;
+    // Enable 128bit CAS for all 64bit platforms.
+    // Do not enable for LLVM 3.4 or earlier: the
+    // code generator cannot handle type i128 for
+    // atomic instructions.
+    version(LDC_LLVM_304)
+        enum has128BitCAS = false;
+    else version(LDC_LLVM_303)
+        enum has128BitCAS = false;
+    else version(LDC_LLVM_302)
+        enum has128BitCAS = false;
+    else version(LDC_LLVM_301)
+        enum has128BitCAS = false;
+    else version(D_LP64)
+        enum has128BitCAS = true;
+    else
+        enum has128BitCAS = false;
 }
 else
 version( D_InlineAsm_X86 )
@@ -228,21 +241,7 @@ else version( LDC )
         return casImpl(here, ifThis, writeThis);
     }
 
-    // We need to repaint struct values to integers before calling the LLVM intrinsic.
     private bool casImpl(T,V1,V2)( shared(T)* here, V1 ifThis, V2 writeThis )
-        if ( is(T == struct) )
-    {
-        static assert(is(V1 == struct) && "All operands must be struct for struct cas");
-        static assert(is(V2 == struct) && "All operands must be struct for struct cas");
-        return casImpl(
-            cast(shared(_AtomicType!T)*)here,
-            *cast(shared(_AtomicType!V1)*) &ifThis,
-            *cast(shared(_AtomicType!V2)*) &writeThis
-        );
-    }
-
-    private bool casImpl(T,V1,V2)( shared(T)* here, V1 ifThis, V2 writeThis )
-        if ( !is(T == struct) )
     {
         T res = void;
         static if (__traits(isFloating, T))
@@ -323,7 +322,7 @@ else version( LDC )
             alias _AtomicType = uint;
         else static if (T.sizeof == ulong.sizeof)
             alias _AtomicType = ulong;
-        else static if (T.sizeof == 2*ulong.sizeof)
+        else static if (T.sizeof == 2*ulong.sizeof && has128BitCAS)
         {
             struct UCent
             {
