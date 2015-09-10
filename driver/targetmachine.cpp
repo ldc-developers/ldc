@@ -464,6 +464,24 @@ llvm::TargetMachine* createTargetMachine(
     // to default to "generic").
     cpu = getTargetCPU(cpu, triple);
 
+    // cmpxchg16b is not available on old 64bit CPUs. Enable code generation
+    // if the user did not make an explicit choice.
+    if (cpu == "x86-64")
+    {
+#if LDC_LLVM_VER >= 304
+        const char* cx16_plus = "+cx16";
+        const char* cx16_minus = "-cx16";
+#else
+        const char* cx16_plus = "+cmpxchg16b";
+        const char* cx16_minus = "-cmpxchg16b";
+#endif
+        bool cx16 = false;
+        for (unsigned i = 0; i < attrs.size(); ++i)
+            if (attrs[i] == cx16_plus || attrs[i] == cx16_minus) cx16 = true;
+        if (!cx16)
+            features.AddFeature(cx16_plus);
+    }
+
     if (Logger::enabled())
     {
         Logger::println("Targeting '%s' (CPU '%s' with features '%s')",
