@@ -612,7 +612,8 @@ LLConstant* DtoDefineClassInfo(ClassDeclaration* cd)
 
     if (cinfo->fields.dim != 12)
     {
-        error(Loc(), "object.d ClassInfo class is incorrect");
+        error(Loc(), "Unexpected number of fields in object.ClassInfo; "
+            "druntime version does not match compiler (see -v)");
         fatal();
     }
 
