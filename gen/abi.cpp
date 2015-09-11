@@ -143,23 +143,6 @@ LLValue* TargetABI::prepareVaArg(LLValue* pAp)
 // Some reasonable defaults for when we don't know what ABI to use.
 struct UnknownTargetABI : TargetABI
 {
-    llvm::CallingConv::ID callingConv(LINK l)
-    {
-        switch (l)
-        {
-        case LINKc:
-        case LINKcpp:
-        case LINKpascal:
-        case LINKwindows:
-            return llvm::CallingConv::C;
-        case LINKd:
-        case LINKdefault:
-            return llvm::CallingConv::Fast;
-        default:
-            llvm_unreachable("Unhandled D linkage type.");
-        }
-    }
-
     bool returnInArg(TypeFunction* tf)
     {
         if (tf->isref)
@@ -219,11 +202,6 @@ TargetABI * TargetABI::getTarget()
 struct IntrinsicABI : TargetABI
 {
     RemoveStructPadding remove_padding;
-
-    llvm::CallingConv::ID callingConv(LINK l)
-    {
-        return llvm::CallingConv::C;
-    }
 
     bool returnInArg(TypeFunction* tf)
     {

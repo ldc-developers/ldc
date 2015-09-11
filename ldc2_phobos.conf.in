@@ -10,11 +10,8 @@ default:
         "-I@CMAKE_BINARY_DIR@/import",
         "-I@RUNTIME_DIR@/src", // Needed for gc.*/rt.* unit tests.
         "-I@PHOBOS2_DIR@/",
-        "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@",@MULTILIB_ADDITIONAL_PATH@@SHARED_LIBS_RPATH@
-        "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@/Debug",
-        "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@/Release",
-        "-L-L@PROJECT_BINARY_DIR@/../lib@LIB_SUFFIX@/RelWithDebInfo",
+        @LIB_PATH@@MULTILIB_ADDITIONAL_PATH@@SHARED_LIBS_RPATH@
         "-defaultlib=phobos2-ldc,curl,druntime-ldc",
-        "-debuglib=phobos2-ldc-debug,curl,druntime-ldc-debug"
+        "-debuglib=phobos2-ldc-debug,curl,druntime-ldc-debug"@ADDITIONAL_DEFAULT_LDC_SWITCHES@
     ];
 };

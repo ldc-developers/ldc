@@ -1,108 +1,58 @@
 language: cpp
-before_install:
-  # LLVM 3.2
-  - sudo sh -c "echo 'deb http://archive.ubuntu.com/ubuntu/ precise-proposed restricted main multiverse universe' >> /etc/apt/sources.list"
-
-  # Some random Launchpad PPA for LLVM/clang 3.3/3.4, should consider replacing this with
-  # the official Clang binary package from the llvm.org download page.
-  - echo yes | sudo add-apt-repository ppa:h-rayflood/llvm
-
-  # LLVM 3.4 / 3.5 / 3.6 / snapshots
-  - sudo sh -c "echo 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise-3.4 main' >> /etc/apt/sources.list"
-  - sudo sh -c "echo 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise-3.5 main' >> /etc/apt/sources.list"
-  - sudo sh -c "echo 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise-3.6-binaries main' >> /etc/apt/sources.list"
-  - sudo sh -c "echo 'deb http://llvm.org/apt/precise/ llvm-toolchain-precise main' >> /etc/apt/sources.list"
-  - wget -O - http://llvm.org/apt/llvm-snapshot.gpg.key | sudo apt-key add -
-
-  # g++4.8.1
-  - if [ "$CXX" == "g++" ]; then sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test; fi
+sudo: false
+addons:
+  apt:
+    sources:
+    - llvm-toolchain-precise
+    - llvm-toolchain-precise-3.5
+    - llvm-toolchain-precise-3.6
+    - ubuntu-toolchain-r-test
+    packages:
+    - libconfig++8-dev
+    - gcc-4.9
+    - g++-4.9
+    - gcc-4.9-multilib
+    - linux-libc-dev:i386
+    - libcurl3:i386
+    - libedit2
+    - libedit-dev
+    - llvm-3.1
+    - llvm-3.1-dev
+    - llvm-3.2
+    - llvm-3.2-dev
+    - llvm-3.3
+    - llvm-3.3-dev
+    - llvm-3.4
+    - llvm-3.4-dev
+    - llvm-3.5
+    - llvm-3.5-dev
+    - llvm-3.6
+    - llvm-3.6-dev
 install:
-  - sudo apt-get update -qq
-  - sudo apt-get install -qq $LLVM_PACKAGE libconfig++8-dev
-  -
-    if [[ "${OPTS}" == *MULTILIB*ON* ]]; then
-      sudo apt-get install -qq gcc-multilib libcurl3:i386 libstdc++6:i386;
-    fi
-  -
-    if [[ "${OPTS}" == *MULTILIB*ON* ]]; then
-      sudo ln -s /usr/lib/i386-linux-gnu/libcurl.so.4.2.0 /usr/lib/i386-linux-gnu/libcurl.so;
-    fi
-  -
-    if [[ "${OPTS}" == *MULTILIB*ON* ]]; then
-      sudo ln -s /usr/lib/i386-linux-gnu/libstdc++.so.6 /usr/lib/i386-linux-gnu/libstdc++.so;
-    fi
-  -
-    if [[ "${LLVM_PACKAGE}" == *3\.[567]* ]] && [[ "${CXX}" == "g++" ]]; then
-      sudo apt-get install -qq g++-4.9; export CXX="g++-4.9";
-    fi
-  -
-    if [[ "${LLVM_PACKAGE}" == *3\.[567]* ]] && [[ "${CXX}" == "clang++" ]]; then
-      sudo apt-get install --allow-unauthenticated -qq clang-3.4; export CXX="clang++-3.4";
-    fi
-  -
-    if [[ "${OPTS}" == *TEST_COVERAGE*ON* ]]; then
-      sudo pip install cpp-coveralls;
-    fi
+  - if [[ "${LLVM_CONFIG}" == *3\.[567]* ]]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
 env:
-  - LLVM_PACKAGE="llvm-3.1 llvm-3.1-dev"
-  - LLVM_PACKAGE="llvm-3.2 llvm-3.2-dev"
-  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev" TEST_DEBUG=1
-  - LLVM_PACKAGE="llvm-3.3 llvm-3.3-dev"
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TEST_DEBUG=1
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" TEST_DEBUG=1 OPTS="-DBUILD_SHARED_LIBS=ON"
-  - LLVM_PACKAGE="llvm-3.4 llvm-3.4-dev" OPTS="-DBUILD_SHARED_LIBS=ON"
-  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" TEST_DEBUG=1
-  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev"
-  - LLVM_PACKAGE="llvm-3.5 llvm-3.5-dev libedit2 libedit-dev" OPTS="-DTEST_COVERAGE=ON"
-  - LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev" TEST_DEBUG=1
-  - LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=32
-  - LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=64
-  - LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev" TEST_DEBUG=1
-  - LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev"
+  - LLVM_CONFIG="llvm-config-3.1"
+  - LLVM_CONFIG="llvm-config-3.2"
+  - LLVM_CONFIG="llvm-config-3.3"
+  - LLVM_CONFIG="llvm-config-3.4" OPTS="-DTEST_COVERAGE=ON"
+  - LLVM_CONFIG="llvm-config-3.5" OPTS="-DBUILD_SHARED_LIBS=ON"
+  - LLVM_CONFIG="llvm-config-3.6" OPTS="-DMULTILIB=ON"
+  - LLVM_CONFIG="llvm-config-3.7"
 matrix:
   allow_failures:
-  - env: LLVM_PACKAGE="llvm-3.6 llvm-3.6-dev libedit2 libedit-dev" OPTS="-DMULTILIB=ON" TEST_BITNESS=32
-  - env: LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev" TEST_DEBUG=1
-  - env: LLVM_PACKAGE="llvm-3.7 llvm-3.7-dev libedit2 libedit-dev"
+  - env: LLVM_CONFIG="llvm-config-3.6" OPTS="-DMULTILIB=ON"
+  - env: LLVM_CONFIG="llvm-config-3.7"
 script:
-  - cmake $OPTS .
-  - make -j2
+  - cmake -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
+  - make -j3
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
-  # We need to run the druntime/phobos unittest build targets and the testsuite
-  # with output shown (--verbose), because we hit the non-configurable Travis
-  # "silence timeout" of 10 minutes otherwise. So much for "no news is good
-  # news".
-  # Also, we need to split up the multilib release mode tests into 32 bit and
-  # 64 bit tests to avoid the hard 50 minutes time limit. This is just about
-  # the most wasteful solution possible, but the one officially suggested by
-  # Travis.
-  # The below is atrociously complex, but a simpler solution that works with
-  # CTest's inept implementation of regular expressions and -R/-E was hard to
-  # find.
-  -
-    if [[ "${TEST_BITNESS}" == "32" ]]; then
-      need_32="-32";
-    elif [[ "${TEST_BITNESS}" == "64" ]]; then
-      need_32="";
-    else
-      need_32="(-32)?";
-    fi;
-    if [[ -z "${TEST_DEBUG}" ]]; then
-      export BUILD_SEL="-R (dmd-testsuite${need_32}$)|(build-(druntime|phobos2)-ldc-unittest${need_32}$)";
-      export RUN_SEL="-E (dmd-testsuite)|(-debug(-32)?$)";
-      if [[ "${TEST_BITNESS}" == "32" ]]; then
-        export RUN_SEL="-R -32$ ${RUN_SEL}";
-      elif [[ "${TEST_BITNESS}" == "64" ]]; then
-        export RUN_SEL="-E (dmd-testsuite)|(((-debug)|(-32))$)";
-      fi;
-    else
-      export BUILD_SEL="-R (dmd-testsuite-debug${need_32}$)|(build-(druntime|phobos2)-ldc-unittest-debug${need_32}$)";
-      export RUN_SEL="-R debug${need_32}$ -E dmd-testsuite";
-    fi;
-  - ctest -j2 --verbose ${BUILD_SEL}
-  - ctest -j2 --output-on-failure ${RUN_SEL}
+  - MAKEOPTS=-j2 ctest -j1 --verbose -R "build-phobos2-" -E "-test-runner"
+  - ctest -j3 --verbose -R "(build-)" -E "(build-phobos2-|-test-runner)"
+  - MAKEOPTS=-j4 ctest -j1 --verbose -R "dmd-testsuite" -E "-debug"
+  - MAKEOPTS=-j4 ctest -j1 --verbose -R "dmd-testsuite-debug"
+  - ctest -j4 --output-on-failure -E "dmd-testsuite"
 
 after_success:
   -

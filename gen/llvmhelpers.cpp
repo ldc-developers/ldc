@@ -929,7 +929,11 @@ void DtoResolveVariable(VarDeclaration* vd)
                 Logger::println("parent: null");
         }
 
-        const bool isLLConst = (vd->isConst() || vd->isImmutable()) && vd->init;
+        // If a const/immutable value has a proper initializer (not "= void"),
+        // it cannot be assigned again in a static constructor. Thus, we can
+        // emit it as read-only data.
+        const bool isLLConst = (vd->isConst() || vd->isImmutable()) &&
+            vd->init && !vd->init->isVoidInitializer();
 
         assert(!vd->ir.isInitialized());
         if (gIR->dmodule)
@@ -1026,20 +1030,30 @@ void DtoVarDeclaration(VarDeclaration* vd)
         /* NRVO again:
             T t = f();    // t's memory address is taken hidden pointer
         */
+        Type *vdBasetype = vd->type->toBasetype();
         ExpInitializer *ei = 0;
-        if ((vd->type->toBasetype()->ty == Tstruct ||
-             vd->type->toBasetype()->ty == Tsarray /* new in 2.064*/) &&
+        if ((vdBasetype->ty == Tstruct || vdBasetype->ty == Tsarray) &&
             vd->init &&
             (ei = vd->init->isExpInitializer()))
         {
             if (ei->exp->op == TOKconstruct) {
                 AssignExp *ae = static_cast<AssignExp*>(ei->exp);
-                // The return value can be casted to a different type.
-                // Just look at the original expression in this case.
-                // Happens with runnable/sdtor, test10094().
                 Expression *rhs = ae->e2;
-                if (rhs->op == TOKcast)
-                    rhs = static_cast<CastExp *>(rhs)->e1;
+
+                // Allow casts only emitted because of differing static array
+                // constness. See runnable.sdtor.test10094.
+                if (rhs->op == TOKcast && vdBasetype->ty == Tsarray) {
+                    Expression *castSource = ((CastExp *)rhs)->e1;
+                    Type *rhsElem = castSource->type->toBasetype()->nextOf();
+                    if (rhsElem) {
+                        Type *l = vdBasetype->nextOf()->arrayOf()->immutableOf();
+                        Type *r = rhsElem->arrayOf()->immutableOf();
+                        if (l->equals(r)) {
+                            rhs = castSource;
+                        }
+                    }
+                }
+
                 if (rhs->op == TOKcall) {
                     CallExp *ce = static_cast<CallExp *>(rhs);
                     if (DtoIsReturnInArg(ce))

@@ -25,49 +25,19 @@
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-static bool isAligned(llvm::Type* type, size_t offset)
-{
-    return (offset % gDataLayout->getABITypeAlignment(type)) == 0;
-}
-
+// FIXME A similar function is in ir/iraggr.cpp
+static inline
 size_t add_zeros(std::vector<llvm::Type*>& defaultTypes,
     size_t startOffset, size_t endOffset)
 {
-    size_t const oldLength = defaultTypes.size();
-
-    llvm::Type* const eightByte = llvm::Type::getInt64Ty(gIR->context());
-    llvm::Type* const fourByte = llvm::Type::getInt32Ty(gIR->context());
-    llvm::Type* const twoByte = llvm::Type::getInt16Ty(gIR->context());
-
     assert(startOffset <= endOffset);
-    size_t paddingLeft = endOffset - startOffset;
-    while (paddingLeft)
+    const size_t paddingSize = endOffset - startOffset;
+    if (paddingSize)
     {
-        if (global.params.is64bit && paddingLeft >= 8 && isAligned(eightByte, startOffset))
-        {
-            defaultTypes.push_back(eightByte);
-            startOffset += 8;
-        }
-        else if (paddingLeft >= 4 && isAligned(fourByte, startOffset))
-        {
-            defaultTypes.push_back(fourByte);
-            startOffset += 4;
-        }
-        else if (paddingLeft >= 2 && isAligned(twoByte, startOffset))
-        {
-            defaultTypes.push_back(twoByte);
-            startOffset += 2;
-        }
-        else
-        {
-            defaultTypes.push_back(llvm::Type::getInt8Ty(gIR->context()));
-            startOffset += 1;
-        }
-
-        paddingLeft = endOffset - startOffset;
+        llvm::ArrayType* pad = llvm::ArrayType::get(llvm::Type::getInt8Ty(gIR->context()), paddingSize);
+        defaultTypes.push_back(pad);
     }
-
-    return defaultTypes.size() - oldLength;
+    return paddingSize ? 1 : 0;
 }
 
 

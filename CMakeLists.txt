@@ -327,9 +327,7 @@ if(MSVC)
     string(REGEX REPLACE "(^| ) */GR-? *( |$)" "\\1 \\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
 
     add_definitions(-D_HAS_EXCEPTIONS=0)
-    set(EXTRA_CXXFLAGS "/GF /GR- /EHs-c- /MP")
-else()
-    set(EXTRA_CXXFLAGS "")
+    set(EXTRA_CXXFLAGS "${EXTRA_CXXFLAGS} /GF /GR- /EHs-c- /MP")
 endif()
 
 # if llvm was built with assertions we have to do the same

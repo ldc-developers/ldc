@@ -3100,7 +3100,7 @@ unsigned TypeBasic::alignsize()
 unsigned TypeBasic::alignment()
 {
     if (global.params.targetTriple.getArch() == llvm::Triple::x86_64 &&
-        (ty == Tfloat80 || ty == Timaginary80))
+        (ty == Tfloat80 || ty == Timaginary80) && size(Loc()) > 8)
     {
         return 16;
     }
@@ -8231,11 +8231,14 @@ Expression *TypeStruct::defaultInitLiteral(Loc loc)
     }
     StructLiteralExp *structinit = new StructLiteralExp(loc, (StructDeclaration *)sym, structelems);
 
-#if IN_DMD
     /* Copy from the initializer symbol for larger symbols,
      * otherwise the literals expressed as code get excessively large.
      */
     if (size(loc) > Target::ptrsize * 4 && !needsNested())
+#if IN_LLVM
+        structinit->sinit = static_cast<SymbolDeclaration *>(
+            static_cast<VarExp *>(defaultInit(loc))->var);
+#else
         structinit->sinit = sym->toInitializer();
 #endif
 
