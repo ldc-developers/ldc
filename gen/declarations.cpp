@@ -89,6 +89,7 @@ public:
             llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
             interfaceZ->setInitializer(ir->getClassInfoInit());
             interfaceZ->setLinkage(DtoLinkage(decl));
+            if (DtoIsTemplateInstance(decl)) SET_COMDAT(interfaceZ, gIR->module);
         }
     }
 
@@ -124,6 +125,7 @@ public:
             llvm::GlobalVariable *initZ = ir->getInitSymbol();
             initZ->setInitializer(ir->getDefaultInit());
             initZ->setLinkage(DtoLinkage(decl));
+            if (DtoIsTemplateInstance(decl)) SET_COMDAT(initZ, gIR->module);
 
             // emit typeinfo
             DtoTypeInfoOf(decl->type);
@@ -167,18 +169,22 @@ public:
 
             IrAggr *ir = getIrAggr(decl);
             llvm::GlobalValue::LinkageTypes const linkage = DtoLinkage(decl);
+            const bool isTemplateInstance = DtoIsTemplateInstance(decl);
 
             llvm::GlobalVariable *initZ = ir->getInitSymbol();
             initZ->setInitializer(ir->getDefaultInit());
             initZ->setLinkage(linkage);
+            if (isTemplateInstance) SET_COMDAT(initZ, gIR->module);
 
             llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
             vtbl->setInitializer(ir->getVtblInit());
             vtbl->setLinkage(linkage);
+            if (isTemplateInstance) SET_COMDAT(vtbl, gIR->module);
 
             llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
             classZ->setInitializer(ir->getClassInfoInit());
             classZ->setLinkage(linkage);
+            if (isTemplateInstance) SET_COMDAT(classZ, gIR->module);
 
             // No need to do TypeInfo here, it is <name>__classZ for classes in D2.
         }

@@ -453,8 +453,11 @@ void createStaticLibrary()
         else
             libName = "a.out";
     }
-    if (!FileName::absolute(libName.c_str()))
-        libName = FileName::combine(global.params.objdir, libName.c_str());
+// KN: The following lines were added to fix a test case failure (runnable/test13774.sh).
+//     Root cause is that dmd handles it in this why.
+//     As a side effect this change broke compiling with dub.
+//    if (!FileName::absolute(libName.c_str()))
+//        libName = FileName::combine(global.params.objdir, libName.c_str());
     std::string libExt = std::string(".") + global.lib_ext;
     if (!endsWith(libName, libExt))
         libName.append(libExt);

@@ -192,7 +192,11 @@ void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad)
 
 void AggrTypeBuilder::alignCurrentOffset(unsigned alignment)
 {
-    m_offset = (m_offset + alignment - 1) & ~(alignment - 1);
+    unsigned aligned = (m_offset + alignment - 1) & ~(alignment - 1);
+    if (m_offset < aligned) {
+        m_fieldIndex += add_zeros(m_defaultTypes, m_offset, aligned);
+        m_offset = aligned;
+    }
 }
 
 void AggrTypeBuilder::addTailPadding(unsigned aggregateSize)

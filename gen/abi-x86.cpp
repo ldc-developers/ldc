@@ -22,7 +22,13 @@
 
 struct X86TargetABI : TargetABI
 {
+    const bool isOSX;
     IntegerRewrite integerRewrite;
+
+    X86TargetABI()
+        : isOSX(global.params.isOSX)
+    {
+    }
 
     llvm::CallingConv::ID callingConv(llvm::FunctionType* ft, LINK l)
     {
@@ -64,6 +70,22 @@ struct X86TargetABI : TargetABI
         }
     }
 
+    bool returnOSXStructInArg(TypeStruct* t)
+    {
+        // https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/LowLevelABI/Mac_OS_X_ABI_Function_Calls.pdf
+        //
+        // OS X variation on IA-32 for returning structs, page 57 section on
+        // Returning Results:
+        //   "Structures 1 or 2 bytes in size are placed in EAX. Structures 4
+        //    or 8 bytes in size are placed in: EAX and EDX. Structures of
+        //    other sizes are placed at the address supplied by the caller."
+        // Non-POD structs (non-C compatible) should always be returned in an
+        // arg though (yes, sometimes extern(C) functions return these, but C
+        // code does not handle struct lifecycle).
+        size_t sz = t->Type::size();
+        return !t->sym->isPOD() || (sz != 1 && sz != 2 && sz != 4 && sz != 8);
+    }
+
     bool returnInArg(TypeFunction* tf)
     {
         if (tf->isref)
@@ -78,9 +100,15 @@ struct X86TargetABI : TargetABI
             ;
         }
         // other ABI's follow C, which is cdouble and creal returned on the stack
-        // as well as structs
+        // as well as structs (except for some OSX cases).
         else
-            return (rt->ty == Tstruct || rt->ty == Tcomplex64 || rt->ty == Tcomplex80);
+        {
+            if (rt->ty == Tstruct)
+            {
+                return !isOSX || returnOSXStructInArg((TypeStruct*)rt);
+            }
+            return (rt->ty == Tsarray || rt->ty == Tcomplex64 || rt->ty == Tcomplex80);
+        }
     }
 
     bool passByVal(Type* t)
@@ -171,7 +199,19 @@ struct X86TargetABI : TargetABI
                 fty.ret->rewrite = &integerRewrite;
                 fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
             }
-
+            else if (isOSX)
+            {
+                // value struct returns should be rewritten as an int type to
+                // generate correct register usage (matches clang).
+                // note: sret functions change ret type to void so this won't
+                // trigger for those
+                Type* retTy = fty.ret->type->toBasetype();
+                if (!fty.ret->byref && retTy->ty == Tstruct)
+                {
+                    fty.ret->rewrite = &integerRewrite;
+                    fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
+                }
+            }
             // IMPLICIT PARAMETERS
 
             // EXPLICIT PARAMETERS

@@ -779,7 +779,8 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo)
         // The base struct should consist only of _flags/_index.
         if (Module::moduleinfo->structsize != 4 + 4)
         {
-            m->error("object.d ModuleInfo class is incorrect");
+            m->error("Unexpected size of struct object.ModuleInfo; "
+                "druntime version does not match compiler (see -v)");
             fatal();
         }
     }

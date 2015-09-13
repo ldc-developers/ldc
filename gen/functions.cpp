@@ -768,6 +768,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
     gIR->functions.push_back(irFunc);
 
     func->setLinkage(lowerFuncLinkage(fd));
+    if (func->hasLinkOnceLinkage() || func->hasWeakLinkage()) SET_COMDAT(func, gIR->module);
 
     // On x86_64, always set 'uwtable' for System V ABI compatibility.
     // TODO: Find a better place for this.

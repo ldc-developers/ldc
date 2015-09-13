@@ -345,8 +345,26 @@ bool DtoLowerMagicIntrinsic(IRState* p, FuncDeclaration* fndecl, CallExp *e, DVa
         LLValue* ptr = toElem(exp2)->getRVal();
 
         if (!val->getType()->isIntegerTy()) {
-            e->error("atomic store only supports integer types, not '%s'", exp1->type->toChars());
-            fatal();
+            llvm::PointerType *v = isaPointer(val->getType());
+            if (v && v->getContainedType(0)->isStructTy()) {
+                switch (const size_t N = getTypeBitSize(v->getContainedType(0))) {
+                    case 8:
+                    case 16:
+                    case 32:
+                    case 64:
+                    case 128:
+                        val = DtoLoad(DtoBitCast(val, llvm::Type::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N))));
+                        ptr = DtoBitCast(ptr, llvm::Type::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N)));
+                        break;
+                    default:
+                        goto errorStore;
+                }
+            }
+            else {
+errorStore:
+                e->error("atomic store only supports integer types, not '%s'", exp1->type->toChars());
+                fatal();
+            }
         }
 
         llvm::StoreInst* ret = p->ir->CreateStore(val, ptr);
@@ -366,16 +384,40 @@ bool DtoLowerMagicIntrinsic(IRState* p, FuncDeclaration* fndecl, CallExp *e, DVa
         int atomicOrdering = (*e->arguments)[1]->toInteger();
 
         LLValue* ptr = toElem(exp)->getRVal();
+        LLType* ptrTy = ptr->getType()->getContainedType(0);
         Type* retType = exp->type->nextOf();
 
-        if (!ptr->getType()->getContainedType(0)->isIntegerTy()) {
-            e->error("atomic load only supports integer types, not '%s'", retType->toChars());
-            fatal();
+        if (!ptrTy->isIntegerTy()) {
+            if (ptrTy->isStructTy()) {
+                switch (const size_t N = getTypeBitSize(ptrTy)) {
+                    case 8:
+                    case 16:
+                    case 32:
+                    case 64:
+                    case 128:
+                        ptr = DtoBitCast(ptr, llvm::Type::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N)));
+                        break;
+                    default:
+                        goto errorLoad;
+                }
+            }
+            else {
+errorLoad:
+                e->error("atomic load only supports integer types, not '%s'", retType->toChars());
+                fatal();
+            }
         }
 
-        llvm::LoadInst* val = p->ir->CreateLoad(ptr);
-        val->setAlignment(getTypeAllocSize(val->getType()));
-        val->setAtomic(llvm::AtomicOrdering(atomicOrdering));
+        llvm::LoadInst* load = p->ir->CreateLoad(ptr);
+        load->setAlignment(getTypeAllocSize(load->getType()));
+        load->setAtomic(llvm::AtomicOrdering(atomicOrdering));
+        llvm::Value* val = load;
+        if (val->getType() != ptrTy) {
+            llvm::Value* tmp = DtoRawAlloca(val->getType(), 0);
+            DtoStore(val, tmp);
+            tmp = DtoBitCast(tmp, ptrTy->getPointerTo());
+            val = tmp;
+        }
         result = new DImValue(retType, val);
         return true;
     }
@@ -393,6 +435,31 @@ bool DtoLowerMagicIntrinsic(IRState* p, FuncDeclaration* fndecl, CallExp *e, DVa
         LLValue* ptr = toElem(exp1)->getRVal();
         LLValue* cmp = toElem(exp2)->getRVal();
         LLValue* val = toElem(exp3)->getRVal();
+        LLType* retTy = val->getType();
+
+        if (!cmp->getType()->isIntegerTy()) {
+            llvm::PointerType *v = isaPointer(cmp->getType());
+            if (v && v->getContainedType(0)->isStructTy()) {
+                switch (const size_t N = getTypeBitSize(v->getContainedType(0))) {
+                    case 8:
+                    case 16:
+                    case 32:
+                    case 64:
+                    case 128:
+                        ptr = DtoBitCast(ptr, llvm::Type::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N)));
+                        cmp = DtoLoad(DtoBitCast(cmp, llvm::Type::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N))));
+                        val = DtoLoad(DtoBitCast(val, llvm::Type::getIntNPtrTy(gIR->context(), static_cast<unsigned>(N))));
+                        break;
+                    default:
+                        goto errorCmpxchg;
+                }
+            }
+            else {
+errorCmpxchg:
+                e->error("cmpxchg only supports integer types, not '%s'", exp2->type->toChars());
+                fatal();
+            }
+        }
 #if LDC_LLVM_VER >= 305
         LLValue* ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, llvm::AtomicOrdering(atomicOrdering), llvm::AtomicOrdering(atomicOrdering));
         // Use the same quickfix as for dragonegg - see r210956
@@ -400,7 +467,13 @@ bool DtoLowerMagicIntrinsic(IRState* p, FuncDeclaration* fndecl, CallExp *e, DVa
 #else
         LLValue* ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, llvm::AtomicOrdering(atomicOrdering));
 #endif
-        result = new DImValue(exp3->type, ret);
+        llvm::Value* retVal = ret;
+        if (retVal->getType() != retTy) {
+            llvm::Value* tmp = DtoRawAlloca(retVal->getType(), 0);
+            DtoStore(retVal, tmp);
+            retVal = DtoBitCast(tmp, retTy->getPointerTo());
+        }
+        result = new DImValue(exp3->type, retVal);
         return true;
     }
 

@@ -102,6 +102,7 @@ void RTTIBuilder::push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* ma
 
     LLGlobalVariable* G = new LLGlobalVariable(
         gIR->module, CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname);
+    SET_COMDAT(G, gIR->module);
     G->setAlignment(valtype->alignsize());
 
     push_void_array(getTypePaddedSize(CI->getType()), G);
@@ -121,6 +122,7 @@ void RTTIBuilder::push_array(llvm::Constant * CI, uint64_t dim, Type* valtype, D
 
     LLGlobalVariable* G = new LLGlobalVariable(
         gIR->module, CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname);
+    SET_COMDAT(G, gIR->module);
     G->setAlignment(valtype->alignsize());
 
     push_array(dim, DtoBitCast(G, DtoType(valtype->pointerTo())));
@@ -194,6 +196,7 @@ void RTTIBuilder::finalize(LLType* type, LLValue* value)
     llvm::GlobalVariable* gvar = llvm::cast<llvm::GlobalVariable>(value);
     gvar->setInitializer(tiInit);
     gvar->setLinkage(TYPEINFO_LINKAGE_TYPE);
+    SET_COMDAT(gvar, gIR->module);
 }
 
 LLConstant* RTTIBuilder::get_constant(LLStructType *initType)

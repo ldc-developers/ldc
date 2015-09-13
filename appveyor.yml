@@ -1,0 +1,141 @@
+#---------------------------------#
+#      general configuration      #
+#---------------------------------#
+
+#version: 1.0.{build}-{branch}
+
+branches:
+  only:
+    - merge-2.067
+
+# Do not build on tags (GitHub only)
+skip_tags: true
+
+#---------------------------------#
+#    environment configuration    #
+#---------------------------------#
+
+# Operating system (build VM template)
+os: Visual Studio 2015
+
+environment:
+  matrix:
+    - APPVEYOR_JOB_CONFIG: Debug
+    - APPVEYOR_JOB_CONFIG: Release
+
+matrix:
+  allow_failures:
+    - APPVEYOR_JOB_CONFIG: Release
+
+# scripts that are called at very beginning, before repo cloning
+init:
+  - git config --global core.autocrlf input
+  - '"c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64'
+  - msbuild /version
+  - cl
+  - cmake --version
+  - python --version
+
+# scripts that run after cloning repository
+install:
+  - cd c:\projects
+  # Fetch submodules
+  - cd ldc
+  - git submodule update --init --recursive
+  - cd ..
+  # Clone libconfig
+  - git clone https://github.com/hyperrealm/libconfig.git libconfig
+  ## Download & extract LLVM source
+  #- ps: Start-FileDownload 'http://llvm.org/pre-releases/3.7.0/rc3/llvm-3.7.0rc3.src.tar.xz' -FileName 'llvm.src.tar.xz'
+  #- 7z x llvm.src.tar.xz -so | 7z x -si -ttar > nul
+  #- ren llvm-3.7.0rc3.src llvm
+  # Download a pre-built LLVM & extract
+  # LLVM RelWithDebInfo: https://dl.dropboxusercontent.com/s/s1tk6134mku3ei8/llvm-x64-debuginfo.7z?dl=0
+  - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/5cok3dvmohtduy6/llvm-x64-release.7z?dl=0' -FileName 'llvm-x64.7z'
+  - md llvm-x64
+  - cd llvm-x64
+  - 7z x ..\llvm-x64.7z > nul
+  - cd ..
+  # Download & install Ninja
+  - ps: Start-FileDownload 'https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
+  - md ninja
+  - cd ninja
+  - 7z x ..\ninja.zip > nul
+  - cd ..
+  - set PATH=c:\projects\ninja;%PATH%
+  - ninja --version
+  # Download & extract libcurl
+  - ps: Start-FileDownload 'http://d.darktech.org/libcurl-7.43.0-WinSSL-zlib-x86-x64.zip' -FileName 'libcurl.zip'
+  - md libcurl
+  - cd libcurl
+  - 7z x ..\libcurl.zip > nul
+  - cd ..
+  # Copy libcurl.dll to final LDC installation directory and add to PATH
+  - md ldc-x64
+  - md ldc-x64\bin
+  - copy libcurl\dmd2\windows\bin64\libcurl.dll ldc-x64\bin
+  - set PATH=c:\projects\ldc-x64\bin;%PATH%
+
+#---------------------------------#
+#       build configuration       #
+#---------------------------------#
+
+before_build:
+  - cd c:\projects
+  # Build libconfig
+  - msbuild libconfig\lib\libconfig.vcxproj /p:Configuration=ReleaseStatic /p:Platform=x64
+  ## Generate build files for LLVM, build & install
+  #- md ninja-llvm
+  #- cd ninja-llvm
+  #- cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\llvm-x64 -DLLVM_TARGETS_TO_BUILD=X86 -DLLVM_INCLUDE_TESTS=OFF -DLLVM_INCLUDE_EXAMPLES=OFF -DLLVM_ENABLE_ASSERTIONS=ON -DLLVM_APPEND_VC_REV=ON ..\llvm
+  #- ninja install
+
+build_script:
+  - cd c:\projects
+  # Work around LDC issue #988 and add a lib required in combination with VS 2015
+  - ps: (gc ldc\ldc2.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-L/FORCE:MULTIPLE", "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2.conf.in
+  - ps: (gc ldc\ldc2_install.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-L/FORCE:MULTIPLE", "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2_install.conf.in
+  - ps: (gc ldc\ldc2_phobos.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-L/FORCE:MULTIPLE", "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2_phobos.conf.in
+  # Generate build files for LDC
+  - md ninja-ldc
+  - cd ninja-ldc
+  - cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x64 -DLLVM_ROOT_DIR=c:/projects/llvm-x64 -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc
+  # Work around LDC issue #930
+  - ps: (gc build.ninja).replace('runtime/std/string-unittest-debug.obj -w -d -g -unittest', 'runtime/std/string-unittest-debug.obj -w -d -unittest') | sc build.ninja
+  # Build LDC, druntime and phobos
+  - ninja -j2
+
+after_build:
+  # Debug job: install LDC, compress & publish as artifact
+  - ps: |
+        If ($Env:APPVEYOR_JOB_CONFIG -eq 'Debug') {
+            echo 'Preparing artifact...'
+            cd c:\projects\ninja-ldc
+            ninja install
+            cd ..\ldc-x64
+            7z a ..\ldc-x64.7z * > $null
+            cd ..
+            Push-AppveyorArtifact ldc-x64.7z
+        }
+
+#---------------------------------#
+#       test configuration        #
+#---------------------------------#
+
+test_script:
+  - cd c:\projects\ninja-ldc
+  - bin\ldc2 -version
+  # Compile, link & execute a hello-world program
+  - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( bin\ldc2 -g hello.d ) else ( bin\ldc2 hello.d )
+  - hello.exe
+  # Compile the druntime & phobos unit tests
+  - set TEST_SUFFIX=unittest
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_SUFFIX=unittest-debug)
+  # pre-build some modules serially - those known to require lots of memory
+  - ninja -j1 runtime\std\algorithm\searching-%TEST_SUFFIX%.obj runtime\std\algorithm\setops-%TEST_SUFFIX%.obj runtime\std\array-%TEST_SUFFIX%.obj runtime\std\conv-%TEST_SUFFIX%.obj runtime\std\datetime-%TEST_SUFFIX%.obj runtime\std\range\package-%TEST_SUFFIX%.obj runtime\std\range\primitives-%TEST_SUFFIX%.obj runtime\std\regex\internal\tests-%TEST_SUFFIX%.obj runtime\std\string-%TEST_SUFFIX%.obj runtime\std\traits-%TEST_SUFFIX%.obj
+  - ninja -j2 druntime-ldc-%TEST_SUFFIX% phobos2-ldc-%TEST_SUFFIX%
+  # Execute the unit tests; exclude dmd-testsuite for now
+  - set CTEST_SUFFIX=-E "-debug|testsuite"
+  - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E testsuite)
+  - ctest --output-on-failure %CTEST_SUFFIX%

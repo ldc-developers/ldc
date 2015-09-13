@@ -337,6 +337,14 @@ void IrAggr::addFieldInitializers(
         // has interface vtbls?
         if (cd->vtblInterfaces && cd->vtblInterfaces->dim > 0)
         {
+            // Align interface infos to pointer size.
+            unsigned aligned = (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
+            if (offset < aligned)
+            {
+                add_zeros(constants, offset, aligned);
+                offset = aligned;
+            }
+
             // false when it's not okay to use functions from super classes
             bool newinsts = (cd == aggrdecl->isClassDeclaration());
 

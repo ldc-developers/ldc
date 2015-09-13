@@ -129,12 +129,6 @@ list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object.d)
 file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
 if(PHOBOS2_DIR)
-    if(BUILD_SHARED_LIBS)
-        # std.net.curl depends on libcurl – when building a shared library, we
-        # need to take care of that.
-        find_package(CURL REQUIRED)
-    endif()
-
     file(GLOB PHOBOS2_D ${PHOBOS2_DIR}/std/*.d)
     file(GLOB PHOBOS2_D_ALGORITHM ${PHOBOS2_DIR}/std/algorithm/*.d)
     file(GLOB PHOBOS2_D_CONTAINER ${PHOBOS2_DIR}/std/container/*.d)
@@ -446,7 +440,7 @@ macro(build_runtime d_flags c_flags ld_flags lib_suffix path_suffix outlist_targ
             # TODO: As for druntime, adapt once shared libraries are supported
             # on more operating systems.
             target_link_libraries(phobos2-ldc${target_suffix}
-                druntime-ldc${target_suffix} "curl" "m" "pthread" "dl")
+                druntime-ldc${target_suffix} "m" "pthread" "dl")
         endif()
 
         list(APPEND ${outlist_targets} "phobos2-ldc${target_suffix}")
@@ -719,7 +713,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
                 COMMAND ${LDC_EXE}
                     -of${PROJECT_BINARY_DIR}/phobos2-test-runner${name_suffix}${CMAKE_EXECUTABLE_SUFFIX}
                     -defaultlib=druntime-ldc,${phobos2-casm} -debuglib=druntime-ldc,${phobos2-casm}
-                    -singleobj -L-lcurl ${flags} ${phobos2_o} ${RUNTIME_DIR}/src/test_runner.d
+                    -singleobj ${flags} ${phobos2_o} ${RUNTIME_DIR}/src/test_runner.d
             )
             set_tests_properties(build-phobos2-test-runner${name_suffix} PROPERTIES
                 DEPENDS build-phobos2-ldc-unittest${name_suffix}
