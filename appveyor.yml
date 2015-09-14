@@ -26,7 +26,10 @@ matrix:
 # scripts that are called at very beginning, before repo cloning
 init:
   - git config --global core.autocrlf input
-  - '"c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64'
+  - ren "c:\Program Files (x86)\Windows Kits\10\include\wdf" 00wdf
+  - call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
+  # Print environment info
+  - set
   - msbuild /version
   - cl
   - cmake --version
