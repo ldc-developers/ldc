@@ -716,15 +716,20 @@ public:
 
         assert(stmt->catches);
 
+        typedef llvm::SmallVector<std::pair<ClassDeclaration*, llvm::BasicBlock*>, 6>
+            CatchBlocks;
+        CatchBlocks catchBlocks;
+        catchBlocks.reserve(stmt->catches->dim);
+
         for (Catches::reverse_iterator it = stmt->catches->rbegin(),
                                        end = stmt->catches->rend();
              it != end; ++it
         ) {
-            llvm::BasicBlock* catchBlock = llvm::BasicBlock::Create(irs->context(),
+            llvm::BasicBlock* catchBB = llvm::BasicBlock::Create(irs->context(),
                 llvm::Twine("catch.") + (*it)->type->toChars(),
                 irs->topfunc(), endbb);
 
-            irs->scope() = IRScope(catchBlock);
+            irs->scope() = IRScope(catchBB);
             irs->DBuilder.EmitBlockStart((*it)->loc);
 
             llvm::Function* enterCatchFn =
@@ -733,7 +738,7 @@ public:
 
             // For catches that use the Throwable object, create storage for it.
             // We will set it in the code that branches from the landing pads
-            // (there might be more than one) to catchBlock.
+            // (there might be more than one) to catchBB.
             if ((*it)->var) {
                 llvm::Value* ehPtr = irs->func()->getOrCreateEhPtrSlot();
 
@@ -777,12 +782,20 @@ public:
 
             irs->DBuilder.EmitBlockEnd();
 
-            ClassDeclaration* catchType =
-                (*it)->type->toBasetype()->isClassHandle();
-            DtoResolveClass(catchType);
+            catchBlocks.push_back(std::make_pair(
+                (*it)->type->toBasetype()->isClassHandle(), catchBB));
+        }
 
+        // Only after emitting all the catch bodies, register the catch scopes.
+        // This is so that (re)throwing inside a catch does not match later
+        // catches.
+        for (CatchBlocks::iterator it = catchBlocks.begin(),
+                                   end = catchBlocks.end();
+             it != end; ++it
+        ) {
+            DtoResolveClass(it->first);
             irs->func()->scopes->pushCatch(
-                getIrAggr(catchType)->getClassInfoSymbol(), catchBlock);
+                getIrAggr(it->first)->getClassInfoSymbol(), it->second);
         }
 
         // Emit the try block.
@@ -799,10 +812,7 @@ public:
 
         // Now that we have done the try block, remove the catches and continue
         // codegen in the end block the try and all the catches branch to.
-        for (Catches::reverse_iterator it = stmt->catches->rbegin(),
-                                       end = stmt->catches->rend();
-             it != end; ++it
-        ) {
+        for (size_t i = 0; i < catchBlocks.size(); ++i) {
             irs->func()->scopes->popCatch();
         }
 
