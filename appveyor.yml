@@ -4,10 +4,6 @@
 
 #version: 1.0.{build}-{branch}
 
-branches:
-  only:
-    - merge-2.067
-
 # Do not build on tags (GitHub only)
 skip_tags: true
 
@@ -139,3 +135,20 @@ test_script:
   - set CTEST_SUFFIX=-E "-debug|testsuite"
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E testsuite)
   - ctest --output-on-failure %CTEST_SUFFIX%
+
+#---------------------------------#
+#     deployment configuration    #
+#---------------------------------#
+
+deploy:
+  release: 'LDC Win64 master'
+  description: 'Rolling release based on latest successful Win64 CI build from master branch'
+  provider: GitHub
+  auth_token:
+    secure: qnbD8agL9mr0SFvy/sMkR2E29oQQ427T5zYwVVZkjRS3IZ361tG+9jlSiyEkyULy
+  artifact: ldc-x64.7z
+  draft: true
+  prerelease: true
+  on:
+    branch: master
+    APPVEYOR_JOB_CONFIG: Debug
