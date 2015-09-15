@@ -283,14 +283,27 @@ namespace
             os << '\n';
         }
 
-            void printInfoComment(const Value& val, formatted_raw_ostream& os) LLVM_OVERRIDE
+        void printInfoComment(const Value& val, formatted_raw_ostream& os) LLVM_OVERRIDE
         {
             bool padding = false;
             if (!val.getType()->isVoidTy())
             {
                 os.PadToColumn(50);
                 padding = true;
-                os << "; [#uses = " << val.getNumUses() << " type = " << *val.getType() << ']';
+                os << "; [#uses = " << val.getNumUses();
+                if (isa<GetElementPtrInst>(&val) || isa<PHINode>(&val))
+                {
+                    // Only print type for instructions where it is not obvious
+                    // from being repeated in its parameters. Might need to be
+                    // extended, but GEPs/PHIs are the most common ones.
+                    os << ", type = " << *val.getType();
+                }
+                else if (isa<AllocaInst>(&val))
+                {
+                    os << ", size/byte = " <<
+                        gDataLayout->getTypeAllocSize(val.getType()->getContainedType(0));
+                }
+                os << ']';
             }
 
             const Instruction* instr = dyn_cast<Instruction>(&val);
