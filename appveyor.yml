@@ -111,6 +111,7 @@ after_build:
             echo 'Preparing artifact...'
             cd c:\projects\ninja-ldc
             ninja install
+            copy bin\ldc2.pdb ..\ldc-x64\bin
             cd ..\ldc-x64
             7z a ..\ldc-x64.7z * > $null
             cd ..
