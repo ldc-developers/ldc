@@ -164,17 +164,6 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
         }
         else if (!passPointer)
         {
-            if (loweredDType->toBasetype()->ty == Tstruct)
-            {
-                // Do not pass empty structs at all for C++ ABI compatibility.
-                // Tests with clang reveal that more complex "empty" types, for
-                // example a struct containing an empty struct, are not
-                // optimized in the same way.
-                StructDeclaration *sd =
-                    static_cast<TypeStruct*>(loweredDType->toBasetype())->sym;
-                if (sd->fields.empty()) continue;
-            }
-
             if (abi->passByVal(loweredDType))
             {
                 attrBuilder.add(LDC_ATTRIBUTE(ByVal));
