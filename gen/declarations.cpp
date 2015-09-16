@@ -251,6 +251,7 @@ public:
             assert(gvar && "DtoResolveVariable should have created value");
 
             const llvm::GlobalValue::LinkageTypes llLinkage = DtoLinkage(decl);
+            const bool isTemplateInstance = DtoIsTemplateInstance(decl);
 
             // Check if we are defining or just declaring the global in this module.
             if (!(decl->storage_class & STCextern))
@@ -266,6 +267,7 @@ public:
                         llLinkage, 0,
                         "", // We take on the name of the old global below.
                         gvar->isThreadLocal());
+                    if (isTemplateInstance) SET_COMDAT(newGvar, gIR->module);
 
                     newGvar->setAlignment(gvar->getAlignment());
                     newGvar->takeName(gvar);
@@ -284,6 +286,7 @@ public:
                 irGlobal->constInit = initVal;
                 gvar->setInitializer(initVal);
                 gvar->setLinkage(llLinkage);
+                if (isTemplateInstance) SET_COMDAT(gvar, gIR->module);
 
                 // Also set up the debug info.
                 irs->DBuilder.EmitGlobalVariable(gvar, decl);
