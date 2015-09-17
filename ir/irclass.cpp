@@ -348,6 +348,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
                 isaFunction(irFunc->func->getType()->getContainedType(0)),
                 llvm::GlobalValue::LinkOnceODRLinkage, thunkName,
                 &gIR->module);
+            SET_COMDAT(thunk, gIR->module);
             thunk->copyAttributesFrom(irFunc->func);
 
             // Thunks themselves don't have an identity, only the target
