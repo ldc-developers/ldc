@@ -237,6 +237,7 @@ bool supportsCOMDAT();
 
 #else
 
+#define supportsCOMDAT() false
 #define SET_COMDAT(x,m)
 
 #endif

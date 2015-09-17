@@ -404,14 +404,16 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
     mangledName.append(mangle(b->base));
     mangledName.append("6__vtblZ");
 
+    const LinkageWithCOMDAT lwc = DtoLinkage(cd);
     llvm::GlobalVariable* GV = getOrCreateGlobal(cd->loc,
         gIR->module,
         vtbl_constant->getType(),
         true,
-        DtoLinkage(cd),
+        lwc.first,
         vtbl_constant,
         mangledName
     );
+    if (lwc.second) SET_COMDAT(GV, gIR->module);
 
     // insert into the vtbl map
     interfaceVtblMap.insert(std::make_pair(b->base, GV));
@@ -508,7 +510,9 @@ LLConstant * IrAggr::getClassInfoInterfaces()
     // create and apply initializer
     LLConstant* arr = LLConstantArray::get(array_type, constants);
     classInterfacesArray->setInitializer(arr);
-    classInterfacesArray->setLinkage(DtoLinkage(cd));
+    const LinkageWithCOMDAT lwc = DtoLinkage(cd);
+    classInterfacesArray->setLinkage(lwc.first);
+    if (lwc.second) SET_COMDAT(classInterfacesArray, gIR->module);
 
     // return null, only baseclass provide interfaces
     if (cd->vtblInterfaces->dim == 0)
