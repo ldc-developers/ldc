@@ -286,11 +286,11 @@ LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-llvm::GlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym)
+LinkageWithCOMDAT DtoLinkage(Dsymbol* sym)
 {
     if (DtoIsTemplateInstance(sym))
-        return templateLinkage;
-    return llvm::GlobalValue::ExternalLinkage;
+        return LinkageWithCOMDAT(templateLinkage, supportsCOMDAT());
+    return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -56,7 +56,8 @@ LLValue* DtoDelegateEquals(TOK op, LLValue* lhs, LLValue* rhs);
 
 // Returns the LLVM linkage to use for the definition of the given symbol,
 // based on whether it is a template or not.
-LLGlobalValue::LinkageTypes DtoLinkage(Dsymbol* sym);
+typedef std::pair<llvm::GlobalValue::LinkageTypes, bool> LinkageWithCOMDAT;
+LinkageWithCOMDAT DtoLinkage(Dsymbol* sym);
 
 // some types
 LLIntegerType* DtoSize_t();
