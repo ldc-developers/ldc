@@ -567,7 +567,18 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s,
 
 bool DtoIsIntrinsic(FuncDeclaration *fd)
 {
-    return (fd->llvmInternal == LLVMintrinsic || DtoIsVaIntrinsic(fd));
+    switch (fd->llvmInternal)
+    {
+    case LLVMintrinsic:
+    case LLVMatomic_store:
+    case LLVMatomic_load:
+    case LLVMatomic_cmp_xchg:
+    case LLVMatomic_rmw:
+        return true;
+
+    default:
+        return DtoIsVaIntrinsic(fd);
+    }
 }
 
 bool DtoIsVaIntrinsic(FuncDeclaration *fd)
