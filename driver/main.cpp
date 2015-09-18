@@ -672,6 +672,13 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
 #endif
+#if LDC_LLVM_VER >= 303
+        case llvm::Triple::systemz:
+            VersionCondition::addPredefinedGlobalIdent("SystemZ");
+            VersionCondition::addPredefinedGlobalIdent("S390X"); // For backwards compatibility.
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+            break;
+#endif
         default:
             error(Loc(), "invalid cpu architecture specified: %s", global.params.targetTriple.getArchName().str().c_str());
             fatal();

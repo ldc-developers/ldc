@@ -205,6 +205,9 @@ bool VersionCondition::isPredefined(const char *ident)
         "SPARC64",
         "S390",
         "S390X",
+#if IN_LLVM
+        "SystemZ",
+#endif
         "HPPA",
         "HPPA64",
         "SH",
