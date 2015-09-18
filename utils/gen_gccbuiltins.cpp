@@ -32,7 +32,7 @@
 using namespace std;
 using namespace llvm;
 
-string dtype(Record* rec)
+string dtype(Record* rec, bool readOnlyMem)
 {
     Init* typeInit = rec->getValueInit("VT");
     if(!typeInit)
@@ -41,7 +41,7 @@ string dtype(Record* rec)
     string type = typeInit->getAsString();
 
     if(type == "iPTR")
-        return "void*";
+        return readOnlyMem ? "const void*" : "void*";
 
     string vec = "";
 
@@ -94,9 +94,9 @@ string attributes(ListInit* propertyList)
         ? propertyList->getElementAsRecord(0)->getName() : "";
 
     return
-        prop == "IntrNoMem" ? "nothrow pure @safe" :
-        prop == "IntrReadArgMem" ? "nothrow pure" :
-        prop == "IntrReadWriteArgMem" ? "nothrow pure" : "nothrow";
+        prop == "IntrNoMem" ? " pure @safe" :
+        prop == "IntrReadArgMem" ? " pure" :
+        prop == "IntrReadWriteArgMem" ? " pure" : "";
 }
 
 void processRecord(raw_ostream& os, Record& rec, string arch)
@@ -114,6 +114,17 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     replace(name.begin(), name.end(), '_', '.');
     name = string("llvm.") + name;
 
+    ListInit* propsList = rec.getValueAsListInit("Properties");
+    string prop =
+#if LDC_LLVM_VER >= 307
+        propsList->size()
+#else
+        propsList->getSize()
+#endif
+        ? propsList->getElementAsRecord(0)->getName() : "";
+
+    bool readOnlyMem = prop == "IntrReadArgMem" || prop == "IntrReadMem";
+
     ListInit* paramsList = rec.getValueAsListInit("ParamTypes");
     vector<string> params;
     for(unsigned int i = 0; i <
@@ -124,7 +135,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
 #endif
         i++)
     {
-        string t = dtype(paramsList->getElementAsRecord(i));
+        string t = dtype(paramsList->getElementAsRecord(i), readOnlyMem);
         if(t == "")
             return;
 
@@ -142,7 +153,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
         ret = "void";
     else if(sz == 1)
     {
-        ret = dtype(retList->getElementAsRecord(0));
+        ret = dtype(retList->getElementAsRecord(0), false);
         if(ret == "")
             return;
     }
@@ -167,7 +178,7 @@ bool emit(raw_ostream& os, RecordKeeper& records)
 {
     os << "module ldc.gccbuiltins_";
     os << arch;
-    os << "; \n\nimport core.simd;\n\n";
+    os << "; \n\nimport core.simd;\n\nnothrow @nogc:\n\n";
 
 #if LDC_LLVM_VER >= 306
     const auto &defs = records.getDefs();

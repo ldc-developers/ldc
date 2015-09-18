@@ -458,9 +458,8 @@ void createStaticLibrary()
 //     As a side effect this change broke compiling with dub.
 //    if (!FileName::absolute(libName.c_str()))
 //        libName = FileName::combine(global.params.objdir, libName.c_str());
-    std::string libExt = std::string(".") + global.lib_ext;
-    if (!endsWith(libName, libExt))
-        libName.append(libExt);
+    if (llvm::sys::path::extension(libName).empty())
+        libName.append(std::string(".") + global.lib_ext);
     if (isTargetWindows)
         args.push_back("/OUT:" + libName);
     else
