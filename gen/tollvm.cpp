@@ -50,7 +50,7 @@ RET retStyle(TypeFunction *tf)
 bool DtoIsReturnInArg(CallExp *ce)
 {
     TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
-    if (tf->ty == Tfunction && (!ce->f || ce->f->llvmInternal != LLVMintrinsic))
+    if (tf->ty == Tfunction && (!ce->f || !DtoIsIntrinsic(ce->f)))
         return retStyle(tf) == RETstack;
     return false;
 }

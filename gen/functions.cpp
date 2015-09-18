@@ -288,7 +288,7 @@ llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 
     LLFunctionType* functype = DtoFunctionType(fdecl->type, getIrFunc(fdecl, true)->irFty, dthis, dnest,
                                                fdecl->isMain(), fdecl->isCtorDeclaration(),
-                                               fdecl->llvmInternal == LLVMintrinsic);
+                                               DtoIsIntrinsic(fdecl));
 
     return functype;
 }
@@ -456,7 +456,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     //printf("declare function: %s\n", fdecl->toPrettyChars());
 
     // intrinsic sanity check
-    if (fdecl->llvmInternal == LLVMintrinsic && fdecl->fbody) {
+    if (DtoIsIntrinsic(fdecl) && fdecl->fbody) {
         error(fdecl->loc, "intrinsics cannot have function bodies");
         fatal();
     }
@@ -474,7 +474,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     // calling convention
     LINK link = f->linkage;
-    if (vafunc || fdecl->llvmInternal == LLVMintrinsic
+    if (vafunc || DtoIsIntrinsic(fdecl)
         // DMD treats _Dmain as having C calling convention and this has been
         // hardcoded into druntime, even if the frontend type has D linkage.
         // See Bugzilla issue 9028.
@@ -616,7 +616,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration* fdecl)
 {
     // Intrinsics are always external.
-    if (fdecl->llvmInternal == LLVMintrinsic)
+    if (DtoIsIntrinsic(fdecl))
         return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
 
     // Generated array op functions behave like templates in that they might be
