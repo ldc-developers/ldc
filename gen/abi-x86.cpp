@@ -212,7 +212,19 @@ struct X86TargetABI : TargetABI
                     fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
                 }
             }
+
             // IMPLICIT PARAMETERS
+
+            if (!isOSX)
+            {
+                if (IrFuncTyArg* sret = fty.arg_sret)
+                {
+                    Logger::println("Putting sret ptr in register");
+                    // sret and inreg are incompatible, but the ABI requires the
+                    // sret parameter to be in EAX in this situation...
+                    sret->attrs.add(LDC_ATTRIBUTE(InReg)).remove(LDC_ATTRIBUTE(StructRet));
+                }
+            }
 
             // EXPLICIT PARAMETERS
 
