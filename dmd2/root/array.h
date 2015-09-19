@@ -359,6 +359,12 @@ struct Array
         return reverse_iterator(begin());
     }
 
+    iterator erase(iterator pos)
+    {
+        size_t index = pos - &data[0];
+        remove(index);
+        return static_cast<iterator>(&data[index]);
+    }
 #endif
 };
 
