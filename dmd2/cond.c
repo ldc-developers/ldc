@@ -219,6 +219,9 @@ bool VersionCondition::isPredefined(const char *ident)
         "BigEndian",
         "ELFv1",
         "ELFv2",
+#if IN_LLVM
+        "CRuntime_Bionic",
+#endif
         "CRuntime_Digitalmars",
         "CRuntime_Glibc",
         "CRuntime_Microsoft",
