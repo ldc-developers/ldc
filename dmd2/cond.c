@@ -235,10 +235,6 @@ bool VersionCondition::isPredefined(const char *ident)
         "assert",
         "all",
         "none",
-#if IN_LLVM
-        "darwin", "Thumb",
-        "NVPTX", "NVPTX64",
-#endif
         NULL
     };
 
