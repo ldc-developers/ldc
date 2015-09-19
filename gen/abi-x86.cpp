@@ -215,6 +215,31 @@ struct X86TargetABI : TargetABI
             // IMPLICIT PARAMETERS
 
             // EXPLICIT PARAMETERS
+
+            // Clang does not pass empty structs, while it seems that GCC does,
+            // at least on Linux x86.
+            if (isOSX)
+            {
+                size_t i = 0;
+                while (i < fty.args.size())
+                {
+                    Type *type = fty.args[i]->type->toBasetype();
+                    if (type->ty == Tstruct)
+                    {
+                        // Do not pass empty structs at all for C++ ABI compatibility.
+                        // Tests with clang reveal that more complex "empty" types, for
+                        // example a struct containing an empty struct, are not
+                        // optimized in the same way.
+                        StructDeclaration *sd = static_cast<TypeStruct *>(type)->sym;
+                        if (sd->fields.empty())
+                        {
+                            fty.args.erase(fty.args.begin() + i);
+                            continue;
+                        }
+                    }
+                    ++i;
+                }
+            }
         }
     }
 };

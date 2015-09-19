@@ -92,7 +92,7 @@ namespace AsmParserx8664
         std::string gccName; // GAS will take upper case, but GCC won't (needed for the clobber list)
         Identifier * ident;
         char size;
-        char baseReg; // %% todo: Reg, Reg_XX
+        signed char baseReg; // %% todo: Reg, Reg_XX
     } regInfo[N_Regs] =
     {
         { "EAX",   NULL_TREE, NULL,  4, Reg_EAX },

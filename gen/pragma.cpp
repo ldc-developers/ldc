@@ -570,10 +570,18 @@ bool DtoIsIntrinsic(FuncDeclaration *fd)
     switch (fd->llvmInternal)
     {
     case LLVMintrinsic:
+    case LLVMalloca:
+    case LLVMfence:
     case LLVMatomic_store:
     case LLVMatomic_load:
     case LLVMatomic_cmp_xchg:
     case LLVMatomic_rmw:
+    case LLVMbitop_bt:
+    case LLVMbitop_btc:
+    case LLVMbitop_btr:
+    case LLVMbitop_bts:
+    case LLVMbitop_vld:
+    case LLVMbitop_vst:
         return true;
 
     default:
