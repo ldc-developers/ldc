@@ -441,21 +441,28 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
     if (global.errors)
         fatal();
 
-    // fill out any null entries still left with default values
+    // Fill out any null entries still left with default values.
 
-    // element default initializer
-    LLConstant* defelem = DtoConstExpInit(arrinit->loc, elemty, elemty->defaultInit(arrinit->loc));
-    bool mismatch2 =  (defelem->getType() != llelemty);
-
+    // Element default initializer. Compute lazily to be able to avoid infinite
+    // recursion for types with members that are default initialized to empty
+    // arrays of themselves.
+    LLConstant* elemDefaultInit = NULL;
     for (size_t i = 0; i < arrlen; i++)
     {
         if (initvals[i] != NULL)
             continue;
 
-        initvals[i] = defelem;
+        if (!elemDefaultInit)
+        {
+            elemDefaultInit = DtoConstExpInit(arrinit->loc, elemty,
+                elemty->defaultInit(arrinit->loc));
+            if (elemDefaultInit->getType() != llelemty)
+            {
+                mismatch = true;
+            }
+        }
 
-        if (mismatch2)
-            mismatch = true;
+        initvals[i] = elemDefaultInit;
     }
 
     LLConstant* constarr;
