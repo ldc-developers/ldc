@@ -110,12 +110,13 @@ after_build:
         If ($Env:APPVEYOR_JOB_CONFIG -eq 'Debug') {
             echo 'Preparing artifact...'
             cd c:\projects\ninja-ldc
-            ninja install
+            ninja install > $null
             copy bin\ldc2.pdb ..\ldc-x64\bin
             cd ..\ldc-x64
-            7z a ..\ldc-x64.7z * > $null
+            $artifactFilename = "ldc-Win64-$Env:APPVEYOR_REPO_COMMIT.7z"
+            7z a "..\$artifactFilename" * > $null
             cd ..
-            Push-AppveyorArtifact ldc-x64.7z
+            Push-AppveyorArtifact $artifactFilename
         }
 
 #---------------------------------#
@@ -150,7 +151,7 @@ deploy:
   provider: GitHub
   auth_token:
     secure: qnbD8agL9mr0SFvy/sMkR2E29oQQ427T5zYwVVZkjRS3IZ361tG+9jlSiyEkyULy
-  artifact: ldc-x64.7z
+  artifact: ldc-Win64-$(APPVEYOR_REPO_COMMIT).7z
   draft: true
   prerelease: true
   on:
