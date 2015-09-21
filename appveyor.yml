@@ -112,7 +112,7 @@ after_build:
             ninja install > $null
             copy bin\ldc2.pdb ..\ldc-x64\bin
             cd ..\ldc-x64
-            $artifactFilename = "ldc-Win64-$Env:APPVEYOR_REPO_COMMIT.7z"
+            $artifactFilename = "LDC-Win64-master-$Env:APPVEYOR_BUILD_NUMBER.7z"
             7z a "..\$artifactFilename" * > $null
             cd ..
             Push-AppveyorArtifact $artifactFilename
@@ -146,11 +146,11 @@ test_script:
 
 deploy:
   release: 'LDC Win64 master'
-  description: 'Rolling release based on latest successful Win64 CI build from master branch'
+  description: "Latest successful Win64 CI builds of branch 'master'"
   provider: GitHub
   auth_token:
     secure: qnbD8agL9mr0SFvy/sMkR2E29oQQ427T5zYwVVZkjRS3IZ361tG+9jlSiyEkyULy
-  artifact: ldc-Win64-$(APPVEYOR_REPO_COMMIT).7z
+  artifact: LDC-Win64-master-$(APPVEYOR_BUILD_NUMBER).7z
   draft: true
   prerelease: true
   on:
