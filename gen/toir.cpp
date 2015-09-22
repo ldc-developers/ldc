@@ -302,8 +302,10 @@ public:
             if (result && result->getType()->ty != Tvoid &&
                 (result->isIm() || result->isSlice())
             ) {
-                llvm::AllocaInst* alloca = DtoAlloca(result->getType());
-                DtoStoreZextI8(result->getRVal(), alloca);
+                LLValue* rval = result->getRVal();
+                llvm::AllocaInst* alloca = DtoRawAlloca(i1ToI8(rval->getType()),
+                    result->getType()->alignsize());
+                DtoStoreZextI8(rval, alloca);
                 result = new DVarValue(result->getType(), alloca);
             }
 
