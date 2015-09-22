@@ -401,8 +401,16 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     sourceFiles.reserve(fileList.size());
     typedef std::vector<std::string>::iterator It;
     for(It I = fileList.begin(), E = fileList.end(); I != E; ++I)
+    {
         if (!I->empty())
-            sourceFiles.push(mem.xstrdup(I->c_str()));
+        {
+            char* copy = mem.xstrdup(I->c_str());
+#ifdef _WIN32
+            std::replace(copy, copy + I->length(), '/', '\\');
+#endif
+            sourceFiles.push(copy);
+        }
+    }
 
     if (noDefaultLib)
     {
@@ -1077,7 +1085,7 @@ int main(int argc, char **argv)
         const char *ext;
         const char *name;
 
-        const char *p = static_cast<const char *>(files.data[i]);
+        const char *p = files.data[i];
 
         p = FileName::name(p);      // strip path
         ext = FileName::ext(p);
@@ -1176,7 +1184,7 @@ int main(int argc, char **argv)
         }
 
         id = Identifier::idPool(name);
-        Module *m = new Module(static_cast<const char *>(files.data[i]), id, global.params.doDocComments, global.params.doHdrGeneration);
+        Module *m = new Module(files.data[i], id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
     }
 
