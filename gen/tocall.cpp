@@ -413,7 +413,7 @@ errorLoad:
         load->setAtomic(llvm::AtomicOrdering(atomicOrdering));
         llvm::Value* val = load;
         if (val->getType() != ptrTy) {
-            llvm::Value* tmp = DtoRawAlloca(val->getType(), 0);
+            llvm::Value* tmp = DtoRawAlloca(val->getType(), retType->alignsize());
             DtoStore(val, tmp);
             tmp = DtoBitCast(tmp, ptrTy->getPointerTo());
             val = tmp;
@@ -469,7 +469,7 @@ errorCmpxchg:
 #endif
         llvm::Value* retVal = ret;
         if (retVal->getType() != retTy) {
-            llvm::Value* tmp = DtoRawAlloca(retVal->getType(), 0);
+            llvm::Value* tmp = DtoRawAlloca(retVal->getType(), exp3->type->alignsize());
             DtoStore(retVal, tmp);
             retVal = DtoBitCast(tmp, retTy->getPointerTo());
         }
@@ -814,7 +814,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         if (storeReturnValueOnStack)
         {
             Logger::println("Storing return value to stack slot");
-            LLValue* mem = DtoRawAlloca(DtoType(dReturnType), 0);
+            LLValue* mem = DtoRawAlloca(DtoType(dReturnType), dReturnType->alignsize());
             irFty.getRet(dReturnType, &dretval, mem);
             retllval = mem;
             storeReturnValueOnStack = false;
@@ -831,7 +831,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     if (storeReturnValueOnStack)
     {
         Logger::println("Storing return value to stack slot");
-        LLValue* mem = DtoRawAlloca(retllval->getType(), 0);
+        LLValue* mem = DtoRawAlloca(retllval->getType(), dReturnType->alignsize());
         DtoStore(retllval, mem);
         retllval = mem;
     }

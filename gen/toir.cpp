@@ -2590,7 +2590,7 @@ public:
         }
         else
         {
-            llvm::Value* storage = DtoRawAlloca(llStoType, 0, "arrayliteral");
+            llvm::Value* storage = DtoRawAlloca(llStoType, e->type->alignsize(), "arrayliteral");
             initializeArrayLiteral(p, e, storage);
             result = new DImValue(e->type, storage);
         }
@@ -2629,7 +2629,7 @@ public:
         DtoResolveStruct(e->sd);
 
         // alloca a stack slot
-        e->inProgressMemory = DtoRawAlloca(DtoType(e->type), 0, ".structliteral");
+        e->inProgressMemory = DtoRawAlloca(DtoType(e->type), e->type->alignsize(), ".structliteral");
 
         // fill the allocated struct literal
         write_struct_literal(e->loc, e->inProgressMemory, e->sd, e->elements);
