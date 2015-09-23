@@ -24,6 +24,9 @@ double Port::dbl_max;
 double Port::dbl_min;
 longdouble Port::ldbl_max;
 
+bool Port::yl2x_supported = false;
+bool Port::yl2xp1_supported = false;
+
 void ldc::port_init()
 {
     Port::nan = llvm::APFloat::getNaN(llvm::APFloat::IEEEdouble).convertToDouble();
@@ -75,6 +78,16 @@ longdouble Port::sqrt(longdouble x)
 int Port::fequal(longdouble x, longdouble y)
 {
     return longdouble::fequal(x, y);
+}
+
+void Port::yl2x_impl(longdouble* x, longdouble* y, longdouble* res)
+{
+    assert(0);
+}
+
+void Port::yl2xp1_impl(longdouble* x, longdouble* y, longdouble* res)
+{
+    assert(0);
 }
 
 int Port::memicmp(const char *s1, const char *s2, int n)
