@@ -966,8 +966,9 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
 
     // if we are returning through a pointer arg
     // or if we are returning a reference
+    // or if we are returning a struct or static array
     // make sure we provide a lvalue back!
-    if (retinptr || (tf->isref && returnTy != Tvoid))
+    if (retinptr || (tf->isref && returnTy != Tvoid) || DtoIsPassedByRef(dReturnType))
         return new DVarValue(resulttype, retllval);
 
     return new DImValue(resulttype, retllval);
