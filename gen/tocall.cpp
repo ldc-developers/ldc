@@ -802,6 +802,8 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         (returnTy == Tstruct && !isaPointer(retllval)) ||
         (returnTy == Tsarray && isaArray(retllval));
 
+    bool retValIsAlloca = false;
+
     // Ignore ABI for intrinsics
     if (!intrinsic && !retinptr)
     {
@@ -812,6 +814,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
             LLValue* mem = DtoAlloca(returntype);
             irFty.getRet(returntype, retllval, mem);
             retllval = mem;
+            retValIsAlloca = true;
             storeReturnValueOnStack = false;
         }
         else
@@ -827,6 +830,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     {
         Logger::println("Storing return value to stack slot");
         retllval = DtoAllocaDump(retllval, returntype);
+        retValIsAlloca = true;
     }
 
     // repaint the type if necessary
@@ -955,7 +959,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // if we are returning through a pointer arg
     // or if we are returning a reference
     // make sure we provide a lvalue back!
-    if (retinptr || (tf->isref && returnTy != Tvoid))
+    if (retinptr || (tf->isref && returnTy != Tvoid) || retValIsAlloca)
         return new DVarValue(resulttype, retllval);
 
     return new DImValue(resulttype, retllval);
