@@ -676,16 +676,6 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
 
-    // cast to object
-    // Object _d_toObject(void* p)
-    {
-        llvm::StringRef fname("_d_toObject");
-        LLType *types[] = { voidPtrTy };
-        LLFunctionType* fty = llvm::FunctionType::get(objectTy, types, false);
-        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
-            ->setAttributes(Attr_ReadOnly_NoUnwind);
-    }
-
     // cast interface
     // void* _d_interface_cast(void* p, ClassInfo c)
     {

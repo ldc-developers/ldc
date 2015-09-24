@@ -179,7 +179,7 @@ void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad)
         }
 
         // add default type
-        m_defaultTypes.push_back(DtoType(vd->type));
+        m_defaultTypes.push_back(i1ToI8(DtoType(vd->type)));
 
         // advance offset to right past this field
         m_offset += getMemberSize(vd->type);

@@ -629,7 +629,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     DFuncValue* dfnval = fnval->isFunc();
 
     // handle intrinsics
-    bool intrinsic = (dfnval && dfnval->func && dfnval->func->llvmInternal == LLVMintrinsic);
+    bool intrinsic = (dfnval && dfnval->func && DtoIsIntrinsic(dfnval->func));
 
     // get function type info
     IrFuncTy &irFty = DtoIrTypeFunction(fnval);
@@ -935,17 +935,34 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     {
         LLFunction* llfunc = llvm::dyn_cast<LLFunction>(dfnval->val);
         if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
+        {
 #if LDC_LLVM_VER >= 302
             attrlist = llvm::Intrinsic::getAttributes(gIR->context(), static_cast<llvm::Intrinsic::ID>(llfunc->getIntrinsicID()));
 #else
             attrlist = llvm::Intrinsic::getAttributes(static_cast<llvm::Intrinsic::ID>(llfunc->getIntrinsicID()));
 #endif
+        }
         else
+        {
             call.setCallingConv(callconv);
+        }
     }
     else
+    {
         call.setCallingConv(callconv);
+    }
     call.setAttributes(attrlist);
+
+    // Special case for struct constructor calls: For temporaries, using the
+    // this pointer value returned from the constructor instead of the alloca
+    // passed as a parameter (which has the same value anyway) might lead to
+    // instruction dominance issues because of the way it interacts with the
+    // cleanups (see struct ctor hack in ToElemVisitor::visit(CallExp *)).
+    if (dfnval && dfnval->func && dfnval->func->isCtorDeclaration() &&
+        dfnval->func->isMember2()->isStructDeclaration())
+    {
+        return new DVarValue(resulttype, dfnval->vthis);
+    }
 
     // if we are returning through a pointer arg
     // or if we are returning a reference

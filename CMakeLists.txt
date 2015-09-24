@@ -495,7 +495,7 @@ if (HAVE_SC_ARG_MAX)
    add_definitions(-DHAVE_SC_ARG_MAX)
 endif()
 
-set_source_files_properties(driver/ldmd.cpp PROPERTIES
+set_source_files_properties(driver/ldmd.cpp driver/response.cpp PROPERTIES
     COMPILE_FLAGS "${LDC_CXXFLAGS}"
 )
 add_executable(${LDMD_EXE} dmd2/root/man.c driver/ldmd.cpp driver/response.cpp)

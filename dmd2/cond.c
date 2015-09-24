@@ -205,6 +205,9 @@ bool VersionCondition::isPredefined(const char *ident)
         "SPARC64",
         "S390",
         "S390X",
+#if IN_LLVM
+        "SystemZ",
+#endif
         "HPPA",
         "HPPA64",
         "SH",
@@ -216,6 +219,9 @@ bool VersionCondition::isPredefined(const char *ident)
         "BigEndian",
         "ELFv1",
         "ELFv2",
+#if IN_LLVM
+        "CRuntime_Bionic",
+#endif
         "CRuntime_Digitalmars",
         "CRuntime_Glibc",
         "CRuntime_Microsoft",
@@ -235,10 +241,6 @@ bool VersionCondition::isPredefined(const char *ident)
         "assert",
         "all",
         "none",
-#if IN_LLVM
-        "darwin", "Thumb",
-        "NVPTX", "NVPTX64",
-#endif
         NULL
     };
 

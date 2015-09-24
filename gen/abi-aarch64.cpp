@@ -125,6 +125,15 @@ struct AArch64TargetABI : TargetABI
         // pass a void* pointer to the actual __va_list struct to LLVM's va_arg intrinsic
         return DtoLoad(pAp);
     }
+
+    Type* vaListType() {
+        // We need to pass the actual va_list type for correct mangling. Simply
+        // using TypeIdentifier here is a bit wonky but works, as long as the name
+        // is actually available in the scope (this is what DMD does, so if a better
+        // solution is found there, this should be adapted).
+        return (new TypeIdentifier(Loc(),
+            Identifier::idPool("__va_list_tag")))->pointerTo();
+    }
 };
 
 // The public getter for abi.cpp

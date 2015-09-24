@@ -365,32 +365,6 @@ DValue* DtoDynamicCastObject(Loc& loc, DValue* val, Type* _to)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-DValue* DtoCastInterfaceToObject(Loc& loc, DValue* val, Type* to)
-{
-    // call:
-    // Object _d_toObject(void* p)
-
-    llvm::Function* func = LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_toObject");
-    LLFunctionType* funcTy = func->getFunctionType();
-
-    // void* p
-    LLValue* tmp = val->getRVal();
-    tmp = DtoBitCast(tmp, funcTy->getParamType(0));
-
-    // call it
-    LLValue* ret = gIR->CreateCallOrInvoke(func, tmp).getInstruction();
-
-    // cast return value
-    if (to != NULL)
-        ret = DtoBitCast(ret, DtoType(to));
-    else
-        to = ClassDeclaration::object->type;
-
-    return new DImValue(to, ret);
-}
-
-//////////////////////////////////////////////////////////////////////////////////////////
-
 DValue* DtoDynamicCastInterface(Loc& loc, DValue* val, Type* _to)
 {
     // call:

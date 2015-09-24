@@ -164,17 +164,6 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
         }
         else if (!passPointer)
         {
-            if (loweredDType->toBasetype()->ty == Tstruct)
-            {
-                // Do not pass empty structs at all for C++ ABI compatibility.
-                // Tests with clang reveal that more complex "empty" types, for
-                // example a struct containing an empty struct, are not
-                // optimized in the same way.
-                StructDeclaration *sd =
-                    static_cast<TypeStruct*>(loweredDType->toBasetype())->sym;
-                if (sd->fields.empty()) continue;
-            }
-
             if (abi->passByVal(loweredDType))
             {
                 attrBuilder.add(LDC_ATTRIBUTE(ByVal));
@@ -288,7 +277,7 @@ llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl)
 
     LLFunctionType* functype = DtoFunctionType(fdecl->type, getIrFunc(fdecl, true)->irFty, dthis, dnest,
                                                fdecl->isMain(), fdecl->isCtorDeclaration(),
-                                               fdecl->llvmInternal == LLVMintrinsic);
+                                               DtoIsIntrinsic(fdecl));
 
     return functype;
 }
@@ -456,7 +445,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     //printf("declare function: %s\n", fdecl->toPrettyChars());
 
     // intrinsic sanity check
-    if (fdecl->llvmInternal == LLVMintrinsic && fdecl->fbody) {
+    if (DtoIsIntrinsic(fdecl) && fdecl->fbody) {
         error(fdecl->loc, "intrinsics cannot have function bodies");
         fatal();
     }
@@ -474,7 +463,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
     // calling convention
     LINK link = f->linkage;
-    if (vafunc || fdecl->llvmInternal == LLVMintrinsic
+    if (vafunc || DtoIsIntrinsic(fdecl)
         // DMD treats _Dmain as having C calling convention and this has been
         // hardcoded into druntime, even if the frontend type has D linkage.
         // See Bugzilla issue 9028.
@@ -613,22 +602,22 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-static llvm::GlobalValue::LinkageTypes lowerFuncLinkage(FuncDeclaration* fdecl)
+static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration* fdecl)
 {
     // Intrinsics are always external.
-    if (fdecl->llvmInternal == LLVMintrinsic)
-        return llvm::GlobalValue::ExternalLinkage;
+    if (DtoIsIntrinsic(fdecl))
+        return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
 
     // Generated array op functions behave like templates in that they might be
     // emitted into many different modules.
     if (fdecl->isArrayOp && (willInline() || !isDruntimeArrayOp(fdecl)))
-        return templateLinkage;
+        return LinkageWithCOMDAT(templateLinkage, supportsCOMDAT());
 
     // A body-less declaration always needs to be marked as external in LLVM
     // (also e.g. naked template functions which would otherwise be weak_odr,
     // but where the definition is in module-level inline asm).
     if (!fdecl->fbody || fdecl->naked)
-        return llvm::GlobalValue::ExternalLinkage;
+        return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
 
     return DtoLinkage(fdecl);
 }
@@ -767,8 +756,9 @@ void DtoDefineFunction(FuncDeclaration* fd)
     IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
     gIR->functions.push_back(irFunc);
 
-    func->setLinkage(lowerFuncLinkage(fd));
-    if (func->hasLinkOnceLinkage() || func->hasWeakLinkage()) SET_COMDAT(func, gIR->module);
+    LinkageWithCOMDAT lwc = lowerFuncLinkage(fd);
+    func->setLinkage(lwc.first);
+    if (lwc.second) SET_COMDAT(func, gIR->module);
 
     // On x86_64, always set 'uwtable' for System V ABI compatibility.
     // TODO: Find a better place for this.

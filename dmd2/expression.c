@@ -1710,7 +1710,7 @@ bool functionParameters(Loc loc, Scope *sc, TypeFunction *tf,
             // If not D linkage, do promotions
 #if IN_LLVM
             // LDC: don't do promotions on intrinsics
-            if (tf->linkage != LINKd && (!fd || fd->llvmInternal != LLVMintrinsic))
+            if (tf->linkage != LINKd && (!fd || !DtoIsIntrinsic(fd)))
 #else
             if (tf->linkage != LINKd)
 #endif

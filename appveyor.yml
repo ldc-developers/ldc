@@ -4,10 +4,6 @@
 
 #version: 1.0.{build}-{branch}
 
-branches:
-  only:
-    - merge-2.067
-
 # Do not build on tags (GitHub only)
 skip_tags: true
 
@@ -30,7 +26,9 @@ matrix:
 # scripts that are called at very beginning, before repo cloning
 init:
   - git config --global core.autocrlf input
-  - '"c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64'
+  - call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
+  # Print environment info
+  - set
   - msbuild /version
   - cl
   - cmake --version
@@ -92,10 +90,10 @@ before_build:
 
 build_script:
   - cd c:\projects
-  # Work around LDC issue #988 and add a lib required in combination with VS 2015
-  - ps: (gc ldc\ldc2.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-L/FORCE:MULTIPLE", "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2.conf.in
-  - ps: (gc ldc\ldc2_install.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-L/FORCE:MULTIPLE", "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2_install.conf.in
-  - ps: (gc ldc\ldc2_phobos.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-L/FORCE:MULTIPLE", "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2_phobos.conf.in
+  # Config file templates: add a lib required in combination with VS 2015
+  - ps: (gc ldc\ldc2.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2.conf.in
+  - ps: (gc ldc\ldc2_install.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2_install.conf.in
+  - ps: (gc ldc\ldc2_phobos.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2_phobos.conf.in
   # Generate build files for LDC
   - md ninja-ldc
   - cd ninja-ldc
@@ -111,11 +109,13 @@ after_build:
         If ($Env:APPVEYOR_JOB_CONFIG -eq 'Debug') {
             echo 'Preparing artifact...'
             cd c:\projects\ninja-ldc
-            ninja install
+            ninja install > $null
+            copy bin\ldc2.pdb ..\ldc-x64\bin
             cd ..\ldc-x64
-            7z a ..\ldc-x64.7z * > $null
+            $artifactFilename = "LDC-Win64-master-$Env:APPVEYOR_BUILD_NUMBER.7z"
+            7z a "..\$artifactFilename" * > $null
             cd ..
-            Push-AppveyorArtifact ldc-x64.7z
+            Push-AppveyorArtifact $artifactFilename
         }
 
 #---------------------------------#
@@ -139,3 +139,20 @@ test_script:
   - set CTEST_SUFFIX=-E "-debug|testsuite"
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E testsuite)
   - ctest --output-on-failure %CTEST_SUFFIX%
+
+#---------------------------------#
+#     deployment configuration    #
+#---------------------------------#
+
+deploy:
+  release: 'LDC Win64 master'
+  description: "Latest successful Win64 CI builds of branch 'master'"
+  provider: GitHub
+  auth_token:
+    secure: qnbD8agL9mr0SFvy/sMkR2E29oQQ427T5zYwVVZkjRS3IZ361tG+9jlSiyEkyULy
+  artifact: LDC-Win64-master-$(APPVEYOR_BUILD_NUMBER).7z
+  draft: true
+  prerelease: true
+  on:
+    branch: master
+    APPVEYOR_JOB_CONFIG: Debug
