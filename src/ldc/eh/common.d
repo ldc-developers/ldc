@@ -327,6 +327,15 @@ struct ActiveCleanupBlock {
 /// currently done.
 ActiveCleanupBlock* innermostCleanupBlock = null;
 
+/// innermostCleanupBlock is per-stack, not per-thread, and as such needs to be
+/// swapped out on fiber context switches.
+extern(C) void* _d_eh_swapContext(void* newContext) nothrow
+{
+    auto old = innermostCleanupBlock;
+    innermostCleanupBlock = cast(ActiveCleanupBlock*)newContext;
+    return old;
+}
+
 /// During the search phase of unwinding, points to the currently active cleanup
 /// block (i.e. somewhere in the innermostCleanupBlock linked list, but possibly
 /// not at the beginning if the search for the catch block has already continued
