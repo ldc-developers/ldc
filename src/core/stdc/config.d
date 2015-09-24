@@ -146,6 +146,10 @@ else version( LDC )
         alias real c_long_double;
     else version( SPARC64 )
         alias real c_long_double;
+    else version( SystemZ )
+        alias real c_long_double;
+    else
+        static assert("c_long_double not declared for this platform/architecture.");
 }
 else version( SDC )
 {

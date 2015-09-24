@@ -32,11 +32,11 @@ version(LDC)
 {
     import ldc.intrinsics;
 
-    // llvm.umul.with.overflow.i64 might fall back to a software implementation
+    // llvm.(u)mul.with.overflow.i64 might fall back to a software implementation
     // in the form of __mulodi4, which only exists in compiler-rt and not
     // libgcc. Thus, we need to be sure not to emit it for now (see GitHub #818).
     version (X86_64)
-        version = LDC_HasNativeUlongMul;
+        version = LDC_HasNativeI64Mul;
 }
 
 nothrow:
@@ -585,7 +585,7 @@ unittest
 /// ditto
 long muls(long x, long y, ref bool overflow)
 {
-    version(LDC)
+    version(LDC_HasNativeI64Mul)
     {
         if (__ctfe)
         {
@@ -694,7 +694,7 @@ unittest
 /// ditto
 ulong mulu(ulong x, ulong y, ref bool overflow)
 {
-    version(LDC_HasNativeUlongMul)
+    version(LDC_HasNativeI64Mul)
     {
         if (__ctfe)
         {
