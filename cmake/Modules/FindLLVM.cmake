@@ -11,7 +11,7 @@
 #  LLVM_INCLUDE_DIRS   - Directory containing LLVM include files.
 #  LLVM_LDFLAGS        - Linker flags to add when linking against LLVM
 #                        (includes -LLLVM_LIBRARY_DIRS).
-#  LLVM_LIBRARIES      - Full paths to the library files to link against.
+#  LLVM_LIBRARIES      - List of library files to link against.
 #  LLVM_LIBRARY_DIRS   - Directory containing LLVM libraries.
 #  LLVM_ROOT_DIR       - The root directory of the LLVM installation.
 #                        llvm-config is searched for in ${LLVM_ROOT_DIR}/bin.
@@ -126,20 +126,6 @@ else()
             file(TO_CMAKE_PATH "${LLVM_${var}}" LLVM_${var})
         endif()
     endmacro()
-    macro(llvm_set_libs var flag prefix)
-       if(LLVM_FIND_QUIETLY)
-            set(_quiet_arg ERROR_QUIET)
-        endif()
-        execute_process(
-            COMMAND ${LLVM_CONFIG} --${flag} ${LLVM_FIND_COMPONENTS}
-            OUTPUT_VARIABLE tmplibs
-            OUTPUT_STRIP_TRAILING_WHITESPACE
-            ${_quiet_arg}
-        )
-        file(TO_CMAKE_PATH "${tmplibs}" tmplibs)
-        string(REGEX REPLACE "([$^.[|*+?()]|])" "\\\\\\1" pattern "${prefix}/")
-        string(REGEX MATCHALL "${pattern}[^ ]+" LLVM_${var} ${tmplibs})
-    endmacro()
 
     llvm_set(VERSION_STRING version)
     llvm_set(CXXFLAGS cxxflags)
@@ -172,7 +158,12 @@ else()
         string(REPLACE "\n" " " LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
     endif()
     llvm_set(LIBRARY_DIRS libdir true)
-    llvm_set_libs(LIBRARIES libfiles "${LLVM_LIBRARY_DIRS}")
+    llvm_set(LIBRARIES libs)
+    if (${LLVM_LDFLAGS} STREQUAL "")
+        set(LLVM_LDFLAGS "-L${LLVM_LIBRARY_DIRS}")
+    else()
+        set(LLVM_LDFLAGS "${LLVM_LDFLAGS} -L${LLVM_LIBRARY_DIRS}")
+    endif()
 endif()
 
 # On CMake builds of LLVM, the output of llvm-config --cxxflags does not
