@@ -819,8 +819,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
         LLValue* thismem = thisvar;
         if (!irFty.arg_this->byref)
         {
-            thismem = DtoRawAlloca(thisvar->getType(), 0, "this"); // FIXME: align?
-            DtoStore(thisvar, thismem);
+            thismem = DtoAllocaDump(thisvar, 0, "this");
             irFunc->thisArg = thismem;
         }
 
@@ -832,12 +831,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
 
     // give the 'nestArg' storage
     if (irFty.arg_nest)
-    {
-        LLValue *nestArg = irFunc->nestArg;
-        LLValue *val = DtoRawAlloca(nestArg->getType(), 0, "nestedFrame");
-        DtoStore(nestArg, val);
-        irFunc->nestArg = val;
-    }
+        irFunc->nestArg = DtoAllocaDump(irFunc->nestArg, 0, "nestedFrame");
 
     // give arguments storage and debug info
     if (fd->parameters)
@@ -912,10 +906,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
             llvm::CallInst::Create(GET_INTRINSIC_DECL(vastart), vaStartArg, "", gIR->scopebb());
 
             // copy _arguments to a memory location
-            LLType* argumentsType = irFunc->_arguments->getType();
-            LLValue* argumentsmem = DtoRawAlloca(argumentsType, 0, "_arguments_mem");
-            new llvm::StoreInst(irFunc->_arguments, argumentsmem, gIR->scopebb());
-            irFunc->_arguments = argumentsmem;
+            irFunc->_arguments = DtoAllocaDump(irFunc->_arguments, 0, "_arguments_mem");
         }
 
         // output function body

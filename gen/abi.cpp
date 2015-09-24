@@ -49,29 +49,22 @@ LLValue* ABIRewrite::getAddressOf(DValue* v)
     if (v->isLVal())
         return v->getLVal();
 
-    return storeToMemory(v->getRVal(), 0, ".getAddressOf_dump");
-}
-
-LLValue* ABIRewrite::storeToMemory(LLValue* rval, size_t alignment, const char* name)
-{
-    LLValue* address = DtoRawAlloca(rval->getType(), alignment, name);
-    DtoStore(rval, address);
-    return address;
+    return DtoAllocaDump(v, ".getAddressOf_dump");
 }
 
 void ABIRewrite::storeToMemory(LLValue* rval, LLValue* address)
 {
     LLType* pointerType = address->getType();
     assert(pointerType->isPointerTy());
-    LLType* pointerElementType = pointerType->getPointerElementType();
+    LLType* pointeeType = pointerType->getPointerElementType();
 
     LLType* rvalType = rval->getType();
-    if (rvalType != pointerElementType)
+    if (rvalType != pointeeType)
     {
-        if (getTypeStoreSize(rvalType) > getTypeAllocSize(pointerElementType))
+        if (getTypeStoreSize(rvalType) > getTypeAllocSize(pointeeType))
         {
             // not enough allocated memory
-            LLValue* paddedDump = storeToMemory(rval, 0, ".storeToMemory_paddedDump");
+            LLValue* paddedDump = DtoAllocaDump(rval, 0, ".storeToMemory_paddedDump");
             DtoAggrCopy(address, paddedDump);
             return;
         }
@@ -86,16 +79,16 @@ LLValue* ABIRewrite::loadFromMemory(LLValue* address, LLType* asType, const char
 {
     LLType* pointerType = address->getType();
     assert(pointerType->isPointerTy());
-    LLType* pointerElementType = pointerType->getPointerElementType();
+    LLType* pointeeType = pointerType->getPointerElementType();
 
-    if (asType == pointerElementType)
+    if (asType == pointeeType)
         return DtoLoad(address, name);
 
-    if (getTypeStoreSize(asType) > getTypeAllocSize(pointerElementType))
+    if (getTypeStoreSize(asType) > getTypeAllocSize(pointeeType))
     {
         // not enough allocated memory
         LLValue* paddedDump = DtoRawAlloca(asType, 0, ".loadFromMemory_paddedDump");
-        DtoMemCpy(paddedDump, address, DtoConstSize_t(getTypeAllocSize(pointerElementType)));
+        DtoMemCpy(paddedDump, address, DtoConstSize_t(getTypeAllocSize(pointeeType)));
         return DtoLoad(paddedDump, name);
     }
 

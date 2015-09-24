@@ -156,8 +156,7 @@ struct IntegerRewrite : ABIRewrite
 
     LLValue* get(Type* dty, DValue* dv)
     {
-        LLValue* integer = dv->getRVal();
-        LLValue* integerDump = storeToMemory(integer, 0, ".IntegerRewrite_dump");
+        LLValue* integerDump = DtoAllocaDump(dv, ".IntegerRewrite_dump");
 
         LLType* type = DtoType(dty);
         return loadFromMemory(integerDump, type, ".IntegerRewrite_getResult");
@@ -228,8 +227,7 @@ struct ExplicitByvalRewrite : ABIRewrite
             return copyForCallee;
         }
 
-        LLValue* originalValue = v->getRVal();
-        LLValue* copyForCallee = storeToMemory(originalValue, alignment, ".ExplicitByvalRewrite_putResult");
+        LLValue* copyForCallee = DtoAllocaDump(v->getRVal(), alignment, ".ExplicitByvalRewrite_putResult");
         return copyForCallee;
     }
 

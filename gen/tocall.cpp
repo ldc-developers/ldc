@@ -412,12 +412,8 @@ errorLoad:
         load->setAlignment(getTypeAllocSize(load->getType()));
         load->setAtomic(llvm::AtomicOrdering(atomicOrdering));
         llvm::Value* val = load;
-        if (val->getType() != ptrTy) {
-            llvm::Value* tmp = DtoRawAlloca(val->getType(), retType->alignsize());
-            DtoStore(val, tmp);
-            tmp = DtoBitCast(tmp, ptrTy->getPointerTo());
-            val = tmp;
-        }
+        if (val->getType() != ptrTy)
+            val = DtoAllocaDump(val, retType);
         result = new DImValue(retType, val);
         return true;
     }
@@ -468,11 +464,8 @@ errorCmpxchg:
         LLValue* ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, llvm::AtomicOrdering(atomicOrdering));
 #endif
         llvm::Value* retVal = ret;
-        if (retVal->getType() != retTy) {
-            llvm::Value* tmp = DtoRawAlloca(retVal->getType(), exp3->type->alignsize());
-            DtoStore(retVal, tmp);
-            retVal = DtoBitCast(tmp, retTy->getPointerTo());
-        }
+        if (retVal->getType() != retTy)
+            retVal = DtoAllocaDump(retVal, exp3->type);
         result = new DImValue(exp3->type, retVal);
         return true;
     }
@@ -614,7 +607,7 @@ errorCmpxchg:
 
 // FIXME: this function is a mess !
 
-DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments, llvm::Value *retvar)
+DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments, llvm::Value* retvar)
 {
     IF_LOG Logger::println("DtoCallFunction()");
     LOG_SCOPE
@@ -629,29 +622,34 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     DFuncValue* dfnval = fnval->isFunc();
 
     // handle intrinsics
-    bool intrinsic = (dfnval && dfnval->func && DtoIsIntrinsic(dfnval->func));
+    const bool intrinsic = (dfnval && dfnval->func && DtoIsIntrinsic(dfnval->func));
 
     // get function type info
-    IrFuncTy &irFty = DtoIrTypeFunction(fnval);
-    TypeFunction* tf = DtoTypeFunction(fnval);
+    IrFuncTy& irFty = DtoIrTypeFunction(fnval);
+    TypeFunction* const tf = DtoTypeFunction(fnval);
+    Type* const returntype = tf->next;
+    const TY returnTy = returntype->toBasetype()->ty;
+
+    if (resulttype == NULL)
+        resulttype = returntype;
 
     // misc
     bool retinptr = irFty.arg_sret;
-    bool thiscall = irFty.arg_this;
-    bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
-    bool nestedcall = irFty.arg_nest;
-    bool dvarargs = irFty.arg_arguments;
+    const bool thiscall = irFty.arg_this;
+    const bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
+    const bool nestedcall = irFty.arg_nest;
+    const bool dvarargs = irFty.arg_arguments;
 
     // get callee llvm value
-    LLValue* callable = DtoCallableValue(fnval);
-    LLFunctionType* callableTy = DtoExtractFunctionType(callable->getType());
+    LLValue* const callable = DtoCallableValue(fnval);
+    LLFunctionType* const callableTy = DtoExtractFunctionType(callable->getType());
     assert(callableTy);
-    llvm::CallingConv::ID callconv = gABI->callingConv(callableTy, tf->linkage);
+    const llvm::CallingConv::ID callconv = gABI->callingConv(callableTy, tf->linkage);
 
 //     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
 
     // get number of explicit arguments
-    size_t n_arguments = arguments ? arguments->dim : 0;
+    const size_t n_arguments = arguments ? arguments->dim : 0;
 
     // get llvm argument iterator, for types
     LLFunctionType::param_iterator argTypesBegin = callableTy->param_begin();
@@ -800,8 +798,6 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     // If the function returns a struct or a static array, and the return
     // value is not a pointer to a struct or a static array, store it to
     // a stack slot before continuing.
-    Type* dReturnType = tf->next;
-    TY returnTy = dReturnType->toBasetype()->ty;
     bool storeReturnValueOnStack =
         (returnTy == Tstruct && !isaPointer(retllval)) ||
         (returnTy == Tsarray && isaArray(retllval));
@@ -810,18 +806,18 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     if (!intrinsic && !retinptr)
     {
         // do abi specific return value fixups
-        DImValue dretval(dReturnType, retllval);
+        DImValue dretval(returntype, retllval);
         if (storeReturnValueOnStack)
         {
             Logger::println("Storing return value to stack slot");
-            LLValue* mem = DtoRawAlloca(DtoType(dReturnType), dReturnType->alignsize());
-            irFty.getRet(dReturnType, &dretval, mem);
+            LLValue* mem = DtoAlloca(returntype);
+            irFty.getRet(returntype, &dretval, mem);
             retllval = mem;
             storeReturnValueOnStack = false;
         }
         else
         {
-            retllval = irFty.getRet(dReturnType, &dretval);
+            retllval = irFty.getRet(returntype, &dretval);
             storeReturnValueOnStack =
                 (returnTy == Tstruct && !isaPointer(retllval)) ||
                 (returnTy == Tsarray && isaArray(retllval));
@@ -831,98 +827,91 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     if (storeReturnValueOnStack)
     {
         Logger::println("Storing return value to stack slot");
-        LLValue* mem = DtoRawAlloca(retllval->getType(), dReturnType->alignsize());
-        DtoStore(retllval, mem);
-        retllval = mem;
+        retllval = DtoAllocaDump(retllval, returntype);
     }
 
     // repaint the type if necessary
-    if (resulttype)
+    Type* rbase = stripModifiers(resulttype->toBasetype(), true);
+    Type* nextbase = stripModifiers(returntype->toBasetype(), true);
+    if (!rbase->equals(nextbase))
     {
-        Type* rbase = stripModifiers(resulttype->toBasetype(), true);
-        Type* nextbase = stripModifiers(tf->nextOf()->toBasetype(), true);
-        if (!rbase->equals(nextbase))
+        IF_LOG Logger::println("repainting return value from '%s' to '%s'", returntype->toChars(), rbase->toChars());
+        switch(rbase->ty)
         {
-            IF_LOG Logger::println("repainting return value from '%s' to '%s'", tf->nextOf()->toChars(), rbase->toChars());
-            switch(rbase->ty)
+        case Tarray:
+            if (tf->isref)
+                retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
+            else
+            retllval = DtoAggrPaint(retllval, DtoType(rbase));
+            break;
+
+        case Tsarray:
+            // nothing ?
+            break;
+
+        case Tclass:
+        case Taarray:
+        case Tpointer:
+            if (tf->isref)
+                retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
+            else
+            retllval = DtoBitCast(retllval, DtoType(rbase));
+            break;
+
+        case Tstruct:
+            if (nextbase->ty == Taarray && !tf->isref)
             {
-            case Tarray:
-                if (tf->isref)
-                    retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
-                else
-                retllval = DtoAggrPaint(retllval, DtoType(rbase));
-                break;
-
-            case Tsarray:
-                // nothing ?
-                break;
-
-            case Tclass:
-            case Taarray:
-            case Tpointer:
-                if (tf->isref)
-                    retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
-                else
-                retllval = DtoBitCast(retllval, DtoType(rbase));
-                break;
-
-            case Tstruct:
-                if (nextbase->ty == Taarray && !tf->isref)
-                {
-                    // In the D2 frontend, the associative array type and its
-                    // object.AssociativeArray representation are used
-                    // interchangably in some places. However, AAs are returned
-                    // by value and not in an sret argument, so if the struct
-                    // type will be used, give the return value storage here
-                    // so that we get the right amount of indirections.
-                    LLValue* tmp = DtoAlloca(rbase, ".aalvauetmp");
-                    LLValue* val = DtoInsertValue(
-                        llvm::UndefValue::get(DtoType(rbase)), retllval, 0);
-                    DtoStore(val, tmp);
-                    retllval = tmp;
-                    retinptr = true;
-                    break;
-                }
-                // Fall through.
-
-            default:
-                // Unfortunately, DMD has quirks resp. bugs with regard to name
-                // mangling: For voldemort-type functions which return a nested
-                // struct, the mangled name of the return type changes during
-                // semantic analysis.
-                //
-                // (When the function deco is first computed as part of
-                // determining the return type deco, its return type part is
-                // left off to avoid cycles. If mangle/toDecoBuffer is then
-                // called again for the type, it will pick up the previous
-                // result and return the full deco string for the nested struct
-                // type, consisting of both the full mangled function name, and
-                // the struct identifier.)
-                //
-                // Thus, the type merging in stripModifiers does not work
-                // reliably, and the equality check above can fail even if the
-                // types only differ in a qualifier.
-                //
-                // Because a proper fix for this in the frontend is hard, we
-                // just carry on and hope that the frontend didn't mess up,
-                // i.e. that the LLVM types really match up.
-                //
-                // An example situation where this case occurs is:
-                // ---
-                // auto iota() {
-                //     static struct Result {
-                //         this(int) {}
-                //         inout(Result) test() inout { return cast(inout)Result(0); }
-                //     }
-                //     return Result.init;
-                // }
-                // void main() { auto r = iota(); }
-                // ---
-                Logger::println("Unknown return mismatch type, ignoring.");
+                // In the D2 frontend, the associative array type and its
+                // object.AssociativeArray representation are used
+                // interchangably in some places. However, AAs are returned
+                // by value and not in an sret argument, so if the struct
+                // type will be used, give the return value storage here
+                // so that we get the right amount of indirections.
+                LLValue* val = DtoInsertValue(
+                    llvm::UndefValue::get(DtoType(rbase)), retllval, 0);
+                retllval = DtoAllocaDump(val, rbase, ".aalvaluetmp");
+                retinptr = true;
                 break;
             }
-            IF_LOG Logger::cout() << "final return value: " << *retllval << '\n';
+            // Fall through.
+
+        default:
+            // Unfortunately, DMD has quirks resp. bugs with regard to name
+            // mangling: For voldemort-type functions which return a nested
+            // struct, the mangled name of the return type changes during
+            // semantic analysis.
+            //
+            // (When the function deco is first computed as part of
+            // determining the return type deco, its return type part is
+            // left off to avoid cycles. If mangle/toDecoBuffer is then
+            // called again for the type, it will pick up the previous
+            // result and return the full deco string for the nested struct
+            // type, consisting of both the full mangled function name, and
+            // the struct identifier.)
+            //
+            // Thus, the type merging in stripModifiers does not work
+            // reliably, and the equality check above can fail even if the
+            // types only differ in a qualifier.
+            //
+            // Because a proper fix for this in the frontend is hard, we
+            // just carry on and hope that the frontend didn't mess up,
+            // i.e. that the LLVM types really match up.
+            //
+            // An example situation where this case occurs is:
+            // ---
+            // auto iota() {
+            //     static struct Result {
+            //         this(int) {}
+            //         inout(Result) test() inout { return cast(inout)Result(0); }
+            //     }
+            //     return Result.init;
+            // }
+            // void main() { auto r = iota(); }
+            // ---
+            Logger::println("Unknown return mismatch type, ignoring.");
+            break;
         }
+        IF_LOG Logger::cout() << "final return value: " << *retllval << '\n';
     }
 
     // set calling convention and parameter attributes

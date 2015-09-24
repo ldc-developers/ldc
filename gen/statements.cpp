@@ -1150,7 +1150,7 @@ public:
         if (stmt->key)
             keyvar = DtoRawVarDeclaration(stmt->key);
         else
-            keyvar = DtoRawAlloca(keytype, stmt->key->type->alignsize(), "foreachkey");
+            keyvar = DtoRawAlloca(keytype, 0, "foreachkey");
         LLValue* zerokey = LLConstantInt::get(keytype, 0, false);
 
         // value
