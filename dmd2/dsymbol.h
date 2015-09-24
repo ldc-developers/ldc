@@ -293,8 +293,6 @@ public:
 
     IrDsymbol ir;
 #endif
-private:
-    Dsymbol *takeTypeTupleIndex(Loc loc, Scope *sc, Dsymbol *s, RootObject *id, Expression *indexExpr);
 };
 
 // Dsymbol that generates a scope
