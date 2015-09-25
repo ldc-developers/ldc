@@ -66,12 +66,11 @@ after_success:
     fi
 
 notifications:
-  # Temporarily disabled due to time limit problems.
-  # email:
-  #   recipients:
-  #     - "ldc-dev@googlegroups.com"
-  #   on_success: never
-  #   on_failure: change
+  email:
+    recipients:
+      - "digitalmars-d-ldc@puremagic.com"
+    on_success: never
+    on_failure: change
   irc:
     channels:
       - "irc.freenode.org#ldc"

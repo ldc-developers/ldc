@@ -90,15 +90,18 @@ static cl::list<std::string, StringsAdapter> importPaths("I",
     cl::Prefix);
 
 static cl::opt<std::string> defaultLib("defaultlib",
-    cl::desc("Default libraries for non-debug-info build (overrides previous)"),
+    cl::desc("Default libraries to link with (overrides previous)"),
     cl::value_desc("lib1,lib2,..."),
     cl::ZeroOrMore);
 
 static cl::opt<std::string> debugLib("debuglib",
-    cl::desc("Default libraries for debug info build (overrides previous)"),
+    cl::desc("Debug versions of default libraries (overrides previous)"),
     cl::value_desc("lib1,lib2,..."),
     cl::ZeroOrMore);
 
+static cl::opt<bool> linkDebugLib("link-debuglib",
+    cl::desc("Link with libraries specified in -debuglib, not -defaultlib"),
+    cl::ZeroOrMore);
 
 #if LDC_LLVM_VER < 304
 namespace llvm {
@@ -401,8 +404,16 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     sourceFiles.reserve(fileList.size());
     typedef std::vector<std::string>::iterator It;
     for(It I = fileList.begin(), E = fileList.end(); I != E; ++I)
+    {
         if (!I->empty())
-            sourceFiles.push(mem.xstrdup(I->c_str()));
+        {
+            char* copy = mem.xstrdup(I->c_str());
+#ifdef _WIN32
+            std::replace(copy, copy + I->length(), '/', '\\');
+#endif
+            sourceFiles.push(copy);
+        }
+    }
 
     if (noDefaultLib)
     {
@@ -413,8 +424,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     else
     {
         // Parse comma-separated default library list.
-        std::stringstream libNames(
-            global.params.symdebug ? debugLib : defaultLib);
+        std::stringstream libNames(linkDebugLib ? debugLib : defaultLib);
         while (libNames.good())
         {
             std::string lib;
@@ -672,6 +682,13 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
 #endif
+#if LDC_LLVM_VER >= 303
+        case llvm::Triple::systemz:
+            VersionCondition::addPredefinedGlobalIdent("SystemZ");
+            VersionCondition::addPredefinedGlobalIdent("S390X"); // For backwards compatibility.
+            VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
+            break;
+#endif
         default:
             error(Loc(), "invalid cpu architecture specified: %s", global.params.targetTriple.getArchName().str().c_str());
             fatal();
@@ -742,12 +759,14 @@ static void registerPredefinedTargetVersions() {
             if (global.params.targetTriple.getEnvironment() == llvm::Triple::Android)
             {
                 VersionCondition::addPredefinedGlobalIdent("Android");
+                VersionCondition::addPredefinedGlobalIdent("CRuntime_Bionic");
             }
             else
 #endif
             {
                 VersionCondition::addPredefinedGlobalIdent("linux");
                 VersionCondition::addPredefinedGlobalIdent("Posix");
+                VersionCondition::addPredefinedGlobalIdent("CRuntime_Glibc");
             }
             break;
         case llvm::Triple::Haiku:
@@ -1068,7 +1087,7 @@ int main(int argc, char **argv)
         const char *ext;
         const char *name;
 
-        const char *p = static_cast<const char *>(files.data[i]);
+        const char *p = files.data[i];
 
         p = FileName::name(p);      // strip path
         ext = FileName::ext(p);
@@ -1167,7 +1186,7 @@ int main(int argc, char **argv)
         }
 
         id = Identifier::idPool(name);
-        Module *m = new Module(static_cast<const char *>(files.data[i]), id, global.params.doDocComments, global.params.doHdrGeneration);
+        Module *m = new Module(files.data[i], id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
     }
 

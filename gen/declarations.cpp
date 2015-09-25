@@ -88,8 +88,9 @@ public:
             IrAggr *ir = getIrAggr(decl);
             llvm::GlobalVariable *interfaceZ = ir->getClassInfoSymbol();
             interfaceZ->setInitializer(ir->getClassInfoInit());
-            interfaceZ->setLinkage(DtoLinkage(decl));
-            if (DtoIsTemplateInstance(decl)) SET_COMDAT(interfaceZ, gIR->module);
+            LinkageWithCOMDAT lwc = DtoLinkage(decl);
+            interfaceZ->setLinkage(lwc.first);
+            if (lwc.second) SET_COMDAT(interfaceZ, gIR->module);
         }
     }
 
@@ -124,8 +125,9 @@ public:
             IrAggr *ir = getIrAggr(decl);
             llvm::GlobalVariable *initZ = ir->getInitSymbol();
             initZ->setInitializer(ir->getDefaultInit());
-            initZ->setLinkage(DtoLinkage(decl));
-            if (DtoIsTemplateInstance(decl)) SET_COMDAT(initZ, gIR->module);
+            LinkageWithCOMDAT lwc = DtoLinkage(decl);
+            initZ->setLinkage(lwc.first);
+            if (lwc.second) SET_COMDAT(initZ, gIR->module);
 
             // emit typeinfo
             DtoTypeInfoOf(decl->type);
@@ -168,23 +170,22 @@ public:
             }
 
             IrAggr *ir = getIrAggr(decl);
-            llvm::GlobalValue::LinkageTypes const linkage = DtoLinkage(decl);
-            const bool isTemplateInstance = DtoIsTemplateInstance(decl);
+            const LinkageWithCOMDAT lwc = DtoLinkage(decl);
 
             llvm::GlobalVariable *initZ = ir->getInitSymbol();
             initZ->setInitializer(ir->getDefaultInit());
-            initZ->setLinkage(linkage);
-            if (isTemplateInstance) SET_COMDAT(initZ, gIR->module);
+            initZ->setLinkage(lwc.first);
+            if (lwc.second) SET_COMDAT(initZ, gIR->module);
 
             llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
             vtbl->setInitializer(ir->getVtblInit());
-            vtbl->setLinkage(linkage);
-            if (isTemplateInstance) SET_COMDAT(vtbl, gIR->module);
+            vtbl->setLinkage(lwc.first);
+            if (lwc.second) SET_COMDAT(vtbl, gIR->module);
 
             llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
             classZ->setInitializer(ir->getClassInfoInit());
-            classZ->setLinkage(linkage);
-            if (isTemplateInstance) SET_COMDAT(classZ, gIR->module);
+            classZ->setLinkage(lwc.first);
+            if (lwc.second) SET_COMDAT(classZ, gIR->module);
 
             // No need to do TypeInfo here, it is <name>__classZ for classes in D2.
         }
@@ -250,7 +251,7 @@ public:
             llvm::GlobalVariable *gvar = llvm::cast<llvm::GlobalVariable>(irGlobal->value);
             assert(gvar && "DtoResolveVariable should have created value");
 
-            const llvm::GlobalValue::LinkageTypes llLinkage = DtoLinkage(decl);
+            const LinkageWithCOMDAT lwc = DtoLinkage(decl);
 
             // Check if we are defining or just declaring the global in this module.
             if (!(decl->storage_class & STCextern))
@@ -263,9 +264,10 @@ public:
                 {
                     llvm::GlobalVariable* newGvar = getOrCreateGlobal(decl->loc,
                         irs->module, initVal->getType(), gvar->isConstant(),
-                        llLinkage, 0,
+                        lwc.first, 0,
                         "", // We take on the name of the old global below.
                         gvar->isThreadLocal());
+                    if (lwc.second) SET_COMDAT(newGvar, gIR->module);
 
                     newGvar->setAlignment(gvar->getAlignment());
                     newGvar->takeName(gvar);
@@ -283,7 +285,8 @@ public:
                 assert(!irGlobal->constInit);
                 irGlobal->constInit = initVal;
                 gvar->setInitializer(initVal);
-                gvar->setLinkage(llLinkage);
+                gvar->setLinkage(lwc.first);
+                if (lwc.second) SET_COMDAT(gvar, gIR->module);
 
                 // Also set up the debug info.
                 irs->DBuilder.EmitGlobalVariable(gvar, decl);

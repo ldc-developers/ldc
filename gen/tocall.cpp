@@ -629,7 +629,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     DFuncValue* dfnval = fnval->isFunc();
 
     // handle intrinsics
-    bool intrinsic = (dfnval && dfnval->func && dfnval->func->llvmInternal == LLVMintrinsic);
+    bool intrinsic = (dfnval && dfnval->func && DtoIsIntrinsic(dfnval->func));
 
     // get function type info
     IrFuncTy &irFty = DtoIrTypeFunction(fnval);
