@@ -26,7 +26,6 @@ matrix:
 # scripts that are called at very beginning, before repo cloning
 init:
   - git config --global core.autocrlf input
-  - ren "c:\Program Files (x86)\Windows Kits\10\include\wdf" 00wdf
   - call "c:\Program Files (x86)\Microsoft Visual Studio 14.0\VC\vcvarsall.bat" amd64
   # Print environment info
   - set
@@ -100,7 +99,7 @@ build_script:
   - cd ninja-ldc
   - cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x64 -DLLVM_ROOT_DIR=c:/projects/llvm-x64 -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc
   # Work around LDC issue #930
-  - ps: (gc build.ninja).replace('runtime/std/string-unittest-debug.obj -w -d -g -unittest', 'runtime/std/string-unittest-debug.obj -w -d -unittest') | sc build.ninja
+  - ps: (gc build.ninja).replace('runtime/std/string-unittest-debug.obj -w -d -g -link-debuglib -unittest', 'runtime/std/string-unittest-debug.obj -w -d -link-debuglib -unittest') | sc build.ninja
   # Build LDC, druntime and phobos
   - ninja -j2
 
@@ -110,12 +109,13 @@ after_build:
         If ($Env:APPVEYOR_JOB_CONFIG -eq 'Debug') {
             echo 'Preparing artifact...'
             cd c:\projects\ninja-ldc
-            ninja install
+            ninja install > $null
             copy bin\ldc2.pdb ..\ldc-x64\bin
             cd ..\ldc-x64
-            7z a ..\ldc-x64.7z * > $null
+            $artifactFilename = "LDC-Win64-master-$Env:APPVEYOR_BUILD_NUMBER.7z"
+            7z a "..\$artifactFilename" * > $null
             cd ..
-            Push-AppveyorArtifact ldc-x64.7z
+            Push-AppveyorArtifact $artifactFilename
         }
 
 #---------------------------------#
@@ -146,11 +146,11 @@ test_script:
 
 deploy:
   release: 'LDC Win64 master'
-  description: 'Rolling release based on latest successful Win64 CI build from master branch'
+  description: "Latest successful Win64 CI builds of branch 'master'"
   provider: GitHub
   auth_token:
     secure: qnbD8agL9mr0SFvy/sMkR2E29oQQ427T5zYwVVZkjRS3IZ361tG+9jlSiyEkyULy
-  artifact: ldc-x64.7z
+  artifact: LDC-Win64-master-$(APPVEYOR_BUILD_NUMBER).7z
   draft: true
   prerelease: true
   on:

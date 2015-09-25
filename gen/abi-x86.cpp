@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvm.h"
+#include "id.h"
 #include "mars.h"
 #include "gen/abi-generic.h"
 #include "gen/abi.h"
@@ -70,6 +71,7 @@ struct X86TargetABI : TargetABI
         }
     }
 
+private:
     bool returnOSXStructInArg(TypeStruct* t)
     {
         // https://developer.apple.com/library/mac/documentation/DeveloperTools/Conceptual/LowLevelABI/Mac_OS_X_ABI_Function_Calls.pdf
@@ -86,6 +88,20 @@ struct X86TargetABI : TargetABI
         return !t->sym->isPOD() || (sz != 1 && sz != 2 && sz != 4 && sz != 8);
     }
 
+    bool isMagicCLong(Type *t)
+    {
+        // The frontend has magic structs to express the variable-sized C types
+        // for C++ mangling purposes. We need to pass them like integers, not
+        // on the stack.
+
+        Type * const bt = t->toBasetype();
+        if (bt->ty != Tstruct) return false;
+
+        Identifier *id = static_cast<TypeStruct *>(bt)->sym->ident;
+        return (id == Id::__c_long) || (id == Id::__c_ulong);
+    }
+
+public:
     bool returnInArg(TypeFunction* tf)
     {
         if (tf->isref)
@@ -103,6 +119,8 @@ struct X86TargetABI : TargetABI
         // as well as structs (except for some OSX cases).
         else
         {
+            if (isMagicCLong(rt)) return false;
+
             if (rt->ty == Tstruct)
             {
                 return !isOSX || returnOSXStructInArg((TypeStruct*)rt);
@@ -193,9 +211,10 @@ struct X86TargetABI : TargetABI
         {
             // RETURN VALUE
 
-            // cfloat -> i64
-            if (tf->next->toBasetype() == Type::tcomplex32)
+            if ((!fty.ret->byref && isMagicCLong(tf->next)) ||
+                tf->next->toBasetype() == Type::tcomplex32)
             {
+                // __c_long -> i32, cfloat -> i64
                 fty.ret->rewrite = &integerRewrite;
                 fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
             }
@@ -212,12 +231,14 @@ struct X86TargetABI : TargetABI
                     fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
                 }
             }
+
             // IMPLICIT PARAMETERS
 
             // EXPLICIT PARAMETERS
 
             // Clang does not pass empty structs, while it seems that GCC does,
-            // at least on Linux x86.
+            // at least on Linux x86. We don't know whether the C compiler will
+            // be Clang or GCC, so just assume Clang on OS X and G++ on Linux.
             if (isOSX)
             {
                 size_t i = 0;
@@ -238,6 +259,18 @@ struct X86TargetABI : TargetABI
                         }
                     }
                     ++i;
+                }
+            }
+
+            for (size_t i = 0; i < fty.args.size(); ++i)
+            {
+                IrFuncTyArg *arg = fty.args[i];
+                if (!arg->byref && isMagicCLong(arg->type))
+                {
+                    arg->rewrite = &integerRewrite;
+                    arg->ltype = integerRewrite.type(arg->type, arg->ltype);
+                    arg->byref = false;
+                    arg->attrs.clear();
                 }
             }
         }
