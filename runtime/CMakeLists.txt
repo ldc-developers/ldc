@@ -546,31 +546,15 @@ else()
     build_runtime_variants("" "${RT_CFLAGS}" "${LD_FLAGS}" "${LIB_SUFFIX}" LIBS_TO_INSTALL)
 endif()
 
-# Copy over druntime modules, preferring hand-written .di files.
-set(DRUNTIME_IMPORT_DIR ${CMAKE_BINARY_DIR}/import)
-set(DRUNTIME_PACKAGES core etc ldc)
-
-set(druntime_modules)
-foreach(p ${DRUNTIME_PACKAGES})
-    file(GLOB_RECURSE m ${RUNTIME_DIR}/src/${p}/*.d ${RUNTIME_DIR}/src/${p}/*.di)
-    list(APPEND druntime_modules ${m})
-endforeach()
-
-foreach(f ${druntime_modules})
-    if (NOT EXISTS "${f}i")
-        file(RELATIVE_PATH relpath ${RUNTIME_DIR}/src ${f})
-        configure_file(${f} ${DRUNTIME_IMPORT_DIR}/${relpath} COPYONLY)
-    endif()
-endforeach()
-
-
 #
 # Install target.
 #
 
-install(FILES ${DRUNTIME_IMPORT_DIR}/object.d DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
+set(DRUNTIME_PACKAGES core etc ldc)
+
+install(FILES ${RUNTIME_DIR}/src/object.d DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 foreach(p ${DRUNTIME_PACKAGES})
-    install(DIRECTORY ${DRUNTIME_IMPORT_DIR}/${p} DESTINATION ${INCLUDE_INSTALL_DIR})
+    install(DIRECTORY ${RUNTIME_DIR}/src/${p} DESTINATION ${INCLUDE_INSTALL_DIR})
 endforeach()
 if(PHOBOS2_DIR)
     install(DIRECTORY ${PHOBOS2_DIR}/std DESTINATION ${INCLUDE_INSTALL_DIR} FILES_MATCHING PATTERN "*.d")
