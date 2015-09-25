@@ -1,6 +1,6 @@
 
 /* Compiler implementation of the D programming language
- * Copyright (c) 1999-2014 by Digital Mars
+ * Copyright (c) 1999-2015 by Digital Mars
  * All Rights Reserved
  * written by Walter Bright
  * http://www.digitalmars.com
@@ -68,7 +68,7 @@ void Global::init()
 #endif
 #endif
 
-    copyright = "Copyright (c) 1999-2014 by Digital Mars";
+    copyright = "Copyright (c) 1999-2015 by Digital Mars";
     written = "written by Walter Bright";
 #if IN_LLVM
     compiler.vendor = "LDC";

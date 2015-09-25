@@ -202,6 +202,20 @@ LLValue* DtoNestedContext(Loc& loc, Dsymbol* sym)
     IF_LOG Logger::println("DtoNestedContext for %s", sym->toPrettyChars());
     LOG_SCOPE;
 
+    // Exit quickly for functions that accept a context pointer for ABI purposes,
+    // but do not actually read from it.
+    if (FuncDeclaration* symfd = sym->isFuncDeclaration())
+    {
+        // Make sure we've had a chance to analyze nested context usage
+        DtoCreateNestedContextType(symfd);
+
+        if (getIrFunc(symfd)->depth == -1)
+        {
+            Logger::println("function does not actually need context, returning undef");
+            return llvm::UndefValue::get(getVoidPtrType());
+        }
+    }
+
     // The function we are currently in, and the constructed object/called
     // function might inherit a context pointer from.
     IrFunction* irfunc = gIR->func();
@@ -209,18 +223,21 @@ LLValue* DtoNestedContext(Loc& loc, Dsymbol* sym)
     bool fromParent = true;
 
     LLValue* val;
-    // if this func has its own vars that are accessed by nested funcs
-    // use its own context
-    if (irfunc->nestedVar) {
+    if (irfunc->nestedVar)
+    {
+        // if this func has its own vars that are accessed by nested funcs
+        // use its own context
         val = irfunc->nestedVar;
         fromParent = false;
     }
-    // otherwise, it may have gotten a context from the caller
     else if (irfunc->nestArg)
+    {
+        // otherwise, it may have gotten a context from the caller
         val = DtoLoad(irfunc->nestArg);
-    // or just have a this argument
+    }
     else if (irfunc->thisArg)
     {
+        // or just have a this argument
         AggregateDeclaration* ad = irfunc->decl->isMember2();
         val = ad->isClassDeclaration() ? DtoLoad(irfunc->thisArg) : irfunc->thisArg;
         if (!ad->vthis)
@@ -233,6 +250,17 @@ LLValue* DtoNestedContext(Loc& loc, Dsymbol* sym)
     }
     else
     {
+        if (sym->isFuncDeclaration())
+        {
+            // If we are here, the function actually needs its nested context
+            // and we cannot provide one. Thus, it's invalid code that is
+            // unfortunately not caught in the frontend (e.g. a function literal
+            // tries to call a nested function from the parent scope).
+            error(loc, "function %s is a nested function and cannot be accessed from %s",
+                sym->toPrettyChars(), irfunc->decl->toPrettyChars());
+            fatal();
+        }
+
         // Use null instead of e.g. LLVM's undef to not break bitwise
         // comparison for instances of nested struct types which don't have any
         // nested references.
@@ -245,14 +273,6 @@ LLValue* DtoNestedContext(Loc& loc, Dsymbol* sym)
         // of the function where sym is declared.
         frameToPass = ad->toParent()->isFuncDeclaration();
     } else if (FuncDeclaration* symfd = sym->isFuncDeclaration()) {
-        // Make sure we've had a chance to analyze nested context usage
-        DtoCreateNestedContextType(symfd);
-
-        // if this is for a function that doesn't access variables from
-        // enclosing scopes, it doesn't matter what we pass.
-        if (getIrFunc(symfd)->depth == -1)
-            return llvm::UndefValue::get(getVoidPtrType());
-
         // If sym is a nested function, and its parent context is different
         // than the one we got, adjust it.
         frameToPass = getParentFunc(symfd, true);

@@ -16,10 +16,11 @@
 #include "gen/logger.h"
 #include "gen/structs.h"
 #include "gen/tollvm.h"
+#include "gen/typeinf.h"
 #include "ir/irfunction.h"
 #include "ir/irtypeclass.h"
 #include "ir/irtypestruct.h"
-
+#include "template.h"
 // Needs other includes.
 #include "ctfe.h"
 
@@ -766,6 +767,24 @@ public:
         dinteger_t elemCount =
             static_cast<TypeSArray *>(tv->basetype)->dim->toInteger();
        result = llvm::ConstantVector::getSplat(elemCount, val);
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////
+
+    void visit(TypeidExp *e)
+    {
+        IF_LOG Logger::print("TypeidExp::toConstElem: %s @ %s\n", e->toChars(), e->type->toChars());
+
+        Type *t = isType(e->obj);
+        if (!t)
+        {
+            visit((Expression*)e);
+            return;
+        }
+
+        TypeInfoDeclaration *tid = getOrCreateTypeInfoDeclaration(t, NULL);
+        TypeInfoDeclaration_codegen(tid, p);
+        result = llvm::cast<llvm::GlobalVariable>(getIrGlobal(tid)->value);
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////

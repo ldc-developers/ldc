@@ -27,11 +27,7 @@ struct StringValue
     char *lstring() { return (char *)(this + 1); }
 
     size_t len() const { return length; }
-#if IN_LLVM
-    const char *toDchars() const { return reinterpret_cast<const char *>(this + 1); }
-#else
-    const char *toDchars() const { return (char *)(this + 1); }
-#endif
+    const char *toDchars() const { return (const char *)(this + 1); }
 
     StringValue();  // not constructible
 };
@@ -56,6 +52,7 @@ public:
     StringValue *lookup(const char *s, size_t len);
     StringValue *insert(const char *s, size_t len);
     StringValue *update(const char *s, size_t len);
+    int apply(int (*fp)(StringValue *));
 
 private:
     uint32_t allocValue(const char *p, size_t length);

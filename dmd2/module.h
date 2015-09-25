@@ -140,9 +140,9 @@ public:
 #endif
     bool read(Loc loc); // read file, returns 'true' if succeed, 'false' otherwise.
 #if IN_LLVM
-    void parse(bool gen_docs = false);       // syntactic parse
+    Module *parse(bool gen_docs = false);       // syntactic parse
 #else
-    void parse();       // syntactic parse
+    Module *parse();       // syntactic parse
 #endif
     void importAll(Scope *sc);
 #if IN_LLVM

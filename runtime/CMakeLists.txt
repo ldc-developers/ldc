@@ -125,7 +125,7 @@ elseif(WIN32)
     endif()
 endif()
 list(APPEND CORE_D ${CORE_D_INTERNAL} ${CORE_D_SYNC} ${CORE_D_SYS} ${CORE_D_STDC})
-list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object_.d)
+list(APPEND CORE_D ${LDC_D} ${RUNTIME_DIR}/src/object.d)
 file(GLOB CORE_C ${RUNTIME_DIR}/src/core/stdc/*.c)
 
 if(PHOBOS2_DIR)
@@ -556,7 +556,6 @@ foreach(p ${DRUNTIME_PACKAGES})
     list(APPEND druntime_modules ${m})
 endforeach()
 
-list(APPEND druntime_modules ${RUNTIME_DIR}/src/object.di)
 foreach(f ${druntime_modules})
     if (NOT EXISTS "${f}i")
         file(RELATIVE_PATH relpath ${RUNTIME_DIR}/src ${f})
@@ -569,7 +568,7 @@ endforeach()
 # Install target.
 #
 
-install(FILES ${DRUNTIME_IMPORT_DIR}/object.di DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
+install(FILES ${DRUNTIME_IMPORT_DIR}/object.d DESTINATION ${INCLUDE_INSTALL_DIR}/ldc)
 foreach(p ${DRUNTIME_PACKAGES})
     install(DIRECTORY ${DRUNTIME_IMPORT_DIR}/${p} DESTINATION ${INCLUDE_INSTALL_DIR})
 endforeach()
@@ -735,7 +734,6 @@ macro(file_to_module_name file_name out_module_name)
     string(REPLACE ${PROJECT_SOURCE_DIR}/ "" stripped ${file_name})
     string(REPLACE "druntime/src/" "" stripped ${stripped})
     string(REPLACE "phobos/" "" stripped ${stripped})
-    string(REPLACE "object_.d" "object.d" stripped ${stripped})
     string(REPLACE ".d" "" stripped ${stripped})
     string(REPLACE "/" "." module ${stripped})
 

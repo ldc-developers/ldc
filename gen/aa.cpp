@@ -35,29 +35,19 @@ static LLValue* to_keyti(DValue* aa)
 
 DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
 {
-    // D1:
-    // call:
-    // extern(C) void* _aaGet(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
-    // or
-    // extern(C) void* _aaIn(AA aa*, TypeInfo keyti, void* pkey)
-
     // D2:
     // call:
-    // extern(C) void* _aaGetX(AA* aa, TypeInfo keyti, size_t valuesize, void* pkey)
+    // extern(C) void* _aaGetY(AA* aa, TypeInfo aati, size_t valuesize, void* pkey)
     // or
     // extern(C) void* _aaInX(AA aa*, TypeInfo keyti, void* pkey)
 
     // first get the runtime function
-    llvm::Function* func = LLVM_D_GetRuntimeFunction(loc, gIR->module, lvalue?"_aaGetX":"_aaInX");
+    llvm::Function* func = LLVM_D_GetRuntimeFunction(loc, gIR->module, lvalue?"_aaGetY":"_aaInX");
     LLFunctionType* funcTy = func->getFunctionType();
 
     // aa param
     LLValue* aaval = lvalue ? aa->getLVal() : aa->getRVal();
     aaval = DtoBitCast(aaval, funcTy->getParamType(0));
-
-    // keyti param
-    LLValue* keyti = to_keyti(aa);
-    keyti = DtoBitCast(keyti, funcTy->getParamType(1));
 
     // pkey param
     LLValue* pkey = makeLValue(loc, key);
@@ -66,11 +56,12 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     // call runtime
     LLValue* ret;
     if (lvalue) {
-        // valuesize param
+        LLValue* rawAATI = DtoTypeInfoOf(aa->type->unSharedOf()->mutableOf(), false);
+        LLValue* castedAATI = DtoBitCast(rawAATI, funcTy->getParamType(1));
         LLValue* valsize = DtoConstSize_t(getTypePaddedSize(DtoType(type)));
-
-        ret = gIR->CreateCallOrInvoke(func, aaval, keyti, valsize, pkey, "aa.index").getInstruction();
+        ret = gIR->CreateCallOrInvoke(func, aaval, castedAATI, valsize, pkey, "aa.index").getInstruction();
     } else {
+        LLValue* keyti = DtoBitCast(to_keyti(aa), funcTy->getParamType(1));
         ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.index").getInstruction();
     }
 

@@ -301,6 +301,16 @@ public:
             cost++;
     }
 
+    void visit(NewExp *e)
+    {
+        //printf("NewExp::inlineCost3() %s\n", e->toChars());
+        AggregateDeclaration *ad = isAggregate(e->newtype);
+        if (ad && ad->isNested())
+            cost = COST_MAX;
+        else
+            cost++;
+    }
+
     void visit(FuncExp *e)
     {
         //printf("FuncExp::inlineCost3()\n");
@@ -499,7 +509,8 @@ Statement *inlineAsStatement(Statement *s, InlineDoState *ids)
         {
             //printf("ReturnStatement::inlineAsStatement() '%s'\n", s->exp ? s->exp->toChars() : "");
             ids->foundReturn = true;
-            result = new ReturnStatement(s->loc, s->exp ? doInline(s->exp, ids) : NULL);
+            if (s->exp) // Bugzilla 14560: 'return' must not leave in the expand result
+                result = new ReturnStatement(s->loc, doInline(s->exp, ids));
         }
 
         void visit(ImportStatement *s)
@@ -890,6 +901,19 @@ Expression *doInline(Expression *e, InlineDoState *ids)
             visit((Expression *)e);
         }
 
+        void visit(TypeidExp *e)
+        {
+            //printf("TypeidExp::doInline(): %s\n", e->toChars());
+            TypeidExp *te = (TypeidExp *)e->copy();
+            if (Expression *ex = isExpression(te->obj))
+            {
+                te->obj = doInline(ex, ids);
+            }
+            else
+                assert(isType(te->obj));
+            result = te;
+        }
+
         void visit(NewExp *e)
         {
             //printf("NewExp::doInline(): %s\n", e->toChars());
@@ -900,6 +924,26 @@ Expression *doInline(Expression *e, InlineDoState *ids)
             ne->newargs = arrayExpressiondoInline(e->newargs);
             ne->arguments = arrayExpressiondoInline(e->arguments);
             result = ne;
+
+            semanticTypeInfo(NULL, e->type);
+        }
+
+        void visit(DeleteExp *e)
+        {
+            visit((UnaExp *)e);
+
+            Type *tb = e->e1->type->toBasetype();
+            if (tb->ty == Tarray)
+            {
+                Type *tv = tb->nextOf()->baseElemOf();
+                if (tv->ty == Tstruct)
+                {
+                    TypeStruct *ts = (TypeStruct *)tv;
+                    StructDeclaration *sd = ts->sym;
+                    if (sd->dtor)
+                        semanticTypeInfo(NULL, ts);
+                }
+            }
         }
 
         void visit(UnaExp *e)
@@ -938,6 +982,37 @@ Expression *doInline(Expression *e, InlineDoState *ids)
             result = ce;
         }
 
+        void visit(AssignExp *e)
+        {
+            visit((BinExp *)e);
+
+            if (e->e1->op == TOKarraylength)
+            {
+                ArrayLengthExp *ale = (ArrayLengthExp *)e->e1;
+                Type *tn = ale->e1->type->toBasetype()->nextOf();
+                semanticTypeInfo(NULL, tn);
+            }
+        }
+
+        void visit(EqualExp *e)
+        {
+            visit((BinExp *)e);
+
+            Type *t1 = e->e1->type->toBasetype();
+            if (t1->ty == Tarray || t1->ty == Tsarray)
+            {
+                Type *t = t1->nextOf()->toBasetype();
+                while (t->toBasetype()->nextOf())
+                    t = t->nextOf()->toBasetype();
+                if (t->ty == Tstruct)
+                    semanticTypeInfo(NULL, t);
+            }
+            else if (t1->ty == Taarray)
+            {
+                semanticTypeInfo(NULL, t1);
+            }
+        }
+
         void visit(IndexExp *e)
         {
             IndexExp *are = (IndexExp *)e->copy();
@@ -964,7 +1039,7 @@ Expression *doInline(Expression *e, InlineDoState *ids)
                 {
                     ExpInitializer *ie = vd->init->isExpInitializer();
                     assert(ie);
-                    vto->init = new ExpInitializer(ie->loc, doInline(ie->exp, ids));;
+                    vto->init = new ExpInitializer(ie->loc, doInline(ie->exp, ids));
                 }
 
                 are->lengthVar = vto;
@@ -999,7 +1074,7 @@ Expression *doInline(Expression *e, InlineDoState *ids)
                 {
                     ExpInitializer *ie = vd->init->isExpInitializer();
                     assert(ie);
-                    vto->init = new ExpInitializer(ie->loc, doInline(ie->exp, ids));;
+                    vto->init = new ExpInitializer(ie->loc, doInline(ie->exp, ids));
                 }
 
                 are->lengthVar = vto;
@@ -1027,6 +1102,8 @@ Expression *doInline(Expression *e, InlineDoState *ids)
 
             ce->elements = arrayExpressiondoInline(e->elements);
             result = ce;
+
+            semanticTypeInfo(NULL, e->type);
         }
 
         void visit(AssocArrayLiteralExp *e)
@@ -1036,6 +1113,8 @@ Expression *doInline(Expression *e, InlineDoState *ids)
             ce->keys = arrayExpressiondoInline(e->keys);
             ce->values = arrayExpressiondoInline(e->values);
             result = ce;
+
+            semanticTypeInfo(NULL, e->type);
         }
 
         void visit(StructLiteralExp *e)
@@ -1437,7 +1516,6 @@ public:
                      * of dve->e1, but this won't work if dve->e1 is
                      * a function call.
                      */
-                    ;
                 }
                 else
                 {
@@ -1676,6 +1754,20 @@ bool canInline(FuncDeclaration *fd, int hasthis, int hdrscan, int statementsToo)
             assert(0);
     }
 
+    switch (fd->inlining)
+    {
+        case PINLINEdefault:
+            break;
+
+        case PINLINEalways:
+            break;
+
+        case PINLINEnever:
+            return false;
+        default:
+            assert(0);
+    }
+
     if (fd->type)
     {
         assert(fd->type->ty == Tfunction);
@@ -1691,6 +1783,11 @@ bool canInline(FuncDeclaration *fd, int hasthis, int hdrscan, int statementsToo)
             (!(fd->hasReturnExp & 1) || statementsToo) &&
             !hdrscan)
             goto Lno;
+
+        /* Bugzilla 14560: If fd returns void, all explicit `return;`s
+         * must not appear in the expanded result.
+         * See also ReturnStatement::inlineAsStatement().
+         */
     }
 
     // cannot inline constructor calls because we need to convert:
@@ -1773,6 +1870,9 @@ bool canInline(FuncDeclaration *fd, int hasthis, int hdrscan, int statementsToo)
     return true;
 
 Lno:
+    if (fd->inlining == PINLINEalways)
+        fd->error("cannot inline function");
+
     if (!hdrscan)    // Don't modify inlineStatus for header content scan
     {
         if (statementsToo)
@@ -1801,6 +1901,14 @@ static Expression *expandInline(FuncDeclaration *fd, FuncDeclaration *parent,
     memset(&ids, 0, sizeof(ids));
     ids.parent = parent;
     ids.fd = fd;
+
+    // When the function is actually expanded
+    if (TemplateInstance *ti = fd->isInstantiated())
+    {
+        // change ti to non-speculative root instance
+        if (!ti->minst)
+            ti->minst = ti->tempdecl->getModule()->importedFrom;
+    }
 
     if (ps)
         as = new Statements();

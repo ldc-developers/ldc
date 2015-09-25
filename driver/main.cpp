@@ -276,7 +276,6 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
 
     // Set some default values.
     global.params.useSwitchError = 1;
-    global.params.useArrayBounds = 2;
     global.params.color = isConsoleColorSupported();
 
     global.params.linkswitches = new Strings();
@@ -442,8 +441,8 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
         global.params.useAssert = 1;
 
     // -release downgrades default bounds checking level to BC_SafeOnly (only for safe functions).
-    global.params.useArrayBounds = opts::nonSafeBoundsChecks ? opts::BC_On : opts::BC_SafeOnly;
-    if (opts::boundsCheck != opts::BC_Default)
+    global.params.useArrayBounds = opts::nonSafeBoundsChecks ? BOUNDSCHECKon : BOUNDSCHECKsafeonly;
+    if (opts::boundsCheck != BOUNDSCHECKdefault)
         global.params.useArrayBounds = opts::boundsCheck;
 
     // LDC output determination

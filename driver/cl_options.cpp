@@ -254,7 +254,7 @@ struct D_DebugStorage {
         if (str.empty()) {
             // Bare "-d-debug" has a special meaning.
             global.params.useAssert = true;
-            global.params.useArrayBounds = 2;
+            global.params.useArrayBounds = BOUNDSCHECKon;
             global.params.useInvariants = true;
             global.params.useIn = true;
             global.params.useOut = true;
@@ -374,14 +374,14 @@ static cl::opt<bool, true, FlagParser<bool> > asserts("asserts",
     cl::location(global.params.useAssert),
     cl::init(true));
 
-cl::opt<BoundsCheck> boundsCheck("boundscheck",
+cl::opt<BOUNDSCHECK> boundsCheck("boundscheck",
     cl::desc("Enable array bounds check"),
     cl::values(
-        clEnumValN(BC_Off, "off", "no array bounds checks"),
-        clEnumValN(BC_SafeOnly, "safeonly", "array bounds checks for safe functions only"),
-        clEnumValN(BC_On, "on", "array bounds checks for all functions"),
+        clEnumValN(BOUNDSCHECKoff, "off", "no array bounds checks"),
+        clEnumValN(BOUNDSCHECKsafeonly, "safeonly", "array bounds checks for safe functions only"),
+        clEnumValN(BOUNDSCHECKon, "on", "array bounds checks for all functions"),
         clEnumValEnd),
-    cl::init(BC_Default));
+    cl::init(BOUNDSCHECKdefault));
 
 static cl::opt<bool, true, FlagParser<bool> > invariants("invariants",
     cl::desc("(*) Enable invariants"),

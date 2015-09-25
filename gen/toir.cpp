@@ -168,7 +168,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd, E
         // store the initializer there
         DtoAssign(loc, &field, val, TOKconstruct, true);
 
-        if (expr)
+        if (expr && expr->isLvalue())
             callPostblit(loc, expr, field.getLVal());
 
         // Also zero out padding bytes counted as being part of the type in DMD
@@ -949,7 +949,21 @@ public:
         }
 
         // get the callee value
-        DValue* fnval = toElem(e->e1);
+        DValue* fnval;
+        if (e->directcall)
+        {
+            // TODO: Do this as an extra parameter to DotVarExp implementation.
+            assert(e->e1->op == TOKdotvar);
+            DotVarExp* dve = static_cast<DotVarExp*>(e->e1);
+            FuncDeclaration* fdecl = dve->var->isFuncDeclaration();
+            assert(fdecl);
+            DtoResolveFunction(fdecl);
+            fnval = new DFuncValue(fdecl, getIrFunc(fdecl)->func, toElem(dve->e1)->getRVal());
+        }
+        else
+        {
+            fnval = toElem(e->e1);
+        }
 
         // get func value if any
         DFuncValue* dfnval = fnval->isFunc();
@@ -1232,24 +1246,9 @@ public:
                 (fdecl->isAbstract() || fdecl->isVirtual()) &&
                 fdecl->prot().kind != PROTprivate;
 
-            // Decide whether this function needs to be looked up in the vtable.
-            // Even virtual functions are looked up directly if super or DotTypeExp
-            // are used, thus we need to walk through the this expression and check.
-            bool vtbllookup = nonFinal;
-            Expression* exp = e->e1;
-            while (exp && vtbllookup)
-            {
-                if (exp->op == TOKsuper || exp->op == TOKdottype)
-                    vtbllookup = false;
-                else if (exp->op == TOKcast)
-                    exp = static_cast<CastExp*>(exp)->e1;
-                else
-                    break;
-            }
-
             // Get the actual function value to call.
             LLValue* funcval = 0;
-            if (vtbllookup)
+            if (nonFinal)
             {
                 DImValue thisVal(e1type, l->getRVal());
                 funcval = DtoVirtualFunctionPointer(&thisVal, fdecl, e->toChars());
@@ -2054,7 +2053,7 @@ public:
         DValue* v = toElemDtor(e->e2);
 
         LLValue* vbool = 0;
-        if (!v->isFunc() && v->getType() != Type::tvoid)
+        if (v && !v->isFunc() && v->getType() != Type::tvoid)
         {
             vbool = DtoCast(e->loc, v, Type::tbool)->getRVal();
         }
@@ -2354,7 +2353,7 @@ public:
         llvm::BranchInst::Create(condtrue, condfalse, cond_val, p->scopebb());
 
         p->scope() = IRScope(condtrue);
-        DValue* u = toElemDtor(e->e1);
+        DValue* u = toElem(e->e1);
         if (retPtr) {
             LLValue* lval = makeLValue(e->loc, u);
             DtoStore(lval, DtoBitCast(retPtr, lval->getType()->getPointerTo()));
@@ -2362,7 +2361,7 @@ public:
         llvm::BranchInst::Create(condend, p->scopebb());
 
         p->scope() = IRScope(condfalse);
-        DValue* v = toElemDtor(e->e2);
+        DValue* v = toElem(e->e2);
         if (retPtr) {
             LLValue* lval = makeLValue(e->loc, v);
             DtoStore(lval, DtoBitCast(retPtr, lval->getType()->getPointerTo()));
@@ -2471,7 +2470,7 @@ public:
         FuncLiteralDeclaration *fd = e->fd;
         assert(fd);
 
-        if (fd->tok == TOKreserved && e->type->ty == Tpointer)
+        if ((fd->tok == TOKreserved || fd->tok == TOKdelegate) && e->type->ty == Tpointer)
         {
             // This is a lambda that was inferred to be a function literal instead
             // of a delegate, so set tok here in order to get correct types/mangling.
@@ -2500,28 +2499,34 @@ public:
 
             LLValue* cval;
             IrFunction* irfn = p->func();
-            if (irfn->nestedVar
-                // We cannot use a frame allocated in one function
-                // for a delegate created in another function
-                // (that happens with anonymous functions)
-                && fd->toParent2() == irfn->decl
-                )
+            if (irfn->nestedVar && fd->toParent2() == irfn->decl)
+            {
+                // We check fd->toParent2() because a frame allocated in one
+                // function cannot be used for a delegate created in another
+                // function. Happens with anonymous functions.
                 cval = irfn->nestedVar;
+            }
             else if (irfn->nestArg)
+            {
                 cval = DtoLoad(irfn->nestArg);
-            // TODO: should we enable that for D1 as well?
+            }
             else if (irfn->thisArg)
             {
                 AggregateDeclaration* ad = irfn->decl->isMember2();
-                if (!ad || !ad->vthis) {
+                if (!ad || !ad->vthis)
+                {
                     cval = getNullPtr(getVoidPtrType());
-                } else {
+                }
+                else
+                {
                     cval = ad->isClassDeclaration() ? DtoLoad(irfn->thisArg) : irfn->thisArg;
                     cval = DtoLoad(DtoGEPi(cval, 0, getFieldGEPIndex(ad, ad->vthis), ".vthis"));
                 }
             }
             else
+            {
                 cval = getNullPtr(getVoidPtrType());
+            }
             cval = DtoBitCast(cval, dgty->getContainedType(0));
 
             LLValue* castfptr = DtoBitCast(getIrFunc(fd)->func, dgty->getContainedType(1));
@@ -2956,7 +2961,47 @@ public:
 
     //////////////////////////////////////////////////////////////////////////////////////////
 
-    #define STUB(x) void visit(x * e) { e->error("Exp type "#x" not implemented: %s", e->toChars()); fatal(); }
+    void visit(TypeidExp *e)
+    {
+        if (Type *t = isType(e->obj))
+        {
+            result = DtoSymbolAddress(e->loc, e->type,
+                getOrCreateTypeInfoDeclaration(t, NULL));
+            return;
+        }
+        if (Expression *ex = isExpression(e->obj))
+        {
+            Type *t = ex->type->toBasetype();
+            assert(t->ty == Tclass);
+
+            DValue *val = toElem(ex);
+
+            // Get and load vtbl pointer.
+            llvm::Value *vtbl = DtoLoad(DtoGEPi(val->getRVal(), 0, 0));
+
+            // TypeInfo ptr is first vtbl entry.
+            llvm::Value *typinf = DtoGEPi(vtbl, 0, 0);
+
+            Type *resultType = Type::typeinfoclass->type;
+            if (static_cast<TypeClass*>(t)->sym->isInterfaceDeclaration())
+            {
+                // For interfaces, the first entry in the vtbl is actually a pointer
+                // to an Interface instance, which has the type info as its first
+                // member, so we have to add an extra layer of indirection.
+                resultType = Type::typeinfointerface->type;
+                typinf = DtoLoad(DtoBitCast(typinf,
+                    DtoType(resultType->pointerTo()->pointerTo())));
+            }
+
+            result = new DVarValue(resultType, typinf);
+            return;
+        }
+        llvm_unreachable("Unknown TypeidExp argument kind");
+    }
+
+    //////////////////////////////////////////////////////////////////////////////////////////
+
+    #define STUB(x) void visit(x * e) { e->error("Internal compiler error: Type "#x" not implemented: %s", e->toChars()); fatal(); }
     STUB(Expression)
     STUB(ScopeExp)
     STUB(SymbolExp)

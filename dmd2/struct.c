@@ -24,6 +24,7 @@
 #include "template.h"
 #include "tokens.h"
 
+Type *getTypeInfoType(Type *t, Scope *sc);
 TypeTuple *toArgTypes(Type *t);
 
 FuncDeclaration *StructDeclaration::xerreq;     // object.xopEquals
@@ -100,12 +101,31 @@ void semanticTypeInfo(Scope *sc, Type *t)
 
             // If the struct is in a non-root module, run semantic3 to get
             // correct symbols for the member function.
-            // Note that, all instantiated symbols will run semantic3.
-            if (sd->inNonRoot())
+            if (TemplateInstance *ti = sd->isInstantiated())
             {
-                //printf("deferred sem3 for TypeInfo - sd = %s, inNonRoot = %d\n", sd->toChars(), sd->inNonRoot());
-                Module::addDeferredSemantic3(sd);
+                if (ti->minst && !ti->minst->isRoot())
+                    Module::addDeferredSemantic3(sd);
             }
+            else
+            {
+                if (sd->inNonRoot())
+                {
+                    //printf("deferred sem3 for TypeInfo - sd = %s, inNonRoot = %d\n", sd->toChars(), sd->inNonRoot());
+                    Module::addDeferredSemantic3(sd);
+                }
+            }
+
+            if (!sc)    // inline may request TypeInfo.
+            {
+                Scope scx;
+                scx.module = sd->getModule();
+                getTypeInfoType(t, &scx);
+            }
+            else
+                getTypeInfoType(t, sc);
+
+            if (!sc || sc->minst)
+                sd->requestTypeInfo = true;
         }
         void visit(TypeClass *t) { }
         void visit(TypeTuple *t)
@@ -338,10 +358,15 @@ unsigned AggregateDeclaration::size(Loc loc)
     if (loc.linnum == 0)
         loc = this->loc;
     if (sizeok != SIZEOKdone && scope)
+    {
         semantic(NULL);
 
-    StructDeclaration *sd = isStructDeclaration();
-    if (sizeok != SIZEOKdone && sd && sd->members)
+        // Determine the instance size of base class first.
+        if (ClassDeclaration *cd = isClassDeclaration())
+            cd->baseClass->size(loc);
+    }
+
+    if (sizeok != SIZEOKdone && members)
     {
         /* See if enough is done to determine the size,
          * meaning all the fields are done.
@@ -357,6 +382,13 @@ unsigned AggregateDeclaration::size(Loc loc)
                 VarDeclaration *v = s->isVarDeclaration();
                 if (v)
                 {
+                    /* Bugzilla 12799: enum a = ...; is a VarDeclaration and
+                     * STCmanifest is already set in parssing stage. So we can
+                     * check this before the semantic() call.
+                     */
+                    if (v->storage_class & STCmanifest)
+                        return 0;
+
                     if (v->scope)
                         v->semantic(NULL);
                     if (v->storage_class & (STCstatic | STCextern | STCtls | STCgshared | STCmanifest | STCctfe | STCtemplateparameter))
@@ -376,7 +408,7 @@ unsigned AggregateDeclaration::size(Loc loc)
             if (s->apply(&SV::func, &sv))
                 goto L1;
         }
-        sd->finalizeSize(NULL);
+        finalizeSize(NULL);
 
       L1: ;
     }
@@ -628,7 +660,7 @@ Dsymbol *AggregateDeclaration::searchCtor()
               s->isTemplateDeclaration() ||
               s->isOverloadSet()))
         {
-            error("%s %s is not a constructor; identifiers starting with __ are reserved for the implementation", s->kind(), s->toChars());
+            s->error("is not a constructor; identifiers starting with __ are reserved for the implementation");
             errors = true;
             s = NULL;
         }
@@ -653,6 +685,7 @@ StructDeclaration::StructDeclaration(Loc loc, Identifier *id)
     ispod = ISPODfwd;
     arg1type = NULL;
     arg2type = NULL;
+    requestTypeInfo = false;
 
     // For forward references
     type = new TypeStruct(this);
@@ -719,13 +752,10 @@ void StructDeclaration::semantic(Scope *sc)
             error("structs, unions cannot be abstract");
         userAttribDecl = sc->userAttribDecl;
     }
-    else if (symtab)
+    else if (symtab && !scx)
     {
-        if (sizeok == SIZEOKdone || !scx)
-        {
-            semanticRun = PASSsemanticdone;
-            return;
-        }
+        semanticRun = PASSsemanticdone;
+        return;
     }
     semanticRun = PASSsemantic;
 
@@ -743,11 +773,10 @@ void StructDeclaration::semantic(Scope *sc)
         {
             Dsymbol *s = (*members)[i];
             //printf("adding member '%s' to '%s'\n", s->toChars(), this->toChars());
-            s->addMember(sc, this, 1);
+            s->addMember(sc, this);
         }
     }
 
-    sizeok = SIZEOKnone;
     Scope *sc2 = sc->push(this);
     sc2->stc &= STCsafe | STCtrusted | STCsystem;
     sc2->parent = this;
@@ -757,6 +786,11 @@ void StructDeclaration::semantic(Scope *sc)
     sc2->explicitProtection = 0;
     sc2->structalign = STRUCTALIGN_DEFAULT;
     sc2->userAttribDecl = NULL;
+
+    if (sizeok == SIZEOKdone)
+        goto LafterSizeok;
+
+    sizeok = SIZEOKnone;
 
     /* Set scope so if there are forward references, we still might be able to
      * resolve individual members like enums.
@@ -777,17 +811,6 @@ void StructDeclaration::semantic(Scope *sc)
     for (size_t i = 0; i < members->dim; i++)
     {
         Dsymbol *s = (*members)[i];
-
-        /* If this is the last member, see if we can finish setting the size.
-         * This could be much better - finish setting the size after the last
-         * field was processed. The problem is the chicken-and-egg determination
-         * of when that is. See Bugzilla 7426 for more info.
-         */
-        if (i + 1 == members->dim)
-        {
-            if (sizeok == SIZEOKnone && s->isAliasDeclaration())
-                finalizeSize(sc2);
-        }
         s->semantic(sc2);
     }
     finalizeSize(sc2);
@@ -798,12 +821,14 @@ void StructDeclaration::semantic(Scope *sc)
         // Unwind what we did, and defer it for later
         for (size_t i = 0; i < fields.dim; i++)
         {
-            VarDeclaration *vd = fields[i];
-            vd->offset = 0;
+            VarDeclaration *v = fields[i];
+            v->offset = 0;
         }
         fields.setDim(0);
         structsize = 0;
         alignsize = 0;
+
+        sc2->pop();
 
         scope = scx ? scx : sc->copy();
         scope->setNoFree();
@@ -815,33 +840,39 @@ void StructDeclaration::semantic(Scope *sc)
     }
 
     Module::dprogress++;
-    semanticRun = PASSsemanticdone;
 
     //printf("-StructDeclaration::semantic(this=%p, '%s')\n", this, toChars());
 
-    // Determine if struct is all zeros or not
-    zeroInit = 1;
+LafterSizeok:
+    // The additions of special member functions should have its own
+    // sub-semantic analysis pass, and have to be deferred sometimes.
+    // See the case in compilable/test14838.d
     for (size_t i = 0; i < fields.dim; i++)
     {
-        VarDeclaration *vd = fields[i];
-        if (!vd->isDataseg())
-        {
-            if (vd->init)
-            {
-                // Should examine init to see if it is really all 0's
-                zeroInit = 0;
-                break;
-            }
-            else
-            {
-                if (!vd->type->isZeroInit(loc))
-                {
-                    zeroInit = 0;
-                    break;
-                }
-            }
-        }
+        VarDeclaration *v = fields[i];
+        Type *tb = v->type->baseElemOf();
+        if (tb->ty != Tstruct)
+            continue;
+        StructDeclaration *sd = ((TypeStruct *)tb)->sym;
+        if (sd->semanticRun >= PASSsemanticdone)
+            continue;
+
+        sc2->pop();
+
+        scope = scx ? scx : sc->copy();
+        scope->setNoFree();
+        scope->module->addDeferredSemantic(this);
+
+        //printf("\tdeferring %s\n", toChars());
+        return;
     }
+
+    /* Look for special member functions.
+     */
+    aggNew =       (NewDeclaration *)search(Loc(), Id::classNew);
+    aggDelete = (DeleteDeclaration *)search(Loc(), Id::classDelete);
+
+    // this->ctor is already set in finalizeSize()
 
     dtor = buildDtor(this, sc2);
     postblit = buildPostBlit(this, sc2);
@@ -866,12 +897,6 @@ void StructDeclaration::semantic(Scope *sc)
 
     sc2->pop();
 
-    /* Look for special member functions.
-     */
-    ctor = searchCtor();
-    aggNew =       (NewDeclaration *)search(Loc(), Id::classNew);
-    aggDelete = (DeleteDeclaration *)search(Loc(), Id::classDelete);
-
     if (ctor)
     {
         Dsymbol *scall = search(Loc(), Id::call);
@@ -892,6 +917,9 @@ void StructDeclaration::semantic(Scope *sc)
             }
         }
     }
+
+    Module::dprogress++;
+    semanticRun = PASSsemanticdone;
 
     TypeTuple *tup = toArgTypes(type);
     size_t dim = tup->arguments->dim;
@@ -983,6 +1011,52 @@ void StructDeclaration::finalizeSize(Scope *sc)
 
     // Calculate fields[i]->overlapped
     fill(loc, NULL, true);
+
+    // Determine if struct is all zeros or not
+    zeroInit = 1;
+    for (size_t i = 0; i < fields.dim; i++)
+    {
+        VarDeclaration *vd = fields[i];
+        if (!vd->isDataseg())
+        {
+            if (vd->init)
+            {
+                // Should examine init to see if it is really all 0's
+                zeroInit = 0;
+                break;
+            }
+            else
+            {
+                if (!vd->type->isZeroInit(loc))
+                {
+                    zeroInit = 0;
+                    break;
+                }
+            }
+        }
+    }
+
+    // Look for the constructor, for the struct literal/constructor call expression
+    ctor = searchCtor();
+    if (ctor)
+    {
+        // Finish all constructors semantics to determine this->noDefaultCtor.
+        struct SearchCtor
+        {
+            static int fp(Dsymbol *s, void *ctxt)
+            {
+                CtorDeclaration *f = s->isCtorDeclaration();
+                if (f && f->semanticRun == PASSinit)
+                    f->semantic(NULL);
+                return 0;
+            }
+        };
+        for (size_t i = 0; i < members->dim; i++)
+        {
+            Dsymbol *s = (*members)[i];
+            s->apply(&SearchCtor::fp, NULL);
+        }
+    }
 }
 
 /***************************************
@@ -1197,7 +1271,11 @@ bool StructDeclaration::fill(Loc loc, Expressions *elements, bool ctorinit)
         if (elements && vx)
         {
             Expression *e;
-            if (vx->init)
+            if (vx->type->size() == 0)
+            {
+                e = NULL;
+            }
+            else if (vx->init)
             {
                 assert(!vx->init->isVoidInitializer());
                 e = vx->getConstInitializer(false);
@@ -1215,7 +1293,14 @@ bool StructDeclaration::fill(Loc loc, Expressions *elements, bool ctorinit)
                 Type *telem = vx->type;
                 if (telem->ty == Tsarray)
                 {
-                    telem = telem->baseElemOf();
+                    /* We cannot use Type::baseElemOf() here.
+                     * If the bottom of the Tsarray is an enum type, baseElemOf()
+                     * will return the base of the enum, and its default initializer
+                     * would be different from the enum's.
+                     */
+                    while (telem->toBasetype()->ty == Tsarray)
+                        telem = ((TypeSArray *)telem->toBasetype())->next;
+
                     if (telem->ty == Tvoid)
                         telem = Type::tuns8->addMod(telem->mod);
                 }
@@ -1308,5 +1393,3 @@ const char *UnionDeclaration::kind()
 {
     return "union";
 }
-
-

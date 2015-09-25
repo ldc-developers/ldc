@@ -205,7 +205,8 @@ LLConstant * IrAggr::getVtblInit()
                  * issue 'hidden' error.
                  */
                 for (size_t j = 1; j < n; j++)
-                {   if (j == i)
+                {
+                    if (j == i)
                         continue;
                     FuncDeclaration *fd2 = static_cast<Dsymbol *>(cd->vtbl.data[j])->isFuncDeclaration();
                     if (!fd2->ident->equals(fd->ident))
@@ -214,18 +215,21 @@ LLConstant * IrAggr::getVtblInit()
                     {
                         TypeFunction *tf = static_cast<TypeFunction *>(fd->type);
                         if (tf->ty == Tfunction)
-                            cd->deprecation("use of %s%s hidden by %s is deprecated; use 'alias %s = %s.%s;' to introduce base class overload set",
-                                            fd->toPrettyChars(),
-                                            parametersTypeToChars(tf->parameters, tf->varargs),
-                                            cd->toChars(),
+                        {
+                            cd->error("use of %s%s is hidden by %s; use 'alias %s = %s.%s;' to introduce base class overload set",
+                                      fd->toPrettyChars(),
+                                      parametersTypeToChars(tf->parameters, tf->varargs),
+                                      cd->toChars(),
 
-                                            fd->toChars(),
-                                            fd->parent->toChars(),
-                                            fd->toChars());
+                                      fd->toChars(),
+                                      fd->parent->toChars(),
+                                      fd->toChars());
+                        }
                         else
-                            cd->deprecation("use of %s hidden by %s is deprecated", fd->toPrettyChars(), cd->toChars());
-
-                        c = DtoBitCast(LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_hidden_func"), c->getType());
+                        {
+                            cd->error("use of %s is hidden by %s", fd->toPrettyChars(), cd->toChars());
+                        }
+                        fatal();
                         break;
                     }
                 }

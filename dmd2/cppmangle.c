@@ -708,7 +708,8 @@ public:
     void visit(TypeVector *t)
     {
         is_top_level = false;
-        if (substitute(t)) return;
+        if (substitute(t))
+            return;
         store(t);
         if (t->isImmutable() || t->isShared())
         {
@@ -751,7 +752,8 @@ public:
     void visit(TypePointer *t)
     {
         is_top_level = false;
-        if (substitute(t)) return;
+        if (substitute(t))
+            return;
         if (t->isImmutable() || t->isShared())
         {
             visit((Type *)t);
@@ -766,7 +768,8 @@ public:
     void visit(TypeReference *t)
     {
         is_top_level = false;
-        if (substitute(t)) return;
+        if (substitute(t))
+            return;
         buf.writeByte('R');
         t->next->accept(this);
         store(t);
@@ -797,7 +800,8 @@ public:
             TypeFunctions for non-static member functions, and non-static
             member functions of different classes.
          */
-        if (substitute(t)) return;
+        if (substitute(t))
+            return;
         buf.writeByte('F');
         if (t->linkage == LINKc)
             buf.writeByte('Y');
@@ -853,7 +857,8 @@ public:
 
         is_top_level = false;
 
-        if (substitute(t)) return;
+        if (substitute(t))
+            return;
         if (t->isImmutable() || t->isShared())
         {
             visit((Type *)t);
@@ -878,7 +883,8 @@ public:
     void visit(TypeEnum *t)
     {
         is_top_level = false;
-        if (substitute(t)) return;
+        if (substitute(t))
+            return;
 
         if (t->isConst())
             buf.writeByte('K');
@@ -899,7 +905,8 @@ public:
 
     void visit(TypeClass *t)
     {
-        if (substitute(t)) return;
+        if (substitute(t))
+            return;
         if (t->isImmutable() || t->isShared())
         {
             visit((Type *)t);
@@ -1012,7 +1019,8 @@ public:
 
         if (type->isConst() && ((flags & IS_NOT_TOP_TYPE) || (flags & IS_DMC)))
         {
-            if (checkTypeSaved(type)) return;
+            if (checkTypeSaved(type))
+                return;
         }
 
         if ((type->ty == Tbool) && checkTypeSaved(type))// try to replace long name with number
@@ -1060,7 +1068,8 @@ public:
     void visit(TypeVector *type)
     {
         //printf("visit(TypeVector); is_not_top_type = %d\n", (int)(flags & IS_NOT_TOP_TYPE));
-        if (checkTypeSaved(type)) return;
+        if (checkTypeSaved(type))
+            return;
         buf.writestring("T__m128@@"); // may be better as __m128i or __m128d?
         flags &= ~IS_NOT_TOP_TYPE;
         flags &= ~IGNORE_CONST;
@@ -1070,7 +1079,8 @@ public:
     {
         // This method can be called only for static variable type mangling.
         //printf("visit(TypeSArray); is_not_top_type = %d\n", (int)(flags & IS_NOT_TOP_TYPE));
-        if (checkTypeSaved(type)) return;
+        if (checkTypeSaved(type))
+            return;
         // first dimension always mangled as const pointer
         if (flags & IS_DMC)
             buf.writeByte('Q');
@@ -1166,7 +1176,8 @@ public:
     void visit(TypeReference *type)
     {
         //printf("visit(TypeReference); type = %s\n", type->toChars());
-        if (checkTypeSaved(type)) return;
+        if (checkTypeSaved(type))
+            return;
 
         if (type->isImmutable() || type->isShared())
         {
@@ -1192,8 +1203,19 @@ public:
 
     void visit(TypeFunction *type)
     {
-        // We can mangle pointer to a function, not function.
-        visit((Type*)type);
+        const char *arg = mangleFunctionType(type);
+
+        if ((flags & IS_DMC))
+        {
+            if (checkTypeSaved(type))
+                return;
+        }
+        else
+        {
+            buf.writestring("$$A6");
+        }
+        buf.writestring(arg);
+        flags &= ~(IS_NOT_TOP_TYPE | IGNORE_CONST);
     }
 
     void visit(TypeStruct *type)
@@ -1219,7 +1241,8 @@ public:
 
             if (type->isConst() && ((flags & IS_NOT_TOP_TYPE) || (flags & IS_DMC)))
             {
-                if (checkTypeSaved(type)) return;
+                if (checkTypeSaved(type))
+                    return;
             }
 
             mangleModifier(type);
@@ -1227,7 +1250,8 @@ public:
         }
         else
         {
-            if (checkTypeSaved(type)) return;
+            if (checkTypeSaved(type))
+                return;
             //printf("visit(TypeStruct); is_not_top_type = %d\n", (int)(flags & IS_NOT_TOP_TYPE));
             mangleModifier(type);
             if (type->sym->isUnionDeclaration())
@@ -1243,7 +1267,8 @@ public:
     void visit(TypeEnum *type)
     {
         //printf("visit(TypeEnum); is_not_top_type = %d\n", (int)(flags & IS_NOT_TOP_TYPE));
-        if (checkTypeSaved(type)) return;
+        if (checkTypeSaved(type))
+            return;
         mangleModifier(type);
         buf.writeByte('W');
 
@@ -1289,7 +1314,8 @@ public:
     void visit(TypeClass *type)
     {
         //printf("visit(TypeClass); is_not_top_type = %d\n", (int)(flags & IS_NOT_TOP_TYPE));
-        if (checkTypeSaved(type)) return;
+        if (checkTypeSaved(type))
+            return;
         if (flags & IS_NOT_TOP_TYPE)
             mangleModifier(type);
 
@@ -1466,7 +1492,7 @@ private:
 
         t->accept(this);
 
-        if ((t->ty == Tpointer || t->ty == Treference) && global.params.is64bit)
+        if ((t->ty == Tpointer || t->ty == Treference || t->ty == Tclass) && global.params.is64bit)
         {
             buf.writeByte('E');
         }
@@ -1666,7 +1692,8 @@ private:
             }
             else
             {
-                if (checkAndSaveIdent(name)) return;
+                if (checkAndSaveIdent(name))
+                    return;
             }
         }
         buf.writestring(name);
@@ -1777,8 +1804,10 @@ private:
 
     bool checkTypeSaved(Type *type)
     {
-        if (flags & IS_NOT_TOP_TYPE) return false;
-        if (flags & MANGLE_RETURN_TYPE) return false;
+        if (flags & IS_NOT_TOP_TYPE)
+            return false;
+        if (flags & MANGLE_RETURN_TYPE)
+            return false;
         for (size_t i = 0; i < VC_SAVED_TYPE_CNT; i++)
         {
             if (!saved_types[i]) // no saved same type
@@ -1799,7 +1828,8 @@ private:
 
     void mangleModifier(Type *type)
     {
-        if (flags & IGNORE_CONST) return;
+        if (flags & IGNORE_CONST)
+            return;
         if (type->isImmutable() || type->isShared())
         {
             visit((Type*)type);
@@ -1837,6 +1867,35 @@ private:
         }
         flags |= IGNORE_CONST;
         cur->accept(this);
+    }
+
+    static int mangleParameterDg(void *ctx, size_t n, Parameter *p)
+    {
+        VisualCPPMangler *mangler = (VisualCPPMangler *)ctx;
+
+        Type *t = p->type;
+        if (p->storageClass & (STCout | STCref))
+        {
+            t = t->referenceTo();
+        }
+        else if (p->storageClass & STClazy)
+        {
+            // Mangle as delegate
+            Type *td = new TypeFunction(NULL, t, 0, LINKd);
+            td = new TypeDelegate(td);
+            t = t->merge();
+        }
+        if (t->ty == Tsarray)
+        {
+            t->error(Loc(), "Internal Compiler Error: unable to pass static array to extern(C++) function.");
+            t->error(Loc(), "Use pointer instead.");
+            assert(0);
+        }
+        mangler->flags &= ~IS_NOT_TOP_TYPE;
+        mangler->flags &= ~IGNORE_CONST;
+        t->accept(mangler);
+
+        return 0;
     }
 
     const char *mangleFunctionType(TypeFunction *type, bool needthis = false, bool noreturn = false)
@@ -1907,10 +1966,7 @@ private:
         }
         else
         {
-            for (size_t i = 0; i < type->parameters->dim; ++i)
-            {
-                tmp.mangleParameter((*type->parameters)[i]);
-            }
+            Parameter::foreach(type->parameters, &mangleParameterDg, (void*)&tmp);
             if (type->varargs == 1)
             {
                 tmp.buf.writeByte('Z');
@@ -1926,35 +1982,6 @@ private:
         memcpy(&saved_idents, &tmp.saved_idents, sizeof(const char*) * VC_SAVED_IDENT_CNT);
         memcpy(&saved_types, &tmp.saved_types, sizeof(Type*) * VC_SAVED_TYPE_CNT);
         return ret;
-    }
-
-    void mangleParameter(Parameter *p)
-    {
-        Type *t = p->type;
-        if (p->storageClass & (STCout | STCref))
-        {
-            t = t->referenceTo();
-        }
-        else if (p->storageClass & STClazy)
-        {
-            // Mangle as delegate
-            Type *td = new TypeFunction(NULL, t, 0, LINKd);
-            td = new TypeDelegate(td);
-            t = t->merge();
-        }
-        if (t->ty == Tsarray)
-        {
-            t->error(Loc(), "Internal Compiler Error: unable to pass static array to extern(C++) function.");
-            t->error(Loc(), "Use pointer instead.");
-#if IN_LLVM
-            fatal();
-#else
-            assert(0);
-#endif
-        }
-        flags &= ~IS_NOT_TOP_TYPE;
-        flags &= ~IGNORE_CONST;
-        t->accept(this);
     }
 };
 
