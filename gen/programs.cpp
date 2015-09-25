@@ -70,7 +70,12 @@ static std::string getProgram(const char *name, const cl::opt<std::string> &opt,
 
 std::string getGcc()
 {
+#if defined(__FreeBSD__) && __FreeBSD__ >= 10
+    // Default compiler on FreeBSD 10 is clang
+    return getProgram("clang", gcc, "CC");
+#else
     return getProgram("gcc", gcc, "CC");
+#endif
 }
 
 std::string getArchiver()
