@@ -2350,7 +2350,7 @@ public:
         llvm::BranchInst::Create(condtrue, condfalse, cond_val, p->scopebb());
 
         p->scope() = IRScope(condtrue);
-        DValue* u = toElemDtor(e->e1);
+        DValue* u = toElem(e->e1);
         if (retPtr) {
             LLValue* lval = makeLValue(e->loc, u);
             DtoStore(lval, DtoBitCast(retPtr, lval->getType()->getPointerTo()));
@@ -2358,7 +2358,7 @@ public:
         llvm::BranchInst::Create(condend, p->scopebb());
 
         p->scope() = IRScope(condfalse);
-        DValue* v = toElemDtor(e->e2);
+        DValue* v = toElem(e->e2);
         if (retPtr) {
             LLValue* lval = makeLValue(e->loc, v);
             DtoStore(lval, DtoBitCast(retPtr, lval->getType()->getPointerTo()));
