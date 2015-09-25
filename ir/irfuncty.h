@@ -133,13 +133,13 @@ struct IrFuncTy
         tag(NULL)
     {}
 
-    llvm::Value* putRet(Type* dty, DValue* dval);
-    llvm::Value* getRet(Type* dty, DValue* dval);
-    void getRet(Type* dty, DValue* dval, llvm::Value* lval);
+    llvm::Value* putRet(DValue* dval);
+    llvm::Value* getRet(Type* dty, llvm::Value* val);
+    void getRet(Type* dty, llvm::Value* val, llvm::Value* address);
 
-    llvm::Value* putParam(Type* dty, size_t idx, DValue* dval);
-    llvm::Value* putParam(Type* dty, const IrFuncTyArg& arg, DValue* dval);
-    void getParam(Type* dty, size_t idx, DValue* dval, llvm::Value* lval);
+    llvm::Value* putParam(size_t idx, DValue* dval);
+    llvm::Value* putParam(const IrFuncTyArg& arg, DValue* dval);
+    void getParam(Type* dty, size_t idx, llvm::Value* val, llvm::Value* address);
 };
 
 #endif

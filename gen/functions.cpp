@@ -867,8 +867,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
                     LLValue* mem = DtoAlloca(irparam->arg->type, vd->ident->toChars());
 
                     // let the abi transform the argument back first
-                    DImValue arg_dval(vd->type, irparam->value);
-                    irFty.getParam(vd->type, llArgIdx, &arg_dval, mem);
+                    irFty.getParam(vd->type, llArgIdx, irparam->value, mem);
 
                     // set the arg var value to the alloca
                     irparam->value = mem;

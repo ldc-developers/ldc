@@ -160,22 +160,21 @@ namespace {
  * memory so that it's then readable as the other type (i.e., bit-casting).
  */
 struct X86_64_C_struct_rewrite : ABIRewrite {
-    LLValue* get(Type* dty, DValue* v)
+    LLValue* get(Type* dty, LLValue* v)
     {
-        LLValue* address = DtoAllocaDump(v, ".X86_64_C_struct_rewrite_dump");
+        LLValue* address = DtoAllocaDump(v, dty, ".X86_64_C_struct_rewrite_dump");
         LLType* type = DtoType(dty);
         return loadFromMemory(address, type, ".X86_64_C_struct_rewrite_getResult");
     }
 
-    void getL(Type* dty, DValue* v, LLValue* lval) {
-        storeToMemory(v->getRVal(), lval);
+    void getL(Type* dty, LLValue* v, LLValue* lval) {
+        storeToMemory(v, lval);
     }
 
-    LLValue* put(Type* dty, DValue* v) {
-        assert(dty == v->getType());
+    LLValue* put(DValue* v) {
         LLValue* address = getAddressOf(v);
 
-        LLType* abiTy = getAbiType(dty);
+        LLType* abiTy = getAbiType(v->getType());
         assert(abiTy && "Why are we rewriting a non-rewritten type?");
 
         return loadFromMemory(address, abiTy, ".X86_64_C_struct_rewrite_putResult");
@@ -195,18 +194,15 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
  * the ByVal LLVM attribute.
  */
 struct ImplicitByvalRewrite : ABIRewrite {
-    LLValue* get(Type* dty, DValue* v) {
-        LLValue* pointer = v->getRVal();
-        return DtoLoad(pointer, ".ImplicitByvalRewrite_getResult");
+    LLValue* get(Type* dty, LLValue* v) {
+        return DtoLoad(v, ".ImplicitByvalRewrite_getResult");
     }
 
-    void getL(Type* dty, DValue* v, LLValue* lval) {
-        LLValue* pointer = v->getRVal();
-        DtoAggrCopy(lval, pointer);
+    void getL(Type* dty, LLValue* v, LLValue* lval) {
+        DtoAggrCopy(lval, v);
     }
 
-    LLValue* put(Type* dty, DValue* v) {
-        assert(dty == v->getType());
+    LLValue* put(DValue* v) {
         return getAddressOf(v);
     }
 

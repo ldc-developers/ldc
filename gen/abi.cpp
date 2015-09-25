@@ -28,7 +28,7 @@
 
 //////////////////////////////////////////////////////////////////////////////
 
-void ABIRewrite::getL(Type* dty, DValue* v, LLValue* lval)
+void ABIRewrite::getL(Type* dty, LLValue* v, LLValue* lval)
 {
     LLValue* rval = get(dty, v);
     assert(rval->getType() == lval->getType()->getContainedType(0));

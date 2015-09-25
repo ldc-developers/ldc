@@ -44,14 +44,14 @@ struct ABIRewrite
     virtual ~ABIRewrite() {}
 
     /// get a rewritten value back to its original form
-    virtual llvm::Value* get(Type* dty, DValue* v) = 0;
+    virtual llvm::Value* get(Type* dty, llvm::Value* v) = 0;
 
     /// get a rewritten value back to its original form and store result in provided lvalue
     /// this one is optional and defaults to calling the one above
-    virtual void getL(Type* dty, DValue* v, llvm::Value* lval);
+    virtual void getL(Type* dty, llvm::Value* v, llvm::Value* lval);
 
     /// put out rewritten value
-    virtual llvm::Value* put(Type* dty, DValue* v) = 0;
+    virtual llvm::Value* put(DValue* v) = 0;
 
     /// should return the transformed type for this rewrite
     virtual llvm::Type* type(Type* dty, llvm::Type* t) = 0;

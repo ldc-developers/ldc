@@ -166,9 +166,9 @@ static void addExplicitArguments(std::vector<LLValue*>& args, AttrSet& attrs,
 
         llvm::Value* llVal = NULL;
         if (isVararg)
-            llVal = irFty.putParam(argType, *irArg, argval);
+            llVal = irFty.putParam(*irArg, argval);
         else
-            llVal = irFty.putParam(argType, i, argval);
+            llVal = irFty.putParam(i, argval);
 
         const size_t llArgIdx = implicitLLArgCount +
             (irFty.reverseParams ? explicitLLArgCount - i - 1 : i);
@@ -806,18 +806,17 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     if (!intrinsic && !retinptr)
     {
         // do abi specific return value fixups
-        DImValue dretval(returntype, retllval);
         if (storeReturnValueOnStack)
         {
             Logger::println("Storing return value to stack slot");
             LLValue* mem = DtoAlloca(returntype);
-            irFty.getRet(returntype, &dretval, mem);
+            irFty.getRet(returntype, retllval, mem);
             retllval = mem;
             storeReturnValueOnStack = false;
         }
         else
         {
-            retllval = irFty.getRet(returntype, &dretval);
+            retllval = irFty.getRet(returntype, retllval);
             storeReturnValueOnStack =
                 (returnTy == Tstruct && !isaPointer(retllval)) ||
                 (returnTy == Tsarray && isaArray(retllval));
