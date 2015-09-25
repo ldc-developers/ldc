@@ -194,8 +194,6 @@ public:
                     returnValue = getIrFunc(irs->func()->decl)->irFty.putRet(dval);
                 }
 
-                IF_LOG Logger::cout() << "return value is '" << returnValue << "'\n";
-
                 IrFunction* f = irs->func();
                 // Hack around LDC assuming structs and static arrays are in memory:
                 // If the function returns a struct or a static array, and the return
