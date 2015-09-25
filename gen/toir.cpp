@@ -2470,7 +2470,7 @@ public:
         FuncLiteralDeclaration *fd = e->fd;
         assert(fd);
 
-        if (fd->tok == TOKreserved && e->type->ty == Tpointer)
+        if ((fd->tok == TOKreserved || fd->tok == TOKdelegate) && e->type->ty == Tpointer)
         {
             // This is a lambda that was inferred to be a function literal instead
             // of a delegate, so set tok here in order to get correct types/mangling.
@@ -2499,28 +2499,34 @@ public:
 
             LLValue* cval;
             IrFunction* irfn = p->func();
-            if (irfn->nestedVar
-                // We cannot use a frame allocated in one function
-                // for a delegate created in another function
-                // (that happens with anonymous functions)
-                && fd->toParent2() == irfn->decl
-                )
+            if (irfn->nestedVar && fd->toParent2() == irfn->decl)
+            {
+                // We check fd->toParent2() because a frame allocated in one
+                // function cannot be used for a delegate created in another
+                // function. Happens with anonymous functions.
                 cval = irfn->nestedVar;
+            }
             else if (irfn->nestArg)
+            {
                 cval = DtoLoad(irfn->nestArg);
-            // TODO: should we enable that for D1 as well?
+            }
             else if (irfn->thisArg)
             {
                 AggregateDeclaration* ad = irfn->decl->isMember2();
-                if (!ad || !ad->vthis) {
+                if (!ad || !ad->vthis)
+                {
                     cval = getNullPtr(getVoidPtrType());
-                } else {
+                }
+                else
+                {
                     cval = ad->isClassDeclaration() ? DtoLoad(irfn->thisArg) : irfn->thisArg;
                     cval = DtoLoad(DtoGEPi(cval, 0, getFieldGEPIndex(ad, ad->vthis), ".vthis"));
                 }
             }
             else
+            {
                 cval = getNullPtr(getVoidPtrType());
+            }
             cval = DtoBitCast(cval, dgty->getContainedType(0));
 
             LLValue* castfptr = DtoBitCast(getIrFunc(fd)->func, dgty->getContainedType(1));
