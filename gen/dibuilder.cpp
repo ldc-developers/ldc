@@ -841,9 +841,10 @@ void ldc::DIBuilder::EmitStopPoint(Loc& loc)
     // (line 0), then we can just ignore it (see GitHub issue #998 for why we
     // cannot do this in all cases).
     if (!loc.linnum &&
-          !IR->ir->getCurrentDebugLocation()
-#if LDC_LLVM_VER < 307
-              .isUnknown()
+#if LDC_LLVM_VER >= 307
+          IR->ir->getCurrentDebugLocation()
+#else
+          !IR->ir->getCurrentDebugLocation().isUnknown()
 #endif
         )
         return;
