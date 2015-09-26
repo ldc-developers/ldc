@@ -534,6 +534,10 @@ if(${BUILD_SHARED})
 endif()
 install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
 
+if(MSVC)
+    install(DIRECTORY vcbuild/ DESTINATION ${CMAKE_INSTALL_PREFIX}/bin FILES_MATCHING PATTERN "*.bat")
+endif()
+
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     find_package(bash-completion QUIET)
     if(NOT BASH_COMPLETION_FOUND)
