@@ -83,6 +83,10 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
             list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
         endif()
+        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[8-9][\\.0-9A-Za-z]*")
+            # Versions beginning with 3.8 do not support component ipa
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
+        endif()
 
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
             llvm_map_components_to_libraries(tmplibs ${LLVM_FIND_COMPONENTS})
@@ -162,6 +166,10 @@ else()
         # Only debuginfo is available
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
         list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
+    endif()
+    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[8-9][\\.0-9A-Za-z]*")
+        # Versions beginning with 3.8 do not support component ipa
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
     endif()
 
     llvm_set(LDFLAGS ldflags)
