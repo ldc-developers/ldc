@@ -302,8 +302,7 @@ public:
             if (result && result->getType()->ty != Tvoid &&
                 (result->isIm() || result->isSlice())
             ) {
-                llvm::AllocaInst* alloca = DtoAlloca(result->getType());
-                DtoStoreZextI8(result->getRVal(), alloca);
+                LLValue* alloca = DtoAllocaDump(result);
                 result = new DVarValue(result->getType(), alloca);
             }
 
@@ -1107,9 +1106,7 @@ public:
         else
         {
             assert(v->isSlice());
-            LLValue* rval = v->getRVal();
-            lval = DtoRawAlloca(rval->getType(), 0, ".tmp_slice_storage");
-            DtoStore(rval, lval);
+            lval = DtoAllocaDump(v, ".tmp_slice_storage");
         }
 
         IF_LOG Logger::cout() << "lval: " << *lval << '\n';
@@ -2590,7 +2587,7 @@ public:
         }
         else
         {
-            llvm::Value* storage = DtoRawAlloca(llStoType, 0, "arrayliteral");
+            llvm::Value* storage = DtoRawAlloca(llStoType, e->type->alignsize(), "arrayliteral");
             initializeArrayLiteral(p, e, storage);
             result = new DImValue(e->type, storage);
         }
@@ -2629,7 +2626,7 @@ public:
         DtoResolveStruct(e->sd);
 
         // alloca a stack slot
-        e->inProgressMemory = DtoRawAlloca(DtoType(e->type), 0, ".structliteral");
+        e->inProgressMemory = DtoAlloca(e->type, ".structliteral");
 
         // fill the allocated struct literal
         write_struct_literal(e->loc, e->inProgressMemory, e->sd, e->elements);
@@ -2796,9 +2793,8 @@ public:
     LruntimeInit:
 
         // it should be possible to avoid the temporary in some cases
-        LLValue* tmp = DtoAlloca(e->type, "aaliteral");
+        LLValue* tmp = DtoAllocaDump(LLConstant::getNullValue(DtoType(e->type)), e->type, "aaliteral");
         result = new DVarValue(e->type, tmp);
-        DtoStore(LLConstant::getNullValue(DtoType(e->type)), tmp);
 
         const size_t n = e->keys->dim;
         for (size_t i = 0; i<n; ++i)

@@ -174,6 +174,42 @@ LLValue* DtoGcMalloc(Loc& loc, LLType* lltype, const char* name)
     return DtoBitCast(mem, getPtrToType(lltype), name);
 }
 
+LLValue* DtoAllocaDump(DValue* val, const char* name)
+{
+    return DtoAllocaDump(val->getRVal(), val->getType(), name);
+}
+
+LLValue* DtoAllocaDump(DValue* val, Type* asType, const char* name)
+{
+    return DtoAllocaDump(val->getRVal(), asType, name);
+}
+
+LLValue* DtoAllocaDump(DValue* val, LLType* asType, int alignment, const char* name)
+{
+    return DtoAllocaDump(val->getRVal(), asType, alignment, name);
+}
+
+LLValue* DtoAllocaDump(LLValue* val, int alignment, const char* name)
+{
+    return DtoAllocaDump(val, val->getType(), alignment, name);
+}
+
+LLValue* DtoAllocaDump(LLValue* val, Type* asType, const char* name)
+{
+    return DtoAllocaDump(val, DtoType(asType), asType->alignsize(), name);
+}
+
+LLValue* DtoAllocaDump(LLValue* val, LLType* asType, int alignment, const char* name)
+{
+    LLType* valType = i1ToI8(val->getType());
+    asType = i1ToI8(asType);
+    LLType* allocaType = (
+        getTypeStoreSize(valType) <= getTypeAllocSize(asType) ? asType : valType);
+    LLValue* mem = DtoRawAlloca(allocaType, alignment, name);
+    DtoStoreZextI8(val, DtoBitCast(mem, valType->getPointerTo()));
+    return DtoBitCast(mem, asType->getPointerTo());
+}
+
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
 // ASSERT HELPER
@@ -1404,11 +1440,8 @@ LLValue* makeLValue(Loc& loc, DValue* value)
         needsMemory = false;
     }
 
-    if (needsMemory) {
-        LLValue* tmp = DtoAlloca(valueType, ".makelvaluetmp");
-        DtoStoreZextI8(valuePointer, tmp);
-        valuePointer = tmp;
-    }
+    if (needsMemory)
+        valuePointer = DtoAllocaDump(value, ".makelvaluetmp");
 
     return valuePointer;
 }
