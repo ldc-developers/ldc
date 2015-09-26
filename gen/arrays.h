@@ -30,8 +30,11 @@ llvm::StructType* DtoArrayType(Type* arrayTy);
 llvm::StructType* DtoArrayType(LLType* elemTy);
 llvm::ArrayType* DtoStaticArrayType(Type* sarrayTy);
 
-LLType* DtoConstArrayInitializerType(ArrayInitializer* arrinit);
-LLConstant* DtoConstArrayInitializer(ArrayInitializer* si);
+/// Creates a (global) constant with the element data for the given arary
+/// initializer. targetType is explicit because the frontend sometimes emits
+/// ArrayInitializers for vectors typed as static arrays.
+LLConstant* DtoConstArrayInitializer(ArrayInitializer* si, Type* targetType);
+
 LLConstant* DtoConstSlice(LLConstant* dim, LLConstant* ptr, Type *type = 0);
 
 /// Returns whether the array literal can be evaluated to a (LLVM) constant.

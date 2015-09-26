@@ -363,15 +363,15 @@ static void DtoSetArray(DValue* array, LLValue* dim, LLValue* ptr)
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit)
+LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit, Type* targetType)
 {
-    IF_LOG Logger::println("DtoConstArrayInitializer: %s | %s", arrinit->toChars(), arrinit->type->toChars());
+    IF_LOG Logger::println("DtoConstArrayInitializer: %s | %s", arrinit->toChars(), targetType->toChars());
     LOG_SCOPE;
 
     assert(arrinit->value.dim == arrinit->index.dim);
 
     // get base array type
-    Type* arrty = arrinit->type->toBasetype();
+    Type* arrty = targetType->toBasetype();
     size_t arrlen = arrinit->dim;
 
     // for statis arrays, dmd does not include any trailing default
