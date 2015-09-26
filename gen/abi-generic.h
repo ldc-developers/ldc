@@ -82,24 +82,23 @@ struct LLTypeMemoryLayout
 /// Removes padding fields for (non-union-containing!) structs
 struct RemoveStructPadding : ABIRewrite {
     /// get a rewritten value back to its original form
-    LLValue* get(Type* dty, DValue* v) {
+    LLValue* get(Type* dty, LLValue* v) {
         LLValue* lval = DtoAlloca(dty, ".rewritetmp");
         getL(dty, v, lval);
         return lval;
     }
 
     /// get a rewritten value back to its original form and store result in provided lvalue
-    /// this one is optional and defaults to calling the one above
-    void getL(Type* dty, DValue* v, LLValue* lval) {
+    void getL(Type* dty, LLValue* v, LLValue* lval) {
         // Make sure the padding is zero, so struct comparisons work.
         // TODO: Only do this if there's padding, and/or only initialize padding.
         DtoMemSetZero(lval, DtoConstSize_t(getTypePaddedSize(DtoType(dty))));
-        DtoPaddedStruct(dty->toBasetype(), v->getRVal(), lval);
+        DtoPaddedStruct(dty->toBasetype(), v, lval);
     }
 
     /// put out rewritten value
-    LLValue* put(Type* dty, DValue* v) {
-        return DtoUnpaddedStruct(dty->toBasetype(), v->getRVal());
+    LLValue* put(DValue* v) {
+        return DtoUnpaddedStruct(v->getType()->toBasetype(), v->getRVal());
     }
 
     /// return the transformed type for this rewrite
@@ -154,26 +153,22 @@ struct IntegerRewrite : ABIRewrite
         return LLTypeMemoryLayout::typesAreEquivalent(llType, integerType);
     }
 
-    LLValue* get(Type* dty, DValue* dv)
+    LLValue* get(Type* dty, LLValue* v)
     {
-        LLValue* integer = dv->getRVal();
-        LLValue* integerDump = storeToMemory(integer, 0, ".IntegerRewrite_dump");
-
+        LLValue* integerDump = DtoAllocaDump(v, dty, ".IntegerRewrite_dump");
         LLType* type = DtoType(dty);
         return loadFromMemory(integerDump, type, ".IntegerRewrite_getResult");
     }
 
-    void getL(Type* dty, DValue* dv, LLValue* lval)
+    void getL(Type* dty, LLValue* v, LLValue* lval)
     {
-        LLValue* integer = dv->getRVal();
-        storeToMemory(integer, lval);
+        storeToMemory(v, lval);
     }
 
-    LLValue* put(Type* dty, DValue* dv)
+    LLValue* put(DValue* dv)
     {
-        assert(dty == dv->getType());
         LLValue* address = getAddressOf(dv);
-        LLType* integerType = getIntegerType(dty->size());
+        LLType* integerType = getIntegerType(dv->getType()->size());
         return loadFromMemory(address, integerType, ".IntegerRewrite_putResult");
     }
 
@@ -205,21 +200,19 @@ struct ExplicitByvalRewrite : ABIRewrite
     ExplicitByvalRewrite(size_t alignment = 16) : alignment(alignment)
     { }
 
-    LLValue* get(Type* dty, DValue* v)
+    LLValue* get(Type* dty, LLValue* v)
     {
-        LLValue* pointer = v->getRVal();
-        return DtoLoad(pointer, ".ExplicitByvalRewrite_getResult");
+        return DtoLoad(v, ".ExplicitByvalRewrite_getResult");
     }
 
-    void getL(Type* dty, DValue* v, LLValue* lval)
+    void getL(Type* dty, LLValue* v, LLValue* lval)
     {
-        LLValue* pointer = v->getRVal();
-        DtoAggrCopy(lval, pointer);
+        DtoAggrCopy(lval, v);
     }
 
-    LLValue* put(Type* dty, DValue* v)
+    LLValue* put(DValue* v)
     {
-        if (DtoIsPassedByRef(dty))
+        if (DtoIsPassedByRef(v->getType()))
         {
             LLValue* originalPointer = v->getRVal();
             LLType* type = originalPointer->getType()->getPointerElementType();
@@ -228,9 +221,7 @@ struct ExplicitByvalRewrite : ABIRewrite
             return copyForCallee;
         }
 
-        LLValue* originalValue = v->getRVal();
-        LLValue* copyForCallee = storeToMemory(originalValue, alignment, ".ExplicitByvalRewrite_putResult");
-        return copyForCallee;
+        return DtoAllocaDump(v->getRVal(), alignment, ".ExplicitByvalRewrite_putResult");
     }
 
     LLType* type(Type* dty, LLType* t)

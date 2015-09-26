@@ -204,14 +204,21 @@ LLValue* DtoNestedContext(Loc& loc, Dsymbol* sym)
 
     // Exit quickly for functions that accept a context pointer for ABI purposes,
     // but do not actually read from it.
+    //
+    // We cannot simply fall back to retuning undef once we discover that we
+    // don't actually have a context to pass, because we sadly also need to
+    // catch invalid code here in the glue layer (see error() below).
     if (FuncDeclaration* symfd = sym->isFuncDeclaration())
     {
         // Make sure we've had a chance to analyze nested context usage
         DtoCreateNestedContextType(symfd);
 
-        if (getIrFunc(symfd)->depth == -1)
+        int depth = getIrFunc(symfd)->depth;
+        Logger::println("for function of depth %d", depth);
+        if (depth == -1 || (depth == 0 && !symfd->closureVars.empty()))
         {
-            Logger::println("function does not actually need context, returning undef");
+            Logger::println("function does not have context or creates its own "
+                "from scratch, returning undef");
             return llvm::UndefValue::get(getVoidPtrType());
         }
     }
@@ -316,7 +323,7 @@ LLValue* DtoNestedContext(Loc& loc, Dsymbol* sym)
 }
 
 static void DtoCreateNestedContextType(FuncDeclaration* fd) {
-    IF_LOG Logger::println("DtoCreateNestedContextType for %s", fd->toChars());
+    IF_LOG Logger::println("DtoCreateNestedContextType for %s", fd->toPrettyChars());
     LOG_SCOPE
 
     DtoDeclareFunction(fd);
@@ -429,7 +436,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
 
 
 void DtoCreateNestedContext(FuncDeclaration* fd) {
-    IF_LOG Logger::println("DtoCreateNestedContext for %s", fd->toChars());
+    IF_LOG Logger::println("DtoCreateNestedContext for %s", fd->toPrettyChars());
     LOG_SCOPE
 
     DtoCreateNestedContextType(fd);

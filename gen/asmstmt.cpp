@@ -512,7 +512,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState* p)
 
     // location of the special value determining the goto label
     // will be set if post-asm dispatcher block is needed
-    llvm::AllocaInst* jump_target = 0;
+    LLValue* jump_target = 0;
 
     {
         FuncDeclaration* fd = gIR->func()->decl;
@@ -577,8 +577,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState* p)
             outSetterStmt->code += asmGotoEndLabel.str()+":\n";
 
             // create storage for and initialize the temporary
-            jump_target = DtoAlloca(Type::tint32, "__llvm_jump_target");
-            gIR->ir->CreateStore(DtoConstUint(0), jump_target);
+            jump_target = DtoAllocaDump(DtoConstUint(0), 0, "__llvm_jump_target");
             // setup variable for output from asm
             outSetterStmt->out_c = "=*m,";
             outSetterStmt->out.push_back(jump_target);
