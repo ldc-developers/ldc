@@ -432,7 +432,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     if (global.params.useUnitTests)
         global.params.useAssert = 1;
 
-    // -release downgrades default bounds checking level to BC_SafeOnly (only for safe functions).
+    // -release downgrades default bounds checking level to BOUNDSCHECKsafeonly (only for safe functions).
     global.params.useArrayBounds = opts::nonSafeBoundsChecks ? BOUNDSCHECKon : BOUNDSCHECKsafeonly;
     if (opts::boundsCheck != BOUNDSCHECKdefault)
         global.params.useArrayBounds = opts::boundsCheck;
@@ -826,7 +826,7 @@ static void registerPredefinedVersions() {
     if (global.params.useAssert)
         VersionCondition::addPredefinedGlobalIdent("assert");
 
-    if (!global.params.useArrayBounds)
+    if (global.params.useArrayBounds == BOUNDSCHECKoff)
         VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
 
     registerPredefinedTargetVersions();
