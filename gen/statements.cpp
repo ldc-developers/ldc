@@ -191,7 +191,7 @@ public:
                         dval = toElemDtor(ae);
                     }
                     // do abi specific transformations on the return value
-                    returnValue = getIrFunc(irs->func()->decl)->irFty.putRet(stmt->exp->type, dval);
+                    returnValue = getIrFunc(irs->func()->decl)->irFty.putRet(dval);
                 }
 
                 IF_LOG Logger::cout() << "return value is '" << returnValue << "'\n";
@@ -1150,7 +1150,7 @@ public:
         if (stmt->key)
             keyvar = DtoRawVarDeclaration(stmt->key);
         else
-            keyvar = DtoRawAlloca(keytype, 0, "foreachkey"); // FIXME: align?
+            keyvar = DtoRawAlloca(keytype, 0, "foreachkey");
         LLValue* zerokey = LLConstantInt::get(keytype, 0, false);
 
         // value

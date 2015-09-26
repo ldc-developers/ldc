@@ -90,15 +90,18 @@ static cl::list<std::string, StringsAdapter> importPaths("I",
     cl::Prefix);
 
 static cl::opt<std::string> defaultLib("defaultlib",
-    cl::desc("Default libraries for non-debug-info build (overrides previous)"),
+    cl::desc("Default libraries to link with (overrides previous)"),
     cl::value_desc("lib1,lib2,..."),
     cl::ZeroOrMore);
 
 static cl::opt<std::string> debugLib("debuglib",
-    cl::desc("Default libraries for debug info build (overrides previous)"),
+    cl::desc("Debug versions of default libraries (overrides previous)"),
     cl::value_desc("lib1,lib2,..."),
     cl::ZeroOrMore);
 
+static cl::opt<bool> linkDebugLib("link-debuglib",
+    cl::desc("Link with libraries specified in -debuglib, not -defaultlib"),
+    cl::ZeroOrMore);
 
 #if LDC_LLVM_VER < 304
 namespace llvm {
@@ -420,8 +423,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     else
     {
         // Parse comma-separated default library list.
-        std::stringstream libNames(
-            global.params.symdebug ? debugLib : defaultLib);
+        std::stringstream libNames(linkDebugLib ? debugLib : defaultLib);
         while (libNames.good())
         {
             std::string lib;

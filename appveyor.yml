@@ -99,7 +99,7 @@ build_script:
   - cd ninja-ldc
   - cmake -G Ninja -DCMAKE_BUILD_TYPE=RelWithDebInfo -DCMAKE_INSTALL_PREFIX=c:\projects\ldc-x64 -DLLVM_ROOT_DIR=c:/projects/llvm-x64 -DLIBCONFIG_INCLUDE_DIR=c:/projects/libconfig/lib -DLIBCONFIG_LIBRARY=c:/projects/libconfig/lib/x64/ReleaseStatic/libconfig.lib ..\ldc
   # Work around LDC issue #930
-  - ps: (gc build.ninja).replace('runtime/std/string-unittest-debug.obj -w -d -g -unittest', 'runtime/std/string-unittest-debug.obj -w -d -unittest') | sc build.ninja
+  - ps: (gc build.ninja).replace('runtime/std/string-unittest-debug.obj -w -d -g -link-debuglib -unittest', 'runtime/std/string-unittest-debug.obj -w -d -link-debuglib -unittest') | sc build.ninja
   # Build LDC, druntime and phobos
   - ninja -j2
 

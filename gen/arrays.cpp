@@ -150,8 +150,7 @@ static void DtoArrayInit(Loc& loc, LLValue* ptr, LLValue* length, DValue* dvalue
                                                         gIR->topfunc());
 
     // initialize iterator
-    LLValue *itr = DtoAlloca(Type::tsize_t, "arrayinit.itr");
-    DtoStore(DtoConstSize_t(0), itr);
+    LLValue *itr = DtoAllocaDump(DtoConstSize_t(0), 0, "arrayinit.itr");
 
     // move into the for condition block, ie. start the loop
     assert(!gIR->scopereturned());

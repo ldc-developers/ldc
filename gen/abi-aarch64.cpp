@@ -110,14 +110,13 @@ struct AArch64TargetABI : TargetABI
     }
 
     void vaCopy(LLValue* pDest, LLValue* src) {
-        // Analog to va_start, we need to allocate a __va_list struct on the stack first
-        // and set the passed 'dest' char* pointer to its address.
-        LLValue* valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
-        DtoStore(DtoBitCast(valistmem, getVoidPtrType()), pDest);
-
-        // Now bitcopy the source struct over the destination struct.
-        src = DtoBitCast(src, valistmem->getType());
-        DtoStore(DtoLoad(src), valistmem); // *(__va_list*)dest = *(__va_list*)src
+        // Analog to va_start, we need to allocate a new __va_list struct on the stack,
+        // fill it with a bitcopy of the source struct...
+        src = DtoLoad(DtoBitCast(src, getValistType()->getPointerTo())); // *(__va_list*)src
+        LLValue* valistmem = DtoAllocaDump(src, 0, "__va_list_mem");
+        // ... and finally set the passed 'dest' char* pointer to the new struct's address.
+        DtoStore(DtoBitCast(valistmem, getVoidPtrType()),
+            DtoBitCast(pDest, getPtrToType(getVoidPtrType())));
     }
 
     LLValue* prepareVaArg(LLValue* pAp)
