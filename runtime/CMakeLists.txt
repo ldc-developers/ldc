@@ -191,9 +191,6 @@ endif()
 #
 # Create configuration files.
 #
-if(MSVC)
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-L/LARGEADDRESSAWARE:NO\"")
-endif()
 
 # Add extra paths on Linux and disable linker arch mismatch warnings (like
 # DMD and GDC do). OS X doesn't need extra configuration due to the use of

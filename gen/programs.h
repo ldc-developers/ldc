@@ -16,11 +16,9 @@
 
 #include <string>
 
+std::string findProgramByName(const std::string& name);
+
 std::string getGcc();
 std::string getArchiver();
-
-// For Windows with MS tool chain
-std::string getLink();
-std::string getLib();
 
 #endif

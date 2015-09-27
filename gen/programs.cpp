@@ -24,17 +24,7 @@ static cl::opt<std::string> ar("ar",
     cl::Hidden,
     cl::ZeroOrMore);
 
-static cl::opt<std::string> mslink("ms-link",
-    cl::desc("LINK to use for linking on Windows"),
-    cl::Hidden,
-    cl::ZeroOrMore);
-
-static cl::opt<std::string> mslib("ms-lib",
-    cl::desc("Library Manager to use on Windows"),
-    cl::Hidden,
-    cl::ZeroOrMore);
-
-inline static std::string findProgramByName(const std::string& name)
+std::string findProgramByName(const std::string& name)
 {
 #if LDC_LLVM_VER >= 306
     llvm::ErrorOr<std::string> res = llvm::sys::findProgramByName(name);
@@ -81,14 +71,4 @@ std::string getGcc()
 std::string getArchiver()
 {
     return getProgram("ar", ar);
-}
-
-std::string getLink()
-{
-    return getProgram("link.exe", mslink);
-}
-
-std::string getLib()
-{
-    return getProgram("lib.exe", mslib);
 }
