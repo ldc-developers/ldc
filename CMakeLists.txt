@@ -248,6 +248,7 @@ set(DRV_SRC
     driver/cl_options.cpp
     driver/codegenerator.cpp
     driver/configfile.cpp
+    driver/exe_path.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
     driver/tool.cpp
@@ -260,6 +261,7 @@ set(DRV_HDR
     driver/cl_options.h
     driver/codegenerator.h
     driver/configfile.h
+    driver/exe_path.h
     driver/ldc-version.h
     driver/targetmachine.h
     driver/toobj.h
@@ -498,7 +500,7 @@ endif()
 set_source_files_properties(driver/ldmd.cpp driver/response.cpp PROPERTIES
     COMPILE_FLAGS "${LDC_CXXFLAGS}"
 )
-add_executable(${LDMD_EXE} dmd2/root/man.c driver/ldmd.cpp driver/response.cpp)
+add_executable(${LDMD_EXE} dmd2/root/man.c driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp driver/exe_path.h)
 set_target_properties(${LDMD_EXE} PROPERTIES
     COMPILE_DEFINITIONS LDC_EXE_NAME="${LDC_EXE_NAME}"
     COMPILE_FLAGS "${LLVM_CXXFLAGS}"

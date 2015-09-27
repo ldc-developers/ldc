@@ -24,7 +24,7 @@ static cl::opt<std::string> ar("ar",
     cl::Hidden,
     cl::ZeroOrMore);
 
-std::string findProgramByName(const std::string& name)
+static std::string findProgramByName(const std::string& name)
 {
 #if LDC_LLVM_VER >= 306
     llvm::ErrorOr<std::string> res = llvm::sys::findProgramByName(name);
@@ -36,12 +36,12 @@ std::string findProgramByName(const std::string& name)
 #endif
 }
 
-static std::string getProgram(const char *name, const cl::opt<std::string> &opt, const char *envVar = 0)
+static std::string getProgram(const char* name, const cl::opt<std::string>* opt, const char* envVar = NULL)
 {
     std::string path;
     const char *prog = NULL;
 
-    if (opt.getNumOccurrences() > 0 && opt.length() > 0 && (prog = opt.c_str()))
+    if (opt && opt->getNumOccurrences() > 0 && opt->length() > 0 && (prog = opt->c_str()))
         path = findProgramByName(prog);
 
     if (path.empty() && envVar && (prog = getenv(envVar)))
@@ -58,17 +58,22 @@ static std::string getProgram(const char *name, const cl::opt<std::string> &opt,
     return path;
 }
 
+std::string getProgram(const char* name, const char* envVar)
+{
+    return getProgram(name, NULL, envVar);
+}
+
 std::string getGcc()
 {
 #if defined(__FreeBSD__) && __FreeBSD__ >= 10
     // Default compiler on FreeBSD 10 is clang
     return getProgram("clang", gcc, "CC");
 #else
-    return getProgram("gcc", gcc, "CC");
+    return getProgram("gcc", &gcc, "CC");
 #endif
 }
 
 std::string getArchiver()
 {
-    return getProgram("ar", ar);
+    return getProgram("ar", &ar);
 }

@@ -12,6 +12,7 @@
 #include "module.h"
 #include "root.h"
 #include "driver/cl_options.h"
+#include "driver/exe_path.h"
 #include "driver/tool.h"
 #include "gen/llvm.h"
 #include "gen/logger.h"
@@ -283,15 +284,17 @@ static bool setupMSVCEnvironment(std::string& tool, std::vector<std::string>& ar
     // the environment is most likely not set up properly
     bool setup = (!getenv("VSINSTALLDIR")
         && global.params.targetTriple.isArch64Bit()); // currently Win64 only
+
     if (setup)
     {
         // use a helper batch file to let MSVC set up the environment and
         // then invoke the tool
         args.push_back(tool); // tool is first arg for batch file
-        tool = findProgramByName("msvcEnv_x64.bat");
+        tool = exe_path::prependBinDir("msvcEnv_x64.bat");
     }
     else
-        tool = findProgramByName(tool);
+        tool = getProgram(tool.c_str());
+
     return setup;
 }
 
@@ -374,7 +377,7 @@ static int linkObjToBinaryWin(bool sharedLib)
     // additional linker switches
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
     {
-        std::string str(static_cast<const char *>(global.params.linkswitches->data[i]));
+        std::string str = global.params.linkswitches->data[i];
         if (str.length() > 2)
         {
             // rewrite common -L and -l switches

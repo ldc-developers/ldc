@@ -16,7 +16,7 @@
 
 #include <string>
 
-std::string findProgramByName(const std::string& name);
+std::string getProgram(const char* name, const char* envVar = 0);
 
 std::string getGcc();
 std::string getArchiver();
