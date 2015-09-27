@@ -317,12 +317,6 @@ static int linkObjToBinaryWin(bool sharedLib)
     if (!global.params.is64bit)
         args.push_back("/SAFESEH");
 
-    // mark executable to be compatible with Windows Data Execution Prevention feature
-    args.push_back("/NXCOMPAT");
-
-    // use address space layout randomization (ASLR) feature
-    args.push_back("/DYNAMICBASE");
-
     // because of a LLVM bug, see LDC issue 442
     if (global.params.symdebug)
         args.push_back("/LARGEADDRESSAWARE:NO");
@@ -331,9 +325,11 @@ static int linkObjToBinaryWin(bool sharedLib)
 
     // output debug information
     if (global.params.symdebug)
-    {
         args.push_back("/DEBUG");
-    }
+
+    // enable Link-time Code Generation (aka. whole program optimization)
+    if (global.params.optimize)
+        args.push_back("/LTCG");
 
     // remove dead code and fold identical COMDATs
     if (opts::disableLinkerStripDead)
@@ -461,6 +457,10 @@ void createStaticLibrary()
     // ask lib to be quiet
     if (isTargetWindows)
         args.push_back("/NOLOGO");
+
+    // enable Link-time Code Generation (aka. whole program optimization)
+    if (isTargetWindows && global.params.optimize)
+        args.push_back("/LTCG");
 
     // output filename
     std::string libName;
