@@ -192,6 +192,11 @@ endif()
 # Create configuration files.
 #
 
+# Add a lib required by VS 2015+ when building LDC with VS 2015+.
+if(MSVC AND (MSVC_VERSION GREATER 1800))
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-Llegacy_stdio_definitions.lib\"")
+endif()
+
 # Add extra paths on Linux and disable linker arch mismatch warnings (like
 # DMD and GDC do). OS X doesn't need extra configuration due to the use of
 # fat binaries. Other Posixen might need to be added here.
