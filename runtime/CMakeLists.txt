@@ -247,7 +247,7 @@ foreach(variable ${variables})
 endforeach()
 
 # Compiles the given D module into an object file, and if enabled, a bitcode
-# file. The ouput is written to a path based on output_dir. The paths of the
+# file. The output is written to a path based on output_dir. The paths of the
 # output files are appended to outlist_o and outlist_bc, respectively.
 macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
     file(RELATIVE_PATH output ${output_dir} ${input_d})

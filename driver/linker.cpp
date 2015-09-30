@@ -282,15 +282,15 @@ static bool setupMSVCEnvironment(std::string& tool, std::vector<std::string>& ar
 {
     // if the VSINSTALLDIR environment variable is NOT set,
     // the environment is most likely not set up properly
-    bool setup = (!getenv("VSINSTALLDIR")
-        && global.params.targetTriple.isArch64Bit()); // currently Win64 only
+    bool setup = !getenv("VSINSTALLDIR");
 
     if (setup)
     {
         // use a helper batch file to let MSVC set up the environment and
         // then invoke the tool
         args.push_back(tool); // tool is first arg for batch file
-        tool = exe_path::prependBinDir("msvcEnv_x64.bat");
+        tool = exe_path::prependBinDir(
+            global.params.targetTriple.isArch64Bit() ? "amd64.bat" : "x86.bat");
     }
     else
         tool = getProgram(tool.c_str());
