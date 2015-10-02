@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/configfile.h"
+#include "driver/exe_path.h"
 #include "mars.h"
 #include "libconfig.h"
 #include "llvm/Support/FileSystem.h"
@@ -51,16 +52,6 @@ std::string getUserHomeDirectory() {
 }
 #endif
 
-#if LDC_LLVM_VER >= 304
-static std::string getMainExecutable(const char *argv0, void *MainExecAddr) {
-  return sys::fs::getMainExecutable(argv0, MainExecAddr);
-}
-#else
-static std::string getMainExecutable(const char *argv0, void *MainExecAddr) {
-  return llvm::sys::Path::GetMainExecutable(argv0, MainExecAddr).str();
-}
-#endif
-
 #if _WIN32
 static bool ReadPathFromRegistry(llvm::SmallString<128> &p)
 {
@@ -98,7 +89,7 @@ ConfigFile::~ConfigFile()
 }
 
 
-bool ConfigFile::locate(llvm::SmallString<128> &p, const char* argv0, void* mainAddr, const char* filename)
+bool ConfigFile::locate(llvm::SmallString<128>& p, const char* filename)
 {
     // temporary configuration
 
@@ -111,9 +102,7 @@ bool ConfigFile::locate(llvm::SmallString<128> &p, const char* argv0, void* main
     }
 
     // try next to the executable
-    p = getMainExecutable(argv0, mainAddr);
-    sys::path::remove_filename(p);
-    sys::path::append(p, filename);
+    p = exe_path::prependBinDir(filename);
     if (sys::fs::exists(p.str()))
         return true;
 
@@ -138,9 +127,7 @@ bool ConfigFile::locate(llvm::SmallString<128> &p, const char* argv0, void* main
 
     // try in etc relative to the executable: exe\..\etc
     // do not use .. in path because of security risks
-    p = getMainExecutable(argv0, mainAddr);
-    sys::path::remove_filename(p);
-    sys::path::remove_filename(p);
+    p = exe_path::getBaseDir();
     if (!p.empty())
     {
         sys::path::append(p, "etc");
@@ -190,10 +177,10 @@ bool ConfigFile::locate(llvm::SmallString<128> &p, const char* argv0, void* main
     return false;
 }
 
-bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
+bool ConfigFile::read(const char* filename)
 {
     llvm::SmallString<128> p;
-    if (!locate(p, argv0, mainAddr, filename))
+    if (!locate(p, filename))
     {
         // failed to find cfg, users still have the DFLAGS environment var
         std::cerr << "Error failed to locate the configuration file: " << filename << std::endl;
@@ -228,7 +215,7 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
     {
         std::string binpathkey = "%%ldcbinarypath%%";
 
-        std::string binpath = sys::path::parent_path(getMainExecutable(argv0, mainAddr));
+        std::string binpath = exe_path::getBinDir();
 
         int len = config_setting_length(sw);
         for (int i = 0; i < len; i++)

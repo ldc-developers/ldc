@@ -17,7 +17,6 @@
 
 /**
  * Link an executable only from object files.
- * @param argv0 the argv[0] value as passed to main
  * @return 0 on success.
  */
 int linkObjToBinary(bool sharedLib);

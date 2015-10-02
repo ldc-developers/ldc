@@ -90,10 +90,6 @@ before_build:
 
 build_script:
   - cd c:\projects
-  # Config file templates: add a lib required in combination with VS 2015
-  - ps: (gc ldc\ldc2.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2.conf.in
-  - ps: (gc ldc\ldc2_install.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2_install.conf.in
-  - ps: (gc ldc\ldc2_phobos.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2_phobos.conf.in
   # Generate build files for LDC
   - md ninja-ldc
   - cd ninja-ldc
