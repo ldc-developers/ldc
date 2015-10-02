@@ -81,16 +81,17 @@ void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *var, ldc::DILocalVaria
 #endif
     )
 {
+    unsigned charnum = (loc.linnum ? loc.charnum : 0);
     llvm::Instruction *instr = DBuilder.insertDeclare(var, divar,
 #if LDC_LLVM_VER >= 306
         diexpr,
 #endif
 #if LDC_LLVM_VER >= 307
-        llvm::DebugLoc::get(loc.linnum, loc.charnum, GetCurrentScope()),
+        llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope()),
 #endif
         IR->scopebb());
 #if LDC_LLVM_VER < 307
-    instr->setDebugLoc(llvm::DebugLoc::get(loc.linnum, loc.charnum, GetCurrentScope()));
+    instr->setDebugLoc(llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope()));
 #endif
 }
 
@@ -810,7 +811,7 @@ void ldc::DIBuilder::EmitBlockStart(Loc& loc)
             GetCurrentScope(), // scope
             CreateFile(loc), // file
             loc.linnum, // line
-            loc.charnum // column
+            loc.linnum ? loc.charnum : 0 // column
 #if LDC_LLVM_VER == 305
             , 0 // DWARF path discriminator value
 #endif
@@ -849,9 +850,10 @@ void ldc::DIBuilder::EmitStopPoint(Loc& loc)
         )
         return;
 
-    Logger::println("D to dwarf stoppoint at line %u, column %u", loc.linnum, loc.charnum);
+    unsigned charnum = (loc.linnum ? loc.charnum : 0);
+    Logger::println("D to dwarf stoppoint at line %u, column %u", loc.linnum, charnum);
     LOG_SCOPE;
-    IR->ir->SetCurrentDebugLocation(llvm::DebugLoc::get(loc.linnum, loc.charnum, GetCurrentScope()));
+    IR->ir->SetCurrentDebugLocation(llvm::DebugLoc::get(loc.linnum, charnum, GetCurrentScope()));
 }
 
 void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd)

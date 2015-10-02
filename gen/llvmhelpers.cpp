@@ -1178,7 +1178,7 @@ LLConstant* DtoConstInitializer(Loc& loc, Type* type, Initializer* init)
     else if (ArrayInitializer* ai = init->isArrayInitializer())
     {
         Logger::println("const array initializer");
-        _init = DtoConstArrayInitializer(ai);
+        _init = DtoConstArrayInitializer(ai, type);
     }
     else if (init->isVoidInitializer())
     {

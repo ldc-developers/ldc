@@ -535,7 +535,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
                 LLSmallVector<LLValue*, 2> addr;
 #endif
                 gIR->DBuilder.OpOffset(addr, frameType, irLocal->nestedIndex);
-                gIR->DBuilder.EmitLocalVariable(frame, vd, 0, false, addr);
+                gIR->DBuilder.EmitLocalVariable(gep, vd, 0, false, addr);
             }
         }
     }

@@ -12,6 +12,7 @@
 #include "module.h"
 #include "root.h"
 #include "driver/cl_options.h"
+#include "driver/exe_path.h"
 #include "driver/tool.h"
 #include "gen/llvm.h"
 #include "gen/logger.h"
@@ -277,15 +278,38 @@ static int linkObjToBinaryGcc(bool sharedLib)
 
 //////////////////////////////////////////////////////////////////////////////
 
+static bool setupMSVCEnvironment(std::string& tool, std::vector<std::string>& args)
+{
+    // if the VSINSTALLDIR environment variable is NOT set,
+    // the environment is most likely not set up properly
+    bool setup = !getenv("VSINSTALLDIR");
+
+    if (setup)
+    {
+        // use a helper batch file to let MSVC set up the environment and
+        // then invoke the tool
+        args.push_back(tool); // tool is first arg for batch file
+        tool = exe_path::prependBinDir(
+            global.params.targetTriple.isArch64Bit() ? "amd64.bat" : "x86.bat");
+    }
+    else
+        tool = getProgram(tool.c_str());
+
+    return setup;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 static int linkObjToBinaryWin(bool sharedLib)
 {
     Logger::println("*** Linking executable ***");
 
-    // find link.exe for linking
-    std::string tool(getLink());
+    std::string tool = "link.exe";
 
     // build arguments
     std::vector<std::string> args;
+
+    const bool setupMSVC = setupMSVCEnvironment(tool, args);
 
     args.push_back("/NOLOGO");
 
@@ -293,26 +317,19 @@ static int linkObjToBinaryWin(bool sharedLib)
     if (!global.params.is64bit)
         args.push_back("/SAFESEH");
 
-    // mark executable to be compatible with Windows Data Execution Prevention feature
-    args.push_back("/NXCOMPAT");
-
-    // use address space layout randomization (ASLR) feature
-    args.push_back("/DYNAMICBASE");
-
-    // because of a LLVM bug
-    // most of the bug is fixed in LLVM 3.4
-#if LDC_LLVM_VER < 304
+    // because of a LLVM bug, see LDC issue 442
     if (global.params.symdebug)
         args.push_back("/LARGEADDRESSAWARE:NO");
     else
-#endif
-    args.push_back("/LARGEADDRESSAWARE");
+        args.push_back("/LARGEADDRESSAWARE");
 
     // output debug information
     if (global.params.symdebug)
-    {
         args.push_back("/DEBUG");
-    }
+
+    // enable Link-time Code Generation (aka. whole program optimization)
+    if (global.params.optimize)
+        args.push_back("/LTCG");
 
     // remove dead code and fold identical COMDATs
     if (opts::disableLinkerStripDead)
@@ -356,7 +373,7 @@ static int linkObjToBinaryWin(bool sharedLib)
     // additional linker switches
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
     {
-        std::string str(static_cast<const char *>(global.params.linkswitches->data[i]));
+        std::string str = global.params.linkswitches->data[i];
         if (str.length() > 2)
         {
             // rewrite common -L and -l switches
@@ -385,6 +402,7 @@ static int linkObjToBinaryWin(bool sharedLib)
 
     Logger::println("Linking with: ");
     std::vector<std::string>::const_iterator I = args.begin(), E = args.end();
+    if (setupMSVC) ++I; // skip link.exe, the first arg for the batch file
     Stream logstr = Logger::cout();
     for (; I != E; ++I)
         if (!(*I).empty())
@@ -424,10 +442,13 @@ void createStaticLibrary()
 #endif
 
     // find archiver
-    std::string tool(isTargetWindows ? getLib() : getArchiver());
+    std::string tool(isTargetWindows ? "lib.exe" : getArchiver());
 
     // build arguments
     std::vector<std::string> args;
+
+    if (isTargetWindows)
+        setupMSVCEnvironment(tool, args);
 
     // ask ar to create a new library
     if (!isTargetWindows)
@@ -436,6 +457,10 @@ void createStaticLibrary()
     // ask lib to be quiet
     if (isTargetWindows)
         args.push_back("/NOLOGO");
+
+    // enable Link-time Code Generation (aka. whole program optimization)
+    if (isTargetWindows && global.params.optimize)
+        args.push_back("/LTCG");
 
     // output filename
     std::string libName;
