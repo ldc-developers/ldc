@@ -47,7 +47,7 @@ static LLValue *DtoSlice(LLValue *ptr, LLValue *length, LLType *elemType = NULL)
 {
     if (elemType == NULL)
         elemType = ptr->getType()->getContainedType(0);
-    elemType = voidToI8(elemType);
+    elemType = i1ToI8(voidToI8(elemType));
 
     LLStructType *type = DtoArrayType(elemType);
     LLValue *array = DtoRawAlloca(type, 0, ".array");
@@ -80,15 +80,13 @@ static LLValue *DtoSlicePtr(DValue *dval)
 LLStructType* DtoArrayType(Type* arrayTy)
 {
     assert(arrayTy->nextOf());
-    LLType* elemty = i1ToI8(voidToI8(DtoType(arrayTy->nextOf())));
-
-    llvm::Type *elems[] = { DtoSize_t(), getPtrToType(elemty) };
+    llvm::Type* elems[] = { DtoSize_t(), DtoPtrToType(arrayTy->nextOf()) };
     return llvm::StructType::get(gIR->context(), elems, false);
 }
 
 LLStructType* DtoArrayType(LLType* t)
 {
-    llvm::Type *elems[] = { DtoSize_t(), getPtrToType(t) };
+    llvm::Type* elems[] = { DtoSize_t(), getPtrToType(t) };
     return llvm::StructType::get(gIR->context(), elems, false);
 }
 
@@ -101,8 +99,7 @@ LLArrayType* DtoStaticArrayType(Type* t)
     TypeSArray* tsa = static_cast<TypeSArray*>(t);
     Type* tnext = tsa->nextOf();
 
-    LLType* elemty = i1ToI8(voidToI8(DtoType(tnext)));
-    return LLArrayType::get(elemty, tsa->dim->toUInteger());
+    return LLArrayType::get(DtoMemType(tnext), tsa->dim->toUInteger());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -277,7 +274,7 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
         if (!needsDestruction && !needsPostblit)
         {
             // fast version
-            LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(voidToI8(DtoType(elemType))));
+            LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(DtoMemType(elemType)));
             LLValue* lhsSize = gIR->ir->CreateMul(elemSize, lhsLength);
 
             if (rhs->isNull())
@@ -328,7 +325,7 @@ void DtoArrayAssign(Loc& loc, DValue* lhs, DValue* rhs, int op, bool canSkipPost
             // fast version
             LLValue* elemSize = DtoConstSize_t(getTypePaddedSize(realLhsPtr->getType()->getContainedType(0)));
             LLValue* lhsSize = gIR->ir->CreateMul(elemSize, lhsLength);
-            LLType* rhsType = i1ToI8(voidToI8(DtoType(t2)));
+            LLType* rhsType = DtoMemType(t2);
             LLValue* rhsSize = DtoConstSize_t(getTypePaddedSize(rhsType));
             LLValue* actualPtr = DtoBitCast(lhsPtr, rhsType->getPointerTo());
             LLValue* actualLength = gIR->ir->CreateExactUDiv(lhsSize, rhsSize);
@@ -397,7 +394,7 @@ LLConstant* DtoConstArrayInitializer(ArrayInitializer* arrinit, Type* targetType
         elemty = static_cast<TypeVector *>(arrty)->elementType();
     else
         elemty = arrty->nextOf();
-    LLType* llelemty = i1ToI8(voidToI8(DtoType(elemty)));
+    LLType* llelemty = DtoMemType(elemty);
 
     // true if array elements differ in type, can happen with array of unions
     bool mismatch = false;
@@ -547,7 +544,7 @@ llvm::Constant* arrayLiteralToConst(IRState* p, ArrayLiteralExp* ale)
     if (!elementType)
     {
         assert(ale->elements->dim == 0);
-        elementType = i1ToI8(voidToI8(DtoType(ale->type->toBasetype()->nextOf())));
+        elementType = DtoMemType(ale->type->toBasetype()->nextOf());
         return llvm::ConstantArray::get(LLArrayType::get(elementType, 0), vals);
     }
 
@@ -1067,7 +1064,7 @@ LLValue* DtoArrayPtr(DValue* v)
         if (DSliceValue* s = v->isSlice())
             return s->ptr;
         else if (v->isNull())
-            return getNullPtr(getPtrToType(i1ToI8(DtoType(t->nextOf()))));
+            return getNullPtr(DtoPtrToType(t->nextOf()));
         else if (v->isLVal())
             return DtoLoad(DtoGEPi(v->getLVal(), 0,1), ".ptr");
         return gIR->ir->CreateExtractValue(v->getRVal(), 1, ".ptr");
@@ -1112,7 +1109,7 @@ DValue* DtoCastArray(Loc& loc, DValue* u, Type* to)
         IF_LOG Logger::cout() << "to array" << '\n';
 
         LLType* ptrty = DtoArrayType(totype)->getContainedType(1);
-        LLType* ety = voidToI8(DtoType(fromtype->nextOf()));
+        LLType* ety = DtoMemType(fromtype->nextOf());
 
         if (fromtype->ty == Tsarray) {
             LLValue* uval = u->getRVal();

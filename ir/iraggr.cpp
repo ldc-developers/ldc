@@ -132,7 +132,7 @@ LLConstant* get_default_initializer(VarDeclaration* vd, Initializer* init)
     {
         // We need to be able to handle void[0] struct members even if void has
         // no default initializer.
-        return llvm::ConstantPointerNull::get(getPtrToType(DtoType(vd->type)));
+        return llvm::ConstantPointerNull::get(DtoPtrToType(vd->type));
     }
     return DtoConstExpInit(vd->loc, vd->type, vd->type->defaultInit(vd->loc));
 }

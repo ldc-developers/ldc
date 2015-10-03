@@ -202,44 +202,21 @@ LLType* DtoType(Type* t)
         return IrTypeVector::get(t)->getLLType();
     }
 
-/*
-    Not needed atm as VarDecls for tuples are rewritten as a string of
-    VarDecls for the fields (u -> _u_field_0, ...)
-
-    case Ttuple:
-    {
-        TypeTuple* ttupl = static_cast<TypeTuple*>(t);
-        return DtoStructTypeFromArguments(ttupl->arguments);
-    }
-*/
-
     default:
         llvm_unreachable("Unknown class of D Type!");
     }
     return 0;
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
-
-/*
-LLType* DtoStructTypeFromArguments(Arguments* arguments)
+LLType* DtoMemType(Type* t)
 {
-    if (!arguments)
-        return LLType::getVoidTy(gIR->context());
-
-    std::vector<LLType*> types;
-    for (size_t i = 0; i < arguments->dim; i++)
-    {
-        Argument *arg = (*arguments)[i];
-        assert(arg && arg->type);
-
-        types.push_back(DtoType(arg->type));
-    }
-    return LLStructType::get(types);
+    return i1ToI8(voidToI8(DtoType(t)));
 }
-*/
 
-//////////////////////////////////////////////////////////////////////////////////////////
+LLPointerType* DtoPtrToType(Type* t)
+{
+    return DtoMemType(t)->getPointerTo();
+}
 
 LLType* voidToI8(LLType* t)
 {
@@ -247,8 +224,6 @@ LLType* voidToI8(LLType* t)
         return LLType::getInt8Ty(gIR->context());
     return t;
 }
-
-//////////////////////////////////////////////////////////////////////////////////////////
 
 LLType* i1ToI8(LLType* t)
 {
