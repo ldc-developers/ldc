@@ -75,7 +75,7 @@ DValue* DtoAAIndex(Loc& loc, Type* type, DValue* aa, DValue* key, bool lvalue)
     }
 
     // cast return value
-    LLType* targettype = getPtrToType(i1ToI8(DtoType(type)));
+    LLType* targettype = DtoPtrToType(type);
     if (ret->getType() != targettype)
         ret = DtoBitCast(ret, targettype);
 
