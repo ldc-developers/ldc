@@ -2448,7 +2448,7 @@ public:
                 DtoAppendDCharToUnicodeString(e->loc, result, e->e2);
         }
         else if (e1type->equals(e2type)) {
-            // apeend array
+            // append array
             DSliceValue* slice = DtoCatAssignArray(e->loc, result, e->e2);
             DtoAssign(e->loc, result, slice);
         }
