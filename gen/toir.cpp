@@ -517,31 +517,29 @@ public:
             return;
         }
 
+        // Initialization of ref variable?
         // Can't just override ConstructExp::toElem because not all TOKconstruct
         // operations are actually instances of ConstructExp... Long live the DMD
         // coding style!
-        if (e->op == TOKconstruct)
+        if (e->op == TOKconstruct && e->e1->op == TOKvar && !(e->ismemset & 2))
         {
-            if (e->e1->op == TOKvar)
+            Declaration* d = static_cast<VarExp*>(e->e1)->var;
+            if (d->storage_class & (STCref | STCout))
             {
-                VarExp* ve = (VarExp*)e->e1;
-                if (ve->var->storage_class & STCref)
-                {
-                    Logger::println("performing ref variable initialization");
-                    // Note that the variable value is accessed directly (instead
-                    // of via getLVal(), which would perform a load from the
-                    // uninitialized location), and that rhs is stored as an l-value!
-                    DVarValue* lhs = toElem(e->e1)->isVar();
-                    assert(lhs);
-                    result = toElem(e->e2);
+                Logger::println("performing ref variable initialization");
+                // Note that the variable value is accessed directly (instead
+                // of via getLVal(), which would perform a load from the
+                // uninitialized location), and that rhs is stored as an l-value!
+                DVarValue* lhs = toElem(e->e1)->isVar();
+                assert(lhs);
+                result = toElem(e->e2);
 
-                    // We shouldn't really need makeLValue() here, but the 2.063
-                    // frontend generates ref variables initialized from function
-                    // calls.
-                    DtoStore(makeLValue(e->loc, result), lhs->getRefStorage());
+                // We shouldn't really need makeLValue() here, but the 2.063
+                // frontend generates ref variables initialized from function
+                // calls.
+                DtoStore(makeLValue(e->loc, result), lhs->getRefStorage());
 
-                    return;
-                }
+                return;
             }
         }
 
