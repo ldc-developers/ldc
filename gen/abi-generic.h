@@ -226,7 +226,7 @@ struct ExplicitByvalRewrite : ABIRewrite
 
     LLType* type(Type* dty, LLType* t)
     {
-        return getPtrToType(DtoType(dty));
+        return DtoPtrToType(dty);
     }
 };
 

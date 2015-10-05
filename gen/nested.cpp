@@ -64,7 +64,7 @@ DValue* DtoNestedVariable(Loc& loc, Type* astype, VarDeclaration* vd, bool byref
     while (fd != vdparent) {
         if (fd->isStatic()) {
             error(loc, "function %s cannot access frame of function %s", irfunc->decl->toPrettyChars(), vdparent->toPrettyChars());
-            return new DVarValue(astype, vd, llvm::UndefValue::get(getPtrToType(DtoType(astype))));
+            return new DVarValue(astype, vd, llvm::UndefValue::get(DtoPtrToType(astype)));
         }
         fd = getParentFunc(fd, false);
         assert(fd);
@@ -406,14 +406,14 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd) {
                     if (lazy)
                         types.push_back(irparam->value->getType()->getContainedType(0));
                     else
-                        types.push_back(i1ToI8(DtoType(vd->type)));
+                        types.push_back(DtoMemType(vd->type));
                 } else {
                     types.push_back(irparam->value->getType());
                 }
             } else if (isSpecialRefVar(vd)) {
                 types.push_back(DtoType(vd->type->pointerTo()));
             } else {
-                types.push_back(i1ToI8(DtoType(vd->type)));
+                types.push_back(DtoMemType(vd->type));
             }
             IF_LOG Logger::cout() << "Nested var '" << vd->toChars()
                                   << "' of type " << *types.back() << "\n";
