@@ -25,13 +25,13 @@ IrTypeFunction::IrTypeFunction(Type* dt, llvm::Type* lt, const IrFuncTy& irFty_)
 {
 }
 
-IrTypeFunction* IrTypeFunction::get(Type* dt, Type* nestedContextOverride)
+IrTypeFunction* IrTypeFunction::get(Type* dt)
 {
     assert(!dt->ctype);
     assert(dt->ty == Tfunction);
 
     IrFuncTy irFty;
-    llvm::Type* lt = DtoFunctionType(dt, irFty, NULL, nestedContextOverride);
+    llvm::Type* lt = DtoFunctionType(dt, irFty, NULL, NULL);
 
     IrTypeFunction* result = new IrTypeFunction(dt, lt, irFty);
     dt->ctype = result;

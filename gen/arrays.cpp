@@ -167,9 +167,6 @@ static void DtoArrayInit(Loc& loc, LLValue* ptr, LLValue* length, DValue* dvalue
     gIR->scope() = IRScope(bodybb);
 
     LLValue* itr_val = DtoLoad(itr);
-    /* bitcopy element
-    //DtoMemCpy(DtoGEP1(ptr, itr_val), dvalue->getLVal(), elementSize);
-    */
     // assign array element value
     DValue *arrayelem = new DVarValue(dvalue->type->toBasetype(), DtoGEP1(ptr, itr_val, "arrayinit.arrayelem"));
     DtoAssign(loc, arrayelem, dvalue, op);
@@ -1060,22 +1057,32 @@ LLValue* DtoArrayPtr(DValue* v)
     LOG_SCOPE;
 
     Type* t = v->getType()->toBasetype();
-    if (t->ty == Tarray) {
+    // v's LL array element type may not be the real one
+    // due to implicit casts (e.g., to base class)
+    LLType* wantedLLPtrType = DtoPtrToType(t->nextOf());
+    LLValue* ptr = NULL;
+
+    if (t->ty == Tarray)
+    {
         if (DSliceValue* s = v->isSlice())
-            return s->ptr;
+            ptr = s->ptr;
         else if (v->isNull())
-            return getNullPtr(DtoPtrToType(t->nextOf()));
+            ptr = getNullPtr(wantedLLPtrType);
         else if (v->isLVal())
-            return DtoLoad(DtoGEPi(v->getLVal(), 0,1), ".ptr");
-        return gIR->ir->CreateExtractValue(v->getRVal(), 1, ".ptr");
+            ptr = DtoLoad(DtoGEPi(v->getLVal(), 0, 1), ".ptr");
+        else
+            ptr = gIR->ir->CreateExtractValue(v->getRVal(), 1, ".ptr");
     }
-    else if (t->ty == Tsarray) {
+    else if (t->ty == Tsarray)
+    {
         assert(!v->isSlice());
         assert(!v->isNull());
-        return DtoGEPi(v->getRVal(), 0, 0, "sarrayptr");
+        ptr = DtoGEPi(v->getRVal(), 0, 0, "sarrayptr");
     }
+    else
+        llvm_unreachable("Unexpected array type.");
 
-    llvm_unreachable("Unexpected array type.");
+    return DtoBitCast(ptr, wantedLLPtrType);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
