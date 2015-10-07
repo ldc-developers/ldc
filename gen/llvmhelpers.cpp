@@ -1789,12 +1789,7 @@ FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic)
         if (stopOnStatic)
         {
             // Fun fact: AggregateDeclarations are not Declarations.
-            if (FuncDeclaration* decl = parent->isFuncDeclaration())
-            {
-                if (decl->isStatic())
-                    return NULL;
-            }
-            else if (AggregateDeclaration* decl = parent->isAggregateDeclaration())
+            if (AggregateDeclaration* decl = parent->isAggregateDeclaration())
             {
                 if (!decl->isNested())
                     return NULL;
@@ -1803,7 +1798,11 @@ FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic)
         parent = parent->parent;
     }
 
-    return parent ? parent->isFuncDeclaration() : NULL;
+    if (!parent)
+        return NULL;
+
+    FuncDeclaration* fd = parent->isFuncDeclaration();
+    return fd;//(stopOnStatic && fd->isStatic()) ? NULL : fd;
 }
 
 LLValue* DtoIndexAggregate(LLValue* src, AggregateDeclaration* ad, VarDeclaration* vd)
