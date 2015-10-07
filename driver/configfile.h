@@ -29,7 +29,7 @@ public:
     ConfigFile();
     ~ConfigFile();
 
-    bool read(const char* filename);
+    bool read(const char* explicitConfFile);
 
     s_iterator switches_begin()   { return switches.begin(); }
     s_iterator switches_end()     { return switches.end(); }
@@ -37,7 +37,7 @@ public:
     const std::string& path()     { return pathstr; }
 
 private:
-    bool locate(llvm::SmallString<128> &path, const char* filename);
+    bool locate();
 
     config_t* cfg;
     std::string pathstr;
