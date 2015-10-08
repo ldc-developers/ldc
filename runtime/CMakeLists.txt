@@ -24,8 +24,6 @@ endif()
 # (e.g. -debug).
 set(LIB_SUFFIX "" CACHE STRING "'64' to install libraries into ${PREFIX}/lib64")
 
-set(CMAKE_INSTALL_LIBDIR ${CMAKE_INSTALL_PREFIX}/lib${LIB_SUFFIX})
-
 include(CheckTypeSize)
 check_type_size(void* ptr_size)
 if(${ptr_size} MATCHES "^8$") ## if it's 64-bit OS
@@ -202,16 +200,22 @@ endif()
 # fat binaries. Other Posixen might need to be added here.
 if(MULTILIB AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
     set(MULTILIB_ADDITIONAL_PATH         "\n        \"-L-L${CMAKE_BINARY_DIR}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
-    set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L${CMAKE_INSTALL_PREFIX}/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
+    set(MULTILIB_ADDITIONAL_INSTALL_PATH "\n        \"-L-L%%LDC_BASE_DIR%%/lib${MULTILIB_SUFFIX}\",\n        \"-L--no-warn-search-mismatch\",")
 endif()
 
 if(BUILD_SHARED_LIBS AND (${CMAKE_SYSTEM_NAME} MATCHES "Linux"))
     set(SHARED_LIBS_RPATH "\n        \"-L-rpath=${CMAKE_BINARY_DIR}/lib\",")
 endif()
 
+if(${INCLUDE_INSTALL_DIR} STREQUAL "${CMAKE_INSTALL_PREFIX}/include/d")
+    set(INCLUDE_INSTALL_DIR "%%LDC_BASE_DIR%%/include/d")
+endif()
 configure_file(${PROJECT_PARENT_DIR}/${CONFIG_NAME}.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}.conf)
 # Prepare the config files we are going to install later in bin.
 configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY_DIR}/../bin/${LDC_EXE}_install.conf)
+if(${INCLUDE_INSTALL_DIR} STREQUAL "%%LDC_BASE_DIR%%/include/d")
+    set(INCLUDE_INSTALL_DIR "${CMAKE_INSTALL_PREFIX}/include/d")
+endif()
 
 #
 # druntime/Phobos compilation helpers.
