@@ -247,6 +247,17 @@ static void hideLLVMOptions() {
 
 int main(int argc, char **argv);
 
+static const char* tryGetExplicitConfFile(int argc, char** argv)
+{
+    // begin at the back => use latest -conf= specification
+    for (int i = argc - 1; i >= 1; --i)
+    {
+        if (strncmp(argv[i], "-conf=", 6) == 0)
+            return argv[i] + 6;
+    }
+    return 0;
+}
+
 /// Parses switches from the command line, any response files and the global
 /// config file and sets up global.params accordingly.
 ///
@@ -271,8 +282,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     final_args.push_back(argv[0]);
 
     ConfigFile cfg_file;
+    const char* explicitConfFile = tryGetExplicitConfFile(argc, argv);
     // just ignore errors for now, they are still printed
-    cfg_file.read("ldc2.conf");
+    cfg_file.read(explicitConfFile);
     final_args.insert(final_args.end(), cfg_file.switches_begin(), cfg_file.switches_end());
 
     final_args.insert(final_args.end(), &argv[1], &argv[argc]);
@@ -281,7 +293,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
 #if LDC_LLVM_VER >= 303
     hideLLVMOptions();
 #endif
-    cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(&final_args[0]),
+    cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(final_args.data()),
         "LDC - the LLVM D compiler\n"
 #if LDC_LLVM_VER < 302
         , true

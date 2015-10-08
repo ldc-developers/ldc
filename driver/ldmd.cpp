@@ -187,7 +187,7 @@ Usage:\n\
   -allinst       generate code for all template instantiations\n\
   -c             do not link\n\
   -color[=on|off]   force colored console output on or off\n\
-  -conf=path     use config file at path (NOT YET IMPLEMENTED)\n\
+  -conf=path     use config file at path\n\
   -cov           do code coverage analysis\n\
   -cov=nnn       require at least nnn%% code coverage\n\
   -D             generate documentation\n\
@@ -456,6 +456,7 @@ struct Params
     char* moduleDepsFile;
     Color::Type color;
     bool useDIP25;
+    char* conf;
 
     bool hiddenDebugB;
     bool hiddenDebugC;
@@ -521,6 +522,7 @@ struct Params
     moduleDepsFile(0),
     color(Color::automatic),
     useDIP25(false),
+    conf(0),
     hiddenDebugB(false),
     hiddenDebugC(false),
     hiddenDebugF(false),
@@ -581,8 +583,8 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
                 else if (p[6])
                     goto Lerror;
             }
-            else if (strncmp(p + 1, "conf", 4) == 0)
-                /* NOT YET IMPLEMENTED */;
+            else if (strncmp(p + 1, "conf=", 5) == 0)
+                result.conf = p + 1 + 5;
             else if (strcmp(p + 1, "cov") == 0)
                 // For "-cov=...", the whole cmdline switch is forwarded to LDC.
                 // For plain "-cov", the cmdline switch must be explicitly forwarded
@@ -1006,6 +1008,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.color == Color::on) r.push_back("-enable-color");
     if (p.color == Color::off) r.push_back("-disable-color");
     if (p.useDIP25) r.push_back("-dip25");
+    if (p.conf) r.push_back(concat("-conf=", p.conf));
     if (p.hiddenDebugB) r.push_back("-hidden-debug-b");
     if (p.hiddenDebugC) r.push_back("-hidden-debug-c");
     if (p.hiddenDebugF) r.push_back("-hidden-debug-f");
