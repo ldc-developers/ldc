@@ -1781,29 +1781,43 @@ FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic)
     if (!sym)
         return NULL;
 
-    Dsymbol* parent = sym->parent;
-    assert(parent);
-
-    while (parent && !parent->isFuncDeclaration())
+    // check if symbol is itself a static function/aggregate
+    if (stopOnStatic)
     {
+        // Static functions and function (not delegate) literals don't allow
+        // access to a parent context, even if they are nested.
+        if (FuncDeclaration* fd = sym->isFuncDeclaration())
+        {
+            bool certainlyNewRoot = fd->isStatic() ||
+                (fd->isFuncLiteralDeclaration() &&
+                    static_cast<FuncLiteralDeclaration*>(fd)->tok == TOKfunction);
+            if (certainlyNewRoot)
+                return NULL;
+        }
+        // Fun fact: AggregateDeclarations are not Declarations.
+        else if (AggregateDeclaration* ad = sym->isAggregateDeclaration())
+        {
+            if (!ad->isNested())
+                return NULL;
+        }
+    }
+
+    for (Dsymbol* parent = sym->parent; parent; parent = parent->parent)
+    {
+        if (FuncDeclaration* fd = parent->isFuncDeclaration())
+            return fd;
+
         if (stopOnStatic)
         {
-            // Fun fact: AggregateDeclarations are not Declarations.
-            if (FuncDeclaration* decl = parent->isFuncDeclaration())
+            if (AggregateDeclaration* ad = parent->isAggregateDeclaration())
             {
-                if (decl->isStatic())
-                    return NULL;
-            }
-            else if (AggregateDeclaration* decl = parent->isAggregateDeclaration())
-            {
-                if (!decl->isNested())
+                if (!ad->isNested())
                     return NULL;
             }
         }
-        parent = parent->parent;
     }
 
-    return parent ? parent->isFuncDeclaration() : NULL;
+    return NULL;
 }
 
 LLValue* DtoIndexAggregate(LLValue* src, AggregateDeclaration* ad, VarDeclaration* vd)
