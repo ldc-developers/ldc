@@ -308,12 +308,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd)
         return;
     irFunc.nestedContextCreated = true;
 
-    // Static functions and function (not delegate) literals don't allow
-    // access to a parent context, even if they are nested.
-    const bool certainlyNewRoot = fd->isStatic() ||
-        (fd->isFuncLiteralDeclaration() &&
-            static_cast<FuncLiteralDeclaration*>(fd)->tok == TOKfunction);
-    FuncDeclaration* parentFunc = (certainlyNewRoot ? NULL : getParentFunc(fd, true));
+    FuncDeclaration* parentFunc = getParentFunc(fd, true);
     // Make sure the parent has already been analyzed.
     if (parentFunc)
         DtoCreateNestedContextType(parentFunc);
