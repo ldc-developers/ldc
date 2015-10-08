@@ -149,6 +149,12 @@ endif()
 if( CMAKE_SYSTEM_PROCESSOR MATCHES "ppc|powerpc")
     append("-mlong-double-64" DMD_CXXFLAGS LDC_CXXFLAGS)
 endif()
+# Remove clang specific options if compiler is gcc
+# Can happen if LLVM is compiled with clang
+if(CMAKE_COMPILER_IS_GNUCXX)
+    string(REGEX REPLACE "-Wcovered-switch-default *" "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    string(REGEX REPLACE "-fcolor-diagnostics *" "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+endif()
 if(UNIX)
     append("-DPOSIX -DLDC_POSIX" DMD_CXXFLAGS)
     append("-DLDC_POSIX" LDC_CXXFLAGS)
