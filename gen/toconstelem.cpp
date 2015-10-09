@@ -175,7 +175,7 @@ public:
         bool nullterm = (t->ty != Tsarray);
         size_t endlen = nullterm ? e->len+1 : e->len;
 
-        LLType* ct = voidToI8(DtoType(cty));
+        LLType* ct = DtoMemType(cty);
         LLArrayType* at = LLArrayType::get(ct,endlen);
 
         llvm::StringMap<llvm::GlobalVariable*>* stringLiteralCache = 0;
@@ -571,7 +571,7 @@ public:
         Type* elemt = bt->nextOf();
 
         // build llvm array type
-        LLArrayType* arrtype = LLArrayType::get(i1ToI8(voidToI8(DtoType(elemt))), e->elements->dim);
+        LLArrayType* arrtype = LLArrayType::get(DtoMemType(elemt), e->elements->dim);
 
         // dynamic arrays can occur here as well ...
         bool dyn = (bt->ty != Tsarray);

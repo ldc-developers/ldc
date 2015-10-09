@@ -16,11 +16,9 @@
 
 #include <string>
 
+std::string getProgram(const char* name, const char* envVar = 0);
+
 std::string getGcc();
 std::string getArchiver();
-
-// For Windows with MS tool chain
-std::string getLink();
-std::string getLib();
 
 #endif

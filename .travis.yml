@@ -36,11 +36,12 @@ addons:
     - llvm-3.7-dev
 install:
   - if [[ "${LLVM_CONFIG}" == *3\.[567]* ]]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
+  - if [[ "${OPTS}" == *TEST_COVERAGE*ON* ]]; then pip install --user coveralls; fi
 env:
-  - LLVM_CONFIG="llvm-config-3.7"
-  - LLVM_CONFIG="llvm-config-3.6" OPTS="-DMULTILIB=ON"
-  - LLVM_CONFIG="llvm-config-3.5" OPTS="-DBUILD_SHARED_LIBS=ON"
-  - LLVM_CONFIG="llvm-config-3.4" OPTS="-DTEST_COVERAGE=ON"
+  - LLVM_CONFIG="llvm-config-3.7" OPTS="-DMULTILIB=ON"
+  - LLVM_CONFIG="llvm-config-3.6" OPTS="-DBUILD_SHARED_LIBS=ON"
+  - LLVM_CONFIG="llvm-config-3.5" OPTS="-DTEST_COVERAGE=ON"
+  - LLVM_CONFIG="llvm-config-3.4"
   - LLVM_CONFIG="llvm-config-3.3"
   - LLVM_CONFIG="llvm-config-3.2"
   - LLVM_CONFIG="llvm-config-3.1"

@@ -132,7 +132,7 @@ LLConstant* get_default_initializer(VarDeclaration* vd, Initializer* init)
     {
         // We need to be able to handle void[0] struct members even if void has
         // no default initializer.
-        return llvm::ConstantPointerNull::get(getPtrToType(DtoType(vd->type)));
+        return llvm::ConstantPointerNull::get(DtoPtrToType(vd->type));
     }
     return DtoConstExpInit(vd->loc, vd->type, vd->type->defaultInit(vd->loc));
 }
@@ -173,11 +173,14 @@ llvm::Constant* IrAggr::createInitializerConstant(
     {
         // add vtbl
         constants.push_back(getVtblSymbol());
-        // add monitor
-        constants.push_back(getNullValue(DtoType(Type::tvoid->pointerTo())));
+        offset += Target::ptrsize;
 
-        // we start right after the vtbl and monitor
-        offset = Target::ptrsize * 2;
+        // add monitor (except for C++ classes)
+        if (!aggrdecl->isClassDeclaration()->isCPPclass())
+        {
+            constants.push_back(getNullValue(getVoidPtrType()));
+            offset += Target::ptrsize;
+        }
     }
 
     // Add the initializers for the member fields. While we are traversing the
