@@ -1937,6 +1937,10 @@ public:
         IF_LOG Logger::print("AssertExp::toElem: %s\n", e->toChars());
         LOG_SCOPE;
 
+        // DMD allows syntax like this:
+        // f() == 0 || assert(false)
+        result = new DImValue(e->type, DtoConstBool(false));
+
         if (!global.params.useAssert)
             return;
 
@@ -2006,10 +2010,6 @@ public:
             DFuncValue invfunc(invdecl, getIrFunc(invdecl)->func, cond->getRVal());
             DtoCallFunction(e->loc, NULL, &invfunc, NULL);
         }
-
-        // DMD allows syntax like this:
-        // f() == 0 || assert(false)
-        result = new DImValue(e->type, DtoConstBool(false));
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////
