@@ -320,7 +320,7 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd)
         // start with adding all enclosing parent frames until a static parent is reached
 
         LLStructType* innerFrameType = NULL;
-        int depth = 0;
+        unsigned depth = 0;
 
         if (parentFunc)
         {
