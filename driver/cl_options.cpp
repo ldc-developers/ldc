@@ -435,9 +435,18 @@ cl::opt<unsigned, true> nestedTemplateDepth("template-depth",
     cl::location(global.params.nestedTmpl),
     cl::init(500));
 
+#if LDC_LLVM_VER < 307
 cl::opt<bool, true, FlagParser<bool> > color("color",
     cl::desc("Force colored console output"),
     cl::location(global.params.color));
+#else
+void CreateColorOption()
+{
+    new cl::opt<bool, true, FlagParser<bool> >("color",
+    cl::desc("Force colored console output"),
+    cl::location(global.params.color));
+}
+#endif
 
 cl::opt<bool, true> useDIP25("dip25",
     cl::desc("implement http://wiki.dlang.org/DIP25 (experimental)"),

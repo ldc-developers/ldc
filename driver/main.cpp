@@ -174,6 +174,17 @@ static void hide(llvm::StringMap<cl::Option *>& map, const char* name) {
         map[name]->setHiddenFlag(cl::Hidden);
 }
 
+static void rename(llvm::StringMap<cl::Option *>& map, const char* from, const char *to) {
+    llvm::StringMap<cl::Option*>::iterator i = map.find(from);
+    if (i != map.end())
+    {
+        cl::Option *opt = i->getValue();
+        map.erase(i);
+        opt->setArgStr(to);
+        map[to] = opt;
+    }
+}
+
 /// Removes command line options exposed from within LLVM that are unlikely
 /// to be useful for end users from the -help output.
 static void hideLLVMOptions() {
@@ -242,6 +253,14 @@ static void hideLLVMOptions() {
     // line has been parsed).
     hide(map, "fdata-sections");
     hide(map, "ffunction-sections");
+
+#if LDC_LLVM_VER >= 307
+    // LLVM 3.7 introduces compiling as shared library. The result
+    // is a clash in the command line options.
+    rename(map, "color", "llvm-color");
+    hide(map, "llvm-color");
+    opts::CreateColorOption();
+#endif
 }
 #endif
 
