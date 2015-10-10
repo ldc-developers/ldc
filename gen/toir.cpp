@@ -430,7 +430,7 @@ public:
         Type* dtype = e->type->toBasetype();
         Type* cty = dtype->nextOf()->toBasetype();
 
-        LLType* ct = voidToI8(DtoType(cty));
+        LLType* ct = DtoMemType(cty);
         LLArrayType* at = LLArrayType::get(ct, e->len+1);
 
         llvm::StringMap<llvm::GlobalVariable*>* stringLiteralCache = 0;
@@ -517,31 +517,29 @@ public:
             return;
         }
 
+        // Initialization of ref variable?
         // Can't just override ConstructExp::toElem because not all TOKconstruct
         // operations are actually instances of ConstructExp... Long live the DMD
         // coding style!
-        if (e->op == TOKconstruct)
+        if (e->op == TOKconstruct && e->e1->op == TOKvar && !(e->ismemset & 2))
         {
-            if (e->e1->op == TOKvar)
+            Declaration* d = static_cast<VarExp*>(e->e1)->var;
+            if (d->storage_class & (STCref | STCout))
             {
-                VarExp* ve = (VarExp*)e->e1;
-                if (ve->var->storage_class & STCref)
-                {
-                    Logger::println("performing ref variable initialization");
-                    // Note that the variable value is accessed directly (instead
-                    // of via getLVal(), which would perform a load from the
-                    // uninitialized location), and that rhs is stored as an l-value!
-                    DVarValue* lhs = toElem(e->e1)->isVar();
-                    assert(lhs);
-                    result = toElem(e->e2);
+                Logger::println("performing ref variable initialization");
+                // Note that the variable value is accessed directly (instead
+                // of via getLVal(), which would perform a load from the
+                // uninitialized location), and that rhs is stored as an l-value!
+                DVarValue* lhs = toElem(e->e1)->isVar();
+                assert(lhs);
+                result = toElem(e->e2);
 
-                    // We shouldn't really need makeLValue() here, but the 2.063
-                    // frontend generates ref variables initialized from function
-                    // calls.
-                    DtoStore(makeLValue(e->loc, result), lhs->getRefStorage());
+                // We shouldn't really need makeLValue() here, but the 2.063
+                // frontend generates ref variables initialized from function
+                // calls.
+                DtoStore(makeLValue(e->loc, result), lhs->getRefStorage());
 
-                    return;
-                }
+                return;
             }
         }
 
@@ -1006,7 +1004,7 @@ public:
 
         // handle cast to void (usually created by frontend to avoid "has no effect" error)
         if (e->to == Type::tvoid) {
-            result = new DImValue(Type::tvoid, llvm::UndefValue::get(voidToI8(DtoType(Type::tvoid))));
+            result = new DImValue(Type::tvoid, llvm::UndefValue::get(DtoMemType(Type::tvoid)));
             return;
         }
 
@@ -2369,7 +2367,7 @@ public:
         if (retPtr)
             result = new DVarValue(e->type, DtoLoad(retPtr));
         else
-            result = new DConstValue(e->type, getNullValue(voidToI8(DtoType(dtype))));
+            result = new DConstValue(e->type, getNullValue(DtoMemType(dtype)));
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////
@@ -2447,7 +2445,7 @@ public:
                 DtoAppendDCharToUnicodeString(e->loc, result, e->e2);
         }
         else if (e1type->equals(e2type)) {
-            // apeend array
+            // append array
             DSliceValue* slice = DtoCatAssignArray(e->loc, result, e->e2);
             DtoAssign(e->loc, result, slice);
         }
@@ -2556,7 +2554,7 @@ public:
         IF_LOG Logger::cout() << (dyn?"dynamic":"static") << " array literal with length " << len << " of D type: '" << arrayType->toChars() << "' has llvm type: '" << *llType << "'\n";
 
         // llvm storage type
-        LLType* llElemType = i1ToI8(voidToI8(DtoType(elemType)));
+        LLType* llElemType = DtoMemType(elemType);
         LLType* llStoType = LLArrayType::get(llElemType, len);
         IF_LOG Logger::cout() << "llvm storage type: '" << *llStoType << "'\n";
 
@@ -2826,7 +2824,7 @@ public:
         // (&a.foo).funcptr is a case where toElem(e1) is genuinely not an l-value.
         LLValue* val = makeLValue(exp->loc, toElem(exp->e1));
         LLValue* v = DtoGEPi(val, 0, index);
-        return new DVarValue(exp->type, DtoBitCast(v, getPtrToType(DtoType(exp->type))));
+        return new DVarValue(exp->type, DtoBitCast(v, DtoPtrToType(exp->type)));
     }
 
     void visit(DelegatePtrExp *e)
@@ -2890,7 +2888,7 @@ public:
         types.reserve(e->exps->dim);
         for (size_t i = 0; i < e->exps->dim; i++)
         {
-            types.push_back(i1ToI8(voidToI8(DtoType((*e->exps)[i]->type))));
+            types.push_back(DtoMemType((*e->exps)[i]->type));
         }
         LLValue *val = DtoRawAlloca(LLStructType::get(gIR->context(), types), 0, ".tuple");
         for (size_t i = 0; i < e->exps->dim; i++)

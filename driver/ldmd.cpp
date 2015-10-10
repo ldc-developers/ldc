@@ -48,6 +48,7 @@
 # error "Please define LDC_EXE_NAME to the name of the LDC executable to use."
 #endif
 
+#include "driver/exe_path.h"
 #include "llvm/ADT/SmallString.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
@@ -94,58 +95,8 @@ error_code createUniqueFile(const Twine &Model, int &ResultFD,
 }
 #endif
 
-#if LDC_LLVM_VER >= 304
-std::string getEXESuffix() {
-#if _WIN32
-  return "exe";
-#else
-  return llvm::StringRef();
-#endif
-}
-#else
-std::string getEXESuffix() {
-  return ls::Path::GetEXESuffix().str();
-}
-#endif
-
-#if LDC_LLVM_VER >= 304
-namespace llvm {
-/// Prepend the path to the program being executed
-/// to \p ExeName, given the value of argv[0] and the address of main()
-/// itself. This allows us to find another LLVM tool if it is built in the same
-/// directory. An empty string is returned on error; note that this function
-/// just mainpulates the path and doesn't check for executability.
-/// @brief Find a named executable.
-static std::string prependMainExecutablePath(const std::string &ExeName,
-                                          const char *Argv0, void *MainAddr) {
-  // Check the directory that the calling program is in.  We can do
-  // this if ProgramPath contains at least one / character, indicating that it
-  // is a relative path to the executable itself.
-  llvm::SmallString<128> Result(ls::fs::getMainExecutable(Argv0, MainAddr));
-  sys::path::remove_filename(Result);
-
-  if (!Result.empty()) {
-    sys::path::append(Result, ExeName);
-
-    // Do not use path::append here, this is not a path component before which
-    // to insert the path seperator.
-    Result.append(getEXESuffix());
-  }
-
-  return Result.str();
-}
-}
-#else
-namespace llvm {
-static std::string prependMainExecutablePath(const std::string &ExeName,
-                                          const char *Argv0, void *MainAddr) {
-  return llvm::PrependMainExecutablePath(ExeName, Argv0, MainAddr).str();
-}
-}
-#endif
-
 // We reuse DMD's response file parsing routine for maximum compatibilty - it
-// handles quotes in a very peciuliar way.
+// handles quotes in a very peculiar way.
 int response_expand(size_t *pargc, char ***pargv);
 void browse(const char *url);
 
@@ -236,7 +187,7 @@ Usage:\n\
   -allinst       generate code for all template instantiations\n\
   -c             do not link\n\
   -color[=on|off]   force colored console output on or off\n\
-  -conf=path     use config file at path (NOT YET IMPLEMENTED)\n\
+  -conf=path     use config file at path\n\
   -cov           do code coverage analysis\n\
   -cov=nnn       require at least nnn%% code coverage\n\
   -D             generate documentation\n\
@@ -505,6 +456,7 @@ struct Params
     char* moduleDepsFile;
     Color::Type color;
     bool useDIP25;
+    char* conf;
 
     bool hiddenDebugB;
     bool hiddenDebugC;
@@ -570,6 +522,7 @@ struct Params
     moduleDepsFile(0),
     color(Color::automatic),
     useDIP25(false),
+    conf(0),
     hiddenDebugB(false),
     hiddenDebugC(false),
     hiddenDebugF(false),
@@ -630,8 +583,8 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
                 else if (p[6])
                     goto Lerror;
             }
-            else if (strncmp(p + 1, "conf", 4) == 0)
-                /* NOT YET IMPLEMENTED */;
+            else if (strncmp(p + 1, "conf=", 5) == 0)
+                result.conf = p + 1 + 5;
             else if (strcmp(p + 1, "cov") == 0)
                 // For "-cov=...", the whole cmdline switch is forwarded to LDC.
                 // For plain "-cov", the cmdline switch must be explicitly forwarded
@@ -1055,6 +1008,7 @@ void buildCommandLine(std::vector<const char*>& r, const Params& p)
     if (p.color == Color::on) r.push_back("-enable-color");
     if (p.color == Color::off) r.push_back("-disable-color");
     if (p.useDIP25) r.push_back("-dip25");
+    if (p.conf) r.push_back(concat("-conf=", p.conf));
     if (p.hiddenDebugB) r.push_back("-hidden-debug-b");
     if (p.hiddenDebugC) r.push_back("-hidden-debug-c");
     if (p.hiddenDebugF) r.push_back("-hidden-debug-f");
@@ -1090,10 +1044,9 @@ size_t maxCommandLineLen()
  * nothing was found. Search paths: 1. Directory where this binary resides.
  * 2. System PATH.
  */
-std::string locateBinary(std::string exeName, const char* argv0)
+std::string locateBinary(std::string exeName)
 {
-    std::string path = llvm::prependMainExecutablePath(exeName,
-        argv0, (void*)&locateBinary);
+    std::string path = exe_path::prependBinDir(exeName.c_str());
     if (ls::fs::can_execute(path)) return path;
 
 #if LDC_LLVM_VER >= 306
@@ -1130,7 +1083,13 @@ static size_t addStrlen(size_t acc, const char* str)
 
 int main(int argc, char *argv[])
 {
-    std::string ldcPath = locateBinary(LDC_EXE_NAME, argv[0]);
+    exe_path::initialize(argv[0], reinterpret_cast<void*>(main));
+
+    std::string ldcExeName = LDC_EXE_NAME;
+#ifdef _WIN32
+    ldcExeName += ".exe";
+#endif
+    std::string ldcPath = locateBinary(ldcExeName);
     if (ldcPath.empty())
     {
         error("Could not locate " LDC_EXE_NAME " executable.");

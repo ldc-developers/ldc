@@ -174,7 +174,7 @@ IrTypePointer* IrTypePointer::get(Type* dt)
     }
     else
     {
-        elemType = i1ToI8(voidToI8(DtoType(dt->nextOf())));
+        elemType = DtoMemType(dt->nextOf());
 
         // DtoType could have already created the same type, e.g. for
         // dt == Node* in struct Node { Node* n; }.
@@ -212,7 +212,7 @@ llvm::Type * IrTypeSArray::sarray2llvm(Type * t)
     assert(t->ty == Tsarray && "not static array type");
     TypeSArray* tsa = static_cast<TypeSArray*>(t);
     uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
-    LLType* elemType = i1ToI8(voidToI8(DtoType(t->nextOf())));
+    LLType* elemType = DtoMemType(t->nextOf());
     return llvm::ArrayType::get(elemType, dim);
 }
 
@@ -232,7 +232,7 @@ IrTypeArray* IrTypeArray::get(Type* dt)
     assert(!dt->ctype);
     assert(dt->ty == Tarray && "not dynamic array type");
 
-    LLType* elemType = i1ToI8(voidToI8(DtoType(dt->nextOf())));
+    LLType* elemType = DtoMemType(dt->nextOf());
 
     // Could have already built the type as part of a struct forward reference,
     // just as for pointers.
@@ -273,7 +273,7 @@ llvm::Type* IrTypeVector::vector2llvm(Type* dt)
     assert(tv->basetype->ty == Tsarray);
     TypeSArray* tsa = static_cast<TypeSArray*>(tv->basetype);
     uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
-    LLType* elemType = voidToI8(DtoType(tsa->next));
+    LLType* elemType = DtoMemType(tsa->next);
     return llvm::VectorType::get(elemType, dim);
 }
 

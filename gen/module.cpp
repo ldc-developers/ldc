@@ -424,8 +424,7 @@ static void build_dso_ctor_dtor_body(
 static void build_module_ref(std::string moduleMangle, llvm::Constant* thisModuleInfo)
 {
     // Build the ModuleInfo reference and bracketing symbols.
-    llvm::Type* const moduleInfoPtrTy =
-        getPtrToType(DtoType(Module::moduleinfo->type));
+    llvm::Type* const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
 
     std::string thismrefname = "_D";
     thismrefname += moduleMangle;
@@ -445,8 +444,7 @@ static void build_module_ref(std::string moduleMangle, llvm::Constant* thisModul
 static void build_dso_registry_calls(std::string moduleMangle, llvm::Constant* thisModuleInfo)
 {
     // Build the ModuleInfo reference and bracketing symbols.
-    llvm::Type* const moduleInfoPtrTy =
-        getPtrToType(DtoType(Module::moduleinfo->type));
+    llvm::Type* const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
 
     // Order is important here: We must create the symbols in the
     // bracketing sections right before/after the ModuleInfo reference
@@ -789,8 +787,7 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo)
     RTTIBuilder b(Module::moduleinfo);
 
     // some types
-    llvm::Type* const moduleInfoPtrTy =
-        getPtrToType(DtoType(Module::moduleinfo->type));
+    llvm::Type* const moduleInfoPtrTy = DtoPtrToType(Module::moduleinfo->type);
     LLType* classinfoTy = Type::typeinfoclass->type->ctype->getLLType();
 
     // importedModules[]

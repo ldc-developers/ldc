@@ -191,8 +191,10 @@ endif()
 #
 # Create configuration files.
 #
-if(MSVC)
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-L/LARGEADDRESSAWARE:NO\"")
+
+# Add a lib required by VS 2015+ when building LDC with VS 2015+.
+if(MSVC AND (MSVC_VERSION GREATER 1800))
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-Llegacy_stdio_definitions.lib\"")
 endif()
 
 # Add extra paths on Linux and disable linker arch mismatch warnings (like
@@ -245,7 +247,7 @@ foreach(variable ${variables})
 endforeach()
 
 # Compiles the given D module into an object file, and if enabled, a bitcode
-# file. The ouput is written to a path based on output_dir. The paths of the
+# file. The output is written to a path based on output_dir. The paths of the
 # output files are appended to outlist_o and outlist_bc, respectively.
 macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
     file(RELATIVE_PATH output ${output_dir} ${input_d})

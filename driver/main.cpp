@@ -23,6 +23,7 @@
 #include "driver/cl_options.h"
 #include "driver/codegenerator.h"
 #include "driver/configfile.h"
+#include "driver/exe_path.h"
 #include "driver/ldc-version.h"
 #include "driver/linker.h"
 #include "driver/targetmachine.h"
@@ -102,18 +103,6 @@ static cl::opt<std::string> debugLib("debuglib",
 static cl::opt<bool> linkDebugLib("link-debuglib",
     cl::desc("Link with libraries specified in -debuglib, not -defaultlib"),
     cl::ZeroOrMore);
-
-#if LDC_LLVM_VER < 304
-namespace llvm {
-namespace sys {
-namespace fs {
-static std::string getMainExecutable(const char *argv0, void *MainExecAddr) {
-  return llvm::sys::Path::GetMainExecutable(argv0, MainExecAddr).str();
-}
-}
-}
-}
-#endif
 
 void printVersion() {
     printf("LDC - the LLVM D compiler (%s):\n", global.ldc_version);
@@ -258,21 +247,23 @@ static void hideLLVMOptions() {
 
 int main(int argc, char **argv);
 
+static const char* tryGetExplicitConfFile(int argc, char** argv)
+{
+    // begin at the back => use latest -conf= specification
+    for (int i = argc - 1; i >= 1; --i)
+    {
+        if (strncmp(argv[i], "-conf=", 6) == 0)
+            return argv[i] + 6;
+    }
+    return 0;
+}
+
 /// Parses switches from the command line, any response files and the global
 /// config file and sets up global.params accordingly.
 ///
 /// Returns a list of source file names.
 static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &helpOnly) {
-#if _WIN32
-    char buf[MAX_PATH];
-    GetModuleFileName(NULL, buf, MAX_PATH);
-    const char* argv0 = &buf[0];
-    // FIXME: We cannot set params.argv0 here, as we would escape a stack
-    // reference, but it is unused anyway.
-    global.params.argv0 = NULL;
-#else
-    const char* argv0 = global.params.argv0 = argv[0];
-#endif
+    global.params.argv0 = exe_path::getExePath().data();
 
     // Set some default values.
     global.params.useSwitchError = 1;
@@ -291,8 +282,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     final_args.push_back(argv[0]);
 
     ConfigFile cfg_file;
+    const char* explicitConfFile = tryGetExplicitConfFile(argc, argv);
     // just ignore errors for now, they are still printed
-    cfg_file.read(argv0, (void*)main, "ldc2.conf");
+    cfg_file.read(explicitConfFile);
     final_args.insert(final_args.end(), cfg_file.switches_begin(), cfg_file.switches_end());
 
     final_args.insert(final_args.end(), &argv[1], &argv[argc]);
@@ -301,7 +293,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
 #if LDC_LLVM_VER >= 303
     hideLLVMOptions();
 #endif
-    cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(&final_args[0]),
+    cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(final_args.data()),
         "LDC - the LLVM D compiler\n"
 #if LDC_LLVM_VER < 302
         , true
@@ -316,7 +308,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     // - version number
     // - used config file
     if (global.params.verbose) {
-        fprintf(global.stdmsg, "binary    %s\n", llvm::sys::fs::getMainExecutable(argv0, (void*)main).c_str());
+        fprintf(global.stdmsg, "binary    %s\n", exe_path::getExePath().c_str());
         fprintf(global.stdmsg, "version   %s (DMD %s, LLVM %s)\n", global.ldc_version, global.version, global.llvm_version);
         const std::string& path = cfg_file.path();
         if (!path.empty())
@@ -939,6 +931,8 @@ int main(int argc, char **argv)
 {
     // stack trace on signals
     llvm::sys::PrintStackTraceOnErrorSignal();
+
+    exe_path::initialize(argv[0], reinterpret_cast<void*>(main));
 
     global.init();
     global.version = ldc::dmd_version;

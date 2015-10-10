@@ -8,8 +8,10 @@
 //===----------------------------------------------------------------------===//
 
 #include "driver/configfile.h"
+#include "driver/exe_path.h"
 #include "mars.h"
 #include "libconfig.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include <cassert>
@@ -25,6 +27,12 @@
 #endif
 
 namespace sys = llvm::sys;
+
+// dummy only; needs to be parsed manually earlier as the switches contained in
+// the config file are injected into the command line options fed to the parser
+llvm::cl::opt<std::string> clConf("conf",
+    llvm::cl::desc("Use configuration file <filename>"),
+    llvm::cl::value_desc("filename"));
 
 #if LDC_LLVM_VER >= 304
 #if _WIN32
@@ -48,16 +56,6 @@ std::string getUserHomeDirectory() {
 #else
 std::string getUserHomeDirectory() {
   return llvm::sys::Path::GetUserHomeDirectory().str();
-}
-#endif
-
-#if LDC_LLVM_VER >= 304
-static std::string getMainExecutable(const char *argv0, void *MainExecAddr) {
-  return sys::fs::getMainExecutable(argv0, MainExecAddr);
-}
-#else
-static std::string getMainExecutable(const char *argv0, void *MainExecAddr) {
-  return llvm::sys::Path::GetMainExecutable(argv0, MainExecAddr).str();
 }
 #endif
 
@@ -98,55 +96,53 @@ ConfigFile::~ConfigFile()
 }
 
 
-bool ConfigFile::locate(llvm::SmallString<128> &p, const char* argv0, void* mainAddr, const char* filename)
+bool ConfigFile::locate()
 {
     // temporary configuration
 
-    // try the current working dir
-    if (!sys::fs::current_path(p))
-    {
-        sys::path::append(p, filename);
-        if (sys::fs::exists(p.str()))
-            return true;
+    llvm::SmallString<128> p;
+    const char* filename = "ldc2.conf";
+
+#define APPEND_FILENAME_AND_RETURN_IF_EXISTS \
+    { \
+        sys::path::append(p, filename); \
+        if (sys::fs::exists(p.str())) \
+        { \
+            pathstr = p.str(); \
+            return true; \
+        } \
     }
 
+    // try the current working dir
+    if (!sys::fs::current_path(p))
+        APPEND_FILENAME_AND_RETURN_IF_EXISTS
+
     // try next to the executable
-    p = getMainExecutable(argv0, mainAddr);
-    sys::path::remove_filename(p);
-    sys::path::append(p, filename);
-    if (sys::fs::exists(p.str()))
-        return true;
+    p = exe_path::getBinDir();
+    APPEND_FILENAME_AND_RETURN_IF_EXISTS
 
     // user configuration
 
     // try ~/.ldc
     p = getUserHomeDirectory();
     sys::path::append(p, ".ldc");
-    sys::path::append(p, filename);
-    if (sys::fs::exists(p.str()))
-        return true;
+    APPEND_FILENAME_AND_RETURN_IF_EXISTS
 
 #if _WIN32
     // try home dir
     p = getUserHomeDirectory();
-    sys::path::append(p, filename);
-    if (sys::fs::exists(p.str()))
-        return true;
+    APPEND_FILENAME_AND_RETURN_IF_EXISTS
 #endif
 
     // system configuration
 
     // try in etc relative to the executable: exe\..\etc
     // do not use .. in path because of security risks
-    p = getMainExecutable(argv0, mainAddr);
-    sys::path::remove_filename(p);
-    sys::path::remove_filename(p);
+    p = exe_path::getBaseDir();
     if (!p.empty())
     {
         sys::path::append(p, "etc");
-        sys::path::append(p, filename);
-        if (sys::fs::exists(p.str()))
-            return true;
+        APPEND_FILENAME_AND_RETURN_IF_EXISTS
     }
 
 #if _WIN32
@@ -154,57 +150,59 @@ bool ConfigFile::locate(llvm::SmallString<128> &p, const char* argv0, void* main
     if (ReadPathFromRegistry(p))
     {
         sys::path::append(p, "etc");
-        sys::path::append(p, filename);
-        if (sys::fs::exists(p.str()))
-            return true;
+        APPEND_FILENAME_AND_RETURN_IF_EXISTS
     }
 #else
     // try the install-prefix/etc
     p = LDC_INSTALL_PREFIX;
     sys::path::append(p, "etc");
-    sys::path::append(p, filename);
-    if (sys::fs::exists(p.str()))
-        return true;
+    APPEND_FILENAME_AND_RETURN_IF_EXISTS
 
     // try the install-prefix/etc/ldc
     p = LDC_INSTALL_PREFIX;
     sys::path::append(p, "etc");
     sys::path::append(p, "ldc");
-    sys::path::append(p, filename);
-    if (sys::fs::exists(p.str()))
-        return true;
+    APPEND_FILENAME_AND_RETURN_IF_EXISTS
 
     // try /etc (absolute path)
     p = "/etc";
-    sys::path::append(p, filename);
-    if (sys::fs::exists(p.str()))
-        return true;
+    APPEND_FILENAME_AND_RETURN_IF_EXISTS
 
     // try /etc/ldc (absolute path)
     p = "/etc/ldc";
-    sys::path::append(p, filename);
-    if (sys::fs::exists(p.str()))
-        return true;
+    APPEND_FILENAME_AND_RETURN_IF_EXISTS
 #endif
 
+#undef APPEND_FILENAME_AND_RETURN_IF_EXISTS
+
+    fprintf(stderr, "Warning: failed to locate the configuration file %s\n", filename);
     return false;
 }
 
-bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
+bool ConfigFile::read(const char* explicitConfFile)
 {
-    llvm::SmallString<128> p;
-    if (!locate(p, argv0, mainAddr, filename))
+    // explicitly provided by user in command line?
+    if (explicitConfFile)
     {
-        // failed to find cfg, users still have the DFLAGS environment var
-        std::cerr << "Error failed to locate the configuration file: " << filename << std::endl;
-        return false;
+        const std::string clPath = explicitConfFile;
+        // treat an empty path (`-conf=`) as missing command-line option,
+        // defaulting to an auto-located config file, analogous to DMD
+        if (!clPath.empty())
+        {
+            if (sys::fs::exists(clPath))
+                pathstr = clPath;
+            else
+                fprintf(stderr, "Warning: configuration file '%s' not found, falling back to default\n", clPath.c_str());
+        }
     }
 
-    // save config file path for -v output
-    pathstr = p.str();
+    // locate file automatically if path is not set yet
+    if (pathstr.empty())
+        if (!locate())
+            return false;
 
     // read the cfg
-    if (!config_read_file(cfg, p.c_str()))
+    if (!config_read_file(cfg, pathstr.c_str()))
     {
         std::cerr << "error reading configuration file" << std::endl;
         return false;
@@ -228,7 +226,7 @@ bool ConfigFile::read(const char* argv0, void* mainAddr, const char* filename)
     {
         std::string binpathkey = "%%ldcbinarypath%%";
 
-        std::string binpath = sys::path::parent_path(getMainExecutable(argv0, mainAddr));
+        std::string binpath = exe_path::getBinDir();
 
         int len = config_setting_length(sw);
         for (int i = 0; i < len; i++)
