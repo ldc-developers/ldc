@@ -108,6 +108,7 @@ after_build:
             ninja install > $null
             copy bin\ldc2.pdb ..\ldc-x64\bin
             cd ..\ldc-x64
+            (gc etc\ldc2.conf).replace('c:/projects/ldc-x64/', '%%ldcbinarypath%%/../') | sc etc\ldc2.conf
             $artifactFilename = "LDC-Win64-master-$Env:APPVEYOR_BUILD_NUMBER.7z"
             7z a "..\$artifactFilename" * > $null
             cd ..
