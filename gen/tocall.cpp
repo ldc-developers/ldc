@@ -605,67 +605,23 @@ errorCmpxchg:
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-// FIXME: this function is a mess !
-
-DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments, llvm::Value* retvar)
+void addImplicitArguments(std::vector<LLValue*>& args, AttrSet& attrs, Loc& loc, DValue* fnval,
+    LLFunctionType* llCalleeType, Expressions* arguments, Type* resulttype, LLValue* retvar)
 {
-    IF_LOG Logger::println("DtoCallFunction()");
-    LOG_SCOPE
-
-    // the callee D type
-    Type* calleeType = fnval->getType();
-
-    // make sure the callee type has been processed
-    DtoType(calleeType);
-
-    // get func value if any
-    DFuncValue* dfnval = fnval->isFunc();
-
-    // handle intrinsics
-    const bool intrinsic = (dfnval && dfnval->func && DtoIsIntrinsic(dfnval->func));
-
-    // get function type info
+    Type* const calleeType = fnval->getType();
+    DFuncValue* const dfnval = fnval->isFunc();
     IrFuncTy& irFty = DtoIrTypeFunction(fnval);
     TypeFunction* const tf = DtoTypeFunction(fnval);
-    Type* const returntype = tf->next;
-    const TY returnTy = returntype->toBasetype()->ty;
 
-    if (resulttype == NULL)
-        resulttype = returntype;
-
-    // misc
-    bool retinptr = irFty.arg_sret;
+    const bool sret = irFty.arg_sret;
     const bool thiscall = irFty.arg_this;
     const bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
     const bool nestedcall = irFty.arg_nest;
     const bool dvarargs = irFty.arg_arguments;
-
-    // get callee llvm value
-    LLValue* const callable = DtoCallableValue(fnval);
-    LLFunctionType* const callableTy = DtoExtractFunctionType(callable->getType());
-    assert(callableTy);
-    const llvm::CallingConv::ID callconv = gABI->callingConv(callableTy, tf->linkage);
-
-//     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
-
-    // get number of explicit arguments
-    const size_t n_arguments = arguments ? arguments->dim : 0;
-
-    // get llvm argument iterator, for types
-    LLFunctionType::param_iterator argTypesBegin = callableTy->param_begin();
-
-    // parameter attributes
-    AttrSet attrs;
-
-    // return attrs
-    attrs.add(0, irFty.ret->attrs);
-
-    // handle implicit arguments
-    std::vector<LLValue*> args;
-    args.reserve(irFty.args.size());
+    LLFunctionType::param_iterator argTypesBegin = llCalleeType->param_begin();
 
     // return in hidden ptr is first
-    if (retinptr)
+    if (sret)
     {
         if (!retvar)
             retvar = DtoRawAlloca((*argTypesBegin)->getContainedType(0), resulttype->alignsize(), ".rettmp");
@@ -683,11 +639,12 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     }
 
     // then comes a context argument...
-    if(thiscall || delegatecall || nestedcall)
+    if (thiscall || delegatecall || nestedcall)
     {
         LLType* contextArgType = *(argTypesBegin + args.size());
 
-        if (dfnval && (dfnval->func->ident == Id::ensure || dfnval->func->ident == Id::require)) {
+        if (dfnval && (dfnval->func->ident == Id::ensure || dfnval->func->ident == Id::require))
+        {
             // ... which can be the this "context" argument for a contract
             // invocation (in D2, we do not generate a full nested contexts
             // for __require/__ensure as the needed parameters are passed
@@ -706,24 +663,24 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         {
             // ... or a delegate context arg
             LLValue* ctxarg;
-            if (fnval->isLVal()) {
+            if (fnval->isLVal())
                 ctxarg = DtoLoad(DtoGEPi(fnval->getLVal(), 0, 0), ".ptr");
-            } else {
+            else
                 ctxarg = gIR->ir->CreateExtractValue(fnval->getRVal(), 0, ".ptr");
-            }
             ctxarg = DtoBitCast(ctxarg, contextArgType);
             args.push_back(ctxarg);
         }
         else if (nestedcall)
         {
             // ... or a nested function context arg
-            if (dfnval) {
+            if (dfnval)
+            {
                 LLValue* contextptr = DtoNestedContext(loc, dfnval->func);
                 contextptr = DtoBitCast(contextptr, getVoidPtrType());
                 args.push_back(contextptr);
-            } else {
-                args.push_back(llvm::UndefValue::get(getVoidPtrType()));
             }
+            else
+                args.push_back(llvm::UndefValue::get(getVoidPtrType()));
         }
         else
         {
@@ -732,21 +689,64 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         }
 
         // add attributes for context argument
-        if (irFty.arg_this) {
+        if (irFty.arg_this)
             attrs.add(args.size(), irFty.arg_this->attrs);
-        } else if (irFty.arg_nest) {
+        else if (irFty.arg_nest)
             attrs.add(args.size(), irFty.arg_nest->attrs);
-        }
     }
 
-    const int numFormalParams = Parameter::dim(tf->parameters); // excl. variadics
-
     // D vararg functions need an additional "TypeInfo[] _arguments" argument
-    if (dvarargs) {
+    if (irFty.arg_arguments) {
+        int numFormalParams = Parameter::dim(tf->parameters);
         LLValue* argumentsArg = getTypeinfoArrayArgumentForDVarArg(arguments, numFormalParams);
         args.push_back(argumentsArg);
         attrs.add(args.size(), irFty.arg_arguments->attrs);
     }
+}
+
+//////////////////////////////////////////////////////////////////////////////////////////
+
+// FIXME: this function is a mess !
+
+DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* arguments, llvm::Value* retvar)
+{
+    IF_LOG Logger::println("DtoCallFunction()");
+    LOG_SCOPE
+
+    // make sure the D callee type has been processed
+    DtoType(fnval->getType());
+
+    // get func value if any
+    DFuncValue* dfnval = fnval->isFunc();
+
+    // get function type info
+    IrFuncTy& irFty = DtoIrTypeFunction(fnval);
+    TypeFunction* const tf = DtoTypeFunction(fnval);
+    Type* const returntype = tf->next;
+    const TY returnTy = returntype->toBasetype()->ty;
+
+    if (resulttype == NULL)
+        resulttype = returntype;
+
+    // get callee llvm value
+    LLValue* const callable = DtoCallableValue(fnval);
+    LLFunctionType* const callableTy = DtoExtractFunctionType(callable->getType());
+    assert(callableTy);
+    const llvm::CallingConv::ID callconv = gABI->callingConv(callableTy, tf->linkage);
+
+//     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
+
+    // parameter attributes
+    AttrSet attrs;
+
+    // return attrs
+    attrs.add(0, irFty.ret->attrs);
+
+    std::vector<LLValue*> args;
+    args.reserve(irFty.args.size());
+
+    // handle implicit arguments (sret, this/nested context, _arguments)
+    addImplicitArguments(args, attrs, loc, fnval, callableTy, arguments, resulttype, retvar);
 
     // handle explicit arguments
 
@@ -761,6 +761,9 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
         Logger::cout() << "Function type: " << tf->toChars() << '\n';
         //Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
     }
+
+    const int numFormalParams = Parameter::dim(tf->parameters); // excl. variadics
+    const size_t n_arguments = arguments ? arguments->dim : 0;  // number of explicit arguments
 
     std::vector<DValue*> argvals(n_arguments, static_cast<DValue*>(0));
     if (dfnval && dfnval->func->isArrayOp) {
@@ -792,6 +795,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args);
 
     // get return value
+    bool retinptr = irFty.arg_sret;
     LLValue* retllval = (retinptr) ? args[0] : call.getInstruction();
 
     // Hack around LDC assuming structs and static arrays are in memory:
@@ -805,6 +809,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     bool retValIsAlloca = false;
 
     // Ignore ABI for intrinsics
+    const bool intrinsic = (dfnval && dfnval->func && DtoIsIntrinsic(dfnval->func));
     if (!intrinsic && !retinptr)
     {
         // do abi specific return value fixups
