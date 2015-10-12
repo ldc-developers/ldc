@@ -196,6 +196,9 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     if (irFty.arg_nest) argtypes.push_back(irFty.arg_nest->ltype);
     if (irFty.arg_arguments) argtypes.push_back(irFty.arg_arguments->ltype);
 
+    if (irFty.arg_sret && irFty.arg_this && abi->passThisBeforeSret(f))
+        std::swap(argtypes[0], argtypes[1]);
+
     const size_t firstExplicitArg = argtypes.size();
     const size_t numExplicitLLArgs = irFty.args.size();
     for (size_t i = 0; i < numExplicitLLArgs; i++)
@@ -405,8 +408,18 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     }
 
     ADD_PA(ret)
-    ADD_PA(arg_sret)
-    ADD_PA(arg_this)
+
+    if (irFty.arg_sret && irFty.arg_this && gABI->passThisBeforeSret(f))
+    {
+        ADD_PA(arg_this)
+        ADD_PA(arg_sret)
+    }
+    else
+    {
+        ADD_PA(arg_sret)
+        ADD_PA(arg_this)
+    }
+
     ADD_PA(arg_nest)
     ADD_PA(arg_arguments)
 
@@ -537,7 +550,9 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     // name parameters
     llvm::Function::arg_iterator iarg = func->arg_begin();
 
-    if (irFty.arg_sret) {
+    const bool passThisBeforeSret = irFty.arg_sret && irFty.arg_this && gABI->passThisBeforeSret(f);
+
+    if (irFty.arg_sret && !passThisBeforeSret) {
         iarg->setName(".sret_arg");
         irFunc->retArg = iarg;
         ++iarg;
@@ -566,6 +581,12 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
         iarg->setName(".nest_arg");
         irFunc->nestArg = iarg;
         assert(irFunc->nestArg);
+        ++iarg;
+    }
+
+    if (passThisBeforeSret) {
+        iarg->setName(".sret_arg");
+        irFunc->retArg = iarg;
         ++iarg;
     }
 

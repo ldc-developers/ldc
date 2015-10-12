@@ -106,6 +106,9 @@ struct TargetABI
     /// Returns true if the type is passed by value
     virtual bool passByVal(Type* t) = 0;
 
+    // Returns true if the 'this' argument is to be passed before the 'sret' argument.
+    virtual bool passThisBeforeSret(TypeFunction* tf) { return false; }
+
     /// Called to give ABI the chance to rewrite the types
     virtual void rewriteFunctionType(TypeFunction* t, IrFuncTy& fty) = 0;
     virtual void rewriteVarargs(IrFuncTy& fty, std::vector<IrFuncTyArg*>& args);
