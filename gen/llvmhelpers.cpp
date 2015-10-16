@@ -136,12 +136,35 @@ void DtoDeleteArray(Loc& loc, DValue* arr)
 
 /****************************************************************************************/
 /*////////////////////////////////////////////////////////////////////////////////////////
+// ALIGNMENT HELPERS
+////////////////////////////////////////////////////////////////////////////////////////*/
+
+unsigned DtoAlignment(Type* type)
+{
+    structalign_t alignment = type->alignment();
+    if (alignment == STRUCTALIGN_DEFAULT)
+        alignment = type->alignsize();
+    return (alignment == STRUCTALIGN_DEFAULT ? 0 : alignment);
+}
+
+unsigned DtoAlignment(VarDeclaration* vd)
+{
+    return vd->alignment == STRUCTALIGN_DEFAULT ? DtoAlignment(vd->type) : vd->alignment;
+}
+
+/****************************************************************************************/
+/*////////////////////////////////////////////////////////////////////////////////////////
 // ALLOCA HELPERS
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
 llvm::AllocaInst* DtoAlloca(Type* type, const char* name)
 {
-    return DtoRawAlloca(DtoMemType(type), type->alignsize(), name);
+    return DtoRawAlloca(DtoMemType(type), DtoAlignment(type), name);
+}
+
+llvm::AllocaInst* DtoAlloca(VarDeclaration* vd, const char* name)
+{
+    return DtoRawAlloca(DtoMemType(vd->type), DtoAlignment(vd), name);
 }
 
 llvm::AllocaInst* DtoArrayAlloca(Type* type, unsigned arraysize, const char* name)
@@ -149,7 +172,7 @@ llvm::AllocaInst* DtoArrayAlloca(Type* type, unsigned arraysize, const char* nam
     LLType* lltype = DtoType(type);
     llvm::AllocaInst* ai = new llvm::AllocaInst(
         lltype, DtoConstUint(arraysize), name, gIR->topallocapoint());
-    ai->setAlignment(type->alignsize());
+    ai->setAlignment(DtoAlignment(type));
     return ai;
 }
 
@@ -195,7 +218,7 @@ LLValue* DtoAllocaDump(LLValue* val, int alignment, const char* name)
 
 LLValue* DtoAllocaDump(LLValue* val, Type* asType, const char* name)
 {
-    return DtoAllocaDump(val, DtoType(asType), asType->alignsize(), name);
+    return DtoAllocaDump(val, DtoType(asType), DtoAlignment(asType), name);
 }
 
 LLValue* DtoAllocaDump(LLValue* val, LLType* asType, int alignment, const char* name)
@@ -872,8 +895,7 @@ void DtoResolveVariable(VarDeclaration* vd)
         // Set the alignment (it is important not to use type->alignsize because
         // VarDeclarations can have an align() attribute independent of the type
         // as well).
-        if (vd->alignment != STRUCTALIGN_DEFAULT)
-            gvar->setAlignment(vd->alignment);
+        gvar->setAlignment(DtoAlignment(vd));
 
         IF_LOG Logger::cout() << *gvar << '\n';
     }
@@ -928,8 +950,10 @@ void DtoVarDeclaration(VarDeclaration* vd)
         LLType* lltype = DtoType(type);
         if(gDataLayout->getTypeSizeInBits(lltype) == 0)
             allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
-        else
+        else if (type != vd->type)
             allocainst = DtoAlloca(type, vd->toChars());
+        else
+            allocainst = DtoAlloca(vd, vd->toChars());
 
         irLocal->value = allocainst;
 
@@ -1106,7 +1130,7 @@ LLValue* DtoRawVarDeclaration(VarDeclaration* var, LLValue* addr)
     // alloca if necessary
     if (!addr && (!irLocal || !irLocal->value))
     {
-        addr = DtoAlloca(var->type, var->toChars());
+        addr = DtoAlloca(var, var->toChars());
         // add debug info
         if (!irLocal)
             irLocal = getIrLocal(var, true);
@@ -1355,7 +1379,7 @@ bool hasUnalignedFields(Type* t)
 {
     t = t->toBasetype();
     if (t->ty == Tsarray) {
-        assert(t->nextOf()->size() % t->nextOf()->alignsize() == 0);
+        assert(t->nextOf()->size() % DtoAlignment(t->nextOf()) == 0);
         return hasUnalignedFields(t->nextOf());
     } else if (t->ty != Tstruct)
         return false;
@@ -1371,7 +1395,7 @@ bool hasUnalignedFields(Type* t)
     for (unsigned i = 0; i < sym->fields.dim; i++)
     {
         VarDeclaration* f = static_cast<VarDeclaration*>(sym->fields.data[i]);
-        unsigned a = f->type->alignsize() - 1;
+        unsigned a = DtoAlignment(f) - 1;
         if (((f->offset + a) & ~a) != f->offset)
             return true;
         else if (f->type->toBasetype()->ty == Tstruct && hasUnalignedFields(f->type))

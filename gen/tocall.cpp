@@ -663,7 +663,7 @@ private:
 
         LLValue* var = retvar;
         if (!var)
-            var = DtoRawAlloca(llArgType->getContainedType(0), resulttype->alignsize(), ".rettmp");
+            var = DtoRawAlloca(llArgType->getContainedType(0), DtoAlignment(resulttype), ".rettmp");
 
         args.push_back(var);
         attrs.add(index + 1, irFty.arg_sret->attrs);
