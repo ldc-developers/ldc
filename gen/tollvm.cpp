@@ -732,16 +732,18 @@ unsigned char getABITypeAlign(LLType* t)
 
 LLStructType* DtoMutexType()
 {
-    if (gIR->mutexType)
+    if (gIR && gIR->mutexType)
         return gIR->mutexType;
+
+    llvm::LLVMContext& context = gIR ? gIR->context() : llvm::getGlobalContext();
 
     // The structures defined here must be the same as in druntime/src/rt/critical.c
 
     // Windows
     if (global.params.targetTriple.isOSWindows())
     {
-        llvm::Type *VoidPtrTy = llvm::Type::getInt8PtrTy(gIR->context());
-        llvm::Type *Int32Ty = llvm::Type::getInt32Ty(gIR->context());
+        llvm::Type *VoidPtrTy = llvm::Type::getInt8PtrTy(context);
+        llvm::Type *Int32Ty = llvm::Type::getInt32Ty(context);
 
         // Build RTL_CRITICAL_SECTION; size is 24 (32bit) or 40 (64bit)
         LLType *rtl_types[] = {
@@ -752,15 +754,15 @@ LLStructType* DtoMutexType()
             VoidPtrTy, // Handle of LockSemaphore
             VoidPtrTy  // SpinCount
         };
-        LLStructType* rtl = LLStructType::create(gIR->context(), rtl_types, "RTL_CRITICAL_SECTION");
+        LLStructType* rtl = LLStructType::create(context, rtl_types, "RTL_CRITICAL_SECTION");
 
         // Build D_CRITICAL_SECTION; size is 28 (32bit) or 48 (64bit)
-        LLStructType *mutex = LLStructType::create(gIR->context(), "D_CRITICAL_SECTION");
+        LLStructType *mutex = LLStructType::create(context, "D_CRITICAL_SECTION");
         LLType *types[] = { getPtrToType(mutex), rtl };
         mutex->setBody(types);
 
         // Cache type
-        gIR->mutexType = mutex;
+        if (gIR) gIR->mutexType = mutex;
 
         return mutex;
     }
@@ -768,33 +770,33 @@ LLStructType* DtoMutexType()
     // FreeBSD
     else if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD) {
         // Just a pointer
-        return LLStructType::get(gIR->context(), DtoSize_t());
+        return LLStructType::get(context, DtoSize_t());
     }
 
     // pthread_fastlock
     LLType *types2[] = {
         DtoSize_t(),
-        LLType::getInt32Ty(gIR->context()) 
+        LLType::getInt32Ty(context) 
     };
-    LLStructType* fastlock = LLStructType::get(gIR->context(), types2, false);
+    LLStructType* fastlock = LLStructType::get(context, types2, false);
 
     // pthread_mutex
     LLType *types1[] = {
-        LLType::getInt32Ty(gIR->context()),
-        LLType::getInt32Ty(gIR->context()),
+        LLType::getInt32Ty(context),
+        LLType::getInt32Ty(context),
         getVoidPtrType(),
-        LLType::getInt32Ty(gIR->context()),
+        LLType::getInt32Ty(context),
         fastlock
     };
-    LLStructType* pmutex = LLStructType::get(gIR->context(), types1, false);
+    LLStructType* pmutex = LLStructType::get(context, types1, false);
 
     // D_CRITICAL_SECTION
-    LLStructType* mutex = LLStructType::create(gIR->context(), "D_CRITICAL_SECTION");
+    LLStructType* mutex = LLStructType::create(context, "D_CRITICAL_SECTION");
     LLType *types[] = { getPtrToType(mutex), pmutex };
     mutex->setBody(types);
 
     // Cache type
-    gIR->mutexType = mutex;
+    if (gIR) gIR->mutexType = mutex;
 
     return pmutex;
 }
