@@ -23,8 +23,9 @@ int linkObjToBinary(bool sharedLib);
 
 /**
  * Create a static library from object files.
-*/
-void createStaticLibrary();
+ * @return 0 on success.
+ */
+int createStaticLibrary();
 
 /**
  * Delete the executable that was previously linked with linkObjToBinary.

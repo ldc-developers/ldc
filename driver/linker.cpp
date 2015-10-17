@@ -431,7 +431,7 @@ int linkObjToBinary(bool sharedLib)
 
 //////////////////////////////////////////////////////////////////////////////
 
-void createStaticLibrary()
+int createStaticLibrary()
 {
     Logger::println("*** Creating static library ***");
 
@@ -501,7 +501,8 @@ void createStaticLibrary()
     CreateDirectoryOnDisk(libName);
 
     // try to call archiver
-    executeToolAndWait(tool, args, global.params.verbose);
+    int rc = executeToolAndWait(tool, args, global.params.verbose);
+    return rc;
 }
 
 //////////////////////////////////////////////////////////////////////////////

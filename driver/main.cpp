@@ -1347,7 +1347,7 @@ int main(int argc, char **argv)
         if (global.params.link)
             status = linkObjToBinary(createSharedLib);
         else if (createStaticLib)
-            createStaticLibrary();
+            status = createStaticLibrary();
 
         if (global.params.run && status == EXIT_SUCCESS)
         {
