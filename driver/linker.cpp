@@ -375,11 +375,29 @@ int executeMsvcToolAndWait(const std::string& tool, const std::vector<std::strin
         commandLine.append(windows::quoteArg(toolPath));
     }
 
+    const size_t commandLineLengthAfterTool = commandLine.size();
+
     // append (quoted) args
     for (size_t i = 0; i < args.size(); ++i)
     {
         commandLine.push_back(' ');
         commandLine.append(windows::quoteArg(args[i]));
+    }
+
+    const bool useResponseFile = (!args.empty() && commandLine.size() > 2000);
+    llvm::SmallString<128> responseFilePath;
+    if (useResponseFile)
+    {
+        const size_t firstArgIndex = commandLineLengthAfterTool + 1;
+        llvm::StringRef content(commandLine.data() + firstArgIndex, commandLine.size() - firstArgIndex);
+
+        llvm::sys::fs::createTemporaryFile("ldc_link", "rsp", responseFilePath);
+        llvm::sys::writeFileWithEncoding(responseFilePath, content, llvm::sys::WEM_CurrentCodePage);
+
+        // replace all args by @<responseFilePath>
+        std::string responseFileArg = ("@" + responseFilePath).str();
+        commandLine.resize(firstArgIndex);
+        commandLine.append(windows::quoteArg(responseFileArg));
     }
 
     if (needMsvcSetup)
@@ -420,6 +438,9 @@ int executeMsvcToolAndWait(const std::string& tool, const std::vector<std::strin
 
     if (exitCode != 0)
         error(Loc(), "%s failed with status: %d", tool.c_str(), exitCode);
+
+    if (useResponseFile)
+        llvm::sys::fs::remove(responseFilePath);
 
     return exitCode;
 }
