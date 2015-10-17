@@ -40,6 +40,8 @@ struct Win64TargetABI : TargetABI
 
     bool passByVal(Type* t);
 
+    bool passThisBeforeSret(TypeFunction* tf);
+
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty);
 
     void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg);
@@ -115,6 +117,11 @@ bool Win64TargetABI::returnInArg(TypeFunction* tf)
 bool Win64TargetABI::passByVal(Type* t)
 {
     return false;
+}
+
+bool Win64TargetABI::passThisBeforeSret(TypeFunction* tf)
+{
+    return tf->linkage == LINKcpp;
 }
 
 void Win64TargetABI::rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
