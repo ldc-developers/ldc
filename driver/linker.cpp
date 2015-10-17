@@ -22,9 +22,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Path.h"
-#if _WIN32
 #include "llvm/Support/SystemUtils.h"
-#endif
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -300,6 +298,112 @@ static bool setupMSVCEnvironment(std::string& tool, std::vector<std::string>& ar
 
 //////////////////////////////////////////////////////////////////////////////
 
+// stupid copy from Program.inc, but inaccessible there, because of "static"
+
+/// ArgNeedsQuotes - Check whether argument needs to be quoted when calling
+/// CreateProcess.
+static bool ArgNeedsQuotes(const char *Str) {
+    return Str[0] == '\0' || strpbrk(Str, "\t \"&\'()*<>\\`^|") != 0;
+}
+
+/// CountPrecedingBackslashes - Returns the number of backslashes preceding Cur
+/// in the C string Start.
+static unsigned int CountPrecedingBackslashes(const char *Start,
+    const char *Cur) {
+    unsigned int Count = 0;
+    --Cur;
+    while (Cur >= Start && *Cur == '\\') {
+        ++Count;
+        --Cur;
+    }
+    return Count;
+}
+
+/// EscapePrecedingEscapes - Append a backslash to Dst for every backslash
+/// preceding Cur in the Start string.  Assumes Dst has enough space.
+static char *EscapePrecedingEscapes(char *Dst, const char *Start,
+    const char *Cur) {
+    unsigned PrecedingEscapes = CountPrecedingBackslashes(Start, Cur);
+    while (PrecedingEscapes > 0) {
+        *Dst++ = '\\';
+        --PrecedingEscapes;
+    }
+    return Dst;
+}
+
+/// ArgLenWithQuotes - Check whether argument needs to be quoted when calling
+/// CreateProcess and returns length of quoted arg with escaped quotes
+static unsigned int ArgLenWithQuotes(const char *Str) {
+    const char *Start = Str;
+    bool Quoted = ArgNeedsQuotes(Str);
+    unsigned int len = Quoted ? 2 : 0;
+
+    while (*Str != '\0') {
+        if (*Str == '\"') {
+            // We need to add a backslash, but ensure that it isn't escaped.
+            unsigned PrecedingEscapes = CountPrecedingBackslashes(Start, Str);
+            len += PrecedingEscapes + 1;
+        }
+        // Note that we *don't* need to escape runs of backslashes that don't
+        // precede a double quote!  See MSDN:
+        // http://msdn.microsoft.com/en-us/library/17w5ykft%28v=vs.85%29.aspx
+
+        ++len;
+        ++Str;
+    }
+
+    if (Quoted) {
+        // Make sure the closing quote doesn't get escaped by a trailing backslash.
+        unsigned PrecedingEscapes = CountPrecedingBackslashes(Start, Str);
+        len += PrecedingEscapes + 1;
+    }
+
+    return len;
+}
+
+static std::string flattenArgs(llvm::ArrayRef<std::string> args) {
+    // First, determine the length of the command line.
+    unsigned len = 0;
+    for (size_t i = 0; i < args.size(); i++) {
+        len += ArgLenWithQuotes(args[i].c_str()) + 1;
+    }
+
+    // Now build the command line.
+    std::unique_ptr<char[]> command(new char[len + 1]);
+    char *p = command.get();
+
+    for (size_t i = 0; i < args.size(); i++) {
+        const char *arg = args[i].c_str();
+        const char *start = arg;
+
+        bool needsQuoting = ArgNeedsQuotes(arg);
+        if (needsQuoting)
+            *p++ = '"';
+
+        while (*arg != '\0') {
+            if (*arg == '\"') {
+                // Escape all preceding escapes (if any), and then escape the quote.
+                p = EscapePrecedingEscapes(p, start, arg);
+                *p++ = '\\';
+            }
+
+            *p++ = *arg++;
+        }
+
+        if (needsQuoting) {
+            // Make sure our quote doesn't get escaped by a trailing backslash.
+            p = EscapePrecedingEscapes(p, start, arg);
+            *p++ = '"';
+        }
+        *p++ = ' ';
+    }
+
+    *p = 0;
+    return command.get();
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
 static int linkObjToBinaryWin(bool sharedLib)
 {
     Logger::println("*** Linking executable ***");
@@ -409,8 +513,20 @@ static int linkObjToBinaryWin(bool sharedLib)
             logstr << "'" << *I << "'" << " ";
     logstr << "\n"; // FIXME where's flush ?
 
+    llvm::SmallString<128> rsppath;
+    llvm::ArrayRef<std::string> realArgs(&args[setupMSVC], args.size() - setupMSVC);
+    std::string argsFlat = flattenArgs(realArgs);
+    if (argsFlat.length() > 2047) {
+        llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.lnk", rsppath);
+        llvm::sys::writeFileWithEncoding(rsppath, argsFlat, llvm::sys::WEM_CurrentCodePage);
+        args.erase(args.begin() + setupMSVC, args.end());
+        args.push_back(("@" + rsppath).str());
+    }
     // try to call linker
-    return executeToolAndWait(tool, args, global.params.verbose);
+    int rc = executeToolAndWait(tool, args, global.params.verbose);
+    if (!rsppath.empty())
+        llvm::sys::fs::remove(rsppath);
+    return rc;
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -447,8 +563,7 @@ void createStaticLibrary()
     // build arguments
     std::vector<std::string> args;
 
-    if (isTargetWindows)
-        setupMSVCEnvironment(tool, args);
+    bool setupMSVC = isTargetWindows && setupMSVCEnvironment(tool, args);
 
     // ask ar to create a new library
     if (!isTargetWindows)
@@ -500,8 +615,21 @@ void createStaticLibrary()
     // create path to the library
     CreateDirectoryOnDisk(libName);
 
+    llvm::SmallString<128> rsppath;
+    if (isTargetWindows) {
+        llvm::ArrayRef<std::string> realArgs(&args[setupMSVC], args.size() - setupMSVC);
+        std::string argsFlat = flattenArgs(realArgs);
+        if (argsFlat.length() > 2047) {
+            llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.lnk", rsppath);
+            llvm::sys::writeFileWithEncoding(rsppath, argsFlat, llvm::sys::WEM_CurrentCodePage);
+            args.erase(args.begin() + setupMSVC, args.end());
+            args.push_back(("@" + rsppath).str());
+        }
+    }
     // try to call archiver
     executeToolAndWait(tool, args, global.params.verbose);
+    if (!rsppath.empty())
+        llvm::sys::fs::remove(rsppath);
 }
 
 //////////////////////////////////////////////////////////////////////////////
