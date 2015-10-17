@@ -52,6 +52,12 @@ using namespace llvm;
 typedef TargetData DataLayout;
 #endif
 
+#if LDC_LLVM_VER >= 308
+typedef AAResultsWrapperPass AliasAnalysisPass;
+#else
+typedef AliasAnalysis AliasAnalysisPass;
+#endif
+
 STATISTIC(NumSimplified, "Number of runtime calls simplified");
 STATISTIC(NumDeleted, "Number of runtime calls deleted");
 
@@ -303,7 +309,7 @@ namespace {
         void InitOptimizations();
         bool runOnFunction(Function &F);
 
-        bool runOnce(Function &F, const DataLayout *DL, AliasAnalysis& AA);
+        bool runOnce(Function &F, const DataLayout *DL, AliasAnalysisPass& AA);
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
 #if LDC_LLVM_VER >= 307
@@ -313,7 +319,7 @@ namespace {
 #else
           AU.addRequired<DataLayout>();
 #endif
-          AU.addRequired<AliasAnalysis>();
+          AU.addRequired<AliasAnalysisPass>();
         }
     };
     char SimplifyDRuntimeCalls::ID = 0;
@@ -370,7 +376,7 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
 #else
     const DataLayout *DL = &getAnalysis<DataLayout>();
 #endif
-    AliasAnalysis &AA = getAnalysis<AliasAnalysis>();
+    AliasAnalysisPass &AA = getAnalysis<AliasAnalysisPass>();
 
     // Iterate to catch opportunities opened up by other optimizations,
     // such as calls that are only used as arguments to unused calls:
@@ -387,7 +393,7 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
     return EverChanged;
 }
 
-bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL, AliasAnalysis& AA) {
+bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL, AliasAnalysisPass& AAP) {
     IRBuilder<> Builder(F.getContext());
 
     bool Changed = false;
@@ -418,6 +424,11 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL, AliasAnal
             Builder.SetInsertPoint(BB, I);
 
             // Try to optimize this call.
+#if LDC_LLVM_VER >= 308
+            AliasAnalysis& AA = AAP.getAAResults();
+#else
+            AliasAnalysis& AA = AAP;
+#endif
             Value *Result = OMI->second->OptimizeCall(CI, Changed, DL, AA, Builder);
             if (Result == 0) continue;
 

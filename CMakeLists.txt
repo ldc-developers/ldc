@@ -467,7 +467,9 @@ endif()
 #
 
 # The LLVM_INCLUDE_DIR definition is not always set, e.g. on Windows.
-find_path(LLVM_INTRINSIC_TD_PATH "Intrinsics.td" PATHS ${LLVM_INCLUDE_DIRS}/llvm ${LLVM_INCLUDE_DIRS}/llvm/IR NO_DEFAULT_PATH)
+# strip off anything but the first path
+string(REGEX REPLACE ";.*$" "" LLVM_INC_DIR "${LLVM_INCLUDE_DIRS}")
+find_path(LLVM_INTRINSIC_TD_PATH "Intrinsics.td" PATHS ${LLVM_INC_DIR}/llvm ${LLVM_INC_DIR}/llvm/IR NO_DEFAULT_PATH)
 if (${LLVM_INTRINSIC_TD_PATH} STREQUAL "LLVM_INTRINSIC_TD_PATH-NOTFOUND")
     message(SEND_ERROR "File Intrinsics.td not found")
 else()
