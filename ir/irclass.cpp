@@ -33,6 +33,7 @@
 #include "gen/metadata.h"
 #include "gen/runtime.h"
 #include "gen/functions.h"
+#include "gen/abi.h"
 
 #include "ir/iraggr.h"
 #include "ir/irfunction.h"
@@ -372,7 +373,7 @@ llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance
             }
 
             // cast 'this' to Object
-            LLValue* &thisArg = args[(!irFunc->irFty.arg_sret) ? 0 : 1];
+            LLValue* &thisArg = args[(!irFunc->irFty.arg_sret || gABI->passThisBeforeSret(irFunc->type)) ? 0 : 1];
             LLType* targetThisType = thisArg->getType();
             thisArg = DtoBitCast(thisArg, getVoidPtrType());
             thisArg = DtoGEP1(thisArg, DtoConstInt(-b->offset));
