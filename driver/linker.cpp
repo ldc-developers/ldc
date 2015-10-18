@@ -339,6 +339,35 @@ namespace windows
 
         return quotedArg;
     }
+
+    int executeAndWait(const char* commandLine)
+    {
+        STARTUPINFO si;
+        ZeroMemory(&si, sizeof(si));
+        si.cb = sizeof(si);
+
+        PROCESS_INFORMATION pi;
+        ZeroMemory(&pi, sizeof(pi));
+
+        DWORD exitCode;
+
+        // according to MSDN, only CreateProcessW (unicode) may modify the passed command line
+        if (!CreateProcess(NULL, const_cast<char*>(commandLine), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi))
+        {
+            exitCode = -1;
+        }
+        else
+        {
+            if (WaitForSingleObject(pi.hProcess, INFINITE) != 0 ||
+                !GetExitCodeProcess(pi.hProcess, &exitCode))
+                exitCode = -2;
+
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+        }
+
+        return exitCode;
+    }
 }
 
 int executeMsvcToolAndWait(const std::string& tool, const std::vector<std::string>& args, bool verbose)
@@ -391,8 +420,12 @@ int executeMsvcToolAndWait(const std::string& tool, const std::vector<std::strin
         const size_t firstArgIndex = commandLineLengthAfterTool + 1;
         llvm::StringRef content(commandLine.data() + firstArgIndex, commandLine.size() - firstArgIndex);
 
-        llvm::sys::fs::createTemporaryFile("ldc_link", "rsp", responseFilePath);
-        llvm::sys::writeFileWithEncoding(responseFilePath, content, llvm::sys::WEM_CurrentCodePage);
+        if (llvm::sys::fs::createTemporaryFile("ldc_link", "rsp", responseFilePath) ||
+            llvm::sys::writeFileWithEncoding(responseFilePath, content)) // keep encoding (LLVM assumes UTF-8 input)
+        {
+            error(Loc(), "cannot write temporary response file for %s", tool.c_str());
+            return -1;
+        }
 
         // replace all args by @<responseFilePath>
         std::string responseFileArg = ("@" + responseFilePath).str();
@@ -412,29 +445,7 @@ int executeMsvcToolAndWait(const std::string& tool, const std::vector<std::strin
         fflush(global.stdmsg);
     }
 
-    STARTUPINFO si;
-    ZeroMemory(&si, sizeof(si));
-    si.cb = sizeof(si);
-
-    PROCESS_INFORMATION pi;
-    ZeroMemory(&pi, sizeof(pi));
-
-    DWORD exitCode;
-
-    // according to MSDN, only CreateProcessW (unicode) may modify the passed command line
-    if (!CreateProcess(NULL, const_cast<char*>(finalCommandLine), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi))
-    {
-        exitCode = -1;
-    }
-    else
-    {
-        if (WaitForSingleObject(pi.hProcess, INFINITE) != 0 ||
-            !GetExitCodeProcess(pi.hProcess, &exitCode))
-            exitCode = -2;
-
-        CloseHandle(pi.hProcess);
-        CloseHandle(pi.hThread);
-    }
+    const int exitCode = windows::executeAndWait(finalCommandLine);
 
     if (exitCode != 0)
     {
