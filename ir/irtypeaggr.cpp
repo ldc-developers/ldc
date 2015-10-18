@@ -50,7 +50,7 @@ bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2)
 }
 
 AggrTypeBuilder::AggrTypeBuilder(bool packed) :
-    m_offset(0), m_fieldIndex(0), m_packed(packed)
+    m_offset(0), m_fieldIndex(0), m_overallAlignment(0), m_packed(packed)
 {
     m_defaultTypes.reserve(32);
 }
@@ -192,6 +192,8 @@ void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad)
 
 void AggrTypeBuilder::alignCurrentOffset(unsigned alignment)
 {
+    m_overallAlignment = std::max(alignment, m_overallAlignment);
+
     unsigned aligned = (m_offset + alignment - 1) & ~(alignment - 1);
     if (m_offset < aligned) {
         m_fieldIndex += add_zeros(m_defaultTypes, m_offset, aligned);

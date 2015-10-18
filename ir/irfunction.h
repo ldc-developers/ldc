@@ -411,6 +411,7 @@ struct IrFunction {
 
     llvm::Value* nestedVar; // alloca for the nested context of this function
     llvm::StructType* frameType; // type of nested context
+    unsigned frameTypeAlignment; // its alignment
     // number of enclosing functions with variables accessed by nested functions
     // (-1 if neither this function nor any enclosing ones access variables from enclosing functions)
     int depth;
