@@ -283,12 +283,12 @@ static int linkObjToBinaryGcc(bool sharedLib)
 
 namespace windows
 {
-    bool needsQuotes(const std::string& arg)
+    bool needsQuotes(const llvm::StringRef& arg)
     {
-        if ((!arg.empty() && std::find(arg.begin(), arg.end(), ' ') == arg.end()) ||
-            (arg.size() > 1 && arg[0] == '"' && arg.back() == '"'))
-            return false;
-        return true;
+        return // not already quoted
+            !(arg.size() > 1 && arg[0] == '"' && arg.back() == '"')
+            && // empty or min 1 space or min 1 double quote
+            (arg.empty() || arg.find(' ') != arg.npos || arg.find('"') != arg.npos);
     }
 
     size_t countPrecedingBackslashes(const std::string& arg, size_t index)
@@ -437,7 +437,12 @@ int executeMsvcToolAndWait(const std::string& tool, const std::vector<std::strin
     }
 
     if (exitCode != 0)
-        error(Loc(), "%s failed with status: %d", tool.c_str(), exitCode);
+    {
+        commandLine.resize(commandLineLengthAfterTool);
+        if (needMsvcSetup)
+            commandLine.push_back('"');
+        error(Loc(), "`%s` failed with status: %d", commandLine.c_str(), exitCode);
+    }
 
     if (useResponseFile)
         llvm::sys::fs::remove(responseFilePath);
@@ -450,6 +455,7 @@ int executeMsvcToolAndWait(const std::string& tool, const std::vector<std::strin
 int executeMsvcToolAndWait(const std::string&, const std::vector<std::string>&, bool)
 {
     assert(0);
+    return -1;
 }
 
 #endif
