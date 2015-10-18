@@ -81,5 +81,9 @@ namespace opts {
     // Arguments to -d-debug
     extern std::vector<std::string> debugArgs;
     // Arguments to -run
+
+#if LDC_LLVM_VER >= 307
+    void CreateColorOption();
+#endif
 }
 #endif

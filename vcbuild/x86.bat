@@ -1,6 +1,6 @@
 @echo off
-setlocal EnableDelayedExpansion
+setlocal
 call "%~dp0msvcEnv.bat" x86
 :: Invoke the actual command, represented by all args
 %*
-endlocal
+endlocal && exit /b %ERRORLEVEL%
