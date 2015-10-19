@@ -892,10 +892,9 @@ void DtoResolveVariable(VarDeclaration* vd)
             vd->isThreadlocal());
         getIrGlobal(vd)->value = gvar;
 
-        // Set the alignment (it is important not to use type->alignsize because
-        // VarDeclarations can have an align() attribute independent of the type
-        // as well).
-        gvar->setAlignment(DtoAlignment(vd));
+        // Set the alignment and use the target pointer size as lower bound.
+        unsigned alignment = std::max(DtoAlignment(vd), gDataLayout->getPointerSize());
+        gvar->setAlignment(alignment);
 
         IF_LOG Logger::cout() << *gvar << '\n';
     }
