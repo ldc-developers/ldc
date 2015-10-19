@@ -225,7 +225,7 @@ bool IrTypeAggr::isPacked(AggregateDeclaration* ad)
     for (unsigned i = 0; i < ad->fields.dim; i++)
     {
         VarDeclaration* vd = static_cast<VarDeclaration*>(ad->fields.data[i]);
-        unsigned a = DtoAlignment(vd) - 1;
+        unsigned a = vd->type->alignsize() - 1;
         if (((vd->offset + a) & ~a) != vd->offset)
             return true;
     }

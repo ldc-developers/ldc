@@ -1379,7 +1379,7 @@ bool hasUnalignedFields(Type* t)
 {
     t = t->toBasetype();
     if (t->ty == Tsarray) {
-        assert(t->nextOf()->size() % DtoAlignment(t->nextOf()) == 0);
+        assert(t->nextOf()->size() % t->nextOf()->alignsize() == 0);
         return hasUnalignedFields(t->nextOf());
     } else if (t->ty != Tstruct)
         return false;
@@ -1395,7 +1395,7 @@ bool hasUnalignedFields(Type* t)
     for (unsigned i = 0; i < sym->fields.dim; i++)
     {
         VarDeclaration* f = static_cast<VarDeclaration*>(sym->fields.data[i]);
-        unsigned a = DtoAlignment(f) - 1;
+        unsigned a = f->type->alignsize() - 1;
         if (((f->offset + a) & ~a) != f->offset)
             return true;
         else if (f->type->toBasetype()->ty == Tstruct && hasUnalignedFields(f->type))
