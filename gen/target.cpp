@@ -10,6 +10,7 @@
 #include "target.h"
 #include "gen/abi.h"
 #include "gen/irstate.h"
+#include "gen/llvmhelpers.h"
 #include "mars.h"
 #include "mtype.h"
 #include <assert.h>
@@ -59,8 +60,7 @@ unsigned Target::alignsize (Type* type)
 
 unsigned Target::fieldalign (Type* type)
 {
-    // LDC_FIXME: Verify this.
-    return type->alignsize();
+    return DtoAlignment(type);
 }
 
 // sizes based on those from tollvm.cpp:DtoMutexType()

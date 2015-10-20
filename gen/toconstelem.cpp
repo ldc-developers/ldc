@@ -503,7 +503,7 @@ public:
                 se->globalVar = finalGlobalVar;
             }
             se->globalVar->setInitializer(constValue);
-            se->globalVar->setAlignment(e->e1->type->alignsize());
+            se->globalVar->setAlignment(DtoAlignment(se->type));
 
             result = se->globalVar;
         }

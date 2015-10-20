@@ -723,7 +723,7 @@ size_t getTypeAllocSize(LLType* t)
     return gDataLayout->getTypeAllocSize(t);
 }
 
-unsigned char getABITypeAlign(LLType* t)
+unsigned int getABITypeAlign(LLType* t)
 {
     return gDataLayout->getABITypeAlignment(t);
 }

@@ -423,6 +423,7 @@ IrFunction::IrFunction(FuncDeclaration* fd) {
 
     nestedVar = NULL;
     frameType = NULL;
+    frameTypeAlignment = 0;
     depth = -1;
     nestedContextCreated = false;
 
