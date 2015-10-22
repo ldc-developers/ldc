@@ -43,11 +43,13 @@ public:
     unsigned currentFieldIndex() const { return m_fieldIndex; }
     std::vector<llvm::Type*> defaultTypes() const { return m_defaultTypes; }
     VarGEPIndices varGEPIndices() const { return m_varGEPIndices; }
+    unsigned overallAlignment() const { return m_overallAlignment; }
 protected:
     std::vector<llvm::Type*> m_defaultTypes;
     VarGEPIndices m_varGEPIndices;
     unsigned m_offset;
     unsigned m_fieldIndex;
+    unsigned m_overallAlignment;
     bool m_packed;
 };
 

@@ -131,7 +131,7 @@ size_t getTypePaddedSize(LLType* t);
 size_t getTypeAllocSize(LLType* t);
 
 // type alignments
-unsigned char getABITypeAlign(LLType* t);
+unsigned int getABITypeAlign(LLType* t);
 
 // pair type helpers
 LLValue* DtoAggrPair(LLType* type, LLValue* V1, LLValue* V2, const char* name = "");

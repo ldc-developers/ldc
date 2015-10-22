@@ -483,7 +483,7 @@ public:
         b.push_funcptr(xpostblit);
 
         //uint m_align;
-        b.push_uint(tc->alignsize());
+        b.push_uint(DtoAlignment(tc));
 
         if (global.params.is64bit)
         {
