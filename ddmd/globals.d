@@ -396,6 +396,14 @@ alias dinteger_t = ulong;
 // Signed and unsigned variants
 alias sinteger_t = long;
 alias uinteger_t = ulong;
+version(IN_LLVM_MSVC)
+{
+    alias real_t = double;
+}
+else
+{
+    alias real_t = real;
+}
 
 alias d_int8 = int8_t;
 alias d_uns8 = uint8_t;
@@ -407,18 +415,9 @@ alias d_int64 = int64_t;
 alias d_uns64 = uint64_t;
 alias d_float32 = float;
 alias d_float64 = double;
-alias d_float80 = real;
 alias d_char = d_uns8;
 alias d_wchar = d_uns16;
 alias d_dchar = d_uns32;
-version(IN_LLVM_MSVC)
-{
-    alias real_t = double;
-}
-else
-{
-    alias real_t = real;
-}
 
 // file location
 struct Loc

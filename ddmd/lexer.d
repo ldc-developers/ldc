@@ -20,7 +20,6 @@ import ddmd.errors;
 import ddmd.globals;
 import ddmd.id;
 import ddmd.identifier;
-import ddmd.root.longdouble;
 import ddmd.root.outbuffer;
 import ddmd.root.port;
 import ddmd.root.rmem;
@@ -2074,7 +2073,7 @@ public:
         }
         stringbuffer.writeByte(0);
         TOK result;
-        t.float80value = Port.strtold(cast(char*)stringbuffer.data, null);
+        t.floatvalue = Port.strtold(cast(char*)stringbuffer.data, null);
         errno = 0;
         switch (*p)
         {

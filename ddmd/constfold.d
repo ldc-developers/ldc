@@ -21,7 +21,6 @@ import ddmd.expression;
 import ddmd.func;
 import ddmd.globals;
 import ddmd.mtype;
-import ddmd.root.longdouble;
 import ddmd.root.port;
 import ddmd.root.rmem;
 import ddmd.sideeffect;
@@ -148,11 +147,11 @@ extern (C++) UnionExp Add(Loc loc, Type type, Expression e1, Expression e2)
         // This rigamarole is necessary so that -0.0 doesn't get
         // converted to +0.0 by doing an extraneous add with +0.0
         complex_t c1;
-        real_t r1 = ldouble(0.0);
-        real_t i1 = ldouble(0.0);
+        real_t r1 = 0;
+        real_t i1 = 0;
         complex_t c2;
-        real_t r2 = ldouble(0.0);
-        real_t i2 = ldouble(0.0);
+        real_t r2 = 0;
+        real_t i2 = 0;
         complex_t v;
         int x;
         if (e1.type.isreal())
@@ -251,11 +250,11 @@ extern (C++) UnionExp Min(Loc loc, Type type, Expression e1, Expression e2)
         // This rigamarole is necessary so that -0.0 doesn't get
         // converted to +0.0 by doing an extraneous add with +0.0
         complex_t c1;
-        real_t r1 = ldouble(0.0);
-        real_t i1 = ldouble(0.0);
+        real_t r1 = 0;
+        real_t i1 = 0;
         complex_t c2;
-        real_t r2 = ldouble(0.0);
-        real_t i2 = ldouble(0.0);
+        real_t r2 = 0;
+        real_t i2 = 0;
         complex_t v;
         int x;
         if (e1.type.isreal())
@@ -340,7 +339,7 @@ extern (C++) UnionExp Mul(Loc loc, Type type, Expression e1, Expression e2)
     if (type.isfloating())
     {
         complex_t c;
-        d_float80 r;
+        real_t r;
         if (e1.type.isreal())
         {
             r = e1.toReal();
@@ -389,7 +388,7 @@ extern (C++) UnionExp Div(Loc loc, Type type, Expression e1, Expression e2)
     if (type.isfloating())
     {
         complex_t c;
-        d_float80 r;
+        real_t r;
         //e1->type->print();
         //e2->type->print();
         if (e2.type.isreal())
@@ -403,8 +402,8 @@ extern (C++) UnionExp Div(Loc loc, Type type, Expression e1, Expression e2)
                     // https://issues.dlang.org/show_bug.cgi?id=14952
                     // This can be removed once compiling with DMD 2.068 or
                     // older is no longer supported.
-                    d_float80 r1 = e1.toReal();
-                    d_float80 r2 = e2.toReal();
+                    real_t r1 = e1.toReal();
+                    real_t r2 = e2.toReal();
                     emplaceExp!(RealExp)(&ue, loc, r1 / r2, type);
                 }
                 else
@@ -544,12 +543,12 @@ extern (C++) UnionExp Pow(Loc loc, Type type, Expression e1, Expression e2)
         if (e1.type.iscomplex())
         {
             emplaceExp!(ComplexExp)(&ur, loc, e1.toComplex(), e1.type);
-            emplaceExp!(ComplexExp)(&uv, loc, complex_t(1.0, 0.0), e1.type);
+            emplaceExp!(ComplexExp)(&uv, loc, complex_t(1, 0), e1.type);
         }
         else if (e1.type.isfloating())
         {
             emplaceExp!(RealExp)(&ur, loc, e1.toReal(), e1.type);
-            emplaceExp!(RealExp)(&uv, loc, ldouble(1.0), e1.type);
+            emplaceExp!(RealExp)(&uv, loc, real_t(1), e1.type);
         }
         else
         {
@@ -573,7 +572,7 @@ extern (C++) UnionExp Pow(Loc loc, Type type, Expression e1, Expression e2)
         {
             // ue = 1.0 / v
             UnionExp one;
-            emplaceExp!(RealExp)(&one, loc, ldouble(1.0), v.type);
+            emplaceExp!(RealExp)(&one, loc, real_t(1), v.type);
             uv = Div(loc, v.type, one.exp(), v);
         }
         if (type.iscomplex())

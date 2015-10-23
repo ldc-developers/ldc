@@ -46,7 +46,6 @@ import ddmd.identifier;
 import ddmd.imphint;
 import ddmd.init;
 import ddmd.opover;
-import ddmd.root.longdouble;
 import ddmd.root.outbuffer;
 import ddmd.root.port;
 import ddmd.root.rmem;
@@ -3509,7 +3508,7 @@ version(IN_LLVM)
     {
         Expression e;
         dinteger_t ivalue;
-        d_float80 fvalue;
+        real_t fvalue;
         //printf("TypeBasic::getProperty('%s')\n", ident->toChars());
         if (ident == Id.max)
         {
@@ -3643,10 +3642,7 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-version(IN_LLVM)
                 fvalue = Port.ldbl_min_normal;
-else
-                fvalue = LDBL_MIN;
                 goto Lfvalue;
             default:
                 break;
@@ -3665,10 +3661,8 @@ else
             case Tfloat32:
             case Tfloat64:
             case Tfloat80:
-                {
-                    fvalue = Port.ldbl_nan;
-                    goto Lfvalue;
-                }
+                fvalue = Port.ldbl_nan;
+                goto Lfvalue;
             default:
                 break;
             }
@@ -3709,10 +3703,7 @@ else
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-version(IN_LLVM)
                 ivalue = Port.ldbl_dig;
-else
-                ivalue = LDBL_DIG;
                 goto Lint;
             default:
                 break;
@@ -3735,10 +3726,7 @@ else
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-version(IN_LLVM)
                 fvalue = Port.ldbl_epsilon;
-else
-                fvalue = LDBL_EPSILON;
                 goto Lfvalue;
             default:
                 break;
@@ -3761,10 +3749,7 @@ else
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-version(IN_LLVM)
                 ivalue = Port.ldbl_mant_dig;
-else
-                ivalue = LDBL_MANT_DIG;
                 goto Lint;
             default:
                 break;
@@ -3787,10 +3772,7 @@ else
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-version(IN_LLVM)
                 ivalue = Port.ldbl_max_10_exp;
-else
-                ivalue = LDBL_MAX_10_EXP;
                 goto Lint;
             default:
                 break;
@@ -3813,10 +3795,7 @@ else
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-version(IN_LLVM)
                 ivalue = Port.ldbl_max_exp;
-else
-                ivalue = LDBL_MAX_EXP;
                 goto Lint;
             default:
                 break;
@@ -3839,10 +3818,7 @@ else
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-version(IN_LLVM)
                 ivalue = Port.ldbl_min_10_exp;
-else
-                ivalue = LDBL_MIN_10_EXP;
                 goto Lint;
             default:
                 break;
@@ -3865,10 +3841,7 @@ else
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-version(IN_LLVM)
                 ivalue = Port.ldbl_min_exp;
-else
-                ivalue = LDBL_MIN_EXP;
                 goto Lint;
             default:
                 break;
@@ -3883,9 +3856,7 @@ else
             e = new RealExp(loc, fvalue, this);
         else
         {
-            complex_t cvalue;
-            cvalue.re = fvalue;
-            cvalue.im = fvalue;
+            auto cvalue = complex_t(fvalue, fvalue);
             //for (int i = 0; i < 20; i++)
             //    printf("%02x ", ((unsigned char *)&cvalue)[i]);
             //printf("\n");
@@ -3934,7 +3905,7 @@ else
                 t = tfloat80;
                 goto L2;
             L2:
-                e = new RealExp(e.loc, ldouble(0.0), t);
+                e = new RealExp(e.loc, 0, t);
                 break;
             default:
                 e = Type.getProperty(e.loc, ident, flag);
@@ -3978,7 +3949,7 @@ else
             case Tfloat32:
             case Tfloat64:
             case Tfloat80:
-                e = new RealExp(e.loc, ldouble(0.0), this);
+                e = new RealExp(e.loc, 0, this);
                 break;
             default:
                 e = Type.getProperty(e.loc, ident, flag);

@@ -14,7 +14,6 @@ import ddmd.expression;
 import ddmd.globals;
 import ddmd.identifier;
 import ddmd.mtype;
-import ddmd.root.longdouble;
 import ddmd.root.outbuffer;
 
 version(IN_LLVM)
@@ -377,23 +376,23 @@ extern (C++) static void encodeReal(Expression e, ubyte* buffer)
     }
 }
 
-// Write the bytes encoded in 'buffer' into a longdouble and returns
+// Write the bytes encoded in 'buffer' into a real and returns
 // the value as a new RealExp.
 extern (C++) static Expression decodeReal(Loc loc, Type type, ubyte* buffer)
 {
-    real value;
+    real_t value;
     switch (type.ty)
     {
     case Tfloat32:
         {
             float* p = cast(float*)buffer;
-            value = ldouble(*p);
+            value = cast(real_t)*p;
             break;
         }
     case Tfloat64:
         {
             double* p = cast(double*)buffer;
-            value = ldouble(*p);
+            value = cast(real_t)*p;
             break;
         }
     default:

@@ -26,7 +26,6 @@ import ddmd.globals;
 import ddmd.hdrgen;
 import ddmd.id;
 import ddmd.mtype;
-import ddmd.root.longdouble;
 import ddmd.root.outbuffer;
 import ddmd.root.port;
 import ddmd.root.rmem;

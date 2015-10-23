@@ -14,8 +14,10 @@ import core.stdc.stdio;
 import core.stdc.errno;
 import core.math;
 
+import ddmd.globals: real_t;
+
 version(CRuntime_DigitalMars) __gshared extern (C) extern const(char)* __locale_decpoint;
-version(CRuntime_Microsoft)   extern(C++) struct longdouble { real r; }
+version(CRuntime_Microsoft)   extern(C++) struct longdouble { real_t r; }
 version(CRuntime_Microsoft)   extern(C++) size_t ld_sprint(char* str, int fmt, longdouble x);
 
 extern (C) float strtof(const(char)* p, char** endp);
@@ -42,31 +44,19 @@ extern (C++) struct Port
 {
     enum nan = double.nan;
     enum infinity = double.infinity;
-    version(IN_LLVM_MSVC)
-        private alias ldbl = double;
-    else
-        private alias ldbl = real;
 
-    version(IN_LLVM)
-    {
-        enum ldbl_min_normal = ldbl.min_normal;
-        enum ldbl_max = ldbl.max;
-        enum ldbl_nan = ldbl.nan;
-        enum ldbl_infinity = ldbl.infinity;
-        enum ldbl_dig = ldbl.dig;
-        enum ldbl_epsilon = ldbl.epsilon;
-        enum ldbl_mant_dig = ldbl.mant_dig;
-        enum ldbl_max_10_exp = ldbl.max_10_exp;
-        enum ldbl_max_exp = ldbl.max_exp;
-        enum ldbl_min_10_exp = ldbl.min_10_exp;
-        enum ldbl_min_exp = ldbl.min_exp;
-    }
-    else
-    {
-        enum ldbl_max = real.max;
-        enum ldbl_nan = real.nan;
-        enum ldbl_infinity = real.infinity;
-    }
+    enum ldbl_min_normal = real_t.min_normal;
+    enum ldbl_max = real_t.max;
+    enum ldbl_nan = real_t.nan;
+    enum ldbl_infinity = real_t.infinity;
+    enum ldbl_dig = real_t.dig;
+    enum ldbl_epsilon = real_t.epsilon;
+    enum ldbl_mant_dig = real_t.mant_dig;
+    enum ldbl_max_10_exp = real_t.max_10_exp;
+    enum ldbl_max_exp = real_t.max_exp;
+    enum ldbl_min_10_exp = real_t.min_10_exp;
+    enum ldbl_min_exp = real_t.min_exp;
+
     version(IN_LLVM)
     {
         static __gshared bool yl2x_supported = false;
@@ -83,7 +73,7 @@ extern (C++) struct Port
         static __gshared bool yl2x_supported = false;
         static __gshared bool yl2xp1_supported = false;
     }
-    static __gshared real snan;
+    static __gshared real_t snan;
     static this()
     {
         /*
@@ -91,6 +81,7 @@ extern (C++) struct Port
          * so that uninitialised variables can be
          * detected even if exceptions are disabled.
          */
+        //TODO: support for non-x87
         ushort* us = cast(ushort*)&snan;
         us[0] = 0;
         us[1] = 0;
@@ -104,18 +95,19 @@ extern (C++) struct Port
         return !(r == r);
     }
 
-    static real sqrt(real x)
+    static real_t sqrt(real_t x)
     {
         return .sqrt(x);
     }
 
-    static real fmodl(real a, real b)
+    static real_t fmodl(real_t a, real_t b)
     {
         return a % b;
     }
 
-    static real fequal(real a, real b)
+    static real_t fequal(real_t a, real_t b)
     {
+        //TODO: support for non-x87
         return memcmp(&a, &b, 10) == 0;
     }
 
@@ -157,16 +149,20 @@ extern (C++) struct Port
         return isNan(r) && !(((cast(ubyte*)&r)[6]) & 8);
     }
 
-    static int isSignallingNan(real r)
+    static if (!is(real_t == double))
     {
-        return isNan(r) && !(((cast(ubyte*)&r)[7]) & 0x40);
+        static int isSignallingNan(real_t r)
+        {
+            //TODO: support for non-x87
+            return isNan(r) && !(((cast(ubyte*)&r)[7]) & 0x40);
+        }
     }
 
     version(CRuntime_Microsoft)
     {
         static int isSignallingNan(longdouble ld)
         {
-            return isSignallingNan(*cast(real*)&ld);
+            return isSignallingNan(*cast(real_t*)&ld);
         }
     }
 
@@ -233,7 +229,7 @@ extern (C++) struct Port
         return r;
     }
 
-    static real strtold(const(char)* p, char** endp)
+    static real_t strtold(const(char)* p, char** endp)
     {
         version (CRuntime_DigitalMars)
         {
@@ -252,11 +248,11 @@ extern (C++) struct Port
         return r;
     }
 
-    static size_t ld_sprint(char* str, int fmt, real x)
+    static size_t ld_sprint(char* str, int fmt, real_t x)
     {
         version(IN_LLVM_MSVC)
         {
-            if ((cast(real)cast(ulong)x) == x)
+            if (real_t(cast(ulong)x) == x)
             {
                 // ((1.5 -> 1 -> 1.0) == 1.5) is false
                 // ((1.0 -> 1 -> 1.0) == 1.0) is true
@@ -279,7 +275,7 @@ extern (C++) struct Port
         }
         else
         {
-            if ((cast(real)cast(ulong)x) == x)
+            if (real_t(cast(ulong)x) == x)
             {
                 // ((1.5 -> 1 -> 1.0) == 1.5) is false
                 // ((1.0 -> 1 -> 1.0) == 1.0) is true
@@ -297,7 +293,7 @@ extern (C++) struct Port
         }
     }
 
-    static void yl2x_impl(real* x, real* y, real* res)
+    static void yl2x_impl(real_t* x, real_t* y, real_t* res)
     {
         version(DigitalMars)
             *res = yl2x(*x, *y);
@@ -305,7 +301,7 @@ extern (C++) struct Port
             assert(0);
     }
 
-    static void yl2xp1_impl(real* x, real* y, real* res)
+    static void yl2xp1_impl(real_t* x, real_t* y, real_t* res)
     {
         version(DigitalMars)
             *res = yl2xp1(*x, *y);

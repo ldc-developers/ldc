@@ -58,7 +58,6 @@ import ddmd.parse;
 import ddmd.root.aav;
 import ddmd.root.file;
 import ddmd.root.filename;
-import ddmd.root.longdouble;
 import ddmd.root.outbuffer;
 import ddmd.root.port;
 import ddmd.root.rmem;
@@ -1931,7 +1930,7 @@ private:
         char[__traits(classInstanceSize, IndexExp)] indexexp;
         char[__traits(classInstanceSize, SliceExp)] sliceexp;
         // Ensure that the union is suitably aligned.
-        real for_alignment_only;
+        real_t for_alignment_only;
     }
 
     __AnonStruct__u u;
@@ -2489,13 +2488,13 @@ public:
     real_t toReal()
     {
         error("floating point constant expression expected instead of %s", toChars());
-        return ldouble(0);
+        return 0;
     }
 
     real_t toImaginary()
     {
         error("floating point constant expression expected instead of %s", toChars());
-        return ldouble(0);
+        return 0;
     }
 
     complex_t toComplex()
@@ -3219,14 +3218,14 @@ public:
         normalize(); // necessary until we fix all the paints of 'type'
         Type t = type.toBasetype();
         if (t.ty == Tuns64)
-            return ldouble(cast(d_uns64)value);
+            return real_t(cast(d_uns64)value);
         else
-            return ldouble(cast(d_int64)value);
+            return real_t(cast(d_int64)value);
     }
 
     override real_t toImaginary()
     {
-        return ldouble(0);
+        return 0;
     }
 
     override complex_t toComplex()
@@ -3394,12 +3393,12 @@ public:
 
     override real_t toReal()
     {
-        return type.isreal() ? value : ldouble(0);
+        return type.isreal() ? value : real_t(0);
     }
 
     override real_t toImaginary()
     {
-        return type.isreal() ? ldouble(0) : value;
+        return type.isreal() ? real_t(0) : value;
     }
 
     override complex_t toComplex()
@@ -7312,7 +7311,7 @@ public:
                 {
                     // x/iv = i(-x/v)
                     // Therefore, the result is 0
-                    e2 = new CommaExp(loc, e2, new RealExp(loc, ldouble(0.0), t1));
+                    e2 = new CommaExp(loc, e2, new RealExp(loc, 0, t1));
                     e2.type = t1;
                     Expression e = new AssignExp(loc, e1, e2);
                     e.type = t1;

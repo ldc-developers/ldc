@@ -8,26 +8,20 @@
 
 module ddmd.complex;
 
+import ddmd.globals: real_t;
+
 struct complex_t
 {
-    version(IN_LLVM_MSVC)
-    {
-        double re = 0;
-        double im = 0;
-    }
-    else
-    {
-        real re = 0;
-        real im = 0;
-    }
+    real_t re = 0;
+    real_t im = 0;
 
-    this(real re)
+    this(real_t re)
     {
         this.re = re;
         this.im = 0;
     }
 
-    this(real re, real im)
+    this(real_t re, real_t im)
     {
         this.re = re;
         this.im = im;
@@ -62,37 +56,36 @@ struct complex_t
         return complex_t(re * y.re - im * y.im, im * y.re + re * y.im);
     }
 
-    complex_t opMul_r(real x)
+    complex_t opMul_r(real_t x)
     {
         return complex_t(x) * this;
     }
 
-    complex_t opMul(real y)
+    complex_t opMul(real_t y)
     {
         return this * complex_t(y);
     }
 
-    complex_t opDiv(real y)
+    complex_t opDiv(real_t y)
     {
         return this / complex_t(y);
     }
 
     complex_t opDiv(complex_t y)
     {
-        real abs_y_re = y.re < 0 ? -y.re : y.re;
-        real abs_y_im = y.im < 0 ? -y.im : y.im;
-        real r, den;
+        real_t abs_y_re = y.re < 0 ? -y.re : y.re;
+        real_t abs_y_im = y.im < 0 ? -y.im : y.im;
 
         if (abs_y_re < abs_y_im)
         {
-            r = y.re / y.im;
-            den = y.im + r * y.re;
+            real_t r = y.re / y.im;
+            real_t den = y.im + r * y.re;
             return complex_t((re * r + im) / den, (im * r - re) / den);
         }
         else
         {
-            r = y.im / y.re;
-            den = y.re + r * y.im;
+            real_t r = y.im / y.re;
+            real_t den = y.re + r * y.im;
             return complex_t((re + r * im) / den, (im - r * re) / den);
         }
     }
@@ -108,12 +101,12 @@ struct complex_t
     }
 }
 
-real creall(complex_t x)
+real_t creall(complex_t x)
 {
     return x.re;
 }
 
-real cimagl(complex_t x)
+real_t cimagl(complex_t x)
 {
     return x.im;
 }

@@ -39,7 +39,6 @@ import ddmd.mars;
 import ddmd.mtype;
 import ddmd.nspace;
 import ddmd.parse;
-import ddmd.root.longdouble;
 import ddmd.root.outbuffer;
 import ddmd.root.port;
 import ddmd.root.rootobject;
