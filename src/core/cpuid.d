@@ -845,7 +845,7 @@ bool hasCPUID()
         return true;
     else version(LDC) {
         size_t flags;
-        asm {
+        asm @nogc nothrow {
             pushf;
             pop EAX;
             mov flags, EAX;
