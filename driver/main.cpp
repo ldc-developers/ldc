@@ -536,7 +536,9 @@ static void initializePasses() {
     initializeVectorization(Registry);
     initializeIPO(Registry);
     initializeAnalysis(Registry);
+#if LDC_LLVM_VER < 308
     initializeIPA(Registry);
+#endif
     initializeTransformUtils(Registry);
     initializeInstCombine(Registry);
     initializeInstrumentation(Registry);
@@ -1003,7 +1005,10 @@ int main(int argc, char **argv)
         bitness, mFloatABI, mRelocModel, mCodeModel, codeGenOptLevel(),
         global.params.symdebug || disableFpElim, disableLinkerStripDead);
 
-#if LDC_LLVM_VER >= 307
+#if LDC_LLVM_VER >= 308
+    static llvm::DataLayout DL = gTargetMachine->createDataLayout();
+    gDataLayout = &DL;
+#elif LDC_LLVM_VER >= 307
     gDataLayout = gTargetMachine->getDataLayout();
 #elif LDC_LLVM_VER >= 306
     gDataLayout = gTargetMachine->getSubtargetImpl()->getDataLayout();

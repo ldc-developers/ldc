@@ -665,6 +665,10 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m)
     llvm::SmallString<128> srcpath(m->srcfile->name->toChars());
     llvm::sys::fs::make_absolute(srcpath);
 
+#if LDC_LLVM_VER >= 308
+    if (!global.params.targetTriple.isWindowsMSVCEnvironment())
+        IR->module.addModuleFlag(llvm::Module::Warning, "CodeView", 1);
+#endif
 #if LDC_LLVM_VER >= 304
     // Metadata without a correct version will be stripped by UpgradeDebugInfo.
     IR->module.addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
@@ -905,11 +909,13 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     // get variable description
     assert(!vd->isDataseg() && "static variable");
 
+#if LDC_LLVM_VER < 308
     unsigned tag;
     if (vd->isParameter())
         tag = llvm::dwarf::DW_TAG_arg_variable;
     else
         tag = llvm::dwarf::DW_TAG_auto_variable;
+#endif
 
     ldc::DILocalVariable debugVariable;
     unsigned Flags = 0;
@@ -925,7 +931,48 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 #if LDC_LLVM_VER < 306
     if (addr.empty()) {
 #endif
-        debugVariable = DBuilder.createLocalVariable(
+#if LDC_LLVM_VER >= 308
+      if (vd->isParameter())
+      {
+          FuncDeclaration* fd = vd->parent->isFuncDeclaration();
+          assert(fd);
+          int argNo;
+          if (fd->vthis == vd)
+              argNo = 0;
+          else
+          {
+              assert(fd->parameters);
+              for (argNo = 0; argNo < fd->parameters->dim; argNo++)
+                if ((*fd->parameters)[argNo] == vd)
+                  break;
+              assert(argNo < fd->parameters->dim);
+              if (fd->vthis)
+                  argNo++;
+          }
+
+          debugVariable = DBuilder.createParameterVariable(
+              GetCurrentScope(), // scope
+              vd->toChars(), // name
+              argNo + 1,
+              CreateFile(vd->loc), // file
+              vd->loc.linnum, // line num
+              TD, // type
+              true, // preserve
+              Flags // flags
+              );
+      }
+      else
+          debugVariable = DBuilder.createAutoVariable(
+              GetCurrentScope(), // scope
+              vd->toChars(), // name
+              CreateFile(vd->loc), // file
+              vd->loc.linnum, // line num
+              TD, // type
+              true, // preserve
+              Flags // flags
+              );
+#else
+      debugVariable = DBuilder.createLocalVariable(
             tag, // tag
             GetCurrentScope(), // scope
             vd->toChars(), // name
@@ -935,6 +982,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
             true, // preserve
             Flags // flags
         );
+#endif
 #if LDC_LLVM_VER < 306
     }
     else {

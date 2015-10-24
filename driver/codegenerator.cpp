@@ -127,7 +127,11 @@ void CodeGenerator::prepareLLModule(Module *m) {
     // module.
     ir_ = new IRState(m->srcfile->toChars(), context_);
     ir_->module.setTargetTriple(global.params.targetTriple.str());
+#if LDC_LLVM_VER >= 308
+    ir_->module.setDataLayout(*gDataLayout);
+#else
     ir_->module.setDataLayout(gDataLayout->getStringRepresentation());
+#endif
 
     // TODO: Make ldc::DIBuilder per-Module to be able to emit several CUs for
     // singleObj compilations?
