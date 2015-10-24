@@ -96,7 +96,7 @@ private
             Section(SEG_DATA, SECT_COMMON)
         ];
     }
-    else version (Win64)
+    else version (CRuntime_Microsoft)
     {
         extern extern (C) __gshared
         {
@@ -371,7 +371,7 @@ void initSections()
         }
         _dyld_register_func_for_add_image(&scanSections);
     }
-    else version (Win64)
+    else version (CRuntime_Microsoft)
     {
         pushRange(_data_start__, _data_end__);
         if (_bss_start__ != null)
