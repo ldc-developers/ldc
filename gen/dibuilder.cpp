@@ -569,7 +569,11 @@ ldc::DISubroutineType ldc::DIBuilder::CreateFunctionType(Type *type)
 #else
     llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
 #endif
-    return DBuilder.createSubroutineType(file, EltTypeArray);
+#if LDC_LLVM_VER >= 308
+    return DBuilder.createSubroutineType(EltTypeArray);
+#else
+  return DBuilder.createSubroutineType(file, EltTypeArray);
+#endif
 }
 
 ldc::DISubroutineType ldc::DIBuilder::CreateDelegateType(Type *type)
@@ -600,7 +604,11 @@ ldc::DISubroutineType ldc::DIBuilder::CreateDelegateType(Type *type)
 #else
     llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
 #endif
+#if LDC_LLVM_VER >= 308
+    return DBuilder.createSubroutineType(EltTypeArray);
+#else
     return DBuilder.createSubroutineType(file, EltTypeArray);
+#endif
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -666,7 +674,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m)
     llvm::sys::fs::make_absolute(srcpath);
 
 #if LDC_LLVM_VER >= 308
-    if (!global.params.targetTriple.isWindowsMSVCEnvironment())
+    if (global.params.targetTriple.isWindowsMSVCEnvironment())
         IR->module.addModuleFlag(llvm::Module::Warning, "CodeView", 1);
 #endif
 #if LDC_LLVM_VER >= 304
@@ -760,7 +768,11 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function* Fn,
 #else
     llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
 #endif
+#if LDC_LLVM_VER >= 308
+    ldc::DISubroutineType DIFnType = DBuilder.createSubroutineType(EltTypeArray);
+#else
     ldc::DISubroutineType DIFnType = DBuilder.createSubroutineType(file, EltTypeArray);
+#endif
 
     // FIXME: duplicates ?
     return DBuilder.createFunction(
