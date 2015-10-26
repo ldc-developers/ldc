@@ -1934,6 +1934,10 @@ public:
         IF_LOG Logger::print("AssertExp::toElem: %s\n", e->toChars());
         LOG_SCOPE;
 
+        // DMD allows syntax like this:
+        // f() == 0 || assert(false)
+        result = new DImValue(e->type, DtoConstBool(false));
+
         if (!global.params.useAssert)
             return;
 
@@ -2003,10 +2007,6 @@ public:
             DFuncValue invfunc(invdecl, getIrFunc(invdecl)->func, cond->getRVal());
             DtoCallFunction(e->loc, NULL, &invfunc, NULL);
         }
-
-        // DMD allows syntax like this:
-        // f() == 0 || assert(false)
-        result = new DImValue(e->type, DtoConstBool(false));
     }
 
     //////////////////////////////////////////////////////////////////////////////////////////
@@ -2590,7 +2590,7 @@ public:
         }
         else
         {
-            llvm::Value* storage = DtoRawAlloca(llStoType, e->type->alignsize(), "arrayliteral");
+            llvm::Value* storage = DtoRawAlloca(llStoType, DtoAlignment(e->type), "arrayliteral");
             initializeArrayLiteral(p, e, storage);
             result = new DImValue(e->type, storage);
         }

@@ -24,6 +24,7 @@
 #include "llvm/Support/Path.h"
 #if _WIN32
 #include "llvm/Support/SystemUtils.h"
+#include <Windows.h>
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
@@ -278,25 +279,197 @@ static int linkObjToBinaryGcc(bool sharedLib)
 
 //////////////////////////////////////////////////////////////////////////////
 
-static bool setupMSVCEnvironment(std::string& tool, std::vector<std::string>& args)
-{
-    // if the VSINSTALLDIR environment variable is NOT set,
-    // the environment is most likely not set up properly
-    bool setup = !getenv("VSINSTALLDIR");
+#ifdef _WIN32
 
-    if (setup)
+namespace windows
+{
+    bool needsQuotes(const llvm::StringRef& arg)
     {
-        // use a helper batch file to let MSVC set up the environment and
-        // then invoke the tool
-        args.push_back(tool); // tool is first arg for batch file
-        tool = exe_path::prependBinDir(
+        return // not already quoted
+            !(arg.size() > 1 && arg[0] == '"' && arg.back() == '"')
+            && // empty or min 1 space or min 1 double quote
+            (arg.empty() || arg.find(' ') != arg.npos || arg.find('"') != arg.npos);
+    }
+
+    size_t countPrecedingBackslashes(const std::string& arg, size_t index)
+    {
+        size_t count = 0;
+
+        for (size_t i = index - 1; i >= 0; --i)
+        {
+            if (arg[i] != '\\')
+                break;
+            ++count;
+        }
+
+        return count;
+    }
+
+    std::string quoteArg(const std::string& arg)
+    {
+        if (!needsQuotes(arg))
+            return arg;
+
+        std::string quotedArg;
+        quotedArg.reserve(3 + 2 * arg.size()); // worst case
+
+        quotedArg.push_back('"');
+
+        const size_t argLength = arg.length();
+        for (size_t i = 0; i < argLength; ++i)
+        {
+            if (arg[i] == '"')
+            {
+                // Escape all preceding backslashes (if any).
+                // Note that we *don't* need to escape runs of backslashes that don't
+                // precede a double quote! See MSDN:
+                // http://msdn.microsoft.com/en-us/library/17w5ykft%28v=vs.85%29.aspx
+                quotedArg.append(countPrecedingBackslashes(arg, i), '\\');
+
+                // Escape the double quote.
+                quotedArg.push_back('\\');
+            }
+
+            quotedArg.push_back(arg[i]);
+        }
+
+        // Make sure our final double quote doesn't get escaped by a trailing backslash.
+        quotedArg.append(countPrecedingBackslashes(arg, argLength), '\\');
+        quotedArg.push_back('"');
+
+        return quotedArg;
+    }
+
+    int executeAndWait(const char* commandLine)
+    {
+        STARTUPINFO si;
+        ZeroMemory(&si, sizeof(si));
+        si.cb = sizeof(si);
+
+        PROCESS_INFORMATION pi;
+        ZeroMemory(&pi, sizeof(pi));
+
+        DWORD exitCode;
+
+        // according to MSDN, only CreateProcessW (unicode) may modify the passed command line
+        if (!CreateProcess(NULL, const_cast<char*>(commandLine), NULL, NULL, TRUE, 0, NULL, NULL, &si, &pi))
+        {
+            exitCode = -1;
+        }
+        else
+        {
+            if (WaitForSingleObject(pi.hProcess, INFINITE) != 0 ||
+                !GetExitCodeProcess(pi.hProcess, &exitCode))
+                exitCode = -2;
+
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+        }
+
+        return exitCode;
+    }
+}
+
+int executeMsvcToolAndWait(const std::string& tool, const std::vector<std::string>& args, bool verbose)
+{
+    llvm::SmallString<1024> commandLine; // full command line incl. executable
+
+    // if the VSINSTALLDIR environment variable is NOT set,
+    // the MSVC environment needs to be set up
+    const bool needMsvcSetup = !getenv("VSINSTALLDIR");
+    if (needMsvcSetup)
+    {
+        /* <command line> => %ComSpec% /s /c "<batch file> <command line>"
+         * 
+         * cmd.exe /c treats the following string argument (the command)
+         * in a very peculiar way if it starts with a double-quote.
+         * By adding /s and enclosing the command in extra double-quotes
+         * (WITHOUT additionally escaping the command), the command will
+         * be parsed properly.
+         */
+
+        std::string cmdPath = getenv("ComSpec");
+        std::string batchFile = exe_path::prependBinDir(
             global.params.targetTriple.isArch64Bit() ? "amd64.bat" : "x86.bat");
+
+        commandLine.append(windows::quoteArg(cmdPath));
+        commandLine.append(" /s /c \"");
+        commandLine.append(windows::quoteArg(batchFile));
+        commandLine.push_back(' ');
+        commandLine.append(windows::quoteArg(tool));
     }
     else
-        tool = getProgram(tool.c_str());
+    {
+        std::string toolPath = getProgram(tool.c_str());
+        commandLine.append(windows::quoteArg(toolPath));
+    }
 
-    return setup;
+    const size_t commandLineLengthAfterTool = commandLine.size();
+
+    // append (quoted) args
+    for (size_t i = 0; i < args.size(); ++i)
+    {
+        commandLine.push_back(' ');
+        commandLine.append(windows::quoteArg(args[i]));
+    }
+
+    const bool useResponseFile = (!args.empty() && commandLine.size() > 2000);
+    llvm::SmallString<128> responseFilePath;
+    if (useResponseFile)
+    {
+        const size_t firstArgIndex = commandLineLengthAfterTool + 1;
+        llvm::StringRef content(commandLine.data() + firstArgIndex, commandLine.size() - firstArgIndex);
+
+        if (llvm::sys::fs::createTemporaryFile("ldc_link", "rsp", responseFilePath) ||
+            llvm::sys::writeFileWithEncoding(responseFilePath, content)) // keep encoding (LLVM assumes UTF-8 input)
+        {
+            error(Loc(), "cannot write temporary response file for %s", tool.c_str());
+            return -1;
+        }
+
+        // replace all args by @<responseFilePath>
+        std::string responseFileArg = ("@" + responseFilePath).str();
+        commandLine.resize(firstArgIndex);
+        commandLine.append(windows::quoteArg(responseFileArg));
+    }
+
+    if (needMsvcSetup)
+        commandLine.push_back('"');
+
+    const char* finalCommandLine = commandLine.c_str();
+
+    if (verbose)
+    {
+        fprintf(global.stdmsg, finalCommandLine);
+        fprintf(global.stdmsg, "\n");
+        fflush(global.stdmsg);
+    }
+
+    const int exitCode = windows::executeAndWait(finalCommandLine);
+
+    if (exitCode != 0)
+    {
+        commandLine.resize(commandLineLengthAfterTool);
+        if (needMsvcSetup)
+            commandLine.push_back('"');
+        error(Loc(), "`%s` failed with status: %d", commandLine.c_str(), exitCode);
+    }
+
+    if (useResponseFile)
+        llvm::sys::fs::remove(responseFilePath);
+
+    return exitCode;
 }
+
+#else // !_WIN32
+
+int executeMsvcToolAndWait(const std::string&, const std::vector<std::string>&, bool)
+{
+    assert(0);
+    return -1;
+}
+
+#endif
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -308,8 +481,6 @@ static int linkObjToBinaryWin(bool sharedLib)
 
     // build arguments
     std::vector<std::string> args;
-
-    const bool setupMSVC = setupMSVCEnvironment(tool, args);
 
     args.push_back("/NOLOGO");
 
@@ -402,7 +573,6 @@ static int linkObjToBinaryWin(bool sharedLib)
 
     Logger::println("Linking with: ");
     std::vector<std::string>::const_iterator I = args.begin(), E = args.end();
-    if (setupMSVC) ++I; // skip link.exe, the first arg for the batch file
     Stream logstr = Logger::cout();
     for (; I != E; ++I)
         if (!(*I).empty())
@@ -410,28 +580,28 @@ static int linkObjToBinaryWin(bool sharedLib)
     logstr << "\n"; // FIXME where's flush ?
 
     // try to call linker
-    return executeToolAndWait(tool, args, global.params.verbose);
+    return executeMsvcToolAndWait(tool, args, global.params.verbose);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
 int linkObjToBinary(bool sharedLib)
 {
-    int status;
+    int exitCode;
 #if LDC_LLVM_VER >= 305
     if (global.params.targetTriple.isWindowsMSVCEnvironment())
 #else
     if (global.params.targetTriple.getOS() == llvm::Triple::Win32)
 #endif
-        status = linkObjToBinaryWin(sharedLib);
+        exitCode = linkObjToBinaryWin(sharedLib);
     else
-        status = linkObjToBinaryGcc(sharedLib);
-    return status;
+        exitCode = linkObjToBinaryGcc(sharedLib);
+    return exitCode;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-void createStaticLibrary()
+int createStaticLibrary()
 {
     Logger::println("*** Creating static library ***");
 
@@ -446,9 +616,6 @@ void createStaticLibrary()
 
     // build arguments
     std::vector<std::string> args;
-
-    if (isTargetWindows)
-        setupMSVCEnvironment(tool, args);
 
     // ask ar to create a new library
     if (!isTargetWindows)
@@ -501,7 +668,12 @@ void createStaticLibrary()
     CreateDirectoryOnDisk(libName);
 
     // try to call archiver
-    executeToolAndWait(tool, args, global.params.verbose);
+    int exitCode;
+    if (isTargetWindows)
+        exitCode = executeMsvcToolAndWait(tool, args, global.params.verbose);
+    else
+        exitCode = executeToolAndWait(tool, args, global.params.verbose);
+    return exitCode;
 }
 
 //////////////////////////////////////////////////////////////////////////////

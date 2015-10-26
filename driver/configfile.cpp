@@ -224,16 +224,18 @@ bool ConfigFile::read(const char* explicitConfFile)
     // handle switches
     if (config_setting_t *sw = config_setting_get_member(root, "switches"))
     {
+        // replace all %%ldcbinarypath%% occurrences by the path to the
+        // LDC bin directory (using forward slashes)
         std::string binpathkey = "%%ldcbinarypath%%";
 
         std::string binpath = exe_path::getBinDir();
+        std::replace(binpath.begin(), binpath.end(), '\\', '/');
 
         int len = config_setting_length(sw);
         for (int i = 0; i < len; i++)
         {
             std::string v(config_setting_get_string(config_setting_get_elem(sw, i)));
 
-            // replace binpathkey with binpath
             size_t p;
             while (std::string::npos != (p = v.find(binpathkey)))
                 v.replace(p, binpathkey.size(), binpath);

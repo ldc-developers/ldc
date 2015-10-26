@@ -20,14 +20,6 @@ addons:
     - libcurl3:i386
     - libedit2
     - libedit-dev
-    - llvm-3.1
-    - llvm-3.1-dev
-    - llvm-3.2
-    - llvm-3.2-dev
-    - llvm-3.3
-    - llvm-3.3-dev
-    - llvm-3.4
-    - llvm-3.4-dev
     - llvm-3.5
     - llvm-3.5-dev
     - llvm-3.6
@@ -41,10 +33,6 @@ env:
   - LLVM_CONFIG="llvm-config-3.7" OPTS="-DMULTILIB=ON"
   - LLVM_CONFIG="llvm-config-3.6" OPTS="-DBUILD_SHARED_LIBS=ON"
   - LLVM_CONFIG="llvm-config-3.5" OPTS="-DTEST_COVERAGE=ON"
-  - LLVM_CONFIG="llvm-config-3.4"
-  - LLVM_CONFIG="llvm-config-3.3"
-  - LLVM_CONFIG="llvm-config-3.2"
-  - LLVM_CONFIG="llvm-config-3.1"
 matrix:
   allow_failures:
   - env: LLVM_CONFIG="llvm-config-3.8"

@@ -44,7 +44,7 @@ static std::string getProgram(const char* name, const cl::opt<std::string>* opt,
     if (opt && opt->getNumOccurrences() > 0 && opt->length() > 0 && (prog = opt->c_str()))
         path = findProgramByName(prog);
 
-    if (path.empty() && envVar && (prog = getenv(envVar)))
+    if (path.empty() && envVar && (prog = getenv(envVar)) && prog[0] != '\0')
         path = findProgramByName(prog);
 
     if (path.empty())
@@ -67,7 +67,7 @@ std::string getGcc()
 {
 #if defined(__FreeBSD__) && __FreeBSD__ >= 10
     // Default compiler on FreeBSD 10 is clang
-    return getProgram("clang", gcc, "CC");
+    return getProgram("clang", &gcc, "CC");
 #else
     return getProgram("gcc", &gcc, "CC");
 #endif
