@@ -2587,7 +2587,7 @@ public:
         }
         else
         {
-            llvm::Value* storage = DtoRawAlloca(llStoType, e->type->alignsize(), "arrayliteral");
+            llvm::Value* storage = DtoRawAlloca(llStoType, DtoAlignment(e->type), "arrayliteral");
             initializeArrayLiteral(p, e, storage);
             result = new DImValue(e->type, storage);
         }

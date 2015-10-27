@@ -876,7 +876,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
                 // Create the param here and set it to a "dummy" alloca that
                 // we do not store to here.
                 irparam = getIrParameter(vd, true);
-                irparam->value = DtoAlloca(vd->type, vd->ident->toChars());
+                irparam->value = DtoAlloca(vd, vd->ident->toChars());
             }
             else
             {

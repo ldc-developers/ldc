@@ -58,10 +58,7 @@ LLGlobalVariable * IrAggr::getInitSymbol()
         gIR->module, init_type, true, llvm::GlobalValue::ExternalLinkage, NULL, initname);
 
     // set alignment
-    init->setAlignment(type->alignsize());
-    StructDeclaration *sd = aggrdecl->isStructDeclaration();
-    if (sd && sd->alignment != STRUCTALIGN_DEFAULT)
-        init->setAlignment(sd->alignment);
+    init->setAlignment(DtoAlignment(type));
 
     return init;
 }
