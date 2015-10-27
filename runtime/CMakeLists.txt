@@ -192,9 +192,14 @@ endif()
 # Create configuration files.
 #
 
-# Add a lib required by VS 2015+ when building LDC with VS 2015+.
 if(MSVC AND (MSVC_VERSION GREATER 1800))
+    # Add a lib required by VS 2015+ when building LDC with VS 2015+.
     set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-Llegacy_stdio_definitions.lib\"")
+elseif(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    # On Linux, --export-dynamic is reqired for backtrace_symbols to be able to
+    # resolve function addresses. We might be able to replace this by DWARF
+    # reading in the future.
+    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-L--export-dynamic\"")
 endif()
 
 # Add extra paths on Linux and disable linker arch mismatch warnings (like
