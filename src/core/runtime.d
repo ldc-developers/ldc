@@ -555,7 +555,14 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
 
             override int opApply( scope int delegate(ref size_t, ref const(char[])) dg ) const
             {
-                version(Posix)
+                version (LDC)
+                {
+                    // NOTE: On LDC, the number of frames heavily depends on the
+                    // runtime build settings, etc., so skipping a fixed number of
+                    // them would be very brittle. We should do this by name instead.
+                    enum FIRSTFRAME = 0;
+                }
+                else version(Posix)
                 {
                     // NOTE: The first 4 frames with the current implementation are
                     //       inside core.runtime and the object code, so eliminate
