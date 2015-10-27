@@ -31,15 +31,37 @@ struct Location
     size_t address;
 }
 
-int traceHandlerOpApplyImpl(const void*[] callstack, scope int delegate(ref size_t, ref const(char[])) dg)
+int traceHandlerOpApplyImpl(const(void*)[] callstack, scope int delegate(ref size_t, ref const(char[])) dg)
 {
     import core.stdc.stdio : snprintf;
     version(linux) import core.sys.linux.execinfo : backtrace_symbols;
     else version(FreeBSD) import core.sys.freebsd.execinfo : backtrace_symbols;
     import core.sys.posix.stdlib : free;
 
+version (LDC)
+{
+    const char** frameListFull = backtrace_symbols(callstack.ptr, cast(int) callstack.length);
+    scope(exit) free(cast(void*) frameListFull);
+
+    // See if _d_throw_exception is on the stack. If yes, ignore it and all the
+    // druntime internals before it.
+    size_t startIdx = 0;
+    foreach (size_t i; 0 .. callstack.length) {
+        auto s = frameListFull[i];
+        if (getMangledFunctionName(s[0 .. strlen(s)]) == "_d_throw_exception") {
+            startIdx = i + 1;
+            break;
+        }
+    }
+
+    auto frameList = frameListFull + startIdx;
+    callstack = callstack[startIdx .. $];
+}
+else
+{
     const char** frameList = backtrace_symbols(callstack.ptr, cast(int) callstack.length);
     scope(exit) free(cast(void*) frameList);
+}
 
     // find address -> file, line mapping using dwarf debug_line
     ElfFile file;
@@ -375,7 +397,7 @@ bool runStateMachine(const(LPHeader)* lpHeader, const(ubyte)[] program, const(ub
     return true;
 }
 
-const(char)[] getDemangledSymbol(const(char)[] btSymbol, ref char[1024] buffer)
+const(char)[] getMangledFunctionName(const(char)[] btSymbol)
 {
     version(linux)
     {
@@ -406,8 +428,13 @@ const(char)[] getDemangledSymbol(const(char)[] btSymbol, ref char[1024] buffer)
     assert(symBeg <= symEnd);
     assert(symEnd < btSymbol.length);
 
+    return btSymbol[symBeg .. symEnd];
+}
+
+const(char)[] getDemangledSymbol(const(char)[] btSymbol, ref char[1024] buffer)
+{
     import core.demangle;
-    return demangle(btSymbol[symBeg .. symEnd], buffer[]);
+    return demangle(getMangledFunctionName(btSymbol), buffer[]);
 }
 
 T read(T)(ref const(ubyte)[] buffer) @nogc nothrow

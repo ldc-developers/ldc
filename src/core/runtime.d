@@ -599,7 +599,7 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
 
                     alias traceHandlerOpApplyImpl = externDFunc!(
                         "rt.backtrace.dwarf.traceHandlerOpApplyImpl",
-                        int function(const void*[], scope int delegate(ref size_t, ref const(char[])))
+                        int function(const(void*)[], scope int delegate(ref size_t, ref const(char[])))
                     );
 
                     if (numframes >= FIRSTFRAME)
