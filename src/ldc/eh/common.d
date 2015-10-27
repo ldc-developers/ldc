@@ -30,7 +30,7 @@ extern(C) void fatalerror(in char* format, ...)
 //    Reading DWARF data
 // ------------------------
 
-version (Win64) {} else
+version (CRuntime_Microsoft) {} else
 {
     extern(C)
     {
@@ -195,15 +195,15 @@ ubyte* get_encoded_value(ubyte* addr, ref size_t res, ubyte encoding, void* cont
             res += cast(size_t)old_addr;
             break;
         case _DW_EH_Format.DW_EH_PE_funcrel:
-            version(Win64) fatalerror("Not yet implemented."); else
+            version(CRuntime_Microsoft) fatalerror("Not yet implemented."); else
             res += cast(size_t)_Unwind_GetRegionStart(context);
             break;
         case _DW_EH_Format.DW_EH_PE_textrel:
-            version(Win64) fatalerror("Not yet implemented."); else
+            version(CRuntime_Microsoft) fatalerror("Not yet implemented."); else
             res += cast(size_t)_Unwind_GetTextRelBase(context);
             break;
         case _DW_EH_Format.DW_EH_PE_datarel:
-            version(Win64) fatalerror("Not yet implemented."); else
+            version(CRuntime_Microsoft) fatalerror("Not yet implemented."); else
             res += cast(size_t)_Unwind_GetDataRelBase(context);
             break;
         default:
@@ -231,7 +231,7 @@ ptrdiff_t get_base_of_encoded_value(ubyte encoding, void* context)
         case DW_EH_PE_aligned:
             return 0;
 
-      version(Win64) {} else
+      version(CRuntime_Microsoft) {} else
       {
         case DW_EH_PE_textrel:
             return _Unwind_GetTextRelBase (context);
