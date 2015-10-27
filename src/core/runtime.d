@@ -510,37 +510,46 @@ Throwable.TraceInfo defaultTraceHandler( void* ptr = null )
         {
             this()
             {
-                numframes = 0; //backtrace( callstack, MAXFRAMES );
-                if (numframes < 2) // backtrace() failed, do it ourselves
+                numframes = backtrace( callstack.ptr, MAXFRAMES );
+                if (numframes >= 2)
                 {
-                    static void** getBasePtr()
+                    // Success. Adjust the locations by one byte so they point
+                    // inside the function (as required by backtrace_symbols)
+                    // even if the call to _d_throw_exception was the very last
+                    // instruction in the function.
+                    foreach (ref c; callstack) c -= 1;
+                    return;
+                }
+
+                // backtrace() failed, do it ourselves. Only works if frame
+                // pointer elimination is disabled.
+                static void** getBasePtr()
+                {
+                    version( D_InlineAsm_X86 )
+                        asm { naked; mov EAX, EBP; ret; }
+                    else
+                    version( D_InlineAsm_X86_64 )
+                        asm { naked; mov RAX, RBP; ret; }
+                    else
+                        return null;
+                }
+
+                auto  stackTop    = getBasePtr();
+                auto  stackBottom = cast(void**) thread_stackBottom();
+                void* dummy;
+
+                if( stackTop && &dummy < stackTop && stackTop < stackBottom )
+                {
+                    auto stackPtr = stackTop;
+
+                    for( numframes = 0; stackTop <= stackPtr &&
+                                        stackPtr < stackBottom &&
+                                        numframes < MAXFRAMES; )
                     {
-                        version( D_InlineAsm_X86 )
-                            asm { naked; mov EAX, EBP; ret; }
-                        else
-                        version( D_InlineAsm_X86_64 )
-                            asm { naked; mov RAX, RBP; ret; }
-                        else
-                            return null;
-                    }
-
-                    auto  stackTop    = getBasePtr();
-                    auto  stackBottom = cast(void**) thread_stackBottom();
-                    void* dummy;
-
-                    if( stackTop && &dummy < stackTop && stackTop < stackBottom )
-                    {
-                        auto stackPtr = stackTop;
-
-                        for( numframes = 0; stackTop <= stackPtr &&
-                                            stackPtr < stackBottom &&
-                                            numframes < MAXFRAMES; )
-                        {
-                            enum CALL_INSTRUCTION_SIZE = 1; // it may not be 1 but it is good enough to get
-                                                            // in CALL instruction address range for backtrace
-                            callstack[numframes++] = *(stackPtr + 1) - CALL_INSTRUCTION_SIZE;
-                            stackPtr = cast(void**) *stackPtr;
-                        }
+                        enum CALL_INSTRUCTION_SIZE = 1; // it may not be 1 but it is good enough to get
+                                                        // in CALL instruction address range for backtrace
+                        callstack[numframes++] = *(stackPtr + 1) - CALL_INSTRUCTION_SIZE;
+                        stackPtr = cast(void**) *stackPtr;
                     }
                 }
             }
