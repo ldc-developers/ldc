@@ -21,6 +21,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "gen/uda.h"
 #include "ir/irtype.h"
 #include "ir/irvar.h"
 #include "llvm/ADT/SmallString.h"
@@ -356,6 +357,7 @@ public:
           }
 
           newGvar->setAlignment(gvar->getAlignment());
+          applyVarDeclUDAs(decl, newGvar);
           newGvar->takeName(gvar);
 
           llvm::Constant *newValue =

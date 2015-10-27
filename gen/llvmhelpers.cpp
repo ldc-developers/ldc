@@ -28,6 +28,7 @@
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
 #include "gen/typeinf.h"
+#include "gen/uda.h"
 #include "gen/abi.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
@@ -831,6 +832,8 @@ void DtoResolveVariable(VarDeclaration *vd) {
     unsigned alignment =
         std::max(DtoAlignment(vd), gDataLayout->getPointerSize());
     gvar->setAlignment(alignment);
+
+    applyVarDeclUDAs(vd, gvar);
 
     IF_LOG Logger::cout() << *gvar << '\n';
   }
