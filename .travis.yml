@@ -1,5 +1,8 @@
 language: cpp
 sudo: false
+os:
+  - linux
+  - osx
 addons:
   apt:
     sources:
@@ -10,6 +13,7 @@ addons:
     - ubuntu-toolchain-r-test
     packages:
     - libconfig++8-dev
+    - gdb
     - gcc-4.9
     - g++-4.9
     - gcc-4.9-multilib
@@ -26,16 +30,33 @@ addons:
     - llvm-3.6-dev
     - llvm-3.7
     - llvm-3.7-dev
+    - llvm-3.8
+    - llvm-3.8-dev
 install:
-  - if [[ "${LLVM_CONFIG}" == *3\.[567]* ]]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
-  - if [[ "${OPTS}" == *TEST_COVERAGE*ON* ]]; then pip install --user coveralls; fi
+  - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
+  - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install llvm36; brew install libconfig; fi;
 env:
   - LLVM_CONFIG="llvm-config-3.7" OPTS="-DMULTILIB=ON"
   - LLVM_CONFIG="llvm-config-3.6" OPTS="-DBUILD_SHARED_LIBS=ON"
+  - LLVM_CONFIG="llvm-config-3.6"
   - LLVM_CONFIG="llvm-config-3.5" OPTS="-DTEST_COVERAGE=ON"
+  - LLVM_CONFIG="llvm-config-3.8"
 matrix:
   allow_failures:
-  - env: LLVM_CONFIG="llvm-config-3.8"
+    - env: LLVM_CONFIG="llvm-config-3.8"
+    - os: osx
+      env: LLVM_CONFIG="llvm-config-3.6"
+  exclude:
+    - os: linux
+      env: LLVM_CONFIG="llvm-config-3.6"
+    - os: osx
+      env: LLVM_CONFIG="llvm-config-3.7" OPTS="-DMULTILIB=ON"
+    - os: osx
+      env: LLVM_CONFIG="llvm-config-3.6" OPTS="-DBUILD_SHARED_LIBS=ON"
+    - os: osx
+      env: LLVM_CONFIG="llvm-config-3.5" OPTS="-DTEST_COVERAGE=ON"
+    - os: osx
+      env: LLVM_CONFIG="llvm-config-3.8"
 script:
   - cmake -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
   - make -j3
