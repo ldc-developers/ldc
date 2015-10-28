@@ -423,8 +423,36 @@ public:
         }
 
         DtoResolveStruct(sd);
-        IrAggr* iraggr = getIrAggr(sd);
 
+        if (TemplateInstance *ti = sd->isInstantiated())
+        {
+            if (!ti->needsCodegen())
+            {
+                assert(ti->minst || sd->requestTypeInfo);
+
+                // We won't emit ti, so emit the special member functions in here.
+                if (sd->xeq && sd->xeq != StructDeclaration::xerreq) {
+                    Declaration_codegen(sd->xeq);
+                }
+                if (sd->xcmp && sd->xcmp != StructDeclaration::xerrcmp) {
+                    Declaration_codegen(sd->xcmp);
+                }
+                if (FuncDeclaration *ftostr = search_toString(sd)) {
+                    Declaration_codegen(ftostr);
+                }
+                if (sd->xhash) {
+                    Declaration_codegen(sd->xhash);
+                }
+                if (sd->postblit) {
+                    Declaration_codegen(sd->postblit);
+                }
+                if (sd->dtor) {
+                    Declaration_codegen(sd->dtor);
+                }
+            }
+        }
+
+        IrAggr* iraggr = getIrAggr(sd);
         RTTIBuilder b(Type::typeinfostruct);
 
         // On x86_64, class TypeInfo_Struct contains 2 additional fields
