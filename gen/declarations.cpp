@@ -32,6 +32,95 @@ void TypeInfoClassDeclaration_codegen(TypeInfoDeclaration *decl, IRState* p);
 
 //////////////////////////////////////////////////////////////////////////////
 
+namespace
+{
+// from dmd/src/typinf.c
+bool isSpeculativeType(Type *t)
+{
+    class SpeculativeTypeVisitor : public Visitor
+    {
+    public:
+        bool result;
+
+        SpeculativeTypeVisitor() : result(false) {}
+
+        void visit(Type *t)
+        {
+            Type *tb = t->toBasetype();
+            if (tb != t)
+                tb->accept(this);
+        }
+        void visit(TypeNext *t)
+        {
+            if (t->next)
+                t->next->accept(this);
+        }
+        void visit(TypeBasic *t) { }
+        void visit(TypeVector *t)
+        {
+            t->basetype->accept(this);
+        }
+        void visit(TypeAArray *t)
+        {
+            t->index->accept(this);
+            visit((TypeNext *)t);
+        }
+        void visit(TypeFunction *t)
+        {
+            visit((TypeNext *)t);
+            // Currently TypeInfo_Function doesn't store parameter types.
+        }
+        void visit(TypeStruct *t)
+        {
+            StructDeclaration *sd = t->sym;
+            if (TemplateInstance *ti = sd->isInstantiated())
+            {
+                if (!ti->needsCodegen())
+                {
+                    if (ti->minst || sd->requestTypeInfo)
+                        return;
+
+                    /* Bugzilla 14425: TypeInfo_Struct would refer the members of
+                     * struct (e.g. opEquals via xopEquals field), so if it's instantiated
+                     * in speculative context, TypeInfo creation should also be
+                     * stopped to avoid 'unresolved symbol' linker errors.
+                     */
+                    /* When -debug/-unittest is specified, all of non-root instances are
+                     * automatically changed to speculative, and here is always reached
+                     * from those instantiated non-root structs.
+                     * Therefore, if the TypeInfo is not auctually requested,
+                     * we have to elide its codegen.
+                     */
+                    result |= true;
+                    return;
+                }
+            }
+            else
+            {
+                //assert(!sd->inNonRoot() || sd->requestTypeInfo);  // valid?
+            }
+        }
+        void visit(TypeClass *t) { }
+        void visit(TypeTuple *t)
+        {
+            if (t->arguments)
+            {
+                for (size_t i = 0; i < t->arguments->dim; i++)
+                {
+                    Type *tprm = (*t->arguments)[i]->type;
+                    if (tprm)
+                        tprm->accept(this);
+                    if (result)
+                        return;
+                }
+            }
+        }
+    };
+    SpeculativeTypeVisitor v;
+    t->accept(&v);
+    return v.result;
+}
+}
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -467,12 +556,14 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(TypeInfoDeclaration *decl) LLVM_OVERRIDE {
+        if (isSpeculativeType(decl->tinfo)) return;
         TypeInfoDeclaration_codegen(decl, irs);
     }
 
     //////////////////////////////////////////////////////////////////////////
 
     void visit(TypeInfoClassDeclaration *decl) LLVM_OVERRIDE {
+        if (isSpeculativeType(decl->tinfo)) return;
         TypeInfoClassDeclaration_codegen(decl, irs);
     }
 };
