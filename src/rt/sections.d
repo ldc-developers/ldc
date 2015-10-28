@@ -10,10 +10,10 @@
 
 module rt.sections;
 
+version (LDC)
+    public import rt.sections_ldc;
 version (CRuntime_Glibc)
     public import rt.sections_elf_shared;
-else version (LDC)
-    public import rt.sections_ldc;
 else version (FreeBSD)
     public import rt.sections_elf_shared;
 else version (Solaris)
