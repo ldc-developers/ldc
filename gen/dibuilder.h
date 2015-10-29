@@ -117,6 +117,10 @@ class DIBuilder
     const llvm::MDNode *CUNode;
 #endif
 
+    // Caches the path of the current working directory, for constructing
+    // absolute paths to put into the debug info.
+    llvm::SmallString<128> CurrentPath;
+
     DICompileUnit GetCU()
     {
 #if LDC_LLVM_VER >= 307
