@@ -57,6 +57,7 @@ Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s)
 ldc::DIBuilder::DIBuilder(IRState *const IR)
     : IR(IR), DBuilder(IR->module), CUNode(0)
 {
+    llvm::sys::fs::current_path(CurrentPath);
 }
 
 llvm::LLVMContext &ldc::DIBuilder::getContext()
@@ -98,7 +99,7 @@ void ldc::DIBuilder::Declare(const Loc &loc, llvm::Value *var, ldc::DILocalVaria
 ldc::DIFile ldc::DIBuilder::CreateFile(Loc& loc)
 {
     llvm::SmallString<128> path(loc.filename ? loc.filename : "");
-    llvm::sys::fs::make_absolute(path);
+    llvm::sys::fs::make_absolute(CurrentPath, path);
 
     return DBuilder.createFile(
         llvm::sys::path::filename(path),
@@ -671,7 +672,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m)
 
     // prepare srcpath
     llvm::SmallString<128> srcpath(m->srcfile->name->toChars());
-    llvm::sys::fs::make_absolute(srcpath);
+    llvm::sys::fs::make_absolute(CurrentPath, srcpath);
 
 #if LDC_LLVM_VER >= 308
     if (global.params.targetTriple.isWindowsMSVCEnvironment())
