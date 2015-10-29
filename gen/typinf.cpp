@@ -217,7 +217,13 @@ void DtoResolveTypeInfo(TypeInfoDeclaration* tid)
     tid->ir.setResolved();
 
     // TypeInfo instances (except ClassInfo ones) are always emitted as weak
-    // symbols when they are used.
+    // symbols when they are used. We call semanticTypeInfo() to make sure
+    // that the type (e.g. for structs) is semantic3'd and codegen() does not
+    // skip it on grounds of being speculative, as DtoResolveTypeInfo() means
+    // that we actually need the value somewhere else in codegen.
+    // TODO: DMD does not seem to call semanticTypeInfo() from the glue layer,
+    // so there might be a structural issue somewhere.
+    semanticTypeInfo(NULL, tid->tinfo);
     Declaration_codegen(tid);
 }
 
