@@ -23,15 +23,7 @@ version (LDC)
     // Do not enable for LLVM 3.4 or earlier: the
     // code generator cannot handle type i128 for
     // atomic instructions.
-    version(LDC_LLVM_304)
-        enum has128BitCAS = false;
-    else version(LDC_LLVM_303)
-        enum has128BitCAS = false;
-    else version(LDC_LLVM_302)
-        enum has128BitCAS = false;
-    else version(LDC_LLVM_301)
-        enum has128BitCAS = false;
-    else version(D_LP64)
+    version(D_LP64)
         enum has128BitCAS = true;
     else
         enum has128BitCAS = false;
