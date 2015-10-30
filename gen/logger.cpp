@@ -17,18 +17,10 @@
 #include <iostream>
 #include <string>
 
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/GlobalValue.h"
-#else
-#include "llvm/GlobalValue.h"
-#endif
 #include "llvm/Support/Casting.h"
 #include "llvm/Support/raw_os_ostream.h"
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/Value.h"
-#else
-#include "llvm/Assembly/Writer.h"
-#endif
 
 #include "gen/logger.h"
 #include "gen/irstate.h"
@@ -44,11 +36,7 @@ void Stream::writeValue(std::ostream& OS, const llvm::Value& V) {
     // still get their initializers printed)
     llvm::raw_os_ostream raw(OS);
     if (llvm::isa<llvm::Constant>(V) && !llvm::isa<llvm::GlobalValue>(V))
-#if LDC_LLVM_VER >= 305
         V.printAsOperand(raw, true, &gIR->module);
-#else
-        llvm::WriteAsOperand(raw, &V, true, &gIR->module);
-#endif
     else
         V.print(raw);
 }

@@ -16,11 +16,7 @@
 #define LDC_GEN_RTTIBUILDER_H
 
 #include "llvm/ADT/SmallVector.h"
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/Constant.h"
-#else
-#include "llvm/Constant.h"
-#endif
 
 class AggregateDeclaration;
 class ClassDeclaration;

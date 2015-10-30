@@ -37,7 +37,6 @@
 #include "llvm/Transforms/Utils/ModuleUtils.h"
 #include <stack>
 
-#if LDC_LLVM_VER >= 302
 #include "llvm/Support/CommandLine.h"
 
 llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel("fthread-model",
@@ -53,7 +52,6 @@ llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel("fthread-mode
         clEnumValN(llvm::GlobalVariable::LocalExecTLSModel, "local-exec",
                    "Local exec TLS model"),
         clEnumValEnd));
-#endif
 
 Type *getTypeInfoType(Type *t, Scope *sc);
 
@@ -1781,7 +1779,6 @@ llvm::GlobalVariable* getOrCreateGlobal(Loc& loc, llvm::Module& module,
         return existing;
     }
 
-#if LDC_LLVM_VER >= 302
     // Use a command line option for the thread model.
     // On PPC there is only local-exec available - in this case just ignore the
     // command line.
@@ -1793,10 +1790,6 @@ llvm::GlobalVariable* getOrCreateGlobal(Loc& loc, llvm::Module& module,
             : llvm::GlobalVariable::NotThreadLocal;
     return new llvm::GlobalVariable(module, type, isConstant, linkage,
                                     init, name, 0, tlsModel);
-#else
-    return new llvm::GlobalVariable(module, type, isConstant, linkage,
-                                    init, name, 0, isThreadLocal);
-#endif
 }
 
 FuncDeclaration* getParentFunc(Dsymbol* sym, bool stopOnStatic)

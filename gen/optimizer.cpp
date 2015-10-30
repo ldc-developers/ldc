@@ -18,26 +18,13 @@
 #else
 #include "llvm/PassManager.h"
 #endif
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DataLayout.h"
-#else
-#include "llvm/Module.h"
-#if LDC_LLVM_VER == 302
-#include "llvm/DataLayout.h"
-#else
-#include "llvm/Target/TargetData.h"
-#endif
-#endif
 #include "llvm/ADT/Triple.h"
 #if LDC_LLVM_VER >= 307
 #include "llvm/Analysis/TargetTransformInfo.h"
 #endif
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/Verifier.h"
-#else
-#include "llvm/Analysis/Verifier.h"
-#endif
 #if LDC_LLVM_VER >= 307
 #include "llvm/Analysis/TargetLibraryInfo.h"
 #else
@@ -45,11 +32,7 @@
 #endif
 #include "llvm/Target/TargetMachine.h"
 #include "llvm/Support/CommandLine.h"
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/LegacyPassNameParser.h"
-#else
-#include "llvm/Support/PassNameParser.h"
-#endif
 #include "llvm/Transforms/Instrumentation.h"
 #include "llvm/Transforms/IPO.h"
 #include "llvm/Transforms/IPO/PassManagerBuilder.h"
@@ -125,7 +108,6 @@ static cl::opt<bool>
 stripDebug("strip-debug",
            cl::desc("Strip symbolic debug information before optimization"));
 
-#if LDC_LLVM_VER >= 303
 cl::opt<opts::SanitizerCheck> opts::sanitize("sanitize",
     cl::desc("Enable runtime instrumentation for bug detection"),
     cl::init(opts::None),
@@ -134,9 +116,7 @@ cl::opt<opts::SanitizerCheck> opts::sanitize("sanitize",
         clEnumValN(opts::MemorySanitizer, "memory", "memory errors"),
         clEnumValN(opts::ThreadSanitizer, "thread", "race detection"),
         clEnumValEnd));
-#endif
 
-#if LDC_LLVM_VER >= 304
 static cl::opt<bool>
 disableLoopUnrolling("disable-loop-unrolling",
                      cl::desc("Disable loop unrolling in all relevant passes"),
@@ -150,7 +130,6 @@ static cl::opt<bool>
 disableSLPVectorization("disable-slp-vectorization",
                         cl::desc("Disable the slp vectorization pass"),
                         cl::init(false));
-#endif
 
 static unsigned optLevel() {
     // Use -O2 as a base for the size-optimization levels.
@@ -204,7 +183,6 @@ static void addGarbageCollect2StackPass(const PassManagerBuilder &builder, PassM
         addPass(pm, createGarbageCollect2Stack());
 }
 
-#if LDC_LLVM_VER >= 303
 static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
                                       PassManagerBase &PM) {
   PM.add(createAddressSanitizerFunctionPass());
@@ -232,7 +210,6 @@ static void addThreadSanitizerPass(const PassManagerBuilder &Builder,
                                    PassManagerBase &PM) {
   PM.add(createThreadSanitizerPass());
 }
-#endif
 
 /**
  * Adds a set of optimization passes to the given module/function pass
@@ -265,13 +242,9 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
     } else {
         builder.Inliner = createAlwaysInlinerPass();
     }
-#if LDC_LLVM_VER < 304
-    builder.DisableSimplifyLibCalls = disableSimplifyLibCalls;
-#endif
     builder.DisableUnitAtATime = !unitAtATime;
     builder.DisableUnrollLoops = optLevel == 0;
 
-#if LDC_LLVM_VER >= 304
     builder.DisableUnrollLoops = (disableLoopUnrolling.getNumOccurrences() > 0) ?
                                   disableLoopUnrolling : optLevel == 0;
 
@@ -285,11 +258,7 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
     // When #pragma vectorize is on for SLP, do the same as above
     builder.SLPVectorize =
         disableSLPVectorization ? false : optLevel > 1 && sizeLevel < 2;
-#else
-    /* builder.Vectorize is set in ctor from command line switch */
-#endif
 
-#if LDC_LLVM_VER >= 303
     if (opts::sanitize == opts::AddressSanitizer) {
         builder.addExtension(PassManagerBuilder::EP_OptimizerLast,
                              addAddressSanitizerPasses);
@@ -310,7 +279,6 @@ static void addOptimizationPasses(PassManagerBase &mpm, FunctionPassManager &fpm
         builder.addExtension(PassManagerBuilder::EP_EnabledOnOptLevel0,
                              addThreadSanitizerPass);
     }
-#endif
 
     if (!disableLangSpecificPasses) {
         if (!disableSimplifyDruntimeCalls)
@@ -367,20 +335,16 @@ bool ldc_optimize_module(llvm::Module *M)
     // override the module data layout
 #elif LDC_LLVM_VER == 306
     mpm.add(new DataLayoutPass());
-#elif LDC_LLVM_VER == 305
+#else
     const DataLayout *DL = M->getDataLayout();
     assert(DL && "DataLayout not set at module");
     mpm.add(new DataLayoutPass(*DL));
-#elif LDC_LLVM_VER >= 302
-    mpm.add(new DataLayout(M));
-#else
-    mpm.add(new TargetData(M));
 #endif
 
 #if LDC_LLVM_VER >= 307
     // Add internal analysis passes from the target machine.
     mpm.add(createTargetTransformInfoWrapperPass(gTargetMachine->getTargetIRAnalysis()));
-#elif LDC_LLVM_VER >= 305
+#else
     // Add internal analysis passes from the target machine.
     gTargetMachine->addAnalysisPasses(mpm);
 #endif
@@ -397,13 +361,9 @@ bool ldc_optimize_module(llvm::Module *M)
 #elif LDC_LLVM_VER >= 306
     fpm.add(new DataLayoutPass());
     gTargetMachine->addAnalysisPasses(fpm);
-#elif LDC_LLVM_VER == 305
+#else
     fpm.add(new DataLayoutPass(M));
     gTargetMachine->addAnalysisPasses(fpm);
-#elif LDC_LLVM_VER >= 302
-    fpm.add(new DataLayout(M));
-#else
-    fpm.add(new TargetData(M));
 #endif
 
     // If the -strip-debug command line option was specified, add it before
@@ -462,12 +422,8 @@ void verifyModule(llvm::Module* m) {
         Logger::println("Verifying module...");
         LOG_SCOPE;
         std::string ErrorStr;
-#if LDC_LLVM_VER >= 305
         raw_string_ostream OS(ErrorStr);
         if (llvm::verifyModule(*m, &OS))
-#else
-        if (llvm::verifyModule(*m, llvm::ReturnStatusAction, &ErrorStr))
-#endif
         {
             error(Loc(), "%s", ErrorStr.c_str());
             fatal();

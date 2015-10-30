@@ -26,19 +26,10 @@
 #include "llvm/Bitcode/ReaderWriter.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/MemoryBuffer.h"
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Attributes.h"
-#else
-#include "llvm/Module.h"
-#include "llvm/Attributes.h"
-#endif
 
 #include <algorithm>
-
-#if LDC_LLVM_VER < 302
-using namespace llvm::Attribute;
-#endif
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
@@ -266,7 +257,6 @@ static void LLVM_D_BuildRuntimeModule()
     /////////////////////////////////////////////////////////////////////////////////////
 
     // Construct some attribute lists used below (possibly multiple times)
-#if LDC_LLVM_VER >= 303
     llvm::AttributeSet
         NoAttrs,
         Attr_NoAlias
@@ -295,65 +285,6 @@ static void LLVM_D_BuildRuntimeModule()
             = Attr_1_NoCapture.addAttribute(gIR->context(), 3, llvm::Attribute::NoCapture),
         Attr_1_4_NoCapture
             = Attr_1_NoCapture.addAttribute(gIR->context(), 4, llvm::Attribute::NoCapture);
-#elif LDC_LLVM_VER == 302
-    llvm::AttrListPtr
-        NoAttrs,
-        Attr_NoAlias
-            = NoAttrs.addAttr(gIR->context(), 0, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias))),
-        Attr_NoUnwind
-            = NoAttrs.addAttr(gIR->context(), ~0U, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoUnwind))),
-        Attr_ReadOnly
-            = NoAttrs.addAttr(gIR->context(), ~0U, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::ReadOnly))),
-        Attr_ReadOnly_NoUnwind
-            = Attr_ReadOnly.addAttr(gIR->context(), ~0U, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoUnwind))),
-        Attr_ReadOnly_1_NoCapture
-            = Attr_ReadOnly.addAttr(gIR->context(), 1, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
-        Attr_ReadOnly_1_3_NoCapture
-            = Attr_ReadOnly_1_NoCapture.addAttr(gIR->context(), 3, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
-        Attr_ReadOnly_NoUnwind_1_NoCapture
-            = Attr_ReadOnly_1_NoCapture.addAttr(gIR->context(), ~0U, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoUnwind))),
-        Attr_ReadNone
-            = NoAttrs.addAttr(gIR->context(), ~0U, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::ReadNone))),
-        Attr_1_NoCapture
-            = NoAttrs.addAttr(gIR->context(), 1, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
-        Attr_NoAlias_1_NoCapture
-            = Attr_1_NoCapture.addAttr(gIR->context(), 0, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoAlias))),
-        Attr_1_2_NoCapture
-            = Attr_1_NoCapture.addAttr(gIR->context(), 2, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
-        Attr_1_3_NoCapture
-            = Attr_1_NoCapture.addAttr(gIR->context(), 3, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture))),
-        Attr_1_4_NoCapture
-            = Attr_1_NoCapture.addAttr(gIR->context(), 4, llvm::Attributes::get(gIR->context(), llvm::AttrBuilder().addAttribute(llvm::Attributes::NoCapture)));
-#else
-    llvm::AttrListPtr
-        NoAttrs,
-        Attr_NoAlias
-            = NoAttrs.addAttr(0, NoAlias),
-        Attr_NoUnwind
-            = NoAttrs.addAttr(~0U, NoUnwind),
-        Attr_ReadOnly
-            = NoAttrs.addAttr(~0U, ReadOnly),
-        Attr_ReadOnly_NoUnwind
-            = Attr_ReadOnly.addAttr(~0U, NoUnwind),
-        Attr_ReadOnly_1_NoCapture
-            = Attr_ReadOnly.addAttr(1, NoCapture),
-        Attr_ReadOnly_1_3_NoCapture
-            = Attr_ReadOnly_1_NoCapture.addAttr(3, NoCapture),
-        Attr_ReadOnly_NoUnwind_1_NoCapture
-            = Attr_ReadOnly_1_NoCapture.addAttr(~0U, NoUnwind),
-        Attr_ReadNone
-            = NoAttrs.addAttr(~0U, ReadNone),
-        Attr_1_NoCapture
-            = NoAttrs.addAttr(1, NoCapture),
-        Attr_NoAlias_1_NoCapture
-            = Attr_1_NoCapture.addAttr(0, NoAlias),
-        Attr_1_2_NoCapture
-            = Attr_1_NoCapture.addAttr(2, NoCapture),
-        Attr_1_3_NoCapture
-            = Attr_1_NoCapture.addAttr(3, NoCapture),
-        Attr_1_4_NoCapture
-            = Attr_1_NoCapture.addAttr(4, NoCapture);
-#endif
 
     /////////////////////////////////////////////////////////////////////////////////////
     /////////////////////////////////////////////////////////////////////////////////////
@@ -925,16 +856,13 @@ static void LLVM_D_BuildRuntimeModule()
     // int _d_eh_personality(...)
     {
         LLFunctionType* fty = NULL;
-#if LDC_LLVM_VER >= 305
         if (global.params.targetTriple.isWindowsMSVCEnvironment())
         {
             // int _d_eh_personality(ptr ExceptionRecord, ptr EstablisherFrame, ptr ContextRecord, ptr DispatcherContext)
             LLType *types[] = { voidPtrTy, voidPtrTy, voidPtrTy, voidPtrTy };
             fty = llvm::FunctionType::get(intTy, types, false);
         }
-        else
-#endif
-        if (global.params.targetTriple.getArch() == llvm::Triple::arm)
+        else if (global.params.targetTriple.getArch() == llvm::Triple::arm)
         {
             // int _d_eh_personality(int state, ptr ucb, ptr context)
             LLType *types[] = { intTy, voidPtrTy, voidPtrTy };
@@ -988,13 +916,7 @@ static void LLVM_D_BuildRuntimeModule()
         assert(dty->ctype);
         IrFuncTy &irFty = dty->ctype->getIrFuncTy();
         gABI->rewriteFunctionType(dty, irFty);
-#if LDC_LLVM_VER >= 303
         fn->addAttributes(1, llvm::AttributeSet::get(gIR->context(), 1, irFty.args[0]->attrs.attrs));
-#elif LDC_LLVM_VER == 302
-        fn->addAttribute(1, llvm::Attributes::get(gIR->context(), irFty.args[0]->attrs.attrs));
-#else
-        fn->addAttribute(1, irFty.args[0]->attrs.attrs);
-#endif
         fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), LINKd));
     }
 

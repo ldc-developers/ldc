@@ -25,16 +25,8 @@
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/CFG.h"
-#else
-#include "llvm/Support/CFG.h"
-#endif
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/InlineAsm.h"
-#else
-#include "llvm/InlineAsm.h"
-#endif
 #include <fstream>
 #include <math.h>
 #include <stdio.h>
@@ -740,9 +732,7 @@ public:
             if ((*it)->var) {
                 llvm::Value* ehPtr = irs->func()->getOrCreateEhPtrSlot();
 
-#if LDC_LLVM_VER >= 305
                 if (!global.params.targetTriple.isWindowsMSVCEnvironment())
-#endif
                 {
                     // ehPtr is a pointer to _d_exception, which has a reference
                     // to the Throwable object at offset 0.

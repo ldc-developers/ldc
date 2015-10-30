@@ -7,13 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/LLVMContext.h"
-#else
-#include "llvm/DerivedTypes.h"
-#include "llvm/LLVMContext.h"
-#endif
 #include "mars.h"
 #include "mtype.h"
 #include "gen/irstate.h"
@@ -76,14 +71,7 @@ static inline llvm::Type* getReal80Type(llvm::LLVMContext& ctx)
     bool const anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
 
     // only x86 has 80bit float - but no support with MS C Runtime!
-    if (anyX86 &&
-#if LDC_LLVM_VER >= 305
-        !global.params.targetTriple.isWindowsMSVCEnvironment()
-#else
-        !(global.params.targetTriple.getOS() == llvm::Triple::Win32)
-#endif
-        )
-
+    if (anyX86 && !global.params.targetTriple.isWindowsMSVCEnvironment())
         return llvm::Type::getX86_FP80Ty(ctx);
 
     return llvm::Type::getDoubleTy(ctx);
