@@ -918,6 +918,9 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     if (static_cast<llvm::MDNode *>(TD) == 0)
         return; // unsupported
 
+    if (vd->storage_class & (STCref | STCout))
+        TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD);
+
     // get variable description
     assert(!vd->isDataseg() && "static variable");
 
