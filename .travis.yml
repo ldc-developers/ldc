@@ -47,7 +47,6 @@ matrix:
   allow_failures:
     - env: LLVM_CONFIG="llvm-config-3.8"
     - os: osx
-      env: LLVM_CONFIG="llvm-config-3.6"
   exclude:
     - os: linux
       env: LLVM_CONFIG="llvm-config-3.6" TEST_CONFIG="Debug"
