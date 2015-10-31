@@ -898,7 +898,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
                 ++llArgIdx;
             }
 
-            if (global.params.symdebug && !(isaArgument(irparam->value) && isaArgument(irparam->value)->hasByValAttr()) && !refout)
+            if (global.params.symdebug && !(isaArgument(irparam->value) && isaArgument(irparam->value)->hasByValAttr()))
                 gIR->DBuilder.EmitLocalVariable(irparam->value, vd, debugInfoType);
         }
     }
