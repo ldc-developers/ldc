@@ -19,48 +19,17 @@ else
     static assert(false, "This module is only valid for LDC");
 }
 
-version(LDC_LLVM_302) version = INTRINSICS_FROM_302;
-version(LDC_LLVM_303)
-{
-    version = INTRINSICS_FROM_302;
-    version = INTRINSICS_FROM_303;
-}
-version(LDC_LLVM_304)
-{
-    version = INTRINSICS_FROM_302;
-    version = INTRINSICS_FROM_303;
-    version = INTRINSICS_FROM_304;
-}
-version(LDC_LLVM_305)
-{
-    version = INTRINSICS_FROM_302;
-    version = INTRINSICS_FROM_303;
-    version = INTRINSICS_FROM_304;
-    version = INTRINSICS_FROM_305;
-}
 version(LDC_LLVM_306)
 {
-    version = INTRINSICS_FROM_302;
-    version = INTRINSICS_FROM_303;
-    version = INTRINSICS_FROM_304;
-    version = INTRINSICS_FROM_305;
     version = INTRINSICS_FROM_306;
 }
 version(LDC_LLVM_307)
 {
-    version = INTRINSICS_FROM_302;
-    version = INTRINSICS_FROM_303;
-    version = INTRINSICS_FROM_304;
-    version = INTRINSICS_FROM_305;
     version = INTRINSICS_FROM_306;
     version = INTRINSICS_FROM_307;
 }
 version(LDC_LLVM_308)
 {
-    version = INTRINSICS_FROM_302;
-    version = INTRINSICS_FROM_303;
-    version = INTRINSICS_FROM_304;
-    version = INTRINSICS_FROM_305;
     version = INTRINSICS_FROM_306;
     version = INTRINSICS_FROM_307;
     version = INTRINSICS_FROM_308;
@@ -153,8 +122,6 @@ pragma(LDC_intrinsic, "llvm.readcyclecounter")
 alias llvm_readcyclecounter readcyclecounter;
 
 
-version(INTRINSICS_FROM_305)
-{
 /// The 'llvm.clear_cache' intrinsic ensures visibility of modifications in the
 /// specified range to the execution unit of the processor. On targets with
 /// non-unified instruction and data cache, the implementation flushes the
@@ -170,7 +137,6 @@ version(INTRINSICS_FROM_305)
 /// the current function are outside the scope of the intrinsic.
 pragma(LDC_intrinsic, "llvm.clear_cache")
     void llvm_clear_cache(void *from, void *to);
-}
 
 
 
@@ -267,8 +233,6 @@ pragma(LDC_intrinsic, "llvm.log.f#")
 pragma(LDC_intrinsic, "llvm.fma.f#")
     T llvm_fma(T)(T vala, T valb, T valc);
 
-version(INTRINSICS_FROM_302)
-{
 /// The 'llvm.fabs.*' intrinsics return the absolute value of the operand.
 
 pragma(LDC_intrinsic, "llvm.fabs.f#")
@@ -279,10 +243,7 @@ pragma(LDC_intrinsic, "llvm.fabs.f#")
 
 pragma(LDC_intrinsic, "llvm.floor.f#")
     T llvm_floor(T)(T val);
-}
 
-version(INTRINSICS_FROM_303)
-{
 /// The 'llvm.exp2.*' intrinsics perform the exp2 function.
 
 pragma(LDC_intrinsic, "llvm.exp2.f#")
@@ -317,10 +278,6 @@ pragma(LDC_intrinsic, "llvm.rint.f#")
 
 pragma(LDC_intrinsic, "llvm.nearbyint.f#")
     T llvm_nearbyint(T)(T val);
-}
-
-version(INTRINSICS_FROM_304)
-{
 
 /// The 'llvm.copysign.*' intrinsics return a value with the magnitude of the first operand and the sign of the second operand.
 
@@ -331,8 +288,6 @@ pragma(LDC_intrinsic, "llvm.copysign.f#")
 
 pragma(LDC_intrinsic, "llvm.round.f#")
     T llvm_round(T)(T val);
-
-}
 
 /// The 'llvm.fmuladd.*' intrinsic functions represent multiply-add expressions
 /// that can be fused if the code generator determines that the fused expression
@@ -352,7 +307,7 @@ version(INTRINSICS_FROM_306)
 /// could return either -0.0 or 0.0.
 
 pragma(LDC_intrinsic, "llvm.minnum.f#")
-	T llvm_minnum(T)(T vala, T valb);
+    T llvm_minnum(T)(T vala, T valb);
 
 /// The ‘llvm.maxnum.*‘ intrinsics return the maximum of the two arguments.
 /// Follows the IEEE-754 semantics for maxNum, which also match for libm’s fmax.
@@ -362,7 +317,7 @@ pragma(LDC_intrinsic, "llvm.minnum.f#")
 /// could return either -0.0 or 0.0.
 
 pragma(LDC_intrinsic, "llvm.maxnum.f#")
-	T llvm_maxnum(T)(T vala, T valb);
+    T llvm_maxnum(T)(T vala, T valb);
 }
 
 //
@@ -537,13 +492,10 @@ pragma(LDC_intrinsic, "llvm.umul.with.overflow.i#")
 pragma(LDC_intrinsic, "llvm.trap")
     void llvm_trap();
 
-version(INTRINSICS_FROM_302)
-{
 /// This intrinsic is lowered to code which is intended to cause an execution
 /// trap with the intention of requesting the attention of a debugger.
 pragma(LDC_intrinsic, "llvm.debugtrap")
     void llvm_debugtrap();
-}
 
 /// The llvm.expect intrinsic provides information about expected (the most
 /// probable) value of val, which can be used by optimizers.
