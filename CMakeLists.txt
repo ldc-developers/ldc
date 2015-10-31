@@ -480,17 +480,10 @@ add_definitions(-DLLVM_INTRINSIC_TD_PATH="${LLVM_INTRINSIC_TD_PATH}")
 
 add_executable(gen_gccbuiltins utils/gen_gccbuiltins.cpp)
 
-# Prior to LLVM 3.2, TableGen still uses RTTI, contrary to the rest of LLVM.
-# Thus, we have to remove the -fno-rtti flag from the llvm-config output.
-set(TABLEGEN_CXXFLAGS "${LLVM_CXXFLAGS}")
-if(${LDC_LLVM_VER} LESS 302)
-    string(REPLACE "-fno-rtti" "" TABLEGEN_CXXFLAGS ${TABLEGEN_CXXFLAGS})
-endif()
-
 set_target_properties(
     gen_gccbuiltins PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    COMPILE_FLAGS "${TABLEGEN_CXXFLAGS} ${LDC_CXXFLAGS}"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
 target_link_libraries(gen_gccbuiltins ${LLVM_TABLEGEN_LIBRARY} ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} "${LLVM_LDFLAGS}")

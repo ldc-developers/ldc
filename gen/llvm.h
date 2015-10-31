@@ -18,7 +18,6 @@
 #ifndef LDC_GEN_LLVM_H
 #define LDC_GEN_LLVM_H
 
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DerivedTypes.h"
 #include "llvm/IR/Constants.h"
@@ -31,41 +30,11 @@
 #include "llvm/IR/Attributes.h"
 #include "llvm/IR/DataLayout.h"
 #include "llvm/IR/IRBuilder.h"
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/DebugInfo.h"
-#else
-#include "llvm/DebugInfo.h"
-#endif
-#else
-#include "llvm/Type.h"
-#include "llvm/DerivedTypes.h"
-#include "llvm/Constants.h"
-#include "llvm/IntrinsicInst.h"
-#include "llvm/CallingConv.h"
-#include "llvm/GlobalVariable.h"
-#include "llvm/Function.h"
-#include "llvm/Module.h"
-#include "llvm/Value.h"
-#include "llvm/Attributes.h"
-#if LDC_LLVM_VER == 302
-#include "llvm/DataLayout.h"
-#include "llvm/IRBuilder.h"
-#include "llvm/DebugInfo.h"
-#else
-#include "llvm/Target/TargetData.h"
-#include "llvm/Analysis/DebugInfo.h"
-#include "llvm/Support/IRBuilder.h"
-#endif
-#endif
-
 
 #include "gen/llvmcompat.h"
 
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/CallSite.h"
-#else
-#include "llvm/Support/CallSite.h"
-#endif
 
 using llvm::IRBuilder;
 

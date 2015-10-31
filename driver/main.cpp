@@ -37,9 +37,7 @@
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
 #include "gen/abi.h"
-#if LDC_LLVM_VER >= 304
 #include "llvm/InitializePasses.h"
-#endif
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Host.h"
@@ -51,13 +49,8 @@
 #if LDC_LLVM_VER >= 306
 #include "llvm/Target/TargetSubtargetInfo.h"
 #endif
-#if LDC_LLVM_VER >= 303
 #include "llvm/LinkAllIR.h"
 #include "llvm/IR/LLVMContext.h"
-#else
-#include "llvm/LinkAllVMCore.h"
-#include "llvm/LLVMContext.h"
-#endif
 #include <assert.h>
 #include <limits.h>
 #include <stdio.h>
@@ -166,7 +159,6 @@ static void initFromString(const char*& dest, const cl::opt<std::string>& src) {
 }
 
 
-#if LDC_LLVM_VER >= 303
 static void hide(llvm::StringMap<cl::Option *>& map, const char* name) {
     // Check if option exists first for resilience against LLVM changes
     // between versions.
@@ -262,7 +254,6 @@ static void hideLLVMOptions() {
     opts::CreateColorOption();
 #endif
 }
-#endif
 
 int main(int argc, char **argv);
 
@@ -309,15 +300,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     final_args.insert(final_args.end(), &argv[1], &argv[argc]);
 
     cl::SetVersionPrinter(&printVersion);
-#if LDC_LLVM_VER >= 303
     hideLLVMOptions();
-#endif
     cl::ParseCommandLineOptions(final_args.size(), const_cast<char**>(final_args.data()),
-        "LDC - the LLVM D compiler\n"
-#if LDC_LLVM_VER < 302
-        , true
-#endif
-    );
+        "LDC - the LLVM D compiler\n");
 
     helpOnly = mCPU == "help" ||
         (std::find(mAttrs.begin(), mAttrs.end(), "help") != mAttrs.end());
@@ -523,7 +508,6 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
 }
 
 static void initializePasses() {
-#if LDC_LLVM_VER >= 304
     using namespace llvm;
     // Initialize passes
     PassRegistry &Registry = *PassRegistry::getPassRegistry();
@@ -548,9 +532,8 @@ static void initializePasses() {
 #if LDC_LLVM_VER >= 306
     initializeAtomicExpandPass(Registry);
     initializeRewriteSymbolsPass(Registry);
-#elif LDC_LLVM_VER == 305
+#else
     initializeAtomicExpandLoadLinkedPass(Registry);
-#endif
 #endif
 }
 
@@ -628,9 +611,7 @@ static void registerPredefinedTargetVersions() {
             registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
             break;
         case llvm::Triple::ppc64:
-#if LDC_LLVM_VER >= 305
         case llvm::Triple::ppc64le:
-#endif
             VersionCondition::addPredefinedGlobalIdent("PPC64");
             registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
             if (global.params.targetTriple.getOS() == llvm::Triple::Linux)
@@ -638,9 +619,7 @@ static void registerPredefinedTargetVersions() {
                                                        ? "ELFv1" : "ELFv2");
             break;
         case llvm::Triple::arm:
-#if LDC_LLVM_VER >= 305
         case llvm::Triple::armeb:
-#endif
             VersionCondition::addPredefinedGlobalIdent("ARM");
             registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat", "ARM_SoftFP");
             break;
@@ -654,15 +633,11 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::arm64:
         case llvm::Triple::arm64_be:
 #endif
-#if LDC_LLVM_VER >= 303
         case llvm::Triple::aarch64:
-#if LDC_LLVM_VER >= 305
         case llvm::Triple::aarch64_be:
-#endif
             VersionCondition::addPredefinedGlobalIdent("AArch64");
             registerPredefinedFloatABI("ARM_SoftFloat", "ARM_HardFloat", "ARM_SoftFP");
             break;
-#endif
         case llvm::Triple::mips:
         case llvm::Triple::mipsel:
             VersionCondition::addPredefinedGlobalIdent("MIPS");
@@ -684,7 +659,6 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("SPARC64");
             registerPredefinedFloatABI("SPARC_SoftFloat", "SPARC_HardFloat");
             break;
-#if LDC_LLVM_VER >= 302
         case llvm::Triple::nvptx:
             VersionCondition::addPredefinedGlobalIdent("NVPTX");
             VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
@@ -693,14 +667,11 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("NVPTX64");
             VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
-#endif
-#if LDC_LLVM_VER >= 303
         case llvm::Triple::systemz:
             VersionCondition::addPredefinedGlobalIdent("SystemZ");
             VersionCondition::addPredefinedGlobalIdent("S390X"); // For backwards compatibility.
             VersionCondition::addPredefinedGlobalIdent("D_HardFloat");
             break;
-#endif
         default:
             error(Loc(), "invalid cpu architecture specified: %s", global.params.targetTriple.getArchName().str().c_str());
             fatal();
@@ -731,15 +702,10 @@ static void registerPredefinedTargetVersions() {
         case llvm::Triple::Win32:
             VersionCondition::addPredefinedGlobalIdent("Windows");
             VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
-#if LDC_LLVM_VER >= 305
             if (global.params.targetTriple.isKnownWindowsMSVCEnvironment())
             {
                 VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
             }
-#else
-            VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
-#endif
-#if LDC_LLVM_VER >= 305
             if (global.params.targetTriple.isWindowsGNUEnvironment())
             {
                 VersionCondition::addPredefinedGlobalIdent("mingw32"); // For backwards compatibility.
@@ -752,29 +718,13 @@ static void registerPredefinedTargetVersions() {
                 VersionCondition::addPredefinedGlobalIdent("Cygwin");
             }
             break;
-#else
-            break;
-        case llvm::Triple::MinGW32:
-            VersionCondition::addPredefinedGlobalIdent("Windows");
-            VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64" : "Win32");
-            VersionCondition::addPredefinedGlobalIdent("mingw32"); // For backwards compatibility.
-            VersionCondition::addPredefinedGlobalIdent("MinGW");
-            break;
-        case llvm::Triple::Cygwin:
-            error(Loc(), "Cygwin is not yet supported");
-            fatal();
-            VersionCondition::addPredefinedGlobalIdent("Cygwin");
-            break;
-#endif
         case llvm::Triple::Linux:
-#if LDC_LLVM_VER >= 302
             if (global.params.targetTriple.getEnvironment() == llvm::Triple::Android)
             {
                 VersionCondition::addPredefinedGlobalIdent("Android");
                 VersionCondition::addPredefinedGlobalIdent("CRuntime_Bionic");
             }
             else
-#endif
             {
                 VersionCondition::addPredefinedGlobalIdent("linux");
                 VersionCondition::addPredefinedGlobalIdent("Posix");
@@ -810,20 +760,16 @@ static void registerPredefinedTargetVersions() {
             VersionCondition::addPredefinedGlobalIdent("OpenBSD");
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
-#if LDC_LLVM_VER >= 302
         case llvm::Triple::AIX:
             VersionCondition::addPredefinedGlobalIdent("AIX");
             VersionCondition::addPredefinedGlobalIdent("Posix");
             break;
-#endif
         default:
             switch (global.params.targetTriple.getEnvironment())
             {
-#if LDC_LLVM_VER >= 302
                 case llvm::Triple::Android:
                     VersionCondition::addPredefinedGlobalIdent("Android");
                     break;
-#endif
                 default:
                     error(Loc(), "target '%s' is not yet supported", global.params.targetTriple.str().c_str());
                     fatal();
@@ -852,7 +798,6 @@ static void registerPredefinedVersions() {
 
     registerPredefinedTargetVersions();
 
-#if LDC_LLVM_VER >= 303
     // Pass sanitizer arguments to linker. Requires clang.
     if (opts::sanitize == opts::AddressSanitizer) {
         VersionCondition::addPredefinedGlobalIdent("LDC_AddressSanitizer");
@@ -865,7 +810,6 @@ static void registerPredefinedVersions() {
     if (opts::sanitize == opts::ThreadSanitizer) {
         VersionCondition::addPredefinedGlobalIdent("LDC_ThreadSanitizer");
     }
-#endif
 
     // Expose LLVM version to runtime
 #define STR(x) #x
@@ -1011,10 +955,8 @@ int main(int argc, char **argv)
     gDataLayout = gTargetMachine->getDataLayout();
 #elif LDC_LLVM_VER >= 306
     gDataLayout = gTargetMachine->getSubtargetImpl()->getDataLayout();
-#elif LDC_LLVM_VER >= 302
-    gDataLayout = gTargetMachine->getDataLayout();
 #else
-    gDataLayout = gTargetMachine->getTargetData();
+    gDataLayout = gTargetMachine->getDataLayout();
 #endif
 
     {

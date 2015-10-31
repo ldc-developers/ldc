@@ -134,12 +134,10 @@ static std::string getX86TargetCPU(const llvm::Triple &triple)
         return "i486";
     if (triple.getOSName().startswith("netbsd"))
         return "i486";
-#if LDC_LLVM_VER >= 302
     // All x86 devices running Android have core2 as their common
     // denominator. This makes a better choice than pentium4.
     if (triple.getEnvironment() == llvm::Triple::Android)
         return "core2";
-#endif
 
     // Fallback to p4.
     return "pentium4";
@@ -269,13 +267,11 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
         case llvm::Triple::EABI:
             // EABI is always AAPCS, and if it was not marked 'hard', it's softfp
             return FloatABI::SoftFP;
-#if LDC_LLVM_VER >= 302
         case llvm::Triple::Android: {
             if (llvm::StringRef(llvmArchSuffix).startswith("v7"))
                 return FloatABI::SoftFP;
             return FloatABI::Soft;
         }
-#endif
         default:
             // Assume "soft".
             // TODO: Warn the user we are guessing.
@@ -442,11 +438,7 @@ llvm::TargetMachine* createTargetMachine(
             llvm::StringMapConstIterator<bool> i = hostFeatures.begin(),
                 end = hostFeatures.end();
             for (; i != end; ++i)
-#if LDC_LLVM_VER >= 305
                 features.AddFeature(std::string((i->second ? "+" : "-")).append(i->first()));
-#else
-                features.AddFeature(i->first(), i->second);
-#endif
         }
     }
 #if LDC_LLVM_VER < 307
@@ -468,13 +460,8 @@ llvm::TargetMachine* createTargetMachine(
     // if the user did not make an explicit choice.
     if (cpu == "x86-64")
     {
-#if LDC_LLVM_VER >= 304
         const char* cx16_plus = "+cx16";
         const char* cx16_minus = "-cx16";
-#else
-        const char* cx16_plus = "+cmpxchg16b";
-        const char* cx16_minus = "-cmpxchg16b";
-#endif
         bool cx16 = false;
         for (unsigned i = 0; i < attrs.size(); ++i)
             if (attrs[i] == cx16_plus || attrs[i] == cx16_minus) cx16 = true;
@@ -508,22 +495,6 @@ llvm::TargetMachine* createTargetMachine(
             break;
         }
     }
-
-#if LDC_LLVM_VER < 305
-    if (triple.getArch() == llvm::Triple::arm && !triple.isOSDarwin())
-    {
-        // On ARM, we want to use EHABI exception handling, as we don't support
-        // SJLJ EH in druntime. Unfortunately, it is still in a partly
-        // experimental state, and the -arm-enable-ehabi-descriptors command
-        // line option is not exposed via an internal API at all.
-        const char *backendArgs[3] = {
-            "ldc2", // Fake name, irrelevant.
-            "-arm-enable-ehabi",
-            "-arm-enable-ehabi-descriptors"
-        };
-        llvm::cl::ParseCommandLineOptions(3, backendArgs);
-    }
-#endif
 
     llvm::TargetOptions targetOptions;
 #if LDC_LLVM_VER < 307
@@ -564,13 +535,8 @@ llvm::TargetMachine* createTargetMachine(
     if (!noLinkerStripDead &&
         (triple.getOS() == llvm::Triple::Linux || triple.getOS() == llvm::Triple::Win32))
     {
-#if LDC_LLVM_VER < 305
-        llvm::TargetMachine::setDataSections(true);
-        llvm::TargetMachine::setFunctionSections(true);
-#else
         targetOptions.FunctionSections = true;
         targetOptions.DataSections = true;
-#endif
     }
 
     return target->createTargetMachine(

@@ -55,12 +55,10 @@
 #include "llvm/Support/Program.h"
 #include "llvm/Support/SystemUtils.h"
 #include "llvm/Support/raw_ostream.h"
-#if LDC_LLVM_VER >= 304
 #if _WIN32
 #include "Windows.h"
 #else
 #include <sys/stat.h>
-#endif
 #endif
 #include <cassert>
 #include <cerrno>
@@ -76,24 +74,6 @@
 #endif
 
 namespace ls = llvm::sys;
-
-#if LDC_LLVM_VER < 304
-namespace llvm {
-namespace sys {
-namespace fs {
-
-bool can_execute(const Twine &Path) {
-  return ls::Path(Path.str()).canExecute();
-}
-
-error_code createUniqueFile(const Twine &Model, int &ResultFD,
-                            SmallVectorImpl<char> &ResultPath) {
-  return llvm::sys::fs::unique_file(Model, ResultFD, ResultPath);
-}
-}
-}
-}
-#endif
 
 // We reuse DMD's response file parsing routine for maximum compatibilty - it
 // handles quotes in a very peculiar way.
@@ -155,13 +135,8 @@ char* concat(const char* a, int b)
 int execute(const std::string &exePath, const char** args)
 {
     std::string errorMsg;
-#if LDC_LLVM_VER >= 304
     int rc = ls::ExecuteAndWait(exePath, args, NULL, NULL,
         0, 0, &errorMsg);
-#else
-    int rc = ls::Program::ExecuteAndWait(ls::Path(exePath), args, NULL, NULL,
-        0, 0, &errorMsg);
-#endif
     if (!errorMsg.empty())
     {
         error("Error executing %s: %s", exePath.c_str(), errorMsg.c_str());
@@ -1052,10 +1027,8 @@ std::string locateBinary(std::string exeName)
 #if LDC_LLVM_VER >= 306
     llvm::ErrorOr<std::string> res = ls::findProgramByName(exeName);
     path = res ? res.get() : std::string();
-#elif LDC_LLVM_VER >= 304
-    path = ls::FindProgramByName(exeName);
 #else
-    path = ls::Program::FindProgramByName(exeName).str();
+    path = ls::FindProgramByName(exeName);
 #endif
     if (ls::fs::can_execute(path)) return path;
 
@@ -1066,12 +1039,7 @@ std::string locateBinary(std::string exeName)
  * Makes sure the given directory (absolute or relative) exists on disk.
  */
 static void createOutputDir(const char* dir) {
-#if LDC_LLVM_VER >= 305
     if (ls::fs::create_directories(dir))
-#else
-    bool dirExisted; // ignored
-    if (ls::fs::create_directories(dir, dirExisted) != llvm::errc::success)
-#endif
         error("Could not create output directory '%s'.", dir);
 }
 
@@ -1154,13 +1122,7 @@ int main(int argc, char *argv[])
 
         int rc = execute(ldcPath, &newArgs[0]);
 
-#if LDC_LLVM_VER >= 305
         if (ls::fs::remove(rspPath.str()))
-#else
-        bool couldRemove;
-        if (ls::fs::remove(rspPath.str(), couldRemove) != llvm::errc::success ||
-            !couldRemove)
-#endif
         {
             warning("Could not remove response file.");
         }

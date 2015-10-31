@@ -15,11 +15,7 @@
 #define __LDC_IR_IRTYPECLASS_H__
 
 #include "ir/irtypeaggr.h"
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/DerivedTypes.h"
-#else
-#include "llvm/DerivedTypes.h"
-#endif
 
 template <typename TYPE> struct Array;
 typedef Array<class FuncDeclaration *> FuncDeclarations;

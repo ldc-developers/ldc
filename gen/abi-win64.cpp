@@ -68,11 +68,7 @@ private:
 
     bool realIs80bits()
     {
-#if LDC_LLVM_VER >= 305
         return !global.params.targetTriple.isWindowsMSVCEnvironment();
-#else
-        return true;
-#endif
     }
 
     // Returns true if the D type is passed byval (the callee getting a pointer

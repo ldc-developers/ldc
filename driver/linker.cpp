@@ -41,12 +41,7 @@ static void CreateDirectoryOnDisk(llvm::StringRef fileName)
     llvm::StringRef dir(llvm::sys::path::parent_path(fileName));
     if (!dir.empty() && !llvm::sys::fs::exists(dir))
     {
-#if LDC_LLVM_VER >= 305
         std::error_code ec = llvm::sys::fs::create_directory(dir);
-#else
-        bool existed;
-        llvm::error_code ec = llvm::sys::fs::create_directory(dir, existed);
-#endif
         if (ec)
         {
             error(Loc(), "failed to create path to file: %s\n%s", dir.data(), ec.message().c_str());
@@ -143,7 +138,6 @@ static int linkObjToBinaryGcc(bool sharedLib)
     // create path to exe
     CreateDirectoryOnDisk(gExePath);
 
-#if LDC_LLVM_VER >= 303
     // Pass sanitizer arguments to linker. Requires clang.
     if (opts::sanitize == opts::AddressSanitizer) {
         args.push_back("-fsanitize=address");
@@ -156,7 +150,6 @@ static int linkObjToBinaryGcc(bool sharedLib)
     if (opts::sanitize == opts::ThreadSanitizer) {
         args.push_back("-fsanitize=thread");
     }
-#endif
 
     // additional linker switches
     for (unsigned i = 0; i < global.params.linkswitches->dim; i++)
@@ -196,22 +189,12 @@ static int linkObjToBinaryGcc(bool sharedLib)
         // solaris TODO
         break;
 
-#if LDC_LLVM_VER < 305
-    case llvm::Triple::MinGW32:
-        // This is really more of a kludge, as linking in the Winsock functions
-        // should be handled by the pragma(lib, ...) in std.socket, but it
-        // makes LDC behave as expected for now.
-        args.push_back("-lws2_32");
-        break;
-#endif
-
     default:
         // OS not yet handled, will probably lead to linker errors.
         // FIXME: Win32.
         break;
     }
 
-#if LDC_LLVM_VER >= 305
     if (global.params.targetTriple.isWindowsGNUEnvironment())
     {
         // This is really more of a kludge, as linking in the Winsock functions
@@ -219,7 +202,6 @@ static int linkObjToBinaryGcc(bool sharedLib)
         // makes LDC behave as expected for now.
         args.push_back("-lws2_32");
     }
-#endif
 
     // Only specify -m32/-m64 for architectures where the two variants actually
     // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
@@ -588,11 +570,7 @@ static int linkObjToBinaryWin(bool sharedLib)
 int linkObjToBinary(bool sharedLib)
 {
     int exitCode;
-#if LDC_LLVM_VER >= 305
     if (global.params.targetTriple.isWindowsMSVCEnvironment())
-#else
-    if (global.params.targetTriple.getOS() == llvm::Triple::Win32)
-#endif
         exitCode = linkObjToBinaryWin(sharedLib);
     else
         exitCode = linkObjToBinaryGcc(sharedLib);
@@ -605,11 +583,7 @@ int createStaticLibrary()
 {
     Logger::println("*** Creating static library ***");
 
-#if LDC_LLVM_VER >= 305
     const bool isTargetWindows = global.params.targetTriple.isWindowsMSVCEnvironment();
-#else
-    const bool isTargetWindows = global.params.targetTriple.getOS() == llvm::Triple::Win32;
-#endif
 
     // find archiver
     std::string tool(isTargetWindows ? "lib.exe" : getArchiver());
@@ -685,12 +659,7 @@ void deleteExecutable()
         //assert(gExePath.isValid());
         bool is_directory;
         assert(!(!llvm::sys::fs::is_directory(gExePath, is_directory) && is_directory));
-#if LDC_LLVM_VER < 305
-        bool Existed;
-        llvm::sys::fs::remove(gExePath, Existed);
-#else
         llvm::sys::fs::remove(gExePath);
-#endif
     }
 }
 

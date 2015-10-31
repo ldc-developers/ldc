@@ -21,36 +21,15 @@
 #include "Passes.h"
 
 #include "llvm/Pass.h"
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DataLayout.h"
-#else
-#include "llvm/Module.h"
-#include "llvm/Constants.h"
-#include "llvm/Intrinsics.h"
-#if LDC_LLVM_VER == 302
-#include "llvm/IRBuilder.h"
-#include "llvm/DataLayout.h"
-#else
-#include "llvm/Support/IRBuilder.h"
-#include "llvm/Target/TargetData.h"
-#endif
-#endif
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/CallSite.h"
-#else
-#include "llvm/Support/CallSite.h"
-#endif
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Analysis/CallGraph.h"
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/Dominators.h"
-#else
-#include "llvm/Analysis/Dominators.h"
-#endif
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/ADT/SmallSet.h"
 #include "llvm/ADT/SmallVector.h"
@@ -64,10 +43,6 @@
 #include <algorithm>
 
 using namespace llvm;
-
-#if LDC_LLVM_VER < 302
-typedef TargetData DataLayout;
-#endif
 
 STATISTIC(NumGcToStack, "Number of calls promoted to constant-size allocas");
 STATISTIC(NumToDynSize, "Number of calls promoted to dynamically-sized allocas");
@@ -162,10 +137,8 @@ namespace {
             APInt KnownZero(Bits, 0), KnownOne(Bits, 0);
 #if LDC_LLVM_VER >= 307
             computeKnownBits(Val, KnownZero, KnownOne, A.DL);
-#elif LDC_LLVM_VER >= 305
-            computeKnownBits(Val, KnownZero, KnownOne, &A.DL);
 #else
-            ComputeMaskedBits(Val, KnownZero, KnownOne, &A.DL);
+            computeKnownBits(Val, KnownZero, KnownOne, &A.DL);
 #endif
 
             if ((KnownZero & Mask) != Mask)
@@ -417,17 +390,11 @@ namespace {
         bool runOnFunction(Function &F);
 
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
-#if LDC_LLVM_VER >= 305
 #if LDC_LLVM_VER < 307
             AU.addRequired<DataLayoutPass>();
 #endif
             AU.addRequired<DominatorTreeWrapperPass>();
             AU.addPreserved<CallGraphWrapperPass>();
-#else
-            AU.addRequired<DataLayout>();
-            AU.addRequired<DominatorTree>();
-            AU.addPreserved<CallGraph>();
-#endif
         }
     };
     char GarbageCollect2Stack::ID = 0;
@@ -489,17 +456,13 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
     CallGraph *CG = CGPass ? &CGPass->getCallGraph() : 0;
-#elif LDC_LLVM_VER >= 305
+#else
     DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
     assert(DLP && "required DataLayoutPass is null");
     const DataLayout &DL = DLP->getDataLayout();
     DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
     CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
     CallGraph *CG = CGPass ? &CGPass->getCallGraph() : 0;
-#else
-    DataLayout &DL = getAnalysis<DataLayout>();
-    DominatorTree &DT = getAnalysis<DominatorTree>();
-    CallGraph *CG = getAnalysisIfAvailable<CallGraph>();
 #endif
     CallGraphNode *CGNode = CG ? (*CG)[&F] : NULL;
 
@@ -520,12 +483,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 
             // Ignore indirect calls and calls to non-external functions.
             Function *Callee = CS.getCalledFunction();
-            if (Callee == 0 || !Callee->isDeclaration() ||
-                    !(Callee->hasExternalLinkage()
-#if LDC_LLVM_VER < 305
-                    || Callee->hasDLLImportLinkage()
-#endif
-                    ))
+            if (Callee == 0 || !Callee->isDeclaration() || !Callee->hasExternalLinkage())
                 continue;
 
             // Ignore unknown calls.
@@ -830,11 +788,7 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
 
   for (Value::use_iterator UI = V->use_begin(), UE = V->use_end();
        UI != UE; ++UI) {
-#if LDC_LLVM_VER >= 305
     Use *U = &(*UI);
-#else
-    Use *U = &UI.getUse();
-#endif
     Visited.insert(U);
     Worklist.push_back(U);
   }
@@ -902,11 +856,7 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
       // The original value is not captured via this if the new value isn't.
       for (Instruction::use_iterator UI = I->use_begin(), UE = I->use_end();
            UI != UE; ++UI) {
-#if LDC_LLVM_VER >= 305
         Use *U = &(*UI);
-#else
-        Use *U = &UI.getUse();
-#endif
 #if LDC_LLVM_VER >= 306
         if (Visited.insert(U).second)
 #else

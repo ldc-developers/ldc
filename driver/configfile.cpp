@@ -34,7 +34,6 @@ llvm::cl::opt<std::string> clConf("conf",
     llvm::cl::desc("Use configuration file <filename>"),
     llvm::cl::value_desc("filename"));
 
-#if LDC_LLVM_VER >= 304
 #if _WIN32
 std::string getUserHomeDirectory() {
   char buff[MAX_PATH];
@@ -51,11 +50,6 @@ std::string getUserHomeDirectory() {
 std::string getUserHomeDirectory() {
   const char* home = getenv("HOME");
   return home ? home : "/";
-}
-#endif
-#else
-std::string getUserHomeDirectory() {
-  return llvm::sys::Path::GetUserHomeDirectory().str();
 }
 #endif
 

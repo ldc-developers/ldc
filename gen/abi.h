@@ -18,11 +18,7 @@
 #define LDC_GEN_ABI_H
 
 #include "mars.h"
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/CallingConv.h"
-#else
-#include "llvm/CallingConv.h"
-#endif
 #include <vector>
 
 class Type;

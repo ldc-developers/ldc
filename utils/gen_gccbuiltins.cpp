@@ -19,9 +19,6 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/Path.h"
 #include "llvm/TableGen/Record.h"
-#if LDC_LLVM_VER < 302
-#include "llvm/TableGen/TableGenAction.h"
-#endif
 #include <algorithm>
 #include <assert.h>
 #include <map>
@@ -201,16 +198,6 @@ bool emit(raw_ostream& os, RecordKeeper& records)
     return false;
 }
 
-#if LDC_LLVM_VER < 302
-struct ActionImpl : TableGenAction
-{
-    bool operator()(raw_ostream& os, RecordKeeper& records)
-    {
-        return emit(os, records);
-    }
-};
-#endif
-
 int main(int argc, char** argv)
 {
     if(argc != 3)
@@ -221,9 +208,7 @@ int main(int argc, char** argv)
 
     llvm::SmallString<128> file(LLVM_INTRINSIC_TD_PATH);
     sys::path::append(file, "llvm");
-#if LDC_LLVM_VER >= 303
     sys::path::append(file, "IR");
-#endif
     sys::path::append(file, "Intrinsics.td");
 
     string iStr = string("-I=") + string(LLVM_INTRINSIC_TD_PATH);
@@ -236,10 +221,5 @@ int main(int argc, char** argv)
 
     cl::ParseCommandLineOptions(args2.size(), &args2[0]);
     arch = argv[2];
-#if LDC_LLVM_VER >= 302
     return TableGenMain(argv[0], emit);
-#else
-    ActionImpl act;
-    return TableGenMain(argv[0], act);
-#endif
 }

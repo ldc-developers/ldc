@@ -21,22 +21,10 @@
 #if LDC_LLVM_VER >= 307
 #include "llvm/IR/Module.h"
 #endif
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/Function.h"
 #include "llvm/IR/Intrinsics.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/DataLayout.h"
-#else
-#include "llvm/Function.h"
-#include "llvm/Intrinsics.h"
-#if LDC_LLVM_VER == 302
-#include "llvm/IRBuilder.h"
-#include "llvm/DataLayout.h"
-#else
-#include "llvm/Support/IRBuilder.h"
-#include "llvm/Target/TargetData.h"
-#endif
-#endif
 #include "llvm/Analysis/AliasAnalysis.h"
 #include "llvm/Analysis/ValueTracking.h"
 #include "llvm/ADT/StringMap.h"
@@ -47,10 +35,6 @@
 #include "gen/runtime.h"
 
 using namespace llvm;
-
-#if LDC_LLVM_VER < 302
-typedef TargetData DataLayout;
-#endif
 
 #if LDC_LLVM_VER >= 308
 typedef AAResultsWrapperPass AliasAnalysisPass;
@@ -314,10 +298,8 @@ namespace {
         virtual void getAnalysisUsage(AnalysisUsage &AU) const {
 #if LDC_LLVM_VER >= 307
           // The DataLayoutPass is removed.
-#elif LDC_LLVM_VER >= 305
-          AU.addRequired<DataLayoutPass>();
 #else
-          AU.addRequired<DataLayout>();
+          AU.addRequired<DataLayoutPass>();
 #endif
           AU.addRequired<AliasAnalysisPass>();
         }
@@ -370,11 +352,9 @@ bool SimplifyDRuntimeCalls::runOnFunction(Function &F) {
 
 #if LDC_LLVM_VER >= 307
     const DataLayout *DL = &F.getParent()->getDataLayout();
-#elif LDC_LLVM_VER >= 305
+#else
     DataLayoutPass *DLP = getAnalysisIfAvailable<DataLayoutPass>();
     const DataLayout *DL = DLP ? &DLP->getDataLayout() : 0;
-#else
-    const DataLayout *DL = &getAnalysis<DataLayout>();
 #endif
     AliasAnalysisPass &AA = getAnalysis<AliasAnalysisPass>();
 
@@ -405,12 +385,7 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL, AliasAnal
 
             // Ignore indirect calls and calls to non-external functions.
             Function *Callee = CI->getCalledFunction();
-            if (Callee == 0 || !Callee->isDeclaration() ||
-                    !(Callee->hasExternalLinkage()
-#if LDC_LLVM_VER < 305
-                    || Callee->hasDLLImportLinkage()
-#endif
-                    ))
+            if (Callee == 0 || !Callee->isDeclaration() || !Callee->hasExternalLinkage())
                 continue;
 
             // Ignore unknown calls.

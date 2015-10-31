@@ -41,24 +41,11 @@
 #include "ir/irtype.h"
 #include "ir/irvar.h"
 #include "llvm/Support/CommandLine.h"
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/Verifier.h"
-#else
-#include "llvm/Analysis/Verifier.h"
-#endif
 #include "llvm/LinkAllPasses.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/Module.h"
 #include "llvm/IR/DataLayout.h"
-#else
-#include "llvm/Module.h"
-#if LDC_LLVM_VER == 302
-#include "llvm/DataLayout.h"
-#else
-#include "llvm/Target/TargetData.h"
-#endif
-#endif
 
 #if _AIX || __sun
 #include <alloca.h>
