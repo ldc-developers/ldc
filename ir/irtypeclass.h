@@ -18,7 +18,7 @@
 #include "llvm/IR/DerivedTypes.h"
 
 template <typename TYPE> struct Array;
-typedef Array<class FuncDeclaration *> FuncDeclarations;
+using FuncDeclarations = Array<class FuncDeclaration*>;
 
 ///
 class IrTypeClass : public IrTypeAggr
@@ -57,21 +57,21 @@ protected:
     IrTypeClass(ClassDeclaration* cd);
 
     ///
-    ClassDeclaration* cd;
+    ClassDeclaration* cd = nullptr;
     ///
-    TypeClass* tc;
+    TypeClass* tc = nullptr;
 
     /// Vtable type.
-    llvm::StructType *vtbl_type;
+    llvm::StructType* vtbl_type = nullptr;
 
     /// Number of pointers in vtable.
-    unsigned vtbl_size;
+    unsigned vtbl_size = 0;
 
     /// Number of interface implementations (vtables) in this class.
-    unsigned num_interface_vtbls;
+    unsigned num_interface_vtbls = 0;
 
     /// std::map type mapping ClassDeclaration* to size_t.
-    typedef std::map<ClassDeclaration*, size_t> ClassIndexMap;
+    using ClassIndexMap = std::map<ClassDeclaration*, size_t>;
 
     /// Map for mapping the index of a specific interface implementation
     /// in this class to its ClassDeclaration.

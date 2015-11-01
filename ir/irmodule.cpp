@@ -15,25 +15,24 @@
 #include "ir/irdsymbol.h"
 #include "ir/irfunction.h"
 
-IrModule::IrModule(Module *module, const char *srcfilename)
-    : M(module), moduleInfoVar_(0) {}
+IrModule::IrModule(Module* module, const char* srcfilename)
+    : M(module)
+{}
 
-IrModule::~IrModule() {}
-
-llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
-    if (moduleInfoVar_) return moduleInfoVar_;
+llvm::GlobalVariable* IrModule::moduleInfoSymbol() {
+    if (moduleInfoVar) return moduleInfoVar;
 
     std::string name("_D");
     name.append(mangle(M));
     name.append("12__ModuleInfoZ");
 
-    moduleInfoVar_ = new llvm::GlobalVariable(
+    moduleInfoVar = new llvm::GlobalVariable(
         gIR->module, llvm::StructType::create(gIR->context()), false,
         llvm::GlobalValue::ExternalLinkage, NULL, name);
-    return moduleInfoVar_;
+    return moduleInfoVar;
 }
 
-IrModule *getIrModule(Module *m) {
+IrModule* getIrModule(Module* m) {
     if (!m) m = gIR->func()->decl->getModule();
 
     assert(m && "null module");

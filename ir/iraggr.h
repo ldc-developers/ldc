@@ -34,17 +34,17 @@ namespace llvm {
 struct IrAggr
 {
     /// Constructor.
-    IrAggr(AggregateDeclaration* agg);
+    explicit IrAggr(AggregateDeclaration* agg);
 
     //////////////////////////////////////////////////////////////////////////
     // public fields,
     // FIXME this is basically stuff I just haven't gotten around to yet.
 
     /// The D aggregate.
-    AggregateDeclaration* aggrdecl;
+    AggregateDeclaration* aggrdecl = nullptr;
 
     /// Aggregate D type.
-    Type* type;
+    Type* type = nullptr;
 
     //////////////////////////////////////////////////////////////////////////
 
@@ -73,7 +73,7 @@ struct IrAggr
 
     //////////////////////////////////////////////////////////////////////////
 
-    typedef std::map<VarDeclaration*, llvm::Constant*> VarInitMap;
+    using VarInitMap = std::map<VarDeclaration*, llvm::Constant*>;
 
     /// Creates an initializer constant for the struct type with the given
     /// fields set to the provided constants. The remaining space (not
@@ -92,34 +92,34 @@ struct IrAggr
 
 protected:
     /// Static default initializer global.
-    llvm::GlobalVariable* init;
+    llvm::GlobalVariable* init = nullptr;
     /// Static default initializer constant.
-    llvm::Constant* constInit;
+    llvm::Constant* constInit = nullptr;
     /// Static default initialier type.
-    llvm::StructType* init_type;
+    llvm::StructType* init_type = nullptr;
 
     /// Vtbl global.
-    llvm::GlobalVariable* vtbl;
+    llvm::GlobalVariable* vtbl = nullptr;
     /// Vtbl initializer constant.
-    llvm::Constant* constVtbl;
+    llvm::Constant* constVtbl = nullptr;
 
     /// ClassInfo global.
-    llvm::GlobalVariable* classInfo;
+    llvm::GlobalVariable* classInfo = nullptr;
     /// ClassInfo initializer constant.
-    llvm::Constant* constClassInfo;
+    llvm::Constant* constClassInfo = nullptr;
 
     /// Map for mapping ClassDeclaration* to LLVM GlobalVariable.
-    typedef std::map<ClassDeclaration*, llvm::GlobalVariable*> ClassGlobalMap;
+    using ClassGlobalMap = std::map<ClassDeclaration*, llvm::GlobalVariable*>;
 
     /// Map from of interface vtbls implemented by this class.
     ClassGlobalMap interfaceVtblMap;
 
     /// Interface info array global.
     /// Basically: static object.Interface[num_interfaces]
-    llvm::GlobalVariable* classInterfacesArray;
+    llvm::GlobalVariable* classInterfacesArray = nullptr;
 
     /// std::vector of BaseClass*
-    typedef std::vector<BaseClass*> BaseClassVector;
+    using BaseClassVector = std::vector<BaseClass*>;
 
     /// Array of all interface vtbl implementations - in order - implemented
     /// by this class.

@@ -25,7 +25,6 @@ void IrDsymbol::resetAll()
 IrDsymbol::IrDsymbol()
 {
     list.push_back(this);
-    reset();
 }
 
 IrDsymbol::IrDsymbol(const IrDsymbol& s)
@@ -51,9 +50,9 @@ IrDsymbol::~IrDsymbol()
 
 void IrDsymbol::reset()
 {
-    irData  = NULL;
-    m_type  = NotSet;
-    m_state = Initial;
+    irData  = nullptr;
+    m_type  = Type::NotSet;
+    m_state = State::Initial;
 }
 
 void IrDsymbol::setResolved()

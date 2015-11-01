@@ -34,7 +34,6 @@ IrTypeClass::IrTypeClass(ClassDeclaration* cd)
     vtbl_name.append(".__vtbl");
     vtbl_type = LLStructType::create(gIR->context(), vtbl_name);
     vtbl_size = cd->vtbl.dim;
-    num_interface_vtbls = 0;
 }
 
 //////////////////////////////////////////////////////////////////////////////

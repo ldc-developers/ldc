@@ -16,6 +16,23 @@
 #include "ir/irfunction.h"
 #include <sstream>
 
+JumpTarget::JumpTarget(llvm::BasicBlock* targetBlock, CleanupCursor cleanupScope,
+    Statement* targetStatement)
+    : targetBlock(targetBlock), cleanupScope(cleanupScope),
+      targetStatement(targetStatement)
+{}
+
+GotoJump::GotoJump(Loc loc, llvm::BasicBlock* sourceBlock,
+    llvm::BasicBlock* tentativeTarget, Identifier* targetLabel)
+    : sourceLoc(loc), sourceBlock(sourceBlock),
+      tentativeTarget(tentativeTarget), targetLabel(targetLabel)
+{}
+
+CatchScope::CatchScope(llvm::Constant* classInfoPtr, llvm::BasicBlock* bodyBlock,
+    CleanupCursor cleanupScope)
+    : classInfoPtr(classInfoPtr), bodyBlock(bodyBlock), cleanupScope(cleanupScope)
+{}
+
 namespace {
 void executeCleanup(IRState* irs, CleanupScope& scope,
     llvm::BasicBlock* sourceBlock, llvm::BasicBlock* continueWith
@@ -182,8 +199,8 @@ void ScopeStack::popCleanups(CleanupCursor targetScope) {
 void ScopeStack::pushCatch(llvm::Constant* classInfoPtr,
     llvm::BasicBlock* bodyBlock
 ) {
-    catchScopes.push_back({classInfoPtr, bodyBlock, currentCleanupScope()});
-    currentLandingPads().push_back(0);
+    catchScopes.emplace_back(classInfoPtr, bodyBlock, currentCleanupScope());
+    currentLandingPads().push_back(nullptr);
 }
 
 void ScopeStack::popCatch() {
@@ -194,8 +211,8 @@ void ScopeStack::popCatch() {
 void ScopeStack::pushLoopTarget(Statement* loopStatement, llvm::BasicBlock* continueTarget,
     llvm::BasicBlock* breakTarget
 ) {
-    continueTargets.push_back({continueTarget, currentCleanupScope(), loopStatement});
-    breakTargets.push_back({breakTarget, currentCleanupScope(), loopStatement});
+    continueTargets.emplace_back(continueTarget, currentCleanupScope(), loopStatement);
+    breakTargets.emplace_back(breakTarget, currentCleanupScope(), loopStatement);
 }
 
 void ScopeStack::popLoopTarget() {
@@ -246,7 +263,7 @@ void ScopeStack::jumpToLabel(Loc loc, Identifier* labelName) {
     llvm::BasicBlock* target =
         llvm::BasicBlock::Create(irs->context(), "goto.unresolved", irs->topfunc());
     irs->ir->CreateBr(target);
-    currentUnresolvedGotos().push_back({loc, irs->scopebb(), target, labelName});
+    currentUnresolvedGotos().emplace_back(loc, irs->scopebb(), target, labelName);
 }
 
 void ScopeStack::jumpToStatement(std::vector<JumpTarget>& targets,
@@ -267,7 +284,7 @@ void ScopeStack::jumpToStatement(std::vector<JumpTarget>& targets,
 void ScopeStack::jumpToClosest(std::vector<JumpTarget>& targets) {
     assert(!targets.empty() &&
         "Encountered break/continue but no loop in scope.");
-    JumpTarget &t = targets.back();
+    JumpTarget& t = targets.back();
     runCleanups(t.cleanupScope, t.targetBlock);
 }
 
@@ -287,7 +304,7 @@ namespace {
 llvm::LandingPadInst* createLandingPadInst(IRState* irs) {
     LLType* retType = LLStructType::get(LLType::getInt8PtrTy(irs->context()),
                                         LLType::getInt32Ty(irs->context()),
-                                        NULL);
+                                        nullptr);
 #if LDC_LLVM_VER >= 307
     LLFunction* currentFunction = irs->func()->func;
     if (!currentFunction->hasPersonalityFn()) {
@@ -341,10 +358,7 @@ llvm::BasicBlock* ScopeStack::emitLandingPad() {
 
     // Add landingpad clauses, emit finallys and 'if' chain to catch the exception.
     CleanupCursor lastCleanup = currentCleanupScope();
-    for (std::vector<CatchScope>::reverse_iterator it = catchScopes.rbegin(),
-                                                   end = catchScopes.rend();
-        it != end; ++it
-    ) {
+    for (auto it = catchScopes.rbegin(), end = catchScopes.rend(); it != end; ++it) {
         // Insert any cleanups in between the last catch we ran and this one.
         assert(lastCleanup >= it->cleanupScope);
         if (lastCleanup > it->cleanupScope) {
@@ -407,28 +421,6 @@ IrFunction::IrFunction(FuncDeclaration* fd) {
     Type* t = fd->type->toBasetype();
     assert(t->ty == Tfunction);
     type = static_cast<TypeFunction*>(t);
-    func = NULL;
-    allocapoint = NULL;
-
-    retArg = NULL;
-    thisArg = NULL;
-    nestArg = NULL;
-
-    nestedVar = NULL;
-    frameType = NULL;
-    frameTypeAlignment = 0;
-    depth = -1;
-    nestedContextCreated = false;
-
-    _arguments = NULL;
-    _argptr = NULL;
-
-    retValSlot = NULL;
-    retBlock = NULL;
-
-    ehPtrSlot = NULL;
-    resumeUnwindBlock = NULL;
-    ehSelectorSlot = NULL;
 }
 
 void IrFunction::setNeverInline() {
