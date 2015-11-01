@@ -42,11 +42,9 @@ void DtoResolveClass(ClassDeclaration* cd)
     LOG_SCOPE;
 
     // make sure the base classes are processed first
-    for (BaseClasses::iterator I = cd->baseclasses->begin(),
-                               E = cd->baseclasses->end();
-                               I != E; ++I)
+    for (auto bc : *cd->baseclasses)
     {
-        DtoResolveClass((*I)->base);
+        DtoResolveClass(bc->base);
     }
 
     // make sure type exists
@@ -56,11 +54,8 @@ void DtoResolveClass(ClassDeclaration* cd)
     IrAggr* irAggr = getIrAggr(cd, true);
 
     // make sure all fields really get their ir field
-    for (VarDeclarations::iterator I = cd->fields.begin(),
-                                   E = cd->fields.end();
-                                   I != E; ++I)
+    for (auto vd : cd->fields)
     {
-        VarDeclaration* vd = *I;
         IF_LOG {
             if (isIrFieldCreated(vd))
                 Logger::println("class field already exists");

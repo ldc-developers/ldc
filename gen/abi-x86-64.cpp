@@ -68,8 +68,8 @@ namespace {
             abiTy = i1ToI8(abiTy);
         } else {
             std::vector<LLType*> parts;
-            for (Array<Parameter*>::iterator I = argTypes->arguments->begin(), E = argTypes->arguments->end(); I != E; ++I) {
-                LLType* partType = DtoType((*I)->type);
+            for (auto param : *argTypes->arguments) {
+                LLType* partType = DtoType(param->type);
                 // round up the DMD argtype for an eightbyte of a struct to a corresponding 64-bit type
                 // this makes sure that 64 bits of the chosen register are used and thus
                 // makes sure all potential padding bytes of a struct are copied

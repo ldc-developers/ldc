@@ -178,18 +178,12 @@ ldc::DIType ldc::DIBuilder::CreateEnumType(Type *type)
 #else
     llvm::SmallVector<llvm::Value *, 8> subscripts;
 #endif
-    for (Dsymbols::iterator I = te->sym->members->begin(),
-                            E = te->sym->members->end();
-                            I != E; ++I)
+    for (auto m : *te->sym->members)
     {
-        EnumMember *em = (*I)->isEnumMember();
+        EnumMember *em = m->isEnumMember();
         llvm::StringRef Name(em->toChars());
         uint64_t Val = em->value->toInteger();
-#if LDC_LLVM_VER >= 306
-        llvm::Metadata *Subscript = DBuilder.createEnumerator(Name, Val);
-#else
-        llvm::Value *Subscript = DBuilder.createEnumerator(Name, Val);
-#endif
+        auto Subscript = DBuilder.createEnumerator(Name, Val);
         subscripts.push_back(Subscript);
     }
 
@@ -312,13 +306,8 @@ void ldc::DIBuilder::AddBaseFields(ClassDeclaration *sd, ldc::DIFile file,
 
     size_t narr = sd->fields.dim;
     elems.reserve(narr);
-    for (VarDeclarations::iterator I = sd->fields.begin(),
-                                   E = sd->fields.end();
-                                   I != E; ++I)
-    {
-        VarDeclaration* vd = *I;
+    for (auto vd : sd->fields)
         elems.push_back(CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset, vd->prot().kind));
-    }
 }
 
 ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
@@ -389,11 +378,8 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
         if (t->ty == Tstruct)
         {
             elems.reserve(sd->fields.dim);
-            for (VarDeclarations::iterator I = sd->fields.begin(),
-                                           E = sd->fields.end();
-                                           I != E; ++I)
+            for (auto vd : sd->fields)
             {
-                VarDeclaration* vd = *I;
                 ldc::DIType dt = CreateMemberType(vd->loc.linnum, vd->type, file, vd->toChars(), vd->offset, vd->prot().kind);
                 elems.push_back(dt);
             }
@@ -845,7 +831,7 @@ void ldc::DIBuilder::EmitStopPoint(Loc& loc)
 
 void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd)
 {
-    IrFunction::VariableMap::iterator sub = IR->func()->variableMap.find(vd);
+    auto sub = IR->func()->variableMap.find(vd);
     if (sub == IR->func()->variableMap.end())
         return;
 
@@ -879,8 +865,8 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     Logger::println("D to dwarf local variable");
     LOG_SCOPE;
 
-    IrFunction::VariableMap& variableMap = IR->func()->variableMap;
-    IrFunction::VariableMap::iterator sub = variableMap.find(vd);
+    auto& variableMap = IR->func()->variableMap;
+    auto sub = variableMap.find(vd);
     if (sub != variableMap.end())
         return; // ensure that the debug variable is created only once
 

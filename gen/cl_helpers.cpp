@@ -32,9 +32,8 @@ MultiSetter::MultiSetter(bool invert, bool* p, ...) {
 }
 
 void MultiSetter::operator=(bool val) {
-    typedef std::vector<bool*>::iterator It;
-    for (It I = locations.begin(), E = locations.end(); I != E; ++I) {
-        **I = (val != invert);
+    for (auto& l : locations) {
+        *l = (val != invert);
     }
 }
 

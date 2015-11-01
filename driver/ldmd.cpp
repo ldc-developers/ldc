@@ -906,11 +906,8 @@ Params parseArgs(size_t originalArgc, char** originalArgv, const std::string &ld
 
 void pushSwitches(const char* prefix, const std::vector<char*>& vals, std::vector<const char*>& r)
 {
-    typedef std::vector<char*>::const_iterator It;
-    for (It it = vals.begin(), end = vals.end(); it != end; ++it)
-    {
-        r.push_back(concat(prefix, *it));
-    }
+    for (auto v : vals)
+        r.push_back(concat(prefix, v));
 }
 
 /**
@@ -1105,11 +1102,8 @@ int main(int argc, char *argv[])
 
         {
             llvm::raw_fd_ostream rspOut(rspFd, /*shouldClose=*/true);
-            typedef std::vector<const char*>::const_iterator It;
-            for (It it = args.begin(), end = args.end(); it != end; ++it)
-            {
-                rspOut << *it << '\n';
-            }
+            for (auto arg : args)
+                rspOut << arg << '\n';
         }
 
         std::string rspArg = "@";

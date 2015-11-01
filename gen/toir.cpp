@@ -2689,13 +2689,12 @@ public:
 
         llvm::Type* elementType = NULL;
         bool differentTypes = false;
-        for (std::vector<llvm::Constant*>::iterator i = vals.begin(), end = vals.end();
-             i != end; ++i)
+        for (auto v : vals)
         {
             if (!elementType)
-                elementType = (*i)->getType();
+                elementType = v->getType();
             else
-                differentTypes |= (elementType != (*i)->getType());
+                differentTypes |= (elementType != v->getType());
         }
 
         if (differentTypes)

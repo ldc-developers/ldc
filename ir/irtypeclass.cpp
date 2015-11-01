@@ -59,11 +59,8 @@ void IrTypeClass::addBaseClassData(AggrTypeBuilder &builder, ClassDeclaration *b
         // align offset
         builder.alignCurrentOffset(Target::ptrsize);
 
-        for (BaseClasses::iterator I = base->vtblInterfaces->begin(),
-                                   E = base->vtblInterfaces->end();
-                                   I != E; ++I)
+        for (auto b : *base->vtblInterfaces)
         {
-            BaseClass *b = *I;
             IF_LOG Logger::println("Adding interface vtbl for %s", b->base->toPrettyChars());
 
             FuncDeclarations arr;
@@ -167,9 +164,7 @@ std::vector<llvm::Type*> IrTypeClass::buildVtblType(Type* first, FuncDeclaration
         types.push_back(DtoType(first));
 
     // then come the functions
-    for (FuncDeclarations::iterator I = vtbl_array->begin() + 1,
-                                    E = vtbl_array->end();
-                                    I != E; ++I)
+    for (auto I = vtbl_array->begin() + 1, E = vtbl_array->end(); I != E; ++I)
     {
         FuncDeclaration* fd = *I;
         if (fd == NULL)
@@ -230,7 +225,7 @@ llvm::Type * IrTypeClass::getMemoryLLType()
 
 size_t IrTypeClass::getInterfaceIndex(ClassDeclaration * inter)
 {
-    ClassIndexMap::iterator it = interfaceMap.find(inter);
+    auto it = interfaceMap.find(inter);
     if (it == interfaceMap.end())
         return ~0UL;
     return it->second;

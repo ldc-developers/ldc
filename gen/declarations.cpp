@@ -163,12 +163,8 @@ public:
             decl->ir.setDefined();
 
             // Emit any members (e.g. final functions).
-            for (Dsymbols::iterator I = decl->members->begin(),
-                                    E = decl->members->end();
-                                    I != E; ++I)
-            {
-                (*I)->accept(this);
-            }
+            for (auto m : *decl->members)
+                m->accept(this);
 
             // Emit TypeInfo.
             DtoTypeInfoOf(decl->type);
@@ -203,12 +199,8 @@ public:
             DtoResolveStruct(decl);
             decl->ir.setDefined();
 
-            for (Dsymbols::iterator I = decl->members->begin(),
-                                    E = decl->members->end();
-                                    I != E; ++I)
-            {
-                (*I)->accept(this);
-            }
+            for (auto m : *decl->members)
+                m->accept(this);
 
             // Define the __initZ symbol.
             IrAggr *ir = getIrAggr(decl);
@@ -251,12 +243,8 @@ public:
             DtoResolveClass(decl);
             decl->ir.setDefined();
 
-            for (Dsymbols::iterator I = decl->members->begin(),
-                                    E = decl->members->end();
-                                    I != E; ++I)
-            {
-                (*I)->accept(this);
-            }
+            for (auto m : *decl->members)
+                m->accept(this);
 
             IrAggr *ir = getIrAggr(decl);
             const LinkageWithCOMDAT lwc = DtoLinkage(decl);
@@ -292,11 +280,9 @@ public:
         assert(decl->isexp);
         assert(decl->objects);
 
-        for (Objects::iterator I = decl->objects->begin(),
-                               E = decl->objects->end();
-                               I != E; ++I)
+        for (auto o : *decl->objects)
         {
-            DsymbolExp *exp = static_cast<DsymbolExp *>(*I);
+            DsymbolExp *exp = static_cast<DsymbolExp *>(o);
             assert(exp->op == TOKdsymbol);
             exp->s->accept(this);
         }
@@ -426,12 +412,8 @@ public:
 
         if (!isError(decl) && decl->members)
         {
-            for (Dsymbols::iterator I = decl->members->begin(),
-                                    E = decl->members->end();
-                                    I != E; ++I)
-            {
-                (*I)->accept(this);
-            }
+            for (auto m : *decl->members)
+                m->accept(this);
         }
     }
 
@@ -446,12 +428,8 @@ public:
 
         if (!isError(decl) && decl->members)
         {
-            for (Dsymbols::iterator I = decl->members->begin(),
-                                    E = decl->members->end();
-                                    I != E; ++I)
-            {
-                (*I)->accept(this);
-            }
+            for (auto m : *decl->members)
+                m->accept(this);
         }
     }
 
@@ -462,12 +440,8 @@ public:
 
         if (d)
         {
-            for (Dsymbols::iterator I = d->begin(),
-                                    E = d->end();
-                                    I != E; ++I)
-            {
-                (*I)->accept(this);
-            }
+            for (auto s : *d)
+                s->accept(this);
         }
     }
 

@@ -248,11 +248,10 @@ static int linkObjToBinaryGcc(bool sharedLib)
     }
 
     Logger::println("Linking with: ");
-    std::vector<std::string>::const_iterator I = args.begin(), E = args.end();
     Stream logstr = Logger::cout();
-    for (; I != E; ++I)
-        if (!(*I).empty())
-            logstr << "'" << *I << "'" << " ";
+    for (const auto& arg : args)
+        if (!arg.empty())
+            logstr << "'" << arg << "'" << " ";
     logstr << "\n"; // FIXME where's flush ?
 
     // try to call linker
@@ -554,11 +553,10 @@ static int linkObjToBinaryWin(bool sharedLib)
     args.push_back("advapi32.lib");
 
     Logger::println("Linking with: ");
-    std::vector<std::string>::const_iterator I = args.begin(), E = args.end();
     Stream logstr = Logger::cout();
-    for (; I != E; ++I)
-        if (!(*I).empty())
-            logstr << "'" << *I << "'" << " ";
+    for (const auto& arg : args)
+        if (!arg.empty())
+            logstr << "'" << arg << "'" << " ";
     logstr << "\n"; // FIXME where's flush ?
 
     // try to call linker

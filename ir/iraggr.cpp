@@ -197,11 +197,10 @@ llvm::Constant* IrAggr::createInitializerConstant(
     // get initializer type
     if (!initializerType || initializerType->isOpaque())
     {
-        llvm::SmallVector<llvm::Constant*, 16>::iterator itr, end = constants.end();
         llvm::SmallVector<llvm::Type*, 16> types;
         types.reserve(constants.size());
-        for (itr = constants.begin(); itr != end; ++itr)
-            types.push_back((*itr)->getType());
+        for (auto c : constants)
+            types.push_back(c->getType());
         if (!initializerType)
             initializerType = LLStructType::get(gIR->context(), types, isPacked());
         else
@@ -352,16 +351,14 @@ void IrAggr::addFieldInitializers(
 
             offset = (offset + Target::ptrsize - 1) & ~(Target::ptrsize - 1);
 
-            for (BaseClasses::iterator I = cd->vtblInterfaces->begin(),
-                                       E = cd->vtblInterfaces->end();
-                                       I != E; ++I)
+            for (auto bc : *cd->vtblInterfaces)
             {
-                constants.push_back(getInterfaceVtbl(*I, newinsts, inter_idx));
+                constants.push_back(getInterfaceVtbl(bc, newinsts, inter_idx));
                 offset += Target::ptrsize;
                 inter_idx++;
 
                 if (populateInterfacesWithVtbls)
-                    interfacesWithVtbls.push_back(*I);
+                    interfacesWithVtbls.push_back(bc);
             }
         }
     }

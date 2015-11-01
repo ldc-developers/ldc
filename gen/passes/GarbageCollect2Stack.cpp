@@ -473,8 +473,8 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
     IRBuilder<> AllocaBuilder(&Entry, Entry.begin());
 
     bool Changed = false;
-    for (Function::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-        for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ) {
+    for (auto& BB : F) {
+        for (auto I = BB.begin(), E = BB.end(); I != E; ) {
             // Ignore non-calls.
             Instruction* Inst = I++;
             CallSite CS(Inst);
@@ -487,8 +487,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
                 continue;
 
             // Ignore unknown calls.
-            StringMap<FunctionInfo*>::iterator OMI =
-                KnownFunctions.find(Callee->getName());
+            auto OMI = KnownFunctions.find(Callee->getName());
             if (OMI == KnownFunctions.end()) continue;
 
             FunctionInfo* info = OMI->getValue();
@@ -517,12 +516,10 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 
             // First demote tail calls which use the value so there IR is never
             // in an invalid state.
-            SmallVector<CallInst*, 4>::iterator it, end = RemoveTailCallInsts.end();
-            for (it = RemoveTailCallInsts.begin(); it != end; ++it) {
-                (*it)->setTailCall(false);
-            }
+            for (auto i : RemoveTailCallInsts)
+                i->setTailCall(false);
 
-            IRBuilder<> Builder(BB, Inst);
+            IRBuilder<> Builder(&BB, Inst);
             Value* newVal = info->promote(CS, Builder, A);
 
             DEBUG(errs() << "Promoted to: " << *newVal);

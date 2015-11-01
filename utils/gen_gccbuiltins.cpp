@@ -183,17 +183,8 @@ bool emit(raw_ostream& os, RecordKeeper& records)
     map<string, Record*> defs = records.getDefs();
 #endif
 
-    for(
-#if LDC_LLVM_VER >= 306
-        auto it = defs.cbegin();
-#else
-        map<string, Record* >::iterator it = defs.begin();
-#endif
-        it != defs.end();
-        it++)
-    {
-        processRecord(os, *(*it).second, arch);
-    }
+    for (const auto& d : defs)
+        processRecord(os, *d.second, arch);
 
     return false;
 }

@@ -18,10 +18,8 @@ int executeToolAndWait(const std::string &tool, std::vector<std::string> const &
     std::vector<const char *> realargs;
     realargs.reserve(args.size() + 2);
     realargs.push_back(tool.c_str());
-    for (std::vector<std::string>::const_iterator it = args.begin(); it != args.end(); ++it)
-    {
-        realargs.push_back((*it).c_str());
-    }
+    for (const auto& arg : args)
+        realargs.push_back(arg.c_str());
     realargs.push_back(NULL);
 
     // Print command line if requested

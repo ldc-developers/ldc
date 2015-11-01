@@ -289,7 +289,7 @@ static void addMipsABI(const llvm::Triple &triple, std::vector<std::string> &att
                          triple.getArch() == llvm::Triple::mips64el;
     const uint32_t defaultABI = is64Bit ? N64 : O32;
     uint32_t bits = defaultABI;
-    std::vector<std::string>::iterator I = attrs.begin();
+    auto I = attrs.begin();
     while (I != attrs.end())
     {
         std::string str = *I;
@@ -343,8 +343,7 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
         for (const llvm::Target &T : llvm::TargetRegistry::targets())
         {
 #else
-        for (llvm::TargetRegistry::iterator it = llvm::TargetRegistry::begin(),
-            ie = llvm::TargetRegistry::end(); it != ie; ++it)
+        for (auto it = llvm::TargetRegistry::begin(), ie = llvm::TargetRegistry::end(); it != ie; ++it)
         {
             const llvm::Target& T = *it;
 #endif
@@ -435,10 +434,8 @@ llvm::TargetMachine* createTargetMachine(
         llvm::StringMap<bool> hostFeatures;
         if (llvm::sys::getHostCPUFeatures(hostFeatures))
         {
-            llvm::StringMapConstIterator<bool> i = hostFeatures.begin(),
-                end = hostFeatures.end();
-            for (; i != end; ++i)
-                features.AddFeature(std::string((i->second ? "+" : "-")).append(i->first()));
+            for (const auto& hf : hostFeatures)
+                features.AddFeature(std::string(hf.second ? "+" : "-").append(hf.first()));
         }
     }
 #if LDC_LLVM_VER < 307

@@ -61,10 +61,9 @@ static llvm::cl::opt<bool> fqnNames("oq",
 
 static void check_and_add_output_file(Module* NewMod, const std::string& str)
 {
-    typedef std::map<std::string, Module*> map_t;
-    static map_t files;
+    static std::map<std::string, Module*> files;
 
-    map_t::iterator i = files.find(str);
+    auto i = files.find(str);
     if (i != files.end()) {
         Module* ThisMod = i->second;
         error(Loc(), "Output file '%s' for module '%s' collides with previous module '%s'. See the -oq option",
@@ -190,9 +189,8 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     }
 
     // Call ctor's
-    typedef std::list<FuncDeclaration*>::const_iterator FuncIterator;
-    for (FuncIterator itr = funcs.begin(), end = funcs.end(); itr != end; ++itr) {
-        llvm::Function* f = getIrFunc(*itr)->func;
+    for (auto func : funcs) {
+        llvm::Function* f = getIrFunc(func)->func;
 #if LDC_LLVM_VER >= 307
         llvm::CallInst* call = builder.CreateCall(f, {});
 #else
@@ -206,10 +204,9 @@ static llvm::Function* build_module_function(const std::string &name, const std:
     }
 
     // Increment vgate's
-    typedef std::list<VarDeclaration*>::const_iterator GatesIterator;
-    for (GatesIterator itr = gates.begin(), end = gates.end(); itr != end; ++itr) {
-        assert(getIrGlobal(*itr));
-        llvm::Value* val = getIrGlobal(*itr)->value;
+    for (auto gate : gates) {
+        assert(getIrGlobal(gate));
+        llvm::Value* val = getIrGlobal(gate)->value;
         llvm::Value* rval = builder.CreateLoad(val, "vgate");
         llvm::Value* res = builder.CreateAdd(rval, DtoConstUint(1), "vgate");
         builder.CreateStore(res, val);
@@ -563,11 +560,8 @@ static void build_llvm_used_array(IRState* p)
     std::vector<llvm::Constant*> usedVoidPtrs;
     usedVoidPtrs.reserve(p->usedArray.size());
 
-    for (std::vector<llvm::Constant*>::iterator it = p->usedArray.begin(),
-        end = p->usedArray.end(); it != end; ++it)
-    {
-        usedVoidPtrs.push_back(DtoBitCast(*it, getVoidPtrType()));
-    }
+    for (auto constant : p->usedArray)
+        usedVoidPtrs.push_back(DtoBitCast(constant, getVoidPtrType()));
 
     llvm::ArrayType *arrayType = llvm::ArrayType::get(
         getVoidPtrType(), usedVoidPtrs.size());

@@ -50,12 +50,10 @@ struct PPC64TargetABI : TargetABI {
     void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
     {
         // EXPLICIT PARAMETERS
-        for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I)
+        for (auto arg : fty.args)
         {
-            IrFuncTyArg& arg = **I;
-
-            if (!arg.byref)
-                rewriteArgument(fty, arg);
+            if (!arg->byref)
+                rewriteArgument(fty, *arg);
         }
     }
 

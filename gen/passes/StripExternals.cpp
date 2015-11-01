@@ -50,14 +50,14 @@ ModulePass *createStripExternalsPass() { return new StripExternals(); }
 bool StripExternals::runOnModule(Module &M) {
   bool Changed = false;
 
-  for (Module::iterator I = M.begin(); I != M.end(); ) {
+  for (auto I = M.begin(); I != M.end(); ) {
     if (I->hasAvailableExternallyLinkage()) {
       assert(!I->isDeclaration()&&"Declarations can't be available_externally");
       Changed = true;
       ++NumFunctions;
       if (I->use_empty()) {
         DEBUG(errs() << "Deleting function: " << *I);
-        Module::iterator todelete = I;
+        auto todelete = I;
         ++I;
         todelete->eraseFromParent();
         continue;

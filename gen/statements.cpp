@@ -114,11 +114,8 @@ public:
         IF_LOG Logger::println("CompoundStatement::toIR(): %s", stmt->loc.toChars());
         LOG_SCOPE;
 
-        for (Statements::iterator I = stmt->statements->begin(),
-                                  E = stmt->statements->end();
-                                  I != E; ++I)
+        for (auto s : *stmt->statements)
         {
-            Statement *s = *I;
             if (s) {
                 s->accept(this);
             }
@@ -777,13 +774,11 @@ public:
         // Only after emitting all the catch bodies, register the catch scopes.
         // This is so that (re)throwing inside a catch does not match later
         // catches.
-        for (CatchBlocks::iterator it = catchBlocks.begin(),
-                                   end = catchBlocks.end();
-             it != end; ++it
-        ) {
-            DtoResolveClass(it->first);
+        for (const auto& pair : catchBlocks)
+        {
+            DtoResolveClass(pair.first);
             irs->func()->scopes->pushCatch(
-                getIrAggr(it->first)->getClassInfoSymbol(), it->second);
+                getIrAggr(pair.first)->getClassInfoSymbol(), pair.second);
         }
 
         // Emit the try block.
@@ -848,12 +843,9 @@ public:
         // 'switch' instruction (that can happen because D2 allows to
         // initialize a global variable in a static constructor).
         bool useSwitchInst = true;
-        for (CaseStatements::iterator I = stmt->cases->begin(),
-                                      E = stmt->cases->end();
-                                      I != E; ++I)
+        for (auto cs : *stmt->cases)
         {
-            CaseStatement *cs = *I;
-            VarDeclaration* vd = 0;
+            VarDeclaration* vd = nullptr;
             if (cs->exp->op == TOKvar)
                 vd = static_cast<VarExp*>(cs->exp)->var->isVarDeclaration();
             if (vd && (!vd->init || !vd->isConst())) {
@@ -945,13 +937,8 @@ public:
 
             // create switch and add the cases
             llvm::SwitchInst* si = llvm::SwitchInst::Create(condVal, defbb ? defbb : endbb, stmt->cases->dim, irs->scopebb());
-            for (CaseStatements::iterator I = stmt->cases->begin(),
-                                          E = stmt->cases->end();
-                                          I != E; ++I)
-            {
-                CaseStatement *cs = *I;
+            for (auto cs : *stmt->cases)
                 si->addCase(isaConstantInt(cs->llvmIdx), cs->bodyBB);
-            }
         }
         else
         { // we can't use switch, so we will use a bunch of br instructions instead
@@ -962,12 +949,8 @@ public:
             llvm::BranchInst::Create(nextbb, irs->scopebb());
 
             irs->scope() = IRScope(nextbb);
-            for (CaseStatements::iterator I = stmt->cases->begin(),
-                                          E = stmt->cases->end();
-                                          I != E; ++I)
+            for (auto cs : *stmt->cases)
             {
-                CaseStatement *cs = *I;
-
                 LLValue *cmp = irs->ir->CreateICmp(llvm::ICmpInst::ICMP_EQ, cs->llvmIdx, condVal, "checkcase");
                 nextbb = llvm::BasicBlock::Create(irs->context(), "checkcase", irs->topfunc());
                 llvm::BranchInst::Create(cs->bodyBB, nextbb, cmp, irs->scopebb());

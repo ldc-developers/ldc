@@ -123,16 +123,14 @@ void printVersion() {
 // Helper function to handle -d-debug=* and -d-version=*
 static void processVersions(std::vector<std::string>& list, const char* type,
         void (*setLevel)(unsigned), void (*addIdent)(const char*)) {
-    typedef std::vector<std::string>::iterator It;
-
-    for(It I = list.begin(), E = list.end(); I != E; ++I) {
-        const char* value = I->c_str();
+    for (const auto& i : list) {
+        const char* value = i.c_str();
         if (isdigit(value[0])) {
             errno = 0;
             char* end;
             long level = strtol(value, &end, 10);
             if (*end || errno || level > INT_MAX) {
-                error(Loc(), "Invalid %s level: %s", type, I->c_str());
+                error(Loc(), "Invalid %s level: %s", type, i.c_str());
             } else {
                 setLevel((unsigned)level);
             }
@@ -142,7 +140,7 @@ static void processVersions(std::vector<std::string>& list, const char* type,
                 addIdent(cstr);
                 continue;
             } else {
-                error(Loc(), "Invalid %s identifier or level: '%s'", type, I->c_str());
+                error(Loc(), "Invalid %s identifier or level: '%s'", type, i.c_str());
             }
         }
     }
@@ -167,7 +165,7 @@ static void hide(llvm::StringMap<cl::Option *>& map, const char* name) {
 }
 
 static void rename(llvm::StringMap<cl::Option *>& map, const char* from, const char *to) {
-    llvm::StringMap<cl::Option*>::iterator i = map.find(from);
+    auto i = map.find(from);
     if (i != map.end())
     {
         cl::Option *opt = i->getValue();
@@ -406,14 +404,13 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles, bool &
     }
 
     sourceFiles.reserve(fileList.size());
-    typedef std::vector<std::string>::iterator It;
-    for(It I = fileList.begin(), E = fileList.end(); I != E; ++I)
+    for (const auto& file : fileList)
     {
-        if (!I->empty())
+        if (!file.empty())
         {
-            char* copy = mem.xstrdup(I->c_str());
+            char* copy = mem.xstrdup(file.c_str());
 #ifdef _WIN32
-            std::replace(copy, copy + I->length(), '/', '\\');
+            std::replace(copy, copy + file.length(), '/', '\\');
 #endif
             sourceFiles.push(copy);
         }
@@ -835,18 +832,16 @@ static void dumpPredefinedVersions()
     {
         fprintf(global.stdmsg, "predefs  ");
         int col = 10;
-        for (Strings::iterator I = global.params.versionids->begin(),
-                               E = global.params.versionids->end();
-             I != E; ++I)
+        for (auto id : *global.params.versionids)
         {
-            int len = strlen(*I) + 1;
+            int len = strlen(id) + 1;
             if (col + len > 80)
             {
                 col = 10;
                 fprintf(global.stdmsg, "\n         ");
             }
             col += len;
-            fprintf(global.stdmsg, " %s", *I);
+            fprintf(global.stdmsg, " %s", id);
         }
         fprintf(global.stdmsg, "\n");
     }
