@@ -27,7 +27,8 @@
 // returns true if the quote is unescaped
 bool applyBackslashRule(std::string &arg) {
   std::string::reverse_iterator it;
-  for (it = arg.rbegin(); it != arg.rend() && *it == '\\'; ++it) {}
+  for (it = arg.rbegin(); it != arg.rend() && *it == '\\'; ++it) {
+  }
   size_t numbs = std::distance(arg.rbegin(), it);
   bool escapedquote = numbs % 2;
   size_t numescaped = numbs / 2 + escapedquote;

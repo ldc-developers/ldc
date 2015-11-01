@@ -17,8 +17,6 @@
 
 #include "gen/abi.h"
 
-
-TargetABI* getWin64TargetABI();
-
+TargetABI *getWin64TargetABI();
 
 #endif

@@ -21,82 +21,67 @@
 #include "gen/tollvm.h"
 
 struct PPC64TargetABI : TargetABI {
-    ExplicitByvalRewrite byvalRewrite;
-    IntegerRewrite integerRewrite;
-    const bool Is64Bit;
+  ExplicitByvalRewrite byvalRewrite;
+  IntegerRewrite integerRewrite;
+  const bool Is64Bit;
 
-    PPC64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit)
-    { }
+  PPC64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
 
-    bool returnInArg(TypeFunction* tf)
-    {
-        if (tf->isref)
-            return false;
+  bool returnInArg(TypeFunction *tf) {
+    if (tf->isref)
+      return false;
 
-        // Return structs and static arrays on the stack. The latter is needed
-        // because otherwise LLVM tries to actually return the array in a number
-        // of physical registers, which leads, depending on the target, to
-        // either horrendous codegen or backend crashes.
-        Type* rt = tf->next->toBasetype();
-        return (rt->ty == Tstruct || rt->ty == Tsarray);
+    // Return structs and static arrays on the stack. The latter is needed
+    // because otherwise LLVM tries to actually return the array in a number
+    // of physical registers, which leads, depending on the target, to
+    // either horrendous codegen or backend crashes.
+    Type *rt = tf->next->toBasetype();
+    return (rt->ty == Tstruct || rt->ty == Tsarray);
+  }
+
+  bool passByVal(Type *t) {
+    TY ty = t->toBasetype()->ty;
+    return ty == Tstruct || ty == Tsarray;
+  }
+
+  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) {
+    // EXPLICIT PARAMETERS
+    for (auto arg : fty.args) {
+      if (!arg->byref)
+        rewriteArgument(fty, *arg);
     }
+  }
 
-    bool passByVal(Type* t)
-    {
-        TY ty = t->toBasetype()->ty;
-        return ty == Tstruct || ty == Tsarray;
-    }
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {
+    Type *ty = arg.type->toBasetype();
 
-    void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
-    {
-        // EXPLICIT PARAMETERS
-        for (auto arg : fty.args)
-        {
-            if (!arg->byref)
-                rewriteArgument(fty, *arg);
+    if (ty->ty == Tstruct || ty->ty == Tsarray) {
+      if (canRewriteAsInt(ty)) {
+        if (!IntegerRewrite::isObsoleteFor(arg.ltype)) {
+          arg.rewrite = &integerRewrite;
+          arg.ltype = integerRewrite.type(arg.type, arg.ltype);
         }
+      } else {
+        // these types are passed byval:
+        // the caller allocates a copy and then passes a pointer to the copy
+        arg.rewrite = &byvalRewrite;
+        arg.ltype = byvalRewrite.type(arg.type, arg.ltype);
+
+        // the copy is treated as a local variable of the callee
+        // hence add the NoAlias and NoCapture attributes
+        arg.attrs.clear().add(LLAttribute::NoAlias).add(LLAttribute::NoCapture);
+      }
     }
+  }
 
-    void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
-    {
-        Type* ty = arg.type->toBasetype();
-
-        if (ty->ty == Tstruct || ty->ty == Tsarray)
-        {
-            if (canRewriteAsInt(ty))
-            {
-                if (!IntegerRewrite::isObsoleteFor(arg.ltype))
-                {
-                    arg.rewrite = &integerRewrite;
-                    arg.ltype = integerRewrite.type(arg.type, arg.ltype);
-                }
-            }
-            else
-            {
-                // these types are passed byval:
-                // the caller allocates a copy and then passes a pointer to the copy
-                arg.rewrite = &byvalRewrite;
-                arg.ltype = byvalRewrite.type(arg.type, arg.ltype);
-
-                // the copy is treated as a local variable of the callee
-                // hence add the NoAlias and NoCapture attributes
-                arg.attrs.clear()
-                         .add(LLAttribute::NoAlias)
-                         .add(LLAttribute::NoCapture);
-            }
-        }
-    }
-
-    // Returns true if the D type can be bit-cast to an integer of the same size.
-    bool canRewriteAsInt(Type* t)
-    {
-        const unsigned size = t->size();
-        return size == 1 || size == 2 || size == 4 || (Is64Bit && size == 8);
-    }
+  // Returns true if the D type can be bit-cast to an integer of the same size.
+  bool canRewriteAsInt(Type *t) {
+    const unsigned size = t->size();
+    return size == 1 || size == 2 || size == 4 || (Is64Bit && size == 8);
+  }
 };
 
 // The public getter for abi.cpp
-TargetABI* getPPC64TargetABI(bool Is64Bit)
-{
-    return new PPC64TargetABI(Is64Bit);
+TargetABI *getPPC64TargetABI(bool Is64Bit) {
+  return new PPC64TargetABI(Is64Bit);
 }

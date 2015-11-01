@@ -23,24 +23,26 @@ struct IRAsmBlock;
 struct IrFuncTy;
 class Parameter;
 class Type;
-namespace llvm
-{
-    class FunctionType;
-    class Value;
+namespace llvm {
+class FunctionType;
+class Value;
 }
 
-llvm::FunctionType* DtoFunctionType(Type* t, IrFuncTy &irFty, Type* thistype, Type* nesttype,
-                                    bool isMain = false, bool isCtor = false, bool isIntrinsic = false);
-llvm::FunctionType* DtoFunctionType(FuncDeclaration* fdecl);
+llvm::FunctionType *DtoFunctionType(Type *t, IrFuncTy &irFty, Type *thistype,
+                                    Type *nesttype, bool isMain = false,
+                                    bool isCtor = false,
+                                    bool isIntrinsic = false);
+llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl);
 
-void DtoResolveFunction(FuncDeclaration* fdecl);
-void DtoDeclareFunction(FuncDeclaration* fdecl);
-void DtoDefineFunction(FuncDeclaration* fd);
+void DtoResolveFunction(FuncDeclaration *fdecl);
+void DtoDeclareFunction(FuncDeclaration *fdecl);
+void DtoDefineFunction(FuncDeclaration *fd);
 
-void DtoDefineNakedFunction(FuncDeclaration* fd);
-void emitABIReturnAsmStmt(IRAsmBlock* asmblock, Loc& loc, FuncDeclaration* fdecl);
+void DtoDefineNakedFunction(FuncDeclaration *fd);
+void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
+                          FuncDeclaration *fdecl);
 
-DValue* DtoArgument(Parameter* fnarg, Expression* argexp);
+DValue *DtoArgument(Parameter *fnarg, Expression *argexp);
 
 // Search for a druntime array op
 int isDruntimeArrayOp(FuncDeclaration *fd);

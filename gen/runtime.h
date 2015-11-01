@@ -14,11 +14,10 @@
 #ifndef LDC_GEN_RUNTIME_H
 #define LDC_GEN_RUNTIME_H
 
-namespace llvm
-{
-    class Function;
-    class GlobalVariable;
-    class Module;
+namespace llvm {
+class Function;
+class GlobalVariable;
+class Module;
 }
 
 struct Loc;
@@ -28,8 +27,10 @@ struct Loc;
 bool LLVM_D_InitRuntime();
 void LLVM_D_FreeRuntime();
 
-llvm::Function* LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module& target, const char* name);
+llvm::Function *LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module &target,
+                                          const char *name);
 
-llvm::GlobalVariable* LLVM_D_GetRuntimeGlobal(const Loc &loc, llvm::Module& target, const char* name);
+llvm::GlobalVariable *
+LLVM_D_GetRuntimeGlobal(const Loc &loc, llvm::Module &target, const char *name);
 
 #endif // LDC_GEN_RUNTIME_H
