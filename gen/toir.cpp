@@ -98,7 +98,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     VarDeclaration *vd = sd->fields[index];
 
     // get initializer expression
-    Expression *expr = (index < nexprs) ? exprs[index] : NULL;
+    Expression *expr = (index < nexprs) ? exprs[index] : nullptr;
     if (!expr) {
       // In case of an union, we can't simply use the default initializer.
       // Consider the type union U7727A1 { int i; double d; } and
@@ -108,10 +108,11 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       // peek at the next variables.
       for (size_t index2 = index + 1; index2 < nfields; ++index2) {
         VarDeclaration *vd2 = sd->fields[index2];
-        if (vd->offset != vd2->offset)
+        if (vd->offset != vd2->offset) {
           break;
+        }
         ++index; // skip var
-        Expression *expr2 = (index2 < nexprs) ? exprs[index2] : NULL;
+        Expression *expr2 = (index2 < nexprs) ? exprs[index2] : nullptr;
         if (expr2) {
           vd = vd2;
           expr = expr2;
@@ -128,8 +129,9 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     }
 
     // initialize any padding so struct comparisons work
-    if (vd->offset != offset)
+    if (vd->offset != offset) {
       voidptr = write_zeroes(voidptr, offset, vd->offset);
+    }
     offset = vd->offset + vd->type->size();
 
     IF_LOG Logger::println("initializing field: %s %s (+%u)",
@@ -139,7 +141,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     // get initializer
     DValue *val;
     DConstValue cv(vd->type,
-                   NULL); // Only used in one branch; value is set beforehand
+                   nullptr); // Only used in one branch; value is set beforehand
     if (expr) {
       IF_LOG Logger::println("expr %llu = %s",
                              static_cast<unsigned long long>(index),
@@ -151,11 +153,12 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       val = new DImValue(
           vd->type, DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
     } else {
-      if (vd->init && vd->init->isVoidInitializer())
+      if (vd->init && vd->init->isVoidInitializer()) {
         continue;
+      }
       IF_LOG Logger::println("using default initializer");
       LOG_SCOPE
-      cv.c = get_default_initializer(vd, NULL);
+      cv.c = get_default_initializer(vd, nullptr);
       val = &cv;
     }
 
@@ -165,8 +168,9 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     // store the initializer there
     DtoAssign(loc, &field, val, TOKconstruct, true);
 
-    if (expr && expr->isLvalue())
+    if (expr && expr->isLvalue()) {
       callPostblit(loc, expr, field.getLVal());
+    }
 
     // Also zero out padding bytes counted as being part of the type in DMD
     // but not in LLVM; e.g. real/x86_fp80.
@@ -179,8 +183,9 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     }
   }
   // initialize trailing padding
-  if (sd->structsize != offset)
+  if (sd->structsize != offset) {
     voidptr = write_zeroes(voidptr, offset, sd->structsize);
+  }
 }
 
 namespace {
@@ -207,7 +212,7 @@ static Expression *findLvalueExp(Expression *e) {
   public:
     Expression *result;
 
-    FindLvalueVisitor() : result(NULL) {}
+    FindLvalueVisitor() : result(nullptr) {}
 
     void visit(Expression *e) LLVM_OVERRIDE {}
 
@@ -246,13 +251,14 @@ static DValue *toElemAndCacheLvalue(Expression *e) {
 // (casted) nested lvalue if one is found.
 // Otherwise simply returns the expression's result.
 DValue *toElem(Expression *e, bool tryGetLvalue) {
-  if (!tryGetLvalue)
+  if (!tryGetLvalue) {
     return toElem(e);
+  }
 
   Expression *lvalExp = findLvalueExp(e); // may be null
-  Expression *nestedLvalExp = (lvalExp == e ? NULL : lvalExp);
+  Expression *nestedLvalExp = (lvalExp == e ? nullptr : lvalExp);
 
-  DValue *nestedLval = NULL;
+  DValue *nestedLval = nullptr;
   if (nestedLvalExp) {
     IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
                            nestedLvalExp->toChars());
@@ -263,8 +269,9 @@ DValue *toElem(Expression *e, bool tryGetLvalue) {
 
   DValue *value = toElem(e);
 
-  if (nestedLvalExp)
-    nestedLvalExp->cachedLvalue = NULL;
+  if (nestedLvalExp) {
+    nestedLvalExp->cachedLvalue = nullptr;
+  }
 
   return !nestedLval ? value : DtoCast(e->loc, nestedLval, e->type);
 }
@@ -279,7 +286,7 @@ class ToElemVisitor : public Visitor {
 
 public:
   ToElemVisitor(IRState *p_, bool destructTemporaries_)
-      : p(p_), destructTemporaries(destructTemporaries_), result(NULL) {
+      : p(p_), destructTemporaries(destructTemporaries_), result(nullptr) {
     initialCleanupScope = p->func()->scopes->currentCleanupScope();
   }
 
@@ -314,7 +321,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(DeclarationExp *e) {
+  void visit(DeclarationExp *e) override {
     IF_LOG Logger::print("DeclarationExp::toElem: %s | T=%s\n", e->toChars(),
                          e->type ? e->type->toChars() : "(null)");
     LOG_SCOPE;
@@ -333,7 +340,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(VarExp *e) {
+  void visit(VarExp *e) override {
     IF_LOG Logger::print("VarExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -351,7 +358,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(IntegerExp *e) {
+  void visit(IntegerExp *e) override {
     IF_LOG Logger::print("IntegerExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -361,7 +368,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(RealExp *e) {
+  void visit(RealExp *e) override {
     IF_LOG Logger::print("RealExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -371,7 +378,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(NullExp *e) {
+  void visit(NullExp *e) override {
     IF_LOG Logger::print("NullExp::toElem(type=%s): %s\n", e->type->toChars(),
                          e->toChars());
     LOG_SCOPE;
@@ -381,7 +388,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(ComplexExp *e) {
+  void visit(ComplexExp *e) override {
     IF_LOG Logger::print("ComplexExp::toElem(): %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -412,7 +419,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(StringExp *e) {
+  void visit(StringExp *e) override {
     IF_LOG Logger::print("StringExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -423,7 +430,7 @@ public:
     LLType *ct = DtoMemType(cty);
     LLArrayType *at = LLArrayType::get(ct, e->len + 1);
 
-    llvm::StringMap<llvm::GlobalVariable *> *stringLiteralCache = 0;
+    llvm::StringMap<llvm::GlobalVariable *> *stringLiteralCache = nullptr;
     LLConstant *_init;
     switch (cty->size()) {
     default:
@@ -448,9 +455,9 @@ public:
     llvm::StringRef key(e->toChars());
     llvm::GlobalVariable *gvar =
         (stringLiteralCache->find(key) == stringLiteralCache->end())
-            ? 0
+            ? nullptr
             : (*stringLiteralCache)[key];
-    if (gvar == 0) {
+    if (gvar == nullptr) {
       llvm::GlobalValue::LinkageTypes _linkage =
           llvm::GlobalValue::PrivateLinkage;
       IF_LOG {
@@ -490,11 +497,11 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(AssignExp *e) {
+  void visit(AssignExp *e) override {
     IF_LOG Logger::print("AssignExp::toElem: %s | (%s)(%s = %s)\n",
                          e->toChars(), e->type->toChars(),
                          e->e1->type->toChars(),
-                         e->e2->type ? e->e2->type->toChars() : 0);
+                         e->e2->type ? e->e2->type->toChars() : nullptr);
     LOG_SCOPE;
 
     if (e->e1->op == TOKarraylength) {
@@ -543,7 +550,7 @@ public:
       Type *const t2 = e->e2->type->toBasetype();
       Type *const ta = se->e1->type->toBasetype();
 
-      if (se->lwr == NULL && ta->ty == Tsarray &&
+      if (se->lwr == nullptr && ta->ty == Tsarray &&
           e->e2->op == TOKarrayliteral &&
           e->op == TOKconstruct && // DMD Bugzilla 11238: avoid aliasing issue
           t2->nextOf()->mutableOf()->implicitConvTo(ta->nextOf())) {
@@ -574,8 +581,9 @@ public:
       assert(e->e2->toInteger() == 0);
       DtoAggrZeroInit(l->getLVal());
       TypeStruct *ts = static_cast<TypeStruct *>(e->e1->type);
-      if (ts->sym->isNested() && ts->sym->vthis)
+      if (ts->sym->isNested() && ts->sym->vthis) {
         DtoResolveNestedContext(e->loc, ts->sym, l->getLVal());
+      }
       // Return value should be irrelevant.
       result = r;
       return;
@@ -614,7 +622,7 @@ public:
     }
 
     // pre-evaluate and cache the lvalue subexpression
-    DValue *lval = NULL;
+    DValue *lval = nullptr;
     {
       IF_LOG Logger::println("Caching l-value of %s => %s", e->toChars(),
                              lvalExp->toChars());
@@ -629,7 +637,7 @@ public:
     binExp.type = lhsForBinExp->type;
     DValue *result = toElem(&binExp);
 
-    lvalExp->cachedLvalue = NULL;
+    lvalExp->cachedLvalue = nullptr;
 
     // assign the (casted) result to lval
     DValue *assignedResult = DtoCast(loc, result, lval->type);
@@ -693,15 +701,17 @@ public:
         break;
       }
 
-      return NULL;
+      return nullptr;
     }
 
-    if (!mul->e2->isConst())
-      return NULL;
+    if (!mul->e2->isConst()) {
+      return nullptr;
+    }
     dinteger_t stride = mul->e2->toInteger();
 
-    if (stride != baseSize)
-      return NULL;
+    if (stride != baseSize) {
+      return nullptr;
+    }
 
     return mul->e1;
   }
@@ -713,7 +723,7 @@ public:
     // pointer elements. We try to undo this before resorting to
     // temporarily bitcasting the pointer to i8.
 
-    llvm::Value *noStrideInc = NULL;
+    llvm::Value *noStrideInc = nullptr;
     if (offset->isConst()) {
       dinteger_t byteOffset = offset->toInteger();
       if (byteOffset == 0) {
@@ -727,8 +737,9 @@ public:
     }
 
     if (noStrideInc) {
-      if (negateOffset)
+      if (negateOffset) {
         noStrideInc = p->ir->CreateNeg(noStrideInc);
+      }
       return new DImValue(
           base->type, DtoGEP1(base->getRVal(), noStrideInc, "", p->scopebb()));
     }
@@ -736,14 +747,15 @@ public:
     // This might not actually be generated by the frontend, just to be
     // safe.
     llvm::Value *inc = toElem(offset)->getRVal();
-    if (negateOffset)
+    if (negateOffset) {
       inc = p->ir->CreateNeg(inc);
+    }
     llvm::Value *bytePtr = DtoBitCast(base->getRVal(), getVoidPtrType());
     DValue *result = new DImValue(Type::tvoidptr, DtoGEP1(bytePtr, inc));
     return DtoCast(loc, result, resultType);
   }
 
-  void visit(AddExp *e) {
+  void visit(AddExp *e) override {
     IF_LOG Logger::print("AddExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -766,7 +778,7 @@ public:
     }
   }
 
-  void visit(MinExp *e) {
+  void visit(MinExp *e) override {
     IF_LOG Logger::print("MinExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -786,8 +798,9 @@ public:
       lv = p->ir->CreatePtrToInt(lv, DtoSize_t());
       rv = p->ir->CreatePtrToInt(rv, DtoSize_t());
       LLValue *diff = p->ir->CreateSub(lv, rv);
-      if (diff->getType() != DtoType(e->type))
+      if (diff->getType() != DtoType(e->type)) {
         diff = p->ir->CreateIntToPtr(diff, DtoType(e->type));
+      }
       result = new DImValue(e->type, diff);
     } else if (t1->ty == Tpointer && t2->isintegral()) {
       Logger::println("Subtracting integer from pointer");
@@ -801,7 +814,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(MulExp *e) {
+  void visit(MulExp *e) override {
     IF_LOG Logger::print("MulExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -811,15 +824,16 @@ public:
 
     errorOnIllegalArrayOp(e, e->e1, e->e2);
 
-    if (e->type->iscomplex())
+    if (e->type->iscomplex()) {
       result = DtoComplexMul(e->loc, e->type, l, r);
-    else
+    } else {
       result = DtoBinMul(e->type, l, r);
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(DivExp *e) {
+  void visit(DivExp *e) override {
     IF_LOG Logger::print("DivExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -829,15 +843,16 @@ public:
 
     errorOnIllegalArrayOp(e, e->e1, e->e2);
 
-    if (e->type->iscomplex())
+    if (e->type->iscomplex()) {
       result = DtoComplexDiv(e->loc, e->type, l, r);
-    else
+    } else {
       result = DtoBinDiv(e->type, l, r);
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(ModExp *e) {
+  void visit(ModExp *e) override {
     IF_LOG Logger::print("ModExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -847,15 +862,16 @@ public:
 
     errorOnIllegalArrayOp(e, e->e1, e->e2);
 
-    if (e->type->iscomplex())
+    if (e->type->iscomplex()) {
       result = DtoComplexRem(e->loc, e->type, l, r);
-    else
+    } else {
       result = DtoBinRem(e->type, l, r);
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(CallExp *e) {
+  void visit(CallExp *e) override {
     IF_LOG Logger::print("CallExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -887,8 +903,8 @@ public:
     // The correct fix for this (DMD issue 13095) would have been to adapt
     // the AST, but we are stuck with this as DMD also patched over it with
     // a similar hack.
-    VarDeclaration *delayedDtorVar = NULL;
-    Expression *delayedDtorExp = NULL;
+    VarDeclaration *delayedDtorVar = nullptr;
+    Expression *delayedDtorExp = nullptr;
     if (e->f && e->f->isCtorDeclaration() && e->e1->op == TOKdotvar) {
       DotVarExp *dve = static_cast<DotVarExp *>(e->e1);
       if (dve->e1->op == TOKcomma) {
@@ -900,7 +916,7 @@ public:
               Logger::println("Delaying edtor");
               delayedDtorVar = vd;
               delayedDtorExp = vd->edtor;
-              vd->edtor = NULL;
+              vd->edtor = nullptr;
             }
           }
         }
@@ -938,8 +954,9 @@ public:
         }
       }
 
-      if (DtoLowerMagicIntrinsic(p, fndecl, e, result))
+      if (DtoLowerMagicIntrinsic(p, fndecl, e, result)) {
         return;
+      }
     }
 
     result = DtoCallFunction(e->loc, e->type, fnval, e->arguments);
@@ -952,7 +969,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(CastExp *e) {
+  void visit(CastExp *e) override {
     IF_LOG Logger::print("CastExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -970,17 +987,19 @@ public:
 
     // cast it to the 'to' type, if necessary
     result = u;
-    if (!e->to->equals(e->e1->type))
+    if (!e->to->equals(e->e1->type)) {
       result = DtoCast(e->loc, u, e->to);
+    }
 
     // paint the type, if necessary
-    if (!e->type->equals(e->to))
+    if (!e->type->equals(e->to)) {
       result = DtoPaintType(e->loc, result, e->type);
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(SymOffExp *e) {
+  void visit(SymOffExp *e) override {
     IF_LOG Logger::print("SymOffExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -992,10 +1011,11 @@ public:
     // as well due to the level-of-indirection hack in Type::getTypeInfo that
     // is unfortunately required by the frontend).
     llvm::Value *baseValue;
-    if (base->isLVal())
+    if (base->isLVal()) {
       baseValue = base->getLVal();
-    else
+    } else {
       baseValue = base->getRVal();
+    }
     assert(isaPointer(baseValue));
 
     llvm::Value *offsetValue;
@@ -1026,7 +1046,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(AddrExp *e) {
+  void visit(AddrExp *e) override {
     IF_LOG Logger::println("AddrExp::toElem: %s @ %s", e->toChars(),
                            e->type->toChars());
     LOG_SCOPE;
@@ -1066,9 +1086,9 @@ public:
     // we special case here, since apparently taking the address of a slice is
     // ok
     LLValue *lval;
-    if (v->isLVal())
+    if (v->isLVal()) {
       lval = v->getLVal();
-    else {
+    } else {
       assert(v->isSlice());
       lval = DtoAllocaDump(v, ".tmp_slice_storage");
     }
@@ -1079,7 +1099,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(PtrExp *e) {
+  void visit(PtrExp *e) override {
     IF_LOG Logger::println("PtrExp::toElem: %s @ %s", e->toChars(),
                            e->type->toChars());
     LOG_SCOPE;
@@ -1088,10 +1108,11 @@ public:
     if (e->type->toBasetype()->ty == Tfunction) {
       assert(!e->cachedLvalue);
       DValue *dv = toElem(e->e1);
-      if (DFuncValue *dfv = dv->isFunc())
+      if (DFuncValue *dfv = dv->isFunc()) {
         result = new DFuncValue(e->type, dfv->func, dfv->getRVal());
-      else
+      } else {
         result = new DImValue(e->type, dv->getRVal());
+      }
       return;
     }
 
@@ -1127,7 +1148,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(DotVarExp *e) {
+  void visit(DotVarExp *e) override {
     IF_LOG Logger::print("DotVarExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1165,8 +1186,9 @@ public:
       else if (e1type->ty == Tclass) {
         TypeClass *tc = static_cast<TypeClass *>(e1type);
         arrptr = DtoIndexAggregate(l->getRVal(), tc->sym, vd);
-      } else
+      } else {
         llvm_unreachable("Unknown DotVarExp type for VarDeclaration.");
+      }
 
       // Logger::cout() << "mem: " << *arrptr << '\n';
       result = new DVarValue(e->type, vd, arrptr);
@@ -1182,7 +1204,7 @@ public:
                             fdecl->prot().kind != PROTprivate;
 
       // Get the actual function value to call.
-      LLValue *funcval = 0;
+      LLValue *funcval = nullptr;
       if (nonFinal) {
         DImValue thisVal(e1type, l->getRVal());
         funcval = DtoVirtualFunctionPointer(&thisVal, fdecl, e->toChars());
@@ -1199,7 +1221,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(ThisExp *e) {
+  void visit(ThisExp *e) override {
     IF_LOG Logger::print("ThisExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1238,7 +1260,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(IndexExp *e) {
+  void visit(IndexExp *e) override {
     IF_LOG Logger::print("IndexExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1259,16 +1281,18 @@ public:
 
     LLValue *zero = DtoConstUint(0);
 
-    LLValue *arrptr = 0;
+    LLValue *arrptr = nullptr;
     if (e1type->ty == Tpointer) {
       arrptr = DtoGEP1(l->getRVal(), r->getRVal());
     } else if (e1type->ty == Tsarray) {
-      if (p->emitArrayBoundsChecks() && !e->indexIsInBounds)
+      if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
+      }
       arrptr = DtoGEP(l->getRVal(), zero, r->getRVal());
     } else if (e1type->ty == Tarray) {
-      if (p->emitArrayBoundsChecks() && !e->indexIsInBounds)
+      if (p->emitArrayBoundsChecks() && !e->indexIsInBounds) {
         DtoIndexBoundsCheck(e->loc, l, r);
+      }
       arrptr = DtoArrayPtr(l);
       arrptr = DtoGEP1(arrptr, r->getRVal());
     } else if (e1type->ty == Taarray) {
@@ -1283,7 +1307,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(SliceExp *e) {
+  void visit(SliceExp *e) override {
     IF_LOG Logger::print("SliceExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1295,7 +1319,7 @@ public:
     // now all slices have *both* the 'len' and 'ptr' fields set to != null.
 
     // value being sliced
-    LLValue *elen = 0;
+    LLValue *elen = nullptr;
     LLValue *eptr;
     DValue *v = toElem(e->e1);
 
@@ -1332,7 +1356,7 @@ public:
         llvm::BasicBlock *okbb =
             llvm::BasicBlock::Create(p->context(), "bounds.ok", p->topfunc());
 
-        llvm::Value *okCond = NULL;
+        llvm::Value *okCond = nullptr;
         if (needCheckUpper) {
           okCond = p->ir->CreateICmp(llvm::ICmpInst::ICMP_ULE, vup,
                                      DtoArrayLen(v), "bounds.cmp.lo");
@@ -1341,10 +1365,11 @@ public:
         if (needCheckLower) {
           llvm::Value *cmp = p->ir->CreateICmp(llvm::ICmpInst::ICMP_ULE, vlo,
                                                vup, "bounds.cmp.up");
-          if (okCond)
+          if (okCond) {
             okCond = p->ir->CreateAnd(okCond, cmp);
-          else
+          } else {
             okCond = cmp;
+          }
         }
 
         p->ir->CreateCondBr(okCond, okbb, failbb);
@@ -1387,14 +1412,15 @@ public:
       return;
     }
 
-    if (!elen)
+    if (!elen) {
       elen = DtoArrayLen(v);
+    }
     result = new DSliceValue(e->type, elen, eptr);
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(CmpExp *e) {
+  void visit(CmpExp *e) override {
     IF_LOG Logger::print("CmpExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1404,7 +1430,7 @@ public:
 
     Type *t = e->e1->type->toBasetype();
 
-    LLValue *eval = 0;
+    LLValue *eval = nullptr;
 
     if (t->isintegral() || t->ty == Tpointer || t->ty == Tnull) {
       llvm::ICmpInst::Predicate icmpPred;
@@ -1417,8 +1443,9 @@ public:
           Logger::cout() << "type 1: " << *a << '\n';
           Logger::cout() << "type 2: " << *b << '\n';
         }
-        if (a->getType() != b->getType())
+        if (a->getType() != b->getType()) {
           b = DtoBitCast(b, a->getType());
+        }
         eval = p->ir->CreateICmp(icmpPred, a, b);
       }
     } else if (t->isfloating()) {
@@ -1521,7 +1548,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(EqualExp *e) {
+  void visit(EqualExp *e) override {
     IF_LOG Logger::print("EqualExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1533,7 +1560,7 @@ public:
 
     Type *t = e->e1->type->toBasetype();
 
-    LLValue *eval = 0;
+    LLValue *eval = nullptr;
 
     // the Tclass catches interface comparisons, regular
     // class equality should be rewritten as a.opEquals(b) by this time
@@ -1584,7 +1611,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(PostExp *e) {
+  void visit(PostExp *e) override {
     IF_LOG Logger::print("PostExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1593,7 +1620,7 @@ public:
     toElem(e->e2);
 
     LLValue *val = l->getRVal();
-    LLValue *post = 0;
+    LLValue *post = nullptr;
 
     Type *e1type = e->e1->type->toBasetype();
     Type *e2type = e->e2->type->toBasetype();
@@ -1610,12 +1637,13 @@ public:
     } else if (e1type->ty == Tpointer) {
       assert(e->e2->op == TOKint64);
       LLConstant *offset;
-      if (e->op == TOKplusplus)
+      if (e->op == TOKplusplus) {
         offset =
             LLConstantInt::get(DtoSize_t(), static_cast<uint64_t>(1), false);
-      else
+      } else {
         offset =
             LLConstantInt::get(DtoSize_t(), static_cast<uint64_t>(-1), true);
+      }
       post = llvm::GetElementPtrInst::Create(
 #if LDC_LLVM_VER >= 307
           isaPointer(val)->getElementType(),
@@ -1629,8 +1657,9 @@ public:
       } else if (e->op == TOKminusminus) {
         post = llvm::BinaryOperator::CreateFSub(val, one, "", p->scopebb());
       }
-    } else
+    } else {
       assert(post);
+    }
 
     DtoStore(post, l->getLVal());
     result = new DImValue(e->type, val);
@@ -1638,7 +1667,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(NewExp *e) {
+  void visit(NewExp *e) override {
     IF_LOG Logger::print("NewExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1669,8 +1698,9 @@ public:
         size_t ndims = e->arguments->dim;
         std::vector<DValue *> dims;
         dims.reserve(ndims);
-        for (size_t i = 0; i < ndims; ++i)
+        for (size_t i = 0; i < ndims; ++i) {
           dims.push_back(toElem((*e->arguments)[i]));
+        }
         result = DtoNewMulDimDynArray(e->loc, e->newtype, &dims[0], ndims);
       }
     }
@@ -1685,12 +1715,12 @@ public:
       TypeStruct *ts = static_cast<TypeStruct *>(ntype);
 
       // allocate
-      LLValue *mem = 0;
+      LLValue *mem = nullptr;
       if (e->allocator) {
         // custom allocator
         DtoResolveFunction(e->allocator);
         DFuncValue dfn(e->allocator, getIrFunc(e->allocator)->func);
-        DValue *res = DtoCallFunction(e->loc, NULL, &dfn, e->newargs);
+        DValue *res = DtoCallFunction(e->loc, nullptr, &dfn, e->newargs);
         mem = DtoBitCast(res->getRVal(), DtoType(ntype->pointerTo()),
                          ".newstruct_custom");
       } else {
@@ -1703,8 +1733,9 @@ public:
         write_struct_literal(e->loc, mem, ts->sym, e->arguments);
       } else {
         // set nested context
-        if (ts->sym->isNested() && ts->sym->vthis)
+        if (ts->sym->isNested() && ts->sym->vthis) {
           DtoResolveNestedContext(e->loc, ts->sym, mem);
+        }
 
         // call constructor
         if (e->member) {
@@ -1733,7 +1764,7 @@ public:
       LLValue *mem = DtoNew(e->loc, e->newtype);
       DVarValue tmpvar(e->newtype, mem);
 
-      Expression *exp = 0;
+      Expression *exp = nullptr;
       if (!e->arguments || e->arguments->dim == 0) {
         IF_LOG Logger::println("default initializer\n");
         // static arrays never appear here, so using the defaultInit is ok!
@@ -1756,7 +1787,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(DeleteExp *e) {
+  void visit(DeleteExp *e) override {
     IF_LOG Logger::print("DeleteExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1767,10 +1798,11 @@ public:
     // pointer
     if (et->ty == Tpointer) {
       Type *elementType = et->nextOf()->toBasetype();
-      if (elementType->ty == Tstruct && elementType->needsDestruction())
+      if (elementType->ty == Tstruct && elementType->needsDestruction()) {
         DtoDeleteStruct(e->loc, dval);
-      else
+      } else {
         DtoDeleteMemory(e->loc, dval);
+      }
     }
     // class
     else if (et->ty == Tclass) {
@@ -1786,9 +1818,9 @@ public:
         }
       }
 
-      if (!onstack)
+      if (!onstack) {
         DtoDeleteClass(e->loc, dval); // sets dval to null
-      else if (dval->isVar()) {
+      } else if (dval->isVar()) {
         LLValue *lval = dval->getLVal();
         DtoStore(LLConstant::getNullValue(lval->getType()->getContainedType(0)),
                  lval);
@@ -1797,8 +1829,9 @@ public:
     // dyn array
     else if (et->ty == Tarray) {
       DtoDeleteArray(e->loc, dval);
-      if (dval->isLVal())
+      if (dval->isLVal()) {
         DtoSetArrayToNull(dval->getLVal());
+      }
     }
     // unknown/invalid
     else {
@@ -1808,7 +1841,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(ArrayLengthExp *e) {
+  void visit(ArrayLengthExp *e) override {
     IF_LOG Logger::print("ArrayLengthExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1819,7 +1852,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(AssertExp *e) {
+  void visit(AssertExp *e) override {
     IF_LOG Logger::print("AssertExp::toElem: %s\n", e->toChars());
     LOG_SCOPE;
 
@@ -1827,15 +1860,16 @@ public:
     // f() == 0 || assert(false)
     result = new DImValue(e->type, DtoConstBool(false));
 
-    if (!global.params.useAssert)
+    if (!global.params.useAssert) {
       return;
+    }
 
     // condition
     DValue *cond;
     Type *condty;
 
     // special case for dmd generated assert(this); when not in -release mode
-    if (e->e1->op == TOKthis && static_cast<ThisExp *>(e->e1)->var == NULL) {
+    if (e->e1->op == TOKthis && static_cast<ThisExp *>(e->e1)->var == nullptr) {
       LLValue *thisarg = p->func()->thisArg;
       assert(thisarg && "null thisarg, but we're in assert(this) exp;");
       LLValue *thisptr = DtoLoad(thisarg);
@@ -1866,7 +1900,7 @@ public:
      * instead of toElem().
      */
     DtoAssert(p->func()->decl->getModule(), e->loc,
-              e->msg ? toElemDtor(e->msg) : NULL);
+              e->msg ? toElemDtor(e->msg) : nullptr);
 
     // passed:
     p->scope() = IRScope(passedbb);
@@ -1889,17 +1923,17 @@ public:
     else if (global.params.useInvariants && condty->ty == Tpointer &&
              condty->nextOf()->ty == Tstruct &&
              (invdecl = static_cast<TypeStruct *>(condty->nextOf())
-                            ->sym->inv) != NULL) {
+                            ->sym->inv) != nullptr) {
       Logger::print("calling struct invariant");
       DtoResolveFunction(invdecl);
       DFuncValue invfunc(invdecl, getIrFunc(invdecl)->func, cond->getRVal());
-      DtoCallFunction(e->loc, NULL, &invfunc, NULL);
+      DtoCallFunction(e->loc, nullptr, &invfunc, nullptr);
     }
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(NotExp *e) {
+  void visit(NotExp *e) override {
     IF_LOG Logger::print("NotExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1916,7 +1950,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(AndAndExp *e) {
+  void visit(AndAndExp *e) override {
     IF_LOG Logger::print("AndAndExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1937,7 +1971,7 @@ public:
     emitCoverageLinecountInc(e->e2->loc);
     DValue *v = toElemDtor(e->e2);
 
-    LLValue *vbool = 0;
+    LLValue *vbool = nullptr;
     if (v && !v->isFunc() && v->getType() != Type::tvoid) {
       vbool = DtoCast(e->loc, v, Type::tbool)->getRVal();
     }
@@ -1946,7 +1980,7 @@ public:
     llvm::BranchInst::Create(andandend, p->scopebb());
     p->scope() = IRScope(andandend);
 
-    LLValue *resval = 0;
+    LLValue *resval = nullptr;
     if (ubool == vbool || !vbool) {
       // No need to create a PHI node.
       resval = ubool;
@@ -1965,7 +1999,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(OrOrExp *e) {
+  void visit(OrOrExp *e) override {
     IF_LOG Logger::print("OrOrExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -1986,7 +2020,7 @@ public:
     emitCoverageLinecountInc(e->e2->loc);
     DValue *v = toElemDtor(e->e2);
 
-    LLValue *vbool = 0;
+    LLValue *vbool = nullptr;
     if (v && !v->isFunc() && v->getType() != Type::tvoid) {
       vbool = DtoCast(e->loc, v, Type::tbool)->getRVal();
     }
@@ -1995,7 +2029,7 @@ public:
     llvm::BranchInst::Create(ororend, p->scopebb());
     p->scope() = IRScope(ororend);
 
-    LLValue *resval = 0;
+    LLValue *resval = nullptr;
     if (ubool == vbool || !vbool) {
       // No need to create a PHI node.
       resval = ubool;
@@ -2031,7 +2065,7 @@ public:
   BinBitExp(And, And) BinBitExp(Or, Or) BinBitExp(Xor, Xor) BinBitExp(Shl, Shl)
       BinBitExp(Ushr, LShr)
 
-          void visit(ShrExp *e) {
+          void visit(ShrExp *e) override {
     IF_LOG Logger::print("ShrExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2039,16 +2073,17 @@ public:
     DValue *v = toElem(e->e2);
     v = DtoCast(e->loc, v, e->e1->type);
     LLValue *x;
-    if (isLLVMUnsigned(e->e1->type))
+    if (isLLVMUnsigned(e->e1->type)) {
       x = p->ir->CreateLShr(u->getRVal(), v->getRVal());
-    else
+    } else {
       x = p->ir->CreateAShr(u->getRVal(), v->getRVal());
+    }
     result = new DImValue(e->type, x);
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(HaltExp *e) {
+  void visit(HaltExp *e) override {
     IF_LOG Logger::print("HaltExp::toElem: %s\n", e->toChars());
     LOG_SCOPE;
 
@@ -2069,15 +2104,16 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(DelegateExp *e) {
+  void visit(DelegateExp *e) override {
     IF_LOG Logger::print("DelegateExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
 
-    if (e->func->isStatic())
+    if (e->func->isStatic()) {
       e->error("can't take delegate of static function %s, it does not require "
                "a context ptr",
                e->func->toChars());
+    }
 
     LLPointerType *int8ptrty = getPtrToType(LLType::getInt8Ty(gIR->context()));
 
@@ -2103,21 +2139,22 @@ public:
     LLValue *castfptr;
 
     if (e->e1->op != TOKsuper && e->e1->op != TOKdottype &&
-        e->func->isVirtual() && !e->func->isFinalFunc())
+        e->func->isVirtual() && !e->func->isFinalFunc()) {
       castfptr = DtoVirtualFunctionPointer(u, e->func, e->toChars());
-    else if (e->func->isAbstract())
+    } else if (e->func->isAbstract()) {
       llvm_unreachable("Delegate to abstract method not implemented.");
-    else if (e->func->toParent()->isInterfaceDeclaration())
+    } else if (e->func->toParent()->isInterfaceDeclaration()) {
       llvm_unreachable("Delegate to interface method not implemented.");
-    else {
+    } else {
       DtoResolveFunction(e->func);
 
       // We need to actually codegen the function here, as literals are not
       // added to the module member list.
       if (e->func->semanticRun == PASSsemantic3done) {
         Dsymbol *owner = e->func->toParent();
-        while (!owner->isTemplateInstance() && owner->toParent())
+        while (!owner->isTemplateInstance() && owner->toParent()) {
           owner = owner->toParent();
+        }
         if (owner->isTemplateInstance() || owner == p->dmodule) {
           Declaration_codegen(e->func, p);
         }
@@ -2134,7 +2171,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(IdentityExp *e) {
+  void visit(IdentityExp *e) override {
     IF_LOG Logger::print("IdentityExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2158,11 +2195,11 @@ public:
     }
 
     // FIXME this stuff isn't pretty
-    LLValue *eval = 0;
+    LLValue *eval = nullptr;
 
     if (t1->ty == Tdelegate) {
       if (r->isNull()) {
-        rv = NULL;
+        rv = nullptr;
       } else {
         assert(lv->getType() == rv->getType());
       }
@@ -2172,10 +2209,11 @@ public:
       eval = DtoBinNumericEquals(e->loc, l, r, e->op);
     } else if (t1->ty == Tpointer || t1->ty == Tclass) {
       if (lv->getType() != rv->getType()) {
-        if (r->isNull())
+        if (r->isNull()) {
           rv = llvm::ConstantPointerNull::get(isaPointer(lv->getType()));
-        else
+        } else {
           rv = DtoBitCast(rv, lv->getType());
+        }
       }
       eval = (e->op == TOKidentity) ? p->ir->CreateICmpEQ(lv, rv)
                                     : p->ir->CreateICmpNE(lv, rv);
@@ -2189,7 +2227,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(CommaExp *e) {
+  void visit(CommaExp *e) override {
     IF_LOG Logger::print("CommaExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2209,13 +2247,13 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(CondExp *e) {
+  void visit(CondExp *e) override {
     IF_LOG Logger::print("CondExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
 
     Type *dtype = e->type->toBasetype();
-    LLValue *retPtr = 0;
+    LLValue *retPtr = nullptr;
     if (dtype->ty != Tvoid) {
       // allocate a temporary for pointer to the final result.
       retPtr = DtoAlloca(dtype->pointerTo(), "condtmp");
@@ -2249,15 +2287,16 @@ public:
     llvm::BranchInst::Create(condend, p->scopebb());
 
     p->scope() = IRScope(condend);
-    if (retPtr)
+    if (retPtr) {
       result = new DVarValue(e->type, DtoLoad(retPtr));
-    else
+    } else {
       result = new DConstValue(e->type, getNullValue(DtoMemType(dtype)));
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(ComExp *e) {
+  void visit(ComExp *e) override {
     IF_LOG Logger::print("ComExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2275,7 +2314,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(NegExp *e) {
+  void visit(NegExp *e) override {
     IF_LOG Logger::print("NegExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2289,17 +2328,18 @@ public:
 
     LLValue *val = l->getRVal();
 
-    if (e->type->isintegral())
+    if (e->type->isintegral()) {
       val = p->ir->CreateNeg(val, "negval");
-    else
+    } else {
       val = p->ir->CreateFNeg(val, "negval");
+    }
 
     result = new DImValue(e->type, val);
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(CatExp *e) {
+  void visit(CatExp *e) override {
     IF_LOG Logger::print("CatExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2309,7 +2349,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(CatAssignExp *e) {
+  void visit(CatAssignExp *e) override {
     IF_LOG Logger::print("CatAssignExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2323,12 +2363,13 @@ public:
 
     if (e1type->ty == Tarray && e2type->ty == Tdchar &&
         (elemtype->ty == Tchar || elemtype->ty == Twchar)) {
-      if (elemtype->ty == Tchar)
+      if (elemtype->ty == Tchar) {
         // append dchar to char[]
         DtoAppendDCharToString(e->loc, result, e->e2);
-      else /*if (elemtype->ty == Twchar)*/
+      } else { /*if (elemtype->ty == Twchar)*/
         // append dchar to wchar[]
         DtoAppendDCharToUnicodeString(e->loc, result, e->e2);
+      }
     } else if (e1type->equals(e2type)) {
       // append array
       DSliceValue *slice = DtoCatAssignArray(e->loc, result, e->e2);
@@ -2341,7 +2382,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(FuncExp *e) {
+  void visit(FuncExp *e) override {
     IF_LOG Logger::print("FuncExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2355,11 +2396,12 @@ public:
       // of a delegate, so set tok here in order to get correct types/mangling.
       // Horrible hack, but DMD does the same thing.
       fd->tok = TOKfunction;
-      fd->vthis = NULL;
+      fd->vthis = nullptr;
     }
 
-    if (fd->isNested())
+    if (fd->isNested()) {
       Logger::println("nested");
+    }
     Logger::println("kind = %s", fd->kind());
 
     // We need to actually codegen the function here, as literals are not added
@@ -2412,7 +2454,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(ArrayLiteralExp *e) {
+  void visit(ArrayLiteralExp *e) override {
     IF_LOG Logger::print("ArrayLiteralExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2446,7 +2488,7 @@ public:
     } else if (dyn) {
       if (arrayType->isImmutable() && isConstLiteral(e)) {
         llvm::Constant *init = arrayLiteralToConst(p, e);
-        llvm::GlobalVariable *global = new llvm::GlobalVariable(
+        auto global = new llvm::GlobalVariable(
             gIR->module, init->getType(), true,
             llvm::GlobalValue::InternalLinkage, init, ".immutablearray");
         result = new DSliceValue(arrayType, DtoConstSize_t(e->elements->dim),
@@ -2469,7 +2511,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(StructLiteralExp *e) {
+  void visit(StructLiteralExp *e) override {
     IF_LOG Logger::print("StructLiteralExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2505,12 +2547,12 @@ public:
 
     // return as a var
     result = new DVarValue(e->type, e->inProgressMemory);
-    e->inProgressMemory = 0;
+    e->inProgressMemory = nullptr;
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(ClassReferenceExp *e) {
+  void visit(ClassReferenceExp *e) override {
     IF_LOG Logger::print("ClassReferenceExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2520,7 +2562,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(InExp *e) {
+  void visit(InExp *e) override {
     IF_LOG Logger::print("InExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2531,7 +2573,7 @@ public:
     result = DtoAAIn(e->loc, e->type, aa, key);
   }
 
-  void visit(RemoveExp *e) {
+  void visit(RemoveExp *e) override {
     IF_LOG Logger::print("RemoveExp::toElem: %s\n", e->toChars());
     LOG_SCOPE;
 
@@ -2553,23 +2595,25 @@ public:
       return llvm::ConstantArray::get(type, vals);
     }
 
-    llvm::Type *elementType = NULL;
+    llvm::Type *elementType = nullptr;
     bool differentTypes = false;
     for (auto v : vals) {
-      if (!elementType)
+      if (!elementType) {
         elementType = v->getType();
-      else
+      } else {
         differentTypes |= (elementType != v->getType());
+      }
     }
 
-    if (differentTypes)
+    if (differentTypes) {
       return llvm::ConstantStruct::getAnon(vals, true);
+    }
 
     llvm::ArrayType *t = llvm::ArrayType::get(elementType, vals.size());
     return llvm::ConstantArray::get(t, vals);
   }
 
-  void visit(AssocArrayLiteralExp *e) {
+  void visit(AssocArrayLiteralExp *e) override {
     IF_LOG Logger::print("AssocArrayLiteralExp::toElem: %s @ %s\n",
                          e->toChars(), e->type->toChars());
     LOG_SCOPE;
@@ -2582,15 +2626,16 @@ public:
     Type *aatype = basetype;
     Type *vtype = aatype->nextOf();
 
-    if (!e->keys->dim)
+    if (!e->keys->dim) {
       goto LruntimeInit;
+    }
 
     if (aatype->ty != Taarray) {
       // It's the AssociativeArray type.
       // Turn it back into a TypeAArray
       vtype = e->values->tdata()[0]->type;
       aatype = new TypeAArray(vtype, e->keys->tdata()[0]->type);
-      aatype = aatype->semantic(e->loc, NULL);
+      aatype = aatype->semantic(e->loc, nullptr);
     }
 
     {
@@ -2606,8 +2651,9 @@ public:
         unsigned errors = global.startGagging();
         LLConstant *ekeyConst = toConstElem(ekey, p);
         LLConstant *evalConst = toConstElem(eval, p);
-        if (global.endGagging(errors))
+        if (global.endGagging(errors)) {
           goto LruntimeInit;
+        }
         assert(ekeyConst && evalConst);
         keysInits.push_back(ekeyConst);
         valuesInits.push_back(evalConst);
@@ -2702,7 +2748,7 @@ public:
     return new DVarValue(exp->type, DtoBitCast(v, DtoPtrToType(exp->type)));
   }
 
-  void visit(DelegatePtrExp *e) {
+  void visit(DelegatePtrExp *e) override {
     IF_LOG Logger::print("DelegatePtrExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2710,7 +2756,7 @@ public:
     result = toGEP(e, 0);
   }
 
-  void visit(DelegateFuncptrExp *e) {
+  void visit(DelegateFuncptrExp *e) override {
     IF_LOG Logger::print("DelegateFuncptrExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2720,7 +2766,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(BoolExp *e) {
+  void visit(BoolExp *e) override {
     IF_LOG Logger::print("BoolExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2731,7 +2777,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(DotTypeExp *e) {
+  void visit(DotTypeExp *e) override {
     IF_LOG Logger::print("DotTypeExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2742,7 +2788,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(TypeExp *e) {
+  void visit(TypeExp *e) override {
     e->error("type %s is not an expression", e->toChars());
     // TODO: Improve error handling. DMD just returns some value here and hopes
     // some more sensible error messages will be triggered.
@@ -2751,13 +2797,14 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(TupleExp *e) {
+  void visit(TupleExp *e) override {
     IF_LOG Logger::print("TupleExp::toElem() %s\n", e->toChars());
     LOG_SCOPE;
 
     // If there are any side effects, evaluate them first.
-    if (e->e0)
+    if (e->e0) {
       toElem(e->e0);
+    }
 
     std::vector<LLType *> types;
     types.reserve(e->exps->dim);
@@ -2770,20 +2817,21 @@ public:
       Expression *el = (*e->exps)[i];
       DValue *ep = toElem(el);
       LLValue *gep = DtoGEPi(val, 0, i);
-      if (DtoIsPassedByRef(el->type))
+      if (DtoIsPassedByRef(el->type)) {
         DtoStore(DtoLoad(ep->getRVal()), gep);
-      else if (el->type->ty != Tvoid)
+      } else if (el->type->ty != Tvoid) {
         DtoStoreZextI8(ep->getRVal(), gep);
-      else
+      } else {
         DtoStore(LLConstantInt::get(LLType::getInt8Ty(p->context()), 0, false),
                  gep);
+      }
     }
     result = new DVarValue(e->type, val);
   }
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(VectorExp *e) {
+  void visit(VectorExp *e) override {
     IF_LOG Logger::print("VectorExp::toElem() %s\n", e->toChars());
     LOG_SCOPE;
 
@@ -2819,7 +2867,7 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(PowExp *e) {
+  void visit(PowExp *e) override {
     IF_LOG Logger::print("PowExp::toElem() %s\n", e->toChars());
     LOG_SCOPE;
 
@@ -2829,10 +2877,10 @@ public:
 
   //////////////////////////////////////////////////////////////////////////////////////////
 
-  void visit(TypeidExp *e) {
+  void visit(TypeidExp *e) override {
     if (Type *t = isType(e->obj)) {
       result = DtoSymbolAddress(e->loc, e->type,
-                                getOrCreateTypeInfoDeclaration(t, NULL));
+                                getOrCreateTypeInfoDeclaration(t, nullptr));
       return;
     }
     if (Expression *ex = isExpression(e->obj)) {
@@ -2875,6 +2923,7 @@ public:
   STUB(ScopeExp)
   STUB(SymbolExp)
   STUB(PowAssignExp)
+#undef STUB
 };
 
 //////////////////////////////////////////////////////////////////////////////////////////////
@@ -2892,10 +2941,10 @@ DValue *toElemDtor(Expression *e) {
 }
 
 // FIXME: Implement & place in right module
-Symbol *toModuleAssert(Module *m) { return NULL; }
+Symbol *toModuleAssert(Module *m) { return nullptr; }
 
 // FIXME: Implement & place in right module
-Symbol *toModuleUnittest(Module *m) { return NULL; }
+Symbol *toModuleUnittest(Module *m) { return nullptr; }
 
 // FIXME: Implement & place in right module
-Symbol *toModuleArray(Module *m) { return NULL; }
+Symbol *toModuleArray(Module *m) { return nullptr; }

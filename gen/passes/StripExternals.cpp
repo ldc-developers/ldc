@@ -37,7 +37,7 @@ struct LLVM_LIBRARY_VISIBILITY StripExternals : public ModulePass {
 
   // run - Do the StripExternals pass on the specified module.
   //
-  bool runOnModule(Module &M);
+  bool runOnModule(Module &M) override;
 };
 }
 
@@ -83,7 +83,7 @@ bool StripExternals::runOnModule(Module &M) {
         todelete->eraseFromParent();
         continue;
       } else {
-        I->setInitializer(0);
+        I->setInitializer(nullptr);
         I->setLinkage(GlobalValue::ExternalLinkage);
         DEBUG(errs() << "Deleted initializer: " << *I);
       }

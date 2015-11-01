@@ -38,11 +38,13 @@ void MultiSetter::operator=(bool val) {
 }
 
 void StringsAdapter::push_back(const char *cstr) {
-  if (!cstr || !*cstr)
+  if (!cstr || !*cstr) {
     error(Loc(), "Expected argument to '-%s'", name);
+  }
 
-  if (!*arrp)
+  if (!*arrp) {
     *arrp = new Strings;
+  }
   (*arrp)->push(mem.xstrdup(cstr));
 }
 

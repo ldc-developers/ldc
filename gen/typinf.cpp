@@ -78,10 +78,11 @@ TypeInfoDeclaration *createUnqualified(Type *t) {
   case Ttuple:
     return TypeInfoTupleDeclaration::create(t);
   case Tclass:
-    if (((TypeClass *)t)->sym->isInterfaceDeclaration())
+    if (((TypeClass *)t)->sym->isInterfaceDeclaration()) {
       return TypeInfoInterfaceDeclaration::create(t);
-    else
+    } else {
       return TypeInfoClassDeclaration::create(t);
+    }
   default:
     return TypeInfoDeclaration::create(t, 0);
   }
@@ -100,16 +101,17 @@ TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *torig, Scope *sc) {
 
   Type *t = torig->merge2(); // do this since not all Type's are merge'd
   if (!t->vtinfo) {
-    if (t->isShared()) // does both 'shared' and 'shared const'
+    if (t->isShared()) { // does both 'shared' and 'shared const'
       t->vtinfo = new TypeInfoSharedDeclaration(t);
-    else if (t->isConst())
+    } else if (t->isConst()) {
       t->vtinfo = new TypeInfoConstDeclaration(t);
-    else if (t->isImmutable())
+    } else if (t->isImmutable()) {
       t->vtinfo = new TypeInfoInvariantDeclaration(t);
-    else if (t->isWild())
+    } else if (t->isWild()) {
       t->vtinfo = new TypeInfoWildDeclaration(t);
-    else
+    } else {
       t->vtinfo = createUnqualified(t);
+    }
     assert(t->vtinfo);
     torig->vtinfo = t->vtinfo;
 
@@ -130,9 +132,10 @@ TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *torig, Scope *sc) {
       }
     }
   }
-  if (!torig->vtinfo)
+  if (!torig->vtinfo) {
     torig->vtinfo =
         t->vtinfo; // Types aren't merged, but we can share the vtinfo's
+  }
   assert(torig->vtinfo);
   return torig->vtinfo;
 }
@@ -156,13 +159,14 @@ static bool builtinTypeInfo(Type *t) {
     if (t->isTypeBasic() || t->ty == Tclass)
         return !t->mod;
 #else
-  if (t->isTypeBasic())
+  if (t->isTypeBasic()) {
     return !t->mod;
+  }
 #endif
 
   if (t->ty == Tarray) {
     Type *next = t->nextOf();
-    return !t->mod && ((next->isTypeBasic() != NULL && !next->mod) ||
+    return !t->mod && ((next->isTypeBasic() != nullptr && !next->mod) ||
                        // strings are so common, make them builtin
                        (next->ty == Tchar && next->mod == MODimmutable) ||
                        (next->ty == Tchar && next->mod == MODconst));
@@ -213,8 +217,9 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid) {
 }
 
 void DtoResolveTypeInfo(TypeInfoDeclaration *tid) {
-  if (tid->ir.isResolved())
+  if (tid->ir.isResolved()) {
     return;
+  }
   tid->ir.setResolved();
 
   // TypeInfo instances (except ClassInfo ones) are always emitted as weak
@@ -224,7 +229,7 @@ void DtoResolveTypeInfo(TypeInfoDeclaration *tid) {
   // that we actually need the value somewhere else in codegen.
   // TODO: DMD does not seem to call semanticTypeInfo() from the glue layer,
   // so there might be a structural issue somewhere.
-  semanticTypeInfo(NULL, tid->tinfo);
+  semanticTypeInfo(nullptr, tid->tinfo);
   Declaration_codegen(tid);
 }
 
@@ -238,7 +243,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoDeclaration *decl) {
+  void visit(TypeInfoDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -250,7 +255,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoEnumDeclaration *decl) {
+  void visit(TypeInfoEnumDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoEnumDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -279,16 +284,17 @@ public:
       LLType *memty = DtoType(memtype);
       LLConstant *C;
       Expression *defaultval = sd->getDefaultValue(decl->loc);
-      if (memtype->isintegral())
+      if (memtype->isintegral()) {
         C = LLConstantInt::get(memty, defaultval->toInteger(),
                                !isLLVMUnsigned(memtype));
-      else if (memtype->isString())
+      } else if (memtype->isString()) {
         C = DtoConstString(
             static_cast<const char *>(defaultval->toStringExp()->string));
-      else if (memtype->isfloating())
+      } else if (memtype->isfloating()) {
         C = LLConstantFP::get(memty, defaultval->toReal());
-      else
+      } else {
         llvm_unreachable("Unsupported type");
+      }
 
       b.push_void_array(C, memtype, sd);
     }
@@ -300,7 +306,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoPointerDeclaration *decl) {
+  void visit(TypeInfoPointerDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoPointerDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -315,7 +321,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoArrayDeclaration *decl) {
+  void visit(TypeInfoArrayDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoArrayDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -330,7 +336,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoStaticArrayDeclaration *decl) {
+  void visit(TypeInfoStaticArrayDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoStaticArrayDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -353,7 +359,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoAssociativeArrayDeclaration *decl) {
+  void visit(TypeInfoAssociativeArrayDeclaration *decl) override {
     IF_LOG Logger::println(
         "TypeInfoAssociativeArrayDeclaration::llvmDefine() %s",
         decl->toChars());
@@ -377,7 +383,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoFunctionDeclaration *decl) {
+  void visit(TypeInfoFunctionDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoFunctionDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -394,7 +400,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoDelegateDeclaration *decl) {
+  void visit(TypeInfoDelegateDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoDelegateDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -414,7 +420,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoStructDeclaration *decl) {
+  void visit(TypeInfoStructDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoStructDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -472,8 +478,9 @@ public:
     // (m_arg1/m_arg2) which are used for the X86_64 System V ABI varargs
     // implementation. They are not present on any other cpu/os.
     unsigned expectedFields = 12;
-    if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
+    if (global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
       expectedFields += 2;
+    }
     if (Type::typeinfostruct->fields.dim != expectedFields) {
       error(Loc(), "Unexpected number of object.TypeInfo_Struct fields; "
                    "druntime version does not match compiler");
@@ -487,10 +494,11 @@ public:
     // The protocol is to write a null pointer for zero-initialized arrays. The
     // length field is always needed for tsize().
     llvm::Constant *initPtr;
-    if (tc->isZeroInit(Loc()))
+    if (tc->isZeroInit(Loc())) {
       initPtr = getNullValue(getVoidPtrType());
-    else
+    } else {
       initPtr = iraggr->getInitSymbol();
+    }
     b.push_void_array(getTypeStoreSize(DtoType(tc)), initPtr);
 
     // toHash
@@ -518,8 +526,9 @@ public:
 
     // void function(void*)                    xpostblit;
     FuncDeclaration *xpostblit = sd->postblit;
-    if (xpostblit && sd->postblit->storage_class & STCdisable)
-      xpostblit = 0;
+    if (xpostblit && sd->postblit->storage_class & STCdisable) {
+      xpostblit = nullptr;
+    }
     b.push_funcptr(xpostblit);
 
     // uint m_align;
@@ -533,8 +542,9 @@ public:
         if (t) {
           t = t->merge();
           b.push_typeinfo(t);
-        } else
+        } else {
           b.push_null(Type::dtypeinfo->type);
+        }
 
         t = sd->arg2type;
       }
@@ -543,12 +553,13 @@ public:
     // immutable(void)* m_RTInfo;
     // The cases where getRTInfo is null are not quite here, but the code is
     // modelled after what DMD does.
-    if (sd->getRTInfo)
+    if (sd->getRTInfo) {
       b.push(toConstElem(sd->getRTInfo, gIR));
-    else if (!tc->hasPointers())
+    } else if (!tc->hasPointers()) {
       b.push_size_as_vp(0); // no pointers
-    else
+    } else {
       b.push_size_as_vp(1); // has pointers
+    }
 
     // finish
     b.finalize(getIrGlobal(decl));
@@ -557,7 +568,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoClassDeclaration *decl) {
+  void visit(TypeInfoClassDeclaration *decl) override {
     llvm_unreachable(
         "TypeInfoClassDeclaration::llvmDefine() should not be called, "
         "as a custom Dsymbol::codegen() override is used");
@@ -566,7 +577,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoInterfaceDeclaration *decl) {
+  void visit(TypeInfoInterfaceDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoInterfaceDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -588,7 +599,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoTupleDeclaration *decl) {
+  void visit(TypeInfoTupleDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoTupleDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -615,7 +626,7 @@ public:
     RTTIBuilder b(Type::typeinfotypelist);
 
     // push TypeInfo[]
-    b.push_array(arrC, dim, Type::dtypeinfo->type, NULL);
+    b.push_array(arrC, dim, Type::dtypeinfo->type, nullptr);
 
     // finish
     b.finalize(getIrGlobal(decl));
@@ -624,7 +635,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoConstDeclaration *decl) {
+  void visit(TypeInfoConstDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoConstDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -639,7 +650,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoInvariantDeclaration *decl) {
+  void visit(TypeInfoInvariantDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoInvariantDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -654,7 +665,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoSharedDeclaration *decl) {
+  void visit(TypeInfoSharedDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoSharedDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -669,7 +680,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoWildDeclaration *decl) {
+  void visit(TypeInfoWildDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoWildDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -684,7 +695,7 @@ public:
   /* =========================================================================
    */
 
-  void visit(TypeInfoVectorDeclaration *decl) {
+  void visit(TypeInfoVectorDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoVectorDeclaration::llvmDefine() %s",
                            decl->toChars());
     LOG_SCOPE;
@@ -707,8 +718,9 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
                          decl->toPrettyChars());
   LOG_SCOPE;
 
-  if (decl->ir.isDefined())
+  if (decl->ir.isDefined()) {
     return;
+  }
   decl->ir.setDefined();
 
   std::string mangled(mangle(decl));
@@ -724,13 +736,14 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
     assert(irg->type->isStructTy());
   } else {
     if (builtinTypeInfo(
-            decl->tinfo)) // this is a declaration of a builtin __initZ var
+            decl->tinfo)) { // this is a declaration of a builtin __initZ var
       irg->type = Type::dtypeinfo->type->ctype->isClass()->getMemoryLLType();
-    else
+    } else {
       irg->type = LLStructType::create(gIR->context(), decl->toPrettyChars());
+    }
     irg->value = new llvm::GlobalVariable(gIR->module, irg->type, true,
                                           llvm::GlobalValue::ExternalLinkage,
-                                          NULL, mangled);
+                                          nullptr, mangled);
   }
 
   emitTypeMetadata(decl);

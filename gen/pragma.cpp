@@ -18,7 +18,7 @@
 #include "llvm/Support/CommandLine.h"
 
 static bool parseStringExp(Expression *e, std::string &res) {
-  StringExp *s = NULL;
+  StringExp *s = nullptr;
 
   e = e->optimize(WANTvalue);
   if (e->op == TOKstring && (s = static_cast<StringExp *>(e))) {
@@ -30,7 +30,7 @@ static bool parseStringExp(Expression *e, std::string &res) {
 }
 
 static bool parseIntExp(Expression *e, dinteger_t &res) {
-  IntegerExp *i = NULL;
+  IntegerExp *i = nullptr;
 
   e = e->optimize(WANTvalue);
   if (e->op == TOKint64 && (i = static_cast<IntegerExp *>(e))) {
@@ -43,7 +43,8 @@ static bool parseIntExp(Expression *e, dinteger_t &res) {
 Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   Identifier *ident = decl->ident;
   Expressions *args = decl->args;
-  Expression *expr = (args && args->dim > 0) ? (*args)[0]->semantic(sc) : 0;
+  Expression *expr =
+      (args && args->dim > 0) ? (*args)[0]->semantic(sc) : nullptr;
 
   // pragma(LDC_intrinsic, "string") { funcdecl(s) }
   if (ident == Id::LDC_intrinsic) {
@@ -72,12 +73,13 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
       do {
         size_t k = (i + j) / 2;
         int cmp = name.compare(ldcIntrinsic[k].name);
-        if (!cmp)
+        if (!cmp) {
           return ldcIntrinsic[k].pragma;
-        else if (cmp < 0)
+        } else if (cmp < 0) {
           j = k;
-        else
+        } else {
           i = k + 1;
+        }
       } while (i != j);
     }
 
@@ -97,8 +99,9 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
         error(Loc(), "priority may not be greater then 65535");
         priority = 65535;
       }
-    } else
+    } else {
       priority = 65535;
+    }
     char buf[8];
     sprintf(buf, "%llu", static_cast<unsigned long long>(priority));
     arg1str = std::string(buf);
@@ -257,8 +260,9 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
 
 void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s, Pragma llvm_internal,
                     const std::string &arg1str) {
-  if (llvm_internal == LLVMnone || llvm_internal == LLVMignore)
+  if (llvm_internal == LLVMnone || llvm_internal == LLVMignore) {
     return;
+  }
 
   if (s->llvmInternal) {
     error(Loc(),

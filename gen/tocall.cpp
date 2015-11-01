@@ -28,8 +28,9 @@
 
 IrFuncTy &DtoIrTypeFunction(DValue *fnval) {
   if (DFuncValue *dfnval = fnval->isFunc()) {
-    if (dfnval->func)
+    if (dfnval->func) {
       return getIrFunc(dfnval->func)->irFty;
+    }
   }
 
   Type *type = stripModifiers(fnval->getType()->toBasetype());
@@ -88,13 +89,14 @@ LLValue *DtoCallableValue(DValue *fn) {
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLFunctionType *DtoExtractFunctionType(LLType *type) {
-  if (LLFunctionType *fty = isaFunction(type))
+  if (LLFunctionType *fty = isaFunction(type)) {
     return fty;
-  else if (LLPointerType *pty = isaPointer(type)) {
-    if (LLFunctionType *fty = isaFunction(pty->getElementType()))
+  } else if (LLPointerType *pty = isaPointer(type)) {
+    if (LLFunctionType *fty = isaFunction(pty->getElementType())) {
       return fty;
+    }
   }
-  return NULL;
+  return nullptr;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -121,10 +123,11 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     bool passByVal = gABI->passByVal(argType);
 
     AttrBuilder initialAttrs;
-    if (passByVal)
+    if (passByVal) {
       initialAttrs.add(LLAttribute::ByVal);
-    else
+    } else {
       initialAttrs.add(DtoShouldExtend(argType));
+    }
 
     optionalIrArgs.push_back(new IrFuncTyArg(argType, passByVal, initialAttrs));
     optionalIrArgs.back()->parametersIdx = i;
@@ -135,32 +138,34 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
 
   const size_t explicitLLArgCount = formalLLArgCount + optionalIrArgs.size();
   args.resize(implicitLLArgCount + explicitLLArgCount,
-              static_cast<llvm::Value *>(0));
+              static_cast<llvm::Value *>(nullptr));
 
   // Iterate the explicit arguments from left to right in the D source,
   // which is the reverse of the LLVM order if irFty.reverseParams is true.
   for (size_t i = 0; i < explicitLLArgCount; ++i) {
     const bool isVararg = (i >= irFty.args.size());
-    IrFuncTyArg *irArg = NULL;
-    if (isVararg)
+    IrFuncTyArg *irArg = nullptr;
+    if (isVararg) {
       irArg = optionalIrArgs[i - numFormalParams];
-    else
+    } else {
       irArg = irFty.args[i];
+    }
 
     DValue *const argval = argvals[irArg->parametersIdx];
     Type *const argType = argval->getType();
 
-    llvm::Value *llVal = NULL;
-    if (isVararg)
+    llvm::Value *llVal = nullptr;
+    if (isVararg) {
       llVal = irFty.putParam(*irArg, argval);
-    else
+    } else {
       llVal = irFty.putParam(i, argval);
+    }
 
     const size_t llArgIdx =
         implicitLLArgCount +
         (irFty.reverseParams ? explicitLLArgCount - i - 1 : i);
     llvm::Type *const callableArgType =
-        (isVararg ? NULL : callableTy->getParamType(llArgIdx));
+        (isVararg ? nullptr : callableTy->getParamType(llArgIdx));
 
     // Hack around LDC assuming structs and static arrays are in memory:
     // If the function wants a struct, and the argument value is a
@@ -178,18 +183,20 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
         Logger::cout() << "arg:     " << *llVal << '\n';
         Logger::cout() << "expects: " << *callableArgType << '\n';
       }
-      if (isaStruct(llVal))
+      if (isaStruct(llVal)) {
         llVal = DtoAggrPaint(llVal, callableArgType);
-      else
+      } else {
         llVal = DtoBitCast(llVal, callableArgType);
+      }
     }
 
     args[llArgIdx] = llVal;
     // +1 as index 0 contains the function attributes.
     attrs.add(llArgIdx + 1, irArg->attrs);
 
-    if (isVararg)
+    if (isVararg) {
       delete irArg;
+    }
   }
 }
 
@@ -213,9 +220,9 @@ static LLValue *getTypeinfoArrayArgumentForDVarArg(Expressions *arguments,
   LLArrayType *typeinfoarraytype =
       LLArrayType::get(typeinfotype, numVariadicArgs);
 
-  llvm::GlobalVariable *typeinfomem = new llvm::GlobalVariable(
+  auto typeinfomem = new llvm::GlobalVariable(
       gIR->module, typeinfoarraytype, true, llvm::GlobalValue::InternalLinkage,
-      NULL, "._arguments.storage");
+      nullptr, "._arguments.storage");
   IF_LOG Logger::cout() << "_arguments storage: " << *typeinfomem << '\n';
 
   std::vector<LLConstant *> vtypeinfos;
@@ -288,8 +295,9 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *pAp = toElem((*e->arguments)[0])->getLVal(); // va_list*
     LLValue *vaArgArg = gABI->prepareVaArg(pAp);
     LLType *llType = DtoType(e->type);
-    if (DtoIsPassedByRef(e->type))
+    if (DtoIsPassedByRef(e->type)) {
       llType = getPtrToType(llType);
+    }
     result = new DImValue(e->type, p->ir->CreateVAArg(vaArgArg, llType));
     return true;
   }
@@ -302,8 +310,9 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     }
     Expression *exp = (*e->arguments)[0];
     DValue *expv = toElem(exp);
-    if (expv->getType()->toBasetype()->ty != Tint32)
+    if (expv->getType()->toBasetype()->ty != Tint32) {
       expv = DtoCast(e->loc, expv, Type::tint32);
+    }
     result = new DImValue(e->type,
                           p->ir->CreateAlloca(LLType::getInt8Ty(p->context()),
                                               expv->getRVal(), ".alloca"));
@@ -404,8 +413,9 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     load->setAlignment(getTypeAllocSize(load->getType()));
     load->setAtomic(llvm::AtomicOrdering(atomicOrdering));
     llvm::Value *val = load;
-    if (val->getType() != ptrTy)
+    if (val->getType() != ptrTy) {
       val = DtoAllocaDump(val, retType);
+    }
     result = new DImValue(retType, val);
     return true;
   }
@@ -459,8 +469,9 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     // Use the same quickfix as for dragonegg - see r210956
     ret = p->ir->CreateExtractValue(ret, 0);
     llvm::Value *retVal = ret;
-    if (retVal->getType() != retTy)
+    if (retVal->getType() != retTy) {
       retVal = DtoAllocaDump(retVal, exp3->type);
+    }
     result = new DImValue(exp3->type, retVal);
     return true;
   }
@@ -473,17 +484,18 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     }
 
     static const char *ops[] = {"xchg", "add", "sub", "and",  "nand", "or",
-                                "xor",  "max", "min", "umax", "umin", 0};
+                                "xor",  "max", "min", "umax", "umin", nullptr};
 
     int op = 0;
     for (;; ++op) {
-      if (ops[op] == 0) {
+      if (ops[op] == nullptr) {
         e->error("unknown atomic_rmw operation %s",
                  fndecl->intrinsicName.c_str());
         fatal();
       }
-      if (fndecl->intrinsicName == ops[op])
+      if (fndecl->intrinsicName == ops[op]) {
         break;
+      }
     }
 
     Expression *exp1 = (*e->arguments)[0];
@@ -637,16 +649,18 @@ private:
 
   // Adds an optional sret pointer argument.
   void addSret() {
-    if (!irFty.arg_sret)
+    if (!irFty.arg_sret) {
       return;
+    }
 
     size_t index = args.size();
     LLType *llArgType = *(llArgTypesBegin + index);
 
     LLValue *var = retvar;
-    if (!var)
+    if (!var) {
       var = DtoRawAlloca(llArgType->getContainedType(0),
                          DtoAlignment(resulttype), ".rettmp");
+    }
 
     args.push_back(var);
     attrs.add(index + 1, irFty.arg_sret->attrs);
@@ -664,8 +678,9 @@ private:
     bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
     bool nestedcall = irFty.arg_nest;
 
-    if (!thiscall && !delegatecall && !nestedcall)
+    if (!thiscall && !delegatecall && !nestedcall) {
       return;
+    }
 
     size_t index = args.size();
     LLType *llArgType = *(llArgTypesBegin + index);
@@ -687,10 +702,11 @@ private:
     } else if (delegatecall) {
       // ... or a delegate context arg
       LLValue *ctxarg;
-      if (fnval->isLVal())
+      if (fnval->isLVal()) {
         ctxarg = DtoLoad(DtoGEPi(fnval->getLVal(), 0, 0), ".ptr");
-      else
+      } else {
         ctxarg = gIR->ir->CreateExtractValue(fnval->getRVal(), 0, ".ptr");
+      }
       ctxarg = DtoBitCast(ctxarg, llArgType);
       args.push_back(ctxarg);
     } else if (nestedcall) {
@@ -699,24 +715,27 @@ private:
         LLValue *contextptr = DtoNestedContext(loc, dfnval->func);
         contextptr = DtoBitCast(contextptr, getVoidPtrType());
         args.push_back(contextptr);
-      } else
+      } else {
         args.push_back(llvm::UndefValue::get(getVoidPtrType()));
+      }
     } else {
       error(loc, "Context argument required but none given");
       fatal();
     }
 
     // add attributes
-    if (irFty.arg_this)
+    if (irFty.arg_this) {
       attrs.add(index + 1, irFty.arg_this->attrs);
-    else if (irFty.arg_nest)
+    } else if (irFty.arg_nest) {
       attrs.add(index + 1, irFty.arg_nest->attrs);
+    }
   }
 
   // D vararg functions need a "TypeInfo[] _arguments" argument.
   void addArguments() {
-    if (!irFty.arg_arguments)
+    if (!irFty.arg_arguments) {
       return;
+    }
 
     int numFormalParams = Parameter::dim(tf->parameters);
     LLValue *argumentsArg =
@@ -748,8 +767,9 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   Type *const returntype = tf->next;
   const TY returnTy = returntype->toBasetype()->ty;
 
-  if (resulttype == NULL)
+  if (resulttype == nullptr) {
     resulttype = returntype;
+  }
 
   // get callee llvm value
   LLValue *const callable = DtoCallableValue(fnval);
@@ -781,8 +801,8 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   IF_LOG {
     Logger::println("Arguments so far: (%d)", static_cast<int>(args.size()));
     Logger::indent();
-    for (size_t i = 0; i < args.size(); i++) {
-      Logger::cout() << *args[i] << '\n';
+    for (auto &arg : args) {
+      Logger::cout() << *arg << '\n';
     }
     Logger::undent();
     Logger::cout() << "Function type: " << tf->toChars() << '\n';
@@ -793,7 +813,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   const size_t n_arguments =
       arguments ? arguments->dim : 0; // number of explicit arguments
 
-  std::vector<DValue *> argvals(n_arguments, static_cast<DValue *>(0));
+  std::vector<DValue *> argvals(n_arguments, static_cast<DValue *>(nullptr));
   if (dfnval && dfnval->func->isArrayOp) {
     // For array ops, the druntime implementation signatures are crafted
     // specifically such that the evaluation order is as expected with
@@ -814,8 +834,9 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     }
   }
   // add varargs
-  for (size_t i = numFormalParams; i < n_arguments; ++i)
-    argvals[i] = DtoArgument(0, (*arguments)[i]);
+  for (size_t i = numFormalParams; i < n_arguments; ++i) {
+    argvals[i] = DtoArgument(nullptr, (*arguments)[i]);
+  }
 
   addExplicitArguments(args, attrs, irFty, callableTy, argvals,
                        numFormalParams);
@@ -875,10 +896,11 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
                            returntype->toChars(), rbase->toChars());
     switch (rbase->ty) {
     case Tarray:
-      if (tf->isref)
+      if (tf->isref) {
         retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
-      else
+      } else {
         retllval = DtoAggrPaint(retllval, DtoType(rbase));
+      }
       break;
 
     case Tsarray:
@@ -888,10 +910,11 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     case Tclass:
     case Taarray:
     case Tpointer:
-      if (tf->isref)
+      if (tf->isref) {
         retllval = DtoBitCast(retllval, DtoType(rbase->pointerTo()));
-      else
+      } else {
         retllval = DtoBitCast(retllval, DtoType(rbase));
+      }
       break;
 
     case Tstruct:
@@ -979,8 +1002,9 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   // if we are returning through a pointer arg
   // or if we are returning a reference
   // make sure we provide a lvalue back!
-  if (retinptr || (tf->isref && returnTy != Tvoid) || retValIsAlloca)
+  if (retinptr || (tf->isref && returnTy != Tvoid) || retValIsAlloca) {
     return new DVarValue(resulttype, retllval);
+  }
 
   return new DImValue(resulttype, retllval);
 }

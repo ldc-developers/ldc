@@ -185,134 +185,134 @@ static struct {
   char size;
   signed char baseReg; // %% todo: Reg, Reg_XX
 } regInfo[N_Regs] = {
-    {"EAX", NULL_TREE, NULL, 4, Reg_EAX},
-    {"EBX", NULL_TREE, NULL, 4, Reg_EBX},
-    {"ECX", NULL_TREE, NULL, 4, Reg_ECX},
-    {"EDX", NULL_TREE, NULL, 4, Reg_EDX},
-    {"ESI", NULL_TREE, NULL, 4, Reg_ESI},
-    {"EDI", NULL_TREE, NULL, 4, Reg_EDI},
-    {"EBP", NULL_TREE, NULL, 4, Reg_EBP},
-    {"ESP", NULL_TREE, NULL, 4, Reg_ESP},
-    {"ST", NULL_TREE, NULL, 10, Reg_ST},
-    {"ST(1)", NULL_TREE, NULL, 10, Reg_ST1},
-    {"ST(2)", NULL_TREE, NULL, 10, Reg_ST2},
-    {"ST(3)", NULL_TREE, NULL, 10, Reg_ST3},
-    {"ST(4)", NULL_TREE, NULL, 10, Reg_ST4},
-    {"ST(5)", NULL_TREE, NULL, 10, Reg_ST5},
-    {"ST(6)", NULL_TREE, NULL, 10, Reg_ST6},
-    {"ST(7)", NULL_TREE, NULL, 10, Reg_ST7},
-    {"MM0", NULL_TREE, NULL, 8, Reg_MM0},
-    {"MM1", NULL_TREE, NULL, 8, Reg_MM1},
-    {"MM2", NULL_TREE, NULL, 8, Reg_MM2},
-    {"MM3", NULL_TREE, NULL, 8, Reg_MM3},
-    {"MM4", NULL_TREE, NULL, 8, Reg_MM4},
-    {"MM5", NULL_TREE, NULL, 8, Reg_MM5},
-    {"MM6", NULL_TREE, NULL, 8, Reg_MM6},
-    {"MM7", NULL_TREE, NULL, 8, Reg_MM7},
-    {"XMM0", NULL_TREE, NULL, 16, Reg_XMM0},
-    {"XMM1", NULL_TREE, NULL, 16, Reg_XMM1},
-    {"XMM2", NULL_TREE, NULL, 16, Reg_XMM2},
-    {"XMM3", NULL_TREE, NULL, 16, Reg_XMM3},
-    {"XMM4", NULL_TREE, NULL, 16, Reg_XMM4},
-    {"XMM5", NULL_TREE, NULL, 16, Reg_XMM5},
-    {"XMM6", NULL_TREE, NULL, 16, Reg_XMM6},
-    {"XMM7", NULL_TREE, NULL, 16, Reg_XMM7},
+    {"EAX", NULL_TREE, nullptr, 4, Reg_EAX},
+    {"EBX", NULL_TREE, nullptr, 4, Reg_EBX},
+    {"ECX", NULL_TREE, nullptr, 4, Reg_ECX},
+    {"EDX", NULL_TREE, nullptr, 4, Reg_EDX},
+    {"ESI", NULL_TREE, nullptr, 4, Reg_ESI},
+    {"EDI", NULL_TREE, nullptr, 4, Reg_EDI},
+    {"EBP", NULL_TREE, nullptr, 4, Reg_EBP},
+    {"ESP", NULL_TREE, nullptr, 4, Reg_ESP},
+    {"ST", NULL_TREE, nullptr, 10, Reg_ST},
+    {"ST(1)", NULL_TREE, nullptr, 10, Reg_ST1},
+    {"ST(2)", NULL_TREE, nullptr, 10, Reg_ST2},
+    {"ST(3)", NULL_TREE, nullptr, 10, Reg_ST3},
+    {"ST(4)", NULL_TREE, nullptr, 10, Reg_ST4},
+    {"ST(5)", NULL_TREE, nullptr, 10, Reg_ST5},
+    {"ST(6)", NULL_TREE, nullptr, 10, Reg_ST6},
+    {"ST(7)", NULL_TREE, nullptr, 10, Reg_ST7},
+    {"MM0", NULL_TREE, nullptr, 8, Reg_MM0},
+    {"MM1", NULL_TREE, nullptr, 8, Reg_MM1},
+    {"MM2", NULL_TREE, nullptr, 8, Reg_MM2},
+    {"MM3", NULL_TREE, nullptr, 8, Reg_MM3},
+    {"MM4", NULL_TREE, nullptr, 8, Reg_MM4},
+    {"MM5", NULL_TREE, nullptr, 8, Reg_MM5},
+    {"MM6", NULL_TREE, nullptr, 8, Reg_MM6},
+    {"MM7", NULL_TREE, nullptr, 8, Reg_MM7},
+    {"XMM0", NULL_TREE, nullptr, 16, Reg_XMM0},
+    {"XMM1", NULL_TREE, nullptr, 16, Reg_XMM1},
+    {"XMM2", NULL_TREE, nullptr, 16, Reg_XMM2},
+    {"XMM3", NULL_TREE, nullptr, 16, Reg_XMM3},
+    {"XMM4", NULL_TREE, nullptr, 16, Reg_XMM4},
+    {"XMM5", NULL_TREE, nullptr, 16, Reg_XMM5},
+    {"XMM6", NULL_TREE, nullptr, 16, Reg_XMM6},
+    {"XMM7", NULL_TREE, nullptr, 16, Reg_XMM7},
 
 #ifdef ASM_X86_64
-    {"RAX", NULL_TREE, NULL, 8, Reg_RAX},
-    {"RBX", NULL_TREE, NULL, 8, Reg_RBX},
-    {"RCX", NULL_TREE, NULL, 8, Reg_RCX},
-    {"RDX", NULL_TREE, NULL, 8, Reg_RDX},
-    {"RSI", NULL_TREE, NULL, 8, Reg_RSI},
-    {"RDI", NULL_TREE, NULL, 8, Reg_RDI},
-    {"RBP", NULL_TREE, NULL, 8, Reg_RBP},
-    {"RSP", NULL_TREE, NULL, 8, Reg_RSP},
-    {"R8", NULL_TREE, NULL, 8, Reg_R8},
-    {"R9", NULL_TREE, NULL, 8, Reg_R9},
-    {"R10", NULL_TREE, NULL, 8, Reg_R10},
-    {"R11", NULL_TREE, NULL, 8, Reg_R11},
-    {"R12", NULL_TREE, NULL, 8, Reg_R12},
-    {"R13", NULL_TREE, NULL, 8, Reg_R13},
-    {"R14", NULL_TREE, NULL, 8, Reg_R14},
-    {"R15", NULL_TREE, NULL, 8, Reg_R15},
-    {"R8B", NULL_TREE, NULL, 1, Reg_R8},
-    {"R9B", NULL_TREE, NULL, 1, Reg_R9},
-    {"R10B", NULL_TREE, NULL, 1, Reg_R10},
-    {"R11B", NULL_TREE, NULL, 1, Reg_R11},
-    {"R12B", NULL_TREE, NULL, 1, Reg_R12},
-    {"R13B", NULL_TREE, NULL, 1, Reg_R13},
-    {"R14B", NULL_TREE, NULL, 1, Reg_R14},
-    {"R15B", NULL_TREE, NULL, 1, Reg_R15},
-    {"R8W", NULL_TREE, NULL, 2, Reg_R8},
-    {"R9W", NULL_TREE, NULL, 2, Reg_R9},
-    {"R10W", NULL_TREE, NULL, 2, Reg_R10},
-    {"R11W", NULL_TREE, NULL, 2, Reg_R11},
-    {"R12W", NULL_TREE, NULL, 2, Reg_R12},
-    {"R13W", NULL_TREE, NULL, 2, Reg_R13},
-    {"R14W", NULL_TREE, NULL, 2, Reg_R14},
-    {"R15W", NULL_TREE, NULL, 2, Reg_R15},
-    {"R8D", NULL_TREE, NULL, 4, Reg_R8},
-    {"R9D", NULL_TREE, NULL, 4, Reg_R9},
-    {"R10D", NULL_TREE, NULL, 4, Reg_R10},
-    {"R11D", NULL_TREE, NULL, 4, Reg_R11},
-    {"R12D", NULL_TREE, NULL, 4, Reg_R12},
-    {"R13D", NULL_TREE, NULL, 4, Reg_R13},
-    {"R14D", NULL_TREE, NULL, 4, Reg_R14},
-    {"R15D", NULL_TREE, NULL, 4, Reg_R15},
-    {"XMM8", NULL_TREE, NULL, 16, Reg_XMM8},
-    {"XMM9", NULL_TREE, NULL, 16, Reg_XMM9},
-    {"XMM10", NULL_TREE, NULL, 16, Reg_XMM10},
-    {"XMM11", NULL_TREE, NULL, 16, Reg_XMM11},
-    {"XMM12", NULL_TREE, NULL, 16, Reg_XMM12},
-    {"XMM13", NULL_TREE, NULL, 16, Reg_XMM13},
-    {"XMM14", NULL_TREE, NULL, 16, Reg_XMM14},
-    {"XMM15", NULL_TREE, NULL, 16, Reg_XMM15},
-    {"RIP", NULL_TREE, NULL, 8, Reg_RIP},
-    {"SIL", NULL_TREE, NULL, 1, Reg_SIL},
-    {"DIL", NULL_TREE, NULL, 1, Reg_DIL},
-    {"BPL", NULL_TREE, NULL, 1, Reg_BPL},
-    {"SPL", NULL_TREE, NULL, 1, Reg_SPL},
+    {"RAX", NULL_TREE, nullptr, 8, Reg_RAX},
+    {"RBX", NULL_TREE, nullptr, 8, Reg_RBX},
+    {"RCX", NULL_TREE, nullptr, 8, Reg_RCX},
+    {"RDX", NULL_TREE, nullptr, 8, Reg_RDX},
+    {"RSI", NULL_TREE, nullptr, 8, Reg_RSI},
+    {"RDI", NULL_TREE, nullptr, 8, Reg_RDI},
+    {"RBP", NULL_TREE, nullptr, 8, Reg_RBP},
+    {"RSP", NULL_TREE, nullptr, 8, Reg_RSP},
+    {"R8", NULL_TREE, nullptr, 8, Reg_R8},
+    {"R9", NULL_TREE, nullptr, 8, Reg_R9},
+    {"R10", NULL_TREE, nullptr, 8, Reg_R10},
+    {"R11", NULL_TREE, nullptr, 8, Reg_R11},
+    {"R12", NULL_TREE, nullptr, 8, Reg_R12},
+    {"R13", NULL_TREE, nullptr, 8, Reg_R13},
+    {"R14", NULL_TREE, nullptr, 8, Reg_R14},
+    {"R15", NULL_TREE, nullptr, 8, Reg_R15},
+    {"R8B", NULL_TREE, nullptr, 1, Reg_R8},
+    {"R9B", NULL_TREE, nullptr, 1, Reg_R9},
+    {"R10B", NULL_TREE, nullptr, 1, Reg_R10},
+    {"R11B", NULL_TREE, nullptr, 1, Reg_R11},
+    {"R12B", NULL_TREE, nullptr, 1, Reg_R12},
+    {"R13B", NULL_TREE, nullptr, 1, Reg_R13},
+    {"R14B", NULL_TREE, nullptr, 1, Reg_R14},
+    {"R15B", NULL_TREE, nullptr, 1, Reg_R15},
+    {"R8W", NULL_TREE, nullptr, 2, Reg_R8},
+    {"R9W", NULL_TREE, nullptr, 2, Reg_R9},
+    {"R10W", NULL_TREE, nullptr, 2, Reg_R10},
+    {"R11W", NULL_TREE, nullptr, 2, Reg_R11},
+    {"R12W", NULL_TREE, nullptr, 2, Reg_R12},
+    {"R13W", NULL_TREE, nullptr, 2, Reg_R13},
+    {"R14W", NULL_TREE, nullptr, 2, Reg_R14},
+    {"R15W", NULL_TREE, nullptr, 2, Reg_R15},
+    {"R8D", NULL_TREE, nullptr, 4, Reg_R8},
+    {"R9D", NULL_TREE, nullptr, 4, Reg_R9},
+    {"R10D", NULL_TREE, nullptr, 4, Reg_R10},
+    {"R11D", NULL_TREE, nullptr, 4, Reg_R11},
+    {"R12D", NULL_TREE, nullptr, 4, Reg_R12},
+    {"R13D", NULL_TREE, nullptr, 4, Reg_R13},
+    {"R14D", NULL_TREE, nullptr, 4, Reg_R14},
+    {"R15D", NULL_TREE, nullptr, 4, Reg_R15},
+    {"XMM8", NULL_TREE, nullptr, 16, Reg_XMM8},
+    {"XMM9", NULL_TREE, nullptr, 16, Reg_XMM9},
+    {"XMM10", NULL_TREE, nullptr, 16, Reg_XMM10},
+    {"XMM11", NULL_TREE, nullptr, 16, Reg_XMM11},
+    {"XMM12", NULL_TREE, nullptr, 16, Reg_XMM12},
+    {"XMM13", NULL_TREE, nullptr, 16, Reg_XMM13},
+    {"XMM14", NULL_TREE, nullptr, 16, Reg_XMM14},
+    {"XMM15", NULL_TREE, nullptr, 16, Reg_XMM15},
+    {"RIP", NULL_TREE, nullptr, 8, Reg_RIP},
+    {"SIL", NULL_TREE, nullptr, 1, Reg_SIL},
+    {"DIL", NULL_TREE, nullptr, 1, Reg_DIL},
+    {"BPL", NULL_TREE, nullptr, 1, Reg_BPL},
+    {"SPL", NULL_TREE, nullptr, 1, Reg_SPL},
 #endif
 
-    {"FLAGS", NULL_TREE, NULL, 0,
+    {"FLAGS", NULL_TREE, nullptr, 0,
      Reg_EFLAGS}, // the gcc name is "flags"; not used in assembler input
-    {"CS", NULL_TREE, NULL, 2, -1},
-    {"DS", NULL_TREE, NULL, 2, -1},
-    {"SS", NULL_TREE, NULL, 2, -1},
-    {"ES", NULL_TREE, NULL, 2, -1},
-    {"FS", NULL_TREE, NULL, 2, -1},
-    {"GS", NULL_TREE, NULL, 2, -1},
-    {"AX", NULL_TREE, NULL, 2, Reg_EAX},
-    {"BX", NULL_TREE, NULL, 2, Reg_EBX},
-    {"CX", NULL_TREE, NULL, 2, Reg_ECX},
-    {"DX", NULL_TREE, NULL, 2, Reg_EDX},
-    {"SI", NULL_TREE, NULL, 2, Reg_ESI},
-    {"DI", NULL_TREE, NULL, 2, Reg_EDI},
-    {"BP", NULL_TREE, NULL, 2, Reg_EBP},
-    {"SP", NULL_TREE, NULL, 2, Reg_ESP},
-    {"AL", NULL_TREE, NULL, 1, Reg_EAX},
-    {"AH", NULL_TREE, NULL, 1, Reg_EAX},
-    {"BL", NULL_TREE, NULL, 1, Reg_EBX},
-    {"BH", NULL_TREE, NULL, 1, Reg_EBX},
-    {"CL", NULL_TREE, NULL, 1, Reg_ECX},
-    {"CH", NULL_TREE, NULL, 1, Reg_ECX},
-    {"DL", NULL_TREE, NULL, 1, Reg_EDX},
-    {"DH", NULL_TREE, NULL, 1, Reg_EDX},
-    {"CR0", NULL_TREE, NULL, 0, -1},
-    {"CR2", NULL_TREE, NULL, 0, -1},
-    {"CR3", NULL_TREE, NULL, 0, -1},
-    {"CR4", NULL_TREE, NULL, 0, -1},
-    {"DR0", NULL_TREE, NULL, 0, -1},
-    {"DR1", NULL_TREE, NULL, 0, -1},
-    {"DR2", NULL_TREE, NULL, 0, -1},
-    {"DR3", NULL_TREE, NULL, 0, -1},
-    {"DR6", NULL_TREE, NULL, 0, -1},
-    {"DR7", NULL_TREE, NULL, 0, -1},
-    {"TR3", NULL_TREE, NULL, 0, -1},
-    {"TR4", NULL_TREE, NULL, 0, -1},
-    {"TR5", NULL_TREE, NULL, 0, -1},
-    {"TR6", NULL_TREE, NULL, 0, -1},
-    {"TR7", NULL_TREE, NULL, 0, -1}};
+    {"CS", NULL_TREE, nullptr, 2, -1},
+    {"DS", NULL_TREE, nullptr, 2, -1},
+    {"SS", NULL_TREE, nullptr, 2, -1},
+    {"ES", NULL_TREE, nullptr, 2, -1},
+    {"FS", NULL_TREE, nullptr, 2, -1},
+    {"GS", NULL_TREE, nullptr, 2, -1},
+    {"AX", NULL_TREE, nullptr, 2, Reg_EAX},
+    {"BX", NULL_TREE, nullptr, 2, Reg_EBX},
+    {"CX", NULL_TREE, nullptr, 2, Reg_ECX},
+    {"DX", NULL_TREE, nullptr, 2, Reg_EDX},
+    {"SI", NULL_TREE, nullptr, 2, Reg_ESI},
+    {"DI", NULL_TREE, nullptr, 2, Reg_EDI},
+    {"BP", NULL_TREE, nullptr, 2, Reg_EBP},
+    {"SP", NULL_TREE, nullptr, 2, Reg_ESP},
+    {"AL", NULL_TREE, nullptr, 1, Reg_EAX},
+    {"AH", NULL_TREE, nullptr, 1, Reg_EAX},
+    {"BL", NULL_TREE, nullptr, 1, Reg_EBX},
+    {"BH", NULL_TREE, nullptr, 1, Reg_EBX},
+    {"CL", NULL_TREE, nullptr, 1, Reg_ECX},
+    {"CH", NULL_TREE, nullptr, 1, Reg_ECX},
+    {"DL", NULL_TREE, nullptr, 1, Reg_EDX},
+    {"DH", NULL_TREE, nullptr, 1, Reg_EDX},
+    {"CR0", NULL_TREE, nullptr, 0, -1},
+    {"CR2", NULL_TREE, nullptr, 0, -1},
+    {"CR3", NULL_TREE, nullptr, 0, -1},
+    {"CR4", NULL_TREE, nullptr, 0, -1},
+    {"DR0", NULL_TREE, nullptr, 0, -1},
+    {"DR1", NULL_TREE, nullptr, 0, -1},
+    {"DR2", NULL_TREE, nullptr, 0, -1},
+    {"DR3", NULL_TREE, nullptr, 0, -1},
+    {"DR6", NULL_TREE, nullptr, 0, -1},
+    {"DR7", NULL_TREE, nullptr, 0, -1},
+    {"TR3", NULL_TREE, nullptr, 0, -1},
+    {"TR4", NULL_TREE, nullptr, 0, -1},
+    {"TR5", NULL_TREE, nullptr, 0, -1},
+    {"TR6", NULL_TREE, nullptr, 0, -1},
+    {"TR7", NULL_TREE, nullptr, 0, -1}};
 
 typedef enum {
   No_Type_Needed,
@@ -529,14 +529,15 @@ typedef struct {
   unsigned link;
 
   unsigned nOperands() {
-    if (!operands[0])
+    if (!operands[0]) {
       return 0;
-    else if (!operands[1])
+    } else if (!operands[1]) {
       return 1;
-    else if (!operands[2])
+    } else if (!operands[2]) {
       return 2;
-    else
+    } else {
       return 3;
+    }
   }
 } AsmOpInfo;
 
@@ -2042,51 +2043,57 @@ struct AsmProcessor {
     this->stmt = stmt;
     token = stmt->tokens;
 
-    opInfo = NULL;
+    opInfo = nullptr;
 
     if (!regInfo[0].ident) {
       char buf[8], *p;
 
       for (int i = 0; i < N_Regs; i++) {
         strncpy(buf, regInfo[i].name, sizeof(buf) - 1);
-        for (p = buf; *p; p++)
+        for (p = buf; *p; p++) {
           *p = std::tolower(*p);
+        }
         regInfo[i].gccName = std::string(buf, p - buf);
-        if ((i <= Reg_ST || i > Reg_ST7) && i != Reg_EFLAGS)
+        if ((i <= Reg_ST || i > Reg_ST7) && i != Reg_EFLAGS) {
           regInfo[i].ident = Identifier::idPool(regInfo[i].name);
+        }
       }
 
-      for (int i = 0; i < N_PtrNames; i++)
+      for (int i = 0; i < N_PtrNames; i++) {
         ptrTypeIdentTable[i] = Identifier::idPool(ptrTypeNameTable[i]);
+      }
 
       Handled = new Expression(Loc(), TOKvoid, sizeof(Expression));
 
       ident_seg = Identifier::idPool("seg");
 
       eof_tok.value = TOKeof;
-      eof_tok.next = 0;
+      eof_tok.next = nullptr;
     }
   }
 
   void run() { parse(); }
 
   void nextToken() {
-    if (token->next)
+    if (token->next) {
       token = token->next;
-    else
+    } else {
       token = &eof_tok;
+    }
   }
 
   Token *peekToken() {
-    if (token->next)
+    if (token->next) {
       return token->next;
-    else
+    } else {
       return &eof_tok;
+    }
   }
 
   void expectEnd() {
-    if (token->value != TOKeof)
+    if (token->value != TOKeof) {
       stmt->error("expected end of statement"); // %% extra at end...
+    }
   }
 
   void parse() {
@@ -2108,10 +2115,11 @@ struct AsmProcessor {
     case Op_Invalid:
       break;
     default:
-      if (op >= Op_db && op <= Op_de)
+      if (op >= Op_db && op <= Op_de) {
         doData();
-      else
+      } else {
         doInstruction();
+      }
     }
   }
 
@@ -2152,12 +2160,13 @@ struct AsmProcessor {
     do {
       k = (i + j) / 2;
       l = strcmp(opcode, opData[k].inMnemonic);
-      if (!l)
+      if (!l) {
         return opData[k].asmOp;
-      else if (l < 0)
+      } else if (l < 0) {
         j = k;
-      else
+      } else {
         i = k + 1;
+      }
     } while (i != j);
 
     stmt->error("unknown opcode '%s'", opcode);
@@ -2194,10 +2203,11 @@ struct AsmProcessor {
         parseOperand();
 
         if (matchOperands(operand_i)) {
-          AsmCode *asmcode = new AsmCode(N_Regs);
+          auto asmcode = new AsmCode(N_Regs);
 
-          if (formatInstruction(operand_i, asmcode))
+          if (formatInstruction(operand_i, asmcode)) {
             stmt->asmcode = (code *)asmcode;
+          }
         }
       }
       return;
@@ -2227,15 +2237,16 @@ struct AsmProcessor {
     //  }
 
     if (matchOperands(operand_i)) {
-      AsmCode *asmcode = new AsmCode(N_Regs);
+      auto asmcode = new AsmCode(N_Regs);
 
-      if (formatInstruction(operand_i, asmcode))
+      if (formatInstruction(operand_i, asmcode)) {
         stmt->asmcode = (code *)asmcode;
+      }
     }
   }
 
   void setAsmCode() {
-    AsmCode *asmcode = new AsmCode(N_Regs);
+    auto asmcode = new AsmCode(N_Regs);
     asmcode->insnTemplate = insnTemplate.str();
     Logger::cout() << "insnTemplate = " << asmcode->insnTemplate << '\n';
     stmt->asmcode = (code *)asmcode;
@@ -2245,8 +2256,9 @@ struct AsmProcessor {
   bool matchOperands(unsigned nOperands) {
     bool wrong_number = true;
 
-    for (unsigned i = 0; i < nOperands; i++)
+    for (unsigned i = 0; i < nOperands; i++) {
       classifyOperand(&operands[i]);
+    }
 
     while (1) {
       if (nOperands == opInfo->nOperands()) {
@@ -2259,12 +2271,14 @@ struct AsmProcessor {
 
           switch (opInfo->operands[i] & Opr_ClassMask) {
           case OprC_Mem: // no FPMem currently
-            if (operand->cls != Opr_Mem)
+            if (operand->cls != Opr_Mem) {
               goto no_match;
+            }
             break;
           case OprC_RFP:
-            if (!(operand->reg >= Reg_ST && operand->reg <= Reg_ST7))
+            if (!(operand->reg >= Reg_ST && operand->reg <= Reg_ST7)) {
               goto no_match;
+            }
             break;
           default:
             break;
@@ -2274,15 +2288,17 @@ struct AsmProcessor {
         return true;
       }
     no_match:
-      if (opInfo->linkType == Next_Form)
-        opInfo = &asmOpInfo[op = (AsmOp)opInfo->link];
-      else
+      if (opInfo->linkType == Next_Form) {
+        opInfo = &asmOpInfo[op = static_cast<AsmOp>(opInfo->link)];
+      } else {
         break;
+      }
     }
-    if (wrong_number)
+    if (wrong_number) {
       stmt->error("wrong number of operands");
-    else
+    } else {
       stmt->error("wrong operand types");
+    }
     return false;
   }
 
@@ -2300,14 +2316,15 @@ struct AsmProcessor {
     if (sc->func->naked) {
       switch (type) {
       case Arg_Integer:
-        if (e->type->isunsigned())
+        if (e->type->isunsigned()) {
           insnTemplate << "$" << e->toUInteger();
-        else
+        } else {
 #ifndef ASM_X86_64
-          insnTemplate << "$" << (sinteger_t)e->toInteger();
+          insnTemplate << "$" << static_cast<sinteger_t>(e->toInteger());
 #else
           insnTemplate << "$" << e->toInteger();
 #endif
+        }
         break;
 
       case Arg_Pointer:
@@ -2358,8 +2375,8 @@ struct AsmProcessor {
                    AsmArgMode mode = Mode_Input) {
     if (sc->func->naked) {
       // taken from above
-      stmt->error(
-          "only global variables can be referenced by identifier in naked asm");
+      stmt->error("only global variables can be referenced by identifier in "
+                  "naked asm");
       return;
     }
 
@@ -2392,8 +2409,9 @@ struct AsmProcessor {
       really_have_symbol = !is_localsize;
     }
 
-    if (operand->isOffset && !operand->hasBracket)
+    if (operand->isOffset && !operand->hasBracket) {
       return Opr_Immediate;
+    }
 
     if (operand->hasBracket ||
         really_have_symbol) // %% redo for 'offset' function
@@ -2420,27 +2438,31 @@ struct AsmProcessor {
       return Opr_Mem;
     }
 
-    if (operand->reg != Reg_Invalid && !operand->hasNumber)
+    if (operand->reg != Reg_Invalid && !operand->hasNumber) {
       return Opr_Reg;
+    }
 
     // should check immediate given (operand->hasNumber);
     //
     if (operand->hasNumber || is_localsize) {
       // size determination not correct if there are symbols Opr_Immediate
       if (operand->dataSize == Default_Ptr) {
-        if (operand->constDisplacement < 0x100)
+        if (operand->constDisplacement < 0x100) {
           operand->dataSize = Byte_Ptr;
-        else if (operand->constDisplacement < 0x10000)
+        } else if (operand->constDisplacement < 0x10000) {
           operand->dataSize = Short_Ptr;
+        }
 #ifndef ASM_X86_64
-        else
+        else {
           operand->dataSize = Int_Ptr;
+        }
 #else
-        else if (operand->constDisplacement <= 0xFFFFFFFF)
+        else if (operand->constDisplacement <= 0xFFFFFFFF) {
           operand->dataSize = Int_Ptr;
-        else
+        } else {
           // This could be possible since we are using 48 bits
           operand->dataSize = QWord_Ptr;
+        }
 #endif
       }
       return Opr_Immediate;
@@ -2470,8 +2492,9 @@ struct AsmProcessor {
     case Byte_NoType:
       return ptrtype == Byte_Ptr;
     case Word_Types:
-      if (ptrtype == Byte_Ptr)
+      if (ptrtype == Byte_Ptr) {
         return false;
+      }
     // drop through
     case Int_Types:
       switch (ptrtype) {
@@ -2519,10 +2542,11 @@ struct AsmProcessor {
         break;
       case Extended_Ptr:
         // MS C runtime: real = 64-bit double
-        if (global.params.targetTriple.isWindowsMSVCEnvironment())
+        if (global.params.targetTriple.isWindowsMSVCEnvironment()) {
           type_suffix = 'l';
-        else
+        } else {
           type_suffix = 't';
+        }
         break;
       default:
         return false;
@@ -2544,18 +2568,20 @@ struct AsmProcessor {
 
     insnTemplate.str("");
     // %% todo: special case for something..
-    if (opInfo->linkType == Out_Mnemonic)
+    if (opInfo->linkType == Out_Mnemonic) {
       mnemonic = alternateMnemonics[opInfo->link];
-    else
+    } else {
       mnemonic = opIdent->string;
+    }
 
     // handle two-operand form where second arg is ignored.
     // must be done before type_suffix detection
     if (op == Op_FidR_P || op == Op_fxch || op == Op_FfdRR_P) {
-      if (operands[1].cls == Opr_Reg && operands[1].reg == Reg_ST)
+      if (operands[1].cls == Opr_Reg && operands[1].reg == Reg_ST) {
         nOperands = 1;
-      else
+      } else {
         stmt->error("instruction allows only ST as second argument");
+      }
     }
 
 #ifdef ASM_X86_64
@@ -2578,7 +2604,8 @@ struct AsmProcessor {
       PtrType min_type = Default_Ptr;
       PtrType hint_type = Default_Ptr;
 
-      /* Default types: This attempts to match the observed behavior of DMD */
+      /* Default types: This attempts to match the observed behavior of DMD
+       */
       switch (opInfo->needsType) {
       case Int_Types:
         min_type = Byte_Ptr;
@@ -2587,29 +2614,33 @@ struct AsmProcessor {
         min_type = Short_Ptr;
         break;
       case FPInt_Types:
-        if (op == Op_Fis_ST) // integer math instructions
+        if (op == Op_Fis_ST) { // integer math instructions
           min_type = Int_Ptr;
-        else // compare, load, store
+        } else { // compare, load, store
           min_type = Short_Ptr;
+        }
         break;
       case FP_Types:
         min_type = Float_Ptr;
         break;
       }
-      if (op == Op_push && operands[0].cls == Opr_Immediate)
+      if (op == Op_push && operands[0].cls == Opr_Immediate) {
 #ifndef ASM_X86_64
         min_type = Int_Ptr;
 #else
         min_type = QWord_Ptr;
 #endif
+      }
 
       for (int i = 0; i < nOperands; i++) {
-        if (hint_type == Default_Ptr && !(opInfo->operands[i] & Opr_NoType))
+        if (hint_type == Default_Ptr && !(opInfo->operands[i] & Opr_NoType)) {
           hint_type = operands[i].dataSizeHint;
+        }
 
         if ((opInfo->operands[i] & Opr_NoType) ||
-            operands[i].dataSize == Default_Ptr)
+            operands[i].dataSize == Default_Ptr) {
           continue;
+        }
         if (operands[i].cls == Opr_Immediate) {
           min_type =
               operands[i].dataSize > min_type ? operands[i].dataSize : min_type;
@@ -2622,24 +2653,27 @@ struct AsmProcessor {
 
       bool type_ok;
       if (exact_type == Default_Ptr) {
-        type_ok = getTypeSuffix((TypeNeeded)opInfo->needsType, hint_type,
-                                type_suffix);
-        if (!type_ok)
-          type_ok = getTypeSuffix((TypeNeeded)opInfo->needsType, min_type,
-                                  type_suffix);
-      } else
-        type_ok = getTypeSuffix((TypeNeeded)opInfo->needsType, exact_type,
-                                type_suffix);
+        type_ok = getTypeSuffix(static_cast<TypeNeeded>(opInfo->needsType),
+                                hint_type, type_suffix);
+        if (!type_ok) {
+          type_ok = getTypeSuffix(static_cast<TypeNeeded>(opInfo->needsType),
+                                  min_type, type_suffix);
+        }
+      } else {
+        type_ok = getTypeSuffix(static_cast<TypeNeeded>(opInfo->needsType),
+                                exact_type, type_suffix);
+      }
 
       if (!type_ok) {
         stmt->error("invalid operand size");
         return false;
       }
     } else if (op == Op_Branch) {
-      if (operands[0].dataSize == Far_Ptr) // %% type=Far_Ptr not set by
-                                           // Seg:Ofss OTOH, we don't support
-                                           // that..
+      if (operands[0].dataSize == Far_Ptr) { // %% type=Far_Ptr not set by
+        // Seg:Ofss OTOH, we don't support
+        // that..
         insnTemplate << 'l';
+      }
     } else if (op == Op_FMath0 || op == Op_FdST0ST1) {
       operands[0].cls = Opr_Reg;
       operands[0].reg = Reg_ST1;
@@ -2651,9 +2685,9 @@ struct AsmProcessor {
     switch (op) {
     case Op_SizedStack: {
       int mlen = strlen(mnemonic);
-      if (mnemonic[mlen - 1] == 'd')
+      if (mnemonic[mlen - 1] == 'd') {
         insnTemplate.write(mnemonic, mlen - 1);
-      else {
+      } else {
         insnTemplate << mnemonic << 'w';
       }
     } break;
@@ -2676,8 +2710,9 @@ struct AsmProcessor {
       char tc_1;
       int mlen = strlen(mnemonic);
       PtrType op1_size = operands[1].dataSize;
-      if (op1_size == Default_Ptr)
+      if (op1_size == Default_Ptr) {
         op1_size = operands[1].dataSizeHint;
+      }
       // Need type char for source arg
       switch (op1_size) {
       case Byte_Ptr:
@@ -2713,8 +2748,9 @@ struct AsmProcessor {
         insnTemplate << mnemonic;
       }
       // the no-operand versions of floating point ops always pop
-      if (op == Op_FMath0)
+      if (op == Op_FMath0) {
         insnTemplate << "p";
+      }
       insnTemplate << type_suffix;
       break;
     }
@@ -2726,8 +2762,9 @@ struct AsmProcessor {
       break;
     case Clb_SizeDXAX:
       asmcode->regs[Reg_EAX] = true;
-      if (type_suffix != "b")
+      if (type_suffix != "b") {
         asmcode->regs[Reg_EDX] = true;
+      }
       break;
 #ifdef ASM_X86_64
     case Clb_SizeRDXRAX:
@@ -2740,14 +2777,18 @@ struct AsmProcessor {
       break;
     }
 
-    if (opInfo->implicitClobbers & Clb_DI)
+    if (opInfo->implicitClobbers & Clb_DI) {
       asmcode->regs[Reg_EDI] = true;
-    if (opInfo->implicitClobbers & Clb_SI)
+    }
+    if (opInfo->implicitClobbers & Clb_SI) {
       asmcode->regs[Reg_ESI] = true;
-    if (opInfo->implicitClobbers & Clb_CX)
+    }
+    if (opInfo->implicitClobbers & Clb_CX) {
       asmcode->regs[Reg_ECX] = true;
-    if (opInfo->implicitClobbers & Clb_SP)
+    }
+    if (opInfo->implicitClobbers & Clb_SP) {
       asmcode->regs[Reg_ESP] = true;
+    }
     if (opInfo->implicitClobbers & Clb_ST) {
       /* Can't figure out how to tell GCC that an
          asm statement leaves an arg pushed on the stack.
@@ -2763,8 +2804,9 @@ struct AsmProcessor {
       asmcode->regs[Reg_ST6] = true;
       asmcode->regs[Reg_ST7] = true;
     }
-    if (opInfo->implicitClobbers & Clb_Flags)
+    if (opInfo->implicitClobbers & Clb_Flags) {
       asmcode->regs[Reg_EFLAGS] = true;
+    }
     if (op == Op_cpuid) {
       asmcode->regs[Reg_EAX] = true;
       asmcode->regs[Reg_EBX] = true;
@@ -2775,14 +2817,15 @@ struct AsmProcessor {
     insnTemplate << ' ';
     for (int i__ = 0; i__ < nOperands; i__++) {
       int i;
-      if (i__ != 0)
+      if (i__ != 0) {
         insnTemplate << ", ";
-
+      }
       fmt = "$";
 
       switch (op) {
       case Op_mul:
-        // gas won't accept the two-operand form; skip to the source operand
+        // gas won't accept the two-operand form; skip to the source
+        // operand
         i__ = 1;
       // drop through
       case Op_bound:
@@ -2805,7 +2848,8 @@ struct AsmProcessor {
         // DMD doesn't seem to allow this
         /*
         if ( opTakesLabel() )  tho... (near ptr <Number> would be abs?)
-            fmt = "$a"; // GAS won't accept "jmp $42"; must be "jmp 42" (rel) or
+            fmt = "$a"; // GAS won't accept "jmp $42"; must be "jmp 42"
+        (rel) or
         "jmp *42" (abs)
         */
         if (opTakesLabel()) {
@@ -2821,10 +2865,11 @@ struct AsmProcessor {
           addOperand("$", Arg_LocalSize,
                      (Expression *)operand->symbolDisplacement.data[0],
                      asmcode);
-          if (operand->constDisplacement)
+          if (operand->constDisplacement) {
             insnTemplate << '+';
-          else
+          } else {
             break;
+          }
         }
 
         if (operand->symbolDisplacement.dim) {
@@ -2833,24 +2878,26 @@ struct AsmProcessor {
                      (Expression *)operand->symbolDisplacement.data[0],
                      asmcode);
 
-          if (operand->constDisplacement)
+          if (operand->constDisplacement) {
             insnTemplate << '+';
-          else
+          } else {
             // skip the addOperand(fmt, Arg_Integer...) below
             break;
+          }
         }
         addOperand(fmt, Arg_Integer, newIntExp(operand->constDisplacement),
                    asmcode);
         break;
       case Opr_Reg:
         if (opInfo->operands[i] & Opr_Dest) {
-          Reg clbr_reg = (Reg)regInfo[operand->reg].baseReg;
+          Reg clbr_reg = static_cast<Reg>(regInfo[operand->reg].baseReg);
           if (clbr_reg != Reg_Invalid) {
             asmcode->regs[clbr_reg] = true;
           }
         }
-        if (opTakesLabel())
+        if (opTakesLabel()) {
           insnTemplate << '*';
+        }
         writeReg(operand->reg);
         /*
         insnTemplate << "%";
@@ -2887,9 +2934,10 @@ struct AsmProcessor {
           if (op != Op_Branch) {
             writeReg(operand->segmentPrefix);
             insnTemplate << ':';
-          } else
-            stmt->error(
-                "Cannot generate a segment prefix for a branching instruction");
+          } else {
+            stmt->error("Cannot generate a segment prefix for a "
+                        "branching instruction");
+          }
         }
         if ((operand->segmentPrefix != Reg_Invalid &&
              operand->symbolDisplacement.dim == 0) ||
@@ -2899,17 +2947,20 @@ struct AsmProcessor {
             insnTemplate << '+';
           }
           operand->constDisplacement = 0;
-          // addOperand(fmt, Arg_Integer, newIntExp(operand->constDisplacement),
+          // addOperand(fmt, Arg_Integer,
+          // newIntExp(operand->constDisplacement),
           // asmcode);
-          if (opInfo->operands[i] & Opr_Dest)
+          if (opInfo->operands[i] & Opr_Dest) {
             asmcode->clobbersMemory = 1;
+          }
         }
         if (operand->symbolDisplacement.dim) {
           Expression *e = (Expression *)operand->symbolDisplacement.data[0];
-          Declaration *decl = 0;
+          Declaration *decl = nullptr;
 
-          if (e->op == TOKvar)
+          if (e->op == TOKvar) {
             decl = ((VarExp *)e)->var;
+          }
 
           if (operand->baseReg != Reg_Invalid && decl && !decl->isDataseg()) {
 
@@ -2949,12 +3000,14 @@ struct AsmProcessor {
               // FIXME: what is this ?
               addOperand2("${", ":a}", Arg_FrameRelative, e, asmcode);
             }
-            if (opInfo->operands[i] & Opr_Dest)
+            if (opInfo->operands[i] & Opr_Dest) {
               asmcode->clobbersMemory = 1;
+            }
           } else {
             // Plain memory reference to variable or reference to label.
 
-            /* If in a reg, DMD moves to memory.. even with -O, so we'll do the
+            /* If in a reg, DMD moves to memory.. even with -O, so we'll
+               do the
                same
                by always using the "m" contraint.
 
@@ -2979,7 +3032,8 @@ struct AsmProcessor {
                 insnTemplate << "_";
               }
               insnTemplate << mangle(decl);
-              //              addOperand2("${", ":c}", Arg_Pointer, e, asmcode);
+              //              addOperand2("${", ":c}", Arg_Pointer, e,
+              //              asmcode);
             } else {
               if (use_star) {
                 insnTemplate << '*';
@@ -2997,13 +3051,15 @@ struct AsmProcessor {
             }
           }
         }
-        if (use_star)
+        if (use_star) {
           insnTemplate << '*';
+        }
         if (operand->baseReg != Reg_Invalid ||
             operand->indexReg != Reg_Invalid) {
           insnTemplate << '(';
-          if (operand->baseReg != Reg_Invalid)
+          if (operand->baseReg != Reg_Invalid) {
             writeReg(operand->baseReg);
+          }
           if (operand->indexReg != Reg_Invalid) {
             insnTemplate << ',';
             writeReg(operand->indexReg);
@@ -3012,8 +3068,9 @@ struct AsmProcessor {
             }
           }
           insnTemplate << ')';
-          if (opInfo->operands[i] & Opr_Dest)
+          if (opInfo->operands[i] & Opr_Dest) {
             asmcode->clobbersMemory = 1;
+          }
         }
         break;
       case Opr_Invalid:
@@ -3039,7 +3096,7 @@ struct AsmProcessor {
   }
 
   Expression *newRegExp(int regno) {
-    IntegerExp *e = new IntegerExp(regno);
+    auto e = new IntegerExp(regno);
     e->op = TOKmod;
     return e;
   }
@@ -3078,24 +3135,28 @@ struct AsmProcessor {
     }
 
     if (isIntExp(exp)) {
-      if (is_offset)
+      if (is_offset) {
         invalidExpression();
+      }
       operand->constDisplacement += exp->toInteger();
-      if (!operand->inBracket)
-        operand->hasNumber = 1;
-    } else if (isRegExp(exp)) {
-      if (is_offset)
-        invalidExpression();
       if (!operand->inBracket) {
-        if (operand->reg == Reg_Invalid)
-          operand->reg = (Reg)exp->toInteger();
-        else
+        operand->hasNumber = 1;
+      }
+    } else if (isRegExp(exp)) {
+      if (is_offset) {
+        invalidExpression();
+      }
+      if (!operand->inBracket) {
+        if (operand->reg == Reg_Invalid) {
+          operand->reg = static_cast<Reg>(exp->toInteger());
+        } else {
           stmt->error("too many registers in operand (use brackets)");
+        }
       } else {
-        if (operand->baseReg == Reg_Invalid)
-          operand->baseReg = (Reg)exp->toInteger();
-        else if (operand->indexReg == Reg_Invalid) {
-          operand->indexReg = (Reg)exp->toInteger();
+        if (operand->baseReg == Reg_Invalid) {
+          operand->baseReg = static_cast<Reg>(exp->toInteger());
+        } else if (operand->indexReg == Reg_Invalid) {
+          operand->indexReg = static_cast<Reg>(exp->toInteger());
           operand->scale = 1;
         } else {
           stmt->error("too many registers memory operand");
@@ -3106,20 +3167,24 @@ struct AsmProcessor {
 
       if (v && v->storage_class & STCfield) {
         operand->constDisplacement += v->offset;
-        if (!operand->inBracket)
+        if (!operand->inBracket) {
           operand->hasNumber = 1;
+        }
       } else {
         if (v && v->type->isscalar()) {
-          // DMD doesn't check Tcomplex*, and counts Tcomplex32 as Tfloat64
+          // DMD doesn't check Tcomplex*, and counts Tcomplex32 as
+          // Tfloat64
           TY ty = v->type->toBasetype()->ty;
-          operand->dataSizeHint = ty == Tfloat80 || ty == Timaginary80
-                                      ? Extended_Ptr
-                                      : (PtrType)v->type->size(Loc());
+          operand->dataSizeHint =
+              ty == Tfloat80 || ty == Timaginary80
+                  ? Extended_Ptr
+                  : static_cast<PtrType>(v->type->size(Loc()));
         }
 
         if (!operand->symbolDisplacement.dim) {
-          if (is_offset && !operand->inBracket)
+          if (is_offset && !operand->inBracket) {
             operand->isOffset = 1;
+          }
           operand->symbolDisplacement.push(exp);
         } else {
           stmt->error("too many symbols in operand");
@@ -3150,16 +3215,18 @@ struct AsmProcessor {
     if (isIntExp(e1) && (!e2 || isIntExp(e2))) {
       switch (op) {
       case TOKadd:
-        if (e2)
+        if (e2) {
           e = new AddExp(stmt->loc, e1, e2);
-        else
+        } else {
           e = e1;
+        }
         break;
       case TOKmin:
-        if (e2)
+        if (e2) {
           e = new MinExp(stmt->loc, e1, e2);
-        else
+        } else {
           e = new NegExp(stmt->loc, e1);
+        }
         break;
       case TOKmul:
         e = new MulExp(stmt->loc, e1, e2);
@@ -3224,8 +3291,9 @@ struct AsmProcessor {
   void parseOperand() {
     Expression *exp = parseAsmExp();
     slotExp(exp);
-    if (isRegExp(exp))
-      operand->dataSize = (PtrType)regInfo[exp->toInteger()].size;
+    if (isRegExp(exp)) {
+      operand->dataSize = static_cast<PtrType>(regInfo[exp->toInteger()].size);
+    }
   }
 
   Expression *parseAsmExp() { return parseCondExp(); }
@@ -3235,8 +3303,9 @@ struct AsmProcessor {
     if (token->value == TOKquestion) {
       nextToken();
       Expression *exp2 = parseCondExp();
-      if (token->value != TOKcolon)
+      if (token->value != TOKcolon) {
         return exp;
+      }
       nextToken();
       Expression *exp3 = parseCondExp();
       exp = exp->toUInteger() ? exp2 : exp3;
@@ -3249,10 +3318,11 @@ struct AsmProcessor {
     while (token->value == TOKoror) {
       nextToken();
       Expression *exp2 = parseLogAndExp();
-      if (isIntExp(exp) && isIntExp(exp2))
+      if (isIntExp(exp) && isIntExp(exp2)) {
         exp = intOp(TOKandand, exp, exp2);
-      else
+      } else {
         stmt->error("bad integral operand");
+      }
     }
     return exp;
   }
@@ -3262,10 +3332,11 @@ struct AsmProcessor {
     while (token->value == TOKoror) {
       nextToken();
       Expression *exp2 = parseIncOrExp();
-      if (isIntExp(exp) && isIntExp(exp2))
+      if (isIntExp(exp) && isIntExp(exp2)) {
         exp = intOp(TOKoror, exp, exp2);
-      else
+      } else {
         stmt->error("bad integral operand");
+      }
     }
     return exp;
   }
@@ -3275,10 +3346,11 @@ struct AsmProcessor {
     while (token->value == TOKor) {
       nextToken();
       Expression *exp2 = parseXOrExp();
-      if (isIntExp(exp) && isIntExp(exp2))
+      if (isIntExp(exp) && isIntExp(exp2)) {
         exp = intOp(TOKor, exp, exp2);
-      else
+      } else {
         stmt->error("bad integral operand");
+      }
     }
     return exp;
   }
@@ -3288,10 +3360,11 @@ struct AsmProcessor {
     while (token->value == TOKxor) {
       nextToken();
       Expression *exp2 = parseAndExp();
-      if (isIntExp(exp) && isIntExp(exp2))
+      if (isIntExp(exp) && isIntExp(exp2)) {
         exp = intOp(TOKxor, exp, exp2);
-      else
+      } else {
         stmt->error("bad integral operand");
+      }
     }
     return exp;
   }
@@ -3301,10 +3374,11 @@ struct AsmProcessor {
     while (token->value == TOKand) {
       nextToken();
       Expression *exp2 = parseEqualExp();
-      if (isIntExp(exp) && isIntExp(exp2))
+      if (isIntExp(exp) && isIntExp(exp2)) {
         exp = intOp(TOKand, exp, exp2);
-      else
+      } else {
         stmt->error("bad integral operand");
+      }
     }
     return exp;
   }
@@ -3318,10 +3392,11 @@ struct AsmProcessor {
         TOK tok = token->value;
         nextToken();
         Expression *exp2 = parseRelExp();
-        if (isIntExp(exp) && isIntExp(exp2))
+        if (isIntExp(exp) && isIntExp(exp2)) {
           exp = intOp(tok, exp, exp2);
-        else
+        } else {
           stmt->error("bad integral operand");
+        }
       }
       default:
         return exp;
@@ -3341,10 +3416,11 @@ struct AsmProcessor {
         TOK tok = token->value;
         nextToken();
         Expression *exp2 = parseShiftExp();
-        if (isIntExp(exp) && isIntExp(exp2))
+        if (isIntExp(exp) && isIntExp(exp2)) {
           exp = intOp(tok, exp, exp2);
-        else
+        } else {
           stmt->error("bad integral operand");
+        }
       }
       default:
         return exp;
@@ -3385,9 +3461,9 @@ struct AsmProcessor {
       case TOKadd:
         nextToken();
         e2 = parseMultExp();
-        if (isIntExp(e1) && isIntExp(e2))
+        if (isIntExp(e1) && isIntExp(e2)) {
           e1 = intOp(tv, e1, e2);
-        else {
+        } else {
           slotExp(e1);
           slotExp(e2);
           e1 = Handled;
@@ -3397,11 +3473,11 @@ struct AsmProcessor {
         // Note: no support for symbol address difference
         nextToken();
         e2 = parseMultExp();
-        if (isIntExp(e1) && isIntExp(e2))
+        if (isIntExp(e1) && isIntExp(e2)) {
           e1 = intOp(tv, e1, e2);
-        else {
+        } else {
           slotExp(e1);
-          e2 = intOp(TOKmin, e2, NULL); // verifies e2 is an int
+          e2 = intOp(TOKmin, e2, nullptr); // verifies e2 is an int
           slotExp(e2);
           e1 = Handled;
         }
@@ -3432,7 +3508,7 @@ struct AsmProcessor {
         return true;
       }
 
-      operand->indexReg = (Reg)e1->toInteger();
+      operand->indexReg = static_cast<Reg>(e1->toInteger());
       operand->scale = e2->toInteger();
       switch (operand->scale) {
       case 1:
@@ -3461,12 +3537,13 @@ struct AsmProcessor {
       case TOKmul:
         nextToken();
         e2 = parseMultExp();
-        if (isIntExp(e1) && isIntExp(e2))
+        if (isIntExp(e1) && isIntExp(e2)) {
           e1 = intOp(tv, e1, e2);
-        else if (tryScale(e1, e2))
+        } else if (tryScale(e1, e2)) {
           e1 = Handled;
-        else
+        } else {
           invalidExpression();
+        }
         continue;
       case TOKdiv:
       case TOKmod:
@@ -3490,10 +3567,11 @@ struct AsmProcessor {
     // the spec'd syntax
     Expression *e;
 
-    if (token->value == TOKlbracket)
+    if (token->value == TOKlbracket) {
       e = Handled;
-    else
+    } else {
       e = parseUnaExp();
+    }
 
     // DMD allows multiple bracket expressions.
     while (token->value == TOKlbracket) {
@@ -3503,10 +3581,11 @@ struct AsmProcessor {
       slotExp(parseAsmExp());
       operand->inBracket = 0;
 
-      if (token->value == TOKrbracket)
+      if (token->value == TOKrbracket) {
         nextToken();
-      else
+      } else {
         stmt->error("missing ']'");
+      }
     }
 
     return e;
@@ -3533,9 +3612,11 @@ struct AsmProcessor {
     case TOKfloat80:
       return Extended_Ptr;
     case TOKidentifier:
-      for (int i = 0; i < N_PtrNames; i++)
-        if (tok->ident == ptrTypeIdentTable[i])
+      for (int i = 0; i < N_PtrNames; i++) {
+        if (tok->ident == ptrTypeIdentTable[i]) {
           return ptrTypeValueTable[i];
+        }
+      }
       break;
     default:
       break;
@@ -3544,7 +3625,7 @@ struct AsmProcessor {
   }
 
   Expression *parseUnaExp() {
-    Expression *e = NULL;
+    Expression *e = nullptr;
     PtrType ptr_type;
 
     // First, check for type prefix.
@@ -3553,12 +3634,14 @@ struct AsmProcessor {
 
       ptr_type = isPtrType(token);
       if (ptr_type != Default_Ptr) {
-        if (operand->dataSize == Default_Ptr)
+        if (operand->dataSize == Default_Ptr) {
           operand->dataSize = ptr_type;
-        else
+        } else {
           stmt->error("multiple specifications of operand size");
-      } else
+        }
+      } else {
         stmt->error("unknown operand size '%s'", token->toChars());
+      }
       nextToken();
       nextToken();
       return parseAsmExp();
@@ -3572,8 +3655,9 @@ struct AsmProcessor {
         stmt->error("'seg' not supported");
         e = parseAsmExp();
       } else if (token->ident == Id::offset || token->ident == Id::offsetof) {
-        if (token->ident == Id::offset && !global.params.useDeprecated)
+        if (token->ident == Id::offset && !global.params.useDeprecated) {
           stmt->error("offset deprecated, use offsetof");
+        }
         nextToken();
         e = parseAsmExp();
         e = new AddrExp(stmt->loc, e);
@@ -3588,7 +3672,7 @@ struct AsmProcessor {
     case TOKtilde:
       nextToken();
       e = parseUnaExp();
-      return intOp(tv, e, NULL);
+      return intOp(tv, e, nullptr);
     default:
       // primary exp
       break;
@@ -3598,12 +3682,13 @@ struct AsmProcessor {
 
   Expression *parsePrimaryExp() {
     Expression *e;
-    Identifier *ident = NULL;
+    Identifier *ident = nullptr;
 
     // get rid of short/long prefixes for branches
     if (opTakesLabel() &&
-        (token->value == TOKint16 || token->value == TOKint64))
+        (token->value == TOKint16 || token->value == TOKint64)) {
       nextToken();
+    }
 
     switch (token->value) {
     case TOKint32v:
@@ -3639,7 +3724,8 @@ struct AsmProcessor {
         e = new IdentifierExp(stmt->loc, ident);
       }
 
-      // If this is more than one component ref, it gets complicated: *(&Field +
+      // If this is more than one component ref, it gets complicated:
+      // *(&Field +
       // n)
       // maybe just do one step at a time..
       // simple case is Type.f -> VarDecl(field)
@@ -3661,24 +3747,25 @@ struct AsmProcessor {
       if (e->op == TOKidentifier) {
         for (int i = 0; i < N_Regs; i++) {
           if (ident == regInfo[i].ident) {
-            if ((Reg)i == Reg_ST && token->value == TOKlparen) {
+            if (static_cast<Reg>(i) == Reg_ST && token->value == TOKlparen) {
               nextToken();
               switch (token->value) {
               case TOKint32v:
               case TOKuns32v:
               case TOKint64v:
               case TOKuns64v:
-                if (token->uns64value < 8)
-                  e = newRegExp((Reg)(Reg_ST + token->uns64value));
-                else {
+                if (token->uns64value < 8) {
+                  e = newRegExp(static_cast<Reg>(Reg_ST + token->uns64value));
+                } else {
                   stmt->error("invalid floating point register index");
                   e = Handled;
                 }
                 nextToken();
-                if (token->value == TOKrparen)
+                if (token->value == TOKrparen) {
                   nextToken();
-                else
+                } else {
                   stmt->error("expected ')'");
+                }
                 return e;
               default:
                 break;
@@ -3687,15 +3774,16 @@ struct AsmProcessor {
               return Handled;
             } else if (token->value == TOKcolon) {
               nextToken();
-              if (operand->segmentPrefix != Reg_Invalid)
+              if (operand->segmentPrefix != Reg_Invalid) {
                 stmt->error("too many segment prefixes");
-              else if (i >= Reg_CS && i <= Reg_GS)
-                operand->segmentPrefix = (Reg)i;
-              else
+              } else if (i >= Reg_CS && i <= Reg_GS) {
+                operand->segmentPrefix = static_cast<Reg>(i);
+              } else {
                 stmt->error("'%s' is not a segment register", ident->string);
+              }
               return parseAsmExp();
             } else {
-              return newRegExp((Reg)i);
+              return newRegExp(static_cast<Reg>(i));
             }
           }
         }
@@ -3708,8 +3796,9 @@ struct AsmProcessor {
         if (!sc->search(stmt->loc, ident, &scopesym)) {
           if (LabelDsymbol *labelsym = sc->func->searchLabel(ident)) {
             e = new DsymbolExp(stmt->loc, labelsym);
-            if (opTakesLabel())
+            if (opTakesLabel()) {
               return e;
+            }
             return new AddrExp(stmt->loc, e);
           }
         }
@@ -3720,7 +3809,7 @@ struct AsmProcessor {
 
       // Special case for floating point constant declarations.
       if (e->op == TOKfloat64) {
-        Dsymbol *sym = sc->search(stmt->loc, ident, NULL);
+        Dsymbol *sym = sc->search(stmt->loc, ident, nullptr);
         if (sym) {
           VarDeclaration *v = sym->isVarDeclaration();
           if (v) {
@@ -3738,8 +3827,9 @@ struct AsmProcessor {
       goto do_dollar;
       break;
     default:
-      if (op == Op_FMath0 || op == Op_FdST0ST1 || op == Op_FMath)
+      if (op == Op_FMath0 || op == Op_FdST0ST1 || op == Op_FMath) {
         return Handled;
+      }
       // DMD does not emit an error message here.
       // invalidExpression();
       return Handled;
@@ -3767,7 +3857,8 @@ struct AsmProcessor {
       insnTemplate << ".align\t" << align;
 #endif
     } else {
-      stmt->error("alignment must be a power of 2, not %u", (unsigned)align);
+      stmt->error("alignment must be a power of 2, not %u",
+                  static_cast<unsigned>(align));
     }
 
     setAsmCode();
@@ -3884,7 +3975,8 @@ bool getFrameRelativeValue(LLValue *decl, HOST_WIDE_INT *result) {
   // FIXME
   //     // Using this instead of DECL_RTL for struct args seems like a
   //     // good way to get hit by a truck because it may not agree with
-  //     // non-asm access, but asm code wouldn't know what GCC does anyway. */
+  //     // non-asm access, but asm code wouldn't know what GCC does
+  //     anyway. */
   //     rtx r = DECL_INCOMING_RTL(decl);
   //     rtx e1, e2;
   //
@@ -3892,15 +3984,18 @@ bool getFrameRelativeValue(LLValue *decl, HOST_WIDE_INT *result) {
   //     if (r == NULL_RTX)
   //  r = DECL_RTL(decl);
   //
-  //     if (r != NULL_RTX && GET_CODE(r) == MEM /* && r->frame_related */ ) {
+  //     if (r != NULL_RTX && GET_CODE(r) == MEM /* && r->frame_related */
+  //     ) {
   //  r = XEXP(r, 0);
   //  if (GET_CODE(r) == PLUS) {
   //      e1 = XEXP(r, 0);
   //      e2 = XEXP(r, 1);
-  //      if (e1 == virtual_incoming_args_rtx && GET_CODE(e2) == CONST_INT) {
+  //      if (e1 == virtual_incoming_args_rtx && GET_CODE(e2) ==
+  //      CONST_INT) {
   //      *result = INTVAL(e2) + 8; // %% 8 is 32-bit specific...
   //      return true;
-  //      } else if (e1 == virtual_stack_vars_rtx && GET_CODE(e2) == CONST_INT)
+  //      } else if (e1 == virtual_stack_vars_rtx && GET_CODE(e2) ==
+  //      CONST_INT)
   //      {
   //      *result = INTVAL(e2); // %% 8 is 32-bit specific...
   //      return true;
@@ -3916,11 +4011,11 @@ bool getFrameRelativeValue(LLValue *decl, HOST_WIDE_INT *result) {
 }
 
 struct AsmParser : public AsmParserCommon {
-  virtual void run(Scope *sc, AsmStatement *asmst) {
+  void run(Scope *sc, AsmStatement *asmst) override {
     AsmProcessor ap(sc, asmst);
     ap.run();
   }
 
-  virtual std::string getRegName(int i) { return regInfo[i].gccName; }
+  std::string getRegName(int i) override { return regInfo[i].gccName; }
 };
 }

@@ -140,8 +140,9 @@ void DtoDeleteArray(Loc &loc, DValue *arr) {
 
 unsigned DtoAlignment(Type *type) {
   structalign_t alignment = type->alignment();
-  if (alignment == STRUCTALIGN_DEFAULT)
+  if (alignment == STRUCTALIGN_DEFAULT) {
     alignment = type->alignsize();
+  }
   return (alignment == STRUCTALIGN_DEFAULT ? 0 : alignment);
 }
 
@@ -166,18 +167,18 @@ llvm::AllocaInst *DtoAlloca(VarDeclaration *vd, const char *name) {
 llvm::AllocaInst *DtoArrayAlloca(Type *type, unsigned arraysize,
                                  const char *name) {
   LLType *lltype = DtoType(type);
-  llvm::AllocaInst *ai = new llvm::AllocaInst(lltype, DtoConstUint(arraysize),
-                                              name, gIR->topallocapoint());
+  auto ai = new llvm::AllocaInst(lltype, DtoConstUint(arraysize), name,
+                                 gIR->topallocapoint());
   ai->setAlignment(DtoAlignment(type));
   return ai;
 }
 
 llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
                                const char *name) {
-  llvm::AllocaInst *ai =
-      new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
-  if (alignment)
+  auto ai = new llvm::AllocaInst(lltype, name, gIR->topallocapoint());
+  if (alignment) {
     ai->setAlignment(alignment);
+  }
   return ai;
 }
 
@@ -310,8 +311,9 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       // Check whether source and destination values are the same at compile
       // time as to not emit an invalid (overlapping) memcpy on trivial
       // struct self-assignments like 'A a; a = a;'.
-      if (src != dst)
+      if (src != dst) {
         DtoAggrCopy(dst, src);
+      }
     }
   } else if (t->ty == Tarray || t->ty == Tsarray) {
     DtoArrayAssign(loc, lhs, rhs, op, canSkipPostblit);
@@ -355,8 +357,9 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       }
 #if 1
       if (r->getType() !=
-          lit) // It's wierd but it happens. TODO: try to remove this hack
+          lit) { // It's wierd but it happens. TODO: try to remove this hack
         r = DtoBitCast(r, lit);
+      }
 #else
       assert(r->getType() == lit);
 #endif
@@ -488,8 +491,9 @@ DValue *DtoCastPtr(Loc &loc, DValue *val, Type *to) {
 }
 
 DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
-  if (val->getType() == to)
+  if (val->getType() == to) {
     return val;
+  }
 
   LLType *tolltype = DtoType(to);
 
@@ -541,8 +545,8 @@ DValue *DtoCastDelegate(Loc &loc, DValue *val, Type *to) {
   if (to->toBasetype()->ty == Tdelegate) {
     return DtoPaintType(loc, val, to);
   } else if (to->toBasetype()->ty == Tbool) {
-    return new DImValue(to,
-                        DtoDelegateEquals(TOKnotequal, val->getRVal(), NULL));
+    return new DImValue(
+        to, DtoDelegateEquals(TOKnotequal, val->getRVal(), nullptr));
   } else {
     error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
           to->toChars());
@@ -611,8 +615,9 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
     }
   }
 
-  if (fromtype->equals(totype))
+  if (fromtype->equals(totype)) {
     return val;
+  }
 
   IF_LOG Logger::println("Casting from '%s' to '%s'", fromtype->toChars(),
                          to->toChars());
@@ -707,13 +712,16 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
 TemplateInstance *DtoIsTemplateInstance(Dsymbol *s) {
-  if (!s)
-    return NULL;
-  if (s->isTemplateInstance() && !s->isTemplateMixin())
+  if (!s) {
+    return nullptr;
+  }
+  if (s->isTemplateInstance() && !s->isTemplateMixin()) {
     return s->isTemplateInstance();
-  if (s->parent)
+  }
+  if (s->parent) {
     return DtoIsTemplateInstance(s->parent);
-  return NULL;
+  }
+  return nullptr;
 }
 
 /****************************************************************************************/
@@ -736,8 +744,9 @@ void DtoResolveDsymbol(Dsymbol *dsym) {
 }
 
 void DtoResolveVariable(VarDeclaration *vd) {
-  if (vd->isTypeInfoDeclaration())
+  if (vd->isTypeInfoDeclaration()) {
     return DtoResolveTypeInfo(static_cast<TypeInfoDeclaration *>(vd));
+  }
 
   IF_LOG Logger::println("DtoResolveVariable(%s)", vd->toPrettyChars());
   LOG_SCOPE;
@@ -751,8 +760,9 @@ void DtoResolveVariable(VarDeclaration *vd) {
     return;
   }
 
-  if (AggregateDeclaration *ad = vd->isMember())
+  if (AggregateDeclaration *ad = vd->isMember()) {
     DtoResolveDsymbol(ad);
+  }
 
   // global variable
   if (vd->isDataseg()) {
@@ -762,18 +772,20 @@ void DtoResolveVariable(VarDeclaration *vd) {
            "manifest constant being codegen'd!");
 
     // don't duplicate work
-    if (vd->ir.isResolved())
+    if (vd->ir.isResolved()) {
       return;
+    }
     vd->ir.setDeclared();
 
     getIrGlobal(vd, true);
 
     IF_LOG {
-      if (vd->parent)
+      if (vd->parent) {
         Logger::println("parent: %s (%s)", vd->parent->toChars(),
                         vd->parent->kind());
-      else
+      } else {
         Logger::println("parent: null");
+      }
     }
 
     // If a const/immutable value has a proper initializer (not "= void"),
@@ -783,8 +795,9 @@ void DtoResolveVariable(VarDeclaration *vd) {
                            !vd->init->isVoidInitializer();
 
     assert(!vd->ir.isInitialized());
-    if (gIR->dmodule)
+    if (gIR->dmodule) {
       vd->ir.setInitialized();
+    }
     std::string llName(mangle(vd));
 
     // Since the type of a global must exactly match the type of its
@@ -806,7 +819,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
 
     llvm::GlobalVariable *gvar =
         getOrCreateGlobal(vd->loc, gIR->module, DtoMemType(vd->type), isLLConst,
-                          linkage, 0, llName, vd->isThreadlocal());
+                          linkage, nullptr, llName, vd->isThreadlocal());
     getIrGlobal(vd)->value = gvar;
 
     // Set the alignment and use the target pointer size as lower bound.
@@ -868,12 +881,13 @@ void DtoVarDeclaration(VarDeclaration *vd) {
 
     llvm::Value *allocainst;
     LLType *lltype = DtoType(type);
-    if (gDataLayout->getTypeSizeInBits(lltype) == 0)
+    if (gDataLayout->getTypeSizeInBits(lltype) == 0) {
       allocainst = llvm::ConstantPointerNull::get(getPtrToType(lltype));
-    else if (type != vd->type)
+    } else if (type != vd->type) {
       allocainst = DtoAlloca(type, vd->toChars());
-    else
+    } else {
       allocainst = DtoAlloca(vd, vd->toChars());
+    }
 
     irLocal->value = allocainst;
 
@@ -883,7 +897,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
         T t = f();    // t's memory address is taken hidden pointer
     */
     Type *vdBasetype = vd->type->toBasetype();
-    ExpInitializer *ei = 0;
+    ExpInitializer *ei = nullptr;
     if ((vdBasetype->ty == Tstruct || vdBasetype->ty == Tsarray) && vd->init &&
         (ei = vd->init->isExpInitializer())) {
       if (ei->exp->op == TOKconstruct) {
@@ -945,12 +959,13 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     // if aliassym is set, this VarDecl is redone as an alias to another symbol
     // this seems to be done to rewrite Tuple!(...) v;
     // as a TupleDecl that contains a bunch of individual VarDecls
-    if (vd->aliassym)
+    if (vd->aliassym) {
       return DtoDeclarationExp(vd->aliassym);
+    }
 
     if (vd->storage_class & STCmanifest) {
       IF_LOG Logger::println("Manifest constant, nothing to do.");
-      return 0;
+      return nullptr;
     }
 
     // static
@@ -980,11 +995,12 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
   else if (AttribDeclaration *a = declaration->isAttribDeclaration()) {
     Logger::println("AttribDeclaration");
     // choose the right set in case this is a conditional declaration
-    Dsymbols *d = a->include(NULL, NULL);
-    if (d)
+    Dsymbols *d = a->include(nullptr, nullptr);
+    if (d) {
       for (unsigned i = 0; i < d->dim; ++i) {
         DtoDeclarationExp((*d)[i]);
       }
+    }
   }
   // mixin declaration
   else if (TemplateMixin *m = declaration->isTemplateMixin()) {
@@ -1010,7 +1026,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     IF_LOG Logger::println("Ignoring Symbol: %s", declaration->kind());
   }
 
-  return 0;
+  return nullptr;
 }
 
 // does pretty much the same as DtoDeclarationExp, except it doesn't initialize,
@@ -1022,14 +1038,15 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
   // we don't handle aliases either
   assert(!var->aliassym);
 
-  IrLocal *irLocal = isIrLocalCreated(var) ? getIrLocal(var) : 0;
+  IrLocal *irLocal = isIrLocalCreated(var) ? getIrLocal(var) : nullptr;
 
   // alloca if necessary
   if (!addr && (!irLocal || !irLocal->value)) {
     addr = DtoAlloca(var, var->toChars());
     // add debug info
-    if (!irLocal)
+    if (!irLocal) {
       irLocal = getIrLocal(var, true);
+    }
     gIR->DBuilder.EmitLocalVariable(addr, var);
   }
 
@@ -1040,8 +1057,9 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
     if (!irLocal->value) {
       assert(addr);
       irLocal->value = addr;
-    } else
+    } else {
       assert(!addr || addr == irLocal->value);
+    }
   }
   // normal local variable
   else {
@@ -1077,7 +1095,7 @@ LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr) {
 ////////////////////////////////////////////////////////////////////////////////////////*/
 
 LLConstant *DtoConstInitializer(Loc &loc, Type *type, Initializer *init) {
-  LLConstant *_init = 0; // may return zero
+  LLConstant *_init = nullptr; // may return zero
   if (!init) {
     IF_LOG Logger::println("const default initializer for %s", type->toChars());
     Expression *initExp = type->defaultInit();
@@ -1183,15 +1201,16 @@ LLConstant *DtoTypeInfoOf(Type *type, bool base) {
   LOG_SCOPE
 
   type = type->merge2(); // needed.. getTypeInfo does the same
-  getTypeInfoType(type, NULL);
+  getTypeInfoType(type, nullptr);
   TypeInfoDeclaration *tidecl = type->vtinfo;
   assert(tidecl);
   Declaration_codegen(tidecl);
   assert(getIrGlobal(tidecl)->value != NULL);
   LLConstant *c = isaConstant(getIrGlobal(tidecl)->value);
   assert(c != NULL);
-  if (base)
+  if (base) {
     return llvm::ConstantExpr::getBitCast(c, DtoType(Type::dtypeinfo->type));
+  }
   return c;
 }
 
@@ -1262,12 +1281,14 @@ bool hasUnalignedFields(Type *t) {
   if (t->ty == Tsarray) {
     assert(t->nextOf()->size() % t->nextOf()->alignsize() == 0);
     return hasUnalignedFields(t->nextOf());
-  } else if (t->ty != Tstruct)
+  } else if (t->ty != Tstruct) {
     return false;
+  }
 
   TypeStruct *ts = static_cast<TypeStruct *>(t);
-  if (ts->unaligned)
+  if (ts->unaligned) {
     return (ts->unaligned == 2);
+  }
 
   StructDeclaration *sym = ts->sym;
 
@@ -1276,11 +1297,12 @@ bool hasUnalignedFields(Type *t) {
   for (unsigned i = 0; i < sym->fields.dim; i++) {
     VarDeclaration *f = static_cast<VarDeclaration *>(sym->fields.data[i]);
     unsigned a = f->type->alignsize() - 1;
-    if (((f->offset + a) & ~a) != f->offset)
+    if (((f->offset + a) & ~a) != f->offset) {
       return true;
-    else if (f->type->toBasetype()->ty == Tstruct &&
-             hasUnalignedFields(f->type))
+    } else if (f->type->toBasetype()->ty == Tstruct &&
+               hasUnalignedFields(f->type)) {
       return true;
+    }
   }
 
   ts->unaligned = 1;
@@ -1308,13 +1330,15 @@ size_t getMemberSize(Type *type) {
 //////////////////////////////////////////////////////////////////////////////////////////
 
 Type *stripModifiers(Type *type, bool transitive) {
-  if (type->ty == Tfunction)
+  if (type->ty == Tfunction) {
     return type;
+  }
 
-  if (transitive)
+  if (transitive) {
     return type->unqualify(MODimmutable | MODconst | MODwild);
-  else
+  } else {
     return type->castMod(0);
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1339,8 +1363,9 @@ LLValue *makeLValue(Loc &loc, DValue *value) {
     needsMemory = false;
   }
 
-  if (needsMemory)
+  if (needsMemory) {
     valuePointer = DtoAllocaDump(value, ".makelvaluetmp");
+  }
 
   return valuePointer;
 }
@@ -1356,9 +1381,10 @@ void callPostblit(Loc &loc, Expression *exp, LLValue *val) {
     StructDeclaration *sd = static_cast<TypeStruct *>(tb)->sym;
     if (sd->postblit) {
       FuncDeclaration *fd = sd->postblit;
-      if (fd->storage_class & STCdisable)
+      if (fd->storage_class & STCdisable) {
         fd->toParent()->error(
             loc, "is not copyable because it is annotated with @disable");
+      }
       DtoResolveFunction(fd);
       Expressions args;
       DFuncValue dfn(fd, getIrFunc(fd)->func, val);
@@ -1390,10 +1416,11 @@ void printLabelName(std::ostream &target, const char *func_mangle,
 void AppendFunctionToLLVMGlobalCtorsDtors(llvm::Function *func,
                                           const uint32_t priority,
                                           const bool isCtor) {
-  if (isCtor)
+  if (isCtor) {
     llvm::appendToGlobalCtors(gIR->module, func, priority);
-  else
+  } else {
     llvm::appendToGlobalDtors(gIR->module, func, priority);
+  }
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1467,7 +1494,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
     // _dollar
     else if (vd->ident == Id::dollar) {
       Logger::println("Id::dollar");
-      LLValue *val = 0;
+      LLValue *val = nullptr;
       if (isIrVarCreated(vd) && (val = getIrValue(vd))) {
         // It must be length of a range
         return new DVarValue(type, vd, val);
@@ -1483,8 +1510,9 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       assert(getIrValue(tid));
       LLType *vartype = DtoType(type);
       LLValue *m = getIrValue(tid);
-      if (m->getType() != getPtrToType(vartype))
+      if (m->getType() != getPtrToType(vartype)) {
         m = gIR->ir->CreateBitCast(m, vartype);
+      }
       return new DImValue(type, m);
     }
     // nested variable
@@ -1511,15 +1539,17 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
         return new DVarValue(type, vd, getIrValue(vd));
       } else if (llvm::isa<llvm::Argument>(getIrValue(vd))) {
         return new DImValue(type, getIrValue(vd));
-      } else
+      } else {
         llvm_unreachable("Unexpected parameter value.");
+      }
     } else {
       Logger::println("a normal variable");
 
       // take care of forward references of global variables
       const bool isGlobal = vd->isDataseg() || (vd->storage_class & STCextern);
-      if (isGlobal)
+      if (isGlobal) {
         DtoResolveVariable(vd);
+      }
 
       assert(isIrVarCreated(vd) && "Variable not resolved.");
 
@@ -1554,8 +1584,9 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       fatal();
     }
     DtoResolveFunction(fdecl);
-    return new DFuncValue(
-        fdecl, fdecl->llvmInternal != LLVMva_arg ? getIrFunc(fdecl)->func : 0);
+    return new DFuncValue(fdecl, fdecl->llvmInternal != LLVMva_arg
+                                     ? getIrFunc(fdecl)->func
+                                     : nullptr);
   }
 
   if (SymbolDeclaration *sdecl = decl->isSymbolDeclaration()) {
@@ -1594,9 +1625,10 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
       error(loc, "cannot use address of non-global variable '%s' "
                  "as constant initializer",
             vd->toChars());
-      if (!global.gag)
+      if (!global.gag) {
         fatal();
-      return NULL;
+      }
+      return nullptr;
     }
 
     DtoResolveVariable(vd);
@@ -1639,12 +1671,13 @@ llvm::GlobalVariable *getOrCreateGlobal(Loc &loc, llvm::Module &module,
                            : clThreadModel.getValue())
                     : llvm::GlobalVariable::NotThreadLocal;
   return new llvm::GlobalVariable(module, type, isConstant, linkage, init, name,
-                                  0, tlsModel);
+                                  nullptr, tlsModel);
 }
 
 FuncDeclaration *getParentFunc(Dsymbol *sym, bool stopOnStatic) {
-  if (!sym)
-    return NULL;
+  if (!sym) {
+    return nullptr;
+  }
 
   // check if symbol is itself a static function/aggregate
   if (stopOnStatic) {
@@ -1655,29 +1688,33 @@ FuncDeclaration *getParentFunc(Dsymbol *sym, bool stopOnStatic) {
           fd->isStatic() ||
           (fd->isFuncLiteralDeclaration() &&
            static_cast<FuncLiteralDeclaration *>(fd)->tok == TOKfunction);
-      if (certainlyNewRoot)
-        return NULL;
+      if (certainlyNewRoot) {
+        return nullptr;
+      }
     }
     // Fun fact: AggregateDeclarations are not Declarations.
     else if (AggregateDeclaration *ad = sym->isAggregateDeclaration()) {
-      if (!ad->isNested())
-        return NULL;
-    }
-  }
-
-  for (Dsymbol *parent = sym->parent; parent; parent = parent->parent) {
-    if (FuncDeclaration *fd = parent->isFuncDeclaration())
-      return fd;
-
-    if (stopOnStatic) {
-      if (AggregateDeclaration *ad = parent->isAggregateDeclaration()) {
-        if (!ad->isNested())
-          return NULL;
+      if (!ad->isNested()) {
+        return nullptr;
       }
     }
   }
 
-  return NULL;
+  for (Dsymbol *parent = sym->parent; parent; parent = parent->parent) {
+    if (FuncDeclaration *fd = parent->isFuncDeclaration()) {
+      return fd;
+    }
+
+    if (stopOnStatic) {
+      if (AggregateDeclaration *ad = parent->isAggregateDeclaration()) {
+        if (!ad->isNested()) {
+          return nullptr;
+        }
+      }
+    }
+  }
+
+  return nullptr;
 }
 
 LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
@@ -1693,8 +1730,9 @@ LLValue *DtoIndexAggregate(LLValue *src, AggregateDeclaration *ad,
   // Cast the pointer we got to the canonical struct type the indices are
   // based on.
   LLType *st = DtoType(ad->type);
-  if (ad->isStructDeclaration())
+  if (ad->isStructDeclaration()) {
     st = getPtrToType(st);
+  }
   src = DtoBitCast(src, st);
 
   // Look up field to index and any offset to apply.

@@ -76,9 +76,10 @@ void EmitMemSet(IRBuilder<> &B, Value *Dst, Value *Val, Value *Len,
 
   CallSite CS =
       B.CreateMemSet(Dst, Val, Len, 1 /*Align*/, false /*isVolatile*/);
-  if (A.CGNode)
+  if (A.CGNode) {
     A.CGNode->addCalledFunction(
         CS, A.CG->getOrInsertFunction(CS.getCalledFunction()));
+  }
 }
 
 static void EmitMemZero(IRBuilder<> &B, Value *Dst, Value *Len,
@@ -118,8 +119,8 @@ public:
     return new AllocaInst(Ty, ".nongc_mem", Begin); // FIXME: align?
   }
 
-  FunctionInfo(ReturnType::Type returnType) : ReturnType(returnType) {}
-  virtual ~FunctionInfo() {}
+  explicit FunctionInfo(ReturnType::Type returnType) : ReturnType(returnType) {}
+  virtual ~FunctionInfo() = default;
 };
 
 static bool isKnownLessThan(Value *Val, uint64_t Limit, const Analysis &A) {
@@ -129,8 +130,9 @@ static bool isKnownLessThan(Value *Val, uint64_t Limit, const Analysis &A) {
   BitsLimit = std::min(BitsLimit, 32U);
 
   const IntegerType *SizeType = dyn_cast<IntegerType>(Val->getType());
-  if (!SizeType)
+  if (!SizeType) {
     return false;
+  }
   unsigned Bits = SizeType->getBitWidth();
 
   if (Bits > BitsLimit) {
@@ -143,8 +145,9 @@ static bool isKnownLessThan(Value *Val, uint64_t Limit, const Analysis &A) {
     computeKnownBits(Val, KnownZero, KnownOne, &A.DL);
 #endif
 
-    if ((KnownZero & Mask) != Mask)
+    if ((KnownZero & Mask) != Mask) {
       return false;
+    }
   }
 
   return true;
@@ -157,11 +160,12 @@ public:
   TypeInfoFI(ReturnType::Type returnType, unsigned tiArgNr)
       : FunctionInfo(returnType), TypeInfoArgNr(tiArgNr) {}
 
-  virtual bool analyze(CallSite CS, const Analysis &A) {
+  bool analyze(CallSite CS, const Analysis &A) override {
     Value *TypeInfo = CS.getArgument(TypeInfoArgNr);
     Ty = A.getTypeFor(TypeInfo);
-    if (!Ty)
+    if (!Ty) {
       return false;
+    }
     return A.DL.getTypeAllocSize(Ty) < SizeLimit;
   }
 };
@@ -177,9 +181,10 @@ public:
       : TypeInfoFI(returnType, tiArgNr), ArrSizeArgNr(arrSizeArgNr),
         Initialized(initialized) {}
 
-  virtual bool analyze(CallSite CS, const Analysis &A) {
-    if (!TypeInfoFI::analyze(CS, A))
+  bool analyze(CallSite CS, const Analysis &A) override {
+    if (!TypeInfoFI::analyze(CS, A)) {
       return false;
+    }
 
     arrSize = CS.getArgument(ArrSizeArgNr);
 
@@ -197,14 +202,15 @@ public:
     // useful for experimenting.
     if (SizeLimit > 0) {
       uint64_t ElemSize = A.DL.getTypeAllocSize(Ty);
-      if (!isKnownLessThan(arrSize, SizeLimit / ElemSize, A))
+      if (!isKnownLessThan(arrSize, SizeLimit / ElemSize, A)) {
         return false;
+      }
     }
 
     return true;
   }
 
-  virtual Value *promote(CallSite CS, IRBuilder<> &B, const Analysis &A) {
+  Value *promote(CallSite CS, IRBuilder<> &B, const Analysis &A) override {
     IRBuilder<> Builder = B;
     // If the allocation is of constant size it's best to put it in the
     // entry block, so do so if we're not already there.
@@ -213,8 +219,9 @@ public:
     // While we're at it, update statistics too.
     if (isa<Constant>(arrSize)) {
       BasicBlock &Entry = CS.getCaller()->getEntryBlock();
-      if (Builder.GetInsertBlock() != &Entry)
+      if (Builder.GetInsertBlock() != &Entry) {
         Builder.SetInsertPoint(&Entry, Entry.begin());
+      }
       NumGcToStack++;
     } else {
       NumToDynSize++;
@@ -251,24 +258,28 @@ public:
 // FunctionInfo for _d_newclass
 class AllocClassFI : public FunctionInfo {
 public:
-  virtual bool analyze(CallSite CS, const Analysis &A) {
-    if (CS.arg_size() != 1)
+  bool analyze(CallSite CS, const Analysis &A) override {
+    if (CS.arg_size() != 1) {
       return false;
+    }
     Value *arg = CS.getArgument(0)->stripPointerCasts();
     GlobalVariable *ClassInfo = dyn_cast<GlobalVariable>(arg);
-    if (!ClassInfo)
+    if (!ClassInfo) {
       return false;
+    }
 
     std::string metaname = CD_PREFIX;
     metaname += ClassInfo->getName();
 
     NamedMDNode *meta = A.M.getNamedMetadata(metaname);
-    if (!meta)
+    if (!meta) {
       return false;
+    }
 
     MDNode *node = static_cast<MDNode *>(meta->getOperand(0));
-    if (!node || node->getNumOperands() != CD_NumFields)
+    if (!node || node->getNumOperands() != CD_NumFields) {
       return false;
+    }
 
 // Inserting destructor calls is not implemented yet, so classes
 // with destructors are ignored for now.
@@ -288,12 +299,14 @@ public:
     Constant *hasCustomDelete =
         dyn_cast<Constant>(node->getOperand(CD_CustomDelete));
 #endif
-    if (hasDestructor == NULL || hasCustomDelete == NULL)
+    if (hasDestructor == nullptr || hasCustomDelete == nullptr) {
       return false;
+    }
 
     if (ConstantExpr::getOr(hasDestructor, hasCustomDelete) !=
-        ConstantInt::getFalse(A.M.getContext()))
+        ConstantInt::getFalse(A.M.getContext())) {
       return false;
+    }
 
 #if LDC_LLVM_VER >= 306
     Ty = mdconst::dyn_extract<Constant>(node->getOperand(CD_BodyType))
@@ -316,9 +329,10 @@ class UntypedMemoryFI : public FunctionInfo {
   Value *SizeArg;
 
 public:
-  virtual bool analyze(CallSite CS, const Analysis &A) {
-    if (CS.arg_size() < SizeArgNr + 1)
+  bool analyze(CallSite CS, const Analysis &A) override {
+    if (CS.arg_size() < SizeArgNr + 1) {
       return false;
+    }
 
     SizeArg = CS.getArgument(SizeArgNr);
 
@@ -328,8 +342,9 @@ public:
     // "range" (set bits) inference algorithm is rather limited, this
     // is useful for experimenting.
     if (SizeLimit > 0) {
-      if (!isKnownLessThan(SizeArg, SizeLimit, A))
+      if (!isKnownLessThan(SizeArg, SizeLimit, A)) {
         return false;
+      }
     }
 
     // Should be i8.
@@ -337,7 +352,7 @@ public:
     return true;
   }
 
-  virtual Value *promote(CallSite CS, IRBuilder<> &B, const Analysis &A) {
+  Value *promote(CallSite CS, IRBuilder<> &B, const Analysis &A) override {
     IRBuilder<> Builder = B;
     // If the allocation is of constant size it's best to put it in the
     // entry block, so do so if we're not already there.
@@ -346,8 +361,9 @@ public:
     // While we're at it, update statistics too.
     if (isa<Constant>(SizeArg)) {
       BasicBlock &Entry = CS.getCaller()->getEntryBlock();
-      if (Builder.GetInsertBlock() != &Entry)
+      if (Builder.GetInsertBlock() != &Entry) {
         Builder.SetInsertPoint(&Entry, Entry.begin());
+      }
       NumGcToStack++;
     } else {
       NumToDynSize++;
@@ -361,7 +377,7 @@ public:
     return Builder.CreateBitCast(alloca, CS.getType());
   }
 
-  UntypedMemoryFI(unsigned sizeArgNr)
+  explicit UntypedMemoryFI(unsigned sizeArgNr)
       : FunctionInfo(ReturnType::Pointer), SizeArgNr(sizeArgNr) {}
 };
 }
@@ -387,14 +403,14 @@ public:
   static char ID; // Pass identification
   GarbageCollect2Stack();
 
-  bool doInitialization(Module &M) {
+  bool doInitialization(Module &M) override {
     this->M = &M;
     return false;
   }
 
-  bool runOnFunction(Function &F);
+  bool runOnFunction(Function &F) override;
 
-  virtual void getAnalysisUsage(AnalysisUsage &AU) const {
+  void getAnalysisUsage(AnalysisUsage &AU) const override {
 #if LDC_LLVM_VER < 307
     AU.addRequired<DataLayoutPass>();
 #endif
@@ -436,8 +452,9 @@ static void RemoveCall(CallSite CS, const Analysis &A) {
   }
 
   // Remove the runtime call.
-  if (A.CGNode)
+  if (A.CGNode) {
     A.CGNode->removeCallEdgeFor(CS);
+  }
   CS->eraseFromParent();
 }
 
@@ -464,9 +481,9 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
   const DataLayout &DL = DLP->getDataLayout();
   DominatorTree &DT = getAnalysis<DominatorTreeWrapperPass>().getDomTree();
   CallGraphWrapperPass *CGPass = getAnalysisIfAvailable<CallGraphWrapperPass>();
-  CallGraph *CG = CGPass ? &CGPass->getCallGraph() : 0;
+  CallGraph *CG = CGPass ? &CGPass->getCallGraph() : nullptr;
 #endif
-  CallGraphNode *CGNode = CG ? (*CG)[&F] : NULL;
+  CallGraphNode *CGNode = CG ? (*CG)[&F] : nullptr;
 
   Analysis A = {DL, *M, CG, CGNode};
 
@@ -480,19 +497,22 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
       // Ignore non-calls.
       Instruction *Inst = I++;
       CallSite CS(Inst);
-      if (!CS.getInstruction())
+      if (!CS.getInstruction()) {
         continue;
+      }
 
       // Ignore indirect calls and calls to non-external functions.
       Function *Callee = CS.getCalledFunction();
-      if (Callee == 0 || !Callee->isDeclaration() ||
-          !Callee->hasExternalLinkage())
+      if (Callee == nullptr || !Callee->isDeclaration() ||
+          !Callee->hasExternalLinkage()) {
         continue;
+      }
 
       // Ignore unknown calls.
       auto OMI = KnownFunctions.find(Callee->getName());
-      if (OMI == KnownFunctions.end())
+      if (OMI == KnownFunctions.end()) {
         continue;
+      }
 
       FunctionInfo *info = OMI->getValue();
 
@@ -505,16 +525,19 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 
       DEBUG(errs() << "GarbageCollect2Stack inspecting: " << *Inst);
 
-      if (!info->analyze(CS, A))
+      if (!info->analyze(CS, A)) {
         continue;
+      }
 
       SmallVector<CallInst *, 4> RemoveTailCallInsts;
       if (info->ReturnType == ReturnType::Array) {
-        if (!isSafeToStackAllocateArray(Inst, DT, RemoveTailCallInsts))
+        if (!isSafeToStackAllocateArray(Inst, DT, RemoveTailCallInsts)) {
           continue;
+        }
       } else {
-        if (!isSafeToStackAllocate(Inst, Inst, DT, RemoveTailCallInsts))
+        if (!isSafeToStackAllocate(Inst, Inst, DT, RemoveTailCallInsts)) {
           continue;
+        }
       }
 
       // Let's alloca this!
@@ -522,8 +545,9 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 
       // First demote tail calls which use the value so there IR is never
       // in an invalid state.
-      for (auto i : RemoveTailCallInsts)
+      for (auto i : RemoveTailCallInsts) {
         i->setTailCall(false);
+      }
 
       IRBuilder<> Builder(&BB, Inst);
       Value *newVal = info->promote(CS, Builder, A);
@@ -532,8 +556,9 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 
       // Make sure the type is the same as it was before, and replace all
       // uses of the runtime call with the alloca.
-      if (newVal->getType() != Inst->getType())
+      if (newVal->getType() != Inst->getType()) {
         newVal = Builder.CreateBitCast(newVal, Inst->getType());
+      }
       Inst->replaceAllUsesWith(newVal);
 
       RemoveCall(CS, A);
@@ -546,22 +571,26 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 Type *Analysis::getTypeFor(Value *typeinfo) const {
   GlobalVariable *ti_global =
       dyn_cast<GlobalVariable>(typeinfo->stripPointerCasts());
-  if (!ti_global)
-    return NULL;
+  if (!ti_global) {
+    return nullptr;
+  }
 
   std::string metaname = TD_PREFIX;
   metaname += ti_global->getName();
 
   NamedMDNode *meta = M.getNamedMetadata(metaname);
-  if (!meta)
-    return NULL;
+  if (!meta) {
+    return nullptr;
+  }
 
   MDNode *node = static_cast<MDNode *>(meta->getOperand(0));
-  if (!node)
-    return NULL;
+  if (!node) {
+    return nullptr;
+  }
 
-  if (node->getNumOperands() != TD_NumFields)
-    return NULL;
+  if (node->getNumOperands() != TD_NumFields) {
+    return nullptr;
+  }
 
 #if LDC_LLVM_VER >= 306
   Value *ti = llvm::MetadataAsValue::get(node->getContext(),
@@ -569,8 +598,9 @@ Type *Analysis::getTypeFor(Value *typeinfo) const {
 #else
   Value *ti = node->getOperand(TD_TypeInfo);
 #endif
-  if (!ti || ti->stripPointerCasts() != ti_global)
-    return NULL;
+  if (!ti || ti->stripPointerCasts() != ti_global) {
+    return nullptr;
+  }
 
 #if LDC_LLVM_VER >= 306
   return llvm::MetadataAsValue::get(node->getContext(),
@@ -665,8 +695,9 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, Instruction *Alloc,
       // We need to walk the instructions in the block to see whether we
       // reach a user before we reach the definition or the allocation.
       for (BasicBlock::iterator E = B->end(); BBI != E; ++BBI) {
-        if (&*BBI == Alloc || &*BBI == Def)
+        if (&*BBI == Alloc || &*BBI == Def) {
           break;
+        }
         if (Users.count(BBI)) {
           DEBUG(errs() << "### Problematic user: " << *BBI);
           return true;
@@ -710,8 +741,9 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, Instruction *Alloc,
 #else
           && Visited.insert(Succ)
 #endif
-          && DT.dominates(DefBlock, Succ))
+          && DT.dominates(DefBlock, Succ)) {
         Worklist.push_back(StartPoint(Succ, BBI));
+      }
     }
   }
   // No users found in any block reachable from Alloc
@@ -748,8 +780,9 @@ bool isSafeToStackAllocateArray(
                "First array field not length?");
       } else {
         assert(idx == 1 && "Invalid array struct access.");
-        if (!isSafeToStackAllocate(Alloc, EVI, DT, RemoveTailCallInsts))
+        if (!isSafeToStackAllocate(Alloc, EVI, DT, RemoveTailCallInsts)) {
           return false;
+        }
       }
       break;
     }
@@ -813,8 +846,9 @@ bool isSafeToStackAllocate(Instruction *Alloc, Value *V, DominatorTree &DT,
       // its return value and doesn't unwind (a readonly function can leak bits
       // by throwing an exception or not depending on the input value).
       if (CS.onlyReadsMemory() && CS.doesNotThrow() &&
-          I->getType() == Type::getVoidTy(I->getContext()))
+          I->getType() == Type::getVoidTy(I->getContext())) {
         break;
+      }
 
       // Not captured if only passed via 'nocapture' arguments.  Note that
       // calling a function pointer does not in itself cause the pointer to
@@ -824,7 +858,7 @@ bool isSafeToStackAllocate(Instruction *Alloc, Value *V, DominatorTree &DT,
       // captured, even though the loaded value might be the pointer itself
       // (think of self-referential objects).
       CallSite::arg_iterator B = CS.arg_begin(), E = CS.arg_end();
-      for (CallSite::arg_iterator A = B; A != E; ++A)
+      for (CallSite::arg_iterator A = B; A != E; ++A) {
         if (A->get() == V) {
           if (!CS.paramHasAttr(A - B + 1, LLAttribute::NoCapture)) {
             // The parameter is not marked 'nocapture' - captured.
@@ -838,6 +872,7 @@ bool isSafeToStackAllocate(Instruction *Alloc, Value *V, DominatorTree &DT,
             }
           }
         }
+      }
       // Only passed via 'nocapture' arguments, or is the called function - not
       // captured.
       break;
@@ -846,9 +881,10 @@ bool isSafeToStackAllocate(Instruction *Alloc, Value *V, DominatorTree &DT,
       // Loading from a pointer does not cause it to be captured.
       break;
     case Instruction::Store:
-      if (V == I->getOperand(0))
+      if (V == I->getOperand(0)) {
         // Stored the pointer - it may be captured.
         return false;
+      }
       // Storing to the pointee does not cause the pointer to be captured.
       break;
     case Instruction::BitCast:
@@ -857,19 +893,21 @@ bool isSafeToStackAllocate(Instruction *Alloc, Value *V, DominatorTree &DT,
     case Instruction::Select:
       // It's not safe to stack-allocate if this derived pointer is live across
       // the original allocation.
-      if (mayBeUsedAfterRealloc(I, Alloc, DT))
+      if (mayBeUsedAfterRealloc(I, Alloc, DT)) {
         return false;
+      }
 
       // The original value is not captured via this if the new value isn't.
       for (Instruction::use_iterator UI = I->use_begin(), UE = I->use_end();
            UI != UE; ++UI) {
         Use *U = &(*UI);
 #if LDC_LLVM_VER >= 306
-        if (Visited.insert(U).second)
+        if (Visited.insert(U).second) {
 #else
-        if (Visited.insert(U))
+        if (Visited.insert(U)) {
 #endif
           Worklist.push_back(U);
+        }
       }
       break;
     default:

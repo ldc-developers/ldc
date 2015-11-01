@@ -31,19 +31,22 @@ static std::string findProgramByName(const std::string &name) {
 }
 
 static std::string getProgram(const char *name, const cl::opt<std::string> *opt,
-                              const char *envVar = NULL) {
+                              const char *envVar = nullptr) {
   std::string path;
-  const char *prog = NULL;
+  const char *prog = nullptr;
 
   if (opt && opt->getNumOccurrences() > 0 && opt->length() > 0 &&
-      (prog = opt->c_str()))
+      (prog = opt->c_str())) {
     path = findProgramByName(prog);
+  }
 
-  if (path.empty() && envVar && (prog = getenv(envVar)) && prog[0] != '\0')
+  if (path.empty() && envVar && (prog = getenv(envVar)) && prog[0] != '\0') {
     path = findProgramByName(prog);
+  }
 
-  if (path.empty())
+  if (path.empty()) {
     path = findProgramByName(name);
+  }
 
   if (path.empty()) {
     error(Loc(), "failed to locate %s", name);
@@ -54,7 +57,7 @@ static std::string getProgram(const char *name, const cl::opt<std::string> *opt,
 }
 
 std::string getProgram(const char *name, const char *envVar) {
-  return getProgram(name, NULL, envVar);
+  return getProgram(name, nullptr, envVar);
 }
 
 std::string getGcc() {

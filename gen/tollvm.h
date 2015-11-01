@@ -70,14 +70,14 @@ LLStructType *DtoModuleReferenceType();
 
 // getelementptr helpers
 LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, const char *name = "",
-                 llvm::BasicBlock *bb = NULL);
+                 llvm::BasicBlock *bb = nullptr);
 LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, const char *name = "",
-                llvm::BasicBlock *bb = NULL);
+                llvm::BasicBlock *bb = nullptr);
 
 LLValue *DtoGEPi1(LLValue *ptr, unsigned i0, const char *name = "",
-                  llvm::BasicBlock *bb = NULL);
+                  llvm::BasicBlock *bb = nullptr);
 LLValue *DtoGEPi(LLValue *ptr, unsigned i0, unsigned i1, const char *name = "",
-                 llvm::BasicBlock *bb = NULL);
+                 llvm::BasicBlock *bb = nullptr);
 LLConstant *DtoGEPi(LLConstant *ptr, unsigned i0, unsigned i1);
 
 // to constant helpers

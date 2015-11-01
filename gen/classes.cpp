@@ -34,8 +34,9 @@
 // FIXME: this needs to be cleaned up
 
 void DtoResolveClass(ClassDeclaration *cd) {
-  if (cd->ir.isResolved())
+  if (cd->ir.isResolved()) {
     return;
+  }
   cd->ir.setResolved();
 
   IF_LOG Logger::println("DtoResolveClass(%s): %s", cd->toPrettyChars(),
@@ -56,15 +57,17 @@ void DtoResolveClass(ClassDeclaration *cd) {
   // make sure all fields really get their ir field
   for (auto vd : cd->fields) {
     IF_LOG {
-      if (isIrFieldCreated(vd))
+      if (isIrFieldCreated(vd)) {
         Logger::println("class field already exists");
+      }
     }
     getIrField(vd, true);
   }
 
   // emit the interfaceInfosZ symbol if necessary
-  if (cd->vtblInterfaces && cd->vtblInterfaces->dim > 0)
+  if (cd->vtblInterfaces && cd->vtblInterfaces->dim > 0) {
     irAggr->getInterfaceArraySymbol(); // initializer is applied when it's built
+  }
 
   // interface only emit typeinfo and classinfo
   if (cd->isInterfaceDeclaration()) {
@@ -88,7 +91,7 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   else if (newexp->allocator) {
     DtoResolveFunction(newexp->allocator);
     DFuncValue dfn(newexp->allocator, getIrFunc(newexp->allocator)->func);
-    DValue *res = DtoCallFunction(newexp->loc, NULL, &dfn, newexp->newargs);
+    DValue *res = DtoCallFunction(newexp->loc, nullptr, &dfn, newexp->newargs);
     mem = DtoBitCast(res->getRVal(), DtoType(tc), ".newclass_custom");
   }
   // default allocator
@@ -124,8 +127,9 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   // call constructor
   if (newexp->member) {
     // evaluate argprefix
-    if (newexp->argprefix)
+    if (newexp->argprefix) {
       toElemDtor(newexp->argprefix);
+    }
 
     Logger::println("Calling constructor");
     assert(newexp->arguments != NULL);
@@ -163,8 +167,9 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
   unsigned const firstDataIdx = isCPPclass ? 1 : 2;
   uint64_t const dataBytes =
       tc->sym->structsize - Target::ptrsize * firstDataIdx;
-  if (dataBytes == 0)
+  if (dataBytes == 0) {
     return;
+  }
 
   LLValue *dstarr = DtoGEPi(dst, 0, firstDataIdx);
 
@@ -251,7 +256,7 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
       return DtoDynamicCastInterface(loc, val, _to);
     }
     // class -> interface - static cast
-    else if (it->isBaseOf(fc->sym, NULL)) {
+    else if (it->isBaseOf(fc->sym, nullptr)) {
       Logger::println("static down cast");
 
       // get the from class
@@ -304,7 +309,7 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
       return DtoDynamicCastInterface(loc, val, _to);
     }
     // class -> class - static down cast
-    else if (tc->sym->isBaseOf(fc->sym, NULL)) {
+    else if (tc->sym->isBaseOf(fc->sym, nullptr)) {
       Logger::println("static down cast");
       LLType *tolltype = DtoType(_to);
       LLValue *rval = DtoBitCast(val->getRVal(), tolltype);
@@ -498,8 +503,9 @@ static LLConstant *build_class_dtor(ClassDeclaration *cd) {
   FuncDeclaration *dtor = cd->dtor;
 
   // if no destructor emit a null
-  if (!dtor)
+  if (!dtor) {
     return getNullPtr(getVoidPtrType());
+  }
 
   DtoResolveFunction(dtor);
   return llvm::ConstantExpr::getBitCast(
@@ -513,33 +519,39 @@ static ClassFlags::Type build_classinfo_flags(ClassDeclaration *cd) {
 
   ClassFlags::Type flags = ClassFlags::hasOffTi | ClassFlags::hasTypeInfo;
   if (cd->isInterfaceDeclaration()) {
-    if (cd->isCOMinterface())
+    if (cd->isCOMinterface()) {
       flags |= ClassFlags::isCOMclass;
+    }
     return flags;
   }
 
-  if (cd->isCOMclass())
+  if (cd->isCOMclass()) {
     flags |= ClassFlags::isCOMclass;
-  if (cd->isCPPclass())
+  }
+  if (cd->isCPPclass()) {
     flags |= ClassFlags::isCPPclass;
+  }
   flags |= ClassFlags::hasGetMembers;
-  if (cd->ctor)
+  if (cd->ctor) {
     flags |= ClassFlags::hasCtor;
+  }
   for (ClassDeclaration *pc = cd; pc; pc = pc->baseClass) {
     if (pc->dtor) {
       flags |= ClassFlags::hasDtor;
       break;
     }
   }
-  if (cd->isabstract)
+  if (cd->isabstract) {
     flags |= ClassFlags::isAbstract;
+  }
   for (ClassDeclaration *pc = cd; pc; pc = pc->baseClass) {
     if (pc->members) {
       for (size_t i = 0; i < pc->members->dim; i++) {
         Dsymbol *sm = (*pc->members)[i];
         // printf("sm = %s %s\n", sm->kind(), sm->toChars());
-        if (sm->hasPointers())
+        if (sm->hasPointers()) {
           return flags;
+        }
       }
     }
   }
@@ -620,16 +632,18 @@ LLConstant *DtoDefineClassInfo(ClassDeclaration *cd) {
 
   // base
   // interfaces never get a base, just the interfaces[]
-  if (cd->baseClass && !cd->isInterfaceDeclaration())
+  if (cd->baseClass && !cd->isInterfaceDeclaration()) {
     b.push_classinfo(cd->baseClass);
-  else
+  } else {
     b.push_null(cinfo->type);
+  }
 
   // destructor
-  if (cd->isInterfaceDeclaration())
+  if (cd->isInterfaceDeclaration()) {
     b.push_null_vp();
-  else
+  } else {
     b.push(build_class_dtor(cd));
+  }
 
   // invariant
   VarDeclaration *invVar = cinfo->fields[6];
@@ -656,19 +670,21 @@ LLConstant *DtoDefineClassInfo(ClassDeclaration *cd) {
   // defaultConstructor
   VarDeclaration *defConstructorVar = cinfo->fields.data[10];
   CtorDeclaration *defConstructor = cd->defaultCtor;
-  if (defConstructor && (defConstructor->storage_class & STCdisable))
-    defConstructor = NULL;
+  if (defConstructor && (defConstructor->storage_class & STCdisable)) {
+    defConstructor = nullptr;
+  }
   b.push_funcptr(defConstructor, defConstructorVar->type);
 
   // m_RTInfo
   // The cases where getRTInfo is null are not quite here, but the code is
   // modelled after what DMD does.
-  if (cd->getRTInfo)
+  if (cd->getRTInfo) {
     b.push(toConstElem(cd->getRTInfo, gIR));
-  else if (flags & ClassFlags::noPointers)
+  } else if (flags & ClassFlags::noPointers) {
     b.push_size_as_vp(0); // no pointers
-  else
+  } else {
     b.push_size_as_vp(1); // has pointers
+  }
 
   /*size_t n = inits.size();
   for (size_t i=0; i<n; ++i)

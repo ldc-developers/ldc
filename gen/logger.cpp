@@ -35,10 +35,11 @@ void Stream::writeValue(std::ostream &OS, const llvm::Value &V) {
   // (Only treat non-global constants like this, so that e.g. global variables
   // still get their initializers printed)
   llvm::raw_os_ostream raw(OS);
-  if (llvm::isa<llvm::Constant>(V) && !llvm::isa<llvm::GlobalValue>(V))
+  if (llvm::isa<llvm::Constant>(V) && !llvm::isa<llvm::GlobalValue>(V)) {
     V.printAsOperand(raw, true, &gIR->module);
-  else
+  } else {
     V.print(raw);
+  }
 }
 
 namespace Logger {
@@ -54,17 +55,20 @@ void indent() {
     indent_str += "* ";
   }
 }
+
 void undent() {
   if (_enabled) {
     assert(!indent_str.empty());
     indent_str.resize(indent_str.size() - 2);
   }
 }
+
 Stream cout() {
-  if (_enabled)
-    return std::cout << indent_str;
-  else
-    return 0;
+  if (_enabled) {
+    return Stream(std::cout << indent_str);
+  } else {
+    return Stream(nullptr);
+  }
 }
 
 #if defined(_MSC_VER)

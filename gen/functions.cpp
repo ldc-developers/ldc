@@ -51,8 +51,9 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
                     "trying to codegen function ignored by the frontend?");
 
   // Return cached type if available
-  if (irFty.funcType)
+  if (irFty.funcType) {
     return irFty.funcType;
+  }
 
   TargetABI *abi = (isIntrinsic ? TargetABI::getIntrinsic() : gABI);
 
@@ -89,8 +90,9 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   if (thistype) {
     // Add the this pointer for member functions
     AttrBuilder attrBuilder;
-    if (isCtor)
+    if (isCtor) {
       attrBuilder.add(LLAttribute::Returned);
+    }
     newIrFty.arg_this = new IrFuncTyArg(
         thistype, thistype->toBasetype()->ty == Tstruct, attrBuilder);
     ++nextLLArgIdx;
@@ -137,8 +139,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     if (arg->storageClass & STClazy) {
       // Lazy arguments are lowered to delegates.
       Logger::println("lazy param");
-      TypeFunction *ltf = new TypeFunction(NULL, arg->type, 0, LINKd);
-      TypeDelegate *ltd = new TypeDelegate(ltf);
+      auto ltf = new TypeFunction(nullptr, arg->type, 0, LINKd);
+      auto ltd = new TypeDelegate(ltf);
       loweredDType = ltd;
     } else if (!passPointer) {
       if (abi->passByVal(loweredDType)) {
@@ -166,17 +168,22 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   llvm::SmallVector<llvm::Type *, 16> argtypes;
   argtypes.reserve(nextLLArgIdx);
 
-  if (irFty.arg_sret)
+  if (irFty.arg_sret) {
     argtypes.push_back(irFty.arg_sret->ltype);
-  if (irFty.arg_this)
+  }
+  if (irFty.arg_this) {
     argtypes.push_back(irFty.arg_this->ltype);
-  if (irFty.arg_nest)
+  }
+  if (irFty.arg_nest) {
     argtypes.push_back(irFty.arg_nest->ltype);
-  if (irFty.arg_arguments)
+  }
+  if (irFty.arg_arguments) {
     argtypes.push_back(irFty.arg_arguments->ltype);
+  }
 
-  if (irFty.arg_sret && irFty.arg_this && abi->passThisBeforeSret(f))
+  if (irFty.arg_sret && irFty.arg_this && abi->passThisBeforeSret(f)) {
     std::swap(argtypes[0], argtypes[1]);
+  }
 
   const size_t firstExplicitArg = argtypes.size();
   const size_t numExplicitLLArgs = irFty.args.size();
@@ -201,20 +208,22 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
 
 static llvm::FunctionType *DtoVaFunctionType(FuncDeclaration *fdecl) {
   IrFuncTy &irFty = getIrFunc(fdecl, true)->irFty;
-  if (irFty.funcType)
+  if (irFty.funcType) {
     return irFty.funcType;
+  }
 
   irFty.ret = new IrFuncTyArg(Type::tvoid, false);
 
   irFty.args.push_back(new IrFuncTyArg(Type::tvoid->pointerTo(), false));
 
-  if (fdecl->llvmInternal == LLVMva_start)
+  if (fdecl->llvmInternal == LLVMva_start) {
     irFty.funcType = GET_INTRINSIC_DECL(vastart)->getFunctionType();
-  else if (fdecl->llvmInternal == LLVMva_copy) {
+  } else if (fdecl->llvmInternal == LLVMva_copy) {
     irFty.funcType = GET_INTRINSIC_DECL(vacopy)->getFunctionType();
     irFty.args.push_back(new IrFuncTyArg(Type::tvoid->pointerTo(), false));
-  } else if (fdecl->llvmInternal == LLVMva_end)
+  } else if (fdecl->llvmInternal == LLVMva_end) {
     irFty.funcType = GET_INTRINSIC_DECL(vaend)->getFunctionType();
+  }
   assert(irFty.funcType);
 
   return irFty.funcType;
@@ -224,10 +233,11 @@ static llvm::FunctionType *DtoVaFunctionType(FuncDeclaration *fdecl) {
 
 llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
   // handle for C vararg intrinsics
-  if (DtoIsVaIntrinsic(fdecl))
+  if (DtoIsVaIntrinsic(fdecl)) {
     return DtoVaFunctionType(fdecl);
+  }
 
-  Type *dthis = 0, *dnest = 0;
+  Type *dthis = nullptr, *dnest = nullptr;
 
   if (fdecl->ident == Id::ensure || fdecl->ident == Id::require) {
     FuncDeclaration *p = fdecl->parent->isFuncDeclaration();
@@ -241,8 +251,9 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
       dthis = ad->type;
       LLType *thisty = DtoType(dthis);
       // Logger::cout() << "this llvm type: " << *thisty << '\n';
-      if (ad->isStructDeclaration())
+      if (ad->isStructDeclaration()) {
         thisty = getPtrToType(thisty);
+      }
     } else {
       IF_LOG Logger::println("chars: %s type: %s kind: %s", fdecl->toChars(),
                              fdecl->type->toChars(), fdecl->kind());
@@ -263,14 +274,15 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
 
 static llvm::Function *DtoDeclareVaFunction(FuncDeclaration *fdecl) {
   DtoVaFunctionType(fdecl);
-  llvm::Function *func = 0;
+  llvm::Function *func = nullptr;
 
-  if (fdecl->llvmInternal == LLVMva_start)
+  if (fdecl->llvmInternal == LLVMva_start) {
     func = GET_INTRINSIC_DECL(vastart);
-  else if (fdecl->llvmInternal == LLVMva_copy)
+  } else if (fdecl->llvmInternal == LLVMva_copy) {
     func = GET_INTRINSIC_DECL(vacopy);
-  else if (fdecl->llvmInternal == LLVMva_end)
+  } else if (fdecl->llvmInternal == LLVMva_end) {
     func = GET_INTRINSIC_DECL(vaend);
+  }
   assert(func);
 
   getIrFunc(fdecl)->func = func;
@@ -286,21 +298,23 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
     return; // ignore declaration completely
   }
 
-  if (fdecl->ir.isResolved())
+  if (fdecl->ir.isResolved()) {
     return;
+  }
   fdecl->ir.setResolved();
 
   Type *type = fdecl->type;
   // If errors occurred compiling it, such as bugzilla 6118
   if (type && type->ty == Tfunction) {
     Type *next = static_cast<TypeFunction *>(type)->next;
-    if (!next || next->ty == Terror)
+    if (!next || next->ty == Terror) {
       return;
+    }
   }
 
   // printf("resolve function: %s\n", fdecl->toPrettyChars());
 
-  if (fdecl->parent)
+  if (fdecl->parent) {
     if (TemplateInstance *tinst = fdecl->parent->isTemplateInstance()) {
       if (TemplateDeclaration *tempdecl =
               tinst->tempdecl->isTemplateDeclaration()) {
@@ -345,6 +359,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
         }
       }
     }
+  }
 
   DtoFunctionType(fdecl);
 
@@ -405,8 +420,9 @@ static void set_param_attrs(TypeFunction *f, llvm::Function *func,
 void DtoDeclareFunction(FuncDeclaration *fdecl) {
   DtoResolveFunction(fdecl);
 
-  if (fdecl->ir.isDeclared())
+  if (fdecl->ir.isDeclared()) {
     return;
+  }
   fdecl->ir.setDeclared();
 
   IF_LOG Logger::println("DtoDeclareFunction(%s): %s", fdecl->toPrettyChars(),
@@ -433,9 +449,10 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // create IrFunction
   IrFunction *irFunc = getIrFunc(fdecl, true);
 
-  LLFunction *vafunc = 0;
-  if (DtoIsVaIntrinsic(fdecl))
+  LLFunction *vafunc = nullptr;
+  if (DtoIsVaIntrinsic(fdecl)) {
     vafunc = DtoDeclareVaFunction(fdecl);
+  }
 
   // calling convention
   LINK link = f->linkage;
@@ -583,19 +600,22 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 
 static LinkageWithCOMDAT lowerFuncLinkage(FuncDeclaration *fdecl) {
   // Intrinsics are always external.
-  if (DtoIsIntrinsic(fdecl))
+  if (DtoIsIntrinsic(fdecl)) {
     return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
+  }
 
   // Generated array op functions behave like templates in that they might be
   // emitted into many different modules.
-  if (fdecl->isArrayOp && (willInline() || !isDruntimeArrayOp(fdecl)))
+  if (fdecl->isArrayOp && (willInline() || !isDruntimeArrayOp(fdecl))) {
     return LinkageWithCOMDAT(templateLinkage, supportsCOMDAT());
+  }
 
   // A body-less declaration always needs to be marked as external in LLVM
   // (also e.g. naked template functions which would otherwise be weak_odr,
   // but where the definition is in module-level inline asm).
-  if (!fdecl->fbody || fdecl->naked)
+  if (!fdecl->fbody || fdecl->naked) {
     return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
+  }
 
   return DtoLinkage(fdecl);
 }
@@ -605,12 +625,13 @@ void DtoDefineFunction(FuncDeclaration *fd) {
                          fd->loc.toChars());
   LOG_SCOPE;
 
-  if (fd->ir.isDefined())
+  if (fd->ir.isDefined()) {
     return;
+  }
 
   if ((fd->type && fd->type->ty == Terror) ||
       (fd->type && fd->type->ty == Tfunction &&
-       static_cast<TypeFunction *>(fd->type)->next == NULL) ||
+       static_cast<TypeFunction *>(fd->type)->next == nullptr) ||
       (fd->type && fd->type->ty == Tfunction &&
        static_cast<TypeFunction *>(fd->type)->next->ty == Terror)) {
     IF_LOG Logger::println(
@@ -657,10 +678,11 @@ void DtoDefineFunction(FuncDeclaration *fd) {
       fd->ir.setDefined();
       return;
     }
-    if (f->isNested())
+    if (f->isNested()) {
       f = f->toParent2()->isFuncDeclaration();
-    else
+    } else {
       break;
+    }
   }
 
   DtoDeclareFunction(fd);
@@ -668,8 +690,9 @@ void DtoDefineFunction(FuncDeclaration *fd) {
 
   // DtoResolveFunction might also set the defined flag for functions we
   // should not touch.
-  if (fd->ir.isDefined())
+  if (fd->ir.isDefined()) {
     return;
+  }
   fd->ir.setDefined();
 
   // We cannot emit nested functions with parents that have not gone through
@@ -728,16 +751,18 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   llvm::Function *func = irFunc->func;
 
   // is there a body?
-  if (fd->fbody == NULL)
+  if (fd->fbody == nullptr) {
     return;
+  }
 
   IF_LOG Logger::println("Doing function body for: %s", fd->toChars());
   gIR->functions.push_back(irFunc);
 
   LinkageWithCOMDAT lwc = lowerFuncLinkage(fd);
   func->setLinkage(lwc.first);
-  if (lwc.second)
+  if (lwc.second) {
     SET_COMDAT(func, gIR->module);
+  }
 
   // On x86_64, always set 'uwtable' for System V ABI compatibility.
   // TODO: Find a better place for this.
@@ -804,12 +829,13 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     assert(getIrParameter(fd->vthis)->value == thisvar);
     getIrParameter(fd->vthis)->value = thismem;
 
-    gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, 0, true);
+    gIR->DBuilder.EmitLocalVariable(thismem, fd->vthis, nullptr, true);
   }
 
   // give the 'nestArg' storage
-  if (irFty.arg_nest)
+  if (irFty.arg_nest) {
     irFunc->nestArg = DtoAllocaDump(irFunc->nestArg, 0, "nestedFrame");
+  }
 
   // give arguments storage and debug info
   if (fd->parameters) {
@@ -851,8 +877,9 @@ void DtoDefineFunction(FuncDeclaration *fd) {
 
       if (global.params.symdebug &&
           !(isaArgument(irparam->value) &&
-            isaArgument(irparam->value)->hasByValAttr()))
+            isaArgument(irparam->value)->hasByValAttr())) {
         gIR->DBuilder.EmitLocalVariable(irparam->value, vd, debugInfoType);
+      }
     }
   }
 
@@ -886,7 +913,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     // output function body
     Statement_toIR(fd->fbody, gIR);
 
-    irFunc->scopes = 0;
+    irFunc->scopes = nullptr;
   }
 
   llvm::BasicBlock *bb = gIR->scopebb();
@@ -913,16 +940,18 @@ void DtoDefineFunction(FuncDeclaration *fd) {
       } else {
         gIR->ir->CreateRet(llvm::UndefValue::get(func->getReturnType()));
       }
-    } else
+    } else {
       gIR->ir->CreateRet(LLConstant::getNullValue(func->getReturnType()));
+    }
   }
   gIR->DBuilder.EmitFuncEnd(fd);
 
   // erase alloca point
-  if (allocaPoint->getParent())
+  if (allocaPoint->getParent()) {
     allocaPoint->eraseFromParent();
-  allocaPoint = 0;
-  gIR->func()->allocapoint = 0;
+  }
+  allocaPoint = nullptr;
+  gIR->func()->allocapoint = nullptr;
 
   gIR->scopes.pop_back();
 
@@ -955,7 +984,7 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
   // byval arg, but expr has no storage yet
   if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isNull())) {
     LLValue *alloc = DtoAlloca(argexp->type, ".tmp_arg");
-    DVarValue *vv = new DVarValue(argexp->type, alloc);
+    auto vv = new DVarValue(argexp->type, alloc);
     DtoAssign(argexp->loc, vv, arg);
     arg = vv;
   }
@@ -970,12 +999,13 @@ int binary(const char *p, const char **tab, int high) {
   do {
     k = (i + j) / 2;
     l = strcmp(p, tab[k]);
-    if (!l)
+    if (!l) {
       return k;
-    else if (l < 0)
+    } else if (l < 0) {
       j = k;
-    else
+    } else {
       i = k + 1;
+    }
   } while (i != j);
   return -1;
 }
@@ -1098,8 +1128,9 @@ int isDruntimeArrayOp(FuncDeclaration *fd) {
   char *name = fd->ident->toChars();
   int i =
       binary(name, libArrayopFuncs, sizeof(libArrayopFuncs) / sizeof(char *));
-  if (i != -1)
+  if (i != -1) {
     return 1;
+  }
 
 #ifdef DEBUG // Make sure our array is alphabetized
   for (i = 0; i < sizeof(libArrayopFuncs) / sizeof(char *); i++) {

@@ -18,8 +18,9 @@ void IrDsymbol::resetAll() {
   Logger::println("resetting %llu Dsymbols",
                   static_cast<unsigned long long>(list.size()));
 
-  for (auto s : list)
+  for (auto s : list) {
     s->reset();
+  }
 }
 
 IrDsymbol::IrDsymbol() { list.push_back(this); }
@@ -49,21 +50,25 @@ void IrDsymbol::reset() {
 }
 
 void IrDsymbol::setResolved() {
-  if (m_state < Resolved)
+  if (m_state < Resolved) {
     m_state = Resolved;
+  }
 }
 
 void IrDsymbol::setDeclared() {
-  if (m_state < Declared)
+  if (m_state < Declared) {
     m_state = Declared;
+  }
 }
 
 void IrDsymbol::setInitialized() {
-  if (m_state < Initialized)
+  if (m_state < Initialized) {
     m_state = Initialized;
+  }
 }
 
 void IrDsymbol::setDefined() {
-  if (m_state < Defined)
+  if (m_state < Defined) {
     m_state = Defined;
+  }
 }

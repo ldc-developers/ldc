@@ -71,7 +71,7 @@ struct IRBuilderHelper {
 };
 
 struct IRAsmStmt {
-  IRAsmStmt() : isBranchToLabel(NULL) {}
+  IRAsmStmt() : isBranchToLabel(nullptr) {}
 
   std::string code;
   std::string out_c;
@@ -97,9 +97,9 @@ struct IRAsmBlock {
   bool retemu; // emulate abi ret with a temporary
   LLValue *(*retfixup)(IRBuilderHelper b, LLValue *orig); // Modifies retval
 
-  IRAsmBlock(CompoundAsmStatement *b)
-      : outputcount(0), asmBlock(b), retty(NULL), retn(0), retemu(false),
-        retfixup(NULL) {}
+  explicit IRAsmBlock(CompoundAsmStatement *b)
+      : outputcount(0), asmBlock(b), retty(nullptr), retn(0), retemu(false),
+        retfixup(nullptr) {}
 };
 
 // represents the module

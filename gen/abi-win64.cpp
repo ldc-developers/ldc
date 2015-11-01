@@ -35,15 +35,15 @@ struct Win64TargetABI : TargetABI {
   ExplicitByvalRewrite byvalRewrite;
   IntegerRewrite integerRewrite;
 
-  bool returnInArg(TypeFunction *tf);
+  bool returnInArg(TypeFunction *tf) override;
 
-  bool passByVal(Type *t);
+  bool passByVal(Type *t) override;
 
-  bool passThisBeforeSret(TypeFunction *tf);
+  bool passThisBeforeSret(TypeFunction *tf) override;
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty);
+  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override;
 
-  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg);
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override;
 
 private:
   // Returns true if the D type is an aggregate:
@@ -83,14 +83,16 @@ private:
 TargetABI *getWin64TargetABI() { return new Win64TargetABI; }
 
 bool Win64TargetABI::returnInArg(TypeFunction *tf) {
-  if (tf->isref)
+  if (tf->isref) {
     return false;
+  }
 
   Type *rt = tf->next->toBasetype();
 
   // * let LLVM return 80-bit real/ireal on the x87 stack, for DMD compliance
-  if (realIs80bits() && (rt->ty == Tfloat80 || rt->ty == Timaginary80))
+  if (realIs80bits() && (rt->ty == Tfloat80 || rt->ty == Timaginary80)) {
     return false;
+  }
 
   // * all POD types <= 64 bits and of a size that is a power of 2
   //   (incl. 2x32-bit cfloat) are returned in a register (RAX, or
@@ -108,18 +110,21 @@ bool Win64TargetABI::passThisBeforeSret(TypeFunction *tf) {
 
 void Win64TargetABI::rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) {
   // RETURN VALUE
-  if (!fty.ret->byref && fty.ret->type->toBasetype()->ty != Tvoid)
+  if (!fty.ret->byref && fty.ret->type->toBasetype()->ty != Tvoid) {
     rewriteArgument(fty, *fty.ret);
+  }
 
   // EXPLICIT PARAMETERS
   for (auto arg : fty.args) {
-    if (!arg->byref)
+    if (!arg->byref) {
       rewriteArgument(fty, *arg);
+    }
   }
 
   // extern(D): reverse parameter order for non variadics, for DMD-compliance
-  if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1)
+  if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
     fty.reverseParams = true;
+  }
 }
 
 void Win64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {

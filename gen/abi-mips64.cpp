@@ -25,11 +25,12 @@ struct MIPS64TargetABI : TargetABI {
   IntegerRewrite integerRewrite;
   const bool Is64Bit;
 
-  MIPS64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
+  explicit MIPS64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
 
-  bool returnInArg(TypeFunction *tf) {
-    if (tf->isref)
+  bool returnInArg(TypeFunction *tf) override {
+    if (tf->isref) {
       return false;
+    }
 
     // Return structs and static arrays on the stack. The latter is needed
     // because otherwise LLVM tries to actually return the array in a number
@@ -39,19 +40,20 @@ struct MIPS64TargetABI : TargetABI {
     return (rt->ty == Tstruct || rt->ty == Tsarray);
   }
 
-  bool passByVal(Type *t) {
+  bool passByVal(Type *t) override {
     TY ty = t->toBasetype()->ty;
     return ty == Tstruct || ty == Tsarray;
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) {
+  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
     for (auto arg : fty.args) {
-      if (!arg->byref)
+      if (!arg->byref) {
         rewriteArgument(fty, *arg);
+      }
     }
   }
 
-  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     // FIXME
   }
 

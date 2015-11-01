@@ -43,7 +43,7 @@ IrTypeBasic::IrTypeBasic(Type *dt) : IrType(dt, basic2llvm(dt)) {}
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeBasic *IrTypeBasic::get(Type *dt) {
-  IrTypeBasic *t = new IrTypeBasic(dt);
+  auto t = new IrTypeBasic(dt);
   dt->ctype = t;
   return t;
 }
@@ -62,8 +62,9 @@ static inline llvm::Type *getReal80Type(llvm::LLVMContext &ctx) {
   bool const anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
 
   // only x86 has 80bit float - but no support with MS C Runtime!
-  if (anyX86 && !global.params.targetTriple.isWindowsMSVCEnvironment())
+  if (anyX86 && !global.params.targetTriple.isWindowsMSVCEnvironment()) {
     return llvm::Type::getX86_FP80Ty(ctx);
+  }
 
   return llvm::Type::getDoubleTy(ctx);
 }
@@ -148,11 +149,12 @@ IrTypePointer *IrTypePointer::get(Type *dt) {
 
     // DtoType could have already created the same type, e.g. for
     // dt == Node* in struct Node { Node* n; }.
-    if (dt->ctype)
+    if (dt->ctype) {
       return dt->ctype->isPointer();
+    }
   }
 
-  IrTypePointer *t = new IrTypePointer(dt, llvm::PointerType::get(elemType, 0));
+  auto t = new IrTypePointer(dt, llvm::PointerType::get(elemType, 0));
   dt->ctype = t;
   return t;
 }
@@ -166,7 +168,7 @@ IrTypeSArray::IrTypeSArray(Type *dt) : IrType(dt, sarray2llvm(dt)) {}
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeSArray *IrTypeSArray::get(Type *dt) {
-  IrTypeSArray *t = new IrTypeSArray(dt);
+  auto t = new IrTypeSArray(dt);
   dt->ctype = t;
   return t;
 }
@@ -215,7 +217,7 @@ IrTypeVector::IrTypeVector(Type *dt) : IrType(dt, vector2llvm(dt)) {}
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeVector *IrTypeVector::get(Type *dt) {
-  IrTypeVector *t = new IrTypeVector(dt);
+  auto t = new IrTypeVector(dt);
   dt->ctype = t;
   return t;
 }

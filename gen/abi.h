@@ -35,7 +35,7 @@ class FunctionType;
 
 // return rewrite rule
 struct ABIRewrite {
-  virtual ~ABIRewrite() {}
+  virtual ~ABIRewrite() = default;
 
   /// get a rewritten value back to its original form
   virtual llvm::Value *get(Type *dty, llvm::Value *v) = 0;
@@ -71,7 +71,7 @@ protected:
 
 // interface called by codegen
 struct TargetABI {
-  virtual ~TargetABI() {}
+  virtual ~TargetABI() = default;
 
   /// Returns the ABI for the target we're compiling for
   static TargetABI *getTarget();

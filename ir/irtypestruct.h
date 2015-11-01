@@ -22,11 +22,11 @@ public:
   static IrTypeStruct *get(StructDeclaration *sd);
 
   ///
-  IrTypeStruct *isStruct() { return this; }
+  IrTypeStruct *isStruct() override { return this; }
 
 protected:
   ///
-  IrTypeStruct(StructDeclaration *sd);
+  explicit IrTypeStruct(StructDeclaration *sd);
 
   /// StructDeclaration this type represents.
   StructDeclaration *sd = nullptr;

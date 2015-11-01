@@ -43,7 +43,7 @@ public:
   // padding
   llvm::SmallVector<llvm::Constant *, 15> inits;
 
-  RTTIBuilder(AggregateDeclaration *base_class);
+  explicit RTTIBuilder(AggregateDeclaration *base_class);
 
   void push(llvm::Constant *C);
   void push_null(Type *T);
@@ -57,7 +57,7 @@ public:
   void push_classinfo(ClassDeclaration *cd);
 
   /// pushes the function pointer or a null void* if it cannot.
-  void push_funcptr(FuncDeclaration *fd, Type *castto = NULL);
+  void push_funcptr(FuncDeclaration *fd, Type *castto = nullptr);
 
   /// pushes the array slice given.
   void push_array(uint64_t dim, llvm::Constant *ptr);

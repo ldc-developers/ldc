@@ -48,14 +48,16 @@ llvm::Function *DtoInlineIRFunction(FuncDeclaration *fdecl) {
     stream << *DtoType(ty);
 
     i++;
-    if (i >= arg_types.dim)
+    if (i >= arg_types.dim) {
       break;
+    }
 
     stream << ", ";
   }
 
-  if (ret->ty == Tvoid)
+  if (ret->ty == Tvoid) {
     code.append("\nret void");
+  }
 
   stream << ")\n{\n" << code << "\n}";
 
@@ -70,12 +72,13 @@ llvm::Function *DtoInlineIRFunction(FuncDeclaration *fdecl) {
 #endif
 
   std::string errstr = err.getMessage();
-  if (errstr != "")
+  if (errstr != "") {
     error(tinst->loc,
           "can't parse inline LLVM IR:\n%s\n%s\n%s\nThe input string was: \n%s",
           err.getLineContents().str().c_str(),
           (std::string(err.getColumnNo(), ' ') + '^').c_str(), errstr.c_str(),
           stream.str().c_str());
+  }
 
 #if LDC_LLVM_VER >= 306
   llvm::Linker(&gIR->module).linkInModule(m.get());

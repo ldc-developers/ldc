@@ -31,9 +31,10 @@ struct AArch64TargetABI : TargetABI {
     }
   }
 
-  bool returnInArg(TypeFunction *tf) {
-    if (tf->isref)
+  bool returnInArg(TypeFunction *tf) override {
+    if (tf->isref) {
       return false;
+    }
 
     // Return structs and static arrays on the stack. The latter is needed
     // because otherwise LLVM tries to actually return the array in a number
@@ -43,16 +44,17 @@ struct AArch64TargetABI : TargetABI {
     return (rt->ty == Tstruct || rt->ty == Tsarray);
   }
 
-  bool passByVal(Type *t) { return t->toBasetype()->ty == Tstruct; }
+  bool passByVal(Type *t) override { return t->toBasetype()->ty == Tstruct; }
 
-  void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) {
+  void rewriteFunctionType(TypeFunction *t, IrFuncTy &fty) override {
     for (auto arg : fty.args) {
-      if (!arg->byref)
+      if (!arg->byref) {
         rewriteArgument(fty, *arg);
+      }
     }
   }
 
-  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     // FIXME
   }
 
@@ -89,7 +91,7 @@ struct AArch64TargetABI : TargetABI {
     return LLStructType::get(gIR->context(), parts);
   }
 
-  LLValue *prepareVaStart(LLValue *pAp) {
+  LLValue *prepareVaStart(LLValue *pAp) override {
     // Since the user only created a char* pointer (ap) on the stack before
     // invoking va_start,
     // we first need to allocate the actual __va_list struct and set 'ap' to its
@@ -102,7 +104,7 @@ struct AArch64TargetABI : TargetABI {
     return valistmem;
   }
 
-  void vaCopy(LLValue *pDest, LLValue *src) {
+  void vaCopy(LLValue *pDest, LLValue *src) override {
     // Analog to va_start, we need to allocate a new __va_list struct on the
     // stack,
     // fill it with a bitcopy of the source struct...
@@ -115,13 +117,13 @@ struct AArch64TargetABI : TargetABI {
              DtoBitCast(pDest, getPtrToType(getVoidPtrType())));
   }
 
-  LLValue *prepareVaArg(LLValue *pAp) {
+  LLValue *prepareVaArg(LLValue *pAp) override {
     // pass a void* pointer to the actual __va_list struct to LLVM's va_arg
     // intrinsic
     return DtoLoad(pAp);
   }
 
-  Type *vaListType() {
+  Type *vaListType() override {
     // We need to pass the actual va_list type for correct mangling. Simply
     // using TypeIdentifier here is a bit wonky but works, as long as the name
     // is actually available in the scope (this is what DMD does, so if a better

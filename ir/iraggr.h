@@ -87,7 +87,7 @@ struct IrAggr {
   /// returned type is not necessarily the same as getLLType().
   llvm::Constant *
   createInitializerConstant(const VarInitMap &explicitInitializers,
-                            llvm::StructType *initializerType = 0);
+                            llvm::StructType *initializerType = nullptr);
 
 protected:
   /// Static default initializer global.

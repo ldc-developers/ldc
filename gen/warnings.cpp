@@ -15,8 +15,9 @@ void warnInvalidPrintfCall(Loc loc, Expression *arguments, size_t nargs) {
 
   // make sure first argument is a string literal, or we can't do much
   // TODO make it smarter ?
-  if (arg->op != TOKstring)
+  if (arg->op != TOKstring) {
     return; // assume valid
+  }
 
   StringExp *strexp = static_cast<StringExp *>(arg);
 

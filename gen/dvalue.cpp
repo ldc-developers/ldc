@@ -21,19 +21,22 @@
 static bool checkVarValueType(LLType *t, bool extraDeref) {
   if (extraDeref) {
     llvm::PointerType *pt = llvm::dyn_cast<llvm::PointerType>(t);
-    if (!pt)
+    if (!pt) {
       return false;
+    }
 
     t = pt->getElementType();
   }
 
   llvm::PointerType *pt = llvm::dyn_cast<llvm::PointerType>(t);
-  if (!pt)
+  if (!pt) {
     return false;
+  }
 
   // bools should not be stored as i1 any longer.
-  if (pt->getElementType() == llvm::Type::getInt1Ty(gIR->context()))
+  if (pt->getElementType() == llvm::Type::getInt1Ty(gIR->context())) {
     return false;
+  }
 
   return true;
 }
@@ -44,14 +47,15 @@ DVarValue::DVarValue(Type *t, VarDeclaration *vd, LLValue *llvmValue)
 }
 
 DVarValue::DVarValue(Type *t, LLValue *llvmValue)
-    : DValue(t), var(0), val(llvmValue) {
+    : DValue(t), var(nullptr), val(llvmValue) {
   assert(checkVarValueType(llvmValue->getType(), false));
 }
 
 LLValue *DVarValue::getLVal() {
   assert(val);
-  if (var && isSpecialRefVar(var))
+  if (var && isSpecialRefVar(var)) {
     return DtoLoad(val);
+  }
   return val;
 }
 
@@ -59,11 +63,13 @@ LLValue *DVarValue::getRVal() {
   assert(val);
 
   llvm::Value *storage = val;
-  if (var && isSpecialRefVar(var))
+  if (var && isSpecialRefVar(var)) {
     storage = DtoLoad(storage);
+  }
 
-  if (DtoIsPassedByRef(type->toBasetype()))
+  if (DtoIsPassedByRef(type->toBasetype())) {
     return storage;
+  }
 
   llvm::Value *rawValue = DtoLoad(storage);
 

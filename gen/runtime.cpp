@@ -41,7 +41,7 @@ static llvm::cl::opt<bool> nogc(
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
 
-static llvm::Module *M = NULL;
+static llvm::Module *M = nullptr;
 
 static void LLVM_D_BuildRuntimeModule();
 
@@ -111,7 +111,7 @@ void LLVM_D_FreeRuntime() {
   if (M) {
     Logger::println("*** Freeing D runtime declarations ***");
     delete M;
-    M = NULL;
+    M = nullptr;
   }
 }
 
@@ -126,8 +126,9 @@ llvm::Function *LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module &target,
   }
 
   LLFunction *fn = target.getFunction(name);
-  if (fn)
+  if (fn) {
     return fn;
+  }
 
   fn = M->getFunction(name);
   assert(fn && "Runtime function not found.");
@@ -164,7 +165,7 @@ llvm::GlobalVariable *LLVM_D_GetRuntimeGlobal(Loc &loc, llvm::Module &target,
 
   LLPointerType *t = g->getType();
   return getOrCreateGlobal(loc, target, t->getElementType(), g->isConstant(),
-                           g->getLinkage(), NULL, g->getName());
+                           g->getLinkage(), nullptr, g->getName());
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////////////
@@ -502,9 +503,9 @@ static void LLVM_D_BuildRuntimeModule() {
 #define STR_APPLY1(TY, a, b)                                                   \
   {                                                                            \
     const std::string prefix = "_aApply";                                      \
-    std::string fname1 = prefix + a + '1', fname2 = prefix + b + '1',          \
-                fname3 = prefix + 'R' + a + '1',                               \
-                fname4 = prefix + 'R' + b + '1';                               \
+    std::string fname1 = prefix + (a) + '1', fname2 = prefix + (b) + '1',      \
+                fname3 = prefix + 'R' + (a) + '1',                             \
+                fname4 = prefix + 'R' + (b) + '1';                             \
     LLType *types[] = {TY, rt_dg1()};                                          \
     LLFunctionType *fty = llvm::FunctionType::get(intTy, types, false);        \
     llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname1,    \
@@ -526,9 +527,9 @@ static void LLVM_D_BuildRuntimeModule() {
 #define STR_APPLY2(TY, a, b)                                                   \
   {                                                                            \
     const std::string prefix = "_aApply";                                      \
-    std::string fname1 = prefix + a + '2', fname2 = prefix + b + '2',          \
-                fname3 = prefix + 'R' + a + '2',                               \
-                fname4 = prefix + 'R' + b + '2';                               \
+    std::string fname1 = prefix + (a) + '2', fname2 = prefix + (b) + '2',      \
+                fname3 = prefix + 'R' + (a) + '2',                             \
+                fname4 = prefix + 'R' + (b) + '2';                             \
     LLType *types[] = {TY, rt_dg2()};                                          \
     LLFunctionType *fty = llvm::FunctionType::get(intTy, types, false);        \
     llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname1,    \
@@ -851,7 +852,7 @@ static void LLVM_D_BuildRuntimeModule() {
 
   // int _d_eh_personality(...)
   {
-    LLFunctionType *fty = NULL;
+    LLFunctionType *fty = nullptr;
     if (global.params.targetTriple.isWindowsMSVCEnvironment()) {
       // int _d_eh_personality(ptr ExceptionRecord, ptr EstablisherFrame, ptr
       // ContextRecord, ptr DispatcherContext)
@@ -899,10 +900,10 @@ static void LLVM_D_BuildRuntimeModule() {
     // for more efficient parameter passing on x86. This complicates our code
     // here
     // quite a bit, though.
-    Parameters *params = new Parameters();
+    auto params = new Parameters();
     params->push(
-        new Parameter(STCin, ClassDeclaration::object->type, NULL, NULL));
-    TypeFunction *dty = new TypeFunction(params, Type::tvoid, 0, LINKd);
+        new Parameter(STCin, ClassDeclaration::object->type, nullptr, nullptr));
+    auto dty = new TypeFunction(params, Type::tvoid, 0, LINKd);
     llvm::Function *fn = llvm::Function::Create(
         llvm::cast<llvm::FunctionType>(DtoType(dty)),
         llvm::GlobalValue::ExternalLinkage,
