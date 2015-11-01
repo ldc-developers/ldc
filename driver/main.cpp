@@ -1010,9 +1010,9 @@ int main(int argc, char **argv)
     // Build import search path
     if (global.params.imppath)
     {
-        for (unsigned i = 0; i < global.params.imppath->dim; i++)
+        for (size_t i = 0; i < global.params.imppath->dim; i++)
         {
-            const char *path = static_cast<const char *>(global.params.imppath->data[i]);
+            const char *path = (*global.params.imppath)[i];
             Strings *a = FileName::splitPath(path);
 
             if (a)
@@ -1027,9 +1027,9 @@ int main(int argc, char **argv)
     // Build string import search path
     if (global.params.fileImppath)
     {
-        for (unsigned i = 0; i < global.params.fileImppath->dim; i++)
+        for (size_t i = 0; i < global.params.fileImppath->dim; i++)
         {
-            const char *path = static_cast<const char *>(global.params.fileImppath->data[i]);
+            const char *path = (*global.params.fileImppath)[i];
             Strings *a = FileName::splitPath(path);
 
             if (a)
@@ -1050,15 +1050,15 @@ int main(int argc, char **argv)
     // Create Modules
     Modules modules;
     modules.reserve(files.dim);
-    for (unsigned i = 0; i < files.dim; i++)
-    {   Identifier *id;
-        const char *ext;
+    for (size_t i = 0; i < files.dim; i++)
+    {
         const char *name;
 
         const char *p = files.data[i];
 
         p = FileName::name(p);      // strip path
-        ext = FileName::ext(p);
+        const char *ext = FileName::ext(p);
+        char *newname;
         if (ext)
         {
 #if LDC_POSIX
@@ -1070,7 +1070,7 @@ int main(int argc, char **argv)
                 Port::stricmp(ext, global.bc_ext) == 0)
 #endif
             {
-                global.params.objfiles->push(static_cast<const char *>(files.data[i]));
+                global.params.objfiles->push(files[i]);
                 continue;
             }
 
@@ -1082,78 +1082,82 @@ int main(int argc, char **argv)
             if (Port::stricmp(ext, "lib") == 0)
 #endif
             {
-                global.params.libfiles->push(static_cast<const char *>(files.data[i]));
+                global.params.libfiles->push(files[i]);
                 continue;
             }
 
             if (strcmp(ext, global.ddoc_ext) == 0)
             {
-                global.params.ddocfiles->push(static_cast<const char *>(files.data[i]));
+                global.params.ddocfiles->push(files[i]);
                 continue;
             }
 
             if (FileName::equals(ext, global.json_ext))
             {
                 global.params.doJsonGeneration = 1;
-                global.params.jsonfilename = static_cast<const char *>(files.data[i]);
+                global.params.jsonfilename = files[i];
                 continue;
             }
 
 #if !LDC_POSIX
             if (Port::stricmp(ext, "res") == 0)
             {
-                global.params.resfile = static_cast<const char *>(files.data[i]);
+                global.params.resfile = files[i];
                 continue;
             }
 
             if (Port::stricmp(ext, "def") == 0)
             {
-                global.params.deffile = static_cast<const char *>(files.data[i]);
+                global.params.deffile = files[i];
                 continue;
             }
 
             if (Port::stricmp(ext, "exe") == 0)
             {
-                global.params.exefile = static_cast<const char *>(files.data[i]);
+                global.params.exefile = files[i];
                 continue;
             }
 #endif
 
-            if (Port::stricmp(ext, global.mars_ext) == 0 ||
-                Port::stricmp(ext, global.hdr_ext) == 0 ||
+            /* Examine extension to see if it is a valid
+             * D source file extension
+             */
+            if (FileName::equals(ext, global.mars_ext) ||
+                FileName::equals(ext, global.hdr_ext) ||
                 FileName::equals(ext, "dd"))
             {
-                ext--;          // skip onto '.'
+                ext--;                  // skip onto '.'
                 assert(*ext == '.');
-                char *tmp = static_cast<char *>(mem.xmalloc((ext - p) + 1));
-                memcpy(tmp, p, ext - p);
-                tmp[ext - p] = 0;      // strip extension
-                name = tmp;
+                newname = (char *)mem.xmalloc((ext - p) + 1);
+                memcpy(newname, p, ext - p);
+                newname[ext - p] = 0;              // strip extension
+                name = newname;
 
                 if (name[0] == 0 ||
                     strcmp(name, "..") == 0 ||
                     strcmp(name, ".") == 0)
                 {
-                    goto Linvalid;
+Linvalid:
+                    error(Loc(), "invalid file name '%s'", files[i]);
+                    fatal();
                 }
             }
             else
-            {   error(Loc(), "unrecognized file extension %s\n", ext);
+            {   error(Loc(), "unrecognized file extension %s", ext);
                 fatal();
             }
         }
         else
         {   name = p;
-            if (!*p)
-            {
-        Linvalid:
-                error(Loc(), "invalid file name '%s'", static_cast<const char *>(files.data[i]));
-                fatal();
-            }
-            name = p;
+            if (!*name)
+                goto Linvalid;
         }
 
-        id = Identifier::idPool(name);
+        /* At this point, name is the D source file name stripped of
+         * its path and extension.
+         */
+
+        Identifier *id = Identifier::idPool(name);
         Module *m = new Module(files.data[i], id, global.params.doDocComments, global.params.doHdrGeneration);
         modules.push(m);
     }
@@ -1233,6 +1237,15 @@ int main(int argc, char **argv)
 
     Module::dprogress = 1;
     Module::runDeferredSemantic();
+    if (Module::deferred.dim)
+    {
+        for (size_t i = 0; i < Module::deferred.dim; i++)
+        {
+            Dsymbol *sd = Module::deferred[i];
+            sd->error("unable to resolve forward reference in definition");
+        }
+        fatal();
+    }
 
     // Do pass 2 semantic analysis
     for (unsigned i = 0; i < modules.dim; i++)
