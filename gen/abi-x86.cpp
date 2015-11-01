@@ -145,21 +145,19 @@ public:
             if (fty.arg_this)
             {
                 Logger::println("Putting 'this' in register");
-                fty.arg_this->attrs.clear()
-                                   .add(LDC_ATTRIBUTE(InReg));
+                fty.arg_this->attrs.clear().add(LLAttribute::InReg);
             }
             else if (fty.arg_nest)
             {
                 Logger::println("Putting context ptr in register");
-                fty.arg_nest->attrs.clear()
-                                   .add(LDC_ATTRIBUTE(InReg));
+                fty.arg_nest->attrs.clear().add(LLAttribute::InReg);
             }
             else if (IrFuncTyArg* sret = fty.arg_sret)
             {
                 Logger::println("Putting sret ptr in register");
                 // sret and inreg are incompatible, but the ABI requires the
                 // sret parameter to be in EAX in this situation...
-                sret->attrs.add(LDC_ATTRIBUTE(InReg)).remove(LDC_ATTRIBUTE(StructRet));
+                sret->attrs.add(LLAttribute::InReg).remove(LLAttribute::StructRet);
             }
             // otherwise try to mark the last param inreg
             else if (!fty.args.empty())
@@ -176,7 +174,7 @@ public:
                 if (last->byref && !last->isByVal())
                 {
                     Logger::println("Putting last (byref) parameter in register");
-                    last->attrs.add(LDC_ATTRIBUTE(InReg));
+                    last->attrs.add(LLAttribute::InReg);
                 }
                 else if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) // right?
                 {
@@ -189,7 +187,7 @@ public:
                         // erase previous attributes
                         last->attrs.clear();
                     }
-                    last->attrs.add(LDC_ATTRIBUTE(InReg));
+                    last->attrs.add(LLAttribute::InReg);
                 }
             }
 

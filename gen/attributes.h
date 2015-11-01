@@ -12,47 +12,39 @@
 
 #include "gen/llvm.h"
 
-#include <map>
+using LLAttribute = llvm::Attribute::AttrKind;
 
-struct AttrBuilder
+class AttrBuilder
 {
-    // A: basic attribute type
-    // B: builder type
-    typedef llvm::Attribute::AttrKind A;
-    typedef llvm::AttrBuilder B;
+    llvm::AttrBuilder builder;
 
-    B attrs;
-
-    AttrBuilder() {}
-    AttrBuilder(const B& attrs) : attrs(attrs) {}
+public:
+    AttrBuilder() = default;
 
     bool hasAttributes() const;
-    bool contains(A attribute) const;
+    bool contains(LLAttribute attribute) const;
 
     AttrBuilder& clear();
-    AttrBuilder& add(A attribute);
-    AttrBuilder& remove(A attribute);
+    AttrBuilder& add(LLAttribute attribute);
+    AttrBuilder& remove(LLAttribute attribute);
     AttrBuilder& merge(const AttrBuilder& other);
+
+    operator llvm::AttrBuilder&() { return builder; }
+    operator const llvm::AttrBuilder&() const { return builder; }
 };
 
-struct AttrSet
+class AttrSet
 {
-    typedef llvm::AttributeSet NativeSet;
-    NativeSet entries;
+    llvm::AttributeSet set;
 
-    AttrSet() {}
+public:
+    AttrSet() = default;
     static AttrSet extractFunctionAndReturnAttributes(const llvm::Function* function);
 
     AttrSet& add(unsigned index, const AttrBuilder& builder);
 
-    NativeSet toNativeSet() const;
+    operator llvm::AttributeSet&() { return set; }
+    operator const llvm::AttributeSet&() const { return set; }
 };
-
-// LDC_ATTRIBUTE(name) helper macro returning:
-// * an AttrBuilder::A (enum) value for LLVM 3.2+,
-// * or an llvm::Attribute::AttrConst value for LLVM 3.1,
-//   which can be implicitly converted to AttrBuilder::A
-//   (i.e., llvm::Attributes)
-#define LDC_ATTRIBUTE(name) llvm::Attribute::name
 
 #endif

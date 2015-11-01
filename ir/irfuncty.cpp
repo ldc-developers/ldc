@@ -21,9 +21,9 @@ IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, const AttrBuilder& a)
       attrs(a), byref(bref), rewrite(0)
 {}
 
-bool IrFuncTyArg::isInReg() const { return attrs.contains(LDC_ATTRIBUTE(InReg)); }
-bool IrFuncTyArg::isSRet() const  { return attrs.contains(LDC_ATTRIBUTE(StructRet)); }
-bool IrFuncTyArg::isByVal() const { return attrs.contains(LDC_ATTRIBUTE(ByVal)); }
+bool IrFuncTyArg::isInReg() const { return attrs.contains(LLAttribute::InReg); }
+bool IrFuncTyArg::isSRet() const  { return attrs.contains(LLAttribute::StructRet); }
+bool IrFuncTyArg::isByVal() const { return attrs.contains(LLAttribute::ByVal); }
 
 llvm::Value* IrFuncTy::putRet(DValue* dval)
 {

@@ -819,7 +819,7 @@ bool isSafeToStackAllocate(Instruction* Alloc, Value* V, DominatorTree& DT,
       CallSite::arg_iterator B = CS.arg_begin(), E = CS.arg_end();
       for (CallSite::arg_iterator A = B; A != E; ++A)
         if (A->get() == V) {
-          if (!CS.paramHasAttr(A - B + 1, LDC_ATTRIBUTE(NoCapture))) {
+          if (!CS.paramHasAttr(A - B + 1, LLAttribute::NoCapture)) {
             // The parameter is not marked 'nocapture' - captured.
             return false;
           }

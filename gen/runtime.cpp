@@ -916,7 +916,7 @@ static void LLVM_D_BuildRuntimeModule()
         assert(dty->ctype);
         IrFuncTy &irFty = dty->ctype->getIrFuncTy();
         gABI->rewriteFunctionType(dty, irFty);
-        fn->addAttributes(1, llvm::AttributeSet::get(gIR->context(), 1, irFty.args[0]->attrs.attrs));
+        fn->addAttributes(1, llvm::AttributeSet::get(gIR->context(), 1, irFty.args[0]->attrs));
         fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), LINKd));
     }
 

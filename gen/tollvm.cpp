@@ -55,7 +55,7 @@ bool DtoIsReturnInArg(CallExp *ce)
     return false;
 }
 
-AttrBuilder::A DtoShouldExtend(Type* type)
+LLAttribute DtoShouldExtend(Type* type)
 {
     type = type->toBasetype();
     if (type->isintegral())
@@ -64,11 +64,11 @@ AttrBuilder::A DtoShouldExtend(Type* type)
         {
         case Tint8:
         case Tint16:
-            return LDC_ATTRIBUTE(SExt);
+            return LLAttribute::SExt;
 
         case Tuns8:
         case Tuns16:
-            return LDC_ATTRIBUTE(ZExt);
+            return LLAttribute::ZExt;
 
         default:
             // Do not extend.
@@ -76,7 +76,7 @@ AttrBuilder::A DtoShouldExtend(Type* type)
         }
     }
 
-    return LDC_ATTRIBUTE(None);
+    return LLAttribute::None;
 }
 
 LLType* DtoType(Type* t)

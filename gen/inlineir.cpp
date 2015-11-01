@@ -92,6 +92,6 @@ llvm::Function* DtoInlineIRFunction(FuncDeclaration* fdecl)
     LLFunction* fun = gIR->module.getFunction(mangled_name);
     fun->setLinkage(llvm::GlobalValue::LinkOnceODRLinkage);
     SET_COMDAT(fun, gIR->module);
-    fun->addFnAttr(LDC_ATTRIBUTE(AlwaysInline));
+    fun->addFnAttr(LLAttribute::AlwaysInline);
     return fun;
 }

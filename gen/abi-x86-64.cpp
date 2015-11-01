@@ -282,7 +282,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg& arg, RegCount& regCount) {
         IF_LOG Logger::cout() << "Passing implicitly ByVal: " << arg.type->toChars() << " (" << *originalLType << ")\n";
         arg.rewrite = &byvalRewrite;
         arg.ltype = originalLType->getPointerTo();
-        arg.attrs.add(LDC_ATTRIBUTE(ByVal));
+        arg.attrs.add(LLAttribute::ByVal);
     }
 }
 

@@ -12,67 +12,61 @@
 
 bool AttrBuilder::hasAttributes() const
 {
-    return attrs.hasAttributes();
+    return builder.hasAttributes();
 }
 
-bool AttrBuilder::contains(A attribute) const
+bool AttrBuilder::contains(LLAttribute attribute) const
 {
-    return attrs.contains(attribute);
+    return builder.contains(attribute);
 }
 
 AttrBuilder& AttrBuilder::clear()
 {
-    attrs.clear();
+    builder.clear();
     return *this;
 }
 
-AttrBuilder& AttrBuilder::add(A attribute)
+AttrBuilder& AttrBuilder::add(LLAttribute attribute)
 {
     // never set 'None' explicitly
     if (attribute)
-        attrs.addAttribute(attribute);
+        builder.addAttribute(attribute);
     return *this;
 }
 
-AttrBuilder& AttrBuilder::remove(A attribute)
+AttrBuilder& AttrBuilder::remove(LLAttribute attribute)
 {
     // never remove 'None' explicitly
     if (attribute)
-        attrs.removeAttribute(attribute);
+        builder.removeAttribute(attribute);
     return *this;
 }
 
 AttrBuilder& AttrBuilder::merge(const AttrBuilder& other)
 {
-    attrs.merge(other.attrs);
+    builder.merge(other.builder);
     return *this;
 }
 
 
 AttrSet AttrSet::extractFunctionAndReturnAttributes(const llvm::Function* function)
 {
-    AttrSet set;
+    AttrSet r;
 
-    NativeSet old = function->getAttributes();
+    llvm::AttributeSet old = function->getAttributes();
     llvm::AttributeSet existingAttrs[] = { old.getFnAttributes(), old.getRetAttributes() };
-    set.entries = llvm::AttributeSet::get(gIR->context(), existingAttrs);
+    r.set = llvm::AttributeSet::get(gIR->context(), existingAttrs);
 
-    return set;
+    return r;
 }
 
 AttrSet& AttrSet::add(unsigned index, const AttrBuilder& builder)
 {
     if (builder.hasAttributes())
     {
-        AttrBuilder mutableBuilderCopy = builder;
         llvm::AttributeSet as = llvm::AttributeSet::get(
-            gIR->context(), index, mutableBuilderCopy.attrs);
-        entries = entries.addAttributes(gIR->context(), index, as);
+            gIR->context(), index, builder);
+        set = set.addAttributes(gIR->context(), index, as);
     }
     return *this;
-}
-
-AttrSet::NativeSet AttrSet::toNativeSet() const
-{
-    return entries;
 }
