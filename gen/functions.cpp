@@ -324,7 +324,8 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
           fdecl->ir.setDefined();
           return; // this gets mapped to an instruction so a declaration makes
                   // no sence
-        } else if (tempdecl->llvmInternal == LLVMva_start) {
+        }
+        if (tempdecl->llvmInternal == LLVMva_start) {
           Logger::println("magic va_start found");
           fdecl->llvmInternal = LLVMva_start;
         } else if (tempdecl->llvmInternal == LLVMintrinsic) {
@@ -1001,7 +1002,8 @@ int binary(const char *p, const char **tab, int high) {
     l = strcmp(p, tab[k]);
     if (!l) {
       return k;
-    } else if (l < 0) {
+    }
+    if (l < 0) {
       j = k;
     } else {
       i = k + 1;

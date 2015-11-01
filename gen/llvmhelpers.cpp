@@ -387,20 +387,18 @@ DValue *DtoNullValue(Type *type, Loc loc) {
   }
   // integer, floating, pointer, assoc array, delegate and class have no special
   // representation
-  else if (basetype->isintegral() || basetype->isfloating() ||
-           basety == Tpointer || basety == Tclass || basety == Tdelegate ||
-           basety == Taarray) {
+  if (basetype->isintegral() || basetype->isfloating() || basety == Tpointer ||
+      basety == Tclass || basety == Tdelegate || basety == Taarray) {
     return new DConstValue(type, LLConstant::getNullValue(lltype));
   }
   // dynamic array
-  else if (basety == Tarray) {
+  if (basety == Tarray) {
     LLValue *len = DtoConstSize_t(0);
     LLValue *ptr = getNullPtr(DtoPtrToType(basetype->nextOf()));
     return new DSliceValue(type, len, ptr);
-  } else {
-    error(loc, "null not known for type '%s'", type->toChars());
-    fatal();
   }
+  error(loc, "null not known for type '%s'", type->toChars());
+  fatal();
 }
 
 /****************************************************************************************/
@@ -544,14 +542,14 @@ DValue *DtoCastFloat(Loc &loc, DValue *val, Type *to) {
 DValue *DtoCastDelegate(Loc &loc, DValue *val, Type *to) {
   if (to->toBasetype()->ty == Tdelegate) {
     return DtoPaintType(loc, val, to);
-  } else if (to->toBasetype()->ty == Tbool) {
+  }
+  if (to->toBasetype()->ty == Tbool) {
     return new DImValue(
         to, DtoDelegateEquals(TOKnotequal, val->getRVal(), nullptr));
-  } else {
-    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
-          to->toChars());
-    fatal();
   }
+  error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+        to->toChars());
+  fatal();
 }
 
 DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
@@ -570,30 +568,29 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
       IF_LOG Logger::cout() << "src: " << *vector << "to type: " << *tolltype
                             << " (casting address)\n";
       return new DVarValue(to, DtoBitCast(vector, getPtrToType(tolltype)));
-    } else {
-      LLValue *vector = val->getRVal();
-      IF_LOG Logger::cout() << "src: " << *vector << "to type: " << *tolltype
-                            << " (creating temporary)\n";
-      LLValue *array = DtoAlloca(to);
-
-      TypeSArray *st = static_cast<TypeSArray *>(totype);
-
-      for (int i = 0, n = st->dim->toInteger(); i < n; ++i) {
-        LLValue *lelem = DtoExtractElement(vector, i);
-        DImValue elem(type->elementType(), lelem);
-        lelem = DtoCast(loc, &elem, to->nextOf())->getRVal();
-        DtoStore(lelem, DtoGEPi(array, 0, i));
-      }
-
-      return new DImValue(to, array);
     }
-  } else if (totype->ty == Tvector && to->size() == val->getType()->size()) {
-    return new DImValue(to, DtoBitCast(val->getRVal(), tolltype));
-  } else {
-    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
-          to->toChars());
-    fatal();
+    LLValue *vector = val->getRVal();
+    IF_LOG Logger::cout() << "src: " << *vector << "to type: " << *tolltype
+                          << " (creating temporary)\n";
+    LLValue *array = DtoAlloca(to);
+
+    TypeSArray *st = static_cast<TypeSArray *>(totype);
+
+    for (int i = 0, n = st->dim->toInteger(); i < n; ++i) {
+      LLValue *lelem = DtoExtractElement(vector, i);
+      DImValue elem(type->elementType(), lelem);
+      lelem = DtoCast(loc, &elem, to->nextOf())->getRVal();
+      DtoStore(lelem, DtoGEPi(array, 0, i));
+    }
+
+    return new DImValue(to, array);
   }
+  if (totype->ty == Tvector && to->size() == val->getType()->size()) {
+    return new DImValue(to, DtoBitCast(val->getRVal(), tolltype));
+  }
+  error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+        to->toChars());
+  fatal();
 }
 
 DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
@@ -607,7 +604,8 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
       IF_LOG Logger::println("Casting AA to pointer.");
       LLValue *rval = DtoBitCast(val->getRVal(), DtoType(to));
       return new DImValue(to, rval);
-    } else if (totype->ty == Tbool) {
+    }
+    if (totype->ty == Tbool) {
       IF_LOG Logger::println("Casting AA to bool.");
       LLValue *rval = val->getRVal();
       LLValue *zero = LLConstant::getNullValue(rval->getType());
@@ -625,29 +623,37 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
 
   if (fromtype->ty == Tvector) {
     return DtoCastVector(loc, val, to);
-  } else if (fromtype->isintegral()) {
-    return DtoCastInt(loc, val, to);
-  } else if (fromtype->iscomplex()) {
-    return DtoCastComplex(loc, val, to);
-  } else if (fromtype->isfloating()) {
-    return DtoCastFloat(loc, val, to);
-  } else if (fromtype->ty == Tclass) {
-    return DtoCastClass(loc, val, to);
-  } else if (fromtype->ty == Tarray || fromtype->ty == Tsarray) {
-    return DtoCastArray(loc, val, to);
-  } else if (fromtype->ty == Tpointer || fromtype->ty == Tfunction) {
-    return DtoCastPtr(loc, val, to);
-  } else if (fromtype->ty == Tdelegate) {
-    return DtoCastDelegate(loc, val, to);
-  } else if (fromtype->ty == Tnull) {
-    return DtoNullValue(to, loc);
-  } else if (fromtype->ty == totype->ty) {
-    return val;
-  } else {
-    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
-          to->toChars());
-    fatal();
   }
+  if (fromtype->isintegral()) {
+    return DtoCastInt(loc, val, to);
+  }
+  if (fromtype->iscomplex()) {
+    return DtoCastComplex(loc, val, to);
+  }
+  if (fromtype->isfloating()) {
+    return DtoCastFloat(loc, val, to);
+  }
+  if (fromtype->ty == Tclass) {
+    return DtoCastClass(loc, val, to);
+  }
+  if (fromtype->ty == Tarray || fromtype->ty == Tsarray) {
+    return DtoCastArray(loc, val, to);
+  }
+  if (fromtype->ty == Tpointer || fromtype->ty == Tfunction) {
+    return DtoCastPtr(loc, val, to);
+  }
+  if (fromtype->ty == Tdelegate) {
+    return DtoCastDelegate(loc, val, to);
+  }
+  if (fromtype->ty == Tnull) {
+    return DtoNullValue(to, loc);
+  }
+  if (fromtype->ty == totype->ty) {
+    return val;
+  }
+  error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+        to->toChars());
+  fatal();
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -664,18 +670,19 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
     if (DSliceValue *slice = val->isSlice()) {
       return new DSliceValue(to, slice->len,
                              DtoBitCast(slice->ptr, DtoType(elem)));
-    } else if (val->isLVal()) {
+    }
+    if (val->isLVal()) {
       LLValue *ptr = val->getLVal();
       ptr = DtoBitCast(ptr, DtoType(at->pointerTo()));
       return new DVarValue(to, ptr);
-    } else {
-      LLValue *len, *ptr;
-      len = DtoArrayLen(val);
-      ptr = DtoArrayPtr(val);
-      ptr = DtoBitCast(ptr, DtoType(elem));
-      return new DImValue(to, DtoAggrPair(len, ptr));
     }
-  } else if (from->ty == Tdelegate) {
+    LLValue *len, *ptr;
+    len = DtoArrayLen(val);
+    ptr = DtoArrayPtr(val);
+    ptr = DtoBitCast(ptr, DtoType(elem));
+    return new DImValue(to, DtoAggrPair(len, ptr));
+  }
+  if (from->ty == Tdelegate) {
     Type *dgty = to->toBasetype();
     assert(dgty->ty == Tdelegate);
     if (val->isLVal()) {
@@ -684,26 +691,24 @@ DValue *DtoPaintType(Loc &loc, DValue *val, Type *to) {
       ptr = DtoBitCast(ptr, DtoPtrToType(dgty));
       IF_LOG Logger::cout() << "dg ptr: " << *ptr << '\n';
       return new DVarValue(to, ptr);
-    } else {
-      LLValue *dg = val->getRVal();
-      LLValue *context = gIR->ir->CreateExtractValue(dg, 0, ".context");
-      LLValue *funcptr = gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
-      funcptr = DtoBitCast(funcptr, DtoType(dgty)->getContainedType(1));
-      LLValue *aggr = DtoAggrPair(context, funcptr);
-      IF_LOG Logger::cout() << "dg: " << *aggr << '\n';
-      return new DImValue(to, aggr);
     }
-  } else if (from->ty == Tpointer || from->ty == Tclass ||
-             from->ty == Taarray) {
+    LLValue *dg = val->getRVal();
+    LLValue *context = gIR->ir->CreateExtractValue(dg, 0, ".context");
+    LLValue *funcptr = gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
+    funcptr = DtoBitCast(funcptr, DtoType(dgty)->getContainedType(1));
+    LLValue *aggr = DtoAggrPair(context, funcptr);
+    IF_LOG Logger::cout() << "dg: " << *aggr << '\n';
+    return new DImValue(to, aggr);
+  }
+  if (from->ty == Tpointer || from->ty == Tclass || from->ty == Taarray) {
     Type *b = to->toBasetype();
     assert(b->ty == Tpointer || b->ty == Tclass || b->ty == Taarray);
     LLValue *ptr = DtoBitCast(val->getRVal(), DtoType(b));
     return new DImValue(to, ptr);
-  } else {
-    // assert(!val->isLVal()); TODO: what is it needed for?
-    assert(DtoType(to) == DtoType(to));
-    return new DImValue(to, val->getRVal());
   }
+  // assert(!val->isLVal()); TODO: what is it needed for?
+  assert(DtoType(to) == DtoType(to));
+  return new DImValue(to, val->getRVal());
 }
 
 /****************************************************************************************/
@@ -977,7 +982,7 @@ DValue *DtoDeclarationExp(Dsymbol *declaration) {
     return new DVarValue(vd->type, vd, getIrValue(vd));
   }
   // struct declaration
-  else if (StructDeclaration *s = declaration->isStructDeclaration()) {
+  if (StructDeclaration *s = declaration->isStructDeclaration()) {
     Logger::println("StructDeclaration");
     Declaration_codegen(s);
   }
@@ -1281,7 +1286,8 @@ bool hasUnalignedFields(Type *t) {
   if (t->ty == Tsarray) {
     assert(t->nextOf()->size() % t->nextOf()->alignsize() == 0);
     return hasUnalignedFields(t->nextOf());
-  } else if (t->ty != Tstruct) {
+  }
+  if (t->ty != Tstruct) {
     return false;
   }
 
@@ -1299,8 +1305,8 @@ bool hasUnalignedFields(Type *t) {
     unsigned a = f->type->alignsize() - 1;
     if (((f->offset + a) & ~a) != f->offset) {
       return true;
-    } else if (f->type->toBasetype()->ty == Tstruct &&
-               hasUnalignedFields(f->type)) {
+    }
+    if (f->type->toBasetype()->ty == Tstruct && hasUnalignedFields(f->type)) {
       return true;
     }
   }
@@ -1336,9 +1342,8 @@ Type *stripModifiers(Type *type, bool transitive) {
 
   if (transitive) {
     return type->unqualify(MODimmutable | MODconst | MODwild);
-  } else {
-    return type->castMod(0);
   }
+  return type->castMod(0);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -1486,13 +1491,13 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       return new DVarValue(type, vd, v);
     }
     // _argptr
-    else if (vd->ident == Id::_argptr && gIR->func()->_argptr) {
+    if (vd->ident == Id::_argptr && gIR->func()->_argptr) {
       Logger::println("Id::_argptr");
       LLValue *v = gIR->func()->_argptr;
       return new DVarValue(type, vd, v);
     }
     // _dollar
-    else if (vd->ident == Id::dollar) {
+    if (vd->ident == Id::dollar) {
       Logger::println("Id::dollar");
       LLValue *val = nullptr;
       if (isIrVarCreated(vd) && (val = getIrValue(vd))) {
@@ -1504,7 +1509,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       return new DImValue(type, val);
     }
     // typeinfo
-    else if (TypeInfoDeclaration *tid = vd->isTypeInfoDeclaration()) {
+    if (TypeInfoDeclaration *tid = vd->isTypeInfoDeclaration()) {
       Logger::println("TypeInfoDeclaration");
       DtoResolveTypeInfo(tid);
       assert(getIrValue(tid));
@@ -1516,12 +1521,12 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       return new DImValue(type, m);
     }
     // nested variable
-    else if (vd->nestedrefs.dim) {
+    if (vd->nestedrefs.dim) {
       Logger::println("nested variable");
       return DtoNestedVariable(loc, type, vd);
     }
     // function parameter
-    else if (vd->isParameter()) {
+    if (vd->isParameter()) {
       IF_LOG {
         Logger::println("function param");
         Logger::println("type: %s", vd->type->toChars());
@@ -1530,18 +1535,21 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
       if (fd && fd != gIR->func()->decl) {
         Logger::println("nested parameter");
         return DtoNestedVariable(loc, type, vd);
-      } else if (vd->storage_class & STClazy) {
+      }
+      if (vd->storage_class & STClazy) {
         Logger::println("lazy parameter");
         assert(type->ty == Tdelegate);
         return new DVarValue(type, getIrValue(vd));
-      } else if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) ||
-                 llvm::isa<llvm::AllocaInst>(getIrValue(vd))) {
-        return new DVarValue(type, vd, getIrValue(vd));
-      } else if (llvm::isa<llvm::Argument>(getIrValue(vd))) {
-        return new DImValue(type, getIrValue(vd));
-      } else {
-        llvm_unreachable("Unexpected parameter value.");
       }
+      if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) ||
+          llvm::isa<llvm::AllocaInst>(getIrValue(vd))) {
+        return new DVarValue(type, vd, getIrValue(vd));
+      }
+      if (llvm::isa<llvm::Argument>(getIrValue(vd))) {
+        return new DImValue(type, getIrValue(vd));
+      }
+      llvm_unreachable("Unexpected parameter value.");
+
     } else {
       Logger::println("a normal variable");
 
@@ -1637,7 +1645,7 @@ llvm::Constant *DtoConstSymbolAddress(Loc &loc, Declaration *decl) {
     return llc;
   }
   // static function
-  else if (FuncDeclaration *fd = decl->isFuncDeclaration()) {
+  if (FuncDeclaration *fd = decl->isFuncDeclaration()) {
     DtoResolveFunction(fd);
     return getIrFunc(fd)->func;
   }

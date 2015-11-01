@@ -98,7 +98,8 @@ bool Win64TargetABI::returnInArg(TypeFunction *tf) {
   //   (incl. 2x32-bit cfloat) are returned in a register (RAX, or
   //   XMM0 for single float/ifloat/double/idouble)
   // * all other types are returned via struct-return (sret)
-  return (rt->ty == Tstruct && !((TypeStruct *)rt)->sym->isPOD()) ||
+  return (rt->ty == Tstruct &&
+          !(static_cast<TypeStruct *>(rt))->sym->isPOD()) ||
          isPassedWithByvalSemantics(rt);
 }
 

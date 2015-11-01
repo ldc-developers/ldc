@@ -531,13 +531,14 @@ typedef struct {
   unsigned nOperands() {
     if (!operands[0]) {
       return 0;
-    } else if (!operands[1]) {
-      return 1;
-    } else if (!operands[2]) {
-      return 2;
-    } else {
-      return 3;
     }
+    if (!operands[1]) {
+      return 1;
+    }
+    if (!operands[2]) {
+      return 2;
+    }
+    return 3;
   }
 } AsmOpInfo;
 
@@ -2085,9 +2086,8 @@ struct AsmProcessor {
   Token *peekToken() {
     if (token->next) {
       return token->next;
-    } else {
-      return &eof_tok;
     }
+    return &eof_tok;
   }
 
   void expectEnd() {
@@ -2162,7 +2162,8 @@ struct AsmProcessor {
       l = strcmp(opcode, opData[k].inMnemonic);
       if (!l) {
         return opData[k].asmOp;
-      } else if (l < 0) {
+      }
+      if (l < 0) {
         j = k;
       } else {
         i = k + 1;
@@ -3282,10 +3283,9 @@ struct AsmProcessor {
       }
       e = e->semantic(sc);
       return e->ctfeInterpret();
-    } else {
-      stmt->error("expected integer operand(s) for '%s'", Token::tochars[op]);
-      return newIntExp(0);
     }
+    stmt->error("expected integer operand(s) for '%s'", Token::tochars[op]);
+    return newIntExp(0);
   }
 
   void parseOperand() {
@@ -3717,7 +3717,8 @@ struct AsmProcessor {
 
       if (ident == Id::__LOCAL_SIZE) {
         return new IdentifierExp(stmt->loc, ident);
-      } else if (ident == Id::dollar) {
+      }
+      if (ident == Id::dollar) {
       do_dollar:
         return new IdentifierExp(stmt->loc, ident);
       } else {
@@ -3772,7 +3773,8 @@ struct AsmProcessor {
               }
               invalidExpression();
               return Handled;
-            } else if (token->value == TOKcolon) {
+            }
+            if (token->value == TOKcolon) {
               nextToken();
               if (operand->segmentPrefix != Reg_Invalid) {
                 stmt->error("too many segment prefixes");
@@ -3782,9 +3784,8 @@ struct AsmProcessor {
                 stmt->error("'%s' is not a segment register", ident->string);
               }
               return parseAsmExp();
-            } else {
-              return newRegExp(static_cast<Reg>(i));
             }
+            return newRegExp(static_cast<Reg>(i));
           }
         }
       }

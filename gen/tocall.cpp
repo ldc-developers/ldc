@@ -43,7 +43,8 @@ TypeFunction *DtoTypeFunction(DValue *fnval) {
   Type *type = fnval->getType()->toBasetype();
   if (type->ty == Tfunction) {
     return static_cast<TypeFunction *>(type);
-  } else if (type->ty == Tdelegate) {
+  }
+  if (type->ty == Tdelegate) {
     // FIXME: There is really no reason why the function type should be
     // unmerged at this stage, but the frontend still seems to produce such
     // cases; for example for the uint(uint) next type of the return type of
@@ -71,16 +72,16 @@ LLValue *DtoCallableValue(DValue *fn) {
   Type *type = fn->getType()->toBasetype();
   if (type->ty == Tfunction) {
     return fn->getRVal();
-  } else if (type->ty == Tdelegate) {
+  }
+  if (type->ty == Tdelegate) {
     if (fn->isLVal()) {
       LLValue *dg = fn->getLVal();
       LLValue *funcptr = DtoGEPi(dg, 0, 1);
       return DtoLoad(funcptr, ".funcptr");
-    } else {
-      LLValue *dg = fn->getRVal();
-      assert(isaStruct(dg));
-      return gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
     }
+    LLValue *dg = fn->getRVal();
+    assert(isaStruct(dg));
+    return gIR->ir->CreateExtractValue(dg, 1, ".funcptr");
   }
 
   llvm_unreachable("Not a callable type.");
@@ -91,7 +92,8 @@ LLValue *DtoCallableValue(DValue *fn) {
 LLFunctionType *DtoExtractFunctionType(LLType *type) {
   if (LLFunctionType *fty = isaFunction(type)) {
     return fty;
-  } else if (LLPointerType *pty = isaPointer(type)) {
+  }
+  if (LLPointerType *pty = isaPointer(type)) {
     if (LLFunctionType *fty = isaFunction(pty->getElementType())) {
       return fty;
     }

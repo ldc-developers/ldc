@@ -66,9 +66,8 @@ void undent() {
 Stream cout() {
   if (_enabled) {
     return Stream(std::cout << indent_str);
-  } else {
-    return Stream(nullptr);
   }
+  return Stream(nullptr);
 }
 
 #if defined(_MSC_VER)

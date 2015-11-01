@@ -99,7 +99,7 @@ public:
 
 private:
   struct OptionValue : cl::OptionValueBase<DataType, false> {
-    OptionValue() {}
+    OptionValue(){};
   };
   const OptionValue EmptyOptionValue;
 

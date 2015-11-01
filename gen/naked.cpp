@@ -96,11 +96,13 @@ public:
     if (!vd && !fd && !ed) {
       visit(static_cast<Statement *>(stmt));
       return;
-    } else if (vd && !(vd->storage_class & (STCstatic | STCmanifest))) {
+    }
+    if (vd && !(vd->storage_class & (STCstatic | STCmanifest))) {
       error(vd->loc, "non-static variable '%s' not allowed in naked function",
             vd->toChars());
       return;
-    } else if (fd && !fd->isStatic()) {
+    }
+    if (fd && !fd->isStatic()) {
       error(fd->loc,
             "non-static nested function '%s' not allowed in naked function",
             fd->toChars());

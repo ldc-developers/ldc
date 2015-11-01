@@ -78,7 +78,7 @@ TypeInfoDeclaration *createUnqualified(Type *t) {
   case Ttuple:
     return TypeInfoTupleDeclaration::create(t);
   case Tclass:
-    if (((TypeClass *)t)->sym->isInterfaceDeclaration()) {
+    if ((static_cast<TypeClass *>(t))->sym->isInterfaceDeclaration()) {
       return TypeInfoInterfaceDeclaration::create(t);
     } else {
       return TypeInfoClassDeclaration::create(t);

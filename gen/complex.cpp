@@ -423,9 +423,8 @@ LLValue *DtoComplexEquals(Loc &loc, TOK op, DValue *lhs, DValue *rhs) {
 
   if (op == TOKequal) {
     return gIR->ir->CreateAnd(b1, b2);
-  } else {
-    return gIR->ir->CreateOr(b1, b2);
   }
+  return gIR->ir->CreateOr(b1, b2);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -452,7 +451,8 @@ DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
 
     LLValue *pair = DtoAggrPair(DtoType(_to), re, im);
     return new DImValue(_to, pair);
-  } else if (to->isimaginary()) {
+  }
+  if (to->isimaginary()) {
     // FIXME: this loads both values, even when we only need one
     LLValue *v = val->getRVal();
     LLValue *impart = gIR->ir->CreateExtractValue(v, 1, ".im_part");
@@ -472,10 +472,12 @@ DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
     }
     auto im = new DImValue(extractty, impart);
     return DtoCastFloat(loc, im, to);
-  } else if (to->ty == Tbool) {
+  }
+  if (to->ty == Tbool) {
     return new DImValue(
         _to, DtoComplexEquals(loc, TOKnotequal, val, DtoNullValue(vty)));
-  } else if (to->isfloating() || to->isintegral()) {
+  }
+  if (to->isfloating() || to->isintegral()) {
     // FIXME: this loads both values, even when we only need one
     LLValue *v = val->getRVal();
     LLValue *repart = gIR->ir->CreateExtractValue(v, 0, ".re_part");
@@ -495,9 +497,7 @@ DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
     }
     auto re = new DImValue(extractty, repart);
     return DtoCastFloat(loc, re, to);
-  } else {
-    error(loc, "Don't know how to cast %s to %s", vty->toChars(),
-          to->toChars());
-    fatal();
   }
+  error(loc, "Don't know how to cast %s to %s", vty->toChars(), to->toChars());
+  fatal();
 }

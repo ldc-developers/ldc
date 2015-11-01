@@ -68,11 +68,12 @@ unsigned Target::critsecsize() {
 #else
   if (global.params.targetTriple.isOSWindows()) {
     return global.params.is64bit ? 40 : 24;
-  } else if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD) {
-    return sizeof(size_t);
-  } else {
-    return sizeof(pthread_mutex_t);
   }
+  if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD) {
+    return sizeof(size_t);
+  }
+  return sizeof(pthread_mutex_t);
+
 #endif
 }
 

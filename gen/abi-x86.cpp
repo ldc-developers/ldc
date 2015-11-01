@@ -105,17 +105,15 @@ public:
     }
     // other ABI's follow C, which is cdouble and creal returned on the stack
     // as well as structs (except for some OSX cases).
-    else {
-      if (isMagicCLong(rt)) {
-        return false;
-      }
 
-      if (rt->ty == Tstruct) {
-        return !isOSX || returnOSXStructInArg((TypeStruct *)rt);
-      }
-      return (rt->ty == Tsarray || rt->ty == Tcomplex64 ||
-              rt->ty == Tcomplex80);
+    if (isMagicCLong(rt)) {
+      return false;
     }
+
+    if (rt->ty == Tstruct) {
+      return !isOSX || returnOSXStructInArg((TypeStruct *)rt);
+    }
+    return (rt->ty == Tsarray || rt->ty == Tcomplex64 || rt->ty == Tcomplex80);
   }
 
   bool passByVal(Type *t) override {

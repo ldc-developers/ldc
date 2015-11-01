@@ -209,14 +209,14 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
     return new DImValue(_to, rval);
   }
   // class -> bool
-  else if (to->ty == Tbool) {
+  if (to->ty == Tbool) {
     IF_LOG Logger::println("to bool");
     LLValue *llval = val->getRVal();
     LLValue *zero = LLConstant::getNullValue(llval->getType());
     return new DImValue(_to, gIR->ir->CreateICmpNE(llval, zero));
   }
   // class -> integer
-  else if (to->isintegral()) {
+  if (to->isintegral()) {
     IF_LOG Logger::println("to %s", to->toChars());
 
     // get class ptr
@@ -228,7 +228,7 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
     return DtoCastInt(loc, &im, _to);
   }
   // class -> typeof(null)
-  else if (to->ty == Tnull) {
+  if (to->ty == Tnull) {
     IF_LOG Logger::println("to %s", to->toChars());
     return new DImValue(_to, LLConstant::getNullValue(DtoType(_to)));
   }
@@ -256,7 +256,7 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
       return DtoDynamicCastInterface(loc, val, _to);
     }
     // class -> interface - static cast
-    else if (it->isBaseOf(fc->sym, nullptr)) {
+    if (it->isBaseOf(fc->sym, nullptr)) {
       Logger::println("static down cast");
 
       // get the from class
@@ -295,32 +295,29 @@ DValue *DtoCastClass(Loc &loc, DValue *val, Type *_to) {
       return new DImValue(_to, v);
     }
     // class -> interface
-    else {
-      Logger::println("from object");
-      return DtoDynamicCastObject(loc, val, _to);
-    }
+
+    Logger::println("from object");
+    return DtoDynamicCastObject(loc, val, _to);
   }
   // x -> class
-  else {
-    Logger::println("to class");
-    // interface -> class
-    if (fc->sym->isInterfaceDeclaration()) {
-      Logger::println("interface cast");
-      return DtoDynamicCastInterface(loc, val, _to);
-    }
-    // class -> class - static down cast
-    else if (tc->sym->isBaseOf(fc->sym, nullptr)) {
-      Logger::println("static down cast");
-      LLType *tolltype = DtoType(_to);
-      LLValue *rval = DtoBitCast(val->getRVal(), tolltype);
-      return new DImValue(_to, rval);
-    }
-    // class -> class - dynamic up cast
-    else {
-      Logger::println("dynamic up cast");
-      return DtoDynamicCastObject(loc, val, _to);
-    }
+
+  Logger::println("to class");
+  // interface -> class
+  if (fc->sym->isInterfaceDeclaration()) {
+    Logger::println("interface cast");
+    return DtoDynamicCastInterface(loc, val, _to);
   }
+  // class -> class - static down cast
+  if (tc->sym->isBaseOf(fc->sym, nullptr)) {
+    Logger::println("static down cast");
+    LLType *tolltype = DtoType(_to);
+    LLValue *rval = DtoBitCast(val->getRVal(), tolltype);
+    return new DImValue(_to, rval);
+  }
+  // class -> class - dynamic up cast
+
+  Logger::println("dynamic up cast");
+  return DtoDynamicCastObject(loc, val, _to);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////

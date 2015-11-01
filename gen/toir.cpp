@@ -1068,7 +1068,8 @@ public:
       Logger::println("is field");
       result = v;
       return;
-    } else if (DFuncValue *fv = v->isFunc()) {
+    }
+    if (DFuncValue *fv = v->isFunc()) {
       Logger::println("is func");
       // Logger::println("FuncDeclaration");
       FuncDeclaration *fd = fv->func;
@@ -1076,7 +1077,8 @@ public:
       DtoResolveFunction(fd);
       result = new DFuncValue(fd, getIrFunc(fd)->func);
       return;
-    } else if (v->isIm()) {
+    }
+    if (v->isIm()) {
       Logger::println("is immediate");
       result = v;
       return;
@@ -1234,7 +1236,7 @@ public:
       return;
     }
     // regular this expr
-    else if (VarDeclaration *vd = e->var->isVarDeclaration()) {
+    if (VarDeclaration *vd = e->var->isVarDeclaration()) {
       LLValue *v;
       Dsymbol *vdparent = vd->toParent2();
       Identifier *ident = p->func()->decl->ident;
@@ -2189,7 +2191,7 @@ public:
       return;
     }
     // also structs
-    else if (t1->ty == Tstruct) {
+    if (t1->ty == Tstruct) {
       result = new DImValue(e->type, DtoStructEquals(e->op, l, r));
       return;
     }

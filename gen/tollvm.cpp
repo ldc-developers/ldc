@@ -413,14 +413,16 @@ LLConstant *DtoConstFP(Type *t, longdouble value) {
   if (llty == LLType::getFloatTy(gIR->context()) ||
       llty == LLType::getDoubleTy(gIR->context())) {
     return LLConstantFP::get(llty, value);
-  } else if (llty == LLType::getX86_FP80Ty(gIR->context())) {
+  }
+  if (llty == LLType::getX86_FP80Ty(gIR->context())) {
     uint64_t bits[] = {0, 0};
     bits[0] = *reinterpret_cast<uint64_t *>(&value);
     bits[1] =
         *reinterpret_cast<uint16_t *>(reinterpret_cast<uint64_t *>(&value) + 1);
     return LLConstantFP::get(gIR->context(), APFloat(APFloat::x87DoubleExtended,
                                                      APInt(80, 2, bits)));
-  } else if (llty == LLType::getPPC_FP128Ty(gIR->context())) {
+  }
+  if (llty == LLType::getPPC_FP128Ty(gIR->context())) {
     uint64_t bits[] = {0, 0};
     bits[0] = *reinterpret_cast<uint64_t *>(&value);
     bits[1] =
@@ -685,7 +687,7 @@ LLStructType *DtoMutexType() {
   }
 
   // FreeBSD
-  else if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD) {
+  if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD) {
     // Just a pointer
     return LLStructType::get(gIR->context(), DtoSize_t());
   }

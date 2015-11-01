@@ -746,7 +746,7 @@ public:
 
     Type *t = isType(e->obj);
     if (!t) {
-      visit((Expression *)e);
+      visit(static_cast<Expression *>(e));
       return;
     }
 

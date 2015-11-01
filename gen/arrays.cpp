@@ -1021,13 +1021,16 @@ LLValue *DtoArrayLen(DValue *v) {
   if (t->ty == Tarray) {
     if (DSliceValue *s = v->isSlice()) {
       return s->len;
-    } else if (v->isNull()) {
+    }
+    if (v->isNull()) {
       return DtoConstSize_t(0);
-    } else if (v->isLVal()) {
+    }
+    if (v->isLVal()) {
       return DtoLoad(DtoGEPi(v->getLVal(), 0, 0), ".len");
     }
     return gIR->ir->CreateExtractValue(v->getRVal(), 0, ".len");
-  } else if (t->ty == Tsarray) {
+  }
+  if (t->ty == Tsarray) {
     assert(!v->isSlice());
     assert(!v->isNull());
     assert(v->type->toBasetype()->ty == Tsarray);
