@@ -16,8 +16,10 @@
 #define LDC_GEN_ABI_X86_64_H
 
 struct TargetABI;
-namespace llvm { class Type; }
+namespace llvm {
+class Type;
+}
 
-TargetABI* getX86_64TargetABI();
+TargetABI *getX86_64TargetABI();
 
 #endif

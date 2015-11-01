@@ -21,81 +21,71 @@
 struct IrFuncTyArg;
 class VarDeclaration;
 
-struct IrVar
-{
-    explicit IrVar(VarDeclaration* var)
-        : V(var) {}
-    IrVar(VarDeclaration* var, llvm::Value* value)
-        : V(var), value(value) {}
+struct IrVar {
+  explicit IrVar(VarDeclaration *var) : V(var) {}
+  IrVar(VarDeclaration *var, llvm::Value *value) : V(var), value(value) {}
 
-    VarDeclaration* V = nullptr;
-    llvm::Value* value = nullptr;
+  VarDeclaration *V = nullptr;
+  llvm::Value *value = nullptr;
 };
 
 // represents a global variable
-struct IrGlobal : IrVar
-{
-    explicit IrGlobal(VarDeclaration* v)
-        : IrVar(v) {}
-    IrGlobal(VarDeclaration* v, llvm::Type* type, llvm::Constant* constInit = nullptr)
-        : IrVar(v), type(type), constInit(constInit) {}
+struct IrGlobal : IrVar {
+  explicit IrGlobal(VarDeclaration *v) : IrVar(v) {}
+  IrGlobal(VarDeclaration *v, llvm::Type *type,
+           llvm::Constant *constInit = nullptr)
+      : IrVar(v), type(type), constInit(constInit) {}
 
-    llvm::Type* type = nullptr;
-    llvm::Constant* constInit = nullptr;
+  llvm::Type *type = nullptr;
+  llvm::Constant *constInit = nullptr;
 
-    // This var is used by a naked function.
-    bool nakedUse = false;
+  // This var is used by a naked function.
+  bool nakedUse = false;
 };
 
 // represents a local variable variable
-struct IrLocal : IrVar
-{
-    explicit IrLocal(VarDeclaration* v)
-        : IrVar(v) {}
-    IrLocal(VarDeclaration* v, llvm::Value* value)
-        : IrVar(v, value) {}
-    IrLocal(VarDeclaration* v, int nestedDepth, int nestedIndex)
-        : IrVar(v), nestedDepth(nestedDepth), nestedIndex(nestedIndex) {}
+struct IrLocal : IrVar {
+  explicit IrLocal(VarDeclaration *v) : IrVar(v) {}
+  IrLocal(VarDeclaration *v, llvm::Value *value) : IrVar(v, value) {}
+  IrLocal(VarDeclaration *v, int nestedDepth, int nestedIndex)
+      : IrVar(v), nestedDepth(nestedDepth), nestedIndex(nestedIndex) {}
 
-    // Used for hybrid nested context creation.
-    int nestedDepth = 0;
-    int nestedIndex = -1;
+  // Used for hybrid nested context creation.
+  int nestedDepth = 0;
+  int nestedIndex = -1;
 };
 
 // represents a function parameter
-struct IrParameter : IrLocal
-{
-    explicit IrParameter(VarDeclaration* v)
-        : IrLocal(v) {}
-    IrParameter(VarDeclaration* v, llvm::Value* value)
-        : IrLocal(v, value) {}
-    IrParameter(VarDeclaration* v, llvm::Value* value, IrFuncTyArg* arg, bool isVthis = false)
-        : IrLocal(v, value), arg(arg), isVthis(isVthis) {}
+struct IrParameter : IrLocal {
+  explicit IrParameter(VarDeclaration *v) : IrLocal(v) {}
+  IrParameter(VarDeclaration *v, llvm::Value *value) : IrLocal(v, value) {}
+  IrParameter(VarDeclaration *v, llvm::Value *value, IrFuncTyArg *arg,
+              bool isVthis = false)
+      : IrLocal(v, value), arg(arg), isVthis(isVthis) {}
 
-    IrFuncTyArg* arg = nullptr;
-    bool isVthis = false; // true, if it is the 'this' parameter
+  IrFuncTyArg *arg = nullptr;
+  bool isVthis = false; // true, if it is the 'this' parameter
 };
 
 // represents an aggregate field variable
-struct IrField : IrVar
-{
-    explicit IrField(VarDeclaration* v) : IrVar(v) {};
+struct IrField : IrVar {
+  explicit IrField(VarDeclaration *v) : IrVar(v){};
 };
 
-IrVar* getIrVar(VarDeclaration* decl);
-llvm::Value* getIrValue(VarDeclaration* decl);
-bool isIrVarCreated(VarDeclaration* decl);
+IrVar *getIrVar(VarDeclaration *decl);
+llvm::Value *getIrValue(VarDeclaration *decl);
+bool isIrVarCreated(VarDeclaration *decl);
 
-IrGlobal* getIrGlobal(VarDeclaration* decl, bool create = false);
-bool isIrGlobalCreated(VarDeclaration* decl);
+IrGlobal *getIrGlobal(VarDeclaration *decl, bool create = false);
+bool isIrGlobalCreated(VarDeclaration *decl);
 
-IrLocal* getIrLocal(VarDeclaration* decl, bool create = false);
-bool isIrLocalCreated(VarDeclaration* decl);
+IrLocal *getIrLocal(VarDeclaration *decl, bool create = false);
+bool isIrLocalCreated(VarDeclaration *decl);
 
-IrParameter* getIrParameter(VarDeclaration* decl, bool create = false);
-bool isIrParameterCreated(VarDeclaration* decl);
+IrParameter *getIrParameter(VarDeclaration *decl, bool create = false);
+bool isIrParameterCreated(VarDeclaration *decl);
 
-IrField* getIrField(VarDeclaration* decl, bool create = false);
-bool isIrFieldCreated(VarDeclaration* decl);
+IrField *getIrField(VarDeclaration *decl, bool create = false);
+bool isIrFieldCreated(VarDeclaration *decl);
 
 #endif

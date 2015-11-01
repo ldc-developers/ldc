@@ -16,6 +16,6 @@
 
 struct TargetABI;
 
-TargetABI* getMIPS64TargetABI(bool Is64Bit);
+TargetABI *getMIPS64TargetABI(bool Is64Bit);
 
 #endif

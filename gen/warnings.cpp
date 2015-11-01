@@ -10,23 +10,21 @@
 #include "gen/warnings.h"
 #include "mtype.h"
 
-void warnInvalidPrintfCall(Loc loc, Expression* arguments, size_t nargs)
-{
-    Expression* arg = arguments;
+void warnInvalidPrintfCall(Loc loc, Expression *arguments, size_t nargs) {
+  Expression *arg = arguments;
 
-    // make sure first argument is a string literal, or we can't do much
-    // TODO make it smarter ?
-    if (arg->op != TOKstring)
-        return; // assume valid
+  // make sure first argument is a string literal, or we can't do much
+  // TODO make it smarter ?
+  if (arg->op != TOKstring)
+    return; // assume valid
 
-    StringExp* strexp = static_cast<StringExp*>(arg);
+  StringExp *strexp = static_cast<StringExp *>(arg);
 
-    // not wchar or dhar
-    if (strexp->sz != 1)
-    {
-        warning(loc, "printf does not support wchar and dchar strings");
-        return;
-    }
+  // not wchar or dhar
+  if (strexp->sz != 1) {
+    warning(loc, "printf does not support wchar and dchar strings");
+    return;
+  }
 
 #if 0
     // check the format string

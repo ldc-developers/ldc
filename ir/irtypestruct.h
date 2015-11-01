@@ -16,24 +16,23 @@ class StructDeclaration;
 class TypeStruct;
 
 /// IrType for struct/union types.
-class IrTypeStruct : public IrTypeAggr
-{
+class IrTypeStruct : public IrTypeAggr {
 public:
-    ///
-    static IrTypeStruct* get(StructDeclaration* sd);
+  ///
+  static IrTypeStruct *get(StructDeclaration *sd);
 
-    ///
-    IrTypeStruct* isStruct()    { return this; }
+  ///
+  IrTypeStruct *isStruct() { return this; }
 
 protected:
-    ///
-    IrTypeStruct(StructDeclaration* sd);
+  ///
+  IrTypeStruct(StructDeclaration *sd);
 
-    /// StructDeclaration this type represents.
-    StructDeclaration* sd = nullptr;
+  /// StructDeclaration this type represents.
+  StructDeclaration *sd = nullptr;
 
-    /// DMD TypeStruct of this type.
-    TypeStruct* ts = nullptr;
+  /// DMD TypeStruct of this type.
+  TypeStruct *ts = nullptr;
 };
 
 #endif

@@ -16,6 +16,6 @@
 
 struct TargetABI;
 
-TargetABI* getPPC64TargetABI(bool Is64Bit);
+TargetABI *getPPC64TargetABI(bool Is64Bit);
 
 #endif

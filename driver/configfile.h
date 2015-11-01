@@ -19,30 +19,29 @@
 #include "llvm/ADT/SmallString.h"
 #include "libconfig.h"
 
-class ConfigFile
-{
+class ConfigFile {
 public:
-    typedef std::vector<const char*>    s_vector;
-    typedef s_vector::iterator          s_iterator;
+  typedef std::vector<const char *> s_vector;
+  typedef s_vector::iterator s_iterator;
 
 public:
-    ConfigFile();
-    ~ConfigFile();
+  ConfigFile();
+  ~ConfigFile();
 
-    bool read(const char* explicitConfFile);
+  bool read(const char *explicitConfFile);
 
-    s_iterator switches_begin()   { return switches.begin(); }
-    s_iterator switches_end()     { return switches.end(); }
+  s_iterator switches_begin() { return switches.begin(); }
+  s_iterator switches_end() { return switches.end(); }
 
-    const std::string& path()     { return pathstr; }
+  const std::string &path() { return pathstr; }
 
 private:
-    bool locate();
+  bool locate();
 
-    config_t* cfg;
-    std::string pathstr;
+  config_t *cfg;
+  std::string pathstr;
 
-    s_vector switches;
+  s_vector switches;
 };
 
 #endif // LDC_DRIVER_CONFIGFILE_H

@@ -31,28 +31,29 @@ STATISTIC(NumFunctions, "Number of function bodies removed");
 STATISTIC(NumVariables, "Number of global initializers removed");
 
 namespace {
-  struct LLVM_LIBRARY_VISIBILITY StripExternals : public ModulePass {
-    static char ID; // Pass identification, replacement for typeid
-    StripExternals() : ModulePass(ID) {}
+struct LLVM_LIBRARY_VISIBILITY StripExternals : public ModulePass {
+  static char ID; // Pass identification, replacement for typeid
+  StripExternals() : ModulePass(ID) {}
 
-    // run - Do the StripExternals pass on the specified module.
-    //
-    bool runOnModule(Module &M);
-  };
+  // run - Do the StripExternals pass on the specified module.
+  //
+  bool runOnModule(Module &M);
+};
 }
 
 char StripExternals::ID = 0;
 static RegisterPass<StripExternals>
-X("strip-externals", "Strip available_externally bodies and initializers");
+    X("strip-externals", "Strip available_externally bodies and initializers");
 
 ModulePass *createStripExternalsPass() { return new StripExternals(); }
 
 bool StripExternals::runOnModule(Module &M) {
   bool Changed = false;
 
-  for (auto I = M.begin(); I != M.end(); ) {
+  for (auto I = M.begin(); I != M.end();) {
     if (I->hasAvailableExternallyLinkage()) {
-      assert(!I->isDeclaration()&&"Declarations can't be available_externally");
+      assert(!I->isDeclaration() &&
+             "Declarations can't be available_externally");
       Changed = true;
       ++NumFunctions;
       if (I->use_empty()) {
@@ -69,10 +70,10 @@ bool StripExternals::runOnModule(Module &M) {
     ++I;
   }
 
-  for (Module::global_iterator I = M.global_begin();
-       I != M.global_end(); ) {
+  for (Module::global_iterator I = M.global_begin(); I != M.global_end();) {
     if (I->hasAvailableExternallyLinkage()) {
-      assert(!I->isDeclaration()&&"Declarations can't be available_externally");
+      assert(!I->isDeclaration() &&
+             "Declarations can't be available_externally");
       Changed = true;
       ++NumVariables;
       if (I->use_empty()) {
