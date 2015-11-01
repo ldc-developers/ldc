@@ -62,28 +62,28 @@ class IrTypeVector;
 class IrType
 {
 public:
-    virtual ~IrType() {}
+    virtual ~IrType() = default;
 
     ///
-    virtual IrTypeAggr* isAggr()        { return 0; }
+    virtual IrTypeAggr* isAggr()        { return nullptr; }
     ///
-    virtual IrTypeArray* isArray()      { return 0; }
+    virtual IrTypeArray* isArray()      { return nullptr; }
     ///
-    virtual IrTypeBasic* isBasic()      { return 0; }
+    virtual IrTypeBasic* isBasic()      { return nullptr; }
     ///
-    virtual IrTypeClass* isClass()      { return 0; }
+    virtual IrTypeClass* isClass()      { return nullptr; }
     ///
-    virtual IrTypeDelegate* isDelegate(){ return 0; }
+    virtual IrTypeDelegate* isDelegate(){ return nullptr; }
     ///
-    virtual IrTypeFunction* isFunction(){ return 0; }
+    virtual IrTypeFunction* isFunction(){ return nullptr; }
     ///
-    virtual IrTypePointer* isPointer()  { return 0; }
+    virtual IrTypePointer* isPointer()  { return nullptr; }
     ///
-    virtual IrTypeSArray* isSArray()    { return 0; }
+    virtual IrTypeSArray* isSArray()    { return nullptr; }
     ///
-    virtual IrTypeStruct* isStruct()    { return 0; }
+    virtual IrTypeStruct* isStruct()    { return nullptr; }
     ///
-    virtual IrTypeVector* isVector()    { return 0; }
+    virtual IrTypeVector* isVector()    { return nullptr; }
 
     ///
     Type* getDType()                    { return dtype; }
@@ -91,17 +91,17 @@ public:
     virtual llvm::Type* getLLType()     { return type; }
 
     ///
-    virtual IrFuncTy &getIrFuncTy();
+    virtual IrFuncTy& getIrFuncTy();
 
 protected:
     ///
     IrType(Type* dt, llvm::Type* lt);
 
     ///
-    Type* dtype;
+    Type* dtype = nullptr;
 
     /// LLVM type.
-    llvm::Type* type;
+    llvm::Type* type = nullptr;
 };
 
 //////////////////////////////////////////////////////////////////////////////

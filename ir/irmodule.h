@@ -24,16 +24,16 @@ class GlobalVariable;
 }
 
 struct IrModule {
-    IrModule(Module *module, const char *srcfilename);
-    virtual ~IrModule();
+    IrModule(Module* module, const char* srcfilename);
+    virtual ~IrModule() = default;
 
-    Module *const M;
+    Module* const M = nullptr;
 
-    llvm::GlobalVariable *moduleInfoSymbol();
+    llvm::GlobalVariable* moduleInfoSymbol();
 
     // static ctors/dtors/unittests
-    typedef std::list<FuncDeclaration *> FuncDeclList;
-    typedef std::list<VarDeclaration *> GatesList;
+    using FuncDeclList = std::list<FuncDeclaration*>;
+    using GatesList = std::list<VarDeclaration*>;
     FuncDeclList ctors;
     FuncDeclList dtors;
     FuncDeclList sharedCtors;
@@ -43,9 +43,9 @@ struct IrModule {
     FuncDeclList unitTests;
 
 private:
-    llvm::GlobalVariable *moduleInfoVar_;
+    llvm::GlobalVariable* moduleInfoVar = nullptr;
 };
 
-IrModule *getIrModule(Module *m);
+IrModule* getIrModule(Module* m);
 
 #endif

@@ -30,10 +30,10 @@ protected:
     IrTypeStruct(StructDeclaration* sd);
 
     /// StructDeclaration this type represents.
-    StructDeclaration* sd;
+    StructDeclaration* sd = nullptr;
 
     /// DMD TypeStruct of this type.
-    TypeStruct* ts;
+    TypeStruct* ts = nullptr;
 };
 
 #endif

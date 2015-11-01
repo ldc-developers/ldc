@@ -46,14 +46,14 @@ struct IrFuncTyArg
 {
     /** This is the original D type as the frontend knows it
      *  May NOT be rewritten!!! */
-    Type* const type;
+    Type* const type = nullptr;
 
     /// The index of the declaration in the FuncDeclaration::parameters array
     /// corresponding to this argument.
-    size_t parametersIdx;
+    size_t parametersIdx = 0;
 
     /// This is the final LLVM Type used for the parameter/return value type
-    llvm::Type* ltype;
+    llvm::Type* ltype = nullptr;
 
     /** These are the final LLVM attributes used for the function.
      *  Must be valid for the LLVM Type and byref setting */
@@ -62,12 +62,12 @@ struct IrFuncTyArg
     /** 'true' if the final LLVM argument is a LLVM reference type.
      *  Must be true when the D Type is a value type, but the final
      *  LLVM Type is a reference type! */
-    bool byref;
+    bool byref = false;
 
     /** Pointer to the ABIRewrite structure needed to rewrite LLVM ValueS
      *  to match the final LLVM Type when passing arguments and getting
      *  return values */
-    ABIRewrite* rewrite;
+    ABIRewrite* rewrite = nullptr;
 
     /// Helper to check if the 'inreg' attribute is set
     bool isInReg() const;
@@ -87,47 +87,30 @@ struct IrFuncTyArg
 struct IrFuncTy
 {
     // The final LLVM type
-    llvm::FunctionType* funcType;
+    llvm::FunctionType* funcType = nullptr;
 
     // return value
-    IrFuncTyArg* ret;
+    IrFuncTyArg* ret = nullptr;
 
     // null if not applicable
-    IrFuncTyArg* arg_sret;
-    IrFuncTyArg* arg_this;
-    IrFuncTyArg* arg_nest;
-    IrFuncTyArg* arg_arguments;
+    IrFuncTyArg* arg_sret = nullptr;
+    IrFuncTyArg* arg_this = nullptr;
+    IrFuncTyArg* arg_nest = nullptr;
+    IrFuncTyArg* arg_arguments = nullptr;
 
     // normal explicit arguments
 //    typedef llvm::SmallVector<IrFuncTyArg*, 4> ArgList;
-#if defined(_MSC_VER)
-    typedef Array<IrFuncTyArg *> ArgList;
-#else
-    typedef std::vector<IrFuncTyArg*> ArgList;
-#endif
+    using ArgList = std::vector<IrFuncTyArg*>;
     ArgList args;
 
     // C varargs
-    bool c_vararg;
+    bool c_vararg = false;
 
     // range of normal parameters to reverse
-    bool reverseParams;
+    bool reverseParams = false;
 
     // reserved for ABI-specific data
-    void* tag;
-
-    IrFuncTy()
-    :   funcType(0),
-        ret(NULL),
-        arg_sret(NULL),
-        arg_this(NULL),
-        arg_nest(NULL),
-        arg_arguments(NULL),
-        args(),
-        c_vararg(false),
-        reverseParams(false),
-        tag(NULL)
-    {}
+    void* tag = nullptr;
 
     llvm::Value* putRet(DValue* dval);
     llvm::Value* getRet(Type* dty, llvm::Value* val);

@@ -29,11 +29,11 @@ public:
     IrTypeFunction* isFunction() { return this; }
 
     ///
-    IrFuncTy &getIrFuncTy()      { return irFty; }
+    IrFuncTy& getIrFuncTy()      { return irFty; }
 
 protected:
     ///
-    IrTypeFunction(Type* dt, llvm::Type* lt, const IrFuncTy &irFty);
+    IrTypeFunction(Type* dt, llvm::Type* lt, const IrFuncTy& irFty);
     ///
     IrFuncTy irFty;
 };
@@ -49,11 +49,11 @@ public:
     IrTypeDelegate* isDelegate() { return this; }
 
     ///
-    IrFuncTy &getIrFuncTy()      { return irFty; }
+    IrFuncTy& getIrFuncTy()      { return irFty; }
 
 protected:
     ///
-    IrTypeDelegate(Type* dt, LLType* lt, const IrFuncTy &irFty);
+    IrTypeDelegate(Type* dt, LLType* lt, const IrFuncTy& irFty);
     ///
     IrFuncTy irFty;
 };

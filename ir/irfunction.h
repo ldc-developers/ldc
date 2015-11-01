@@ -33,13 +33,13 @@ class Statement;
 /// Since we always need to run a contiguous part of the stack (or all) in
 /// order, two cursors (one of which is usually the currently top of the stack)
 /// are enough to identify a sequence of cleanups to run.
-typedef size_t CleanupCursor;
+using CleanupCursor = size_t;
 
 /// Stores information needed to correctly jump to a given label or loop/switch
 /// statement (break/continue can be labeled, but are not necessarily).
 struct JumpTarget {
     /// The basic block to ultimately branch to.
-    llvm::BasicBlock* targetBlock;
+    llvm::BasicBlock* targetBlock = nullptr;
 
     /// The index of the target in the stack of active cleanup scopes.
     ///
@@ -53,7 +53,11 @@ struct JumpTarget {
 
     /// Keeps target of the associated loop or switch statement so we can
     /// handle both unlabeled and labeled jumps.
-    Statement* targetStatement;
+    Statement* targetStatement = nullptr;
+
+    JumpTarget() = default;
+    JumpTarget(llvm::BasicBlock* targetBlock, CleanupCursor cleanupScope,
+        Statement* targetStatement);
 };
 
 /// Keeps track of source and target label of a goto.
@@ -65,15 +69,18 @@ struct GotoJump {
     Loc sourceLoc;
 
     /// The basic block which contains the goto as its terminator.
-    llvm::BasicBlock* sourceBlock;
+    llvm::BasicBlock* sourceBlock = nullptr;
 
     /// While we have not found the actual branch target, we might need to
     /// create a "fake" basic block in order to be able to execute the cleanups
     /// (we do not keep branching information around after leaving the scope).
-    llvm::BasicBlock* tentativeTarget;
+    llvm::BasicBlock* tentativeTarget = nullptr;
 
     /// The label to target with the goto.
-    Identifier* targetLabel;
+    Identifier* targetLabel = nullptr;
+
+    GotoJump(Loc loc, llvm::BasicBlock* sourceBlock,
+        llvm::BasicBlock* tentativeTarget, Identifier* targetLabel);
 };
 
 /// Describes a particular way to leave a cleanup scope and continue execution
@@ -85,7 +92,7 @@ struct CleanupExitTarget {
     explicit CleanupExitTarget(llvm::BasicBlock* t) : branchTarget(t) {}
 
     /// The target basic block to branch to after running the cleanup.
-    llvm::BasicBlock* branchTarget;
+    llvm::BasicBlock* branchTarget = nullptr;
 
     /// The basic blocks that want to continue with this target after running
     /// the cleanup. We need to keep this information around so we can insert
@@ -109,17 +116,17 @@ struct CleanupExitTarget {
 class CleanupScope {
 public:
     CleanupScope(llvm::BasicBlock* beginBlock, llvm::BasicBlock* endBlock) :
-        beginBlock(beginBlock), endBlock(endBlock), branchSelector(0) {}
+        beginBlock(beginBlock), endBlock(endBlock) {}
 
     /// The basic block to branch to for running the cleanup.
-    llvm::BasicBlock* beginBlock;
+    llvm::BasicBlock* beginBlock = nullptr;
 
     /// The basic block that contains the end of the cleanup code (is different
     /// from beginBlock if the cleanup contains control flow).
-    llvm::BasicBlock* endBlock;
+    llvm::BasicBlock* endBlock = nullptr;
 
     /// The branch selector variable, or null if not created yet.
-    llvm::AllocaInst* branchSelector;
+    llvm::AllocaInst* branchSelector = nullptr;
 
     /// Stores all possible targets blocks after running this cleanup, along
     /// with what predecessors want to continue at that target. The index in
@@ -151,13 +158,16 @@ public:
 struct CatchScope {
     /// The ClassInfo reference corresponding to the type to match the
     /// exception object against.
-    llvm::Constant* classInfoPtr;
+    llvm::Constant* classInfoPtr = nullptr;
 
     /// The block to branch to if the exception type matches.
-    llvm::BasicBlock* bodyBlock;
+    llvm::BasicBlock* bodyBlock = nullptr;
 
     /// The cleanup scope stack level corresponding to this catch.
     CleanupCursor cleanupScope;
+
+    CatchScope(llvm::Constant* classInfoPtr, llvm::BasicBlock* bodyBlock,
+        CleanupCursor cleanupScope);
 };
 
 /// Keeps track of active (abstract) scopes in a function that influence code
@@ -178,7 +188,7 @@ struct CatchScope {
 /// resolving forward references across cleanup scopes.
 class ScopeStack {
 public:
-    ScopeStack(IRState* irs) : irs(irs) {}
+    explicit ScopeStack(IRState* irs) : irs(irs) {}
     ~ScopeStack();
 
     /// Registers a piece of cleanup code to be run.
@@ -309,9 +319,9 @@ private:
 
     /// The ambient IRState. For legacy reasons, there is currently a cyclic
     /// dependency between the two.
-    IRState* irs;
+    IRState* irs = nullptr;
 
-    typedef llvm::DenseMap<Identifier*, JumpTarget> LabelTargetMap;
+    using LabelTargetMap = llvm::DenseMap<Identifier*, JumpTarget>;
     /// The labels we have encountered in this function so far, accessed by
     /// their associated identifier (i.e. the name of the label).
     LabelTargetMap labelTargets;
@@ -397,33 +407,33 @@ struct IrFunction {
 
     llvm::AllocaInst* getOrCreateEhPtrSlot();
 
-    llvm::Function* func;
-    llvm::Instruction* allocapoint;
-    FuncDeclaration* decl;
-    TypeFunction* type;
+    llvm::Function* func = nullptr;
+    llvm::Instruction* allocapoint = nullptr;
+    FuncDeclaration* decl = nullptr;
+    TypeFunction* type = nullptr;
 
     /// Points to the associated scope stack while emitting code for the function.
-    ScopeStack* scopes;
+    ScopeStack* scopes = nullptr;
 
-    llvm::Value* retArg; // return in ptr arg
-    llvm::Value* thisArg; // class/struct 'this' arg
-    llvm::Value* nestArg; // nested function 'this' arg
+    llvm::Value* retArg  = nullptr; // return in ptr arg
+    llvm::Value* thisArg = nullptr; // class/struct 'this' arg
+    llvm::Value* nestArg = nullptr; // nested function 'this' arg
 
-    llvm::Value* nestedVar; // alloca for the nested context of this function
-    llvm::StructType* frameType; // type of nested context
-    unsigned frameTypeAlignment; // its alignment
+    llvm::Value* nestedVar = nullptr; // alloca for the nested context of this function
+    llvm::StructType* frameType = nullptr; // type of nested context
+    unsigned frameTypeAlignment = 0; // its alignment
     // number of enclosing functions with variables accessed by nested functions
     // (-1 if neither this function nor any enclosing ones access variables from enclosing functions)
-    int depth;
-    bool nestedContextCreated; // holds whether nested context is created
+    int depth = -1;
+    bool nestedContextCreated = false; // holds whether nested context is created
 
-    llvm::Value* _arguments;
-    llvm::Value* _argptr;
+    llvm::Value* _arguments = nullptr;
+    llvm::Value* _argptr = nullptr;
 
     /// A stack slot containing the return value, for functions that return by value.
-    llvm::AllocaInst* retValSlot;
+    llvm::AllocaInst* retValSlot = nullptr;
     /// The basic block with the return instruction.
-    llvm::BasicBlock* retBlock;
+    llvm::BasicBlock* retBlock = nullptr;
 
     /// A stack slot containing the exception object pointer while a landing pad
     /// is active. Need this because the instruction must dominate all uses as a
@@ -431,23 +441,23 @@ struct IrFunction {
     /// cleanup on the way there, it also must dominate all other predecessors
     /// of the cleanup. Thus, we just create an alloca at the start of the
     /// function.
-    llvm::AllocaInst* ehPtrSlot;
+    llvm::AllocaInst* ehPtrSlot = nullptr;
     /// The basic block with the return instruction. Because of
     /// ehPtrSlot, we do not need more than one, so might as well
     /// cache it.
-    llvm::BasicBlock* resumeUnwindBlock;
+    llvm::BasicBlock* resumeUnwindBlock = nullptr;
 
     /// Similar story to ehPtrSlot, but for the selector value.
-    llvm::AllocaInst* ehSelectorSlot;
+    llvm::AllocaInst* ehSelectorSlot = nullptr;
 
 #if LDC_LLVM_VER >= 307
     llvm::DISubprogram* diSubprogram = nullptr;
     std::stack<llvm::DILexicalBlock*> diLexicalBlocks;
-    typedef llvm::DenseMap<VarDeclaration*, llvm::DILocalVariable*> VariableMap;
+    using VariableMap = llvm::DenseMap<VarDeclaration*, llvm::DILocalVariable*>;
 #else
     llvm::DISubprogram diSubprogram;
     std::stack<llvm::DILexicalBlock> diLexicalBlocks;
-    typedef llvm::DenseMap<VarDeclaration*, llvm::DIVariable> VariableMap;
+    using VariableMap = llvm::DenseMap<VarDeclaration*, llvm::DIVariable>;
 #endif
     // Debug info for all variables
     VariableMap variableMap;

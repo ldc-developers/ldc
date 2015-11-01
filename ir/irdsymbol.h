@@ -91,7 +91,7 @@ private:
     friend IrField *getIrField(VarDeclaration *decl, bool create);
 
     union {
-        void*        irData;
+        void*        irData = nullptr;
         IrModule*    irModule;
         IrAggr*      irAggr;
         IrFunction*  irFunc;
@@ -101,8 +101,8 @@ private:
         IrParameter* irParam;
         IrField*     irField;
     };
-    Type m_type;
-    State m_state;
+    Type m_type = Type::NotSet;
+    State m_state = State::Initial;
 };
 
 #endif

@@ -29,18 +29,8 @@ IrAggr::IrAggr(AggregateDeclaration* aggr)
 :   aggrdecl(aggr),
     type(aggr->type),
     // above still need to be looked at
-    init(0),
-    constInit(0),
-    init_type(LLStructType::create(gIR->context(), std::string(aggr->toPrettyChars()) + "_init")),
-    vtbl(0),
-    constVtbl(0),
-    classInfo(0),
-    constClassInfo(0),
-    interfaceVtblMap(),
-    classInterfacesArray(0),
-    interfacesWithVtbls()
-{
-}
+    init_type(LLStructType::create(gIR->context(), std::string(aggr->toPrettyChars()) + "_init"))
+{}
 
 //////////////////////////////////////////////////////////////////////////////
 

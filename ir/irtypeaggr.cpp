@@ -46,7 +46,7 @@ bool var_offset_sort_cb(const VarDeclaration* v1, const VarDeclaration* v2)
 }
 
 AggrTypeBuilder::AggrTypeBuilder(bool packed) :
-    m_offset(0), m_fieldIndex(0), m_overallAlignment(0), m_packed(packed)
+    m_packed(packed)
 {
     m_defaultTypes.reserve(32);
 }
@@ -211,9 +211,8 @@ void AggrTypeBuilder::addTailPadding(unsigned aggregateSize)
 
 IrTypeAggr::IrTypeAggr(AggregateDeclaration * ad)
 :   IrType(ad->type, LLStructType::create(gIR->context(), ad->toPrettyChars())),
-    diCompositeType(), aggr(ad)
-{
-}
+    aggr(ad)
+{}
 
 bool IrTypeAggr::isPacked(AggregateDeclaration* ad)
 {

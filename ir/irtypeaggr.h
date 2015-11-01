@@ -24,12 +24,12 @@ namespace llvm {
 class AggregateDeclaration;
 class VarDeclaration;
 
-typedef std::map<VarDeclaration*, unsigned> VarGEPIndices;
+using VarGEPIndices = std::map<VarDeclaration*, unsigned>;
 
 class AggrTypeBuilder
 {
 public:
-    AggrTypeBuilder(bool packed);
+    explicit AggrTypeBuilder(bool packed);
     void addType(llvm::Type *type, unsigned size);
     void addAggregate(AggregateDeclaration *ad);
     void alignCurrentOffset(unsigned alignment);
@@ -41,10 +41,10 @@ public:
 protected:
     std::vector<llvm::Type*> m_defaultTypes;
     VarGEPIndices m_varGEPIndices;
-    unsigned m_offset;
-    unsigned m_fieldIndex;
-    unsigned m_overallAlignment;
-    bool m_packed;
+    unsigned m_offset = 0;
+    unsigned m_fieldIndex = 0;
+    unsigned m_overallAlignment = 0;
+    bool m_packed = false;
 };
 
 /// Base class of IrTypes for aggregate types.
@@ -69,7 +69,7 @@ public:
 #endif
 
     /// true, if the LLVM struct type for the aggregate is declared as packed
-    bool packed;
+    bool packed = false;
 
 protected:
     ///
@@ -80,7 +80,7 @@ protected:
     static bool isPacked(AggregateDeclaration* ad);
 
     /// AggregateDeclaration this type represents.
-    AggregateDeclaration* aggr;
+    AggregateDeclaration* aggr = nullptr;
 
     /// Stores the mapping from member variables to field indices in the actual
     /// LLVM type. If a member variable is not present, this means that it does
@@ -90,7 +90,7 @@ protected:
     /// We need to keep track of this separately, because there is no way to get
     /// the field index of a variable in the frontend, it only stores the byte
     /// offset.
-    std::map<VarDeclaration*, unsigned> varGEPIndices;
+    VarGEPIndices varGEPIndices;
 };
 
 #endif
