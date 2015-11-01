@@ -1276,13 +1276,7 @@ Ldone:
     }
 
     Module::dprogress++;
-#if IN_LLVM
-    //LDC relies on semanticRun variable not being reset here
-    if(semanticRun < PASSsemanticdone)
-        semanticRun = PASSsemanticdone;
-#else
     semanticRun = PASSsemanticdone;
-#endif
 
     /* Save scope for possible later use (if we need the
      * function internals)
@@ -1505,29 +1499,6 @@ void FuncDeclaration::semantic3(Scope *sc)
                 argptr->parent = this;
             }
         }
-
-#if IN_LLVM
-        // Make sure semantic analysis has been run on argument types. This is
-        // e.g. needed for TypeTuple!(int, int) to be picked up as two int
-        // parameters by the Parameter functions.
-        if (f->parameters)
-        {
-            for (size_t i = 0; i < Parameter::dim(f->parameters); i++)
-            {   Parameter *arg = (Parameter *)Parameter::getNth(f->parameters, i);
-                Type* nw = arg->type->semantic(Loc(), sc);
-                if (arg->type != nw) {
-                    arg->type = nw;
-                    // Examine this index again.
-                    // This is important if it turned into a tuple.
-                    // In particular, the empty tuple should be handled or the
-                    // next parameter will be skipped.
-                    // LDC_FIXME: Maybe we only need to do this for tuples,
-                    //            and can add tuple.length after decrement?
-                    i--;
-                }
-            }
-        }
-#endif
 
         /* Declare all the function parameters as variables
          * and install them in parameters[]

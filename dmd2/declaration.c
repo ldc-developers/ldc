@@ -296,24 +296,6 @@ bool TupleDeclaration::needThis()
     return false;
 }
 
-#if IN_LLVM
-void TupleDeclaration::semantic3(Scope *sc)
-{
-    //printf("TupleDeclaration::semantic3((%s)\n", toChars());
-    for (size_t i = 0; i < objects->dim; i++)
-    {   RootObject *o = (RootObject *)objects->data[i];
-        if (o->dyncast() == DYNCAST_EXPRESSION)
-        {   Expression *e = (Expression *)o;
-            if (e->op == TOKdsymbol)
-            {   DsymbolExp *ve = (DsymbolExp *)e;
-                Declaration *d = ve->s->isDeclaration();
-                d->semantic3(sc);
-            }
-        }
-    }
-}
-#endif
-
 /********************************* AliasDeclaration ****************************/
 
 AliasDeclaration::AliasDeclaration(Loc loc, Identifier *id, Type *type)
@@ -425,7 +407,6 @@ void AliasDeclaration::semantic(Scope *sc)
     }
     else
         type->resolve(loc, sc, &e, &t, &s);
-
     if (s)
     {
         goto L2;

@@ -191,10 +191,6 @@ public:
 
     TupleDeclaration *isTupleDeclaration() { return this; }
     void accept(Visitor *v) { v->visit(this); }
-
-#if IN_LLVM
-    void semantic3(Scope *sc);
-#endif
 };
 
 /**************************************************************/
