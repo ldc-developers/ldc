@@ -18,11 +18,7 @@
 
 IRState* gIR = 0;
 llvm::TargetMachine* gTargetMachine = 0;
-#if LDC_LLVM_VER >= 302
 const llvm::DataLayout* gDataLayout = 0;
-#else
-const llvm::TargetData* gDataLayout = 0;
-#endif
 TargetABI* gABI = 0;
 
 //////////////////////////////////////////////////////////////////////////////////////////

@@ -18,11 +18,7 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/InlineAsm.h"
-#else
-#include "llvm/InlineAsm.h"
-#endif
 #include <cassert>
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -181,12 +177,8 @@ void DtoDefineNakedFunction(FuncDeclaration* fd)
     else if (isWin)
     {
         std::string fullMangle;
-#if LDC_LLVM_VER >= 305
         if ( global.params.targetTriple.isWindowsGNUEnvironment() 
              && !global.params.targetTriple.isArch64Bit() )
-#else
-        if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
-#endif
         {
             fullMangle = "_";
         }

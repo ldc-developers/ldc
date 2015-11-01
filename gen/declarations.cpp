@@ -484,11 +484,7 @@ public:
             StringExp *se = static_cast<StringExp *>(e);
 
             size_t nameLen = se->len;
-#if LDC_LLVM_VER >= 305
             if (global.params.targetTriple.isWindowsGNUEnvironment())
-#else
-            if (global.params.targetTriple.getOS() == llvm::Triple::MinGW32)
-#endif
             {
                 if (nameLen > 4 &&
                     !memcmp(static_cast<char*>(se->string) + nameLen - 4, ".lib", 4))
@@ -508,14 +504,9 @@ public:
                 }
             }
 
-    #if LDC_LLVM_VER >= 303
             // With LLVM 3.3 or later we can place the library name in the object
             // file. This seems to be supported only on Windows.
-#if LDC_LLVM_VER >= 305
             if (global.params.targetTriple.isWindowsMSVCEnvironment())
-#else
-            if (global.params.targetTriple.getOS() == llvm::Triple::Win32)
-#endif
             {
                 llvm::SmallString<24> LibName(llvm::StringRef(static_cast<const char *>(se->string), nameLen));
 
@@ -539,7 +530,6 @@ public:
 #endif
             }
             else
-    #endif
             {
                 size_t const n = nameLen + 3;
                 char *arg = static_cast<char *>(mem.xmalloc(n));

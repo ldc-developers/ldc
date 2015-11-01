@@ -15,11 +15,7 @@
 #define LDC_GEN_METADATA_H
 
 // MDNode was moved into its own header, and contains Value*s
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/Metadata.h"
-#else
-#include "llvm/Metadata.h"
-#endif
 typedef llvm::Value MDNodeField;
 
 #define METADATA_LINKAGE_TYPE  llvm::GlobalValue::WeakODRLinkage

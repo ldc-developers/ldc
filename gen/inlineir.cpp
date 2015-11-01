@@ -7,13 +7,8 @@
 #include "gen/tollvm.h"
 #include "llvm/Support/raw_ostream.h"
 #include "llvm/Support/SourceMgr.h"
-#if LDC_LLVM_VER >= 305
 #include "llvm/AsmParser/Parser.h"
 #include "llvm/Linker/Linker.h"
-#else
-#include "llvm/Assembly/Parser.h"
-#include "llvm/Linker.h"
-#endif
 
 llvm::Function* DtoInlineIRFunction(FuncDeclaration* fdecl)
 {
@@ -71,29 +66,22 @@ llvm::Function* DtoInlineIRFunction(FuncDeclaration* fdecl)
 #if LDC_LLVM_VER >= 306
     std::unique_ptr<llvm::Module> m = llvm::parseAssemblyString(
         stream.str().c_str(), err, gIR->context());
-#elif LDC_LLVM_VER >= 303
+#else
     llvm::Module* m = llvm::ParseAssemblyString(
         stream.str().c_str(), NULL, err, gIR->context());
-#else
-    llvm::ParseAssemblyString(
-        stream.str().c_str(), &gIR->module, err, gIR->context());
 #endif
 
     std::string errstr = err.getMessage();
     if(errstr != "")
         error(tinst->loc,
             "can't parse inline LLVM IR:\n%s\n%s\n%s\nThe input string was: \n%s",
-#if LDC_LLVM_VER >= 303
             err.getLineContents().str().c_str(),
-#else
-            err.getLineContents().c_str(),
-#endif
             (std::string(err.getColumnNo(), ' ') + '^').c_str(),
             errstr.c_str(), stream.str().c_str());
 
 #if LDC_LLVM_VER >= 306
     llvm::Linker(&gIR->module).linkInModule(m.get());
-#elif LDC_LLVM_VER >= 303
+#else
     std::string errstr2 = "";
     llvm::Linker(&gIR->module).linkInModule(m, &errstr2);
     if(errstr2 != "")

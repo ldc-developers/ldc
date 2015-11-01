@@ -34,16 +34,8 @@
 #include "gen/tollvm.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/Intrinsics.h"
-#else
-#include "llvm/Intrinsics.h"
-#endif
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/CFG.h"
-#else
-#include "llvm/Support/CFG.h"
-#endif
 #include <iostream>
 
 llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype, Type* nesttype,
@@ -102,10 +94,8 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
     {
         // Add the this pointer for member functions
         AttrBuilder attrBuilder;
-#if LDC_LLVM_VER >= 303
         if (isCtor)
             attrBuilder.add(LDC_ATTRIBUTE(Returned));
-#endif
         newIrFty.arg_this = new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct, attrBuilder);
         ++nextLLArgIdx;
     }
@@ -788,7 +778,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
     {
         func->addFnAttr(LDC_ATTRIBUTE(UWTable));
     }
-#if LDC_LLVM_VER >= 303
     if (opts::sanitize != opts::None) {
         // Set the required sanitizer attribute.
         if (opts::sanitize == opts::AddressSanitizer) {
@@ -803,7 +792,6 @@ void DtoDefineFunction(FuncDeclaration* fd)
             func->addFnAttr(LDC_ATTRIBUTE(SanitizeThread));
         }
     }
-#endif
 
     llvm::BasicBlock* beginbb = llvm::BasicBlock::Create(gIR->context(), "", func);
 
@@ -898,7 +886,7 @@ void DtoDefineFunction(FuncDeclaration* fd)
                 ++llArgIdx;
             }
 
-            if (global.params.symdebug && !(isaArgument(irparam->value) && isaArgument(irparam->value)->hasByValAttr()) && !refout)
+            if (global.params.symdebug && !(isaArgument(irparam->value) && isaArgument(irparam->value)->hasByValAttr()))
                 gIR->DBuilder.EmitLocalVariable(irparam->value, vd, debugInfoType);
         }
     }

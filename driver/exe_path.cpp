@@ -10,9 +10,7 @@
 #include "exe_path.h"
 
 #include <llvm/Support/Path.h>
-#if LDC_LLVM_VER >= 304
 #include <llvm/Support/FileSystem.h>
-#endif
 
 using std::string;
 namespace path = llvm::sys::path;
@@ -22,11 +20,7 @@ namespace { string exePath; }
 void exe_path::initialize(const char* arg0, void* mainAddress)
 {
     assert(exePath.empty());
-#if LDC_LLVM_VER >= 304
     exePath = llvm::sys::fs::getMainExecutable(arg0, mainAddress);
-#else
-    exePath = llvm::sys::Path::GetMainExecutable(arg0, mainAddress).str();
-#endif
 }
 
 const string& exe_path::getExePath()

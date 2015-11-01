@@ -1988,11 +1988,7 @@ private:
 #if IN_LLVM
 char *toCppMangle(Dsymbol *s)
 {
-#if LDC_LLVM_VER >= 305
-	const bool isTargetWindowsMSVC = global.params.targetTriple.isWindowsMSVCEnvironment();
-#else
-	const bool isTargetWindowsMSVC = global.params.targetTriple.getOS() == llvm::Triple::Win32;
-#endif
+    const bool isTargetWindowsMSVC = global.params.targetTriple.isWindowsMSVCEnvironment();
     if (isTargetWindowsMSVC)
     {
         VisualCPPMangler v(!global.params.is64bit);

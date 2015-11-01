@@ -26,11 +26,7 @@
 #include <sstream>
 #include <vector>
 #include "llvm/ADT/StringMap.h"
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/CallSite.h"
-#else
-#include "llvm/Support/CallSite.h"
-#endif
 
 namespace llvm {
     class LLVMContext;
@@ -43,11 +39,7 @@ struct TargetABI;
 
 extern IRState* gIR;
 extern llvm::TargetMachine* gTargetMachine;
-#if LDC_LLVM_VER >= 302
 extern const llvm::DataLayout* gDataLayout;
-#else
-extern const llvm::TargetData* gDataLayout;
-#endif
 extern TargetABI* gABI;
 
 class TypeFunction;
@@ -185,13 +177,11 @@ struct IRState
     llvm::StringMap<llvm::GlobalVariable*> stringLiteral2ByteCache;
     llvm::StringMap<llvm::GlobalVariable*> stringLiteral4ByteCache;
 
-#if LDC_LLVM_VER >= 303
     /// Vector of options passed to the linker as metadata in object file.
 #if LDC_LLVM_VER >= 306
     llvm::SmallVector<llvm::Metadata *, 5> LinkerMetadataArgs;
 #else
     llvm::SmallVector<llvm::Value *, 5> LinkerMetadataArgs;
-#endif
 #endif
 };
 

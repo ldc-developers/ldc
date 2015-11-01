@@ -150,14 +150,11 @@ void CodeGenerator::finishLLModule(Module *m) {
 void CodeGenerator::writeAndFreeLLModule(const char *filename) {
     ir_->DBuilder.Finalize();
 
-#if LDC_LLVM_VER >= 303
     // Add the linker options metadata flag.
     ir_->module.addModuleFlag(
         llvm::Module::AppendUnique, "Linker Options",
         llvm::MDNode::get(ir_->context(), ir_->LinkerMetadataArgs));
-#endif
 
-#if LDC_LLVM_VER >= 304
     // Emit ldc version as llvm.ident metadata.
     llvm::NamedMDNode *IdentMetadata =
         ir_->module.getOrInsertNamedMetadata("llvm.ident");
@@ -170,7 +167,6 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
 #endif
         {llvm::MDString::get(ir_->context(), Version)};
     IdentMetadata->addOperand(llvm::MDNode::get(ir_->context(), IdentNode));
-#endif
 
     writeModule(&ir_->module, filename);
     global.params.objfiles->push(const_cast<char *>(filename));

@@ -456,13 +456,9 @@ errorCmpxchg:
                 fatal();
             }
         }
-#if LDC_LLVM_VER >= 305
         LLValue* ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, llvm::AtomicOrdering(atomicOrdering), llvm::AtomicOrdering(atomicOrdering));
         // Use the same quickfix as for dragonegg - see r210956
         ret = p->ir->CreateExtractValue(ret, 0);
-#else
-        LLValue* ret = p->ir->CreateAtomicCmpXchg(ptr, cmp, val, llvm::AtomicOrdering(atomicOrdering));
-#endif
         llvm::Value* retVal = ret;
         if (retVal->getType() != retTy)
             retVal = DtoAllocaDump(retVal, exp3->type);
@@ -974,21 +970,13 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     }
 
     // set calling convention and parameter attributes
-#if LDC_LLVM_VER >= 303
     llvm::AttributeSet attrlist = attrs.toNativeSet();
-#else
-    llvm::AttrListPtr attrlist = attrs.toNativeSet();
-#endif
     if (dfnval && dfnval->func)
     {
         LLFunction* llfunc = llvm::dyn_cast<LLFunction>(dfnval->val);
         if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
         {
-#if LDC_LLVM_VER >= 302
             attrlist = llvm::Intrinsic::getAttributes(gIR->context(), static_cast<llvm::Intrinsic::ID>(llfunc->getIntrinsicID()));
-#else
-            attrlist = llvm::Intrinsic::getAttributes(static_cast<llvm::Intrinsic::ID>(llfunc->getIntrinsicID()));
-#endif
         }
         else
         {

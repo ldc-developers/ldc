@@ -10,30 +10,11 @@
 #ifndef LDC_GEN_DIBUILDER_H
 #define LDC_GEN_DIBUILDER_H
 
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/Type.h"
 #include "llvm/IR/DataLayout.h"
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/DebugInfo.h"
 #include "llvm/IR/DIBuilder.h"
-#else
-#include "llvm/DebugInfo.h"
-#include "llvm/DIBuilder.h"
-#endif
-#else
-#if LDC_LLVM_VER == 302
-#include "llvm/DataLayout.h"
-#include "llvm/DebugInfo.h"
-#include "llvm/DIBuilder.h"
-#else
-#include "llvm/Constants.h"
-#include "llvm/Type.h"
-#include "llvm/Analysis/DebugInfo.h"
-#include "llvm/Analysis/DIBuilder.h"
-#include "llvm/Target/TargetData.h"
-#endif
-#endif
 
 #include "gen/tollvm.h"
 #include "mars.h"
@@ -53,19 +34,11 @@ namespace llvm {
     class LLVMContext;
 
 // Only for the OpXXX templates, see below.
-#if LDC_LLVM_VER >= 302
     class DataLayout;
-#else
-    class TargetData;
-#endif
 }
 
 // Only for the OpXXX templates, see below.
-#if LDC_LLVM_VER >= 302
 extern const llvm::DataLayout* gDataLayout;
-#else
-extern const llvm::TargetData* gDataLayout;
-#endif
 
 namespace ldc {
 
@@ -81,7 +54,7 @@ typedef llvm::DIScope* DIScope;
 typedef llvm::DISubroutineType* DISubroutineType;
 typedef llvm::DISubprogram* DISubprogram;
 typedef llvm::DICompileUnit* DICompileUnit;
-#elif LDC_LLVM_VER >= 304
+#else
 typedef llvm::DIType DIType;
 typedef llvm::DIFile DIFile;
 typedef llvm::DIGlobalVariable DIGlobalVariable;
@@ -91,19 +64,9 @@ typedef llvm::DIDescriptor DIScope;
 typedef llvm::DICompositeType DISubroutineType;
 typedef llvm::DISubprogram DISubprogram;
 typedef llvm::DICompileUnit DICompileUnit;
-#else
-typedef llvm::DIType DIType;
-typedef llvm::DIFile DIFile;
-typedef llvm::DIGlobalVariable DIGlobalVariable;
-typedef llvm::DIVariable DILocalVariable;
-typedef llvm::DILexicalBlock DILexicalBlock;
-typedef llvm::DIDescriptor DIScope;
-typedef llvm::DISubprogram DISubprogram;
-typedef llvm::DIType DISubroutineType;
-typedef llvm::DICompileUnit DICompileUnit;
-#endif
 #if LDC_LLVM_VER == 306
 typedef llvm::DIExpression DIExpression;
+#endif
 #endif
 
 class DIBuilder

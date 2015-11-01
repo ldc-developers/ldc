@@ -2414,13 +2414,11 @@ namespace AsmParserx8664
                         case Float_Ptr:    type_suffix = 's'; break;
                         case Double_Ptr:   type_suffix = 'l'; break;
                         case Extended_Ptr:
-#if LDC_LLVM_VER >= 305
                             // MS C runtime: real = 64-bit double
                             if (global.params.targetTriple.isWindowsMSVCEnvironment())
                                 type_suffix = 'l';
                             else
-#endif
-                            type_suffix = 't';
+                                type_suffix = 't';
                             break;
                         default:
                             return false;

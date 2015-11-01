@@ -7,13 +7,8 @@
 //
 //===----------------------------------------------------------------------===//
 
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/Constants.h"
 #include "llvm/IR/DerivedTypes.h"
-#else
-#include "llvm/Constants.h"
-#include "llvm/DerivedTypes.h"
-#endif
 #include "llvm/ADT/SmallString.h"
 #ifndef NDEBUG
 #include "llvm/Support/raw_ostream.h"

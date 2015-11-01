@@ -188,21 +188,15 @@ TargetABI * TargetABI::getTarget()
     case llvm::Triple::mips64el:
         return getMIPS64TargetABI(global.params.is64bit);
     case llvm::Triple::ppc64:
-#if LDC_LLVM_VER >= 305
     case llvm::Triple::ppc64le:
-#endif
         return getPPC64TargetABI(global.params.targetTriple.isArch64Bit());
 #if LDC_LLVM_VER == 305
     case llvm::Triple::arm64:
     case llvm::Triple::arm64_be:
 #endif
-#if LDC_LLVM_VER >= 303
     case llvm::Triple::aarch64:
-#if LDC_LLVM_VER >= 305
     case llvm::Triple::aarch64_be:
-#endif
         return getAArch64TargetABI();
-#endif
     default:
         Logger::cout() << "WARNING: Unknown ABI, guessing...\n";
         return new UnknownTargetABI;

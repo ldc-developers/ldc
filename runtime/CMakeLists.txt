@@ -272,29 +272,6 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
         list(APPEND ${outlist_bc} ${output_bc})
     endif()
 
-    # We hit a few known bugs in older LLVM versions when building the unit
-    # tests with full optimizations. Downgrade the optimization flags for those
-    # specific files so we can at least test the rest of them.
-    set(cur_d_flags ${d_flags})
-    if("${cur_d_flags}" MATCHES "-unittest")
-        if(${LDC_LLVM_VER} EQUAL 301 AND "${input_d}" MATCHES "std/exception.d" AND
-            ${HOST_BITNESS} EQUAL 64)
-            # Building the std.exception tests on x86_64 triggers an infinite
-            # recursion in scalar evolution on LLVM 3.1 (only), see the list of
-            # known LLVM bugs for details.
-            string(REPLACE "-O3" "-O1" cur_d_flags "${cur_d_flags}")
-        elseif(${LDC_LLVM_VER} LESS 303 AND "${input_d}" MATCHES "std/range.d")
-            # Building the std.range tests triggers an assertion error on
-            # every LLVM release before 3.3. See PR15608.
-            string(REPLACE "-O3" "-O1" cur_d_flags "${cur_d_flags}")
-        elseif(${LDC_LLVM_VER} LESS 304 AND "${input_d}" MATCHES "rt/util/container/array.d")
-            # Building the rt.util.container.array tests triggers a bug in the
-            # jump threading pass on every LLVM release before 3.4.
-            # See PR17621.
-            string(REPLACE "-O3" "-O1" cur_d_flags "${cur_d_flags}")
-        endif()
-    endif()
-
     # Compile
     if(BUILD_BC_LIBS)
         set(outfiles ${output_o} ${output_bc})
@@ -307,7 +284,7 @@ macro(dc input_d d_flags output_dir output_suffix outlist_o outlist_bc)
     add_custom_command(
         OUTPUT
             ${outfiles}
-        COMMAND ${LDC_EXE} ${dc_flags} -c -I${RUNTIME_DIR}/src -I${RUNTIME_DIR}/src/gc ${input_d} -of${output_o} ${cur_d_flags}
+        COMMAND ${LDC_EXE} ${dc_flags} -c -I${RUNTIME_DIR}/src -I${RUNTIME_DIR}/src/gc ${input_d} -of${output_o} ${d_flags}
         WORKING_DIRECTORY ${PROJECT_PARENT_DIR}
         DEPENDS ${input_d}
                 ${LDC_EXE}

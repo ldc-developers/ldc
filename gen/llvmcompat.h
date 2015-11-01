@@ -24,22 +24,12 @@
 #error "Please specify value for LDC_LLVM_VER."
 #endif
 
-#if LDC_LLVM_VER >= 302
 #define ADDRESS_SPACE 0
-#else
-#define ADDRESS_SPACE
-#endif
-
-#if LDC_LLVM_VER < 302
-#define LLVM_OVERRIDE
-#define llvm_move(value) (value)
-#endif
 
 #ifndef __has_feature
 # define __has_feature(x) 0
 #endif
 
-#if LDC_LLVM_VER >= 305
 #if __has_feature(cxx_override_control) \
     || (defined(_MSC_VER) && _MSC_VER >= 1700)
 #define LLVM_OVERRIDE override
@@ -59,8 +49,6 @@
 #define llvm_move(value) (::std::move(value))
 #else
 #define llvm_move(value) (value)
-#endif
-
 #endif
 
 #endif

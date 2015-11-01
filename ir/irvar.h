@@ -15,19 +15,8 @@
 #ifndef LDC_IR_IRVAR_H
 #define LDC_IR_IRVAR_H
 
-#if LDC_LLVM_VER >= 303
 #include "llvm/IR/Type.h"
-#else
-#include "llvm/Type.h"
-#endif
-
-#if LDC_LLVM_VER >= 305
 #include "llvm/IR/DebugInfo.h"
-#elif LDC_LLVM_VER >= 302
-#include "llvm/DebugInfo.h"
-#else
-#include "llvm/Analysis/DebugInfo.h"
-#endif
 
 struct IrFuncTyArg;
 class VarDeclaration;

@@ -204,10 +204,8 @@ ldc::DIType ldc::DIBuilder::CreateEnumType(Type *type)
         LineNumber,
         getTypeBitSize(T), // size (bits)
         getABITypeAlign(T)*8, // align (bits)
-        DBuilder.getOrCreateArray(subscripts) // subscripts
-#if LDC_LLVM_VER >= 302
-        , CreateTypeDescription(te->sym->memtype, false)
-#endif
+        DBuilder.getOrCreateArray(subscripts), // subscripts
+        CreateTypeDescription(te->sym->memtype, false)
     );
 }
 
@@ -353,11 +351,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
     // if we don't know the aggregate's size, we don't know enough about it
     // to provide debug info. probably a forward-declared struct?
     if (sd->sizeok == SIZEOKnone)
-#if LDC_LLVM_VER >= 304
         return DBuilder.createUnspecifiedType(sd->toChars());
-#else
-        return llvm::DICompositeType(NULL);
-#endif
 
     // elements
 #if LDC_LLVM_VER >= 306
@@ -383,15 +377,11 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
                                         : llvm::dwarf::DW_TAG_class_type;
 #if LDC_LLVM_VER >= 307
     ir->diCompositeType = DBuilder.createReplaceableCompositeType(
-#elif LDC_LLVM_VER >= 305
-    ir->diCompositeType = DBuilder.createReplaceableForwardDecl(
 #else
-    ir->diCompositeType = DBuilder.createForwardDecl(
+    ir->diCompositeType = DBuilder.createReplaceableForwardDecl(
 #endif
                                                            tag, name,
-#if LDC_LLVM_VER >= 302
                                                            CU,
-#endif
                                                            file, linnum);
 
     if (!sd->isInterfaceDeclaration()) // plain interfaces don't have one
@@ -446,9 +436,7 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type)
            getTypeBitSize(T), // size in bits
            getABITypeAlign(T)*8, // alignment in bits
            DIFlags::FlagFwdDecl, // flags
-#if LDC_LLVM_VER >= 303
            derivedFrom, // DerivedFrom
-#endif
            elemsArray
         );
     }
@@ -495,7 +483,7 @@ ldc::DIType ldc::DIBuilder::CreateArrayType(Type *type)
         0, // What here?
 #if LDC_LLVM_VER >= 307
         nullptr, // DerivedFrom
-#elif LDC_LLVM_VER >= 303
+#else
         llvm::DIType(), // DerivedFrom
 #endif
         DBuilder.getOrCreateArray(elems)
@@ -538,11 +526,7 @@ ldc::DIType ldc::DIBuilder::CreateSArrayType(Type *type)
 ldc::DIType ldc::DIBuilder::CreateAArrayType(Type *type)
 {
     // FIXME: Implement
-#if LDC_LLVM_VER >= 304
     return DBuilder.createUnspecifiedType(type->toChars());
-#else
-    return llvm::DIType(NULL);
-#endif
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -591,11 +575,7 @@ ldc::DISubroutineType ldc::DIBuilder::CreateDelegateType(Type *type)
     llvm::SmallVector<llvm::Value*, 16> Elts;
 #endif
     Elts.push_back(
-#if LDC_LLVM_VER >= 304
         DBuilder.createUnspecifiedType(type->toChars())
-#else
-        llvm::DIType(NULL)
-#endif
     );
 #if LDC_LLVM_VER >= 307
     llvm::DITypeRefArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
@@ -624,11 +604,7 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type* type,
     }
 
     if (t->ty == Tvoid || t->ty == Tnull)
-#if LDC_LLVM_VER >= 304
         return DBuilder.createUnspecifiedType(t->toChars());
-#else
-        return llvm::DIType(NULL);
-#endif
     else if (t->isintegral() || t->isfloating())
     {
         if (t->ty == Tvector)
@@ -677,12 +653,10 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m)
     if (global.params.targetTriple.isWindowsMSVCEnvironment())
         IR->module.addModuleFlag(llvm::Module::Warning, "CodeView", 1);
 #endif
-#if LDC_LLVM_VER >= 304
     // Metadata without a correct version will be stripped by UpgradeDebugInfo.
     IR->module.addModuleFlag(llvm::Module::Warning, "Debug Info Version", llvm::DEBUG_METADATA_VERSION);
 
     CUNode =
-#endif
     DBuilder.createCompileUnit(
         global.params.symdebug == 2 ? llvm::dwarf::DW_LANG_C
                                     : llvm::dwarf::DW_LANG_D,
@@ -693,9 +667,6 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m)
         llvm::StringRef(), // Flags TODO
         1 // Runtime Version TODO
     );
-#if LDC_LLVM_VER < 304
-    CUNode = DBuilder.getCU();
-#endif
 }
 
 ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd)
@@ -918,6 +889,9 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     if (static_cast<llvm::MDNode *>(TD) == 0)
         return; // unsupported
 
+    if (vd->storage_class & (STCref | STCout))
+        TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD);
+
     // get variable description
     assert(!vd->isDataseg() && "static variable");
 
@@ -932,13 +906,7 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
     ldc::DILocalVariable debugVariable;
     unsigned Flags = 0;
     if (isThisPtr)
-    {
-#if LDC_LLVM_VER >= 302
         Flags |= DIFlags::FlagArtificial | DIFlags::FlagObjectPointer;
-#else
-        Flags |= DIFlags::FlagArtificial;
-#endif
-    }
 
 #if LDC_LLVM_VER < 306
     if (addr.empty()) {
@@ -1038,9 +1006,7 @@ ldc::DIGlobalVariable ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *l
         GetCU(), // context
 #endif
         vd->toChars(), // name
-#if LDC_LLVM_VER >= 303
         mangle(vd), // linkage name
-#endif
         CreateFile(vd->loc), // file
         vd->loc.linnum, // line num
         CreateTypeDescription(vd->type, false), // type
