@@ -649,7 +649,7 @@ public:
   }
 
 #define BIN_ASSIGN(Op, useLvalForBinExpLhs)                                    \
-  void visit(Op##AssignExp *e) {                                               \
+  void visit(Op##AssignExp *e) override {                                      \
     IF_LOG Logger::print(#Op "AssignExp::toElem: %s @ %s\n", e->toChars(),     \
                          e->type->toChars());                                  \
     LOG_SCOPE;                                                                 \
@@ -2050,8 +2050,8 @@ public:
 
 //////////////////////////////////////////////////////////////////////////////////////////
 
-#define BinBitExp(X, Y)                                                        \
-  void visit(X##Exp *e) {                                                      \
+#define BIN_BLIT_EXP(X, Y)                                                     \
+  void visit(X##Exp *e) override {                                             \
     IF_LOG Logger::print("%sExp::toElem: %s @ %s\n", #X, e->toChars(),         \
                          e->type->toChars());                                  \
     LOG_SCOPE;                                                                 \
@@ -2064,10 +2064,14 @@ public:
     result = new DImValue(e->type, x);                                         \
   }
 
-  BinBitExp(And, And) BinBitExp(Or, Or) BinBitExp(Xor, Xor) BinBitExp(Shl, Shl)
-      BinBitExp(Ushr, LShr)
+  BIN_BLIT_EXP(And, And)
+  BIN_BLIT_EXP(Or, Or)
+  BIN_BLIT_EXP(Xor, Xor)
+  BIN_BLIT_EXP(Shl, Shl)
+  BIN_BLIT_EXP(Ushr, LShr)
+#undef BIN_BLIT_EXP
 
-          void visit(ShrExp *e) override {
+  void visit(ShrExp *e) override {
     IF_LOG Logger::print("ShrExp::toElem: %s @ %s\n", e->toChars(),
                          e->type->toChars());
     LOG_SCOPE;
@@ -2916,7 +2920,7 @@ public:
 //////////////////////////////////////////////////////////////////////////////////////////
 
 #define STUB(x)                                                                \
-  void visit(x *e) {                                                           \
+  void visit(x *e) override {                                                  \
     e->error("Internal compiler error: Type " #x " not implemented: %s",       \
              e->toChars());                                                    \
     fatal();                                                                   \

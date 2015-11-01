@@ -41,6 +41,7 @@ bool isSpeculativeType(Type *t) {
 
     SpeculativeTypeVisitor() : result(false) {}
 
+    using Visitor::visit;
     void visit(Type *t) override {
       Type *tb = t->toBasetype();
       if (tb != t) {
