@@ -136,7 +136,7 @@ static void addExplicitArguments(std::vector<LLValue*>& args, AttrSet& attrs,
 
         AttrBuilder initialAttrs;
         if (passByVal)
-            initialAttrs.add(LDC_ATTRIBUTE(ByVal));
+            initialAttrs.add(LLAttribute::ByVal);
         else
             initialAttrs.add(DtoShouldExtend(argType));
 
@@ -666,7 +666,7 @@ private:
 
         // verify that sret and/or inreg attributes are set
         const AttrBuilder& sretAttrs = irFty.arg_sret->attrs;
-        assert((sretAttrs.contains(LDC_ATTRIBUTE(StructRet)) || sretAttrs.contains(LDC_ATTRIBUTE(InReg)))
+        assert((sretAttrs.contains(LLAttribute::StructRet) || sretAttrs.contains(LLAttribute::InReg))
             && "Sret arg not sret or inreg?");
     }
 
@@ -970,7 +970,7 @@ DValue* DtoCallFunction(Loc& loc, Type* resulttype, DValue* fnval, Expressions* 
     }
 
     // set calling convention and parameter attributes
-    llvm::AttributeSet attrlist = attrs.toNativeSet();
+    llvm::AttributeSet& attrlist = attrs;
     if (dfnval && dfnval->func)
     {
         LLFunction* llfunc = llvm::dyn_cast<LLFunction>(dfnval->val);

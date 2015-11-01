@@ -77,7 +77,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
         {
             // sret return
             newIrFty.arg_sret = new IrFuncTyArg(rt, true,
-                AttrBuilder().add(LDC_ATTRIBUTE(StructRet)).add(LDC_ATTRIBUTE(NoAlias)));
+                AttrBuilder().add(LLAttribute::StructRet).add(LLAttribute::NoAlias));
             rt = Type::tvoid;
             ++nextLLArgIdx;
         }
@@ -95,7 +95,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
         // Add the this pointer for member functions
         AttrBuilder attrBuilder;
         if (isCtor)
-            attrBuilder.add(LDC_ATTRIBUTE(Returned));
+            attrBuilder.add(LLAttribute::Returned);
         newIrFty.arg_this = new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct, attrBuilder);
         ++nextLLArgIdx;
     }
@@ -156,7 +156,7 @@ llvm::FunctionType* DtoFunctionType(Type* type, IrFuncTy &irFty, Type* thistype,
         {
             if (abi->passByVal(loweredDType))
             {
-                attrBuilder.add(LDC_ATTRIBUTE(ByVal));
+                attrBuilder.add(LLAttribute::ByVal);
                 // byval parameters are also passed as an address
                 passPointer = true;
             }
@@ -424,7 +424,7 @@ static void set_param_attrs(TypeFunction* f, llvm::Function* func, FuncDeclarati
     }
 
     // Store the final attribute set
-    func->setAttributes(newAttrs.toNativeSet());
+    func->setAttributes(newAttrs);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -511,7 +511,7 @@ void DtoDeclareFunction(FuncDeclaration* fdecl)
     if (!DtoIsIntrinsic(fdecl)) {
         set_param_attrs(f, func, fdecl);
         if (global.params.disableRedZone) {
-            func->addFnAttr(LDC_ATTRIBUTE(NoRedZone));
+            func->addFnAttr(LLAttribute::NoRedZone);
         }
     }
 
@@ -776,20 +776,20 @@ void DtoDefineFunction(FuncDeclaration* fd)
     // TODO: Is this required for Win64 as well?
     if (global.params.targetTriple.getArch() == llvm::Triple::x86_64)
     {
-        func->addFnAttr(LDC_ATTRIBUTE(UWTable));
+        func->addFnAttr(LLAttribute::UWTable);
     }
     if (opts::sanitize != opts::None) {
         // Set the required sanitizer attribute.
         if (opts::sanitize == opts::AddressSanitizer) {
-            func->addFnAttr(LDC_ATTRIBUTE(SanitizeAddress));
+            func->addFnAttr(LLAttribute::SanitizeAddress);
         }
 
         if (opts::sanitize == opts::MemorySanitizer) {
-            func->addFnAttr(LDC_ATTRIBUTE(SanitizeMemory));
+            func->addFnAttr(LLAttribute::SanitizeMemory);
         }
 
         if (opts::sanitize == opts::ThreadSanitizer) {
-            func->addFnAttr(LDC_ATTRIBUTE(SanitizeThread));
+            func->addFnAttr(LLAttribute::SanitizeThread);
         }
     }
 

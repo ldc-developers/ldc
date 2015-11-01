@@ -50,7 +50,7 @@ bool DtoIsPassedByRef(Type* type);
 bool DtoIsReturnInArg(CallExp *ce);
 
 // should argument be zero or sign extended
-AttrBuilder::A DtoShouldExtend(Type* type);
+LLAttribute DtoShouldExtend(Type* type);
 
 // tuple helper
 // takes a arguments list and makes a struct type out of them
