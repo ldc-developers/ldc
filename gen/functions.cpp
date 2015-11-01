@@ -649,18 +649,26 @@ void DtoDefineFunction(FuncDeclaration* fd)
         return;
     }
 
-    if (fd->semanticRun == PASSsemanticdone)
+    if (fd->semantic3Errors)
     {
-        /* What happened is this function failed semantic3() with errors,
-         * but the errors were gagged.
-         * Try to reproduce those errors, and then fail.
-         */
-        error(fd->loc, "errors compiling function %s", fd->toPrettyChars());
+        fd->ir.setDefined();
+        return;
+    }
+
+    if (global.errors)
+    {
         fd->ir.setDefined();
         return;
     }
 
     DtoResolveFunction(fd);
+
+    if (!fd->fbody)
+    {
+        IF_LOG Logger::println("No body for '%s', so no codegen", fd->toPrettyChars());
+        fd->ir.setDefined();
+        return;
+    }
 
     if (fd->isUnitTestDeclaration() && !global.params.useUnitTests)
     {
@@ -677,11 +685,22 @@ void DtoDefineFunction(FuncDeclaration* fd)
         return;
     }
 
+    if (fd->semanticRun == PASSsemanticdone)
+    {
+        /* What happened is this function failed semantic3() with errors,
+         * but the errors were gagged.
+         * Try to reproduce those errors, and then fail.
+         */
+        error(fd->loc, "errors compiling function %s", fd->toPrettyChars());
+        fd->ir.setDefined();
+        return;
+    }
+
     // Check whether the frontend knows that the function is already defined
     // in some other module (see DMD's FuncDeclaration::toObjFile).
     for (FuncDeclaration *f = fd; f; )
     {
-        if (!f->isInstantiated() && f->inNonRoot())
+        if (f->inNonRoot())
         {
             IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
             // TODO: Emit as available_externally for inlining purposes instead
@@ -690,9 +709,13 @@ void DtoDefineFunction(FuncDeclaration* fd)
             return;
         }
         if (f->isNested())
+        {
             f = f->toParent2()->isFuncDeclaration();
+        }
         else
+        {
             break;
+        }
     }
 
     DtoDeclareFunction(fd);

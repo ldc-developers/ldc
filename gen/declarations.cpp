@@ -405,11 +405,7 @@ public:
     //////////////////////////////////////////////////////////////////////////
 
     void visit(FuncDeclaration *decl) LLVM_OVERRIDE {
-        // don't touch function aliases, they don't contribute any new symbols
-        if (!decl->isFuncAliasDeclaration())
-        {
-            DtoDefineFunction(decl);
-        }
+        DtoDefineFunction(decl);
     }
 
     //////////////////////////////////////////////////////////////////////////
