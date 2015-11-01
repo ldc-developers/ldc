@@ -26,7 +26,6 @@ public:
 
 public:
   ConfigFile();
-  ~ConfigFile();
 
   bool read(const char *explicitConfFile);
 

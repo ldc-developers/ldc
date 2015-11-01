@@ -63,21 +63,22 @@ static std::string getOutputName(bool const sharedLib) {
   std::string result;
 
   // try root module name
-  if (Module::rootModule)
+  if (Module::rootModule) {
     result = Module::rootModule->toChars();
-  else if (global.params.objfiles->dim)
+  } else if (global.params.objfiles->dim) {
     result = FileName::removeExt(
         static_cast<const char *>(global.params.objfiles->data[0]));
-  else
+  } else {
     result = "a.out";
-
+  }
   if (sharedLib) {
     std::string libExt = std::string(".") + global.dll_ext;
     if (!endsWith(result, libExt)) {
-      if (global.params.targetTriple.getOS() != llvm::Triple::Win32)
+      if (global.params.targetTriple.getOS() != llvm::Triple::Win32) {
         result = "lib" + result + libExt;
-      else
+      } else {
         result.append(libExt);
+      }
     }
   } else if (global.params.targetTriple.isOSWindows() &&
              !endsWith(result, ".exe")) {
@@ -115,8 +116,9 @@ static int linkObjToBinaryGcc(bool sharedLib) {
   // output filename
   std::string output = getOutputName(sharedLib);
 
-  if (sharedLib)
+  if (sharedLib) {
     args.push_back("-shared");
+  }
 
   args.push_back("-o");
   args.push_back(output);
@@ -148,8 +150,9 @@ static int linkObjToBinaryGcc(bool sharedLib) {
     // Don't push -l and -L switches using -Xlinker, but pass them indirectly
     // via GCC. This makes sure user-defined paths take precedence over
     // GCC's builtin LIBRARY_PATHs.
-    if (!p[0] || !(p[0] == '-' && (p[1] == 'l' || p[1] == 'L')))
+    if (!p[0] || !(p[0] == '-' && (p[1] == 'l' || p[1] == 'L'))) {
       args.push_back("-Xlinker");
+    }
     args.push_back(p);
   }
 
@@ -220,10 +223,11 @@ static int linkObjToBinaryGcc(bool sharedLib) {
         break;
       }
     } else {
-      if (global.params.is64bit)
+      if (global.params.is64bit) {
         args.push_back("-m64");
-      else
+      } else {
         args.push_back("-m32");
+      }
     }
   }
 
@@ -236,10 +240,12 @@ static int linkObjToBinaryGcc(bool sharedLib) {
 
   Logger::println("Linking with: ");
   Stream logstr = Logger::cout();
-  for (const auto &arg : args)
-    if (!arg.empty())
+  for (const auto &arg : args) {
+    if (!arg.empty()) {
       logstr << "'" << arg << "'"
              << " ";
+    }
+  }
   logstr << "\n"; // FIXME where's flush ?
 
   // try to call linker
@@ -443,34 +449,39 @@ static int linkObjToBinaryWin(bool sharedLib) {
 
   // specify that the image will contain a table of safe exception handlers
   // (32bit only)
-  if (!global.params.is64bit)
+  if (!global.params.is64bit) {
     args.push_back("/SAFESEH");
+  }
 
   // because of a LLVM bug, see LDC issue 442
-  if (global.params.symdebug)
+  if (global.params.symdebug) {
     args.push_back("/LARGEADDRESSAWARE:NO");
-  else
+  } else {
     args.push_back("/LARGEADDRESSAWARE");
+  }
 
   // output debug information
-  if (global.params.symdebug)
+  if (global.params.symdebug) {
     args.push_back("/DEBUG");
+  }
 
   // enable Link-time Code Generation (aka. whole program optimization)
-  if (global.params.optimize)
+  if (global.params.optimize) {
     args.push_back("/LTCG");
+  }
 
   // remove dead code and fold identical COMDATs
-  if (opts::disableLinkerStripDead)
+  if (opts::disableLinkerStripDead) {
     args.push_back("/OPT:NOREF");
-  else {
+  } else {
     args.push_back("/OPT:REF");
     args.push_back("/OPT:ICF");
   }
 
   // specify creation of DLL
-  if (sharedLib)
+  if (sharedLib) {
     args.push_back("/DLL");
+  }
 
   // output filename
   std::string output = getOutputName(sharedLib);
@@ -501,9 +512,9 @@ static int linkObjToBinaryWin(bool sharedLib) {
     std::string str = global.params.linkswitches->data[i];
     if (str.length() > 2) {
       // rewrite common -L and -l switches
-      if (str[0] == '-' && str[1] == 'L')
+      if (str[0] == '-' && str[1] == 'L') {
         str = "/LIBPATH:" + str.substr(2);
-      else if (str[0] == '-' && str[1] == 'l') {
+      } else if (str[0] == '-' && str[1] == 'l') {
         str = str.substr(2) + ".lib";
       }
     }
@@ -525,10 +536,12 @@ static int linkObjToBinaryWin(bool sharedLib) {
 
   Logger::println("Linking with: ");
   Stream logstr = Logger::cout();
-  for (const auto &arg : args)
-    if (!arg.empty())
+  for (const auto &arg : args) {
+    if (!arg.empty()) {
       logstr << "'" << arg << "'"
              << " ";
+    }
+  }
   logstr << "\n"; // FIXME where's flush ?
 
   // try to call linker
@@ -539,10 +552,11 @@ static int linkObjToBinaryWin(bool sharedLib) {
 
 int linkObjToBinary(bool sharedLib) {
   int exitCode;
-  if (global.params.targetTriple.isWindowsMSVCEnvironment())
+  if (global.params.targetTriple.isWindowsMSVCEnvironment()) {
     exitCode = linkObjToBinaryWin(sharedLib);
-  else
+  } else {
     exitCode = linkObjToBinaryGcc(sharedLib);
+  }
   return exitCode;
 }
 
@@ -561,16 +575,19 @@ int createStaticLibrary() {
   std::vector<std::string> args;
 
   // ask ar to create a new library
-  if (!isTargetWindows)
+  if (!isTargetWindows) {
     args.push_back("rcs");
+  }
 
   // ask lib to be quiet
-  if (isTargetWindows)
+  if (isTargetWindows) {
     args.push_back("/NOLOGO");
+  }
 
   // enable Link-time Code Generation (aka. whole program optimization)
-  if (isTargetWindows && global.params.optimize)
+  if (isTargetWindows && global.params.optimize) {
     args.push_back("/LTCG");
+  }
 
   // output filename
   std::string libName;
@@ -578,13 +595,14 @@ int createStaticLibrary() {
     libName = global.params.objname;
   } else { // inferred
     // try root module name
-    if (Module::rootModule)
+    if (Module::rootModule) {
       libName = Module::rootModule->toChars();
-    else if (global.params.objfiles->dim)
+    } else if (global.params.objfiles->dim) {
       libName = FileName::removeExt(
           static_cast<const char *>(global.params.objfiles->data[0]));
-    else
+    } else {
       libName = "a.out";
+    }
   }
   // KN: The following lines were added to fix a test case failure
   // (runnable/test13774.sh).
@@ -592,12 +610,14 @@ int createStaticLibrary() {
   //     As a side effect this change broke compiling with dub.
   //    if (!FileName::absolute(libName.c_str()))
   //        libName = FileName::combine(global.params.objdir, libName.c_str());
-  if (llvm::sys::path::extension(libName).empty())
+  if (llvm::sys::path::extension(libName).empty()) {
     libName.append(std::string(".") + global.lib_ext);
-  if (isTargetWindows)
+  }
+  if (isTargetWindows) {
     args.push_back("/OUT:" + libName);
-  else
+  } else {
     args.push_back(libName);
+  }
 
   // object files
   for (unsigned i = 0; i < global.params.objfiles->dim; i++) {
@@ -610,10 +630,11 @@ int createStaticLibrary() {
 
   // try to call archiver
   int exitCode;
-  if (isTargetWindows)
+  if (isTargetWindows) {
     exitCode = executeMsvcToolAndWait(tool, args, global.params.verbose);
-  else
+  } else {
     exitCode = executeToolAndWait(tool, args, global.params.verbose);
+  }
   return exitCode;
 }
 

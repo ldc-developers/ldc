@@ -34,9 +34,10 @@ struct CoverageParser : public cl::parser<unsigned char> {
       return false;
     }
 
-    if (Arg.getAsInteger(0, Val))
+    if (Arg.getAsInteger(0, Val)) {
       return O.error("'" + Arg +
                      "' value invalid for required coverage percentage");
+    }
 
     if (Val > 100) {
       return O.error("Required coverage percentage must be <= 100");

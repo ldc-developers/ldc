@@ -88,8 +88,9 @@ static void codegenModule(llvm::TargetMachine &Target, llvm::Module &m,
 #else
                                  fout,
 #endif
-                                 fileType, codeGenOptLevel()))
+                                 fileType, codeGenOptLevel())) {
     llvm_unreachable("no support for asm output");
+  }
 
   Passes.run(m);
 }
@@ -135,10 +136,11 @@ static void assemble(const std::string &asmpath, const std::string &objpath) {
         break;
       }
     } else {
-      if (global.params.is64bit)
+      if (global.params.is64bit) {
         args.push_back("-m64");
-      else
+      } else {
         args.push_back("-m32");
+      }
     }
   }
 
@@ -188,9 +190,11 @@ class AssemblyAnnotator : public AssemblyAnnotationWriter {
         return Subprogram;
     return nullptr;
 #else
-    for (DISubprogram Subprogram : Finder.subprograms())
-      if (Subprogram.describes(F))
+    for (DISubprogram Subprogram : Finder.subprograms()) {
+      if (Subprogram.describes(F)) {
         return Subprogram;
+      }
+    }
     return nullptr;
 #endif
   }
@@ -221,9 +225,9 @@ public:
 
     // show demangled name
     llvm::StringRef funcName = GetDisplayName(F);
-    if (!funcName.empty())
+    if (!funcName.empty()) {
       os << " [display name = " << funcName << ']';
-
+    }
     os << '\n';
   }
 
@@ -247,8 +251,9 @@ public:
     }
 
     const Instruction *instr = dyn_cast<Instruction>(&val);
-    if (!instr)
+    if (!instr) {
       return;
+    }
 
 #if LDC_LLVM_VER >= 307
     if (const DebugLoc &debugLoc = instr->getDebugLoc())
@@ -298,8 +303,9 @@ public:
 #endif
     } else if (const CallInst *callinstr = dyn_cast<CallInst>(instr)) {
       const Function *F = callinstr->getCalledFunction();
-      if (!F)
+      if (!F) {
         return;
+      }
 
       StringRef funcName = GetDisplayName(F);
       if (!funcName.empty()) {
@@ -311,8 +317,9 @@ public:
       }
     } else if (const InvokeInst *invokeinstr = dyn_cast<InvokeInst>(instr)) {
       const Function *F = invokeinstr->getCalledFunction();
-      if (!F)
+      if (!F) {
         return;
+      }
 
       StringRef funcName = GetDisplayName(F);
       if (!funcName.empty()) {
@@ -394,8 +401,9 @@ void writeModule(llvm::Module *m, std::string filename) {
   if (global.params.output_s || assembleExternally) {
     LLPath spath = LLPath(filename);
     llvm::sys::path::replace_extension(spath, global.s_ext);
-    if (!global.params.output_s)
+    if (!global.params.output_s) {
       llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.s", spath);
+    }
 
     Logger::println("Writing native asm to: %s\n", spath.c_str());
 #if LDC_LLVM_VER >= 306

@@ -108,8 +108,9 @@ void printVersion() {
 #endif
   printf("  Default target: %s\n", llvm::sys::getDefaultTargetTriple().c_str());
   std::string CPU = llvm::sys::getHostCPUName();
-  if (CPU == "generic")
+  if (CPU == "generic") {
     CPU = "(unknown)";
+  }
   printf("  Host CPU: %s\n", CPU.c_str());
   printf("  http://dlang.org - http://wiki.dlang.org/LDC\n");
   printf("\n");
@@ -135,7 +136,7 @@ static void processVersions(std::vector<std::string> &list, const char *type,
       if (*end || errno || level > INT_MAX) {
         error(Loc(), "Invalid %s level: %s", type, i.c_str());
       } else {
-        setLevel((unsigned)level);
+        setLevel(static_cast<unsigned>(level));
       }
     } else {
       char *cstr = mem.xstrdup(value);
@@ -151,10 +152,11 @@ static void processVersions(std::vector<std::string> &list, const char *type,
 
 // Helper function to handle -of, -od, etc.
 static void initFromString(const char *&dest, const cl::opt<std::string> &src) {
-  dest = 0;
+  dest = nullptr;
   if (src.getNumOccurrences() != 0) {
-    if (src.empty())
+    if (src.empty()) {
       error(Loc(), "Expected argument to '-%s'", src.ArgStr);
+    }
     dest = mem.xstrdup(src.c_str());
   }
 }
@@ -162,8 +164,9 @@ static void initFromString(const char *&dest, const cl::opt<std::string> &src) {
 static void hide(llvm::StringMap<cl::Option *> &map, const char *name) {
   // Check if option exists first for resilience against LLVM changes
   // between versions.
-  if (map.count(name))
+  if (map.count(name)) {
     map[name]->setHiddenFlag(cl::Hidden);
+  }
 }
 
 static void rename(llvm::StringMap<cl::Option *> &map, const char *from,
@@ -268,10 +271,11 @@ int main(int argc, char **argv);
 static const char *tryGetExplicitConfFile(int argc, char **argv) {
   // begin at the back => use latest -conf= specification
   for (int i = argc - 1; i >= 1; --i) {
-    if (strncmp(argv[i], "-conf=", 6) == 0)
+    if (strncmp(argv[i], "-conf=", 6) == 0) {
       return argv[i] + 6;
+    }
   }
-  return 0;
+  return nullptr;
 }
 
 /// Parses switches from the command line, any response files and the global
@@ -291,8 +295,8 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   global.params.objfiles = new Strings();
   global.params.ddocfiles = new Strings();
 
-  global.params.moduleDeps = NULL;
-  global.params.moduleDepsFile = NULL;
+  global.params.moduleDeps = nullptr;
+  global.params.moduleDepsFile = nullptr;
 
   // Build combined list of command line arguments.
   std::vector<const char *> final_args;
@@ -325,8 +329,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     fprintf(global.stdmsg, "version   %s (DMD %s, LLVM %s)\n",
             global.ldc_version, global.version, global.llvm_version);
     const std::string &path = cfg_file.path();
-    if (!path.empty())
+    if (!path.empty()) {
       fprintf(global.stdmsg, "config    %s\n", path.c_str());
+    }
   }
 
   // Negated options
@@ -343,8 +348,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
   global.params.doDocComments |= global.params.docdir || global.params.docname;
 
   initFromString(global.params.jsonfilename, jsonFile);
-  if (global.params.jsonfilename)
+  if (global.params.jsonfilename) {
     global.params.doJsonGeneration = true;
+  }
 
   initFromString(global.params.hdrdir, hdrDir);
   initFromString(global.params.hdrname, hdrFile);
@@ -352,7 +358,7 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       global.params.hdrdir || global.params.hdrname;
 
   initFromString(global.params.moduleDepsFile, moduleDepsFile);
-  if (global.params.moduleDepsFile != NULL) {
+  if (global.params.moduleDepsFile != nullptr) {
     global.params.moduleDeps = new OutBuffer;
   }
 
@@ -422,8 +428,9 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     while (libNames.good()) {
       std::string lib;
       std::getline(libNames, lib, ',');
-      if (lib.empty())
+      if (lib.empty()) {
         continue;
+      }
 
       char *arg = static_cast<char *>(mem.xmalloc(lib.size() + 3));
       strcpy(arg, "-l");
@@ -432,15 +439,17 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
     }
   }
 
-  if (global.params.useUnitTests)
+  if (global.params.useUnitTests) {
     global.params.useAssert = 1;
+  }
 
   // -release downgrades default bounds checking level to BOUNDSCHECKsafeonly
   // (only for safe functions).
   global.params.useArrayBounds =
       opts::nonSafeBoundsChecks ? BOUNDSCHECKon : BOUNDSCHECKsafeonly;
-  if (opts::boundsCheck != BOUNDSCHECKdefault)
+  if (opts::boundsCheck != BOUNDSCHECKdefault) {
     global.params.useArrayBounds = opts::boundsCheck;
+  }
 
   // LDC output determination
 
@@ -473,24 +482,29 @@ static void parseCommandLine(int argc, char **argv, Strings &sourceFiles,
       s[len + 1] = 0;
       global.params.objname = s;
     }
-    if (autofound && global.params.output_o == OUTPUTFLAGdefault)
+    if (autofound && global.params.output_o == OUTPUTFLAGdefault) {
       global.params.output_o = OUTPUTFLAGno;
+    }
   }
 
   // only link if possible
-  if (!global.params.obj || !global.params.output_o || createStaticLib)
+  if (!global.params.obj || !global.params.output_o || createStaticLib) {
     global.params.link = 0;
+  }
 
-  if (createStaticLib && createSharedLib)
+  if (createStaticLib && createSharedLib) {
     error(Loc(), "-lib and -shared switches cannot be used together");
+  }
 
-  if (createSharedLib && mRelocModel == llvm::Reloc::Default)
+  if (createSharedLib && mRelocModel == llvm::Reloc::Default) {
     mRelocModel = llvm::Reloc::PIC_;
+  }
 
   if (global.params.link && !createSharedLib) {
     global.params.exefile = global.params.objname;
-    if (sourceFiles.dim > 1)
-      global.params.objname = NULL;
+    if (sourceFiles.dim > 1) {
+      global.params.objname = nullptr;
+    }
   } else if (global.params.run) {
     error(Loc(), "flags conflict with -run");
   } else if (global.params.objname && sourceFiles.dim > 1) {
@@ -557,7 +571,7 @@ static void registerMipsABI() {
 /// Register the float ABI.
 /// Also defines D_HardFloat or D_SoftFloat depending if FPU should be used
 static void registerPredefinedFloatABI(const char *soft, const char *hard,
-                                       const char *softfp = NULL) {
+                                       const char *softfp = nullptr) {
 // Use target floating point unit instead of s/w float routines
 #if LDC_LLVM_VER >= 307
   // FIXME: This is a semantic change!
@@ -605,11 +619,12 @@ static void registerPredefinedTargetVersions() {
   case llvm::Triple::ppc64le:
     VersionCondition::addPredefinedGlobalIdent("PPC64");
     registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
-    if (global.params.targetTriple.getOS() == llvm::Triple::Linux)
+    if (global.params.targetTriple.getOS() == llvm::Triple::Linux) {
       VersionCondition::addPredefinedGlobalIdent(
           global.params.targetTriple.getArch() == llvm::Triple::ppc64
               ? "ELFv1"
               : "ELFv2");
+    }
     break;
   case llvm::Triple::arm:
   case llvm::Triple::armeb:
@@ -775,17 +790,21 @@ static void registerPredefinedVersions() {
   VersionCondition::addPredefinedGlobalIdent("all");
   VersionCondition::addPredefinedGlobalIdent("D_Version2");
 
-  if (global.params.doDocComments)
+  if (global.params.doDocComments) {
     VersionCondition::addPredefinedGlobalIdent("D_Ddoc");
+  }
 
-  if (global.params.useUnitTests)
+  if (global.params.useUnitTests) {
     VersionCondition::addPredefinedGlobalIdent("unittest");
+  }
 
-  if (global.params.useAssert)
+  if (global.params.useAssert) {
     VersionCondition::addPredefinedGlobalIdent("assert");
+  }
 
-  if (global.params.useArrayBounds == BOUNDSCHECKoff)
+  if (global.params.useArrayBounds == BOUNDSCHECKoff) {
     VersionCondition::addPredefinedGlobalIdent("D_NoBoundsChecks");
+  }
 
   registerPredefinedTargetVersions();
 
@@ -863,7 +882,7 @@ static void emitJson(Modules &modules) {
 
     ensurePathToNameExists(Loc(), jsonfilename);
 
-    File *jsonfile = new File(jsonfilename);
+    auto jsonfile = new File(jsonfilename);
 
     jsonfile->setbuffer(buf.data, buf.offset);
     jsonfile->ref = 1;
@@ -901,25 +920,30 @@ int main(int argc, char **argv) {
     return EXIT_FAILURE;
   }
 
-  if (global.errors)
+  if (global.errors) {
     fatal();
+  }
 
   // Set up the TargetMachine.
   ExplicitBitness::Type bitness = ExplicitBitness::None;
-  if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty()))
+  if ((m32bits || m64bits) && (!mArch.empty() || !mTargetTriple.empty())) {
     error(Loc(), "-m32 and -m64 switches cannot be used together with -march "
                  "and -mtriple switches");
+  }
 
-  if (m32bits)
+  if (m32bits) {
     bitness = ExplicitBitness::M32;
+  }
   if (m64bits) {
-    if (bitness != ExplicitBitness::None)
+    if (bitness != ExplicitBitness::None) {
       error(Loc(), "cannot use both -m32 and -m64 options");
+    }
     bitness = ExplicitBitness::M64;
   }
 
-  if (global.errors)
+  if (global.errors) {
     fatal();
+  }
 
   gTargetMachine = createTargetMachine(
       mTargetTriple, mArch, mCPU, mAttrs, bitness, mFloatABI, mRelocModel,
@@ -984,8 +1008,9 @@ int main(int argc, char **argv) {
       Strings *a = FileName::splitPath(path);
 
       if (a) {
-        if (!global.path)
+        if (!global.path) {
           global.path = new Strings();
+        }
         global.path->append(a);
       }
     }
@@ -999,8 +1024,9 @@ int main(int argc, char **argv) {
       Strings *a = FileName::splitPath(path);
 
       if (a) {
-        if (!global.filePath)
+        if (!global.filePath) {
           global.filePath = new Strings();
+        }
         global.filePath->append(a);
       }
     }
@@ -1105,18 +1131,20 @@ int main(int argc, char **argv) {
     }
 
     id = Identifier::idPool(name);
-    Module *m = new Module(files.data[i], id, global.params.doDocComments,
-                           global.params.doHdrGeneration);
+    auto m = new Module(files.data[i], id, global.params.doDocComments,
+                        global.params.doHdrGeneration);
     modules.push(m);
   }
 
   // Read files, parse them
   for (unsigned i = 0; i < modules.dim; i++) {
     Module *m = modules[i];
-    if (global.params.verbose)
+    if (global.params.verbose) {
       fprintf(global.stdmsg, "parse     %s\n", m->toChars());
-    if (!Module::rootModule)
+    }
+    if (!Module::rootModule) {
       Module::rootModule = m;
+    }
     m->importedFrom = m;
 
     if (strcmp(m->srcfile->name->str, global.main_d) == 0) {
@@ -1138,8 +1166,9 @@ int main(int argc, char **argv) {
       i--;
     }
   }
-  if (global.errors)
+  if (global.errors) {
     fatal();
+  }
 
   if (global.params.doHdrGeneration) {
     /* Generate 'header' import files.
@@ -1148,61 +1177,72 @@ int main(int argc, char **argv) {
      * before any semantic analysis.
      */
     for (unsigned i = 0; i < modules.dim; i++) {
-      if (global.params.verbose)
+      if (global.params.verbose) {
         fprintf(global.stdmsg, "import    %s\n", modules[i]->toChars());
+      }
       genhdrfile(modules[i]);
     }
   }
-  if (global.errors)
+  if (global.errors) {
     fatal();
+  }
 
   // load all unconditional imports for better symbol resolving
   for (unsigned i = 0; i < modules.dim; i++) {
-    if (global.params.verbose)
+    if (global.params.verbose) {
       fprintf(global.stdmsg, "importall %s\n", modules[i]->toChars());
-    modules[i]->importAll(0);
+    }
+    modules[i]->importAll(nullptr);
   }
-  if (global.errors)
+  if (global.errors) {
     fatal();
+  }
 
   // Do semantic analysis
   for (unsigned i = 0; i < modules.dim; i++) {
-    if (global.params.verbose)
+    if (global.params.verbose) {
       fprintf(global.stdmsg, "semantic  %s\n", modules[i]->toChars());
+    }
     modules[i]->semantic();
   }
-  if (global.errors)
+  if (global.errors) {
     fatal();
+  }
 
   Module::dprogress = 1;
   Module::runDeferredSemantic();
 
   // Do pass 2 semantic analysis
   for (unsigned i = 0; i < modules.dim; i++) {
-    if (global.params.verbose)
+    if (global.params.verbose) {
       fprintf(global.stdmsg, "semantic2 %s\n", modules[i]->toChars());
+    }
     modules[i]->semantic2();
   }
-  if (global.errors)
+  if (global.errors) {
     fatal();
+  }
 
   // Do pass 3 semantic analysis
   for (unsigned i = 0; i < modules.dim; i++) {
-    if (global.params.verbose)
+    if (global.params.verbose) {
       fprintf(global.stdmsg, "semantic3 %s\n", modules[i]->toChars());
+    }
     modules[i]->semantic3();
   }
-  if (global.errors)
+  if (global.errors) {
     fatal();
+  }
 
   Module::runDeferredSemantic3();
 
-  if (global.errors || global.warnings)
+  if (global.errors || global.warnings) {
     fatal();
+  }
 
   // Now that we analyzed all modules, write the module dependency file if
   // the user requested it.
-  if (global.params.moduleDepsFile != NULL) {
+  if (global.params.moduleDepsFile != nullptr) {
     File deps(global.params.moduleDepsFile);
     OutBuffer *ob = global.params.moduleDeps;
     deps.setbuffer(static_cast<void *>(ob->data), ob->offset);
@@ -1215,13 +1255,15 @@ int main(int argc, char **argv) {
 
     for (unsigned i = 0; i < modules.dim; i++) {
       Module *const m = modules[i];
-      if (global.params.verbose)
+      if (global.params.verbose) {
         fprintf(global.stdmsg, "code      %s\n", m->toChars());
+      }
 
       cg.emit(m);
 
-      if (global.errors)
+      if (global.errors) {
         fatal();
+      }
     }
   }
 
@@ -1233,28 +1275,32 @@ int main(int argc, char **argv) {
   }
 
   // Generate the AST-describing JSON file.
-  if (global.params.doJsonGeneration)
+  if (global.params.doJsonGeneration) {
     emitJson(modules);
+  }
 
   LLVM_D_FreeRuntime();
   llvm::llvm_shutdown();
 
-  if (global.errors)
+  if (global.errors) {
     fatal();
+  }
 
   // Finally, produce the final executable/archive and run it, if we are
   // supposed to.
   int status = EXIT_SUCCESS;
   if (!global.params.objfiles->dim) {
-    if (global.params.link)
+    if (global.params.link) {
       error(Loc(), "no object files to link");
-    else if (createStaticLib)
+    } else if (createStaticLib) {
       error(Loc(), "no object files");
+    }
   } else {
-    if (global.params.link)
+    if (global.params.link) {
       status = linkObjToBinary(createSharedLib);
-    else if (createStaticLib)
+    } else if (createStaticLib) {
       status = createStaticLibrary();
+    }
 
     if (global.params.run && status == EXIT_SUCCESS) {
       status = runExecutable();

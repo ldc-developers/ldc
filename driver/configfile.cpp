@@ -78,10 +78,6 @@ ConfigFile::ConfigFile() {
   config_init(cfg);
 }
 
-ConfigFile::~ConfigFile() {
-  // delete cfg;
-}
-
 bool ConfigFile::locate() {
   // temporary configuration
 
@@ -169,19 +165,22 @@ bool ConfigFile::read(const char *explicitConfFile) {
     // treat an empty path (`-conf=`) as missing command-line option,
     // defaulting to an auto-located config file, analogous to DMD
     if (!clPath.empty()) {
-      if (sys::fs::exists(clPath))
+      if (sys::fs::exists(clPath)) {
         pathstr = clPath;
-      else
+      } else {
         fprintf(stderr, "Warning: configuration file '%s' not found, falling "
                         "back to default\n",
                 clPath.c_str());
+      }
     }
   }
 
   // locate file automatically if path is not set yet
-  if (pathstr.empty())
-    if (!locate())
+  if (pathstr.empty()) {
+    if (!locate()) {
       return false;
+    }
+  }
 
   // read the cfg
   if (!config_read_file(cfg, pathstr.c_str())) {
@@ -214,8 +213,9 @@ bool ConfigFile::read(const char *explicitConfFile) {
       std::string v(config_setting_get_string(config_setting_get_elem(sw, i)));
 
       size_t p;
-      while (std::string::npos != (p = v.find(binpathkey)))
+      while (std::string::npos != (p = v.find(binpathkey))) {
         v.replace(p, binpathkey.size(), binpath);
+      }
 
       switches.push_back(strdup(v.c_str()));
     }
