@@ -18,8 +18,8 @@ void IrDsymbol::resetAll()
 {
     Logger::println("resetting %llu Dsymbols", static_cast<unsigned long long>(list.size()));
 
-    for (std::vector<IrDsymbol*>::iterator it = list.begin(), end = list.end(); it != end; ++it)
-        (*it)->reset();
+    for (auto s : list)
+        s->reset();
 }
 
 IrDsymbol::IrDsymbol()
@@ -44,7 +44,7 @@ IrDsymbol::~IrDsymbol()
         return;
     }
 
-    std::vector<IrDsymbol*>::iterator it = std::find(list.rbegin(), list.rend(), this).base();
+    auto it = std::find(list.rbegin(), list.rend(), this).base();
     // base() returns the iterator _after_ the found position
     list.erase(--it);
 }

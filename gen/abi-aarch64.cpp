@@ -52,14 +52,12 @@ struct AArch64TargetABI : TargetABI
         return t->toBasetype()->ty == Tstruct;
     }
 
-    void rewriteFunctionType(TypeFunction* t, IrFuncTy &fty)
+    void rewriteFunctionType(TypeFunction* t, IrFuncTy& fty)
     {
-        for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I)
+        for (auto arg : fty.args)
         {
-            IrFuncTyArg& arg = **I;
-
-            if (!arg.byref)
-                rewriteArgument(fty, arg);
+            if (!arg->byref)
+                rewriteArgument(fty, *arg);
         }
     }
 

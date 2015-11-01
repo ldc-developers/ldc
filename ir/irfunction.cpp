@@ -48,12 +48,11 @@ void executeCleanup(IRState* irs, CleanupScope& scope,
 
         // Now we also need to store 0 to it to keep the paths that go to the
         // only existing branch target the same.
-        std::vector<llvm::BasicBlock*>& v = scope.exitTargets.front().sourceBlocks;
-        for (std::vector<llvm::BasicBlock*>::iterator it = v.begin(), end = v.end();
-            it != end; ++it
-        ) {
+        auto& v = scope.exitTargets.front().sourceBlocks;
+        for (auto bb : v)
+        {
             new llvm::StoreInst(DtoConstUint(0), scope.branchSelector,
-                (*it)->getTerminator());
+                bb->getTerminator());
         }
 
         // And convert the BranchInst to the existing branch target to a
@@ -110,12 +109,8 @@ ScopeStack::~ScopeStack() {
     // down or "sideways" (i.e. down another branch) of the tree of all
     // cleanup scopes, both of which are not allowed in D.
     if (!topLevelUnresolvedGotos.empty()) {
-        for (std::vector<GotoJump>::iterator it = topLevelUnresolvedGotos.begin(),
-                                             end = topLevelUnresolvedGotos.end();
-            it != end; ++it
-        ) {
-            error(it->sourceLoc, "goto into try/finally scope is not allowed");
-        }
+        for (const auto& i : topLevelUnresolvedGotos)
+            error(i.sourceLoc, "goto into try/finally scope is not allowed");
         fatal();
     }
 }
@@ -160,17 +155,15 @@ void ScopeStack::popCleanups(CleanupCursor targetScope) {
     for (CleanupCursor i = currentCleanupScope(); i-- > targetScope;) {
         // Any gotos that are still unresolved necessarily leave this scope.
         // Thus, the cleanup needs to be executed.
-        for (std::vector<GotoJump>::iterator it = currentUnresolvedGotos().begin(),
-                                             end = currentUnresolvedGotos().end();
-            it != end; ++it
-        ) {
+        for (const auto& gotoJump : currentUnresolvedGotos())
+        {
             // Make the source resp. last cleanup branch to this one.
-            llvm::BasicBlock* tentative = it->tentativeTarget;
+            llvm::BasicBlock* tentative = gotoJump.tentativeTarget;
             tentative->replaceAllUsesWith(cleanupScopes[i].beginBlock);
 
             // And continue execution with the tentative target (we simply reuse
             // it because there is no reason not to).
-            executeCleanup(irs, cleanupScopes[i], it->sourceBlock, tentative);
+            executeCleanup(irs, cleanupScopes[i], gotoJump.sourceBlock, tentative);
         }
 
 
@@ -244,7 +237,7 @@ void ScopeStack::addLabelTarget(Identifier* labelName,
 void ScopeStack::jumpToLabel(Loc loc, Identifier* labelName) {
     // If we have already seen that label, branch to it, executing any cleanups
     // as necessary.
-    LabelTargetMap::iterator it = labelTargets.find(labelName);
+    auto it = labelTargets.find(labelName);
     if (it != labelTargets.end()) {
         runCleanups(it->second.cleanupScope, it->second.targetBlock);
         return;

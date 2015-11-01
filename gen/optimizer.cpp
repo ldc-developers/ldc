@@ -402,8 +402,8 @@ bool ldc_optimize_module(llvm::Module *M)
 
     // Run per-function passes.
     fpm.doInitialization();
-    for (llvm::Module::iterator F = M->begin(), E = M->end(); F != E; ++F)
-        fpm.run(*F);
+    for (auto& F : *M)
+        fpm.run(F);
     fpm.doFinalization();
 
     // Run per-module passes.

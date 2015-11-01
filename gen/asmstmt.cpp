@@ -210,7 +210,7 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
 
     assert(code->args.size() <= 10);
 
-    std::vector<AsmArg>::iterator arg = code->args.begin();
+    auto arg = code->args.begin();
     for (unsigned i = 0; i < code->args.size(); i++, ++arg) {
         bool is_input = true;
         LLValue* arg_val = 0;
@@ -301,9 +301,8 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
     }
 
     bool pct = false;
-    std::string::iterator
-        p = code->insnTemplate.begin(),
-        q = code->insnTemplate.end();
+    auto p = code->insnTemplate.begin();
+    auto q = code->insnTemplate.end();
     //printf("start: %.*s\n", code->insnTemplateLen, code->insnTemplate);
     while (p < q) {
         if (pct) {
@@ -320,30 +319,29 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
         ++p;
     }
 
-    typedef std::vector<std::string>::iterator It;
     IF_LOG {
         Logger::cout() << "final asm: " << code->insnTemplate << '\n';
         std::ostringstream ss;
 
         ss << "GCC-style output constraints: {";
-        for (It i = output_constraints.begin(), e = output_constraints.end(); i != e; ++i) {
-            ss << " " << *i;
+        for (const auto& oc : output_constraints) {
+            ss << " " << oc;
         }
         ss << " }";
         Logger::println("%s", ss.str().c_str());
 
         ss.str("");
         ss << "GCC-style input constraints: {";
-        for (It i = input_constraints.begin(), e = input_constraints.end(); i != e; ++i) {
-            ss << " " << *i;
+        for (const auto& ic : input_constraints) {
+            ss << " " << ic;
         }
         ss << " }";
         Logger::println("%s", ss.str().c_str());
 
         ss.str("");
         ss << "GCC-style clobbers: {";
-        for (It i = clobbers.begin(), e = clobbers.end(); i != e; ++i) {
-            ss << " " << *i;
+        for (const auto& c : clobbers) {
+            ss << " " << c;
         }
         ss << " }";
         Logger::println("%s", ss.str().c_str());
@@ -353,16 +351,16 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
     std::string llvmOutConstraints;
     std::string llvmInConstraints;
     int n = 0;
-    for(It i = output_constraints.begin(), e = output_constraints.end(); i != e; ++i, ++n) {
+    for (auto& oc : output_constraints) {
         // rewrite update constraint to in and out constraints
-        if((*i)[0] == '+') {
-            assert(*i == mrw_cns && "What else are we updating except memory?");
+        if(oc[0] == '+') {
+            assert(oc == mrw_cns && "What else are we updating except memory?");
             /* LLVM doesn't support updating operands, so split into an input
              * and an output operand.
              */
 
             // Change update operand to pure output operand.
-            *i = mw_cns;
+            oc = mw_cns;
 
             // Add input operand with same value, with original as "matching output".
             std::ostringstream ss;
@@ -371,38 +369,37 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState * irs)
             input_constraints.push_back(ss.str());
             input_values.push_back(output_values[n]);
         }
-        llvmOutConstraints += *i;
+        llvmOutConstraints += oc;
         llvmOutConstraints += ",";
     }
     asmblock->outputcount += n;
 
-    for(It i = input_constraints.begin(), e = input_constraints.end(); i != e; ++i) {
-        llvmInConstraints += *i;
+    for (const auto& ic : input_constraints) {
+        llvmInConstraints += ic;
         llvmInConstraints += ",";
     }
 
     std::string clobstr;
-    for(It i = clobbers.begin(), e = clobbers.end(); i != e; ++i) {
-        clobstr = "~{" + *i + "},";
+    for (const auto& c : clobbers) {
+        clobstr = "~{" + c + "},";
         asmblock->clobs.insert(clobstr);
     }
 
     IF_LOG {
-        typedef std::vector<LLValue*>::iterator It;
         {
             Logger::println("Output values:");
             LOG_SCOPE
             size_t i = 0;
-            for (It I = output_values.begin(), E = output_values.end(); I != E; ++I) {
-                Logger::cout() << "Out " << i++ << " = " << **I << '\n';
+            for (auto ov : output_values) {
+                Logger::cout() << "Out " << i++ << " = " << *ov << '\n';
             }
         }
         {
             Logger::println("Input values:");
             LOG_SCOPE
             size_t i = 0;
-            for (It I = input_values.begin(), E = input_values.end(); I != E; ++I) {
-                Logger::cout() << "In  " << i++ << " = " << **I << '\n';
+            for (auto iv : input_values) {
+                Logger::cout() << "In  " << i++ << " = " << *iv << '\n';
             }
         }
     }
@@ -541,8 +538,8 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState* p)
             std::vector<Identifier*>::const_iterator it, end;
             end = asmblock->internalLabels.end();
             bool skip = false;
-            for(it = asmblock->internalLabels.begin(); it != end; ++it)
-                if((*it)->equals(a->isBranchToLabel->ident))
+            for(auto il : asmblock->internalLabels)
+                if(il->equals(a->isBranchToLabel->ident))
                     skip = true;
             if(skip)
                 continue;
@@ -657,10 +654,9 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState* p)
     out_c += in_c;
 
     // append clobbers
-    typedef std::set<std::string>::iterator clobs_it;
-    for (clobs_it i=asmblock->clobs.begin(); i!=asmblock->clobs.end(); ++i)
+    for (const auto& c : asmblock->clobs)
     {
-        out_c += *i;
+        out_c += c;
     }
 
     // remove excessive comma
@@ -693,11 +689,13 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState* p)
     IF_LOG {
         Logger::cout() << "Arguments:" << '\n';
         Logger::indent();
-        for (std::vector<LLValue*>::iterator b = args.begin(), i = b, e = args.end(); i != e; ++i) {
+        size_t i = 0;
+        for (auto arg : args) {
             Stream cout = Logger::cout();
-            cout << '$' << (i - b) << " ==> " << **i;
-            if (!llvm::isa<llvm::Instruction>(*i) && !llvm::isa<LLGlobalValue>(*i))
+            cout << '$' << i << " ==> " << *arg;
+            if (!llvm::isa<llvm::Instruction>(arg) && !llvm::isa<LLGlobalValue>(arg))
                 cout << '\n';
+            ++i;
         }
         Logger::undent();
     }
@@ -735,14 +733,13 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState* p)
         llvm::SwitchInst* sw = p->ir->CreateSwitch(val, bb, gotoToVal.size());
 
         // add all cases
-        std::map<LabelDsymbol*, int>::iterator it, end = gotoToVal.end();
-        for(it = gotoToVal.begin(); it != end; ++it)
+        for (const auto& pair : gotoToVal)
         {
             llvm::BasicBlock* casebb = llvm::BasicBlock::Create(gIR->context(), "case", p->topfunc(), bb);
-            sw->addCase(LLConstantInt::get(llvm::IntegerType::get(gIR->context(), 32), it->second), casebb);
+            sw->addCase(LLConstantInt::get(llvm::IntegerType::get(gIR->context(), 32), pair.second), casebb);
 
             p->scope() = IRScope(casebb);
-            DtoGoto(stmt->loc, it->first);
+            DtoGoto(stmt->loc, pair.first);
         }
 
         p->scope() = IRScope(bb);

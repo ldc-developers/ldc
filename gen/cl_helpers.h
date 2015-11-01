@@ -113,16 +113,15 @@ namespace opts {
 
         // parse - Return true on error.
         bool parse(cl::Option& O, llvm::StringRef ArgName, llvm::StringRef Arg, DataType& Val) {
-            typedef typename llvm::SmallVector<std::pair<std::string, DataType>, 2>::iterator It;
-            for (It I = switches.begin(), E = switches.end(); I != E; ++I) {
-                llvm::StringRef name = I->first;
+            for (const auto& pair : switches) {
+                const auto& name = pair.first;
                 if (name == ArgName
                     || (name.size() < ArgName.size()
                     && ArgName.substr(0, name.size()) == name
                     && ArgName[name.size()] == '=')) {
                     if (!parse(owner(), Arg, Val))
                     {
-                        Val = (Val == I->second) ? FlagParserDataType<DataType>::true_val() : FlagParserDataType<DataType>::false_val();
+                        Val = (Val == pair.second) ? FlagParserDataType<DataType>::true_val() : FlagParserDataType<DataType>::false_val();
                         return false;
                     }
                     // Invalid option value
@@ -133,8 +132,7 @@ namespace opts {
         }
 
         void getExtraOptionNames(llvm::SmallVectorImpl<const char*>& Names) {
-            typedef typename llvm::SmallVector<std::pair<std::string, DataType>, 2>::iterator It;
-            for (It I = switches.begin() + 1, E = switches.end(); I != E; ++I) {
+            for (auto I = switches.begin() + 1, E = switches.end(); I != E; ++I) {
                 Names.push_back(I->first.data());
             }
         }

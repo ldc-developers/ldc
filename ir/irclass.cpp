@@ -273,7 +273,7 @@ LLConstant * IrAggr::getClassInfoInit()
 
 llvm::GlobalVariable * IrAggr::getInterfaceVtbl(BaseClass * b, bool new_instance, size_t interfaces_index)
 {
-    ClassGlobalMap::iterator it = interfaceVtblMap.find(b->base);
+    auto it = interfaceVtblMap.find(b->base);
     if (it != interfaceVtblMap.end())
         return it->second;
 
@@ -488,7 +488,7 @@ LLConstant * IrAggr::getClassInfoInterfaces()
         }
         else
         {
-            ClassGlobalMap::iterator itv = interfaceVtblMap.find(it->base);
+            auto itv = interfaceVtblMap.find(it->base);
             assert(itv != interfaceVtblMap.end() && "interface vtbl not found");
             vtb = itv->second;
             vtb = DtoBitCast(vtb, voidptrptr_type);
@@ -548,12 +548,10 @@ void IrAggr::initializeInterface()
     if (!base->vtblInterfaces)
         return;
 
-    for (BaseClasses::iterator I = base->vtblInterfaces->begin(),
-                               E = base->vtblInterfaces->end();
-                               I != E; ++I)
+    for (auto bc : *base->vtblInterfaces)
     {
         // add to the interface list
-        interfacesWithVtbls.push_back(*I);
+        interfacesWithVtbls.push_back(bc);
     }
 }
 

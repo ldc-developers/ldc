@@ -56,11 +56,8 @@ void DtoResolveStruct(StructDeclaration* sd, Loc& callerLoc)
     getIrAggr(sd, true);
 
     // Set up our field metadata.
-    for (VarDeclarations::iterator I = sd->fields.begin(),
-                                   E = sd->fields.end();
-                                   I != E; ++I)
+    for (auto vd : sd->fields)
     {
-        VarDeclaration *vd = *I;
         IF_LOG {
             if (isIrFieldCreated(vd))
                 Logger::println("struct field already exists");
@@ -105,7 +102,7 @@ LLType* DtoUnpaddedStructType(Type* dty) {
 
     typedef llvm::DenseMap<Type*, llvm::StructType*> CacheT;
     static llvm::ManagedStatic<CacheT> cache;
-    CacheT::iterator it = cache->find(dty);
+    auto it = cache->find(dty);
     if (it != cache->end())
         return it->second;
 

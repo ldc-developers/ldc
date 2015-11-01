@@ -377,12 +377,8 @@ static void DtoCreateNestedContextType(FuncDeclaration* fd)
 
         // Add the direct nested variables of this function, and update their indices to match.
         // TODO: optimize ordering for minimal space usage?
-        for (VarDeclarations::iterator I = fd->closureVars.begin(),
-                                       E = fd->closureVars.end();
-                                       I != E; ++I)
+        for (auto vd : fd->closureVars)
         {
-            VarDeclaration* vd = *I;
-
             unsigned alignment = DtoAlignment(vd);
             if (alignment > 1)
                 builder.alignCurrentOffset(alignment);
@@ -508,11 +504,7 @@ void DtoCreateNestedContext(FuncDeclaration* fd) {
         irfunction->nestedVar = frame;
 
         // go through all nested vars and assign addresses where possible.
-        for (VarDeclarations::iterator I = fd->closureVars.begin(),
-                                       E = fd->closureVars.end();
-                                       I != E; ++I) {
-            VarDeclaration *vd = *I;
-
+        for (auto vd : fd->closureVars) {
             if (needsClosure && vd->needsAutoDtor()) {
                 // This should really be a front-end, not a glue layer error,
                 // but we need to fix this in DMD too.

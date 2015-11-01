@@ -377,26 +377,25 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL, AliasAnal
     IRBuilder<> Builder(F.getContext());
 
     bool Changed = false;
-    for (Function::iterator BB = F.begin(), E = F.end(); BB != E; ++BB) {
-        for (BasicBlock::iterator I = BB->begin(), E = BB->end(); I != E; ) {
+    for (auto& BB : F) {
+        for (auto I = BB.begin(); I != BB.end(); ) {
             // Ignore non-calls.
             CallInst *CI = dyn_cast<CallInst>(I++);
             if (!CI) continue;
 
             // Ignore indirect calls and calls to non-external functions.
             Function *Callee = CI->getCalledFunction();
-            if (Callee == 0 || !Callee->isDeclaration() || !Callee->hasExternalLinkage())
+            if (Callee == nullptr || !Callee->isDeclaration() || !Callee->hasExternalLinkage())
                 continue;
 
             // Ignore unknown calls.
-            StringMap<LibCallOptimization*>::iterator OMI =
-                Optimizations.find(Callee->getName());
+            auto OMI = Optimizations.find(Callee->getName());
             if (OMI == Optimizations.end()) continue;
 
             DEBUG(errs() << "SimplifyDRuntimeCalls inspecting: " << *CI);
 
             // Set the builder to the instruction after the call.
-            Builder.SetInsertPoint(BB, I);
+            Builder.SetInsertPoint(&BB, I);
 
             // Try to optimize this call.
 #if LDC_LLVM_VER >= 308

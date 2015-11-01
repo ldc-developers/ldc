@@ -57,13 +57,8 @@ public:
         LOG_SCOPE;
 
         if (stmt->statements)
-            for (Statements::iterator I = stmt->statements->begin(),
-                                      E = stmt->statements->end();
-                                      I != E; ++I)
-            {
-                Statement *s = *I;
+            for (auto s : *stmt->statements)
                 if (s) s->accept(this);
-            }
     }
 
     //////////////////////////////////////////////////////////////////////////
