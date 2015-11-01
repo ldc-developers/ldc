@@ -906,13 +906,13 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     if ((vdBasetype->ty == Tstruct || vdBasetype->ty == Tsarray) && vd->init &&
         (ei = vd->init->isExpInitializer())) {
       if (ei->exp->op == TOKconstruct) {
-        AssignExp *ae = static_cast<AssignExp *>(ei->exp);
+        auto ae = static_cast<AssignExp *>(ei->exp);
         Expression *rhs = ae->e2;
 
         // Allow casts only emitted because of differing static array
         // constness. See runnable.sdtor.test10094.
         if (rhs->op == TOKcast && vdBasetype->ty == Tsarray) {
-          Expression *castSource = ((CastExp *)rhs)->e1;
+          Expression *castSource = static_cast<CastExp *>(rhs)->e1;
           Type *rhsElem = castSource->type->toBasetype()->nextOf();
           if (rhsElem) {
             Type *l = vdBasetype->nextOf()->arrayOf()->immutableOf();
@@ -924,7 +924,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
         }
 
         if (rhs->op == TOKcall) {
-          CallExp *ce = static_cast<CallExp *>(rhs);
+          auto ce = static_cast<CallExp *>(rhs);
           if (DtoIsReturnInArg(ce)) {
             if (isSpecialRefVar(vd)) {
               LLValue *const val = toElem(ce)->getLVal();

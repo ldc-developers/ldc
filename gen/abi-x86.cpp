@@ -103,15 +103,15 @@ public:
     if (tf->linkage == LINKd) {
       return rt->ty == Tstruct || rt->ty == Tsarray;
     }
+
     // other ABI's follow C, which is cdouble and creal returned on the stack
     // as well as structs (except for some OSX cases).
-
     if (isMagicCLong(rt)) {
       return false;
     }
 
     if (rt->ty == Tstruct) {
-      return !isOSX || returnOSXStructInArg((TypeStruct *)rt);
+      return !isOSX || returnOSXStructInArg(static_cast<TypeStruct *>(rt));
     }
     return (rt->ty == Tsarray || rt->ty == Tcomplex64 || rt->ty == Tcomplex80);
   }
