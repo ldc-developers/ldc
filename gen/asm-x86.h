@@ -23,11 +23,10 @@
 #include <cctype>
 
 #ifndef ASM_X86_64
-namespace AsmParserx8632
+namespace AsmParserx8632 {
 #else
-namespace AsmParserx8664
+namespace AsmParserx8664 {
 #endif
-    {
 
 typedef enum {
   Reg_Invalid = -1,
