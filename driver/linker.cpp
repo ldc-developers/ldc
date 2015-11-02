@@ -92,7 +92,7 @@ static std::string getOutputName(bool const sharedLib) {
 
 static std::string gExePath;
 
-static int linkObjToBinaryGcc(bool sharedLib) {
+static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   Logger::println("*** Linking executable ***");
 
   // find gcc for linking
@@ -118,6 +118,10 @@ static int linkObjToBinaryGcc(bool sharedLib) {
 
   if (sharedLib) {
     args.push_back("-shared");
+  }
+
+  if (fullyStatic) {
+    args.push_back("-static");
   }
 
   args.push_back("-o");
@@ -550,14 +554,13 @@ static int linkObjToBinaryWin(bool sharedLib) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-int linkObjToBinary(bool sharedLib) {
-  int exitCode;
+int linkObjToBinary(bool sharedLib, bool fullyStatic) {
   if (global.params.targetTriple.isWindowsMSVCEnvironment()) {
-    exitCode = linkObjToBinaryWin(sharedLib);
-  } else {
-    exitCode = linkObjToBinaryGcc(sharedLib);
+    // TODO: Choose dynamic/static MSVCRT version based on fullyStatic?
+    return linkObjToBinaryWin(sharedLib);
   }
-  return exitCode;
+
+  return linkObjToBinaryGcc(sharedLib, fullyStatic);
 }
 
 //////////////////////////////////////////////////////////////////////////////
