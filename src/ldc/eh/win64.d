@@ -372,9 +372,10 @@ void _d_eh_resume_unwind(Object e)
     fatalerror("_d_eh_resume_unwind: RtlRaiseException failed");
 }
 
-void _d_eh_enter_catch()
+Object _d_eh_enter_catch(Object e)
 {
     popCleanupBlockRecord();
+    return e;
 }
 
 } // Win64

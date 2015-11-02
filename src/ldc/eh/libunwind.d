@@ -10,6 +10,7 @@ version (Win64) {} else
 // debug = EH_personality;
 // debug = EH_personality_verbose;
 
+import core.stdc.stdlib : malloc, free;
 import ldc.eh.common;
 
 private:
@@ -414,7 +415,9 @@ void _d_throw_exception(Object e)
     if (throwable.info is null && cast(byte*)throwable !is typeid(throwable).init.ptr)
         throwable.info = _d_traceContext();
 
-    auto exc_struct = new _d_exception;
+    auto exc_struct = cast(_d_exception*)malloc(_d_exception.sizeof);
+    if (!exc_struct)
+        fatalerror("Could not allocate D exception record; out of memory?");
     version (ARM)
     {
         exc_struct.unwind_info.exception_class = _d_exception_class;
@@ -454,9 +457,12 @@ void _d_eh_resume_unwind(_d_exception* exception_struct)
     _Unwind_Resume(&exception_struct.unwind_info);
 }
 
-void _d_eh_enter_catch()
+Object _d_eh_enter_catch(_d_exception* exception_struct)
 {
+    auto obj = exception_struct.exception_object;
+    free(exception_struct);
     popCleanupBlockRecord();
+    return obj;
 }
 
 } // !Win64
