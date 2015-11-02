@@ -98,10 +98,9 @@ LLValue *ABIRewrite::loadFromMemory(LLValue *address, LLType *asType,
 
 void TargetABI::rewriteVarargs(IrFuncTy &fty,
                                std::vector<IrFuncTyArg *> &args) {
-  for (auto &Elem : args) {
-    IrFuncTyArg &arg = *Elem;
-    if (!arg.byref) { // don't rewrite ByVal arguments
-      rewriteArgument(fty, arg);
+  for (auto arg : args) {
+    if (!arg->byref) { // don't rewrite ByVal arguments
+      rewriteArgument(fty, *arg);
     }
   }
 }

@@ -350,10 +350,9 @@ void X86_64TargetABI::rewriteVarargs(IrFuncTy &fty,
   // fty.tag
   RegCount regCount = getRegCount(fty);
 
-  for (auto &Elem : args) {
-    IrFuncTyArg &arg = *Elem;
-    if (!arg.byref) { // don't rewrite ByVal arguments
-      rewriteArgument(arg, regCount);
+  for (auto arg : args) {
+    if (!arg->byref) { // don't rewrite ByVal arguments
+      rewriteArgument(*arg, regCount);
     }
   }
 }
