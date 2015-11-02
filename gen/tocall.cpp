@@ -612,9 +612,8 @@ public:
                            Type *resulttype, LLValue *retvar)
       : args(args), attrs(attrs), loc(loc), fnval(fnval),
         llCalleeType(llCalleeType), arguments(arguments),
-        resulttype(resulttype), retvar(retvar)
+        resulttype(resulttype), retvar(retvar),
         // computed:
-        ,
         calleeType(fnval->getType()), dfnval(fnval->isFunc()),
         irFty(DtoIrTypeFunction(fnval)), tf(DtoTypeFunction(fnval)),
         llArgTypesBegin(llCalleeType->param_begin()) {}
@@ -863,11 +862,11 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
 
   bool retValIsAlloca = false;
 
-  // Ignore ABI for intrinsics
+  // ignore ABI for intrinsics
   const bool intrinsic =
       (dfnval && dfnval->func && DtoIsIntrinsic(dfnval->func));
   if (!intrinsic && !irFty.arg_sret) {
-    // do abi specific return value fixups
+    // do ABI specific return value fixups
     if (storeReturnValueOnStack) {
       Logger::println("Storing return value to stack slot");
       LLValue *mem = DtoAlloca(returntype);

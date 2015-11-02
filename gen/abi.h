@@ -58,13 +58,13 @@ protected:
   static llvm::Value *getAddressOf(DValue *v);
 
   // Stores a LL value to a specified memory address. The element type of the
-  // provided
-  // pointer doesn't need to match the value type (=> suited for bit-casting).
+  // provided pointer doesn't need to match the value type (=> suited for
+  // bit-casting).
   static void storeToMemory(llvm::Value *rval, llvm::Value *address);
 
   // Loads a LL value of a specified type from memory. The element type of the
-  // provided
-  // pointer doesn't need to match the value type (=> suited for bit-casting).
+  // provided pointer doesn't need to match the value type (=> suited for
+  // bit-casting).
   static llvm::Value *loadFromMemory(llvm::Value *address, llvm::Type *asType,
                                      const char *name = ".bitcast_result");
 };
@@ -95,16 +95,28 @@ struct TargetABI {
     return name;
   }
 
-  /// Returns true if the function uses sret (struct return),
-  /// meaning that it gets a hidden pointer to a struct which has been pre-
-  /// allocated by the caller.
+  /// Returns true if the D function uses sret (struct return).
+  ///
+  /// A LL sret function doesn't really return a struct (in fact, it returns
+  /// void); it merely just sets a struct which has been pre-allocated by the
+  /// caller.
+  /// The address is passed as additional function parameter using the StructRet
+  /// attribute.
   virtual bool returnInArg(TypeFunction *tf) = 0;
 
-  /// Returns true if the type is passed by value
+  /// Returns true if the D type is passed using the LLVM ByVal attribute.
+  ///
+  /// ByVal arguments are bitcopied to the callee's function parameters stack in
+  /// memory.
+  /// For the LL callee, a ByVal parameter is an implicit pointer to the
+  /// bitcopy; the pointer is computed by LLVM and not passed as an explicit
+  /// parameter.
+  /// The LL caller needs to pass a pointer to the original argument (the memcpy
+  /// source).
   virtual bool passByVal(Type *t) = 0;
 
-  // Returns true if the 'this' argument is to be passed before the 'sret'
-  // argument.
+  /// Returns true if the 'this' argument is to be passed before the 'sret'
+  /// argument.
   virtual bool passThisBeforeSret(TypeFunction *tf) { return false; }
 
   /// Called to give ABI the chance to rewrite the types

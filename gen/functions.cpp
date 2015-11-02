@@ -144,8 +144,10 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       loweredDType = ltd;
     } else if (!passPointer) {
       if (abi->passByVal(loweredDType)) {
+        // LLVM ByVal parameters are pointers to a copy in the function
+        // parameters stack. The caller needs to provide a pointer to the
+        // original argument.
         attrBuilder.add(LLAttribute::ByVal);
-        // byval parameters are also passed as an address
         passPointer = true;
       } else {
         // Add sext/zext as needed.
@@ -158,7 +160,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     ++nextLLArgIdx;
   }
 
-  // let the abi rewrite the types as necesary
+  // let the ABI rewrite the types as necessary
   abi->rewriteFunctionType(f, newIrFty);
 
   // Now we can modify irFty safely.
