@@ -858,8 +858,8 @@ static void emitJson(Modules &modules) {
   // Write buf to file
   const char *name = global.params.jsonfilename;
 
-  if (name && name[0] == '-' &&
-      name[1] == 0) { // Write to stdout; assume it succeeds
+  if (name && name[0] == '-' && name[1] == 0) {
+    // Write to stdout; assume it succeeds
     (void)fwrite(buf.data, 1, buf.offset, stdout);
   } else {
     /* The filename generation code here should be harmonized with
