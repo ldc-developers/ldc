@@ -21,58 +21,50 @@
 #include "gen/tollvm.h"
 
 struct MIPS64TargetABI : TargetABI {
-    ExplicitByvalRewrite byvalRewrite;
-    IntegerRewrite integerRewrite;
-    const bool Is64Bit;
+  ExplicitByvalRewrite byvalRewrite;
+  IntegerRewrite integerRewrite;
+  const bool Is64Bit;
 
-    MIPS64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit)
-    { }
+  explicit MIPS64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
 
-    bool returnInArg(TypeFunction* tf)
-    {
-        if (tf->isref)
-            return false;
-
-        // Return structs and static arrays on the stack. The latter is needed
-        // because otherwise LLVM tries to actually return the array in a number
-        // of physical registers, which leads, depending on the target, to
-        // either horrendous codegen or backend crashes.
-        Type* rt = tf->next->toBasetype();
-        return (rt->ty == Tstruct || rt->ty == Tsarray);
+  bool returnInArg(TypeFunction *tf) override {
+    if (tf->isref) {
+      return false;
     }
 
-    bool passByVal(Type* t)
-    {
-        TY ty = t->toBasetype()->ty;
-        return ty == Tstruct || ty == Tsarray;
-    }
+    // Return structs and static arrays on the stack. The latter is needed
+    // because otherwise LLVM tries to actually return the array in a number
+    // of physical registers, which leads, depending on the target, to
+    // either horrendous codegen or backend crashes.
+    Type *rt = tf->next->toBasetype();
+    return (rt->ty == Tstruct || rt->ty == Tsarray);
+  }
 
-    void rewriteFunctionType(TypeFunction* tf, IrFuncTy &fty)
-    {
-        for (IrFuncTy::ArgIter I = fty.args.begin(), E = fty.args.end(); I != E; ++I)
-        {
-            IrFuncTyArg& arg = **I;
+  bool passByVal(Type *t) override {
+    TY ty = t->toBasetype()->ty;
+    return ty == Tstruct || ty == Tsarray;
+  }
 
-            if (!arg.byref)
-                rewriteArgument(fty, arg);
-        }
+  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+    for (auto arg : fty.args) {
+      if (!arg->byref) {
+        rewriteArgument(fty, *arg);
+      }
     }
+  }
 
-    void rewriteArgument(IrFuncTy& fty, IrFuncTyArg& arg)
-    {
-        // FIXME
-    }
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    // FIXME
+  }
 
-    // Returns true if the D type can be bit-cast to an integer of the same size.
-    bool canRewriteAsInt(Type* t)
-    {
-        const unsigned size = t->size();
-        return size == 1 || size == 2 || size == 4 || (Is64Bit && size == 8);
-    }
+  // Returns true if the D type can be bit-cast to an integer of the same size.
+  bool canRewriteAsInt(Type *t) {
+    const unsigned size = t->size();
+    return size == 1 || size == 2 || size == 4 || (Is64Bit && size == 8);
+  }
 };
 
 // The public getter for abi.cpp
-TargetABI* getMIPS64TargetABI(bool Is64Bit)
-{
-    return new MIPS64TargetABI(Is64Bit);
+TargetABI *getMIPS64TargetABI(bool Is64Bit) {
+  return new MIPS64TargetABI(Is64Bit);
 }

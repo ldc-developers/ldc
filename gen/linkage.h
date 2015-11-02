@@ -18,9 +18,9 @@
 
 // Make it easier to test new linkage types
 
-#  define TYPEINFO_LINKAGE_TYPE           LLGlobalValue::LinkOnceODRLinkage
+#define TYPEINFO_LINKAGE_TYPE LLGlobalValue::LinkOnceODRLinkage
 // The One-Definition-Rule shouldn't matter for debug info, right?
-#  define DEBUGINFO_LINKONCE_LINKAGE_TYPE LLGlobalValue::LinkOnceAnyLinkage
+#define DEBUGINFO_LINKONCE_LINKAGE_TYPE LLGlobalValue::LinkOnceAnyLinkage
 
 extern LLGlobalValue::LinkageTypes templateLinkage;
 

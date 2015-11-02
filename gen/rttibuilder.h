@@ -26,61 +26,64 @@ struct IrGlobal;
 struct IrAggr;
 class Type;
 class TypeClass;
-namespace llvm { class StructType; }
+namespace llvm {
+class StructType;
+}
 
-class RTTIBuilder
-{
-    AggregateDeclaration* base;
-    TypeClass* basetype;
-    IrAggr* baseir;
+class RTTIBuilder {
+  AggregateDeclaration *base;
+  TypeClass *basetype;
+  IrAggr *baseir;
 
-    /// The offset (in bytes) at which the previously pushed field ended.
-    uint64_t prevFieldEnd;
+  /// The offset (in bytes) at which the previously pushed field ended.
+  uint64_t prevFieldEnd;
 
 public:
-    // 15 is enough for any D2 ClassInfo including 64 bit pointer alignment padding
-    llvm::SmallVector<llvm::Constant*, 15> inits;
+  // 15 is enough for any D2 ClassInfo including 64 bit pointer alignment
+  // padding
+  llvm::SmallVector<llvm::Constant *, 15> inits;
 
-    RTTIBuilder(AggregateDeclaration* base_class);
+  explicit RTTIBuilder(AggregateDeclaration *base_class);
 
-    void push(llvm::Constant* C);
-    void push_null(Type* T);
-    void push_null_vp();
-    void push_null_void_array();
-    void push_uint(unsigned u);
-    void push_size(uint64_t s);
-    void push_size_as_vp(uint64_t s);
-    void push_string(const char* str);
-    void push_typeinfo(Type* t);
-    void push_classinfo(ClassDeclaration* cd);
+  void push(llvm::Constant *C);
+  void push_null(Type *T);
+  void push_null_vp();
+  void push_null_void_array();
+  void push_uint(unsigned u);
+  void push_size(uint64_t s);
+  void push_size_as_vp(uint64_t s);
+  void push_string(const char *str);
+  void push_typeinfo(Type *t);
+  void push_classinfo(ClassDeclaration *cd);
 
-    /// pushes the function pointer or a null void* if it cannot.
-    void push_funcptr(FuncDeclaration* fd, Type* castto = NULL);
+  /// pushes the function pointer or a null void* if it cannot.
+  void push_funcptr(FuncDeclaration *fd, Type *castto = nullptr);
 
-    /// pushes the array slice given.
-    void push_array(uint64_t dim, llvm::Constant * ptr);
+  /// pushes the array slice given.
+  void push_array(uint64_t dim, llvm::Constant *ptr);
 
-    /// pushes void[] slice, dim is used directly, ptr is cast to void* .
-    void push_void_array(uint64_t dim, llvm::Constant* ptr);
+  /// pushes void[] slice, dim is used directly, ptr is cast to void* .
+  void push_void_array(uint64_t dim, llvm::Constant *ptr);
 
-    /// pushes void[] slice with data.
-    /// CI is the constant initializer the array should point to, the length
-    /// and ptr are resolved automatically
-    void push_void_array(llvm::Constant* CI, Type* valtype, Dsymbol* mangle_sym);
+  /// pushes void[] slice with data.
+  /// CI is the constant initializer the array should point to, the length
+  /// and ptr are resolved automatically
+  void push_void_array(llvm::Constant *CI, Type *valtype, Dsymbol *mangle_sym);
 
-    /// pushes valtype[] slice with data.
-    /// CI is the constant initializer that .ptr should point to
-    /// dim is .length member directly
-    /// valtype provides the D element type, .ptr is cast to valtype->pointerTo()
-    /// mangle_sym provides the mangle prefix for the symbol generated.
-    void push_array(llvm::Constant* CI, uint64_t dim, Type* valtype, Dsymbol* mangle_sym);
+  /// pushes valtype[] slice with data.
+  /// CI is the constant initializer that .ptr should point to
+  /// dim is .length member directly
+  /// valtype provides the D element type, .ptr is cast to valtype->pointerTo()
+  /// mangle_sym provides the mangle prefix for the symbol generated.
+  void push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
+                  Dsymbol *mangle_sym);
 
-    /// Creates the initializer constant and assigns it to the global.
-    void finalize(IrGlobal* tid);
-    void finalize(llvm::Type* type, llvm::Value* value);
+  /// Creates the initializer constant and assigns it to the global.
+  void finalize(IrGlobal *tid);
+  void finalize(llvm::Type *type, llvm::Value *value);
 
-    /// Creates the initializer constant and assigns it to the global.
-    llvm::Constant* get_constant(llvm::StructType* initType);
+  /// Creates the initializer constant and assigns it to the global.
+  llvm::Constant *get_constant(llvm::StructType *initType);
 };
 
 #endif

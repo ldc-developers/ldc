@@ -8494,7 +8494,7 @@ Lagain:
                  */
                 if (sd->size(loc) > Target::ptrsize * 4 && !t1->needsNested())
 #if IN_LLVM
-                    ; // FIXME!!!
+                    {} // FIXME!!!
 #else
                     sle->sinit = toInitializer(sd);
 #endif

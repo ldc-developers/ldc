@@ -27,29 +27,33 @@
 // returns true if the quote is unescaped
 bool applyBackslashRule(std::string &arg) {
   std::string::reverse_iterator it;
-  for (it = arg.rbegin(); it != arg.rend() && *it == '\\'; ++it) {}
+  for (it = arg.rbegin(); it != arg.rend() && *it == '\\'; ++it) {
+  }
   size_t numbs = std::distance(arg.rbegin(), it);
   bool escapedquote = numbs % 2;
   size_t numescaped = numbs / 2 + escapedquote;
   arg.resize(arg.size() - numescaped);
-  if (escapedquote)
+  if (escapedquote) {
     arg += '"';
+  }
   return !escapedquote;
 }
 
 // returns true if the end of the quote is the end of the argument
 bool dealWithQuote(std::istream &is, std::string &arg) {
   // first go back and deal with backslashes
-  if (!applyBackslashRule(arg))
+  if (!applyBackslashRule(arg)) {
     return false;
+  }
 
   // keep appending until we find a quote terminator
   while (is.good()) {
     char c = is.get();
     switch (c) {
     case '"':
-      if (applyBackslashRule(arg))
+      if (applyBackslashRule(arg)) {
         return false;
+      }
       break;
     case EOF: // new line or EOF ends quote and argument
     case '\n':
@@ -66,8 +70,9 @@ bool dealWithQuote(std::istream &is, std::string &arg) {
 void dealWithComment(std::istream &is) {
   while (is.good()) {
     char c = is.get();
-    if (c == '\n' || c == '\r')
+    if (c == '\n' || c == '\r') {
       return; // newline, carriage return and EOF end comment
+    }
   }
 }
 
@@ -97,15 +102,17 @@ std::vector<std::string> expand(std::istream &is) {
       arg += c;
       while (is.good()) {
         c = is.peek();
-        if (std::isspace(c) || c == '"' || c == EOF)
+        if (std::isspace(c) || c == '"' || c == EOF) {
           break; // N.B. comments can't be placed in the middle of an arg
-        else
+        } else {
           arg += is.get();
+        }
       }
     }
   }
-  if (!arg.empty())
+  if (!arg.empty()) {
     expanded.push_back(arg);
+  }
   return expanded;
 }
 
@@ -135,38 +142,41 @@ int response_expand(size_t *pargc, char ***ppargv) {
       arg.erase(arg.begin()); // remove leading '@'
       if (arg.empty()) {
         return 1;
-      } else {
-        if (response_args.find(arg) == response_args.end())
-          response_args[arg] = 1;
-        else if (++response_args[arg] > reexpand_limit)
-          return 2; // We might be in an infinite loop
-
-        std::vector<std::string> expanded_args;
-        const char *env = getenv(arg.c_str());
-        if (env) {
-          std::string envCppStr(env);
-          std::istringstream ss(envCppStr);
-          expanded_args = expand(ss);
-        } else {
-          std::ifstream ifs(arg.c_str());
-          if (ifs.good())
-            expanded_args = expand(ifs);
-          else
-            return 3; // response not found between environment and files
-        }
-        unprocessed_args.insert(unprocessed_args.begin(), expanded_args.begin(),
-                                expanded_args.end());
       }
+      if (response_args.find(arg) == response_args.end()) {
+        response_args[arg] = 1;
+      } else if (++response_args[arg] > reexpand_limit) {
+        return 2; // We might be in an infinite loop
+      }
+
+      std::vector<std::string> expanded_args;
+      const char *env = getenv(arg.c_str());
+      if (env) {
+        std::string envCppStr(env);
+        std::istringstream ss(envCppStr);
+        expanded_args = expand(ss);
+      } else {
+        std::ifstream ifs(arg.c_str());
+        if (ifs.good()) {
+          expanded_args = expand(ifs);
+        } else {
+          return 3; // response not found between environment and files
+        }
+      }
+      unprocessed_args.insert(unprocessed_args.begin(), expanded_args.begin(),
+                              expanded_args.end());
+
     } else if (!arg.empty()) {
       processed_args.push_back(arg);
     }
   }
 
-  char **pargv = (char **)malloc(sizeof(pargv) * processed_args.size());
+  char **pargv =
+      reinterpret_cast<char **>(malloc(sizeof(pargv) * processed_args.size()));
 
   for (size_t i = 0; i < processed_args.size(); ++i) {
-    pargv[i] =
-        (char *)malloc(sizeof(pargv[i]) * (1 + processed_args[i].length()));
+    pargv[i] = reinterpret_cast<char *>(
+        malloc(sizeof(pargv[i]) * (1 + processed_args[i].length())));
     strcpy(pargv[i], processed_args[i].c_str());
   }
 

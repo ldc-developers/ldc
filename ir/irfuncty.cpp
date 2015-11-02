@@ -15,84 +15,78 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 
-IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, const AttrBuilder& a)
-    : type(t), parametersIdx(0),
+IrFuncTyArg::IrFuncTyArg(Type *t, bool bref, AttrBuilder a)
+    : type(t),
       ltype(t != Type::tvoid && bref ? DtoType(t->pointerTo()) : DtoType(t)),
-      attrs(a), byref(bref), rewrite(0)
-{}
+      attrs(std::move(a)), byref(bref) {}
 
-bool IrFuncTyArg::isInReg() const { return attrs.contains(LDC_ATTRIBUTE(InReg)); }
-bool IrFuncTyArg::isSRet() const  { return attrs.contains(LDC_ATTRIBUTE(StructRet)); }
-bool IrFuncTyArg::isByVal() const { return attrs.contains(LDC_ATTRIBUTE(ByVal)); }
+bool IrFuncTyArg::isInReg() const { return attrs.contains(LLAttribute::InReg); }
+bool IrFuncTyArg::isSRet() const {
+  return attrs.contains(LLAttribute::StructRet);
+}
+bool IrFuncTyArg::isByVal() const { return attrs.contains(LLAttribute::ByVal); }
 
-llvm::Value* IrFuncTy::putRet(DValue* dval)
-{
-    assert(!arg_sret);
+llvm::Value *IrFuncTy::putRet(DValue *dval) {
+  assert(!arg_sret);
 
-    if (ret->rewrite) {
-        Logger::println("Rewrite: putRet");
-        LOG_SCOPE
-        return ret->rewrite->put(dval);
-    }
+  if (ret->rewrite) {
+    Logger::println("Rewrite: putRet");
+    LOG_SCOPE
+    return ret->rewrite->put(dval);
+  }
 
-    return dval->getRVal();
+  return dval->getRVal();
 }
 
-llvm::Value* IrFuncTy::getRet(Type* dty, LLValue* val)
-{
-    assert(!arg_sret);
+llvm::Value *IrFuncTy::getRet(Type *dty, LLValue *val) {
+  assert(!arg_sret);
 
-    if (ret->rewrite) {
-        Logger::println("Rewrite: getRet");
-        LOG_SCOPE
-        return ret->rewrite->get(dty, val);
-    }
+  if (ret->rewrite) {
+    Logger::println("Rewrite: getRet");
+    LOG_SCOPE
+    return ret->rewrite->get(dty, val);
+  }
 
-    return val;
+  return val;
 }
 
-void IrFuncTy::getRet(Type* dty, LLValue* val, LLValue* address)
-{
-    assert(!arg_sret);
+void IrFuncTy::getRet(Type *dty, LLValue *val, LLValue *address) {
+  assert(!arg_sret);
 
-    if (ret->rewrite) {
-        Logger::println("Rewrite: getRet (getL)");
-        LOG_SCOPE
-        ret->rewrite->getL(dty, val, address);
-        return;
-    }
+  if (ret->rewrite) {
+    Logger::println("Rewrite: getRet (getL)");
+    LOG_SCOPE
+    ret->rewrite->getL(dty, val, address);
+    return;
+  }
 
-    DtoStoreZextI8(val, address);
+  DtoStoreZextI8(val, address);
 }
 
-llvm::Value* IrFuncTy::putParam(size_t idx, DValue* dval)
-{
-    assert(idx < args.size() && "invalid putParam");
-    return putParam(*args[idx], dval);
+llvm::Value *IrFuncTy::putParam(size_t idx, DValue *dval) {
+  assert(idx < args.size() && "invalid putParam");
+  return putParam(*args[idx], dval);
 }
 
-llvm::Value* IrFuncTy::putParam(const IrFuncTyArg& arg, DValue* dval)
-{
-    if (arg.rewrite) {
-        Logger::println("Rewrite: putParam");
-        LOG_SCOPE
-        return arg.rewrite->put(dval);
-    }
+llvm::Value *IrFuncTy::putParam(const IrFuncTyArg &arg, DValue *dval) {
+  if (arg.rewrite) {
+    Logger::println("Rewrite: putParam");
+    LOG_SCOPE
+    return arg.rewrite->put(dval);
+  }
 
-    return dval->getRVal();
+  return dval->getRVal();
 }
 
-void IrFuncTy::getParam(Type* dty, size_t idx, LLValue* val, LLValue* address)
-{
-    assert(idx < args.size() && "invalid getParam");
+void IrFuncTy::getParam(Type *dty, size_t idx, LLValue *val, LLValue *address) {
+  assert(idx < args.size() && "invalid getParam");
 
-    if (args[idx]->rewrite)
-    {
-        Logger::println("Rewrite: getParam (getL)");
-        LOG_SCOPE
-        args[idx]->rewrite->getL(dty, val, address);
-        return;
-    }
+  if (args[idx]->rewrite) {
+    Logger::println("Rewrite: getParam (getL)");
+    LOG_SCOPE
+    args[idx]->rewrite->getL(dty, val, address);
+    return;
+  }
 
-    DtoStoreZextI8(val, address);
+  DtoStoreZextI8(val, address);
 }

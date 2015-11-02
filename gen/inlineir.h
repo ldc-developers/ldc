@@ -16,9 +16,9 @@
 
 class FuncDeclaration;
 namespace llvm {
-	class Function;
+class Function;
 }
 
-llvm::Function* DtoInlineIRFunction(FuncDeclaration* fdecl);
+llvm::Function *DtoInlineIRFunction(FuncDeclaration *fdecl);
 
 #endif

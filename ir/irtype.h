@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #ifndef __LDC_IR_IRTYPE_H__
 #define __LDC_IR_IRTYPE_H__
 
@@ -22,10 +21,9 @@
 
 // forward declarations
 
-namespace llvm
-{
-    class LLVMContext;
-    class Type;
+namespace llvm {
+class LLVMContext;
+class Type;
 }
 
 class Type;
@@ -59,143 +57,137 @@ class IrTypeVector;
 /// TODO: Implement the described changes (now that the forward reference
 /// handling logic seems to work correctly) and get rid of the "no-op" DtoType
 /// calls in IrAggr, ... that only exist for their side effect.
-class IrType
-{
+class IrType {
 public:
-    virtual ~IrType() {}
+  virtual ~IrType() = default;
 
-    ///
-    virtual IrTypeAggr* isAggr()        { return 0; }
-    ///
-    virtual IrTypeArray* isArray()      { return 0; }
-    ///
-    virtual IrTypeBasic* isBasic()      { return 0; }
-    ///
-    virtual IrTypeClass* isClass()      { return 0; }
-    ///
-    virtual IrTypeDelegate* isDelegate(){ return 0; }
-    ///
-    virtual IrTypeFunction* isFunction(){ return 0; }
-    ///
-    virtual IrTypePointer* isPointer()  { return 0; }
-    ///
-    virtual IrTypeSArray* isSArray()    { return 0; }
-    ///
-    virtual IrTypeStruct* isStruct()    { return 0; }
-    ///
-    virtual IrTypeVector* isVector()    { return 0; }
+  ///
+  virtual IrTypeAggr *isAggr() { return nullptr; }
+  ///
+  virtual IrTypeArray *isArray() { return nullptr; }
+  ///
+  virtual IrTypeBasic *isBasic() { return nullptr; }
+  ///
+  virtual IrTypeClass *isClass() { return nullptr; }
+  ///
+  virtual IrTypeDelegate *isDelegate() { return nullptr; }
+  ///
+  virtual IrTypeFunction *isFunction() { return nullptr; }
+  ///
+  virtual IrTypePointer *isPointer() { return nullptr; }
+  ///
+  virtual IrTypeSArray *isSArray() { return nullptr; }
+  ///
+  virtual IrTypeStruct *isStruct() { return nullptr; }
+  ///
+  virtual IrTypeVector *isVector() { return nullptr; }
 
-    ///
-    Type* getDType()                    { return dtype; }
-    ///
-    virtual llvm::Type* getLLType()     { return type; }
+  ///
+  Type *getDType() { return dtype; }
+  ///
+  virtual llvm::Type *getLLType() { return type; }
 
-    ///
-    virtual IrFuncTy &getIrFuncTy();
+  ///
+  virtual IrFuncTy &getIrFuncTy();
 
 protected:
-    ///
-    IrType(Type* dt, llvm::Type* lt);
+  ///
+  IrType(Type *dt, llvm::Type *lt);
 
-    ///
-    Type* dtype;
+  ///
+  Type *dtype = nullptr;
 
-    /// LLVM type.
-    llvm::Type* type;
+  /// LLVM type.
+  llvm::Type *type = nullptr;
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
 /// IrType for basic D types.
-class IrTypeBasic : public IrType
-{
+class IrTypeBasic : public IrType {
 public:
-    ///
-    static IrTypeBasic* get(Type* dt);
+  ///
+  static IrTypeBasic *get(Type *dt);
 
-    ///
-    IrTypeBasic* isBasic()          { return this; }
+  ///
+  IrTypeBasic *isBasic() override { return this; }
 
 protected:
-    ///
-    IrTypeBasic(Type* dt);
-    ///
-    static llvm::Type* getComplexType(llvm::LLVMContext& ctx, llvm::Type* type);
-    ///
-    static llvm::Type* basic2llvm(Type* t);
+  ///
+  explicit IrTypeBasic(Type *dt);
+  ///
+  static llvm::Type *getComplexType(llvm::LLVMContext &ctx, llvm::Type *type);
+  ///
+  static llvm::Type *basic2llvm(Type *t);
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
 /// IrType from pointers.
-class IrTypePointer : public IrType
-{
+class IrTypePointer : public IrType {
 public:
-    ///
-    static IrTypePointer* get(Type* dt);
+  ///
+  static IrTypePointer *get(Type *dt);
 
-    ///
-    IrTypePointer* isPointer()      { return this; }
+  ///
+  IrTypePointer *isPointer() override { return this; }
 
 protected:
-    ///
-    IrTypePointer(Type* dt, llvm::Type *lt);
+  ///
+  IrTypePointer(Type *dt, llvm::Type *lt);
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
 /// IrType for static arrays
-class IrTypeSArray : public IrType
-{
+class IrTypeSArray : public IrType {
 public:
-    ///
-    static IrTypeSArray* get(Type* dt);
+  ///
+  static IrTypeSArray *get(Type *dt);
 
-    ///
-    IrTypeSArray* isSArray()  { return this; }
+  ///
+  IrTypeSArray *isSArray() override { return this; }
 
 protected:
-    ///
-    IrTypeSArray(Type* dt);
+  ///
+  explicit IrTypeSArray(Type *dt);
 
-    ///
-    static llvm::Type* sarray2llvm(Type* t);
+  ///
+  static llvm::Type *sarray2llvm(Type *t);
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
 /// IrType for dynamic arrays
-class IrTypeArray : public IrType
-{
+class IrTypeArray : public IrType {
 public:
-    ///
-    static IrTypeArray* get(Type* dt);
+  ///
+  static IrTypeArray *get(Type *dt);
 
-    ///
-    IrTypeArray* isArray()  { return this; }
+  ///
+  IrTypeArray *isArray() override { return this; }
 
 protected:
-    ///
-    IrTypeArray(Type* dt, llvm::Type *lt);
+  ///
+  IrTypeArray(Type *dt, llvm::Type *lt);
 };
 
 //////////////////////////////////////////////////////////////////////////////
 
 /// IrType for vectors
-class IrTypeVector : public IrType
-{
+class IrTypeVector : public IrType {
 public:
-    ///
-    static IrTypeVector* get(Type* dt);
+  ///
+  static IrTypeVector *get(Type *dt);
 
-    ///
-    IrTypeVector* isVector()    { return this; }
+  ///
+  IrTypeVector *isVector() override { return this; }
 
 protected:
-    ///
-    IrTypeVector(Type* dt);
+  ///
+  explicit IrTypeVector(Type *dt);
 
-    static llvm::Type* vector2llvm(Type* dt);
+  static llvm::Type *vector2llvm(Type *dt);
 };
 
 #endif

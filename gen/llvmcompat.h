@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #ifdef _MSC_VER
 #pragma once
 #endif
@@ -27,19 +26,19 @@
 #define ADDRESS_SPACE 0
 
 #ifndef __has_feature
-# define __has_feature(x) 0
+#define __has_feature(x) 0
 #endif
 
-#if __has_feature(cxx_override_control) \
-    || (defined(_MSC_VER) && _MSC_VER >= 1700)
+#if __has_feature(cxx_override_control) ||                                     \
+    (defined(_MSC_VER) && _MSC_VER >= 1700)
 #define LLVM_OVERRIDE override
 #else
 #define LLVM_OVERRIDE
 #endif
 
-#if (__has_feature(cxx_rvalue_references)   \
-     || defined(__GXX_EXPERIMENTAL_CXX0X__) \
-     || (defined(_MSC_VER) && _MSC_VER >= 1600))
+#if (__has_feature(cxx_rvalue_references) ||                                   \
+     defined(__GXX_EXPERIMENTAL_CXX0X__) ||                                    \
+     (defined(_MSC_VER) && _MSC_VER >= 1600))
 #define LLVM_HAS_RVALUE_REFERENCES 1
 #else
 #define LLVM_HAS_RVALUE_REFERENCES 0

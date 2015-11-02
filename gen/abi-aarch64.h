@@ -16,6 +16,6 @@
 
 struct TargetABI;
 
-TargetABI* getAArch64TargetABI();
+TargetABI *getAArch64TargetABI();
 
 #endif
