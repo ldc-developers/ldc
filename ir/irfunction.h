@@ -402,7 +402,21 @@ struct IrFunction {
   void setNeverInline();
   void setAlwaysInline();
 
+  /// Returns the stack slot that contains the exception object pointer while a
+  /// landing pad is active, lazily creating it as needed.
+  ///
+  /// Need this because the instruction must dominate all uses as a
+  /// _d_eh_resume_unwind parameter, but if we take a select at the end on a
+  /// cleanup on the way there, it also must dominate all other predecessors
+  /// of the cleanup. Thus, we just create an alloca at the start of the
+  /// function.
   llvm::AllocaInst *getOrCreateEhPtrSlot();
+
+  /// Returns the basic block with the call to the unwind resume function.
+  ///
+  /// Because of ehPtrSlot, we do not need more than one, so might as well
+  /// save on code size and reuse it.
+  llvm::BasicBlock *getOrCreateResumeUnwindBlock();
 
   llvm::Function *func = nullptr;
   llvm::Instruction *allocapoint = nullptr;
@@ -432,20 +446,9 @@ struct IrFunction {
   /// A stack slot containing the return value, for functions that return by
   /// value.
   llvm::AllocaInst *retValSlot = nullptr;
+
   /// The basic block with the return instruction.
   llvm::BasicBlock *retBlock = nullptr;
-
-  /// A stack slot containing the exception object pointer while a landing pad
-  /// is active. Need this because the instruction must dominate all uses as a
-  /// _d_eh_resume_unwind parameter, but if we take a select at the end on a
-  /// cleanup on the way there, it also must dominate all other predecessors
-  /// of the cleanup. Thus, we just create an alloca at the start of the
-  /// function.
-  llvm::AllocaInst *ehPtrSlot = nullptr;
-  /// The basic block with the return instruction. Because of
-  /// ehPtrSlot, we do not need more than one, so might as well
-  /// cache it.
-  llvm::BasicBlock *resumeUnwindBlock = nullptr;
 
   /// Similar story to ehPtrSlot, but for the selector value.
   llvm::AllocaInst *ehSelectorSlot = nullptr;
@@ -463,6 +466,10 @@ struct IrFunction {
   VariableMap variableMap;
 
   IrFuncTy irFty;
+
+private:
+  llvm::AllocaInst *ehPtrSlot = nullptr;
+  llvm::BasicBlock *resumeUnwindBlock = nullptr;
 };
 
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create = false);

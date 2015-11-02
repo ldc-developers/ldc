@@ -316,21 +316,6 @@ llvm::BasicBlock *ScopeStack::emitLandingPad() {
   // Stash away the exception object pointer and selector value into their
   // stack slots.
   llvm::Value *ehPtr = DtoExtractValue(landingPad, 0);
-  if (!irs->func()->resumeUnwindBlock) {
-    irs->func()->resumeUnwindBlock = llvm::BasicBlock::Create(
-        irs->context(), "unwind.resume", irs->topfunc());
-
-    llvm::BasicBlock *oldBB = irs->scopebb();
-    irs->scope() = IRScope(irs->func()->resumeUnwindBlock);
-
-    llvm::Function *resumeFn =
-        LLVM_D_GetRuntimeFunction(Loc(), irs->module, "_d_eh_resume_unwind");
-    irs->ir->CreateCall(
-        resumeFn, irs->ir->CreateLoad(irs->func()->getOrCreateEhPtrSlot()));
-    irs->ir->CreateUnreachable();
-
-    irs->scope() = IRScope(oldBB);
-  }
   irs->ir->CreateStore(ehPtr, irs->func()->getOrCreateEhPtrSlot());
 
   llvm::Value *ehSelector = DtoExtractValue(landingPad, 1);
@@ -345,7 +330,8 @@ llvm::BasicBlock *ScopeStack::emitLandingPad() {
   CleanupCursor lastCleanup = currentCleanupScope();
   for (auto it = catchScopes.rbegin(), end = catchScopes.rend(); it != end;
        ++it) {
-    // Insert any cleanups in between the last catch we ran and this one.
+    // Insert any cleanups in between the last catch we ran (i.e. tested for
+    // and found that the type does not match) and this one.
     assert(lastCleanup >= it->cleanupScope);
     if (lastCleanup > it->cleanupScope) {
       landingPad->setCleanup(true);
@@ -366,7 +352,7 @@ llvm::BasicBlock *ScopeStack::emitLandingPad() {
         irs->topfunc());
 
     // "Call" llvm.eh.typeid.for, which gives us the eh selector value to
-    // compare with
+    // compare the landing pad selector value with.
     llvm::Value *ehTypeId =
         irs->ir->CreateCall(GET_INTRINSIC_DECL(eh_typeid_for),
                             DtoBitCast(it->classInfoPtr, getVoidPtrType()));
@@ -383,14 +369,15 @@ llvm::BasicBlock *ScopeStack::emitLandingPad() {
   // No catch matched. Execute all finallys and resume unwinding.
   if (lastCleanup > 0) {
     landingPad->setCleanup(true);
-    runCleanups(lastCleanup, 0, irs->func()->resumeUnwindBlock);
+    runCleanups(lastCleanup, 0, irs->func()->getOrCreateResumeUnwindBlock());
   } else if (!catchScopes.empty()) {
     // Directly convert the last mismatch branch into a branch to the
     // unwind resume block.
-    irs->scopebb()->replaceAllUsesWith(irs->func()->resumeUnwindBlock);
+    irs->scopebb()->replaceAllUsesWith(
+        irs->func()->getOrCreateResumeUnwindBlock());
     irs->scopebb()->eraseFromParent();
   } else {
-    irs->ir->CreateBr(irs->func()->resumeUnwindBlock);
+    irs->ir->CreateBr(irs->func()->getOrCreateResumeUnwindBlock());
   }
 
   irs->scope() = savedIRScope;
@@ -424,6 +411,26 @@ llvm::AllocaInst *IrFunction::getOrCreateEhPtrSlot() {
     ehPtrSlot = DtoRawAlloca(getVoidPtrType(), 0, "eh.ptr");
   }
   return ehPtrSlot;
+}
+
+llvm::BasicBlock *IrFunction::getOrCreateResumeUnwindBlock() {
+  assert(func == gIR->topfunc() &&
+         "Should only access unwind resume block while emitting function.");
+  if (!resumeUnwindBlock) {
+    resumeUnwindBlock =
+        llvm::BasicBlock::Create(gIR->context(), "eh.resume", func);
+
+    llvm::BasicBlock *oldBB = gIR->scopebb();
+    gIR->scope() = IRScope(resumeUnwindBlock);
+
+    llvm::Function *resumeFn =
+        LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_resume_unwind");
+    gIR->ir->CreateCall(resumeFn, gIR->ir->CreateLoad(getOrCreateEhPtrSlot()));
+    gIR->ir->CreateUnreachable();
+
+    gIR->scope() = IRScope(oldBB);
+  }
+  return resumeUnwindBlock;
 }
 
 IrFunction *getIrFunc(FuncDeclaration *decl, bool create) {
