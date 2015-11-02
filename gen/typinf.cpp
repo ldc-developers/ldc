@@ -149,8 +149,8 @@ Type *getTypeInfoType(Type *t, Scope *sc) {
 /* ========================================================================= */
 
 /* These decide if there's an instance for them already in std.typeinfo,
-* because then the compiler doesn't need to build one.
-*/
+ * because then the compiler doesn't need to build one.
+ */
 
 static bool builtinTypeInfo(Type *t) {
 #if 0
@@ -240,8 +240,7 @@ public:
   // Import all functions from class Visitor
   using Visitor::visit;
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoDeclaration::llvmDefine() %s",
@@ -252,8 +251,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoEnumDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoEnumDeclaration::llvmDefine() %s",
@@ -303,8 +301,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoPointerDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoPointerDeclaration::llvmDefine() %s",
@@ -318,8 +315,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoArrayDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoArrayDeclaration::llvmDefine() %s",
@@ -333,8 +329,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoStaticArrayDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoStaticArrayDeclaration::llvmDefine() %s",
@@ -356,8 +351,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoAssociativeArrayDeclaration *decl) override {
     IF_LOG Logger::println(
@@ -380,8 +374,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoFunctionDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoFunctionDeclaration::llvmDefine() %s",
@@ -397,8 +390,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoDelegateDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoDelegateDeclaration::llvmDefine() %s",
@@ -417,8 +409,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoStructDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoStructDeclaration::llvmDefine() %s",
@@ -565,8 +556,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoClassDeclaration *decl) override {
     llvm_unreachable(
@@ -574,8 +564,7 @@ public:
         "as a custom Dsymbol::codegen() override is used");
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoInterfaceDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoInterfaceDeclaration::llvmDefine() %s",
@@ -596,8 +585,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoTupleDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoTupleDeclaration::llvmDefine() %s",
@@ -632,8 +620,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoConstDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoConstDeclaration::llvmDefine() %s",
@@ -647,8 +634,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoInvariantDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoInvariantDeclaration::llvmDefine() %s",
@@ -662,8 +648,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoSharedDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoSharedDeclaration::llvmDefine() %s",
@@ -677,8 +662,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoWildDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoWildDeclaration::llvmDefine() %s",
@@ -692,8 +676,7 @@ public:
     b.finalize(getIrGlobal(decl));
   }
 
-  /* =========================================================================
-   */
+  /* ======================================================================= */
 
   void visit(TypeInfoVectorDeclaration *decl) override {
     IF_LOG Logger::println("TypeInfoVectorDeclaration::llvmDefine() %s",

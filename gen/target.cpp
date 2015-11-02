@@ -15,9 +15,7 @@
 #include "mtype.h"
 #include <assert.h>
 
-#if defined(_MSC_VER)
-#include <windows.h>
-#else
+#if !defined(_MSC_VER)
 #include <pthread.h>
 #endif
 
@@ -45,7 +43,6 @@ void Target::init() {
 /******************************
  * Return memory alignment size of type.
  */
-
 unsigned Target::alignsize(Type *type) {
   assert(type->isTypeBasic());
   if (type->ty == Tvoid) {
@@ -57,7 +54,6 @@ unsigned Target::alignsize(Type *type) {
 /******************************
  * Return field alignment size of type.
  */
-
 unsigned Target::fieldalign(Type *type) { return DtoAlignment(type); }
 
 // sizes based on those from tollvm.cpp:DtoMutexType()
@@ -84,7 +80,6 @@ Type *Target::va_listType() { return gABI->vaListType(); }
  * as another type for use in CTFE.
  * This corresponds roughly to the idiom *(Type *)&e.
  */
-
 Expression *Target::paintAsType(Expression *e, Type *type) {
   union {
     d_int32 int32value;
@@ -141,22 +136,21 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
 }
 
 /******************************
-* Check if the given type is supported for this target
-* 0: supported
-* 1: not supported
-* 2: wrong size
-* 3: wrong base type
-*/
-
+ * Check if the given type is supported for this target
+ * 0: supported
+ * 1: not supported
+ * 2: wrong size
+ * 3: wrong base type
+ */
 int Target::checkVectorType(int sz, Type *type) {
   // FIXME: It is possible to query the LLVM target about supported vectors?
   return 0;
 }
 
 /******************************
-* For the given module, perform any post parsing analysis.
-* Certain compiler backends (ie: GDC) have special placeholder
-* modules whose source are empty, but code gets injected
-* immediately after loading.
-*/
+ * For the given module, perform any post parsing analysis.
+ * Certain compiler backends (ie: GDC) have special placeholder
+ * modules whose source are empty, but code gets injected
+ * immediately after loading.
+ */
 void Target::loadModule(Module *m) {}
