@@ -25,10 +25,11 @@ DValue *DtoBinAdd(DValue *lhs, DValue *rhs) {
   r = rhs->getRVal();
 
   LLValue *res;
-  if (t->isfloating())
+  if (t->isfloating()) {
     res = gIR->ir->CreateFAdd(l, r);
-  else
+  } else {
     res = gIR->ir->CreateAdd(l, r);
+  }
 
   return new DImValue(t, res);
 }
@@ -42,10 +43,11 @@ DValue *DtoBinSub(DValue *lhs, DValue *rhs) {
   r = rhs->getRVal();
 
   LLValue *res;
-  if (t->isfloating())
+  if (t->isfloating()) {
     res = gIR->ir->CreateFSub(l, r);
-  else
+  } else {
     res = gIR->ir->CreateSub(l, r);
+  }
 
   return new DImValue(t, res);
 }
@@ -59,10 +61,11 @@ DValue *DtoBinMul(Type *targettype, DValue *lhs, DValue *rhs) {
   r = rhs->getRVal();
 
   LLValue *res;
-  if (t->isfloating())
+  if (t->isfloating()) {
     res = gIR->ir->CreateFMul(l, r);
-  else
+  } else {
     res = gIR->ir->CreateMul(l, r);
+  }
   return new DImValue(targettype, res);
 }
 
@@ -75,12 +78,13 @@ DValue *DtoBinDiv(Type *targettype, DValue *lhs, DValue *rhs) {
   r = rhs->getRVal();
 
   LLValue *res;
-  if (t->isfloating())
+  if (t->isfloating()) {
     res = gIR->ir->CreateFDiv(l, r);
-  else if (!isLLVMUnsigned(t))
+  } else if (!isLLVMUnsigned(t)) {
     res = gIR->ir->CreateSDiv(l, r);
-  else
+  } else {
     res = gIR->ir->CreateUDiv(l, r);
+  }
   return new DImValue(targettype, res);
 }
 
@@ -92,12 +96,13 @@ DValue *DtoBinRem(Type *targettype, DValue *lhs, DValue *rhs) {
   l = lhs->getRVal();
   r = rhs->getRVal();
   LLValue *res;
-  if (t->isfloating())
+  if (t->isfloating()) {
     res = gIR->ir->CreateFRem(l, r);
-  else if (!isLLVMUnsigned(t))
+  } else if (!isLLVMUnsigned(t)) {
     res = gIR->ir->CreateSRem(l, r);
-  else
+  } else {
     res = gIR->ir->CreateURem(l, r);
+  }
   return new DImValue(targettype, res);
 }
 
@@ -110,7 +115,7 @@ LLValue *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
   assert(t->isfloating());
   Logger::println("numeric equality");
 
-  LLValue *res = 0;
+  LLValue *res = nullptr;
   if (t->iscomplex()) {
     Logger::println("complex");
     res = DtoComplexEquals(loc, op, lhs, rhs);
@@ -126,17 +131,18 @@ LLValue *DtoBinNumericEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
 //////////////////////////////////////////////////////////////////////////////
 
 LLValue *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op) {
-  LLValue *res = 0;
+  LLValue *res = nullptr;
   if (op == TOKequal) {
     res = gIR->ir->CreateFCmpOEQ(lhs->getRVal(), rhs->getRVal());
   } else if (op == TOKnotequal) {
     res = gIR->ir->CreateFCmpUNE(lhs->getRVal(), rhs->getRVal());
   } else {
     llvm::ICmpInst::Predicate cmpop;
-    if (op == TOKidentity)
+    if (op == TOKidentity) {
       cmpop = llvm::ICmpInst::ICMP_EQ;
-    else
+    } else {
       cmpop = llvm::ICmpInst::ICMP_NE;
+    }
 
     LLValue *sz = DtoConstSize_t(getTypeStoreSize(DtoType(lhs->getType())));
     LLValue *val = DtoMemCmp(makeLValue(loc, lhs), makeLValue(loc, rhs), sz);

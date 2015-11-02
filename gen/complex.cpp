@@ -42,7 +42,7 @@ LLType *DtoComplexBaseType(Type *t) {
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLConstant *DtoConstComplex(Type *_ty, longdouble re, longdouble im) {
-  Type *base = 0;
+  Type *base = nullptr;
   switch (_ty->toBasetype()->ty) {
   default:
     llvm_unreachable("Unexpected complex floating point type");
@@ -90,10 +90,12 @@ DValue *DtoComplex(Loc &loc, Type *to, DValue *val) {
   LLValue *re, *im;
   DtoGetComplexParts(loc, to, val, re, im);
 
-  if (!re)
+  if (!re) {
     re = LLConstant::getNullValue(DtoType(baserety));
-  if (!im)
+  }
+  if (!im) {
     im = LLConstant::getNullValue(DtoType(baseimty));
+  }
 
   LLValue *res = DtoAggrPair(complexTy, re, im);
 
@@ -150,17 +152,18 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, DValue *&re,
         re = new DImValue(baserety, reVal);
         im = new DImValue(baseimty, imVal);
       }
-    } else
+    } else {
       DtoGetComplexParts(loc, to, v, re, im);
+    }
   } else if (t->isimaginary()) {
-    re = NULL;
+    re = nullptr;
     im = DtoCastFloat(loc, val, baseimty);
   } else if (t->isfloating()) {
     re = DtoCastFloat(loc, val, baserety);
-    im = NULL;
+    im = nullptr;
   } else if (t->isintegral()) {
     re = DtoCastInt(loc, val, baserety);
-    im = NULL;
+    im = nullptr;
   } else {
     llvm_unreachable("Unexpected numeric type.");
   }
@@ -172,8 +175,8 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, LLValue *&re,
                         LLValue *&im) {
   DValue *dre, *dim;
   DtoGetComplexParts(loc, to, val, dre, dim);
-  re = dre ? dre->getRVal() : 0;
-  im = dim ? dim->getRVal() : 0;
+  re = dre ? dre->getRVal() : nullptr;
+  im = dim ? dim->getRVal() : nullptr;
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -187,19 +190,21 @@ DValue *DtoComplexAdd(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
   DtoGetComplexParts(loc, type, rhs, rhs_re, rhs_im);
 
   // add up
-  if (lhs_re && rhs_re)
+  if (lhs_re && rhs_re) {
     res_re = gIR->ir->CreateFAdd(lhs_re, rhs_re);
-  else if (lhs_re)
+  } else if (lhs_re) {
     res_re = lhs_re;
-  else // either rhs_re or no re at all (then use any)
+  } else { // either rhs_re or no re at all (then use any)
     res_re = rhs_re;
+  }
 
-  if (lhs_im && rhs_im)
+  if (lhs_im && rhs_im) {
     res_im = gIR->ir->CreateFAdd(lhs_im, rhs_im);
-  else if (lhs_im)
+  } else if (lhs_im) {
     res_im = lhs_im;
-  else // either rhs_im or no im at all (then use any)
+  } else { // either rhs_im or no im at all (then use any)
     res_im = rhs_im;
+  }
 
   LLValue *res = DtoAggrPair(DtoType(type), res_re, res_im);
   return new DImValue(type, res);
@@ -216,19 +221,21 @@ DValue *DtoComplexSub(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
   DtoGetComplexParts(loc, type, rhs, rhs_re, rhs_im);
 
   // add up
-  if (lhs_re && rhs_re)
+  if (lhs_re && rhs_re) {
     res_re = gIR->ir->CreateFSub(lhs_re, rhs_re);
-  else if (lhs_re)
+  } else if (lhs_re) {
     res_re = lhs_re;
-  else // either rhs_re or no re at all (then use any)
+  } else { // either rhs_re or no re at all (then use any)
     res_re = gIR->ir->CreateFNeg(rhs_re, "neg");
+  }
 
-  if (lhs_im && rhs_im)
+  if (lhs_im && rhs_im) {
     res_im = gIR->ir->CreateFSub(lhs_im, rhs_im);
-  else if (lhs_im)
+  } else if (lhs_im) {
     res_im = lhs_im;
-  else // either rhs_im or no im at all (then use any)
+  } else { // either rhs_im or no im at all (then use any)
     res_im = gIR->ir->CreateFNeg(rhs_im, "neg");
+  }
 
   LLValue *res = DtoAggrPair(DtoType(type), res_re, res_im);
   return new DImValue(type, res);
@@ -245,37 +252,43 @@ DValue *DtoComplexMul(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
   DtoGetComplexParts(loc, type, rhs, rhs_re, rhs_im);
 
   // mul up
-  llvm::Value *rere = NULL;
-  llvm::Value *reim = NULL;
-  llvm::Value *imre = NULL;
-  llvm::Value *imim = NULL;
+  llvm::Value *rere = nullptr;
+  llvm::Value *reim = nullptr;
+  llvm::Value *imre = nullptr;
+  llvm::Value *imim = nullptr;
 
-  if (lhs_re && rhs_re)
+  if (lhs_re && rhs_re) {
     rere = gIR->ir->CreateFMul(lhs_re, rhs_re, "rere_mul");
-  if (lhs_re && rhs_im)
+  }
+  if (lhs_re && rhs_im) {
     reim = gIR->ir->CreateFMul(lhs_re, rhs_im, "reim_mul");
-  if (lhs_im && rhs_re)
+  }
+  if (lhs_im && rhs_re) {
     imre = gIR->ir->CreateFMul(lhs_im, rhs_re, "imre_mul");
-  if (lhs_im && rhs_im)
+  }
+  if (lhs_im && rhs_im) {
     imim = gIR->ir->CreateFMul(lhs_im, rhs_im, "imim_mul");
+  }
 
-  if (rere && imim)
+  if (rere && imim) {
     res_re = gIR->ir->CreateFSub(rere, imim, "rere_imim_sub");
-  else if (rere)
+  } else if (rere) {
     res_re = rere;
-  else if (imim)
+  } else if (imim) {
     res_re = gIR->ir->CreateFNeg(imim, "imim_neg");
-  else
+  } else {
     res_re = lhs_re ? rhs_re : lhs_re; // null!
+  }
 
-  if (reim && imre)
+  if (reim && imre) {
     res_im = gIR->ir->CreateFAdd(reim, imre, "reim_imre_add");
-  else if (reim)
+  } else if (reim) {
     res_im = reim;
-  else if (imre)
+  } else if (imre) {
     res_im = imre;
-  else
+  } else {
     res_im = lhs_re ? rhs_im : lhs_re; // null!
+  }
 
   LLValue *res = DtoAggrPair(DtoType(type), res_re, res_im);
   return new DImValue(type, res);
@@ -293,26 +306,30 @@ DValue *DtoComplexDiv(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
 
   // if divisor is only real, division is simple
   if (rhs_re && !rhs_im) {
-    if (lhs_re)
+    if (lhs_re) {
       res_re = gIR->ir->CreateFDiv(lhs_re, rhs_re, "re_divby_re");
-    else
+    } else {
       res_re = lhs_re;
-    if (lhs_im)
+    }
+    if (lhs_im) {
       res_im = gIR->ir->CreateFDiv(lhs_im, rhs_re, "im_divby_re");
-    else
+    } else {
       res_im = lhs_im;
+    }
   }
   // if divisor is only imaginary, division is simple too
   else if (!rhs_re && rhs_im) {
-    if (lhs_re)
+    if (lhs_re) {
       res_im = gIR->ir->CreateFNeg(
           gIR->ir->CreateFDiv(lhs_re, rhs_im, "re_divby_im"), "neg");
-    else
+    } else {
       res_im = lhs_re;
-    if (lhs_im)
+    }
+    if (lhs_im) {
       res_re = gIR->ir->CreateFDiv(lhs_im, rhs_im, "im_divby_im");
-    else
+    } else {
       res_re = lhs_im;
+    }
   }
   // full division
   else {
@@ -334,8 +351,9 @@ DValue *DtoComplexDiv(Loc &loc, Type *type, DValue *lhs, DValue *rhs) {
     } else if (lhs_im) {
       res_re = gIR->ir->CreateFMul(lhs_im, rhs_im, "imim");
       res_im = gIR->ir->CreateFMul(lhs_im, rhs_re, "imre");
-    } else
+    } else {
       llvm_unreachable("lhs has neither real nor imaginary part");
+    }
 
     tmp1 = gIR->ir->CreateFMul(rhs_re, rhs_re, "rhs_resq");
     tmp2 = gIR->ir->CreateFMul(rhs_im, rhs_im, "rhs_imsq");
@@ -403,10 +421,10 @@ LLValue *DtoComplexEquals(Loc &loc, TOK op, DValue *lhs, DValue *rhs) {
   LLValue *b1 = DtoBinFloatsEquals(loc, lhs_re, rhs_re, op);
   LLValue *b2 = DtoBinFloatsEquals(loc, lhs_im, rhs_im, op);
 
-  if (op == TOKequal)
+  if (op == TOKequal) {
     return gIR->ir->CreateAnd(b1, b2);
-  else
-    return gIR->ir->CreateOr(b1, b2);
+  }
+  return gIR->ir->CreateOr(b1, b2);
 }
 
 //////////////////////////////////////////////////////////////////////////////////////////
@@ -415,8 +433,9 @@ DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
   Type *to = _to->toBasetype();
   Type *vty = val->getType()->toBasetype();
   if (to->iscomplex()) {
-    if (vty->size() == to->size())
+    if (vty->size() == to->size()) {
       return val;
+    }
 
     llvm::Value *re, *im;
     DtoGetComplexParts(loc, val->getType(), val, re, im);
@@ -432,7 +451,8 @@ DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
 
     LLValue *pair = DtoAggrPair(DtoType(_to), re, im);
     return new DImValue(_to, pair);
-  } else if (to->isimaginary()) {
+  }
+  if (to->isimaginary()) {
     // FIXME: this loads both values, even when we only need one
     LLValue *v = val->getRVal();
     LLValue *impart = gIR->ir->CreateExtractValue(v, 1, ".im_part");
@@ -450,12 +470,14 @@ DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
       extractty = Type::timaginary80;
       break;
     }
-    DImValue *im = new DImValue(extractty, impart);
+    auto im = new DImValue(extractty, impart);
     return DtoCastFloat(loc, im, to);
-  } else if (to->ty == Tbool) {
+  }
+  if (to->ty == Tbool) {
     return new DImValue(
         _to, DtoComplexEquals(loc, TOKnotequal, val, DtoNullValue(vty)));
-  } else if (to->isfloating() || to->isintegral()) {
+  }
+  if (to->isfloating() || to->isintegral()) {
     // FIXME: this loads both values, even when we only need one
     LLValue *v = val->getRVal();
     LLValue *repart = gIR->ir->CreateExtractValue(v, 0, ".re_part");
@@ -473,11 +495,9 @@ DValue *DtoCastComplex(Loc &loc, DValue *val, Type *_to) {
       extractty = Type::tfloat80;
       break;
     }
-    DImValue *re = new DImValue(extractty, repart);
+    auto re = new DImValue(extractty, repart);
     return DtoCastFloat(loc, re, to);
-  } else {
-    error(loc, "Don't know how to cast %s to %s", vty->toChars(),
-          to->toChars());
-    fatal();
   }
+  error(loc, "Don't know how to cast %s to %s", vty->toChars(), to->toChars());
+  fatal();
 }

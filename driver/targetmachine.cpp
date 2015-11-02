@@ -103,14 +103,18 @@ MipsABI::Type getMipsABI() {
   }
 #else
   llvm::StringRef features = gTargetMachine->getTargetFeatureString();
-  if (features.find("+o32") != std::string::npos)
+  if (features.find("+o32") != std::string::npos) {
     return MipsABI::O32;
-  if (features.find("+n32") != std::string::npos)
+  }
+  if (features.find("+n32") != std::string::npos) {
     return MipsABI::N32;
-  if (features.find("+n64") != std::string::npos)
+  }
+  if (features.find("+n64") != std::string::npos) {
     return MipsABI::N32;
-  if (features.find("+eabi") != std::string::npos)
+  }
+  if (features.find("+eabi") != std::string::npos) {
     return MipsABI::EABI;
+  }
   return MipsABI::Unknown;
 #endif
 }
@@ -119,29 +123,36 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   // Select the default CPU if none was given (or detection failed).
 
   // Intel Macs are relatively recent, take advantage of that.
-  if (triple.isOSDarwin())
+  if (triple.isOSDarwin()) {
     return triple.isArch64Bit() ? "core2" : "yonah";
 
-  // Everything else goes to x86-64 in 64-bit mode.
-  if (triple.isArch64Bit())
+    // Everything else goes to x86-64 in 64-bit mode.
+  }
+  if (triple.isArch64Bit()) {
     return "x86-64";
-
-  if (triple.getOSName().startswith("haiku"))
+  }
+  if (triple.getOSName().startswith("haiku")) {
     return "i586";
-  if (triple.getOSName().startswith("openbsd"))
+  }
+  if (triple.getOSName().startswith("openbsd")) {
     return "i486";
-  if (triple.getOSName().startswith("bitrig"))
+  }
+  if (triple.getOSName().startswith("bitrig")) {
     return "i686";
-  if (triple.getOSName().startswith("freebsd"))
+  }
+  if (triple.getOSName().startswith("freebsd")) {
     return "i486";
-  if (triple.getOSName().startswith("netbsd"))
+  }
+  if (triple.getOSName().startswith("netbsd")) {
     return "i486";
-  // All x86 devices running Android have core2 as their common
-  // denominator. This makes a better choice than pentium4.
-  if (triple.getEnvironment() == llvm::Triple::Android)
+    // All x86 devices running Android have core2 as their common
+    // denominator. This makes a better choice than pentium4.
+  }
+  if (triple.getEnvironment() == llvm::Triple::Android) {
     return "core2";
 
-  // Fallback to p4.
+    // Fallback to p4.
+  }
   return "pentium4";
 }
 
@@ -174,10 +185,11 @@ static std::string getARMTargetCPU(const llvm::Triple &triple) {
                            // If all else failed, return the most base CPU with
                            // thumb interworking
                            // supported by LLVM.
-                           .Default(0);
+                           .Default(nullptr);
 
-  if (result)
+  if (result) {
     return result;
+  }
 
   return (triple.getEnvironment() == llvm::Triple::GNUEABIHF) ? "arm1176jzf-s"
                                                               : "arm7tdmi";
@@ -188,14 +200,16 @@ static std::string getARMTargetCPU(const llvm::Triple &triple) {
 static std::string getTargetCPU(const std::string &cpu,
                                 const llvm::Triple &triple) {
   if (!cpu.empty()) {
-    if (cpu != "native")
+    if (cpu != "native") {
       return cpu;
+    }
 
     // FIXME: Reject attempts to use -mcpu=native unless the target matches
     // the host.
     std::string hostCPU = llvm::sys::getHostCPUName();
-    if (!hostCPU.empty() && hostCPU != "generic")
+    if (!hostCPU.empty() && hostCPU != "generic") {
       return hostCPU;
+    }
   }
 
   switch (triple.getArch()) {
@@ -246,8 +260,9 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
   case llvm::Triple::IOS: {
     // Darwin defaults to "softfp" for v6 and v7.
     if (llvm::StringRef(llvmArchSuffix).startswith("v6") ||
-        llvm::StringRef(llvmArchSuffix).startswith("v7"))
+        llvm::StringRef(llvmArchSuffix).startswith("v7")) {
       return FloatABI::SoftFP;
+    }
     return FloatABI::Soft;
   }
 
@@ -265,8 +280,9 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
       // EABI is always AAPCS, and if it was not marked 'hard', it's softfp
       return FloatABI::SoftFP;
     case llvm::Triple::Android: {
-      if (llvm::StringRef(llvmArchSuffix).startswith("v7"))
+      if (llvm::StringRef(llvmArchSuffix).startswith("v7")) {
         return FloatABI::SoftFP;
+      }
       return FloatABI::Soft;
     }
     default:
@@ -292,22 +308,28 @@ static void addMipsABI(const llvm::Triple &triple,
     bool enabled = str[0] == '+';
     std::string flag = (str[0] == '+' || str[0] == '-') ? str.substr(1) : str;
     uint32_t newBit = 0;
-    if (flag == "o32")
+    if (flag == "o32") {
       newBit = O32;
-    if (flag == "n32")
+    }
+    if (flag == "n32") {
       newBit = N32;
-    if (flag == "n64")
+    }
+    if (flag == "n64") {
       newBit = N64;
-    if (flag == "eabi")
+    }
+    if (flag == "eabi") {
       newBit = EABI;
+    }
     if (newBit) {
       I = attrs.erase(I);
-      if (enabled)
+      if (enabled) {
         bits |= newBit;
-      else
+      } else {
         bits &= ~newBit;
-    } else
+      }
+    } else {
       ++I;
+    }
   }
   switch (bits) {
   case O32:
@@ -326,8 +348,9 @@ static void addMipsABI(const llvm::Triple &triple,
     error(Loc(), "Only one ABI argument is supported");
     fatal();
   }
-  if (bits != defaultABI)
+  if (bits != defaultABI) {
     attrs.push_back(is64Bit ? "-n64" : "-o32");
+  }
 }
 #endif
 
@@ -344,7 +367,7 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
   // Allocate target machine. First, check whether the user has explicitly
   // specified an architecture to compile for. If so we have to look it up by
   // name, because it might be a backend that has no mapping to a target triple.
-  const llvm::Target *target = 0;
+  const llvm::Target *target = nullptr;
   if (!arch.empty()) {
 #if LDC_LLVM_VER >= 307
     for (const llvm::Target &T : llvm::TargetRegistry::targets()) {
@@ -364,14 +387,15 @@ const llvm::Target *lookupTarget(const std::string &arch, llvm::Triple &triple,
       errorMsg = "invalid target architecture '" + arch +
                  "', see "
                  "-version for a list of supported targets.";
-      return 0;
+      return nullptr;
     }
 
     // Adjust the triple to match (if known), otherwise stick with the
     // given triple.
     llvm::Triple::ArchType Type = llvm::Triple::getArchTypeForLLVMName(arch);
-    if (Type != llvm::Triple::UnknownArch)
+    if (Type != llvm::Triple::UnknownArch) {
       triple.setArch(Type);
+    }
   } else {
     std::string tempError;
     target = llvm::TargetRegistry::lookupTarget(triple.getTriple(), tempError);
@@ -410,7 +434,7 @@ llvm::TargetMachine *createTargetMachine(
   // user-specified arch, if any.
   std::string errMsg;
   const llvm::Target *target = lookupTarget(arch, triple, errMsg);
-  if (target == 0) {
+  if (target == nullptr) {
     error(Loc(), "%s", errMsg.c_str());
     fatal();
   }
@@ -421,20 +445,23 @@ llvm::TargetMachine *createTargetMachine(
   if (cpu == "native") {
     llvm::StringMap<bool> hostFeatures;
     if (llvm::sys::getHostCPUFeatures(hostFeatures)) {
-      for (const auto &hf : hostFeatures)
+      for (const auto &hf : hostFeatures) {
         features.AddFeature(
             std::string(hf.second ? "+" : "-").append(hf.first()));
+      }
     }
   }
 #if LDC_LLVM_VER < 307
   if (triple.getArch() == llvm::Triple::mips ||
       triple.getArch() == llvm::Triple::mipsel ||
       triple.getArch() == llvm::Triple::mips64 ||
-      triple.getArch() == llvm::Triple::mips64el)
+      triple.getArch() == llvm::Triple::mips64el) {
     addMipsABI(triple, attrs);
+  }
 #endif
-  for (unsigned i = 0; i < attrs.size(); ++i)
-    features.AddFeature(attrs[i]);
+  for (auto &attr : attrs) {
+    features.AddFeature(attr);
+  }
 
   // With an empty CPU string, LLVM will default to the host CPU, which is
   // usually not what we want (expected behavior from other compilers is
@@ -447,11 +474,14 @@ llvm::TargetMachine *createTargetMachine(
     const char *cx16_plus = "+cx16";
     const char *cx16_minus = "-cx16";
     bool cx16 = false;
-    for (unsigned i = 0; i < attrs.size(); ++i)
-      if (attrs[i] == cx16_plus || attrs[i] == cx16_minus)
+    for (auto &attr : attrs) {
+      if (attr == cx16_plus || attr == cx16_minus) {
         cx16 = true;
-    if (!cx16)
+      }
+    }
+    if (!cx16) {
       features.AddFeature(cx16_plus);
+    }
   }
 
   if (Logger::enabled()) {

@@ -18,8 +18,9 @@
 IrModule::IrModule(Module *module, const char *srcfilename) : M(module) {}
 
 llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
-  if (moduleInfoVar)
+  if (moduleInfoVar) {
     return moduleInfoVar;
+  }
 
   std::string name("_D");
   name.append(mangle(M));
@@ -27,13 +28,14 @@ llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
 
   moduleInfoVar = new llvm::GlobalVariable(
       gIR->module, llvm::StructType::create(gIR->context()), false,
-      llvm::GlobalValue::ExternalLinkage, NULL, name);
+      llvm::GlobalValue::ExternalLinkage, nullptr, name);
   return moduleInfoVar;
 }
 
 IrModule *getIrModule(Module *m) {
-  if (!m)
+  if (!m) {
     m = gIR->func()->decl->getModule();
+  }
 
   assert(m && "null module");
   if (m->ir.m_type == IrDsymbol::NotSet) {

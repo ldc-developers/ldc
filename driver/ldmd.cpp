@@ -130,7 +130,7 @@ char *concat(const char *a, int b) {
  */
 int execute(const std::string &exePath, const char **args) {
   std::string errorMsg;
-  int rc = ls::ExecuteAndWait(exePath, args, NULL, NULL, 0, 0, &errorMsg);
+  int rc = ls::ExecuteAndWait(exePath, args, nullptr, nullptr, 0, 0, &errorMsg);
   if (!errorMsg.empty()) {
     error("Error executing %s: %s", exePath.c_str(), errorMsg.c_str());
   }
@@ -142,7 +142,7 @@ int execute(const std::string &exePath, const char **args) {
  */
 void printUsage(const char *argv0, const std::string &ldcPath) {
   // Print version information by actually invoking ldc -version.
-  const char *args[] = {ldcPath.c_str(), "-version", NULL};
+  const char *args[] = {ldcPath.c_str(), "-version", nullptr};
   execute(ldcPath, args);
 
   printf(
@@ -237,8 +237,9 @@ Usage:\n\
  */
 void appendEnvVar(const char *envVarName, std::vector<char *> &args) {
   char *env = getenv(envVarName);
-  if (!env)
+  if (!env) {
     return;
+  }
 
   env = strdup(env); // create our own writable copy
 
@@ -276,8 +277,9 @@ void appendEnvVar(const char *envVarName, std::vector<char *> &args) {
 
         case ' ':
         case '\t':
-          if (instring)
+          if (instring) {
             goto Laddc;
+          }
           *p = 0;
           break;
 
@@ -403,17 +405,19 @@ struct Params {
         targetModel(Model::automatic), profile(false), verbose(false),
         vcolumns(false), vdmd(false), vgc(false), logTlsUse(false),
         errorLimit(0), errorLimitSet(false), warnings(Warnings::none),
-        optimize(false), noObj(false), objDir(0), objName(0),
-        preservePaths(false), generateDocs(false), docDir(0), docName(0),
-        generateHeaders(false), headerDir(0), headerName(0),
-        generateJson(false), jsonName(0), ignoreUnsupportedPragmas(false),
-        enforcePropertySyntax(false), enableInline(false), emitStaticLib(false),
-        quiet(false), release(false), boundsChecks(BoundsCheck::defaultVal),
-        emitUnitTests(false), debugFlag(false), debugLevel(0), versionLevel(0),
-        defaultLibName(0), debugLibName(0), moduleDepsFile(0),
-        color(Color::automatic), useDIP25(false), conf(0), hiddenDebugB(false),
-        hiddenDebugC(false), hiddenDebugF(false), hiddenDebugR(false),
-        hiddenDebugX(false), hiddenDebugY(false), run(false) {}
+        optimize(false), noObj(false), objDir(nullptr), objName(nullptr),
+        preservePaths(false), generateDocs(false), docDir(nullptr),
+        docName(nullptr), generateHeaders(false), headerDir(nullptr),
+        headerName(nullptr), generateJson(false), jsonName(nullptr),
+        ignoreUnsupportedPragmas(false), enforcePropertySyntax(false),
+        enableInline(false), emitStaticLib(false), quiet(false), release(false),
+        boundsChecks(BoundsCheck::defaultVal), emitUnitTests(false),
+        debugFlag(false), debugLevel(0), versionLevel(0),
+        defaultLibName(nullptr), debugLibName(nullptr), moduleDepsFile(nullptr),
+        color(Color::automatic), useDIP25(false), conf(nullptr),
+        hiddenDebugB(false), hiddenDebugC(false), hiddenDebugF(false),
+        hiddenDebugR(false), hiddenDebugX(false), hiddenDebugY(false),
+        run(false) {}
 };
 
 /**
@@ -437,116 +441,123 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
   for (size_t i = 1; i < args.size(); i++) {
     char *p = args[i];
     if (*p == '-') {
-      if (strcmp(p + 1, "allinst") == 0)
+      if (strcmp(p + 1, "allinst") == 0) {
         result.allinst = true;
-      else if (strcmp(p + 1, "de") == 0)
+      } else if (strcmp(p + 1, "de") == 0) {
         result.useDeprecated = Deprecated::error;
-      else if (strcmp(p + 1, "d") == 0)
+      } else if (strcmp(p + 1, "d") == 0) {
         result.useDeprecated = Deprecated::allow;
-      else if (strcmp(p + 1, "dw") == 0)
+      } else if (strcmp(p + 1, "dw") == 0) {
         result.useDeprecated = Deprecated::warn;
-      else if (strcmp(p + 1, "c") == 0)
+      } else if (strcmp(p + 1, "c") == 0) {
         result.compileOnly = true;
-      else if (strncmp(p + 1, "color", 5) == 0) {
+      } else if (strncmp(p + 1, "color", 5) == 0) {
         result.color = Color::on;
         // Parse:
         //      -color
         //      -color=on|off
         if (p[6] == '=') {
-          if (strcmp(p + 7, "off") == 0)
+          if (strcmp(p + 7, "off") == 0) {
             result.color = Color::off;
-          else if (strcmp(p + 7, "on") != 0)
+          } else if (strcmp(p + 7, "on") != 0) {
             goto Lerror;
-        } else if (p[6])
+          }
+        } else if (p[6]) {
           goto Lerror;
-      } else if (strncmp(p + 1, "conf=", 5) == 0)
+        }
+      } else if (strncmp(p + 1, "conf=", 5) == 0) {
         result.conf = p + 1 + 5;
-      else if (strcmp(p + 1, "cov") == 0)
+      } else if (strcmp(p + 1, "cov") == 0) {
         // For "-cov=...", the whole cmdline switch is forwarded to LDC.
         // For plain "-cov", the cmdline switch must be explicitly forwarded
         // and result.coverage must be set to true to that effect.
         result.coverage = (p[4] != '=');
-      else if (strcmp(p + 1, "dip25") == 0)
+      } else if (strcmp(p + 1, "dip25") == 0) {
         result.useDIP25 = true;
-      else if (strcmp(p + 1, "shared") == 0
-               // backwards compatibility with old switch
-               || strcmp(p + 1, "dylib") == 0)
+      } else if (strcmp(p + 1, "shared") == 0
+                 // backwards compatibility with old switch
+                 || strcmp(p + 1, "dylib") == 0) {
         result.emitSharedLib = true;
-      else if (strcmp(p + 1, "fPIC") == 0)
+      } else if (strcmp(p + 1, "fPIC") == 0) {
         result.pic = true;
-      else if (strcmp(p + 1, "map") == 0)
+      } else if (strcmp(p + 1, "map") == 0) {
         result.emitMap = true;
-      else if (strcmp(p + 1, "multiobj") == 0)
+      } else if (strcmp(p + 1, "multiobj") == 0) {
         result.multiObj = true;
-      else if (strcmp(p + 1, "g") == 0)
+      } else if (strcmp(p + 1, "g") == 0) {
         result.debugInfo = Debug::normal;
-      else if (strcmp(p + 1, "gc") == 0)
+      } else if (strcmp(p + 1, "gc") == 0) {
         result.debugInfo = Debug::pretendC;
-      else if (strcmp(p + 1, "gs") == 0)
+      } else if (strcmp(p + 1, "gs") == 0) {
         result.alwaysStackFrame = true;
-      else if (strcmp(p + 1, "gt") == 0)
+      } else if (strcmp(p + 1, "gt") == 0) {
         error("use -profile instead of -gt\n");
-      else if (strcmp(p + 1, "m32") == 0)
+      } else if (strcmp(p + 1, "m32") == 0) {
         result.targetModel = Model::m32;
-      else if (strcmp(p + 1, "m64") == 0)
+      } else if (strcmp(p + 1, "m64") == 0) {
         result.targetModel = Model::m64;
-      else if (strcmp(p + 1, "profile") == 0)
+      } else if (strcmp(p + 1, "profile") == 0) {
         result.profile = true;
-      else if (memcmp(p + 1, "transition", 10) == 0)
+      } else if (memcmp(p + 1, "transition", 10) == 0) {
         warning("-transition not yet supported by LDC.");
-      else if (strcmp(p + 1, "v") == 0)
+      } else if (strcmp(p + 1, "v") == 0) {
         result.verbose = true;
-      else if (strcmp(p + 1, "vcolumns") == 0)
+      } else if (strcmp(p + 1, "vcolumns") == 0) {
         result.vcolumns = true;
-      else if (strcmp(p + 1, "vdmd") == 0)
+      } else if (strcmp(p + 1, "vdmd") == 0) {
         result.vdmd = true;
-      else if (strcmp(p + 1, "vgc") == 0)
+      } else if (strcmp(p + 1, "vgc") == 0) {
         result.vgc = true;
-      else if (strcmp(p + 1, "vtls") == 0)
+      } else if (strcmp(p + 1, "vtls") == 0) {
         result.logTlsUse = true;
-      else if (strcmp(p + 1, "v1") == 0) {
+      } else if (strcmp(p + 1, "v1") == 0) {
         error("use DMD 1.0 series compilers for -v1 switch");
         break;
       } else if (memcmp(p + 1, "verrors", 7) == 0) {
-        if (p[8] == '=' && isdigit((unsigned char)p[9])) {
+        if (p[8] == '=' && isdigit(static_cast<unsigned char>(p[9]))) {
           long num;
           char *endp;
           errno = 0;
           num = strtol(p + 9, &endp, 10);
-          if (*endp || errno || num > INT_MAX)
+          if (*endp || errno || num > INT_MAX) {
             goto Lerror;
+          }
           // Bugzilla issue number
-          result.errorLimit = (unsigned)num;
+          result.errorLimit = static_cast<unsigned>(num);
           result.errorLimitSet = true;
-        } else
+        } else {
           goto Lerror;
-      } else if (strcmp(p + 1, "w") == 0)
+        }
+      } else if (strcmp(p + 1, "w") == 0) {
         result.warnings = Warnings::asErrors;
-      else if (strcmp(p + 1, "wi") == 0)
+      } else if (strcmp(p + 1, "wi") == 0) {
         result.warnings = Warnings::informational;
-      else if (strcmp(p + 1, "O") == 0)
+      } else if (strcmp(p + 1, "O") == 0) {
         result.optimize = true;
-      else if (p[1] == 'o') {
+      } else if (p[1] == 'o') {
         switch (p[2]) {
         case '-':
           result.noObj = true;
           break;
 
         case 'd':
-          if (!p[3])
+          if (!p[3]) {
             goto Lnoarg;
+          }
           result.objDir = p + 3;
           break;
 
         case 'f':
-          if (!p[3])
+          if (!p[3]) {
             goto Lnoarg;
+          }
           result.objName = p + 3;
           break;
 
         case 'p':
-          if (p[3])
+          if (p[3]) {
             goto Lerror;
+          }
           result.preservePaths = 1;
           break;
 
@@ -561,13 +572,15 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
         result.generateDocs = true;
         switch (p[2]) {
         case 'd':
-          if (!p[3])
+          if (!p[3]) {
             goto Lnoarg;
+          }
           result.docDir = p + 3;
           break;
         case 'f':
-          if (!p[3])
+          if (!p[3]) {
             goto Lnoarg;
+          }
           result.docName = p + 3;
           break;
 
@@ -581,14 +594,16 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
         result.generateHeaders = true;
         switch (p[2]) {
         case 'd':
-          if (!p[3])
+          if (!p[3]) {
             goto Lnoarg;
+          }
           result.headerDir = p + 3;
           break;
 
         case 'f':
-          if (!p[3])
+          if (!p[3]) {
             goto Lnoarg;
+          }
           result.headerName = p + 3;
           break;
 
@@ -602,8 +617,9 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
         result.generateJson = true;
         switch (p[2]) {
         case 'f':
-          if (!p[3])
+          if (!p[3]) {
             goto Lnoarg;
+          }
           result.jsonName = p + 3;
           break;
 
@@ -613,90 +629,97 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
         default:
           goto Lerror;
         }
-      } else if (strcmp(p + 1, "ignore") == 0)
+      } else if (strcmp(p + 1, "ignore") == 0) {
         result.ignoreUnsupportedPragmas = true;
-      else if (strcmp(p + 1, "property") == 0)
+      } else if (strcmp(p + 1, "property") == 0) {
         result.enforcePropertySyntax = true;
-      else if (strcmp(p + 1, "inline") == 0)
+      } else if (strcmp(p + 1, "inline") == 0) {
         result.enableInline = true;
-      else if (strcmp(p + 1, "lib") == 0)
+      } else if (strcmp(p + 1, "lib") == 0) {
         result.emitStaticLib = true;
-      else if (strcmp(p + 1, "quiet") == 0)
+      } else if (strcmp(p + 1, "quiet") == 0) {
         result.quiet = 1;
-      else if (strcmp(p + 1, "release") == 0)
+      } else if (strcmp(p + 1, "release") == 0) {
         result.release = 1;
-      else if (strcmp(p + 1, "noboundscheck") == 0)
+      } else if (strcmp(p + 1, "noboundscheck") == 0) {
         result.boundsChecks = BoundsCheck::off;
-      else if (memcmp(p + 1, "boundscheck", 11) == 0) {
+      } else if (memcmp(p + 1, "boundscheck", 11) == 0) {
         if (p[12] == '=') {
-          if (strcmp(p + 13, "on") == 0)
+          if (strcmp(p + 13, "on") == 0) {
             result.boundsChecks = BoundsCheck::on;
-          else if (strcmp(p + 13, "safeonly") == 0)
+          } else if (strcmp(p + 13, "safeonly") == 0) {
             result.boundsChecks = BoundsCheck::safeOnly;
-          else if (strcmp(p + 13, "off") == 0)
+          } else if (strcmp(p + 13, "off") == 0) {
             result.boundsChecks = BoundsCheck::off;
-          else
+          } else {
             goto Lerror;
+          }
         }
-      } else if (strcmp(p + 1, "unittest") == 0)
+      } else if (strcmp(p + 1, "unittest") == 0) {
         result.emitUnitTests = 1;
-      else if (p[1] == 'I')
+      } else if (p[1] == 'I') {
         result.modulePaths.push_back(p + 2);
-      else if (p[1] == 'J')
+      } else if (p[1] == 'J') {
         result.importPaths.push_back(p + 2);
-      else if (memcmp(p + 1, "debug", 5) == 0 && p[6] != 'l') {
+      } else if (memcmp(p + 1, "debug", 5) == 0 && p[6] != 'l') {
         // Parse:
         //      -debug
         //      -debug=number
         //      -debug=identifier
         if (p[6] == '=') {
-          if (isdigit((unsigned char)p[7])) {
+          if (isdigit(static_cast<unsigned char>(p[7]))) {
             long level;
 
             errno = 0;
             level = strtol(p + 7, &p, 10);
-            if (*p || errno || level > INT_MAX)
+            if (*p || errno || level > INT_MAX) {
               goto Lerror;
-            result.debugLevel = (int)level;
-          } else
+            }
+            result.debugLevel = static_cast<int>(level);
+          } else {
             result.debugIdentifiers.push_back(p + 7);
-        } else if (p[6])
+          }
+        } else if (p[6]) {
           goto Lerror;
-        else
+        } else {
           result.debugFlag = true;
+        }
       } else if (memcmp(p + 1, "version", 5) == 0) {
         // Parse:
         //      -version=number
         //      -version=identifier
         if (p[8] == '=') {
-          if (isdigit((unsigned char)p[9])) {
+          if (isdigit(static_cast<unsigned char>(p[9]))) {
             long level;
 
             errno = 0;
             level = strtol(p + 9, &p, 10);
-            if (*p || errno || level > INT_MAX)
+            if (*p || errno || level > INT_MAX) {
               goto Lerror;
-            result.versionLevel = (int)level;
-          } else
+            }
+            result.versionLevel = static_cast<int>(level);
+          } else {
             result.versionIdentifiers.push_back(p + 9);
-        } else
+          }
+        } else {
           goto Lerror;
-      } else if (strcmp(p + 1, "-b") == 0)
+        }
+      } else if (strcmp(p + 1, "-b") == 0) {
         result.hiddenDebugB = 1;
-      else if (strcmp(p + 1, "-c") == 0)
+      } else if (strcmp(p + 1, "-c") == 0) {
         result.hiddenDebugC = 1;
-      else if (strcmp(p + 1, "-f") == 0)
+      } else if (strcmp(p + 1, "-f") == 0) {
         result.hiddenDebugF = 1;
-      else if (strcmp(p + 1, "-help") == 0) {
+      } else if (strcmp(p + 1, "-help") == 0) {
         printUsage(originalArgv[0], ldcPath);
         exit(EXIT_SUCCESS);
-      } else if (strcmp(p + 1, "-r") == 0)
+      } else if (strcmp(p + 1, "-r") == 0) {
         result.hiddenDebugR = 1;
-      else if (strcmp(p + 1, "-x") == 0)
+      } else if (strcmp(p + 1, "-x") == 0) {
         result.hiddenDebugX = 1;
-      else if (strcmp(p + 1, "-y") == 0)
+      } else if (strcmp(p + 1, "-y") == 0) {
         result.hiddenDebugY = 1;
-      else if (p[1] == 'L') {
+      } else if (p[1] == 'L') {
         result.linkerSwitches.push_back(p + 2);
       } else if (memcmp(p + 1, "defaultlib=", 11) == 0) {
         result.defaultLibName = p + 1 + 11;
@@ -704,8 +727,9 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
         result.debugLibName = p + 1 + 9;
       } else if (memcmp(p + 1, "deps=", 5) == 0) {
         result.moduleDepsFile = p + 1 + 5;
-        if (!result.moduleDepsFile[0])
+        if (!result.moduleDepsFile[0]) {
           goto Lnoarg;
+        }
       } else if (memcmp(p + 1, "man", 3) == 0) {
         browse("http://wiki.dlang.org/LDC");
         exit(EXIT_SUCCESS);
@@ -752,8 +776,9 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
 
 void pushSwitches(const char *prefix, const std::vector<char *> &vals,
                   std::vector<const char *> &r) {
-  for (auto v : vals)
+  for (auto v : vals) {
     r.push_back(concat(prefix, v));
+  }
 }
 
 /**
@@ -761,138 +786,195 @@ void pushSwitches(const char *prefix, const std::vector<char *> &vals,
  * parameters to r.
  */
 void buildCommandLine(std::vector<const char *> &r, const Params &p) {
-  if (p.allinst)
+  if (p.allinst) {
     r.push_back("-allinst");
-  if (p.useDeprecated == Deprecated::allow)
+  }
+  if (p.useDeprecated == Deprecated::allow) {
     r.push_back("-d");
-  if (p.useDeprecated == Deprecated::error)
+  }
+  if (p.useDeprecated == Deprecated::error) {
     r.push_back("-de");
-  if (p.compileOnly)
+  }
+  if (p.compileOnly) {
     r.push_back("-c");
-  if (p.coverage)
+  }
+  if (p.coverage) {
     r.push_back("-cov");
-  if (p.emitSharedLib)
+  }
+  if (p.emitSharedLib) {
     r.push_back("-shared");
-  if (p.pic)
+  }
+  if (p.pic) {
     r.push_back("-relocation-model=pic");
-  if (p.emitMap)
+  }
+  if (p.emitMap) {
     warning("Map file generation not yet supported by LDC.");
-  if (!p.emitStaticLib && ((!p.multiObj && !p.compileOnly) || p.objName))
+  }
+  if (!p.emitStaticLib && ((!p.multiObj && !p.compileOnly) || p.objName)) {
     r.push_back("-singleobj");
-  if (p.debugInfo == Debug::normal)
+  }
+  if (p.debugInfo == Debug::normal) {
     r.push_back("-g");
-  else if (p.debugInfo == Debug::pretendC)
+  } else if (p.debugInfo == Debug::pretendC) {
     r.push_back("-gc");
-  if (p.alwaysStackFrame)
+  }
+  if (p.alwaysStackFrame) {
     r.push_back("-disable-fp-elim");
-  if (p.targetModel == Model::m32)
+  }
+  if (p.targetModel == Model::m32) {
     r.push_back("-m32");
-  else if (p.targetModel == Model::m64)
+  } else if (p.targetModel == Model::m64) {
     r.push_back("-m64");
-  if (p.profile)
+  }
+  if (p.profile) {
     warning("CPU profile generation not yet supported by LDC.");
-  if (p.verbose)
+  }
+  if (p.verbose) {
     r.push_back("-v");
-  if (p.vcolumns)
+  }
+  if (p.vcolumns) {
     r.push_back("-vcolumns");
-  if (p.vgc)
+  }
+  if (p.vgc) {
     r.push_back("-vgc");
-  if (p.logTlsUse)
+  }
+  if (p.logTlsUse) {
     warning("-vtls not yet supported by LDC.");
-  if (p.errorLimitSet)
+  }
+  if (p.errorLimitSet) {
     r.push_back(concat("-verrors=", p.errorLimit));
-  if (p.warnings == Warnings::asErrors)
+  }
+  if (p.warnings == Warnings::asErrors) {
     r.push_back("-w");
-  else if (p.warnings == Warnings::informational)
+  } else if (p.warnings == Warnings::informational) {
     r.push_back("-wi");
-  if (p.optimize)
+  }
+  if (p.optimize) {
     r.push_back("-O3");
-  if (p.noObj)
+  }
+  if (p.noObj) {
     r.push_back("-o-");
-  if (p.objDir)
+  }
+  if (p.objDir) {
     r.push_back(concat("-od=", p.objDir));
-  if (p.objName)
+  }
+  if (p.objName) {
     r.push_back(concat("-of=", p.objName));
-  if (p.preservePaths)
+  }
+  if (p.preservePaths) {
     r.push_back("-op");
-  if (p.generateDocs)
+  }
+  if (p.generateDocs) {
     r.push_back("-D");
-  if (p.docDir)
+  }
+  if (p.docDir) {
     r.push_back(concat("-Dd=", p.docDir));
-  if (p.docName)
+  }
+  if (p.docName) {
     r.push_back(concat("-Df=", p.docName));
-  if (p.generateHeaders)
+  }
+  if (p.generateHeaders) {
     r.push_back("-H");
-  if (p.headerDir)
+  }
+  if (p.headerDir) {
     r.push_back(concat("-Hd=", p.headerDir));
-  if (p.headerName)
+  }
+  if (p.headerName) {
     r.push_back(concat("-Hf=", p.headerName));
-  if (p.generateJson)
+  }
+  if (p.generateJson) {
     r.push_back("-X");
-  if (p.jsonName)
+  }
+  if (p.jsonName) {
     r.push_back(concat("-Xf=", p.jsonName));
-  if (p.ignoreUnsupportedPragmas)
+  }
+  if (p.ignoreUnsupportedPragmas) {
     r.push_back("-ignore");
-  if (p.enforcePropertySyntax)
+  }
+  if (p.enforcePropertySyntax) {
     r.push_back("-property");
+  }
   if (p.enableInline) {
     // -inline also influences .di generation with DMD.
     r.push_back("-enable-inlining");
     r.push_back("-Hkeep-all-bodies");
   }
-  if (p.emitStaticLib)
+  if (p.emitStaticLib) {
     r.push_back("-lib");
+  }
   // -quiet is the default in (newer?) frontend versions, just ignore it.
-  if (p.release)
+  if (p.release) {
     r.push_back("-release"); // Also disables boundscheck.
-  if (p.boundsChecks == BoundsCheck::on)
+  }
+  if (p.boundsChecks == BoundsCheck::on) {
     r.push_back("-boundscheck=on");
-  if (p.boundsChecks == BoundsCheck::safeOnly)
+  }
+  if (p.boundsChecks == BoundsCheck::safeOnly) {
     r.push_back("-boundscheck=safeonly");
-  if (p.boundsChecks == BoundsCheck::off)
+  }
+  if (p.boundsChecks == BoundsCheck::off) {
     r.push_back("-boundscheck=off");
-  if (p.emitUnitTests)
+  }
+  if (p.emitUnitTests) {
     r.push_back("-unittest");
+  }
   pushSwitches("-I=", p.modulePaths, r);
   pushSwitches("-J=", p.importPaths, r);
-  if (p.debugFlag)
+  if (p.debugFlag) {
     r.push_back("-d-debug");
-  if (p.debugLevel)
+  }
+  if (p.debugLevel) {
     r.push_back(concat("-d-debug=", p.debugLevel));
+  }
   pushSwitches("-d-debug=", p.debugIdentifiers, r);
-  if (p.versionLevel)
+  if (p.versionLevel) {
     r.push_back(concat("-d-version=", p.versionLevel));
+  }
   pushSwitches("-d-version=", p.versionIdentifiers, r);
   pushSwitches("-L=", p.linkerSwitches, r);
-  if (p.defaultLibName)
+  if (p.defaultLibName) {
     r.push_back(concat("-defaultlib=", p.defaultLibName));
-  if (p.debugLibName)
+  }
+  if (p.debugLibName) {
     r.push_back(concat("-debuglib=", p.debugLibName));
-  if (p.moduleDepsFile)
+  }
+  if (p.moduleDepsFile) {
     r.push_back(concat("-deps=", p.moduleDepsFile));
-  if (p.color == Color::on)
+  }
+  if (p.color == Color::on) {
     r.push_back("-enable-color");
-  if (p.color == Color::off)
+  }
+  if (p.color == Color::off) {
     r.push_back("-disable-color");
-  if (p.useDIP25)
+  }
+  if (p.useDIP25) {
     r.push_back("-dip25");
-  if (p.conf)
+  }
+  if (p.conf) {
     r.push_back(concat("-conf=", p.conf));
-  if (p.hiddenDebugB)
+  }
+  if (p.hiddenDebugB) {
     r.push_back("-hidden-debug-b");
-  if (p.hiddenDebugC)
+  }
+  if (p.hiddenDebugC) {
     r.push_back("-hidden-debug-c");
-  if (p.hiddenDebugF)
+  }
+  if (p.hiddenDebugF) {
     r.push_back("-hidden-debug-f");
-  if (p.hiddenDebugR)
+  }
+  if (p.hiddenDebugR) {
     r.push_back("-hidden-debug-r");
-  if (p.hiddenDebugX)
+  }
+  if (p.hiddenDebugX) {
     r.push_back("-hidden-debug-x");
-  if (p.hiddenDebugY)
+  }
+  if (p.hiddenDebugY) {
     r.push_back("-hidden-debug-y");
+  }
   r.insert(r.end(), p.unknownSwitches.begin(), p.unknownSwitches.end());
-  if (p.run)
+  if (p.run) {
     r.push_back("-run");
+  }
   r.insert(r.end(), p.files.begin(), p.files.end());
   r.insert(r.end(), p.runArgs.begin(), p.runArgs.end());
 }
@@ -921,8 +1003,9 @@ size_t maxCommandLineLen() {
  */
 std::string locateBinary(std::string exeName) {
   std::string path = exe_path::prependBinDir(exeName.c_str());
-  if (ls::fs::can_execute(path))
+  if (ls::fs::can_execute(path)) {
     return path;
+  }
 
 #if LDC_LLVM_VER >= 306
   llvm::ErrorOr<std::string> res = ls::findProgramByName(exeName);
@@ -930,8 +1013,9 @@ std::string locateBinary(std::string exeName) {
 #else
   path = ls::FindProgramByName(exeName);
 #endif
-  if (ls::fs::can_execute(path))
+  if (ls::fs::can_execute(path)) {
     return path;
+  }
 
   return "";
 }
@@ -940,13 +1024,15 @@ std::string locateBinary(std::string exeName) {
  * Makes sure the given directory (absolute or relative) exists on disk.
  */
 static void createOutputDir(const char *dir) {
-  if (ls::fs::create_directories(dir))
+  if (ls::fs::create_directories(dir)) {
     error("Could not create output directory '%s'.", dir);
+  }
 }
 
 static size_t addStrlen(size_t acc, const char *str) {
-  if (!str)
+  if (!str) {
     return acc;
+  }
   return acc + strlen(str);
 }
 
@@ -970,24 +1056,27 @@ int main(int argc, char *argv[]) {
   buildCommandLine(args, p);
   if (p.vdmd) {
     printf(" -- Invoking:");
-    for (size_t i = 0; i < args.size(); ++i)
-      printf(" %s", args[i]);
+    for (auto &arg : args) {
+      printf(" %s", arg);
+    }
     puts("");
   }
 
-  args.push_back(NULL);
+  args.push_back(nullptr);
 
   // On Linux, DMD creates output directores that don't already exist, while
   // LDC does not (and neither does GDC). Do this here for rdmd compatibility.
   if (p.objName) {
     llvm::SmallString<256> outputPath(p.objName);
     ls::path::remove_filename(outputPath);
-    if (!outputPath.empty())
+    if (!outputPath.empty()) {
       createOutputDir(outputPath.c_str());
+    }
   }
 
-  if (p.objDir)
+  if (p.objDir) {
     createOutputDir(p.objDir);
+  }
 
   // Check if we need to write out a response file.
   size_t totalLen = std::accumulate(args.begin(), args.end(), 0, addStrlen);
@@ -1000,8 +1089,9 @@ int main(int argc, char *argv[]) {
 
     {
       llvm::raw_fd_ostream rspOut(rspFd, /*shouldClose=*/true);
-      for (auto arg : args)
+      for (auto arg : args) {
         rspOut << arg << '\n';
+      }
     }
 
     std::string rspArg = "@";
@@ -1010,7 +1100,7 @@ int main(int argc, char *argv[]) {
     std::vector<const char *> newArgs;
     newArgs.push_back(argv[0]);
     newArgs.push_back(rspArg.c_str());
-    newArgs.push_back(NULL);
+    newArgs.push_back(nullptr);
 
     int rc = execute(ldcPath, &newArgs[0]);
 
@@ -1019,7 +1109,6 @@ int main(int argc, char *argv[]) {
     }
 
     return rc;
-  } else {
-    return execute(ldcPath, &args[0]);
   }
+  return execute(ldcPath, &args[0]);
 }

@@ -56,7 +56,7 @@ public:
 #if LDC_LLVM_VER >= 307
   FlagParser(cl::Option &O) : generic_parser_base(O) {}
 #else
-  FlagParser() : generic_parser_base(), Owner(0) {}
+  FlagParser() : generic_parser_base(), Owner(nullptr) {}
 #endif
   typedef DataType parser_data_type;
 
@@ -157,7 +157,7 @@ private:
 class MultiSetter {
   std::vector<bool *> locations;
   bool invert;
-  MultiSetter(bool); // not implemented, disable auto-conversion
+  explicit MultiSetter(bool); // not implemented, disable auto-conversion
 public:
   MultiSetter(bool invert, bool *p, ...) LLVM_END_WITH_NULL;
 

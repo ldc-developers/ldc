@@ -16,25 +16,25 @@
 
 #include "ir/irtypefunction.h"
 
-IrTypeFunction::IrTypeFunction(Type *dt, llvm::Type *lt, const IrFuncTy &irFty_)
-    : IrType(dt, lt), irFty(irFty_) {}
+IrTypeFunction::IrTypeFunction(Type *dt, llvm::Type *lt, IrFuncTy irFty_)
+    : IrType(dt, lt), irFty(std::move(irFty_)) {}
 
 IrTypeFunction *IrTypeFunction::get(Type *dt) {
   assert(!dt->ctype);
   assert(dt->ty == Tfunction);
 
   IrFuncTy irFty;
-  llvm::Type *lt = DtoFunctionType(dt, irFty, NULL, NULL);
+  llvm::Type *lt = DtoFunctionType(dt, irFty, nullptr, nullptr);
 
-  IrTypeFunction *result = new IrTypeFunction(dt, lt, irFty);
+  auto result = new IrTypeFunction(dt, lt, irFty);
   dt->ctype = result;
   return result;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 
-IrTypeDelegate::IrTypeDelegate(Type *dt, llvm::Type *lt, const IrFuncTy &irFty_)
-    : IrType(dt, lt), irFty(irFty_) {}
+IrTypeDelegate::IrTypeDelegate(Type *dt, llvm::Type *lt, IrFuncTy irFty_)
+    : IrType(dt, lt), irFty(std::move(irFty_)) {}
 
 IrTypeDelegate *IrTypeDelegate::get(Type *t) {
   assert(!t->ctype);
@@ -43,11 +43,11 @@ IrTypeDelegate *IrTypeDelegate::get(Type *t) {
 
   IrFuncTy irFty;
   llvm::Type *ltf =
-      DtoFunctionType(t->nextOf(), irFty, NULL, Type::tvoid->pointerTo());
+      DtoFunctionType(t->nextOf(), irFty, nullptr, Type::tvoid->pointerTo());
   llvm::Type *types[] = {getVoidPtrType(), getPtrToType(ltf)};
   LLStructType *lt = LLStructType::get(gIR->context(), types, false);
 
-  IrTypeDelegate *result = new IrTypeDelegate(t, lt, irFty);
+  auto result = new IrTypeDelegate(t, lt, irFty);
   t->ctype = result;
   return result;
 }

@@ -16,17 +16,17 @@
 #include "ir/irfunction.h"
 #include <cstdarg>
 
-IRState *gIR = 0;
-llvm::TargetMachine *gTargetMachine = 0;
-const llvm::DataLayout *gDataLayout = 0;
-TargetABI *gABI = 0;
+IRState *gIR = nullptr;
+llvm::TargetMachine *gTargetMachine = nullptr;
+const llvm::DataLayout *gDataLayout = nullptr;
+TargetABI *gABI = nullptr;
 
 //////////////////////////////////////////////////////////////////////////////////////////
-IRScope::IRScope() : builder(gIR->context()) { begin = NULL; }
+IRScope::IRScope() : builder(gIR->context()) { begin = nullptr; }
 
 IRScope::IRScope(llvm::BasicBlock *b) : begin(b), builder(b) {}
 
-const IRScope &IRScope::operator=(const IRScope &rhs) {
+IRScope &IRScope::operator=(const IRScope &rhs) {
   begin = rhs.begin;
   builder.SetInsertPoint(begin);
   return *this;
@@ -35,13 +35,13 @@ const IRScope &IRScope::operator=(const IRScope &rhs) {
 //////////////////////////////////////////////////////////////////////////////////////////
 IRState::IRState(const char *name, llvm::LLVMContext &context)
     : module(name, context), DBuilder(this) {
-  mutexType = NULL;
-  moduleRefType = NULL;
+  mutexType = nullptr;
+  moduleRefType = nullptr;
 
-  dmodule = 0;
-  mainFunc = 0;
+  dmodule = nullptr;
+  mainFunc = nullptr;
   ir.state = this;
-  asmBlock = NULL;
+  asmBlock = nullptr;
 }
 
 IrFunction *IRState::func() {
@@ -112,8 +112,9 @@ bool IRState::emitArrayBoundsChecks() {
   }
 
   // Safe functions only.
-  if (functions.empty())
+  if (functions.empty()) {
     return false;
+  }
 
   Type *t = func()->decl->type;
   return t->ty == Tfunction && ((TypeFunction *)t)->trust == TRUSTsafe;

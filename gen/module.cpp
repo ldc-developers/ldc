@@ -75,32 +75,36 @@ static void check_and_add_output_file(Module *NewMod, const std::string &str) {
 }
 
 void Module::buildTargetFiles(bool singleObj, bool library) {
-  if (objfile && (!doDocComment || docfile) && (!doHdrGen || hdrfile))
+  if (objfile && (!doDocComment || docfile) && (!doHdrGen || hdrfile)) {
     return;
+  }
 
   if (!objfile) {
-    const char *objname = library ? 0 : global.params.objname;
-    if (global.params.output_o)
+    const char *objname = library ? nullptr : global.params.objname;
+    if (global.params.output_o) {
       objfile = Module::buildFilePath(objname, global.params.objdir,
                                       global.params.targetTriple.isOSWindows()
                                           ? global.obj_ext_alt
                                           : global.obj_ext);
-    else if (global.params.output_bc)
+    } else if (global.params.output_bc) {
       objfile =
           Module::buildFilePath(objname, global.params.objdir, global.bc_ext);
-    else if (global.params.output_ll)
+    } else if (global.params.output_ll) {
       objfile =
           Module::buildFilePath(objname, global.params.objdir, global.ll_ext);
-    else if (global.params.output_s)
+    } else if (global.params.output_s) {
       objfile =
           Module::buildFilePath(objname, global.params.objdir, global.s_ext);
+    }
   }
-  if (doDocComment && !docfile)
+  if (doDocComment && !docfile) {
     docfile = Module::buildFilePath(global.params.docname, global.params.docdir,
                                     global.doc_ext);
-  if (doHdrGen && !hdrfile)
+  }
+  if (doHdrGen && !hdrfile) {
     hdrfile = Module::buildFilePath(global.params.hdrname, global.params.hdrdir,
                                     global.hdr_ext);
+  }
 
   // safety check: never allow obj, doc or hdr file to have the source file's
   // name
@@ -127,10 +131,12 @@ void Module::buildTargetFiles(bool singleObj, bool library) {
 
   // LDC
   // another safety check to make sure we don't overwrite previous output files
-  if (!singleObj && global.params.obj)
+  if (!singleObj && global.params.obj) {
     check_and_add_output_file(this, objfile->name->str);
-  if (docfile)
+  }
+  if (docfile) {
     check_and_add_output_file(this, docfile->name->str);
+  }
   // FIXME: DMD overwrites header files. This should be done only in a DMD mode.
   // if (hdrfile)
   //    check_and_add_output_file(this, hdrfile->name->str);
@@ -142,10 +148,11 @@ File *Module::buildFilePath(const char *forcename, const char *path,
   if (forcename) {
     argobj = forcename;
   } else {
-    if (preservePaths)
+    if (preservePaths) {
       argobj = this->arg;
-    else
+    } else {
       argobj = FileName::name(this->arg);
+    }
 
     if (fqnNames) {
       char *name = md ? md->toChars() : toChars();
@@ -154,7 +161,7 @@ File *Module::buildFilePath(const char *forcename, const char *path,
       // add ext, otherwise forceExt will make nested.module into nested.bc
       size_t len = strlen(argobj);
       size_t extlen = strlen(ext);
-      char *s = (char *)alloca(len + 1 + extlen + 1);
+      char *s = reinterpret_cast<char *>(alloca(len + 1 + extlen + 1));
       memcpy(s, argobj, len);
       s[len] = '.';
       memcpy(s + len + 1, ext, extlen + 1);
@@ -163,8 +170,9 @@ File *Module::buildFilePath(const char *forcename, const char *path,
     }
   }
 
-  if (!FileName::absolute(argobj))
+  if (!FileName::absolute(argobj)) {
     argobj = FileName::combine(path, argobj);
+  }
 
   FileName::ensurePathExists(FileName::path(argobj));
 
@@ -177,11 +185,13 @@ static llvm::Function *build_module_function(
     const std::string &name, const std::list<FuncDeclaration *> &funcs,
     const std::list<VarDeclaration *> &gates = std::list<VarDeclaration *>()) {
   if (gates.empty()) {
-    if (funcs.empty())
-      return NULL;
+    if (funcs.empty()) {
+      return nullptr;
+    }
 
-    if (funcs.size() == 1)
+    if (funcs.size() == 1) {
       return getIrFunc(funcs.front())->func;
+    }
   }
 
   // build ctor type
@@ -319,10 +329,11 @@ static LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   // make sure _Dmodule_ref is declared
   LLConstant *mref = gIR->module.getNamedGlobal("_Dmodule_ref");
   LLType *modulerefPtrTy = getPtrToType(modulerefTy);
-  if (!mref)
+  if (!mref) {
     mref = new LLGlobalVariable(gIR->module, modulerefPtrTy, false,
-                                LLGlobalValue::ExternalLinkage, NULL,
+                                LLGlobalValue::ExternalLinkage, nullptr,
                                 "_Dmodule_ref");
+  }
   mref = DtoBitCast(mref, getPtrToType(modulerefPtrTy));
 
   // make the function insert this moduleinfo as the beginning of the
@@ -428,7 +439,7 @@ static void build_module_ref(std::string moduleMangle,
   std::string thismrefname = "_D";
   thismrefname += moduleMangle;
   thismrefname += "11__moduleRefZ";
-  llvm::GlobalVariable *thismref = new llvm::GlobalVariable(
+  auto thismref = new llvm::GlobalVariable(
       gIR->module, moduleInfoPtrTy,
       false, // FIXME: mRelocModel != llvm::Reloc::PIC_
       llvm::GlobalValue::LinkOnceODRLinkage,
@@ -445,7 +456,7 @@ static void build_dso_registry_calls(std::string moduleMangle,
   // Order is important here: We must create the symbols in the
   // bracketing sections right before/after the ModuleInfo reference
   // so that they end up in the correct order in the object file.
-  llvm::GlobalVariable *minfoBeg =
+  auto minfoBeg =
       new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy,
                                false, // FIXME: mRelocModel != llvm::Reloc::PIC_
                                llvm::GlobalValue::LinkOnceODRLinkage,
@@ -456,7 +467,7 @@ static void build_dso_registry_calls(std::string moduleMangle,
   std::string thismrefname = "_D";
   thismrefname += moduleMangle;
   thismrefname += "11__moduleRefZ";
-  llvm::GlobalVariable *thismref = new llvm::GlobalVariable(
+  auto thismref = new llvm::GlobalVariable(
       gIR->module, moduleInfoPtrTy,
       false, // FIXME: mRelocModel != llvm::Reloc::PIC_
       llvm::GlobalValue::LinkOnceODRLinkage,
@@ -464,7 +475,7 @@ static void build_dso_registry_calls(std::string moduleMangle,
   thismref->setSection(".minfo");
   gIR->usedArray.push_back(thismref);
 
-  llvm::GlobalVariable *minfoEnd =
+  auto minfoEnd =
       new llvm::GlobalVariable(gIR->module, moduleInfoPtrTy,
                                false, // FIXME: mRelocModel != llvm::Reloc::PIC_
                                llvm::GlobalValue::LinkOnceODRLinkage,
@@ -475,7 +486,7 @@ static void build_dso_registry_calls(std::string moduleMangle,
   // Build the ctor to invoke _d_dso_registry.
 
   // This is the DSO slot for use by the druntime implementation.
-  llvm::GlobalVariable *dsoSlot =
+  auto dsoSlot =
       new llvm::GlobalVariable(gIR->module, getVoidPtrType(), false,
                                llvm::GlobalValue::LinkOnceODRLinkage,
                                getNullPtr(getVoidPtrType()), "ldc.dso_slot");
@@ -510,7 +521,7 @@ static void build_dso_registry_calls(std::string moduleMangle,
   // problems. This would mean that it is no longer safe to link D objects
   // directly using e.g. "g++ dcode.o cppcode.o", though.
 
-  llvm::GlobalVariable *dsoInitialized = new llvm::GlobalVariable(
+  auto dsoInitialized = new llvm::GlobalVariable(
       gIR->module, llvm::Type::getInt8Ty(gIR->context()), false,
       llvm::GlobalValue::LinkOnceODRLinkage,
       llvm::ConstantInt::get(llvm::Type::getInt8Ty(gIR->context()), 0),
@@ -546,18 +557,20 @@ static void build_dso_registry_calls(std::string moduleMangle,
 }
 
 static void build_llvm_used_array(IRState *p) {
-  if (p->usedArray.empty())
+  if (p->usedArray.empty()) {
     return;
+  }
 
   std::vector<llvm::Constant *> usedVoidPtrs;
   usedVoidPtrs.reserve(p->usedArray.size());
 
-  for (auto constant : p->usedArray)
+  for (auto constant : p->usedArray) {
     usedVoidPtrs.push_back(DtoBitCast(constant, getVoidPtrType()));
+  }
 
   llvm::ArrayType *arrayType =
       llvm::ArrayType::get(getVoidPtrType(), usedVoidPtrs.size());
-  llvm::GlobalVariable *llvmUsed = new llvm::GlobalVariable(
+  auto llvmUsed = new llvm::GlobalVariable(
       p->module, arrayType, false, llvm::GlobalValue::AppendingLinkage,
       llvm::ConstantArray::get(arrayType, usedVoidPtrs), "llvm.used");
   llvmUsed->setSection("llvm.metadata");
@@ -572,7 +585,7 @@ static void addCoverageAnalysis(Module *m) {
   }
 
   // size_t[# source lines / # bits in sizeTy] _d_cover_valid
-  LLValue *d_cover_valid_slice = NULL;
+  LLValue *d_cover_valid_slice = nullptr;
   {
     unsigned Dsizet_bits = gDataLayout->getTypeSizeInBits(DtoSize_t());
     size_t array_size = (m->numlines + (Dsizet_bits - 1)) / Dsizet_bits; // ceil
@@ -609,7 +622,7 @@ static void addCoverageAnalysis(Module *m) {
   }
 
   // uint[# source lines] _d_cover_data
-  LLValue *d_cover_data_slice = NULL;
+  LLValue *d_cover_data_slice = nullptr;
   {
     IF_LOG Logger::println("Build private variable: uint[%d] _d_cover_data",
                            m->numlines);
@@ -634,7 +647,7 @@ static void addCoverageAnalysis(Module *m) {
   // Create "static constructor" that calls _d_cover_register2(string filename,
   // size_t[] valid, uint[] data, ubyte minPercent)
   // Build ctor name
-  LLFunction *ctor = NULL;
+  LLFunction *ctor = nullptr;
   std::string ctorname = "_D";
   ctorname += mangle(m);
   ctorname += "12_coverageanalysisCtor1FZv";
@@ -677,7 +690,7 @@ static void addCoverageAnalysis(Module *m) {
     IF_LOG Logger::println("Add %s to module's shared static constructor list",
                            ctorname.c_str());
     FuncDeclaration *fd =
-        FuncDeclaration::genCfunc(NULL, Type::tvoid, ctorname.c_str());
+        FuncDeclaration::genCfunc(nullptr, Type::tvoid, ctorname.c_str());
     fd->linkage = LINKd;
     IrFunction *irfunc = getIrFunc(fd, true);
     irfunc->func = ctor;
@@ -725,8 +738,9 @@ void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo) {
     Declaration_codegen(dsym);
   }
 
-  if (global.errors)
+  if (global.errors) {
     fatal();
+  }
 
   // Skip emission of all the additional module metadata if requested by the
   // user.
@@ -741,8 +755,8 @@ void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo) {
     addCoverageAnalysisInitializer(m);
   }
 
-  gIR = 0;
-  irs->dmodule = 0;
+  gIR = nullptr;
+  irs->dmodule = nullptr;
 }
 
 // Put out instance of ModuleInfo for this Module
@@ -771,12 +785,13 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
 
   // importedModules[]
   std::vector<LLConstant *> importInits;
-  LLConstant *importedModules = 0;
-  llvm::ArrayType *importedModulesTy = 0;
+  LLConstant *importedModules = nullptr;
+  llvm::ArrayType *importedModulesTy = nullptr;
   for (size_t i = 0; i < m->aimports.dim; i++) {
     Module *mod = static_cast<Module *>(m->aimports.data[i]);
-    if (!mod->needModuleInfo() || mod == m)
+    if (!mod->needModuleInfo() || mod == m) {
       continue;
+    }
 
     importInits.push_back(
         DtoBitCast(getIrModule(mod)->moduleInfoSymbol(), moduleInfoPtrTy));
@@ -789,8 +804,8 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
   }
 
   // localClasses[]
-  LLConstant *localClasses = 0;
-  llvm::ArrayType *localClassesTy = 0;
+  LLConstant *localClasses = nullptr;
+  llvm::ArrayType *localClassesTy = nullptr;
   ClassDeclarations aclasses;
   // printf("members->dim = %d\n", members->dim);
   for (size_t i = 0; i < m->members->dim; i++) {
@@ -843,49 +858,62 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
   llvm::Function *fdtor = build_module_dtor(m);
 
   unsigned flags = MInew;
-  if (fctor)
+  if (fctor) {
     flags |= MItlsctor;
-  if (fdtor)
+  }
+  if (fdtor) {
     flags |= MItlsdtor;
-  if (fsharedctor)
+  }
+  if (fsharedctor) {
     flags |= MIctor;
-  if (fshareddtor)
+  }
+  if (fshareddtor) {
     flags |= MIdtor;
+  }
 #if 0
     if (fgetmembers)
         flags |= MIxgetMembers;
     if (fictor)
         flags |= MIictor;
 #endif
-  if (funittest)
+  if (funittest) {
     flags |= MIunitTest;
-  if (importedModules)
+  }
+  if (importedModules) {
     flags |= MIimportedModules;
-  if (localClasses)
+  }
+  if (localClasses) {
     flags |= MIlocalClasses;
+  }
 
-  if (!m->needmoduleinfo)
+  if (!m->needmoduleinfo) {
     flags |= MIstandalone;
+  }
 
   b.push_uint(flags); // flags
   b.push_uint(0);     // index
 
-  if (fctor)
+  if (fctor) {
     b.push(fctor);
-  if (fdtor)
+  }
+  if (fdtor) {
     b.push(fdtor);
-  if (fsharedctor)
+  }
+  if (fsharedctor) {
     b.push(fsharedctor);
-  if (fshareddtor)
+  }
+  if (fshareddtor) {
     b.push(fshareddtor);
+  }
 #if 0
     if (fgetmembers)
         b.push(fgetmembers);
     if (fictor)
         b.push(fictor);
 #endif
-  if (funittest)
+  if (funittest) {
     b.push(funittest);
+  }
   if (importedModules) {
     b.push_size(importInits.size());
     b.push(importedModules);
@@ -908,10 +936,11 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
   moduleInfoSym->setLinkage(llvm::GlobalValue::ExternalLinkage);
 
   if (global.params.isLinux) {
-    if (emitFullModuleInfo)
+    if (emitFullModuleInfo) {
       build_dso_registry_calls(mangle(m), moduleInfoSym);
-    else
+    } else {
       build_module_ref(mangle(m), moduleInfoSym);
+    }
   } else {
     // build the modulereference and ctor for registering it
     LLFunction *mictor =

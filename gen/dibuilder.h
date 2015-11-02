@@ -88,7 +88,7 @@ class DIBuilder {
   }
 
 public:
-  DIBuilder(IRState *const IR);
+  explicit DIBuilder(IRState *const IR);
 
   /// \brief Emit the Dwarf compile_unit global for a Module m.
   /// \param m        Module to emit as compile unit.
@@ -132,7 +132,7 @@ public:
   /// \param isThisPtr Parameter is hidden this pointer
   /// \param addr     An array of complex address operations.
   void
-  EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd, Type *type = 0,
+  EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd, Type *type = nullptr,
                     bool isThisPtr = false,
 #if LDC_LLVM_VER >= 306
                     llvm::ArrayRef<int64_t> addr = llvm::ArrayRef<int64_t>()
@@ -186,8 +186,9 @@ private:
 public:
   template <typename T>
   void OpOffset(T &addr, llvm::StructType *type, int index) {
-    if (!global.params.symdebug)
+    if (!global.params.symdebug) {
       return;
+    }
 
     uint64_t offset =
         gDataLayout->getStructLayout(type)->getElementOffset(index);
@@ -202,8 +203,9 @@ public:
   }
 
   template <typename T> void OpOffset(T &addr, llvm::Value *val, int index) {
-    if (!global.params.symdebug)
+    if (!global.params.symdebug) {
       return;
+    }
 
     llvm::StructType *type = isaStruct(val->getType()->getContainedType(0));
     assert(type);
@@ -211,8 +213,9 @@ public:
   }
 
   template <typename T> void OpDeref(T &addr) {
-    if (!global.params.symdebug)
+    if (!global.params.symdebug) {
       return;
+    }
 
 #if LDC_LLVM_VER >= 306
     addr.push_back(llvm::dwarf::DW_OP_deref);

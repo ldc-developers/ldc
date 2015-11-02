@@ -21,14 +21,15 @@
 void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo);
 
 namespace {
-Module *g_entrypointModule = 0;
-Module *g_dMainModule = 0;
+Module *g_entrypointModule = nullptr;
+Module *g_dMainModule = nullptr;
 }
 
 /// Callback to generate a C main() function, invoked by the frontend.
 void genCmain(Scope *sc) {
-  if (g_entrypointModule)
+  if (g_entrypointModule) {
     return;
+  }
 
   /* The D code to be generated is provided as D source code in the form of a
    * string.
@@ -45,7 +46,7 @@ void genCmain(Scope *sc) {
         ";
 
   Identifier *id = Id::entrypoint;
-  Module *m = new Module("__entrypoint.d", id, 0, 0);
+  auto m = new Module("__entrypoint.d", id, 0, 0);
 
   Parser p(m, code, sizeof(code) / sizeof(code[0]), 0);
   p.scanloc = Loc();
@@ -56,7 +57,7 @@ void genCmain(Scope *sc) {
   char v = global.params.verbose;
   global.params.verbose = 0;
   m->importedFrom = m;
-  m->importAll(0);
+  m->importAll(nullptr);
   m->semantic();
   m->semantic2();
   m->semantic3();
@@ -74,8 +75,8 @@ void emitSymbolAddrGlobal(llvm::Module &lm, const char *symbolName,
                           const char *addrName) {
   llvm::Type *voidPtr =
       llvm::PointerType::get(llvm::Type::getInt8Ty(lm.getContext()), 0);
-  llvm::GlobalVariable *targetSymbol = new llvm::GlobalVariable(
-      lm, voidPtr, false, llvm::GlobalValue::ExternalWeakLinkage, 0,
+  auto targetSymbol = new llvm::GlobalVariable(
+      lm, voidPtr, false, llvm::GlobalValue::ExternalWeakLinkage, nullptr,
       symbolName);
   new llvm::GlobalVariable(
       lm, voidPtr, false, llvm::GlobalValue::ExternalLinkage,
@@ -85,8 +86,8 @@ void emitSymbolAddrGlobal(llvm::Module &lm, const char *symbolName,
 
 namespace ldc {
 CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
-    : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(0),
-      firstModuleObjfileName_(0) {
+    : context_(context), moduleCount_(0), singleObj_(singleObj), ir_(nullptr),
+      firstModuleObjfileName_(nullptr) {
   if (!ClassDeclaration::object) {
     error(Loc(), "declaration for class Object not found; druntime not "
                  "configured properly");
@@ -120,8 +121,9 @@ void CodeGenerator::prepareLLModule(Module *m) {
   }
   ++moduleCount_;
 
-  if (singleObj_ && ir_)
+  if (singleObj_ && ir_) {
     return;
+  }
 
   assert(!ir_);
 
@@ -144,8 +146,9 @@ void CodeGenerator::prepareLLModule(Module *m) {
 }
 
 void CodeGenerator::finishLLModule(Module *m) {
-  if (singleObj_)
+  if (singleObj_) {
     return;
+  }
 
   m->deleteObjFile();
   writeAndFreeLLModule(m->objfile->name->str);
@@ -175,7 +178,7 @@ void CodeGenerator::writeAndFreeLLModule(const char *filename) {
   writeModule(&ir_->module, filename);
   global.params.objfiles->push(const_cast<char *>(filename));
   delete ir_;
-  ir_ = 0;
+  ir_ = nullptr;
 }
 
 void CodeGenerator::emit(Module *m) {

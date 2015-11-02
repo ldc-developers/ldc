@@ -31,7 +31,7 @@ class ToNakedIRVisitor : public Visitor {
   IRState *irs;
 
 public:
-  ToNakedIRVisitor(IRState *irs) : irs(irs) {}
+  explicit ToNakedIRVisitor(IRState *irs) : irs(irs) {}
 
   //////////////////////////////////////////////////////////////////////////
 
@@ -57,10 +57,13 @@ public:
                            stmt->loc.toChars());
     LOG_SCOPE;
 
-    if (stmt->statements)
-      for (auto s : *stmt->statements)
-        if (s)
+    if (stmt->statements) {
+      for (auto s : *stmt->statements) {
+        if (s) {
           s->accept(this);
+        }
+      }
+    }
   }
 
   //////////////////////////////////////////////////////////////////////////
@@ -73,8 +76,9 @@ public:
     // This happens only if there is a ; at the end:
     // asm { naked; ... };
     // Is this a legal AST?
-    if (!stmt->exp)
+    if (!stmt->exp) {
       return;
+    }
 
     // only expstmt supported in declarations
     if (!stmt->exp || stmt->exp->op != TOKdeclaration) {
@@ -92,11 +96,13 @@ public:
     if (!vd && !fd && !ed) {
       visit(static_cast<Statement *>(stmt));
       return;
-    } else if (vd && !(vd->storage_class & (STCstatic | STCmanifest))) {
+    }
+    if (vd && !(vd->storage_class & (STCstatic | STCmanifest))) {
       error(vd->loc, "non-static variable '%s' not allowed in naked function",
             vd->toChars());
       return;
-    } else if (fd && !fd->isStatic()) {
+    }
+    if (fd && !fd->isStatic()) {
       error(fd->loc,
             "non-static nested function '%s' not allowed in naked function",
             fd->toChars());
@@ -120,8 +126,9 @@ public:
                    stmt->ident->toChars());
     irs->nakedAsm << ":";
 
-    if (stmt->statement)
+    if (stmt->statement) {
       stmt->statement->accept(this);
+    }
   }
 };
 
@@ -187,8 +194,9 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
     if (DtoIsTemplateInstance(fd)) {
       asmstr << "\t.section\t.text$" << fullMangle << ",\"xr\"" << std::endl;
       asmstr << "\t.linkonce\tdiscard" << std::endl;
-    } else
+    } else {
       asmstr << "\t.text" << std::endl;
+    }
     asmstr << "\t.globl\t" << fullMangle << std::endl;
     asmstr << "\t.align\t16, 0x90" << std::endl;
     asmstr << fullMangle << ":" << std::endl;
@@ -212,8 +220,9 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
 
   // We could have generated new errors in toNakedIR(), but we are in codegen
   // already so we have to abort here.
-  if (global.errors)
+  if (global.errors) {
     fatal();
+  }
 
   // emit size after body
   // llvm does this on linux, but not on osx or Win
@@ -235,7 +244,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
   IF_LOG Logger::println("emitABIReturnAsmStmt(%s)", mangleExact(fdecl));
   LOG_SCOPE;
 
-  IRAsmStmt *as = new IRAsmStmt;
+  auto as = new IRAsmStmt;
 
   LLType *llretTy = DtoType(fdecl->type->nextOf());
   asmblock->retty = llretTy;

@@ -32,8 +32,9 @@ void DtoResolveStruct(StructDeclaration *sd) { DtoResolveStruct(sd, sd->loc); }
 
 void DtoResolveStruct(StructDeclaration *sd, Loc &callerLoc) {
   // Make sure to resolve each struct type exactly once.
-  if (sd->ir.isResolved())
+  if (sd->ir.isResolved()) {
     return;
+  }
   sd->ir.setResolved();
 
   IF_LOG Logger::println("Resolving struct type: %s (%s)", sd->toChars(),
@@ -56,8 +57,9 @@ void DtoResolveStruct(StructDeclaration *sd, Loc &callerLoc) {
   // Set up our field metadata.
   for (auto vd : sd->fields) {
     IF_LOG {
-      if (isIrFieldCreated(vd))
+      if (isIrFieldCreated(vd)) {
         Logger::println("struct field already exists");
+      }
     }
     getIrField(vd, true);
   }
@@ -74,14 +76,16 @@ LLValue *DtoStructEquals(TOK op, DValue *lhs, DValue *rhs) {
 
   // set predicate
   llvm::ICmpInst::Predicate cmpop;
-  if (op == TOKequal || op == TOKidentity)
+  if (op == TOKequal || op == TOKidentity) {
     cmpop = llvm::ICmpInst::ICMP_EQ;
-  else
+  } else {
     cmpop = llvm::ICmpInst::ICMP_NE;
+  }
 
   // empty struct? EQ always true, NE always false
-  if (static_cast<TypeStruct *>(t)->sym->fields.dim == 0)
+  if (static_cast<TypeStruct *>(t)->sym->fields.dim == 0) {
     return DtoConstBool(cmpop == llvm::ICmpInst::ICMP_EQ);
+  }
 
   // call memcmp
   size_t sz = getTypePaddedSize(DtoType(t));
@@ -101,8 +105,9 @@ LLType *DtoUnpaddedStructType(Type *dty) {
   typedef llvm::DenseMap<Type *, llvm::StructType *> CacheT;
   static llvm::ManagedStatic<CacheT> cache;
   auto it = cache->find(dty);
-  if (it != cache->end())
+  if (it != cache->end()) {
     return it->second;
+  }
 
   TypeStruct *sty = static_cast<TypeStruct *>(dty);
   VarDeclarations &fields = sty->sym->fields;

@@ -18,7 +18,7 @@
 #include "llvm/Support/CommandLine.h"
 
 static bool parseStringExp(Expression *e, std::string &res) {
-  StringExp *s = NULL;
+  StringExp *s = nullptr;
 
   e = e->optimize(WANTvalue);
   if (e->op == TOKstring && (s = static_cast<StringExp *>(e))) {
@@ -30,7 +30,7 @@ static bool parseStringExp(Expression *e, std::string &res) {
 }
 
 static bool parseIntExp(Expression *e, dinteger_t &res) {
-  IntegerExp *i = NULL;
+  IntegerExp *i = nullptr;
 
   e = e->optimize(WANTvalue);
   if (e->op == TOKint64 && (i = static_cast<IntegerExp *>(e))) {
@@ -43,7 +43,8 @@ static bool parseIntExp(Expression *e, dinteger_t &res) {
 Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   Identifier *ident = decl->ident;
   Expressions *args = decl->args;
-  Expression *expr = (args && args->dim > 0) ? (*args)[0]->semantic(sc) : 0;
+  Expression *expr =
+      (args && args->dim > 0) ? (*args)[0]->semantic(sc) : nullptr;
 
   // pragma(LDC_intrinsic, "string") { funcdecl(s) }
   if (ident == Id::LDC_intrinsic) {
@@ -72,12 +73,14 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
       do {
         size_t k = (i + j) / 2;
         int cmp = name.compare(ldcIntrinsic[k].name);
-        if (!cmp)
+        if (!cmp) {
           return ldcIntrinsic[k].pragma;
-        else if (cmp < 0)
+        }
+        if (cmp < 0) {
           j = k;
-        else
+        } else {
           i = k + 1;
+        }
       } while (i != j);
     }
 
@@ -85,8 +88,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_global_crt_ctor [, priority]) { funcdecl(s) }
-  else if (ident == Id::LDC_global_crt_ctor ||
-           ident == Id::LDC_global_crt_dtor) {
+  if (ident == Id::LDC_global_crt_ctor || ident == Id::LDC_global_crt_dtor) {
     dinteger_t priority;
     if (args) {
       if (args->dim != 1 || !parseIntExp(expr, priority)) {
@@ -97,8 +99,9 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
         error(Loc(), "priority may not be greater then 65535");
         priority = 65535;
       }
-    } else
+    } else {
       priority = 65535;
+    }
     char buf[8];
     sprintf(buf, "%llu", static_cast<unsigned long long>(priority));
     arg1str = std::string(buf);
@@ -107,7 +110,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_no_typeinfo) { typedecl(s) }
-  else if (ident == Id::LDC_no_typeinfo) {
+  if (ident == Id::LDC_no_typeinfo) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -116,7 +119,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_no_moduleinfo) ;
-  else if (ident == Id::LDC_no_moduleinfo) {
+  if (ident == Id::LDC_no_moduleinfo) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -126,7 +129,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_alloca) { funcdecl(s) }
-  else if (ident == Id::LDC_alloca) {
+  if (ident == Id::LDC_alloca) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -135,7 +138,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_va_start) { templdecl(s) }
-  else if (ident == Id::LDC_va_start) {
+  if (ident == Id::LDC_va_start) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -144,7 +147,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_va_copy) { funcdecl(s) }
-  else if (ident == Id::LDC_va_copy) {
+  if (ident == Id::LDC_va_copy) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -153,7 +156,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_va_end) { funcdecl(s) }
-  else if (ident == Id::LDC_va_end) {
+  if (ident == Id::LDC_va_end) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -162,7 +165,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_va_arg) { templdecl(s) }
-  else if (ident == Id::LDC_va_arg) {
+  if (ident == Id::LDC_va_arg) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -171,7 +174,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_fence) { funcdecl(s) }
-  else if (ident == Id::LDC_fence) {
+  if (ident == Id::LDC_fence) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -180,7 +183,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_atomic_load) { templdecl(s) }
-  else if (ident == Id::LDC_atomic_load) {
+  if (ident == Id::LDC_atomic_load) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -189,7 +192,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_atomic_store) { templdecl(s) }
-  else if (ident == Id::LDC_atomic_store) {
+  if (ident == Id::LDC_atomic_store) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -198,7 +201,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_atomic_cmp_xchg) { templdecl(s) }
-  else if (ident == Id::LDC_atomic_cmp_xchg) {
+  if (ident == Id::LDC_atomic_cmp_xchg) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -207,7 +210,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_atomic_rmw, "string") { templdecl(s) }
-  else if (ident == Id::LDC_atomic_rmw) {
+  if (ident == Id::LDC_atomic_rmw) {
     if (!args || args->dim != 1 || !parseStringExp(expr, arg1str)) {
       error(Loc(), "requires exactly 1 string literal parameter");
       fatal();
@@ -216,7 +219,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_verbose);
-  else if (ident == Id::LDC_verbose) {
+  if (ident == Id::LDC_verbose) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -226,7 +229,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_inline_asm) { templdecl(s) }
-  else if (ident == Id::LDC_inline_asm) {
+  if (ident == Id::LDC_inline_asm) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -235,7 +238,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_inline_ir) { templdecl(s) }
-  else if (ident == Id::LDC_inline_ir) {
+  if (ident == Id::LDC_inline_ir) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -244,7 +247,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   }
 
   // pragma(LDC_extern_weak) { vardecl(s) }
-  else if (ident == Id::LDC_extern_weak) {
+  if (ident == Id::LDC_extern_weak) {
     if (args && args->dim > 0) {
       error(Loc(), "takes no parameters");
       fatal();
@@ -257,8 +260,9 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
 
 void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s, Pragma llvm_internal,
                     const std::string &arg1str) {
-  if (llvm_internal == LLVMnone || llvm_internal == LLVMignore)
+  if (llvm_internal == LLVMnone || llvm_internal == LLVMignore) {
     return;
+  }
 
   if (s->llvmInternal) {
     error(Loc(),

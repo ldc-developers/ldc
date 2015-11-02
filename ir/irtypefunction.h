@@ -25,14 +25,14 @@ public:
   static IrTypeFunction *get(Type *dt);
 
   ///
-  IrTypeFunction *isFunction() { return this; }
+  IrTypeFunction *isFunction() override { return this; }
 
   ///
-  IrFuncTy &getIrFuncTy() { return irFty; }
+  IrFuncTy &getIrFuncTy() override { return irFty; }
 
 protected:
   ///
-  IrTypeFunction(Type *dt, llvm::Type *lt, const IrFuncTy &irFty);
+  IrTypeFunction(Type *dt, llvm::Type *lt, IrFuncTy irFty);
   ///
   IrFuncTy irFty;
 };
@@ -44,14 +44,14 @@ public:
   static IrTypeDelegate *get(Type *dt);
 
   ///
-  IrTypeDelegate *isDelegate() { return this; }
+  IrTypeDelegate *isDelegate() override { return this; }
 
   ///
-  IrFuncTy &getIrFuncTy() { return irFty; }
+  IrFuncTy &getIrFuncTy() override { return irFty; }
 
 protected:
   ///
-  IrTypeDelegate(Type *dt, LLType *lt, const IrFuncTy &irFty);
+  IrTypeDelegate(Type *dt, LLType *lt, IrFuncTy irFty);
   ///
   IrFuncTy irFty;
 };

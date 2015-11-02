@@ -144,18 +144,20 @@ llvm::CodeGenOpt::Level codeGenOptLevel() {
   // Use same appoach as clang (see lib/CodeGen/BackendUtil.cpp)
   llvm::CodeGenOpt::Level codeGenOptLevel = llvm::CodeGenOpt::Default;
   // Debug info doesn't work properly with CodeGenOpt <> None
-  if (global.params.symdebug || !opt)
+  if (global.params.symdebug || !opt) {
     codeGenOptLevel = llvm::CodeGenOpt::None;
-  else if (opt >= 3)
+  } else if (opt >= 3) {
     codeGenOptLevel = llvm::CodeGenOpt::Aggressive;
+  }
   return codeGenOptLevel;
 }
 
 static inline void addPass(PassManagerBase &pm, Pass *pass) {
   pm.add(pass);
 
-  if (verifyEach)
+  if (verifyEach) {
     pm.add(createVerifierPass());
+  }
 }
 
 static void addStripExternalsPass(const PassManagerBuilder &builder,
@@ -168,14 +170,16 @@ static void addStripExternalsPass(const PassManagerBuilder &builder,
 
 static void addSimplifyDRuntimeCallsPass(const PassManagerBuilder &builder,
                                          PassManagerBase &pm) {
-  if (builder.OptLevel >= 2 && builder.SizeLevel == 0)
+  if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
     addPass(pm, createSimplifyDRuntimeCalls());
+  }
 }
 
 static void addGarbageCollect2StackPass(const PassManagerBuilder &builder,
                                         PassManagerBase &pm) {
-  if (builder.OptLevel >= 2 && builder.SizeLevel == 0)
+  if (builder.OptLevel >= 2 && builder.SizeLevel == 0) {
     addPass(pm, createGarbageCollect2Stack());
+  }
 }
 
 static void addAddressSanitizerPasses(const PassManagerBuilder &Builder,
@@ -229,12 +233,14 @@ static void addOptimizationPasses(PassManagerBase &mpm,
 
   if (willInline()) {
     unsigned threshold = 225;
-    if (sizeLevel == 1) // -Os
+    if (sizeLevel == 1) { // -Os
       threshold = 75;
-    else if (sizeLevel == 2) // -Oz
+    } else if (sizeLevel == 2) { // -Oz
       threshold = 25;
-    if (optLevel > 2)
+    }
+    if (optLevel > 2) {
       threshold = 275;
+    }
     builder.Inliner = createFunctionInliningPass(threshold);
   } else {
     builder.Inliner = createAlwaysInlinerPass();
@@ -247,11 +253,12 @@ static void addOptimizationPasses(PassManagerBase &mpm,
                                    : optLevel == 0;
 
   // This is final, unless there is a #pragma vectorize enable
-  if (disableLoopVectorization)
+  if (disableLoopVectorization) {
     builder.LoopVectorize = false;
-  // If option wasn't forced via cmd line (-vectorize-loops, -loop-vectorize)
-  else if (!builder.LoopVectorize)
+    // If option wasn't forced via cmd line (-vectorize-loops, -loop-vectorize)
+  } else if (!builder.LoopVectorize) {
     builder.LoopVectorize = optLevel > 1 && sizeLevel < 2;
+  }
 
   // When #pragma vectorize is on for SLP, do the same as above
   builder.SLPVectorize =
@@ -279,13 +286,15 @@ static void addOptimizationPasses(PassManagerBase &mpm,
   }
 
   if (!disableLangSpecificPasses) {
-    if (!disableSimplifyDruntimeCalls)
+    if (!disableSimplifyDruntimeCalls) {
       builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
                            addSimplifyDRuntimeCallsPass);
+    }
 
-    if (!disableGCToStack)
+    if (!disableGCToStack) {
       builder.addExtension(PassManagerBuilder::EP_LoopOptimizerEnd,
                            addGarbageCollect2StackPass);
+    }
   }
 
   // EP_OptimizerLast does not exist in LLVM 3.0, add it manually below.
@@ -322,8 +331,9 @@ bool ldc_optimize_module(llvm::Module *M) {
   TargetLibraryInfo *tli = new TargetLibraryInfo(Triple(M->getTargetTriple()));
 
   // The -disable-simplify-libcalls flag actually disables all builtin optzns.
-  if (disableSimplifyLibCalls)
+  if (disableSimplifyLibCalls) {
     tli->disableAllFunctions();
+  }
 
   mpm.add(tli);
 #endif
@@ -372,8 +382,9 @@ bool ldc_optimize_module(llvm::Module *M) {
 
   // If the -strip-debug command line option was specified, add it before
   // anything else.
-  if (stripDebug)
+  if (stripDebug) {
     mpm.add(createStripSymbolsPass(true));
+  }
 
   bool defaultsAdded = false;
   // Create a new optimization pass for each one specified on the command line
@@ -385,15 +396,16 @@ bool ldc_optimize_module(llvm::Module *M) {
     }
 
     const PassInfo *passInf = passList[i];
-    Pass *pass = 0;
-    if (passInf->getNormalCtor())
+    Pass *pass = nullptr;
+    if (passInf->getNormalCtor()) {
       pass = passInf->getNormalCtor()();
-    else {
+    } else {
       const char *arg = passInf->getPassArgument(); // may return null
-      if (arg)
+      if (arg) {
         error(Loc(), "Can't create pass '-%s' (%s)", arg, pass->getPassName());
-      else
+      } else {
         error(Loc(), "Can't create pass (%s)", pass->getPassName());
+      }
       llvm_unreachable("pass creation failed");
     }
     if (pass) {
@@ -402,13 +414,15 @@ bool ldc_optimize_module(llvm::Module *M) {
   }
 
   // Add the default passes for the specified optimization level.
-  if (!defaultsAdded)
+  if (!defaultsAdded) {
     addOptimizationPasses(mpm, fpm, optLevel(), sizeLevel());
+  }
 
   // Run per-function passes.
   fpm.doInitialization();
-  for (auto &F : *M)
+  for (auto &F : *M) {
     fpm.run(F);
+  }
   fpm.doFinalization();
 
   // Run per-module passes.

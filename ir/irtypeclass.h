@@ -27,10 +27,10 @@ public:
   static IrTypeClass *get(ClassDeclaration *cd);
 
   ///
-  virtual IrTypeClass *isClass() { return this; }
+  IrTypeClass *isClass() override { return this; }
 
   ///
-  llvm::Type *getLLType();
+  llvm::Type *getLLType() override;
 
   /// Returns the actual storage type, i.e. without the indirection
   /// for the class reference.
@@ -53,7 +53,7 @@ public:
 
 protected:
   ///
-  IrTypeClass(ClassDeclaration *cd);
+  explicit IrTypeClass(ClassDeclaration *cd);
 
   ///
   ClassDeclaration *cd = nullptr;

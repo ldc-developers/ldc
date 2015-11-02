@@ -51,7 +51,7 @@ protected:
 class IrTypeAggr : public IrType {
 public:
   ///
-  IrTypeAggr *isAggr() { return this; }
+  IrTypeAggr *isAggr() override { return this; }
 
   /// Returns the index of the field in the LLVM struct type that corresponds
   /// to the given member variable, plus the offset to the actual field start
@@ -72,7 +72,7 @@ public:
 
 protected:
   ///
-  IrTypeAggr(AggregateDeclaration *ad);
+  explicit IrTypeAggr(AggregateDeclaration *ad);
 
   /// Returns true, if the LLVM struct type for the aggregate must be declared
   /// as packed.

@@ -38,9 +38,9 @@ class Stream {
   std::ostream *OS;
 
 public:
-  Stream() : OS(0) {}
-  Stream(std::ostream *S) : OS(S) {}
-  Stream(std::ostream &S) : OS(&S) {}
+  Stream() : OS(nullptr) {}
+  explicit Stream(std::ostream *S) : OS(S) {}
+  explicit Stream(std::ostream &S) : OS(&S) {}
 
   /*
   Stream operator << (std::ios_base &(*Func)(std::ios_base&)) {
@@ -50,14 +50,16 @@ public:
   */
 
   Stream operator<<(std::ostream &(*Func)(std::ostream &)) {
-    if (OS)
+    if (OS) {
       Func(*OS);
+    }
     return *this;
   }
 
   template <typename Ty> Stream &operator<<(const Ty &Thing) {
-    if (OS)
+    if (OS) {
       Writer<Ty, sizeof(sfinae_bait(Thing))>::write(*OS, Thing);
+    }
     return *this;
   }
 

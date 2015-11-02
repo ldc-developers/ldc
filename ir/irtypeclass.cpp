@@ -76,7 +76,7 @@ void IrTypeClass::addBaseClassData(AggrTypeBuilder &builder,
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
-  IrTypeClass *t = new IrTypeClass(cd);
+  auto t = new IrTypeClass(cd);
   cd->type->ctype = t;
 
   IF_LOG Logger::println("Building class type %s @ %s", cd->toPrettyChars(),
@@ -86,7 +86,7 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
 
   // This class may contain an align declaration. See issue 726.
   t->packed = false;
-  for (ClassDeclaration *base = cd; base != 0 && !t->packed;
+  for (ClassDeclaration *base = cd; base != nullptr && !t->packed;
        base = base->baseClass) {
     t->packed = isPacked(base);
   }
@@ -117,8 +117,9 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   }
 
   // errors are fatal during codegen
-  if (global.errors)
+  if (global.errors) {
     fatal();
+  }
 
   // set struct body and copy GEP indices
   isaStruct(t->type)->setBody(builder.defaultTypes(), t->packed);
@@ -129,7 +130,7 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   // set vtbl type body
   FuncDeclarations vtbl;
   vtbl.reserve(cd->vtbl.dim);
-  vtbl.push(0);
+  vtbl.push(nullptr);
   for (size_t i = cd->vtblOffset(); i < cd->vtbl.dim; ++i) {
     FuncDeclaration *fd = cd->vtbl[i]->isFuncDeclaration();
     assert(fd);
@@ -154,13 +155,14 @@ IrTypeClass::buildVtblType(Type *first, FuncDeclarations *vtbl_array) {
   types.reserve(vtbl_array->dim);
 
   // first comes the classinfo
-  if (!cd->isCPPclass() && !cd->isCPPinterface())
+  if (!cd->isCPPclass() && !cd->isCPPinterface()) {
     types.push_back(DtoType(first));
+  }
 
   // then come the functions
   for (auto I = vtbl_array->begin() + 1, E = vtbl_array->end(); I != E; ++I) {
     FuncDeclaration *fd = *I;
-    if (fd == NULL) {
+    if (fd == nullptr) {
       // FIXME
       // why is this null?
       // happens for mini/s.d
@@ -178,8 +180,9 @@ IrTypeClass::buildVtblType(Type *first, FuncDeclarations *vtbl_array) {
       TemplateInstance *spec = fd->isSpeculative();
       unsigned int olderrs = global.errors;
       fd->semantic3(fd->scope);
-      if (spec && global.errors != olderrs)
+      if (spec && global.errors != olderrs) {
         spec->errors = global.errors - olderrs;
+      }
     }
 
     if (!fd->type->nextOf()) {
@@ -209,8 +212,9 @@ llvm::Type *IrTypeClass::getMemoryLLType() { return type; }
 
 size_t IrTypeClass::getInterfaceIndex(ClassDeclaration *inter) {
   auto it = interfaceMap.find(inter);
-  if (it == interfaceMap.end())
+  if (it == interfaceMap.end()) {
     return ~0UL;
+  }
   return it->second;
 }
 
@@ -218,8 +222,9 @@ size_t IrTypeClass::getInterfaceIndex(ClassDeclaration *inter) {
 
 void IrTypeClass::addInterfaceToMap(ClassDeclaration *inter, size_t index) {
   // don't duplicate work or overwrite indices
-  if (interfaceMap.find(inter) != interfaceMap.end())
+  if (interfaceMap.find(inter) != interfaceMap.end()) {
     return;
+  }
 
   // add this interface
   interfaceMap.insert(std::make_pair(inter, index));

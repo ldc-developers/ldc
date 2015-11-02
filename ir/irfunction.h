@@ -372,7 +372,7 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
     // Have not encountered any catches (for which we would push a scope) or
     // calls to throwing functions (where we would have already executed
     // this if) in this cleanup scope yet.
-    currentLandingPads().push_back(0);
+    currentLandingPads().push_back(nullptr);
   }
 
   llvm::BasicBlock *&landingPad = currentLandingPads().back();
@@ -396,7 +396,7 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
 // represents a function
 struct IrFunction {
   // constructor
-  IrFunction(FuncDeclaration *fd);
+  explicit IrFunction(FuncDeclaration *fd);
 
   // annotations
   void setNeverInline();

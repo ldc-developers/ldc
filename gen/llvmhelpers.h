@@ -108,7 +108,7 @@ void DtoResolveVariable(VarDeclaration *var);
 // declaration inside a declarationexp
 void DtoVarDeclaration(VarDeclaration *var);
 DValue *DtoDeclarationExp(Dsymbol *declaration);
-LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr = 0);
+LLValue *DtoRawVarDeclaration(VarDeclaration *var, LLValue *addr = nullptr);
 
 // initializer helpers
 LLConstant *DtoConstInitializer(Loc &loc, Type *type, Initializer *init);
@@ -209,7 +209,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
 ///
 DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
-                        Expressions *arguments, LLValue *retvar = 0);
+                        Expressions *arguments, LLValue *retvar = nullptr);
 
 Type *stripModifiers(Type *type, bool transitive = false);
 
@@ -228,8 +228,9 @@ LLConstant *toConstantArray(LLType *ct, LLArrayType *at, T *str, size_t len,
   for (size_t i = 0; i < len; ++i) {
     vals.push_back(LLConstantInt::get(ct, str[i], false));
   }
-  if (nullterm)
+  if (nullterm) {
     vals.push_back(LLConstantInt::get(ct, 0, false));
+  }
   return LLConstantArray::get(at, vals);
 }
 

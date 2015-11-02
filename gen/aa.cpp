@@ -71,8 +71,9 @@ DValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
 
   // cast return value
   LLType *targettype = DtoPtrToType(type);
-  if (ret->getType() != targettype)
+  if (ret->getType() != targettype) {
     ret = DtoBitCast(ret, targettype);
+  }
 
   // Only check bounds for rvalues ('aa[key]').
   // Lvalue use ('aa[key] = value') auto-adds an element.
@@ -144,8 +145,9 @@ DValue *DtoAAIn(Loc &loc, Type *type, DValue *aa, DValue *key) {
 
   // cast return value
   LLType *targettype = DtoType(type);
-  if (ret->getType() != targettype)
+  if (ret->getType() != targettype) {
     ret = DtoBitCast(ret, targettype);
+  }
 
   return new DImValue(type, ret);
 }
@@ -206,7 +208,8 @@ LLValue *DtoAAEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
       gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval, "aaEqRes")
           .getInstruction();
   res = gIR->ir->CreateICmpNE(res, DtoConstInt(0));
-  if (op == TOKnotequal)
+  if (op == TOKnotequal) {
     res = gIR->ir->CreateNot(res);
+  }
   return res;
 }

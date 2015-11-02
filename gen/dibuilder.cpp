@@ -42,9 +42,10 @@ Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s) {
     return IR->dmodule;
   }
   // array operations as well
-  else if (FuncDeclaration *fd = s->isFuncDeclaration()) {
-    if (fd->isArrayOp && (willInline() || !isDruntimeArrayOp(fd)))
+  if (FuncDeclaration *fd = s->isFuncDeclaration()) {
+    if (fd->isArrayOp && (willInline() || !isDruntimeArrayOp(fd))) {
       return IR->dmodule;
+    }
   }
   // otherwise use the symbol's module
   return s->getModule();
@@ -53,7 +54,7 @@ Module *ldc::DIBuilder::getDefinedModule(Dsymbol *s) {
 ////////////////////////////////////////////////////////////////////////////////
 
 ldc::DIBuilder::DIBuilder(IRState *const IR)
-    : IR(IR), DBuilder(IR->module), CUNode(0) {}
+    : IR(IR), DBuilder(IR->module), CUNode(nullptr) {}
 
 llvm::LLVMContext &ldc::DIBuilder::getContext() { return IR->context(); }
 
@@ -281,10 +282,11 @@ void ldc::DIBuilder::AddBaseFields(ClassDeclaration *sd, ldc::DIFile file,
 
   size_t narr = sd->fields.dim;
   elems.reserve(narr);
-  for (auto vd : sd->fields)
+  for (auto vd : sd->fields) {
     elems.push_back(CreateMemberType(vd->loc.linnum, vd->type, file,
                                      vd->toChars(), vd->offset,
                                      vd->prot().kind));
+  }
 }
 
 ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
@@ -307,13 +309,15 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
   IrTypeAggr *ir = sd->type->ctype->isAggr();
   assert(ir);
 
-  if (static_cast<llvm::MDNode *>(ir->diCompositeType) != 0)
+  if (static_cast<llvm::MDNode *>(ir->diCompositeType) != nullptr) {
     return ir->diCompositeType;
+  }
 
   // if we don't know the aggregate's size, we don't know enough about it
   // to provide debug info. probably a forward-declared struct?
-  if (sd->sizeok == SIZEOKnone)
+  if (sd->sizeok == SIZEOKnone) {
     return DBuilder.createUnspecifiedType(sd->toChars());
+  }
 
 // elements
 #if LDC_LLVM_VER >= 306
@@ -357,8 +361,9 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
     } else {
       ClassDeclaration *classDecl = sd->isClassDeclaration();
       AddBaseFields(classDecl, file, elems);
-      if (classDecl->baseClass)
+      if (classDecl->baseClass) {
         derivedFrom = CreateCompositeType(classDecl->baseClass->getType());
+      }
     }
   }
 
@@ -541,28 +546,39 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
     t = type->toBasetype();
   }
 
-  if (t->ty == Tvoid || t->ty == Tnull)
+  if (t->ty == Tvoid || t->ty == Tnull) {
     return DBuilder.createUnspecifiedType(t->toChars());
-  else if (t->isintegral() || t->isfloating()) {
-    if (t->ty == Tvector)
+  }
+  if (t->isintegral() || t->isfloating()) {
+    if (t->ty == Tvector) {
       return CreateVectorType(type);
-    if (type->ty == Tenum)
+    }
+    if (type->ty == Tenum) {
       return CreateEnumType(type);
+    }
     return CreateBasicType(type);
-  } else if (t->ty == Tpointer)
+  }
+  if (t->ty == Tpointer) {
     return CreatePointerType(type);
-  else if (t->ty == Tarray)
+  }
+  if (t->ty == Tarray) {
     return CreateArrayType(type);
-  else if (t->ty == Tsarray)
+  }
+  if (t->ty == Tsarray) {
     return CreateSArrayType(type);
-  else if (t->ty == Taarray)
+  }
+  if (t->ty == Taarray) {
     return CreateAArrayType(type);
-  else if (t->ty == Tstruct || t->ty == Tclass)
+  }
+  if (t->ty == Tstruct || t->ty == Tclass) {
     return CreateCompositeType(type);
-  else if (t->ty == Tfunction)
+  }
+  if (t->ty == Tfunction) {
     return CreateFunctionType(type);
-  else if (t->ty == Tdelegate)
+  }
+  if (t->ty == Tdelegate) {
     return CreateDelegateType(type);
+  }
 
   // Crash if the type is not supported.
   llvm_unreachable("Unsupported type in debug info");
@@ -571,8 +587,9 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void ldc::DIBuilder::EmitCompileUnit(Module *m) {
-  if (!global.params.symdebug)
+  if (!global.params.symdebug) {
     return;
+  }
 
   Logger::println("D to dwarf compile_unit");
   LOG_SCOPE;
@@ -603,12 +620,13 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
 }
 
 ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
-  if (!global.params.symdebug)
+  if (!global.params.symdebug) {
 #if LDC_LLVM_VER >= 307
     return nullptr;
 #else
     return llvm::DISubprogram();
 #endif
+  }
 
   Logger::println("D to dwarf subprogram");
   LOG_SCOPE;
@@ -641,12 +659,13 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 
 ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
                                                  llvm::StringRef prettyname) {
-  if (!global.params.symdebug)
+  if (!global.params.symdebug) {
 #if LDC_LLVM_VER >= 307
     return nullptr;
 #else
     return llvm::DISubprogram();
 #endif
+  }
 
   Logger::println("D to dwarf subprogram");
   LOG_SCOPE;
@@ -696,8 +715,9 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
 }
 
 void ldc::DIBuilder::EmitFuncStart(FuncDeclaration *fd) {
-  if (!global.params.symdebug)
+  if (!global.params.symdebug) {
     return;
+  }
 
   Logger::println("D to dwarf funcstart");
   LOG_SCOPE;
@@ -707,8 +727,9 @@ void ldc::DIBuilder::EmitFuncStart(FuncDeclaration *fd) {
 }
 
 void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
-  if (!global.params.symdebug)
+  if (!global.params.symdebug) {
     return;
+  }
 
   Logger::println("D to dwarf funcend");
   LOG_SCOPE;
@@ -718,8 +739,9 @@ void ldc::DIBuilder::EmitFuncEnd(FuncDeclaration *fd) {
 }
 
 void ldc::DIBuilder::EmitBlockStart(Loc &loc) {
-  if (!global.params.symdebug)
+  if (!global.params.symdebug) {
     return;
+  }
 
   Logger::println("D to dwarf block start");
   LOG_SCOPE;
@@ -739,8 +761,9 @@ void ldc::DIBuilder::EmitBlockStart(Loc &loc) {
 }
 
 void ldc::DIBuilder::EmitBlockEnd() {
-  if (!global.params.symdebug)
+  if (!global.params.symdebug) {
     return;
+  }
 
   Logger::println("D to dwarf block end");
   LOG_SCOPE;
@@ -751,8 +774,9 @@ void ldc::DIBuilder::EmitBlockEnd() {
 }
 
 void ldc::DIBuilder::EmitStopPoint(Loc &loc) {
-  if (!global.params.symdebug)
+  if (!global.params.symdebug) {
     return;
+  }
 
   // If we already have a location set and the current loc is invalid
   // (line 0), then we can just ignore it (see GitHub issue #998 for why we
@@ -776,12 +800,14 @@ void ldc::DIBuilder::EmitStopPoint(Loc &loc) {
 
 void ldc::DIBuilder::EmitValue(llvm::Value *val, VarDeclaration *vd) {
   auto sub = IR->func()->variableMap.find(vd);
-  if (sub == IR->func()->variableMap.end())
+  if (sub == IR->func()->variableMap.end()) {
     return;
+  }
 
   ldc::DILocalVariable debugVariable = sub->second;
-  if (!global.params.symdebug || !debugVariable)
+  if (!global.params.symdebug || !debugVariable) {
     return;
+  }
 
   llvm::Instruction *instr =
       DBuilder.insertDbgValueIntrinsic(val, 0, debugVariable,
@@ -803,40 +829,46 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                        llvm::ArrayRef<llvm::Value *> addr
 #endif
                                        ) {
-  if (!global.params.symdebug)
+  if (!global.params.symdebug) {
     return;
+  }
 
   Logger::println("D to dwarf local variable");
   LOG_SCOPE;
 
   auto &variableMap = IR->func()->variableMap;
   auto sub = variableMap.find(vd);
-  if (sub != variableMap.end())
+  if (sub != variableMap.end()) {
     return; // ensure that the debug variable is created only once
+  }
 
   // get type description
   ldc::DIType TD = CreateTypeDescription(type ? type : vd->type, true);
-  if (static_cast<llvm::MDNode *>(TD) == 0)
+  if (static_cast<llvm::MDNode *>(TD) == nullptr) {
     return; // unsupported
+  }
 
-  if (vd->storage_class & (STCref | STCout))
+  if (vd->storage_class & (STCref | STCout)) {
     TD = DBuilder.createReferenceType(llvm::dwarf::DW_TAG_reference_type, TD);
+  }
 
   // get variable description
   assert(!vd->isDataseg() && "static variable");
 
 #if LDC_LLVM_VER < 308
   unsigned tag;
-  if (vd->isParameter())
+  if (vd->isParameter()) {
     tag = llvm::dwarf::DW_TAG_arg_variable;
-  else
+  } else {
     tag = llvm::dwarf::DW_TAG_auto_variable;
+  }
 #endif
 
   ldc::DILocalVariable debugVariable;
   unsigned Flags = 0;
-  if (isThisPtr)
+  if (isThisPtr) {
     Flags |= DIFlags::FlagArtificial | DIFlags::FlagObjectPointer;
+  }
 
 #if LDC_LLVM_VER < 306
   if (addr.empty()) {
@@ -914,12 +946,13 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 ldc::DIGlobalVariable
 ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll,
                                    VarDeclaration *vd) {
-  if (!global.params.symdebug)
+  if (!global.params.symdebug) {
 #if LDC_LLVM_VER >= 307
     return nullptr;
 #else
     return llvm::DIGlobalVariable();
 #endif
+  }
 
   Logger::println("D to dwarf global_variable");
   LOG_SCOPE;
@@ -942,8 +975,9 @@ ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll,
 }
 
 void ldc::DIBuilder::Finalize() {
-  if (!global.params.symdebug)
+  if (!global.params.symdebug) {
     return;
+  }
 
   DBuilder.finalize();
 }

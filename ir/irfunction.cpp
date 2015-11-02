@@ -23,7 +23,7 @@ JumpTarget::JumpTarget(llvm::BasicBlock *targetBlock,
 
 GotoJump::GotoJump(Loc loc, llvm::BasicBlock *sourceBlock,
                    llvm::BasicBlock *tentativeTarget, Identifier *targetLabel)
-    : sourceLoc(loc), sourceBlock(sourceBlock),
+    : sourceLoc(std::move(loc)), sourceBlock(sourceBlock),
       tentativeTarget(tentativeTarget), targetLabel(targetLabel) {}
 
 CatchScope::CatchScope(llvm::Constant *classInfoPtr,
@@ -119,8 +119,9 @@ ScopeStack::~ScopeStack() {
   // down or "sideways" (i.e. down another branch) of the tree of all
   // cleanup scopes, both of which are not allowed in D.
   if (!topLevelUnresolvedGotos.empty()) {
-    for (const auto &i : topLevelUnresolvedGotos)
+    for (const auto &i : topLevelUnresolvedGotos) {
       error(i.sourceLoc, "goto into try/finally scope is not allowed");
+    }
     fatal();
   }
 }
@@ -159,8 +160,9 @@ void ScopeStack::runAllCleanups(llvm::BasicBlock *continueWith) {
 
 void ScopeStack::popCleanups(CleanupCursor targetScope) {
   assert(targetScope <= currentCleanupScope());
-  if (targetScope == currentCleanupScope())
+  if (targetScope == currentCleanupScope()) {
     return;
+  }
 
   for (CleanupCursor i = currentCleanupScope(); i-- > targetScope;) {
     // Any gotos that are still unresolved necessarily leave this scope.
@@ -219,7 +221,7 @@ void ScopeStack::popBreakTarget() { breakTargets.pop_back(); }
 
 void ScopeStack::addLabelTarget(Identifier *labelName,
                                 llvm::BasicBlock *targetBlock) {
-  labelTargets[labelName] = {targetBlock, currentCleanupScope(), 0};
+  labelTargets[labelName] = {targetBlock, currentCleanupScope(), nullptr};
 
   // See whether any of the unresolved gotos target this label, and resolve
   // those that do.
@@ -254,9 +256,7 @@ void ScopeStack::jumpToLabel(Loc loc, Identifier *labelName) {
 
 void ScopeStack::jumpToStatement(std::vector<JumpTarget> &targets,
                                  Statement *loopOrSwitchStatement) {
-  for (std::vector<JumpTarget>::reverse_iterator it = targets.rbegin(),
-                                                 end = targets.rend();
-       it != end; ++it) {
+  for (auto it = targets.rbegin(), end = targets.rend(); it != end; ++it) {
     if (it->targetStatement == loopOrSwitchStatement) {
       runCleanups(it->cleanupScope, it->targetBlock);
       return;

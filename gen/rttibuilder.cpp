@@ -80,8 +80,8 @@ void RTTIBuilder::push_void_array(llvm::Constant *CI, Type *valtype,
   std::string initname(mangle(mangle_sym));
   initname.append(".rtti.voidarr.data");
 
-  LLGlobalVariable *G = new LLGlobalVariable(
-      gIR->module, CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname);
+  auto G = new LLGlobalVariable(gIR->module, CI->getType(), true,
+                                TYPEINFO_LINKAGE_TYPE, CI, initname);
   SET_COMDAT(G, gIR->module);
   G->setAlignment(DtoAlignment(valtype));
 
@@ -100,8 +100,8 @@ void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,
   initname.append(tmpStr);
   initname.append(".data");
 
-  LLGlobalVariable *G = new LLGlobalVariable(
-      gIR->module, CI->getType(), true, TYPEINFO_LINKAGE_TYPE, CI, initname);
+  auto G = new LLGlobalVariable(gIR->module, CI->getType(), true,
+                                TYPEINFO_LINKAGE_TYPE, CI, initname);
   SET_COMDAT(G, gIR->module);
   G->setAlignment(DtoAlignment(valtype));
 
@@ -124,8 +124,9 @@ void RTTIBuilder::push_funcptr(FuncDeclaration *fd, Type *castto) {
   if (fd) {
     DtoResolveFunction(fd);
     LLConstant *F = getIrFunc(fd)->func;
-    if (castto)
+    if (castto) {
       F = DtoBitCast(F, DtoType(castto));
+    }
     push(F);
   } else if (castto) {
     push_null(castto);
@@ -146,8 +147,9 @@ void RTTIBuilder::finalize(LLType *type, LLValue *value) {
     const int n = inits.size();
     std::vector<LLType *> types;
     types.reserve(n);
-    for (int i = 0; i < n; ++i)
+    for (int i = 0; i < n; ++i) {
       types.push_back(inits[i]->getType());
+    }
     st->setBody(types);
   }
 

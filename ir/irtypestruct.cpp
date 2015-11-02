@@ -30,7 +30,7 @@ IrTypeStruct::IrTypeStruct(StructDeclaration *sd)
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
-  IrTypeStruct *t = new IrTypeStruct(sd);
+  auto t = new IrTypeStruct(sd);
   sd->type->ctype = t;
 
   IF_LOG Logger::println("Building struct type %s @ %s", sd->toPrettyChars(),
@@ -38,8 +38,9 @@ IrTypeStruct *IrTypeStruct::get(StructDeclaration *sd) {
   LOG_SCOPE;
 
   // if it's a forward declaration, all bets are off, stick with the opaque
-  if (sd->sizeok != SIZEOKdone)
+  if (sd->sizeok != SIZEOKdone) {
     return t;
+  }
 
   t->packed = sd->alignment == 1;
   if (!t->packed) {

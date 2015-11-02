@@ -41,31 +41,35 @@ bool isSpeculativeType(Type *t) {
 
     SpeculativeTypeVisitor() : result(false) {}
 
-    void visit(Type *t) {
+    using Visitor::visit;
+    void visit(Type *t) override {
       Type *tb = t->toBasetype();
-      if (tb != t)
+      if (tb != t) {
         tb->accept(this);
+      }
     }
-    void visit(TypeNext *t) {
-      if (t->next)
+    void visit(TypeNext *t) override {
+      if (t->next) {
         t->next->accept(this);
+      }
     }
-    void visit(TypeBasic *t) {}
-    void visit(TypeVector *t) { t->basetype->accept(this); }
-    void visit(TypeAArray *t) {
+    void visit(TypeBasic *t) override {}
+    void visit(TypeVector *t) override { t->basetype->accept(this); }
+    void visit(TypeAArray *t) override {
       t->index->accept(this);
       visit((TypeNext *)t);
     }
-    void visit(TypeFunction *t) {
+    void visit(TypeFunction *t) override {
       visit((TypeNext *)t);
       // Currently TypeInfo_Function doesn't store parameter types.
     }
-    void visit(TypeStruct *t) {
+    void visit(TypeStruct *t) override {
       StructDeclaration *sd = t->sym;
       if (TemplateInstance *ti = sd->isInstantiated()) {
         if (!ti->needsCodegen()) {
-          if (ti->minst || sd->requestTypeInfo)
+          if (ti->minst || sd->requestTypeInfo) {
             return;
+          }
 
           /* Bugzilla 14425: TypeInfo_Struct would refer the members of
            * struct (e.g. opEquals via xopEquals field), so if it's instantiated
@@ -85,15 +89,17 @@ bool isSpeculativeType(Type *t) {
         // assert(!sd->inNonRoot() || sd->requestTypeInfo);  // valid?
       }
     }
-    void visit(TypeClass *t) {}
-    void visit(TypeTuple *t) {
+    void visit(TypeClass *t) override {}
+    void visit(TypeTuple *t) override {
       if (t->arguments) {
         for (size_t i = 0; i < t->arguments->dim; i++) {
           Type *tprm = (*t->arguments)[i]->type;
-          if (tprm)
+          if (tprm) {
             tprm->accept(this);
-          if (result)
+          }
+          if (result) {
             return;
+          }
         }
       }
     }
@@ -110,7 +116,7 @@ class CodegenVisitor : public Visitor {
   IRState *irs;
 
 public:
-  CodegenVisitor(IRState *irs) : irs(irs) {}
+  explicit CodegenVisitor(IRState *irs) : irs(irs) {}
 
   //////////////////////////////////////////////////////////////////////////
 
@@ -131,8 +137,9 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir.isDefined())
+    if (decl->ir.isDefined()) {
       return;
+    }
 
     if (decl->type->ty == Terror) {
       error(decl->loc, "had semantic errors when compiling");
@@ -145,8 +152,9 @@ public:
       decl->ir.setDefined();
 
       // Emit any members (e.g. final functions).
-      for (auto m : *decl->members)
+      for (auto m : *decl->members) {
         m->accept(this);
+      }
 
       // Emit TypeInfo.
       DtoTypeInfoOf(decl->type);
@@ -157,8 +165,9 @@ public:
       interfaceZ->setInitializer(ir->getClassInfoInit());
       LinkageWithCOMDAT lwc = DtoLinkage(decl);
       interfaceZ->setLinkage(lwc.first);
-      if (lwc.second)
+      if (lwc.second) {
         SET_COMDAT(interfaceZ, gIR->module);
+      }
     }
   }
 
@@ -169,8 +178,9 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir.isDefined())
+    if (decl->ir.isDefined()) {
       return;
+    }
 
     if (decl->type->ty == Terror) {
       error(decl->loc, "had semantic errors when compiling");
@@ -182,8 +192,9 @@ public:
       DtoResolveStruct(decl);
       decl->ir.setDefined();
 
-      for (auto m : *decl->members)
+      for (auto m : *decl->members) {
         m->accept(this);
+      }
 
       // Define the __initZ symbol.
       IrAggr *ir = getIrAggr(decl);
@@ -191,19 +202,23 @@ public:
       initZ->setInitializer(ir->getDefaultInit());
       LinkageWithCOMDAT lwc = DtoLinkage(decl);
       initZ->setLinkage(lwc.first);
-      if (lwc.second)
+      if (lwc.second) {
         SET_COMDAT(initZ, gIR->module);
+      }
 
       // emit typeinfo
       DtoTypeInfoOf(decl->type);
 
       // Emit __xopEquals/__xopCmp/__xtoHash.
-      if (decl->xeq && decl->xeq != decl->xerreq)
+      if (decl->xeq && decl->xeq != decl->xerreq) {
         decl->xeq->accept(this);
-      if (decl->xcmp && decl->xcmp != decl->xerrcmp)
+      }
+      if (decl->xcmp && decl->xcmp != decl->xerrcmp) {
         decl->xcmp->accept(this);
-      if (decl->xhash)
+      }
+      if (decl->xhash) {
         decl->xhash->accept(this);
+      }
     }
   }
 
@@ -214,8 +229,9 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir.isDefined())
+    if (decl->ir.isDefined()) {
       return;
+    }
 
     if (decl->type->ty == Terror) {
       error(decl->loc, "had semantic errors when compiling");
@@ -227,8 +243,9 @@ public:
       DtoResolveClass(decl);
       decl->ir.setDefined();
 
-      for (auto m : *decl->members)
+      for (auto m : *decl->members) {
         m->accept(this);
+      }
 
       IrAggr *ir = getIrAggr(decl);
       const LinkageWithCOMDAT lwc = DtoLinkage(decl);
@@ -236,20 +253,23 @@ public:
       llvm::GlobalVariable *initZ = ir->getInitSymbol();
       initZ->setInitializer(ir->getDefaultInit());
       initZ->setLinkage(lwc.first);
-      if (lwc.second)
+      if (lwc.second) {
         SET_COMDAT(initZ, gIR->module);
+      }
 
       llvm::GlobalVariable *vtbl = ir->getVtblSymbol();
       vtbl->setInitializer(ir->getVtblInit());
       vtbl->setLinkage(lwc.first);
-      if (lwc.second)
+      if (lwc.second) {
         SET_COMDAT(vtbl, gIR->module);
+      }
 
       llvm::GlobalVariable *classZ = ir->getClassInfoSymbol();
       classZ->setInitializer(ir->getClassInfoInit());
       classZ->setLinkage(lwc.first);
-      if (lwc.second)
+      if (lwc.second) {
         SET_COMDAT(classZ, gIR->module);
+      }
 
       // No need to do TypeInfo here, it is <name>__classZ for classes in D2.
     }
@@ -262,8 +282,9 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir.isDefined())
+    if (decl->ir.isDefined()) {
       return;
+    }
     decl->ir.setDefined();
 
     assert(decl->isexp);
@@ -283,8 +304,9 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE;
 
-    if (decl->ir.isDefined())
+    if (decl->ir.isDefined()) {
       return;
+    }
 
     if (decl->type->ty == Terror) {
       error(decl->loc, "had semantic errors when compiling");
@@ -326,11 +348,12 @@ public:
         if (initVal->getType() != gvar->getType()->getElementType()) {
           llvm::GlobalVariable *newGvar = getOrCreateGlobal(
               decl->loc, irs->module, initVal->getType(), gvar->isConstant(),
-              lwc.first, 0,
+              lwc.first, nullptr,
               "", // We take on the name of the old global below.
               gvar->isThreadLocal());
-          if (lwc.second)
+          if (lwc.second) {
             SET_COMDAT(newGvar, gIR->module);
+          }
 
           newGvar->setAlignment(gvar->getAlignment());
           newGvar->takeName(gvar);
@@ -349,8 +372,9 @@ public:
         irGlobal->constInit = initVal;
         gvar->setInitializer(initVal);
         gvar->setLinkage(lwc.first);
-        if (lwc.second)
+        if (lwc.second) {
           SET_COMDAT(gvar, gIR->module);
+        }
 
         // Also set up the debug info.
         irs->DBuilder.EmitGlobalVariable(gvar, decl);
@@ -359,8 +383,9 @@ public:
       // If this global is used from a naked function, we need to create an
       // artificial "use" for it, or it could be removed by the optimizer if
       // the only reference to it is in inline asm.
-      if (irGlobal->nakedUse)
+      if (irGlobal->nakedUse) {
         irs->usedArray.push_back(DtoBitCast(gvar, getVoidPtrType()));
+      }
 
       IF_LOG Logger::cout() << *gvar << '\n';
     }
@@ -394,17 +419,20 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir.isDefined())
+    if (decl->ir.isDefined()) {
       return;
+    }
     decl->ir.setDefined();
 
     // FIXME: This is #673 all over again.
-    if (!decl->needsCodegen())
+    if (!decl->needsCodegen()) {
       return;
+    }
 
     if (!isError(decl) && decl->members) {
-      for (auto m : *decl->members)
+      for (auto m : *decl->members) {
         m->accept(this);
+      }
     }
   }
 
@@ -415,24 +443,27 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir.isDefined())
+    if (decl->ir.isDefined()) {
       return;
+    }
     decl->ir.setDefined();
 
     if (!isError(decl) && decl->members) {
-      for (auto m : *decl->members)
+      for (auto m : *decl->members) {
         m->accept(this);
+      }
     }
   }
 
   //////////////////////////////////////////////////////////////////////////
 
   void visit(AttribDeclaration *decl) LLVM_OVERRIDE {
-    Dsymbols *d = decl->include(NULL, NULL);
+    Dsymbols *d = decl->include(nullptr, nullptr);
 
     if (d) {
-      for (auto s : *d)
+      for (auto s : *d) {
         s->accept(this);
+      }
     }
   }
 
@@ -472,10 +503,12 @@ public:
             llvm::StringRef(static_cast<const char *>(se->string), nameLen));
 
         // Win32: /DEFAULTLIB:"curl"
-        if (LibName.endswith(".a"))
+        if (LibName.endswith(".a")) {
           LibName = LibName.substr(0, LibName.size() - 2);
-        if (LibName.endswith(".lib"))
+        }
+        if (LibName.endswith(".lib")) {
           LibName = LibName.substr(0, LibName.size() - 4);
+        }
         llvm::SmallString<24> tmp("/DEFAULTLIB:\"");
         tmp.append(LibName);
         tmp.append("\"");
@@ -507,16 +540,18 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
   void visit(TypeInfoDeclaration *decl) LLVM_OVERRIDE {
-    if (isSpeculativeType(decl->tinfo))
+    if (isSpeculativeType(decl->tinfo)) {
       return;
+    }
     TypeInfoDeclaration_codegen(decl, irs);
   }
 
   //////////////////////////////////////////////////////////////////////////
 
   void visit(TypeInfoClassDeclaration *decl) LLVM_OVERRIDE {
-    if (isSpeculativeType(decl->tinfo))
+    if (isSpeculativeType(decl->tinfo)) {
       return;
+    }
     TypeInfoClassDeclaration_codegen(decl, irs);
   }
 };

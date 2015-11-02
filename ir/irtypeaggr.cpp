@@ -35,8 +35,9 @@ static inline size_t add_zeros(std::vector<llvm::Type *> &defaultTypes,
 }
 
 bool var_offset_sort_cb(const VarDeclaration *v1, const VarDeclaration *v2) {
-  if (v1 && v2)
+  if (v1 && v2) {
     return v1->offset < v2->offset;
+  }
   // sort NULL pointers towards the end
   return v1 && !v2;
 }
@@ -54,7 +55,7 @@ void AggrTypeBuilder::addType(llvm::Type *type, unsigned size) {
 void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad) {
   // mirror the ad->fields array but only fill in contributors
   const size_t n = ad->fields.dim;
-  LLSmallVector<VarDeclaration *, 16> data(n, NULL);
+  LLSmallVector<VarDeclaration *, 16> data(n, nullptr);
 
   unsigned int errors = global.errors;
 
@@ -63,27 +64,29 @@ void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad) {
     VarDeclaration *field = ad->fields[index];
 
     // init is !null for explicit inits
-    if (field->init != NULL && !field->init->isVoidInitializer()) {
+    if (field->init != nullptr && !field->init->isVoidInitializer()) {
       IF_LOG Logger::println("adding explicit initializer for struct field %s",
                              field->toChars());
 
       size_t f_size = field->type->size();
       size_t f_begin = field->offset;
       size_t f_end = f_begin + f_size;
-      if (f_size == 0)
+      if (f_size == 0) {
         continue;
+      }
 
       data[index] = field;
 
       // make sure there is no overlap
       for (size_t i = 0; i < index; i++) {
-        if (data[i] != NULL) {
+        if (data[i] != nullptr) {
           VarDeclaration *vd = data[i];
           size_t v_begin = vd->offset;
           size_t v_end = v_begin + vd->type->size();
 
-          if (v_begin >= f_end || v_end <= f_begin)
+          if (v_begin >= f_end || v_end <= f_begin) {
             continue;
+          }
 
           ad->error(vd->loc, "has overlapping initialization for %s and %s",
                     field->toChars(), vd->toChars());
@@ -95,22 +98,25 @@ void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad) {
   if (errors != global.errors) {
     // There was an overlapping initialization.
     // Return if errors are gagged otherwise abort.
-    if (global.gag)
+    if (global.gag) {
       return;
+    }
     fatal();
   }
 
   // fill in default initializers
   for (size_t index = 0; index < n; ++index) {
-    if (data[index])
+    if (data[index]) {
       continue;
+    }
     VarDeclaration *field = ad->fields[index];
 
     size_t f_size = field->type->size();
     size_t f_begin = field->offset;
     size_t f_end = f_begin + f_size;
-    if (f_size == 0)
+    if (f_size == 0) {
       continue;
+    }
 
     // make sure it doesn't overlap anything explicit
     bool overlaps = false;
@@ -119,8 +125,9 @@ void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad) {
         size_t v_begin = data[i]->offset;
         size_t v_end = v_begin + data[i]->type->size();
 
-        if (v_begin >= f_end || v_end <= f_begin)
+        if (v_begin >= f_end || v_end <= f_begin) {
           continue;
+        }
 
         overlaps = true;
         break;
@@ -147,8 +154,9 @@ void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad) {
   for (size_t i = 0; i < n; i++) {
     VarDeclaration *vd = data[i];
 
-    if (vd == NULL)
+    if (vd == nullptr) {
       continue;
+    }
 
     assert(vd->offset >= m_offset && "Variable overlaps previous field.");
 
@@ -197,13 +205,15 @@ IrTypeAggr::IrTypeAggr(AggregateDeclaration *ad)
       aggr(ad) {}
 
 bool IrTypeAggr::isPacked(AggregateDeclaration *ad) {
-  if (ad->isUnionDeclaration())
+  if (ad->isUnionDeclaration()) {
     return true;
+  }
   for (unsigned i = 0; i < ad->fields.dim; i++) {
     VarDeclaration *vd = static_cast<VarDeclaration *>(ad->fields.data[i]);
     unsigned a = vd->type->alignsize() - 1;
-    if (((vd->offset + a) & ~a) != vd->offset)
+    if (((vd->offset + a) & ~a) != vd->offset) {
       return true;
+    }
   }
   return false;
 }
@@ -213,8 +223,7 @@ void IrTypeAggr::getMemberLocation(VarDeclaration *var, unsigned &fieldIndex,
   // Note: The interface is a bit more general than what we actually return.
   // Specifically, the frontend offset information we use for overlapping
   // fields is always based at the object start.
-  std::map<VarDeclaration *, unsigned>::const_iterator it =
-      varGEPIndices.find(var);
+  auto it = varGEPIndices.find(var);
   if (it != varGEPIndices.end()) {
     fieldIndex = it->second;
     byteOffset = 0;

@@ -23,15 +23,17 @@ AttrBuilder &AttrBuilder::clear() {
 
 AttrBuilder &AttrBuilder::add(LLAttribute attribute) {
   // never set 'None' explicitly
-  if (attribute)
+  if (attribute) {
     builder.addAttribute(attribute);
+  }
   return *this;
 }
 
 AttrBuilder &AttrBuilder::remove(LLAttribute attribute) {
   // never remove 'None' explicitly
-  if (attribute)
+  if (attribute) {
     builder.removeAttribute(attribute);
+  }
   return *this;
 }
 

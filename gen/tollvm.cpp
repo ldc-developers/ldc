@@ -47,8 +47,9 @@ RET retStyle(TypeFunction *tf) {
 
 bool DtoIsReturnInArg(CallExp *ce) {
   TypeFunction *tf = static_cast<TypeFunction *>(ce->e1->type->toBasetype());
-  if (tf->ty == Tfunction && (!ce->f || !DtoIsIntrinsic(ce->f)))
+  if (tf->ty == Tfunction && (!ce->f || !DtoIsIntrinsic(ce->f))) {
     return retStyle(tf) == RETstack;
+  }
   return false;
 }
 
@@ -186,7 +187,7 @@ LLType *DtoType(Type *t) {
   default:
     llvm_unreachable("Unknown class of D Type!");
   }
-  return 0;
+  return nullptr;
 }
 
 LLType *DtoMemType(Type *t) { return i1ToI8(voidToI8(DtoType(t))); }
@@ -194,14 +195,16 @@ LLType *DtoMemType(Type *t) { return i1ToI8(voidToI8(DtoType(t))); }
 LLPointerType *DtoPtrToType(Type *t) { return DtoMemType(t)->getPointerTo(); }
 
 LLType *voidToI8(LLType *t) {
-  if (t == LLType::getVoidTy(gIR->context()))
+  if (t == LLType::getVoidTy(gIR->context())) {
     return LLType::getInt8Ty(gIR->context());
+  }
   return t;
 }
 
 LLType *i1ToI8(LLType *t) {
-  if (t == LLType::getInt1Ty(gIR->context()))
+  if (t == LLType::getInt1Ty(gIR->context())) {
     return LLType::getInt8Ty(gIR->context());
+  }
   return t;
 }
 
@@ -210,7 +213,7 @@ LLType *i1ToI8(LLType *t) {
 LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs) {
   Logger::println("Doing delegate equality");
   llvm::Value *b1, *b2;
-  if (rhs == NULL) {
+  if (rhs == nullptr) {
     rhs = LLConstant::getNullValue(lhs->getType());
   }
 
@@ -224,8 +227,9 @@ LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs) {
 
   LLValue *b = gIR->ir->CreateAnd(b1, b2);
 
-  if (op == TOKnotequal || op == TOKnotidentity)
+  if (op == TOKnotequal || op == TOKnotidentity) {
     return gIR->ir->CreateNot(b);
+  }
 
   return b;
 }
@@ -233,8 +237,9 @@ LLValue *DtoDelegateEquals(TOK op, LLValue *lhs, LLValue *rhs) {
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
-  if (DtoIsTemplateInstance(sym))
+  if (DtoIsTemplateInstance(sym)) {
     return LinkageWithCOMDAT(templateLinkage, supportsCOMDAT());
+  }
   return LinkageWithCOMDAT(llvm::GlobalValue::ExternalLinkage, false);
 }
 
@@ -242,10 +247,11 @@ LinkageWithCOMDAT DtoLinkage(Dsymbol *sym) {
 
 LLIntegerType *DtoSize_t() {
   // the type of size_t does not change once set
-  static LLIntegerType *t = NULL;
-  if (t == NULL)
+  static LLIntegerType *t = nullptr;
+  if (t == nullptr) {
     t = (global.params.isLP64) ? LLType::getInt64Ty(gIR->context())
                                : LLType::getInt32Ty(gIR->context());
+  }
   return t;
 }
 
@@ -405,16 +411,18 @@ LLConstant *DtoConstFP(Type *t, longdouble value) {
   assert(llty->isFloatingPointTy());
 
   if (llty == LLType::getFloatTy(gIR->context()) ||
-      llty == LLType::getDoubleTy(gIR->context()))
+      llty == LLType::getDoubleTy(gIR->context())) {
     return LLConstantFP::get(llty, value);
-  else if (llty == LLType::getX86_FP80Ty(gIR->context())) {
+  }
+  if (llty == LLType::getX86_FP80Ty(gIR->context())) {
     uint64_t bits[] = {0, 0};
     bits[0] = *reinterpret_cast<uint64_t *>(&value);
     bits[1] =
         *reinterpret_cast<uint16_t *>(reinterpret_cast<uint64_t *>(&value) + 1);
     return LLConstantFP::get(gIR->context(), APFloat(APFloat::x87DoubleExtended,
                                                      APInt(80, 2, bits)));
-  } else if (llty == LLType::getPPC_FP128Ty(gIR->context())) {
+  }
+  if (llty == LLType::getPPC_FP128Ty(gIR->context())) {
     uint64_t bits[] = {0, 0};
     bits[0] = *reinterpret_cast<uint64_t *>(&value);
     bits[1] =
@@ -432,9 +440,9 @@ LLConstant *DtoConstString(const char *str) {
   llvm::StringRef s(str ? str : "");
   llvm::GlobalVariable *gvar = (gIR->stringLiteral1ByteCache.find(s) ==
                                 gIR->stringLiteral1ByteCache.end())
-                                   ? 0
+                                   ? nullptr
                                    : gIR->stringLiteral1ByteCache[s];
-  if (gvar == 0) {
+  if (gvar == nullptr) {
     llvm::Constant *init =
         llvm::ConstantDataArray::getString(gIR->context(), s, true);
     gvar = new llvm::GlobalVariable(gIR->module, init->getType(), true,
@@ -510,15 +518,17 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLValue *DtoBitCast(LLValue *v, LLType *t, const char *name) {
-  if (v->getType() == t)
+  if (v->getType() == t) {
     return v;
+  }
   assert(!isaStruct(t));
   return gIR->ir->CreateBitCast(v, t, name);
 }
 
 LLConstant *DtoBitCast(LLConstant *v, LLType *t) {
-  if (v->getType() == t)
+  if (v->getType() == t) {
     return v;
+  }
   return llvm::ConstantExpr::getBitCast(v, t);
 }
 
@@ -602,8 +612,9 @@ llvm::GlobalVariable *isaGlobalVar(LLValue *v) {
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLPointerType *getPtrToType(LLType *t) {
-  if (t == LLType::getVoidTy(gIR->context()))
+  if (t == LLType::getVoidTy(gIR->context())) {
     t = LLType::getInt8Ty(gIR->context());
+  }
   return LLPointerType::get(t, 0);
 }
 
@@ -639,8 +650,9 @@ unsigned int getABITypeAlign(LLType *t) {
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLStructType *DtoMutexType() {
-  if (gIR->mutexType)
+  if (gIR->mutexType) {
     return gIR->mutexType;
+  }
 
   // The structures defined here must be the same as in
   // druntime/src/rt/critical.c
@@ -675,7 +687,7 @@ LLStructType *DtoMutexType() {
   }
 
   // FreeBSD
-  else if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD) {
+  if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD) {
     // Just a pointer
     return LLStructType::get(gIR->context(), DtoSize_t());
   }
@@ -705,8 +717,9 @@ LLStructType *DtoMutexType() {
 //////////////////////////////////////////////////////////////////////////////////////////
 
 LLStructType *DtoModuleReferenceType() {
-  if (gIR->moduleRefType)
+  if (gIR->moduleRefType) {
     return gIR->moduleRefType;
+  }
 
   // this is a recursive type so start out with a struct without body
   LLStructType *st = LLStructType::create(gIR->context(), "ModuleReference");
@@ -738,8 +751,9 @@ LLValue *DtoAggrPair(LLValue *V1, LLValue *V2, const char *name) {
 }
 
 LLValue *DtoAggrPaint(LLValue *aggr, LLType *as) {
-  if (aggr->getType() == as)
+  if (aggr->getType() == as) {
     return aggr;
+  }
 
   LLValue *res = llvm::UndefValue::get(as);
 

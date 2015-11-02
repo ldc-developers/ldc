@@ -110,11 +110,11 @@ public:
   static IrTypeBasic *get(Type *dt);
 
   ///
-  IrTypeBasic *isBasic() { return this; }
+  IrTypeBasic *isBasic() override { return this; }
 
 protected:
   ///
-  IrTypeBasic(Type *dt);
+  explicit IrTypeBasic(Type *dt);
   ///
   static llvm::Type *getComplexType(llvm::LLVMContext &ctx, llvm::Type *type);
   ///
@@ -130,7 +130,7 @@ public:
   static IrTypePointer *get(Type *dt);
 
   ///
-  IrTypePointer *isPointer() { return this; }
+  IrTypePointer *isPointer() override { return this; }
 
 protected:
   ///
@@ -146,11 +146,11 @@ public:
   static IrTypeSArray *get(Type *dt);
 
   ///
-  IrTypeSArray *isSArray() { return this; }
+  IrTypeSArray *isSArray() override { return this; }
 
 protected:
   ///
-  IrTypeSArray(Type *dt);
+  explicit IrTypeSArray(Type *dt);
 
   ///
   static llvm::Type *sarray2llvm(Type *t);
@@ -165,7 +165,7 @@ public:
   static IrTypeArray *get(Type *dt);
 
   ///
-  IrTypeArray *isArray() { return this; }
+  IrTypeArray *isArray() override { return this; }
 
 protected:
   ///
@@ -181,11 +181,11 @@ public:
   static IrTypeVector *get(Type *dt);
 
   ///
-  IrTypeVector *isVector() { return this; }
+  IrTypeVector *isVector() override { return this; }
 
 protected:
   ///
-  IrTypeVector(Type *dt);
+  explicit IrTypeVector(Type *dt);
 
   static llvm::Type *vector2llvm(Type *dt);
 };

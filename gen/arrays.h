@@ -35,7 +35,8 @@ llvm::ArrayType *DtoStaticArrayType(Type *sarrayTy);
 /// ArrayInitializers for vectors typed as static arrays.
 LLConstant *DtoConstArrayInitializer(ArrayInitializer *si, Type *targetType);
 
-LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr, Type *type = 0);
+LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr,
+                          Type *type = nullptr);
 
 /// Returns whether the array literal can be evaluated to a (LLVM) constant.
 bool isConstLiteral(ArrayLiteralExp *ale);

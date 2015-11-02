@@ -63,7 +63,7 @@ struct AsmCode {
   std::vector<bool> regs;
   unsigned dollarLabel;
   int clobbersMemory;
-  AsmCode(int n_regs) {
+  explicit AsmCode(int n_regs) {
     regs.resize(n_regs, false);
     dollarLabel = 0;
     clobbersMemory = 0;
@@ -72,17 +72,17 @@ struct AsmCode {
 
 AsmStatement::AsmStatement(Loc loc, Token *tokens) : Statement(loc) {
   this->tokens = tokens; // Do I need to copy these?
-  asmcode = 0;
+  asmcode = nullptr;
   asmalign = 0;
   refparam = 0;
   naked = 0;
 
-  isBranchToLabel = NULL;
+  isBranchToLabel = nullptr;
 }
 
 Statement *AsmStatement::syntaxCopy() {
   // copy tokens? copy 'code'?
-  AsmStatement *a_s = new AsmStatement(loc, tokens);
+  auto a_s = new AsmStatement(loc, tokens);
   a_s->asmcode = asmcode;
   a_s->refparam = refparam;
   a_s->naked = naked;
@@ -90,11 +90,11 @@ Statement *AsmStatement::syntaxCopy() {
 }
 
 struct AsmParserCommon {
-  virtual ~AsmParserCommon() {}
+  virtual ~AsmParserCommon() = default;
   virtual void run(Scope *sc, AsmStatement *asmst) = 0;
   virtual std::string getRegName(int i) = 0;
 };
-AsmParserCommon *asmparser = NULL;
+AsmParserCommon *asmparser = nullptr;
 
 #include "asm-x86.h" // x86 assembly parser
 #define ASM_X86_64
@@ -132,8 +132,9 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
     s->error("inline asm is not allowed when the -noasm switch is used");
     err = true;
   }
-  if (err)
+  if (err) {
     fatal();
+  }
 
   // puts(toChars());
 
@@ -141,14 +142,16 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
 
   // empty statement -- still do the above things because they might be
   // expected?
-  if (!s->tokens)
+  if (!s->tokens) {
     return s;
+  }
 
   if (!asmparser) {
-    if (t.getArch() == llvm::Triple::x86)
+    if (t.getArch() == llvm::Triple::x86) {
       asmparser = new AsmParserx8632::AsmParser;
-    else if (t.getArch() == llvm::Triple::x86_64)
+    } else if (t.getArch() == llvm::Triple::x86_64) {
       asmparser = new AsmParserx8664::AsmParser;
+    }
   }
 
   asmparser->run(sc, s);
@@ -170,8 +173,9 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
   // debug info
   gIR->DBuilder.EmitStopPoint(stmt->loc);
 
-  if (!stmt->asmcode)
+  if (!stmt->asmcode) {
     return;
+  }
 
   static std::string i_cns = "i";
   static std::string p_cns = "i";
@@ -200,7 +204,7 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
   auto arg = code->args.begin();
   for (unsigned i = 0; i < code->args.size(); i++, ++arg) {
     bool is_input = true;
-    LLValue *arg_val = 0;
+    LLValue *arg_val = nullptr;
     std::string cns;
 
     switch (arg->type) {
@@ -287,14 +291,16 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
       clobbers.push_back(asmparser->getRegName(i));
     }
   }
-  if (clobbers_mem)
+  if (clobbers_mem) {
     clobbers.push_back(memory_name);
+  }
   //    }
 
   // Remap argument numbers
   for (unsigned i = 0; i < code->args.size(); i++) {
-    if (arg_map[i] < 0)
+    if (arg_map[i] < 0) {
       arg_map[i] = -arg_map[i] - 1 + n_outputs;
+    }
   }
 
   bool pct = false;
@@ -311,8 +317,9 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
         pct = false;
       }
       // assert(*p == '%');// could be 'a', etc. so forget it..
-    } else if (*p == '$')
+    } else if (*p == '$') {
       pct = true;
+    }
     ++p;
   }
 
@@ -407,7 +414,7 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
   replace_func_name(irs, code->insnTemplate);
 
   // push asm statement
-  IRAsmStmt *asmStmt = new IRAsmStmt;
+  auto asmStmt = new IRAsmStmt;
   asmStmt->code = code->insnTemplate;
   asmStmt->out_c = llvmOutConstraints;
   asmStmt->in_c = llvmInConstraints;
@@ -435,10 +442,12 @@ static void remap_outargs(std::string &insnt, size_t nargs, size_t idx) {
   for (unsigned i = 0; i < nargs; i++) {
     needle = prefix + digits[i] + suffix;
     size_t pos = insnt.find(needle);
-    if (std::string::npos != pos)
+    if (std::string::npos != pos) {
       sprintf(buf, "%llu", static_cast<unsigned long long>(idx++));
-    while (std::string::npos != (pos = insnt.find(needle)))
+    }
+    while (std::string::npos != (pos = insnt.find(needle))) {
       insnt.replace(pos, needle.size(), buf);
+    }
   }
 }
 
@@ -456,10 +465,12 @@ static void remap_inargs(std::string &insnt, size_t nargs, size_t idx) {
   for (unsigned i = 0; i < nargs; i++) {
     needle = prefix + digits[i] + suffix;
     size_t pos = insnt.find(needle);
-    if (std::string::npos != pos)
+    if (std::string::npos != pos) {
       sprintf(buf, "%llu", static_cast<unsigned long long>(idx++));
-    while (std::string::npos != (pos = insnt.find(needle)))
+    }
+    while (std::string::npos != (pos = insnt.find(needle))) {
       insnt.replace(pos, needle.size(), buf);
+    }
   }
 }
 
@@ -469,12 +480,13 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   LOG_SCOPE;
 
   // disable inlining by default
-  if (!p->func()->decl->allowInlining)
+  if (!p->func()->decl->allowInlining) {
     p->func()->setNeverInline();
+  }
 
   // create asm block structure
   assert(!p->asmBlock);
-  IRAsmBlock *asmblock = new IRAsmBlock(stmt);
+  auto asmblock = new IRAsmBlock(stmt);
   assert(asmblock);
   p->asmBlock = asmblock;
 
@@ -496,7 +508,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
   // location of the special value determining the goto label
   // will be set if post-asm dispatcher block is needed
-  LLValue *jump_target = 0;
+  LLValue *jump_target = nullptr;
 
   {
     FuncDeclaration *fd = gIR->func()->decl;
@@ -509,7 +521,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     asmGotoEndLabel << uniqueLabelsId++;
 
     // initialize the setter statement we're going to build
-    IRAsmStmt *outSetterStmt = new IRAsmStmt;
+    auto outSetterStmt = new IRAsmStmt;
     std::string asmGotoEnd = "\n\tjmp " + asmGotoEndLabel.str() + "\n";
     std::ostringstream code;
     code << asmGotoEnd;
@@ -521,22 +533,27 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       IRAsmStmt *a = asmblock->s[i];
 
       // skip non-branch statements
-      if (!a->isBranchToLabel)
+      if (!a->isBranchToLabel) {
         continue;
+      }
 
       // if internal, no special handling is necessary, skip
       std::vector<Identifier *>::const_iterator it, end;
       end = asmblock->internalLabels.end();
       bool skip = false;
-      for (auto il : asmblock->internalLabels)
-        if (il->equals(a->isBranchToLabel->ident))
+      for (auto il : asmblock->internalLabels) {
+        if (il->equals(a->isBranchToLabel->ident)) {
           skip = true;
-      if (skip)
+        }
+      }
+      if (skip) {
         continue;
+      }
 
       // if we already set things up for this branch target, skip
-      if (gotoToVal.find(a->isBranchToLabel) != gotoToVal.end())
+      if (gotoToVal.find(a->isBranchToLabel) != gotoToVal.end()) {
         continue;
+      }
 
       // record that the jump needs to be handled in the post-asm dispatcher
       gotoToVal[a->isBranchToLabel] = n_goto;
@@ -568,15 +585,16 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
       outSetterStmt->out.push_back(jump_target);
 
       asmblock->s.push_back(outSetterStmt);
-    } else
+    } else {
       delete outSetterStmt;
+    }
   }
 
   // build a fall-off-end-properly asm statement
 
   FuncDeclaration *thisfunc = p->func()->decl;
   bool useabiret = false;
-  p->asmBlock->asmBlock->abiret = NULL;
+  p->asmBlock->asmBlock->abiret = nullptr;
   if (thisfunc->fbody->endsWithAsm() == stmt &&
       thisfunc->type->nextOf()->ty != Tvoid) {
     // there can't be goto forwarders in this case
@@ -627,8 +645,9 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     }
     remap_inargs(a->code, inn + a->out.size(), asmIdx);
     asmIdx += inn;
-    if (!code.empty())
+    if (!code.empty()) {
       code += "\n\t";
+    }
     code += a->code;
   }
   asmblock->s.clear();
@@ -642,8 +661,9 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   }
 
   // remove excessive comma
-  if (!out_c.empty())
+  if (!out_c.empty()) {
     out_c.resize(out_c.size() - 1);
+  }
 
   IF_LOG {
     Logger::println("code = \"%s\"", code.c_str());
@@ -652,10 +672,11 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
   // build return types
   LLType *retty;
-  if (asmblock->retn)
+  if (asmblock->retn) {
     retty = asmblock->retty;
-  else
+  } else {
     retty = llvm::Type::getVoidTy(gIR->context());
+  }
 
   // build argument types
   std::vector<LLType *> types;
@@ -675,8 +696,10 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     for (auto arg : args) {
       Stream cout = Logger::cout();
       cout << '$' << i << " ==> " << *arg;
-      if (!llvm::isa<llvm::Instruction>(arg) && !llvm::isa<LLGlobalValue>(arg))
+      if (!llvm::isa<llvm::Instruction>(arg) &&
+          !llvm::isa<LLGlobalValue>(arg)) {
         cout << '\n';
+      }
       ++i;
     }
     Logger::undent();
@@ -692,15 +715,16 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   // capture abi return value
   if (useabiret) {
     IRAsmBlock *block = p->asmBlock;
-    if (block->retfixup)
+    if (block->retfixup) {
       block->asmBlock->abiret = (*block->retfixup)(p->ir, call);
-    else if (p->asmBlock->retemu)
+    } else if (p->asmBlock->retemu) {
       block->asmBlock->abiret = DtoLoad(block->asmBlock->abiret);
-    else
+    } else {
       block->asmBlock->abiret = call;
+    }
   }
 
-  p->asmBlock = NULL;
+  p->asmBlock = nullptr;
 
   // if asm contained external branches, emit goto forwarder code
   if (!gotoToVal.empty()) {
@@ -734,7 +758,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
 CompoundAsmStatement *Statement::endsWithAsm() {
   // does not end with inline asm
-  return NULL;
+  return nullptr;
 }
 
 CompoundAsmStatement *CompoundStatement::endsWithAsm() {
@@ -742,10 +766,11 @@ CompoundAsmStatement *CompoundStatement::endsWithAsm() {
   if (statements && statements->dim) {
     unsigned last = statements->dim - 1;
     Statement *s = (*statements)[last];
-    if (s)
+    if (s) {
       return s->endsWithAsm();
+    }
   }
-  return NULL;
+  return nullptr;
 }
 
 CompoundAsmStatement *CompoundAsmStatement::endsWithAsm() {
@@ -760,8 +785,9 @@ void AsmStatement_toNakedIR(AsmStatement *stmt, IRState *irs) {
   LOG_SCOPE;
 
   // is there code?
-  if (!stmt->asmcode)
+  if (!stmt->asmcode) {
     return;
+  }
   AsmCode *code = static_cast<AsmCode *>(stmt->asmcode);
 
   // build asm stmt

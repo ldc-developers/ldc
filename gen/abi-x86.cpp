@@ -26,7 +26,7 @@ struct X86TargetABI : TargetABI {
 
   X86TargetABI() : isOSX(global.params.isOSX) {}
 
-  llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l) {
+  llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l) override {
     switch (l) {
     case LINKc:
     case LINKcpp:
@@ -42,7 +42,7 @@ struct X86TargetABI : TargetABI {
     }
   }
 
-  std::string mangleForLLVM(llvm::StringRef name, LINK l) {
+  std::string mangleForLLVM(llvm::StringRef name, LINK l) override {
     switch (l) {
     case LINKc:
     case LINKcpp:
@@ -84,42 +84,43 @@ private:
     // on the stack.
 
     Type *const bt = t->toBasetype();
-    if (bt->ty != Tstruct)
+    if (bt->ty != Tstruct) {
       return false;
+    }
 
     Identifier *id = static_cast<TypeStruct *>(bt)->sym->ident;
     return (id == Id::__c_long) || (id == Id::__c_ulong);
   }
 
 public:
-  bool returnInArg(TypeFunction *tf) {
-    if (tf->isref)
+  bool returnInArg(TypeFunction *tf) override {
+    if (tf->isref) {
       return false;
+    }
 
     Type *rt = tf->next->toBasetype();
     // D only returns structs on the stack
     if (tf->linkage == LINKd) {
       return rt->ty == Tstruct || rt->ty == Tsarray;
     }
+
     // other ABI's follow C, which is cdouble and creal returned on the stack
     // as well as structs (except for some OSX cases).
-    else {
-      if (isMagicCLong(rt))
-        return false;
-
-      if (rt->ty == Tstruct) {
-        return !isOSX || returnOSXStructInArg((TypeStruct *)rt);
-      }
-      return (rt->ty == Tsarray || rt->ty == Tcomplex64 ||
-              rt->ty == Tcomplex80);
+    if (isMagicCLong(rt)) {
+      return false;
     }
+
+    if (rt->ty == Tstruct) {
+      return !isOSX || returnOSXStructInArg(static_cast<TypeStruct *>(rt));
+    }
+    return (rt->ty == Tsarray || rt->ty == Tcomplex64 || rt->ty == Tcomplex80);
   }
 
-  bool passByVal(Type *t) {
+  bool passByVal(Type *t) override {
     return t->toBasetype()->ty == Tstruct || t->toBasetype()->ty == Tsarray;
   }
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) {
+  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
     // extern(D)
     if (tf->linkage == LINKd) {
       // IMPLICIT PARAMETERS
@@ -228,8 +229,7 @@ public:
         }
       }
 
-      for (size_t i = 0; i < fty.args.size(); ++i) {
-        IrFuncTyArg *arg = fty.args[i];
+      for (auto arg : fty.args) {
         if (!arg->byref && isMagicCLong(arg->type)) {
           arg->rewrite = &integerRewrite;
           arg->ltype = integerRewrite.type(arg->type, arg->ltype);

@@ -53,16 +53,18 @@ namespace dmd_abi {
 // needed.
 LLType *getAbiType(Type *ty) {
   // First, check if there's any need of a transformation:
-  if (!(ty->ty == Tcomplex32 || ty->ty == Tstruct || ty->ty == Tsarray))
-    return NULL; // Nothing to do
+  if (!(ty->ty == Tcomplex32 || ty->ty == Tstruct || ty->ty == Tsarray)) {
+    return nullptr; // Nothing to do
+  }
 
   // Okay, we may need to transform. Figure out a canonical type:
 
   TypeTuple *argTypes = toArgTypes(ty);
-  if (!argTypes || argTypes->arguments->empty())
-    return NULL; // don't rewrite
+  if (!argTypes || argTypes->arguments->empty()) {
+    return nullptr; // don't rewrite
+  }
 
-  LLType *abiTy = NULL;
+  LLType *abiTy = nullptr;
   if (argTypes->arguments->size() == 1) {
     abiTy = DtoType((*argTypes->arguments->begin())->type);
     // don't rewrite to a single bit (assertions in tollvm.cpp), choose a byte
@@ -76,10 +78,11 @@ LLType *getAbiType(Type *ty) {
       // corresponding 64-bit type
       // this makes sure that 64 bits of the chosen register are used and thus
       // makes sure all potential padding bytes of a struct are copied
-      if (partType->isIntegerTy())
+      if (partType->isIntegerTy()) {
         partType = LLType::getInt64Ty(gIR->context());
-      else if (partType->isFloatTy())
+      } else if (partType->isFloatTy()) {
         partType = LLType::getDoubleTy(gIR->context());
+      }
       parts.push_back(partType);
     }
     abiTy = LLStructType::get(gIR->context(), parts);
@@ -90,8 +93,9 @@ LLType *getAbiType(Type *ty) {
 
 bool passByVal(Type *ty) {
   TypeTuple *argTypes = toArgTypes(ty);
-  if (!argTypes)
+  if (!argTypes) {
     return false;
+  }
 
   return argTypes->arguments->empty(); // empty => cannot be passed in registers
 }
@@ -118,8 +122,9 @@ struct RegCount {
         ++int_regs;
       } else if (ty->isFloatingPointTy() || ty->isVectorTy()) {
         // X87 reals are passed on the stack
-        if (!ty->isX86_FP80Ty())
+        if (!ty->isX86_FP80Ty()) {
           ++sse_regs;
+        }
       } else {
         unsigned sizeInBits = gDataLayout->getTypeSizeInBits(ty);
         IF_LOG Logger::cout()
@@ -142,11 +147,13 @@ struct RegCount {
 
     const bool anyRegAvailable = (wanted.int_regs > 0 && int_regs > 0) ||
                                  (wanted.sse_regs > 0 && sse_regs > 0);
-    if (!anyRegAvailable)
+    if (!anyRegAvailable) {
       return ArgumentDoesntFitIn;
+    }
 
-    if (int_regs < wanted.int_regs || sse_regs < wanted.sse_regs)
+    if (int_regs < wanted.int_regs || sse_regs < wanted.sse_regs) {
       return ArgumentWouldFitInPartially;
+    }
 
     int_regs -= wanted.int_regs;
     sse_regs -= wanted.sse_regs;
@@ -161,15 +168,17 @@ struct RegCount {
  * memory so that it's then readable as the other type (i.e., bit-casting).
  */
 struct X86_64_C_struct_rewrite : ABIRewrite {
-  LLValue *get(Type *dty, LLValue *v) {
+  LLValue *get(Type *dty, LLValue *v) override {
     LLValue *address = DtoAllocaDump(v, dty, ".X86_64_C_struct_rewrite_dump");
     LLType *type = DtoType(dty);
     return loadFromMemory(address, type, ".X86_64_C_struct_rewrite_getResult");
   }
 
-  void getL(Type *dty, LLValue *v, LLValue *lval) { storeToMemory(v, lval); }
+  void getL(Type *dty, LLValue *v, LLValue *lval) override {
+    storeToMemory(v, lval);
+  }
 
-  LLValue *put(DValue *v) {
+  LLValue *put(DValue *v) override {
     LLValue *address = getAddressOf(v);
 
     LLType *abiTy = getAbiType(v->getType());
@@ -178,7 +187,7 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
     return loadFromMemory(address, abiTy, ".X86_64_C_struct_rewrite_putResult");
   }
 
-  LLType *type(Type *dty, LLType *t) { return getAbiType(dty); }
+  LLType *type(Type *dty, LLType *t) override { return getAbiType(dty); }
 };
 
 /**
@@ -190,37 +199,39 @@ struct X86_64_C_struct_rewrite : ABIRewrite {
  * the ByVal LLVM attribute.
  */
 struct ImplicitByvalRewrite : ABIRewrite {
-  LLValue *get(Type *dty, LLValue *v) {
+  LLValue *get(Type *dty, LLValue *v) override {
     return DtoLoad(v, ".ImplicitByvalRewrite_getResult");
   }
 
-  void getL(Type *dty, LLValue *v, LLValue *lval) { DtoAggrCopy(lval, v); }
+  void getL(Type *dty, LLValue *v, LLValue *lval) override {
+    DtoAggrCopy(lval, v);
+  }
 
-  LLValue *put(DValue *v) { return getAddressOf(v); }
+  LLValue *put(DValue *v) override { return getAddressOf(v); }
 
-  LLType *type(Type *dty, LLType *t) { return DtoPtrToType(dty); }
+  LLType *type(Type *dty, LLType *t) override { return DtoPtrToType(dty); }
 };
 
 struct X86_64TargetABI : TargetABI {
   X86_64_C_struct_rewrite struct_rewrite;
   ImplicitByvalRewrite byvalRewrite;
 
-  bool returnInArg(TypeFunction *tf);
+  bool returnInArg(TypeFunction *tf) override;
 
-  bool passByVal(Type *t);
+  bool passByVal(Type *t) override;
 
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty);
-  void rewriteVarargs(IrFuncTy &fty, std::vector<IrFuncTyArg *> &args);
-  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg);
+  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override;
+  void rewriteVarargs(IrFuncTy &fty, std::vector<IrFuncTyArg *> &args) override;
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override;
   void rewriteArgument(IrFuncTyArg &arg, RegCount &regCount);
 
-  LLValue *prepareVaStart(LLValue *pAp);
+  LLValue *prepareVaStart(LLValue *pAp) override;
 
-  void vaCopy(LLValue *pDest, LLValue *src);
+  void vaCopy(LLValue *pDest, LLValue *src) override;
 
-  LLValue *prepareVaArg(LLValue *pAp);
+  LLValue *prepareVaArg(LLValue *pAp) override;
 
-  Type *vaListType();
+  Type *vaListType() override;
 
 private:
   LLType *getValistType();
@@ -233,8 +244,9 @@ private:
 TargetABI *getX86_64TargetABI() { return new X86_64TargetABI; }
 
 bool X86_64TargetABI::returnInArg(TypeFunction *tf) {
-  if (tf->isref)
+  if (tf->isref) {
     return false;
+  }
 
   Type *rt = tf->next;
   return passByVal(rt);
@@ -289,20 +301,24 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) {
   }
 
   // IMPLICIT PARAMETERS
-  if (fty.arg_sret)
+  if (fty.arg_sret) {
     regCount.int_regs--;
-  if (fty.arg_this || fty.arg_nest)
+  }
+  if (fty.arg_this || fty.arg_nest) {
     regCount.int_regs--;
-  if (fty.arg_arguments)
+  }
+  if (fty.arg_arguments) {
     regCount.int_regs -= 2; // dynamic array
+  }
 
   // EXPLICIT PARAMETERS
   Logger::println("x86-64 ABI: Transforming argument types");
   LOG_SCOPE;
 
   // extern(D): reverse parameter order for non variadics, for DMD-compliance
-  if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1)
+  if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
     fty.reverseParams = true;
+  }
 
   int begin = 0, end = fty.args.size(), step = 1;
   if (fty.reverseParams) {
@@ -314,8 +330,9 @@ void X86_64TargetABI::rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) {
     IrFuncTyArg &arg = *fty.args[i];
 
     if (arg.byref) {
-      if (!arg.isByVal() && regCount.int_regs > 0)
+      if (!arg.isByVal() && regCount.int_regs > 0) {
         regCount.int_regs--;
+      }
 
       continue;
     }
@@ -333,10 +350,11 @@ void X86_64TargetABI::rewriteVarargs(IrFuncTy &fty,
   // fty.tag
   RegCount regCount = getRegCount(fty);
 
-  for (unsigned i = 0; i < args.size(); ++i) {
-    IrFuncTyArg &arg = *args[i];
-    if (!arg.byref) // don't rewrite ByVal arguments
+  for (auto &Elem : args) {
+    IrFuncTyArg &arg = *Elem;
+    if (!arg.byref) { // don't rewrite ByVal arguments
       rewriteArgument(arg, regCount);
+    }
   }
 }
 

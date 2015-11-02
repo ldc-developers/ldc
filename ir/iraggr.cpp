@@ -34,16 +34,18 @@ IrAggr::IrAggr(AggregateDeclaration *aggr)
 //////////////////////////////////////////////////////////////////////////////
 
 LLGlobalVariable *IrAggr::getInitSymbol() {
-  if (init)
+  if (init) {
     return init;
+  }
 
   // create the initZ symbol
   std::string initname("_D");
   initname.append(mangle(aggrdecl));
   initname.append("6__initZ");
 
-  init = getOrCreateGlobal(aggrdecl->loc, gIR->module, init_type, true,
-                           llvm::GlobalValue::ExternalLinkage, NULL, initname);
+  init =
+      getOrCreateGlobal(aggrdecl->loc, gIR->module, init_type, true,
+                        llvm::GlobalValue::ExternalLinkage, nullptr, initname);
 
   // set alignment
   init->setAlignment(DtoAlignment(type));
@@ -54,8 +56,9 @@ LLGlobalVariable *IrAggr::getInitSymbol() {
 //////////////////////////////////////////////////////////////////////////////
 
 llvm::Constant *IrAggr::getDefaultInit() {
-  if (constInit)
+  if (constInit) {
     return constInit;
+  }
 
   IF_LOG Logger::println("Building default initializer for %s",
                          aggrdecl->toPrettyChars());
@@ -123,8 +126,9 @@ static llvm::Constant *FillSArrayDims(Type *arrTypeD, llvm::Constant *init) {
   // the size without doing an expensive recursive D <-> LLVM type comparison.
   // The better way to solve this would be to just fix the initializer
   // codegen in any place where a scalar initializer might still be generated.
-  if (gDataLayout->getTypeStoreSize(init->getType()) >= arrTypeD->size())
+  if (gDataLayout->getTypeStoreSize(init->getType()) >= arrTypeD->size()) {
     return init;
+  }
 
   if (arrTypeD->ty == Tsarray) {
     init = FillSArrayDims(arrTypeD->nextOf(), init);
@@ -175,12 +179,14 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers,
   if (!initializerType || initializerType->isOpaque()) {
     llvm::SmallVector<llvm::Type *, 16> types;
     types.reserve(constants.size());
-    for (auto c : constants)
+    for (auto c : constants) {
       types.push_back(c->getType());
-    if (!initializerType)
+    }
+    if (!initializerType) {
       initializerType = LLStructType::get(gIR->context(), types, isPacked());
-    else
+    } else {
       initializerType->setBody(types, isPacked());
+    }
   }
 
   // build constant
@@ -208,15 +214,17 @@ void IrAggr::addFieldInitializers(
   // Fill in explicit initializers.
   for (size_t i = 0; i < n; ++i) {
     VarDeclaration *vd = decl->fields[i];
-    VarInitMap::const_iterator expl = explicitInitializers.find(vd);
-    if (expl != explicitInitializers.end())
+    auto expl = explicitInitializers.find(vd);
+    if (expl != explicitInitializers.end()) {
       data[i] = *expl;
+    }
   }
 
   // Fill in implicit initializers
   for (size_t i = 0; i < n; i++) {
-    if (data[i].first)
+    if (data[i].first) {
       continue;
+    }
 
     VarDeclaration *vd = decl->fields[i];
 
@@ -227,8 +235,10 @@ void IrAggr::addFieldInitializers(
             dchar b = 'a';
         }
     */
-    if (decl->isUnionDeclaration() && vd->init && vd->init->isVoidInitializer())
+    if (decl->isUnionDeclaration() && vd->init &&
+        vd->init->isVoidInitializer()) {
       continue;
+    }
 
     unsigned vd_begin = vd->offset;
     unsigned vd_end = vd_begin + vd->type->size();
@@ -238,23 +248,26 @@ void IrAggr::addFieldInitializers(
             ubyte[0] test;
         }
     */
-    if (vd_begin == vd_end)
+    if (vd_begin == vd_end) {
       continue;
+    }
 
     // make sure it doesn't overlap any explicit initializers.
     bool overlaps = false;
     if (type->ty == Tstruct) {
       // Only structs and unions can have overlapping fields.
       for (size_t j = 0; j < n; ++j) {
-        if (i == j || !data[j].first)
+        if (i == j || !data[j].first) {
           continue;
+        }
 
         VarDeclaration *it = decl->fields[j];
         unsigned f_begin = it->offset;
         unsigned f_end = f_begin + it->type->size();
 
-        if (vd_begin >= f_end || vd_end <= f_begin)
+        if (vd_begin >= f_end || vd_end <= f_begin) {
           continue;
+        }
 
         overlaps = true;
         break;
@@ -267,7 +280,7 @@ void IrAggr::addFieldInitializers(
       LOG_SCOPE;
 
       data[i].first = vd;
-      data[i].second = get_default_initializer(vd, NULL);
+      data[i].second = get_default_initializer(vd, nullptr);
     }
   }
 
@@ -282,8 +295,9 @@ void IrAggr::addFieldInitializers(
   // when necessary.
   for (size_t i = 0; i < n; i++) {
     VarDeclaration *vd = data[i].first;
-    if (vd == NULL)
+    if (vd == nullptr) {
       continue;
+    }
 
     // Explicitly zero the padding as per TDPL §7.1.1. Otherwise, it would
     // be left uninitialized by LLVM.
@@ -321,8 +335,9 @@ void IrAggr::addFieldInitializers(
         offset += Target::ptrsize;
         inter_idx++;
 
-        if (populateInterfacesWithVtbls)
+        if (populateInterfacesWithVtbls) {
           interfacesWithVtbls.push_back(bc);
+        }
       }
     }
   }

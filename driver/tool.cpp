@@ -18,26 +18,29 @@ int executeToolAndWait(const std::string &tool,
   std::vector<const char *> realargs;
   realargs.reserve(args.size() + 2);
   realargs.push_back(tool.c_str());
-  for (const auto &arg : args)
+  for (const auto &arg : args) {
     realargs.push_back(arg.c_str());
-  realargs.push_back(NULL);
+  }
+  realargs.push_back(nullptr);
 
   // Print command line if requested
   if (verbose) {
     // Print it
-    for (size_t i = 0; i < realargs.size() - 1; i++)
+    for (size_t i = 0; i < realargs.size() - 1; i++) {
       fprintf(global.stdmsg, "%s ", realargs[i]);
+    }
     fprintf(global.stdmsg, "\n");
     fflush(global.stdmsg);
   }
 
   // Execute tool.
   std::string errstr;
-  if (int status = llvm::sys::ExecuteAndWait(tool, &realargs[0], NULL, NULL, 0,
-                                             0, &errstr)) {
+  if (int status = llvm::sys::ExecuteAndWait(tool, &realargs[0], nullptr,
+                                             nullptr, 0, 0, &errstr)) {
     error(Loc(), "%s failed with status: %d", tool.c_str(), status);
-    if (!errstr.empty())
+    if (!errstr.empty()) {
       error(Loc(), "message: %s", errstr.c_str());
+    }
     return status;
   }
   return 0;

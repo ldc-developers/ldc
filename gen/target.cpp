@@ -48,8 +48,9 @@ void Target::init() {
 
 unsigned Target::alignsize(Type *type) {
   assert(type->isTypeBasic());
-  if (type->ty == Tvoid)
+  if (type->ty == Tvoid) {
     return 1;
+  }
   return gDataLayout->getABITypeAlignment(DtoType(type));
 }
 
@@ -65,12 +66,14 @@ unsigned Target::critsecsize() {
   // Return sizeof(RTL_CRITICAL_SECTION)
   return global.params.is64bit ? 40 : 24;
 #else
-  if (global.params.targetTriple.isOSWindows())
+  if (global.params.targetTriple.isOSWindows()) {
     return global.params.is64bit ? 40 : 24;
-  else if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD)
+  }
+  if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD) {
     return sizeof(size_t);
-  else
-    return sizeof(pthread_mutex_t);
+  }
+  return sizeof(pthread_mutex_t);
+
 #endif
 }
 
@@ -95,12 +98,12 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
   switch (e->type->ty) {
   case Tint32:
   case Tuns32:
-    u.int32value = (d_int32)e->toInteger();
+    u.int32value = static_cast<d_int32>(e->toInteger());
     break;
 
   case Tint64:
   case Tuns64:
-    u.int64value = (d_int64)e->toInteger();
+    u.int64value = static_cast<d_int64>(e->toInteger());
     break;
 
   case Tfloat32:
@@ -134,7 +137,7 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
     assert(0);
   }
 
-  return NULL; // avoid warning
+  return nullptr; // avoid warning
 }
 
 /******************************
