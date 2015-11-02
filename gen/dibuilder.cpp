@@ -489,19 +489,20 @@ ldc::DISubroutineType ldc::DIBuilder::CreateFunctionType(Type *type) {
   ldc::DIFile file(CreateFile(loc));
 
 // Create "dummy" subroutine type for the return type
-#if LDC_LLVM_VER >= 306
-  llvm::SmallVector<llvm::Metadata *, 16> Elts;
-#else
+#if LDC_LLVM_VER == 305
   llvm::SmallVector<llvm::Value *, 16> Elts;
-#endif
-  Elts.push_back(CreateTypeDescription(retType, true));
+  llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
+#else
+  llvm::SmallVector<llvm::Metadata *, 16> Elts;
 #if LDC_LLVM_VER >= 307
   llvm::DITypeRefArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
-#elif LDC_LLVM_VER >= 306
-  llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
 #else
-  llvm::DIArray EltTypeArray = DBuilder.getOrCreateArray(Elts);
+  llvm::DITypeArray EltTypeArray = DBuilder.getOrCreateTypeArray(Elts);
 #endif
+#endif
+
+  Elts.push_back(CreateTypeDescription(retType, true));
+
 #if LDC_LLVM_VER >= 308
   return DBuilder.createSubroutineType(EltTypeArray);
 #else
@@ -778,17 +779,18 @@ void ldc::DIBuilder::EmitStopPoint(Loc &loc) {
     return;
   }
 
-  // If we already have a location set and the current loc is invalid
-  // (line 0), then we can just ignore it (see GitHub issue #998 for why we
-  // cannot do this in all cases).
-  if (!loc.linnum &&
+// If we already have a location set and the current loc is invalid
+// (line 0), then we can just ignore it (see GitHub issue #998 for why we
+// cannot do this in all cases).
 #if LDC_LLVM_VER >= 307
-      IR->ir->getCurrentDebugLocation()
-#else
-      !IR->ir->getCurrentDebugLocation().isUnknown()
-#endif
-          )
+  if (!loc.linnum && IR->ir->getCurrentDebugLocation()) {
     return;
+  }
+#else
+  if (!loc.linnum && !IR->ir->getCurrentDebugLocation().isUnknown()) {
+    return;
+  }
+#endif
 
   unsigned charnum = (loc.linnum ? loc.charnum : 0);
   Logger::println("D to dwarf stoppoint at line %u, column %u", loc.linnum,
@@ -872,44 +874,25 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
 
 #if LDC_LLVM_VER < 306
   if (addr.empty()) {
-#endif
-#if LDC_LLVM_VER >= 308
-    if (vd->isParameter()) {
-      FuncDeclaration *fd = vd->parent->isFuncDeclaration();
-      assert(fd);
-      int argNo;
-      if (fd->vthis == vd)
-        argNo = 0;
-      else {
-        assert(fd->parameters);
-        for (argNo = 0; argNo < fd->parameters->dim; argNo++)
-          if ((*fd->parameters)[argNo] == vd)
-            break;
-        assert(argNo < fd->parameters->dim);
-        if (fd->vthis)
-          argNo++;
-      }
-
-      debugVariable =
-          DBuilder.createParameterVariable(GetCurrentScope(), // scope
-                                           vd->toChars(),     // name
-                                           argNo + 1,
-                                           CreateFile(vd->loc), // file
-                                           vd->loc.linnum,      // line num
-                                           TD,                  // type
-                                           true,                // preserve
-                                           Flags                // flags
-                                           );
-    } else
-      debugVariable = DBuilder.createAutoVariable(GetCurrentScope(),   // scope
-                                                  vd->toChars(),       // name
-                                                  CreateFile(vd->loc), // file
-                                                  vd->loc.linnum, // line num
-                                                  TD,             // type
-                                                  true,           // preserve
-                                                  Flags           // flags
-                                                  );
-#else
+    debugVariable = DBuilder.createLocalVariable(tag,                 // tag
+                                                 GetCurrentScope(),   // scope
+                                                 vd->toChars(),       // name
+                                                 CreateFile(vd->loc), // file
+                                                 vd->loc.linnum, // line num
+                                                 TD,             // type
+                                                 true,           // preserve
+                                                 Flags           // flags
+                                                 );
+  } else {
+    debugVariable = DBuilder.createComplexVariable(tag,                 // tag
+                                                   GetCurrentScope(),   // scope
+                                                   vd->toChars(),       // name
+                                                   CreateFile(vd->loc), // file
+                                                   vd->loc.linnum, // line num
+                                                   TD,             // type
+                                                   addr);
+  }
+#elif LDC_LLVM_VER < 308
   debugVariable = DBuilder.createLocalVariable(tag,                 // tag
                                                GetCurrentScope(),   // scope
                                                vd->toChars(),       // name
@@ -919,16 +902,45 @@ void ldc::DIBuilder::EmitLocalVariable(llvm::Value *ll, VarDeclaration *vd,
                                                true,                // preserve
                                                Flags                // flags
                                                );
-#endif
-#if LDC_LLVM_VER < 306
+#else
+  if (vd->isParameter()) {
+    FuncDeclaration *fd = vd->parent->isFuncDeclaration();
+    assert(fd);
+    int argNo;
+    if (fd->vthis == vd) {
+      argNo = 0;
+    } else {
+      assert(fd->parameters);
+      for (argNo = 0; argNo < fd->parameters->dim; argNo++) {
+        if ((*fd->parameters)[argNo] == vd) {
+          break;
+        }
+      }
+      assert(argNo < fd->parameters->dim);
+      if (fd->vthis) {
+        argNo++;
+      }
+    }
+
+    debugVariable =
+        DBuilder.createParameterVariable(GetCurrentScope(), // scope
+                                         vd->toChars(),     // name
+                                         argNo + 1,
+                                         CreateFile(vd->loc), // file
+                                         vd->loc.linnum,      // line num
+                                         TD,                  // type
+                                         true,                // preserve
+                                         Flags                // flags
+                                         );
   } else {
-    debugVariable = DBuilder.createComplexVariable(tag,                 // tag
-                                                   GetCurrentScope(),   // scope
-                                                   vd->toChars(),       // name
-                                                   CreateFile(vd->loc), // file
-                                                   vd->loc.linnum, // line num
-                                                   TD,             // type
-                                                   addr);
+    debugVariable = DBuilder.createAutoVariable(GetCurrentScope(),   // scope
+                                                vd->toChars(),       // name
+                                                CreateFile(vd->loc), // file
+                                                vd->loc.linnum,      // line num
+                                                TD,                  // type
+                                                true,                // preserve
+                                                Flags                // flags
+                                                );
   }
 #endif
   variableMap[vd] = debugVariable;
