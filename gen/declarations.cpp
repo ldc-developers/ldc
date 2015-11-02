@@ -420,19 +420,29 @@ public:
     LOG_SCOPE
 
     if (decl->ir.isDefined()) {
+      Logger::println("Already defined, skipping.");
       return;
     }
     decl->ir.setDefined();
 
-    // FIXME: This is #673 all over again.
-    if (!decl->needsCodegen()) {
+    if (isError(decl)) {
+      Logger::println("Has errors, skipping.");
       return;
     }
 
-    if (!isError(decl) && decl->members) {
-      for (auto m : *decl->members) {
-        m->accept(this);
-      }
+    if (!decl->members) {
+      Logger::println("Has no members, skipping.");
+      return;
+    }
+
+    // FIXME: This is #673 all over again.
+    if (!decl->needsCodegen()) {
+      Logger::println("Does not need codegen, skipping.");
+      return;
+    }
+
+    for (auto &m : *decl->members) {
+      m->accept(this);
     }
   }
 
