@@ -298,6 +298,10 @@ struct NativeContext
         }
         return EXCEPTION_DISPOSITION.ExceptionContinueSearch;
     }
+
+    void destroyExceptionStruct(void*)
+    {
+    }
 }
 
 // The personality routine gets called by the unwind handler and is responsible for

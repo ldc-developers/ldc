@@ -220,7 +220,8 @@ struct NativeContext
         if (!(actions & _Unwind_Action.CLEANUP_PHASE))
             fatalerror("Unknown phase");
 
-        pushCleanupBlockRecord(getCfaAddress(), getThrownObject());
+        auto cleanupBlock = pushCleanupBlockRecord(getCfaAddress(), getThrownObject());
+        cleanupBlock.exceptionStruct = exception_struct;
 
         debug(EH_personality)
         {
@@ -243,7 +244,8 @@ struct NativeContext
         if (actions & _Unwind_Action.SEARCH_PHASE)
             return _Unwind_Reason_Code.CONTINUE_UNWIND;
 
-        pushCleanupBlockRecord(getCfaAddress(), getThrownObject());
+        auto cleanupBlock = pushCleanupBlockRecord(getCfaAddress(), getThrownObject());
+        cleanupBlock.exceptionStruct = exception_struct;
 
         debug(EH_personality)
         {
@@ -255,6 +257,11 @@ struct NativeContext
         _Unwind_SetGR(context, eh_selector_regno, 0);
         _Unwind_SetIP(context, landingPadAddr);
         return _Unwind_Reason_Code.INSTALL_CONTEXT;
+    }
+
+    void destroyExceptionStruct(void* exception_struct)
+    {
+        _d_eh_destroy_exception_struct(exception_struct);
     }
 }
 
@@ -478,8 +485,12 @@ void _d_eh_resume_unwind(_d_exception* exception_struct)
     _Unwind_Resume(&exception_struct.unwind_info);
 }
 
-Object _d_eh_destroy_exception_struct(_d_exception* exception_struct)
+Object _d_eh_destroy_exception_struct(void* ptr)
 {
+    if (ptr == null)
+        return null;
+
+    auto exception_struct = cast(_d_exception*)ptr;
     auto obj = exception_struct.exception_object;
     free(exception_struct);
 

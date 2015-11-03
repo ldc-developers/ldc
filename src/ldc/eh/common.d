@@ -300,6 +300,11 @@ struct ActiveCleanupBlock {
     /// The exception that caused this cleanup block to be entered.
     Object dObject;
 
+    /// The exception struct associated with the above exception. Currently only
+    /// used by libunwind; define destroyExceptionStruct in your implementation's
+    /// NativeContext code to handle this correctly.
+    void* exceptionStruct;
+
     /// The CFA (stack address, roughly) when this cleanup block was entered, as
     /// reported by libunwind.
     ///
@@ -351,7 +356,7 @@ ActiveCleanupBlock* searchPhaseCurrentCleanupBlock = null;
 /// rules).
 ClassInfo searchPhaseClassInfo = null;
 
-void pushCleanupBlockRecord(ptrdiff_t cfaAddr, Object dObject)
+ActiveCleanupBlock* pushCleanupBlockRecord(ptrdiff_t cfaAddr, Object dObject)
 {
     auto acb = cast(ActiveCleanupBlock*)malloc(ActiveCleanupBlock.sizeof);
     if (!acb)
@@ -373,6 +378,7 @@ void pushCleanupBlockRecord(ptrdiff_t cfaAddr, Object dObject)
     // keep a reference to the object extracted from the landing pad around as
     // there is no _d_eh_resume_unwind() call.
     GC.addRoot(cast(void*)dObject);
+    return acb;
 }
 
 void popCleanupBlockRecord()
@@ -586,6 +592,12 @@ extern(C) auto eh_personality_common(NativeContext)(ref NativeContext nativeCont
         auto outer = acb.outerBlock;
         if (!isSearchPhase)
         {
+            // Destroy the exception struct associated with the previous level.
+            // This is necessary as the libunwind implementation allocates new
+            // exception structs for each throw; if we're chaining an exception,
+            // we need to destroy the previous exception struct.
+            nativeContext.destroyExceptionStruct(acb.exceptionStruct);
+
             GC.removeRoot(cast(void*)acb.dObject);
             free(acb);
         }
