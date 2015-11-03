@@ -13,6 +13,7 @@ version (Win64) {} else
 
 import core.stdc.stdlib : malloc, free;
 import ldc.eh.common;
+import ldc.eh.fixedpool;
 debug (EH_personality)
     import core.stdc.stdio : printf;
 
@@ -113,6 +114,8 @@ struct _d_exception
         _Unwind_Exception unwind_info;
     }
 }
+
+static FixedPool!(_d_exception, 8) ExceptionStructPool;
 
 // the 8-byte string identifying the type of exception
 // the first 4 are for vendor, the second 4 for language
@@ -434,7 +437,7 @@ void _d_throw_exception(Object e)
     if (throwable.info is null && cast(byte*)throwable !is typeid(throwable).init.ptr)
         throwable.info = _d_traceContext();
 
-    auto exc_struct = cast(_d_exception*)malloc(_d_exception.sizeof);
+    auto exc_struct = ExceptionStructPool.malloc();
     if (!exc_struct)
         fatalerror("Could not allocate D exception record; out of memory?");
     version (ARM)
@@ -492,7 +495,7 @@ Object _d_eh_destroy_exception_struct(void* ptr)
 
     auto exception_struct = cast(_d_exception*)ptr;
     auto obj = exception_struct.exception_object;
-    free(exception_struct);
+    ExceptionStructPool.free(exception_struct);
 
     debug (EH_personality)
     {
