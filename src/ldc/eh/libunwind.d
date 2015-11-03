@@ -9,9 +9,12 @@ version (Win64) {} else
 
 // debug = EH_personality;
 // debug = EH_personality_verbose;
+// debug = EH_verifyExceptionStructLifetime;
 
 import core.stdc.stdlib : malloc, free;
 import ldc.eh.common;
+debug (EH_personality)
+    import core.stdc.stdio : printf;
 
 private:
 
@@ -397,7 +400,16 @@ else // !ARM
 
 extern(C) Throwable.TraceInfo _d_traceContext(void* ptr = null);
 
+debug (EH_verifyExceptionStructLifetime)
+{
+    shared size_t exceptionStructsInFlight;
 
+    shared static ~this()
+    {
+        if (exceptionStructsInFlight != 0)
+            fatalerror("Non-zero number of exception structs in flight: %zu", exceptionStructsInFlight);
+    }
+}
 
 public extern(C):
 
@@ -430,8 +442,17 @@ void _d_throw_exception(Object e)
 
     debug(EH_personality)
     {
-        printf("= Throwing new exception of type %s: %p (struct at %p, classinfo at %p)\n",
+        printf("= Throwing new exception of type %s: %p (struct at %p, classinfo at %p",
             e.classinfo.name.ptr, e, exc_struct, e.classinfo);
+
+        debug (EH_verifyExceptionStructLifetime)
+        {
+            import core.atomic : atomicOp;
+            auto count = exceptionStructsInFlight.atomicOp!"+="(1);
+            printf(", %zu structs in flight", count);
+        }
+
+        printf(")\n");
     }
 
     searchPhaseClassInfo = e.classinfo;
@@ -457,10 +478,29 @@ void _d_eh_resume_unwind(_d_exception* exception_struct)
     _Unwind_Resume(&exception_struct.unwind_info);
 }
 
-Object _d_eh_enter_catch(_d_exception* exception_struct)
+Object _d_eh_destroy_exception_struct(_d_exception* exception_struct)
 {
     auto obj = exception_struct.exception_object;
     free(exception_struct);
+
+    debug (EH_personality)
+    {
+        printf("  - Destroyed exception struct at %p", exception_struct);
+        debug (EH_verifyExceptionStructLifetime)
+        {
+            import core.atomic : atomicOp;
+            auto count = exceptionStructsInFlight.atomicOp!"-="(1);
+            printf(", %zu structs in flight", count);
+        }
+        printf("\n");
+    }
+
+    return obj;
+}
+
+Object _d_eh_enter_catch(_d_exception* exception_struct)
+{
+    auto obj = _d_eh_destroy_exception_struct(exception_struct);
     popCleanupBlockRecord();
     return obj;
 }
