@@ -744,45 +744,28 @@ public:
       irs->scope() = IRScope(catchBB);
       irs->DBuilder.EmitBlockStart((*it)->loc);
 
-      llvm::Function *enterCatchFn =
+      const auto enterCatchFn =
           LLVM_D_GetRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
-      irs->ir->CreateCall(enterCatchFn);
+      auto exceptionStruct = DtoLoad(irs->func()->getOrCreateEhPtrSlot());
+      auto throwableObj = irs->ir->CreateCall(enterCatchFn, exceptionStruct);
 
       // For catches that use the Throwable object, create storage for it.
       // We will set it in the code that branches from the landing pads
       // (there might be more than one) to catchBB.
-      if ((*it)->var) {
-        llvm::Value *ehPtr = irs->func()->getOrCreateEhPtrSlot();
+      auto var = (*it)->var;
+      if (var) {
+        // This will alloca if we haven't already and take care of nested refs
+        // if there are any.
+        DtoDeclarationExp(var);
 
-        if (!global.params.targetTriple.isWindowsMSVCEnvironment()) {
-          // ehPtr is a pointer to _d_exception, which has a reference
-          // to the Throwable object at offset 0.
-          ehPtr = irs->ir->CreateLoad(ehPtr);
-        }
-
-        llvm::Type *llCatchVarType =
-            DtoType((*it)->var->type); // e.g., Throwable*
-
-        // Use the same storage for all exceptions that are not accessed in
-        // nested functions
-        if (!(*it)->var->nestedrefs.dim) {
-          assert(!isIrLocalCreated((*it)->var));
-          IrLocal *irLocal = getIrLocal((*it)->var, true);
-          irLocal->value = DtoBitCast(ehPtr, getPtrToType(llCatchVarType));
-        } else {
-          // This will alloca if we haven't already and take care of nested refs
-          DtoDeclarationExp((*it)->var);
-          IrLocal *irLocal = getIrLocal((*it)->var);
-
-          // Copy the exception reference over from ehPtr
-          llvm::Value *exc =
-              DtoLoad(DtoBitCast(ehPtr, llCatchVarType->getPointerTo()));
-          DtoStore(exc, irLocal->value);
-        }
+        // Copy the exception reference over from the _d_eh_enter_catch return
+        // value.
+        DtoStore(DtoBitCast(throwableObj, DtoType((*it)->var->type)),
+                 getIrLocal(var)->value);
       }
 
-      // emit handler, if there is one
-      // handler is zero for instance for 'catch { debug foo(); }'
+      // Emit handler, if there is one. The handler is zero, for instance, when
+      // building 'catch { debug foo(); }' in non-debug mode.
       if ((*it)->handler) {
         Statement_toIR((*it)->handler, irs);
       }

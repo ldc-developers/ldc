@@ -854,17 +854,16 @@ static void LLVM_D_BuildRuntimeModule() {
   {
     LLFunctionType *fty = nullptr;
     if (global.params.targetTriple.isWindowsMSVCEnvironment()) {
-      // int _d_eh_personality(ptr ExceptionRecord, ptr EstablisherFrame, ptr
-      // ContextRecord, ptr DispatcherContext)
+      // (ptr ExceptionRecord, ptr EstablisherFrame, ptr ContextRecord,
+      //  ptr DispatcherContext)
       LLType *types[] = {voidPtrTy, voidPtrTy, voidPtrTy, voidPtrTy};
       fty = llvm::FunctionType::get(intTy, types, false);
     } else if (global.params.targetTriple.getArch() == llvm::Triple::arm) {
-      // int _d_eh_personality(int state, ptr ucb, ptr context)
+      // (int state, ptr ucb, ptr context)
       LLType *types[] = {intTy, voidPtrTy, voidPtrTy};
       fty = llvm::FunctionType::get(intTy, types, false);
     } else {
-      // int _d_eh_personality(int ver, int actions, ulong eh_class, ptr
-      // eh_info, ptr context)
+      // (int ver, int actions, ulong eh_class, ptr eh_info, ptr context)
       LLType *types[] = {intTy, intTy, longTy, voidPtrTy, voidPtrTy};
       fty = llvm::FunctionType::get(intTy, types, false);
     }
@@ -881,10 +880,11 @@ static void LLVM_D_BuildRuntimeModule() {
     llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
   }
 
-  // void _d_eh_enter_catch()
+  // Object _d_eh_enter_catch(ptr exc_struct)
   {
     llvm::StringRef fname("_d_eh_enter_catch");
-    LLFunctionType *fty = llvm::FunctionType::get(voidTy, false);
+    LLType *types[] = {voidPtrTy};
+    LLFunctionType *fty = llvm::FunctionType::get(voidPtrTy, types, false);
     llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M)
         ->setAttributes(Attr_NoUnwind);
   }
