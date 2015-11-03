@@ -140,16 +140,14 @@ bool willInline() {
 bool isOptimizationEnabled() { return optimizeLevel != 0; }
 
 llvm::CodeGenOpt::Level codeGenOptLevel() {
-  const int opt = optLevel();
   // Use same appoach as clang (see lib/CodeGen/BackendUtil.cpp)
-  llvm::CodeGenOpt::Level codeGenOptLevel = llvm::CodeGenOpt::Default;
-  // Debug info doesn't work properly with CodeGenOpt <> None
-  if (global.params.symdebug || !opt) {
-    codeGenOptLevel = llvm::CodeGenOpt::None;
-  } else if (opt >= 3) {
-    codeGenOptLevel = llvm::CodeGenOpt::Aggressive;
+  if (optLevel() == 0) {
+    return llvm::CodeGenOpt::None;
   }
-  return codeGenOptLevel;
+  if (optLevel() >= 3) {
+    return llvm::CodeGenOpt::Aggressive;
+  }
+  return llvm::CodeGenOpt::Default;
 }
 
 static inline void addPass(PassManagerBase &pm, Pass *pass) {
