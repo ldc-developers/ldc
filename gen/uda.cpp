@@ -14,13 +14,15 @@ const std::string section = "section";
 }
 
 bool isFromLdcAttibutes(StructLiteralExp *e) {
-  Module *mod = e->sd->getModule();
-  if (strcmp("attributes", mod->md->id->string)) {
+  auto moduleDecl = e->sd->getModule()->md;
+  if (!moduleDecl) return false;
+
+  if (strcmp("attributes", moduleDecl->id->string)) {
     return false;
   }
 
-  if (mod->md->packages->dim != 1 ||
-      strcmp("ldc", (*mod->md->packages)[0]->string)) {
+  if (moduleDecl->packages->dim != 1 ||
+      strcmp("ldc", (*moduleDecl->packages)[0]->string)) {
     return false;
   }
   return true;
