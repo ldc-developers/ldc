@@ -21,11 +21,11 @@
 #include "llvm/IR/InlineAsm.h"
 #include <cassert>
 
-//////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // FIXME: Integrate these functions
 void AsmStatement_toNakedIR(AsmStatement *stmt, IRState *irs);
 
-//////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 class ToNakedIRVisitor : public Visitor {
   IRState *irs;
@@ -132,7 +132,7 @@ public:
   }
 };
 
-//////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 void DtoDefineNakedFunction(FuncDeclaration *fd) {
   IF_LOG Logger::println("DtoDefineNakedFunction(%s)", mangleExact(fd));
@@ -237,7 +237,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   gIR->functions.pop_back();
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
                           FuncDeclaration *fdecl) {
@@ -291,29 +291,29 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
       as->out_c = "={ax},={dx},";
       asmblock->retn = 2;
 #if 0
-            // this is to show how to allocate a temporary for the return value
-            // in case the appropriate multi register constraint isn't supported.
-            // this way abi return from inline asm can still be emulated.
-            // note that "$<<out0>>" etc in the asm will translate to the correct
-            // numbered output when the asm block in finalized
+      // this is to show how to allocate a temporary for the return value
+      // in case the appropriate multi register constraint isn't supported.
+      // this way abi return from inline asm can still be emulated.
+      // note that "$<<out0>>" etc in the asm will translate to the correct
+      // numbered output when the asm block in finalized
 
-            // generate asm
-            as->out_c = "=*m,=*m,";
-            LLValue* tmp = DtoRawAlloca(llretTy, 0, ".tmp_asm_ret");
-            as->out.push_back( tmp );
-            as->out.push_back( DtoGEPi(tmp, 0,1) );
-            as->code = "movd %eax, $<<out0>>" "\n\t" "mov %edx, $<<out1>>";
+      // generate asm
+      as->out_c = "=*m,=*m,";
+      LLValue* tmp = DtoRawAlloca(llretTy, 0, ".tmp_asm_ret");
+      as->out.push_back( tmp );
+      as->out.push_back( DtoGEPi(tmp, 0,1) );
+      as->code = "movd %eax, $<<out0>>" "\n\t" "mov %edx, $<<out1>>";
 
-            // fix asmblock
-            asmblock->retn = 0;
-            asmblock->retemu = true;
-            asmblock->asmBlock->abiret = tmp;
+      // fix asmblock
+      asmblock->retn = 0;
+      asmblock->retemu = true;
+      asmblock->asmBlock->abiret = tmp;
 
-            // add "ret" stmt at the end of the block
-            asmblock->s.push_back(as);
+      // add "ret" stmt at the end of the block
+      asmblock->s.push_back(as);
 
-            // done, we don't want anything pushed in the front of the block
-            return;
+      // done, we don't want anything pushed in the front of the block
+      return;
 #endif
     } else {
       error(loc, "unimplemented return type '%s' for implicit abi return",
@@ -383,7 +383,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
   asmblock->s.push_front(as);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 
 // sort of kinda related to naked ...
 

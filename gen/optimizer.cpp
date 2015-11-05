@@ -303,7 +303,7 @@ static void addOptimizationPasses(PassManagerBase &mpm,
   builder.populateModulePassManager(mpm);
 }
 
-//////////////////////////////////////////////////////////////////////////////////////////
+////////////////////////////////////////////////////////////////////////////////
 // This function runs optimization passes based on command line arguments.
 // Returns true if any optimization passes were invoked.
 bool ldc_optimize_module(llvm::Module *M) {

@@ -191,7 +191,7 @@ Usage:\n\
 #if 0
 "  -map           generate linker .map file\n"
 #endif
-      "  -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
+"  -boundscheck=[on|safeonly|off]   bounds checks on, in @safe only, or off\n\
   -noboundscheck no array bounds checking (deprecated, use -boundscheck=off)\n\
   -O             optimize\n\
   -o-            do not write object file\n\
@@ -201,7 +201,7 @@ Usage:\n\
 #if 0
 "  -profile       profile runtime performance of generated code\n"
 #endif
-      "  -property      enforce property syntax\n\
+"  -property      enforce property syntax\n\
   -quiet         suppress unnecessary messages\n\
   -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
@@ -210,7 +210,7 @@ Usage:\n\
 "  -transition=id show additional info about language change identified by 'id'\n\
   -transition=?  list all language changes\n"
 #endif
-      "  -unittest      compile in unit tests\n\
+"  -unittest      compile in unit tests\n\
   -v             verbose\n\
   -vcolumns      print character (column) numbers in diagnostics\n\
   -vdmd          print the command used to invoke the underlying compiler\n\
@@ -219,7 +219,7 @@ Usage:\n\
 #if 0
 "  -vtls          list all variables going into thread local storage\n"
 #endif
-      "  -vgc           list all gc allocations including hidden ones\n\
+"  -vgc           list all gc allocations including hidden ones\n\
   -verrors=num   limit the number of error messages (0 means unlimited)\n\
   -w             enable warnings\n\
   -wi            enable informational warnings\n\

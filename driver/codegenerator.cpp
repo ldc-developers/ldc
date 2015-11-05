@@ -37,13 +37,12 @@ void genCmain(Scope *sc) {
    * _main()
    */
   static utf8_t code[] = "extern(C) {\n\
-        int _d_run_main(int argc, char **argv, void* mainFunc);\n\
-        int _Dmain(char[][] args);\n\
-        int main(int argc, char **argv) { return _d_run_main(argc, argv, &_Dmain); }\n\
-        version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }\n\
-        }\n\
-        pragma(LDC_no_moduleinfo);\n\
-        ";
+    int _d_run_main(int argc, char **argv, void* mainFunc);\n\
+    int _Dmain(char[][] args);\n\
+    int main(int argc, char **argv) { return _d_run_main(argc, argv, &_Dmain); }\n\
+    version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }\n\
+    }\n\
+    pragma(LDC_no_moduleinfo);\n";
 
   Identifier *id = Id::entrypoint;
   auto m = new Module("__entrypoint.d", id, 0, 0);

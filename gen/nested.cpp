@@ -19,11 +19,6 @@
 #include "ir/irtypeaggr.h"
 #include "llvm/Analysis/ValueTracking.h"
 
-/****************************************************************************************/
-/*////////////////////////////////////////////////////////////////////////////////////////
-// NESTED VARIABLE HELPERS
-////////////////////////////////////////////////////////////////////////////////////////*/
-
 static void storeVariable(VarDeclaration *vd, LLValue *dst) {
   LLValue *value = getIrLocal(vd)->value;
   int ty = vd->type->ty;
