@@ -496,6 +496,24 @@ if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
 
+
+# Build FileCheck for testing (build source version depending on LLVM version)
+set(FILECHECK_SRC utils/FileCheck-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.cpp)
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FILECHECK_SRC})
+    add_executable(FileCheck ${FILECHECK_SRC})
+    set_target_properties(
+        FileCheck PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+        COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
+        LINK_FLAGS "${SANITIZE_LDFLAGS}"
+    )
+    target_link_libraries(FileCheck  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} "${LLVM_LDFLAGS}")
+else()
+    message(STATUS "Skip building FileCheck, assuming it can be found in LLVM bin directory")
+endif()
+
+
+
 #
 # LDMD
 #
@@ -530,6 +548,7 @@ add_subdirectory(runtime)
 if(D_VERSION EQUAL 2)
     add_subdirectory(tests/d2)
 endif()
+add_subdirectory(tests/ir)
 
 #
 # Install target.

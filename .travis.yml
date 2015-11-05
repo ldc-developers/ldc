@@ -35,6 +35,9 @@ addons:
 install:
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
   - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install llvm36; brew install libconfig; fi;
+  - pip install --user lit
+  - python -c "import lit; lit.main();" --version | head -n 1
+
 env:
   - LLVM_CONFIG="llvm-config-3.7" OPTS="-DMULTILIB=ON"
   - LLVM_CONFIG="llvm-config-3.6" OPTS="-DBUILD_SHARED_LIBS=ON"
@@ -66,6 +69,8 @@ script:
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
+  # Run LLVM IR testsuite
+  ctest --output-on-failure -R "llvm-ir-testsuite";
   # Build Phobos & druntime unittest modules.
   -
     if [ "${TEST_CONFIG}" = "Debug" ]; then
@@ -94,10 +99,10 @@ script:
       ctest -j4 --output-on-failure -R "-debug" -E "dmd-testsuite";
     elif [ "${TEST_CONFIG}" = "Release" ]; then
       MAKEOPTS=-j3 ctest --verbose -R "-test-runner" -E "-debug";
-      ctest -j4 --output-on-failure -E "(-debug|dmd-testsuite)";
+      ctest -j4 --output-on-failure -E "(-debug|dmd-testsuite|llvm-ir-testsuite)";
     else
       MAKEOPTS=-j3 ctest --verbose -R "-test-runner";
-      ctest -j4 --output-on-failure -E "dmd-testsuite";
+      ctest -j4 --output-on-failure -E "(dmd-testsuite|llvm-ir-testsuite)";
     fi
 
 after_success:

@@ -73,6 +73,9 @@ install:
   - md ldc-x64\bin
   - copy libcurl\dmd2\windows\bin64\libcurl.dll ldc-x64\bin
   - set PATH=c:\projects\ldc-x64\bin;%PATH%
+  # Download and install lit
+  - python -m pip install lit
+  - python -c "import lit; lit.main();" --version 
 
 #---------------------------------#
 #       build configuration       #
@@ -126,6 +129,8 @@ test_script:
   - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( bin\ldc2 -g hello.d ) else ( bin\ldc2 hello.d )
   - hello.exe
+  # Execute LLVM IR tests
+  - ctest --output-on-failure -R llvm-ir-testsuite
   # Compile the druntime & phobos unit tests
   - set TEST_SUFFIX=unittest
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_SUFFIX=unittest-debug)
