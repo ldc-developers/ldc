@@ -410,28 +410,39 @@ LLConstant *DtoConstFP(Type *t, longdouble value) {
   LLType *llty = DtoType(t);
   assert(llty->isFloatingPointTy());
 
-  if (llty == LLType::getFloatTy(gIR->context()) ||
-      llty == LLType::getDoubleTy(gIR->context())) {
-    return LLConstantFP::get(llty, value);
-  }
-  if (llty == LLType::getX86_FP80Ty(gIR->context())) {
-    uint64_t bits[] = {0, 0};
-    bits[0] = *reinterpret_cast<uint64_t *>(&value);
-    bits[1] =
-        *reinterpret_cast<uint16_t *>(reinterpret_cast<uint64_t *>(&value) + 1);
-    return LLConstantFP::get(gIR->context(), APFloat(APFloat::x87DoubleExtended,
-                                                     APInt(80, 2, bits)));
-  }
-  if (llty == LLType::getPPC_FP128Ty(gIR->context())) {
-    uint64_t bits[] = {0, 0};
-    bits[0] = *reinterpret_cast<uint64_t *>(&value);
-    bits[1] =
-        *reinterpret_cast<uint16_t *>(reinterpret_cast<uint64_t *>(&value) + 1);
-    return LLConstantFP::get(
-        gIR->context(), APFloat(APFloat::PPCDoubleDouble, APInt(128, 2, bits)));
+  if (sizeof(value) <= 8) {
+    return LLConstantFP::get(llty, static_cast<double>(value));
   }
 
-  llvm_unreachable("Unknown floating point type encountered");
+  // 1) represent `value` as native llvm::APFloat `llValue`
+  llvm::Triple hostTriple(llvm::sys::getProcessTriple());
+  auto hostArch = hostTriple.getArch();
+  uint64_t *p64 = reinterpret_cast<uint64_t *>(&value);
+  uint64_t bits[] = { p64[0], 0 };
+
+  APFloat llValue(0.0);
+  if (hostArch == llvm::Triple::ArchType::x86 ||
+      hostArch == llvm::Triple::ArchType::x86_64) {
+    bits[1] = *reinterpret_cast<uint16_t *>(p64 + 1);
+    llValue = APFloat(APFloat::x87DoubleExtended, APInt(80, bits));
+  } else if (hostArch == llvm::Triple::ArchType::ppc ||
+             hostArch == llvm::Triple::ArchType::ppc64 ||
+             hostArch == llvm::Triple::ArchType::ppc64le) {
+    bits[1] = p64[1];
+    llValue = APFloat(APFloat::PPCDoubleDouble, APInt(128, bits));
+  } else {
+    llvm_unreachable("Unknown host longdouble type");
+  }
+
+  // 2) convert `llValue` to target precision
+  auto &targetSemantics = llty->getFltSemantics();
+  if (&llValue.getSemantics() != &targetSemantics) {
+    bool losesInfo = false;
+    llValue.convert(targetSemantics, APFloat::roundingMode::rmNearestTiesToEven,
+                    &losesInfo);
+  }
+
+  return LLConstantFP::get(gIR->context(), llValue);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
