@@ -56,8 +56,7 @@ llvm::cl::opt<bool> checkPrintf(
     llvm::cl::ZeroOrMore);
 
 bool walkPostorder(Expression *e, StoppableVisitor *v);
-extern LLConstant *get_default_initializer(VarDeclaration *vd,
-                                           Initializer *init);
+extern LLConstant *get_default_initializer(VarDeclaration *vd);
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -158,7 +157,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       }
       IF_LOG Logger::println("using default initializer");
       LOG_SCOPE
-      cv.c = get_default_initializer(vd, nullptr);
+      cv.c = get_default_initializer(vd);
       val = &cv;
     }
 

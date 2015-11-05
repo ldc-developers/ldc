@@ -101,11 +101,7 @@ static bool struct_init_data_sort(const VarInitConst &a,
 }
 
 // helper function that returns the static default initializer of a variable
-LLConstant *get_default_initializer(VarDeclaration *vd, Initializer *init) {
-  if (init) {
-    return DtoConstInitializer(init->loc, vd->type, init);
-  }
-
+LLConstant *get_default_initializer(VarDeclaration *vd) {
   if (vd->init) {
     return DtoConstInitializer(vd->init->loc, vd->type, vd->init);
   }
@@ -280,7 +276,7 @@ void IrAggr::addFieldInitializers(
       LOG_SCOPE;
 
       data[i].first = vd;
-      data[i].second = get_default_initializer(vd, nullptr);
+      data[i].second = get_default_initializer(vd);
     }
   }
 
