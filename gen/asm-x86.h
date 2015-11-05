@@ -1010,7 +1010,7 @@ static AsmOpEnt opData[] = {
 #else
     {"cwde", Op_0_DXAX},
 #endif
-//{ "da", Op_ }, // dunno what this is -- takes labels?
+//  {"da", XXXX}, // dunno what this is -- takes labels?
 #ifndef ASM_X86_64
     {"daa", Op_Adjust},
     {"das", Op_Adjust},
@@ -1514,11 +1514,11 @@ static AsmOpEnt opData[] = {
     {"rcpps", Op_DstSrcSSE},
     {"rcpss", Op_DstSrcSSE},
     {"rcr", Op_Shift},
-    //        { rdfsbase, XXXX },
-    //        { rdgsbase, XXXX },
+//  {"rdfsbase", XXXX},
+//  {"rdgsbase", XXXX},
     {"rdmsr", Op_0_DXAX},
     {"rdpmc", Op_0_DXAX},
-    //        { rdrand, XXXX },
+//  {"rdrand", XXXX},
     {"rdtsc", Op_0_DXAX},
     {"rep", Op_0},
     {"repe", Op_0},
@@ -1643,305 +1643,305 @@ static AsmOpEnt opData[] = {
     {"unpckhps", Op_DstSrcSSE},
     {"unpcklpd", Op_DstSrcSSE},
     {"unpcklps", Op_DstSrcSSE},
-    //        { vaddpd, XXXX },
-    //        { vaddps, XXXX },
-    //        { vaddsd, XXXX },
-    //        { vaddss, XXXX },
-    //        { vaddsubpd, XXXX },
-    //        { vaddsubps, XXXX },
-    //        { vaesdec, XXXX },
-    //        { vaesdeclast, XXXX },
-    //        { vaesenc, XXXX },
-    //        { vaesenclast, XXXX },
-    //        { vaesimc, XXXX },
-    //        { vaeskeygenassist, XXXX },
-    //        { vandnpd, XXXX },
-    //        { vandnps, XXXX },
-    //        { vandpd, XXXX },
-    //        { vandps, XXXX },
-    //        { vblendpd, XXXX },
-    //        { vblendps, XXXX },
-    //        { vblendvpd, XXXX },
-    //        { vblendvps, XXXX },
-    //        { vbroadcastf128, XXXX },
-    //        { vbroadcastsd, XXXX },
-    //        { vbroadcastss, XXXX },
-    //        { vcmppd, XXXX },
-    //        { vcmpps, XXXX },
-    //        { vcmpsd, XXXX },
-    //        { vcmpss, XXXX },
-    //        { vcomisd, XXXX },
-    //        { vcomiss, XXXX },
-    //        { vcvtdq2pd, XXXX },
-    //        { vcvtdq2ps, XXXX },
-    //        { vcvtpd2dq, XXXX },
-    //        { vcvtpd2ps, XXXX },
-    //        { vcvtph2ps, XXXX },
-    //        { vcvtps2dq, XXXX },
-    //        { vcvtps2pd, XXXX },
-    //        { vcvtps2ph, XXXX },
-    //        { vcvtsd2si, XXXX },
-    //        { vcvtsd2ss, XXXX },
-    //        { vcvtsi2sd, XXXX },
-    //        { vcvtsi2ss, XXXX },
-    //        { vcvtss2sd, XXXX },
-    //        { vcvtss2si, XXXX },
-    //        { vcvttpd2dq, XXXX },
-    //        { vcvttps2dq, XXXX },
-    //        { vcvttsd2si, XXXX },
-    //        { vcvttss2si, XXXX },
-    //        { vdivpd, XXXX },
-    //        { vdivps, XXXX },
-    //        { vdivsd, XXXX },
-    //        { vdivss, XXXX },
-    //        { vdppd, XXXX },
-    //        { vdpps, XXXX },
+//  {"vaddpd", XXXX},
+//  {"vaddps", XXXX},
+//  {"vaddsd", XXXX},
+//  {"vaddss", XXXX},
+//  {"vaddsubpd", XXXX},
+//  {"vaddsubps", XXXX},
+//  {"vaesdec", XXXX},
+//  {"vaesdeclast", XXXX},
+//  {"vaesenc", XXXX},
+//  {"vaesenclast", XXXX},
+//  {"vaesimc", XXXX},
+//  {"vaeskeygenassist", XXXX},
+//  {"vandnpd", XXXX},
+//  {"vandnps", XXXX},
+//  {"vandpd", XXXX},
+//  {"vandps", XXXX},
+//  {"vblendpd", XXXX},
+//  {"vblendps", XXXX},
+//  {"vblendvpd", XXXX},
+//  {"vblendvps", XXXX},
+//  {"vbroadcastf128", XXXX},
+//  {"vbroadcastsd", XXXX},
+//  {"vbroadcastss", XXXX},
+//  {"vcmppd", XXXX},
+//  {"vcmpps", XXXX},
+//  {"vcmpsd", XXXX},
+//  {"vcmpss", XXXX},
+//  {"vcomisd", XXXX},
+//  {"vcomiss", XXXX},
+//  {"vcvtdq2pd", XXXX},
+//  {"vcvtdq2ps", XXXX},
+//  {"vcvtpd2dq", XXXX},
+//  {"vcvtpd2ps", XXXX},
+//  {"vcvtph2ps", XXXX},
+//  {"vcvtps2dq", XXXX},
+//  {"vcvtps2pd", XXXX},
+//  {"vcvtps2ph", XXXX},
+//  {"vcvtsd2si", XXXX},
+//  {"vcvtsd2ss", XXXX},
+//  {"vcvtsi2sd", XXXX},
+//  {"vcvtsi2ss", XXXX},
+//  {"vcvtss2sd", XXXX},
+//  {"vcvtss2si", XXXX},
+//  {"vcvttpd2dq", XXXX},
+//  {"vcvttps2dq", XXXX},
+//  {"vcvttsd2si", XXXX},
+//  {"vcvttss2si", XXXX},
+//  {"vdivpd", XXXX},
+//  {"vdivps", XXXX},
+//  {"vdivsd", XXXX},
+//  {"vdivss", XXXX},
+//  {"vdppd", XXXX},
+//  {"vdpps", XXXX},
     {"verr", Op_SrcMemNTF},
     {"verw", Op_SrcMemNTF},
-//        { vextractf128, XXXX },
-//        { vextractps, XXXX },
-//        { vfmadd132pd, XXXX },
-//        { vfmadd132ps, XXXX },
-//        { vfmadd132sd, XXXX },
-//        { vfmadd132ss, XXXX },
-//        { vfmadd213pd, XXXX },
-//        { vfmadd213ps, XXXX },
-//        { vfmadd213sd, XXXX },
-//        { vfmadd213ss, XXXX },
-//        { vfmadd231pd, XXXX },
-//        { vfmadd231ps, XXXX },
-//        { vfmadd231sd, XXXX },
-//        { vfmadd231ss, XXXX },
-//        { vfmaddsub132pd, XXXX },
-//        { vfmaddsub132ps, XXXX },
-//        { vfmaddsub213pd, XXXX },
-//        { vfmaddsub213ps, XXXX },
-//        { vfmaddsub231pd, XXXX },
-//        { vfmaddsub231ps, XXXX },
-//        { vfmsub132pd, XXXX },
-//        { vfmsub132ps, XXXX },
-//        { vfmsub132sd, XXXX },
-//        { vfmsub132ss, XXXX },
-//        { vfmsub213pd, XXXX },
-//        { vfmsub213ps, XXXX },
-//        { vfmsub213sd, XXXX },
-//        { vfmsub213ss, XXXX },
-//        { vfmsub231pd, XXXX },
-//        { vfmsub231ps, XXXX },
-//        { vfmsub231sd, XXXX },
-//        { vfmsub231ss, XXXX },
-//        { vfmsubadd132pd, XXXX },
-//        { vfmsubadd132ps, XXXX },
-//        { vfmsubadd213pd, XXXX },
-//        { vfmsubadd213ps, XXXX },
-//        { vfmsubadd231pd, XXXX },
-//        { vfmsubadd231ps, XXXX },
-//        { vhaddpd, XXXX },
-//        { vhaddps, XXXX },
-//        { vinsertf128, XXXX },
-//        { vinsertps, XXXX },
-//        { vlddqu, XXXX },
-//        { vldmxcsr, XXXX },
-//        { vmaskmovdqu, XXXX },
-//        { vmaskmovpd, XXXX },
-//        { vmaskmovps, XXXX },
-//        { vmaxpd, XXXX },
-//        { vmaxps, XXXX },
-//        { vmaxsd, XXXX },
-//        { vmaxss, XXXX },
-//        { vminpd, XXXX },
-//        { vminps, XXXX },
-//        { vminsd, XXXX },
-//        { vminss, XXXX },
-//        { vmovapd, XXXX },
-//        { vmovaps, XXXX },
-//        { vmovd, XXXX },
-//        { vmovddup, XXXX },
-//        { vmovdqa, XXXX },
-//        { vmovdqu, XXXX },
-//        { vmovhlps, XXXX },
-//        { vmovhpd, XXXX },
-//        { vmovhps, XXXX },
-//        { vmovlhps, XXXX },
-//        { vmovlpd, XXXX },
-//        { vmovlps, XXXX },
-//        { vmovmskpd, XXXX },
-//        { vmovmskps, XXXX },
-//        { vmovntdq, XXXX },
-//        { vmovntdqa, XXXX },
-//        { vmovntpd, XXXX },
-//        { vmovntps, XXXX },
-//        { vmovq, XXXX },
-//        { vmovsd, XXXX },
-//        { vmovshdup, XXXX },
-//        { vmovsldup, XXXX },
-//        { vmovss, XXXX },
-//        { vmovupd, XXXX },
-//        { vmovups, XXXX },
-//        { vmpsadbw, XXXX },
-//        { vmulpd, XXXX },
-//        { vmulps, XXXX },
-//        { vmulsd, XXXX },
-//        { vmulss, XXXX },
-//        { vorpd, XXXX },
-//        { vorps, XXXX },
-//        { vpabsb, XXXX },
-//        { vpabsd, XXXX },
-//        { vpabsw, XXXX },
-//        { vpackssdw, XXXX },
-//        { vpacksswb, XXXX },
-//        { vpackusdw, XXXX },
-//        { vpackuswb, XXXX },
-//        { vpaddb, XXXX },
-//        { vpaddd, XXXX },
-//        { vpaddq, XXXX },
-//        { vpaddsb, XXXX },
-//        { vpaddsw, XXXX },
-//        { vpaddusb, XXXX },
-//        { vpaddusw, XXXX },
-//        { vpaddw, XXXX },
-//        { vpalignr, XXXX },
-//        { vpand, XXXX },
-//        { vpandn, XXXX },
-//        { vpavgb, XXXX },
-//        { vpavgw, XXXX },
-//        { vpblendvb, XXXX },
-//        { vpblendw, XXXX },
-//        { vpclmulqdq, XXXX },
-//        { vpcmpeqb, XXXX },
-//        { vpcmpeqd, XXXX },
-//        { vpcmpeqq, XXXX },
-//        { vpcmpeqw, XXXX },
-//        { vpcmpestri, XXXX },
-//        { vpcmpestrm, XXXX },
-//        { vpcmpgtb, XXXX },
-//        { vpcmpgtd, XXXX },
-//        { vpcmpgtq, XXXX },
-//        { vpcmpgtw, XXXX },
-//        { vpcmpistri, XXXX },
-//        { vpcmpistrm, XXXX },
-//        { vperm2f128, XXXX },
-//        { vpermilpd, XXXX },
-//        { vpermilps, XXXX },
-//        { vpextrb, XXXX },
-//        { vpextrd, XXXX },
-//        { vpextrq, XXXX },
-//        { vpextrw, XXXX },
-//        { vphaddd, XXXX },
-//        { vphaddsw, XXXX },
-//        { vphaddw, XXXX },
-//        { vphminposuw, XXXX },
-//        { vphsubd, XXXX },
-//        { vphsubsw, XXXX },
-//        { vphsubw, XXXX },
-//        { vpinsrb, XXXX },
-//        { vpinsrd, XXXX },
-//        { vpinsrq, XXXX },
-//        { vpinsrw, XXXX },
-//        { vpmaddubsw, XXXX },
-//        { vpmaddwd, XXXX },
-//        { vpmaxsb, XXXX },
-//        { vpmaxsd, XXXX },
-//        { vpmaxsw, XXXX },
-//        { vpmaxub, XXXX },
-//        { vpmaxud, XXXX },
-//        { vpmaxuw, XXXX },
-//        { vpminsb, XXXX },
-//        { vpminsd, XXXX },
-//        { vpminsw, XXXX },
-//        { vpminub, XXXX },
-//        { vpminud, XXXX },
-//        { vpminuw, XXXX },
-//        { vpmovmskb, XXXX },
-//        { vpmovsxbd, XXXX },
-//        { vpmovsxbq, XXXX },
-//        { vpmovsxbw, XXXX },
-//        { vpmovsxdq, XXXX },
-//        { vpmovsxwd, XXXX },
-//        { vpmovsxwq, XXXX },
-//        { vpmovzxbd, XXXX },
-//        { vpmovzxbq, XXXX },
-//        { vpmovzxbw, XXXX },
-//        { vpmovzxdq, XXXX },
-//        { vpmovzxwd, XXXX },
-//        { vpmovzxwq, XXXX },
-//        { vpmuldq, XXXX },
-//        { vpmulhrsw, XXXX },
-//        { vpmulhuw, XXXX },
-//        { vpmulhw, XXXX },
-//        { vpmulld, XXXX },
-//        { vpmullw, XXXX },
-//        { vpmuludq, XXXX },
-//        { vpor, XXXX },
-//        { vpsadbw, XXXX },
-//        { vpshufb, XXXX },
-//        { vpshufd, XXXX },
-//        { vpshufhw, XXXX },
-//        { vpshuflw, XXXX },
-//        { vpsignb, XXXX },
-//        { vpsignd, XXXX },
-//        { vpsignw, XXXX },
-//        { vpslld, XXXX },
-//        { vpslldq, XXXX },
-//        { vpsllq, XXXX },
-//        { vpsllw, XXXX },
-//        { vpsrad, XXXX },
-//        { vpsraw, XXXX },
-//        { vpsrld, XXXX },
-//        { vpsrldq, XXXX },
-//        { vpsrlq, XXXX },
-//        { vpsrlw, XXXX },
-//        { vpsubb, XXXX },
-//        { vpsubd, XXXX },
-//        { vpsubq, XXXX },
-//        { vpsubsb, XXXX },
-//        { vpsubsw, XXXX },
-//        { vpsubusb, XXXX },
-//        { vpsubusw, XXXX },
-//        { vpsubw, XXXX },
-//        { vptest, XXXX },
-//        { vpunpckhbw, XXXX },
-//        { vpunpckhdq, XXXX },
-//        { vpunpckhqdq, XXXX },
-//        { vpunpckhwd, XXXX },
-//        { vpunpcklbw, XXXX },
-//        { vpunpckldq, XXXX },
-//        { vpunpcklqdq, XXXX },
-//        { vpunpcklwd, XXXX },
-//        { vpxor, XXXX },
-//        { vrcpps, XXXX },
-//        { vrcpss, XXXX },
-//        { vroundpd, XXXX },
-//        { vroundps, XXXX },
-//        { vroundsd, XXXX },
-//        { vroundss, XXXX },
-//        { vshufpd, XXXX },
-//        { vshufps, XXXX },
-//        { vsqrtpd, XXXX },
-//        { vsqrtps, XXXX },
-//        { vsqrtsd, XXXX },
-//        { vsqrtss, XXXX },
-//        { vstmxcsr, XXXX },
-//        { vsubpd, XXXX },
-//        { vsubps, XXXX },
-//        { vsubsd, XXXX },
-//        { vsubss, XXXX },
-//        { vucomisd, XXXX },
-//        { vucomiss, XXXX },
-//        { vunpckhpd, XXXX },
-//        { vunpckhps, XXXX },
-//        { vunpcklpd, XXXX },
-//        { vunpcklps, XXXX },
-//        { vxorpd, XXXX },
-//        { vxorps, XXXX },
-//        { vzeroall, XXXX },
-//        { vzeroupper, XXXX },
+//  {"vextractf128", XXXX},
+//  {"vextractps", XXXX},
+//  {"vfmadd132pd", XXXX},
+//  {"vfmadd132ps", XXXX},
+//  {"vfmadd132sd", XXXX},
+//  {"vfmadd132ss", XXXX},
+//  {"vfmadd213pd", XXXX},
+//  {"vfmadd213ps", XXXX},
+//  {"vfmadd213sd", XXXX},
+//  {"vfmadd213ss", XXXX},
+//  {"vfmadd231pd", XXXX},
+//  {"vfmadd231ps", XXXX},
+//  {"vfmadd231sd", XXXX},
+//  {"vfmadd231ss", XXXX},
+//  {"vfmaddsub132pd", XXXX},
+//  {"vfmaddsub132ps", XXXX},
+//  {"vfmaddsub213pd", XXXX},
+//  {"vfmaddsub213ps", XXXX},
+//  {"vfmaddsub231pd", XXXX},
+//  {"vfmaddsub231ps", XXXX},
+//  {"vfmsub132pd", XXXX},
+//  {"vfmsub132ps", XXXX},
+//  {"vfmsub132sd", XXXX},
+//  {"vfmsub132ss", XXXX},
+//  {"vfmsub213pd", XXXX},
+//  {"vfmsub213ps", XXXX},
+//  {"vfmsub213sd", XXXX},
+//  {"vfmsub213ss", XXXX},
+//  {"vfmsub231pd", XXXX},
+//  {"vfmsub231ps", XXXX},
+//  {"vfmsub231sd", XXXX},
+//  {"vfmsub231ss", XXXX},
+//  {"vfmsubadd132pd", XXXX},
+//  {"vfmsubadd132ps", XXXX},
+//  {"vfmsubadd213pd", XXXX},
+//  {"vfmsubadd213ps", XXXX},
+//  {"vfmsubadd231pd", XXXX},
+//  {"vfmsubadd231ps", XXXX},
+//  {"vhaddpd", XXXX},
+//  {"vhaddps", XXXX},
+//  {"vinsertf128", XXXX},
+//  {"vinsertps", XXXX},
+//  {"vlddqu", XXXX},
+//  {"vldmxcsr", XXXX},
+//  {"vmaskmovdqu", XXXX},
+//  {"vmaskmovpd", XXXX},
+//  {"vmaskmovps", XXXX},
+//  {"vmaxpd", XXXX},
+//  {"vmaxps", XXXX},
+//  {"vmaxsd", XXXX},
+//  {"vmaxss", XXXX},
+//  {"vminpd", XXXX},
+//  {"vminps", XXXX},
+//  {"vminsd", XXXX},
+//  {"vminss", XXXX},
+//  {"vmovapd", XXXX},
+//  {"vmovaps", XXXX},
+//  {"vmovd", XXXX},
+//  {"vmovddup", XXXX},
+//  {"vmovdqa", XXXX},
+//  {"vmovdqu", XXXX},
+//  {"vmovhlps", XXXX},
+//  {"vmovhpd", XXXX},
+//  {"vmovhps", XXXX},
+//  {"vmovlhps", XXXX},
+//  {"vmovlpd", XXXX},
+//  {"vmovlps", XXXX},
+//  {"vmovmskpd", XXXX},
+//  {"vmovmskps", XXXX},
+//  {"vmovntdq", XXXX},
+//  {"vmovntdqa", XXXX},
+//  {"vmovntpd", XXXX},
+//  {"vmovntps", XXXX},
+//  {"vmovq", XXXX},
+//  {"vmovsd", XXXX},
+//  {"vmovshdup", XXXX},
+//  {"vmovsldup", XXXX},
+//  {"vmovss", XXXX},
+//  {"vmovupd", XXXX},
+//  {"vmovups", XXXX},
+//  {"vmpsadbw", XXXX},
+//  {"vmulpd", XXXX},
+//  {"vmulps", XXXX},
+//  {"vmulsd", XXXX},
+//  {"vmulss", XXXX},
+//  {"vorpd", XXXX},
+//  {"vorps", XXXX},
+//  {"vpabsb", XXXX},
+//  {"vpabsd", XXXX},
+//  {"vpabsw", XXXX},
+//  {"vpackssdw", XXXX},
+//  {"vpacksswb", XXXX},
+//  {"vpackusdw", XXXX},
+//  {"vpackuswb", XXXX},
+//  {"vpaddb", XXXX},
+//  {"vpaddd", XXXX},
+//  {"vpaddq", XXXX},
+//  {"vpaddsb", XXXX},
+//  {"vpaddsw", XXXX},
+//  {"vpaddusb", XXXX},
+//  {"vpaddusw", XXXX},
+//  {"vpaddw", XXXX},
+//  {"vpalignr", XXXX},
+//  {"vpand", XXXX},
+//  {"vpandn", XXXX},
+//  {"vpavgb", XXXX},
+//  {"vpavgw", XXXX},
+//  {"vpblendvb", XXXX},
+//  {"vpblendw", XXXX},
+//  {"vpclmulqdq", XXXX},
+//  {"vpcmpeqb", XXXX},
+//  {"vpcmpeqd", XXXX},
+//  {"vpcmpeqq", XXXX},
+//  {"vpcmpeqw", XXXX},
+//  {"vpcmpestri", XXXX},
+//  {"vpcmpestrm", XXXX},
+//  {"vpcmpgtb", XXXX},
+//  {"vpcmpgtd", XXXX},
+//  {"vpcmpgtq", XXXX},
+//  {"vpcmpgtw", XXXX},
+//  {"vpcmpistri", XXXX},
+//  {"vpcmpistrm", XXXX},
+//  {"vperm2f128", XXXX},
+//  {"vpermilpd", XXXX},
+//  {"vpermilps", XXXX},
+//  {"vpextrb", XXXX},
+//  {"vpextrd", XXXX},
+//  {"vpextrq", XXXX},
+//  {"vpextrw", XXXX},
+//  {"vphaddd", XXXX},
+//  {"vphaddsw", XXXX},
+//  {"vphaddw", XXXX},
+//  {"vphminposuw", XXXX},
+//  {"vphsubd", XXXX},
+//  {"vphsubsw", XXXX},
+//  {"vphsubw", XXXX},
+//  {"vpinsrb", XXXX},
+//  {"vpinsrd", XXXX},
+//  {"vpinsrq", XXXX},
+//  {"vpinsrw", XXXX},
+//  {"vpmaddubsw", XXXX},
+//  {"vpmaddwd", XXXX},
+//  {"vpmaxsb", XXXX},
+//  {"vpmaxsd", XXXX},
+//  {"vpmaxsw", XXXX},
+//  {"vpmaxub", XXXX},
+//  {"vpmaxud", XXXX},
+//  {"vpmaxuw", XXXX},
+//  {"vpminsb", XXXX},
+//  {"vpminsd", XXXX},
+//  {"vpminsw", XXXX},
+//  {"vpminub", XXXX},
+//  {"vpminud", XXXX},
+//  {"vpminuw", XXXX},
+//  {"vpmovmskb", XXXX},
+//  {"vpmovsxbd", XXXX},
+//  {"vpmovsxbq", XXXX},
+//  {"vpmovsxbw", XXXX},
+//  {"vpmovsxdq", XXXX},
+//  {"vpmovsxwd", XXXX},
+//  {"vpmovsxwq", XXXX},
+//  {"vpmovzxbd", XXXX},
+//  {"vpmovzxbq", XXXX},
+//  {"vpmovzxbw", XXXX},
+//  {"vpmovzxdq", XXXX},
+//  {"vpmovzxwd", XXXX},
+//  {"vpmovzxwq", XXXX},
+//  {"vpmuldq", XXXX},
+//  {"vpmulhrsw", XXXX},
+//  {"vpmulhuw", XXXX},
+//  {"vpmulhw", XXXX},
+//  {"vpmulld", XXXX},
+//  {"vpmullw", XXXX},
+//  {"vpmuludq", XXXX},
+//  {"vpor", XXXX},
+//  {"vpsadbw", XXXX},
+//  {"vpshufb", XXXX},
+//  {"vpshufd", XXXX},
+//  {"vpshufhw", XXXX},
+//  {"vpshuflw", XXXX},
+//  {"vpsignb", XXXX},
+//  {"vpsignd", XXXX},
+//  {"vpsignw", XXXX},
+//  {"vpslld", XXXX},
+//  {"vpslldq", XXXX},
+//  {"vpsllq", XXXX},
+//  {"vpsllw", XXXX},
+//  {"vpsrad", XXXX},
+//  {"vpsraw", XXXX},
+//  {"vpsrld", XXXX},
+//  {"vpsrldq", XXXX},
+//  {"vpsrlq", XXXX},
+//  {"vpsrlw", XXXX},
+//  {"vpsubb", XXXX},
+//  {"vpsubd", XXXX},
+//  {"vpsubq", XXXX},
+//  {"vpsubsb", XXXX},
+//  {"vpsubsw", XXXX},
+//  {"vpsubusb", XXXX},
+//  {"vpsubusw", XXXX},
+//  {"vpsubw", XXXX},
+//  {"vptest", XXXX},
+//  {"vpunpckhbw", XXXX},
+//  {"vpunpckhdq", XXXX},
+//  {"vpunpckhqdq", XXXX},
+//  {"vpunpckhwd", XXXX},
+//  {"vpunpcklbw", XXXX},
+//  {"vpunpckldq", XXXX},
+//  {"vpunpcklqdq", XXXX},
+//  {"vpunpcklwd", XXXX},
+//  {"vpxor", XXXX},
+//  {"vrcpps", XXXX},
+//  {"vrcpss", XXXX},
+//  {"vroundpd", XXXX},
+//  {"vroundps", XXXX},
+//  {"vroundsd", XXXX},
+//  {"vroundss", XXXX},
+//  {"vshufpd", XXXX},
+//  {"vshufps", XXXX},
+//  {"vsqrtpd", XXXX},
+//  {"vsqrtps", XXXX},
+//  {"vsqrtsd", XXXX},
+//  {"vsqrtss", XXXX},
+//  {"vstmxcsr", XXXX},
+//  {"vsubpd", XXXX},
+//  {"vsubps", XXXX},
+//  {"vsubsd", XXXX},
+//  {"vsubss", XXXX},
+//  {"vucomisd", XXXX},
+//  {"vucomiss", XXXX},
+//  {"vunpckhpd", XXXX},
+//  {"vunpckhps", XXXX},
+//  {"vunpcklpd", XXXX},
+//  {"vunpcklps", XXXX},
+//  {"vxorpd", XXXX},
+//  {"vxorps", XXXX},
+//  {"vzeroall", XXXX},
+//  {"vzeroupper", XXXX},
 #ifndef ASM_X86_64
     {"wait", Op_0},
 #endif
     {"wbinvd", Op_0},
-    //        { wrfsbase, XXXX },
-    //        { wrgsbase, XXXX },
+//  {"wrfsbase", XXXX},
+//  {"wrgsbase", XXXX},
     {"wrmsr", Op_0},
     {"xadd", Op_UpdUpdF},
     {"xchg", Op_UpdUpd},
@@ -1954,13 +1954,13 @@ static AsmOpEnt opData[] = {
 #ifdef ASM_X86_64
     {"xorq", Op_DstSrcNT}, //?
 #endif
-    //        { xrstor, XXXX },
-    //        { xrstor64, XXXX },
-    //        { xsave, XXXX },
-    //        { xsave64, XXXX },
-    //        { xsaveopt, XXXX },
-    //        { xsaveopt64, XXXX },
-    //        { xsetbv, XXXX },
+//  {"xrstor", XXXX},
+//  {"xrstor64", XXXX},
+//  {"xsave", XXXX},
+//  {"xsave64", XXXX},
+//  {"xsaveopt", XXXX},
+//  {"xsaveopt64", XXXX},
+//  {"xsetbv", XXXX},
 };
 
 typedef enum {
@@ -2232,9 +2232,9 @@ struct AsmProcessor {
         return;
       }
     }
-    //  if (operand_i < opInfo->minOperands) {
-    //      stmt->error("too few operands for instruction");
-    //  }
+//  if (operand_i < opInfo->minOperands) {
+//    stmt->error("too few operands for instruction");
+//  }
 
     if (matchOperands(operand_i)) {
       auto asmcode = new AsmCode(N_Regs);
@@ -3121,9 +3121,9 @@ struct AsmProcessor {
       if reg:
           if not in bracket, set reg (else error)
           if in bracket:
-         if not base, set base
-         if not index, set index
-         else, error
+              if not base, set base
+              if not index, set index
+          else, error
       if symbol:
         set symbol field
      */
@@ -3847,10 +3847,9 @@ struct AsmProcessor {
     uinteger_t align = e->toUInteger();
 
     if ((align & (align - 1)) == 0) {
-// FIXME: This printf is not portable. The use of `align` varies from system to
-// system;
-// on i386 using a.out, .align `n` will align on a 2^`n` boundary instead of an
-// `n` boundary
+      // FIXME: This printf is not portable. The use of `align` varies from
+      // system to system; on i386 using a.out, .align `n` will align on a 2^`n`
+      // boundary instead of an `n` boundary
 #ifdef HAVE_GAS_BALIGN_AND_P2ALIGN
       insnTemplate << ".balign\t" << align;
 #else
@@ -3865,7 +3864,7 @@ struct AsmProcessor {
   }
 
   void doEven() {
-// .align for GAS is in bits, others probably use bytes..
+    // .align for GAS is in bits, others probably use bytes..
 #ifdef HAVE_GAS_BALIGN_AND_P2ALIGN
     insnTemplate << ".align\t2";
 #else
@@ -3880,83 +3879,83 @@ struct AsmProcessor {
   }
 
   void doData() {
-// FIXME: data instructions not implemented.
+    // FIXME: data instructions not implemented.
 #if 0
-            static const char * directives[] = { ".byte", ".short", ".long", ".long",
-                                                 "", "", ""
-                                               };
+    static const char * directives[] = { ".byte", ".short", ".long", ".long",
+                                         "", "", "" };
 
-                machine_mode mode;
+    machine_mode mode;
 
-                insnTemplate->writestring(static_cast<char*>(directives[op - Op_db]));
-                insnTemplate->writebyte(' ');
+    insnTemplate->writestring(static_cast<char*>(directives[op - Op_db]));
+    insnTemplate->writebyte(' ');
 
-                do {
-                    // DMD is pretty strict here, not even constant expressions are allowed..
-                    switch (op) {
-                    case Op_db:
-                    case Op_ds:
-                    case Op_di:
-                    case Op_dl:
-                    if (token->value == TOKint32v || token->value == TOKuns32v ||
-                        token->value == TOKint64v || token->value == TOKuns64v) {
-                        // As per usual with GNU, assume at least 32-bit host
-                        if (op != Op_dl)
-                        insnTemplate->printf("%u", (d_uns32) token->uns64value);
-                        else {
-                        // Output two .longS.  GAS has .quad, but would have to rely on 'L' format ..
-                        // just need to use HOST_WIDE_INT_PRINT_DEC
-                        insnTemplate->printf("%u,%u",
-                            (d_uns32) token->uns64value, (d_uns32) (token->uns64value >> 32));
-                        }
-                    } else {
-                        stmt->error("expected integer constant");
-                    }
-                    break;
-                    case Op_df:
-                    mode = SFmode;
-                    goto do_float;
-                    case Op_dd:
-                    mode = DFmode;
-                    goto do_float;
-                    case Op_de:
+    do {
+      // DMD is pretty strict here, not even constant expressions are allowed..
+      switch (op) {
+      case Op_db:
+      case Op_ds:
+      case Op_di:
+      case Op_dl:
+        if (token->value == TOKint32v || token->value == TOKuns32v ||
+            token->value == TOKint64v || token->value == TOKuns64v) {
+          // As per usual with GNU, assume at least 32-bit host
+          if (op != Op_dl) {
+            insnTemplate->printf("%u", (d_uns32) token->uns64value);
+          } else {
+            // Output two .longS.  GAS has .quad, but would have to rely on 'L'
+            // format ..
+            // just need to use HOST_WIDE_INT_PRINT_DEC
+            insnTemplate->printf("%u,%u", (d_uns32) token->uns64value,
+                                 (d_uns32) (token->uns64value >> 32));
+          }
+        } else {
+          stmt->error("expected integer constant");
+        }
+        break;
+      case Op_df:
+        mode = SFmode;
+        goto do_float;
+      case Op_dd:
+        mode = DFmode;
+        goto do_float;
+      case Op_de:
 #ifndef TARGET_80387
 #define XFmode TFmode
 #endif
-                    mode = XFmode; // not TFmode
-                    // drop through
-                    do_float:
-                    if (token->value == TOKfloat32v || token->value == TOKfloat64v ||
-                        token->value == TOKfloat80v) {
-                        long words[3];
-                        real_to_target(words, & token->float80value.rv(), mode);
-                        // don't use directives..., just use .long like GCC
-                        insnTemplate->printf(".long\t%u", words[0]);
-                        if (mode != SFmode)
-                        insnTemplate->printf(",%u", words[1]);
-                        // DMD outputs 10 bytes, so we need to switch to .short here
-                        if (mode == XFmode)
-                        insnTemplate->printf("\n\t.short\t%u", words[2]);
-                    } else {
-                        stmt->error("expected float constant");
-                    }
-                    break;
-                    default:
-                    abort();
-                    }
+        mode = XFmode; // not TFmode
+        // drop through
+      do_float:
+        if (token->value == TOKfloat32v || token->value == TOKfloat64v ||
+            token->value == TOKfloat80v) {
+          long words[3];
+          real_to_target(words, & token->float80value.rv(), mode);
+          // don't use directives..., just use .long like GCC
+          insnTemplate->printf(".long\t%u", words[0]);
+          if (mode != SFmode)
+          insnTemplate->printf(",%u", words[1]);
+          // DMD outputs 10 bytes, so we need to switch to .short here
+          if (mode == XFmode)
+          insnTemplate->printf("\n\t.short\t%u", words[2]);
+        } else {
+          stmt->error("expected float constant");
+        }
+        break;
+      default:
+        abort();
+      }
 
-                    nextToken();
-                    if (token->value == TOKcomma) {
-                    insnTemplate->writebyte(',');
-                    nextToken();
-                    } else if (token->value == TOKeof) {
-                    break;
-                    } else {
-                    stmt->error("expected comma");
-                    }
-                } while (1);
+      nextToken();
+      if (token->value == TOKcomma) {
+        insnTemplate->writebyte(',');
+        nextToken();
+      } else if (token->value == TOKeof) {
+        break;
+      } else {
+        stmt->error("expected comma");
+      }
+    } while (1);
 
-                setAsmCode();
+    setAsmCode();
 #endif
   }
 };
@@ -4018,4 +4017,5 @@ struct AsmParser : public AsmParserCommon {
 
   std::string getRegName(int i) override { return regInfo[i].gccName; }
 };
-}
+
+} // namespace
