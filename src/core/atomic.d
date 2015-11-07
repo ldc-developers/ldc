@@ -176,6 +176,9 @@ else version( LDC )
     HeadUnshared!(T) atomicOp(string op, T, V1)( ref shared T val, V1 mod )
         if( __traits( compiles, mixin( "val" ~ op ~ "mod" ) ) )
     {
+        enum suitedForAtomicRmw = (__traits(isIntegral, T) && __traits(isIntegral, V1) &&
+                                   T.sizeof <= AtomicRmwSizeLimit && V1.sizeof <= AtomicRmwSizeLimit);
+
         // binary operators
         //
         // +    -   *   /   %   ^^  &
@@ -196,46 +199,43 @@ else version( LDC )
         //
         // +=   -=  *=  /=  %=  ^^= &=
         // |=   ^=  <<= >>= >>>=    ~=
-        static if( op == "+=" || op == "-="  || op == "*="  || op == "/=" ||
-                   op == "%=" || op == "^^=" || op == "&="  || op == "|=" ||
-                   op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=" ) // skip "~="
+        static if( op == "+=" && suitedForAtomicRmw )
         {
-            static if( op == "+=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
-            {
-                T m = cast(T) mod;
-                return cast(T)(llvm_atomic_rmw_add(&val, m) + m);
-            }
-            else static if( op == "-=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
-            {
-                T m = cast(T) mod;
-                return cast(T)(llvm_atomic_rmw_sub(&val, m) - m);
-            }
-            else static if( op == "&=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
-            {
-                T m = cast(T) mod;
-                return cast(T)(llvm_atomic_rmw_and(&val, m) & m);
-            }
-            else static if( op == "|=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
-            {
-                T m = cast(T) mod;
-                return cast(T)(llvm_atomic_rmw_or(&val, m) | m);
-            }
-            else static if( op == "^=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
-            {
-                T m = cast(T) mod;
-                return cast(T)(llvm_atomic_rmw_xor(&val, m) ^ m);
-            }
-            else
-            {
-                HeadUnshared!(T) get, set;
+            T m = cast(T) mod;
+            return cast(T)(llvm_atomic_rmw_add(&val, m) + m);
+        }
+        else static if( op == "-=" && suitedForAtomicRmw )
+        {
+            T m = cast(T) mod;
+            return cast(T)(llvm_atomic_rmw_sub(&val, m) - m);
+        }
+        else static if( op == "&=" && suitedForAtomicRmw )
+        {
+            T m = cast(T) mod;
+            return cast(T)(llvm_atomic_rmw_and(&val, m) & m);
+        }
+        else static if( op == "|=" && suitedForAtomicRmw )
+        {
+            T m = cast(T) mod;
+            return cast(T)(llvm_atomic_rmw_or(&val, m) | m);
+        }
+        else static if( op == "^=" && suitedForAtomicRmw )
+        {
+            T m = cast(T) mod;
+            return cast(T)(llvm_atomic_rmw_xor(&val, m) ^ m);
+        }
+        else static if( op == "+=" || op == "-="  || op == "*="  || op == "/=" ||
+                        op == "%=" || op == "^^=" || op == "&="  || op == "|=" ||
+                        op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=" ) // skip "~="
+        {
+            HeadUnshared!(T) get, set;
 
-                do
-                {
-                    get = set = atomicLoad!(MemoryOrder.raw)( val );
-                    mixin( "set " ~ op ~ " mod;" );
-                } while( !cas( &val, get, set ) );
-                return set;
-            }
+            do
+            {
+                get = set = atomicLoad!(MemoryOrder.raw)( val );
+                mixin( "set " ~ op ~ " mod;" );
+            } while( !cas( &val, get, set ) );
+            return set;
         }
         else
         {

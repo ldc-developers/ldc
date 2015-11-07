@@ -315,6 +315,8 @@ enum AtomicOrdering {
 };
 alias AtomicOrdering.SequentiallyConsistent DefaultOrdering;
 
+enum AtomicRmwSizeLimit = size_t.sizeof;
+
 /// Used to introduce happens-before edges between operations.
 pragma(LDC_fence)
     void llvm_memory_fence(AtomicOrdering ordering = DefaultOrdering);
