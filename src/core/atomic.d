@@ -201,15 +201,30 @@ else version( LDC )
                    op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=" ) // skip "~="
         {
             static if( op == "+=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
-                return llvm_atomic_rmw_add(&val, mod) + mod;
+            {
+                T m = cast(T) mod;
+                return cast(T)(llvm_atomic_rmw_add(&val, m) + m);
+            }
             else static if( op == "-=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
-                return llvm_atomic_rmw_sub(&val, mod) - mod;
+            {
+                T m = cast(T) mod;
+                return cast(T)(llvm_atomic_rmw_sub(&val, m) - m);
+            }
             else static if( op == "&=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
-                return llvm_atomic_rmw_and(&val, mod) & mod;
+            {
+                T m = cast(T) mod;
+                return cast(T)(llvm_atomic_rmw_and(&val, m) & m);
+            }
             else static if( op == "|=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
-                return llvm_atomic_rmw_or(&val, mod) | mod;
+            {
+                T m = cast(T) mod;
+                return cast(T)(llvm_atomic_rmw_or(&val, m) | m);
+            }
             else static if( op == "^=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
-                return llvm_atomic_rmw_xor(&val, mod) ^ mod;
+            {
+                T m = cast(T) mod;
+                return cast(T)(llvm_atomic_rmw_xor(&val, m) ^ m);
+            }
             else
             {
                 HeadUnshared!(T) get, set;
