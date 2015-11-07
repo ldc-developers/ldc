@@ -103,6 +103,11 @@ static bool struct_init_data_sort(const VarInitConst &a,
 // helper function that returns the static default initializer of a variable
 LLConstant *get_default_initializer(VarDeclaration *vd) {
   if (vd->init) {
+    // Issue 9057 workaround caused by issue 14666 fix, see DMD upstream
+    // commit 069f570005.
+    if (vd->sem < Semantic2Done && vd->scope) {
+      vd->semantic2(vd->scope);
+    }
     return DtoConstInitializer(vd->init->loc, vd->type, vd->init);
   }
 
