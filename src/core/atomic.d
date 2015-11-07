@@ -200,14 +200,27 @@ else version( LDC )
                    op == "%=" || op == "^^=" || op == "&="  || op == "|=" ||
                    op == "^=" || op == "<<=" || op == ">>=" || op == ">>>=" ) // skip "~="
         {
-            HeadUnshared!(T) get, set;
-
-            do
+            static if( op == "+=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
+                return llvm_atomic_rmw_add(&val, mod) + mod;
+            else static if( op == "-=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
+                return llvm_atomic_rmw_sub(&val, mod) - mod;
+            else static if( op == "&=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
+                return llvm_atomic_rmw_and(&val, mod) & mod;
+            else static if( op == "|=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
+                return llvm_atomic_rmw_or(&val, mod) | mod;
+            else static if( op == "^=" && __traits(isIntegral, T) && __traits(isIntegral, V1) )
+                return llvm_atomic_rmw_xor(&val, mod) ^ mod;
+            else
             {
-                get = set = atomicLoad!(MemoryOrder.raw)( val );
-                mixin( "set " ~ op ~ " mod;" );
-            } while( !cas( &val, get, set ) );
-            return set;
+                HeadUnshared!(T) get, set;
+
+                do
+                {
+                    get = set = atomicLoad!(MemoryOrder.raw)( val );
+                    mixin( "set " ~ op ~ " mod;" );
+                } while( !cas( &val, get, set ) );
+                return set;
+            }
         }
         else
         {
