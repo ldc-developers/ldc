@@ -4,7 +4,7 @@
  */
 module ldc.eh.libunwind;
 
-version (Win64) {} else
+version (CRuntime_Microsoft) {} else
 {
 
 // debug = EH_personality;
@@ -519,4 +519,4 @@ Object _d_eh_enter_catch(_d_exception* exception_struct)
     return obj;
 }
 
-} // !Win64
+} // !CRuntime_Microsoft

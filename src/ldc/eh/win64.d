@@ -4,8 +4,8 @@
  */
 module ldc.eh.win64;
 
-version (Win64)
-{
+version (CRuntime_Microsoft):
+version (Win64):
 
 // debug = EH_personality;
 // debug = EH_personality_verbose;
@@ -381,5 +381,3 @@ Object _d_eh_enter_catch(Object e)
     popCleanupBlockRecord();
     return e;
 }
-
-} // Win64
