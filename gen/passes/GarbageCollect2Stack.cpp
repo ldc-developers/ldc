@@ -115,7 +115,7 @@ public:
   virtual Value *promote(CallSite CS, IRBuilder<> &B, const Analysis &A) {
     NumGcToStack++;
 
-    Instruction *Begin = CS.getCaller()->getEntryBlock().begin();
+    Instruction *Begin = &(*CS.getCaller()->getEntryBlock().begin());
     return new AllocaInst(Ty, ".nongc_mem", Begin); // FIXME: align?
   }
 
@@ -459,10 +459,10 @@ static void RemoveCall(CallSite CS, const Analysis &A) {
 }
 
 static bool
-isSafeToStackAllocateArray(Instruction *Alloc, DominatorTree &DT,
+isSafeToStackAllocateArray(BasicBlock::iterator Alloc, DominatorTree &DT,
                            SmallVector<CallInst *, 4> &RemoveTailCallInsts);
 static bool
-isSafeToStackAllocate(Instruction *Alloc, Value *V, DominatorTree &DT,
+isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V, DominatorTree &DT,
                       SmallVector<CallInst *, 4> &RemoveTailCallInsts);
 
 /// runOnFunction - Top level algorithm.
@@ -494,8 +494,10 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
   bool Changed = false;
   for (auto &BB : F) {
     for (auto I = BB.begin(), E = BB.end(); I != E;) {
+      auto originalI = I;
+
       // Ignore non-calls.
-      Instruction *Inst = I++;
+      Instruction *Inst = &(*(I++));
       CallSite CS(Inst);
       if (!CS.getInstruction()) {
         continue;
@@ -531,11 +533,11 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
 
       SmallVector<CallInst *, 4> RemoveTailCallInsts;
       if (info->ReturnType == ReturnType::Array) {
-        if (!isSafeToStackAllocateArray(Inst, DT, RemoveTailCallInsts)) {
+        if (!isSafeToStackAllocateArray(originalI, DT, RemoveTailCallInsts)) {
           continue;
         }
       } else {
-        if (!isSafeToStackAllocate(Inst, Inst, DT, RemoveTailCallInsts)) {
+        if (!isSafeToStackAllocate(originalI, Inst, DT, RemoveTailCallInsts)) {
           continue;
         }
       }
@@ -549,7 +551,7 @@ bool GarbageCollect2Stack::runOnFunction(Function &F) {
         i->setTailCall(false);
       }
 
-      IRBuilder<> Builder(&BB, Inst);
+      IRBuilder<> Builder(&BB, originalI);
       Value *newVal = info->promote(CS, Builder, A);
 
       DEBUG(errs() << "Promoted to: " << *newVal);
@@ -613,7 +615,7 @@ Type *Analysis::getTypeFor(Value *typeinfo) const {
 
 /// Returns whether Def is used by any instruction that is reachable from Alloc
 /// (without executing Def again).
-static bool mayBeUsedAfterRealloc(Instruction *Def, Instruction *Alloc,
+static bool mayBeUsedAfterRealloc(Instruction *Def, BasicBlock::iterator Alloc,
                                   DominatorTree &DT) {
   DEBUG(errs() << "### mayBeUsedAfterRealloc()\n" << *Def << *Alloc);
 
@@ -622,7 +624,7 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, Instruction *Alloc,
   // If it does not dominate the allocation, there's no way for it to be used
   // without going through Def again first, since the definition couldn't
   // dominate the user either.
-  if (Def->use_empty() || !DT.dominates(Def, Alloc)) {
+  if (Def->use_empty() || !DT.dominates(Def, &(*Alloc))) {
     DEBUG(errs() << "### No uses or does not dominate allocation\n");
     return false;
   }
@@ -695,10 +697,10 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, Instruction *Alloc,
       // We need to walk the instructions in the block to see whether we
       // reach a user before we reach the definition or the allocation.
       for (BasicBlock::iterator E = B->end(); BBI != E; ++BBI) {
-        if (&*BBI == Alloc || &*BBI == Def) {
+        if (&*BBI == &*Alloc || &*BBI == Def) {
           break;
         }
-        if (Users.count(BBI)) {
+        if (Users.count(&(*BBI))) {
           DEBUG(errs() << "### Problematic user: " << *BBI);
           return true;
         }
@@ -757,10 +759,10 @@ static bool mayBeUsedAfterRealloc(Instruction *Def, Instruction *Alloc,
 /// This handles GC calls returning a D array instead of a raw pointer,
 /// see isSafeToStackAllocate() for details.
 bool isSafeToStackAllocateArray(
-    Instruction *Alloc, DominatorTree &DT,
+    BasicBlock::iterator Alloc, DominatorTree &DT,
     SmallVector<CallInst *, 4> &RemoveTailCallInsts) {
   assert(Alloc->getType()->isStructTy() && "Allocated array is not a struct?");
-  Value *V = Alloc;
+  Value *V = &(*Alloc);
 
   for (Value::use_iterator UI = V->use_begin(), UE = V->use_end(); UI != UE;
        ++UI) {
@@ -819,7 +821,7 @@ bool isSafeToStackAllocateArray(
 /// the attribute has to be removed before promoting the memory to the
 /// stack. The affected instructions are added to RemoveTailCallInsts. If
 /// the function returns false, these entries are meaningless.
-bool isSafeToStackAllocate(Instruction *Alloc, Value *V, DominatorTree &DT,
+bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V, DominatorTree &DT,
                            SmallVector<CallInst *, 4> &RemoveTailCallInsts) {
   assert(isa<PointerType>(V->getType()) && "Allocated value is not a pointer?");
 

@@ -412,7 +412,7 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL,
   for (auto &BB : F) {
     for (auto I = BB.begin(); I != BB.end();) {
       // Ignore non-calls.
-      CallInst *CI = dyn_cast<CallInst>(I++);
+      CallInst *CI = dyn_cast<CallInst>(&(*(I++)));
       if (!CI) {
         continue;
       }
@@ -432,15 +432,18 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL,
 
       DEBUG(errs() << "SimplifyDRuntimeCalls inspecting: " << *CI);
 
-      // Set the builder to the instruction after the call.
+      // Save the iterator to the call instruction and set the builder to the
+      // next instruction.
+      auto ciIt = I; // already advanced
+      --ciIt;
       Builder.SetInsertPoint(&BB, I);
 
-// Try to optimize this call.
 #if LDC_LLVM_VER >= 308
       AliasAnalysis &AA = AAP.getAAResults();
 #else
       AliasAnalysis &AA = AAP;
 #endif
+      // Try to optimize this call.
       Value *Result = OMI->second->OptimizeCall(CI, Changed, DL, AA, Builder);
       if (Result == nullptr) {
         continue;
@@ -475,7 +478,7 @@ bool SimplifyDRuntimeCalls::runOnce(Function &F, const DataLayout *DL,
 
       // Inspect the instruction after the call (which was potentially just
       // added) next.
-      I = CI;
+      I = ciIt;
       ++I;
 
       CI->eraseFromParent();

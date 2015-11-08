@@ -363,7 +363,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       llvm::Function::arg_iterator origArg = irFunc->func->arg_begin();
       for (; thunkArg != thunk->arg_end(); ++thunkArg, ++origArg) {
         thunkArg->setName(origArg->getName());
-        args.push_back(thunkArg);
+        args.push_back(&(*thunkArg));
       }
 
       // cast 'this' to Object

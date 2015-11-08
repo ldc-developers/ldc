@@ -535,13 +535,13 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 
   if (irFty.arg_sret && !passThisBeforeSret) {
     iarg->setName(".sret_arg");
-    irFunc->retArg = iarg;
+    irFunc->retArg = &(*iarg);
     ++iarg;
   }
 
   if (irFty.arg_this) {
     iarg->setName(".this_arg");
-    irFunc->thisArg = iarg;
+    irFunc->thisArg = &(*iarg);
 
     VarDeclaration *v = fdecl->vthis;
     if (v) {
@@ -551,7 +551,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
       // context types. Will be given storage in DtoDefineFunction.
       assert(!isIrParameterCreated(v));
       IrParameter *irParam = getIrParameter(v, true);
-      irParam->value = iarg;
+      irParam->value = &(*iarg);
       irParam->arg = irFty.arg_this;
       irParam->isVthis = true;
     }
@@ -559,20 +559,20 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     ++iarg;
   } else if (irFty.arg_nest) {
     iarg->setName(".nest_arg");
-    irFunc->nestArg = iarg;
+    irFunc->nestArg = &(*iarg);
     assert(irFunc->nestArg);
     ++iarg;
   }
 
   if (passThisBeforeSret) {
     iarg->setName(".sret_arg");
-    irFunc->retArg = iarg;
+    irFunc->retArg = &(*iarg);
     ++iarg;
   }
 
   if (irFty.arg_arguments) {
     iarg->setName("._arguments");
-    irFunc->_arguments = iarg;
+    irFunc->_arguments = &(*iarg);
     ++iarg;
   }
 
@@ -595,7 +595,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 
     IrParameter *irParam = getIrParameter(argvd, true);
     irParam->arg = arg;
-    irParam->value = iarg;
+    irParam->value = &(*iarg);
   }
 }
 

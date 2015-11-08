@@ -642,20 +642,24 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   ldc::DISubroutineType DIFnType =
       CreateFunctionType(static_cast<TypeFunction *>(fd->type));
 
-  // FIXME: duplicates ?
-  return DBuilder.createFunction(CU,                  // context
-                                 fd->toPrettyChars(), // name
-                                 mangleExact(fd),     // linkage name
-                                 file,                // file
-                                 fd->loc.linnum,      // line no
-                                 DIFnType,            // type
-                                 fd->protection ==
-                                     PROTprivate,         // is local to unit
-                                 true,                    // isdefinition
-                                 fd->loc.linnum,          // FIXME: scope line
-                                 DIFlags::FlagPrototyped, // Flags
-                                 isOptimizationEnabled(), // isOptimized
-                                 getIrFunc(fd)->func);
+  // FIXME: duplicates?
+  return DBuilder.createFunction(
+      CU,                            // context
+      fd->toPrettyChars(),           // name
+      mangleExact(fd),               // linkage name
+      file,                          // file
+      fd->loc.linnum,                // line no
+      DIFnType,                      // type
+      fd->protection == PROTprivate, // is local to unit
+      true,                          // isdefinition
+      fd->loc.linnum,                // FIXME: scope line
+      DIFlags::FlagPrototyped,       // Flags
+      isOptimizationEnabled()        // isOptimized
+#if LDC_LLVM_VER < 308
+      ,
+      getIrFunc(fd)->func
+#endif
+      );
 }
 
 ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
@@ -699,20 +703,24 @@ ldc::DISubprogram ldc::DIBuilder::EmitModuleCTor(llvm::Function *Fn,
       DBuilder.createSubroutineType(file, EltTypeArray);
 #endif
 
-  // FIXME: duplicates ?
-  return DBuilder.createFunction(CU,            // context
-                                 prettyname,    // name
-                                 Fn->getName(), // linkage name
-                                 file,          // file
-                                 0,             // line no
-                                 DIFnType,      // return type. TODO: fill it up
-                                 true,          // is local to unit
-                                 true,          // isdefinition
-                                 0,             // FIXME: scope line
-                                 DIFlags::FlagPrototyped |
-                                     DIFlags::FlagArtificial,
-                                 isOptimizationEnabled(), // isOptimized
-                                 Fn);
+  // FIXME: duplicates?
+  return DBuilder.createFunction(
+      CU,            // context
+      prettyname,    // name
+      Fn->getName(), // linkage name
+      file,          // file
+      0,             // line no
+      DIFnType,      // return type. TODO: fill it up
+      true,          // is local to unit
+      true,          // isdefinition
+      0,             // FIXME: scope line
+      DIFlags::FlagPrototyped | DIFlags::FlagArtificial,
+      isOptimizationEnabled() // isOptimized
+#if LDC_LLVM_VER < 308
+      ,
+      Fn
+#endif
+      );
 }
 
 void ldc::DIBuilder::EmitFuncStart(FuncDeclaration *fd) {
