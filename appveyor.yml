@@ -48,7 +48,6 @@ install:
   #- 7z x llvm.src.tar.xz -so | 7z x -si -ttar > nul
   #- ren llvm-3.7.0rc3.src llvm
   # Download a pre-built LLVM & extract
-  # LLVM RelWithDebInfo: https://dl.dropboxusercontent.com/s/s1tk6134mku3ei8/llvm-x64-debuginfo.7z?dl=0
   - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/5cok3dvmohtduy6/llvm-x64-release.7z?dl=0' -FileName 'llvm-x64.7z'
   - md llvm-x64
   - cd llvm-x64
@@ -129,14 +128,14 @@ test_script:
   - ps: 'echo "import std.stdio; void main() { writeln(""Hello world!""); }" > hello.d'
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( bin\ldc2 -g hello.d ) else ( bin\ldc2 hello.d )
   - hello.exe
-  # Execute LLVM IR tests
-  - ctest --output-on-failure -R llvm-ir-testsuite
   # Compile the druntime & phobos unit tests
   - set TEST_SUFFIX=unittest
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_SUFFIX=unittest-debug)
-  # pre-build some modules serially - those known to require lots of memory
+  # (pre-build some modules serially - those known to require lots of memory)
   - ninja -j1 runtime\std\algorithm\searching-%TEST_SUFFIX%.obj runtime\std\algorithm\setops-%TEST_SUFFIX%.obj runtime\std\array-%TEST_SUFFIX%.obj runtime\std\conv-%TEST_SUFFIX%.obj runtime\std\datetime-%TEST_SUFFIX%.obj runtime\std\range\package-%TEST_SUFFIX%.obj runtime\std\range\primitives-%TEST_SUFFIX%.obj runtime\std\regex\internal\tests-%TEST_SUFFIX%.obj runtime\std\string-%TEST_SUFFIX%.obj runtime\std\traits-%TEST_SUFFIX%.obj
   - ninja -j2 druntime-ldc-%TEST_SUFFIX% phobos2-ldc-%TEST_SUFFIX%
+  # Execute the LLVM IR tests
+  - ctest --output-on-failure -R llvm-ir-testsuite
   # Execute the unit tests; exclude dmd-testsuite for now
   - set CTEST_SUFFIX=-E "-debug|testsuite"
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E testsuite)
