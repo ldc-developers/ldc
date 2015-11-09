@@ -69,8 +69,6 @@ script:
   # Outputs some environment info, plus makes sure we only run the test suite
   # if we could actually build the executable.
   - bin/ldc2 -version || exit 1
-  # Run LLVM IR testsuite
-  ctest --output-on-failure -R "llvm-ir-testsuite";
   # Build Phobos & druntime unittest modules.
   -
     if [ "${TEST_CONFIG}" = "Debug" ]; then
@@ -92,17 +90,19 @@ script:
     else
       CC="" MAKEOPTS=-j4 ctest --verbose -R "dmd-testsuite";
     fi
+  # Run LLVM IR testsuite.
+  - ctest --output-on-failure -R "llvm-ir-testsuite"
   # Link and run Phobos & druntime unittest runners.
   -
     if [ "${TEST_CONFIG}" = "Debug" ]; then
       MAKEOPTS=-j3 ctest --verbose -R "-test-runner-debug";
-      ctest -j4 --output-on-failure -R "-debug" -E "dmd-testsuite";
+      ctest -j4 --output-on-failure -R "-debug" -E "testsuite";
     elif [ "${TEST_CONFIG}" = "Release" ]; then
       MAKEOPTS=-j3 ctest --verbose -R "-test-runner" -E "-debug";
-      ctest -j4 --output-on-failure -E "(-debug|dmd-testsuite|llvm-ir-testsuite)";
+      ctest -j4 --output-on-failure -E "(-debug|testsuite)";
     else
       MAKEOPTS=-j3 ctest --verbose -R "-test-runner";
-      ctest -j4 --output-on-failure -E "(dmd-testsuite|llvm-ir-testsuite)";
+      ctest -j4 --output-on-failure -E "testsuite";
     fi
 
 after_success:
