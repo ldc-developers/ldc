@@ -17,6 +17,23 @@ import ldc.eh.fixedpool;
 debug (EH_personality)
     import core.stdc.stdio : printf;
 
+// Support for setjump/longjump style exceptions.
+//
+// references: in GCC, for example gcc-4.8, see
+// https://github.com/mirrors/gcc/blob/master/libgcc/unwind-sjlj.c
+// https://github.com/gcc-mirror/gcc/blob/master/libgcc/unwind-c.c
+//
+// the Apple version can be found at
+// https://www.opensource.apple.com/source/libunwind/libunwind-35.1/src/Unwind-sjlj.c
+
+version (ARM)
+{
+    version (iOS)
+        version = SjLj_Exceptions;
+    else
+        version = ARM_EABI_UNWINDER;
+}
+
 private:
 
 // C headers
@@ -59,7 +76,7 @@ extern(C)
 
     ptrdiff_t _Unwind_GetLanguageSpecificData(_Unwind_Context_Ptr context);
     ptrdiff_t _Unwind_GetCFA(_Unwind_Context_Ptr context);
-    version (ARM)
+    version (ARM_EABI_UNWINDER)
     {
         _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Control_Block*);
         void _Unwind_Resume(_Unwind_Control_Block*);
@@ -81,8 +98,20 @@ extern(C)
     }
     else
     {
-        _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
-        void _Unwind_Resume(_Unwind_Exception*);
+        version(SjLj_Exceptions)
+        {
+            void _Unwind_SjLj_Resume(_Unwind_Exception*);
+            _Unwind_Reason_Code _Unwind_SjLj_RaiseException(_Unwind_Exception*);
+
+            alias _Unwind_Resume = _Unwind_SjLj_Resume;
+            alias _Unwind_RaiseException = _Unwind_SjLj_RaiseException;
+        }
+        else
+        {
+            _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Exception*);
+            void _Unwind_Resume(_Unwind_Exception*);
+        }
+
         ptrdiff_t _Unwind_GetIP(_Unwind_Context_Ptr context);
         void _Unwind_SetIP(_Unwind_Context_Ptr context, ptrdiff_t new_value);
         void _Unwind_SetGR(_Unwind_Context_Ptr context, int index,
@@ -105,7 +134,7 @@ extern(C)
 struct _d_exception
 {
     Object exception_object;
-    version (ARM)
+    version (ARM_EABI_UNWINDER)
     {
         _Unwind_Control_Block unwind_info;
     }
@@ -268,7 +297,7 @@ struct NativeContext
     }
 }
 
-version(ARM)
+version(ARM_EABI_UNWINDER)
 {
     enum _Unwind_State
     {
@@ -381,7 +410,7 @@ version(ARM)
         return rc;
     }
 }
-else // !ARM
+else // !ARM_EABI_UNWINDER
 {
     // The personality routine gets called by the unwind handler and is responsible for
     // reading the EH tables and deciding what to do.
@@ -440,7 +469,7 @@ void _d_throw_exception(Object e)
     auto exc_struct = ExceptionStructPool.malloc();
     if (!exc_struct)
         fatalerror("Could not allocate D exception record; out of memory?");
-    version (ARM)
+    version (ARM_EABI_UNWINDER)
     {
         exc_struct.unwind_info.exception_class = _d_exception_class;
     }

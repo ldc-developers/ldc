@@ -10,7 +10,7 @@
  * Authors:   David Nadlinger
  */
 
-#ifdef __arm__
+#if defined(__arm__) && !defined(__USING_SJLJ_EXCEPTIONS__)
 
 #include <unwind.h>
 
