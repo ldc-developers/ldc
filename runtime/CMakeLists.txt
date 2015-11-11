@@ -617,6 +617,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
     else()
         set(druntime_o "")
         set(druntime_bc "")
+        set(casm_lib_path "${CMAKE_BINARY_DIR}/lib")
         compile_druntime("${flags}" "-unittest${name_suffix}" "" druntime_o druntime_bc)
 
         # We need to compile a small static library with the C/ASM files, as
@@ -632,7 +633,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
             LINKER_LANGUAGE             C
             COMPILE_FLAGS               "${RT_CFLAGS} ${c_flags}"
             LINK_FLAGS                  "${LD_FLAGS} ${ld_flags}"
-            ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
+            ARCHIVE_OUTPUT_DIRECTORY    ${casm_lib_path}
         )
 
         # See shared library case for explanation.
@@ -664,7 +665,7 @@ macro(build_test_runner name_suffix d_flags c_flags)
                 LINKER_LANGUAGE             C
                 COMPILE_FLAGS               "${RT_CFLAGS} ${c_flags}"
                 LINK_FLAGS                  "${LD_FLAGS} ${ld_flags}"
-                ARCHIVE_OUTPUT_DIRECTORY    ${output_path}
+                ARCHIVE_OUTPUT_DIRECTORY    ${casm_lib_path}
             )
 
             set_target_properties(${phobos2-casm} PROPERTIES EXCLUDE_FROM_ALL ON EXCLUDE_FROM_DEFAULT_BUILD ON)
