@@ -90,3 +90,40 @@ void IrFuncTy::getParam(Type *dty, size_t idx, LLValue *val, LLValue *address) {
 
   DtoStoreZextI8(val, address);
 }
+
+AttrSet IrFuncTy::getParamAttrs(bool passThisBeforeSret) {
+  AttrSet newAttrs;
+
+  int idx = 0;
+
+// handle implicit args
+#define ADD_PA(X)                                                              \
+  if (X) {                                                                     \
+    newAttrs.add(idx, X->attrs);                                               \
+    idx++;                                                                     \
+  }
+
+  ADD_PA(ret)
+
+  if (arg_sret && arg_this && passThisBeforeSret) {
+    ADD_PA(arg_this)
+    ADD_PA(arg_sret)
+  } else {
+    ADD_PA(arg_sret)
+    ADD_PA(arg_this)
+  }
+
+  ADD_PA(arg_nest)
+  ADD_PA(arg_arguments)
+
+#undef ADD_PA
+
+  // Set attributes on the explicit parameters.
+  const size_t n = args.size();
+  for (size_t k = 0; k < n; k++) {
+    const size_t i = idx + (reverseParams ? (n - k - 1) : k);
+    newAttrs.add(i, args[k]->attrs);
+  }
+
+  return newAttrs;
+}

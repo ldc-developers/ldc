@@ -378,7 +378,7 @@ static void build_dso_ctor_dtor_body(
     llvm::Value *dsoSlot, llvm::Value *minfoBeg, llvm::Value *minfoEnd,
     llvm::Value *minfoUsedPointer, bool executeWhenInitialized) {
   llvm::Function *const dsoRegistry =
-      LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_dso_registry");
+      getRuntimeFunction(Loc(), gIR->module, "_d_dso_registry");
   llvm::Type *const recordPtrTy =
       dsoRegistry->getFunctionType()->getContainedType(1);
 
@@ -670,7 +670,7 @@ static void addCoverageAnalysis(Module *m) {
 
     // Set up call to _d_cover_register2
     llvm::Function *fn =
-        LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_cover_register2");
+        getRuntimeFunction(Loc(), gIR->module, "_d_cover_register2");
     LLValue *args[] = {DtoConstString(m->srcfile->name->toChars()),
                        d_cover_valid_slice, d_cover_data_slice,
                        DtoConstUbyte(global.params.covPercent)};
@@ -723,7 +723,7 @@ void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo) {
   assert(!gIR && "gIR not null, codegen already in progress?!");
   gIR = irs;
 
-  LLVM_D_InitRuntime();
+  initRuntime();
 
   // Skip pseudo-modules for coverage analysis
   std::string name = m->toChars();

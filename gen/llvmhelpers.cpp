@@ -63,7 +63,7 @@ Type *getTypeInfoType(Type *t, Scope *sc);
 LLValue *DtoNew(Loc &loc, Type *newtype) {
   // get runtime function
   llvm::Function *fn =
-      LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_allocmemoryT");
+      getRuntimeFunction(loc, gIR->module, "_d_allocmemoryT");
   // get type info
   LLConstant *ti = DtoTypeInfoOf(newtype);
   assert(isaPointer(ti));
@@ -74,7 +74,7 @@ LLValue *DtoNew(Loc &loc, Type *newtype) {
 }
 
 LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype) {
-  llvm::Function *fn = LLVM_D_GetRuntimeFunction(
+  llvm::Function *fn = getRuntimeFunction(
       loc, gIR->module,
       newtype->isZeroInit(newtype->sym->loc) ? "_d_newitemT" : "_d_newitemiT");
   LLConstant *ti = DtoTypeInfoOf(newtype);
@@ -84,7 +84,7 @@ LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype) {
 
 void DtoDeleteMemory(Loc &loc, DValue *ptr) {
   llvm::Function *fn =
-      LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delmemory");
+      getRuntimeFunction(loc, gIR->module, "_d_delmemory");
   LLValue *lval = (ptr->isLVal() ? ptr->getLVal() : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
@@ -92,7 +92,7 @@ void DtoDeleteMemory(Loc &loc, DValue *ptr) {
 
 void DtoDeleteStruct(Loc &loc, DValue *ptr) {
   llvm::Function *fn =
-      LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delstruct");
+      getRuntimeFunction(loc, gIR->module, "_d_delstruct");
   LLValue *lval = (ptr->isLVal() ? ptr->getLVal() : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)),
@@ -102,7 +102,7 @@ void DtoDeleteStruct(Loc &loc, DValue *ptr) {
 
 void DtoDeleteClass(Loc &loc, DValue *inst) {
   llvm::Function *fn =
-      LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delclass");
+      getRuntimeFunction(loc, gIR->module, "_d_delclass");
   LLValue *lval = (inst->isLVal() ? inst->getLVal() : makeLValue(loc, inst));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
@@ -110,7 +110,7 @@ void DtoDeleteClass(Loc &loc, DValue *inst) {
 
 void DtoDeleteInterface(Loc &loc, DValue *inst) {
   llvm::Function *fn =
-      LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delinterface");
+      getRuntimeFunction(loc, gIR->module, "_d_delinterface");
   LLValue *lval = (inst->isLVal() ? inst->getLVal() : makeLValue(loc, inst));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
@@ -118,7 +118,7 @@ void DtoDeleteInterface(Loc &loc, DValue *inst) {
 
 void DtoDeleteArray(Loc &loc, DValue *arr) {
   llvm::Function *fn =
-      LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_delarray_t");
+      getRuntimeFunction(loc, gIR->module, "_d_delarray_t");
   llvm::FunctionType *fty = fn->getFunctionType();
 
   // the TypeInfo argument must be null if the type has no dtor
@@ -183,7 +183,7 @@ llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
 LLValue *DtoGcMalloc(Loc &loc, LLType *lltype, const char *name) {
   // get runtime function
   llvm::Function *fn =
-      LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_allocmemory");
+      getRuntimeFunction(loc, gIR->module, "_d_allocmemory");
   // parameters
   LLValue *size = DtoConstSize_t(getTypeAllocSize(lltype));
   // call runtime allocator
@@ -232,7 +232,7 @@ LLValue *DtoAllocaDump(LLValue *val, LLType *asType, int alignment,
 void DtoAssert(Module *M, Loc &loc, DValue *msg) {
   // func
   const char *fname = msg ? "_d_assert_msg" : "_d_assert";
-  llvm::Function *fn = LLVM_D_GetRuntimeFunction(loc, gIR->module, fname);
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, fname);
 
   // Arguments
   llvm::SmallVector<LLValue *, 3> args;

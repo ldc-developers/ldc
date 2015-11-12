@@ -1912,7 +1912,7 @@ public:
         !(static_cast<TypeClass *>(condty)->sym->isInterfaceDeclaration()) &&
         !(static_cast<TypeClass *>(condty)->sym->isCPPclass())) {
       Logger::println("calling class invariant");
-      llvm::Function *fn = LLVM_D_GetRuntimeFunction(
+      llvm::Function *fn = getRuntimeFunction(
           e->loc, gIR->module,
           gABI->mangleForLLVM("_D9invariant12_d_invariantFC6ObjectZv", LINKd)
               .c_str());
@@ -2668,7 +2668,7 @@ public:
       Type *indexType = static_cast<TypeAArray *>(aatype)->index;
       assert(indexType && vtype);
 
-      llvm::Function *func = LLVM_D_GetRuntimeFunction(
+      llvm::Function *func = getRuntimeFunction(
           e->loc, gIR->module, "_d_assocarrayliteralTX");
       LLFunctionType *funcTy = func->getFunctionType();
       LLValue *aaTypeInfo =
