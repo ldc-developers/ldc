@@ -9,7 +9,7 @@ version(Win32):
 
 import ldc.eh.common;
 import core.sys.windows.windows;
-import core.exception : onOutOfMemoryError;
+import core.exception : onOutOfMemoryError, OutOfMemoryError;
 import core.stdc.stdlib : malloc;
 import core.stdc.string : memcpy;
 
@@ -79,16 +79,6 @@ extern(Windows) void RaiseException(DWORD dwExceptionCode,
                                     DWORD nNumberOfArguments,
                                     ULONG_PTR* lpArguments);
 
-__gshared TypeDescriptor!16 tdObject    = { 0, null, "_D6object6Object\0" };
-__gshared TypeDescriptor!20 tdThrowable = { 0, null, "_D6object9Throwable\0" };
-__gshared TypeDescriptor!12 tdException = { 0, null, "_D9Exception\0" };
-version(none) {
-__gshared CatchableType  ctThrowable = { CT_IsSimpleType, cast(TypeDescriptor!1*) &tdThrowable, { 0, -1, 0 }, 4, null };
-__gshared CatchableType  ctException = { CT_IsSimpleType, cast(TypeDescriptor!1*) &tdException, { 0, -1, 0 }, 4, null };
-__gshared CatchableTypeArray ctArray = { 2, [ &ctThrowable, &ctException ] };
-__gshared _ThrowInfo objectThrowInfo = { 0, null, null, &ctArray };
-}
-
 enum int STATUS_MSC_EXCEPTION = 0xe0000000 | ('m' << 16) | ('s' << 8) | ('c' << 0);
 
 enum EXCEPTION_NONCONTINUABLE     = 0x01;
@@ -155,56 +145,16 @@ CatchableType* getCatchableType(TypeInfo_Class ti)
     if (auto p = ti in catchableHashtab)
         return p;
 
-    static size_t mangledNameLength(string s)
-    {
-        size_t len = 2 + s.length; // "_D" + identifier + 1 digit per dot
-        for (size_t q = 0; q < s.length; )
-        {
-            size_t p = q;
-            while (p < s.length && s.ptr[p] != '.')
-                p++;
-            for (size_t r = p - q; r >= 10; r /= 10) // add digits for length >= 10
-                len++;
-            q = p + 1;
-        }
-        return len;
-    }
-
-    static void mangleName(string s, char* buf)
-    {
-        *buf++ = '_';
-        *buf++ = 'D';
-        for (size_t q = 0; q < s.length; )
-        {
-            size_t p = q;
-            while (p < s.length && s.ptr[p] != '.')
-                p++;
-            size_t digits = 10;
-            size_t len = p - q;
-            for ( ; len >= digits; digits *= 10) {}
-            for (digits /= 10; digits > 1; digits /= 10)
-            {
-                size_t dig = len / digits;
-                *buf++ = cast(char)('0' + dig);
-                len -= dig * digits;
-            }
-            *buf++ = cast(char)('0' + len);
-            memcpy(buf, s.ptr + q, p - q);
-            buf += p - q;
-            q = p + 1;
-        }
-        *buf = 0;
-    }
-
-    size_t mangledLength = mangledNameLength(ti.name) + 1;
-    size_t sz = TypeDescriptor!1.sizeof + mangledLength;
+    size_t sz = TypeDescriptor!1.sizeof + ti.name.length;
     auto td = cast(TypeDescriptor!1*) malloc(sz);
     if (!td)
         onOutOfMemoryError();
 
     td.hash = 0;
     td.spare = null;
-    mangleName(ti.name, td.name.ptr);
+    td.name.ptr[0] = 'D';
+    memcpy(td.name.ptr + 1, ti.name.ptr, ti.name.length);
+    td.name.ptr[ti.name.length + 1] = 0;
 
     CatchableType ct = { CT_IsSimpleType, td, { 0, -1, 0 }, 4, null };
     catchableHashtab[ti] = ct;
@@ -215,14 +165,10 @@ void msvc_eh_init()
 {
     throwInfoMutex = new Mutex;
 
-    // Exception has a special mangling that's not reflected in the name
-
-    CatchableType  ctObject = { CT_IsSimpleType, cast(TypeDescriptor!1*) &tdObject, { 0, -1, 0 }, 4, null };
-    catchableHashtab[typeid(Object)] = ctObject;
-    CatchableType  ctThrowable = { CT_IsSimpleType, cast(TypeDescriptor!1*) &tdThrowable, { 0, -1, 0 }, 4, null };
-    catchableHashtab[typeid(Throwable)] = ctThrowable;
-    CatchableType  ctException = { CT_IsSimpleType, cast(TypeDescriptor!1*) &tdException, { 0, -1, 0 }, 4, null };
-    catchableHashtab[typeid(Exception)] = ctException;
+    // preallocate type descriptors likely to be needed
+    getThrowInfo(typeid(Exception));
+    // better not have to allocate when this is thrown:
+    getThrowInfo(typeid(OutOfMemoryError));
 }
 
 shared static this()
