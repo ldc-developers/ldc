@@ -76,9 +76,7 @@ real sin(real x) @safe pure nothrow;       /* intrinsic */
  * indeterminate.
  */
 version (LDC)
-{
     long rndtol(real x) @safe pure nothrow { return stdc.llroundl(x); }
-}
 else
 long rndtol(real x) @safe pure nothrow;    /* intrinsic */
 
@@ -197,12 +195,7 @@ unittest {
  *      )
  */
 version (LDC)
-{
-    static if (__traits(compiles, llvm_abs(3.14L)))
-        real fabs(real x) @safe pure nothrow { return llvm_fabs(x); }
-    else
-        real fabs(real x) @safe pure nothrow { return stdc.fabsl(x); }
-}
+    real fabs(real x) @safe pure nothrow { return llvm_fabs(x); }
 else
 real fabs(real x) @safe pure nothrow;      /* intrinsic */
 
@@ -215,12 +208,7 @@ real fabs(real x) @safe pure nothrow;      /* intrinsic */
  * the same operation, but does not set the FE_INEXACT exception.
  */
 version (LDC)
-{
-  static if (__traits(compiles, llvm_rint(3.14L)))
     real rint(real x) @safe pure nothrow { return llvm_rint(x); }
-  else
-    real rint(real x) @safe pure nothrow { return stdc.rintl(x); }
-}
 else
 real rint(real x) @safe pure nothrow;      /* intrinsic */
 
