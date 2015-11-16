@@ -44,11 +44,13 @@
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
+#include "llvm/IR/DataLayout.h"
+#include "llvm/IR/Module.h"
 #include "llvm/IR/Verifier.h"
 #include "llvm/LinkAllPasses.h"
+#include "llvm/ProfileData/InstrProfReader.h"
+#include "llvm/Support/CommandLine.h"
 #include "llvm/Transforms/Utils/ModuleUtils.h"
-#include "llvm/IR/Module.h"
-#include "llvm/IR/DataLayout.h"
 
 #if _AIX || __sun
 #include <alloca.h>
@@ -704,6 +706,34 @@ static void addCoverageAnalysisInitializer(Module *m) {
   m->d_cover_valid->setInitializer(llvm::ConstantArray::get(type, arrayInits));
 }
 
+// Load InstrProf data from file and store in it IrState
+// This is probably not the right place, we should load it once for all modules?
+static void loadInstrProfileData(IRState *irs) {
+#if LDC_WITH_PGO
+  // Only load from datafileInstrProf if we are not generating instrumented
+  // code.
+  if (!global.params.genInstrProf && global.params.datafileInstrProf) {
+    IF_LOG Logger::println("Read profile data from %s",
+                           global.params.datafileInstrProf);
+
+    auto readerOrErr =
+        llvm::IndexedInstrProfReader::create(global.params.datafileInstrProf);
+    std::error_code EC = readerOrErr.getError();
+    if (EC) {
+      irs->dmodule->error("Could not read profile file %s: %s",
+                          global.params.datafileInstrProf,
+                          EC.message().c_str());
+      fatal();
+    }
+    irs->PGOReader = std::move(readerOrErr.get());
+
+#if LDC_LLVM_VER >= 308
+    irs->module.setMaximumFunctionCount(irs->PGOReader->getMaximumFunctionCount());
+#endif
+  }
+#endif
+}
+
 static void genModuleInfo(Module *m, bool emitFullModuleInfo);
 
 void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo) {
@@ -717,8 +747,13 @@ void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo) {
 
   // Skip pseudo-modules for coverage analysis
   std::string name = m->toChars();
-  if (global.params.cov && name != "__entrypoint" && name != "__main") {
+  bool pseudo_modules = (name == "__entrypoint") || (name == "__main");
+  if (global.params.cov && !pseudo_modules) {
     addCoverageAnalysis(m);
+  }
+
+  if (!pseudo_modules) {
+    loadInstrProfileData(gIR);
   }
 
   // process module members

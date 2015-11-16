@@ -26,11 +26,13 @@
 #include <sstream>
 #include <vector>
 #include "llvm/ADT/StringMap.h"
+#include "llvm/ProfileData/InstrProfReader.h"
 #include "llvm/IR/CallSite.h"
 
 namespace llvm {
 class LLVMContext;
 class TargetMachine;
+class IndexedInstrProfReader;
 }
 
 // global ir state for current module
@@ -156,6 +158,10 @@ struct IRState {
 
   // debug info helper
   ldc::DIBuilder DBuilder;
+
+  // PGO data file reader
+  std::unique_ptr<llvm::IndexedInstrProfReader> PGOReader;
+  llvm::IndexedInstrProfReader *getPGOReader() const { return PGOReader.get(); }
 
   // for inline asm
   IRAsmBlock *asmBlock;

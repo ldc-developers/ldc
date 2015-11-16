@@ -20,6 +20,7 @@ class PragmaDeclaration;
 class FuncDeclaration;
 class Dsymbol;
 struct Scope;
+class Expression;
 
 // Remember to keep this enum in-sync with dpragma.d
 enum LDCPragma {
@@ -47,13 +48,16 @@ enum LDCPragma {
   LLVMbitop_bts,
   LLVMbitop_vld,
   LLVMbitop_vst,
-  LLVMextern_weak
+  LLVMextern_weak,
+  LLVMprofile_instr
 };
 
 LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, const char *&arg1str);
 void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *sym, LDCPragma llvm_internal,
                     const char * const arg1str);
+bool DtoCheckProfileInstrPragma(Expression *arg, bool &value);
 bool DtoIsIntrinsic(FuncDeclaration *fd);
 bool DtoIsVaIntrinsic(FuncDeclaration *fd);
+
 
 #endif // LDC_GEN_PRAGMA_H

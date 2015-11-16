@@ -543,6 +543,10 @@ public:
 
     // true if set with the pragma(LDC_never_inline); statement
     bool neverInline;
+
+    // Whether to emit instrumentation code if -fprofile-instr-generate is specified,
+    // the value is set with pragma(LDC_profile_instr, true|false)
+    bool emitInstrumentation;
 #endif
 
     Identifier *outId;                  // identifier for out statement
