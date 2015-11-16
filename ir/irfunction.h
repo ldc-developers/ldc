@@ -19,6 +19,7 @@
 #include "llvm/ADT/DenseMapInfo.h"
 #include "gen/llvm.h"
 #include "gen/irstate.h"
+#include "gen/pgo.h"
 #include "ir/irfuncty.h"
 #include <map>
 #include <stack>
@@ -172,8 +173,12 @@ struct CatchScope {
   /// The cleanup scope stack level corresponding to this catch.
   CleanupCursor cleanupScope;
 
+  // PGO branch weights for the exception type match branch.
+  // (first weight is for match, second is for mismatch)
+  llvm::MDNode *branchWeights = nullptr;
+
   CatchScope(llvm::Constant *classInfoPtr, llvm::BasicBlock *bodyBlock,
-             CleanupCursor cleanupScope);
+             CleanupCursor cleanupScope, llvm::MDNode *branchWeights = nullptr);
 };
 
 /// Keeps track of active (abstract) scopes in a function that influence code
@@ -244,7 +249,8 @@ public:
   /// given ClassInfo constant and to branch to the given body block if it
   /// matches. The registered catch blocks are maintained on a stack, with the
   /// top-most (i.e. last pushed, innermost) taking precedence.
-  void pushCatch(llvm::Constant *classInfoPtr, llvm::BasicBlock *bodyBlock);
+  void pushCatch(llvm::Constant *classInfoPtr, llvm::BasicBlock *bodyBlock,
+                 llvm::MDNode *matchWeights = nullptr);
 
   /// Unregisters the last registered catch block.
   void popCatch();
@@ -516,6 +522,9 @@ struct IrFunction {
 #endif
   // Debug info for all variables
   VariableMap variableMap;
+
+  // PGO information
+  CodeGenPGO pgo;
 
   IrFuncTy irFty;
 

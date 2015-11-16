@@ -30,6 +30,7 @@
 #include "gen/logger.h"
 #include "gen/nested.h"
 #include "gen/optimizer.h"
+#include "gen/pgo.h"
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
@@ -889,6 +890,9 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     }
   }
 
+  // Initialize PGO state for this function
+  irFunc->pgo.assignRegionCounters(fd, irFunc->func);
+
   {
     ScopeStack scopeStack(gIR);
     irFunc->scopes = &scopeStack;
@@ -915,6 +919,9 @@ void DtoDefineFunction(FuncDeclaration *fd) {
       irFunc->_arguments =
           DtoAllocaDump(irFunc->_arguments, 0, "_arguments_mem");
     }
+
+    irFunc->pgo.emitCounterIncrement(fd->fbody);
+    irFunc->pgo.setCurrentStmt(fd->fbody);
 
     // output function body
     Statement_toIR(fd->fbody, gIR);

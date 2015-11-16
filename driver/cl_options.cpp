@@ -410,6 +410,19 @@ cl::opt<unsigned char, true, CoverageParser> coverageAnalysis(
                     "minimum required coverage)"),
     cl::location(global.params.covPercent), cl::ValueOptional, cl::init(127));
 
+#if LDC_WITH_PGO
+cl::opt<std::string>
+    genfileInstrProf("fprofile-instr-generate", cl::value_desc("filename"),
+                     cl::desc("Generate instrumented code to collect "
+                              "execution counts (e.g. for PGO)"),
+                     cl::ValueOptional);
+
+cl::opt<std::string> usefileInstrProf(
+    "fprofile-instr-use", cl::value_desc("filename"),
+    cl::desc("Use instrumentation data for profile-guided optimization"),
+    cl::ValueRequired);
+#endif
+
 static cl::extrahelp footer(
     "\n"
     "-d-debug can also be specified without options, in which case it enables "

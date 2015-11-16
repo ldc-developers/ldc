@@ -424,6 +424,10 @@ public:
 
         // true if set with the pragma(LDC_never_inline); statement
         bool neverInline = false;
+
+        // Whether to emit instrumentation code if -fprofile-instr-generate is specified,
+        // the value is set with pragma(LDC_profile_instr, true|false)
+        bool emitInstrumentation = true;
     }
 
     Identifier outId;                   // identifier for out statement
@@ -634,6 +638,11 @@ public:
         inlining = sc.inlining;
         protection = sc.protection;
         userAttribDecl = sc.userAttribDecl;
+        version(IN_LLVM)
+        {
+            emitInstrumentation = sc.emitInstrumentation;
+        }
+
         if (!originalType)
             originalType = type.syntaxCopy();
         if (!type.deco)

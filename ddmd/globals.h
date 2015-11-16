@@ -202,6 +202,10 @@ struct Param
     bool verbose_cg;
     bool hasObjectiveC;
 
+    // Profile-guided optimization:
+    bool genInstrProf;             // Whether to generate PGO instrumented code
+    const char *datafileInstrProf; // Either the input or output file for PGO data
+
     const llvm::Triple *targetTriple;
 
     // Codegen cl options

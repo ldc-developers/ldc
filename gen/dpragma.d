@@ -16,6 +16,7 @@ module gen.dpragma;
 import ddmd.attrib;
 import ddmd.dscope;
 import ddmd.dsymbol;
+import ddmd.expression;
 import ddmd.func;
 
 extern (C++) enum LDCPragma : int {
@@ -48,5 +49,6 @@ extern (C++) enum LDCPragma : int {
 
 extern (C++) LDCPragma DtoGetPragma(Scope* sc, PragmaDeclaration decl, ref const(char)* arg1str);
 extern (C++) void DtoCheckPragma(PragmaDeclaration decl, Dsymbol sym, LDCPragma llvm_internal, const char* arg1str);
+extern (C++) bool DtoCheckProfileInstrPragma(Expression arg, ref bool value);
 extern (C++) bool DtoIsIntrinsic(FuncDeclaration fd);
 extern (C++) bool DtoIsVaIntrinsic(FuncDeclaration fd);

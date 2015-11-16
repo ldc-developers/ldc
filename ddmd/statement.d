@@ -53,6 +53,10 @@ import ddmd.staticassert;
 import ddmd.target;
 import ddmd.tokens;
 import ddmd.visitor;
+version(IN_LLVM)
+{
+    import gen.dpragma;
+}
 
 extern (C++) Identifier fixupLabelName(Scope* sc, Identifier ident)
 {
@@ -3543,6 +3547,26 @@ public:
         {
             sc.func.neverInline = true;
         }
+        // IN_LLVM. FIXME Move to pragma.cpp
+        else if (ident == Id.LDC_profile_instr)
+        {
+            bool emitInstr = true;
+            if (!args || args.dim != 1 || !DtoCheckProfileInstrPragma((*args)[0], emitInstr))
+            {
+                error("pragma(LDC_profile_instr, true or false) expected");
+                goto Lerror;
+            }
+            else
+            {
+                FuncDeclaration fd = sc.func;
+                if (fd is null)
+                {
+                    error("pragma(LDC_profile_instr, ...) is not inside a function");
+                    goto Lerror;
+                }
+                fd.emitInstrumentation = emitInstr;
+            }
+        }
         else if (ident == Id.startaddress)
         {
             if (!args || args.dim != 1)
@@ -3667,6 +3691,10 @@ public:
     CaseStatements* cases;          // array of CaseStatement's
     int hasNoDefault;               // !=0 if no default statement
     int hasVars;                    // !=0 if has variable case values
+version(IN_LLVM)
+{
+    bool hasGotoDefault;            // true iff there is a `goto default` statement for this switch
+}
 
     extern (D) this(Loc loc, Expression c, Statement b, bool isFinal)
     {
@@ -3764,6 +3792,10 @@ public:
                     if (cs.exp.equals(gcs.exp))
                     {
                         gcs.cs = cs;
+version(IN_LLVM)
+{
+                        cs.gototarget = true;
+}
                         goto Lfoundcase;
                     }
                 }
@@ -3824,6 +3856,17 @@ public:
             cs = new CompoundStatement(loc, a);
             _body = cs;
         }
+version(IN_LLVM)
+{
+        /+ hasGotoDefault is set by GotoDefaultStatement.semantic
+         + at which point sdefault may still be null, therefore
+         + set sdefault.gototarget here.
+         +/
+        if (hasGotoDefault) {
+            assert(sdefault);
+            sdefault.gototarget = true;
+        }
+}
         sc.pop();
         return this;
     Lerror:
@@ -3853,6 +3896,7 @@ public:
 
     version(IN_LLVM)
     {
+        bool gototarget; // true iff this is the target of a 'goto case'
         void* bodyBB;  // llvm::BasicBlock*
         void* llvmIdx; // llvm::Value*
     }
@@ -4083,6 +4127,7 @@ public:
 
     version(IN_LLVM)
     {
+        bool gototarget; // true iff this is the target of a 'goto default'
         void* bodyBB;  // llvm::BasicBlock*
     }
 
@@ -4167,6 +4212,10 @@ public:
             error("goto default not in switch statement");
             return new ErrorStatement();
         }
+version(IN_LLVM)
+{
+        sw.hasGotoDefault = true;
+}
         return this;
     }
 

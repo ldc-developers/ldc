@@ -33,6 +33,7 @@ extern (C++) void genCmain(Scope *sc) {
    */
   static __gshared const(char)[] code =
   q{
+      pragma(LDC_profile_instr, false):
       extern(C)
       {
           int _d_run_main(int argc, char **argv, void* mainFunc);

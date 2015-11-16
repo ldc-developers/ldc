@@ -19,6 +19,7 @@
 #include "gen/optimizer.h"
 #include "gen/programs.h"
 #include "llvm/ADT/Triple.h"
+#include "llvm/ProfileData/InstrProf.h"
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Program.h"
 #include "llvm/Support/Path.h"
@@ -159,12 +160,28 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     args.push_back(p);
   }
 
+  // Link with profile-rt library when generating an instrumented binary
+  if (global.params.genInstrProf) {
+#if LDC_LLVM_VER >= 308
+    if (global.params.targetTriple->isOSLinux()) {
+      // For Linux, explicitly define __llvm_profile_runtime as undefined
+      // symbol, so that the initialization part of profile-rt is linked in.
+      args.push_back(("-Wl,-u," + llvm::getInstrProfRuntimeHookVarName()).str());
+    }
+#endif
+    args.push_back("-lldc-profile-rt");
+  }
+
   // default libs
   bool addSoname = false;
   switch (global.params.targetTriple->getOS()) {
   case llvm::Triple::Linux:
     addSoname = true;
-    if (!opts::disableLinkerStripDead) {
+    // Make sure we don't do --gc-sections when generating a profile-
+    // instrumented binary. The runtime relies on magic sections, which
+    // would be stripped by gc-section on older version of ld, see bug:
+    // https://sourceware.org/bugzilla/show_bug.cgi?id=19161
+    if (!opts::disableLinkerStripDead && !global.params.genInstrProf) {
       args.push_back("-Wl,--gc-sections");
     }
     if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
@@ -563,6 +580,11 @@ static int linkObjToBinaryWin(bool sharedLib) {
   args.push_back("uuid.lib");
   args.push_back("comdlg32.lib");
   args.push_back("advapi32.lib");
+
+  // Link with profile-rt library when generating an instrumented binary
+  if (global.params.genInstrProf) {
+    args.push_back("ldc-profile-rt.lib");
+  }
 
   Logger::println("Linking with: ");
   Stream logstr = Logger::cout();
