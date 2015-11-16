@@ -420,6 +420,11 @@ llvm::TargetMachine *createTargetMachine(
   if (targetTriple.empty()) {
     triple = llvm::Triple(llvm::sys::getDefaultTargetTriple());
 
+    // We only support OSX, so darwin should really be macosx.
+    if (triple.getOS() == llvm::Triple::Darwin) {
+      triple.setOS(llvm::Triple::MacOSX);
+    }
+
     // Handle -m32/-m64.
     if (sizeof(void *) == 4 && bitness == ExplicitBitness::M64) {
       triple = triple.get64BitArchVariant();
