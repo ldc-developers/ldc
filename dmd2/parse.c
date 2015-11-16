@@ -4067,6 +4067,12 @@ L2:
                     new TemplateDeclaration(loc, ident, tpl, NULL, a2, 0);
                 s = tempdecl;
             }
+            if (structalign != 0)
+            {
+                Dsymbols *ax = new Dsymbols();
+                ax->push(s);
+                s = new AlignDeclaration(structalign, ax);
+            }
             if (link != linkage)
             {
                 Dsymbols *ax = new Dsymbols();
