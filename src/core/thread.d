@@ -3906,6 +3906,7 @@ version( LDC )
     version( OSX )
     {
         version( ARM ) version = CheckFiberMigration;
+        version( AArch64 ) version = CheckFiberMigration;
         version( X86 ) version = CheckFiberMigration;
         version( X86_64 ) version = CheckFiberMigration;
     }
@@ -4338,7 +4339,7 @@ class Fiber
      * variable addresses.  When Fiber.yield() returns on a different
      * Thread, the addresses refer to the previous Thread's variables.
      */
-    static @property bool migrationUnsafe()
+    static @property bool migrationUnsafe() nothrow
     {
         version( CheckFiberMigration )
             return true;
@@ -4349,7 +4350,7 @@ class Fiber
     /**
      * Allow this Fiber to be resumed on a different thread for systems where
      * Fiber migration is unsafe (migrationUnsafe() is true).  Otherwise the
-     * first time a Fiber is resumed on a different Thread, a FiberException
+     * first time a Fiber is resumed on a different Thread, a ThreadException
      * is thrown.  This provides the programmer a reminder to be careful and
      * helps detect such usage in libraries being ported from other systems.
      *
@@ -4359,7 +4360,7 @@ class Fiber
      * For systems without this issue, allowMigration does nothing, as you are
      * always free to migrate.
      */
-    final void allowMigration()
+    final void allowMigration() nothrow
     {
         // Does nothing if checking is disabled
         version( CheckFiberMigration )
@@ -5162,10 +5163,11 @@ private:
                 m_curThread = tobj;
             else if (tobj !is m_curThread)
             {
-                throw new FiberException
+                m_unhandled = new ThreadException
                     ("Migrating Fibers between Threads on this platform may lead "
                      "to incorrect thread local variable access.  To allow "
                      "migration anyway, call Fiber.allowMigration()");
+                return;
             }
         }
         else
@@ -5319,7 +5321,7 @@ unittest
         pragma(LDC_never_inline);
         Fiber.yield();
     }
-    
+
     auto f = new Fiber(
     {
         ++tls;                               // happens on main thread
@@ -5337,9 +5339,9 @@ unittest
             try
             {
                 f.call();
-                assert(false, "Should get FiberException when Fiber migrated");
+                assert(false, "Should get ThreadException when Fiber migrated");
             }
-            catch (FiberException ex)
+            catch (ThreadException ex)
             {
             }
 
