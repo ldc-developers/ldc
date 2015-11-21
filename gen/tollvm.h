@@ -41,11 +41,13 @@ LLPointerType *DtoPtrToType(Type *t);
 LLType *voidToI8(LLType *t);
 LLType *i1ToI8(LLType *t);
 
-// returns true if the type must be passed by pointer
-bool DtoIsPassedByRef(Type *type);
+// Returns true if the type is a value type which LDC keeps exclusively in
+// memory, referencing all values via LL pointers (structs and static arrays).
+bool DtoIsInMemoryOnly(Type *type);
 
-// returns true if the return value of the call expression
-// is passed in a register
+// Returns true if the callee uses sret (struct return).
+// In that case, the caller needs to allocate the return value and pass its
+// address as additional parameter to the callee, which will set it up.
 bool DtoIsReturnInArg(CallExp *ce);
 
 // should argument be zero or sign extended

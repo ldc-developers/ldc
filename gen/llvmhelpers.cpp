@@ -1346,7 +1346,7 @@ LLValue *makeLValue(Loc &loc, DValue *value) {
   LLValue *valuePointer;
   if (value->isIm()) {
     valuePointer = value->getRVal();
-    needsMemory = !DtoIsPassedByRef(valueType);
+    needsMemory = !DtoIsInMemoryOnly(valueType);
   } else if (value->isVar()) {
     valuePointer = value->getLVal();
     needsMemory = false;
@@ -1533,7 +1533,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
         assert(type->ty == Tdelegate);
         return new DVarValue(type, getIrValue(vd));
       }
-      if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) ||
+      if (vd->isRef() || vd->isOut() || DtoIsInMemoryOnly(vd->type) ||
           llvm::isa<llvm::AllocaInst>(getIrValue(vd))) {
         return new DVarValue(type, vd, getIrValue(vd));
       }

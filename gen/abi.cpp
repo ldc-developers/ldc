@@ -38,7 +38,7 @@ void ABIRewrite::getL(Type *dty, LLValue *v, LLValue *lval) {
 
 LLValue *ABIRewrite::getAddressOf(DValue *v) {
   Type *dty = v->getType();
-  if (DtoIsPassedByRef(dty)) {
+  if (DtoIsInMemoryOnly(dty)) {
     // v is lowered to a LL pointer to the struct/static array
     return v->getRVal();
   }

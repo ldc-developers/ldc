@@ -2822,7 +2822,7 @@ public:
       Expression *el = (*e->exps)[i];
       DValue *ep = toElem(el);
       LLValue *gep = DtoGEPi(val, 0, i);
-      if (DtoIsPassedByRef(el->type)) {
+      if (DtoIsInMemoryOnly(el->type)) {
         DtoStore(DtoLoad(ep->getRVal()), gep);
       } else if (el->type->ty != Tvoid) {
         DtoStoreZextI8(ep->getRVal(), gep);

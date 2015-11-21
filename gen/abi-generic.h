@@ -203,7 +203,7 @@ struct ExplicitByvalRewrite : ABIRewrite {
   }
 
   LLValue *put(DValue *v) override {
-    if (DtoIsPassedByRef(v->getType())) {
+    if (DtoIsInMemoryOnly(v->getType())) {
       LLValue *originalPointer = v->getRVal();
       LLType *type = originalPointer->getType()->getPointerElementType();
       LLValue *copyForCallee =

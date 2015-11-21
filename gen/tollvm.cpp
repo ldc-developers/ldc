@@ -34,7 +34,7 @@
 #include "ir/irtypefunction.h"
 #include "ir/irtypestruct.h"
 
-bool DtoIsPassedByRef(Type *type) {
+bool DtoIsInMemoryOnly(Type *type) {
   Type *typ = type->toBasetype();
   TY t = typ->ty;
   return (t == Tstruct || t == Tsarray);

@@ -951,7 +951,7 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
   }
 
   // byval arg, but expr has no storage yet
-  if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isNull())) {
+  if (DtoIsInMemoryOnly(argexp->type) && (arg->isSlice() || arg->isNull())) {
     LLValue *alloc = DtoAlloca(argexp->type, ".tmp_arg");
     auto vv = new DVarValue(argexp->type, alloc);
     DtoAssign(argexp->loc, vv, arg);
