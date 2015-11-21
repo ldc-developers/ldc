@@ -244,34 +244,21 @@ static void LLVM_D_BuildRuntimeModule() {
   //////////////////////////////////////////////////////////////////////////////
 
   // Construct some attribute lists used below (possibly multiple times)
-  llvm::AttributeSet NoAttrs,
-      Attr_NoAlias =
-          NoAttrs.addAttribute(gIR->context(), 0, llvm::Attribute::NoAlias),
-      Attr_NoUnwind =
-          NoAttrs.addAttribute(gIR->context(), ~0U, llvm::Attribute::NoUnwind),
-      Attr_ReadOnly =
-          NoAttrs.addAttribute(gIR->context(), ~0U, llvm::Attribute::ReadOnly),
-      Attr_ReadOnly_NoUnwind = Attr_ReadOnly.addAttribute(
-          gIR->context(), ~0U, llvm::Attribute::NoUnwind),
-      Attr_ReadOnly_1_NoCapture = Attr_ReadOnly.addAttribute(
-          gIR->context(), 1, llvm::Attribute::NoCapture),
-      Attr_ReadOnly_1_3_NoCapture = Attr_ReadOnly_1_NoCapture.addAttribute(
-          gIR->context(), 3, llvm::Attribute::NoCapture),
-      Attr_ReadOnly_NoUnwind_1_NoCapture =
-          Attr_ReadOnly_1_NoCapture.addAttribute(gIR->context(), ~0U,
-                                                 llvm::Attribute::NoUnwind),
-      Attr_ReadNone =
-          NoAttrs.addAttribute(gIR->context(), ~0U, llvm::Attribute::ReadNone),
-      Attr_1_NoCapture =
-          NoAttrs.addAttribute(gIR->context(), 1, llvm::Attribute::NoCapture),
-      Attr_NoAlias_1_NoCapture = Attr_1_NoCapture.addAttribute(
-          gIR->context(), 0, llvm::Attribute::NoAlias),
-      Attr_1_2_NoCapture = Attr_1_NoCapture.addAttribute(
-          gIR->context(), 2, llvm::Attribute::NoCapture),
-      Attr_1_3_NoCapture = Attr_1_NoCapture.addAttribute(
-          gIR->context(), 3, llvm::Attribute::NoCapture),
-      Attr_1_4_NoCapture = Attr_1_NoCapture.addAttribute(
-          gIR->context(), 4, llvm::Attribute::NoCapture);
+  AttrSet NoAttrs, Attr_NoAlias(NoAttrs, 0, llvm::Attribute::NoAlias),
+      Attr_NoUnwind(NoAttrs, ~0U, llvm::Attribute::NoUnwind),
+      Attr_ReadOnly(NoAttrs, ~0U, llvm::Attribute::ReadOnly),
+      Attr_ReadOnly_NoUnwind(Attr_ReadOnly, ~0U, llvm::Attribute::NoUnwind),
+      Attr_ReadOnly_1_NoCapture(Attr_ReadOnly, 1, llvm::Attribute::NoCapture),
+      Attr_ReadOnly_1_3_NoCapture(Attr_ReadOnly_1_NoCapture, 3,
+                                  llvm::Attribute::NoCapture),
+      Attr_ReadOnly_NoUnwind_1_NoCapture(Attr_ReadOnly_1_NoCapture, ~0U,
+                                         llvm::Attribute::NoUnwind),
+      Attr_ReadNone(NoAttrs, ~0U, llvm::Attribute::ReadNone),
+      Attr_1_NoCapture(NoAttrs, 1, llvm::Attribute::NoCapture),
+      Attr_NoAlias_1_NoCapture(Attr_1_NoCapture, 0, llvm::Attribute::NoAlias),
+      Attr_1_2_NoCapture(Attr_1_NoCapture, 2, llvm::Attribute::NoCapture),
+      Attr_1_3_NoCapture(Attr_1_NoCapture, 3, llvm::Attribute::NoCapture),
+      Attr_1_4_NoCapture(Attr_1_NoCapture, 4, llvm::Attribute::NoCapture);
 
   //////////////////////////////////////////////////////////////////////////////
   //////////////////////////////////////////////////////////////////////////////
