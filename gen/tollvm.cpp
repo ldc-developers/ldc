@@ -633,12 +633,6 @@ size_t getTypeBitSize(LLType *t) { return gDataLayout->getTypeSizeInBits(t); }
 
 size_t getTypeStoreSize(LLType *t) { return gDataLayout->getTypeStoreSize(t); }
 
-size_t getTypePaddedSize(LLType *t) {
-  size_t sz = gDataLayout->getTypeAllocSize(t);
-  // Logger::cout() << "abi type size of: " << *t << " == " << sz << '\n';
-  return sz;
-}
-
 size_t getTypeAllocSize(LLType *t) { return gDataLayout->getTypeAllocSize(t); }
 
 unsigned int getABITypeAlign(LLType *t) {

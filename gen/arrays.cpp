@@ -119,7 +119,7 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
   LOG_SCOPE;
 
   LLValue *value = dvalue->getRVal();
-  LLValue *elementSize = DtoConstSize_t(getTypePaddedSize(value->getType()));
+  LLValue *elementSize = DtoConstSize_t(getTypeAllocSize(value->getType()));
 
   // lets first optimize all zero/constant i8 initializations down to a memset.
   // this simplifies codegen later on as llvm null's have no address!
@@ -272,7 +272,7 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
     if (!needsDestruction && !needsPostblit) {
       // fast version
       LLValue *elemSize =
-          DtoConstSize_t(getTypePaddedSize(DtoMemType(elemType)));
+          DtoConstSize_t(getTypeAllocSize(DtoMemType(elemType)));
       LLValue *lhsSize = gIR->ir->CreateMul(elemSize, lhsLength);
 
       if (rhs->isNull()) {
@@ -308,10 +308,10 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
     if (!needsDestruction && !needsPostblit) {
       // fast version
       LLValue *elemSize = DtoConstSize_t(
-          getTypePaddedSize(realLhsPtr->getType()->getContainedType(0)));
+          getTypeAllocSize(realLhsPtr->getType()->getContainedType(0)));
       LLValue *lhsSize = gIR->ir->CreateMul(elemSize, lhsLength);
       LLType *rhsType = DtoMemType(t2);
-      LLValue *rhsSize = DtoConstSize_t(getTypePaddedSize(rhsType));
+      LLValue *rhsSize = DtoConstSize_t(getTypeAllocSize(rhsType));
       LLValue *actualPtr = DtoBitCast(lhsPtr, rhsType->getPointerTo());
       LLValue *actualLength = gIR->ir->CreateExactUDiv(lhsSize, rhsSize);
       DtoArrayInit(loc, actualPtr, actualLength, rhs, op);
@@ -565,7 +565,7 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
                                            constarr, ".arrayliteral");
       gvar->setUnnamedAddr(true);
       DtoMemCpy(dstMem, gvar,
-                DtoConstSize_t(getTypePaddedSize(constarr->getType())));
+                DtoConstSize_t(getTypeAllocSize(constarr->getType())));
     }
   } else {
     // Store the elements one by one.
@@ -974,8 +974,8 @@ LLValue *DtoArrayCastLength(Loc &loc, LLValue *len, LLType *elemty,
   assert(elemty);
   assert(newelemty);
 
-  size_t esz = getTypePaddedSize(elemty);
-  size_t nsz = getTypePaddedSize(newelemty);
+  size_t esz = getTypeAllocSize(elemty);
+  size_t nsz = getTypeAllocSize(newelemty);
   if (esz == nsz) {
     return len;
   }

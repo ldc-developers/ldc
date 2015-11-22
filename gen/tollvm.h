@@ -135,7 +135,6 @@ LLConstant *getNullValue(LLType *t);
 // type sizes
 size_t getTypeBitSize(LLType *t);
 size_t getTypeStoreSize(LLType *t);
-size_t getTypePaddedSize(LLType *t);
 size_t getTypeAllocSize(LLType *t);
 
 // type alignments
