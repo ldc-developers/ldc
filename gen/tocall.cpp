@@ -126,7 +126,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
 
     AttrBuilder initialAttrs;
     if (passByVal) {
-      initialAttrs.add(LLAttribute::ByVal);
+      initialAttrs.addByVal(DtoAlignment(argType));
     } else {
       initialAttrs.add(DtoShouldExtend(argType));
     }

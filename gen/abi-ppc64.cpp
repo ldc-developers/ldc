@@ -71,7 +71,10 @@ struct PPC64TargetABI : TargetABI {
 
         // the copy is treated as a local variable of the callee
         // hence add the NoAlias and NoCapture attributes
-        arg.attrs.clear().add(LLAttribute::NoAlias).add(LLAttribute::NoCapture);
+        arg.attrs.clear()
+            .add(LLAttribute::NoAlias)
+            .add(LLAttribute::NoCapture)
+            .addAlignment(byvalRewrite.alignment(arg.type));
       }
     }
   }

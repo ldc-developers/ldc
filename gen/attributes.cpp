@@ -42,6 +42,19 @@ AttrBuilder &AttrBuilder::merge(const AttrBuilder &other) {
   return *this;
 }
 
+AttrBuilder &AttrBuilder::addAlignment(unsigned alignment) {
+  builder.addAlignmentAttr(alignment);
+  return *this;
+}
+
+AttrBuilder &AttrBuilder::addByVal(unsigned alignment) {
+  builder.addAttribute(LLAttribute::ByVal);
+  if (alignment != 0) {
+    builder.addAlignmentAttr(alignment);
+  }
+  return *this;
+}
+
 
 AttrSet::AttrSet(const AttrSet &base, unsigned index, LLAttribute attribute)
     : set(base.set.addAttribute(gIR->context(), index, attribute)) {}

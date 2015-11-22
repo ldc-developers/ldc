@@ -190,9 +190,10 @@ struct IntegerRewrite : ABIRewrite {
  * pass an explicit pointer; the address is implicit.
  */
 struct ExplicitByvalRewrite : ABIRewrite {
-  const size_t alignment;
+  const unsigned minAlignment;
 
-  explicit ExplicitByvalRewrite(size_t alignment = 16) : alignment(alignment) {}
+  explicit ExplicitByvalRewrite(unsigned minAlignment = 16)
+      : minAlignment(minAlignment) {}
 
   LLValue *get(Type *dty, LLValue *v) override {
     return DtoLoad(v, ".ExplicitByvalRewrite_getResult");
@@ -203,20 +204,27 @@ struct ExplicitByvalRewrite : ABIRewrite {
   }
 
   LLValue *put(DValue *v) override {
-    if (DtoIsInMemoryOnly(v->getType())) {
+    Type *dty = v->getType();
+    const unsigned align = alignment(dty);
+
+    if (DtoIsInMemoryOnly(dty)) {
       LLValue *originalPointer = v->getRVal();
       LLType *type = originalPointer->getType()->getPointerElementType();
       LLValue *copyForCallee =
-          DtoRawAlloca(type, alignment, ".ExplicitByvalRewrite_putResult");
+          DtoRawAlloca(type, align, ".ExplicitByvalRewrite_putResult");
       DtoMemCpy(copyForCallee, originalPointer);
       return copyForCallee;
     }
 
-    return DtoAllocaDump(v->getRVal(), alignment,
+    return DtoAllocaDump(v->getRVal(), align,
                          ".ExplicitByvalRewrite_putResult");
   }
 
   LLType *type(Type *dty, LLType *t) override { return DtoPtrToType(dty); }
+
+  unsigned alignment(Type *dty) const {
+    return std::max(minAlignment, DtoAlignment(dty));
+  }
 };
 
 #endif
