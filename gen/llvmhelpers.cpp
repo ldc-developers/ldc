@@ -308,7 +308,7 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       // time as to not emit an invalid (overlapping) memcpy on trivial
       // struct self-assignments like 'A a; a = a;'.
       if (src != dst) {
-        DtoAggrCopy(dst, src);
+        DtoMemCpy(dst, src);
       }
     }
   } else if (t->ty == Tarray || t->ty == Tsarray) {

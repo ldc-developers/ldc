@@ -60,7 +60,7 @@ void ABIRewrite::storeToMemory(LLValue *rval, LLValue *address) {
     if (getTypeStoreSize(rvalType) > getTypeAllocSize(pointeeType)) {
       // not enough allocated memory
       LLValue *paddedDump = DtoAllocaDump(rval, 0, ".storeToMemory_paddedDump");
-      DtoAggrCopy(address, paddedDump);
+      DtoMemCpy(address, paddedDump);
       return;
     }
 

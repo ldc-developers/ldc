@@ -199,7 +199,7 @@ struct ExplicitByvalRewrite : ABIRewrite {
   }
 
   void getL(Type *dty, LLValue *v, LLValue *lval) override {
-    DtoAggrCopy(lval, v);
+    DtoMemCpy(lval, v);
   }
 
   LLValue *put(DValue *v) override {
@@ -208,7 +208,7 @@ struct ExplicitByvalRewrite : ABIRewrite {
       LLType *type = originalPointer->getType()->getPointerElementType();
       LLValue *copyForCallee =
           DtoRawAlloca(type, alignment, ".ExplicitByvalRewrite_putResult");
-      DtoAggrCopy(copyForCallee, originalPointer);
+      DtoMemCpy(copyForCallee, originalPointer);
       return copyForCallee;
     }
 

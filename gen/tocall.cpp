@@ -264,7 +264,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *pAp = toElem((*e->arguments)[0])->getLVal(); // va_list*
     // variadic extern(D) function with implicit _argptr?
     if (LLValue *pArgptr = p->func()->_argptr) {
-      DtoStore(DtoLoad(pArgptr), pAp); // ap = _argptr
+      DtoMemCpy(pAp, pArgptr); // ap = _argptr
       result = new DImValue(e->type, pAp);
     } else {
       LLValue *vaStartArg = gABI->prepareVaStart(pAp);
