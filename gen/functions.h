@@ -25,7 +25,6 @@ class Parameter;
 class Type;
 namespace llvm {
 class FunctionType;
-class Value;
 }
 
 llvm::FunctionType *DtoFunctionType(Type *t, IrFuncTy &irFty, Type *thistype,

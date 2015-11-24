@@ -1279,7 +1279,7 @@ int main(int argc, char **argv) {
     emitJson(modules);
   }
 
-  LLVM_D_FreeRuntime();
+  freeRuntime();
   llvm::llvm_shutdown();
 
   if (global.errors) {

@@ -23,14 +23,13 @@ class Module;
 struct Loc;
 
 // D runtime support helpers
+bool initRuntime();
+void freeRuntime();
 
-bool LLVM_D_InitRuntime();
-void LLVM_D_FreeRuntime();
-
-llvm::Function *LLVM_D_GetRuntimeFunction(const Loc &loc, llvm::Module &target,
+llvm::Function *getRuntimeFunction(const Loc &loc, llvm::Module &target,
                                           const char *name);
 
 llvm::GlobalVariable *
-LLVM_D_GetRuntimeGlobal(const Loc &loc, llvm::Module &target, const char *name);
+getRuntimeGlobal(const Loc &loc, llvm::Module &target, const char *name);
 
 #endif // LDC_GEN_RUNTIME_H

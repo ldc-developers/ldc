@@ -97,7 +97,7 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   // default allocator
   else {
     llvm::Function *fn =
-        LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_newclass");
+        getRuntimeFunction(loc, gIR->module, "_d_newclass");
     LLConstant *ci = DtoBitCast(getIrAggr(tc->sym)->getClassInfoSymbol(),
                                 DtoType(Type::typeinfoclass->type));
     mem =
@@ -186,7 +186,7 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
 void DtoFinalizeClass(Loc &loc, LLValue *inst) {
   // get runtime function
   llvm::Function *fn =
-      LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_callfinalizer");
+      getRuntimeFunction(loc, gIR->module, "_d_callfinalizer");
 
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(inst, fn->getFunctionType()->getParamType(0)), "");
@@ -330,7 +330,7 @@ DValue *DtoDynamicCastObject(Loc &loc, DValue *val, Type *_to) {
   DtoResolveClass(Type::typeinfoclass);
 
   llvm::Function *func =
-      LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_dynamic_cast");
+      getRuntimeFunction(loc, gIR->module, "_d_dynamic_cast");
   LLFunctionType *funcTy = func->getFunctionType();
 
   // Object o
@@ -368,7 +368,7 @@ DValue *DtoDynamicCastInterface(Loc &loc, DValue *val, Type *_to) {
   DtoResolveClass(Type::typeinfoclass);
 
   llvm::Function *func =
-      LLVM_D_GetRuntimeFunction(loc, gIR->module, "_d_interface_cast");
+      getRuntimeFunction(loc, gIR->module, "_d_interface_cast");
   LLFunctionType *funcTy = func->getFunctionType();
 
   // void* p
