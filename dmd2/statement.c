@@ -5117,6 +5117,7 @@ Statement *GotoStatement::semantic(Scope *sc)
 
 bool GotoStatement::checkLabel()
 {
+    int error_msg;
     if (!label->statement)
     {
         error("label '%s' is undefined", label->toChars());
@@ -5140,10 +5141,11 @@ bool GotoStatement::checkLabel()
     }
 
 #if !IN_LLVM
-    if (label->statement->tf != tf)
+    error_msg = (label->statement->tf != tf);
 #else
-    if (label->statement && label->statement->tf != tf)
+    error_msg = (label->statement && label->statement->tf != tf);
 #endif
+    if (error_msg)
     {
         error("cannot goto in or out of finally block");
         return true;
