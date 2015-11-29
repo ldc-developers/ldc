@@ -940,29 +940,30 @@ else
 
 // We do not want to depend on __tls_get_addr for non-Shared builds to support
 // linking against a static C runtime.
-version (Shared) {} else version (linux)
-{
-    version (X86) version = StaticX86;
-    version (X86_64) version = StaticX86_64;
-}
+version (X86)    version = X86_Any;
+version (X86_64) version = X86_Any;
+version (Shared) {} else version (linux) version (X86_Any)
+    version = Static_Linux_X86_Any;
 
 void[] getTLSRange(size_t mod, size_t sz)
 {
-    // It is unclear whether aligning the area down to the next double-world
-    // is really necessary and if so, on what systems, but at least some
-    // implementations seem to do it, and the one extra word to scan can hardly
-    // hurt.
-    version (StaticX86)
+    version (Static_Linux_X86_Any)
     {
-        static void* endOfBlock() { asm { naked; mov EAX, GS:[0]; ret; } }
-        immutable aligned = (sz + 7) & ~7;
-        return (endOfBlock() - aligned)[0 .. aligned];
-    }
-    else version (StaticX86_64)
-    {
-        static void* endOfBlock() { asm { naked; mov RAX, FS:[0]; ret; } }
-        immutable aligned = (sz + 15) & ~15;
-        return (endOfBlock() - aligned)[0 .. aligned];
+        version (X86)
+            static void* endOfBlock() { asm { naked; mov EAX, GS:[0]; ret; } }
+        else version (X86_64)
+            static void* endOfBlock() { asm { naked; mov RAX, FS:[0]; ret; } }
+
+        // FIXME: It is unclear whether aligning the area down to the next
+        // double-word is necessary and if so, on what systems, but at least
+        // some implementations seem to do it.
+        version (none)
+        {
+            immutable mask = (2 * size_t.sizeof) - 1;
+            sz = (sz + mask) & ~mask;
+        }
+
+        return (endOfBlock() - sz)[0 .. sz];
     }
     else
     {
