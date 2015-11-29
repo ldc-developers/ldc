@@ -15,6 +15,7 @@
 #include "mtype.h"
 #include "declaration.h"
 #include "aggregate.h"
+#include "id.h"
 
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -34,6 +35,7 @@
 struct Win64TargetABI : TargetABI {
   ExplicitByvalRewrite byvalRewrite;
   IntegerRewrite integerRewrite;
+  MSVCLongDoubleRewrite longDoubleRewrite;
 
   bool returnInArg(TypeFunction *tf) override;
 
@@ -129,14 +131,12 @@ void Win64TargetABI::rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) {
 }
 
 void Win64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {
-  LLType *originalLType = arg.ltype;
   Type *t = arg.type->toBasetype();
 
   if (isPassedWithByvalSemantics(t)) {
     // these types are passed byval:
     // the caller allocates a copy and then passes a pointer to the copy
     arg.rewrite = &byvalRewrite;
-    arg.ltype = byvalRewrite.type(arg.type, arg.ltype);
 
     // the copy is treated as a local variable of the callee
     // hence add the NoAlias and NoCapture attributes
@@ -144,15 +144,22 @@ void Win64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {
         .add(LLAttribute::NoAlias)
         .add(LLAttribute::NoCapture)
         .addAlignment(byvalRewrite.alignment(arg.type));
+  } else if (t->ty == Tstruct &&
+             static_cast<TypeStruct *>(t)->sym->ident == Id::__c_long_double) {
+    arg.rewrite = &longDoubleRewrite;
   } else if (isAggregate(t) && canRewriteAsInt(t) &&
-             !IntegerRewrite::isObsoleteFor(originalLType)) {
+             !IntegerRewrite::isObsoleteFor(arg.ltype)) {
     arg.rewrite = &integerRewrite;
-    arg.ltype = integerRewrite.type(arg.type, arg.ltype);
   }
 
-  IF_LOG if (arg.rewrite) {
-    Logger::println("Rewriting argument type %s", t->toChars());
-    LOG_SCOPE;
-    Logger::cout() << *originalLType << " => " << *arg.ltype << '\n';
+  if (arg.rewrite) {
+    LLType *originalLType = arg.ltype;
+    arg.ltype = arg.rewrite->type(arg.type, arg.ltype);
+
+    IF_LOG {
+      Logger::println("Rewriting argument type %s", t->toChars());
+      LOG_SCOPE;
+      Logger::cout() << *originalLType << " => " << *arg.ltype << '\n';
+    }
   }
 }
