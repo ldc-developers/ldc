@@ -86,7 +86,7 @@ enum EXCEPTION_UNWINDING          = 0x02;
 
 enum EH_MAGIC_NUMBER1             = 0x19930520;
 
-extern(C) void _d_throw_exception(Throwable e)
+extern(C) void _d_throw_exception(Object e)
 {
     if (e is null)
         fatalerror("Cannot throw null exception");
@@ -101,7 +101,7 @@ extern(C) void _d_throw_exception(Throwable e)
         if (!old_terminate_handler)
             old_terminate_handler = set_terminate(&msvc_eh_terminate);
     }
-    exceptionStack.push(e);
+    exceptionStack.push(cast(Throwable) e);
 
     ULONG_PTR[3] ExceptionInformation;
     ExceptionInformation[0] = EH_MAGIC_NUMBER1;
@@ -173,11 +173,11 @@ CatchableType* getCatchableType(TypeInfo_Class ti)
 }
 
 ///////////////////////////////////////////////////////////////
-extern(C) void _d_eh_enter_catch(Throwable* pe)
+extern(C) Object _d_eh_enter_catch(void* ptr)
 {
-    if (!pe)
-        return; // null for "catch all" in scope(failure), will rethrow
-    Throwable e = *pe;
+    if (!ptr)
+        return null; // null for "catch all" in scope(failure), will rethrow
+    Throwable e = *(cast(Throwable*) ptr);
 
     while(exceptionStack.length > 0)
     {
@@ -196,6 +196,8 @@ extern(C) void _d_eh_enter_catch(Throwable* pe)
         t.next = e.next;
         e.next = t;
     }
+
+    return e;
 }
 
 alias terminate_handler = void function();

@@ -352,7 +352,7 @@ void _d_throw_exception(Object e)
 
 /// Called by our compiler-generate code to resume unwinding after a finally
 /// block (or dtor destruction block) has been run.
-void _d_eh_resume_unwind(Object e)
+void _d_eh_resume_unwind(void* ptr)
 {
     debug(EH_personality)
     {
@@ -367,7 +367,7 @@ void _d_eh_resume_unwind(Object e)
     ExceptionRecord.ExceptionFlags = EXCEPTION_NONCONTINUABLE;
     ExceptionRecord.ExceptionAddress = &_d_eh_resume_unwind;
     ExceptionRecord.NumberParameters = 1;
-    ExceptionRecord.ExceptionInformation[0] = cast(ULONG_PTR) cast(void*) e;
+    ExceptionRecord.ExceptionInformation[0] = cast(ULONG_PTR) ptr;
 
     // Raise exception
     RtlRaiseException(&ExceptionRecord);
@@ -376,8 +376,8 @@ void _d_eh_resume_unwind(Object e)
     fatalerror("_d_eh_resume_unwind: RtlRaiseException failed");
 }
 
-Object _d_eh_enter_catch(Object e)
+Object _d_eh_enter_catch(void* e)
 {
     popCleanupBlockRecord();
-    return e;
+    return cast(Object) e;
 }

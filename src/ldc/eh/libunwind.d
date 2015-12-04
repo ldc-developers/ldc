@@ -476,8 +476,10 @@ void _d_throw_exception(Object e)
 
 /// Called by our compiler-generate code to resume unwinding after a finally
 /// block (or dtor destruction block) has been run.
-void _d_eh_resume_unwind(_d_exception* exception_struct)
+void _d_eh_resume_unwind(void* ptr)
 {
+    auto exception_struct = cast(_d_exception*) ptr;
+
     debug(EH_personality)
     {
         printf("= Returning from cleanup block for %p (struct at %p)\n",
@@ -493,7 +495,7 @@ Object _d_eh_destroy_exception_struct(void* ptr)
     if (ptr == null)
         return null;
 
-    auto exception_struct = cast(_d_exception*)ptr;
+    auto exception_struct = cast(_d_exception*) ptr;
     auto obj = exception_struct.exception_object;
     ExceptionStructPool.free(exception_struct);
 
@@ -512,9 +514,9 @@ Object _d_eh_destroy_exception_struct(void* ptr)
     return obj;
 }
 
-Object _d_eh_enter_catch(_d_exception* exception_struct)
+Object _d_eh_enter_catch(void* ptr)
 {
-    auto obj = _d_eh_destroy_exception_struct(exception_struct);
+    auto obj = _d_eh_destroy_exception_struct(cast(_d_exception*) ptr);
     popCleanupBlockRecord();
     return obj;
 }
