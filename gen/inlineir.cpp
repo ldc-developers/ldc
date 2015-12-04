@@ -80,7 +80,9 @@ llvm::Function *DtoInlineIRFunction(FuncDeclaration *fdecl) {
           stream.str().c_str());
   }
 
-#if LDC_LLVM_VER >= 306
+#if LDC_LLVM_VER >= 308
+  llvm::Linker(gIR->module).linkInModule(*m);
+#elif LDC_LLVM_VER >= 306
   llvm::Linker(&gIR->module).linkInModule(m.get());
 #else
   std::string errstr2 = "";
