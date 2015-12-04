@@ -40,7 +40,13 @@ Do not forget to make sure all the submodules are up to date:
     $ git submodule update --init
 
 Some Linux distributions are also packaging a recent version of LDC,
-so building it manually might not be necessary.
+so building it manually might not be necessary. 
+
+On Mac OS X, you can run 
+
+    brew install ldc
+    
+and homebrew will install LDC for you.
 
 
 Contact
