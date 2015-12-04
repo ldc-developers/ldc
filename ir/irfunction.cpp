@@ -425,7 +425,7 @@ llvm::BasicBlock *IrFunction::getOrCreateResumeUnwindBlock() {
 
     llvm::Function *resumeFn =
         getRuntimeFunction(Loc(), gIR->module, "_d_eh_resume_unwind");
-    gIR->ir->CreateCall(resumeFn, gIR->ir->CreateLoad(getOrCreateEhPtrSlot()));
+    gIR->ir->CreateCall(resumeFn, DtoLoad(getOrCreateEhPtrSlot()));
     gIR->ir->CreateUnreachable();
 
     gIR->scope() = IRScope(oldBB);

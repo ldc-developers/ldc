@@ -746,8 +746,8 @@ public:
 
       const auto enterCatchFn =
           getRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
-      auto exceptionStruct = DtoLoad(irs->func()->getOrCreateEhPtrSlot());
-      auto throwableObj = irs->ir->CreateCall(enterCatchFn, exceptionStruct);
+      auto ptr = DtoLoad(irs->func()->getOrCreateEhPtrSlot());
+      auto throwableObj = irs->ir->CreateCall(enterCatchFn, ptr);
 
       // For catches that use the Throwable object, create storage for it.
       // We will set it in the code that branches from the landing pads
@@ -828,7 +828,7 @@ public:
         getRuntimeFunction(stmt->loc, irs->module, "_d_throw_exception");
     LLValue *arg =
         DtoBitCast(e->getRVal(), fn->getFunctionType()->getParamType(0));
-    ;
+
     irs->CreateCallOrInvoke(fn, arg);
     irs->ir->CreateUnreachable();
 

@@ -634,10 +634,10 @@ static void buildRuntimeModule() {
     }
   }
 
-  // void _d_eh_resume_unwind(ptr exc_struct)
+  // void _d_eh_resume_unwind(ptr)
   createFwdDecl(LINKc, voidTy, {"_d_eh_resume_unwind"}, {voidPtrTy});
 
-  // Object _d_eh_enter_catch(ptr exc_struct)
+  // Object _d_eh_enter_catch(ptr)
   createFwdDecl(LINKc, objectTy, {"_d_eh_enter_catch"}, {voidPtrTy}, {},
                 Attr_NoUnwind);
 
