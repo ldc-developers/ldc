@@ -81,7 +81,11 @@ llvm::Function *DtoInlineIRFunction(FuncDeclaration *fdecl) {
   }
 
 #if LDC_LLVM_VER >= 308
-  llvm::Linker(gIR->module).linkInModule(*m);
+  auto handler = [](const llvm::DiagnosticInfo &DI) {
+    if (auto h = gIR->context().getDiagnosticHandler())
+      h(DI, &gIR->context());
+  };
+  llvm::Linker(gIR->module, handler).linkInModule(*m);
 #elif LDC_LLVM_VER >= 306
   llvm::Linker(&gIR->module).linkInModule(m.get());
 #else
