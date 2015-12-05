@@ -202,8 +202,10 @@ extern(C) Object _d_eh_enter_catch(void* ptr)
 
 alias terminate_handler = void function();
 
-extern(C) int __uncaught_exceptions();
-extern(C) int __vcrt_getptd();
+extern(C) void** __current_exception();
+extern(C) void** __current_exception_context();
+extern(C) int* __processing_throw();
+
 extern(C) terminate_handler set_terminate(terminate_handler new_handler);
 
 terminate_handler old_terminate_handler; // explicitely per thread
@@ -283,8 +285,8 @@ void msvc_eh_terminate() nothrow
 
         // restore ptd->__ProcessingThrow
         push EAX;
-        call __vcrt_getptd;
-        pop [EAX+0x18];
+        call __processing_throw;
+        pop [EAX];
 
         // undo one level of exception frames from terminate()
         mov EAX,FS:[0];
