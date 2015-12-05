@@ -157,7 +157,7 @@ version (Windows)
         // mention of libcmt (non-debug) conflicts with the implicit
         // libcmtd (debug) link.
     }
-    version (CRuntime_DigitalMars)
+    else version (CRuntime_DigitalMars)
     {
         pragma(lib, "snn.lib");
     }
