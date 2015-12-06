@@ -15,7 +15,6 @@
 #include "mtype.h"
 #include "declaration.h"
 #include "aggregate.h"
-#include "id.h"
 
 #include "gen/irstate.h"
 #include "gen/llvm.h"
@@ -34,49 +33,51 @@
 
 struct Win64TargetABI : TargetABI {
 private:
+  const bool isMSVC;
   ExplicitByvalRewrite byvalRewrite;
   IntegerRewrite integerRewrite;
-  MSVCLongDoubleRewrite longDoubleRewrite;
 
-  static bool isMagicCppLongDoubleStruct(Type *t) {
-    return t->ty == Tstruct &&
-           static_cast<TypeStruct *>(t)->sym->ident == Id::__c_long_double;
-  }
-
-  static bool realIs80bits() {
-    return !global.params.targetTriple.isWindowsMSVCEnvironment();
-  }
+  bool realIs80bits() const { return !isMSVC; }
 
   // Returns true if the D type is passed byval (the callee getting a pointer
   // to a dedicated hidden copy).
-  static bool isPassedWithByvalSemantics(Type *t) {
+  bool isPassedWithByvalSemantics(Type *t) const {
     return
         // * aggregates which can NOT be rewritten as integers
-        //   (size > 64 bits or not a power of 2)
+        //   (size > 8 bytes or not a power of 2)
         (isAggregate(t) && !canRewriteAsInt(t)) ||
         // * 80-bit real and ireal
         (realIs80bits() && (t->ty == Tfloat80 || t->ty == Timaginary80));
   }
 
 public:
+  Win64TargetABI()
+      : isMSVC(global.params.targetTriple.isWindowsMSVCEnvironment()) {}
+
   bool returnInArg(TypeFunction *tf) override {
-    if (tf->isref) {
+    if (tf->isref)
       return false;
-    }
 
     Type *rt = tf->next->toBasetype();
 
-    // * let LLVM return 80-bit real/ireal on the x87 stack, for DMD compliance
-    if (realIs80bits() && (rt->ty == Tfloat80 || rt->ty == Timaginary80)) {
+    // let LLVM return
+    // * magic C++ structs directly as LL aggregate with a single i32/double
+    //   element, which LLVM handles as if it was a scalar
+    // * 80-bit real/ireal on the x87 stack, for DMD inline asm compliance
+    if (isMagicCppStruct(rt) ||
+        (realIs80bits() && (rt->ty == Tfloat80 || rt->ty == Timaginary80)))
       return false;
-    }
 
-    // * all POD types <= 64 bits and of a size that is a power of 2
-    //   (incl. 2x32-bit cfloat) are returned in a register (RAX, or
-    //   XMM0 for single float/ifloat/double/idouble)
-    // * all other types are returned via struct-return (sret)
-    return (rt->ty == Tstruct && !isPOD(rt, tf->linkage)) ||
-           isPassedWithByvalSemantics(rt);
+    // force sret for non-POD structs
+    const bool excludeStructsWithCtor = (isMSVC && tf->linkage == LINKcpp);
+    if (!isPOD(rt, excludeStructsWithCtor))
+      return true;
+
+    // * all POD types of a power-of-2 size <= 8 bytes (incl. 2x32-bit cfloat)
+    //   are returned in a register (RAX, or XMM0 for single float/ifloat/
+    //   double/idouble)
+    // * all other types are returned via sret
+    return isPassedWithByvalSemantics(rt);
   }
 
   bool passByVal(Type *t) override {
@@ -111,7 +112,9 @@ public:
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     Type *t = arg.type->toBasetype();
 
-    if (isPassedWithByvalSemantics(t)) {
+    if (isMagicCppStruct(t)) {
+      // pass directly as LL aggregate
+    } else if (isPassedWithByvalSemantics(t)) {
       // these types are passed byval:
       // the caller allocates a copy and then passes a pointer to the copy
       arg.rewrite = &byvalRewrite;
@@ -122,8 +125,6 @@ public:
           .add(LLAttribute::NoAlias)
           .add(LLAttribute::NoCapture)
           .addAlignment(byvalRewrite.alignment(arg.type));
-    } else if (isMagicCppLongDoubleStruct(t)) {
-      arg.rewrite = &longDoubleRewrite;
     } else if (isAggregate(t) && canRewriteAsInt(t) &&
                !IntegerRewrite::isObsoleteFor(arg.ltype)) {
       arg.rewrite = &integerRewrite;

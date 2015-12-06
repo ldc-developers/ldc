@@ -162,9 +162,9 @@ protected:
   /// ((unsigned) long, long double) for C++ mangling purposes.
   static bool isMagicCppStruct(Type *t);
 
-  /// Returns true if the D struct type is a Plain-Old-Datatype for the given
-  /// linkage.
-  static bool isPOD(Type *t, LINK l);
+  /// Returns true if the D type is a Plain-Old-Datatype, optionally excluding
+  /// structs with constructors from that definition.
+  static bool isPOD(Type *t, bool excludeStructsWithCtor = false);
 
   /// Returns true if the D type can be bit-cast to an integer of the same size.
   static bool canRewriteAsInt(Type *t, bool include64bit = true);

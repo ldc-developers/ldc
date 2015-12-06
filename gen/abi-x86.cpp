@@ -8,7 +8,6 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvm.h"
-#include "id.h"
 #include "mars.h"
 #include "gen/abi-generic.h"
 #include "gen/abi.h"
@@ -23,11 +22,19 @@
 struct X86TargetABI : TargetABI {
   const bool isOSX;
   const bool isMSVC;
+  bool returnStructsInRegs;
   IntegerRewrite integerRewrite;
 
   X86TargetABI()
       : isOSX(global.params.isOSX),
-        isMSVC(global.params.targetTriple.isWindowsMSVCEnvironment()) {}
+        isMSVC(global.params.targetTriple.isWindowsMSVCEnvironment()) {
+    auto os = global.params.targetTriple.getOS();
+    returnStructsInRegs = !(os == llvm::Triple::Linux
+#if LDC_LLVM_VER >= 306
+                            || os == llvm::Triple::NetBSD
+#endif
+                            );
+  }
 
   llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
                                     FuncDeclaration *fdecl = nullptr) override {
@@ -74,67 +81,72 @@ struct X86TargetABI : TargetABI {
       return false;
 
     Type *rt = tf->next->toBasetype();
+    const bool externD = (tf->linkage == LINKd && tf->varargs != 1);
 
-    // non-aggregates are returned directly
-    if (!isAggregate(rt))
+    // non-aggregates and magic C++ structs are returned directly
+    if (!isAggregate(rt) || isMagicCppStruct(rt))
       return false;
 
-    // extern(D): sret exclusively for all structs and static arrays
-    if (tf->linkage == LINKd && tf->varargs != 1)
-      return rt->ty == Tstruct || rt->ty == Tsarray;
-
-    // extern(C) and all others:
-
-    // special cases for structs
-    if (rt->ty == Tstruct) {
-      // no sret for magic C++ structs
-      if (isMagicCppStruct(rt))
+    // complex numbers
+    if (rt->iscomplex()) {
+      // extern(D): let LLVM return them directly as LL aggregates
+      if (externD)
         return false;
-
-      // force sret for non-POD structs
-      if (!isPOD(rt, tf->linkage))
-        return true;
+      // extern(C) and all others:
+      // * cfloat will be rewritten as 64-bit integer and returned in registers
+      // * sret for cdouble and creal
+      return rt->ty != Tcomplex32;
     }
 
-    if (isOSX || isMSVC) {
-      // no sret for remaining aggregates of a power-of-2 size <= 8 bytes
-      return !canRewriteAsInt(rt);
-    }
+    // non-extern(D): some OSs don't return structs in registers at all
+    if (!externD && !returnStructsInRegs)
+      return true;
 
-    return true;
+    // force sret for non-POD structs
+    const bool excludeStructsWithCtor = (isMSVC && tf->linkage == LINKcpp);
+    if (!isPOD(rt, excludeStructsWithCtor))
+      return true;
+
+    // return aggregates of a power-of-2 size <= 8 bytes in register(s),
+    // all others via sret
+    return !canRewriteAsInt(rt);
   }
 
   bool passByVal(Type *t) override {
     // pass all structs and static arrays with the LLVM byval attribute
-    return t->toBasetype()->ty == Tstruct || t->toBasetype()->ty == Tsarray;
+    return DtoIsInMemoryOnly(t);
   }
 
   void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+    const bool externD = (tf->linkage == LINKd && tf->varargs != 1);
+
     // return value:
     if (!fty.ret->byref) {
       Type *rt = tf->next->toBasetype(); // for sret, rt == void
       if (isAggregate(rt) && !isMagicCppStruct(rt) && canRewriteAsInt(rt) &&
+          // don't rewrite cfloat for extern(D)
+          !(externD && rt->ty == Tcomplex32) &&
           !integerRewrite.isObsoleteFor(fty.ret->ltype)) {
         fty.ret->rewrite = &integerRewrite;
         fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
       }
     }
 
-    // extern(D):
-    if (tf->linkage == LINKd && tf->varargs != 1) {
+    // extern(D): try passing an argument in EAX
+    if (externD) {
 
-      // try to pass an implicit argument in a register...
+      // try an implicit argument...
       if (fty.arg_this) {
         Logger::println("Putting 'this' in register");
-        fty.arg_this->attrs.clear().add(LLAttribute::InReg);
+        fty.arg_this->attrs.add(LLAttribute::InReg);
       } else if (fty.arg_nest) {
         Logger::println("Putting context ptr in register");
-        fty.arg_nest->attrs.clear().add(LLAttribute::InReg);
+        fty.arg_nest->attrs.add(LLAttribute::InReg);
       } else if (IrFuncTyArg *sret = fty.arg_sret) {
         Logger::println("Putting sret ptr in register");
         // sret and inreg are incompatible, but the ABI requires the
         // sret parameter to be in EAX in this situation...
-        sret->attrs.add(LLAttribute::InReg).remove(LLAttribute::StructRet);
+        sret->attrs.remove(LLAttribute::StructRet).add(LLAttribute::InReg);
       }
 
       // ... otherwise try the last argument
@@ -149,19 +161,16 @@ struct X86TargetABI : TargetABI {
         Type *lastTy = last->type->toBasetype();
         unsigned sz = lastTy->size();
 
-        if (last->byref) {
-          if (!last->isByVal()) {
-            Logger::println("Putting last (byref) parameter in register");
-            last->attrs.add(LLAttribute::InReg);
-          }
+        if (last->byref && !last->isByVal()) {
+          Logger::println("Putting last (byref) parameter in register");
+          last->attrs.add(LLAttribute::InReg);
         } else if (!lastTy->isfloating() && (sz == 1 || sz == 2 || sz == 4)) {
-          // may have to rewrite the aggregate as integer to make inreg work
-          if ((lastTy->ty == Tstruct || lastTy->ty == Tsarray) &&
-              !integerRewrite.isObsoleteFor(last->ltype)) {
+          // rewrite aggregates as integers to make inreg work
+          if (lastTy->ty == Tstruct || lastTy->ty == Tsarray) {
             last->rewrite = &integerRewrite;
             last->ltype = integerRewrite.type(last->type, last->ltype);
+            // undo byval semantics applied via passByVal() returning true
             last->byref = false;
-            // erase previous attributes
             last->attrs.clear();
           }
           last->attrs.add(LLAttribute::InReg);
@@ -171,7 +180,7 @@ struct X86TargetABI : TargetABI {
       // all other arguments are passed on the stack, don't rewrite
 
       // reverse parameter order
-      if (!fty.args.empty()) {
+      if (fty.args.size() > 1) {
         fty.reverseParams = true;
       }
 
@@ -183,9 +192,8 @@ struct X86TargetABI : TargetABI {
     // Clang does not pass empty structs, while it seems that GCC does,
     // at least on Linux x86. We don't know whether the C compiler will
     // be Clang or GCC, so just assume Clang on OS X and G++ on Linux.
-    if (!isOSX) {
+    if (!isOSX)
       return;
-    }
 
     size_t i = 0;
     while (i < fty.args.size()) {
