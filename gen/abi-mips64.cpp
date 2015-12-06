@@ -21,7 +21,6 @@
 #include "gen/tollvm.h"
 
 struct MIPS64TargetABI : TargetABI {
-  ExplicitByvalRewrite byvalRewrite;
   IntegerRewrite integerRewrite;
   const bool Is64Bit;
 

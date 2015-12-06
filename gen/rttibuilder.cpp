@@ -85,7 +85,7 @@ void RTTIBuilder::push_void_array(llvm::Constant *CI, Type *valtype,
   SET_COMDAT(G, gIR->module);
   G->setAlignment(DtoAlignment(valtype));
 
-  push_void_array(getTypePaddedSize(CI->getType()), G);
+  push_void_array(getTypeAllocSize(CI->getType()), G);
 }
 
 void RTTIBuilder::push_array(llvm::Constant *CI, uint64_t dim, Type *valtype,

@@ -126,7 +126,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
 
     AttrBuilder initialAttrs;
     if (passByVal) {
-      initialAttrs.add(LLAttribute::ByVal);
+      initialAttrs.addByVal(DtoAlignment(argType));
     } else {
       initialAttrs.add(DtoShouldExtend(argType));
     }
@@ -172,7 +172,7 @@ static void addExplicitArguments(std::vector<LLValue *> &args, AttrSet &attrs,
     // Hack around LDC assuming structs and static arrays are in memory:
     // If the function wants a struct, and the argument value is a
     // pointer to a struct, load from it before passing it in.
-    if (isaPointer(llVal) && DtoIsPassedByRef(argType) &&
+    if (isaPointer(llVal) && DtoIsInMemoryOnly(argType) &&
         ((!isVararg && !isaPointer(callableArgType)) ||
          (isVararg && !irArg->byref && !irArg->isByVal()))) {
       Logger::println("Loading struct type for function argument");
@@ -264,7 +264,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *pAp = toElem((*e->arguments)[0])->getLVal(); // va_list*
     // variadic extern(D) function with implicit _argptr?
     if (LLValue *pArgptr = p->func()->_argptr) {
-      DtoStore(DtoLoad(pArgptr), pAp); // ap = _argptr
+      DtoMemCpy(pAp, pArgptr); // ap = _argptr
       result = new DImValue(e->type, pAp);
     } else {
       LLValue *vaStartArg = gABI->prepareVaStart(pAp);
@@ -297,7 +297,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     LLValue *pAp = toElem((*e->arguments)[0])->getLVal(); // va_list*
     LLValue *vaArgArg = gABI->prepareVaArg(pAp);
     LLType *llType = DtoType(e->type);
-    if (DtoIsPassedByRef(e->type)) {
+    if (DtoIsInMemoryOnly(e->type)) {
       llType = getPtrToType(llType);
     }
     result = new DImValue(e->type, p->ir->CreateVAArg(vaArgArg, llType));

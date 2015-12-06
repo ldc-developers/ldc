@@ -34,7 +34,7 @@
 #include "ir/irtypefunction.h"
 #include "ir/irtypestruct.h"
 
-bool DtoIsPassedByRef(Type *type) {
+bool DtoIsInMemoryOnly(Type *type) {
   Type *typ = type->toBasetype();
   TY t = typ->ty;
   return (t == Tstruct || t == Tsarray);
@@ -324,18 +324,23 @@ LLConstant *DtoGEPi(LLConstant *ptr, unsigned i0, unsigned i1) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes) {
+void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align) {
   LLType *VoidPtrTy = getVoidPtrType();
 
   dst = DtoBitCast(dst, VoidPtrTy);
 
-  gIR->ir->CreateMemSet(dst, val, nbytes, 1 /*Align*/, false /*isVolatile*/);
+  gIR->ir->CreateMemSet(dst, val, nbytes, align, false /*isVolatile*/);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void DtoMemSetZero(LLValue *dst, LLValue *nbytes) {
-  DtoMemSet(dst, DtoConstUbyte(0), nbytes);
+void DtoMemSetZero(LLValue *dst, LLValue *nbytes, unsigned align) {
+  DtoMemSet(dst, DtoConstUbyte(0), nbytes, align);
+}
+
+void DtoMemSetZero(LLValue *dst, unsigned align) {
+  uint64_t n = getTypeStoreSize(dst->getType()->getContainedType(0));
+  DtoMemSetZero(dst, DtoConstSize_t(n), align);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -347,6 +352,13 @@ void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align) {
   src = DtoBitCast(src, VoidPtrTy);
 
   gIR->ir->CreateMemCpy(dst, src, nbytes, align, false /*isVolatile*/);
+}
+
+void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding, unsigned align) {
+  LLType *pointee = dst->getType()->getContainedType(0);
+  uint64_t n =
+      withPadding ? getTypeAllocSize(pointee) : getTypeStoreSize(pointee);
+  DtoMemCpy(dst, src, DtoConstSize_t(n), align);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -372,20 +384,6 @@ LLValue *DtoMemCmp(LLValue *lhs, LLValue *rhs, LLValue *nbytes) {
 #else
   return gIR->ir->CreateCall3(fn, lhs, rhs, nbytes);
 #endif
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-void DtoAggrZeroInit(LLValue *v) {
-  uint64_t n = getTypeStoreSize(v->getType()->getContainedType(0));
-  DtoMemSetZero(v, DtoConstSize_t(n));
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-void DtoAggrCopy(LLValue *dst, LLValue *src) {
-  uint64_t n = getTypeStoreSize(dst->getType()->getContainedType(0));
-  DtoMemCpy(dst, src, DtoConstSize_t(n));
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -634,12 +632,6 @@ LLConstant *getNullValue(LLType *t) { return LLConstant::getNullValue(t); }
 size_t getTypeBitSize(LLType *t) { return gDataLayout->getTypeSizeInBits(t); }
 
 size_t getTypeStoreSize(LLType *t) { return gDataLayout->getTypeStoreSize(t); }
-
-size_t getTypePaddedSize(LLType *t) {
-  size_t sz = gDataLayout->getTypeAllocSize(t);
-  // Logger::cout() << "abi type size of: " << *t << " == " << sz << '\n';
-  return sz;
-}
 
 size_t getTypeAllocSize(LLType *t) { return gDataLayout->getTypeAllocSize(t); }
 

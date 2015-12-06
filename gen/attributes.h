@@ -28,6 +28,9 @@ public:
   AttrBuilder &remove(LLAttribute attribute);
   AttrBuilder &merge(const AttrBuilder &other);
 
+  AttrBuilder &addAlignment(unsigned alignment);
+  AttrBuilder &addByVal(unsigned alignment);
+
   operator llvm::AttrBuilder &() { return builder; }
   operator const llvm::AttrBuilder &() const { return builder; }
 };

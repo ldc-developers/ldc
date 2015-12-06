@@ -308,7 +308,7 @@ void DtoAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       // time as to not emit an invalid (overlapping) memcpy on trivial
       // struct self-assignments like 'A a; a = a;'.
       if (src != dst) {
-        DtoAggrCopy(dst, src);
+        DtoMemCpy(dst, src);
       }
     }
   } else if (t->ty == Tarray || t->ty == Tsarray) {
@@ -1346,7 +1346,7 @@ LLValue *makeLValue(Loc &loc, DValue *value) {
   LLValue *valuePointer;
   if (value->isIm()) {
     valuePointer = value->getRVal();
-    needsMemory = !DtoIsPassedByRef(valueType);
+    needsMemory = !DtoIsInMemoryOnly(valueType);
   } else if (value->isVar()) {
     valuePointer = value->getLVal();
     needsMemory = false;
@@ -1533,7 +1533,7 @@ DValue *DtoSymbolAddress(Loc &loc, Type *type, Declaration *decl) {
         assert(type->ty == Tdelegate);
         return new DVarValue(type, getIrValue(vd));
       }
-      if (vd->isRef() || vd->isOut() || DtoIsPassedByRef(vd->type) ||
+      if (vd->isRef() || vd->isOut() || DtoIsInMemoryOnly(vd->type) ||
           llvm::isa<llvm::AllocaInst>(getIrValue(vd))) {
         return new DVarValue(type, vd, getIrValue(vd));
       }

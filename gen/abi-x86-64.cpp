@@ -204,7 +204,7 @@ struct ImplicitByvalRewrite : ABIRewrite {
   }
 
   void getL(Type *dty, LLValue *v, LLValue *lval) override {
-    DtoAggrCopy(lval, v);
+    DtoMemCpy(lval, v);
   }
 
   LLValue *put(DValue *v) override { return getAddressOf(v); }
@@ -284,7 +284,7 @@ void X86_64TargetABI::rewriteArgument(IrFuncTyArg &arg, RegCount &regCount) {
                           << " (" << *originalLType << ")\n";
     arg.rewrite = &byvalRewrite;
     arg.ltype = originalLType->getPointerTo();
-    arg.attrs.add(LLAttribute::ByVal);
+    arg.attrs.addByVal(DtoAlignment(arg.type));
   }
 }
 

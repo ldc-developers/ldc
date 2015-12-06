@@ -28,7 +28,7 @@ static void storeVariable(VarDeclaration *vd, LLValue *dst) {
       isaPointer(value->getType())) {
     // Copy structs and static arrays
     LLValue *mem = DtoGcMalloc(vd->loc, DtoType(vd->type), ".gc_mem");
-    DtoAggrCopy(mem, value);
+    DtoMemCpy(mem, value);
     DtoAlignedStore(mem, dst);
   } else {
     // Store the address into the frame
@@ -521,7 +521,7 @@ void DtoCreateNestedContext(FuncDeclaration *fd) {
           // The parameter value is an alloca'd stack slot.
           // Copy to the nesting frame and leave the alloca for
           // the optimizers to clean up.
-          DtoStore(DtoLoad(parm->value), gep);
+          DtoMemCpy(gep, parm->value);
           gep->takeName(parm->value);
           parm->value = gep;
         }

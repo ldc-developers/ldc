@@ -77,6 +77,12 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       newIrFty.arg_sret = new IrFuncTyArg(
           rt, true,
           AttrBuilder().add(LLAttribute::StructRet).add(LLAttribute::NoAlias));
+      const unsigned alignment = DtoAlignment(rt);
+      if (alignment &&
+          // FIXME: LLVM inliner issues for std.bitmanip and std.uni on Win64
+          !global.params.targetTriple.isOSMSVCRT()) {
+        newIrFty.arg_sret->attrs.addAlignment(alignment);
+      }
       rt = Type::tvoid;
       ++nextLLArgIdx;
     } else {
@@ -147,7 +153,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
         // LLVM ByVal parameters are pointers to a copy in the function
         // parameters stack. The caller needs to provide a pointer to the
         // original argument.
-        attrBuilder.add(LLAttribute::ByVal);
+        attrBuilder.addByVal(DtoAlignment(loweredDType));
         passPointer = true;
       } else {
         // Add sext/zext as needed.
@@ -951,7 +957,7 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
   }
 
   // byval arg, but expr has no storage yet
-  if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isNull())) {
+  if (DtoIsInMemoryOnly(argexp->type) && (arg->isSlice() || arg->isNull())) {
     LLValue *alloc = DtoAlloca(argexp->type, ".tmp_arg");
     auto vv = new DVarValue(argexp->type, alloc);
     DtoAssign(argexp->loc, vv, arg);

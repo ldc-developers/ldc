@@ -140,7 +140,10 @@ void Win64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {
 
     // the copy is treated as a local variable of the callee
     // hence add the NoAlias and NoCapture attributes
-    arg.attrs.clear().add(LLAttribute::NoAlias).add(LLAttribute::NoCapture);
+    arg.attrs.clear()
+        .add(LLAttribute::NoAlias)
+        .add(LLAttribute::NoCapture)
+        .addAlignment(byvalRewrite.alignment(arg.type));
   } else if (isAggregate(t) && canRewriteAsInt(t) &&
              !IntegerRewrite::isObsoleteFor(originalLType)) {
     arg.rewrite = &integerRewrite;
