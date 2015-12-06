@@ -29,11 +29,15 @@ struct X86TargetABI : TargetABI {
       : isOSX(global.params.isOSX),
         isMSVC(global.params.targetTriple.isWindowsMSVCEnvironment()) {}
 
-  llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l) override {
+  llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
+                                    FuncDeclaration *fdecl = nullptr) override {
     switch (l) {
     case LINKc:
-    case LINKcpp:
       return llvm::CallingConv::C;
+    case LINKcpp:
+      return isMSVC && !ft->isVarArg() && fdecl && fdecl->isThis()
+                 ? llvm::CallingConv::X86_ThisCall
+                 : llvm::CallingConv::C;
     case LINKd:
     case LINKdefault:
     case LINKpascal:

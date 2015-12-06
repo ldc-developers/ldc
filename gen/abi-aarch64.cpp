@@ -17,7 +17,8 @@
 #include "gen/abi-aarch64.h"
 
 struct AArch64TargetABI : TargetABI {
-  llvm::CallingConv::ID callingConv(LINK l) {
+  llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
+                                    FuncDeclaration *fdecl = nullptr) override {
     switch (l) {
     case LINKc:
     case LINKcpp:

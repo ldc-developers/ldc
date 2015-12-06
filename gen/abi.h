@@ -26,6 +26,7 @@ class TypeFunction;
 struct IrFuncTy;
 struct IrFuncTyArg;
 class DValue;
+class FuncDeclaration;
 
 namespace llvm {
 class Type;
@@ -81,7 +82,8 @@ struct TargetABI {
 
   /// Returns the LLVM calling convention to be used for the given D linkage
   /// type on the target. Defaults to the C calling convention.
-  virtual llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l) {
+  virtual llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
+                                            FuncDeclaration *fdecl = nullptr) {
     return llvm::CallingConv::C;
   }
 
