@@ -189,37 +189,39 @@ public:
       return;
     }
 
-    if (decl->members && decl->symtab) {
-      DtoResolveStruct(decl);
-      decl->ir.setDefined();
+    if (!(decl->members && decl->symtab)) {
+      return;
+    }
 
-      for (auto m : *decl->members) {
-        m->accept(this);
-      }
+    DtoResolveStruct(decl);
+    decl->ir.setDefined();
 
-      // Define the __initZ symbol.
-      IrAggr *ir = getIrAggr(decl);
-      llvm::GlobalVariable *initZ = ir->getInitSymbol();
-      initZ->setInitializer(ir->getDefaultInit());
-      LinkageWithCOMDAT lwc = DtoLinkage(decl);
-      initZ->setLinkage(lwc.first);
-      if (lwc.second) {
-        SET_COMDAT(initZ, gIR->module);
-      }
+    for (auto m : *decl->members) {
+      m->accept(this);
+    }
 
-      // emit typeinfo
-      DtoTypeInfoOf(decl->type);
+    // Define the __initZ symbol.
+    IrAggr *ir = getIrAggr(decl);
+    llvm::GlobalVariable *initZ = ir->getInitSymbol();
+    initZ->setInitializer(ir->getDefaultInit());
+    LinkageWithCOMDAT lwc = DtoLinkage(decl);
+    initZ->setLinkage(lwc.first);
+    if (lwc.second) {
+      SET_COMDAT(initZ, gIR->module);
+    }
 
-      // Emit __xopEquals/__xopCmp/__xtoHash.
-      if (decl->xeq && decl->xeq != decl->xerreq) {
-        decl->xeq->accept(this);
-      }
-      if (decl->xcmp && decl->xcmp != decl->xerrcmp) {
-        decl->xcmp->accept(this);
-      }
-      if (decl->xhash) {
-        decl->xhash->accept(this);
-      }
+    // emit typeinfo
+    DtoTypeInfoOf(decl->type);
+
+    // Emit __xopEquals/__xopCmp/__xtoHash.
+    if (decl->xeq && decl->xeq != decl->xerreq) {
+      decl->xeq->accept(this);
+    }
+    if (decl->xcmp && decl->xcmp != decl->xerrcmp) {
+      decl->xcmp->accept(this);
+    }
+    if (decl->xhash) {
+      decl->xhash->accept(this);
     }
   }
 

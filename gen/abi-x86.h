@@ -15,6 +15,7 @@
 #define LDC_GEN_ABI_X86_H
 
 struct TargetABI;
+
 TargetABI *getX86TargetABI();
 
 #endif
