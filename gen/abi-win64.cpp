@@ -38,26 +38,9 @@ private:
   IntegerRewrite integerRewrite;
   MSVCLongDoubleRewrite longDoubleRewrite;
 
-  // Returns true if the D type is an aggregate:
-  // * struct
-  // * static/dynamic array
-  // * delegate
-  // * complex number
-  static bool isAggregate(Type *t) {
-    TY ty = t->ty;
-    return ty == Tstruct || ty == Tsarray ||
-           /*ty == Tarray ||*/ ty == Tdelegate || t->iscomplex();
-  }
-
   static bool isMagicCppLongDoubleStruct(Type *t) {
     return t->ty == Tstruct &&
            static_cast<TypeStruct *>(t)->sym->ident == Id::__c_long_double;
-  }
-
-  // Returns true if the D type can be bit-cast to an integer of the same size.
-  static bool canRewriteAsInt(Type *t) {
-    unsigned size = t->size();
-    return size == 1 || size == 2 || size == 4 || size == 8;
   }
 
   static bool realIs80bits() {
@@ -92,8 +75,7 @@ public:
     //   (incl. 2x32-bit cfloat) are returned in a register (RAX, or
     //   XMM0 for single float/ifloat/double/idouble)
     // * all other types are returned via struct-return (sret)
-    return (rt->ty == Tstruct &&
-            !(static_cast<TypeStruct *>(rt))->sym->isPOD()) ||
+    return (rt->ty == Tstruct && !isPOD(rt, tf->linkage)) ||
            isPassedWithByvalSemantics(rt);
   }
 

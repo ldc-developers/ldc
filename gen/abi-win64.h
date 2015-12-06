@@ -15,7 +15,7 @@
 #ifndef __LDC_GEN_ABI_WIN64_H__
 #define __LDC_GEN_ABI_WIN64_H__
 
-#include "gen/abi.h"
+struct TargetABI;
 
 TargetABI *getWin64TargetABI();
 
