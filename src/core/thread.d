@@ -2486,19 +2486,10 @@ else
             import ldc.llvmasm;
 
             // Callee-save registers, according to AAPCS, section 5.1.1.
-            // FIXME: As loads/stores are explicit on ARM, the code generated for
-            // this is horrible. Better write the entire function in ASM.
+            // arm and thumb2 instructions
             size_t[8] regs = void;
-            __asm("str  r4, $0", "=*m", regs.ptr + 0);
-            __asm("str  r5, $0", "=*m", regs.ptr + 1);
-            __asm("str  r6, $0", "=*m", regs.ptr + 2);
-            __asm("str  r7, $0", "=*m", regs.ptr + 3);
-            __asm("str  r8, $0", "=*m", regs.ptr + 4);
-            __asm("str  r9, $0", "=*m", regs.ptr + 5);
-            __asm("str r10, $0", "=*m", regs.ptr + 6);
-            __asm("str r11, $0", "=*m", regs.ptr + 7);
-
-            __asm("str sp, $0", "=*m", &sp);
+            __asm("stm  $0, {r4-r11}", "r", regs.ptr);
+            sp = __asm!(void*)("mov $0, sp", "=r");
         }
         else version (MIPS64)
         {
@@ -3240,7 +3231,7 @@ private void* getStackTop() nothrow
         }
         else version (ARM)
         {
-            return __asm!(void *)("mov $0, r13", "=r");
+            return __asm!(void *)("mov $0, sp", "=r");
         }
         else version (PPC)
         {
