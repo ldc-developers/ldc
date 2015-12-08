@@ -2396,126 +2396,124 @@ else
                 mov sp[RBP], RSP;
             }
         }
-        else version (PPC)
+        else version (LDC)
         {
-            import ldc.llvmasm;
+            version (PPC)
+            {
+                import ldc.llvmasm;
 
-            // Nonvolatile registers, according to:
-            // System V Application Binary Interface
-            // PowerPC Processor Supplement, September 1995
-            size_t[18] regs = void;
-            __asm("std  14, $0", "=*m", regs.ptr +  0);
-            __asm("std  15, $0", "=*m", regs.ptr +  1);
-            __asm("std  16, $0", "=*m", regs.ptr +  2);
-            __asm("std  17, $0", "=*m", regs.ptr +  3);
-            __asm("std  18, $0", "=*m", regs.ptr +  4);
-            __asm("std  19, $0", "=*m", regs.ptr +  5);
-            __asm("std  20, $0", "=*m", regs.ptr +  6);
-            // Work around LLVM bug 21443 (http://llvm.org/bugs/show_bug.cgi?id=21443)
-            // Because we clobber r0 a different register is choosen
-            __asm("std  21, $0", "=*m,~{r0}", regs.ptr +  7);
-            __asm("std  22, $0", "=*m", regs.ptr +  8);
-            __asm("std  23, $0", "=*m", regs.ptr +  9);
-            __asm("std  24, $0", "=*m", regs.ptr + 10);
-            __asm("std  25, $0", "=*m", regs.ptr + 11);
-            __asm("std  26, $0", "=*m", regs.ptr + 12);
-            __asm("std  27, $0", "=*m", regs.ptr + 13);
-            __asm("std  28, $0", "=*m", regs.ptr + 14);
-            __asm("std  29, $0", "=*m", regs.ptr + 15);
-            __asm("std  30, $0", "=*m", regs.ptr + 16);
-            __asm("std  31, $0", "=*m", regs.ptr + 17);
+                // Nonvolatile registers, according to:
+                // System V Application Binary Interface
+                // PowerPC Processor Supplement, September 1995
+                size_t[18] regs = void;
+                __asm("std  14, $0", "=*m", regs.ptr +  0);
+                __asm("std  15, $0", "=*m", regs.ptr +  1);
+                __asm("std  16, $0", "=*m", regs.ptr +  2);
+                __asm("std  17, $0", "=*m", regs.ptr +  3);
+                __asm("std  18, $0", "=*m", regs.ptr +  4);
+                __asm("std  19, $0", "=*m", regs.ptr +  5);
+                __asm("std  20, $0", "=*m", regs.ptr +  6);
+                // Work around LLVM bug 21443 (http://llvm.org/bugs/show_bug.cgi?id=21443)
+                // Because we clobber r0 a different register is choosen
+                __asm("std  21, $0", "=*m,~{r0}", regs.ptr +  7);
+                __asm("std  22, $0", "=*m", regs.ptr +  8);
+                __asm("std  23, $0", "=*m", regs.ptr +  9);
+                __asm("std  24, $0", "=*m", regs.ptr + 10);
+                __asm("std  25, $0", "=*m", regs.ptr + 11);
+                __asm("std  26, $0", "=*m", regs.ptr + 12);
+                __asm("std  27, $0", "=*m", regs.ptr + 13);
+                __asm("std  28, $0", "=*m", regs.ptr + 14);
+                __asm("std  29, $0", "=*m", regs.ptr + 15);
+                __asm("std  30, $0", "=*m", regs.ptr + 16);
+                __asm("std  31, $0", "=*m", regs.ptr + 17);
 
-            __asm("std   1, $0", "=*m", &sp);
-        }
-        else version (PPC64)
-        {
-            import ldc.llvmasm;
+                __asm("std   1, $0", "=*m", &sp);
+            }
+            else version (PPC64)
+            {
+                import ldc.llvmasm;
 
-            // Nonvolatile registers, according to:
-            // ELFv1: 64-bit PowerPC ELF ABI Supplement 1.9, July 2004
-            // ELFv2: Power Architecture, 64-Bit ELV V2 ABI Specification,
-            //        OpenPOWER ABI for Linux Supplement, July 2014
-            size_t[18] regs = void;
-            __asm("std  14, $0", "=*m", regs.ptr +  0);
-            __asm("std  15, $0", "=*m", regs.ptr +  1);
-            __asm("std  16, $0", "=*m", regs.ptr +  2);
-            __asm("std  17, $0", "=*m", regs.ptr +  3);
-            __asm("std  18, $0", "=*m", regs.ptr +  4);
-            __asm("std  19, $0", "=*m", regs.ptr +  5);
-            __asm("std  20, $0", "=*m", regs.ptr +  6);
-            // Work around LLVM bug 21443 (http://llvm.org/bugs/show_bug.cgi?id=21443)
-            // Because we clobber r0 a different register is choosen
-            __asm("std  21, $0", "=*m,~{r0}", regs.ptr +  7);
-            __asm("std  22, $0", "=*m", regs.ptr +  8);
-            __asm("std  23, $0", "=*m", regs.ptr +  9);
-            __asm("std  24, $0", "=*m", regs.ptr + 10);
-            __asm("std  25, $0", "=*m", regs.ptr + 11);
-            __asm("std  26, $0", "=*m", regs.ptr + 12);
-            __asm("std  27, $0", "=*m", regs.ptr + 13);
-            __asm("std  28, $0", "=*m", regs.ptr + 14);
-            __asm("std  29, $0", "=*m", regs.ptr + 15);
-            __asm("std  30, $0", "=*m", regs.ptr + 16);
-            __asm("std  31, $0", "=*m", regs.ptr + 17);
+                // Nonvolatile registers, according to:
+                // ELFv1: 64-bit PowerPC ELF ABI Supplement 1.9, July 2004
+                // ELFv2: Power Architecture, 64-Bit ELV V2 ABI Specification,
+                //        OpenPOWER ABI for Linux Supplement, July 2014
+                size_t[18] regs = void;
+                __asm("std  14, $0", "=*m", regs.ptr +  0);
+                __asm("std  15, $0", "=*m", regs.ptr +  1);
+                __asm("std  16, $0", "=*m", regs.ptr +  2);
+                __asm("std  17, $0", "=*m", regs.ptr +  3);
+                __asm("std  18, $0", "=*m", regs.ptr +  4);
+                __asm("std  19, $0", "=*m", regs.ptr +  5);
+                __asm("std  20, $0", "=*m", regs.ptr +  6);
+                // Work around LLVM bug 21443 (http://llvm.org/bugs/show_bug.cgi?id=21443)
+                // Because we clobber r0 a different register is choosen
+                __asm("std  21, $0", "=*m,~{r0}", regs.ptr +  7);
+                __asm("std  22, $0", "=*m", regs.ptr +  8);
+                __asm("std  23, $0", "=*m", regs.ptr +  9);
+                __asm("std  24, $0", "=*m", regs.ptr + 10);
+                __asm("std  25, $0", "=*m", regs.ptr + 11);
+                __asm("std  26, $0", "=*m", regs.ptr + 12);
+                __asm("std  27, $0", "=*m", regs.ptr + 13);
+                __asm("std  28, $0", "=*m", regs.ptr + 14);
+                __asm("std  29, $0", "=*m", regs.ptr + 15);
+                __asm("std  30, $0", "=*m", regs.ptr + 16);
+                __asm("std  31, $0", "=*m", regs.ptr + 17);
 
-            __asm("std   1, $0", "=*m", &sp);
-        }
-        else version (AArch64)
-        {
-            import ldc.llvmasm;
+                __asm("std   1, $0", "=*m", &sp);
+            }
+            else version (AArch64)
+            {
+                import ldc.llvmasm;
 
-            // Callee-save registers, according to AAPCS64, section 5.1.1.
-            // FIXME: As loads/stores are explicit on ARM, the code generated for
-            // this is horrible. Better write the entire function in ASM.
-            size_t[11] regs = void;
-            __asm("str x19, $0", "=*m", regs.ptr + 0);
-            __asm("str x20, $0", "=*m", regs.ptr + 1);
-            __asm("str x21, $0", "=*m", regs.ptr + 2);
-            __asm("str x22, $0", "=*m", regs.ptr + 3);
-            __asm("str x23, $0", "=*m", regs.ptr + 4);
-            __asm("str x24, $0", "=*m", regs.ptr + 5);
-            __asm("str x25, $0", "=*m", regs.ptr + 6);
-            __asm("str x26, $0", "=*m", regs.ptr + 7);
-            __asm("str x27, $0", "=*m", regs.ptr + 8);
-            __asm("str x28, $0", "=*m", regs.ptr + 9);
-            __asm("str x29, $0", "=*m", regs.ptr + 10);
+                // Callee-save registers, according to AAPCS64, section 5.1.1.
+                // FIXME: As loads/stores are explicit on ARM, the code generated for
+                // this is horrible. Better write the entire function in ASM.
+                size_t[11] regs = void;
+                __asm("str x19, $0", "=*m", regs.ptr + 0);
+                __asm("str x20, $0", "=*m", regs.ptr + 1);
+                __asm("str x21, $0", "=*m", regs.ptr + 2);
+                __asm("str x22, $0", "=*m", regs.ptr + 3);
+                __asm("str x23, $0", "=*m", regs.ptr + 4);
+                __asm("str x24, $0", "=*m", regs.ptr + 5);
+                __asm("str x25, $0", "=*m", regs.ptr + 6);
+                __asm("str x26, $0", "=*m", regs.ptr + 7);
+                __asm("str x27, $0", "=*m", regs.ptr + 8);
+                __asm("str x28, $0", "=*m", regs.ptr + 9);
+                __asm("str x29, $0", "=*m", regs.ptr + 10);
 
-            __asm("str x31, $0", "=*m", &sp);
-        }
-        else version (ARM)
-        {
-            import ldc.llvmasm;
+                __asm("str x31, $0", "=*m", &sp);
+            }
+            else version (ARM)
+            {
+                import ldc.llvmasm;
 
-            // Callee-save registers, according to AAPCS, section 5.1.1.
-            // FIXME: As loads/stores are explicit on ARM, the code generated for
-            // this is horrible. Better write the entire function in ASM.
-            size_t[8] regs = void;
-            __asm("str  r4, $0", "=*m", regs.ptr + 0);
-            __asm("str  r5, $0", "=*m", regs.ptr + 1);
-            __asm("str  r6, $0", "=*m", regs.ptr + 2);
-            __asm("str  r7, $0", "=*m", regs.ptr + 3);
-            __asm("str  r8, $0", "=*m", regs.ptr + 4);
-            __asm("str  r9, $0", "=*m", regs.ptr + 5);
-            __asm("str r10, $0", "=*m", regs.ptr + 6);
-            __asm("str r11, $0", "=*m", regs.ptr + 7);
+                // Callee-save registers, according to AAPCS, section 5.1.1.
+                // arm and thumb2 instructions
+                size_t[8] regs = void;
+                __asm("stm  $0, {r4-r11}", "r", regs.ptr);
+                sp = __asm!(void*)("mov $0, sp", "=r");
+            }
+            else version (MIPS64)
+            {
+                import ldc.llvmasm;
 
-            __asm("str sp, $0", "=*m", &sp);
-        }
-        else version (MIPS64)
-        {
-            import ldc.llvmasm;
-
-            // Callee-save registers, according to MIPSpro N32 ABI Handbook,
-            // chapter 2, table 2-1.
-            // FIXME: Should $28 (gp), $29 (sp) and $30 (s8) be saved, too?
-            size_t[8] regs = void;
-            __asm(`sd $$16,  0($0);
-                   sd $$17,  8($0);
-                   sd $$18, 16($0);
-                   sd $$19, 24($0);
-                   sd $$20, 32($0);
-                   sd $$21, 40($0);
-                   sd $$22, 48($0);
-                   sd $$23, 56($0)`, "r", regs.ptr);
+                // Callee-save registers, according to MIPSpro N32 ABI Handbook,
+                // chapter 2, table 2-1.
+                // FIXME: Should $28 (gp), $29 (sp) and $30 (s8) be saved, too?
+                size_t[8] regs = void;
+                __asm(`sd $$16,  0($0);
+                       sd $$17,  8($0);
+                       sd $$18, 16($0);
+                       sd $$19, 24($0);
+                       sd $$20, 32($0);
+                       sd $$21, 40($0);
+                       sd $$22, 48($0);
+                       sd $$23, 56($0)`, "r", regs.ptr);
+            }
+            else
+            {
+                static assert(false, "Architecture not supported.");
+            }
         }
         else
         {
@@ -3240,7 +3238,7 @@ private void* getStackTop() nothrow
         }
         else version (ARM)
         {
-            return __asm!(void *)("mov $0, r13", "=r");
+            return __asm!(void *)("mov $0, sp", "=r");
         }
         else version (PPC)
         {
