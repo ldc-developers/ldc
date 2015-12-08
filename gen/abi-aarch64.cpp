@@ -17,20 +17,6 @@
 #include "gen/abi-aarch64.h"
 
 struct AArch64TargetABI : TargetABI {
-  llvm::CallingConv::ID callingConv(LINK l) {
-    switch (l) {
-    case LINKc:
-    case LINKcpp:
-    case LINKpascal:
-    case LINKwindows:
-    case LINKd:
-    case LINKdefault:
-      return llvm::CallingConv::C;
-    default:
-      llvm_unreachable("Unhandled D linkage type.");
-    }
-  }
-
   bool returnInArg(TypeFunction *tf) override {
     if (tf->isref) {
       return false;
@@ -70,9 +56,8 @@ struct AArch64TargetABI : TargetABI {
   * } va_list;
   *
   * In druntime, the struct is defined as core.stdc.stdarg.__va_list; the
-  * actually used
-  * core.stdc.stdarg.va_list type is a raw char* pointer though to achieve byref
-  * semantics.
+  * actually used core.stdc.stdarg.va_list type is a raw char* pointer though to
+  * achieve byref semantics.
   * This requires a little bit of compiler magic in the following
   * implementations.
   */

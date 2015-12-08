@@ -463,7 +463,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     fatal();
   }
 
-  func->setCallingConv(gABI->callingConv(func->getFunctionType(), link));
+  func->setCallingConv(gABI->callingConv(func->getFunctionType(), link, fdecl));
 
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 

@@ -132,12 +132,12 @@ bool hasCtor(StructDeclaration *s) {
 }
 }
 
-bool TargetABI::isPOD(Type *t, LINK l) {
+bool TargetABI::isPOD(Type *t, bool excludeStructsWithCtor) {
   t = t->toBasetype();
-  assert(t->ty == Tstruct);
+  if (t->ty != Tstruct)
+    return true;
   StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
-  // the C++ definition of PODs excludes structs with constructors
-  return sd->isPOD() && !(l == LINKcpp && hasCtor(sd));
+  return sd->isPOD() && !(excludeStructsWithCtor && hasCtor(sd));
 }
 
 bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {

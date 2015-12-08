@@ -227,31 +227,4 @@ struct ExplicitByvalRewrite : ABIRewrite {
   }
 };
 
-//////////////////////////////////////////////////////////////////////////////
-
-/**
- * Rewrites the magic core.stdc.config.__c_long_double struct (used for MSVC++
- * mangling) to a double.
- */
-struct MSVCLongDoubleRewrite : ABIRewrite {
-  LLValue *get(Type *dty, LLValue *v) override {
-    return DtoAllocaDump(v, dty, ".MSVCLongDoubleRewrite_dump");
-  }
-
-  void getL(Type *, LLValue *v, LLValue *lval) override {
-    storeToMemory(v, lval);
-  }
-
-  LLValue *put(DValue *dv) override {
-    assert(dv->getType()->toBasetype()->ty == Tstruct);
-    LLValue *address = dv->getLVal();
-    return loadFromMemory(address, LLType::getDoubleTy(gIR->context()),
-                          ".MSVCLongDoubleRewrite_putResult");
-  }
-
-  LLType *type(Type *, LLType *) override {
-    return LLType::getDoubleTy(gIR->context());
-  }
-};
-
 #endif

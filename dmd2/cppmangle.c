@@ -1339,6 +1339,9 @@ public:
 
     char *mangleOf(Dsymbol *s)
     {
+#if IN_LLVM
+        buf.writeByte('\01'); // disable further mangling by the backend
+#endif
         VarDeclaration *vd = s->isVarDeclaration();
         FuncDeclaration *fd = s->isFuncDeclaration();
         if (vd)
@@ -1991,7 +1994,7 @@ char *toCppMangle(Dsymbol *s)
     const bool isTargetWindowsMSVC = global.params.targetTriple.isWindowsMSVCEnvironment();
     if (isTargetWindowsMSVC)
     {
-        VisualCPPMangler v(!global.params.is64bit);
+        VisualCPPMangler v(false);
         return v.mangleOf(s);
     }
     else

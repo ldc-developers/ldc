@@ -26,6 +26,7 @@ class TypeFunction;
 struct IrFuncTy;
 struct IrFuncTyArg;
 class DValue;
+class FuncDeclaration;
 
 namespace llvm {
 class Type;
@@ -81,7 +82,8 @@ struct TargetABI {
 
   /// Returns the LLVM calling convention to be used for the given D linkage
   /// type on the target. Defaults to the C calling convention.
-  virtual llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l) {
+  virtual llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
+                                            FuncDeclaration *fdecl = nullptr) {
     return llvm::CallingConv::C;
   }
 
@@ -160,9 +162,9 @@ protected:
   /// ((unsigned) long, long double) for C++ mangling purposes.
   static bool isMagicCppStruct(Type *t);
 
-  /// Returns true if the D struct type is a Plain-Old-Datatype for the given
-  /// linkage.
-  static bool isPOD(Type *t, LINK l);
+  /// Returns true if the D type is a Plain-Old-Datatype, optionally excluding
+  /// structs with constructors from that definition.
+  static bool isPOD(Type *t, bool excludeStructsWithCtor = false);
 
   /// Returns true if the D type can be bit-cast to an integer of the same size.
   static bool canRewriteAsInt(Type *t, bool include64bit = true);

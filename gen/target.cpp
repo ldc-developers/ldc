@@ -37,7 +37,9 @@ void Target::init() {
   c_longsize = global.params.is64bit ? 8 : 4;
   c_long_doublesize = realsize;
 
-  reverseCppOverloads = false; // DMC is not supported.
+  // according to DMD, only for 32-bit MSVC++:
+  reverseCppOverloads = !global.params.is64bit &&
+                        global.params.targetTriple.isWindowsMSVCEnvironment();
 }
 
 /******************************
