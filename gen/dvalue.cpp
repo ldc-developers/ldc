@@ -75,8 +75,7 @@ LLValue *DVarValue::getRVal() {
 
   if (type->toBasetype()->ty == Tbool) {
     assert(rawValue->getType() == llvm::Type::getInt8Ty(*gIR));
-    return gIR->ir->CreateTrunc(rawValue,
-                                llvm::Type::getInt1Ty(*gIR));
+    return gIR->ir->CreateTrunc(rawValue, llvm::Type::getInt1Ty(*gIR));
   }
 
   return rawValue;

@@ -104,9 +104,8 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   else {
     if (!cd->isCPPclass() && !cd->isCPPinterface()) {
       // add monitor
-      builder.addType(
-          llvm::PointerType::get(llvm::Type::getInt8Ty(*gIR), 0),
-          Target::ptrsize);
+      builder.addType(llvm::PointerType::get(llvm::Type::getInt8Ty(*gIR), 0),
+                      Target::ptrsize);
     }
 
     // add data members recursively

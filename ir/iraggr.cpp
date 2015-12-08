@@ -28,8 +28,8 @@
 IrAggr::IrAggr(AggregateDeclaration *aggr)
     : aggrdecl(aggr), type(aggr->type),
       // above still need to be looked at
-      init_type(LLStructType::create(
-          *gIR, std::string(aggr->toPrettyChars()) + "_init")) {}
+      init_type(LLStructType::create(*gIR, std::string(aggr->toPrettyChars()) +
+                                               "_init")) {}
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -82,8 +82,8 @@ add_zeros(llvm::SmallVectorImpl<llvm::Constant *> &constants,
   assert(startOffset <= endOffset);
   const size_t paddingSize = endOffset - startOffset;
   if (paddingSize) {
-    llvm::ArrayType *pad = llvm::ArrayType::get(
-        llvm::Type::getInt8Ty(*gIR), paddingSize);
+    llvm::ArrayType *pad =
+        llvm::ArrayType::get(llvm::Type::getInt8Ty(*gIR), paddingSize);
     constants.push_back(llvm::Constant::getNullValue(pad));
   }
   return paddingSize ? 1 : 0;

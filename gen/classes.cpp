@@ -96,8 +96,7 @@ DValue *DtoNewClass(Loc &loc, TypeClass *tc, NewExp *newexp) {
   }
   // default allocator
   else {
-    llvm::Function *fn =
-        getRuntimeFunction(loc, gIR->module, "_d_newclass");
+    llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_newclass");
     LLConstant *ci = DtoBitCast(getIrAggr(tc->sym)->getClassInfoSymbol(),
                                 DtoType(Type::typeinfoclass->type));
     mem =
@@ -185,8 +184,7 @@ void DtoInitClass(TypeClass *tc, LLValue *dst) {
 
 void DtoFinalizeClass(Loc &loc, LLValue *inst) {
   // get runtime function
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_callfinalizer");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_callfinalizer");
 
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(inst, fn->getFunctionType()->getParamType(0)), "");
@@ -505,8 +503,8 @@ static LLConstant *build_class_dtor(ClassDeclaration *cd) {
   }
 
   DtoResolveFunction(dtor);
-  return llvm::ConstantExpr::getBitCast(
-      getIrFunc(dtor)->func, getPtrToType(LLType::getInt8Ty(*gIR)));
+  return llvm::ConstantExpr::getBitCast(getIrFunc(dtor)->func,
+                                        getPtrToType(LLType::getInt8Ty(*gIR)));
 }
 
 static ClassFlags::Type build_classinfo_flags(ClassDeclaration *cd) {

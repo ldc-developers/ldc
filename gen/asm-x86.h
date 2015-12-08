@@ -559,16 +559,11 @@ typedef enum {
 } Alternate_Mnemonics;
 
 static const char *alternateMnemonics[N_AltMn] = {
-    ".byte 0xdb, 0xe1",
-    ".byte 0xdb, 0xe0",
-    ".byte 0xdb, 0xe4",
-    "iretw",
-    "iret",
+    ".byte 0xdb, 0xe1", ".byte 0xdb, 0xe0", ".byte 0xdb, 0xe4", "iretw", "iret",
 #ifdef ASM_X86_64
     "iretq",
 #endif
-    "lret",
-    "cmpxchg8b",
+    "lret", "cmpxchg8b",
 #ifdef ASM_X86_64
     "cmpxchg16b",
 #endif

@@ -408,8 +408,7 @@ LLConstant *DtoConstFP(Type *t, longdouble value) {
   LLType *llty = DtoType(t);
   assert(llty->isFloatingPointTy());
 
-  if (llty == LLType::getFloatTy(*gIR) ||
-      llty == LLType::getDoubleTy(*gIR)) {
+  if (llty == LLType::getFloatTy(*gIR) || llty == LLType::getDoubleTy(*gIR)) {
     return LLConstantFP::get(llty, value);
   }
   if (llty == LLType::getX86_FP80Ty(*gIR)) {
@@ -417,8 +416,8 @@ LLConstant *DtoConstFP(Type *t, longdouble value) {
     bits[0] = *reinterpret_cast<uint64_t *>(&value);
     bits[1] =
         *reinterpret_cast<uint16_t *>(reinterpret_cast<uint64_t *>(&value) + 1);
-    return LLConstantFP::get(*gIR, APFloat(APFloat::x87DoubleExtended,
-                                                     APInt(80, 2, bits)));
+    return LLConstantFP::get(
+        *gIR, APFloat(APFloat::x87DoubleExtended, APInt(80, 2, bits)));
   }
   if (llty == LLType::getPPC_FP128Ty(*gIR)) {
     uint64_t bits[] = {0, 0};
@@ -441,8 +440,7 @@ LLConstant *DtoConstString(const char *str) {
                                    ? nullptr
                                    : gIR->stringLiteral1ByteCache[s];
   if (gvar == nullptr) {
-    llvm::Constant *init =
-        llvm::ConstantDataArray::getString(*gIR, s, true);
+    llvm::Constant *init = llvm::ConstantDataArray::getString(*gIR, s, true);
     gvar = new llvm::GlobalVariable(gIR->module, init->getType(), true,
                                     llvm::GlobalValue::PrivateLinkage, init,
                                     ".str");
@@ -667,8 +665,7 @@ LLStructType *DtoMutexType() {
         LLStructType::create(*gIR, rtl_types, "RTL_CRITICAL_SECTION");
 
     // Build D_CRITICAL_SECTION; size is 28 (32bit) or 48 (64bit)
-    LLStructType *mutex =
-        LLStructType::create(*gIR, "D_CRITICAL_SECTION");
+    LLStructType *mutex = LLStructType::create(*gIR, "D_CRITICAL_SECTION");
     LLType *types[] = {getPtrToType(mutex), rtl};
     mutex->setBody(types);
 
@@ -689,14 +686,12 @@ LLStructType *DtoMutexType() {
   LLStructType *fastlock = LLStructType::get(*gIR, types2, false);
 
   // pthread_mutex
-  LLType *types1[] = {LLType::getInt32Ty(*gIR),
-                      LLType::getInt32Ty(*gIR), getVoidPtrType(),
-                      LLType::getInt32Ty(*gIR), fastlock};
+  LLType *types1[] = {LLType::getInt32Ty(*gIR), LLType::getInt32Ty(*gIR),
+                      getVoidPtrType(), LLType::getInt32Ty(*gIR), fastlock};
   LLStructType *pmutex = LLStructType::get(*gIR, types1, false);
 
   // D_CRITICAL_SECTION
-  LLStructType *mutex =
-      LLStructType::create(*gIR, "D_CRITICAL_SECTION");
+  LLStructType *mutex = LLStructType::create(*gIR, "D_CRITICAL_SECTION");
   LLType *types[] = {getPtrToType(mutex), pmutex};
   mutex->setBody(types);
 

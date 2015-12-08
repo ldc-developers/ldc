@@ -224,8 +224,7 @@ static llvm::Function *build_module_function(
 #endif
     call->setCallingConv(gABI->callingConv(call->
 #if LDC_LLVM_VER < 307
-                                           getCalledFunction()
-                                               ->
+                                           getCalledFunction()->
 #endif
                                            getFunctionType(),
                                            LINKd));
@@ -405,8 +404,7 @@ static void build_dso_ctor_dtor_body(
     llvm::Type *memberTypes[] = {version->getType(), dsoSlot->getType(),
                                  minfoBeg->getType(), minfoEnd->getType(),
                                  minfoUsedPointer->getType()};
-    llvm::StructType *stype =
-        llvm::StructType::get(*gIR, memberTypes, false);
+    llvm::StructType *stype = llvm::StructType::get(*gIR, memberTypes, false);
     llvm::Value *record = b.CreateAlloca(stype);
 #if LDC_LLVM_VER >= 307
     b.CreateStore(version, b.CreateStructGEP(stype, record, 0)); // version
@@ -627,8 +625,7 @@ static void addCoverageAnalysis(Module *m) {
     IF_LOG Logger::println("Build private variable: uint[%d] _d_cover_data",
                            m->numlines);
 
-    LLArrayType *type =
-        LLArrayType::get(LLType::getInt32Ty(*gIR), m->numlines);
+    LLArrayType *type = LLArrayType::get(LLType::getInt32Ty(*gIR), m->numlines);
     llvm::ConstantAggregateZero *zeroinitializer =
         llvm::ConstantAggregateZero::get(type);
     m->d_cover_data = new llvm::GlobalVariable(

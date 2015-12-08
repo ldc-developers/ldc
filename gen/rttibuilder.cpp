@@ -46,8 +46,8 @@ void RTTIBuilder::push(llvm::Constant *C) {
       prevFieldEnd, gDataLayout->getABITypeAlignment(C->getType()));
   const uint64_t paddingBytes = fieldStart - prevFieldEnd;
   if (paddingBytes) {
-    llvm::Type *const padding = llvm::ArrayType::get(
-        llvm::Type::getInt8Ty(*gIR), paddingBytes);
+    llvm::Type *const padding =
+        llvm::ArrayType::get(llvm::Type::getInt8Ty(*gIR), paddingBytes);
     inits.push_back(llvm::Constant::getNullValue(padding));
   }
   inits.push_back(C);

@@ -55,7 +55,6 @@ AttrBuilder &AttrBuilder::addByVal(unsigned alignment) {
   return *this;
 }
 
-
 AttrSet::AttrSet(const AttrSet &base, unsigned index, LLAttribute attribute)
     : set(base.set.addAttribute(*gIR, index, attribute)) {}
 

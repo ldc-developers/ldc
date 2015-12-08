@@ -1512,8 +1512,8 @@ public:
             llvm::BasicBlock::Create(*gIR, "fptreq", gIR->topfunc());
         llvm::BasicBlock *fptrneq =
             llvm::BasicBlock::Create(*gIR, "fptrneq", gIR->topfunc());
-        llvm::BasicBlock *dgcmpend = llvm::BasicBlock::Create(
-            *gIR, "dgcmpend", gIR->topfunc());
+        llvm::BasicBlock *dgcmpend =
+            llvm::BasicBlock::Create(*gIR, "dgcmpend", gIR->topfunc());
 
         llvm::Value *lfptr = p->ir->CreateExtractValue(lhs, 1, ".lfptr");
         llvm::Value *rfptr = p->ir->CreateExtractValue(rhs, 1, ".rfptr");
@@ -2668,8 +2668,8 @@ public:
       Type *indexType = static_cast<TypeAArray *>(aatype)->index;
       assert(indexType && vtype);
 
-      llvm::Function *func = getRuntimeFunction(
-          e->loc, gIR->module, "_d_assocarrayliteralTX");
+      llvm::Function *func =
+          getRuntimeFunction(e->loc, gIR->module, "_d_assocarrayliteralTX");
       LLFunctionType *funcTy = func->getFunctionType();
       LLValue *aaTypeInfo =
           DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype)),
@@ -2705,8 +2705,7 @@ public:
       LLValue *valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 
       LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, keysArray,
-                                            valuesArray, "aa")
-                        .getInstruction();
+                                            valuesArray, "aa").getInstruction();
       if (basetype->ty != Taarray) {
         LLValue *tmp = DtoAlloca(e->type, "aaliteral");
         DtoStore(aa, DtoGEPi(tmp, 0, 0));
@@ -2816,8 +2815,7 @@ public:
     for (size_t i = 0; i < e->exps->dim; i++) {
       types.push_back(DtoMemType((*e->exps)[i]->type));
     }
-    LLValue *val =
-        DtoRawAlloca(LLStructType::get(*gIR, types), 0, ".tuple");
+    LLValue *val = DtoRawAlloca(LLStructType::get(*gIR, types), 0, ".tuple");
     for (size_t i = 0; i < e->exps->dim; i++) {
       Expression *el = (*e->exps)[i];
       DValue *ep = toElem(el);

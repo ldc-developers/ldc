@@ -419,9 +419,8 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
                             << *t << "\n";
     }
 
-    LLStructType *frameType =
-        LLStructType::create(*gIR, builder.defaultTypes(),
-                             std::string("nest.") + fd->toChars());
+    LLStructType *frameType = LLStructType::create(
+        *gIR, builder.defaultTypes(), std::string("nest.") + fd->toChars());
 
     IF_LOG Logger::cout() << "frameType = " << *frameType << '\n';
 

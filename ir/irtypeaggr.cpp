@@ -27,8 +27,8 @@ static inline size_t add_zeros(std::vector<llvm::Type *> &defaultTypes,
   assert(startOffset <= endOffset);
   const size_t paddingSize = endOffset - startOffset;
   if (paddingSize) {
-    llvm::ArrayType *pad = llvm::ArrayType::get(
-        llvm::Type::getInt8Ty(*gIR), paddingSize);
+    llvm::ArrayType *pad =
+        llvm::ArrayType::get(llvm::Type::getInt8Ty(*gIR), paddingSize);
     defaultTypes.push_back(pad);
   }
   return paddingSize ? 1 : 0;
@@ -200,8 +200,7 @@ void AggrTypeBuilder::addTailPadding(unsigned aggregateSize) {
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeAggr::IrTypeAggr(AggregateDeclaration *ad)
-    : IrType(ad->type,
-             LLStructType::create(*gIR, ad->toPrettyChars())),
+    : IrType(ad->type, LLStructType::create(*gIR, ad->toPrettyChars())),
       aggr(ad) {}
 
 bool IrTypeAggr::isPacked(AggregateDeclaration *ad) {

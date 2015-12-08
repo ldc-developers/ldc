@@ -46,8 +46,7 @@ struct LLTypeMemoryLayout {
         return elements[0];
       }
 
-      return LLStructType::get(*gIR, elements,
-                               structType->isPacked());
+      return LLStructType::get(*gIR, elements, structType->isPacked());
     }
 
     if (LLArrayType *arrayType = isaArray(type)) {

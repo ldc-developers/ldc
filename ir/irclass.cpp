@@ -118,8 +118,8 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
     llvm::SmallString<64> name;
     llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(
         llvm::Twine(CD_PREFIX, initname).toStringRef(name));
-    node->addOperand(llvm::MDNode::get(
-        *gIR, llvm::makeArrayRef(mdVals, CD_NumFields)));
+    node->addOperand(
+        llvm::MDNode::get(*gIR, llvm::makeArrayRef(mdVals, CD_NumFields)));
   }
 
   return classInfo;
@@ -351,8 +351,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       thunk->setUnnamedAddr(true);
 
       // create entry and end blocks
-      llvm::BasicBlock *beginbb =
-          llvm::BasicBlock::Create(*gIR, "", thunk);
+      llvm::BasicBlock *beginbb = llvm::BasicBlock::Create(*gIR, "", thunk);
       gIR->scopes.push_back(IRScope(beginbb));
 
       // Copy the function parameters, so later we can pass them to the
@@ -384,8 +383,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       if (thunk->getReturnType() == LLType::getVoidTy(*gIR)) {
         llvm::ReturnInst::Create(*gIR, beginbb);
       } else {
-        llvm::ReturnInst::Create(*gIR, call.getInstruction(),
-                                 beginbb);
+        llvm::ReturnInst::Create(*gIR, call.getInstruction(), beginbb);
       }
 
       // clean up

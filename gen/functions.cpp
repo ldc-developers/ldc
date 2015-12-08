@@ -436,7 +436,8 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
       // DMD treats _Dmain as having C calling convention and this has been
       // hardcoded into druntime, even if the frontend type has D linkage.
       // See Bugzilla issue 9028.
-      || fdecl->isMain()) {
+      ||
+      fdecl->isMain()) {
     link = LINKc;
   }
 
@@ -761,8 +762,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     }
   }
 
-  llvm::BasicBlock *beginbb =
-      llvm::BasicBlock::Create(*gIR, "", func);
+  llvm::BasicBlock *beginbb = llvm::BasicBlock::Create(*gIR, "", func);
 
   // assert(gIR->scopes.empty());
   gIR->scopes.push_back(IRScope(beginbb));
@@ -770,8 +770,8 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   // create alloca point
   // this gets erased when the function is complete, so alignment etc does not
   // matter at all
-  llvm::Instruction *allocaPoint = new llvm::AllocaInst(
-      LLType::getInt32Ty(*gIR), "alloca point", beginbb);
+  llvm::Instruction *allocaPoint =
+      new llvm::AllocaInst(LLType::getInt32Ty(*gIR), "alloca point", beginbb);
   irFunc->allocapoint = allocaPoint;
 
   // debug info - after all allocas, but before any llvm.dbg.declare etc
