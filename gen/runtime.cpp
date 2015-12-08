@@ -258,7 +258,7 @@ static void createFwdDecl(LINK linkage, Type *returntype,
 
 static void buildRuntimeModule() {
   Logger::println("building runtime module");
-  M = new llvm::Module("ldc internal runtime", gIR->context());
+  M = new llvm::Module("ldc internal runtime", *gIR);
 
   Type *voidTy = Type::tvoid;
   Type *boolTy = Type::tbool;
@@ -655,7 +655,7 @@ static void buildRuntimeModule() {
   if (global.params.isLinux) {
     llvm::StringRef fname("_d_dso_registry");
 
-    LLType *LLvoidTy = LLType::getVoidTy(gIR->context());
+    LLType *LLvoidTy = LLType::getVoidTy(*gIR);
     LLType *LLvoidPtrPtrTy = getPtrToType(getPtrToType(LLvoidTy));
     LLType *moduleInfoPtrPtrTy =
         getPtrToType(getPtrToType(DtoType(Module::moduleinfo->type)));

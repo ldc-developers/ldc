@@ -354,9 +354,9 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
         case 128:
           val = DtoLoad(
               DtoBitCast(val, llvm::Type::getIntNPtrTy(
-                                  gIR->context(), static_cast<unsigned>(N))));
+                                  *gIR, static_cast<unsigned>(N))));
           ptr = DtoBitCast(ptr, llvm::Type::getIntNPtrTy(
-                                    gIR->context(), static_cast<unsigned>(N)));
+                                    *gIR, static_cast<unsigned>(N)));
           break;
         default:
           goto errorStore;
@@ -398,7 +398,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
         case 64:
         case 128:
           ptr = DtoBitCast(ptr, llvm::Type::getIntNPtrTy(
-                                    gIR->context(), static_cast<unsigned>(N)));
+                                    *gIR, static_cast<unsigned>(N)));
           break;
         default:
           goto errorLoad;
@@ -447,13 +447,13 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
         case 64:
         case 128:
           ptr = DtoBitCast(ptr, llvm::Type::getIntNPtrTy(
-                                    gIR->context(), static_cast<unsigned>(N)));
+                                    *gIR, static_cast<unsigned>(N)));
           cmp = DtoLoad(
               DtoBitCast(cmp, llvm::Type::getIntNPtrTy(
-                                  gIR->context(), static_cast<unsigned>(N))));
+                                  *gIR, static_cast<unsigned>(N))));
           val = DtoLoad(
               DtoBitCast(val, llvm::Type::getIntNPtrTy(
-                                  gIR->context(), static_cast<unsigned>(N))));
+                                  *gIR, static_cast<unsigned>(N))));
           break;
         default:
           goto errorCmpxchg;
@@ -980,7 +980,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     if (llfunc && llfunc->isIntrinsic()) // override intrinsic attrs
     {
       attrlist = llvm::Intrinsic::getAttributes(
-          gIR->context(),
+          *gIR,
           static_cast<llvm::Intrinsic::ID>(llfunc->getIntrinsicID()));
     } else {
       call.setCallingConv(callconv);

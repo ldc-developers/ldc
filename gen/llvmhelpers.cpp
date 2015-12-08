@@ -1448,10 +1448,10 @@ void tokToIcmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
     *outPred = llvm::ICmpInst::ICMP_NE;
     break;
   case TOKleg:
-    *outConst = LLConstantInt::getTrue(gIR->context());
+    *outConst = LLConstantInt::getTrue(*gIR);
     break;
   case TOKunord:
-    *outConst = LLConstantInt::getFalse(gIR->context());
+    *outConst = LLConstantInt::getFalse(*gIR);
     break;
   default:
     llvm_unreachable("Invalid comparison operation");

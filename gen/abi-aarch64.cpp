@@ -63,7 +63,7 @@ struct AArch64TargetABI : TargetABI {
   */
 
   LLType *getValistType() {
-    LLType *intType = LLType::getInt32Ty(gIR->context());
+    LLType *intType = LLType::getInt32Ty(*gIR);
     LLType *voidPointerType = getVoidPtrType();
 
     std::vector<LLType *> parts;      // struct __va_list {
@@ -73,7 +73,7 @@ struct AArch64TargetABI : TargetABI {
     parts.push_back(intType);         //   int __gr_offs;
     parts.push_back(intType);         //   int __vr_offs; };
 
-    return LLStructType::get(gIR->context(), parts);
+    return LLStructType::get(*gIR, parts);
   }
 
   LLValue *prepareVaStart(LLValue *pAp) override {

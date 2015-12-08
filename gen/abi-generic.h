@@ -28,7 +28,7 @@ struct LLTypeMemoryLayout {
   static LLType *fold(LLType *type) {
     // T* => integer
     if (type->isPointerTy()) {
-      return LLIntegerType::get(gIR->context(), getTypeBitSize(type));
+      return LLIntegerType::get(*gIR, getTypeBitSize(type));
     }
 
     if (LLStructType *structType = isaStruct(type)) {
@@ -46,7 +46,7 @@ struct LLTypeMemoryLayout {
         return elements[0];
       }
 
-      return LLStructType::get(gIR->context(), elements,
+      return LLStructType::get(*gIR, elements,
                                structType->isPacked());
     }
 
@@ -61,7 +61,7 @@ struct LLTypeMemoryLayout {
 
       // otherwise: convert to struct of N folded elements
       std::vector<LLType *> elements(numElements, foldedElementType);
-      return LLStructType::get(gIR->context(), elements);
+      return LLStructType::get(*gIR, elements);
     }
 
     return type;
@@ -140,7 +140,7 @@ struct IntegerRewrite : ABIRewrite {
       break;
     }
 
-    return LLIntegerType::get(gIR->context(), size * 8);
+    return LLIntegerType::get(*gIR, size * 8);
   }
 
   static bool isObsoleteFor(LLType *llType) {

@@ -267,7 +267,7 @@ public:
 
     // TODO: Should not be needed
     llvm::BasicBlock *bb =
-        llvm::BasicBlock::Create(gIR->context(), "afterreturn", irs->topfunc());
+        llvm::BasicBlock::Create(*gIR, "afterreturn", irs->topfunc());
     irs->scope() = IRScope(bb);
   }
 

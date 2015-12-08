@@ -195,7 +195,7 @@ static llvm::Function *build_module_function(
   }
 
   // build ctor type
-  LLFunctionType *fnTy = LLFunctionType::get(LLType::getVoidTy(gIR->context()),
+  LLFunctionType *fnTy = LLFunctionType::get(LLType::getVoidTy(*gIR),
                                              std::vector<LLType *>(), false);
 
   std::string const symbolName = gABI->mangleForLLVM(name, LINKd);
@@ -204,7 +204,7 @@ static llvm::Function *build_module_function(
       fnTy, llvm::GlobalValue::InternalLinkage, symbolName, &gIR->module);
   fn->setCallingConv(gABI->callingConv(fn->getFunctionType(), LINKd));
 
-  llvm::BasicBlock *bb = llvm::BasicBlock::Create(gIR->context(), "", fn);
+  llvm::BasicBlock *bb = llvm::BasicBlock::Create(*gIR, "", fn);
   IRBuilder<> builder(bb);
 
   // debug info
@@ -296,7 +296,7 @@ static llvm::Function *build_module_shared_dtor(Module *m) {
 static LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
                                                    LLConstant *moduleinfo) {
   // build ctor type
-  LLFunctionType *fty = LLFunctionType::get(LLType::getVoidTy(gIR->context()),
+  LLFunctionType *fty = LLFunctionType::get(LLType::getVoidTy(*gIR),
                                             std::vector<LLType *>(), false);
 
   // build ctor name
@@ -339,7 +339,7 @@ static LLFunction *build_module_reference_and_ctor(const char *moduleMangle,
   // make the function insert this moduleinfo as the beginning of the
   // _Dmodule_ref linked list
   llvm::BasicBlock *bb =
-      llvm::BasicBlock::Create(gIR->context(), "moduleinfoCtorEntry", ctor);
+      llvm::BasicBlock::Create(*gIR, "moduleinfoCtorEntry", ctor);
   IRBuilder<> builder(bb);
 
   // debug info
@@ -383,11 +383,11 @@ static void build_dso_ctor_dtor_body(
       dsoRegistry->getFunctionType()->getContainedType(1);
 
   llvm::BasicBlock *const entryBB =
-      llvm::BasicBlock::Create(gIR->context(), "", targetFunc);
+      llvm::BasicBlock::Create(*gIR, "", targetFunc);
   llvm::BasicBlock *const initBB =
-      llvm::BasicBlock::Create(gIR->context(), "init", targetFunc);
+      llvm::BasicBlock::Create(*gIR, "init", targetFunc);
   llvm::BasicBlock *const endBB =
-      llvm::BasicBlock::Create(gIR->context(), "end", targetFunc);
+      llvm::BasicBlock::Create(*gIR, "end", targetFunc);
 
   {
     IRBuilder<> b(entryBB);
@@ -406,7 +406,7 @@ static void build_dso_ctor_dtor_body(
                                  minfoBeg->getType(), minfoEnd->getType(),
                                  minfoUsedPointer->getType()};
     llvm::StructType *stype =
-        llvm::StructType::get(gIR->context(), memberTypes, false);
+        llvm::StructType::get(*gIR, memberTypes, false);
     llvm::Value *record = b.CreateAlloca(stype);
 #if LDC_LLVM_VER >= 307
     b.CreateStore(version, b.CreateStructGEP(stype, record, 0)); // version
@@ -522,9 +522,9 @@ static void build_dso_registry_calls(std::string moduleMangle,
   // directly using e.g. "g++ dcode.o cppcode.o", though.
 
   auto dsoInitialized = new llvm::GlobalVariable(
-      gIR->module, llvm::Type::getInt8Ty(gIR->context()), false,
+      gIR->module, llvm::Type::getInt8Ty(*gIR), false,
       llvm::GlobalValue::LinkOnceODRLinkage,
-      llvm::ConstantInt::get(llvm::Type::getInt8Ty(gIR->context()), 0),
+      llvm::ConstantInt::get(llvm::Type::getInt8Ty(*gIR), 0),
       "ldc.dso_initialized");
   dsoInitialized->setVisibility(llvm::GlobalValue::HiddenVisibility);
 
@@ -538,7 +538,7 @@ static void build_dso_registry_calls(std::string moduleMangle,
   std::string ctorName = "ldc.dso_ctor.";
   ctorName += moduleMangle;
   llvm::Function *dsoCtor = llvm::Function::Create(
-      llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
+      llvm::FunctionType::get(llvm::Type::getVoidTy(*gIR), false),
       llvm::GlobalValue::LinkOnceODRLinkage, ctorName, &gIR->module);
   dsoCtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
   build_dso_ctor_dtor_body(dsoCtor, dsoInitialized, dsoSlot, minfoBeg, minfoEnd,
@@ -548,7 +548,7 @@ static void build_dso_registry_calls(std::string moduleMangle,
   std::string dtorName = "ldc.dso_dtor.";
   dtorName += moduleMangle;
   llvm::Function *dsoDtor = llvm::Function::Create(
-      llvm::FunctionType::get(llvm::Type::getVoidTy(gIR->context()), false),
+      llvm::FunctionType::get(llvm::Type::getVoidTy(*gIR), false),
       llvm::GlobalValue::LinkOnceODRLinkage, dtorName, &gIR->module);
   dsoDtor->setVisibility(llvm::GlobalValue::HiddenVisibility);
   build_dso_ctor_dtor_body(dsoDtor, dsoInitialized, dsoSlot, minfoBeg, minfoEnd,
@@ -628,7 +628,7 @@ static void addCoverageAnalysis(Module *m) {
                            m->numlines);
 
     LLArrayType *type =
-        LLArrayType::get(LLType::getInt32Ty(gIR->context()), m->numlines);
+        LLArrayType::get(LLType::getInt32Ty(*gIR), m->numlines);
     llvm::ConstantAggregateZero *zeroinitializer =
         llvm::ConstantAggregateZero::get(type);
     m->d_cover_data = new llvm::GlobalVariable(
@@ -656,7 +656,7 @@ static void addCoverageAnalysis(Module *m) {
                            ctorname.c_str());
 
     LLFunctionType *ctorTy = LLFunctionType::get(
-        LLType::getVoidTy(gIR->context()), std::vector<LLType *>(), false);
+        LLType::getVoidTy(*gIR), std::vector<LLType *>(), false);
     ctor = LLFunction::Create(ctorTy, LLGlobalValue::InternalLinkage, ctorname,
                               &gIR->module);
     ctor->setCallingConv(gABI->callingConv(ctor->getFunctionType(), LINKd));
@@ -665,7 +665,7 @@ static void addCoverageAnalysis(Module *m) {
       ctor->addFnAttr(LLAttribute::UWTable);
     }
 
-    llvm::BasicBlock *bb = llvm::BasicBlock::Create(gIR->context(), "", ctor);
+    llvm::BasicBlock *bb = llvm::BasicBlock::Create(*gIR, "", ctor);
     IRBuilder<> builder(bb);
 
     // Set up call to _d_cover_register2
@@ -926,7 +926,7 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
   // Put out module name as a 0-terminated string.
   const char *name = m->toPrettyChars();
   const size_t len = strlen(name) + 1;
-  llvm::IntegerType *it = llvm::IntegerType::getInt8Ty(gIR->context());
+  llvm::IntegerType *it = llvm::IntegerType::getInt8Ty(*gIR);
   llvm::ArrayType *at = llvm::ArrayType::get(it, len);
   b.push(toConstantArray(it, at, name, len, false));
 

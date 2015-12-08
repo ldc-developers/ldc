@@ -34,7 +34,7 @@ static bool checkVarValueType(LLType *t, bool extraDeref) {
   }
 
   // bools should not be stored as i1 any longer.
-  if (pt->getElementType() == llvm::Type::getInt1Ty(gIR->context())) {
+  if (pt->getElementType() == llvm::Type::getInt1Ty(*gIR)) {
     return false;
   }
 
@@ -74,9 +74,9 @@ LLValue *DVarValue::getRVal() {
   llvm::Value *rawValue = DtoLoad(storage);
 
   if (type->toBasetype()->ty == Tbool) {
-    assert(rawValue->getType() == llvm::Type::getInt8Ty(gIR->context()));
+    assert(rawValue->getType() == llvm::Type::getInt8Ty(*gIR));
     return gIR->ir->CreateTrunc(rawValue,
-                                llvm::Type::getInt1Ty(gIR->context()));
+                                llvm::Type::getInt1Ty(*gIR));
   }
 
   return rawValue;

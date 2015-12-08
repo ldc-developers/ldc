@@ -530,13 +530,13 @@ public:
 
 // Embedd library name as linker option in object file
 #if LDC_LLVM_VER >= 306
-        llvm::Metadata *Value = llvm::MDString::get(gIR->context(), LibName);
+        llvm::Metadata *Value = llvm::MDString::get(*gIR, LibName);
         gIR->LinkerMetadataArgs.push_back(
-            llvm::MDNode::get(gIR->context(), Value));
+            llvm::MDNode::get(*gIR, Value));
 #else
-        llvm::Value *Value = llvm::MDString::get(gIR->context(), LibName);
+        llvm::Value *Value = llvm::MDString::get(*gIR, LibName);
         gIR->LinkerMetadataArgs.push_back(
-            llvm::MDNode::get(gIR->context(), Value));
+            llvm::MDNode::get(*gIR, Value));
 #endif
       } else {
         size_t const n = nameLen + 3;

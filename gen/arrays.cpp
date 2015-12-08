@@ -33,7 +33,7 @@ static LLValue *DtoSlice(DValue *dval) {
   LLValue *val = dval->getRVal();
   if (dval->getType()->toBasetype()->ty == Tsarray) {
     // Convert static array to slice
-    LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
+    LLStructType *type = DtoArrayType(LLType::getInt8Ty(*gIR));
     LLValue *array = DtoRawAlloca(type, 0, ".array");
     DtoStore(DtoArrayLen(dval), DtoGEPi(array, 0, 0, ".len"));
     DtoStore(DtoBitCast(val, getVoidPtrType()), DtoGEPi(array, 0, 1, ".ptr"));
@@ -60,7 +60,7 @@ static LLValue *DtoSlice(LLValue *ptr, LLValue *length,
 
 static LLValue *DtoSlicePtr(DValue *dval) {
   Loc loc;
-  LLStructType *type = DtoArrayType(LLType::getInt8Ty(gIR->context()));
+  LLStructType *type = DtoArrayType(LLType::getInt8Ty(*gIR));
   Type *vt = dval->getType()->toBasetype();
   if (vt->ty == Tarray) {
     return makeLValue(loc, dval);
@@ -80,12 +80,12 @@ static LLValue *DtoSlicePtr(DValue *dval) {
 LLStructType *DtoArrayType(Type *arrayTy) {
   assert(arrayTy->nextOf());
   llvm::Type *elems[] = {DtoSize_t(), DtoPtrToType(arrayTy->nextOf())};
-  return llvm::StructType::get(gIR->context(), elems, false);
+  return llvm::StructType::get(*gIR, elems, false);
 }
 
 LLStructType *DtoArrayType(LLType *t) {
   llvm::Type *elems[] = {DtoSize_t(), getPtrToType(t)};
-  return llvm::StructType::get(gIR->context(), elems, false);
+  return llvm::StructType::get(*gIR, elems, false);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -125,7 +125,7 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
   // this simplifies codegen later on as llvm null's have no address!
   if (isaConstant(value) &&
       (isaConstant(value)->isNullValue() ||
-       value->getType() == LLType::getInt8Ty(gIR->context()))) {
+       value->getType() == LLType::getInt8Ty(*gIR))) {
     LLValue *nbytes = gIR->ir->CreateMul(length, elementSize, ".nbytes");
     if (isaConstant(value)->isNullValue()) {
       DtoMemSetZero(ptr, nbytes);
@@ -137,11 +137,11 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
 
   // create blocks
   llvm::BasicBlock *condbb = llvm::BasicBlock::Create(
-      gIR->context(), "arrayinit.cond", gIR->topfunc());
+      *gIR, "arrayinit.cond", gIR->topfunc());
   llvm::BasicBlock *bodybb = llvm::BasicBlock::Create(
-      gIR->context(), "arrayinit.body", gIR->topfunc());
+      *gIR, "arrayinit.body", gIR->topfunc());
   llvm::BasicBlock *endbb =
-      llvm::BasicBlock::Create(gIR->context(), "arrayinit.end", gIR->topfunc());
+      llvm::BasicBlock::Create(*gIR, "arrayinit.end", gIR->topfunc());
 
   // initialize iterator
   LLValue *itr = DtoAllocaDump(DtoConstSize_t(0), 0, "arrayinit.itr");
@@ -322,7 +322,7 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       LLCallSite call = gIR->CreateCallOrInvoke(
           fn, lhsPtr, DtoBitCast(makeLValue(loc, rhs), getVoidPtrType()),
           gIR->ir->CreateTruncOrBitCast(lhsLength,
-                                        LLType::getInt32Ty(gIR->context())),
+                                        LLType::getInt32Ty(*gIR)),
           DtoTypeInfoOf(stripModifiers(t2)));
       call.setCallingConv(llvm::CallingConv::C);
     }
@@ -444,7 +444,7 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
 
   LLConstant *constarr;
   if (mismatch) {
-    constarr = LLConstantStruct::getAnon(gIR->context(),
+    constarr = LLConstantStruct::getAnon(*gIR,
                                          initvals); // FIXME should this pack?
   } else {
     if (arrty->ty == Tvector) {
@@ -585,7 +585,7 @@ LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr, Type *type) {
   llvm::ArrayRef<LLConstant *> valuesRef = llvm::makeArrayRef(values, 2);
   LLStructType *lltype =
       type ? isaStruct(DtoType(type))
-           : LLConstantStruct::getTypeForElements(gIR->context(), valuesRef);
+           : LLConstantStruct::getTypeForElements(*gIR, valuesRef);
   return LLConstantStruct::get(lltype, valuesRef);
 }
 
@@ -832,7 +832,7 @@ DSliceValue *DtoCatArrays(Loc &loc, Type *arrayType, Expression *exp1,
     DtoStore(DtoBitCast(array, ptrarraytype), DtoGEPi(array2, 0, 1, ".ptr"));
     LLValue *val =
         DtoLoad(DtoBitCast(array2, getPtrToType(DtoArrayType(DtoArrayType(
-                                       LLType::getInt8Ty(gIR->context()))))));
+                                       LLType::getInt8Ty(*gIR))))));
 
     // TypeInfo ti
     args.push_back(DtoTypeInfoOf(arrayType));
@@ -919,9 +919,9 @@ static LLValue *DtoArrayEqCmp_impl(Loc &loc, const char *func, DValue *l,
 
   // get values, reinterpret cast to void[]
   args.push_back(DtoAggrPaint(l->getRVal(),
-                              DtoArrayType(LLType::getInt8Ty(gIR->context()))));
+                              DtoArrayType(LLType::getInt8Ty(*gIR))));
   args.push_back(DtoAggrPaint(r->getRVal(),
-                              DtoArrayType(LLType::getInt8Ty(gIR->context()))));
+                              DtoArrayType(LLType::getInt8Ty(*gIR))));
 
   // pass array typeinfo ?
   if (useti) {
@@ -1197,9 +1197,9 @@ void DtoIndexBoundsCheck(Loc &loc, DValue *arr, DValue *index) {
                                           DtoArrayLen(arr), "bounds.cmp");
 
   llvm::BasicBlock *failbb =
-      llvm::BasicBlock::Create(gIR->context(), "bounds.fail", gIR->topfunc());
+      llvm::BasicBlock::Create(*gIR, "bounds.fail", gIR->topfunc());
   llvm::BasicBlock *okbb =
-      llvm::BasicBlock::Create(gIR->context(), "bounds.ok", gIR->topfunc());
+      llvm::BasicBlock::Create(*gIR, "bounds.ok", gIR->topfunc());
   gIR->ir->CreateCondBr(cond, okbb, failbb);
 
   // set up failbb to call the array bounds error runtime function

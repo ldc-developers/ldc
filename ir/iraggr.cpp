@@ -29,7 +29,7 @@ IrAggr::IrAggr(AggregateDeclaration *aggr)
     : aggrdecl(aggr), type(aggr->type),
       // above still need to be looked at
       init_type(LLStructType::create(
-          gIR->context(), std::string(aggr->toPrettyChars()) + "_init")) {}
+          *gIR, std::string(aggr->toPrettyChars()) + "_init")) {}
 
 //////////////////////////////////////////////////////////////////////////////
 
@@ -83,7 +83,7 @@ add_zeros(llvm::SmallVectorImpl<llvm::Constant *> &constants,
   const size_t paddingSize = endOffset - startOffset;
   if (paddingSize) {
     llvm::ArrayType *pad = llvm::ArrayType::get(
-        llvm::Type::getInt8Ty(gIR->context()), paddingSize);
+        llvm::Type::getInt8Ty(*gIR), paddingSize);
     constants.push_back(llvm::Constant::getNullValue(pad));
   }
   return paddingSize ? 1 : 0;
@@ -184,7 +184,7 @@ IrAggr::createInitializerConstant(const VarInitMap &explicitInitializers,
       types.push_back(c->getType());
     }
     if (!initializerType) {
-      initializerType = LLStructType::get(gIR->context(), types, isPacked());
+      initializerType = LLStructType::get(*gIR, types, isPacked());
     } else {
       initializerType->setBody(types, isPacked());
     }

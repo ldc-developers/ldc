@@ -55,7 +55,7 @@ void executeCleanup(IRState *irs, CleanupScope &scope,
   if (!scope.branchSelector) {
     // ... and have not created one yet, so do so now.
     scope.branchSelector = new llvm::AllocaInst(
-        llvm::Type::getInt32Ty(gIR->context()),
+        llvm::Type::getInt32Ty(*gIR),
         llvm::Twine("branchsel.") + scope.beginBlock->getName(),
         irs->topallocapoint());
 
@@ -418,7 +418,7 @@ llvm::BasicBlock *IrFunction::getOrCreateResumeUnwindBlock() {
          "Should only access unwind resume block while emitting function.");
   if (!resumeUnwindBlock) {
     resumeUnwindBlock =
-        llvm::BasicBlock::Create(gIR->context(), "eh.resume", func);
+        llvm::BasicBlock::Create(*gIR, "eh.resume", func);
 
     llvm::BasicBlock *oldBB = gIR->scopebb();
     gIR->scope() = IRScope(resumeUnwindBlock);

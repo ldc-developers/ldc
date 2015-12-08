@@ -23,7 +23,7 @@ llvm::StructType *DtoComplexType(Type *type) {
   Type *t = type->toBasetype();
   LLType *base = DtoComplexBaseType(t);
   LLType *types[] = {base, base};
-  return llvm::StructType::get(gIR->context(), types, false);
+  return llvm::StructType::get(*gIR, types, false);
 }
 
 LLType *DtoComplexBaseType(Type *t) {

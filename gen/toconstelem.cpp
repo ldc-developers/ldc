@@ -209,7 +209,7 @@ public:
     }
 
     llvm::ConstantInt *zero =
-        LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
+        LLConstantInt::get(LLType::getInt32Ty(*gIR), 0, false);
     LLConstant *idxs[2] = {zero, zero};
 #if LDC_LLVM_VER >= 307
     LLConstant *arrptr = llvm::ConstantExpr::getGetElementPtr(

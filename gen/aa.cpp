@@ -79,9 +79,9 @@ DValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
   // Lvalue use ('aa[key] = value') auto-adds an element.
   if (!lvalue && gIR->emitArrayBoundsChecks()) {
     llvm::BasicBlock *failbb = llvm::BasicBlock::Create(
-        gIR->context(), "aaboundscheckfail", gIR->topfunc());
+        *gIR, "aaboundscheckfail", gIR->topfunc());
     llvm::BasicBlock *okbb =
-        llvm::BasicBlock::Create(gIR->context(), "aaboundsok", gIR->topfunc());
+        llvm::BasicBlock::Create(*gIR, "aaboundsok", gIR->topfunc());
 
     LLValue *nullaa = LLConstant::getNullValue(ret->getType());
     LLValue *cond = gIR->ir->CreateICmpNE(nullaa, ret, "aaboundscheck");

@@ -506,7 +506,7 @@ static LLConstant *build_class_dtor(ClassDeclaration *cd) {
 
   DtoResolveFunction(dtor);
   return llvm::ConstantExpr::getBitCast(
-      getIrFunc(dtor)->func, getPtrToType(LLType::getInt8Ty(gIR->context())));
+      getIrFunc(dtor)->func, getPtrToType(LLType::getInt8Ty(*gIR)));
 }
 
 static ClassFlags::Type build_classinfo_flags(ClassDeclaration *cd) {
