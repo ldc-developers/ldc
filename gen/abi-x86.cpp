@@ -28,12 +28,10 @@ struct X86TargetABI : TargetABI {
   X86TargetABI()
       : isOSX(global.params.isOSX),
         isMSVC(global.params.targetTriple.isWindowsMSVCEnvironment()) {
+    using llvm::Triple;
     auto os = global.params.targetTriple.getOS();
-    returnStructsInRegs = !(os == llvm::Triple::Linux
-#if LDC_LLVM_VER >= 306
-                            || os == llvm::Triple::NetBSD
-#endif
-                            );
+    returnStructsInRegs =
+        !(os == Triple::Linux || os == Triple::Solaris || os == Triple::NetBSD);
   }
 
   llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
@@ -183,16 +181,21 @@ struct X86TargetABI : TargetABI {
       if (fty.args.size() > 1) {
         fty.reverseParams = true;
       }
-
-      return;
     }
 
-    // extern(C) and all others:
+    // FIXME: byval params with alignment attributes lead to crashes with MSVC
+    if (isMSVC) {
+      for (auto arg : fty.args) {
+        if (arg->isByVal()) {
+          arg->attrs.remove(LLAttribute::Alignment);
+        }
+      }
+    }
 
     // Clang does not pass empty structs, while it seems that GCC does,
     // at least on Linux x86. We don't know whether the C compiler will
     // be Clang or GCC, so just assume Clang on OS X and G++ on Linux.
-    if (!isOSX)
+    if (externD || !isOSX)
       return;
 
     size_t i = 0;
