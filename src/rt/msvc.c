@@ -186,3 +186,24 @@ DECLARE_ALTERNATE_NAME (fmodf,  _msvc_fmodf);
 DECLARE_ALTERNATE_NAME (modff,  _msvc_modff);
 
 #endif // _M_IX86
+
+// LDC
+#if _MSC_VER >= 1900 // VS2015+
+    // needed for some symbols that are inline functions in the C headers
+    #pragma comment(lib, "legacy_stdio_definitions.lib")
+
+    // win32 exception handling needs VC runtime hooks
+    #ifdef _DLL
+        #ifdef _DEBUG
+            #pragma comment(lib, "vcruntimed.lib")
+        #else
+            #pragma comment(lib, "vcruntime.lib")
+        #endif
+    #else
+        #ifdef _DEBUG
+            #pragma comment(lib, "libvcruntimed.lib")
+        #else
+            #pragma comment(lib, "libvcruntime.lib")
+        #endif
+    #endif
+#endif
