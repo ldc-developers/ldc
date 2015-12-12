@@ -357,8 +357,11 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
   llvm::Function *calleeFn = llvm::dyn_cast<llvm::Function>(callee);
 
   // Intrinsics don't support invoking and 'nounwind' functions don't need it.
-  const bool doesNotThrow =
-      calleeFn && (calleeFn->isIntrinsic() || calleeFn->doesNotThrow());
+  const bool isIntrinsic = calleeFn && calleeFn->isIntrinsic();
+  const bool isNothrow = calleeFn && calleeFn->doesNotThrow();
+
+  // ignore "nothrow" inside a try/catch block to allow catching Errors
+  const bool doesNotThrow = isIntrinsic || (isNothrow && catchScopes.empty());
 
   if (doesNotThrow || (cleanupScopes.empty() && catchScopes.empty())) {
     llvm::CallInst *call = irs->ir->CreateCall(callee, args, name);
@@ -386,7 +389,16 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
       irs->ir->CreateInvoke(callee, postinvoke, landingPad, args, name);
 
   if (calleeFn) {
-    invoke->setAttributes(calleeFn->getAttributes());
+    auto attr = calleeFn->getAttributes();
+    if (isNothrow) {
+      attr = attr.removeAttribute(irs->context(),
+                                  llvm::AttributeSet::FunctionIndex,
+                                  llvm::Attribute::NoUnwind);
+      attr =
+          attr.addAttribute(irs->context(), llvm::AttributeSet::FunctionIndex,
+                            llvm::Attribute::NoInline);
+    }
+    invoke->setAttributes(attr);
   }
 
   irs->scope() = IRScope(postinvoke);

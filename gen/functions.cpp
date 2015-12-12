@@ -470,6 +470,10 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
   // add func to IRFunc
   irFunc->func = func;
 
+  // function attributes
+  if (f->isnothrow)
+    func->setDoesNotThrow();
+
   // parameter attributes
   if (!DtoIsIntrinsic(fdecl)) {
     applyParamAttrsToLLFunc(f, getIrFunc(fdecl)->irFty, func);
