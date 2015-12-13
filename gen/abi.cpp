@@ -9,6 +9,7 @@
 
 #include "gen/abi.h"
 #include "mars.h"
+#include "id.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-aarch64.h"
 #include "gen/abi-mips64.h"
@@ -38,7 +39,7 @@ void ABIRewrite::getL(Type *dty, LLValue *v, LLValue *lval) {
 
 LLValue *ABIRewrite::getAddressOf(DValue *v) {
   Type *dty = v->getType();
-  if (DtoIsPassedByRef(dty)) {
+  if (DtoIsInMemoryOnly(dty)) {
     // v is lowered to a LL pointer to the struct/static array
     return v->getRVal();
   }
@@ -60,7 +61,7 @@ void ABIRewrite::storeToMemory(LLValue *rval, LLValue *address) {
     if (getTypeStoreSize(rvalType) > getTypeAllocSize(pointeeType)) {
       // not enough allocated memory
       LLValue *paddedDump = DtoAllocaDump(rval, 0, ".storeToMemory_paddedDump");
-      DtoAggrCopy(address, paddedDump);
+      DtoMemCpy(address, paddedDump);
       return;
     }
 
@@ -92,6 +93,56 @@ LLValue *ABIRewrite::loadFromMemory(LLValue *address, LLType *asType,
   address = DtoBitCast(address, getPtrToType(asType),
                        ".loadFromMemory_bitCastAddress");
   return DtoLoad(address, name);
+}
+
+//////////////////////////////////////////////////////////////////////////////
+
+bool TargetABI::isAggregate(Type *t) {
+  TY ty = t->toBasetype()->ty;
+  // FIXME: dynamic arrays can currently not be rewritten as they are used
+  //        by runtime functions, for which we don't apply the rewrites yet
+  //        when calling them
+  return ty == Tstruct || ty == Tsarray ||
+         /*ty == Tarray ||*/ ty == Tdelegate || t->iscomplex();
+}
+
+bool TargetABI::isMagicCppStruct(Type *t) {
+  t = t->toBasetype();
+  if (t->ty != Tstruct) {
+    return false;
+  }
+
+  Identifier *id = static_cast<TypeStruct *>(t)->sym->ident;
+  return (id == Id::__c_long) || (id == Id::__c_ulong) ||
+         (id == Id::__c_long_double);
+}
+
+namespace {
+bool hasCtor(StructDeclaration *s) {
+  if (s->ctor)
+    return true;
+  for (size_t i = 0; i < s->fields.dim; i++) {
+    Type *tf = s->fields[i]->type->baseElemOf();
+    if (tf->ty == Tstruct) {
+      if (hasCtor(static_cast<TypeStruct *>(tf)->sym))
+        return true;
+    }
+  }
+  return false;
+}
+}
+
+bool TargetABI::isPOD(Type *t, bool excludeStructsWithCtor) {
+  t = t->toBasetype();
+  if (t->ty != Tstruct)
+    return true;
+  StructDeclaration *sd = static_cast<TypeStruct *>(t)->sym;
+  return sd->isPOD() && !(excludeStructsWithCtor && hasCtor(sd));
+}
+
+bool TargetABI::canRewriteAsInt(Type *t, bool include64bit) {
+  auto size = t->toBasetype()->size();
+  return size == 1 || size == 2 || size == 4 || (include64bit && size == 8);
 }
 
 //////////////////////////////////////////////////////////////////////////////

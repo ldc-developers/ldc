@@ -73,7 +73,7 @@ static LLValue *call_string_switch_runtime(llvm::Value *table, Expression *e) {
     llvm_unreachable("not char/wchar/dchar");
   }
 
-  llvm::Function *fn = LLVM_D_GetRuntimeFunction(e->loc, gIR->module, fname);
+  llvm::Function *fn = getRuntimeFunction(e->loc, gIR->module, fname);
 
   IF_LOG {
     Logger::cout() << *table->getType() << '\n';
@@ -745,9 +745,9 @@ public:
       irs->DBuilder.EmitBlockStart((*it)->loc);
 
       const auto enterCatchFn =
-          LLVM_D_GetRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
-      auto exceptionStruct = DtoLoad(irs->func()->getOrCreateEhPtrSlot());
-      auto throwableObj = irs->ir->CreateCall(enterCatchFn, exceptionStruct);
+          getRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
+      auto ptr = DtoLoad(irs->func()->getOrCreateEhPtrSlot());
+      auto throwableObj = irs->ir->CreateCall(enterCatchFn, ptr);
 
       // For catches that use the Throwable object, create storage for it.
       // We will set it in the code that branches from the landing pads
@@ -825,10 +825,10 @@ public:
     DValue *e = toElemDtor(stmt->exp);
 
     llvm::Function *fn =
-        LLVM_D_GetRuntimeFunction(stmt->loc, irs->module, "_d_throw_exception");
+        getRuntimeFunction(stmt->loc, irs->module, "_d_throw_exception");
     LLValue *arg =
         DtoBitCast(e->getRVal(), fn->getFunctionType()->getParamType(0));
-    ;
+
     irs->CreateCallOrInvoke(fn, arg);
     irs->ir->CreateUnreachable();
 
@@ -1507,7 +1507,7 @@ public:
     LOG_SCOPE;
 
     llvm::Function *fn =
-        LLVM_D_GetRuntimeFunction(stmt->loc, irs->module, "_d_switch_error");
+        getRuntimeFunction(stmt->loc, irs->module, "_d_switch_error");
 
     LLValue *moduleInfoSymbol =
         getIrModule(irs->func()->decl->getModule())->moduleInfoSymbol();

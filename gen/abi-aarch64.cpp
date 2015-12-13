@@ -17,20 +17,6 @@
 #include "gen/abi-aarch64.h"
 
 struct AArch64TargetABI : TargetABI {
-  llvm::CallingConv::ID callingConv(LINK l) {
-    switch (l) {
-    case LINKc:
-    case LINKcpp:
-    case LINKpascal:
-    case LINKwindows:
-    case LINKd:
-    case LINKdefault:
-      return llvm::CallingConv::C;
-    default:
-      llvm_unreachable("Unhandled D linkage type.");
-    }
-  }
-
   bool returnInArg(TypeFunction *tf) override {
     if (tf->isref) {
       return false;
@@ -70,9 +56,8 @@ struct AArch64TargetABI : TargetABI {
   * } va_list;
   *
   * In druntime, the struct is defined as core.stdc.stdarg.__va_list; the
-  * actually used
-  * core.stdc.stdarg.va_list type is a raw char* pointer though to achieve byref
-  * semantics.
+  * actually used core.stdc.stdarg.va_list type is a raw char* pointer though to
+  * achieve byref semantics.
   * This requires a little bit of compiler magic in the following
   * implementations.
   */
@@ -93,9 +78,8 @@ struct AArch64TargetABI : TargetABI {
 
   LLValue *prepareVaStart(LLValue *pAp) override {
     // Since the user only created a char* pointer (ap) on the stack before
-    // invoking va_start,
-    // we first need to allocate the actual __va_list struct and set 'ap' to its
-    // address.
+    // invoking va_start, we first need to allocate the actual __va_list struct
+    // and set 'ap' to its address.
     LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
     valistmem = DtoBitCast(valistmem, getVoidPtrType());
     DtoStore(valistmem, pAp); // ap = (void*)__va_list_mem
@@ -106,8 +90,7 @@ struct AArch64TargetABI : TargetABI {
 
   void vaCopy(LLValue *pDest, LLValue *src) override {
     // Analog to va_start, we need to allocate a new __va_list struct on the
-    // stack,
-    // fill it with a bitcopy of the source struct...
+    // stack, fill it with a bitcopy of the source struct...
     src = DtoLoad(
         DtoBitCast(src, getValistType()->getPointerTo())); // *(__va_list*)src
     LLValue *valistmem = DtoAllocaDump(src, 0, "__va_list_mem");

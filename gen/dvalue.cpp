@@ -67,7 +67,7 @@ LLValue *DVarValue::getRVal() {
     storage = DtoLoad(storage);
   }
 
-  if (DtoIsPassedByRef(type->toBasetype())) {
+  if (DtoIsInMemoryOnly(type->toBasetype())) {
     return storage;
   }
 

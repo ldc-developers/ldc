@@ -116,6 +116,8 @@ struct IrFuncTy {
   llvm::Value *putParam(size_t idx, DValue *dval);
   llvm::Value *putParam(const IrFuncTyArg &arg, DValue *dval);
   void getParam(Type *dty, size_t idx, llvm::Value *val, llvm::Value *address);
+
+  AttrSet getParamAttrs(bool passThisBeforeSret);
 };
 
 #endif

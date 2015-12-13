@@ -96,7 +96,7 @@ struct RemoveStructPadding : ABIRewrite {
   void getL(Type *dty, LLValue *v, LLValue *lval) override {
     // Make sure the padding is zero, so struct comparisons work.
     // TODO: Only do this if there's padding, and/or only initialize padding.
-    DtoMemSetZero(lval, DtoConstSize_t(getTypePaddedSize(DtoType(dty))));
+    DtoMemSetZero(lval, DtoConstSize_t(getTypeAllocSize(DtoType(dty))));
     DtoPaddedStruct(dty->toBasetype(), v, lval);
   }
 
@@ -190,33 +190,41 @@ struct IntegerRewrite : ABIRewrite {
  * pass an explicit pointer; the address is implicit.
  */
 struct ExplicitByvalRewrite : ABIRewrite {
-  const size_t alignment;
+  const unsigned minAlignment;
 
-  explicit ExplicitByvalRewrite(size_t alignment = 16) : alignment(alignment) {}
+  explicit ExplicitByvalRewrite(unsigned minAlignment = 16)
+      : minAlignment(minAlignment) {}
 
   LLValue *get(Type *dty, LLValue *v) override {
     return DtoLoad(v, ".ExplicitByvalRewrite_getResult");
   }
 
   void getL(Type *dty, LLValue *v, LLValue *lval) override {
-    DtoAggrCopy(lval, v);
+    DtoMemCpy(lval, v);
   }
 
   LLValue *put(DValue *v) override {
-    if (DtoIsPassedByRef(v->getType())) {
+    Type *dty = v->getType();
+    const unsigned align = alignment(dty);
+
+    if (DtoIsInMemoryOnly(dty)) {
       LLValue *originalPointer = v->getRVal();
       LLType *type = originalPointer->getType()->getPointerElementType();
       LLValue *copyForCallee =
-          DtoRawAlloca(type, alignment, ".ExplicitByvalRewrite_putResult");
-      DtoAggrCopy(copyForCallee, originalPointer);
+          DtoRawAlloca(type, align, ".ExplicitByvalRewrite_putResult");
+      DtoMemCpy(copyForCallee, originalPointer);
       return copyForCallee;
     }
 
-    return DtoAllocaDump(v->getRVal(), alignment,
+    return DtoAllocaDump(v->getRVal(), align,
                          ".ExplicitByvalRewrite_putResult");
   }
 
   LLType *type(Type *dty, LLType *t) override { return DtoPtrToType(dty); }
+
+  unsigned alignment(Type *dty) const {
+    return std::max(minAlignment, DtoAlignment(dty));
+  }
 };
 
 #endif

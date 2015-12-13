@@ -578,7 +578,7 @@ public:
     if (e->e1->type->toBasetype()->ty == Tstruct && e->e2->op == TOKint64) {
       Logger::println("performing aggregate zero initialization");
       assert(e->e2->toInteger() == 0);
-      DtoAggrZeroInit(l->getLVal());
+      DtoMemSetZero(l->getLVal());
       TypeStruct *ts = static_cast<TypeStruct *>(e->e1->type);
       if (ts->sym->isNested() && ts->sym->vthis) {
         DtoResolveNestedContext(e->loc, ts->sym, l->getLVal());
@@ -1912,7 +1912,7 @@ public:
         !(static_cast<TypeClass *>(condty)->sym->isInterfaceDeclaration()) &&
         !(static_cast<TypeClass *>(condty)->sym->isCPPclass())) {
       Logger::println("calling class invariant");
-      llvm::Function *fn = LLVM_D_GetRuntimeFunction(
+      llvm::Function *fn = getRuntimeFunction(
           e->loc, gIR->module,
           gABI->mangleForLLVM("_D9invariant12_d_invariantFC6ObjectZv", LINKd)
               .c_str());
@@ -2668,7 +2668,7 @@ public:
       Type *indexType = static_cast<TypeAArray *>(aatype)->index;
       assert(indexType && vtype);
 
-      llvm::Function *func = LLVM_D_GetRuntimeFunction(
+      llvm::Function *func = getRuntimeFunction(
           e->loc, gIR->module, "_d_assocarrayliteralTX");
       LLFunctionType *funcTy = func->getFunctionType();
       LLValue *aaTypeInfo =
@@ -2822,8 +2822,8 @@ public:
       Expression *el = (*e->exps)[i];
       DValue *ep = toElem(el);
       LLValue *gep = DtoGEPi(val, 0, i);
-      if (DtoIsPassedByRef(el->type)) {
-        DtoStore(DtoLoad(ep->getRVal()), gep);
+      if (DtoIsInMemoryOnly(el->type)) {
+        DtoMemCpy(gep, ep->getRVal());
       } else if (el->type->ty != Tvoid) {
         DtoStoreZextI8(ep->getRVal(), gep);
       } else {

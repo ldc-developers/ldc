@@ -41,11 +41,13 @@ LLPointerType *DtoPtrToType(Type *t);
 LLType *voidToI8(LLType *t);
 LLType *i1ToI8(LLType *t);
 
-// returns true if the type must be passed by pointer
-bool DtoIsPassedByRef(Type *type);
+// Returns true if the type is a value type which LDC keeps exclusively in
+// memory, referencing all values via LL pointers (structs and static arrays).
+bool DtoIsInMemoryOnly(Type *type);
 
-// returns true if the return value of the call expression
-// is passed in a register
+// Returns true if the callee uses sret (struct return).
+// In that case, the caller needs to allocate the return value and pass its
+// address as additional parameter to the callee, which will set it up.
 bool DtoIsReturnInArg(CallExp *ce);
 
 // should argument be zero or sign extended
@@ -133,7 +135,6 @@ LLConstant *getNullValue(LLType *t);
 // type sizes
 size_t getTypeBitSize(LLType *t);
 size_t getTypeStoreSize(LLType *t);
-size_t getTypePaddedSize(LLType *t);
 size_t getTypeAllocSize(LLType *t);
 
 // type alignments
@@ -150,15 +151,25 @@ LLValue *DtoAggrPaint(LLValue *aggr, LLType *as);
  * @param dst Destination memory.
  * @param val The value to set.
  * @param nbytes Number of bytes to overwrite.
+ * @param align The minimum alignment of the destination memory.
  */
-void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes);
+void DtoMemSet(LLValue *dst, LLValue *val, LLValue *nbytes, unsigned align = 1);
 
 /**
  * Generates a call to llvm.memset.i32 (or i64 depending on architecture).
  * @param dst Destination memory.
  * @param nbytes Number of bytes to overwrite.
+ * @param align The minimum alignment of the destination memory.
  */
-void DtoMemSetZero(LLValue *dst, LLValue *nbytes);
+void DtoMemSetZero(LLValue *dst, LLValue *nbytes, unsigned align = 1);
+
+/**
+ * The same as DtoMemSetZero but figures out the size itself based on the
+ * dst pointee.
+ * @param dst Destination memory.
+ * @param align The minimum alignment of the destination memory.
+ */
+void DtoMemSetZero(LLValue *dst, unsigned align = 1);
 
 /**
  * Generates a call to llvm.memcpy.i32 (or i64 depending on architecture).
@@ -170,23 +181,19 @@ void DtoMemSetZero(LLValue *dst, LLValue *nbytes);
 void DtoMemCpy(LLValue *dst, LLValue *src, LLValue *nbytes, unsigned align = 1);
 
 /**
+ * The same as DtoMemCpy but figures out the size itself based on the dst
+ * pointee.
+ * @param dst Destination memory.
+ * @param src Source memory.
+ * @param withPadding Use the dst pointee's padded size, not its store size.
+ * @param align The minimum alignment of the source and destination memory.
+ */
+void DtoMemCpy(LLValue *dst, LLValue *src, bool withPadding = false,
+               unsigned align = 1);
+
+/**
  * Generates a call to C memcmp.
  */
 LLValue *DtoMemCmp(LLValue *lhs, LLValue *rhs, LLValue *nbytes);
-
-/**
- * The same as DtoMemSetZero but figures out the size itself by "dereferencing"
- * the v pointer once.
- * @param v Destination memory.
- */
-void DtoAggrZeroInit(LLValue *v);
-
-/**
- * The same as DtoMemCpy but figures out the size itself by "dereferencing" dst
- * the pointer once.
- * @param dst Destination memory.
- * @param src Source memory.
- */
-void DtoAggrCopy(LLValue *dst, LLValue *src);
 
 #endif // LDC_GEN_TOLLVM_H

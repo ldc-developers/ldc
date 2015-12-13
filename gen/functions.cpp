@@ -77,6 +77,12 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       newIrFty.arg_sret = new IrFuncTyArg(
           rt, true,
           AttrBuilder().add(LLAttribute::StructRet).add(LLAttribute::NoAlias));
+      const unsigned alignment = DtoAlignment(rt);
+      if (alignment &&
+          // FIXME: LLVM inliner issues for std.bitmanip and std.uni on Win64
+          !global.params.targetTriple.isOSMSVCRT()) {
+        newIrFty.arg_sret->attrs.addAlignment(alignment);
+      }
       rt = Type::tvoid;
       ++nextLLArgIdx;
     } else {
@@ -147,7 +153,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
         // LLVM ByVal parameters are pointers to a copy in the function
         // parameters stack. The caller needs to provide a pointer to the
         // original argument.
-        attrBuilder.add(LLAttribute::ByVal);
+        attrBuilder.addByVal(DtoAlignment(loweredDType));
         passPointer = true;
       } else {
         // Add sext/zext as needed.
@@ -378,43 +384,10 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static void set_param_attrs(TypeFunction *f, llvm::Function *func,
-                            FuncDeclaration *fdecl) {
-  IrFuncTy &irFty = getIrFunc(fdecl)->irFty;
+void applyParamAttrsToLLFunc(TypeFunction *f, IrFuncTy &irFty,
+                             llvm::Function *func) {
   AttrSet newAttrs = AttrSet::extractFunctionAndReturnAttributes(func);
-
-  int idx = 0;
-
-// handle implicit args
-#define ADD_PA(X)                                                              \
-  if (irFty.X) {                                                               \
-    newAttrs.add(idx, irFty.X->attrs);                                         \
-    idx++;                                                                     \
-  }
-
-  ADD_PA(ret)
-
-  if (irFty.arg_sret && irFty.arg_this && gABI->passThisBeforeSret(f)) {
-    ADD_PA(arg_this)
-    ADD_PA(arg_sret)
-  } else {
-    ADD_PA(arg_sret)
-    ADD_PA(arg_this)
-  }
-
-  ADD_PA(arg_nest)
-  ADD_PA(arg_arguments)
-
-#undef ADD_PA
-
-  // Set attributes on the explicit parameters.
-  const size_t n = irFty.args.size();
-  for (size_t k = 0; k < n; k++) {
-    const size_t i = idx + (irFty.reverseParams ? (n - k - 1) : k);
-    newAttrs.add(i, irFty.args[k]->attrs);
-  }
-
-  // Store the final attribute set
+  newAttrs.merge(irFty.getParamAttrs(gABI->passThisBeforeSret(f)));
   func->setAttributes(newAttrs);
 }
 
@@ -490,7 +463,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     fatal();
   }
 
-  func->setCallingConv(gABI->callingConv(func->getFunctionType(), link));
+  func->setCallingConv(gABI->callingConv(func->getFunctionType(), link, fdecl));
 
   IF_LOG Logger::cout() << "func = " << *func << std::endl;
 
@@ -499,7 +472,7 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
 
   // parameter attributes
   if (!DtoIsIntrinsic(fdecl)) {
-    set_param_attrs(f, func, fdecl);
+    applyParamAttrsToLLFunc(f, getIrFunc(fdecl)->irFty, func);
     if (global.params.disableRedZone) {
       func->addFnAttr(LLAttribute::NoRedZone);
     }
@@ -928,8 +901,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     bb->eraseFromParent();
   } else if (!gIR->scopereturned()) {
     // llvm requires all basic blocks to end with a TerminatorInst but DMD does
-    // not put a return statement
-    // in automatically, so we do it here.
+    // not put a return statement in automatically, so we do it here.
 
     // pass the previous block into this block
     gIR->DBuilder.EmitStopPoint(fd->endloc);
@@ -985,7 +957,7 @@ DValue *DtoArgument(Parameter *fnarg, Expression *argexp) {
   }
 
   // byval arg, but expr has no storage yet
-  if (DtoIsPassedByRef(argexp->type) && (arg->isSlice() || arg->isNull())) {
+  if (DtoIsInMemoryOnly(argexp->type) && (arg->isSlice() || arg->isNull())) {
     LLValue *alloc = DtoAlloca(argexp->type, ".tmp_arg");
     auto vv = new DVarValue(argexp->type, alloc);
     DtoAssign(argexp->loc, vv, arg);

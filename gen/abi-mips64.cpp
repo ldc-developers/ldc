@@ -21,8 +21,6 @@
 #include "gen/tollvm.h"
 
 struct MIPS64TargetABI : TargetABI {
-  ExplicitByvalRewrite byvalRewrite;
-  IntegerRewrite integerRewrite;
   const bool Is64Bit;
 
   explicit MIPS64TargetABI(const bool Is64Bit) : Is64Bit(Is64Bit) {}
@@ -55,12 +53,6 @@ struct MIPS64TargetABI : TargetABI {
 
   void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
     // FIXME
-  }
-
-  // Returns true if the D type can be bit-cast to an integer of the same size.
-  bool canRewriteAsInt(Type *t) {
-    const unsigned size = t->size();
-    return size == 1 || size == 2 || size == 4 || (Is64Bit && size == 8);
   }
 };
 

@@ -28,6 +28,9 @@ public:
   AttrBuilder &remove(LLAttribute attribute);
   AttrBuilder &merge(const AttrBuilder &other);
 
+  AttrBuilder &addAlignment(unsigned alignment);
+  AttrBuilder &addByVal(unsigned alignment);
+
   operator llvm::AttrBuilder &() { return builder; }
   operator const llvm::AttrBuilder &() const { return builder; }
 };
@@ -37,10 +40,14 @@ class AttrSet {
 
 public:
   AttrSet() = default;
+  AttrSet(const llvm::AttributeSet &nativeSet) : set(nativeSet) {}
+  AttrSet(const AttrSet &base, unsigned index, LLAttribute attribute);
+
   static AttrSet
   extractFunctionAndReturnAttributes(const llvm::Function *function);
 
   AttrSet &add(unsigned index, const AttrBuilder &builder);
+  AttrSet &merge(const AttrSet &other);
 
   operator llvm::AttributeSet &() { return set; }
   operator const llvm::AttributeSet &() const { return set; }

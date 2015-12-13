@@ -32,124 +32,116 @@
 #include <utility>
 
 struct Win64TargetABI : TargetABI {
+private:
+  const bool isMSVC;
   ExplicitByvalRewrite byvalRewrite;
   IntegerRewrite integerRewrite;
 
-  bool returnInArg(TypeFunction *tf) override;
-
-  bool passByVal(Type *t) override;
-
-  bool passThisBeforeSret(TypeFunction *tf) override;
-
-  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override;
-
-  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override;
-
-private:
-  // Returns true if the D type is an aggregate:
-  // * struct
-  // * static/dynamic array
-  // * delegate
-  // * complex number
-  bool isAggregate(Type *t) {
-    TY ty = t->ty;
-    return ty == Tstruct || ty == Tsarray ||
-           /*ty == Tarray ||*/ ty == Tdelegate || t->iscomplex();
-  }
-
-  // Returns true if the D type can be bit-cast to an integer of the same size.
-  bool canRewriteAsInt(Type *t) {
-    unsigned size = t->size();
-    return size == 1 || size == 2 || size == 4 || size == 8;
-  }
-
-  bool realIs80bits() {
-    return !global.params.targetTriple.isWindowsMSVCEnvironment();
-  }
+  bool realIs80bits() const { return !isMSVC; }
 
   // Returns true if the D type is passed byval (the callee getting a pointer
   // to a dedicated hidden copy).
-  bool isPassedWithByvalSemantics(Type *t) {
+  bool isPassedWithByvalSemantics(Type *t) const {
     return
         // * aggregates which can NOT be rewritten as integers
-        //   (size > 64 bits or not a power of 2)
+        //   (size > 8 bytes or not a power of 2)
         (isAggregate(t) && !canRewriteAsInt(t)) ||
         // * 80-bit real and ireal
         (realIs80bits() && (t->ty == Tfloat80 || t->ty == Timaginary80));
+  }
+
+public:
+  Win64TargetABI()
+      : isMSVC(global.params.targetTriple.isWindowsMSVCEnvironment()) {}
+
+  bool returnInArg(TypeFunction *tf) override {
+    if (tf->isref)
+      return false;
+
+    Type *rt = tf->next->toBasetype();
+
+    // let LLVM return
+    // * magic C++ structs directly as LL aggregate with a single i32/double
+    //   element, which LLVM handles as if it was a scalar
+    // * 80-bit real/ireal on the x87 stack, for DMD inline asm compliance
+    if (isMagicCppStruct(rt) ||
+        (realIs80bits() && (rt->ty == Tfloat80 || rt->ty == Timaginary80)))
+      return false;
+
+    // force sret for non-POD structs
+    const bool excludeStructsWithCtor = (isMSVC && tf->linkage == LINKcpp);
+    if (!isPOD(rt, excludeStructsWithCtor))
+      return true;
+
+    // * all POD types of a power-of-2 size <= 8 bytes (incl. 2x32-bit cfloat)
+    //   are returned in a register (RAX, or XMM0 for single float/ifloat/
+    //   double/idouble)
+    // * all other types are returned via sret
+    return isPassedWithByvalSemantics(rt);
+  }
+
+  bool passByVal(Type *t) override {
+    // LLVM's byval attribute is not compatible with the Win64 ABI
+    return false;
+  }
+
+  bool passThisBeforeSret(TypeFunction *tf) override {
+    // required by MSVC++
+    return tf->linkage == LINKcpp;
+  }
+
+  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+    // return value
+    if (!fty.ret->byref && fty.ret->type->toBasetype()->ty != Tvoid) {
+      rewriteArgument(fty, *fty.ret);
+    }
+
+    // explicit parameters
+    for (auto arg : fty.args) {
+      if (!arg->byref) {
+        rewriteArgument(fty, *arg);
+      }
+    }
+
+    // extern(D): reverse parameter order for non variadics, for DMD-compliance
+    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
+      fty.reverseParams = true;
+    }
+  }
+
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    Type *t = arg.type->toBasetype();
+
+    if (isMagicCppStruct(t)) {
+      // pass directly as LL aggregate
+    } else if (isPassedWithByvalSemantics(t)) {
+      // these types are passed byval:
+      // the caller allocates a copy and then passes a pointer to the copy
+      arg.rewrite = &byvalRewrite;
+
+      // the copy is treated as a local variable of the callee
+      // hence add the NoAlias and NoCapture attributes
+      arg.attrs.clear()
+          .add(LLAttribute::NoAlias)
+          .add(LLAttribute::NoCapture)
+          .addAlignment(byvalRewrite.alignment(arg.type));
+    } else if (isAggregate(t) && canRewriteAsInt(t) &&
+               !IntegerRewrite::isObsoleteFor(arg.ltype)) {
+      arg.rewrite = &integerRewrite;
+    }
+
+    if (arg.rewrite) {
+      LLType *originalLType = arg.ltype;
+      arg.ltype = arg.rewrite->type(arg.type, arg.ltype);
+
+      IF_LOG {
+        Logger::println("Rewriting argument type %s", t->toChars());
+        LOG_SCOPE;
+        Logger::cout() << *originalLType << " => " << *arg.ltype << '\n';
+      }
+    }
   }
 };
 
 // The public getter for abi.cpp
 TargetABI *getWin64TargetABI() { return new Win64TargetABI; }
-
-bool Win64TargetABI::returnInArg(TypeFunction *tf) {
-  if (tf->isref) {
-    return false;
-  }
-
-  Type *rt = tf->next->toBasetype();
-
-  // * let LLVM return 80-bit real/ireal on the x87 stack, for DMD compliance
-  if (realIs80bits() && (rt->ty == Tfloat80 || rt->ty == Timaginary80)) {
-    return false;
-  }
-
-  // * all POD types <= 64 bits and of a size that is a power of 2
-  //   (incl. 2x32-bit cfloat) are returned in a register (RAX, or
-  //   XMM0 for single float/ifloat/double/idouble)
-  // * all other types are returned via struct-return (sret)
-  return (rt->ty == Tstruct &&
-          !(static_cast<TypeStruct *>(rt))->sym->isPOD()) ||
-         isPassedWithByvalSemantics(rt);
-}
-
-bool Win64TargetABI::passByVal(Type *t) { return false; }
-
-bool Win64TargetABI::passThisBeforeSret(TypeFunction *tf) {
-  return tf->linkage == LINKcpp;
-}
-
-void Win64TargetABI::rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) {
-  // RETURN VALUE
-  if (!fty.ret->byref && fty.ret->type->toBasetype()->ty != Tvoid) {
-    rewriteArgument(fty, *fty.ret);
-  }
-
-  // EXPLICIT PARAMETERS
-  for (auto arg : fty.args) {
-    if (!arg->byref) {
-      rewriteArgument(fty, *arg);
-    }
-  }
-
-  // extern(D): reverse parameter order for non variadics, for DMD-compliance
-  if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
-    fty.reverseParams = true;
-  }
-}
-
-void Win64TargetABI::rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {
-  LLType *originalLType = arg.ltype;
-  Type *t = arg.type->toBasetype();
-
-  if (isPassedWithByvalSemantics(t)) {
-    // these types are passed byval:
-    // the caller allocates a copy and then passes a pointer to the copy
-    arg.rewrite = &byvalRewrite;
-    arg.ltype = byvalRewrite.type(arg.type, arg.ltype);
-
-    // the copy is treated as a local variable of the callee
-    // hence add the NoAlias and NoCapture attributes
-    arg.attrs.clear().add(LLAttribute::NoAlias).add(LLAttribute::NoCapture);
-  } else if (isAggregate(t) && canRewriteAsInt(t) &&
-             !IntegerRewrite::isObsoleteFor(originalLType)) {
-    arg.rewrite = &integerRewrite;
-    arg.ltype = integerRewrite.type(arg.type, arg.ltype);
-  }
-
-  IF_LOG if (arg.rewrite) {
-    Logger::println("Rewriting argument type %s", t->toChars());
-    LOG_SCOPE;
-    Logger::cout() << *originalLType << " => " << *arg.ltype << '\n';
-  }
-}

@@ -19,7 +19,7 @@
  * Link an executable only from object files.
  * @return 0 on success.
  */
-int linkObjToBinary(bool sharedLib);
+int linkObjToBinary(bool sharedLib, bool fullyStatic);
 
 /**
  * Create a static library from object files.

@@ -89,12 +89,20 @@ public:
   unsigned getNumOptions() const LLVM_OVERRIDE { return 1; }
   const char *getOption(unsigned N) const LLVM_OVERRIDE {
     assert(N == 0);
+#if LDC_LLVM_VER >= 308
+    return owner().ArgStr.data();
+#else
     return owner().ArgStr;
+#endif
   }
 
   const char *getDescription(unsigned N) const LLVM_OVERRIDE {
     assert(N == 0);
+#if LDC_LLVM_VER >= 308
+    return owner().HelpStr.data();
+#else
     return owner().HelpStr;
+#endif
   }
 
 private:
@@ -130,7 +138,11 @@ public:
     return true;
   }
 
+#if LDC_LLVM_VER >= 308
+  void getExtraOptionNames(llvm::SmallVectorImpl<llvm::StringRef> &Names) {
+#else
   void getExtraOptionNames(llvm::SmallVectorImpl<const char *> &Names) {
+#endif
     for (auto I = switches.begin() + 1, E = switches.end(); I != E; ++I) {
       Names.push_back(I->first.data());
     }

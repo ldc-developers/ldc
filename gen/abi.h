@@ -26,6 +26,7 @@ class TypeFunction;
 struct IrFuncTy;
 struct IrFuncTyArg;
 class DValue;
+class FuncDeclaration;
 
 namespace llvm {
 class Type;
@@ -54,17 +55,17 @@ struct ABIRewrite {
 protected:
   /***** Static Helpers *****/
 
-  // Returns the address of a D value, storing it to memory first if need be.
+  /// Returns the address of a D value, storing it to memory first if need be.
   static llvm::Value *getAddressOf(DValue *v);
 
-  // Stores a LL value to a specified memory address. The element type of the
-  // provided pointer doesn't need to match the value type (=> suited for
-  // bit-casting).
+  /// Stores a LL value to a specified memory address. The element type of the
+  /// provided pointer doesn't need to match the value type (=> suited for
+  /// bit-casting).
   static void storeToMemory(llvm::Value *rval, llvm::Value *address);
 
-  // Loads a LL value of a specified type from memory. The element type of the
-  // provided pointer doesn't need to match the value type (=> suited for
-  // bit-casting).
+  /// Loads a LL value of a specified type from memory. The element type of the
+  /// provided pointer doesn't need to match the value type (=> suited for
+  /// bit-casting).
   static llvm::Value *loadFromMemory(llvm::Value *address, llvm::Type *asType,
                                      const char *name = ".bitcast_result");
 };
@@ -81,7 +82,8 @@ struct TargetABI {
 
   /// Returns the LLVM calling convention to be used for the given D linkage
   /// type on the target. Defaults to the C calling convention.
-  virtual llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l) {
+  virtual llvm::CallingConv::ID callingConv(llvm::FunctionType *ft, LINK l,
+                                            FuncDeclaration *fdecl = nullptr) {
     return llvm::CallingConv::C;
   }
 
@@ -124,24 +126,48 @@ struct TargetABI {
   virtual void rewriteVarargs(IrFuncTy &fty, std::vector<IrFuncTyArg *> &args);
   virtual void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) {}
 
-  // Prepares a va_start intrinsic call.
-  // Input:  pointer to passed ap argument (va_list*)
-  // Output: value to be passed to LLVM's va_start intrinsic (void*)
+  /// Prepares a va_start intrinsic call.
+  ///
+  /// Input:  pointer to passed ap argument (va_list*)
+  /// Output: value to be passed to LLVM's va_start intrinsic (void*)
   virtual llvm::Value *prepareVaStart(llvm::Value *pAp);
 
-  // Implements the va_copy intrinsic.
-  // Input: pointer to dest argument (va_list*) and src argument (va_list)
+  /// Implements the va_copy intrinsic.
+  ///
+  /// Input: pointer to dest argument (va_list*) and src argument (va_list)
   virtual void vaCopy(llvm::Value *pDest, llvm::Value *src);
 
-  // Prepares a va_arg intrinsic call.
-  // Input:  pointer to passed ap argument (va_list*)
-  // Output: value to be passed to LLVM's va_arg intrinsic (void*)
+  /// Prepares a va_arg intrinsic call.
+  ///
+  /// Input:  pointer to passed ap argument (va_list*)
+  /// Output: value to be passed to LLVM's va_arg intrinsic (void*)
   virtual llvm::Value *prepareVaArg(llvm::Value *pAp);
 
   /// Returns the D type to be used for va_list.
   ///
   /// Must match the alias in druntime.
   virtual Type *vaListType();
+
+protected:
+  /***** Static Helpers *****/
+
+  /// Returns true if the D type is an aggregate:
+  /// * struct
+  /// * static/dynamic array
+  /// * delegate
+  /// * complex number
+  static bool isAggregate(Type *t);
+
+  /// The frontend uses magic structs to express the variable-sized C types
+  /// ((unsigned) long, long double) for C++ mangling purposes.
+  static bool isMagicCppStruct(Type *t);
+
+  /// Returns true if the D type is a Plain-Old-Datatype, optionally excluding
+  /// structs with constructors from that definition.
+  static bool isPOD(Type *t, bool excludeStructsWithCtor = false);
+
+  /// Returns true if the D type can be bit-cast to an integer of the same size.
+  static bool canRewriteAsInt(Type *t, bool include64bit = true);
 };
 
 #endif

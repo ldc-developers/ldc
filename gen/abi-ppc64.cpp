@@ -58,7 +58,7 @@ struct PPC64TargetABI : TargetABI {
     Type *ty = arg.type->toBasetype();
 
     if (ty->ty == Tstruct || ty->ty == Tsarray) {
-      if (canRewriteAsInt(ty)) {
+      if (canRewriteAsInt(ty, Is64Bit)) {
         if (!IntegerRewrite::isObsoleteFor(arg.ltype)) {
           arg.rewrite = &integerRewrite;
           arg.ltype = integerRewrite.type(arg.type, arg.ltype);
@@ -71,15 +71,12 @@ struct PPC64TargetABI : TargetABI {
 
         // the copy is treated as a local variable of the callee
         // hence add the NoAlias and NoCapture attributes
-        arg.attrs.clear().add(LLAttribute::NoAlias).add(LLAttribute::NoCapture);
+        arg.attrs.clear()
+            .add(LLAttribute::NoAlias)
+            .add(LLAttribute::NoCapture)
+            .addAlignment(byvalRewrite.alignment(arg.type));
       }
     }
-  }
-
-  // Returns true if the D type can be bit-cast to an integer of the same size.
-  bool canRewriteAsInt(Type *t) {
-    const unsigned size = t->size();
-    return size == 1 || size == 2 || size == 4 || (Is64Bit && size == 8);
   }
 };
 

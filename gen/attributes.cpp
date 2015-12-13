@@ -42,6 +42,23 @@ AttrBuilder &AttrBuilder::merge(const AttrBuilder &other) {
   return *this;
 }
 
+AttrBuilder &AttrBuilder::addAlignment(unsigned alignment) {
+  builder.addAlignmentAttr(alignment);
+  return *this;
+}
+
+AttrBuilder &AttrBuilder::addByVal(unsigned alignment) {
+  builder.addAttribute(LLAttribute::ByVal);
+  if (alignment != 0) {
+    builder.addAlignmentAttr(alignment);
+  }
+  return *this;
+}
+
+
+AttrSet::AttrSet(const AttrSet &base, unsigned index, LLAttribute attribute)
+    : set(base.set.addAttribute(gIR->context(), index, attribute)) {}
+
 AttrSet
 AttrSet::extractFunctionAndReturnAttributes(const llvm::Function *function) {
   AttrSet r;
@@ -56,9 +73,17 @@ AttrSet::extractFunctionAndReturnAttributes(const llvm::Function *function) {
 
 AttrSet &AttrSet::add(unsigned index, const AttrBuilder &builder) {
   if (builder.hasAttributes()) {
-    llvm::AttributeSet as =
-        llvm::AttributeSet::get(gIR->context(), index, builder);
+    auto as = llvm::AttributeSet::get(gIR->context(), index, builder);
     set = set.addAttributes(gIR->context(), index, as);
+  }
+  return *this;
+}
+
+AttrSet &AttrSet::merge(const AttrSet &other) {
+  auto &os = other.set;
+  for (unsigned i = 0; i < os.getNumSlots(); ++i) {
+    unsigned index = os.getSlotIndex(i);
+    set = set.addAttributes(gIR->context(), index, os.getSlotAttributes(i));
   }
   return *this;
 }

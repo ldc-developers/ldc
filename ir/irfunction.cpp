@@ -291,13 +291,13 @@ llvm::LandingPadInst *createLandingPadInst(IRState *irs) {
   LLFunction *currentFunction = irs->func()->func;
   if (!currentFunction->hasPersonalityFn()) {
     LLFunction *personalityFn =
-        LLVM_D_GetRuntimeFunction(Loc(), irs->module, "_d_eh_personality");
+        getRuntimeFunction(Loc(), irs->module, "_d_eh_personality");
     currentFunction->setPersonalityFn(personalityFn);
   }
   return irs->ir->CreateLandingPad(retType, 0);
 #else
   LLFunction *personalityFn =
-      LLVM_D_GetRuntimeFunction(Loc(), irs->module, "_d_eh_personality");
+      getRuntimeFunction(Loc(), irs->module, "_d_eh_personality");
   return irs->ir->CreateLandingPad(retType, personalityFn, 0);
 #endif
 }
@@ -424,8 +424,8 @@ llvm::BasicBlock *IrFunction::getOrCreateResumeUnwindBlock() {
     gIR->scope() = IRScope(resumeUnwindBlock);
 
     llvm::Function *resumeFn =
-        LLVM_D_GetRuntimeFunction(Loc(), gIR->module, "_d_eh_resume_unwind");
-    gIR->ir->CreateCall(resumeFn, gIR->ir->CreateLoad(getOrCreateEhPtrSlot()));
+        getRuntimeFunction(Loc(), gIR->module, "_d_eh_resume_unwind");
+    gIR->ir->CreateCall(resumeFn, DtoLoad(getOrCreateEhPtrSlot()));
     gIR->ir->CreateUnreachable();
 
     gIR->scope() = IRScope(oldBB);
