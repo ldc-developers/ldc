@@ -1218,7 +1218,7 @@ public:
 
     // get value for this iteration
     LLValue *loadedKey = irs->ir->CreateLoad(keyvar);
-    LLValue *gep = DtoGEP1(val, loadedKey);
+    LLValue *gep = DtoGEP1(val, loadedKey, true);
 
     if (!stmt->value->isRef() && !stmt->value->isOut()) {
       // Copy value to local variable, and use it as the value variable.

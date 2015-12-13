@@ -167,7 +167,7 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
   LLValue *itr_val = DtoLoad(itr);
   // assign array element value
   DValue *arrayelem = new DVarValue(
-      dvalue->type->toBasetype(), DtoGEP1(ptr, itr_val, "arrayinit.arrayelem"));
+      dvalue->type->toBasetype(), DtoGEP1(ptr, itr_val, true, "arrayinit.arrayelem"));
   DtoAssign(loc, arrayelem, dvalue, op);
 
   // increment iterator
@@ -761,7 +761,7 @@ void DtoCatAssignElement(Loc &loc, Type *arrayType, DValue *array,
   appendedArray = DtoAggrPaint(appendedArray, DtoType(arrayType));
 
   LLValue *val = DtoArrayPtr(array);
-  val = DtoGEP1(val, oldLength, ".lastElem");
+  val = DtoGEP1(val, oldLength, true, ".lastElem");
   DtoAssign(loc, new DVarValue(arrayType->nextOf(), val), expVal, TOKblit);
   callPostblit(loc, exp, val);
 }

@@ -257,69 +257,53 @@ LLIntegerType *DtoSize_t() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, const char *var,
+namespace {
+llvm::GetElementPtrInst *DtoGEP(LLValue *ptr, llvm::ArrayRef<LLValue *> indices,
+                                bool inBounds, const char *name,
+                                llvm::BasicBlock *bb) {
+  LLPointerType *p = isaPointer(ptr);
+  assert(p && "GEP expects a pointer type");
+  auto gep = llvm::GetElementPtrInst::Create(
+#if LDC_LLVM_VER >= 307
+      p->getElementType(),
+#endif
+      ptr, indices, name, bb ? bb : gIR->scopebb());
+  gep->setIsInBounds(inBounds);
+  return gep;
+}
+}
+
+LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, bool inBounds, const char *name,
                  llvm::BasicBlock *bb) {
-  LLPointerType *p = isaPointer(ptr);
-  assert(p && "GEP expects a pointer type");
-  return llvm::GetElementPtrInst::Create(
-#if LDC_LLVM_VER >= 307
-      p->getElementType(),
-#endif
-      ptr, i0, var, bb ? bb : gIR->scopebb());
+  return DtoGEP(ptr, i0, inBounds, name, bb);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, const char *var,
-                llvm::BasicBlock *bb) {
-  LLPointerType *p = isaPointer(ptr);
-  assert(p && "GEP expects a pointer type");
-  LLValue *v[] = {i0, i1};
-  return llvm::GetElementPtrInst::Create(
-#if LDC_LLVM_VER >= 307
-      p->getElementType(),
-#endif
-      ptr, v, var, bb ? bb : gIR->scopebb());
+LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, bool inBounds,
+                const char *name, llvm::BasicBlock *bb) {
+  LLValue *indices[] = {i0, i1};
+  return DtoGEP(ptr, indices, inBounds, name, bb);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-LLValue *DtoGEPi1(LLValue *ptr, unsigned i, const char *var,
+LLValue *DtoGEPi1(LLValue *ptr, unsigned i0, const char *name,
                   llvm::BasicBlock *bb) {
-  LLPointerType *p = isaPointer(ptr);
-  assert(p && "GEP expects a pointer type");
-  return llvm::GetElementPtrInst::Create(
-#if LDC_LLVM_VER >= 307
-      p->getElementType(),
-#endif
-      ptr, DtoConstUint(i), var, bb ? bb : gIR->scopebb());
+  return DtoGEP(ptr, DtoConstUint(i0), /* inBounds = */ true, name, bb);
 }
 
-////////////////////////////////////////////////////////////////////////////////
-
-LLValue *DtoGEPi(LLValue *ptr, unsigned i0, unsigned i1, const char *var,
+LLValue *DtoGEPi(LLValue *ptr, unsigned i0, unsigned i1, const char *name,
                  llvm::BasicBlock *bb) {
-  LLPointerType *p = isaPointer(ptr);
-  assert(p && "GEP expects a pointer type");
-  LLValue *v[] = {DtoConstUint(i0), DtoConstUint(i1)};
-  return llvm::GetElementPtrInst::Create(
-#if LDC_LLVM_VER >= 307
-      p->getElementType(),
-#endif
-      ptr, v, var, bb ? bb : gIR->scopebb());
+  LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
+  return DtoGEP(ptr, indices, /* inBounds = */ true, name, bb);
 }
-
-////////////////////////////////////////////////////////////////////////////////
 
 LLConstant *DtoGEPi(LLConstant *ptr, unsigned i0, unsigned i1) {
   LLPointerType *p = isaPointer(ptr);
   assert(p && "GEP expects a pointer type");
-  LLValue *v[] = {DtoConstUint(i0), DtoConstUint(i1)};
+  LLValue *indices[] = {DtoConstUint(i0), DtoConstUint(i1)};
   return llvm::ConstantExpr::getGetElementPtr(
 #if LDC_LLVM_VER >= 307
       p->getElementType(),
 #endif
-      ptr, v, true);
+      ptr, indices, /* InBounds = */ true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
