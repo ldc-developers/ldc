@@ -55,6 +55,11 @@ AttrBuilder &AttrBuilder::addByVal(unsigned alignment) {
   return *this;
 }
 
+AttrBuilder &AttrBuilder::addDereferenceable(unsigned size) {
+  builder.addDereferenceableAttr(size);
+  return *this;
+}
+
 
 AttrSet::AttrSet(const AttrSet &base, unsigned index, LLAttribute attribute)
     : set(base.set.addAttribute(gIR->context(), index, attribute)) {}
