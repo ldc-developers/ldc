@@ -97,6 +97,12 @@ static cl::opt<bool> linkDebugLib(
     cl::desc("Link with libraries specified in -debuglib, not -defaultlib"),
     cl::ZeroOrMore);
 
+static cl::opt<bool> staticFlag(
+    "static",
+    cl::desc(
+        "Create a statically linked binary, including all system dependencies"),
+    cl::ZeroOrMore);
+
 void printVersion() {
   printf("LDC - the LLVM D compiler (%s):\n", global.ldc_version);
   printf("  based on DMD %s and LLVM %s\n", global.version,
@@ -1297,7 +1303,7 @@ int main(int argc, char **argv) {
     }
   } else {
     if (global.params.link) {
-      status = linkObjToBinary(createSharedLib);
+      status = linkObjToBinary(createSharedLib, staticFlag);
     } else if (createStaticLib) {
       status = createStaticLibrary();
     }
