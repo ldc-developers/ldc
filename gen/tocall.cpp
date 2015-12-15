@@ -843,7 +843,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
                        numFormalParams);
 
   // call the function
-  LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args);
+  LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args, "", tf->isnothrow);
 
   // get return value
   const int sretArgIndex =
@@ -988,8 +988,6 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   } else {
     call.setCallingConv(callconv);
   }
-  attrlist = attrlist.addAttributes(
-      gIR->context(), llvm::AttributeSet::FunctionIndex, call.getAttributes());
   call.setAttributes(attrlist);
 
   // Special case for struct constructor calls: For temporaries, using the

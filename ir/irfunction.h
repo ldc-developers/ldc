@@ -262,7 +262,7 @@ public:
   /// are catches/cleanups active or not.
   template <typename T>
   llvm::CallSite callOrInvoke(llvm::Value *callee, const T &args,
-                              const char *name = "");
+                              const char *name = "", bool isNothrow = false);
 
   /// Terminates the current basic block with an unconditional branch to the
   /// given label, along with the cleanups to execute on the way there.
@@ -351,14 +351,15 @@ private:
 
 template <typename T>
 llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
-                                        const char *name) {
+                                        const char *name, bool isNothrow) {
   // If this is a direct call, we might be able to use the callee attributes
   // to our advantage.
   llvm::Function *calleeFn = llvm::dyn_cast<llvm::Function>(callee);
 
   // Intrinsics don't support invoking and 'nounwind' functions don't need it.
   const bool isIntrinsic = calleeFn && calleeFn->isIntrinsic();
-  const bool isNothrow = calleeFn && calleeFn->doesNotThrow();
+  if (!isNothrow)
+    isNothrow = (calleeFn && calleeFn->doesNotThrow());
 
   // ignore "nothrow" inside a try/catch block to allow catching Errors
   const bool doesNotThrow = isIntrinsic || (isNothrow && catchScopes.empty());
@@ -389,16 +390,7 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
       irs->ir->CreateInvoke(callee, postinvoke, landingPad, args, name);
 
   if (calleeFn) {
-    auto attr = calleeFn->getAttributes();
-    if (isNothrow) {
-      attr = attr.removeAttribute(irs->context(),
-                                  llvm::AttributeSet::FunctionIndex,
-                                  llvm::Attribute::NoUnwind);
-      attr =
-          attr.addAttribute(irs->context(), llvm::AttributeSet::FunctionIndex,
-                            llvm::Attribute::NoInline);
-    }
-    invoke->setAttributes(attr);
+    invoke->setAttributes(calleeFn->getAttributes());
   }
 
   irs->scope() = IRScope(postinvoke);
