@@ -41,8 +41,8 @@ DValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
   // extern(C) void* _aaInX(AA aa*, TypeInfo keyti, void* pkey)
 
   // first get the runtime function
-  llvm::Function *func = getRuntimeFunction(
-      loc, gIR->module, lvalue ? "_aaGetY" : "_aaInX");
+  llvm::Function *func =
+      getRuntimeFunction(loc, gIR->module, lvalue ? "_aaGetY" : "_aaInX");
   LLFunctionType *funcTy = func->getFunctionType();
 
   // aa param
@@ -61,8 +61,7 @@ DValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
     LLValue *castedAATI = DtoBitCast(rawAATI, funcTy->getParamType(1));
     LLValue *valsize = DtoConstSize_t(getTypeAllocSize(DtoType(type)));
     ret = gIR->CreateCallOrInvoke(func, aaval, castedAATI, valsize, pkey,
-                                  "aa.index")
-              .getInstruction();
+                                  "aa.index").getInstruction();
   } else {
     LLValue *keyti = DtoBitCast(to_keyti(aa), funcTy->getParamType(1));
     ret = gIR->CreateCallOrInvoke(func, aaval, keyti, pkey, "aa.index")
@@ -78,10 +77,10 @@ DValue *DtoAAIndex(Loc &loc, Type *type, DValue *aa, DValue *key, bool lvalue) {
   // Only check bounds for rvalues ('aa[key]').
   // Lvalue use ('aa[key] = value') auto-adds an element.
   if (!lvalue && gIR->emitArrayBoundsChecks()) {
-    llvm::BasicBlock *failbb = llvm::BasicBlock::Create(
-        gIR->context(), "aaboundscheckfail", gIR->topfunc());
+    llvm::BasicBlock *failbb =
+        llvm::BasicBlock::Create(*gIR, "aaboundscheckfail", gIR->topfunc());
     llvm::BasicBlock *okbb =
-        llvm::BasicBlock::Create(gIR->context(), "aaboundsok", gIR->topfunc());
+        llvm::BasicBlock::Create(*gIR, "aaboundsok", gIR->topfunc());
 
     LLValue *nullaa = LLConstant::getNullValue(ret->getType());
     LLValue *cond = gIR->ir->CreateICmpNE(nullaa, ret, "aaboundscheck");
@@ -197,16 +196,14 @@ LLValue *DtoAAEquals(Loc &loc, TOK op, DValue *l, DValue *r) {
   Type *t = l->getType()->toBasetype();
   assert(t == r->getType()->toBasetype() &&
          "aa equality is only defined for aas of same type");
-  llvm::Function *func =
-      getRuntimeFunction(loc, gIR->module, "_aaEqual");
+  llvm::Function *func = getRuntimeFunction(loc, gIR->module, "_aaEqual");
   LLFunctionType *funcTy = func->getFunctionType();
 
   LLValue *aaval = DtoBitCast(l->getRVal(), funcTy->getParamType(1));
   LLValue *abval = DtoBitCast(r->getRVal(), funcTy->getParamType(2));
   LLValue *aaTypeInfo = DtoTypeInfoOf(t);
-  LLValue *res =
-      gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval, "aaEqRes")
-          .getInstruction();
+  LLValue *res = gIR->CreateCallOrInvoke(func, aaTypeInfo, aaval, abval,
+                                         "aaEqRes").getInstruction();
   res = gIR->ir->CreateICmpNE(res, DtoConstInt(0));
   if (op == TOKnotequal) {
     res = gIR->ir->CreateNot(res);

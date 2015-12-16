@@ -15,7 +15,8 @@ const std::string section = "section";
 
 bool isFromLdcAttibutes(StructLiteralExp *e) {
   auto moduleDecl = e->sd->getModule()->md;
-  if (!moduleDecl) return false;
+  if (!moduleDecl)
+    return false;
 
   if (strcmp("attributes", moduleDecl->id->string)) {
     return false;

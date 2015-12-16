@@ -108,6 +108,8 @@ struct IRState {
 
   llvm::Module module;
   llvm::LLVMContext &context() const { return module.getContext(); }
+  // allow implicit conversion to LLVM context
+  operator llvm::LLVMContext &() const { return context(); }
 
   Module *dmodule;
 

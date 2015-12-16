@@ -79,13 +79,13 @@ LLType *getAbiType(Type *ty) {
       // this makes sure that 64 bits of the chosen register are used and thus
       // makes sure all potential padding bytes of a struct are copied
       if (partType->isIntegerTy()) {
-        partType = LLType::getInt64Ty(gIR->context());
+        partType = LLType::getInt64Ty(*gIR);
       } else if (partType->isFloatTy()) {
-        partType = LLType::getDoubleTy(gIR->context());
+        partType = LLType::getDoubleTy(*gIR);
       }
       parts.push_back(partType);
     }
-    abiTy = LLStructType::get(gIR->context(), parts);
+    abiTy = LLStructType::get(*gIR, parts);
   }
 
   return abiTy;
@@ -368,7 +368,7 @@ void X86_64TargetABI::rewriteVarargs(IrFuncTy &fty,
  */
 
 LLType *X86_64TargetABI::getValistType() {
-  LLType *uintType = LLType::getInt32Ty(gIR->context());
+  LLType *uintType = LLType::getInt32Ty(*gIR);
   LLType *voidPointerType = getVoidPtrType();
 
   std::vector<LLType *> parts;      // struct __va_list {
@@ -377,7 +377,7 @@ LLType *X86_64TargetABI::getValistType() {
   parts.push_back(voidPointerType); //   void* overflow_arg_area;
   parts.push_back(voidPointerType); //   void* reg_save_area; }
 
-  return LLStructType::get(gIR->context(), parts);
+  return LLStructType::get(*gIR, parts);
 }
 
 LLValue *X86_64TargetABI::prepareVaStart(LLValue *pAp) {

@@ -29,7 +29,7 @@ IrTypeClass::IrTypeClass(ClassDeclaration *cd)
     : IrTypeAggr(cd), cd(cd), tc(static_cast<TypeClass *>(cd->type)) {
   std::string vtbl_name(cd->toPrettyChars());
   vtbl_name.append(".__vtbl");
-  vtbl_type = LLStructType::create(gIR->context(), vtbl_name);
+  vtbl_type = LLStructType::create(*gIR, vtbl_name);
   vtbl_size = cd->vtbl.dim;
 }
 
@@ -64,7 +64,7 @@ void IrTypeClass::addBaseClassData(AggrTypeBuilder &builder,
       addInterfaceToMap(b->base, builder.currentFieldIndex());
 
       llvm::Type *ivtbl_type =
-          llvm::StructType::get(gIR->context(), buildVtblType(first, &arr));
+          llvm::StructType::get(*gIR, buildVtblType(first, &arr));
       builder.addType(llvm::PointerType::get(ivtbl_type, 0), Target::ptrsize);
 
       // inc count
@@ -104,9 +104,8 @@ IrTypeClass *IrTypeClass::get(ClassDeclaration *cd) {
   else {
     if (!cd->isCPPclass() && !cd->isCPPinterface()) {
       // add monitor
-      builder.addType(
-          llvm::PointerType::get(llvm::Type::getInt8Ty(gIR->context()), 0),
-          Target::ptrsize);
+      builder.addType(llvm::PointerType::get(llvm::Type::getInt8Ty(*gIR), 0),
+                      Target::ptrsize);
     }
 
     // add data members recursively

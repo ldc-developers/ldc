@@ -16,7 +16,9 @@
 #define GEN_UDA_H
 
 class VarDeclaration;
-namespace llvm { class GlobalVariable; }
+namespace llvm {
+class GlobalVariable;
+}
 
 void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar);
 

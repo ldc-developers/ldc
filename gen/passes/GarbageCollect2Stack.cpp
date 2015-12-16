@@ -606,8 +606,7 @@ Type *Analysis::getTypeFor(Value *typeinfo) const {
 
 #if LDC_LLVM_VER >= 306
   return llvm::MetadataAsValue::get(node->getContext(),
-                                    node->getOperand(TD_Type))
-      ->getType();
+                                    node->getOperand(TD_Type))->getType();
 #else
   return node->getOperand(TD_Type)->getType();
 #endif
@@ -821,7 +820,8 @@ bool isSafeToStackAllocateArray(
 /// the attribute has to be removed before promoting the memory to the
 /// stack. The affected instructions are added to RemoveTailCallInsts. If
 /// the function returns false, these entries are meaningless.
-bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V, DominatorTree &DT,
+bool isSafeToStackAllocate(BasicBlock::iterator Alloc, Value *V,
+                           DominatorTree &DT,
                            SmallVector<CallInst *, 4> &RemoveTailCallInsts) {
   assert(isa<PointerType>(V->getType()) && "Allocated value is not a pointer?");
 

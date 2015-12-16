@@ -45,7 +45,7 @@ IrTypeDelegate *IrTypeDelegate::get(Type *t) {
   llvm::Type *ltf =
       DtoFunctionType(t->nextOf(), irFty, nullptr, Type::tvoid->pointerTo());
   llvm::Type *types[] = {getVoidPtrType(), getPtrToType(ltf)};
-  LLStructType *lt = LLStructType::get(gIR->context(), types, false);
+  LLStructType *lt = LLStructType::get(*gIR, types, false);
 
   auto result = new IrTypeDelegate(t, lt, irFty);
   t->ctype = result;

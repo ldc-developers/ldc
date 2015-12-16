@@ -62,8 +62,7 @@ Type *getTypeInfoType(Type *t, Scope *sc);
 
 LLValue *DtoNew(Loc &loc, Type *newtype) {
   // get runtime function
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_allocmemoryT");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_allocmemoryT");
   // get type info
   LLConstant *ti = DtoTypeInfoOf(newtype);
   assert(isaPointer(ti));
@@ -83,16 +82,14 @@ LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype) {
 }
 
 void DtoDeleteMemory(Loc &loc, DValue *ptr) {
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_delmemory");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delmemory");
   LLValue *lval = (ptr->isLVal() ? ptr->getLVal() : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
 void DtoDeleteStruct(Loc &loc, DValue *ptr) {
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_delstruct");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delstruct");
   LLValue *lval = (ptr->isLVal() ? ptr->getLVal() : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)),
@@ -101,24 +98,21 @@ void DtoDeleteStruct(Loc &loc, DValue *ptr) {
 }
 
 void DtoDeleteClass(Loc &loc, DValue *inst) {
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_delclass");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delclass");
   LLValue *lval = (inst->isLVal() ? inst->getLVal() : makeLValue(loc, inst));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
 void DtoDeleteInterface(Loc &loc, DValue *inst) {
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_delinterface");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delinterface");
   LLValue *lval = (inst->isLVal() ? inst->getLVal() : makeLValue(loc, inst));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
 void DtoDeleteArray(Loc &loc, DValue *arr) {
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_delarray_t");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delarray_t");
   llvm::FunctionType *fty = fn->getFunctionType();
 
   // the TypeInfo argument must be null if the type has no dtor
@@ -182,8 +176,7 @@ llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
 
 LLValue *DtoGcMalloc(Loc &loc, LLType *lltype, const char *name) {
   // get runtime function
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_allocmemory");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_allocmemory");
   // parameters
   LLValue *size = DtoConstSize_t(getTypeAllocSize(lltype));
   // call runtime allocator
@@ -1448,10 +1441,10 @@ void tokToIcmpPred(TOK op, bool isUnsigned, llvm::ICmpInst::Predicate *outPred,
     *outPred = llvm::ICmpInst::ICMP_NE;
     break;
   case TOKleg:
-    *outConst = LLConstantInt::getTrue(gIR->context());
+    *outConst = LLConstantInt::getTrue(*gIR);
     break;
   case TOKunord:
-    *outConst = LLConstantInt::getFalse(gIR->context());
+    *outConst = LLConstantInt::getFalse(*gIR);
     break;
   default:
     llvm_unreachable("Invalid comparison operation");

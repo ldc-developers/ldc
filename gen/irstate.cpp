@@ -22,7 +22,7 @@ const llvm::DataLayout *gDataLayout = nullptr;
 TargetABI *gABI = nullptr;
 
 ////////////////////////////////////////////////////////////////////////////////
-IRScope::IRScope() : builder(gIR->context()) { begin = nullptr; }
+IRScope::IRScope() : builder(*gIR) { begin = nullptr; }
 
 IRScope::IRScope(llvm::BasicBlock *b) : begin(b), builder(b) {}
 

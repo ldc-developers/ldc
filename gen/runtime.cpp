@@ -53,38 +53,15 @@ static void buildRuntimeModule();
 static void checkForImplicitGCCall(const Loc &loc, const char *name) {
   if (nogc) {
     static const std::string GCNAMES[] = {
-        "_aaDelX",
-        "_aaGetY",
-        "_aaKeys",
-        "_aaRehash",
-        "_aaValues",
-        "_d_allocmemory",
-        "_d_allocmemoryT",
-        "_d_array_cast_len",
-        "_d_array_slice_copy",
-        "_d_arrayappendT",
-        "_d_arrayappendcTX",
-        "_d_arrayappendcd",
-        "_d_arrayappendwd",
-        "_d_arraycatT",
-        "_d_arraycatnTX",
-        "_d_arraysetlengthT",
-        "_d_arraysetlengthiT",
-        "_d_assocarrayliteralTX",
-        "_d_callfinalizer",
-        "_d_delarray_t",
-        "_d_delclass",
-        "_d_delstruct",
-        "_d_delinterface",
-        "_d_delmemory",
-        "_d_newarrayT",
-        "_d_newarrayiT",
-        "_d_newarraymTX",
-        "_d_newarraymiTX",
-        "_d_newarrayU",
-        "_d_newclass",
-        "_d_newitemT",
-        "_d_newitemiT",
+        "_aaDelX", "_aaGetY", "_aaKeys", "_aaRehash", "_aaValues",
+        "_d_allocmemory", "_d_allocmemoryT", "_d_array_cast_len",
+        "_d_array_slice_copy", "_d_arrayappendT", "_d_arrayappendcTX",
+        "_d_arrayappendcd", "_d_arrayappendwd", "_d_arraycatT",
+        "_d_arraycatnTX", "_d_arraysetlengthT", "_d_arraysetlengthiT",
+        "_d_assocarrayliteralTX", "_d_callfinalizer", "_d_delarray_t",
+        "_d_delclass", "_d_delstruct", "_d_delinterface", "_d_delmemory",
+        "_d_newarrayT", "_d_newarrayiT", "_d_newarraymTX", "_d_newarraymiTX",
+        "_d_newarrayU", "_d_newclass", "_d_newitemT", "_d_newitemiT",
     };
 
     if (binary_search(&GCNAMES[0],
@@ -258,7 +235,7 @@ static void createFwdDecl(LINK linkage, Type *returntype,
 
 static void buildRuntimeModule() {
   Logger::println("building runtime module");
-  M = new llvm::Module("ldc internal runtime", gIR->context());
+  M = new llvm::Module("ldc internal runtime", *gIR);
 
   Type *voidTy = Type::tvoid;
   Type *boolTy = Type::tbool;
@@ -655,7 +632,7 @@ static void buildRuntimeModule() {
   if (global.params.isLinux) {
     llvm::StringRef fname("_d_dso_registry");
 
-    LLType *LLvoidTy = LLType::getVoidTy(gIR->context());
+    LLType *LLvoidTy = LLType::getVoidTy(*gIR);
     LLType *LLvoidPtrPtrTy = getPtrToType(getPtrToType(LLvoidTy));
     LLType *moduleInfoPtrPtrTy =
         getPtrToType(getPtrToType(DtoType(Module::moduleinfo->type)));

@@ -210,8 +210,8 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid) {
 
       // Construct the metadata and insert it into the module.
       llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(metaname);
-      node->addOperand(llvm::MDNode::get(
-          gIR->context(), llvm::makeArrayRef(mdVals, TD_NumFields)));
+      node->addOperand(
+          llvm::MDNode::get(*gIR, llvm::makeArrayRef(mdVals, TD_NumFields)));
     }
   }
 }
@@ -722,7 +722,7 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
             decl->tinfo)) { // this is a declaration of a builtin __initZ var
       irg->type = Type::dtypeinfo->type->ctype->isClass()->getMemoryLLType();
     } else {
-      irg->type = LLStructType::create(gIR->context(), decl->toPrettyChars());
+      irg->type = LLStructType::create(*gIR, decl->toPrettyChars());
     }
     irg->value = new llvm::GlobalVariable(gIR->module, irg->type, true,
                                           llvm::GlobalValue::ExternalLinkage,

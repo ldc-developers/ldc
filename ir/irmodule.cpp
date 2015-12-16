@@ -27,7 +27,7 @@ llvm::GlobalVariable *IrModule::moduleInfoSymbol() {
   name.append("12__ModuleInfoZ");
 
   moduleInfoVar = new llvm::GlobalVariable(
-      gIR->module, llvm::StructType::create(gIR->context()), false,
+      gIR->module, llvm::StructType::create(*gIR), false,
       llvm::GlobalValue::ExternalLinkage, nullptr, name);
   return moduleInfoVar;
 }

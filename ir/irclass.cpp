@@ -103,23 +103,23 @@ LLGlobalVariable *IrAggr::getClassInfoSymbol() {
     mdVals[CD_BodyType] =
         llvm::ConstantAsMetadata::get(llvm::UndefValue::get(bodyType));
     mdVals[CD_Finalize] = llvm::ConstantAsMetadata::get(
-        LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor));
+        LLConstantInt::get(LLType::getInt1Ty(*gIR), hasDestructor));
     mdVals[CD_CustomDelete] = llvm::ConstantAsMetadata::get(
-        LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasCustomDelete));
+        LLConstantInt::get(LLType::getInt1Ty(*gIR), hasCustomDelete));
 #else
     MDNodeField *mdVals[CD_NumFields];
     mdVals[CD_BodyType] = llvm::UndefValue::get(bodyType);
     mdVals[CD_Finalize] =
-        LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasDestructor);
+        LLConstantInt::get(LLType::getInt1Ty(*gIR), hasDestructor);
     mdVals[CD_CustomDelete] =
-        LLConstantInt::get(LLType::getInt1Ty(gIR->context()), hasCustomDelete);
+        LLConstantInt::get(LLType::getInt1Ty(*gIR), hasCustomDelete);
 #endif
     // Construct the metadata and insert it into the module.
     llvm::SmallString<64> name;
     llvm::NamedMDNode *node = gIR->module.getOrInsertNamedMetadata(
         llvm::Twine(CD_PREFIX, initname).toStringRef(name));
-    node->addOperand(llvm::MDNode::get(
-        gIR->context(), llvm::makeArrayRef(mdVals, CD_NumFields)));
+    node->addOperand(
+        llvm::MDNode::get(*gIR, llvm::makeArrayRef(mdVals, CD_NumFields)));
   }
 
   return classInfo;
@@ -351,8 +351,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       thunk->setUnnamedAddr(true);
 
       // create entry and end blocks
-      llvm::BasicBlock *beginbb =
-          llvm::BasicBlock::Create(gIR->context(), "", thunk);
+      llvm::BasicBlock *beginbb = llvm::BasicBlock::Create(*gIR, "", thunk);
       gIR->scopes.push_back(IRScope(beginbb));
 
       // Copy the function parameters, so later we can pass them to the
@@ -381,11 +380,10 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       call.setCallingConv(irFunc->func->getCallingConv());
 
       // return from the thunk
-      if (thunk->getReturnType() == LLType::getVoidTy(gIR->context())) {
-        llvm::ReturnInst::Create(gIR->context(), beginbb);
+      if (thunk->getReturnType() == LLType::getVoidTy(*gIR)) {
+        llvm::ReturnInst::Create(*gIR, beginbb);
       } else {
-        llvm::ReturnInst::Create(gIR->context(), call.getInstruction(),
-                                 beginbb);
+        llvm::ReturnInst::Create(*gIR, call.getInstruction(), beginbb);
       }
 
       // clean up
@@ -397,7 +395,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 
   // build the vtbl constant
   llvm::Constant *vtbl_constant =
-      LLConstantStruct::getAnon(gIR->context(), constants, false);
+      LLConstantStruct::getAnon(*gIR, constants, false);
 
   std::string mangledName("_D");
   mangledName.append(mangle(cd));

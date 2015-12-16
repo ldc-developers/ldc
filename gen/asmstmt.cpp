@@ -675,7 +675,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   if (asmblock->retn) {
     retty = asmblock->retty;
   } else {
-    retty = llvm::Type::getVoidTy(gIR->context());
+    retty = llvm::Type::getVoidTy(*gIR);
   }
 
   // build argument types
@@ -708,7 +708,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
   llvm::InlineAsm *ia = llvm::InlineAsm::get(fty, code, out_c, true);
 
   llvm::CallInst *call = p->ir->CreateCall(
-      ia, args, retty == LLType::getVoidTy(gIR->context()) ? "" : "asm");
+      ia, args, retty == LLType::getVoidTy(*gIR) ? "" : "asm");
 
   IF_LOG Logger::cout() << "Complete asm statement: " << *call << '\n';
 
@@ -731,8 +731,8 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     assert(jump_target);
 
     // make new blocks
-    llvm::BasicBlock *bb = llvm::BasicBlock::Create(
-        gIR->context(), "afterasmgotoforwarder", p->topfunc());
+    llvm::BasicBlock *bb =
+        llvm::BasicBlock::Create(*gIR, "afterasmgotoforwarder", p->topfunc());
 
     llvm::LoadInst *val =
         p->ir->CreateLoad(jump_target, "__llvm_jump_target_value");
@@ -741,10 +741,10 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
     // add all cases
     for (const auto &pair : gotoToVal) {
       llvm::BasicBlock *casebb =
-          llvm::BasicBlock::Create(gIR->context(), "case", p->topfunc(), bb);
-      sw->addCase(LLConstantInt::get(llvm::IntegerType::get(gIR->context(), 32),
-                                     pair.second),
-                  casebb);
+          llvm::BasicBlock::Create(*gIR, "case", p->topfunc(), bb);
+      sw->addCase(
+          LLConstantInt::get(llvm::IntegerType::get(*gIR, 32), pair.second),
+          casebb);
 
       p->scope() = IRScope(casebb);
       DtoGoto(stmt->loc, pair.first);

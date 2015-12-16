@@ -470,7 +470,7 @@ public:
     }
 
     llvm::ConstantInt *zero =
-        LLConstantInt::get(LLType::getInt32Ty(gIR->context()), 0, false);
+        LLConstantInt::get(LLType::getInt32Ty(*gIR), 0, false);
     LLConstant *idxs[2] = {zero, zero};
 #if LDC_LLVM_VER >= 307
     LLConstant *arrptr = llvm::ConstantExpr::getGetElementPtr(
@@ -1497,7 +1497,7 @@ public:
       Logger::println("static or dynamic array");
       eval = DtoArrayCompare(e->loc, e->op, l, r);
     } else if (t->ty == Taarray) {
-      eval = LLConstantInt::getFalse(gIR->context());
+      eval = LLConstantInt::getFalse(*gIR);
     } else if (t->ty == Tdelegate) {
       llvm::ICmpInst::Predicate icmpPred;
       tokToIcmpPred(e->op, isLLVMUnsigned(t), &icmpPred, &eval);
@@ -1509,11 +1509,11 @@ public:
         llvm::Value *rhs = r->getRVal();
 
         llvm::BasicBlock *fptreq =
-            llvm::BasicBlock::Create(gIR->context(), "fptreq", gIR->topfunc());
+            llvm::BasicBlock::Create(*gIR, "fptreq", gIR->topfunc());
         llvm::BasicBlock *fptrneq =
-            llvm::BasicBlock::Create(gIR->context(), "fptrneq", gIR->topfunc());
-        llvm::BasicBlock *dgcmpend = llvm::BasicBlock::Create(
-            gIR->context(), "dgcmpend", gIR->topfunc());
+            llvm::BasicBlock::Create(*gIR, "fptrneq", gIR->topfunc());
+        llvm::BasicBlock *dgcmpend =
+            llvm::BasicBlock::Create(*gIR, "dgcmpend", gIR->topfunc());
 
         llvm::Value *lfptr = p->ir->CreateExtractValue(lhs, 1, ".lfptr");
         llvm::Value *rfptr = p->ir->CreateExtractValue(rhs, 1, ".rfptr");
@@ -1883,9 +1883,9 @@ public:
 
     // create basic blocks
     llvm::BasicBlock *passedbb =
-        llvm::BasicBlock::Create(gIR->context(), "assertPassed", p->topfunc());
+        llvm::BasicBlock::Create(*gIR, "assertPassed", p->topfunc());
     llvm::BasicBlock *failedbb =
-        llvm::BasicBlock::Create(gIR->context(), "assertFailed", p->topfunc());
+        llvm::BasicBlock::Create(*gIR, "assertFailed", p->topfunc());
 
     // test condition
     LLValue *condval = DtoCast(e->loc, cond, Type::tbool)->getRVal();
@@ -1959,9 +1959,9 @@ public:
     DValue *u = toElem(e->e1);
 
     llvm::BasicBlock *andand =
-        llvm::BasicBlock::Create(gIR->context(), "andand", gIR->topfunc());
+        llvm::BasicBlock::Create(*gIR, "andand", gIR->topfunc());
     llvm::BasicBlock *andandend =
-        llvm::BasicBlock::Create(gIR->context(), "andandend", gIR->topfunc());
+        llvm::BasicBlock::Create(*gIR, "andandend", gIR->topfunc());
 
     LLValue *ubool = DtoCast(e->loc, u, Type::tbool)->getRVal();
 
@@ -1987,10 +1987,10 @@ public:
       resval = ubool;
     } else {
       llvm::PHINode *phi =
-          p->ir->CreatePHI(LLType::getInt1Ty(gIR->context()), 2, "andandval");
+          p->ir->CreatePHI(LLType::getInt1Ty(*gIR), 2, "andandval");
       // If we jumped over evaluation of the right-hand side,
       // the result is false. Otherwise it's the value of the right-hand side.
-      phi->addIncoming(LLConstantInt::getFalse(gIR->context()), oldblock);
+      phi->addIncoming(LLConstantInt::getFalse(*gIR), oldblock);
       phi->addIncoming(vbool, newblock);
       resval = phi;
     }
@@ -2008,9 +2008,9 @@ public:
     DValue *u = toElem(e->e1);
 
     llvm::BasicBlock *oror =
-        llvm::BasicBlock::Create(gIR->context(), "oror", gIR->topfunc());
+        llvm::BasicBlock::Create(*gIR, "oror", gIR->topfunc());
     llvm::BasicBlock *ororend =
-        llvm::BasicBlock::Create(gIR->context(), "ororend", gIR->topfunc());
+        llvm::BasicBlock::Create(*gIR, "ororend", gIR->topfunc());
 
     LLValue *ubool = DtoCast(e->loc, u, Type::tbool)->getRVal();
 
@@ -2036,10 +2036,10 @@ public:
       resval = ubool;
     } else {
       llvm::PHINode *phi =
-          p->ir->CreatePHI(LLType::getInt1Ty(gIR->context()), 2, "ororval");
+          p->ir->CreatePHI(LLType::getInt1Ty(*gIR), 2, "ororval");
       // If we jumped over evaluation of the right-hand side,
       // the result is true. Otherwise, it's the value of the right-hand side.
-      phi->addIncoming(LLConstantInt::getTrue(gIR->context()), oldblock);
+      phi->addIncoming(LLConstantInt::getTrue(*gIR), oldblock);
       phi->addIncoming(vbool, newblock);
       resval = phi;
     }
@@ -2103,7 +2103,7 @@ public:
     // this is sensible, since someone might goto behind the assert
     // and prevents compiler errors if a terminator follows the assert
     llvm::BasicBlock *bb =
-        llvm::BasicBlock::Create(gIR->context(), "afterhalt", p->topfunc());
+        llvm::BasicBlock::Create(*gIR, "afterhalt", p->topfunc());
     p->scope() = IRScope(bb);
   }
 
@@ -2120,7 +2120,7 @@ public:
                e->func->toChars());
     }
 
-    LLPointerType *int8ptrty = getPtrToType(LLType::getInt8Ty(gIR->context()));
+    LLPointerType *int8ptrty = getPtrToType(LLType::getInt8Ty(*gIR));
 
     assert(e->type->toBasetype()->ty == Tdelegate);
     LLType *dgty = DtoType(e->type);
@@ -2265,11 +2265,11 @@ public:
     }
 
     llvm::BasicBlock *condtrue =
-        llvm::BasicBlock::Create(gIR->context(), "condtrue", gIR->topfunc());
+        llvm::BasicBlock::Create(*gIR, "condtrue", gIR->topfunc());
     llvm::BasicBlock *condfalse =
-        llvm::BasicBlock::Create(gIR->context(), "condfalse", gIR->topfunc());
+        llvm::BasicBlock::Create(*gIR, "condfalse", gIR->topfunc());
     llvm::BasicBlock *condend =
-        llvm::BasicBlock::Create(gIR->context(), "condend", gIR->topfunc());
+        llvm::BasicBlock::Create(*gIR, "condend", gIR->topfunc());
 
     DValue *c = toElem(e->econd);
     LLValue *cond_val = DtoCast(e->loc, c, Type::tbool)->getRVal();
@@ -2668,8 +2668,8 @@ public:
       Type *indexType = static_cast<TypeAArray *>(aatype)->index;
       assert(indexType && vtype);
 
-      llvm::Function *func = getRuntimeFunction(
-          e->loc, gIR->module, "_d_assocarrayliteralTX");
+      llvm::Function *func =
+          getRuntimeFunction(e->loc, gIR->module, "_d_assocarrayliteralTX");
       LLFunctionType *funcTy = func->getFunctionType();
       LLValue *aaTypeInfo =
           DtoBitCast(DtoTypeInfoOf(stripModifiers(aatype)),
@@ -2705,8 +2705,7 @@ public:
       LLValue *valuesArray = DtoAggrPaint(slice, funcTy->getParamType(2));
 
       LLValue *aa = gIR->CreateCallOrInvoke(func, aaTypeInfo, keysArray,
-                                            valuesArray, "aa")
-                        .getInstruction();
+                                            valuesArray, "aa").getInstruction();
       if (basetype->ty != Taarray) {
         LLValue *tmp = DtoAlloca(e->type, "aaliteral");
         DtoStore(aa, DtoGEPi(tmp, 0, 0));
@@ -2816,8 +2815,7 @@ public:
     for (size_t i = 0; i < e->exps->dim; i++) {
       types.push_back(DtoMemType((*e->exps)[i]->type));
     }
-    LLValue *val =
-        DtoRawAlloca(LLStructType::get(gIR->context(), types), 0, ".tuple");
+    LLValue *val = DtoRawAlloca(LLStructType::get(*gIR, types), 0, ".tuple");
     for (size_t i = 0; i < e->exps->dim; i++) {
       Expression *el = (*e->exps)[i];
       DValue *ep = toElem(el);
