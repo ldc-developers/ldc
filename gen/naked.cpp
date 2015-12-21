@@ -178,8 +178,7 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   // Windows is different
   else if (isWin) {
     std::string fullMangle;
-    if (global.params.targetTriple.isWindowsGNUEnvironment() &&
-        !global.params.targetTriple.isArch64Bit()) {
+    if (!global.params.targetTriple.isArch64Bit()) {
       fullMangle = "_";
     }
     fullMangle += mangle;
