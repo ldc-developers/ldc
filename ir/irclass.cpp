@@ -350,6 +350,11 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
       // function has.
       thunk->setUnnamedAddr(true);
 
+#if LDC_LLVM_VER >= 307
+      // thunks don't need exception handling themselves
+      thunk->setPersonalityFn(nullptr);
+#endif
+
       // create entry and end blocks
       llvm::BasicBlock *beginbb =
           llvm::BasicBlock::Create(gIR->context(), "", thunk);
