@@ -24,6 +24,7 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/tollvm.h"
+#include "ir/irfunction.h"
 #include "ir/irtype.h"
 #include "ir/irtypefunction.h"
 #include "llvm/Bitcode/ReaderWriter.h"
@@ -620,9 +621,11 @@ static void buildRuntimeModule() {
   // int _d_eh_personality(...)
   {
     if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
+      const char *fname =
+          useMSVCEH() ? "__CxxFrameHandler3" : "_d_eh_personality";
       // (ptr ExceptionRecord, ptr EstablisherFrame, ptr ContextRecord,
       //  ptr DispatcherContext)
-      createFwdDecl(LINKc, intTy, {"_d_eh_personality"},
+      createFwdDecl(LINKc, intTy, {fname},
                     {voidPtrTy, voidPtrTy, voidPtrTy, voidPtrTy});
     } else if (global.params.targetTriple->getArch() == llvm::Triple::arm) {
       // (int state, ptr ucb, ptr context)
