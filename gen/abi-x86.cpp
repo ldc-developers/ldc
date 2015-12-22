@@ -49,9 +49,8 @@ struct X86TargetABI : TargetABI {
     case LINKwindows:
       return ft->isVarArg() ? llvm::CallingConv::C
                             : llvm::CallingConv::X86_StdCall;
-    default:
-      llvm_unreachable("Unhandled D linkage type.");
     }
+    llvm_unreachable("Unhandled D linkage type.");
   }
 
   std::string mangleForLLVM(llvm::StringRef name, LINK l) override {
@@ -69,9 +68,8 @@ struct X86TargetABI : TargetABI {
         return ("\1_" + name).str();
       }
       return name;
-    default:
-      llvm_unreachable("Unhandled D linkage type.");
     }
+    llvm_unreachable("Unhandled D linkage type.");
   }
 
   bool returnInArg(TypeFunction *tf) override {
