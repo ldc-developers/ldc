@@ -610,8 +610,7 @@ public:
                            Loc &loc, DValue *fnval,
                            LLFunctionType *llCalleeType, Expressions *arguments,
                            Type *resulttype, LLValue *retvar)
-      : args(args), attrs(attrs), loc(loc), fnval(fnval),
-        llCalleeType(llCalleeType), arguments(arguments),
+      : args(args), attrs(attrs), loc(loc), fnval(fnval), arguments(arguments),
         resulttype(resulttype), retvar(retvar),
         // computed:
         calleeType(fnval->getType()), dfnval(fnval->isFunc()),
@@ -636,7 +635,6 @@ private:
   AttrSet &attrs;
   Loc &loc;
   DValue *const fnval;
-  LLFunctionType *const llCalleeType;
   Expressions *const arguments;
   Type *const resulttype;
   LLValue *const retvar;

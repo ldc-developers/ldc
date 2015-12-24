@@ -175,6 +175,7 @@ static void hide(llvm::StringMap<cl::Option *> &map, const char *name) {
   }
 }
 
+#if LDC_LLVM_VER >= 307
 static void rename(llvm::StringMap<cl::Option *> &map, const char *from,
                    const char *to) {
   auto i = map.find(from);
@@ -185,6 +186,7 @@ static void rename(llvm::StringMap<cl::Option *> &map, const char *from,
     map[to] = opt;
   }
 }
+#endif
 
 /// Removes command line options exposed from within LLVM that are unlikely
 /// to be useful for end users from the -help output.
