@@ -48,7 +48,7 @@ bool dealWithQuote(std::istream &is, std::string &arg) {
 
   // keep appending until we find a quote terminator
   while (is.good()) {
-    char c = is.get();
+    auto c = is.get();
     switch (c) {
     case '"':
       if (applyBackslashRule(arg)) {
@@ -82,7 +82,7 @@ std::vector<std::string> expand(std::istream &is) {
 
   is >> std::ws;
   while (is.good()) {
-    char c = is.get();
+    auto c = is.get();
     if (c == EOF) {
       break;
     } else if (std::isspace(c)) {
