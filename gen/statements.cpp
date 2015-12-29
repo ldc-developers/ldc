@@ -711,9 +711,8 @@ public:
   //////////////////////////////////////////////////////////////////////////
 
 #if LDC_LLVM_VER >= 308
-  void emitBeginCatchMSVC(Catch *ctch, llvm::BasicBlock *catchbb,
-                          llvm::BasicBlock *endbb,
-                          llvm::CatchSwitchInst *catchSwitchInst) {
+  void emitBeginCatchMSVCEH(Catch *ctch, llvm::BasicBlock *endbb,
+                            llvm::CatchSwitchInst *catchSwitchInst) {
     VarDeclaration *var = ctch->var;
     // The MSVC/x86 build uses C++ exception handling
     // This needs a series of catch pads to match the exception
@@ -759,15 +758,12 @@ public:
     }
 
     // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be
-    // first
-    // instruction
+    // first instruction
     int flags = var ? 0 : 64; // just mimicking clang here
     LLValue *args[] = {typeDesc, DtoConstUint(flags), exnObj};
-    auto catchpad = llvm::CatchPadInst::Create(
-        catchSwitchInst, llvm::ArrayRef<LLValue *>(args), "", catchbb);
-    catchSwitchInst->addHandler(catchbb);
-
-    irs->scope() = IRScope(catchbb);
+    auto catchpad = irs->ir->CreateCatchPad(
+        catchSwitchInst, llvm::ArrayRef<LLValue *>(args), "");
+    catchSwitchInst->addHandler(irs->scopebb());
 
     if (cpyObj) {
       // assign the caught exception to the location in the closure
@@ -841,7 +837,7 @@ public:
 
         CleanupCursor currentScope = scopes->currentCleanupScope();
 
-        emitBeginCatchMSVC(*it, catchBB, endbb, catchSwitchInst);
+        emitBeginCatchMSVCEH(*it, endbb, catchSwitchInst);
         scopes->pushFunclet(&catchBB->front());
 
         // Emit handler, if there is one. The handler is zero, for instance,

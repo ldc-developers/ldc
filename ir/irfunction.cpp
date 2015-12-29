@@ -33,8 +33,12 @@ CatchScope::CatchScope(llvm::Constant *classInfoPtr,
       cleanupScope(cleanupScope) {}
 
 bool useMSVCEH() {
+#if LDC_LLVM_VER >= 308
   return global.params.targetTriple.isWindowsMSVCEnvironment() &&
          !global.params.targetTriple.isArch64Bit();
+#else
+  return false;
+#endif
 }
 
 namespace {
@@ -52,6 +56,8 @@ llvm::BasicBlock *executeCleanupCopying(IRState *irs, CleanupScope &scope,
                                         llvm::BasicBlock *continueWith,
                                         llvm::BasicBlock *unwindTo,
                                         llvm::Value* funclet) {
+  if (isCatchSwitchBlock(scope.beginBlock))
+    return continueWith;
   if (scope.cleanupBlocks.empty()) {
     // figure out the list of blocks used by this cleanup step
     findSuccessors(scope.cleanupBlocks, scope.beginBlock, scope.endBlock);
@@ -93,6 +99,7 @@ llvm::BasicBlock *executeCleanupCopying(IRState *irs, CleanupScope &scope,
   }
   return scope.exitTargets.back().cleanupBlocks.front();
 }
+
 #endif // LDC_LLVM_VER >= 308
 
 void executeCleanup(IRState *irs, CleanupScope &scope,
@@ -177,6 +184,7 @@ void executeCleanup(IRState *irs, CleanupScope &scope,
   scope.exitTargets.push_back(CleanupExitTarget(continueWith));
   scope.exitTargets.back().sourceBlocks.push_back(sourceBlock);
 }
+
 }
 
 ScopeStack::~ScopeStack() {
@@ -201,7 +209,7 @@ void ScopeStack::runCleanups(CleanupCursor sourceScope,
                              llvm::BasicBlock *continueWith) {
 #if LDC_LLVM_VER >= 308
   if (useMSVCEH()) {
-    runCleanupCopies(sourceScope, targetScope, continueWith, false);
+    runCleanupCopies(sourceScope, targetScope, continueWith);
     return;
   }
 #endif
@@ -228,70 +236,63 @@ void ScopeStack::runCleanups(CleanupCursor sourceScope,
 #if LDC_LLVM_VER >= 308
 void ScopeStack::runCleanupCopies(CleanupCursor sourceScope,
                                   CleanupCursor targetScope,
-                                  llvm::BasicBlock *continueWith,
-                                  bool withCleanupRet) {
+                                  llvm::BasicBlock *continueWith) {
   assert(targetScope <= sourceScope);
 
-  if (withCleanupRet) {
-    llvm::BasicBlock *target = continueWith;
-    for (CleanupCursor i = targetScope; i < sourceScope; ++i) {
-      // each cleanup block is bracketed by a pair of cleanuppad/cleanupret
-      // instructions, unwinding should also just continue at the next
-      // cleanup block
-      // cleanuppad:
-      //   %0 = cleanuppad[]
-      //   invoke _dtor to %cleanupret unwind %continueWith
-      //
-      // cleanupret:
-      //   cleanupret %0 unwind %continueWith
-      //
-      // continueWith:
-      llvm::BasicBlock *cleanupbb =
-          i == sourceScope - 1
-              ? irs->scopebb()
-              : llvm::BasicBlock::Create(irs->context(), "cleanuppad",
-                                         irs->topfunc());
-      auto funclet = getFunclet();
-      auto cleanuppad = llvm::CleanupPadInst::Create(
-          funclet ? funclet : llvm::ConstantTokenNone::get(irs->context()), {},
-          "", cleanupbb);
+  // work through the blocks in reverse execution order, so we
+  // can merge cleanups that end up at the same continuation target
+  for (CleanupCursor i = targetScope; i < sourceScope; ++i)
+    continueWith = executeCleanupCopying(irs, cleanupScopes[i], irs->scopebb(),
+                                         continueWith, nullptr, nullptr);
 
-      llvm::BasicBlock *cleanupret = llvm::BasicBlock::Create(
-        irs->context(), "cleanupret", irs->topfunc());
+  // Insert the unconditional branch to the first cleanup block.
+  irs->ir->CreateBr(continueWith);
+}
 
-      // when hitting a catch return instruction during cleanup,
-      //  unwind to the corresponding catchswitch block instead
-      auto catchret = cleanupScopes[i].beginBlock->empty()
-                          ? nullptr
-                          : llvm::dyn_cast<llvm::CatchReturnInst>(
-                                &cleanupScopes[i].beginBlock->front());
-      if (catchret) {
-        llvm::BasicBlock* endcatch = nullptr;
-        auto catchpad = catchret->getCatchPad();
-        auto catchswitch = catchpad->getCatchSwitch();
+llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
+                                            llvm::BasicBlock *unwindTo) {
+  if (isCatchSwitchBlock(cleanupScopes[scope].beginBlock))
+    return cleanupScopes[scope].beginBlock;
 
-        llvm::CleanupReturnInst::Create(cleanuppad, catchswitch->getUnwindDest(),
-                                        cleanupret);
-        continueWith = cleanupret;
-
-      } else {
-        llvm::CleanupReturnInst::Create(cleanuppad, continueWith, cleanupret);
-        continueWith = executeCleanupCopying(irs, cleanupScopes[i], cleanupbb,
-                                             cleanupret, continueWith, cleanuppad);
-      }
-      llvm::BranchInst::Create(continueWith, cleanupbb);
-      continueWith = cleanupbb;
+  // when hitting a catch return instruction during cleanup,
+  //  just unwind to the corresponding catchswitch block instead
+  if (!cleanupScopes[scope].beginBlock->empty()) {
+    if (auto catchret = llvm::dyn_cast<llvm::CatchReturnInst>(
+      &cleanupScopes[scope].beginBlock->front())) {
+      llvm::BasicBlock* endcatch = nullptr;
+      auto catchpad = catchret->getCatchPad();
+      auto catchswitch = catchpad->getCatchSwitch();
+      return catchswitch->getUnwindDest();
     }
-  } else {
-    // work through the blocks in reverse execution order, so we
-    // can merge cleanups that end up at the same continuation target
-    for (CleanupCursor i = targetScope; i < sourceScope; ++i)
-      continueWith = executeCleanupCopying(irs, cleanupScopes[i], irs->scopebb(),
-                                           continueWith, nullptr, nullptr);
-
-    // Insert the unconditional branch to the first cleanup block.
-    irs->ir->CreateBr(continueWith);
   }
+
+  // each cleanup block is bracketed by a pair of cleanuppad/cleanupret
+  // instructions, any unwinding should also just continue at the next
+  // cleanup block, e.g.:
+  //
+  // cleanuppad:
+  //   %0 = cleanuppad within %funclet[]
+  //   br label %copy
+  //
+  // copy:
+  //   invoke _dtor to %cleanupret unwind %unwindTo [ "funclet"(token %0) ]
+  //
+  // cleanupret:
+  //   cleanupret %0 unwind %unwindTo
+  //
+  llvm::BasicBlock *cleanupbb =
+      llvm::BasicBlock::Create(irs->context(), "cleanuppad", irs->topfunc());
+  auto cleanuppad =
+      llvm::CleanupPadInst::Create(getFuncletToken(), {}, "", cleanupbb);
+
+  llvm::BasicBlock *cleanupret =
+      llvm::BasicBlock::Create(irs->context(), "cleanupret", irs->topfunc());
+
+  llvm::CleanupReturnInst::Create(cleanuppad, unwindTo, cleanupret);
+  auto copybb = executeCleanupCopying(irs, cleanupScopes[scope], cleanupbb,
+                                       cleanupret, unwindTo, cleanuppad);
+  llvm::BranchInst::Create(copybb, cleanupbb);
+  return cleanupbb;
 }
 #endif
 
@@ -344,13 +345,27 @@ void ScopeStack::popCleanups(CleanupCursor targetScope) {
 
 void ScopeStack::pushCatch(llvm::Constant *classInfoPtr,
                            llvm::BasicBlock *bodyBlock) {
-  catchScopes.emplace_back(classInfoPtr, bodyBlock, currentCleanupScope());
-  currentLandingPads().push_back(nullptr);
+  if (useMSVCEH()) {
+#if LDC_LLVM_VER >= 308
+    assert(isCatchSwitchBlock(bodyBlock));
+    pushCleanup(bodyBlock, bodyBlock);
+#endif
+  } else {
+    catchScopes.emplace_back(classInfoPtr, bodyBlock, currentCleanupScope());
+    currentLandingPads().push_back(nullptr);
+  }
 }
 
 void ScopeStack::popCatch() {
-  catchScopes.pop_back();
-  currentLandingPads().pop_back();
+  if (useMSVCEH()) {
+#if LDC_LLVM_VER >= 308
+    assert(isCatchSwitchBlock(cleanupScopes.back().beginBlock));
+    popCleanups(currentCleanupScope() - 1);
+#endif
+  } else {
+    catchScopes.pop_back();
+    currentLandingPads().pop_back();
+  }
 }
 
 void ScopeStack::pushLoopTarget(Statement *loopStatement,
@@ -436,19 +451,26 @@ std::vector<llvm::BasicBlock *> &ScopeStack::currentLandingPads() {
                                : cleanupScopes.back().landingPads;
 }
 
-llvm::BasicBlock *ScopeStack::getLandingPad() {
-  if (currentLandingPads().empty()) {
+llvm::BasicBlock *&ScopeStack::getLandingPadRef(CleanupCursor scope) {
+  auto &pads = cleanupScopes.empty() ? topLevelLandingPads
+                                     : cleanupScopes[scope].landingPads;
+  if (pads.empty()) {
     // Have not encountered any catches (for which we would push a scope) or
     // calls to throwing functions (where we would have already executed
     // this if) in this cleanup scope yet.
-    currentLandingPads().push_back(nullptr);
+    pads.push_back(nullptr);
   }
-  llvm::BasicBlock *&landingPad = currentLandingPads().back();
+  return pads.back();
+}
+
+llvm::BasicBlock *ScopeStack::getLandingPad() {
+  llvm::BasicBlock *&landingPad = getLandingPadRef(currentCleanupScope() - 1);
   if (!landingPad) {
 #if LDC_LLVM_VER >= 308
-    if (useMSVCEH())
-      landingPad = emitWin32LandingPad();
-    else
+    if (useMSVCEH()) {
+      assert(currentCleanupScope() > 0);
+      landingPad = emitLandingPadMSVCEH(currentCleanupScope() - 1);
+    } else
 #endif
       landingPad = emitLandingPad();
   }
@@ -477,7 +499,7 @@ llvm::LandingPadInst *createLandingPadInst(IRState *irs) {
 }
 
 #if LDC_LLVM_VER >= 308
-llvm::BasicBlock *ScopeStack::emitWin32LandingPad() {
+llvm::BasicBlock *ScopeStack::emitLandingPadMSVCEH(CleanupCursor scope) {
 
   LLFunction *currentFunction = irs->func()->func;
   if (!currentFunction->hasPersonalityFn()) {
@@ -487,45 +509,21 @@ llvm::BasicBlock *ScopeStack::emitWin32LandingPad() {
     currentFunction->setPersonalityFn(personalityFn);
   }
 
-  // save and rewrite scope
-  IRScope savedIRScope = irs->scope();
-
-  // iterating through cleanup and catches in reverse order (from outer to inner
-  // scope)
-  CleanupCursor prevCleanup = 0;
-  llvm::BasicBlock *prevCatch = nullptr;
-
-  auto doCleanup = [&](CleanupCursor cleanupScope) {
-    if (prevCleanup < cleanupScope) {
-      auto bb =
-        llvm::BasicBlock::Create(irs->context(), "cleanup", irs->topfunc());
-      irs->scope() = IRScope(bb);
-      runCleanupCopies(cleanupScope, prevCleanup, prevCatch, true);
-      prevCleanup = cleanupScope;
-      prevCatch = bb;
-    }
-  };
-  // run cleanup code, insert catchend between different scope levels,
-  //  patch catchpad instructions
-  for (std::vector<CatchScope>::iterator it = catchScopes.begin(),
-                                         end = catchScopes.end();
-       it != end; ++it) {
-    // Insert any cleanups in between the last catch we ran and this one.
-    assert(prevCleanup <= it->cleanupScope);
-    doCleanup(it->cleanupScope);
-
-    llvm::CatchSwitchInst &catchswitch =
-        llvm::cast<llvm::CatchSwitchInst>(*it->bodyBlock->getFirstNonPHIOrDbg());
-    if (prevCatch != catchswitch.getUnwindDest())
-      catchswitch.setUnwindDest(prevCatch);
-    prevCatch = it->bodyBlock;
+  // WinEHPrepare pass fails after optimizations, so disable these for now
+  if (!currentFunction->getFnAttribute("disable-tail-calls")
+      .isStringAttribute()) {
+    currentFunction->addFnAttr("disable-tail-calls", "true");
+    currentFunction->addFnAttr(llvm::Attribute::NoInline);
   }
 
-  doCleanup(currentCleanupScope());
-  irs->scope() = savedIRScope;
+  if (scope == 0)
+    return runCleanupPad(scope, nullptr);
 
-  assert(prevCatch && prevCatch->front().isEHPad());
-  return prevCatch;
+  llvm::BasicBlock *&pad = getLandingPadRef(scope - 1);
+  if (!pad)
+    pad = emitLandingPadMSVCEH(scope - 1);
+
+  return runCleanupPad(scope, pad);
 }
 #endif
 

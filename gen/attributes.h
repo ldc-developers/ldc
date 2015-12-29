@@ -27,6 +27,7 @@ public:
   AttrBuilder &add(LLAttribute attribute);
   AttrBuilder &remove(LLAttribute attribute);
   AttrBuilder &merge(const AttrBuilder &other);
+  AttrBuilder &add(llvm::StringRef A, llvm::StringRef V = llvm::StringRef());
 
   AttrBuilder &addAlignment(unsigned alignment);
   AttrBuilder &addByVal(unsigned alignment);

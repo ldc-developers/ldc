@@ -99,7 +99,7 @@ struct CleanupExitTarget {
   /// targets.
   std::vector<llvm::BasicBlock *> sourceBlocks;
 
-  /// The basic blocks that are executed when going this route
+  /// MSVC: The basic blocks that are executed when going this route
   std::vector<llvm::BasicBlock *> cleanupBlocks;
 };
 
@@ -152,7 +152,8 @@ public:
   /// not been generated yet (this is done lazily), the pointer is null.
   std::vector<llvm::BasicBlock *> landingPads;
 
-  /// The original basic blocks that are executed for beginBlock to endBlock
+  /// MSVC: The original basic blocks that are executed for beginBlock to
+  /// endBlock
   std::vector<llvm::BasicBlock *> cleanupBlocks;
 };
 
@@ -218,7 +219,9 @@ public:
 
 #if LDC_LLVM_VER >= 308
   void runCleanupCopies(CleanupCursor sourceScope, CleanupCursor targetScope,
-                        llvm::BasicBlock* continueWith, bool withCleanupRet);
+                        llvm::BasicBlock *continueWith);
+  llvm::BasicBlock *runCleanupPad(CleanupCursor scope,
+                                  llvm::BasicBlock *unwindTo);
 #endif
 
   /// Pops all the cleanups between the current scope and the target cursor.
@@ -248,6 +251,8 @@ public:
 
   size_t currentCatchScope() { return catchScopes.size(); }
 
+  /// MSVC: catch and cleanup code is emitted as funclets and need
+  /// to be referenced from inner pads and calls
   void pushFunclet(llvm::Value *funclet) {
     funclets.push_back(funclet);
   }
@@ -257,10 +262,11 @@ public:
   }
 
   llvm::Value *getFunclet() {
-    if (funclets.empty())
-      return nullptr;
-    else
-      return funclets.back();
+    return funclets.empty() ? nullptr : funclets.back();
+  }
+  llvm::Value *getFuncletToken() {
+    return funclets.empty() ? llvm::ConstantTokenNone::get(irs->context())
+                            : funclets.back();
   }
 
   /// Registers a loop statement to be used as a target for break/continue
@@ -336,11 +342,13 @@ private:
 
   std::vector<llvm::BasicBlock *> &currentLandingPads();
 
+  llvm::BasicBlock * &getLandingPadRef(CleanupCursor scope);
+
   /// Emits a landing pad to honor all the active cleanups and catches.
   llvm::BasicBlock *emitLandingPad();
 
 #if LDC_LLVM_VER >= 308
-  llvm::BasicBlock *emitWin32LandingPad();
+  llvm::BasicBlock *emitLandingPadMSVCEH(CleanupCursor scope);
 #endif
 
   /// Unified implementation for labeled break/continue.
@@ -383,7 +391,7 @@ private:
   /// on entering/leaving a catch block).
   std::vector<llvm::BasicBlock *> topLevelLandingPads;
 
-  /// stack of currently built catch clauses
+  /// MSVC: stack of currently built catch/cleanup funclets
   std::vector<llvm::Value*> funclets;
 };
 
@@ -406,6 +414,7 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
 #endif
 
   if (doesNotThrow || (cleanupScopes.empty() && catchScopes.empty())) {
+L_call:
     llvm::CallInst *call = irs->ir->CreateCall(callee, args,
 #if LDC_LLVM_VER >= 308
                                                BundleList, 
@@ -418,6 +427,8 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
   }
 
   llvm::BasicBlock* landingPad = getLandingPad();
+  if (!landingPad)
+    goto L_call;
 
   llvm::BasicBlock *postinvoke = llvm::BasicBlock::Create(
       irs->context(), "postinvoke", irs->topfunc(), landingPad);
