@@ -4,6 +4,7 @@ import core.simd;
 
 pure:
 nothrow:
+@nogc:
 @trusted:
 
 private template isFloatingPoint(T)
