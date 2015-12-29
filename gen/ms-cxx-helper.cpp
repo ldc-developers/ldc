@@ -104,12 +104,12 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
     llvm::BasicBlock *bb = srcblocks[b];
     llvm::Function* F = bb->getParent();
 
-    auto nbb = llvm::BasicBlock::Create(bb->getContext());
+    auto nbb = llvm::BasicBlock::Create(bb->getContext(), bb->getName());
     // Loop over all instructions, and copy them over.
     for (auto II = bb->begin(), IE = bb->end(); II != IE; ++II) {
       llvm::Instruction *Inst = &*II;
       llvm::Instruction *newInst = nullptr;
-      if (funclet && !llvm::isa<llvm::DbgInfoIntrinsic>(Inst)) {
+      if (funclet && !llvm::isa<llvm::DbgInfoIntrinsic>(Inst)) { // IntrinsicInst?
         if (auto IInst = llvm::dyn_cast<llvm::InvokeInst> (Inst)) {
           newInst = llvm::InvokeInst::Create(
             IInst, llvm::OperandBundleDef("funclet", funclet));
@@ -133,6 +133,12 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
   }
 
   remapBlocks(blocks, VMap, unwindTo, funclet);
+}
+
+bool isCatchSwitchBlock(llvm::BasicBlock* bb) {
+  if (bb->empty())
+    return false;
+  return llvm::dyn_cast<llvm::CatchSwitchInst>(&bb->front());
 }
 
 // copy from clang/.../MicrosoftCXXABI.cpp

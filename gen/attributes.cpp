@@ -29,6 +29,11 @@ AttrBuilder &AttrBuilder::add(LLAttribute attribute) {
   return *this;
 }
 
+AttrBuilder &AttrBuilder::add(llvm::StringRef A, llvm::StringRef V) {
+  builder.addAttribute(A, V);
+  return *this;
+}
+
 AttrBuilder &AttrBuilder::remove(LLAttribute attribute) {
   // never remove 'None' explicitly
   if (attribute) {
