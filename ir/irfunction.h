@@ -251,6 +251,7 @@ public:
 
   size_t currentCatchScope() { return catchScopes.size(); }
 
+#if LDC_LLVM_VER >= 308
   /// MSVC: catch and cleanup code is emitted as funclets and need
   /// to be referenced from inner pads and calls
   void pushFunclet(llvm::Value *funclet) {
@@ -268,6 +269,7 @@ public:
     return funclets.empty() ? llvm::ConstantTokenNone::get(irs->context())
                             : funclets.back();
   }
+#endif
 
   /// Registers a loop statement to be used as a target for break/continue
   /// statements in the current scope.
