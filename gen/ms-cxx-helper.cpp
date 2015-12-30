@@ -30,18 +30,6 @@ llvm::BasicBlock *getUnwindDest(llvm::Instruction *I) {
   return nullptr;
 }
 
-void mapFunclet(llvm::Instruction *I, llvm::ValueToValueMapTy &VMap, llvm::Value *funclet) {
-  if (auto II = llvm::dyn_cast<llvm::InvokeInst> (I)) {
-    auto bundle = II->getOperandBundle(llvm::LLVMContext::OB_funclet);
-    if (bundle)
-      VMap[bundle->Inputs[0].get()] = funclet;
-  } else if (auto CI = llvm::dyn_cast<llvm::CallInst> (I)) {
-    auto bundle = CI->getOperandBundle(llvm::LLVMContext::OB_funclet);
-    if (bundle)
-      VMap[bundle->Inputs[0].get()] = funclet;
-  }
-}
-
 // return all basic blocks that are reachable from bb, but don't pass through
 // ebb and don't follow unwinding target
 void findSuccessors(std::vector<llvm::BasicBlock *> &blocks,
@@ -73,8 +61,6 @@ void remapBlocks(std::vector<llvm::BasicBlock *> &blocks,
                  llvm::Value *funclet) {
   for (llvm::BasicBlock *bb : blocks)
     for (llvm::BasicBlock::iterator I = bb->begin(); I != bb->end(); ++I) {
-      //if (funclet)
-      //  mapFunclet(&*I, VMap, funclet);
       llvm::RemapInstruction(&*I, VMap, llvm::RF_IgnoreMissingEntries |
                              llvm::RF_NoModuleLevelChanges);
     }
@@ -87,8 +73,11 @@ void remapBlocksValue(std::vector<llvm::BasicBlock *> &blocks,
   remapBlocks(blocks, VMap, nullptr, nullptr);
 }
 
-// make a copy of all srcblocks, mapping values to clones and redirect srcTarget
-// to continueWith
+// make a copy of all blocks and instructions in srcblocks
+// - map values to clones 
+// - redirect srcTarget to continueWith
+// - set "funclet" attribute inside catch/cleanup pads
+// - inside funclets, replace "unreachable" with "branch cleanupret"
 void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
                  std::vector<llvm::BasicBlock *> &blocks,
                  llvm::BasicBlock *continueWith, llvm::BasicBlock *unwindTo,
@@ -117,6 +106,9 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
           newInst = llvm::CallInst::Create(
             CInst, llvm::OperandBundleDef("funclet", funclet));
         }
+      }
+      if (funclet && llvm::isa<llvm::UnreachableInst>(Inst)) {
+        newInst = llvm::BranchInst::Create(continueWith); // cleanupret
       }
       if (!newInst)
         newInst = Inst->clone();
