@@ -251,6 +251,7 @@ void ScopeStack::runCleanupCopies(CleanupCursor sourceScope,
 
 llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
                                             llvm::BasicBlock *unwindTo) {
+  // a catch switch never needs to be cloned and is an unwind target itself
   if (isCatchSwitchBlock(cleanupScopes[scope].beginBlock))
     return cleanupScopes[scope].beginBlock;
 
@@ -287,10 +288,10 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
 
   llvm::BasicBlock *cleanupret =
       llvm::BasicBlock::Create(irs->context(), "cleanupret", irs->topfunc());
-
   llvm::CleanupReturnInst::Create(cleanuppad, unwindTo, cleanupret);
+
   auto copybb = executeCleanupCopying(irs, cleanupScopes[scope], cleanupbb,
-                                       cleanupret, unwindTo, cleanuppad);
+                                      cleanupret, unwindTo, cleanuppad);
   llvm::BranchInst::Create(copybb, cleanupbb);
   return cleanupbb;
 }
