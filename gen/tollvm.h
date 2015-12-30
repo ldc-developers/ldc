@@ -71,10 +71,10 @@ LLStructType *DtoMutexType();
 LLStructType *DtoModuleReferenceType();
 
 // getelementptr helpers
-LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, const char *name = "",
-                 llvm::BasicBlock *bb = nullptr);
-LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, const char *name = "",
-                llvm::BasicBlock *bb = nullptr);
+LLValue *DtoGEP1(LLValue *ptr, LLValue *i0, bool inBounds,
+                 const char *name = "", llvm::BasicBlock *bb = nullptr);
+LLValue *DtoGEP(LLValue *ptr, LLValue *i0, LLValue *i1, bool inBounds,
+                const char *name = "", llvm::BasicBlock *bb = nullptr);
 
 LLValue *DtoGEPi1(LLValue *ptr, unsigned i0, const char *name = "",
                   llvm::BasicBlock *bb = nullptr);

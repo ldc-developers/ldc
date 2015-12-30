@@ -139,9 +139,9 @@ void DtoGetComplexParts(Loc &loc, Type *to, DValue *val, DValue *&re,
     if (to->iscomplex()) {
       if (v->isLVal()) {
         LLValue *reVal =
-            DtoGEP(v->getLVal(), DtoConstInt(0), DtoConstInt(0), ".re_part");
+            DtoGEPi(v->getLVal(), 0, 0, ".re_part");
         LLValue *imVal =
-            DtoGEP(v->getLVal(), DtoConstInt(0), DtoConstInt(1), ".im_part");
+            DtoGEPi(v->getLVal(), 0, 1, ".im_part");
         re = new DVarValue(baserety, reVal);
         im = new DVarValue(baseimty, imVal);
       } else {

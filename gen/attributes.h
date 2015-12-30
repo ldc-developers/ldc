@@ -30,6 +30,7 @@ public:
 
   AttrBuilder &addAlignment(unsigned alignment);
   AttrBuilder &addByVal(unsigned alignment);
+  AttrBuilder &addDereferenceable(unsigned size);
 
   operator llvm::AttrBuilder &() { return builder; }
   operator const llvm::AttrBuilder &() const { return builder; }
