@@ -9,14 +9,13 @@ import ldc.attributes;
 // CHECK-DAG: @{{.*}}mySectionedGlobali ={{.*}} section ".mySection"
 @(section(".mySection")) int mySectionedGlobal;
 
-// TODO: Specifying section for functions is not implemented yet
-// TODO: C HECK-DAG: .... section "funcSection"
-@(section("funcSection")) void foo() {}
+// CHECK-DAG: define void @{{.*}}sectionedfoo{{.*}} section "funcSection"
+@(section("funcSection")) void sectionedfoo() {}
 
 //---------------------------------------------------------------------
 
 
 // CHECK-LABEL: define i32 @_Dmain
 void main() {
-  foo();
+  sectionedfoo();
 }

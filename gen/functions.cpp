@@ -32,6 +32,7 @@
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "gen/uda.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "llvm/IR/Intrinsics.h"
@@ -483,6 +484,8 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
       func->addFnAttr(LLAttribute::NoRedZone);
     }
   }
+
+  applyFuncDeclUDAs(fdecl, func);
 
   // main
   if (fdecl->isMain()) {

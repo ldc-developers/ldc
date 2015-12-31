@@ -15,9 +15,14 @@
 #ifndef GEN_UDA_H
 #define GEN_UDA_H
 
+class FuncDeclaration;
 class VarDeclaration;
-namespace llvm { class GlobalVariable; }
+namespace llvm {
+class Function;
+class GlobalVariable;
+}
 
+void applyFuncDeclUDAs(FuncDeclaration *decl, llvm::Function *func);
 void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar);
 
 #endif

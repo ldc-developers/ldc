@@ -8,6 +8,7 @@
 #include "module.h"
 
 namespace {
+
 /// Names of the attribute structs we recognize.
 namespace attr {
 const std::string section = "section";
@@ -15,7 +16,8 @@ const std::string section = "section";
 
 bool isFromLdcAttibutes(StructLiteralExp *e) {
   auto moduleDecl = e->sd->getModule()->md;
-  if (!moduleDecl) return false;
+  if (!moduleDecl)
+    return false;
 
   if (strcmp("attributes", moduleDecl->id->string)) {
     return false;
@@ -46,9 +48,21 @@ void checkStructElems(StructLiteralExp *sle, llvm::ArrayRef<Type *> elemTypes) {
     }
   }
 }
+
+const char *getFirstElemString(StructLiteralExp *sle) {
+  checkStructElems(sle, {Type::tstring});
+  auto arg = (*sle->elements)[0];
+  assert(arg->op == TOKstring);
+  auto strexp = static_cast<StringExp *>(arg);
+  assert(strexp->sz == 1);
+  return static_cast<const char *>(strexp->string);
 }
 
-void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
+void applyAttrSection(StructLiteralExp *sle, llvm::GlobalObject *globj) {
+  globj->setSection(getFirstElemString(sle));
+}
+
+void applyDeclUDAs(Declaration *decl, llvm::GlobalObject *globj) {
   if (!decl->userAttribDecl)
     return;
 
@@ -76,11 +90,17 @@ void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
 
     auto name = sle->sd->ident->string;
     if (name == attr::section) {
-      checkStructElems(sle, {Type::tstring});
-      auto arg = (*sle->elements)[0];
-      assert(arg->op == TOKstring);
-      gvar->setSection(
-          static_cast<const char *>(static_cast<StringExp *>(arg)->string));
+      applyAttrSection(sle, globj);
     }
   }
+}
+
+} // anonymous namespace
+
+void applyVarDeclUDAs(VarDeclaration *decl, llvm::GlobalVariable *gvar) {
+  applyDeclUDAs(decl, gvar);
+}
+
+void applyFuncDeclUDAs(FuncDeclaration *decl, llvm::Function *func) {
+  applyDeclUDAs(decl, func);
 }
