@@ -100,11 +100,19 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
       llvm::Instruction *newInst = nullptr;
       if (funclet && !llvm::isa<llvm::DbgInfoIntrinsic>(Inst)) { // IntrinsicInst?
         if (auto IInst = llvm::dyn_cast<llvm::InvokeInst> (Inst)) {
-          newInst = llvm::InvokeInst::Create(
+          auto invoke = llvm::InvokeInst::Create(
             IInst, llvm::OperandBundleDef("funclet", funclet));
+          // do not replace functions in optimizer, they lose the "funclet" token
+          invoke->addAttribute(llvm::AttributeSet::FunctionIndex,
+                               llvm::Attribute::NoBuiltin);
+          newInst = invoke;
         } else if (auto CInst = llvm::dyn_cast<llvm::CallInst> (Inst)) {
-          newInst = llvm::CallInst::Create(
-            CInst, llvm::OperandBundleDef("funclet", funclet));
+          auto call = llvm::CallInst::Create(
+              CInst, llvm::OperandBundleDef("funclet", funclet));
+          // do not replace functions in optimizer, they lose the "funclet" token
+          call->addAttribute(llvm::AttributeSet::FunctionIndex,
+                             llvm::Attribute::NoBuiltin);
+          newInst = call;
         }
       }
       if (funclet && llvm::isa<llvm::UnreachableInst>(Inst)) {

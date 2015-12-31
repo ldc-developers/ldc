@@ -425,6 +425,12 @@ L_call:
     if (calleeFn) {
       call->setAttributes(calleeFn->getAttributes());
     }
+#if LDC_LLVM_VER >= 308
+    if (!BundleList.empty())
+      // do not replace functions in optimizer, they lose the "funclet" token
+      call->addAttribute(llvm::AttributeSet::FunctionIndex,
+                         llvm::Attribute::NoBuiltin);
+#endif
     return call;
   }
 
@@ -443,6 +449,12 @@ L_call:
   if (calleeFn) {
     invoke->setAttributes(calleeFn->getAttributes());
   }
+#if LDC_LLVM_VER >= 308
+  if (!BundleList.empty())
+    // do not replace functions in optimizer, they lose the "funclet" token
+    invoke->addAttribute(llvm::AttributeSet::FunctionIndex,
+                         llvm::Attribute::NoBuiltin);
+#endif
 
   irs->scope() = IRScope(postinvoke);
   return invoke;

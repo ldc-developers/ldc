@@ -987,6 +987,10 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   } else {
     call.setCallingConv(callconv);
   }
+  // merge in function attributes set in callOrInvoke
+  attrlist = attrlist.addAttributes(
+      gIR->context(), llvm::AttributeSet::FunctionIndex, call.getAttributes());
+
   call.setAttributes(attrlist);
 
   // Special case for struct constructor calls: For temporaries, using the
