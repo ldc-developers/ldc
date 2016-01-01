@@ -7,6 +7,7 @@ config.ldc2_bin         = "@LDC2_BIN@"
 config.ldc2_bin_dir     = "@LDC2_BIN_DIR@"
 config.test_source_root = "@TESTS_IR_DIR@"
 config.llvm_tools_dir   = "@LLVM_TOOLS_DIR@"
+config.llvm_version     = @LDC_LLVM_VER@
 
 config.name = 'LLVM IR codegen'
 
@@ -22,6 +23,11 @@ config.suffixes = ['.d',
 # subdirectories contain auxiliary inputs for various tests in their parent
 # directories.
 config.excludes = []
+
+# Define available features so that we can disable tests depending on LLVM version
+config.available_features.add("llvm%d" % config.llvm_version)
+
+config.target_triple = '(unused)'
 
 # test_exec_root: The root path where tests should be run.
 config.test_exec_root = os.path.dirname(__file__)
