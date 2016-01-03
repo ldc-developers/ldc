@@ -32,6 +32,7 @@
 #include "gen/pragma.h"
 #include "gen/runtime.h"
 #include "gen/tollvm.h"
+#include "gen/uda.h"
 #include "ir/irfunction.h"
 #include "ir/irmodule.h"
 #include "llvm/IR/Intrinsics.h"
@@ -70,7 +71,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   } else {
     Type *rt = f->next;
     const bool byref = f->isref && rt->toBasetype()->ty != Tvoid;
-    AttrBuilder attrBuilder;
+    AttrBuilder attrs;
 
     if (abi->returnInArg(f)) {
       // sret return
@@ -87,24 +88,27 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       ++nextLLArgIdx;
     } else {
       // sext/zext return
-      attrBuilder.add(DtoShouldExtend(byref ? rt->pointerTo() : rt));
+      attrs.add(DtoShouldExtend(byref ? rt->pointerTo() : rt));
     }
-    newIrFty.ret = new IrFuncTyArg(rt, byref, attrBuilder);
+    newIrFty.ret = new IrFuncTyArg(rt, byref, attrs);
   }
   ++nextLLArgIdx;
 
   if (thistype) {
     // Add the this pointer for member functions
-    AttrBuilder attrBuilder;
+    AttrBuilder attrs;
+    attrs.add(LLAttribute::NonNull);
     if (isCtor) {
-      attrBuilder.add(LLAttribute::Returned);
+      attrs.add(LLAttribute::Returned);
     }
-    newIrFty.arg_this = new IrFuncTyArg(
-        thistype, thistype->toBasetype()->ty == Tstruct, attrBuilder);
+    newIrFty.arg_this =
+        new IrFuncTyArg(thistype, thistype->toBasetype()->ty == Tstruct, attrs);
     ++nextLLArgIdx;
   } else if (nesttype) {
     // Add the context pointer for nested functions
-    newIrFty.arg_nest = new IrFuncTyArg(nesttype, false);
+    AttrBuilder attrs;
+    attrs.add(LLAttribute::NonNull);
+    newIrFty.arg_nest = new IrFuncTyArg(nesttype, false, attrs);
     ++nextLLArgIdx;
   }
 
@@ -141,27 +145,30 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     bool passPointer = arg->storageClass & (STCref | STCout);
 
     Type *loweredDType = arg->type;
-    AttrBuilder attrBuilder;
+    AttrBuilder attrs;
     if (arg->storageClass & STClazy) {
       // Lazy arguments are lowered to delegates.
       Logger::println("lazy param");
       auto ltf = new TypeFunction(nullptr, arg->type, 0, LINKd);
       auto ltd = new TypeDelegate(ltf);
       loweredDType = ltd;
-    } else if (!passPointer) {
+    } else if (passPointer) {
+      // ref/out
+      attrs.addDereferenceable(loweredDType->size());
+    } else {
       if (abi->passByVal(loweredDType)) {
         // LLVM ByVal parameters are pointers to a copy in the function
         // parameters stack. The caller needs to provide a pointer to the
         // original argument.
-        attrBuilder.addByVal(DtoAlignment(loweredDType));
+        attrs.addByVal(DtoAlignment(loweredDType));
         passPointer = true;
       } else {
         // Add sext/zext as needed.
-        attrBuilder.add(DtoShouldExtend(loweredDType));
+        attrs.add(DtoShouldExtend(loweredDType));
       }
     }
-    newIrFty.args.push_back(
-        new IrFuncTyArg(loweredDType, passPointer, attrBuilder));
+
+    newIrFty.args.push_back(new IrFuncTyArg(loweredDType, passPointer, attrs));
     newIrFty.args.back()->parametersIdx = i;
     ++nextLLArgIdx;
   }
@@ -477,6 +484,8 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
       func->addFnAttr(LLAttribute::NoRedZone);
     }
   }
+
+  applyFuncDeclUDAs(fdecl, func);
 
   // main
   if (fdecl->isMain()) {

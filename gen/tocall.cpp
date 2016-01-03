@@ -531,7 +531,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     assert(bitmask == 31 || bitmask == 63);
     // auto q = cast(size_t*)ptr + (bitnum >> (64bit ? 6 : 5));
     LLValue *q = DtoBitCast(ptr, DtoSize_t()->getPointerTo());
-    q = DtoGEP1(q, p->ir->CreateLShr(bitnum, bitmask == 63 ? 6 : 5), "bitop.q");
+    q = DtoGEP1(q, p->ir->CreateLShr(bitnum, bitmask == 63 ? 6 : 5), true, "bitop.q");
 
     // auto mask = 1 << (bitnum & bitmask);
     LLValue *mask =
@@ -610,8 +610,7 @@ public:
                            Loc &loc, DValue *fnval,
                            LLFunctionType *llCalleeType, Expressions *arguments,
                            Type *resulttype, LLValue *retvar)
-      : args(args), attrs(attrs), loc(loc), fnval(fnval),
-        llCalleeType(llCalleeType), arguments(arguments),
+      : args(args), attrs(attrs), loc(loc), fnval(fnval), arguments(arguments),
         resulttype(resulttype), retvar(retvar),
         // computed:
         calleeType(fnval->getType()), dfnval(fnval->isFunc()),
@@ -636,7 +635,6 @@ private:
   AttrSet &attrs;
   Loc &loc;
   DValue *const fnval;
-  LLFunctionType *const llCalleeType;
   Expressions *const arguments;
   Type *const resulttype;
   LLValue *const retvar;

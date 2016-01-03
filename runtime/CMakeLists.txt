@@ -193,11 +193,6 @@ endif()
 # Create configuration files.
 #
 
-# Add a lib required by VS 2015+ when building LDC with VS 2015+.
-if(MSVC AND (MSVC_VERSION GREATER 1800))
-    set(ADDITIONAL_DEFAULT_LDC_SWITCHES ",\n        \"-Llegacy_stdio_definitions.lib\"")
-endif()
-
 # Add extra paths on Linux and disable linker arch mismatch warnings (like
 # DMD and GDC do). OS X doesn't need extra configuration due to the use of
 # fat binaries. Other Posixen might need to be added here.
@@ -714,19 +709,13 @@ endmacro()
 function(add_tests d_files runner name_suffix)
     foreach(file ${d_files})
         file_to_module_name(${file} module)
-        if("${module}" STREQUAL "core.internal.convert")
-            # Exclude unit tests for now, as they fail due to a CTFE vs. runtime
-            # issue with floating point numbers. See the discussion on GitHub
-            # pull request #770. To be revisited after 0.15.0 is out.
-        else()
-            add_test(NAME "${module}${name_suffix}"
-                WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
-                COMMAND ${runner}-test-runner${name_suffix} ${module}
-            )
-            set_tests_properties("${module}${name_suffix}" PROPERTIES
-                DEPENDS build-${runner}-test-runner${name_suffix}
-            )
-        endif()
+        add_test(NAME "${module}${name_suffix}"
+            WORKING_DIRECTORY "${PROJECT_BINARY_DIR}"
+            COMMAND ${runner}-test-runner${name_suffix} ${module}
+        )
+        set_tests_properties("${module}${name_suffix}" PROPERTIES
+            DEPENDS build-${runner}-test-runner${name_suffix}
+	)
     endforeach()
 endfunction()
 function(add_runtime_tests name_suffix)
