@@ -57,7 +57,7 @@ install:
   - 7z x ..\llvm-x64.7z > nul
   - cd ..
   # Download & install Ninja
-  - ps: Start-FileDownload 'https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
+  - ps: Start-FileDownload 'https://github.com/ninja-build/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
   - md ninja
   - cd ninja
   - 7z x ..\ninja.zip > nul
