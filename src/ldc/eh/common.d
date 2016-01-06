@@ -74,6 +74,16 @@ enum _DW_EH_Format : int
     DW_EH_PE_omit    = 0xff   // Indicates that no value is present.
 }
 
+uint udata4_read(ref ubyte* addr)
+{
+    // read udata4 from possibly unaligned `addr`
+    import core.stdc.string : memcpy;
+    uint udata4;
+    memcpy(&udata4, addr, udata4.sizeof);
+    addr += udata4.sizeof;
+    return udata4;
+}
+
 ubyte* get_uleb128(ubyte* addr, ref size_t res)
 {
     res = 0;
@@ -499,10 +509,10 @@ extern(C) auto eh_personality_common(NativeContext)(ref NativeContext nativeCont
             if (callsite_walker >= action_table)
                 return nativeContext.continueUnwind();
 
-            immutable block_start_offset = *cast(uint*)callsite_walker;
-            immutable block_size = *(cast(uint*)callsite_walker + 1);
-            landingPadAddr = *(cast(uint*)callsite_walker + 2);
-            callsite_walker = get_uleb128(callsite_walker + 3 * uint.sizeof, actionTableStartOffset);
+            immutable block_start_offset = udata4_read(callsite_walker);
+            immutable block_size = udata4_read(callsite_walker);
+            landingPadAddr = udata4_read(callsite_walker);
+            callsite_walker = get_uleb128(callsite_walker, actionTableStartOffset);
 
             debug(EH_personality_verbose)
             {
