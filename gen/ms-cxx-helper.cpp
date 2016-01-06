@@ -102,16 +102,10 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
         if (auto IInst = llvm::dyn_cast<llvm::InvokeInst> (Inst)) {
           auto invoke = llvm::InvokeInst::Create(
             IInst, llvm::OperandBundleDef("funclet", funclet));
-          // do not replace functions in optimizer, they lose the "funclet" token
-          invoke->addAttribute(llvm::AttributeSet::FunctionIndex,
-                               llvm::Attribute::NoBuiltin);
           newInst = invoke;
         } else if (auto CInst = llvm::dyn_cast<llvm::CallInst> (Inst)) {
           auto call = llvm::CallInst::Create(
               CInst, llvm::OperandBundleDef("funclet", funclet));
-          // do not replace functions in optimizer, they lose the "funclet" token
-          call->addAttribute(llvm::AttributeSet::FunctionIndex,
-                             llvm::Attribute::NoBuiltin);
           newInst = call;
         }
       }
