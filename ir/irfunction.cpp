@@ -267,6 +267,49 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
     }
   }
 
+#if 1
+  // translate cleanup to catch-all-rethrow:
+  // %switch = catchswitch within %funclet [label %catch] unwind to %unwindTo
+  llvm::BasicBlock *cleanupbb =
+    llvm::BasicBlock::Create(irs->context(), "cleanuppad", irs->topfunc());
+  auto catchswitch =
+    llvm::CatchSwitchInst::Create(getFuncletToken(), unwindTo, 1, "", cleanupbb);
+
+  // %catch = catchpad within %switch [nullptr, 0, &caughtObject]
+  llvm::BasicBlock *catchpadbb =
+    llvm::BasicBlock::Create(irs->context(), "cleanupcatch", irs->topfunc());
+  int flags = 64; // just mimicking clang here
+  LLValue* nulltype = llvm::Constant::getNullValue(getVoidPtrType());
+  LLValue* excptObj = irs->func()->getOrCreateEhPtrSlot();
+  LLValue *args[] = { nulltype, DtoConstUint(flags), excptObj };
+  auto catchpad = llvm::CatchPadInst::Create(
+      catchswitch, llvm::ArrayRef<LLValue *>(args), "", catchpadbb);
+  catchswitch->addHandler(catchpadbb);
+
+
+  llvm::BasicBlock *cleanupret =
+      llvm::BasicBlock::Create(irs->context(), "cleanupret", irs->topfunc());
+  const auto resumeFn =
+      getRuntimeFunction(Loc(), irs->module, "_d_eh_resume_unwind");
+  auto excptn = new llvm::LoadInst(excptObj, "excptn", cleanupret);
+  if (unwindTo) {
+    llvm::BasicBlock *unreachable =
+      llvm::BasicBlock::Create(irs->context(), "unreachable", irs->topfunc());
+    new llvm::UnreachableInst(irs->context(), unreachable);
+    llvm::InvokeInst::Create(resumeFn, unreachable, unwindTo, excptn,
+                             {llvm::OperandBundleDef("funclet", catchpad)}, "",
+                             cleanupret);
+  } else {
+    llvm::CallInst::Create(resumeFn, excptn,
+                           {llvm::OperandBundleDef("funclet", catchpad)}, "",
+                           cleanupret);
+    new llvm::UnreachableInst(irs->context(), cleanupret);
+  }
+
+  auto copybb = executeCleanupCopying(irs, cleanupScopes[scope], catchpadbb,
+                                      cleanupret, unwindTo, catchpad);
+  llvm::BranchInst::Create(copybb, catchpadbb);
+#else
   // each cleanup block is bracketed by a pair of cleanuppad/cleanupret
   // instructions, any unwinding should also just continue at the next
   // cleanup block, e.g.:
@@ -293,6 +336,7 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
   auto copybb = executeCleanupCopying(irs, cleanupScopes[scope], cleanupbb,
                                       cleanupret, unwindTo, cleanuppad);
   llvm::BranchInst::Create(copybb, cleanupbb);
+#endif
   return cleanupbb;
 }
 #endif
@@ -510,12 +554,14 @@ llvm::BasicBlock *ScopeStack::emitLandingPadMSVCEH(CleanupCursor scope) {
     currentFunction->setPersonalityFn(personalityFn);
   }
 
+#if 0
   // WinEHPrepare pass fails after optimizations, so disable these for now
   if (!currentFunction->getFnAttribute("disable-tail-calls")
       .isStringAttribute()) {
     currentFunction->addFnAttr("disable-tail-calls", "true");
     currentFunction->addFnAttr(llvm::Attribute::NoInline);
   }
+#endif
 
   if (scope == 0)
     return runCleanupPad(scope, nullptr);
