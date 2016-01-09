@@ -935,7 +935,7 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
   b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
   moduleInfoSym->setLinkage(llvm::GlobalValue::ExternalLinkage);
 
-  if (global.params.isLinux) {
+  if (global.params.isLinux || global.params.isFreeBSD) {
     if (emitFullModuleInfo) {
       build_dso_registry_calls(mangle(m), moduleInfoSym);
     } else {
