@@ -652,7 +652,7 @@ static void buildRuntimeModule() {
       {objectTy});
 
   // void _d_dso_registry(CompilerDSOData* data)
-  if (global.params.isLinux) {
+  if (global.params.isLinux || global.params.isFreeBSD) {
     llvm::StringRef fname("_d_dso_registry");
 
     LLType *LLvoidTy = LLType::getVoidTy(gIR->context());
