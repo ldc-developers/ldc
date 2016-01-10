@@ -741,11 +741,12 @@ public:
         cpyObj = exnObj;
         exnObj = DtoAlloca(var->type, "exnObj");
       }
-
       irs->scope() = save;
-
-    } else {
+    } else if (ctch->type) {
       // catch without var
+      exnObj = DtoAlloca(ctch->type, "exnObj");
+    } else {
+      // catch all
       exnObj = llvm::Constant::getNullValue(getVoidPtrType());
     }
 
@@ -773,9 +774,8 @@ public:
     }
     const auto enterCatchFn =
         getRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
-    auto throwableObj =
-        irs->ir->CreateCall(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
-                            {llvm::OperandBundleDef("funclet", catchpad)});
+    irs->ir->CreateCall(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
+                        {llvm::OperandBundleDef("funclet", catchpad)});
 
     // The code generator will extract the catch handler to funclets
     // so it needs to know the end of the code executed in the handler.

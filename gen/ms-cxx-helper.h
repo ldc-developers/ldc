@@ -17,6 +17,8 @@ llvm::StructType *getTypeDescriptorType(IRState &irs,
                                         llvm::StringRef TypeInfoString);
 llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd);
 
+llvm::GlobalVariable *getSkipCleanupVar(IRState &irs);
+
 void findSuccessors(std::vector<llvm::BasicBlock *> &blocks,
                     llvm::BasicBlock *bb, llvm::BasicBlock *ebb);
 
