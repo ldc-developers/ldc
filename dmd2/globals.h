@@ -80,13 +80,15 @@ struct Param
 #endif
     bool is64bit;       // generate 64 bit code
     bool isLP64;        // generate code for LP64
+#if !IN_LLVM
     bool isLinux;       // generate code for linux
     bool isOSX;         // generate code for Mac OSX
+#endif
     bool isWindows;     // generate code for Windows
+#if !IN_LLVM
     bool isFreeBSD;     // generate code for FreeBSD
     bool isOpenBSD;     // generate code for OpenBSD
     bool isSolaris;     // generate code for Solaris
-#if !IN_LLVM
     bool mscoff;        // for Win32: write COFF object files instead of OMF
     char useDeprecated; // 0: don't allow use of deprecated features
                         // 1: silently allow use of deprecated features

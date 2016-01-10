@@ -972,12 +972,7 @@ int main(int argc, char **argv) {
   {
     llvm::Triple triple = llvm::Triple(gTargetMachine->getTargetTriple());
     global.params.targetTriple = triple;
-    global.params.isLinux = triple.getOS() == llvm::Triple::Linux;
-    global.params.isOSX = triple.isMacOSX();
     global.params.isWindows = triple.isOSWindows();
-    global.params.isFreeBSD = triple.getOS() == llvm::Triple::FreeBSD;
-    global.params.isOpenBSD = triple.getOS() == llvm::Triple::OpenBSD;
-    global.params.isSolaris = triple.getOS() == llvm::Triple::Solaris;
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
     global.params.is64bit = triple.isArch64Bit();
   }
