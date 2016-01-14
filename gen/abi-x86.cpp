@@ -26,7 +26,7 @@ struct X86TargetABI : TargetABI {
   IntegerRewrite integerRewrite;
 
   X86TargetABI()
-      : isOSX(global.params.isOSX),
+      : isOSX(global.params.targetTriple.isMacOSX()),
         isMSVC(global.params.targetTriple.isWindowsMSVCEnvironment()) {
     using llvm::Triple;
     auto os = global.params.targetTriple.getOS();
