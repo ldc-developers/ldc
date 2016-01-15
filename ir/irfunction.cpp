@@ -273,13 +273,15 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
   //
   // cleanuppad:
   //   %0 = cleanuppad within %funclet[]
-  //   if (_d_skipCleanup) br label %cleanupret ; avoid LLVM inferring noreturn
-  //                  else br label %copy
+  //   %frame = alloca(byte[16])
+  //   if (!_d_enter_cleanup(%frame)) br label %cleanupret 
+  //                                  else br label %copy
   //
   // copy:
   //   invoke _dtor to %cleanupret unwind %unwindTo [ "funclet"(token %0) ]
   //
   // cleanupret:
+  //   _d_leave_cleanup(%frame)
   //   cleanupret %0 unwind %unwindTo
   //
   llvm::BasicBlock *cleanupbb =
@@ -289,14 +291,29 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
 
   llvm::BasicBlock *cleanupret =
       llvm::BasicBlock::Create(irs->context(), "cleanupret", irs->topfunc());
+
+  // allocate some space on the stack where _d_enter_cleanup can place an exception frame
+  auto int8Ty = LLType::getInt8Ty(gIR->context());
+  auto frametype = llvm::ArrayType::get(int8Ty, 16);
+  auto frameai = DtoRawAlloca(frametype, 0, "cleanup.frame");
+  auto frame =
+      new llvm::BitCastInst(frameai, getPtrToType(int8Ty), "", cleanupbb);
+
+  auto endFn = getRuntimeFunction(Loc(), irs->module, "_d_leave_cleanup");
+  llvm::CallInst::Create(endFn, frame,
+                         {llvm::OperandBundleDef("funclet", cleanuppad)}, "",
+                         cleanupret);
   llvm::CleanupReturnInst::Create(cleanuppad, unwindTo, cleanupret);
 
   auto copybb = executeCleanupCopying(irs, cleanupScopes[scope], cleanupbb,
                                       cleanupret, unwindTo, cleanuppad);
 
-  auto skipVar = getSkipCleanupVar(*irs);
-  auto skip = new llvm::LoadInst(skipVar, "skipCleanup", cleanupbb);
-  llvm::BranchInst::Create(cleanupret, copybb, skip, cleanupbb);
+  auto beginFn = getRuntimeFunction(Loc(), irs->module, "_d_enter_cleanup");
+  auto exec = llvm::CallInst::Create(
+      beginFn, frame, {llvm::OperandBundleDef("funclet", cleanuppad)}, "",
+      cleanupbb);
+  llvm::BranchInst::Create(copybb, cleanupret, exec, cleanupbb);
+
   return cleanupbb;
 }
 #endif

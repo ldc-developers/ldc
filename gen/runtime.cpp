@@ -638,6 +638,11 @@ static void buildRuntimeModule() {
     }
   }
 
+  if (useMSVCEH()) {
+    createFwdDecl(LINKc, boolTy, {"_d_enter_cleanup"}, {voidPtrTy});
+    createFwdDecl(LINKc, voidTy, {"_d_leave_cleanup"}, {voidPtrTy});
+  }
+
   // void _d_eh_resume_unwind(ptr)
   createFwdDecl(LINKc, voidTy, {"_d_eh_resume_unwind"}, {voidPtrTy});
 

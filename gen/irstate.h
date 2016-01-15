@@ -187,7 +187,6 @@ struct IRState {
   // MS C++ compatible type descriptors
   llvm::DenseMap<size_t, llvm::StructType *> TypeDescriptorTypeMap;
   llvm::DenseMap<llvm::Constant *, llvm::GlobalVariable *> TypeDescriptorMap;
-  llvm::GlobalVariable *SkipCleanupVar = nullptr;
 #endif
 };
 
