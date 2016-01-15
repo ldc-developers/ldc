@@ -187,16 +187,6 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
   return Var;
 }
 
-llvm::GlobalVariable *getSkipCleanupVar(IRState &irs) {
-  if (!irs.SkipCleanupVar) {
-    auto int1Ty = LLType::getInt1Ty(gIR->context());
-    irs.SkipCleanupVar = new llvm::GlobalVariable(
-        gIR->module, int1Ty, false, LLGlobalVariable::ExternalLinkage,
-        nullptr, "_d_skipCleanup");
-  }
-  return irs.SkipCleanupVar;
-}
-
 #if 0
 // currently unused, information built at runtime ATM
 llvm::StructType *BaseClassDescriptorType;
