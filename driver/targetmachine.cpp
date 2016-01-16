@@ -271,6 +271,11 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
     return FloatABI::Soft;
 
   default:
+    if (triple.getVendorName().startswith("hardfloat"))
+      return FloatABI::Hard;
+    if (triple.getVendorName().startswith("softfloat"))
+      return FloatABI::SoftFP;
+
     switch (triple.getEnvironment()) {
     case llvm::Triple::GNUEABIHF:
       return FloatABI::Hard;
