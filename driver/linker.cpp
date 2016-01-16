@@ -175,6 +175,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     args.push_back("-ldl");
   // fallthrough
   case llvm::Triple::FreeBSD:
+  case llvm::Triple::NetBSD:
     addSoname = true;
     args.push_back("-lpthread");
     args.push_back("-lm");
