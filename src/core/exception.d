@@ -122,18 +122,19 @@ class FinalizeError : Error
 {
     TypeInfo   info;
 
-    @safe pure nothrow this( TypeInfo ci, Throwable next, string file = __FILE__, size_t line = __LINE__ )
+    this( TypeInfo ci, Throwable next, string file = __FILE__, size_t line = __LINE__ ) @safe pure nothrow @nogc
     {
         this(ci, file, line, next);
     }
 
-    @safe pure nothrow this( TypeInfo ci, string file = __FILE__, size_t line = __LINE__, Throwable next = null )
+    this( TypeInfo ci, string file = __FILE__, size_t line = __LINE__, Throwable next = null ) @safe pure nothrow @nogc
     {
         super( "Finalization error", file, line, next );
+        super.info = SuppressTraceInfo.instance;
         info = ci;
     }
 
-    @safe override string toString() const
+    override string toString() const @safe
     {
         return "An exception was thrown while finalizing an instance of " ~ info.toString();
     }
@@ -212,12 +213,19 @@ deprecated unittest
  */
 class OutOfMemoryError : Error
 {
-    @safe pure nothrow this(string file = __FILE__, size_t line = __LINE__, Throwable next = null )
+    this(string file = __FILE__, size_t line = __LINE__, Throwable next = null ) @safe pure nothrow @nogc
     {
-        super( "Memory allocation failed", file, line, next );
+        this(true, file, line, next);
     }
 
-    @trusted override string toString() const
+    this(bool trace, string file = __FILE__, size_t line = __LINE__, Throwable next = null ) @safe pure nothrow @nogc
+    {
+        super("Memory allocation failed", file, line, next);
+        if (!trace)
+            this.info = SuppressTraceInfo.instance;
+    }
+
+    override string toString() const @trusted
     {
         return msg.length ? (cast()super).toString() : "Memory allocation failed";
     }
@@ -253,12 +261,13 @@ unittest
  */
 class InvalidMemoryOperationError : Error
 {
-    @safe pure nothrow this(string file = __FILE__, size_t line = __LINE__, Throwable next = null )
+    this(string file = __FILE__, size_t line = __LINE__, Throwable next = null ) @safe pure nothrow @nogc
     {
         super( "Invalid memory operation", file, line, next );
+        this.info = SuppressTraceInfo.instance;
     }
 
-    @trusted override string toString() const
+    override string toString() const @trusted
     {
         return msg.length ? (cast()super).toString() : "Invalid memory operation";
     }
@@ -486,12 +495,7 @@ extern (C) void onFinalizeError( TypeInfo info, Throwable e, string file = __FIL
 {
     // This error is thrown during a garbage collection, so no allocation must occur while
     //  generating this object. So we use a preallocated instance
-    __gshared FinalizeError err = new FinalizeError( null );
-    err.info = info;
-    err.next = e;
-    err.file = file;
-    err.line = line;
-    throw err;
+    throw staticError!FinalizeError(info, e, file, line);
 }
 
 
@@ -521,7 +525,13 @@ extern (C) void onOutOfMemoryError(void* pretend_sideffect = null) @trusted pure
 {
     // NOTE: Since an out of memory condition exists, no allocation must occur
     //       while generating this object.
-    throw cast(OutOfMemoryError) cast(void*) typeid(OutOfMemoryError).init;
+    throw staticError!OutOfMemoryError();
+}
+
+extern (C) void onOutOfMemoryErrorNoGC() @trusted nothrow @nogc
+{
+    // suppress stacktrace until they are @nogc
+    throw staticError!OutOfMemoryError(false);
 }
 
 
@@ -536,8 +546,7 @@ extern (C) void onInvalidMemoryOperationError(void* pretend_sideffect = null) @t
 {
     // The same restriction applies as for onOutOfMemoryError. The GC is in an
     // undefined state, thus no allocation must occur while generating this object.
-    throw cast(InvalidMemoryOperationError)
-        cast(void*) typeid(InvalidMemoryOperationError).init;
+    throw staticError!InvalidMemoryOperationError();
 }
 
 
@@ -647,5 +656,40 @@ extern (C)
     void _d_switch_error(immutable(ModuleInfo)* m, uint line)
     {
         onSwitchError(m.name, line);
+    }
+}
+
+// TLS storage shared for all errors, chaining might create circular reference
+private void[128] _store;
+
+// only Errors for now as those are rarely chained
+private T staticError(T, Args...)(auto ref Args args)
+    if (is(T : Error))
+{
+    // pure hack, what we actually need is @noreturn and allow to call that in pure functions
+    static T get()
+    {
+        static assert(__traits(classInstanceSize, T) <= _store.length,
+                      T.stringof ~ " is too large for staticError()");
+
+        _store[0 .. __traits(classInstanceSize, T)] = typeid(T).init[];
+        return cast(T) _store.ptr;
+    }
+    auto res = (cast(T function() @trusted pure nothrow @nogc) &get)();
+    res.__ctor(args);
+    return res;
+}
+
+// Suppress traceinfo generation when the GC cannot be used.  Workaround for
+// Bugzilla 14993. We should make stack traces @nogc instead.
+private class SuppressTraceInfo : Throwable.TraceInfo
+{
+    override int opApply(scope int delegate(ref const(char[]))) const { return 0; }
+    override int opApply(scope int delegate(ref size_t, ref const(char[]))) const { return 0; }
+    override string toString() const { return null; }
+    static SuppressTraceInfo instance() @trusted @nogc pure nothrow
+    {
+        static immutable SuppressTraceInfo it = new SuppressTraceInfo;
+        return cast(SuppressTraceInfo)it;
     }
 }

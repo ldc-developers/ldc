@@ -802,9 +802,11 @@ body
     }
     else
     {
-        size_t reqsize = size * newcapacity;
+        import core.checkedint : mulu;
 
-        if (newcapacity == 0 || reqsize / newcapacity == size)
+        bool overflow = false;
+        size_t reqsize = mulu(size, newcapacity, overflow);
+        if (!overflow)
             goto Lcontinue;
     }
 Loverflow:
@@ -970,12 +972,12 @@ extern (C) void[] _d_newarrayU(const TypeInfo ti, size_t length) pure nothrow
     }
     else
     {
-        auto newsize = size * length;
-        if (newsize / length == size)
-        {
-            size = newsize;
+        import core.checkedint : mulu;
+
+        bool overflow = false;
+        size = mulu(size, length, overflow);
+        if (!overflow)
             goto Lcontinue;
-        }
     }
 Loverflow:
     onOutOfMemoryError();
@@ -1537,9 +1539,11 @@ body
         }
         else
         {
-            size_t newsize = sizeelem * newlength;
+            import core.checkedint : mulu;
 
-            if (newsize / newlength != sizeelem)
+            bool overflow = false;
+            size_t newsize = mulu(sizeelem, newlength, overflow);
+            if (overflow)
                 goto Loverflow;
         }
 
@@ -1729,9 +1733,11 @@ body
         }
         else
         {
-            size_t newsize = sizeelem * newlength;
+            import core.checkedint : mulu;
 
-            if (newsize / newlength != sizeelem)
+            bool overflow = false;
+            size_t newsize = mulu(sizeelem, newlength, overflow);
+            if (overflow)
                 goto Loverflow;
         }
         debug(PRINTF) printf("newsize = %x, newlength = %x\n", newsize, newlength);
@@ -2663,16 +2669,13 @@ unittest
         import core.exception;
         static class C1
         {
-            // preallocate to not call new in destructor
-            __gshared E exc = new E("test onFinalizeError");
-            ~this()
-            {
-                throw exc;
-            }
+            E exc;
+            this(E exc) { this.exc = exc; }
+            ~this() { throw exc; }
         }
 
         bool caught = false;
-        C1 c = new C1;
+        C1 c = new C1(new E("test onFinalizeError"));
         try
         {
             GC.runFinalizers((cast(uint*)&C1.__dtor)[0..1]);
@@ -2705,16 +2708,12 @@ unittest
         import core.exception;
         static struct S1
         {
-            // preallocate to not call new in destructor
-            __gshared E exc = new E("test onFinalizeError");
-            ~this()
-            {
-                throw exc;
-            }
+            E exc;
+            ~this() { throw exc; }
         }
 
         bool caught = false;
-        S1* s = new S1;
+        S1* s = new S1(new E("test onFinalizeError"));
         try
         {
             GC.runFinalizers((cast(char*)(typeid(S1).xdtor))[0..1]);

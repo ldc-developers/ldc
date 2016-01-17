@@ -23,7 +23,7 @@ public enum    MSG_COPY = 4 << 12; // octal!40000
 
 struct msgbuf {
     c_long mtype;
-    char[1] mtext;
+    char mtext[1];
 };
 
 struct msginfo {

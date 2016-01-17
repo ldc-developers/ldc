@@ -119,7 +119,8 @@ version( CoreDdoc )
     /**
      * Loads 'val' from memory and returns it.  The memory barrier specified
      * by 'ms' is applied to the operation, which is fully sequenced by
-     * default.
+     * default.  Valid memory orders are MemoryOrder.raw, MemoryOrder.acq,
+     * and MemoryOrder.seq.
      *
      * Params:
      *  val = The target variable.
@@ -136,6 +137,8 @@ version( CoreDdoc )
     /**
      * Writes 'newval' into 'val'.  The memory barrier specified by 'ms' is
      * applied to the operation, which is fully sequenced by default.
+     * Valid memory orders are MemoryOrder.raw, MemoryOrder.rel, and
+     * MemoryOrder.seq.
      *
      * Params:
      *  val    = The target variable.
@@ -397,10 +400,10 @@ else version( AsmX86_32 )
         static if (T.sizeof == 1) asm pure nothrow @nogc { lock; xadd[EDX], AL; }
         else static if (T.sizeof == 2) asm pure nothrow @nogc { lock; xadd[EDX], AX; }
         else static if (T.sizeof == 4) asm pure nothrow @nogc { lock; xadd[EDX], EAX; }
-            
-        asm pure nothrow @nogc 
-        { 
-            mov tmp, EAX; 
+
+        asm pure nothrow @nogc
+        {
+            mov tmp, EAX;
         }
 
         return cast(T)tmp;
@@ -598,26 +601,11 @@ else version( AsmX86_32 )
 
     private
     {
-        template isHoistOp(MemoryOrder ms)
-        {
-            enum bool isHoistOp = ms == MemoryOrder.acq ||
-                                  ms == MemoryOrder.seq;
-        }
-
-
-        template isSinkOp(MemoryOrder ms)
-        {
-            enum bool isSinkOp = ms == MemoryOrder.rel ||
-                                 ms == MemoryOrder.seq;
-        }
-
-
         // NOTE: x86 loads implicitly have acquire semantics so a memory
         //       barrier is only necessary on releases.
         template needsLoadBarrier( MemoryOrder ms )
         {
-            enum bool needsLoadBarrier = ms == MemoryOrder.seq ||
-                                               isSinkOp!(ms);
+            enum bool needsLoadBarrier = ms == MemoryOrder.seq;
         }
 
 
@@ -625,8 +613,7 @@ else version( AsmX86_32 )
         //       barrier is only necessary on acquires.
         template needsStoreBarrier( MemoryOrder ms )
         {
-            enum bool needsStoreBarrier = ms == MemoryOrder.seq ||
-                                                isHoistOp!(ms);
+            enum bool needsStoreBarrier = ms == MemoryOrder.seq;
         }
     }
 
@@ -634,11 +621,10 @@ else version( AsmX86_32 )
     HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val ) pure nothrow @nogc
     if(!__traits(isFloating, T))
     {
-        static if (!__traits(isPOD, T))
-        {
-            static assert( false, "argument to atomicLoad() must be POD" );
-        }
-        else static if( T.sizeof == byte.sizeof )
+        static assert( ms != MemoryOrder.rel, "invalid MemoryOrder for atomicLoad()" );
+        static assert( __traits(isPOD, T), "argument to atomicLoad() must be POD" );
+
+        static if( T.sizeof == byte.sizeof )
         {
             //////////////////////////////////////////////////////////////////
             // 1 Byte Load
@@ -746,6 +732,9 @@ else version( AsmX86_32 )
     void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval ) pure nothrow @nogc
         if( __traits( compiles, { val = newval; } ) )
     {
+        static assert( ms != MemoryOrder.acq, "invalid MemoryOrder for atomicStore()" );
+        static assert( __traits(isPOD, T), "argument to atomicStore() must be POD" );
+
         static if( T.sizeof == byte.sizeof )
         {
             //////////////////////////////////////////////////////////////////
@@ -915,10 +904,10 @@ else version( AsmX86_64 )
         else static if (T.sizeof == 2) asm pure nothrow @nogc { lock; xadd[RDX], AX; }
         else static if (T.sizeof == 4) asm pure nothrow @nogc { lock; xadd[RDX], EAX; }
         else static if (T.sizeof == 8) asm pure nothrow @nogc { lock; xadd[RDX], RAX; }
-        
-        asm pure nothrow @nogc 
-        { 
-            mov tmp, RAX; 
+
+        asm pure nothrow @nogc
+        {
+            mov tmp, RAX;
         }
 
         return cast(T)tmp;
@@ -1159,26 +1148,11 @@ else version( AsmX86_64 )
 
     private
     {
-        template isHoistOp(MemoryOrder ms)
-        {
-            enum bool isHoistOp = ms == MemoryOrder.acq ||
-                                  ms == MemoryOrder.seq;
-        }
-
-
-        template isSinkOp(MemoryOrder ms)
-        {
-            enum bool isSinkOp = ms == MemoryOrder.rel ||
-                                 ms == MemoryOrder.seq;
-        }
-
-
         // NOTE: x86 loads implicitly have acquire semantics so a memory
         //       barrier is only necessary on releases.
         template needsLoadBarrier( MemoryOrder ms )
         {
-            enum bool needsLoadBarrier = ms == MemoryOrder.seq ||
-                                               isSinkOp!(ms);
+            enum bool needsLoadBarrier = ms == MemoryOrder.seq;
         }
 
 
@@ -1186,14 +1160,17 @@ else version( AsmX86_64 )
         //       barrier is only necessary on acquires.
         template needsStoreBarrier( MemoryOrder ms )
         {
-            enum bool needsStoreBarrier = ms == MemoryOrder.seq ||
-                                                isHoistOp!(ms);
+            enum bool needsStoreBarrier = ms == MemoryOrder.seq;
         }
     }
 
 
     HeadUnshared!(T) atomicLoad(MemoryOrder ms = MemoryOrder.seq, T)( ref const shared T val ) pure nothrow @nogc
-    if(!__traits(isFloating, T)) {
+    if(!__traits(isFloating, T))
+    {
+        static assert( ms != MemoryOrder.rel, "invalid MemoryOrder for atomicLoad()" );
+        static assert( __traits(isPOD, T), "argument to atomicLoad() must be POD" );
+
         static if( T.sizeof == byte.sizeof )
         {
             //////////////////////////////////////////////////////////////////
@@ -1350,6 +1327,9 @@ else version( AsmX86_64 )
     void atomicStore(MemoryOrder ms = MemoryOrder.seq, T, V1)( ref shared T val, V1 newval ) pure nothrow @nogc
         if( __traits( compiles, { val = newval; } ) )
     {
+        static assert( ms != MemoryOrder.acq, "invalid MemoryOrder for atomicStore()" );
+        static assert( __traits(isPOD, T), "argument to atomicStore() must be POD" );
+
         static if( T.sizeof == byte.sizeof )
         {
             //////////////////////////////////////////////////////////////////

@@ -15,7 +15,6 @@ private
 {
     import rt.memory;
     import rt.sections;
-    import rt.util.string;
     import core.atomic;
     import core.stdc.stddef;
     import core.stdc.stdlib;
@@ -164,6 +163,9 @@ extern (C) int rt_init()
        shared druntime. Also we need to attach any thread that calls
        rt_init. */
     if (atomicOp!"+="(_initCount, 1) > 1) return 1;
+
+    version (CRuntime_Microsoft)
+        init_msvc();
 
     _d_monitor_staticctor();
     _d_critical_init();
@@ -516,7 +518,10 @@ extern (C) void _d_print_throwable(Throwable t)
     // Show a message box instead.
     version (Windows)
     {
-        if (!GetConsoleWindow())
+        // ensure the exception is shown at the beginning of the line, while also
+        // checking whether stderr is a valid file
+        int written = fprintf(stderr, "\n");
+        if (written <= 0)
         {
             static struct WSink
             {

@@ -146,7 +146,7 @@ unittest
 
     // real types
     foreach (F; TypeTuple!(float, double, real))
-    {
+    (){ // workaround #2396
         alias S = SX!F;
         F f1 = +0.0,
           f2 = -0.0;
@@ -190,11 +190,11 @@ unittest
         assert(sa1 !is sa2);
         ti = typeid(S[3]);
         assert(ti.getHash(&sa1) == ti.getHash(&sa2));
-    }
+    }();
 
     // imaginary types
     foreach (F; TypeTuple!(ifloat, idouble, ireal))
-    {
+    (){ // workaround #2396
         alias S = SX!F;
         F f1 = +0.0i,
           f2 = -0.0i;
@@ -238,11 +238,11 @@ unittest
         assert(sa1 !is sa2);
         ti = typeid(S[3]);
         assert(ti.getHash(&sa1) == ti.getHash(&sa2));
-    }
+    }();
 
     // complex types
     foreach (F; TypeTuple!(cfloat, cdouble, creal))
-    {
+    (){ // workaround #2396
         alias S = SX!F;
         F[4] f = [+0.0 + 0.0i,
                   +0.0 - 0.0i,
@@ -293,5 +293,5 @@ unittest
             ti = typeid(S[3]);
             assert(ti.getHash(&sa1) == ti.getHash(&sa2));
         }
-    }
+    }();
 }
