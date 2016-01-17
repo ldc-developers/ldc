@@ -32,6 +32,8 @@ addons:
     - llvm-3.7-dev
     - llvm-3.8
     - llvm-3.8-dev
+    - llvm-3.9
+    - llvm-3.9-dev
 install:
   - if [ "${TRAVIS_OS_NAME}" = "linux" ]; then export CC="gcc-4.9"; export CXX="g++-4.9"; fi
   - if [ "${TRAVIS_OS_NAME}" = "osx" ]; then brew update; brew install llvm36; brew install libconfig; fi;
@@ -43,12 +45,13 @@ env:
   - LLVM_CONFIG="llvm-config-3.6" OPTS="-DBUILD_SHARED_LIBS=ON"
   - LLVM_CONFIG="llvm-config-3.5" OPTS="-DTEST_COVERAGE=ON"
   - LLVM_CONFIG="llvm-config-3.8"
+  - LLVM_CONFIG="llvm-config-3.9"
   # OSX only (and the only ones for OSX):
   - LLVM_CONFIG="llvm-config-3.6" TEST_CONFIG="Debug"
   - LLVM_CONFIG="llvm-config-3.6" TEST_CONFIG="Release"
 matrix:
   allow_failures:
-    - env: LLVM_CONFIG="llvm-config-3.8"
+    - env: LLVM_CONFIG="llvm-config-3.9"
     - os: osx
       env: LLVM_CONFIG="llvm-config-3.6" TEST_CONFIG="Release"
   exclude:
@@ -64,6 +67,8 @@ matrix:
       env: LLVM_CONFIG="llvm-config-3.5" OPTS="-DTEST_COVERAGE=ON"
     - os: osx
       env: LLVM_CONFIG="llvm-config-3.8"
+    - os: osx
+      env: LLVM_CONFIG="llvm-config-3.9"
 script:
   - cmake -DLLVM_CONFIG=$(which ${LLVM_CONFIG}) $OPTS .
   - make -j3
