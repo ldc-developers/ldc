@@ -183,7 +183,8 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   case llvm::Triple::Solaris:
     args.push_back("-lm");
     args.push_back("-lumem");
-    // solaris TODO
+    args.push_back("-lsocket");
+    args.push_back("-lnsl");
     break;
 
   default:
