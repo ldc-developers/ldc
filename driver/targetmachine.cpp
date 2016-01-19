@@ -125,9 +125,8 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   // Intel Macs are relatively recent, take advantage of that.
   if (triple.isOSDarwin()) {
     return triple.isArch64Bit() ? "core2" : "yonah";
-
-    // Everything else goes to x86-64 in 64-bit mode.
   }
+  // Everything else goes to x86-64 in 64-bit mode.
   if (triple.isArch64Bit()) {
     return "x86-64";
   }
@@ -145,9 +144,15 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   }
   if (triple.getOSName().startswith("netbsd")) {
     return "i486";
-    // All x86 devices running Android have core2 as their common
-    // denominator. This makes a better choice than pentium4.
   }
+  if (triple.getOSName().startswith("openbsd")) {
+    return "i486";
+  }
+  if (triple.getOSName().startswith("dragonfly")) {
+    return "i486";
+  }
+  // All x86 devices running Android have core2 as their common
+  // denominator. This makes a better choice than pentium4.
   if (triple.getEnvironment() == llvm::Triple::Android) {
     return "core2";
 
