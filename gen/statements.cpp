@@ -720,6 +720,7 @@ public:
     LLValue *exnObj = nullptr;
     LLValue *cpyObj = nullptr;
     LLValue *typeDesc = nullptr;
+    LLValue *clssInfo = nullptr;
     if (var) {
       // alloca storage for the variable, it always needs a place on the stack
       // do not initialize, this will be done by the C++ exception handler
@@ -747,15 +748,17 @@ public:
       exnObj = DtoAlloca(ctch->type, "exnObj");
     } else {
       // catch all
-      exnObj = llvm::Constant::getNullValue(getVoidPtrType());
+      exnObj = LLConstant::getNullValue(getVoidPtrType());
     }
 
     if (ctch->type) {
       ClassDeclaration *cd = ctch->type->toBasetype()->isClassHandle();
       typeDesc = getTypeDescriptor(*irs, cd);
+      clssInfo = getIrAggr(cd)->getClassInfoSymbol();
     } else {
       // catch all
-      typeDesc = llvm::Constant::getNullValue(getVoidPtrType());
+      typeDesc = LLConstant::getNullValue(getVoidPtrType());
+      clssInfo = LLConstant::getNullValue(DtoType(Type::typeinfoclass->type));
     }
 
     // "catchpad within %switch [TypeDescriptor, 0, &caughtObject]" must be
@@ -772,9 +775,10 @@ public:
       irs->ir->CreateStore(val, cpyObj);
       exnObj = cpyObj;
     }
-    const auto enterCatchFn =
+    auto enterCatchFn =
         getRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
-    irs->ir->CreateCall(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()),
+    irs->ir->CreateCall(enterCatchFn,
+                        {DtoBitCast(exnObj, getVoidPtrType()), clssInfo},
                         {llvm::OperandBundleDef("funclet", catchpad)});
 
     // The code generator will extract the catch handler to funclets
