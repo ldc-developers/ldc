@@ -212,7 +212,7 @@ void CodeGenerator::emit(Module *m) {
 
     // On Linux, strongly define the excecutabe BSS bracketing symbols in
     // the main module for druntime use (see rt.sections_linux).
-    if (global.params.isLinux) {
+    if (global.params.targetTriple.isOSLinux()) {
       emitSymbolAddrGlobal(ir_->module, "__bss_start", "_d_execBssBegAddr");
       emitSymbolAddrGlobal(ir_->module, "_end", "_d_execBssEndAddr");
     }

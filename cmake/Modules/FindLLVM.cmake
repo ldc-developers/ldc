@@ -27,7 +27,8 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-3.8 llvm-config38
+set(llvm_config_names llvm-config-3.9 llvm-config39
+                      llvm-config-3.8 llvm-config38
                       llvm-config-3.7 llvm-config37
                       llvm-config-3.6 llvm-config36
                       llvm-config-3.5 llvm-config35
@@ -150,6 +151,7 @@ else()
     llvm_set(HOST_TARGET host-target)
     llvm_set(INCLUDE_DIRS includedir true)
     llvm_set(ROOT_DIR prefix true)
+    llvm_set(ENABLE_ASSERTIONS assertion-mode)
 
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-2][\\.0-9A-Za-z]*")
         # Versions below 3.3 do not support components objcarcopts, option

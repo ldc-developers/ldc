@@ -652,7 +652,16 @@ static void buildRuntimeModule() {
       {objectTy});
 
   // void _d_dso_registry(CompilerDSOData* data)
-  if (global.params.isLinux) {
+  if (global.params.targetTriple.isOSLinux() || global.params.targetTriple.isOSFreeBSD() ||
+#if LDC_LLVM_VER > 305
+      global.params.targetTriple.isOSNetBSD() || global.params.targetTriple.isOSOpenBSD() ||
+      global.params.targetTriple.isOSDragonFly()
+#else
+      global.params.targetTriple.getOS() == llvm::Triple::NetBSD ||
+      global.params.targetTriple.getOS() == llvm::Triple::OpenBSD ||
+      global.params.targetTriple.getOS() == llvm::Triple::DragonFly
+#endif
+     ) {
     llvm::StringRef fname("_d_dso_registry");
 
     LLType *LLvoidTy = LLType::getVoidTy(gIR->context());

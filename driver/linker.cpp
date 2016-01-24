@@ -175,6 +175,9 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     args.push_back("-ldl");
   // fallthrough
   case llvm::Triple::FreeBSD:
+  case llvm::Triple::NetBSD:
+  case llvm::Triple::OpenBSD:
+  case llvm::Triple::DragonFly:
     addSoname = true;
     args.push_back("-lpthread");
     args.push_back("-lm");
@@ -183,7 +186,8 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   case llvm::Triple::Solaris:
     args.push_back("-lm");
     args.push_back("-lumem");
-    // solaris TODO
+    args.push_back("-lsocket");
+    args.push_back("-lnsl");
     break;
 
   default:
