@@ -312,6 +312,22 @@ void msvc_eh_terminate() nothrow
 }
 
 ///////////////////////////////////////////////////////////////
+extern(C) bool _d_enter_cleanup(void* ptr)
+{
+    // currently just used to avoid that a cleanup handler that can
+    // be inferred to not return, is removed by the LLVM optimizer
+    //
+    // TODO: setup an exception handler here (ptr passes the address
+    // of a 16 byte stack area in a parent fuction scope) to deal with
+    // unhandled exceptions during unwinding.
+    return true;
+}
+
+extern(C) void _d_leave_cleanup(void* ptr)
+{
+}
+
+///////////////////////////////////////////////////////////////
 void msvc_eh_init()
 {
     throwInfoMutex = new Mutex;

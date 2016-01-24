@@ -407,7 +407,10 @@ private
     version (OSX)
     {
         extern(C) void _d_dyld_getTLSRange(void*, void**, size_t*);
-        private ubyte dummyTlsSymbol;
+        private align(16) ubyte dummyTlsSymbol = 42;
+        // By initalizing dummyTlsSymbol with something non-zero and aligning
+        // to 16-bytes, section __thread_data will be aligned as a workaround
+        // for https://github.com/ldc-developers/ldc/issues/1252
     }
     else version (Windows)
     {
