@@ -156,3 +156,55 @@ int  _msvc_fileno(FILE* stream)
 {
     return stream->_file;
 }
+
+
+
+/**
+ * 32-bit x86 MS VC runtimes lack most single-precision math functions.
+ * Declare alternate implementations to be pulled in from msvc_math.c.
+ */
+#if defined _M_IX86
+
+DECLARE_ALTERNATE_NAME (acosf,  _msvc_acosf);
+DECLARE_ALTERNATE_NAME (asinf,  _msvc_asinf);
+DECLARE_ALTERNATE_NAME (atanf,  _msvc_atanf);
+DECLARE_ALTERNATE_NAME (atan2f, _msvc_atan2f);
+DECLARE_ALTERNATE_NAME (cosf,   _msvc_cosf);
+DECLARE_ALTERNATE_NAME (sinf,   _msvc_sinf);
+DECLARE_ALTERNATE_NAME (tanf,   _msvc_tanf);
+DECLARE_ALTERNATE_NAME (coshf,  _msvc_coshf);
+DECLARE_ALTERNATE_NAME (sinhf,  _msvc_sinhf);
+DECLARE_ALTERNATE_NAME (tanhf,  _msvc_tanhf);
+DECLARE_ALTERNATE_NAME (expf,   _msvc_expf);
+DECLARE_ALTERNATE_NAME (logf,   _msvc_logf);
+DECLARE_ALTERNATE_NAME (log10f, _msvc_log10f);
+DECLARE_ALTERNATE_NAME (powf,   _msvc_powf);
+DECLARE_ALTERNATE_NAME (sqrtf,  _msvc_sqrtf);
+DECLARE_ALTERNATE_NAME (ceilf,  _msvc_ceilf);
+DECLARE_ALTERNATE_NAME (floorf, _msvc_floorf);
+DECLARE_ALTERNATE_NAME (fmodf,  _msvc_fmodf);
+DECLARE_ALTERNATE_NAME (modff,  _msvc_modff);
+
+#endif // _M_IX86
+
+// LDC
+#if _MSC_VER >= 1900 // VS2015+
+    // needed for some symbols that are inline functions in the C headers
+    #pragma comment(lib, "legacy_stdio_definitions.lib")
+
+    // win32 exception handling needs VC runtime hooks
+    #ifdef _DLL
+        #ifdef _DEBUG
+            #pragma comment(lib, "vcruntimed.lib")
+        #else
+            #pragma comment(lib, "vcruntime.lib")
+        #endif
+    #else
+        #ifdef _DEBUG
+            #pragma comment(lib, "libvcruntimed.lib")
+        #else
+            #pragma comment(lib, "libvcruntime.lib")
+        #endif
+    #endif
+#endif
+
