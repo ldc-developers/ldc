@@ -256,7 +256,7 @@ endif()
 
 
 # Compiles the given D module into an object file.
-macro(Dcompile  input_d  output_dir  extra_d_flags  outlist_o)
+macro(Dcompile  input_d  output_dir  extra_d_flags  outlist_o extra_deps)
     if (IS_ABSOLUTE ${input_d})
         file(RELATIVE_PATH output ${output_dir} ${input_d})
     else()
@@ -279,7 +279,7 @@ macro(Dcompile  input_d  output_dir  extra_d_flags  outlist_o)
         OUTPUT ${output_o}
         COMMAND ${D_COMPILER} ${FLAG_LIST} -c -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_o} ${input_d}
         WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
-        DEPENDS ${input_d}
+        DEPENDS ${input_d} ${extra_deps}
     )
 endmacro()
 macro(Dcompilelib  input_d  output_dir  extra_d_flags  outlist_o)
@@ -313,7 +313,7 @@ endmacro()
 #
 # Run idgen.
 #
-Dcompile(${DDMDFE_PATH}/idgen.d ${PROJECT_SOURCE_DIR} ${DDMD_DFLAGS} idgen_o)
+Dcompile(${DDMDFE_PATH}/idgen.d ${PROJECT_SOURCE_DIR} ${DDMD_DFLAGS} idgen_o "")
 add_executable(idgen ${idgen_o})
 set_target_properties(
     idgen PROPERTIES
@@ -578,7 +578,7 @@ endif()
 # build D source in separate lib
 set(LDC_D_LIB LDC_D_Shared)
 foreach(f ${LDC_D_SOURCE_FILES})
-    Dcompile(${f} ${PROJECT_SOURCE_DIR} ${DDMD_DFLAGS} LDC_D_SOURCE_FILES_o)
+    Dcompile(${f} ${PROJECT_SOURCE_DIR} ${DDMD_DFLAGS} LDC_D_SOURCE_FILES_o "${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d")
 endforeach()
 add_library(${LDC_D_LIB} STATIC ${LDC_D_SOURCE_FILES_o})
 set_target_properties(
@@ -695,7 +695,7 @@ set_source_files_properties(driver/exe_path.cpp driver/ldmd.cpp driver/response.
     COMPILE_FLAGS "${LDC_CXXFLAGS} ${LLVM_CXXFLAGS}"
 )
 
-Dcompile(${DDMDFE_PATH}/root/man.d ${PROJECT_SOURCE_DIR} ${DDMD_DFLAGS} LDMD_D_o)
+Dcompile(${DDMDFE_PATH}/root/man.d ${PROJECT_SOURCE_DIR} ${DDMD_DFLAGS} LDMD_D_o "")
 
 add_executable(${LDMD_EXE} driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp driver/exe_path.h ${LDMD_D_o} ${DMD_DUMMY_MAIN_FOR_EH_SYMBOLS})
 set_target_properties(${LDMD_EXE} PROPERTIES
