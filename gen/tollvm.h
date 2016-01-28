@@ -18,7 +18,7 @@
 
 #include "attrib.h"
 #include "declaration.h"
-#include "lexer.h"
+#include "tokens.h"
 #include "mtype.h"
 #include "gen/llvm.h"
 #include "gen/structs.h"

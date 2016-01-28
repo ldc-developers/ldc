@@ -138,19 +138,19 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir.isDefined()) {
+    if (decl->ir->isDefined()) {
       return;
     }
 
     if (decl->type->ty == Terror) {
       error(decl->loc, "had semantic errors when compiling");
-      decl->ir.setDefined();
+      decl->ir->setDefined();
       return;
     }
 
     if (decl->members && decl->symtab) {
       DtoResolveClass(decl);
-      decl->ir.setDefined();
+      decl->ir->setDefined();
 
       // Emit any members (e.g. final functions).
       for (auto m : *decl->members) {
@@ -179,13 +179,13 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir.isDefined()) {
+    if (decl->ir->isDefined()) {
       return;
     }
 
     if (decl->type->ty == Terror) {
       error(decl->loc, "had semantic errors when compiling");
-      decl->ir.setDefined();
+      decl->ir->setDefined();
       return;
     }
 
@@ -194,7 +194,7 @@ public:
     }
 
     DtoResolveStruct(decl);
-    decl->ir.setDefined();
+    decl->ir->setDefined();
 
     for (auto m : *decl->members) {
       m->accept(this);
@@ -232,19 +232,19 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir.isDefined()) {
+    if (decl->ir->isDefined()) {
       return;
     }
 
     if (decl->type->ty == Terror) {
       error(decl->loc, "had semantic errors when compiling");
-      decl->ir.setDefined();
+      decl->ir->setDefined();
       return;
     }
 
     if (decl->members && decl->symtab) {
       DtoResolveClass(decl);
-      decl->ir.setDefined();
+      decl->ir->setDefined();
 
       for (auto m : *decl->members) {
         m->accept(this);
@@ -285,10 +285,10 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir.isDefined()) {
+    if (decl->ir->isDefined()) {
       return;
     }
-    decl->ir.setDefined();
+    decl->ir->setDefined();
 
     assert(decl->isexp);
     assert(decl->objects);
@@ -307,18 +307,18 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE;
 
-    if (decl->ir.isDefined()) {
+    if (decl->ir->isDefined()) {
       return;
     }
 
     if (decl->type->ty == Terror) {
       error(decl->loc, "had semantic errors when compiling");
-      decl->ir.setDefined();
+      decl->ir->setDefined();
       return;
     }
 
     DtoResolveVariable(decl);
-    decl->ir.setDefined();
+    decl->ir->setDefined();
 
     // just forward aliases
     if (decl->aliassym) {
@@ -345,7 +345,7 @@ public:
       if (!(decl->storage_class & STCextern)) {
         // Build the initializer. Might use this->ir.irGlobal->value!
         LLConstant *initVal =
-            DtoConstInitializer(decl->loc, decl->type, decl->init);
+            DtoConstInitializer(decl->loc, decl->type, decl->_init);
 
         // In case of type mismatch, swap out the variable.
         if (initVal->getType() != gvar->getType()->getElementType()) {
@@ -423,11 +423,11 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir.isDefined()) {
+    if (decl->ir->isDefined()) {
       Logger::println("Already defined, skipping.");
       return;
     }
-    decl->ir.setDefined();
+    decl->ir->setDefined();
 
     if (isError(decl)) {
       Logger::println("Has errors, skipping.");
@@ -457,10 +457,10 @@ public:
                            decl->toPrettyChars());
     LOG_SCOPE
 
-    if (decl->ir.isDefined()) {
+    if (decl->ir->isDefined()) {
       return;
     }
-    decl->ir.setDefined();
+    decl->ir->setDefined();
 
     if (!isError(decl) && decl->members) {
       for (auto m : *decl->members) {
@@ -493,7 +493,7 @@ public:
       StringExp *se = static_cast<StringExp *>(e);
 
       size_t nameLen = se->len;
-      if (global.params.targetTriple.isWindowsGNUEnvironment()) {
+      if (global.params.targetTriple->isWindowsGNUEnvironment()) {
         if (nameLen > 4 &&
             !memcmp(static_cast<char *>(se->string) + nameLen - 4, ".lib", 4)) {
           // On MinGW, strip the .lib suffix, if any, to improve
@@ -512,7 +512,7 @@ public:
 
       // With LLVM 3.3 or later we can place the library name in the object
       // file. This seems to be supported only on Windows.
-      if (global.params.targetTriple.isWindowsMSVCEnvironment()) {
+      if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
         llvm::SmallString<24> LibName(
             llvm::StringRef(static_cast<const char *>(se->string), nameLen));
 

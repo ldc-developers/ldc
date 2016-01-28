@@ -55,13 +55,13 @@ void IrTypeClass::addBaseClassData(AggrTypeBuilder &builder,
 
     for (auto b : *base->vtblInterfaces) {
       IF_LOG Logger::println("Adding interface vtbl for %s",
-                             b->base->toPrettyChars());
+                             b->sym->toPrettyChars());
 
       FuncDeclarations arr;
       b->fillVtbl(cd, &arr, new_instances);
 
       // add to the interface map
-      addInterfaceToMap(b->base, builder.currentFieldIndex());
+      addInterfaceToMap(b->sym, builder.currentFieldIndex());
 
       llvm::Type *ivtbl_type =
           llvm::StructType::get(gIR->context(), buildVtblType(first, &arr));
@@ -179,7 +179,7 @@ IrTypeClass::buildVtblType(Type *first, FuncDeclarations *vtbl_array) {
       Logger::println("Running late semantic3 to infer return type.");
       TemplateInstance *spec = fd->isSpeculative();
       unsigned int olderrs = global.errors;
-      fd->semantic3(fd->scope);
+      fd->semantic3(fd->_scope);
       if (spec && global.errors != olderrs) {
         spec->errors = global.errors - olderrs;
       }
@@ -233,7 +233,7 @@ void IrTypeClass::addInterfaceToMap(ClassDeclaration *inter, size_t index) {
   // are accessed through the same index
   if (inter->interfaces_dim > 0) {
     BaseClass *b = inter->interfaces[0];
-    addInterfaceToMap(b->base, index);
+    addInterfaceToMap(b->sym, index);
   }
 }
 

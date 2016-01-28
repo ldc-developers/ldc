@@ -211,11 +211,11 @@ struct UnknownTargetABI : TargetABI {
 //////////////////////////////////////////////////////////////////////////////
 
 TargetABI *TargetABI::getTarget() {
-  switch (global.params.targetTriple.getArch()) {
+  switch (global.params.targetTriple->getArch()) {
   case llvm::Triple::x86:
     return getX86TargetABI();
   case llvm::Triple::x86_64:
-    if (global.params.targetTriple.isOSWindows()) {
+    if (global.params.targetTriple->isOSWindows()) {
       return getWin64TargetABI();
     } else {
       return getX86_64TargetABI();
@@ -227,7 +227,7 @@ TargetABI *TargetABI::getTarget() {
     return getMIPS64TargetABI(global.params.is64bit);
   case llvm::Triple::ppc64:
   case llvm::Triple::ppc64le:
-    return getPPC64TargetABI(global.params.targetTriple.isArch64Bit());
+    return getPPC64TargetABI(global.params.targetTriple->isArch64Bit());
 #if LDC_LLVM_VER == 305
   case llvm::Triple::arm64:
   case llvm::Triple::arm64_be:

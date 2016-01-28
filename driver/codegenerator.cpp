@@ -12,7 +12,6 @@
 #include "id.h"
 #include "mars.h"
 #include "module.h"
-#include "parse.h"
 #include "scope.h"
 #include "driver/toobj.h"
 #include "gen/logger.h"
@@ -20,51 +19,8 @@
 
 void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo);
 
-namespace {
-Module *g_entrypointModule = nullptr;
-Module *g_dMainModule = nullptr;
-}
-
-/// Callback to generate a C main() function, invoked by the frontend.
-void genCmain(Scope *sc) {
-  if (g_entrypointModule) {
-    return;
-  }
-
-  /* The D code to be generated is provided as D source code in the form of a
-   * string.
-   * Note that Solaris, for unknown reasons, requires both a main() and an
-   * _main()
-   */
-  static utf8_t code[] = "extern(C) {\n\
-    int _d_run_main(int argc, char **argv, void* mainFunc);\n\
-    int _Dmain(char[][] args);\n\
-    int main(int argc, char **argv) { return _d_run_main(argc, argv, &_Dmain); }\n\
-    version (Solaris) int _main(int argc, char** argv) { return main(argc, argv); }\n\
-    }\n\
-    pragma(LDC_no_moduleinfo);\n";
-
-  Identifier *id = Id::entrypoint;
-  auto m = new Module("__entrypoint.d", id, 0, 0);
-
-  Parser p(m, code, sizeof(code) / sizeof(code[0]), 0);
-  p.scanloc = Loc();
-  p.nextToken();
-  m->members = p.parseModule();
-  assert(p.token.value == TOKeof);
-
-  char v = global.params.verbose;
-  global.params.verbose = 0;
-  m->importedFrom = m;
-  m->importAll(nullptr);
-  m->semantic();
-  m->semantic2();
-  m->semantic3();
-  global.params.verbose = v;
-
-  g_entrypointModule = m;
-  g_dMainModule = sc->module;
-}
+extern Module *g_entrypointModule;
+extern Module *g_dMainModule;
 
 namespace {
 /// Emits a declaration for the given symbol, which is assumed to be of type
@@ -100,7 +56,7 @@ CodeGenerator::~CodeGenerator() {
     const char *filename;
     if ((oname = global.params.exefile) || (oname = global.params.objname)) {
       filename = FileName::forceExt(
-          oname, global.params.targetTriple.isOSWindows() ? global.obj_ext_alt
+          oname, global.params.targetTriple->isOSWindows() ? global.obj_ext_alt
                                                           : global.obj_ext);
       if (global.params.objdir) {
         filename =
@@ -130,7 +86,7 @@ void CodeGenerator::prepareLLModule(Module *m) {
   // name, as it should not collide with a symbol name used somewhere in the
   // module.
   ir_ = new IRState(m->srcfile->toChars(), context_);
-  ir_->module.setTargetTriple(global.params.targetTriple.str());
+  ir_->module.setTargetTriple(global.params.targetTriple->str());
 #if LDC_LLVM_VER >= 308
   ir_->module.setDataLayout(*gDataLayout);
 #else
@@ -212,7 +168,7 @@ void CodeGenerator::emit(Module *m) {
 
     // On Linux, strongly define the excecutabe BSS bracketing symbols in
     // the main module for druntime use (see rt.sections_linux).
-    if (global.params.targetTriple.isOSLinux()) {
+    if (global.params.targetTriple->isOSLinux()) {
       emitSymbolAddrGlobal(ir_->module, "__bss_start", "_d_execBssBegAddr");
       emitSymbolAddrGlobal(ir_->module, "_end", "_d_execBssEndAddr");
     }

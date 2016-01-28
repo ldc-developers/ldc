@@ -12,7 +12,7 @@ import ddmd.aggregate;
 import ddmd.dmodule;
 import ddmd.dscope;
 import ddmd.expression;
-import ddmd.lib;
+// IN_LLVM import ddmd.lib;
 import ddmd.mtype;
 import ddmd.root.file;
 
@@ -22,6 +22,9 @@ struct block;
 struct Blockx;
 struct elem;
 
+version(IN_LLVM) {}
+else
+{
 extern extern (C++) void backend_init();
 extern extern (C++) void backend_term();
 extern extern (C++) void obj_start(char* srcfile);
@@ -34,6 +37,7 @@ extern extern (C++) Symbol* toInitializer(AggregateDeclaration sd);
 extern extern (C++) Symbol* toModuleArray(Module m);
 extern extern (C++) Symbol* toModuleAssert(Module m);
 extern extern (C++) Symbol* toModuleUnittest(Module m);
+}
 
 // type.h
 

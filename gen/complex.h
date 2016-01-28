@@ -14,7 +14,7 @@
 #ifndef LDC_GEN_COMPLEX_H
 #define LDC_GEN_COMPLEX_H
 
-#include "lexer.h"
+#include "tokens.h"
 #include "longdouble.h"
 
 class DValue;

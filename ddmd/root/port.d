@@ -42,6 +42,12 @@ extern (C++) struct Port
     enum ldbl_max = real.max;
     enum ldbl_nan = real.nan;
     enum ldbl_infinity = real.infinity;
+    version(IN_LLVM)
+    {
+        static __gshared bool yl2x_supported = false;
+        static __gshared bool yl2xp1_supported = false;
+    }
+    else
     version(DigitalMars)
     {
         static __gshared bool yl2x_supported = true;
@@ -248,12 +254,16 @@ extern (C++) struct Port
     {
         version(DigitalMars)
             *res = yl2x(*x, *y);
+        version(IN_LLVM)
+            assert(0);
     }
 
     static void yl2xp1_impl(real* x, real* y, real* res)
     {
         version(DigitalMars)
             *res = yl2xp1(*x, *y);
+        version(IN_LLVM)
+            assert(0);
     }
 
     // Little endian
@@ -302,5 +312,31 @@ extern (C++) struct Port
     {
         auto p = cast(ubyte*)buffer;
         return (p[0] << 8) | p[1];
+    }
+
+    version(IN_LLVM)
+    {   // LDC_FIXME: look at the old port.c how to implement this with system calls for some OSses
+        static int stricmp(const(char)* s1, const(char)* s2)
+        {
+            int result = 0;
+
+            for (;;)
+            {   char c1 = *s1;
+                char c2 = *s2;
+
+                result = c1 - c2;
+                if (result)
+                {
+                    result = toupper(c1) - toupper(c2);
+                    if (result)
+                        break;
+                }
+                if (!c1)
+                    break;
+                s1++;
+                s2++;
+            }
+            return result;
+        }
     }
 }

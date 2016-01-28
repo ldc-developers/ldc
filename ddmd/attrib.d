@@ -37,6 +37,12 @@ import ddmd.tokens;
 import ddmd.utf;
 import ddmd.visitor;
 
+version(IN_LLVM)
+{
+    import gen.dpragma;
+}
+
+
 /***********************************************************
  */
 extern (C++) class AttribDeclaration : Dsymbol
@@ -741,6 +747,13 @@ public:
     {
         // Should be merged with PragmaStatement
         //printf("\tPragmaDeclaration::semantic '%s'\n",toChars());
+
+        version(IN_LLVM)
+        {
+            LDCPragma llvm_internal = LDCPragma.LLVMnone;
+            const(char)* arg1str = null;
+        }
+
         if (ident == Id.msg)
         {
             if (args)
@@ -908,6 +921,11 @@ public:
                 }
             }
         }
+        // IN_LLVM
+        else if ((llvm_internal = DtoGetPragma(sc, this, arg1str)) != LDCPragma.LLVMnone)
+        {
+            // nothing to do anymore
+        }
         else if (global.params.ignoreUnsupportedPragmas)
         {
             if (global.params.verbose)
@@ -920,6 +938,12 @@ public:
                     for (size_t i = 0; i < args.dim; i++)
                     {
                         Expression e = (*args)[i];
+                        version(IN_LLVM)
+                        {
+                            // ignore errors in ignored pragmas.
+                            global.gag++;
+                            uint errors_save = global.errors;
+                        }
                         sc = sc.startCTFE();
                         e = e.semantic(sc);
                         e = resolveProperties(sc, e);
@@ -930,13 +954,20 @@ public:
                         else
                             fprintf(global.stdmsg, ",");
                         fprintf(global.stdmsg, "%s", e.toChars());
+                        version(IN_LLVM)
+                        {
+                            // restore error state.
+                            global.gag--;
+                            global.errors = errors_save;
+                        }
                     }
                     if (args.dim)
                         fprintf(global.stdmsg, ")");
                 }
                 fprintf(global.stdmsg, "\n");
             }
-            goto Lnodecl;
+            static if (!IN_LLVM)
+                goto Lnodecl;
         }
         else
             error("unrecognized pragma(%s)", ident.toChars());
@@ -960,6 +991,11 @@ public:
                         if (cnt > 1)
                             error("can only apply to a single declaration");
                     }
+                }
+                // IN_LLVM: add else clause
+                else
+                {
+                    DtoCheckPragma(this, s, llvm_internal, arg1str);
                 }
             }
             if (sc2 != sc)

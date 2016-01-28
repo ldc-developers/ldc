@@ -12,6 +12,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "ldcbindings.h"
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-aarch64.h"
@@ -111,7 +112,7 @@ struct AArch64TargetABI : TargetABI {
     // using TypeIdentifier here is a bit wonky but works, as long as the name
     // is actually available in the scope (this is what DMD does, so if a better
     // solution is found there, this should be adapted).
-    return (new TypeIdentifier(Loc(), Identifier::idPool("__va_list_tag")))
+    return (createTypeIdentifier(Loc(), Identifier::idPool("__va_list_tag")))
         ->pointerTo();
   }
 };

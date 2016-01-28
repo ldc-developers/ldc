@@ -26,10 +26,10 @@ struct X86TargetABI : TargetABI {
   IntegerRewrite integerRewrite;
 
   X86TargetABI()
-      : isOSX(global.params.targetTriple.isMacOSX()),
-        isMSVC(global.params.targetTriple.isWindowsMSVCEnvironment()) {
+      : isOSX(global.params.targetTriple->isMacOSX()),
+        isMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()) {
     using llvm::Triple;
-    auto os = global.params.targetTriple.getOS();
+    auto os = global.params.targetTriple->getOS();
     returnStructsInRegs =
         !(os == Triple::Linux || os == Triple::Solaris || os == Triple::NetBSD);
   }
@@ -62,7 +62,7 @@ struct X86TargetABI : TargetABI {
       return name;
     case LINKd:
     case LINKdefault:
-      if (global.params.targetTriple.isOSWindows()) {
+      if (global.params.targetTriple->isOSWindows()) {
         // Prepend a 0x1 byte to keep LLVM from adding the usual
         // "@<paramsize>" stdcall suffix.
         return ("\1_" + name).str();

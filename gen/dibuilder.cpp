@@ -21,6 +21,7 @@
 #include "llvm/Support/FileSystem.h"
 #include "llvm/Support/Path.h"
 #include "enum.h"
+#include "ldcbindings.h"
 #include "module.h"
 #include "mtype.h"
 
@@ -170,7 +171,7 @@ ldc::DIType ldc::DIBuilder::CreateEnumType(Type *type) {
   for (auto m : *te->sym->members) {
     EnumMember *em = m->isEnumMember();
     llvm::StringRef Name(em->toChars());
-    uint64_t Val = em->value->toInteger();
+    uint64_t Val = em->value()->toInteger();
     auto Subscript = DBuilder.createEnumerator(Name, Val);
     subscripts.push_back(Subscript);
   }
@@ -595,7 +596,7 @@ void ldc::DIBuilder::EmitCompileUnit(Module *m) {
   llvm::sys::fs::make_absolute(srcpath);
 
 #if LDC_LLVM_VER >= 308
-  if (global.params.targetTriple.isWindowsMSVCEnvironment())
+  if (global.params.targetTriple->isWindowsMSVCEnvironment())
     IR->module.addModuleFlag(llvm::Module::Warning, "CodeView", 1);
 #endif
   // Metadata without a correct version will be stripped by UpgradeDebugInfo.
@@ -637,17 +638,17 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 
   // FIXME: duplicates?
   return DBuilder.createFunction(
-      CU,                            // context
-      fd->toPrettyChars(),           // name
-      mangleExact(fd),               // linkage name
-      file,                          // file
-      fd->loc.linnum,                // line no
-      DIFnType,                      // type
-      fd->protection == PROTprivate, // is local to unit
-      true,                          // isdefinition
-      fd->loc.linnum,                // FIXME: scope line
-      DIFlags::FlagPrototyped,       // Flags
-      isOptimizationEnabled()        // isOptimized
+      CU,                                 // context
+      fd->toPrettyChars(),                // name
+      mangleExact(fd),                    // linkage name
+      file,                               // file
+      fd->loc.linnum,                     // line no
+      DIFnType,                           // type
+      fd->protection.kind == PROTprivate, // is local to unit
+      true,                               // isdefinition
+      fd->loc.linnum,                     // FIXME: scope line
+      DIFlags::FlagPrototyped,            // Flags
+      isOptimizationEnabled()             // isOptimized
 #if LDC_LLVM_VER < 308
       ,
       getIrFunc(fd)->func
@@ -969,7 +970,7 @@ ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll,
   LOG_SCOPE;
 
   assert(vd->isDataseg() ||
-         (vd->storage_class & (STCconst | STCimmutable) && vd->init));
+         (vd->storage_class & (STCconst | STCimmutable) && vd->_init));
 
   return DBuilder.createGlobalVariable(
 #if LDC_LLVM_VER >= 306
@@ -980,7 +981,7 @@ ldc::DIBuilder::EmitGlobalVariable(llvm::GlobalVariable *ll,
       CreateFile(vd->loc),                    // file
       vd->loc.linnum,                         // line num
       CreateTypeDescription(vd->type, false), // type
-      vd->protection == PROTprivate,          // is local to unit
+      vd->protection.kind == PROTprivate,     // is local to unit
       ll                                      // value
       );
 }

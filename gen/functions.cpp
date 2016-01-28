@@ -13,6 +13,7 @@
 #include "declaration.h"
 #include "id.h"
 #include "init.h"
+#include "ldcbindings.h"
 #include "module.h"
 #include "mtype.h"
 #include "statement.h"
@@ -81,7 +82,7 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
       const unsigned alignment = DtoAlignment(rt);
       if (alignment &&
           // FIXME: LLVM inliner issues for std.bitmanip and std.uni on Win64
-          !global.params.targetTriple.isOSMSVCRT()) {
+          !global.params.targetTriple->isOSMSVCRT()) {
         newIrFty.arg_sret->attrs.addAlignment(alignment);
       }
       rt = Type::tvoid;
@@ -149,8 +150,8 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     if (arg->storageClass & STClazy) {
       // Lazy arguments are lowered to delegates.
       Logger::println("lazy param");
-      auto ltf = new TypeFunction(nullptr, arg->type, 0, LINKd);
-      auto ltd = new TypeDelegate(ltf);
+      auto ltf = TypeFunction::create(nullptr, arg->type, 0, LINKd);
+      auto ltd = createTypeDelegate(ltf);
       loweredDType = ltd;
     } else if (passPointer) {
       // ref/out
@@ -313,10 +314,10 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
     return; // ignore declaration completely
   }
 
-  if (fdecl->ir.isResolved()) {
+  if (fdecl->ir->isResolved()) {
     return;
   }
-  fdecl->ir.setResolved();
+  fdecl->ir->setResolved();
 
   Type *type = fdecl->type;
   // If errors occurred compiling it, such as bugzilla 6118
@@ -336,7 +337,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
         if (tempdecl->llvmInternal == LLVMva_arg) {
           Logger::println("magic va_arg found");
           fdecl->llvmInternal = LLVMva_arg;
-          fdecl->ir.setDefined();
+          fdecl->ir->setDefined();
           return; // this gets mapped to an instruction so a declaration makes
                   // no sence
         }
@@ -357,7 +358,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
             fatal();
           }
           fdecl->llvmInternal = LLVMinline_asm;
-          fdecl->ir.setDefined();
+          fdecl->ir->setDefined();
           return; // this gets mapped to a special inline asm call, no point in
                   // going on.
         } else if (tempdecl->llvmInternal == LLVMinline_ir) {
@@ -370,7 +371,7 @@ void DtoResolveFunction(FuncDeclaration *fdecl) {
 
           DtoFunctionType(fdecl);
           DtoDeclareFunction(fdecl);
-          fdecl->ir.setDefined();
+          fdecl->ir->setDefined();
           return;
         }
       }
@@ -403,10 +404,10 @@ void applyParamAttrsToLLFunc(TypeFunction *f, IrFuncTy &irFty,
 void DtoDeclareFunction(FuncDeclaration *fdecl) {
   DtoResolveFunction(fdecl);
 
-  if (fdecl->ir.isDeclared()) {
+  if (fdecl->ir->isDeclared()) {
     return;
   }
-  fdecl->ir.setDeclared();
+  fdecl->ir->setDeclared();
 
   IF_LOG Logger::println("DtoDeclareFunction(%s): %s", fdecl->toPrettyChars(),
                          fdecl->loc.toChars());
@@ -610,7 +611,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
                          fd->loc.toChars());
   LOG_SCOPE;
 
-  if (fd->ir.isDefined()) {
+  if (fd->ir->isDefined()) {
     return;
   }
 
@@ -621,7 +622,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
        static_cast<TypeFunction *>(fd->type)->next->ty == Terror)) {
     IF_LOG Logger::println(
         "Ignoring; has error type, no return type or returns error type");
-    fd->ir.setDefined();
+    fd->ir->setDefined();
     return;
   }
 
@@ -631,7 +632,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
      * Try to reproduce those errors, and then fail.
      */
     error(fd->loc, "errors compiling function %s", fd->toPrettyChars());
-    fd->ir.setDefined();
+    fd->ir->setDefined();
     return;
   }
 
@@ -640,7 +641,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   if (fd->isUnitTestDeclaration() && !global.params.useUnitTests) {
     IF_LOG Logger::println("No code generation for unit test declaration %s",
                            fd->toChars());
-    fd->ir.setDefined();
+    fd->ir->setDefined();
     return;
   }
 
@@ -649,7 +650,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
     IF_LOG Logger::println(
         "No code generation for array op %s implemented in druntime",
         fd->toChars());
-    fd->ir.setDefined();
+    fd->ir->setDefined();
     return;
   }
 
@@ -660,7 +661,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
       IF_LOG Logger::println("Skipping '%s'.", fd->toPrettyChars());
       // TODO: Emit as available_externally for inlining purposes instead
       // (see #673).
-      fd->ir.setDefined();
+      fd->ir->setDefined();
       return;
     }
     if (f->isNested()) {
@@ -671,14 +672,14 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   }
 
   DtoDeclareFunction(fd);
-  assert(fd->ir.isDeclared());
+  assert(fd->ir->isDeclared());
 
   // DtoResolveFunction might also set the defined flag for functions we
   // should not touch.
-  if (fd->ir.isDefined()) {
+  if (fd->ir->isDefined()) {
     return;
   }
-  fd->ir.setDefined();
+  fd->ir->setDefined();
 
   // We cannot emit nested functions with parents that have not gone through
   // semantic analysis. This can happen as DMD leaks some template instances
@@ -752,7 +753,7 @@ void DtoDefineFunction(FuncDeclaration *fd) {
   // On x86_64, always set 'uwtable' for System V ABI compatibility.
   // TODO: Find a better place for this.
   // TODO: Is this required for Win64 as well?
-  if (global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
+  if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
     func->addFnAttr(LLAttribute::UWTable);
   }
   if (opts::sanitize != opts::None) {

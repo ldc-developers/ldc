@@ -12,7 +12,7 @@ import core.stdc.stdio;
 import ddmd.aggregate;
 import ddmd.argtypes;
 import ddmd.arraytypes;
-import ddmd.backend;
+// IN_LLVM import ddmd.backend;
 import ddmd.clone;
 import ddmd.declaration;
 import ddmd.dmodule;
@@ -33,8 +33,12 @@ import ddmd.opover;
 import ddmd.root.outbuffer;
 import ddmd.statement;
 import ddmd.tokens;
-import ddmd.typinf;
+// IN_LLVM import ddmd.typinf;
 import ddmd.visitor;
+
+version(IN_LLVM) {
+    import gen.typinf;
+}
 
 /***************************************
  * Search toString member function for TypeInfo_Struct.

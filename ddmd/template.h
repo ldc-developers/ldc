@@ -84,6 +84,10 @@ public:
 
     TemplatePrevious *previous;         // threaded list of previous instantiation attempts on stack
 
+#if IN_LLVM
+    const char *intrinsicName;
+#endif
+
     TemplateDeclaration(Loc loc, Identifier *id, TemplateParameters *parameters,
         Expression *constraint, Dsymbols *decldefs, bool ismixin = false, bool literal = false);
     Dsymbol *syntaxCopy(Dsymbol *);

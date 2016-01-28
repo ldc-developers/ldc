@@ -63,8 +63,8 @@ void AggrTypeBuilder::addAggregate(AggregateDeclaration *ad) {
   for (size_t index = 0; index < n; ++index) {
     VarDeclaration *field = ad->fields[index];
 
-    // init is !null for explicit inits
-    if (field->init != nullptr && !field->init->isVoidInitializer()) {
+    // _init is !null for explicit inits
+    if (field->_init != nullptr && !field->_init->isVoidInitializer()) {
       IF_LOG Logger::println("adding explicit initializer for struct field %s",
                              field->toChars());
 

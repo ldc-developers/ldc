@@ -1809,7 +1809,16 @@ extern (C++) UnionExp ctfeCat(Loc loc, Type type, Expression e1, Expression e2)
                 return ue;
             }
             dinteger_t v = es2e.toInteger();
+version(IN_LLVM) {
+    version(LittleEndian) {
+            memcpy(cast(char *)s + i * sz, &v, sz);
+    } else {
+            memcpy(cast(char *)s + i * sz,
+                   cast(char *)&v + (dinteger_t.sizeof - sz), sz);
+    }
+} else {
             memcpy(cast(char*)s + i * sz, &v, sz);
+}
         }
         // Add terminating 0
         memset(cast(char*)s + len * sz, 0, sz);
@@ -1839,7 +1848,16 @@ extern (C++) UnionExp ctfeCat(Loc loc, Type type, Expression e1, Expression e2)
                 return ue;
             }
             dinteger_t v = es2e.toInteger();
+version(IN_LLVM) {
+    version(__LITTLE_ENDIAN) {
+            memcpy(cast(char *)s + (es1.len + i) * sz, &v, sz);
+    } else {
+            memcpy(cast(char *)s + (es1.len + i) * sz,
+                   cast(char *)&v + (dinteger_t.sizeof - sz), sz);
+    }
+} else {
             memcpy(cast(char*)s + (es1.len + i) * sz, &v, sz);
+}
         }
         // Add terminating 0
         memset(cast(char*)s + len * sz, 0, sz);

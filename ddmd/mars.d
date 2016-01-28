@@ -16,7 +16,7 @@ import core.stdc.stdio;
 import core.stdc.stdlib;
 import core.stdc.string;
 import ddmd.arraytypes;
-import ddmd.backend;
+// IN_LLVM import ddmd.backend;
 import ddmd.builtin;
 import ddmd.cond;
 import ddmd.dinifile;
@@ -33,10 +33,10 @@ import ddmd.hdrgen;
 import ddmd.id;
 import ddmd.identifier;
 import ddmd.inline;
-import ddmd.json;
+// IN_LLVM import ddmd.json;
 import ddmd.lexer;
-import ddmd.lib;
-import ddmd.link;
+// IN_LLVM import ddmd.lib;
+// IN_LLVM import ddmd.link;
 import ddmd.mtype;
 import ddmd.objc;
 import ddmd.parse;
@@ -44,7 +44,7 @@ import ddmd.root.file;
 import ddmd.root.filename;
 import ddmd.root.man;
 import ddmd.root.outbuffer;
-import ddmd.root.response;
+// IN_LLVM import ddmd.root.response;
 import ddmd.root.rmem;
 import ddmd.root.stringtable;
 import ddmd.target;
@@ -103,6 +103,13 @@ extern (C++) static void logo()
 {
     printf("DMD%llu D Compiler %s\n%s %s\n", cast(ulong)size_t.sizeof * 8, global._version, global.copyright, global.written);
 }
+
+version(IN_LLVM)
+{
+    extern (C++) void genCmain(Scope* sc);
+}
+else
+{
 
 extern (C++) static void usage()
 {
@@ -1768,6 +1775,8 @@ extern (C++) void getenv_setargv(const(char)* envvalue, Strings* args)
         }
     }
 }
+
+} // !IN_LLVM
 
 extern (C++) void escapePath(OutBuffer* buf, const(char)* fname)
 {

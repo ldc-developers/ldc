@@ -7,6 +7,7 @@
 //
 //===----------------------------------------------------------------------===//
 
+#include "ldcbindings.h"
 #include "target.h"
 #include "gen/abi.h"
 #include "gen/irstate.h"
@@ -19,6 +20,8 @@
 #include <pthread.h>
 #endif
 
+/*
+These guys are allocated by ddmd/target.d:
 int Target::ptrsize;
 int Target::realsize;
 int Target::realpad;
@@ -26,8 +29,9 @@ int Target::realalignsize;
 int Target::c_longsize;
 int Target::c_long_doublesize;
 bool Target::reverseCppOverloads;
+*/
 
-void Target::init() {
+void Target::_init() {
   ptrsize = gDataLayout->getPointerSize(ADDRESS_SPACE);
 
   llvm::Type *real = DtoType(Type::basic[Tfloat80]);
@@ -39,7 +43,7 @@ void Target::init() {
 
   // according to DMD, only for 32-bit MSVC++:
   reverseCppOverloads = !global.params.is64bit &&
-                        global.params.targetTriple.isWindowsMSVCEnvironment();
+                        global.params.targetTriple->isWindowsMSVCEnvironment();
 }
 
 /******************************
@@ -64,10 +68,10 @@ unsigned Target::critsecsize() {
   // Return sizeof(RTL_CRITICAL_SECTION)
   return global.params.is64bit ? 40 : 24;
 #else
-  if (global.params.targetTriple.isOSWindows()) {
+  if (global.params.targetTriple->isOSWindows()) {
     return global.params.is64bit ? 40 : 24;
   }
-  if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD) {
+  if (global.params.targetTriple->getOS() == llvm::Triple::FreeBSD) {
     return sizeof(size_t);
   }
   return sizeof(pthread_mutex_t);
@@ -118,17 +122,17 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
   switch (type->ty) {
   case Tint32:
   case Tuns32:
-    return new IntegerExp(e->loc, u.int32value, type);
+    return createIntegerExp(e->loc, u.int32value, type);
 
   case Tint64:
   case Tuns64:
-    return new IntegerExp(e->loc, u.int64value, type);
+    return createIntegerExp(e->loc, u.int64value, type);
 
   case Tfloat32:
-    return new RealExp(e->loc, ldouble(u.float32value), type);
+    return createRealExp(e->loc, ldouble(u.float32value), type);
 
   case Tfloat64:
-    return new RealExp(e->loc, ldouble(u.float64value), type);
+    return createRealExp(e->loc, ldouble(u.float64value), type);
 
   default:
     assert(0);
@@ -156,3 +160,9 @@ int Target::checkVectorType(int sz, Type *type) {
  * immediately after loading.
  */
 void Target::loadModule(Module *m) {}
+
+/******************************
+ *
+ */
+void Target::prefixName(OutBuffer *buf, LINK linkage) {}
+

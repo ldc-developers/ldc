@@ -52,7 +52,7 @@ private:
 
 public:
   Win64TargetABI()
-      : isMSVC(global.params.targetTriple.isWindowsMSVCEnvironment()) {}
+      : isMSVC(global.params.targetTriple->isWindowsMSVCEnvironment()) {}
 
   bool returnInArg(TypeFunction *tf) override {
     if (tf->isref)

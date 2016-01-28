@@ -17,6 +17,38 @@ import ddmd.mtype;
 import ddmd.root.longdouble;
 import ddmd.root.outbuffer;
 
+version(IN_LLVM)
+{
+
+extern(C++) struct Target
+{
+    static __gshared int ptrsize;
+    static __gshared int realsize;             // size a real consumes in memory
+    static __gshared int realpad;              // 'padding' added to the CPU real size to bring it up to realsize
+    static __gshared int realalignsize;        // alignment for reals
+    static __gshared bool reverseCppOverloads; // with dmc and cl, overloaded functions are grouped and in reverse order
+    static __gshared int c_longsize;           // size of a C 'long' or 'unsigned long' type
+    static __gshared int c_long_doublesize;    // size of a C 'long double'
+    static __gshared int classinfosize;        // size of 'ClassInfo'
+
+    static void _init();
+    // Type sizes and support.
+    static uint alignsize(Type type);
+    static uint fieldalign(Type type);
+    static uint critsecsize();
+    static Type va_listType();  // get type of va_list
+    static int checkVectorType(int sz, Type type);
+    // CTFE support for cross-compilation.
+    static Expression paintAsType(Expression e, Type type);
+    // ABI and backend.
+    static void loadModule(Module m);
+    static void prefixName(OutBuffer *buf, LINK linkage);
+}
+
+}
+else
+{
+
 /***********************************************************
  */
 struct Target
@@ -369,3 +401,5 @@ extern (C++) static Expression decodeReal(Loc loc, Type type, ubyte* buffer)
     }
     return new RealExp(loc, value, type);
 }
+
+} // !IN_LLVM

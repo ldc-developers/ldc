@@ -25,6 +25,10 @@ import ddmd.root.rootobject;
 import ddmd.target;
 import ddmd.tokens;
 import ddmd.visitor;
+version(IN_LLVM) {
+    import ddmd.errors;
+    import gen.llvmhelpers;
+}
 
 /* Do mangling for C++ linkage.
  * No attempt is made to support mangling of templates, operator
@@ -35,7 +39,7 @@ import ddmd.visitor;
  * ABI has no concept of. These affect every D mangled name,
  * so nothing would be compatible anyway.
  */
-static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
+static if (IN_LLVM || TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TARGET_SOLARIS)
 {
     /*
      * Follows Itanium C++ ABI 1.86
@@ -170,7 +174,11 @@ static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TAR
                         else
                         {
                             s.error("Internal Compiler Error: C++ %s template value parameter is not supported", tv.valType.toChars());
+version(IN_LLVM) {
+                            fatal();
+} else {
                             assert(0);
+}
                         }
                     }
                     else if (!tp || tp.isTemplateTypeParameter())
@@ -186,7 +194,11 @@ static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TAR
                         if (!d && !e)
                         {
                             s.error("Internal Compiler Error: %s is unsupported parameter for C++ template: (%s)", o.toChars());
+version(IN_LLVM) {
+                            fatal();
+} else {
                             assert(0);
+}
                         }
                         if (d && d.isFuncDeclaration())
                         {
@@ -216,13 +228,21 @@ static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TAR
                         else
                         {
                             s.error("Internal Compiler Error: %s is unsupported parameter for C++ template", o.toChars());
+version(IN_LLVM) {
+                            fatal();
+} else {
                             assert(0);
+}
                         }
                     }
                     else
                     {
                         s.error("Internal Compiler Error: C++ templates support only integral value, type parameters, alias templates and alias function parameters");
+version(IN_LLVM) {
+                        fatal();
+} else {
                         assert(0);
+}
                     }
                 }
                 if (is_var_arg)
@@ -383,7 +403,11 @@ static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TAR
             if (!(d.storage_class & (STCextern | STCgshared)))
             {
                 d.error("Internal Compiler Error: C++ static non- __gshared non-extern variables not supported");
+version(IN_LLVM) {
+                fatal();
+} else {
                 assert(0);
+}
             }
             Dsymbol p = d.toParent();
             if (p && !p.isModule()) //for example: char Namespace1::beta[6] should be mangled as "_ZN10Namespace14betaE"
@@ -484,7 +508,11 @@ static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TAR
                     // Mangle static arrays as pointers
                     t.error(Loc(), "Internal Compiler Error: unable to pass static array to extern(C++) function.");
                     t.error(Loc(), "Use pointer instead.");
+version(IN_LLVM) {
+                    fatal();
+} else {
                     assert(0);
+}
                     //t = t->nextOf()->pointerTo();
                 }
                 /* If it is a basic, enum or struct type,
@@ -543,7 +571,11 @@ static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TAR
             {
                 t.error(Loc(), "Internal Compiler Error: unsupported type %s\n", t.toChars());
             }
+version(IN_LLVM) {
+            fatal();
+} else {
             assert(0); //Assert, because this error should be handled in frontend
+}
         }
 
         override void visit(TypeBasic t)
@@ -892,6 +924,7 @@ static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TAR
         }
     }
 
+version(IN_LLVM) {} else {
     extern (C++) char* toCppMangle(Dsymbol s)
     {
         //printf("toCppMangle(%s)\n", s->toChars());
@@ -899,7 +932,9 @@ static if (TARGET_LINUX || TARGET_OSX || TARGET_FREEBSD || TARGET_OPENBSD || TAR
         return v.mangleOf(s);
     }
 }
-else static if (TARGET_WINDOS)
+
+}
+static if (IN_LLVM || TARGET_WINDOS)
 {
     // Windows DMC and Microsoft Visual C++ mangling
     enum VC_SAVED_TYPE_CNT = 10;
@@ -955,7 +990,11 @@ else static if (TARGET_WINDOS)
             {
                 type.error(Loc(), "Internal Compiler Error: unsupported type %s\n", type.toChars());
             }
+version(IN_LLVM) {
+            fatal();
+} else {
             assert(0); // Assert, because this error should be handled in frontend
+}
         }
 
         override void visit(TypeBasic type)
@@ -1312,6 +1351,9 @@ else static if (TARGET_WINDOS)
 
         char* mangleOf(Dsymbol s)
         {
+version(IN_LLVM) {
+            buf.writeByte('\01'); // disable further mangling by the backend
+}
             VarDeclaration vd = s.isVarDeclaration();
             FuncDeclaration fd = s.isFuncDeclaration();
             if (vd)
@@ -1412,7 +1454,11 @@ else static if (TARGET_WINDOS)
             if (!(d.storage_class & (STCextern | STCgshared)))
             {
                 d.error("Internal Compiler Error: C++ static non- __gshared non-extern variables not supported");
+version(IN_LLVM) {
+                fatal();
+} else {
                 assert(0);
+}
             }
             buf.writeByte('?');
             mangleIdent(d);
@@ -1536,7 +1582,11 @@ else static if (TARGET_WINDOS)
                         else
                         {
                             sym.error("Internal Compiler Error: C++ %s template value parameter is not supported", tv.valType.toChars());
+version(IN_LLVM) {
+                            fatal();
+} else {
                             assert(0);
+}
                         }
                     }
                     else if (!tp || tp.isTemplateTypeParameter())
@@ -1552,7 +1602,11 @@ else static if (TARGET_WINDOS)
                         if (!d && !e)
                         {
                             sym.error("Internal Compiler Error: %s is unsupported parameter for C++ template", o.toChars());
+version(IN_LLVM) {
+                            fatal();
+} else {
                             assert(0);
+}
                         }
                         if (d && d.isFuncDeclaration())
                         {
@@ -1593,7 +1647,11 @@ else static if (TARGET_WINDOS)
                                 else
                                 {
                                     sym.error("Internal Compiler Error: C++ templates support only integral value, type parameters, alias templates and alias function parameters");
+version(IN_LLVM) {
+                                    fatal();
+} else {
                                     assert(0);
+}
                                 }
                             }
                             tmp.mangleIdent(d);
@@ -1601,13 +1659,21 @@ else static if (TARGET_WINDOS)
                         else
                         {
                             sym.error("Internal Compiler Error: %s is unsupported parameter for C++ template: (%s)", o.toChars());
+version(IN_LLVM) {
+                            fatal();
+} else {
                             assert(0);
+}
                         }
                     }
                     else
                     {
                         sym.error("Internal Compiler Error: C++ templates support only integral value, type parameters, alias templates and alias function parameters");
+version(IN_LLVM) {
+                        fatal();
+} else {
                         assert(0);
+}
                     }
                 }
                 name = tmp.buf.extractString();
@@ -1902,13 +1968,31 @@ else static if (TARGET_WINDOS)
         }
     }
 
+version(IN_LLVM) {
+    extern (C++) char *toCppMangle(Dsymbol s)
+    {
+        if (isTargetWindowsMSVC())
+        {
+            scope VisualCPPMangler v = new VisualCPPMangler(false);
+            return v.mangleOf(s);
+        }
+        else
+        {
+            CppMangleVisitor v;
+            return v.mangleOf(s);
+        }
+    }
+} else {
     extern (C++) char* toCppMangle(Dsymbol s)
     {
         scope VisualCPPMangler v = new VisualCPPMangler(!global.params.mscoff);
         return v.mangleOf(s);
     }
 }
+}
 else
 {
     static assert(0, "fix this");
 }
+
+

@@ -1733,13 +1733,18 @@ public:
         typeToBuffer(f.type, f.ident);
         if (hgs.hdrgen == 1)
         {
+            version(IN_LLVM)
+                bool noBody = !global.params.hdrKeepAllBodies;
+            else
+                bool noBody = !global.params.useInline;
+
             if (f.storage_class & STCauto)
             {
                 hgs.autoMember++;
                 bodyToBuffer(f);
                 hgs.autoMember--;
             }
-            else if (hgs.tpltMember == 0 && !global.params.useInline)
+            else if (hgs.tpltMember == 0 && noBody)
             {
                 buf.writeByte(';');
                 buf.writenl();
@@ -1753,7 +1758,12 @@ public:
 
     void bodyToBuffer(FuncDeclaration f)
     {
-        if (!f.fbody || (hgs.hdrgen && !global.params.useInline && !hgs.autoMember && !hgs.tpltMember))
+        version(IN_LLVM)
+            bool noBody = !global.params.hdrKeepAllBodies;
+        else
+            bool noBody = !global.params.useInline;
+
+        if (!f.fbody || (hgs.hdrgen && noBody && !hgs.autoMember && !hgs.tpltMember))
         {
             buf.writeByte(';');
             buf.writenl();
@@ -2185,6 +2195,8 @@ public:
         char[BUFFER_LEN] buffer;
         Port.ld_sprint(buffer.ptr, 'g', value);
         assert(strlen(buffer.ptr) < BUFFER_LEN);
+        // IN_LLVM MSVC: LLVM's APFloat is used for strtold, which asserts for certain special float inputs
+        if (!IN_LLVM_MSVC || (!Port.isNan(value) && !Port.isInfinity(value)))
         if (hgs.hdrgen)
         {
             real_t r = Port.strtold(buffer.ptr, null);

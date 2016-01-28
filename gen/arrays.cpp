@@ -260,7 +260,7 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
 
   // Be careful to handle void arrays correctly when modifying this (see tests
   // for DMD issue 7493).
-  // TODO: This should use AssignExp::ismemset.
+  // TODO: This should use AssignExp::memset.
   LLValue *realRhsArrayPtr =
       (t2->ty == Tarray || t2->ty == Tsarray ? DtoArrayPtr(rhs) : nullptr);
   if (realRhsArrayPtr && realRhsArrayPtr->getType() == realLhsPtr->getType()) {

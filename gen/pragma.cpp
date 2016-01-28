@@ -17,13 +17,13 @@
 #include "template.h"
 #include "llvm/Support/CommandLine.h"
 
-static bool parseStringExp(Expression *e, std::string &res) {
+static bool parseStringExp(Expression *e, const char *&res) {
   StringExp *s = nullptr;
 
   e = e->optimize(WANTvalue);
   if (e->op == TOKstring && (s = static_cast<StringExp *>(e))) {
     char *str = static_cast<char *>(s->string);
-    res = str;
+    res = strdup(str);
     return true;
   }
   return false;
@@ -40,7 +40,7 @@ static bool parseIntExp(Expression *e, dinteger_t &res) {
   return false;
 }
 
-Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
+LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, const char *&arg1str) {
   Identifier *ident = decl->ident;
   Expressions *args = decl->args;
   Expression *expr =
@@ -56,7 +56,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
     // Recognize LDC-specific pragmas.
     struct LdcIntrinsic {
       std::string name;
-      Pragma pragma;
+      LDCPragma pragma;
     };
     static LdcIntrinsic ldcIntrinsic[] = {
         {"bitop.bt", LLVMbitop_bt},   {"bitop.btc", LLVMbitop_btc},
@@ -65,10 +65,11 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
     };
 
     static std::string prefix = "ldc.";
-    if (arg1str.length() > prefix.length() &&
-        std::equal(prefix.begin(), prefix.end(), arg1str.begin())) {
+    size_t arg1str_length = strlen(arg1str);
+    if (arg1str_length > prefix.length() &&
+        std::equal(prefix.begin(), prefix.end(), arg1str)) {
       // Got ldc prefix, binary search through ldcIntrinsic.
-      std::string name(arg1str.begin() + prefix.length(), arg1str.end());
+      std::string name(arg1str + prefix.length());
       size_t i = 0, j = sizeof(ldcIntrinsic) / sizeof(ldcIntrinsic[0]);
       do {
         size_t k = (i + j) / 2;
@@ -104,7 +105,7 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
     }
     char buf[8];
     sprintf(buf, "%llu", static_cast<unsigned long long>(priority));
-    arg1str = std::string(buf);
+    arg1str = strdup(buf);
     return ident == Id::LDC_global_crt_ctor ? LLVMglobal_crt_ctor
                                             : LLVMglobal_crt_dtor;
   }
@@ -258,8 +259,8 @@ Pragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, std::string &arg1str) {
   return LLVMnone;
 }
 
-void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s, Pragma llvm_internal,
-                    const std::string &arg1str) {
+void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s, LDCPragma llvm_internal,
+                    const char * const arg1str) {
   if (llvm_internal == LLVMnone || llvm_internal == LLVMignore) {
     return;
   }
@@ -278,11 +279,11 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s, Pragma llvm_internal,
   case LLVMintrinsic:
     if (FuncDeclaration *fd = s->isFuncDeclaration()) {
       fd->llvmInternal = llvm_internal;
-      fd->intrinsicName = arg1str;
-      fd->mangleOverride = strdup(fd->intrinsicName.c_str());
+      fd->intrinsicName = strdup(arg1str);
+      fd->mangleOverride = strdup(fd->intrinsicName);
     } else if (TemplateDeclaration *td = s->isTemplateDeclaration()) {
       td->llvmInternal = llvm_internal;
-      td->intrinsicName = arg1str;
+      td->intrinsicName = strdup(arg1str);
     } else {
       error(s->loc, "the '%s' pragma is only allowed on function or template "
                     "declarations",
@@ -307,7 +308,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s, Pragma llvm_internal,
       }
 
       fd->llvmInternal = llvm_internal;
-      fd->priority = std::atoi(arg1str.c_str());
+      fd->priority = std::atoi(arg1str);
     } else {
       error(s->loc, "the '%s' pragma is only allowed on function declarations",
             ident->toChars());
@@ -318,7 +319,7 @@ void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *s, Pragma llvm_internal,
   case LLVMatomic_rmw:
     if (TemplateDeclaration *td = s->isTemplateDeclaration()) {
       td->llvmInternal = llvm_internal;
-      td->intrinsicName = arg1str;
+      td->intrinsicName = strdup(arg1str);
     } else {
       error(s->loc, "the '%s' pragma is only allowed on template declarations",
             ident->toChars());

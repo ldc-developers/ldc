@@ -13,7 +13,7 @@ import core.stdc.string;
 import ddmd.aggregate;
 import ddmd.arraytypes;
 import ddmd.attrib;
-import ddmd.backend;
+// IN_LLVM import ddmd.backend;
 import ddmd.builtin;
 import ddmd.ctfeexpr;
 import ddmd.dclass;
@@ -411,6 +411,23 @@ public:
 
     const(char)* mangleString;          // mangled symbol created from mangleExact()
 
+    version(IN_LLVM)
+    {
+        // Argument lists for the __require/__ensure calls. NULL if not a virtual
+        // function with contracts.
+        Expressions* fdrequireParams;
+        Expressions* fdensureParams;
+
+        const(char)* intrinsicName;
+        uint priority;
+
+        // true if overridden with the pragma(LDC_allow_inline); statement
+        bool allowInlining = false;
+
+        // true if set with the pragma(LDC_never_inline); statement
+        bool neverInline = false;
+    }
+
     Identifier outId;                   // identifier for out statement
     VarDeclaration vresult;             // variable corresponding to outId
     LabelDsymbol returnLabel;           // where the return goes
@@ -516,7 +533,39 @@ public:
         f.fensure = fensure ? fensure.syntaxCopy() : null;
         f.fbody = fbody ? fbody.syntaxCopy() : null;
         assert(!fthrows); // deprecated
+        version(IN_LLVM)
+        {
+            f.intrinsicName = intrinsicName ? strdup(intrinsicName) : null;
+        }
         return f;
+    }
+
+    version(IN_LLVM)
+    {
+        final private Parameters* outToRef(Parameters* params)
+        {
+            auto result = new Parameters();
+
+            int outToRefDg(size_t n, Parameter p)
+            {
+                if (p.storageClass & STCout)
+                {
+                    // Cannot just use syntaxCopy() here, because it would cause the
+                    // parameter type to be semantic()ed again, in the wrong scope. So,
+                    // just copy the outer layer to modify the storage class.
+                    void* cpy = mem.xmalloc(Parameter.sizeof);
+                    memcpy(cpy, cast(void*)p, Parameter.sizeof);
+                    p = cast(Parameter) cpy;
+                    p.storageClass &= ~STCout;
+                    p.storageClass |= STCref;
+                }
+                result.push(p);
+                return 0;
+            }
+
+            Parameter._foreach(params, &outToRefDg);
+            return result;
+        }
     }
 
     // Do the semantic analysis on the external interface to the function.
@@ -1187,13 +1236,33 @@ public:
              */
             if (frequire)
             {
-                /*   in { ... }
-                 * becomes:
-                 *   void __require() { ... }
-                 *   __require();
-                 */
+                version(IN_LLVM)
+                {
+                    /* In LDC, we can't rely on the codegen hacks DMD has to be able
+                     * to just magically call the contract function parameterless with
+                     * the parameters being picked up from the outer stack frame.
+                     *
+                     * Thus, we actually pass all the function parameters to the
+                     * __require call, rewriting out parameters to ref ones because
+                     * they have already been zeroed in the outer function.
+                     *
+                     * Also initialize fdrequireParams here - it will get filled in
+                     * in semantic3.
+                     */
+                    fdrequireParams = new Expressions();
+                    auto params = outToRef((cast(TypeFunction)type).parameters);
+                    auto tf = new TypeFunction(params, Type.tvoid, 0, LINKd);
+                }
+                else
+                {
+                    /*   in { ... }
+                     * becomes:
+                     *   void __require() { ... }
+                     *   __require();
+                     */
+                    auto tf = new TypeFunction(null, Type.tvoid, 0, LINKd);
+                }
                 Loc loc = frequire.loc;
-                auto tf = new TypeFunction(null, Type.tvoid, 0, LINKd);
                 tf.isnothrow = f.isnothrow;
                 tf.isnogc = f.isnogc;
                 tf.purity = f.purity;
@@ -1201,27 +1270,59 @@ public:
                 auto fd = new FuncDeclaration(loc, loc, Id.require, STCundefined, tf);
                 fd.fbody = frequire;
                 Statement s1 = new ExpStatement(loc, fd);
-                Expression e = new CallExp(loc, new VarExp(loc, fd, 0), cast(Expressions*)null);
+                version(IN_LLVM)
+                {
+                    Expression e = new CallExp(loc, new VarExp(loc, fd, 0), fdrequireParams);
+                }
+                else
+                {
+                    Expression e = new CallExp(loc, new VarExp(loc, fd, 0), cast(Expressions*)null);
+                }
                 Statement s2 = new ExpStatement(loc, e);
                 frequire = new CompoundStatement(loc, s1, s2);
                 fdrequire = fd;
             }
             if (!outId && f.nextOf() && f.nextOf().toBasetype().ty != Tvoid)
                 outId = Id.result; // provide a default
+                version(IN_LLVM)
+                {
+                    /* We need to initialize fdensureParams here and not in the block below
+                     * to have the parameter available when calling a base class ensure(),
+                     * even if this functions doesn't have an out contract.
+                     */
+                    fdensureParams = new Expressions();
+                    if (outId)
+                        fdensureParams.push(new IdentifierExp(loc, outId));
+                }
             if (fensure)
             {
-                /*   out (result) { ... }
-                 * becomes:
-                 *   void __ensure(ref tret result) { ... }
-                 *   __ensure(result);
-                 */
+                version(IN_LLVM)
+                {
+                    /* Same as for in contracts, see above. */
+                    auto fparams = outToRef((cast(TypeFunction)type).parameters);
+                }
+                else
+                {
+                    /*   out (result) { ... }
+                     * becomes:
+                     *   void __ensure(ref tret result) { ... }
+                     *   __ensure(result);
+                     */
+                    auto fparams = new Parameters();
+                }
                 Loc loc = fensure.loc;
-                auto fparams = new Parameters();
                 Parameter p = null;
                 if (outId)
                 {
                     p = new Parameter(STCref | STCconst, f.nextOf(), outId, null);
-                    fparams.push(p);
+                    version(IN_LLVM)
+                    {
+                        fparams.insert(0, p);
+                    }
+                    else
+                    {
+                        fparams.push(p);
+                    }
                 }
                 auto tf = new TypeFunction(fparams, Type.tvoid, 0, LINKd);
                 tf.isnothrow = f.isnothrow;
@@ -1231,10 +1332,17 @@ public:
                 auto fd = new FuncDeclaration(loc, loc, Id.ensure, STCundefined, tf);
                 fd.fbody = fensure;
                 Statement s1 = new ExpStatement(loc, fd);
-                Expression eresult = null;
-                if (outId)
-                    eresult = new IdentifierExp(loc, outId);
-                Expression e = new CallExp(loc, new VarExp(loc, fd, 0), eresult);
+                version(IN_LLVM)
+                {
+                    Expression e = new CallExp(loc, new VarExp(loc, fd, 0), fdensureParams);
+                }
+                else
+                {
+                    Expression eresult = null;
+                    if (outId)
+                        eresult = new IdentifierExp(loc, outId);
+                    Expression e = new CallExp(loc, new VarExp(loc, fd, 0), eresult);
+                }
                 Statement s2 = new ExpStatement(loc, e);
                 fensure = new CompoundStatement(loc, s1, s2);
                 fdensure = fd;
@@ -1259,7 +1367,16 @@ public:
                 flags |= FUNCFLAGreturnInprocess;
         }
         Module.dprogress++;
-        semanticRun = PASSsemanticdone;
+        version(IN_LLVM)
+        {
+            //LDC relies on semanticRun variable not being reset here
+            if(semanticRun < PASSsemanticdone)
+                semanticRun = PASSsemanticdone;
+        }
+        else
+        {
+            semanticRun = PASSsemanticdone;
+        }
         /* Save scope for possible later use (if we need the
          * function internals)
          */
@@ -1425,7 +1542,7 @@ public:
             // Declare hidden variable _arguments[] and _argptr
             if (f.varargs == 1)
             {
-                static if (!IN_GCC)
+                static if (!IN_GCC && !IN_LLVM)
                 {
                     if (global.params.is64bit && !global.params.isWindows)
                     {
@@ -1474,6 +1591,31 @@ public:
                     argptr.parent = this;
                 }
             }
+
+            version(IN_LLVM)
+            {
+                // Make sure semantic analysis has been run on argument types. This is
+                // e.g. needed for TypeTuple!(int, int) to be picked up as two int
+                // parameters by the Parameter functions.
+                if (f.parameters)
+                {
+                    for (size_t i = 0; i < Parameter.dim(f.parameters); i++)
+                    {   Parameter arg = Parameter.getNth(f.parameters, i);
+                        Type nw = arg.type.semantic(Loc(), sc);
+                        if (arg.type != nw) {
+                            arg.type = nw;
+                            // Examine this index again.
+                            // This is important if it turned into a tuple.
+                            // In particular, the empty tuple should be handled or the
+                            // next parameter will be skipped.
+                            // LDC_FIXME: Maybe we only need to do this for tuples,
+                            //            and can add tuple.length after decrement?
+                            i--;
+                        }
+                    }
+                }
+            }
+
             /* Declare all the function parameters as variables
              * and install them in parameters[]
              */
@@ -1513,6 +1655,13 @@ public:
                         parameters.push(v);
                     localsymtab.insert(v);
                     v.parent = this;
+                    version(IN_LLVM)
+                    {
+                        if (fdrequireParams)
+                            fdrequireParams.push(new VarExp(loc, v));
+                        if (fdensureParams)
+                            fdensureParams.push(new VarExp(loc, v));
+                    }
                 }
             }
             // Declare the tuple symbols and put them in the symbol table,
@@ -1921,6 +2070,8 @@ public:
                         }
                     }
                 }
+// we'll handle variadics ourselves
+static if (!IN_LLVM) {
                 if (argptr)
                 {
                     // Initialize _argptr
@@ -2021,6 +2172,7 @@ public:
                     auto de = new DeclarationExp(Loc(), _arguments);
                     a.push(new ExpStatement(Loc(), de));
                 }
+} // !IN_LLVM
                 // Merge contracts together with body into one compound statement
                 if (freq || fpreinv)
                 {
@@ -2043,8 +2195,26 @@ public:
                     a.push(returnLabel.statement);
                     if (f.next.ty != Tvoid && vresult)
                     {
+version(IN_LLVM)
+{
+                        Expression e = null;
+                        if (isCtorDeclaration())
+                        {
+                            ThisExp te = new ThisExp(Loc());
+                            te.type = vthis.type;
+                            te.var = vthis;
+                            e = te;
+                        }
+                        else
+                        {
+                            e = new VarExp(Loc(), vresult);
+                        }
+}
+else
+{
                         // Create: return vresult;
                         Expression e = new VarExp(Loc(), vresult);
+}
                         if (tintro)
                         {
                             e = e.implicitCastTo(sc, tintro.nextOf());
@@ -3508,8 +3678,12 @@ public:
      * Merge into this function the 'in' contracts of all it overrides.
      * 'in's are OR'd together, i.e. only one of them needs to pass.
      */
-    final Statement mergeFrequire(Statement sf)
+     // IN_LLVM replaced: final Statement mergeFrequire(Statement sf)
+    final Statement mergeFrequire(Statement sf, Expressions *params = null)
     {
+         if (params is null)
+            params = fdrequireParams;
+
         /* If a base function and its override both have an IN contract, then
          * only one of them needs to succeed. This is done by generating:
          *
@@ -3525,6 +3699,12 @@ public:
          * So if base.in() doesn't throw, derived.in() need not be executed, and the contract is valid.
          * If base.in() throws, then derived.in()'s body is executed.
          */
+version(IN_LLVM)
+{
+        /* In LDC, we can't rely on these codegen hacks - we explicitly pass
+         * parameters on to the contract functions.
+         */
+} else {
         /* Implementing this is done by having the overriding function call
          * nested functions (the fdrequire functions) nested inside the overridden
          * function. This requires that the stack layout of the calling function's
@@ -3541,6 +3721,7 @@ public:
          *     a stack local, allocate that local immediately following the exception
          *     handler block, so it is always at the same offset from EBP.
          */
+}
         for (size_t i = 0; i < foverrides.dim; i++)
         {
             FuncDeclaration fdv = foverrides[i];
@@ -3555,6 +3736,9 @@ public:
                 fdv.semantic3(sc);
                 sc.pop();
             }
+version(IN_LLVM)
+            sf = fdv.mergeFrequire(sf, params);
+else
             sf = fdv.mergeFrequire(sf);
             if (sf && fdv.fdrequire)
             {
@@ -3563,8 +3747,13 @@ public:
                  *   try { __require(); }
                  *   catch { frequire; }
                  */
+version(IN_LLVM)
+                Expression e = new CallExp(loc, new VarExp(loc, fdv.fdrequire, false), params);
+else
+{
                 Expression eresult = null;
                 Expression e = new CallExp(loc, new VarExp(loc, fdv.fdrequire, 0), eresult);
+}
                 Statement s2 = new ExpStatement(loc, e);
                 auto c = new Catch(loc, null, null, sf);
                 c.internalCatch = true;
@@ -3582,8 +3771,15 @@ public:
      * Merge into this function the 'out' contracts of all it overrides.
      * 'out's are AND'd together, i.e. all of them need to pass.
      */
-    final Statement mergeFensure(Statement sf, Identifier oid)
+    // IN_LLVM replaced: final Statement mergeFensure(Statement sf, Identifier oid)
+    final Statement mergeFensure(Statement sf, Identifier oid, Expressions *params = null)
     {
+        version(IN_LLVM)
+        {
+            if (params is null)
+                params = fdensureParams;
+        }
+
         /* Same comments as for mergeFrequire(), except that we take care
          * of generating a consistent reference to the 'result' local by
          * explicitly passing 'result' to the nested function as a reference
@@ -3607,6 +3803,9 @@ public:
                 fdv.semantic3(sc);
                 sc.pop();
             }
+version(IN_LLVM)
+            sf = fdv.mergeFensure(sf, oid, params);
+else
             sf = fdv.mergeFensure(sf, oid);
             if (fdv.fdensure)
             {
@@ -3615,8 +3814,17 @@ public:
                 Expression eresult = null;
                 if (outId)
                 {
+version(IN_LLVM)
+                    eresult = (*params)[0];
+else
                     eresult = new IdentifierExp(loc, oid);
                     Type t1 = fdv.type.nextOf().toBasetype();
+version(IN_LLVM)
+{
+                    // We actually check for matching types in CommaExp::toElem,
+                    // 'testcontract' breaks without this.
+                    t1 = t1.constOf();
+}
                     Type t2 = this.type.nextOf().toBasetype();
                     if (t1.isBaseOf(t2, null))
                     {
@@ -3632,7 +3840,16 @@ public:
                         eresult = new CommaExp(Loc(), de, ve);
                     }
                 }
+version(IN_LLVM)
+{
+                if (eresult !is null)
+                    (*params)[0] = eresult;
+                Expression e = new CallExp(loc, new VarExp(loc, fdv.fdensure, false), params);
+}
+else
+{
                 Expression e = new CallExp(loc, new VarExp(loc, fdv.fdensure, 0), eresult);
+}
                 Statement s2 = new ExpStatement(loc, e);
                 if (sf)
                 {
@@ -3775,6 +3992,14 @@ extern (C++) Expression addInvariant(Loc loc, Scope* sc, AggregateDeclaration ad
                 ad.inv.functionSemantic();
         }
         // Call invariant virtually
+version(IN_LLVM)
+{
+        // We actually need a valid 'var' for codegen.
+        auto tv = new ThisExp(Loc());
+        tv.var = vthis;
+        Expression v = tv;
+}
+else
         Expression v = new ThisExp(Loc());
         v.type = vthis.type;
         if (ad.isStructDeclaration())
@@ -4877,7 +5102,7 @@ public:
             Statement s = new ExpStatement(Loc(), v);
             sa.push(s);
             Expression e = new IdentifierExp(Loc(), v.ident);
-            e = new AddAssignExp(Loc(), e, new IntegerExp(-1));
+            e = new AddAssignExp(Loc(), e, new IntegerExp(-1));  // LDC_FIXME: Previously had (uint64_t)-1, double-check this.
             e = new EqualExp(TOKnotequal, Loc(), e, new IntegerExp(0));
             s = new IfStatement(Loc(), null, e, new ReturnStatement(Loc(), null), null);
             sa.push(s);

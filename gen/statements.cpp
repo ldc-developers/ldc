@@ -43,7 +43,7 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p);
 //////////////////////////////////////////////////////////////////////////////
 
 // used to build the sorted list of cases
-struct Case : RootObject {
+struct Case {
   StringExp *str;
   size_t index;
 
@@ -52,9 +52,8 @@ struct Case : RootObject {
     index = i;
   }
 
-  int compare(RootObject *obj) override {
-    Case *c2 = static_cast<Case *>(obj);
-    return str->compare(c2->str);
+  friend bool operator<(const Case& l, const Case& r) {
+    return l.str->compare(r.str) <= 0;
   }
 };
 
@@ -410,8 +409,8 @@ public:
 
     // while body code
     irs->func()->scopes->pushLoopTarget(stmt, whilebb, endbb);
-    if (stmt->body) {
-      stmt->body->accept(this);
+    if (stmt->_body) {
+      stmt->_body->accept(this);
     }
     irs->func()->scopes->popLoopTarget();
 
@@ -453,8 +452,8 @@ public:
 
     // do-while body code
     irs->func()->scopes->pushLoopTarget(stmt, condbb, endbb);
-    if (stmt->body) {
-      stmt->body->accept(this);
+    if (stmt->_body) {
+      stmt->_body->accept(this);
     }
     irs->func()->scopes->popLoopTarget();
 
@@ -498,8 +497,8 @@ public:
         llvm::BasicBlock::Create(irs->context(), "endfor", irs->topfunc());
 
     // init
-    if (stmt->init != nullptr) {
-      stmt->init->accept(this);
+    if (stmt->_init != nullptr) {
+      stmt->_init->accept(this);
     }
 
     // move into the for condition block, ie. start the loop
@@ -537,8 +536,8 @@ public:
     irs->scope() = IRScope(forbodybb);
 
     // do for body code
-    if (stmt->body) {
-      stmt->body->accept(this);
+    if (stmt->_body) {
+      stmt->_body->accept(this);
     }
 
     // move into the for increment block
@@ -661,10 +660,10 @@ public:
     // We only need to consider exception handling/cleanup issues if there
     // is both a try and a finally block. If not, just directly emit what
     // is present.
-    if (!stmt->body || !stmt->finalbody) {
-      if (stmt->body) {
-        irs->DBuilder.EmitBlockStart(stmt->body->loc);
-        stmt->body->accept(this);
+    if (!stmt->_body || !stmt->finalbody) {
+      if (stmt->_body) {
+        irs->DBuilder.EmitBlockStart(stmt->_body->loc);
+        stmt->_body->accept(this);
         irs->DBuilder.EmitBlockEnd();
       } else if (stmt->finalbody) {
         irs->DBuilder.EmitBlockStart(stmt->finalbody->loc);
@@ -692,9 +691,9 @@ public:
     // Emit the try block.
     irs->scope() = IRScope(trybb);
 
-    assert(stmt->body);
-    irs->DBuilder.EmitBlockStart(stmt->body->loc);
-    stmt->body->accept(this);
+    assert(stmt->_body);
+    irs->DBuilder.EmitBlockStart(stmt->_body->loc);
+    stmt->_body->accept(this);
     irs->DBuilder.EmitBlockEnd();
 
     // Create a block to branch to after successfully running the try block
@@ -792,9 +791,9 @@ public:
     // Emit the try block.
     irs->scope() = IRScope(trybb);
 
-    assert(stmt->body);
-    irs->DBuilder.EmitBlockStart(stmt->body->loc);
-    stmt->body->accept(this);
+    assert(stmt->_body);
+    irs->DBuilder.EmitBlockStart(stmt->_body->loc);
+    stmt->_body->accept(this);
     irs->DBuilder.EmitBlockEnd();
 
     if (!irs->scopereturned()) {
@@ -860,7 +859,7 @@ public:
       if (cs->exp->op == TOKvar) {
         vd = static_cast<VarExp *>(cs->exp)->var->isVarDeclaration();
       }
-      if (vd && (!vd->init || !vd->isConst())) {
+      if (vd && (!vd->_init || !vd->isConst())) {
         cs->llvmIdx = toElemDtor(cs->exp)->getRVal();
         useSwitchInst = false;
       }
@@ -885,10 +884,10 @@ public:
         llvm::BasicBlock::Create(irs->context(), "switchend", irs->topfunc());
 
     // do switch body
-    assert(stmt->body);
+    assert(stmt->_body);
     irs->scope() = IRScope(bodybb);
     irs->func()->scopes->pushBreakTarget(stmt, endbb);
-    stmt->body->accept(this);
+    stmt->_body->accept(this);
     irs->func()->scopes->popBreakTarget();
     if (!irs->scopereturned()) {
       llvm::BranchInst::Create(endbb, irs->scopebb());
@@ -898,7 +897,7 @@ public:
     if (useSwitchInst) {
       // string switch?
       llvm::Value *switchTable = nullptr;
-      Objects caseArray;
+      std::vector<Case> caseArray;
       if (!stmt->condition->type->isintegral()) {
         Logger::println("is string switch");
         // build array of the stringexpS
@@ -908,18 +907,18 @@ public:
               static_cast<CaseStatement *>(stmt->cases->data[i]);
 
           assert(cs->exp->op == TOKstring);
-          caseArray.push(new Case(static_cast<StringExp *>(cs->exp), i));
+          caseArray.emplace_back(static_cast<StringExp *>(cs->exp), i);
         }
         // first sort it
-        caseArray.sort();
+        std::sort(caseArray.begin(), caseArray.end());
         // iterate and add indices to cases
-        std::vector<llvm::Constant *> inits(caseArray.dim, nullptr);
-        for (size_t i = 0; i < caseArray.dim; ++i) {
-          Case *c = static_cast<Case *>(caseArray.data[i]);
+        std::vector<llvm::Constant *> inits(caseArray.size(), nullptr);
+        for (size_t i = 0, e = caseArray.size(); i < e; ++i) {
+          Case &c = caseArray[i];
           CaseStatement *cs =
-              static_cast<CaseStatement *>(stmt->cases->data[c->index]);
+              static_cast<CaseStatement *>(stmt->cases->data[c.index]);
           cs->llvmIdx = DtoConstUint(i);
-          inits[i] = toConstElem(c->str, irs);
+          inits[i] = toConstElem(c.str, irs);
         }
         // build static array for ptr or final array
         llvm::Type *elemTy = DtoType(stmt->condition->type);
@@ -1233,8 +1232,8 @@ public:
 
     // emit body
     irs->func()->scopes->pushLoopTarget(stmt, nextbb, endbb);
-    if (stmt->body) {
-      stmt->body->accept(this);
+    if (stmt->_body) {
+      stmt->_body->accept(this);
     }
     irs->func()->scopes->popLoopTarget();
 
@@ -1330,8 +1329,8 @@ public:
 
     // emit body
     irs->func()->scopes->pushLoopTarget(stmt, nextbb, endbb);
-    if (stmt->body) {
-      stmt->body->accept(this);
+    if (stmt->_body) {
+      stmt->_body->accept(this);
     }
     irs->func()->scopes->popLoopTarget();
 
@@ -1492,8 +1491,8 @@ public:
       DtoStore(e->getRVal(), mem);
     }
 
-    if (stmt->body) {
-      stmt->body->accept(this);
+    if (stmt->_body) {
+      stmt->_body->accept(this);
     }
 
     irs->DBuilder.EmitBlockEnd();

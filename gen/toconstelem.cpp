@@ -78,14 +78,14 @@ public:
     }
 
     VarDeclaration *vd = e->var->isVarDeclaration();
-    if (vd && vd->isConst() && vd->init) {
+    if (vd && vd->isConst() && vd->_init) {
       if (vd->inuse) {
         e->error("recursive reference %s", e->toChars());
         result = llvm::UndefValue::get(DtoType(e->type));
       } else {
         vd->inuse++;
         // return the initializer
-        result = DtoConstInitializer(e->loc, e->type, vd->init);
+        result = DtoConstInitializer(e->loc, e->type, vd->_init);
         vd->inuse--;
       }
     }

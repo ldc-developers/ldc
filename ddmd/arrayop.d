@@ -27,6 +27,8 @@ import ddmd.visitor;
 /**************************************
  * Hash table of array op functions already generated or known about.
  */
+version(IN_LLVM) {}
+else
 extern (C++) __gshared AA* arrayfuncs;
 
 /**************************************
@@ -179,7 +181,14 @@ extern (C++) Expression arrayOp(BinExp e, Scope* sc)
     buf.writestring(e.type.toBasetype().nextOf().toBasetype().mutableOf().deco);
     char* name = buf.peekString();
     Identifier ident = Identifier.idPool(name);
-    FuncDeclaration* pFd = cast(FuncDeclaration*)dmd_aaGet(&arrayfuncs, cast(void*)ident);
+    version(IN_LLVM)
+    {
+        FuncDeclaration* pFd = cast(FuncDeclaration*)dmd_aaGet(&(sc._module.arrayfuncs), cast(void*)ident);
+    }
+    else
+    {
+        FuncDeclaration* pFd = cast(FuncDeclaration*)dmd_aaGet(&arrayfuncs, cast(void*)ident);
+    }
     FuncDeclaration fd = *pFd;
     if (!fd)
         fd = buildArrayOp(ident, e, sc, e.loc);

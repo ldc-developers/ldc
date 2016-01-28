@@ -19,7 +19,7 @@ import ddmd.argtypes;
 import ddmd.arrayop;
 import ddmd.arraytypes;
 import ddmd.attrib;
-import ddmd.backend;
+// IN_LLVM import ddmd.backend;
 import ddmd.canthrow;
 import ddmd.clone;
 import ddmd.complex;
@@ -68,9 +68,15 @@ import ddmd.statement;
 import ddmd.target;
 import ddmd.tokens;
 import ddmd.traits;
-import ddmd.typinf;
+// IN_LLVM import ddmd.typinf;
 import ddmd.utf;
 import ddmd.visitor;
+
+version(IN_LLVM)
+{
+    import gen.dpragma;
+    import gen.typinf;
+}
 
 enum LOGSEMANTIC = false;
 void emplaceExp(T : Expression, Args...)(void* p, Args args)
@@ -133,6 +139,14 @@ L1:
                     {
                         //printf("rewriting e1 to %s's this\n", f->toChars());
                         n++;
+                        version(IN_LLVM)
+                        {
+                            // LDC seems dmd misses it sometimes here :/
+                            if (f.isMember2()) {
+                                f.vthis.nestedrefs.push(sc.parent.isFuncDeclaration());
+                                f.closureVars.push(f.vthis);
+                            }
+                        }
                         e1 = new VarExp(loc, f.vthis);
                     }
                     else
@@ -1609,7 +1623,9 @@ extern (C++) bool functionParameters(Loc loc, Scope* sc, TypeFunction tf, Type t
         {
             // These will be the trailing ... arguments
             // If not D linkage, do promotions
-            if (tf.linkage != LINKd)
+            // IN_LLVM: don't do promotions on intrinsics
+            // IN_LLVM replaced: if (tf.linkage != LINKd)
+            if (tf.linkage != LINKd && (!fd || !DtoIsIntrinsic(fd)))
             {
                 // Promote bytes, words, etc., to ints
                 arg = integralPromotions(arg, sc);
@@ -1804,7 +1820,7 @@ extern (C++) bool functionParameters(Loc loc, Scope* sc, TypeFunction tf, Type t
     }
     //if (eprefix) printf("eprefix: %s\n", eprefix->toChars());
     // If D linkage and variadic, add _arguments[] as first argument
-    if (tf.linkage == LINKd && tf.varargs == 1)
+    if (!IN_LLVM && tf.linkage == LINKd && tf.varargs == 1)
     {
         assert(arguments.dim >= nparams);
         auto args = new Parameters();
@@ -2239,6 +2255,11 @@ public:
     TOK op;         // to minimize use of dynamic_cast
     ubyte size;     // # of bytes in Expression so we can copy() it
     ubyte parens;   // if this is a parenthesized expression
+
+    version(IN_LLVM)
+    {
+        void* cachedLvalue; // llvm::Value*
+    }
 
     final extern (D) this(Loc loc, TOK op, int size)
     {
@@ -4876,6 +4897,24 @@ public:
     Expressions* elements;  // parallels sd.fields[] with null entries for fields to skip
     Type stype;             // final type of result (can be different from sd's type)
 
+    version(IN_LLVM)
+    {
+        // With the introduction of pointers returned from CTFE, struct literals can
+        // now contain pointers to themselves. While in toElem, contains a pointer
+        // to the memory used to build the literal for resolving such references.
+        void* inProgressMemory; // llvm::Value*
+
+        // A global variable for taking the address of this struct literal constant,
+        // if it already exists. Used to resolve self-references.
+        void* globalVar; // llvm::GlobalVariable*
+
+        /// Set if this is really the result of a struct .init access and should be
+        /// resolved codegen'd as an access to the given SymbolDeclaration.
+        // LDC_FIXME: Figure out whether this, i.e. imitating the DMD behavior, is
+        // really the best way to fix the nested struct constant folding issue.
+        SymbolDeclaration sinit;
+    }
+    else
     Symbol* sinit;          // if this is a defaultInitLiteral, this symbol contains the default initializer
     Symbol* sym;            // back end symbol to initialize with literal
     size_t soffset;         // offset from start of s
@@ -5018,11 +5057,15 @@ public:
                     e = e.copy();
                     e.type = type;
                 }
+version(IN_LLVM) {}
+else
+{
                 if (sinit && e.op == TOKstructliteral && e.type.needsNested())
                 {
                     StructLiteralExp se = cast(StructLiteralExp)e;
                     se.sinit = toInitializer(se.sd);
                 }
+}
             }
         }
         return e;
@@ -5856,6 +5899,15 @@ public:
 
     override bool isBool(bool result)
     {
+version(IN_LLVM)
+{
+        // For a weak symbol, we only statically know that it is non-null if the
+        // offset is non-zero.
+        if (var.llvmInternal == LDCPragma.LLVMextern_weak)
+        {
+            return result && offset != 0;
+        }
+}
         return result ? true : false;
     }
 
@@ -6395,6 +6447,8 @@ public:
                 (*presult).type = to;
                 // Bugzilla 12508: Tweak function body for covariant returns.
                 (*presult).fd.modifyReturns(sc, tof.next);
+                version(IN_LLVM)
+                    (*presult).fd.type = tof; // Also, update function return type.
             }
         }
         else if (!flag)
@@ -9713,6 +9767,14 @@ public:
             FuncDeclaration f = ve.var.isFuncDeclaration();
             if (f)
             {
+                version(IN_LLVM)
+                {
+                    if (DtoIsIntrinsic(f))
+                    {
+                        error("cannot take the address of intrinsic function %s", e1.toChars());
+                        return this;
+                    }
+                }
                 /* Because nested functions cannot be overloaded,
                  * mark here that we took its address because castTo()
                  * may not be called with an exact match.

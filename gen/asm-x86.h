@@ -19,6 +19,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "id.h"
+#include "ldcbindings.h"
 #include "gen/llvmhelpers.h" // printLabelName
 #include <cctype>
 
@@ -2067,7 +2068,7 @@ struct AsmProcessor {
         ptrTypeIdentTable[i] = Identifier::idPool(ptrTypeNameTable[i]);
       }
 
-      Handled = new Expression(Loc(), TOKvoid, sizeof(Expression));
+      Handled = createExpression(Loc(), TOKvoid, sizeof(Expression));
 
       ident_seg = Identifier::idPool("seg");
 
@@ -2311,10 +2312,10 @@ struct AsmProcessor {
   // OSX and 32-bit Windows need an extra leading underscore when mangling a
   // symbol name.
   static bool prependExtraUnderscore() {
-    return global.params.targetTriple.getOS() == llvm::Triple::MacOSX ||
-           global.params.targetTriple.getOS() == llvm::Triple::Darwin ||
-           (global.params.targetTriple.isOSWindows() &&
-            global.params.targetTriple.isArch32Bit());
+    return global.params.targetTriple->getOS() == llvm::Triple::MacOSX ||
+           global.params.targetTriple->getOS() == llvm::Triple::Darwin ||
+           (global.params.targetTriple->isOSWindows() &&
+            global.params.targetTriple->isArch32Bit());
   }
 
   void addOperand(const char *fmt, AsmArgType type, Expression *e,
@@ -2548,7 +2549,7 @@ struct AsmProcessor {
         break;
       case Extended_Ptr:
         // MS C runtime: real = 64-bit double
-        if (global.params.targetTriple.isWindowsMSVCEnvironment()) {
+        if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
           type_suffix = 'l';
         } else {
           type_suffix = 't';
@@ -2994,7 +2995,7 @@ struct AsmProcessor {
 #endif
             {
 
-              e = new AddrExp(Loc(), e);
+              e = createAddrExp(Loc(), e);
               e->type = decl->type->pointerTo();
 
               operand->constDisplacement = 0;
@@ -3049,7 +3050,7 @@ struct AsmProcessor {
               if (!sc->func->naked) // no addrexp in naked asm please :)
               {
                 Type *tt = e->type->pointerTo();
-                e = new AddrExp(Loc(), e);
+                e = createAddrExp(Loc(), e);
                 e->type = tt;
               }
 
@@ -3102,7 +3103,7 @@ struct AsmProcessor {
   }
 
   Expression *newRegExp(int regno) {
-    auto e = new IntegerExp(regno);
+    auto e = createIntegerExp(regno);
     e->op = TOKmod;
     return e;
   }
@@ -3110,12 +3111,12 @@ struct AsmProcessor {
 #ifndef ASM_X86_64
   Expression *newIntExp(int v /* %% type */) {
     // Only handles 32-bit numbers as this is IA-32.
-    return new IntegerExp(stmt->loc, v, Type::tint32);
+    return createIntegerExp(stmt->loc, v, Type::tint32);
   }
 #else
   Expression *newIntExp(long long v /* %% type */) {
     // Handle 64 bit
-    return new IntegerExp(stmt->loc, v, Type::tint64);
+    return createIntegerExp(stmt->loc, v, Type::tint64);
   }
 #endif
 
@@ -3222,66 +3223,66 @@ struct AsmProcessor {
       switch (op) {
       case TOKadd:
         if (e2) {
-          e = new AddExp(stmt->loc, e1, e2);
+          e = createAddExp(stmt->loc, e1, e2);
         } else {
           e = e1;
         }
         break;
       case TOKmin:
         if (e2) {
-          e = new MinExp(stmt->loc, e1, e2);
+          e = createMinExp(stmt->loc, e1, e2);
         } else {
-          e = new NegExp(stmt->loc, e1);
+          e = createNegExp(stmt->loc, e1);
         }
         break;
       case TOKmul:
-        e = new MulExp(stmt->loc, e1, e2);
+        e = createMulExp(stmt->loc, e1, e2);
         break;
       case TOKdiv:
-        e = new DivExp(stmt->loc, e1, e2);
+        e = createDivExp(stmt->loc, e1, e2);
         break;
       case TOKmod:
-        e = new ModExp(stmt->loc, e1, e2);
+        e = createModExp(stmt->loc, e1, e2);
         break;
       case TOKshl:
-        e = new ShlExp(stmt->loc, e1, e2);
+        e = createShlExp(stmt->loc, e1, e2);
         break;
       case TOKshr:
-        e = new ShrExp(stmt->loc, e1, e2);
+        e = createShrExp(stmt->loc, e1, e2);
         break;
       case TOKushr:
-        e = new UshrExp(stmt->loc, e1, e2);
+        e = createUshrExp(stmt->loc, e1, e2);
         break;
       case TOKnot:
-        e = new NotExp(stmt->loc, e1);
+        e = createNotExp(stmt->loc, e1);
         break;
       case TOKtilde:
-        e = new ComExp(stmt->loc, e1);
+        e = createComExp(stmt->loc, e1);
         break;
       case TOKoror:
-        e = new OrOrExp(stmt->loc, e1, e2);
+        e = createOrOrExp(stmt->loc, e1, e2);
         break;
       case TOKandand:
-        e = new AndAndExp(stmt->loc, e1, e2);
+        e = createAndAndExp(stmt->loc, e1, e2);
         break;
       case TOKor:
-        e = new OrExp(stmt->loc, e1, e2);
+        e = createOrExp(stmt->loc, e1, e2);
         break;
       case TOKand:
-        e = new AndExp(stmt->loc, e1, e2);
+        e = createAndExp(stmt->loc, e1, e2);
         break;
       case TOKxor:
-        e = new XorExp(stmt->loc, e1, e2);
+        e = createXorExp(stmt->loc, e1, e2);
         break;
       case TOKequal:
       case TOKnotequal:
-        e = new EqualExp(op, stmt->loc, e1, e2);
+        e = createEqualExp(op, stmt->loc, e1, e2);
         break;
       case TOKgt:
       case TOKge:
       case TOKlt:
       case TOKle:
-        e = new CmpExp(op, stmt->loc, e1, e2);
+        e = createCmpExp(op, stmt->loc, e1, e2);
         break;
       default:
         llvm_unreachable("Unknown integer operation.");
@@ -3665,7 +3666,7 @@ struct AsmProcessor {
         }
         nextToken();
         e = parseAsmExp();
-        e = new AddrExp(stmt->loc, e);
+        e = createAddrExp(stmt->loc, e);
       } else {
         // primary exp
         break;
@@ -3703,9 +3704,9 @@ struct AsmProcessor {
 // semantic here?
 #ifndef ASM_X86_64
       // %% for tok64 really should use 64bit type
-      e = new IntegerExp(stmt->loc, token->uns64value, Type::tint32);
+      e = createIntegerExp(stmt->loc, token->uns64value, Type::tint32);
 #else
-      e = new IntegerExp(stmt->loc, token->uns64value, Type::tint64);
+      e = createIntegerExp(stmt->loc, token->uns64value, Type::tint64);
 #endif
       nextToken();
       break;
@@ -3713,7 +3714,7 @@ struct AsmProcessor {
     case TOKfloat64v:
     case TOKfloat80v:
       // %% need different types?
-      e = new RealExp(stmt->loc, token->float80value, Type::tfloat80);
+      e = createRealExp(stmt->loc, token->float80value, Type::tfloat80);
       nextToken();
       break;
     case TOKidentifier: {
@@ -3721,13 +3722,13 @@ struct AsmProcessor {
       nextToken();
 
       if (ident == Id::__LOCAL_SIZE) {
-        return new IdentifierExp(stmt->loc, ident);
+        return IdentifierExp::create(stmt->loc, ident);
       }
       if (ident == Id::dollar) {
       do_dollar:
-        return new IdentifierExp(stmt->loc, ident);
+        return IdentifierExp::create(stmt->loc, ident);
       } else {
-        e = new IdentifierExp(stmt->loc, ident);
+        e = IdentifierExp::create(stmt->loc, ident);
       }
 
       // If this is more than one component ref, it gets complicated:
@@ -3741,7 +3742,7 @@ struct AsmProcessor {
       while (token->value == TOKdot) {
         nextToken();
         if (token->value == TOKidentifier) {
-          e = new DotIdExp(stmt->loc, e, token->ident);
+          e = DotIdExp::create(stmt->loc, e, token->ident);
           nextToken();
         } else {
           stmt->error("expected identifier");
@@ -3801,11 +3802,11 @@ struct AsmProcessor {
         Dsymbol *scopesym;
         if (!sc->search(stmt->loc, ident, &scopesym)) {
           if (LabelDsymbol *labelsym = sc->func->searchLabel(ident)) {
-            e = new DsymbolExp(stmt->loc, labelsym);
+            e = createDsymbolExp(stmt->loc, labelsym);
             if (opTakesLabel()) {
               return e;
             }
-            return new AddrExp(stmt->loc, e);
+            return createAddrExp(stmt->loc, e);
           }
         }
       }
@@ -3819,7 +3820,7 @@ struct AsmProcessor {
         if (sym) {
           VarDeclaration *v = sym->isVarDeclaration();
           if (v) {
-            Expression *ve = new VarExp(stmt->loc, v);
+            Expression *ve = VarExp::create(stmt->loc, v);
             ve->type = e->type;
             e = ve;
           }

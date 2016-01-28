@@ -34,10 +34,10 @@
 // FIXME: this needs to be cleaned up
 
 void DtoResolveClass(ClassDeclaration *cd) {
-  if (cd->ir.isResolved()) {
+  if (cd->ir->isResolved()) {
     return;
   }
-  cd->ir.setResolved();
+  cd->ir->setResolved();
 
   IF_LOG Logger::println("DtoResolveClass(%s): %s", cd->toPrettyChars(),
                          cd->loc.toChars());
@@ -45,7 +45,7 @@ void DtoResolveClass(ClassDeclaration *cd) {
 
   // make sure the base classes are processed first
   for (auto bc : *cd->baseclasses) {
-    DtoResolveClass(bc->base);
+    DtoResolveClass(bc->sym);
   }
 
   // make sure type exists
@@ -466,7 +466,7 @@ static LLConstant *build_offti_entry(ClassDeclaration *cd, VarDeclaration *vd) {
 }
 
 static LLConstant *build_offti_array(ClassDeclaration *cd, LLType *arrayT) {
-  IrAggr *iraggr = cd->ir.irAggr;
+  IrAggr *iraggr = cd->ir->irAggr;
 
   size_t nvars = iraggr->varDecls.size();
   std::vector<LLConstant *> arrayInits(nvars);

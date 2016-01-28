@@ -24,6 +24,10 @@
 #include "expression.h"
 #include "visitor.h"
 
+#if IN_LLVM
+#include <cstdlib>
+#endif
+
 struct Scope;
 class Identifier;
 class Expression;
@@ -42,6 +46,8 @@ class Parameter;
 // Back end
 #ifdef IN_GCC
 typedef union tree_node type;
+#elif IN_LLVM
+typedef class IrType type;
 #else
 typedef struct TYPE type;
 #endif
@@ -241,7 +247,7 @@ public:
     char *toChars();
     char *toPrettyChars(bool QualifyTypes = false);
     static char needThisPrefix();
-    static void init();
+    static void _init();
 
     #define SIZE_INVALID (~(d_uns64)0)
     d_uns64 size();
@@ -342,8 +348,9 @@ public:
     virtual bool needsNested();
     void checkComplexTransition(Loc loc);
 
-    static void error(Loc loc, const char *format, ...);
-    static void warning(Loc loc, const char *format, ...);
+    // IN_LLVM: added IS_PRINTF(2);
+    static void error(Loc loc, const char *format, ...) IS_PRINTF(2);
+    static void warning(Loc loc, const char *format, ...) IS_PRINTF(2);
 
     // For eliminating dynamic_cast
     virtual TypeBasic *isTypeBasic();
@@ -399,6 +406,9 @@ public:
     Type *syntaxCopy();
     d_uns64 size(Loc loc);
     unsigned alignsize();
+#if IN_LLVM
+    uint32_t alignment();
+#endif
     Expression *getProperty(Loc loc, Identifier *ident, int flag);
     Expression *dotExp(Scope *sc, Expression *e, Identifier *ident, int flag);
     bool isintegral();
@@ -764,6 +774,12 @@ public:
     StructDeclaration *sym;
     AliasThisRec att;
 
+#if IN_LLVM
+    // cache the hasUnalignedFields check
+    // 0 = not checked, 1 = aligned, 2 = unaligned
+    int32_t unaligned;
+#endif
+
     TypeStruct(StructDeclaration *sym);
     const char *kind();
     d_uns64 size(Loc loc);
@@ -917,6 +933,7 @@ public:
     Expression *defaultArg;
 
     Parameter(StorageClass storageClass, Type *type, Identifier *ident, Expression *defaultArg);
+
     static Parameter *create(StorageClass storageClass, Type *type, Identifier *ident, Expression *defaultArg);
     Parameter *syntaxCopy();
     Type *isLazyArray();

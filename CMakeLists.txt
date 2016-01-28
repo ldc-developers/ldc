@@ -1,5 +1,5 @@
-project(ldc)
 cmake_minimum_required(VERSION 2.8)
+project(ldc)
 
 set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} "${CMAKE_SOURCE_DIR}/cmake/Modules")
 
@@ -7,6 +7,7 @@ if(MSVC)
     set(LIBCONFIG_DLL OFF CACHE BOOL "Use libconfig DLL instead of static library")
 endif()
 
+include(FindDCompiler)
 include(CheckIncludeFile)
 include(CheckLibraryExists)
 include(CheckCXXCompilerFlag)
@@ -31,6 +32,17 @@ find_package(LibConfig REQUIRED)
 # Get info about used Linux distribution.
 #
 include(GetLinuxDistribution)
+
+# Helper function
+function(append value)
+    foreach(variable ${ARGN})
+        if(${variable} STREQUAL "")
+            set(${variable} "${value}" PARENT_SCOPE)
+        else()
+            set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
+        endif()
+    endforeach(variable)
+endfunction()
 
 #
 # Main configuration.
@@ -72,10 +84,11 @@ if(D_VERSION EQUAL 1)
 Please consider using D version 2 or checkout the 'd1' git branch for the last version supporting D version 1.")
 elseif(D_VERSION EQUAL 2)
     set(DMDFE_PATH dmd2)
+    set(DDMDFE_PATH ddmd)
     set(LDC_EXE ldc2)
     set(LDMD_EXE ldmd2)
     set(RUNTIME druntime)
-    add_definitions(-DDMDV2)
+    append("-DDMDV2" CMAKE_CXX_FLAGS)
 else()
     message(FATAL_ERROR "unsupported D version")
 endif()
@@ -86,6 +99,7 @@ set(LDMD_EXE_NAME ${PROGRAM_PREFIX}${LDMD_EXE}${PROGRAM_SUFFIX})
 file(MAKE_DIRECTORY
     ${PROJECT_BINARY_DIR}
     ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+    ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
 )
 
 if(UNIX)
@@ -94,15 +108,65 @@ elseif(MSVC)
     ENABLE_LANGUAGE(ASM_MASM)
 endif()
 
-function(append value)
-    foreach(variable ${ARGN})
-        if(${variable} STREQUAL "")
-            set(${variable} "${value}" PARENT_SCOPE)
+# Setup D compiler flags and linker flags for phobos (system linker) etc.
+set(DDMD_DFLAGS "-wi")
+set(Dcode_LDFLAGS)
+get_filename_component(D_COMPILER_REALPATH "${D_COMPILER}" REALPATH)
+get_filename_component(D_COMPILER_PATH "${D_COMPILER_REALPATH}" PATH)
+if (WIN32)
+    STRING(REGEX REPLACE "/" "\\\\" D_COMPILER_PATH "${D_COMPILER_PATH}")
+endif()
+
+if(APPLE)
+    if(${D_COMPILER_ID} STREQUAL "DigitalMars")
+        append("-L${D_COMPILER_PATH}/../lib" Dcode_LDFLAGS)
+        append("-lphobos2" Dcode_LDFLAGS)
+    elseif(${D_COMPILER_ID} STREQUAL "LDC")
+        append("-L${D_COMPILER_PATH}/../lib" Dcode_LDFLAGS)
+        append("-ldruntime-ldc" Dcode_LDFLAGS)
+        append("-lphobos2-ldc" Dcode_LDFLAGS)
+    else()
+        message(WARNING "Compiler ID not supported: probably not good!")
+    endif()
+elseif(UNIX AND NOT APPLE)
+    if(${D_COMPILER_ID} STREQUAL "DigitalMars")
+        append("-L${D_COMPILER_PATH}/../lib64" Dcode_LDFLAGS)
+        append("-L${D_COMPILER_PATH}/../lib32" Dcode_LDFLAGS)
+        append("-lphobos2 -lrt" Dcode_LDFLAGS)
+    elseif(${D_COMPILER_ID} STREQUAL "LDC")
+        append("-L${D_COMPILER_PATH}/../lib" Dcode_LDFLAGS)
+        append("-ldruntime-ldc" Dcode_LDFLAGS)
+        append("-lphobos2-ldc" Dcode_LDFLAGS)
+    else()
+        message(WARNING "Compiler ID not supported: probably not good!")
+    endif()
+elseif(WIN32)
+    if(${D_COMPILER_ID} STREQUAL "DigitalMars")
+        # FIXME: Detect whether 32 or 64bit
+        set( IS_64_BIT 1 )
+        message(STATUS "Let DMD output 64bit object files")
+        if (IS_64_BIT)
+            append("-m64" DDMD_DFLAGS)
+            append("${D_COMPILER_PATH}\\..\\lib64\\phobos64.lib" Dcode_LDFLAGS)
         else()
-            set(${variable} "${${variable}} ${value}" PARENT_SCOPE)
+            append("-m32" DDMD_DFLAGS)
+            append("${D_COMPILER_PATH}\\..\\lib\\phobos.lib" Dcode_LDFLAGS)
         endif()
-    endforeach(variable)
-endfunction()
+    elseif(${D_COMPILER_ID} STREQUAL "LDC")
+        append("${D_COMPILER_PATH}\\..\\lib\\druntime-ldc.lib" Dcode_LDFLAGS)
+        append("${D_COMPILER_PATH}\\..\\lib\\phobos2-ldc.lib" Dcode_LDFLAGS)
+    else()
+        message(WARNING "Compiler ID not supported: probably not good!")
+    endif()
+else()
+    message(WARNING "Platform not supported: probably not good!")
+endif()
+if(MSVC)
+    append("legacy_stdio_definitions.lib" Dcode_LDFLAGS)
+endif()
+append("-J${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}" DDMD_DFLAGS) # Needed for importing text files
+string(STRIP "${Dcode_LDFLAGS}" Dcode_LDFLAGS)
+string(STRIP "${DDMD_DFLAGS}" DDMD_DFLAGS)
 
 # Use separate compiler flags for the frontend and for the LDC-specific parts,
 # as enabling warnings on the DMD frontend only leads to a lot of clutter in
@@ -134,7 +198,7 @@ elseif(MSVC)
     string(REGEX REPLACE "(^| )[/-]EH[-cs]*( |$)" "\\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     string(REGEX REPLACE "(^| )[/-]GR-?( |$)" "\\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     append("/GR- /EHs-c-" CMAKE_CXX_FLAGS)
-    add_definitions(/D_HAS_EXCEPTIONS=0)
+    append("/D_HAS_EXCEPTIONS=0" CMAKE_CXX_FLAGS)
 
     # warning C4018: signed/unsigned mismatch
     # warning C4101: unreferenced local variable
@@ -189,43 +253,90 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
     string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
 endif()
-#
-# Run idgen and impcnvgen.
-#
-set_source_files_properties(
-    ${DMDFE_PATH}/idgen.c
-    ${DMDFE_PATH}/impcnvgen.c
-    PROPERTIES LANGUAGE CXX
-)
-add_executable(idgen ${DMDFE_PATH}/idgen.c)
-add_executable(impcnvgen ${DMDFE_PATH}/impcnvgen.c)
-# cmake 2.4
-set_target_properties(
-    idgen impcnvgen PROPERTIES
-    LINKER_LANGUAGE CXX
-    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
-    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${DMD_CXXFLAGS}"
-    LINK_FLAGS "${SANITIZE_LDFLAGS}"
-)
 
+
+# Compiles the given D module into an object file.
+macro(Dcompile  input_d  output_dir  extra_d_flags  outlist_o)
+    if (IS_ABSOLUTE ${input_d})
+        file(RELATIVE_PATH output ${output_dir} ${input_d})
+    else()
+        set(output ${input_d})
+    endif()
+
+    get_filename_component(name ${output} NAME)
+    get_filename_component(path ${output} PATH)
+    if("${path}" STREQUAL "")
+        set(output_root ${name})
+    else()
+        set(output_root ${path}/${name})
+    endif()
+
+    set(output_o  ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${output_root}${CMAKE_C_OUTPUT_EXTENSION})
+    list(APPEND ${outlist_o} ${output_o})
+
+    separate_arguments(FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${extra_d_flags}")
+    add_custom_command(
+        OUTPUT ${output_o}
+        COMMAND ${D_COMPILER} ${FLAG_LIST} -c -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_o} ${input_d}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        DEPENDS ${input_d}
+    )
+endmacro()
+macro(Dcompilelib  input_d  output_dir  extra_d_flags  outlist_o)
+    if (IS_ABSOLUTE ${input_d})
+        file(RELATIVE_PATH output ${output_dir} ${input_d})
+    else()
+        set(output ${input_d})
+    endif()
+
+    get_filename_component(name ${output} NAME_WE)
+    get_filename_component(path ${output} PATH)
+    if("${path}" STREQUAL "")
+        set(output_root ${name})
+    else()
+        set(output_root ${path}/${name})
+    endif()
+
+    set(output_lib  ${CMAKE_CURRENT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/${output_root}${CMAKE_STATIC_LIBRARY_SUFFIX})
+    list(APPEND ${outlist_o} ${output_lib})
+
+    separate_arguments(FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${extra_d_flags}")
+    add_custom_command(
+        OUTPUT ${output_lib}
+        COMMAND ${D_COMPILER} ${FLAG_LIST} -lib -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_lib} ${input_d}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        DEPENDS ${input_d}
+    )
+endmacro()
+
+
+#
+# Run idgen.
+#
+Dcompile(${DDMDFE_PATH}/idgen.d ${PROJECT_SOURCE_DIR} ${DDMD_DFLAGS} idgen_o)
+add_executable(idgen ${idgen_o})
+set_target_properties(
+    idgen PROPERTIES
+    LINKER_LANGUAGE CXX
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
+    LINK_FLAGS "${Dcode_LDFLAGS} ${SANITIZE_LDFLAGS}"
+)
+if (UNIX)
+    target_link_libraries(idgen ${Dcode_LDFLAGS})
+endif()
 add_custom_command(
     OUTPUT
-        ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
-        ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
+        ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d
+        ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.h
     COMMAND idgen
-    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
     DEPENDS idgen
 )
-add_custom_command(
-    OUTPUT ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
-    COMMAND impcnvgen
-    WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
-    DEPENDS impcnvgen
+set(LDC_CXX_GENERATED
+    ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.h
 )
-set(LDC_GENERATED
-    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.c
-    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/id.h
-    ${PROJECT_BINARY_DIR}/${DMDFE_PATH}/impcnvtab.c
+set(LDC_D_GENERATED
+    ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d
 )
 
 #
@@ -257,8 +368,13 @@ configure_file(driver/ldc-version.cpp.in driver/ldc-version.cpp)
 # project files generated via CMake.
 file(GLOB_RECURSE FE_SRC ${DMDFE_PATH}/*.c)
 file(GLOB_RECURSE FE_HDR ${DMDFE_PATH}/*.h)
+file(GLOB_RECURSE FE_SRC_D ${DDMDFE_PATH}/*.d)
+file(GLOB_RECURSE FE_HDR_D ${DDMDFE_PATH}/*.h)
 file(GLOB_RECURSE GEN_SRC gen/*.cpp)
 file(GLOB_RECURSE GEN_HDR gen/*.h)
+file(GLOB_RECURSE GEN_SRC_D gen/*.d)
+file(GLOB_RECURSE DRV_SRC_D driver/*.d)
+file(GLOB_RECURSE IR_SRC_D ir/*.d)
 file(GLOB IR_SRC ir/*.cpp)
 file(GLOB IR_HDR ir/*.h)
 set(DRV_SRC
@@ -284,25 +400,32 @@ set(DRV_HDR
     driver/toobj.h
     driver/tool.h
 )
-# exclude idgen and impcnvgen and generated sources, just in case
-list(REMOVE_ITEM FE_SRC
-    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/idgen.c
-    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvgen.c
-    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/id.c
-    ${PROJECT_SOURCE_DIR}/${DMDFE_PATH}/impcnvtab.c
+# exclude idgen, dummy_main, and man.d
+list(REMOVE_ITEM FE_SRC_D
+    ${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}/idgen.d
+    ${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}/root/dummy_main.d
+    ${PROJECT_SOURCE_DIR}/${DDMDFE_PATH}/root/man.d
 )
-set(LDC_SOURCE_FILES
-    ${LDC_GENERATED}
+set(LDC_CXX_SOURCE_FILES
+    ${LDC_CXX_GENERATED}
     ${FE_SRC}
     ${FE_HDR}
+    ${FE_HDR_D}
     ${GEN_SRC}
     ${GEN_HDR}
     ${IR_SRC}
     ${IR_HDR}
 )
+set(LDC_D_SOURCE_FILES
+    ${LDC_D_GENERATED}
+    ${FE_SRC_D}
+    ${GEN_SRC_D}
+    ${DRV_SRC_D}
+    ${IR_SRC_D}
+)
 
 # DMD source files have a .c extension, but are actually C++ code.
-foreach(file ${LDC_SOURCE_FILES} ${DRV_SRC} ${DRV_HDR})
+foreach(file ${LDC_CXX_SOURCE_FILES} ${DRV_SRC} ${DRV_HDR})
     if(file MATCHES ".*\\.c$")
         set_source_files_properties(${file} PROPERTIES
             LANGUAGE CXX
@@ -317,11 +440,13 @@ endforeach()
 
 source_group("Source Files\\${DMDFE_PATH}" FILES ${FE_SRC})
 source_group("Header Files\\${DMDFE_PATH}" FILES ${FE_HDR})
+source_group("Source Files\\${DDMDFE_PATH}" FILES ${FE_SRC_D})
+source_group("Header Files\\${DDMDFE_PATH}" FILES ${FE_HDR_D})
 source_group("Source Files\\gen" FILES ${GEN_SRC})
 source_group("Header Files\\gen" FILES ${GEN_HDR})
 source_group("Source Files\\ir" FILES ${IR_SRC})
 source_group("Header Files\\ir" FILES ${IR_HDR})
-source_group("Generated Files" REGULAR_EXPRESSION "(id\\.[ch]|impcnvtab\\.c)$")
+source_group("Generated Files" REGULAR_EXPRESSION "(id\\.[cdh]|impcnvtab\\.c)$")
 
 #
 # Includes, defines.
@@ -331,30 +456,38 @@ include_directories(
     .
     ${DMDFE_PATH}
     ${DMDFE_PATH}/root
+    ${DDMDFE_PATH}
+    ${DDMDFE_PATH}/root
     ${PROJECT_BINARY_DIR}/${DMDFE_PATH}
+    ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
     ${PROJECT_SOURCE_DIR}
 )
 include_directories( SYSTEM
     ${LLVM_INCLUDE_DIRS}
     ${LIBCONFIG_INCLUDE_DIR}
 )
+append("-I${PROJECT_SOURCE_DIR}" DDMD_DFLAGS)
+append("-I${PROJECT_BINARY_DIR}" DDMD_DFLAGS)
+
 
 if(MSVC)
     include_directories(${PROJECT_SOURCE_DIR}/vcbuild)
     if(NOT LIBCONFIG_DLL)
-        add_definitions(-DLIBCONFIG_STATIC)
+        append("-DLIBCONFIG_STATIC" CMAKE_CXX_FLAGS)
     endif()
 endif()
 
-add_definitions(
-    -DIN_LLVM
-    -DOPAQUE_VTBLS
-    -DLDC_INSTALL_PREFIX="${CMAKE_INSTALL_PREFIX}"
-    -DLDC_LLVM_VER=${LDC_LLVM_VER}
-)
+if(MSVC)
+    append("-version=IN_LLVM_MSVC" DDMD_DFLAGS)
+endif()
+append("-version=IN_LLVM" DDMD_DFLAGS)
+append("-DIN_LLVM" CMAKE_CXX_FLAGS)
+append("-DOPAQUE_VTBLS" CMAKE_CXX_FLAGS)
+append("-DLDC_INSTALL_PREFIX=\\\"${CMAKE_INSTALL_PREFIX}\\\"" CMAKE_CXX_FLAGS)
+append("-DLDC_LLVM_VER=${LDC_LLVM_VER}" CMAKE_CXX_FLAGS)
 
 if(GENERATE_OFFTI)
-    add_definitions(-DGENERATE_OFFTI)
+    append("-DGENERATE_OFFTI" CMAKE_CXX_FLAGS)
 endif()
 
 # if llvm was built with assertions we have to do the same
@@ -375,9 +508,9 @@ endif()
 include(TestBigEndian)
 test_big_endian(BIGENDIAN)
 if(${BIGENDIAN})
-    add_definitions(-D__BIG_ENDIAN__)
+    append("-D__BIG_ENDIAN__" CMAKE_CXX_FLAGS)
 else()
-    add_definitions(-D__LITTLE_ENDIAN__)
+    append("-D__LITTLE_ENDIAN__" CMAKE_CXX_FLAGS)
 endif()
 
 #
@@ -423,6 +556,17 @@ if(TEST_COVERAGE)
 endif()
 
 #
+# Work around a terrible C++-D interop problem on Windows
+# See http://forum.dlang.org/post/caowrljxijchgmyyrtlr@forum.dlang.org
+# ${DMD_DUMMY_MAIN_FOR_EH_SYMBOLS} has to be added to add_executable listing, see e.g. for LDMD
+#
+if (WIN32)
+    Dcompilelib(${DDMDFE_PATH}/root/dummy_main.d ${PROJECT_SOURCE_DIR} ${DDMD_DFLAGS} DMD_DUMMY_MAIN_FOR_EH_SYMBOLS)
+else()
+    set(DMD_DUMMY_MAIN_FOR_EH_SYMBOLS)
+endif()
+
+#
 # Set up the main ldc/ldc2 target.
 #
 if(BUILD_SHARED)
@@ -431,8 +575,29 @@ else()
     set(LDC_LIB_TYPE STATIC)
 endif()
 
+# build D source in separate lib
+set(LDC_D_LIB LDC_D_Shared)
+foreach(f ${LDC_D_SOURCE_FILES})
+    Dcompile(${f} ${PROJECT_SOURCE_DIR} ${DDMD_DFLAGS} LDC_D_SOURCE_FILES_o)
+endforeach()
+add_library(${LDC_D_LIB} STATIC ${LDC_D_SOURCE_FILES_o})
+set_target_properties(
+    ${LDC_D_LIB} PROPERTIES
+    LINKER_LANGUAGE CXX
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+    LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
+    ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib
+    ARCHIVE_OUTPUT_NAME ldcD
+    LIBRARY_OUTPUT_NAME ldcD
+    RUNTIME_OUTPUT_NAME ldcD
+    LINK_FLAGS "${Dcode_LDFLAGS} ${SANITIZE_LDFLAGS}"
+)
+if (UNIX)
+    target_link_libraries(${LDC_D_LIB} ${Dcode_LDFLAGS})
+endif()
+
 set(LDC_LIB LDCShared)
-add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_SOURCE_FILES})
+add_library(${LDC_LIB} ${LDC_LIB_TYPE} ${LDC_CXX_SOURCE_FILES})
 set_target_properties(
     ${LDC_LIB} PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
@@ -460,9 +625,9 @@ set_target_properties(
     OUTPUT_NAME ${LDC_EXE_NAME}
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
-    LINK_FLAGS "${SANITIZE_LDFLAGS}"
+    LINK_FLAGS "${Dcode_LDFLAGS} ${SANITIZE_LDFLAGS}"
 )
-target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LIBCONFIG_LIBRARY} ${PTHREAD_LIBS} ${CMAKE_DL_LIBS} ${TERMINFO_LIBS})
+target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LDC_D_LIB} ${LDC_LIB} ${LIBCONFIG_LIBRARY} ${PTHREAD_LIBS} ${CMAKE_DL_LIBS} ${TERMINFO_LIBS} ${DMD_DUMMY_MAIN_FOR_EH_SYMBOLS})
 
 if(MSVC_IDE)
     # the IDE generator is a multi-config one
@@ -485,7 +650,7 @@ else()
     string(REGEX REPLACE "/llvm(/IR)?$" "" LLVM_INTRINSIC_TD_PATH ${LLVM_INTRINSIC_TD_PATH})
     message(STATUS "Using path for Intrinsics.td: ${LLVM_INTRINSIC_TD_PATH}")
 endif()
-add_definitions(-DLLVM_INTRINSIC_TD_PATH="${LLVM_INTRINSIC_TD_PATH}")
+append("-DLLVM_INTRINSIC_TD_PATH=\\\"${LLVM_INTRINSIC_TD_PATH}\\\"" CMAKE_CXX_FLAGS)
 
 add_executable(gen_gccbuiltins utils/gen_gccbuiltins.cpp)
 
@@ -517,24 +682,26 @@ else()
 endif()
 
 
-
 #
 # LDMD
 #
 include(CheckSymbolExists)
 CHECK_SYMBOL_EXISTS(_SC_ARG_MAX "unistd.h" HAVE_SC_ARG_MAX)
 if (HAVE_SC_ARG_MAX)
-   add_definitions(-DHAVE_SC_ARG_MAX)
+   append("-DHAVE_SC_ARG_MAX" CMAKE_CXX_FLAGS)
 endif()
 
-set_source_files_properties(driver/ldmd.cpp driver/response.cpp PROPERTIES
-    COMPILE_FLAGS "${LDC_CXXFLAGS}"
+set_source_files_properties(driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp PROPERTIES
+    COMPILE_FLAGS "${LDC_CXXFLAGS} ${LLVM_CXXFLAGS}"
 )
-add_executable(${LDMD_EXE} dmd2/root/man.c driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp driver/exe_path.h)
+
+Dcompile(${DDMDFE_PATH}/root/man.d ${PROJECT_SOURCE_DIR} ${DDMD_DFLAGS} LDMD_D_o)
+
+add_executable(${LDMD_EXE} driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp driver/exe_path.h ${LDMD_D_o} ${DMD_DUMMY_MAIN_FOR_EH_SYMBOLS})
 set_target_properties(${LDMD_EXE} PROPERTIES
+    LINKER_LANGUAGE CXX
     COMPILE_DEFINITIONS LDC_EXE_NAME="${LDC_EXE_NAME}"
-    COMPILE_FLAGS "${LLVM_CXXFLAGS}"
-    LINK_FLAGS "${SANITIZE_LDFLAGS}"
+    LINK_FLAGS "${Dcode_LDFLAGS} ${SANITIZE_LDFLAGS}"
     OUTPUT_NAME "${LDMD_EXE_NAME}"
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
 )
@@ -542,7 +709,10 @@ set_target_properties(${LDMD_EXE} PROPERTIES
 # use symbols from libdl, ..., so LLVM_LDFLAGS must come _after_ them in the
 # command line. Maybe this could be improved using library groups, at least with
 # GNU ld.
-target_link_libraries(${LDMD_EXE} ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} "${LLVM_LDFLAGS}")
+target_link_libraries(${LDMD_EXE} ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} "${LLVM_LDFLAGS}" ${DMD_DUMMY_MAIN_FOR_EH_SYMBOLS})
+if (UNIX)
+    target_link_libraries(${LDMD_EXE} "${Dcode_LDFLAGS}")
+endif()
 
 #
 # Test and runtime targets. Note that enable_testing() is order-sensitive!

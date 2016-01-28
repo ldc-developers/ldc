@@ -107,13 +107,13 @@ static void assemble(const std::string &asmpath, const std::string &objpath) {
   // Only specify -m32/-m64 for architectures where the two variants actually
   // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
   // MIPS does not have -m32/-m64 but requires -mabi=.
-  if (global.params.targetTriple.get64BitArchVariant().getArch() !=
+  if (global.params.targetTriple->get64BitArchVariant().getArch() !=
           llvm::Triple::UnknownArch &&
-      global.params.targetTriple.get32BitArchVariant().getArch() !=
+      global.params.targetTriple->get32BitArchVariant().getArch() !=
           llvm::Triple::UnknownArch) {
-    if (global.params.targetTriple.get64BitArchVariant().getArch() ==
+    if (global.params.targetTriple->get64BitArchVariant().getArch() ==
             llvm::Triple::mips64 ||
-        global.params.targetTriple.get64BitArchVariant().getArch() ==
+        global.params.targetTriple->get64BitArchVariant().getArch() ==
             llvm::Triple::mips64el) {
       switch (getMipsABI()) {
       case MipsABI::EABI:
@@ -343,7 +343,7 @@ void writeModule(llvm::Module *m, std::string filename) {
   bool const assembleExternally =
       global.params.output_o &&
       (NoIntegratedAssembler ||
-       global.params.targetTriple.getOS() == llvm::Triple::AIX);
+       global.params.targetTriple->getOS() == llvm::Triple::AIX);
 
   // eventually do our own path stuff, dmd's is a bit strange.
   typedef llvm::SmallString<128> LLPath;

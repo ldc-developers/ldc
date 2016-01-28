@@ -57,6 +57,10 @@ import ddmd.target;
 import ddmd.tokens;
 import ddmd.visitor;
 
+version(IN_LLVM) {
+    import gen.llvmhelpers;
+}
+
 enum LOGDOTEXP = 0;         // log ::dotExp()
 enum LOGDEFAULTINIT = 0;    // log ::defaultInit()
 
@@ -2425,7 +2429,14 @@ public:
             if (tb.ty == Tstruct && tb.needsNested())
             {
                 StructLiteralExp se = cast(StructLiteralExp)e;
+version(IN_LLVM)
+{
+                se.sinit = cast(SymbolDeclaration) (cast(VarExp) defaultInit(loc)).var;
+}
+else
+{
                 se.sinit = toInitializer(se.sd);
+}
             }
         }
         else if (ident == Id._mangleof)
@@ -2509,6 +2520,19 @@ public:
             }
             else if (ident == Id._init)
             {
+version(IN_LLVM)
+{
+                // LDC_FIXME: Port the below (from 2.061).
+                if (toBasetype.ty == Tstruct &&
+                    (cast(TypeStruct)toBasetype()).sym.isNested())
+                {
+                    e = defaultInit(e.loc);
+                }
+                else
+                    e = defaultInitLiteral(e.loc);
+}
+else
+{
                 Type tb = toBasetype();
                 e = defaultInitLiteral(e.loc);
                 if (tb.ty == Tstruct && tb.needsNested())
@@ -2516,6 +2540,7 @@ public:
                     StructLiteralExp se = cast(StructLiteralExp)e;
                     se.sinit = toInitializer(se.sd);
                 }
+}
                 goto Lreturn;
             }
         }
@@ -2671,7 +2696,7 @@ public:
         //printf("%p, deco = %s, name = %s\n", this, deco, name);
         assert(strlen(name) < namelen); // don't overflow the buffer
         size_t off = 0;
-        static if (!IN_GCC)
+        static if (!IN_GCC && !IN_LLVM)
         {
             if (global.params.isOSX || global.params.isWindows && !global.params.is64bit)
                 ++off; // C mangling will add '_' back in
@@ -3467,6 +3492,19 @@ public:
         return Target.alignsize(this);
     }
 
+version(IN_LLVM)
+{
+    override uint alignment()
+    {
+        if ( (ty == Tfloat80 || ty == Timaginary80) && (size(Loc()) > 8)
+             && isArchx86_64() )
+        {
+            return 16;
+        }
+        return Type.alignment();
+    }
+}
+
     override Expression getProperty(Loc loc, Identifier ident, int flag)
     {
         Expression e;
@@ -4200,10 +4238,17 @@ public:
         }
         if (ident == Id.array)
         {
+version(IN_LLVM)
+{
+            e = e.castTo(sc, basetype);
+}
+else
+{
             //e = e->castTo(sc, basetype);
             // Keep lvalue-ness
             e = e.copy();
             e.type = basetype;
+}
             return e;
         }
         if (ident == Id._init || ident == Id.offsetof || ident == Id.stringof)
@@ -7748,6 +7793,13 @@ public:
     StructDeclaration sym;
     AliasThisRec att = RECfwdref;
 
+    version(IN_LLVM)
+    {
+        // cache the hasUnalignedFields check
+        // 0 = not checked, 1 = aligned, 2 = unaligned
+        int unaligned;
+    }
+
     extern (D) this(StructDeclaration sym)
     {
         super(Tstruct);
@@ -8095,7 +8147,12 @@ public:
          * otherwise the literals expressed as code get excessively large.
          */
         if (size(loc) > Target.ptrsize * 4 && !needsNested())
-            structinit.sinit = toInitializer(sym);
+        {
+            version(IN_LLVM)
+                structinit.sinit = cast(SymbolDeclaration) (cast(VarExp)defaultInit(loc)).var;
+            else
+                structinit.sinit = toInitializer(sym);
+        }
         structinit.type = this;
         return structinit;
     }

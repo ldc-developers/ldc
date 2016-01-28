@@ -10,7 +10,8 @@
 #include "gen/runtime.h"
 #include "aggregate.h"
 #include "dsymbol.h"
-#include "lexer.h"
+#include "tokens.h"
+#include "ldcbindings.h"
 #include "mars.h"
 #include "module.h"
 #include "mtype.h"
@@ -183,9 +184,9 @@ static Type *rt_dg1() {
     return dg_t;
 
   auto params = new Parameters();
-  params->push(new Parameter(0, Type::tvoidptr, nullptr, nullptr));
-  auto fty = new TypeFunction(params, Type::tint32, 0, LINKd);
-  dg_t = new TypeDelegate(fty);
+  params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr));
+  auto fty = TypeFunction::create(params, Type::tint32, 0, LINKd);
+  dg_t = createTypeDelegate(fty);
   return dg_t;
 }
 
@@ -196,10 +197,10 @@ static Type *rt_dg2() {
     return dg2_t;
 
   auto params = new Parameters();
-  params->push(new Parameter(0, Type::tvoidptr, nullptr, nullptr));
-  params->push(new Parameter(0, Type::tvoidptr, nullptr, nullptr));
-  auto fty = new TypeFunction(params, Type::tint32, 0, LINKd);
-  dg2_t = new TypeDelegate(fty);
+  params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr));
+  params->push(Parameter::create(0, Type::tvoidptr, nullptr, nullptr));
+  auto fty = TypeFunction::create(params, Type::tint32, 0, LINKd);
+  dg2_t = createTypeDelegate(fty);
   return dg2_t;
 }
 
@@ -232,11 +233,11 @@ static void createFwdDecl(LINK linkage, Type *returntype,
     params = new Parameters();
     for (size_t i = 0, e = paramtypes.size(); i < e; ++i) {
       StorageClass stc = paramsSTC.empty() ? 0 : paramsSTC[i];
-      params->push(new Parameter(stc, paramtypes[i], nullptr, nullptr));
+      params->push(Parameter::create(stc, paramtypes[i], nullptr, nullptr));
     }
   }
   int varargs = 0;
-  auto dty = new TypeFunction(params, returntype, varargs, linkage);
+  auto dty = TypeFunction::create(params, returntype, varargs, linkage);
 
   // the call to DtoType performs many actions such as rewriting the function
   // type and storing it in dty
@@ -618,12 +619,12 @@ static void buildRuntimeModule() {
 
   // int _d_eh_personality(...)
   {
-    if (global.params.targetTriple.isWindowsMSVCEnvironment()) {
+    if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
       // (ptr ExceptionRecord, ptr EstablisherFrame, ptr ContextRecord,
       //  ptr DispatcherContext)
       createFwdDecl(LINKc, intTy, {"_d_eh_personality"},
                     {voidPtrTy, voidPtrTy, voidPtrTy, voidPtrTy});
-    } else if (global.params.targetTriple.getArch() == llvm::Triple::arm) {
+    } else if (global.params.targetTriple->getArch() == llvm::Triple::arm) {
       // (int state, ptr ucb, ptr context)
       createFwdDecl(LINKc, intTy, {"_d_eh_personality"},
                     {intTy, voidPtrTy, voidPtrTy});
@@ -652,14 +653,14 @@ static void buildRuntimeModule() {
       {objectTy});
 
   // void _d_dso_registry(CompilerDSOData* data)
-  if (global.params.targetTriple.isOSLinux() || global.params.targetTriple.isOSFreeBSD() ||
+  if (global.params.targetTriple->isOSLinux() || global.params.targetTriple->isOSFreeBSD() ||
 #if LDC_LLVM_VER > 305
-      global.params.targetTriple.isOSNetBSD() || global.params.targetTriple.isOSOpenBSD() ||
-      global.params.targetTriple.isOSDragonFly()
+      global.params.targetTriple->isOSNetBSD() || global.params.targetTriple->isOSOpenBSD() ||
+      global.params.targetTriple->isOSDragonFly()
 #else
-      global.params.targetTriple.getOS() == llvm::Triple::NetBSD ||
-      global.params.targetTriple.getOS() == llvm::Triple::OpenBSD ||
-      global.params.targetTriple.getOS() == llvm::Triple::DragonFly
+      global.params.targetTriple->getOS() == llvm::Triple::NetBSD ||
+      global.params.targetTriple->getOS() == llvm::Triple::OpenBSD ||
+      global.params.targetTriple->getOS() == llvm::Triple::DragonFly
 #endif
      ) {
     llvm::StringRef fname("_d_dso_registry");

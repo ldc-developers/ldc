@@ -485,6 +485,7 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
       fatal();
     }
 
+    assert(fndecl->intrinsicName);
     static const char *ops[] = {"xchg", "add", "sub", "and",  "nand", "or",
                                 "xor",  "max", "min", "umax", "umin", nullptr};
 
@@ -492,10 +493,10 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
     for (;; ++op) {
       if (ops[op] == nullptr) {
         e->error("unknown atomic_rmw operation %s",
-                 fndecl->intrinsicName.c_str());
+                 fndecl->intrinsicName);
         fatal();
       }
-      if (fndecl->intrinsicName == ops[op]) {
+      if (strcmp(fndecl->intrinsicName, ops[op]) == 0) {
         break;
       }
     }

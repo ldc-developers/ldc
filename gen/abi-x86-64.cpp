@@ -28,6 +28,7 @@
 #include "gen/abi-x86-64.h"
 #include "aggregate.h"
 #include "declaration.h"
+#include "ldcbindings.h"
 #include "mtype.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-x86-64.h"
@@ -415,6 +416,6 @@ Type *X86_64TargetABI::vaListType() {
   // using TypeIdentifier here is a bit wonky but works, as long as the name
   // is actually available in the scope (this is what DMD does, so if a better
   // solution is found there, this should be adapted).
-  return (new TypeIdentifier(Loc(), Identifier::idPool("__va_list_tag")))
+  return (createTypeIdentifier(Loc(), Identifier::idPool("__va_list_tag")))
       ->pointerTo();
 }

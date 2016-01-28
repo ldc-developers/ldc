@@ -102,13 +102,13 @@ static bool struct_init_data_sort(const VarInitConst &a,
 
 // helper function that returns the static default initializer of a variable
 LLConstant *get_default_initializer(VarDeclaration *vd) {
-  if (vd->init) {
+  if (vd->_init) {
     // Issue 9057 workaround caused by issue 14666 fix, see DMD upstream
     // commit 069f570005.
-    if (vd->sem < Semantic2Done && vd->scope) {
-      vd->semantic2(vd->scope);
+    if (vd->sem < Semantic2Done && vd->_scope) {
+      vd->semantic2(vd->_scope);
     }
-    return DtoConstInitializer(vd->init->loc, vd->type, vd->init);
+    return DtoConstInitializer(vd->_init->loc, vd->type, vd->_init);
   }
 
   if (vd->type->size(vd->loc) == 0) {
@@ -236,8 +236,8 @@ void IrAggr::addFieldInitializers(
             dchar b = 'a';
         }
     */
-    if (decl->isUnionDeclaration() && vd->init &&
-        vd->init->isVoidInitializer()) {
+    if (decl->isUnionDeclaration() && vd->_init &&
+        vd->_init->isVoidInitializer()) {
       continue;
     }
 
@@ -346,16 +346,16 @@ void IrAggr::addFieldInitializers(
 
 IrAggr *getIrAggr(AggregateDeclaration *decl, bool create) {
   if (!isIrAggrCreated(decl) && create) {
-    assert(decl->ir.irAggr == NULL);
-    decl->ir.irAggr = new IrAggr(decl);
-    decl->ir.m_type = IrDsymbol::AggrType;
+    assert(decl->ir->irAggr == NULL);
+    decl->ir->irAggr = new IrAggr(decl);
+    decl->ir->m_type = IrDsymbol::AggrType;
   }
-  assert(decl->ir.irAggr != NULL);
-  return decl->ir.irAggr;
+  assert(decl->ir->irAggr != NULL);
+  return decl->ir->irAggr;
 }
 
 bool isIrAggrCreated(AggregateDeclaration *decl) {
-  int t = decl->ir.type();
+  int t = decl->ir->type();
   assert(t == IrDsymbol::AggrType || t == IrDsymbol::NotSet);
   return t == IrDsymbol::AggrType;
 }

@@ -70,25 +70,6 @@ struct AsmCode {
   }
 };
 
-AsmStatement::AsmStatement(Loc loc, Token *tokens) : Statement(loc) {
-  this->tokens = tokens; // Do I need to copy these?
-  asmcode = nullptr;
-  asmalign = 0;
-  refparam = 0;
-  naked = 0;
-
-  isBranchToLabel = nullptr;
-}
-
-Statement *AsmStatement::syntaxCopy() {
-  // copy tokens? copy 'code'?
-  auto a_s = new AsmStatement(loc, tokens);
-  a_s->asmcode = asmcode;
-  a_s->refparam = refparam;
-  a_s->naked = naked;
-  return a_s;
-}
-
 struct AsmParserCommon {
   virtual ~AsmParserCommon() = default;
   virtual void run(Scope *sc, AsmStatement *asmst) = 0;
@@ -121,7 +102,7 @@ static void replace_func_name(IRState *p, std::string &insnt) {
 
 Statement *asmSemantic(AsmStatement *s, Scope *sc) {
   bool err = false;
-  llvm::Triple const t = global.params.targetTriple;
+  llvm::Triple const &t = *global.params.targetTriple;
   if (!(t.getArch() == llvm::Triple::x86 ||
         t.getArch() == llvm::Triple::x86_64)) {
     s->error("inline asm is not supported for the \"%s\" architecture",
@@ -752,30 +733,6 @@ void CompoundAsmStatement_toIR(CompoundAsmStatement *stmt, IRState *p) {
 
     p->scope() = IRScope(bb);
   }
-}
-
-//////////////////////////////////////////////////////////////////////////////
-
-CompoundAsmStatement *Statement::endsWithAsm() {
-  // does not end with inline asm
-  return nullptr;
-}
-
-CompoundAsmStatement *CompoundStatement::endsWithAsm() {
-  // make the last inner statement decide
-  if (statements && statements->dim) {
-    unsigned last = statements->dim - 1;
-    Statement *s = (*statements)[last];
-    if (s) {
-      return s->endsWithAsm();
-    }
-  }
-  return nullptr;
-}
-
-CompoundAsmStatement *CompoundAsmStatement::endsWithAsm() {
-  // yes this is inline asm
-  return this;
 }
 
 //////////////////////////////////////////////////////////////////////////////

@@ -372,8 +372,15 @@ struct Scope
         {
             size_t dim = fieldinit_dim;
             fi = cast(uint*)mem.xmalloc(uint.sizeof * dim);
+version(IN_LLVM)
+{           // ASan
+            memcpy(fi, fieldinit, (*fi).sizeof * dim);
+}
+else
+{
             for (size_t i = 0; i < dim; i++)
                 fi[i] = fieldinit[i];
+}
         }
         return fi;
     }

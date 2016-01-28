@@ -50,6 +50,13 @@ class StringExp;
 class ArrayExp;
 class SliceExp;
 struct UnionExp;
+#if IN_LLVM
+class SymbolDeclaration;
+namespace llvm {
+    class GlobalVariable;
+    class Value;
+}
+#endif
 
 void initPrecedence();
 
@@ -128,8 +135,12 @@ public:
     unsigned char size;         // # of bytes in Expression so we can copy() it
     unsigned char parens;       // if this is a parenthesized expression
 
+#if IN_LLVM
+    llvm::Value* cachedLvalue;
+#endif
+
     Expression(Loc loc, TOK op, int size);
-    static void init();
+    static void _init();
     Expression *copy();
     virtual Expression *syntaxCopy();
     virtual Expression *semantic(Scope *sc);
@@ -467,7 +478,24 @@ public:
     Expressions *elements;      // parallels sd->fields[] with NULL entries for fields to skip
     Type *stype;                // final type of result (can be different from sd's type)
 
+#if IN_LLVM
+    // With the introduction of pointers returned from CTFE, struct literals can
+    // now contain pointers to themselves. While in toElem, contains a pointer
+    // to the memory used to build the literal for resolving such references.
+    llvm::Value* inProgressMemory;
+
+    // A global variable for taking the address of this struct literal constant,
+    // if it already exists. Used to resolve self-references.
+    llvm::GlobalVariable *globalVar;
+
+    /// Set if this is really the result of a struct .init access and should be
+    /// resolved codegen'd as an access to the given SymbolDeclaration.
+    // LDC_FIXME: Figure out whether this, i.e. imitating the DMD behavior, is
+    // really the best way to fix the nested struct constant folding issue.
+    SymbolDeclaration *sinit;
+#else
     Symbol *sinit;              // if this is a defaultInitLiteral, this symbol contains the default initializer
+#endif
     Symbol *sym;                // back end symbol to initialize with literal
     size_t soffset;             // offset from start of s
     int fillHoles;              // fill alignment 'holes' with zero
@@ -1643,6 +1671,5 @@ void sliceAssignStringFromString(StringExp *existingSE, StringExp *newstr, size_
 
 int sliceCmpStringWithString(StringExp *se1, StringExp *se2, size_t lo1, size_t lo2, size_t len);
 int sliceCmpStringWithArray(StringExp *se1, ArrayLiteralExp *ae2, size_t lo1, size_t lo2, size_t len);
-
 
 #endif /* DMD_EXPRESSION_H */

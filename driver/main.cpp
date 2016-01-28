@@ -9,17 +9,16 @@
 
 #include "module.h"
 #include "errors.h"
-#include "doc.h"
 #include "id.h"
 #include "hdrgen.h"
 #include "json.h"
 #include "mars.h"
 #include "mtype.h"
-#include "parse.h"
+#include "identifier.h"
 #include "rmem.h"
 #include "root.h"
 #include "scope.h"
-#include "dmd2/target.h"
+#include "ddmd/target.h"
 #include "driver/cl_options.h"
 #include "driver/codegenerator.h"
 #include "driver/configfile.h"
@@ -66,6 +65,15 @@
 
 // in traits.c
 void initTraitsStringTable();
+
+// In ddmd/lexer.d
+void Lexer_initLexer();
+
+// In ddmd/doc.d
+void gendocfile(Module *m);
+
+// In driver/main.d
+void writeModuleDependencyFile();
 
 using namespace opts;
 
@@ -146,7 +154,7 @@ static void processVersions(std::vector<std::string> &list, const char *type,
       }
     } else {
       char *cstr = mem.xstrdup(value);
-      if (Lexer::isValidIdentifier(cstr)) {
+      if (Identifier::isValidIdentifier(cstr)) {
         addIdent(cstr);
         continue;
       } else {
@@ -604,7 +612,7 @@ static void registerPredefinedFloatABI(const char *soft, const char *hard,
 /// Registers the predefined versions specific to the current target triple
 /// and other target specific options with VersionCondition.
 static void registerPredefinedTargetVersions() {
-  switch (global.params.targetTriple.getArch()) {
+  switch (global.params.targetTriple->getArch()) {
   case llvm::Triple::x86:
     VersionCondition::addPredefinedGlobalIdent("X86");
     if (global.params.useInlineAsm) {
@@ -627,9 +635,9 @@ static void registerPredefinedTargetVersions() {
   case llvm::Triple::ppc64le:
     VersionCondition::addPredefinedGlobalIdent("PPC64");
     registerPredefinedFloatABI("PPC_SoftFloat", "PPC_HardFloat");
-    if (global.params.targetTriple.getOS() == llvm::Triple::Linux) {
+    if (global.params.targetTriple->getOS() == llvm::Triple::Linux) {
       VersionCondition::addPredefinedGlobalIdent(
-          global.params.targetTriple.getArch() == llvm::Triple::ppc64
+          global.params.targetTriple->getArch() == llvm::Triple::ppc64
               ? "ELFv1"
               : "ELFv2");
     }
@@ -692,7 +700,7 @@ static void registerPredefinedTargetVersions() {
     break;
   default:
     error(Loc(), "invalid cpu architecture specified: %s",
-          global.params.targetTriple.getArchName().str().c_str());
+          global.params.targetTriple->getArchName().str().c_str());
     fatal();
   }
 
@@ -715,27 +723,27 @@ static void registerPredefinedTargetVersions() {
   // parse the OS out of the target triple
   // see http://gcc.gnu.org/install/specific.html for details
   // also llvm's different SubTargets have useful information
-  switch (global.params.targetTriple.getOS()) {
+  switch (global.params.targetTriple->getOS()) {
   case llvm::Triple::Win32:
     VersionCondition::addPredefinedGlobalIdent("Windows");
     VersionCondition::addPredefinedGlobalIdent(global.params.is64bit ? "Win64"
                                                                      : "Win32");
-    if (global.params.targetTriple.isKnownWindowsMSVCEnvironment()) {
+    if (global.params.targetTriple->isKnownWindowsMSVCEnvironment()) {
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Microsoft");
     }
-    if (global.params.targetTriple.isWindowsGNUEnvironment()) {
+    if (global.params.targetTriple->isWindowsGNUEnvironment()) {
       VersionCondition::addPredefinedGlobalIdent(
           "mingw32"); // For backwards compatibility.
       VersionCondition::addPredefinedGlobalIdent("MinGW");
     }
-    if (global.params.targetTriple.isWindowsCygwinEnvironment()) {
+    if (global.params.targetTriple->isWindowsCygwinEnvironment()) {
       error(Loc(), "Cygwin is not yet supported");
       fatal();
       VersionCondition::addPredefinedGlobalIdent("Cygwin");
     }
     break;
   case llvm::Triple::Linux:
-    if (global.params.targetTriple.getEnvironment() == llvm::Triple::Android) {
+    if (global.params.targetTriple->getEnvironment() == llvm::Triple::Android) {
       VersionCondition::addPredefinedGlobalIdent("Android");
       VersionCondition::addPredefinedGlobalIdent("CRuntime_Bionic");
     } else {
@@ -780,13 +788,13 @@ static void registerPredefinedTargetVersions() {
     VersionCondition::addPredefinedGlobalIdent("Posix");
     break;
   default:
-    switch (global.params.targetTriple.getEnvironment()) {
+    switch (global.params.targetTriple->getEnvironment()) {
     case llvm::Triple::Android:
       VersionCondition::addPredefinedGlobalIdent("Android");
       break;
     default:
       error(Loc(), "target '%s' is not yet supported",
-            global.params.targetTriple.str().c_str());
+            global.params.targetTriple->str().c_str());
       fatal();
     }
   }
@@ -891,7 +899,7 @@ static void emitJson(Modules &modules) {
 
     ensurePathToNameExists(Loc(), jsonfilename);
 
-    auto jsonfile = new File(jsonfilename);
+    auto jsonfile = File::create(jsonfilename);
 
     jsonfile->setbuffer(buf.data, buf.offset);
     jsonfile->ref = 1;
@@ -905,7 +913,7 @@ int main(int argc, char **argv) {
 
   exe_path::initialize(argv[0], reinterpret_cast<void *>(main));
 
-  global.init();
+  global._init();
   global.version = ldc::dmd_version;
   global.ldc_version = ldc::ldc_version;
   global.llvm_version = ldc::llvm_version;
@@ -970,11 +978,11 @@ int main(int argc, char **argv) {
 #endif
 
   {
-    llvm::Triple triple = llvm::Triple(gTargetMachine->getTargetTriple());
+    llvm::Triple *triple = new llvm::Triple(gTargetMachine->getTargetTriple());
     global.params.targetTriple = triple;
-    global.params.isWindows = triple.isOSWindows();
+    global.params.isWindows = triple->isOSWindows();
     global.params.isLP64 = gDataLayout->getPointerSizeInBits() == 64;
-    global.params.is64bit = triple.isArch64Bit();
+    global.params.is64bit = triple->isArch64Bit();
   }
 
   // allocate the target abi
@@ -984,7 +992,7 @@ int main(int argc, char **argv) {
   registerPredefinedVersions();
   dumpPredefinedVersions();
 
-  if (global.params.targetTriple.isOSWindows()) {
+  if (global.params.targetTriple->isOSWindows()) {
     global.dll_ext = "dll";
     global.lib_ext = "lib";
   } else {
@@ -993,13 +1001,12 @@ int main(int argc, char **argv) {
   }
 
   // Initialization
-  Lexer::initLexer();
-  Type::init();
+  Lexer_initLexer();
+  Type::_init();
   Id::initialize();
-  Module::init();
-  Target::init();
-  Expression::init();
-  initPrecedence();
+  Module::_init();
+  Target::_init();
+  Expression::_init();
   builtin_init();
   initTraitsStringTable();
 
@@ -1134,8 +1141,8 @@ int main(int argc, char **argv) {
     }
 
     id = Identifier::idPool(name);
-    auto m = new Module(files.data[i], id, global.params.doDocComments,
-                        global.params.doHdrGeneration);
+    auto m = Module::create(files.data[i], id, global.params.doDocComments,
+                            global.params.doHdrGeneration);
     modules.push(m);
   }
 
@@ -1159,7 +1166,7 @@ int main(int argc, char **argv) {
     }
 
     m->parse(global.params.doDocComments);
-    m->buildTargetFiles(singleObj, createSharedLib || createStaticLib);
+    buildTargetFiles(m, singleObj, createSharedLib || createStaticLib);
     m->deleteObjFile();
     if (m->isDocFile) {
       gendocfile(m);
@@ -1245,12 +1252,7 @@ int main(int argc, char **argv) {
 
   // Now that we analyzed all modules, write the module dependency file if
   // the user requested it.
-  if (global.params.moduleDepsFile != nullptr) {
-    File deps(global.params.moduleDepsFile);
-    OutBuffer *ob = global.params.moduleDeps;
-    deps.setbuffer(static_cast<void *>(ob->data), ob->offset);
-    deps.write();
-  }
+  writeModuleDependencyFile();
 
   // Generate one or more object/IR/bitcode files.
   if (global.params.obj && !modules.empty()) {

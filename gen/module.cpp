@@ -74,57 +74,57 @@ static void check_and_add_output_file(Module *NewMod, const std::string &str) {
   files.insert(std::make_pair(str, NewMod));
 }
 
-void Module::buildTargetFiles(bool singleObj, bool library) {
-  if (objfile && (!doDocComment || docfile) && (!doHdrGen || hdrfile)) {
+void buildTargetFiles(Module *m, bool singleObj, bool library) {
+  if (m->objfile && (!m->doDocComment || m->docfile) && (!m->doHdrGen || m->hdrfile)) {
     return;
   }
 
-  if (!objfile) {
+  if (!m->objfile) {
     const char *objname = library ? nullptr : global.params.objname;
     if (global.params.output_o) {
-      objfile = Module::buildFilePath(objname, global.params.objdir,
-                                      global.params.targetTriple.isOSWindows()
+      m->objfile = m->buildFilePath(objname, global.params.objdir,
+                                      global.params.targetTriple->isOSWindows()
                                           ? global.obj_ext_alt
-                                          : global.obj_ext);
+                                          : global.obj_ext, library, fqnNames);
     } else if (global.params.output_bc) {
-      objfile =
-          Module::buildFilePath(objname, global.params.objdir, global.bc_ext);
+      m->objfile =
+          m->buildFilePath(objname, global.params.objdir, global.bc_ext, library, fqnNames);
     } else if (global.params.output_ll) {
-      objfile =
-          Module::buildFilePath(objname, global.params.objdir, global.ll_ext);
+      m->objfile =
+          m->buildFilePath(objname, global.params.objdir, global.ll_ext, library, fqnNames);
     } else if (global.params.output_s) {
-      objfile =
-          Module::buildFilePath(objname, global.params.objdir, global.s_ext);
+      m->objfile =
+          m->buildFilePath(objname, global.params.objdir, global.s_ext, library, fqnNames);
     }
   }
-  if (doDocComment && !docfile) {
-    docfile = Module::buildFilePath(global.params.docname, global.params.docdir,
-                                    global.doc_ext);
+  if (m->doDocComment && !m->docfile) {
+    m->docfile = m->buildFilePath(global.params.docname, global.params.docdir,
+                                    global.doc_ext, library, fqnNames);
   }
-  if (doHdrGen && !hdrfile) {
-    hdrfile = Module::buildFilePath(global.params.hdrname, global.params.hdrdir,
-                                    global.hdr_ext);
+  if (m->doHdrGen && !m->hdrfile) {
+    m->hdrfile = m->buildFilePath(global.params.hdrname, global.params.hdrdir,
+                                    global.hdr_ext, library, fqnNames);
   }
 
   // safety check: never allow obj, doc or hdr file to have the source file's
   // name
-  if (Port::stricmp(FileName::name(objfile->name->str),
-                    FileName::name(this->arg)) == 0) {
-    error("Output object files with the same name as the source file are "
+  if (Port::stricmp(FileName::name(m->objfile->name->str),
+                    FileName::name(m->arg)) == 0) {
+    m->error("Output object files with the same name as the source file are "
           "forbidden");
     fatal();
   }
-  if (docfile &&
-      Port::stricmp(FileName::name(docfile->name->str),
-                    FileName::name(this->arg)) == 0) {
-    error(
+  if (m->docfile &&
+      Port::stricmp(FileName::name(m->docfile->name->str),
+                    FileName::name(m->arg)) == 0) {
+    m->error(
         "Output doc files with the same name as the source file are forbidden");
     fatal();
   }
-  if (hdrfile &&
-      Port::stricmp(FileName::name(hdrfile->name->str),
-                    FileName::name(this->arg)) == 0) {
-    error("Output header files with the same name as the source file are "
+  if (m->hdrfile &&
+      Port::stricmp(FileName::name(m->hdrfile->name->str),
+                    FileName::name(m->arg)) == 0) {
+    m->error("Output header files with the same name as the source file are "
           "forbidden");
     fatal();
   }
@@ -132,53 +132,14 @@ void Module::buildTargetFiles(bool singleObj, bool library) {
   // LDC
   // another safety check to make sure we don't overwrite previous output files
   if (!singleObj && global.params.obj) {
-    check_and_add_output_file(this, objfile->name->str);
+    check_and_add_output_file(m, m->objfile->name->str);
   }
-  if (docfile) {
-    check_and_add_output_file(this, docfile->name->str);
+  if (m->docfile) {
+    check_and_add_output_file(m, m->docfile->name->str);
   }
   // FIXME: DMD overwrites header files. This should be done only in a DMD mode.
   // if (hdrfile)
-  //    check_and_add_output_file(this, hdrfile->name->str);
-}
-
-File *Module::buildFilePath(const char *forcename, const char *path,
-                            const char *ext) {
-  const char *argobj;
-  if (forcename) {
-    argobj = forcename;
-  } else {
-    if (preservePaths) {
-      argobj = this->arg;
-    } else {
-      argobj = FileName::name(this->arg);
-    }
-
-    if (fqnNames) {
-      char *name = md ? md->toChars() : toChars();
-      argobj = FileName::replaceName(argobj, name);
-
-      // add ext, otherwise forceExt will make nested.module into nested.bc
-      size_t len = strlen(argobj);
-      size_t extlen = strlen(ext);
-      char *s = reinterpret_cast<char *>(alloca(len + 1 + extlen + 1));
-      memcpy(s, argobj, len);
-      s[len] = '.';
-      memcpy(s + len + 1, ext, extlen + 1);
-      s[len + 1 + extlen] = 0;
-      argobj = s;
-    }
-  }
-
-  if (!FileName::absolute(argobj)) {
-    argobj = FileName::combine(path, argobj);
-  }
-
-  FileName::ensurePathExists(FileName::path(argobj));
-
-  // always append the extension! otherwise hard to make output switches
-  // consistent
-  return new File(FileName::forceExt(argobj, ext));
+  //    check_and_add_output_file(m, hdrfile->name->str);
 }
 
 static llvm::Function *build_module_function(
@@ -618,7 +579,7 @@ static void addCoverageAnalysis(Module *m) {
     // Assert that initializer array elements have enough bits
     assert(sizeof(m->d_cover_valid_init[0]) * 8 >=
            gDataLayout->getTypeSizeInBits(DtoSize_t()));
-    m->d_cover_valid_init.resize(array_size);
+    m->d_cover_valid_init.setDim(array_size);
   }
 
   // uint[# source lines] _d_cover_data
@@ -661,7 +622,7 @@ static void addCoverageAnalysis(Module *m) {
                               &gIR->module);
     ctor->setCallingConv(gABI->callingConv(ctor->getFunctionType(), LINKd));
     // Set function attributes. See functions.cpp:DtoDefineFunction()
-    if (global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
+    if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
       ctor->addFnAttr(LLAttribute::UWTable);
     }
 
@@ -935,14 +896,14 @@ static void genModuleInfo(Module *m, bool emitFullModuleInfo) {
   b.finalize(moduleInfoSym->getType()->getPointerElementType(), moduleInfoSym);
   moduleInfoSym->setLinkage(llvm::GlobalValue::ExternalLinkage);
 
-  if (global.params.targetTriple.isOSLinux() || global.params.targetTriple.isOSFreeBSD() ||
+  if (global.params.targetTriple->isOSLinux() || global.params.targetTriple->isOSFreeBSD() ||
 #if LDC_LLVM_VER > 305
-      global.params.targetTriple.isOSNetBSD() || global.params.targetTriple.isOSOpenBSD() ||
-      global.params.targetTriple.isOSDragonFly()
+      global.params.targetTriple->isOSNetBSD() || global.params.targetTriple->isOSOpenBSD() ||
+      global.params.targetTriple->isOSDragonFly()
 #else
-      global.params.targetTriple.getOS() == llvm::Triple::NetBSD ||
-      global.params.targetTriple.getOS() == llvm::Triple::OpenBSD ||
-      global.params.targetTriple.getOS() == llvm::Triple::DragonFly
+      global.params.targetTriple->getOS() == llvm::Triple::NetBSD ||
+      global.params.targetTriple->getOS() == llvm::Triple::OpenBSD ||
+      global.params.targetTriple->getOS() == llvm::Triple::DragonFly
 #endif
      ) {
     if (emitFullModuleInfo) {

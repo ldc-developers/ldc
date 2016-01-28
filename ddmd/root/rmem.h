@@ -25,7 +25,11 @@ struct Mem
 {
     Mem() { }
 
+#if IN_LLVM
     char *xstrdup(const char *s);
+#else
+    char *xstrdup(const char *s);
+#endif
     void *xmalloc(d_size_t size);
     void *xcalloc(d_size_t size, d_size_t n);
     void *xrealloc(void *p, d_size_t size);

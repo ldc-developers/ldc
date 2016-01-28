@@ -22,6 +22,8 @@
 #include "gen/llvm.h"
 #include "ir/irfuncty.h"
 
+struct IRState;
+
 // dynamic memory helpers
 LLValue *DtoNew(Loc &loc, Type *newtype);
 LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype);
@@ -130,10 +132,6 @@ LLValue *DtoBinFloatsEquals(Loc &loc, DValue *lhs, DValue *rhs, TOK op);
 
 // target stuff
 void findDefaultTarget();
-
-/// Fixup an overloaded intrinsic name string.
-void DtoOverloadedIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
-                                std::string &name);
 
 /// Returns true if there is any unaligned type inside the aggregate.
 bool hasUnalignedFields(Type *t);

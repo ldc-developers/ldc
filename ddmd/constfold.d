@@ -28,6 +28,11 @@ import ddmd.sideeffect;
 import ddmd.tokens;
 import ddmd.utf;
 
+version(IN_LLVM)
+{
+    import gen.dpragma;
+}
+
 private enum LOG = false;
 
 extern (C++) Expression expType(Type type, Expression e)
@@ -53,6 +58,17 @@ extern (C++) int isConst(Expression e)
     case TOKnull:
         return 0;
     case TOKsymoff:
+version(IN_LLVM)
+{
+        // We don't statically know anything about the address of a weak symbol
+        // if there is no offset. With an offset, we can at least say that it is
+        // non-zero.
+        SymOffExp soe = cast(SymOffExp) e;
+        if (soe.var.llvmInternal == LDCPragma.LLVMextern_weak && !soe.offset)
+        {
+            return 0;
+        }
+}
         return 2;
     default:
         return 0;
@@ -1721,7 +1737,17 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
             size_t len = (t.ty == tn.ty) ? 1 : utf_codeLength(sz, cast(dchar_t)v);
             void* s = mem.xmalloc((len + 1) * sz);
             if (t.ty == tn.ty)
+            {
+version(IN_LLVM) {
+    version(LittleEndian) {
                 memcpy(s, &v, sz);
+    } else {
+                memcpy(s, cast(char *)&v + (dinteger_t.sizeof - sz), sz);
+    }
+} else {
+                memcpy(s, &v, sz);
+}
+            }
             else
                 utf_encode(sz, s, cast(dchar_t)v);
             // Add terminating 0
@@ -1854,7 +1880,18 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
         void* s = mem.xmalloc((len + 1) * sz);
         memcpy(s, es1.string, es1.len * sz);
         if (homoConcat)
+        {
+version(IN_LLVM) {
+    version(LittleEndian) {
+            memcpy(cast(char *)s + (sz * es1.len), &v, sz);
+    } else {
+            memcpy(cast(char *)s + (sz * es1.len),
+                   cast(char *)&v + (dinteger_t.sizeof - sz), sz);
+    }
+} else {
             memcpy(cast(char*)s + (sz * es1.len), &v, sz);
+}
+        }
         else
             utf_encode(sz, cast(char*)s + (sz * es1.len), cast(dchar_t)v);
         // Add terminating 0
@@ -1875,7 +1912,16 @@ extern (C++) UnionExp Cat(Type type, Expression e1, Expression e2)
         ubyte sz = es2.sz;
         dinteger_t v = e1.toInteger();
         void* s = mem.xmalloc((len + 1) * sz);
+version(IN_LLVM) {
+    version(LittleEndian) {
+        memcpy(cast(char *)s, &v, sz);
+    } else {
+        memcpy(cast(char *)s,
+               cast(char *)&v + (dinteger_t.sizeof - sz), sz);
+    }
+} else {
         memcpy(cast(char*)s, &v, sz);
+}
         memcpy(cast(char*)s + sz, es2.string, es2.len * sz);
         // Add terminating 0
         memset(cast(char*)s + len * sz, 0, sz);

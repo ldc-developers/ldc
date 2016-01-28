@@ -19,5 +19,6 @@ class TypeInfoDeclaration;
 void DtoResolveTypeInfo(TypeInfoDeclaration *tid);
 TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *t, Scope *sc);
 void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p);
+Type *getTypeInfoType(Type *t, Scope *sc);
 
 #endif

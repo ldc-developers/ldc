@@ -23,6 +23,21 @@
 // Can't include arraytypes.h here, need to declare these directly.
 template <typename TYPE> struct Array;
 
+#if IN_LLVM
+#include "llvm/ADT/Triple.h"
+#include <cstdint>
+
+enum OUTPUTFLAG
+{
+    OUTPUTFLAGno,
+    OUTPUTFLAGdefault, // for the .o default
+    OUTPUTFLAGset      // for -output
+};
+
+typedef uint8_t ubyte;
+#endif
+
+
 // The state of array bounds checking
 enum BOUNDSCHECK
 {
@@ -47,10 +62,18 @@ struct Param
     bool verbose;       // verbose compile
     bool showColumns;   // print character (column) numbers in diagnostics
     bool vtls;          // identify thread local variables
+#if !IN_LLVM
     char vgc;           // identify gc usage
+#else
+    bool vgc;           // identify gc usage
+#endif
     bool vfield;        // identify non-mutable field variables
     bool vcomplex;      // identify complex/imaginary type usage
+#if !IN_LLVM
     char symdebug;      // insert debug symbolic information
+#else
+    ubyte symdebug;     // insert debug symbolic information
+#endif
     bool alwaysframe;   // always emit standard stack frame
     bool optimize;      // run optimizer
     bool map;           // generate linker .map file
@@ -63,10 +86,16 @@ struct Param
     bool isOpenBSD;     // generate code for OpenBSD
     bool isSolaris;     // generate code for Solaris
     bool mscoff;        // for Win32: write COFF object files instead of OMF
+#if !IN_LLVM
     // 0: don't allow use of deprecated features
     // 1: silently allow use of deprecated features
     // 2: warn about the use of deprecated features
     char useDeprecated;
+#else
+    ubyte useDeprecated; // 0: don't allow use of deprecated features
+                         // 1: silently allow use of deprecated features
+                         // 2: warn about the use of deprecated features
+#endif
     bool useAssert;     // generate runtime code for assert()'s
     bool useInvariants; // generate class invariant checks
     bool useIn;         // generate precondition checks
@@ -78,10 +107,17 @@ struct Param
     bool useDIP25;      // implement http://wiki.dlang.org/DIP25
     bool release;       // build release version
     bool preservePaths; // true means don't strip path from source file
+#if !IN_LLVM
     // 0: disable warnings
     // 1: warnings as errors
     // 2: informational warnings (no errors)
     char warnings;
+#else
+    ubyte warnings;      // 0: disable warnings
+                         // 1: warnings as errors
+                         // 2: informational warnings (no errors)
+#endif
+
     bool pic;           // generate position-independent-code for shared libs
     bool color;         // use ANSI colors in console output
     bool cov;           // generate code coverage data
@@ -92,6 +128,7 @@ struct Param
     bool betterC;       // be a "better C" compiler; no dependency on D runtime
     bool addMain;       // add a default main() function
     bool allInst;       // generate code for all template instantiations
+// LDC_FIXME: Implement "addMain" and "allInst".
 
     BOUNDSCHECK useArrayBounds;
 
@@ -146,6 +183,29 @@ struct Param
     const char *resfile;
     const char *exefile;
     const char *mapfile;
+
+#if IN_LLVM
+    uint32_t nestedTmpl; // maximum nested template instantiations
+
+    // Whether to keep all function bodies in .di file generation or to strip
+    // those of plain functions. For DMD, this is govenered by the -inline
+    // flag, which does not directly translate to LDC.
+    bool hdrKeepAllBodies;
+
+    // LDC stuff
+    OUTPUTFLAG output_ll;
+    OUTPUTFLAG output_bc;
+    OUTPUTFLAG output_s;
+    OUTPUTFLAG output_o;
+    bool useInlineAsm;
+    bool verbose_cg;
+
+    const llvm::Triple *targetTriple;
+
+    // Codegen cl options
+    bool singleObj;
+    bool disableRedZone;
+#endif
 };
 
 struct Compiler
@@ -163,6 +223,14 @@ struct Global
     const char *inifilename;
     const char *mars_ext;
     const char *obj_ext;
+#if IN_LLVM
+    const char *obj_ext_alt;
+    const char *ll_ext;
+    const char *bc_ext;
+    const char *s_ext;
+    const char *ldc_version;
+    const char *llvm_version;
+#endif
     const char *lib_ext;
     const char *dll_ext;
     const char *doc_ext;        // for Ddoc generated files
@@ -205,7 +273,7 @@ struct Global
      */
     void increaseErrorCount();
 
-    void init();
+    void _init();
 };
 
 extern Global global;
@@ -259,8 +327,16 @@ struct Loc
         charnum = 0;
         filename = NULL;
     }
-
+#if IN_LLVM
+    Loc(const char *filename, unsigned linnum, unsigned charnum)
+    {
+        this->filename = filename;
+        this->linnum = linnum;
+        this->charnum = charnum;
+    }
+#else
     Loc(const char *filename, unsigned linnum, unsigned charnum);
+#endif
 
     char *toChars();
     bool equals(const Loc& loc);

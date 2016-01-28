@@ -14,7 +14,7 @@
 #ifndef LDC_GEN_STRUCTS_H
 #define LDC_GEN_STRUCTS_H
 
-#include "lexer.h"
+#include "tokens.h"
 #include <vector>
 
 class DValue;

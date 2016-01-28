@@ -8,6 +8,7 @@
 //===----------------------------------------------------------------------===//
 
 #include "gen/llvmhelpers.h"
+#include "declaration.h"
 #include "expression.h"
 #include "id.h"
 #include "init.h"
@@ -54,7 +55,19 @@ llvm::cl::opt<llvm::GlobalVariable::ThreadLocalMode> clThreadModel(
                                 "local-exec", "Local exec TLS model"),
                      clEnumValEnd));
 
-Type *getTypeInfoType(Type *t, Scope *sc);
+
+/******************************************************************************
+ * Simple Triple helpers for DFE
+ * TODO: find better location for this
+ ******************************************************************************/
+bool isArchx86_64() {
+  return global.params.targetTriple->getArch() == llvm::Triple::x86_64;
+}
+
+bool isTargetWindowsMSVC() {
+  return global.params.targetTriple->isWindowsMSVCEnvironment();
+}
+
 
 /******************************************************************************
  * DYNAMIC MEMORY HELPERS
@@ -769,10 +782,10 @@ void DtoResolveVariable(VarDeclaration *vd) {
            "manifest constant being codegen'd!");
 
     // don't duplicate work
-    if (vd->ir.isResolved()) {
+    if (vd->ir->isResolved()) {
       return;
     }
-    vd->ir.setDeclared();
+    vd->ir->setDeclared();
 
     getIrGlobal(vd, true);
 
@@ -788,12 +801,12 @@ void DtoResolveVariable(VarDeclaration *vd) {
     // If a const/immutable value has a proper initializer (not "= void"),
     // it cannot be assigned again in a static constructor. Thus, we can
     // emit it as read-only data.
-    const bool isLLConst = (vd->isConst() || vd->isImmutable()) && vd->init &&
-                           !vd->init->isVoidInitializer();
+    const bool isLLConst = (vd->isConst() || vd->isImmutable()) && vd->_init &&
+                           !vd->_init->isVoidInitializer();
 
-    assert(!vd->ir.isInitialized());
+    assert(!vd->ir->isInitialized());
     if (gIR->dmodule) {
-      vd->ir.setInitialized();
+      vd->ir->setInitialized();
     }
     std::string llName(mangle(vd));
 
@@ -802,7 +815,7 @@ void DtoResolveVariable(VarDeclaration *vd) {
     // latter (e.g. in case of unions, …). However, it is legal for the
     // initializer to refer to the address of the variable. Thus, we first
     // create a global with the generic type (note the assignment to
-    // vd->ir.irGlobal->value!), and in case we also do an initializer
+    // vd->ir->irGlobal->value!), and in case we also do an initializer
     // with a different type later, swap it out and replace any existing
     // uses with bitcasts to the previous type.
 
@@ -850,7 +863,7 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     // A variable may not be really nested even if nextedrefs is not empty
     // in case it is referenced by a function inside __traits(compile) or
     // typeof.
-    // assert(vd->ir.irLocal && "irLocal is expected to be already set by
+    // assert(vd->ir->irLocal && "irLocal is expected to be already set by
     // DtoCreateNestedContext");
   }
 
@@ -896,8 +909,8 @@ void DtoVarDeclaration(VarDeclaration *vd) {
     */
     Type *vdBasetype = vd->type->toBasetype();
     ExpInitializer *ei = nullptr;
-    if ((vdBasetype->ty == Tstruct || vdBasetype->ty == Tsarray) && vd->init &&
-        (ei = vd->init->isExpInitializer())) {
+    if ((vdBasetype->ty == Tstruct || vdBasetype->ty == Tsarray) && vd->_init &&
+        (ei = vd->_init->isExpInitializer())) {
       if (ei->exp->op == TOKconstruct) {
         auto ae = static_cast<AssignExp *>(ei->exp);
         Expression *rhs = ae->e2;
@@ -937,8 +950,8 @@ void DtoVarDeclaration(VarDeclaration *vd) {
   IF_LOG Logger::cout() << "llvm value for decl: " << *getIrLocal(vd)->value
                         << '\n';
 
-  if (vd->init) {
-    if (ExpInitializer *ex = vd->init->isExpInitializer()) {
+  if (vd->_init) {
+    if (ExpInitializer *ex = vd->_init->isExpInitializer()) {
       // TODO: Refactor this so that it doesn't look like toElem has no effect.
       Logger::println("expression initializer");
       toElem(ex->exp);
@@ -1212,16 +1225,15 @@ LLConstant *DtoTypeInfoOf(Type *type, bool base) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
-
-void DtoOverloadedIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
-                                std::string &name) {
+/// Allocates memory and passes on ownership. (never returns null)
+static char* DtoOverloadedIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td) {
   IF_LOG Logger::println("DtoOverloadedIntrinsicName");
   LOG_SCOPE;
 
   IF_LOG {
     Logger::println("template instance: %s", ti->toChars());
     Logger::println("template declaration: %s", td->toChars());
-    Logger::println("intrinsic name: %s", td->intrinsicName.c_str());
+    Logger::println("intrinsic name: %s", td->intrinsicName);
   }
 
   // for now use the size in bits of the first template param in the instance
@@ -1240,7 +1252,7 @@ void DtoOverloadedIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
           static_cast<unsigned long>(gDataLayout->getTypeSizeInBits(dtype)));
 
   // replace # in name with bitsize
-  name = td->intrinsicName;
+  std::string name(td->intrinsicName);
 
   std::string needle("#");
   size_t pos;
@@ -1269,7 +1281,22 @@ void DtoOverloadedIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
   }
 
   IF_LOG Logger::println("final intrinsic name: %s", name.c_str());
+
+  return strdup(name.c_str());
 }
+
+/// For D frontend
+/// Fixup an overloaded intrinsic name string.
+void DtoSetFuncDeclIntrinsicName(TemplateInstance *ti, TemplateDeclaration *td,
+                            FuncDeclaration *fd) {
+  if (fd->llvmInternal == LLVMintrinsic) {
+    fd->intrinsicName = DtoOverloadedIntrinsicName(ti, td);
+    fd->mangleOverride = fd->intrinsicName ? strdup(fd->intrinsicName) : nullptr;
+  } else {
+    fd->intrinsicName = td->intrinsicName ? strdup(td->intrinsicName) : nullptr;
+  }
+}
+
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -1666,7 +1693,7 @@ llvm::GlobalVariable *getOrCreateGlobal(Loc &loc, llvm::Module &module,
   // On PPC there is only local-exec available - in this case just ignore the
   // command line.
   const llvm::GlobalVariable::ThreadLocalMode tlsModel =
-      isThreadLocal ? (global.params.targetTriple.getArch() == llvm::Triple::ppc
+      isThreadLocal ? (global.params.targetTriple->getArch() == llvm::Triple::ppc
                            ? llvm::GlobalVariable::LocalExecTLSModel
                            : clThreadModel.getValue())
                     : llvm::GlobalVariable::NotThreadLocal;
@@ -1769,6 +1796,6 @@ unsigned getFieldGEPIndex(AggregateDeclaration *ad, VarDeclaration *vd) {
 
 #if LDC_LLVM_VER >= 307
 bool supportsCOMDAT() {
-  return !global.params.targetTriple.isOSBinFormatMachO();
+  return !global.params.targetTriple->isOSBinFormatMachO();
 }
 #endif

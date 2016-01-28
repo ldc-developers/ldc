@@ -272,14 +272,14 @@ LLConstant *IrAggr::getClassInfoInit() {
 
 llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
                                                size_t interfaces_index) {
-  auto it = interfaceVtblMap.find(b->base);
+  auto it = interfaceVtblMap.find(b->sym);
   if (it != interfaceVtblMap.end()) {
     return it->second;
   }
 
   IF_LOG Logger::println(
       "Building vtbl for implementation of interface %s in class %s",
-      b->base->toPrettyChars(), aggrdecl->toPrettyChars());
+      b->sym->toPrettyChars(), aggrdecl->toPrettyChars());
   LOG_SCOPE;
 
   ClassDeclaration *cd = aggrdecl->isClassDeclaration();
@@ -291,7 +291,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   std::vector<llvm::Constant *> constants;
   constants.reserve(vtbl_array.dim);
 
-  if (!b->base->isCPPinterface()) { // skip interface info for CPP interfaces
+  if (!b->sym->isCPPinterface()) { // skip interface info for CPP interfaces
     // index into the interfaces array
     llvm::Constant *idxs[2] = {DtoConstSize_t(0),
                                DtoConstSize_t(interfaces_index)};
@@ -308,7 +308,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
 
   // add virtual function pointers
   size_t n = vtbl_array.dim;
-  for (size_t i = b->base->vtblOffset(); i < n; i++) {
+  for (size_t i = b->sym->vtblOffset(); i < n; i++) {
     Dsymbol *dsym = static_cast<Dsymbol *>(vtbl_array.data[i]);
     if (dsym == nullptr) {
       // FIXME
@@ -402,7 +402,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   std::string mangledName("_D");
   mangledName.append(mangle(cd));
   mangledName.append("11__interface");
-  mangledName.append(mangle(b->base));
+  mangledName.append(mangle(b->sym));
   mangledName.append("6__vtblZ");
 
   const LinkageWithCOMDAT lwc = DtoLinkage(cd);
@@ -414,7 +414,7 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
   }
 
   // insert into the vtbl map
-  interfaceVtblMap.insert(std::make_pair(b->base, GV));
+  interfaceVtblMap.insert(std::make_pair(b->sym, GV));
 
   return GV;
 }
@@ -463,9 +463,9 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
   for (size_t i = 0; i < n; ++i) {
     BaseClass *it = interfacesWithVtbls[i];
 
-    IF_LOG Logger::println("Adding interface %s", it->base->toPrettyChars());
+    IF_LOG Logger::println("Adding interface %s", it->sym->toPrettyChars());
 
-    IrAggr *irinter = getIrAggr(it->base);
+    IrAggr *irinter = getIrAggr(it->sym);
     assert(irinter && "interface has null IrStruct");
     IrTypeClass *itc = stripModifiers(irinter->type)->ctype->isClass();
     assert(itc && "null interface IrTypeClass");
@@ -480,7 +480,7 @@ LLConstant *IrAggr::getClassInfoInterfaces() {
     if (cd->isInterfaceDeclaration()) {
       vtb = DtoConstSlice(DtoConstSize_t(0), getNullValue(voidptrptr_type));
     } else {
-      auto itv = interfaceVtblMap.find(it->base);
+      auto itv = interfaceVtblMap.find(it->sym);
       assert(itv != interfaceVtblMap.end() && "interface vtbl not found");
       vtb = itv->second;
       vtb = DtoBitCast(vtb, voidptrptr_type);

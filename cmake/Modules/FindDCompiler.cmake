@@ -1,0 +1,49 @@
+# Find a D compiler!
+#
+# use environment variable DC first if defined by user, next use a list of common compiler executables.
+#
+# The following variables are defined:
+#  D_COMPILER_FOUND          - true if a D compiler was found
+#  D_COMPILER          - D compiler
+#  D_COMPILER_FLAGS    - D compiler flags (could be passed in the DC environment variable)
+
+
+set(D_COMPILER_FOUND "FALSE")
+
+set(COMMON_D_COMPILERS "ldmd2" "dmd")
+set(COMMON_D_COMPILER_PATHS "/usr/bin" "/usr/local/bin" "C:\\d\\dmd2\\windows\\bin")
+
+if($ENV{DC} MATCHES ".+")
+    get_filename_component(D_COMPILER $ENV{DC} PROGRAM PROGRAM_ARGS D_COMPILER_FLAGS_ENV_INIT CACHE)
+    if(D_COMPILER_FLAGS_ENV_INIT)
+        set(D_COMPILER_FLAGS "${D_COMPILER_FLAGS_ENV_INIT}" CACHE STRING "Default flags for D compiler")
+    endif()
+    if(NOT EXISTS ${D_COMPILER})
+        message(FATAL_ERROR "Could not find compiler set in environment variable $ENV{DC}.")
+    endif()
+else()
+    find_program(D_COMPILER NAMES ${COMMON_D_COMPILERS} PATHS ${COMMON_D_COMPILER_PATHS} DOC "D compiler")
+endif()
+
+# TODO: Test compiler and set compiler ID
+if (D_COMPILER)
+    set(D_COMPILER_FOUND "TRUE")
+
+    get_filename_component(__D_COMPILER_NAME ${D_COMPILER} NAME_WE)
+    if (__D_COMPILER_NAME STREQUAL "dmd")
+        set(D_COMPILER_ID "DigitalMars")
+    elseif (__D_COMPILER_NAME STREQUAL "ldmd2")
+        set(D_COMPILER_ID "LDMD")
+    elseif (__D_COMPILER_NAME STREQUAL "ldc2")
+        set(D_COMPILER_ID "LDC")
+    elseif (__D_COMPILER_NAME STREQUAL "gdc")
+        set(D_COMPILER_ID "GDC")
+    endif()
+endif()
+
+
+if (D_COMPILER_FOUND)
+    message(STATUS "Found D compiler ${D_COMPILER}, with default flags '${D_COMPILER_FLAGS}'")
+else()
+    message(FATAL_ERROR "Did not find D compiler! Try setting the 'DC' environment variable.")
+endif()

@@ -884,6 +884,20 @@ public:
     {
         v.visit(this);
     }
+
+    version(IN_LLVM)
+    {
+        CompoundAsmStatement isCompoundAsmBlockStatement()
+        {
+            return null;
+        }
+
+        CompoundAsmStatement endsWithAsm()
+        {
+            // does not end with inline asm
+            return null;
+        }
+    }
 }
 
 /***********************************************************
@@ -1538,7 +1552,8 @@ public:
                 goto Lagain;
             }
         }
-        if (statements.dim == 1)
+        //IN_LLVM replaced: if (statements.dim == 1)
+        if (statements.dim == 1 && !isCompoundAsmBlockStatement())
         {
             return (*statements)[0];
         }
@@ -1581,7 +1596,8 @@ public:
         return s;
     }
 
-    override final CompoundStatement isCompoundStatement()
+    // IN_LLVM removed: final
+    override CompoundStatement isCompoundStatement()
     {
         return this;
     }
@@ -1589,6 +1605,22 @@ public:
     override void accept(Visitor v)
     {
         v.visit(this);
+    }
+
+    version(IN_LLVM)
+    {
+        override CompoundAsmStatement endsWithAsm()
+        {
+            // make the last inner statement decide
+            if (statements && statements.dim) {
+                size_t last = statements.dim - 1;
+                Statement s = (*statements)[last];
+                if (s) {
+                    return s.endsWithAsm();
+                }
+            }
+            return null;
+        }
     }
 }
 
@@ -2665,6 +2697,11 @@ public:
                     Identifier id;
                     p.type = p.type.semantic(loc, sc);
                     p.type = p.type.addStorageClass(p.storageClass);
+version(IN_LLVM)
+{
+                    // Type of parameter may be different; see below
+                    auto para_type = p.type;
+}
                     if (tfld)
                     {
                         Parameter prm = Parameter.getNth(tfld.parameters, i);
@@ -2693,12 +2730,39 @@ public:
                         // a reference.
                     LcopyArg:
                         id = Identifier.generateId("__applyArg", cast(int)i);
+version(IN_LLVM)
+{
+                        // In case of a foreach loop on an array the index passed
+                        // to the delegate is always of type size_t. The type of
+                        // the parameter must be changed to size_t and a cast to
+                        // the type used must be inserted. Otherwise the index is
+                        // always 0 on a big endian architecture. This fixes
+                        // issue #326.
+                        Initializer ie;
+                        if (dim == 2 && i == 0 && (tab.ty == Tarray || tab.ty == Tsarray))
+                        {
+                            para_type = Type.tsize_t;
+                            ie = new ExpInitializer(Loc(),
+                                     new CastExp(Loc(),
+                                         new IdentifierExp(Loc(), id), p.type));
+                        }
+                        else
+                        {
+                            ie = new ExpInitializer(Loc(), new IdentifierExp(Loc(), id));
+                        }
+}
+else
+{
                         Initializer ie = new ExpInitializer(Loc(), new IdentifierExp(Loc(), id));
+}
                         auto v = new VarDeclaration(Loc(), p.type, p.ident, ie);
                         v.storage_class |= STCtemp;
                         s = new ExpStatement(Loc(), v);
                         _body = new CompoundStatement(loc, s, _body);
                     }
+version(IN_LLVM)
+                    params.push(new Parameter(stc, para_type, id, null));
+else
                     params.push(new Parameter(stc, p.type, id, null));
                 }
                 // Bugzilla 13840: Throwable nested function inside nothrow function is acceptable.
@@ -3471,6 +3535,16 @@ public:
                 }
             }
         }
+        // IN_LLVM. FIXME Move to pragma.cpp
+        else if (ident == Id.LDC_allow_inline)
+        {
+            sc.func.allowInlining = true;
+        }
+        // IN_LLVM. FIXME Move to pragma.cpp
+        else if (ident == Id.LDC_never_inline)
+        {
+            sc.func.neverInline = true;
+        }
         else if (ident == Id.startaddress)
         {
             if (!args || args.dim != 1)
@@ -3779,6 +3853,12 @@ public:
     Statement statement;
     int index;              // which case it is (since we sort this)
 
+    version(IN_LLVM)
+    {
+        void* bodyBB;  // llvm::BasicBlock*
+        void* llvmIdx; // llvm::Value*
+    }
+
     extern (D) this(Loc loc, Expression exp, Statement s)
     {
         super(loc);
@@ -4003,6 +4083,11 @@ extern (C++) final class DefaultStatement : Statement
 public:
     Statement statement;
 
+    version(IN_LLVM)
+    {
+        void* bodyBB;  // llvm::BasicBlock*
+    }
+
     extern (D) this(Loc loc, Statement s)
     {
         super(loc);
@@ -4101,6 +4186,11 @@ public:
     Expression exp;     // null, or which case to goto
     CaseStatement cs;   // case statement it resolves to
 
+    version(IN_LLVM)
+    {
+        SwitchStatement sw;
+    }
+
     extern (D) this(Loc loc, Expression exp)
     {
         super(loc);
@@ -4118,6 +4208,10 @@ public:
         {
             error("goto case not in switch statement");
             return new ErrorStatement();
+        }
+        version(IN_LLVM)
+        {
+            sw = sc.sw;
         }
         if (exp)
         {
@@ -4486,6 +4580,12 @@ extern (C++) final class BreakStatement : Statement
 public:
     Identifier ident;
 
+    version(IN_LLVM)
+    {
+        // LDC: only set if ident is set: label statement to jump to
+        LabelStatement target;
+    }
+
     extern (D) this(Loc loc, Identifier ident)
     {
         super(loc);
@@ -4536,6 +4636,9 @@ public:
                         error("cannot break out of finally block");
                     else
                     {
+                        version(IN_LLVM)
+                            target = ls;
+
                         ls.breaks = true;
                         return this;
                     }
@@ -4576,6 +4679,12 @@ extern (C++) final class ContinueStatement : Statement
 {
 public:
     Identifier ident;
+
+    version(IN_LLVM)
+    {
+        // LDC: only set if ident is set: label statement to jump to
+        LabelStatement target;
+    }
 
     extern (D) this(Loc loc, Identifier ident)
     {
@@ -4635,7 +4744,12 @@ public:
                     else if (ls.tf != sc.tf)
                         error("cannot continue out of finally block");
                     else
+                    {
+                        version(IN_LLVM)
+                            target = ls;
+
                         return this;
+                    }
                     return new ErrorStatement();
                 }
             }
@@ -5455,7 +5569,8 @@ public:
                 return true;
             }
         }
-        if (label.statement.tf != tf)
+        // IN_LLVM replaced: if (label.statement.tf != tf)
+        if ( (label.statement !is null) && label.statement.tf != tf)
         {
             error("cannot goto in or out of finally block");
             return true;
@@ -5632,6 +5747,12 @@ public:
     bool refparam;  // true if function parameter is referenced
     bool naked;     // true if function is to be naked
 
+    version(IN_LLVM)
+    {
+        // non-zero if this is a branch, contains the target label
+        LabelDsymbol isBranchToLabel;
+    }
+
     extern (D) this(Loc loc, Token* tokens)
     {
         super(loc);
@@ -5640,7 +5761,17 @@ public:
 
     override Statement syntaxCopy()
     {
+version(IN_LLVM)
+{
+        auto a_s = new AsmStatement(loc, tokens);
+        a_s.refparam = refparam;
+        a_s.naked = naked;
+        return a_s;
+}
+else
+{
         return new AsmStatement(loc, tokens);
+}
     }
 
     override Statement semantic(Scope* sc)
@@ -5661,6 +5792,11 @@ extern (C++) final class CompoundAsmStatement : CompoundStatement
 {
 public:
     StorageClass stc; // postfix attributes like nothrow/pure/@trusted
+
+    version(IN_LLVM)
+    {
+        void* abiret; // llvm::Value*
+    }
 
     extern (D) this(Loc loc, Statements* s, StorageClass stc)
     {
@@ -5705,6 +5841,24 @@ public:
     override void accept(Visitor v)
     {
         v.visit(this);
+    }
+
+    version(IN_LLVM)
+    {
+        override final CompoundStatement isCompoundStatement()
+        {
+            return null;
+        }
+        override final CompoundAsmStatement isCompoundAsmBlockStatement()
+        {
+            return this;
+        }
+
+        override final CompoundAsmStatement endsWithAsm()
+        {
+            // yes this is inline asm
+            return this;
+        }
     }
 }
 

@@ -102,13 +102,13 @@ TypeInfoDeclaration *getOrCreateTypeInfoDeclaration(Type *torig, Scope *sc) {
   Type *t = torig->merge2(); // do this since not all Type's are merge'd
   if (!t->vtinfo) {
     if (t->isShared()) { // does both 'shared' and 'shared const'
-      t->vtinfo = new TypeInfoSharedDeclaration(t);
+      t->vtinfo = TypeInfoSharedDeclaration::create(t);
     } else if (t->isConst()) {
-      t->vtinfo = new TypeInfoConstDeclaration(t);
+      t->vtinfo = TypeInfoConstDeclaration::create(t);
     } else if (t->isImmutable()) {
-      t->vtinfo = new TypeInfoInvariantDeclaration(t);
+      t->vtinfo = TypeInfoInvariantDeclaration::create(t);
     } else if (t->isWild()) {
-      t->vtinfo = new TypeInfoWildDeclaration(t);
+      t->vtinfo = TypeInfoWildDeclaration::create(t);
     } else {
       t->vtinfo = createUnqualified(t);
     }
@@ -217,10 +217,10 @@ static void emitTypeMetadata(TypeInfoDeclaration *tid) {
 }
 
 void DtoResolveTypeInfo(TypeInfoDeclaration *tid) {
-  if (tid->ir.isResolved()) {
+  if (tid->ir->isResolved()) {
     return;
   }
-  tid->ir.setResolved();
+  tid->ir->setResolved();
 
   // TypeInfo instances (except ClassInfo ones) are always emitted as weak
   // symbols when they are used. We call semanticTypeInfo() to make sure
@@ -469,7 +469,7 @@ public:
     // (m_arg1/m_arg2) which are used for the X86_64 System V ABI varargs
     // implementation. They are not present on any other cpu/os.
     unsigned expectedFields = 12;
-    if (global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
+    if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
       expectedFields += 2;
     }
     if (Type::typeinfostruct->fields.dim != expectedFields) {
@@ -701,10 +701,10 @@ void TypeInfoDeclaration_codegen(TypeInfoDeclaration *decl, IRState *p) {
                          decl->toPrettyChars());
   LOG_SCOPE;
 
-  if (decl->ir.isDefined()) {
+  if (decl->ir->isDefined()) {
     return;
   }
-  decl->ir.setDefined();
+  decl->ir->setDefined();
 
   std::string mangled(mangle(decl));
   IF_LOG {

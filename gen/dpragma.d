@@ -1,4 +1,4 @@
-//===-- gen/pragma.h - LDC-specific pragma handling -------------*- C++ -*-===//
+//===-- gen/pragma.d - LDC-specific pragma handling ---------------*- D -*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -7,22 +7,18 @@
 //
 //===----------------------------------------------------------------------===//
 //
-// Code for handling the LDC-specific pragmas.
+// D bindings for pragma.h/.cpp
 //
 //===----------------------------------------------------------------------===//
 
-#ifndef LDC_GEN_PRAGMA_H
-#define LDC_GEN_PRAGMA_H
+module gen.dpragma;
 
-#include <string>
+import ddmd.attrib;
+import ddmd.dscope;
+import ddmd.dsymbol;
+import ddmd.func;
 
-class PragmaDeclaration;
-class FuncDeclaration;
-class Dsymbol;
-struct Scope;
-
-// Remember to keep this enum in-sync with dpragma.d
-enum LDCPragma {
+extern (C++) enum LDCPragma : int {
   LLVMnone = 0,   // Not an LDC pragma.
   LLVMignore, // Pragma has already been processed in DtoGetPragma, ignore.
   LLVMintrinsic,
@@ -50,10 +46,7 @@ enum LDCPragma {
   LLVMextern_weak
 };
 
-LDCPragma DtoGetPragma(Scope *sc, PragmaDeclaration *decl, const char *&arg1str);
-void DtoCheckPragma(PragmaDeclaration *decl, Dsymbol *sym, LDCPragma llvm_internal,
-                    const char * const arg1str);
-bool DtoIsIntrinsic(FuncDeclaration *fd);
-bool DtoIsVaIntrinsic(FuncDeclaration *fd);
-
-#endif // LDC_GEN_PRAGMA_H
+extern (C++) LDCPragma DtoGetPragma(Scope* sc, PragmaDeclaration decl, ref const(char)* arg1str);
+extern (C++) void DtoCheckPragma(PragmaDeclaration decl, Dsymbol sym, LDCPragma llvm_internal, const char* arg1str);
+extern (C++) bool DtoIsIntrinsic(FuncDeclaration fd);
+extern (C++) bool DtoIsVaIntrinsic(FuncDeclaration fd);

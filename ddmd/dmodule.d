@@ -13,7 +13,7 @@ import core.stdc.stdlib;
 import core.stdc.string;
 import ddmd.aggregate;
 import ddmd.arraytypes;
-import ddmd.backend;
+// IN_LLVM import ddmd.backend;
 import ddmd.dimport;
 import ddmd.dmacro;
 import ddmd.doc;
@@ -27,6 +27,10 @@ import ddmd.id;
 import ddmd.identifier;
 import ddmd.lexer;
 import ddmd.parse;
+version(IN_LLVM) {
+    import ddmd.root.aav;
+    import ddmd.root.array;
+}
 import ddmd.root.file;
 import ddmd.root.filename;
 import ddmd.root.outbuffer;
@@ -357,6 +361,12 @@ public:
     size_t nameoffset;          // offset of module name from start of ModuleInfo
     size_t namelen;             // length of module name in characters
 
+    version(IN_LLVM)
+    {
+        int doDocComment;       // enable generating doc comments for this module
+        int doHdrGen;           // enable generating header file for this module
+    }
+
     extern (D) this(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
     {
         super(ident);
@@ -375,12 +385,20 @@ public:
             fatal();
         }
         srcfile = new File(srcfilename);
+version(IN_LLVM)
+{
+        this.doDocComment = doDocComment;
+        this.doHdrGen = doHdrGen;
+}
+else
+{
         objfile = setOutfile(global.params.objname, global.params.objdir, filename, global.obj_ext);
         if (doDocComment)
             setDocfile();
         if (doHdrGen)
             hdrfile = setOutfile(global.params.hdrname, global.params.hdrdir, arg, global.hdr_ext);
         //objfile = new File(objfilename);
+}
     }
 
     static Module create(const(char)* filename, Identifier ident, int doDocComment, int doHdrGen)
@@ -502,8 +520,17 @@ public:
             if (!strcmp(srcfile.toChars(), "object.d"))
             {
                 .error(loc, "cannot find source code for runtime library file 'object.d'");
+version(IN_LLVM)
+{
+                errorSupplemental(loc, "ldc2 might not be correctly installed.");
+                errorSupplemental(loc, "Please check your ldc2.conf configuration file.");
+                errorSupplemental(loc, "Installation instructions can be found at http://wiki.dlang.org/LDC.");
+}
+else
+{
                 errorSupplemental(loc, "dmd might not be correctly installed. Run 'dmd -man' for installation instructions.");
                 errorSupplemental(loc, "config file: %s", FileName.canonicalName(global.inifilename));
+}
             }
             else
             {
@@ -536,7 +563,8 @@ public:
     }
 
     // syntactic parse
-    Module parse()
+    // IN_LLVM replaced: Module parse()
+    Module parse(bool gen_docs = false)
     {
         //printf("Module::parse(srcfile='%s') this=%p\n", srcfile->name->toChars(), this);
         char* srcname = srcfile.name.toChars();
@@ -720,11 +748,21 @@ public:
         {
             comment = buf + 4;
             isDocFile = 1;
+version(IN_LLVM)
+{
+            doDocComment = true;
+}
+else
+{
             if (!docfile)
                 setDocfile();
+}
             return this;
         }
         {
+version(IN_LLVM)
+            scope Parser p = new Parser(this, buf, buflen, gen_docs);
+else
             scope Parser p = new Parser(this, buf, buflen, docfile !is null);
             p.nextToken();
             members = p.parseModule();
@@ -1052,6 +1090,9 @@ public:
     int needModuleInfo()
     {
         //printf("needModuleInfo() %s, %d, %d\n", toChars(), needmoduleinfo, global.params.cov);
+version(IN_LLVM)
+        return needmoduleinfo;
+else
         return needmoduleinfo || global.params.cov;
     }
 
@@ -1095,7 +1136,8 @@ public:
     {
         if (global.params.obj)
             objfile.remove();
-        if (docfile)
+        // IN_LLVM replaced: if (docfile)
+        if (doDocComment && docfile)
             docfile.remove();
     }
 
@@ -1256,6 +1298,60 @@ public:
     Symbol* massert; // module assert function
     Symbol* munittest; // module unittest failure function
     Symbol* marray; // module array bounds function
+
+    version(IN_LLVM)
+    {
+        //llvm::Module* genLLVMModule(llvm::LLVMContext& context);
+        File* buildFilePath(const(char)* forcename, const(char)* path, const(char)* ext, bool preservePaths, bool fqnNames)
+        {
+            const(char)* argobj;
+            if (forcename) {
+                argobj = forcename;
+            } else {
+                if (preservePaths) {
+                    argobj = this.arg;
+                } else {
+                    argobj = FileName.name(this.arg);
+                }
+
+                if (fqnNames) {
+                    char* name = md ? md.toChars() : toChars();
+                    argobj = FileName.replaceName(argobj, name);
+
+                    // add ext, otherwise forceExt will make nested.module into nested.bc
+                    size_t len = strlen(argobj);
+                    size_t extlen = strlen(ext);
+                    char* s = cast(char *)alloca(len + 1 + extlen + 1);
+                    memcpy(s, argobj, len);
+                    s[len] = '.';
+                    memcpy(s + len + 1, ext, extlen + 1);
+                    s[len + 1 + extlen] = 0;
+                    argobj = s;
+                }
+            }
+
+            if (!FileName.absolute(argobj)) {
+                argobj = FileName.combine(path, argobj);
+            }
+
+            FileName.ensurePathExists(FileName.path(argobj));
+
+            // always append the extension! otherwise hard to make output switches
+            // consistent
+            return new File(FileName.forceExt(argobj, ext));
+        }
+
+        bool llvmForceLogging;
+        bool noModuleInfo; /// Do not emit any module metadata.
+
+        // array ops emitted in this module already
+        AA* arrayfuncs;
+
+        // Coverage analysis
+        void* d_cover_valid;  // llvm::GlobalVariable* --> private immutable size_t[] _d_cover_valid;
+        void* d_cover_data;   // llvm::GlobalVariable* --> private uint[] _d_cover_data;
+        Array!size_t d_cover_valid_init; // initializer for _d_cover_valid
+    }
 
     override Module isModule()
     {

@@ -26,6 +26,18 @@ struct Escape;
 class VarDeclaration;
 class Library;
 
+#if IN_LLVM
+#include <cstdint>
+class DValue;
+namespace llvm {
+    class LLVMContext;
+    class Module;
+    class GlobalVariable;
+    class StructType;
+}
+#endif
+
+
 enum PKG
 {
     PKGunknown, // not yet determined whether it's a package.d or not
@@ -64,7 +76,7 @@ public:
     static Dsymbols deferred;   // deferred Dsymbol's needing semantic() run on them
     static Dsymbols deferred3;  // deferred Dsymbol's needing semantic3() run on them
     static unsigned dprogress;  // progress resolving the deferred list
-    static void init();
+    static void _init();
 
     static AggregateDeclaration *moduleinfo;
 
@@ -115,6 +127,11 @@ public:
     size_t nameoffset;          // offset of module name from start of ModuleInfo
     size_t namelen;             // length of module name in characters
 
+#if IN_LLVM
+    int32_t doDocComment;          // enable generating doc comments for this module
+    int32_t doHdrGen;              // enable generating header file for this module
+#endif
+
     Module(const char *arg, Identifier *ident, int doDocComment, int doHdrGen);
     static Module* create(const char *arg, Identifier *ident, int doDocComment, int doHdrGen);
 
@@ -124,7 +141,11 @@ public:
     File *setOutfile(const char *name, const char *dir, const char *arg, const char *ext);
     void setDocfile();
     bool read(Loc loc); // read file, returns 'true' if succeed, 'false' otherwise.
-    Module *parse();    // syntactic parse
+#if IN_LLVM
+    Module *parse(bool gen_docs = false);       // syntactic parse
+#else
+    Module *parse();       // syntactic parse
+#endif
     void importAll(Scope *sc);
     void semantic();    // semantic analysis
     void semantic2();   // pass 2 semantic analysis
@@ -164,10 +185,30 @@ public:
     Symbol *munittest;          // module unittest failure function
     Symbol *marray;             // module array bounds function
 
+#if IN_LLVM
+    // LDC
+    llvm::Module* genLLVMModule(llvm::LLVMContext& context);
+    File* buildFilePath(const char* forcename, const char* path, const char* ext, bool preservePaths, bool fqnNames);
+
+    bool llvmForceLogging;
+    bool noModuleInfo; /// Do not emit any module metadata.
+
+    // array ops emitted in this module already
+    AA *arrayfuncs;
+
+    // Coverage analysis
+    llvm::GlobalVariable* d_cover_valid;  // private immutable size_t[] _d_cover_valid;
+    llvm::GlobalVariable* d_cover_data;   // private uint[] _d_cover_data;
+    Array<size_t>         d_cover_valid_init; // initializer for _d_cover_valid
+#endif
+
     Module *isModule() { return this; }
     void accept(Visitor *v) { v->visit(this); }
 };
 
+#if IN_LLVM
+    void buildTargetFiles(Module *m, bool singleObj, bool library);
+#endif
 
 struct ModuleDeclaration
 {

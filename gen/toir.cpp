@@ -13,6 +13,7 @@
 #include "id.h"
 #include "init.h"
 #include "mtype.h"
+#include "ldcbindings.h"
 #include "module.h"
 #include "port.h"
 #include "rmem.h"
@@ -152,7 +153,7 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
       val = new DImValue(
           vd->type, DtoBitCast(DtoNestedContext(loc, sd), DtoType(vd->type)));
     } else {
-      if (vd->init && vd->init->isVoidInitializer()) {
+      if (vd->_init && vd->_init->isVoidInitializer()) {
         continue;
       }
       IF_LOG Logger::println("using default initializer");
@@ -520,7 +521,7 @@ public:
     // Can't just override ConstructExp::toElem because not all TOKconstruct
     // operations are actually instances of ConstructExp... Long live the DMD
     // coding style!
-    if (e->op == TOKconstruct && e->e1->op == TOKvar && !(e->ismemset & 2)) {
+    if (e->op == TOKconstruct && e->e1->op == TOKvar && !(e->memset & 2)) {
       Declaration *d = static_cast<VarExp *>(e->e1)->var;
       if (d->storage_class & (STCref | STCout)) {
         Logger::println("performing ref variable initialization");
@@ -632,9 +633,9 @@ public:
 
     // evaluate the underlying binary expression
     Expression *lhsForBinExp = (useLvalForBinExpLhs ? lvalExp : e->e1);
-    BinExp binExp(loc, lhsForBinExp, e->e2);
-    binExp.type = lhsForBinExp->type;
-    DValue *result = toElem(&binExp);
+    BinExp* binExp = bindD<BinExp>::create(loc, lhsForBinExp, e->e2);
+    binExp->type = lhsForBinExp->type;
+    DValue *result = toElem(binExp);
 
     lvalExp->cachedLvalue = nullptr;
 
@@ -2627,7 +2628,7 @@ public:
       // It's the AssociativeArray type.
       // Turn it back into a TypeAArray
       vtype = e->values->tdata()[0]->type;
-      aatype = new TypeAArray(vtype, e->keys->tdata()[0]->type);
+      aatype = TypeAArray::create(vtype, e->keys->tdata()[0]->type);
       aatype = aatype->semantic(e->loc, nullptr);
     }
 

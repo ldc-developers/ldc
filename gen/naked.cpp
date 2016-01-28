@@ -152,10 +152,10 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   const char *mangle = mangleExact(fd);
   std::ostringstream tmpstr;
 
-  bool const isWin = global.params.targetTriple.isOSWindows();
+  bool const isWin = global.params.targetTriple->isOSWindows();
   bool const isOSX =
-      (global.params.targetTriple.getOS() == llvm::Triple::Darwin ||
-       global.params.targetTriple.getOS() == llvm::Triple::MacOSX);
+      (global.params.targetTriple->getOS() == llvm::Triple::Darwin ||
+       global.params.targetTriple->getOS() == llvm::Triple::MacOSX);
 
   // osx is different
   // also mangling has an extra underscore prefixed
@@ -178,8 +178,8 @@ void DtoDefineNakedFunction(FuncDeclaration *fd) {
   // Windows is different
   else if (isWin) {
     std::string fullMangle;
-    if (global.params.targetTriple.isWindowsGNUEnvironment() &&
-        !global.params.targetTriple.isArch64Bit()) {
+    if (global.params.targetTriple->isWindowsGNUEnvironment() &&
+        !global.params.targetTriple->isArch64Bit()) {
       fullMangle = "_";
     }
     fullMangle += mangle;
@@ -254,7 +254,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
   //        It should be able to do this for a greater variety of types.
 
   // x86
-  if (global.params.targetTriple.getArch() == llvm::Triple::x86) {
+  if (global.params.targetTriple->getArch() == llvm::Triple::x86) {
     LINK l = fdecl->linkage;
     assert((l == LINKd || l == LINKc || l == LINKwindows) &&
            "invalid linkage for asm implicit return");
@@ -323,7 +323,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
   }
 
   // x86_64
-  else if (global.params.targetTriple.getArch() == llvm::Triple::x86_64) {
+  else if (global.params.targetTriple->getArch() == llvm::Triple::x86_64) {
     LINK l = fdecl->linkage;
     /* TODO: Check if this works with extern(Windows), completely untested.
      *       In particular, returning cdouble may not work with
@@ -375,7 +375,7 @@ void emitABIReturnAsmStmt(IRAsmBlock *asmblock, Loc &loc,
   else {
     error(loc, "this target (%s) does not implement inline asm falling off the "
                "end of the function",
-          global.params.targetTriple.str().c_str());
+          global.params.targetTriple->str().c_str());
     fatal();
   }
 

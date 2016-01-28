@@ -74,13 +74,13 @@ static std::string getOutputName(bool const sharedLib) {
   if (sharedLib) {
     std::string libExt = std::string(".") + global.dll_ext;
     if (!endsWith(result, libExt)) {
-      if (global.params.targetTriple.getOS() != llvm::Triple::Win32) {
+      if (global.params.targetTriple->getOS() != llvm::Triple::Win32) {
         result = "lib" + result + libExt;
       } else {
         result.append(libExt);
       }
     }
-  } else if (global.params.targetTriple.isOSWindows() &&
+  } else if (global.params.targetTriple->isOSWindows() &&
              !endsWith(result, ".exe")) {
     result.append(".exe");
   }
@@ -162,7 +162,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
 
   // default libs
   bool addSoname = false;
-  switch (global.params.targetTriple.getOS()) {
+  switch (global.params.targetTriple->getOS()) {
   case llvm::Triple::Linux:
     addSoname = true;
     args.push_back("-lrt");
@@ -192,7 +192,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     break;
   }
 
-  if (global.params.targetTriple.isWindowsGNUEnvironment()) {
+  if (global.params.targetTriple->isWindowsGNUEnvironment()) {
     // This is really more of a kludge, as linking in the Winsock functions
     // should be handled by the pragma(lib, ...) in std.socket, but it
     // makes LDC behave as expected for now.
@@ -202,13 +202,13 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   // Only specify -m32/-m64 for architectures where the two variants actually
   // exist (as e.g. the GCC ARM toolchain doesn't recognize the switches).
   // MIPS does not have -m32/-m64 but requires -mabi=.
-  if (global.params.targetTriple.get64BitArchVariant().getArch() !=
+  if (global.params.targetTriple->get64BitArchVariant().getArch() !=
           llvm::Triple::UnknownArch &&
-      global.params.targetTriple.get32BitArchVariant().getArch() !=
+      global.params.targetTriple->get32BitArchVariant().getArch() !=
           llvm::Triple::UnknownArch) {
-    if (global.params.targetTriple.get64BitArchVariant().getArch() ==
+    if (global.params.targetTriple->get64BitArchVariant().getArch() ==
             llvm::Triple::mips64 ||
-        global.params.targetTriple.get64BitArchVariant().getArch() ==
+        global.params.targetTriple->get64BitArchVariant().getArch() ==
             llvm::Triple::mips64el) {
       switch (getMipsABI()) {
       case MipsABI::EABI:
@@ -365,7 +365,7 @@ int executeMsvcToolAndWait(const std::string &tool,
     }
     std::string cmdExecutable = comspecEnv;
     std::string batchFile = exe_path::prependBinDir(
-        global.params.targetTriple.isArch64Bit() ? "amd64.bat" : "x86.bat");
+        global.params.targetTriple->isArch64Bit() ? "amd64.bat" : "x86.bat");
 
     commandLine.append(windows::quoteArg(cmdExecutable));
     commandLine.append(" /s /c \"");
@@ -560,7 +560,7 @@ static int linkObjToBinaryWin(bool sharedLib) {
 //////////////////////////////////////////////////////////////////////////////
 
 int linkObjToBinary(bool sharedLib, bool fullyStatic) {
-  if (global.params.targetTriple.isWindowsMSVCEnvironment()) {
+  if (global.params.targetTriple->isWindowsMSVCEnvironment()) {
     // TODO: Choose dynamic/static MSVCRT version based on fullyStatic?
     return linkObjToBinaryWin(sharedLib);
   }
@@ -574,7 +574,7 @@ int createStaticLibrary() {
   Logger::println("*** Creating static library ***");
 
   const bool isTargetWindows =
-      global.params.targetTriple.isWindowsMSVCEnvironment();
+      global.params.targetTriple->isWindowsMSVCEnvironment();
 
   // find archiver
   std::string tool(isTargetWindows ? "lib.exe" : getArchiver());

@@ -38,11 +38,11 @@ IrModule *getIrModule(Module *m) {
   }
 
   assert(m && "null module");
-  if (m->ir.m_type == IrDsymbol::NotSet) {
-    m->ir.irModule = new IrModule(m, m->srcfile->toChars());
-    m->ir.m_type = IrDsymbol::ModuleType;
+  if (m->ir->m_type == IrDsymbol::NotSet) {
+    m->ir->irModule = new IrModule(m, m->srcfile->toChars());
+    m->ir->m_type = IrDsymbol::ModuleType;
   }
 
-  assert(m->ir.m_type == IrDsymbol::ModuleType);
-  return m->ir.irModule;
+  assert(m->ir->m_type == IrDsymbol::ModuleType);
+  return m->ir->irModule;
 }

@@ -49,8 +49,21 @@ class CaseStatement;
 class DefaultStatement;
 class LabelStatement;
 
+#if IN_LLVM
+namespace llvm
+{
+    class Value;
+    class BasicBlock;
+    class ConstantInt;
+}
+class DValue;
+typedef DValue elem;
+struct AsmCode;
+typedef AsmCode code;
+#else
 // Back end
 struct code;
+#endif
 
 bool inferAggregate(ForeachStatement *fes, Scope *sc, Dsymbol *&sapply);
 bool inferApplyArgTypes(ForeachStatement *fes, Scope *sc, Dsymbol *&sapply);
@@ -111,6 +124,11 @@ public:
     virtual LabelStatement *isLabelStatement() { return NULL; }
     virtual DtorExpStatement *isDtorExpStatement() { return NULL; }
     virtual void accept(Visitor *v) { v->visit(this); }
+
+#if IN_LLVM
+    virtual CompoundAsmStatement *isCompoundAsmBlockStatement() { return NULL; }
+    virtual CompoundAsmStatement *endsWithAsm();
+#endif
 };
 
 /** Any Statement that fails semantic() or has a component that is an ErrorExp or
@@ -198,6 +216,10 @@ public:
 
     CompoundStatement *isCompoundStatement() { return this; }
     void accept(Visitor *v) { v->visit(this); }
+
+#if IN_LLVM
+    virtual CompoundAsmStatement *endsWithAsm();
+#endif
 };
 
 class CompoundDeclarationStatement : public CompoundStatement
@@ -435,6 +457,11 @@ public:
 
     int index;          // which case it is (since we sort this)
 
+#if IN_LLVM
+    llvm::BasicBlock* bodyBB;
+    llvm::Value* llvmIdx;
+#endif
+
     CaseStatement(Loc loc, Expression *exp, Statement *s);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
@@ -464,6 +491,10 @@ class DefaultStatement : public Statement
 public:
     Statement *statement;
 
+#if IN_LLVM
+    llvm::BasicBlock* bodyBB;
+#endif
+
     DefaultStatement(Loc loc, Statement *s);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
@@ -489,6 +520,9 @@ class GotoCaseStatement : public Statement
 public:
     Expression *exp;            // NULL, or which case to goto
     CaseStatement *cs;          // case statement it resolves to
+#if IN_LLVM
+    SwitchStatement *sw;
+#endif
 
     GotoCaseStatement(Loc loc, Expression *exp);
     Statement *syntaxCopy();
@@ -524,6 +558,11 @@ class BreakStatement : public Statement
 public:
     Identifier *ident;
 
+#if IN_LLVM
+    // LDC: only set if ident is set: label statement to jump to
+    LabelStatement *target;
+#endif
+
     BreakStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc);
@@ -535,6 +574,11 @@ class ContinueStatement : public Statement
 {
 public:
     Identifier *ident;
+
+#if IN_LLVM
+    // LDC: only set if ident is set: label statement to jump to
+    LabelStatement *target;
+#endif
 
     ContinueStatement(Loc loc, Identifier *ident);
     Statement *syntaxCopy();
@@ -723,6 +767,11 @@ public:
     bool refparam;              // true if function parameter is referenced
     bool naked;                 // true if function is to be naked
 
+#if IN_LLVM
+    // non-zero if this is a branch, contains the target label
+    LabelDsymbol* isBranchToLabel;
+#endif
+
     AsmStatement(Loc loc, Token *tokens);
     Statement *syntaxCopy();
     Statement *semantic(Scope *sc)
@@ -739,12 +788,22 @@ class CompoundAsmStatement : public CompoundStatement
 public:
     StorageClass stc; // postfix attributes like nothrow/pure/@trusted
 
+#if IN_LLVM
+    llvm::Value* abiret;
+#endif
+
     CompoundAsmStatement(Loc loc, Statements *s, StorageClass stc);
     CompoundAsmStatement *syntaxCopy();
     CompoundAsmStatement *semantic(Scope *sc);
     Statements *flatten(Scope *sc);
 
     void accept(Visitor *v) { v->visit(this); }
+#if IN_LLVM
+    CompoundStatement *isCompoundStatement() { return NULL; }
+    CompoundAsmStatement *isCompoundAsmBlockStatement() { return this; }
+
+    CompoundAsmStatement* endsWithAsm();
+#endif
 };
 
 class ImportStatement : public Statement
