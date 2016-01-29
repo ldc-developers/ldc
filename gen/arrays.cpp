@@ -489,13 +489,26 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
 
 ////////////////////////////////////////////////////////////////////////////////
 
+namespace {
+Expression *indexArrayLiteral(ArrayLiteralExp *ale, unsigned idx) {
+  assert(idx < ale->elements->dim);
+  auto e = (*ale->elements)[idx];
+  if (!e) {
+    return ale->basis;
+  }
+  return e;
+}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 bool isConstLiteral(ArrayLiteralExp *ale) {
   // FIXME: This is overly pessemistic, isConst() always returns 0 e.g. for
   // StructLiteralExps. Thus, we waste optimization potential (GitHub #506).
   for (size_t i = 0; i < ale->elements->dim; ++i) {
     // We have to check specifically for '1', as SymOffExp is classified as
     // '2' and the address of a local variable is not an LLVM constant.
-    if ((*ale->elements)[i]->isConst() != 1) {
+    if (indexArrayLiteral(ale, i)->isConst() != 1) {
       return false;
     }
   }
@@ -515,7 +528,7 @@ llvm::Constant *arrayLiteralToConst(IRState *p, ArrayLiteralExp *ale) {
   std::vector<LLConstant *> vals;
   vals.reserve(ale->elements->dim);
   for (unsigned i = 0; i < ale->elements->dim; ++i) {
-    llvm::Constant *val = toConstElem((*ale->elements)[i], p);
+    llvm::Constant *val = toConstElem(indexArrayLiteral(ale, i), p);
     if (!elementType) {
       elementType = val->getType();
     } else {
@@ -569,7 +582,7 @@ void initializeArrayLiteral(IRState *p, ArrayLiteralExp *ale, LLValue *dstMem) {
   } else {
     // Store the elements one by one.
     for (size_t i = 0; i < elemCount; ++i) {
-      DValue *e = toElem((*ale->elements)[i]);
+      DValue *e = toElem(indexArrayLiteral(ale, i));
 
       LLValue *elemAddr = DtoGEPi(dstMem, 0, i, "", p->scopebb());
       auto vv = new DVarValue(e->type, elemAddr);
