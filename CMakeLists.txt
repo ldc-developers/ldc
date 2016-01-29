@@ -108,8 +108,14 @@ elseif(MSVC)
     ENABLE_LANGUAGE(ASM_MASM)
 endif()
 
-# Setup D compiler flags and linker flags for phobos (system linker) etc.
+# Setup D compiler flags and linker flags for phobos (system linker) etc. We use
+# DMD syntax for all the flags so we can work with both DMD and LDMD.
 set(DDMD_DFLAGS "-wi")
+if(CMAKE_BUILD_TYPE MATCHES Debug)
+    append("-g" DDMD_DFLAGS)
+else()
+    append("-O -release" DDMD_DFLAGS)
+endif()
 set(Dcode_LDFLAGS)
 get_filename_component(D_COMPILER_REALPATH "${D_COMPILER}" REALPATH)
 get_filename_component(D_COMPILER_PATH "${D_COMPILER_REALPATH}" PATH)
