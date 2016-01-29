@@ -166,8 +166,9 @@ static void DtoArrayInit(Loc &loc, LLValue *ptr, LLValue *length,
 
   LLValue *itr_val = DtoLoad(itr);
   // assign array element value
-  DValue *arrayelem = new DVarValue(
-      dvalue->type->toBasetype(), DtoGEP1(ptr, itr_val, true, "arrayinit.arrayelem"));
+  DValue *arrayelem =
+      new DVarValue(dvalue->type->toBasetype(),
+                    DtoGEP1(ptr, itr_val, true, "arrayinit.arrayelem"));
   DtoAssign(loc, arrayelem, dvalue, op);
 
   // increment iterator
@@ -199,8 +200,7 @@ static void copySlice(Loc &loc, LLValue *dstarr, LLValue *sz1, LLValue *srcarr,
   const bool checksEnabled =
       global.params.useAssert || gIR->emitArrayBoundsChecks();
   if (checksEnabled && !knownInBounds) {
-    LLValue *fn =
-        getRuntimeFunction(loc, gIR->module, "_d_array_slice_copy");
+    LLValue *fn = getRuntimeFunction(loc, gIR->module, "_d_array_slice_copy");
     gIR->CreateCallOrInvoke(fn, dstarr, sz1, srcarr, sz2);
   } else {
     // We might have dstarr == srcarr at compile time, but as long as
@@ -284,8 +284,7 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
         copySlice(loc, lhsPtr, lhsSize, rhsPtr, rhsSize, knownInBounds);
       }
     } else if (isConstructing) {
-      LLFunction *fn =
-          getRuntimeFunction(loc, gIR->module, "_d_arrayctor");
+      LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayctor");
       LLCallSite call = gIR->CreateCallOrInvoke(fn, DtoTypeInfoOf(elemType),
                                                 DtoSlice(rhsPtr, rhsLength),
                                                 DtoSlice(lhsPtr, lhsLength));
@@ -316,9 +315,9 @@ void DtoArrayAssign(Loc &loc, DValue *lhs, DValue *rhs, int op,
       LLValue *actualLength = gIR->ir->CreateExactUDiv(lhsSize, rhsSize);
       DtoArrayInit(loc, actualPtr, actualLength, rhs, op);
     } else {
-      LLFunction *fn = getRuntimeFunction(
-          loc, gIR->module,
-          isConstructing ? "_d_arraysetctor" : "_d_arraysetassign");
+      LLFunction *fn = getRuntimeFunction(loc, gIR->module,
+                                          isConstructing ? "_d_arraysetctor"
+                                                         : "_d_arraysetassign");
       LLCallSite call = gIR->CreateCallOrInvoke(
           fn, lhsPtr, DtoBitCast(makeLValue(loc, rhs), getVoidPtrType()),
           gIR->ir->CreateTruncOrBitCast(lhsLength,
@@ -720,9 +719,9 @@ DSliceValue *DtoResizeDynArray(Loc &loc, Type *arrayType, DValue *array,
   bool zeroInit = arrayType->toBasetype()->nextOf()->isZeroInit();
 
   // call runtime
-  LLFunction *fn = getRuntimeFunction(loc, gIR->module,
-                                             zeroInit ? "_d_arraysetlengthT"
-                                                      : "_d_arraysetlengthiT");
+  LLFunction *fn =
+      getRuntimeFunction(loc, gIR->module, zeroInit ? "_d_arraysetlengthT"
+                                                    : "_d_arraysetlengthiT");
 
   LLValue *newArray = gIR->CreateCallOrInvoke(
                              fn, DtoTypeInfoOf(arrayType), newdim,
@@ -749,8 +748,7 @@ void DtoCatAssignElement(Loc &loc, Type *arrayType, DValue *array,
   // otherwise a ~= a[$-i] won't work correctly
   DValue *expVal = toElem(exp);
 
-  LLFunction *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_arrayappendcTX");
+  LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayappendcTX");
   LLValue *appendedArray =
       gIR->CreateCallOrInvoke(
              fn, DtoTypeInfoOf(arrayType),
@@ -773,8 +771,7 @@ DSliceValue *DtoCatAssignArray(Loc &loc, DValue *arr, Expression *exp) {
   LOG_SCOPE;
   Type *arrayType = arr->getType();
 
-  LLFunction *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_arrayappendT");
+  LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_arrayappendT");
   // Call _d_arrayappendT(TypeInfo ti, byte[] *px, byte[] y)
   LLValue *newArray =
       gIR->CreateCallOrInvoke(
@@ -980,8 +977,7 @@ LLValue *DtoArrayCastLength(Loc &loc, LLValue *len, LLType *elemty,
     return len;
   }
 
-  LLFunction *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_array_cast_len");
+  LLFunction *fn = getRuntimeFunction(loc, gIR->module, "_d_array_cast_len");
   return gIR->CreateCallOrInvoke(fn, len,
                                  LLConstantInt::get(DtoSize_t(), esz, false),
                                  LLConstantInt::get(DtoSize_t(), nsz, false))
