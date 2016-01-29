@@ -63,6 +63,11 @@
 // Needs Type already declared.
 #include "cond.h"
 
+// From druntime/src/core/runtime.d.
+extern "C" {
+int rt_init();
+}
+
 // in traits.c
 void initTraitsStringTable();
 
@@ -908,8 +913,12 @@ static void emitJson(Modules &modules) {
 }
 
 int main(int argc, char **argv) {
-  // stack trace on signals
   llvm::sys::PrintStackTraceOnErrorSignal();
+
+  // Initialize the D runtime.
+  // TODO: We might want to call rt_term() using an atexit handler or so to
+  // run module destructors, etc.
+  rt_init();
 
   exe_path::initialize(argv[0], reinterpret_cast<void *>(main));
 
