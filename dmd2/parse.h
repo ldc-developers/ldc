@@ -114,12 +114,14 @@ public:
     BaseClasses *parseBaseClasses();
     Dsymbols *parseImport();
     Type *parseType(Identifier **pident = NULL, TemplateParameters **ptpl = NULL);
-    Type *parseBasicType();
+    Type *parseBasicType(bool dontLookDotIdents = false);
+    Type *parseBasicTypeStartingAt(TypeQualified *tid, bool dontLookDotIdents);
     Type *parseBasicType2(Type *t);
     Type *parseDeclarator(Type *t, int *alt, Identifier **pident,
         TemplateParameters **tpl = NULL, StorageClass storage_class = 0, int *pdisable = NULL, Expressions **pudas = NULL);
     void parseStorageClasses(StorageClass &storage_class, LINK &link, unsigned &structalign, Expressions *&udas);
     Dsymbols *parseDeclarations(bool autodecl, PrefixAttributes *pAttrs, const utf8_t *comment);
+    Dsymbol *parseFunctionLiteral();
     FuncDeclaration *parseContracts(FuncDeclaration *f);
     void checkDanglingElse(Loc elseloc);
     void checkCstyleTypeSyntax(Loc loc, Type *t, int alt, Identifier *ident);

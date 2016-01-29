@@ -26,20 +26,20 @@ namespace ldc {
 
 class CodeGenerator {
 public:
-    CodeGenerator(llvm::LLVMContext &context, bool singleObj);
-    ~CodeGenerator();
-    void emit(Module *m);
+  CodeGenerator(llvm::LLVMContext &context, bool singleObj);
+  ~CodeGenerator();
+  void emit(Module *m);
 
 private:
-    void prepareLLModule(Module *m);
-    void finishLLModule(Module *m);
-    void writeAndFreeLLModule(const char *filename);
+  void prepareLLModule(Module *m);
+  void finishLLModule(Module *m);
+  void writeAndFreeLLModule(const char *filename);
 
-    llvm::LLVMContext &context_;
-    int moduleCount_;
-    bool const singleObj_;
-    IRState *ir_;
-    const char *firstModuleObjfileName_;
+  llvm::LLVMContext &context_;
+  int moduleCount_;
+  bool const singleObj_;
+  IRState *ir_;
+  const char *firstModuleObjfileName_;
 };
 }
 

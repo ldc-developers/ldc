@@ -10,13 +10,12 @@
 #include "target.h"
 #include "gen/abi.h"
 #include "gen/irstate.h"
+#include "gen/llvmhelpers.h"
 #include "mars.h"
 #include "mtype.h"
 #include <assert.h>
 
-#if defined(_MSC_VER)
-#include <windows.h>
-#else
+#if !defined(_MSC_VER)
 #include <pthread.h>
 #endif
 
@@ -28,148 +27,142 @@ int Target::c_longsize;
 int Target::c_long_doublesize;
 bool Target::reverseCppOverloads;
 
-void Target::init()
-{
-    ptrsize = gDataLayout->getPointerSize(ADDRESS_SPACE);
+void Target::init() {
+  ptrsize = gDataLayout->getPointerSize(ADDRESS_SPACE);
 
-    llvm::Type* real = DtoType(Type::basic[Tfloat80]);
-    realsize = gDataLayout->getTypeAllocSize(real);
-    realpad = realsize - gDataLayout->getTypeStoreSize(real);
-    realalignsize = gDataLayout->getABITypeAlignment(real);
-    c_longsize = global.params.is64bit ? 8 : 4;
-    c_long_doublesize = realsize;
+  llvm::Type *real = DtoType(Type::basic[Tfloat80]);
+  realsize = gDataLayout->getTypeAllocSize(real);
+  realpad = realsize - gDataLayout->getTypeStoreSize(real);
+  realalignsize = gDataLayout->getABITypeAlignment(real);
+  c_longsize = global.params.is64bit ? 8 : 4;
+  c_long_doublesize = realsize;
 
-    reverseCppOverloads = false; // DMC is not supported.
+  // according to DMD, only for 32-bit MSVC++:
+  reverseCppOverloads = !global.params.is64bit &&
+                        global.params.targetTriple.isWindowsMSVCEnvironment();
 }
 
 /******************************
  * Return memory alignment size of type.
  */
-
-unsigned Target::alignsize (Type* type)
-{
-    assert (type->isTypeBasic());
-    if (type->ty == Tvoid) return 1;
-    return gDataLayout->getABITypeAlignment(DtoType(type));
+unsigned Target::alignsize(Type *type) {
+  assert(type->isTypeBasic());
+  if (type->ty == Tvoid) {
+    return 1;
+  }
+  return gDataLayout->getABITypeAlignment(DtoType(type));
 }
 
 /******************************
  * Return field alignment size of type.
  */
-
-unsigned Target::fieldalign (Type* type)
-{
-    // LDC_FIXME: Verify this.
-    return type->alignsize();
-}
+unsigned Target::fieldalign(Type *type) { return DtoAlignment(type); }
 
 // sizes based on those from tollvm.cpp:DtoMutexType()
-unsigned Target::critsecsize()
-{
+unsigned Target::critsecsize() {
 #if defined(_MSC_VER)
-    // Return sizeof(RTL_CRITICAL_SECTION)
-    return global.params.is64bit ? 40 : 24;
+  // Return sizeof(RTL_CRITICAL_SECTION)
+  return global.params.is64bit ? 40 : 24;
 #else
-    if (global.params.targetTriple.isOSWindows())
-        return global.params.is64bit ? 40 : 24;
-    else if (global.params.targetTriple.getOS() == llvm::Triple::FreeBSD)
-        return sizeof(size_t);
-    else
-        return sizeof(pthread_mutex_t);
+  if (global.params.targetTriple.isOSWindows()) {
+    return global.params.is64bit ? 40 : 24;
+  }
+  if (global.params.targetTriple.isOSFreeBSD() ||
+#if LDC_LLVM_VER > 305
+    global.params.targetTriple.isOSNetBSD() ||
+    global.params.targetTriple.isOSOpenBSD() ||
+    global.params.targetTriple.isOSDragonFly()
+#else
+    global.params.targetTriple.getOS() == llvm::Triple::NetBSD ||
+    global.params.targetTriple.getOS() == llvm::Triple::OpenBSD ||
+    global.params.targetTriple.getOS() == llvm::Triple::DragonFly
+#endif
+     ) {
+    return sizeof(size_t);
+  }
+  return sizeof(pthread_mutex_t);
+
 #endif
 }
 
-Type *Target::va_listType()
-{
-    return gABI->vaListType();
-}
+Type *Target::va_listType() { return gABI->vaListType(); }
 
 /******************************
  * Encode the given expression, which is assumed to be an rvalue literal
  * as another type for use in CTFE.
  * This corresponds roughly to the idiom *(Type *)&e.
  */
+Expression *Target::paintAsType(Expression *e, Type *type) {
+  union {
+    d_int32 int32value;
+    d_int64 int64value;
+    float float32value;
+    double float64value;
+  } u;
 
-Expression *Target::paintAsType(Expression *e, Type *type)
-{
-    union
-    {
-        d_int32 int32value;
-        d_int64 int64value;
-        float float32value;
-        double float64value;
-    } u;
+  assert(e->type->size() == type->size());
 
-    assert(e->type->size() == type->size());
+  switch (e->type->ty) {
+  case Tint32:
+  case Tuns32:
+    u.int32value = static_cast<d_int32>(e->toInteger());
+    break;
 
-    switch (e->type->ty)
-    {
-        case Tint32:
-        case Tuns32:
-            u.int32value = (d_int32)e->toInteger();
-            break;
+  case Tint64:
+  case Tuns64:
+    u.int64value = static_cast<d_int64>(e->toInteger());
+    break;
 
-        case Tint64:
-        case Tuns64:
-            u.int64value = (d_int64)e->toInteger();
-            break;
+  case Tfloat32:
+    u.float32value = e->toReal();
+    break;
 
-        case Tfloat32:
-            u.float32value = e->toReal();
-            break;
+  case Tfloat64:
+    u.float64value = e->toReal();
+    break;
 
-        case Tfloat64:
-            u.float64value = e->toReal();
-            break;
+  default:
+    assert(0);
+  }
 
-        default:
-            assert(0);
-    }
+  switch (type->ty) {
+  case Tint32:
+  case Tuns32:
+    return new IntegerExp(e->loc, u.int32value, type);
 
-    switch (type->ty)
-    {
-        case Tint32:
-        case Tuns32:
-            return new IntegerExp(e->loc, u.int32value, type);
+  case Tint64:
+  case Tuns64:
+    return new IntegerExp(e->loc, u.int64value, type);
 
-        case Tint64:
-        case Tuns64:
-            return new IntegerExp(e->loc, u.int64value, type);
+  case Tfloat32:
+    return new RealExp(e->loc, ldouble(u.float32value), type);
 
-        case Tfloat32:
-            return new RealExp(e->loc, ldouble(u.float32value), type);
+  case Tfloat64:
+    return new RealExp(e->loc, ldouble(u.float64value), type);
 
-        case Tfloat64:
-            return new RealExp(e->loc, ldouble(u.float64value), type);
+  default:
+    assert(0);
+  }
 
-        default:
-            assert(0);
-    }
-
-    return NULL;    // avoid warning
+  return nullptr; // avoid warning
 }
 
 /******************************
-* Check if the given type is supported for this target
-* 0: supported
-* 1: not supported
-* 2: wrong size
-* 3: wrong base type
-*/
-
-int Target::checkVectorType(int sz, Type *type)
-{
-    // FIXME: It is possible to query the LLVM target about supported vectors?
-    return 0;
+ * Check if the given type is supported for this target
+ * 0: supported
+ * 1: not supported
+ * 2: wrong size
+ * 3: wrong base type
+ */
+int Target::checkVectorType(int sz, Type *type) {
+  // FIXME: It is possible to query the LLVM target about supported vectors?
+  return 0;
 }
 
 /******************************
-* For the given module, perform any post parsing analysis.
-* Certain compiler backends (ie: GDC) have special placeholder
-* modules whose source are empty, but code gets injected
-* immediately after loading.
-*/
-void Target::loadModule(Module *m)
-{
-}
-
+ * For the given module, perform any post parsing analysis.
+ * Certain compiler backends (ie: GDC) have special placeholder
+ * modules whose source are empty, but code gets injected
+ * immediately after loading.
+ */
+void Target::loadModule(Module *m) {}

@@ -65,13 +65,8 @@ public:
         VarDeclaration *v = e->declaration->isVarDeclaration();
         if (v && !(v->storage_class & STCmanifest) && !v->isDataseg() && v->init)
         {
-            if (v->init->isVoidInitializer())
+            if (ExpInitializer *ei = v->init->isExpInitializer())
             {
-            }
-            else
-            {
-                ExpInitializer *ei = v->init->isExpInitializer();
-                assert(ei);
                 doCond(ei->exp);
             }
         }
@@ -112,7 +107,6 @@ public:
 
     void visit(NewExp *e)
     {
-        bool needGC = false;
         if (e->member && !e->member->isNogc() && f->setGC())
         {
             // @nogc-ness is already checked in NewExp::semantic
@@ -120,17 +114,8 @@ public:
         }
         if (e->onstack)
             return;
-
         if (e->allocator)
-        {
-            if (!e->allocator->isNogc() && f->setGC())
-            {
-                e->error("operator new in @nogc function %s may allocate", f->toChars());
-                err = true;
-                return;
-            }
             return;
-        }
 
         if (f->setGC())
         {

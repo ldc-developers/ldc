@@ -15,79 +15,115 @@
 #include "gen/logger.h"
 #include "gen/tollvm.h"
 
-IrFuncTyArg::IrFuncTyArg(Type* t, bool bref, const AttrBuilder& a)
-    : type(t), parametersIdx(0),
+IrFuncTyArg::IrFuncTyArg(Type *t, bool bref, AttrBuilder a)
+    : type(t),
       ltype(t != Type::tvoid && bref ? DtoType(t->pointerTo()) : DtoType(t)),
-      attrs(a), byref(bref), rewrite(0)
-{
+      attrs(std::move(a)), byref(bref) {}
+
+bool IrFuncTyArg::isInReg() const { return attrs.contains(LLAttribute::InReg); }
+bool IrFuncTyArg::isSRet() const {
+  return attrs.contains(LLAttribute::StructRet);
+}
+bool IrFuncTyArg::isByVal() const { return attrs.contains(LLAttribute::ByVal); }
+
+llvm::Value *IrFuncTy::putRet(DValue *dval) {
+  assert(!arg_sret);
+
+  if (ret->rewrite) {
+    Logger::println("Rewrite: putRet");
+    LOG_SCOPE
+    return ret->rewrite->put(dval);
+  }
+
+  return dval->getRVal();
 }
 
-bool IrFuncTyArg::isInReg() const { return attrs.contains(LDC_ATTRIBUTE(InReg)); }
-bool IrFuncTyArg::isSRet() const  { return attrs.contains(LDC_ATTRIBUTE(StructRet)); }
-bool IrFuncTyArg::isByVal() const { return attrs.contains(LDC_ATTRIBUTE(ByVal)); }
+llvm::Value *IrFuncTy::getRet(Type *dty, LLValue *val) {
+  assert(!arg_sret);
 
-llvm::Value* IrFuncTy::putRet(Type* dty, DValue* val)
-{
-    assert(!arg_sret);
-    if (ret->rewrite) {
-        Logger::println("Rewrite: putRet");
-        LOG_SCOPE
-        return ret->rewrite->put(dty, val);
-    }
-    return val->getRVal();
+  if (ret->rewrite) {
+    Logger::println("Rewrite: getRet");
+    LOG_SCOPE
+    return ret->rewrite->get(dty, val);
+  }
+
+  return val;
 }
 
-llvm::Value* IrFuncTy::getRet(Type* dty, DValue* val)
-{
-    assert(!arg_sret);
-    if (ret->rewrite) {
-        Logger::println("Rewrite: getRet");
-        LOG_SCOPE
-        return ret->rewrite->get(dty, val);
-    }
-    return val->getRVal();
+void IrFuncTy::getRet(Type *dty, LLValue *val, LLValue *address) {
+  assert(!arg_sret);
+
+  if (ret->rewrite) {
+    Logger::println("Rewrite: getRet (getL)");
+    LOG_SCOPE
+    ret->rewrite->getL(dty, val, address);
+    return;
+  }
+
+  DtoStoreZextI8(val, address);
 }
 
-void IrFuncTy::getRet(Type* dty, DValue* val, llvm::Value* lval)
-{
-    assert(!arg_sret);
-    if (ret->rewrite) {
-        Logger::println("Rewrite: getRet (getL)");
-        LOG_SCOPE
-        ret->rewrite->getL(dty, val, lval);
-        return;
-    }
-
-    DtoStoreZextI8(val->getRVal(), lval);
+llvm::Value *IrFuncTy::putParam(size_t idx, DValue *dval) {
+  assert(idx < args.size() && "invalid putParam");
+  return putParam(*args[idx], dval);
 }
 
-llvm::Value* IrFuncTy::putParam(Type* dty, size_t idx, DValue* val)
-{
-    assert(idx < args.size() && "invalid putParam");
-    return putParam(dty, *args[idx], val);
+llvm::Value *IrFuncTy::putParam(const IrFuncTyArg &arg, DValue *dval) {
+  if (arg.rewrite) {
+    Logger::println("Rewrite: putParam");
+    LOG_SCOPE
+    return arg.rewrite->put(dval);
+  }
+
+  return dval->getRVal();
 }
 
-llvm::Value* IrFuncTy::putParam(Type* dty, const IrFuncTyArg& arg, DValue* val)
-{
-    if (arg.rewrite) {
-        Logger::println("Rewrite: putParam");
-        LOG_SCOPE
-        return arg.rewrite->put(dty, val);
-    }
-    return val->getRVal();
+void IrFuncTy::getParam(Type *dty, size_t idx, LLValue *val, LLValue *address) {
+  assert(idx < args.size() && "invalid getParam");
+
+  if (args[idx]->rewrite) {
+    Logger::println("Rewrite: getParam (getL)");
+    LOG_SCOPE
+    args[idx]->rewrite->getL(dty, val, address);
+    return;
+  }
+
+  DtoStoreZextI8(val, address);
 }
 
-void IrFuncTy::getParam(Type* dty, size_t idx, DValue* val, llvm::Value* lval)
-{
-    assert(idx < args.size() && "invalid getParam");
+AttrSet IrFuncTy::getParamAttrs(bool passThisBeforeSret) {
+  AttrSet newAttrs;
 
-    if (args[idx]->rewrite)
-    {
-        Logger::println("Rewrite: getParam (getL)");
-        LOG_SCOPE
-        args[idx]->rewrite->getL(dty, val, lval);
-        return;
-    }
+  int idx = 0;
 
-    DtoStoreZextI8(val->getRVal(), lval);
+// handle implicit args
+#define ADD_PA(X)                                                              \
+  if (X) {                                                                     \
+    newAttrs.add(idx, X->attrs);                                               \
+    idx++;                                                                     \
+  }
+
+  ADD_PA(ret)
+
+  if (arg_sret && arg_this && passThisBeforeSret) {
+    ADD_PA(arg_this)
+    ADD_PA(arg_sret)
+  } else {
+    ADD_PA(arg_sret)
+    ADD_PA(arg_this)
+  }
+
+  ADD_PA(arg_nest)
+  ADD_PA(arg_arguments)
+
+#undef ADD_PA
+
+  // Set attributes on the explicit parameters.
+  const size_t n = args.size();
+  for (size_t k = 0; k < n; k++) {
+    const size_t i = idx + (reverseParams ? (n - k - 1) : k);
+    newAttrs.add(i, args[k]->attrs);
+  }
+
+  return newAttrs;
 }

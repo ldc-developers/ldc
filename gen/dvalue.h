@@ -25,11 +25,10 @@ class Dsymbol;
 class VarDeclaration;
 class FuncDeclaration;
 
-namespace llvm
-{
-    class Value;
-    class Type;
-    class Constant;
+namespace llvm {
+class Value;
+class Type;
+class Constant;
 }
 
 class DImValue;
@@ -41,127 +40,137 @@ class DFuncValue;
 class DSliceValue;
 
 // base class for d-values
-class DValue
-{
+class DValue {
 public:
-    Type* type;
-    DValue(Type* ty) : type(ty) {}
-    virtual ~DValue() {}
+  Type *type;
+  explicit DValue(Type *ty) : type(ty) {}
+  virtual ~DValue() = default;
 
-    Type*& getType() { assert(type); return type; }
+  Type *&getType() {
+    assert(type);
+    return type;
+  }
 
-    virtual llvm::Value* getLVal() { assert(0); return 0; }
-    virtual llvm::Value* getRVal() { assert(0); return 0; }
+  virtual llvm::Value *getLVal() {
+    assert(0);
+    return nullptr;
+  }
+  virtual llvm::Value *getRVal() {
+    assert(0);
+    return nullptr;
+  }
 
-    virtual bool isLVal() { return false; }
+  virtual bool isLVal() { return false; }
 
-    virtual DImValue* isIm() { return NULL; }
-    virtual DConstValue* isConst() { return NULL; }
-    virtual DNullValue* isNull() { return NULL; }
-    virtual DVarValue* isVar() { return NULL; }
-    virtual DFieldValue* isField() { return NULL; }
-    virtual DSliceValue* isSlice() { return NULL; }
-    virtual DFuncValue* isFunc() { return NULL; }
+  virtual DImValue *isIm() { return nullptr; }
+  virtual DConstValue *isConst() { return nullptr; }
+  virtual DNullValue *isNull() { return nullptr; }
+  virtual DVarValue *isVar() { return nullptr; }
+  virtual DFieldValue *isField() { return nullptr; }
+  virtual DSliceValue *isSlice() { return nullptr; }
+  virtual DFuncValue *isFunc() { return nullptr; }
 
 protected:
-    DValue() {}
-    DValue(const DValue&) { }
-    DValue& operator=(const DValue& other) { type = other.type; return *this; }
+  DValue() = default;
+  DValue(const DValue &) {}
+  DValue &operator=(const DValue &other) {
+    type = other.type;
+    return *this;
+  }
 };
 
 // immediate d-value
-class DImValue : public DValue
-{
+class DImValue : public DValue {
 public:
-    DImValue(Type* t, llvm::Value* v) : DValue(t), val(v) { }
+  DImValue(Type *t, llvm::Value *v) : DValue(t), val(v) {}
 
-    virtual llvm::Value* getRVal() { assert(val); return val; }
+  llvm::Value *getRVal() override {
+    assert(val);
+    return val;
+  }
 
-    virtual DImValue* isIm() { return this; }
+  DImValue *isIm() override { return this; }
 
 protected:
-    llvm::Value* val;
+  llvm::Value *val;
 };
 
 // constant d-value
-class DConstValue : public DValue
-{
+class DConstValue : public DValue {
 public:
-    DConstValue(Type* t, llvm::Constant* con) : DValue(t), c(con) {}
+  DConstValue(Type *t, llvm::Constant *con) : DValue(t), c(con) {}
 
-    virtual llvm::Value* getRVal();
+  llvm::Value *getRVal() override;
 
-    virtual DConstValue* isConst() { return this; }
+  DConstValue *isConst() override { return this; }
 
-    llvm::Constant* c;
+  llvm::Constant *c;
 };
 
 // null d-value
-class DNullValue : public DConstValue
-{
+class DNullValue : public DConstValue {
 public:
-    DNullValue(Type* t, llvm::Constant* con) : DConstValue(t,con) {}
-    virtual DNullValue* isNull() { return this; }
+  DNullValue(Type *t, llvm::Constant *con) : DConstValue(t, con) {}
+  DNullValue *isNull() override { return this; }
 };
 
 // variable d-value
-class DVarValue : public DValue
-{
+class DVarValue : public DValue {
 public:
-    DVarValue(Type* t, VarDeclaration* vd, llvm::Value* llvmValue);
-    DVarValue(Type* t, llvm::Value* llvmValue);
+  DVarValue(Type *t, VarDeclaration *vd, llvm::Value *llvmValue);
+  DVarValue(Type *t, llvm::Value *llvmValue);
 
-    virtual bool isLVal() { return true; }
-    virtual llvm::Value* getLVal();
-    virtual llvm::Value* getRVal();
+  bool isLVal() override { return true; }
+  llvm::Value *getLVal() override;
+  llvm::Value *getRVal() override;
 
-    /// Returns the underlying storage for special internal ref variables.
-    /// Illegal to call on any other value.
-    virtual llvm::Value* getRefStorage();
+  /// Returns the underlying storage for special internal ref variables.
+  /// Illegal to call on any other value.
+  virtual llvm::Value *getRefStorage();
 
-    virtual DVarValue* isVar() { return this; }
+  DVarValue *isVar() override { return this; }
 
-    VarDeclaration* var;
+  VarDeclaration *var;
+
 protected:
-    llvm::Value* val;
+  llvm::Value *val;
 };
 
 // field d-value
-class DFieldValue : public DVarValue
-{
+class DFieldValue : public DVarValue {
 public:
-    DFieldValue(Type* t, llvm::Value* llvmValue) : DVarValue(t, llvmValue) {}
-    virtual DFieldValue* isField() { return this; }
+  DFieldValue(Type *t, llvm::Value *llvmValue) : DVarValue(t, llvmValue) {}
+  DFieldValue *isField() override { return this; }
 };
 
 // slice d-value
-class DSliceValue : public DValue
-{
+class DSliceValue : public DValue {
 public:
-    DSliceValue(Type* t, llvm::Value* l, llvm::Value* p) : DValue(t), len(l), ptr(p) {}
+  DSliceValue(Type *t, llvm::Value *l, llvm::Value *p)
+      : DValue(t), len(l), ptr(p) {}
 
-    virtual llvm::Value* getRVal();
+  llvm::Value *getRVal() override;
 
-    virtual DSliceValue* isSlice() { return this; }
+  DSliceValue *isSlice() override { return this; }
 
-    llvm::Value* len;
-    llvm::Value* ptr;
+  llvm::Value *len;
+  llvm::Value *ptr;
 };
 
 // function d-value
-class DFuncValue : public DValue
-{
+class DFuncValue : public DValue {
 public:
-    DFuncValue(Type *t, FuncDeclaration* fd, llvm::Value* v, llvm::Value* vt = 0);
-    DFuncValue(FuncDeclaration* fd, llvm::Value* v, llvm::Value* vt = 0);
+  DFuncValue(Type *t, FuncDeclaration *fd, llvm::Value *v,
+             llvm::Value *vt = nullptr);
+  DFuncValue(FuncDeclaration *fd, llvm::Value *v, llvm::Value *vt = nullptr);
 
-    virtual llvm::Value* getRVal();
+  llvm::Value *getRVal() override;
 
-    virtual DFuncValue* isFunc() { return this; }
+  DFuncValue *isFunc() override { return this; }
 
-    FuncDeclaration* func;
-    llvm::Value* val;
-    llvm::Value* vthis;
+  FuncDeclaration *func;
+  llvm::Value *val;
+  llvm::Value *vthis;
 };
 
 #endif // LDC_GEN_DVALUE_H

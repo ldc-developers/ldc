@@ -1175,7 +1175,6 @@ UnionExp Cmp(TOK op, Type *type, Expression *e1, Expression *e2)
 UnionExp Cast(Type *type, Type *to, Expression *e1)
 {
     UnionExp ue;
-    Expression *e = CTFEExp::cantexp;
     Loc loc = e1->loc;
 
     Type *tb = to->toBasetype();
@@ -1317,7 +1316,11 @@ L1:
     else
     {
         if (type != Type::terror)
+        {
+            // have to change to Internal Compiler Error
+            // all invalid casts should be handled already in Expression::castTo().
             error(loc, "cannot cast %s to %s", e1->type->toChars(), type->toChars());
+        }
         new(&ue) ErrorExp();
     }
     return ue;
@@ -1455,7 +1458,7 @@ UnionExp Index(Type *type, Expression *e1, Expression *e2)
                     new(&ue) CTFEExp(TOKcantexp);
                 else
                     new(&ue) UnionExp(e);
-                return ue;;
+                return ue;
             }
         }
         new(&ue) CTFEExp(TOKcantexp);

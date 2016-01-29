@@ -16,9 +16,12 @@ include(CheckCXXCompilerFlag)
 # Locate LLVM.
 #
 
-find_package(LLVM 3.1 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfodwarf instcombine ipa ipo instrumentation linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
+find_package(LLVM 3.5 REQUIRED
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfodwarf instcombine ipa ipo instrumentation irreader linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
+# Remove LLVMTableGen library from list of libraries
+string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
+string(REGEX REPLACE "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" "" LLVM_LIBRARIES "${LLVM_LIBRARIES}")
 
 #
 # Locate libconfig.
@@ -35,11 +38,11 @@ include(GetLinuxDistribution)
 #
 
 # Version information
-set(LDC_VERSION "0.16.0") # May be overridden by git hash tag
+set(LDC_VERSION "0.17.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
-set(DMDFE_PATCH_VERSION   67)
-set(DMDFE_FIX_LEVEL       1) # Comment out if not used
+set(DMDFE_PATCH_VERSION   68)
+set(DMDFE_FIX_LEVEL       2) # Comment out if not used
 
 set(DMD_VERSION ${DMDFE_MAJOR_VERSION}.${DMDFE_MINOR_VERSION}${DMDFE_PATCH_VERSION})
 if(DEFINED DMDFE_FIX_LEVEL)
@@ -117,7 +120,12 @@ if(CMAKE_COMPILER_IS_GNUCXX OR (${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
     #    and it triggers for the visitors we need in our glue code
     #  * -Wpedantic warns on trailing commas in initializer lists and casting
     #    function pointers to void*.
+    #  * -Wgnu-anonymous-struct and -Wnested-anon-types trigger for tokens.h.
+    #  * -Wgnu-redeclared-enum triggers for various frontend headers.
     append("-Wall -Wextra -Wno-unused-parameter -Wno-missing-field-initializers -Wno-non-virtual-dtor" LDC_CXXFLAGS)
+    if ((${CMAKE_CXX_COMPILER_ID} STREQUAL "Clang"))
+        append("-Wno-gnu-anonymous-struct -Wno-nested-anon-types -Wno-gnu-redeclared-enum" LDC_CXXFLAGS)
+    endif()
     if(CMAKE_COMPILER_IS_GNUCXX AND NOT CMAKE_C_COMPILER_VERSION VERSION_LESS "4.7.0")
         append("-Wno-pedantic" LDC_CXXFLAGS)
     endif()
@@ -139,6 +147,10 @@ elseif(MSVC)
     # warning C4800: forcing value to bool 'true' or 'false' (performance warning)
     # warning C4996: we're not using Microsoft's secure stringOp_s() functions
     append("/wd4018 /wd4101 /wd4102 /wd4146 /wd4244 /wd4267 /wd4456 /wd4457 /wd4458 /wd4459 /wd4624 /wd4800 /wd4996" DMD_CXXFLAGS LDC_CXXFLAGS)
+    if(LDC_LLVM_VER GREATER 307)
+        # Suppress noisy warning C4141 'modifier' used more than once', because of __forceinline combined with inline in LLVM headers
+        append("/wd4141" DMD_CXXFLAGS LDC_CXXFLAGS)
+    endif()
 endif()
 # Append -mminimal-toc for gcc 4.0.x - 4.5.x on ppc64
 if( CMAKE_COMPILER_IS_GNUCXX
@@ -171,8 +183,15 @@ string(REPLACE "-Werror " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
 if (UNIX AND NOT "${LLVM_LDFLAGS}" STREQUAL "")
     # LLVM_LDFLAGS may contain -l-lld which is a wrong library reference (AIX)
     string(REPLACE "-l-lld " "-lld " LLVM_LDFLAGS ${LLVM_LDFLAGS})
+    # LLVM_LDFLAGS may have a space at the end
+    string(REGEX REPLACE " $" "" LLVM_LDFLAGS ${LLVM_LDFLAGS})
 endif()
-
+# LLVM_CXXFLAGS may contain -Wcovered-switch-default and -fcolor-diagnostics
+# which are clang-only options
+if(CMAKE_COMPILER_IS_GNUCXX)
+    string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+    string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+endif()
 #
 # Run idgen and impcnvgen.
 #
@@ -249,6 +268,7 @@ set(DRV_SRC
     driver/cl_options.cpp
     driver/codegenerator.cpp
     driver/configfile.cpp
+    driver/exe_path.cpp
     driver/targetmachine.cpp
     driver/toobj.cpp
     driver/tool.cpp
@@ -261,6 +281,7 @@ set(DRV_HDR
     driver/cl_options.h
     driver/codegenerator.h
     driver/configfile.h
+    driver/exe_path.h
     driver/ldc-version.h
     driver/targetmachine.h
     driver/toobj.h
@@ -479,7 +500,9 @@ endif()
 #
 
 # The LLVM_INCLUDE_DIR definition is not always set, e.g. on Windows.
-find_path(LLVM_INTRINSIC_TD_PATH "Intrinsics.td" PATHS ${LLVM_INCLUDE_DIRS}/llvm ${LLVM_INCLUDE_DIRS}/llvm/IR NO_DEFAULT_PATH)
+# strip off anything but the first path
+string(REGEX REPLACE ";.*$" "" LLVM_INC_DIR "${LLVM_INCLUDE_DIRS}")
+find_path(LLVM_INTRINSIC_TD_PATH "Intrinsics.td" PATHS ${LLVM_INC_DIR}/llvm ${LLVM_INC_DIR}/llvm/IR NO_DEFAULT_PATH)
 if (${LLVM_INTRINSIC_TD_PATH} STREQUAL "LLVM_INTRINSIC_TD_PATH-NOTFOUND")
     message(SEND_ERROR "File Intrinsics.td not found")
 else()
@@ -490,23 +513,34 @@ add_definitions(-DLLVM_INTRINSIC_TD_PATH="${LLVM_INTRINSIC_TD_PATH}")
 
 add_executable(gen_gccbuiltins utils/gen_gccbuiltins.cpp)
 
-# Prior to LLVM 3.2, TableGen still uses RTTI, contrary to the rest of LLVM.
-# Thus, we have to remove the -fno-rtti flag from the llvm-config output.
-set(TABLEGEN_CXXFLAGS "${LLVM_CXXFLAGS}")
-if(${LDC_LLVM_VER} LESS 302)
-    string(REPLACE "-fno-rtti" "" TABLEGEN_CXXFLAGS ${TABLEGEN_CXXFLAGS})
-endif()
-
 set_target_properties(
     gen_gccbuiltins PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
-    COMPILE_FLAGS "${TABLEGEN_CXXFLAGS} ${LDC_CXXFLAGS}"
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
     LINK_FLAGS "${SANITIZE_LDFLAGS}"
 )
-target_link_libraries(gen_gccbuiltins ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} "${LLVM_LDFLAGS}")
+target_link_libraries(gen_gccbuiltins ${LLVM_TABLEGEN_LIBRARY} ${LLVM_LIBRARIES} ${PTHREAD_LIBS} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} "${LLVM_LDFLAGS}")
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     target_link_libraries(gen_gccbuiltins dl)
 endif()
+
+
+# Build FileCheck for testing (build source version depending on LLVM version)
+set(FILECHECK_SRC utils/FileCheck-${LLVM_VERSION_MAJOR}.${LLVM_VERSION_MINOR}.cpp)
+if (EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/${FILECHECK_SRC})
+    add_executable(FileCheck ${FILECHECK_SRC})
+    set_target_properties(
+        FileCheck PROPERTIES
+        RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+        COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
+        LINK_FLAGS "${SANITIZE_LDFLAGS}"
+    )
+    target_link_libraries(FileCheck  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} "${LLVM_LDFLAGS}")
+else()
+    message(STATUS "Skip building FileCheck, assuming it can be found in LLVM bin directory")
+endif()
+
+
 
 #
 # LDMD
@@ -519,7 +553,7 @@ endif()
 set_source_files_properties(driver/ldmd.cpp driver/response.cpp PROPERTIES
     COMPILE_FLAGS "${LDC_CXXFLAGS}"
 )
-add_executable(${LDMD_EXE} dmd2/root/man.c driver/ldmd.cpp driver/response.cpp)
+add_executable(${LDMD_EXE} dmd2/root/man.c driver/exe_path.cpp driver/ldmd.cpp driver/response.cpp driver/exe_path.h)
 set_target_properties(${LDMD_EXE} PROPERTIES
     COMPILE_DEFINITIONS LDC_EXE_NAME="${LDC_EXE_NAME}"
     COMPILE_FLAGS "${LLVM_CXXFLAGS}"
@@ -541,6 +575,7 @@ add_subdirectory(runtime)
 if(D_VERSION EQUAL 2)
     add_subdirectory(tests/d2)
 endif()
+add_subdirectory(tests/ir)
 
 #
 # Install target.
@@ -554,6 +589,15 @@ if(${BUILD_SHARED})
     install(TARGETS ${LDC_LIB} DESTINATION ${CMAKE_INSTALL_PREFIX}/lib)
 endif()
 install(FILES ${PROJECT_BINARY_DIR}/bin/${LDC_EXE}_install.conf DESTINATION ${CONF_INST_DIR} RENAME ${LDC_EXE}.conf)
+
+if(MSVC)
+    install(DIRECTORY vcbuild/ DESTINATION ${CMAKE_INSTALL_PREFIX}/bin FILES_MATCHING PATTERN "*.bat")
+    # Also put the VCBuild scripts in the build/bin folder, so that ${PROJECT_BINARY_DIR}/bin/ldc2 is functional.
+    # This is necessary for the IR tests that use ${PROJECT_BINARY_DIR}/bin/ldc2.
+    configure_file(vcbuild/amd64.bat   ${PROJECT_BINARY_DIR}/bin/amd64.bat   COPYONLY)
+    configure_file(vcbuild/msvcEnv.bat ${PROJECT_BINARY_DIR}/bin/msvcEnv.bat COPYONLY)
+    configure_file(vcbuild/x86.bat     ${PROJECT_BINARY_DIR}/bin/x86.bat     COPYONLY)
+endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
     find_package(bash-completion QUIET)

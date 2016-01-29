@@ -41,21 +41,23 @@ install:
   - cd ldc
   - git submodule update --init --recursive
   - cd ..
-  # Clone libconfig
+  # Clone libconfig (v1.6 does not work due to https://github.com/hyperrealm/libconfig/issues/47)
   - git clone https://github.com/hyperrealm/libconfig.git libconfig
+  - cd libconfig
+  - git checkout 7585cf6
+  - cd ..
   ## Download & extract LLVM source
   #- ps: Start-FileDownload 'http://llvm.org/pre-releases/3.7.0/rc3/llvm-3.7.0rc3.src.tar.xz' -FileName 'llvm.src.tar.xz'
   #- 7z x llvm.src.tar.xz -so | 7z x -si -ttar > nul
   #- ren llvm-3.7.0rc3.src llvm
   # Download a pre-built LLVM & extract
-  # LLVM RelWithDebInfo: https://dl.dropboxusercontent.com/s/s1tk6134mku3ei8/llvm-x64-debuginfo.7z?dl=0
   - ps: Start-FileDownload 'https://dl.dropboxusercontent.com/s/5cok3dvmohtduy6/llvm-x64-release.7z?dl=0' -FileName 'llvm-x64.7z'
   - md llvm-x64
   - cd llvm-x64
   - 7z x ..\llvm-x64.7z > nul
   - cd ..
   # Download & install Ninja
-  - ps: Start-FileDownload 'https://github.com/martine/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
+  - ps: Start-FileDownload 'https://github.com/ninja-build/ninja/releases/download/v1.6.0/ninja-win.zip' -FileName 'ninja.zip'
   - md ninja
   - cd ninja
   - 7z x ..\ninja.zip > nul
@@ -73,6 +75,9 @@ install:
   - md ldc-x64\bin
   - copy libcurl\dmd2\windows\bin64\libcurl.dll ldc-x64\bin
   - set PATH=c:\projects\ldc-x64\bin;%PATH%
+  # Download and install lit
+  - python -m pip install lit
+  - python -c "import lit; lit.main();" --version 
 
 #---------------------------------#
 #       build configuration       #
@@ -90,10 +95,6 @@ before_build:
 
 build_script:
   - cd c:\projects
-  # Config file templates: add a lib required in combination with VS 2015
-  - ps: (gc ldc\ldc2.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2.conf.in
-  - ps: (gc ldc\ldc2_install.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2_install.conf.in
-  - ps: (gc ldc\ldc2_phobos.conf.in).replace('@ADDITIONAL_DEFAULT_LDC_SWITCHES@', ', "-Llegacy_stdio_definitions.lib"@ADDITIONAL_DEFAULT_LDC_SWITCHES@') | sc ldc\ldc2_phobos.conf.in
   # Generate build files for LDC
   - md ninja-ldc
   - cd ninja-ldc
@@ -112,6 +113,7 @@ after_build:
             ninja install > $null
             copy bin\ldc2.pdb ..\ldc-x64\bin
             cd ..\ldc-x64
+            (gc etc\ldc2.conf).replace('c:/projects/ldc-x64/', '%%ldcbinarypath%%/../') | sc etc\ldc2.conf
             $artifactFilename = "LDC-Win64-master-$Env:APPVEYOR_BUILD_NUMBER.7z"
             7z a "..\$artifactFilename" * > $null
             cd ..
@@ -132,9 +134,11 @@ test_script:
   # Compile the druntime & phobos unit tests
   - set TEST_SUFFIX=unittest
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set TEST_SUFFIX=unittest-debug)
-  # pre-build some modules serially - those known to require lots of memory
+  # (pre-build some modules serially - those known to require lots of memory)
   - ninja -j1 runtime\std\algorithm\searching-%TEST_SUFFIX%.obj runtime\std\algorithm\setops-%TEST_SUFFIX%.obj runtime\std\array-%TEST_SUFFIX%.obj runtime\std\conv-%TEST_SUFFIX%.obj runtime\std\datetime-%TEST_SUFFIX%.obj runtime\std\range\package-%TEST_SUFFIX%.obj runtime\std\range\primitives-%TEST_SUFFIX%.obj runtime\std\regex\internal\tests-%TEST_SUFFIX%.obj runtime\std\string-%TEST_SUFFIX%.obj runtime\std\traits-%TEST_SUFFIX%.obj
   - ninja -j2 druntime-ldc-%TEST_SUFFIX% phobos2-ldc-%TEST_SUFFIX%
+  # Execute the LLVM IR tests
+  - ctest --output-on-failure -R llvm-ir-testsuite
   # Execute the unit tests; exclude dmd-testsuite for now
   - set CTEST_SUFFIX=-E "-debug|testsuite"
   - if "%APPVEYOR_JOB_CONFIG%"=="Debug" ( set CTEST_SUFFIX=-R -debug -E testsuite)

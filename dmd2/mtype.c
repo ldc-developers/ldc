@@ -59,7 +59,6 @@ int Tsize_t = Tuns32;
 int Tptrdiff_t = Tint32;
 
 Symbol *toInitializer(AggregateDeclaration *ad);
-Expression *getTypeInfo(Type *t, Scope *sc);
 
 /***************************** Type *****************************/
 
@@ -1269,6 +1268,8 @@ Type *Type::aliasthisOf()
                 if (fd)
                 {
                     t = fd->type->nextOf();
+                    if (!t) // issue 14185
+                        return Type::terror;
                     t = t->substWildTo(mod == 0 ? MODmutable : mod);
                 }
                 else
@@ -1585,7 +1586,8 @@ Type *stripDefaultArgs(Type *t)
                         for (size_t j = 0; j < params->dim; j++)
                             (*params)[j] = (*parameters)[j];
                     }
-                    (*params)[i] = new Parameter(p->storageClass, ta, NULL, NULL);
+                    StorageClass stc = p->storageClass & (~STCauto); // issue 14656
+                    (*params)[i] = new Parameter(stc, ta, NULL, NULL);
                 }
             }
         }
@@ -1767,7 +1769,10 @@ bool Type::isAssignable()
     return true;
 }
 
-bool Type::checkBoolean()
+/**************************
+ * Returns true if T can be converted to boolean value.
+ */
+bool Type::isBoolean()
 {
     return isscalar();
 }
@@ -2424,6 +2429,48 @@ Type *Type::baseElemOf()
     while (t->ty == Tsarray)
         t = ((TypeSArray *)t)->next->toBasetype();
     return t;
+}
+
+/*************************************
+ * Bugzilla 14488: Check if the inner most base type is complex or imaginary.
+ * Should only give alerts when set to emit transitional messages.
+ */
+
+void Type::checkComplexTransition(Loc loc)
+{
+    Type *t = baseElemOf();
+    while (t->ty == Tpointer || t->ty == Tarray)
+        t = t->nextOf()->baseElemOf();
+
+    if (t->isimaginary() || t->iscomplex())
+    {
+        const char *p = loc.toChars();
+        Type *rt;
+        switch (t->ty)
+        {
+            case Tcomplex32:
+            case Timaginary32:
+                rt = Type::tfloat32; break;
+            case Tcomplex64:
+            case Timaginary64:
+                rt = Type::tfloat64; break;
+            case Tcomplex80:
+            case Timaginary80:
+                rt = Type::tfloat80; break;
+            default:
+                assert(0);
+        }
+        if (t->iscomplex())
+        {
+            fprintf(global.stdmsg, "%s: use of complex type '%s' is scheduled for deprecation, "
+                    "use 'std.complex.Complex!(%s)' instead\n", p ? p : "", toChars(), rt->toChars());
+        }
+        else
+        {
+            fprintf(global.stdmsg, "%s: use of imaginary type '%s' is scheduled for deprecation, "
+                    "use '%s' instead\n", p ? p : "", toChars(), rt->toChars());
+        }
+    }
 }
 
 /****************************************
@@ -3546,7 +3593,7 @@ TypeBasic *TypeVector::elementType()
     return tb;
 }
 
-bool TypeVector::checkBoolean()
+bool TypeVector::isBoolean()
 {
     return false;
 }
@@ -3777,7 +3824,9 @@ Expression *TypeArray::dotExp(Scope *sc, Expression *e, Identifier *ident, int f
         arguments = new Expressions();
         arguments->push(e);
         // don't convert to dynamic array
-        arguments->push(getTypeInfo(n, sc));
+        Expression *tid = new TypeidExp(e->loc, n);
+        tid = tid->semantic(sc);
+        arguments->push(tid);
         e = new CallExp(e->loc, ec, arguments);
         e->type = next->arrayOf();
     }
@@ -3893,12 +3942,9 @@ void TypeSArray::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol
     if (*pe)
     {
         // It's really an index expression
-        Expressions *exps = new Expressions();
-        exps->setDim(1);
-        (*exps)[0] = dim;
         if (Dsymbol *s = getDsymbol(*pe))
             *pe = new DsymbolExp(loc, s, 1);
-        *pe = new ArrayExp(loc, *pe, exps);
+        *pe = new ArrayExp(loc, *pe, dim);
     }
     else if (*ps)
     {
@@ -4009,8 +4055,7 @@ Type *TypeSArray::semantic(Loc loc, Scope *sc)
     Type *tbn = tn->toBasetype();
 
     if (dim)
-    {   dinteger_t n, n2;
-
+    {
         unsigned int errors = global.errors;
         dim = semanticLength(sc, tbn, dim);
         if (errors != global.errors)
@@ -4272,10 +4317,7 @@ Expression *TypeSArray::toExpression()
 {
     Expression *e = next->toExpression();
     if (e)
-    {   Expressions *arguments = new Expressions();
-        arguments->push(dim);
-        e = new ArrayExp(dim->loc, e, arguments);
-    }
+        e = new ArrayExp(dim->loc, e, dim);
     return e;
 }
 
@@ -4372,7 +4414,7 @@ void TypeDArray::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol
         // It's really a slice expression
         if (Dsymbol *s = getDsymbol(*pe))
             *pe = new DsymbolExp(loc, s, 1);
-        *pe = new SliceExp(loc, *pe, NULL, NULL);
+        *pe = new ArrayExp(loc, *pe);
     }
     else if (*ps)
     {
@@ -4491,7 +4533,7 @@ bool TypeDArray::isZeroInit(Loc loc)
     return true;
 }
 
-bool TypeDArray::checkBoolean()
+bool TypeDArray::isBoolean()
 {
     return true;
 }
@@ -4803,7 +4845,7 @@ bool TypeAArray::isZeroInit(Loc loc)
     return true;
 }
 
-bool TypeAArray::checkBoolean()
+bool TypeAArray::isBoolean()
 {
     return true;
 }
@@ -4815,11 +4857,7 @@ Expression *TypeAArray::toExpression()
     {
         Expression *ei = index->toExpression();
         if (ei)
-        {
-            Expressions *arguments = new Expressions();
-            arguments->push(ei);
-            return new ArrayExp(loc, e, arguments);
-        }
+            return new ArrayExp(loc, e, ei);
     }
     return NULL;
 }
@@ -4944,7 +4982,7 @@ MATCH TypePointer::implicitConvTo(Type *to)
     {
         if (to->ty == Tpointer)
         {
-            TypePointer *tp = (TypePointer*)to;
+            TypePointer *tp = (TypePointer *)to;
             if (tp->next->ty == Tfunction)
             {
                 if (next->equals(tp->next))
@@ -5006,7 +5044,7 @@ MATCH TypePointer::constConv(Type *to)
 {
     if (next->ty == Tfunction)
     {
-        if (to->nextOf() && next->equals(((TypeNext*)to)->next))
+        if (to->nextOf() && next->equals(((TypeNext *)to)->next))
             return Type::constConv(to);
         else
             return MATCHnomatch;
@@ -5339,8 +5377,10 @@ Lcovariant:
     /* Can convert safe/trusted to system
      */
     if (t1->trust <= TRUSTsystem && t2->trust >= TRUSTtrusted)
+    {
         // Should we infer trusted or safe? Go with safe.
         stc |= STCsafe;
+    }
 
     if (stc)
     {   if (pstc)
@@ -5500,8 +5540,10 @@ Type *TypeFunction::semantic(Loc loc, Scope *sc)
             }
 
             if ((fparam->storageClass & (STCref | STCwild)) == (STCref | STCwild))
+            {
                 // 'ref inout' implies 'return'
                 fparam->storageClass |= STCreturn;
+            }
 
             if (fparam->storageClass & STCreturn &&
                 !(fparam->storageClass & (STCref | STCout)))
@@ -6292,7 +6334,7 @@ bool TypeDelegate::isZeroInit(Loc loc)
     return true;
 }
 
-bool TypeDelegate::checkBoolean()
+bool TypeDelegate::isBoolean()
 {
     return true;
 }
@@ -6348,6 +6390,18 @@ void TypeQualified::syntaxCopyHelper(TypeQualified *t)
             ti = (TemplateInstance *)ti->syntaxCopy(NULL);
             id = ti;
         }
+        else if (id->dyncast() == DYNCAST_EXPRESSION)
+        {
+            Expression *e = (Expression *)id;
+            e = e->syntaxCopy();
+            id = e;
+        }
+        else if (id->dyncast() == DYNCAST_TYPE)
+        {
+            Type *tx = (Type *)id;
+            tx = tx->syntaxCopy();
+            id = tx;
+        }
         idents[i] = id;
     }
 }
@@ -6362,10 +6416,134 @@ void TypeQualified::addInst(TemplateInstance *inst)
     idents.push(inst);
 }
 
+void TypeQualified::addIndex(RootObject *e)
+{
+    idents.push(e);
+}
+
 d_uns64 TypeQualified::size(Loc loc)
 {
     error(this->loc, "size of type %s is not known", toChars());
     return SIZE_INVALID;
+}
+
+/*************************************
+ * Resolve a tuple index.
+ */
+void TypeQualified::resolveTupleIndex(Loc loc, Scope *sc, Dsymbol *s,
+        Expression **pe, Type **pt, Dsymbol **ps, RootObject *oindex)
+{
+    *pt = NULL;
+    *ps = NULL;
+    *pe = NULL;
+
+    TupleDeclaration *td = s->isTupleDeclaration();
+
+    Expression *eindex = isExpression(oindex);
+    Type *tindex = isType(oindex);
+    Dsymbol *sindex = isDsymbol(oindex);
+
+    if (!td)
+    {
+        // It's really an index expression
+        if (tindex)
+            eindex = new TypeExp(loc, tindex);
+        else if (sindex)
+            eindex = new DsymbolExp(loc, sindex);
+        Expression *e = new IndexExp(loc, new DsymbolExp(loc, s), eindex);
+        e = e->semantic(sc);
+        if (e->op == TOKerror)
+            *pt = Type::terror;
+        else if (e->op == TOKtype)
+            *pt = ((TypeExp *)e)->type;
+        else
+            *pe = e;
+        return;
+    }
+
+    // Convert oindex to Expression, then try to resolve to constant.
+    if (tindex)
+        tindex->resolve(loc, sc, &eindex, &tindex, &sindex);
+    if (sindex)
+        eindex = new DsymbolExp(loc, sindex);
+    if (!eindex)
+    {
+        ::error(loc, "index is %s not an expression", oindex->toChars());
+        *pt = Type::terror;
+        return;
+    }
+    sc = sc->startCTFE();
+    eindex = eindex->semantic(sc);
+    sc = sc->endCTFE();
+
+    eindex = eindex->ctfeInterpret();
+    if (eindex->op == TOKerror)
+    {
+        *pt = Type::terror;
+        return;
+    }
+
+    const uinteger_t d = eindex->toUInteger();
+    if (d >= td->objects->dim)
+    {
+        ::error(loc, "tuple index %llu exceeds length %u", d, td->objects->dim);
+        *pt = Type::terror;
+        return;
+    }
+
+    RootObject *o = (*td->objects)[(size_t)d];
+    *pt = isType(o);
+    *ps = isDsymbol(o);
+    *pe = isExpression(o);
+
+    if (*pt)
+        *pt = (*pt)->semantic(loc, sc);
+}
+
+void TypeQualified::resolveExprType(Loc loc, Scope *sc,
+        Expression *e, size_t i, Expression **pe, Type **pt)
+{
+    //printf("resolveExprType(e = %s %s, type = %s)\n", Token::toChars(e->op), e->toChars(), e->type->toChars());
+
+    e = e->semantic(sc);
+
+    for (; i < idents.dim; i++)
+    {
+        if (e->op == TOKerror)
+            break;
+
+        RootObject *id = idents[i];
+        //printf("e: '%s', id: '%s', type = %s\n", e->toChars(), id->toChars(), e->type->toChars());
+        if (id->dyncast() == DYNCAST_IDENTIFIER)
+        {
+            DotIdExp *die = new DotIdExp(e->loc, e, (Identifier *)id);
+            e = die->semanticY(sc, 0);
+        }
+        else if (id->dyncast() == DYNCAST_TYPE)         // Bugzilla 1215
+        {
+            e = new IndexExp(loc, e, new TypeExp(loc, (Type *)id));
+            e = e->semantic(sc);
+        }
+        else if (id->dyncast() == DYNCAST_EXPRESSION)   // Bugzilla 1215
+        {
+            e = new IndexExp(loc, e, (Expression *)id);
+            e = e->semantic(sc);
+        }
+        else
+        {
+            assert(id->dyncast() == DYNCAST_DSYMBOL);
+            TemplateInstance *ti = ((Dsymbol *)id)->isTemplateInstance();
+            assert(ti);
+            DotTemplateInstanceExp *dte = new DotTemplateInstanceExp(e->loc, e, ti->name, ti->tiargs);
+            e = dte->semanticY(sc, 0);
+        }
+    }
+    if (e->op == TOKerror)
+        *pt = Type::terror;
+    else if (e->op == TOKtype)
+        *pt = e->type;
+    else
+        *pe = e;
 }
 
 /*************************************
@@ -6375,7 +6553,6 @@ d_uns64 TypeQualified::size(Loc loc)
  *      if expression, *pe is set
  *      if type, *pt is set
  */
-
 void TypeQualified::resolveHelper(Loc loc, Scope *sc,
         Dsymbol *s, Dsymbol *scopesym,
         Expression **pe, Type **pt, Dsymbol **ps, bool intypeid)
@@ -6397,6 +6574,26 @@ void TypeQualified::resolveHelper(Loc loc, Scope *sc,
         for (size_t i = 0; i < idents.dim; i++)
         {
             RootObject *id = idents[i];
+
+            if (id->dyncast() == DYNCAST_EXPRESSION ||
+                id->dyncast() == DYNCAST_TYPE)
+            {
+                Type *tx;
+                Expression *ex;
+                Dsymbol *sx;
+                resolveTupleIndex(loc, sc, s, &ex, &tx, &sx, id);
+                if (sx)
+                {
+                    s = sx->toAlias();
+                    continue;
+                }
+                if (tx)
+                    ex = new TypeExp(loc, tx);
+                assert(ex);
+                resolveExprType(loc, sc, ex, i + 1, pe, pt);
+                return;
+            }
+
             Type *t = s->getType();     // type symbol, type alias, or type tuple?
             unsigned errorsave = global.errors;
             Dsymbol *sm = s->searchX(loc, sc, id);
@@ -6451,36 +6648,15 @@ void TypeQualified::resolveHelper(Loc loc, Scope *sc,
                         e = new DsymbolExp(loc, s);
                     else
                         e = new VarExp(loc, s->isDeclaration());
-                    e = e->semantic(sc);
-                    for (; i < idents.dim; i++)
-                    {
-                        RootObject *id2 = idents[i];
-                        //printf("e: '%s', id: '%s', type = %s\n", e->toChars(), id2->toChars(), e->type->toChars());
-                        if (id2->dyncast() == DYNCAST_IDENTIFIER)
-                        {
-                            DotIdExp *die = new DotIdExp(e->loc, e, (Identifier *)id2);
-                            e = die->semanticY(sc, 0);
-                        }
-                        else
-                        {
-                            assert(id2->dyncast() == DYNCAST_DSYMBOL);
-                            TemplateInstance *ti = ((Dsymbol *)id2)->isTemplateInstance();
-                            assert(ti);
-                            DotTemplateInstanceExp *dte = new DotTemplateInstanceExp(e->loc, e, ti->name, ti->tiargs);
-                            e = dte->semanticY(sc, 0);
-                        }
-                    }
-                    if (e->op == TOKtype)
-                        *pt = e->type;
-                    else if (e->op == TOKerror)
-                        *pt = Type::terror;
-                    else
-                        *pe = e;
+
+                    resolveExprType(loc, sc, e, i, pe, pt);
+                    return;
                 }
                 else
                 {
                     if (id->dyncast() == DYNCAST_DSYMBOL)
-                    {   // searchX already handles errors for template instances
+                    {
+                        // searchX already handles errors for template instances
                         assert(global.errors);
                     }
                     else
@@ -6488,7 +6664,7 @@ void TypeQualified::resolveHelper(Loc loc, Scope *sc,
                         assert(id->dyncast() == DYNCAST_IDENTIFIER);
                         sm = s->search_correct((Identifier *)id);
                         if (sm)
-                            error(loc, "identifier '%s' of '%s' is not defined, did you mean '%s %s'?",
+                            error(loc, "identifier '%s' of '%s' is not defined, did you mean %s '%s'?",
                                   id->toChars(), toChars(), sm->kind(), sm->toChars());
                         else
                             error(loc, "identifier '%s' of '%s' is not defined", id->toChars(), toChars());
@@ -6503,13 +6679,32 @@ void TypeQualified::resolveHelper(Loc loc, Scope *sc,
 
         if (VarDeclaration *v = s->isVarDeclaration())
         {
-            if (v && v->inuse && (!v->type || !v->type->deco))  // Bugzilla 9494
+            /* This is mostly same with DsymbolExp::semantic(), but we cannot use it
+             * because some variables used in type context need to prevent lowering
+             * to a literal or contextful expression. For example:
+             *
+             *  enum a = 1; alias b = a;
+             *  template X(alias e){ alias v = e; }  alias x = X!(1);
+             *  struct S { int v; alias w = v; }
+             *      // TypeIdentifier 'a', 'e', and 'v' should be TOKvar,
+             *      // because getDsymbol() need to work in AliasDeclaration::semantic().
+             */
+            if (!v->type || !v->type->deco)
             {
-                error(loc, "circular reference to '%s'", v->toPrettyChars());
-                *pe = new ErrorExp();
-                return;
+                if (v->inuse)   // Bugzilla 9494
+                {
+                    error(loc, "circular reference to '%s'", v->toPrettyChars());
+                    *pe = new ErrorExp();
+                    return;
+                }
+                if (v->sem < SemanticDone && v->scope)
+                    v->semantic(NULL);
             }
-            *pe = new VarExp(loc, v);
+            assert(v->type);        // Bugzilla 14642
+            if (v->type->ty == Terror)
+                *pt = Type::terror;
+            else
+                *pe = new VarExp(loc, v);
             return;
         }
 #if 0
@@ -6584,7 +6779,7 @@ L1:
     }
     if (!s)
     {
-        const char *p = toChars();
+        const char *p = mutableOf()->unSharedOf()->toChars();
         const char *n = importHint(p);
         if (n)
             error(loc, "'%s' is not defined, perhaps you need to import %s; ?", p, n);
@@ -6593,9 +6788,9 @@ L1:
             Identifier *id = new Identifier(p, TOKidentifier);
             s = sc->search_correct(id);
             if (s)
-                error(loc, "undefined identifier %s, did you mean %s %s?", p, s->kind(), s->toChars());
+                error(loc, "undefined identifier '%s', did you mean %s '%s'?", p, s->kind(), s->toChars());
             else
-                error(loc, "undefined identifier %s", p);
+                error(loc, "undefined identifier '%s'", p);
         }
         *pt = Type::terror;
     }
@@ -6681,23 +6876,15 @@ Dsymbol *TypeIdentifier::toDsymbol(Scope *sc)
     //printf("TypeIdentifier::toDsymbol('%s')\n", toChars());
     if (!sc)
         return NULL;
-    //printf("ident = '%s'\n", ident->toChars());
 
-    Dsymbol *scopesym;
-    Dsymbol *s = sc->search(loc, ident, &scopesym);
-    if (s)
-    {
-        for (size_t i = 0; i < idents.dim; i++)
-        {
-            RootObject *id = idents[i];
-            s = s->searchX(loc, sc, id);
-            if (!s)                 // failed to find a symbol
-            {
-                //printf("\tdidn't find a symbol\n");
-                break;
-            }
-        }
-    }
+    Type *t;
+    Expression *e;
+    Dsymbol *s;
+
+    resolve(loc, sc, &e, &t, &s);
+    if (t && t->ty != Tident)
+        s = t->toDsymbol(sc);
+
     return s;
 }
 
@@ -6735,16 +6922,32 @@ Expression *TypeIdentifier::toExpression()
     for (size_t i = 0; i < idents.dim; i++)
     {
         RootObject *id = idents[i];
-        if (id->dyncast() == DYNCAST_IDENTIFIER)
+        switch (id->dyncast())
         {
-            e = new DotIdExp(loc, e, (Identifier *)id);
-        }
-        else
-        {
-            assert(id->dyncast() == DYNCAST_DSYMBOL);
-            TemplateInstance *ti = ((Dsymbol *)id)->isTemplateInstance();
-            assert(ti);
-            e = new DotTemplateInstanceExp(loc, e, ti->name, ti->tiargs);
+            case DYNCAST_IDENTIFIER:
+            {
+                e = new DotIdExp(loc, e, (Identifier *)id);
+                break;
+            }
+            case DYNCAST_DSYMBOL:
+            {
+                TemplateInstance *ti = ((Dsymbol *)id)->isTemplateInstance();
+                assert(ti);
+                e = new DotTemplateInstanceExp(loc, e, ti->name, ti->tiargs);
+                break;
+            }
+            case DYNCAST_TYPE:
+            {
+                e = new ArrayExp(loc, e, new TypeExp(loc, (Type *)id));
+                break;
+            }
+            case DYNCAST_EXPRESSION:
+            {
+                e = new ArrayExp(loc, e, (Expression *)id);
+                break;
+            }
+            default:
+                assert(0);
         }
     }
 
@@ -6859,16 +7062,32 @@ Expression *TypeInstance::toExpression()
     for (size_t i = 0; i < idents.dim; i++)
     {
         RootObject *id = idents[i];
-        if (id->dyncast() == DYNCAST_IDENTIFIER)
+        switch (id->dyncast())
         {
-            e = new DotIdExp(loc, e, (Identifier *)id);
-        }
-        else
-        {
-            assert(id->dyncast() == DYNCAST_DSYMBOL);
-            TemplateInstance *ti = ((Dsymbol *)id)->isTemplateInstance();
-            assert(ti);
-            e = new DotTemplateInstanceExp(loc, e, ti->name, ti->tiargs);
+            case DYNCAST_IDENTIFIER:
+            {
+                e = new DotIdExp(loc, e, (Identifier *)id);
+                break;
+            }
+            case DYNCAST_DSYMBOL:
+            {
+                TemplateInstance *ti = ((Dsymbol *)id)->isTemplateInstance();
+                assert(ti);
+                e = new DotTemplateInstanceExp(loc, e, ti->name, ti->tiargs);
+                break;
+            }
+            case DYNCAST_TYPE:
+            {
+                e = new ArrayExp(loc, e, new TypeExp(loc, (Type *)id));
+                break;
+            }
+            case DYNCAST_EXPRESSION:
+            {
+                e = new ArrayExp(loc, e, (Expression *)id);
+                break;
+            }
+            default:
+                assert(0);
         }
     }
 
@@ -6901,10 +7120,13 @@ Type *TypeTypeof::syntaxCopy()
 
 Dsymbol *TypeTypeof::toDsymbol(Scope *sc)
 {
-    Type *t = semantic(loc, sc);
-    if (t == this)
-        return NULL;
-    return t->toDsymbol(sc);
+    //printf("TypeTypeof::toDsymbol('%s')\n", toChars());
+    Expression *e;
+    Type *t;
+    Dsymbol *s;
+    resolve(loc, sc, &e, &t, &s);
+
+    return s;
 }
 
 void TypeTypeof::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid)
@@ -6985,12 +7207,24 @@ void TypeTypeof::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol
                 switch (id->dyncast())
                 {
                     case DYNCAST_IDENTIFIER:
+                    {
                         e = new DotIdExp(loc, e, (Identifier *)id);
                         break;
+                    }
                     case DYNCAST_DSYMBOL:
                     {
                         TemplateInstance *ti = ((Dsymbol *)id)->isTemplateInstance();
                         e = new DotExp(loc, e, new ScopeExp(loc, ti));
+                        break;
+                    }
+                    case DYNCAST_TYPE:
+                    {
+                        e = new ArrayExp(loc, e, new TypeExp(loc, (Type *)id));
+                        break;
+                    }
+                    case DYNCAST_EXPRESSION:
+                    {
+                        e = new ArrayExp(loc, e, (Expression *)id);
                         break;
                     }
                     default:
@@ -7063,10 +7297,12 @@ Type *TypeReturn::syntaxCopy()
 
 Dsymbol *TypeReturn::toDsymbol(Scope *sc)
 {
-    Type *t = semantic(Loc(), sc);
-    if (t == this)
-        return NULL;
-    return t->toDsymbol(sc);
+    Expression *e;
+    Type *t;
+    Dsymbol *s;
+    resolve(loc, sc, &e, &t, &s);
+
+    return s;
 }
 
 void TypeReturn::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol **ps, bool intypeid)
@@ -7109,12 +7345,24 @@ void TypeReturn::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol
                 switch (id->dyncast())
                 {
                     case DYNCAST_IDENTIFIER:
+                    {
                         e = new DotIdExp(loc, e, (Identifier *)id);
                         break;
+                    }
                     case DYNCAST_DSYMBOL:
                     {
                         TemplateInstance *ti = ((Dsymbol *)id)->isTemplateInstance();
                         e = new DotExp(loc, e, new ScopeExp(loc, ti));
+                        break;
+                    }
+                    case DYNCAST_TYPE:
+                    {
+                        e = new ArrayExp(loc, e, new TypeExp(loc, (Type *)id));
+                        break;
+                    }
+                    case DYNCAST_EXPRESSION:
+                    {
+                        e = new ArrayExp(loc, e, (Expression *)id);
                         break;
                     }
                     default:
@@ -7321,9 +7569,9 @@ bool TypeEnum::isAssignable()
     return sym->getMemtype(Loc())->isAssignable();
 }
 
-bool TypeEnum::checkBoolean()
+bool TypeEnum::isBoolean()
 {
-    return sym->getMemtype(Loc())->checkBoolean();
+    return sym->getMemtype(Loc())->isBoolean();
 }
 
 bool TypeEnum::needsDestruction()
@@ -7552,7 +7800,7 @@ L1:
     }
     if (v && !v->isDataseg() && (v->storage_class & STCmanifest))
     {
-        accessCheck(e->loc, sc, NULL, v);
+        checkAccess(e->loc, sc, NULL, v);
         Expression *ve = new VarExp(e->loc, v);
         ve = ve->semantic(sc);
         return ve;
@@ -7655,7 +7903,7 @@ L1:
         }
         if (d->semanticRun == PASSinit && d->scope)
             d->semantic(d->scope);
-        accessCheck(e->loc, sc, e, d);
+        checkAccess(e->loc, sc, e, d);
         VarExp *ve = new VarExp(e->loc, d, 1);
         if (d->isVarDeclaration() && d->needThis())
             ve->type = d->type->addMod(e->type->mod);
@@ -7666,7 +7914,7 @@ L1:
     if (d->isDataseg() || unreal && d->isField())
     {
         // (e, d)
-        accessCheck(e->loc, sc, e, d);
+        checkAccess(e->loc, sc, e, d);
         Expression *ve = new VarExp(e->loc, d);
         e = unreal ? ve : new CommaExp(e->loc, e, ve);
         e = e->semantic(sc);
@@ -7680,7 +7928,7 @@ L1:
 
 #if 0
         // *(&e + offset)
-        accessCheck(e->loc, sc, e, d);
+        checkAccess(e->loc, sc, e, d);
         Expression *b = new AddrExp(e->loc, e);
         b->type = e->type->pointerTo();
         b = new AddExp(e->loc, b, new IntegerExp(e->loc, v->offset, Type::tint32));
@@ -7710,6 +7958,7 @@ Expression *TypeStruct::defaultInit(Loc loc)
     Declaration *d = new SymbolDeclaration(sym->loc, sym);
     assert(d);
     d->type = this;
+    d->storage_class |= STCrvalue;      // Bugzilla 14398
     return new VarExp(sym->loc, d);
 }
 
@@ -7737,7 +7986,7 @@ Expression *TypeStruct::defaultInitLiteral(Loc loc)
             error(loc, "circular reference to '%s'", vd->toPrettyChars());
             return new ErrorExp();
         }
-        if (vd->offset < offset)
+        if (vd->offset < offset || vd->type->size() == 0)
             e = NULL;
         else if (vd->init)
         {
@@ -7777,7 +8026,7 @@ bool TypeStruct::isZeroInit(Loc loc)
     return sym->zeroInit != 0;
 }
 
-bool TypeStruct::checkBoolean()
+bool TypeStruct::isBoolean()
 {
     return false;
 }
@@ -7804,7 +8053,7 @@ bool TypeStruct::needsNested()
 bool TypeStruct::isAssignable()
 {
     bool assignable = true;
-    unsigned offset;
+    unsigned offset = ~0;  // dead-store initialize to prevent spurious warning
 
     /* If any of the fields are const or immutable,
      * then one cannot assign this struct.
@@ -7870,7 +8119,7 @@ MATCH TypeStruct::implicitConvTo(Type *to)
                 /* Check all the fields. If they can all be converted,
                  * allow the conversion.
                  */
-                unsigned offset;
+                unsigned offset = ~0;   // dead-store to prevent spurious warning
                 for (size_t i = 0; i < sym->fields.dim; i++)
                 {
                     VarDeclaration *v = sym->fields[i];
@@ -8172,7 +8421,11 @@ L1:
         {
             if (sym->vthis->scope)
                 sym->vthis->semantic(NULL);
-            s = sym->vthis;
+
+            ClassDeclaration *cdp = sym->toParent2()->isClassDeclaration();
+            DotVarExp *de = new DotVarExp(e->loc, e, sym->vthis, 0);
+            de->type = (cdp ? cdp->type : sym->vthis->type)->addMod(e->type->mod);
+            return de;
         }
         else
         {
@@ -8200,7 +8453,7 @@ L1:
     }
     if (v && !v->isDataseg() && (v->storage_class & STCmanifest))
     {
-        accessCheck(e->loc, sc, NULL, v);
+        checkAccess(e->loc, sc, NULL, v);
         Expression *ve = new VarExp(e->loc, v);
         ve = ve->semantic(sc);
         return ve;
@@ -8361,7 +8614,7 @@ L1:
         //printf("e = %s, d = %s\n", e->toChars(), d->toChars());
         if (d->semanticRun == PASSinit && d->scope)
             d->semantic(d->scope);
-        accessCheck(e->loc, sc, e, d);
+        checkAccess(e->loc, sc, e, d);
         VarExp *ve = new VarExp(e->loc, d, 1);
         if (d->isVarDeclaration() && d->needThis())
             ve->type = d->type->addMod(e->type->mod);
@@ -8372,7 +8625,7 @@ L1:
     if (d->isDataseg() || unreal && d->isField())
     {
         // (e, d)
-        accessCheck(e->loc, sc, e, d);
+        checkAccess(e->loc, sc, e, d);
         Expression *ve = new VarExp(e->loc, d);
         e = unreal ? ve : new CommaExp(e->loc, e, ve);
         e = e->semantic(sc);
@@ -8506,7 +8759,7 @@ bool TypeClass::isZeroInit(Loc loc)
     return true;
 }
 
-bool TypeClass::checkBoolean()
+bool TypeClass::isBoolean()
 {
     return true;
 }
@@ -8773,7 +9026,7 @@ void TypeSlice::resolve(Loc loc, Scope *sc, Expression **pe, Type **pt, Dsymbol 
         // It's really a slice expression
         if (Dsymbol *s = getDsymbol(*pe))
             *pe = new DsymbolExp(loc, s, 1);
-        *pe = new SliceExp(loc, *pe, lwr, upr);
+        *pe = new ArrayExp(loc, *pe, new IntervalExp(loc, lwr, upr));
     }
     else if (*ps)
     {
@@ -8873,7 +9126,7 @@ MATCH TypeNull::implicitConvTo(Type *to)
     return MATCHnomatch;
 }
 
-bool TypeNull::checkBoolean()
+bool TypeNull::isBoolean()
 {
     return true;
 }

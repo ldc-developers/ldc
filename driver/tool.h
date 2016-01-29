@@ -1,4 +1,5 @@
-//===-- driver/tool.h - External tool invocation helpers ---------*- C++ -*-===//
+//===-- driver/tool.h - External tool invocation helpers ---------*- C++
+//-*-===//
 //
 //                         LDC – the LLVM D compiler
 //
@@ -18,6 +19,8 @@
 #include <vector>
 #include <string>
 
-int executeToolAndWait(const std::string &tool, std::vector<std::string> const &args, bool verbose = false);
+int executeToolAndWait(const std::string &tool,
+                       std::vector<std::string> const &args,
+                       bool verbose = false);
 
 #endif

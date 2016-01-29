@@ -267,7 +267,7 @@ Module *Module::load(Loc loc, Identifiers *packages, Identifier *ident)
         fprintf(global.stdmsg, "%s\t(%s)\n", ident->toChars(), m->srcfile->toChars());
     }
 
-    m->parse();
+    m = m->parse();
 
     Target::loadModule(m);
 
@@ -324,85 +324,9 @@ bool Module::read(Loc loc)
     return true;
 }
 
-inline unsigned readwordLE(unsigned short *p)
+Module *Module::parse(bool gen_docs)
 {
-#if IN_LLVM
-#if __LITTLE_ENDIAN__
-    return *p;
-#else
-    return (((unsigned char *)p)[1] << 8) | ((unsigned char *)p)[0];
-#endif
-#else
-#if LITTLE_ENDIAN
-    return *p;
-#else
-    return (((unsigned char *)p)[1] << 8) | ((unsigned char *)p)[0];
-#endif
-#endif
-}
-
-inline unsigned readwordBE(unsigned short *p)
-{
-#if IN_LLVM
-#if __BIG_ENDIAN__
-    return *p;
-#else
-    return (((unsigned char *)p)[0] << 8) | ((unsigned char *)p)[1];
-#endif
-#else
-    return (((unsigned char *)p)[0] << 8) | ((unsigned char *)p)[1];
-#endif
-}
-
-inline unsigned readlongLE(unsigned *p)
-{
-#if IN_LLVM
-#if __LITTLE_ENDIAN__
-    return *p;
-#else
-    return ((unsigned char *)p)[0] |
-        (((unsigned char *)p)[1] << 8) |
-        (((unsigned char *)p)[2] << 16) |
-        (((unsigned char *)p)[3] << 24);
-#endif
-#else
-#if LITTLE_ENDIAN
-    return *p;
-#else
-    return ((unsigned char *)p)[0] |
-        (((unsigned char *)p)[1] << 8) |
-        (((unsigned char *)p)[2] << 16) |
-        (((unsigned char *)p)[3] << 24);
-#endif
-#endif
-}
-
-inline unsigned readlongBE(unsigned *p)
-{
-#if IN_LLVM
-#if __BIG_ENDIAN__
-    return *p;
-#else
-    return ((unsigned char *)p)[3] |
-        (((unsigned char *)p)[2] << 8) |
-        (((unsigned char *)p)[1] << 16) |
-        (((unsigned char *)p)[0] << 24);
-#endif
-#else
-    return ((unsigned char *)p)[3] |
-        (((unsigned char *)p)[2] << 8) |
-        (((unsigned char *)p)[1] << 16) |
-        (((unsigned char *)p)[0] << 24);
-#endif
-}
-
-#if IN_LLVM
-void Module::parse(bool gen_docs)
-#else
-void Module::parse()
-#endif
-{
-    //printf("Module::parse()\n");
+    //printf("Module::parse(srcfile='%s') this=%p\n", srcfile->name->toChars(), this);
 
     char *srcname = srcfile->name->toChars();
     //printf("Module::parse(srcname = '%s')\n", srcname);
@@ -445,7 +369,7 @@ void Module::parse()
                 for (pu += bom; pu < pumax; pu++)
                 {   unsigned u;
 
-                    u = le ? readlongLE(pu) : readlongBE(pu);
+                    u = le ? Port::readlongLE(pu) : Port::readlongBE(pu);
                     if (u & ~0x7F)
                     {
                         if (u > 0x10FFFF)
@@ -480,7 +404,7 @@ void Module::parse()
                 for (pu += bom; pu < pumax; pu++)
                 {   unsigned u;
 
-                    u = le ? readwordLE(pu) : readwordBE(pu);
+                    u = le ? Port::readwordLE(pu) : Port::readwordBE(pu);
                     if (u & ~0x7F)
                     {   if (u >= 0xD800 && u <= 0xDBFF)
                         {   unsigned u2;
@@ -489,7 +413,7 @@ void Module::parse()
                             {   error("surrogate UTF-16 high value %04x at EOF", u);
                                 fatal();
                             }
-                            u2 = le ? readwordLE(pu) : readwordBE(pu);
+                            u2 = le ? Port::readwordLE(pu) : Port::readwordBE(pu);
                             if (u2 < 0xDC00 || u2 > 0xDFFF)
                             {   error("surrogate UTF-16 low value %04x out of range", u2);
                                 fatal();
@@ -586,7 +510,7 @@ void Module::parse()
         if (!docfile)
             setDocfile();
 #endif
-        return;
+        return this;
     }
     {
 #if IN_LLVM
@@ -642,6 +566,69 @@ void Module::parse()
             error("has non-identifier characters in filename, use module declaration instead");
     }
 
+    // Add internal used functions in 'object' module members.
+    if (!parent && ident == Id::object)
+    {
+        static const utf8_t code_ArrayEq[] =
+            "bool _ArrayEq(T1, T2)(T1[] a, T2[] b) {\n"
+            " if (a.length != b.length) return false;\n"
+            " foreach (size_t i; 0 .. a.length) { if (a[i] != b[i]) return false; }\n"
+            " return true; }\n";
+
+        static const utf8_t code_ArrayPostblit[] =
+            "void _ArrayPostblit(T)(T[] a) { foreach (ref T e; a) e.__xpostblit(); }\n";
+
+        static const utf8_t code_ArrayDtor[] =
+            "void _ArrayDtor(T)(T[] a) { foreach_reverse (ref T e; a) e.__xdtor(); }\n";
+
+        static const utf8_t code_xopEquals[] =
+            "bool _xopEquals(in void*, in void*) { throw new Error(\"TypeInfo.equals is not implemented\"); }\n";
+
+        static const utf8_t code_xopCmp[] =
+            "bool _xopCmp(in void*, in void*) { throw new Error(\"TypeInfo.compare is not implemented\"); }\n";
+
+        Identifier *arreq = Id::_ArrayEq;
+        Identifier *xopeq = Identifier::idPool("_xopEquals");
+        Identifier *xopcmp = Identifier::idPool("_xopCmp");
+        for (size_t i = 0; i < members->dim; i++)
+        {
+            Dsymbol *sx = (*members)[i];
+            if (!sx) continue;
+            if (arreq && sx->ident == arreq) arreq = NULL;
+            if (xopeq && sx->ident == xopeq) xopeq = NULL;
+            if (xopcmp && sx->ident == xopcmp) xopcmp = NULL;
+        }
+
+        if (arreq)
+        {
+            Parser p(loc, this, code_ArrayEq, strlen((const char *)code_ArrayEq), 0);
+            p.nextToken();
+            members->append(p.parseDeclDefs(0));
+        }
+        {
+            Parser p(loc, this, code_ArrayPostblit, strlen((const char *)code_ArrayPostblit), 0);
+            p.nextToken();
+            members->append(p.parseDeclDefs(0));
+        }
+        {
+            Parser p(loc, this, code_ArrayDtor, strlen((const char *)code_ArrayDtor), 0);
+            p.nextToken();
+            members->append(p.parseDeclDefs(0));
+        }
+        if (xopeq)
+        {
+            Parser p(loc, this, code_xopEquals, strlen((const char *)code_xopEquals), 0);
+            p.nextToken();
+            members->append(p.parseDeclDefs(0));
+        }
+        if (xopcmp)
+        {
+            Parser p(loc, this, code_xopCmp, strlen((const char *)code_xopCmp), 0);
+            p.nextToken();
+            members->append(p.parseDeclDefs(0));
+        }
+    }
+
     // Insert module into the symbol table
     Dsymbol *s = this;
     if (isPackageFile)
@@ -688,6 +675,9 @@ void Module::parse()
             else
                 error(loc, "from file %s must be imported with 'import %s;'",
                     srcname, toPrettyChars());
+
+            // Bugzilla 14446: Return previously parsed module to avoid AST duplication ICE.
+            return mprev;
         }
         else if (Package *pkg = prev->isPackage())
         {
@@ -711,6 +701,7 @@ void Module::parse()
         // Add to global array of all modules
         amodules.push(this);
     }
+    return this;
 }
 
 void Module::importAll(Scope *prevsc)
@@ -758,7 +749,7 @@ void Module::importAll(Scope *prevsc)
         for (size_t i = 0; i < members->dim; i++)
         {
             Dsymbol *s = (*members)[i];
-            s->addMember(sc, sc->scopesym, 1);
+            s->addMember(sc, sc->scopesym);
         }
     }
     // anything else should be run after addMember, so version/debug symbols are defined
@@ -1365,5 +1356,3 @@ const char *lookForSourceFile(const char *filename)
     }
     return NULL;
 }
-
-

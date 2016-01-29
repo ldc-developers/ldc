@@ -16,8 +16,10 @@
 
 #include <string>
 
-namespace llvm { class Module; }
+namespace llvm {
+class Module;
+}
 
-void writeModule(llvm::Module* m, std::string filename);
+void writeModule(llvm::Module *m, std::string filename);
 
 #endif

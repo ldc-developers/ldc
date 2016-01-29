@@ -27,39 +27,24 @@
 #include "ctfe.h"
 #include "target.h"
 
-Expression *getTypeInfo(Type *t, Scope *sc);
-
+/************************************
+ * Check to see the aggregate type is nested and its context pointer is
+ * accessible from the current scope.
+ * Returns true if error occurs.
+ */
 bool checkFrameAccess(Loc loc, Scope *sc, AggregateDeclaration *ad, size_t iStart = 0)
 {
-    if (!ad->isNested())
-        return true;
-
+    Dsymbol *sparent = ad->toParent2();
     Dsymbol *s = sc->func;
-    if (s)
+    if (ad->isNested() && s)
     {
-        Dsymbol *sparent = ad->toParent2();
         //printf("ad = %p %s [%s], parent:%p\n", ad, ad->toChars(), ad->loc.toChars(), ad->parent);
         //printf("sparent = %p %s [%s], parent: %s\n", sparent, sparent->toChars(), sparent->loc.toChars(), sparent->parent->toChars());
 
         while (s)
         {
             if (s == sparent)   // hit!
-            {
-                bool result = true;
-                for (size_t i = iStart; i < ad->fields.dim; i++)
-                {
-                    VarDeclaration *vd = ad->fields[i];
-                    if (AggregateDeclaration *ad2 = isAggregate(vd->type))
-                    {
-                        if (ad2->isStructDeclaration())
-                        {
-                            bool r = checkFrameAccess(loc, sc, ad2);
-                            result = result && r;
-                        }
-                    }
-                }
-                return result;
-            }
+                break;
 
             if (FuncDeclaration *fd = s->isFuncDeclaration())
             {
@@ -73,9 +58,24 @@ bool checkFrameAccess(Loc loc, Scope *sc, AggregateDeclaration *ad, size_t iStar
             }
             s = s->toParent2();
         }
+        if (s != sparent)
+        {
+            error(loc, "cannot access frame pointer of %s", ad->toPrettyChars());
+            return true;
+        }
     }
-    error(loc, "cannot access frame pointer of %s", ad->toPrettyChars());
-    return false;
+
+    bool result = false;
+    for (size_t i = iStart; i < ad->fields.dim; i++)
+    {
+        VarDeclaration *vd = ad->fields[i];
+        Type *tb = vd->type->baseElemOf();
+        if (tb->ty == Tstruct)
+        {
+            result |= checkFrameAccess(loc, sc, ((TypeStruct *)tb)->sym);
+        }
+    }
+    return result;
 }
 
 /********************************* Declaration ****************************/
@@ -257,6 +257,22 @@ Type *TupleDeclaration::getType()
     return tupletype;
 }
 
+Dsymbol *TupleDeclaration::toAlias2()
+{
+    //printf("TupleDeclaration::toAlias2() '%s' objects = %s\n", toChars(), objects->toChars());
+
+    for (size_t i = 0; i < objects->dim; i++)
+    {
+        RootObject *o = (*objects)[i];
+        if (Dsymbol *s = isDsymbol(o))
+        {
+            s = s->toAlias2();
+            (*objects)[i] = s;
+        }
+    }
+    return this;
+}
+
 bool TupleDeclaration::needThis()
 {
     //printf("TupleDeclaration::needThis(%s)\n", toChars());
@@ -281,7 +297,6 @@ bool TupleDeclaration::needThis()
 }
 
 #if IN_LLVM
-
 void TupleDeclaration::semantic3(Scope *sc)
 {
     //printf("TupleDeclaration::semantic3((%s)\n", toChars());
@@ -297,7 +312,6 @@ void TupleDeclaration::semantic3(Scope *sc)
         }
     }
 }
-
 #endif
 
 /********************************* AliasDeclaration ****************************/
@@ -312,7 +326,6 @@ AliasDeclaration::AliasDeclaration(Loc loc, Identifier *id, Type *type)
     this->aliassym = NULL;
     this->import = NULL;
     this->overnext = NULL;
-    this->inSemantic = 0;
     assert(type);
 }
 
@@ -326,7 +339,6 @@ AliasDeclaration::AliasDeclaration(Loc loc, Identifier *id, Dsymbol *s)
     this->aliassym = s;
     this->import = NULL;
     this->overnext = NULL;
-    this->inSemantic = 0;
     assert(s);
 }
 
@@ -350,7 +362,7 @@ void AliasDeclaration::semantic(Scope *sc)
             aliassym->semantic(sc);
         return;
     }
-    this->inSemantic = 1;
+    inuse = 1;
 
     storage_class |= sc->stc & STCdeprecated;
     protection = sc->protection;
@@ -387,6 +399,11 @@ void AliasDeclaration::semantic(Scope *sc)
      * try to alias y to 3.
      */
     s = type->toDsymbol(sc);
+    if (errors != global.errors)
+    {
+        s = NULL;
+        type = Type::terror;
+    }
     if (s && s == this)
     {
         error("cannot resolve");
@@ -431,7 +448,7 @@ void AliasDeclaration::semantic(Scope *sc)
     }
     if (overnext)
         ScopeDsymbol::multiplyDefined(Loc(), overnext, this);
-    this->inSemantic = 0;
+    inuse = 0;
 
     if (global.gag && errors != global.errors)
         type = savedtype;
@@ -512,7 +529,7 @@ void AliasDeclaration::semantic(Scope *sc)
     }
     //printf("setting aliassym %s to %s %s\n", toChars(), s->kind(), s->toChars());
     aliassym = s;
-    this->inSemantic = 0;
+    inuse = 0;
 }
 
 bool AliasDeclaration::overloadInsert(Dsymbol *s)
@@ -568,13 +585,13 @@ Type *AliasDeclaration::getType()
 
 Dsymbol *AliasDeclaration::toAlias()
 {
-    //printf("[%s] AliasDeclaration::toAlias('%s', this = %p, aliassym = %p, kind = '%s', inSemantic = %d)\n",
-    //    loc.toChars(), toChars(), this, aliassym, aliassym ? aliassym->kind() : "", inSemantic);
+    //printf("[%s] AliasDeclaration::toAlias('%s', this = %p, aliassym = %p, kind = '%s', inuse = %d)\n",
+    //    loc.toChars(), toChars(), this, aliassym, aliassym ? aliassym->kind() : "", inuse);
     assert(this != aliassym);
     //static int count; if (++count == 10) *(char*)0=0;
-    if (inSemantic == 1 && type && scope)
+    if (inuse == 1 && type && scope)
     {
-        inSemantic = 2;
+        inuse = 2;
         unsigned olderrors = global.errors;
         Dsymbol *s = type->toDsymbol(scope);
         //printf("[%s] type = %s, s = %p, this = %p\n", loc.toChars(), type->toChars(), s, this);
@@ -586,7 +603,7 @@ Dsymbol *AliasDeclaration::toAlias()
             if (global.errors != olderrors)
                 goto Lerr;
             aliassym = s;
-            inSemantic = 0;
+            inuse = 0;
         }
         else
         {
@@ -596,10 +613,10 @@ Dsymbol *AliasDeclaration::toAlias()
             if (global.errors != olderrors)
                 goto Lerr;
             //printf("t = %s\n", t->toChars());
-            inSemantic = 0;
+            inuse = 0;
         }
     }
-    if (inSemantic)
+    if (inuse)
     {
         error("recursive alias declaration");
 
@@ -624,9 +641,22 @@ Dsymbol *AliasDeclaration::toAlias()
     }
     else if (scope)
         semantic(scope);
-    inSemantic = 1;
+    inuse = 1;
     Dsymbol *s = aliassym ? aliassym->toAlias() : this;
-    inSemantic = 0;
+    inuse = 0;
+    return s;
+}
+
+Dsymbol *AliasDeclaration::toAlias2()
+{
+    if (inuse)
+    {
+        error("recursive alias declaration");
+        return this;
+    }
+    inuse = 1;
+    Dsymbol *s  = aliassym ? aliassym->toAlias2() : this;
+    inuse = 0;
     return s;
 }
 
@@ -894,6 +924,9 @@ void VarDeclaration::semantic(Scope *sc)
     //printf("sc->stc = %x\n", sc->stc);
     //printf("storage_class = x%x\n", storage_class);
 
+    if (global.params.vcomplex)
+        type->checkComplexTransition(loc);
+
     // Calculate type size + safety checks
     if (sc->func && !sc->intypeof && !isMember())
     {
@@ -941,7 +974,7 @@ void VarDeclaration::semantic(Scope *sc)
         }
     }
     if ((storage_class & STCauto) && !inferred)
-       error("storage class 'auto' has no effect if type is not inferred, did you mean 'scope'?");
+        error("storage class 'auto' has no effect if type is not inferred, did you mean 'scope'?");
 
     if (tb->ty == Ttuple)
     {
@@ -1172,6 +1205,10 @@ Lnomatch:
         {
             error("field not allowed in interface");
         }
+        else if (aad && aad->sizeok == SIZEOKdone)
+        {
+            error("cannot be further field because it will change the determined %s size", aad->toChars());
+        }
 
         /* Templates cannot add fields to aggregates
          */
@@ -1374,17 +1411,26 @@ Lnomatch:
                     init = ei;
                 }
 
+                Expression *exp = ei->exp;
                 Expression *e1 = new VarExp(loc, this);
                 if (isBlit)
-                    ei->exp = new BlitExp(loc, e1, ei->exp);
+                    exp = new BlitExp(loc, e1, exp);
                 else
-                    ei->exp = new ConstructExp(loc, e1, ei->exp);
+                    exp = new ConstructExp(loc, e1, exp);
                 canassign++;
-                ei->exp = ei->exp->semantic(sc);
+                exp = exp->semantic(sc);
                 canassign--;
-                ei->exp->optimize(WANTvalue);
+                exp = exp->optimize(WANTvalue);
 
-                if (isScope())
+                if (exp->op == TOKerror)
+                {
+                    init = new ErrorInitializer();
+                    ei = NULL;
+                }
+                else
+                    ei->exp = exp;
+
+                if (ei && isScope())
                 {
                     Expression *ex = ei->exp;
                     while (ex->op == TOKcomma)
@@ -1676,6 +1722,7 @@ void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset,
             {
                 const char *s = (t->ty == Tsarray) ? "static array of " : "";
                 ad->error("cannot have field %s with %ssame struct type", toChars(), s);
+                return;
             }
             if (ts->sym->sizeok != SIZEOKdone && ts->sym->scope)
                 ts->sym->semantic(NULL);
@@ -1691,9 +1738,13 @@ void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset,
         ad->sizeok = SIZEOKfwd;             // cannot finish; flag as forward referenced
         return;
     }
+
+    // List in ad->fields. Even if the type is error, it's necessary to avoid
+    // pointless error diagnostic "more initializers than fields" on struct literal.
+    ad->fields.push(this);
+
     if (t->ty == Terror)
         return;
-
 
     unsigned memsize      = (unsigned)t->size(loc);  // size of member
     unsigned memalignsize = Target::fieldalign(t);   // size of member for alignment purposes
@@ -1704,7 +1755,6 @@ void VarDeclaration::setFieldOffset(AggregateDeclaration *ad, unsigned *poffset,
     //printf("\t%s: memalignsize = %d\n", toChars(), memalignsize);
 
     //printf(" addField '%s' to '%s' at offset %d, size = %d\n", toChars(), ad->toChars(), offset, memsize);
-    ad->fields.push(this);
 }
 
 const char *VarDeclaration::kind()
@@ -1765,23 +1815,56 @@ void VarDeclaration::checkCtorConstInit()
 #endif
 }
 
+bool lambdaCheckForNestedRef(Expression *e, Scope *sc);
+
 /************************************
  * Check to see if this variable is actually in an enclosing function
  * rather than the current one.
+ * Returns true if error occurs.
  */
-
 bool VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
 {
     //printf("VarDeclaration::checkNestedReference() %s\n", toChars());
-    if (parent && !isDataseg() && parent != sc->parent &&
-        !(storage_class & STCmanifest))
+    if (sc->intypeof == 1 || (sc->flags & SCOPEctfe))
+        return false;
+    if (!parent || parent == sc->parent)
+        return false;
+    if (isDataseg() || (storage_class & STCmanifest))
+        return false;
+
+    // The current function
+    FuncDeclaration *fdthis = sc->parent->isFuncDeclaration();
+    if (!fdthis)
+        return false;   // out of function scope
+
+    Dsymbol *p = toParent2();
+
+    // Function literals from fdthis to p must be delegates
+    // TODO: here is similar to checkFrameAccess.
+    for (Dsymbol *s = fdthis; s && s != p; s = s->toParent2())
+    {
+        // function literal has reference to enclosing scope is delegate
+        if (FuncLiteralDeclaration *fld = s->isFuncLiteralDeclaration())
+            fld->tok = TOKdelegate;
+
+        if (FuncDeclaration *fd = s->isFuncDeclaration())
+        {
+            if (!fd->isThis() && !fd->isNested())
+                break;
+        }
+        if (AggregateDeclaration *ad2 = s->isAggregateDeclaration())
+        {
+            if (ad2->storage_class & STCstatic)
+                break;
+        }
+    }
+
+    if (1)
     {
         // The function that this variable is in
-        FuncDeclaration *fdv = toParent()->isFuncDeclaration();
-        // The current function
-        FuncDeclaration *fdthis = sc->parent->isFuncDeclaration();
+        FuncDeclaration *fdv = p->isFuncDeclaration();
 
-        if (fdv && fdthis && fdv != fdthis)
+        if (fdv && fdv != fdthis)
         {
             // Add fdthis to nestedrefs[] if not already there
             for (size_t i = 0; 1; i++)
@@ -1808,47 +1891,7 @@ bool VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
                 {
                     int lv = fdthis->getLevel(loc, sc, fdv);
                     if (lv == -2)   // error
-                        return false;
-                    if (lv > 0 &&
-                        fdv->isPureBypassingInference() >= PUREweak &&
-                        fdthis->isPureBypassingInference() == PUREfwdref &&
-                        fdthis->isInstantiated())
-                    {
-                        /* Bugzilla 9148 and 14039:
-                         *  void foo() pure {
-                         *    int x;
-                         *    void bar()() {  // default is impure
-                         *      x = 1;  // access to enclosing pure function context
-                         *              // means that bar should have weak purity.
-                         *    }
-                         *  }
-                         */
-                        fdthis->flags &= ~FUNCFLAGpurityInprocess;
-                        if (fdthis->type->ty == Tfunction)
-                        {
-                            TypeFunction *tf = (TypeFunction *)fdthis->type;
-                            if (tf->deco)
-                            {
-                                tf = (TypeFunction *)tf->copy();
-                                tf->purity = PUREfwdref;
-                                tf->deco = NULL;
-                                tf->deco = tf->merge()->deco;
-                            }
-                            else
-                                tf->purity = PUREfwdref;
-                            fdthis->type = tf;
-                        }
-                    }
-                }
-
-                // Function literals from fdthis to fdv must be delegates
-                for (Dsymbol *s = fdthis; s && s != fdv; s = s->toParent2())
-                {
-                    // function literal has reference to enclosing scope is delegate
-                    if (FuncLiteralDeclaration *fld = s->isFuncLiteralDeclaration())
-                    {
-                        fld->tok = TOKdelegate;
-                    }
+                        return true;
                 }
 
                 // Add this to fdv->closureVars[] if not already there
@@ -1870,12 +1913,22 @@ bool VarDeclaration::checkNestedReference(Scope *sc, Loc loc)
                 if (ident == Id::dollar)
                 {
                     ::error(loc, "cannnot use $ inside a function literal");
-                    return false;
+                    return true;
+                }
+
+                if (ident == Id::withSym)       // Bugzilla 1759
+                {
+                    ExpInitializer *ez = init->isExpInitializer();
+                    assert(ez);
+                    Expression *e = ez->exp;
+                    if (e->op == TOKconstruct || e->op == TOKblit)
+                        e = ((AssignExp *)e)->e2;
+                    return lambdaCheckForNestedRef(e, sc);
                 }
             }
         }
     }
-    return true;
+    return false;
 }
 
 /****************************
@@ -2033,36 +2086,42 @@ Expression *VarDeclaration::callScopeDtor(Scope *sc)
     Type *tv = type->baseElemOf();
     if (tv->ty == Tstruct)
     {
-        TypeStruct *ts = (TypeStruct *)tv;
-        StructDeclaration *sd = ts->sym;
-        if (sd->dtor)
+        StructDeclaration *sd = ((TypeStruct *)tv)->sym;
+        if (!sd->dtor || !type->size())
+            return NULL;
+
+        if (type->toBasetype()->ty == Tstruct)
         {
-            if (type->toBasetype()->ty == Tsarray)
-            {
-                // Typeinfo.destroy(cast(void*)&v);
-                Expression *ea = new SymOffExp(loc, this, 0, 0);
-                ea = new CastExp(loc, ea, Type::tvoid->pointerTo());
-                Expressions *args = new Expressions();
-                args->push(ea);
+            // v.__xdtor()
+            e = new VarExp(loc, this);
 
-                Expression *et = getTypeInfo(type, sc);
-                et = new DotIdExp(loc, et, Id::destroy);
+            /* This is a hack so we can call destructors on const/immutable objects.
+             * Need to add things like "const ~this()" and "immutable ~this()" to
+             * fix properly.
+             */
+            e->type = e->type->mutableOf();
 
-                e = new CallExp(loc, et, args);
-            }
-            else
-            {
-                e = new VarExp(loc, this);
-                /* This is a hack so we can call destructors on const/immutable objects.
-                 * Need to add things like "const ~this()" and "immutable ~this()" to
-                 * fix properly.
-                 */
-                e->type = e->type->mutableOf();
-                e = new DotVarExp(loc, e, sd->dtor, 0);
-                e = new CallExp(loc, e);
-            }
-            return e;
+            e = new DotVarExp(loc, e, sd->dtor, 0);
+            e = new CallExp(loc, e);
         }
+        else
+        {
+            // _ArrayDtor(v[0 .. n])
+            e = new VarExp(loc, this);
+
+            uinteger_t n = type->size() / sd->type->size();
+            e = new SliceExp(loc, e, new IntegerExp(loc, 0, Type::tsize_t),
+                                     new IntegerExp(loc, n, Type::tsize_t));
+            // Prevent redundant bounds check
+            ((SliceExp *)e)->upperIsInBounds = true;
+            ((SliceExp *)e)->lowerIsLessThanUpper = true;
+
+            // This is a hack so we can call destructors on const/immutable objects.
+            e->type = sd->type->arrayOf();
+
+            e = new CallExp(loc, new IdentifierExp(loc, Id::_ArrayDtor), e);
+        }
+        return e;
     }
 
     // Destructors for classes
@@ -2116,25 +2175,6 @@ SymbolDeclaration::SymbolDeclaration(Loc loc, StructDeclaration *dsym)
     this->loc = loc;
     this->dsym = dsym;
     storage_class |= STCconst;
-}
-
-/********************************* ClassInfoDeclaration ****************************/
-
-ClassInfoDeclaration::ClassInfoDeclaration(ClassDeclaration *cd)
-    : VarDeclaration(Loc(), Type::typeinfoclass->type, cd->ident, NULL)
-{
-    this->cd = cd;
-    storage_class = STCstatic | STCgshared;
-}
-
-Dsymbol *ClassInfoDeclaration::syntaxCopy(Dsymbol *s)
-{
-    assert(0);          // should never be produced by syntax
-    return NULL;
-}
-
-void ClassInfoDeclaration::semantic(Scope *sc)
-{
 }
 
 /********************************* TypeInfoDeclaration ****************************/

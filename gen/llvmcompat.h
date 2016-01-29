@@ -12,7 +12,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #ifdef _MSC_VER
 #pragma once
 #endif
@@ -24,32 +23,22 @@
 #error "Please specify value for LDC_LLVM_VER."
 #endif
 
-#if LDC_LLVM_VER >= 302
 #define ADDRESS_SPACE 0
-#else
-#define ADDRESS_SPACE
-#endif
-
-#if LDC_LLVM_VER < 302
-#define LLVM_OVERRIDE
-#define llvm_move(value) (value)
-#endif
 
 #ifndef __has_feature
-# define __has_feature(x) 0
+#define __has_feature(x) 0
 #endif
 
-#if LDC_LLVM_VER >= 305
-#if __has_feature(cxx_override_control) \
-    || (defined(_MSC_VER) && _MSC_VER >= 1700)
+#if __has_feature(cxx_override_control) ||                                     \
+    (defined(_MSC_VER) && _MSC_VER >= 1700)
 #define LLVM_OVERRIDE override
 #else
 #define LLVM_OVERRIDE
 #endif
 
-#if (__has_feature(cxx_rvalue_references)   \
-     || defined(__GXX_EXPERIMENTAL_CXX0X__) \
-     || (defined(_MSC_VER) && _MSC_VER >= 1600))
+#if (__has_feature(cxx_rvalue_references) ||                                   \
+     defined(__GXX_EXPERIMENTAL_CXX0X__) ||                                    \
+     (defined(_MSC_VER) && _MSC_VER >= 1600))
 #define LLVM_HAS_RVALUE_REFERENCES 1
 #else
 #define LLVM_HAS_RVALUE_REFERENCES 0
@@ -59,8 +48,6 @@
 #define llvm_move(value) (::std::move(value))
 #else
 #define llvm_move(value) (value)
-#endif
-
 #endif
 
 #endif

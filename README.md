@@ -27,20 +27,22 @@ Installation
 
 In-depth material on building and installing LDC and the standard
 libraries, including experimental instructions for running LDC on
-Windows, is available on the project wiki, at
+Windows, is available on the project wiki at
 http://wiki.dlang.org/Building_LDC_from_source.
 
-If you have a working C++ build environment, CMake, a current LLVM and
-libconfig++ (http://hyperrealm.com/libconfig/libconfig.html)
-available, there should be no big surprises, though.
+If you have a working C++ build environment, CMake, a current LLVM, and
+[libconfig](http://hyperrealm.com/libconfig/libconfig.html) available
+there should be no big surprises, though.
 
 Do not forget to make sure all the submodules are up to date:
 
     $ cd ldc
     $ git submodule update --init
 
-Some Linux distributions are also packaging a recent version of LDC,
-so building it manually might not be necessary.
+Some Linux and OS X package managers include recent versions of LDC, so
+manually installing it might not be necessary. For several platforms,
+there are also stand-alone binary builds available at the
+[GitHub release page](https://github.com/ldc-developers/ldc/releases).
 
 
 Contact

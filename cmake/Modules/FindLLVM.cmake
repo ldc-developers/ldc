@@ -27,7 +27,9 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-3.7 llvm-config37
+set(llvm_config_names llvm-config-3.9 llvm-config39
+                      llvm-config-3.8 llvm-config38
+                      llvm-config-3.7 llvm-config37
                       llvm-config-3.6 llvm-config36
                       llvm-config-3.5 llvm-config35
                       llvm-config-3.4 llvm-config34
@@ -83,6 +85,10 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
             list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
         endif()
+        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[8-9][\\.0-9A-Za-z]*")
+            # Versions beginning with 3.8 do not support component ipa
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
+        endif()
 
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
             llvm_map_components_to_libraries(tmplibs ${LLVM_FIND_COMPONENTS})
@@ -126,7 +132,7 @@ else()
             file(TO_CMAKE_PATH "${LLVM_${var}}" LLVM_${var})
         endif()
     endmacro()
-    macro(llvm_set_libs var flag prefix)
+    macro(llvm_set_libs var flag)
        if(LLVM_FIND_QUIETLY)
             set(_quiet_arg ERROR_QUIET)
         endif()
@@ -137,7 +143,6 @@ else()
             ${_quiet_arg}
         )
         file(TO_CMAKE_PATH "${tmplibs}" tmplibs)
-        string(REGEX REPLACE "([$^.[|*+?()]|])" "\\\\\\1" pattern "${prefix}/")
         string(REGEX MATCHALL "${pattern}[^ ]+" LLVM_${var} ${tmplibs})
     endmacro()
 
@@ -146,6 +151,7 @@ else()
     llvm_set(HOST_TARGET host-target)
     llvm_set(INCLUDE_DIRS includedir true)
     llvm_set(ROOT_DIR prefix true)
+    llvm_set(ENABLE_ASSERTIONS assertion-mode)
 
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-2][\\.0-9A-Za-z]*")
         # Versions below 3.3 do not support components objcarcopts, option
@@ -163,6 +169,10 @@ else()
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
         list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
     endif()
+    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[8-9][\\.0-9A-Za-z]*")
+        # Versions beginning with 3.8 do not support component ipa
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "ipa" index)
+    endif()
 
     llvm_set(LDFLAGS ldflags)
     if(NOT ${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
@@ -172,7 +182,7 @@ else()
         string(REPLACE "\n" " " LLVM_LDFLAGS "${LLVM_LDFLAGS} ${LLVM_SYSTEM_LIBS}")
     endif()
     llvm_set(LIBRARY_DIRS libdir true)
-    llvm_set_libs(LIBRARIES libfiles "${LLVM_LIBRARY_DIRS}")
+    llvm_set_libs(LIBRARIES libs)
 endif()
 
 # On CMake builds of LLVM, the output of llvm-config --cxxflags does not

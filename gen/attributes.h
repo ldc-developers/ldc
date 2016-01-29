@@ -12,66 +12,46 @@
 
 #include "gen/llvm.h"
 
-#include <map>
+using LLAttribute = llvm::Attribute::AttrKind;
 
-struct AttrBuilder
-{
-    // A: basic attribute type
-    // B: builder type
-#if LDC_LLVM_VER >= 303
-    typedef llvm::Attribute::AttrKind A;
-    typedef llvm::AttrBuilder B;
-#elif LDC_LLVM_VER == 302
-    typedef llvm::Attributes::AttrVal A;
-    typedef llvm::AttrBuilder B;
-#else
-    typedef llvm::Attributes A;
-    typedef llvm::Attributes B;
-#endif
+class AttrBuilder {
+  llvm::AttrBuilder builder;
 
-    B attrs;
+public:
+  AttrBuilder() = default;
 
-    AttrBuilder() {}
-    AttrBuilder(const B& attrs) : attrs(attrs) {}
+  bool hasAttributes() const;
+  bool contains(LLAttribute attribute) const;
 
-    bool hasAttributes() const;
-    bool contains(A attribute) const;
+  AttrBuilder &clear();
+  AttrBuilder &add(LLAttribute attribute);
+  AttrBuilder &remove(LLAttribute attribute);
+  AttrBuilder &merge(const AttrBuilder &other);
 
-    AttrBuilder& clear();
-    AttrBuilder& add(A attribute);
-    AttrBuilder& remove(A attribute);
-    AttrBuilder& merge(const AttrBuilder& other);
+  AttrBuilder &addAlignment(unsigned alignment);
+  AttrBuilder &addByVal(unsigned alignment);
+  AttrBuilder &addDereferenceable(unsigned size);
+
+  operator llvm::AttrBuilder &() { return builder; }
+  operator const llvm::AttrBuilder &() const { return builder; }
 };
 
-struct AttrSet
-{
-#if LDC_LLVM_VER >= 303
-    typedef llvm::AttributeSet NativeSet;
-    NativeSet entries;
-#else
-    typedef llvm::AttrListPtr NativeSet;
-    std::map<unsigned, AttrBuilder> entries;
-#endif
+class AttrSet {
+  llvm::AttributeSet set;
 
-    AttrSet() {}
-    static AttrSet extractFunctionAndReturnAttributes(const llvm::Function* function);
+public:
+  AttrSet() = default;
+  AttrSet(const llvm::AttributeSet &nativeSet) : set(nativeSet) {}
+  AttrSet(const AttrSet &base, unsigned index, LLAttribute attribute);
 
-    AttrSet& add(unsigned index, const AttrBuilder& builder);
+  static AttrSet
+  extractFunctionAndReturnAttributes(const llvm::Function *function);
 
-    NativeSet toNativeSet() const;
+  AttrSet &add(unsigned index, const AttrBuilder &builder);
+  AttrSet &merge(const AttrSet &other);
+
+  operator llvm::AttributeSet &() { return set; }
+  operator const llvm::AttributeSet &() const { return set; }
 };
-
-// LDC_ATTRIBUTE(name) helper macro returning:
-// * an AttrBuilder::A (enum) value for LLVM 3.2+,
-// * or an llvm::Attribute::AttrConst value for LLVM 3.1,
-//   which can be implicitly converted to AttrBuilder::A
-//   (i.e., llvm::Attributes)
-#if LDC_LLVM_VER >= 303
-#define LDC_ATTRIBUTE(name) llvm::Attribute::name
-#elif LDC_LLVM_VER == 302
-#define LDC_ATTRIBUTE(name) llvm::Attributes::name
-#else
-#define LDC_ATTRIBUTE(name) llvm::Attribute::name
-#endif
 
 #endif

@@ -45,6 +45,7 @@ class AnonDeclaration;
 #include "mars.h"
 #else
 enum LINK;
+enum PINLINE;
 #endif
 
 #define CSXthis_ctor    1       // called this()
@@ -109,10 +110,11 @@ struct Scope
     unsigned *fieldinit;
     size_t fieldinit_dim;
 
-    structalign_t structalign;       // alignment for struct members
-    LINK linkage;          // linkage for external functions
+    structalign_t structalign;  // alignment for struct members
+    LINK linkage;               // linkage for external functions
+    PINLINE inlining;            // inlining strategy for functions
 
-    Prot protection;       // protection for class members
+    Prot protection;            // protection for class members
     int explicitProtection;     // set if in an explicit protection attribute
 
     StorageClass stc;           // storage class
@@ -123,9 +125,6 @@ struct Scope
     UserAttributeDeclaration *userAttribDecl;   // user defined attributes
 
     DocComment *lastdc;         // documentation comment for last symbol at this scope
-    size_t lastoffset;          // offset in docbuf of where to insert next dec (for ditto)
-    size_t lastoffset2;         // offset in docbuf of where to insert next dec (for unittest)
-    OutBuffer *docbuf;          // buffer for documentation output
     AA *anchorCounts;           // lookup duplicate anchor name count
     Identifier *prevAnchor;     // qualified symbol name of last doc anchor
 

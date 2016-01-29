@@ -452,10 +452,8 @@ Expression *buildArrayLoop(Expression *e, Parameters *fparams)
             Parameter *param = new Parameter(STCconst, e->type, id, NULL);
             fparams->shift(param);
             Expression *ie = new IdentifierExp(Loc(), id);
-            Expressions *arguments = new Expressions();
             Expression *index = new IdentifierExp(Loc(), Id::p);
-            arguments->push(index);
-            result = new ArrayExp(Loc(), ie, arguments);
+            result = new ArrayExp(Loc(), ie, index);
         }
 
         void visit(SliceExp *e)
@@ -464,10 +462,8 @@ Expression *buildArrayLoop(Expression *e, Parameters *fparams)
             Parameter *param = new Parameter(STCconst, e->type, id, NULL);
             fparams->shift(param);
             Expression *ie = new IdentifierExp(Loc(), id);
-            Expressions *arguments = new Expressions();
             Expression *index = new IdentifierExp(Loc(), Id::p);
-            arguments->push(index);
-            result = new ArrayExp(Loc(), ie, arguments);
+            result = new ArrayExp(Loc(), ie, index);
         }
 
         void visit(AssignExp *e)

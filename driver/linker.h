@@ -17,15 +17,15 @@
 
 /**
  * Link an executable only from object files.
- * @param argv0 the argv[0] value as passed to main
  * @return 0 on success.
  */
-int linkObjToBinary(bool sharedLib);
+int linkObjToBinary(bool sharedLib, bool fullyStatic);
 
 /**
  * Create a static library from object files.
-*/
-void createStaticLibrary();
+ * @return 0 on success.
+ */
+int createStaticLibrary();
 
 /**
  * Delete the executable that was previously linked with linkObjToBinary.

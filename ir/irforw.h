@@ -11,7 +11,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-
 #ifndef LDC_IR_IRFORW_H
 #define LDC_IR_IRFORW_H
 
@@ -38,26 +37,21 @@ struct TypeArray;
 class TypeFunction;
 
 // llvm forward declarations
-namespace llvm
-{
-    class Value;
-    class GlobalValue;
-    class GlobalVariable;
-    class Function;
-    class Constant;
-    class ConstantStruct;
-    class ConstantArray;
-#if LDC_LLVM_VER >= 302
-    class DataLayout;
-#else
-    class TargetData;
-#endif
-    class Type;
-    class StructType;
-    class ArrayType;
-    class PointerType;
-    class BasicBlock;
-    class Instruction;
+namespace llvm {
+class Value;
+class GlobalValue;
+class GlobalVariable;
+class Function;
+class Constant;
+class ConstantStruct;
+class ConstantArray;
+class DataLayout;
+class Type;
+class StructType;
+class ArrayType;
+class PointerType;
+class BasicBlock;
+class Instruction;
 }
 
 #endif

@@ -16,15 +16,15 @@
 
 #include "gen/metadata.h"
 namespace llvm {
-    class FunctionPass;
-    class ModulePass;
+class FunctionPass;
+class ModulePass;
 }
 
 // Performs simplifications on runtime calls.
-llvm::FunctionPass* createSimplifyDRuntimeCalls();
+llvm::FunctionPass *createSimplifyDRuntimeCalls();
 
-llvm::FunctionPass* createGarbageCollect2Stack();
+llvm::FunctionPass *createGarbageCollect2Stack();
 
-llvm::ModulePass* createStripExternalsPass();
+llvm::ModulePass *createStripExternalsPass();
 
 #endif
