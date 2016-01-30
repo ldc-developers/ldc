@@ -616,6 +616,7 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
   LOG_SCOPE;
 
   if (fromtype->ty == Tvector) {
+    // First, handle vector types (which can also be isintegral()).
     return DtoCastVector(loc, val, to);
   }
   if (fromtype->isintegral()) {
@@ -627,27 +628,29 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
   if (fromtype->isfloating()) {
     return DtoCastFloat(loc, val, to);
   }
-  if (fromtype->ty == Tclass) {
+
+  switch (fromtype->ty) {
+  case Tclass:
     return DtoCastClass(loc, val, to);
-  }
-  if (fromtype->ty == Tarray || fromtype->ty == Tsarray) {
+  case Tarray:
+  case Tsarray:
     return DtoCastArray(loc, val, to);
-  }
-  if (fromtype->ty == Tpointer || fromtype->ty == Tfunction) {
+  case Tpointer:
+  case Tfunction:
     return DtoCastPtr(loc, val, to);
-  }
-  if (fromtype->ty == Tdelegate) {
+  case Tdelegate:
     return DtoCastDelegate(loc, val, to);
-  }
-  if (fromtype->ty == Tnull) {
+  case Tnull:
     return DtoNullValue(to, loc);
+  default:
+    if (fromtype->ty == totype->ty) {
+      // FIXME: This silently discards aggregate casts!
+      return val;
+    }
+    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+          to->toChars());
+    fatal();
   }
-  if (fromtype->ty == totype->ty) {
-    return val;
-  }
-  error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
-        to->toChars());
-  fatal();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
