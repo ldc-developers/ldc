@@ -163,13 +163,24 @@ IrTypePointer *IrTypePointer::get(Type *dt) {
 //////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
-IrTypeSArray::IrTypeSArray(Type *dt) : IrType(dt, sarray2llvm(dt)) {}
+IrTypeSArray::IrTypeSArray(Type *dt, LLType *lt) : IrType(dt, lt) {}
 
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeSArray *IrTypeSArray::get(Type *dt) {
-  auto t = new IrTypeSArray(dt);
-  dt->ctype = t;
+  // sarray2llvm() calls DtoMemType() which may recursively call this function
+  // with the same type. To prevent this the call to sarray2llvm() is moved
+  // out of the constructor and an explicit check is added.
+  LLType *lt = sarray2llvm(dt);
+  IrTypeSArray *t;
+  if (dt->ctype) {
+    t = dt->ctype->isSArray();
+    assert(t);
+  }
+  else {
+    t = new IrTypeSArray(dt, lt);
+    dt->ctype = t;
+  }
   return t;
 }
 
