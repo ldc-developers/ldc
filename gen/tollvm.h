@@ -100,7 +100,7 @@ void DtoStore(LLValue *src, LLValue *dst);
 void DtoVolatileStore(LLValue *src, LLValue *dst);
 void DtoStoreZextI8(LLValue *src, LLValue *dst);
 void DtoAlignedStore(LLValue *src, LLValue *dst);
-LLValue *DtoBitCast(LLValue *v, LLType *t, const char *name = "");
+LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name = "");
 LLConstant *DtoBitCast(LLConstant *v, LLType *t);
 LLValue *DtoInsertValue(LLValue *aggr, LLValue *v, unsigned idx,
                         const char *name = "");
