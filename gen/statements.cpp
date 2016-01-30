@@ -204,8 +204,7 @@ public:
             returnValue =
                 LLConstant::getNullValue(irs->mainFunc->getReturnType());
           } else {
-            returnValue = irs->ir->CreateBitCast(
-                returnValue, irs->topfunc()->getReturnType());
+            returnValue = DtoBitCast(returnValue, irs->topfunc()->getReturnType());
           }
 
           IF_LOG Logger::cout() << "return value after cast: " << *returnValue
