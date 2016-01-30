@@ -580,6 +580,23 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
   fatal();
 }
 
+DValue *DtoCastStruct(Loc &loc, DValue *val, Type *to) {
+  Type *const totype = to->toBasetype();
+  if (totype->ty == Tstruct) {
+    // This a cast to repaint a struct to another type, which the language
+    // allows for identical layouts (opCast() and so on have been lowered
+    // earlier by the frontend).
+    llvm::Value *rv = val->getRVal();
+    llvm::Value *result =
+        DtoBitCast(rv, DtoType(to)->getPointerTo(), rv->getName() + ".repaint");
+    return new DImValue(to, result);
+  }
+
+  error(loc, "Internal Compiler Error: Invalid struct cast from '%s' to '%s'",
+        val->getType()->toChars(), to->toChars());
+  fatal();
+}
+
 DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
   Type *fromtype = val->getType()->toBasetype();
   Type *totype = to->toBasetype();
@@ -633,13 +650,17 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
     return DtoCastPtr(loc, val, to);
   case Tdelegate:
     return DtoCastDelegate(loc, val, to);
+  case Tstruct:
+    return DtoCastStruct(loc, val, to);
   case Tnull:
     return DtoNullValue(to, loc);
-  default:
-    if (fromtype->ty == totype->ty) {
-      // FIXME: This silently discards aggregate casts!
-      return val;
+  case Taarray:
+    if (totype->ty == Taarray) {
+      // Do nothing, the types will match up anyway.
+      return new DImValue(to, val->getRVal());
     }
+    // fall-through
+  default:
     error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
           to->toChars());
     fatal();
