@@ -150,7 +150,7 @@ public:
 
 protected:
   ///
-  explicit IrTypeSArray(Type *dt);
+  explicit IrTypeSArray(Type *dt, LLType *lt);
 
   ///
   static llvm::Type *sarray2llvm(Type *t);
