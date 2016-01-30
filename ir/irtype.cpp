@@ -147,27 +147,20 @@ IrTypePointer *IrTypePointer::get(Type *dt) {
 IrTypeSArray::IrTypeSArray(Type *dt, LLType *lt) : IrType(dt, lt) {}
 
 IrTypeSArray *IrTypeSArray::get(Type *dt) {
-  // sarray2llvm() calls DtoMemType() which may recursively call this function
-  // with the same type. To prevent this the call to sarray2llvm() is moved
-  // out of the constructor and an explicit check is added.
-  LLType *lt = sarray2llvm(dt);
-  IrTypeSArray *t;
-  if (dt->ctype) {
-    t = dt->ctype->isSArray();
-    assert(t);
-  } else {
-    t = new IrTypeSArray(dt, lt);
-    dt->ctype = t;
-  }
-  return t;
-}
+  assert(!dt->ctype);
+  assert(dt->ty == Tsarray && "not static array type");
 
-llvm::Type *IrTypeSArray::sarray2llvm(Type *t) {
-  assert(t->ty == Tsarray && "not static array type");
-  TypeSArray *tsa = static_cast<TypeSArray *>(t);
-  uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
-  LLType *elemType = DtoMemType(t->nextOf());
-  return llvm::ArrayType::get(elemType, dim);
+  LLType *elemType = DtoMemType(dt->nextOf());
+
+  // We might have already built the type during DtoMemType e.g. as part of a
+  // forward reference in a struct.
+  if (!dt->ctype) {
+    TypeSArray *tsa = static_cast<TypeSArray *>(dt);
+    uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
+    dt->ctype = new IrTypeSArray(dt, llvm::ArrayType::get(elemType, dim));
+  }
+
+  return dt->ctype->isSArray();
 }
 
 //////////////////////////////////////////////////////////////////////////////
