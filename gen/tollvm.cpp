@@ -503,8 +503,14 @@ LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
   if (v->getType() == t) {
     return v;
   }
-  assert(!isaStruct(t));
-  return gIR->ir->CreateBitCast(v, t, name);
+  if (isaStruct(t) || isaStruct(v)) {
+    // A bitcast is not allowed for aggregate types. In this case
+    // store the value in memory and reload it.
+    return DtoLoad(DtoAllocaDump(v, t, 0, ".bitcast_dump"));
+  }
+  else {
+    return gIR->ir->CreateBitCast(v, t, name);
+  }
 }
 
 LLConstant *DtoBitCast(LLConstant *v, LLType *t) {
