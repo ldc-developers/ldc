@@ -499,7 +499,7 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoBitCast(LLValue *v, LLType *t, const char *name) {
+LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
   if (v->getType() == t) {
     return v;
   }

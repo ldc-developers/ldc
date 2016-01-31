@@ -62,8 +62,7 @@ Type *getTypeInfoType(Type *t, Scope *sc);
 
 LLValue *DtoNew(Loc &loc, Type *newtype) {
   // get runtime function
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_allocmemoryT");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_allocmemoryT");
   // get type info
   LLConstant *ti = DtoTypeInfoOf(newtype);
   assert(isaPointer(ti));
@@ -83,16 +82,14 @@ LLValue *DtoNewStruct(Loc &loc, TypeStruct *newtype) {
 }
 
 void DtoDeleteMemory(Loc &loc, DValue *ptr) {
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_delmemory");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delmemory");
   LLValue *lval = (ptr->isLVal() ? ptr->getLVal() : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
 void DtoDeleteStruct(Loc &loc, DValue *ptr) {
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_delstruct");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delstruct");
   LLValue *lval = (ptr->isLVal() ? ptr->getLVal() : makeLValue(loc, ptr));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)),
@@ -101,24 +98,21 @@ void DtoDeleteStruct(Loc &loc, DValue *ptr) {
 }
 
 void DtoDeleteClass(Loc &loc, DValue *inst) {
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_delclass");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delclass");
   LLValue *lval = (inst->isLVal() ? inst->getLVal() : makeLValue(loc, inst));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
 void DtoDeleteInterface(Loc &loc, DValue *inst) {
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_delinterface");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delinterface");
   LLValue *lval = (inst->isLVal() ? inst->getLVal() : makeLValue(loc, inst));
   gIR->CreateCallOrInvoke(
       fn, DtoBitCast(lval, fn->getFunctionType()->getParamType(0)));
 }
 
 void DtoDeleteArray(Loc &loc, DValue *arr) {
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_delarray_t");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_delarray_t");
   llvm::FunctionType *fty = fn->getFunctionType();
 
   // the TypeInfo argument must be null if the type has no dtor
@@ -182,8 +176,7 @@ llvm::AllocaInst *DtoRawAlloca(LLType *lltype, size_t alignment,
 
 LLValue *DtoGcMalloc(Loc &loc, LLType *lltype, const char *name) {
   // get runtime function
-  llvm::Function *fn =
-      getRuntimeFunction(loc, gIR->module, "_d_allocmemory");
+  llvm::Function *fn = getRuntimeFunction(loc, gIR->module, "_d_allocmemory");
   // parameters
   LLValue *size = DtoConstSize_t(getTypeAllocSize(lltype));
   // call runtime allocator
@@ -587,6 +580,23 @@ DValue *DtoCastVector(Loc &loc, DValue *val, Type *to) {
   fatal();
 }
 
+DValue *DtoCastStruct(Loc &loc, DValue *val, Type *to) {
+  Type *const totype = to->toBasetype();
+  if (totype->ty == Tstruct) {
+    // This a cast to repaint a struct to another type, which the language
+    // allows for identical layouts (opCast() and so on have been lowered
+    // earlier by the frontend).
+    llvm::Value *rv = val->getRVal();
+    llvm::Value *result =
+        DtoBitCast(rv, DtoType(to)->getPointerTo(), rv->getName() + ".repaint");
+    return new DImValue(to, result);
+  }
+
+  error(loc, "Internal Compiler Error: Invalid struct cast from '%s' to '%s'",
+        val->getType()->toChars(), to->toChars());
+  fatal();
+}
+
 DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
   Type *fromtype = val->getType()->toBasetype();
   Type *totype = to->toBasetype();
@@ -616,6 +626,7 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
   LOG_SCOPE;
 
   if (fromtype->ty == Tvector) {
+    // First, handle vector types (which can also be isintegral()).
     return DtoCastVector(loc, val, to);
   }
   if (fromtype->isintegral()) {
@@ -627,27 +638,33 @@ DValue *DtoCast(Loc &loc, DValue *val, Type *to) {
   if (fromtype->isfloating()) {
     return DtoCastFloat(loc, val, to);
   }
-  if (fromtype->ty == Tclass) {
+
+  switch (fromtype->ty) {
+  case Tclass:
     return DtoCastClass(loc, val, to);
-  }
-  if (fromtype->ty == Tarray || fromtype->ty == Tsarray) {
+  case Tarray:
+  case Tsarray:
     return DtoCastArray(loc, val, to);
-  }
-  if (fromtype->ty == Tpointer || fromtype->ty == Tfunction) {
+  case Tpointer:
+  case Tfunction:
     return DtoCastPtr(loc, val, to);
-  }
-  if (fromtype->ty == Tdelegate) {
+  case Tdelegate:
     return DtoCastDelegate(loc, val, to);
-  }
-  if (fromtype->ty == Tnull) {
+  case Tstruct:
+    return DtoCastStruct(loc, val, to);
+  case Tnull:
     return DtoNullValue(to, loc);
+  case Taarray:
+    if (totype->ty == Taarray) {
+      // Do nothing, the types will match up anyway.
+      return new DImValue(to, val->getRVal());
+    }
+    // fall-through
+  default:
+    error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
+          to->toChars());
+    fatal();
   }
-  if (fromtype->ty == totype->ty) {
-    return val;
-  }
-  error(loc, "invalid cast from '%s' to '%s'", val->getType()->toChars(),
-        to->toChars());
-  fatal();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1370,7 +1387,6 @@ LLValue *makeLValue(Loc &loc, DValue *value) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void callPostblit(Loc &loc, Expression *exp, LLValue *val) {
-
   Type *tb = exp->type->toBasetype();
   if ((exp->op == TOKvar || exp->op == TOKdotvar || exp->op == TOKstar ||
        exp->op == TOKthis || exp->op == TOKindex) &&
