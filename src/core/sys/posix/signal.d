@@ -2082,7 +2082,7 @@ int pthread_kill(pthread_t, int);
 int pthread_sigmask(int, in sigset_t*, sigset_t*);
 */
 
-version( linux )
+version( CRuntime_Glibc )
 {
     int pthread_kill(pthread_t, int);
     int pthread_sigmask(int, in sigset_t*, sigset_t*);
@@ -2102,7 +2102,7 @@ else version (Solaris)
     int pthread_kill(pthread_t, int);
     int pthread_sigmask(int, in sigset_t*, sigset_t*);
 }
-else version( Android )
+else version( CRuntime_Bionic )
 {
     int pthread_kill(pthread_t, int);
     int pthread_sigmask(int, in sigset_t*, sigset_t*);
