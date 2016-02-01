@@ -96,6 +96,21 @@ Strings *FileName::splitPath(const char *path)
             while (isspace((utf8_t)*p))         // skip leading whitespace
                 p++;
             buf.reserve(strlen(p) + 1); // guess size of path
+
+#if POSIX
+           if (*p == '~') // Only replace tilde on first char
+           {
+               if (*(p+1) == '/') // and only if next char is path separator
+               {
+                   char *home = getenv("HOME");
+                   if (home)
+                       buf.writestring(home);
+               } else
+                   buf.writestring("~");
+           }
+#endif
+
+
             for (; ; p++)
             {
                 c = *p;
@@ -124,18 +139,6 @@ Strings *FileName::splitPath(const char *path)
 
                     case '\r':
                         continue;       // ignore carriage returns
-
-#if POSIX
-                    case '~':
-                    {
-                        char *home = getenv("HOME");
-                        if (home)
-                            buf.writestring(home);
-                        else
-                            buf.writestring("~");
-                        continue;
-                    }
-#endif
 
 #if 0
                     case ' ':
