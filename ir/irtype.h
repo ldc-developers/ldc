@@ -182,7 +182,7 @@ public:
 
 protected:
   ///
-  explicit IrTypeVector(Type *dt);
+  explicit IrTypeVector(Type *dt, llvm::Type *lt);
 
   static llvm::Type *vector2llvm(Type *dt);
 };

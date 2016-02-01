@@ -186,12 +186,16 @@ IrTypeArray *IrTypeArray::get(Type *dt) {
 
 //////////////////////////////////////////////////////////////////////////////
 
-IrTypeVector::IrTypeVector(Type *dt) : IrType(dt, vector2llvm(dt)) {}
+IrTypeVector::IrTypeVector(Type *dt, llvm::Type *lt) : IrType(dt, lt) {}
 
 IrTypeVector *IrTypeVector::get(Type *dt) {
-  auto t = new IrTypeVector(dt);
-  dt->ctype = t;
-  return t;
+  LLType *lt = vector2llvm(dt);
+  // Could have already built the type as part of a struct forward reference,
+  // just as for pointers and arrays.
+  if (!dt->ctype) {
+    dt->ctype = new IrTypeVector(dt, lt);
+  }
+  return dt->ctype->isVector();
 }
 
 llvm::Type *IrTypeVector::vector2llvm(Type *dt) {
