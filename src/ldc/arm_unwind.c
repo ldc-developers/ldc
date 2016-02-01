@@ -14,6 +14,9 @@
 
 #include <unwind.h>
 
+// clang's unwind.h doesn't have this
+typedef struct _Unwind_Context _Unwind_Context;
+
 _Unwind_Word _d_eh_GetIP(_Unwind_Context *context)
 {
     return _Unwind_GetIP(context);
