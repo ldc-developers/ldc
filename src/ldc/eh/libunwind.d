@@ -247,7 +247,17 @@ struct NativeContext
         debug(EH_personality) printf("  - Found catch clause for %p\n", exception_struct);
 
         if (actions & _Unwind_Action.SEARCH_PHASE)
+        {
+            // Cache phase 1 data (TODO: take advantage of cache)
+            version (ARM_EABI_UNWINDER) with (exception_struct.unwind_info)
+            {
+                barrier_cache.sp = _Unwind_GetGR(context, UNWIND_STACK_REG);
+                barrier_cache.bitpattern[1] = ti_offset;
+                barrier_cache.bitpattern[3] = landingPadAddr;
+            }
+
             return _Unwind_Reason_Code.HANDLER_FOUND;
+        }
 
         if (!(actions & _Unwind_Action.CLEANUP_PHASE))
             fatalerror("Unknown phase");
