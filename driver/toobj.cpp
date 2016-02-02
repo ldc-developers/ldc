@@ -346,27 +346,26 @@ void writeModule(llvm::Module *m, std::string filename) {
        global.params.targetTriple.getOS() == llvm::Triple::AIX);
 
   // eventually do our own path stuff, dmd's is a bit strange.
-  typedef llvm::SmallString<128> LLPath;
+  using LLPath = llvm::SmallString<128>;
+
+#if LDC_LLVM_VER >= 306
+  using ErrorInfo = std::error_code;
+#define ERRORINFO_STRING(errinfo) errinfo.message().c_str()
+#else
+  using ErrorInfo = std::string;
+#define ERRORINFO_STRING(errinfo) errinfo.c_str()
+#endif
 
   // write LLVM bitcode
   if (global.params.output_bc) {
-    LLPath bcpath = LLPath(filename);
+    LLPath bcpath(filename);
     llvm::sys::path::replace_extension(bcpath, global.bc_ext);
     Logger::println("Writing LLVM bitcode to: %s\n", bcpath.c_str());
-#if LDC_LLVM_VER >= 306
-    std::error_code errinfo;
-#else
-    std::string errinfo;
-#endif
+    ErrorInfo errinfo;
     llvm::raw_fd_ostream bos(bcpath.c_str(), errinfo, llvm::sys::fs::F_None);
     if (bos.has_error()) {
       error(Loc(), "cannot write LLVM bitcode file '%s': %s", bcpath.c_str(),
-#if LDC_LLVM_VER >= 306
-            errinfo
-#else
-            errinfo.c_str()
-#endif
-            );
+            ERRORINFO_STRING(errinfo));
       fatal();
     }
     llvm::WriteBitcodeToFile(m, bos);
@@ -374,23 +373,14 @@ void writeModule(llvm::Module *m, std::string filename) {
 
   // write LLVM IR
   if (global.params.output_ll) {
-    LLPath llpath = LLPath(filename);
+    LLPath llpath(filename);
     llvm::sys::path::replace_extension(llpath, global.ll_ext);
     Logger::println("Writing LLVM asm to: %s\n", llpath.c_str());
-#if LDC_LLVM_VER >= 306
-    std::error_code errinfo;
-#else
-    std::string errinfo;
-#endif
+    ErrorInfo errinfo;
     llvm::raw_fd_ostream aos(llpath.c_str(), errinfo, llvm::sys::fs::F_None);
     if (aos.has_error()) {
       error(Loc(), "cannot write LLVM asm file '%s': %s", llpath.c_str(),
-#if LDC_LLVM_VER >= 306
-            errinfo
-#else
-            errinfo.c_str()
-#endif
-            );
+            ERRORINFO_STRING(errinfo));
       fatal();
     }
     AssemblyAnnotator annotator;
@@ -399,18 +389,14 @@ void writeModule(llvm::Module *m, std::string filename) {
 
   // write native assembly
   if (global.params.output_s || assembleExternally) {
-    LLPath spath = LLPath(filename);
+    LLPath spath(filename);
     llvm::sys::path::replace_extension(spath, global.s_ext);
     if (!global.params.output_s) {
       llvm::sys::fs::createUniqueFile("ldc-%%%%%%%.s", spath);
     }
 
     Logger::println("Writing native asm to: %s\n", spath.c_str());
-#if LDC_LLVM_VER >= 306
-    std::error_code errinfo;
-#else
-    std::string errinfo;
-#endif
+    ErrorInfo errinfo;
     {
       llvm::raw_fd_ostream out(spath.c_str(), errinfo, llvm::sys::fs::F_None);
 #if LDC_LLVM_VER >= 306
@@ -422,20 +408,13 @@ void writeModule(llvm::Module *m, std::string filename) {
         codegenModule(*gTargetMachine, *m, out,
                       llvm::TargetMachine::CGFT_AssemblyFile);
       } else {
-        error(Loc(), "cannot write native asm: %s",
-#if LDC_LLVM_VER >= 306
-              errinfo
-#else
-              errinfo.c_str()
-#endif
-              );
+        error(Loc(), "cannot write native asm: %s", ERRORINFO_STRING(errinfo));
         fatal();
       }
     }
 
     if (assembleExternally) {
-      LLPath objpath(filename);
-      assemble(spath.str(), objpath.str());
+      assemble(spath.str(), filename);
     }
 
     if (!global.params.output_s) {
@@ -444,15 +423,11 @@ void writeModule(llvm::Module *m, std::string filename) {
   }
 
   if (global.params.output_o && !assembleExternally) {
-    LLPath objpath = LLPath(filename);
-    Logger::println("Writing object file to: %s\n", objpath.c_str());
-#if LDC_LLVM_VER >= 306
-    std::error_code errinfo;
-#else
-    std::string errinfo;
-#endif
+    Logger::println("Writing object file to: %s\n", filename.c_str());
+    ErrorInfo errinfo;
     {
-      llvm::raw_fd_ostream out(objpath.c_str(), errinfo, llvm::sys::fs::F_None);
+      llvm::raw_fd_ostream out(filename.c_str(), errinfo,
+                               llvm::sys::fs::F_None);
 #if LDC_LLVM_VER >= 306
       if (!errinfo)
 #else
@@ -462,15 +437,11 @@ void writeModule(llvm::Module *m, std::string filename) {
         codegenModule(*gTargetMachine, *m, out,
                       llvm::TargetMachine::CGFT_ObjectFile);
       } else {
-        error(Loc(), "cannot write object file: %s",
-#if LDC_LLVM_VER >= 306
-              errinfo
-#else
-              errinfo.c_str()
-#endif
-              );
+        error(Loc(), "cannot write object file: %s", ERRORINFO_STRING(errinfo));
         fatal();
       }
     }
   }
+
+#undef ERRORINFO_STRING
 }

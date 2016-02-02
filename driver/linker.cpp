@@ -37,10 +37,9 @@ static bool endsWith(const std::string &str, const std::string &end) {
 //////////////////////////////////////////////////////////////////////////////
 
 static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
-  llvm::StringRef dir(llvm::sys::path::parent_path(fileName));
+  auto dir = llvm::sys::path::parent_path(fileName);
   if (!dir.empty() && !llvm::sys::fs::exists(dir)) {
-    std::error_code ec = llvm::sys::fs::create_directory(dir);
-    if (ec) {
+    if (auto ec = llvm::sys::fs::create_directory(dir)) {
       error(Loc(), "failed to create path to file: %s\n%s", dir.data(),
             ec.message().c_str());
       fatal();
