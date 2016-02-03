@@ -17,6 +17,12 @@ import ddmd.globals;
 import ddmd.root.file;
 import ddmd.root.outbuffer;
 
+extern (C++) void disableGC()
+{
+	import core.memory;
+	GC.disable();
+}
+
 extern (C++) void writeModuleDependencyFile()
 {
     if (global.params.moduleDepsFile !is null)
