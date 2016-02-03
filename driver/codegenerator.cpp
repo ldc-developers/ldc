@@ -57,7 +57,7 @@ CodeGenerator::~CodeGenerator() {
     if ((oname = global.params.exefile) || (oname = global.params.objname)) {
       filename = FileName::forceExt(
           oname, global.params.targetTriple->isOSWindows() ? global.obj_ext_alt
-                                                          : global.obj_ext);
+                                                           : global.obj_ext);
       if (global.params.objdir) {
         filename =
             FileName::combine(global.params.objdir, FileName::name(filename));
@@ -165,13 +165,6 @@ void CodeGenerator::emit(Module *m) {
   codegenModule(ir_, m, emitFullModuleInfo);
   if (m == g_dMainModule) {
     codegenModule(ir_, g_entrypointModule, emitFullModuleInfo);
-
-    // On Linux, strongly define the excecutabe BSS bracketing symbols in
-    // the main module for druntime use (see rt.sections_linux).
-    if (global.params.targetTriple->isOSLinux()) {
-      emitSymbolAddrGlobal(ir_->module, "__bss_start", "_d_execBssBegAddr");
-      emitSymbolAddrGlobal(ir_->module, "_end", "_d_execBssEndAddr");
-    }
   }
 
   finishLLModule(m);
