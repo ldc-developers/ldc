@@ -1978,7 +1978,7 @@ version(IN_LLVM) {
         }
         else
         {
-            CppMangleVisitor v;
+            scope CppMangleVisitor v = new CppMangleVisitor();
             return v.mangleOf(s);
         }
     }
