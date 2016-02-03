@@ -1849,11 +1849,11 @@ version(IN_LLVM) {
             }
             dinteger_t v = es2e.toInteger();
 version(IN_LLVM) {
-    version(__LITTLE_ENDIAN) {
-            memcpy(cast(char *)s + (es1.len + i) * sz, &v, sz);
+    version(LittleEndian) {
+            memcpy(cast(char*)s + (es1.len + i) * sz, &v, sz);
     } else {
-            memcpy(cast(char *)s + (es1.len + i) * sz,
-                   cast(char *)&v + (dinteger_t.sizeof - sz), sz);
+            memcpy(cast(char*)s + (es1.len + i) * sz,
+                   cast(char*)&v + (dinteger_t.sizeof - sz), sz);
     }
 } else {
             memcpy(cast(char*)s + (es1.len + i) * sz, &v, sz);
