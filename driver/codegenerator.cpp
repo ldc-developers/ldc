@@ -19,25 +19,11 @@
 
 void codegenModule(IRState *irs, Module *m, bool emitFullModuleInfo);
 
+/// The module with the frontend-generated C main() definition.
 extern Module *g_entrypointModule;
-extern Module *g_dMainModule;
 
-namespace {
-/// Emits a declaration for the given symbol, which is assumed to be of type
-/// i8*, and defines a second globally visible i8* that contains the address
-/// of the first symbol.
-void emitSymbolAddrGlobal(llvm::Module &lm, const char *symbolName,
-                          const char *addrName) {
-  llvm::Type *voidPtr =
-      llvm::PointerType::get(llvm::Type::getInt8Ty(lm.getContext()), 0);
-  auto targetSymbol = new llvm::GlobalVariable(
-      lm, voidPtr, false, llvm::GlobalValue::ExternalWeakLinkage, nullptr,
-      symbolName);
-  new llvm::GlobalVariable(
-      lm, voidPtr, false, llvm::GlobalValue::ExternalLinkage,
-      llvm::ConstantExpr::getBitCast(targetSymbol, voidPtr), addrName);
-}
-}
+/// The module that contains the actual D main() (_Dmain) definition.
+extern Module *g_dMainModule;
 
 namespace ldc {
 CodeGenerator::CodeGenerator(llvm::LLVMContext &context, bool singleObj)
