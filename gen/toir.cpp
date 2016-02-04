@@ -521,7 +521,10 @@ public:
     // Can't just override ConstructExp::toElem because not all TOKconstruct
     // operations are actually instances of ConstructExp... Long live the DMD
     // coding style!
-    if (e->op == TOKconstruct && e->e1->op == TOKvar && !(e->memset & 2)) {
+    if (e->memset & MemorySet_referenceInit) {
+      assert(e->op == TOKconstruct || e->op == TOKblit);
+      assert(e->e1->op == TOKvar);
+
       Declaration *d = static_cast<VarExp *>(e->e1)->var;
       if (d->storage_class & (STCref | STCout)) {
         Logger::println("performing ref variable initialization");
