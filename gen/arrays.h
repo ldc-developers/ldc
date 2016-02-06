@@ -38,6 +38,9 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *si, Type *targetType);
 LLConstant *DtoConstSlice(LLConstant *dim, LLConstant *ptr,
                           Type *type = nullptr);
 
+/// Returns the element at position idx of the literal (assumed to be in range).
+Expression *indexArrayLiteral(ArrayLiteralExp *ale, unsigned idx);
+
 /// Returns whether the array literal can be evaluated to a (LLVM) constant.
 bool isConstLiteral(ArrayLiteralExp *ale);
 

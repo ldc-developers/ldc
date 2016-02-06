@@ -489,7 +489,6 @@ LLConstant *DtoConstArrayInitializer(ArrayInitializer *arrinit,
 
 ////////////////////////////////////////////////////////////////////////////////
 
-namespace {
 Expression *indexArrayLiteral(ArrayLiteralExp *ale, unsigned idx) {
   assert(idx < ale->elements->dim);
   auto e = (*ale->elements)[idx];
@@ -497,7 +496,6 @@ Expression *indexArrayLiteral(ArrayLiteralExp *ale, unsigned idx) {
     return ale->basis;
   }
   return e;
-}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

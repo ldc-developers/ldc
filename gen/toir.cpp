@@ -2846,7 +2846,7 @@ public:
              "Array literal vector initializer "
              "length mismatch, should have been handled in frontend.");
       for (unsigned int i = 0; i < e->dim; ++i) {
-        DValue *val = toElem((*lit->elements)[i]);
+        DValue *val = toElem(indexArrayLiteral(lit, i));
         LLValue *llval = DtoCast(e->loc, val, type->elementType())->getRVal();
         DtoStore(llval, DtoGEPi(vector, 0, i));
       }
