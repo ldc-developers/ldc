@@ -1021,6 +1021,7 @@ int main(int argc, char **argv) {
   Module::_init();
   Target::_init();
   Expression::_init();
+  objc_tryMain_init();
   builtin_init();
   initTraitsStringTable();
 
