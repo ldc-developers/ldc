@@ -344,7 +344,9 @@ TargetABI *TargetABI::getTarget() {
   case llvm::Triple::aarch64_be:
     return getAArch64TargetABI();
   case llvm::Triple::arm:
+  case llvm::Triple::armeb:
   case llvm::Triple::thumb:
+  case llvm::Triple::thumbeb:
     return getArmTargetABI();
   default:
     Logger::cout() << "WARNING: Unknown ABI, guessing...\n";
