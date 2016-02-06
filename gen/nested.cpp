@@ -328,6 +328,7 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
   IrFunction &irFunc = *getIrFunc(fd);
 
   if (irFunc.nestedContextCreated) {
+    Logger::println("already done");
     return;
   }
   irFunc.nestedContextCreated = true;
@@ -338,98 +339,8 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
     DtoCreateNestedContextType(parentFunc);
   }
 
-  // construct nested variables array
-  if (fd->closureVars.dim > 0) {
-    Logger::println("has nested frame");
-    // start with adding all enclosing parent frames until a static parent is
-    // reached
-
-    LLStructType *innerFrameType = nullptr;
-    unsigned depth = 0;
-
-    if (parentFunc) {
-      IrFunction &parentIrFunc = *getIrFunc(parentFunc);
-      innerFrameType = parentIrFunc.frameType;
-      if (innerFrameType) {
-        depth = parentIrFunc.depth + 1;
-      }
-    }
-
-    irFunc.depth = depth;
-
-    IF_LOG Logger::cout() << "Function " << fd->toChars() << " has depth "
-                          << depth << '\n';
-
-    AggrTypeBuilder builder(false);
-
-    if (depth != 0) {
-      assert(innerFrameType);
-      unsigned ptrSize = gDataLayout->getPointerSize();
-      // Add frame pointer types for all but last frame
-      for (unsigned i = 0; i < (depth - 1); ++i) {
-        builder.addType(innerFrameType->getElementType(i), ptrSize);
-      }
-      // Add frame pointer type for last frame
-      builder.addType(LLPointerType::getUnqual(innerFrameType), ptrSize);
-    }
-
-    // Add the direct nested variables of this function, and update their
-    // indices to match.
-    // TODO: optimize ordering for minimal space usage?
-    for (auto vd : fd->closureVars) {
-      unsigned alignment = DtoAlignment(vd);
-      if (alignment > 1) {
-        builder.alignCurrentOffset(alignment);
-      }
-
-      IrLocal &irLocal = *getIrLocal(vd, true);
-      irLocal.nestedIndex = builder.currentFieldIndex();
-      irLocal.nestedDepth = depth;
-
-      LLType *t = nullptr;
-      if (vd->isParameter() && getIrParameter(vd)->arg) {
-        // Parameters that are part of the LLVM signature will have
-        // storage associated with them (to handle byref etc.), so
-        // handle those cases specially by storing a pointer instead
-        // of a value.
-        const IrParameter *irparam = getIrParameter(vd);
-        const bool refout = vd->storage_class & (STCref | STCout);
-        const bool lazy = vd->storage_class & STClazy;
-        const bool byref = irparam->arg->byref;
-        const bool isVthisPtr = irparam->isVthis && !byref;
-        if (!(refout || (byref && !lazy)) || isVthisPtr) {
-          // This will be copied to the nesting frame.
-          if (lazy) {
-            t = irparam->value->getType()->getContainedType(0);
-          } else {
-            t = DtoMemType(vd->type);
-          }
-        } else {
-          t = irparam->value->getType();
-        }
-      } else if (isSpecialRefVar(vd)) {
-        t = DtoType(vd->type->pointerTo());
-      } else {
-        t = DtoMemType(vd->type);
-      }
-
-      builder.addType(t, getTypeAllocSize(t));
-
-      IF_LOG Logger::cout() << "Nested var '" << vd->toChars() << "' of type "
-                            << *t << "\n";
-    }
-
-    LLStructType *frameType =
-        LLStructType::create(gIR->context(), builder.defaultTypes(),
-                             std::string("nest.") + fd->toChars());
-
-    IF_LOG Logger::cout() << "frameType = " << *frameType << '\n';
-
-    // Store type in IrFunction
-    irFunc.frameType = frameType;
-    irFunc.frameTypeAlignment = builder.overallAlignment();
-  } else // no captured variables
-  {
+  if (fd->closureVars.dim == 0) {
+    // No local variables of this function are captured.
     if (parentFunc) {
       // Propagate context arg properties if the context arg is passed on
       // unmodified.
@@ -438,7 +349,99 @@ static void DtoCreateNestedContextType(FuncDeclaration *fd) {
       irFunc.frameTypeAlignment = parentIrFunc.frameTypeAlignment;
       irFunc.depth = parentIrFunc.depth;
     }
+    return;
   }
+
+  Logger::println("has nested frame");
+
+  // construct nested variables array
+  // start with adding all enclosing parent frames until a static parent is
+  // reached
+
+  LLStructType *innerFrameType = nullptr;
+  unsigned depth = 0;
+
+  if (parentFunc) {
+    IrFunction &parentIrFunc = *getIrFunc(parentFunc);
+    innerFrameType = parentIrFunc.frameType;
+    if (innerFrameType) {
+      depth = parentIrFunc.depth + 1;
+    }
+  }
+
+  irFunc.depth = depth;
+
+  IF_LOG Logger::cout() << "Function " << fd->toChars() << " has depth "
+                        << depth << '\n';
+
+  AggrTypeBuilder builder(false);
+
+  if (depth != 0) {
+    assert(innerFrameType);
+    unsigned ptrSize = gDataLayout->getPointerSize();
+    // Add frame pointer types for all but last frame
+    for (unsigned i = 0; i < (depth - 1); ++i) {
+      builder.addType(innerFrameType->getElementType(i), ptrSize);
+    }
+    // Add frame pointer type for last frame
+    builder.addType(LLPointerType::getUnqual(innerFrameType), ptrSize);
+  }
+
+  // Add the direct nested variables of this function, and update their
+  // indices to match.
+  // TODO: optimize ordering for minimal space usage?
+  for (auto vd : fd->closureVars) {
+    unsigned alignment = DtoAlignment(vd);
+    if (alignment > 1) {
+      builder.alignCurrentOffset(alignment);
+    }
+
+    IrLocal &irLocal = *getIrLocal(vd, true);
+    irLocal.nestedIndex = builder.currentFieldIndex();
+    irLocal.nestedDepth = depth;
+
+    LLType *t = nullptr;
+    if (vd->isParameter() && getIrParameter(vd)->arg) {
+      // Parameters that are part of the LLVM signature will have
+      // storage associated with them (to handle byref etc.), so
+      // handle those cases specially by storing a pointer instead
+      // of a value.
+      const IrParameter *irparam = getIrParameter(vd);
+      const bool refout = vd->storage_class & (STCref | STCout);
+      const bool lazy = vd->storage_class & STClazy;
+      const bool byref = irparam->arg->byref;
+      const bool isVthisPtr = irparam->isVthis && !byref;
+      if (!(refout || (byref && !lazy)) || isVthisPtr) {
+        // This will be copied to the nesting frame.
+        if (lazy) {
+          t = irparam->value->getType()->getContainedType(0);
+        } else {
+          t = DtoMemType(vd->type);
+        }
+      } else {
+        t = irparam->value->getType();
+      }
+    } else if (isSpecialRefVar(vd)) {
+      t = DtoType(vd->type->pointerTo());
+    } else {
+      t = DtoMemType(vd->type);
+    }
+
+    builder.addType(t, getTypeAllocSize(t));
+
+    IF_LOG Logger::cout() << "Nested var '" << vd->toChars() << "' of type "
+                          << *t << "\n";
+  }
+
+  LLStructType *frameType =
+      LLStructType::create(gIR->context(), builder.defaultTypes(),
+                           std::string("nest.") + fd->toChars());
+
+  IF_LOG Logger::cout() << "frameType = " << *frameType << '\n';
+
+  // Store type in IrFunction
+  irFunc.frameType = frameType;
+  irFunc.frameTypeAlignment = builder.overallAlignment();
 }
 
 void DtoCreateNestedContext(FuncDeclaration *fd) {
