@@ -172,6 +172,8 @@ else()
     endif()
     llvm_set(LIBRARY_DIRS libdir true)
     llvm_set_libs(LIBRARIES libs)
+    llvm_set(TARGETS_TO_BUILD targets-built)
+    string(REGEX MATCHALL "${pattern}[^ ]+" LLVM_TARGETS_TO_BUILD ${LLVM_TARGETS_TO_BUILD})
 endif()
 
 # On CMake builds of LLVM, the output of llvm-config --cxxflags does not
