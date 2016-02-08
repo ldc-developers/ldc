@@ -18,6 +18,14 @@ module core.stdc.stdarg;
 version ( PPC ) version = AnyPPC;
 version ( PPC64 ) version = AnyPPC;
 
+version( ARM )
+{
+    // iOS, tvOS use older APCS variant instead of AAPCS
+    version( iOS ) {}
+    else version( TVOS ) {}
+    else version = AAPCS;
+}
+
 version( X86_64 )
 {
     // Determine if type is a vector type
@@ -287,8 +295,6 @@ version( X86_64 )
 
 version( LDC )
 {
-    // FIXME: This isn't actually tested at all for ARM.
-
     version( X86_64 )
     {
         version( Win64 ) {}
@@ -357,6 +363,13 @@ version( LDC )
         }
         else version( ARM )
         {
+            // AAPCS sec 5.5 B.5: type with alignment >= 8 is 8-byte aligned
+            // instead of normal 4-byte alignment (APCS doesn't do this).
+            version( AAPCS )
+            {
+                if (T.alignof >= 8)
+                    ap = cast(va_list)((cast(size_t)ap + 7) & ~7);
+            }
             T arg = *cast(T*)ap;
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
             return arg;
@@ -407,6 +420,13 @@ version( LDC )
         }
         else version( ARM )
         {
+            // AAPCS sec 5.5 B.5: type with alignment >= 8 is 8-byte aligned
+            // instead of normal 4-byte alignment (APCS doesn't do this).
+            version( AAPCS )
+            {
+                if (T.alignof >= 8)
+                    ap = cast(va_list)((cast(size_t)ap + 7) & ~7);
+            }
             parmn = *cast(T*)ap;
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
         }
@@ -449,9 +469,13 @@ version( LDC )
         }
         else version( ARM )
         {
-            // Wait until everyone updates to get TypeInfo.talign
-            //auto talign = ti.talign;
-            //auto p = cast(va_list) ((cast(size_t)ap + talign - 1) & ~(talign - 1));
+            // AAPCS sec 5.5 B.5: type with alignment >= 8 is 8-byte aligned
+            // instead of normal 4-byte alignment (APCS doesn't do this).
+            version( AAPCS )
+            {
+                if (ti.talign >= 8)
+                    ap = cast(va_list)((cast(size_t)ap + 7) & ~7);
+            }
             auto p = ap;
             ap = p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1));
         }
