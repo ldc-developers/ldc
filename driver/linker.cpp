@@ -61,26 +61,21 @@ static std::string getOutputName(bool const sharedLib) {
   // Output name is inferred.
   std::string result;
 
-  // try root module name
-  if (Module::rootModule) {
+  if (global.params.objfiles->dim) {
+    result = FileName::removeExt(global.params.objfiles->data[0]);
+  } else if (Module::rootModule) {
     result = Module::rootModule->toChars();
-  } else if (global.params.objfiles->dim) {
-    result = FileName::removeExt(
-        static_cast<const char *>(global.params.objfiles->data[0]));
   } else {
     result = "a.out";
   }
+
+  bool isWindows = global.params.targetTriple.isOSWindows();
   if (sharedLib) {
-    std::string libExt = std::string(".") + global.dll_ext;
-    if (!endsWith(result, libExt)) {
-      if (global.params.targetTriple.getOS() != llvm::Triple::Win32) {
-        result = "lib" + result + libExt;
-      } else {
-        result.append(libExt);
-      }
+    result.append(std::string(".") + global.dll_ext);
+    if (!isWindows) {
+        result = "lib" + result;
     }
-  } else if (global.params.targetTriple.isOSWindows() &&
-             !endsWith(result, ".exe")) {
+  } else if (isWindows) {
     result.append(".exe");
   }
 
