@@ -217,11 +217,31 @@ configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY
 # druntime/Phobos compilation helpers.
 #
 
-set(GCCBUILTINS "${PROJECT_BINARY_DIR}/gccbuiltins_x86.di")
-add_custom_command(
-    OUTPUT ${GCCBUILTINS}
-    COMMAND gen_gccbuiltins ${GCCBUILTINS} "x86"
-)
+set(GCCBUILTINS "")
+function(gen_gccbuiltins name)
+  set(module "gccbuiltins_${name}.di")
+  if (GCCBUILTINS STREQUAL "")
+    set(GCCBUILTINS "${module}" PARENT_SCOPE)
+  else()
+    set(GCCBUILTINS "${GCCBUILTINS};${module}" PARENT_SCOPE)
+  endif()
+  add_custom_command(
+      OUTPUT ${module}
+      COMMAND gen_gccbuiltins ${module} "${name}"
+      WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
+  )
+endfunction()
+
+set(target_arch "AArch64;ARM;Mips;PowerPC;SystemZ;X86")
+set(target_name "aarch64;arm;mips;ppc;s390;x86")
+
+foreach(target ${LLVM_TARGETS_TO_BUILD})
+  list(FIND target_arch ${target} idx)
+  if(idx GREATER -1)
+    list(GET target_name ${idx} name)
+    gen_gccbuiltins(${name})
+  endif()
+endforeach()
 
 # Always build zlib and other C parts of the runtime in release mode, regardless
 # of what the user chose for LDC itself.
