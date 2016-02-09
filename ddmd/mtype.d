@@ -3643,6 +3643,9 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
+version(IN_LLVM)
+                fvalue = Port.ldbl_min_normal;
+else
                 fvalue = LDBL_MIN;
                 goto Lfvalue;
             default:
@@ -3706,6 +3709,9 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
+version(IN_LLVM)
+                ivalue = Port.ldbl_dig;
+else
                 ivalue = LDBL_DIG;
                 goto Lint;
             default:
@@ -3729,6 +3735,9 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
+version(IN_LLVM)
+                fvalue = Port.ldbl_epsilon;
+else
                 fvalue = LDBL_EPSILON;
                 goto Lfvalue;
             default:
@@ -3752,6 +3761,9 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
+version(IN_LLVM)
+                ivalue = Port.ldbl_mant_dig;
+else
                 ivalue = LDBL_MANT_DIG;
                 goto Lint;
             default:
@@ -3775,6 +3787,9 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
+version(IN_LLVM)
+                ivalue = Port.ldbl_max_10_exp;
+else
                 ivalue = LDBL_MAX_10_EXP;
                 goto Lint;
             default:
@@ -3798,6 +3813,9 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
+version(IN_LLVM)
+                ivalue = Port.ldbl_max_exp;
+else
                 ivalue = LDBL_MAX_EXP;
                 goto Lint;
             default:
@@ -3821,6 +3839,9 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
+version(IN_LLVM)
+                ivalue = Port.ldbl_min_10_exp;
+else
                 ivalue = LDBL_MIN_10_EXP;
                 goto Lint;
             default:
@@ -3844,6 +3865,9 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
+version(IN_LLVM)
+                ivalue = Port.ldbl_min_exp;
+else
                 ivalue = LDBL_MIN_EXP;
                 goto Lint;
             default:

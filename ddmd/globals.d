@@ -411,7 +411,14 @@ alias d_float80 = real;
 alias d_char = d_uns8;
 alias d_wchar = d_uns16;
 alias d_dchar = d_uns32;
-alias real_t = real;
+version(IN_LLVM_MSVC)
+{
+    alias real_t = double;
+}
+else
+{
+    alias real_t = real;
+}
 
 // file location
 struct Loc

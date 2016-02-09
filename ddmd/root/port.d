@@ -21,6 +21,9 @@ version(CRuntime_Microsoft)   extern(C++) size_t ld_sprint(char* str, int fmt, l
 extern (C) float strtof(const(char)* p, char** endp);
 extern (C) double strtod(const(char)* p, char** endp);
 
+version(IN_LLVM_MSVC)
+    extern (C) double strtold(const(char)* p, char** endp);
+else
 version(CRuntime_Microsoft)
     extern (C++) longdouble strtold_dm(const(char)* p, char** endp);
 else
@@ -39,9 +42,31 @@ extern (C++) struct Port
 {
     enum nan = double.nan;
     enum infinity = double.infinity;
-    enum ldbl_max = real.max;
-    enum ldbl_nan = real.nan;
-    enum ldbl_infinity = real.infinity;
+    version(IN_LLVM_MSVC)
+        private alias ldbl = double;
+    else
+        private alias ldbl = real;
+
+    version(IN_LLVM)
+    {
+        enum ldbl_min_normal = ldbl.min_normal;
+        enum ldbl_max = ldbl.max;
+        enum ldbl_nan = ldbl.nan;
+        enum ldbl_infinity = ldbl.infinity;
+        enum ldbl_dig = ldbl.dig;
+        enum ldbl_epsilon = ldbl.epsilon;
+        enum ldbl_mant_dig = ldbl.mant_dig;
+        enum ldbl_max_10_exp = ldbl.max_10_exp;
+        enum ldbl_max_exp = ldbl.max_exp;
+        enum ldbl_min_10_exp = ldbl.min_10_exp;
+        enum ldbl_min_exp = ldbl.min_exp;
+    }
+    else
+    {
+        enum ldbl_max = real.max;
+        enum ldbl_nan = real.nan;
+        enum ldbl_infinity = real.infinity;
+    }
     version(IN_LLVM)
     {
         static __gshared bool yl2x_supported = false;
@@ -216,6 +241,9 @@ extern (C++) struct Port
             __locale_decpoint = ".";
         }
 
+        version(IN_LLVM_MSVC)
+            auto r = .strtold(p, endp);  // C99 conformant since VS 2015
+        else
         version (CRuntime_Microsoft)
             auto r = .strtold_dm(p, endp).r;
         else
@@ -226,6 +254,25 @@ extern (C++) struct Port
 
     static size_t ld_sprint(char* str, int fmt, real x)
     {
+        version(IN_LLVM_MSVC)
+        {
+            if ((cast(real)cast(ulong)x) == x)
+            {
+                // ((1.5 -> 1 -> 1.0) == 1.5) is false
+                // ((1.0 -> 1 -> 1.0) == 1.0) is true
+                // see http://en.cppreference.com/w/cpp/io/c/fprintf
+                char[4] sfmt = "%#g\0";
+                sfmt[2] = cast(char)fmt;
+                return sprintf(str, sfmt.ptr, double(x));
+            }
+            else
+            {
+                char[3] sfmt = "%g\0";
+                sfmt[1] = cast(char)fmt;
+                return sprintf(str, sfmt.ptr, double(x));
+            }
+        }
+        else
         version(CRuntime_Microsoft)
         {
             return .ld_sprint(str, fmt, longdouble(x));

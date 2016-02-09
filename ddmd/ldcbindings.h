@@ -38,7 +38,6 @@ NotExp *createNotExp(Loc, Expression *);
 ComExp *createComExp(Loc, Expression *);
 NegExp *createNegExp(Loc, Expression *);
 AddrExp *createAddrExp(Loc, Expression *);
-RealExp *createRealExp(Loc, real_t, Type *);
 DsymbolExp *createDsymbolExp(Loc, Dsymbol *, bool = false);
 Expression *createExpression(Loc loc, TOK op, int size);
 TypeDelegate *createTypeDelegate(Type *t);

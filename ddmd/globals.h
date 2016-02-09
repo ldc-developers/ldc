@@ -312,7 +312,12 @@ typedef d_uns8                  d_char;
 typedef d_uns16                 d_wchar;
 typedef d_uns32                 d_dchar;
 
+
+#if IN_LLVM && _MSC_VER
+typedef double real_t;
+#else
 typedef longdouble real_t;
+#endif
 
 // file location
 struct Loc
