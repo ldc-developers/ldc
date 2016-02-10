@@ -302,7 +302,18 @@ class TypeInfo
 
     /// Return default initializer.  If the type should be initialized to all zeros,
     /// an array with a null ptr and a length equal to the type size will be returned.
+version(LDC)
+{
+    // LDC uses TypeInfo's vtable for the typeof(null) type:
+    //   %"typeid(typeof(null))" = type { %object.TypeInfo.__vtbl*, i8* }
+    // Therefore this class cannot be abstract, and all methods need implementations.
+    // Tested by test14754() in runnable/inline.d, and a unittest below.
+    const(void)[] init() nothrow pure const @safe @nogc { return null; }
+}
+else
+{
     abstract const(void)[] init() nothrow pure const @safe @nogc;
+}
 
     /// Get flags for type: 1 means GC should scan for pointers,
     /// 2 means arg of this type is passed in XMM register
@@ -331,6 +342,11 @@ class TypeInfo
     /** Return info used by the garbage collector to do precise collection.
      */
     @property immutable(void)* rtInfo() nothrow pure const @safe @nogc { return null; }
+}
+
+version(LDC) unittest
+{
+    auto t = new TypeInfo; // test that TypeInfo is not an abstract class. Needed for instantiating typeof(null).
 }
 
 class TypeInfo_Typedef : TypeInfo
