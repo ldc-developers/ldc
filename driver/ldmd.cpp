@@ -201,7 +201,7 @@ Usage:\n\
 #if 0
 "  -profile       profile runtime performance of generated code\n"
 #endif
-"  -property      enforce property syntax\n\
+"  -property      enforce property syntax (deprecated, no effect)\n\
   -quiet         suppress unnecessary messages\n\
   -release       compile release version\n\
   -run srcfile args...   run resulting program, passing args\n\
@@ -642,6 +642,8 @@ Params parseArgs(size_t originalArgc, char **originalArgv,
       } else if (strcmp(p + 1, "release") == 0) {
         result.release = 1;
       } else if (strcmp(p + 1, "noboundscheck") == 0) {
+        warning("The -noboundscheck switch is deprecated, use -boundscheck=off "
+                "instead.");
         result.boundsChecks = BoundsCheck::off;
       } else if (memcmp(p + 1, "boundscheck", 11) == 0) {
         if (p[12] == '=') {
