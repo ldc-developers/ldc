@@ -44,15 +44,8 @@ enum PS = 0x2029;       // UTF paragraph separator
 /********************************************
  * Do our own char maps
  */
-version(IN_LLVM)
-{
-    // Hack around static initialization
-    __gshared ubyte[256] cmtable;
-}
-else
-{
-    immutable ubyte[256] cmtable;
-}
+immutable ubyte[256] cmtable;
+
 enum CMoctal  = 0x1;
 enum CMhex    = 0x2;
 enum CMidchar = 0x4;
@@ -72,23 +65,6 @@ bool isidchar(char c)
     return (cmtable[c] & CMidchar) != 0;
 }
 
-version(IN_LLVM)
-{
-    void static_initializer()
-    {
-        foreach (const c; 0 .. cmtable.length)
-        {
-            if ('0' <= c && c <= '7')
-                cmtable[c] |= CMoctal;
-            if (isxdigit(c))
-                cmtable[c] |= CMhex;
-            if (isalnum(c) || c == '_')
-                cmtable[c] |= CMidchar;
-        }
-    }
-}
-else
-{
 static this()
 {
     foreach (const c; 0 .. cmtable.length)
@@ -100,7 +76,6 @@ static this()
         if (isalnum(c) || c == '_')
             cmtable[c] |= CMidchar;
     }
-}
 }
 
 
@@ -195,7 +170,6 @@ public:
 
     final static void initLexer()
     {
-        .static_initializer();
         Identifier.initTable();
         Token.initTokens();
         version (unittest)
