@@ -26,9 +26,12 @@ IrTypeFunction *IrTypeFunction::get(Type *dt) {
   IrFuncTy irFty;
   llvm::Type *lt = DtoFunctionType(dt, irFty, nullptr, nullptr);
 
-  auto result = new IrTypeFunction(dt, lt, irFty);
-  dt->ctype = result;
-  return result;
+  // Could have already built the type as part of a struct forward reference,
+  // just as for pointers and arrays.
+  if (!dt->ctype) {
+    dt->ctype = new IrTypeFunction(dt, lt, irFty);
+  }
+  return dt->ctype->isFunction();
 }
 
 //////////////////////////////////////////////////////////////////////////////
@@ -47,7 +50,10 @@ IrTypeDelegate *IrTypeDelegate::get(Type *t) {
   llvm::Type *types[] = {getVoidPtrType(), getPtrToType(ltf)};
   LLStructType *lt = LLStructType::get(gIR->context(), types, false);
 
-  auto result = new IrTypeDelegate(t, lt, irFty);
-  t->ctype = result;
-  return result;
+  // Could have already built the type as part of a struct forward reference,
+  // just as for pointers and arrays.
+  if (!t->ctype) {
+    t->ctype = new IrTypeDelegate(t, lt, irFty);
+  }
+  return t->ctype->isDelegate();
 }

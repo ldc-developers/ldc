@@ -505,10 +505,27 @@ llvm::TargetMachine *createTargetMachine(
                     features.getString().c_str());
   }
 
-  if (triple.isMacOSX() && relocModel == llvm::Reloc::Default) {
-    // OS X defaults to PIC (and as of 10.7.5/LLVM 3.1-3.3, TLS use leads
-    // to crashes for non-PIC code). LLVM doesn't handle this.
-    relocModel = llvm::Reloc::PIC_;
+  // Handle cases where LLVM picks wrong default relocModel
+  if (relocModel == llvm::Reloc::Default) {
+    if (triple.isOSDarwin()) {
+      // Darwin defaults to PIC (and as of 10.7.5/LLVM 3.1-3.3, TLS use leads
+      // to crashes for non-PIC code). LLVM doesn't handle this.
+      relocModel = llvm::Reloc::PIC_;
+    } else if (triple.getEnvironment() == llvm::Triple::Android) {
+      relocModel = llvm::Reloc::PIC_;
+    } else {
+      // ARM for other than Darwin or Android defaults to static
+      switch (triple.getArch()) {
+      default:
+        break;
+      case llvm::Triple::arm:
+      case llvm::Triple::armeb:
+      case llvm::Triple::thumb:
+      case llvm::Triple::thumbeb:
+        relocModel = llvm::Reloc::Static;
+        break;
+      }
+    }
   }
 
   if (floatABI == FloatABI::Default) {

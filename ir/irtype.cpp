@@ -16,11 +16,8 @@
 #include "gen/tollvm.h"
 #include "ir/irtype.h"
 
-// This code uses llvm::getGlobalContext() as these functions are invoked before
-// gIR is set.
-// ... thus it segfaults on gIR==NULL
-
-//////////////////////////////////////////////////////////////////////////////
+// These functions use llvm::getGlobalContext() as they are invoked before gIR
+// is set.
 
 IrType::IrType(Type *dt, LLType *lt) : dtype(dt), type(lt) {
   assert(dt && "null D Type");
@@ -28,19 +25,13 @@ IrType::IrType(Type *dt, LLType *lt) : dtype(dt), type(lt) {
   assert(!dt->ctype && "already has IrType");
 }
 
-//////////////////////////////////////////////////////////////////////////////
-
 IrFuncTy &IrType::getIrFuncTy() {
   llvm_unreachable("cannot get IrFuncTy from non lazy/function/delegate");
 }
 
 //////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
 
 IrTypeBasic::IrTypeBasic(Type *dt) : IrType(dt, basic2llvm(dt)) {}
-
-//////////////////////////////////////////////////////////////////////////////
 
 IrTypeBasic *IrTypeBasic::get(Type *dt) {
   auto t = new IrTypeBasic(dt);
@@ -48,16 +39,13 @@ IrTypeBasic *IrTypeBasic::get(Type *dt) {
   return t;
 }
 
-//////////////////////////////////////////////////////////////////////////////
-
 LLType *IrTypeBasic::getComplexType(llvm::LLVMContext &ctx, LLType *type) {
   llvm::Type *types[] = {type, type};
   return llvm::StructType::get(ctx, types, false);
 }
 
-//////////////////////////////////////////////////////////////////////////////
-
-static inline llvm::Type *getReal80Type(llvm::LLVMContext &ctx) {
+namespace {
+llvm::Type *getReal80Type(llvm::LLVMContext &ctx) {
   llvm::Triple::ArchType const a = global.params.targetTriple.getArch();
   bool const anyX86 = (a == llvm::Triple::x86) || (a == llvm::Triple::x86_64);
 
@@ -68,8 +56,7 @@ static inline llvm::Type *getReal80Type(llvm::LLVMContext &ctx) {
 
   return llvm::Type::getDoubleTy(ctx);
 }
-
-//////////////////////////////////////////////////////////////////////////////
+}
 
 llvm::Type *IrTypeBasic::basic2llvm(Type *t) {
   llvm::LLVMContext &ctx = llvm::getGlobalContext();
@@ -130,12 +117,8 @@ llvm::Type *IrTypeBasic::basic2llvm(Type *t) {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
 
 IrTypePointer::IrTypePointer(Type *dt, LLType *lt) : IrType(dt, lt) {}
-
-//////////////////////////////////////////////////////////////////////////////
 
 IrTypePointer *IrTypePointer::get(Type *dt) {
   assert(!dt->ctype);
@@ -160,36 +143,29 @@ IrTypePointer *IrTypePointer::get(Type *dt) {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
 
-IrTypeSArray::IrTypeSArray(Type *dt) : IrType(dt, sarray2llvm(dt)) {}
-
-//////////////////////////////////////////////////////////////////////////////
+IrTypeSArray::IrTypeSArray(Type *dt, LLType *lt) : IrType(dt, lt) {}
 
 IrTypeSArray *IrTypeSArray::get(Type *dt) {
-  auto t = new IrTypeSArray(dt);
-  dt->ctype = t;
-  return t;
+  assert(!dt->ctype);
+  assert(dt->ty == Tsarray && "not static array type");
+
+  LLType *elemType = DtoMemType(dt->nextOf());
+
+  // We might have already built the type during DtoMemType e.g. as part of a
+  // forward reference in a struct.
+  if (!dt->ctype) {
+    TypeSArray *tsa = static_cast<TypeSArray *>(dt);
+    uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
+    dt->ctype = new IrTypeSArray(dt, llvm::ArrayType::get(elemType, dim));
+  }
+
+  return dt->ctype->isSArray();
 }
 
-//////////////////////////////////////////////////////////////////////////////
-
-llvm::Type *IrTypeSArray::sarray2llvm(Type *t) {
-  assert(t->ty == Tsarray && "not static array type");
-  TypeSArray *tsa = static_cast<TypeSArray *>(t);
-  uint64_t dim = static_cast<uint64_t>(tsa->dim->toUInteger());
-  LLType *elemType = DtoMemType(t->nextOf());
-  return llvm::ArrayType::get(elemType, dim);
-}
-
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////////////////////////////
 
 IrTypeArray::IrTypeArray(Type *dt, LLType *lt) : IrType(dt, lt) {}
-
-//////////////////////////////////////////////////////////////////////////////
 
 IrTypeArray *IrTypeArray::get(Type *dt) {
   assert(!dt->ctype);
@@ -209,20 +185,18 @@ IrTypeArray *IrTypeArray::get(Type *dt) {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
-//////////////////////////////////////////////////////////////////////////////
 
-IrTypeVector::IrTypeVector(Type *dt) : IrType(dt, vector2llvm(dt)) {}
-
-//////////////////////////////////////////////////////////////////////////////
+IrTypeVector::IrTypeVector(Type *dt, llvm::Type *lt) : IrType(dt, lt) {}
 
 IrTypeVector *IrTypeVector::get(Type *dt) {
-  auto t = new IrTypeVector(dt);
-  dt->ctype = t;
-  return t;
+  LLType *lt = vector2llvm(dt);
+  // Could have already built the type as part of a struct forward reference,
+  // just as for pointers and arrays.
+  if (!dt->ctype) {
+    dt->ctype = new IrTypeVector(dt, lt);
+  }
+  return dt->ctype->isVector();
 }
-
-//////////////////////////////////////////////////////////////////////////////
 
 llvm::Type *IrTypeVector::vector2llvm(Type *dt) {
   assert(dt->ty == Tvector && "not vector type");
@@ -233,5 +207,3 @@ llvm::Type *IrTypeVector::vector2llvm(Type *dt) {
   LLType *elemType = DtoMemType(tsa->next);
   return llvm::VectorType::get(elemType, dim);
 }
-
-//////////////////////////////////////////////////////////////////////////////

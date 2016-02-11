@@ -227,4 +227,34 @@ struct ExplicitByvalRewrite : ABIRewrite {
   }
 };
 
+/**
+ * Rewrite Homogeneous Homogeneous Floating-point Aggregate (HFA) as array of
+ * float type.
+ */
+struct HFAToArray : ABIRewrite {
+  LLValue *get(Type *dty, LLValue *v) override {
+    Logger::println("rewriting array -> as HFA %s", dty->toChars());
+    LLValue *lval = DtoRawAlloca(v->getType(), 0);
+    DtoStore(v, lval);
+
+    LLType *pTy = getPtrToType(DtoType(dty));
+    return DtoLoad(DtoBitCast(lval, pTy), "get-result");
+  }
+
+  LLValue *put(DValue *dv) override {
+    Type *dty = dv->getType();
+    Logger::println("rewriting HFA %s -> as array", dty->toChars());
+    LLType *t = type(dty, nullptr);
+    return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
+  }
+
+  LLType *type(Type *dty, LLType *) override {
+    assert(dty->ty == Tstruct);
+    LLType *floatArrayType = nullptr;
+    if (TargetABI::isHFA((TypeStruct *)dty, &floatArrayType))
+      return floatArrayType;
+    llvm_unreachable("Type dty should be an HFA");
+  }
+};
+
 #endif
