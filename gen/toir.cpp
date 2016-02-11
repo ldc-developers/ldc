@@ -99,26 +99,17 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
 
     // get initializer expression
     Expression *expr = (index < nexprs) ? exprs[index] : nullptr;
-    if (!expr) {
-      // In case of an union, we can't simply use the default initializer.
+
+    if (vd->overlapped && !expr) {
+      // In case of an union (overlapped field), we can't simply use the default initializer.
       // Consider the type union U7727A1 { int i; double d; } and
       // the declaration U7727A1 u = { d: 1.225 };
       // The loop will first visit variable i and then d. Since d has an
-      // explicit initializer, we must use this one. The solution is to
-      // peek at the next variables.
-      for (size_t index2 = index + 1; index2 < nfields; ++index2) {
-        VarDeclaration *vd2 = sd->fields[index2];
-        if (vd->offset != vd2->offset) {
-          break;
-        }
-        ++index; // skip var
-        Expression *expr2 = (index2 < nexprs) ? exprs[index2] : nullptr;
-        if (expr2) {
-          vd = vd2;
-          expr = expr2;
-          break;
-        }
-      }
+      // explicit initializer, we must use this one. We should therefore skip union fields
+      // with no explicit initializer.
+      IF_LOG Logger::println("skipping overlapped field without init expr: %s %s (+%u)", vd->type->toChars(),
+                             vd->toChars(), vd->offset);
+      continue;
     }
 
     // don't re-initialize unions
