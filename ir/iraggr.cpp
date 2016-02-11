@@ -201,6 +201,7 @@ void IrAggr::addFieldInitializers(
     llvm::SmallVectorImpl<llvm::Constant *> &constants,
     const VarInitMap &explicitInitializers, AggregateDeclaration *decl,
     unsigned &offset, bool populateInterfacesWithVtbls) {
+
   if (ClassDeclaration *cd = decl->isClassDeclaration()) {
     if (cd->baseClass) {
       addFieldInitializers(constants, explicitInitializers, cd->baseClass,
@@ -217,6 +218,33 @@ void IrAggr::addFieldInitializers(
     VarDeclaration *vd = decl->fields[i];
     auto expl = explicitInitializers.find(vd);
     if (expl != explicitInitializers.end()) {
+      const unsigned vd_begin = vd->offset;
+      const unsigned vd_end = vd_begin + vd->type->size();
+
+      // Make sure it doesn't overlap any prior initializers (needed for
+      // unions). This effectively initializes only the first member with an
+      // explicit initializer of a union.
+      // Only classes and structs can contain unions / overlapping fields.
+      if (type->ty == Tstruct || type->ty == Tclass) {
+        bool overlaps = false;
+        for (size_t j = 0; j < i; ++j) {
+          if (!data[j].first) {
+            continue;
+          }
+
+          const unsigned f_begin = decl->fields[j]->offset;
+          const unsigned f_end = f_begin + decl->fields[j]->type->size();
+          if (vd_begin >= f_end || vd_end <= f_begin) {
+            continue;
+          }
+
+          overlaps = true;
+          break;
+        }
+        if (overlaps)
+          continue;
+      }
+
       data[i] = *expl;
     }
   }
@@ -236,6 +264,8 @@ void IrAggr::addFieldInitializers(
             dchar b = 'a';
         }
     */
+    // FIXME: decl->isUnionDeclaration() is always false, the FE lowers
+    // UnionDeclarations.
     if (decl->isUnionDeclaration() && vd->init &&
         vd->init->isVoidInitializer()) {
       continue;
@@ -255,8 +285,8 @@ void IrAggr::addFieldInitializers(
 
     // make sure it doesn't overlap any explicit initializers.
     bool overlaps = false;
-    if (type->ty == Tstruct) {
-      // Only structs and unions can have overlapping fields.
+    if (type->ty == Tstruct || type->ty == Tclass) {
+      // Only classes and structs can have overlapping fields.
       for (size_t j = 0; j < n; ++j) {
         if (i == j || !data[j].first) {
           continue;
