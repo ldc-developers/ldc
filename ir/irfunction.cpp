@@ -273,7 +273,7 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
   //
   // cleanuppad:
   //   %0 = cleanuppad within %funclet[]
-  //   %frame = alloca(byte[16])
+  //   %frame = nullptr
   //   if (!_d_enter_cleanup(%frame)) br label %cleanupret 
   //                                  else br label %copy
   //
@@ -292,12 +292,9 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
   llvm::BasicBlock *cleanupret =
       llvm::BasicBlock::Create(irs->context(), "cleanupret", irs->topfunc());
 
-  // allocate some space on the stack where _d_enter_cleanup can place an exception frame
-  auto int8Ty = LLType::getInt8Ty(gIR->context());
-  auto frametype = llvm::ArrayType::get(int8Ty, 16);
-  auto frameai = DtoRawAlloca(frametype, 0, "cleanup.frame");
-  auto frame =
-      new llvm::BitCastInst(frameai, getPtrToType(int8Ty), "", cleanupbb);
+  // preparation to allocate some space on the stack where _d_enter_cleanup 
+  //  can place an exception frame (but not done here)
+  auto frame = getNullPtr(getVoidPtrType());
 
   auto endFn = getRuntimeFunction(Loc(), irs->module, "_d_leave_cleanup");
   llvm::CallInst::Create(endFn, frame,
