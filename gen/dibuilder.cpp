@@ -151,9 +151,9 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
         "Unsupported basic type for debug info in DIBuilder::CreateBasicType");
   }
 
-  return DBuilder.createBasicType(type->toChars(),        // name
-                                  getTypeBitSize(T),      // size (bits)
-                                  getABITypeAlign(T) * 8, // align (bits)
+  return DBuilder.createBasicType(type->toChars(),         // name
+                                  getTypeAllocSize(T) * 8, // size (bits)
+                                  getABITypeAlign(T) * 8,  // align (bits)
                                   Encoding);
 }
 
@@ -182,7 +182,7 @@ ldc::DIType ldc::DIBuilder::CreateEnumType(Type *type) {
 
   return DBuilder.createEnumerationType(
       GetCU(), Name, File, LineNumber,
-      getTypeBitSize(T),                     // size (bits)
+      getTypeAllocSize(T) * 8,               // size (bits)
       getABITypeAlign(T) * 8,                // align (bits)
       DBuilder.getOrCreateArray(subscripts), // subscripts
       CreateTypeDescription(te->sym->memtype, false));
@@ -201,9 +201,9 @@ ldc::DIType ldc::DIBuilder::CreatePointerType(Type *type) {
   ldc::DIType basetype(CreateTypeDescription(nt, false));
 
   return DBuilder.createPointerType(basetype,
-                                    getTypeBitSize(T),      // size (bits)
-                                    getABITypeAlign(T) * 8, // align (bits)
-                                    type->toChars()         // name
+                                    getTypeAllocSize(T) * 8, // size (bits)
+                                    getABITypeAlign(T) * 8,  // align (bits)
+                                    type->toChars()          // name
                                     );
 }
 
@@ -225,7 +225,7 @@ ldc::DIType ldc::DIBuilder::CreateVectorType(Type *type) {
   ldc::DIType basetype(CreateTypeDescription(te, false));
 
   return DBuilder.createVectorType(
-      getTypeBitSize(T),                    // size (bits)
+      getTypeAllocSize(T) * 8,              // size (bits)
       getABITypeAlign(T) * 8,               // align (bits)
       basetype,                             // element type
       DBuilder.getOrCreateArray(subscripts) // subscripts
@@ -260,14 +260,14 @@ ldc::DIType ldc::DIBuilder::CreateMemberType(unsigned linnum, Type *type,
   }
 
   return DBuilder.createMemberType(GetCU(),
-                                   c_name,                 // name
-                                   file,                   // file
-                                   linnum,                 // line number
-                                   getTypeBitSize(T),      // size (bits)
-                                   getABITypeAlign(T) * 8, // align (bits)
-                                   offset * 8,             // offset (bits)
-                                   Flags,                  // flags
-                                   basetype                // derived from
+                                   c_name,                  // name
+                                   file,                    // file
+                                   linnum,                  // line number
+                                   getTypeAllocSize(T) * 8, // size (bits)
+                                   getABITypeAlign(T) * 8,  // align (bits)
+                                   offset * 8,              // offset (bits)
+                                   Flags,                   // flags
+                                   basetype                 // derived from
                                    );
 }
 
@@ -381,18 +381,18 @@ ldc::DIType ldc::DIBuilder::CreateCompositeType(Type *type) {
                                    name,   // name
                                    file,   // file where defined
                                    linnum, // line number where defined
-                                   getTypeBitSize(T),      // size in bits
-                                   getABITypeAlign(T) * 8, // alignment in bits
-                                   0,                      // offset in bits,
-                                   DIFlags::FlagFwdDecl,   // flags
-                                   derivedFrom,            // DerivedFrom
+                                   getTypeAllocSize(T) * 8, // size in bits
+                                   getABITypeAlign(T) * 8,  // alignment in bits
+                                   0,                       // offset in bits,
+                                   DIFlags::FlagFwdDecl,    // flags
+                                   derivedFrom,             // DerivedFrom
                                    elemsArray);
   } else {
     ret = DBuilder.createStructType(CU,     // compile unit where defined
                                     name,   // name
                                     file,   // file where defined
                                     linnum, // line number where defined
-                                    getTypeBitSize(T),      // size in bits
+                                    getTypeAllocSize(T) * 8, // size in bits
                                     getABITypeAlign(T) * 8, // alignment in bits
                                     DIFlags::FlagFwdDecl,   // flags
                                     derivedFrom,            // DerivedFrom
@@ -434,9 +434,9 @@ ldc::DIType ldc::DIBuilder::CreateArrayType(Type *type) {
       llvm::StringRef(), // Name TODO: Really no name for arrays? t->toChars()?
       file,              // File
       0,                 // LineNo
-      getTypeBitSize(T), // size in bits
-      getABITypeAlign(T) * 8, // alignment in bits
-      0,                      // What here?
+      getTypeAllocSize(T) * 8, // size in bits
+      getABITypeAlign(T) * 8,  // alignment in bits
+      0,                       // What here?
 #if LDC_LLVM_VER >= 307
       nullptr, // DerivedFrom
 #else
@@ -469,7 +469,7 @@ ldc::DIType ldc::DIBuilder::CreateSArrayType(Type *type) {
   ldc::DIType basetype(CreateTypeDescription(t, false));
 
   return DBuilder.createArrayType(
-      getTypeBitSize(T),                    // size (bits)
+      getTypeAllocSize(T) * 8,              // size (bits)
       getABITypeAlign(T) * 8,               // align (bits)
       basetype,                             // element type
       DBuilder.getOrCreateArray(subscripts) // subscripts

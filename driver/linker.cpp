@@ -37,10 +37,9 @@ static bool endsWith(const std::string &str, const std::string &end) {
 //////////////////////////////////////////////////////////////////////////////
 
 static void CreateDirectoryOnDisk(llvm::StringRef fileName) {
-  llvm::StringRef dir(llvm::sys::path::parent_path(fileName));
+  auto dir = llvm::sys::path::parent_path(fileName);
   if (!dir.empty() && !llvm::sys::fs::exists(dir)) {
-    std::error_code ec = llvm::sys::fs::create_directory(dir);
-    if (ec) {
+    if (auto ec = llvm::sys::fs::create_directory(dir)) {
       error(Loc(), "failed to create path to file: %s\n%s", dir.data(),
             ec.message().c_str());
       fatal();
@@ -175,6 +174,9 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
     args.push_back("-ldl");
   // fallthrough
   case llvm::Triple::FreeBSD:
+  case llvm::Triple::NetBSD:
+  case llvm::Triple::OpenBSD:
+  case llvm::Triple::DragonFly:
     addSoname = true;
     args.push_back("-lpthread");
     args.push_back("-lm");
@@ -183,7 +185,8 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
   case llvm::Triple::Solaris:
     args.push_back("-lm");
     args.push_back("-lumem");
-    // solaris TODO
+    args.push_back("-lsocket");
+    args.push_back("-lnsl");
     break;
 
   default:

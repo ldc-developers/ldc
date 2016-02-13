@@ -125,9 +125,8 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   // Intel Macs are relatively recent, take advantage of that.
   if (triple.isOSDarwin()) {
     return triple.isArch64Bit() ? "core2" : "yonah";
-
-    // Everything else goes to x86-64 in 64-bit mode.
   }
+  // Everything else goes to x86-64 in 64-bit mode.
   if (triple.isArch64Bit()) {
     return "x86-64";
   }
@@ -145,9 +144,15 @@ static std::string getX86TargetCPU(const llvm::Triple &triple) {
   }
   if (triple.getOSName().startswith("netbsd")) {
     return "i486";
-    // All x86 devices running Android have core2 as their common
-    // denominator. This makes a better choice than pentium4.
   }
+  if (triple.getOSName().startswith("openbsd")) {
+    return "i486";
+  }
+  if (triple.getOSName().startswith("dragonfly")) {
+    return "i486";
+  }
+  // All x86 devices running Android have core2 as their common
+  // denominator. This makes a better choice than pentium4.
   if (triple.getEnvironment() == llvm::Triple::Android) {
     return "core2";
 
@@ -271,6 +276,11 @@ static FloatABI::Type getARMFloatABI(const llvm::Triple &triple,
     return FloatABI::Soft;
 
   default:
+    if (triple.getVendorName().startswith("hardfloat"))
+      return FloatABI::Hard;
+    if (triple.getVendorName().startswith("softfloat"))
+      return FloatABI::SoftFP;
+
     switch (triple.getEnvironment()) {
     case llvm::Triple::GNUEABIHF:
       return FloatABI::Hard;
@@ -495,10 +505,27 @@ llvm::TargetMachine *createTargetMachine(
                     features.getString().c_str());
   }
 
-  if (triple.isMacOSX() && relocModel == llvm::Reloc::Default) {
-    // OS X defaults to PIC (and as of 10.7.5/LLVM 3.1-3.3, TLS use leads
-    // to crashes for non-PIC code). LLVM doesn't handle this.
-    relocModel = llvm::Reloc::PIC_;
+  // Handle cases where LLVM picks wrong default relocModel
+  if (relocModel == llvm::Reloc::Default) {
+    if (triple.isOSDarwin()) {
+      // Darwin defaults to PIC (and as of 10.7.5/LLVM 3.1-3.3, TLS use leads
+      // to crashes for non-PIC code). LLVM doesn't handle this.
+      relocModel = llvm::Reloc::PIC_;
+    } else if (triple.getEnvironment() == llvm::Triple::Android) {
+      relocModel = llvm::Reloc::PIC_;
+    } else {
+      // ARM for other than Darwin or Android defaults to static
+      switch (triple.getArch()) {
+      default:
+        break;
+      case llvm::Triple::arm:
+      case llvm::Triple::armeb:
+      case llvm::Triple::thumb:
+      case llvm::Triple::thumbeb:
+        relocModel = llvm::Reloc::Static;
+        break;
+      }
+    }
   }
 
   if (floatABI == FloatABI::Default) {

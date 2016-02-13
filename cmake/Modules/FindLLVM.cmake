@@ -27,7 +27,8 @@
 # We also want an user-specified LLVM_ROOT_DIR to take precedence over the
 # system default locations such as /usr/local/bin. Executing find_program()
 # multiples times is the approach recommended in the docs.
-set(llvm_config_names llvm-config-3.8 llvm-config38
+set(llvm_config_names llvm-config-3.9 llvm-config39
+                      llvm-config-3.8 llvm-config38
                       llvm-config-3.7 llvm-config37
                       llvm-config-3.6 llvm-config36
                       llvm-config-3.5 llvm-config35
@@ -67,22 +68,16 @@ if ((WIN32 AND NOT(MINGW OR CYGWIN)) OR NOT LLVM_CONFIG)
         if(TARGET_AArch64 GREATER -1)
             list(APPEND LLVM_FIND_COMPONENTS AArch64Utils)
         endif()
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "backend" index)
-        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-2][\\.0-9A-Za-z]*")
-            # Versions below 3.3 do not support components objcarcopts, option
-            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "objcarcopts" index)
-            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "option" index)
-        endif()
-        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
-            # Versions below 3.5 do not support components lto, profiledata
-            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "lto" index)
-            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "profiledata" index)
-        endif()
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
-            # Versions below 3.7 do not support components debuginfodwarf
+            # Versions below 3.7 do not support components debuginfo[dwarf|pdb]
             # Only debuginfo is available
             list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfopdb" index)
             list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
+        endif()
+        if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-8][\\.0-9A-Za-z]*")
+            # Versions below 3.9 do not support components debuginfocodeview
+            list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfocodeview" index)
         endif()
         if(${LLVM_VERSION_STRING} MATCHES "^3\\.[8-9][\\.0-9A-Za-z]*")
             # Versions beginning with 3.8 do not support component ipa
@@ -150,22 +145,18 @@ else()
     llvm_set(HOST_TARGET host-target)
     llvm_set(INCLUDE_DIRS includedir true)
     llvm_set(ROOT_DIR prefix true)
+    llvm_set(ENABLE_ASSERTIONS assertion-mode)
 
-    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-2][\\.0-9A-Za-z]*")
-        # Versions below 3.3 do not support components objcarcopts, option
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "objcarcopts" index)
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "option" index)
-    endif()
-    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-4][\\.0-9A-Za-z]*")
-        # Versions below 3.5 do not support components lto, profiledata
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "lto" index)
-        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "profiledata" index)
-    endif()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-6][\\.0-9A-Za-z]*")
-        # Versions below 3.7 do not support components debuginfodwarf
+        # Versions below 3.7 do not support components debuginfo[dwarf|pdb]
         # Only debuginfo is available
         list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfodwarf" index)
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfopdb" index)
         list(APPEND LLVM_FIND_COMPONENTS "debuginfo")
+    endif()
+    if(${LLVM_VERSION_STRING} MATCHES "^3\\.[0-8][\\.0-9A-Za-z]*")
+        # Versions below 3.9 do not support components debuginfocodeview
+        list(REMOVE_ITEM LLVM_FIND_COMPONENTS "debuginfocodeview" index)
     endif()
     if(${LLVM_VERSION_STRING} MATCHES "^3\\.[8-9][\\.0-9A-Za-z]*")
         # Versions beginning with 3.8 do not support component ipa
@@ -181,6 +172,8 @@ else()
     endif()
     llvm_set(LIBRARY_DIRS libdir true)
     llvm_set_libs(LIBRARIES libs)
+    llvm_set(TARGETS_TO_BUILD targets-built)
+    string(REGEX MATCHALL "${pattern}[^ ]+" LLVM_TARGETS_TO_BUILD ${LLVM_TARGETS_TO_BUILD})
 endif()
 
 # On CMake builds of LLVM, the output of llvm-config --cxxflags does not

@@ -46,17 +46,17 @@ class IrTypeVector;
 ///
 /// Derived classes should be created using their static get() methods, which
 /// makes sure that uniqueness is preserved in the face of forward references.
-/// Note that the get() methods expect the IrType of the passed type/symbol to
-/// be not yet set.
 ///
-/// This could be altered to just return the existing IrType in order to bring
-/// the API entirely in line with the LLVM type get() methods. It has not been
-/// changed so far since currently all clients use the DtoType wrapper rather
-/// than handling IrType instances directly, and keeping it this way allows to
-/// easily check for uniqueness violations in the face of forward references.
-/// TODO: Implement the described changes (now that the forward reference
-/// handling logic seems to work correctly) and get rid of the "no-op" DtoType
-/// calls in IrAggr, ... that only exist for their side effect.
+/// Note that the get() methods expect the IrType of the passed type/symbol not
+/// to be set yet. Another option would be to just return the existing IrType
+/// in such cases. This would bring the API more in line with the llvm::Type
+/// get() functions. Currently all clients use the DtoType() wrapper anyway
+/// instead of directly handling IrType instances, so keeping the assertions
+/// allows us to check for any uniqueness violations that might have slipped
+/// through.
+// TODO: Implement the described changes (now that the forward reference
+// handling logic seems to work correctly) and get rid of the "no-op" DtoType
+// calls in IrAggr, ... that only exist for their side effect.
 class IrType {
 public:
   virtual ~IrType() = default;
@@ -150,10 +150,7 @@ public:
 
 protected:
   ///
-  explicit IrTypeSArray(Type *dt);
-
-  ///
-  static llvm::Type *sarray2llvm(Type *t);
+  IrTypeSArray(Type *dt, LLType *lt);
 };
 
 //////////////////////////////////////////////////////////////////////////////
@@ -185,7 +182,7 @@ public:
 
 protected:
   ///
-  explicit IrTypeVector(Type *dt);
+  explicit IrTypeVector(Type *dt, llvm::Type *lt);
 
   static llvm::Type *vector2llvm(Type *dt);
 };

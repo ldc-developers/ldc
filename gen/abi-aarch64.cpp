@@ -83,7 +83,7 @@ struct AArch64TargetABI : TargetABI {
     // and set 'ap' to its address.
     LLValue *valistmem = DtoRawAlloca(getValistType(), 0, "__va_list_mem");
     valistmem = DtoBitCast(valistmem, getVoidPtrType());
-    DtoStore(valistmem, pAp); // ap = (void*)__va_list_mem
+    DtoStore(valistmem, DtoBitCast(pAp, getPtrToType(getVoidPtrType())));
 
     // pass a void* pointer to the actual struct to LLVM's va_start intrinsic
     return valistmem;

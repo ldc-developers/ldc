@@ -23,6 +23,7 @@
 
 class Type;
 class TypeFunction;
+class TypeStruct;
 struct IrFuncTy;
 struct IrFuncTyArg;
 class DValue;
@@ -148,8 +149,14 @@ struct TargetABI {
   /// Must match the alias in druntime.
   virtual Type *vaListType();
 
-protected:
   /***** Static Helpers *****/
+
+  /// Check if struct 't' is a Homogeneous Floating-point Aggregate (HFA)
+  /// consisting of up to 4 of same floating point type.  If so, optionally
+  /// produce the rewriteType: an array of that floating point type
+  static bool isHFA(TypeStruct *t, llvm::Type **rewriteType = nullptr);
+
+protected:
 
   /// Returns true if the D type is an aggregate:
   /// * struct

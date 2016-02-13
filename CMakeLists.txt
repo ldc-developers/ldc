@@ -17,7 +17,7 @@ include(CheckCXXCompilerFlag)
 #
 
 find_package(LLVM 3.5 REQUIRED
-    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfodwarf instcombine ipa ipo instrumentation irreader linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
+    all-targets analysis asmparser asmprinter bitreader bitwriter codegen core debuginfocodeview debuginfodwarf debuginfopdb instcombine ipa ipo instrumentation irreader linker lto mc mcdisassembler mcparser objcarcopts object option profiledata scalaropts selectiondag support tablegen target transformutils vectorize ${EXTRA_LLVM_MODULES})
 math(EXPR LDC_LLVM_VER ${LLVM_VERSION_MAJOR}*100+${LLVM_VERSION_MINOR})
 # Remove LLVMTableGen library from list of libraries
 string(REGEX MATCH "^-.*LLVMTableGen[^;]*;|;-.*LLVMTableGen[^;]*" LLVM_TABLEGEN_LIBRARY "${LLVM_LIBRARIES}")
@@ -252,6 +252,8 @@ string(REPLACE "-Werror " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
 if (UNIX AND NOT "${LLVM_LDFLAGS}" STREQUAL "")
     # LLVM_LDFLAGS may contain -l-lld which is a wrong library reference (AIX)
     string(REPLACE "-l-lld " "-lld " LLVM_LDFLAGS ${LLVM_LDFLAGS})
+    # LLVM_LDFLAGS may have a space at the end
+    string(REGEX REPLACE " $" "" LLVM_LDFLAGS ${LLVM_LDFLAGS})
 endif()
 # LLVM_CXXFLAGS may contain -Wcovered-switch-default and -fcolor-diagnostics
 # which are clang-only options

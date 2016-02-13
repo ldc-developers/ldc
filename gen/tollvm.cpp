@@ -505,7 +505,7 @@ void DtoAlignedStore(LLValue *src, LLValue *dst) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-LLValue *DtoBitCast(LLValue *v, LLType *t, const char *name) {
+LLValue *DtoBitCast(LLValue *v, LLType *t, const llvm::Twine &name) {
   if (v->getType() == t) {
     return v;
   }
@@ -668,8 +668,18 @@ LLStructType *DtoMutexType() {
     return mutex;
   }
 
-  // FreeBSD
-  if (global.params.targetTriple->getOS() == llvm::Triple::FreeBSD) {
+  // FreeBSD, NetBSD, OpenBSD, DragonFly
+  if (global.params.targetTriple->isOSFreeBSD() ||
+#if LDC_LLVM_VER > 305
+      global.params.targetTriple->isOSNetBSD() ||
+      global.params.targetTriple->isOSOpenBSD() ||
+      global.params.targetTriple->isOSDragonFly()
+#else
+      global.params.targetTriple->getOS() == llvm::Triple::NetBSD ||
+      global.params.targetTriple->getOS() == llvm::Triple::OpenBSD ||
+      global.params.targetTriple->getOS() == llvm::Triple::DragonFly
+#endif
+     ) {
     // Just a pointer
     return LLStructType::get(gIR->context(), DtoSize_t());
   }

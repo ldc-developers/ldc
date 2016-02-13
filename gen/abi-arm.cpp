@@ -1,0 +1,124 @@
+//===-- abi-arm.cpp ---------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
+/*
+  ARM ABI based on AAPCS (Procedure Call Standard for the ARM Architecture)
+
+  http://infocenter.arm.com/help/topic/com.arm.doc.ihi0042f/IHI0042F_aapcs.pdf
+*/
+
+#include "gen/abi.h"
+#include "gen/abi-generic.h"
+#include "gen/abi-arm.h"
+
+namespace {
+struct CompositeToArray32 : ABIRewrite {
+  LLValue *get(Type *dty, LLValue *v) override {
+    Logger::println("rewriting i32 array -> as %s", dty->toChars());
+    LLValue *lval = DtoRawAlloca(v->getType(), 0);
+    DtoStore(v, lval);
+
+    LLType *pTy = getPtrToType(DtoType(dty));
+    return DtoLoad(DtoBitCast(lval, pTy), "get-result");
+  }
+
+  LLValue *put(DValue *dv) override {
+    Type *dty = dv->getType();
+    Logger::println("rewriting %s -> as i32 array", dty->toChars());
+    LLType *t = type(dty, nullptr);
+    return DtoLoad(DtoBitCast(dv->getRVal(), getPtrToType(t)));
+  }
+
+  LLType *type(Type *t, LLType *) override {
+    // An i32 array that will hold Type 't'
+    size_t sz = (t->size() + 3) / 4;
+    return LLArrayType::get(LLIntegerType::get(gIR->context(), 32), sz);
+  }
+};
+}
+
+struct ArmTargetABI : TargetABI {
+  HFAToArray hfaToArray;
+  CompositeToArray32 compositeToArray32;
+  IntegerRewrite integerRewrite;
+
+  bool returnInArg(TypeFunction *tf) override {
+    // AAPCS 5.4 wants composites > 4-bytes returned by arg except for
+    // Homogeneous Aggregates of up-to 4 float types (6.1.2.1) - an HFA.
+    // TODO: see if Tsarray should be candidate for HFA.
+    if (tf->isref)
+      return false;
+    Type *rt = tf->next->toBasetype();
+
+    // For extern(D), always return structs by arg because of problem with
+    // non-POD structs (failure in std.algorithm.move when struct has a ctor).
+    // TODO: figure out what the problem is
+    if (tf->linkage == LINKd)
+      return rt->ty == Tsarray || rt->ty == Tstruct;
+
+    return rt->ty == Tsarray ||
+           (rt->ty == Tstruct && rt->size() > 4 && !isHFA((TypeStruct *)rt));
+  }
+
+  bool passByVal(Type *t) override {
+    // AAPCS does not pass byval
+    return false;
+
+    // Note: the codegen is horrible for Tsarrays passed this way - tries to do
+    // copy without a loop for huge arrays.  Would be better if byval was used
+    // for arrays, but then there is an optimizer problem in the "top-down list
+    // latency scheduler" pass that reorders instructions incorrectly if byval
+    // used.
+  }
+
+  void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
+    Type *retTy = fty.ret->type->toBasetype();
+    if (!fty.ret->byref && retTy->ty == Tstruct) {
+      // Rewrite HFAs only because union HFAs are turned into IR types that are
+      // non-HFA and messes up register selection
+      if (isHFA((TypeStruct *)retTy, &fty.ret->ltype)) {
+        fty.ret->rewrite = &hfaToArray;
+      } else {
+        fty.ret->rewrite = &integerRewrite;
+        fty.ret->ltype = integerRewrite.type(fty.ret->type, fty.ret->ltype);
+      }
+    }
+
+    for (auto arg : fty.args) {
+      if (!arg->byref)
+        rewriteArgument(fty, *arg);
+    }
+  }
+
+  void rewriteArgument(IrFuncTy &fty, IrFuncTyArg &arg) override {
+    // structs and arrays need rewrite as i32 arrays.  This keeps data layout
+    // unchanged when passed in registers r0-r3 and is necessary to match C ABI
+    // for struct passing.  Without out this rewrite, each field or array
+    // element is passed in own register.  For example: char[4] now all fits in
+    // r0, where before it consumed r0-r3.
+    Type *ty = arg.type->toBasetype();
+
+    // TODO: want to also rewrite Tsarray as i32 arrays, but sometimes
+    // llvm selects an aligned ldrd instruction even though the ptr is
+    // unaligned (e.g. walking through members of array char[5][]).
+    // if (ty->ty == Tstruct || ty->ty == Tsarray)
+    if (ty->ty == Tstruct) {
+      // Rewrite HFAs only because union HFAs are turned into IR types that are
+      // non-HFA and messes up register selection
+      if (isHFA((TypeStruct *)ty, &arg.ltype)) {
+        arg.rewrite = &hfaToArray;
+      } else {
+        arg.rewrite = &compositeToArray32;
+        arg.ltype = compositeToArray32.type(arg.type, arg.ltype);
+      }
+    }
+  }
+};
+
+TargetABI *getArmTargetABI() { return new ArmTargetABI; }
