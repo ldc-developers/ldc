@@ -219,7 +219,7 @@ configure_file(${PROJECT_PARENT_DIR}/${LDC_EXE}_install.conf.in ${PROJECT_BINARY
 
 set(GCCBUILTINS "")
 function(gen_gccbuiltins name)
-  set(module "gccbuiltins_${name}.di")
+  set(module "${PROJECT_BINARY_DIR}/gccbuiltins_${name}.di")
   if (GCCBUILTINS STREQUAL "")
     set(GCCBUILTINS "${module}" PARENT_SCOPE)
   else()
@@ -228,7 +228,6 @@ function(gen_gccbuiltins name)
   add_custom_command(
       OUTPUT ${module}
       COMMAND gen_gccbuiltins ${module} "${name}"
-      WORKING_DIRECTORY ${PROJECT_BINARY_DIR}
   )
 endfunction()
 
