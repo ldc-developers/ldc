@@ -16,13 +16,13 @@ import rt.util.container.common : xmalloc;
 
 // pointers are image relative for Win64 versions
 version(Win64)
-    alias ImgPtr(T) = uint; // offset into image
+    struct ImgPtr(T) { uint offset; } // offset into image
 else
-    alias ImgPtr(T) = T;
+    alias ImgPtr(T) = T*;
 
 alias PMFN = ImgPtr!(void function(void*));
 
-struct TypeDescriptor(int N)
+struct TypeDescriptor
 {
     version(_RTTI)
         const void * pVFTable;  // Field overloaded by RTTI
@@ -30,7 +30,7 @@ struct TypeDescriptor(int N)
         uint hash;  // Hash value computed from type's decorated name
 
     void * spare;   // reserved, possible for RTTI
-    char[N+1] name; // variable size, zero terminated
+    char[1] name;   // variable size, zero terminated
 }
 
 struct PMD
@@ -43,7 +43,7 @@ struct PMD
 struct CatchableType
 {
     uint  properties;       // Catchable Type properties (Bit field)
-    ImgPtr!(TypeDescriptor!1*) pType;   // Pointer to TypeDescriptor
+    ImgPtr!TypeDescriptor pType;   // Pointer to TypeDescriptor
     PMD   thisDisplacement; // Pointer to instance of catch type within thrown object.
     int   sizeOrOffset;     // Size of simple-type object or offset into buffer of 'this' pointer for catch object
     PMFN  copyFunction;     // Copy constructor or CC-closure
@@ -58,7 +58,7 @@ enum CT_IsStdBadAlloc   = 0x00000010;  // type is a a std::bad_alloc
 struct CatchableTypeArray
 {
     int	nCatchableTypes;
-    ImgPtr!(CatchableType*)[2] arrayOfCatchableTypes;
+    ImgPtr!CatchableType[1] arrayOfCatchableTypes; // variable size
 }
 
 struct _ThrowInfo
@@ -66,7 +66,7 @@ struct _ThrowInfo
     uint    attributes;     // Throw Info attributes (Bit field)
     PMFN    pmfnUnwind;     // Destructor to call when exception has been handled or aborted.
     PMFN    pForwardCompat; // pointer to Forward compatibility frame handler
-    ImgPtr!(CatchableTypeArray*) pCatchableTypeArray; // pointer to CatchableTypeArray
+    ImgPtr!CatchableTypeArray pCatchableTypeArray; // pointer to CatchableTypeArray
 }
 
 enum TI_IsConst     = 0x00000001;   // thrown object has const qualifier
@@ -87,6 +87,14 @@ enum EXCEPTION_UNWINDING          = 0x02;
 
 enum EH_MAGIC_NUMBER1             = 0x19930520;
 
+struct CxxExceptionInfo
+{
+    size_t Magic;
+    Throwable* pThrowable; // null for rethrow
+    _ThrowInfo* ThrowInfo;
+    version(Win64) void* ImgBase;
+}
+
 extern(C) void _d_throw_exception(Object e)
 {
     if (e is null)
@@ -102,14 +110,17 @@ extern(C) void _d_throw_exception(Object e)
         if (!old_terminate_handler)
             old_terminate_handler = set_terminate(&msvc_eh_terminate);
     }
-    exceptionStack.push(cast(Throwable) e);
+    auto t = cast(Throwable) e;
+    exceptionStack.push(t);
 
-    ULONG_PTR[3] ExceptionInformation;
-    ExceptionInformation[0] = EH_MAGIC_NUMBER1;
-    ExceptionInformation[1] = cast(ULONG_PTR) cast(void*) &e;
-    ExceptionInformation[2] = cast(ULONG_PTR) getThrowInfo(ti);
+    CxxExceptionInfo info;
+    info.Magic = EH_MAGIC_NUMBER1;
+    info.pThrowable = &t;
+    info.ThrowInfo = getThrowInfo(ti).toPointer;
+    version(Win64) info.ImgBase = ehHeap.base;
 
-    RaiseException(STATUS_MSC_EXCEPTION, EXCEPTION_NONCONTINUABLE, 3, ExceptionInformation.ptr);
+    RaiseException(STATUS_MSC_EXCEPTION, EXCEPTION_NONCONTINUABLE,
+                   info.sizeof / size_t.sizeof, cast(ULONG_PTR*)&info);
 }
 
 ///////////////////////////////////////////////////////////////
@@ -117,60 +128,58 @@ extern(C) void _d_throw_exception(Object e)
 import rt.util.container.hashtab;
 import core.sync.mutex;
 
-__gshared HashTab!(TypeInfo_Class, _ThrowInfo) throwInfoHashtab;
-__gshared HashTab!(TypeInfo_Class, CatchableType) catchableHashtab;
+__gshared HashTab!(TypeInfo_Class, ImgPtr!_ThrowInfo) throwInfoHashtab;
+__gshared HashTab!(TypeInfo_Class, ImgPtr!CatchableType) catchableHashtab;
 __gshared Mutex throwInfoMutex;
 
 // create and cache throwinfo for ti
-_ThrowInfo* getThrowInfo(TypeInfo_Class ti)
+ImgPtr!_ThrowInfo getThrowInfo(TypeInfo_Class ti)
 {
     throwInfoMutex.lock();
     if (auto p = ti in throwInfoHashtab)
     {
         throwInfoMutex.unlock();
-        return p;
+        return *p;
     }
 
-    size_t classes = 0;
+    int classes = 0;
     for (TypeInfo_Class tic = ti; tic; tic = tic.base)
         classes++;
 
-    size_t sz = int.sizeof + classes * ImgPtr!(CatchableType*).sizeof;
-    auto cta = cast(CatchableTypeArray*) malloc(sz);
-    if (!cta)
-        onOutOfMemoryError();
-    cta.nCatchableTypes = classes;
+    size_t sz = int.sizeof + classes * ImgPtr!(CatchableType).sizeof;
+    ImgPtr!CatchableTypeArray cta = eh_malloc!CatchableTypeArray(sz);
+    toPointer(cta).nCatchableTypes = classes;
 
     size_t c = 0;
     for (TypeInfo_Class tic = ti; tic; tic = tic.base)
-        cta.arrayOfCatchableTypes.ptr[c++] = getCatchableType(tic);
+        cta.toPointer.arrayOfCatchableTypes.ptr[c++] = getCatchableType(tic);
 
-    _ThrowInfo tinf = { 0, null, null, cta };
+    auto tinf = eh_malloc!_ThrowInfo();
+    *(tinf.toPointer) = _ThrowInfo(0, PMFN(), PMFN(), cta);
     throwInfoHashtab[ti] = tinf;
-    auto pti = ti in throwInfoHashtab;
     throwInfoMutex.unlock();
-    return pti;
+    return tinf;
 }
 
-CatchableType* getCatchableType(TypeInfo_Class ti)
+ImgPtr!CatchableType getCatchableType(TypeInfo_Class ti)
 {
     if (auto p = ti in catchableHashtab)
-        return p;
+        return *p;
 
-    size_t sz = TypeDescriptor!1.sizeof + ti.name.length;
-    auto td = cast(TypeDescriptor!1*) malloc(sz);
-    if (!td)
-        onOutOfMemoryError();
+    size_t sz = TypeDescriptor.sizeof + ti.name.length;
+    auto td = eh_malloc!TypeDescriptor(sz);
+    auto ptd = td.toPointer;
 
-    td.hash = 0;
-    td.spare = null;
-    td.name.ptr[0] = 'D';
-    memcpy(td.name.ptr + 1, ti.name.ptr, ti.name.length);
-    td.name.ptr[ti.name.length + 1] = 0;
+    ptd.hash = 0;
+    ptd.spare = null;
+    ptd.name.ptr[0] = 'D';
+    memcpy(ptd.name.ptr + 1, ti.name.ptr, ti.name.length);
+    ptd.name.ptr[ti.name.length + 1] = 0;
 
-    CatchableType ct = { CT_IsSimpleType, td, { 0, -1, 0 }, 4, null };
+    auto ct = eh_malloc!CatchableType();
+    ct.toPointer[0] = CatchableType(CT_IsSimpleType, td, PMD(0, -1, 0), 4, PMFN());
     catchableHashtab[ti] = ct;
-    return ti in catchableHashtab;
+    return ct;
 }
 
 ///////////////////////////////////////////////////////////////
@@ -278,9 +287,7 @@ private:
     {
         // alloc from GC? add array as a GC range?
         immutable ncap = _cap ? 2 * _cap : 64;
-        auto p = cast(Throwable*)malloc(ncap * Throwable.sizeof);
-        if (p is null)
-            onOutOfMemoryError();
+        auto p = cast(Throwable*)xmalloc(ncap * Throwable.sizeof);
         p[0 .. _length] = _p[0 .. _length];
         free(_p);
         _p = p;
@@ -341,6 +348,35 @@ void msvc_eh_terminate() nothrow
             cmp EAX, 0;
             je L_ret;
             jmp EAX;
+        L_ret:
+            ret;
+        }
+    }
+    else
+    {
+        asm nothrow
+        {
+            naked;
+            push RBX; // align stack
+            call tlsUncaughtExceptions;
+            cmp RAX, 1;
+            jle L_term;
+
+            // update stack so we just continue in __FrameUnwindToState$filt$0
+            // return address and 0x20 bytes inside terminate
+            // RBX pushed
+            // return address and 0x28 bytes inside __FrameUnwindFilter
+            mov RBX,[RSP+0x30];
+            add RSP,0x68; // TODO: needs to be verified for different CRT builds
+            mov RAX,1;
+            ret;          // return to __FrameUnwindToState$filt$0
+
+        L_term:
+            call tlsOldTerminateHandler;
+            pop RBX;
+            cmp RAX, 0;
+            je L_ret;
+            jmp RAX;
         L_ret:
             ret;
         }
@@ -426,6 +462,8 @@ void msvc_eh_init()
 {
     throwInfoMutex = new Mutex;
 
+    version(Win64) ehHeap.initialize(0x10000);
+
     // preallocate type descriptors likely to be needed
     getThrowInfo(typeid(Exception));
     // better not have to allocate when this is thrown:
@@ -436,4 +474,78 @@ shared static this()
 {
     // should be called from rt_init
     msvc_eh_init();
+}
+
+///////////////////////////////////////////////////////////////
+version(Win32)
+{
+    ImgPtr!T eh_malloc(T)(size_t size = T.sizeof)
+    {
+        return cast(T*) xmalloc(size);
+    }
+
+    T* toPointer(T)(T* imgPtr)
+    {
+        return imgPtr;
+    }
+}
+else
+{
+    /**
+    * Heap dedicated for CatchableTypeArray/CatchableType/TypeDescriptor
+    * structs of cached _ThrowInfos.
+    * The heap is used to keep these structs tightly together, as they are
+    * referenced via 32-bit offsets from a common base. We simply use the
+    * heap's start as base (instead of the actual image base), and malloc()
+    * returns an offset.
+    * The allocated structs are all cached and never released, so this heap
+    * can only grow. The offsets remain constant after a grow, so it's only
+    * the base which may change.
+    */
+    struct EHHeap
+    {
+        void* base;
+        size_t capacity;
+        size_t length;
+
+        void initialize(size_t initialCapacity)
+        {
+            base = xmalloc(initialCapacity);
+            capacity = initialCapacity;
+            length = size_t.sizeof; // don't use offset 0, it has a special meaning
+        }
+
+        size_t malloc(size_t size)
+        {
+            auto offset = length;
+            enum alignmentMask = size_t.sizeof - 1;
+            auto newLength = (length + size + alignmentMask) & ~alignmentMask;
+            auto newCapacity = capacity;
+            while (newLength > newCapacity)
+                newCapacity *= 2;
+            if (newCapacity != capacity)
+            {
+                auto newBase = xmalloc(newCapacity);
+                newBase[0 .. length] = base[0 .. length];
+                // old base just leaks, could be used by exceptions still in flight
+                base = newBase;
+                capacity = newCapacity;
+            }
+            length = newLength;
+            return offset;
+        }
+    }
+
+    __gshared EHHeap ehHeap;
+
+    ImgPtr!T eh_malloc(T)(size_t size = T.sizeof)
+    {
+        return ImgPtr!T(cast(uint) ehHeap.malloc(size));
+    }
+
+    // NB: The returned pointer may be invalidated by a consequent grow of ehHeap!
+    T* toPointer(T)(ImgPtr!T imgPtr)
+    {
+        return cast(T*) (ehHeap.base + imgPtr.offset);
+    }
 }
