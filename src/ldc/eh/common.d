@@ -36,6 +36,9 @@ extern(C) void fatalerror(in char* format, ...)
     abort();
 }
 
+version(Win32) {} else version = notMSVC;
+version(notMSVC):
+
 // ------------------------
 //    Reading DWARF data
 // ------------------------

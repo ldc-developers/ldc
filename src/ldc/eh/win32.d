@@ -12,6 +12,7 @@ import core.sys.windows.windows;
 import core.exception : onOutOfMemoryError, OutOfMemoryError;
 import core.stdc.stdlib : malloc, free;
 import core.stdc.string : memcpy;
+import rt.util.container.common : xmalloc;
 
 // pointers are image relative for Win64 versions
 version(Win64)
@@ -173,42 +174,51 @@ CatchableType* getCatchableType(TypeInfo_Class ti)
 }
 
 ///////////////////////////////////////////////////////////////
-extern(C) Object _d_eh_enter_catch(void* ptr)
+extern(C) Object _d_eh_enter_catch(void* ptr, ClassInfo catchType)
 {
-    if (!ptr)
-        return null; // null for "catch all" in scope(failure), will rethrow
-    Throwable e = *(cast(Throwable*) ptr);
+    assert(ptr);
 
-    while(exceptionStack.length > 0)
+    // is this a thrown D exception?
+    auto e = *(cast(Throwable*) ptr);
+    size_t pos = exceptionStack.find(e);
+    if (pos >= exceptionStack.length())
+        return null;
+
+    auto caught = e;
+    // append inner unhandled thrown exceptions
+    for (size_t p = pos + 1; p < exceptionStack.length(); p++)
+        e = chainExceptions(e, exceptionStack[p]);
+    exceptionStack.shrink(pos);
+
+    // given the bad semantics of Errors, we are fine with passing
+    //  the test suite with slightly inaccurate behaviour by just
+    //  rethrowing a collateral Error here, though it might need to
+    //  be caught by a catch handler in an inner scope
+    if (e !is caught)
     {
-        Throwable t = exceptionStack.pop();
-        if (t is e)
-            break;
-
-        auto err = cast(Error) t;
-        if (err && !cast(Error)e)
-        {
-            // there is an Error in flight, but we caught an Exception
-            // so we convert it and rethrow the Error
-            err.bypassedException = e;
-            throw err;
-        }
-        t.next = e.next;
-        e.next = t;
+        if (_d_isbaseof(typeid(e), catchType))
+            *cast(Throwable*) ptr = e; // the current catch can also catch this Error
+        else
+            _d_throw_exception(e);
     }
-
     return e;
 }
 
-alias terminate_handler = void function();
+Throwable chainExceptions(Throwable e, Throwable t)
+{
+    if (!cast(Error) e)
+        if (auto err = cast(Error) t)
+        {
+            err.bypassedException = e;
+            return err;
+        }
 
-extern(C) void** __current_exception();
-extern(C) void** __current_exception_context();
-extern(C) int* __processing_throw();
-
-extern(C) terminate_handler set_terminate(terminate_handler new_handler);
-
-terminate_handler old_terminate_handler; // explicitely per thread
+    auto pChain = &e.next;
+    while (*pChain)
+        pChain = &(pChain.next);
+    *pChain = t;
+    return e;
+}
 
 ExceptionStack exceptionStack;
 
@@ -233,13 +243,35 @@ nothrow:
         return _p[--_length];
     }
 
+    void shrink(size_t sz)
+    {
+        while (_length > sz)
+            _p[--_length] = null;
+    }
+
     ref inout(Throwable) opIndex(size_t idx) inout
     {
         return _p[idx];
     }
 
+    size_t find(Throwable e)
+    {
+        for (size_t i = _length; i > 0; )
+            if (exceptionStack[--i] is e)
+                return i;
+        return ~0;
+    }
+
     @property size_t length() const { return _length; }
     @property bool empty() const { return !length; }
+
+    void swap(ref ExceptionStack other)
+    {
+        static void swapField(T)(ref T a, ref T b) { T o = b; b = a; a = o; }
+        swapField(_length, other._length);
+        swapField(_p,      other._p);
+        swapField(_cap,    other._cap);
+    }
 
 private:
     void grow()
@@ -260,8 +292,13 @@ private:
     size_t _cap;
 }
 
+///////////////////////////////////////////////////////////////
+alias terminate_handler = void function();
+extern(C) terminate_handler set_terminate(terminate_handler new_handler);
+terminate_handler old_terminate_handler; // explicitely per thread
+
 // helper to access TLS from naked asm
-int tlsUncaughtExceptions() nothrow
+size_t tlsUncaughtExceptions() nothrow
 {
     return exceptionStack.length;
 }
@@ -273,41 +310,98 @@ auto tlsOldTerminateHandler() nothrow
 
 void msvc_eh_terminate() nothrow
 {
-    asm nothrow {
-        naked;
-        call tlsUncaughtExceptions;
-        cmp EAX, 0;
-        je L_term;
+    version(Win32)
+    {
+        asm nothrow
+        {
+            naked;
+            call tlsUncaughtExceptions;
+            cmp EAX, 1;
+            jle L_term;
 
-        // hacking into the call chain to return EXCEPTION_EXECUTE_HANDLER
-        //  as the return value of __FrameUnwindFilter so that
-        // __FrameUnwindToState continues with the next unwind block
+            // hacking into the call chain to return EXCEPTION_EXECUTE_HANDLER
+            //  as the return value of __FrameUnwindFilter so that
+            // __FrameUnwindToState continues with the next unwind block
 
-        // restore ptd->__ProcessingThrow
-        push EAX;
-        call __processing_throw;
-        pop [EAX];
+            // undo one level of exception frames from terminate()
+            mov EAX,FS:[0];
+            mov EAX,[EAX];
+            mov FS:[0], EAX;
 
-        // undo one level of exception frames from terminate()
-        mov EAX,FS:[0];
-        mov EAX,[EAX];
-        mov FS:[0], EAX;
+            // assume standard stack frames for callers
+            mov EAX,EBP;   // frame pointer of terminate()
+            mov EAX,[EAX]; // frame pointer of __FrameUnwindFilter
+            mov ESP,EAX;   // restore stack
+            pop EBP;       // and frame pointer
+            mov EAX, 1;    // return EXCEPTION_EXECUTE_HANDLER
+            ret;
 
-        // assume standard stack frames for callers
-        mov EAX,EBP;   // frame pointer of terminate()
-        mov EAX,[EAX]; // frame pointer of __FrameUnwindFilter
-        mov ESP,EAX;   // restore stack
-        pop EBP;       // and frame pointer
-        mov EAX, 1;    // return EXCEPTION_EXECUTE_HANDLER
-        ret;
+        L_term:
+            call tlsOldTerminateHandler;
+            cmp EAX, 0;
+            je L_ret;
+            jmp EAX;
+        L_ret:
+            ret;
+        }
+    }
+}
 
-    L_term:
-        call tlsOldTerminateHandler;
-        cmp EAX, 0;
-        je L_ret;
-        jmp EAX;
-    L_ret:
-        ret;
+///////////////////////////////////////////////////////////////
+extern(C) void** __current_exception() nothrow;
+extern(C) void** __current_exception_context() nothrow;
+extern(C) int* __processing_throw() nothrow;
+
+struct FiberContext
+{
+    ExceptionStack exceptionStack;
+    void* currentException;
+    void* currentExceptionContext;
+    int processingContext;
+}
+
+FiberContext* fiberContext;
+
+extern(C) void* _d_eh_swapContext(FiberContext* newContext) nothrow
+{
+    import core.stdc.string : memset;
+    if (!fiberContext)
+    {
+        fiberContext = cast(FiberContext*) xmalloc(FiberContext.sizeof);
+        memset(fiberContext, 0, FiberContext.sizeof);
+    }
+    fiberContext.exceptionStack.swap(exceptionStack);
+    fiberContext.currentException = *__current_exception();
+    fiberContext.currentExceptionContext = *__current_exception_context();
+    fiberContext.processingContext = *__processing_throw();
+
+    if (newContext)
+    {
+        exceptionStack.swap(newContext.exceptionStack);
+        *__current_exception() = newContext.currentException;
+        *__current_exception_context() = newContext.currentExceptionContext;
+        *__processing_throw() = newContext.processingContext;
+    }
+    else
+    {
+        exceptionStack = ExceptionStack();
+        *__current_exception() = null;
+        *__current_exception_context() = null;
+        *__processing_throw() = 0;
+    }
+
+    FiberContext* old = fiberContext;
+    fiberContext = newContext;
+    return old;
+}
+
+static ~this()
+{
+    import core.stdc.stdlib : free;
+    if (fiberContext)
+    {
+        destroy(*fiberContext);
+        free(fiberContext);
     }
 }
 
@@ -318,7 +412,7 @@ extern(C) bool _d_enter_cleanup(void* ptr)
     // be inferred to not return, is removed by the LLVM optimizer
     //
     // TODO: setup an exception handler here (ptr passes the address
-    // of a 16 byte stack area in a parent fuction scope) to deal with
+    // of a 40 byte stack area in a parent fuction scope) to deal with
     // unhandled exceptions during unwinding.
     return true;
 }
