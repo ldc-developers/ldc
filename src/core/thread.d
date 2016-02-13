@@ -38,12 +38,6 @@ version( Solaris )
     import core.sys.solaris.sys.types;
 }
 
-version( Solaris )
-{
-    import core.sys.solaris.sys.priocntl;
-    import core.sys.solaris.sys.types;
-}
-
 // this should be true for most architectures
 version = StackGrowsDown;
 
@@ -2482,23 +2476,17 @@ else
             {
                 import ldc.llvmasm;
 
-                // Callee-save registers, according to AAPCS64, section 5.1.1.
-                // FIXME: As loads/stores are explicit on ARM, the code generated for
-                // this is horrible. Better write the entire function in ASM.
+                // Callee-save registers, x19-x28 according to AAPCS64, section
+                // 5.1.1.  Include x29 fp because it optionally can be a callee
+                // saved reg
                 size_t[11] regs = void;
-                __asm("str x19, $0", "=*m", regs.ptr + 0);
-                __asm("str x20, $0", "=*m", regs.ptr + 1);
-                __asm("str x21, $0", "=*m", regs.ptr + 2);
-                __asm("str x22, $0", "=*m", regs.ptr + 3);
-                __asm("str x23, $0", "=*m", regs.ptr + 4);
-                __asm("str x24, $0", "=*m", regs.ptr + 5);
-                __asm("str x25, $0", "=*m", regs.ptr + 6);
-                __asm("str x26, $0", "=*m", regs.ptr + 7);
-                __asm("str x27, $0", "=*m", regs.ptr + 8);
-                __asm("str x28, $0", "=*m", regs.ptr + 9);
+                __asm("stp x19, x20, $0", "=*m", regs.ptr + 0);
+                __asm("stp x21, x22, $0", "=*m", regs.ptr + 2);
+                __asm("stp x23, x24, $0", "=*m", regs.ptr + 4);
+                __asm("stp x25, x26, $0", "=*m", regs.ptr + 6);
+                __asm("stp x27, x28, $0", "=*m", regs.ptr + 8);
                 __asm("str x29, $0", "=*m", regs.ptr + 10);
-
-                __asm("str x31, $0", "=*m", &sp);
+                sp = __asm!(void*)("mov $0, sp", "=r");
             }
             else version (ARM)
             {
@@ -3622,6 +3610,15 @@ private
         {
             version = AsmMIPS_O32_Posix;
             version = AsmExternal;
+        }
+    }
+    else version( AArch64 )
+    {
+        version( Posix )
+        {
+            version = AsmAArch64_Posix;
+            version = AsmExternal;
+            version = AlignFiberStackTo16Byte;
         }
     }
     else version( ARM )
@@ -4871,16 +4868,22 @@ private:
                 finalHandler = reg.handler;
             }
 
-            pstack -= EXCEPTION_REGISTRATION.sizeof;
+            // When linking with /safeseh (supported by LDC, but not DMD)
+            // the exception chain must not extend to the very top
+            // of the stack, otherwise the exception chain is also considered
+            // invalid. Reserving additional 4 bytes at the top of the stack will
+            // keep the EXCEPTION_REGISTRATION below that limit
+            size_t reserve = EXCEPTION_REGISTRATION.sizeof + 4;
+            pstack -= reserve;
             *(cast(EXCEPTION_REGISTRATION*)pstack) =
                 EXCEPTION_REGISTRATION( sehChainEnd, finalHandler );
 
             push( cast(size_t) &fiber_entryPoint );                 // EIP
-            push( cast(size_t) m_ctxt.bstack - EXCEPTION_REGISTRATION.sizeof ); // EBP
+            push( cast(size_t) m_ctxt.bstack - reserve );           // EBP
             push( 0x00000000 );                                     // EDI
             push( 0x00000000 );                                     // ESI
             push( 0x00000000 );                                     // EBX
-            push( cast(size_t) m_ctxt.bstack - EXCEPTION_REGISTRATION.sizeof ); // FS:[0]
+            push( cast(size_t) m_ctxt.bstack - reserve );           // FS:[0]
             push( cast(size_t) m_ctxt.bstack );                     // FS:[4]
             push( cast(size_t) m_ctxt.bstack - m_size );            // FS:[8]
             push( 0x00000000 );                                     // EAX
@@ -5148,6 +5151,29 @@ private:
             (cast(ubyte*)pstack - SZ)[0 .. SZ] = 0;
             pstack -= ABOVE;
             *cast(size_t*)(pstack - SZ_RA) = cast(size_t)&fiber_entryPoint;
+        }
+        else version( AsmAArch64_Posix )
+        {
+            // Like others, FP registers and return address (lr) are kept
+            // below the saved stack top (tstack) to hide from GC scanning.
+            // fiber_switchContext expects newp sp to look like this:
+            //   19: x19
+            //   ...
+            //    9: x29 (fp)  <-- newp tstack
+            //    8: x30 (lr)  [&fiber_entryPoint]
+            //    7: d8
+            //   ...
+            //    0: d15
+
+            version( StackGrowsDown ) {}
+            else
+                static assert(false, "Only full descending stacks supported on AArch64");
+
+            // Only need to set return address (lr).  Everything else is fine
+            // zero initialized.
+            pstack -= size_t.sizeof * 11;    // skip past x19-x29
+            push(cast(size_t) &fiber_entryPoint);
+            pstack += size_t.sizeof;         // adjust sp (newp) above lr
         }
         else version( AsmARM_Posix )
         {
