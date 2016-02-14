@@ -15,7 +15,7 @@ import ddmd.aliasthis;
 import ddmd.arrayop;
 import ddmd.arraytypes;
 import ddmd.attrib;
-import ddmd.gluelayer;
+// IN_LLVM import ddmd.gluelayer;
 import ddmd.canthrow;
 import ddmd.clone;
 import ddmd.cond;

@@ -22,7 +22,7 @@ import ddmd.aliasthis;
 import ddmd.argtypes;
 import ddmd.arraytypes;
 import ddmd.attrib;
-import ddmd.gluelayer;
+// IN_LLVM import ddmd.gluelayer;
 import ddmd.complex;
 import ddmd.ctfeexpr;
 import ddmd.dcast;
