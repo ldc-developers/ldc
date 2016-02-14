@@ -18,7 +18,7 @@ import ddmd.dstruct;
 import ddmd.expression;
 import ddmd.func;
 import ddmd.globals;
-// IN_LLVM import ddmd.gluelayer;
+import ddmd.gluelayer;
 import ddmd.id;
 import ddmd.identifier;
 import ddmd.mtype;

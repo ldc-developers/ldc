@@ -19,7 +19,7 @@ import ddmd.argtypes;
 import ddmd.arrayop;
 import ddmd.arraytypes;
 import ddmd.attrib;
-// IN_LLVM import ddmd.gluelayer;
+import ddmd.gluelayer;
 import ddmd.canthrow;
 import ddmd.clone;
 import ddmd.complex;

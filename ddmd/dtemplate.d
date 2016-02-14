@@ -15,7 +15,7 @@ import ddmd.aggregate;
 import ddmd.aliasthis;
 import ddmd.arraytypes;
 import ddmd.attrib;
-// IN_LLVM import ddmd.gluelayer;
+import ddmd.gluelayer;
 import ddmd.dcast;
 import ddmd.dclass;
 import ddmd.declaration;

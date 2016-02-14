@@ -13,7 +13,7 @@ import core.stdc.string;
 import ddmd.aggregate;
 import ddmd.arraytypes;
 import ddmd.attrib;
-// IN_LLVM import ddmd.gluelayer;
+import ddmd.gluelayer;
 import ddmd.builtin;
 import ddmd.ctfeexpr;
 import ddmd.dclass;

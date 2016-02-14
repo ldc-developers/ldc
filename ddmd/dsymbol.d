@@ -15,7 +15,7 @@ import ddmd.aggregate;
 import ddmd.aliasthis;
 import ddmd.arraytypes;
 import ddmd.attrib;
-// IN_LLVM import ddmd.gluelayer;
+import ddmd.gluelayer;
 import ddmd.dclass;
 import ddmd.declaration;
 import ddmd.denum;
@@ -49,9 +49,6 @@ import ddmd.visitor;
 
 version(IN_LLVM)
 {
-    // define DMD backend type
-    struct Symbol;
-
     // Functions to construct/destruct Dsymbol.ir
     extern (C++) void* newIrDsymbol();
     extern (C++) void deleteIrDsymbol(void*);
