@@ -158,16 +158,11 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
 }
 
 ldc::DIType ldc::DIBuilder::CreateEnumType(Type *type) {
+  llvm::Type *T = DtoType(type);
+
   assert(type->ty == Tenum &&
          "only enums allowed for debug info in dwarfEnumType");
   TypeEnum *te = static_cast<TypeEnum *>(type);
-
-  if (!te->sym->memtype) {
-    // Bugzilla 13792
-    return DBuilder.createUnspecifiedType(type->toChars());
-  }
-
-  llvm::Type *T = DtoType(type);
 
 #if LDC_LLVM_VER >= 306
   llvm::SmallVector<llvm::Metadata *, 8> subscripts;
@@ -539,11 +534,18 @@ ldc::DISubroutineType ldc::DIBuilder::CreateDelegateType(Type *type) {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+bool isOpaqueEnumType(Type *type) {
+  if (type->ty != Tenum)
+    return false;
+
+  TypeEnum *te = static_cast<TypeEnum *>(type);
+  return !te->sym->memtype;
+}
 
 ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
-  // Check for enum first, because of Bugzilla 13792
-  if (type->ty == Tenum) {
-    return CreateEnumType(type);
+  // Check for opaque enum first, Bugzilla 13792
+  if (isOpaqueEnumType(type)) {
+    return DBuilder.createUnspecifiedType(type->toChars());
   }
 
   Type *t = type->toBasetype();
@@ -558,6 +560,9 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
   if (t->isintegral() || t->isfloating()) {
     if (t->ty == Tvector) {
       return CreateVectorType(type);
+    }
+    if (type->ty == Tenum) {
+      return CreateEnumType(type);
     }
     return CreateBasicType(type);
   }
