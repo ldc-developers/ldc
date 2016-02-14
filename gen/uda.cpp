@@ -79,7 +79,7 @@ const char *getFirstElemString(StructLiteralExp *sle) {
   assert(arg->op == TOKstring);
   auto strexp = static_cast<StringExp *>(arg);
   assert(strexp->sz == 1);
-  return static_cast<const char *>(strexp->string);
+  return strexp->toStringz();
 }
 
 void applyAttrSection(StructLiteralExp *sle, llvm::GlobalObject *globj) {

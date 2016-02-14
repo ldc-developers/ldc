@@ -101,14 +101,17 @@ static void write_struct_literal(Loc loc, LLValue *mem, StructDeclaration *sd,
     Expression *expr = (index < nexprs) ? exprs[index] : nullptr;
 
     if (vd->overlapped && !expr) {
-      // In case of an union (overlapped field), we can't simply use the default initializer.
+      // In case of an union (overlapped field), we can't simply use the default
+      // initializer.
       // Consider the type union U7727A1 { int i; double d; } and
       // the declaration U7727A1 u = { d: 1.225 };
       // The loop will first visit variable i and then d. Since d has an
-      // explicit initializer, we must use this one. We should therefore skip union fields
+      // explicit initializer, we must use this one. We should therefore skip
+      // union fields
       // with no explicit initializer.
-      IF_LOG Logger::println("skipping overlapped field without init expr: %s %s (+%u)", vd->type->toChars(),
-                             vd->toChars(), vd->offset);
+      IF_LOG Logger::println(
+          "skipping overlapped field without init expr: %s %s (+%u)",
+          vd->type->toChars(), vd->toChars(), vd->offset);
       continue;
     }
 
@@ -419,29 +422,11 @@ public:
     Type *cty = dtype->nextOf()->toBasetype();
 
     LLType *ct = DtoMemType(cty);
-    LLArrayType *at = LLArrayType::get(ct, e->len + 1);
 
-    llvm::StringMap<llvm::GlobalVariable *> *stringLiteralCache = nullptr;
-    LLConstant *_init;
-    switch (cty->size()) {
-    default:
-      llvm_unreachable("Unknown char type");
-    case 1:
-      _init =
-          toConstantArray(ct, at, static_cast<uint8_t *>(e->string), e->len);
-      stringLiteralCache = &(gIR->stringLiteral1ByteCache);
-      break;
-    case 2:
-      _init =
-          toConstantArray(ct, at, static_cast<uint16_t *>(e->string), e->len);
-      stringLiteralCache = &(gIR->stringLiteral2ByteCache);
-      break;
-    case 4:
-      _init =
-          toConstantArray(ct, at, static_cast<uint32_t *>(e->string), e->len);
-      stringLiteralCache = &(gIR->stringLiteral4ByteCache);
-      break;
-    }
+    llvm::StringMap<llvm::GlobalVariable *> *stringLiteralCache =
+        stringLiteralCacheForType(cty);
+    LLConstant *_init = buildStringLiteralConstant(e, true);
+    const auto at = _init->getType();
 
     llvm::StringRef key(e->toChars());
     llvm::GlobalVariable *gvar =
@@ -472,10 +457,12 @@ public:
 #endif
 
     if (dtype->ty == Tarray) {
-      LLConstant *clen = LLConstantInt::get(DtoSize_t(), e->len, false);
+      LLConstant *clen =
+          LLConstantInt::get(DtoSize_t(), e->numberOfCodeUnits(), false);
       result = new DImValue(e->type, DtoConstSlice(clen, arrptr, dtype));
     } else if (dtype->ty == Tsarray) {
-      LLType *dstType = getPtrToType(LLArrayType::get(ct, e->len));
+      LLType *dstType =
+          getPtrToType(LLArrayType::get(ct, e->numberOfCodeUnits()));
       LLValue *emem =
           (gvar->getType() == dstType) ? gvar : DtoBitCast(gvar, dstType);
       result = new DVarValue(e->type, emem);
@@ -627,7 +614,7 @@ public:
 
     // evaluate the underlying binary expression
     Expression *lhsForBinExp = (useLvalForBinExpLhs ? lvalExp : e->e1);
-    BinExp* binExp = bindD<BinExp>::create(loc, lhsForBinExp, e->e2);
+    BinExp *binExp = bindD<BinExp>::create(loc, lhsForBinExp, e->e2);
     binExp->type = lhsForBinExp->type;
     DValue *result = toElem(binExp);
 
