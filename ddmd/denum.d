@@ -10,7 +10,7 @@ module ddmd.denum;
 
 import core.stdc.stdio;
 import ddmd.access;
-// IN_LLVM import ddmd.backend;
+// IN_LLVM import ddmd.gluelayer;
 import ddmd.declaration;
 import ddmd.dmodule;
 import ddmd.doc;

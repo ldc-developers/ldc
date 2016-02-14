@@ -8,14 +8,6 @@
 
 module ddmd.backend;
 
-import ddmd.aggregate;
-import ddmd.dmodule;
-import ddmd.dscope;
-import ddmd.expression;
-// IN_LLVM import ddmd.lib;
-import ddmd.mtype;
-import ddmd.root.file;
-
 struct Symbol;
 struct code;
 struct block;
@@ -25,22 +17,7 @@ struct elem;
 version(IN_LLVM) {}
 else
 {
-extern extern (C++) void backend_init();
-extern extern (C++) void backend_term();
-extern extern (C++) void obj_start(char* srcfile);
-extern extern (C++) void obj_end(Library library, File* objfile);
-extern extern (C++) void obj_write_deferred(Library library);
-
-extern extern (C++) void genObjFile(Module m, bool multiobj);
-
-extern extern (C++) Symbol* toInitializer(AggregateDeclaration sd);
-extern extern (C++) Symbol* toModuleArray(Module m);
-extern extern (C++) Symbol* toModuleAssert(Module m);
-extern extern (C++) Symbol* toModuleUnittest(Module m);
-}
-
 // type.h
-
 
 alias tym_t = uint;
 alias mangle_t = ubyte;
@@ -53,7 +30,6 @@ alias list_t = LIST*;
 alias type = TYPE;
 
 extern extern (C++) type* type_fake(tym_t);
-extern extern (C++) uint totym(Type tx);
 extern extern (C++) void type_incCount(type* t);
 extern extern (C++) void type_setIdent(type* t, char* ident);
 
@@ -179,4 +155,5 @@ enum
 // #define TYdarray        (I64 ? TYucent : TYullong)
 
     TYMAX               = 0x48,
+}
 }
