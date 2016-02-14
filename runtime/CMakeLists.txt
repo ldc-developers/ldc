@@ -67,6 +67,7 @@ list(REMOVE_ITEM DCRT_D
     ${RUNTIME_DIR}/src/rt/deh.d
     ${RUNTIME_DIR}/src/rt/deh_win32.d
     ${RUNTIME_DIR}/src/rt/deh_win64_posix.d
+    ${RUNTIME_DIR}/src/rt/dwarfeh.d
     ${RUNTIME_DIR}/src/rt/llmath.d
     ${RUNTIME_DIR}/src/rt/trace.d
 )
