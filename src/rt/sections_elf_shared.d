@@ -341,7 +341,7 @@ extern(C) void _d_dso_registry(CompilerDSOData* data)
         if (firstDSO) initLocks();
 
         DSO* pdso = cast(DSO*).calloc(1, DSO.sizeof);
-        assert(typeid(DSO).init().ptr is null);
+        assert(typeid(DSO).initializer().ptr is null);
         *data._slot = pdso; // store backlink in library record
 
         auto minfoBeg = data._minfo_beg;

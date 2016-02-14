@@ -6,7 +6,7 @@
 * License: Distributed under the
 *      $(LINK2 http://www.boost.org/LICENSE_1_0.txt, Boost Software License 1.0).
 *    (See accompanying file LICENSE)
-* Source:    $(DRUNTIMESRC rt/_stdio_msvc.d)
+* Source:    $(DRUNTIMESRC rt/_msvc.c)
 * Authors:   Rainer Schuetze
 */
 
@@ -207,4 +207,3 @@ DECLARE_ALTERNATE_NAME (modff,  _msvc_modff);
         #endif
     #endif
 #endif
-

@@ -270,7 +270,7 @@ unittest
  *      y = right operand
  *      overflow = set if an overflow occurs, is not affected otherwise
  * Returns:
- *      the sum
+ *      the difference
  */
 
 pragma(inline, true)
@@ -380,7 +380,7 @@ unittest
  *      y = right operand
  *      overflow = set if an overflow occurs, is not affected otherwise
  * Returns:
- *      the sum
+ *      the difference
  */
 
 pragma(inline, true)
@@ -542,7 +542,7 @@ unittest
  *      y = right operand
  *      overflow = set if an overflow occurs, is not affected otherwise
  * Returns:
- *      the sum
+ *      the product
  */
 
 pragma(inline, true)
@@ -658,7 +658,7 @@ unittest
  *      y = right operand
  *      overflow = set if an overflow occurs, is not affected otherwise
  * Returns:
- *      the sum
+ *      the product
  */
 
 pragma(inline, true)
