@@ -158,11 +158,17 @@ ldc::DIType ldc::DIBuilder::CreateBasicType(Type *type) {
 }
 
 ldc::DIType ldc::DIBuilder::CreateEnumType(Type *type) {
-  llvm::Type *T = DtoType(type);
-
   assert(type->ty == Tenum &&
          "only enums allowed for debug info in dwarfEnumType");
   TypeEnum *te = static_cast<TypeEnum *>(type);
+
+  if (!te->sym->memtype) {
+    // Bugzilla 13792
+    return DBuilder.createUnspecifiedType(type->toChars());
+  }
+
+  llvm::Type *T = DtoType(type);
+
 #if LDC_LLVM_VER >= 306
   llvm::SmallVector<llvm::Metadata *, 8> subscripts;
 #else
@@ -535,6 +541,11 @@ ldc::DISubroutineType ldc::DIBuilder::CreateDelegateType(Type *type) {
 ////////////////////////////////////////////////////////////////////////////////
 
 ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
+  // Check for enum first, because of Bugzilla 13792
+  if (type->ty == Tenum) {
+    return CreateEnumType(type);
+  }
+
   Type *t = type->toBasetype();
   if (derefclass && t->ty == Tclass) {
     type = type->pointerTo();
@@ -547,9 +558,6 @@ ldc::DIType ldc::DIBuilder::CreateTypeDescription(Type *type, bool derefclass) {
   if (t->isintegral() || t->isfloating()) {
     if (t->ty == Tvector) {
       return CreateVectorType(type);
-    }
-    if (type->ty == Tenum) {
-      return CreateEnumType(type);
     }
     return CreateBasicType(type);
   }
