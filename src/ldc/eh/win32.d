@@ -177,7 +177,7 @@ ImgPtr!CatchableType getCatchableType(TypeInfo_Class ti)
     ptd.name.ptr[ti.name.length + 1] = 0;
 
     auto ct = eh_malloc!CatchableType();
-    ct.toPointer[0] = CatchableType(CT_IsSimpleType, td, PMD(0, -1, 0), 4, PMFN());
+    ct.toPointer[0] = CatchableType(CT_IsSimpleType, td, PMD(0, -1, 0), size_t.sizeof, PMFN());
     catchableHashtab[ti] = ct;
     return ct;
 }
