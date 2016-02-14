@@ -28,16 +28,6 @@ import ddmd.root.stringtable;
 import ddmd.tokens;
 import ddmd.utf;
 
-version(IN_LLVM)
-{
-    // Provide extern C++ function for LDC to initializer Lexer (no C++-header available)
-    extern (C++) void Lexer_initLexer()
-    {
-        Lexer.initLexer();
-    }
-
-}
-
 enum LS = 0x2028;       // UTF line separator
 enum PS = 0x2029;       // UTF paragraph separator
 
