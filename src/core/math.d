@@ -104,9 +104,9 @@ extern (C) real rndtonl(real x);
 {
   version (LDC)
   {
-    extern(D) float  sqrt(float  x) { return llvm_sqrt(x); }
-    extern(D) double sqrt(double x) { return llvm_sqrt(x); }
-    extern(D) real   sqrt(real   x) { return llvm_sqrt(x); }
+    extern(D) float  sqrt(float  x) { return x < 0 ? float.nan  : llvm_sqrt(x); }
+    extern(D) double sqrt(double x) { return x < 0 ? double.nan : llvm_sqrt(x); }
+    extern(D) real   sqrt(real   x) { return x < 0 ? real.nan   : llvm_sqrt(x); }
   }
   else
   {
