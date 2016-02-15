@@ -65,7 +65,7 @@ install:
   - set PATH=c:\projects\ninja;%PATH%
   - ninja --version
   # Download & extract libcurl
-  - ps: Start-FileDownload 'http://d.darktech.org/libcurl-7.43.0-WinSSL-zlib-x86-x64.zip' -FileName 'libcurl.zip'
+  - ps: Start-FileDownload 'http://d.darktech.org/libcurl-7.47.0-WinSSL-zlib-x86-x64.zip' -FileName 'libcurl.zip'
   - md libcurl
   - cd libcurl
   - 7z x ..\libcurl.zip > nul
@@ -75,9 +75,15 @@ install:
   - md ldc-x64\bin
   - copy libcurl\dmd2\windows\bin64\libcurl.dll ldc-x64\bin
   - set PATH=c:\projects\ldc-x64\bin;%PATH%
-  # Download and install lit
+  # Install lit
   - python -m pip install lit
-  - python -c "import lit; lit.main();" --version 
+  - python -c "import lit; lit.main();" --version
+  # Download & extract DMD
+  - ps: Start-FileDownload 'http://downloads.dlang.org/releases/2015/dmd.2.069.2.windows.7z' -FileName 'dmd2.7z'
+  - 7z x dmd2.7z > nul
+  - set PATH=%PATH%;c:\projects\dmd2\windows\bin
+  - set DC=c:\projects\dmd2\windows\bin\dmd.exe
+  - dmd --version
 
 #---------------------------------#
 #       build configuration       #
