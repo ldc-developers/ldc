@@ -775,8 +775,20 @@ public:
       irs->ir->CreateStore(val, cpyObj);
       exnObj = cpyObj;
     }
+
     auto enterCatchFn =
         getRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
+#if 1
+    // Exceptions are never rethrown by D code (but thrown again), so
+    // we can leave the catch handler right away and continue execution
+    // outside the catch funclet
+    llvm::BasicBlock *catchhandler =
+      llvm::BasicBlock::Create(irs->context(), "catchhandler", irs->topfunc());
+    llvm::CatchReturnInst::Create(catchpad, catchhandler, irs->scopebb());
+    irs->scope() = IRScope(catchhandler);
+    irs->ir->CreateCall(enterCatchFn,
+                        {DtoBitCast(exnObj, getVoidPtrType()), clssInfo});
+#else
     irs->ir->CreateCall(enterCatchFn,
                         {DtoBitCast(exnObj, getVoidPtrType()), clssInfo},
                         {llvm::OperandBundleDef("funclet", catchpad)});
@@ -789,6 +801,7 @@ public:
         llvm::BasicBlock::Create(irs->context(), "catchret", irs->topfunc());
     llvm::CatchReturnInst::Create(catchpad, endbb, retbb);
     irs->func()->scopes->pushCleanup(retbb, retbb);
+#endif
   }
 #endif
 
@@ -842,7 +855,7 @@ public:
         CleanupCursor currentScope = scopes->currentCleanupScope();
 
         emitBeginCatchMSVCEH(*it, endbb, catchSwitchInst);
-        scopes->pushFunclet(&catchBB->front());
+        //scopes->pushFunclet(&catchBB->front());
 
         // Emit handler, if there is one. The handler is zero, for instance,
         // when building 'catch { debug foo(); }' in non-debug mode.
@@ -854,7 +867,7 @@ public:
           scopes->runCleanups(currentScope, endbb);
         }
         scopes->popCleanups(currentScope);
-        scopes->popFunclet();
+        //scopes->popFunclet();
 
         irs->DBuilder.EmitBlockEnd();
 
