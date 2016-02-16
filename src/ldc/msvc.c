@@ -21,44 +21,44 @@
 #include <Windows.h>
 #include <string.h>
 
-const void* _data_start__;
-const void* _data_end__;
-const void* _bss_start__;
-const void* _bss_end__;
+const char* _data_start__;
+const char* _data_end__;
+const char* _bss_start__;
+const char* _bss_end__;
+
+EXTERN_C IMAGE_DOS_HEADER __ImageBase;
 
 static void init_data_seg(void)
 {
-    // Get handle to module
-    HMODULE hModule = GetModuleHandle(NULL);
-
-    // Store the base address the loaded Module
-    char* dllImageBase = (char*) hModule; //suppose hModule is the handle to the loaded Module (.exe or .dll)
+    // Get handle to this module (.exe/.dll)
+    HMODULE hModule = (HMODULE) &__ImageBase;
+    char* imageBase = (char*) hModule;
 
     // Get the DOS header
-    IMAGE_DOS_HEADER* dos_header = (PIMAGE_DOS_HEADER) hModule;
+    PIMAGE_DOS_HEADER pDosHeader = (PIMAGE_DOS_HEADER) hModule;
 
-    // Get the address of NT Header
-    IMAGE_NT_HEADERS *pNtHdr = (PIMAGE_NT_HEADERS)((char*) hModule + dos_header->e_lfanew);
+    // Get the address of the NT headers
+    PIMAGE_NT_HEADERS pNtHeaders = (PIMAGE_NT_HEADERS) (imageBase + pDosHeader->e_lfanew);
 
-    // After Nt headers comes the table of section, so get the addess of section table
-    IMAGE_SECTION_HEADER *pSectionHdr = (IMAGE_SECTION_HEADER *) (pNtHdr + 1);
+    // After the NT headers comes the sections table
+    PIMAGE_SECTION_HEADER pSectionHeader = (PIMAGE_SECTION_HEADER) (pNtHeaders + 1);
 
-    // Iterate through the list of all sections, and check the section name in the if conditon. etc
-    int i;
-    for ( i = 0 ; i < pNtHdr->FileHeader.NumberOfSections ; i++ )
+    // Iterate over all sections
+    for (int i = 0; i < pNtHeaders->FileHeader.NumberOfSections; i++)
     {
-         char *name = (char*) pSectionHdr->Name;
+         BYTE* name = pSectionHeader->Name;
          if (memcmp(name, ".data", 6) == 0)
          {
-            _data_start__ = dllImageBase + pSectionHdr->VirtualAddress;
-            _data_end__ = (char *) _data_start__ + pSectionHdr->Misc.VirtualSize;
+            _data_start__ = imageBase + pSectionHeader->VirtualAddress;
+            _data_end__ = _data_start__ + pSectionHeader->Misc.VirtualSize;
          }
          else if (memcmp(name, ".bss", 5) == 0)
          {
-            _bss_start__ = dllImageBase + pSectionHdr->VirtualAddress;
-            _bss_end__ = (char *) _bss_start__ + pSectionHdr->Misc.VirtualSize;
+            _bss_start__ = imageBase + pSectionHeader->VirtualAddress;
+            _bss_end__ = _bss_start__ + pSectionHeader->Misc.VirtualSize;
          }
-         pSectionHdr++;
+
+         pSectionHeader++;
     }
 }
 
