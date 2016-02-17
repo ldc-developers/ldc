@@ -262,6 +262,13 @@ if(CMAKE_COMPILER_IS_GNUCXX)
     string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
 endif()
 
+# Issue 1297
+# The default system-allocated stack size is 8MB on Linux and Mac, but only 1MB on Windows
+# Set LDC's stack to 8MB also on Windows:
+if(WIN32)
+    set(WINDOWS_STACK_SIZE "/STACK:8388608")
+endif()
+
 
 # Compiles the given D module into an object file.
 macro(Dcompile  input_d  output_dir  extra_d_flags  outlist_o extra_deps)
@@ -633,7 +640,7 @@ set_target_properties(
     OUTPUT_NAME ${LDC_EXE_NAME}
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
-    LINK_FLAGS "${Dcode_LDFLAGS} ${SANITIZE_LDFLAGS}"
+    LINK_FLAGS "${Dcode_LDFLAGS} ${SANITIZE_LDFLAGS} ${WINDOWS_STACK_SIZE}"
 )
 target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LDC_D_LIB} ${LDC_LIB} ${LIBCONFIG_LIBRARY} ${PTHREAD_LIBS} ${CMAKE_DL_LIBS} ${TERMINFO_LIBS} ${DMD_DUMMY_MAIN_FOR_EH_SYMBOLS})
 
