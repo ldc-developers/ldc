@@ -299,6 +299,293 @@ class Parameter;
 class Visitor
 {
 public:
+
+#if IN_LLVM && _MSC_VER
+    virtual void visit(Statement *);
+    virtual void visit(ErrorStatement *s);
+    virtual void visit(PeelStatement *s);
+    virtual void visit(ExpStatement *s);
+    virtual void visit(DtorExpStatement *s);
+    virtual void visit(CompileStatement *s);
+    virtual void visit(CompoundStatement *s);
+    virtual void visit(CompoundDeclarationStatement *s);
+    virtual void visit(UnrolledLoopStatement *s);
+    virtual void visit(ScopeStatement *s);
+    virtual void visit(WhileStatement *s);
+    virtual void visit(DoStatement *s);
+    virtual void visit(ForStatement *s);
+    virtual void visit(ForeachStatement *s);
+    virtual void visit(ForeachRangeStatement *s);
+    virtual void visit(IfStatement *s);
+    virtual void visit(ConditionalStatement *s);
+    virtual void visit(PragmaStatement *s);
+    virtual void visit(StaticAssertStatement *s);
+    virtual void visit(SwitchStatement *s);
+    virtual void visit(CaseStatement *s);
+    virtual void visit(CaseRangeStatement *s);
+    virtual void visit(DefaultStatement *s);
+    virtual void visit(GotoDefaultStatement *s);
+    virtual void visit(GotoCaseStatement *s);
+    virtual void visit(SwitchErrorStatement *s);
+    virtual void visit(ReturnStatement *s);
+    virtual void visit(BreakStatement *s);
+    virtual void visit(ContinueStatement *s);
+    virtual void visit(SynchronizedStatement *s);
+    virtual void visit(WithStatement *s);
+    virtual void visit(TryCatchStatement *s);
+    virtual void visit(TryFinallyStatement *s);
+    virtual void visit(OnScopeStatement *s);
+    virtual void visit(ThrowStatement *s);
+    virtual void visit(DebugStatement *s);
+    virtual void visit(GotoStatement *s);
+    virtual void visit(LabelStatement *s);
+    virtual void visit(AsmStatement *s);
+    virtual void visit(CompoundAsmStatement *s);
+    virtual void visit(ImportStatement *s);
+
+    virtual void visit(Type *);
+    virtual void visit(TypeError *t);
+    virtual void visit(TypeNext *t);
+    virtual void visit(TypeBasic *t);
+    virtual void visit(TypeVector *t);
+    virtual void visit(TypeArray *t);
+    virtual void visit(TypeSArray *t);
+    virtual void visit(TypeDArray *t);
+    virtual void visit(TypeAArray *t);
+    virtual void visit(TypePointer *t);
+    virtual void visit(TypeReference *t);
+    virtual void visit(TypeFunction *t);
+    virtual void visit(TypeDelegate *t);
+    virtual void visit(TypeQualified *t);
+    virtual void visit(TypeIdentifier *t);
+    virtual void visit(TypeInstance *t);
+    virtual void visit(TypeTypeof *t);
+    virtual void visit(TypeReturn *t);
+    virtual void visit(TypeStruct *t);
+    virtual void visit(TypeEnum *t);
+    virtual void visit(TypeClass *t);
+    virtual void visit(TypeTuple *t);
+    virtual void visit(TypeSlice *t);
+    virtual void visit(TypeNull *t);
+
+    virtual void visit(Dsymbol *);
+
+    virtual void visit(StaticAssert *s);
+    virtual void visit(DebugSymbol *s);
+    virtual void visit(VersionSymbol *s);
+    virtual void visit(EnumMember *s);
+    virtual void visit(Import *s);
+    virtual void visit(OverloadSet *s);
+    virtual void visit(LabelDsymbol *s);
+    virtual void visit(AliasThis *s);
+
+    virtual void visit(AttribDeclaration *s);
+    virtual void visit(StorageClassDeclaration *s);
+    virtual void visit(DeprecatedDeclaration *s);
+    virtual void visit(LinkDeclaration *s);
+    virtual void visit(ProtDeclaration *s);
+    virtual void visit(AlignDeclaration *s);
+    virtual void visit(AnonDeclaration *s);
+    virtual void visit(PragmaDeclaration *s);
+    virtual void visit(ConditionalDeclaration *s);
+    virtual void visit(StaticIfDeclaration *s);
+    virtual void visit(CompileDeclaration *s);
+    virtual void visit(UserAttributeDeclaration *s);
+
+    virtual void visit(ScopeDsymbol *s);
+    virtual void visit(TemplateDeclaration *s);
+    virtual void visit(TemplateInstance *s);
+    virtual void visit(TemplateMixin *s);
+    virtual void visit(EnumDeclaration *s);
+    virtual void visit(Package *s);
+    virtual void visit(Module *s);
+    virtual void visit(WithScopeSymbol *s);
+    virtual void visit(ArrayScopeSymbol *s);
+    virtual void visit(Nspace *s);
+
+    virtual void visit(AggregateDeclaration *s);
+    virtual void visit(StructDeclaration *s);
+    virtual void visit(UnionDeclaration *s);
+    virtual void visit(ClassDeclaration *s);
+    virtual void visit(InterfaceDeclaration *s);
+
+    virtual void visit(Declaration *s);
+    virtual void visit(TupleDeclaration *s);
+    virtual void visit(AliasDeclaration *s);
+    virtual void visit(OverDeclaration *s);
+    virtual void visit(VarDeclaration *s);
+    virtual void visit(SymbolDeclaration *s);
+    virtual void visit(ThisDeclaration *s);
+
+    virtual void visit(TypeInfoDeclaration *s);
+    virtual void visit(TypeInfoStructDeclaration *s);
+    virtual void visit(TypeInfoClassDeclaration *s);
+    virtual void visit(TypeInfoInterfaceDeclaration *s);
+    virtual void visit(TypeInfoPointerDeclaration *s);
+    virtual void visit(TypeInfoArrayDeclaration *s);
+    virtual void visit(TypeInfoStaticArrayDeclaration *s);
+    virtual void visit(TypeInfoAssociativeArrayDeclaration *s);
+    virtual void visit(TypeInfoEnumDeclaration *s);
+    virtual void visit(TypeInfoFunctionDeclaration *s);
+    virtual void visit(TypeInfoDelegateDeclaration *s);
+    virtual void visit(TypeInfoTupleDeclaration *s);
+    virtual void visit(TypeInfoConstDeclaration *s);
+    virtual void visit(TypeInfoInvariantDeclaration *s);
+    virtual void visit(TypeInfoSharedDeclaration *s);
+    virtual void visit(TypeInfoWildDeclaration *s);
+    virtual void visit(TypeInfoVectorDeclaration *s);
+
+    virtual void visit(FuncDeclaration *s);
+    virtual void visit(FuncAliasDeclaration *s);
+    virtual void visit(FuncLiteralDeclaration *s);
+    virtual void visit(CtorDeclaration *s);
+    virtual void visit(PostBlitDeclaration *s);
+    virtual void visit(DtorDeclaration *s);
+    virtual void visit(StaticCtorDeclaration *s);
+    virtual void visit(SharedStaticCtorDeclaration *s);
+    virtual void visit(StaticDtorDeclaration *s);
+    virtual void visit(SharedStaticDtorDeclaration *s);
+    virtual void visit(InvariantDeclaration *s);
+    virtual void visit(UnitTestDeclaration *s);
+    virtual void visit(NewDeclaration *s);
+    virtual void visit(DeleteDeclaration *s);
+
+    virtual void visit(Initializer *);
+    virtual void visit(VoidInitializer *i);
+    virtual void visit(ErrorInitializer *i);
+    virtual void visit(StructInitializer *i);
+    virtual void visit(ArrayInitializer *i);
+    virtual void visit(ExpInitializer *i);
+
+    virtual void visit(Expression *);
+    virtual void visit(IntegerExp *e);
+    virtual void visit(ErrorExp *e);
+    virtual void visit(RealExp *e);
+    virtual void visit(ComplexExp *e);
+    virtual void visit(IdentifierExp *e);
+    virtual void visit(DollarExp *e);
+    virtual void visit(DsymbolExp *e);
+    virtual void visit(ThisExp *e);
+    virtual void visit(SuperExp *e);
+    virtual void visit(NullExp *e);
+    virtual void visit(StringExp *e);
+    virtual void visit(TupleExp *e);
+    virtual void visit(ArrayLiteralExp *e);
+    virtual void visit(AssocArrayLiteralExp *e);
+    virtual void visit(StructLiteralExp *e);
+    virtual void visit(TypeExp *e);
+    virtual void visit(ScopeExp *e);
+    virtual void visit(TemplateExp *e);
+    virtual void visit(NewExp *e);
+    virtual void visit(NewAnonClassExp *e);
+    virtual void visit(SymbolExp *e);
+    virtual void visit(SymOffExp *e);
+    virtual void visit(VarExp *e);
+    virtual void visit(OverExp *e);
+    virtual void visit(FuncExp *e);
+    virtual void visit(DeclarationExp *e);
+    virtual void visit(TypeidExp *e);
+    virtual void visit(TraitsExp *e);
+    virtual void visit(HaltExp *e);
+    virtual void visit(IsExp *e);
+    virtual void visit(UnaExp *e);
+    virtual void visit(BinExp *e);
+    virtual void visit(BinAssignExp *e);
+    virtual void visit(CompileExp *e);
+    virtual void visit(FileExp *e);
+    virtual void visit(AssertExp *e);
+    virtual void visit(DotIdExp *e);
+    virtual void visit(DotTemplateExp *e);
+    virtual void visit(DotVarExp *e);
+    virtual void visit(DotTemplateInstanceExp *e);
+    virtual void visit(DelegateExp *e);
+    virtual void visit(DotTypeExp *e);
+    virtual void visit(CallExp *e);
+    virtual void visit(AddrExp *e);
+    virtual void visit(PtrExp *e);
+    virtual void visit(NegExp *e);
+    virtual void visit(UAddExp *e);
+    virtual void visit(ComExp *e);
+    virtual void visit(NotExp *e);
+    virtual void visit(BoolExp *e);
+    virtual void visit(DeleteExp *e);
+    virtual void visit(CastExp *e);
+    virtual void visit(VectorExp *e);
+    virtual void visit(SliceExp *e);
+    virtual void visit(ArrayLengthExp *e);
+    virtual void visit(IntervalExp *e);
+    virtual void visit(DelegatePtrExp *e);
+    virtual void visit(DelegateFuncptrExp *e);
+    virtual void visit(ArrayExp *e);
+    virtual void visit(DotExp *e);
+    virtual void visit(CommaExp *e);
+    virtual void visit(IndexExp *e);
+    virtual void visit(PostExp *e);
+    virtual void visit(PreExp *e);
+    virtual void visit(AssignExp *e);
+    virtual void visit(ConstructExp *e);
+    virtual void visit(BlitExp *e);
+    virtual void visit(AddAssignExp *e);
+    virtual void visit(MinAssignExp *e);
+    virtual void visit(MulAssignExp *e);
+    virtual void visit(DivAssignExp *e);
+    virtual void visit(ModAssignExp *e);
+    virtual void visit(AndAssignExp *e);
+    virtual void visit(OrAssignExp *e);
+    virtual void visit(XorAssignExp *e);
+    virtual void visit(PowAssignExp *e);
+    virtual void visit(ShlAssignExp *e);
+    virtual void visit(ShrAssignExp *e);
+    virtual void visit(UshrAssignExp *e);
+    virtual void visit(CatAssignExp *e);
+    virtual void visit(AddExp *e);
+    virtual void visit(MinExp *e);
+    virtual void visit(CatExp *e);
+    virtual void visit(MulExp *e);
+    virtual void visit(DivExp *e);
+    virtual void visit(ModExp *e);
+    virtual void visit(PowExp *e);
+    virtual void visit(ShlExp *e);
+    virtual void visit(ShrExp *e);
+    virtual void visit(UshrExp *e);
+    virtual void visit(AndExp *e);
+    virtual void visit(OrExp *e);
+    virtual void visit(XorExp *e);
+    virtual void visit(OrOrExp *e);
+    virtual void visit(AndAndExp *e);
+    virtual void visit(CmpExp *e);
+    virtual void visit(InExp *e);
+    virtual void visit(RemoveExp *e);
+    virtual void visit(EqualExp *e);
+    virtual void visit(IdentityExp *e);
+    virtual void visit(CondExp *e);
+    virtual void visit(DefaultInitExp *e);
+    virtual void visit(FileInitExp *e);
+    virtual void visit(LineInitExp *e);
+    virtual void visit(ModuleInitExp *e);
+    virtual void visit(FuncInitExp *e);
+    virtual void visit(PrettyFuncInitExp *e);
+    virtual void visit(ClassReferenceExp *e);
+    virtual void visit(VoidInitExp *e);
+    virtual void visit(ThrownExceptionExp *e);
+
+    virtual void visit(TemplateParameter *);
+    virtual void visit(TemplateTypeParameter *tp);
+    virtual void visit(TemplateThisParameter *tp);
+    virtual void visit(TemplateValueParameter *tp);
+    virtual void visit(TemplateAliasParameter *tp);
+    virtual void visit(TemplateTupleParameter *tp);
+
+    virtual void visit(Condition *);
+    virtual void visit(DVCondition *c);
+    virtual void visit(DebugCondition *c);
+    virtual void visit(VersionCondition *c);
+    virtual void visit(StaticIfCondition *c);
+
+    virtual void visit(Parameter *);
+
+#else
+
     virtual void visit(Statement *) { assert(0); }
     virtual void visit(ErrorStatement *s) { visit((Statement *)s); }
     virtual void visit(PeelStatement *s) { visit((Statement *)s); }
@@ -581,6 +868,7 @@ public:
     virtual void visit(StaticIfCondition *c) { visit((Condition *)c); }
 
     virtual void visit(Parameter *) { assert(0); }
+#endif
 };
 
 class StoppableVisitor : public Visitor
