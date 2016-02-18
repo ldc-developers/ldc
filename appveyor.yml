@@ -78,12 +78,14 @@ install:
   # Install lit
   - python -m pip install lit
   - python -c "import lit; lit.main();" --version
-  # Download & extract DMD
-  - ps: Start-FileDownload 'http://downloads.dlang.org/releases/2015/dmd.2.069.2.windows.7z' -FileName 'dmd2.7z'
-  - 7z x dmd2.7z > nul
-  - set PATH=%PATH%;c:\projects\dmd2\windows\bin
-  - set DC=c:\projects\dmd2\windows\bin\dmd.exe
-  - dmd --version
+  # Download & extract LDC 0.17.0
+  - ps: Start-FileDownload 'https://github.com/ldc-developers/ldc/releases/download/v0.17.0/ldc2-0.17.0-win64-msvc.zip' -FileName 'ldc2.zip'
+  - 7z x ldc2.zip > nul
+  - c:\projects\ldc2-0.17.0-win64-msvc\bin\ldc2 --version
+  # Pick D compiler
+  - set DC=c:\projects\ldc2-0.17.0-win64-msvc\bin\ldc2.exe
+  - set DMD=c:\projects\ldc2-0.17.0-win64-msvc\bin\ldmd2.exe
+
 
 #---------------------------------#
 #       build configuration       #
