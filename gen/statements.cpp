@@ -786,8 +786,7 @@ public:
       llvm::BasicBlock::Create(irs->context(), "catchhandler", irs->topfunc());
     llvm::CatchReturnInst::Create(catchpad, catchhandler, irs->scopebb());
     irs->scope() = IRScope(catchhandler);
-    irs->ir->CreateCall(enterCatchFn,
-                        {DtoBitCast(exnObj, getVoidPtrType()), clssInfo});
+    irs->CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()), clssInfo);
 #else
     irs->ir->CreateCall(enterCatchFn,
                         {DtoBitCast(exnObj, getVoidPtrType()), clssInfo},
