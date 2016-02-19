@@ -647,7 +647,7 @@ static void buildRuntimeModule() {
 
     // Object _d_eh_enter_catch(ptr exception, ClassInfo catchType)
     createFwdDecl(LINKc, objectTy, {"_d_eh_enter_catch"},
-                  {voidPtrTy, classInfoTy}, {}, Attr_NoUnwind);
+                  {voidPtrTy, classInfoTy}, {});
   } else {
 
     // void _d_eh_resume_unwind(ptr)
