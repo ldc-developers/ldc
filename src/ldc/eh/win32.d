@@ -363,7 +363,8 @@ void msvc_eh_terminate() nothrow
             jle L_term;
 
             // update stack and IP so we just continue in __FrameUnwindHandler
-            // TODO: check DLL versions of MS runtime
+            // NOTE: these checks can fail if you have breakpoints set at
+            //       the respective code locations
             mov RAX,[RSP+8];            // get return address
             cmp byte ptr[RAX], 0xEB;    // jmp?
             jne noJump;
@@ -394,16 +395,28 @@ void msvc_eh_terminate() nothrow
 
             mov RAX,[RDX];              // return address inside __FrameUnwindHandler
 
-            cmp byte ptr [RAX-19], 0xEB; // skip back to default jump inside "switch" (debug build)
+            cmp byte ptr [RAX-19], 0xEB; // skip back to default jump inside "switch" (libvcruntimed.lib)
             je L_switchFound;
 
-            mov RBX, 0xc48348c0333048ff; // dec [rax+30h]; xor eax,eax; add rsp,nn
+            cmp byte ptr [RAX-20], 0xEB; // skip back to default jump inside "switch" (vcruntime140d.dll)
+            je L_switchFound2;
+
+            mov RBX, 0xc48348c0333048ff; // dec [rax+30h]; xor eax,eax; add rsp,nn (libvcruntime.lib)
             cmp RBX,[RAX-0x18];
+            je L_retFound;
+
+            cmp RBX,[RAX+0x29];          // dec [rax+30h]; xor eax,eax; add rsp,nn (vcruntime140.dll)
             jne L_term;
 
+            lea RAX, [RAX+0x2F];
+            jmp L_xorSkipped;
+
+        L_retFound:
             lea RAX, [RAX-19];
             jmp L_xorSkipped;
 
+        L_switchFound2:
+            dec RAX;
         L_switchFound:
             movsx RBX, byte ptr [RAX-18]; // follow jump
             lea RAX, [RAX+RBX-17];
@@ -413,7 +426,7 @@ void msvc_eh_terminate() nothrow
 
             add RAX,2;
         L_xorSkipped:
-            pop RBX;
+            mov RBX,[RDX-8]; // restore RBX (pushed inside terminate())
             lea RSP,[RDX+8];
             push RAX;       // new return after setting return value in __frameUnwindHandler
 
