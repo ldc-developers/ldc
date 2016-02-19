@@ -357,19 +357,72 @@ void msvc_eh_terminate() nothrow
         asm nothrow
         {
             naked;
-            push RBX; // align stack
+            push RBX; // align stack for better debuggability
             call tlsUncaughtExceptions;
             cmp RAX, 1;
             jle L_term;
 
-            // update stack so we just continue in __FrameUnwindToState$filt$0
-            // return address and 0x20 bytes inside terminate
-            // RBX pushed
-            // return address and 0x28 bytes inside __FrameUnwindFilter
-            mov RBX,[RSP+0x30];
-            add RSP,0x68; // TODO: needs to be verified for different CRT builds
-            mov RAX,1;
-            ret;          // return to __FrameUnwindToState$filt$0
+            // update stack and IP so we just continue in __FrameUnwindHandler
+            // TODO: check DLL versions of MS runtime
+            mov RAX,[RSP+8];            // get return address
+            cmp byte ptr[RAX], 0xEB;    // jmp?
+            jne noJump;
+            movsx RDX, byte ptr[RAX+1]; // follow jmp
+            lea RAX,[RAX+RDX+2];
+        noJump:
+            cmp byte ptr[RAX], 0xE8;    // call abort?
+            jne L_term;
+            add RAX,5;
+            mov EDX,[RAX];
+            mov RBX, 0xFFFFFF;
+            and RDX, RBX;
+            cmp RDX, 0xC48348;          // add ESP,nn
+            je L_addESP_found;
+            cmp DX, 0xCC90;             // nop; int3;
+            jne L_term;
+            mov RDX, 0x28;              // release build of vcruntimelib
+            jmp L_retTerminate;
+
+        L_addESP_found:
+            movzx RDX,byte ptr[RAX+3];  // read nn
+
+            cmp byte ptr [RAX+4], 0xC3; // ret?
+            jne L_term;
+
+        L_retTerminate:
+            lea RDX,[RSP+RDX+0x10];     // RSP before returning from terminate()
+
+            mov RAX,[RDX];              // return address inside __FrameUnwindHandler
+
+            cmp byte ptr [RAX-19], 0xEB; // skip back to default jump inside "switch" (debug build)
+            je L_switchFound;
+
+            mov RBX, 0xc48348c0333048ff; // dec [rax+30h]; xor eax,eax; add rsp,nn
+            cmp RBX,[RAX-0x18];
+            jne L_term;
+
+            lea RAX, [RAX-19];
+            jmp L_xorSkipped;
+
+        L_switchFound:
+            movsx RBX, byte ptr [RAX-18]; // follow jump
+            lea RAX, [RAX+RBX-17];
+
+            cmp word ptr[RAX],0xC033;   // xor EAX,EAX?
+            jne L_term;
+
+            add RAX,2;
+        L_xorSkipped:
+            pop RBX;
+            lea RSP,[RDX+8];
+            push RAX;       // new return after setting return value in __frameUnwindHandler
+
+            call __processing_throw;
+            mov [RAX], 1;
+
+            //add RSP,0x68; // TODO: needs to be verified for different CRT builds
+            mov RAX,1;      // return EXCEPTION_EXECUTE_HANDLER
+            ret;
 
         L_term:
             call tlsOldTerminateHandler;
