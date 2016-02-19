@@ -81,13 +81,18 @@ extern (C++) struct Port
          * so that uninitialised variables can be
          * detected even if exceptions are disabled.
          */
-        //TODO: support for non-x87
-        ushort* us = cast(ushort*)&snan;
-        us[0] = 0;
-        us[1] = 0;
-        us[2] = 0;
-        us[3] = 0xA000;
-        us[4] = 0x7FFF;
+        //TODO: proper support for non-x87
+        static if (is(real_t == double))
+            snan = real_t.nan;
+        else
+        {
+            ushort* us = cast(ushort*)&snan;
+            us[0] = 0;
+            us[1] = 0;
+            us[2] = 0;
+            us[3] = 0xA000;
+            us[4] = 0x7FFF;
+        }
     }
 
     static bool isNan(double r)
@@ -107,8 +112,9 @@ extern (C++) struct Port
 
     static real_t fequal(real_t a, real_t b)
     {
-        //TODO: support for non-x87
-        return memcmp(&a, &b, 10) == 0;
+        //TODO: proper support for non-x87
+        enum unpaddedSize = (is(real_t == double) ? 8 : 10);
+        return memcmp(&a, &b, unpaddedSize) == 0;
     }
 
     static int memicmp(const char* s1, const char* s2, size_t n)
