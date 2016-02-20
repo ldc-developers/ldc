@@ -1,11 +1,11 @@
 # Find a D compiler!
 #
-# use environment variable DC first if defined by user, next use a list of common compiler executables.
+# use environment variable DMD first if defined by user, next use a list of common compiler executables.
 #
 # The following variables are defined:
 #  D_COMPILER_FOUND          - true if a D compiler was found
 #  D_COMPILER          - D compiler
-#  D_COMPILER_FLAGS    - D compiler flags (could be passed in the DC environment variable)
+#  D_COMPILER_FLAGS    - D compiler flags (could be passed in the DMD environment variable)
 
 
 set(D_COMPILER_FOUND "FALSE")
@@ -13,13 +13,13 @@ set(D_COMPILER_FOUND "FALSE")
 set(COMMON_D_COMPILERS "ldmd2" "dmd")
 set(COMMON_D_COMPILER_PATHS "/usr/bin" "/usr/local/bin" "C:\\d\\dmd2\\windows\\bin")
 
-if($ENV{DC} MATCHES ".+")
-    get_filename_component(D_COMPILER $ENV{DC} PROGRAM PROGRAM_ARGS D_COMPILER_FLAGS_ENV_INIT CACHE)
+if($ENV{DMD} MATCHES ".+")
+    get_filename_component(D_COMPILER $ENV{DMD} PROGRAM PROGRAM_ARGS D_COMPILER_FLAGS_ENV_INIT CACHE)
     if(D_COMPILER_FLAGS_ENV_INIT)
         set(D_COMPILER_FLAGS "${D_COMPILER_FLAGS_ENV_INIT}" CACHE STRING "Default flags for D compiler")
     endif()
     if(NOT EXISTS ${D_COMPILER})
-        message(FATAL_ERROR "Could not find compiler set in environment variable $ENV{DC}.")
+        message(FATAL_ERROR "Could not find compiler set in environment variable $ENV{DMD}.")
     endif()
 else()
     find_program(D_COMPILER NAMES ${COMMON_D_COMPILERS} PATHS ${COMMON_D_COMPILER_PATHS} DOC "D compiler")
@@ -45,5 +45,5 @@ endif()
 if (D_COMPILER_FOUND)
     message(STATUS "Found D compiler ${D_COMPILER}, with default flags '${D_COMPILER_FLAGS}'")
 else()
-    message(FATAL_ERROR "Did not find D compiler! Try setting the 'DC' environment variable.")
+    message(FATAL_ERROR "Did not find D compiler! Try setting the 'DMD' environment variable.")
 endif()

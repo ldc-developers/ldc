@@ -10,8 +10,17 @@ module ddmd.complex;
 
 struct complex_t
 {
-    real re = 0;
-    real im = 0;
+    version(IN_LLVM_MSVC)
+    {
+        double re = 0;
+        double im = 0;
+    }
+    else
+    {
+        real re = 0;
+        real im = 0;
+    }
+
     this(real re)
     {
         this.re = re;

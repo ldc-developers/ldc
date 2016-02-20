@@ -580,6 +580,7 @@ static void addCoverageAnalysis(Module *m) {
     assert(sizeof(m->d_cover_valid_init[0]) * 8 >=
            gDataLayout->getTypeSizeInBits(DtoSize_t()));
     m->d_cover_valid_init.setDim(array_size);
+    m->d_cover_valid_init.zero();
   }
 
   // uint[# source lines] _d_cover_data

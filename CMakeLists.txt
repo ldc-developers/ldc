@@ -129,8 +129,9 @@ if(APPLE)
         append("-lphobos2" Dcode_LDFLAGS)
     elseif(${D_COMPILER_ID} STREQUAL "LDMD")
         append("-L${D_COMPILER_PATH}/../lib" Dcode_LDFLAGS)
-        append("-ldruntime-ldc" Dcode_LDFLAGS)
         append("-lphobos2-ldc" Dcode_LDFLAGS)
+        append("-ldruntime-ldc" Dcode_LDFLAGS)
+        append("-ldl -lpthread -lm" Dcode_LDFLAGS)
     else()
         message(WARNING "Compiler ID not supported: probably not good!")
     endif()
@@ -141,8 +142,9 @@ elseif(UNIX AND NOT APPLE)
         append("-lphobos2 -lrt" Dcode_LDFLAGS)
     elseif(${D_COMPILER_ID} STREQUAL "LDMD")
         append("-L${D_COMPILER_PATH}/../lib" Dcode_LDFLAGS)
-        append("-ldruntime-ldc" Dcode_LDFLAGS)
         append("-lphobos2-ldc" Dcode_LDFLAGS)
+        append("-ldruntime-ldc" Dcode_LDFLAGS)
+        append("-lrt -ldl -lpthread -lm" Dcode_LDFLAGS)
     else()
         message(WARNING "Compiler ID not supported: probably not good!")
     endif()
@@ -158,7 +160,7 @@ elseif(WIN32)
             append("-m32" DDMD_DFLAGS)
             append("${D_COMPILER_PATH}\\..\\lib\\phobos.lib" Dcode_LDFLAGS)
         endif()
-    elseif(${D_COMPILER_ID} STREQUAL "LDC")
+    elseif(${D_COMPILER_ID} STREQUAL "LDMD")
         append("${D_COMPILER_PATH}\\..\\lib\\druntime-ldc.lib" Dcode_LDFLAGS)
         append("${D_COMPILER_PATH}\\..\\lib\\phobos2-ldc.lib" Dcode_LDFLAGS)
     else()
@@ -260,6 +262,13 @@ endif()
 if(CMAKE_COMPILER_IS_GNUCXX)
     string(REPLACE "-Wcovered-switch-default " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
     string(REPLACE "-fcolor-diagnostics " "" LLVM_CXXFLAGS ${LLVM_CXXFLAGS})
+endif()
+
+# Issue 1297
+# The default system-allocated stack size is 8MB on Linux and Mac, but only 1MB on Windows
+# Set LDC's stack to 8MB also on Windows:
+if(WIN32)
+    set(WINDOWS_STACK_SIZE "/STACK:8388608")
 endif()
 
 
@@ -633,7 +642,7 @@ set_target_properties(
     OUTPUT_NAME ${LDC_EXE_NAME}
     RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
     COMPILE_FLAGS "${LLVM_CXXFLAGS} ${EXTRA_CXXFLAGS}"
-    LINK_FLAGS "${Dcode_LDFLAGS} ${SANITIZE_LDFLAGS}"
+    LINK_FLAGS "${Dcode_LDFLAGS} ${SANITIZE_LDFLAGS} ${WINDOWS_STACK_SIZE}"
 )
 target_link_libraries(${LDC_EXE} ${LDC_LIB} ${LDC_D_LIB} ${LDC_LIB} ${LIBCONFIG_LIBRARY} ${PTHREAD_LIBS} ${CMAKE_DL_LIBS} ${TERMINFO_LIBS} ${DMD_DUMMY_MAIN_FOR_EH_SYMBOLS})
 
@@ -689,6 +698,15 @@ else()
     message(STATUS "Skip building FileCheck, assuming it can be found in LLVM bin directory")
 endif()
 
+# Build `not` for testing
+add_executable(not utils/not.cpp)
+set_target_properties(
+    not PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
+    LINK_FLAGS "${SANITIZE_LDFLAGS}"
+)
+target_link_libraries(not  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} "${LLVM_LDFLAGS}")
 
 #
 # LDMD
