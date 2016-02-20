@@ -698,6 +698,15 @@ else()
     message(STATUS "Skip building FileCheck, assuming it can be found in LLVM bin directory")
 endif()
 
+# Build `not` for testing
+add_executable(not utils/not.cpp)
+set_target_properties(
+    not PROPERTIES
+    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin
+    COMPILE_FLAGS "${LLVM_CXXFLAGS} ${LDC_CXXFLAGS}"
+    LINK_FLAGS "${SANITIZE_LDFLAGS}"
+)
+target_link_libraries(not  ${LLVM_LIBRARIES} ${TERMINFO_LIBS} ${CMAKE_DL_LIBS} "${LLVM_LDFLAGS}")
 
 #
 # LDMD
