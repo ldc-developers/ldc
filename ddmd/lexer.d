@@ -21,7 +21,7 @@ import ddmd.globals;
 import ddmd.id;
 import ddmd.identifier;
 import ddmd.root.outbuffer;
-import ddmd.root.port;
+import ddmd.root.real_t;
 import ddmd.root.rmem;
 import ddmd.root.stringtable;
 import ddmd.tokens;
@@ -2073,14 +2073,13 @@ public:
         }
         stringbuffer.writeByte(0);
         TOK result;
-        t.floatvalue = Port.strtold(cast(char*)stringbuffer.data, null);
-        errno = 0;
+        t.floatvalue = TargetFP.strtold(cast(char*)stringbuffer.data, null);
+        bool isOutOfRange = false;
         switch (*p)
         {
         case 'F':
         case 'f':
-            // Only interested in errno return
-            cast(void)Port.strtof(cast(char*)stringbuffer.data, null);
+            isOutOfRange = TargetFP.isFloat32LiteralOutOfRange(cast(char*)stringbuffer.data);
             result = TOKfloat32v;
             p++;
             break;
@@ -2090,7 +2089,7 @@ public:
              * 2.22508e-308. Not sure who is right.
              */
             // Only interested in errno return
-            cast(void)Port.strtod(cast(char*)stringbuffer.data, null);
+            isOutOfRange = TargetFP.isFloat64LiteralOutOfRange(cast(char*)stringbuffer.data);
             result = TOKfloat64v;
             break;
         case 'l':
@@ -2120,7 +2119,7 @@ public:
                 break;
             }
         }
-        if (errno == ERANGE)
+        if (isOutOfRange)
         {
             const(char)* suffix = (result == TOKfloat32v || result == TOKimaginary32v) ? "f" : "";
             error(scanloc, "number '%s%s' is not representable", cast(char*)stringbuffer.data, suffix);

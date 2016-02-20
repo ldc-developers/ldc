@@ -47,7 +47,7 @@ import ddmd.imphint;
 import ddmd.init;
 import ddmd.opover;
 import ddmd.root.outbuffer;
-import ddmd.root.port;
+import ddmd.root.real_t;
 import ddmd.root.rmem;
 import ddmd.root.rootobject;
 import ddmd.root.stringtable;
@@ -3563,7 +3563,7 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-                fvalue = Port.ldbl_max;
+                fvalue = real_t.max;
                 goto Lfvalue;
             default:
                 break;
@@ -3642,7 +3642,7 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-                fvalue = Port.ldbl_min_normal;
+                fvalue = real_t.min_normal;
                 goto Lfvalue;
             default:
                 break;
@@ -3661,7 +3661,7 @@ version(IN_LLVM)
             case Tfloat32:
             case Tfloat64:
             case Tfloat80:
-                fvalue = Port.ldbl_nan;
+                fvalue = real_t.nan;
                 goto Lfvalue;
             default:
                 break;
@@ -3680,7 +3680,7 @@ version(IN_LLVM)
             case Tfloat32:
             case Tfloat64:
             case Tfloat80:
-                fvalue = Port.ldbl_infinity;
+                fvalue = real_t.infinity;
                 goto Lfvalue;
             default:
                 break;
@@ -3703,7 +3703,7 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-                ivalue = Port.ldbl_dig;
+                ivalue = real_t.dig;
                 goto Lint;
             default:
                 break;
@@ -3726,7 +3726,7 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-                fvalue = Port.ldbl_epsilon;
+                fvalue = real_t.epsilon;
                 goto Lfvalue;
             default:
                 break;
@@ -3749,7 +3749,7 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-                ivalue = Port.ldbl_mant_dig;
+                ivalue = real_t.mant_dig;
                 goto Lint;
             default:
                 break;
@@ -3772,7 +3772,7 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-                ivalue = Port.ldbl_max_10_exp;
+                ivalue = real_t.max_10_exp;
                 goto Lint;
             default:
                 break;
@@ -3795,7 +3795,7 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-                ivalue = Port.ldbl_max_exp;
+                ivalue = real_t.max_exp;
                 goto Lint;
             default:
                 break;
@@ -3818,7 +3818,7 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-                ivalue = Port.ldbl_min_10_exp;
+                ivalue = real_t.min_10_exp;
                 goto Lint;
             default:
                 break;
@@ -3841,7 +3841,7 @@ version(IN_LLVM)
             case Tcomplex80:
             case Timaginary80:
             case Tfloat80:
-                ivalue = Port.ldbl_min_exp;
+                ivalue = real_t.min_exp;
                 goto Lint;
             default:
                 break;
@@ -4092,15 +4092,15 @@ version(IN_LLVM)
         case Tfloat32:
         case Tfloat64:
         case Tfloat80:
-            return new RealExp(loc, Port.snan, this);
+            return new RealExp(loc, TargetFP.snan, this);
         case Tcomplex32:
         case Tcomplex64:
         case Tcomplex80:
             {
                 // Can't use fvalue + I*fvalue (the im part becomes a quiet NaN).
                 complex_t cvalue;
-                (cast(real_t*)&cvalue)[0] = Port.snan;
-                (cast(real_t*)&cvalue)[1] = Port.snan;
+                (cast(real_t*)&cvalue)[0] = TargetFP.snan;
+                (cast(real_t*)&cvalue)[1] = TargetFP.snan;
                 return new ComplexExp(loc, cvalue, this);
             }
         case Tvoid:

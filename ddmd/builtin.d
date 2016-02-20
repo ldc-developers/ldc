@@ -17,7 +17,7 @@ import ddmd.expression;
 import ddmd.func;
 import ddmd.globals;
 import ddmd.mtype;
-import ddmd.root.port;
+import ddmd.root.real_t;
 import ddmd.root.stringtable;
 import ddmd.tokens;
 version(IN_LLVM) {
@@ -70,7 +70,7 @@ extern (C++) Expression eval_sqrt(Loc loc, FuncDeclaration fd, Expressions* argu
 {
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, Port.sqrt(arg0.toReal()), arg0.type);
+    return new RealExp(loc, TargetFP.sqrt(arg0.toReal()), arg0.type);
 }
 
 extern (C++) Expression eval_fabs(Loc loc, FuncDeclaration fd, Expressions* arguments)
@@ -400,7 +400,7 @@ extern (C++) Expression eval_yl2x(Loc loc, FuncDeclaration fd, Expressions* argu
     real_t x = arg0.toReal();
     real_t y = arg1.toReal();
     real_t result;
-    Port.yl2x_impl(&x, &y, &result);
+    TargetFP.yl2x_impl(&x, &y, &result);
     return new RealExp(loc, result, arg0.type);
 }
 
@@ -413,7 +413,7 @@ extern (C++) Expression eval_yl2xp1(Loc loc, FuncDeclaration fd, Expressions* ar
     real_t x = arg0.toReal();
     real_t y = arg1.toReal();
     real_t result;
-    Port.yl2xp1_impl(&x, &y, &result);
+    TargetFP.yl2xp1_impl(&x, &y, &result);
     return new RealExp(loc, result, arg0.type);
 }
 
@@ -449,7 +449,7 @@ else
     add_builtin("_D4core4math4sqrtFNaNbNiNffZf", &eval_sqrt);
     // @safe @nogc pure nothrow real function(real, real)
     add_builtin("_D4core4math5atan2FNaNbNiNfeeZe", &eval_unimp);
-    if (Port.yl2x_supported)
+    if (TargetFP.yl2x_supported)
     {
         add_builtin("_D4core4math4yl2xFNaNbNiNfeeZe", &eval_yl2x);
     }
@@ -457,7 +457,7 @@ else
     {
         add_builtin("_D4core4math4yl2xFNaNbNiNfeeZe", &eval_unimp);
     }
-    if (Port.yl2xp1_supported)
+    if (TargetFP.yl2xp1_supported)
     {
         add_builtin("_D4core4math6yl2xp1FNaNbNiNfeeZe", &eval_yl2xp1);
     }
@@ -489,7 +489,7 @@ else
     add_builtin("_D3std4math4sqrtFNaNbNiNffZf", &eval_sqrt);
     // @safe @nogc pure nothrow real function(real, real)
     add_builtin("_D3std4math5atan2FNaNbNiNfeeZe", &eval_unimp);
-    if (Port.yl2x_supported)
+    if (TargetFP.yl2x_supported)
     {
         add_builtin("_D3std4math4yl2xFNaNbNiNfeeZe", &eval_yl2x);
     }
@@ -497,7 +497,7 @@ else
     {
         add_builtin("_D3std4math4yl2xFNaNbNiNfeeZe", &eval_unimp);
     }
-    if (Port.yl2xp1_supported)
+    if (TargetFP.yl2xp1_supported)
     {
         add_builtin("_D3std4math6yl2xp1FNaNbNiNfeeZe", &eval_yl2xp1);
     }

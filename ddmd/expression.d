@@ -59,7 +59,7 @@ import ddmd.root.aav;
 import ddmd.root.file;
 import ddmd.root.filename;
 import ddmd.root.outbuffer;
-import ddmd.root.port;
+import ddmd.root.real_t;
 import ddmd.root.rmem;
 import ddmd.root.rootobject;
 import ddmd.sideeffect;
@@ -1943,7 +1943,7 @@ private:
  */
 extern (C++) int RealEquals(real_t x1, real_t x2)
 {
-    return (Port.isNan(x1) && Port.isNan(x2)) || Port.fequal(x1, x2);
+    return (TargetFP.isNan(x1) && TargetFP.isNan(x2)) || TargetFP.fequal(x1, x2);
 }
 
 /************************ TypeDotIdExp ************************************/

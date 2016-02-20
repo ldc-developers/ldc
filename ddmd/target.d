@@ -15,6 +15,7 @@ import ddmd.globals;
 import ddmd.identifier;
 import ddmd.mtype;
 import ddmd.root.outbuffer;
+import ddmd.root.real_t;
 
 version(IN_LLVM)
 {
@@ -386,13 +387,13 @@ extern (C++) static Expression decodeReal(Loc loc, Type type, ubyte* buffer)
     case Tfloat32:
         {
             float* p = cast(float*)buffer;
-            value = cast(real_t)*p;
+            value = real_t(*p);
             break;
         }
     case Tfloat64:
         {
             double* p = cast(double*)buffer;
-            value = cast(real_t)*p;
+            value = real_t(*p);
             break;
         }
     default:

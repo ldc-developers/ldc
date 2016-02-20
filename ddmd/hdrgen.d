@@ -40,7 +40,7 @@ import ddmd.mtype;
 import ddmd.nspace;
 import ddmd.parse;
 import ddmd.root.outbuffer;
-import ddmd.root.port;
+import ddmd.root.real_t;
 import ddmd.root.rootobject;
 import ddmd.statement;
 import ddmd.staticassert;
@@ -2192,15 +2192,15 @@ public:
          Plus one for rounding. */
         const(size_t) BUFFER_LEN = value.sizeof * 3 + 8 + 1 + 1;
         char[BUFFER_LEN] buffer;
-        Port.ld_sprint(buffer.ptr, 'g', value);
+        TargetFP.sprint(buffer.ptr, 'g', value);
         assert(strlen(buffer.ptr) < BUFFER_LEN);
         // IN_LLVM MSVC: LLVM's APFloat is used for strtold, which asserts for certain special float inputs
-        if (!IN_LLVM_MSVC || (!Port.isNan(value) && !Port.isInfinity(value)))
+        if (!IN_LLVM_MSVC || (!TargetFP.isNan(value) && !TargetFP.isInfinity(value)))
         if (hgs.hdrgen)
         {
-            real_t r = Port.strtold(buffer.ptr, null);
+            real_t r = TargetFP.strtold(buffer.ptr, null);
             if (r != value) // if exact duplication
-                Port.ld_sprint(buffer.ptr, 'a', value);
+                TargetFP.sprint(buffer.ptr, 'a', value);
         }
         buf.writestring(buffer.ptr);
         if (type)

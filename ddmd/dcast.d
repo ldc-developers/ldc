@@ -31,6 +31,7 @@ import ddmd.intrange;
 import ddmd.mtype;
 import ddmd.opover;
 import ddmd.root.outbuffer;
+import ddmd.root.real_t;
 import ddmd.root.rmem;
 import ddmd.root.rootobject;
 import ddmd.tokens;

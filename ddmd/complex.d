@@ -8,7 +8,7 @@
 
 module ddmd.complex;
 
-import ddmd.globals: real_t;
+import ddmd.root.real_t;
 
 struct complex_t
 {
