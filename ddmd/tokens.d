@@ -755,26 +755,26 @@ extern (C++) struct Token
             sprintf(&buffer[0], "%lluUL", cast(ulong)uns64value);
             break;
         case TOKfloat32v:
-            TargetFP.sprint(&buffer[0], 'g', floatvalue);
+            sprint(&buffer[0], 'g', floatvalue);
             strcat(&buffer[0], "f");
             break;
         case TOKfloat64v:
-            TargetFP.sprint(&buffer[0], 'g', floatvalue);
+            sprint(&buffer[0], 'g', floatvalue);
             break;
         case TOKfloat80v:
-            TargetFP.sprint(&buffer[0], 'g', floatvalue);
+            sprint(&buffer[0], 'g', floatvalue);
             strcat(&buffer[0], "L");
             break;
         case TOKimaginary32v:
-            TargetFP.sprint(&buffer[0], 'g', floatvalue);
+            sprint(&buffer[0], 'g', floatvalue);
             strcat(&buffer[0], "fi");
             break;
         case TOKimaginary64v:
-            TargetFP.sprint(&buffer[0], 'g', floatvalue);
+            sprint(&buffer[0], 'g', floatvalue);
             strcat(&buffer[0], "i");
             break;
         case TOKimaginary80v:
-            TargetFP.sprint(&buffer[0], 'g', floatvalue);
+            sprint(&buffer[0], 'g', floatvalue);
             strcat(&buffer[0], "Li");
             break;
         case TOKstring:

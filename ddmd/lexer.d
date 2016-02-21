@@ -2073,13 +2073,13 @@ public:
         }
         stringbuffer.writeByte(0);
         TOK result;
-        t.floatvalue = TargetFP.strtold(cast(char*)stringbuffer.data, null);
+        t.floatvalue = parseTargetReal(cast(char*)stringbuffer.data);
         bool isOutOfRange = false;
         switch (*p)
         {
         case 'F':
         case 'f':
-            isOutOfRange = TargetFP.isFloat32LiteralOutOfRange(cast(char*)stringbuffer.data);
+            isOutOfRange = isFloat32LiteralOutOfRange(cast(char*)stringbuffer.data);
             result = TOKfloat32v;
             p++;
             break;
@@ -2089,7 +2089,7 @@ public:
              * 2.22508e-308. Not sure who is right.
              */
             // Only interested in errno return
-            isOutOfRange = TargetFP.isFloat64LiteralOutOfRange(cast(char*)stringbuffer.data);
+            isOutOfRange = isFloat64LiteralOutOfRange(cast(char*)stringbuffer.data);
             result = TOKfloat64v;
             break;
         case 'l':

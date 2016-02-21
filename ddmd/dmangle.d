@@ -627,15 +627,15 @@ public:
          * -0X1.1BC18BA997B95P+79   => N11BC18BA997B95P79
          * 0X1.9P+2                 => 19P2
          */
-        if (TargetFP.isNan(value))
+        if (isNaN(value))
             buf.writestring("NAN"); // no -NAN bugs
-        else if (TargetFP.isInfinity(value))
+        else if (isInfinity(value))
             buf.writestring(value < 0 ? "NINF" : "INF");
         else
         {
             const(size_t) BUFFER_LEN = 36;
             char[BUFFER_LEN] buffer;
-            size_t n = TargetFP.sprint(buffer.ptr, 'A', value);
+            size_t n = sprint(buffer.ptr, 'A', value);
             assert(n < BUFFER_LEN);
             for (size_t i = 0; i < n; i++)
             {

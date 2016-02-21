@@ -14,28 +14,26 @@
 
 #include <stdint.h>
 
-struct TargetFP
+namespace target_fp
 {
-    static bool yl2x_supported;
-    static bool yl2xp1_supported;
+    bool yl2x_supported;
+    bool yl2xp1_supported;
 
-    static longdouble snan;
+    longdouble snan;
 
-    static longdouble sqrt(longdouble x);
-    static longdouble fmodl(longdouble a, longdouble b);
+    longdouble sqrt(longdouble x);
+    void yl2x(longdouble *x, longdouble *y, longdouble *res);
+    void yl2xp1(longdouble *x, longdouble *y, longdouble *res);
 
-    static bool fequal(longdouble a, longdouble b);
-    static bool isNan(longdouble r);
-    static bool isInfinity(longdouble r);
+    bool areBitwiseEqual(longdouble a, longdouble b);
+    bool isNaN(longdouble r);
+    bool isInfinity(longdouble r);
 
-    static bool isFloat32LiteralOutOfRange(const char* literal);
-    static bool isFloat64LiteralOutOfRange(const char* literal);
+    longdouble parseTargetReal(const char *literal);
+    bool isFloat32LiteralOutOfRange(const char *literal);
+    bool isFloat64LiteralOutOfRange(const char *literal);
 
-    static longdouble strtold(const char *p, char **endp);
-    static std::size_t sprint(char *str, int fmt, longdouble x);
-
-    static void yl2x_impl(longdouble *x, longdouble *y, longdouble *res);
-    static void yl2xp1_impl(longdouble *x, longdouble *y, longdouble *res);
+    std::size_t sprint(char *str, char fmt, longdouble x);
 };
 
 #endif

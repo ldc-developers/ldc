@@ -465,12 +465,12 @@ extern (C++) UnionExp Mod(Loc loc, Type type, Expression e1, Expression e2)
         if (e2.type.isreal())
         {
             real_t r2 = e2.toReal();
-            c = complex_t(TargetFP.fmodl(e1.toReal(), r2), TargetFP.fmodl(e1.toImaginary(), r2));
+            c = complex_t(e1.toReal() % r2, e1.toImaginary() % r2);
         }
         else if (e2.type.isimaginary())
         {
             real_t i2 = e2.toImaginary();
-            c = complex_t(TargetFP.fmodl(e1.toReal(), i2), TargetFP.fmodl(e1.toImaginary(), i2));
+            c = complex_t(e1.toReal() % i2, e1.toImaginary() % i2);
         }
         else
             assert(0);
@@ -891,7 +891,7 @@ extern (C++) UnionExp Equal(TOK op, Loc loc, Type type, Expression e1, Expressio
         r1 = e1.toImaginary();
         r2 = e2.toImaginary();
     L1:
-        if (TargetFP.isNan(r1) || TargetFP.isNan(r2)) // if unordered
+        if (isNaN(r1) || isNaN(r2)) // if unordered
         {
             cmp = 0;
         }
@@ -1044,7 +1044,7 @@ extern (C++) UnionExp Cmp(TOK op, Loc loc, Type type, Expression e1, Expression 
     L1:
         // Don't rely on compiler, handle NAN arguments separately
         // (DMC does do it correctly)
-        if (TargetFP.isNan(r1) || TargetFP.isNan(r2)) // if unordered
+        if (isNaN(r1) || isNaN(r2)) // if unordered
         {
             switch (op)
             {

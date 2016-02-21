@@ -1943,7 +1943,7 @@ private:
  */
 extern (C++) int RealEquals(real_t x1, real_t x2)
 {
-    return (TargetFP.isNan(x1) && TargetFP.isNan(x2)) || TargetFP.fequal(x1, x2);
+    return (isNaN(x1) && isNaN(x2)) || areBitwiseEqual(x1, x2);
 }
 
 /************************ TypeDotIdExp ************************************/

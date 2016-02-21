@@ -8,7 +8,7 @@
 
 module ddmd.root.real_t;
 
-import core.math;
+static import core.math;
 import core.stdc.errno;
 import core.stdc.stdio;
 import core.stdc.string;
@@ -50,75 +50,66 @@ private
     }
 }
 
-extern(C++) struct TargetFP
+extern(C++, target_fp)
 {
     version(IN_LLVM)
     {
-        static __gshared bool yl2x_supported = false;
-        static __gshared bool yl2xp1_supported = false;
+        __gshared bool yl2x_supported = false;
+        __gshared bool yl2xp1_supported = false;
     }
     else
     version(DigitalMars)
     {
-        static __gshared bool yl2x_supported = true;
-        static __gshared bool yl2xp1_supported = true;
+        __gshared bool yl2x_supported = true;
+        __gshared bool yl2xp1_supported = true;
     }
     else
     {
-        static __gshared bool yl2x_supported = false;
-        static __gshared bool yl2xp1_supported = false;
+        __gshared bool yl2x_supported = false;
+        __gshared bool yl2xp1_supported = false;
     }
 
-    static __gshared real_t snan;
-    static this()
+    __gshared real_t snan;
+
+    real_t sqrt(real_t x)
     {
-        /*
-         * Use a payload which is different from the machine NaN,
-         * so that uninitialised variables can be
-         * detected even if exceptions are disabled.
-         */
-        //TODO: proper support for non-x87
-        static if (is(real_t == double))
-            snan = real_t.nan;
-        else
-        {
-            ushort* us = cast(ushort*)&snan;
-            us[0] = 0;
-            us[1] = 0;
-            us[2] = 0;
-            us[3] = 0xA000;
-            us[4] = 0x7FFF;
-        }
+        return core.math.sqrt(x);
     }
 
-    static real_t sqrt(real_t x)
+    void yl2x(real_t* x, real_t* y, real_t* res)
     {
-        return .sqrt(x);
+        version(DigitalMars)
+            *res = core.math.yl2x(*x, *y);
+        version(IN_LLVM)
+            assert(0);
     }
 
-    static real_t fmodl(real_t a, real_t b)
+    void yl2xp1(real_t* x, real_t* y, real_t* res)
     {
-        return a % b;
+        version(DigitalMars)
+            *res = core.math.yl2xp1(*x, *y);
+        version(IN_LLVM)
+            assert(0);
     }
 
-    static bool fequal(real_t a, real_t b)
+    bool areBitwiseEqual(real_t a, real_t b)
     {
         //TODO: proper support for non-x87
         enum unpaddedSize = (is(real_t == double) ? 8 : 10);
         return memcmp(&a, &b, unpaddedSize) == 0;
     }
 
-    static bool isNan(real_t r)
+    bool isNaN(real_t r)
     {
         return !(r == r);
     }
 
-    static bool isInfinity(real_t r)
+    bool isInfinity(real_t r)
     {
         return r is real_t.infinity || r is -real_t.infinity;
     }
 
-    static real_t strtold(const(char)* p, char** endp)
+    real_t parseTargetReal(const(char)* literal)
     {
         version (CRuntime_DigitalMars)
         {
@@ -127,17 +118,17 @@ extern(C++) struct TargetFP
         }
 
         version(IN_LLVM_MSVC)
-            auto r = .strtold(p, endp);  // C99 conformant since VS 2015
+            auto r = strtold(literal, null);  // C99 conformant since VS 2015
         else
         version (CRuntime_Microsoft)
-            auto r = .strtold_dm(p, endp).r;
+            auto r = strtold_dm(literal, null).r;
         else
-            auto r = .strtold(p, endp);
+            auto r = strtold(literal, null);
         version (CRuntime_DigitalMars) __locale_decpoint = save;
         return r;
     }
 
-    static bool isFloat32LiteralOutOfRange(const(char)* literal)
+    bool isFloat32LiteralOutOfRange(const(char)* literal)
     {
         errno = 0;
         version (CRuntime_DigitalMars)
@@ -160,7 +151,7 @@ extern(C++) struct TargetFP
         return errno == ERANGE;
     }
 
-    static bool isFloat64LiteralOutOfRange(const(char)* literal)
+    bool isFloat64LiteralOutOfRange(const(char)* literal)
     {
         errno = 0;
         version (CRuntime_DigitalMars)
@@ -183,7 +174,7 @@ extern(C++) struct TargetFP
         return errno == ERANGE;
     }
 
-    static size_t sprint(char* str, int fmt, real_t x)
+    size_t sprint(char* str, char fmt, real_t x)
     {
         version(IN_LLVM_MSVC)
         {
@@ -227,20 +218,25 @@ extern(C++) struct TargetFP
             }
         }
     }
+}
 
-    static void yl2x_impl(real_t* x, real_t* y, real_t* res)
+static this()
+{
+    /*
+     * Use a payload which is different from the machine NaN,
+     * so that uninitialised variables can be
+     * detected even if exceptions are disabled.
+     */
+    //TODO: proper support for non-x87
+    static if (is(real_t == double))
+        snan = real_t.nan;
+    else
     {
-        version(DigitalMars)
-            *res = yl2x(*x, *y);
-        version(IN_LLVM)
-            assert(0);
-    }
-
-    static void yl2xp1_impl(real_t* x, real_t* y, real_t* res)
-    {
-        version(DigitalMars)
-            *res = yl2xp1(*x, *y);
-        version(IN_LLVM)
-            assert(0);
+        ushort* us = cast(ushort*)&snan;
+        us[0] = 0;
+        us[1] = 0;
+        us[2] = 0;
+        us[3] = 0xA000;
+        us[4] = 0x7FFF;
     }
 }

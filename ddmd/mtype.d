@@ -4092,15 +4092,15 @@ version(IN_LLVM)
         case Tfloat32:
         case Tfloat64:
         case Tfloat80:
-            return new RealExp(loc, TargetFP.snan, this);
+            return new RealExp(loc, ddmd.root.real_t.snan, this);
         case Tcomplex32:
         case Tcomplex64:
         case Tcomplex80:
             {
                 // Can't use fvalue + I*fvalue (the im part becomes a quiet NaN).
                 complex_t cvalue;
-                (cast(real_t*)&cvalue)[0] = TargetFP.snan;
-                (cast(real_t*)&cvalue)[1] = TargetFP.snan;
+                (cast(real_t*)&cvalue)[0] = ddmd.root.real_t.snan;
+                (cast(real_t*)&cvalue)[1] = ddmd.root.real_t.snan;
                 return new ComplexExp(loc, cvalue, this);
             }
         case Tvoid:

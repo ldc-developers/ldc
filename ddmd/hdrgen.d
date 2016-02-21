@@ -2192,15 +2192,15 @@ public:
          Plus one for rounding. */
         const(size_t) BUFFER_LEN = value.sizeof * 3 + 8 + 1 + 1;
         char[BUFFER_LEN] buffer;
-        TargetFP.sprint(buffer.ptr, 'g', value);
+        sprint(buffer.ptr, 'g', value);
         assert(strlen(buffer.ptr) < BUFFER_LEN);
         // IN_LLVM MSVC: LLVM's APFloat is used for strtold, which asserts for certain special float inputs
-        if (!IN_LLVM_MSVC || (!TargetFP.isNan(value) && !TargetFP.isInfinity(value)))
+        if (!IN_LLVM_MSVC || (!isNaN(value) && !isInfinity(value)))
         if (hgs.hdrgen)
         {
-            real_t r = TargetFP.strtold(buffer.ptr, null);
+            real_t r = parseTargetReal(buffer.ptr);
             if (r != value) // if exact duplication
-                TargetFP.sprint(buffer.ptr, 'a', value);
+                sprint(buffer.ptr, 'a', value);
         }
         buf.writestring(buffer.ptr);
         if (type)
