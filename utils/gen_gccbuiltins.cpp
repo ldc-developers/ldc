@@ -111,7 +111,11 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     replace(name.begin(), name.end(), '_', '.');
     name = string("llvm.") + name;
 
+#if LDC_LLVM_VER >= 309
+    ListInit* propsList = rec.getValueAsListInit("IntrProperties");
+#else
     ListInit* propsList = rec.getValueAsListInit("Properties");
+#endif
     string prop =
 #if LDC_LLVM_VER >= 307
         propsList->size()
@@ -166,7 +170,7 @@ void processRecord(raw_ostream& os, Record& rec, string arch)
     for(size_t i = 1; i < params.size(); i++)
         os << ", " << params[i];
 
-    os << ")" + attributes(rec.getValueAsListInit("Properties")) + ";\n\n";
+    os << ")" + attributes(propsList) + ";\n\n";
 }
 
 std::string arch;
