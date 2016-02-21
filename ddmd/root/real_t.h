@@ -29,7 +29,7 @@ namespace target_fp
     bool isNaN(longdouble r);
     bool isInfinity(longdouble r);
 
-    longdouble parseTargetReal(const char *literal);
+    longdouble parseTargetReal(const char *literal, bool *isOutOfRange);
     bool isFloat32LiteralOutOfRange(const char *literal);
     bool isFloat64LiteralOutOfRange(const char *literal);
 

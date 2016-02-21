@@ -1988,7 +1988,6 @@ public:
      * Read in characters, converting them to real.
      * Bugs:
      *      Exponent overflow not detected.
-     *      Too much requested precision is not detected.
      */
     final TOK inreal(Token* t)
     {
@@ -2073,14 +2072,17 @@ public:
         }
         stringbuffer.writeByte(0);
         TOK result;
-        t.floatvalue = parseTargetReal(cast(char*)stringbuffer.data);
+        char suffixChar;
         bool isOutOfRange = false;
+        t.floatvalue = parseTargetReal(cast(char*)stringbuffer.data, &isOutOfRange);
         switch (*p)
         {
         case 'F':
         case 'f':
-            isOutOfRange = isFloat32LiteralOutOfRange(cast(char*)stringbuffer.data);
+            if (!isOutOfRange)
+                isOutOfRange = isFloat32LiteralOutOfRange(cast(char*)stringbuffer.data);
             result = TOKfloat32v;
+            suffixChar = 'f';
             p++;
             break;
         default:
@@ -2089,13 +2091,16 @@ public:
              * 2.22508e-308. Not sure who is right.
              */
             // Only interested in errno return
-            isOutOfRange = isFloat64LiteralOutOfRange(cast(char*)stringbuffer.data);
+            if (!isOutOfRange)
+                isOutOfRange = isFloat64LiteralOutOfRange(cast(char*)stringbuffer.data);
             result = TOKfloat64v;
+            suffixChar = 0;
             break;
         case 'l':
             error("use 'L' suffix instead of 'l'");
         case 'L':
             result = TOKfloat80v;
+            suffixChar = 'L';
             p++;
             break;
         }
@@ -2121,8 +2126,10 @@ public:
         }
         if (isOutOfRange)
         {
-            const(char)* suffix = (result == TOKfloat32v || result == TOKimaginary32v) ? "f" : "";
-            error(scanloc, "number '%s%s' is not representable", cast(char*)stringbuffer.data, suffix);
+            char[2] suffix = "\0\0";
+            if (suffixChar != 0)
+                suffix[0] = suffixChar;
+            error(scanloc, "number '%s%s' is not representable", cast(char*)stringbuffer.data, suffix.ptr);
         }
         debug
         {

@@ -109,8 +109,9 @@ extern(C++, target_fp)
         return r is real_t.infinity || r is -real_t.infinity;
     }
 
-    real_t parseTargetReal(const(char)* literal)
+    real_t parseTargetReal(const(char)* literal, bool* isOutOfRange)
     {
+        errno = 0;
         version (CRuntime_DigitalMars)
         {
             auto save = __locale_decpoint;
@@ -125,6 +126,8 @@ extern(C++, target_fp)
         else
             auto r = strtold(literal, null);
         version (CRuntime_DigitalMars) __locale_decpoint = save;
+        if (isOutOfRange)
+            *isOutOfRange = (errno == ERANGE);
         return r;
     }
 

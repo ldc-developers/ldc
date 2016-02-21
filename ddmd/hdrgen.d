@@ -2198,7 +2198,7 @@ public:
         if (!IN_LLVM_MSVC || (!isNaN(value) && !isInfinity(value)))
         if (hgs.hdrgen)
         {
-            real_t r = parseTargetReal(buffer.ptr);
+            real_t r = parseTargetReal(buffer.ptr, null);
             if (r != value) // if exact duplication
                 sprint(buffer.ptr, 'a', value);
         }
