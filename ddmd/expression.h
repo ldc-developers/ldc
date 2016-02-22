@@ -204,10 +204,14 @@ public:
     Expression *addressOf();
     Expression *deref();
 
+#if IN_LLVM && _MSC_VER
+    Expression *optimize(int result, bool keepLvalue = false);
+#else
     Expression *optimize(int result, bool keepLvalue = false)
     {
         return Expression_optimize(this, result, keepLvalue);
     }
+#endif
 
     // Entry point for CTFE.
     // A compile-time result is required. Give an error if not possible
