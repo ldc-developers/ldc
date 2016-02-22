@@ -50,40 +50,77 @@ Expression *eval_unimp(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     return NULL;
 }
 
+#if IN_LLVM
 Expression *eval_sin(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 {
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, sinl(arg0->toReal()), arg0->type);
+    return new RealExp(loc, ldouble(arg0->toReal()).sin(), arg0->type);
 }
 
 Expression *eval_cos(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 {
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, cosl(arg0->toReal()), arg0->type);
+	return new RealExp(loc, ldouble(arg0->toReal()).cos(), arg0->type);
 }
 
 Expression *eval_tan(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 {
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, tanl(arg0->toReal()), arg0->type);
+	return new RealExp(loc, ldouble(arg0->toReal()).tan(), arg0->type);
 }
 
 Expression *eval_sqrt(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 {
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, Port::sqrt(arg0->toReal()), arg0->type);
+	return new RealExp(loc, ldouble(arg0->toReal()).sqrt(), arg0->type);
 }
 
 Expression *eval_fabs(Loc loc, FuncDeclaration *fd, Expressions *arguments)
 {
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, fabsl(arg0->toReal()), arg0->type);
+	return new RealExp(loc, ldouble(arg0->toReal()).abs(), arg0->type);
 }
+#else
+Expression *eval_sin(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+	Expression *arg0 = (*arguments)[0];
+	assert(arg0->op == TOKfloat64);
+	return new RealExp(loc, sinl(arg0->toReal()), arg0->type);
+}
+
+Expression *eval_cos(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+	Expression *arg0 = (*arguments)[0];
+	assert(arg0->op == TOKfloat64);
+	return new RealExp(loc, cosl(arg0->toReal()), arg0->type);
+}
+
+Expression *eval_tan(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+	Expression *arg0 = (*arguments)[0];
+	assert(arg0->op == TOKfloat64);
+	return new RealExp(loc, tanl(arg0->toReal()), arg0->type);
+}
+
+Expression *eval_sqrt(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+	Expression *arg0 = (*arguments)[0];
+	assert(arg0->op == TOKfloat64);
+	return new RealExp(loc, Port::sqrt(arg0->toReal()), arg0->type);
+}
+
+Expression *eval_fabs(Loc loc, FuncDeclaration *fd, Expressions *arguments)
+{
+	Expression *arg0 = (*arguments)[0];
+	assert(arg0->op == TOKfloat64);
+	return new RealExp(loc, fabsl(arg0->toReal()), arg0->type);
+}
+#endif
 
 #if IN_LLVM
 
@@ -134,7 +171,7 @@ Expression *eval_llvmsin(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     Type* type = getTypeOfOverloadedIntrinsic(fd);
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, sinl(arg0->toReal()), type);
+    return new RealExp(loc, ldouble(arg0->toReal()).sin(), type);
 }
 
 Expression *eval_llvmcos(Loc loc, FuncDeclaration *fd, Expressions *arguments)
@@ -142,7 +179,7 @@ Expression *eval_llvmcos(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     Type* type = getTypeOfOverloadedIntrinsic(fd);
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, cosl(arg0->toReal()), type);
+    return new RealExp(loc, ldouble(arg0->toReal()).cos(), type);
 }
 
 Expression *eval_llvmsqrt(Loc loc, FuncDeclaration *fd, Expressions *arguments)
@@ -150,7 +187,7 @@ Expression *eval_llvmsqrt(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     Type* type = getTypeOfOverloadedIntrinsic(fd);
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, sqrtl(arg0->toReal()), type);
+    return new RealExp(loc, ldouble(arg0->toReal().sqrt()), type);
 }
 
 Expression *eval_llvmlog(Loc loc, FuncDeclaration *fd, Expressions *arguments)
@@ -166,7 +203,7 @@ Expression *eval_llvmfabs(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     Type* type = getTypeOfOverloadedIntrinsic(fd);
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, fabsl(arg0->toReal()), type);
+    return new RealExp(loc, ldouble(arg0->toReal().abs()), type);
 }
 
 Expression *eval_llvmminnum(Loc loc, FuncDeclaration *fd, Expressions *arguments)
@@ -176,7 +213,7 @@ Expression *eval_llvmminnum(Loc loc, FuncDeclaration *fd, Expressions *arguments
     assert(arg0->op == TOKfloat64);
     Expression *arg1 = (*arguments)[1];
     assert(arg1->op == TOKfloat64);
-    return new RealExp(loc, fminl(arg0->toReal(), arg1->toReal()), type);
+    return new RealExp(loc, longdouble::fmin(ldouble(arg0->toReal()), ldouble(arg1->toReal())), type);
 }
 
 Expression *eval_llvmmaxnum(Loc loc, FuncDeclaration *fd, Expressions *arguments)
@@ -186,7 +223,7 @@ Expression *eval_llvmmaxnum(Loc loc, FuncDeclaration *fd, Expressions *arguments
     assert(arg0->op == TOKfloat64);
     Expression *arg1 = (*arguments)[1];
     assert(arg1->op == TOKfloat64);
-    return new RealExp(loc, fmaxl(arg0->toReal(), arg1->toReal()), type);
+    return new RealExp(loc, longdouble::fmax(ldouble(arg0->toReal()), ldouble(arg1->toReal())), type);
 }
 
 Expression *eval_llvmfloor(Loc loc, FuncDeclaration *fd, Expressions *arguments)
@@ -194,7 +231,7 @@ Expression *eval_llvmfloor(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     Type* type = getTypeOfOverloadedIntrinsic(fd);
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, floor(arg0->toReal()), type);
+    return new RealExp(loc, ldouble(arg0->toReal()).floor(), type);
 }
 
 Expression *eval_llvmceil(Loc loc, FuncDeclaration *fd, Expressions *arguments)
@@ -202,7 +239,7 @@ Expression *eval_llvmceil(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     Type* type = getTypeOfOverloadedIntrinsic(fd);
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, ceil(arg0->toReal()), type);
+    return new RealExp(loc, ldouble(arg0->toReal()).ceil(), type);
 }
 
 Expression *eval_llvmtrunc(Loc loc, FuncDeclaration *fd, Expressions *arguments)
@@ -210,7 +247,7 @@ Expression *eval_llvmtrunc(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     Type* type = getTypeOfOverloadedIntrinsic(fd);
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, trunc(arg0->toReal()), type);
+    return new RealExp(loc, ldouble(arg0->toReal()).trunc(), type);
 }
 
 Expression *eval_llvmround(Loc loc, FuncDeclaration *fd, Expressions *arguments)
@@ -218,7 +255,7 @@ Expression *eval_llvmround(Loc loc, FuncDeclaration *fd, Expressions *arguments)
     Type* type = getTypeOfOverloadedIntrinsic(fd);
     Expression *arg0 = (*arguments)[0];
     assert(arg0->op == TOKfloat64);
-    return new RealExp(loc, round(arg0->toReal()), type);
+    return new RealExp(loc, ldouble(arg0->toReal()).round(), type);
 }
 
 Expression *eval_cttz(Loc loc, FuncDeclaration *fd, Expressions *arguments)

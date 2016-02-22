@@ -33,6 +33,13 @@ typedef unsigned long long ulonglong;
 
 typedef unsigned char utf8_t;
 
+#if IN_LLVM
+namespace ldc
+{
+    void port_init();
+}
+#endif
+
 struct Port
 {
     static double nan;
