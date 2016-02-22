@@ -22,6 +22,7 @@ environment:
 
 matrix:
   allow_failures:
+    - APPVEYOR_JOB_CONFIG: Debug LDC
     - APPVEYOR_JOB_CONFIG: Release
 
 # scripts that are called at very beginning, before repo cloning

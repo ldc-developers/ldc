@@ -207,6 +207,8 @@ elseif(MSVC)
     string(REGEX REPLACE "(^| )[/-]GR-?( |$)" "\\2" CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS}")
     append("/GR- /EHs-c-" CMAKE_CXX_FLAGS)
     append("/D_HAS_EXCEPTIONS=0" CMAKE_CXX_FLAGS)
+    # See github issue #1311
+    append("/O2 /Zc:inline" CMAKE_CXX_FLAGS)
 
     # warning C4018: signed/unsigned mismatch
     # warning C4101: unreferenced local variable
