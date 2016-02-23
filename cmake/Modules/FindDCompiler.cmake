@@ -22,7 +22,8 @@ if($ENV{DMD} MATCHES ".+")
         message(FATAL_ERROR "Could not find compiler set in environment variable $ENV{DMD}.")
     endif()
 else()
-    find_program(D_COMPILER NAMES ${COMMON_D_COMPILERS} PATHS ${COMMON_D_COMPILER_PATHS} DOC "D compiler")
+    # "NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH" is necessary, otherwise CMake will find the compiler in the install prefix path!
+    find_program(D_COMPILER NO_CMAKE_PATH NO_CMAKE_ENVIRONMENT_PATH NO_CMAKE_SYSTEM_PATH NAMES ${COMMON_D_COMPILERS} PATHS ${COMMON_D_COMPILER_PATHS} DOC "D compiler")
 endif()
 
 # TODO: Test compiler and set compiler ID

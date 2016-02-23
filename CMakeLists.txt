@@ -49,7 +49,7 @@ endfunction()
 #
 
 # Version information
-set(LDC_VERSION "0.17.0") # May be overridden by git hash tag
+set(LDC_VERSION "1.0.0") # May be overridden by git hash tag
 set(DMDFE_MAJOR_VERSION   2)
 set(DMDFE_MINOR_VERSION   0)
 set(DMDFE_PATCH_VERSION   70)
@@ -326,26 +326,29 @@ macro(Dcompilelib  input_d  output_dir  extra_d_flags  outlist_o)
     )
 endmacro()
 
+# Build (generate executable) of D source
+macro(Dbuild  target_id  input_d  output_exec  extra_d_flags  link_flags  extra_deps)
+    separate_arguments(FLAG_LIST WINDOWS_COMMAND "${D_COMPILER_FLAGS} ${extra_d_flags} ${link_flags}")
+    add_custom_command(
+        OUTPUT ${output_exec}
+        COMMAND ${D_COMPILER} ${FLAG_LIST} -I${PROJECT_SOURCE_DIR}/${DDMDFE_PATH} -of${output_exec} ${input_d}
+        WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
+        DEPENDS ${input_d} ${extra_deps}
+    )
+    add_custom_target(${target_id} DEPENDS ${output_exec})
+endmacro()
+
 
 #
-# Run idgen.
+# Build idgen.
 #
-Dcompile(${DDMDFE_PATH}/idgen.d ${PROJECT_SOURCE_DIR} ${DDMD_DFLAGS} idgen_o "")
-add_executable(idgen ${idgen_o})
-set_target_properties(
-    idgen PROPERTIES
-    LINKER_LANGUAGE CXX
-    RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
-    LINK_FLAGS "${Dcode_LDFLAGS} ${SANITIZE_LDFLAGS}"
-)
-if (UNIX)
-    target_link_libraries(idgen ${Dcode_LDFLAGS})
-endif()
+Dbuild(idgen ${DDMDFE_PATH}/idgen.d ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/idgen${CMAKE_EXECUTABLE_SUFFIX}  ${DDMD_DFLAGS} "" "")
+# Run idgen.
 add_custom_command(
     OUTPUT
         ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.d
         ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/id.h
-    COMMAND idgen
+    COMMAND ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}/idgen  #provide full path to avoid clash with idgen on path
     WORKING_DIRECTORY ${PROJECT_BINARY_DIR}/${DDMDFE_PATH}
     DEPENDS idgen
 )

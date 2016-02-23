@@ -1181,10 +1181,11 @@ public:
       // This is a bit more convoluted than it would need to be, because it
       // has to take templated interface methods into account, for which
       // isFinalFunc is not necessarily true.
-      // Also, private methods are always not virtual.
+      // Also, private/package methods are always non-virtual.
       const bool nonFinal = !fdecl->isFinalFunc() &&
                             (fdecl->isAbstract() || fdecl->isVirtual()) &&
-                            fdecl->prot().kind != PROTprivate;
+                            fdecl->prot().kind != PROTprivate &&
+                            fdecl->prot().kind != PROTpackage;
 
       // Get the actual function value to call.
       LLValue *funcval = nullptr;

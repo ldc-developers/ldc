@@ -41,25 +41,22 @@ install:
 matrix:
   include:
     - os: linux
-      d: dmd
+      d: ldc
       env: LLVM_CONFIG="llvm-config-3.9"
-    - os: linux
-      d: dmd
-      env: LLVM_CONFIG="llvm-config-3.8"
     - os: linux
       d: ldc
       env: LLVM_CONFIG="llvm-config-3.8"
     - os: linux
-      d: dmd
+      d: ldc
       env: LLVM_CONFIG="llvm-config-3.7" OPTS="-DMULTILIB=ON"
     - os: linux
-      d: dmd
+      d: ldc
       env: LLVM_CONFIG="llvm-config-3.6" OPTS="-DBUILD_SHARED_LIBS=ON"
     - os: linux
       d: dmd
       env: LLVM_CONFIG="llvm-config-3.5" OPTS="-DTEST_COVERAGE=ON"
     - os: osx
-      d: dmd
+      d: ldc
       env: LLVM_CONFIG="llvm-config-3.6" TEST_CONFIG="Debug"
     - os: osx
       d: dmd
