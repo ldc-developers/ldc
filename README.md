@@ -30,14 +30,18 @@ libraries, including experimental instructions for running LDC on
 Windows, is available on the project wiki at
 http://wiki.dlang.org/Building_LDC_from_source.
 
-If you have a working C++ build environment, CMake, a current LLVM, and
-[libconfig](http://hyperrealm.com/libconfig/libconfig.html) available
-there should be no big surprises, though.
+If you have a working C++ build environment, CMake, a current LLVM (>= 3.5),
+and [libconfig](http://hyperrealm.com/libconfig/libconfig.html) available
+there should be no big surprises.
+Building LDC also requires a working D compiler, DMD and LDC are supported.
+(LDC 0.17 is the last version that does not need a D compiler,
+and for that reason we try to maintain it in the 'ltsmaster' branch).
 
-Do not forget to make sure all the submodules are up to date:
+Do not forget to make sure all the submodules (druntime, phobos, dmd-testsuite)
+are up to date:
 
     $ cd ldc
-    $ git submodule update --init
+    $ git submodule update --recursive --init
 
 Some Linux and OS X package managers include recent versions of LDC, so
 manually installing it might not be necessary. For several platforms,
@@ -50,7 +54,8 @@ Contact
 
 The best way to get in touch with the developers is either via the
 digitalmars.D.ldc forum/newsgroup/mailing list
-(http://forum.dlang.org) or the #ldc IRC channel on FreeNode.
+(http://forum.dlang.org) or our [Gitter chat](http://gitter.im/ldc-developers/main).
+There is also the #ldc IRC channel on FreeNode.
 
 For further documentation, contributor information, etc. please see
 the D wiki: http://wiki.dlang.org/LDC
