@@ -208,7 +208,11 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
   // Exit quickly for functions that accept a context pointer for ABI purposes,
   // but do not actually read from it.
   //
-  // We cannot simply fall back to retuning undef once we discover that we
+  // null is used instead of LLVM's undef to not break bitwise comparison,
+  // for instances of nested struct types which don't have any nested
+  // references, or for delegates to nested functions with an empty context.
+  //
+  // We cannot simply fall back to retuning null once we discover that we
   // don't actually have a context to pass, because we sadly also need to
   // catch invalid code here in the glue layer (see error() below).
   if (FuncDeclaration *symfd = sym->isFuncDeclaration()) {
@@ -219,8 +223,8 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
     Logger::println("for function of depth %d", depth);
     if (depth == -1 || (depth == 0 && !symfd->closureVars.empty())) {
       Logger::println("function does not have context or creates its own "
-                      "from scratch, returning undef");
-      return llvm::UndefValue::get(getVoidPtrType());
+                      "from scratch, returning null");
+      return llvm::ConstantPointerNull::get(getVoidPtrType());
     }
   }
 
@@ -260,10 +264,6 @@ LLValue *DtoNestedContext(Loc &loc, Dsymbol *sym) {
             sym->toPrettyChars(), irfunc->decl->toPrettyChars());
       fatal();
     }
-
-    // Use null instead of e.g. LLVM's undef to not break bitwise
-    // comparison for instances of nested struct types which don't have any
-    // nested references.
     return llvm::ConstantPointerNull::get(getVoidPtrType());
   }
 
