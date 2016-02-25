@@ -2891,9 +2891,15 @@ public:
         assert(argnum == arguments.dim - 1);
         if (elemType.ty == Tchar || elemType.ty == Twchar || elemType.ty == Tdchar)
         {
-            return createBlockDuplicatedStringLiteral(loc, newtype, cast(uint)elemType.defaultInitLiteral(loc).toInteger(), len, cast(ubyte)elemType.size());
+            const ch = cast(dchar)elemType.defaultInitLiteral(loc).toInteger();
+            const sz = cast(ubyte)elemType.size();
+            return createBlockDuplicatedStringLiteral(loc, newtype, ch, len, sz);
         }
-        return createBlockDuplicatedArrayLiteral(loc, newtype, elemType.defaultInitLiteral(loc), len);
+        else
+        {
+            auto el = interpret(elemType.defaultInitLiteral(loc), istate);
+            return createBlockDuplicatedArrayLiteral(loc, newtype, el, len);
+        }
     }
 
     override void visit(NewExp e)
@@ -4916,9 +4922,13 @@ public:
             istate = &istateComma;
         }
         result = CTFEExp.cantexp;
+
         // If the comma returns a temporary variable, it needs to be an lvalue
         // (this is particularly important for struct constructors)
-        if (e.e1.op == TOKdeclaration && e.e2.op == TOKvar && (cast(DeclarationExp)e.e1).declaration == (cast(VarExp)e.e2).var && (cast(VarExp)e.e2).var.storage_class & STCctfe) // same as Expression::isTemp
+        if (e.e1.op == TOKdeclaration &&
+            e.e2.op == TOKvar &&
+            (cast(DeclarationExp)e.e1).declaration == (cast(VarExp)e.e2).var &&
+            (cast(VarExp)e.e2).var.storage_class & STCctfe)
         {
             VarExp ve = cast(VarExp)e.e2;
             VarDeclaration v = ve.var.isVarDeclaration();
@@ -5912,8 +5922,8 @@ public:
         if (v.type.ty != result.type.ty && v.type.ty == Tsarray)
         {
             // Block assignment from inside struct literals
-            TypeSArray tsa = cast(TypeSArray)v.type;
-            size_t len = cast(size_t)tsa.dim.toInteger();
+            auto tsa = cast(TypeSArray)v.type;
+            auto len = cast(size_t)tsa.dim.toInteger();
             result = createBlockDuplicatedArrayLiteral(ex.loc, v.type, ex, len);
             (*se.elements)[i] = result;
         }
