@@ -19,12 +19,14 @@ version (LDC)
 {
     enum has64BitCAS = true;
 
-    // Enable 128bit CAS for all 64bit platforms.
-    // Do not enable for LLVM 3.4 or earlier: the
-    // code generator cannot handle type i128 for
-    // atomic instructions.
+    // Enable 128bit CAS on 64bit platforms if supported.
     version(D_LP64)
-        enum has128BitCAS = true;
+    {
+        version (PPC64)
+            enum has128BitCAS = false;
+        else
+            enum has128BitCAS = true;
+    }
     else
         enum has128BitCAS = false;
 }
