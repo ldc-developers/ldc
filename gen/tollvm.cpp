@@ -63,7 +63,9 @@ LLAttribute DtoShouldExtend(Type *type) {
 
     case Tuns8:
     case Tuns16:
-      return LLAttribute::ZExt;
+    case Tchar:
+    case Twchar:
+	return LLAttribute::ZExt;
 
     default:
       // Do not extend.
