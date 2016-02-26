@@ -141,10 +141,10 @@ Expression *Target::paintAsType(Expression *e, Type *type) {
     return createIntegerExp(e->loc, u.int64value, type);
 
   case Tfloat32:
-    return createRealExp(e->loc, ldouble(u.float32value), type);
+    return createRealExp(e->loc, u.float32value, type);
 
   case Tfloat64:
-    return createRealExp(e->loc, ldouble(u.float64value), type);
+    return createRealExp(e->loc, u.float64value, type);
 
   default:
     assert(0);

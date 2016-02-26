@@ -3718,7 +3718,7 @@ struct AsmProcessor {
     case TOKfloat64v:
     case TOKfloat80v:
       // %% need different types?
-      e = createRealExp(stmt->loc, token->float80value, Type::tfloat80);
+      e = createRealExp(stmt->loc, token->floatvalue, Type::tfloat80);
       nextToken();
       break;
     case TOKidentifier: {
@@ -3939,7 +3939,7 @@ struct AsmProcessor {
         if (token->value == TOKfloat32v || token->value == TOKfloat64v ||
             token->value == TOKfloat80v) {
           long words[3];
-          real_to_target(words, & token->float80value.rv(), mode);
+          real_to_target(words, & token->floatvalue.rv(), mode);
           // don't use directives..., just use .long like GCC
           insnTemplate->printf(".long\t%u", words[0]);
           if (mode != SFmode)
