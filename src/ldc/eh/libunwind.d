@@ -80,6 +80,7 @@ extern(C)
     {
         _Unwind_Reason_Code _Unwind_RaiseException(_Unwind_Control_Block*);
         void _Unwind_Resume(_Unwind_Control_Block*);
+        void _Unwind_Complete(_Unwind_Control_Block*);
 
         // On ARM, these are macros resp. not visible (static inline). To avoid
         // an unmaintainable amount of dependencies on implementation details,
@@ -395,7 +396,13 @@ version(ARM_EABI_UNWINDER)
                     }
                     break;
                 case _Unwind_State.UNWIND_FRAME_RESUME:
-                    return continueUnwind(ucb, context);
+                    // return continueUnwind(ucb, context);
+                    //
+                    // Can't do normal continue unwind because there
+                    // might be a handler stll in this frame.
+                    // Starting again at saved IP instead.
+                    _Unwind_SetIP(context, ucb.cleanup_cache.bitpattern[0]);
+                    goto case UNWIND_FRAME_STARTING;
                 default:
                     fatalerror("Unhandled ARM EABI unwind state.");
               }
@@ -515,7 +522,45 @@ void _d_throw_exception(Object e)
 
 /// Called by our compiler-generate code to resume unwinding after a finally
 /// block (or dtor destruction block) has been run.
-void _d_eh_resume_unwind(void* ptr)
+version (ARM_EABI_UNWINDER)
+{
+    // Implemented in asm to preserve core registers, declaration here
+    // for reference only
+    void _d_eh_resume_unwind(void* ptr);
+
+    // Perform cleanups before resuming.  Can't call _Unwind_Resume
+    // because it expects core register state at callsite.
+    //
+    // Also, a workaround for ARM EABI unwinding.  When D catch
+    // handlers are merged by the LLVM inliner, the IR has a landing
+    // pad that claims it will handle multiple exception types, but
+    // then only handles one and falls into _d_eh_resume_unwind.  This
+    // call to _d_eh_resume_unwind has a landing pad with the correct
+    // exception handler, but gcc ARM EABI unwind implementation
+    // resumes in the next frame up and misses it. Other gcc
+    // unwinders, C++ Itanium and SjLj, handle this case fine by
+    // resuming in the current frame.  The workaround is to save IP so
+    // personality can resume in the current frame.
+    auto _d_arm_eabi_end_cleanup(void* ptr, ptrdiff_t ip)
+    {
+	debug(EH_personality_verbose) printf("  - Resume ip %p\n", ip);
+
+        // tell personality the real IP (cleanup_cache can be used
+        // however we like)
+        with (cast(_d_exception*)ptr)
+            unwind_info.cleanup_cache.bitpattern[0] = ip;
+        return _d_end_cleanup(ptr);
+    }
+}
+else
+{
+    void _d_eh_resume_unwind(void* ptr)
+    {
+        _Unwind_Resume(_d_end_cleanup(ptr));
+    }
+}
+
+auto _d_end_cleanup(void* ptr)
 {
     auto exception_struct = cast(_d_exception*) ptr;
 
@@ -526,7 +571,7 @@ void _d_eh_resume_unwind(void* ptr)
     }
 
     popCleanupBlockRecord();
-    _Unwind_Resume(&exception_struct.unwind_info);
+    return &exception_struct.unwind_info;
 }
 
 Object _d_eh_destroy_exception_struct(void* ptr)
@@ -555,7 +600,12 @@ Object _d_eh_destroy_exception_struct(void* ptr)
 
 Object _d_eh_enter_catch(void* ptr)
 {
-    auto obj = _d_eh_destroy_exception_struct(cast(_d_exception*) ptr);
+    auto exception_struct = cast(_d_exception*)ptr;
+    version (ARM_EABI_UNWINDER)
+    {
+        _Unwind_Complete(&exception_struct.unwind_info);
+    }
+    auto obj = _d_eh_destroy_exception_struct(exception_struct);
     popCleanupBlockRecord();
     return obj;
 }
