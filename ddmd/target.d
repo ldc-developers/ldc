@@ -32,17 +32,14 @@ extern(C++) struct Target
     static __gshared int c_long_doublesize;    // size of a C 'long double'
     static __gshared int classinfosize;        // size of 'ClassInfo'
 
-    template FPTypeProperties(T)
+    extern(D) template FPTypeProperties(T)
     {
-        enum : real_t
-        {
-            max = T.max,
-            min_normal = T.min_normal,
-            nan = T.nan,
-            snan = T.init,
-            infinity = T.infinity,
-            epsilon = T.epsilon
-        }
+        static real_t max() { return real_t(T.max); }
+        static real_t min_normal() { return real_t(T.min_normal); }
+        static real_t nan() { return real_t(T.nan); }
+        static real_t snan() { return real_t(T.init); }
+        static real_t infinity() { return real_t(T.infinity); }
+        static real_t epsilon() { return real_t(T.epsilon); }
 
         enum : long
         {
@@ -57,7 +54,26 @@ extern(C++) struct Target
 
     alias FloatProperties = FPTypeProperties!float;
     alias DoubleProperties = FPTypeProperties!double;
-    alias RealProperties = FPTypeProperties!real_t;
+
+    static struct RealProperties
+    {
+        static __gshared
+        {
+            real_t max = void;
+            real_t min_normal = void;
+            real_t nan = void;
+            real_t snan = void;
+            real_t infinity = void;
+            real_t epsilon = void;
+
+            long dig;
+            long mant_dig;
+            long max_exp;
+            long min_exp;
+            long max_10_exp;
+            long min_10_exp;
+        }
+    }
 
     static void _init();
     // Type sizes and support.
@@ -440,6 +456,11 @@ extern (C++) static void encodeReal(Expression e, ubyte* buffer)
 extern (C++) static Expression decodeReal(Loc loc, Type type, ubyte* buffer)
 {
     real_t value;
+  version(IN_LLVM)
+  {
+    value.safeInit();
+  }
+
     switch (type.ty)
     {
     case Tfloat32:

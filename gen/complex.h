@@ -30,7 +30,8 @@ class Value;
 llvm::StructType *DtoComplexType(Type *t);
 llvm::Type *DtoComplexBaseType(Type *t);
 
-llvm::Constant *DtoConstComplex(Type *t, real_t re, real_t im);
+llvm::Constant *DtoConstComplex(Type *t, const ldc::real_t &re,
+                                const ldc::real_t &im);
 
 llvm::Constant *DtoComplexShuffleMask(unsigned a, unsigned b);
 

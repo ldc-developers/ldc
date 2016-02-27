@@ -411,35 +411,10 @@ llvm::ConstantInt *DtoConstUbyte(unsigned char i) {
   return LLConstantInt::get(LLType::getInt8Ty(gIR->context()), i, false);
 }
 
-LLConstant *DtoConstFP(Type *t, real_t value) {
+LLConstant *DtoConstFP(Type *t, const ldc::real_t &value) {
   LLType *llty = DtoType(t);
   assert(llty->isFloatingPointTy());
-
-  if (llty == LLType::getFloatTy(gIR->context()) ||
-      llty == LLType::getDoubleTy(gIR->context())) {
-    return LLConstantFP::get(llty, static_cast<double>(value));
-  }
-
-  union {
-    real_t v;
-    uint64_t bits[2];
-  } u;
-  u.v = value;
-
-  if (llty == LLType::getX86_FP80Ty(gIR->context())) {
-    return LLConstantFP::get(gIR->context(), APFloat(APFloat::x87DoubleExtended,
-                                                     APInt(80, 2, u.bits)));
-  }
-  if (llty == LLType::getFP128Ty(gIR->context())) {
-    return LLConstantFP::get(gIR->context(),
-                             APFloat(APFloat::IEEEquad, APInt(128, 2, u.bits)));
-  }
-  if (llty == LLType::getPPC_FP128Ty(gIR->context())) {
-    return LLConstantFP::get(gIR->context(), APFloat(APFloat::PPCDoubleDouble,
-                                                     APInt(128, 2, u.bits)));
-  }
-
-  llvm_unreachable("Unknown floating point type encountered");
+  return LLConstantFP::get(llty, value);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

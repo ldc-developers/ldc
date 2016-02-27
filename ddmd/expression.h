@@ -1623,7 +1623,11 @@ private:
         char sliceexp  [sizeof(SliceExp)];
 
         // Ensure that the union is suitably aligned.
+#ifdef IN_LLVM
+        alignas(alignof(real_t)) int for_alignment_only;
+#else
         real_t for_alignment_only;
+#endif
     } u;
 };
 

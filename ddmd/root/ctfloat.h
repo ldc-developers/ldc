@@ -1,22 +1,23 @@
-
-/* Copyright (c) 1999-2016 by Digital Mars
- * All Rights Reserved, written by Walter Bright
- * http://www.digitalmars.com
- * Distributed under the Boost Software License, Version 1.0.
- * (See accompanying file LICENSE or copy at http://www.boost.org/LICENSE_1_0.txt)
- * https://github.com/D-Programming-Language/dmd/blob/master/src/root/port.h
- */
+//===-- ddmd/root/ctfloat.h -  CTFloat implementation for LDC ---*- C++ -*-===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+//
+// Front-end compile-time floating-point implementation for LDC.
+//
+//===----------------------------------------------------------------------===//
 
 #ifndef CTFLOAT_H
 #define CTFLOAT_H
 
+#include "gen/real_t.h"
+
 // Type used by the front-end for compile-time reals
-#if defined(IN_LLVM) && defined(_MSC_VER)
-    typedef double real_t;
-#else
-#include "longdouble.h"
-typedef longdouble real_t;
-#endif
+typedef ldc::real_t real_t;
 
 // Compile-time floating-point helper
 struct CTFloat
@@ -27,19 +28,29 @@ struct CTFloat
     static void yl2x(const real_t *x, const real_t *y, real_t *res);
     static void yl2xp1(const real_t *x, const real_t *y, real_t *res);
 
-    static real_t sin(real_t x);
-    static real_t cos(real_t x);
-    static real_t tan(real_t x);
-    static real_t sqrt(real_t x);
-    static real_t fabs(real_t x);
+    static real_t parse(const char *literal, bool *isOutOfRange = NULL);
 
-    static bool isIdentical(real_t a, real_t b);
-    static bool isNaN(real_t r);
-    static bool isSNaN(real_t r);
-    static bool isInfinity(real_t r);
+    static real_t sinImpl(const real_t &x);
+    static real_t cosImpl(const real_t &x);
+    static real_t tanImpl(const real_t &x);
+    static real_t sqrtImpl(const real_t &x);
+    static real_t fabsImpl(const real_t &x);
 
-    static real_t parse(const char *literal, bool *isOutOfRange = nullptr);
-    static int sprint(char *str, char fmt, real_t x);
+    // additional LDC built-ins
+    static real_t logImpl(const real_t &x);
+    static real_t fminImpl(const real_t &l, const real_t &r);
+    static real_t fmaxImpl(const real_t &l, const real_t &r);
+    static real_t floorImpl(const real_t &x);
+    static real_t ceilImpl(const real_t &x);
+    static real_t truncImpl(const real_t &x);
+    static real_t roundImpl(const real_t &x);
+
+    static bool isIdenticalImpl(const real_t &a, const real_t &b);
+    static bool isNaNImpl(const real_t &r);
+    static bool isSNaNImpl(const real_t &r);
+    static bool isInfinityImpl(const real_t &r);
+
+    static int sprintImpl(char *str, char fmt, const real_t &x);
 };
 
 #endif

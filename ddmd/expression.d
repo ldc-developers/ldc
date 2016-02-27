@@ -2036,6 +2036,9 @@ private:
         char[__traits(classInstanceSize, IndexExp)] indexexp;
         char[__traits(classInstanceSize, SliceExp)] sliceexp;
         // Ensure that the union is suitably aligned.
+      version(IN_LLVM)
+        long for_alignment_only;
+      else
         real_t for_alignment_only;
     }
 
@@ -3481,6 +3484,10 @@ public:
     {
         super(loc, TOKfloat64, __traits(classInstanceSize, RealExp));
         //printf("RealExp::RealExp(%Lg)\n", value);
+      version(IN_LLVM)
+      {
+        this.value.safeInit();
+      }
         this.value = value;
         this.type = type;
     }

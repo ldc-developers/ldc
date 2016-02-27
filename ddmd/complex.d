@@ -24,6 +24,11 @@ struct complex_t
 
     this(real_t re, real_t im)
     {
+      version(IN_LLVM)
+      {
+        this.re.safeInit();
+        this.im.safeInit();
+      }
         this.re = re;
         this.im = im;
     }

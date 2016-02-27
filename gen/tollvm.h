@@ -23,6 +23,7 @@
 #include "gen/llvm.h"
 #include "gen/structs.h"
 #include "gen/attributes.h"
+#include "gen/real_t.h"
 
 // D->LLVM type handling stuff
 
@@ -91,7 +92,7 @@ LLConstantInt *DtoConstSize_t(uint64_t);
 LLConstantInt *DtoConstUint(unsigned i);
 LLConstantInt *DtoConstInt(int i);
 LLConstantInt *DtoConstUbyte(unsigned char i);
-LLConstant *DtoConstFP(Type *t, real_t value);
+LLConstant *DtoConstFP(Type *t, const ldc::real_t &value);
 
 LLConstant *DtoConstString(const char *);
 LLConstant *DtoConstBool(bool);

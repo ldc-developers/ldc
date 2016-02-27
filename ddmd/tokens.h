@@ -205,7 +205,9 @@ struct Token
         d_uns64 uns64value;
 
         // Floats
+#if !defined(IN_LLVM)
         real_t floatvalue;
+#endif
 
         struct
         {   utf8_t *ustring;     // UTF8 string
@@ -216,6 +218,16 @@ struct Token
         Identifier *ident;
     };
 
+#ifdef IN_LLVM
+    union
+    {
+        alignas(alignof(real_t)) char _floatvalue[sizeof(real_t)];
+        void *_floatSemantics;
+    };
+
+    const real_t &floatvalue() const;
+#endif
+
     static const char *tochars[TOKMAX];
     static void initTokens();
 
@@ -223,7 +235,11 @@ struct Token
     static Token *alloc();
     void free();
 
+#ifdef IN_LLVM
+    Token() : next(NULL), _floatSemantics(NULL) {}
+#else
     Token() : next(NULL) {}
+#endif
     int isKeyword();
 #ifdef DEBUG
     void print();

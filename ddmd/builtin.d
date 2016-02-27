@@ -132,7 +132,7 @@ extern (C++) Expression eval_llvmsin(Loc loc, FuncDeclaration fd, Expressions *a
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, sinl(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.sin(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmcos(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -140,7 +140,7 @@ extern (C++) Expression eval_llvmcos(Loc loc, FuncDeclaration fd, Expressions *a
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, cosl(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.cos(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmsqrt(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -148,7 +148,7 @@ extern (C++) Expression eval_llvmsqrt(Loc loc, FuncDeclaration fd, Expressions *
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, sqrtl(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.sqrt(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmlog(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -156,7 +156,7 @@ extern (C++) Expression eval_llvmlog(Loc loc, FuncDeclaration fd, Expressions *a
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, logl(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.log(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmfabs(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -164,7 +164,7 @@ extern (C++) Expression eval_llvmfabs(Loc loc, FuncDeclaration fd, Expressions *
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, fabsl(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.fabs(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmminnum(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -174,7 +174,7 @@ extern (C++) Expression eval_llvmminnum(Loc loc, FuncDeclaration fd, Expressions
     assert(arg0.op == TOKfloat64);
     Expression arg1 = (*arguments)[1];
     assert(arg1.op == TOKfloat64);
-    return new RealExp(loc, fminl(arg0.toReal(), arg1.toReal()), type);
+    return new RealExp(loc, CTFloat.fmin(arg0.toReal(), arg1.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmmaxnum(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -184,7 +184,7 @@ extern (C++) Expression eval_llvmmaxnum(Loc loc, FuncDeclaration fd, Expressions
     assert(arg0.op == TOKfloat64);
     Expression arg1 = (*arguments)[1];
     assert(arg1.op == TOKfloat64);
-    return new RealExp(loc, fmaxl(arg0.toReal(), arg1.toReal()), type);
+    return new RealExp(loc, CTFloat.fmax(arg0.toReal(), arg1.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmfloor(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -192,7 +192,7 @@ extern (C++) Expression eval_llvmfloor(Loc loc, FuncDeclaration fd, Expressions 
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, floor(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.floor(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmceil(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -200,7 +200,7 @@ extern (C++) Expression eval_llvmceil(Loc loc, FuncDeclaration fd, Expressions *
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, ceil(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.ceil(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmtrunc(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -208,7 +208,7 @@ extern (C++) Expression eval_llvmtrunc(Loc loc, FuncDeclaration fd, Expressions 
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, trunc(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.trunc(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_llvmround(Loc loc, FuncDeclaration fd, Expressions *arguments)
@@ -216,7 +216,7 @@ extern (C++) Expression eval_llvmround(Loc loc, FuncDeclaration fd, Expressions 
     Type type = getTypeOfOverloadedIntrinsic(fd);
     Expression arg0 = (*arguments)[0];
     assert(arg0.op == TOKfloat64);
-    return new RealExp(loc, round(arg0.toReal()), type);
+    return new RealExp(loc, CTFloat.round(arg0.toReal()), type);
 }
 
 extern (C++) Expression eval_cttz(Loc loc, FuncDeclaration fd, Expressions *arguments)
