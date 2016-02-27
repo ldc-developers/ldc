@@ -724,7 +724,7 @@ public:
     if (var) {
       // alloca storage for the variable, it always needs a place on the stack
       // do not initialize, this will be done by the C++ exception handler
-      var->init = nullptr;
+      var->_init = nullptr;
 
       // redirect scope to avoid the generation of debug info before the
       // catchpad
