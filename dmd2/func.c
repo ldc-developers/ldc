@@ -1497,7 +1497,11 @@ void FuncDeclaration::semantic3(Scope *sc)
             if (f->linkage == LINKd || (f->parameters && Parameter::dim(f->parameters)))
             {
                 // Declare _argptr
+#if IN_LVVM
+                Type *t = Type::tvalist->semantic(loc, sc);
+#else
                 Type *t = Type::tvalist;
+#endif
                 argptr = new VarDeclaration(Loc(), t, Id::_argptr, NULL);
                 argptr->storage_class |= STCtemp;
                 argptr->semantic(sc2);
