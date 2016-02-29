@@ -20,7 +20,9 @@
 #include "gen/llvmhelpers.h"
 #include "gen/logger.h"
 #include "gen/nested.h"
+#include "gen/objcgen.h"
 #include "gen/tollvm.h"
+#include "gen/runtime.h"
 #include "ir/irfunction.h"
 #include "ir/irtype.h"
 
@@ -607,6 +609,8 @@ bool DtoLowerMagicIntrinsic(IRState *p, FuncDeclaration *fndecl, CallExp *e,
 
 class ImplicitArgumentsBuilder {
 public:
+  ObjcSelector* sel = nullptr;
+
   ImplicitArgumentsBuilder(std::vector<LLValue *> &args, AttrSet &attrs,
                            Loc &loc, DValue *fnval,
                            LLFunctionType *llCalleeType, Expressions *arguments,
@@ -678,6 +682,19 @@ private:
     bool delegatecall = (calleeType->toBasetype()->ty == Tdelegate);
     bool nestedcall = irFty.arg_nest;
 
+    //ObjcSelector*
+    sel = dfnval ? dfnval->func->objc.selector : nullptr;
+    IF_LOG Logger::cout() << "objcselector: '" << sel << "'\n";
+    IF_LOG if (sel) {
+      Logger::cout() << "objcselector: '" << sel->stringvalue << "'\n";
+      Logger::cout() << "thiscall: " << thiscall << '\n';
+      Logger::cout() << "ty: "
+                     << (int)calleeType->toBasetype()->ty << " ("
+                     << Tfunction << ", " << Tdelegate << ", "
+                     //<< Tobjcselector
+                     << ")\n";
+    }
+
     if (!thiscall && !delegatecall && !nestedcall) {
       return;
     }
@@ -729,6 +746,41 @@ private:
     } else if (irFty.arg_nest) {
       attrs.add(index + 1, irFty.arg_nest->attrs);
     }
+
+    if (sel)  {
+#if 0 // TODO: needs to be reimplemented for ldc master
+        LLGlobalVariable* selptr =
+            objc_getMethVarRef(sel->stringvalue, sel->stringlen);
+        // TODO: could use arg type
+        //++argiter;
+        //args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType())); //cast?
+        args.push_back(DtoBitCast(DtoLoad(selptr), *argiter++));
+
+#elif 1
+        LLGlobalVariable* selptr =
+            objc_getMethVarRef(sel->stringvalue, sel->stringlen);
+        args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType())); //cast?
+
+#else  // working proof of concept that should go in objc_getMethVarRef
+        llvm::StringRef s(sel->stringvalue, sel->stringlen);
+        LLConstant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
+        //.section	__TEXT,__objc_methname,cstring_literals
+        llvm::GlobalVariable* gvar = new llvm::GlobalVariable
+            (gIR->module, init->getType(), true,
+             llvm::GlobalValue::PrivateLinkage, init, "OBJC_METH_VAR_NAME_");
+        gvar->setSection("__TEXT,__objc_methname,cstring_literals");
+        // do we need this?
+        gvar->setUnnamedAddr(true);
+
+	//.section	__DATA,__objc_selrefs,literal_pointers,no_dead_strip
+        llvm::GlobalVariable* selptr = new llvm::GlobalVariable
+            (gIR->module, gvar->getType(), true,
+             llvm::GlobalValue::PrivateLinkage,
+             gvar, "OBJC_SELECTOR_REFERENCES_");
+        selptr->setSection("__DATA,__objc_selrefs,literal_pointers,no_dead_strip");
+        args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
+#endif
+    }
   }
 
   // D vararg functions need a "TypeInfo[] _arguments" argument.
@@ -772,14 +824,15 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
   }
 
   // get callee llvm value
-  LLValue *const callable = DtoCallableValue(fnval);
+  //LLValue *const callable = DtoCallableValue(fnval);
+  LLValue *callable = DtoCallableValue(fnval);
   LLFunctionType *const callableTy =
       DtoExtractFunctionType(callable->getType());
   assert(callableTy);
   const auto callconv = gABI->callingConv(callableTy, tf->linkage,
                                           dfnval ? dfnval->func : nullptr);
 
-  //     IF_LOG Logger::cout() << "callable: " << *callable << '\n';
+  IF_LOG Logger::cout() << "callable: " << *callable << '\n';
 
   // parameter attributes
   AttrSet attrs;
@@ -806,7 +859,7 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
     }
     Logger::undent();
     Logger::cout() << "Function type: " << tf->toChars() << '\n';
-    // Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
+    Logger::cout() << "LLVM functype: " << *callable->getType() << '\n';
   }
 
   const int numFormalParams = Parameter::dim(tf->parameters); // excl. variadics
@@ -840,6 +893,14 @@ DValue *DtoCallFunction(Loc &loc, Type *resulttype, DValue *fnval,
 
   addExplicitArguments(args, attrs, irFty, callableTy, argvals,
                        numFormalParams);
+
+  if (iab.sel) {
+        LLType* t = callable->getType();
+        const char* msgSend = objc_getMsgSend(resulttype, irFty.arg_sret);
+        //const char* msgSend = "objc_msgSend";
+        callable = getRuntimeFunction(loc, gIR->module, msgSend);
+        callable = DtoBitCast(callable, t);
+    }
 
   // call the function
   LLCallSite call = gIR->func()->scopes->callOrInvoke(callable, args);

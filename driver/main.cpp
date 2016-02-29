@@ -32,6 +32,7 @@
 #include "gen/llvm.h"
 #include "gen/logger.h"
 #include "gen/metadata.h"
+#include "gen/objcgen.h"
 #include "gen/optimizer.h"
 #include "gen/passes/Passes.h"
 #include "gen/runtime.h"
@@ -765,6 +766,7 @@ static void registerPredefinedTargetVersions() {
   case llvm::Triple::Darwin:
   case llvm::Triple::MacOSX:
     VersionCondition::addPredefinedGlobalIdent("OSX");
+    VersionCondition::addPredefinedGlobalIdent("D_ObjectiveC");
     VersionCondition::addPredefinedGlobalIdent(
         "darwin"); // For backwards compatibility.
     VersionCondition::addPredefinedGlobalIdent("Posix");
@@ -1021,7 +1023,7 @@ int main(int argc, char **argv) {
   Module::_init();
   Target::_init();
   Expression::_init();
-  objc_tryMain_init();
+  objc_init();
   builtin_init();
   initTraitsStringTable();
 

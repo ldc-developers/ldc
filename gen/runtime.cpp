@@ -625,6 +625,7 @@ static void buildRuntimeModule() {
       createFwdDecl(LINKc, intTy, {"_d_eh_personality"},
                     {voidPtrTy, voidPtrTy, voidPtrTy, voidPtrTy});
     } else if (global.params.targetTriple->getArch() == llvm::Triple::arm) {
+      // NOTE: this is only correct for ARM EABI EH
       // (int state, ptr ucb, ptr context)
       createFwdDecl(LINKc, intTy, {"_d_eh_personality"},
                     {intTy, voidPtrTy, voidPtrTy});
@@ -681,4 +682,72 @@ static void buildRuntimeModule() {
     createFwdDecl(LINKc, voidTy, {"_d_cover_register2"},
                   {stringTy, sizeTy->arrayOf(), uintTy->arrayOf(), ubyteTy});
   }
+
+  // xyzzy - probably need objc runtime here
+  //  There is more to go, only did basics,
+  //  Maybe could combine and use same params
+  //
+  // From clang CodeGen/CGObjCMac.cpp
+  // The types of these functions don't really matter because we
+  // should always bitcast before calling them.
+
+  //LLType* objectPtrTy = Types.ConvertType(gIR->context().getObjCIdType());
+  Type* objectPtrTy = voidPtrTy;
+  //LLType* selectorPtrTy = Types.ConvertType(gIR->context().getObjCSelType());
+  Type* selectorPtrTy = voidPtrTy;
+
+  // id objc_msgSend(id self, SEL op, ...)
+  createFwdDecl(LINKc, objectPtrTy, {"objc_msgSend"},
+                { objectPtrTy, selectorPtrTy });
+#if 0
+  llvm::StringRef fname("objc_msgSend");
+  LLType *types[] = { objectPtrTy, selectorPtrTy };
+  LLFunctionType* fty = llvm::FunctionType::get(objectPtrTy, types, true);
+  llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+  /*xyzzy llvm::AttributeSet::get(CGM.getLLVMContext(),
+    llvm::AttributeSet::FunctionIndex,
+    llvm::Attribute::NonLazyBind)); */
+#endif
+
+  // void objc_msgSend_stret(id self, SEL op, ...)
+  createFwdDecl(LINKc, objectPtrTy, {"objc_msgSend_stret"},
+                { objectPtrTy, selectorPtrTy });
+#if 0
+    // void objc_msgSend_stret(id self, SEL op, ...)
+    {
+        llvm::StringRef fname("objc_msgSend_stret");
+        LLType *types[] = { objectPtrTy, selectorPtrTy };
+        LLFunctionType* fty = llvm::FunctionType::get(voidTy, types, true);
+        llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+    }
+#endif
+
+  // TODO: only generate these when needed for x86 and x86_64
+  Type* doubleTy = Type::tfloat64;
+  // will only be used for x86_64
+  Type* realTy = Type::tfloat80;
+  //Type* realTy = Type::basic[Tfloat80];
+
+  //    x86 | x86_64
+  // double | long double objc_msgSend_fpret(id self, SEL op, ...)
+  createFwdDecl(LINKc, doubleTy, {"objc_msgSend_fpret"},
+                { objectPtrTy, selectorPtrTy });
+#if 0
+  llvm::StringRef fname("objc_msgSend_fpret");
+  LLType *types[] = { objectPtrTy, selectorPtrTy };
+  LLFunctionType* fty = llvm::FunctionType::get(doubleTy, types, true);
+  llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+#endif
+
+  // x86_64 only - probably doesn't matter how these are declared
+  // complex long double objc_msgSend_fp2ret(id self, SEL op, ...)
+  createFwdDecl(LINKc, Type::tcomplex80, {"objc_msgSend_fp2ret"},
+                { objectPtrTy, selectorPtrTy });
+#if 0
+  llvm::StringRef fname("objc_msgSend_fp2ret");
+  LLType *types[] = { objectPtrTy, selectorPtrTy };
+  LLType* crealTy = DtoType(Type::basic[Tcomplex80]);
+  LLFunctionType* fty = llvm::FunctionType::get(crealTy, types, true);
+  llvm::Function::Create(fty, llvm::GlobalValue::ExternalLinkage, fname, M);
+#endif
 }
