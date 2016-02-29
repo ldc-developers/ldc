@@ -25,6 +25,12 @@ version( ARM )
     else version( TVOS ) {}
     else version = AAPCS;
 }
+version( AArch64 )
+{
+    version( iOS ) {}
+    else version( TVOS ) {}
+    else version = AAPCS64;
+}
 
 version( X86_64 )
 {
@@ -295,6 +301,19 @@ version( X86_64 )
 
 version( LDC )
 {
+    version( AArch64 )
+    {
+        void va_arg_aarch64(T)(ref __va_list ap, ref T parmn)
+        {
+            assert(false, "Not yet implemented");
+        }
+
+        void va_arg_aarch64()(ref __va_list ap, TypeInfo ti, void* parmn)
+        {
+            assert(false, "Not yet implemented");
+        }
+    }
+
     version( X86_64 )
     {
         version( Win64 ) {}
@@ -313,6 +332,10 @@ version( LDC )
     {
         alias va_list = __va_list_tag*;
     }
+    else version (AAPCS64)
+    {
+        alias va_list = __va_list;
+    }
     else
     {
         alias va_list = char*;
@@ -327,6 +350,12 @@ version( LDC )
     T va_arg(T)(ref va_list ap)
     {
         version( SystemV_AMD64 )
+        {
+            T arg;
+            va_arg(ap, arg);
+            return arg;
+        }
+        else version( AAPCS64 )
         {
             T arg;
             va_arg(ap, arg);
@@ -356,6 +385,12 @@ version( LDC )
             }
         }
         else version( X86 )
+        {
+            T arg = *cast(T*)ap;
+            ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+            return arg;
+        }
+        else version( AArch64 )
         {
             T arg = *cast(T*)ap;
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
@@ -396,6 +431,10 @@ version( LDC )
         {
             va_arg_x86_64(cast(__va_list*)ap, parmn);
         }
+        else version( AAPCS64 )
+        {
+            va_arg_aarch64(ap, parmn);
+        }
         else version( Win64 )
         {
             import std.traits: isDynamicArray;
@@ -414,6 +453,11 @@ version( LDC )
             }
         }
         else version( X86 )
+        {
+            parmn = *cast(T*)ap;
+            ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+        }
+        else version( AArch64 )
         {
             parmn = *cast(T*)ap;
             ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
@@ -439,6 +483,10 @@ version( LDC )
       version( SystemV_AMD64 )
       {
         va_arg_x86_64(cast(__va_list*)ap, ti, parmn);
+      }
+      else version( AAPCS64 )
+      {
+        va_arg_aarch64(ap, ti, parmn);
       }
       else
       {
@@ -466,6 +514,11 @@ version( LDC )
                 p = (tsize > size_t.sizeof || (tsize & (tsize - 1)) != 0) ? *cast(char**)ap : ap;
                 ap += size_t.sizeof;
             }
+        }
+        else version( AArch64 )
+        {
+            auto p = ap;
+            ap = p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1));
         }
         else version( ARM )
         {
