@@ -10,7 +10,7 @@
  * Authors:   David Nadlinger
  */
 
-#if defined(__arm__) && !defined(__USING_SJLJ_EXCEPTIONS__)
+#ifdef __ARM_EABI__
 
 #include <unwind.h>
 
