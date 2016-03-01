@@ -755,7 +755,7 @@ add_subdirectory(runtime)
 if(D_VERSION EQUAL 2)
     add_subdirectory(tests/d2)
 endif()
-add_subdirectory(tests/ir)
+add_subdirectory(tests)
 
 #
 # Install target.
