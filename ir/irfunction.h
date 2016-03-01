@@ -416,7 +416,6 @@ llvm::CallSite ScopeStack::callOrInvoke(llvm::Value *callee, const T &args,
 #endif
 
   if (doesNotThrow || (cleanupScopes.empty() && catchScopes.empty())) {
-L_call:
     llvm::CallInst *call = irs->ir->CreateCall(callee, args,
 #if LDC_LLVM_VER >= 308
                                                BundleList, 
@@ -429,8 +428,6 @@ L_call:
   }
 
   llvm::BasicBlock* landingPad = getLandingPad();
-  if (!landingPad)
-    goto L_call;
 
   llvm::BasicBlock *postinvoke = llvm::BasicBlock::Create(
       irs->context(), "postinvoke", irs->topfunc(), landingPad);
