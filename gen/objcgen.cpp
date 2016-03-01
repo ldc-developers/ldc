@@ -17,18 +17,11 @@ void genImageInfo() {
 
   // Hard coded for ObjCABI version = 0
   LLType* intType = LLType::getInt32Ty(gIR->context());
-#if 0
-  LLArrayType* arrayType = LLArrayType::get(intType, 2);
-  LLConstant* data = LLConstantArray::get(arrayType, {
-      LLConstantInt::get(intType, 0),  // version
-        LLConstantInt::get(intType, 0)   // flag
-        });
-#else
-  LLConstant* data = LLConstantStruct::getAnon({
-      LLConstantInt::get(intType, 0),  // version
-        LLConstantInt::get(intType, 0)   // flag
-        });
-#endif
+  LLConstant* values[2] = {
+    LLConstantInt::get(intType, 0),  // version
+    LLConstantInt::get(intType, 0)   // flag
+  };
+  LLConstant* data = LLConstantStruct::getAnon(values);
 
   LLGlobalVariable* s = new LLGlobalVariable
     (gIR->module,
