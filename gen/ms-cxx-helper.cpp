@@ -110,10 +110,9 @@ void cloneBlocks(const std::vector<llvm::BasicBlock *> &srcblocks,
               CInst, llvm::OperandBundleDef("funclet", funclet));
           call->setIsNoInline();
           newInst = call;
+        } else if (funclet && llvm::isa<llvm::UnreachableInst>(Inst)) {
+          newInst = llvm::BranchInst::Create(continueWith); // to cleanupret
         }
-      }
-      if (funclet && llvm::isa<llvm::UnreachableInst>(Inst)) {
-        newInst = llvm::BranchInst::Create(continueWith); // cleanupret
       }
       if (!newInst)
         newInst = Inst->clone();
@@ -140,7 +139,7 @@ bool isCatchSwitchBlock(llvm::BasicBlock* bb) {
 
 // copy from clang/.../MicrosoftCXXABI.cpp
 
-// 5 routines for constructing the llvm types for MS RTTI structs.
+// routines for constructing the llvm types for MS RTTI structs.
 llvm::StructType *getTypeDescriptorType(IRState &irs,
                                         llvm::Constant *classInfoPtr,
                                         llvm::StringRef TypeInfoString) {
@@ -186,83 +185,5 @@ llvm::GlobalVariable *getTypeDescriptor(IRState &irs, ClassDeclaration *cd) {
       llvm::ConstantStruct::get(TypeDescriptorType, Fields), TypeDescName);
   return Var;
 }
-
-#if 0
-// currently unused, information built at runtime ATM
-llvm::StructType *BaseClassDescriptorType;
-llvm::StructType *ClassHierarchyDescriptorType;
-llvm::StructType *CompleteObjectLocatorType;
-
-bool isImageRelative() {
-  return global.params.targetTriple.isArch64Bit();
-}
-
-llvm::Type *getImageRelativeType(llvm::Type *PtrType) {
-  if (!isImageRelative())
-    return PtrType;
-  return LLType::getInt32Ty(gIR->context());
-}
-
-llvm::StructType *getClassHierarchyDescriptorType();
-
-llvm::StructType *getBaseClassDescriptorType() {
-  if (BaseClassDescriptorType)
-    return BaseClassDescriptorType;
-  auto intTy = LLType::getInt32Ty(gIR->context());
-  auto int8Ty = LLType::getInt8Ty(gIR->context());
-  llvm::Type *FieldTypes[] = {
-    getImageRelativeType(getPtrToType(int8Ty)),
-    intTy,
-    intTy,
-    intTy,
-    intTy,
-    intTy,
-    getImageRelativeType(getClassHierarchyDescriptorType()->getPointerTo()),
-  };
-  BaseClassDescriptorType = llvm::StructType::create(
-    gIR->context(), FieldTypes, "rtti.BaseClassDescriptor");
-  return BaseClassDescriptorType;
-}
-
-llvm::StructType *getClassHierarchyDescriptorType() {
-  if (ClassHierarchyDescriptorType)
-    return ClassHierarchyDescriptorType;
-  // Forward-declare RTTIClassHierarchyDescriptor to break a cycle.
-  ClassHierarchyDescriptorType = llvm::StructType::create(
-    gIR->context(), "rtti.ClassHierarchyDescriptor");
-  auto intTy = LLType::getInt32Ty(gIR->context());
-  llvm::Type *FieldTypes[] = {
-    intTy,
-    intTy,
-    intTy,
-    getImageRelativeType(
-      getBaseClassDescriptorType()->getPointerTo()->getPointerTo()),
-  };
-  ClassHierarchyDescriptorType->setBody(FieldTypes);
-  return ClassHierarchyDescriptorType;
-}
-
-llvm::StructType *getCompleteObjectLocatorType() {
-  if (CompleteObjectLocatorType)
-    return CompleteObjectLocatorType;
-  CompleteObjectLocatorType = llvm::StructType::create(
-    gIR->context(), "rtti.CompleteObjectLocator");
-  auto intTy = LLType::getInt32Ty(gIR->context());
-  auto int8Ty = LLType::getInt8Ty(gIR->context());
-  llvm::Type *FieldTypes[] = {
-    intTy,
-    intTy,
-    intTy,
-    getImageRelativeType(getPtrToType(int8Ty)),
-    getImageRelativeType(getClassHierarchyDescriptorType()->getPointerTo()),
-    getImageRelativeType(CompleteObjectLocatorType),
-  };
-  llvm::ArrayRef<llvm::Type *> FieldTypesRef(FieldTypes);
-  if (!isImageRelative())
-    FieldTypesRef = FieldTypesRef.drop_back();
-  CompleteObjectLocatorType->setBody(FieldTypesRef);
-  return CompleteObjectLocatorType;
-}
-#endif
 
 #endif // LDC_LLVM_VER >= 308

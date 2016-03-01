@@ -184,7 +184,6 @@ void executeCleanup(IRState *irs, CleanupScope &scope,
   scope.exitTargets.push_back(CleanupExitTarget(continueWith));
   scope.exitTargets.back().sourceBlocks.push_back(sourceBlock);
 }
-
 }
 
 ScopeStack::~ScopeStack() {
@@ -255,17 +254,6 @@ llvm::BasicBlock *ScopeStack::runCleanupPad(CleanupCursor scope,
   if (isCatchSwitchBlock(cleanupScopes[scope].beginBlock))
     return cleanupScopes[scope].beginBlock;
 
-  // when hitting a catch return instruction during cleanup,
-  //  just unwind to the corresponding catchswitch block instead
-  if (!cleanupScopes[scope].beginBlock->empty()) {
-    if (auto catchret = llvm::dyn_cast<llvm::CatchReturnInst>(
-      &cleanupScopes[scope].beginBlock->front())) {
-      llvm::BasicBlock* endcatch = nullptr;
-      auto catchpad = catchret->getCatchPad();
-      auto catchswitch = catchpad->getCatchSwitch();
-      return catchswitch->getUnwindDest();
-    }
-  }
 
   // each cleanup block is bracketed by a pair of cleanuppad/cleanupret
   // instructions, any unwinding should also just continue at the next

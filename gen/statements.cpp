@@ -776,9 +776,6 @@ public:
       exnObj = cpyObj;
     }
 
-    auto enterCatchFn =
-        getRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
-#if 1
     // Exceptions are never rethrown by D code (but thrown again), so
     // we can leave the catch handler right away and continue execution
     // outside the catch funclet
@@ -786,21 +783,9 @@ public:
       llvm::BasicBlock::Create(irs->context(), "catchhandler", irs->topfunc());
     llvm::CatchReturnInst::Create(catchpad, catchhandler, irs->scopebb());
     irs->scope() = IRScope(catchhandler);
+    auto enterCatchFn =
+      getRuntimeFunction(Loc(), irs->module, "_d_eh_enter_catch");
     irs->CreateCallOrInvoke(enterCatchFn, DtoBitCast(exnObj, getVoidPtrType()), clssInfo);
-#else
-    irs->ir->CreateCall(enterCatchFn,
-                        {DtoBitCast(exnObj, getVoidPtrType()), clssInfo},
-                        {llvm::OperandBundleDef("funclet", catchpad)});
-
-    // The code generator will extract the catch handler to funclets
-    // so it needs to know the end of the code executed in the handler.
-    // This is marked by a catch return instruction that is created here
-    // as a cleanup so it appears in all code paths exiting the catch block
-    llvm::BasicBlock *retbb =
-        llvm::BasicBlock::Create(irs->context(), "catchret", irs->topfunc());
-    llvm::CatchReturnInst::Create(catchpad, endbb, retbb);
-    irs->func()->scopes->pushCleanup(retbb, retbb);
-#endif
   }
 #endif
 
@@ -851,10 +836,7 @@ public:
         irs->scope() = IRScope(catchBB);
         irs->DBuilder.EmitBlockStart((*it)->loc);
 
-        CleanupCursor currentScope = scopes->currentCleanupScope();
-
         emitBeginCatchMSVCEH(*it, endbb, catchSwitchInst);
-        //scopes->pushFunclet(&catchBB->front());
 
         // Emit handler, if there is one. The handler is zero, for instance,
         // when building 'catch { debug foo(); }' in non-debug mode.
@@ -863,10 +845,8 @@ public:
         }
 
         if (!irs->scopereturned()) {
-          scopes->runCleanups(currentScope, endbb);
+          irs->ir->CreateBr(endbb);
         }
-        scopes->popCleanups(currentScope);
-        //scopes->popFunclet();
 
         irs->DBuilder.EmitBlockEnd();
 
