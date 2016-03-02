@@ -38,6 +38,7 @@ struct X86TargetABI : TargetABI {
                                     FuncDeclaration *fdecl = nullptr) override {
     switch (l) {
     case LINKc:
+    case LINKobjc:
       return llvm::CallingConv::C;
     case LINKcpp:
       return isMSVC && !ft->isVarArg() && fdecl && fdecl->isThis()
@@ -57,6 +58,7 @@ struct X86TargetABI : TargetABI {
     switch (l) {
     case LINKc:
     case LINKcpp:
+    case LINKobjc:
     case LINKpascal:
     case LINKwindows:
       return name;

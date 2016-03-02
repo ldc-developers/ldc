@@ -42,7 +42,7 @@
 
 llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
                                     Type *nesttype, bool isMain, bool isCtor,
-                                    bool isIntrinsic) {
+                                    bool isIntrinsic, bool hasSel) {
   IF_LOG Logger::println("DtoFunctionType(%s)", type->toChars());
   LOG_SCOPE
 
@@ -111,6 +111,12 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
     attrs.add(LLAttribute::NonNull);
     newIrFty.arg_nest = new IrFuncTyArg(nesttype, false, attrs);
     ++nextLLArgIdx;
+  }
+
+  if (hasSel) {
+      // TODO: make arg_objcselector to match dmd type
+      newIrFty.arg_objcSelector = new IrFuncTyArg(Type::tvoidptr, false);
+      ++nextLLArgIdx;
   }
 
   // vararg functions are special too
@@ -193,6 +199,9 @@ llvm::FunctionType *DtoFunctionType(Type *type, IrFuncTy &irFty, Type *thistype,
   if (irFty.arg_nest) {
     argtypes.push_back(irFty.arg_nest->ltype);
   }
+  if (irFty.arg_objcSelector) {
+    argtypes.push_back(irFty.arg_objcSelector->ltype);
+  }
   if (irFty.arg_arguments) {
     argtypes.push_back(irFty.arg_arguments->ltype);
   }
@@ -254,6 +263,7 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
   }
 
   Type *dthis = nullptr, *dnest = nullptr;
+  bool hasSel = false;
 
   if (fdecl->ident == Id::ensure || fdecl->ident == Id::require) {
     FuncDeclaration *p = fdecl->parent->isFuncDeclaration();
@@ -279,9 +289,13 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
     dnest = Type::tvoid->pointerTo();
   }
 
+  if (fdecl->objc.selector) {
+      hasSel = true;
+  }
+
   LLFunctionType *functype = DtoFunctionType(
       fdecl->type, getIrFunc(fdecl, true)->irFty, dthis, dnest, fdecl->isMain(),
-      fdecl->isCtorDeclaration(), DtoIsIntrinsic(fdecl));
+      fdecl->isCtorDeclaration(), DtoIsIntrinsic(fdecl), hasSel);
 
   return functype;
 }
@@ -544,6 +558,13 @@ void DtoDeclareFunction(FuncDeclaration *fdecl) {
     iarg->setName(".nest_arg");
     irFunc->nestArg = &(*iarg);
     assert(irFunc->nestArg);
+    ++iarg;
+  }
+
+  // TODO: do we need this?
+  if (irFty.arg_objcSelector) {
+    iarg->setName(".objcSelector_arg");
+    irFunc->thisArg = &(*iarg);
     ++iarg;
   }
 
