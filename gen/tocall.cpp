@@ -748,38 +748,9 @@ private:
     }
 
     if (sel)  {
-#if 0 // TODO: needs to be reimplemented for ldc master
-        LLGlobalVariable* selptr =
-            objc_getMethVarRef(sel->stringvalue, sel->stringlen);
-        // TODO: could use arg type
-        //++argiter;
-        //args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType())); //cast?
-        args.push_back(DtoBitCast(DtoLoad(selptr), *argiter++));
-
-#elif 1
-        LLGlobalVariable* selptr =
-            objc_getMethVarRef(sel->stringvalue, sel->stringlen);
-        args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType())); //cast?
-
-#else  // working proof of concept that should go in objc_getMethVarRef
-        llvm::StringRef s(sel->stringvalue, sel->stringlen);
-        LLConstant* init = llvm::ConstantDataArray::getString(gIR->context(), s, true);
-        //.section	__TEXT,__objc_methname,cstring_literals
-        llvm::GlobalVariable* gvar = new llvm::GlobalVariable
-            (gIR->module, init->getType(), true,
-             llvm::GlobalValue::PrivateLinkage, init, "OBJC_METH_VAR_NAME_");
-        gvar->setSection("__TEXT,__objc_methname,cstring_literals");
-        // do we need this?
-        gvar->setUnnamedAddr(true);
-
-	//.section	__DATA,__objc_selrefs,literal_pointers,no_dead_strip
-        llvm::GlobalVariable* selptr = new llvm::GlobalVariable
-            (gIR->module, gvar->getType(), true,
-             llvm::GlobalValue::PrivateLinkage,
-             gvar, "OBJC_SELECTOR_REFERENCES_");
-        selptr->setSection("__DATA,__objc_selrefs,literal_pointers,no_dead_strip");
+        LLGlobalVariable* selptr = objc_getMethVarRef(*sel);
         args.push_back(DtoBitCast(DtoLoad(selptr), getVoidPtrType()));
-#endif
+        // TODO: do we need the real selector type instead of void*?
     }
   }
 
