@@ -407,12 +407,13 @@ LLConstant *DtoConstFP(Type *t, longdouble value) {
                                                      APInt(80, 2, bits)));
   }
   if (llty == LLType::getFP128Ty(gIR->context())) {
-    uint64_t bits[] = { 0, 0 };
-    bits[0] = *reinterpret_cast<uint64_t *>(&value);
-    bits[1] =
-      *reinterpret_cast<uint16_t *>(reinterpret_cast<uint64_t *>(&value) + 1);
+    union {
+      longdouble ld;
+      uint64_t bits[2];
+    } t;
+    t.ld = value;
     return LLConstantFP::get(
-      gIR->context(), APFloat(APFloat::IEEEquad, APInt(128, 2, bits)));
+      gIR->context(), APFloat(APFloat::IEEEquad, APInt(128, 2, t.bits)));
   }
   if (llty == LLType::getPPC_FP128Ty(gIR->context())) {
     uint64_t bits[] = {0, 0};
