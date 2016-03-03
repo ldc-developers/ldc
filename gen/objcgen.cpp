@@ -17,6 +17,13 @@
 namespace {
 bool hasSymbols;
 
+enum ABI {
+  fragile = 1,
+  nonFragile = 2
+};
+
+ABI abi = nonFragile;
+
 std::vector<LLConstant *> usedSymbols;
 
 llvm::StringMap<LLGlobalVariable *> methVarNameMap;
@@ -27,6 +34,8 @@ void initSymbols() {
   usedSymbols.clear();
   methVarNameMap.clear();
   methVarRefMap.clear();
+
+  abi = (global.params.targetTriple->isArch64Bit()) ? nonFragile : fragile;
 }
 
 void use(LLConstant *sym)
@@ -52,10 +61,11 @@ void genImageInfo() {
   // TargetLoweringObjectFileMachO::emitModuleFlags()
 #if 1
   // Use LLVM to generate image info
-  const char *section = "__DATA,__objc_imageinfo,regular,no_dead_strip";
-
+  const char *section = (abi == nonFragile ?
+                         "__DATA,__objc_imageinfo,regular,no_dead_strip" :
+                         "__OBJC,__image_info");
   gIR->module.addModuleFlag(llvm::Module::Error,
-                            "Objective-C Version", 2); //  unused?
+                            "Objective-C Version", abi); //  unused?
   gIR->module.addModuleFlag(llvm::Module::Error,
                             "Objective-C Image Info Version", 0u); // version
   gIR->module.addModuleFlag(llvm::Module::Error,
@@ -77,7 +87,9 @@ void genImageInfo() {
      LLGlobalValue::PrivateLinkage,
      data,
      "OBJC_IMAGE_INFO");
-  var->setSection("__DATA,__objc_imageinfo,regular,no_dead_strip");
+  var->setSection(abi == nonFragile ?
+                  "__DATA,__objc_imageinfo,regular,no_dead_strip" :
+                  "__OBJC,__image_info");
   use(var);
 #endif
 }
@@ -100,8 +112,11 @@ LLGlobalVariable *getMethVarName(const llvm::StringRef &name) {
     return it->second;
   }
 
+  // TODO: check on proper alignment.  May be different for -m32
   auto var = getCStringVar("OBJC_METH_VAR_NAME_", name,
-                            "__TEXT,__objc_methname,cstring_literals");
+                           abi == nonFragile ?
+                           "__TEXT,__objc_methname,cstring_literals" :
+                           "__TEXT,__cstring,cstring_literals");
   methVarNameMap[name] = var;
   use(var);
   return var;
@@ -132,7 +147,9 @@ LLGlobalVariable *objc_getMethVarRef(const ObjcSelector &sel) {
      "OBJC_SELECTOR_REFERENCES_",
      nullptr, LLGlobalVariable::NotThreadLocal, 0,
      true);                                  // externally initialized
-  selref->setSection("__DATA,__objc_selrefs,literal_pointers,no_dead_strip");
+  selref->setSection(abi == nonFragile ?
+                     "__DATA,__objc_selrefs,literal_pointers,no_dead_strip" :
+                     "__OBJC,__message_refs,literal_pointers,no_dead_strip");
 
   // Save for later lookup and prevent optimizer elimination
   methVarRefMap[s] = selref;
