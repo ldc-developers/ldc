@@ -230,7 +230,7 @@ static int linkObjToBinaryGcc(bool sharedLib, bool fullyStatic) {
         break;
       }
     } else {
-      switch (global.params.targetTriple.getArch()) {
+      switch (global.params.targetTriple->getArch()) {
       case llvm::Triple::arm:
       case llvm::Triple::armeb:
       case llvm::Triple::aarch64:
