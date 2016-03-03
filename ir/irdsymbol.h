@@ -83,7 +83,7 @@ private:
   friend IrField *getIrField(VarDeclaration *decl, bool create);
 
   union {
-    void *irData;
+    void *irData = nullptr;
     IrModule *irModule;
     IrAggr *irAggr;
     IrFunction *irFunc;

@@ -27,9 +27,7 @@ void IrDsymbol::resetAll() {
   }
 }
 
-IrDsymbol::IrDsymbol() : irData(nullptr) {
-  list.push_back(this);
-}
+IrDsymbol::IrDsymbol() { list.push_back(this); }
 
 IrDsymbol::IrDsymbol(const IrDsymbol &s) {
   list.push_back(this);

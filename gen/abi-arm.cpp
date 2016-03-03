@@ -67,29 +67,14 @@ struct ArmTargetABI : TargetABI {
   }
 
   bool passByVal(Type *t) override {
-    // AAPCS does not use an indirect arg to pass aggregates, however
-    // clang uses byval for types > 64-bytes, then llvm backend
-    // converts back to non-byval.  Without this special handling the
-    // optimzer generates bad code (e.g. std.random unittest crash).
-    t = t->toBasetype();
-    return ((t->ty == Tsarray || t->ty == Tstruct) && t->size() > 64);
+    // AAPCS does not pass byval
+    return false;
 
-    // Note: byval can have a codegen problem with -O1 and higher.
-    // What happens is that load instructions are being incorrectly
-    // reordered before stores.  It is a problem in the LLVM backend.
-    // The outcome is a program with incorrect results or crashes.
-    // It happens in the "top-down list latency scheduler" pass
-    //
-    //   https://forum.dlang.org/post/m2r3u5ac0c.fsf@comcast.net
-    //
-    // Revist and determine if the byval problem is only for small
-    // structs, say 16-bytes or less, that can entirely fit in
-    // registers.
-    
-    // Note: the codegen is horrible for Tsarrays passed this way -
-    // does a copy without a loop for huge arrays.  Could be better if
-    // byval was always used for sarrays, and maybe can if above
-    // problem is better understood.
+    // Note: the codegen is horrible for Tsarrays passed this way - tries to do
+    // copy without a loop for huge arrays.  Would be better if byval was used
+    // for arrays, but then there is an optimizer problem in the "top-down list
+    // latency scheduler" pass that reorders instructions incorrectly if byval
+    // used.
   }
 
   void rewriteFunctionType(TypeFunction *tf, IrFuncTy &fty) override {
@@ -108,11 +93,6 @@ struct ArmTargetABI : TargetABI {
     for (auto arg : fty.args) {
       if (!arg->byref)
         rewriteArgument(fty, *arg);
-    }
-
-    // extern(D): reverse parameter order for non variadics, for DMD-compliance
-    if (tf->linkage == LINKd && tf->varargs != 1 && fty.args.size() > 1) {
-      fty.reverseParams = true;
     }
   }
 

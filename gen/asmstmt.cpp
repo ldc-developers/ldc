@@ -114,10 +114,7 @@ Statement *asmSemantic(AsmStatement *s, Scope *sc) {
     err = true;
   }
   if (err) {
-    if (!global.gag) {
-      fatal();
-    }
-    return s;
+    fatal();
   }
 
   // puts(toChars());

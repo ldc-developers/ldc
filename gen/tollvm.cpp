@@ -63,9 +63,7 @@ LLAttribute DtoShouldExtend(Type *type) {
 
     case Tuns8:
     case Tuns16:
-    case Tchar:
-    case Twchar:
-	return LLAttribute::ZExt;
+      return LLAttribute::ZExt;
 
     default:
       // Do not extend.
@@ -411,15 +409,6 @@ LLConstant *DtoConstFP(Type *t, longdouble value) {
         *reinterpret_cast<uint16_t *>(reinterpret_cast<uint64_t *>(&value) + 1);
     return LLConstantFP::get(gIR->context(), APFloat(APFloat::x87DoubleExtended,
                                                      APInt(80, 2, bits)));
-  }
-  if (llty == LLType::getFP128Ty(gIR->context())) {
-    union {
-      longdouble ld;
-      uint64_t bits[2];
-    } t;
-    t.ld = value;
-    return LLConstantFP::get(
-      gIR->context(), APFloat(APFloat::IEEEquad, APInt(128, 2, t.bits)));
   }
   if (llty == LLType::getPPC_FP128Ty(gIR->context())) {
     uint64_t bits[] = {0, 0};
