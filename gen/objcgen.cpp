@@ -1,7 +1,18 @@
+//===-- objcgen.cpp -------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "mtype.h"
 #include "objc.h"
 #include "gen/irstate.h"
 #include "gen/objcgen.h"
+
+// Currently generates symbols for the non-fragile ABI
 
 namespace {
 bool hasSymbols;
@@ -37,11 +48,23 @@ void retainSymbols() {
 }
 
 void genImageInfo() {
-  // Note: this would normally be produced by LLMV
+  // First option uses LLMV to produce image info ala module flags and
   // TargetLoweringObjectFileMachO::emitModuleFlags()
-  // if module flags are added ala CGObjCMac.cpp
-  // Check into it and then can eliminate this func
+#if 1
+  // Use LLVM to generate image info
+  const char *section = "__DATA,__objc_imageinfo,regular,no_dead_strip";
 
+  gIR->module.addModuleFlag(llvm::Module::Error,
+                            "Objective-C Version", 2); //  unused?
+  gIR->module.addModuleFlag(llvm::Module::Error,
+                            "Objective-C Image Info Version", 0u); // version
+  gIR->module.addModuleFlag(llvm::Module::Error,
+                            "Objective-C Image Info Section",
+                            llvm::MDString::get(gIR->context(), section));
+  gIR->module.addModuleFlag(llvm::Module::Override,
+                            "Objective-C Garbage Collection", 0u); // flags
+#else
+  // Second option just does it directly
   LLType* intType = LLType::getInt32Ty(gIR->context());
   LLConstant* values[2] = {
     LLConstantInt::get(intType, 0),  // version
@@ -56,6 +79,7 @@ void genImageInfo() {
      "OBJC_IMAGE_INFO");
   var->setSection("__DATA,__objc_imageinfo,regular,no_dead_strip");
   use(var);
+#endif
 }
 
 LLGlobalVariable *getCStringVar(const char *symbol,
