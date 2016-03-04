@@ -99,6 +99,13 @@ public:
   /// \returns        the Dwarf subprogram global.
   DISubprogram EmitSubProgram(FuncDeclaration *fd); // FIXME
 
+  /// \brief Emit the Dwarf subprogram global for a thunk.
+  /// \param Thunk    llvm::Function pointer.
+  /// \param fd       The function wrapped by this thunk.
+  /// \returns        the Dwarf subprogram global.
+  DISubprogram EmitThunk(llvm::Function *Thunk,
+                              FuncDeclaration *fd); // FIXME
+
   /// \brief Emit the Dwarf subprogram global for a module ctor.
   /// This is used for generated functions like moduleinfoctors,
   /// module ctors/dtors and unittests.

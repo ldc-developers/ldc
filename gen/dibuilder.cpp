@@ -647,21 +647,66 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 
   // Create subroutine type
   ldc::DISubroutineType DIFnType =
-      CreateFunctionType(static_cast<TypeFunction *>(fd->type));
+    CreateFunctionType(static_cast<TypeFunction *>(fd->type));
 
   // FIXME: duplicates?
   return DBuilder.createFunction(
-      CU,                                 // context
-      fd->toPrettyChars(),                // name
-      mangleExact(fd),                    // linkage name
-      file,                               // file
-      fd->loc.linnum,                     // line no
-      DIFnType,                           // type
-      fd->protection.kind == PROTprivate, // is local to unit
-      true,                               // isdefinition
-      fd->loc.linnum,                     // FIXME: scope line
-      DIFlags::FlagPrototyped,            // Flags
-      isOptimizationEnabled()             // isOptimized
+    CU,                                 // context
+    fd->toPrettyChars(),                // name
+    mangleExact(fd),                    // linkage name
+    file,                               // file
+    fd->loc.linnum,                     // line no
+    DIFnType,                           // type
+    fd->protection.kind == PROTprivate, // is local to unit
+    true,                               // isdefinition
+    fd->loc.linnum,                     // FIXME: scope line
+    DIFlags::FlagPrototyped,            // Flags
+    isOptimizationEnabled()             // isOptimized
+#if LDC_LLVM_VER < 308
+    ,
+    getIrFunc(fd)->func
+#endif
+    );
+}
+
+ldc::DISubprogram ldc::DIBuilder::EmitThunk(llvm::Function *Thunk,
+                                            FuncDeclaration *fd) {
+  if (!global.params.symdebug) {
+#if LDC_LLVM_VER >= 307
+    return nullptr;
+#else
+    return llvm::DISubprogram();
+#endif
+  }
+
+  Logger::println("Thunk to dwarf subprogram");
+  LOG_SCOPE;
+
+  ldc::DICompileUnit CU(GetCU());
+  assert(CU &&
+         "Compilation unit missing or corrupted in DIBuilder::EmitThunk");
+
+  ldc::DIFile file(CreateFile(fd->loc));
+
+  // Create subroutine type (thunk has same type as wrapped function)
+  ldc::DISubroutineType DIFnType = CreateFunctionType(fd->type);
+
+  std::string name(fd->toPrettyChars());
+  name.append(".__thunk");
+
+  // FIXME: duplicates?
+  return DBuilder.createFunction(
+      CU,                                      // context
+      name,                                    // name
+      Thunk->getName(),                        // linkage name
+      file,                                    // file
+      fd->loc.linnum,                          // line no
+      DIFnType,                                // type
+      fd->protection.kind == PROTprivate,      // is local to unit
+      true,                                    // isdefinition
+      fd->loc.linnum,                          // FIXME: scope line
+      DIFlags::FlagPrototyped,                 // Flags
+      isOptimizationEnabled()                  // isOptimized
 #if LDC_LLVM_VER < 308
       ,
       getIrFunc(fd)->func
