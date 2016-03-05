@@ -20,13 +20,13 @@ version ( PPC64 ) version = AnyPPC;
 
 version( ARM )
 {
-    // iOS, tvOS use older APCS variant instead of AAPCS
+    // iOS uses older APCS variant instead of AAPCS
     version( iOS ) {}
-    else version( TVOS ) {}
     else version = AAPCS;
 }
 version( AArch64 )
 {
+    // iOS, tvOS are AAPCS64, but don't follow it for va_list
     version( iOS ) {}
     else version( TVOS ) {}
     else version = AAPCS64;
@@ -336,6 +336,38 @@ version( LDC )
     {
         alias va_list = __va_list;
     }
+    else version (ARM)
+    {
+        // __va_list will be defined for ARM AAPCS targets that need
+        // it by object.d.  Use a .ptr property so ARM code below can
+        // be common
+        static if (is(__va_list))
+        {
+            alias va_list = __va_list;
+
+            private ref auto ptr(ref va_list ap) @property
+            {
+                return ap.__ap;
+            }
+            private auto ptr(ref va_list ap, void* ptr) @property
+            {
+                return ap.__ap = ptr;
+            }
+        }
+        else
+        {
+            alias va_list = char*;
+
+            private ref auto ptr(ref va_list ap) @property
+            {
+                return ap;
+            }
+            private auto ptr(ref va_list ap, void* ptr) @property
+            {
+                return ap = cast(va_list)ptr;
+            }
+        }
+    }
     else
     {
         alias va_list = char*;
@@ -403,10 +435,10 @@ version( LDC )
             version( AAPCS )
             {
                 if (T.alignof >= 8)
-                    ap = cast(va_list)((cast(size_t)ap + 7) & ~7);
+                    ap.ptr = cast(void*)((cast(size_t)ap.ptr + 7) & ~7);
             }
-            T arg = *cast(T*)ap;
-            ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+            T arg = *cast(T*)ap.ptr;
+            ap.ptr += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
             return arg;
         }
         else version( AnyPPC )
@@ -469,10 +501,10 @@ version( LDC )
             version( AAPCS )
             {
                 if (T.alignof >= 8)
-                    ap = cast(va_list)((cast(size_t)ap + 7) & ~7);
+                    ap.ptr = cast(void*)((cast(size_t)ap.ptr + 7) & ~7);
             }
-            parmn = *cast(T*)ap;
-            ap += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
+            parmn = *cast(T*)ap.ptr;
+            ap.ptr += (T.sizeof + size_t.sizeof - 1) & ~(size_t.sizeof - 1);
         }
         else
             parmn = va_arg!T(ap);
@@ -527,10 +559,10 @@ version( LDC )
             version( AAPCS )
             {
                 if (ti.talign >= 8)
-                    ap = cast(va_list)((cast(size_t)ap + 7) & ~7);
+                    ap.ptr = cast(void*)((cast(size_t)ap.ptr + 7) & ~7);
             }
-            auto p = ap;
-            ap = p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1));
+            auto p = ap.ptr;
+            ap.ptr = p + ((tsize + size_t.sizeof - 1) & ~(size_t.sizeof - 1));
         }
         else version( AnyPPC )
         {

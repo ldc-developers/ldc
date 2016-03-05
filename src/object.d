@@ -75,6 +75,17 @@ version (LDC)
             alias __va_list = ldc.internal.vararg.std.__va_list;
         }
     }
+    else version (ARM)
+    {
+        // Darwin does not use __va_list
+        version( iOS ) {}
+        else version( WatchOS ) {}
+        else
+        {
+            static import ldc.internal.vararg;
+            alias __va_list = ldc.internal.vararg.std.__va_list;
+        }
+    }
 }
 
 /**
