@@ -364,6 +364,8 @@ llvm::GlobalVariable *IrAggr::getInterfaceVtbl(BaseClass *b, bool new_instance,
           new char[sizeof(FuncDeclaration)], fd, sizeof(FuncDeclaration)));
       thunkFd->ir = new IrDsymbol();
       auto thunkFunc = getIrFunc(thunkFd, true); // create the IrFunction
+      thunkFunc->func = thunk;
+      thunkFunc->type = irFunc->type;
       gIR->functions.push_back(thunkFunc);
 
       // debug info

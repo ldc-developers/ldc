@@ -645,6 +645,8 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
 
   ldc::DIFile file(CreateFile(fd->loc));
 
+  std::string mangledName(getIrFunc(fd)->func->getName());
+
   // Create subroutine type
   ldc::DISubroutineType DIFnType =
     CreateFunctionType(static_cast<TypeFunction *>(fd->type));
@@ -661,7 +663,7 @@ ldc::DISubprogram ldc::DIBuilder::EmitSubProgram(FuncDeclaration *fd) {
   return DBuilder.createFunction(
       CU,                                 // context
       displayName,                        // name
-      mangleExact(fd),                    // linkage name
+      mangledName,                        // linkage name
       file,                               // file
       fd->loc.linnum,                     // line no
       DIFnType,                           // type
