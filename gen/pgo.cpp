@@ -328,6 +328,16 @@ struct ComputeRegionCounts : public RecursiveVisitor {
   };
   llvm::SmallVector<BreakContinue, 8> BreakContinueStack;
 
+  struct LoopLabel {
+    // If a label is used as break/continue target, this struct stores the
+    // BreakContinue stack index at the label point
+    LabelStatement *label;
+    size_t stackindex;
+    LoopLabel(LabelStatement *_label, size_t index)
+        : label(_label), stackindex(index) {}
+  };
+  llvm::SmallVector<LoopLabel, 8> LoopLabels;
+
   ComputeRegionCounts(llvm::DenseMap<const RootObject *, uint64_t> &CountMap,
                       CodeGenPGO &PGO)
       : PGO(PGO), RecordNextStmtCount(false), CountMap(CountMap) {}
@@ -381,14 +391,33 @@ struct ComputeRegionCounts : public RecursiveVisitor {
     // Counter tracks the block following the label.
     uint64_t BlockCount = setCount(PGO.getRegionCount(S));
     CountMap[S] = BlockCount;
+
+    // For each label pointing to a loop, store the current index of
+    // BreakContinueStack. This is needed for `break label;` and `continue
+    // label;` statements in loops.
+    // Assume all labels point to loops. (TODO: find predicate to filter which labels to add)
+    LoopLabels.push_back(LoopLabel(S, BreakContinueStack.size()));
+
     recurse(S->statement);
   }
 
   void visit(BreakStatement *S) override {
     RecordStmtCount(S);
     assert(!BreakContinueStack.empty() && "break not in a loop or switch!");
-    // FIXME: implement D-style break statements that break to a label
-    BreakContinueStack.back().BreakCount += CurrentCount;
+
+    if (S->target) {
+      auto it = std::find_if(
+          LoopLabels.begin(), LoopLabels.end(),
+          [S](const LoopLabel &LL) { return LL.label == S->target; });
+      assert(it != LoopLabels.end() && "It is not possible to break to a label "
+                                       "that has not been visited yet");
+      auto LL = *it;
+      assert(LL.stackindex < BreakContinueStack.size());
+      BreakContinueStack[LL.stackindex].BreakCount += CurrentCount;
+    } else {
+      BreakContinueStack.back().BreakCount += CurrentCount;
+    }
+
     CurrentCount = 0;
     RecordNextStmtCount = true;
   }
@@ -396,7 +425,21 @@ struct ComputeRegionCounts : public RecursiveVisitor {
   void visit(ContinueStatement *S) override {
     RecordStmtCount(S);
     assert(!BreakContinueStack.empty() && "continue stmt not in a loop!");
-    BreakContinueStack.back().ContinueCount += CurrentCount;
+
+    if (S->target) {
+      auto it = std::find_if(
+          LoopLabels.begin(), LoopLabels.end(),
+          [S](const LoopLabel &LL) { return LL.label == S->target; });
+      assert(it != LoopLabels.end() &&
+             "It is not possible to continue to a label "
+             "that has not been visited yet");
+      auto LL = *it;
+      assert(LL.stackindex < BreakContinueStack.size());
+      BreakContinueStack[LL.stackindex].ContinueCount += CurrentCount;
+    } else {
+      BreakContinueStack.back().ContinueCount += CurrentCount;
+    }
+
     CurrentCount = 0;
     RecordNextStmtCount = true;
   }
