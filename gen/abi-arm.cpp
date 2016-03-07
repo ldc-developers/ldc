@@ -139,6 +139,20 @@ struct ArmTargetABI : TargetABI {
       }
     }
   }
+
+  void vaCopy(LLValue *pDest, LLValue *src) {
+    // simply bitcopy src over dest.  src is __va_list*, so need load
+    auto srcval = DtoLoad(src);
+    DtoStore(srcval, pDest);
+  }
+
+  Type *vaListType() override {
+    // We need to pass the actual va_list type for correct mangling. Simply
+    // using TypeIdentifier here is a bit wonky but works, as long as the name
+    // is actually available in the scope (this is what DMD does, so if a better
+    // solution is found there, this should be adapted).
+    return (new TypeIdentifier(Loc(), Identifier::idPool("__va_list")));
+  }
 };
 
 TargetABI *getArmTargetABI() { return new ArmTargetABI; }
