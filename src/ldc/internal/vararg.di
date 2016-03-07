@@ -21,3 +21,12 @@ version (AArch64)
         int __vr_offs;
     }
 }
+else version (ARM)
+{
+    // Need std::__va_list for C++ mangling compatability
+    // section AAPCS 7.1.4
+    extern (C++, std) struct __va_list
+    {
+        void *__ap;
+    }
+}
