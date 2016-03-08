@@ -18,6 +18,7 @@ namespace {
 bool hasSymbols;
 
 enum ABI {
+  none = 0,
   fragile = 1,
   nonFragile = 2
 };
@@ -34,12 +35,9 @@ void initSymbols() {
   usedSymbols.clear();
   methVarNameMap.clear();
   methVarRefMap.clear();
-
-  abi = (global.params.targetTriple->isArch64Bit()) ? nonFragile : fragile;
 }
 
-void use(LLConstant *sym)
-{
+void use(LLConstant *sym) {
     usedSymbols.push_back(DtoBitCast(sym, getVoidPtrType()));
 }
 
@@ -106,7 +104,6 @@ LLGlobalVariable *getCStringVar(const char *symbol,
 }
 
 LLGlobalVariable *getMethVarName(const llvm::StringRef &name) {
-
   auto it = methVarNameMap.find(name);
   if (it != methVarNameMap.end()) {
     return it->second;
@@ -121,17 +118,37 @@ LLGlobalVariable *getMethVarName(const llvm::StringRef &name) {
   use(var);
   return var;
 }
-
 } // end local stuff
 
+bool objc_isSupported(const llvm::Triple &triple) {
+  if (triple.isOSDarwin()) {
+    // Objective-C only supported on Darwin at this time
+    switch (triple.getArch()) {
+#if LDC_LLVM_VER == 305
+    case llvm::Triple::arm64:
+#endif
+    case llvm::Triple::aarch64:              // arm64 iOS, tvOS
+    case llvm::Triple::arm:                  // armv6 iOS
+    case llvm::Triple::thumb:                // thumbv7 iOS, watchOS
+    case llvm::Triple::x86_64:               // OSX, iOS, tvOS sim
+      abi = nonFragile;
+      return true;
+    case llvm::Triple::x86:                  // OSX, iOS, watchOS sim
+      abi = fragile;
+      return true;
+    default:
+      break;
+    }
+  }
+  return false;
+}
+
 void objc_init() {
-  // TODO: fix so resolved with ddmd/objc.d version
   initSymbols();
   ObjcSelector::_init();
 }
 
 LLGlobalVariable *objc_getMethVarRef(const ObjcSelector &sel) {
-
   llvm::StringRef s(sel.stringvalue, sel.stringlen);
   auto it = methVarRefMap.find(s);
   if (it != methVarRefMap.end()) {

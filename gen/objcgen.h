@@ -18,8 +18,10 @@ class Type;
 struct ObjcSelector;
 namespace llvm {
 class GlobalVariable;
+class Triple;
 }
 
+bool objc_isSupported(const llvm::Triple &triple);
 void objc_init();
 const char *objc_getMsgSend(Type *ret, bool hasHiddenArg);
 void objc_Module_genmoduleinfo_classes();
