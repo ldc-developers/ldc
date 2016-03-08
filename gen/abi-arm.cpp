@@ -13,6 +13,7 @@
   http://infocenter.arm.com/help/topic/com.arm.doc.ihi0042f/IHI0042F_aapcs.pdf
 */
 
+#include "ldcbindings.h"
 #include "gen/abi.h"
 #include "gen/abi-generic.h"
 #include "gen/abi-arm.h"
@@ -151,7 +152,7 @@ struct ArmTargetABI : TargetABI {
     // using TypeIdentifier here is a bit wonky but works, as long as the name
     // is actually available in the scope (this is what DMD does, so if a better
     // solution is found there, this should be adapted).
-    return (new TypeIdentifier(Loc(), Identifier::idPool("__va_list")));
+    return (createTypeIdentifier(Loc(), Identifier::idPool("__va_list")));
   }
 };
 
