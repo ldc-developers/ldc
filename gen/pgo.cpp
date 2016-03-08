@@ -395,7 +395,8 @@ struct ComputeRegionCounts : public RecursiveVisitor {
     // For each label pointing to a loop, store the current index of
     // BreakContinueStack. This is needed for `break label;` and `continue
     // label;` statements in loops.
-    // Assume all labels point to loops. (TODO: find predicate to filter which labels to add)
+    // Assume all labels point to loops. (TODO: find predicate to filter which
+    // labels to add)
     LoopLabels.push_back(LoopLabel(S, BreakContinueStack.size()));
 
     recurse(S->statement);
@@ -833,7 +834,7 @@ void CodeGenPGO::assignRegionCounters(const FuncDeclaration *D,
     // SourceManager &SM = CGM.getContext().getSourceManager();
     loadRegionCounts(PGOReader, D);
     computeRegionCounts(D);
-    applyFunctionAttributes(PGOReader, fn);
+    applyFunctionAttributes(fn);
   }
 }
 
@@ -856,24 +857,11 @@ void CodeGenPGO::computeRegionCounts(const FuncDeclaration *FD) {
 }
 
 /// Apply attributes to llvm::Function based on profiling data.
-void CodeGenPGO::applyFunctionAttributes(
-    llvm::IndexedInstrProfReader *PGOReader, llvm::Function *Fn) {
+void CodeGenPGO::applyFunctionAttributes(llvm::Function *Fn) {
   if (!haveRegionCounts())
     return;
 
-  uint64_t MaxFunctionCount = PGOReader->getMaximumFunctionCount();
   uint64_t FunctionCount = getRegionCount(nullptr);
-  if (FunctionCount >= (uint64_t)(0.3 * (double)MaxFunctionCount))
-    // Turn on InlineHint attribute for hot functions.
-    // NOTE: 30% is from Clang 3.7 ("preliminary tuning on SPEC"), and may not
-    // be optimal.
-    Fn->addFnAttr(llvm::Attribute::InlineHint);
-  else if (FunctionCount <= (uint64_t)(0.01 * (double)MaxFunctionCount))
-    // Turn on Cold attribute for cold functions.
-    // NOTE: 1% is from Clang 3.7 ("preliminary tuning on SPEC"), it may not be
-    // optimal
-    Fn->addFnAttr(llvm::Attribute::Cold);
-
   Fn->setEntryCount(FunctionCount);
 }
 
