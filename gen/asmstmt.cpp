@@ -360,6 +360,7 @@ void AsmStatement_toIR(AsmStatement *stmt, IRState *irs) {
     }
     llvmOutConstraints += oc;
     llvmOutConstraints += ",";
+    n++;
   }
   asmblock->outputcount += n;
 
