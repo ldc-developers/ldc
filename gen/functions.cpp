@@ -289,8 +289,12 @@ llvm::FunctionType *DtoFunctionType(FuncDeclaration *fdecl) {
     dnest = Type::tvoid->pointerTo();
   }
 
-  if (fdecl->objc.selector) {
+  if (fdecl->linkage == LINKobjc && dthis) {
+    if (fdecl->objc.selector) {
       hasSel = true;
+    } else if (ClassDeclaration *cd = fdecl->parent->isClassDeclaration()) {
+      fdecl->error("Objective-C @selector is missing");
+    }
   }
 
   LLFunctionType *functype = DtoFunctionType(

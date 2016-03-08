@@ -1,10 +1,29 @@
+//===-- objcgen.cpp -------------------------------------------------------===//
+//
+//                         LDC – the LLVM D compiler
+//
+// This file is distributed under the BSD-style LDC license. See the LICENSE
+// file for details.
+//
+//===----------------------------------------------------------------------===//
+
 #include "mtype.h"
 #include "objc.h"
 #include "gen/irstate.h"
 #include "gen/objcgen.h"
 
+// Currently generates symbols for the non-fragile ABI
+
 namespace {
 bool hasSymbols;
+
+enum ABI {
+  none = 0,
+  fragile = 1,
+  nonFragile = 2
+};
+
+ABI abi = nonFragile;
 
 std::vector<LLConstant *> usedSymbols;
 
@@ -18,8 +37,7 @@ void initSymbols() {
   methVarRefMap.clear();
 }
 
-void use(LLConstant *sym)
-{
+void use(LLConstant *sym) {
     usedSymbols.push_back(DtoBitCast(sym, getVoidPtrType()));
 }
 
@@ -37,11 +55,24 @@ void retainSymbols() {
 }
 
 void genImageInfo() {
-  // Note: this would normally be produced by LLMV
+  // First option uses LLMV to produce image info ala module flags and
   // TargetLoweringObjectFileMachO::emitModuleFlags()
-  // if module flags are added ala CGObjCMac.cpp
-  // Check into it and then can eliminate this func
-
+#if 1
+  // Use LLVM to generate image info
+  const char *section = (abi == nonFragile ?
+                         "__DATA,__objc_imageinfo,regular,no_dead_strip" :
+                         "__OBJC,__image_info");
+  gIR->module.addModuleFlag(llvm::Module::Error,
+                            "Objective-C Version", abi); //  unused?
+  gIR->module.addModuleFlag(llvm::Module::Error,
+                            "Objective-C Image Info Version", 0u); // version
+  gIR->module.addModuleFlag(llvm::Module::Error,
+                            "Objective-C Image Info Section",
+                            llvm::MDString::get(gIR->context(), section));
+  gIR->module.addModuleFlag(llvm::Module::Override,
+                            "Objective-C Garbage Collection", 0u); // flags
+#else
+  // Second option just does it directly
   LLType* intType = LLType::getInt32Ty(gIR->context());
   LLConstant* values[2] = {
     LLConstantInt::get(intType, 0),  // version
@@ -54,8 +85,11 @@ void genImageInfo() {
      LLGlobalValue::PrivateLinkage,
      data,
      "OBJC_IMAGE_INFO");
-  var->setSection("__DATA,__objc_imageinfo,regular,no_dead_strip");
+  var->setSection(abi == nonFragile ?
+                  "__DATA,__objc_imageinfo,regular,no_dead_strip" :
+                  "__OBJC,__image_info");
   use(var);
+#endif
 }
 
 LLGlobalVariable *getCStringVar(const char *symbol,
@@ -70,29 +104,51 @@ LLGlobalVariable *getCStringVar(const char *symbol,
 }
 
 LLGlobalVariable *getMethVarName(const llvm::StringRef &name) {
-
   auto it = methVarNameMap.find(name);
   if (it != methVarNameMap.end()) {
     return it->second;
   }
 
+  // TODO: check on proper alignment.  May be different for -m32
   auto var = getCStringVar("OBJC_METH_VAR_NAME_", name,
-                            "__TEXT,__objc_methname,cstring_literals");
+                           abi == nonFragile ?
+                           "__TEXT,__objc_methname,cstring_literals" :
+                           "__TEXT,__cstring,cstring_literals");
   methVarNameMap[name] = var;
   use(var);
   return var;
 }
-
 } // end local stuff
 
+bool objc_isSupported(const llvm::Triple &triple) {
+  if (triple.isOSDarwin()) {
+    // Objective-C only supported on Darwin at this time
+    switch (triple.getArch()) {
+#if LDC_LLVM_VER == 305
+    case llvm::Triple::arm64:
+#endif
+    case llvm::Triple::aarch64:              // arm64 iOS, tvOS
+    case llvm::Triple::arm:                  // armv6 iOS
+    case llvm::Triple::thumb:                // thumbv7 iOS, watchOS
+    case llvm::Triple::x86_64:               // OSX, iOS, tvOS sim
+      abi = nonFragile;
+      return true;
+    case llvm::Triple::x86:                  // OSX, iOS, watchOS sim
+      abi = fragile;
+      return true;
+    default:
+      break;
+    }
+  }
+  return false;
+}
+
 void objc_init() {
-  // TODO: fix so resolved with ddmd/objc.d version
   initSymbols();
   ObjcSelector::_init();
 }
 
 LLGlobalVariable *objc_getMethVarRef(const ObjcSelector &sel) {
-
   llvm::StringRef s(sel.stringvalue, sel.stringlen);
   auto it = methVarRefMap.find(s);
   if (it != methVarRefMap.end()) {
@@ -108,7 +164,9 @@ LLGlobalVariable *objc_getMethVarRef(const ObjcSelector &sel) {
      "OBJC_SELECTOR_REFERENCES_",
      nullptr, LLGlobalVariable::NotThreadLocal, 0,
      true);                                  // externally initialized
-  selref->setSection("__DATA,__objc_selrefs,literal_pointers,no_dead_strip");
+  selref->setSection(abi == nonFragile ?
+                     "__DATA,__objc_selrefs,literal_pointers,no_dead_strip" :
+                     "__OBJC,__message_refs,literal_pointers,no_dead_strip");
 
   // Save for later lookup and prevent optimizer elimination
   methVarRefMap[s] = selref;
