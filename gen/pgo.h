@@ -193,8 +193,7 @@ private:
 #endif
   void mapRegionCounters(const FuncDeclaration *D);
   void computeRegionCounts(const FuncDeclaration *D);
-  void applyFunctionAttributes(llvm::IndexedInstrProfReader *PGOReader,
-                               llvm::Function *Fn);
+  void applyFunctionAttributes(llvm::Function *Fn);
   void loadRegionCounts(llvm::IndexedInstrProfReader *PGOReader,
                         const FuncDeclaration *D);
 };

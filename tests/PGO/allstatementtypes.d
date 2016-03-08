@@ -12,13 +12,8 @@
 // RUN:   &&  %ldc -boundscheck=off -c -output-ll -of=%t2.ll -fprofile-instr-use=%t.profdata %s \
 // RUN:   &&  FileCheck %s -check-prefix=PROFUSE < %t2.ll
 
-// For debugging purposes:
-// R UN: /Users/johan/llvm/llvm37/install/bin/opt %t.ll --dot-cfg -o /dev/null && dot -Tpdf cfg.try_finally.dot -o graph.pdf
-// R UN: /Users/johan/llvm/llvm37/install/bin/opt %t2.ll --dot-cfg -o /dev/null && dot -Tpdf cfg.try_finally.dot -o graphprof.pdf
-
 extern(C):  // simplify name mangling for simpler string matching
 
-// PROFGEN-DAG: @[[HOT:__(llvm_profile_counters|profc)_hot]] = private global [1 x i64] zeroinitializer
 // PROFGEN-DAG: @[[FL:__(llvm_profile_counters|profc)_for_loop]] = private global [7 x i64] zeroinitializer
 // PROFGEN-DAG: @[[FEL:__(llvm_profile_counters|profc)_foreach_loop]] = private global [5 x i64] zeroinitializer
 // PROFGEN-DAG: @[[FERL:__(llvm_profile_counters|profc)_foreachrange_loop]] = private global [6 x i64] zeroinitializer
@@ -40,15 +35,6 @@ class ExceptionThree : Exception {
   this(string s) { super(s); }
 }
 
-
-// PROFGEN-LABEL: @hot()
-// PROFUSE-LABEL: @hot()
-// PROFGEN: store {{.*}} @[[HOT]], i64 0, i64 0
-// PROFUSE-SAME:   #[[HOTATTR:[0-9]+]]  !prof ![[HOT0:[0-9]+]]
-// PROFUSE: @cold() #[[COLDATTR:[0-9]+]] !prof ![[COLD0:[0-9]+]]
-void hot() {}
-void cold() {}
-
 // PROFGEN-LABEL: @for_loop()
 // PROFUSE-LABEL: @for_loop()
 // PROFGEN: store {{.*}} @[[FL]], i64 0, i64 0
@@ -67,13 +53,12 @@ void for_loop() {
       // PROFUSE: br {{.*}} !prof ![[FL3:[0-9]+]]
       if (i) {}
     }
-    hot();
+
     // PROFGEN: store {{.*}} @[[FL]], i64 0, i64 4
     // PROFUSE: br {{.*}} !prof ![[FL4:[0-9]+]]
     if (i > 2) {
         continue;
     }
-    cold();
   }
 
   // PROFGEN: store {{.*}} @[[FL]], i64 0, i64 5
@@ -530,12 +515,6 @@ void main() {
 }
 
 // PROFGEN-DAG: call {{.*}} @__llvm_profile_override_default_filename{{.*}} @[[FILENAME]]
-
-// PROFUSE-DAG: attributes #[[HOTATTR]] {{.*}} inlinehint
-// PROFUSE-DAG: attributes #[[COLDATTR]] {{.*}} cold
-
-// PROFUSE-DAG: ![[HOT0]]  = !{!"function_entry_count", i64 390}
-// PROFUSE-DAG: ![[COLD0]] = !{!"function_entry_count", i64 3}
 
 // PROFUSE-DAG: ![[FL0]] = !{!"function_entry_count", i64 1}
 // PROFUSE-DAG: ![[FL1]] = !{!"branch_weights", i32 392, i32 1}
