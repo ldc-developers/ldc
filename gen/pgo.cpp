@@ -823,15 +823,11 @@ void CodeGenPGO::assignRegionCounters(const FuncDeclaration *D,
   if (!global.params.genInstrProf && !PGOReader)
     return;
 
-  //  CGM.ClearUnusedCoverageMapping(D);
   emitInstrumentation = D->emitInstrumentation;
   setFuncName(fn);
 
   mapRegionCounters(D);
-  //  if (CGM.getCodeGenOpts().CoverageMapping)
-  //    emitCounterRegionMapping(D);
   if (PGOReader) {
-    // SourceManager &SM = CGM.getContext().getSourceManager();
     loadRegionCounts(PGOReader, D);
     computeRegionCounts(D);
     applyFunctionAttributes(fn);
